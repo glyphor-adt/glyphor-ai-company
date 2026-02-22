@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import Markdown from 'react-markdown';
 import { useAgents } from '../lib/hooks';
 import { CODENAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
@@ -173,7 +174,13 @@ export default function Chat() {
                     : 'bg-raised text-txt-secondary border border-border'
                 }`}
               >
-                <p className="whitespace-pre-wrap">{msg.content}</p>
+                {msg.role === 'agent' ? (
+                  <div className="prose-chat">
+                    <Markdown>{msg.content}</Markdown>
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                )}
                 <p className="mt-1.5 text-[10px] text-txt-faint">
                   {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
