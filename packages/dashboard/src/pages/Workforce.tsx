@@ -248,12 +248,12 @@ export default function Workforce() {
               <Card key={m.name} className="relative overflow-hidden">
                 <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl" style={{ background: m.color }} />
                 <div className="flex items-center gap-3 pl-3">
-                  <div
-                    className="flex items-center justify-center rounded-full text-xs font-bold"
-                    style={{ width: 36, height: 36, background: `${m.color}18`, border: `1.5px solid ${m.color}40`, color: m.color }}
-                  >
-                    {m.initials}
-                  </div>
+                  <img
+                    src={`/avatars/${m.avatar}.png`}
+                    alt={m.name}
+                    className="rounded-full object-cover"
+                    style={{ width: 36, height: 36, border: `1.5px solid ${m.color}40` }}
+                  />
                   <div>
                     <h3 className="text-[13px] font-semibold text-txt-primary">{m.name}</h3>
                     <p className="text-[11px] text-txt-muted">{m.title}</p>
@@ -347,12 +347,12 @@ function SubTeamNode({ member }: { member: SubTeamMember }) {
   return (
     <Card className="p-3">
       <div className="flex items-center gap-3">
-        <div
-          className="flex shrink-0 items-center justify-center rounded-full text-xs font-bold"
-          style={{ width: 36, height: 36, background: `${member.color}18`, border: `1.5px solid ${member.color}40`, color: member.color }}
-        >
-          {member.initials}
-        </div>
+        <img
+          src={`/avatars/${member.avatar}.png`}
+          alt={member.name}
+          className="shrink-0 rounded-full object-cover"
+          style={{ width: 36, height: 36, border: `1.5px solid ${member.color}40` }}
+        />
         <div className="min-w-0 text-left">
           <p className="truncate text-sm font-semibold text-txt-primary">{member.name}</p>
           <p className="truncate text-xs text-txt-muted">{member.title}</p>

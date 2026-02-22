@@ -103,12 +103,12 @@ export default function Chat() {
                   : 'border border-transparent hover:bg-[var(--color-hover-bg)]'
               }`}
             >
-              <div
-                className="flex h-7 w-7 items-center justify-center rounded-full"
-                style={{ background: `${meta?.color ?? '#64748b'}20` }}
-              >
-                <AgentIcon name={meta?.icon ?? 'MdSmartToy'} size={14} color={meta?.color ?? '#64748b'} />
-              </div>
+              <img
+                src={`/avatars/${agent.role}.png`}
+                alt={agent.role}
+                className="h-7 w-7 rounded-full object-cover"
+                style={{ border: `1.5px solid ${meta?.color ?? '#64748b'}40` }}
+              />
               <div className="min-w-0">
                 <p
                   className={`text-[12px] font-medium truncate ${

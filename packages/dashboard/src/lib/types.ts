@@ -136,31 +136,32 @@ export interface SubTeamMember {
   reportsTo: string; // exec role key
   color: string;
   initials: string;
+  avatar: string; // role key for avatar path
 }
 
 export const SUB_TEAM: SubTeamMember[] = [
   // Engineering → Marcus Reeves (CTO)
-  { name: 'Alex Park',     title: 'Platform Engineer',    department: 'Engineering',       reportsTo: 'cto', color: '#0097FF', initials: 'AP' },
-  { name: 'Sam DeLuca',    title: 'Quality Engineer',     department: 'Engineering',       reportsTo: 'cto', color: '#0097FF', initials: 'SD' },
-  { name: 'Jordan Hayes',  title: 'DevOps Engineer',      department: 'Engineering',       reportsTo: 'cto', color: '#0097FF', initials: 'JH' },
+  { name: 'Alex Park',     title: 'Platform Engineer',    department: 'Engineering',       reportsTo: 'cto', color: '#0097FF', initials: 'AP', avatar: 'platform-engineer' },
+  { name: 'Sam DeLuca',    title: 'Quality Engineer',     department: 'Engineering',       reportsTo: 'cto', color: '#0097FF', initials: 'SD', avatar: 'quality-engineer' },
+  { name: 'Jordan Hayes',  title: 'DevOps Engineer',      department: 'Engineering',       reportsTo: 'cto', color: '#0097FF', initials: 'JH', avatar: 'devops-engineer' },
   // Product → Elena Vasquez (CPO)
-  { name: 'Priya Sharma',  title: 'User Researcher',      department: 'Product',           reportsTo: 'cpo', color: '#00E0FF', initials: 'PS' },
-  { name: 'Daniel Ortiz',  title: 'Competitive Intel',    department: 'Product',           reportsTo: 'cpo', color: '#00E0FF', initials: 'DO' },
+  { name: 'Priya Sharma',  title: 'User Researcher',      department: 'Product',           reportsTo: 'cpo', color: '#00E0FF', initials: 'PS', avatar: 'user-researcher' },
+  { name: 'Daniel Ortiz',  title: 'Competitive Intel',    department: 'Product',           reportsTo: 'cpo', color: '#00E0FF', initials: 'DO', avatar: 'competitive-intel' },
   // Finance → Nadia Okafor (CFO)
-  { name: 'Anna Park',     title: 'Revenue Analyst',      department: 'Finance',           reportsTo: 'cfo', color: '#4B9FE1', initials: 'AP' },
-  { name: 'Omar Hassan',   title: 'Cost Analyst',         department: 'Finance',           reportsTo: 'cfo', color: '#4B9FE1', initials: 'OH' },
+  { name: 'Anna Park',     title: 'Revenue Analyst',      department: 'Finance',           reportsTo: 'cfo', color: '#4B9FE1', initials: 'AP', avatar: 'revenue-analyst' },
+  { name: 'Omar Hassan',   title: 'Cost Analyst',         department: 'Finance',           reportsTo: 'cfo', color: '#4B9FE1', initials: 'OH', avatar: 'cost-analyst' },
   // Marketing → Maya Brooks (CMO)
-  { name: 'Tyler Reed',    title: 'Content Creator',      department: 'Marketing',         reportsTo: 'cmo', color: '#7B68EE', initials: 'TR' },
-  { name: 'Lisa Chen',     title: 'SEO Analyst',          department: 'Marketing',         reportsTo: 'cmo', color: '#7B68EE', initials: 'LC' },
-  { name: 'Kai Johnson',   title: 'Social Media Manager', department: 'Marketing',         reportsTo: 'cmo', color: '#7B68EE', initials: 'KJ' },
+  { name: 'Tyler Reed',    title: 'Content Creator',      department: 'Marketing',         reportsTo: 'cmo', color: '#7B68EE', initials: 'TR', avatar: 'content-creator' },
+  { name: 'Lisa Chen',     title: 'SEO Analyst',          department: 'Marketing',         reportsTo: 'cmo', color: '#7B68EE', initials: 'LC', avatar: 'seo-analyst' },
+  { name: 'Kai Johnson',   title: 'Social Media Manager', department: 'Marketing',         reportsTo: 'cmo', color: '#7B68EE', initials: 'KJ', avatar: 'social-media-manager' },
   // Customer Success → James Turner (VP CS)
-  { name: 'Emma Wright',   title: 'Onboarding Specialist',department: 'Customer Success',  reportsTo: 'vp-customer-success', color: '#00BCD4', initials: 'EW' },
-  { name: 'David Santos',  title: 'Support Triage',       department: 'Customer Success',  reportsTo: 'vp-customer-success', color: '#00BCD4', initials: 'DS' },
+  { name: 'Emma Wright',   title: 'Onboarding Specialist',department: 'Customer Success',  reportsTo: 'vp-customer-success', color: '#00BCD4', initials: 'EW', avatar: 'onboarding-specialist' },
+  { name: 'David Santos',  title: 'Support Triage',       department: 'Customer Success',  reportsTo: 'vp-customer-success', color: '#00BCD4', initials: 'DS', avatar: 'support-triage' },
   // Sales → Rachel Kim (VP Sales)
-  { name: 'Nathan Cole',   title: 'Account Research',     department: 'Sales',             reportsTo: 'vp-sales', color: '#5B8DEF', initials: 'NC' },
+  { name: 'Nathan Cole',   title: 'Account Research',     department: 'Sales',             reportsTo: 'vp-sales', color: '#5B8DEF', initials: 'NC', avatar: 'account-research' },
   // Design & Frontend → Mia Tanaka (VP Design)
-  { name: 'Leo Vargas',    title: 'UI/UX Designer',       department: 'Design & Frontend', reportsTo: 'vp-design', color: '#E91E63', initials: 'LV' },
-  { name: 'Ava Chen',      title: 'Frontend Engineer',    department: 'Design & Frontend', reportsTo: 'vp-design', color: '#E91E63', initials: 'AC' },
-  { name: 'Sofia Marchetti', title: 'Design Critic',      department: 'Design & Frontend', reportsTo: 'vp-design', color: '#E91E63', initials: 'SM' },
-  { name: 'Ryan Park',     title: 'Template Architect',   department: 'Design & Frontend', reportsTo: 'vp-design', color: '#E91E63', initials: 'RP' },
+  { name: 'Leo Vargas',    title: 'UI/UX Designer',       department: 'Design & Frontend', reportsTo: 'vp-design', color: '#E91E63', initials: 'LV', avatar: 'ui-ux-designer' },
+  { name: 'Ava Chen',      title: 'Frontend Engineer',    department: 'Design & Frontend', reportsTo: 'vp-design', color: '#E91E63', initials: 'AC', avatar: 'frontend-engineer' },
+  { name: 'Sofia Marchetti', title: 'Design Critic',      department: 'Design & Frontend', reportsTo: 'vp-design', color: '#E91E63', initials: 'SM', avatar: 'design-critic' },
+  { name: 'Ryan Park',     title: 'Template Architect',   department: 'Design & Frontend', reportsTo: 'vp-design', color: '#E91E63', initials: 'RP', avatar: 'template-architect' },
 ];
