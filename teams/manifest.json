@@ -1,0 +1,104 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.0.0",
+  "id": "{{TEAMS_APP_ID}}",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Glyphor AI",
+    "full": "Glyphor AI Company Dashboard"
+  },
+  "description": {
+    "short": "Your AI executive team — chat, monitor, and manage 26 autonomous agents.",
+    "full": "Glyphor AI Company brings your entire autonomous AI executive team into Microsoft Teams. View dashboards, chat with agents 1:1 or in group conversations, approve decisions, monitor financials, and track operations — all without leaving Teams."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#00E0FF",
+  "staticTabs": [
+    {
+      "entityId": "dashboard",
+      "name": "Dashboard",
+      "contentUrl": "{{DASHBOARD_URL}}?teamsTab=true",
+      "websiteUrl": "{{DASHBOARD_URL}}",
+      "scopes": ["personal"]
+    },
+    {
+      "entityId": "chat",
+      "name": "Agent Chat",
+      "contentUrl": "{{DASHBOARD_URL}}/chat?teamsTab=true",
+      "websiteUrl": "{{DASHBOARD_URL}}/chat",
+      "scopes": ["personal"]
+    },
+    {
+      "entityId": "group-chat",
+      "name": "Group Chat",
+      "contentUrl": "{{DASHBOARD_URL}}/group-chat?teamsTab=true",
+      "websiteUrl": "{{DASHBOARD_URL}}/group-chat",
+      "scopes": ["personal"]
+    },
+    {
+      "entityId": "approvals",
+      "name": "Approvals",
+      "contentUrl": "{{DASHBOARD_URL}}/approvals?teamsTab=true",
+      "websiteUrl": "{{DASHBOARD_URL}}/approvals",
+      "scopes": ["personal"]
+    }
+  ],
+  "configurableTabs": [
+    {
+      "configurationUrl": "{{DASHBOARD_URL}}/teams-config?teamsTab=true",
+      "canUpdateConfiguration": true,
+      "scopes": ["team", "groupChat"],
+      "supportedSharePointHosts": []
+    }
+  ],
+  "bots": [
+    {
+      "botId": "{{BOT_APP_ID}}",
+      "scopes": ["personal", "team", "groupChat"],
+      "supportsFiles": false,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": ["personal", "team"],
+          "commands": [
+            {
+              "title": "ask",
+              "description": "Ask any agent a question. Usage: ask [agent] [question]"
+            },
+            {
+              "title": "briefing",
+              "description": "Get the latest daily briefing from Sarah Chen"
+            },
+            {
+              "title": "status",
+              "description": "Get a system health check from Atlas Vega"
+            },
+            {
+              "title": "agents",
+              "description": "List all available agents and their current status"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "{{DASHBOARD_DOMAIN}}",
+    "{{SCHEDULER_DOMAIN}}",
+    "*.supabase.co"
+  ],
+  "webApplicationInfo": {
+    "id": "{{AZURE_CLIENT_ID}}",
+    "resource": "api://{{DASHBOARD_DOMAIN}}/{{AZURE_CLIENT_ID}}"
+  }
+}

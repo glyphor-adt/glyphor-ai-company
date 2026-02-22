@@ -28,6 +28,15 @@ export {
   type FounderContact,
 } from './teams/directMessages.js';
 
+// Teams Bot (Bot Framework integration)
+export {
+  TeamsBotHandler,
+  extractBearerToken,
+  type BotConfig,
+  type TeamsActivity,
+  type BotResponse,
+} from './teams/bot.js';
+
 // Email (Graph API sendMail)
 export {
   GraphEmailClient,

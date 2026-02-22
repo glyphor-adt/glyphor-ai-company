@@ -7,10 +7,12 @@ import AgentProfile from './pages/AgentProfile';
 import AgentBuilder from './pages/AgentBuilder';
 import Approvals from './pages/Approvals';
 import Chat from './pages/Chat';
+import GroupChat from './pages/GroupChat';
 import Financials from './pages/Financials';
 import Operations from './pages/Operations';
 import Strategy from './pages/Strategy';
 import Meetings from './pages/Meetings';
+import TeamsConfig from './pages/TeamsConfig';
 
 export default function App() {
   return (
@@ -30,6 +32,8 @@ export default function App() {
         <Route path="meetings" element={<Meetings />} />
         <Route path="chat" element={<Chat />} />
         <Route path="chat/:agentId" element={<Chat />} />
+        <Route path="group-chat" element={<GroupChat />} />
+        <Route path="teams-config" element={<TeamsConfig />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

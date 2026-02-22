@@ -11,7 +11,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GlyphorEventBus } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent } from '@glyphor/agent-runtime';
-import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll } from '@glyphor/integrations';
+import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll, TeamsBotHandler, extractBearerToken } from '@glyphor/integrations';
 import { EventRouter } from './eventRouter.js';
 import { DecisionQueue } from './decisionQueue.js';
 import { DynamicScheduler } from './dynamicScheduler.js';
@@ -128,6 +128,14 @@ const router = new EventRouter(agentExecutor, decisionQueue);
 const analysisEngine = new AnalysisEngine(memory.getSupabaseClient(), agentExecutor);
 const simulationEngine = new SimulationEngine(memory.getSupabaseClient(), agentExecutor);
 const meetingEngine = new MeetingEngine(memory.getSupabaseClient(), agentExecutor);
+
+// Teams Bot — initialized from env vars (BOT_APP_ID, BOT_APP_SECRET, BOT_TENANT_ID)
+const teamsBot = TeamsBotHandler.fromEnv(
+  async (agentRole, task, payload) => {
+    const result = await agentExecutor(agentRole as CompanyAgentRole, task, payload);
+    return result ?? undefined;
+  },
+);
 
 // ─── Glyphor Event Bus ──────────────────────────────────────────
 
@@ -335,6 +343,29 @@ const server = createServer(async (req, res) => {
         'Access-Control-Max-Age': '86400',
       });
       res.end();
+      return;
+    }
+
+    // Teams Bot endpoint (Bot Framework messages)
+    if (method === 'POST' && url === '/api/teams/messages') {
+      if (!teamsBot) {
+        json(res, 503, { error: 'Teams Bot not configured. Set BOT_APP_ID, BOT_APP_SECRET, BOT_TENANT_ID.' });
+        return;
+      }
+
+      // Validate bearer token exists (Bot Framework sends JWT)
+      const token = extractBearerToken(req);
+      if (!token) {
+        json(res, 401, { error: 'Missing authorization token' });
+        return;
+      }
+
+      const activity = JSON.parse(await readBody(req));
+      // Respond 200 immediately, process async
+      json(res, 200, { status: 'accepted' });
+      teamsBot.handleActivity(activity).catch((err) => {
+        console.error('[TeamsBot] Error handling activity:', (err as Error).message);
+      });
       return;
     }
 

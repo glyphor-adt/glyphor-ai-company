@@ -7,6 +7,7 @@ const NAV = [
   { to: '/workforce', label: 'Workforce', icon: UsersIcon },
   { to: '/agents', label: 'Agents', icon: AgentIcon },
   { to: '/chat', label: 'Chat', icon: ChatIcon },
+  { to: '/group-chat', label: 'Group Chat', icon: GroupChatIcon },
   { to: '/approvals', label: 'Approvals', icon: CheckIcon },
   { to: '/financials', label: 'Financials', icon: ChartIcon },
   { to: '/operations', label: 'Operations', icon: GearIcon },
@@ -191,6 +192,15 @@ function MeetingsIcon({ className }: { className?: string }) {
       <circle cx="12" cy="5" r="2" />
       <circle cx="8" cy="12" r="2" />
       <path d="M6 5h4M5.5 6.5L7 10.5M10.5 6.5L9 10.5" />
+    </svg>
+  );
+}
+
+function GroupChatIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <path d="M1 2.5h10v6H4.5l-2 1.5V8.5H1z" />
+      <path d="M5 6h9v6h-2.5v1.5l-2-1.5H5z" />
     </svg>
   );
 }
