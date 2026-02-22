@@ -5,7 +5,6 @@ import {
   Card,
   SectionHeader,
   AgentAvatar,
-  TierBadge,
   StatusDot,
   Skeleton,
   timeAgo,
@@ -51,8 +50,8 @@ export default function Workforce() {
   const agentMap = new Map(agents.map((a) => [a.role, a]));
   const cos = agentMap.get('chief-of-staff');
   const activeCount = agents.filter((a) => a.status === 'active').length;
-  const scored = agents.filter((a) => typeof a.score === 'number' && !isNaN(a.score));
-  const avgScore = scored.length ? Math.round(scored.reduce((s, a) => s + a.score, 0) / scored.length) : 0;
+  const scored = agents.filter((a) => a.performance_score != null);
+  const avgScore = scored.length ? Math.round(scored.reduce((s, a) => s + Number(a.performance_score) * 100, 0) / scored.length) : 0;
 
   return (
     <div className="space-y-8">

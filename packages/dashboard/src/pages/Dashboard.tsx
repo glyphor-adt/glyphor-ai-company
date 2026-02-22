@@ -4,7 +4,6 @@ import {
   Card,
   SectionHeader,
   AgentAvatar,
-  TierBadge,
   StatusDot,
   ImpactBadge,
   Sparkline,
@@ -23,7 +22,7 @@ export default function Dashboard() {
   const activeAgents = agents.filter((a) => a.status === 'active').length;
   const pendingDecisions = decisions.filter((d) => d.status === 'pending').length;
   const avgScore = agents.length
-    ? Math.round(agents.reduce((s, a) => s + a.score, 0) / agents.length)
+    ? Math.round(agents.reduce((s, a) => s + (a.performance_score != null ? Number(a.performance_score) * 100 : 0), 0) / agents.length)
     : 0;
 
   return (
