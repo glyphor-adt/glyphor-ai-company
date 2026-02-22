@@ -215,6 +215,10 @@ export interface RunDependencies {
   agentProfileLoader?: (role: CompanyAgentRole) => Promise<AgentProfileData | null>;
   /** Loader for pending inter-agent messages. */
   pendingMessageLoader?: (role: CompanyAgentRole) => Promise<{ id: string; from_agent: string; message: string; message_type: string; priority: string; thread_id: string; created_at: string }[]>;
+  /** Loader for collective intelligence context (pulse + org knowledge + knowledge inbox). */
+  collectiveIntelligenceLoader?: (role: CompanyAgentRole) => Promise<string | null>;
+  /** Called after reflection to route new knowledge to relevant agents. */
+  knowledgeRouter?: (knowledge: { agent_id: string; content: string; tags: string[]; knowledge_type?: string }) => Promise<number>;
 }
 
 export class CompanyAgentRunner {
@@ -306,6 +310,25 @@ export class CompanyAgentRunner {
       } catch (err) {
         console.warn(
           `[CompanyAgentRunner] Pending message load failed for ${config.role}:`,
+          (err as Error).message,
+        );
+      }
+    }
+
+    // ─── COLLECTIVE INTELLIGENCE: pulse + org knowledge + inbox ──
+    if (deps?.collectiveIntelligenceLoader) {
+      try {
+        const ciContext = await deps.collectiveIntelligenceLoader(config.role);
+        if (ciContext) {
+          history.push({
+            role: 'user',
+            content: ciContext,
+            timestamp: Date.now(),
+          });
+        }
+      } catch (err) {
+        console.warn(
+          `[CompanyAgentRunner] Collective intelligence load failed for ${config.role}:`,
           (err as Error).message,
         );
       }
@@ -513,7 +536,7 @@ export class CompanyAgentRunner {
       // ─── REFLECT: Self-assessment of this run ──────────────────
       if (deps?.agentMemoryStore && lastTextOutput) {
         try {
-          await this.reflectOnRun(config, history, lastTextOutput, deps.agentMemoryStore);
+          await this.reflectOnRun(config, history, lastTextOutput, deps.agentMemoryStore, deps?.knowledgeRouter);
         } catch (err) {
           console.warn(
             `[CompanyAgentRunner] Reflection failed for ${config.id}:`,
@@ -631,6 +654,7 @@ export class CompanyAgentRunner {
     history: ConversationTurn[],
     output: string,
     store: AgentMemoryStore,
+    knowledgeRouter?: (knowledge: { agent_id: string; content: string; tags: string[]; knowledge_type?: string }) => Promise<number>,
   ): Promise<void> {
     const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt);
 
@@ -706,6 +730,28 @@ For peerFeedback: If during this task you interacted with or observed the work o
       console.log(
         `[CompanyAgentRunner] Reflection saved for ${config.id}: score=${parsed.qualityScore}, memories=${memories.length}`,
       );
+
+      // Route new knowledge to relevant agents via the CI system
+      if (knowledgeRouter && memories.length > 0) {
+        try {
+          for (const mem of memories.slice(0, 5)) {
+            if (mem.type === 'learning' || mem.type === 'fact') {
+              const tags = mem.tags ?? [];
+              await knowledgeRouter({
+                agent_id: config.role,
+                content: mem.content ?? '',
+                tags,
+                knowledge_type: mem.type,
+              });
+            }
+          }
+        } catch (routeErr) {
+          console.warn(
+            `[CompanyAgentRunner] Knowledge routing failed for ${config.id}:`,
+            (routeErr as Error).message,
+          );
+        }
+      }
 
       // Save peer feedback
       const peerFeedback = parsed.peerFeedback ?? [];

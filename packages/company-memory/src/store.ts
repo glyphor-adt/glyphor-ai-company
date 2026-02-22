@@ -31,6 +31,7 @@ import type {
   DbAgentMemory,
   DbAgentReflection,
 } from './schema.js';
+import { CollectiveIntelligenceStore } from './collectiveIntelligence.js';
 
 export interface CompanyMemoryConfig {
   supabaseUrl: string;
@@ -45,6 +46,7 @@ export class CompanyMemoryStore implements IMemoryBus {
   private storage: Storage;
   private bucketName: string;
   private embeddingClient: EmbeddingClient | null;
+  private _collectiveIntelligence: CollectiveIntelligenceStore | null = null;
 
   constructor(config: CompanyMemoryConfig) {
     this.supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
@@ -435,6 +437,19 @@ export class CompanyMemoryStore implements IMemoryBus {
    */
   getSupabaseClient(): SupabaseClient {
     return this.supabase;
+  }
+
+  /**
+   * Get the Collective Intelligence store for organizational cognition.
+   */
+  getCollectiveIntelligence(): CollectiveIntelligenceStore {
+    if (!this._collectiveIntelligence) {
+      this._collectiveIntelligence = new CollectiveIntelligenceStore(
+        this.supabase,
+        this.embeddingClient,
+      );
+    }
+    return this._collectiveIntelligence;
   }
 
   // ─── SEMANTIC MEMORY ────────────────────────────────────────────

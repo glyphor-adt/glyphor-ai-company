@@ -1,17 +1,50 @@
 /**
  * Shared RunDependencies factory — wires up personality profiles,
- * pending inter-agent messages, and dynamic briefs for all agent runners.
+ * pending inter-agent messages, dynamic briefs, and collective intelligence
+ * context for all agent runners.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { GlyphorEventBus, RunDependencies, AgentProfileData, CompanyAgentRole } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 
+/** Map agent roles to their organizational department for knowledge routing. */
+const ROLE_DEPARTMENT: Record<string, string> = {
+  'chief-of-staff': 'operations',
+  'cto': 'engineering',
+  'cfo': 'finance',
+  'cpo': 'product',
+  'cmo': 'marketing',
+  'vp-customer-success': 'customer-success',
+  'vp-sales': 'sales',
+  'vp-design': 'design',
+  'platform-engineer': 'engineering',
+  'quality-engineer': 'engineering',
+  'devops-engineer': 'engineering',
+  'user-researcher': 'product',
+  'competitive-intel': 'product',
+  'revenue-analyst': 'finance',
+  'cost-analyst': 'finance',
+  'content-creator': 'marketing',
+  'seo-analyst': 'marketing',
+  'social-media-manager': 'marketing',
+  'onboarding-specialist': 'customer-success',
+  'support-triage': 'customer-success',
+  'account-research': 'sales',
+  'ui-ux-designer': 'design',
+  'frontend-engineer': 'design',
+  'design-critic': 'design',
+  'template-architect': 'design',
+  'ops': 'operations',
+};
+
 export function createRunDeps(
   supabase: SupabaseClient,
   glyphorEventBus: GlyphorEventBus,
   memory: CompanyMemoryStore,
 ): RunDependencies {
+  const ci = memory.getCollectiveIntelligence();
+
   return {
     glyphorEventBus,
     agentMemoryStore: memory,
@@ -49,6 +82,29 @@ export function createRunDeps(
         .eq('agent_id', agentId)
         .single();
       return data?.system_prompt ?? null;
+    },
+
+    collectiveIntelligenceLoader: async (role: CompanyAgentRole): Promise<string | null> => {
+      const department = ROLE_DEPARTMENT[role];
+      const parts: string[] = [];
+
+      // Layer 1: Company Pulse
+      const pulseCtx = await ci.formatPulseContext();
+      if (pulseCtx) parts.push(pulseCtx);
+
+      // Layer 2a: Knowledge Inbox (routed knowledge from colleagues)
+      const inboxCtx = await ci.formatKnowledgeInboxContext(role);
+      if (inboxCtx) parts.push(inboxCtx);
+
+      // Layer 2b: Organizational Knowledge (cross-functional insights)
+      const orgCtx = await ci.formatOrgKnowledgeContext(role, department);
+      if (orgCtx) parts.push(orgCtx);
+
+      return parts.length > 0 ? parts.join('\n\n') : null;
+    },
+
+    knowledgeRouter: async (knowledge) => {
+      return ci.routeKnowledge(knowledge);
     },
   };
 }
