@@ -1,11 +1,22 @@
 /**
  * Tool Executor — Manages tool set and dispatches tool calls
  *
- * Ported from Fuse V7 runtime/toolExecutor.ts.
- * Adapted: removed Fuse-specific long-running tools, added company agent tool timeouts.
+ * Enforces per-agent tool grants, scope checking, rate limiting,
+ * budget caps, and logs all tool calls + security events.
  */
 
-import type { ToolDefinition, ToolContext, ToolResult, GeminiToolDeclaration } from './types.js';
+import type {
+  ToolDefinition,
+  ToolContext,
+  ToolResult,
+  GeminiToolDeclaration,
+  CompanyAgentRole,
+  ToolGrant,
+  ToolCallLog,
+  SecurityEvent,
+  SecurityEventType,
+} from './types.js';
+import { AGENT_BUDGETS } from './types.js';
 
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
 const LONG_TOOL_TIMEOUT_MS = 120_000;
@@ -19,23 +30,158 @@ const LONG_RUNNING_TOOLS = new Set([
   'financial_report',
   'health_scoring',
   'kyc_research',
+  'draft_blog_post',
+  'draft_content',
+  'compile_dossier',
+  'run_test_suite',
+  'run_cohort_analysis',
+  'calculate_health_scores',
 ]);
 
 // Tools that are safe to execute in dry-run mode (read-only / computation)
-const READ_ONLY_PREFIXES = ['get_', 'read_', 'calculate_', 'recall_', 'query_'];
+const READ_ONLY_PREFIXES = ['get_', 'read_', 'calculate_', 'recall_', 'query_', 'search_', 'check_', 'fetch_', 'discover_', 'monitor_'];
 
 function isReadOnlyTool(name: string): boolean {
   return READ_ONLY_PREFIXES.some((prefix) => name.startsWith(prefix));
+}
+
+/** Rough cost estimate per tool call in USD */
+function estimateToolCost(toolName: string): number {
+  if (isReadOnlyTool(toolName)) return 0.001;
+  if (LONG_RUNNING_TOOLS.has(toolName)) return 0.01;
+  return 0.003;
 }
 
 export class ToolExecutor {
   private tools: Map<string, ToolDefinition>;
   private dryRun: boolean;
 
-  constructor(tools: ToolDefinition[], dryRun = false) {
+  // Enforcement state
+  private toolGrants: Map<string, Map<string, ToolGrant>> = new Map(); // role → toolName → grant
+  private callLog: ToolCallLog[] = [];
+  private securityLog: SecurityEvent[] = [];
+  private rateCounts: Map<string, number[]> = new Map(); // "role:tool" → timestamps
+  private runCosts: Map<string, number> = new Map();     // agentId → cumulative cost this run
+  private dailyCosts: Map<string, number> = new Map();   // role → cumulative cost today
+  private monthlyCosts: Map<string, number> = new Map(); // role → cumulative cost this month
+  private enforcementEnabled: boolean;
+
+  constructor(tools: ToolDefinition[], dryRun = false, enforcement = true) {
     this.tools = new Map(tools.map((t) => [t.name, t]));
     this.dryRun = dryRun;
+    this.enforcementEnabled = enforcement;
   }
+
+  // ─── Tool Grant Registration ──────────────────────────────────
+
+  registerGrants(role: CompanyAgentRole, grants: ToolGrant[]): void {
+    const roleGrants = new Map<string, ToolGrant>();
+    for (const grant of grants) {
+      roleGrants.set(grant.toolName, grant);
+    }
+    this.toolGrants.set(role, roleGrants);
+  }
+
+  // ─── Cost Tracking ────────────────────────────────────────────
+
+  addDailyCost(role: CompanyAgentRole, amount: number): void {
+    this.dailyCosts.set(role, (this.dailyCosts.get(role) ?? 0) + amount);
+  }
+
+  addMonthlyCost(role: CompanyAgentRole, amount: number): void {
+    this.monthlyCosts.set(role, (this.monthlyCosts.get(role) ?? 0) + amount);
+  }
+
+  setDailyCost(role: CompanyAgentRole, amount: number): void {
+    this.dailyCosts.set(role, amount);
+  }
+
+  setMonthlyCost(role: CompanyAgentRole, amount: number): void {
+    this.monthlyCosts.set(role, amount);
+  }
+
+  // ─── Log Access ───────────────────────────────────────────────
+
+  getCallLog(): ToolCallLog[] {
+    return this.callLog;
+  }
+
+  getSecurityLog(): SecurityEvent[] {
+    return this.securityLog;
+  }
+
+  // ─── Enforcement Helpers ──────────────────────────────────────
+
+  private logSecurityEvent(
+    agentId: string,
+    agentRole: CompanyAgentRole,
+    toolName: string,
+    eventType: SecurityEventType,
+    details?: unknown,
+  ): void {
+    const event: SecurityEvent = {
+      agentId,
+      agentRole,
+      toolName,
+      eventType,
+      details,
+      timestamp: new Date().toISOString(),
+    };
+    this.securityLog.push(event);
+    console.warn(`[SECURITY] ${eventType}: agent=${agentRole} tool=${toolName}`, details ?? '');
+  }
+
+  private checkRateLimit(role: CompanyAgentRole, toolName: string, limit: number): boolean {
+    const key = `${role}:${toolName}`;
+    const now = Date.now();
+    const hourAgo = now - 60 * 60 * 1000;
+    const timestamps = (this.rateCounts.get(key) ?? []).filter((t) => t > hourAgo);
+    if (timestamps.length >= limit) return false;
+    timestamps.push(now);
+    this.rateCounts.set(key, timestamps);
+    return true;
+  }
+
+  private wouldExceedBudget(
+    agentId: string,
+    role: CompanyAgentRole,
+    estimatedCost: number,
+  ): boolean {
+    const budget = AGENT_BUDGETS[role];
+    if (!budget) return false;
+
+    const runCost = (this.runCosts.get(agentId) ?? 0) + estimatedCost;
+    if (runCost > budget.perRunUsd) return true;
+
+    const dailyCost = (this.dailyCosts.get(role) ?? 0) + estimatedCost;
+    if (dailyCost > budget.dailyUsd) return true;
+
+    const monthlyCost = (this.monthlyCosts.get(role) ?? 0) + estimatedCost;
+    if (monthlyCost > budget.monthlyUsd) return true;
+
+    return false;
+  }
+
+  private logToolCall(
+    agentId: string,
+    agentRole: CompanyAgentRole,
+    toolName: string,
+    args: Record<string, unknown>,
+    result: ToolResult,
+    costUsd: number,
+  ): void {
+    this.callLog.push({
+      agentId,
+      agentRole,
+      toolName,
+      args,
+      result,
+      estimatedCostUsd: costUsd,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  // ─── Public API ───────────────────────────────────────────────
 
   addTool(tool: ToolDefinition): void {
     this.tools.set(tool.name, tool);
@@ -92,6 +238,80 @@ export class ToolExecutor {
       return { success: false, error: 'Agent aborted before tool execution', filesWritten: 0, memoryKeysWritten: 0 };
     }
 
+    // ─── Enforcement checks ────────────────────────────────────
+    if (this.enforcementEnabled) {
+      const role = context.agentRole;
+      const agentId = context.agentId;
+
+      // 1. Tool grant check
+      const roleGrants = this.toolGrants.get(role);
+      if (roleGrants && !roleGrants.has(toolName)) {
+        this.logSecurityEvent(agentId, role, toolName, 'TOOL_NOT_GRANTED');
+        return {
+          success: false,
+          error: `${role} does not have access to ${toolName}`,
+          filesWritten: 0,
+          memoryKeysWritten: 0,
+        };
+      }
+
+      const grant = roleGrants?.get(toolName);
+
+      // 2. Scope check
+      if (grant?.scope) {
+        for (const [scopeKey, scopeValue] of Object.entries(grant.scope)) {
+          const argValue = params[scopeKey];
+          if (argValue !== undefined && scopeValue !== undefined) {
+            const scopeStr = String(scopeValue);
+            const argStr = String(argValue);
+            // Support wildcard scope patterns (e.g., "test/*")
+            if (scopeStr.includes('*')) {
+              const pattern = new RegExp('^' + scopeStr.replace(/\*/g, '.*') + '$');
+              if (!pattern.test(argStr)) {
+                this.logSecurityEvent(agentId, role, toolName, 'SCOPE_VIOLATION', { scopeKey, expected: scopeStr, actual: argStr });
+                return {
+                  success: false,
+                  error: `${role} called ${toolName} outside scope: ${scopeKey}=${argStr} (allowed: ${scopeStr})`,
+                  filesWritten: 0,
+                  memoryKeysWritten: 0,
+                };
+              }
+            }
+          }
+        }
+      }
+
+      // 3. Rate limit check
+      if (grant?.rateLimit) {
+        if (!this.checkRateLimit(role, toolName, grant.rateLimit)) {
+          this.logSecurityEvent(agentId, role, toolName, 'RATE_LIMITED');
+          return {
+            success: false,
+            error: `${role} rate limited on ${toolName}`,
+            filesWritten: 0,
+            memoryKeysWritten: 0,
+          };
+        }
+      }
+
+      // 4. Budget check
+      const estimatedCost = estimateToolCost(toolName);
+      if (this.wouldExceedBudget(agentId, role, estimatedCost)) {
+        this.logSecurityEvent(agentId, role, toolName, 'BUDGET_EXCEEDED');
+        return {
+          success: false,
+          error: `${role} budget exceeded`,
+          filesWritten: 0,
+          memoryKeysWritten: 0,
+        };
+      }
+
+      // Track costs
+      this.runCosts.set(agentId, (this.runCosts.get(agentId) ?? 0) + estimatedCost);
+      this.addDailyCost(role, estimatedCost);
+      this.addMonthlyCost(role, estimatedCost);
+    }
+
     // Dry-run mode: intercept mutative tools, allow read-only tools through
     if (this.dryRun && !isReadOnlyTool(toolName)) {
       console.log(`[DryRun] Would have executed: ${toolName}(${JSON.stringify(params)})`);
@@ -130,20 +350,43 @@ export class ToolExecutor {
 
       const result = await Promise.race([toolPromise, timeoutPromise, abortPromise]);
 
-      return {
+      const finalResult: ToolResult = {
         success: result.success,
         data: result.data,
         error: result.error,
         filesWritten: result.filesWritten ?? 0,
         memoryKeysWritten: result.memoryKeysWritten ?? 0,
       };
+
+      // Log the tool call
+      this.logToolCall(
+        context.agentId,
+        context.agentRole,
+        toolName,
+        params,
+        finalResult,
+        estimateToolCost(toolName),
+      );
+
+      return finalResult;
     } catch (error) {
-      return {
+      const failResult: ToolResult = {
         success: false,
         error: (error as Error).message,
         filesWritten: 0,
         memoryKeysWritten: 0,
       };
+
+      this.logToolCall(
+        context.agentId,
+        context.agentRole,
+        toolName,
+        params,
+        failResult,
+        estimateToolCost(toolName),
+      );
+
+      return failResult;
     }
   }
 }
