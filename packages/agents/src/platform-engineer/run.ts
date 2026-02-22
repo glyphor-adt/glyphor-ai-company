@@ -17,6 +17,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { PLATFORM_ENGINEER_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createPlatformEngineerTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createEventTools } from '../shared/eventTools.js';
 
 export interface PlatformEngineerRunParams {
@@ -89,16 +90,19 @@ Steps:
       initialMessage = 'Run a health check on all platform services.';
   }
 
+  const supabase = memory.getSupabaseClient();
+  const agentCfg = await loadAgentConfig(supabase, 'platform-engineer', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+
   const config: AgentConfig = {
     id: `alex-${task}-${today}`,
     role: 'platform-engineer',
     systemPrompt: PLATFORM_ENGINEER_SYSTEM_PROMPT,
-    model: 'gemini-3-flash-preview',
+    model: agentCfg.model,
     tools,
-    maxTurns: 10,
+    maxTurns: agentCfg.maxTurns,
     maxStallTurns: 3,
     timeoutMs: 60_000,
-    temperature: 0.2,
+    temperature: agentCfg.temperature,
   };
 
   const supervisor = new AgentSupervisor({
@@ -111,7 +115,7 @@ Steps:
   const result = await runner.run(
     config, initialMessage, supervisor, toolExecutor,
     (event) => eventBus.emit(event), memory,
-    { glyphorEventBus, agentMemoryStore: memory },
+    createRunDeps(supabase, glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - Date.parse(String(result.conversationHistory[0]?.timestamp || new Date().toISOString()));

@@ -10,6 +10,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CONTENT_CREATOR_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createContentCreatorTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createEventTools } from '../shared/eventTools.js';
 
 export interface ContentCreatorRunParams {
@@ -50,13 +51,16 @@ export async function runContentCreator(params: ContentCreatorRunParams = {}) {
       initialMessage = 'Create content as directed.';
   }
 
+  const supabase = memory.getSupabaseClient();
+  const agentCfg = await loadAgentConfig(supabase, 'content-creator', { model: 'gemini-3-flash-preview', temperature: 0.7, maxTurns: 10 });
+
   const config: AgentConfig = {
     id: `tyler-${task}-${today}`, role: 'content-creator',
-    systemPrompt: CONTENT_CREATOR_SYSTEM_PROMPT, model: 'gemini-3-flash-preview',
-    tools, maxTurns: 10, maxStallTurns: 3, timeoutMs: 60_000, temperature: 0.7,
+    systemPrompt: CONTENT_CREATOR_SYSTEM_PROMPT, model: agentCfg.model,
+    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 60_000, temperature: agentCfg.temperature,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
-  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, { glyphorEventBus, agentMemoryStore: memory });
+  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));
   try { await memory.recordAgentRun('content-creator', 0, 0.08); } catch {}
   console.log(`[Tyler] ${result.status} (${result.totalTurns} turns)`);
   return result;

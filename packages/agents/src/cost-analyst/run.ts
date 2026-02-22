@@ -10,6 +10,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { COST_ANALYST_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCostAnalystTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createEventTools } from '../shared/eventTools.js';
 
 export interface CostAnalystRunParams {
@@ -47,13 +48,16 @@ export async function runCostAnalyst(params: CostAnalystRunParams = {}) {
       initialMessage = 'Run a cost analysis.';
   }
 
+  const supabase = memory.getSupabaseClient();
+  const agentCfg = await loadAgentConfig(supabase, 'cost-analyst', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+
   const config: AgentConfig = {
     id: `omar-${task}-${today}`, role: 'cost-analyst',
-    systemPrompt: COST_ANALYST_SYSTEM_PROMPT, model: 'gemini-3-flash-preview',
-    tools, maxTurns: 10, maxStallTurns: 3, timeoutMs: 60_000, temperature: 0.2,
+    systemPrompt: COST_ANALYST_SYSTEM_PROMPT, model: agentCfg.model,
+    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 60_000, temperature: agentCfg.temperature,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
-  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, { glyphorEventBus, agentMemoryStore: memory });
+  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));
   try { await memory.recordAgentRun('cost-analyst', 0, 0.02); } catch {}
   console.log(`[Omar] ${result.status} (${result.totalTurns} turns)`);
   return result;

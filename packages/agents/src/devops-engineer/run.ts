@@ -11,6 +11,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { DEVOPS_ENGINEER_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createDevOpsEngineerTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createEventTools } from '../shared/eventTools.js';
 
 export interface DevOpsEngineerRunParams {
@@ -59,11 +60,14 @@ export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
       initialMessage = 'Analyze infrastructure for optimization opportunities.';
   }
 
+  const supabase = memory.getSupabaseClient();
+  const agentCfg = await loadAgentConfig(supabase, 'devops-engineer', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+
   const config: AgentConfig = {
     id: `jordan-${task}-${today}`, role: 'devops-engineer',
     systemPrompt: DEVOPS_ENGINEER_SYSTEM_PROMPT,
-    model: 'gemini-3-flash-preview', tools, maxTurns: 10,
-    maxStallTurns: 3, timeoutMs: 60_000, temperature: 0.2,
+    model: agentCfg.model, tools, maxTurns: agentCfg.maxTurns,
+    maxStallTurns: 3, timeoutMs: 60_000, temperature: agentCfg.temperature,
   };
 
   const supervisor = new AgentSupervisor({
@@ -72,7 +76,7 @@ export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
   });
 
   const result = await runner.run(config, initialMessage, supervisor, toolExecutor,
-    (event) => eventBus.emit(event), memory, { glyphorEventBus, agentMemoryStore: memory });
+    (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));
 
   try { await memory.recordAgentRun('devops-engineer', 0, 0.02); } catch {}
   console.log(`[Jordan] ${result.status} (${result.totalTurns} turns)`);

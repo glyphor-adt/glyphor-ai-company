@@ -17,6 +17,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { VP_SALES_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createVPSalesTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 
 export interface VPSalesRunParams {
   task?: 'pipeline_review' | 'market_sizing' | 'on_demand';
@@ -89,16 +90,19 @@ Steps:
       initialMessage = 'Provide a sales analysis and pipeline summary.';
   }
 
+  const supabase = memory.getSupabaseClient();
+  const agentCfg = await loadAgentConfig(supabase, 'vp-sales', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
+
   const config: AgentConfig = {
     id: `vps-${task}-${today}`,
     role: 'vp-sales',
     systemPrompt: VP_SALES_SYSTEM_PROMPT,
-    model: 'gemini-3-flash-preview',
+    model: agentCfg.model,
     tools,
-    maxTurns: 10,
+    maxTurns: agentCfg.maxTurns,
     maxStallTurns: 3,
     timeoutMs: 60_000,
-    temperature: 0.3,
+    temperature: agentCfg.temperature,
   };
 
   const supervisor = new AgentSupervisor({
@@ -117,7 +121,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    { glyphorEventBus, agentMemoryStore: memory },
+    createRunDeps(supabase, glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;

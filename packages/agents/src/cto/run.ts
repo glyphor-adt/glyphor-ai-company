@@ -17,6 +17,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CTO_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCTOTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 
 export interface CTORunParams {
   task?: 'platform_health_check' | 'dependency_review' | 'on_demand';
@@ -86,16 +87,19 @@ Steps:
       initialMessage = 'Provide a technical status summary of the platform.';
   }
 
+  const supabase = memory.getSupabaseClient();
+  const agentCfg = await loadAgentConfig(supabase, 'cto', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
+
   const config: AgentConfig = {
     id: `cto-${task}-${today}`,
     role: 'cto',
     systemPrompt: CTO_SYSTEM_PROMPT,
-    model: 'gemini-3-flash-preview',
+    model: agentCfg.model,
     tools,
-    maxTurns: 10,
+    maxTurns: agentCfg.maxTurns,
     maxStallTurns: 3,
     timeoutMs: 60_000,
-    temperature: 0.3,
+    temperature: agentCfg.temperature,
   };
 
   const supervisor = new AgentSupervisor({
@@ -114,7 +118,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    { glyphorEventBus, agentMemoryStore: memory },
+    createRunDeps(supabase, glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;

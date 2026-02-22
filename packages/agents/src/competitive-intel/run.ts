@@ -10,6 +10,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { COMPETITIVE_INTEL_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCompetitiveIntelTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createEventTools } from '../shared/eventTools.js';
 
 export interface CompetitiveIntelRunParams {
@@ -47,13 +48,16 @@ export async function runCompetitiveIntel(params: CompetitiveIntelRunParams = {}
       initialMessage = 'Run a competitive intelligence scan.';
   }
 
+  const supabase = memory.getSupabaseClient();
+  const agentCfg = await loadAgentConfig(supabase, 'competitive-intel', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+
   const config: AgentConfig = {
     id: `daniel-${task}-${today}`, role: 'competitive-intel',
-    systemPrompt: COMPETITIVE_INTEL_SYSTEM_PROMPT, model: 'gemini-3-flash-preview',
-    tools, maxTurns: 10, maxStallTurns: 3, timeoutMs: 60_000, temperature: 0.2,
+    systemPrompt: COMPETITIVE_INTEL_SYSTEM_PROMPT, model: agentCfg.model,
+    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 60_000, temperature: agentCfg.temperature,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
-  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, { glyphorEventBus, agentMemoryStore: memory });
+  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));
   try { await memory.recordAgentRun('competitive-intel', 0, 0.05); } catch {}
   console.log(`[Daniel] ${result.status} (${result.totalTurns} turns)`);
   return result;

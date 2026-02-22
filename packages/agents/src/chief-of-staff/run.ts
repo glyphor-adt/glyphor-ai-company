@@ -18,6 +18,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CHIEF_OF_STAFF_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createChiefOfStaffTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 
 export interface CoSRunParams {
   task?: 'generate_briefing' | 'check_escalations' | 'on_demand';
@@ -94,16 +95,19 @@ Log your findings as an activity.`;
       initialMessage = 'Provide a status summary of the company.';
   }
 
+  const supabase = memory.getSupabaseClient();
+  const agentCfg = await loadAgentConfig(supabase, 'chief-of-staff', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
+
   const config: AgentConfig = {
     id: `cos-${task}-${today}`,
     role: 'chief-of-staff',
     systemPrompt: CHIEF_OF_STAFF_SYSTEM_PROMPT,
-    model: 'gemini-3-flash-preview',
+    model: agentCfg.model,
     tools,
-    maxTurns: 10,
+    maxTurns: agentCfg.maxTurns,
     maxStallTurns: 3,
     timeoutMs: 60_000,
-    temperature: 0.3,
+    temperature: agentCfg.temperature,
   };
 
   const supervisor = new AgentSupervisor({
@@ -122,7 +126,7 @@ Log your findings as an activity.`;
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    { glyphorEventBus, agentMemoryStore: memory },
+    createRunDeps(supabase, glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;

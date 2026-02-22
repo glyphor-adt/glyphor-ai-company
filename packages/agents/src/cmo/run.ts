@@ -17,6 +17,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CMO_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCMOTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createEventTools } from '../shared/eventTools.js';
 
 export interface CMORunParams {
@@ -104,16 +105,19 @@ Steps:
       initialMessage = 'Provide a content and marketing strategy summary.';
   }
 
+  const supabase = memory.getSupabaseClient();
+  const agentCfg = await loadAgentConfig(supabase, 'cmo', { model: 'gemini-3-flash-preview', temperature: 0.6, maxTurns: 10 });
+
   const config: AgentConfig = {
     id: `cmo-${task}-${today}`,
     role: 'cmo',
     systemPrompt: CMO_SYSTEM_PROMPT,
-    model: 'gemini-3-flash-preview',
+    model: agentCfg.model,
     tools,
-    maxTurns: 10,
+    maxTurns: agentCfg.maxTurns,
     maxStallTurns: 3,
     timeoutMs: 60_000,
-    temperature: 0.6,
+    temperature: agentCfg.temperature,
   };
 
   const supervisor = new AgentSupervisor({
@@ -132,7 +136,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    { glyphorEventBus, agentMemoryStore: memory },
+    createRunDeps(supabase, glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;

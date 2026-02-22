@@ -17,6 +17,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CPO_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCPOTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createEventTools } from '../shared/eventTools.js';
 
 export interface CPORunParams {
@@ -93,16 +94,19 @@ Steps:
       initialMessage = 'Provide a product strategy summary for both Fuse and Pulse.';
   }
 
+  const supabase = memory.getSupabaseClient();
+  const agentCfg = await loadAgentConfig(supabase, 'cpo', { model: 'gemini-3-flash-preview', temperature: 0.4, maxTurns: 10 });
+
   const config: AgentConfig = {
     id: `cpo-${task}-${today}`,
     role: 'cpo',
     systemPrompt: CPO_SYSTEM_PROMPT,
-    model: 'gemini-3-flash-preview',
+    model: agentCfg.model,
     tools,
-    maxTurns: 10,
+    maxTurns: agentCfg.maxTurns,
     maxStallTurns: 3,
     timeoutMs: 60_000,
-    temperature: 0.4,
+    temperature: agentCfg.temperature,
   };
 
   const supervisor = new AgentSupervisor({
@@ -121,7 +125,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    { glyphorEventBus, agentMemoryStore: memory },
+    createRunDeps(supabase, glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;
