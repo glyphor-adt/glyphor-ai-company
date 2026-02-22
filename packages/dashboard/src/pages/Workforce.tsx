@@ -215,9 +215,10 @@ export default function Workforce() {
                           AI Agent · <span className="font-mono text-txt-muted">{agent.model}</span>
                         </p>
                         <div className="mt-3 flex items-center gap-4">
-                          <TierBadge tier={agent.tier} />
-                          <span className="font-mono text-sm text-txt-secondary">{agent.score}/100</span>
-                          <span className="text-[10px] text-txt-faint">Last run: {timeAgo(agent.last_run)}</span>
+                          <span className="font-mono text-sm text-txt-secondary">
+                            {agent.performance_score != null ? `${Math.round(Number(agent.performance_score) * 100)}/100` : '—'}
+                          </span>
+                          <span className="text-[10px] text-txt-faint">Last run: {timeAgo(agent.last_run_at)}</span>
                         </div>
                       </div>
                       <div className="flex flex-col gap-1.5">
@@ -311,11 +312,12 @@ function AgentNode({ agent, compact = false }: { agent: Agent; compact?: boolean
               {TITLE_MAP[agent.role] ?? agent.role}
             </p>
             <div className={`mt-2 flex items-center justify-center gap-2 ${compact ? 'text-xs' : 'text-sm'}`}>
-              <TierBadge tier={agent.tier} />
-              <span className="font-mono text-txt-faint">{agent.score}/100</span>
+              <span className="font-mono text-txt-faint">
+                {agent.performance_score != null ? `${Math.round(Number(agent.performance_score) * 100)}/100` : '—'}
+              </span>
             </div>
             {!compact && (
-              <p className="mt-1 text-xs text-txt-faint">Last run: {timeAgo(agent.last_run)}</p>
+              <p className="mt-1 text-xs text-txt-faint">Last run: {timeAgo(agent.last_run_at)}</p>
             )}
           </div>
         </div>

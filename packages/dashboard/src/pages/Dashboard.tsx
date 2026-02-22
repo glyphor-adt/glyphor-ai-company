@@ -81,7 +81,6 @@ export default function Dashboard() {
                   </div>
                   <div className="flex items-center gap-2">
                     <StatusDot status={agent.status} />
-                    <TierBadge tier={agent.tier} />
                   </div>
                 </Link>
               ))}
