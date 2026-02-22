@@ -111,6 +111,24 @@ export const AGENT_META: Record<string, { color: string; icon: string }> = {
   'vp-sales':       { color: '#5B8DEF', icon: 'MdTrackChanges' },
   'vp-design':      { color: '#E91E63', icon: 'MdPalette' },
   ops:              { color: '#FF6B35', icon: 'MdMonitorHeart' },
+  // Sub-team agents
+  'platform-engineer':     { color: '#0097FF', icon: 'MdDeveloperBoard' },
+  'quality-engineer':      { color: '#0097FF', icon: 'MdBugReport' },
+  'devops-engineer':       { color: '#0097FF', icon: 'MdCloud' },
+  'user-researcher':       { color: '#00E0FF', icon: 'MdPeople' },
+  'competitive-intel':     { color: '#00E0FF', icon: 'MdTravelExplore' },
+  'revenue-analyst':       { color: '#4B9FE1', icon: 'MdTrendingUp' },
+  'cost-analyst':          { color: '#4B9FE1', icon: 'MdSavings' },
+  'content-creator':       { color: '#7B68EE', icon: 'MdEdit' },
+  'seo-analyst':           { color: '#7B68EE', icon: 'MdSearch' },
+  'social-media-manager':  { color: '#7B68EE', icon: 'MdShare' },
+  'onboarding-specialist': { color: '#00BCD4', icon: 'MdSchool' },
+  'support-triage':        { color: '#00BCD4', icon: 'MdHeadsetMic' },
+  'account-research':      { color: '#5B8DEF', icon: 'MdAssignment' },
+  'ui-ux-designer':        { color: '#E91E63', icon: 'MdBrush' },
+  'frontend-engineer':     { color: '#E91E63', icon: 'MdWebAsset' },
+  'design-critic':         { color: '#E91E63', icon: 'MdRateReview' },
+  'template-architect':    { color: '#E91E63', icon: 'MdDashboard' },
 };
 
 export const DISPLAY_NAME_MAP: Record<string, string> = {
@@ -123,6 +141,24 @@ export const DISPLAY_NAME_MAP: Record<string, string> = {
   'vp-sales': 'Rachel Kim',
   'vp-design': 'Mia Tanaka',
   ops: 'Atlas Vega',
+  // Sub-team agents
+  'platform-engineer': 'Alex Park',
+  'quality-engineer': 'Sam DeLuca',
+  'devops-engineer': 'Jordan Hayes',
+  'user-researcher': 'Priya Sharma',
+  'competitive-intel': 'Daniel Ortiz',
+  'revenue-analyst': 'Anna Park',
+  'cost-analyst': 'Omar Hassan',
+  'content-creator': 'Tyler Reed',
+  'seo-analyst': 'Lisa Chen',
+  'social-media-manager': 'Kai Johnson',
+  'onboarding-specialist': 'Emma Wright',
+  'support-triage': 'David Santos',
+  'account-research': 'Nathan Cole',
+  'ui-ux-designer': 'Leo Vargas',
+  'frontend-engineer': 'Ava Chen',
+  'design-critic': 'Sofia Marchetti',
+  'template-architect': 'Ryan Park',
 };
 
 /** @deprecated Use DISPLAY_NAME_MAP instead */
@@ -197,6 +233,24 @@ export const AGENT_SKILLS: Record<string, string[]> = {
   'vp-sales': ['account_research', 'roi_calculator', 'proposal_generator', 'pipeline_manager', 'market_sizer'],
   'vp-design': ['output_quality_auditor', 'design_system_owner', 'ui_reviewer', 'quality_grader', 'anti_ai_smell', 'template_reviewer'],
   ops: ['agent_health_monitor', 'data_freshness_checker', 'cost_anomaly_detector', 'incident_manager', 'status_reporter'],
+  // Sub-team agents
+  'platform-engineer': ['infrastructure_management', 'service_deployment', 'performance_tuning', 'cloud_run_ops'],
+  'quality-engineer': ['test_automation', 'regression_testing', 'code_review', 'bug_triage'],
+  'devops-engineer': ['ci_cd_pipeline', 'docker_management', 'monitoring_setup', 'iac_management'],
+  'user-researcher': ['user_interviews', 'survey_analysis', 'usability_testing', 'persona_development'],
+  'competitive-intel': ['competitor_tracking', 'market_analysis', 'feature_comparison', 'trend_detection'],
+  'revenue-analyst': ['mrr_tracking', 'cohort_analysis', 'revenue_forecasting', 'pricing_analysis'],
+  'cost-analyst': ['expense_tracking', 'budget_monitoring', 'cost_optimization', 'vendor_analysis'],
+  'content-creator': ['blog_writing', 'technical_writing', 'copywriting', 'content_calendar'],
+  'seo-analyst': ['keyword_research', 'rank_tracking', 'on_page_optimization', 'backlink_analysis'],
+  'social-media-manager': ['post_scheduling', 'engagement_tracking', 'community_management', 'analytics_reporting'],
+  'onboarding-specialist': ['user_onboarding', 'tutorial_creation', 'activation_optimization', 'welcome_sequences'],
+  'support-triage': ['ticket_routing', 'priority_classification', 'response_templates', 'escalation_rules'],
+  'account-research': ['prospect_research', 'company_profiling', 'contact_enrichment', 'pain_point_analysis'],
+  'ui-ux-designer': ['interface_design', 'prototype_creation', 'design_system', 'accessibility_audit'],
+  'frontend-engineer': ['component_development', 'responsive_design', 'performance_optimization', 'animation'],
+  'design-critic': ['design_review', 'quality_scoring', 'anti_ai_smell_detection', 'consistency_check'],
+  'template-architect': ['template_design', 'component_library', 'design_tokens', 'layout_systems'],
 };
 
 /* ── Role → tier mapping (for display) ── */
@@ -210,6 +264,24 @@ export const ROLE_TIER: Record<string, string> = {
   'vp-sales': 'Executive',
   'vp-design': 'Executive',
   ops: 'Specialist',
+  // Sub-team agents
+  'platform-engineer': 'Sub-Team',
+  'quality-engineer': 'Sub-Team',
+  'devops-engineer': 'Sub-Team',
+  'user-researcher': 'Sub-Team',
+  'competitive-intel': 'Sub-Team',
+  'revenue-analyst': 'Sub-Team',
+  'cost-analyst': 'Sub-Team',
+  'content-creator': 'Sub-Team',
+  'seo-analyst': 'Sub-Team',
+  'social-media-manager': 'Sub-Team',
+  'onboarding-specialist': 'Sub-Team',
+  'support-triage': 'Sub-Team',
+  'account-research': 'Sub-Team',
+  'ui-ux-designer': 'Sub-Team',
+  'frontend-engineer': 'Sub-Team',
+  'design-critic': 'Sub-Team',
+  'template-architect': 'Sub-Team',
 };
 
 /* ── Role → office/department ── */
@@ -223,6 +295,24 @@ export const ROLE_DEPARTMENT: Record<string, string> = {
   'vp-sales': 'Sales',
   'vp-design': 'Design & Frontend',
   ops: 'Operations',
+  // Sub-team agents
+  'platform-engineer': 'Engineering',
+  'quality-engineer': 'Engineering',
+  'devops-engineer': 'Engineering',
+  'user-researcher': 'Product',
+  'competitive-intel': 'Product',
+  'revenue-analyst': 'Finance',
+  'cost-analyst': 'Finance',
+  'content-creator': 'Marketing',
+  'seo-analyst': 'Marketing',
+  'social-media-manager': 'Marketing',
+  'onboarding-specialist': 'Customer Success',
+  'support-triage': 'Customer Success',
+  'account-research': 'Sales',
+  'ui-ux-designer': 'Design & Frontend',
+  'frontend-engineer': 'Design & Frontend',
+  'design-critic': 'Design & Frontend',
+  'template-architect': 'Design & Frontend',
 };
 
 /* ── Role → title ── */
@@ -236,6 +326,24 @@ export const ROLE_TITLE: Record<string, string> = {
   'vp-sales': 'VP Sales',
   'vp-design': 'VP Design & Frontend',
   ops: 'Operations & System Intelligence',
+  // Sub-team agents
+  'platform-engineer': 'Platform Engineer',
+  'quality-engineer': 'Quality Engineer',
+  'devops-engineer': 'DevOps Engineer',
+  'user-researcher': 'User Researcher',
+  'competitive-intel': 'Competitive Intel Analyst',
+  'revenue-analyst': 'Revenue Analyst',
+  'cost-analyst': 'Cost Analyst',
+  'content-creator': 'Content Creator',
+  'seo-analyst': 'SEO Analyst',
+  'social-media-manager': 'Social Media Manager',
+  'onboarding-specialist': 'Onboarding Specialist',
+  'support-triage': 'Support Triage',
+  'account-research': 'Account Research',
+  'ui-ux-designer': 'UI/UX Designer',
+  'frontend-engineer': 'Frontend Engineer',
+  'design-critic': 'Design Critic',
+  'template-architect': 'Template Architect',
 };
 
 /* ── Sub-team members (report to executives) ── */
