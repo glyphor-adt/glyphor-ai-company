@@ -7,11 +7,25 @@
 
 import type { ToolDefinition, ToolContext, ToolResult, BriefingData } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { sendTeamsWebhook, formatBriefingCard } from '@glyphor/integrations';
+import {
+  sendTeamsWebhook,
+  formatBriefingCard,
+  GraphTeamsClient,
+  buildChannelMap,
+} from '@glyphor/integrations';
 
 export function createChiefOfStaffTools(
   memory: CompanyMemoryStore,
 ): ToolDefinition[] {
+  // Initialize Graph API client if Azure credentials are configured
+  let graphClient: GraphTeamsClient | null = null;
+  try {
+    graphClient = GraphTeamsClient.fromEnv();
+  } catch {
+    // Graph API not configured — will fall back to webhooks
+  }
+  const channels = buildChannelMap();
+
   return [
     // ─── READ COMPANY STATE ─────────────────────────────────────
 
@@ -138,18 +152,6 @@ export function createChiefOfStaffTools(
         const metrics = params.metrics as BriefingData['metrics'];
         const actionItems = (params.action_items as string[]) || [];
 
-        // Determine webhook URL based on recipient
-        const webhookUrl = recipient === 'kristina'
-          ? process.env.TEAMS_WEBHOOK_KRISTINA_BRIEFING
-          : process.env.TEAMS_WEBHOOK_ANDREW_BRIEFING;
-
-        if (!webhookUrl) {
-          return {
-            success: false,
-            error: `No Teams webhook configured for ${recipient}. Set TEAMS_WEBHOOK_${recipient.toUpperCase()}_BRIEFING env var.`,
-          };
-        }
-
         // Format as Teams Adaptive Card
         const card = formatBriefingCard({
           recipient,
@@ -159,8 +161,27 @@ export function createChiefOfStaffTools(
           date: new Date().toISOString().split('T')[0],
         });
 
-        // Send to Teams
-        await sendTeamsWebhook(webhookUrl, card);
+        // Send via Graph API (preferred) or webhook fallback
+        const channelKey = recipient === 'kristina' ? 'briefingKristina' : 'briefingAndrew';
+        const channel = channels[channelKey];
+
+        if (graphClient && channel) {
+          await graphClient.sendCard(channel, card.attachments[0].content);
+        } else {
+          // Fallback to webhook
+          const webhookUrl = recipient === 'kristina'
+            ? process.env.TEAMS_WEBHOOK_KRISTINA_BRIEFING
+            : process.env.TEAMS_WEBHOOK_ANDREW_BRIEFING;
+
+          if (!webhookUrl) {
+            return {
+              success: false,
+              error: `No Teams channel configured for ${recipient}. Set TEAMS_CHANNEL_BRIEFING_${recipient.toUpperCase()}_ID or TEAMS_WEBHOOK_${recipient.toUpperCase()}_BRIEFING env var.`,
+            };
+          }
+
+          await sendTeamsWebhook(webhookUrl, card);
+        }
 
         // Archive to GCS
         const date = new Date().toISOString().split('T')[0];
@@ -228,8 +249,8 @@ export function createChiefOfStaffTools(
         });
 
         // Send to Teams #Decisions channel
-        const webhookUrl = process.env.TEAMS_WEBHOOK_DECISIONS;
-        if (webhookUrl) {
+        const decisionsChannel = channels.decisions;
+        if (graphClient && decisionsChannel) {
           const { formatDecisionCard } = await import('@glyphor/integrations');
           const card = formatDecisionCard({
             id,
@@ -240,7 +261,23 @@ export function createChiefOfStaffTools(
             reasoning: params.reasoning as string,
             assignedTo: params.assigned_to as string[],
           });
-          await sendTeamsWebhook(webhookUrl, card);
+          await graphClient.sendCard(decisionsChannel, card.attachments[0].content);
+        } else {
+          // Fallback to webhook
+          const webhookUrl = process.env.TEAMS_WEBHOOK_DECISIONS;
+          if (webhookUrl) {
+            const { formatDecisionCard } = await import('@glyphor/integrations');
+            const card = formatDecisionCard({
+              id,
+              tier: params.tier as string,
+              title: params.title as string,
+              summary: params.summary as string,
+              proposedBy: ctx.agentRole,
+              reasoning: params.reasoning as string,
+              assignedTo: params.assigned_to as string[],
+            });
+            await sendTeamsWebhook(webhookUrl, card);
+          }
         }
 
         return { success: true, data: { decisionId: id }, memoryKeysWritten: 1 };

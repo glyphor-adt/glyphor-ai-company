@@ -10,6 +10,8 @@ import type {
   AdaptiveCardElement,
 } from './webhooks.js';
 
+export type { AdaptiveCard, AdaptiveCardElement };
+
 // ─── BRIEFING CARD ──────────────────────────────────────────────
 
 export interface BriefingCardData {

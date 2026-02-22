@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@glyphor/agent-runtime": "*",
-    "@glyphor/company-memory": "*"
+    "@glyphor/company-memory": "*",
+    "@glyphor/integrations": "*"
   },
   "devDependencies": {
     "typescript": "^5.8.3",

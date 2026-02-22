@@ -7,7 +7,12 @@
 
 import type { CompanyDecision } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
-import { sendTeamsWebhook, formatDecisionCard } from '@glyphor/integrations';
+import {
+  sendTeamsWebhook,
+  formatDecisionCard,
+  GraphTeamsClient,
+  buildChannelMap,
+} from '@glyphor/integrations';
 
 export interface PendingDecision extends CompanyDecision {
   notifiedAt?: string;
@@ -19,6 +24,8 @@ export interface PendingDecision extends CompanyDecision {
 export class DecisionQueue {
   private readonly memory: CompanyMemoryStore;
   private readonly founderWebhooks: Record<string, string>;
+  private readonly graphClient: GraphTeamsClient | null;
+  private readonly channels: ReturnType<typeof buildChannelMap>;
 
   constructor(
     memory: CompanyMemoryStore,
@@ -26,6 +33,12 @@ export class DecisionQueue {
   ) {
     this.memory = memory;
     this.founderWebhooks = founderWebhooks;
+    this.channels = buildChannelMap();
+    try {
+      this.graphClient = GraphTeamsClient.fromEnv();
+    } catch {
+      this.graphClient = null;
+    }
   }
 
   /**
@@ -40,22 +53,29 @@ export class DecisionQueue {
       : decision.assignedTo.length > 0 ? decision.assignedTo : ['kristina', 'andrew'];
 
     const card = formatDecisionCard({
-      title: decision.title,
-      description: decision.summary,
-      impact: String(decision.data ?? 'Unknown'),
-      reasoning: decision.reasoning ?? '',
-      agentRole: decision.proposedBy,
+      id: decision.id,
       tier: decision.tier,
+      title: decision.title,
+      summary: decision.summary,
+      proposedBy: decision.proposedBy,
+      reasoning: decision.reasoning ?? '',
+      assignedTo: decision.assignedTo,
     });
 
-    const notifications = targets
-      .filter(founder => this.founderWebhooks[founder])
-      .map(founder =>
-        sendTeamsWebhook(this.founderWebhooks[founder], card)
-          .catch(err => console.error(`Failed to notify ${founder}:`, err)),
-      );
-
-    await Promise.all(notifications);
+    // Send via Graph API (preferred) or webhook fallback
+    const decisionsChannel = this.channels.decisions;
+    if (this.graphClient && decisionsChannel) {
+      await this.graphClient.sendCard(decisionsChannel, card.attachments[0].content)
+        .catch((err: unknown) => console.error('Failed to send decision via Graph API:', err));
+    } else {
+      const notifications = targets
+        .filter((founder: string) => this.founderWebhooks[founder])
+        .map((founder: string) =>
+          sendTeamsWebhook(this.founderWebhooks[founder], card)
+            .catch((err: unknown) => console.error(`Failed to notify ${founder}:`, err)),
+        );
+      await Promise.all(notifications);
+    }
 
     await this.memory.write(
       `decision.pending.${decision.id}`,
@@ -72,7 +92,7 @@ export class DecisionQueue {
   async getPending(agentRole?: string): Promise<CompanyDecision[]> {
     const decisions = await this.memory.getDecisions({ status: 'pending' });
     if (!agentRole) return decisions;
-    return decisions.filter(d => d.proposedBy === agentRole);
+    return decisions.filter((d: CompanyDecision) => d.proposedBy === agentRole);
   }
 
   /**
@@ -174,20 +194,28 @@ export class DecisionQueue {
           : decision.assignedTo.length > 0 ? decision.assignedTo : ['kristina', 'andrew'];
 
         const card = formatDecisionCard({
-          title: `⏰ REMINDER: ${decision.title}`,
-          description: decision.summary,
-          impact: String(decision.data ?? 'Unknown'),
-          reasoning: `This decision has been pending since ${pd.notifiedAt}`,
-          agentRole: decision.proposedBy,
+          id: decision.id,
           tier: decision.tier,
+          title: `⏰ REMINDER: ${decision.title}`,
+          summary: decision.summary,
+          proposedBy: decision.proposedBy,
+          reasoning: `This decision has been pending since ${pd.notifiedAt}`,
+          assignedTo: decision.assignedTo,
         });
 
-        for (const founder of targets) {
-          const webhook = this.founderWebhooks[founder];
-          if (webhook) {
-            await sendTeamsWebhook(webhook, card).catch(err =>
-              console.error(`Reminder failed for ${founder}:`, err),
-            );
+        // Send via Graph API (preferred) or webhook fallback
+        const decisionsChannel = this.channels.decisions;
+        if (this.graphClient && decisionsChannel) {
+          await this.graphClient.sendCard(decisionsChannel, card.attachments[0].content)
+            .catch((err: unknown) => console.error('Failed to send reminder via Graph API:', err));
+        } else {
+          for (const founder of targets) {
+            const webhook = this.founderWebhooks[founder];
+            if (webhook) {
+              await sendTeamsWebhook(webhook, card).catch((err: unknown) =>
+                console.error(`Reminder failed for ${founder}:`, err),
+              );
+            }
           }
         }
 

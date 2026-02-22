@@ -94,8 +94,10 @@ locals {
     "supabase-url",
     "supabase-service-key",
     "gcs-bucket",
-    "teams-webhook-kristina",
-    "teams-webhook-andrew",
+    "azure-tenant-id",
+    "azure-client-id",
+    "azure-client-secret",
+    "teams-team-id",
   ]
 }
 
