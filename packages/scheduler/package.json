@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@glyphor/agent-runtime": "*",
+    "@glyphor/agents": "*",
     "@glyphor/company-memory": "*",
     "@glyphor/integrations": "*"
   },
