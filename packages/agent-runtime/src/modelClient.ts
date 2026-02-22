@@ -40,7 +40,7 @@ export interface ModelRequest {
 
 export interface ModelResponse {
   text: string | null;
-  toolCalls: { name: string; args: Record<string, unknown> }[];
+  toolCalls: { name: string; args: Record<string, unknown>; thoughtSignature?: string }[];
   thinkingText?: string;
   usageMetadata: { inputTokens: number; outputTokens: number; totalTokens: number };
   finishReason: string;
@@ -127,44 +127,73 @@ export class ModelClient {
 
   private mapConversationGemini(turns: ConversationTurn[]): unknown[] {
     const contents: unknown[] = [];
+    let i = 0;
 
-    for (const turn of turns) {
+    while (i < turns.length) {
+      const turn = turns[i];
+
       switch (turn.role) {
         case 'user':
           contents.push({ role: 'user', parts: [{ text: turn.content }] });
+          i++;
           break;
         case 'assistant':
           contents.push({ role: 'model', parts: [{ text: turn.content }] });
+          i++;
           break;
-        case 'tool_call':
-          contents.push({
-            role: 'model',
-            parts: [{
-              functionCall: {
-                name: turn.toolName,
-                args: turn.toolParams ?? {},
-              },
-            }],
-          });
-          break;
-        case 'tool_result': {
-          let resultValue: unknown;
-          try {
-            resultValue = JSON.parse(turn.content);
-          } catch {
-            resultValue = turn.content;
+        case 'tool_call': {
+          // Batch consecutive tool_call turns into a single model message
+          // including thinking parts and thought signatures (required by Gemini 3+)
+          const modelParts: Record<string, unknown>[] = [];
+
+          if (turn.thinkingBeforeTools) {
+            modelParts.push({ text: turn.thinkingBeforeTools, thought: true });
           }
-          contents.push({
-            role: 'user',
-            parts: [{
-              functionResponse: {
-                name: turn.toolName,
-                response: { result: resultValue },
+
+          while (i < turns.length && turns[i].role === 'tool_call') {
+            const tc = turns[i];
+            const fcPart: Record<string, unknown> = {
+              functionCall: {
+                name: tc.toolName,
+                args: tc.toolParams ?? {},
               },
-            }],
-          });
+            };
+            if (tc.thoughtSignature) {
+              fcPart.thoughtSignature = tc.thoughtSignature;
+            }
+            modelParts.push(fcPart);
+            i++;
+          }
+
+          contents.push({ role: 'model', parts: modelParts });
           break;
         }
+        case 'tool_result': {
+          // Batch consecutive tool_result turns into a single user message
+          const frParts: unknown[] = [];
+
+          while (i < turns.length && turns[i].role === 'tool_result') {
+            const tr = turns[i];
+            let resultValue: unknown;
+            try {
+              resultValue = JSON.parse(tr.content);
+            } catch {
+              resultValue = tr.content;
+            }
+            frParts.push({
+              functionResponse: {
+                name: tr.toolName,
+                response: { result: resultValue },
+              },
+            });
+            i++;
+          }
+
+          contents.push({ role: 'user', parts: frParts });
+          break;
+        }
+        default:
+          i++;
       }
     }
 
@@ -174,7 +203,7 @@ export class ModelClient {
   private mapGeminiResponse(response: unknown): ModelResponse {
     const r = response as {
       candidates?: Array<{
-        content?: { parts?: Array<{ text?: string; thought?: boolean; functionCall?: { name: string; args: Record<string, unknown> } }> };
+        content?: { parts?: Array<{ text?: string; thought?: boolean; functionCall?: { name: string; args: Record<string, unknown> }; thoughtSignature?: string }> };
         finishReason?: string;
       }>;
       usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
@@ -200,6 +229,7 @@ export class ModelClient {
       .map((p) => ({
         name: p.functionCall!.name,
         args: p.functionCall!.args || {},
+        thoughtSignature: p.thoughtSignature,
       }));
 
     const usage = r.usageMetadata;

@@ -120,12 +120,16 @@ export class CompanyAgentRunner {
 
         // 4. TOOL CALLS
         if (response.toolCalls.length > 0) {
-          for (const call of response.toolCalls) {
+          // Push all tool_call turns first (batched for proper Gemini 3+ thought signature replay)
+          for (let j = 0; j < response.toolCalls.length; j++) {
+            const call = response.toolCalls[j];
             history.push({
               role: 'tool_call',
               content: JSON.stringify(call.args),
               toolName: call.name,
               toolParams: call.args,
+              thoughtSignature: call.thoughtSignature,
+              thinkingBeforeTools: j === 0 ? response.thinkingText : undefined,
               timestamp: Date.now(),
             });
 
@@ -136,7 +140,10 @@ export class CompanyAgentRunner {
               toolName: call.name,
               params: call.args,
             });
+          }
 
+          // Execute all tools and push all tool_result turns
+          for (const call of response.toolCalls) {
             const result = await toolExecutor.execute(call.name, call.args, {
               agentId: config.id,
               agentRole: config.role,

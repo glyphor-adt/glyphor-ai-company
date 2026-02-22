@@ -86,6 +86,8 @@ export interface ConversationTurn {
   toolName?: string;
   toolParams?: Record<string, unknown>;
   toolResult?: ToolResult;
+  thoughtSignature?: string;
+  thinkingBeforeTools?: string;
   timestamp: number;
 }
 
