@@ -48,6 +48,10 @@ export const SUBSCRIPTIONS: Record<CompanyAgentRole, GlyphorEventType[]> = {
     'insight.detected',
     'decision.resolved',
   ],
+  'vp-design': [
+    'insight.detected',
+    'agent.completed',
+  ],
 };
 
 /**

@@ -35,6 +35,7 @@ const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
   'cmo': 'maya-brooks',
   'vp-customer-success': 'james-turner',
   'vp-sales': 'rachel-kim',
+  'vp-design': 'mia-tanaka',
 };
 
 function buildSystemPrompt(role: CompanyAgentRole, existingPrompt: string): string {
