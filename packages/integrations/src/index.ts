@@ -31,6 +31,7 @@ export {
 // Teams Bot (Bot Framework integration)
 export {
   TeamsBotHandler,
+  BotTokenValidator,
   extractBearerToken,
   type BotConfig,
   type TeamsActivity,

@@ -353,10 +353,16 @@ const server = createServer(async (req, res) => {
         return;
       }
 
-      // Validate bearer token exists (Bot Framework sends JWT)
+      // Validate JWT from Bot Framework
       const token = extractBearerToken(req);
       if (!token) {
         json(res, 401, { error: 'Missing authorization token' });
+        return;
+      }
+
+      const isValid = await teamsBot.validateToken(token);
+      if (!isValid) {
+        json(res, 403, { error: 'Invalid or expired token' });
         return;
       }
 

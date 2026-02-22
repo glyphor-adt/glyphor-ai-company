@@ -107,14 +107,103 @@ function resolveAgent(input: string): string | null {
 // ─── Bot Token Validation ───────────────────────────────────────
 
 /**
- * Validate the Bot Framework JWT token from the Authorization header.
- * In production, this would verify against the Bot Framework OpenID metadata.
- * For now, we check the header format and trust the Bot Framework service.
+ * Extract the bearer token from the Authorization header.
  */
 export function extractBearerToken(req: IncomingMessage): string | null {
   const auth = req.headers['authorization'];
   if (!auth?.startsWith('Bearer ')) return null;
   return auth.slice(7);
+}
+
+// Bot Framework OpenID Connect metadata URLs
+const BF_OPENID_URL = 'https://login.botframework.com/v1/.well-known/openidconfiguration';
+const ENTRA_OPENID_URL = (tenantId: string) =>
+  `https://login.microsoftonline.com/${tenantId}/v2.0/.well-known/openid-configuration`;
+
+/**
+ * Validates incoming JWT tokens from Bot Framework.
+ * Checks signature (via JWKS), issuer, audience, and expiry.
+ */
+export class BotTokenValidator {
+  private bfJwks: ReturnType<typeof createRemoteJWKSet> | null = null;
+  private entraJwks: ReturnType<typeof createRemoteJWKSet> | null = null;
+  private readonly appId: string;
+  private readonly tenantId: string;
+
+  constructor(appId: string, tenantId: string) {
+    this.appId = appId;
+    this.tenantId = tenantId;
+  }
+
+  /**
+   * Lazily fetch and cache the JWKS (JSON Web Key Set) for Bot Framework tokens.
+   */
+  private async getBfJwks(): Promise<ReturnType<typeof createRemoteJWKSet>> {
+    if (this.bfJwks) return this.bfJwks;
+    const res = await fetch(BF_OPENID_URL);
+    const config = (await res.json()) as { jwks_uri: string };
+    this.bfJwks = createRemoteJWKSet(new URL(config.jwks_uri));
+    return this.bfJwks;
+  }
+
+  /**
+   * Lazily fetch and cache the JWKS for Entra ID (SingleTenant) tokens.
+   */
+  private async getEntraJwks(): Promise<ReturnType<typeof createRemoteJWKSet>> {
+    if (this.entraJwks) return this.entraJwks;
+    const res = await fetch(ENTRA_OPENID_URL(this.tenantId));
+    const config = (await res.json()) as { jwks_uri: string };
+    this.entraJwks = createRemoteJWKSet(new URL(config.jwks_uri));
+    return this.entraJwks;
+  }
+
+  /**
+   * Validate a JWT token from an incoming Bot Framework request.
+   * Tries Bot Framework issuer first, then Entra ID (SingleTenant).
+   * Returns the validated payload, or throws on failure.
+   */
+  async validate(token: string): Promise<JWTPayload> {
+    // Try Bot Framework channel service token first
+    try {
+      const bfJwks = await this.getBfJwks();
+      const { payload } = await jwtVerify(token, bfJwks, {
+        audience: this.appId,
+        issuer: 'https://api.botframework.com',
+        clockTolerance: 300, // 5 min clock skew tolerance
+      });
+      return payload;
+    } catch {
+      // Fall through to try Entra ID token
+    }
+
+    // Try Entra ID (SingleTenant) token
+    try {
+      const entraJwks = await this.getEntraJwks();
+      const { payload } = await jwtVerify(token, entraJwks, {
+        audience: this.appId,
+        issuer: `https://login.microsoftonline.com/${this.tenantId}/v2.0`,
+        clockTolerance: 300,
+      });
+      return payload;
+    } catch {
+      // Fall through
+    }
+
+    // Also accept tokens with sts.windows.net issuer (v1 tokens)
+    try {
+      const entraJwks = await this.getEntraJwks();
+      const { payload } = await jwtVerify(token, entraJwks, {
+        audience: this.appId,
+        issuer: `https://sts.windows.net/${this.tenantId}/`,
+        clockTolerance: 300,
+      });
+      return payload;
+    } catch (err) {
+      throw new Error(
+        `Bot token validation failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
 }
 
 // ─── Message Parsing ────────────────────────────────────────────
@@ -198,11 +287,13 @@ function parseMessage(activity: TeamsActivity, botName: string): ParsedCommand {
 export class TeamsBotHandler {
   private readonly config: BotConfig;
   private readonly agentRunner: AgentRunner;
+  private readonly tokenValidator: BotTokenValidator;
   private tokenCache: { token: string; expiresAt: number } | null = null;
 
   constructor(config: BotConfig, agentRunner: AgentRunner) {
     this.config = config;
     this.agentRunner = agentRunner;
+    this.tokenValidator = new BotTokenValidator(config.appId, config.tenantId);
   }
 
   static fromEnv(agentRunner: AgentRunner): TeamsBotHandler | null {
@@ -213,6 +304,20 @@ export class TeamsBotHandler {
     if (!appId || !appSecret || !tenantId) return null;
 
     return new TeamsBotHandler({ appId, appSecret, tenantId }, agentRunner);
+  }
+
+  /**
+   * Validate an incoming Bot Framework JWT token.
+   * Returns true if valid, false if invalid.
+   */
+  async validateToken(token: string): Promise<boolean> {
+    try {
+      await this.tokenValidator.validate(token);
+      return true;
+    } catch (err) {
+      console.error('[TeamsBot] Token validation failed:', (err as Error).message);
+      return false;
+    }
   }
 
   /**
