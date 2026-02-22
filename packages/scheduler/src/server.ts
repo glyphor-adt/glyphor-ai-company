@@ -18,6 +18,7 @@ import { DynamicScheduler } from './dynamicScheduler.js';
 import { AnalysisEngine } from './analysisEngine.js';
 import type { AnalysisType, AnalysisDepth } from './analysisEngine.js';
 import { SimulationEngine } from './simulationEngine.js';
+import { MeetingEngine } from './meetingEngine.js';
 import { exportAnalysisMarkdown, exportAnalysisJSON, exportSimulationMarkdown, exportSimulationJSON } from './reportExporter.js';
 import {
   runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPCS, runVPSales, runVPDesign,
@@ -126,6 +127,7 @@ const agentExecutor = async (
 const router = new EventRouter(agentExecutor, decisionQueue);
 const analysisEngine = new AnalysisEngine(memory.getSupabaseClient(), agentExecutor);
 const simulationEngine = new SimulationEngine(memory.getSupabaseClient(), agentExecutor);
+const meetingEngine = new MeetingEngine(memory.getSupabaseClient(), agentExecutor);
 
 // ─── Glyphor Event Bus ──────────────────────────────────────────
 
@@ -634,6 +636,91 @@ const server = createServer(async (req, res) => {
         });
         res.end(exportSimulationMarkdown(record));
       }
+      return;
+    }
+
+    // ─── Meeting Engine Endpoints ─────────────────────────────
+
+    // Call a meeting
+    if (method === 'POST' && url === '/meetings/call') {
+      const body = JSON.parse(await readBody(req));
+      const { title, purpose, calledBy, attendees, meetingType, rounds, agenda } = body;
+      const id = await meetingEngine.launch({
+        title,
+        purpose,
+        calledBy: calledBy ?? 'chief-of-staff',
+        attendees: attendees ?? [],
+        meetingType: meetingType ?? 'discussion',
+        rounds,
+        agenda,
+      });
+      json(res, 200, { success: true, id });
+      return;
+    }
+
+    // Get meeting by ID
+    const meetingGetMatch = url.match(/^\/meetings\/([^/]+)$/);
+    if (method === 'GET' && meetingGetMatch) {
+      const id = decodeURIComponent(meetingGetMatch[1]);
+      const record = await meetingEngine.get(id);
+      if (!record) { json(res, 404, { error: 'Meeting not found' }); return; }
+      json(res, 200, record);
+      return;
+    }
+
+    // List meetings
+    if (method === 'GET' && url === '/meetings') {
+      const records = await meetingEngine.list();
+      json(res, 200, records);
+      return;
+    }
+
+    // ─── Message Endpoints ──────────────────────────────────────
+
+    // Send a message (via API, not tool)
+    if (method === 'POST' && url === '/messages/send') {
+      const body = JSON.parse(await readBody(req));
+      const { from_agent, to_agent, message, message_type, priority, thread_id } = body;
+      const { data, error: msgErr } = await memory.getSupabaseClient()
+        .from('agent_messages')
+        .insert({
+          from_agent,
+          to_agent,
+          thread_id: thread_id ?? crypto.randomUUID(),
+          message,
+          message_type: message_type ?? 'info',
+          priority: priority ?? 'normal',
+          status: 'pending',
+        })
+        .select('id, thread_id')
+        .single();
+      if (msgErr) { json(res, 400, { success: false, error: msgErr.message }); return; }
+      json(res, 200, { success: true, ...data });
+      return;
+    }
+
+    // Get messages for an agent
+    const messagesForAgentMatch = url.match(/^\/messages\/agent\/([^/]+)$/);
+    if (method === 'GET' && messagesForAgentMatch) {
+      const agentRole = decodeURIComponent(messagesForAgentMatch[1]);
+      const { data } = await memory.getSupabaseClient()
+        .from('agent_messages')
+        .select('*')
+        .or(`from_agent.eq.${agentRole},to_agent.eq.${agentRole}`)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      json(res, 200, data ?? []);
+      return;
+    }
+
+    // Get all recent messages
+    if (method === 'GET' && url === '/messages') {
+      const { data } = await memory.getSupabaseClient()
+        .from('agent_messages')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      json(res, 200, data ?? []);
       return;
     }
 
