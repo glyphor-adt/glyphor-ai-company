@@ -731,5 +731,45 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         return { success: true, data: { agents_updated: updated } };
       },
     },
+
+    // ─── DIRECT MESSAGES ────────────────────────────────────────
+
+    {
+      name: 'send_dm',
+      description: 'Send a direct message to a founder via Teams 1:1 chat. GREEN for Atlas — use for critical system alerts, outage notifications, or urgent ops issues.',
+      parameters: {
+        recipient: {
+          type: 'string',
+          description: 'Founder to DM',
+          required: true,
+          enum: ['kristina', 'andrew'],
+        },
+        message: {
+          type: 'string',
+          description: 'Message content (supports markdown bold/italic)',
+          required: true,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        if (!dmClient) {
+          return {
+            success: false,
+            error: 'DM client not configured. Set TEAMS_USER_KRISTINA_ID and/or TEAMS_USER_ANDREW_ID.',
+          };
+        }
+
+        const recipient = params.recipient as 'kristina' | 'andrew';
+        await dmClient.sendText(recipient, params.message as string, 'Atlas Vega');
+
+        await supabase.from('activity_log').insert({
+          agent_id: 'ops',
+          action: 'dm.sent',
+          detail: `Atlas DM to ${recipient}: ${(params.message as string).slice(0, 100)}`,
+          created_at: new Date().toISOString(),
+        });
+
+        return { success: true, data: { sent: true, recipient } };
+      },
+    },
   ];
 }
