@@ -6,7 +6,7 @@ import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
 
 type AnalysisType = 'market_opportunity' | 'competitive_landscape' | 'product_strategy' | 'growth_diagnostic' | 'risk_assessment';
 type AnalysisDepth = 'quick' | 'standard' | 'deep';
-type AnalysisStatus = 'planning' | 'spawning' | 'executing' | 'synthesizing' | 'completed' | 'failed';
+type AnalysisStatus = 'planning' | 'executing' | 'synthesizing' | 'completed' | 'failed';
 
 interface AnalysisReport {
   summary: string;
@@ -29,7 +29,7 @@ interface AnalysisRecord {
   error: string | null;
 }
 
-type SimulationStatus = 'planning' | 'spawning' | 'executing' | 'cascading' | 'synthesizing' | 'completed' | 'failed' | 'accepted' | 'rejected';
+type SimulationStatus = 'planning' | 'executing' | 'cascading' | 'synthesizing' | 'completed' | 'failed' | 'accepted' | 'rejected';
 
 interface ImpactDimension {
   area: string;
