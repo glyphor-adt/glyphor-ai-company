@@ -452,6 +452,30 @@ export class CompanyMemoryStore implements IMemoryBus {
     return this._collectiveIntelligence;
   }
 
+  // ─── PEER FEEDBACK ───────────────────────────────────────────────
+
+  async savePeerFeedback(feedback: {
+    fromAgent: string;
+    toAgent: string;
+    feedback: string;
+    context: string;
+    sentiment: string;
+  }): Promise<void> {
+    const { error } = await this.supabase
+      .from('agent_peer_feedback')
+      .insert({
+        from_agent: feedback.fromAgent,
+        to_agent: feedback.toAgent,
+        feedback: feedback.feedback,
+        context: feedback.context,
+        sentiment: feedback.sentiment,
+      });
+
+    if (error) {
+      throw new Error(`Peer feedback save failed: ${error.message}`);
+    }
+  }
+
   // ─── SEMANTIC MEMORY ────────────────────────────────────────────
 
   /**

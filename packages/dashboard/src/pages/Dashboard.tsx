@@ -52,7 +52,7 @@ export default function Dashboard() {
           <SectionHeader
             title="Agent Constellation"
             action={
-              <Link to="/workforce" className="text-xs text-cyan hover:underline">
+              <Link to="/workforce" className="text-xs text-txt-muted hover:text-txt-primary hover:underline dark:text-cyan dark:hover:text-cyan">
                 View all →
               </Link>
             }
@@ -69,11 +69,11 @@ export default function Dashboard() {
                 <Link
                   key={agent.id}
                   to={`/chat/${agent.role}`}
-                  className="group flex flex-col items-center gap-2.5 rounded-xl border border-border bg-raised p-5 transition-all hover:border-border-hover hover:shadow-lg"
+                  className="group flex flex-col items-center gap-3 rounded-xl border border-border bg-raised p-6 transition-all hover:border-border-hover hover:shadow-lg"
                 >
-                  <AgentAvatar role={agent.role} size={56} glow={agent.status === 'active'} />
+                  <AgentAvatar role={agent.role} size={64} glow={agent.status === 'active'} />
                   <div className="text-center">
-                    <p className="text-[13px] font-semibold text-txt-secondary group-hover:text-cyan transition-colors">
+                    <p className="text-[13px] font-semibold text-txt-secondary group-hover:text-txt-primary transition-colors">
                       {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
                     </p>
                     <p className="text-[11px] text-txt-muted">{agent.role}</p>
@@ -133,7 +133,7 @@ export default function Dashboard() {
         <SectionHeader
           title="Decision Queue"
           action={
-            <Link to="/approvals" className="text-xs text-cyan hover:underline">
+            <Link to="/approvals" className="text-xs text-txt-muted hover:text-txt-primary hover:underline dark:text-cyan dark:hover:text-cyan">
               View all →
             </Link>
           }

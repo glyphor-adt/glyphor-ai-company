@@ -18,6 +18,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { VP_DESIGN_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createVPDesignTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createEventTools } from '../shared/eventTools.js';
 
@@ -45,6 +46,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
   const tools = [
     ...createVPDesignTools(memory),
     ...createMemoryTools(memory),
+    ...createCollectiveIntelligenceTools(memory),
     ...createEventTools(glyphorEventBus),
   ];
   const toolExecutor = new ToolExecutor(tools);

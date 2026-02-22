@@ -66,7 +66,7 @@ export default function Workforce() {
         <div className="flex items-center gap-3">
           <Link
             to="/agents/new"
-            className="rounded-lg bg-gradient-to-r from-cyan to-azure px-4 py-1.5 text-xs font-semibold text-[#0B0B0C] transition-all hover:shadow-[0_0_16px_rgba(0,224,255,0.4)]"
+            className="rounded-lg border border-border bg-surface px-4 py-1.5 text-xs font-semibold text-txt-primary transition-all hover:border-border-hover hover:shadow-md"
           >
             + New Agent
           </Link>
@@ -74,7 +74,7 @@ export default function Workforce() {
           <button
             onClick={() => setView('org-chart')}
             className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-              view === 'org-chart' ? 'bg-cyan/15 text-cyan' : 'text-txt-muted hover:text-txt-secondary'
+              view === 'org-chart' ? 'bg-raised text-txt-primary' : 'text-txt-muted hover:text-txt-secondary'
             }`}
           >
             Org Chart
@@ -82,7 +82,7 @@ export default function Workforce() {
           <button
             onClick={() => setView('grid')}
             className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-              view === 'grid' ? 'bg-cyan/15 text-cyan' : 'text-txt-muted hover:text-txt-secondary'
+              view === 'grid' ? 'bg-raised text-txt-primary' : 'text-txt-muted hover:text-txt-secondary'
             }`}
           >
             Grid
@@ -176,7 +176,7 @@ export default function Workforce() {
                     src={f.photo}
                     alt={f.name}
                     className="rounded-full object-cover"
-                    style={{ width: 44, height: 44, border: `1.5px solid ${f.color}40` }}
+                    style={{ width: 52, height: 52, border: `1.5px solid ${f.color}40` }}
                   />
                   <div>
                     <h3 className="text-[15px] font-semibold text-txt-primary">{f.name}</h3>
@@ -203,7 +203,7 @@ export default function Workforce() {
                   <Card key={agent.id} className="group relative overflow-hidden">
                     <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl" style={{ background: meta?.color ?? '#64748b' }} />
                     <div className="flex items-start gap-4 pl-3">
-                      <AgentAvatar role={agent.role} size={44} glow={agent.status === 'active'} />
+                      <AgentAvatar role={agent.role} size={52} glow={agent.status === 'active'} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <h3 className="text-[15px] font-semibold text-txt-primary">{DISPLAY_NAME_MAP[agent.role] ?? agent.role}</h3>
@@ -223,13 +223,13 @@ export default function Workforce() {
                       <div className="flex flex-col gap-1.5">
                         <Link
                           to={`/chat/${agent.role}`}
-                          className="rounded-lg border border-border px-3 py-1.5 text-[11px] font-medium text-txt-muted transition-colors hover:border-cyan hover:text-cyan"
+                          className="rounded-lg border border-border px-3 py-1.5 text-[11px] font-medium text-txt-muted transition-colors hover:border-border-hover hover:text-txt-primary"
                         >
                           Chat →
                         </Link>
                         <Link
                           to={`/agents/${agent.role}`}
-                          className="rounded-lg border border-border px-3 py-1.5 text-[11px] font-medium text-txt-muted transition-colors hover:border-cyan hover:text-cyan"
+                          className="rounded-lg border border-border px-3 py-1.5 text-[11px] font-medium text-txt-muted transition-colors hover:border-border-hover hover:text-txt-primary"
                         >
                           Settings
                         </Link>
@@ -252,7 +252,7 @@ export default function Workforce() {
                     src={`/avatars/${m.avatar}.png`}
                     alt={m.name}
                     className="rounded-full object-cover"
-                    style={{ width: 36, height: 36, border: `1.5px solid ${m.color}40` }}
+                    style={{ width: 44, height: 44, border: `1.5px solid ${m.color}40` }}
                   />
                   <div>
                     <h3 className="text-[13px] font-semibold text-txt-primary">{m.name}</h3>
@@ -278,12 +278,12 @@ function FounderNode({ name, title, initials, color, photo }: { name: string; ti
           src={photo}
           alt={name}
           className="rounded-full object-cover"
-          style={{ width: 64, height: 64, border: `2px solid ${color}50` }}
+          style={{ width: 72, height: 72, border: `2px solid ${color}50` }}
         />
         <div>
           <h3 className="text-base font-semibold text-txt-primary">{name}</h3>
           <p className="text-xs text-txt-muted">{title}</p>
-          <span className="mt-1 inline-block rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20">
+            className="mt-1 inline-block rounded-full bg-cyan/10 px-2 py-0.5 text-[10px] font-medium text-cyan border border-cyan/20">
             Human
           </span>
         </div>
@@ -299,7 +299,7 @@ function AgentNode({ agent, compact = false }: { agent: Agent; compact?: boolean
     <Link to={`/agents/${agent.role}`} className="block transition-transform hover:scale-[1.02]">
       <Card className={`${compact ? 'p-4' : 'p-5'} text-center`}>
         <div className="flex flex-col items-center gap-2">
-          <AgentAvatar role={agent.role} size={compact ? 44 : 52} glow={agent.status === 'active'} />
+          <AgentAvatar role={agent.role} size={compact ? 52 : 64} glow={agent.status === 'active'} />
           <div>
             <div className="flex items-center justify-center gap-1.5">
               <h3 className={`font-semibold text-txt-primary ${compact ? 'text-sm' : 'text-base'}`}>
@@ -352,7 +352,7 @@ function SubTeamNode({ member }: { member: SubTeamMember }) {
           src={`/avatars/${member.avatar}.png`}
           alt={member.name}
           className="shrink-0 rounded-full object-cover"
-          style={{ width: 36, height: 36, border: `1.5px solid ${member.color}40` }}
+          style={{ width: 44, height: 44, border: `1.5px solid ${member.color}40` }}
         />
         <div className="min-w-0 text-left">
           <p className="truncate text-sm font-semibold text-txt-primary">{member.name}</p>

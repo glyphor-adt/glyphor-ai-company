@@ -17,6 +17,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CFO_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCFOTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 
 export interface CFORunParams {
@@ -43,6 +44,7 @@ export async function runCFO(params: CFORunParams = {}) {
   const tools = [
     ...createCFOTools(memory),
     ...createMemoryTools(memory),
+    ...createCollectiveIntelligenceTools(memory),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

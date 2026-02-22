@@ -17,6 +17,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CTO_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCTOTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 
 export interface CTORunParams {
@@ -43,6 +44,7 @@ export async function runCTO(params: CTORunParams = {}) {
   const tools = [
     ...createCTOTools(memory),
     ...createMemoryTools(memory),
+    ...createCollectiveIntelligenceTools(memory),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

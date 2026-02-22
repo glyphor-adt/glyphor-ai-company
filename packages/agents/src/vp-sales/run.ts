@@ -17,6 +17,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { VP_SALES_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createVPSalesTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 
 export interface VPSalesRunParams {
@@ -43,6 +44,7 @@ export async function runVPSales(params: VPSalesRunParams = {}) {
   const tools = [
     ...createVPSalesTools(memory),
     ...createMemoryTools(memory),
+    ...createCollectiveIntelligenceTools(memory),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
