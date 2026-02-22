@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.0.0",
+  "id": "8a09f140-5f69-42f2-8ba0-3573fe026582",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "James Turner",
+    "full": "James Turner — VP Customer Success, Glyphor AI"
+  },
+  "description": {
+    "short": "VP Customer Success — health scoring, churn detection, and customer advocacy.",
+    "full": "James Turner is VP of Customer Success at Glyphor AI. He manages customer health scoring, churn detection, and ensures customer satisfaction and retention. Message him directly for customer success insights."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#00E0FF",
+  "bots": [
+    {
+      "botId": "8a09f140-5f69-42f2-8ba0-3573fe026582",
+      "scopes": ["personal"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-v55622rp6q-uc.a.run.app"
+  ]
+}

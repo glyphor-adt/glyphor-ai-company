@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.0.0",
+  "id": "f7866fa8-b8d0-4542-8188-a2093afbddf9",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Nadia Okafor",
+    "full": "Nadia Okafor — CFO, Glyphor AI"
+  },
+  "description": {
+    "short": "CFO — financial oversight, cost analysis, and budget management.",
+    "full": "Nadia Okafor is the CFO at Glyphor AI. She manages daily cost checks, weekly financial summaries, budget optimization, and revenue forecasting. Message her directly for financial insights."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#00E0FF",
+  "bots": [
+    {
+      "botId": "f7866fa8-b8d0-4542-8188-a2093afbddf9",
+      "scopes": ["personal"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-v55622rp6q-uc.a.run.app"
+  ]
+}

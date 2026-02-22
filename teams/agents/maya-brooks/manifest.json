@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.0.0",
+  "id": "17b37aa7-af00-4398-98df-6572404e6ffa",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Maya Brooks",
+    "full": "Maya Brooks — CMO, Glyphor AI"
+  },
+  "description": {
+    "short": "CMO — content planning, SEO strategy, and marketing campaigns.",
+    "full": "Maya Brooks is the CMO at Glyphor AI. She leads content planning, SEO strategy, social media campaigns, and brand positioning. Message her directly for marketing insights."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#00E0FF",
+  "bots": [
+    {
+      "botId": "17b37aa7-af00-4398-98df-6572404e6ffa",
+      "scopes": ["personal"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-v55622rp6q-uc.a.run.app"
+  ]
+}

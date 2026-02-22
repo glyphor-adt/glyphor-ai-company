@@ -4,3 +4,6 @@ dist/
 .turbo/
 *.tsbuildinfo
 teams/*.zip
+teams/agents/*.zip
+teams/agents/*/icon-color.png
+teams/agents/*/icon-outline.png
