@@ -17,15 +17,26 @@ export interface Agent {
 
 export interface Decision {
   id: string;
-  agent_id: string;
-  title: string;
-  description: string;
-  impact: 'low' | 'medium' | 'high' | 'critical';
+  tier: 'green' | 'yellow' | 'red';
   status: 'pending' | 'approved' | 'rejected';
-  decided_by: string | null;
-  decided_at: string | null;
+  title: string;
+  summary: string;
+  proposed_by: string;
+  reasoning: string;
+  data: Record<string, unknown> | null;
+  assigned_to: string[] | null;
+  resolved_by: string | null;
+  resolution_note: string | null;
   created_at: string;
+  resolved_at: string | null;
 }
+
+/** Map DB tier values to display-friendly impact labels */
+export const TIER_TO_IMPACT: Record<string, string> = {
+  green: 'low',
+  yellow: 'medium',
+  red: 'high',
+};
 
 export interface ActivityEntry {
   id: string;

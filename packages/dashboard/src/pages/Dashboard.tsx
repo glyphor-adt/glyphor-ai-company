@@ -1,5 +1,5 @@
 import { useAgents, useDecisions, useActivity, useProducts } from '../lib/hooks';
-import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
+import { DISPLAY_NAME_MAP, AGENT_META, TIER_TO_IMPACT } from '../lib/types';
 import {
   Card,
   SectionHeader,
@@ -156,12 +156,12 @@ export default function Dashboard() {
                   key={d.id}
                   className="flex items-center gap-4 rounded-lg border border-border bg-raised px-4 py-3"
                 >
-                  <AgentAvatar role={d.agent_id} size={28} />
+                  <AgentAvatar role={d.proposed_by} size={28} />
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] font-medium text-txt-secondary">{d.title}</p>
-                    <p className="text-[11px] text-txt-muted line-clamp-1">{d.description}</p>
+                    <p className="text-[11px] text-txt-muted line-clamp-1">{d.summary}</p>
                   </div>
-                  <ImpactBadge impact={d.impact} />
+                  <ImpactBadge impact={TIER_TO_IMPACT[d.tier] ?? d.tier} />
                   <span className="text-[10px] text-txt-faint">{timeAgo(d.created_at)}</span>
                 </div>
               ))}

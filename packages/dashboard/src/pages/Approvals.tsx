@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useDecisions, useAgents } from '../lib/hooks';
-import { DISPLAY_NAME_MAP } from '../lib/types';
+import { DISPLAY_NAME_MAP, TIER_TO_IMPACT } from '../lib/types';
 import {
   Card,
   SectionHeader,
@@ -85,28 +85,28 @@ export default function Approvals() {
               // stagger animation
             >
               <div className="flex items-start gap-4" style={{ animationDelay: `${i * 50}ms` }}>
-                <AgentAvatar role={d.agent_id} size={36} />
+                <AgentAvatar role={d.proposed_by} size={36} />
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2.5">
                     <h3 className="text-[14px] font-semibold text-txt-primary">{d.title}</h3>
-                    <ImpactBadge impact={d.impact} />
+                    <ImpactBadge impact={TIER_TO_IMPACT[d.tier] ?? d.tier} />
                   </div>
 
                   <p className="mt-1 text-[12px] text-txt-muted leading-relaxed">
-                    {d.description}
+                    {d.summary}
                   </p>
 
                   <div className="mt-2.5 flex items-center gap-3 text-[11px] text-txt-faint">
-                    <span>From: <span className="text-txt-muted">{agentName(d.agent_id)}</span></span>
+                    <span>From: <span className="text-txt-muted">{agentName(d.proposed_by)}</span></span>
                     <span>·</span>
                     <span>{timeAgo(d.created_at)}</span>
-                    {d.decided_by && (
+                    {d.resolved_by && (
                       <>
                         <span>·</span>
                         <span>
                           {d.status === 'approved' ? '✓' : '✗'} by{' '}
-                          <span className="text-txt-muted">{d.decided_by}</span>
+                          <span className="text-txt-muted">{d.resolved_by}</span>
                         </span>
                       </>
                     )}
