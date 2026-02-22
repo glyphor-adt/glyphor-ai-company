@@ -329,3 +329,23 @@ function StatCard({ label, value, total, color, loading }: { label: string; valu
     </Card>
   );
 }
+
+/* ─── Sub-Team Node (org chart) ───────────── */
+function SubTeamNode({ member }: { member: SubTeamMember }) {
+  return (
+    <Card className="p-2 text-center">
+      <div className="flex items-center gap-2">
+        <div
+          className="flex shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+          style={{ width: 28, height: 28, background: `${member.color}18`, border: `1.5px solid ${member.color}40`, color: member.color }}
+        >
+          {member.initials}
+        </div>
+        <div className="min-w-0 text-left">
+          <p className="truncate text-[11px] font-semibold text-txt-primary">{member.name}</p>
+          <p className="truncate text-[9px] text-txt-muted">{member.title}</p>
+        </div>
+      </div>
+    </Card>
+  );
+}
