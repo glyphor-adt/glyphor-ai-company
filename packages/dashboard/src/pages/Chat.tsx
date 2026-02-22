@@ -57,13 +57,22 @@ export default function Chat() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
+      let content: string;
+      if (data.output) {
+        content = stripReasoning(data.output);
+      } else if (data.error) {
+        content = `I ran into an issue: ${data.error}`;
+      } else if (data.reason) {
+        content = data.reason;
+      } else if (data.status === 'aborted') {
+        content = 'My response was cut short — I may have timed out. Try a simpler question.';
+      } else {
+        content = `I completed the task but had nothing to report. (status: ${data.status ?? 'unknown'})`;
+      }
+
       setMessages((prev) => [
         ...prev,
-        {
-          role: 'agent',
-          content: stripReasoning(data.output ?? data.reason ?? JSON.stringify(data)),
-          timestamp: new Date(),
-        },
+        { role: 'agent', content, timestamp: new Date() },
       ]);
     } catch {
       setMessages((prev) => [

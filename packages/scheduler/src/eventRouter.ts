@@ -30,6 +30,8 @@ export interface RouteResult {
   task: string;
   reason?: string;
   output?: string | null;
+  status?: string;
+  error?: string;
 }
 
 export type AgentExecutor = (
@@ -75,6 +77,8 @@ export class EventRouter {
           agentRole: event.agentRole,
           task: event.task,
           output: result?.output ?? null,
+          status: result?.status,
+          error: result?.error ?? result?.abortReason,
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
