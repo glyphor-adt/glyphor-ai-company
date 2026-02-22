@@ -91,13 +91,13 @@ export interface Database {
 
 /* ── Agent metadata lookup ── */
 export const AGENT_META: Record<string, { color: string; icon: string }> = {
-  'chief-of-staff': { color: '#8b5cf6', icon: '⚡' },
-  cto:              { color: '#ef4444', icon: '🔧' },
-  cpo:              { color: '#06b6d4', icon: '🧭' },
-  cfo:              { color: '#10b981', icon: '📊' },
-  cmo:              { color: '#ec4899', icon: '📡' },
-  'vp-cs':          { color: '#3b82f6', icon: '🛟' },
-  'vp-sales':       { color: '#f59e0b', icon: '🎯' },
+  'chief-of-staff': { color: '#8b5cf6', icon: 'MdBolt' },
+  cto:              { color: '#ef4444', icon: 'MdCode' },
+  cpo:              { color: '#06b6d4', icon: 'MdExplore' },
+  cfo:              { color: '#10b981', icon: 'MdBarChart' },
+  cmo:              { color: '#ec4899', icon: 'MdCampaign' },
+  'vp-cs':          { color: '#3b82f6', icon: 'MdSupportAgent' },
+  'vp-sales':       { color: '#f59e0b', icon: 'MdTrackChanges' },
 };
 
 export const CODENAME_MAP: Record<string, string> = {

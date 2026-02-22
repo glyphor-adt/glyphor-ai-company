@@ -1,4 +1,5 @@
 import { AGENT_META } from '../lib/types';
+import { AgentIcon } from './AgentIcon';
 
 /* ─── Agent Avatar ────────────────────────── */
 export function AgentAvatar({
@@ -10,7 +11,7 @@ export function AgentAvatar({
   size?: number;
   glow?: boolean;
 }) {
-  const meta = AGENT_META[role] ?? { color: '#64748b', icon: '🤖' };
+  const meta = AGENT_META[role] ?? { color: '#64748b', icon: 'MdSmartToy' };
   return (
     <div
       className={`flex items-center justify-center rounded-full ${glow ? 'agent-glow' : ''}`}
@@ -19,10 +20,9 @@ export function AgentAvatar({
         height: size,
         background: `${meta.color}18`,
         border: `1.5px solid ${meta.color}40`,
-        fontSize: size * 0.42,
       }}
     >
-      {meta.icon}
+      <AgentIcon name={meta.icon} size={size * 0.5} color={meta.color} />
     </div>
   );
 }

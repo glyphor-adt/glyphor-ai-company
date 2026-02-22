@@ -73,7 +73,7 @@ export default function Approvals() {
       ) : filtered.length === 0 ? (
         <Card>
           <p className="py-12 text-center text-sm text-slate-600">
-            {filter === 'pending' ? 'No decisions pending — inbox zero 🎉' : 'No decisions match this filter'}
+            {filter === 'pending' ? 'No decisions pending — inbox zero' : 'No decisions match this filter'}
           </p>
         </Card>
       ) : (

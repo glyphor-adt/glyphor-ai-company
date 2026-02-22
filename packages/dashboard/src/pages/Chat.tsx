@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useAgents } from '../lib/hooks';
 import { CODENAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
+import { AgentIcon } from '../components/AgentIcon';
 import { SCHEDULER_URL } from '../lib/supabase';
 
 interface Message {
@@ -64,7 +65,7 @@ export default function Chat() {
         ...prev,
         {
           role: 'agent',
-          content: `⚠ Could not reach ${codename}. The scheduler may be cold-starting — try again in a moment.`,
+          content: `Could not reach ${codename}. The scheduler may be cold-starting — try again in a moment.`,
           timestamp: new Date(),
         },
       ]);
@@ -97,10 +98,10 @@ export default function Chat() {
               }`}
             >
               <div
-                className="flex h-7 w-7 items-center justify-center rounded-full text-sm"
+                className="flex h-7 w-7 items-center justify-center rounded-full"
                 style={{ background: `${meta?.color ?? '#64748b'}20` }}
               >
-                {meta?.icon ?? '🤖'}
+                <AgentIcon name={meta?.icon ?? 'MdSmartToy'} size={14} color={meta?.color ?? '#64748b'} />
               </div>
               <div className="min-w-0">
                 <p
