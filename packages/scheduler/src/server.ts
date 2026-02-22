@@ -14,7 +14,15 @@ import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent } from '@glyp
 import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll } from '@glyphor/integrations';
 import { EventRouter } from './eventRouter.js';
 import { DecisionQueue } from './decisionQueue.js';
-import { runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPCS, runVPSales, runVPDesign } from '@glyphor/agents';
+import {
+  runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPCS, runVPSales, runVPDesign,
+  runPlatformEngineer, runQualityEngineer, runDevOpsEngineer,
+  runUserResearcher, runCompetitiveIntel,
+  runRevenueAnalyst, runCostAnalyst,
+  runContentCreator, runSeoAnalyst, runSocialMediaManager,
+  runOnboardingSpecialist, runSupportTriage,
+  runAccountResearch,
+} from '@glyphor/agents';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
 
@@ -61,6 +69,45 @@ const agentExecutor = async (
     return runVPSales({ task: (task as 'pipeline_review' | 'market_sizing' | 'on_demand'), message });
   } else if (agentRole === 'vp-design') {
     return runVPDesign({ task: (task as 'design_audit' | 'design_system_review' | 'on_demand'), message });
+  }
+  // ─── Sub-team agents ────────────────────────────────────────
+  // Engineering
+  else if (agentRole === 'platform-engineer') {
+    return runPlatformEngineer({ task: (task as 'health_check' | 'metrics_report' | 'on_demand'), message });
+  } else if (agentRole === 'quality-engineer') {
+    return runQualityEngineer({ task: (task as 'qa_report' | 'regression_check' | 'on_demand'), message });
+  } else if (agentRole === 'devops-engineer') {
+    return runDevOpsEngineer({ task: (task as 'optimization_scan' | 'pipeline_report' | 'on_demand'), message });
+  }
+  // Product
+  else if (agentRole === 'user-researcher') {
+    return runUserResearcher({ task: (task as 'cohort_analysis' | 'churn_signals' | 'on_demand'), message });
+  } else if (agentRole === 'competitive-intel') {
+    return runCompetitiveIntel({ task: (task as 'landscape_scan' | 'deep_dive' | 'on_demand'), message });
+  }
+  // Finance
+  else if (agentRole === 'revenue-analyst') {
+    return runRevenueAnalyst({ task: (task as 'revenue_report' | 'forecast' | 'on_demand'), message });
+  } else if (agentRole === 'cost-analyst') {
+    return runCostAnalyst({ task: (task as 'cost_report' | 'waste_scan' | 'on_demand'), message });
+  }
+  // Marketing
+  else if (agentRole === 'content-creator') {
+    return runContentCreator({ task: (task as 'blog_draft' | 'social_batch' | 'performance_review' | 'on_demand'), message });
+  } else if (agentRole === 'seo-analyst') {
+    return runSeoAnalyst({ task: (task as 'ranking_report' | 'keyword_research' | 'competitor_gap' | 'on_demand'), message });
+  } else if (agentRole === 'social-media-manager') {
+    return runSocialMediaManager({ task: (task as 'engagement_report' | 'schedule_batch' | 'mention_scan' | 'on_demand'), message });
+  }
+  // Customer Success
+  else if (agentRole === 'onboarding-specialist') {
+    return runOnboardingSpecialist({ task: (task as 'funnel_report' | 'drop_off_analysis' | 'on_demand'), message });
+  } else if (agentRole === 'support-triage') {
+    return runSupportTriage({ task: (task as 'triage_queue' | 'batch_analysis' | 'on_demand'), message });
+  }
+  // Sales
+  else if (agentRole === 'account-research') {
+    return runAccountResearch({ task: (task as 'prospect_research' | 'batch_enrich' | 'on_demand'), message, company: payload.company as string | undefined });
   } else {
     console.log(`[Scheduler] Agent ${agentRole} not recognized, skipping task: ${task}`);
   }
