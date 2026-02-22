@@ -1008,6 +1008,62 @@ Agent tool calls create_decision with tier:'yellow'
   → Finalized → logged in activity_log
 ```
 
+### Inter-Agent Direct Message
+
+```
+Agent A (during run) calls send_agent_message("cfo", "Need Q3 cost data")
+  → communicationTools validates rate limit (5/hr per agent)
+  → INSERT into agent_messages (status: 'pending', priority: 'normal')
+  → Agent A continues its run (fire-and-forget)
+
+  ... next CFO run ...
+  → pendingMessageLoader queries agent_messages WHERE to_agent='cfo' AND status='pending'
+  → Messages injected into system prompt: "📨 Pending Messages: ..."
+  → CFO processes and responds via send_agent_message()
+  → Original message status → 'read'
+```
+
+### Multi-Agent Meeting
+
+```
+Agent calls call_meeting({title:"Sprint Planning", attendees:["cto","cpo","vp-design"]})
+  → communicationTools validates rate limit (2/day per agent, 10/day system-wide)
+  → POST /meetings/start → MeetingEngine.startMeeting()
+  → INSERT agent_meetings (status: 'in_progress', rounds: [])
+
+  For each round (1..max_rounds):
+    → For each attendee:
+      → Run agent with meeting context + previous contributions
+      → Append contribution to rounds array
+    → Check convergence (did agents agree? new action items?)
+
+  After final round:
+    → Sarah (chief-of-staff) synthesizes all contributions
+    → Extract: summary, action_items, decisions_made, escalations
+    → UPDATE agent_meetings SET status='completed', summary=..., action_items=...
+    → Dispatch action items as pending messages to responsible agents
+```
+
+### Strategic Analysis
+
+```
+Dashboard → POST /analysis/run {type:"competitive_landscape", query:"AI market position", depth:"standard"}
+  → AnalysisEngine.runAnalysis()
+  → Phase 1 PLAN: Break into 4 research threads
+  → Phase 2 SPAWN: agentLifecycle creates 4 temporary agents
+      → INSERT company_agents (is_temporary=true, expires_at=now+1h)
+      → INSERT agent_briefs with specialized prompts
+  → Phase 3 EXECUTE: Run each temp agent on its thread in parallel
+      → Each agent produces findings + evidence + confidence
+  → Phase 4 SYNTHESIZE: Sarah merges findings into structured report
+      → Executive summary, key findings, recommendations, risk factors
+  → Phase 5 CLEANUP: agentLifecycle retires temp agents
+      → UPDATE company_agents SET status='retired'
+  → reportExporter generates Markdown + JSON
+  → Response: { report, threads, metadata }
+  → Strategy.tsx renders interactive report with collapsible threads
+```
+
 ---
 
 ## Security
