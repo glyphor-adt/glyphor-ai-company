@@ -237,13 +237,16 @@ export default function AgentSettings() {
                   <option value="gemini-2.5-pro-preview-05-06">gemini-2.5-pro-preview</option>
                 </optgroup>
                 <optgroup label="OpenAI">
-                  <option value="gpt-4o">gpt-4o</option>
-                  <option value="gpt-4o-mini">gpt-4o-mini</option>
-                  <option value="o3-mini">o3-mini</option>
+                  <option value="gpt-5.2">gpt-5.2</option>
+                  <option value="gpt-5.2-pro">gpt-5.2-pro</option>
+                  <option value="gpt-5-mini">gpt-5-mini</option>
+                  <option value="gpt-5-nano">gpt-5-nano</option>
+                  <option value="gpt-4.1">gpt-4.1</option>
                 </optgroup>
                 <optgroup label="Anthropic">
-                  <option value="claude-sonnet-4-20250514">claude-sonnet-4</option>
-                  <option value="claude-3-5-haiku-20241022">claude-3.5-haiku</option>
+                  <option value="claude-opus-4-6">claude-opus-4-6</option>
+                  <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
+                  <option value="claude-haiku-4-5">claude-haiku-4-5</option>
                 </optgroup>
               </select>
             </label>
