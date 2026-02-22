@@ -139,7 +139,7 @@ function StatCard({
         {value}
         <span className="text-sm text-txt-faint">/{total}</span>
       </p>
-      <div className="mt-2 h-1.5 w-full rounded-full bg-white/5">
+      <div className="mt-2 h-1.5 w-full rounded-full bg-border">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
     </Card>
