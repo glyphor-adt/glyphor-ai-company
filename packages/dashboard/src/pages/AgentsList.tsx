@@ -1,0 +1,125 @@
+import { Link } from 'react-router-dom';
+import { useAgents } from '../lib/hooks';
+import { DISPLAY_NAME_MAP, AGENT_META, ROLE_TITLE, ROLE_DEPARTMENT, ROLE_TIER, AGENT_SKILLS, SUB_TEAM } from '../lib/types';
+import { AgentAvatar, Card, StatusDot, TierBadge, Skeleton } from '../components/ui';
+
+export default function AgentsList() {
+  const { data: agents, loading } = useAgents();
+
+  const activeCount = agents.filter((a) => a.status === 'active').length;
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-txt-primary">Agents</h1>
+          <p className="mt-1 text-sm text-txt-muted">
+            {agents.length} agents · {activeCount} active
+          </p>
+        </div>
+        <Link
+          to="/agents/new"
+          className="rounded-lg bg-gradient-to-r from-cyan to-azure px-4 py-2 text-sm font-semibold text-[#0B0B0C] transition-all hover:shadow-[0_0_16px_rgba(0,224,255,0.4)]"
+        >
+          + New Agent
+        </Link>
+      </div>
+
+      {/* Agent Grid */}
+      {loading ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-44" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {agents
+            .sort((a, b) => {
+              const order = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales', 'vp-design', 'ops'];
+              const ai = order.indexOf(a.role);
+              const bi = order.indexOf(b.role);
+              return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+            })
+            .map((agent) => {
+              const meta = AGENT_META[agent.role];
+              const directReports = SUB_TEAM.filter((m) => m.reportsTo === agent.role);
+              const skills = AGENT_SKILLS[agent.role] ?? [];
+              return (
+                <Link key={agent.id} to={`/agents/${agent.role}`} className="group block">
+                  <Card className="relative overflow-hidden transition-all hover:border-cyan/30 hover:shadow-[0_0_20px_rgba(0,224,255,0.06)]">
+                    {/* Color accent */}
+                    <div
+                      className="absolute left-0 top-0 h-full w-1 rounded-l-xl"
+                      style={{ background: meta?.color ?? '#64748b' }}
+                    />
+
+                    <div className="pl-3">
+                      {/* Top row: avatar + name */}
+                      <div className="flex items-start gap-3">
+                        <AgentAvatar role={agent.role} size={48} glow={agent.status === 'active'} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-[15px] font-semibold text-txt-primary">
+                              {DISPLAY_NAME_MAP[agent.role] ?? agent.codename}
+                            </h3>
+                            <StatusDot status={agent.status} />
+                          </div>
+                          <p className="text-[12px] text-txt-muted">
+                            {ROLE_TITLE[agent.role] ?? agent.role}
+                          </p>
+                          <div className="mt-1 flex items-center gap-2 text-[11px] text-txt-faint">
+                            <span>{ROLE_DEPARTMENT[agent.role] ?? ''}</span>
+                            <span>·</span>
+                            <span className="font-mono text-txt-muted">{agent.model}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Stats row */}
+                      <div className="mt-3 flex items-center gap-3">
+                        <TierBadge tier={agent.tier} />
+                        <span className="font-mono text-sm text-txt-secondary">{agent.score}/100</span>
+                        {ROLE_TIER[agent.role] && (
+                          <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-[10px] font-medium text-txt-muted">
+                            {ROLE_TIER[agent.role]}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Skills preview */}
+                      {skills.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1">
+                          {skills.slice(0, 3).map((s) => (
+                            <span
+                              key={s}
+                              className="rounded-md border border-border bg-raised px-1.5 py-0.5 text-[10px] font-mono text-txt-faint"
+                            >
+                              {s}
+                            </span>
+                          ))}
+                          {skills.length > 3 && (
+                            <span className="rounded-md px-1.5 py-0.5 text-[10px] text-txt-faint">
+                              +{skills.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Direct reports count */}
+                      {directReports.length > 0 && (
+                        <p className="mt-2 text-[10px] text-txt-faint">
+                          {directReports.length} direct report{directReports.length > 1 ? 's' : ''}
+                        </p>
+                      )}
+                    </div>
+                  </Card>
+                </Link>
+              );
+            })}
+        </div>
+      )}
+    </div>
+  );
+}

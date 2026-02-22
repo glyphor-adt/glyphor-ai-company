@@ -15,6 +15,10 @@ import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryA
 import { EventRouter } from './eventRouter.js';
 import { DecisionQueue } from './decisionQueue.js';
 import { DynamicScheduler } from './dynamicScheduler.js';
+import { AnalysisEngine } from './analysisEngine.js';
+import type { AnalysisType, AnalysisDepth } from './analysisEngine.js';
+import { SimulationEngine } from './simulationEngine.js';
+import { exportAnalysisMarkdown, exportAnalysisJSON, exportSimulationMarkdown, exportSimulationJSON } from './reportExporter.js';
 import {
   runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPCS, runVPSales, runVPDesign,
   runPlatformEngineer, runQualityEngineer, runDevOpsEngineer,
@@ -120,6 +124,8 @@ const agentExecutor = async (
 };
 
 const router = new EventRouter(agentExecutor, decisionQueue);
+const analysisEngine = new AnalysisEngine(memory.getSupabaseClient(), agentExecutor);
+const simulationEngine = new SimulationEngine(memory.getSupabaseClient(), agentExecutor);
 
 // ─── Glyphor Event Bus ──────────────────────────────────────────
 
@@ -501,6 +507,133 @@ const server = createServer(async (req, res) => {
         .update({ enabled: false })
         .eq('agent_id', agentId);
       json(res, 200, { success: true });
+      return;
+    }
+
+    // ─── Analysis Engine Endpoints ──────────────────────────────
+
+    // Launch analysis
+    if (method === 'POST' && url === '/analysis/run') {
+      const body = JSON.parse(await readBody(req));
+      const { type, query, depth, requestedBy } = body;
+      const id = await analysisEngine.launch({
+        type: type as AnalysisType,
+        query,
+        depth: (depth ?? 'standard') as AnalysisDepth,
+        requestedBy: requestedBy ?? 'dashboard',
+      });
+      json(res, 200, { success: true, id });
+      return;
+    }
+
+    // Get analysis status/result
+    const analysisGetMatch = url.match(/^\/analysis\/([^/]+)$/);
+    if (method === 'GET' && analysisGetMatch) {
+      const id = decodeURIComponent(analysisGetMatch[1]);
+      const record = await analysisEngine.get(id);
+      if (!record) { json(res, 404, { error: 'Analysis not found' }); return; }
+      json(res, 200, record);
+      return;
+    }
+
+    // List analyses
+    if (method === 'GET' && url === '/analysis') {
+      const records = await analysisEngine.list();
+      json(res, 200, records);
+      return;
+    }
+
+    // Export analysis report
+    const analysisExportMatch = url.match(/^\/analysis\/([^/]+)\/export$/);
+    if (method === 'GET' && analysisExportMatch) {
+      const id = decodeURIComponent(analysisExportMatch[1]);
+      const record = await analysisEngine.get(id);
+      if (!record) { json(res, 404, { error: 'Analysis not found' }); return; }
+
+      const format = new URL(url, 'http://localhost').searchParams.get('format') ?? 'markdown';
+      if (format === 'json') {
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Content-Disposition': `attachment; filename="analysis-${id}.json"`,
+          'Access-Control-Allow-Origin': '*',
+        });
+        res.end(exportAnalysisJSON(record));
+      } else {
+        res.writeHead(200, {
+          'Content-Type': 'text/markdown',
+          'Content-Disposition': `attachment; filename="analysis-${id}.md"`,
+          'Access-Control-Allow-Origin': '*',
+        });
+        res.end(exportAnalysisMarkdown(record));
+      }
+      return;
+    }
+
+    // ─── Simulation Engine Endpoints ────────────────────────────
+
+    // Launch simulation
+    if (method === 'POST' && url === '/simulation/run') {
+      const body = JSON.parse(await readBody(req));
+      const { action, perspective, requestedBy } = body;
+      const id = await simulationEngine.launch({
+        action,
+        perspective: perspective ?? 'neutral',
+        requestedBy: requestedBy ?? 'dashboard',
+      });
+      json(res, 200, { success: true, id });
+      return;
+    }
+
+    // Get simulation status/result
+    const simGetMatch = url.match(/^\/simulation\/([^/]+)$/);
+    if (method === 'GET' && simGetMatch && !url.includes('/accept') && !url.includes('/export')) {
+      const id = decodeURIComponent(simGetMatch[1]);
+      const record = await simulationEngine.get(id);
+      if (!record) { json(res, 404, { error: 'Simulation not found' }); return; }
+      json(res, 200, record);
+      return;
+    }
+
+    // List simulations
+    if (method === 'GET' && url === '/simulation') {
+      const records = await simulationEngine.list();
+      json(res, 200, records);
+      return;
+    }
+
+    // Accept simulation result
+    const simAcceptMatch = url.match(/^\/simulation\/([^/]+)\/accept$/);
+    if (method === 'POST' && simAcceptMatch) {
+      const id = decodeURIComponent(simAcceptMatch[1]);
+      const body = JSON.parse(await readBody(req));
+      await simulationEngine.accept(id, body.acceptedBy ?? 'founder');
+      json(res, 200, { success: true });
+      return;
+    }
+
+    // Export simulation report
+    const simExportMatch = url.match(/^\/simulation\/([^/]+)\/export$/);
+    if (method === 'GET' && simExportMatch) {
+      const id = decodeURIComponent(simExportMatch[1]);
+      const record = await simulationEngine.get(id);
+      if (!record) { json(res, 404, { error: 'Simulation not found' }); return; }
+
+      const format = new URL(url, 'http://localhost').searchParams.get('format') ?? 'markdown';
+      if (format === 'json') {
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Content-Disposition': `attachment; filename="simulation-${id}.json"`,
+          'Access-Control-Allow-Origin': '*',
+        });
+        res.end(exportSimulationJSON(record));
+      } else {
+        res.writeHead(200, {
+          'Content-Type': 'text/markdown',
+          'Content-Disposition': `attachment; filename="simulation-${id}.md"`,
+          'Access-Control-Allow-Origin': '*',
+        });
+        res.end(exportSimulationMarkdown(record));
+      }
       return;
     }
 

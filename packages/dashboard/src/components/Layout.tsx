@@ -5,10 +5,11 @@ import { useAuth } from '../lib/auth';
 const NAV = [
   { to: '/', label: 'Dashboard', icon: GridIcon },
   { to: '/workforce', label: 'Workforce', icon: UsersIcon },
+  { to: '/agents', label: 'Agents', icon: AgentIcon },
+  { to: '/chat', label: 'Chat', icon: ChatIcon },
   { to: '/approvals', label: 'Approvals', icon: CheckIcon },
   { to: '/financials', label: 'Financials', icon: ChartIcon },
   { to: '/operations', label: 'Operations', icon: GearIcon },
-  { to: '/chat', label: 'Chat', icon: ChatIcon },
 ] as const;
 
 export default function Layout() {
@@ -158,6 +159,16 @@ function MoonIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
       <path d="M13.5 8.5a5.5 5.5 0 01-7.5-7.5 6 6 0 107.5 7.5z" />
+    </svg>
+  );
+}
+
+function AgentIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <circle cx="8" cy="5" r="3" />
+      <path d="M3 14c0-2.8 2.2-5 5-5s5 2.2 5 5" />
+      <circle cx="12" cy="4" r="1.5" />
     </svg>
   );
 }

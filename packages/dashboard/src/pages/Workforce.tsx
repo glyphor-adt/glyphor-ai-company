@@ -228,7 +228,7 @@ export default function Workforce() {
                           Chat →
                         </Link>
                         <Link
-                          to={`/agents/${agent.id}/settings`}
+                          to={`/agents/${agent.role}`}
                           className="rounded-lg border border-border px-3 py-1.5 text-[11px] font-medium text-txt-muted transition-colors hover:border-cyan hover:text-cyan"
                         >
                           Settings
@@ -296,7 +296,7 @@ function FounderNode({ name, title, initials, color, photo }: { name: string; ti
 function AgentNode({ agent, compact = false }: { agent: Agent; compact?: boolean }) {
   const meta = AGENT_META[agent.role];
   return (
-    <Link to={`/chat/${agent.role}`} className="block transition-transform hover:scale-[1.02]">
+    <Link to={`/agents/${agent.role}`} className="block transition-transform hover:scale-[1.02]">
       <Card className={`${compact ? 'p-4' : 'p-5'} text-center`}>
         <div className="flex flex-col items-center gap-2">
           <AgentAvatar role={agent.role} size={compact ? 44 : 52} glow={agent.status === 'active'} />
