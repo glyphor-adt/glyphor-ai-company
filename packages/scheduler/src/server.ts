@@ -20,6 +20,8 @@ import type { AnalysisType, AnalysisDepth } from './analysisEngine.js';
 import { SimulationEngine } from './simulationEngine.js';
 import { MeetingEngine } from './meetingEngine.js';
 import { exportAnalysisMarkdown, exportAnalysisJSON, exportSimulationMarkdown, exportSimulationJSON } from './reportExporter.js';
+import { WakeRouter } from './wakeRouter.js';
+import { HeartbeatManager } from './heartbeat.js';
 import {
   runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPCS, runVPSales, runVPDesign,
   runPlatformEngineer, runQualityEngineer, runDevOpsEngineer,
@@ -127,6 +129,8 @@ const agentExecutor = async (
 };
 
 const router = new EventRouter(agentExecutor, decisionQueue);
+const wakeRouter = new WakeRouter(memory.getSupabaseClient(), agentExecutor);
+const heartbeatManager = new HeartbeatManager(memory.getSupabaseClient(), agentExecutor, wakeRouter);
 
 const strategyModelClient = new ModelClient({
   geminiApiKey: process.env.GOOGLE_AI_API_KEY,
@@ -206,6 +210,19 @@ const server = createServer(async (req, res) => {
     if (method === 'POST' && url === '/webhook/stripe') {
       const rawBody = await readBody(req);
       const result = await handleStripeWebhook(req, rawBody, memory.getSupabaseClient());
+
+      // Reactive wake: notify relevant agents of Stripe events
+      try {
+        const parsed = JSON.parse(rawBody);
+        if (parsed?.type) {
+          await wakeRouter.processEvent({
+            type: parsed.type,
+            data: parsed?.data?.object ?? {},
+            source: 'stripe',
+          });
+        }
+      } catch { /* wake is best-effort */ }
+
       json(res, result.status, result.body);
       return;
     }
@@ -340,7 +357,22 @@ const server = createServer(async (req, res) => {
       }
 
       const results = await router.handleGlyphorEvent(event, agentLastRuns);
+
+      // Reactive wake: also route through wake rules
+      wakeRouter.processEvent({
+        type: event.type,
+        data: event.payload,
+        source: event.source,
+      }).catch(() => { /* best-effort */ });
+
       json(res, 200, { event: event.type, results });
+      return;
+    }
+
+    // Heartbeat endpoint — lightweight agent check-ins (Cloud Scheduler: */10 * * * *)
+    if (method === 'POST' && url === '/heartbeat') {
+      const result = await heartbeatManager.runHeartbeat();
+      json(res, 200, result);
       return;
     }
 
@@ -382,6 +414,21 @@ const server = createServer(async (req, res) => {
       teamsBot.handleActivity(activity).catch((err) => {
         console.error('[TeamsBot] Error handling activity:', (err as Error).message);
       });
+
+      // Reactive wake: route Teams DM to target agent
+      if (activity.type === 'message' && activity.text) {
+        wakeRouter.processEvent({
+          type: 'teams_bot_dm',
+          data: {
+            target_agent: activity.recipient?.name ?? '',
+            sender: activity.from?.name ?? '',
+            message: activity.text,
+            is_founder: true, // Bot messages assumed from authorized users
+          },
+          source: 'teams',
+        }).catch(() => { /* best-effort */ });
+      }
+
       return;
     }
 
@@ -761,6 +808,16 @@ const server = createServer(async (req, res) => {
         .select('id, thread_id')
         .single();
       if (msgErr) { json(res, 400, { success: false, error: msgErr.message }); return; }
+
+      // Reactive wake: wake target agent immediately for urgent messages
+      if (priority === 'urgent') {
+        wakeRouter.processEvent({
+          type: 'agent_message',
+          data: { to_agent, from_agent, message, priority },
+          source: 'internal',
+        }).catch(() => { /* best-effort */ });
+      }
+
       json(res, 200, { success: true, ...data });
       return;
     }

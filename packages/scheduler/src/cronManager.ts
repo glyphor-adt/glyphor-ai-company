@@ -54,7 +54,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'cto-health-check',
     agentRole: 'cto',
-    schedule: '*/30 * * * *',  // every 30 minutes
+    schedule: '*/15 * * * *',  // every 15 minutes (SRE frequency)
     timezone: 'UTC',
     task: 'platform_health_check',
     payload: {},
@@ -67,6 +67,15 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'daily_cost_check',
     payload: {},
+    enabled: true,
+  },
+  {
+    id: 'cfo-afternoon-costs',
+    agentRole: 'cfo',
+    schedule: '0 20 * * *',  // 3:00 PM CT — catch same-day anomalies
+    timezone: 'America/Chicago',
+    task: 'daily_cost_check',
+    payload: { context: 'afternoon_check' },
     enabled: true,
   },
   {
@@ -85,6 +94,15 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'weekly_content_planning',
     payload: {},
+    enabled: true,
+  },
+  {
+    id: 'cmo-afternoon-publishing',
+    agentRole: 'cmo',
+    schedule: '0 19 * * *',  // 2:00 PM CT — afternoon publishing/scheduling
+    timezone: 'America/Chicago',
+    task: 'generate_content',
+    payload: { context: 'afternoon_publishing' },
     enabled: true,
   },
   {
@@ -151,6 +169,150 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     payload: {},
     enabled: true,
   },
+
+  // ─── Sub-Team Agent Schedules ────────────────────────────────
+
+  // Engineering sub-team (reports to CTO)
+  {
+    id: 'platform-eng-daily',
+    agentRole: 'platform-engineer',
+    schedule: '30 12 * * *',  // 6:30 AM CT — infrastructure review
+    timezone: 'America/Chicago',
+    task: 'health_check',
+    payload: {},
+    enabled: true,
+  },
+  {
+    id: 'quality-eng-daily',
+    agentRole: 'quality-engineer',
+    schedule: '0 13 * * *',  // 7:00 AM CT — quality metrics
+    timezone: 'America/Chicago',
+    task: 'qa_report',
+    payload: {},
+    enabled: true,
+  },
+  {
+    id: 'devops-eng-daily',
+    agentRole: 'devops-engineer',
+    schedule: '0 12 * * *',  // 6:00 AM CT — deployment health, CI/CD check
+    timezone: 'America/Chicago',
+    task: 'pipeline_report',
+    payload: {},
+    enabled: true,
+  },
+
+  // Product sub-team (reports to CPO)
+  {
+    id: 'user-researcher-daily',
+    agentRole: 'user-researcher',
+    schedule: '30 16 * * *',  // 10:30 AM CT — usage patterns
+    timezone: 'America/Chicago',
+    task: 'cohort_analysis',
+    payload: {},
+    enabled: true,
+  },
+  {
+    id: 'competitive-intel-daily',
+    agentRole: 'competitive-intel',
+    schedule: '0 14 * * *',  // 8:00 AM CT — competitor monitoring
+    timezone: 'America/Chicago',
+    task: 'landscape_scan',
+    payload: {},
+    enabled: true,
+  },
+
+  // Finance sub-team (reports to CFO)
+  {
+    id: 'revenue-analyst-daily',
+    agentRole: 'revenue-analyst',
+    schedule: '30 15 * * *',  // 9:30 AM CT — revenue breakdown
+    timezone: 'America/Chicago',
+    task: 'revenue_report',
+    payload: {},
+    enabled: true,
+  },
+  {
+    id: 'cost-analyst-daily',
+    agentRole: 'cost-analyst',
+    schedule: '30 15 * * *',  // 9:30 AM CT — cost breakdown
+    timezone: 'America/Chicago',
+    task: 'cost_report',
+    payload: {},
+    enabled: true,
+  },
+
+  // Marketing sub-team (reports to CMO)
+  {
+    id: 'content-creator-daily',
+    agentRole: 'content-creator',
+    schedule: '0 16 * * *',  // 10:00 AM CT — content drafting
+    timezone: 'America/Chicago',
+    task: 'blog_draft',
+    payload: {},
+    enabled: true,
+  },
+  {
+    id: 'seo-analyst-daily',
+    agentRole: 'seo-analyst',
+    schedule: '30 14 * * *',  // 8:30 AM CT — SEO performance
+    timezone: 'America/Chicago',
+    task: 'ranking_report',
+    payload: {},
+    enabled: true,
+  },
+  {
+    id: 'social-media-morning',
+    agentRole: 'social-media-manager',
+    schedule: '0 15 * * *',  // 9:00 AM CT — morning plan
+    timezone: 'America/Chicago',
+    task: 'schedule_batch',
+    payload: {},
+    enabled: true,
+  },
+  {
+    id: 'social-media-afternoon',
+    agentRole: 'social-media-manager',
+    schedule: '0 22 * * *',  // 4:00 PM CT — afternoon engagement check
+    timezone: 'America/Chicago',
+    task: 'engagement_report',
+    payload: {},
+    enabled: true,
+  },
+
+  // Customer Success sub-team (reports to VP-CS)
+  {
+    id: 'onboarding-daily',
+    agentRole: 'onboarding-specialist',
+    schedule: '30 14 * * *',  // 8:30 AM CT — new user check
+    timezone: 'America/Chicago',
+    task: 'funnel_report',
+    payload: {},
+    enabled: true,
+  },
+  {
+    id: 'support-triage-recurring',
+    agentRole: 'support-triage',
+    schedule: '0 */2 * * *',  // every 2 hours — most frequent sub-team
+    timezone: 'UTC',
+    task: 'triage_queue',
+    payload: {},
+    enabled: true,
+  },
+
+  // Sales sub-team (reports to VP-Sales)
+  {
+    id: 'account-research-daily',
+    agentRole: 'account-research',
+    schedule: '30 15 * * *',  // 9:30 AM CT — account intelligence
+    timezone: 'America/Chicago',
+    task: 'prospect_research',
+    payload: {},
+    enabled: true,
+  },
+
+  // Design sub-team (reports to VP-Design) — roles not in static crons
+  // ui-ux-designer, frontend-engineer, design-critic, template-architect
+  // These are added via DB-driven agent_schedules. See seed migration.
 ];
 
 /**
@@ -185,6 +347,14 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     schedule: '0 8 * * *',     // 8:00 UTC = 2:00 AM CT, daily
     timezone: 'UTC',
     endpoint: '/sync/mercury',
+    enabled: true,
+  },
+  // Heartbeat — lightweight agent check-ins (no Gemini calls, DB only)
+  {
+    id: 'heartbeat',
+    schedule: '*/10 * * * *',  // every 10 minutes
+    timezone: 'UTC',
+    endpoint: '/heartbeat',
     enabled: true,
   },
 ];
