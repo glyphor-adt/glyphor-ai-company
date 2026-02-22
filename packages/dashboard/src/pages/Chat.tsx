@@ -4,7 +4,6 @@ import Markdown from 'react-markdown';
 import { useAgents } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
-import { AgentIcon } from '../components/AgentIcon';
 import { SCHEDULER_URL } from '../lib/supabase';
 
 interface Message {
