@@ -25,6 +25,7 @@ const DEPARTMENTS = [
   { label: 'Marketing', role: 'cmo' },
   { label: 'Customer Success', role: 'vp-customer-success' },
   { label: 'Sales', role: 'vp-sales' },
+  { label: 'Design & Frontend', role: 'vp-design' },
 ];
 
 const TITLE_MAP: Record<string, string> = {
@@ -35,9 +36,10 @@ const TITLE_MAP: Record<string, string> = {
   cmo: 'Chief Marketing Officer',
   'vp-customer-success': 'VP Customer Success',
   'vp-sales': 'VP Sales',
+  'vp-design': 'VP Design & Frontend',
 };
 
-const TOTAL_HEADCOUNT = FOUNDERS.length + 7 + SUB_TEAM.length; // founders + execs + ICs
+const TOTAL_HEADCOUNT = FOUNDERS.length + 8 + SUB_TEAM.length; // founders + execs + ICs
 
 type ViewMode = 'org-chart' | 'grid';
 
@@ -184,7 +186,7 @@ export default function Workforce() {
           <div className="mb-6 grid grid-cols-2 gap-4">
             {agents
               .sort((a, b) => {
-                const order = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales'];
+                const order = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales', 'vp-design'];
                 return order.indexOf(a.role) - order.indexOf(b.role);
               })
               .map((agent) => {

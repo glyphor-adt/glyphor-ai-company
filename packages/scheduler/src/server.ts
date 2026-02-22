@@ -14,7 +14,7 @@ import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent } from '@glyp
 import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll } from '@glyphor/integrations';
 import { EventRouter } from './eventRouter.js';
 import { DecisionQueue } from './decisionQueue.js';
-import { runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPCS, runVPSales } from '@glyphor/agents';
+import { runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPCS, runVPSales, runVPDesign } from '@glyphor/agents';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
 
@@ -59,6 +59,8 @@ const agentExecutor = async (
     return runVPCS({ task: (task as 'daily_health_scoring' | 'churn_detection' | 'on_demand'), message });
   } else if (agentRole === 'vp-sales') {
     return runVPSales({ task: (task as 'pipeline_review' | 'market_sizing' | 'on_demand'), message });
+  } else if (agentRole === 'vp-design') {
+    return runVPDesign({ task: (task as 'design_audit' | 'design_system_review' | 'on_demand'), message });
   } else {
     console.log(`[Scheduler] Agent ${agentRole} not recognized, skipping task: ${task}`);
   }

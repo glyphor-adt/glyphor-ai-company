@@ -109,6 +109,7 @@ export const AGENT_META: Record<string, { color: string; icon: string }> = {
   cmo:              { color: '#7B68EE', icon: 'MdCampaign' },
   'vp-customer-success': { color: '#00BCD4', icon: 'MdSupportAgent' },
   'vp-sales':       { color: '#5B8DEF', icon: 'MdTrackChanges' },
+  'vp-design':      { color: '#E91E63', icon: 'MdPalette' },
 };
 
 export const DISPLAY_NAME_MAP: Record<string, string> = {
@@ -119,6 +120,7 @@ export const DISPLAY_NAME_MAP: Record<string, string> = {
   cmo: 'Maya Brooks',
   'vp-customer-success': 'James Turner',
   'vp-sales': 'Rachel Kim',
+  'vp-design': 'Mia Tanaka',
 };
 
 /** @deprecated Use DISPLAY_NAME_MAP instead */
@@ -154,4 +156,9 @@ export const SUB_TEAM: SubTeamMember[] = [
   { name: 'David Santos',  title: 'Support Triage',       department: 'Customer Success',  reportsTo: 'vp-customer-success', color: '#00BCD4', initials: 'DS' },
   // Sales → Rachel Kim (VP Sales)
   { name: 'Nathan Cole',   title: 'Account Research',     department: 'Sales',             reportsTo: 'vp-sales', color: '#5B8DEF', initials: 'NC' },
+  // Design & Frontend → Mia Tanaka (VP Design)
+  { name: 'Leo Vargas',    title: 'UI/UX Designer',       department: 'Design & Frontend', reportsTo: 'vp-design', color: '#E91E63', initials: 'LV' },
+  { name: 'Ava Chen',      title: 'Frontend Engineer',    department: 'Design & Frontend', reportsTo: 'vp-design', color: '#E91E63', initials: 'AC' },
+  { name: 'Sofia Marchetti', title: 'Design Critic',      department: 'Design & Frontend', reportsTo: 'vp-design', color: '#E91E63', initials: 'SM' },
+  { name: 'Ryan Park',     title: 'Template Architect',   department: 'Design & Frontend', reportsTo: 'vp-design', color: '#E91E63', initials: 'RP' },
 ];

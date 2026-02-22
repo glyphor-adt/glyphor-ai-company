@@ -33,7 +33,8 @@ export type CompanyAgentRole =
   | 'cmo'
   | 'cfo'
   | 'vp-customer-success'
-  | 'vp-sales';
+  | 'vp-sales'
+  | 'vp-design';
 
 export type ContextInjector = (
   turnNumber: number,
