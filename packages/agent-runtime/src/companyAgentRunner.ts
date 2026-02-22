@@ -200,6 +200,8 @@ export interface AgentMemoryStore {
   getMemories(role: CompanyAgentRole, options?: { limit?: number }): Promise<AgentMemory[]>;
   getReflections(role: CompanyAgentRole, limit?: number): Promise<AgentReflection[]>;
   saveMemory(memory: Omit<AgentMemory, 'id' | 'createdAt'>): Promise<string>;
+  saveMemoryWithEmbedding?(memory: Omit<AgentMemory, 'id' | 'createdAt'>): Promise<string>;
+  searchMemoriesBySimilarity?(role: CompanyAgentRole, query: string, options?: { limit?: number; threshold?: number }): Promise<(AgentMemory & { similarity: number })[]>;
   saveReflection(reflection: Omit<AgentReflection, 'id' | 'createdAt'>): Promise<string>;
   savePeerFeedback?(feedback: { fromAgent: string; toAgent: string; feedback: string; context: string; sentiment: string }): Promise<void>;
 }
@@ -241,13 +243,26 @@ export class CompanyAgentRunner {
     // ─── MEMORY RETRIEVAL: inject prior memories + reflections ──
     if (deps?.agentMemoryStore) {
       try {
-        const [memories, reflections] = await Promise.all([
+        const fetches: [Promise<AgentMemory[]>, Promise<AgentReflection[]>, Promise<(AgentMemory & { similarity: number })[]>] = [
           deps.agentMemoryStore.getMemories(config.role, { limit: 20 }),
           deps.agentMemoryStore.getReflections(config.role, 3),
-        ]);
+          // Semantic search: find memories relevant to this task
+          deps.agentMemoryStore.searchMemoriesBySimilarity
+            ? deps.agentMemoryStore.searchMemoriesBySimilarity(config.role, initialMessage, { limit: 5, threshold: 0.7 })
+            : Promise.resolve([]),
+        ];
+        const [memories, reflections, semanticMemories] = await Promise.all(fetches);
 
-        if (memories.length > 0 || reflections.length > 0) {
-          const memoryContext = buildMemoryContext(memories, reflections);
+        // Merge semantic results (deduplicated) with recency-based memories
+        const seenIds = new Set(memories.map((m) => m.id));
+        const uniqueSemantic = semanticMemories.filter((m) => !seenIds.has(m.id));
+
+        if (memories.length > 0 || reflections.length > 0 || uniqueSemantic.length > 0) {
+          const memoryContext = buildMemoryContext(
+            [...memories, ...uniqueSemantic],
+            reflections,
+            uniqueSemantic,
+          );
           history.push({
             role: 'user',
             content: memoryContext,
@@ -723,6 +738,7 @@ function estimateTokens(history: ConversationTurn[]): number {
 function buildMemoryContext(
   memories: AgentMemory[],
   reflections: AgentReflection[],
+  semanticMatches?: (AgentMemory & { similarity: number })[],
 ): string {
   const parts: string[] = [
     '## Your Prior Knowledge & Learnings\n',
@@ -730,8 +746,18 @@ function buildMemoryContext(
     'Use these to inform your approach and avoid repeating past mistakes.\n',
   ];
 
+  if (semanticMatches && semanticMatches.length > 0) {
+    parts.push('### Relevant Memories (semantic match to current task)');
+    for (const m of semanticMatches) {
+      parts.push(
+        `- [${m.memoryType}] (relevance: ${(m.similarity * 100).toFixed(0)}%, importance: ${m.importance}) ${m.content}`,
+      );
+    }
+    parts.push('');
+  }
+
   if (memories.length > 0) {
-    parts.push('### Memories');
+    parts.push('### Recent Memories');
     for (const m of memories) {
       parts.push(
         `- [${m.memoryType}] (importance: ${m.importance}) ${m.content}`,

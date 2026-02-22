@@ -7,6 +7,7 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { Storage } from '@google-cloud/storage';
+import { EmbeddingClient } from './embeddingClient.js';
 import type {
   IMemoryBus,
   DecisionTier,
@@ -36,17 +37,21 @@ export interface CompanyMemoryConfig {
   supabaseServiceKey: string;
   gcsBucket: string;
   gcpProjectId?: string;
+  geminiApiKey?: string;
 }
 
 export class CompanyMemoryStore implements IMemoryBus {
   private supabase: SupabaseClient;
   private storage: Storage;
   private bucketName: string;
+  private embeddingClient: EmbeddingClient | null;
 
   constructor(config: CompanyMemoryConfig) {
     this.supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
     this.storage = new Storage({ projectId: config.gcpProjectId });
     this.bucketName = config.gcsBucket;
+    const geminiKey = config.geminiApiKey ?? process.env.GOOGLE_AI_API_KEY;
+    this.embeddingClient = geminiKey ? new EmbeddingClient(geminiKey) : null;
   }
 
   // ─── GENERIC KEY-VALUE (company_profile table) ──────────────────
@@ -430,6 +435,84 @@ export class CompanyMemoryStore implements IMemoryBus {
    */
   getSupabaseClient(): SupabaseClient {
     return this.supabase;
+  }
+
+  // ─── SEMANTIC MEMORY ────────────────────────────────────────────
+
+  /**
+   * Save a memory with an auto-generated embedding vector.
+   * Falls back to saving without embedding if the client is unavailable.
+   */
+  async saveMemoryWithEmbedding(
+    memory: Omit<AgentMemory, 'id' | 'createdAt'>,
+  ): Promise<string> {
+    let embedding: number[] | null = null;
+    if (this.embeddingClient) {
+      try {
+        embedding = await this.embeddingClient.embed(memory.content);
+      } catch (err) {
+        console.warn('[Memory] Embedding generation failed, saving without vector:', (err as Error).message);
+      }
+    }
+
+    const { data, error } = await this.supabase
+      .from('agent_memory')
+      .insert({
+        agent_role: memory.agentRole,
+        memory_type: memory.memoryType,
+        content: memory.content,
+        importance: memory.importance,
+        source_run_id: memory.sourceRunId ?? null,
+        tags: memory.tags ?? [],
+        expires_at: memory.expiresAt ?? null,
+        ...(embedding ? { embedding: JSON.stringify(embedding) } : {}),
+      })
+      .select('id')
+      .single();
+
+    if (error || !data) {
+      throw new Error(`Memory save (embedded) failed: ${error?.message}`);
+    }
+    return data.id;
+  }
+
+  /**
+   * Semantic search: find memories similar to a query string.
+   * Uses pgvector cosine similarity via the match_memories RPC.
+   */
+  async searchMemoriesBySimilarity(
+    agentRole: CompanyAgentRole,
+    query: string,
+    options?: { limit?: number; threshold?: number },
+  ): Promise<(AgentMemory & { similarity: number })[]> {
+    if (!this.embeddingClient) {
+      return [];
+    }
+
+    const queryEmbedding = await this.embeddingClient.embed(query);
+
+    const { data, error } = await this.supabase.rpc('match_memories', {
+      query_embedding: JSON.stringify(queryEmbedding),
+      match_role: agentRole,
+      match_threshold: options?.threshold ?? 0.7,
+      match_count: options?.limit ?? 10,
+    });
+
+    if (error) {
+      console.warn('[Memory] Semantic search failed:', error.message);
+      return [];
+    }
+
+    return (data ?? []).map((row: { id: string; agent_role: string; memory_type: string; content: string; importance: number; tags: string[]; created_at: string; similarity: number }) => ({
+      id: row.id,
+      agentRole: row.agent_role as CompanyAgentRole,
+      memoryType: row.memory_type as MemoryType,
+      content: row.content,
+      importance: Number(row.importance),
+      tags: row.tags,
+      createdAt: row.created_at,
+      similarity: row.similarity,
+    }));
   }
 
   // ─── HELPERS ────────────────────────────────────────────────────

@@ -140,6 +140,7 @@ export interface DbAgentMemory {
   source_run_id: string | null;
   tags: string[];
   expires_at: string | null;
+  embedding: number[] | null;
   created_at: string;
 }
 
