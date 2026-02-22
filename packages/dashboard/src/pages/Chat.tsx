@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import Markdown from 'react-markdown';
 import { useAgents } from '../lib/hooks';
-import { CODENAME_MAP, AGENT_META } from '../lib/types';
+import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
 import { AgentIcon } from '../components/AgentIcon';
 import { SCHEDULER_URL } from '../lib/supabase';
@@ -38,7 +38,7 @@ export default function Chat() {
   }, [messages]);
 
   const selectedAgent = agents.find((a) => a.role === selectedRole);
-  const codename = CODENAME_MAP[selectedRole] ?? selectedRole;
+  const codename = DISPLAY_NAME_MAP[selectedRole] ?? selectedRole;
 
   const sendMessage = async () => {
     const text = input.trim();
@@ -115,7 +115,7 @@ export default function Chat() {
                     active ? 'text-cyan' : 'text-txt-secondary'
                   }`}
                 >
-                  {CODENAME_MAP[agent.role] ?? agent.codename}
+                  {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
                 </p>
                 <p className="text-[10px] text-txt-faint truncate">{agent.role}</p>
               </div>

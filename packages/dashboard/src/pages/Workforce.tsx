@@ -1,5 +1,5 @@
 import { useAgents } from '../lib/hooks';
-import { CODENAME_MAP, AGENT_META } from '../lib/types';
+import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import {
   Card,
   SectionHeader,
@@ -11,7 +11,7 @@ import {
 } from '../components/ui';
 import { Link } from 'react-router-dom';
 
-const DEPT_ORDER = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-cs', 'vp-sales'];
+const DEPT_ORDER = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales'];
 
 export default function Workforce() {
   const { data: agents, loading } = useAgents();
@@ -82,7 +82,7 @@ export default function Workforce() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <h3 className="text-[15px] font-semibold text-txt-primary">
-                          {CODENAME_MAP[agent.role] ?? agent.codename}
+                          {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
                         </h3>
                         <StatusDot status={agent.status} />
                       </div>

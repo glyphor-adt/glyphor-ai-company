@@ -1,5 +1,5 @@
 import { useAgents, useDecisions, useActivity, useProducts } from '../lib/hooks';
-import { CODENAME_MAP, AGENT_META } from '../lib/types';
+import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import {
   Card,
   SectionHeader,
@@ -71,7 +71,7 @@ export default function Dashboard() {
                   <AgentAvatar role={agent.role} size={40} glow={agent.status === 'active'} />
                   <div className="text-center">
                     <p className="text-[13px] font-semibold text-txt-secondary group-hover:text-cyan transition-colors">
-                      {CODENAME_MAP[agent.role] ?? agent.codename}
+                      {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
                     </p>
                     <p className="text-[11px] text-txt-muted">{agent.role}</p>
                   </div>

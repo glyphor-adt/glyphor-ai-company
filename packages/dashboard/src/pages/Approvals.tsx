@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useDecisions, useAgents } from '../lib/hooks';
-import { CODENAME_MAP } from '../lib/types';
+import { DISPLAY_NAME_MAP } from '../lib/types';
 import {
   Card,
   SectionHeader,
@@ -29,7 +29,7 @@ export default function Approvals() {
 
   const agentName = (agentId: string) => {
     const agent = agents.find((a) => a.id === agentId || a.role === agentId);
-    return agent ? (CODENAME_MAP[agent.role] ?? agent.codename) : agentId;
+    return agent ? (DISPLAY_NAME_MAP[agent.role] ?? agent.role) : agentId;
   };
 
   const handleDecide = (id: string, status: 'approved' | 'rejected') => {
