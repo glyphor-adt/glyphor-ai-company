@@ -43,7 +43,7 @@ export function createAccountResearchTools(memory: CompanyMemoryStore): ToolDefi
       parameters: { company: { type: 'string', description: 'Company name', required: true }, title: { type: 'string', description: 'Job title filter (e.g. "VP Engineering", "Design Director")' }, limit: { type: 'number', description: 'Max results (default 10)' } },
       async execute(params) {
         const supabase = memory.getSupabaseClient();
-        let query = supabase.from('contact_research').select('*').ilike('company', `%${params.company}%`).order('updated_at', { ascending: false }).limit(params.limit || 10);
+        let query = supabase.from('contact_research').select('*').ilike('company', `%${params.company}%`).order('updated_at', { ascending: false }).limit(Number(params.limit) || 10);
         if (params.title) { query = query.ilike('title', `%${params.title}%`); }
         const { data } = await query;
         return { success: true, data: data || [] };
@@ -67,7 +67,7 @@ export function createAccountResearchTools(memory: CompanyMemoryStore): ToolDefi
       parameters: { company: { type: 'string', description: 'Company name', required: true }, teamSize: { type: 'number', description: 'Engineering team size estimate' }, techStack: { type: 'string', description: 'Known technologies (comma-separated)' } },
       async execute(params) {
         // Heuristic: average dev spends $500-2000/year on tools
-        const size = params.teamSize || 50;
+        const size = Number(params.teamSize) || 50;
         const lowEstimate = size * 500;
         const highEstimate = size * 2000;
         return { success: true, data: { company: params.company, teamSize: size, annualSpendRange: { low: lowEstimate, high: highEstimate }, perDevRange: { low: 500, high: 2000 }, confidence: params.teamSize ? 'medium' : 'low' } };

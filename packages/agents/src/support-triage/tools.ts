@@ -13,7 +13,7 @@ export function createSupportTriageTools(memory: CompanyMemoryStore): ToolDefini
       parameters: { status: { type: 'string', description: 'Filter: open, closed, snoozed, all', required: true }, priority: { type: 'string', description: 'Filter by priority: p0, p1, p2, p3' }, limit: { type: 'number', description: 'Max results (default 20)' } },
       async execute(params) {
         const supabase = memory.getSupabaseClient();
-        let query = supabase.from('support_tickets').select('*').order('created_at', { ascending: false }).limit(params.limit || 20);
+        let query = supabase.from('support_tickets').select('*').order('created_at', { ascending: false }).limit(Number(params.limit) || 20);
         if (params.status !== 'all') { query = query.eq('status', params.status); }
         if (params.priority) { query = query.eq('priority', params.priority); }
         const { data } = await query;
@@ -57,7 +57,7 @@ export function createSupportTriageTools(memory: CompanyMemoryStore): ToolDefini
       parameters: { query: { type: 'string', description: 'Search query', required: true }, limit: { type: 'number', description: 'Max results (default 5)' } },
       async execute(params) {
         const supabase = memory.getSupabaseClient();
-        const { data } = await supabase.from('knowledge_base').select('*').ilike('content', `%${params.query}%`).order('views', { ascending: false }).limit(params.limit || 5);
+        const { data } = await supabase.from('knowledge_base').select('*').ilike('content', `%${params.query}%`).order('views', { ascending: false }).limit(Number(params.limit) || 5);
         return { success: true, data: data || [] };
       },
     },

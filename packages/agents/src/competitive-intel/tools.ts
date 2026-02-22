@@ -13,7 +13,7 @@ export function createCompetitiveIntelTools(memory: CompanyMemoryStore): ToolDef
       parameters: { owner: { type: 'string', description: 'GitHub org or user', required: true }, repo: { type: 'string', description: 'Repository name', required: true }, limit: { type: 'number', description: 'Max releases to fetch (default 5)' } },
       async execute(params) {
         const supabase = memory.getSupabaseClient();
-        const { data } = await supabase.from('competitive_intel').select('*').eq('source', 'github').eq('subject', `${params.owner}/${params.repo}`).order('created_at', { ascending: false }).limit(params.limit || 5);
+        const { data } = await supabase.from('competitive_intel').select('*').eq('source', 'github').eq('subject', `${params.owner}/${params.repo}`).order('created_at', { ascending: false }).limit(Number(params.limit) || 5);
         return { success: true, data: data || [] };
       },
     },
@@ -23,7 +23,7 @@ export function createCompetitiveIntelTools(memory: CompanyMemoryStore): ToolDef
       parameters: { query: { type: 'string', description: 'Search query', required: true }, limit: { type: 'number', description: 'Max results (default 10)' } },
       async execute(params) {
         const supabase = memory.getSupabaseClient();
-        const { data } = await supabase.from('competitive_intel').select('*').eq('source', 'hackernews').ilike('content', `%${params.query}%`).order('created_at', { ascending: false }).limit(params.limit || 10);
+        const { data } = await supabase.from('competitive_intel').select('*').eq('source', 'hackernews').ilike('content', `%${params.query}%`).order('created_at', { ascending: false }).limit(Number(params.limit) || 10);
         return { success: true, data: data || [] };
       },
     },
@@ -33,7 +33,7 @@ export function createCompetitiveIntelTools(memory: CompanyMemoryStore): ToolDef
       parameters: { query: { type: 'string', description: 'Search query', required: true }, days: { type: 'number', description: 'Look back N days (default 30)' } },
       async execute(params) {
         const supabase = memory.getSupabaseClient();
-        const since = new Date(Date.now() - (params.days || 30) * 86400000).toISOString();
+        const since = new Date(Date.now() - (Number(params.days) || 30) * 86400000).toISOString();
         const { data } = await supabase.from('competitive_intel').select('*').eq('source', 'producthunt').ilike('content', `%${params.query}%`).gte('created_at', since).order('created_at', { ascending: false });
         return { success: true, data: data || [] };
       },

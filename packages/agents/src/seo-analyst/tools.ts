@@ -35,7 +35,7 @@ export function createSeoAnalystTools(memory: CompanyMemoryStore): ToolDefinitio
       parameters: { seed: { type: 'string', description: 'Seed topic or keyword', required: true }, limit: { type: 'number', description: 'Max results (default 20)' } },
       async execute(params) {
         const supabase = memory.getSupabaseClient();
-        const { data } = await supabase.from('seo_data').select('*').eq('metric_type', 'keyword_discovery').ilike('seed_topic', `%${params.seed}%`).order('search_volume', { ascending: false }).limit(params.limit || 20);
+        const { data } = await supabase.from('seo_data').select('*').eq('metric_type', 'keyword_discovery').ilike('seed_topic', `%${params.seed}%`).order('search_volume', { ascending: false }).limit(Number(params.limit) || 20);
         return { success: true, data: data || [] };
       },
     },
@@ -45,7 +45,7 @@ export function createSeoAnalystTools(memory: CompanyMemoryStore): ToolDefinitio
       parameters: { competitor: { type: 'string', description: 'Competitor domain', required: true }, limit: { type: 'number', description: 'Max results (default 20)' } },
       async execute(params) {
         const supabase = memory.getSupabaseClient();
-        const { data } = await supabase.from('seo_data').select('*').eq('metric_type', 'competitor_ranking').eq('competitor_domain', params.competitor).order('search_volume', { ascending: false }).limit(params.limit || 20);
+        const { data } = await supabase.from('seo_data').select('*').eq('metric_type', 'competitor_ranking').eq('competitor_domain', params.competitor).order('search_volume', { ascending: false }).limit(Number(params.limit) || 20);
         return { success: true, data: data || [] };
       },
     },

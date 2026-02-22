@@ -54,7 +54,7 @@ export function createContentCreatorTools(memory: CompanyMemoryStore): ToolDefin
       parameters: { contentType: { type: 'string', description: 'Type: blog, social, email, all', required: true }, period: { type: 'string', description: 'Time period: 7d, 30d, 90d' }, sortBy: { type: 'string', description: 'Sort by: views, engagement, conversions' } },
       async execute(params) {
         const supabase = memory.getSupabaseClient();
-        let query = supabase.from('content_metrics').select('*').order(params.sortBy || 'views', { ascending: false }).limit(20);
+        let query = supabase.from('content_metrics').select('*').order(String(params.sortBy || 'views'), { ascending: false }).limit(20);
         if (params.contentType !== 'all') { query = query.eq('content_type', params.contentType); }
         const { data } = await query;
         return { success: true, data: data || [] };
@@ -66,7 +66,7 @@ export function createContentCreatorTools(memory: CompanyMemoryStore): ToolDefin
       parameters: { limit: { type: 'number', description: 'Number of results (default 10)' }, metric: { type: 'string', description: 'Metric to rank by: views, shares, conversions' } },
       async execute(params) {
         const supabase = memory.getSupabaseClient();
-        const { data } = await supabase.from('content_metrics').select('*').order(params.metric || 'views', { ascending: false }).limit(params.limit || 10);
+        const { data } = await supabase.from('content_metrics').select('*').order(String(params.metric || 'views'), { ascending: false }).limit(Number(params.limit) || 10);
         return { success: true, data: data || [] };
       },
     },

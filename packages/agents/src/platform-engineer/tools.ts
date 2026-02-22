@@ -53,7 +53,7 @@ export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDef
         }
 
         const results = await pingServices(services.map((s) => ({ url: `${s.url}/health`, name: s.name })));
-        const overall = results.every((r) => r.status === 'up') ? 'healthy' : 'degraded';
+        const overall = results.every((r) => r.status === 'healthy') ? 'healthy' : 'degraded';
         return { success: true, data: { status: overall, services: results, checkedAt: new Date().toISOString() } };
       },
     },

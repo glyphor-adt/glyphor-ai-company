@@ -35,7 +35,7 @@ export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolD
       parameters: { platform: { type: 'string', description: 'Platform filter (optional)' }, sortBy: { type: 'string', description: 'Sort by: engagement, impressions, clicks' }, limit: { type: 'number', description: 'Max results (default 20)' } },
       async execute(params) {
         const supabase = memory.getSupabaseClient();
-        let query = supabase.from('social_metrics').select('*').eq('metric_type', 'post_performance').order(params.sortBy || 'engagement', { ascending: false }).limit(params.limit || 20);
+        let query = supabase.from('social_metrics').select('*').eq('metric_type', 'post_performance').order(String(params.sortBy || 'engagement'), { ascending: false }).limit(Number(params.limit) || 20);
         if (params.platform) { query = query.eq('platform', params.platform); }
         const { data } = await query;
         return { success: true, data: data || [] };
@@ -69,7 +69,7 @@ export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolD
       parameters: { query: { type: 'string', description: 'Search term (default: "glyphor")' }, limit: { type: 'number', description: 'Max results (default 20)' } },
       async execute(params) {
         const supabase = memory.getSupabaseClient();
-        const { data } = await supabase.from('social_metrics').select('*').eq('metric_type', 'mention').ilike('content', `%${params.query || 'glyphor'}%`).order('recorded_at', { ascending: false }).limit(params.limit || 20);
+        const { data } = await supabase.from('social_metrics').select('*').eq('metric_type', 'mention').ilike('content', `%${params.query || 'glyphor'}%`).order('recorded_at', { ascending: false }).limit(Number(params.limit) || 20);
         return { success: true, data: data || [] };
       },
     },

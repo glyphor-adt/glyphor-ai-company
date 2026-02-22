@@ -114,7 +114,7 @@ Steps:
     { glyphorEventBus, agentMemoryStore: memory },
   );
 
-  const durationMs = Date.now() - Date.parse(result.conversationHistory[0]?.timestamp || new Date().toISOString());
+  const durationMs = Date.now() - Date.parse(String(result.conversationHistory[0]?.timestamp || new Date().toISOString()));
   try { await memory.recordAgentRun('platform-engineer', durationMs, 0.02); } catch {}
 
   console.log(`[Alex] ${result.status} (${result.totalTurns} turns)`);
