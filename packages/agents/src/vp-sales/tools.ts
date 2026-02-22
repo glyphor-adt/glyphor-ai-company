@@ -136,7 +136,7 @@ export function createVPSalesTools(memory: CompanyMemoryStore): ToolDefinition[]
           type: 'string',
           description: 'Action type',
           required: true,
-          enum: ['analysis', 'outreach', 'report'],
+          enum: ['analysis', 'outreach', 'briefing'],
         },
         summary: {
           type: 'string',
@@ -153,7 +153,7 @@ export function createVPSalesTools(memory: CompanyMemoryStore): ToolDefinition[]
       execute: async (params, ctx): Promise<ToolResult> => {
         await memory.appendActivity({
           agentRole: ctx.agentRole,
-          action: params.action as 'analysis' | 'outreach' | 'report',
+          action: params.action as 'analysis' | 'outreach' | 'briefing',
           product: (params.product as 'fuse' | 'pulse' | 'company') ?? 'company',
           summary: params.summary as string,
           createdAt: new Date().toISOString(),
