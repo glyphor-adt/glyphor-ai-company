@@ -21,16 +21,16 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 const DEPARTMENTS = [
   { id: "executive", name: "Executive", color: "#8b5cf6", agents: [
-    { id: "atlas", name: "Atlas", title: "Chief of Staff", badge: "★", score: 96, status: "active", activity: "Compiling weekly sync agenda", lastActive: "2m ago", connections: ["forge","compass","ledger","beacon","harbor"] },
+    { id: "sarah-chen", name: "Sarah Chen", title: "Chief of Staff", badge: "★", score: 96, status: "active", activity: "Compiling weekly sync agenda", lastActive: "2m ago", connections: ["marcus-reeves","elena-vasquez","nadia-okafor","maya-brooks","james-turner"] },
   ]},
   { id: "engineering", name: "Engineering", color: "#ef4444", agents: [
-    { id: "forge", name: "Forge", title: "CTO", badge: "★", score: 91, status: "active", activity: "Drafting parallel compilation spec", lastActive: "12m ago", connections: ["atlas","nova","stack","ledger"] },
+    { id: "marcus-reeves", name: "Marcus Reeves", title: "CTO", badge: "★", score: 91, status: "active", activity: "Drafting parallel compilation spec", lastActive: "12m ago", connections: ["sarah-chen","nova","stack","nadia-okafor"] },
     { id: "nova", name: "Nova", title: "Platform Engineer", score: 94, status: "active", activity: "Monitoring Cloud Run instances", lastActive: "5m ago", connections: ["forge","stack"] },
     { id: "patch", name: "Patch", title: "Quality Engineer", score: 92, status: "active", activity: "Analyzing build error patterns", lastActive: "18m ago", connections: ["forge"] },
-    { id: "stack", name: "Stack", title: "DevOps", score: 97, status: "active", activity: "Cache optimization running", lastActive: "1m ago", connections: ["forge","nova","vault"] },
+    { id: "stack", name: "Stack", title: "DevOps", score: 97, status: "active", activity: "Cache optimization running", lastActive: "1m ago", connections: ["marcus-reeves","nova","vault"] },
   ]},
   { id: "product", name: "Product", color: "#06b6d4", agents: [
-    { id: "compass", name: "Compass", title: "CPO", badge: "★", score: 88, status: "active", activity: "Updating Fuse roadmap priorities", lastActive: "3h ago", connections: ["atlas","beacon","lens","scout"] },
+    { id: "elena-vasquez", name: "Elena Vasquez", title: "CPO", badge: "★", score: 88, status: "active", activity: "Updating Fuse roadmap priorities", lastActive: "3h ago", connections: ["sarah-chen","maya-brooks","lens","scout"] },
     { id: "lens", name: "Lens", title: "User Research", score: 90, status: "active", activity: "Analyzing engagement cohorts", lastActive: "1h ago", connections: ["compass","harbor"] },
     { id: "scout", name: "Scout", title: "Competitive Intel", score: 87, status: "active", activity: "Scanning Lovable changelog", lastActive: "4h ago", connections: ["compass","beacon"] },
   ]},

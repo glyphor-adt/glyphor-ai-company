@@ -68,13 +68,13 @@ curl -s -X POST "${SUPABASE_URL}/rest/v1/company_agents" \
   -H "Content-Type: application/json" \
   -H "Prefer: resolution=merge-duplicates" \
   -d '[
-    {"role": "chief-of-staff", "name": "Chief of Staff", "status": "active", "model": "gemini-3.0-flash-preview", "schedule": "morning briefings 7:00/7:30 CT + on-demand"},
-    {"role": "cto", "name": "CTO", "status": "stub", "model": "gemini-3.0-flash-preview", "schedule": "every 30 min health check + on-demand"},
-    {"role": "cfo", "name": "CFO", "status": "stub", "model": "gemini-3.0-flash-preview", "schedule": "daily 9:00 CT cost check"},
-    {"role": "cpo", "name": "CPO", "status": "stub", "model": "gemini-3.0-flash-preview", "schedule": "weekly Monday 10:00 CT usage analysis"},
-    {"role": "cmo", "name": "CMO", "status": "stub", "model": "gemini-3.0-flash-preview", "schedule": "weekly Monday 9:00 CT content planning"},
-    {"role": "vp-customer-success", "name": "VP Customer Success", "status": "stub", "model": "gemini-3.0-flash-preview", "schedule": "daily 8:00 CT health scoring"},
-    {"role": "vp-sales", "name": "VP Sales", "status": "stub", "model": "gemini-3.0-flash-preview", "schedule": "Mon/Thu 9:00 CT pipeline review"}
+    {"role": "chief-of-staff", "name": "Sarah Chen", "status": "active", "model": "gemini-3.0-flash-preview", "schedule": "morning briefings 7:00/7:30 CT + on-demand"},
+    {"role": "cto", "name": "Marcus Reeves", "status": "stub", "model": "gemini-3.0-flash-preview", "schedule": "every 30 min health check + on-demand"},
+    {"role": "cfo", "name": "Nadia Okafor", "status": "stub", "model": "gemini-3.0-flash-preview", "schedule": "daily 9:00 CT cost check"},
+    {"role": "cpo", "name": "Elena Vasquez", "status": "stub", "model": "gemini-3.0-flash-preview", "schedule": "weekly Monday 10:00 CT usage analysis"},
+    {"role": "cmo", "name": "Maya Brooks", "status": "stub", "model": "gemini-3.0-flash-preview", "schedule": "weekly Monday 9:00 CT content planning"},
+    {"role": "vp-customer-success", "name": "James Turner", "status": "stub", "model": "gemini-3.0-flash-preview", "schedule": "daily 8:00 CT health scoring"},
+    {"role": "vp-sales", "name": "Rachel Kim", "status": "stub", "model": "gemini-3.0-flash-preview", "schedule": "Mon/Thu 9:00 CT pipeline review"}
   ]'
 
 echo "  ✓ Agent roster"
