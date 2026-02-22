@@ -260,7 +260,10 @@ export type GlyphorEventType =
   | 'alert.triggered'
   | 'task.requested'
   | 'agent.spawned'
-  | 'agent.retired';
+  | 'agent.retired'
+  | 'message.sent'
+  | 'meeting.called'
+  | 'meeting.completed';
 
 export type EventPriority = 'critical' | 'high' | 'normal' | 'low';
 
@@ -428,11 +431,13 @@ export const EXECUTIVE_ALLOWED_EVENTS: GlyphorEventType[] = [
   'agent.completed', 'insight.detected', 'decision.filed',
   'alert.triggered', 'task.requested',
   'agent.spawned', 'agent.retired',
+  'message.sent', 'meeting.called', 'meeting.completed',
 ];
 
 /** Events sub-team members can emit */
 export const SUB_TEAM_ALLOWED_EVENTS: GlyphorEventType[] = [
   'insight.detected',
+  'message.sent',
 ];
 
 /** Events that only the system / founders can emit */
