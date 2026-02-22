@@ -101,12 +101,38 @@ export default function Financials() {
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [raw]);
 
+  // Cash flow data from Mercury
+  const cashFlowData = useMemo(() => {
+    const byDate = new Map<string, { inflow: number; outflow: number }>();
+    for (const row of raw) {
+      if (row.metric === 'cash_inflow' || row.metric === 'cash_outflow') {
+        const entry = byDate.get(row.date) ?? { inflow: 0, outflow: 0 };
+        if (row.metric === 'cash_inflow') entry.inflow += row.value;
+        else entry.outflow += row.value;
+        byDate.set(row.date, entry);
+      }
+    }
+    return Array.from(byDate.entries())
+      .map(([date, { inflow, outflow }]) => ({
+        date: formatDate(date),
+        inflow,
+        outflow: -outflow,
+        net: inflow - outflow,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [raw]);
+
   // Summary stats
   const latestMRR = mrrData.length > 0 ? mrrData[mrrData.length - 1].mrr : 0;
   const latestCost = costData.length > 0
     ? costData[costData.length - 1].infrastructure + costData[costData.length - 1].api
     : 0;
   const latestMargin = marginData.length > 0 ? marginData[marginData.length - 1].margin : 0;
+
+  // Mercury stats
+  const latestBalance = raw.filter((r) => r.metric === 'cash_balance').sort((a, b) => b.date.localeCompare(a.date))[0]?.value ?? 0;
+  const latestBurnRate = raw.filter((r) => r.metric === 'burn_rate').sort((a, b) => b.date.localeCompare(a.date))[0]?.value ?? 0;
+  const runwayMonths = latestBurnRate > 0 ? latestBalance / latestBurnRate : 0;
 
   // Per-product MRR
   const productMRR = useMemo(() => {
@@ -127,11 +153,17 @@ export default function Financials() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-4">
-        <SummaryCard label="Monthly Revenue" value={`$${fmt(latestMRR)}`} loading={loading} />
-        <SummaryCard label="Monthly Costs" value={`$${fmt(latestCost)}`} loading={loading} />
+      <div className="grid grid-cols-3 gap-4">
+        <SummaryCard label="Monthly Revenue (Stripe)" value={`$${fmt(latestMRR)}`} loading={loading} sub={productMRR.map((p) => `${p.name}: $${fmt(p.mrr)}`).join(', ') || 'No product data'} />
+        <SummaryCard label="Monthly Costs (GCP)" value={`$${fmt(latestCost)}`} loading={loading} />
         <SummaryCard label="Gross Margin" value={`${latestMargin.toFixed(1)}%`} loading={loading} />
-        <SummaryCard label="Products" value={String(productMRR.length)} loading={loading} sub={productMRR.map((p) => `${p.name}: $${fmt(p.mrr)}`).join(', ')} />
+      </div>
+
+      {/* Banking Cards */}
+      <div className="grid grid-cols-3 gap-4">
+        <SummaryCard label="Cash Balance (Mercury)" value={`$${fmt(latestBalance)}`} loading={loading} />
+        <SummaryCard label="Monthly Burn Rate" value={latestBurnRate > 0 ? `$${fmt(latestBurnRate)}` : '—'} loading={loading} />
+        <SummaryCard label="Runway" value={runwayMonths > 0 ? `${runwayMonths.toFixed(1)} mo` : '—'} loading={loading} sub={runwayMonths > 0 ? `at current burn rate` : 'Awaiting burn data'} />
       </div>
 
       <div className="grid grid-cols-2 gap-6">
@@ -205,6 +237,31 @@ export default function Financials() {
               />
               <Area type="monotone" dataKey="margin" stroke="#4B9FE1" fill="#4B9FE120" strokeWidth={2} />
             </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </Card>
+
+      {/* Cash Flow (Mercury) */}
+      <Card>
+        <SectionHeader title="Cash Flow (Mercury)" />
+        {loading ? (
+          <Skeleton className="h-64" />
+        ) : cashFlowData.length === 0 ? (
+          <EmptyChart message="No cash flow data yet — Mercury sync pending" />
+        ) : (
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={cashFlowData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
+              <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${fmt(Math.abs(v))}`} />
+              <Tooltip
+                contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
+                labelStyle={{ color: 'var(--color-txt-secondary)' }}
+                formatter={(value: number) => [`$${fmt(Math.abs(value))}`]}
+              />
+              <Bar dataKey="inflow" fill="#00E0FF" name="Inflow" />
+              <Bar dataKey="outflow" fill="#FF6B6B" name="Outflow" />
+            </BarChart>
           </ResponsiveContainer>
         )}
       </Card>

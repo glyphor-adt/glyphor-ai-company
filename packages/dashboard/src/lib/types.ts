@@ -67,11 +67,11 @@ export interface Product {
 
 export interface Financial {
   id: string;
-  period: string;
-  revenue: number;
-  costs: number;
-  runway_months: number;
-  mrr: number;
+  date: string;
+  product: string | null;
+  metric: string;
+  value: number;
+  details: unknown;
   created_at: string;
 }
 

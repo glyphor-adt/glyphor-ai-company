@@ -42,3 +42,12 @@ export {
   type DailyCost,
   type ServiceHealth,
 } from './gcp/index.js';
+
+// Mercury banking
+export {
+  listAccounts as listMercuryAccounts,
+  syncCashBalance,
+  syncCashFlows,
+  syncAll as syncMercuryAll,
+  type MercuryAccount,
+} from './mercury/index.js';

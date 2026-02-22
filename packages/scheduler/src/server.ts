@@ -11,7 +11,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GlyphorEventBus } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent } from '@glyphor/agent-runtime';
-import { handleStripeWebhook, syncStripeAll } from '@glyphor/integrations';
+import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll } from '@glyphor/integrations';
 import { EventRouter } from './eventRouter.js';
 import { DecisionQueue } from './decisionQueue.js';
 import { runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPCS, runVPSales } from '@glyphor/agents';
@@ -132,6 +132,25 @@ const server = createServer(async (req, res) => {
     // Stripe data sync endpoint (called by Cloud Scheduler)
     if (method === 'POST' && url === '/sync/stripe') {
       const result = await syncStripeAll(memory.getSupabaseClient());
+      json(res, 200, { success: true, ...result });
+      return;
+    }
+
+    // GCP billing sync endpoint
+    if (method === 'POST' && url === '/sync/gcp-billing') {
+      const projectId = process.env.GCP_PROJECT_ID || 'ai-glyphor-company';
+      const billingDataset = process.env.GCP_BILLING_DATASET || 'billing_export';
+      const billingTable = process.env.GCP_BILLING_TABLE || 'gcp_billing_export_v1';
+      const result = await syncBillingToSupabase(
+        memory.getSupabaseClient(), projectId, billingDataset, billingTable,
+      );
+      json(res, 200, { success: true, ...result });
+      return;
+    }
+
+    // Mercury banking sync endpoint
+    if (method === 'POST' && url === '/sync/mercury') {
+      const result = await syncMercuryAll(memory.getSupabaseClient());
       json(res, 200, { success: true, ...result });
       return;
     }
