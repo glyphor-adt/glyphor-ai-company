@@ -468,8 +468,29 @@ export class CompanyAgentRunner {
         }
 
         if (response.finishReason === 'STOP' || response.toolCalls.length === 0) {
+          // Safety: model stopped without producing text output.
+          // Nudge it for a final summary (once only).
+          if (!lastTextOutput && !history.some(h => h.content === 'Please provide your final text response summarizing what you found and any actions taken.')) {
+            history.push({
+              role: 'user',
+              content: 'Please provide your final text response summarizing what you found and any actions taken.',
+              timestamp: Date.now(),
+            });
+            continue;
+          }
           break;
         }
+      }
+
+      // Fallback: if we still have no text output, reconstruct from tool results
+      if (!lastTextOutput) {
+        const toolResults = history
+          .filter(t => t.role === 'tool_result')
+          .map(t => t.content)
+          .slice(-3);
+        lastTextOutput = toolResults.length > 0
+          ? `Completed. Tool results:\n${toolResults.join('\n')}`
+          : 'Run completed but produced no text output.';
       }
 
       const stats = supervisor.stats;

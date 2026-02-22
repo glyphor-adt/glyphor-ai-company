@@ -1,9 +1,25 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { GoogleOAuthProvider, GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
+import * as teamsJs from '@microsoft/teams-js';
 
+const ALLOWED_DOMAINS = ['glyphor.ai'];
 const ALLOWED_EMAILS = ['kristina@glyphor.ai', 'andrew@glyphor.ai', 'devops@glyphor.ai'];
 const STORAGE_KEY = 'glyphor-auth';
+
+function isAllowedEmail(email: string): boolean {
+  const lower = email.toLowerCase();
+  if (ALLOWED_EMAILS.includes(lower)) return true;
+  const domain = lower.split('@')[1];
+  return ALLOWED_DOMAINS.includes(domain);
+}
+
+/** Detect Teams context via URL param or iframe ancestor */
+function isTeamsContext(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('teamsTab') === 'true') return true;
+  try { return window.self !== window.top; } catch { return true; }
+}
 
 interface User {
   email: string;
@@ -20,7 +36,113 @@ const AuthContext = createContext<AuthState>({ user: null, logout: () => {} });
 
 export const useAuth = () => useContext(AuthContext);
 
-function AuthGate({ children }: { children: ReactNode }) {
+// ─── Teams SSO Auth Gate ────────────────────────────────────────
+
+function TeamsAuthGate({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function initTeamsSSO() {
+      try {
+        await teamsJs.app.initialize();
+        const context = await teamsJs.app.getContext();
+
+        // Try SSO token first
+        try {
+          const token = await teamsJs.authentication.getAuthToken();
+          const decoded = jwtDecode<{
+            preferred_username?: string;
+            upn?: string;
+            name?: string;
+            email?: string;
+          }>(token);
+
+          const email = decoded.preferred_username ?? decoded.upn ?? decoded.email ?? '';
+          if (!email || !isAllowedEmail(email)) {
+            if (!cancelled) setError(`Access denied for ${email}`);
+            if (!cancelled) setLoading(false);
+            return;
+          }
+
+          if (!cancelled) {
+            setUser({
+              email,
+              name: decoded.name ?? email.split('@')[0],
+              picture: '',
+            });
+            setLoading(false);
+          }
+          return;
+        } catch {
+          // SSO token failed — fall back to Teams context
+        }
+
+        // Fallback: use Teams context (already authenticated via Teams)
+        const loginHint = context.user?.loginHint ?? '';
+        const displayName = context.user?.displayName ?? loginHint.split('@')[0];
+
+        if (loginHint && isAllowedEmail(loginHint)) {
+          if (!cancelled) {
+            setUser({
+              email: loginHint,
+              name: displayName,
+              picture: '',
+            });
+            setLoading(false);
+          }
+        } else {
+          if (!cancelled) setError(`Access denied for ${loginHint || 'unknown user'}`);
+          if (!cancelled) setLoading(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(`Teams initialization failed: ${err instanceof Error ? err.message : String(err)}`);
+          setLoading(false);
+        }
+      }
+    }
+
+    initTeamsSSO();
+    return () => { cancelled = true; };
+  }, []);
+
+  const logout = useCallback(() => setUser(null), []);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-base">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan border-t-transparent" />
+          <p className="text-sm text-txt-muted">Signing in via Teams...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-base">
+        <div className="rounded-xl border border-border bg-surface p-8 text-center">
+          <p className="text-sm text-red-400">{error || 'Unable to authenticate via Teams'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <AuthContext.Provider value={{ user, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+// ─── Google OAuth Auth Gate ─────────────────────────────────────
+
+function GoogleAuthGate({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -53,7 +175,7 @@ function AuthGate({ children }: { children: ReactNode }) {
         exp: number;
       }>(response.credential);
 
-      if (!ALLOWED_EMAILS.includes(decoded.email.toLowerCase())) {
+      if (!isAllowedEmail(decoded.email)) {
         setError(`Access denied for ${decoded.email}`);
         return;
       }
@@ -116,8 +238,15 @@ function AuthGate({ children }: { children: ReactNode }) {
   );
 }
 
+// ─── Auth Provider ──────────────────────────────────────────────
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+  // Teams context — use Teams SSO (no Google popup)
+  if (isTeamsContext()) {
+    return <TeamsAuthGate>{children}</TeamsAuthGate>;
+  }
 
   if (!clientId) {
     // Dev mode without OAuth — skip auth
@@ -135,7 +264,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <GoogleOAuthProvider clientId={clientId}>
-      <AuthGate>{children}</AuthGate>
+      <GoogleAuthGate>{children}</GoogleAuthGate>
     </GoogleOAuthProvider>
   );
 }

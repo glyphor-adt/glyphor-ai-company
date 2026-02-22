@@ -1,5 +1,5 @@
 export { CompanyAgentRunner } from './companyAgentRunner.js';
-export type { AgentMemoryStore, RunDependencies } from './companyAgentRunner.js';
+export type { AgentMemoryStore, AgentProfileData, RunDependencies } from './companyAgentRunner.js';
 export { ModelClient, detectProvider } from './modelClient.js';
 export type { ModelClientConfig, ModelProvider } from './modelClient.js';
 export { AgentSupervisor } from './supervisor.js';
