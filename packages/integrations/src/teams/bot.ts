@@ -15,7 +15,7 @@
  *   (free text)            — Defaults to chief-of-staff
  */
 
-import type { ConfidentialClientApplication } from '@azure/msal-node';
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import type { IncomingMessage } from 'node:http';
 
 // ─── Types ──────────────────────────────────────────────────────
