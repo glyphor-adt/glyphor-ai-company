@@ -5,13 +5,23 @@
 export interface Agent {
   id: string;
   role: string;
-  codename: string;
+  display_name: string;
+  name: string | null;
+  title: string | null;
   model: string;
-  department: string;
   status: 'active' | 'idle' | 'paused';
-  tier: 'green' | 'yellow' | 'red';
-  score: number;
-  last_run: string | null;
+  reports_to: string | null;
+  temperature: number | null;
+  max_turns: number | null;
+  budget_per_run: number | null;
+  budget_daily: number | null;
+  budget_monthly: number | null;
+  is_core: boolean | null;
+  is_temporary: boolean | null;
+  performance_score: number | null;
+  total_runs: number;
+  total_cost_usd: number;
+  last_run_at: string | null;
   created_at: string;
 }
 

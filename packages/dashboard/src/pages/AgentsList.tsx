@@ -37,7 +37,23 @@ export default function AgentsList() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {agents
             .sort((a, b) => {
-              const order = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales', 'vp-design', 'ops'];
+              const order = [
+                'chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales', 'vp-design', 'ops',
+                // Engineering
+                'platform-engineer', 'quality-engineer', 'devops-engineer',
+                // Product
+                'user-researcher', 'competitive-intel',
+                // Finance
+                'revenue-analyst', 'cost-analyst',
+                // Marketing
+                'content-creator', 'seo-analyst', 'social-media-manager',
+                // Customer Success
+                'onboarding-specialist', 'support-triage',
+                // Sales
+                'account-research',
+                // Design
+                'ui-ux-designer', 'frontend-engineer', 'design-critic', 'template-architect',
+              ];
               const ai = order.indexOf(a.role);
               const bi = order.indexOf(b.role);
               return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
@@ -62,7 +78,7 @@ export default function AgentsList() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <h3 className="text-[15px] font-semibold text-txt-primary">
-                              {DISPLAY_NAME_MAP[agent.role] ?? agent.codename}
+                              {DISPLAY_NAME_MAP[agent.role] ?? agent.display_name}
                             </h3>
                             <StatusDot status={agent.status} />
                           </div>
@@ -79,8 +95,9 @@ export default function AgentsList() {
 
                       {/* Stats row */}
                       <div className="mt-3 flex items-center gap-3">
-                        <TierBadge tier={agent.tier} />
-                        <span className="font-mono text-sm text-txt-secondary">{agent.score}/100</span>
+                        <span className="font-mono text-sm text-txt-secondary">
+                          {agent.performance_score != null ? `${Math.round(Number(agent.performance_score) * 100)}/100` : '—'}
+                        </span>
                         {ROLE_TIER[agent.role] && (
                           <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-[10px] font-medium text-txt-muted">
                             {ROLE_TIER[agent.role]}
