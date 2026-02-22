@@ -52,10 +52,12 @@ const agentExecutor = async (
   const message = (payload.message as string) || undefined;
 
   if (agentRole === 'chief-of-staff') {
-    const taskMap: Record<string, 'generate_briefing' | 'check_escalations' | 'on_demand'> = {
+    const taskMap: Record<string, 'generate_briefing' | 'check_escalations' | 'weekly_review' | 'monthly_retrospective' | 'on_demand'> = {
       morning_briefing: 'generate_briefing',
       check_escalations: 'check_escalations',
       eod_summary: 'generate_briefing',
+      weekly_review: 'weekly_review',
+      monthly_retrospective: 'monthly_retrospective',
     };
     return runChiefOfStaff({
       task: taskMap[task] ?? 'on_demand',
@@ -118,7 +120,7 @@ const agentExecutor = async (
   }
   // Operations
   else if (agentRole === 'ops') {
-    return runOps({ task: (task as 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response'), message, eventPayload: payload });
+    return runOps({ task: (task as 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'contradiction_detection' | 'knowledge_hygiene'), message, eventPayload: payload });
   } else {
     console.log(`[Scheduler] Agent ${agentRole} not recognized, skipping task: ${task}`);
   }
@@ -777,6 +779,76 @@ const server = createServer(async (req, res) => {
         .order('created_at', { ascending: false })
         .limit(50);
       json(res, 200, data ?? []);
+      return;
+    }
+
+    // ─── Collective Intelligence Endpoints ────────────────────
+
+    // Get company pulse
+    if (method === 'GET' && url === '/pulse') {
+      const ci = memory.getCollectiveIntelligence();
+      const pulse = await ci.getPulse();
+      json(res, 200, pulse);
+      return;
+    }
+
+    // Get org-level company knowledge
+    if (method === 'GET' && url === '/knowledge/company') {
+      const ci = memory.getCollectiveIntelligence();
+      const knowledge = await ci.getCompanyKnowledge();
+      json(res, 200, knowledge);
+      return;
+    }
+
+    // Get active knowledge routes
+    if (method === 'GET' && url === '/knowledge/routes') {
+      const ci = memory.getCollectiveIntelligence();
+      const routes = await ci.getActiveRoutes();
+      json(res, 200, routes);
+      return;
+    }
+
+    // Create a knowledge route
+    if (method === 'POST' && url === '/knowledge/routes') {
+      const body = JSON.parse(await readBody(req));
+      const ci = memory.getCollectiveIntelligence();
+      const route = await ci.createRoute(body);
+      json(res, 200, { success: true, route });
+      return;
+    }
+
+    // Get authority proposals
+    if (method === 'GET' && url === '/authority/proposals') {
+      const ci = memory.getCollectiveIntelligence();
+      const proposals = await ci.getAuthorityProposals();
+      json(res, 200, proposals);
+      return;
+    }
+
+    // Resolve an authority proposal
+    const proposalResolveMatch = url.match(/^\/authority\/proposals\/([^/]+)\/resolve$/);
+    if (method === 'POST' && proposalResolveMatch) {
+      const proposalId = decodeURIComponent(proposalResolveMatch[1]);
+      const body = JSON.parse(await readBody(req));
+      const ci = memory.getCollectiveIntelligence();
+      await ci.resolveAuthorityProposal(proposalId, body.status, body.resolvedBy);
+      json(res, 200, { success: true });
+      return;
+    }
+
+    // Get process patterns
+    if (method === 'GET' && url === '/knowledge/patterns') {
+      const ci = memory.getCollectiveIntelligence();
+      const patterns = await ci.getProcessPatterns();
+      json(res, 200, patterns);
+      return;
+    }
+
+    // Detect contradictions
+    if (method === 'GET' && url === '/knowledge/contradictions') {
+      const ci = memory.getCollectiveIntelligence();
+      const contradictions = await ci.detectContradictions();
+      json(res, 200, contradictions);
       return;
     }
 

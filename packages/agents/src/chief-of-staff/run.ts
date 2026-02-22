@@ -22,7 +22,7 @@ import { createCollectiveIntelligenceTools } from '../shared/collectiveIntellige
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 
 export interface CoSRunParams {
-  task?: 'generate_briefing' | 'check_escalations' | 'on_demand';
+  task?: 'generate_briefing' | 'check_escalations' | 'weekly_review' | 'monthly_retrospective' | 'on_demand';
   recipient?: 'kristina' | 'andrew';
   message?: string;
 }
@@ -46,6 +46,7 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
   const tools = [
     ...createChiefOfStaffTools(memory),
     ...createMemoryTools(memory),
+    ...createCollectiveIntelligenceTools(memory),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -86,6 +87,37 @@ Remember:
 Use check_escalations to find yellow decisions older than 72 hours.
 If any exist, create a red-tier decision to flag both founders.
 Log your findings as an activity.`;
+      break;
+
+    case 'weekly_review':
+      initialMessage = `Perform the weekly collective intelligence review for the week ending ${today}.
+
+Steps:
+1. Use get_company_pulse to review the current company pulse
+2. Use get_org_knowledge to review recent org-level knowledge entries
+3. Use get_process_patterns to check for recurring patterns across teams
+4. Use detect_contradictions to find conflicting beliefs between agents
+5. Use get_authority_proposals to review any pending governance changes
+6. Promote the most important learnings from the week to org knowledge using promote_to_org_knowledge
+7. Update the company pulse with current highlights using update_pulse_highlights
+8. Use get_knowledge_routes to verify routing rules are working well
+
+Goal: Ensure the collective intelligence of the organization is healthy, contradictions are surfaced, and important knowledge is properly circulated.`;
+      break;
+
+    case 'monthly_retrospective':
+      initialMessage = `Conduct the monthly collective intelligence retrospective for ${today}.
+
+Steps:
+1. Use get_company_pulse to review current organizational state
+2. Use get_process_patterns to identify workflow patterns, bottlenecks, and successful collaborations from the past month
+3. Use detect_contradictions to find any persistent cross-agent disagreements
+4. Use get_authority_proposals to review and resolve pending governance proposals
+5. Record new process patterns you observe using record_process_pattern
+6. If any authority levels need adjustment based on evidence, use propose_authority_change
+7. Update the company pulse with a monthly summary using update_company_pulse
+
+Goal: Drive organizational learning — identify what worked, what didn't, and how the company's collective decision-making can improve.`;
       break;
 
     case 'on_demand':

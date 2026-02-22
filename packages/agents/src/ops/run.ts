@@ -18,10 +18,11 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { OPS_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createOpsTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 
 export interface OpsRunParams {
-  task?: 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'performance_rollup' | 'milestone_detection' | 'growth_update';
+  task?: 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'performance_rollup' | 'milestone_detection' | 'growth_update' | 'contradiction_detection' | 'knowledge_hygiene';
   message?: string;
   eventPayload?: Record<string, unknown>;
 }
@@ -45,6 +46,7 @@ export async function runOps(params: OpsRunParams = {}) {
   const tools = [
     ...createOpsTools(memory),
     ...createMemoryTools(memory),
+    ...createCollectiveIntelligenceTools(memory),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -160,6 +162,37 @@ Steps:
 Steps:
 1. Use update_growth_areas with period_days 7 to compare this week vs last week
 2. Report which agents are improving, stable, or declining in each dimension`;
+      break;
+
+    case 'contradiction_detection':
+      initialMessage = `Scan for contradictions across agent beliefs for ${today}.
+
+Steps:
+1. Use detect_contradictions to find conflicting knowledge entries across agents
+2. For each contradiction found, analyze:
+   - Which agents hold conflicting beliefs?
+   - What is the specific disagreement?
+   - Which view is more likely correct based on evidence?
+3. If contradictions are significant, send messages to the involved agents to resolve them
+4. Use record_process_pattern if contradictions reveal a systemic communication gap
+5. Post findings via post_system_status
+
+Goal: Keep the organization's collective knowledge consistent and flag disagreements early before they lead to conflicting actions.`;
+      break;
+
+    case 'knowledge_hygiene':
+      initialMessage = `Perform knowledge hygiene maintenance for ${today}.
+
+Steps:
+1. Use get_company_pulse to review current organizational state
+2. Use get_knowledge_routes to verify all routing rules are still relevant
+3. Use get_org_knowledge to check for stale or outdated org-level knowledge
+4. Use get_process_patterns to identify patterns that may need attention
+5. Use get_authority_proposals to check for overdue proposals
+6. If any routes need updating, use create_knowledge_route to add new ones
+7. Report on the overall health of the knowledge system
+
+Goal: Ensure knowledge routing is efficient, stale information is flagged, and the collective intelligence infrastructure is well-maintained.`;
       break;
 
     default:
