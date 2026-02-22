@@ -297,6 +297,25 @@ export class CompanyMemoryStore implements IMemoryBus {
     }
   }
 
+  async saveLastRunSummary(role: string, summary: string): Promise<void> {
+    await this.supabase
+      .from('company_agents')
+      .update({ last_run_summary: summary })
+      .eq('role', role);
+  }
+
+  async getLastRunSummary(role: string): Promise<{ summary: string | null; lastRunAt: string | null }> {
+    const { data } = await this.supabase
+      .from('company_agents')
+      .select('last_run_summary, last_run_at')
+      .eq('role', role)
+      .single();
+    return {
+      summary: data?.last_run_summary ?? null,
+      lastRunAt: data?.last_run_at ?? null,
+    };
+  }
+
   // ─── AGENT MEMORY ──────────────────────────────────────────────
 
   async saveMemory(
@@ -430,6 +449,65 @@ export class CompanyMemoryStore implements IMemoryBus {
 
     const sum = data.reduce((s, r) => s + (r.quality_score as number), 0);
     return Math.round(sum / data.length);
+  }
+
+  /**
+   * Compute and upsert agent_growth rows by comparing recent vs prior reflection scores.
+   * Called after each reflection to keep the dashboard GrowthAreas component fed.
+   */
+  async updateGrowthMetrics(agentRole: CompanyAgentRole): Promise<void> {
+    const now = Date.now();
+    const recentSince = new Date(now - 7 * 86_400_000).toISOString();
+    const priorSince = new Date(now - 30 * 86_400_000).toISOString();
+
+    const [recentRes, priorRes] = await Promise.all([
+      this.supabase
+        .from('agent_reflections')
+        .select('quality_score')
+        .eq('agent_role', agentRole)
+        .gte('created_at', recentSince),
+      this.supabase
+        .from('agent_reflections')
+        .select('quality_score')
+        .eq('agent_role', agentRole)
+        .gte('created_at', priorSince)
+        .lt('created_at', recentSince),
+    ]);
+
+    const recent = recentRes.data ?? [];
+    const prior = priorRes.data ?? [];
+    if (recent.length === 0) return;
+
+    const avg = (arr: { quality_score: number }[]) =>
+      arr.length ? arr.reduce((s, r) => s + r.quality_score, 0) / arr.length : null;
+
+    const recentAvg = avg(recent)!;
+    const priorAvg = avg(prior);
+
+    const direction = (curr: number, prev: number | null): string => {
+      if (prev === null) return 'stable';
+      const delta = curr - prev;
+      if (delta > 3) return 'improving';
+      if (delta < -3) return 'declining';
+      return 'stable';
+    };
+
+    const evidence = prior.length > 0
+      ? `${recent.length} runs (7d) avg ${recentAvg.toFixed(0)} vs ${prior.length} runs (prior 23d) avg ${priorAvg!.toFixed(0)}`
+      : `${recent.length} runs (7d) avg ${recentAvg.toFixed(0)} — no prior data`;
+
+    await this.supabase
+      .from('agent_growth')
+      .upsert({
+        agent_id: agentRole,
+        dimension: 'quality_score',
+        direction: direction(recentAvg, priorAvg),
+        current_value: Math.round(recentAvg * 100) / 100,
+        previous_value: priorAvg !== null ? Math.round(priorAvg * 100) / 100 : null,
+        period: '30d',
+        evidence,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'agent_id,dimension' });
   }
 
   /**

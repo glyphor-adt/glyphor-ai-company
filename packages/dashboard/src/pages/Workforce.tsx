@@ -176,7 +176,7 @@ export default function Workforce() {
                     src={f.photo}
                     alt={f.name}
                     className="rounded-full object-cover"
-                    style={{ width: 52, height: 52, border: `1.5px solid ${f.color}40` }}
+                    style={{ width: 60, height: 60, border: `1.5px solid ${f.color}40` }}
                   />
                   <div>
                     <h3 className="text-[15px] font-semibold text-txt-primary">{f.name}</h3>
@@ -203,7 +203,7 @@ export default function Workforce() {
                   <Card key={agent.id} className="group relative overflow-hidden">
                     <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl" style={{ background: meta?.color ?? '#64748b' }} />
                     <div className="flex items-start gap-4 pl-3">
-                      <AgentAvatar role={agent.role} size={52} glow={agent.status === 'active'} />
+                      <AgentAvatar role={agent.role} size={60} glow={agent.status === 'active'} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <h3 className="text-[15px] font-semibold text-txt-primary">{DISPLAY_NAME_MAP[agent.role] ?? agent.role}</h3>
@@ -252,7 +252,7 @@ export default function Workforce() {
                     src={`/avatars/${m.avatar}.png`}
                     alt={m.name}
                     className="rounded-full object-cover"
-                    style={{ width: 44, height: 44, border: `1.5px solid ${m.color}40` }}
+                    style={{ width: 48, height: 48, border: `1.5px solid ${m.color}40` }}
                   />
                   <div>
                     <h3 className="text-[13px] font-semibold text-txt-primary">{m.name}</h3>
@@ -278,7 +278,7 @@ function FounderNode({ name, title, initials, color, photo }: { name: string; ti
           src={photo}
           alt={name}
           className="rounded-full object-cover"
-          style={{ width: 72, height: 72, border: `2px solid ${color}50` }}
+          style={{ width: 88, height: 88, border: `2px solid ${color}50` }}
         />
         <div>
           <h3 className="text-base font-semibold text-txt-primary">{name}</h3>
@@ -300,7 +300,7 @@ function AgentNode({ agent, compact = false }: { agent: Agent; compact?: boolean
     <Link to={`/agents/${agent.role}`} className="block transition-transform hover:scale-[1.02]">
       <Card className={`${compact ? 'p-4' : 'p-5'} text-center`}>
         <div className="flex flex-col items-center gap-2">
-          <AgentAvatar role={agent.role} size={compact ? 52 : 64} glow={agent.status === 'active'} />
+          <AgentAvatar role={agent.role} size={compact ? 64 : 80} glow={agent.status === 'active'} />
           <div>
             <div className="flex items-center justify-center gap-1.5">
               <h3 className={`font-semibold text-txt-primary ${compact ? 'text-sm' : 'text-base'}`}>
@@ -353,7 +353,7 @@ function SubTeamNode({ member }: { member: SubTeamMember }) {
           src={`/avatars/${member.avatar}.png`}
           alt={member.name}
           className="shrink-0 rounded-full object-cover"
-          style={{ width: 44, height: 44, border: `1.5px solid ${member.color}40` }}
+          style={{ width: 48, height: 48, border: `1.5px solid ${member.color}40` }}
         />
         <div className="min-w-0 text-left">
           <p className="truncate text-sm font-semibold text-txt-primary">{member.name}</p>

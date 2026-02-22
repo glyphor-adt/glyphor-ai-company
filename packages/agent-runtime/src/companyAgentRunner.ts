@@ -204,6 +204,8 @@ export interface AgentMemoryStore {
   searchMemoriesBySimilarity?(role: CompanyAgentRole, query: string, options?: { limit?: number; threshold?: number }): Promise<(AgentMemory & { similarity: number })[]>;
   saveReflection(reflection: Omit<AgentReflection, 'id' | 'createdAt'>): Promise<string>;
   savePeerFeedback?(feedback: { fromAgent: string; toAgent: string; feedback: string; context: string; sentiment: string }): Promise<void>;
+  updateGrowthMetrics?(role: CompanyAgentRole): Promise<void>;
+  saveLastRunSummary?(role: string, summary: string): Promise<void>;
 }
 
 export interface RunDependencies {
@@ -219,6 +221,8 @@ export interface RunDependencies {
   collectiveIntelligenceLoader?: (role: CompanyAgentRole) => Promise<string | null>;
   /** Called after reflection to route new knowledge to relevant agents. */
   knowledgeRouter?: (knowledge: { agent_id: string; content: string; tags: string[]; knowledge_type?: string }) => Promise<number>;
+  /** Loader for the agent's last-run summary (working memory between runs). */
+  workingMemoryLoader?: (role: CompanyAgentRole) => Promise<{ summary: string | null; lastRunAt: string | null }>;
 }
 
 export class CompanyAgentRunner {
@@ -300,12 +304,21 @@ export class CompanyAgentRunner {
           })
         : Promise.resolve(null);
 
-      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult] = await Promise.all([
+      // Working memory (last-run summary for continuity between runs)
+      const workingMemoryPromise = deps?.workingMemoryLoader
+        ? deps.workingMemoryLoader(config.role).catch(err => {
+            console.warn(`[CompanyAgentRunner] Working memory load failed for ${config.role}:`, (err as Error).message);
+            return null;
+          })
+        : Promise.resolve(null);
+
+      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult, workingMemory] = await Promise.all([
         memoryPromise,
         briefPromise,
         messagesPromise,
         ciPromise,
         profilePromise,
+        workingMemoryPromise,
       ]);
 
       // Inject memory context
@@ -346,6 +359,18 @@ export class CompanyAgentRunner {
         history.push({
           role: 'user',
           content: ciContext,
+          timestamp: Date.now(),
+        });
+      }
+
+      // Inject working memory (last-run summary)
+      if (workingMemory?.summary) {
+        const ago = workingMemory.lastRunAt
+          ? formatTimeAgo(new Date(workingMemory.lastRunAt))
+          : 'unknown time';
+        history.push({
+          role: 'user',
+          content: `## Working Memory\nYour last run was ${ago} ago. Here is what you accomplished:\n\n${workingMemory.summary}\n\nUse this context to build on your previous work and avoid repeating completed tasks.`,
           timestamp: Date.now(),
         });
       }
@@ -746,6 +771,24 @@ For peerFeedback: If during this task you interacted with or observed the work o
       console.log(
         `[CompanyAgentRunner] Reflection saved for ${config.id}: score=${parsed.qualityScore}, memories=${memories.length}`,
       );
+
+      // Save working memory (last-run summary for next run's context)
+      if (store.saveLastRunSummary && parsed.summary) {
+        try {
+          await store.saveLastRunSummary(config.role, parsed.summary);
+        } catch {
+          // Non-critical — skip silently
+        }
+      }
+
+      // Update growth metrics for dashboard GrowthAreas component
+      if (store.updateGrowthMetrics) {
+        try {
+          await store.updateGrowthMetrics(config.role);
+        } catch {
+          // Non-critical — skip silently
+        }
+      }
 
       // Route new knowledge to relevant agents via the CI system
       if (knowledgeRouter && memories.length > 0) {

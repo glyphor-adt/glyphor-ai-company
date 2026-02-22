@@ -71,7 +71,7 @@ export default function Dashboard() {
                   to={`/chat/${agent.role}`}
                   className="group flex flex-col items-center gap-3 rounded-xl border border-border bg-raised p-6 transition-all hover:border-border-hover hover:shadow-lg"
                 >
-                  <AgentAvatar role={agent.role} size={64} glow={agent.status === 'active'} />
+                  <AgentAvatar role={agent.role} size={72} glow={agent.status === 'active'} />
                   <div className="text-center">
                     <p className="text-[13px] font-semibold text-txt-secondary group-hover:text-txt-primary transition-colors">
                       {DISPLAY_NAME_MAP[agent.role] ?? agent.role}

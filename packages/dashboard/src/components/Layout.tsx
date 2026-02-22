@@ -21,11 +21,11 @@ export default function Layout() {
   return (
     <div className="flex h-screen overflow-hidden bg-base">
       {/* ── Sidebar ─────────────────────────── */}
-      <aside className="flex w-[220px] flex-col border-r border-[#1a1a1a] bg-[#0B0B0C] transition-colors duration-200">
+      <aside className="flex w-[220px] flex-col border-r border-border dark:border-[#1a1a1a] bg-white dark:bg-[#0B0B0C] transition-colors duration-200">
         {/* Brand */}
         <div className="flex items-center gap-3 px-4 py-4">
           <img src="/glyphor-logo.png" alt="Glyphor" className="h-10 w-10 drop-shadow-[0_0_10px_rgba(0,224,255,0.4)]" />
-          <span className="text-lg font-semibold tracking-tight text-white">
+          <span className="text-lg font-semibold tracking-tight text-txt-primary dark:text-white">
             Glyphor
           </span>
         </div>
@@ -40,8 +40,8 @@ export default function Layout() {
               className={({ isActive }) =>
                 `flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
                   isActive
-                    ? 'bg-white/8 text-white'
-                    : 'text-[#8a8f9a] hover:bg-white/5 hover:text-white'
+                    ? 'bg-base dark:bg-white/8 text-txt-primary dark:text-white font-semibold'
+                    : 'text-txt-muted dark:text-[#8a8f9a] hover:bg-base dark:hover:bg-white/5 hover:text-txt-primary dark:hover:text-white'
                 }`
               }
             >
@@ -54,7 +54,7 @@ export default function Layout() {
         <div className="px-4 py-2">
           <button
             onClick={toggle}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-[#8a8f9a] transition-colors hover:bg-white/5 hover:text-white"
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-txt-muted dark:text-[#8a8f9a] transition-colors hover:bg-base dark:hover:bg-white/5 hover:text-txt-primary dark:hover:text-white"
           >
             {theme === 'dark' ? (
               <SunIcon className="h-4 w-4" />
@@ -65,18 +65,18 @@ export default function Layout() {
           </button>
         </div>
         {/* Footer */}
-        <div className="border-t border-[#1a1a1a] px-4 py-4">
+        <div className="border-t border-border dark:border-[#1a1a1a] px-4 py-4">
           <div className="flex items-center gap-2.5">
             {user?.picture ? (
               <img src={user.picture} alt="" className="h-7 w-7 rounded-full" referrerPolicy="no-referrer" />
             ) : (
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-[11px] font-bold text-white">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-base dark:bg-white/10 text-[11px] font-bold text-txt-primary dark:text-white">
                 {(user?.name ?? 'U')[0]}
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[12px] font-medium text-white/90">{user?.name ?? 'User'}</p>
-              <button onClick={logout} className="text-[11px] text-[#8a8f9a] hover:text-white transition-colors">Sign out</button>
+              <p className="truncate text-[12px] font-medium text-txt-primary dark:text-white/90">{user?.name ?? 'User'}</p>
+              <button onClick={logout} className="text-[11px] text-txt-muted dark:text-[#8a8f9a] hover:text-txt-primary dark:hover:text-white transition-colors">Sign out</button>
             </div>
           </div>
         </div>

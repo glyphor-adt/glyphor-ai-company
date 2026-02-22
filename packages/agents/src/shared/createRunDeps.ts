@@ -106,6 +106,10 @@ export function createRunDeps(
     knowledgeRouter: async (knowledge) => {
       return ci.routeKnowledge(knowledge);
     },
+
+    workingMemoryLoader: async (role: CompanyAgentRole) => {
+      return memory.getLastRunSummary(role);
+    },
   };
 }
 

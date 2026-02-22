@@ -4,9 +4,9 @@
 
 /* ─── Theme Variables ─────────────────────────── */
 :root {
-  --color-base: #e8ecf1;
-  --color-surface: #f1f4f8;
-  --color-raised: #dfe4eb;
+  --color-base: #edf0f5;
+  --color-surface: #ffffff;
+  --color-raised: #f1f4f8;
   --color-border: #c4cdd8;
   --color-border-hover: #a8b5c4;
   --color-txt-primary: #0a0f1a;
