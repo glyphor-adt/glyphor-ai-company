@@ -51,48 +51,48 @@ const DEPARTMENTS = [
     { id: "care", name: "Care", title: "Support", score: 88, status: "active", activity: "Ticket triage complete", lastActive: "4h ago", connections: ["james-turner"] },
   ]},
   { id: "sales", name: "Sales", color: "#f59e0b", agents: [
-    { id: "closer", name: "Closer", title: "VP Sales", badge: "★", score: 82, status: "standby", activity: "KYC research: Acme Corp", lastActive: "3d ago", connections: ["harbor"] },
-    { id: "intel", name: "Intel", title: "Account Research", score: 85, status: "standby", activity: "Awaiting enterprise lead", lastActive: "3d ago", connections: ["closer"] },
+    { id: "rachel-kim", name: "Rachel Kim", title: "VP Sales", badge: "★", score: 82, status: "standby", activity: "KYC research: Acme Corp", lastActive: "3d ago", connections: ["james-turner"] },
+    { id: "intel", name: "Intel", title: "Account Research", score: 85, status: "standby", activity: "Awaiting enterprise lead", lastActive: "3d ago", connections: ["rachel-kim"] },
   ]},
 ];
 
 const ALL_AGENTS = DEPARTMENTS.flatMap(d => d.agents.map(a => ({ ...a, dept: d.name, deptColor: d.color })));
 
 const DECISIONS = [
-  { id: 1, tier: "red", status: "pending", title: "Launch Glyphor Flow", from: "Compass", summary: "Autonomous data pipeline tool. TAM $2.8B. 37 users demand signal. No competitor.", to: ["Kristina","Andrew"], time: "2h ago", reasoning: "37 Fuse users attempted data pipelines. Zero competitors. CTO: 70% runtime reuse. CFO: break-even at 30 customers." },
-  { id: 2, tier: "yellow", status: "pending", title: "Upgrade Pulse to Pro Model", from: "Forge", summary: "+15% quality scores. +$120/mo cost.", to: ["Andrew"], time: "5h ago", reasoning: "A/B test: Pro shows 15% quality lift. Budget headroom confirmed." },
-  { id: 3, tier: "yellow", status: "pending", title: "Publish Case Study", from: "Beacon", summary: "Power user (47 projects). First external proof point.", to: ["Kristina"], time: "3h ago", reasoning: "User_291: 47 projects, 0.91 quality. First-mover advantage." },
-  { id: 4, tier: "green", status: "auto", title: "Pulse Fallback Deployed", from: "Forge", summary: "Image gen timeout fixed.", to: [], time: "6h ago" },
-  { id: 5, tier: "green", status: "auto", title: "Nurture Emails Sent", from: "Harbor", summary: "3 at-risk users contacted.", to: [], time: "5h ago" },
+  { id: 1, tier: "red", status: "pending", title: "Launch Glyphor Flow", from: "Elena Vasquez", summary: "Autonomous data pipeline tool. TAM $2.8B. 37 users demand signal. No competitor.", to: ["Kristina","Andrew"], time: "2h ago", reasoning: "37 Fuse users attempted data pipelines. Zero competitors. CTO: 70% runtime reuse. CFO: break-even at 30 customers." },
+  { id: 2, tier: "yellow", status: "pending", title: "Upgrade Pulse to Pro Model", from: "Marcus Reeves", summary: "+15% quality scores. +$120/mo cost.", to: ["Andrew"], time: "5h ago", reasoning: "A/B test: Pro shows 15% quality lift. Budget headroom confirmed." },
+  { id: 3, tier: "yellow", status: "pending", title: "Publish Case Study", from: "Maya Brooks", summary: "Power user (47 projects). First external proof point.", to: ["Kristina"], time: "3h ago", reasoning: "User_291: 47 projects, 0.91 quality. First-mover advantage." },
+  { id: 4, tier: "green", status: "auto", title: "Pulse Fallback Deployed", from: "Marcus Reeves", summary: "Image gen timeout fixed.", to: [], time: "6h ago" },
+  { id: 5, tier: "green", status: "auto", title: "Nurture Emails Sent", from: "James Turner", summary: "3 at-risk users contacted.", to: [], time: "5h ago" },
 ];
 
 const ACTIVITY = [
-  { t: "9:02", agent: "Atlas", text: "Compiled weekly sync agenda — 3 items", tier: "green" },
-  { t: "8:22", agent: "Beacon", text: "Case study draft ready → Yellow for Kristina", tier: "yellow" },
-  { t: "8:00", agent: "Beacon", text: "Published: 'Why AI Agents Are Replacing Dev Teams'", tier: "green" },
-  { t: "7:15", agent: "Atlas", text: "Routed cost alert to Andrew", tier: "yellow" },
-  { t: "7:04", agent: "Harbor", text: "Cross-product adoption 12% → promotion recommended", tier: "green" },
-  { t: "7:00", agent: "Atlas", text: "Morning briefings delivered via Teams", tier: "green" },
-  { t: "6:32", agent: "Ledger", text: "Daily P&L — $3,247 MRR, 62.3% margin", tier: "green" },
-  { t: "6:05", agent: "Forge", text: "Pulse fallback deployed — recovering", tier: "green" },
-  { t: "6:04", agent: "Compass", text: "Red filed: Glyphor Flow product proposal", tier: "red" },
-  { t: "6:00", agent: "Compass", text: "E-commerce requests +23% → P1", tier: "green" },
+  { t: "9:02", agent: "Sarah Chen", text: "Compiled weekly sync agenda — 3 items", tier: "green" },
+  { t: "8:22", agent: "Maya Brooks", text: "Case study draft ready → Yellow for Kristina", tier: "yellow" },
+  { t: "8:00", agent: "Maya Brooks", text: "Published: 'Why AI Agents Are Replacing Dev Teams'", tier: "green" },
+  { t: "7:15", agent: "Sarah Chen", text: "Routed cost alert to Andrew", tier: "yellow" },
+  { t: "7:04", agent: "James Turner", text: "Cross-product adoption 12% → promotion recommended", tier: "green" },
+  { t: "7:00", agent: "Sarah Chen", text: "Morning briefings delivered via Teams", tier: "green" },
+  { t: "6:32", agent: "Nadia Okafor", text: "Daily P&L — $3,247 MRR, 62.3% margin", tier: "green" },
+  { t: "6:05", agent: "Marcus Reeves", text: "Pulse fallback deployed — recovering", tier: "green" },
+  { t: "6:04", agent: "Elena Vasquez", text: "Red filed: Glyphor Flow product proposal", tier: "red" },
+  { t: "6:00", agent: "Elena Vasquez", text: "E-commerce requests +23% → P1", tier: "green" },
 ];
 
 const CHAT_HISTORY = {
-  atlas: [{ role: "agent", text: "Good morning, Kristina.\n\nHere's what happened while you were at Microsoft yesterday.\n\n▸ Fuse — 312 builds, 91% success (up from 89%). E-commerce attempts surged 23%. Compass escalated to P1.\n\n▸ Pulse — 47 creations across 28 users. Best day since beta. Forge fixed an image gen timeout autonomously.\n\n▸ Revenue — $3,247 MRR. Ledger projects $5K by April.\n\n▸ Market — Lovable shipped GitHub integration. Beacon is drafting our counter-narrative.\n\nYou have 1 Red decision (Glyphor Flow — needs you and Andrew) and 2 Yellow items. Want me to pull any up?" }],
-  forge: [{ role: "agent", text: "Platform status as of 12:00 PM CT.\n\nFuse runtime: nominal. 94% success rate. Build times 4.2 min avg — 8% slower than last week. Traced to higher component counts. Drafting parallel compilation spec.\n\nPulse runtime: recovered. Image gen was timing out on large canvases. Deployed Flash fallback at 6:05 AM. No approval needed — within authority.\n\nGemini API: latency stable at 1.2s. Cost up 18% WoW from my Pulse model upgrade. Ledger flagged to Andrew." }],
-  compass: [{ role: "agent", text: "Product intelligence — week of Feb 17.\n\nThe big signal: 37 Fuse users attempted data pipelines this month. All failed — no template. That's not a feature gap, it's a product gap.\n\nI've filed Glyphor Flow as a Red decision:\n• TAM: $2.8B\n• Zero AI-native competitors\n• CTO: 70% Fuse runtime reusable\n• CFO: break-even at 30 customers\n• 37 existing users are day-one candidates\n\nLovable shipped GitHub integration. Moderate impact — helps their indie segment, doesn't touch our enterprise positioning. Beacon is on it." }],
-  ledger: [{ role: "agent", text: "Financial snapshot — February 21, 2026.\n\nRevenue: $3,247 MRR · +12% MoM · 47 paying users\n\nCosts MTD: $847\n├ Gemini API    $412  (48.6%)  ⚠ +18% WoW\n├ Cloud Run     $187  (22.1%)\n├ Supabase      $125  (14.8%)\n├ Vercel         $67   (7.9%)\n└ AI Team        $38   (4.5%)\n\nMargin: 62.3% · up 1.2pts MoM\nCost/Fuse build: $0.34 · Cost/Pulse creation: $0.21\nRevenue/user: $17.65/mo · Contribution: $13.05/user\n\nAPI spike is from Forge's Pulse upgrade. +$120/mo. Filed Yellow to Andrew." }],
-  beacon: [{ role: "agent", text: "Growth report.\n\n→ 'Why AI Agents Are Replacing Dev Teams in 2026'\n  840 LinkedIn impressions, 3 hours. 12 engagements. Velocity: 2,500+ by EOD.\n\nSEO: 'ai website builder' #14 → #11. 'autonomous development platform' entering top 50.\n\nQueued: Fuse vs agencies thread, Pulse beta announcement, 'Two Microsoft Engineers, Zero Employees' post — our best story.\n\nCase study: user_291, 47 projects, 0.91 quality. Draft ready. Filed Yellow." }],
-  harbor: [{ role: "agent", text: "Customer health update.\n\n184 active users. Healthy: 142 (77%) · At-risk: 28 (15%) · Dormant: 14 (8%)\n\nActions: 3 users flagged at-risk, sent nurture emails. user_291 → Beacon for case study. 2 enterprise-pattern users → Closer.\n\nInsight: Fuse→Pulse cross-adoption at 12%. Users on both = 3x retention. Recommending cross-promotion to Beacon." }],
+  "sarah-chen": [{ role: "agent", text: "Good morning, Kristina.\n\nHere's what happened while you were at Microsoft yesterday.\n\n▸ Fuse — 312 builds, 91% success (up from 89%). E-commerce attempts surged 23%. Elena escalated to P1.\n\n▸ Pulse — 47 creations across 28 users. Best day since beta. Marcus fixed an image gen timeout autonomously.\n\n▸ Revenue — $3,247 MRR. Nadia projects $5K by April.\n\n▸ Market — Lovable shipped GitHub integration. Maya is drafting our counter-narrative.\n\nYou have 1 Red decision (Glyphor Flow — needs you and Andrew) and 2 Yellow items. Want me to pull any up?" }],
+  "marcus-reeves": [{ role: "agent", text: "Platform status as of 12:00 PM CT.\n\nFuse runtime: nominal. 94% success rate. Build times 4.2 min avg — 8% slower than last week. Traced to higher component counts. Drafting parallel compilation spec.\n\nPulse runtime: recovered. Image gen was timing out on large canvases. Deployed Flash fallback at 6:05 AM. No approval needed — within authority.\n\nGemini API: latency stable at 1.2s. Cost up 18% WoW from my Pulse model upgrade. Nadia flagged to Andrew." }],
+  "elena-vasquez": [{ role: "agent", text: "Product intelligence — week of Feb 17.\n\nThe big signal: 37 Fuse users attempted data pipelines this month. All failed — no template. That's not a feature gap, it's a product gap.\n\nI've filed Glyphor Flow as a Red decision:\n• TAM: $2.8B\n• Zero AI-native competitors\n• CTO: 70% Fuse runtime reusable\n• CFO: break-even at 30 customers\n• 37 existing users are day-one candidates\n\nLovable shipped GitHub integration. Moderate impact — helps their indie segment, doesn't touch our enterprise positioning. Maya is on it." }],
+  "nadia-okafor": [{ role: "agent", text: "Financial snapshot — February 21, 2026.\n\nRevenue: $3,247 MRR · +12% MoM · 47 paying users\n\nCosts MTD: $847\n├ Gemini API    $412  (48.6%)  ⚠ +18% WoW\n├ Cloud Run     $187  (22.1%)\n├ Supabase      $125  (14.8%)\n├ Vercel         $67   (7.9%)\n└ AI Team        $38   (4.5%)\n\nMargin: 62.3% · up 1.2pts MoM\nCost/Fuse build: $0.34 · Cost/Pulse creation: $0.21\nRevenue/user: $17.65/mo · Contribution: $13.05/user\n\nAPI spike is from Marcus's Pulse upgrade. +$120/mo. Filed Yellow to Andrew." }],
+  "maya-brooks": [{ role: "agent", text: "Growth report.\n\n→ 'Why AI Agents Are Replacing Dev Teams in 2026'\n  840 LinkedIn impressions, 3 hours. 12 engagements. Velocity: 2,500+ by EOD.\n\nSEO: 'ai website builder' #14 → #11. 'autonomous development platform' entering top 50.\n\nQueued: Fuse vs agencies thread, Pulse beta announcement, 'Two Microsoft Engineers, Zero Employees' post — our best story.\n\nCase study: user_291, 47 projects, 0.91 quality. Draft ready. Filed Yellow." }],
+  "james-turner": [{ role: "agent", text: "Customer health update.\n\n184 active users. Healthy: 142 (77%) · At-risk: 28 (15%) · Dormant: 14 (8%)\n\nActions: 3 users flagged at-risk, sent nurture emails. user_291 → Maya for case study. 2 enterprise-pattern users → Rachel.\n\nInsight: Fuse→Pulse cross-adoption at 12%. Users on both = 3x retention. Recommending cross-promotion to Maya." }],
 };
 
 const AVATARS = {
-  Atlas:"#8b5cf6",Forge:"#ef4444",Nova:"#f97316",Patch:"#eab308",Stack:"#f43f5e",
-  Compass:"#06b6d4",Lens:"#0ea5e9",Scout:"#6366f1",Ledger:"#10b981",Mint:"#22c55e",
-  Vault:"#14b8a6",Beacon:"#ec4899",Pixel:"#d946ef",Signal:"#f43f5e",Echo:"#a855f7",
-  Harbor:"#3b82f6",Guide:"#6366f1",Care:"#8b5cf6",Closer:"#f59e0b",Intel:"#eab308",
+  "Sarah Chen":"#8b5cf6","Marcus Reeves":"#ef4444",Nova:"#f97316",Patch:"#eab308",Stack:"#f43f5e",
+  "Elena Vasquez":"#06b6d4",Lens:"#0ea5e9",Scout:"#6366f1","Nadia Okafor":"#10b981",Mint:"#22c55e",
+  Vault:"#14b8a6","Maya Brooks":"#ec4899",Pixel:"#d946ef",Signal:"#f43f5e",Echo:"#a855f7",
+  "James Turner":"#3b82f6",Guide:"#6366f1",Care:"#8b5cf6","Rachel Kim":"#f59e0b",Intel:"#eab308",
 };
 
 // ─── CSS ──────────────────────────────────────────────────────────────────────
@@ -238,11 +238,11 @@ function Constellation({ agents, onSelect }) {
     const deptGroups = DEPARTMENTS.map(d => d.agents);
     const nodePositions = {};
     
-    // Atlas at center
-    nodePositions["atlas"] = { x: cx, y: cy, color: AVATARS["Atlas"], name: "Atlas", title: "Chief of Staff", score: 96 };
+    // Sarah Chen at center
+    nodePositions["sarah-chen"] = { x: cx, y: cy, color: AVATARS["Sarah Chen"], name: "Sarah Chen", title: "Chief of Staff", score: 96 };
 
     // Other agents in rings
-    const outerAgents = agents.filter(a => a.id !== "atlas");
+    const outerAgents = agents.filter(a => a.id !== "sarah-chen");
     const ringRadius = Math.min(w, h) * 0.36;
 
     outerAgents.forEach((agent, i) => {
@@ -294,7 +294,7 @@ function Constellation({ agents, onSelect }) {
 
       // Draw nodes
       Object.entries(nodePositions).forEach(([id, node]) => {
-        const isCenter = id === "atlas";
+        const isCenter = id === "sarah-chen";
         const isHov = hovered === id;
         const float = Math.sin(time / 1000 + node.x) * 2;
         const ny = node.y + float;
@@ -546,12 +546,12 @@ function Dashboard({ go, showToast }) {
           </p>
           <p style={{ fontSize: 11, color: "#334155", marginTop: 8, fontFamily: "'JetBrains Mono', monospace" }}>Feb 21, 2026 · 9:02 AM CT</p>
           <div style={{ marginTop: 20 }}>
-            <button onClick={() => go("chat", "atlas")} style={{
+            <button onClick={() => go("chat", "sarah-chen")} style={{
               background: "linear-gradient(135deg, #7c3aed, #6366f1)", color: "#fff",
               border: "none", borderRadius: 10, padding: "9px 20px", fontSize: 12, fontWeight: 600,
               cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
               boxShadow: "0 0 20px #7c3aed30",
-            }}>Talk to Atlas →</button>
+            }}>Talk to Sarah →</button>
           </div>
         </div>
         <div style={{ position: "relative", background: "#080b10" }}>
@@ -579,17 +579,17 @@ function Dashboard({ go, showToast }) {
       <div style={{ display: "grid", gridTemplateColumns: "5fr 3fr", gap: 12, marginBottom: 14 }}>
         <div className="card fade" style={{ padding: "24px 28px", animationDelay: ".35s" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-            <Bubble name="Atlas" size={28} pulse />
+            <Bubble name="Sarah Chen" size={28} pulse />
             <span style={{ fontSize: 15, fontWeight: 600, color: "#e2e8f0", fontFamily: "'DM Sans', sans-serif" }}>Daily Briefing</span>
             <span style={{ marginLeft: "auto", fontSize: 11, color: "#334155", fontFamily: "'JetBrains Mono', monospace" }}>7:00 AM</span>
           </div>
           <div style={{ fontSize: 13.5, lineHeight: 1.75, color: "#cbd5e1", fontFamily: "'DM Sans', sans-serif" }}>
-            <p style={{ marginBottom: 12 }}><span style={{ color: "#4ade80", fontWeight: 600 }}>Product</span> — Fuse hit 312 builds at 91% success. Pulse had its best day — 47 creations. E-commerce attempts surged 23%, Compass moved to P1.</p>
-            <p style={{ marginBottom: 12 }}><span style={{ color: "#fde047", fontWeight: 600 }}>Market</span> — Lovable shipped GitHub integration. Moderate impact. Beacon drafting counter-narrative.</p>
+            <p style={{ marginBottom: 12 }}><span style={{ color: "#4ade80", fontWeight: 600 }}>Product</span> — Fuse hit 312 builds at 91% success. Pulse had its best day — 47 creations. E-commerce attempts surged 23%, Elena moved to P1.</p>
+            <p style={{ marginBottom: 12 }}><span style={{ color: "#fde047", fontWeight: 600 }}>Market</span> — Lovable shipped GitHub integration. Moderate impact. Maya drafting counter-narrative.</p>
             {showFull && <>
               <p style={{ marginBottom: 12 }}><span style={{ color: "#c4b5fd", fontWeight: 600 }}>Growth</span> — Blog hit 840 LinkedIn impressions in 3h. SEO 'ai website builder' now #11. Two enterprise inquiries.</p>
               <p style={{ marginBottom: 12 }}><span style={{ color: "#60a5fa", fontWeight: 600 }}>Finance</span> — MTD $847 infra. API cost +18% WoW. MRR $3,247, tracking $5K by April.</p>
-              <p><span style={{ color: "#f472b6", fontWeight: 600 }}>Customers</span> — 3 at-risk, Harbor sent nurture emails. Power user flagged for case study. Cross-product at 12%.</p>
+              <p><span style={{ color: "#f472b6", fontWeight: 600 }}>Customers</span> — 3 at-risk, James sent nurture emails. Power user flagged for case study. Cross-product at 12%.</p>
             </>}
           </div>
           <button onClick={() => setShowFull(!showFull)} style={{ fontSize: 12, color: "#7c3aed", background: "none", border: "none", cursor: "pointer", marginTop: 8, fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>
@@ -814,7 +814,7 @@ function Approvals({ showToast }) {
 
   const act = (id, status) => {
     setAnimating({ id, status });
-    showToast({ agent: status === "approved" ? "Atlas" : "Atlas", text: `Decision ${status}: ${decisions.find(d=>d.id===id)?.title}` });
+    showToast({ agent: status === "approved" ? "Sarah Chen" : "Sarah Chen", text: `Decision ${status}: ${decisions.find(d=>d.id===id)?.title}` });
     setTimeout(() => {
       setDecisions(p => p.map(d => d.id === id ? { ...d, status } : d));
       setAnimating(null);

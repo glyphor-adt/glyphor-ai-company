@@ -10,7 +10,7 @@ import type { CompanyAgentRole, GlyphorEventType } from './types.js';
 
 /**
  * Subscription map: agent role → event types they listen to.
- * Atlas (chief-of-staff) subscribes to ALL events as the orchestrator.
+ * Sarah Chen (chief-of-staff) subscribes to ALL events as the orchestrator.
  */
 export const SUBSCRIPTIONS: Record<CompanyAgentRole, GlyphorEventType[]> = {
   'chief-of-staff': [

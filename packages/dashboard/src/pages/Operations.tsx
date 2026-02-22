@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { CODENAME_MAP, AGENT_META } from '../lib/types';
+import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import {
   Card,
   SectionHeader,
@@ -76,7 +76,7 @@ function useReflections(days = 14) {
   return { data, loading };
 }
 
-const ROLE_ORDER = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-cs', 'vp-sales'];
+const ROLE_ORDER = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales'];
 
 export default function Operations() {
   const { data: agents, loading: agentsLoading } = useAgentRuns();
@@ -89,7 +89,7 @@ export default function Operations() {
     agents
       .sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role))
       .map((a) => ({
-        name: CODENAME_MAP[a.role] ?? a.codename,
+        name: DISPLAY_NAME_MAP[a.role] ?? a.role,
         role: a.role,
         runs: a.total_runs,
         cost: a.total_cost_usd,
@@ -102,7 +102,7 @@ export default function Operations() {
     agents
       .sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role))
       .map((a) => ({
-        name: CODENAME_MAP[a.role] ?? a.codename,
+        name: DISPLAY_NAME_MAP[a.role] ?? a.role,
         role: a.role,
         cost: parseFloat(a.total_cost_usd?.toFixed(2) ?? '0'),
       })),
@@ -240,7 +240,7 @@ export default function Operations() {
                 <AgentAvatar role={agent.role} size={36} />
                 <div className="flex-1">
                   <h3 className="text-[14px] font-semibold text-txt-primary">
-                    {CODENAME_MAP[agent.role] ?? agent.codename}
+                    {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
                   </h3>
                   <p className="text-[11px] text-txt-muted">{agent.role}</p>
                 </div>
