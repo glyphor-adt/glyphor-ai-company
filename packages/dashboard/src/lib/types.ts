@@ -110,6 +110,7 @@ export const AGENT_META: Record<string, { color: string; icon: string }> = {
   'vp-customer-success': { color: '#00BCD4', icon: 'MdSupportAgent' },
   'vp-sales':       { color: '#5B8DEF', icon: 'MdTrackChanges' },
   'vp-design':      { color: '#E91E63', icon: 'MdPalette' },
+  ops:              { color: '#FF6B35', icon: 'MdMonitorHeart' },
 };
 
 export const DISPLAY_NAME_MAP: Record<string, string> = {
@@ -121,6 +122,7 @@ export const DISPLAY_NAME_MAP: Record<string, string> = {
   'vp-customer-success': 'James Turner',
   'vp-sales': 'Rachel Kim',
   'vp-design': 'Mia Tanaka',
+  ops: 'Atlas Vega',
 };
 
 /** @deprecated Use DISPLAY_NAME_MAP instead */

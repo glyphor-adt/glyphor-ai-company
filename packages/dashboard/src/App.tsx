@@ -6,6 +6,8 @@ import Approvals from './pages/Approvals';
 import Chat from './pages/Chat';
 import Financials from './pages/Financials';
 import Operations from './pages/Operations';
+import AgentSettings from './pages/AgentSettings';
+import AgentBuilder from './pages/AgentBuilder';
 
 export default function App() {
   return (
@@ -13,6 +15,8 @@ export default function App() {
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
         <Route path="workforce" element={<Workforce />} />
+        <Route path="agents/new" element={<AgentBuilder />} />
+        <Route path="agents/:agentId/settings" element={<AgentSettings />} />
         <Route path="approvals" element={<Approvals />} />
         <Route path="financials" element={<Financials />} />
         <Route path="operations" element={<Operations />} />
