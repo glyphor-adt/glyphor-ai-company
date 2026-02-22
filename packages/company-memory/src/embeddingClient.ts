@@ -1,5 +1,5 @@
 /**
- * Embedding Client — generates vector embeddings via Google text-embedding-004.
+ * Embedding Client — generates vector embeddings via Google gemini-embedding-001.
  *
  * Used by CompanyMemoryStore to embed memories for semantic search.
  * Dimensions: 768 (matches the pgvector column).
@@ -7,7 +7,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 
-const EMBEDDING_MODEL = 'text-embedding-004';
+const EMBEDDING_MODEL = 'gemini-embedding-001';
 const EMBEDDING_DIMENSIONS = 768;
 
 export class EmbeddingClient {

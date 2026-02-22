@@ -9,7 +9,7 @@
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { GlyphorEventBus } from '@glyphor/agent-runtime';
+import { GlyphorEventBus, ModelClient } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent } from '@glyphor/agent-runtime';
 import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll, TeamsBotHandler, extractBearerToken } from '@glyphor/integrations';
 import { EventRouter } from './eventRouter.js';
@@ -127,8 +127,14 @@ const agentExecutor = async (
 };
 
 const router = new EventRouter(agentExecutor, decisionQueue);
-const analysisEngine = new AnalysisEngine(memory.getSupabaseClient(), agentExecutor);
-const simulationEngine = new SimulationEngine(memory.getSupabaseClient(), agentExecutor);
+
+const strategyModelClient = new ModelClient({
+  geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+  openaiApiKey: process.env.OPENAI_API_KEY,
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+});
+const analysisEngine = new AnalysisEngine(memory.getSupabaseClient(), strategyModelClient);
+const simulationEngine = new SimulationEngine(memory.getSupabaseClient(), strategyModelClient);
 const meetingEngine = new MeetingEngine(memory.getSupabaseClient(), agentExecutor);
 
 // Teams Bot — initialized from env vars (BOT_APP_ID, BOT_APP_SECRET, BOT_TENANT_ID)
@@ -184,7 +190,9 @@ function json(res: ServerResponse, status: number, data: unknown) {
 // ─── Server ─────────────────────────────────────────────────────
 
 const server = createServer(async (req, res) => {
-  const url = req.url ?? '/';
+  const rawUrl = req.url ?? '/';
+  const [url, queryString] = rawUrl.split('?');
+  const params = new URLSearchParams(queryString ?? '');
   const method = req.method ?? 'GET';
 
   try {
@@ -610,7 +618,7 @@ const server = createServer(async (req, res) => {
       const record = await analysisEngine.get(id);
       if (!record) { json(res, 404, { error: 'Analysis not found' }); return; }
 
-      const format = new URL(url, 'http://localhost').searchParams.get('format') ?? 'markdown';
+      const format = params.get('format') ?? 'markdown';
       if (format === 'json') {
         res.writeHead(200, {
           'Content-Type': 'application/json',
@@ -678,7 +686,7 @@ const server = createServer(async (req, res) => {
       const record = await simulationEngine.get(id);
       if (!record) { json(res, 404, { error: 'Simulation not found' }); return; }
 
-      const format = new URL(url, 'http://localhost').searchParams.get('format') ?? 'markdown';
+      const format = params.get('format') ?? 'markdown';
       if (format === 'json') {
         res.writeHead(200, {
           'Content-Type': 'application/json',

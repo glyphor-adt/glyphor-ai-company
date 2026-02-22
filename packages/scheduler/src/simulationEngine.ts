@@ -1,24 +1,20 @@
 /**
  * T+1 Simulation Engine
  *
- * Simulates the impact of a proposed action across the organization:
+ * Makes direct, parallel model calls to simulate impact of a proposed action:
  *   1. Plan      — Parse the action into impact dimensions
- *   2. Spawn     — Create perspective agents for each department
- *   3. Execute   — Each agent assesses impact from their viewpoint
- *   4. Cascade   — Identify second-order effects and dependencies
- *   5. Synthesize— Merge into an impact matrix with confidence scores
- *   6. Cleanup   — Retire temporary agents
+ *   2. Execute   — All department assessors run in parallel via direct model calls
+ *   3. Cascade   — Identify second-order effects and dependencies
+ *   4. Synthesize— Merge into an impact matrix with confidence scores
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
-import { createTemporaryAgent, retireTemporaryAgent } from './agentLifecycle.js';
+import type { ModelClient } from '@glyphor/agent-runtime';
 
 /* ── Types ──────────────────────────────────── */
 
 export type SimulationStatus =
   | 'planning'
-  | 'spawning'
   | 'executing'
   | 'cascading'
   | 'synthesizing'
@@ -90,16 +86,10 @@ const SIMULATION_AGENTS: Array<{ role: string; area: string }> = [
 export class SimulationEngine {
   constructor(
     private supabase: SupabaseClient,
-    private agentExecutor: (
-      role: CompanyAgentRole,
-      task: string,
-      payload: Record<string, unknown>,
-    ) => Promise<AgentExecutionResult | void>,
+    private modelClient: ModelClient,
+    private model = 'gemini-2.0-flash',
   ) {}
 
-  /**
-   * Launch a simulation. Returns the simulation ID for polling.
-   */
   async launch(req: SimulationRequest): Promise<string> {
     const id = `sim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -150,9 +140,6 @@ export class SimulationEngine {
     return (data as SimulationRecord[]) ?? [];
   }
 
-  /**
-   * Mark a simulation as accepted by a founder.
-   */
   async accept(id: string, acceptedBy: string): Promise<void> {
     await this.supabase.from('simulations').update({
       status: 'accepted',
@@ -171,64 +158,36 @@ export class SimulationEngine {
   /* ── Internal phase runner ──────────────── */
 
   private async runPhases(id: string, req: SimulationRequest): Promise<void> {
-    // Phase 2: Spawn temporary agents
-    await this.updateStatus(id, 'spawning');
-    const spawnedAgentIds: string[] = [];
-
-    for (const sa of SIMULATION_AGENTS) {
-      try {
-        const agent = await createTemporaryAgent(this.supabase, {
-          name: `${sa.role}-sim-${id.slice(-6)}`,
-          role: `${sa.role}-sim-${id.slice(-6)}`,
-          department: 'Simulation',
-          reportsTo: 'chief-of-staff',
-          systemPrompt: buildImpactPrompt(req.action, sa.area, req.perspective),
-          maxTurns: 6,
-          ttlDays: 1,
-          spawnedBy: id,
-          spawnedFor: `Simulation: ${sa.area} impact assessment`,
-        });
-        spawnedAgentIds.push(agent.id);
-      } catch (err) {
-        console.error(`[SimulationEngine] Failed to spawn agent for ${sa.area}:`, err);
-      }
-    }
-
-    // Phase 3: Execute — get impact assessments
+    // Phase 1: Execute — get all impact assessments in parallel
     await this.updateStatus(id, 'executing');
-    const dimensions: ImpactDimension[] = [];
 
-    for (const sa of SIMULATION_AGENTS) {
-      try {
-        const result = await this.agentExecutor(
-          sa.role as CompanyAgentRole,
-          'on_demand',
-          { message: buildImpactPrompt(req.action, sa.area, req.perspective) },
-        );
+    const results = await Promise.allSettled(
+      SIMULATION_AGENTS.map((sa) => this.assessImpact(req.action, sa.area, sa.role, req.perspective)),
+    );
 
-        const output = (result as AgentExecutionResult)?.output ?? '';
-        const dimension = parseImpactDimension(output, sa.area, sa.role);
-        dimensions.push(dimension);
-      } catch (err) {
-        dimensions.push({
-          area: sa.area,
-          perspective: sa.role,
-          impact: 'neutral',
-          magnitude: 0,
-          confidence: 0,
-          reasoning: `Assessment failed: ${err instanceof Error ? err.message : String(err)}`,
-          secondOrderEffects: [],
-        });
+    const dimensions: ImpactDimension[] = results.map((result, i) => {
+      const sa = SIMULATION_AGENTS[i];
+      if (result.status === 'fulfilled') {
+        return result.value;
       }
+      return {
+        area: sa.area,
+        perspective: sa.role,
+        impact: 'neutral' as const,
+        magnitude: 0,
+        confidence: 0,
+        reasoning: `Assessment failed: ${result.reason?.message ?? String(result.reason)}`,
+        secondOrderEffects: [],
+      };
+    });
 
-      await this.supabase.from('simulations').update({ dimensions }).eq('id', id);
-    }
+    await this.supabase.from('simulations').update({ dimensions }).eq('id', id);
 
-    // Phase 4: Cascade — identify second-order effects
+    // Phase 2: Cascade — identify second-order effects
     await this.updateStatus(id, 'cascading');
     const cascadeChain = buildCascadeChain(dimensions);
 
-    // Phase 5: Synthesize
+    // Phase 3: Synthesize
     await this.updateStatus(id, 'synthesizing');
     const report = await this.synthesize(req, dimensions, cascadeChain);
 
@@ -239,11 +198,6 @@ export class SimulationEngine {
       completed_at: new Date().toISOString(),
     }).eq('id', id);
 
-    // Phase 6: Cleanup
-    for (const agentId of spawnedAgentIds) {
-      await retireTemporaryAgent(this.supabase, agentId, 'Simulation complete').catch(() => {});
-    }
-
     await this.supabase.from('activity_log').insert({
       agent_id: 'system',
       action: 'simulation.completed',
@@ -252,19 +206,32 @@ export class SimulationEngine {
     });
   }
 
+  private async assessImpact(
+    action: string, area: string, role: string, perspective: string,
+  ): Promise<ImpactDimension> {
+    const prompt = buildImpactPrompt(action, area, perspective as 'optimistic' | 'neutral' | 'pessimistic');
+
+    const response = await this.modelClient.generate({
+      model: this.model,
+      systemInstruction: `You are a senior executive assessing the impact of a proposed action on ${area}. Respond ONLY with valid JSON — no markdown, no code fences, no preamble.`,
+      contents: [{ role: 'user', content: prompt, timestamp: Date.now() }],
+      temperature: 0.3,
+    });
+
+    return parseImpactDimension(response.text ?? '', area, role);
+  }
+
   private async synthesize(
     req: SimulationRequest,
     dimensions: ImpactDimension[],
     cascadeChain: CascadeLink[],
   ): Promise<SimulationReport> {
-    // Calculate overall score as weighted average
     const weighted = dimensions.filter((d) => d.confidence > 0);
     const totalWeight = weighted.reduce((s, d) => s + d.confidence, 0);
     const overallScore = totalWeight > 0
       ? Math.round(weighted.reduce((s, d) => s + d.magnitude * d.confidence, 0) / totalWeight * 10) / 10
       : 0;
 
-    // Generate votes from each dimension
     const votes = dimensions.map((d) => ({
       agent: d.perspective,
       vote: (d.magnitude >= 3 ? 'approve' : d.magnitude <= -3 ? 'reject' : 'caution') as 'approve' | 'caution' | 'reject',
@@ -278,28 +245,28 @@ export class SimulationEngine {
       : approvals >= 4 ? 'proceed'
       : 'proceed_with_caution';
 
-    // Generate summary via chief-of-staff
     let summary = `Impact simulation of "${req.action}" across ${dimensions.length} dimensions. Overall score: ${overallScore}/10.`;
 
     try {
       const synthesisPrompt = [
-        `Summarize this T+1 simulation in 2-3 paragraphs.`,
+        `Summarize this T+1 impact simulation in 2-3 paragraphs.`,
         `Action: "${req.action}"`,
         `Perspective: ${req.perspective}`,
         `Overall score: ${overallScore}/10`,
         `Recommendation: ${recommendation}`,
         '',
         ...dimensions.map((d) =>
-          `${d.area} (${d.perspective}): ${d.impact} impact, magnitude ${d.magnitude}/10, confidence ${Math.round(d.confidence * 100)}%`,
+          `${d.area} (${d.perspective}): ${d.impact} impact, magnitude ${d.magnitude}/10, confidence ${Math.round(d.confidence * 100)}%\nReasoning: ${d.reasoning}`,
         ),
       ].join('\n');
 
-      const result = await this.agentExecutor(
-        'chief-of-staff',
-        'on_demand',
-        { message: synthesisPrompt },
-      );
-      summary = (result as AgentExecutionResult)?.output ?? summary;
+      const response = await this.modelClient.generate({
+        model: this.model,
+        systemInstruction: 'You are a chief strategist writing an executive summary. Be direct and specific. Respond with plain text — no JSON, no markdown headers.',
+        contents: [{ role: 'user', content: synthesisPrompt, timestamp: Date.now() }],
+        temperature: 0.3,
+      });
+      summary = response.text ?? summary;
     } catch {
       // Use fallback summary
     }
@@ -334,9 +301,8 @@ function buildImpactPrompt(
       : 'Be balanced and objective in your assessment.';
 
   return [
-    `You are assessing the impact of a proposed action on ${area}.`,
-    ``,
-    `Proposed action: "${action}"`,
+    `Assess the impact of this proposed action on ${area}:`,
+    `"${action}"`,
     ``,
     `${biasInstruction}`,
     ``,
@@ -380,7 +346,7 @@ function parseImpactDimension(
     impact: 'neutral',
     magnitude: 0,
     confidence: 0.3,
-    reasoning: output.slice(0, 200),
+    reasoning: output.slice(0, 200) || 'No assessment produced.',
     secondOrderEffects: [],
   };
 }
@@ -390,7 +356,6 @@ function buildCascadeChain(dimensions: ImpactDimension[]): CascadeLink[] {
 
   for (const dim of dimensions) {
     for (const effect of dim.secondOrderEffects) {
-      // Try to match second-order effects to other dimensions
       const target = dimensions.find((d) =>
         d.area !== dim.area &&
         effect.toLowerCase().includes(d.area.toLowerCase().split(' ')[0].toLowerCase()),
