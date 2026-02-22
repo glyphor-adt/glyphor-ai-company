@@ -5,7 +5,7 @@
  * and dispatches them to the appropriate agent runner with authority checks.
  */
 
-import type { CompanyAgentRole } from '@glyphor/agent-runtime';
+import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
 import { checkAuthority } from './authorityGates.js';
 import { DecisionQueue } from './decisionQueue.js';
 
@@ -24,13 +24,14 @@ export interface RouteResult {
   agentRole: CompanyAgentRole;
   task: string;
   reason?: string;
+  output?: string | null;
 }
 
 export type AgentExecutor = (
   agentRole: CompanyAgentRole,
   task: string,
   payload: Record<string, unknown>,
-) => Promise<void>;
+) => Promise<AgentExecutionResult | void>;
 
 export class EventRouter {
   private readonly executor: AgentExecutor;
@@ -57,12 +58,13 @@ export class EventRouter {
     if (auth.allowed) {
       // Green tier — execute directly
       try {
-        await this.executor(event.agentRole, event.task, event.payload);
+        const result = await this.executor(event.agentRole, event.task, event.payload);
         return {
           routed: true,
           action: 'executed',
           agentRole: event.agentRole,
           task: event.task,
+          output: result?.output ?? null,
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

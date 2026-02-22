@@ -12,7 +12,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { EventRouter } from './eventRouter.js';
 import { DecisionQueue } from './decisionQueue.js';
 import { runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPCS, runVPSales } from '@glyphor/agents';
-import type { CompanyAgentRole } from '@glyphor/agent-runtime';
+import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
 
@@ -31,35 +31,32 @@ const agentExecutor = async (
   agentRole: CompanyAgentRole,
   task: string,
   payload: Record<string, unknown>,
-): Promise<void> => {
+): Promise<AgentExecutionResult | void> => {
+  const message = (payload.message as string) || undefined;
+
   if (agentRole === 'chief-of-staff') {
     const taskMap: Record<string, 'generate_briefing' | 'check_escalations' | 'on_demand'> = {
       morning_briefing: 'generate_briefing',
       check_escalations: 'check_escalations',
       eod_summary: 'generate_briefing',
     };
-    await runChiefOfStaff({
+    return runChiefOfStaff({
       task: taskMap[task] ?? 'on_demand',
       recipient: payload.founder as 'kristina' | 'andrew' | undefined,
+      message,
     });
   } else if (agentRole === 'cto') {
-    await runCTO({ task: (task as 'platform_health_check' | 'dependency_review' | 'on_demand') });
-
+    return runCTO({ task: (task as 'platform_health_check' | 'dependency_review' | 'on_demand'), message });
   } else if (agentRole === 'cfo') {
-    await runCFO({ task: (task as 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand') });
-
+    return runCFO({ task: (task as 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand'), message });
   } else if (agentRole === 'cpo') {
-    await runCPO({ task: (task as 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand') });
-
+    return runCPO({ task: (task as 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand'), message });
   } else if (agentRole === 'cmo') {
-    await runCMO({ task: (task as 'weekly_content_planning' | 'generate_content' | 'seo_analysis' | 'on_demand') });
-
+    return runCMO({ task: (task as 'weekly_content_planning' | 'generate_content' | 'seo_analysis' | 'on_demand'), message });
   } else if (agentRole === 'vp-customer-success') {
-    await runVPCS({ task: (task as 'daily_health_scoring' | 'churn_detection' | 'on_demand') });
-
+    return runVPCS({ task: (task as 'daily_health_scoring' | 'churn_detection' | 'on_demand'), message });
   } else if (agentRole === 'vp-sales') {
-    await runVPSales({ task: (task as 'pipeline_review' | 'market_sizing' | 'on_demand') });
-
+    return runVPSales({ task: (task as 'pipeline_review' | 'market_sizing' | 'on_demand'), message });
   } else {
     console.log(`[Scheduler] Agent ${agentRole} not recognized, skipping task: ${task}`);
   }
@@ -79,7 +76,10 @@ function readBody(req: IncomingMessage): Promise<string> {
 }
 
 function json(res: ServerResponse, status: number, data: unknown) {
-  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+  });
   res.end(JSON.stringify(data));
 }
 
@@ -108,14 +108,27 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // CORS preflight
+    if (method === 'OPTIONS') {
+      res.writeHead(204, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Max-Age': '86400',
+      });
+      res.end();
+      return;
+    }
+
     // Direct task invocation
     if (method === 'POST' && url === '/run') {
       const body = JSON.parse(await readBody(req));
+      const agentRole = body.agentRole ?? body.agent;
       const result = await router.route({
         source: 'manual',
-        agentRole: body.agentRole,
+        agentRole,
         task: body.task,
-        payload: body.payload ?? {},
+        payload: { ...(body.payload ?? {}), message: body.message },
       });
       json(res, 200, result);
       return;

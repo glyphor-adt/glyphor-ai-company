@@ -46,7 +46,7 @@ export default function Chat() {
       const res = await fetch(`${SCHEDULER_URL}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agent: selectedRole, task: 'on_demand', message: text }),
+        body: JSON.stringify({ agentRole: selectedRole, task: 'on_demand', message: text }),
       });
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -56,7 +56,7 @@ export default function Chat() {
         ...prev,
         {
           role: 'agent',
-          content: data.result ?? data.message ?? JSON.stringify(data),
+          content: data.output ?? data.reason ?? JSON.stringify(data),
           timestamp: new Date(),
         },
       ]);
