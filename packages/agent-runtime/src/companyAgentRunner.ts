@@ -211,6 +211,8 @@ export interface RunDependencies {
   dynamicBriefLoader?: (agentId: string) => Promise<string | null>;
   /** Loader for agent personality profile from agent_profiles table. */
   agentProfileLoader?: (role: CompanyAgentRole) => Promise<AgentProfileData | null>;
+  /** Loader for pending inter-agent messages. */
+  pendingMessageLoader?: (role: CompanyAgentRole) => Promise<{ id: string; from_agent: string; message: string; message_type: string; priority: string; thread_id: string; created_at: string }[]>;
 }
 
 export class CompanyAgentRunner {
@@ -269,6 +271,26 @@ export class CompanyAgentRunner {
       } catch (err) {
         console.warn(
           `[CompanyAgentRunner] Dynamic brief load failed for ${config.id}:`,
+          (err as Error).message,
+        );
+      }
+    }
+
+    // ─── PENDING MESSAGES: inject inter-agent messages ──────────
+    if (deps?.pendingMessageLoader) {
+      try {
+        const pendingMessages = await deps.pendingMessageLoader(config.role);
+        if (pendingMessages.length > 0) {
+          const msgContext = buildPendingMessageContext(pendingMessages);
+          history.push({
+            role: 'user',
+            content: msgContext,
+            timestamp: Date.now(),
+          });
+        }
+      } catch (err) {
+        console.warn(
+          `[CompanyAgentRunner] Pending message load failed for ${config.role}:`,
           (err as Error).message,
         );
       }
@@ -707,6 +729,39 @@ function buildMemoryContext(
       if (r.promptSuggestions.length > 0) {
         parts.push(`  Suggestions: ${r.promptSuggestions.join('; ')}`);
       }
+    }
+  }
+
+  return parts.join('\n');
+}
+
+function buildPendingMessageContext(
+  messages: { id: string; from_agent: string; message: string; message_type: string; priority: string; thread_id: string; created_at: string }[],
+): string {
+  const urgentMessages = messages.filter((m) => m.priority === 'urgent');
+  const normalMessages = messages.filter((m) => m.priority !== 'urgent');
+
+  const parts: string[] = [
+    `## Pending Messages (${messages.length})\n`,
+    'You have messages from other agents. Read them and consider them in your work.',
+    'You can reply using the send_agent_message tool with the same thread_id.\n',
+  ];
+
+  if (urgentMessages.length > 0) {
+    parts.push('### 🔴 URGENT');
+    for (const m of urgentMessages) {
+      parts.push(`**From ${m.from_agent}** (${m.message_type}) [thread: ${m.thread_id}]`);
+      parts.push(`> ${m.message}`);
+      parts.push('');
+    }
+  }
+
+  if (normalMessages.length > 0) {
+    parts.push('### Messages');
+    for (const m of normalMessages) {
+      parts.push(`**From ${m.from_agent}** (${m.message_type}) [thread: ${m.thread_id}]`);
+      parts.push(`> ${m.message}`);
+      parts.push('');
     }
   }
 
