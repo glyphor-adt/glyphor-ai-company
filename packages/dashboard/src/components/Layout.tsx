@@ -11,13 +11,13 @@ const NAV = [
 export default function Layout() {
   const { theme, toggle } = useTheme();
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-base">
       {/* ── Sidebar ─────────────────────────── */}
       <aside className="flex w-[220px] flex-col border-r border-border bg-raised transition-colors duration-200">
         {/* Brand */}
         <div className="flex items-center gap-3 px-4 py-4">
           <img src="/glyphor-logo.png" alt="Glyphor" className="h-10 w-10 drop-shadow-[0_0_10px_rgba(0,224,255,0.4)]" />
-          <span className="text-lg font-semibold tracking-tight bg-gradient-to-r from-cyan to-azure bg-clip-text text-transparent">
+          <span className="text-lg font-semibold tracking-tight text-txt-primary">
             Glyphor
           </span>
         </div>

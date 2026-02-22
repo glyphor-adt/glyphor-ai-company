@@ -3,38 +3,36 @@
 @tailwind utilities;
 
 /* ─── Theme Variables ─────────────────────────── */
-@layer base {
-  :root {
-    --color-base: #f8fafc;
-    --color-surface: #ffffff;
-    --color-raised: #f1f5f9;
-    --color-border: #e2e8f0;
-    --color-border-hover: #cbd5e1;
-    --color-txt-primary: #0f172a;
-    --color-txt-secondary: #334155;
-    --color-txt-muted: #64748b;
-    --color-txt-faint: #94a3b8;
-    --color-hover-bg: rgba(0,0,0,0.04);
-    --color-shimmer: rgba(0,151,255,0.08);
-    --scrollbar-thumb: #cbd5e1;
-    --scrollbar-hover: #94a3b8;
-  }
+:root {
+  --color-base: #f8fafc;
+  --color-surface: #ffffff;
+  --color-raised: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-border-hover: #cbd5e1;
+  --color-txt-primary: #0f172a;
+  --color-txt-secondary: #334155;
+  --color-txt-muted: #64748b;
+  --color-txt-faint: #94a3b8;
+  --color-hover-bg: rgba(0,0,0,0.04);
+  --color-shimmer: rgba(0,151,255,0.08);
+  --scrollbar-thumb: #cbd5e1;
+  --scrollbar-hover: #94a3b8;
+}
 
-  .dark {
-    --color-base: #0B0B0C;
-    --color-surface: #121314;
-    --color-raised: #0B0B0C;
-    --color-border: #1A1A1A;
-    --color-border-hover: #2a2a2a;
-    --color-txt-primary: #f1f5f9;
-    --color-txt-secondary: #cbd5e1;
-    --color-txt-muted: #64748b;
-    --color-txt-faint: #475569;
-    --color-hover-bg: rgba(255,255,255,0.03);
-    --color-shimmer: rgba(0,224,255,0.06);
-    --scrollbar-thumb: #1e293b;
-    --scrollbar-hover: #334155;
-  }
+.dark {
+  --color-base: #0B0B0C;
+  --color-surface: #121314;
+  --color-raised: #0B0B0C;
+  --color-border: #1A1A1A;
+  --color-border-hover: #2a2a2a;
+  --color-txt-primary: #f1f5f9;
+  --color-txt-secondary: #cbd5e1;
+  --color-txt-muted: #64748b;
+  --color-txt-faint: #475569;
+  --color-hover-bg: rgba(255,255,255,0.03);
+  --color-shimmer: rgba(0,224,255,0.06);
+  --scrollbar-thumb: #1e293b;
+  --scrollbar-hover: #334155;
 }
 
 /* ─── Global ──────────────────────────────────── */
