@@ -2,7 +2,7 @@
   "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
   "manifestVersion": "1.17",
   "version": "1.0.0",
-  "id": "{{TEAMS_APP_ID}}",
+  "id": "0d2c6770-cd9e-4f78-a78d-46725494e391",
   "developer": {
     "name": "Glyphor",
     "websiteUrl": "https://glyphor.com",
@@ -26,35 +26,35 @@
     {
       "entityId": "dashboard",
       "name": "Dashboard",
-      "contentUrl": "{{DASHBOARD_URL}}?teamsTab=true",
-      "websiteUrl": "{{DASHBOARD_URL}}",
+      "contentUrl": "https://glyphor-dashboard-v55622rp6q-uc.a.run.app?teamsTab=true",
+      "websiteUrl": "https://glyphor-dashboard-v55622rp6q-uc.a.run.app",
       "scopes": ["personal"]
     },
     {
       "entityId": "chat",
       "name": "Agent Chat",
-      "contentUrl": "{{DASHBOARD_URL}}/chat?teamsTab=true",
-      "websiteUrl": "{{DASHBOARD_URL}}/chat",
+      "contentUrl": "https://glyphor-dashboard-v55622rp6q-uc.a.run.app/chat?teamsTab=true",
+      "websiteUrl": "https://glyphor-dashboard-v55622rp6q-uc.a.run.app/chat",
       "scopes": ["personal"]
     },
     {
       "entityId": "group-chat",
       "name": "Group Chat",
-      "contentUrl": "{{DASHBOARD_URL}}/group-chat?teamsTab=true",
-      "websiteUrl": "{{DASHBOARD_URL}}/group-chat",
+      "contentUrl": "https://glyphor-dashboard-v55622rp6q-uc.a.run.app/group-chat?teamsTab=true",
+      "websiteUrl": "https://glyphor-dashboard-v55622rp6q-uc.a.run.app/group-chat",
       "scopes": ["personal"]
     },
     {
       "entityId": "approvals",
       "name": "Approvals",
-      "contentUrl": "{{DASHBOARD_URL}}/approvals?teamsTab=true",
-      "websiteUrl": "{{DASHBOARD_URL}}/approvals",
+      "contentUrl": "https://glyphor-dashboard-v55622rp6q-uc.a.run.app/approvals?teamsTab=true",
+      "websiteUrl": "https://glyphor-dashboard-v55622rp6q-uc.a.run.app/approvals",
       "scopes": ["personal"]
     }
   ],
   "configurableTabs": [
     {
-      "configurationUrl": "{{DASHBOARD_URL}}/teams-config?teamsTab=true",
+      "configurationUrl": "https://glyphor-dashboard-v55622rp6q-uc.a.run.app/teams-config?teamsTab=true",
       "canUpdateConfiguration": true,
       "scopes": ["team", "groupChat"],
       "supportedSharePointHosts": []
@@ -62,7 +62,7 @@
   ],
   "bots": [
     {
-      "botId": "{{BOT_APP_ID}}",
+      "botId": "a4c1145a-fff5-4528-8841-ad1193ba277d",
       "scopes": ["personal", "team", "groupChat"],
       "supportsFiles": false,
       "isNotificationOnly": false,
@@ -93,12 +93,12 @@
   ],
   "permissions": ["identity", "messageTeamMembers"],
   "validDomains": [
-    "{{DASHBOARD_DOMAIN}}",
-    "{{SCHEDULER_DOMAIN}}",
+    "glyphor-dashboard-v55622rp6q-uc.a.run.app",
+    "glyphor-scheduler-v55622rp6q-uc.a.run.app",
     "*.supabase.co"
   ],
   "webApplicationInfo": {
-    "id": "{{AZURE_CLIENT_ID}}",
-    "resource": "api://{{DASHBOARD_DOMAIN}}/{{AZURE_CLIENT_ID}}"
+    "id": "a4c1145a-fff5-4528-8841-ad1193ba277d",
+    "resource": "api://glyphor-dashboard-v55622rp6q-uc.a.run.app/a4c1145a-fff5-4528-8841-ad1193ba277d"
   }
 }
