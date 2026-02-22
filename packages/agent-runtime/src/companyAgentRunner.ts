@@ -123,9 +123,11 @@ export class CompanyAgentRunner {
             tokenEstimate: estimateTokens(history),
           });
 
+          const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt);
+
           response = await this.modelClient.generate({
             model: config.model,
-            systemInstruction: config.systemPrompt,
+            systemInstruction: systemPrompt,
             contents: history,
             tools: toolExecutor.getDeclarations(),
             temperature: config.temperature,

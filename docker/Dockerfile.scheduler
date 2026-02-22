@@ -40,6 +40,9 @@ COPY --from=builder /app/packages/agents/dist packages/agents/dist
 COPY --from=builder /app/packages/integrations/dist packages/integrations/dist
 COPY --from=builder /app/packages/scheduler/dist packages/scheduler/dist
 
+# Copy company knowledge files (read at runtime by agent runner)
+COPY packages/company-knowledge/ packages/company-knowledge/
+
 ENV NODE_ENV=production
 
 # Cloud Run expects port 8080
