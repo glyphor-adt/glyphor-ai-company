@@ -9,6 +9,8 @@ export { GlyphorEventBus } from './glyphorEventBus.js';
 export type { GlyphorEventBusConfig } from './glyphorEventBus.js';
 export { SUBSCRIPTIONS, getSubscribers } from './subscriptions.js';
 export { extractReasoning, stripReasoning, REASONING_PROMPT_SUFFIX } from './reasoning.js';
+export { checkEventPermission, createEventSecurityLog } from './eventPermissions.js';
+export type { EventPermissionCheck } from './eventPermissions.js';
 export {
   AGENT_BUDGETS,
   EXECUTIVE_ROLES,
