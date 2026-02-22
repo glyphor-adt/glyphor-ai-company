@@ -292,6 +292,8 @@ glyphor-ai-company/
 │   ├── company-memory/          # Persistence layer
 │   │   └── src/
 │   │       ├── store.ts               # CompanyMemoryStore (Supabase + GCS)
+│   │       ├── embeddingClient.ts     # Gemini embedding-001 vector embeddings (768-dim)
+│   │       ├── collectiveIntelligence.ts # Collective intelligence store (company pulse, knowledge)
 │   │       ├── namespaces.ts          # Key prefixes and GCS paths
 │   │       ├── schema.ts             # Database row types
 │   │       └── migrations/           # Schema migration helpers
@@ -439,7 +441,7 @@ glyphor-ai-company/
 │   ├── manifest.json            # Main Glyphor AI team tab + bot
 │   └── agents/                  # 8 individual agent bot manifests + zip packages
 │
-├── supabase/migrations/         # 16 migration files
+├── supabase/migrations/         # 19 migration files
 ├── .github/workflows/deploy.yml # CI/CD (GitHub Actions → Cloud Run)
 ├── turbo.json                   # Turborepo pipeline config
 ├── tsconfig.base.json           # Shared TS config
@@ -662,6 +664,39 @@ Each agent role has per-run, daily, and monthly USD cost caps defined in `AGENT_
 | CMO | $0.10 | $1.50 | $40 |
 | Sub-team (most) | $0.02–0.05 | $0.20–0.50 | $6–12 |
 
+### Semantic Memory & Collective Intelligence
+
+#### EmbeddingClient (`embeddingClient.ts`)
+
+Generates 768-dimensional vector embeddings via Google **`gemini-embedding-001`** (migrated from
+deprecated `text-embedding-004`). Used by `CompanyMemoryStore.saveMemoryWithEmbedding()` and
+`CollectiveIntelligenceStore` for semantic search.
+
+| Method | Description |
+|--------|------------|
+| `embed(text)` | Single text → 768-dim float array |
+| `embedBatch(texts)` | Parallel batch embed |
+
+Vectors are stored in pgvector columns and searched via the `match_memories()` Postgres RPC
+(cosine similarity, configurable threshold + count).
+
+#### CollectiveIntelligenceStore (`collectiveIntelligence.ts`)
+
+Three-layer organizational cognition system:
+
+| Layer | Capability | Tables |
+|-------|-----------|--------|
+| **1 — Shared Awareness** | Company Pulse (MRR, users, platform status, mood, highlights) | `company_pulse` |
+| **2 — Knowledge Circulation** | Org knowledge, knowledge inbox, knowledge routes, contradiction detection | `company_knowledge`, `knowledge_inbox`, `knowledge_routes` |
+| **3 — Organizational Learning** | Process patterns, authority proposals | `process_patterns`, `authority_proposals` |
+
+Key methods:
+- `formatPulseContext()` — inject live company metrics into agent prompts
+- `formatOrgKnowledgeContext(agentId)` — relevant knowledge for a specific agent
+- `formatKnowledgeInboxContext(agentId)` — unread knowledge from colleagues (auto-consumed)
+- `routeKnowledge(...)` — route new knowledge through matching routes (tag/type match → inbox or DM)
+- `detectContradictions()` — cross-agent semantic similarity to surface conflicting facts
+
 ---
 
 ## Strategy Lab — Analysis & Simulation Engines
@@ -804,6 +839,17 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 | `analyses` | Strategic analyses | type, query, depth, status, threads, report, requested_by |
 | `simulations` | T+1 simulations | action, perspective, status, dimensions, cascades, report, requested_by |
 
+### Collective Intelligence Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `company_pulse` | Live company metrics snapshot | mrr, active_users, platform_status, company_mood, highlights |
+| `company_knowledge` | Org-wide knowledge base | knowledge_type, content, confidence, embedding (pgvector 768-dim), discovered_by, departments_affected |
+| `knowledge_inbox` | Pending knowledge deliveries | target_agent, source_agent, content, status |
+| `knowledge_routes` | Auto-routing rules | source_agent, source_tags, target_agents, delivery_method |
+| `process_patterns` | Discovered organizational patterns | pattern_type, description, evidence, frequency, impact_type, implemented |
+| `authority_proposals` | Tier elevation proposals | agent_id, current_tier, proposed_tier, evidence, status |
+
 ### Operations Tables
 
 | Table | Purpose | Key Columns |
@@ -811,7 +857,7 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 | `autonomous_ops_events` | System operations | event_type, agent_role, summary, detail |
 | `data_sync_status` | Sync health tracking | id, status, last_success_at, last_failure_at, consecutive_failures |
 
-Total: **16 migration files**, **20+ tables**.
+Total: **19 migration files**, **20+ tables**.
 
 ---
 
