@@ -7,8 +7,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <script>
+      (function(){
+        var t=localStorage.getItem('glyphor-theme');
+        var d=document.documentElement;
+        if(t==='light'){d.classList.remove('dark');d.classList.add('light');}
+      })();
+    </script>
   </head>
-  <body class="bg-base text-slate-200 antialiased">
+  <body class="bg-base text-txt-primary antialiased transition-colors duration-200">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
