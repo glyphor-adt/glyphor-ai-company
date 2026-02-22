@@ -26,14 +26,15 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
   'cto': new Set([
     'model_fallback', 'cache_optimization', 'scale_within_budget',
     'staging_deploy', 'dependency_update', 'health_check',
+    'platform_health_check', 'dependency_review',
   ]),
   'cpo': new Set([
     'usage_analysis', 'competitive_scan', 'feature_prioritization',
-    'user_research', 'roadmap_analysis',
+    'user_research', 'roadmap_analysis', 'weekly_usage_analysis',
   ]),
   'cmo': new Set([
     'blog_post', 'social_post', 'seo_analysis', 'case_study_draft',
-    'content_calendar', 'generate_content',
+    'content_calendar', 'generate_content', 'weekly_content_planning',
   ]),
   'cfo': new Set([
     'cost_tracking', 'standard_report', 'margin_calculation',
@@ -41,11 +42,11 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
   ]),
   'vp-customer-success': new Set([
     'health_scoring', 'nurture_email', 'segment_update',
-    'support_triage', 'churn_detection',
+    'support_triage', 'churn_detection', 'daily_health_scoring',
   ]),
   'vp-sales': new Set([
     'account_research', 'roi_calculator', 'market_sizing',
-    'kyc_research', 'proposal_draft',
+    'kyc_research', 'proposal_draft', 'pipeline_review',
   ]),
 };
 

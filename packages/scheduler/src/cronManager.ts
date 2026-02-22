@@ -58,7 +58,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'UTC',
     task: 'platform_health_check',
     payload: {},
-    enabled: false,
+    enabled: true,
   },
   {
     id: 'cfo-daily-costs',
@@ -67,7 +67,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'daily_cost_check',
     payload: {},
-    enabled: false,
+    enabled: true,
   },
   {
     id: 'cpo-usage-analysis',
@@ -76,7 +76,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'weekly_usage_analysis',
     payload: {},
-    enabled: false,
+    enabled: true,
   },
   {
     id: 'cmo-content-calendar',
@@ -85,7 +85,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'weekly_content_planning',
     payload: {},
-    enabled: false,
+    enabled: true,
   },
   {
     id: 'vpcs-health-scoring',
@@ -94,7 +94,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'daily_health_scoring',
     payload: {},
-    enabled: false,
+    enabled: true,
   },
   {
     id: 'vps-pipeline-review',
@@ -103,7 +103,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'pipeline_review',
     payload: {},
-    enabled: false,
+    enabled: true,
   },
 ];
 

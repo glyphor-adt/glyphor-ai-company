@@ -11,7 +11,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { EventRouter } from './eventRouter.js';
 import { DecisionQueue } from './decisionQueue.js';
-import { runChiefOfStaff } from '@glyphor/agents';
+import { runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPCS, runVPSales } from '@glyphor/agents';
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
@@ -42,8 +42,26 @@ const agentExecutor = async (
       task: taskMap[task] ?? 'on_demand',
       recipient: payload.founder as 'kristina' | 'andrew' | undefined,
     });
+  } else if (agentRole === 'cto') {
+    await runCTO({ task: (task as 'platform_health_check' | 'dependency_review' | 'on_demand') });
+
+  } else if (agentRole === 'cfo') {
+    await runCFO({ task: (task as 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand') });
+
+  } else if (agentRole === 'cpo') {
+    await runCPO({ task: (task as 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand') });
+
+  } else if (agentRole === 'cmo') {
+    await runCMO({ task: (task as 'weekly_content_planning' | 'generate_content' | 'seo_analysis' | 'on_demand') });
+
+  } else if (agentRole === 'vp-customer-success') {
+    await runVPCS({ task: (task as 'daily_health_scoring' | 'churn_detection' | 'on_demand') });
+
+  } else if (agentRole === 'vp-sales') {
+    await runVPSales({ task: (task as 'pipeline_review' | 'market_sizing' | 'on_demand') });
+
   } else {
-    console.log(`[Scheduler] Agent ${agentRole} not yet implemented, skipping task: ${task}`);
+    console.log(`[Scheduler] Agent ${agentRole} not recognized, skipping task: ${task}`);
   }
 };
 
