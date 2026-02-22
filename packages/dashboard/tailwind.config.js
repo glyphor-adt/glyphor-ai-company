@@ -1,15 +1,21 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        // Shell (Glyphor brand)
-        base: '#0B0B0C',
-        surface: '#121314',
-        raised: '#0B0B0C',
-        border: '#1A1A1A',
-        'border-hover': '#2a2a2a',
+        // Shell – driven by CSS custom properties
+        base: 'var(--color-base)',
+        surface: 'var(--color-surface)',
+        raised: 'var(--color-raised)',
+        border: 'var(--color-border)',
+        'border-hover': 'var(--color-border-hover)',
+        // Text semantic tokens
+        'txt-primary': 'var(--color-txt-primary)',
+        'txt-secondary': 'var(--color-txt-secondary)',
+        'txt-muted': 'var(--color-txt-muted)',
+        'txt-faint': 'var(--color-txt-faint)',
         // Primary
         cyan: { DEFAULT: '#00E0FF', muted: '#00E0FF80' },
         azure: { DEFAULT: '#0097FF', muted: '#0097FF80' },

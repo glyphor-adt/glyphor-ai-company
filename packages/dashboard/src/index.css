@@ -2,19 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Theme Variables ─────────────────────────── */
+:root, .dark {
+  --color-base: #0B0B0C;
+  --color-surface: #121314;
+  --color-raised: #0B0B0C;
+  --color-border: #1A1A1A;
+  --color-border-hover: #2a2a2a;
+  --color-txt-primary: #f1f5f9;
+  --color-txt-secondary: #cbd5e1;
+  --color-txt-muted: #64748b;
+  --color-txt-faint: #475569;
+  --color-hover-bg: rgba(255,255,255,0.03);
+  --color-shimmer: rgba(0,224,255,0.06);
+  --scrollbar-thumb: #1e293b;
+  --scrollbar-hover: #334155;
+}
+
+.light {
+  --color-base: #f8fafc;
+  --color-surface: #ffffff;
+  --color-raised: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-border-hover: #cbd5e1;
+  --color-txt-primary: #0f172a;
+  --color-txt-secondary: #334155;
+  --color-txt-muted: #64748b;
+  --color-txt-faint: #94a3b8;
+  --color-hover-bg: rgba(0,0,0,0.03);
+  --color-shimmer: rgba(0,151,255,0.08);
+  --scrollbar-thumb: #cbd5e1;
+  --scrollbar-hover: #94a3b8;
+}
+
 /* ─── Global ──────────────────────────────────── */
 html { scroll-behavior: smooth; }
-body { font-family: 'DM Sans', system-ui, sans-serif; }
+body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
 
 /* ─── Scrollbar ─────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: #334155; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover); }
 
 /* ─── Gradient shimmer for skeleton loaders ── */
 .shimmer-bg {
-  background: linear-gradient(90deg, transparent 0%, rgba(124,58,237,.06) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, var(--color-shimmer) 50%, transparent 100%);
   background-size: 800px 100%;
   animation: shimmer 1.8s linear infinite;
 }
