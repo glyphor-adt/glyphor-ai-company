@@ -29,8 +29,8 @@ export default function Dashboard() {
     <div className="space-y-8">
       {/* ── Header ──────────────────────────── */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-50">Command Center</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="text-2xl font-bold text-txt-primary">Command Center</h1>
+        <p className="mt-1 text-sm text-txt-muted">
           {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </p>
       </div>
@@ -70,10 +70,10 @@ export default function Dashboard() {
                 >
                   <AgentAvatar role={agent.role} size={40} glow={agent.status === 'active'} />
                   <div className="text-center">
-                    <p className="text-[13px] font-semibold text-slate-200 group-hover:text-cyan transition-colors">
+                    <p className="text-[13px] font-semibold text-txt-secondary group-hover:text-cyan transition-colors">
                       {CODENAME_MAP[agent.role] ?? agent.codename}
                     </p>
-                    <p className="text-[11px] text-slate-500">{agent.role}</p>
+                    <p className="text-[11px] text-txt-muted">{agent.role}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <StatusDot status={agent.status} />
@@ -95,28 +95,28 @@ export default function Dashboard() {
               ))}
             </div>
           ) : activity.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-600">No recent activity</p>
+            <p className="py-8 text-center text-sm text-txt-faint">No recent activity</p>
           ) : (
             <div className="space-y-1 max-h-[420px] overflow-y-auto pr-1">
               {activity.map((entry) => (
                 <div
                   key={entry.id}
-                  className="flex items-start gap-2.5 rounded-lg px-2 py-2 hover:bg-white/[.02]"
+                  className="flex items-start gap-2.5 rounded-lg px-2 py-2 hover:bg-[var(--color-hover-bg)]"
                 >
                   {entry.agent_id && (
                     <AgentAvatar role={entry.agent_id} size={24} />
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="text-[12px] text-slate-300 line-clamp-2">
+                    <p className="text-[12px] text-txt-secondary line-clamp-2">
                       {entry.action}
                     </p>
                     {entry.detail && (
-                      <p className="mt-0.5 text-[11px] text-slate-600 line-clamp-1">
+                      <p className="mt-0.5 text-[11px] text-txt-faint line-clamp-1">
                         {entry.detail}
                       </p>
                     )}
                   </div>
-                  <span className="flex-shrink-0 text-[10px] text-slate-600">
+                  <span className="flex-shrink-0 text-[10px] text-txt-faint">
                     {timeAgo(entry.created_at)}
                   </span>
                 </div>
@@ -143,7 +143,7 @@ export default function Dashboard() {
             ))}
           </div>
         ) : decisions.filter((d) => d.status === 'pending').length === 0 ? (
-          <p className="py-8 text-center text-sm text-slate-600">
+          <p className="py-8 text-center text-sm text-txt-faint">
             No pending decisions — all clear ✓
           </p>
         ) : (
@@ -158,11 +158,11 @@ export default function Dashboard() {
                 >
                   <AgentAvatar role={d.agent_id} size={28} />
                   <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-medium text-slate-200">{d.title}</p>
-                    <p className="text-[11px] text-slate-500 line-clamp-1">{d.description}</p>
+                    <p className="text-[13px] font-medium text-txt-secondary">{d.title}</p>
+                    <p className="text-[11px] text-txt-muted line-clamp-1">{d.description}</p>
                   </div>
                   <ImpactBadge impact={d.impact} />
-                  <span className="text-[10px] text-slate-600">{timeAgo(d.created_at)}</span>
+                  <span className="text-[10px] text-txt-faint">{timeAgo(d.created_at)}</span>
                 </div>
               ))}
           </div>
@@ -193,11 +193,11 @@ function MetricCard({
   return (
     <Card className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">{label}</p>
+        <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">{label}</p>
         <Sparkline data={sparkData} color={color} width={60} height={20} />
       </div>
-      <p className="font-mono text-2xl font-semibold text-slate-100">{value}</p>
-      <p className="text-[11px] text-slate-600">{sub}</p>
+      <p className="font-mono text-2xl font-semibold text-txt-primary">{value}</p>
+      <p className="text-[11px] text-txt-faint">{sub}</p>
     </Card>
   );
 }

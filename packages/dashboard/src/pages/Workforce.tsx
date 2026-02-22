@@ -24,8 +24,8 @@ export default function Workforce() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-slate-50">Workforce</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="text-2xl font-bold text-txt-primary">Workforce</h1>
+        <p className="mt-1 text-sm text-txt-muted">
           {agents.length} agents · {agents.filter((a) => a.status === 'active').length} active
         </p>
       </div>
@@ -81,20 +81,20 @@ export default function Workforce() {
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-[15px] font-semibold text-slate-100">
+                        <h3 className="text-[15px] font-semibold text-txt-primary">
                           {CODENAME_MAP[agent.role] ?? agent.codename}
                         </h3>
                         <StatusDot status={agent.status} />
                       </div>
-                      <p className="text-[12px] text-slate-500">{agent.role} · {agent.department}</p>
-                      <p className="mt-0.5 text-[11px] text-slate-600">
-                        Model: <span className="font-mono text-slate-500">{agent.model}</span>
+                      <p className="text-[12px] text-txt-muted">{agent.role} · {agent.department}</p>
+                      <p className="mt-0.5 text-[11px] text-txt-faint">
+                        Model: <span className="font-mono text-txt-muted">{agent.model}</span>
                       </p>
 
                       <div className="mt-3 flex items-center gap-4">
                         <TierBadge tier={agent.tier} />
-                        <span className="font-mono text-sm text-slate-300">{agent.score}/100</span>
-                        <span className="text-[10px] text-slate-600">
+                        <span className="font-mono text-sm text-txt-secondary">{agent.score}/100</span>
+                        <span className="text-[10px] text-txt-faint">
                           Last run: {timeAgo(agent.last_run)}
                         </span>
                       </div>
@@ -102,7 +102,7 @@ export default function Workforce() {
 
                     <Link
                       to={`/chat/${agent.role}`}
-                      className="rounded-lg border border-border px-3 py-1.5 text-[11px] font-medium text-slate-400 transition-colors hover:border-cyan hover:text-cyan"
+                      className="rounded-lg border border-border px-3 py-1.5 text-[11px] font-medium text-txt-muted transition-colors hover:border-cyan hover:text-cyan"
                     >
                       Chat →
                     </Link>
@@ -134,10 +134,10 @@ function StatCard({
   const pct = total > 0 ? (value / total) * 100 : 0;
   return (
     <Card>
-      <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">{label}</p>
-      <p className="mt-1 font-mono text-xl font-semibold text-slate-100">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">{label}</p>
+      <p className="mt-1 font-mono text-xl font-semibold text-txt-primary">
         {value}
-        <span className="text-sm text-slate-600">/{total}</span>
+        <span className="text-sm text-txt-faint">/{total}</span>
       </p>
       <div className="mt-2 h-1.5 w-full rounded-full bg-white/5">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />

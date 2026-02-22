@@ -39,8 +39,8 @@ export default function Approvals() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-slate-50">Approvals</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="text-2xl font-bold text-txt-primary">Approvals</h1>
+        <p className="mt-1 text-sm text-txt-muted">
           {counts.pending} pending · {counts.approved} approved · {counts.rejected} rejected
         </p>
       </div>
@@ -54,11 +54,11 @@ export default function Approvals() {
             className={`rounded-md px-3.5 py-1.5 text-[12px] font-medium transition-colors ${
               filter === f
                 ? 'bg-cyan/15 text-cyan'
-                : 'text-slate-500 hover:text-slate-300'
+                : 'text-txt-muted hover:text-txt-secondary'
             }`}
           >
             {f.charAt(0).toUpperCase() + f.slice(1)}
-            <span className="ml-1.5 text-[10px] text-slate-600">{counts[f]}</span>
+            <span className="ml-1.5 text-[10px] text-txt-faint">{counts[f]}</span>
           </button>
         ))}
       </div>
@@ -72,7 +72,7 @@ export default function Approvals() {
         </div>
       ) : filtered.length === 0 ? (
         <Card>
-          <p className="py-12 text-center text-sm text-slate-600">
+          <p className="py-12 text-center text-sm text-txt-faint">
             {filter === 'pending' ? 'No decisions pending — inbox zero' : 'No decisions match this filter'}
           </p>
         </Card>
@@ -89,16 +89,16 @@ export default function Approvals() {
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2.5">
-                    <h3 className="text-[14px] font-semibold text-slate-100">{d.title}</h3>
+                    <h3 className="text-[14px] font-semibold text-txt-primary">{d.title}</h3>
                     <ImpactBadge impact={d.impact} />
                   </div>
 
-                  <p className="mt-1 text-[12px] text-slate-500 leading-relaxed">
+                  <p className="mt-1 text-[12px] text-txt-muted leading-relaxed">
                     {d.description}
                   </p>
 
-                  <div className="mt-2.5 flex items-center gap-3 text-[11px] text-slate-600">
-                    <span>From: <span className="text-slate-400">{agentName(d.agent_id)}</span></span>
+                  <div className="mt-2.5 flex items-center gap-3 text-[11px] text-txt-faint">
+                    <span>From: <span className="text-txt-muted">{agentName(d.agent_id)}</span></span>
                     <span>·</span>
                     <span>{timeAgo(d.created_at)}</span>
                     {d.decided_by && (
@@ -106,7 +106,7 @@ export default function Approvals() {
                         <span>·</span>
                         <span>
                           {d.status === 'approved' ? '✓' : '✗'} by{' '}
-                          <span className="text-slate-400">{d.decided_by}</span>
+                          <span className="text-txt-muted">{d.decided_by}</span>
                         </span>
                       </>
                     )}
