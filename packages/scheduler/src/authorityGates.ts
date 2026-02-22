@@ -22,31 +22,38 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
   'chief-of-staff': new Set([
     'compile_briefing', 'route_decision', 'log_activity', 'synthesize_report',
     'check_escalations', 'generate_briefing', 'morning_briefing', 'eod_summary',
+    'on_demand',
   ]),
   'cto': new Set([
     'model_fallback', 'cache_optimization', 'scale_within_budget',
     'staging_deploy', 'dependency_update', 'health_check',
     'platform_health_check', 'dependency_review',
+    'on_demand',
   ]),
   'cpo': new Set([
     'usage_analysis', 'competitive_scan', 'feature_prioritization',
     'user_research', 'roadmap_analysis', 'weekly_usage_analysis',
+    'on_demand',
   ]),
   'cmo': new Set([
     'blog_post', 'social_post', 'seo_analysis', 'case_study_draft',
     'content_calendar', 'generate_content', 'weekly_content_planning',
+    'on_demand',
   ]),
   'cfo': new Set([
     'cost_tracking', 'standard_report', 'margin_calculation',
     'financial_modeling', 'daily_cost_check',
+    'on_demand',
   ]),
   'vp-customer-success': new Set([
     'health_scoring', 'nurture_email', 'segment_update',
     'support_triage', 'churn_detection', 'daily_health_scoring',
+    'on_demand',
   ]),
   'vp-sales': new Set([
     'account_research', 'roi_calculator', 'market_sizing',
     'kyc_research', 'proposal_draft', 'pipeline_review',
+    'on_demand',
   ]),
 };
 

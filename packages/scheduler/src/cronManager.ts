@@ -26,7 +26,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'cos-briefing-kristina',
     agentRole: 'chief-of-staff',
-    schedule: '0 12 * * 1-5',  // 12:00 UTC = 7:00 AM CT, weekdays
+    schedule: '0 12 * * *',  // 12:00 UTC = 7:00 AM CT, daily
     timezone: 'America/Chicago',
     task: 'morning_briefing',
     payload: { founder: 'kristina' },
@@ -35,7 +35,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'cos-briefing-andrew',
     agentRole: 'chief-of-staff',
-    schedule: '30 12 * * 1-5',  // 12:30 UTC = 7:30 AM CT, weekdays
+    schedule: '30 12 * * *',  // 12:30 UTC = 7:30 AM CT, daily
     timezone: 'America/Chicago',
     task: 'morning_briefing',
     payload: { founder: 'andrew' },
@@ -44,7 +44,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'cos-eod-summary',
     agentRole: 'chief-of-staff',
-    schedule: '0 23 * * 1-5',  // 23:00 UTC = 6:00 PM CT, weekdays
+    schedule: '0 23 * * *',  // 23:00 UTC = 6:00 PM CT, daily
     timezone: 'America/Chicago',
     task: 'eod_summary',
     payload: {},
@@ -63,7 +63,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'cfo-daily-costs',
     agentRole: 'cfo',
-    schedule: '0 14 * * 1-5',  // 9:00 AM CT
+    schedule: '0 14 * * *',  // 9:00 AM CT, daily
     timezone: 'America/Chicago',
     task: 'daily_cost_check',
     payload: {},
@@ -72,7 +72,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'cpo-usage-analysis',
     agentRole: 'cpo',
-    schedule: '0 15 * * 1',  // 10:00 AM CT, Mondays
+    schedule: '0 15 * * *',  // 10:00 AM CT, daily
     timezone: 'America/Chicago',
     task: 'weekly_usage_analysis',
     payload: {},
@@ -81,7 +81,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'cmo-content-calendar',
     agentRole: 'cmo',
-    schedule: '0 14 * * 1',  // 9:00 AM CT, Mondays
+    schedule: '0 14 * * *',  // 9:00 AM CT, daily
     timezone: 'America/Chicago',
     task: 'weekly_content_planning',
     payload: {},
@@ -90,7 +90,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'vpcs-health-scoring',
     agentRole: 'vp-customer-success',
-    schedule: '0 13 * * 1-5',  // 8:00 AM CT, weekdays
+    schedule: '0 13 * * *',  // 8:00 AM CT, daily
     timezone: 'America/Chicago',
     task: 'daily_health_scoring',
     payload: {},
@@ -99,7 +99,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'vps-pipeline-review',
     agentRole: 'vp-sales',
-    schedule: '0 14 * * 1,4',  // 9:00 AM CT, Mon & Thu
+    schedule: '0 14 * * *',  // 9:00 AM CT, daily
     timezone: 'America/Chicago',
     task: 'pipeline_review',
     payload: {},
