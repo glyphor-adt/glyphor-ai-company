@@ -13,14 +13,8 @@ export default function Layout() {
       {/* ── Sidebar ─────────────────────────── */}
       <aside className="flex w-[220px] flex-col border-r border-border bg-raised">
         {/* Brand */}
-        <div className="flex items-center gap-1 px-2 py-3">
-          <div className="h-12 w-12 flex-shrink-0 overflow-hidden">
-            <img
-              src="/glyphor-logo.png"
-              alt="Glyphor"
-              className="h-[200%] w-[200%] max-w-none -translate-x-[25%] -translate-y-[18%] object-contain drop-shadow-[0_0_10px_rgba(0,224,255,0.4)]"
-            />
-          </div>
+        <div className="flex items-center gap-3 px-4 py-4">
+          <img src="/glyphor-logo.png" alt="Glyphor" className="h-10 w-10 drop-shadow-[0_0_10px_rgba(0,224,255,0.4)]" />
           <span className="text-lg font-semibold tracking-tight bg-gradient-to-r from-cyan to-azure bg-clip-text text-transparent">
             Glyphor
           </span>
