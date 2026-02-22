@@ -48,7 +48,11 @@ export type CompanyAgentRole =
   | 'social-media-manager'    // Kai Johnson → reports to CMO
   | 'onboarding-specialist'   // Emma Wright → reports to VP-CS
   | 'support-triage'          // David Santos → reports to VP-CS
-  | 'account-research';       // Nathan Cole → reports to VP-Sales
+  | 'account-research'        // Nathan Cole → reports to VP-Sales
+  | 'ui-ux-designer'          // Leo Vargas → reports to VP-Design
+  | 'frontend-engineer'       // Ava Chen → reports to VP-Design
+  | 'design-critic'           // Sofia Marchetti → reports to VP-Design
+  | 'template-architect';     // Ryan Park → reports to VP-Design
 
 export type ContextInjector = (
   turnNumber: number,
@@ -314,3 +318,138 @@ export interface IMemoryBus {
   getProductMetrics(slug: ProductSlug): Promise<ProductMetrics | null>;
   getFinancials(days?: number): Promise<FinancialSnapshot[]>;
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// AGENT BUDGET — Per-run, daily, monthly cost caps
+// ═══════════════════════════════════════════════════════════════════
+
+export interface AgentBudget {
+  perRunUsd: number;
+  dailyUsd: number;
+  monthlyUsd: number;
+}
+
+export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
+  'chief-of-staff':       { perRunUsd: 0.05, dailyUsd: 0.50, monthlyUsd: 15 },
+  'cto':                  { perRunUsd: 0.10, dailyUsd: 2.00, monthlyUsd: 50 },
+  'cfo':                  { perRunUsd: 0.05, dailyUsd: 0.50, monthlyUsd: 15 },
+  'cpo':                  { perRunUsd: 0.08, dailyUsd: 1.00, monthlyUsd: 30 },
+  'cmo':                  { perRunUsd: 0.10, dailyUsd: 1.50, monthlyUsd: 40 },
+  'vp-customer-success':  { perRunUsd: 0.05, dailyUsd: 0.50, monthlyUsd: 15 },
+  'vp-sales':             { perRunUsd: 0.05, dailyUsd: 0.50, monthlyUsd: 15 },
+  'vp-design':            { perRunUsd: 0.05, dailyUsd: 0.50, monthlyUsd: 15 },
+  'platform-engineer':    { perRunUsd: 0.02, dailyUsd: 0.20, monthlyUsd: 6 },
+  'quality-engineer':     { perRunUsd: 0.03, dailyUsd: 0.30, monthlyUsd: 8 },
+  'devops-engineer':      { perRunUsd: 0.02, dailyUsd: 0.20, monthlyUsd: 6 },
+  'user-researcher':      { perRunUsd: 0.03, dailyUsd: 0.30, monthlyUsd: 8 },
+  'competitive-intel':    { perRunUsd: 0.05, dailyUsd: 0.50, monthlyUsd: 12 },
+  'revenue-analyst':      { perRunUsd: 0.02, dailyUsd: 0.20, monthlyUsd: 6 },
+  'cost-analyst':         { perRunUsd: 0.02, dailyUsd: 0.20, monthlyUsd: 6 },
+  'content-creator':      { perRunUsd: 0.08, dailyUsd: 1.00, monthlyUsd: 25 },
+  'seo-analyst':          { perRunUsd: 0.03, dailyUsd: 0.30, monthlyUsd: 8 },
+  'social-media-manager': { perRunUsd: 0.03, dailyUsd: 0.30, monthlyUsd: 8 },
+  'onboarding-specialist':{ perRunUsd: 0.02, dailyUsd: 0.20, monthlyUsd: 6 },
+  'support-triage':       { perRunUsd: 0.03, dailyUsd: 0.50, monthlyUsd: 12 },
+  'account-research':     { perRunUsd: 0.05, dailyUsd: 0.50, monthlyUsd: 12 },
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// TOOL GRANTS — Per-agent tool access + scope + rate limits
+// ═══════════════════════════════════════════════════════════════════
+
+export interface ToolGrant {
+  toolName: string;
+  scope?: Record<string, unknown>;   // Scope constraints (e.g., { branches: 'test/*' })
+  rateLimit: number;                  // Max calls per hour
+}
+
+export interface AgentToolGrants {
+  role: CompanyAgentRole;
+  grants: ToolGrant[];
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TOOL CALL LOG — Audit trail for all tool executions
+// ═══════════════════════════════════════════════════════════════════
+
+export interface ToolCallLog {
+  agentId: string;
+  agentRole: CompanyAgentRole;
+  toolName: string;
+  args: Record<string, unknown>;
+  result: ToolResult;
+  estimatedCostUsd: number;
+  timestamp: string;
+}
+
+export type SecurityEventType =
+  | 'TOOL_NOT_GRANTED'
+  | 'SCOPE_VIOLATION'
+  | 'RATE_LIMITED'
+  | 'BUDGET_EXCEEDED'
+  | 'EVENT_NOT_PERMITTED';
+
+export interface SecurityEvent {
+  agentId: string;
+  agentRole: CompanyAgentRole;
+  toolName: string;
+  eventType: SecurityEventType;
+  details?: unknown;
+  timestamp: string;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EVENT EMISSION PERMISSIONS
+// ═══════════════════════════════════════════════════════════════════
+
+export type AgentTier = 'executive' | 'sub-team';
+
+export const EXECUTIVE_ROLES: CompanyAgentRole[] = [
+  'chief-of-staff', 'cto', 'cpo', 'cmo', 'cfo',
+  'vp-customer-success', 'vp-sales', 'vp-design',
+];
+
+export const SUB_TEAM_ROLES: CompanyAgentRole[] = [
+  'platform-engineer', 'quality-engineer', 'devops-engineer',
+  'user-researcher', 'competitive-intel', 'revenue-analyst',
+  'cost-analyst', 'content-creator', 'seo-analyst',
+  'social-media-manager', 'onboarding-specialist',
+  'support-triage', 'account-research',
+];
+
+/** Events executives can emit */
+export const EXECUTIVE_ALLOWED_EVENTS: GlyphorEventType[] = [
+  'agent.completed', 'insight.detected', 'decision.filed',
+  'alert.triggered', 'task.requested',
+  'agent.spawned', 'agent.retired',
+];
+
+/** Events sub-team members can emit */
+export const SUB_TEAM_ALLOWED_EVENTS: GlyphorEventType[] = [
+  'insight.detected',
+];
+
+/** Events that only the system / founders can emit */
+export const FORBIDDEN_AGENT_EVENTS: GlyphorEventType[] = [
+  'decision.resolved',
+];
+
+// ═══════════════════════════════════════════════════════════════════
+// AGENT ORG CHART — Manager relationships
+// ═══════════════════════════════════════════════════════════════════
+
+export const AGENT_MANAGER: Partial<Record<CompanyAgentRole, CompanyAgentRole>> = {
+  'platform-engineer':     'cto',
+  'quality-engineer':      'cto',
+  'devops-engineer':       'cto',
+  'user-researcher':       'cpo',
+  'competitive-intel':     'cpo',
+  'revenue-analyst':       'cfo',
+  'cost-analyst':          'cfo',
+  'content-creator':       'cmo',
+  'seo-analyst':           'cmo',
+  'social-media-manager':  'cmo',
+  'onboarding-specialist': 'vp-customer-success',
+  'support-triage':        'vp-customer-success',
+  'account-research':      'vp-sales',
+};

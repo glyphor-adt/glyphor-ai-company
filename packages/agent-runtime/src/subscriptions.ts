@@ -52,6 +52,24 @@ export const SUBSCRIPTIONS: Record<CompanyAgentRole, GlyphorEventType[]> = {
     'insight.detected',
     'agent.completed',
   ],
+  // Sub-team members — subscribe to events relevant to their department
+  'platform-engineer': ['alert.triggered'],
+  'quality-engineer': ['alert.triggered'],
+  'devops-engineer': ['alert.triggered'],
+  'user-researcher': ['insight.detected'],
+  'competitive-intel': ['insight.detected'],
+  'revenue-analyst': ['alert.triggered'],
+  'cost-analyst': ['alert.triggered'],
+  'content-creator': ['insight.detected'],
+  'seo-analyst': ['insight.detected'],
+  'social-media-manager': ['insight.detected'],
+  'onboarding-specialist': ['alert.triggered'],
+  'support-triage': ['alert.triggered'],
+  'account-research': ['insight.detected'],
+  'ui-ux-designer': ['insight.detected'],
+  'frontend-engineer': ['agent.completed'],
+  'design-critic': ['agent.completed'],
+  'template-architect': ['insight.detected'],
 };
 
 /**

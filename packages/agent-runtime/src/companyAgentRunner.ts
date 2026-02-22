@@ -36,6 +36,24 @@ const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
   'vp-customer-success': 'james-turner',
   'vp-sales': 'rachel-kim',
   'vp-design': 'mia-tanaka',
+  // Sub-team members
+  'platform-engineer': 'alex-park',
+  'quality-engineer': 'sam-deluca',
+  'devops-engineer': 'jordan-hayes',
+  'user-researcher': 'priya-sharma',
+  'competitive-intel': 'daniel-ortiz',
+  'revenue-analyst': 'anna-park',
+  'cost-analyst': 'omar-hassan',
+  'content-creator': 'tyler-reed',
+  'seo-analyst': 'lisa-chen',
+  'social-media-manager': 'kai-johnson',
+  'onboarding-specialist': 'emma-wright',
+  'support-triage': 'david-santos',
+  'account-research': 'nathan-cole',
+  'ui-ux-designer': 'leo-vargas',
+  'frontend-engineer': 'ava-chen',
+  'design-critic': 'sofia-marchetti',
+  'template-architect': 'ryan-park',
 };
 
 function buildSystemPrompt(role: CompanyAgentRole, existingPrompt: string): string {

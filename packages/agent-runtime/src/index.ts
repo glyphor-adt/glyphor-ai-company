@@ -9,6 +9,15 @@ export { GlyphorEventBus } from './glyphorEventBus.js';
 export type { GlyphorEventBusConfig } from './glyphorEventBus.js';
 export { SUBSCRIPTIONS, getSubscribers } from './subscriptions.js';
 export { extractReasoning, stripReasoning, REASONING_PROMPT_SUFFIX } from './reasoning.js';
+export {
+  AGENT_BUDGETS,
+  EXECUTIVE_ROLES,
+  SUB_TEAM_ROLES,
+  EXECUTIVE_ALLOWED_EVENTS,
+  SUB_TEAM_ALLOWED_EVENTS,
+  FORBIDDEN_AGENT_EVENTS,
+  AGENT_MANAGER,
+} from './types.js';
 export type {
   AgentConfig,
   AgentEvent,
@@ -41,4 +50,12 @@ export type {
   MemoryType,
   AgentMemory,
   AgentReflection,
+  // Budget + enforcement types
+  AgentBudget,
+  AgentTier,
+  ToolGrant,
+  AgentToolGrants,
+  ToolCallLog,
+  SecurityEventType,
+  SecurityEvent,
 } from './types.js';
