@@ -8,5 +8,5 @@ CREATE TABLE IF NOT EXISTS metrics_cache (
     timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_metrics_cache_lookup ON metrics_cache(service, metric, timestamp DESC);
-CREATE INDEX idx_metrics_cache_timestamp ON metrics_cache(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_metrics_cache_lookup ON metrics_cache(service, metric, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_metrics_cache_timestamp ON metrics_cache(timestamp DESC);

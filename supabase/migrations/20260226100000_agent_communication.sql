@@ -21,10 +21,10 @@ CREATE TABLE IF NOT EXISTS agent_messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_agent_messages_to ON agent_messages(to_agent, status);
-CREATE INDEX idx_agent_messages_from ON agent_messages(from_agent);
-CREATE INDEX idx_agent_messages_thread ON agent_messages(thread_id);
-CREATE INDEX idx_agent_messages_created ON agent_messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_messages_to ON agent_messages(to_agent, status);
+CREATE INDEX IF NOT EXISTS idx_agent_messages_from ON agent_messages(from_agent);
+CREATE INDEX IF NOT EXISTS idx_agent_messages_thread ON agent_messages(thread_id);
+CREATE INDEX IF NOT EXISTS idx_agent_messages_created ON agent_messages(created_at DESC);
 
 -- Agent meetings
 CREATE TABLE IF NOT EXISTS agent_meetings (
@@ -55,6 +55,6 @@ CREATE TABLE IF NOT EXISTS agent_meetings (
   completed_at TIMESTAMPTZ
 );
 
-CREATE INDEX idx_agent_meetings_status ON agent_meetings(status);
-CREATE INDEX idx_agent_meetings_called_by ON agent_meetings(called_by);
-CREATE INDEX idx_agent_meetings_created ON agent_meetings(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_meetings_status ON agent_meetings(status);
+CREATE INDEX IF NOT EXISTS idx_agent_meetings_called_by ON agent_meetings(called_by);
+CREATE INDEX IF NOT EXISTS idx_agent_meetings_created ON agent_meetings(created_at DESC);

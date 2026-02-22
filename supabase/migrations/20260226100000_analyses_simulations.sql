@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS analyses (
   error TEXT DEFAULT NULL
 );
 
-CREATE INDEX idx_analyses_status ON analyses(status);
-CREATE INDEX idx_analyses_created ON analyses(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_analyses_status ON analyses(status);
+CREATE INDEX IF NOT EXISTS idx_analyses_created ON analyses(created_at DESC);
 
 -- Simulations table (T+1 Simulation Engine)
 CREATE TABLE IF NOT EXISTS simulations (
@@ -32,5 +32,5 @@ CREATE TABLE IF NOT EXISTS simulations (
   error TEXT DEFAULT NULL
 );
 
-CREATE INDEX idx_simulations_status ON simulations(status);
-CREATE INDEX idx_simulations_created ON simulations(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_simulations_status ON simulations(status);
+CREATE INDEX IF NOT EXISTS idx_simulations_created ON simulations(created_at DESC);
