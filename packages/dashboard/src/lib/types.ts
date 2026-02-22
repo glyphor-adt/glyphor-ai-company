@@ -123,3 +123,35 @@ export const DISPLAY_NAME_MAP: Record<string, string> = {
 
 /** @deprecated Use DISPLAY_NAME_MAP instead */
 export const CODENAME_MAP = DISPLAY_NAME_MAP;
+
+/* ── Sub-team members (report to executives) ── */
+export interface SubTeamMember {
+  name: string;
+  title: string;
+  department: string;
+  reportsTo: string; // exec role key
+  color: string;
+  initials: string;
+}
+
+export const SUB_TEAM: SubTeamMember[] = [
+  // Engineering → Marcus Reeves (CTO)
+  { name: 'Alex Park',     title: 'Platform Engineer',    department: 'Engineering',       reportsTo: 'cto', color: '#0097FF', initials: 'AP' },
+  { name: 'Sam DeLuca',    title: 'Quality Engineer',     department: 'Engineering',       reportsTo: 'cto', color: '#0097FF', initials: 'SD' },
+  { name: 'Jordan Hayes',  title: 'DevOps Engineer',      department: 'Engineering',       reportsTo: 'cto', color: '#0097FF', initials: 'JH' },
+  // Product → Elena Vasquez (CPO)
+  { name: 'Priya Sharma',  title: 'User Researcher',      department: 'Product',           reportsTo: 'cpo', color: '#00E0FF', initials: 'PS' },
+  { name: 'Daniel Ortiz',  title: 'Competitive Intel',    department: 'Product',           reportsTo: 'cpo', color: '#00E0FF', initials: 'DO' },
+  // Finance → Nadia Okafor (CFO)
+  { name: 'Anna Park',     title: 'Revenue Analyst',      department: 'Finance',           reportsTo: 'cfo', color: '#4B9FE1', initials: 'AP' },
+  { name: 'Omar Hassan',   title: 'Cost Analyst',         department: 'Finance',           reportsTo: 'cfo', color: '#4B9FE1', initials: 'OH' },
+  // Marketing → Maya Brooks (CMO)
+  { name: 'Tyler Reed',    title: 'Content Creator',      department: 'Marketing',         reportsTo: 'cmo', color: '#7B68EE', initials: 'TR' },
+  { name: 'Lisa Chen',     title: 'SEO Analyst',          department: 'Marketing',         reportsTo: 'cmo', color: '#7B68EE', initials: 'LC' },
+  { name: 'Kai Johnson',   title: 'Social Media Manager', department: 'Marketing',         reportsTo: 'cmo', color: '#7B68EE', initials: 'KJ' },
+  // Customer Success → James Turner (VP CS)
+  { name: 'Emma Wright',   title: 'Onboarding Specialist',department: 'Customer Success',  reportsTo: 'vp-customer-success', color: '#00BCD4', initials: 'EW' },
+  { name: 'David Santos',  title: 'Support Triage',       department: 'Customer Success',  reportsTo: 'vp-customer-success', color: '#00BCD4', initials: 'DS' },
+  // Sales → Rachel Kim (VP Sales)
+  { name: 'Nathan Cole',   title: 'Account Research',     department: 'Sales',             reportsTo: 'vp-sales', color: '#5B8DEF', initials: 'NC' },
+];
