@@ -42,6 +42,6 @@ CREATE TABLE IF NOT EXISTS system_status (
 );
 
 -- Insert Atlas into company_agents
-INSERT INTO company_agents (id, role, codename, status, model, department, tier)
-VALUES ('ops', 'ops', 'Atlas Vega', 'active', 'gemini-3-flash-preview', 'Operations', 'green')
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO company_agents (role, display_name, model, status)
+VALUES ('ops', 'Atlas Vega', 'gemini-3-flash-preview', 'active')
+ON CONFLICT (role) DO NOTHING;

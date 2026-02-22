@@ -57,18 +57,33 @@ const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
   'ops': 'atlas-vega',
 };
 
-function buildSystemPrompt(role: CompanyAgentRole, existingPrompt: string): string {
+function buildSystemPrompt(role: CompanyAgentRole, existingPrompt: string, dynamicBrief?: string): string {
   try {
     const knowledgeBase = readFileSync(
       join(__dirname, '../../company-knowledge/COMPANY_KNOWLEDGE_BASE.md'), 'utf-8',
     );
+
     const briefId = ROLE_TO_BRIEF[role];
-    const roleBrief = readFileSync(
-      join(__dirname, `../../company-knowledge/briefs/${briefId}.md`), 'utf-8',
-    );
-    return `${knowledgeBase}\n\n---\n\n${roleBrief}\n\n---\n\n${existingPrompt}`;
+    let roleBrief: string;
+    if (briefId) {
+      roleBrief = readFileSync(
+        join(__dirname, `../../company-knowledge/briefs/${briefId}.md`), 'utf-8',
+      );
+    } else if (dynamicBrief) {
+      roleBrief = dynamicBrief;
+    } else {
+      roleBrief = '';
+    }
+
+    const parts = [knowledgeBase];
+    if (roleBrief) parts.push(roleBrief);
+    parts.push(existingPrompt);
+    return parts.join('\n\n---\n\n');
   } catch (err) {
     console.warn(`[CompanyAgentRunner] Failed to load knowledge files for ${role}:`, (err as Error).message);
+    if (dynamicBrief) {
+      return `${dynamicBrief}\n\n---\n\n${existingPrompt}`;
+    }
     return existingPrompt;
   }
 }
@@ -87,6 +102,8 @@ export interface AgentMemoryStore {
 export interface RunDependencies {
   glyphorEventBus?: GlyphorEventBus;
   agentMemoryStore?: AgentMemoryStore;
+  /** Loader for DB-stored briefs (dynamic agents without file-based briefs). */
+  dynamicBriefLoader?: (agentId: string) => Promise<string | null>;
 }
 
 export class CompanyAgentRunner {
@@ -131,6 +148,20 @@ export class CompanyAgentRunner {
       } catch (err) {
         console.warn(
           `[CompanyAgentRunner] Memory retrieval failed for ${config.role}:`,
+          (err as Error).message,
+        );
+      }
+    }
+
+    // Load dynamic brief for agents without file-based briefs
+    let dynamicBrief: string | undefined;
+    if (!ROLE_TO_BRIEF[config.role] && deps?.dynamicBriefLoader) {
+      try {
+        const brief = await deps.dynamicBriefLoader(config.id);
+        if (brief) dynamicBrief = brief;
+      } catch (err) {
+        console.warn(
+          `[CompanyAgentRunner] Dynamic brief load failed for ${config.id}:`,
           (err as Error).message,
         );
       }
@@ -186,7 +217,7 @@ export class CompanyAgentRunner {
             tokenEstimate: estimateTokens(history),
           });
 
-          const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt);
+          const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt, dynamicBrief);
 
           response = await this.modelClient.generate({
             model: config.model,

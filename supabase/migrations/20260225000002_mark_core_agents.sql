@@ -1,5 +1,5 @@
 -- Mark core agents that can't be deleted from dashboard
-UPDATE company_agents SET is_core = true WHERE id IN (
+UPDATE company_agents SET is_core = true WHERE role IN (
   'chief-of-staff', 'cto', 'cfo', 'cpo', 'cmo',
   'vp-customer-success', 'vp-sales', 'vp-design', 'ops',
   'platform-engineer', 'quality-engineer', 'devops-engineer',

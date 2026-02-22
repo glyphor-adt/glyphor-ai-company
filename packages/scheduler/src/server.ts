@@ -14,6 +14,7 @@ import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent } from '@glyp
 import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll } from '@glyphor/integrations';
 import { EventRouter } from './eventRouter.js';
 import { DecisionQueue } from './decisionQueue.js';
+import { DynamicScheduler } from './dynamicScheduler.js';
 import {
   runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPCS, runVPSales, runVPDesign,
   runPlatformEngineer, runQualityEngineer, runDevOpsEngineer,
@@ -513,4 +514,8 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`[Scheduler] Listening on port ${PORT}`);
+
+  // Start dynamic scheduler for DB-defined cron jobs
+  const dynamicScheduler = new DynamicScheduler(memory.getSupabaseClient(), agentExecutor);
+  dynamicScheduler.start();
 });
