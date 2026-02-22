@@ -64,7 +64,11 @@ export function createCollectiveIntelligenceTools(
         },
       },
       execute: async (params): Promise<ToolResult> => {
-        const highlights = (params.highlights as Array<{ agent: string; type: string; text: string }>).slice(0, 3);
+        const highlights = (params.highlights as Array<{ agent: string; type: string; text: string }>).map(h => ({
+          agent: h.agent,
+          type: h.type as 'positive' | 'alert' | 'neutral',
+          text: h.text,
+        })).slice(0, 3);
         await ci.updatePulse({ highlights });
         return { success: true, data: { highlights_count: highlights.length } };
       },
