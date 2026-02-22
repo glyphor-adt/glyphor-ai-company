@@ -36,6 +36,7 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │  POST /pubsub            ── Cloud Scheduler cron messages            │
 │  POST /run               ── Dashboard chat & manual invocations      │
 │  POST /event             ── Glyphor Event Bus (inter-agent events)   │
+│  POST /api/teams/messages── Teams Bot Framework webhook (JWT)         │
 │  POST /webhook/stripe    ── Stripe webhook receiver                  │
 │  POST /sync/stripe       ── Stripe data sync                        │
 │  POST /sync/gcp-billing  ── GCP billing export sync                 │
@@ -152,6 +153,7 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │   Pages:                                  │
 │   ├ Dashboard.tsx    (agent overview)     │
 │   ├ Chat.tsx         (talk to agents)    │
+│   ├ GroupChat.tsx    (multi-agent chat)   │
 │   ├ Workforce.tsx    (org chart + roster)│
 │   ├ AgentsList.tsx   (agent roster)      │
 │   ├ AgentProfile.tsx (identity, perf,    │
@@ -162,9 +164,11 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │   ├ Financials.tsx   (revenue & costs)   │
 │   ├ Operations.tsx   (system operations) │
 │   ├ Strategy.tsx     (analysis & sims)   │
-│   └ Meetings.tsx     (meetings & DMs)    │
+│   ├ Meetings.tsx     (meetings & DMs)    │
+│   └ TeamsConfig.tsx  (Teams bot setup)   │
 │                                           │
-│   Auth: Google Sign-In (OAuth 2.0)        │
+│   Auth: Teams SSO (Entra ID) or Google   │
+│         Sign-In (OAuth 2.0)               │
 │   API: Supabase direct + Scheduler /run   │
 └──────────────────────────────────────────┘
 ```
@@ -355,9 +359,13 @@ glyphor-ai-company/
 │   │   └── src/
 │   │       ├── index.ts               # Re-exports all integrations
 │   │       ├── teams/
+│   │       │   ├── bot.ts             # Bot Framework handler (multi-bot, JWT validation)
 │   │       │   ├── webhooks.ts        # Incoming webhook sender
 │   │       │   ├── graphClient.ts     # Microsoft Graph API (MSAL)
-│   │       │   └── adaptiveCards.ts   # Briefing / Decision / Alert cards
+│   │       │   ├── adaptiveCards.ts   # Briefing / Decision / Alert cards
+│   │       │   ├── directMessages.ts  # Graph API DM sender
+│   │       │   ├── email.ts           # Graph API email sender
+│   │       │   └── calendar.ts        # Graph API calendar manager
 │   │       ├── stripe/
 │   │       │   └── index.ts           # MRR sync, churn rate, webhook handler
 │   │       ├── gcp/
@@ -427,7 +435,12 @@ glyphor-ai-company/
 │       ├── open-dashboard.ps1
 │       └── open-dashboard.sh
 │
+├── teams/                       # Microsoft Teams app packages
+│   ├── manifest.json            # Main Glyphor AI team tab + bot
+│   └── agents/                  # 8 individual agent bot manifests + zip packages
+│
 ├── supabase/migrations/         # 16 migration files
+├── .github/workflows/deploy.yml # CI/CD (GitHub Actions → Cloud Run)
 ├── turbo.json                   # Turborepo pipeline config
 ├── tsconfig.base.json           # Shared TS config
 └── package.json                 # npm workspaces root
@@ -822,10 +835,11 @@ Total: **16 migration files**, **20+ tables**.
 | Cloud Scheduler | 9 agent + 3 sync jobs | Agent triggers → Pub/Sub; data syncs → HTTP |
 | Pub/Sub | `glyphor-agent-events` | Cron message delivery |
 | Pub/Sub | `glyphor-events` | Inter-agent event bus |
-| Secret Manager | 21 secrets | API keys, credentials, channel IDs |
+| Secret Manager | 25+ secrets | API keys, credentials, channel IDs, bot configs |
 | Artifact Registry | `us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/` | Docker images |
 | Cloud Storage | `glyphor-company` bucket | Briefings, reports, specs |
 | BigQuery | `billing_export` dataset | GCP billing export data |
+| Azure | Resource group `glyphor-resources` (centralus) | Bot registrations, Entra apps |
 
 ### External Services
 
@@ -834,6 +848,7 @@ Total: **16 migration files**, **20+ tables**.
 | Supabase | PostgreSQL, auth, realtime | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` |
 | Google Gemini API | All AI inference | `GOOGLE_AI_API_KEY` |
 | Microsoft Entra ID | Teams auth (MSAL client credentials) | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` |
+| Azure Bot Service | Bot Framework (main + 8 agent bots) | `BOT_APP_ID`, `BOT_APP_SECRET`, `BOT_TENANT_ID`, `AGENT_BOTS` |
 | Stripe | Revenue tracking (MRR, churn, subscriptions) | `STRIPE_SECRET_KEY` |
 | Mercury | Banking (cash balance, cash flows, vendor subs) | `MERCURY_API_TOKEN` |
 
@@ -885,7 +900,7 @@ Total: **16 migration files**, **20+ tables**.
 | Framework | Vite + React 19 + TypeScript |
 | Styling | Tailwind CSS 3.4 + Glyphor brand (dark/light mode) |
 | Markdown | `react-markdown` for agent chat |
-| Auth | Google Sign-In (OAuth 2.0) |
+| Auth | Teams SSO (`@microsoft/teams-js`) in Teams tab; Google Sign-In (OAuth 2.0) in browser |
 | Hosting | nginx:1.27-alpine on Cloud Run |
 | API | Supabase client (direct) + Scheduler `/run` |
 
@@ -895,6 +910,7 @@ Total: **16 migration files**, **20+ tables**.
 |------|-------|----------|
 | Dashboard | `/` | Agent activity overview, key metrics |
 | Chat | `/chat`, `/chat/:agentId` | Multi-turn conversational agent chat with history |
+| Group Chat | `/group-chat` | Multi-agent group chat |
 | Workforce | `/workforce` | Org chart (7 departments) + grid view — 28 total headcount |
 | Agents | `/agents` | Agent roster with status, model, last run |
 | Agent Profile | `/agents/:agentId` | 5-tab profile: Overview (personality, backstory, strengths), Performance (quality scores, growth areas, peer feedback), Memory (memories + reflections), Messages (DMs + meeting participation), Settings (model, temperature, budget) |
@@ -904,6 +920,7 @@ Total: **16 migration files**, **20+ tables**.
 | Operations | `/operations` | System operations & autonomous events |
 | Strategy | `/strategy` | Strategic analysis engine (5 analysis types) + T+1 simulation engine with impact matrix |
 | Meetings | `/meetings` | Meeting timeline with transcripts, action items, decisions, escalations; recent message feed |
+| Teams Config | `/teams-config` | Teams bot setup and configuration |
 
 ### Departments (Dashboard Workforce)
 
@@ -1070,13 +1087,15 @@ Dashboard → POST /analysis/run {type:"competitive_landscape", query:"AI market
 
 | Area | Implementation |
 |------|---------------|
-| API Keys | GCP Secret Manager → env vars at Cloud Run deploy (`--set-secrets`, full replacement) |
-| Dashboard Auth | Google OAuth 2.0 (internal consent screen — org users only) |
+| API Keys | GCP Secret Manager → env vars at Cloud Run deploy (`--update-secrets`, merge mode) |
+| Dashboard Auth | Teams SSO (`@microsoft/teams-js` + Entra ID) in Teams tab; Google OAuth 2.0 in browser |
+| Bot Auth | JWT validation via `jose` — JWKS from Bot Framework and Entra ID OpenID endpoints, multi-audience support |
 | Supabase | Service key server-side; anon key client-side with RLS |
-| Teams Auth | MSAL client credentials (app-only) |
+| Teams Auth | MSAL client credentials (app-only) for Graph API; Bot Framework tokens for bot replies |
+| Azure Entra ID | SingleTenant app registrations — 1 main + 8 agent bots, all with client secrets in GCP Secret Manager |
 | CORS | Scheduler allows `*` for dashboard |
-| Network | Scheduler: `--no-allow-unauthenticated` (IAM-gated); Dashboard: `--allow-unauthenticated` |
-| IAM | `allUsers` → `roles/run.invoker` on scheduler (for CORS OPTIONS preflight) |
+| Network | Scheduler: `--allow-unauthenticated` (for Bot Framework callbacks); Dashboard: `--allow-unauthenticated` |
+| IAM | `allUsers` → `roles/run.invoker` on scheduler |
 | Event Rate Limiting | 10 events per agent per hour on the event bus |
 | Message Rate Limiting | 5 DMs per agent per hour |
 | Meeting Rate Limiting | 2 meetings per agent per day, 10 system-wide per day |
@@ -1098,9 +1117,40 @@ npm run dashboard:dev         # Dashboard dev server
 
 ### Production
 
-Deployment is handled by `infra/scripts/deploy.sh`. Key points:
-- Uses `--set-secrets` which is a **full replacement** — all secrets must be listed each time
-- Current secrets: 21 total (AI keys, Supabase, Azure/Teams, Stripe, Mercury)
+Deployment is handled by GitHub Actions CI/CD (`.github/workflows/deploy.yml`) on push to `main`. Key points:
+- Uses `--update-secrets` (merge mode) — only listed secrets are updated, existing ones preserved
+- Uses `--update-env-vars` (merge mode) — same merge behavior for env vars
+- Current secrets: 25+ total (AI keys, Supabase, Azure/Teams, Bot Framework, Stripe, Mercury)
+- Dashboard build args baked at Docker build time (`VITE_*` vars)
+
+#### CI/CD Pipeline
+
+```
+push to main
+  → build job: npm ci → turbo build (6 packages)
+  → deploy-scheduler job:
+      → Auth via Workload Identity Federation
+      → Docker build + push to Artifact Registry
+      → gcloud run deploy with --update-secrets (23 secrets)
+  → deploy-dashboard job:
+      → Docker build with VITE_* build args + push
+      → gcloud run deploy --allow-unauthenticated
+```
+
+#### GCP Secrets (Scheduler)
+
+| Secret | Purpose |
+|--------|---------|
+| `google-ai-api-key` | Gemini API |
+| `openai-api-key` | OpenAI fallback |
+| `anthropic-api-key` | Anthropic fallback |
+| `supabase-url`, `supabase-service-key` | Database |
+| `gcs-bucket` | Cloud Storage |
+| `azure-tenant-id`, `azure-client-id`, `azure-client-secret` | Graph API (MSAL) |
+| `teams-team-id` | Teams team |
+| `teams-channel-*-id` (9 secrets) | Teams channels |
+| `bot-app-id`, `bot-app-secret`, `bot-tenant-id` | Main bot |
+| `agent-bots` | JSON array of 8 agent bot configs |
 
 ```bash
 # Full deploy (scheduler + chief-of-staff + dashboard)
