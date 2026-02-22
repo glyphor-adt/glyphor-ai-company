@@ -81,13 +81,6 @@ export default function Workforce() {
         </div>
       </div>
 
-      {/* ── Stats Row ─────────────────────── */}
-      <div className="grid grid-cols-3 gap-4">
-        <StatCard label="Active" value={activeCount} total={agents.length} color="bg-tier-green" loading={loading} />
-        <StatCard label="Avg Score" value={avgScore} total={100} color="bg-cyan" loading={loading} />
-        <StatCard label="Red Tier" value={agents.filter((a) => a.tier === 'red').length} total={agents.length} color="bg-tier-red" loading={loading} />
-      </div>
-
       {loading ? (
         <div className="grid grid-cols-2 gap-4">
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-36" />)}
@@ -260,17 +253,17 @@ export default function Workforce() {
 /* ─── Founder Node (org chart) ────────────── */
 function FounderNode({ name, title, initials, color, photo }: { name: string; title: string; initials: string; color: string; photo: string }) {
   return (
-    <Card className="w-56 text-center">
-      <div className="flex flex-col items-center gap-2">
+    <Card className="w-64 text-center p-5">
+      <div className="flex flex-col items-center gap-3">
         <img
           src={photo}
           alt={name}
           className="rounded-full object-cover"
-          style={{ width: 48, height: 48, border: `2px solid ${color}50` }}
+          style={{ width: 64, height: 64, border: `2px solid ${color}50` }}
         />
         <div>
-          <h3 className="text-sm font-semibold text-txt-primary">{name}</h3>
-          <p className="text-[11px] text-txt-muted">{title}</p>
+          <h3 className="text-base font-semibold text-txt-primary">{name}</h3>
+          <p className="text-xs text-txt-muted">{title}</p>
           <span className="mt-1 inline-block rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20">
             Human
           </span>
@@ -285,25 +278,25 @@ function AgentNode({ agent, compact = false }: { agent: Agent; compact?: boolean
   const meta = AGENT_META[agent.role];
   return (
     <Link to={`/chat/${agent.role}`} className="block transition-transform hover:scale-[1.02]">
-      <Card className={`${compact ? 'p-3' : 'p-4'} text-center`}>
+      <Card className={`${compact ? 'p-4' : 'p-5'} text-center`}>
         <div className="flex flex-col items-center gap-2">
-          <AgentAvatar role={agent.role} size={compact ? 36 : 44} glow={agent.status === 'active'} />
+          <AgentAvatar role={agent.role} size={compact ? 44 : 52} glow={agent.status === 'active'} />
           <div>
             <div className="flex items-center justify-center gap-1.5">
-              <h3 className={`font-semibold text-txt-primary ${compact ? 'text-xs' : 'text-sm'}`}>
+              <h3 className={`font-semibold text-txt-primary ${compact ? 'text-sm' : 'text-base'}`}>
                 {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
               </h3>
               <StatusDot status={agent.status} />
             </div>
-            <p className={`text-txt-muted ${compact ? 'text-[10px]' : 'text-[11px]'}`}>
+            <p className={`text-txt-muted ${compact ? 'text-xs' : 'text-sm'}`}>
               {TITLE_MAP[agent.role] ?? agent.role}
             </p>
-            <div className={`mt-1.5 flex items-center justify-center gap-2 ${compact ? 'text-[10px]' : 'text-xs'}`}>
+            <div className={`mt-2 flex items-center justify-center gap-2 ${compact ? 'text-xs' : 'text-sm'}`}>
               <TierBadge tier={agent.tier} />
               <span className="font-mono text-txt-faint">{agent.score}/100</span>
             </div>
             {!compact && (
-              <p className="mt-1 text-[10px] text-txt-faint">Last run: {timeAgo(agent.last_run)}</p>
+              <p className="mt-1 text-xs text-txt-faint">Last run: {timeAgo(agent.last_run)}</p>
             )}
           </div>
         </div>
@@ -333,17 +326,17 @@ function StatCard({ label, value, total, color, loading }: { label: string; valu
 /* ─── Sub-Team Node (org chart) ───────────── */
 function SubTeamNode({ member }: { member: SubTeamMember }) {
   return (
-    <Card className="p-2 text-center">
-      <div className="flex items-center gap-2">
+    <Card className="p-3">
+      <div className="flex items-center gap-3">
         <div
-          className="flex shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
-          style={{ width: 28, height: 28, background: `${member.color}18`, border: `1.5px solid ${member.color}40`, color: member.color }}
+          className="flex shrink-0 items-center justify-center rounded-full text-xs font-bold"
+          style={{ width: 36, height: 36, background: `${member.color}18`, border: `1.5px solid ${member.color}40`, color: member.color }}
         >
           {member.initials}
         </div>
         <div className="min-w-0 text-left">
-          <p className="truncate text-[11px] font-semibold text-txt-primary">{member.name}</p>
-          <p className="truncate text-[9px] text-txt-muted">{member.title}</p>
+          <p className="truncate text-sm font-semibold text-txt-primary">{member.name}</p>
+          <p className="truncate text-xs text-txt-muted">{member.title}</p>
         </div>
       </div>
     </Card>
