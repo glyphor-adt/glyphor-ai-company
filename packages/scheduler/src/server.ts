@@ -22,6 +22,7 @@ import {
   runContentCreator, runSeoAnalyst, runSocialMediaManager,
   runOnboardingSpecialist, runSupportTriage,
   runAccountResearch,
+  runOps,
 } from '@glyphor/agents';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
@@ -108,6 +109,10 @@ const agentExecutor = async (
   // Sales
   else if (agentRole === 'account-research') {
     return runAccountResearch({ task: (task as 'prospect_research' | 'batch_enrich' | 'on_demand'), message, company: payload.company as string | undefined });
+  }
+  // Operations
+  else if (agentRole === 'ops') {
+    return runOps({ task: (task as 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response'), message, eventPayload: payload });
   } else {
     console.log(`[Scheduler] Agent ${agentRole} not recognized, skipping task: ${task}`);
   }
@@ -275,6 +280,166 @@ const server = createServer(async (req, res) => {
         payload: { ...(body.payload ?? {}), message: body.message },
       });
       json(res, 200, result);
+      return;
+    }
+
+    // ─── Agent Management Endpoints ─────────────────────────────
+
+    // Create new agent
+    if (method === 'POST' && url === '/agents/create') {
+      const body = JSON.parse(await readBody(req));
+      const {
+        name, title, department, reports_to,
+        model, temperature, max_turns,
+        budget_per_run, budget_daily, budget_monthly,
+        cron_expression, system_prompt, skills,
+        tools: agentTools, is_temporary, ttl_days,
+      } = body;
+
+      const agentId = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+      const { data: agent, error: createErr } = await memory.getSupabaseClient()
+        .from('company_agents')
+        .insert({
+          id: agentId,
+          role: agentId,
+          codename: name,
+          name,
+          title: title ?? '',
+          department: department ?? '',
+          reports_to: reports_to ?? null,
+          status: 'active',
+          model: model || 'gemini-3-flash-preview',
+          temperature: temperature ?? 0.3,
+          max_turns: max_turns ?? 10,
+          budget_per_run: budget_per_run ?? 0.05,
+          budget_daily: budget_daily ?? 0.50,
+          budget_monthly: budget_monthly ?? 15,
+          is_temporary: is_temporary || false,
+          expires_at: is_temporary && ttl_days
+            ? new Date(Date.now() + ttl_days * 86400000).toISOString()
+            : null,
+          is_core: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (createErr) {
+        json(res, 400, { success: false, error: createErr.message });
+        return;
+      }
+
+      // Store dynamic brief
+      if (system_prompt || skills || agentTools) {
+        await memory.getSupabaseClient().from('agent_briefs').upsert({
+          agent_id: agentId,
+          system_prompt: system_prompt ?? '',
+          skills: skills ?? [],
+          tools: agentTools ?? [],
+          updated_at: new Date().toISOString(),
+        });
+      }
+
+      // Store schedule if provided
+      if (cron_expression) {
+        await memory.getSupabaseClient().from('agent_schedules').insert({
+          agent_id: agentId,
+          cron_expression,
+          task: 'scheduled_run',
+          enabled: true,
+        });
+      }
+
+      // Log creation
+      await memory.getSupabaseClient().from('activity_log').insert({
+        agent_id: 'system',
+        action: 'agent.created',
+        detail: `New agent created: ${name} (${agentId})`,
+        created_at: new Date().toISOString(),
+      });
+
+      json(res, 200, { success: true, agent });
+      return;
+    }
+
+    // Update agent settings
+    const settingsMatch = url.match(/^\/agents\/([^/]+)\/settings$/);
+    if (method === 'PUT' && settingsMatch) {
+      const agentId = decodeURIComponent(settingsMatch[1]);
+      const updates = JSON.parse(await readBody(req));
+
+      const { system_prompt, ...agentUpdates } = updates;
+
+      const { data, error: updateErr } = await memory.getSupabaseClient()
+        .from('company_agents')
+        .update({ ...agentUpdates, updated_at: new Date().toISOString() })
+        .eq('id', agentId)
+        .select()
+        .single();
+
+      if (updateErr) {
+        json(res, 400, { success: false, error: updateErr.message });
+        return;
+      }
+
+      if (system_prompt !== undefined) {
+        await memory.getSupabaseClient().from('agent_briefs').upsert({
+          agent_id: agentId,
+          system_prompt,
+          updated_at: new Date().toISOString(),
+        });
+      }
+
+      await memory.getSupabaseClient().from('activity_log').insert({
+        agent_id: 'system',
+        action: 'agent.settings_updated',
+        detail: `Settings updated for ${agentId}: ${Object.keys(updates).join(', ')}`,
+        created_at: new Date().toISOString(),
+      });
+
+      json(res, 200, { success: true, agent: data });
+      return;
+    }
+
+    // Pause agent
+    const pauseMatch = url.match(/^\/agents\/([^/]+)\/pause$/);
+    if (method === 'POST' && pauseMatch) {
+      const agentId = decodeURIComponent(pauseMatch[1]);
+      await memory.getSupabaseClient()
+        .from('company_agents')
+        .update({ status: 'paused', updated_at: new Date().toISOString() })
+        .eq('id', agentId);
+      json(res, 200, { success: true });
+      return;
+    }
+
+    // Resume agent
+    const resumeMatch = url.match(/^\/agents\/([^/]+)\/resume$/);
+    if (method === 'POST' && resumeMatch) {
+      const agentId = decodeURIComponent(resumeMatch[1]);
+      await memory.getSupabaseClient()
+        .from('company_agents')
+        .update({ status: 'active', updated_at: new Date().toISOString() })
+        .eq('id', agentId);
+      json(res, 200, { success: true });
+      return;
+    }
+
+    // Retire (soft-delete) agent
+    const deleteMatch = url.match(/^\/agents\/([^/]+)$/);
+    if (method === 'DELETE' && deleteMatch) {
+      const agentId = decodeURIComponent(deleteMatch[1]);
+      await memory.getSupabaseClient()
+        .from('company_agents')
+        .update({ status: 'retired', updated_at: new Date().toISOString() })
+        .eq('id', agentId);
+      await memory.getSupabaseClient()
+        .from('agent_schedules')
+        .update({ enabled: false })
+        .eq('agent_id', agentId);
+      json(res, 200, { success: true });
       return;
     }
 

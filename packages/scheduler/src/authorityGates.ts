@@ -77,6 +77,12 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
   'frontend-engineer': new Set(['on_demand']),
   'design-critic': new Set(['on_demand']),
   'template-architect': new Set(['on_demand']),
+  'ops': new Set([
+    'health_check', 'freshness_check', 'cost_check', 'morning_status',
+    'evening_status', 'on_demand', 'event_response',
+    'retry_run', 'retry_sync', 'pause_agent', 'resume_agent',
+    'create_incident', 'resolve_incident', 'trigger_agent',
+  ]),
 };
 
 /**

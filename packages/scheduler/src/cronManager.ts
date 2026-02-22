@@ -105,6 +105,52 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     payload: {},
     enabled: true,
   },
+  // Atlas Vega — Operations agent
+  {
+    id: 'ops-health-check',
+    agentRole: 'ops',
+    schedule: '*/10 * * * *',  // every 10 minutes
+    timezone: 'UTC',
+    task: 'health_check',
+    payload: {},
+    enabled: true,
+  },
+  {
+    id: 'ops-freshness-check',
+    agentRole: 'ops',
+    schedule: '*/30 * * * *',  // every 30 minutes
+    timezone: 'UTC',
+    task: 'freshness_check',
+    payload: {},
+    enabled: true,
+  },
+  {
+    id: 'ops-cost-check',
+    agentRole: 'ops',
+    schedule: '0 * * * *',  // every hour
+    timezone: 'UTC',
+    task: 'cost_check',
+    payload: {},
+    enabled: true,
+  },
+  {
+    id: 'ops-morning-status',
+    agentRole: 'ops',
+    schedule: '0 11 * * *',  // 6:00 AM CT
+    timezone: 'America/Chicago',
+    task: 'morning_status',
+    payload: {},
+    enabled: true,
+  },
+  {
+    id: 'ops-evening-status',
+    agentRole: 'ops',
+    schedule: '0 22 * * *',  // 5:00 PM CT
+    timezone: 'America/Chicago',
+    task: 'evening_status',
+    payload: {},
+    enabled: true,
+  },
 ];
 
 /**

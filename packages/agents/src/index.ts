@@ -32,3 +32,6 @@ export { runSupportTriage, type SupportTriageRunParams } from './support-triage/
 
 // Sub-team agents — Sales
 export { runAccountResearch, type AccountResearchRunParams } from './account-research/run.js';
+
+// Operations
+export { runOps, type OpsRunParams } from './ops/run.js';

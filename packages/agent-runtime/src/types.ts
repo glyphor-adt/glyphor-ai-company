@@ -52,7 +52,8 @@ export type CompanyAgentRole =
   | 'ui-ux-designer'          // Leo Vargas → reports to VP-Design
   | 'frontend-engineer'       // Ava Chen → reports to VP-Design
   | 'design-critic'           // Sofia Marchetti → reports to VP-Design
-  | 'template-architect';     // Ryan Park → reports to VP-Design
+  | 'template-architect'      // Ryan Park → reports to VP-Design
+  | 'ops';                    // Atlas Vega → Operations & System Intelligence
 
 export type ContextInjector = (
   turnNumber: number,
@@ -355,6 +356,7 @@ export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   'frontend-engineer':    { perRunUsd: 0.03, dailyUsd: 0.30, monthlyUsd: 8 },
   'design-critic':        { perRunUsd: 0.02, dailyUsd: 0.20, monthlyUsd: 6 },
   'template-architect':   { perRunUsd: 0.03, dailyUsd: 0.30, monthlyUsd: 8 },
+  'ops':                  { perRunUsd: 0.03, dailyUsd: 0.50, monthlyUsd: 15 },
 };
 
 // ═══════════════════════════════════════════════════════════════════

@@ -70,6 +70,7 @@ export const SUBSCRIPTIONS: Record<CompanyAgentRole, GlyphorEventType[]> = {
   'frontend-engineer': ['agent.completed'],
   'design-critic': ['agent.completed'],
   'template-architect': ['insight.detected'],
+  'ops': ['alert.triggered'],
 };
 
 /**
