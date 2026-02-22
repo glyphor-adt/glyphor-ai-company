@@ -65,7 +65,7 @@ jobs:
             --region="${{ env.GCP_REGION }}" \
             --project="${{ env.GCP_PROJECT_ID }}" \
             --platform=managed \
-            --no-allow-unauthenticated \
+            --allow-unauthenticated \
             --memory=512Mi \
             --cpu=1 \
             --min-instances=0 \

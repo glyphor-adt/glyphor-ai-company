@@ -355,6 +355,28 @@ export class CompanyAgentRunner {
         error: (error as Error).message,
         turnNumber: supervisor.stats.turnCount,
       });
+
+      // Emit failure event for Atlas
+      if (deps?.glyphorEventBus) {
+        try {
+          await deps.glyphorEventBus.emit({
+            type: 'alert.triggered',
+            source: config.role,
+            payload: {
+              eventType: 'agent.failed',
+              run_id: config.id,
+              error: (error as Error).message,
+            },
+            priority: 'high',
+          });
+        } catch (emitErr) {
+          console.warn(
+            `[CompanyAgentRunner] Failed to emit failure event for ${config.id}:`,
+            (emitErr as Error).message,
+          );
+        }
+      }
+
       return this.buildResult(
         config,
         supervisor.isAborted ? 'aborted' : 'error',

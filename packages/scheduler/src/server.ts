@@ -185,27 +185,87 @@ const server = createServer(async (req, res) => {
 
     // Stripe data sync endpoint (called by Cloud Scheduler)
     if (method === 'POST' && url === '/sync/stripe') {
-      const result = await syncStripeAll(memory.getSupabaseClient());
-      json(res, 200, { success: true, ...result });
+      try {
+        const result = await syncStripeAll(memory.getSupabaseClient());
+        await memory.getSupabaseClient().from('data_sync_status').update({
+          last_success_at: new Date().toISOString(),
+          consecutive_failures: 0,
+          status: 'ok',
+          updated_at: new Date().toISOString(),
+        }).eq('id', 'stripe');
+        json(res, 200, { success: true, ...result });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'stripe').single();
+        const failures = (current?.consecutive_failures ?? 0) + 1;
+        await memory.getSupabaseClient().from('data_sync_status').update({
+          last_failure_at: new Date().toISOString(),
+          last_error: message,
+          consecutive_failures: failures,
+          status: failures >= 3 ? 'failing' : 'stale',
+          updated_at: new Date().toISOString(),
+        }).eq('id', 'stripe');
+        json(res, 500, { success: false, error: message });
+      }
       return;
     }
 
     // GCP billing sync endpoint
     if (method === 'POST' && url === '/sync/gcp-billing') {
-      const projectId = process.env.GCP_PROJECT_ID || 'ai-glyphor-company';
-      const billingDataset = process.env.GCP_BILLING_DATASET || 'billing_export';
-      const billingTable = process.env.GCP_BILLING_TABLE || 'gcp_billing_export_v1';
-      const result = await syncBillingToSupabase(
-        memory.getSupabaseClient(), projectId, billingDataset, billingTable,
-      );
-      json(res, 200, { success: true, ...result });
+      try {
+        const projectId = process.env.GCP_PROJECT_ID || 'ai-glyphor-company';
+        const billingDataset = process.env.GCP_BILLING_DATASET || 'billing_export';
+        const billingTable = process.env.GCP_BILLING_TABLE || 'gcp_billing_export_v1';
+        const result = await syncBillingToSupabase(
+          memory.getSupabaseClient(), projectId, billingDataset, billingTable,
+        );
+        await memory.getSupabaseClient().from('data_sync_status').update({
+          last_success_at: new Date().toISOString(),
+          consecutive_failures: 0,
+          status: 'ok',
+          updated_at: new Date().toISOString(),
+        }).eq('id', 'gcp-billing');
+        json(res, 200, { success: true, ...result });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'gcp-billing').single();
+        const failures = (current?.consecutive_failures ?? 0) + 1;
+        await memory.getSupabaseClient().from('data_sync_status').update({
+          last_failure_at: new Date().toISOString(),
+          last_error: message,
+          consecutive_failures: failures,
+          status: failures >= 3 ? 'failing' : 'stale',
+          updated_at: new Date().toISOString(),
+        }).eq('id', 'gcp-billing');
+        json(res, 500, { success: false, error: message });
+      }
       return;
     }
 
     // Mercury banking sync endpoint
     if (method === 'POST' && url === '/sync/mercury') {
-      const result = await syncMercuryAll(memory.getSupabaseClient());
-      json(res, 200, { success: true, ...result });
+      try {
+        const result = await syncMercuryAll(memory.getSupabaseClient());
+        await memory.getSupabaseClient().from('data_sync_status').update({
+          last_success_at: new Date().toISOString(),
+          consecutive_failures: 0,
+          status: 'ok',
+          updated_at: new Date().toISOString(),
+        }).eq('id', 'mercury');
+        json(res, 200, { success: true, ...result });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'mercury').single();
+        const failures = (current?.consecutive_failures ?? 0) + 1;
+        await memory.getSupabaseClient().from('data_sync_status').update({
+          last_failure_at: new Date().toISOString(),
+          last_error: message,
+          consecutive_failures: failures,
+          status: failures >= 3 ? 'failing' : 'stale',
+          updated_at: new Date().toISOString(),
+        }).eq('id', 'mercury');
+        json(res, 500, { success: false, error: message });
+      }
       return;
     }
 
