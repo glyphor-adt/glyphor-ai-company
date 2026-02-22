@@ -56,7 +56,7 @@ async function mercuryFetch<T>(path: string, params?: Record<string, string>): P
   const response = await fetch(url.toString(), {
     headers: {
       Authorization: `Bearer ${getApiToken()}`,
-      Accept: 'application/json',
+      Accept: 'application/json;charset=utf-8',
     },
   });
 
