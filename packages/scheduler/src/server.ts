@@ -831,7 +831,7 @@ const server = createServer(async (req, res) => {
       const proposalId = decodeURIComponent(proposalResolveMatch[1]);
       const body = JSON.parse(await readBody(req));
       const ci = memory.getCollectiveIntelligence();
-      await ci.resolveAuthorityProposal(proposalId, body.status, body.resolvedBy);
+      await ci.resolveAuthorityProposal(proposalId, body.status);
       json(res, 200, { success: true });
       return;
     }
