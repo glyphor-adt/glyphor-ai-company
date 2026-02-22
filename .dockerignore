@@ -8,6 +8,5 @@ dist
 .env
 *.md
 infra
-docker
 .turbo
 **/.turbo
