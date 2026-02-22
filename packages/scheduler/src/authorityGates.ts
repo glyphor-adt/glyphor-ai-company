@@ -55,6 +55,10 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
     'kyc_research', 'proposal_draft', 'pipeline_review',
     'on_demand',
   ]),
+  'vp-design': new Set([
+    'design_audit', 'design_system_review',
+    'on_demand',
+  ]),
 };
 
 /**

@@ -34,7 +34,21 @@ export type CompanyAgentRole =
   | 'cfo'
   | 'vp-customer-success'
   | 'vp-sales'
-  | 'vp-design';
+  | 'vp-design'
+  // Sub-team members
+  | 'platform-engineer'       // Alex Park → reports to CTO
+  | 'quality-engineer'        // Sam DeLuca → reports to CTO
+  | 'devops-engineer'         // Jordan Hayes → reports to CTO
+  | 'user-researcher'         // Priya Sharma → reports to CPO
+  | 'competitive-intel'       // Daniel Ortiz → reports to CPO
+  | 'revenue-analyst'         // Anna Park → reports to CFO
+  | 'cost-analyst'            // Omar Hassan → reports to CFO
+  | 'content-creator'         // Tyler Reed → reports to CMO
+  | 'seo-analyst'             // Lisa Chen → reports to CMO
+  | 'social-media-manager'    // Kai Johnson → reports to CMO
+  | 'onboarding-specialist'   // Emma Wright → reports to VP-CS
+  | 'support-triage'          // David Santos → reports to VP-CS
+  | 'account-research';       // Nathan Cole → reports to VP-Sales
 
 export type ContextInjector = (
   turnNumber: number,
