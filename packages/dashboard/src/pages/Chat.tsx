@@ -12,6 +12,11 @@ interface Message {
   timestamp: Date;
 }
 
+/** Strip <reasoning>...</reasoning> envelope from agent output */
+function stripReasoning(text: string): string {
+  return text.replace(/<reasoning>[\s\S]*?<\/reasoning>\s*/g, '').trim();
+}
+
 export default function Chat() {
   const { agentId } = useParams();
   const { data: agents } = useAgents();
@@ -56,7 +61,7 @@ export default function Chat() {
         ...prev,
         {
           role: 'agent',
-          content: data.output ?? data.reason ?? JSON.stringify(data),
+          content: stripReasoning(data.output ?? data.reason ?? JSON.stringify(data)),
           timestamp: new Date(),
         },
       ]);
