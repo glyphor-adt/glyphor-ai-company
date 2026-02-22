@@ -98,6 +98,15 @@ locals {
     "azure-client-id",
     "azure-client-secret",
     "teams-team-id",
+    "teams-channel-briefing-kristina-id",
+    "teams-channel-briefing-andrew-id",
+    "teams-channel-decisions-id",
+    "teams-channel-general-id",
+    "teams-channel-engineering-id",
+    "teams-channel-growth-id",
+    "teams-channel-financials-id",
+    "teams-channel-product-fuse-id",
+    "teams-channel-product-pulse-id",
   ]
 }
 
