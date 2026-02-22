@@ -3,7 +3,7 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Workforce from './pages/Workforce';
 import AgentsList from './pages/AgentsList';
-import AgentDetail from './pages/AgentSettings';
+import AgentProfile from './pages/AgentProfile';
 import AgentBuilder from './pages/AgentBuilder';
 import Approvals from './pages/Approvals';
 import Chat from './pages/Chat';
@@ -18,9 +18,9 @@ export default function App() {
         <Route path="workforce" element={<Workforce />} />
         <Route path="agents" element={<AgentsList />} />
         <Route path="agents/new" element={<AgentBuilder />} />
-        <Route path="agents/:agentId" element={<AgentDetail />} />
+        <Route path="agents/:agentId" element={<AgentProfile />} />
         {/* Legacy route — redirect to new detail page */}
-        <Route path="agents/:agentId/settings" element={<AgentDetail />} />
+        <Route path="agents/:agentId/settings" element={<AgentProfile />} />
         <Route path="approvals" element={<Approvals />} />
         <Route path="financials" element={<Financials />} />
         <Route path="operations" element={<Operations />} />
