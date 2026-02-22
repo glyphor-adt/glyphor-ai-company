@@ -103,6 +103,26 @@ resource "google_pubsub_subscription" "agent_tasks_push" {
   ack_deadline_seconds = 300
 }
 
+resource "google_pubsub_topic" "glyphor_events" {
+  name = "glyphor-events"
+
+  depends_on = [google_project_service.apis["pubsub.googleapis.com"]]
+}
+
+resource "google_pubsub_subscription" "glyphor_events_push" {
+  name  = "glyphor-events-push"
+  topic = google_pubsub_topic.glyphor_events.id
+
+  push_config {
+    push_endpoint = "${google_cloud_run_v2_service.scheduler.uri}/event"
+    oidc_token {
+      service_account_email = google_service_account.glyphor.email
+    }
+  }
+
+  ack_deadline_seconds = 300
+}
+
 # ─── Secret Manager ──────────────────────────────────────────
 locals {
   secrets = [
