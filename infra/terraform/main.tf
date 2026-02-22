@@ -145,6 +145,10 @@ locals {
     "teams-channel-financials-id",
     "teams-channel-product-fuse-id",
     "teams-channel-product-pulse-id",
+    "stripe-secret-key",
+    "stripe-webhook-secret",
+    "gcp-billing-dataset",
+    "gcp-billing-table",
   ]
 }
 
@@ -320,6 +324,12 @@ resource "google_cloud_run_v2_service_iam_member" "cos_invoker" {
 resource "google_project_iam_member" "gcs_access" {
   project = var.project_id
   role    = "roles/storage.objectAdmin"
+  member  = "serviceAccount:${google_service_account.glyphor.email}"
+}
+
+resource "google_project_iam_member" "monitoring_viewer" {
+  project = var.project_id
+  role    = "roles/monitoring.viewer"
   member  = "serviceAccount:${google_service_account.glyphor.email}"
 }
 

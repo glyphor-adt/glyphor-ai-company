@@ -21,11 +21,20 @@ const LONG_RUNNING_TOOLS = new Set([
   'kyc_research',
 ]);
 
+// Tools that are safe to execute in dry-run mode (read-only / computation)
+const READ_ONLY_PREFIXES = ['get_', 'read_', 'calculate_', 'recall_', 'query_'];
+
+function isReadOnlyTool(name: string): boolean {
+  return READ_ONLY_PREFIXES.some((prefix) => name.startsWith(prefix));
+}
+
 export class ToolExecutor {
   private tools: Map<string, ToolDefinition>;
+  private dryRun: boolean;
 
-  constructor(tools: ToolDefinition[]) {
+  constructor(tools: ToolDefinition[], dryRun = false) {
     this.tools = new Map(tools.map((t) => [t.name, t]));
+    this.dryRun = dryRun;
   }
 
   addTool(tool: ToolDefinition): void {
@@ -81,6 +90,21 @@ export class ToolExecutor {
 
     if (context.abortSignal.aborted) {
       return { success: false, error: 'Agent aborted before tool execution', filesWritten: 0, memoryKeysWritten: 0 };
+    }
+
+    // Dry-run mode: intercept mutative tools, allow read-only tools through
+    if (this.dryRun && !isReadOnlyTool(toolName)) {
+      console.log(`[DryRun] Would have executed: ${toolName}(${JSON.stringify(params)})`);
+      return {
+        success: true,
+        data: {
+          dryRun: true,
+          wouldHaveExecuted: { name: toolName, args: params },
+          message: `Dry-run mode: ${toolName} was not executed. In live mode this would have run with the provided arguments.`,
+        },
+        filesWritten: 0,
+        memoryKeysWritten: 0,
+      };
     }
 
     const timeoutMs = LONG_RUNNING_TOOLS.has(toolName) ? LONG_TOOL_TIMEOUT_MS : DEFAULT_TOOL_TIMEOUT_MS;

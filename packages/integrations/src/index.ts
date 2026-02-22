@@ -20,3 +20,25 @@ export {
   type ChannelTarget,
   type ChannelMap,
 } from './teams/graphClient.js';
+
+// Stripe integration
+export {
+  getStripeClient,
+  handleStripeWebhook,
+  syncMRR,
+  syncChurnRate,
+  syncAll as syncStripeAll,
+} from './stripe/index.js';
+
+// GCP monitoring & billing
+export {
+  queryCloudRunMetrics,
+  queryAllServices,
+  queryBillingExport,
+  syncBillingToSupabase,
+  pingService,
+  pingServices,
+  type CloudRunMetrics,
+  type DailyCost,
+  type ServiceHealth,
+} from './gcp/index.js';

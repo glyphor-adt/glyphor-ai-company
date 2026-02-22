@@ -11,6 +11,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GlyphorEventBus } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent } from '@glyphor/agent-runtime';
+import { handleStripeWebhook, syncStripeAll } from '@glyphor/integrations';
 import { EventRouter } from './eventRouter.js';
 import { DecisionQueue } from './decisionQueue.js';
 import { runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPCS, runVPSales } from '@glyphor/agents';
@@ -117,6 +118,21 @@ const server = createServer(async (req, res) => {
     // Health check
     if (url === '/health' || url === '/') {
       json(res, 200, { status: 'ok', service: 'glyphor-scheduler' });
+      return;
+    }
+
+    // Stripe webhook endpoint
+    if (method === 'POST' && url === '/webhook/stripe') {
+      const rawBody = await readBody(req);
+      const result = await handleStripeWebhook(req, rawBody, memory.getSupabaseClient());
+      json(res, result.status, result.body);
+      return;
+    }
+
+    // Stripe data sync endpoint (called by Cloud Scheduler)
+    if (method === 'POST' && url === '/sync/stripe') {
+      const result = await syncStripeAll(memory.getSupabaseClient());
+      json(res, 200, { success: true, ...result });
       return;
     }
 

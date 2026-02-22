@@ -23,6 +23,7 @@ export interface AgentConfig {
   topP?: number;
   topK?: number;
   contextInjector?: ContextInjector;
+  dryRun?: boolean;                  // When true, mutative tools are intercepted and logged
 }
 
 export type CompanyAgentRole =

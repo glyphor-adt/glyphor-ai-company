@@ -7,6 +7,8 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
+import { getStripeClient } from '@glyphor/integrations';
+import type Stripe from 'stripe';
 
 export function createCFOTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -173,6 +175,93 @@ export function createCFOTools(memory: CompanyMemoryStore): ToolDefinition[] {
           createdAt: new Date().toISOString(),
         });
         return { success: true, memoryKeysWritten: 1 };
+      },
+    },
+
+    {
+      name: 'query_stripe_mrr',
+      description: 'Query live MRR and subscription data directly from Stripe. Use for real-time financial analysis.',
+      parameters: {},
+      execute: async (_params, _ctx): Promise<ToolResult> => {
+        try {
+          const stripe = getStripeClient();
+          let totalMRR = 0;
+          let activeCount = 0;
+          let hasMore = true;
+          let startingAfter: string | undefined;
+
+          while (hasMore) {
+            const params: Record<string, unknown> = { status: 'active', limit: 100 };
+            if (startingAfter) params.starting_after = startingAfter;
+            const subs = await stripe.subscriptions.list(params as Parameters<typeof stripe.subscriptions.list>[0]);
+            for (const sub of subs.data) {
+              activeCount++;
+              totalMRR += sub.items.data.reduce((sum, item) => {
+                const unitAmount = item.price?.unit_amount ?? 0;
+                const qty = item.quantity ?? 1;
+                const interval = item.price?.recurring?.interval;
+                if (interval === 'year') return sum + (unitAmount * qty) / 12;
+                return sum + unitAmount * qty;
+              }, 0);
+            }
+            hasMore = subs.has_more;
+            if (subs.data.length > 0) startingAfter = subs.data[subs.data.length - 1].id;
+          }
+
+          return {
+            success: true,
+            data: {
+              mrr: totalMRR / 100,
+              activeSubscriptions: activeCount,
+              queriedAt: new Date().toISOString(),
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'query_stripe_subscriptions',
+      description: 'Get detailed subscription breakdown from Stripe including per-product revenue.',
+      parameters: {
+        status: {
+          type: 'string',
+          description: 'Subscription status filter',
+          required: false,
+          enum: ['active', 'canceled', 'past_due', 'trialing'],
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const stripe = getStripeClient();
+          const status = (params.status as string) || 'active';
+          const subs = await stripe.subscriptions.list({ status: status as Stripe.SubscriptionListParams['status'], limit: 100 });
+
+          const byProduct: Record<string, { count: number; mrr: number }> = {};
+          for (const sub of subs.data) {
+            const product = sub.metadata?.product || 'unknown';
+            if (!byProduct[product]) byProduct[product] = { count: 0, mrr: 0 };
+            byProduct[product].count++;
+            byProduct[product].mrr += sub.items.data.reduce(
+              (sum, item) => sum + ((item.price?.unit_amount ?? 0) * (item.quantity ?? 1)) / 100,
+              0,
+            );
+          }
+
+          return {
+            success: true,
+            data: {
+              total: subs.data.length,
+              status,
+              byProduct,
+              queriedAt: new Date().toISOString(),
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
       },
     },
 

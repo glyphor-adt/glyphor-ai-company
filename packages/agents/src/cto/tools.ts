@@ -7,6 +7,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
+import { queryCloudRunMetrics, pingServices, type CloudRunMetrics } from '@glyphor/integrations';
 
 export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -22,18 +23,92 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
+        const projectId = process.env.GCP_PROJECT_ID;
+        const services = [
+          { name: 'glyphor-scheduler', url: process.env.SCHEDULER_URL },
+          { name: 'glyphor-dashboard', url: process.env.DASHBOARD_URL },
+        ].filter((s) => s.url) as Array<{ name: string; url: string }>;
+
+        const serviceFilter = params.service as string | undefined;
+
+        // Try real Cloud Monitoring metrics if GCP project is configured
+        let metricsData: CloudRunMetrics[] = [];
+        if (projectId) {
+          try {
+            const serviceIds = serviceFilter && serviceFilter !== 'all'
+              ? [`glyphor-${serviceFilter}`]
+              : services.map((s) => s.name);
+            metricsData = await Promise.all(
+              serviceIds.map((id) => queryCloudRunMetrics(projectId, id, 1)),
+            );
+          } catch (err) {
+            console.warn('[CTO] Cloud Monitoring query failed, falling back to health pings:', (err as Error).message);
+          }
+        }
+
+        // Always run health pings as baseline
+        const pingTargets = serviceFilter && serviceFilter !== 'all'
+          ? services.filter((s) => s.name.includes(serviceFilter))
+          : services;
+        const healthChecks = pingTargets.length > 0
+          ? await pingServices(pingTargets.map((s) => ({ url: `${s.url}/health`, name: s.name })))
+          : [];
+
+        // Also get recent activity for deploy/alert context
         const activity = await memory.getRecentActivity(6);
         const deployEvents = activity.filter(a => a.action === 'deploy');
         const alertEvents = activity.filter(a => a.action === 'alert');
+
+        const overallStatus = healthChecks.some((h) => h.status === 'down')
+          ? 'degraded'
+          : alertEvents.length > 0
+            ? 'degraded'
+            : 'healthy';
+
         return {
           success: true,
           data: {
-            status: alertEvents.length === 0 ? 'healthy' : 'degraded',
+            status: overallStatus,
+            cloudRunMetrics: metricsData.length > 0 ? metricsData : undefined,
+            healthChecks: healthChecks.length > 0 ? healthChecks : undefined,
             recentDeploys: deployEvents,
             recentAlerts: alertEvents,
             checkedAt: new Date().toISOString(),
           },
         };
+      },
+    },
+
+    {
+      name: 'get_cloud_run_metrics',
+      description: 'Get detailed Cloud Run metrics (request count, latency, error rate, instance count) for a specific service.',
+      parameters: {
+        service: {
+          type: 'string',
+          description: 'Cloud Run service name (e.g., "glyphor-scheduler")',
+          required: true,
+        },
+        hours: {
+          type: 'number',
+          description: 'Hours to look back (default: 1)',
+          required: false,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        const projectId = process.env.GCP_PROJECT_ID;
+        if (!projectId) {
+          return { success: false, error: 'GCP_PROJECT_ID not configured' };
+        }
+        try {
+          const metrics = await queryCloudRunMetrics(
+            projectId,
+            params.service as string,
+            (params.hours as number) || 1,
+          );
+          return { success: true, data: metrics };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
       },
     },
 
