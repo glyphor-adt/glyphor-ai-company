@@ -18,6 +18,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { OPS_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createOpsTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 
 export interface OpsRunParams {
   task?: 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'performance_rollup' | 'milestone_detection' | 'growth_update';
@@ -165,16 +166,19 @@ Steps:
       initialMessage = 'Provide a current system status summary.';
   }
 
+  const supabase = memory.getSupabaseClient();
+  const agentCfg = await loadAgentConfig(supabase, 'ops', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+
   const config: AgentConfig = {
     id: `ops-${task}-${today}`,
     role: 'ops',
     systemPrompt: OPS_SYSTEM_PROMPT,
-    model: 'gemini-3-flash-preview',
+    model: agentCfg.model,
     tools,
-    maxTurns: 10,
+    maxTurns: agentCfg.maxTurns,
     maxStallTurns: 3,
     timeoutMs: 60_000,
-    temperature: 0.2,
+    temperature: agentCfg.temperature,
   };
 
   const supervisor = new AgentSupervisor({
@@ -193,7 +197,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    { glyphorEventBus, agentMemoryStore: memory },
+    createRunDeps(supabase, glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;

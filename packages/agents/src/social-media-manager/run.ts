@@ -10,6 +10,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { SOCIAL_MEDIA_MANAGER_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createSocialMediaManagerTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createEventTools } from '../shared/eventTools.js';
 
 export interface SocialMediaManagerRunParams {
@@ -50,13 +51,16 @@ export async function runSocialMediaManager(params: SocialMediaManagerRunParams 
       initialMessage = 'Manage social media as directed.';
   }
 
+  const supabase = memory.getSupabaseClient();
+  const agentCfg = await loadAgentConfig(supabase, 'social-media-manager', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
+
   const config: AgentConfig = {
     id: `kai-${task}-${today}`, role: 'social-media-manager',
-    systemPrompt: SOCIAL_MEDIA_MANAGER_SYSTEM_PROMPT, model: 'gemini-3-flash-preview',
-    tools, maxTurns: 10, maxStallTurns: 3, timeoutMs: 60_000, temperature: 0.3,
+    systemPrompt: SOCIAL_MEDIA_MANAGER_SYSTEM_PROMPT, model: agentCfg.model,
+    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 60_000, temperature: agentCfg.temperature,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
-  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, { glyphorEventBus, agentMemoryStore: memory });
+  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));
   try { await memory.recordAgentRun('social-media-manager', 0, 0.03); } catch {}
   console.log(`[Kai] ${result.status} (${result.totalTurns} turns)`);
   return result;
