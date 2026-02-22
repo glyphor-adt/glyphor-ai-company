@@ -9,6 +9,7 @@ import Approvals from './pages/Approvals';
 import Chat from './pages/Chat';
 import Financials from './pages/Financials';
 import Operations from './pages/Operations';
+import Strategy from './pages/Strategy';
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="approvals" element={<Approvals />} />
         <Route path="financials" element={<Financials />} />
         <Route path="operations" element={<Operations />} />
+        <Route path="strategy" element={<Strategy />} />
         <Route path="chat" element={<Chat />} />
         <Route path="chat/:agentId" element={<Chat />} />
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -10,6 +10,7 @@ const NAV = [
   { to: '/approvals', label: 'Approvals', icon: CheckIcon },
   { to: '/financials', label: 'Financials', icon: ChartIcon },
   { to: '/operations', label: 'Operations', icon: GearIcon },
+  { to: '/strategy', label: 'Strategy', icon: StrategyIcon },
 ] as const;
 
 export default function Layout() {
@@ -169,6 +170,15 @@ function AgentIcon({ className }: { className?: string }) {
       <circle cx="8" cy="5" r="3" />
       <path d="M3 14c0-2.8 2.2-5 5-5s5 2.2 5 5" />
       <circle cx="12" cy="4" r="1.5" />
+    </svg>
+  );
+}
+
+function StrategyIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <path d="M2 14l4-5 3 3 5-8" />
+      <path d="M11 4h3v3" />
     </svg>
   );
 }
