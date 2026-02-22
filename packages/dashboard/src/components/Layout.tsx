@@ -83,7 +83,7 @@ export default function Layout() {
       </aside>
 
       {/* ── Main Content ────────────────────── */}
-      <main className="flex-1 overflow-y-auto bg-base transition-colors duration-200">
+      <main className="flex-1 overflow-y-auto bg-base transition-colors duration-200 dark:bg-[#14161a] dark:bg-[url('/gradient-dark.svg')] dark:bg-cover dark:bg-fixed dark:bg-top">
         <div className="page-enter mx-auto max-w-[1400px] px-8 py-8">
           <Outlet />
         </div>
