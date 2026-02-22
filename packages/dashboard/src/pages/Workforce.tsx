@@ -119,7 +119,7 @@ export default function Workforce() {
 
           {/* Connector: CoS → departments */}
           <div className="flex justify-center">
-            <div className="relative h-10 w-full max-w-4xl">
+            <div className="relative h-10 w-full max-w-5xl">
               <div className="absolute left-1/2 top-0 h-4 w-px bg-border" />
               <div className="absolute left-[8.3%] top-4 h-px bg-border" style={{ width: '83.4%' }} />
               {DEPARTMENTS.map((_, i) => (
@@ -132,16 +132,27 @@ export default function Workforce() {
             </div>
           </div>
 
-          {/* Department row */}
-          <div className="grid grid-cols-3 gap-4 xl:grid-cols-6">
+          {/* Department columns with heads + sub-teams */}
+          <div className="grid grid-cols-2 gap-6 md:grid-cols-3 xl:grid-cols-6">
             {DEPARTMENTS.map((dept) => {
-              const agent = agentMap.get(dept.roles[0]);
+              const agent = agentMap.get(dept.role);
+              const members = SUB_TEAM.filter((m) => m.reportsTo === dept.role);
               return (
-                <div key={dept.label} className="flex flex-col items-center gap-1">
+                <div key={dept.label} className="flex flex-col items-center gap-2">
                   <span className="text-[10px] font-medium uppercase tracking-widest text-txt-faint">
                     {dept.label}
                   </span>
                   {agent ? <AgentNode agent={agent} compact /> : <Skeleton className="h-20 w-full" />}
+                  {/* Sub-team connector */}
+                  {members.length > 0 && (
+                    <div className="h-4 w-px bg-border" />
+                  )}
+                  {/* Sub-team members */}
+                  <div className="flex w-full flex-col gap-1.5">
+                    {members.map((m) => (
+                      <SubTeamNode key={m.name} member={m} />
+                    ))}
+                  </div>
                 </div>
               );
             })}
@@ -150,10 +161,10 @@ export default function Workforce() {
       ) : (
         /* ── Grid View ───────────────────── */
         <div>
-          <SectionHeader title="All Employees" />
+          <SectionHeader title="Founders" />
 
           {/* Founders */}
-          <div className="mb-4 grid grid-cols-2 gap-4">
+          <div className="mb-6 grid grid-cols-2 gap-4">
             {FOUNDERS.map((f) => (
               <Card key={f.name} className="relative overflow-hidden">
                 <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl" style={{ background: f.color }} />
@@ -174,8 +185,10 @@ export default function Workforce() {
             ))}
           </div>
 
+          <SectionHeader title="AI Executives" />
+
           {/* Agent grid */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="mb-6 grid grid-cols-2 gap-4">
             {agents
               .sort((a, b) => {
                 const order = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales'];
@@ -213,6 +226,30 @@ export default function Workforce() {
                   </Card>
                 );
               })}
+          </div>
+
+          <SectionHeader title={`Team Members (${SUB_TEAM.length})`} />
+
+          {/* Sub-team grid */}
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+            {SUB_TEAM.map((m) => (
+              <Card key={m.name} className="relative overflow-hidden">
+                <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl" style={{ background: m.color }} />
+                <div className="flex items-center gap-3 pl-3">
+                  <div
+                    className="flex items-center justify-center rounded-full text-xs font-bold"
+                    style={{ width: 36, height: 36, background: `${m.color}18`, border: `1.5px solid ${m.color}40`, color: m.color }}
+                  >
+                    {m.initials}
+                  </div>
+                  <div>
+                    <h3 className="text-[13px] font-semibold text-txt-primary">{m.name}</h3>
+                    <p className="text-[11px] text-txt-muted">{m.title}</p>
+                    <p className="mt-0.5 text-[10px] text-txt-faint">{m.department} · Reports to {DISPLAY_NAME_MAP[m.reportsTo]}</p>
+                  </div>
+                </div>
+              </Card>
+            ))}
           </div>
         </div>
       )}
