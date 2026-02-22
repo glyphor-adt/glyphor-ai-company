@@ -535,13 +535,22 @@ export class CompanyAgentRunner {
 
       // ─── REFLECT: Self-assessment of this run ──────────────────
       if (deps?.agentMemoryStore && lastTextOutput) {
-        try {
-          await this.reflectOnRun(config, history, lastTextOutput, deps.agentMemoryStore, deps?.knowledgeRouter);
-        } catch (err) {
-          console.warn(
-            `[CompanyAgentRunner] Reflection failed for ${config.id}:`,
-            (err as Error).message,
-          );
+        const isOnDemand = config.id.includes('on_demand');
+        const reflectFn = async () => {
+          try {
+            await this.reflectOnRun(config, history, lastTextOutput!, deps.agentMemoryStore!, deps?.knowledgeRouter);
+          } catch (err) {
+            console.warn(
+              `[CompanyAgentRunner] Reflection failed for ${config.id}:`,
+              (err as Error).message,
+            );
+          }
+        };
+        if (isOnDemand) {
+          // Fire-and-forget for chat — don't block the user response
+          reflectFn();
+        } else {
+          await reflectFn();
         }
       }
 
