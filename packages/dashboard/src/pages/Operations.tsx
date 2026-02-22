@@ -6,6 +6,7 @@ import {
   SectionHeader,
   AgentAvatar,
   Skeleton,
+  timeAgo,
 } from '../components/ui';
 import {
   BarChart,
@@ -76,7 +77,53 @@ function useReflections(days = 14) {
   return { data, loading };
 }
 
-const ROLE_ORDER = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales'];
+const ROLE_ORDER = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales', 'ops'];
+
+interface SyncRow {
+  id: string;
+  source_name: string;
+  status: string;
+  last_success_at: string | null;
+  last_failure_at: string | null;
+  last_error: string | null;
+  consecutive_failures: number;
+}
+
+interface IncidentRow {
+  id: string;
+  title: string;
+  severity: string;
+  status: string;
+  created_by: string | null;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+function useDataSyncs() {
+  const [data, setData] = useState<SyncRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    (async () => {
+      const { data: rows } = await supabase.from('data_sync_status').select('*');
+      setData((rows as SyncRow[] | null) ?? []);
+      setLoading(false);
+    })();
+  }, []);
+  return { data, loading };
+}
+
+function useIncidents() {
+  const [data, setData] = useState<IncidentRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    (async () => {
+      const { data: rows } = await supabase.from('incidents').select('*').order('created_at', { ascending: false }).limit(20);
+      setData((rows as IncidentRow[] | null) ?? []);
+      setLoading(false);
+    })();
+  }, []);
+  return { data, loading };
+}
 
 export default function Operations() {
   const { data: agents, loading: agentsLoading } = useAgentRuns();

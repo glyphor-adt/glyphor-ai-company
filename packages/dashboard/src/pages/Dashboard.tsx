@@ -44,6 +44,9 @@ export default function Dashboard() {
         <MetricCard label="Products" value={String(products.length)} sub={products.map(p=>p.name).join(', ') || '—'} color="#4B9FE1" sparkData={[1,1,1,2,2,2,products.length]} loading={false} />
       </div>
 
+      {/* ── System Health (from Atlas) ─────── */}
+      <SystemHealth />
+
       <div className="grid grid-cols-3 gap-6">
         {/* ── Agent Constellation ─────────── */}
         <Card className="col-span-2">

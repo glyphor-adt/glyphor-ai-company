@@ -63,7 +63,14 @@ export default function Workforce() {
             {TOTAL_HEADCOUNT} employees · {FOUNDERS.length} founders · {agents.length} AI executives · {SUB_TEAM.length} team members
           </p>
         </div>
-        <div className="flex gap-1 rounded-lg border border-border bg-surface p-0.5">
+        <div className="flex items-center gap-3">
+          <Link
+            to="/agents/new"
+            className="rounded-lg bg-gradient-to-r from-cyan to-azure px-4 py-1.5 text-xs font-semibold text-[#0B0B0C] transition-all hover:shadow-[0_0_16px_rgba(0,224,255,0.4)]"
+          >
+            + New Agent
+          </Link>
+          <div className="flex gap-1 rounded-lg border border-border bg-surface p-0.5">
           <button
             onClick={() => setView('org-chart')}
             className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
@@ -80,6 +87,7 @@ export default function Workforce() {
           >
             Grid
           </button>
+        </div>
         </div>
       </div>
 
@@ -211,12 +219,20 @@ export default function Workforce() {
                           <span className="text-[10px] text-txt-faint">Last run: {timeAgo(agent.last_run)}</span>
                         </div>
                       </div>
-                      <Link
-                        to={`/chat/${agent.role}`}
-                        className="rounded-lg border border-border px-3 py-1.5 text-[11px] font-medium text-txt-muted transition-colors hover:border-cyan hover:text-cyan"
-                      >
-                        Chat →
-                      </Link>
+                      <div className="flex flex-col gap-1.5">
+                        <Link
+                          to={`/chat/${agent.role}`}
+                          className="rounded-lg border border-border px-3 py-1.5 text-[11px] font-medium text-txt-muted transition-colors hover:border-cyan hover:text-cyan"
+                        >
+                          Chat →
+                        </Link>
+                        <Link
+                          to={`/agents/${agent.id}/settings`}
+                          className="rounded-lg border border-border px-3 py-1.5 text-[11px] font-medium text-txt-muted transition-colors hover:border-cyan hover:text-cyan"
+                        >
+                          Settings
+                        </Link>
+                      </div>
                     </div>
                   </Card>
                 );
