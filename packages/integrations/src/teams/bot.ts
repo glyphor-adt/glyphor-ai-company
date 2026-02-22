@@ -26,6 +26,14 @@ export interface BotConfig {
   tenantId: string;
 }
 
+/** An individual agent bot registration (extends BotConfig with role mapping). */
+export interface AgentBotConfig {
+  appId: string;
+  appSecret: string;
+  role: string;
+  name: string;
+}
+
 export interface TeamsActivity {
   type: string;
   id: string;
@@ -123,15 +131,16 @@ const ENTRA_OPENID_URL = (tenantId: string) =>
 /**
  * Validates incoming JWT tokens from Bot Framework.
  * Checks signature (via JWKS), issuer, audience, and expiry.
+ * Supports multiple bot app IDs as valid audiences.
  */
 export class BotTokenValidator {
   private bfJwks: ReturnType<typeof createRemoteJWKSet> | null = null;
   private entraJwks: ReturnType<typeof createRemoteJWKSet> | null = null;
-  private readonly appId: string;
+  private readonly validAudiences: string[];
   private readonly tenantId: string;
 
-  constructor(appId: string, tenantId: string) {
-    this.appId = appId;
+  constructor(appId: string, tenantId: string, additionalAudiences?: string[]) {
+    this.validAudiences = [appId, ...(additionalAudiences ?? [])];
     this.tenantId = tenantId;
   }
 
@@ -163,46 +172,30 @@ export class BotTokenValidator {
    * Returns the validated payload, or throws on failure.
    */
   async validate(token: string): Promise<JWTPayload> {
-    // Try Bot Framework channel service token first
-    try {
-      const bfJwks = await this.getBfJwks();
-      const { payload } = await jwtVerify(token, bfJwks, {
-        audience: this.appId,
-        issuer: 'https://api.botframework.com',
-        clockTolerance: 300, // 5 min clock skew tolerance
-      });
-      return payload;
-    } catch {
-      // Fall through to try Entra ID token
+    // Try each valid audience against each issuer
+    const issuers = [
+      { getJwks: () => this.getBfJwks(), issuer: 'https://api.botframework.com' },
+      { getJwks: () => this.getEntraJwks(), issuer: `https://login.microsoftonline.com/${this.tenantId}/v2.0` },
+      { getJwks: () => this.getEntraJwks(), issuer: `https://sts.windows.net/${this.tenantId}/` },
+    ];
+
+    for (const { getJwks, issuer } of issuers) {
+      for (const audience of this.validAudiences) {
+        try {
+          const jwks = await getJwks();
+          const { payload } = await jwtVerify(token, jwks, {
+            audience,
+            issuer,
+            clockTolerance: 300,
+          });
+          return payload;
+        } catch {
+          // Try next combination
+        }
+      }
     }
 
-    // Try Entra ID (SingleTenant) token
-    try {
-      const entraJwks = await this.getEntraJwks();
-      const { payload } = await jwtVerify(token, entraJwks, {
-        audience: this.appId,
-        issuer: `https://login.microsoftonline.com/${this.tenantId}/v2.0`,
-        clockTolerance: 300,
-      });
-      return payload;
-    } catch {
-      // Fall through
-    }
-
-    // Also accept tokens with sts.windows.net issuer (v1 tokens)
-    try {
-      const entraJwks = await this.getEntraJwks();
-      const { payload } = await jwtVerify(token, entraJwks, {
-        audience: this.appId,
-        issuer: `https://sts.windows.net/${this.tenantId}/`,
-        clockTolerance: 300,
-      });
-      return payload;
-    } catch (err) {
-      throw new Error(
-        `Bot token validation failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
+    throw new Error('Bot token validation failed: no valid issuer/audience combination');
   }
 }
 
@@ -290,10 +283,24 @@ export class TeamsBotHandler {
   private readonly tokenValidator: BotTokenValidator;
   private tokenCache: { token: string; expiresAt: number } | null = null;
 
-  constructor(config: BotConfig, agentRunner: AgentRunner) {
+  /** Maps bot appId → { role, name, appSecret } for individual agent bots. */
+  private readonly agentBots: Map<string, AgentBotConfig & { appSecret: string }>;
+  /** Per-bot token cache for replying as the correct bot identity. */
+  private readonly agentTokenCache = new Map<string, { token: string; expiresAt: number }>();
+
+  constructor(config: BotConfig, agentRunner: AgentRunner, agentBots?: AgentBotConfig[]) {
     this.config = config;
     this.agentRunner = agentRunner;
-    this.tokenValidator = new BotTokenValidator(config.appId, config.tenantId);
+
+    // Build agent bot map
+    this.agentBots = new Map();
+    const additionalAudiences: string[] = [];
+    for (const ab of agentBots ?? []) {
+      this.agentBots.set(ab.appId, ab);
+      additionalAudiences.push(ab.appId);
+    }
+
+    this.tokenValidator = new BotTokenValidator(config.appId, config.tenantId, additionalAudiences);
   }
 
   static fromEnv(agentRunner: AgentRunner): TeamsBotHandler | null {
@@ -303,7 +310,18 @@ export class TeamsBotHandler {
 
     if (!appId || !appSecret || !tenantId) return null;
 
-    return new TeamsBotHandler({ appId, appSecret, tenantId }, agentRunner);
+    // Parse individual agent bot configs from AGENT_BOTS env var (JSON array)
+    let agentBots: AgentBotConfig[] = [];
+    if (process.env.AGENT_BOTS) {
+      try {
+        agentBots = JSON.parse(process.env.AGENT_BOTS) as AgentBotConfig[];
+        console.log(`[TeamsBot] Loaded ${agentBots.length} individual agent bots`);
+      } catch (err) {
+        console.error('[TeamsBot] Failed to parse AGENT_BOTS:', (err as Error).message);
+      }
+    }
+
+    return new TeamsBotHandler({ appId, appSecret, tenantId }, agentRunner, agentBots);
   }
 
   /**
@@ -322,17 +340,36 @@ export class TeamsBotHandler {
 
   /**
    * Acquire a Bot Framework token for replying to messages.
+   * If botAppId is provided, uses that bot's credentials; otherwise uses the main bot.
    */
-  private async getBotToken(): Promise<string> {
+  private async getBotToken(botAppId?: string): Promise<string> {
     const now = Date.now();
-    if (this.tokenCache && this.tokenCache.expiresAt > now + 60_000) {
-      return this.tokenCache.token;
+
+    // Determine which credentials and cache to use
+    let clientId: string;
+    let clientSecret: string;
+    let cache: { token: string; expiresAt: number } | null;
+    const useAgent = botAppId && this.agentBots.has(botAppId);
+
+    if (useAgent) {
+      const agentBot = this.agentBots.get(botAppId)!;
+      clientId = agentBot.appId;
+      clientSecret = agentBot.appSecret;
+      cache = this.agentTokenCache.get(botAppId) ?? null;
+    } else {
+      clientId = this.config.appId;
+      clientSecret = this.config.appSecret;
+      cache = this.tokenCache;
+    }
+
+    if (cache && cache.expiresAt > now + 60_000) {
+      return cache.token;
     }
 
     const body = new URLSearchParams({
       grant_type: 'client_credentials',
-      client_id: this.config.appId,
-      client_secret: this.config.appSecret,
+      client_id: clientId,
+      client_secret: clientSecret,
       scope: 'https://api.botframework.com/.default',
     });
 
@@ -350,10 +387,16 @@ export class TeamsBotHandler {
     }
 
     const data = (await res.json()) as { access_token: string; expires_in: number };
-    this.tokenCache = {
+    const newCache = {
       token: data.access_token,
       expiresAt: now + data.expires_in * 1000,
     };
+
+    if (useAgent) {
+      this.agentTokenCache.set(botAppId!, newCache);
+    } else {
+      this.tokenCache = newCache;
+    }
 
     return data.access_token;
   }
@@ -366,8 +409,9 @@ export class TeamsBotHandler {
     conversationId: string,
     activityId: string,
     response: BotResponse,
+    botAppId?: string,
   ): Promise<void> {
-    const token = await this.getBotToken();
+    const token = await this.getBotToken(botAppId);
     const url = `${serviceUrl}v3/conversations/${encodeURIComponent(conversationId)}/activities/${encodeURIComponent(activityId)}`;
 
     const res = await fetch(url, {
@@ -391,8 +435,9 @@ export class TeamsBotHandler {
   private async sendTyping(
     serviceUrl: string,
     conversationId: string,
+    botAppId?: string,
   ): Promise<void> {
-    const token = await this.getBotToken();
+    const token = await this.getBotToken(botAppId);
     const url = `${serviceUrl}v3/conversations/${encodeURIComponent(conversationId)}/activities`;
 
     await fetch(url, {
@@ -407,10 +452,11 @@ export class TeamsBotHandler {
 
   /**
    * Handle an incoming Bot Framework activity.
+   * If the recipient is an individual agent bot, route directly to that agent.
+   * Otherwise, use command parsing (ask, briefing, status, etc.).
    */
   async handleActivity(activity: TeamsActivity): Promise<void> {
     if (activity.type === 'conversationUpdate') {
-      // Bot was added to a conversation — send welcome message
       console.log('[TeamsBot] Conversation update');
       return;
     }
@@ -420,49 +466,76 @@ export class TeamsBotHandler {
       return;
     }
 
-    const parsed = parseMessage(activity, 'Glyphor AI');
+    // Check if this message was sent to an individual agent bot
+    const recipientId = activity.recipient?.id;
+    const agentBot = recipientId ? this.agentBots.get(recipientId) : undefined;
 
-    console.log(`[TeamsBot] ${activity.from.name}: "${parsed.command}" → ${parsed.agentRole}: "${parsed.message}"`);
+    let agentRole: string;
+    let message: string;
+    let botAppId: string | undefined;
+
+    if (agentBot) {
+      // Individual agent bot — route directly, no command parsing needed
+      agentRole = agentBot.role;
+      message = activity.text?.trim() || 'Hello!';
+      botAppId = agentBot.appId;
+      console.log(`[TeamsBot] ${activity.from.name} → ${agentBot.name} (${agentRole}): "${message}"`);
+    } else {
+      // Main Glyphor AI bot — use command parsing
+      const parsed = parseMessage(activity, 'Glyphor AI');
+      agentRole = parsed.agentRole;
+      message = parsed.message;
+      console.log(`[TeamsBot] ${activity.from.name}: "${parsed.command}" → ${agentRole}: "${message}"`);
+
+      // Handle agent listing command
+      if (parsed.command === 'agents') {
+        const agentList = Object.entries(AGENT_DISPLAY)
+          .map(([role, name]) => `• **${name}** (\`${role}\`)`)
+          .join('\n');
+        const responseText = `## Glyphor AI Agents\n\n${agentList}\n\n_Use \`ask [name] [question]\` to chat with any agent._`;
+        await this.replyToActivity(activity.serviceUrl, activity.conversation.id, activity.id, {
+          type: 'message',
+          text: responseText,
+          textFormat: 'markdown',
+        }, botAppId);
+        return;
+      }
+    }
 
     // Send typing indicator
-    await this.sendTyping(activity.serviceUrl, activity.conversation.id);
+    await this.sendTyping(activity.serviceUrl, activity.conversation.id, botAppId);
 
     let responseText: string;
 
-    if (parsed.command === 'agents') {
-      // List all agents
-      const agentList = Object.entries(AGENT_DISPLAY)
-        .map(([role, name]) => `• **${name}** (\`${role}\`)`)
-        .join('\n');
-      responseText = `## Glyphor AI Agents\n\n${agentList}\n\n_Use \`ask [name] [question]\` to chat with any agent._`;
-    } else {
-      // Run the agent
-      try {
-        const result = await this.agentRunner(parsed.agentRole, 'on_demand', {
-          message: parsed.message,
-        });
+    try {
+      const result = await this.agentRunner(agentRole, 'on_demand', { message });
+      const displayName = agentBot?.name ?? AGENT_DISPLAY[agentRole] ?? agentRole;
 
-        const displayName = AGENT_DISPLAY[parsed.agentRole] ?? parsed.agentRole;
-
-        if (result?.output) {
-          // Strip reasoning tags
-          const clean = result.output.replace(/<reasoning>[\s\S]*?<\/reasoning>\s*/g, '').trim();
-          responseText = `**${displayName}:**\n\n${clean}`;
-        } else if (result?.error) {
-          responseText = `**${displayName}** encountered an error: ${result.error}`;
-        } else {
-          responseText = `**${displayName}** completed the task but had nothing to report.`;
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        responseText = `Sorry, I couldn't reach **${AGENT_DISPLAY[parsed.agentRole] ?? parsed.agentRole}**: ${message}`;
+      if (result?.output) {
+        const clean = result.output.replace(/<reasoning>[\s\S]*?<\/reasoning>\s*/g, '').trim();
+        // For individual bots, don't prefix with name (they ARE the bot)
+        responseText = agentBot ? clean : `**${displayName}:**\n\n${clean}`;
+      } else if (result?.error) {
+        responseText = agentBot
+          ? `I encountered an error: ${result.error}`
+          : `**${displayName}** encountered an error: ${result.error}`;
+      } else {
+        responseText = agentBot
+          ? `I completed the task but had nothing to report.`
+          : `**${displayName}** completed the task but had nothing to report.`;
       }
+    } catch (err) {
+      const errMessage = err instanceof Error ? err.message : String(err);
+      const displayName = agentBot?.name ?? AGENT_DISPLAY[agentRole] ?? agentRole;
+      responseText = agentBot
+        ? `Sorry, I'm having trouble right now: ${errMessage}`
+        : `Sorry, I couldn't reach **${displayName}**: ${errMessage}`;
     }
 
     await this.replyToActivity(activity.serviceUrl, activity.conversation.id, activity.id, {
       type: 'message',
       text: responseText,
       textFormat: 'markdown',
-    });
+    }, botAppId);
   }
 }

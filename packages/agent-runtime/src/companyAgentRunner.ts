@@ -688,10 +688,13 @@ For peerFeedback: If during this task you interacted with or observed the work o
         knowledgeGaps: parsed.knowledgeGaps ?? [],
       });
 
-      // Save extracted memories
+      // Save extracted memories (with embeddings when available)
       const memories = parsed.memories ?? [];
+      const saveFn = store.saveMemoryWithEmbedding
+        ? store.saveMemoryWithEmbedding.bind(store)
+        : store.saveMemory.bind(store);
       for (const mem of memories.slice(0, 5)) {
-        await store.saveMemory({
+        await saveFn({
           agentRole: config.role,
           memoryType: mem.type ?? 'observation',
           content: mem.content ?? '',

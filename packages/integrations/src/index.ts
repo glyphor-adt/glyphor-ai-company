@@ -34,6 +34,7 @@ export {
   BotTokenValidator,
   extractBearerToken,
   type BotConfig,
+  type AgentBotConfig,
   type TeamsActivity,
   type BotResponse,
 } from './teams/bot.js';
