@@ -1,0 +1,60 @@
+/**
+ * Support Triage (David Santos) — Runner
+ * Reports to James Wilson (VP-CS). Support ticket triage and resolution.
+ */
+import {
+  CompanyAgentRunner, ModelClient, AgentSupervisor,
+  ToolExecutor, EventBus, GlyphorEventBus, type AgentConfig,
+} from '@glyphor/agent-runtime';
+import { CompanyMemoryStore } from '@glyphor/company-memory';
+import { SUPPORT_TRIAGE_SYSTEM_PROMPT } from './systemPrompt.js';
+import { createSupportTriageTools } from './tools.js';
+import { createMemoryTools } from '../shared/memoryTools.js';
+import { createEventTools } from '../shared/eventTools.js';
+
+export interface SupportTriageRunParams {
+  task?: 'triage_queue' | 'batch_analysis' | 'on_demand';
+  message?: string;
+}
+
+export async function runSupportTriage(params: SupportTriageRunParams = {}) {
+  const memory = new CompanyMemoryStore({
+    supabaseUrl: process.env.SUPABASE_URL!, supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
+    gcsBucket: process.env.GCS_BUCKET || 'glyphor-company', gcpProjectId: process.env.GCP_PROJECT_ID,
+  });
+  const modelClient = new ModelClient({ geminiApiKey: process.env.GOOGLE_AI_API_KEY, openaiApiKey: process.env.OPENAI_API_KEY, anthropicApiKey: process.env.ANTHROPIC_API_KEY });
+  const runner = new CompanyAgentRunner(modelClient);
+  const eventBus = new EventBus();
+  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const tools = [...createSupportTriageTools(memory), ...createMemoryTools(memory), ...createEventTools(glyphorEventBus)];
+  const toolExecutor = new ToolExecutor(tools);
+
+  const task = params.task || 'triage_queue';
+  const today = new Date().toISOString().split('T')[0];
+
+  let initialMessage: string;
+  switch (task) {
+    case 'triage_queue':
+      initialMessage = `Triage open support tickets. Query all open tickets, classify by category and priority. Draft responses for P2/P3 tickets using knowledge base articles. Escalate any P0/P1 tickets immediately. Log a summary of actions taken.`;
+      break;
+    case 'batch_analysis':
+      initialMessage = `Analyze support ticket patterns. Batch similar tickets by category. Identify systemic issues or recurring bugs. Emit insights for any pattern affecting 5+ users.`;
+      break;
+    case 'on_demand':
+      initialMessage = params.message || 'Triage support tickets.';
+      break;
+    default:
+      initialMessage = 'Triage support tickets.';
+  }
+
+  const config: AgentConfig = {
+    id: `david-${task}-${today}`, role: 'support-triage',
+    systemPrompt: SUPPORT_TRIAGE_SYSTEM_PROMPT, model: 'gemini-3-flash-preview',
+    tools, maxTurns: 10, maxStallTurns: 3, timeoutMs: 60_000, temperature: 0.2,
+  };
+  const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
+  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, { glyphorEventBus, agentMemoryStore: memory });
+  try { await memory.recordAgentRun('support-triage', 0, 0.03); } catch {}
+  console.log(`[David] ${result.status} (${result.totalTurns} turns)`);
+  return result;
+}
