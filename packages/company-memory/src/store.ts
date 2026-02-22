@@ -279,7 +279,6 @@ export class CompanyMemoryStore implements IMemoryBus {
           last_run_at: new Date().toISOString(),
           last_run_duration_ms: durationMs,
           last_run_cost_usd: costUsd,
-          total_runs: this.supabase.rpc ? undefined : 1, // Will need raw SQL
         })
         .eq('role', role);
     }

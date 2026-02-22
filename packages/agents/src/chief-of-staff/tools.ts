@@ -132,6 +132,7 @@ export function createChiefOfStaffTools(
           required: true,
           items: {
             type: 'object',
+            description: 'A single metric entry',
             properties: {
               label: { type: 'string', description: 'Metric name' },
               value: { type: 'string', description: 'Metric value' },
@@ -143,7 +144,7 @@ export function createChiefOfStaffTools(
           type: 'array',
           description: 'Items requiring founder attention',
           required: false,
-          items: { type: 'string' },
+          items: { type: 'string', description: 'An action item' },
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
@@ -234,7 +235,7 @@ export function createChiefOfStaffTools(
           type: 'array',
           description: 'Founders to assign: ["kristina"], ["andrew"], or ["kristina","andrew"]',
           required: true,
-          items: { type: 'string' },
+          items: { type: 'string', description: 'Founder name' },
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {

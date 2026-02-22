@@ -45,7 +45,7 @@ export class DecisionQueue {
    * Submit a new decision for founder approval.
    */
   async submit(decision: CompanyDecision): Promise<void> {
-    await this.memory.appendDecision(decision);
+    const id = await this.memory.createDecision(decision);
 
     // Notify relevant founders based on decision tier
     const targets = decision.tier === 'red'
@@ -53,7 +53,7 @@ export class DecisionQueue {
       : decision.assignedTo.length > 0 ? decision.assignedTo : ['kristina', 'andrew'];
 
     const card = formatDecisionCard({
-      id: decision.id,
+      id,
       tier: decision.tier,
       title: decision.title,
       summary: decision.summary,
@@ -78,11 +78,13 @@ export class DecisionQueue {
     }
 
     await this.memory.write(
-      `decision.pending.${decision.id}`,
+      `decision.pending.${id}`,
       JSON.stringify({
         ...decision,
+        id,
         notifiedAt: new Date().toISOString(),
       }),
+      decision.proposedBy,
     );
   }
 
@@ -104,7 +106,7 @@ export class DecisionQueue {
     approved: boolean,
     comment?: string,
   ): Promise<void> {
-    const raw = await this.memory.read(`decision.pending.${decisionId}`);
+    const raw = await this.memory.read<string>(`decision.pending.${decisionId}`);
     if (!raw) {
       throw new Error(`Decision ${decisionId} not found in pending queue`);
     }
@@ -128,6 +130,7 @@ export class DecisionQueue {
         await this.memory.write(
           `decision.pending.${decisionId}`,
           JSON.stringify(decision),
+          'scheduler',
         );
       }
     } else {
@@ -153,10 +156,11 @@ export class DecisionQueue {
         status,
         resolvedAt: new Date().toISOString(),
       }),
+      'scheduler',
     );
 
     // Clean up pending entry
-    await this.memory.write(`decision.pending.${decision.id}`, '');
+    await this.memory.write(`decision.pending.${decision.id}`, '', 'scheduler');
 
     // Log the resolution
     await this.memory.write(
@@ -169,6 +173,7 @@ export class DecisionQueue {
         title: decision.title,
         at: new Date().toISOString(),
       }),
+      'scheduler',
     );
   }
 
@@ -180,7 +185,7 @@ export class DecisionQueue {
     const now = Date.now();
 
     for (const decision of pending) {
-      const raw = await this.memory.read(`decision.pending.${decision.id}`);
+      const raw = await this.memory.read<string>(`decision.pending.${decision.id}`);
       if (!raw) continue;
 
       const pd: PendingDecision = JSON.parse(raw);
@@ -223,6 +228,7 @@ export class DecisionQueue {
         await this.memory.write(
           `decision.pending.${decision.id}`,
           JSON.stringify(pd),
+          'scheduler',
         );
       }
     }
