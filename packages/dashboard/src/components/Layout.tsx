@@ -13,9 +13,9 @@ export default function Layout() {
       {/* ── Sidebar ─────────────────────────── */}
       <aside className="flex w-[220px] flex-col border-r border-border bg-raised">
         {/* Brand */}
-        <div className="flex items-center gap-2.5 px-5 py-5">
-          <img src="/glyphor-logo.png" alt="Glyphor" className="h-9 w-9 flex-shrink-0 drop-shadow-[0_0_8px_rgba(0,224,255,0.35)]" />
-          <span className="text-lg font-semibold tracking-tight bg-gradient-to-r from-cyan to-azure bg-clip-text text-transparent">
+        <div className="flex flex-col items-center px-5 pt-6 pb-5">
+          <img src="/glyphor-logo.png" alt="Glyphor" className="h-16 w-16 drop-shadow-[0_0_10px_rgba(0,224,255,0.4)]" />
+          <span className="mt-2 text-lg font-semibold tracking-tight bg-gradient-to-r from-cyan to-azure bg-clip-text text-transparent">
             Glyphor
           </span>
         </div>
