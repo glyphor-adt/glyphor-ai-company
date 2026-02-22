@@ -12,6 +12,10 @@ import {
   formatBriefingCard,
   GraphTeamsClient,
   buildChannelMap,
+  TeamsDirectMessageClient,
+  GraphEmailClient,
+  GraphCalendarClient,
+  buildFounderDirectory,
 } from '@glyphor/integrations';
 
 export function createChiefOfStaffTools(
@@ -25,6 +29,17 @@ export function createChiefOfStaffTools(
     // Graph API not configured — will fall back to webhooks
   }
   const channels = buildChannelMap();
+
+  // Initialize DM, email, and calendar clients
+  let dmClient: TeamsDirectMessageClient | null = null;
+  let emailClient: GraphEmailClient | null = null;
+  let calendarClient: GraphCalendarClient | null = null;
+  if (graphClient) {
+    dmClient = TeamsDirectMessageClient.fromEnv(graphClient);
+    emailClient = GraphEmailClient.fromEnv(graphClient);
+    calendarClient = GraphCalendarClient.fromEnv(graphClient);
+  }
+  const founderDir = buildFounderDirectory();
 
   return [
     // ─── READ COMPANY STATE ─────────────────────────────────────
@@ -348,6 +363,208 @@ export function createChiefOfStaffTools(
           }));
 
         return { success: true, data: { escalations, count: escalations.length } };
+      },
+    },
+
+    // ─── DIRECT MESSAGES ────────────────────────────────────────
+
+    {
+      name: 'send_dm',
+      description: 'Send a direct message to a founder via Teams 1:1 chat. GREEN for Sarah — use for urgent alerts, briefing follow-ups, or time-sensitive items.',
+      parameters: {
+        recipient: {
+          type: 'string',
+          description: 'Founder to DM',
+          required: true,
+          enum: ['kristina', 'andrew'],
+        },
+        message: {
+          type: 'string',
+          description: 'Message content (supports markdown bold/italic)',
+          required: true,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        if (!dmClient) {
+          return {
+            success: false,
+            error: 'DM client not configured. Set TEAMS_USER_KRISTINA_ID and/or TEAMS_USER_ANDREW_ID.',
+          };
+        }
+
+        const recipient = params.recipient as 'kristina' | 'andrew';
+        await dmClient.sendText(recipient, params.message as string, 'Sarah Chen');
+
+        await memory.appendActivity({
+          agentRole: ctx.agentRole,
+          action: 'alert',
+          product: 'company',
+          summary: `DM sent to ${recipient}`,
+          createdAt: new Date().toISOString(),
+        });
+
+        return { success: true, data: { sent: true, recipient } };
+      },
+    },
+
+    // ─── EMAIL ──────────────────────────────────────────────────
+
+    {
+      name: 'send_email',
+      description: 'Send an email via the company mailbox. Always YELLOW — requires founder approval before sending.',
+      parameters: {
+        to: {
+          type: 'array',
+          description: 'Recipient email addresses',
+          required: true,
+          items: { type: 'string', description: 'Email address' },
+        },
+        subject: {
+          type: 'string',
+          description: 'Email subject line',
+          required: true,
+        },
+        body: {
+          type: 'string',
+          description: 'Email body (HTML supported)',
+          required: true,
+        },
+        cc: {
+          type: 'array',
+          description: 'CC email addresses',
+          required: false,
+          items: { type: 'string', description: 'Email address' },
+        },
+        importance: {
+          type: 'string',
+          description: 'Email importance',
+          required: false,
+          enum: ['low', 'normal', 'high'],
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        if (!emailClient) {
+          return {
+            success: false,
+            error: 'Email client not configured. Set GLYPHOR_MAIL_SENDER_ID.',
+          };
+        }
+
+        const toAddrs = (params.to as string[]).map(email => ({ email }));
+        const ccAddrs = params.cc ? (params.cc as string[]).map(email => ({ email })) : undefined;
+
+        await emailClient.sendEmail({
+          to: toAddrs,
+          cc: ccAddrs,
+          subject: params.subject as string,
+          body: params.body as string,
+          importance: (params.importance as 'low' | 'normal' | 'high') ?? 'normal',
+        });
+
+        await memory.appendActivity({
+          agentRole: ctx.agentRole,
+          action: 'alert',
+          product: 'company',
+          summary: `Email sent: ${params.subject}`,
+          createdAt: new Date().toISOString(),
+        });
+
+        return { success: true, data: { sent: true, to: params.to, subject: params.subject } };
+      },
+    },
+
+    // ─── CALENDAR ───────────────────────────────────────────────
+
+    {
+      name: 'create_calendar_event',
+      description: 'Create a calendar event on a founder\'s calendar. Always YELLOW — requires founder approval.',
+      parameters: {
+        founder: {
+          type: 'string',
+          description: 'Whose calendar to create the event on',
+          required: true,
+          enum: ['kristina', 'andrew'],
+        },
+        subject: {
+          type: 'string',
+          description: 'Event title',
+          required: true,
+        },
+        start: {
+          type: 'string',
+          description: 'Start datetime (ISO 8601, e.g. "2025-06-20T10:00:00")',
+          required: true,
+        },
+        end: {
+          type: 'string',
+          description: 'End datetime (ISO 8601)',
+          required: true,
+        },
+        body: {
+          type: 'string',
+          description: 'Event description (HTML)',
+          required: false,
+        },
+        attendees: {
+          type: 'array',
+          description: 'Attendee email addresses',
+          required: false,
+          items: { type: 'string', description: 'Email address' },
+        },
+        location: {
+          type: 'string',
+          description: 'Meeting location or "online" for Teams meeting',
+          required: false,
+        },
+        is_online: {
+          type: 'boolean',
+          description: 'Create as Teams meeting with join link (default: false)',
+          required: false,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        if (!calendarClient) {
+          return {
+            success: false,
+            error: 'Calendar client not configured. Ensure Azure Graph API credentials are set.',
+          };
+        }
+
+        const founder = params.founder as 'kristina' | 'andrew';
+        const contact = founderDir[founder];
+        if (!contact) {
+          return {
+            success: false,
+            error: `Founder "${founder}" not configured. Set TEAMS_USER_${founder.toUpperCase()}_ID.`,
+          };
+        }
+
+        const attendees = params.attendees
+          ? (params.attendees as string[]).map(email => ({ email }))
+          : undefined;
+
+        const isOnline = params.location === 'online' || (params.is_online as boolean);
+
+        const event = await calendarClient.createEvent({
+          userId: contact.userId,
+          subject: params.subject as string,
+          start: params.start as string,
+          end: params.end as string,
+          body: params.body as string | undefined,
+          attendees,
+          location: params.location === 'online' ? undefined : (params.location as string | undefined),
+          isOnlineMeeting: isOnline,
+        });
+
+        await memory.appendActivity({
+          agentRole: ctx.agentRole,
+          action: 'alert',
+          product: 'company',
+          summary: `Calendar event created for ${founder}: ${params.subject}`,
+          createdAt: new Date().toISOString(),
+        });
+
+        return { success: true, data: { eventId: event.id, webLink: event.webLink, onlineMeetingUrl: event.onlineMeetingUrl } };
       },
     },
   ];

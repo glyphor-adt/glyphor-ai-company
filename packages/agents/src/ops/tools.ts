@@ -8,9 +8,22 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
+import {
+  GraphTeamsClient,
+  TeamsDirectMessageClient,
+} from '@glyphor/integrations';
 
 export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
   const supabase = memory.getSupabaseClient();
+
+  // Initialize DM client for direct founder alerts
+  let dmClient: TeamsDirectMessageClient | null = null;
+  try {
+    const graphClient = GraphTeamsClient.fromEnv();
+    dmClient = TeamsDirectMessageClient.fromEnv(graphClient);
+  } catch {
+    // Graph API not configured — DM tool will return error
+  }
 
   return [
     // ─── QUERY TOOLS ────────────────────────────────────────────
