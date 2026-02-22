@@ -1,0 +1,28 @@
+{
+  "name": "glyphor-company",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Glyphor AI Company — Autonomous executive team running Fuse and Pulse",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "seed": "tsx infra/scripts/seed-memory.ts",
+    "cos:briefing": "tsx packages/agents/chief-of-staff/run.ts briefing",
+    "cos:run": "tsx packages/agents/chief-of-staff/run.ts"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.0",
+    "typescript": "^5.8.3",
+    "tsx": "^4.19.0",
+    "@types/node": "^22.15.0"
+  },
+  "packageManager": "npm@10.9.0",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
