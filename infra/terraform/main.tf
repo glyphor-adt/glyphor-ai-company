@@ -89,6 +89,8 @@ resource "google_pubsub_subscription" "agent_tasks_push" {
 locals {
   secrets = [
     "google-ai-api-key",
+    "openai-api-key",
+    "anthropic-api-key",
     "supabase-url",
     "supabase-service-key",
     "gcs-bucket",

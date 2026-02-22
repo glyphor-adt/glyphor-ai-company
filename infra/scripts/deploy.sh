@@ -42,7 +42,7 @@ gcloud run deploy glyphor-scheduler \
   --min-instances=0 \
   --max-instances=3 \
   --set-env-vars="NODE_ENV=production" \
-  --set-secrets="GOOGLE_AI_API_KEY=google-ai-api-key:latest,SUPABASE_URL=supabase-url:latest,SUPABASE_SERVICE_KEY=supabase-service-key:latest,GCS_BUCKET=gcs-bucket:latest,TEAMS_WEBHOOK_KRISTINA=teams-webhook-kristina:latest,TEAMS_WEBHOOK_ANDREW=teams-webhook-andrew:latest"
+  --set-secrets="GOOGLE_AI_API_KEY=google-ai-api-key:latest,OPENAI_API_KEY=openai-api-key:latest,ANTHROPIC_API_KEY=anthropic-api-key:latest,SUPABASE_URL=supabase-url:latest,SUPABASE_SERVICE_KEY=supabase-service-key:latest,GCS_BUCKET=gcs-bucket:latest,TEAMS_WEBHOOK_KRISTINA=teams-webhook-kristina:latest,TEAMS_WEBHOOK_ANDREW=teams-webhook-andrew:latest"
 
 # Deploy chief-of-staff agent
 echo "--- Deploying chief-of-staff ---"
@@ -58,6 +58,6 @@ gcloud run deploy glyphor-chief-of-staff \
   --max-instances=2 \
   --timeout=300 \
   --set-env-vars="NODE_ENV=production" \
-  --set-secrets="GOOGLE_AI_API_KEY=google-ai-api-key:latest,SUPABASE_URL=supabase-url:latest,SUPABASE_SERVICE_KEY=supabase-service-key:latest,GCS_BUCKET=gcs-bucket:latest,TEAMS_WEBHOOK_KRISTINA=teams-webhook-kristina:latest,TEAMS_WEBHOOK_ANDREW=teams-webhook-andrew:latest"
+  --set-secrets="GOOGLE_AI_API_KEY=google-ai-api-key:latest,OPENAI_API_KEY=openai-api-key:latest,ANTHROPIC_API_KEY=anthropic-api-key:latest,SUPABASE_URL=supabase-url:latest,SUPABASE_SERVICE_KEY=supabase-service-key:latest,GCS_BUCKET=gcs-bucket:latest,TEAMS_WEBHOOK_KRISTINA=teams-webhook-kristina:latest,TEAMS_WEBHOOK_ANDREW=teams-webhook-andrew:latest"
 
 echo "=== Deployment complete ==="

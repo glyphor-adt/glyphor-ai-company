@@ -24,9 +24,6 @@ export interface CoSRunParams {
 }
 
 export async function runChiefOfStaff(params: CoSRunParams = {}) {
-  const apiKey = process.env.GOOGLE_AI_API_KEY;
-  if (!apiKey) throw new Error('GOOGLE_AI_API_KEY not set');
-
   const memory = new CompanyMemoryStore({
     supabaseUrl: process.env.SUPABASE_URL!,
     supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
@@ -34,7 +31,11 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
     gcpProjectId: process.env.GCP_PROJECT_ID,
   });
 
-  const modelClient = new ModelClient(apiKey);
+  const modelClient = new ModelClient({
+    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    openaiApiKey: process.env.OPENAI_API_KEY,
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+  });
   const runner = new CompanyAgentRunner(modelClient);
   const eventBus = new EventBus();
   const tools = createChiefOfStaffTools(memory);
