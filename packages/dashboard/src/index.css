@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* ─── Theme Variables ─────────────────────────── */
-:root, .dark {
+html {
   --color-base: #0B0B0C;
   --color-surface: #121314;
   --color-raised: #0B0B0C;

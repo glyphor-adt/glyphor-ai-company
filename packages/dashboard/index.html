@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,8 +10,7 @@
     <script>
       (function(){
         var t=localStorage.getItem('glyphor-theme');
-        var d=document.documentElement;
-        if(t==='light'){d.classList.remove('dark');d.classList.add('light');}
+        if(t==='light') document.documentElement.classList.add('light');
       })();
     </script>
   </head>
