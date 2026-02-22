@@ -48,6 +48,7 @@ export {
   listAccounts as listMercuryAccounts,
   syncCashBalance,
   syncCashFlows,
+  syncSubscriptions,
   syncAll as syncMercuryAll,
   type MercuryAccount,
 } from './mercury/index.js';

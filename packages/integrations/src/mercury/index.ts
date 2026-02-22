@@ -1,2 +1,2 @@
 export { listAccounts, getAccount, listTransactions, type MercuryAccount, type MercuryTransaction } from './client.js';
-export { syncCashBalance, syncCashFlows, syncAll } from './queries.js';
+export { syncCashBalance, syncCashFlows, syncSubscriptions, syncAll } from './queries.js';

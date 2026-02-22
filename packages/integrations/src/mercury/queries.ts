@@ -6,6 +6,7 @@
  * - cash_inflow: Daily deposits/credits
  * - cash_outflow: Daily debits/withdrawals
  * - burn_rate: 30-day average daily net spend
+ * - vendor_subscription: Monthly cost per vendor (recurring payments)
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -96,13 +97,76 @@ export async function syncCashFlows(
   return { synced };
 }
 
+/**
+ * Sync vendor subscription breakdown from Mercury transactions.
+ * Looks at 90 days of outgoing transactions, groups by counterparty,
+ * and identifies recurring vendor payments (2+ occurrences).
+ */
+export async function syncSubscriptions(
+  supabase: SupabaseClient,
+  days = 90,
+): Promise<{ vendors: number }> {
+  const accounts = await listAccounts();
+  const activeAccounts = accounts.filter((a) => a.status === 'active');
+
+  const end = new Date().toISOString().split('T')[0];
+  const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  // Collect all outgoing transactions across accounts
+  const vendorTotals = new Map<string, { total: number; count: number; lastDate: string }>();
+
+  for (const account of activeAccounts) {
+    const transactions = await listTransactions(account.id, start, end);
+
+    for (const tx of transactions) {
+      if (tx.status === 'cancelled' || tx.status === 'failed') continue;
+      if (tx.amount >= 0) continue; // skip inflows
+      if (!tx.counterpartyName) continue;
+
+      // Skip internal transfers and Mercury fees
+      const name = tx.counterpartyName.trim();
+      if (name.toLowerCase().includes('mercury') || name.toLowerCase().includes('transfer')) continue;
+
+      const existing = vendorTotals.get(name) ?? { total: 0, count: 0, lastDate: '' };
+      existing.total += Math.abs(tx.amount);
+      existing.count += 1;
+      const txDate = (tx.postedAt ?? tx.createdAt).split('T')[0];
+      if (txDate > existing.lastDate) existing.lastDate = txDate;
+      vendorTotals.set(name, existing);
+    }
+  }
+
+  // Only include vendors with 2+ payments (recurring) OR known SaaS vendors
+  const months = days / 30;
+  const today = new Date().toISOString().split('T')[0];
+  let vendors = 0;
+
+  for (const [vendor, { total, count, lastDate }] of vendorTotals) {
+    if (count < 2) continue; // skip one-off payments
+    const monthlyAvg = parseFloat((total / months).toFixed(2));
+
+    await upsertFinancial(supabase, today, vendor, 'vendor_subscription', monthlyAvg, {
+      source: 'mercury',
+      total_spent: total,
+      payment_count: count,
+      last_payment: lastDate,
+      period_days: days,
+    });
+    vendors++;
+  }
+
+  console.log(`[Mercury] Synced ${vendors} vendor subscriptions over ${days} days`);
+  return { vendors };
+}
+
 /** Run all Mercury sync operations */
 export async function syncAll(supabase: SupabaseClient) {
-  const [balanceResult, flowResult] = await Promise.all([
+  const [balanceResult, flowResult, subResult] = await Promise.all([
     syncCashBalance(supabase),
     syncCashFlows(supabase),
+    syncSubscriptions(supabase),
   ]);
-  return { ...balanceResult, ...flowResult };
+  return { ...balanceResult, ...flowResult, ...subResult };
 }
 
 async function upsertFinancial(

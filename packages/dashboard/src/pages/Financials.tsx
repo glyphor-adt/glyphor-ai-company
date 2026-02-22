@@ -145,6 +145,25 @@ export default function Financials() {
     return Array.from(byProduct.entries()).map(([name, mrr]) => ({ name, mrr }));
   }, [raw]);
 
+  // Vendor subscriptions from Mercury
+  const subscriptions = useMemo(() => {
+    const vendors: { name: string; monthly: number; lastPayment: string; count: number }[] = [];
+    for (const row of raw) {
+      if (row.metric === 'vendor_subscription' && row.product) {
+        const details = row.details as Record<string, unknown> | null;
+        vendors.push({
+          name: row.product,
+          monthly: row.value,
+          lastPayment: (details?.last_payment as string) ?? row.date,
+          count: (details?.payment_count as number) ?? 0,
+        });
+      }
+    }
+    return vendors.sort((a, b) => b.monthly - a.monthly);
+  }, [raw]);
+
+  const totalSubscriptions = subscriptions.reduce((sum, s) => sum + s.monthly, 0);
+
   return (
     <div className="space-y-8">
       <div>
@@ -165,6 +184,48 @@ export default function Financials() {
         <SummaryCard label="Monthly Burn Rate" value={latestBurnRate > 0 ? `$${fmt(latestBurnRate)}` : '—'} loading={loading} />
         <SummaryCard label="Runway" value={runwayMonths > 0 ? `${runwayMonths.toFixed(1)} mo` : '—'} loading={loading} sub={runwayMonths > 0 ? `at current burn rate` : 'Awaiting burn data'} />
       </div>
+
+      {/* Vendor Subscriptions */}
+      <Card>
+        <div className="flex items-center justify-between">
+          <SectionHeader title="Vendor Subscriptions" />
+          {!loading && subscriptions.length > 0 && (
+            <span className="text-sm font-medium text-txt-secondary">
+              Total: ${totalSubscriptions.toFixed(2)}/mo
+            </span>
+          )}
+        </div>
+        {loading ? (
+          <Skeleton className="h-48" />
+        ) : subscriptions.length === 0 ? (
+          <div className="flex h-32 items-center justify-center">
+            <p className="text-sm text-txt-faint">No subscription data yet — Mercury sync pending</p>
+          </div>
+        ) : (
+          <div className="mt-2 overflow-hidden rounded-lg border border-[var(--color-border)]">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+                  <th className="px-4 py-2 text-left font-medium text-txt-muted">Vendor</th>
+                  <th className="px-4 py-2 text-right font-medium text-txt-muted">Monthly Avg</th>
+                  <th className="px-4 py-2 text-right font-medium text-txt-muted">Last Payment</th>
+                  <th className="px-4 py-2 text-right font-medium text-txt-muted">Payments</th>
+                </tr>
+              </thead>
+              <tbody>
+                {subscriptions.map((sub) => (
+                  <tr key={sub.name} className="border-b border-[var(--color-border)] last:border-0">
+                    <td className="px-4 py-2 font-medium text-txt-primary">{sub.name}</td>
+                    <td className="px-4 py-2 text-right font-mono text-txt-secondary">${sub.monthly.toFixed(2)}</td>
+                    <td className="px-4 py-2 text-right text-txt-muted">{formatDate(sub.lastPayment)}</td>
+                    <td className="px-4 py-2 text-right text-txt-muted">{sub.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
       <div className="grid grid-cols-2 gap-6">
         {/* MRR Trend */}
