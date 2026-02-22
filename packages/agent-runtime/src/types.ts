@@ -14,7 +14,7 @@ export interface AgentConfig {
   id: string;                        // Unique run ID (e.g., "cos-briefing-2026-02-21")
   role: CompanyAgentRole;            // Agent role
   systemPrompt: string;
-  model: string;                     // 'gemini-2.5-pro', 'gemini-2.5-flash'
+  model: string;                     // 'gemini-3.0-flash-preview', 'gemini-2.5-pro'
   tools: ToolDefinition[];
   maxTurns: number;
   maxStallTurns: number;

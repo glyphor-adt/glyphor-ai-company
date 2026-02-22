@@ -61,13 +61,13 @@ Glyphor AI Company is a system of 7 AI executive agents that operate an AI-first
 
 | Agent | Role | Model | Schedule | Phase |
 |-------|------|-------|----------|-------|
-| Chief of Staff | Briefings, decision routing, synthesis | gemini-2.5-flash | Daily 7:00/7:30 CT | 1 |
-| CTO | Platform health, deploys, model management | gemini-2.5-flash | Every 30min | 2 |
-| CFO | Cost monitoring, revenue, margins | gemini-2.5-flash | Daily 9:00 CT | 2 |
-| CPO | Usage analysis, roadmap, feature priority | gemini-2.5-flash | Weekly Mon 10:00 CT | 2 |
-| CMO | Content, social, SEO, brand | gemini-2.5-flash | Weekly Mon 9:00 CT | 2 |
-| VP Customer Success | Health scoring, churn, nurture | gemini-2.5-flash | Daily 8:00 CT | 3 |
-| VP Sales | KYC research, proposals, pipeline | gemini-2.5-flash | Mon/Thu 9:00 CT | 3 |
+| Chief of Staff | Briefings, decision routing, synthesis | gemini-3.0-flash-preview | Daily 7:00/7:30 CT | 1 |
+| CTO | Platform health, deploys, model management | gemini-3.0-flash-preview | Every 30min | 2 |
+| CFO | Cost monitoring, revenue, margins | gemini-3.0-flash-preview | Daily 9:00 CT | 2 |
+| CPO | Usage analysis, roadmap, feature priority | gemini-3.0-flash-preview | Weekly Mon 10:00 CT | 2 |
+| CMO | Content, social, SEO, brand | gemini-3.0-flash-preview | Weekly Mon 9:00 CT | 2 |
+| VP Customer Success | Health scoring, churn, nurture | gemini-3.0-flash-preview | Daily 8:00 CT | 3 |
+| VP Sales | KYC research, proposals, pipeline | gemini-3.0-flash-preview | Mon/Thu 9:00 CT | 3 |
 
 ## Authority Model (Decision Tiers)
 

@@ -92,7 +92,7 @@ Log your findings as an activity.`;
     id: `cos-${task}-${today}`,
     role: 'chief-of-staff',
     systemPrompt: CHIEF_OF_STAFF_SYSTEM_PROMPT,
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.0-flash-preview',
     tools,
     maxTurns: 10,
     maxStallTurns: 3,
