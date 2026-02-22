@@ -7,6 +7,8 @@ import {
   MdSupportAgent,
   MdTrackChanges,
   MdSmartToy,
+  MdPalette,
+  MdMonitorHeart,
 } from 'react-icons/md';
 import type { IconType } from 'react-icons';
 
@@ -19,6 +21,8 @@ const ICON_MAP: Record<string, IconType> = {
   MdSupportAgent,
   MdTrackChanges,
   MdSmartToy,
+  MdPalette,
+  MdMonitorHeart,
 };
 
 export function AgentIcon({

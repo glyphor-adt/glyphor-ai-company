@@ -128,6 +128,8 @@ function useIncidents() {
 export default function Operations() {
   const { data: agents, loading: agentsLoading } = useAgentRuns();
   const { data: reflections, loading: reflectionsLoading } = useReflections(14);
+  const { data: syncs, loading: syncsLoading } = useDataSyncs();
+  const { data: incidents, loading: incidentsLoading } = useIncidents();
 
   const loading = agentsLoading || reflectionsLoading;
 
@@ -274,6 +276,136 @@ export default function Operations() {
               <Line type="monotone" dataKey="score" stroke="#623CEA" strokeWidth={2} dot={{ r: 3, fill: '#623CEA' }} />
             </LineChart>
           </ResponsiveContainer>
+        )}
+      </Card>
+
+      {/* Data Sync Status + Incident Log */}
+      <div className="grid grid-cols-2 gap-6">
+        <Card>
+          <SectionHeader title="Data Sync Status" />
+          {syncsLoading ? (
+            <Skeleton className="h-40" />
+          ) : syncs.length === 0 ? (
+            <p className="py-4 text-center text-sm text-txt-faint">No sync sources configured</p>
+          ) : (
+            <div className="space-y-2">
+              {syncs.map((sync) => (
+                <div
+                  key={sync.id}
+                  className="flex items-center justify-between rounded-lg border border-border bg-raised px-3 py-2.5"
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-block h-2 w-2 rounded-full ${
+                        sync.status === 'ok'
+                          ? 'bg-tier-green'
+                          : sync.status === 'stale'
+                          ? 'bg-tier-yellow'
+                          : 'bg-red-400'
+                      }`}
+                    />
+                    <span className="text-sm font-medium text-txt-secondary">{sync.source_name}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-right">
+                    {sync.consecutive_failures > 0 && (
+                      <span className="text-[10px] text-red-400">{sync.consecutive_failures} failures</span>
+                    )}
+                    <span className="text-[11px] text-txt-faint">
+                      {sync.last_success_at ? timeAgo(sync.last_success_at) : 'never'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card>
+          <SectionHeader title="Incident Log" />
+          {incidentsLoading ? (
+            <Skeleton className="h-40" />
+          ) : incidents.length === 0 ? (
+            <p className="py-4 text-center text-sm text-txt-faint">No incidents recorded</p>
+          ) : (
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {incidents.map((inc) => (
+                <div
+                  key={inc.id}
+                  className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
+                    inc.status === 'open'
+                      ? 'border-red-500/20 bg-red-500/5'
+                      : 'border-border bg-raised'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-block h-2 w-2 rounded-full ${
+                        inc.status === 'open' ? 'bg-red-400' : 'bg-tier-green'
+                      }`}
+                    />
+                    <span className="text-sm font-medium text-txt-secondary">{inc.title}</span>
+                    <span
+                      className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
+                        inc.severity === 'critical'
+                          ? 'border-red-500/30 bg-red-500/15 text-red-400'
+                          : inc.severity === 'high'
+                          ? 'border-amber-500/30 bg-amber-500/15 text-amber-400'
+                          : 'border-blue-500/30 bg-blue-500/15 text-blue-400'
+                      }`}
+                    >
+                      {inc.severity}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-txt-faint">{timeAgo(inc.created_at)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Agent Health Matrix */}
+      <Card>
+        <SectionHeader title="Agent Health Matrix" />
+        {loading ? (
+          <Skeleton className="h-40" />
+        ) : (
+          <div className="grid grid-cols-4 gap-3 md:grid-cols-7">
+            {agents
+              .sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role))
+              .map((agent) => {
+                const score = agent.performance_score ?? 0;
+                const health = score >= 0.8 ? 'healthy' : score >= 0.5 ? 'degraded' : 'critical';
+                return (
+                  <div
+                    key={agent.id}
+                    className={`flex flex-col items-center gap-2 rounded-lg border p-3 ${
+                      health === 'healthy'
+                        ? 'border-tier-green/20 bg-tier-green/5'
+                        : health === 'degraded'
+                        ? 'border-tier-yellow/20 bg-tier-yellow/5'
+                        : 'border-red-500/20 bg-red-500/5'
+                    }`}
+                  >
+                    <AgentAvatar role={agent.role} size={32} />
+                    <span className="text-[11px] font-medium text-txt-secondary text-center">
+                      {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
+                    </span>
+                    <span
+                      className={`text-[10px] font-medium ${
+                        health === 'healthy'
+                          ? 'text-tier-green'
+                          : health === 'degraded'
+                          ? 'text-tier-yellow'
+                          : 'text-red-400'
+                      }`}
+                    >
+                      {Math.round(score * 100)}%
+                    </span>
+                  </div>
+                );
+              })}
+          </div>
         )}
       </Card>
 

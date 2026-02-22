@@ -24,11 +24,9 @@ type AgentExecutorFn = (
   payload: Record<string, unknown>,
 ) => Promise<AgentExecutionResult | void>;
 
-/**
- * Returns true if the given cron expression matches the provided date.
- * Supports standard 5-field cron: minute hour day-of-month month day-of-week
- * Supports: *, specific values, ranges (1-5), steps (*/10), and lists (1,3,5)
- */
+// Returns true if the given cron expression matches the provided date.
+// Supports standard 5-field cron: minute hour day-of-month month day-of-week
+// Supports: wildcard, specific values, ranges (1-5), steps, and lists (1,3,5)
 function cronMatchesNow(expression: string, now: Date): boolean {
   const parts = expression.trim().split(/\s+/);
   if (parts.length !== 5) return false;

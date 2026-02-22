@@ -37,6 +37,7 @@ const TITLE_MAP: Record<string, string> = {
   'vp-customer-success': 'VP Customer Success',
   'vp-sales': 'VP Sales',
   'vp-design': 'VP Design & Frontend',
+  ops: 'Operations Agent',
 };
 
 const TOTAL_HEADCOUNT = FOUNDERS.length + 8 + SUB_TEAM.length; // founders + execs + ICs
