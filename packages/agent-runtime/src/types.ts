@@ -228,6 +228,63 @@ export interface BriefingData {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// GLYPHOR EVENT BUS — Inter-Agent Communication
+// ═══════════════════════════════════════════════════════════════════
+
+export type GlyphorEventType =
+  | 'agent.completed'
+  | 'insight.detected'
+  | 'decision.filed'
+  | 'decision.resolved'
+  | 'alert.triggered'
+  | 'task.requested'
+  | 'agent.spawned'
+  | 'agent.retired';
+
+export type EventPriority = 'critical' | 'high' | 'normal' | 'low';
+
+export interface GlyphorEvent {
+  id: string;
+  type: GlyphorEventType;
+  source: CompanyAgentRole | 'scheduler' | 'system';
+  timestamp: string;
+  payload: Record<string, unknown>;
+  priority: EventPriority;
+  correlationId?: string;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// AGENT MEMORY + REFLECTIONS
+// ═══════════════════════════════════════════════════════════════════
+
+export type MemoryType = 'observation' | 'learning' | 'preference' | 'fact';
+
+export interface AgentMemory {
+  id: string;
+  agentRole: CompanyAgentRole;
+  memoryType: MemoryType;
+  content: string;
+  importance: number;          // 0-1
+  sourceRunId?: string;
+  tags?: string[];
+  expiresAt?: string;
+  createdAt: string;
+}
+
+export interface AgentReflection {
+  id: string;
+  agentRole: CompanyAgentRole;
+  runId: string;
+  summary: string;
+  qualityScore: number;        // 0-100
+  whatWentWell: string[];
+  whatCouldImprove: string[];
+  promptSuggestions: string[];
+  knowledgeGaps: string[];
+  createdAt: string;
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // MEMORY BUS INTERFACE — Company-scoped
 // ═══════════════════════════════════════════════════════════════════
 

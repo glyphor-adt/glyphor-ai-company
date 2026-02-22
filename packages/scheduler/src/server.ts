@@ -9,10 +9,11 @@
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
+import { GlyphorEventBus } from '@glyphor/agent-runtime';
+import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent } from '@glyphor/agent-runtime';
 import { EventRouter } from './eventRouter.js';
 import { DecisionQueue } from './decisionQueue.js';
 import { runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPCS, runVPSales } from '@glyphor/agents';
-import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
 
@@ -63,6 +64,29 @@ const agentExecutor = async (
 };
 
 const router = new EventRouter(agentExecutor, decisionQueue);
+
+// ─── Glyphor Event Bus ──────────────────────────────────────────
+
+const glyphorEventBus = new GlyphorEventBus({
+  supabase: memory.getSupabaseClient(),
+});
+router.setGlyphorEventBus(glyphorEventBus);
+
+// ─── Rate Limiter (10 events per agent per hour) ────────────────
+
+const eventRateMap = new Map<string, number[]>();
+const EVENT_RATE_LIMIT = 10;
+const EVENT_RATE_WINDOW_MS = 60 * 60 * 1000;
+
+function checkEventRate(source: string): boolean {
+  const now = Date.now();
+  const timestamps = eventRateMap.get(source) ?? [];
+  const recent = timestamps.filter((t) => now - t < EVENT_RATE_WINDOW_MS);
+  if (recent.length >= EVENT_RATE_LIMIT) return false;
+  recent.push(now);
+  eventRateMap.set(source, recent);
+  return true;
+}
 
 // ─── HTTP Helpers ───────────────────────────────────────────────
 

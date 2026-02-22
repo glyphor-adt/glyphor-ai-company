@@ -4,6 +4,9 @@ export type { ModelClientConfig, ModelProvider } from './modelClient.js';
 export { AgentSupervisor } from './supervisor.js';
 export { ToolExecutor } from './toolExecutor.js';
 export { EventBus } from './eventBus.js';
+export { GlyphorEventBus } from './glyphorEventBus.js';
+export type { GlyphorEventBusConfig } from './glyphorEventBus.js';
+export { SUBSCRIPTIONS, getSubscribers } from './subscriptions.js';
 export { extractReasoning, stripReasoning, REASONING_PROMPT_SUFFIX } from './reasoning.js';
 export type {
   AgentConfig,
@@ -29,4 +32,12 @@ export type {
   ProductMetrics,
   FinancialSnapshot,
   BriefingData,
+  // Event bus types
+  GlyphorEvent,
+  GlyphorEventType,
+  EventPriority,
+  // Memory + Reflection types
+  MemoryType,
+  AgentMemory,
+  AgentReflection,
 } from './types.js';

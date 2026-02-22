@@ -117,3 +117,41 @@ export interface DbProductProposal {
   decision_id: string | null;
   created_at: string;
 }
+
+// ─── Autonomous Operations Tables ─────────────────────────────
+
+export interface DbEvent {
+  id: string;
+  type: string;
+  source: string;
+  timestamp: string;
+  payload: unknown;           // JSONB
+  priority: string;
+  processed_by: string[];
+  correlation_id: string | null;
+}
+
+export interface DbAgentMemory {
+  id: string;
+  agent_role: string;
+  memory_type: string;
+  content: string;
+  importance: number;
+  source_run_id: string | null;
+  tags: string[];
+  expires_at: string | null;
+  created_at: string;
+}
+
+export interface DbAgentReflection {
+  id: string;
+  agent_role: string;
+  run_id: string;
+  summary: string;
+  quality_score: number;
+  what_went_well: string[];
+  what_could_improve: string[];
+  prompt_suggestions: string[];
+  knowledge_gaps: string[];
+  created_at: string;
+}

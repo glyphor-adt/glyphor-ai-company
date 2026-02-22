@@ -10,4 +10,7 @@ export type {
   DbCustomerHealth,
   DbFinancial,
   DbProductProposal,
+  DbEvent,
+  DbAgentMemory,
+  DbAgentReflection,
 } from './schema.js';

@@ -16,6 +16,10 @@ import type {
   ProductMetrics,
   FinancialSnapshot,
   ProductSlug,
+  CompanyAgentRole,
+  AgentMemory,
+  AgentReflection,
+  MemoryType,
 } from '@glyphor/agent-runtime';
 import type {
   DbCompanyProfile,
@@ -23,6 +27,8 @@ import type {
   DbActivityLog,
   DbProduct,
   DbFinancial,
+  DbAgentMemory,
+  DbAgentReflection,
 } from './schema.js';
 
 export interface CompanyMemoryConfig {
@@ -282,6 +288,148 @@ export class CompanyMemoryStore implements IMemoryBus {
         })
         .eq('role', role);
     }
+  }
+
+  // ─── AGENT MEMORY ──────────────────────────────────────────────
+
+  async saveMemory(
+    memory: Omit<AgentMemory, 'id' | 'createdAt'>,
+  ): Promise<string> {
+    const { data, error } = await this.supabase
+      .from('agent_memory')
+      .insert({
+        agent_role: memory.agentRole,
+        memory_type: memory.memoryType,
+        content: memory.content,
+        importance: memory.importance,
+        source_run_id: memory.sourceRunId ?? null,
+        tags: memory.tags ?? [],
+        expires_at: memory.expiresAt ?? null,
+      })
+      .select('id')
+      .single();
+
+    if (error || !data) {
+      throw new Error(`Memory save failed: ${error?.message}`);
+    }
+    return data.id;
+  }
+
+  async getMemories(
+    agentRole: CompanyAgentRole,
+    options?: { limit?: number; memoryType?: MemoryType },
+  ): Promise<AgentMemory[]> {
+    let query = this.supabase
+      .from('agent_memory')
+      .select('*')
+      .eq('agent_role', agentRole)
+      .order('created_at', { ascending: false })
+      .limit(options?.limit ?? 20);
+
+    if (options?.memoryType) {
+      query = query.eq('memory_type', options.memoryType);
+    }
+
+    // Exclude expired memories
+    query = query.or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw new Error(`Memory query failed: ${error.message}`);
+    }
+
+    return (data as DbAgentMemory[]).map((row) => ({
+      id: row.id,
+      agentRole: row.agent_role as CompanyAgentRole,
+      memoryType: row.memory_type as MemoryType,
+      content: row.content,
+      importance: Number(row.importance),
+      sourceRunId: row.source_run_id ?? undefined,
+      tags: row.tags,
+      expiresAt: row.expires_at ?? undefined,
+      createdAt: row.created_at,
+    }));
+  }
+
+  // ─── AGENT REFLECTIONS ──────────────────────────────────────────
+
+  async saveReflection(
+    reflection: Omit<AgentReflection, 'id' | 'createdAt'>,
+  ): Promise<string> {
+    const { data, error } = await this.supabase
+      .from('agent_reflections')
+      .insert({
+        agent_role: reflection.agentRole,
+        run_id: reflection.runId,
+        summary: reflection.summary,
+        quality_score: reflection.qualityScore,
+        what_went_well: reflection.whatWentWell,
+        what_could_improve: reflection.whatCouldImprove,
+        prompt_suggestions: reflection.promptSuggestions,
+        knowledge_gaps: reflection.knowledgeGaps,
+      })
+      .select('id')
+      .single();
+
+    if (error || !data) {
+      throw new Error(`Reflection save failed: ${error?.message}`);
+    }
+    return data.id;
+  }
+
+  async getReflections(
+    agentRole: CompanyAgentRole,
+    limit = 5,
+  ): Promise<AgentReflection[]> {
+    const { data, error } = await this.supabase
+      .from('agent_reflections')
+      .select('*')
+      .eq('agent_role', agentRole)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw new Error(`Reflection query failed: ${error.message}`);
+    }
+
+    return (data as DbAgentReflection[]).map((row) => ({
+      id: row.id,
+      agentRole: row.agent_role as CompanyAgentRole,
+      runId: row.run_id,
+      summary: row.summary,
+      qualityScore: row.quality_score,
+      whatWentWell: row.what_went_well,
+      whatCouldImprove: row.what_could_improve,
+      promptSuggestions: row.prompt_suggestions,
+      knowledgeGaps: row.knowledge_gaps,
+      createdAt: row.created_at,
+    }));
+  }
+
+  async getAverageQualityScore(
+    agentRole: CompanyAgentRole,
+    days = 7,
+  ): Promise<number | null> {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data, error } = await this.supabase
+      .from('agent_reflections')
+      .select('quality_score')
+      .eq('agent_role', agentRole)
+      .gte('created_at', since);
+
+    if (error || !data || data.length === 0) return null;
+
+    const sum = data.reduce((s, r) => s + (r.quality_score as number), 0);
+    return Math.round(sum / data.length);
+  }
+
+  /**
+   * Get the internal Supabase client (for use by GlyphorEventBus).
+   */
+  getSupabaseClient(): SupabaseClient {
+    return this.supabase;
   }
 
   // ─── HELPERS ────────────────────────────────────────────────────

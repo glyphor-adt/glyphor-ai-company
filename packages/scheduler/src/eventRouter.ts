@@ -5,12 +5,17 @@
  * and dispatches them to the appropriate agent runner with authority checks.
  */
 
-import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
+import type {
+  CompanyAgentRole,
+  AgentExecutionResult,
+  GlyphorEvent,
+} from '@glyphor/agent-runtime';
+import { GlyphorEventBus, getSubscribers } from '@glyphor/agent-runtime';
 import { checkAuthority } from './authorityGates.js';
 import { DecisionQueue } from './decisionQueue.js';
 
 export interface IncomingEvent {
-  source: 'scheduler' | 'webhook' | 'agent' | 'manual';
+  source: 'scheduler' | 'webhook' | 'agent' | 'manual' | 'event';
   agentRole: CompanyAgentRole;
   task: string;
   payload: Record<string, unknown>;
@@ -36,10 +41,15 @@ export type AgentExecutor = (
 export class EventRouter {
   private readonly executor: AgentExecutor;
   private readonly decisionQueue: DecisionQueue;
+  private glyphorEventBus?: GlyphorEventBus;
 
   constructor(executor: AgentExecutor, decisionQueue: DecisionQueue) {
     this.executor = executor;
     this.decisionQueue = decisionQueue;
+  }
+
+  setGlyphorEventBus(bus: GlyphorEventBus): void {
+    this.glyphorEventBus = bus;
   }
 
   /**
@@ -146,5 +156,51 @@ export class EventRouter {
       task,
       payload: { ...payload, triggeredBy: fromAgent },
     });
+  }
+
+  /**
+   * Handle a GlyphorEvent from the persistent event bus.
+   * Looks up subscribers, determines which agents to wake,
+   * and routes to each one.
+   */
+  async handleGlyphorEvent(
+    event: GlyphorEvent,
+    agentLastRuns: Map<CompanyAgentRole, Date | null>,
+  ): Promise<RouteResult[]> {
+    const results: RouteResult[] = [];
+
+    const agentsToWake = this.glyphorEventBus
+      ? await this.glyphorEventBus.getAgentsToWake(event, agentLastRuns)
+      : getSubscribers(event.type).filter((r) => r !== event.source);
+
+    console.log(
+      `[EventRouter] GlyphorEvent ${event.type} from ${event.source} → waking [${agentsToWake.join(', ')}]`,
+    );
+
+    for (const agentRole of agentsToWake) {
+      const task = `event_${event.type.replace('.', '_')}`;
+      const result = await this.route({
+        source: 'event',
+        agentRole,
+        task,
+        payload: {
+          ...event.payload,
+          eventType: event.type,
+          eventSource: event.source,
+          eventPriority: event.priority,
+          correlationId: event.correlationId,
+        },
+        correlationId: event.correlationId,
+        timestamp: event.timestamp,
+      });
+      results.push(result);
+
+      // Mark event as processed by this agent
+      if (this.glyphorEventBus) {
+        await this.glyphorEventBus.markProcessed(event.id, agentRole);
+      }
+    }
+
+    return results;
   }
 }
