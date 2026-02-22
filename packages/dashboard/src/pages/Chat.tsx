@@ -48,10 +48,16 @@ export default function Chat() {
     setSending(true);
 
     try {
+      // Send prior conversation for multi-turn context (last 20 messages)
+      const history = messages.slice(-20).map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
       const res = await fetch(`${SCHEDULER_URL}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentRole: selectedRole, task: 'on_demand', message: text }),
+        body: JSON.stringify({ agentRole: selectedRole, task: 'on_demand', message: text, history }),
       });
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

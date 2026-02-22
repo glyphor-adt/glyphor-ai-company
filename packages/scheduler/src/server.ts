@@ -342,11 +342,30 @@ const server = createServer(async (req, res) => {
     if (method === 'POST' && url === '/run') {
       const body = JSON.parse(await readBody(req));
       const agentRole = body.agentRole ?? body.agent;
+
+      // Build conversational message from history if provided
+      let message = body.message as string | undefined;
+      const history = body.history as { role: string; content: string }[] | undefined;
+      if (history?.length && message) {
+        const contextLines = history.map((h) =>
+          h.role === 'user' ? `Founder: ${h.content}` : `You: ${h.content}`,
+        );
+        message = [
+          '## Prior conversation',
+          ...contextLines,
+          '',
+          '## Current message',
+          `Founder: ${message}`,
+          '',
+          'Respond to the current message. Use the prior conversation for context.',
+        ].join('\n');
+      }
+
       const result = await router.route({
         source: 'manual',
         agentRole,
         task: body.task,
-        payload: { ...(body.payload ?? {}), message: body.message },
+        payload: { ...(body.payload ?? {}), message },
       });
       json(res, 200, result);
       return;
