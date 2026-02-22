@@ -39,7 +39,7 @@ export default function Approvals() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-serif text-2xl text-slate-50">Approvals</h1>
+        <h1 className="text-2xl font-bold text-slate-50">Approvals</h1>
         <p className="mt-1 text-sm text-slate-500">
           {counts.pending} pending · {counts.approved} approved · {counts.rejected} rejected
         </p>
@@ -53,7 +53,7 @@ export default function Approvals() {
             onClick={() => setFilter(f)}
             className={`rounded-md px-3.5 py-1.5 text-[12px] font-medium transition-colors ${
               filter === f
-                ? 'bg-violet/15 text-violet'
+                ? 'bg-cyan/15 text-cyan'
                 : 'text-slate-500 hover:text-slate-300'
             }`}
           >
@@ -117,13 +117,13 @@ export default function Approvals() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleDecide(d.id, 'approved')}
-                      className="rounded-lg bg-tier-green/10 px-3 py-1.5 text-[12px] font-medium text-tier-green border border-tier-green/20 hover:bg-tier-green/20 transition-colors"
+                      className="rounded-lg bg-cyan/10 px-3 py-1.5 text-[12px] font-medium text-cyan border border-cyan/20 hover:bg-cyan/20 transition-colors"
                     >
                       Approve
                     </button>
                     <button
                       onClick={() => handleDecide(d.id, 'rejected')}
-                      className="rounded-lg bg-tier-red/10 px-3 py-1.5 text-[12px] font-medium text-tier-red border border-tier-red/20 hover:bg-tier-red/20 transition-colors"
+                      className="rounded-lg bg-accent/10 px-3 py-1.5 text-[12px] font-medium text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
                     >
                       Reject
                     </button>
@@ -134,8 +134,8 @@ export default function Approvals() {
                   <span
                     className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
                       d.status === 'approved'
-                        ? 'bg-tier-green/10 text-tier-green'
-                        : 'bg-tier-red/10 text-tier-red'
+                        ? 'bg-cyan/10 text-cyan'
+                        : 'bg-accent/10 text-accent'
                     }`}
                   >
                     {d.status}

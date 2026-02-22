@@ -4,31 +4,33 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Shell
-        base: '#0a0f15',
-        surface: '#0c1017',
-        raised: '#080b10',
-        border: '#151921',
-        'border-hover': '#1e293b',
-        // Accent
-        violet: { DEFAULT: '#7c3aed', muted: '#4c1d95' },
-        // Departments
-        exec: '#8b5cf6',
-        eng: '#ef4444',
-        product: '#06b6d4',
-        finance: '#10b981',
-        marketing: '#ec4899',
-        cs: '#3b82f6',
-        sales: '#f59e0b',
-        // Tiers
-        'tier-green': '#22c55e',
-        'tier-yellow': '#eab308',
-        'tier-red': '#ef4444',
+        // Shell (Glyphor brand)
+        base: '#0B0B0C',
+        surface: '#121314',
+        raised: '#0B0B0C',
+        border: '#1A1A1A',
+        'border-hover': '#2a2a2a',
+        // Primary
+        cyan: { DEFAULT: '#00E0FF', muted: '#00E0FF80' },
+        azure: { DEFAULT: '#0097FF', muted: '#0097FF80' },
+        accent: { DEFAULT: '#623CEA', muted: '#623CEA80' },
+        // Agent roles (monochrome blue-cyan spectrum)
+        exec: '#623CEA',
+        eng: '#0097FF',
+        product: '#00E0FF',
+        finance: '#4B9FE1',
+        marketing: '#7B68EE',
+        cs: '#00BCD4',
+        sales: '#5B8DEF',
+        // Tiers (blue-cyan spectrum, no green/yellow/red)
+        'tier-green': '#00E0FF',
+        'tier-yellow': '#0097FF',
+        'tier-red': '#623CEA',
       },
       fontFamily: {
-        sans: ['DM Sans', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
-        serif: ['Instrument Serif', 'serif'],
+        sans: ['IBM Plex Sans', 'system-ui', 'sans-serif'],
+        mono: ['Space Mono', 'Courier New', 'monospace'],
+        serif: ['IBM Plex Sans', 'system-ui', 'sans-serif'],
       },
       animation: {
         'fade-up': 'fadeUp .4s ease-out both',

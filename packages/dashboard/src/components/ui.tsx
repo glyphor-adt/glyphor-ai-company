@@ -74,7 +74,7 @@ export function StatusDot({ status }: { status: string }) {
 /* ─── Sparkline (SVG mini chart) ─────────── */
 export function Sparkline({
   data,
-  color = '#7c3aed',
+  color = '#00E0FF',
   width = 80,
   height = 24,
 }: {
@@ -127,7 +127,7 @@ export function SectionHeader({
 }) {
   return (
     <div className="mb-4 flex items-center justify-between">
-      <h2 className="font-serif text-lg text-slate-100">{title}</h2>
+      <h2 className="text-lg font-semibold text-slate-100">{title}</h2>
       {action}
     </div>
   );

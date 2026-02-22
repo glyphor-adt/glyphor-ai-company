@@ -14,10 +14,10 @@ export default function Layout() {
       <aside className="flex w-[220px] flex-col border-r border-border bg-raised">
         {/* Brand */}
         <div className="flex items-center gap-2.5 px-5 py-6">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet text-white text-sm font-bold">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan to-azure text-[#0B0B0C] text-sm font-bold">
             G
           </div>
-          <span className="font-serif text-lg tracking-tight text-slate-100">Glyphor</span>
+          <span className="text-lg font-semibold tracking-tight bg-gradient-to-r from-cyan to-azure bg-clip-text text-transparent">Glyphor</span>
         </div>
 
         {/* Nav links */}
@@ -30,7 +30,7 @@ export default function Layout() {
               className={({ isActive }) =>
                 `flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
                   isActive
-                    ? 'bg-violet/10 text-violet'
+                    ? 'bg-cyan/10 text-cyan'
                     : 'text-slate-400 hover:bg-white/[.03] hover:text-slate-200'
                 }`
               }
@@ -44,7 +44,7 @@ export default function Layout() {
         {/* Footer */}
         <div className="border-t border-border px-4 py-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet/20 text-[11px] font-bold text-violet">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan/20 text-[11px] font-bold text-cyan">
               KD
             </div>
             <div className="min-w-0">

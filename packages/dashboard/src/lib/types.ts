@@ -89,15 +89,15 @@ export interface Database {
   };
 }
 
-/* ── Agent metadata lookup ── */
+/* ── Agent metadata lookup (monochrome blue-cyan spectrum) ── */
 export const AGENT_META: Record<string, { color: string; icon: string }> = {
-  'chief-of-staff': { color: '#8b5cf6', icon: 'MdBolt' },
-  cto:              { color: '#ef4444', icon: 'MdCode' },
-  cpo:              { color: '#06b6d4', icon: 'MdExplore' },
-  cfo:              { color: '#10b981', icon: 'MdBarChart' },
-  cmo:              { color: '#ec4899', icon: 'MdCampaign' },
-  'vp-cs':          { color: '#3b82f6', icon: 'MdSupportAgent' },
-  'vp-sales':       { color: '#f59e0b', icon: 'MdTrackChanges' },
+  'chief-of-staff': { color: '#623CEA', icon: 'MdBolt' },
+  cto:              { color: '#0097FF', icon: 'MdCode' },
+  cpo:              { color: '#00E0FF', icon: 'MdExplore' },
+  cfo:              { color: '#4B9FE1', icon: 'MdBarChart' },
+  cmo:              { color: '#7B68EE', icon: 'MdCampaign' },
+  'vp-cs':          { color: '#00BCD4', icon: 'MdSupportAgent' },
+  'vp-sales':       { color: '#5B8DEF', icon: 'MdTrackChanges' },
 };
 
 export const CODENAME_MAP: Record<string, string> = {

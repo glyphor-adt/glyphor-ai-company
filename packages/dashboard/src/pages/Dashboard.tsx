@@ -29,7 +29,7 @@ export default function Dashboard() {
     <div className="space-y-8">
       {/* ── Header ──────────────────────────── */}
       <div>
-        <h1 className="font-serif text-2xl text-slate-50">Command Center</h1>
+        <h1 className="text-2xl font-bold text-slate-50">Command Center</h1>
         <p className="mt-1 text-sm text-slate-500">
           {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </p>
@@ -37,10 +37,10 @@ export default function Dashboard() {
 
       {/* ── Metric Cards ────────────────────── */}
       <div className="grid grid-cols-4 gap-4">
-        <MetricCard label="Active Agents" value={`${activeAgents}/${agents.length}`} sub="online now" color="#8b5cf6" sparkData={[3,5,4,7,6,7,7]} loading={agentsLoading} />
-        <MetricCard label="Pending Decisions" value={String(pendingDecisions)} sub="awaiting review" color="#f59e0b" sparkData={[2,3,1,4,2,3,pendingDecisions]} loading={decisionsLoading} />
-        <MetricCard label="Avg Agent Score" value={`${avgScore}/100`} sub="across all agents" color="#22c55e" sparkData={[70,72,68,75,80,78,avgScore]} loading={agentsLoading} />
-        <MetricCard label="Products" value={String(products.length)} sub={products.map(p=>p.name).join(', ') || '—'} color="#06b6d4" sparkData={[1,1,1,2,2,2,products.length]} loading={false} />
+        <MetricCard label="Active Agents" value={`${activeAgents}/${agents.length}`} sub="online now" color="#00E0FF" sparkData={[3,5,4,7,6,7,7]} loading={agentsLoading} />
+        <MetricCard label="Pending Decisions" value={String(pendingDecisions)} sub="awaiting review" color="#0097FF" sparkData={[2,3,1,4,2,3,pendingDecisions]} loading={decisionsLoading} />
+        <MetricCard label="Avg Agent Score" value={`${avgScore}/100`} sub="across all agents" color="#623CEA" sparkData={[70,72,68,75,80,78,avgScore]} loading={agentsLoading} />
+        <MetricCard label="Products" value={String(products.length)} sub={products.map(p=>p.name).join(', ') || '—'} color="#4B9FE1" sparkData={[1,1,1,2,2,2,products.length]} loading={false} />
       </div>
 
       <div className="grid grid-cols-3 gap-6">
@@ -49,7 +49,7 @@ export default function Dashboard() {
           <SectionHeader
             title="Agent Constellation"
             action={
-              <Link to="/workforce" className="text-xs text-violet hover:underline">
+              <Link to="/workforce" className="text-xs text-cyan hover:underline">
                 View all →
               </Link>
             }
@@ -70,7 +70,7 @@ export default function Dashboard() {
                 >
                   <AgentAvatar role={agent.role} size={40} glow={agent.status === 'active'} />
                   <div className="text-center">
-                    <p className="text-[13px] font-semibold text-slate-200 group-hover:text-violet transition-colors">
+                    <p className="text-[13px] font-semibold text-slate-200 group-hover:text-cyan transition-colors">
                       {CODENAME_MAP[agent.role] ?? agent.codename}
                     </p>
                     <p className="text-[11px] text-slate-500">{agent.role}</p>
@@ -131,7 +131,7 @@ export default function Dashboard() {
         <SectionHeader
           title="Decision Queue"
           action={
-            <Link to="/approvals" className="text-xs text-violet hover:underline">
+            <Link to="/approvals" className="text-xs text-cyan hover:underline">
               View all →
             </Link>
           }

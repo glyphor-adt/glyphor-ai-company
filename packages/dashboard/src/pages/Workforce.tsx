@@ -24,7 +24,7 @@ export default function Workforce() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-serif text-2xl text-slate-50">Workforce</h1>
+        <h1 className="text-2xl font-bold text-slate-50">Workforce</h1>
         <p className="mt-1 text-sm text-slate-500">
           {agents.length} agents · {agents.filter((a) => a.status === 'active').length} active
         </p>
@@ -43,7 +43,7 @@ export default function Workforce() {
           label="Avg Score"
           value={agents.length ? Math.round(agents.reduce((s, a) => s + a.score, 0) / agents.length) : 0}
           total={100}
-          color="bg-violet"
+          color="bg-cyan"
           loading={loading}
         />
         <StatCard
@@ -102,7 +102,7 @@ export default function Workforce() {
 
                     <Link
                       to={`/chat/${agent.role}`}
-                      className="rounded-lg border border-border px-3 py-1.5 text-[11px] font-medium text-slate-400 transition-colors hover:border-violet hover:text-violet"
+                      className="rounded-lg border border-border px-3 py-1.5 text-[11px] font-medium text-slate-400 transition-colors hover:border-cyan hover:text-cyan"
                     >
                       Chat →
                     </Link>

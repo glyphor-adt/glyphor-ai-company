@@ -93,7 +93,7 @@ export default function Chat() {
               }}
               className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors ${
                 active
-                  ? 'bg-violet/10 border border-violet/25'
+                  ? 'bg-cyan/10 border border-cyan/25'
                   : 'border border-transparent hover:bg-white/[.03]'
               }`}
             >
@@ -106,7 +106,7 @@ export default function Chat() {
               <div className="min-w-0">
                 <p
                   className={`text-[12px] font-medium truncate ${
-                    active ? 'text-violet' : 'text-slate-300'
+                    active ? 'text-cyan' : 'text-slate-300'
                   }`}
                 >
                   {CODENAME_MAP[agent.role] ?? agent.codename}
@@ -137,7 +137,7 @@ export default function Chat() {
             <div className="flex h-full items-center justify-center">
               <div className="text-center">
                 <p className="text-sm text-slate-500">
-                  Start a conversation with <span className="text-violet">{codename}</span>
+                  Start a conversation with <span className="text-cyan">{codename}</span>
                 </p>
                 <p className="mt-1 text-[11px] text-slate-600">
                   Messages are sent to the scheduler API on Cloud Run
@@ -157,14 +157,14 @@ export default function Chat() {
               {msg.role === 'agent' ? (
                 <AgentAvatar role={selectedRole} size={28} />
               ) : (
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet/20 text-[11px] font-bold text-violet">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan/20 text-[11px] font-bold text-cyan">
                   KD
                 </div>
               )}
               <div
                 className={`max-w-[70%] rounded-xl px-4 py-2.5 text-[13px] leading-relaxed ${
                   msg.role === 'user'
-                    ? 'bg-violet/10 text-slate-200 border border-violet/20'
+                    ? 'bg-cyan/10 text-slate-200 border border-cyan/20'
                     : 'bg-raised text-slate-300 border border-border'
                 }`}
               >
@@ -181,9 +181,9 @@ export default function Chat() {
               <AgentAvatar role={selectedRole} size={28} />
               <div className="rounded-xl bg-raised border border-border px-4 py-3">
                 <div className="flex items-center gap-1.5">
-                  <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-violet" style={{ animationDelay: '0ms' }} />
-                  <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-violet" style={{ animationDelay: '200ms' }} />
-                  <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-violet" style={{ animationDelay: '400ms' }} />
+                  <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-cyan" style={{ animationDelay: '0ms' }} />
+                  <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-cyan" style={{ animationDelay: '200ms' }} />
+                  <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-cyan" style={{ animationDelay: '400ms' }} />
                 </div>
               </div>
             </div>
@@ -207,12 +207,12 @@ export default function Chat() {
               onChange={(e) => setInput(e.target.value)}
               placeholder={`Message ${codename}...`}
               disabled={sending}
-              className="flex-1 rounded-lg border border-border bg-raised px-4 py-2.5 text-[13px] text-slate-200 placeholder-slate-600 outline-none transition-colors focus:border-violet/40 disabled:opacity-50"
+              className="flex-1 rounded-lg border border-border bg-raised px-4 py-2.5 text-[13px] text-slate-200 placeholder-slate-600 outline-none transition-colors focus:border-cyan/40 disabled:opacity-50"
             />
             <button
               type="submit"
               disabled={sending || !input.trim()}
-              className="rounded-lg bg-violet px-5 py-2.5 text-[13px] font-medium text-white transition-colors hover:bg-violet/85 disabled:opacity-40"
+              className="rounded-lg bg-gradient-to-r from-cyan to-azure px-5 py-2.5 text-[13px] font-semibold text-[#0B0B0C] transition-all hover:shadow-[0_0_20px_rgba(0,224,255,0.4)] disabled:opacity-40"
             >
               Send
             </button>
