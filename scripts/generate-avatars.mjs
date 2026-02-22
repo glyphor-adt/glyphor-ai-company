@@ -80,26 +80,23 @@ async function generateAvatar(agent) {
   console.log(`Generating ${agent.name} (${agent.role})...`);
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-exp',
-      contents: prompt,
+    const response = await ai.models.generateImages({
+      model: 'imagen-4.0-generate-001',
+      prompt,
       config: {
-        responseModalities: ['IMAGE', 'TEXT'],
+        numberOfImages: 1,
+        aspectRatio: '1:1',
       },
     });
 
-    // Find the image part in the response
-    const parts = response.candidates?.[0]?.content?.parts || [];
-    const imagePart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-
-    if (!imagePart?.inlineData?.data) {
+    const image = response.generatedImages?.[0];
+    if (!image?.image?.imageBytes) {
       console.error(`  No image returned for ${agent.name}`);
       return false;
     }
 
-    const ext = imagePart.inlineData.mimeType === 'image/jpeg' ? 'jpg' : 'png';
-    const outPath = join(AVATARS_DIR, `${agent.role}.${ext}`);
-    writeFileSync(outPath, Buffer.from(imagePart.inlineData.data, 'base64'));
+    const outPath = join(AVATARS_DIR, `${agent.role}.png`);
+    writeFileSync(outPath, Buffer.from(image.image.imageBytes, 'base64'));
     console.log(`  Saved ${outPath}`);
     return true;
   } catch (err) {
