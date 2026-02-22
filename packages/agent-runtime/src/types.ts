@@ -351,6 +351,10 @@ export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   'onboarding-specialist':{ perRunUsd: 0.02, dailyUsd: 0.20, monthlyUsd: 6 },
   'support-triage':       { perRunUsd: 0.03, dailyUsd: 0.50, monthlyUsd: 12 },
   'account-research':     { perRunUsd: 0.05, dailyUsd: 0.50, monthlyUsd: 12 },
+  'ui-ux-designer':       { perRunUsd: 0.03, dailyUsd: 0.30, monthlyUsd: 8 },
+  'frontend-engineer':    { perRunUsd: 0.03, dailyUsd: 0.30, monthlyUsd: 8 },
+  'design-critic':        { perRunUsd: 0.02, dailyUsd: 0.20, monthlyUsd: 6 },
+  'template-architect':   { perRunUsd: 0.03, dailyUsd: 0.30, monthlyUsd: 8 },
 };
 
 // ═══════════════════════════════════════════════════════════════════

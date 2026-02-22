@@ -59,6 +59,24 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
     'design_audit', 'design_system_review',
     'on_demand',
   ]),
+  // Sub-team members — all tasks green (they operate under their exec's authority)
+  'platform-engineer': new Set(['on_demand']),
+  'quality-engineer': new Set(['on_demand']),
+  'devops-engineer': new Set(['on_demand']),
+  'user-researcher': new Set(['on_demand']),
+  'competitive-intel': new Set(['on_demand']),
+  'revenue-analyst': new Set(['on_demand']),
+  'cost-analyst': new Set(['on_demand']),
+  'content-creator': new Set(['on_demand']),
+  'seo-analyst': new Set(['on_demand']),
+  'social-media-manager': new Set(['on_demand']),
+  'onboarding-specialist': new Set(['on_demand']),
+  'support-triage': new Set(['on_demand']),
+  'account-research': new Set(['on_demand']),
+  'ui-ux-designer': new Set(['on_demand']),
+  'frontend-engineer': new Set(['on_demand']),
+  'design-critic': new Set(['on_demand']),
+  'template-architect': new Set(['on_demand']),
 };
 
 /**
