@@ -28,13 +28,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
-  'chief-of-staff': 'atlas',
-  'cto': 'forge',
-  'cfo': 'ledger',
-  'cpo': 'compass',
-  'cmo': 'beacon',
-  'vp-customer-success': 'harbor',
-  'vp-sales': 'closer',
+  'chief-of-staff': 'sarah-chen',
+  'cto': 'marcus-reeves',
+  'cfo': 'nadia-okafor',
+  'cpo': 'elena-vasquez',
+  'cmo': 'maya-brooks',
+  'vp-customer-success': 'james-turner',
+  'vp-sales': 'rachel-kim',
 };
 
 function buildSystemPrompt(role: CompanyAgentRole, existingPrompt: string): string {

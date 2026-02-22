@@ -55,7 +55,7 @@ Agent roster and runtime status.
 | Column | Type | Description |
 |--------|------|-------------|
 | `role` | text PK | Agent role identifier (`chief-of-staff`, `cto`, etc.) |
-| `name` | text | Display name (codename — Atlas, Forge, etc.) |
+| `name` | text | Display name (Sarah Chen, Marcus Reeves, etc.) |
 | `status` | text | `active`, `stub`, `disabled` |
 | `model` | text | LLM model used (`gemini-3-flash-preview`) |
 | `schedule` | text | Cron / schedule description |
@@ -235,13 +235,13 @@ disk at runtime by `CompanyAgentRunner.buildSystemPrompt()`.
 | File | Purpose |
 |------|---------|
 | `packages/company-knowledge/COMPANY_KNOWLEDGE_BASE.md` | ~400 lines of shared truth: founders, products, metrics, competitors, authority tiers, infrastructure, comms rules |
-| `packages/company-knowledge/briefs/atlas.md` | Chief of Staff role brief |
-| `packages/company-knowledge/briefs/forge.md` | CTO role brief |
-| `packages/company-knowledge/briefs/ledger.md` | CFO role brief |
-| `packages/company-knowledge/briefs/compass.md` | CPO role brief |
-| `packages/company-knowledge/briefs/beacon.md` | CMO role brief |
-| `packages/company-knowledge/briefs/harbor.md` | VP CS role brief |
-| `packages/company-knowledge/briefs/closer.md` | VP Sales role brief |
+| `packages/company-knowledge/briefs/sarah-chen.md` | Chief of Staff role brief |
+| `packages/company-knowledge/briefs/marcus-reeves.md` | CTO role brief |
+| `packages/company-knowledge/briefs/nadia-okafor.md` | CFO role brief |
+| `packages/company-knowledge/briefs/elena-vasquez.md` | CPO role brief |
+| `packages/company-knowledge/briefs/maya-brooks.md` | CMO role brief |
+| `packages/company-knowledge/briefs/james-turner.md` | VP CS role brief |
+| `packages/company-knowledge/briefs/rachel-kim.md` | VP Sales role brief |
 
 These files are copied into the Docker image at build time (`Dockerfile.scheduler`
 runs `COPY packages/company-knowledge/ packages/company-knowledge/`). To update them,

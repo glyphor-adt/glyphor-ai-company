@@ -23,7 +23,7 @@ Unknown / unmapped actions default to **Yellow** assigned to **both founders**.
 
 Each agent has a specific set of green-tier actions. All agents include `on_demand` (dashboard chat).
 
-### Atlas — Chief of Staff
+### Sarah Chen — Chief of Staff
 
 | Action | Description |
 |--------|-------------|
@@ -37,7 +37,7 @@ Each agent has a specific set of green-tier actions. All agents include `on_dema
 | `eod_summary` | End-of-day summary |
 | `on_demand` | Dashboard chat |
 
-### Forge — CTO
+### Marcus Reeves — CTO
 
 | Action | Description |
 |--------|-------------|
@@ -51,7 +51,7 @@ Each agent has a specific set of green-tier actions. All agents include `on_dema
 | `dependency_review` | Review dependency vulnerabilities |
 | `on_demand` | Dashboard chat |
 
-### Ledger — CFO
+### Nadia Okafor — CFO
 
 | Action | Description |
 |--------|-------------|
@@ -62,7 +62,7 @@ Each agent has a specific set of green-tier actions. All agents include `on_dema
 | `daily_cost_check` | Scheduled daily cost analysis |
 | `on_demand` | Dashboard chat |
 
-### Compass — CPO
+### Elena Vasquez — CPO
 
 | Action | Description |
 |--------|-------------|
@@ -74,7 +74,7 @@ Each agent has a specific set of green-tier actions. All agents include `on_dema
 | `weekly_usage_analysis` | Scheduled usage analysis |
 | `on_demand` | Dashboard chat |
 
-### Beacon — CMO
+### Maya Brooks — CMO
 
 | Action | Description |
 |--------|-------------|
@@ -87,7 +87,7 @@ Each agent has a specific set of green-tier actions. All agents include `on_dema
 | `weekly_content_planning` | Scheduled content planning |
 | `on_demand` | Dashboard chat |
 
-### Harbor — VP Customer Success
+### James Turner — VP Customer Success
 
 | Action | Description |
 |--------|-------------|
@@ -99,7 +99,7 @@ Each agent has a specific set of green-tier actions. All agents include `on_dema
 | `daily_health_scoring` | Scheduled health scoring |
 | `on_demand` | Dashboard chat |
 
-### Closer — VP Sales
+### Rachel Kim — VP Sales
 
 | Action | Description |
 |--------|-------------|

@@ -96,16 +96,19 @@ export const AGENT_META: Record<string, { color: string; icon: string }> = {
   cpo:              { color: '#00E0FF', icon: 'MdExplore' },
   cfo:              { color: '#4B9FE1', icon: 'MdBarChart' },
   cmo:              { color: '#7B68EE', icon: 'MdCampaign' },
-  'vp-cs':          { color: '#00BCD4', icon: 'MdSupportAgent' },
+  'vp-customer-success': { color: '#00BCD4', icon: 'MdSupportAgent' },
   'vp-sales':       { color: '#5B8DEF', icon: 'MdTrackChanges' },
 };
 
-export const CODENAME_MAP: Record<string, string> = {
-  'chief-of-staff': 'Atlas',
-  cto: 'Forge',
-  cpo: 'Compass',
-  cfo: 'Ledger',
-  cmo: 'Beacon',
-  'vp-cs': 'Harbor',
-  'vp-sales': 'Closer',
+export const DISPLAY_NAME_MAP: Record<string, string> = {
+  'chief-of-staff': 'Sarah Chen',
+  cto: 'Marcus Reeves',
+  cpo: 'Elena Vasquez',
+  cfo: 'Nadia Okafor',
+  cmo: 'Maya Brooks',
+  'vp-customer-success': 'James Turner',
+  'vp-sales': 'Rachel Kim',
 };
+
+/** @deprecated Use DISPLAY_NAME_MAP instead */
+export const CODENAME_MAP = DISPLAY_NAME_MAP;

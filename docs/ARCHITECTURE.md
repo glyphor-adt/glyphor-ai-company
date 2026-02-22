@@ -129,15 +129,15 @@ All 9 jobs are **enabled** and run **daily** (every day of the week).
 
 | Job ID | Agent | Cron (UTC) | Local (CT) | Task |
 |--------|-------|-----------|------------|------|
-| `cos-briefing-kristina` | Atlas | `0 12 * * *` | 7:00 AM | Morning briefing for Kristina |
-| `cos-briefing-andrew` | Atlas | `30 12 * * *` | 7:30 AM | Morning briefing for Andrew |
-| `cos-eod-summary` | Atlas | `0 23 * * *` | 6:00 PM | End-of-day summary |
-| `cto-health-check` | Forge | `*/30 * * * *` | Every 30 min | Platform health check |
-| `cfo-daily-costs` | Ledger | `0 14 * * *` | 9:00 AM | Daily cost analysis |
-| `cpo-usage-analysis` | Compass | `0 15 * * *` | 10:00 AM | Usage & competitive analysis |
-| `cmo-content-calendar` | Beacon | `0 14 * * *` | 9:00 AM | Content planning |
-| `vpcs-health-scoring` | Harbor | `0 13 * * *` | 8:00 AM | Customer health scoring |
-| `vps-pipeline-review` | Closer | `0 14 * * *` | 9:00 AM | Enterprise pipeline review |
+| `cos-briefing-kristina` | Sarah Chen | `0 12 * * *` | 7:00 AM | Morning briefing for Kristina |
+| `cos-briefing-andrew` | Sarah Chen | `30 12 * * *` | 7:30 AM | Morning briefing for Andrew |
+| `cos-eod-summary` | Sarah Chen | `0 23 * * *` | 6:00 PM | End-of-day summary |
+| `cto-health-check` | Marcus Reeves | `*/30 * * * *` | Every 30 min | Platform health check |
+| `cfo-daily-costs` | Nadia Okafor | `0 14 * * *` | 9:00 AM | Daily cost analysis |
+| `cpo-usage-analysis` | Elena Vasquez | `0 15 * * *` | 10:00 AM | Usage & competitive analysis |
+| `cmo-content-calendar` | Maya Brooks | `0 14 * * *` | 9:00 AM | Content planning |
+| `vpcs-health-scoring` | James Turner | `0 13 * * *` | 8:00 AM | Customer health scoring |
+| `vps-pipeline-review` | Rachel Kim | `0 14 * * *` | 9:00 AM | Enterprise pipeline review |
 
 ---
 
@@ -164,25 +164,25 @@ glyphor-ai-company/
 │   │
 │   ├── agents/                  # 7 agent implementations
 │   │   └── src/
-│   │       ├── chief-of-staff/        # Atlas — run.ts, systemPrompt.ts, tools.ts
-│   │       ├── cto/                   # Forge
-│   │       ├── cfo/                   # Ledger
-│   │       ├── cpo/                   # Compass
-│   │       ├── cmo/                   # Beacon
-│   │       ├── vp-customer-success/   # Harbor
-│   │       ├── vp-sales/              # Closer
+│   │       ├── chief-of-staff/        # Sarah Chen — run.ts, systemPrompt.ts, tools.ts
+│   │       ├── cto/                   # Marcus Reeves
+│   │       ├── cfo/                   # Nadia Okafor
+│   │       ├── cpo/                   # Elena Vasquez
+│   │       ├── cmo/                   # Maya Brooks
+│   │       ├── vp-customer-success/   # James Turner
+│   │       ├── vp-sales/              # Rachel Kim
 │   │       └── index.ts              # Re-exports all runners
 │   │
 │   ├── company-knowledge/       # Shared context (read at runtime)
 │   │   ├── COMPANY_KNOWLEDGE_BASE.md  # ~400 lines: founders, products, metrics, rules
 │   │   └── briefs/
-│   │       ├── atlas.md               # Chief of Staff brief
-│   │       ├── forge.md               # CTO brief
-│   │       ├── ledger.md              # CFO brief
-│   │       ├── compass.md             # CPO brief
-│   │       ├── beacon.md              # CMO brief
-│   │       ├── harbor.md              # VP CS brief
-│   │       └── closer.md             # VP Sales brief
+│   │       ├── sarah-chen.md          # Chief of Staff brief
+│   │       ├── marcus-reeves.md       # CTO brief
+│   │       ├── nadia-okafor.md        # CFO brief
+│   │       ├── elena-vasquez.md       # CPO brief
+│   │       ├── maya-brooks.md         # CMO brief
+│   │       ├── james-turner.md        # VP CS brief
+│   │       └── rachel-kim.md          # VP Sales brief
 │   │
 │   ├── integrations/            # External service connectors
 │   │   └── src/teams/
@@ -280,17 +280,17 @@ Every Gemini API call receives a composite system prompt built from three layers
 | Role Brief | `company-knowledge/briefs/{codename}.md` | ~80 lines |
 | Agent System Prompt | `agents/src/{role}/systemPrompt.ts` | ~30 lines |
 
-Codename mapping (`ROLE_TO_BRIEF`):
+Name mapping (`ROLE_TO_BRIEF`):
 
 | Agent Role | Brief File |
 |-----------|-----------|
-| `chief-of-staff` | `atlas.md` |
-| `cto` | `forge.md` |
-| `cfo` | `ledger.md` |
-| `cpo` | `compass.md` |
-| `cmo` | `beacon.md` |
-| `vp-customer-success` | `harbor.md` |
-| `vp-sales` | `closer.md` |
+| `chief-of-staff` | `sarah-chen.md` |
+| `cto` | `marcus-reeves.md` |
+| `cfo` | `nadia-okafor.md` |
+| `cpo` | `elena-vasquez.md` |
+| `cmo` | `maya-brooks.md` |
+| `vp-customer-success` | `james-turner.md` |
+| `vp-sales` | `rachel-kim.md` |
 
 ### ModelClient — Multi-Provider LLM
 
@@ -363,12 +363,12 @@ Gemini 3 returns `thoughtSignature` on tool-call parts. The runtime:
 
 | Channel | Purpose |
 |---------|---------|
-| #kristina-briefings | Atlas morning briefing (7:00 AM CT) |
-| #andrew-briefings | Atlas morning briefing (7:30 AM CT) |
+| #kristina-briefings | Sarah Chen morning briefing (7:00 AM CT) |
+| #andrew-briefings | Sarah Chen morning briefing (7:30 AM CT) |
 | #decisions | Yellow/Red decision cards |
-| #engineering | Forge updates |
-| #growth | Beacon & Compass updates |
-| #financials | Ledger reports |
+| #engineering | Marcus Reeves updates |
+| #growth | Maya Brooks & Elena Vasquez updates |
+| #financials | Nadia Okafor reports |
 | #glyphor-general | Cross-functional announcements |
 | #product-fuse | Fuse-specific updates |
 | #product-pulse | Pulse-specific updates |
@@ -377,7 +377,7 @@ Gemini 3 returns `thoughtSignature` on tool-call parts. The runtime:
 
 | Card | Builder Function | Used By |
 |------|-----------------|---------|
-| Briefing | `formatBriefingCard()` | Atlas — metrics strip, markdown body, action items |
+| Briefing | `formatBriefingCard()` | Sarah Chen — metrics strip, markdown body, action items |
 | Decision | `formatDecisionCard()` | Any agent via Decision Queue — tier badge, facts, approve/reject |
 | Alert | `formatAlertCard()` | Any agent — severity-coded (info/warning/critical) |
 
@@ -440,7 +440,7 @@ Dashboard → POST /run {agentRole:"cto", task:"on_demand", message:"How's the p
   → runCTO({task:'on_demand', message:…})
   → CompanyAgentRunner.run()
       → buildSystemPrompt('cto', CTO_SYSTEM_PROMPT)
-          reads COMPANY_KNOWLEDGE_BASE.md + briefs/forge.md
+          reads COMPANY_KNOWLEDGE_BASE.md + briefs/marcus-reeves.md
       → ModelClient.generate() → Gemini API
       → (tool calls → ToolExecutor → loop)
       → Final text response

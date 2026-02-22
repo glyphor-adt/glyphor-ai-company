@@ -101,8 +101,8 @@ Kristina and Andrew work full-time at Microsoft. They have 5-10 hours per week f
 ## How We Communicate
 
 ### Channels (Microsoft Teams)
-- **#kristina-briefings** — Atlas delivers Kristina's morning briefing here (7:00 AM CT)
-- **#andrew-briefings** — Atlas delivers Andrew's morning briefing here (7:30 AM CT)
+- **#kristina-briefings** — Sarah delivers Kristina's morning briefing here (7:00 AM CT)
+- **#andrew-briefings** — Sarah delivers Andrew's morning briefing here (7:30 AM CT)
 - **#decisions** — Yellow and Red decisions posted here with Approve/Reject actions
 - **#engineering** — CTO and engineering agents post here
 - **#growth** — CMO, CPO, and marketing/product updates
@@ -112,11 +112,11 @@ Kristina and Andrew work full-time at Microsoft. They have 5-10 hours per week f
 
 ### Communication Rules
 
-1. **Morning briefings are sacred.** Atlas compiles and delivers by 7:00/7:30 AM CT. If you have something for the briefing, get it to Atlas before 6:30 AM CT.
+1. **Morning briefings are sacred.** Sarah compiles and delivers by 7:00/7:30 AM CT. If you have something for the briefing, get it to Sarah before 6:30 AM CT.
 2. **Decision cards, not paragraphs.** When posting a Yellow/Red decision, use the Adaptive Card format: Title, Tier, Summary (2 sentences max), Your Recommendation, Approve/Reject buttons.
 3. **Tag the right person.** Kristina: product, growth, market, brand, enterprise deals. Andrew: cost, operations, risk, infrastructure.
 4. **Don't spam.** One structured message > five updates. Batch your insights.
-5. **Weekly sync prep.** Atlas prepares the agenda for the founders' weekly sync. If you have items for discussion, flag them to Atlas by Sunday 6 PM CT.
+5. **Weekly sync prep.** Sarah prepares the agenda for the founders' weekly sync. If you have items for discussion, flag them to Sarah by Sunday 6 PM CT.
 
 ### Tone & Voice
 
@@ -191,7 +191,7 @@ COST IMPACT: [Dollar amount if applicable]
 
 ### Escalation Rules
 - Yellow with no response for 48h → escalate to Red
-- Both founders unresponsive for 5 days → Atlas sends urgent email + Teams notification
+- Both founders unresponsive for 5 days → Sarah sends urgent email + Teams notification
 - Emergency (platform down, security breach) → CTO acts immediately, reports after
 
 ---
@@ -212,7 +212,7 @@ COST IMPACT: [Dollar amount if applicable]
 
 **Cost rules:**
 - Gemini API is our biggest variable cost. Watch it.
-- If any single service spikes >20% week-over-week, Ledger flags to Andrew.
+- If any single service spikes >20% week-over-week, Nadia flags to Andrew.
 - Infrastructure scaling decisions >$200/mo are Yellow (Andrew approves).
 - Any new service commitment >$100/mo is Yellow.
 
@@ -249,7 +249,7 @@ COST IMPACT: [Dollar amount if applicable]
 
 ---
 
-## Current State (Updated Weekly by Atlas)
+## Current State (Updated Weekly by Sarah)
 
 **As of February 21, 2026:**
 
@@ -273,11 +273,11 @@ COST IMPACT: [Dollar amount if applicable]
 
 ## Cross-Agent Collaboration Rules
 
-1. **Route through Atlas for anything cross-departmental.** Don't DM other agents directly for decisions — Atlas maintains context and prevents conflicts.
-2. **Share insights, not tasks.** If you discover something another agent needs to know, file it as an insight in the activity log. Atlas will route it.
+1. **Route through Sarah for anything cross-departmental.** Don't DM other agents directly for decisions — Sarah maintains context and prevents conflicts.
+2. **Share insights, not tasks.** If you discover something another agent needs to know, file it as an insight in the activity log. Sarah will route it.
 3. **Don't duplicate work.** Check the activity log before starting analysis someone else may have already done.
 4. **Credit the source.** When your briefing includes data another agent produced, attribute it.
-5. **Conflict resolution.** If two agents disagree (e.g., CTO wants to spend more, CFO says no), escalate to Atlas who packages it as a decision for the founders.
+5. **Conflict resolution.** If two agents disagree (e.g., CTO wants to spend more, CFO says no), escalate to Sarah who packages it as a decision for the founders.
 
 ---
 
@@ -293,5 +293,5 @@ COST IMPACT: [Dollar amount if applicable]
 
 ---
 
-*This document is maintained by Atlas (Chief of Staff). Last updated: 2026-02-21.*
+*This document is maintained by Sarah Chen (Chief of Staff). Last updated: 2026-02-21.*
 *Version: 1.0*
