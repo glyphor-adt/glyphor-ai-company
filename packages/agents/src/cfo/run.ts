@@ -10,11 +10,13 @@ import {
   AgentSupervisor,
   ToolExecutor,
   EventBus,
+  GlyphorEventBus,
   type AgentConfig,
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CFO_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCFOTools } from './tools.js';
+import { createMemoryTools } from '../shared/memoryTools.js';
 
 export interface CFORunParams {
   task?: 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand';
@@ -36,7 +38,11 @@ export async function runCFO(params: CFORunParams = {}) {
   });
   const runner = new CompanyAgentRunner(modelClient);
   const eventBus = new EventBus();
-  const tools = createCFOTools(memory);
+  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const tools = [
+    ...createCFOTools(memory),
+    ...createMemoryTools(memory),
+  ];
   const toolExecutor = new ToolExecutor(tools);
 
   eventBus.on('*', (event) => {
@@ -110,6 +116,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
+    { glyphorEventBus, agentMemoryStore: memory },
   );
 
   const durationMs = Date.now() - startTime;

@@ -10,11 +10,14 @@ import {
   AgentSupervisor,
   ToolExecutor,
   EventBus,
+  GlyphorEventBus,
   type AgentConfig,
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CMO_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCMOTools } from './tools.js';
+import { createMemoryTools } from '../shared/memoryTools.js';
+import { createEventTools } from '../shared/eventTools.js';
 
 export interface CMORunParams {
   task?: 'weekly_content_planning' | 'generate_content' | 'seo_analysis' | 'on_demand';
@@ -36,7 +39,12 @@ export async function runCMO(params: CMORunParams = {}) {
   });
   const runner = new CompanyAgentRunner(modelClient);
   const eventBus = new EventBus();
-  const tools = createCMOTools(memory);
+  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const tools = [
+    ...createCMOTools(memory),
+    ...createMemoryTools(memory),
+    ...createEventTools(glyphorEventBus),
+  ];
   const toolExecutor = new ToolExecutor(tools);
 
   eventBus.on('*', (event) => {
@@ -124,6 +132,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
+    { glyphorEventBus, agentMemoryStore: memory },
   );
 
   const durationMs = Date.now() - startTime;

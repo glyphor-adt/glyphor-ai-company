@@ -10,11 +10,14 @@ import {
   AgentSupervisor,
   ToolExecutor,
   EventBus,
+  GlyphorEventBus,
   type AgentConfig,
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { VP_CUSTOMER_SUCCESS_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createVPCSTools } from './tools.js';
+import { createMemoryTools } from '../shared/memoryTools.js';
+import { createEventTools } from '../shared/eventTools.js';
 
 export interface VPCSRunParams {
   task?: 'daily_health_scoring' | 'churn_detection' | 'on_demand';
@@ -36,7 +39,12 @@ export async function runVPCS(params: VPCSRunParams = {}) {
   });
   const runner = new CompanyAgentRunner(modelClient);
   const eventBus = new EventBus();
-  const tools = createVPCSTools(memory);
+  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const tools = [
+    ...createVPCSTools(memory),
+    ...createMemoryTools(memory),
+    ...createEventTools(glyphorEventBus),
+  ];
   const toolExecutor = new ToolExecutor(tools);
 
   eventBus.on('*', (event) => {
@@ -110,6 +118,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
+    { glyphorEventBus, agentMemoryStore: memory },
   );
 
   const durationMs = Date.now() - startTime;

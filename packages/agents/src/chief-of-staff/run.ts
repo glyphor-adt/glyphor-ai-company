@@ -11,11 +11,13 @@ import {
   AgentSupervisor,
   ToolExecutor,
   EventBus,
+  GlyphorEventBus,
   type AgentConfig,
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CHIEF_OF_STAFF_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createChiefOfStaffTools } from './tools.js';
+import { createMemoryTools } from '../shared/memoryTools.js';
 
 export interface CoSRunParams {
   task?: 'generate_briefing' | 'check_escalations' | 'on_demand';
@@ -38,7 +40,11 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
   });
   const runner = new CompanyAgentRunner(modelClient);
   const eventBus = new EventBus();
-  const tools = createChiefOfStaffTools(memory);
+  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const tools = [
+    ...createChiefOfStaffTools(memory),
+    ...createMemoryTools(memory),
+  ];
   const toolExecutor = new ToolExecutor(tools);
 
   // Log all events to console
@@ -116,6 +122,7 @@ Log your findings as an activity.`;
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
+    { glyphorEventBus, agentMemoryStore: memory },
   );
 
   const durationMs = Date.now() - startTime;

@@ -10,11 +10,13 @@ import {
   AgentSupervisor,
   ToolExecutor,
   EventBus,
+  GlyphorEventBus,
   type AgentConfig,
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CTO_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCTOTools } from './tools.js';
+import { createMemoryTools } from '../shared/memoryTools.js';
 
 export interface CTORunParams {
   task?: 'platform_health_check' | 'dependency_review' | 'on_demand';
@@ -36,7 +38,11 @@ export async function runCTO(params: CTORunParams = {}) {
   });
   const runner = new CompanyAgentRunner(modelClient);
   const eventBus = new EventBus();
-  const tools = createCTOTools(memory);
+  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const tools = [
+    ...createCTOTools(memory),
+    ...createMemoryTools(memory),
+  ];
   const toolExecutor = new ToolExecutor(tools);
 
   eventBus.on('*', (event) => {
@@ -108,6 +114,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
+    { glyphorEventBus, agentMemoryStore: memory },
   );
 
   const durationMs = Date.now() - startTime;

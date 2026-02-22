@@ -12,10 +12,13 @@ import { ModelClient } from './modelClient.js';
 import { ToolExecutor } from './toolExecutor.js';
 import { AgentSupervisor } from './supervisor.js';
 import { extractReasoning } from './reasoning.js';
+import type { GlyphorEventBus } from './glyphorEventBus.js';
 import type {
   AgentConfig,
   AgentEvent,
   AgentExecutionResult,
+  AgentMemory,
+  AgentReflection,
   CompanyAgentRole,
   ConversationTurn,
   IMemoryBus,
@@ -50,9 +53,24 @@ function buildSystemPrompt(role: CompanyAgentRole, existingPrompt: string): stri
   }
 }
 
+/**
+ * Optional store interface for memory/reflection persistence.
+ * Matches CompanyMemoryStore methods without a hard dependency.
+ */
+export interface AgentMemoryStore {
+  getMemories(role: CompanyAgentRole, options?: { limit?: number }): Promise<AgentMemory[]>;
+  getReflections(role: CompanyAgentRole, limit?: number): Promise<AgentReflection[]>;
+  saveMemory(memory: Omit<AgentMemory, 'id' | 'createdAt'>): Promise<string>;
+  saveReflection(reflection: Omit<AgentReflection, 'id' | 'createdAt'>): Promise<string>;
+}
+
+export interface RunDependencies {
+  glyphorEventBus?: GlyphorEventBus;
+  agentMemoryStore?: AgentMemoryStore;
+}
+
 export class CompanyAgentRunner {
   constructor(private modelClient: ModelClient) {}
-
   async run(
     config: AgentConfig,
     initialMessage: string,
@@ -60,6 +78,7 @@ export class CompanyAgentRunner {
     toolExecutor: ToolExecutor,
     emitEvent: (event: AgentEvent) => void,
     memoryBus: IMemoryBus,
+    deps?: RunDependencies,
   ): Promise<AgentExecutionResult> {
     const history: ConversationTurn[] = [
       { role: 'user', content: initialMessage, timestamp: Date.now() },
@@ -72,6 +91,30 @@ export class CompanyAgentRunner {
       role: config.role,
       model: config.model,
     });
+
+    // ─── MEMORY RETRIEVAL: inject prior memories + reflections ──
+    if (deps?.agentMemoryStore) {
+      try {
+        const [memories, reflections] = await Promise.all([
+          deps.agentMemoryStore.getMemories(config.role, { limit: 20 }),
+          deps.agentMemoryStore.getReflections(config.role, 3),
+        ]);
+
+        if (memories.length > 0 || reflections.length > 0) {
+          const memoryContext = buildMemoryContext(memories, reflections);
+          history.push({
+            role: 'user',
+            content: memoryContext,
+            timestamp: Date.now(),
+          });
+        }
+      } catch (err) {
+        console.warn(
+          `[CompanyAgentRunner] Memory retrieval failed for ${config.role}:`,
+          (err as Error).message,
+        );
+      }
+    }
 
     try {
       let turnNumber = 0;
@@ -237,6 +280,43 @@ export class CompanyAgentRunner {
       }
 
       const stats = supervisor.stats;
+
+      // ─── REFLECT: Self-assessment of this run ──────────────────
+      if (deps?.agentMemoryStore && lastTextOutput) {
+        try {
+          await this.reflectOnRun(config, history, lastTextOutput, deps.agentMemoryStore);
+        } catch (err) {
+          console.warn(
+            `[CompanyAgentRunner] Reflection failed for ${config.id}:`,
+            (err as Error).message,
+          );
+        }
+      }
+
+      // ─── EMIT: agent.completed event to event bus ──────────────
+      if (deps?.glyphorEventBus) {
+        try {
+          await deps.glyphorEventBus.emit({
+            type: 'agent.completed',
+            source: config.role,
+            payload: {
+              runId: config.id,
+              task: config.id.split('-').slice(1, -1).join('-'),
+              totalTurns: stats.turnCount,
+              elapsedMs: stats.elapsedMs,
+              outputLength: lastTextOutput?.length ?? 0,
+              summary: lastTextOutput?.slice(0, 500) ?? '',
+            },
+            priority: 'normal',
+          });
+        } catch (err) {
+          console.warn(
+            `[CompanyAgentRunner] Event emission failed for ${config.id}:`,
+            (err as Error).message,
+          );
+        }
+      }
+
       emitEvent({
         type: 'agent_completed',
         agentId: config.id,
@@ -290,9 +370,129 @@ export class CompanyAgentRunner {
       conversationHistory: history,
     };
   }
+
+  /**
+   * REFLECT phase: Ask the model to self-assess the run and persist
+   * a structured reflection + extracted memories.
+   */
+  private async reflectOnRun(
+    config: AgentConfig,
+    history: ConversationTurn[],
+    output: string,
+    store: AgentMemoryStore,
+  ): Promise<void> {
+    const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt);
+
+    const reflectPrompt = `You just completed a task. Here is your final output:
+
+---
+${output.slice(0, 3000)}
+---
+
+Reflect on this run and respond with a JSON object (no markdown fencing):
+{
+  "summary": "1-2 sentence summary of what you accomplished",
+  "qualityScore": <0-100>,
+  "whatWentWell": ["..."],
+  "whatCouldImprove": ["..."],
+  "promptSuggestions": ["suggestions for how your instructions could be improved"],
+  "knowledgeGaps": ["things you didn't know but needed"],
+  "memories": [
+    { "type": "observation|learning|preference|fact", "content": "...", "importance": 0.0-1.0 }
+  ]
+}`;
+
+    const reflectHistory: ConversationTurn[] = [
+      ...history.slice(-4),
+      { role: 'user', content: reflectPrompt, timestamp: Date.now() },
+    ];
+
+    const response = await this.modelClient.generate({
+      model: config.model,
+      systemInstruction: systemPrompt,
+      contents: reflectHistory,
+      tools: [],
+      temperature: 0.3,
+    });
+
+    if (!response.text) return;
+
+    try {
+      const parsed = JSON.parse(response.text.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
+
+      // Save reflection
+      await store.saveReflection({
+        agentRole: config.role,
+        runId: config.id,
+        summary: parsed.summary ?? '',
+        qualityScore: Math.max(0, Math.min(100, parsed.qualityScore ?? 50)),
+        whatWentWell: parsed.whatWentWell ?? [],
+        whatCouldImprove: parsed.whatCouldImprove ?? [],
+        promptSuggestions: parsed.promptSuggestions ?? [],
+        knowledgeGaps: parsed.knowledgeGaps ?? [],
+      });
+
+      // Save extracted memories
+      const memories = parsed.memories ?? [];
+      for (const mem of memories.slice(0, 5)) {
+        await store.saveMemory({
+          agentRole: config.role,
+          memoryType: mem.type ?? 'observation',
+          content: mem.content ?? '',
+          importance: Math.max(0, Math.min(1, mem.importance ?? 0.5)),
+          sourceRunId: config.id,
+        });
+      }
+
+      console.log(
+        `[CompanyAgentRunner] Reflection saved for ${config.id}: score=${parsed.qualityScore}, memories=${memories.length}`,
+      );
+    } catch (parseErr) {
+      console.warn(
+        `[CompanyAgentRunner] Failed to parse reflection output for ${config.id}:`,
+        (parseErr as Error).message,
+      );
+    }
+  }
 }
 
 function estimateTokens(history: ConversationTurn[]): number {
   const totalChars = history.reduce((sum, t) => sum + t.content.length, 0);
   return Math.ceil(totalChars / 4);
+}
+
+function buildMemoryContext(
+  memories: AgentMemory[],
+  reflections: AgentReflection[],
+): string {
+  const parts: string[] = [
+    '## Your Prior Knowledge & Learnings\n',
+    'Below are your accumulated memories and recent self-reflections.',
+    'Use these to inform your approach and avoid repeating past mistakes.\n',
+  ];
+
+  if (memories.length > 0) {
+    parts.push('### Memories');
+    for (const m of memories) {
+      parts.push(
+        `- [${m.memoryType}] (importance: ${m.importance}) ${m.content}`,
+      );
+    }
+    parts.push('');
+  }
+
+  if (reflections.length > 0) {
+    parts.push('### Recent Reflections');
+    for (const r of reflections) {
+      parts.push(`**Run ${r.runId}** (score: ${r.qualityScore}/100): ${r.summary}`);
+      if (r.whatCouldImprove.length > 0) {
+        parts.push(`  Improve: ${r.whatCouldImprove.join('; ')}`);
+      }
+      if (r.promptSuggestions.length > 0) {
+        parts.push(`  Suggestions: ${r.promptSuggestions.join('; ')}`);
+      }
+    }
+  }
+
+  return parts.join('\n');
 }

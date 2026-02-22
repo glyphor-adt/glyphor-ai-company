@@ -132,6 +132,42 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // Glyphor Event Bus push endpoint (from glyphor-events Pub/Sub topic)
+    if (method === 'POST' && url === '/event') {
+      const body = JSON.parse(await readBody(req));
+      const messageData = Buffer.from(body.message.data, 'base64').toString('utf-8');
+      const event: GlyphorEvent = JSON.parse(messageData);
+
+      console.log(`[Scheduler] Event: ${event.type} from ${event.source} (${event.priority})`);
+
+      // Rate limit per source
+      if (!checkEventRate(event.source)) {
+        console.warn(`[Scheduler] Rate limit exceeded for ${event.source}`);
+        json(res, 429, { error: 'Rate limit exceeded', source: event.source });
+        return;
+      }
+
+      // Look up last run times for smart wake decisions
+      const agentLastRuns = new Map<CompanyAgentRole, Date | null>();
+      try {
+        const { data: agents } = await memory.getSupabaseClient()
+          .from('company_agents')
+          .select('role, last_run_at');
+        for (const agent of agents ?? []) {
+          agentLastRuns.set(
+            agent.role as CompanyAgentRole,
+            agent.last_run_at ? new Date(agent.last_run_at) : null,
+          );
+        }
+      } catch (e) {
+        console.warn('[Scheduler] Failed to fetch agent last runs:', (e as Error).message);
+      }
+
+      const results = await router.handleGlyphorEvent(event, agentLastRuns);
+      json(res, 200, { event: event.type, results });
+      return;
+    }
+
     // CORS preflight
     if (method === 'OPTIONS') {
       res.writeHead(204, {

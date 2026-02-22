@@ -10,11 +10,13 @@ import {
   AgentSupervisor,
   ToolExecutor,
   EventBus,
+  GlyphorEventBus,
   type AgentConfig,
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { VP_SALES_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createVPSalesTools } from './tools.js';
+import { createMemoryTools } from '../shared/memoryTools.js';
 
 export interface VPSalesRunParams {
   task?: 'pipeline_review' | 'market_sizing' | 'on_demand';
@@ -36,7 +38,11 @@ export async function runVPSales(params: VPSalesRunParams = {}) {
   });
   const runner = new CompanyAgentRunner(modelClient);
   const eventBus = new EventBus();
-  const tools = createVPSalesTools(memory);
+  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const tools = [
+    ...createVPSalesTools(memory),
+    ...createMemoryTools(memory),
+  ];
   const toolExecutor = new ToolExecutor(tools);
 
   eventBus.on('*', (event) => {
@@ -111,6 +117,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
+    { glyphorEventBus, agentMemoryStore: memory },
   );
 
   const durationMs = Date.now() - startTime;

@@ -10,11 +10,14 @@ import {
   AgentSupervisor,
   ToolExecutor,
   EventBus,
+  GlyphorEventBus,
   type AgentConfig,
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CPO_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCPOTools } from './tools.js';
+import { createMemoryTools } from '../shared/memoryTools.js';
+import { createEventTools } from '../shared/eventTools.js';
 
 export interface CPORunParams {
   task?: 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand';
@@ -36,7 +39,12 @@ export async function runCPO(params: CPORunParams = {}) {
   });
   const runner = new CompanyAgentRunner(modelClient);
   const eventBus = new EventBus();
-  const tools = createCPOTools(memory);
+  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const tools = [
+    ...createCPOTools(memory),
+    ...createMemoryTools(memory),
+    ...createEventTools(glyphorEventBus),
+  ];
   const toolExecutor = new ToolExecutor(tools);
 
   eventBus.on('*', (event) => {
@@ -113,6 +121,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
+    { glyphorEventBus, agentMemoryStore: memory },
   );
 
   const durationMs = Date.now() - startTime;
