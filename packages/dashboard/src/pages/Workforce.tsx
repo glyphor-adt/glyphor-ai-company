@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAgents } from '../lib/hooks';
-import { DISPLAY_NAME_MAP, AGENT_META, type Agent } from '../lib/types';
+import { DISPLAY_NAME_MAP, AGENT_META, SUB_TEAM, type Agent, type SubTeamMember } from '../lib/types';
 import {
   Card,
   SectionHeader,
@@ -19,12 +19,12 @@ const FOUNDERS = [
 ];
 
 const DEPARTMENTS = [
-  { label: 'Engineering', roles: ['cto'] },
-  { label: 'Product', roles: ['cpo'] },
-  { label: 'Finance', roles: ['cfo'] },
-  { label: 'Marketing', roles: ['cmo'] },
-  { label: 'Customer Success', roles: ['vp-customer-success'] },
-  { label: 'Sales', roles: ['vp-sales'] },
+  { label: 'Engineering', role: 'cto' },
+  { label: 'Product', role: 'cpo' },
+  { label: 'Finance', role: 'cfo' },
+  { label: 'Marketing', role: 'cmo' },
+  { label: 'Customer Success', role: 'vp-customer-success' },
+  { label: 'Sales', role: 'vp-sales' },
 ];
 
 const TITLE_MAP: Record<string, string> = {
@@ -36,6 +36,8 @@ const TITLE_MAP: Record<string, string> = {
   'vp-customer-success': 'VP Customer Success',
   'vp-sales': 'VP Sales',
 };
+
+const TOTAL_HEADCOUNT = FOUNDERS.length + 7 + SUB_TEAM.length; // founders + execs + ICs
 
 type ViewMode = 'org-chart' | 'grid';
 
@@ -56,7 +58,7 @@ export default function Workforce() {
         <div>
           <h1 className="text-2xl font-bold text-txt-primary">Workforce</h1>
           <p className="mt-1 text-sm text-txt-muted">
-            {FOUNDERS.length} founders · {agents.length} AI executives · {activeCount} active
+            {TOTAL_HEADCOUNT} employees · {FOUNDERS.length} founders · {agents.length} AI executives · {SUB_TEAM.length} team members
           </p>
         </div>
         <div className="flex gap-1 rounded-lg border border-border bg-surface p-0.5">
