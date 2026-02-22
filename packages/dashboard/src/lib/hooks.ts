@@ -32,8 +32,8 @@ export function useDecisions() {
   const q = useQuery<Decision>('decisions', 'created_at', false);
 
   const updateDecision = async (id: string, status: 'approved' | 'rejected', decidedBy: string) => {
-    await supabase
-      .from('decisions')
+    await (supabase
+      .from('decisions') as ReturnType<typeof supabase.from>)
       .update({ status, decided_by: decidedBy, decided_at: new Date().toISOString() })
       .eq('id', id);
     q.refresh();
