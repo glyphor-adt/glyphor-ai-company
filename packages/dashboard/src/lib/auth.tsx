@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 import { GoogleOAuthProvider, GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
 
-const ALLOWED_EMAILS = ['kristina@glyphor.ai', 'andrew@glyphor.ai'];
+const ALLOWED_EMAILS = ['kristina@glyphor.ai', 'andrew@glyphor.ai', 'devops@glyphor.ai'];
 const STORAGE_KEY = 'glyphor-auth';
 
 interface User {
