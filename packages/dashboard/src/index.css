@@ -20,6 +20,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --color-base: #14161a;
   --color-surface: #1a1d23;
   --color-raised: #1e2128;

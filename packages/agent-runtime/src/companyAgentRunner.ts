@@ -57,6 +57,36 @@ const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
   'ops': 'atlas-vega',
 };
 
+/** Maps roles to their department context files. */
+const ROLE_CONTEXT_FILES: Record<string, string[]> = {
+  'chief-of-staff': ['operations.md'],
+  'ops': ['operations.md'],
+  'cto': ['engineering.md'],
+  'platform-engineer': ['engineering.md'],
+  'quality-engineer': ['engineering.md'],
+  'devops-engineer': ['engineering.md'],
+  'cfo': ['finance.md'],
+  'revenue-analyst': ['finance.md'],
+  'cost-analyst': ['finance.md'],
+  'cpo': ['product.md'],
+  'user-researcher': ['product.md'],
+  'competitive-intel': ['product.md'],
+  'cmo': ['marketing.md'],
+  'content-creator': ['marketing.md'],
+  'seo-analyst': ['marketing.md'],
+  'social-media-manager': ['marketing.md'],
+  'vp-customer-success': ['sales-cs.md'],
+  'onboarding-specialist': ['sales-cs.md'],
+  'support-triage': ['sales-cs.md'],
+  'vp-sales': ['sales-cs.md'],
+  'account-research': ['sales-cs.md'],
+  'vp-design': ['design.md'],
+  'ui-ux-designer': ['design.md'],
+  'frontend-engineer': ['design.md', 'engineering.md'],
+  'design-critic': ['design.md'],
+  'template-architect': ['design.md'],
+};
+
 /** Profile data loaded from agent_profiles table. */
 export interface AgentProfileData {
   personality_summary: string | null;
@@ -81,6 +111,17 @@ const ANTI_PATTERNS = [
   'Do NOT mirror the user\'s phrasing back at them.',
   'Avoid bullet-point dumps unless the content genuinely warrants it.',
 ];
+
+const REASONING_PROTOCOL = `## How You Think
+
+Follow this protocol for every task:
+
+1. **Orient** — What is the current situation? What data do I have? What's changed since my last run?
+2. **Plan** — What are my objectives this run? What tools do I need? What's the priority order?
+3. **Execute** — Take action using your tools. Gather data, analyze, produce outputs.
+4. **Reflect** — Did I accomplish my objectives? What should I remember for next time?
+
+When you encounter ambiguity, make your best judgment and note the assumption. When you lack data, use the tools available to gather it before speculating. When multiple approaches exist, choose the one most aligned with company goals.`;
 
 function buildPersonalityBlock(profile: AgentProfileData): string {
   const parts: string[] = ['## WHO YOU ARE\n'];
@@ -152,9 +193,27 @@ function buildSystemPrompt(
   profile?: AgentProfileData | null,
 ): string {
   try {
-    const knowledgeBase = readFileSync(
-      join(__dirname, '../../company-knowledge/COMPANY_KNOWLEDGE_BASE.md'), 'utf-8',
-    );
+    const knowledgeDir = join(__dirname, '../../company-knowledge');
+
+    // Load compact core (shared by all agents)
+    let knowledgeBase: string;
+    try {
+      knowledgeBase = readFileSync(join(knowledgeDir, 'CORE.md'), 'utf-8');
+    } catch {
+      // Fall back to full KB if CORE.md doesn't exist yet
+      knowledgeBase = readFileSync(join(knowledgeDir, 'COMPANY_KNOWLEDGE_BASE.md'), 'utf-8');
+    }
+
+    // Load department-specific context
+    const contextFiles = ROLE_CONTEXT_FILES[role] ?? [];
+    for (const file of contextFiles) {
+      try {
+        const ctx = readFileSync(join(knowledgeDir, 'context', file), 'utf-8');
+        knowledgeBase += '\n\n---\n\n' + ctx;
+      } catch {
+        // Context file missing — not critical
+      }
+    }
 
     const briefId = ROLE_TO_BRIEF[role];
     let roleBrief: string;
@@ -170,13 +229,16 @@ function buildSystemPrompt(
 
     // PERSONALITY-FIRST prompt ordering:
     // 1. Who you are (personality, voice, quirks)
-    // 2. What you do (role brief + agent-specific instructions)
-    // 3. Where you work (company knowledge base)
+    // 2. Reasoning protocol
+    // 3. What you do (role brief + agent-specific instructions)
+    // 4. Where you work (company knowledge base)
     const parts: string[] = [];
 
     if (profile) {
       parts.push(buildPersonalityBlock(profile));
     }
+
+    parts.push(REASONING_PROTOCOL);
 
     if (roleBrief) parts.push(roleBrief);
     parts.push(existingPrompt);

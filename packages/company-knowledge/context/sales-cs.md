@@ -1,0 +1,31 @@
+# Sales & Customer Success Context
+
+## Enterprise Pipeline
+
+- 3 prospects, $127K potential ARR (as of Feb 21, 2026)
+- Enterprise deals >$25K → Red (both founders)
+- Customer outreach for enterprise upsell → Yellow (Kristina)
+
+## Customer Metrics
+
+- Paying users: 47 (Fuse: 39, Pulse: 8)
+- Churn rate — tracked monthly
+- LTV/CAC — lifetime value vs acquisition cost
+- ARPU — average revenue per user
+- Expansion revenue — upgrades, cross-product
+
+## Communication Channel
+
+- **#customer-intel** — VP CS and VP Sales post here
+
+## Customer Outreach Rules
+
+- Standard outreach → Green
+- Enterprise upsell outreach → Yellow (Kristina)
+- Pricing changes → Red
+
+## Q1 2026 Goals
+
+- $5K MRR
+- 100 active Fuse users
+- 1 enterprise pilot

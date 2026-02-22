@@ -450,9 +450,9 @@ export class ModelClient {
   // ─── Shared helpers ──────────────────────────────────────
 
   private async raceAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
-    // Always enforce a per-call timeout (30s) to prevent indefinite API hangs.
+    // Always enforce a per-call timeout (60s) to prevent indefinite API hangs.
     // This is independent of the supervisor's between-turn timeout check.
-    const PER_CALL_TIMEOUT_MS = 30_000;
+    const PER_CALL_TIMEOUT_MS = 60_000;
     const timeoutSignal = AbortSignal.timeout(PER_CALL_TIMEOUT_MS);
 
     const signals = signal
@@ -462,9 +462,9 @@ export class ModelClient {
     const abortPromise = new Promise<never>((_, reject) => {
       for (const sig of signals) {
         const onAbort = () => {
-          const reason = (sig.reason as Error)?.message || sig === timeoutSignal
+          const reason = sig === timeoutSignal
             ? `API call timed out after ${PER_CALL_TIMEOUT_MS}ms`
-            : 'signal aborted';
+            : (sig.reason as Error)?.message || 'signal aborted';
           reject(new Error(`Aborted: ${reason}`));
         };
         if (sig.aborted) {

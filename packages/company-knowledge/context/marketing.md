@@ -1,0 +1,38 @@
+# Marketing Context
+
+## Tone & Voice
+
+### External content (blog, social, case studies):
+- **Bold.** We're building something unprecedented.
+- **Technical but accessible.** Respect audience intelligence, don't gatekeep with jargon.
+- **Authentic builder energy.** Not salesy, not corporate. Two Microsoft engineers running a startup with AI.
+- **Never disparage competitors.** Position on our own merits.
+
+### Internal/founder communication:
+- Direct. No filler. Data-first.
+- Recommendation-included.
+- Concise — mobile-readable.
+
+## Growth Metrics
+
+- **SEO rankings** — track key terms weekly
+- **Social engagement** — LinkedIn primarily, Twitter secondary
+- **Inbound funnel** — blog → signup → activation → paid conversion
+- **Enterprise pipeline** — prospects, ARR potential
+
+## Current SEO Position
+
+- 'ai website builder' #11
+- 'autonomous development platform' top 50
+
+## Content Strategy
+
+- Content within approved strategy → Green
+- Content strategy shifts → Yellow (Kristina)
+- Brand positioning changes → Red
+
+## Q1 2026 Goals (marketing-relevant)
+
+- 100 active Fuse users
+- Pulse public launch
+- 1 enterprise pilot
