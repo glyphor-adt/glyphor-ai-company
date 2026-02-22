@@ -10,7 +10,7 @@ export function getStripeClient(): Stripe {
   if (!stripeClient) {
     const key = process.env.STRIPE_SECRET_KEY;
     if (!key) throw new Error('STRIPE_SECRET_KEY environment variable is required');
-    stripeClient = new Stripe(key, { apiVersion: '2025-12-18.acacia' });
+    stripeClient = new Stripe(key, { apiVersion: '2025-02-24.acacia' });
   }
   return stripeClient;
 }
