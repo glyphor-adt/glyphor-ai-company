@@ -57,7 +57,100 @@ const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
   'ops': 'atlas-vega',
 };
 
-function buildSystemPrompt(role: CompanyAgentRole, existingPrompt: string, dynamicBrief?: string): string {
+/** Profile data loaded from agent_profiles table. */
+export interface AgentProfileData {
+  personality_summary: string | null;
+  backstory: string | null;
+  communication_traits: string[] | null;
+  quirks: string[] | null;
+  tone_formality: number | null;
+  emoji_usage: number | null;
+  verbosity: number | null;
+  voice_sample: string | null;
+  signature: string | null;
+  voice_examples: { situation: string; response: string }[] | null;
+}
+
+const ANTI_PATTERNS = [
+  'Do NOT open with "Great question!" or similar filler.',
+  'Do NOT start messages with "Sure!" or "Absolutely!".',
+  'Never say "As an AI…" or reference being a language model.',
+  'Avoid hedging phrases like "I think maybe…" — be direct.',
+  'Don\'t use corporate jargon ("synergy", "leverage", "circle back") unless it\'s genuinely your style.',
+  'Never apologize for things that aren\'t your fault.',
+  'Do NOT mirror the user\'s phrasing back at them.',
+  'Avoid bullet-point dumps unless the content genuinely warrants it.',
+];
+
+function buildPersonalityBlock(profile: AgentProfileData): string {
+  const parts: string[] = ['## WHO YOU ARE\n'];
+
+  if (profile.personality_summary) {
+    parts.push(profile.personality_summary);
+    parts.push('');
+  }
+
+  if (profile.backstory) {
+    parts.push(`**Backstory:** ${profile.backstory}`);
+    parts.push('');
+  }
+
+  if (profile.communication_traits?.length) {
+    parts.push('**Communication style:**');
+    for (const t of profile.communication_traits) parts.push(`- ${t}`);
+    parts.push('');
+  }
+
+  if (profile.quirks?.length) {
+    parts.push('**Quirks (use these — they make you YOU):**');
+    for (const q of profile.quirks) parts.push(`- ${q}`);
+    parts.push('');
+  }
+
+  // Tone guidance
+  const formality = profile.tone_formality ?? 0.5;
+  const emoji = profile.emoji_usage ?? 0.1;
+  const verbosity = profile.verbosity ?? 0.5;
+  parts.push('**Voice calibration:**');
+  parts.push(`- Formality: ${formality < 0.3 ? 'casual and warm' : formality < 0.7 ? 'professional but approachable' : 'formal and precise'} (${formality})`);
+  parts.push(`- Emoji usage: ${emoji < 0.2 ? 'rarely' : emoji < 0.5 ? 'occasionally' : 'frequently'} (${emoji})`);
+  parts.push(`- Verbosity: ${verbosity < 0.3 ? 'terse — say it in fewer words' : verbosity < 0.7 ? 'balanced' : 'detailed — explain your reasoning'} (${verbosity})`);
+  parts.push('');
+
+  if (profile.signature) {
+    parts.push(`**Signature sign-off:** ${profile.signature}`);
+    parts.push('');
+  }
+
+  if (profile.voice_sample) {
+    parts.push('**Voice sample (this is how you sound):**');
+    parts.push(`> ${profile.voice_sample}`);
+    parts.push('');
+  }
+
+  // Voice calibration examples (few-shot)
+  if (profile.voice_examples?.length) {
+    parts.push('**Voice calibration examples — match this tone:**');
+    for (const ex of profile.voice_examples) {
+      parts.push(`\nSituation: ${ex.situation}`);
+      parts.push(`Response: ${ex.response}`);
+    }
+    parts.push('');
+  }
+
+  // Anti-patterns
+  parts.push('**ANTI-PATTERNS — never do these:**');
+  for (const ap of ANTI_PATTERNS) parts.push(`- ${ap}`);
+
+  return parts.join('\n');
+}
+
+function buildSystemPrompt(
+  role: CompanyAgentRole,
+  existingPrompt: string,
+  dynamicBrief?: string,
+  profile?: AgentProfileData | null,
+): string {
   try {
     const knowledgeBase = readFileSync(
       join(__dirname, '../../company-knowledge/COMPANY_KNOWLEDGE_BASE.md'), 'utf-8',
@@ -75,9 +168,20 @@ function buildSystemPrompt(role: CompanyAgentRole, existingPrompt: string, dynam
       roleBrief = '';
     }
 
-    const parts = [knowledgeBase];
+    // PERSONALITY-FIRST prompt ordering:
+    // 1. Who you are (personality, voice, quirks)
+    // 2. What you do (role brief + agent-specific instructions)
+    // 3. Where you work (company knowledge base)
+    const parts: string[] = [];
+
+    if (profile) {
+      parts.push(buildPersonalityBlock(profile));
+    }
+
     if (roleBrief) parts.push(roleBrief);
     parts.push(existingPrompt);
+    parts.push(knowledgeBase);
+
     return parts.join('\n\n---\n\n');
   } catch (err) {
     console.warn(`[CompanyAgentRunner] Failed to load knowledge files for ${role}:`, (err as Error).message);
@@ -97,6 +201,7 @@ export interface AgentMemoryStore {
   getReflections(role: CompanyAgentRole, limit?: number): Promise<AgentReflection[]>;
   saveMemory(memory: Omit<AgentMemory, 'id' | 'createdAt'>): Promise<string>;
   saveReflection(reflection: Omit<AgentReflection, 'id' | 'createdAt'>): Promise<string>;
+  savePeerFeedback?(feedback: { fromAgent: string; toAgent: string; feedback: string; context: string; sentiment: string }): Promise<void>;
 }
 
 export interface RunDependencies {
@@ -104,6 +209,8 @@ export interface RunDependencies {
   agentMemoryStore?: AgentMemoryStore;
   /** Loader for DB-stored briefs (dynamic agents without file-based briefs). */
   dynamicBriefLoader?: (agentId: string) => Promise<string | null>;
+  /** Loader for agent personality profile from agent_profiles table. */
+  agentProfileLoader?: (role: CompanyAgentRole) => Promise<AgentProfileData | null>;
 }
 
 export class CompanyAgentRunner {
@@ -167,6 +274,19 @@ export class CompanyAgentRunner {
       }
     }
 
+    // Load personality profile
+    let agentProfile: AgentProfileData | null = null;
+    if (deps?.agentProfileLoader) {
+      try {
+        agentProfile = await deps.agentProfileLoader(config.role);
+      } catch (err) {
+        console.warn(
+          `[CompanyAgentRunner] Profile load failed for ${config.role}:`,
+          (err as Error).message,
+        );
+      }
+    }
+
     try {
       let turnNumber = 0;
 
@@ -217,7 +337,7 @@ export class CompanyAgentRunner {
             tokenEstimate: estimateTokens(history),
           });
 
-          const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt, dynamicBrief);
+          const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt, dynamicBrief, agentProfile);
 
           response = await this.modelClient.generate({
             model: config.model,
@@ -472,8 +592,13 @@ Reflect on this run and respond with a JSON object (no markdown fencing):
   "knowledgeGaps": ["things you didn't know but needed"],
   "memories": [
     { "type": "observation|learning|preference|fact", "content": "...", "importance": 0.0-1.0 }
+  ],
+  "peerFeedback": [
+    { "toAgent": "role-slug", "feedback": "what you observed about their work", "sentiment": "positive|constructive|neutral" }
   ]
-}`;
+}
+
+For peerFeedback: If during this task you interacted with or observed the work of other agents, include brief feedback for them. Only include genuine observations — leave the array empty if you had no cross-agent interaction.`;
 
     const reflectHistory: ConversationTurn[] = [
       ...history.slice(-4),
@@ -520,6 +645,24 @@ Reflect on this run and respond with a JSON object (no markdown fencing):
       console.log(
         `[CompanyAgentRunner] Reflection saved for ${config.id}: score=${parsed.qualityScore}, memories=${memories.length}`,
       );
+
+      // Save peer feedback
+      const peerFeedback = parsed.peerFeedback ?? [];
+      if (peerFeedback.length > 0 && store.savePeerFeedback) {
+        for (const fb of peerFeedback.slice(0, 3)) {
+          try {
+            await store.savePeerFeedback({
+              fromAgent: config.role,
+              toAgent: fb.toAgent,
+              feedback: fb.feedback,
+              context: config.id,
+              sentiment: fb.sentiment ?? 'neutral',
+            });
+          } catch {
+            // Non-critical — skip silently
+          }
+        }
+      }
     } catch (parseErr) {
       console.warn(
         `[CompanyAgentRunner] Failed to parse reflection output for ${config.id}:`,

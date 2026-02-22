@@ -20,7 +20,7 @@ import { createOpsTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
 
 export interface OpsRunParams {
-  task?: 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response';
+  task?: 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'performance_rollup' | 'milestone_detection' | 'growth_update';
   message?: string;
   eventPayload?: Record<string, unknown>;
 }
@@ -135,6 +135,30 @@ Steps:
 
     case 'on_demand':
       initialMessage = params.message || 'Provide a current system status summary.';
+      break;
+
+    case 'performance_rollup':
+      initialMessage = `Run the daily performance rollup for yesterday.
+
+Steps:
+1. Use rollup_agent_performance to aggregate yesterday's agent_runs into agent_performance
+2. Report how many agents were rolled up and any notable findings`;
+      break;
+
+    case 'milestone_detection':
+      initialMessage = `Scan for new agent milestones.
+
+Steps:
+1. Use detect_milestones to scan all agents for notable achievements or incidents
+2. Report any milestones found`;
+      break;
+
+    case 'growth_update':
+      initialMessage = `Update weekly growth tracking for all agents.
+
+Steps:
+1. Use update_growth_areas with period_days 7 to compare this week vs last week
+2. Report which agents are improving, stable, or declining in each dimension`;
       break;
 
     default:
