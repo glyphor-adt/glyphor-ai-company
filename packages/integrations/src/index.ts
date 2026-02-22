@@ -21,6 +21,29 @@ export {
   type ChannelMap,
 } from './teams/graphClient.js';
 
+// Teams Direct Messages (1:1 chat via Graph API)
+export {
+  TeamsDirectMessageClient,
+  buildFounderDirectory,
+  type FounderContact,
+} from './teams/directMessages.js';
+
+// Email (Graph API sendMail)
+export {
+  GraphEmailClient,
+  type SendEmailOptions,
+  type EmailRecipient,
+  type EmailAttachment,
+} from './teams/email.js';
+
+// Calendar (Graph API events)
+export {
+  GraphCalendarClient,
+  type CreateEventOptions,
+  type CreatedEvent,
+  type CalendarAttendee,
+} from './teams/calendar.js';
+
 // Stripe integration
 export {
   getStripeClient,

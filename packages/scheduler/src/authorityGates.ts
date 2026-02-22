@@ -22,7 +22,7 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
   'chief-of-staff': new Set([
     'compile_briefing', 'route_decision', 'log_activity', 'synthesize_report',
     'check_escalations', 'generate_briefing', 'morning_briefing', 'eod_summary',
-    'on_demand',
+    'on_demand', 'send_dm',
   ]),
   'cto': new Set([
     'model_fallback', 'cache_optimization', 'scale_within_budget',
@@ -82,6 +82,7 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
     'evening_status', 'on_demand', 'event_response',
     'retry_run', 'retry_sync', 'pause_agent', 'resume_agent',
     'create_incident', 'resolve_incident', 'trigger_agent',
+    'send_dm',
   ]),
 };
 
@@ -96,6 +97,9 @@ const YELLOW_ACTIONS: Record<string, { assignTo: string[] }> = {
   'infra_scaling_costly': { assignTo: ['andrew'] },
   'publish_competitive_analysis': { assignTo: ['kristina'] },
   'production_deploy': { assignTo: ['andrew'] },
+  'send_dm': { assignTo: ['kristina', 'andrew'] },
+  'send_email': { assignTo: ['kristina', 'andrew'] },
+  'create_calendar_event': { assignTo: ['kristina', 'andrew'] },
 };
 
 /**
