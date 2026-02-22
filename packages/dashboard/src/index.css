@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Global ──────────────────────────────────── */
+html { scroll-behavior: smooth; }
+body { font-family: 'DM Sans', system-ui, sans-serif; }
+
+/* ─── Scrollbar ─────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+/* ─── Gradient shimmer for skeleton loaders ── */
+.shimmer-bg {
+  background: linear-gradient(90deg, transparent 0%, rgba(124,58,237,.06) 50%, transparent 100%);
+  background-size: 800px 100%;
+  animation: shimmer 1.8s linear infinite;
+}
+
+/* ─── Glow effect for active agent nodes ──── */
+.agent-glow {
+  box-shadow: 0 0 12px rgba(124,58,237,.35), 0 0 32px rgba(124,58,237,.12);
+}
+
+/* ─── Page transition ────────────────────── */
+.page-enter {
+  animation: fadeUp .35s ease-out both;
+}
