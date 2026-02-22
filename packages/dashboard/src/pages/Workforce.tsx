@@ -14,8 +14,8 @@ import { Link } from 'react-router-dom';
 
 /* ─── Org hierarchy ─────────────────────── */
 const FOUNDERS = [
-  { name: 'Kristina Denney', title: 'CEO & Co-Founder', initials: 'KD', color: '#E040FB' },
-  { name: 'Andrew Denney', title: 'COO & Co-Founder', initials: 'AD', color: '#00E0FF' },
+  { name: 'Kristina Denney', title: 'CEO & Co-Founder', initials: 'KD', color: '#E040FB', photo: '/kristina.jpg' },
+  { name: 'Andrew Denney', title: 'COO & Co-Founder', initials: 'AD', color: '#00E0FF', photo: '/andrew.jpg' },
 ];
 
 const DEPARTMENTS = [
@@ -96,7 +96,7 @@ export default function Workforce() {
           {/* Founders row */}
           <div className="flex justify-center gap-8">
             {FOUNDERS.map((f) => (
-              <FounderNode key={f.name} name={f.name} title={f.title} initials={f.initials} color={f.color} />
+              <FounderNode key={f.name} name={f.name} title={f.title} initials={f.initials} color={f.color} photo={f.photo} />
             ))}
           </div>
 
@@ -156,12 +156,12 @@ export default function Workforce() {
               <Card key={f.name} className="relative overflow-hidden">
                 <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl" style={{ background: f.color }} />
                 <div className="flex items-center gap-4 pl-3">
-                  <div
-                    className="flex items-center justify-center rounded-full text-sm font-bold"
-                    style={{ width: 44, height: 44, background: `${f.color}18`, border: `1.5px solid ${f.color}40`, color: f.color }}
-                  >
-                    {f.initials}
-                  </div>
+                  <img
+                    src={f.photo}
+                    alt={f.name}
+                    className="rounded-full object-cover"
+                    style={{ width: 44, height: 44, border: `1.5px solid ${f.color}40` }}
+                  />
                   <div>
                     <h3 className="text-[15px] font-semibold text-txt-primary">{f.name}</h3>
                     <p className="text-[12px] text-txt-muted">{f.title}</p>
@@ -219,16 +219,16 @@ export default function Workforce() {
 }
 
 /* ─── Founder Node (org chart) ────────────── */
-function FounderNode({ name, title, initials, color }: { name: string; title: string; initials: string; color: string }) {
+function FounderNode({ name, title, initials, color, photo }: { name: string; title: string; initials: string; color: string; photo: string }) {
   return (
     <Card className="w-56 text-center">
       <div className="flex flex-col items-center gap-2">
-        <div
-          className="flex items-center justify-center rounded-full text-sm font-bold"
-          style={{ width: 48, height: 48, background: `${color}18`, border: `2px solid ${color}50`, color }}
-        >
-          {initials}
-        </div>
+        <img
+          src={photo}
+          alt={name}
+          className="rounded-full object-cover"
+          style={{ width: 48, height: 48, border: `2px solid ${color}50` }}
+        />
         <div>
           <h3 className="text-sm font-semibold text-txt-primary">{name}</h3>
           <p className="text-[11px] text-txt-muted">{title}</p>
