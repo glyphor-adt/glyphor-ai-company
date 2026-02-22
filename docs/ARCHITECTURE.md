@@ -4,17 +4,18 @@
 
 ## Overview
 
-Glyphor AI Company is a monorepo containing 8 AI executive agents and 17 sub-team members that
-autonomously operate Glyphor alongside two human founders (Kristina Denney, CEO; Andrew Denney, COO).
-The agents run 24/7 on GCP Cloud Run, share state through Supabase, communicate with founders via
-Microsoft Teams, and are governed by a three-tier authority model (Green / Yellow / Red).
+Glyphor AI Company is a monorepo containing 8 AI executive agents, 17 sub-team members, and
+1 operations agent that autonomously operate Glyphor alongside two human founders (Kristina
+Denney, CEO; Andrew Denney, COO). The agents run 24/7 on GCP Cloud Run, share state through
+Supabase, communicate with founders via Microsoft Teams, and are governed by a three-tier
+authority model (Green / Yellow / Red).
 
-Total headcount: **27** — 2 human founders, 8 AI executives, 17 AI team members.
+Total headcount: **28** — 2 human founders, 8 AI executives, 17 AI team members, 1 AI ops agent.
 
 The founders work full-time at Microsoft with 5-10 h/week for Glyphor. The AI executive team
 handles everything else: daily operations, financial monitoring, content creation, product
-analysis, customer success, enterprise sales research, design & frontend quality, and
-cross-functional synthesis.
+analysis, customer success, enterprise sales research, design & frontend quality,
+cross-functional synthesis, inter-agent communication, and strategic analysis.
 
 ---
 
@@ -25,37 +26,58 @@ cross-functional synthesis.
 │                      GCP Cloud Scheduler                             │
 │  9 agent cron jobs → Pub/Sub topic "glyphor-agent-events"            │
 │  3 data sync jobs  → HTTP POST to scheduler endpoints                │
-│  (briefings, health checks, cost reviews, content, pipelines, etc.)  │
+│  + Dynamic Scheduler (DB-defined cron from agent_schedules table)    │
 └───────────────────────────┬──────────────────────────────────────────┘
                             │ Pub/Sub push + HTTP
                             ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │             Scheduler Service (Cloud Run: glyphor-scheduler)         │
 │                                                                      │
-│  POST /pubsub          ── Cloud Scheduler cron messages              │
-│  POST /run             ── Dashboard chat & manual invocations        │
-│  POST /event           ── Glyphor Event Bus (inter-agent events)     │
-│  POST /webhook/stripe  ── Stripe webhook receiver                    │
-│  POST /sync/stripe     ── Stripe data sync                          │
-│  POST /sync/gcp-billing── GCP billing export sync                   │
-│  POST /sync/mercury    ── Mercury banking sync                      │
-│  GET  /health          ── Health check                               │
-│  OPTIONS /*            ── CORS preflight                             │
+│  POST /pubsub            ── Cloud Scheduler cron messages            │
+│  POST /run               ── Dashboard chat & manual invocations      │
+│  POST /event             ── Glyphor Event Bus (inter-agent events)   │
+│  POST /webhook/stripe    ── Stripe webhook receiver                  │
+│  POST /sync/stripe       ── Stripe data sync                        │
+│  POST /sync/gcp-billing  ── GCP billing export sync                 │
+│  POST /sync/mercury      ── Mercury banking sync                    │
+│  POST /agents/create     ── Create new dynamic agent                │
+│  PUT  /agents/:id/settings── Update agent configuration             │
+│  POST /agents/:id/pause  ── Pause agent                             │
+│  POST /agents/:id/resume ── Resume agent                            │
+│  DELETE /agents/:id      ── Retire (soft-delete) agent              │
+│  POST /analysis/run      ── Launch strategic analysis               │
+│  GET  /analysis/:id      ── Get analysis status/result              │
+│  GET  /analysis          ── List all analyses                       │
+│  GET  /analysis/:id/export── Export analysis report (md/json)       │
+│  POST /simulation/run    ── Launch T+1 simulation                   │
+│  GET  /simulation/:id    ── Get simulation status/result            │
+│  GET  /simulation        ── List all simulations                    │
+│  POST /simulation/:id/accept ── Accept simulation result            │
+│  GET  /simulation/:id/export ── Export simulation report (md/json)  │
+│  POST /meetings/call     ── Convene multi-agent meeting             │
+│  GET  /meetings/:id      ── Get meeting status/transcript           │
+│  GET  /meetings          ── List all meetings                       │
+│  POST /messages/send     ── Send inter-agent message                │
+│  GET  /messages/agent/:id── Get messages for an agent               │
+│  GET  /messages          ── Get all recent messages                 │
+│  GET  /health            ── Health check                             │
+│  OPTIONS /*              ── CORS preflight                           │
 │                                                                      │
 │  ┌──────────────┐  ┌───────────────┐  ┌──────────────────────────┐   │
 │  │ Cron Manager │  │ Event Router  │  │    Authority Gates       │   │
-│  │ (9+3 jobs)   │  │ route()       │  │ checkAuthority(role,act) │   │
-│  └──────────────┘  │ handlePubSub()│  │ GREEN per-role           │   │
-│                    │ handleAgent() │  │ YELLOW → one founder     │   │
-│                    │ handleEvent() │  │ RED    → both founders   │   │
-│                    └───────┬───────┘  └────────────┬─────────────┘   │
-│                            │                       │                 │
-│                            ▼                       ▼                 │
-│                   ┌────────────────┐    ┌─────────────────────┐      │
-│                   │ Agent Executor │    │  Decision Queue     │      │
-│                   │ (role→runner)  │    │  submit / approve   │      │
-│                   └────────┬───────┘    │  reminders (4 h)    │      │
-│                            │            └─────────┬───────────┘      │
+│  │ (9+3 static  │  │ route()       │  │ checkAuthority(role,act) │   │
+│  │  + dynamic)  │  │ handlePubSub()│  │ GREEN per-role           │   │
+│  └──────────────┘  │ handleAgent() │  │ YELLOW → one founder     │   │
+│  ┌──────────────┐  │ handleEvent() │  │ RED    → both founders   │   │
+│  │ Analysis     │  └───────┬───────┘  └────────────┬─────────────┘   │
+│  │ Engine       │          │                       │                 │
+│  ├──────────────┤          ▼                       ▼                 │
+│  │ Simulation   │ ┌────────────────┐    ┌─────────────────────┐      │
+│  │ Engine       │ │ Agent Executor │    │  Decision Queue     │      │
+│  ├──────────────┤ │ (role→runner)  │    │  submit / approve   │      │
+│  │ Meeting      │ └────────┬───────┘    │  reminders (4 h)    │      │
+│  │ Engine       │          │            └─────────┬───────────┘      │
+│  └──────────────┘          │                      │                 │
 └────────────────────────────┼──────────────────────┼──────────────────┘
                              │                      │
                 ┌────────────┘                      │ Graph API / Webhook
@@ -68,17 +90,26 @@ cross-functional synthesis.
 │  │   │ buildSystemPrompt()   │ │  │  │  #andrew-briefings          │
 │  │   │  Knowledge Base .md   │ │  │  │  #decisions                 │
 │  │   │  + Role Brief .md     │ │  │  │  #engineering               │
-│  │   │  + Agent systemPrompt │ │  │  │  #growth                    │
-│  │   └───────────────────────┘ │  │  │  #financials                │
-│  │   ├─ ModelClient            │  │  │  #glyphor-general           │
-│  │   │  (Gemini/OpenAI/Claude) │  │  │  #product-fuse              │
-│  │   ├─ AgentSupervisor        │  │  │  #product-pulse             │
-│  │   ├─ ToolExecutor           │  │  │                              │
-│  │   ├─ EventBus               │  │  │  Adaptive Cards:            │
-│  │   └─ GlyphorEventBus       │  │  │  ├ Briefing card            │
-│  └─────────────────────────────┘  │  │  ├ Decision card             │
-│                                   │  │  └ Alert card                │
-└───────────────┬───────────────────┘  └──────────────────────────────┘
+│  │   │  + Personality Block  │ │  │  │  #growth                    │
+│  │   │  + Agent systemPrompt │ │  │  │  #financials                │
+│  │   └───────────────────────┘ │  │  │  #glyphor-general           │
+│  │   ├─ ModelClient            │  │  │  #product-fuse              │
+│  │   │  (Gemini/OpenAI/Claude) │  │  │  #product-pulse             │
+│  │   ├─ AgentSupervisor        │  │  │                              │
+│  │   ├─ ToolExecutor           │  │  │  Adaptive Cards:            │
+│  │   ├─ EventBus               │  │  │  ├ Briefing card            │
+│  │   ├─ GlyphorEventBus       │  │  │  ├ Decision card             │
+│  │   ├─ PendingMessageLoader  │  │  │  └ Alert card                │
+│  │   └─ AgentProfileLoader    │  │  │                              │
+│  └─────────────────────────────┘  │  └──────────────────────────────┘
+│                                   │
+│  Shared agent tools:              │
+│   ├─ memoryTools (save/recall)    │
+│   ├─ eventTools (emit events)     │
+│   └─ communicationTools           │
+│      (send_message, check_msgs,   │
+│       call_meeting)               │
+└───────────────┬───────────────────┘
                 │
                 ▼
 ┌───────────────────────────────────┐  ┌──────────────────────────────┐
@@ -97,9 +128,16 @@ cross-functional synthesis.
 │  │  ├ autonomous_ops_events    │  │
 │  │  ├ agent_memory             │  │
 │  │  ├ agent_reflections        │  │
-│  │  └ metrics_cache            │  │
-│  ├─────────────────────────────┤  │
-│  │ GCS (large documents)       │  │
+│  │  ├ metrics_cache            │  │
+│  │  ├ agent_profiles           │  │         ┌─────────────────────┐
+│  │  ├ agent_briefs             │  │         │ Inter-Agent Comms   │
+│  │  ├ agent_schedules          │  │         │                     │
+│  │  ├ agent_messages           │  ├────────►│ DMs + Meetings      │
+│  │  ├ agent_meetings           │  │         │ Rate limited:       │
+│  │  ├ analyses                 │  │         │  5 DMs/hr/agent     │
+│  │  └ simulations              │  │         │  2 meetings/day     │
+│  ├─────────────────────────────┤  │         │  10 meetings/day    │
+│  │ GCS (large documents)       │  │         └─────────────────────┘
 │  │  ├ briefings/{founder}/     │  │
 │  │  ├ reports/{type}/          │  │
 │  │  └ specs/{type}/            │  │
@@ -112,12 +150,19 @@ cross-functional synthesis.
 │   nginx serving static build              │
 │                                           │
 │   Pages:                                  │
-│   ├ Dashboard.tsx   (agent overview)      │
-│   ├ Chat.tsx        (talk to agents)      │
-│   ├ Workforce.tsx   (org chart + roster)  │
-│   ├ Approvals.tsx   (decision queue)      │
-│   ├ Financials.tsx  (revenue & costs)     │
-│   └ Operations.tsx  (system operations)   │
+│   ├ Dashboard.tsx    (agent overview)     │
+│   ├ Chat.tsx         (talk to agents)    │
+│   ├ Workforce.tsx    (org chart + roster)│
+│   ├ AgentsList.tsx   (agent roster)      │
+│   ├ AgentProfile.tsx (identity, perf,    │
+│   │                   memory, messages,  │
+│   │                   settings)          │
+│   ├ AgentBuilder.tsx (create new agents) │
+│   ├ Approvals.tsx    (decision queue)    │
+│   ├ Financials.tsx   (revenue & costs)   │
+│   ├ Operations.tsx   (system operations) │
+│   ├ Strategy.tsx     (analysis & sims)   │
+│   └ Meetings.tsx     (meetings & DMs)    │
 │                                           │
 │   Auth: Google Sign-In (OAuth 2.0)        │
 │   API: Supabase direct + Scheduler /run   │
@@ -168,6 +213,12 @@ They operate under their executive's authority scope.
 | **Ava Chen** | Frontend Engineer | Design & Frontend | Mia Tanaka (VP Design) |
 | **Sofia Marchetti** | Design Critic | Design & Frontend | Mia Tanaka (VP Design) |
 | **Ryan Park** | Template Architect | Design & Frontend | Mia Tanaka (VP Design) |
+
+### Operations Agent (1)
+
+| Name | Role | Agent ID | Model | Responsibilities |
+|------|------|----------|-------|-----------------|
+| **Atlas Vega** | Operations & System Intelligence | `ops` | `gemini-3-flash-preview` | System health checks, data freshness monitoring, cost awareness, morning/evening status reports, event response |
 
 ### Org Chart
 
@@ -223,15 +274,16 @@ glyphor-ai-company/
 ├── packages/
 │   ├── agent-runtime/          # Core execution engine
 │   │   └── src/
-│   │       ├── companyAgentRunner.ts   # Agent loop + knowledge injection
+│   │       ├── companyAgentRunner.ts   # Agent loop + knowledge + personality injection
 │   │       ├── modelClient.ts          # Multi-provider LLM (Gemini/OpenAI/Anthropic)
 │   │       ├── supervisor.ts           # Turn limits, stall detection, timeouts
 │   │       ├── toolExecutor.ts         # Tool declaration → execution bridge
 │   │       ├── eventBus.ts             # Internal event system
 │   │       ├── glyphorEventBus.ts      # Inter-agent event bus (Supabase-backed)
+│   │       ├── eventPermissions.ts     # Per-tier event emission permissions
 │   │       ├── subscriptions.ts        # Agent → event type subscription map
 │   │       ├── reasoning.ts            # Reasoning extraction & stripping
-│   │       └── types.ts               # All core types (25 agent roles, budgets, tool grants)
+│   │       └── types.ts               # All core types (26 agent roles, budgets, tool grants)
 │   │
 │   ├── company-memory/          # Persistence layer
 │   │   └── src/
@@ -240,7 +292,7 @@ glyphor-ai-company/
 │   │       ├── schema.ts             # Database row types
 │   │       └── migrations/           # Schema migration helpers
 │   │
-│   ├── agents/                  # 8 executive agent implementations
+│   ├── agents/                  # Agent implementations (8 execs + 17 sub-team + 1 ops)
 │   │   └── src/
 │   │       ├── chief-of-staff/        # Sarah Chen — run.ts, systemPrompt.ts, tools.ts
 │   │       ├── cto/                   # Marcus Reeves
@@ -250,12 +302,28 @@ glyphor-ai-company/
 │   │       ├── vp-customer-success/   # James Turner
 │   │       ├── vp-sales/              # Rachel Kim
 │   │       ├── vp-design/             # Mia Tanaka
-│   │       ├── shared/                # Shared tools (memoryTools, eventTools)
-│   │       └── index.ts              # Re-exports all 8 runners
+│   │       ├── platform-engineer/     # Alex Park (CTO team)
+│   │       ├── quality-engineer/      # Sam DeLuca (CTO team)
+│   │       ├── devops-engineer/       # Jordan Hayes (CTO team)
+│   │       ├── user-researcher/       # Priya Sharma (CPO team)
+│   │       ├── competitive-intel/     # Daniel Ortiz (CPO team)
+│   │       ├── revenue-analyst/       # Anna Park (CFO team)
+│   │       ├── cost-analyst/          # Omar Hassan (CFO team)
+│   │       ├── content-creator/       # Tyler Reed (CMO team)
+│   │       ├── seo-analyst/           # Lisa Chen (CMO team)
+│   │       ├── social-media-manager/  # Kai Johnson (CMO team)
+│   │       ├── onboarding-specialist/ # Emma Wright (VP CS team)
+│   │       ├── support-triage/        # David Santos (VP CS team)
+│   │       ├── account-research/      # Nathan Cole (VP Sales team)
+│   │       ├── shared/                # Shared tools:
+│   │       │   ├── memoryTools.ts        # save/recall agent memories
+│   │       │   ├── eventTools.ts         # emit Glyphor events
+│   │       │   └── communicationTools.ts # send_agent_message, check_messages, call_meeting
+│   │       └── index.ts              # Re-exports all runners
 │   │
 │   ├── company-knowledge/       # Shared context (read at runtime)
 │   │   ├── COMPANY_KNOWLEDGE_BASE.md  # ~400 lines: founders, products, metrics, rules
-│   │   └── briefs/                    # 25 role briefs (8 execs + 17 sub-team)
+│   │   └── briefs/                    # 26 role briefs (8 execs + 17 sub-team + 1 ops)
 │   │       ├── sarah-chen.md          # Chief of Staff
 │   │       ├── marcus-reeves.md       # CTO
 │   │       ├── nadia-okafor.md        # CFO
@@ -264,6 +332,7 @@ glyphor-ai-company/
 │   │       ├── james-turner.md        # VP Customer Success
 │   │       ├── rachel-kim.md          # VP Sales
 │   │       ├── mia-tanaka.md          # VP Design & Frontend
+│   │       ├── atlas-vega.md          # Operations & System Intelligence
 │   │       ├── alex-park.md           # Platform Engineer (→ CTO)
 │   │       ├── sam-deluca.md          # Quality Engineer (→ CTO)
 │   │       ├── jordan-hayes.md        # DevOps Engineer (→ CTO)
@@ -298,11 +367,17 @@ glyphor-ai-company/
 │   │
 │   ├── scheduler/               # Orchestration service
 │   │   └── src/
-│   │       ├── server.ts              # HTTP server (Cloud Run entry, 10 endpoints)
+│   │       ├── server.ts              # HTTP server (Cloud Run entry, 30+ endpoints)
 │   │       ├── eventRouter.ts         # Event → agent routing + authority
-│   │       ├── authorityGates.ts      # Green/Yellow/Red classification (all 25 roles)
+│   │       ├── authorityGates.ts      # Green/Yellow/Red classification (all 26 roles)
 │   │       ├── cronManager.ts         # 9 agent + 3 data sync job definitions
-│   │       └── decisionQueue.ts       # Human approval workflow
+│   │       ├── dynamicScheduler.ts    # DB-driven cron for dynamic agents
+│   │       ├── decisionQueue.ts       # Human approval workflow
+│   │       ├── agentLifecycle.ts      # Create/retire temporary agents
+│   │       ├── analysisEngine.ts      # 5-phase strategic analysis engine
+│   │       ├── simulationEngine.ts    # T+1 impact simulation engine
+│   │       ├── meetingEngine.ts       # Multi-round inter-agent meetings
+│   │       └── reportExporter.ts      # Analysis/simulation export (md/json)
 │   │
 │   └── dashboard/               # Web UI
 │       ├── src/
@@ -310,12 +385,31 @@ glyphor-ai-company/
 │       │   │   ├── Dashboard.tsx      # Agent overview & metrics
 │       │   │   ├── Chat.tsx           # Real-time agent chat (react-markdown)
 │       │   │   ├── Workforce.tsx      # Org chart + grid view (7 departments)
+│       │   │   ├── AgentsList.tsx     # Agent roster & grid
+│       │   │   ├── AgentProfile.tsx   # 5-tab agent profile (overview, perf,
+│       │   │   │                      #   memory, messages, settings)
+│       │   │   ├── AgentBuilder.tsx   # Create new dynamic agents
+│       │   │   ├── AgentSettings.tsx  # Agent configuration
 │       │   │   ├── Approvals.tsx      # Decision approval queue
 │       │   │   ├── Financials.tsx     # Revenue, costs, vendor subscriptions
-│       │   │   └── Operations.tsx     # System operations & events
+│       │   │   ├── Operations.tsx     # System operations & events
+│       │   │   ├── Strategy.tsx       # Strategic analysis & T+1 simulations
+│       │   │   └── Meetings.tsx       # Inter-agent meetings & messages
 │       │   ├── components/            # Shared UI components
+│       │   │   ├── Layout.tsx            # Sidebar nav (9 items), theme toggle
+│       │   │   ├── AgentIcon.tsx         # Agent avatar component
+│       │   │   ├── GrowthAreas.tsx       # Agent growth tracking
+│       │   │   ├── PeerFeedback.tsx      # Agent peer feedback display
+│       │   │   ├── QualityChart.tsx      # Quality score charts
+│       │   │   ├── SystemHealth.tsx      # System health monitor
+│       │   │   └── ui.tsx                # Shared primitives
 │       │   ├── lib/                   # Hooks, Supabase client, types, utilities
-│       │   ├── App.tsx               # Router & layout
+│       │   │   ├── supabase.ts           # Supabase client init
+│       │   │   ├── auth.tsx              # Google OAuth provider
+│       │   │   ├── theme.tsx             # Dark/light theme provider
+│       │   │   ├── hooks.ts              # Custom hooks
+│       │   │   └── types.ts              # Dashboard-specific types
+│       │   ├── App.tsx               # Router & layout (12 routes)
 │       │   └── index.css             # Tailwind + Glyphor brand theme
 │       └── package.json
 │
@@ -333,7 +427,7 @@ glyphor-ai-company/
 │       ├── open-dashboard.ps1
 │       └── open-dashboard.sh
 │
-├── supabase/migrations/         # 7 migration files
+├── supabase/migrations/         # 16 migration files
 ├── turbo.json                   # Turborepo pipeline config
 ├── tsconfig.base.json           # Shared TS config
 └── package.json                 # npm workspaces root
@@ -349,31 +443,42 @@ The core execution loop (ported from Fuse V7 `agentRunner.ts`):
 
 ```
 1. BUILD SYSTEM PROMPT
-   buildSystemPrompt(role, existingPrompt)
+   buildSystemPrompt(role, existingPrompt, dynamicBrief?, profile?)
     → Load COMPANY_KNOWLEDGE_BASE.md   (shared company context)
     → Load briefs/{name}.md            (role-specific brief)
+    → Build Personality Block           (from agent_profiles table)
     → Append agent's own systemPrompt
-    → Final = Knowledge Base + Role Brief + Agent System Prompt
+    → Final = Knowledge Base + WHO YOU ARE block + Role Brief + Agent System Prompt
+    → Anti-patterns appended (no filler phrases, no corporate jargon, etc.)
 
-2. SUPERVISOR CHECK
+2. MEMORY RETRIEVAL
+    → Load prior memories (up to 20) + reflections (up to 3)
+    → Inject as context turn
+
+3. PENDING MESSAGES
+    → pendingMessageLoader checks agent_messages for unread DMs
+    → Urgent messages flagged with 🔴
+    → Injected as context with thread_id for replies
+
+4. SUPERVISOR CHECK
     → Verify turnCount < maxTurns (default 10)
     → Verify stallCount < maxStallTurns (default 3)
     → Verify timeout not exceeded (default 60 s)
 
-3. CONTEXT INJECTION (turn 2+)
+5. CONTEXT INJECTION (turn 2+)
     → Optional per-agent contextInjector adds dynamic context
 
-4. MODEL CALL
+6. MODEL CALL
     → Send systemInstruction + history to Gemini API
     → Include tool declarations for function calling
     → Handle Gemini 3 thought signatures (batch tool_call/tool_result turns)
 
-5. TOOL DISPATCH
+7. TOOL DISPATCH
     → If tool calls → ToolExecutor.execute() each one
     → Push tool_call turns (with thoughtSignature), then tool_result turns
-    → Loop back to step 2
+    → Loop back to step 4
 
-6. COMPLETION
+8. COMPLETION
     → Model returns text with STOP finish reason → done
     → Extract reasoning envelope if present
     → Return AgentExecutionResult
@@ -381,13 +486,35 @@ The core execution loop (ported from Fuse V7 `agentRunner.ts`):
 
 ### Knowledge Injection
 
-Every Gemini API call receives a composite system prompt built from three layers:
+Every Gemini API call receives a composite system prompt built from four layers:
 
 | Layer | Source | Size |
 |-------|--------|------|
 | Company Knowledge Base | `company-knowledge/COMPANY_KNOWLEDGE_BASE.md` | ~400 lines |
-| Role Brief | `company-knowledge/briefs/{name}.md` | ~80 lines |
+| Personality Block | `agent_profiles` table → `buildPersonalityBlock()` | ~40 lines |
+| Role Brief | `company-knowledge/briefs/{name}.md` or DB `agent_briefs` | ~80 lines |
 | Agent System Prompt | `agents/src/{role}/systemPrompt.ts` | ~30 lines |
+
+The **Personality Block** (WHO YOU ARE section) includes:
+- Personality summary and backstory
+- Communication traits and quirks
+- Voice calibration: formality (0–1), emoji usage (0–1), verbosity (0–1)
+- Signature sign-off
+- Voice sample (how they sound)
+- Voice calibration examples (few-shot)
+- Anti-pattern rules (no filler, no corporate jargon, no AI self-reference)
+
+### RunDependencies
+
+The `CompanyAgentRunner.run()` method accepts optional dependencies:
+
+| Dependency | Purpose |
+|-----------|---------|
+| `glyphorEventBus` | Emit inter-agent events |
+| `agentMemoryStore` | Prior memories + reflections |
+| `dynamicBriefLoader` | DB-stored briefs for agents without file-based briefs |
+| `agentProfileLoader` | Load personality profile from `agent_profiles` table |
+| `pendingMessageLoader` | Load unread inter-agent messages for injection |
 
 Name mapping (`ROLE_TO_BRIEF`):
 
@@ -418,6 +545,7 @@ Name mapping (`ROLE_TO_BRIEF`):
 | `frontend-engineer` | `ava-chen.md` |
 | `design-critic` | `sofia-marchetti.md` |
 | `template-architect` | `ryan-park.md` |
+| `ops` | `atlas-vega.md` |
 
 ### ModelClient — Multi-Provider LLM
 
@@ -444,9 +572,70 @@ event (e.g., `insight.detected`, `alert.triggered`), the scheduler checks the su
 and can wake other agents in response.
 
 Event types: `agent.completed`, `insight.detected`, `decision.filed`, `decision.resolved`,
-`alert.triggered`, `task.requested`, `agent.spawned`, `agent.retired`.
+`alert.triggered`, `task.requested`, `agent.spawned`, `agent.retired`, `message.sent`,
+`meeting.called`, `meeting.completed`.
 
 Rate limited to 10 events per agent per hour.
+
+#### Event Emission Permissions
+
+| Tier | Allowed Events |
+|------|---------------|
+| Executives | `agent.completed`, `insight.detected`, `decision.filed`, `alert.triggered`, `task.requested`, `agent.spawned`, `agent.retired`, `message.sent`, `meeting.called`, `meeting.completed` |
+| Sub-team | `insight.detected`, `message.sent` |
+| System/Founders only | `decision.resolved` |
+
+### Inter-Agent Communication
+
+Agents communicate directly via three mechanisms:
+
+#### 1. Direct Messages (`agent_messages`)
+
+Agents send async messages to each other using the `send_agent_message` tool. Messages are
+stored in `agent_messages` and injected into the recipient's context on their next run.
+
+| Field | Description |
+|-------|------------|
+| `message_type` | `request`, `response`, `info`, `followup` |
+| `priority` | `normal`, `urgent` (urgent messages trigger agent wake) |
+| `status` | `pending` → `read` → `responded` |
+| `thread_id` | UUID for threaded conversations |
+
+Rate limit: **5 DMs per agent per hour**.
+
+#### 2. Meetings (`agent_meetings`)
+
+Multi-round collaborative discussions orchestrated by the `MeetingEngine`:
+
+```
+1. SCHEDULE  — Create meeting record in agent_meetings
+2. ROUND 1   — Opening statements (each attendee gives perspective)
+3. ROUND 2-N — Discussion (agents respond with full transcript context)
+4. SYNTHESIS  — Sarah Chen summarizes: key points, agreements,
+                disagreements, action items, decisions, escalations
+5. DISPATCH  — Action items sent as agent_messages to owners
+```
+
+| Constraint | Limit |
+|-----------|-------|
+| Max attendees per meeting | 5 |
+| Max rounds per meeting | 5 |
+| Min rounds per meeting | 2 |
+| Max meetings per agent per day | 2 |
+| Max meetings system-wide per day | 10 |
+
+Meeting types: `discussion`, `review`, `planning`, `incident`, `standup`.
+
+#### 3. Communication Tools
+
+Factory function `createCommunicationTools(supabase, glyphorEventBus, schedulerUrl?)` returns
+three `ToolDefinition[]` items available to all agents:
+
+| Tool | Description |
+|------|------------|
+| `send_agent_message` | Send a DM to another agent (validates recipient, rate limited) |
+| `check_messages` | Check for pending messages, marks as read, returns with thread_id |
+| `call_meeting` | Convene a multi-agent meeting (validates attendees, rate limited) |
 
 ### Agent Budget Caps
 
@@ -459,6 +648,157 @@ Each agent role has per-run, daily, and monthly USD cost caps defined in `AGENT_
 | CPO | $0.08 | $1.00 | $30 |
 | CMO | $0.10 | $1.50 | $40 |
 | Sub-team (most) | $0.02–0.05 | $0.20–0.50 | $6–12 |
+
+---
+
+## Strategy Lab — Analysis & Simulation Engines
+
+### Strategic Analysis Engine (`analysisEngine.ts`)
+
+5-phase engine that orchestrates multi-agent strategic analyses:
+
+```
+1. PLAN       — Break the question into research threads (3-5 threads)
+2. SPAWN      — Create temporary specialist agents via agentLifecycle
+3. EXECUTE    — Run each agent on its research thread in parallel
+4. SYNTHESIZE — Merge findings into a structured report
+5. CLEANUP    — Retire temporary agents
+```
+
+Analysis types: `market_opportunity`, `competitive_landscape`, `product_strategy`,
+`growth_diagnostic`, `risk_assessment`.
+
+Depth levels: `quick` (2-3 threads), `standard` (4-5 threads), `deep` (5+ threads).
+
+### T+1 Simulation Engine (`simulationEngine.ts`)
+
+6-phase engine that simulates the impact of a proposed action across the organization:
+
+```
+1. PLAN       — Parse the action into impact dimensions
+2. SPAWN      — Create perspective agents for each department
+3. EXECUTE    — Each agent assesses impact from their viewpoint
+4. CASCADE    — Identify second-order effects and dependencies
+5. SYNTHESIZE — Merge into an impact matrix with confidence scores
+6. CLEANUP    — Retire temporary agents
+```
+
+Output includes: impact dimensions (-10 to +10 magnitude, 0-1 confidence),
+cascade links (from→to with delay estimates), and overall recommendation.
+
+Perspective modes: `optimistic`, `neutral`, `pessimistic`.
+
+### Agent Lifecycle (`agentLifecycle.ts`)
+
+Manages creation and retirement of temporary agents spawned by the Analysis and
+Simulation engines. Temporary agents:
+- Are stored in `company_agents` with `is_temporary = true`
+- Have `expires_at` set based on TTL
+- Are retired (soft-deleted) after the engine completes
+- Have briefs stored in `agent_briefs` table
+
+### Report Exporter (`reportExporter.ts`)
+
+Generates downloadable documents from analysis and simulation reports in both
+Markdown (human-readable) and JSON (structured) formats.
+
+### Dynamic Scheduler (`dynamicScheduler.ts`)
+
+Polls `agent_schedules` table every 60 seconds for DB-defined cron jobs. Runs alongside
+static Cloud Scheduler jobs. Supports standard 5-field cron expressions with wildcards,
+ranges, steps, and lists.
+
+---
+
+## Agent Identity & Performance System
+
+### Agent Profiles (`agent_profiles` table)
+
+Each agent has a rich personality profile stored in the `agent_profiles` table:
+
+| Field | Description |
+|-------|------------|
+| `personality_summary` | Core personality description |
+| `backstory` | Character backstory and motivation |
+| `communication_traits` | Array of communication style traits |
+| `quirks` | Array of personality quirks |
+| `tone_formality` | 0–1 scale (casual → formal) |
+| `emoji_usage` | 0–1 scale (rarely → frequently) |
+| `verbosity` | 0–1 scale (terse → detailed) |
+| `voice_sample` | Example of how the agent sounds |
+| `signature` | Sign-off line |
+| `clifton_strengths` | Array of top strengths |
+| `working_style` | How the agent approaches work |
+| `voice_examples` | Few-shot calibration examples (situation → response) |
+
+### AgentProfile Page (Dashboard)
+
+5-tab profile page at `/agents/:agentId`:
+
+| Tab | Content |
+|-----|---------|
+| **Overview** | Avatar, personality summary, backstory, communication traits, quirks, Clifton strengths, working style |
+| **Performance** | Quality score trends (chart), growth areas, peer feedback from other agents |
+| **Memory** | Agent memories (observations, learnings, preferences, facts) + reflections with quality scores |
+| **Messages** | Stats row (received/sent/meetings/pending), DM list with directional arrows, meeting participation list |
+| **Settings** | Model selection, temperature, max turns, budget caps, cron schedule |
+
+---
+
+## Supabase Database Schema
+
+### Core Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `company_profile` | Company metadata | name, description, founded_at |
+| `products` | Product catalog | slug, name, status, description |
+| `company_agents` | Agent registry | id, role, codename, name, title, department, reports_to, status, model, temperature, max_turns, budget_*, is_core, is_temporary, expires_at |
+| `decisions` | Approval queue | id, tier, status, title, summary, proposed_by, assigned_to, resolved_by |
+| `activity_log` | Audit trail | agent_id, action, detail, created_at |
+
+### Financial Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `financials` | Revenue & costs | date, product, mrr, infra_cost, api_cost, margin |
+| `customer_health` | Customer scores | customer_id, health_score, risk_level, last_contact |
+| `competitive_intel` | Market intelligence | competitor, category, finding, source |
+| `product_proposals` | Feature proposals | title, product, rice_score, status |
+
+### Agent Intelligence Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `agent_memory` | Persistent memories | agent_role, memory_type, content, importance, tags |
+| `agent_reflections` | Post-run reflections | agent_role, run_id, summary, quality_score, what_went_well, what_could_improve |
+| `agent_profiles` | Personality profiles | agent_id, personality_summary, backstory, communication_traits, quirks, tone_formality, voice_sample, clifton_strengths |
+| `agent_briefs` | Dynamic agent briefs | agent_id, system_prompt, skills, tools |
+| `agent_schedules` | DB-defined cron jobs | agent_id, cron_expression, task, payload, enabled |
+| `metrics_cache` | Cached metrics | key, value, expires_at |
+
+### Communication Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `agent_messages` | Inter-agent DMs | from_agent, to_agent, thread_id, message, message_type, priority, status, response |
+| `agent_meetings` | Multi-agent meetings | called_by, title, purpose, meeting_type, attendees, status, rounds, contributions, transcript, summary, action_items, decisions_made, escalations |
+
+### Strategy Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `analyses` | Strategic analyses | type, query, depth, status, threads, report, requested_by |
+| `simulations` | T+1 simulations | action, perspective, status, dimensions, cascades, report, requested_by |
+
+### Operations Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `autonomous_ops_events` | System operations | event_type, agent_role, summary, detail |
+| `data_sync_status` | Sync health tracking | id, status, last_success_at, last_failure_at, consecutive_failures |
+
+Total: **16 migration files**, **20+ tables**.
 
 ---
 
@@ -543,7 +883,7 @@ Each agent role has per-run, daily, and monthly USD cost caps defined in `AGENT_
 | Detail | Value |
 |--------|-------|
 | Framework | Vite + React 19 + TypeScript |
-| Styling | Tailwind CSS 3.4 + Glyphor brand (dark mode) |
+| Styling | Tailwind CSS 3.4 + Glyphor brand (dark/light mode) |
 | Markdown | `react-markdown` for agent chat |
 | Auth | Google Sign-In (OAuth 2.0) |
 | Hosting | nginx:1.27-alpine on Cloud Run |
@@ -554,11 +894,16 @@ Each agent role has per-run, daily, and monthly USD cost caps defined in `AGENT_
 | Page | Route | Function |
 |------|-------|----------|
 | Dashboard | `/` | Agent activity overview, key metrics |
-| Chat | `/chat`, `/chat/:agentId` | Select agent in sidebar, send messages, formatted responses |
-| Workforce | `/workforce` | Org chart (7 departments) + grid view — 27 total headcount |
+| Chat | `/chat`, `/chat/:agentId` | Multi-turn conversational agent chat with history |
+| Workforce | `/workforce` | Org chart (7 departments) + grid view — 28 total headcount |
+| Agents | `/agents` | Agent roster with status, model, last run |
+| Agent Profile | `/agents/:agentId` | 5-tab profile: Overview (personality, backstory, strengths), Performance (quality scores, growth areas, peer feedback), Memory (memories + reflections), Messages (DMs + meeting participation), Settings (model, temperature, budget) |
+| Agent Builder | `/agents/new` | Create new dynamic agents with name, department, model, budget, cron |
 | Approvals | `/approvals` | Pending decision queue — approve/reject |
 | Financials | `/financials` | Revenue (Stripe MRR), costs (GCP billing), cash (Mercury), vendor subscriptions |
 | Operations | `/operations` | System operations & autonomous events |
+| Strategy | `/strategy` | Strategic analysis engine (5 analysis types) + T+1 simulation engine with impact matrix |
+| Meetings | `/meetings` | Meeting timeline with transcripts, action items, decisions, escalations; recent message feed |
 
 ### Departments (Dashboard Workforce)
 
@@ -676,7 +1021,10 @@ Agent tool calls create_decision with tier:'yellow'
 | CORS | Scheduler allows `*` for dashboard |
 | Network | Scheduler: `--no-allow-unauthenticated` (IAM-gated); Dashboard: `--allow-unauthenticated` |
 | IAM | `allUsers` → `roles/run.invoker` on scheduler (for CORS OPTIONS preflight) |
-| Rate Limiting | 10 events per agent per hour on the event bus |
+| Event Rate Limiting | 10 events per agent per hour on the event bus |
+| Message Rate Limiting | 5 DMs per agent per hour |
+| Meeting Rate Limiting | 2 meetings per agent per day, 10 system-wide per day |
+| Event Permissions | Tiered: executives vs sub-team vs system-only event types |
 | Budget | Per-run, daily, monthly cost caps per agent role |
 
 ---
