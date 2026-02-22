@@ -244,20 +244,73 @@ export class CompanyAgentRunner {
       model: config.model,
     });
 
-    // ─── MEMORY RETRIEVAL: inject prior memories + reflections ──
-    if (deps?.agentMemoryStore) {
-      try {
-        const fetches: [Promise<AgentMemory[]>, Promise<AgentReflection[]>, Promise<(AgentMemory & { similarity: number })[]>] = [
-          deps.agentMemoryStore.getMemories(config.role, { limit: 20 }),
-          deps.agentMemoryStore.getReflections(config.role, 3),
-          // Semantic search: find memories relevant to this task
-          deps.agentMemoryStore.searchMemoriesBySimilarity
-            ? deps.agentMemoryStore.searchMemoriesBySimilarity(config.role, initialMessage, { limit: 5, threshold: 0.7 })
-            : Promise.resolve([]),
-        ];
-        const [memories, reflections, semanticMemories] = await Promise.all(fetches);
+    // ─── PARALLEL PRE-RUN DATA LOADING ────────────────────────
+    // Load memories, dynamic brief, pending messages, CI context,
+    // and agent profile all in parallel to minimize latency.
+    let dynamicBrief: string | undefined;
+    let agentProfile: AgentProfileData | null = null;
 
-        // Merge semantic results (deduplicated) with recency-based memories
+    {
+      // Memory retrieval (3 sub-fetches already parallelized internally)
+      const memoryPromise = deps?.agentMemoryStore
+        ? (async () => {
+            const fetches: [Promise<AgentMemory[]>, Promise<AgentReflection[]>, Promise<(AgentMemory & { similarity: number })[]>] = [
+              deps.agentMemoryStore!.getMemories(config.role, { limit: 20 }),
+              deps.agentMemoryStore!.getReflections(config.role, 3),
+              deps.agentMemoryStore!.searchMemoriesBySimilarity
+                ? deps.agentMemoryStore!.searchMemoriesBySimilarity(config.role, initialMessage, { limit: 5, threshold: 0.7 })
+                : Promise.resolve([]),
+            ];
+            return Promise.all(fetches);
+          })().catch(err => {
+            console.warn(`[CompanyAgentRunner] Memory retrieval failed for ${config.role}:`, (err as Error).message);
+            return null;
+          })
+        : Promise.resolve(null);
+
+      // Dynamic brief
+      const briefPromise = (!ROLE_TO_BRIEF[config.role] && deps?.dynamicBriefLoader)
+        ? deps.dynamicBriefLoader(config.id).catch(err => {
+            console.warn(`[CompanyAgentRunner] Dynamic brief load failed for ${config.id}:`, (err as Error).message);
+            return null;
+          })
+        : Promise.resolve(null);
+
+      // Pending inter-agent messages
+      const messagesPromise = deps?.pendingMessageLoader
+        ? deps.pendingMessageLoader(config.role).catch(err => {
+            console.warn(`[CompanyAgentRunner] Pending message load failed for ${config.role}:`, (err as Error).message);
+            return [] as { id: string; from_agent: string; message: string; message_type: string; priority: string; thread_id: string; created_at: string }[];
+          })
+        : Promise.resolve([] as { id: string; from_agent: string; message: string; message_type: string; priority: string; thread_id: string; created_at: string }[]);
+
+      // Collective Intelligence (pulse + org knowledge + inbox)
+      const ciPromise = deps?.collectiveIntelligenceLoader
+        ? deps.collectiveIntelligenceLoader(config.role).catch(err => {
+            console.warn(`[CompanyAgentRunner] Collective intelligence load failed for ${config.role}:`, (err as Error).message);
+            return null;
+          })
+        : Promise.resolve(null);
+
+      // Agent personality profile
+      const profilePromise = deps?.agentProfileLoader
+        ? deps.agentProfileLoader(config.role).catch(err => {
+            console.warn(`[CompanyAgentRunner] Profile load failed for ${config.role}:`, (err as Error).message);
+            return null;
+          })
+        : Promise.resolve(null);
+
+      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult] = await Promise.all([
+        memoryPromise,
+        briefPromise,
+        messagesPromise,
+        ciPromise,
+        profilePromise,
+      ]);
+
+      // Inject memory context
+      if (memoryResult) {
+        const [memories, reflections, semanticMemories] = memoryResult;
         const seenIds = new Set(memories.map((m) => m.id));
         const uniqueSemantic = semanticMemories.filter((m) => !seenIds.has(m.id));
 
@@ -273,78 +326,32 @@ export class CompanyAgentRunner {
             timestamp: Date.now(),
           });
         }
-      } catch (err) {
-        console.warn(
-          `[CompanyAgentRunner] Memory retrieval failed for ${config.role}:`,
-          (err as Error).message,
-        );
       }
-    }
 
-    // Load dynamic brief for agents without file-based briefs
-    let dynamicBrief: string | undefined;
-    if (!ROLE_TO_BRIEF[config.role] && deps?.dynamicBriefLoader) {
-      try {
-        const brief = await deps.dynamicBriefLoader(config.id);
-        if (brief) dynamicBrief = brief;
-      } catch (err) {
-        console.warn(
-          `[CompanyAgentRunner] Dynamic brief load failed for ${config.id}:`,
-          (err as Error).message,
-        );
-      }
-    }
+      // Set dynamic brief
+      if (briefResult) dynamicBrief = briefResult;
 
-    // ─── PENDING MESSAGES: inject inter-agent messages ──────────
-    if (deps?.pendingMessageLoader) {
-      try {
-        const pendingMessages = await deps.pendingMessageLoader(config.role);
-        if (pendingMessages.length > 0) {
-          const msgContext = buildPendingMessageContext(pendingMessages);
-          history.push({
-            role: 'user',
-            content: msgContext,
-            timestamp: Date.now(),
-          });
-        }
-      } catch (err) {
-        console.warn(
-          `[CompanyAgentRunner] Pending message load failed for ${config.role}:`,
-          (err as Error).message,
-        );
+      // Inject pending messages
+      if (pendingMessages.length > 0) {
+        const msgContext = buildPendingMessageContext(pendingMessages);
+        history.push({
+          role: 'user',
+          content: msgContext,
+          timestamp: Date.now(),
+        });
       }
-    }
 
-    // ─── COLLECTIVE INTELLIGENCE: pulse + org knowledge + inbox ──
-    if (deps?.collectiveIntelligenceLoader) {
-      try {
-        const ciContext = await deps.collectiveIntelligenceLoader(config.role);
-        if (ciContext) {
-          history.push({
-            role: 'user',
-            content: ciContext,
-            timestamp: Date.now(),
-          });
-        }
-      } catch (err) {
-        console.warn(
-          `[CompanyAgentRunner] Collective intelligence load failed for ${config.role}:`,
-          (err as Error).message,
-        );
+      // Inject CI context
+      if (ciContext) {
+        history.push({
+          role: 'user',
+          content: ciContext,
+          timestamp: Date.now(),
+        });
       }
-    }
 
-    // Load personality profile
-    let agentProfile: AgentProfileData | null = null;
-    if (deps?.agentProfileLoader) {
-      try {
-        agentProfile = await deps.agentProfileLoader(config.role);
-      } catch (err) {
-        console.warn(
-          `[CompanyAgentRunner] Profile load failed for ${config.role}:`,
-          (err as Error).message,
-        );
-      }
+      // Set profile
+      agentProfile = profileResult;
     }
 
     try {
