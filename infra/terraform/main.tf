@@ -30,6 +30,24 @@ variable "environment" {
   default     = "prod"
 }
 
+variable "supabase_url" {
+  description = "Public Supabase URL for dashboard build"
+  type        = string
+  default     = "https://ztucrgzcoaryzuvkcaif.supabase.co"
+}
+
+variable "supabase_anon_key" {
+  description = "Public Supabase anon key for dashboard build"
+  type        = string
+  sensitive   = true
+}
+
+variable "founder_emails" {
+  description = "Google accounts allowed to access the dashboard"
+  type        = list(string)
+  default     = ["kristina@glyphor.ai", "andrew@glyphor.ai"]
+}
+
 provider "google" {
   project = var.project_id
   region  = var.region
@@ -285,7 +303,61 @@ resource "google_project_iam_member" "gcs_access" {
   member  = "serviceAccount:${google_service_account.glyphor.email}"
 }
 
+# ─── Cloud Run: Dashboard ─────────────────────────────────────
+resource "google_cloud_run_v2_service" "dashboard" {
+  name     = "glyphor-dashboard"
+  location = var.region
+
+  template {
+    containers {
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/glyphor/dashboard:latest"
+
+      ports {
+        container_port = 8080
+      }
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "256Mi"
+        }
+      }
+
+      startup_probe {
+        http_get {
+          path = "/healthz"
+          port = 8080
+        }
+        initial_delay_seconds = 0
+        period_seconds        = 3
+        failure_threshold     = 3
+      }
+    }
+
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 3
+    }
+  }
+
+  depends_on = [
+    google_project_service.apis["run.googleapis.com"],
+  ]
+}
+
+# Dashboard is publicly accessible — app handles Google Sign-In auth
+resource "google_cloud_run_v2_service_iam_member" "dashboard_public" {
+  name     = google_cloud_run_v2_service.dashboard.name
+  location = var.region
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
 # ─── Outputs ──────────────────────────────────────────────────
+output "dashboard_url" {
+  value = google_cloud_run_v2_service.dashboard.uri
+}
+
 output "scheduler_url" {
   value = google_cloud_run_v2_service.scheduler.uri
 }

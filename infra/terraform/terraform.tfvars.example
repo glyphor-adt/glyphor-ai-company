@@ -1,3 +1,5 @@
-project_id  = "your-gcp-project-id"
-region      = "us-central1"
-environment = "prod"
+project_id        = "your-gcp-project-id"
+region            = "us-central1"
+environment       = "prod"
+supabase_anon_key = "your-supabase-anon-key"
+founder_emails    = ["kristina@glyphor.ai", "andrew@glyphor.ai"]

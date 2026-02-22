@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useTheme } from '../lib/theme';
+import { useAuth } from '../lib/auth';
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: GridIcon },
@@ -10,6 +11,7 @@ const NAV = [
 
 export default function Layout() {
   const { theme, toggle } = useTheme();
+  const { user, logout } = useAuth();
   return (
     <div className="flex h-screen overflow-hidden bg-base">
       {/* ── Sidebar ─────────────────────────── */}
@@ -59,12 +61,16 @@ export default function Layout() {
         {/* Footer */}
         <div className="border-t border-border px-4 py-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan/20 text-[11px] font-bold text-cyan">
-              KD
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-[12px] font-medium text-txt-secondary">Kristina</p>
-              <p className="truncate text-[11px] text-txt-muted">CEO</p>
+            {user?.picture ? (
+              <img src={user.picture} alt="" className="h-7 w-7 rounded-full" referrerPolicy="no-referrer" />
+            ) : (
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan/20 text-[11px] font-bold text-cyan">
+                {(user?.name ?? 'U')[0]}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[12px] font-medium text-txt-secondary">{user?.name ?? 'User'}</p>
+              <button onClick={logout} className="text-[11px] text-txt-muted hover:text-cyan transition-colors">Sign out</button>
             </div>
           </div>
         </div>

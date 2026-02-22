@@ -13,7 +13,9 @@
     "typecheck": "turbo run typecheck",
     "seed": "bash infra/scripts/seed-memory.sh",
     "cos:briefing": "tsx packages/agents/src/chief-of-staff/run.ts briefing",
-    "cos:run": "tsx packages/agents/src/chief-of-staff/run.ts"
+    "cos:run": "tsx packages/agents/src/chief-of-staff/run.ts",
+    "dashboard": "powershell -File infra/scripts/open-dashboard.ps1",
+    "dashboard:dev": "npm run dev --workspace=packages/dashboard"
   },
   "devDependencies": {
     "turbo": "^2.4.0",
