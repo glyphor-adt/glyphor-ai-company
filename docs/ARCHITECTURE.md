@@ -1,17 +1,20 @@
 # Glyphor AI Company — System Architecture
 
-> Last updated: 2025-02-22
+> Last updated: 2026-02-22
 
 ## Overview
 
-Glyphor AI Company is a monorepo containing 7 AI executive agents that autonomously operate
-Glyphor alongside two human founders (Kristina Denney, CEO; Andrew Zwelling, COO). The agents
-run 24/7 on GCP Cloud Run, share state through Supabase, communicate with founders via Microsoft
-Teams, and are governed by a three-tier authority model (Green / Yellow / Red).
+Glyphor AI Company is a monorepo containing 8 AI executive agents and 17 sub-team members that
+autonomously operate Glyphor alongside two human founders (Kristina Denney, CEO; Andrew Denney, COO).
+The agents run 24/7 on GCP Cloud Run, share state through Supabase, communicate with founders via
+Microsoft Teams, and are governed by a three-tier authority model (Green / Yellow / Red).
+
+Total headcount: **27** — 2 human founders, 8 AI executives, 17 AI team members.
 
 The founders work full-time at Microsoft with 5-10 h/week for Glyphor. The AI executive team
 handles everything else: daily operations, financial monitoring, content creation, product
-analysis, customer success, enterprise sales research, and cross-functional synthesis.
+analysis, customer success, enterprise sales research, design & frontend quality, and
+cross-functional synthesis.
 
 ---
 
@@ -20,32 +23,39 @@ analysis, customer success, enterprise sales research, and cross-functional synt
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │                      GCP Cloud Scheduler                             │
-│  9 cron jobs → Pub/Sub topic "glyphor-agent-events"                  │
+│  9 agent cron jobs → Pub/Sub topic "glyphor-agent-events"            │
+│  3 data sync jobs  → HTTP POST to scheduler endpoints                │
 │  (briefings, health checks, cost reviews, content, pipelines, etc.)  │
 └───────────────────────────┬──────────────────────────────────────────┘
-                            │ Pub/Sub push
+                            │ Pub/Sub push + HTTP
                             ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │             Scheduler Service (Cloud Run: glyphor-scheduler)         │
 │                                                                      │
-│  POST /pubsub ── Cloud Scheduler cron messages                       │
-│  POST /run    ── Dashboard chat & manual invocations                 │
-│  GET  /health ── Health check                                        │
-│  OPTIONS /*   ── CORS preflight                                      │
+│  POST /pubsub          ── Cloud Scheduler cron messages              │
+│  POST /run             ── Dashboard chat & manual invocations        │
+│  POST /event           ── Glyphor Event Bus (inter-agent events)     │
+│  POST /webhook/stripe  ── Stripe webhook receiver                    │
+│  POST /sync/stripe     ── Stripe data sync                          │
+│  POST /sync/gcp-billing── GCP billing export sync                   │
+│  POST /sync/mercury    ── Mercury banking sync                      │
+│  GET  /health          ── Health check                               │
+│  OPTIONS /*            ── CORS preflight                             │
 │                                                                      │
 │  ┌──────────────┐  ┌───────────────┐  ┌──────────────────────────┐   │
 │  │ Cron Manager │  │ Event Router  │  │    Authority Gates       │   │
-│  │ (9 jobs)     │  │ route()       │  │ checkAuthority(role,act) │   │
+│  │ (9+3 jobs)   │  │ route()       │  │ checkAuthority(role,act) │   │
 │  └──────────────┘  │ handlePubSub()│  │ GREEN per-role           │   │
 │                    │ handleAgent() │  │ YELLOW → one founder     │   │
-│                    └───────┬───────┘  │ RED    → both founders   │   │
-│                            │          └────────────┬─────────────┘   │
-│                            ▼                       │                 │
-│                   ┌────────────────┐    ┌──────────▼──────────┐      │
+│                    │ handleEvent() │  │ RED    → both founders   │   │
+│                    └───────┬───────┘  └────────────┬─────────────┘   │
+│                            │                       │                 │
+│                            ▼                       ▼                 │
+│                   ┌────────────────┐    ┌─────────────────────┐      │
 │                   │ Agent Executor │    │  Decision Queue     │      │
 │                   │ (role→runner)  │    │  submit / approve   │      │
 │                   └────────┬───────┘    │  reminders (4 h)    │      │
-│                            │            └─────────┬──────────┘      │
+│                            │            └─────────┬───────────┘      │
 └────────────────────────────┼──────────────────────┼──────────────────┘
                              │                      │
                 ┌────────────┘                      │ Graph API / Webhook
@@ -64,25 +74,30 @@ analysis, customer success, enterprise sales research, and cross-functional synt
 │  │   │  (Gemini/OpenAI/Claude) │  │  │  #product-fuse              │
 │  │   ├─ AgentSupervisor        │  │  │  #product-pulse             │
 │  │   ├─ ToolExecutor           │  │  │                              │
-│  │   └─ EventBus               │  │  │  Adaptive Cards:            │
-│  └─────────────────────────────┘  │  │  ├ Briefing card            │
-│                                   │  │  ├ Decision card             │
-└───────────────┬───────────────────┘  │  └ Alert card                │
-                │                      └──────────────────────────────┘
+│  │   ├─ EventBus               │  │  │  Adaptive Cards:            │
+│  │   └─ GlyphorEventBus       │  │  │  ├ Briefing card            │
+│  └─────────────────────────────┘  │  │  ├ Decision card             │
+│                                   │  │  └ Alert card                │
+└───────────────┬───────────────────┘  └──────────────────────────────┘
+                │
                 ▼
-┌───────────────────────────────────┐
-│        Company Memory             │
-│  ┌─────────────────────────────┐  │
-│  │ Supabase (9 tables)         │  │
-│  │  ├ company_profile          │  │
-│  │  ├ products                 │  │
-│  │  ├ company_agents           │  │
-│  │  ├ decisions                │  │
+┌───────────────────────────────────┐  ┌──────────────────────────────┐
+│        Company Memory             │  │   External Integrations      │
+│  ┌─────────────────────────────┐  │  │                              │
+│  │ Supabase (PostgreSQL)       │  │  │  Stripe  — MRR, churn, subs │
+│  │  ├ company_profile          │  │  │  Mercury — banking, cash     │
+│  │  ├ products                 │  │  │  GCP     — billing export    │
+│  │  ├ company_agents           │  │  │                              │
+│  │  ├ decisions                │  │  └──────────────────────────────┘
 │  │  ├ activity_log             │  │
 │  │  ├ competitive_intel        │  │
 │  │  ├ customer_health          │  │
 │  │  ├ financials               │  │
-│  │  └ product_proposals        │  │
+│  │  ├ product_proposals        │  │
+│  │  ├ autonomous_ops_events    │  │
+│  │  ├ agent_memory             │  │
+│  │  ├ agent_reflections        │  │
+│  │  └ metrics_cache            │  │
 │  ├─────────────────────────────┤  │
 │  │ GCS (large documents)       │  │
 │  │  ├ briefings/{founder}/     │  │
@@ -97,10 +112,12 @@ analysis, customer success, enterprise sales research, and cross-functional synt
 │   nginx serving static build              │
 │                                           │
 │   Pages:                                  │
-│   ├ Dashboard.tsx  (agent overview)       │
-│   ├ Chat.tsx       (talk to agents)       │
-│   ├ Workforce.tsx  (agent roster)         │
-│   └ Approvals.tsx  (decision queue)       │
+│   ├ Dashboard.tsx   (agent overview)      │
+│   ├ Chat.tsx        (talk to agents)      │
+│   ├ Workforce.tsx   (org chart + roster)  │
+│   ├ Approvals.tsx   (decision queue)      │
+│   ├ Financials.tsx  (revenue & costs)     │
+│   └ Operations.tsx  (system operations)   │
 │                                           │
 │   Auth: Google Sign-In (OAuth 2.0)        │
 │   API: Supabase direct + Scheduler /run   │
@@ -111,7 +128,10 @@ analysis, customer success, enterprise sales research, and cross-functional synt
 
 ## Agent Roster
 
-All 7 agents are active and run 24/7 via the scheduler service.
+### AI Executives (8)
+
+All 8 executives have full agent runners (`run.ts`, `systemPrompt.ts`, `tools.ts`) and are
+active 24/7 via the scheduler service.
 
 | Name | Role | Agent ID | Model | Responsibilities |
 |------|------|----------|-------|-----------------|
@@ -122,8 +142,55 @@ All 7 agents are active and run 24/7 via the scheduler service.
 | **Maya Brooks** | CMO | `cmo` | `gemini-3-flash-preview` | Content generation, social media, SEO strategy, brand positioning, growth analytics |
 | **James Turner** | VP Customer Success | `vp-customer-success` | `gemini-3-flash-preview` | Health scoring, churn prevention, nurture outreach, cross-product recommendations |
 | **Rachel Kim** | VP Sales | `vp-sales` | `gemini-3-flash-preview` | KYC research, ROI calculators, enterprise proposals, pipeline management, market sizing |
+| **Mia Tanaka** | VP Design & Frontend | `vp-design` | `gemini-3-flash-preview` | Design system governance, component quality audits, template variety, AI-smell detection |
+
+### Sub-Team Members (17)
+
+Sub-team members have role briefs and dashboard entries but do not have independent agent runners.
+They operate under their executive's authority scope.
+
+| Name | Title | Department | Reports To |
+|------|-------|------------|------------|
+| **Alex Park** | Platform Engineer | Engineering | Marcus Reeves (CTO) |
+| **Sam DeLuca** | Quality Engineer | Engineering | Marcus Reeves (CTO) |
+| **Jordan Hayes** | DevOps Engineer | Engineering | Marcus Reeves (CTO) |
+| **Priya Sharma** | User Researcher | Product | Elena Vasquez (CPO) |
+| **Daniel Ortiz** | Competitive Intel | Product | Elena Vasquez (CPO) |
+| **Anna Park** | Revenue Analyst | Finance | Nadia Okafor (CFO) |
+| **Omar Hassan** | Cost Analyst | Finance | Nadia Okafor (CFO) |
+| **Tyler Reed** | Content Creator | Marketing | Maya Brooks (CMO) |
+| **Lisa Chen** | SEO Analyst | Marketing | Maya Brooks (CMO) |
+| **Kai Johnson** | Social Media Manager | Marketing | Maya Brooks (CMO) |
+| **Emma Wright** | Onboarding Specialist | Customer Success | James Turner (VP CS) |
+| **David Santos** | Support Triage | Customer Success | James Turner (VP CS) |
+| **Nathan Cole** | Account Research | Sales | Rachel Kim (VP Sales) |
+| **Leo Vargas** | UI/UX Designer | Design & Frontend | Mia Tanaka (VP Design) |
+| **Ava Chen** | Frontend Engineer | Design & Frontend | Mia Tanaka (VP Design) |
+| **Sofia Marchetti** | Design Critic | Design & Frontend | Mia Tanaka (VP Design) |
+| **Ryan Park** | Template Architect | Design & Frontend | Mia Tanaka (VP Design) |
+
+### Org Chart
+
+```
+             Kristina Denney (CEO)     Andrew Denney (COO)
+                         \               /
+                          \             /
+                        Sarah Chen (CoS)
+                              |
+        ┌─────────┬──────────┼──────────┬──────────┬──────────┬──────────┐
+        │         │          │          │          │          │          │
+     Marcus    Elena      Nadia      Maya      James     Rachel      Mia
+     (CTO)     (CPO)      (CFO)      (CMO)     (VP CS)   (VP Sales)  (VP Design)
+       │         │          │          │          │          │          │
+   Alex Park  Priya S.  Anna Park  Tyler Reed  Emma W.  Nathan C.  Leo Vargas
+   Sam DeLuca Daniel O.  Omar H.   Lisa Chen   David S.             Ava Chen
+   Jordan H.                        Kai J.                           Sofia M.
+                                                                     Ryan Park
+```
 
 ### Cron Schedules (GCP Cloud Scheduler)
+
+#### Agent Task Jobs (9 jobs, via Pub/Sub)
 
 All 9 jobs are **enabled** and run **daily** (every day of the week).
 
@@ -139,6 +206,14 @@ All 9 jobs are **enabled** and run **daily** (every day of the week).
 | `vpcs-health-scoring` | James Turner | `0 13 * * *` | 8:00 AM | Customer health scoring |
 | `vps-pipeline-review` | Rachel Kim | `0 14 * * *` | 9:00 AM | Enterprise pipeline review |
 
+#### Data Sync Jobs (3 jobs, via HTTP)
+
+| Job ID | Cron (UTC) | Local (CT) | Endpoint | Source |
+|--------|-----------|------------|----------|--------|
+| `sync-stripe` | `0 6 * * *` | 12:00 AM | `/sync/stripe` | Stripe (MRR, churn, subscriptions) |
+| `sync-gcp-billing` | `0 7 * * *` | 1:00 AM | `/sync/gcp-billing` | GCP BigQuery billing export |
+| `sync-mercury` | `0 8 * * *` | 2:00 AM | `/sync/mercury` | Mercury (cash balance, flows, vendor subs) |
+
 ---
 
 ## Monorepo Package Structure
@@ -153,16 +228,19 @@ glyphor-ai-company/
 │   │       ├── supervisor.ts           # Turn limits, stall detection, timeouts
 │   │       ├── toolExecutor.ts         # Tool declaration → execution bridge
 │   │       ├── eventBus.ts             # Internal event system
+│   │       ├── glyphorEventBus.ts      # Inter-agent event bus (Supabase-backed)
+│   │       ├── subscriptions.ts        # Agent → event type subscription map
 │   │       ├── reasoning.ts            # Reasoning extraction & stripping
-│   │       └── types.ts               # All core types
+│   │       └── types.ts               # All core types (25 agent roles, budgets, tool grants)
 │   │
 │   ├── company-memory/          # Persistence layer
 │   │   └── src/
 │   │       ├── store.ts               # CompanyMemoryStore (Supabase + GCS)
 │   │       ├── namespaces.ts          # Key prefixes and GCS paths
-│   │       └── schema.ts             # Database row types
+│   │       ├── schema.ts             # Database row types
+│   │       └── migrations/           # Schema migration helpers
 │   │
-│   ├── agents/                  # 7 agent implementations
+│   ├── agents/                  # 8 executive agent implementations
 │   │   └── src/
 │   │       ├── chief-of-staff/        # Sarah Chen — run.ts, systemPrompt.ts, tools.ts
 │   │       ├── cto/                   # Marcus Reeves
@@ -171,31 +249,59 @@ glyphor-ai-company/
 │   │       ├── cmo/                   # Maya Brooks
 │   │       ├── vp-customer-success/   # James Turner
 │   │       ├── vp-sales/              # Rachel Kim
-│   │       └── index.ts              # Re-exports all runners
+│   │       ├── vp-design/             # Mia Tanaka
+│   │       ├── shared/                # Shared tools (memoryTools, eventTools)
+│   │       └── index.ts              # Re-exports all 8 runners
 │   │
 │   ├── company-knowledge/       # Shared context (read at runtime)
 │   │   ├── COMPANY_KNOWLEDGE_BASE.md  # ~400 lines: founders, products, metrics, rules
-│   │   └── briefs/
-│   │       ├── sarah-chen.md          # Chief of Staff brief
-│   │       ├── marcus-reeves.md       # CTO brief
-│   │       ├── nadia-okafor.md        # CFO brief
-│   │       ├── elena-vasquez.md       # CPO brief
-│   │       ├── maya-brooks.md         # CMO brief
-│   │       ├── james-turner.md        # VP CS brief
-│   │       └── rachel-kim.md          # VP Sales brief
+│   │   └── briefs/                    # 25 role briefs (8 execs + 17 sub-team)
+│   │       ├── sarah-chen.md          # Chief of Staff
+│   │       ├── marcus-reeves.md       # CTO
+│   │       ├── nadia-okafor.md        # CFO
+│   │       ├── elena-vasquez.md       # CPO
+│   │       ├── maya-brooks.md         # CMO
+│   │       ├── james-turner.md        # VP Customer Success
+│   │       ├── rachel-kim.md          # VP Sales
+│   │       ├── mia-tanaka.md          # VP Design & Frontend
+│   │       ├── alex-park.md           # Platform Engineer (→ CTO)
+│   │       ├── sam-deluca.md          # Quality Engineer (→ CTO)
+│   │       ├── jordan-hayes.md        # DevOps Engineer (→ CTO)
+│   │       ├── priya-sharma.md        # User Researcher (→ CPO)
+│   │       ├── daniel-ortiz.md        # Competitive Intel (→ CPO)
+│   │       ├── anna-park.md           # Revenue Analyst (→ CFO)
+│   │       ├── omar-hassan.md         # Cost Analyst (→ CFO)
+│   │       ├── tyler-reed.md          # Content Creator (→ CMO)
+│   │       ├── lisa-chen.md           # SEO Analyst (→ CMO)
+│   │       ├── kai-johnson.md         # Social Media Manager (→ CMO)
+│   │       ├── emma-wright.md         # Onboarding Specialist (→ VP CS)
+│   │       ├── david-santos.md        # Support Triage (→ VP CS)
+│   │       ├── nathan-cole.md         # Account Research (→ VP Sales)
+│   │       ├── leo-vargas.md          # UI/UX Designer (→ VP Design)
+│   │       ├── ava-chen.md            # Frontend Engineer (→ VP Design)
+│   │       ├── sofia-marchetti.md     # Design Critic (→ VP Design)
+│   │       └── ryan-park.md           # Template Architect (→ VP Design)
 │   │
 │   ├── integrations/            # External service connectors
-│   │   └── src/teams/
-│   │       ├── webhooks.ts            # Incoming webhook sender
-│   │       ├── graphClient.ts         # Microsoft Graph API (MSAL)
-│   │       └── adaptiveCards.ts       # Briefing / Decision / Alert cards
+│   │   └── src/
+│   │       ├── index.ts               # Re-exports all integrations
+│   │       ├── teams/
+│   │       │   ├── webhooks.ts        # Incoming webhook sender
+│   │       │   ├── graphClient.ts     # Microsoft Graph API (MSAL)
+│   │       │   └── adaptiveCards.ts   # Briefing / Decision / Alert cards
+│   │       ├── stripe/
+│   │       │   └── index.ts           # MRR sync, churn rate, webhook handler
+│   │       ├── gcp/
+│   │       │   └── index.ts           # Cloud Run metrics, BigQuery billing export
+│   │       └── mercury/
+│   │           └── index.ts           # Bank accounts, cash flows, vendor subscriptions
 │   │
 │   ├── scheduler/               # Orchestration service
 │   │   └── src/
-│   │       ├── server.ts              # HTTP server (Cloud Run entry)
+│   │       ├── server.ts              # HTTP server (Cloud Run entry, 10 endpoints)
 │   │       ├── eventRouter.ts         # Event → agent routing + authority
-│   │       ├── authorityGates.ts      # Green/Yellow/Red classification
-│   │       ├── cronManager.ts         # 9 cron job definitions
+│   │       ├── authorityGates.ts      # Green/Yellow/Red classification (all 25 roles)
+│   │       ├── cronManager.ts         # 9 agent + 3 data sync job definitions
 │   │       └── decisionQueue.ts       # Human approval workflow
 │   │
 │   └── dashboard/               # Web UI
@@ -203,10 +309,12 @@ glyphor-ai-company/
 │       │   ├── pages/
 │       │   │   ├── Dashboard.tsx      # Agent overview & metrics
 │       │   │   ├── Chat.tsx           # Real-time agent chat (react-markdown)
-│       │   │   ├── Workforce.tsx      # Agent roster table
-│       │   │   └── Approvals.tsx      # Decision approval queue
+│       │   │   ├── Workforce.tsx      # Org chart + grid view (7 departments)
+│       │   │   ├── Approvals.tsx      # Decision approval queue
+│       │   │   ├── Financials.tsx     # Revenue, costs, vendor subscriptions
+│       │   │   └── Operations.tsx     # System operations & events
 │       │   ├── components/            # Shared UI components
-│       │   ├── lib/                   # Hooks, Supabase client, utilities
+│       │   ├── lib/                   # Hooks, Supabase client, types, utilities
 │       │   ├── App.tsx               # Router & layout
 │       │   └── index.css             # Tailwind + Glyphor brand theme
 │       └── package.json
@@ -220,11 +328,12 @@ glyphor-ai-company/
 ├── infra/
 │   ├── terraform/main.tf        # GCP IaC
 │   └── scripts/
-│       ├── deploy.sh
+│       ├── deploy.sh            # Build & deploy all services (scheduler, dashboard, CoS)
 │       ├── seed-memory.sh
-│       └── open-dashboard.ps1
+│       ├── open-dashboard.ps1
+│       └── open-dashboard.sh
 │
-├── supabase/migrations/         # 3 migration files
+├── supabase/migrations/         # 7 migration files
 ├── turbo.json                   # Turborepo pipeline config
 ├── tsconfig.base.json           # Shared TS config
 └── package.json                 # npm workspaces root
@@ -242,7 +351,7 @@ The core execution loop (ported from Fuse V7 `agentRunner.ts`):
 1. BUILD SYSTEM PROMPT
    buildSystemPrompt(role, existingPrompt)
     → Load COMPANY_KNOWLEDGE_BASE.md   (shared company context)
-    → Load briefs/{codename}.md        (role-specific brief)
+    → Load briefs/{name}.md            (role-specific brief)
     → Append agent's own systemPrompt
     → Final = Knowledge Base + Role Brief + Agent System Prompt
 
@@ -277,7 +386,7 @@ Every Gemini API call receives a composite system prompt built from three layers
 | Layer | Source | Size |
 |-------|--------|------|
 | Company Knowledge Base | `company-knowledge/COMPANY_KNOWLEDGE_BASE.md` | ~400 lines |
-| Role Brief | `company-knowledge/briefs/{codename}.md` | ~80 lines |
+| Role Brief | `company-knowledge/briefs/{name}.md` | ~80 lines |
 | Agent System Prompt | `agents/src/{role}/systemPrompt.ts` | ~30 lines |
 
 Name mapping (`ROLE_TO_BRIEF`):
@@ -291,6 +400,24 @@ Name mapping (`ROLE_TO_BRIEF`):
 | `cmo` | `maya-brooks.md` |
 | `vp-customer-success` | `james-turner.md` |
 | `vp-sales` | `rachel-kim.md` |
+| `vp-design` | `mia-tanaka.md` |
+| `platform-engineer` | `alex-park.md` |
+| `quality-engineer` | `sam-deluca.md` |
+| `devops-engineer` | `jordan-hayes.md` |
+| `user-researcher` | `priya-sharma.md` |
+| `competitive-intel` | `daniel-ortiz.md` |
+| `revenue-analyst` | `anna-park.md` |
+| `cost-analyst` | `omar-hassan.md` |
+| `content-creator` | `tyler-reed.md` |
+| `seo-analyst` | `lisa-chen.md` |
+| `social-media-manager` | `kai-johnson.md` |
+| `onboarding-specialist` | `emma-wright.md` |
+| `support-triage` | `david-santos.md` |
+| `account-research` | `nathan-cole.md` |
+| `ui-ux-designer` | `leo-vargas.md` |
+| `frontend-engineer` | `ava-chen.md` |
+| `design-critic` | `sofia-marchetti.md` |
+| `template-architect` | `ryan-park.md` |
 
 ### ModelClient — Multi-Provider LLM
 
@@ -310,6 +437,29 @@ Gemini 3 returns `thoughtSignature` on tool-call parts. The runtime:
 3. Echoes the `thoughtSignature` back on each `functionCall` part.
 4. Batches consecutive `tool_result` turns into one `user` message with `functionResponse` parts.
 
+### Inter-Agent Event Bus
+
+The `GlyphorEventBus` enables reactive communication between agents. When an agent emits an
+event (e.g., `insight.detected`, `alert.triggered`), the scheduler checks the subscription map
+and can wake other agents in response.
+
+Event types: `agent.completed`, `insight.detected`, `decision.filed`, `decision.resolved`,
+`alert.triggered`, `task.requested`, `agent.spawned`, `agent.retired`.
+
+Rate limited to 10 events per agent per hour.
+
+### Agent Budget Caps
+
+Each agent role has per-run, daily, and monthly USD cost caps defined in `AGENT_BUDGETS`:
+
+| Tier | Per Run | Daily | Monthly |
+|------|---------|-------|---------|
+| Executives (CoS, CFO, VP CS/Sales/Design) | $0.05 | $0.50 | $15 |
+| CTO | $0.10 | $2.00 | $50 |
+| CPO | $0.08 | $1.00 | $30 |
+| CMO | $0.10 | $1.50 | $40 |
+| Sub-team (most) | $0.02–0.05 | $0.20–0.50 | $6–12 |
+
 ---
 
 ## Infrastructure (Production)
@@ -326,21 +476,26 @@ Gemini 3 returns `thoughtSignature` on tool-call parts. The runtime:
 
 | Service | Resource | Purpose |
 |---------|----------|---------|
-| Cloud Run | `glyphor-scheduler` | Agent execution, API endpoints |
+| Cloud Run | `glyphor-scheduler` | Agent execution, API endpoints, financial syncs |
 | Cloud Run | `glyphor-dashboard` | React dashboard (nginx) |
-| Cloud Scheduler | 9 cron jobs | Agent triggers → Pub/Sub |
+| Cloud Run | `glyphor-chief-of-staff` | Dedicated CoS agent service |
+| Cloud Scheduler | 9 agent + 3 sync jobs | Agent triggers → Pub/Sub; data syncs → HTTP |
 | Pub/Sub | `glyphor-agent-events` | Cron message delivery |
-| Secret Manager | 20+ secrets | API keys, credentials, channel IDs |
+| Pub/Sub | `glyphor-events` | Inter-agent event bus |
+| Secret Manager | 21 secrets | API keys, credentials, channel IDs |
 | Artifact Registry | `us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/` | Docker images |
 | Cloud Storage | `glyphor-company` bucket | Briefings, reports, specs |
+| BigQuery | `billing_export` dataset | GCP billing export data |
 
 ### External Services
 
 | Service | Purpose | Config |
 |---------|---------|--------|
-| Supabase | PostgreSQL (9 tables), auth, realtime | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` |
+| Supabase | PostgreSQL, auth, realtime | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` |
 | Google Gemini API | All AI inference | `GOOGLE_AI_API_KEY` |
 | Microsoft Entra ID | Teams auth (MSAL client credentials) | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` |
+| Stripe | Revenue tracking (MRR, churn, subscriptions) | `STRIPE_SECRET_KEY` |
+| Mercury | Banking (cash balance, cash flows, vendor subs) | `MERCURY_API_TOKEN` |
 
 ### Cloud Run URLs
 
@@ -399,9 +554,23 @@ Gemini 3 returns `thoughtSignature` on tool-call parts. The runtime:
 | Page | Route | Function |
 |------|-------|----------|
 | Dashboard | `/` | Agent activity overview, key metrics |
-| Chat | `/chat` | Select agent in sidebar, send messages, formatted responses |
-| Workforce | `/workforce` | Agent roster — name, role, model, status, last run |
+| Chat | `/chat`, `/chat/:agentId` | Select agent in sidebar, send messages, formatted responses |
+| Workforce | `/workforce` | Org chart (7 departments) + grid view — 27 total headcount |
 | Approvals | `/approvals` | Pending decision queue — approve/reject |
+| Financials | `/financials` | Revenue (Stripe MRR), costs (GCP billing), cash (Mercury), vendor subscriptions |
+| Operations | `/operations` | System operations & autonomous events |
+
+### Departments (Dashboard Workforce)
+
+| Department | Executive | Team Members |
+|------------|-----------|-------------|
+| Engineering | Marcus Reeves (CTO) | Alex Park, Sam DeLuca, Jordan Hayes |
+| Product | Elena Vasquez (CPO) | Priya Sharma, Daniel Ortiz |
+| Finance | Nadia Okafor (CFO) | Anna Park, Omar Hassan |
+| Marketing | Maya Brooks (CMO) | Tyler Reed, Lisa Chen, Kai Johnson |
+| Customer Success | James Turner (VP CS) | Emma Wright, David Santos |
+| Sales | Rachel Kim (VP Sales) | Nathan Cole |
+| Design & Frontend | Mia Tanaka (VP Design) | Leo Vargas, Ava Chen, Sofia Marchetti, Ryan Park |
 
 ### Build Args (baked at Docker build)
 
@@ -465,6 +634,19 @@ Cloud Scheduler → Pub/Sub "glyphor-agent-events"
   → Logged in activity_log
 ```
 
+### Financial Data Sync
+
+```
+Cloud Scheduler → HTTP POST to scheduler
+  → POST /sync/mercury
+  → syncMercuryAll(supabase)
+    → Mercury API: list accounts, get transactions
+    → syncCashBalance() → upsert financials table
+    → syncCashFlows() → upsert financials table
+    → syncSubscriptions() → detect recurring vendor payments
+  → JSON response { success: true, vendors: 4 }
+```
+
 ### Decision Requiring Approval
 
 ```
@@ -487,12 +669,15 @@ Agent tool calls create_decision with tier:'yellow'
 
 | Area | Implementation |
 |------|---------------|
-| API Keys | GCP Secret Manager → env vars at Cloud Run deploy |
+| API Keys | GCP Secret Manager → env vars at Cloud Run deploy (`--set-secrets`, full replacement) |
 | Dashboard Auth | Google OAuth 2.0 (internal consent screen — org users only) |
 | Supabase | Service key server-side; anon key client-side with RLS |
 | Teams Auth | MSAL client credentials (app-only) |
 | CORS | Scheduler allows `*` for dashboard |
-| Network | Both Cloud Run services: `--allow-unauthenticated` |
+| Network | Scheduler: `--no-allow-unauthenticated` (IAM-gated); Dashboard: `--allow-unauthenticated` |
+| IAM | `allUsers` → `roles/run.invoker` on scheduler (for CORS OPTIONS preflight) |
+| Rate Limiting | 10 events per agent per hour on the event bus |
+| Budget | Per-run, daily, monthly cost caps per agent role |
 
 ---
 
@@ -502,21 +687,30 @@ Agent tool calls create_decision with tier:'yellow'
 
 ```bash
 npm install                   # Install all workspace deps
-npm run build                 # Turborepo build
+npx turbo build               # Turborepo build (all 6 packages)
 npm run cos:briefing          # Run CoS briefing locally
 npm run dashboard:dev         # Dashboard dev server
 ```
 
 ### Production
 
+Deployment is handled by `infra/scripts/deploy.sh`. Key points:
+- Uses `--set-secrets` which is a **full replacement** — all secrets must be listed each time
+- Current secrets: 21 total (AI keys, Supabase, Azure/Teams, Stripe, Mercury)
+
 ```bash
+# Full deploy (scheduler + chief-of-staff + dashboard)
+GCP_PROJECT_ID=ai-glyphor-company ./infra/scripts/deploy.sh
+
+# Manual individual deploys:
+
 # Scheduler
 docker build --no-cache -f docker/Dockerfile.scheduler \
   -t us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:latest .
 docker push us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:latest
 gcloud run deploy glyphor-scheduler \
   --image=us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:latest \
-  --project=ai-glyphor-company --region=us-central1 --allow-unauthenticated
+  --project=ai-glyphor-company --region=us-central1
 
 # Dashboard (with build args)
 docker build --no-cache -f docker/Dockerfile.dashboard \
