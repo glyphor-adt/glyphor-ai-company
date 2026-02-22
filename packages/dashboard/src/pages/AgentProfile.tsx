@@ -123,7 +123,7 @@ interface ActivityRow {
   created_at: string;
 }
 
-type Tab = 'overview' | 'performance' | 'memory' | 'settings';
+type Tab = 'overview' | 'performance' | 'memory' | 'messages' | 'settings';
 
 export default function AgentProfile() {
   const { agentId } = useParams();
@@ -191,6 +191,7 @@ export default function AgentProfile() {
     { key: 'overview', label: 'Overview' },
     { key: 'performance', label: 'Performance' },
     { key: 'memory', label: 'Memory' },
+    { key: 'messages', label: 'Messages' },
     { key: 'settings', label: 'Settings' },
   ];
 
@@ -258,6 +259,7 @@ export default function AgentProfile() {
       {tab === 'overview' && <OverviewTab agent={agent} profile={profile} />}
       {tab === 'performance' && <PerformanceTab agent={agent} />}
       {tab === 'memory' && <MemoryTab agent={agent} />}
+      {tab === 'messages' && <MessagesTab agent={agent} />}
       {tab === 'settings' && <SettingsTab agent={agent} profile={profile} onUpdate={setAgent} />}
     </div>
   );
@@ -670,6 +672,180 @@ function MemoryTab({ agent }: { agent: AgentRow }) {
           </ul>
         ) : (
           <p className="text-sm text-txt-faint">No memories stored yet. Memories are created during agent runs.</p>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   MESSAGES TAB
+   ════════════════════════════════════════════════════════════════ */
+interface AgentMessage {
+  id: string;
+  from_agent: string;
+  to_agent: string;
+  thread_id: string;
+  message: string;
+  message_type: string;
+  priority: string;
+  status: string;
+  created_at: string;
+}
+
+interface AgentMeeting {
+  id: string;
+  called_by: string;
+  title: string;
+  meeting_type: string;
+  attendees: string[];
+  status: string;
+  summary: string | null;
+  created_at: string;
+}
+
+function MessagesTab({ agent }: { agent: AgentRow }) {
+  const [messages, setMessages] = useState<AgentMessage[]>([]);
+  const [meetings, setMeetings] = useState<AgentMeeting[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      supabase
+        .from('agent_messages')
+        .select('*')
+        .or(`from_agent.eq.${agent.role},to_agent.eq.${agent.role}`)
+        .order('created_at', { ascending: false })
+        .limit(30),
+      supabase
+        .from('agent_meetings')
+        .select('id, called_by, title, meeting_type, attendees, status, summary, created_at')
+        .contains('attendees', [agent.role])
+        .order('created_at', { ascending: false })
+        .limit(15),
+    ]).then(([msgRes, mtgRes]) => {
+      setMessages((msgRes.data as unknown as AgentMessage[]) ?? []);
+      setMeetings((mtgRes.data as unknown as AgentMeeting[]) ?? []);
+      setLoading(false);
+    });
+  }, [agent.role]);
+
+  if (loading) return <Skeleton className="h-48" />;
+
+  const received = messages.filter((m) => m.to_agent === agent.role);
+  const sent = messages.filter((m) => m.from_agent === agent.role);
+  const displayName = DISPLAY_NAME_MAP[agent.role] ?? agent.display_name;
+
+  const typeColor: Record<string, string> = {
+    request: 'bg-blue-500/15 text-blue-400',
+    response: 'bg-tier-green/15 text-tier-green',
+    info: 'bg-slate-500/15 text-slate-400',
+    followup: 'bg-purple-500/15 text-purple-400',
+  };
+
+  const statusIcon: Record<string, string> = {
+    scheduled: '📅',
+    in_progress: '⏳',
+    completed: '✅',
+    cancelled: '❌',
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Stats */}
+      <div className="grid grid-cols-4 gap-4">
+        {[
+          { label: 'Received', value: received.length },
+          { label: 'Sent', value: sent.length },
+          { label: 'Meetings', value: meetings.length },
+          { label: 'Pending', value: received.filter((m) => m.status === 'pending').length },
+        ].map((s) => (
+          <Card key={s.label} className="text-center py-3">
+            <p className="text-xl font-bold text-txt-primary">{s.value}</p>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-txt-faint">{s.label}</p>
+          </Card>
+        ))}
+      </div>
+
+      {/* Direct Messages */}
+      <Card>
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-txt-primary">
+          Direct Messages
+        </h3>
+        {messages.length === 0 ? (
+          <p className="text-sm text-txt-faint">No messages yet</p>
+        ) : (
+          <ul className="space-y-2">
+            {messages.map((m) => {
+              const isSent = m.from_agent === agent.role;
+              const otherAgent = isSent ? m.to_agent : m.from_agent;
+              return (
+                <li key={m.id} className="flex items-start gap-3 rounded-lg border border-border/50 px-3 py-2.5">
+                  <div className="flex flex-col items-center gap-1">
+                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase ${typeColor[m.message_type] ?? typeColor.info}`}>
+                      {m.message_type}
+                    </span>
+                    {m.priority === 'urgent' && (
+                      <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[9px] font-bold text-red-400">!</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] text-txt-faint">
+                      {isSent ? (
+                        <><span className="text-txt-secondary">{displayName}</span> → <span className="font-medium text-txt-secondary">{DISPLAY_NAME_MAP[otherAgent] ?? otherAgent}</span></>
+                      ) : (
+                        <><span className="font-medium text-txt-secondary">{DISPLAY_NAME_MAP[otherAgent] ?? otherAgent}</span> → <span className="text-txt-secondary">{displayName}</span></>
+                      )}
+                      <span className="ml-2">{timeAgo(m.created_at)}</span>
+                    </p>
+                    <p className="mt-0.5 text-sm text-txt-secondary">{m.message}</p>
+                  </div>
+                  <span className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${
+                    m.status === 'pending' ? 'bg-cyan' : m.status === 'read' ? 'bg-slate-500' : 'bg-tier-green'
+                  }`} />
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
+
+      {/* Meeting Participation */}
+      <Card>
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-txt-primary">
+          Meeting Participation
+        </h3>
+        {meetings.length === 0 ? (
+          <p className="text-sm text-txt-faint">No meetings yet</p>
+        ) : (
+          <ul className="space-y-2">
+            {meetings.map((m) => (
+              <li key={m.id} className="flex items-start gap-3 rounded-lg border border-border/50 px-3 py-2.5">
+                <span className="mt-0.5">{statusIcon[m.status] ?? '📅'}</span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-txt-primary">{m.title}</p>
+                  <p className="text-[11px] text-txt-faint">
+                    Called by {DISPLAY_NAME_MAP[m.called_by] ?? m.called_by}
+                    <span className="mx-1">·</span>
+                    {m.attendees.length} attendees
+                    <span className="mx-1">·</span>
+                    {timeAgo(m.created_at)}
+                  </p>
+                  {m.summary && (
+                    <p className="mt-1 text-sm text-txt-secondary line-clamp-2">{m.summary}</p>
+                  )}
+                </div>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                  m.status === 'completed' ? 'bg-tier-green/15 text-tier-green'
+                  : m.status === 'in_progress' ? 'bg-amber-500/15 text-amber-400'
+                  : 'bg-slate-500/15 text-slate-400'
+                }`}>
+                  {m.status}
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </Card>
     </div>

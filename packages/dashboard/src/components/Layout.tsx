@@ -11,6 +11,7 @@ const NAV = [
   { to: '/financials', label: 'Financials', icon: ChartIcon },
   { to: '/operations', label: 'Operations', icon: GearIcon },
   { to: '/strategy', label: 'Strategy', icon: StrategyIcon },
+  { to: '/meetings', label: 'Meetings', icon: MeetingsIcon },
 ] as const;
 
 export default function Layout() {
@@ -179,6 +180,17 @@ function StrategyIcon({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
       <path d="M2 14l4-5 3 3 5-8" />
       <path d="M11 4h3v3" />
+    </svg>
+  );
+}
+
+function MeetingsIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <circle cx="4" cy="5" r="2" />
+      <circle cx="12" cy="5" r="2" />
+      <circle cx="8" cy="12" r="2" />
+      <path d="M6 5h4M5.5 6.5L7 10.5M10.5 6.5L9 10.5" />
     </svg>
   );
 }
