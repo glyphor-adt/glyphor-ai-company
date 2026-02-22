@@ -128,7 +128,7 @@ export default function Workforce() {
           </div>
 
           {/* Department columns with heads + sub-teams */}
-          <div className="grid grid-cols-2 gap-6 md:grid-cols-3 xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-6 md:grid-cols-4 xl:grid-cols-7">
             {DEPARTMENTS.map((dept) => {
               const agent = agentMap.get(dept.role);
               const members = SUB_TEAM.filter((m) => m.reportsTo === dept.role);
