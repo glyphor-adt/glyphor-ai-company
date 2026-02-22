@@ -86,7 +86,7 @@ Steps:
     id: `vpcs-${task}-${today}`,
     role: 'vp-customer-success',
     systemPrompt: VP_CUSTOMER_SUCCESS_SYSTEM_PROMPT,
-    model: 'gemini-3.0-flash-preview',
+    model: 'gemini-3-flash-preview',
     tools,
     maxTurns: 10,
     maxStallTurns: 3,

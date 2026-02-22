@@ -89,7 +89,7 @@ Steps:
     id: `cpo-${task}-${today}`,
     role: 'cpo',
     systemPrompt: CPO_SYSTEM_PROMPT,
-    model: 'gemini-3.0-flash-preview',
+    model: 'gemini-3-flash-preview',
     tools,
     maxTurns: 10,
     maxStallTurns: 3,

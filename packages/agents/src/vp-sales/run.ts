@@ -87,7 +87,7 @@ Steps:
     id: `vps-${task}-${today}`,
     role: 'vp-sales',
     systemPrompt: VP_SALES_SYSTEM_PROMPT,
-    model: 'gemini-3.0-flash-preview',
+    model: 'gemini-3-flash-preview',
     tools,
     maxTurns: 10,
     maxStallTurns: 3,
