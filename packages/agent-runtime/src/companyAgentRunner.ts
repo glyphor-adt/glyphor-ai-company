@@ -5,6 +5,9 @@
  * Loop: supervisor check → context injection → model call → tool dispatch → loop
  */
 
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { ModelClient } from './modelClient.js';
 import { ToolExecutor } from './toolExecutor.js';
 import { AgentSupervisor } from './supervisor.js';
@@ -13,9 +16,39 @@ import type {
   AgentConfig,
   AgentEvent,
   AgentExecutionResult,
+  CompanyAgentRole,
   ConversationTurn,
   IMemoryBus,
 } from './types.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
+  'chief-of-staff': 'atlas',
+  'cto': 'forge',
+  'cfo': 'ledger',
+  'cpo': 'compass',
+  'cmo': 'beacon',
+  'vp-customer-success': 'harbor',
+  'vp-sales': 'closer',
+};
+
+function buildSystemPrompt(role: CompanyAgentRole, existingPrompt: string): string {
+  try {
+    const knowledgeBase = readFileSync(
+      join(__dirname, '../../company-knowledge/COMPANY_KNOWLEDGE_BASE.md'), 'utf-8',
+    );
+    const briefId = ROLE_TO_BRIEF[role];
+    const roleBrief = readFileSync(
+      join(__dirname, `../../company-knowledge/briefs/${briefId}.md`), 'utf-8',
+    );
+    return `${knowledgeBase}\n\n---\n\n${roleBrief}\n\n---\n\n${existingPrompt}`;
+  } catch (err) {
+    console.warn(`[CompanyAgentRunner] Failed to load knowledge files for ${role}:`, (err as Error).message);
+    return existingPrompt;
+  }
+}
 
 export class CompanyAgentRunner {
   constructor(private modelClient: ModelClient) {}
