@@ -267,6 +267,7 @@ function GraphCanvas({
 
     ctx.clearRect(0, 0, dims.width, dims.height);
 
+    const isDark = document.documentElement.classList.contains('dark');
     const nodeMap = new Map(simNodes.map((n) => [n.id, n]));
 
     // Draw edges
@@ -328,7 +329,8 @@ function GraphCanvas({
       ctx.stroke();
 
       // Label
-      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+      const labelRgb = isDark ? '255,255,255' : '30,30,30';
+      ctx.fillStyle = `rgba(${labelRgb},${alpha})`;
       ctx.font = '11px Inter, system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
