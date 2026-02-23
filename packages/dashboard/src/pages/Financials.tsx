@@ -145,21 +145,27 @@ export default function Financials() {
     return Array.from(byProduct.entries()).map(([name, mrr]) => ({ name, mrr }));
   }, [raw]);
 
-  // Vendor subscriptions from Mercury
+  // Vendor subscriptions from Mercury — deduplicate by vendor name, keep latest sync date
   const subscriptions = useMemo(() => {
-    const vendors: { name: string; monthly: number; lastPayment: string; count: number }[] = [];
+    const byVendor = new Map<string, { name: string; monthly: number; lastPayment: string; count: number; syncDate: string }>();
     for (const row of raw) {
       if (row.metric === 'vendor_subscription' && row.product) {
         const details = row.details as Record<string, unknown> | null;
-        vendors.push({
-          name: row.product,
-          monthly: row.value,
-          lastPayment: (details?.last_payment as string) ?? row.date,
-          count: (details?.payment_count as number) ?? 0,
-        });
+        const existing = byVendor.get(row.product);
+        if (!existing || row.date > existing.syncDate) {
+          byVendor.set(row.product, {
+            name: row.product,
+            monthly: row.value,
+            lastPayment: (details?.last_payment as string) ?? row.date,
+            count: (details?.payment_count as number) ?? 0,
+            syncDate: row.date,
+          });
+        }
       }
     }
-    return vendors.sort((a, b) => b.monthly - a.monthly);
+    return Array.from(byVendor.values())
+      .sort((a, b) => b.monthly - a.monthly)
+      .map(({ syncDate: _s, ...rest }) => rest);
   }, [raw]);
 
   const totalSubscriptions = subscriptions.reduce((sum, s) => sum + s.monthly, 0);

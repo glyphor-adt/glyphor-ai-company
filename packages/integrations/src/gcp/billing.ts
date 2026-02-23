@@ -79,6 +79,17 @@ export async function syncBillingToSupabase(
   // ── 1. Write per-service rows to gcp_billing ──────────────────────────
   let servicesSynced = 0;
   if (costs.length > 0) {
+    const uniqueDates = [...new Set(costs.map((r) => r.date))];
+
+    // Delete stale rows for the dates we are about to re-write so re-syncs don't stack duplicates
+    for (const date of uniqueDates) {
+      const { error: delErr } = await supabase
+        .from('gcp_billing')
+        .delete()
+        .eq('usage->>date', date);
+      if (delErr) console.warn('[GCP Billing] gcp_billing delete error:', delErr.message);
+    }
+
     const gcpRows = costs.map((row) => ({
       service: slugifyService(row.service),
       cost_usd: parseFloat(row.cost.toFixed(4)),

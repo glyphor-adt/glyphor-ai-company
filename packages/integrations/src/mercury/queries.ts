@@ -177,11 +177,11 @@ async function upsertFinancial(
   value: number,
   details?: Record<string, unknown>,
 ) {
-  const query = supabase.from('financials').select('id').eq('date', date).eq('metric', metric);
+  let query = supabase.from('financials').select('id').eq('date', date).eq('metric', metric);
   if (product) {
-    query.eq('product', product);
+    query = query.eq('product', product);
   } else {
-    query.is('product', null);
+    query = query.is('product', null);
   }
   const { data: existing } = await query.limit(1);
 
