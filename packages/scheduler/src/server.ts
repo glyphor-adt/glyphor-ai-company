@@ -348,28 +348,40 @@ const server = createServer(async (req, res) => {
         }
         if (productKeys.length === 0) throw new Error('No OPENAI_ADMIN_KEY_* configured');
 
-        const results: Record<string, { synced: number; models: number }> = {};
+        const results: Record<string, { synced: number; models: number } | { error: string }> = {};
+        const errors: string[] = [];
         for (const { product, key } of productKeys) {
-          results[product] = await syncOpenAIBilling(memory.getSupabaseClient(), key, product);
+          try {
+            results[product] = await syncOpenAIBilling(memory.getSupabaseClient(), key, product);
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            results[product] = { error: msg };
+            errors.push(`${product}: ${msg}`);
+          }
         }
-        await memory.getSupabaseClient().from('data_sync_status').update({
-          last_success_at: new Date().toISOString(),
-          consecutive_failures: 0,
-          status: 'ok',
-          updated_at: new Date().toISOString(),
-        }).eq('id', 'openai-billing');
-        json(res, 200, { success: true, products: results });
+        const anySuccess = Object.values(results).some((r) => !('error' in r));
+        if (anySuccess) {
+          await memory.getSupabaseClient().from('data_sync_status').update({
+            last_success_at: new Date().toISOString(),
+            consecutive_failures: 0,
+            status: errors.length > 0 ? 'partial' : 'ok',
+            last_error: errors.length > 0 ? errors.join('; ') : null,
+            updated_at: new Date().toISOString(),
+          }).eq('id', 'openai-billing');
+        } else {
+          const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'openai-billing').single();
+          const failures = (current?.consecutive_failures ?? 0) + 1;
+          await memory.getSupabaseClient().from('data_sync_status').update({
+            last_failure_at: new Date().toISOString(),
+            last_error: errors.join('; '),
+            consecutive_failures: failures,
+            status: failures >= 3 ? 'failing' : 'stale',
+            updated_at: new Date().toISOString(),
+          }).eq('id', 'openai-billing');
+        }
+        json(res, anySuccess ? 200 : 500, { success: anySuccess, products: results, errors: errors.length > 0 ? errors : undefined });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'openai-billing').single();
-        const failures = (current?.consecutive_failures ?? 0) + 1;
-        await memory.getSupabaseClient().from('data_sync_status').update({
-          last_failure_at: new Date().toISOString(),
-          last_error: message,
-          consecutive_failures: failures,
-          status: failures >= 3 ? 'failing' : 'stale',
-          updated_at: new Date().toISOString(),
-        }).eq('id', 'openai-billing');
         json(res, 500, { success: false, error: message });
       }
       return;
@@ -390,28 +402,40 @@ const server = createServer(async (req, res) => {
         }
         if (productKeys.length === 0) throw new Error('No ANTHROPIC_ADMIN_KEY_FUSE / ANTHROPIC_ADMIN_KEY_PULSE / ANTHROPIC_ADMIN_KEY configured');
 
-        const results: Record<string, { synced: number; models: number }> = {};
+        const results: Record<string, { synced: number; models: number } | { error: string }> = {};
+        const errors: string[] = [];
         for (const { product, key } of productKeys) {
-          results[product] = await syncAnthropicBilling(memory.getSupabaseClient(), key, product);
+          try {
+            results[product] = await syncAnthropicBilling(memory.getSupabaseClient(), key, product);
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            results[product] = { error: msg };
+            errors.push(`${product}: ${msg}`);
+          }
         }
-        await memory.getSupabaseClient().from('data_sync_status').update({
-          last_success_at: new Date().toISOString(),
-          consecutive_failures: 0,
-          status: 'ok',
-          updated_at: new Date().toISOString(),
-        }).eq('id', 'anthropic-billing');
-        json(res, 200, { success: true, products: results });
+        const anySuccess = Object.values(results).some((r) => !('error' in r));
+        if (anySuccess) {
+          await memory.getSupabaseClient().from('data_sync_status').update({
+            last_success_at: new Date().toISOString(),
+            consecutive_failures: 0,
+            status: errors.length > 0 ? 'partial' : 'ok',
+            last_error: errors.length > 0 ? errors.join('; ') : null,
+            updated_at: new Date().toISOString(),
+          }).eq('id', 'anthropic-billing');
+        } else {
+          const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'anthropic-billing').single();
+          const failures = (current?.consecutive_failures ?? 0) + 1;
+          await memory.getSupabaseClient().from('data_sync_status').update({
+            last_failure_at: new Date().toISOString(),
+            last_error: errors.join('; '),
+            consecutive_failures: failures,
+            status: failures >= 3 ? 'failing' : 'stale',
+            updated_at: new Date().toISOString(),
+          }).eq('id', 'anthropic-billing');
+        }
+        json(res, anySuccess ? 200 : 500, { success: anySuccess, products: results, errors: errors.length > 0 ? errors : undefined });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'anthropic-billing').single();
-        const failures = (current?.consecutive_failures ?? 0) + 1;
-        await memory.getSupabaseClient().from('data_sync_status').update({
-          last_failure_at: new Date().toISOString(),
-          last_error: message,
-          consecutive_failures: failures,
-          status: failures >= 3 ? 'failing' : 'stale',
-          updated_at: new Date().toISOString(),
-        }).eq('id', 'anthropic-billing');
         json(res, 500, { success: false, error: message });
       }
       return;
