@@ -196,8 +196,8 @@ export class ModelClient {
       config: {
         systemInstruction: request.systemInstruction,
         temperature: request.temperature ?? 0.7,
-        topP: request.topP,
-        topK: request.topK,
+        ...(request.topP !== undefined ? { topP: request.topP } : {}),
+        ...(request.topK !== undefined ? { topK: request.topK } : {}),
         ...(geminiTools ? { tools: geminiTools as any } : {}),
         ...(thinkingConfig ? { thinkingConfig } : {}),
       },

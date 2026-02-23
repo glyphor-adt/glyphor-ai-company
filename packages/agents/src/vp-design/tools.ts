@@ -24,6 +24,12 @@ export function createVPDesignTools(memory: CompanyMemoryStore): ToolDefinition[
         const days = (params.days as number) || 7;
         const data = await memory.read('design.quality.latest');
         const trends = await memory.read('design.quality.trends');
+        if (!data && !trends) {
+          return {
+            success: true,
+            data: { NO_DATA: true, message: 'No design quality data exists in memory. No Fuse audit has run yet or no builds have been graded. You must report this honestly — do not invent any grades or activity.' },
+          };
+        }
         return {
           success: true,
           data: { period: `${days} days`, qualitySummary: data, trends },
@@ -45,7 +51,7 @@ export function createVPDesignTools(memory: CompanyMemoryStore): ToolDefinition[
       execute: async (params, _ctx): Promise<ToolResult> => {
         const category = (params.category as string) || 'all';
         const tokens = await memory.read(`design.tokens.${category === 'all' ? 'current' : category}`);
-        return { success: true, data: tokens ?? { note: `No tokens stored for ${category} yet` } };
+        return { success: true, data: tokens ?? { NO_DATA: true, message: `No design tokens stored for "${category}" yet. Do not invent token values.` } };
       },
     },
 
@@ -64,7 +70,7 @@ export function createVPDesignTools(memory: CompanyMemoryStore): ToolDefinition[
           ? `design.components.${params.component as string}`
           : 'design.components.registry';
         const data = await memory.read(key);
-        return { success: true, data: data ?? { note: 'No component data stored yet' } };
+        return { success: true, data: data ?? { NO_DATA: true, message: 'No component library data stored yet. Do not invent component counts or variants.' } };
       },
     },
 
@@ -74,7 +80,7 @@ export function createVPDesignTools(memory: CompanyMemoryStore): ToolDefinition[
       parameters: {},
       execute: async (_params, _ctx): Promise<ToolResult> => {
         const data = await memory.read('design.templates.registry');
-        return { success: true, data: data ?? { note: 'No template registry stored yet' } };
+        return { success: true, data: data ?? { NO_DATA: true, message: 'No template registry exists yet. Do not invent template data.' } };
       },
     },
 
