@@ -64,7 +64,7 @@ gcloud run deploy glyphor-chief-of-staff \
   --no-allow-unauthenticated \
   --memory=1Gi \
   --cpu=1 \
-  --min-instances=0 \
+  --min-instances=1 \
   --max-instances=2 \
   --timeout=300 \
   --set-env-vars="NODE_ENV=production" \

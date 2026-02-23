@@ -520,18 +520,25 @@ export class ModelClient {
         }))
       : undefined;
 
-    // Extended thinking is only supported on claude-3-5-sonnet-*, claude-3-7-*, claude-4-*, and later.
-    // Defaults to false — callers must explicitly opt in via request.thinkingEnabled = true.
+    // Extended thinking — defaults to false; callers must explicitly opt in.
+    // Supported on: claude-3-5-sonnet-*, claude-3-7-*, claude-sonnet-4-*, claude-haiku-4-*, claude-opus-4-*
+    // NOTE: claude-opus-4-6 deprecated manual thinking in favour of adaptive thinking ({type:"adaptive"}).
+    //       All other supported models use manual extended thinking ({type:"enabled"}).
     const thinkingEnabled = request.thinkingEnabled ?? false;
-    const supportsThinking = /claude-(3-[5-9]|[4-9]|sonnet-4|opus-4)/.test(request.model);
+    const supportsThinking = /claude-(3-[5-9]|[4-9]|sonnet-4|haiku-4|opus-4)/.test(request.model);
     const useThinking = thinkingEnabled && supportsThinking;
     const thinkingBudget = 8192;
+    // claude-opus-4-6 requires adaptive thinking; all other supported models use manual mode.
+    const isOpus46 = request.model === 'claude-opus-4-6';
     const thinkingParam = useThinking
-      ? { thinking: { type: 'enabled' as const, budget_tokens: thinkingBudget } }
+      ? { thinking: isOpus46
+          ? { type: 'adaptive' as const, effort: 'medium' as const }
+          : { type: 'enabled' as const, budget_tokens: thinkingBudget }
+        }
       : {};
 
-    // Anthropic requires max_tokens > budget_tokens when thinking is enabled
-    const maxTokens = useThinking
+    // Anthropic requires max_tokens > budget_tokens when manual thinking is enabled
+    const maxTokens = (useThinking && !isOpus46)
       ? Math.max(request.maxTokens ?? 16384, thinkingBudget + 4096)
       : (request.maxTokens ?? 4096);
 
