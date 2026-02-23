@@ -1325,6 +1325,82 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // ─── DIRECTIVES CRUD ──────────────────────────────────────
+
+    // List directives (with optional status filter)
+    if (method === 'GET' && url.startsWith('/directives')) {
+      const sb = memory.getSupabaseClient();
+      const params = new URLSearchParams(url.split('?')[1] || '');
+      const status = params.get('status') || 'active';
+
+      let query = sb
+        .from('founder_directives')
+        .select('*, work_assignments(*)')
+        .order('priority', { ascending: true })
+        .order('created_at', { ascending: false });
+
+      if (status !== 'all') query = query.eq('status', status);
+
+      const { data, error } = await query;
+      if (error) { json(res, 500, { error: error.message }); return; }
+      json(res, 200, data);
+      return;
+    }
+
+    // Create directive
+    if (method === 'POST' && url === '/directives') {
+      const sb = memory.getSupabaseClient();
+      const body = JSON.parse(await readBody(req));
+      const { data, error } = await sb
+        .from('founder_directives')
+        .insert({
+          title: body.title,
+          description: body.description,
+          priority: body.priority || 'high',
+          category: body.category || 'general',
+          target_agents: body.target_agents || [],
+          due_date: body.due_date || null,
+          created_by: body.created_by || 'kristina',
+        })
+        .select()
+        .single();
+      if (error) { json(res, 500, { error: error.message }); return; }
+      json(res, 201, data);
+      return;
+    }
+
+    // Update directive
+    const directivePatchMatch = url.match(/^\/directives\/([^/?]+)$/);
+    if (method === 'PATCH' && directivePatchMatch) {
+      const sb = memory.getSupabaseClient();
+      const id = decodeURIComponent(directivePatchMatch[1]);
+      const body = JSON.parse(await readBody(req));
+      body.updated_at = new Date().toISOString();
+      const { data, error } = await sb
+        .from('founder_directives')
+        .update(body)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) { json(res, 500, { error: error.message }); return; }
+      json(res, 200, data);
+      return;
+    }
+
+    // Delete directive
+    const directiveDeleteMatch = url.match(/^\/directives\/([^/?]+)$/);
+    if (method === 'DELETE' && directiveDeleteMatch) {
+      const sb = memory.getSupabaseClient();
+      const id = decodeURIComponent(directiveDeleteMatch[1]);
+      const { error } = await sb
+        .from('founder_directives')
+        .delete()
+        .eq('id', id);
+      if (error) { json(res, 500, { error: error.message }); return; }
+      json(res, 200, { success: true });
+      return;
+    }
+
     json(res, 404, { error: 'Not found' });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

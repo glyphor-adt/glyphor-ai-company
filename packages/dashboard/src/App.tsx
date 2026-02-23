@@ -7,7 +7,6 @@ import AgentProfile from './pages/AgentProfile';
 import AgentBuilder from './pages/AgentBuilder';
 import Approvals from './pages/Approvals';
 import Chat from './pages/Chat';
-import GroupChat from './pages/GroupChat';
 import Financials from './pages/Financials';
 import Operations from './pages/Operations';
 import Strategy from './pages/Strategy';
@@ -44,7 +43,7 @@ export default function App() {
         <Route path="meetings" element={<Meetings />} />
         <Route path="chat" element={<Chat />} />
         <Route path="chat/:agentId" element={<Chat />} />
-        <Route path="group-chat" element={<GroupChat />} />
+        <Route path="group-chat" element={<Navigate to="/chat" replace />} />
         <Route path="teams-config" element={<TeamsConfig />} />
         <Route path="knowledge" element={<Knowledge />} />
         <Route path="governance" element={<Governance />} />

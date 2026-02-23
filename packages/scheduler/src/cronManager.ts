@@ -51,9 +51,27 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     enabled: true,
   },
   {
-    id: 'cos-orchestrate',
+    id: 'cos-orchestrate-morning',
     agentRole: 'chief-of-staff',
-    schedule: '0 16 * * *',  // 16:00 UTC = 11:00 AM CT — midday directive sweep
+    schedule: '0 14 * * *',  // 14:00 UTC = 9:00 AM CT — morning directive sweep
+    timezone: 'America/Chicago',
+    task: 'orchestrate',
+    payload: {},
+    enabled: true,
+  },
+  {
+    id: 'cos-orchestrate-midday',
+    agentRole: 'chief-of-staff',
+    schedule: '0 18 * * *',  // 18:00 UTC = 1:00 PM CT — midday directive sweep
+    timezone: 'America/Chicago',
+    task: 'orchestrate',
+    payload: {},
+    enabled: true,
+  },
+  {
+    id: 'cos-orchestrate-evening',
+    agentRole: 'chief-of-staff',
+    schedule: '0 22 * * *',  // 22:00 UTC = 5:00 PM CT — evening directive sweep
     timezone: 'America/Chicago',
     task: 'orchestrate',
     payload: {},

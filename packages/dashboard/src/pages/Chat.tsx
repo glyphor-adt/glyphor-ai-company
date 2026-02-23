@@ -86,11 +86,24 @@ export default function Chat() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const selectedRoleRef = useRef(selectedRole);
+  const [pendingAgent, setPendingAgent] = useState<string | null>(null);
+  useEffect(() => { selectedRoleRef.current = selectedRole; }, [selectedRole]);
 
-  const mentionables = agents.map((a) => ({
-    role: a.role,
-    name: DISPLAY_NAME_MAP[a.role] ?? a.role,
-  }));
+  const FOUNDERS = [
+    { role: 'kristina', name: 'Kristina', email: 'kristina@glyphor.ai' },
+    { role: 'andrew', name: 'Andrew', email: 'andrew@glyphor.ai' },
+  ];
+
+  // Map logged-in user email to their founder avatar path
+  const userAvatar = FOUNDERS.find((f) => f.email === userEmail)
+    ? `/${FOUNDERS.find((f) => f.email === userEmail)!.role}_headshot.jpg`
+    : undefined;
+
+  const mentionables: { role: string; name: string; isFounder?: boolean }[] = [
+    ...FOUNDERS.map((f) => ({ role: f.role, name: f.name, isFounder: true })),
+    ...agents.map((a) => ({ role: a.role, name: DISPLAY_NAME_MAP[a.role] ?? a.role })),
+  ];
   const filteredMentions = mentionFilter
     ? mentionables.filter(
         (m) =>
@@ -211,14 +224,18 @@ export default function Chat() {
     const text = input.trim();
     if ((!text && pendingFiles.length === 0) || sending) return;
 
+    // Capture which agent we're sending to — this won't change even if user switches agents
+    const targetRole = selectedRole;
+
     const attachments = pendingFiles.length > 0 ? [...pendingFiles] : undefined;
     const userMsg: Message = { role: 'user', content: text, timestamp: new Date(), attachments };
     setInput('');
     setPendingFiles([]);
     setMessages((prev) => [...prev, userMsg]);
     setSending(true);
+    setPendingAgent(targetRole);
 
-    saveMessage(selectedRole, 'user', text, userEmail, attachments);
+    saveMessage(targetRole, 'user', text, userEmail, attachments);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 120_000);
@@ -247,7 +264,7 @@ export default function Chat() {
       const res = await fetch(`${SCHEDULER_URL}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentRole: selectedRole, task: 'on_demand', message: fullMessage, history }),
+        body: JSON.stringify({ agentRole: targetRole, task: 'on_demand', message: fullMessage, history }),
         signal: controller.signal,
       });
 
@@ -265,19 +282,26 @@ export default function Chat() {
       else if (data.status === 'aborted') content = 'My response was cut short — I may have timed out. Try a simpler question.';
       else content = `I completed the task but had nothing to report back.`;
 
-      setMessages((prev) => [...prev, { role: 'agent', content, timestamp: new Date() }]);
-      saveMessage(selectedRole, 'agent', content, userEmail);
+      // Only append to UI if user is still viewing the same agent
+      if (selectedRoleRef.current === targetRole) {
+        setMessages((prev) => [...prev, { role: 'agent', content, timestamp: new Date() }]);
+      }
+      saveMessage(targetRole, 'agent', content, userEmail);
     } catch (err) {
       clearTimeout(timeoutId);
       clearTimeout(slowId);
       setSlowResponse(false);
+      const targetName = DISPLAY_NAME_MAP[targetRole] ?? targetRole;
       const isTimeout = err instanceof Error && err.name === 'AbortError';
       const errContent = isTimeout
-        ? `${codename} is taking longer than expected to respond — the scheduler may be cold-starting. Please try again in a moment.`
-        : `Could not reach ${codename}. The scheduler may be offline or cold-starting — try again in a moment.`;
-      setMessages((prev) => [...prev, { role: 'agent', content: errContent, timestamp: new Date() }]);
+        ? `${targetName} is taking longer than expected to respond — the scheduler may be cold-starting. Please try again in a moment.`
+        : `Could not reach ${targetName}. The scheduler may be offline or cold-starting — try again in a moment.`;
+      if (selectedRoleRef.current === targetRole) {
+        setMessages((prev) => [...prev, { role: 'agent', content: errContent, timestamp: new Date() }]);
+      }
     } finally {
       setSending(false);
+      setPendingAgent(null);
       setSlowResponse(false);
     }
   };
@@ -377,6 +401,8 @@ export default function Chat() {
             >
               {msg.role === 'agent' ? (
                 <AgentAvatar role={selectedRole} size={28} />
+              ) : userAvatar ? (
+                <img src={userAvatar} alt="" className="h-7 w-7 rounded-full object-cover" />
               ) : (
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan/20 text-[11px] font-bold text-cyan">
                   {userInitials}
@@ -418,7 +444,7 @@ export default function Chat() {
             </div>
           ))}
 
-          {sending && (
+          {sending && pendingAgent === selectedRole && (
             <div className="flex gap-3">
               <AgentAvatar role={selectedRole} size={28} />
               <div className="rounded-xl bg-raised border border-border px-4 py-3">
@@ -475,9 +501,13 @@ export default function Chat() {
                     i === mentionIdx ? 'bg-cyan/10 text-cyan' : 'text-txt-secondary hover:bg-[var(--color-hover-bg)]'
                   }`}
                 >
-                  <AgentAvatar role={m.role} size={20} />
+                  {m.isFounder ? (
+                    <img src={`/${m.role}_headshot.jpg`} alt={m.name} className="h-5 w-5 rounded-full object-cover" />
+                  ) : (
+                    <AgentAvatar role={m.role} size={20} />
+                  )}
                   <span className="font-medium">{m.name}</span>
-                  <span className="text-txt-faint ml-auto text-[10px]">{m.role}</span>
+                  <span className="text-txt-faint ml-auto text-[10px]">{m.isFounder ? 'Founder' : m.role}</span>
                 </button>
               ))}
             </div>

@@ -10,7 +10,6 @@ import { useEffect, useState } from 'react';
 const PAGES = [
   { id: '/', label: 'Dashboard', description: 'Executive overview with KPIs and activity' },
   { id: '/chat', label: 'Agent Chat', description: '1:1 conversations with any agent' },
-  { id: '/group-chat', label: 'Group Chat', description: 'Multi-agent group conversations' },
   { id: '/approvals', label: 'Approvals', description: 'Decision approval queue' },
   { id: '/workforce', label: 'Workforce', description: 'Org chart and agent hierarchy' },
   { id: '/financials', label: 'Financials', description: 'Revenue, costs, and unit economics' },

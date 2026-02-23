@@ -8,7 +8,6 @@ const NAV = [
   { to: '/workforce', label: 'Workforce', icon: UsersIcon },
   { to: '/agents', label: 'Agents', icon: AgentIcon },
   { to: '/chat', label: 'Chat', icon: ChatIcon },
-  { to: '/group-chat', label: 'Group Chat', icon: GroupChatIcon },
   { to: '/approvals', label: 'Approvals', icon: CheckIcon },
   { to: '/financials', label: 'Financials', icon: ChartIcon },
   { to: '/operations', label: 'Operations', icon: GearIcon },
