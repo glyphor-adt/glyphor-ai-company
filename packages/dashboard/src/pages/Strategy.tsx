@@ -310,6 +310,15 @@ function AnalysesPanel() {
                     )}
                   </div>
                 )}
+                {expanded === a.id && a.status === 'failed' && a.threads.length > 0 && a.threads.some((t) => t.result) && (
+                  <div className="mt-3 space-y-1">
+                    {a.threads.map((t) => t.result && (
+                      <div key={t.id} className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-[11px] text-red-400">
+                        <span className="font-medium">{t.label}:</span> {t.result}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {expanded === a.id && a.error && (
                   <p className="mt-3 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-400">
                     {a.error}

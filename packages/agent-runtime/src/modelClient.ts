@@ -374,15 +374,20 @@ export class ModelClient {
     const forbidTempTopP = isOSeries || (isGpt5Family && reasoningEffort !== 'none');
     const useMaxCompletionTokens = isOSeries || isGpt5Family;
 
+    // o-series and GPT-5 family require max_completion_tokens (not max_tokens).
+    // Always provide a value for these models — omitting it can cause 400 errors
+    // on some reasoning-enabled model variants.
+    const resolvedMaxTokens = request.maxTokens ?? (useMaxCompletionTokens ? 16384 : undefined);
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const createParams: any = {
       model: request.model,
       messages,
       ...(tools ? { tools } : {}),
-      ...(request.maxTokens !== undefined
+      ...(resolvedMaxTokens !== undefined
         ? (useMaxCompletionTokens
-            ? { max_completion_tokens: request.maxTokens }
-            : { max_tokens: request.maxTokens })
+            ? { max_completion_tokens: resolvedMaxTokens }
+            : { max_tokens: resolvedMaxTokens })
         : {}),
       ...(forbidTempTopP
         ? {}
@@ -515,8 +520,9 @@ export class ModelClient {
         }))
       : undefined;
 
-    // Extended thinking is only supported on claude-3-5-sonnet-*, claude-3-7-*, claude-4-*, and later
-    const thinkingEnabled = request.thinkingEnabled ?? true;
+    // Extended thinking is only supported on claude-3-5-sonnet-*, claude-3-7-*, claude-4-*, and later.
+    // Defaults to false — callers must explicitly opt in via request.thinkingEnabled = true.
+    const thinkingEnabled = request.thinkingEnabled ?? false;
     const supportsThinking = /claude-(3-[5-9]|[4-9]|sonnet-4|opus-4)/.test(request.model);
     const useThinking = thinkingEnabled && supportsThinking;
     const thinkingBudget = 8192;
@@ -533,7 +539,7 @@ export class ModelClient {
       model: request.model,
       system: request.systemInstruction,
       messages,
-      tools,
+      ...(tools ? { tools } : {}),
       max_tokens: maxTokens,
       temperature: useThinking ? 1 : (request.temperature ?? 0.7),
       ...(request.topP !== undefined ? { top_p: request.topP } : {}),
