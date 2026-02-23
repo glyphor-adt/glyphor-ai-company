@@ -1,7 +1,7 @@
 {
   "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
   "manifestVersion": "1.17",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "id": "603b4709-120c-4bdc-9b72-0b15d3aed6d5",
   "developer": {
     "name": "Glyphor",
