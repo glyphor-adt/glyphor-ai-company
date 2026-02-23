@@ -100,14 +100,14 @@ ON CONFLICT (section) DO NOTHING;
 -- ─── 4. SEED KNOWLEDGE GRAPH ─────────────────────────────────────
 
 -- Products
-INSERT INTO kg_nodes (node_type, title, summary, department, importance, tags, created_by, confidence)
+INSERT INTO kg_nodes (node_type, title, content, department, importance, tags, created_by, confidence)
 VALUES
 ('product', 'Fuse', 'AI-powered autonomous development platform. Users describe what they want to build, and Fuse''s AI agents design, code, and deploy complete web applications autonomously. Current: 39 paying users, $2,847 MRR, 91% build success rate.', 'product', 1.0, ARRAY['fuse', 'product', 'core', 'development'], 'system', 1.0),
 ('product', 'Pulse', 'Autonomous creative platform. AI agents create brand identities, marketing assets, social content, and design systems. Status: Beta, 8 paying users, $400 MRR.', 'product', 0.9, ARRAY['pulse', 'product', 'core', 'creative'], 'system', 1.0)
 ON CONFLICT DO NOTHING;
 
 -- Architecture & Concepts
-INSERT INTO kg_nodes (node_type, title, summary, department, importance, tags, created_by, confidence)
+INSERT INTO kg_nodes (node_type, title, content, department, importance, tags, created_by, confidence)
 VALUES
 ('concept', 'Multi-Agent Orchestration', 'Core architecture: 27 AI agents with distinct roles, skills, and authority levels coordinated by scheduler, event bus, and inter-agent messaging. 8 executives, 18 sub-team specialists, 1 ops agent (Atlas).', 'engineering', 0.9, ARRAY['architecture', 'agents', 'orchestration', 'core'], 'system', 1.0),
 ('concept', 'Authority Model', 'Three-tier governance: Green (autonomous), Yellow (one founder), Red (both founders). Enforced at runtime. Sub-team = GREEN only. Executives = GREEN + can file YELLOW/RED.', 'operations', 1.0, ARRAY['governance', 'authority', 'security', 'core'], 'system', 1.0),
@@ -115,7 +115,7 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- Competitive Landscape
-INSERT INTO kg_nodes (node_type, title, summary, department, importance, tags, created_by, confidence)
+INSERT INTO kg_nodes (node_type, title, content, department, importance, tags, created_by, confidence)
 VALUES
 ('concept', 'Devin (Cognition)', 'Direct competitor. Single AI software engineer. Raised $2B+. Our differentiation: team-level orchestration vs individual agent. They are one agent; we are 27 coordinated agents.', 'product', 0.7, ARRAY['competitor', 'devin', 'cognition'], 'system', 0.9),
 ('concept', 'GitHub Copilot Workspace', 'Adjacent competitor. IDE-level AI assistance expanding toward agentic workflows. Our differentiation: autonomous teams vs copilot assistance. We replace teams; they augment individuals.', 'product', 0.7, ARRAY['competitor', 'github', 'copilot'], 'system', 0.9),
@@ -123,21 +123,21 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- Infrastructure
-INSERT INTO kg_nodes (node_type, title, summary, department, importance, tags, created_by, confidence)
+INSERT INTO kg_nodes (node_type, title, content, department, importance, tags, created_by, confidence)
 VALUES
 ('concept', 'GCP Infrastructure', 'Platform runs on Google Cloud: Cloud Run (agents), Pub/Sub (events), Cloud Scheduler (cron), Cloud Storage (reports), Secret Manager (credentials). Region: us-central1.', 'engineering', 0.8, ARRAY['infrastructure', 'gcp', 'cloud-run'], 'system', 1.0),
 ('metric', 'Infrastructure Cost', 'Current spend ~$850/mo. Gemini API is largest line item (~$412/mo). Cloud Run ~$187/mo. Supabase ~$125/mo. Vercel ~$67/mo. Gross margin: 62.3%.', 'finance', 0.7, ARRAY['cost', 'infrastructure', 'budget', 'monthly'], 'system', 0.9)
 ON CONFLICT DO NOTHING;
 
 -- Risks
-INSERT INTO kg_nodes (node_type, title, summary, department, importance, tags, created_by, confidence)
+INSERT INTO kg_nodes (node_type, title, content, department, importance, tags, created_by, confidence)
 VALUES
 ('risk', 'Telemetry Blackout', 'Platform reporting $0 costs, 0% build success rate, Teams integration failing HTTP 400. Suspected credential or Pub/Sub configuration issue. P0 priority — cannot monitor or optimize what we cannot see.', 'engineering', 1.0, ARRAY['incident', 'telemetry', 'p0', 'critical'], 'system', 1.0),
 ('risk', 'Pre-Revenue Risk', 'Company is pre-revenue at scale with ~$850/mo burn. MRR at $3,247 but need to reach sustainable revenue. First enterprise customer within 3-6 months to validate market.', 'finance', 0.8, ARRAY['revenue', 'runway', 'risk'], 'system', 0.9)
 ON CONFLICT DO NOTHING;
 
 -- Opportunities
-INSERT INTO kg_nodes (node_type, title, summary, department, importance, tags, created_by, confidence)
+INSERT INTO kg_nodes (node_type, title, content, department, importance, tags, created_by, confidence)
 VALUES
 ('opportunity', 'Enterprise Pipeline', 'Three active prospects with $127K potential ARR. Enterprise motion leverages founders'' Microsoft relationships and Fortune 500 advisory experience.', 'sales', 0.9, ARRAY['enterprise', 'pipeline', 'revenue'], 'system', 0.8)
 ON CONFLICT DO NOTHING;
