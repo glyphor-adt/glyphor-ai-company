@@ -8,7 +8,20 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getStripeClient } from './client.js';
 
-/** Sync current MRR from Stripe subscriptions into the financials table */
+/** Compute normalized monthly amount for a subscription */
+function normalizedMonthlyAmount(sub: { items: { data: Array<{ price?: { unit_amount?: number | null; recurring?: { interval?: string; interval_count?: number } | null }; quantity?: number | null }> } }): number {
+  return sub.items.data.reduce((sum, item) => {
+    const unitAmount = item.price?.unit_amount ?? 0;
+    const qty = item.quantity ?? 1;
+    const interval = item.price?.recurring?.interval;
+    const intervalCount = item.price?.recurring?.interval_count ?? 1;
+    if (interval === 'year') return sum + (unitAmount * qty) / (12 * intervalCount);
+    if (interval === 'week') return sum + (unitAmount * qty * 4.33) / intervalCount;
+    return sum + (unitAmount * qty) / intervalCount;
+  }, 0);
+}
+
+/** Sync current MRR from Stripe subscriptions into financials + stripe_data tables */
 export async function syncMRR(supabase: SupabaseClient): Promise<{ mrr: number; subscriptions: number }> {
   const stripe = getStripeClient();
   const date = new Date().toISOString().split('T')[0];
@@ -18,30 +31,52 @@ export async function syncMRR(supabase: SupabaseClient): Promise<{ mrr: number; 
   let hasMore = true;
   let startingAfter: string | undefined;
 
+  // Collect per-subscription rows for stripe_data
+  const stripeRows: Array<Record<string, unknown>> = [];
+
   while (hasMore) {
-    const params: Record<string, unknown> = { status: 'active', limit: 100 };
+    const params: Record<string, unknown> = { status: 'active', limit: 100, expand: ['data.customer'] };
     if (startingAfter) params.starting_after = startingAfter;
 
     const subs = await stripe.subscriptions.list(params as Parameters<typeof stripe.subscriptions.list>[0]);
 
     for (const sub of subs.data) {
       activeCount++;
-      const product = sub.metadata?.product || null;
-      const monthlyAmount = sub.items.data.reduce((sum, item) => {
-        const unitAmount = item.price?.unit_amount ?? 0;
-        const qty = item.quantity ?? 1;
-        const interval = item.price?.recurring?.interval;
-        const intervalCount = item.price?.recurring?.interval_count ?? 1;
-        // Normalize to monthly
-        if (interval === 'year') return sum + (unitAmount * qty) / (12 * intervalCount);
-        if (interval === 'week') return sum + (unitAmount * qty * 4.33) / intervalCount;
-        return sum + (unitAmount * qty) / intervalCount; // monthly default
-      }, 0);
+      const product = sub.metadata?.product || (sub.items.data[0]?.price?.nickname ?? null);
+      const plan = sub.items.data[0]?.price?.id ?? null;
+      const monthlyAmount = normalizedMonthlyAmount(sub);
       totalMRR += monthlyAmount;
+      const monthlyDollars = monthlyAmount / 100;
 
-      // Track per-product MRR if product metadata is set
+      // cohort_month = YYYY-MM of subscription creation
+      const cohortDate = new Date(sub.created * 1000);
+      const cohortMonth = `${cohortDate.getFullYear()}-${String(cohortDate.getMonth() + 1).padStart(2, '0')}`;
+
+      // customer_id: either email or stripe customer id
+      const customer = sub.customer;
+      const customerId = typeof customer === 'string'
+        ? customer
+        : (customer as { id?: string })?.id ?? null;
+
+      stripeRows.push({
+        record_type: 'subscription',
+        customer_id: customerId,
+        product,
+        plan,
+        amount_usd: parseFloat(monthlyDollars.toFixed(2)),
+        status: sub.status,
+        cohort_month: cohortMonth,
+        properties: {
+          stripe_subscription_id: sub.id,
+          interval: sub.items.data[0]?.price?.recurring?.interval,
+          trial_end: sub.trial_end,
+          cancel_at_period_end: sub.cancel_at_period_end,
+        },
+        recorded_at: new Date().toISOString(),
+      });
+
       if (product) {
-        await upsertFinancial(supabase, date, product, 'mrr', monthlyAmount / 100);
+        await upsertFinancial(supabase, date, product, 'mrr', monthlyDollars);
       }
     }
 
@@ -53,10 +88,27 @@ export async function syncMRR(supabase: SupabaseClient): Promise<{ mrr: number; 
 
   const totalMRRDollars = totalMRR / 100;
 
-  // Write total MRR
+  // Write totals to financials
   await upsertFinancial(supabase, date, null, 'mrr', totalMRRDollars);
-  // Write subscription count
   await upsertFinancial(supabase, date, null, 'active_subscriptions', activeCount);
+
+  // Write MRR snapshot to stripe_data
+  stripeRows.push({
+    record_type: 'mrr_snapshot',
+    amount_usd: parseFloat(totalMRRDollars.toFixed(2)),
+    properties: { date, subscription_count: activeCount },
+    recorded_at: new Date().toISOString(),
+  });
+
+  // Upsert per-subscription rows into stripe_data in batches
+  if (stripeRows.length > 0) {
+    for (let i = 0; i < stripeRows.length; i += 100) {
+      await supabase.from('stripe_data').insert(stripeRows.slice(i, i + 100)).throwOnError().catch((e: Error) => {
+        console.warn('[Stripe Sync] stripe_data insert partial error:', e.message);
+      });
+    }
+    console.log(`[Stripe Sync] Wrote ${stripeRows.length} rows to stripe_data`);
+  }
 
   console.log(`[Stripe Sync] MRR: $${totalMRRDollars.toFixed(2)}, Active subscriptions: ${activeCount}`);
   return { mrr: totalMRRDollars, subscriptions: activeCount };
@@ -101,13 +153,69 @@ export async function syncChurnRate(supabase: SupabaseClient): Promise<{ churnRa
   return { churnRate };
 }
 
+/** Sync recent charges (last 30 days) into stripe_data for revenue analysis */
+export async function syncRecentCharges(supabase: SupabaseClient): Promise<{ charges: number }> {
+  const stripe = getStripeClient();
+  const thirtyDaysAgo = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000);
+
+  let chargeCount = 0;
+  let hasMore = true;
+  let startingAfter: string | undefined;
+  const rows: Array<Record<string, unknown>> = [];
+
+  while (hasMore && rows.length < 500) {
+    const params: Record<string, unknown> = { limit: 100, created: { gte: thirtyDaysAgo } };
+    if (startingAfter) params.starting_after = startingAfter;
+
+    const charges = await stripe.charges.list(params as Parameters<typeof stripe.charges.list>[0]);
+
+    for (const charge of charges.data) {
+      if (charge.status !== 'succeeded') continue;
+
+      const cohortDate = new Date(charge.created * 1000);
+      const cohortMonth = `${cohortDate.getFullYear()}-${String(cohortDate.getMonth() + 1).padStart(2, '0')}`;
+
+      rows.push({
+        record_type: 'charge',
+        customer_id: typeof charge.customer === 'string' ? charge.customer : null,
+        amount_usd: parseFloat((charge.amount / 100).toFixed(2)),
+        status: charge.status,
+        cohort_month: cohortMonth,
+        properties: {
+          stripe_charge_id: charge.id,
+          description: charge.description,
+          invoice: charge.invoice,
+          currency: charge.currency,
+        },
+        recorded_at: new Date(charge.created * 1000).toISOString(),
+      });
+    }
+
+    chargeCount += charges.data.length;
+    hasMore = charges.has_more;
+    if (charges.data.length > 0) startingAfter = charges.data[charges.data.length - 1].id;
+  }
+
+  if (rows.length > 0) {
+    for (let i = 0; i < rows.length; i += 100) {
+      await supabase.from('stripe_data').insert(rows.slice(i, i + 100)).throwOnError().catch((e: Error) => {
+        console.warn('[Stripe Sync] charges insert error:', e.message);
+      });
+    }
+    console.log(`[Stripe Sync] Wrote ${rows.length} charge rows to stripe_data`);
+  }
+
+  return { charges: rows.length };
+}
+
 /** Run all Stripe sync operations */
 export async function syncAll(supabase: SupabaseClient) {
-  const [mrrResult, churnResult] = await Promise.all([
+  const [mrrResult, churnResult, chargesResult] = await Promise.all([
     syncMRR(supabase),
     syncChurnRate(supabase),
+    syncRecentCharges(supabase),
   ]);
-  return { ...mrrResult, ...churnResult };
+  return { ...mrrResult, ...churnResult, ...chargesResult };
 }
 
 async function upsertFinancial(

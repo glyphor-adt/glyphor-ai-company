@@ -268,7 +268,7 @@ const server = createServer(async (req, res) => {
       try {
         const projectId = process.env.GCP_PROJECT_ID || 'ai-glyphor-company';
         const billingDataset = process.env.GCP_BILLING_DATASET || 'billing_export';
-        const billingTable = process.env.GCP_BILLING_TABLE || 'gcp_billing_export_v1';
+        const billingTable = process.env.GCP_BILLING_TABLE || 'gcp_billing_export_v1_012B03_F562EC_184CD8';
         const result = await syncBillingToSupabase(
           memory.getSupabaseClient(), projectId, billingDataset, billingTable,
         );

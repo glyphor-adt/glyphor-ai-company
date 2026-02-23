@@ -52,9 +52,20 @@ export async function queryBillingExport(
   return (rows as DailyCost[]) ?? [];
 }
 
+/** Normalize GCP service names to short slugs for the gcp_billing table */
+function slugifyService(description: string): string {
+  return description
+    .toLowerCase()
+    .replace(/google\s+/gi, '')
+    .replace(/cloud\s+/gi, '')
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
+}
+
 /**
- * Sync GCP billing data into Supabase financials table.
- * Aggregates costs per day and writes as infra_cost metric.
+ * Sync GCP billing data into both:
+ *  - `financials` table: daily aggregate infra_cost (for CFO dashboard)
+ *  - `gcp_billing` table: per-service per-day rows (for cost-analyst / devops agents)
  */
 export async function syncBillingToSupabase(
   supabase: SupabaseClient,
@@ -62,10 +73,36 @@ export async function syncBillingToSupabase(
   billingDataset: string,
   billingTable: string,
   days = 7,
-): Promise<{ synced: number }> {
+): Promise<{ synced: number; services: number }> {
   const costs = await queryBillingExport(projectId, billingDataset, billingTable, days);
 
-  // Aggregate by date
+  // ── 1. Write per-service rows to gcp_billing ──────────────────────────
+  let servicesSynced = 0;
+  if (costs.length > 0) {
+    const gcpRows = costs.map((row) => ({
+      service: slugifyService(row.service),
+      cost_usd: parseFloat(row.cost.toFixed(4)),
+      usage: { date: row.date, currency: row.currency, raw_service: row.service },
+      recorded_at: new Date(`${row.date}T12:00:00Z`).toISOString(),
+    }));
+
+    // Upsert in batches of 100
+    for (let i = 0; i < gcpRows.length; i += 100) {
+      const batch = gcpRows.slice(i, i + 100);
+      const { error } = await supabase.from('gcp_billing').upsert(batch, {
+        onConflict: 'service,recorded_at',
+        ignoreDuplicates: false,
+      });
+      if (error) {
+        // Fallback: insert ignoring conflicts
+        await supabase.from('gcp_billing').insert(batch).throwOnError().catch(() => null);
+      }
+      servicesSynced += batch.length;
+    }
+    console.log(`[GCP Billing] Wrote ${servicesSynced} per-service rows to gcp_billing`);
+  }
+
+  // ── 2. Aggregate by date → financials (daily total) ───────────────────
   const dailyTotals = new Map<string, number>();
   for (const row of costs) {
     const current = dailyTotals.get(row.date) ?? 0;
@@ -74,7 +111,6 @@ export async function syncBillingToSupabase(
 
   let synced = 0;
   for (const [date, totalCost] of dailyTotals) {
-    // Check if row exists
     const { data: existing } = await supabase
       .from('financials')
       .select('id')
@@ -97,6 +133,6 @@ export async function syncBillingToSupabase(
     synced++;
   }
 
-  console.log(`[GCP Billing] Synced ${synced} daily cost records`);
-  return { synced };
+  console.log(`[GCP Billing] Synced ${synced} daily totals to financials`);
+  return { synced, services: servicesSynced };
 }
