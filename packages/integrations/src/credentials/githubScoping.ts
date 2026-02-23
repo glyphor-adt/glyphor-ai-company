@@ -71,18 +71,11 @@ export async function getScopedGitHubClient(agentRole: string): Promise<Octokit>
     return new Octokit(); // Unauthenticated — public repos only
   }
 
-  // Create app-level Octokit to generate installation tokens
-  const { createAppAuth } = await import('@octokit/auth-app');
-  const appOctokit = new Octokit({
-    authStrategy: createAppAuth,
-    auth: {
-      appId,
-      privateKey,
-      installationId: Number(installationId),
-    },
-  });
+  // Create a scoped installation access token via the GitHub API
+  // Requires a JWT signed with the app private key
+  const jwt = await createAppJWT(appId, privateKey);
+  const appOctokit = new Octokit({ auth: jwt });
 
-  // Create a scoped installation access token
   const { data: token } = await appOctokit.apps.createInstallationAccessToken({
     installation_id: Number(installationId),
     repositories: scope.repos,
@@ -90,6 +83,38 @@ export async function getScopedGitHubClient(agentRole: string): Promise<Octokit>
   });
 
   return new Octokit({ auth: token.token });
+}
+
+/**
+ * Create a JWT for GitHub App authentication.
+ * Uses the Web Crypto API available in Node 18+.
+ */
+async function createAppJWT(appId: string, privateKey: string): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  const header = btoa(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const payload = btoa(JSON.stringify({ iat: now - 60, exp: now + 600, iss: appId }));
+  const unsigned = `${header}.${payload}`;
+
+  // Import the PEM private key
+  const pemBody = privateKey
+    .replace(/-----BEGIN RSA PRIVATE KEY-----/, '')
+    .replace(/-----END RSA PRIVATE KEY-----/, '')
+    .replace(/\s/g, '');
+  const binaryDer = Uint8Array.from(atob(pemBody), (c) => c.charCodeAt(0));
+
+  const key = await crypto.subtle.importKey(
+    'pkcs8',
+    binaryDer,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+
+  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(unsigned));
+  const sig = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  return `${unsigned}.${sig}`;
 }
 
 /**

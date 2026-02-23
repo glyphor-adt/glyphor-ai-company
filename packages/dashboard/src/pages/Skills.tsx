@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   MdAttachMoney, MdSettings, MdCampaign, MdExplore, MdHandshake,
   MdTrackChanges, MdPalette, MdStars, MdBarChart, MdTrendingUp,
+  MdAdd,
 } from 'react-icons/md';
 import { supabase } from '../lib/supabase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
@@ -59,56 +60,57 @@ export default function Skills() {
   const [topAgents, setTopAgents] = useState<AgentSkillRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
+  const loadSkills = async () => {
+    setLoading(true);
 
-      // Load all skills
-      const { data: skillsData } = await supabase
-        .from('skills')
-        .select('id, slug, name, category, description, tools_granted, version')
-        .order('category')
-        .order('name');
+    // Load all skills
+    const { data: skillsData } = await supabase
+      .from('skills')
+      .select('id, slug, name, category, description, tools_granted, version')
+      .order('category')
+      .order('name');
 
-      // Load agent_skills to compute agent counts and top performers
-      const { data: agentSkillsData } = await supabase
-        .from('agent_skills')
-        .select('agent_role, proficiency, times_used, successes, failures, skill_id');
+    // Load agent_skills to compute agent counts and top performers
+    const { data: agentSkillsData } = await supabase
+      .from('agent_skills')
+      .select('agent_role, proficiency, times_used, successes, failures, skill_id');
 
-      // Load skills for join
-      const skillMap = new Map((skillsData ?? []).map((s: SkillRow) => [s.id, s]));
+    // Load skills for join
+    const skillMap = new Map((skillsData ?? []).map((s: SkillRow) => [s.id, s]));
 
-      // Compute agent count per skill
-      const countMap = new Map<string, number>();
-      for (const as of ((agentSkillsData ?? []) as AgentSkillRow[])) {
-        countMap.set(as.skill_id, (countMap.get(as.skill_id) ?? 0) + 1);
-      }
+    // Compute agent count per skill
+    const countMap = new Map<string, number>();
+    for (const as of ((agentSkillsData ?? []) as AgentSkillRow[])) {
+      countMap.set(as.skill_id, (countMap.get(as.skill_id) ?? 0) + 1);
+    }
 
-      const enrichedSkills: SkillRow[] = (skillsData ?? []).map((s: SkillRow) => ({
-        ...s,
-        agent_count: countMap.get(s.id) ?? 0,
-      }));
+    const enrichedSkills: SkillRow[] = (skillsData ?? []).map((s: SkillRow) => ({
+      ...s,
+      agent_count: countMap.get(s.id) ?? 0,
+    }));
 
-      setSkills(enrichedSkills);
+    setSkills(enrichedSkills);
 
-      // Top agents by usage
-      const topByUsage = (agentSkillsData ?? [])
-        .filter((as: AgentSkillRow) => as.times_used > 0)
-        .sort((a: AgentSkillRow, b: AgentSkillRow) => b.times_used - a.times_used)
-        .slice(0, 8)
-        .map((as: AgentSkillRow) => {
-          const skill = skillMap.get((as as unknown as { skill_id: string }).skill_id);
-          return {
-            ...as,
-            skill: skill ? { slug: skill.slug, name: skill.name, category: skill.category } : { slug: '', name: 'Unknown', category: '' },
-          };
-        });
+    // Top agents by usage
+    const topByUsage = (agentSkillsData ?? [])
+      .filter((as: AgentSkillRow) => as.times_used > 0)
+      .sort((a: AgentSkillRow, b: AgentSkillRow) => b.times_used - a.times_used)
+      .slice(0, 8)
+      .map((as: AgentSkillRow) => {
+        const skill = skillMap.get((as as unknown as { skill_id: string }).skill_id);
+        return {
+          ...as,
+          skill: skill ? { slug: skill.slug, name: skill.name, category: skill.category } : { slug: '', name: 'Unknown', category: '' },
+        };
+      });
 
-      setTopAgents(topByUsage);
-      setLoading(false);
-    })();
-  }, []);
+    setTopAgents(topByUsage);
+    setLoading(false);
+  };
+
+  useEffect(() => { loadSkills(); }, []);
 
   if (loading) {
     return (
@@ -152,8 +154,9 @@ export default function Skills() {
         </Card>
       </div>
 
-      {/* Category filter */}
-      <div className="flex flex-wrap gap-2">
+      {/* Category filter + Create button */}
+      <div className="flex items-center justify-between">
+        <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setFilter(null)}
           className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
@@ -251,6 +254,133 @@ export default function Skills() {
           </div>
         </Card>
       )}
+
+      {/* Create Skill Modal */}
+      {showCreate && (
+        <CreateSkillModal
+          categories={Object.keys(CATEGORY_META)}
+          onCreated={() => { setShowCreate(false); loadSkills(); }}
+          onClose={() => setShowCreate(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+   CREATE SKILL MODAL
+   ════════════════════════════════════════════════════════════ */
+const INPUT_CLS = 'w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40';
+
+function CreateSkillModal({
+  categories,
+  onCreated,
+  onClose,
+}: {
+  categories: string[];
+  onCreated: () => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState('');
+  const [category, setCategory] = useState(categories[0] ?? 'engineering');
+  const [description, setDescription] = useState('');
+  const [methodology, setMethodology] = useState('');
+  const [toolsText, setToolsText] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+
+  const handleCreate = async () => {
+    if (!name.trim() || !description.trim() || !methodology.trim()) {
+      setError('Name, description, and methodology are required.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+
+    const tools = toolsText
+      .split(',')
+      .map(t => t.trim())
+      .filter(Boolean);
+
+    const { error: dbError } = await (supabase.from('skills') as any).insert({
+      slug,
+      name: name.trim(),
+      category,
+      description: description.trim(),
+      methodology: methodology.trim(),
+      tools_granted: tools,
+    });
+
+    if (dbError) {
+      setError(dbError.message ?? 'Failed to create skill.');
+      setSaving(false);
+      return;
+    }
+
+    onCreated();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="w-full max-w-lg rounded-xl border border-border bg-white dark:bg-[#111827] shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <h2 className="text-lg font-semibold text-txt-primary">New Skill</h2>
+          <button onClick={onClose} className="text-txt-faint hover:text-txt-primary transition-colors">✕</button>
+        </div>
+
+        <div className="space-y-4 px-5 py-5">
+          <label className="block space-y-1">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Name</span>
+            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Data Pipeline Monitoring" className={INPUT_CLS} autoFocus />
+            {slug && <p className="text-[11px] text-txt-faint">slug: {slug}</p>}
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Category</span>
+            <select value={category} onChange={e => setCategory(e.target.value)} className={INPUT_CLS}>
+              {categories.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Description</span>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Brief description of what this skill enables" className={INPUT_CLS} />
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Methodology</span>
+            <textarea value={methodology} onChange={e => setMethodology(e.target.value)} rows={6} placeholder={"1. First step…\n2. Second step…\n3. Third step…"} className={`${INPUT_CLS} font-mono text-[12px] leading-relaxed`} />
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Tools Granted</span>
+            <input type="text" value={toolsText} onChange={e => setToolsText(e.target.value)} placeholder="comma-separated, e.g. query_logs, check_system_health" className={INPUT_CLS} />
+          </label>
+
+          {error && <p className="text-sm text-red-400">{error}</p>}
+        </div>
+
+        <div className="flex items-center justify-end gap-3 border-t border-border px-5 py-4">
+          <button onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-muted hover:text-txt-primary transition-colors">Cancel</button>
+          <button
+            onClick={handleCreate}
+            disabled={saving || !name.trim()}
+            className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40"
+          >
+            {saving ? 'Creating…' : 'Create Skill'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
