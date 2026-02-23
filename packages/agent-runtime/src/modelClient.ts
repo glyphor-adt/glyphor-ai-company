@@ -128,37 +128,31 @@ export class ModelClient {
   }
 
   /**
-   * Generate an image using Gemini's native image generation.
-   * Uses responseModalities: ['IMAGE'] to get a real image back.
+   * Generate an image using Google Imagen 4 Ultra.
+   * Uses the Imagen generateImages API for high-quality infographics.
    */
-  async generateImage(prompt: string, model = 'gemini-3-pro-image-preview'): Promise<ImageResponse> {
+  async generateImage(prompt: string, model = 'imagen-4.0-ultra-generate-001'): Promise<ImageResponse> {
     if (!this.gemini) throw new Error('Gemini API key not configured');
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await this.gemini.models.generateContent({
+    const response = await this.gemini.models.generateImages({
       model,
-      contents: [{ role: 'user', parts: [{ text: prompt }] }] as any,
+      prompt,
       config: {
-        responseModalities: ['IMAGE'],
+        numberOfImages: 1,
+        aspectRatio: '16:9',
       },
     });
 
-    const r = response as {
-      candidates?: Array<{
-        content?: { parts?: Array<{ inlineData?: { data?: string; mimeType?: string }; text?: string }> };
-      }>;
-    };
-
-    const parts = r.candidates?.[0]?.content?.parts ?? [];
-    const imagePart = parts.find((p) => p.inlineData?.data);
-
-    if (!imagePart?.inlineData?.data) {
-      throw new Error('No image data returned from Gemini image generation');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const image = (response as any).generatedImages?.[0];
+    if (!image?.image?.imageBytes) {
+      throw new Error('No image data returned from Imagen image generation');
     }
 
     return {
-      imageData: imagePart.inlineData.data,
-      mimeType: imagePart.inlineData.mimeType ?? 'image/png',
+      imageData: image.image.imageBytes,
+      mimeType: 'image/png',
     };
   }
 

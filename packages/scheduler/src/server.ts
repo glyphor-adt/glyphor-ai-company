@@ -758,7 +758,7 @@ const server = createServer(async (req, res) => {
       if (!record?.report) { json(res, 404, { error: 'Analysis not found or not completed' }); return; }
 
       const prompt = buildVisualPrompt(record);
-      const imageResponse = await strategyModelClient.generateImage(prompt, 'gemini-3-pro-image-preview');
+      const imageResponse = await strategyModelClient.generateImage(prompt, 'imagen-4.0-ultra-generate-001');
 
       json(res, 200, { image: imageResponse.imageData, mimeType: imageResponse.mimeType });
       return;
