@@ -50,6 +50,15 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     payload: {},
     enabled: true,
   },
+  {
+    id: 'cos-orchestrate',
+    agentRole: 'chief-of-staff',
+    schedule: '0 16 * * *',  // 16:00 UTC = 11:00 AM CT — midday directive sweep
+    timezone: 'America/Chicago',
+    task: 'orchestrate',
+    payload: {},
+    enabled: true,
+  },
   // Phase 2+ jobs (disabled until agents are fully implemented)
   {
     id: 'cto-health-check',

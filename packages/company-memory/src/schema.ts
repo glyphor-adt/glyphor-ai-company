@@ -156,3 +156,69 @@ export interface DbAgentReflection {
   knowledge_gaps: string[];
   created_at: string;
 }
+
+// ─── Knowledge Management Tables ──────────────────────────────
+
+export interface DbCompanyKnowledgeBase {
+  id: string;
+  section: string;
+  title: string;
+  content: string;
+  audience: string;
+  last_edited_by: string;
+  version: number;
+  is_active: boolean;
+  updated_at: string;
+  created_at: string;
+}
+
+export interface DbFounderBulletin {
+  id: string;
+  created_by: string;
+  content: string;
+  audience: string;
+  priority: 'fyi' | 'normal' | 'important' | 'urgent';
+  active_from: string;
+  expires_at: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+// ─── Founder Orchestration Tables ─────────────────────────────
+
+export interface DbFounderDirective {
+  id: string;
+  created_by: string;
+  title: string;
+  description: string;
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  category: string;
+  target_agents: string[];
+  department: string | null;
+  status: 'active' | 'paused' | 'completed' | 'cancelled';
+  due_date: string | null;
+  progress_notes: string[];
+  completion_summary: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DbWorkAssignment {
+  id: string;
+  directive_id: string;
+  assigned_to: string;
+  task_description: string;
+  task_type: string;
+  expected_output: string | null;
+  priority: 'urgent' | 'high' | 'normal' | 'low';
+  depends_on: string[] | null;
+  sequence_order: number;
+  status: 'pending' | 'dispatched' | 'in_progress' | 'completed' | 'failed' | 'blocked';
+  dispatched_at: string | null;
+  completed_at: string | null;
+  agent_output: string | null;
+  evaluation: string | null;
+  quality_score: number | null;
+  created_at: string;
+  updated_at: string;
+}

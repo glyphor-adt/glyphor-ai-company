@@ -132,6 +132,57 @@ export function createRunDeps(
 
     graphWriter: memory.getGraphWriter() ?? undefined,
 
+    knowledgeBaseLoader: async (department?: string): Promise<string> => {
+      // Load active sections from company_knowledge_base, filtered by department audience
+      let query = supabase
+        .from('company_knowledge_base')
+        .select('section, title, content')
+        .eq('is_active', true)
+        .order('section');
+
+      if (department) {
+        query = query.or(`audience.eq.all,audience.eq.${department}`);
+      }
+
+      const { data, error } = await query;
+      if (error || !data || data.length === 0) return '';
+
+      return data
+        .map((row: { title: string; content: string }) => `## ${row.title}\n\n${row.content}`)
+        .join('\n\n---\n\n');
+    },
+
+    bulletinLoader: async (department?: string): Promise<string> => {
+      // Load active, non-expired founder bulletins
+      let query = supabase
+        .from('founder_bulletins')
+        .select('created_by, content, priority, created_at')
+        .eq('is_active', true)
+        .order('priority', { ascending: true })
+        .order('created_at', { ascending: false });
+
+      if (department) {
+        query = query.or(`audience.eq.all,audience.eq.${department}`);
+      }
+
+      const { data, error } = await query;
+      if (error || !data || data.length === 0) return '';
+
+      // Filter out expired bulletins client-side (simpler than complex SQL)
+      const now = new Date();
+      const active = (data as { created_by: string; content: string; priority: string; created_at: string; expires_at?: string }[])
+        .filter(b => !b.expires_at || new Date(b.expires_at) > now);
+
+      if (active.length === 0) return '';
+
+      const entries = active.map(b => {
+        const icon = b.priority === 'urgent' ? '🔴' : b.priority === 'important' ? '🟡' : '';
+        return `${icon} **From ${b.created_by}:** ${b.content}`.trim();
+      });
+
+      return `## 📢 Founder Bulletins\n\n${entries.join('\n\n')}`;
+    },
+
     skillContextLoader: async (role: CompanyAgentRole, task: string): Promise<SkillContext | null> => {
       // 1. Load all skills assigned to this agent with full skill data
       const { data: agentSkills } = await supabase

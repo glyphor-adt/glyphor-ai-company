@@ -336,7 +336,7 @@ export interface AgentBudget {
 }
 
 export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
-  'chief-of-staff':       { perRunUsd: 0.05, dailyUsd: 0.50, monthlyUsd: 15 },
+  'chief-of-staff':       { perRunUsd: 0.15, dailyUsd: 1.50, monthlyUsd: 40 },
   'cto':                  { perRunUsd: 0.10, dailyUsd: 2.00, monthlyUsd: 50 },
   'cfo':                  { perRunUsd: 0.05, dailyUsd: 0.50, monthlyUsd: 15 },
   'cpo':                  { perRunUsd: 0.08, dailyUsd: 1.00, monthlyUsd: 30 },

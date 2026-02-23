@@ -1,4 +1,4 @@
-export { CompanyAgentRunner } from './companyAgentRunner.js';
+export { CompanyAgentRunner, promptCache } from './companyAgentRunner.js';
 export type { AgentMemoryStore, AgentProfileData, RunDependencies, SkillContext, SkillFeedback } from './companyAgentRunner.js';
 export { ModelClient, detectProvider } from './modelClient.js';
 export type { ModelClientConfig, ModelProvider, ImageResponse } from './modelClient.js';

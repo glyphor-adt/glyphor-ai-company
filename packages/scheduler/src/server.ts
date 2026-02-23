@@ -9,7 +9,7 @@
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { GlyphorEventBus, ModelClient } from '@glyphor/agent-runtime';
+import { GlyphorEventBus, ModelClient, promptCache } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent } from '@glyphor/agent-runtime';
 import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, type KlingCredentials, TeamsBotHandler, extractBearerToken } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
@@ -224,6 +224,15 @@ const server = createServer(async (req, res) => {
     // Health check
     if (url === '/health' || url === '/') {
       json(res, 200, { status: 'ok', service: 'glyphor-scheduler' });
+      return;
+    }
+
+    // Cache invalidation
+    if (method === 'POST' && url === '/cache/invalidate') {
+      const body = await readBody(req).catch(() => '{}');
+      const { prefix } = JSON.parse(body || '{}');
+      promptCache.invalidate(prefix);
+      json(res, 200, { invalidated: true, prefix: prefix ?? 'all' });
       return;
     }
 
