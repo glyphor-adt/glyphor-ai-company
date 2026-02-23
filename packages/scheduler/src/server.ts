@@ -20,12 +20,15 @@ import type { AnalysisType, AnalysisDepth } from './analysisEngine.js';
 import { SimulationEngine } from './simulationEngine.js';
 import { MeetingEngine } from './meetingEngine.js';
 import { CotEngine } from './cotEngine.js';
+import { DeepDiveEngine } from './deepDiveEngine.js';
 import {
   exportAnalysisMarkdown, exportAnalysisJSON,
   exportAnalysisPPTX, exportAnalysisDOCX,
   exportSimulationMarkdown, exportSimulationJSON,
   exportSimulationPPTX, exportSimulationDOCX,
   exportCotMarkdown, exportCotJSON,
+  exportDeepDiveMarkdown, exportDeepDiveJSON,
+  exportDeepDiveDOCX, exportDeepDivePPTX,
   buildVisualPrompt,
 } from './reportExporter.js';
 import { WakeRouter } from './wakeRouter.js';
@@ -156,6 +159,7 @@ const analysisEngine = new AnalysisEngine(memory.getSupabaseClient(), strategyMo
 const simulationEngine = new SimulationEngine(memory.getSupabaseClient(), strategyModelClient);
 const meetingEngine = new MeetingEngine(memory.getSupabaseClient(), agentExecutor);
 const cotEngine = new CotEngine(memory.getSupabaseClient(), strategyModelClient);
+const deepDiveEngine = new DeepDiveEngine(memory.getSupabaseClient(), strategyModelClient);
 
 // Teams Bot — initialized from env vars (BOT_APP_ID, BOT_APP_SECRET, BOT_TENANT_ID)
 const teamsBot = TeamsBotHandler.fromEnv(
@@ -938,6 +942,103 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // ─── Deep Dive Engine Endpoints ───────────────────────────
+
+    // Launch deep dive
+    if (method === 'POST' && url === '/deep-dive/run') {
+      const body = JSON.parse(await readBody(req));
+      const { target, context: ddContext, requestedBy } = body;
+      if (!target) { json(res, 400, { error: 'target is required' }); return; }
+      const ddId = await deepDiveEngine.launch({
+        target,
+        context: ddContext,
+        requestedBy: requestedBy ?? 'dashboard',
+      });
+      json(res, 200, { success: true, id: ddId });
+      return;
+    }
+
+    // List deep dives
+    if (method === 'GET' && url === '/deep-dive') {
+      const records = await deepDiveEngine.list();
+      json(res, 200, records);
+      return;
+    }
+
+    // Get deep dive by ID
+    const ddGetMatch = url.match(/^\/deep-dive\/([^/]+)$/);
+    if (method === 'GET' && ddGetMatch && !url.includes('/export')) {
+      const ddId = decodeURIComponent(ddGetMatch[1]);
+      const record = await deepDiveEngine.get(ddId);
+      if (!record) { json(res, 404, { error: 'Deep dive not found' }); return; }
+      json(res, 200, record);
+      return;
+    }
+
+    // Cancel deep dive
+    const ddCancelMatch = url.match(/^\/deep-dive\/([^/]+)\/cancel$/);
+    if (method === 'POST' && ddCancelMatch) {
+      const ddId = decodeURIComponent(ddCancelMatch[1]);
+      await deepDiveEngine.cancel(ddId);
+      json(res, 200, { success: true });
+      return;
+    }
+
+    // Export deep dive report
+    const ddExportMatch = url.match(/^\/deep-dive\/([^/]+)\/export$/);
+    if (method === 'GET' && ddExportMatch) {
+      const ddId = decodeURIComponent(ddExportMatch[1]);
+      const record = await deepDiveEngine.get(ddId);
+      if (!record) { json(res, 404, { error: 'Deep dive not found' }); return; }
+
+      const format = params.get('format') ?? 'markdown';
+      if (format === 'json') {
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Content-Disposition': `attachment; filename="deep-dive-${ddId}.json"`,
+          'Access-Control-Allow-Origin': '*',
+        });
+        res.end(exportDeepDiveJSON(record));
+      } else if (format === 'pptx') {
+        const buffer = await exportDeepDivePPTX(record);
+        res.writeHead(200, {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          'Content-Disposition': `attachment; filename="deep-dive-${ddId}.pptx"`,
+          'Access-Control-Allow-Origin': '*',
+        });
+        res.end(buffer);
+      } else if (format === 'docx') {
+        const buffer = await exportDeepDiveDOCX(record);
+        res.writeHead(200, {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'Content-Disposition': `attachment; filename="deep-dive-${ddId}.docx"`,
+          'Access-Control-Allow-Origin': '*',
+        });
+        res.end(buffer);
+      } else {
+        res.writeHead(200, {
+          'Content-Type': 'text/markdown',
+          'Content-Disposition': `attachment; filename="deep-dive-${ddId}.md"`,
+          'Access-Control-Allow-Origin': '*',
+        });
+        res.end(exportDeepDiveMarkdown(record));
+      }
+      return;
+    }
+
+    // Generate deep dive AI visual
+    const ddVisualMatch = url.match(/^\/deep-dive\/([^/]+)\/visual$/);
+    if (method === 'POST' && ddVisualMatch) {
+      const ddId = decodeURIComponent(ddVisualMatch[1]);
+      const record = await deepDiveEngine.get(ddId);
+      if (!record?.report) { json(res, 404, { error: 'Deep dive not found or not completed' }); return; }
+
+      const prompt = buildDeepDiveVisualPrompt(record);
+      const imageResponse = await strategyModelClient.generateImage(prompt, 'imagen-4.0-ultra-generate-001');
+      json(res, 200, { image: imageResponse.imageData, mimeType: imageResponse.mimeType });
+      return;
+    }
+
     // ─── Message Endpoints ──────────────────────────────────────
 
     // Send a message (via API, not tool)
@@ -1074,6 +1175,27 @@ const server = createServer(async (req, res) => {
     json(res, 500, { error: message });
   }
 });
+
+/* ── Deep Dive Visual Prompt ─────────────── */
+
+function buildDeepDiveVisualPrompt(record: import('./deepDiveEngine.js').DeepDiveRecord): string {
+  const r = record.report;
+  if (!r) return '';
+  return [
+    `A polished, high-resolution professional infographic poster for a McKinsey-style strategic deep dive on "${r.targetName}".`,
+    `Dark premium background (#0D1117) with clean modern layout.`,
+    ``,
+    `Sections: Company Overview with key stats, SWOT-style current state (${r.currentState.keyStrengths.length} strengths, ${r.currentState.keyChallenges.length} challenges),`,
+    `Market sizing (TAM: ${r.marketAnalysis.tam.value}, SAM: ${r.marketAnalysis.sam.value}, SOM: ${r.marketAnalysis.som.value}),`,
+    `Competitive landscape with ${r.competitiveLandscape.competitors.length} competitors,`,
+    `Porter's 5 Forces radar chart, ${r.strategicRecommendations.length} strategic recommendations,`,
+    `Implementation roadmap timeline, and risk matrix.`,
+    ``,
+    `Visual style: Magazine-quality, McKinsey consulting deck aesthetic, modern sans-serif typography,`,
+    `generous whitespace, data visualizations, metric cards with KPI numbers.`,
+    `Colors: Cyan (#00E0FF) accents, emerald (#34D399) for positive, rose (#FB7185) for risks, amber (#FBBF24) for caution.`,
+  ].join('\n');
+}
 
 server.listen(PORT, () => {
   console.log(`[Scheduler] Listening on port ${PORT}`);
