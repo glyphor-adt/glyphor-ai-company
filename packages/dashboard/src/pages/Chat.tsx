@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import Markdown from 'react-markdown';
 import { useAgents } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
-import { SCHEDULER_URL } from '../lib/supabase';
+import { supabase, SCHEDULER_URL } from '../lib/supabase';
 
 interface Message {
   role: 'user' | 'agent';
@@ -17,14 +17,57 @@ function stripReasoning(text: string): string {
   return text.replace(/<reasoning>[\s\S]*?<\/reasoning>\s*/g, '').trim();
 }
 
+/** Persist a message to Supabase */
+async function saveMessage(agentRole: string, role: 'user' | 'agent', content: string) {
+  await supabase.from('chat_messages').insert({
+    agent_role: agentRole,
+    role,
+    content,
+  });
+}
+
 export default function Chat() {
   const { agentId } = useParams();
   const { data: agents } = useAgents();
   const [selectedRole, setSelectedRole] = useState(agentId ?? 'chief-of-staff');
   const [messages, setMessages] = useState<Message[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Load chat history for the selected agent
+  const loadHistory = useCallback(async (role: string) => {
+    setLoadingHistory(true);
+    try {
+      const { data } = await supabase
+        .from('chat_messages')
+        .select('role, content, created_at')
+        .eq('agent_role', role)
+        .order('created_at', { ascending: true })
+        .limit(100);
+
+      if (data?.length) {
+        setMessages(
+          data.map((row) => ({
+            role: row.role as 'user' | 'agent',
+            content: row.content,
+            timestamp: new Date(row.created_at),
+          })),
+        );
+      } else {
+        setMessages([]);
+      }
+    } catch {
+      setMessages([]);
+    }
+    setLoadingHistory(false);
+  }, []);
+
+  // Load history on mount and when agent changes
+  useEffect(() => {
+    loadHistory(selectedRole);
+  }, [selectedRole, loadHistory]);
 
   // Sync route param
   useEffect(() => {
@@ -43,9 +86,13 @@ export default function Chat() {
     const text = input.trim();
     if (!text || sending) return;
 
+    const userMsg: Message = { role: 'user', content: text, timestamp: new Date() };
     setInput('');
-    setMessages((prev) => [...prev, { role: 'user', content: text, timestamp: new Date() }]);
+    setMessages((prev) => [...prev, userMsg]);
     setSending(true);
+
+    // Persist user message
+    saveMessage(selectedRole, 'user', text);
 
     try {
       // Send prior conversation for multi-turn context (last 20 messages)
@@ -80,14 +127,14 @@ export default function Chat() {
         ...prev,
         { role: 'agent', content, timestamp: new Date() },
       ]);
+
+      // Persist agent response
+      saveMessage(selectedRole, 'agent', content);
     } catch {
+      const errContent = `Could not reach ${codename}. The scheduler may be cold-starting — try again in a moment.`;
       setMessages((prev) => [
         ...prev,
-        {
-          role: 'agent',
-          content: `Could not reach ${codename}. The scheduler may be cold-starting — try again in a moment.`,
-          timestamp: new Date(),
-        },
+        { role: 'agent', content: errContent, timestamp: new Date() },
       ]);
     } finally {
       setSending(false);
@@ -107,10 +154,7 @@ export default function Chat() {
           return (
             <button
               key={agent.id}
-              onClick={() => {
-                setSelectedRole(agent.role);
-                setMessages([]);
-              }}
+              onClick={() => setSelectedRole(agent.role)}
               className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors ${
                 active
                   ? 'bg-cyan/10 border border-cyan/25'
@@ -143,17 +187,34 @@ export default function Chat() {
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-border pb-4">
           <AgentAvatar role={selectedRole} size={36} glow />
-          <div>
+          <div className="flex-1">
             <h2 className="text-[15px] font-semibold text-txt-primary">{codename}</h2>
             <p className="text-[11px] text-txt-muted">
               {selectedAgent?.role ?? selectedRole} · {selectedAgent?.model ?? 'unknown model'}
             </p>
           </div>
+          {messages.length > 0 && (
+            <button
+              onClick={async () => {
+                await supabase.from('chat_messages').delete().eq('agent_role', selectedRole);
+                setMessages([]);
+              }}
+              className="text-[11px] text-txt-faint hover:text-rose transition-colors"
+            >
+              Clear Chat
+            </button>
+          )}
         </div>
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto py-4 space-y-4 min-h-0">
-          {messages.length === 0 && (
+          {loadingHistory && (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-[11px] text-txt-faint animate-pulse">Loading conversation…</p>
+            </div>
+          )}
+
+          {!loadingHistory && messages.length === 0 && (
             <div className="flex h-full items-center justify-center">
               <div className="text-center">
                 <p className="text-sm text-txt-muted">

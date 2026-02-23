@@ -184,7 +184,7 @@ function MeetingCard({
   };
 
   return (
-    <div className="rounded-lg border border-border">
+    <div className="glass-card rounded-lg border border-border">
       <button
         onClick={onToggle}
         className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-raised/50 transition-colors"

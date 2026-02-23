@@ -437,22 +437,27 @@ const server = createServer(async (req, res) => {
       const body = JSON.parse(await readBody(req));
       const agentRole = body.agentRole ?? body.agent;
 
-      // Build conversational message from history if provided
+      // Build conversational message — always frame as founder chat
       let message = body.message as string | undefined;
       const history = body.history as { role: string; content: string }[] | undefined;
-      if (history?.length && message) {
-        const contextLines = history.map((h) =>
-          h.role === 'user' ? `Founder: ${h.content}` : `You: ${h.content}`,
-        );
-        message = [
-          '## Prior conversation',
-          ...contextLines,
-          '',
-          '## Current message',
-          `Founder: ${message}`,
-          '',
-          'Respond to the current message. Use the prior conversation for context.',
-        ].join('\n');
+      if (message) {
+        if (history?.length) {
+          const contextLines = history.map((h) =>
+            h.role === 'user' ? `Founder: ${h.content}` : `You: ${h.content}`,
+          );
+          message = [
+            '## Prior conversation',
+            ...contextLines,
+            '',
+            '## Current message',
+            `Founder: ${message}`,
+            '',
+            'Respond to the founder\'s current message. Use the prior conversation for context.',
+          ].join('\n');
+        } else {
+          // First message — still frame as founder chat so agents detect conversational tone
+          message = `Founder: ${message}\n\nRespond directly to the founder. Match the tone and energy of their message.`;
+        }
       }
 
       const result = await router.route({
