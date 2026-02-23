@@ -27,6 +27,64 @@ import type {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// ─── THINKING CONFIG — Task-level override ─────────────────────
+// Controls whether the model uses extended thinking per task type.
+// on_demand (chat) disables thinking entirely for speed.
+// Heavy tasks enable thinking for quality.
+
+const THINKING_DISABLED_TASKS = new Set([
+  'on_demand',
+]);
+
+const THINKING_ENABLED_TASKS = new Set([
+  'morning_briefing',
+  'eod_summary',
+  'orchestrate',
+  'daily_cost_check',
+  'weekly_usage_analysis',
+  'weekly_content_planning',
+]);
+
+/** 60 s timeout for chat; 180 s for scheduled work. */
+const ON_DEMAND_TIMEOUT_MS = 60_000;
+
+// ─── TIERED CONTEXT LOADING ───────────────────────────────────
+// light  → on_demand/chat: profile + pending messages + working memory only
+// standard → most scheduled tasks: adds KB + brief
+// full   → briefing, orchestrate, deep analysis: everything including CI, graph, skills
+
+type ContextTier = 'light' | 'standard' | 'full';
+
+const FULL_CONTEXT_TASKS = new Set([
+  'morning_briefing',
+  'eod_summary',
+  'orchestrate',
+  'weekly_usage_analysis',
+  'weekly_content_planning',
+]);
+
+/** Regex: if an on_demand message matches these, auto-upgrade from light → standard. */
+const TASK_KEYWORDS = /\b(report|analys[ei]s|briefing|review|strategy|budget|cost|revenue|metric|quarterly|monthly|roadmap|competitive|pricing|audit|campaign|pipeline)\b/i;
+
+function resolveContextTier(task: string, message: string): ContextTier {
+  if (FULL_CONTEXT_TASKS.has(task)) return 'full';
+  if (task === 'on_demand') {
+    return TASK_KEYWORDS.test(message) ? 'standard' : 'light';
+  }
+  return 'standard';
+}
+
+/** Extract the task segment from a run ID like "cto-on_demand-1718000000". */
+function extractTask(configId: string): string {
+  const parts = configId.split('-');
+  // Role may contain hyphens (e.g. chief-of-staff), task is second-to-last segment
+  // Format: <role>-<task>-<timestamp>
+  if (parts.length >= 3) {
+    return parts[parts.length - 2];
+  }
+  return parts.length === 2 ? parts[1] : parts[0];
+}
+
 const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
   'chief-of-staff': 'sarah-chen',
   'cto': 'marcus-reeves',
@@ -437,8 +495,10 @@ export class CompanyAgentRunner {
     });
 
     // ─── PARALLEL PRE-RUN DATA LOADING ────────────────────────
-    // Load memories, dynamic brief, pending messages, CI context,
-    // agent profile, knowledge base, and bulletins all in parallel.
+    // Tiered loading: light (chat) → standard (scheduled) → full (briefing/orchestrate)
+    // light:    profile + pending messages + working memory
+    // standard: + KB + brief
+    // full:     + memories + CI + graph + skills
     let dynamicBrief: string | undefined;
     let agentProfile: AgentProfileData | null = null;
     let skillContext: SkillContext | null = null;
@@ -446,8 +506,11 @@ export class CompanyAgentRunner {
     let bulletinContext: string | null = null;
 
     {
-      // Memory retrieval (3 sub-fetches already parallelized internally)
-      const memoryPromise = deps?.agentMemoryStore
+      const task = extractTask(config.id);
+      const tier = resolveContextTier(task, initialMessage);
+
+      // Memory retrieval — standard+ only
+      const memoryPromise = (tier !== 'light' && deps?.agentMemoryStore)
         ? (async () => {
             const fetches: [Promise<AgentMemory[]>, Promise<AgentReflection[]>, Promise<(AgentMemory & { similarity: number })[]>] = [
               deps.agentMemoryStore!.getMemories(config.role, { limit: 20 }),
@@ -463,8 +526,8 @@ export class CompanyAgentRunner {
           })
         : Promise.resolve(null);
 
-      // Dynamic brief (system prompt override from agent_briefs DB)
-      const briefPromise = deps?.dynamicBriefLoader
+      // Dynamic brief (system prompt override from agent_briefs DB) — standard+ only
+      const briefPromise = (tier !== 'light' && deps?.dynamicBriefLoader)
         ? deps.dynamicBriefLoader(config.id).catch(err => {
             console.warn(`[CompanyAgentRunner] Dynamic brief load failed for ${config.id}:`, (err as Error).message);
             return null;
@@ -479,8 +542,8 @@ export class CompanyAgentRunner {
           })
         : Promise.resolve([] as { id: string; from_agent: string; message: string; message_type: string; priority: string; thread_id: string; created_at: string }[]);
 
-      // Collective Intelligence (pulse + org knowledge + inbox)
-      const ciPromise = deps?.collectiveIntelligenceLoader
+      // Collective Intelligence (pulse + org knowledge + inbox) — full only
+      const ciPromise = (tier === 'full' && deps?.collectiveIntelligenceLoader)
         ? deps.collectiveIntelligenceLoader(config.role).catch(err => {
             console.warn(`[CompanyAgentRunner] Collective intelligence load failed for ${config.role}:`, (err as Error).message);
             return null;
@@ -503,8 +566,8 @@ export class CompanyAgentRunner {
           })
         : Promise.resolve(null);
 
-      // Skill context (matched skills for this task)
-      const skillPromise = deps?.skillContextLoader
+      // Skill context (matched skills for this task) — full only
+      const skillPromise = (tier === 'full' && deps?.skillContextLoader)
         ? deps.skillContextLoader(config.role, initialMessage).catch(err => {
             console.warn(`[CompanyAgentRunner] Skill context load failed for ${config.role}:`, (err as Error).message);
             return null;
@@ -514,16 +577,16 @@ export class CompanyAgentRunner {
       // Determine department for knowledge base + bulletin targeting
       const roleDept = ROLE_DEPARTMENT[config.role] ?? undefined;
 
-      // DB-driven knowledge base (replaces static file reading)
-      const kbPromise = deps?.knowledgeBaseLoader
+      // DB-driven knowledge base (replaces static file reading) — standard+ only
+      const kbPromise = (tier !== 'light' && deps?.knowledgeBaseLoader)
         ? deps.knowledgeBaseLoader(roleDept).catch(err => {
             console.warn(`[CompanyAgentRunner] Knowledge base load failed for ${config.role}:`, (err as Error).message);
             return null;
           })
         : Promise.resolve(null);
 
-      // Founder bulletins
-      const bulletinPromise = deps?.bulletinLoader
+      // Founder bulletins — standard+ only
+      const bulletinPromise = (tier !== 'light' && deps?.bulletinLoader)
         ? deps.bulletinLoader(roleDept).catch(err => {
             console.warn(`[CompanyAgentRunner] Bulletin load failed for ${config.role}:`, (err as Error).message);
             return null;
@@ -659,6 +722,16 @@ export class CompanyAgentRunner {
 
           const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt, dynamicBrief, agentProfile, skillContext, dbKnowledgeBase, bulletinContext);
 
+          // Task-level thinking override
+          const task = extractTask(config.id);
+          const isOnDemand = task === 'on_demand';
+          let effectiveThinking = config.thinkingEnabled;
+          if (THINKING_DISABLED_TASKS.has(task)) {
+            effectiveThinking = false;
+          } else if (THINKING_ENABLED_TASKS.has(task)) {
+            effectiveThinking = true;
+          }
+
           response = await this.modelClient.generate({
             model: config.model,
             systemInstruction: systemPrompt,
@@ -667,8 +740,9 @@ export class CompanyAgentRunner {
             temperature: config.temperature,
             topP: config.topP,
             topK: config.topK,
-            thinkingEnabled: config.thinkingEnabled,
+            thinkingEnabled: effectiveThinking,
             signal: supervisor.signal,
+            callTimeoutMs: isOnDemand ? ON_DEMAND_TIMEOUT_MS : undefined,
           });
 
           emitEvent({

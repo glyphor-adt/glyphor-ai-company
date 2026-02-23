@@ -37,6 +37,8 @@ export interface ModelRequest {
   maxTokens?: number;
   thinkingEnabled?: boolean;
   signal?: AbortSignal;
+  /** Per-call timeout override in ms. Defaults to 180 000. */
+  callTimeoutMs?: number;
 }
 
 export interface ModelResponse {
@@ -197,7 +199,7 @@ export class ModelClient {
       },
     });
 
-    const response = await this.raceAbort(apiPromise, request.signal);
+    const response = await this.raceAbort(apiPromise, request.signal, request.callTimeoutMs);
     return this.mapGeminiResponse(response);
   }
 
@@ -394,7 +396,7 @@ export class ModelClient {
 
     const apiPromise = this.openai.chat.completions.create(createParams) as Promise<OpenAI.Chat.Completions.ChatCompletion>;
 
-    const response = await this.raceAbort(apiPromise, request.signal);
+    const response = await this.raceAbort(apiPromise, request.signal, request.callTimeoutMs);
     return this.mapOpenAIResponse(response);
   }
 
@@ -547,7 +549,7 @@ export class ModelClient {
       ...thinkingParam,
     } as Parameters<typeof this.anthropic.messages.create>[0]);
 
-    const response = await this.raceAbort(apiPromise, request.signal) as Anthropic.Message;
+    const response = await this.raceAbort(apiPromise, request.signal, request.callTimeoutMs) as Anthropic.Message;
     return this.mapAnthropicResponse(response);
   }
 
@@ -650,12 +652,10 @@ export class ModelClient {
 
   // ─── Shared helpers ──────────────────────────────────────
 
-  private async raceAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
-    // Always enforce a per-call timeout (180s) to prevent indefinite API hangs.
-    // This is independent of the supervisor's between-turn timeout check.
-    // Large system prompts (knowledge base + memories + personality + 24 tool
-    // declarations) on preview models can take 60-120s, so 180s gives headroom.
-    const PER_CALL_TIMEOUT_MS = 180_000;
+  private async raceAbort<T>(promise: Promise<T>, signal?: AbortSignal, callTimeoutMs?: number): Promise<T> {
+    // Enforce a per-call timeout to prevent indefinite API hangs.
+    // on_demand/chat uses 60s; scheduled tasks get 180s headroom.
+    const PER_CALL_TIMEOUT_MS = callTimeoutMs ?? 180_000;
     const timeoutSignal = AbortSignal.timeout(PER_CALL_TIMEOUT_MS);
 
     const signals = signal
