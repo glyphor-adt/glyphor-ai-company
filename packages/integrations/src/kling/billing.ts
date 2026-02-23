@@ -2,10 +2,10 @@
  * Kling AI Billing — Query usage via Kling's API and sync to Supabase
  *
  * Kling AI (by Kuaishou) provides video/image generation.
- * Requires KLING_API_KEY and KLING_ACCESS_KEY env vars.
+ * Auth: JWT signed with HMAC-SHA256 using Access Key + Secret Key.
+ * Requires KLING_ACCESS_KEY and KLING_SECRET_KEY env vars.
  *
  * API base: https://api.klingai.com
- * Usage endpoint: /v1/usage (returns token/credit usage by date)
  *
  * Pricing (approximate, per generation):
  *   Standard video (5s):   ~$0.035 per generation
@@ -13,9 +13,34 @@
  *   Image generation:       ~$0.005 per generation
  */
 
+import { SignJWT } from 'jose';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 const KLING_API_BASE = 'https://api.klingai.com';
+
+/**
+ * Generate a Kling API JWT token.
+ * The token is signed with HMAC-SHA256 using the secret key,
+ * with the access key as the `iss` header claim.
+ */
+async function generateKlingToken(accessKey: string, secretKey: string): Promise<string> {
+  const secret = new TextEncoder().encode(secretKey);
+  const now = Math.floor(Date.now() / 1000);
+
+  return new SignJWT({
+    iss: accessKey,
+    exp: now + 1800, // 30 minute expiry
+    nbf: now - 5,
+    iat: now,
+  })
+    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+    .sign(secret);
+}
+
+export interface KlingCredentials {
+  accessKey: string;
+  secretKey: string;
+}
 
 /** Per-task-type pricing estimates (USD) */
 const TASK_PRICING: Record<string, number> = {
@@ -38,9 +63,10 @@ export interface KlingUsageBucket {
  * Fetch usage data from Kling's API.
  */
 export async function queryKlingUsage(
-  apiKey: string,
+  credentials: KlingCredentials,
   days = 30,
 ): Promise<KlingUsageBucket[]> {
+  const token = await generateKlingToken(credentials.accessKey, credentials.secretKey);
   const endDate = new Date();
   const startDate = new Date(Date.now() - days * 86400000);
 
@@ -52,7 +78,7 @@ export async function queryKlingUsage(
 
   const response = await fetch(url, {
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
   });
@@ -61,7 +87,7 @@ export async function queryKlingUsage(
     // If no usage endpoint available, try the tasks list to derive usage
     if (response.status === 404) {
       console.log('[Kling Billing] Usage endpoint not available, trying task history');
-      return queryKlingTaskHistory(apiKey, days);
+      return queryKlingTaskHistory(credentials, days);
     }
     const body = await response.text();
     throw new Error(`Kling Usage API error ${response.status}: ${body}`);
@@ -90,9 +116,10 @@ export async function queryKlingUsage(
  * Fallback: Derive usage from task history if no dedicated usage endpoint.
  */
 async function queryKlingTaskHistory(
-  apiKey: string,
+  credentials: KlingCredentials,
   days: number,
 ): Promise<KlingUsageBucket[]> {
+  const token = await generateKlingToken(credentials.accessKey, credentials.secretKey);
   const buckets = new Map<string, KlingUsageBucket>();
 
   // Query recent video generation tasks
@@ -100,7 +127,7 @@ async function queryKlingTaskHistory(
     try {
       const response = await fetch(`${KLING_API_BASE}${endpoint}?page_size=100`, {
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -156,11 +183,11 @@ async function queryKlingTaskHistory(
  */
 export async function syncKlingBilling(
   supabase: SupabaseClient,
-  apiKey: string,
+  credentials: KlingCredentials,
   product = 'pulse',
   days = 30,
 ): Promise<{ synced: number; taskTypes: number }> {
-  const buckets = await queryKlingUsage(apiKey, days);
+  const buckets = await queryKlingUsage(credentials, days);
 
   if (buckets.length === 0) {
     console.log('[Kling Billing] No usage data available');

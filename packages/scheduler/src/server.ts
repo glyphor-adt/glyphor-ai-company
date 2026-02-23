@@ -11,7 +11,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GlyphorEventBus, ModelClient } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent } from '@glyphor/agent-runtime';
-import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, TeamsBotHandler, extractBearerToken } from '@glyphor/integrations';
+import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, type KlingCredentials, TeamsBotHandler, extractBearerToken } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
 import { EventRouter } from './eventRouter.js';
 import { DecisionQueue } from './decisionQueue.js';
@@ -395,9 +395,11 @@ const server = createServer(async (req, res) => {
     // Kling billing sync endpoint
     if (method === 'POST' && url === '/sync/kling-billing') {
       try {
-        const apiKey = process.env.KLING_API_KEY;
-        if (!apiKey) throw new Error('KLING_API_KEY not configured');
-        const result = await syncKlingBilling(memory.getSupabaseClient(), apiKey, 'pulse');
+        const accessKey = process.env.KLING_ACCESS_KEY;
+        const secretKey = process.env.KLING_SECRET_KEY;
+        if (!accessKey || !secretKey) throw new Error('KLING_ACCESS_KEY and KLING_SECRET_KEY not configured');
+        const credentials: KlingCredentials = { accessKey, secretKey };
+        const result = await syncKlingBilling(memory.getSupabaseClient(), credentials, 'pulse');
         await memory.getSupabaseClient().from('data_sync_status').update({
           last_success_at: new Date().toISOString(),
           consecutive_failures: 0,

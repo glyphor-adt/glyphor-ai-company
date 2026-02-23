@@ -58,6 +58,7 @@ export default function AgentSettings() {
 
   // System prompt state
   const [systemPrompt, setSystemPrompt] = useState('');
+  const [codePrompt, setCodePrompt] = useState('');
   const [systemPromptSource, setSystemPromptSource] = useState<'db' | 'code'>('code');
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [savingPrompt, setSavingPrompt] = useState(false);
@@ -82,7 +83,18 @@ export default function AgentSettings() {
         setBudgetDaily(a.budget_daily ?? 0.5);
         setBudgetMonthly(a.budget_monthly ?? 15);
 
-        // Fetch system prompt from agent_briefs (custom override)
+        // Always load the code-defined prompt first (for reset-to-default)
+        let codeDefinedPrompt = '';
+        try {
+          const promptRes = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(a.role)}/system-prompt`);
+          const promptData = await promptRes.json();
+          if (promptData?.system_prompt) {
+            codeDefinedPrompt = promptData.system_prompt;
+          }
+        } catch { /* prompt not available */ }
+        setCodePrompt(codeDefinedPrompt);
+
+        // Check for custom DB override
         const { data: brief } = await (supabase
           .from('agent_briefs') as any)
           .select('system_prompt')
@@ -92,14 +104,7 @@ export default function AgentSettings() {
           setSystemPrompt(brief.system_prompt);
           setSystemPromptSource('db');
         } else {
-          // Load code-defined system prompt from scheduler
-          try {
-            const promptRes = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(a.role)}/system-prompt`);
-            const promptData = await promptRes.json();
-            if (promptData?.system_prompt) {
-              setSystemPrompt(promptData.system_prompt);
-            }
-          } catch { /* prompt not available */ }
+          setSystemPrompt(codeDefinedPrompt);
           setSystemPromptSource('code');
         }
       }
@@ -134,6 +139,24 @@ export default function AgentSettings() {
         body: JSON.stringify({ system_prompt: systemPrompt }),
       });
       setSystemPromptSource('db');
+      setSavedPrompt(true);
+      setTimeout(() => setSavedPrompt(false), 1500);
+    } finally {
+      setSavingPrompt(false);
+    }
+  };
+
+  const handleResetPrompt = async () => {
+    if (!agent) return;
+    setSavingPrompt(true);
+    try {
+      await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ system_prompt: null }),
+      });
+      setSystemPrompt(codePrompt);
+      setSystemPromptSource('code');
       setSavedPrompt(true);
       setTimeout(() => setSavedPrompt(false), 1500);
     } finally {
@@ -410,39 +433,36 @@ export default function AgentSettings() {
 
         {promptExpanded && (
           <div className="mt-4 space-y-3">
-            {systemPromptSource === 'code' && systemPrompt && (
-              <pre className="max-h-[400px] overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-raised px-4 py-3 font-mono text-[13px] leading-relaxed text-txt-secondary">
-                {systemPrompt}
-              </pre>
-            )}
-            {systemPromptSource === 'code' && !systemPrompt && (
-              <p className="text-sm leading-relaxed text-txt-faint">
-                This agent's system prompt is defined in the codebase but could not be loaded.
+            <textarea
+              value={systemPrompt}
+              onChange={(e) => setSystemPrompt(e.target.value)}
+              placeholder="Enter a system prompt for this agent..."
+              rows={12}
+              className="w-full rounded-lg border border-border bg-raised px-4 py-3 font-mono text-[13px] leading-relaxed text-txt-secondary outline-none placeholder:text-txt-faint/50 focus:border-cyan/40"
+            />
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-txt-faint">
+                {systemPrompt.length.toLocaleString()} characters
               </p>
-            )}
-            {systemPromptSource === 'db' && (
-              <>
-                <textarea
-                  value={systemPrompt}
-                  onChange={(e) => setSystemPrompt(e.target.value)}
-                  placeholder="Enter a system prompt for this agent..."
-                  rows={12}
-                  className="w-full rounded-lg border border-border bg-raised px-4 py-3 font-mono text-[13px] leading-relaxed text-txt-secondary outline-none placeholder:text-txt-faint/50 focus:border-cyan/40"
-                />
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] text-txt-faint">
-                    {systemPrompt.length.toLocaleString()} characters
-                  </p>
+              <div className="flex items-center gap-2">
+                {systemPromptSource === 'db' && (
                   <button
-                    onClick={handleSavePrompt}
+                    onClick={handleResetPrompt}
                     disabled={savingPrompt}
-                    className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40"
+                    className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-secondary transition-colors hover:border-cyan hover:text-cyan disabled:opacity-40"
                   >
-                    {savedPrompt ? 'Saved!' : savingPrompt ? 'Saving...' : 'Save Prompt'}
+                    Reset to Default
                   </button>
-                </div>
-              </>
-            )}
+                )}
+                <button
+                  onClick={handleSavePrompt}
+                  disabled={savingPrompt}
+                  className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40"
+                >
+                  {savedPrompt ? 'Saved!' : savingPrompt ? 'Saving...' : 'Save Prompt'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </Card>

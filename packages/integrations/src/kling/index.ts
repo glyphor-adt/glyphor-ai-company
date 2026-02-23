@@ -1,1 +1,1 @@
-export { queryKlingUsage, syncKlingBilling, type KlingUsageBucket } from './billing.js';
+export { queryKlingUsage, syncKlingBilling, type KlingUsageBucket, type KlingCredentials } from './billing.js';

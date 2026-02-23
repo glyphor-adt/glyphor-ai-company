@@ -290,14 +290,16 @@ function buildSystemPrompt(
       }
     }
 
+    // If a DB system prompt override exists (from dashboard edits), use it
+    // instead of the code-defined prompt
+    const effectivePrompt = dynamicBrief ?? existingPrompt;
+
     const briefId = ROLE_TO_BRIEF[role];
     let roleBrief: string;
     if (briefId) {
       roleBrief = readFileSync(
         join(__dirname, `../../company-knowledge/briefs/${briefId}.md`), 'utf-8',
       );
-    } else if (dynamicBrief) {
-      roleBrief = dynamicBrief;
     } else {
       roleBrief = '';
     }
@@ -323,7 +325,7 @@ function buildSystemPrompt(
     }
 
     if (roleBrief) parts.push(roleBrief);
-    parts.push(existingPrompt);
+    parts.push(effectivePrompt);
     parts.push(knowledgeBase);
 
     // Inject founder bulletins after knowledge base, before model call
@@ -461,8 +463,8 @@ export class CompanyAgentRunner {
           })
         : Promise.resolve(null);
 
-      // Dynamic brief
-      const briefPromise = (!ROLE_TO_BRIEF[config.role] && deps?.dynamicBriefLoader)
+      // Dynamic brief (system prompt override from agent_briefs DB)
+      const briefPromise = deps?.dynamicBriefLoader
         ? deps.dynamicBriefLoader(config.id).catch(err => {
             console.warn(`[CompanyAgentRunner] Dynamic brief load failed for ${config.id}:`, (err as Error).message);
             return null;
