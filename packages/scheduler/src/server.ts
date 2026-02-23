@@ -415,19 +415,10 @@ const server = createServer(async (req, res) => {
         console.error('[TeamsBot] Error handling activity:', (err as Error).message);
       });
 
-      // Reactive wake: route Teams DM to target agent
-      if (activity.type === 'message' && activity.text) {
-        wakeRouter.processEvent({
-          type: 'teams_bot_dm',
-          data: {
-            target_agent: activity.recipient?.name ?? '',
-            sender: activity.from?.name ?? '',
-            message: activity.text,
-            is_founder: true, // Bot messages assumed from authorized users
-          },
-          source: 'teams',
-        }).catch(() => { /* best-effort */ });
-      }
+      // Note: WakeRouter event removed — handleActivity already routes messages
+      // to the correct agent and executes them. Firing a separate wake event
+      // caused duplicate execution and name resolution bugs (display names
+      // like "Rachel Kim" instead of role slugs like "vp-sales").
 
       return;
     }

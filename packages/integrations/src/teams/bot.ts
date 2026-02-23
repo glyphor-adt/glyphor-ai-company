@@ -383,7 +383,8 @@ export class TeamsBotHandler {
     );
 
     if (!res.ok) {
-      throw new Error(`Failed to get bot token: ${res.status}`);
+      const errBody = await res.text().catch(() => '');
+      throw new Error(`Failed to get bot token for ${clientId}: ${res.status} ${errBody}`);
     }
 
     const data = (await res.json()) as { access_token: string; expires_in: number };
@@ -466,9 +467,14 @@ export class TeamsBotHandler {
       return;
     }
 
-    // Check if this message was sent to an individual agent bot
+    // Check if this message was sent to an individual agent bot.
+    // Teams uses '28:<appId>' format for recipient.id, so strip the prefix.
     const recipientId = activity.recipient?.id;
-    const agentBot = recipientId ? this.agentBots.get(recipientId) : undefined;
+    let agentBot = recipientId ? this.agentBots.get(recipientId) : undefined;
+    if (!agentBot && recipientId?.includes(':')) {
+      const rawId = recipientId.split(':').pop()!;
+      agentBot = this.agentBots.get(rawId);
+    }
 
     let agentRole: string;
     let message: string;

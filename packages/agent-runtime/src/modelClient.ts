@@ -87,15 +87,36 @@ export class ModelClient {
     }
 
     const provider = detectProvider(request.model);
+    const MAX_RETRIES = 1;
 
-    switch (provider) {
-      case 'gemini':
-        return this.generateGemini(request);
-      case 'openai':
-        return this.generateOpenAI(request);
-      case 'anthropic':
-        return this.generateAnthropic(request);
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        switch (provider) {
+          case 'gemini':
+            return await this.generateGemini(request);
+          case 'openai':
+            return await this.generateOpenAI(request);
+          case 'anthropic':
+            return await this.generateAnthropic(request);
+        }
+      } catch (err) {
+        const msg = (err as Error).message ?? '';
+        // Don't retry if the supervisor aborted or the request was cancelled
+        if (request.signal?.aborted) throw err;
+        // Don't retry on auth/validation errors (4xx except 429)
+        if (/40[0-3]|404|422/.test(msg)) throw err;
+        // Retry on timeouts and transient server errors (5xx, 429)
+        if (attempt < MAX_RETRIES) {
+          const backoffMs = 2000 * (attempt + 1);
+          console.warn(`[ModelClient] Attempt ${attempt + 1} failed (${msg}), retrying in ${backoffMs}ms…`);
+          await new Promise(r => setTimeout(r, backoffMs));
+          continue;
+        }
+        throw err;
+      }
     }
+    // Unreachable, but TypeScript needs it
+    throw new Error('Unexpected: exhausted retries');
   }
 
   // ─── Gemini ──────────────────────────────────────────────
@@ -450,11 +471,11 @@ export class ModelClient {
   // ─── Shared helpers ──────────────────────────────────────
 
   private async raceAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
-    // Always enforce a per-call timeout (120s) to prevent indefinite API hangs.
+    // Always enforce a per-call timeout (180s) to prevent indefinite API hangs.
     // This is independent of the supervisor's between-turn timeout check.
-    // Large system prompts (knowledge base + memories + personality) can take
-    // 30-90s on first call, so 120s gives enough headroom.
-    const PER_CALL_TIMEOUT_MS = 120_000;
+    // Large system prompts (knowledge base + memories + personality + 24 tool
+    // declarations) on preview models can take 60-120s, so 180s gives headroom.
+    const PER_CALL_TIMEOUT_MS = 180_000;
     const timeoutSignal = AbortSignal.timeout(PER_CALL_TIMEOUT_MS);
 
     const signals = signal

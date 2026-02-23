@@ -67,7 +67,7 @@ export async function runQualityEngineer(params: QualityEngineerRunParams = {}) 
     id: `sam-${task}-${today}`, role: 'quality-engineer',
     systemPrompt: QUALITY_ENGINEER_SYSTEM_PROMPT,
     model: agentCfg.model, tools, maxTurns: agentCfg.maxTurns,
-    maxStallTurns: 3, timeoutMs: 180_000, temperature: agentCfg.temperature,
+    maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
   };
 
   const supervisor = new AgentSupervisor({

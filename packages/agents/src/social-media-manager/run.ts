@@ -57,7 +57,7 @@ export async function runSocialMediaManager(params: SocialMediaManagerRunParams 
   const config: AgentConfig = {
     id: `kai-${task}-${today}`, role: 'social-media-manager',
     systemPrompt: SOCIAL_MEDIA_MANAGER_SYSTEM_PROMPT, model: agentCfg.model,
-    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 180_000, temperature: agentCfg.temperature,
+    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
   const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));
