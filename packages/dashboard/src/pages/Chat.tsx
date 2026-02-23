@@ -155,7 +155,7 @@ export default function Chat() {
             <button
               key={agent.id}
               onClick={() => setSelectedRole(agent.role)}
-              className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors ${
+              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
                 active
                   ? 'bg-cyan/10 border border-cyan/25'
                   : 'border border-transparent hover:bg-[var(--color-hover-bg)]'
@@ -164,18 +164,18 @@ export default function Chat() {
               <img
                 src={`/avatars/${agent.role}.png`}
                 alt={agent.role}
-                className="h-7 w-7 rounded-full object-cover"
-                style={{ border: `1.5px solid ${meta?.color ?? '#64748b'}40` }}
+                className="h-9 w-9 flex-shrink-0 rounded-full object-cover"
+                style={{ border: `2px solid ${meta?.color ?? '#64748b'}50` }}
               />
               <div className="min-w-0">
                 <p
-                  className={`text-[12px] font-medium truncate ${
+                  className={`text-[13px] font-medium truncate ${
                     active ? 'text-cyan' : 'text-txt-secondary'
                   }`}
                 >
                   {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
                 </p>
-                <p className="text-[10px] text-txt-faint truncate">{agent.role}</p>
+                <p className="text-[11px] text-txt-faint truncate">{agent.role}</p>
               </div>
             </button>
           );
