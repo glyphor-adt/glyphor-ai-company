@@ -1348,7 +1348,7 @@ function SettingsTab({
             <div className="mt-1.5 flex items-center gap-3">
               <div className="flex-1 h-2 rounded-full bg-raised overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-cyan to-azure transition-all"
+                  className="h-full rounded-full bg-cyan transition-all"
                   style={{ width: `${Math.min(100, (agent.total_cost_usd / agent.budget_monthly) * 100)}%` }}
                 />
               </div>
@@ -1367,7 +1367,7 @@ function SettingsTab({
         )}
 
         <div className="mt-4 flex justify-end">
-          <button onClick={handleSave} disabled={saving} className="rounded-lg bg-gradient-to-r from-cyan to-azure px-6 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] disabled:opacity-40">
+          <button onClick={handleSave} disabled={saving} className="rounded-lg bg-cyan px-6 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40">
             {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>

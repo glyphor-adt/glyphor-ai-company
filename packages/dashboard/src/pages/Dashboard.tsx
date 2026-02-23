@@ -1,116 +1,176 @@
-import { MdCheckCircle } from 'react-icons/md';
+import { MdCheckCircle, MdSearch, MdDescription, MdQueue, MdChat, MdAutoAwesome, MdGroup } from 'react-icons/md';
 import { useAgents, useDecisions, useActivity, useProducts } from '../lib/hooks';
-import { DISPLAY_NAME_MAP, AGENT_META, TIER_TO_IMPACT } from '../lib/types';
+import { DISPLAY_NAME_MAP, TIER_TO_IMPACT } from '../lib/types';
 import {
   Card,
   SectionHeader,
   AgentAvatar,
-  StatusDot,
   ImpactBadge,
-  Sparkline,
   Skeleton,
   timeAgo,
 } from '../components/ui';
-import { SystemHealth } from '../components/SystemHealth';
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { SCHEDULER_URL } from '../lib/supabase';
+
+interface AnalysisSummary {
+  total: number;
+  completed: number;
+  active: number;
+}
 
 export default function Dashboard() {
   const { data: agents, loading: agentsLoading } = useAgents();
   const { data: decisions, loading: decisionsLoading } = useDecisions();
-  const { data: activity, loading: activityLoading } = useActivity(15);
+  const { data: activity, loading: activityLoading } = useActivity(10);
   const { data: products } = useProducts();
+  const [analysisSummary, setAnalysisSummary] = useState<AnalysisSummary>({ total: 0, completed: 0, active: 0 });
 
   const activeAgents = agents.filter((a) => a.status === 'active').length;
   const pendingDecisions = decisions.filter((d) => d.status === 'pending').length;
-  const avgScore = agents.length
-    ? Math.round(agents.reduce((s, a) => s + (a.performance_score != null ? Number(a.performance_score) * 100 : 0), 0) / agents.length)
-    : 0;
+
+  // Fetch analysis counts
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${SCHEDULER_URL}/analysis`);
+        if (res.ok) {
+          const data = await res.json();
+          const analyses = Array.isArray(data) ? data : [];
+          setAnalysisSummary({
+            total: analyses.length,
+            completed: analyses.filter((a: { status: string }) => a.status === 'completed').length,
+            active: analyses.filter((a: { status: string }) => !['completed', 'failed'].includes(a.status)).length,
+          });
+        }
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
+  const firstName = 'Kristina';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
     <div className="space-y-8">
-      {/* ── Header ──────────────────────────── */}
-      <div>
-        <h1 className="text-2xl font-bold text-txt-primary">Command Center</h1>
-        <p className="mt-1 text-sm text-txt-muted">
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-        </p>
+      {/* ── Welcome Banner ─────────────────── */}
+      <div className="rounded-2xl border border-border bg-gradient-to-r from-surface to-raised p-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-txt-primary">
+            {greeting}, {firstName}
+          </h1>
+          <p className="mt-1 text-sm text-txt-muted">
+            Welcome back to Glyphor AI. Ready to discover new insights?
+          </p>
+          <p className="mt-2 text-[12px] text-txt-faint">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+            {' · '}
+            {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+          </p>
+        </div>
+        <div className="hidden lg:flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan/15">
+          <MdAutoAwesome className="h-8 w-8 text-cyan" />
+        </div>
       </div>
 
-      {/* ── Metric Cards ────────────────────── */}
+      {/* ── Stats Row ──────────────────────── */}
       <div className="grid grid-cols-4 gap-4">
-        <MetricCard label="Active Agents" value={`${activeAgents}/${agents.length}`} sub="online now" color="#0891B2" sparkData={[3,5,4,7,6,7,7]} loading={agentsLoading} />
-        <MetricCard label="Pending Decisions" value={String(pendingDecisions)} sub="awaiting review" color="#2563EB" sparkData={[2,3,1,4,2,3,pendingDecisions]} loading={decisionsLoading} />
-        <MetricCard label="Avg Agent Score" value={`${avgScore}/100`} sub="across all agents" color="#7C3AED" sparkData={[70,72,68,75,80,78,avgScore]} loading={agentsLoading} />
-        <MetricCard label="Products" value={String(products.length)} sub={products.map(p=>p.name).join(', ') || '—'} color="#0369A1" sparkData={[1,1,1,2,2,2,products.length]} loading={false} />
+        <StatCard
+          icon={<AgentIcon />}
+          value={agentsLoading ? '…' : `${activeAgents}`}
+          label="Active Agents"
+          sub={`${agents.length} total`}
+          loading={agentsLoading}
+        />
+        <StatCard
+          icon={<AnalysisIcon />}
+          value={String(analysisSummary.total)}
+          label="Total Analyses"
+          sub={`${analysisSummary.completed} completed`}
+          loading={false}
+        />
+        <StatCard
+          icon={<ReportIcon />}
+          value={String(analysisSummary.completed)}
+          label="Reports Generated"
+          sub="strategic reports"
+          loading={false}
+        />
+        <StatCard
+          icon={<QueueIcon />}
+          value={String(analysisSummary.active)}
+          label="Active Analyses"
+          sub={pendingDecisions > 0 ? `${pendingDecisions} decisions pending` : 'all clear'}
+          loading={false}
+        />
       </div>
 
-      {/* ── System Health (from Atlas) ─────── */}
-      <SystemHealth />
+      {/* ── Quick Actions ─────────────────── */}
+      <div>
+        <SectionHeader title="Quick Actions" />
+        <div className="grid grid-cols-3 gap-4 mt-1">
+          <QuickActionCard
+            to="/strategy"
+            icon={<MdSearch className="h-6 w-6" />}
+            iconBg="bg-emerald-500/15"
+            iconColor="text-emerald-500"
+            title="Start New Research"
+            description="Launch AI-powered analysis and intelligence gathering"
+          />
+          <QuickActionCard
+            to="/strategy"
+            icon={<MdDescription className="h-6 w-6" />}
+            iconBg="bg-amber-500/15"
+            iconColor="text-amber-500"
+            title="View Reports"
+            description="Access your saved analysis reports and insights"
+          />
+          <QuickActionCard
+            to="/chat"
+            icon={<MdChat className="h-6 w-6" />}
+            iconBg="bg-cyan/15"
+            iconColor="text-cyan"
+            title="Chat with Agents"
+            description="Talk to your AI executive team directly"
+          />
+        </div>
+      </div>
 
       <div className="grid grid-cols-3 gap-6">
-        {/* ── Agent Constellation ─────────── */}
+        {/* ── Recent Activity ────────────── */}
         <Card className="col-span-2">
           <SectionHeader
-            title="Agent Constellation"
+            title="Recent Activity"
             action={
-              <Link to="/workforce" className="text-xs text-txt-muted hover:text-txt-primary hover:underline dark:text-cyan dark:hover:text-cyan">
-                View all →
+              <Link to="/operations" className="text-xs text-txt-muted hover:text-txt-primary hover:underline dark:text-cyan dark:hover:text-cyan">
+                View all
               </Link>
             }
           />
-          {agentsLoading ? (
-            <div className="grid grid-cols-4 gap-3">
-              {Array.from({ length: 7 }).map((_, i) => (
-                <Skeleton key={i} className="h-24" />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-4 gap-3">
-              {agents.map((agent) => (
-                <Link
-                  key={agent.id}
-                  to={`/chat/${agent.role}`}
-                  className="glass-card group flex flex-col items-center gap-3 rounded-xl border border-border bg-raised p-6 transition-all hover:border-border-hover hover:shadow-lg"
-                >
-                  <AgentAvatar role={agent.role} size={72} glow={agent.status === 'active'} />
-                  <div className="text-center">
-                    <p className="text-[13px] font-semibold text-txt-secondary group-hover:text-txt-primary transition-colors">
-                      {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
-                    </p>
-                    <p className="text-[11px] text-txt-muted">{agent.role}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <StatusDot status={agent.status} />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </Card>
-
-        {/* ── Activity Feed ──────────────── */}
-        <Card>
-          <SectionHeader title="Activity" />
           {activityLoading ? (
             <div className="space-y-3">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-10" />
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-12" />
               ))}
             </div>
           ) : activity.length === 0 ? (
             <p className="py-8 text-center text-sm text-txt-faint">No recent activity</p>
           ) : (
-            <div className="space-y-1 max-h-[420px] overflow-y-auto pr-1">
+            <div className="space-y-1.5">
               {activity.map((entry) => (
                 <div
                   key={entry.id}
-                  className="flex items-start gap-2.5 rounded-lg px-2 py-2 hover:bg-[var(--color-hover-bg)]"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-raised transition-colors"
                 >
-                  {entry.agent_id && (
-                    <AgentAvatar role={entry.agent_id} size={24} />
-                  )}
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-raised">
+                    {entry.agent_id ? (
+                      <AgentAvatar role={entry.agent_id} size={24} />
+                    ) : (
+                      <MdDescription className="h-4 w-4 text-txt-faint" />
+                    )}
+                  </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[12px] text-txt-secondary line-clamp-2">
+                    <p className="text-[13px] text-txt-secondary line-clamp-1">
                       {entry.action}
                     </p>
                     {entry.detail && (
@@ -127,47 +187,80 @@ export default function Dashboard() {
             </div>
           )}
         </Card>
+
+        {/* ── Decision Queue ─────────────── */}
+        <Card>
+          <SectionHeader
+            title="Decision Queue"
+            action={
+              <Link to="/approvals" className="text-xs text-txt-muted hover:text-txt-primary hover:underline dark:text-cyan dark:hover:text-cyan">
+                View all
+              </Link>
+            }
+          />
+          {decisionsLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-14" />
+              ))}
+            </div>
+          ) : decisions.filter((d) => d.status === 'pending').length === 0 ? (
+            <p className="py-8 text-center text-sm text-txt-faint">
+              All clear <MdCheckCircle className="inline h-4 w-4 text-tier-green" />
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {decisions
+                .filter((d) => d.status === 'pending')
+                .slice(0, 5)
+                .map((d) => (
+                  <div
+                    key={d.id}
+                    className="flex items-start gap-3 rounded-lg border border-border bg-raised px-3 py-2.5"
+                  >
+                    <AgentAvatar role={d.proposed_by} size={24} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-medium text-txt-secondary line-clamp-1">{d.title}</p>
+                      <p className="text-[11px] text-txt-faint line-clamp-1">{d.summary}</p>
+                    </div>
+                    <ImpactBadge impact={TIER_TO_IMPACT[d.tier] ?? d.tier} />
+                  </div>
+                ))}
+            </div>
+          )}
+        </Card>
       </div>
 
-      {/* ── Pending Decisions ─────────────── */}
+      {/* ── AI Workforce Preview ───────────── */}
       <Card>
         <SectionHeader
-          title="Decision Queue"
+          title="AI Workforce"
           action={
-            <Link to="/approvals" className="text-xs text-txt-muted hover:text-txt-primary hover:underline dark:text-cyan dark:hover:text-cyan">
-              View all →
+            <Link to="/workforce" className="text-xs text-txt-muted hover:text-txt-primary hover:underline dark:text-cyan dark:hover:text-cyan">
+              Meet the team →
             </Link>
           }
         />
-        {decisionsLoading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-14" />
+        {agentsLoading ? (
+          <div className="grid grid-cols-6 gap-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-20" />
             ))}
           </div>
-        ) : decisions.filter((d) => d.status === 'pending').length === 0 ? (
-          <p className="py-8 text-center text-sm text-txt-faint">
-            No pending decisions — all clear <MdCheckCircle className="inline h-4 w-4 text-tier-green" />
-          </p>
         ) : (
-          <div className="space-y-2">
-            {decisions
-              .filter((d) => d.status === 'pending')
-              .slice(0, 5)
-              .map((d) => (
-                <div
-                  key={d.id}
-                  className="glass-raised flex items-center gap-4 rounded-lg border border-border bg-raised px-4 py-3"
-                >
-                  <AgentAvatar role={d.proposed_by} size={28} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-medium text-txt-secondary">{d.title}</p>
-                    <p className="text-[11px] text-txt-muted line-clamp-1">{d.summary}</p>
-                  </div>
-                  <ImpactBadge impact={TIER_TO_IMPACT[d.tier] ?? d.tier} />
-                  <span className="text-[10px] text-txt-faint">{timeAgo(d.created_at)}</span>
-                </div>
-              ))}
+          <div className="grid grid-cols-6 gap-3">
+            {agents.slice(0, 12).map((agent) => (
+              <Link
+                key={agent.id}
+                to={`/chat/${agent.role}`}
+                className="group flex flex-col items-center gap-2 rounded-xl border border-border bg-raised p-3 transition-all hover:border-border-hover hover:shadow-md"
+              >
+                <AgentAvatar role={agent.role} size={40} glow={agent.status === 'active'} />
+                <p className="text-[11px] font-medium text-txt-muted group-hover:text-txt-primary text-center leading-tight transition-colors">
+                  {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
+                </p>
+              </Link>
+            ))}
           </div>
         )}
       </Card>
@@ -175,32 +268,100 @@ export default function Dashboard() {
   );
 }
 
-/* ── Metric Card Component ─────────────────── */
-function MetricCard({
-  label,
+/* ── Stat Card ─────────────────────────────── */
+function StatCard({
+  icon,
   value,
+  label,
   sub,
-  color,
-  sparkData,
   loading,
 }: {
-  label: string;
+  icon: React.ReactNode;
   value: string;
+  label: string;
   sub: string;
-  color: string;
-  sparkData: number[];
   loading: boolean;
 }) {
   if (loading) return <Skeleton className="h-28" />;
 
   return (
-    <Card className="flex flex-col gap-2">
+    <Card className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">{label}</p>
-        <Sparkline data={sparkData} color={color} width={60} height={20} />
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-raised">
+          {icon}
+        </div>
       </div>
-      <p className="font-mono text-2xl font-semibold text-txt-primary">{value}</p>
-      <p className="text-[11px] text-txt-faint">{sub}</p>
+      <div>
+        <p className="font-mono text-2xl font-bold text-txt-primary">{value}</p>
+        <p className="text-[12px] font-medium text-txt-muted">{label}</p>
+        <p className="text-[11px] text-txt-faint mt-0.5">{sub}</p>
+      </div>
     </Card>
+  );
+}
+
+/* ── Quick Action Card ─────────────────────── */
+function QuickActionCard({
+  to,
+  icon,
+  iconBg,
+  iconColor,
+  title,
+  description,
+}: {
+  to: string;
+  icon: React.ReactNode;
+  iconBg: string;
+  iconColor: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <Link
+      to={to}
+      className="group glass-card flex flex-col gap-3 rounded-xl border border-border bg-surface p-5 transition-all hover:border-border-hover hover:shadow-lg"
+    >
+      <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${iconBg} ${iconColor}`}>
+        {icon}
+      </div>
+      <div>
+        <p className="text-sm font-bold text-txt-primary group-hover:text-cyan transition-colors">{title}</p>
+        <p className="mt-1 text-[12px] text-txt-muted leading-relaxed">{description}</p>
+      </div>
+    </Link>
+  );
+}
+
+/* ── Inline SVG Icons for stat cards ───────── */
+
+function AgentIcon() {
+  return (
+    <svg className="h-5 w-5 text-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.118a7.5 7.5 0 0115 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.5-1.632z" />
+    </svg>
+  );
+}
+
+function AnalysisIcon() {
+  return (
+    <svg className="h-5 w-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5" />
+    </svg>
+  );
+}
+
+function ReportIcon() {
+  return (
+    <svg className="h-5 w-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+    </svg>
+  );
+}
+
+function QueueIcon() {
+  return (
+    <svg className="h-5 w-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
+    </svg>
   );
 }

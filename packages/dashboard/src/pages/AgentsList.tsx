@@ -20,7 +20,7 @@ export default function AgentsList() {
         </div>
         <Link
           to="/agents/new"
-          className="rounded-lg bg-gradient-to-r from-cyan to-azure px-4 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:shadow-[0_0_16px_rgba(34,211,238,0.4)]"
+          className="rounded-lg bg-cyan px-4 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90"
         >
           + New Agent
         </Link>

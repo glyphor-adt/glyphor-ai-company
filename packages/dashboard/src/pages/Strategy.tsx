@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, type ReactNode } from 'react';
-import { MdCheck, MdWarning, MdClose, MdAutoAwesome, MdPalette } from 'react-icons/md';
+import { MdCheck, MdWarning, MdClose, MdAutoAwesome, MdPalette, MdTrendingUp, MdFlag, MdArrowForward } from 'react-icons/md';
 import { SCHEDULER_URL } from '../lib/supabase';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
 
@@ -330,17 +330,10 @@ function AnalysisDetail({ report, id }: { report: AnalysisReport; id: string }) 
   const [enhancing, setEnhancing] = useState(false);
   const [generatingVisual, setGeneratingVisual] = useState(false);
   const [visualImage, setVisualImage] = useState<{ data: string; mimeType: string } | null>(null);
-  const [showAllFindings, setShowAllFindings] = useState(false);
-  const [showAllRisks, setShowAllRisks] = useState(false);
 
   const keyFindings = [...report.swot.strengths, ...report.swot.opportunities];
   const riskItems = [...report.swot.weaknesses, ...report.swot.threats];
   const nextSteps = report.recommendations.filter((r) => r.priority === 'high');
-
-  const FINDINGS_PREVIEW = 6;
-  const RISKS_PREVIEW = 5;
-  const visibleFindings = showAllFindings ? keyFindings : keyFindings.slice(0, FINDINGS_PREVIEW);
-  const visibleRisks = showAllRisks ? riskItems : riskItems.slice(0, RISKS_PREVIEW);
 
   async function generateEnhancedReport() {
     setEnhancing(true);
@@ -430,129 +423,100 @@ function AnalysisDetail({ report, id }: { report: AnalysisReport; id: string }) 
         ))}
       </div>
 
-      {/* Key Findings — capped with show more */}
-      {keyFindings.length > 0 && (
-        <div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.03] p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className="h-4 w-1 rounded-full bg-amber-400" />
-              <p className="text-xs font-semibold uppercase tracking-wider text-amber-400">Key Findings</p>
-              <span className="ml-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-medium text-amber-400">
-                {keyFindings.length}
-              </span>
-            </div>
-          </div>
-          <div className="grid gap-2.5 md:grid-cols-2">
-            {visibleFindings.map((item, i) => (
-              <div key={i} className="flex items-start gap-2.5 rounded-lg bg-base/30 px-3 py-2.5">
-                <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-400/15 text-[10px] font-bold text-amber-400">
-                  {i + 1}
-                </span>
-                <p className="text-[13px] text-txt-secondary leading-relaxed">{item}</p>
-              </div>
-            ))}
-          </div>
-          {keyFindings.length > FINDINGS_PREVIEW && (
-            <button
-              onClick={() => setShowAllFindings(!showAllFindings)}
-              className="mt-3 text-xs font-medium text-amber-400 hover:text-amber-300 transition-colors"
-            >
-              {showAllFindings ? 'Show less' : `Show all ${keyFindings.length} findings`}
-            </button>
-          )}
-        </div>
-      )}
+      {/* ── 2×2 Executive Synthesis Grid ─────────────── */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* Key Findings — top left */}
+        {keyFindings.length > 0 && (
+          <SynthesisCard
+            icon={<MdTrendingUp className="h-5 w-5" />}
+            title="Key Findings"
+            borderColor="border-emerald-500/30"
+            bgColor="bg-emerald-500/[0.04]"
+            iconBg="bg-emerald-500/15"
+            iconColor="text-emerald-500"
+            titleColor="text-emerald-500"
+            dotColor="bg-emerald-500"
+          >
+            <ul className="space-y-2">
+              {keyFindings.map((item, i) => (
+                <li key={i} className="flex items-start gap-2.5 text-[13px] text-txt-secondary leading-relaxed">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </SynthesisCard>
+        )}
 
-      {/* Strategic Recommendations */}
-      {report.recommendations.length > 0 && (
-        <div className="rounded-xl border border-cyan/20 bg-cyan/[0.03] p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="h-4 w-1 rounded-full bg-cyan" />
-            <p className="text-xs font-semibold uppercase tracking-wider text-cyan">Strategic Recommendations</p>
-            <span className="ml-1 rounded-full bg-cyan/15 px-2 py-0.5 text-[10px] font-medium text-cyan">
-              {report.recommendations.length}
-            </span>
-          </div>
-          <div className="space-y-2.5">
-            {report.recommendations.map((rec, i) => (
-              <div key={i} className="flex items-start gap-3 rounded-lg border border-border/50 bg-base/30 px-4 py-3">
-                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan/15 text-[11px] font-bold text-cyan">
-                  {i + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className="text-sm font-semibold text-txt-primary">{rec.title}</p>
-                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
-                      rec.priority === 'high'
-                        ? 'border-red-400/30 bg-red-400/15 text-red-400'
-                        : rec.priority === 'medium'
-                        ? 'border-amber-400/30 bg-amber-400/15 text-amber-400'
-                        : 'border-blue-400/30 bg-blue-400/15 text-blue-400'
-                    }`}>
-                      {rec.priority}
-                    </span>
-                  </div>
-                  <p className="text-[13px] text-txt-muted leading-relaxed">{rec.detail}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+        {/* Strategic Recommendations — top right */}
+        {report.recommendations.length > 0 && (
+          <SynthesisCard
+            icon={<MdFlag className="h-5 w-5" />}
+            title="Strategic Recommendations"
+            borderColor="border-cyan/30"
+            bgColor="bg-cyan/[0.04]"
+            iconBg="bg-cyan/15"
+            iconColor="text-cyan"
+            titleColor="text-cyan"
+            dotColor="bg-cyan"
+          >
+            <ul className="space-y-2">
+              {report.recommendations.map((rec, i) => (
+                <li key={i} className="flex items-start gap-2.5 text-[13px] text-txt-secondary leading-relaxed">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan" />
+                  <span><span className="font-semibold text-txt-primary">{rec.title}:</span> {rec.detail}</span>
+                </li>
+              ))}
+            </ul>
+          </SynthesisCard>
+        )}
 
-      {/* Immediate Next Steps */}
-      {nextSteps.length > 0 && (
-        <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/[0.03] p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="h-4 w-1 rounded-full bg-emerald-400" />
-            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400">Immediate Next Steps</p>
-          </div>
-          <div className="space-y-2.5">
-            {nextSteps.map((rec, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-400/15 text-[10px] font-bold text-emerald-400">
-                  {i + 1}
-                </span>
-                <div>
-                  <p className="text-[13px] font-medium text-txt-primary">{rec.title}</p>
-                  <p className="mt-0.5 text-[12px] text-txt-muted leading-relaxed">{rec.detail}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+        {/* Immediate Next Steps — bottom left */}
+        {nextSteps.length > 0 && (
+          <SynthesisCard
+            icon={<MdArrowForward className="h-5 w-5" />}
+            title="Immediate Next Steps"
+            borderColor="border-amber-500/30"
+            bgColor="bg-amber-500/[0.04]"
+            iconBg="bg-amber-500/15"
+            iconColor="text-amber-500"
+            titleColor="text-amber-500"
+            dotColor="bg-amber-500"
+          >
+            <ul className="space-y-2">
+              {nextSteps.map((rec, i) => (
+                <li key={i} className="flex items-start gap-2.5 text-[13px] text-txt-secondary leading-relaxed">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                  <span><span className="font-semibold text-txt-primary">{rec.title}:</span> {rec.detail}</span>
+                </li>
+              ))}
+            </ul>
+          </SynthesisCard>
+        )}
 
-      {/* Risk Considerations — capped with show more */}
-      {riskItems.length > 0 && (
-        <div className="rounded-xl border border-rose-400/20 bg-rose-400/[0.03] p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="h-4 w-1 rounded-full bg-rose-400" />
-            <p className="text-xs font-semibold uppercase tracking-wider text-rose-400">Risk Considerations</p>
-            <span className="ml-1 rounded-full bg-rose-400/15 px-2 py-0.5 text-[10px] font-medium text-rose-400">
-              {riskItems.length}
-            </span>
-          </div>
-          <div className="grid gap-2.5 md:grid-cols-2">
-            {visibleRisks.map((item, i) => (
-              <div key={i} className="flex items-start gap-2.5 rounded-lg bg-base/30 px-3 py-2.5">
-                <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-rose-400/15 text-[10px] font-bold text-rose-400">
-                  {i + 1}
-                </span>
-                <p className="text-[13px] text-txt-secondary leading-relaxed">{item}</p>
-              </div>
-            ))}
-          </div>
-          {riskItems.length > RISKS_PREVIEW && (
-            <button
-              onClick={() => setShowAllRisks(!showAllRisks)}
-              className="mt-3 text-xs font-medium text-rose-400 hover:text-rose-300 transition-colors"
-            >
-              {showAllRisks ? 'Show less' : `Show all ${riskItems.length} risks`}
-            </button>
-          )}
-        </div>
-      )}
+        {/* Risk Considerations — bottom right */}
+        {riskItems.length > 0 && (
+          <SynthesisCard
+            icon={<MdWarning className="h-5 w-5" />}
+            title="Risk Considerations"
+            borderColor="border-rose-500/30"
+            bgColor="bg-rose-500/[0.04]"
+            iconBg="bg-rose-500/15"
+            iconColor="text-rose-500"
+            titleColor="text-rose-500"
+            dotColor="bg-rose-500"
+          >
+            <ul className="space-y-2">
+              {riskItems.map((item, i) => (
+                <li key={i} className="flex items-start gap-2.5 text-[13px] text-txt-secondary leading-relaxed">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </SynthesisCard>
+        )}
+      </div>
 
       {/* Collapsible SWOT Matrix */}
       <div className="rounded-xl border border-border bg-raised p-5">
@@ -565,54 +529,10 @@ function AnalysisDetail({ report, id }: { report: AnalysisReport; id: string }) 
         </button>
         {showSwot && (
           <div className="mt-4 grid grid-cols-2 gap-3">
-            <div className="rounded-lg border border-emerald-400/20 bg-emerald-400/[0.03] p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400 mb-3">Strengths</p>
-              {report.swot.strengths.length === 0 ? <p className="text-[11px] text-txt-faint">—</p> : (
-                <ul className="space-y-1.5">
-                  {report.swot.strengths.map((s, i) => (
-                    <li key={i} className="flex items-start gap-2 text-[12px] text-txt-secondary leading-relaxed">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />{s}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <div className="rounded-lg border border-red-400/20 bg-red-400/[0.03] p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-red-400 mb-3">Weaknesses</p>
-              {report.swot.weaknesses.length === 0 ? <p className="text-[11px] text-txt-faint">—</p> : (
-                <ul className="space-y-1.5">
-                  {report.swot.weaknesses.map((w, i) => (
-                    <li key={i} className="flex items-start gap-2 text-[12px] text-txt-secondary leading-relaxed">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-400" />{w}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <div className="rounded-lg border border-cyan/20 bg-cyan/[0.03] p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-cyan mb-3">Opportunities</p>
-              {report.swot.opportunities.length === 0 ? <p className="text-[11px] text-txt-faint">—</p> : (
-                <ul className="space-y-1.5">
-                  {report.swot.opportunities.map((o, i) => (
-                    <li key={i} className="flex items-start gap-2 text-[12px] text-txt-secondary leading-relaxed">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan" />{o}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <div className="rounded-lg border border-amber-400/20 bg-amber-400/[0.03] p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-400 mb-3">Threats</p>
-              {report.swot.threats.length === 0 ? <p className="text-[11px] text-txt-faint">—</p> : (
-                <ul className="space-y-1.5">
-                  {report.swot.threats.map((t, i) => (
-                    <li key={i} className="flex items-start gap-2 text-[12px] text-txt-secondary leading-relaxed">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />{t}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <SwotQuadrant title="Strengths" items={report.swot.strengths} color="emerald" />
+            <SwotQuadrant title="Weaknesses" items={report.swot.weaknesses} color="red" />
+            <SwotQuadrant title="Opportunities" items={report.swot.opportunities} color="cyan" />
+            <SwotQuadrant title="Threats" items={report.swot.threats} color="amber" />
           </div>
         )}
       </div>
@@ -648,6 +568,68 @@ function AnalysisDetail({ report, id }: { report: AnalysisReport; id: string }) 
             </div>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Synthesis Card (2×2 grid card) ──────────── */
+
+function SynthesisCard({
+  icon,
+  title,
+  borderColor,
+  bgColor,
+  iconBg,
+  iconColor,
+  titleColor,
+  children,
+}: {
+  icon: ReactNode;
+  title: string;
+  borderColor: string;
+  bgColor: string;
+  iconBg: string;
+  iconColor: string;
+  titleColor: string;
+  dotColor: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`rounded-xl border ${borderColor} ${bgColor} p-5`}>
+      <div className="flex items-center gap-2.5 mb-4">
+        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${iconBg} ${iconColor}`}>
+          {icon}
+        </div>
+        <h3 className={`text-sm font-bold ${titleColor}`}>{title}</h3>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/* ── SWOT Quadrant ───────────────────────────── */
+
+function SwotQuadrant({ title, items, color }: { title: string; items: string[]; color: string }) {
+  const colorMap: Record<string, { border: string; bg: string; dot: string; text: string }> = {
+    emerald: { border: 'border-emerald-400/20', bg: 'bg-emerald-400/[0.03]', dot: 'bg-emerald-400', text: 'text-emerald-400' },
+    red: { border: 'border-red-400/20', bg: 'bg-red-400/[0.03]', dot: 'bg-red-400', text: 'text-red-400' },
+    cyan: { border: 'border-cyan/20', bg: 'bg-cyan/[0.03]', dot: 'bg-cyan', text: 'text-cyan' },
+    amber: { border: 'border-amber-400/20', bg: 'bg-amber-400/[0.03]', dot: 'bg-amber-400', text: 'text-amber-400' },
+  };
+  const c = colorMap[color] ?? colorMap.cyan;
+
+  return (
+    <div className={`rounded-lg border ${c.border} ${c.bg} p-4`}>
+      <p className={`text-[11px] font-semibold uppercase tracking-wider ${c.text} mb-3`}>{title}</p>
+      {items.length === 0 ? <p className="text-[11px] text-txt-faint">—</p> : (
+        <ul className="space-y-1.5">
+          {items.map((item, i) => (
+            <li key={i} className="flex items-start gap-2 text-[12px] text-txt-secondary leading-relaxed">
+              <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${c.dot}`} />{item}
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
@@ -1200,7 +1182,7 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
                 {/* Feasibility bar */}
                 <div className="mt-2 h-1.5 w-full rounded-full bg-base overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-cyan to-azure transition-all"
+                    className="h-full rounded-full bg-cyan transition-all"
                     style={{ width: `${Math.round(s.feasibility * 100)}%` }}
                   />
                 </div>
