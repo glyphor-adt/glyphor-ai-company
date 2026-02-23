@@ -95,6 +95,14 @@ export interface CustomerHealth {
   last_contact: string | null;
 }
 
+export interface ChatMessage {
+  id: string;
+  agent_role: string;
+  role: string;
+  content: string;
+  created_at: string;
+}
+
 /* ── Supabase generic DB shape (simplified) ── */
 export interface Database {
   public: {
@@ -106,6 +114,12 @@ export interface Database {
       products: { Row: Product };
       financials: { Row: Financial };
       customer_health: { Row: CustomerHealth };
+      chat_messages: {
+        Row: ChatMessage;
+        Insert: Omit<ChatMessage, 'id' | 'created_at'>;
+        Update: Partial<Omit<ChatMessage, 'id'>>;
+        Relationships: [];
+      };
     };
   };
 }

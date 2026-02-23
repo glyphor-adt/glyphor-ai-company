@@ -21,9 +21,9 @@ export default function Layout() {
   const { theme, toggle } = useTheme();
   const { user, logout } = useAuth();
   return (
-    <div className="flex h-screen overflow-hidden bg-base">
+    <div className="flex h-screen overflow-hidden bg-base dark:bg-[#0a0c10]">
       {/* ── Sidebar ─────────────────────────── */}
-      <aside className="flex w-[220px] flex-col border-r border-border dark:border-white/[0.06] bg-white dark:bg-black/30 dark:backdrop-blur-2xl transition-colors duration-200">
+      <aside className="flex w-[220px] flex-col border-r border-border dark:border-white/[0.06] bg-white dark:bg-white/[0.04] dark:backdrop-blur-2xl transition-colors duration-200">
         {/* Brand */}
         <div className="flex items-center gap-3 px-4 py-4">
           <img src="/glyphor-logo.png" alt="Glyphor" className="h-10 w-10 drop-shadow-[0_0_10px_rgba(0,224,255,0.4)]" />
@@ -85,7 +85,7 @@ export default function Layout() {
       </aside>
 
       {/* ── Main Content ────────────────────── */}
-      <main className="flex-1 overflow-y-auto bg-base transition-colors duration-200 dark:bg-[#14161a] dark:bg-[url('/gradient-dark.svg')] dark:bg-cover dark:bg-fixed dark:bg-top">
+      <main className="flex-1 overflow-y-auto bg-base transition-colors duration-200 dark:bg-[#14161a] dark:bg-[url('/gradient-dark.svg')] dark:bg-[length:100%_auto] dark:bg-no-repeat dark:bg-top">
         <div className="page-enter mx-auto max-w-[1400px] px-8 py-8">
           <Outlet />
         </div>

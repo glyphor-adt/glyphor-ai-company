@@ -19,7 +19,7 @@ function stripReasoning(text: string): string {
 
 /** Persist a message to Supabase */
 async function saveMessage(agentRole: string, role: 'user' | 'agent', content: string) {
-  await supabase.from('chat_messages').insert({
+  await (supabase.from('chat_messages') as any).insert({
     agent_role: agentRole,
     role,
     content,
@@ -40,12 +40,12 @@ export default function Chat() {
   const loadHistory = useCallback(async (role: string) => {
     setLoadingHistory(true);
     try {
-      const { data } = await supabase
-        .from('chat_messages')
+      const { data } = await (supabase
+        .from('chat_messages') as any)
         .select('role, content, created_at')
         .eq('agent_role', role)
         .order('created_at', { ascending: true })
-        .limit(100);
+        .limit(100) as { data: { role: string; content: string; created_at: string }[] | null };
 
       if (data?.length) {
         setMessages(
@@ -196,7 +196,7 @@ export default function Chat() {
           {messages.length > 0 && (
             <button
               onClick={async () => {
-                await supabase.from('chat_messages').delete().eq('agent_role', selectedRole);
+                await (supabase.from('chat_messages') as any).delete().eq('agent_role', selectedRole);
                 setMessages([]);
               }}
               className="text-[11px] text-txt-faint hover:text-rose transition-colors"

@@ -70,7 +70,7 @@ export default function Dashboard() {
                 <Link
                   key={agent.id}
                   to={`/chat/${agent.role}`}
-                  className="glass-card group flex flex-col items-center gap-3 rounded-xl border border-border bg-raised p-6 transition-all hover:border-border-hover hover:shadow-lg"
+                  className="glass-card group flex flex-col items-center gap-3 rounded-xl border border-border bg-raised dark:bg-transparent p-6 transition-all hover:border-border-hover hover:shadow-lg"
                 >
                   <AgentAvatar role={agent.role} size={72} glow={agent.status === 'active'} />
                   <div className="text-center">
@@ -157,7 +157,7 @@ export default function Dashboard() {
               .map((d) => (
                 <div
                   key={d.id}
-                  className="glass-raised flex items-center gap-4 rounded-lg border border-border bg-raised px-4 py-3"
+                  className="glass-raised flex items-center gap-4 rounded-lg border border-border bg-raised dark:bg-transparent px-4 py-3"
                 >
                   <AgentAvatar role={d.proposed_by} size={28} />
                   <div className="min-w-0 flex-1">

@@ -21,19 +21,19 @@
 
 .dark {
   color-scheme: dark;
-  --color-base: #14161a;
-  --color-surface: #1a1d23;
-  --color-raised: #1e2128;
-  --color-border: #2a2e38;
-  --color-border-hover: #3a3f4b;
+  --color-base: transparent;
+  --color-surface: rgba(255, 255, 255, 0.06);
+  --color-raised: rgba(255, 255, 255, 0.04);
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-hover: rgba(255, 255, 255, 0.18);
   --color-txt-primary: #f1f5f9;
   --color-txt-secondary: #cbd5e1;
   --color-txt-muted: #7a8599;
   --color-txt-faint: #525d70;
   --color-hover-bg: rgba(255,255,255,0.05);
   --color-shimmer: rgba(0,224,255,0.08);
-  --scrollbar-thumb: #2a2e38;
-  --scrollbar-hover: #3a3f4b;
+  --scrollbar-thumb: rgba(255,255,255,0.1);
+  --scrollbar-hover: rgba(255,255,255,0.18);
 }
 
 /* ─── Global ──────────────────────────────────── */
@@ -55,27 +55,30 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
 
 /* ─── macOS Dark Glass ────────────────────── */
 .dark .glass-card {
-  background: rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow:
-    0 0 0 0.5px rgba(255, 255, 255, 0.06) inset,
-    0 2px 12px rgba(0, 0, 0, 0.35);
-}
-.dark .glass-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(40px) saturate(1.8);
+  -webkit-backdrop-filter: blur(40px) saturate(1.8);
   border-color: rgba(255, 255, 255, 0.12);
   box-shadow:
-    0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
-    0 4px 24px rgba(0, 0, 0, 0.45);
+    0 0 0 0.5px rgba(255, 255, 255, 0.1) inset,
+    0 0 0 0.5px rgba(0, 0, 0, 0.3),
+    0 2px 16px rgba(0, 0, 0, 0.25);
+}
+.dark .glass-card:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 0 0 0.5px rgba(255, 255, 255, 0.14) inset,
+    0 0 0 0.5px rgba(0, 0, 0, 0.3),
+    0 4px 24px rgba(0, 0, 0, 0.35);
 }
 
 /* Inner raised elements inside glass cards */
 .dark .glass-raised {
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-color: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 /* ─── Glow effect for active agent nodes ──── */
