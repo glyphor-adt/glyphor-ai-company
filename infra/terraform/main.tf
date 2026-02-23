@@ -74,6 +74,7 @@ resource "google_project_service" "apis" {
     "secretmanager.googleapis.com",
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
+    "bigquery.googleapis.com",
   ])
   service            = each.value
   disable_on_destroy = false
