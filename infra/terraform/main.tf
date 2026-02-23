@@ -421,6 +421,20 @@ resource "google_project_iam_member" "cfo_bq_job_user" {
   member   = "user:${each.value}"
 }
 
+# ─── Scheduler SA → BigQuery (billing sync) ──────────────────
+resource "google_bigquery_dataset_iam_member" "scheduler_bq_data_viewer" {
+  project    = var.project_id
+  dataset_id = "billing_export"
+  role       = "roles/bigquery.dataViewer"
+  member     = "serviceAccount:${google_service_account.glyphor.email}"
+}
+
+resource "google_project_iam_member" "scheduler_bq_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.glyphor.email}"
+}
+
 # ─── Outputs ──────────────────────────────────────────────────
 output "dashboard_url" {
   value = google_cloud_run_v2_service.dashboard.uri
