@@ -127,6 +127,17 @@ export { getScopedGitHubClient, validateGitHubScope, GITHUB_AGENT_SCOPES, type G
 // Governance sync
 export { syncGCPIAMState, syncSecretRotationStatus, runGovernanceSync } from './governance/iamSync.js';
 
+// Web search (Serper)
+export {
+  searchWeb,
+  searchNews,
+  batchSearch,
+  searchResultsToContext,
+  type SearchResult,
+  type NewsResult,
+  type WebSearchOptions,
+} from './webSearch.js';
+
 // GitHub — repo access for Marcus (CTO) and engineering team
 export {
   getGitHubClient,

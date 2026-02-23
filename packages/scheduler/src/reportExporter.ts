@@ -8,6 +8,7 @@
 import type { AnalysisReport, AnalysisRecord } from './analysisEngine.js';
 import type { SimulationReport, SimulationRecord } from './simulationEngine.js';
 import type { CotReport, CotRecord } from './cotEngine.js';
+import type { DeepDiveRecord, DeepDiveReport } from './deepDiveEngine.js';
 import PptxGenJS from 'pptxgenjs';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType, PageNumber, Header, Footer, Tab, TabStopPosition, TabStopType, convertInchesToTwip } from 'docx';
 
@@ -951,6 +952,322 @@ export function exportCotJSON(record: CotRecord): string {
     completed_at: record.completed_at,
     report: record.report,
   }, null, 2);
+}
+
+/* ── Deep Dive Export: Markdown ─────────────── */
+
+export function exportDeepDiveMarkdown(record: DeepDiveRecord): string {
+  const report = record.report;
+  const lines: string[] = [
+    `# McKinsey Deep Dive: ${record.target}`,
+    '',
+    `**Target:** ${record.target}`,
+    `**Requested by:** ${record.requested_by}`,
+    `**Created:** ${new Date(record.created_at).toLocaleString()}`,
+    `**Status:** ${record.status}`,
+    '',
+  ];
+
+  if (!report) {
+    lines.push('*Report not yet generated.*');
+    return lines.join('\n');
+  }
+
+  lines.push(`**Type:** ${report.targetType}`, `**Analysis Date:** ${report.analysisDate}`, '');
+
+  // Current State
+  lines.push('## Current State', '', `**Momentum:** ${report.currentState.momentum}`, '');
+  if (report.currentState.keyStrengths.length > 0) {
+    lines.push('### Key Strengths');
+    for (const s of report.currentState.keyStrengths) lines.push(`- **${s.point}** — ${s.evidence}`);
+    lines.push('');
+  }
+  if (report.currentState.keyChallenges.length > 0) {
+    lines.push('### Key Challenges');
+    for (const c of report.currentState.keyChallenges) lines.push(`- **${c.point}** — ${c.evidence}`);
+    lines.push('');
+  }
+  const fs = report.currentState.financialSnapshot;
+  if (fs.revenue || fs.funding) {
+    lines.push('### Financial Snapshot');
+    if (fs.revenue) lines.push(`- Revenue: ${fs.revenue}`);
+    if (fs.revenueGrowth) lines.push(`- Revenue Growth: ${fs.revenueGrowth}`);
+    if (fs.headcount) lines.push(`- Headcount: ${fs.headcount}`);
+    if (fs.funding) lines.push(`- Funding: ${fs.funding}`);
+    if (fs.valuation) lines.push(`- Valuation: ${fs.valuation}`);
+    if (fs.profitability) lines.push(`- Profitability: ${fs.profitability}`);
+    lines.push('');
+  }
+
+  // Overview
+  lines.push('## Company Overview', '', report.overview.description, '');
+  if (report.overview.leadership.length > 0) {
+    lines.push('### Leadership');
+    for (const l of report.overview.leadership) lines.push(`- **${l.name}** — ${l.title}`);
+    lines.push('');
+  }
+  if (report.overview.products.length > 0) {
+    lines.push('### Products');
+    for (const p of report.overview.products) lines.push(`- **${p.name}**: ${p.description}`);
+    lines.push('');
+  }
+  lines.push(`**Business Model:** ${report.overview.businessModel}`, '');
+
+  // Market Analysis
+  lines.push('## Market Analysis', '');
+  lines.push(`- TAM: ${report.marketAnalysis.tam.value} (${report.marketAnalysis.tam.methodology})`);
+  lines.push(`- SAM: ${report.marketAnalysis.sam.value} (${report.marketAnalysis.sam.methodology})`);
+  lines.push(`- SOM: ${report.marketAnalysis.som.value} (${report.marketAnalysis.som.methodology})`);
+  lines.push(`- Growth Rate: ${report.marketAnalysis.growthRate}`);
+  lines.push('');
+
+  // Competitive Landscape
+  lines.push('## Competitive Landscape', '');
+  if (report.competitiveLandscape.competitors.length > 0) {
+    lines.push('| Competitor | Positioning | Key Differentiator |');
+    lines.push('|------------|-------------|-------------------|');
+    for (const c of report.competitiveLandscape.competitors) {
+      lines.push(`| ${c.name} | ${c.positioning} | ${c.keyDifferentiator} |`);
+    }
+    lines.push('');
+  }
+
+  // Strategic Recommendations
+  if (report.strategicRecommendations.length > 0) {
+    lines.push('## Strategic Recommendations', '');
+    for (const rec of report.strategicRecommendations) {
+      lines.push(`### ${rec.title} [${rec.priority.toUpperCase()}]`, '', rec.description);
+      lines.push(`- Expected Impact: ${rec.expectedImpact}`);
+      lines.push(`- Investment: ${rec.investmentRequired}`);
+      lines.push(`- Risk: ${rec.riskLevel}`, '');
+    }
+  }
+
+  // Risk Assessment
+  if (report.riskAssessment.length > 0) {
+    lines.push('## Risk Assessment', '');
+    lines.push('| Risk | Probability | Impact | Mitigation |');
+    lines.push('|------|-------------|--------|------------|');
+    for (const r of report.riskAssessment) {
+      lines.push(`| ${r.risk} | ${r.probability} | ${r.impact} | ${r.mitigation} |`);
+    }
+    lines.push('');
+  }
+
+  // Sources
+  if (record.sources.length > 0) {
+    lines.push('## Sources', '');
+    for (const s of record.sources.slice(0, 30)) {
+      lines.push(`- [${s.title}](${s.url ?? '#'}) (${s.type})`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+export function exportDeepDiveJSON(record: DeepDiveRecord): string {
+  return JSON.stringify({
+    id: record.id,
+    target: record.target,
+    status: record.status,
+    requested_by: record.requested_by,
+    created_at: record.created_at,
+    completed_at: record.completed_at,
+    research_areas: record.research_areas,
+    sources: record.sources,
+    report: record.report,
+  }, null, 2);
+}
+
+/* ── Deep Dive Export: PPTX ────────────────── */
+
+export async function exportDeepDivePPTX(record: DeepDiveRecord): Promise<Buffer> {
+  const pptx = new PptxGenJS();
+  pptx.layout = 'LAYOUT_16x9';
+  pptx.author = 'Glyphor AI';
+  pptx.title = `Deep Dive: ${record.target}`;
+
+  const report = record.report;
+  pptxTitleSlide(pptx, `McKinsey Deep Dive`, record.target, `${record.sources.length} sources analyzed  ·  ${new Date(record.created_at).toLocaleDateString()}  ·  Glyphor AI Strategy Lab`);
+
+  if (!report) {
+    const slide = pptx.addSlide();
+    slide.background = { color: SLIDE_BG };
+    slide.addText('Report not yet generated.', { x: 1, y: 2, w: 8, fontSize: 18, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
+    return (await pptx.write({ outputType: 'nodebuffer' })) as unknown as Buffer;
+  }
+
+  // Current State
+  {
+    const slide = pptx.addSlide();
+    slide.background = { color: SLIDE_BG };
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: SLIDE_CYAN } });
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.06, h: 5.63, fill: { color: SLIDE_CYAN } });
+    slide.addText('Current State', { x: 0.6, y: 0.25, w: 7, fontSize: 22, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true });
+    const momColor = report.currentState.momentum === 'positive' ? SLIDE_GREEN : report.currentState.momentum === 'negative' ? SLIDE_RED : SLIDE_AMBER;
+    slide.addShape(pptx.ShapeType.roundRect, { x: 7.8, y: 0.15, w: 1.8, h: 0.5, fill: { color: SLIDE_BG2 }, line: { color: momColor, width: 2 }, rectRadius: 0.08 });
+    slide.addText(report.currentState.momentum.toUpperCase(), { x: 7.8, y: 0.15, w: 1.8, h: 0.5, fontSize: 12, color: momColor, fontFace: FONT_HEADING, bold: true, align: 'center', valign: 'middle' });
+
+    const strengths = report.currentState.keyStrengths.slice(0, 3).map((s) => `✓ ${s.point}`);
+    const challenges = report.currentState.keyChallenges.slice(0, 3).map((c) => `✗ ${c.point}`);
+    if (strengths.length > 0) {
+      slide.addText('Key Strengths', { x: 0.6, y: 0.9, w: 4, fontSize: 14, color: SLIDE_GREEN, fontFace: FONT_HEADING, bold: true });
+      strengths.forEach((s, i) => {
+        slide.addText(s, { x: 0.6, y: 1.3 + i * 0.5, w: 4.2, fontSize: 11, color: SLIDE_TEXT, fontFace: FONT_BODY });
+      });
+    }
+    if (challenges.length > 0) {
+      slide.addText('Key Challenges', { x: 5.2, y: 0.9, w: 4, fontSize: 14, color: SLIDE_RED, fontFace: FONT_HEADING, bold: true });
+      challenges.forEach((c, i) => {
+        slide.addText(c, { x: 5.2, y: 1.3 + i * 0.5, w: 4.5, fontSize: 11, color: SLIDE_TEXT, fontFace: FONT_BODY });
+      });
+    }
+    addSlideFooter(slide, pptx);
+  }
+
+  // Strategic Recommendations
+  if (report.strategicRecommendations.length > 0) {
+    pptxSectionSlides(
+      pptx,
+      'Strategic Recommendations',
+      report.strategicRecommendations.map((r) => `[${r.priority.toUpperCase()}] ${r.title}: ${r.description.slice(0, 120)}`),
+      SLIDE_CYAN,
+      { numbered: true },
+    );
+  }
+
+  // Risk Assessment
+  if (report.riskAssessment.length > 0) {
+    pptxSectionSlides(
+      pptx,
+      'Risk Assessment',
+      report.riskAssessment.map((r) => `[${r.probability.toUpperCase()} / ${r.impact.toUpperCase()}] ${r.risk}: ${r.mitigation.slice(0, 100)}`),
+      SLIDE_RED,
+    );
+  }
+
+  // Closing
+  {
+    const slide = pptx.addSlide();
+    slide.background = { color: SLIDE_BG };
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 2.6, w: 10, h: 0.04, fill: { color: SLIDE_CYAN } });
+    slide.addText('G L Y P H O R   A I', { x: 0.6, y: 1.8, w: 8.8, fontSize: 28, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, align: 'center', charSpacing: 6 });
+    slide.addText('McKinsey Deep Dive Complete', { x: 0.6, y: 2.9, w: 8.8, fontSize: 14, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
+    addSlideFooter(slide, pptx);
+  }
+
+  return (await pptx.write({ outputType: 'nodebuffer' })) as unknown as Buffer;
+}
+
+/* ── Deep Dive Export: DOCX ────────────────── */
+
+export async function exportDeepDiveDOCX(record: DeepDiveRecord): Promise<Buffer> {
+  const report = record.report;
+  const children: (Paragraph | Table)[] = [];
+
+  // Branded header
+  children.push(new Paragraph({
+    spacing: { after: 60 },
+    children: [new TextRun({ text: 'G L Y P H O R   A I', bold: true, size: 20, color: '00B4D8', font: 'Segoe UI' })],
+  }));
+  children.push(new Paragraph({
+    spacing: { after: 120 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '00B4D8', space: 6 } },
+    children: [],
+  }));
+
+  // Title
+  children.push(new Paragraph({
+    spacing: { before: 200, after: 80 },
+    children: [new TextRun({ text: `McKinsey Deep Dive: ${record.target}`, bold: true, size: 48, font: 'Segoe UI', color: '1A1A2E' })],
+  }));
+  children.push(new Paragraph({
+    spacing: { after: 400 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'DDDDDD', space: 12 } },
+    children: [
+      new TextRun({ text: `Sources: ${record.sources.length}`, size: 18, color: '888888', font: 'Segoe UI' }),
+      new TextRun({ text: `  ·  Date: ${new Date(record.created_at).toLocaleDateString()}`, size: 18, color: '888888', font: 'Segoe UI' }),
+      new TextRun({ text: `  ·  Status: ${record.status}`, size: 18, color: '888888', font: 'Segoe UI' }),
+    ],
+  }));
+
+  if (!report) {
+    children.push(new Paragraph({ children: [new TextRun({ text: 'Report not yet generated.', italics: true })] }));
+    return Packer.toBuffer(new Document({ sections: [{ children: children as Paragraph[] }] }));
+  }
+
+  // Overview
+  children.push(...docxSectionHeading('Company Overview', '00B4D8'));
+  children.push(new Paragraph({
+    spacing: { after: 160 },
+    children: [new TextRun({ text: report.overview.description, size: 22, font: 'Segoe UI', color: '2D2D2D' })],
+  }));
+
+  // Current State
+  children.push(...docxSectionHeading('Current State', '059669'));
+  const momLabel = report.currentState.momentum.toUpperCase();
+  const momColor = report.currentState.momentum === 'positive' ? '059669' : report.currentState.momentum === 'negative' ? 'DC2626' : 'D97706';
+  children.push(new Paragraph({
+    spacing: { after: 120 },
+    children: [new TextRun({ text: `Momentum: ${momLabel}`, bold: true, size: 24, font: 'Segoe UI', color: momColor })],
+  }));
+  for (const s of report.currentState.keyStrengths) {
+    children.push(docxBulletItem(`${s.point} — ${s.evidence}`, '059669'));
+  }
+  for (const c of report.currentState.keyChallenges) {
+    children.push(docxBulletItem(`${c.point} — ${c.evidence}`, 'DC2626'));
+  }
+
+  // Strategic Recommendations
+  if (report.strategicRecommendations.length > 0) {
+    children.push(...docxSectionHeading('Strategic Recommendations', '00B4D8'));
+    for (let i = 0; i < report.strategicRecommendations.length; i++) {
+      const rec = report.strategicRecommendations[i];
+      const priorityColor = rec.priority === 'immediate' ? 'DC2626' : rec.priority === 'short-term' ? 'D97706' : '2563EB';
+      children.push(new Paragraph({
+        spacing: { before: 240, after: 80 },
+        children: [
+          new TextRun({ text: `${i + 1}. `, bold: true, size: 22, color: '00B4D8', font: 'Segoe UI' }),
+          new TextRun({ text: rec.title, bold: true, size: 22, font: 'Segoe UI', color: '1A1A2E' }),
+          new TextRun({ text: `  [${rec.priority.toUpperCase()}]`, bold: true, size: 18, color: priorityColor, font: 'Segoe UI' }),
+        ],
+      }));
+      children.push(new Paragraph({
+        spacing: { after: 120 },
+        indent: { left: convertInchesToTwip(0.3) },
+        children: [new TextRun({ text: rec.description, size: 21, color: '444444', font: 'Segoe UI' })],
+      }));
+    }
+  }
+
+  // Risk Assessment
+  if (report.riskAssessment.length > 0) {
+    children.push(...docxSectionHeading('Risk Assessment', 'DC2626'));
+    for (const risk of report.riskAssessment) {
+      children.push(docxBulletItem(`[${risk.probability}/${risk.impact}] ${risk.risk} — ${risk.mitigation}`, '555555'));
+    }
+  }
+
+  // Footer
+  children.push(new Paragraph({
+    spacing: { before: 600 },
+    border: { top: { style: BorderStyle.SINGLE, size: 2, color: '00B4D8', space: 12 } },
+    alignment: AlignmentType.CENTER,
+    children: [new TextRun({ text: `Glyphor AI  ·  McKinsey Deep Dive  ·  ${new Date().toLocaleDateString()}  ·  Confidential`, size: 16, color: '999999', font: 'Segoe UI' })],
+  }));
+
+  return Packer.toBuffer(new Document({
+    creator: 'Glyphor AI',
+    title: `Deep Dive: ${record.target}`,
+    sections: [{
+      properties: {
+        page: {
+          margin: { top: convertInchesToTwip(0.8), bottom: convertInchesToTwip(0.8), left: convertInchesToTwip(1.0), right: convertInchesToTwip(1.0) },
+        },
+      },
+      children: children as Paragraph[],
+    }],
+  }));
 }
 
 /* ── Analysis: Visual (Image Infographic) ──── */
