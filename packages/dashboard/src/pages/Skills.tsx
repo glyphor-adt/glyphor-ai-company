@@ -18,6 +18,7 @@ interface SkillRow {
 
 interface AgentSkillRow {
   agent_role: string;
+  skill_id: string;
   proficiency: string;
   times_used: number;
   successes: number;

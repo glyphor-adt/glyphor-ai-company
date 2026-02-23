@@ -81,12 +81,13 @@ export default function SkillDetailPage() {
         .single();
 
       if (skillData) {
-        setSkill(skillData as SkillDetail);
+        const typed = skillData as unknown as SkillDetail;
+        setSkill(typed);
 
         const { data: agentSkills } = await supabase
           .from('agent_skills')
           .select('*')
-          .eq('skill_id', skillData.id)
+          .eq('skill_id', typed.id)
           .order('proficiency');
 
         setAssignments((agentSkills as unknown as AgentAssignment[]) ?? []);
