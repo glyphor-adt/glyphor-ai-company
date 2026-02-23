@@ -12,6 +12,7 @@ import {
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { SCHEDULER_URL } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 
 interface AnalysisSummary {
@@ -20,12 +21,20 @@ interface AnalysisSummary {
   active: number;
 }
 
+interface RunningAgent {
+  id: string;
+  agent_id: string;
+  task: string | null;
+  started_at: string;
+}
+
 export default function Dashboard() {
   const { data: agents, loading: agentsLoading } = useAgents();
   const { data: decisions, loading: decisionsLoading } = useDecisions();
   const { data: activity, loading: activityLoading } = useActivity(10);
   const { data: products } = useProducts();
   const [analysisSummary, setAnalysisSummary] = useState<AnalysisSummary>({ total: 0, completed: 0, active: 0 });
+  const [runningAgents, setRunningAgents] = useState<RunningAgent[]>([]);
 
   const activeAgents = agents.filter((a) => a.status === 'active').length;
   const pendingDecisions = decisions.filter((d) => d.status === 'pending').length;
@@ -46,6 +55,24 @@ export default function Dashboard() {
         }
       } catch { /* ignore */ }
     })();
+  }, []);
+
+  // Fetch currently running agents
+  useEffect(() => {
+    const fetchRunning = async () => {
+      const { data: rows } = await supabase
+        .from('agent_runs')
+        .select('id, agent_id, task, started_at')
+        .eq('status', 'running')
+        .order('started_at', { ascending: false });
+      setRunningAgents((rows as RunningAgent[]) ?? []);
+    };
+    fetchRunning();
+    const channel = supabase
+      .channel('dashboard_runs_live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_runs' }, () => { fetchRunning(); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const { user } = useAuth();
@@ -119,6 +146,40 @@ export default function Dashboard() {
           accentClass="border-t-2 border-t-amber-400 dark:border-t-amber-500/50"
         />
       </div>
+
+      {/* ── Running Now Banner ─────────────── */}
+      {runningAgents.length > 0 && (
+        <Link to="/activity" className="block">
+          <div className="flex items-center gap-4 rounded-xl border border-cyan/20 bg-gradient-to-r from-cyan/5 to-transparent px-5 py-3 transition-all hover:border-cyan/30 hover:shadow-md">
+            <div className="flex items-center gap-1.5">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan opacity-75" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-cyan" />
+              </span>
+              <span className="text-[13px] font-semibold text-cyan">
+                {runningAgents.length} agent{runningAgents.length > 1 ? 's' : ''} working
+              </span>
+            </div>
+            <div className="flex items-center gap-3 overflow-hidden">
+              {runningAgents.slice(0, 5).map((run) => (
+                <div key={run.id} className="flex items-center gap-2 rounded-lg bg-surface/50 px-2.5 py-1">
+                  <AgentAvatar role={run.agent_id} size={20} />
+                  <span className="text-[11px] text-txt-secondary truncate max-w-[120px]">
+                    {DISPLAY_NAME_MAP[run.agent_id] ?? run.agent_id}
+                  </span>
+                  <span className="text-[10px] text-txt-faint truncate max-w-[100px]">
+                    {run.task ?? ''}
+                  </span>
+                </div>
+              ))}
+              {runningAgents.length > 5 && (
+                <span className="text-[11px] text-txt-faint">+{runningAgents.length - 5} more</span>
+              )}
+            </div>
+            <span className="ml-auto text-[11px] text-txt-faint">View activity →</span>
+          </div>
+        </Link>
+      )}
 
       {/* ── Quick Actions ─────────────────── */}
       <div>

@@ -19,6 +19,7 @@ import Directives from './pages/Directives';
 import WorkforceBuilder from './pages/WorkforceBuilder';
 import Governance from './pages/Governance';
 import Knowledge from './pages/Knowledge';
+import Activity from './pages/Activity';
 
 export default function App() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="approvals" element={<Approvals />} />
         <Route path="financials" element={<Financials />} />
         <Route path="operations" element={<Operations />} />
+        <Route path="activity" element={<Activity />} />
         <Route path="strategy" element={<Strategy />} />
         <Route path="graph" element={<Graph />} />
         <Route path="skills" element={<Skills />} />

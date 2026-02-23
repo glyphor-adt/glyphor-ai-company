@@ -10,6 +10,7 @@ const NAV = [
   { to: '/chat', label: 'Chat', icon: ChatIcon },
   { to: '/approvals', label: 'Approvals', icon: CheckIcon },
   { to: '/financials', label: 'Financials', icon: ChartIcon },
+  { to: '/activity', label: 'Activity', icon: ActivityIcon },
   { to: '/operations', label: 'Operations', icon: GearIcon },
   { to: '/strategy', label: 'Strategy', icon: StrategyIcon },
   { to: '/graph', label: 'Graph', icon: GraphIcon },
@@ -259,6 +260,14 @@ function KnowledgeIcon({ className }: { className?: string }) {
       <circle cx="11.5" cy="4" r="0.5" fill="currentColor" stroke="none" />
       <circle cx="11.5" cy="11" r="0.5" fill="currentColor" stroke="none" />
       <circle cx="4.5" cy="12" r="0.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function ActivityIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <path d="M1 8h3l2-5 2 10 2-5h5" />
     </svg>
   );
 }
