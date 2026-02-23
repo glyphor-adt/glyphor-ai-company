@@ -83,8 +83,8 @@ export default function AgentSettings() {
         setBudgetMonthly(a.budget_monthly ?? 15);
 
         // Fetch system prompt from agent_briefs
-        const { data: brief } = await supabase
-          .from('agent_briefs')
+        const { data: brief } = await (supabase
+          .from('agent_briefs') as any)
           .select('system_prompt')
           .eq('agent_id', a.id)
           .single();

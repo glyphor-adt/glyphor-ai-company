@@ -15,6 +15,7 @@ const NAV = [
   { to: '/strategy', label: 'Strategy', icon: StrategyIcon },
   { to: '/graph', label: 'Graph', icon: GraphIcon },
   { to: '/skills', label: 'Skills', icon: SkillsIcon },
+  { to: '/builder', label: 'Builder', icon: BuilderIcon },
   { to: '/meetings', label: 'Meetings', icon: MeetingsIcon },
 ] as const;
 
@@ -225,6 +226,17 @@ function SkillsIcon({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
       <path d="M8 1l2 3h3l-2.5 3L12 10l-4-2-4 2 1.5-3L3 4h3z" />
       <path d="M6 11v3M10 11v3M8 12v3" />
+    </svg>
+  );
+}
+
+function BuilderIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <rect x="5" y="1" width="6" height="4" rx="1" />
+      <rect x="1" y="11" width="5" height="4" rx="1" />
+      <rect x="10" y="11" width="5" height="4" rx="1" />
+      <path d="M8 5v3M3.5 11V8h9v3" />
     </svg>
   );
 }

@@ -17,6 +17,7 @@ import Graph from './pages/Graph';
 import Skills from './pages/Skills';
 import SkillDetail from './pages/SkillDetail';
 import Directives from './pages/Directives';
+import WorkforceBuilder from './pages/WorkforceBuilder';
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="workforce" element={<Workforce />} />
         <Route path="agents" element={<AgentsList />} />
         <Route path="agents/new" element={<AgentBuilder />} />
+        <Route path="builder" element={<WorkforceBuilder />} />
         <Route path="agents/:agentId" element={<AgentProfile />} />
         {/* Legacy route — redirect to new detail page */}
         <Route path="agents/:agentId/settings" element={<AgentProfile />} />

@@ -416,7 +416,7 @@ function NewDirectiveModal({
     if (!title.trim() || !description.trim()) return;
     setSaving(true);
 
-    const { error } = await supabase.from('founder_directives').insert({
+    const { error } = await (supabase.from('founder_directives') as any).insert({
       title: title.trim(),
       description: description.trim(),
       priority,
