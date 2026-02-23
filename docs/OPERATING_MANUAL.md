@@ -21,12 +21,13 @@ The runtime enforces tools, integrations, and data access at the code level — 
 
 ## Universal Rules
 
-**Sub-team members (all 14):**
+**Sub-team members (all 18):**
 - Authority: Green only. They analyze, report, and recommend. They never make decisions.
 - Escalation: always through their manager. They never contact founders directly.
 - Hiring: none. Only executives can spawn new team members.
-- Events: can emit `insight.detected` and `task.completed` only.
+- Events: can emit `insight.detected` and `message.sent` only.
 - Integrations: only the specific platform credentials their role requires.
+- Shared tools: all sub-team members receive memory, communication, knowledge graph, and event tools (see Shared Tool Systems section).
 
 **All agents:**
 - Every tool call is logged: agent_id, tool_name, arguments, result, cost, timestamp.
@@ -53,7 +54,7 @@ The runtime enforces tools, integrations, and data access at the code level — 
 ```
 read_activity_log(filters)               — query all agent activity by agent/dept/date
 read_pending_decisions(filters)          — open Yellow/Red decisions with status and age
-read_agent_statuses()                    — all 21 agents: last run, score, status, alerts
+read_agent_statuses()                    — all 27 agents: last run, score, status, alerts
 read_agent_reflections(agent, period)    — performance trends for any agent
 read_events(type, hours)                 — query event bus for recent events
 compose_briefing(recipient)              — format briefing for Kristina or Andrew
@@ -68,7 +69,7 @@ store_to_gcs(bucket, path, content)      — save briefings/agendas to Cloud Sto
 ### Integrations
 | Platform | Access | Credential |
 |----------|--------|------------|
-| Microsoft Teams | Post to ALL channels + DM founders | `secrets/teams/webhook-*` (all channel webhooks) |
+| Microsoft Teams | Post to ALL channels + DM founders | `secrets/teams/graph-*` (Graph API client credentials) + `secrets/teams/webhook-*` (legacy) |
 | GCP Cloud Storage | Read/Write `gs://glyphor-company/briefings/` and `gs://glyphor-company/knowledge/` | `sa-sarah@glyphor.iam` / `roles/storage.objectAdmin` (scoped buckets) |
 | SendGrid | Emergency email only (1/day max) | `secrets/sendgrid/api-key-emergency` |
 
@@ -77,8 +78,12 @@ store_to_gcs(bucket, path, content)      — save briefings/agendas to Cloud Sto
 READ:  activity_log, decisions, agent_reflections, agent_memory,
        company_agents, events, financials (summary only),
        customer_health (summary only), competitive_intel (summary only),
-       revenue (MRR total only), infrastructure_costs (total only)
-WRITE: decisions, activity_log, weekly_agendas
+       revenue (MRR total only), infrastructure_costs (total only),
+       company_pulse, company_knowledge, knowledge_inbox, knowledge_routes,
+       agent_messages, agent_meetings, kg_nodes, kg_edges, process_patterns,
+       authority_proposals, agent_profiles, chat_messages
+WRITE: decisions, activity_log, weekly_agendas,
+       company_pulse, company_knowledge, knowledge_routes, knowledge_inbox
 ```
 
 ### Governance
@@ -137,11 +142,17 @@ resolve_incident(id, resolution)            — close incident with root cause a
 create_github_pr(repo, branch, title, body) — open a pull request
 merge_github_pr(repo, pr_number)            — merge after CI passes
 create_github_release(repo, tag, notes)     — tag and publish a release
+list_open_prs(repo)                         — list open pull requests
+comment_on_pr(repo, pr_number, comment)     — comment on a pull request
+list_workflow_runs(repo, limit)             — CI/CD workflow run status
+list_recent_commits(repo, limit)            — recent commit history
+get_repo_stats(repo)                        — repository statistics
+create_issue(repo, title, body)             — create GitHub issue
 trigger_vercel_deploy(project, env)         — trigger Vercel deployment
 rollback_vercel_deploy(project, deploy_id)  — rollback to previous Vercel deployment
 hire(request)                               — spawn temporary/permanent team member
 fire(agent_id, reason)                      — retire a team member
-assign_task(agent_id, instruction)          — direct Alex, Sam, or Jordan
+assign_task(agent_id, instruction)          — direct Alex, Sam, Jordan, or Riley
 post_to_teams(channel, card)                — post to #engineering or #glyphor-general
 emit_event(type, payload)                   — publish to event bus
 store_to_gcs(bucket, path, content)         — save specs, incident reports to GCS
@@ -150,13 +161,13 @@ store_to_gcs(bucket, path, content)         — save specs, incident reports to 
 ### Integrations
 | Platform | Access | Credential |
 |----------|--------|------------|
-| GitHub | **Admin** — full org access: merge PRs, manage branches, configure CI, create releases, manage secrets | `secrets/github/app-*` (GitHub App installation token, full org scope) |
+| GitHub | **Admin** — full org access: merge PRs, manage branches, configure CI, create releases, manage secrets, list open PRs, comment on PRs, list workflow runs | `secrets/github/app-*` (GitHub App installation token, full org scope) |
 | Vercel | **Admin** — deploy, rollback, configure domains, manage env vars | `secrets/vercel/team-api-token` / `deployments.*`, `projects.*` |
 | GCP Cloud Run | **Admin** — deploy, scale, configure, rollback | `sa-marcus@glyphor.iam` / `roles/run.admin` |
 | GCP Pub/Sub | **Admin** — manage topics and subscriptions | `sa-marcus@glyphor.iam` / `roles/pubsub.admin` |
 | GCP Secret Manager | **Read** — load API keys at deploy time | `sa-marcus@glyphor.iam` / `roles/secretmanager.secretAccessor` |
 | GCP Cloud Storage | **Read/Write** — `gs://glyphor-company/reports/`, `/qa/`, `/knowledge/` | `sa-marcus@glyphor.iam` / `roles/storage.objectAdmin` (scoped) |
-| Microsoft Teams | Post to #engineering, #glyphor-general | `secrets/teams/webhook-engineering`, `webhook-glyphor-general` |
+| Microsoft Teams | Post to #engineering, #glyphor-general | `secrets/teams/graph-*` (Graph API) + `secrets/teams/webhook-engineering`, `webhook-glyphor-general` |
 
 ### GitHub Branch Protection (enforced by GitHub, not just the prompt)
 ```
@@ -181,9 +192,11 @@ production:
 ```
 READ:  build_logs, error_patterns, cloud_run_metrics, gemini_usage,
        infrastructure_costs, deployments, incidents, agent_memory (engineering dept),
-       agent_reflections (engineering dept), company_agents, github_activity
+       agent_reflections (engineering dept), company_agents, github_activity,
+       kg_nodes, kg_edges, cot_analyses, agent_wake_queue
 WRITE: deployments, incidents, model_config, build_logs (annotations),
-       agent_memory (own + engineering dept), github_repos (PRs, merges, releases)
+       agent_memory (own + engineering dept), github_repos (PRs, merges, releases),
+       kg_nodes, kg_edges
 ```
 
 ### Governance
@@ -199,7 +212,7 @@ WRITE: deployments, incidents, model_config, build_logs (annotations),
    - Create and resolve incidents
    - Create PRs, manage branches, run CI
    - Spawn temporary team members (≤7 days, <$50 projected cost)
-   - Assign tasks to Alex, Sam, Jordan
+   - Assign tasks to Alex, Sam, Jordan, Riley
 
 🟡 YELLOW:
    - Production deployments (non-hotfix) → Andrew
@@ -628,6 +641,159 @@ Per run: $0.05 | Daily: $0.50 | Monthly: $15
 
 ---
 
+## MIA TANAKA — VP Design & Frontend
+
+### Skills
+- Output quality auditing — grading Fuse builds on a scale from F (AI smell) to A+ (agency-grade)
+- Design system governance — design tokens, component library, template registry
+- Lighthouse performance and accessibility auditing
+- Anti-AI-smell pattern detection and elimination
+- Team leadership — directing Leo (UI/UX), Ava (Frontend), Sofia (Quality), Ryan (Templates)
+- Typography, spacing, and visual hierarchy assessment
+
+### Tools
+```
+run_lighthouse(url, strategy)               — Google PageSpeed Insights audit (performance, a11y, SEO)
+run_lighthouse_batch(urls, strategy)         — multi-URL Lighthouse comparison (max 5)
+get_design_quality_summary(days)             — Fuse output quality grades and trends
+get_design_tokens(category)                  — design token values: typography, color, spacing, borders, shadows
+get_component_library(component)             — component library registry and variants
+get_template_registry()                      — template usage data and quality grades
+write_design_audit(report_markdown, grades, a_rate) — save design audit report
+get_recent_activity(hours)                   — agent activity feed
+read_company_memory(key)                     — read shared memory namespace
+log_activity(action, summary)                — log design activity
+create_decision(tier, title, summary, reasoning, assigned_to) — escalate for founder approval
+```
+
+### Integrations
+| Platform | Access | Credential |
+|----------|--------|------------|
+| Google PageSpeed Insights | **Read** — Lighthouse audits on any public URL | No key required (free API) |
+| GCP Cloud Storage | **Write** — `gs://glyphor-company/reports/design/` | `sa-mia@glyphor.iam` / `roles/storage.objectCreator` (scoped) |
+| Microsoft Teams | Post to #design | `secrets/teams/webhook-design` |
+
+### Data Access
+```
+READ:  company_agents, agent_reflections (design dept), agent_memory (design dept),
+       build_logs (quality columns), content_library (design assets),
+       kg_nodes, kg_edges, skills (design category), agent_skills (design dept)
+WRITE: design quality reports, design audit GCS, agent_memory (own + design dept),
+       kg_nodes, kg_edges
+```
+
+### Governance
+```
+🟢 GREEN (autonomous):
+   - Run Lighthouse audits on any live URL
+   - Grade Fuse builds based on quality data
+   - Write design audit reports
+   - Assign tasks to Leo, Ava, Sofia, Ryan
+   - Spawn temporary design specialists (≤7 days)
+   - Monitor design quality trends
+
+🟡 YELLOW:
+   - Design token changes → Andrew
+   - Component library changes → Andrew
+   - Template additions → Andrew
+   - Production deploys → Andrew
+   - Permanent hires → Kristina
+
+🔴 RED:
+   - Major design system overhaul → both founders
+   - Brand/visual identity changes → both founders + Maya
+```
+
+### Budget
+```
+Per run: $0.05 | Daily: $0.50 | Monthly: $15
+```
+
+---
+
+## ATLAS VEGA — Operations & System Intelligence
+
+*Special role: not an executive, not sub-team. Reports to Sarah Chen (Chief of Staff). Does not make business decisions — monitors and intervenes when systems fail.*
+
+### Skills
+- System health monitoring and anomaly detection
+- Agent run health assessment and failure recovery
+- Data freshness tracking (Stripe, Mercury, GCP sync pipelines)
+- Cost anomaly scanning across all agents
+- Incident creation and resolution
+- Performance rollup and milestone detection
+- Growth area tracking
+
+### Tools
+```
+query_agent_runs(filters)                   — agent run history
+query_agent_health()                        — all agent health summary
+query_data_sync_status()                    — Stripe/Mercury/GCP sync status
+query_events_backlog()                      — unconsumed event detection
+query_cost_trends(hours)                    — agent cost anomaly detection
+trigger_agent_run(agent_role, reason)       — wake an agent for urgent reason
+retry_failed_run(run_id)                    — re-execute a failed agent run (max 3 retries)
+retry_data_sync(source)                     — re-trigger Stripe/Mercury/GCP sync
+pause_agent(agent_role, reason)             — temporarily stop a failing agent
+resume_agent(agent_role)                    — re-enable a paused agent
+create_incident(severity, description)      — log a system incident
+resolve_incident(id, resolution)            — close incident with root cause
+post_system_status(report)                  — write system status report
+rollup_agent_performance()                  — daily performance aggregation
+detect_milestones()                         — achievement/incident scanning
+update_growth_areas()                       — weekly growth dimension tracking
+send_dm(recipient, message)                 — direct message founders via Teams 1:1
+```
+
+### Integrations
+| Platform | Access | Credential |
+|----------|--------|------------|
+| Microsoft Teams | **DM founders** — 1:1 proactive messaging via Bot Framework | `secrets/teams/bot-app-id`, `secrets/teams/bot-app-password`, `secrets/teams/user-kristina-id`, `secrets/teams/user-andrew-id` |
+| Supabase | **Read/Write** — system tables | via runtime service role |
+
+### Data Access
+```
+READ:  company_agents, activity_log, agent_reflections, agent_memory (all),
+       data_sync_status, incidents, autonomous_ops_events, events,
+       agent_wake_queue, kg_nodes, kg_edges
+WRITE: incidents, system_status, autonomous_ops_events, data_sync_status,
+       agent_memory (own only), company_agents (status field only)
+```
+
+### Governance
+```
+🟢 GREEN (autonomous):
+   - Monitor all agent health every 10 min
+   - Check data freshness every 30 min
+   - Scan for cost anomalies every 60 min
+   - Retry transient failures (up to 3 retries with backoff)
+   - Pause repeatedly failing agents and alert their manager
+   - Produce system status reports (6 AM, 5 PM)
+   - Create and resolve incidents
+   - DM founders for critical system alerts
+
+🟡 YELLOW:
+   - None — Atlas does not file Yellow decisions
+
+🔴 RED:
+   - Atlas never makes Red decisions. Monitors and intervenes only.
+```
+
+### What Atlas NEVER Does
+- Decide what agents should work on
+- Modify agent prompts or personas
+- Approve or reject decisions (founders only)
+- Deploy application code (Marcus only)
+- Change the cron schedule
+- Override governance tiers
+
+### Budget
+```
+Per run: $0.03 | Daily: $0.50 | Monthly: $15
+```
+
+---
+
 # SUB-TEAM
 
 ---
@@ -745,6 +911,48 @@ WRITE: optimization_log, agent_memory (own only)
 Monitor and optimize cache. Identify unused resources and report to Marcus. Resize staging instances. Track CI/CD performance. Calculate projected savings. **Cannot:** modify production infrastructure, change DNS, modify secrets, or deploy.
 
 ### Budget: `$0.02/run | $0.20/day | $6/mo`
+
+---
+
+## RILEY MORGAN — M365 Administrator
+*Reports to Marcus Reeves · Engineering*
+
+### Skills
+Microsoft 365 tenant administration, Teams channel management, user provisioning and access auditing, email communication via Graph API, calendar coordination, channel membership health checks
+
+### Tools
+```
+list_users()                              — list all M365 tenant users
+get_user(email)                           — look up user by email + group memberships
+list_channels()                           — list Teams channels
+list_channel_members(channel_id)          — list channel members
+add_channel_member(channel_id, user_id)   — add user to channel
+create_channel(name, description)         — create new Teams channel
+post_to_channel(channel_id, message)      — post to Teams channel (Bot Framework + Graph API fallback)
+send_email(to, subject, body)             — send email via Outlook Graph API
+create_calendar_event(subject, start, end, attendees) — create calendar event
+list_calendar_events(days)                — list upcoming events
+write_admin_log(action, details)          — log admin action
+create_decision(tier, title, summary)     — escalate for founder approval
+```
+
+### Integrations
+| Platform | Access | Credential |
+|----------|--------|------------|
+| Microsoft Graph API | **Admin** — users, groups, channels, mail, calendar | `secrets/teams/graph-client-id`, `graph-client-secret`, `graph-tenant-id` |
+| Microsoft Teams (Bot Framework) | **Post** — channel messages via bot identity | `secrets/teams/bot-app-id`, `bot-app-password` |
+| Outlook (Graph API) | **Send** — send emails as bot | `secrets/teams/mail-sender-id` |
+
+### Data Access
+```
+READ:  company_agents, M365 directory (users, groups, channels via Graph API)
+WRITE: admin_log (via write_admin_log), agent_memory (own only)
+```
+
+### Governance — Green only
+Read users and groups. Send emails as bot. Create Teams channels. Post messages. Add members to channels. Create calendar events. Weekly channel membership audits. **Cannot:** delete channels (Yellow → Marcus), remove users from tenant (Yellow → Marcus), change licenses (Yellow → Kristina/Andrew), delete user accounts (Red → both founders).
+
+### Budget: `$0.03/run | $0.30/day | $8/mo`
 
 ---
 
@@ -1168,6 +1376,66 @@ WRITE: prospect_research, account_dossiers, agent_memory (own only)
 Research companies. Identify decision makers. Estimate dev spend. Compile dossiers. **Cannot:** contact prospects, send emails, modify pipeline, create proposals (Rachel does that), or make pricing recommendations.
 
 ### Budget: `$0.05/run | $0.50/day | $12/mo` *(higher — research is token-heavy)*
+
+---
+
+## LEO VARGAS — UI/UX Designer
+*Reports to Mia Tanaka · Design*
+
+### Skills
+UI/UX design review, wireframing, visual hierarchy assessment, interaction pattern design, accessibility evaluation, user flow optimization
+
+### Status: **DB-seeded only** — agent exists in database and type system but has no runtime implementation yet. Will receive tools when activated.
+
+### Governance — Green only
+Design review, UI assessments, visual hierarchy audits. **Cannot:** change design tokens, modify components, approve designs, or push to production.
+
+### Budget: `$0.03/run | $0.30/day | $8/mo`
+
+---
+
+## AVA CHEN — Frontend Engineer
+*Reports to Mia Tanaka · Design*
+
+### Skills
+Frontend implementation, component development, CSS/design system implementation, responsive design, performance optimization, cross-browser testing
+
+### Status: **DB-seeded only** — agent exists in database and type system but has no runtime implementation yet. Will receive tools when activated.
+
+### Governance — Green only
+Implement frontend components, run tests, performance audit. **Cannot:** deploy, change architecture, modify design system, or approve PRs.
+
+### Budget: `$0.03/run | $0.30/day | $8/mo`
+
+---
+
+## SOFIA MARCHETTI — Design Critic
+*Reports to Mia Tanaka · Design*
+
+### Skills
+Design quality assessment, visual consistency auditing, brand compliance checking, output grading (A+ through F), pattern detection in AI-generated output, "AI smell" identification
+
+### Status: **DB-seeded only** — agent exists in database and type system but has no runtime implementation yet. Will receive tools when activated.
+
+### Governance — Green only
+Grade design output quality, audit visual consistency, report on AI smell. **Cannot:** change designs, modify components, or approve builds.
+
+### Budget: `$0.02/run | $0.20/day | $6/mo`
+
+---
+
+## RYAN PARK — Template Architect
+*Reports to Mia Tanaka · Design*
+
+### Skills
+Template system design, template quality auditing, template registry management, starter template creation, template completion rate analysis
+
+### Status: **DB-seeded only** — agent exists in database and type system but has no runtime implementation yet. Will receive tools when activated.
+
+### Governance — Green only
+Audit template quality, track template usage, design new templates. **Cannot:** publish templates, change template registry, or modify the design system.
+
+### Budget: `$0.03/run | $0.30/day | $8/mo`
 
 ---
 
