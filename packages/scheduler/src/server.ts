@@ -38,6 +38,7 @@ import {
   runContentCreator, runSeoAnalyst, runSocialMediaManager,
   runOnboardingSpecialist, runSupportTriage,
   runAccountResearch,
+  runM365Admin,
   runOps,
 } from '@glyphor/agents';
 
@@ -127,6 +128,10 @@ const agentExecutor = async (
   // Sales
   else if (agentRole === 'account-research') {
     return runAccountResearch({ task: (task as 'prospect_research' | 'batch_enrich' | 'on_demand'), message, company: payload.company as string | undefined });
+  }
+  // IT / M365
+  else if (agentRole === 'm365-admin') {
+    return runM365Admin({ task: (task as 'channel_audit' | 'user_audit' | 'on_demand'), message });
   }
   // Operations
   else if (agentRole === 'ops') {

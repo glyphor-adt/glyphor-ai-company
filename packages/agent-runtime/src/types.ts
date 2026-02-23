@@ -54,6 +54,7 @@ export type CompanyAgentRole =
   | 'frontend-engineer'       // Ava Chen → reports to VP-Design
   | 'design-critic'           // Sofia Marchetti → reports to VP-Design
   | 'template-architect'      // Ryan Park → reports to VP-Design
+  | 'm365-admin'              // Riley Morgan → reports to CTO, manages Microsoft 365
   | 'ops';                    // Atlas Vega → Operations & System Intelligence
 
 export type ContextInjector = (
@@ -360,6 +361,7 @@ export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   'frontend-engineer':    { perRunUsd: 0.03, dailyUsd: 0.30, monthlyUsd: 8 },
   'design-critic':        { perRunUsd: 0.02, dailyUsd: 0.20, monthlyUsd: 6 },
   'template-architect':   { perRunUsd: 0.03, dailyUsd: 0.30, monthlyUsd: 8 },
+  'm365-admin':           { perRunUsd: 0.03, dailyUsd: 0.30, monthlyUsd: 8 },
   'ops':                  { perRunUsd: 0.03, dailyUsd: 0.50, monthlyUsd: 15 },
 };
 
@@ -424,7 +426,7 @@ export const SUB_TEAM_ROLES: CompanyAgentRole[] = [
   'user-researcher', 'competitive-intel', 'revenue-analyst',
   'cost-analyst', 'content-creator', 'seo-analyst',
   'social-media-manager', 'onboarding-specialist',
-  'support-triage', 'account-research',
+  'support-triage', 'account-research', 'm365-admin',
 ];
 
 /** Events executives can emit */
@@ -464,4 +466,5 @@ export const AGENT_MANAGER: Partial<Record<CompanyAgentRole, CompanyAgentRole>> 
   'onboarding-specialist': 'vp-customer-success',
   'support-triage':        'vp-customer-success',
   'account-research':      'vp-sales',
+  'm365-admin':            'cto',
 };

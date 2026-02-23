@@ -87,6 +87,7 @@ export const SUBSCRIPTIONS: Record<CompanyAgentRole, GlyphorEventType[]> = {
   'frontend-engineer': ['agent.completed', 'message.sent'],
   'design-critic': ['agent.completed', 'message.sent'],
   'template-architect': ['insight.detected', 'message.sent'],
+  'm365-admin': ['alert.triggered', 'task.requested', 'message.sent'],
   'ops': ['alert.triggered', 'message.sent', 'meeting.completed'],
 };
 

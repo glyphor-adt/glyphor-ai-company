@@ -54,6 +54,7 @@ const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
   'frontend-engineer': 'ava-chen',
   'design-critic': 'sofia-marchetti',
   'template-architect': 'ryan-park',
+  'm365-admin': 'riley-morgan',
   'ops': 'atlas-vega',
 };
 

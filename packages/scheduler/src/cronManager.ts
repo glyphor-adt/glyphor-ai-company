@@ -310,6 +310,26 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     enabled: true,
   },
 
+  // IT / M365 (reports to CTO)
+  {
+    id: 'm365-admin-weekly-audit',
+    agentRole: 'm365-admin',
+    schedule: '0 12 * * 1',     // Monday 7:00 AM CT — weekly channel + user audit
+    timezone: 'America/Chicago',
+    task: 'channel_audit',
+    payload: {},
+    enabled: true,
+  },
+  {
+    id: 'm365-admin-user-audit',
+    agentRole: 'm365-admin',
+    schedule: '0 13 * * 1',     // Monday 8:00 AM CT — user access audit
+    timezone: 'America/Chicago',
+    task: 'user_audit',
+    payload: {},
+    enabled: true,
+  },
+
   // Design sub-team (reports to VP-Design) — roles not in static crons
   // ui-ux-designer, frontend-engineer, design-critic, template-architect
   // These are added via DB-driven agent_schedules. See seed migration.

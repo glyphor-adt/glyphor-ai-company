@@ -59,7 +59,12 @@ export class GraphTeamsClient {
 
   /**
    * Acquire a Graph API token using client credentials flow.
+   * Public so that tool implementations can make arbitrary Graph API calls.
    */
+  async getAccessToken(): Promise<string> {
+    return this.getToken();
+  }
+
   private async getToken(): Promise<string> {
     const now = Date.now();
     if (this.cachedToken && this.cachedToken.expiresAt > now + 60_000) {

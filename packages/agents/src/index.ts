@@ -33,5 +33,8 @@ export { runSupportTriage, type SupportTriageRunParams } from './support-triage/
 // Sub-team agents — Sales
 export { runAccountResearch, type AccountResearchRunParams } from './account-research/run.js';
 
+// Sub-team agents — IT / M365
+export { runM365Admin, type M365AdminRunParams } from './m365-admin/run.js';
+
 // Operations
 export { runOps, type OpsRunParams } from './ops/run.js';

@@ -32,6 +32,7 @@ const ROLE_DEPARTMENT: Record<string, string> = {
   'onboarding-specialist': 'customer-success',
   'support-triage': 'customer-success',
   'account-research': 'sales',
+  'm365-admin': 'engineering',
   'ui-ux-designer': 'design',
   'frontend-engineer': 'design',
   'design-critic': 'design',
