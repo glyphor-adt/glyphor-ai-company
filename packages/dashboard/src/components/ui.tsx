@@ -109,7 +109,7 @@ export function Card({
   className?: string;
 }) {
   return (
-    <div className={`rounded-xl border border-border bg-surface p-5 transition-colors duration-200 dark:bg-white/[0.04] dark:backdrop-blur-xl dark:border-white/[0.08] ${className}`}>
+    <div className={`glass-card rounded-xl border border-border bg-surface p-5 transition-all duration-200 ${className}`}>
       {children}
     </div>
   );
