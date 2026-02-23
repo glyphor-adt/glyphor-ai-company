@@ -1154,6 +1154,7 @@ function SettingsTab({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState('');
+  const [codePrompt, setCodePrompt] = useState('');
   const [promptSource, setPromptSource] = useState<'code' | 'db'>('code');
   const [savingPrompt, setSavingPrompt] = useState(false);
   const [savedPrompt, setSavedPrompt] = useState(false);
@@ -1161,6 +1162,18 @@ function SettingsTab({
 
   useEffect(() => {
     (async () => {
+      // Load code-defined prompt from scheduler
+      let codeDefinedPrompt = '';
+      try {
+        const promptRes = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.role)}/system-prompt`);
+        const promptData = await promptRes.json();
+        if (promptData?.system_prompt) {
+          codeDefinedPrompt = promptData.system_prompt;
+        }
+      } catch { /* prompt endpoint not available */ }
+      setCodePrompt(codeDefinedPrompt);
+
+      // Check for custom DB override
       const { data: brief } = await (supabase.from('agent_briefs') as any)
         .select('system_prompt')
         .eq('agent_id', agent.id)
@@ -1168,9 +1181,12 @@ function SettingsTab({
       if (brief?.system_prompt) {
         setSystemPrompt(brief.system_prompt);
         setPromptSource('db');
+      } else {
+        setSystemPrompt(codeDefinedPrompt);
+        setPromptSource('code');
       }
     })();
-  }, [agent.id]);
+  }, [agent.id, agent.role]);
 
   const handleSavePrompt = async () => {
     setSavingPrompt(true);
@@ -1182,6 +1198,25 @@ function SettingsTab({
       });
       if (resp.ok) {
         setPromptSource('db');
+        setSavedPrompt(true);
+        setTimeout(() => setSavedPrompt(false), 1200);
+      }
+    } finally {
+      setSavingPrompt(false);
+    }
+  };
+
+  const handleResetPrompt = async () => {
+    setSavingPrompt(true);
+    try {
+      const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ system_prompt: null }),
+      });
+      if (resp.ok) {
+        setSystemPrompt(codePrompt);
+        setPromptSource('code');
         setSavedPrompt(true);
         setTimeout(() => setSavedPrompt(false), 1200);
       }
@@ -1312,18 +1347,29 @@ function SettingsTab({
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
               rows={12}
-              placeholder={promptSource === 'code' ? 'This agent uses a system prompt defined in code. Enter a custom prompt here to override it.' : 'Enter system prompt…'}
+              placeholder="Enter a system prompt for this agent..."
               className="w-full rounded-lg border border-border bg-raised px-4 py-3 font-mono text-[12px] leading-relaxed text-txt-secondary outline-none focus:border-cyan/40"
             />
             <div className="flex items-center justify-between">
               <span className="text-[11px] text-txt-faint">{systemPrompt.length.toLocaleString()} characters</span>
-              <button
-                onClick={handleSavePrompt}
-                disabled={savingPrompt}
-                className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40"
-              >
-                {savedPrompt ? 'Saved!' : savingPrompt ? 'Saving…' : 'Save Prompt'}
-              </button>
+              <div className="flex items-center gap-2">
+                {promptSource === 'db' && (
+                  <button
+                    onClick={handleResetPrompt}
+                    disabled={savingPrompt}
+                    className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-secondary transition-colors hover:border-cyan hover:text-cyan disabled:opacity-40"
+                  >
+                    Reset to Default
+                  </button>
+                )}
+                <button
+                  onClick={handleSavePrompt}
+                  disabled={savingPrompt}
+                  className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40"
+                >
+                  {savedPrompt ? 'Saved!' : savingPrompt ? 'Saving…' : 'Save Prompt'}
+                </button>
+              </div>
             </div>
           </div>
         )}
