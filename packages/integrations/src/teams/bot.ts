@@ -563,10 +563,16 @@ export class TeamsBotHandler {
     // Send typing indicator
     await this.sendTyping(activity.serviceUrl, activity.conversation.id, botAppId);
 
+    // Include the sender's name so agents address the right person
+    const senderName = activity.from?.name;
+    const contextualMessage = senderName
+      ? `[Message from ${senderName}]: ${message}`
+      : message;
+
     let responseText: string;
 
     try {
-      const result = await this.agentRunner(agentRole, 'on_demand', { message });
+      const result = await this.agentRunner(agentRole, 'on_demand', { message: contextualMessage });
       const displayName = agentBot?.name ?? AGENT_DISPLAY[agentRole] ?? agentRole;
 
       if (result?.output) {

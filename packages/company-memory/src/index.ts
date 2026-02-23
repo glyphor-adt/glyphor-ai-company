@@ -10,6 +10,8 @@ export {
   type KnowledgeInboxItem,
   type ProcessPattern,
   type AuthorityProposal,
+  type KnowledgeBaseSection,
+  type FounderBulletin,
 } from './collectiveIntelligence.js';
 export {
   KnowledgeGraphWriter,

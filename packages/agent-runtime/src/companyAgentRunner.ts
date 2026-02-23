@@ -231,20 +231,25 @@ function buildSystemPrompt(
   dynamicBrief?: string,
   profile?: AgentProfileData | null,
   skillContext?: SkillContext | null,
+  dbKnowledgeBase?: string | null,
+  bulletinContext?: string | null,
 ): string {
   try {
     const knowledgeDir = join(__dirname, '../../company-knowledge');
 
-    // Load compact core (shared by all agents)
+    // Use DB-driven knowledge base if available, otherwise fall back to static files
     let knowledgeBase: string;
-    try {
-      knowledgeBase = readFileSync(join(knowledgeDir, 'CORE.md'), 'utf-8');
-    } catch {
-      // Fall back to full KB if CORE.md doesn't exist yet
-      knowledgeBase = readFileSync(join(knowledgeDir, 'COMPANY_KNOWLEDGE_BASE.md'), 'utf-8');
+    if (dbKnowledgeBase) {
+      knowledgeBase = dbKnowledgeBase;
+    } else {
+      try {
+        knowledgeBase = readFileSync(join(knowledgeDir, 'CORE.md'), 'utf-8');
+      } catch {
+        knowledgeBase = readFileSync(join(knowledgeDir, 'COMPANY_KNOWLEDGE_BASE.md'), 'utf-8');
+      }
     }
 
-    // Load department-specific context
+    // Load department-specific context (still file-based — rarely changes)
     const contextFiles = ROLE_CONTEXT_FILES[role] ?? [];
     for (const file of contextFiles) {
       try {
@@ -272,6 +277,7 @@ function buildSystemPrompt(
     // 2. Reasoning protocol
     // 3. What you do (role brief + agent-specific instructions)
     // 4. Where you work (company knowledge base)
+    // 5. Founder bulletins (urgent broadcasts)
     const parts: string[] = [];
 
     if (profile) {
@@ -289,6 +295,11 @@ function buildSystemPrompt(
     if (roleBrief) parts.push(roleBrief);
     parts.push(existingPrompt);
     parts.push(knowledgeBase);
+
+    // Inject founder bulletins after knowledge base, before model call
+    if (bulletinContext) {
+      parts.push(bulletinContext);
+    }
 
     return parts.join('\n\n---\n\n');
   } catch (err) {
@@ -364,6 +375,10 @@ export interface RunDependencies {
   skillContextLoader?: (role: CompanyAgentRole, task: string) => Promise<SkillContext | null>;
   /** Updater for post-reflection skill feedback (proficiency, learnings, failures). */
   skillFeedbackWriter?: (role: CompanyAgentRole, feedback: SkillFeedback[]) => Promise<void>;
+  /** Loader for company knowledge base from DB (replaces static file). */
+  knowledgeBaseLoader?: (department?: string) => Promise<string>;
+  /** Loader for active founder bulletins. */
+  bulletinLoader?: (department?: string) => Promise<string>;
 }
 
 export class CompanyAgentRunner {
@@ -391,10 +406,12 @@ export class CompanyAgentRunner {
 
     // ─── PARALLEL PRE-RUN DATA LOADING ────────────────────────
     // Load memories, dynamic brief, pending messages, CI context,
-    // and agent profile all in parallel to minimize latency.
+    // agent profile, knowledge base, and bulletins all in parallel.
     let dynamicBrief: string | undefined;
     let agentProfile: AgentProfileData | null = null;
     let skillContext: SkillContext | null = null;
+    let dbKnowledgeBase: string | null = null;
+    let bulletinContext: string | null = null;
 
     {
       // Memory retrieval (3 sub-fetches already parallelized internally)
