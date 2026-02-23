@@ -29,6 +29,7 @@ import {
   buildVisualPrompt,
 } from './reportExporter.js';
 import { WakeRouter } from './wakeRouter.js';
+import { DataSyncScheduler } from './dataSyncScheduler.js';
 import { HeartbeatManager } from './heartbeat.js';
 import {
   runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPCS, runVPSales, runVPDesign,
@@ -1070,4 +1071,8 @@ server.listen(PORT, () => {
   // Start dynamic scheduler for DB-defined cron jobs
   const dynamicScheduler = new DynamicScheduler(memory.getSupabaseClient(), agentExecutor);
   dynamicScheduler.start();
+
+  // Start data sync scheduler (fires DATA_SYNC_JOBS on their cron schedule)
+  const dataSyncScheduler = new DataSyncScheduler(PORT);
+  dataSyncScheduler.start();
 });
