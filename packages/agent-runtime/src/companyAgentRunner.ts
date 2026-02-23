@@ -74,6 +74,48 @@ function resolveContextTier(task: string, message: string): ContextTier {
   return 'standard';
 }
 
+// ─── PROMPT CACHE — In-memory TTL cache ──────────────────────
+// Avoids re-fetching KB, profiles, and briefs for every run.
+// 5-minute TTL; invalidated via POST /cache/invalidate.
+
+interface CacheEntry<T> {
+  value: T;
+  expiresAt: number;
+}
+
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+class PromptCache {
+  private store = new Map<string, CacheEntry<unknown>>();
+
+  get<T>(key: string): T | undefined {
+    const entry = this.store.get(key);
+    if (!entry) return undefined;
+    if (Date.now() > entry.expiresAt) {
+      this.store.delete(key);
+      return undefined;
+    }
+    return entry.value as T;
+  }
+
+  set<T>(key: string, value: T): void {
+    this.store.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+  }
+
+  invalidate(prefix?: string): void {
+    if (!prefix) {
+      this.store.clear();
+      return;
+    }
+    for (const key of this.store.keys()) {
+      if (key.startsWith(prefix)) this.store.delete(key);
+    }
+  }
+}
+
+/** Shared prompt cache instance — importable by server.ts for invalidation. */
+export const promptCache = new PromptCache();
+
 /** Extract the task segment from a run ID like "cto-on_demand-1718000000". */
 function extractTask(configId: string): string {
   const parts = configId.split('-');
@@ -550,9 +592,16 @@ export class CompanyAgentRunner {
           })
         : Promise.resolve(null);
 
-      // Agent personality profile
+      // Agent personality profile — cached
       const profilePromise = deps?.agentProfileLoader
-        ? deps.agentProfileLoader(config.role).catch(err => {
+        ? (async () => {
+            const cacheKey = `profile:${config.role}`;
+            const cached = promptCache.get<AgentProfileData | null>(cacheKey);
+            if (cached !== undefined) return cached;
+            const result = await deps.agentProfileLoader!(config.role);
+            promptCache.set(cacheKey, result);
+            return result;
+          })().catch(err => {
             console.warn(`[CompanyAgentRunner] Profile load failed for ${config.role}:`, (err as Error).message);
             return null;
           })
@@ -577,17 +626,31 @@ export class CompanyAgentRunner {
       // Determine department for knowledge base + bulletin targeting
       const roleDept = ROLE_DEPARTMENT[config.role] ?? undefined;
 
-      // DB-driven knowledge base (replaces static file reading) — standard+ only
+      // DB-driven knowledge base (replaces static file reading) — standard+ only, cached
       const kbPromise = (tier !== 'light' && deps?.knowledgeBaseLoader)
-        ? deps.knowledgeBaseLoader(roleDept).catch(err => {
+        ? (async () => {
+            const cacheKey = `kb:${roleDept ?? 'all'}`;
+            const cached = promptCache.get<string | null>(cacheKey);
+            if (cached !== undefined) return cached;
+            const result = await deps.knowledgeBaseLoader!(roleDept);
+            promptCache.set(cacheKey, result);
+            return result;
+          })().catch(err => {
             console.warn(`[CompanyAgentRunner] Knowledge base load failed for ${config.role}:`, (err as Error).message);
             return null;
           })
         : Promise.resolve(null);
 
-      // Founder bulletins — standard+ only
+      // Founder bulletins — standard+ only, cached
       const bulletinPromise = (tier !== 'light' && deps?.bulletinLoader)
-        ? deps.bulletinLoader(roleDept).catch(err => {
+        ? (async () => {
+            const cacheKey = `bulletin:${roleDept ?? 'all'}`;
+            const cached = promptCache.get<string | null>(cacheKey);
+            if (cached !== undefined) return cached;
+            const result = await deps.bulletinLoader!(roleDept);
+            promptCache.set(cacheKey, result);
+            return result;
+          })().catch(err => {
             console.warn(`[CompanyAgentRunner] Bulletin load failed for ${config.role}:`, (err as Error).message);
             return null;
           })
