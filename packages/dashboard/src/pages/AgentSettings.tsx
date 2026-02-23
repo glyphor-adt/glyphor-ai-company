@@ -56,6 +56,13 @@ export default function AgentSettings() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // System prompt state
+  const [systemPrompt, setSystemPrompt] = useState('');
+  const [systemPromptSource, setSystemPromptSource] = useState<'db' | 'code'>('code');
+  const [promptExpanded, setPromptExpanded] = useState(false);
+  const [savingPrompt, setSavingPrompt] = useState(false);
+  const [savedPrompt, setSavedPrompt] = useState(false);
+
   useEffect(() => {
     if (!agentId) return;
     (async () => {
@@ -74,6 +81,19 @@ export default function AgentSettings() {
         setBudgetPerRun(a.budget_per_run ?? 0.05);
         setBudgetDaily(a.budget_daily ?? 0.5);
         setBudgetMonthly(a.budget_monthly ?? 15);
+
+        // Fetch system prompt from agent_briefs
+        const { data: brief } = await supabase
+          .from('agent_briefs')
+          .select('system_prompt')
+          .eq('agent_id', a.id)
+          .single();
+        if (brief?.system_prompt) {
+          setSystemPrompt(brief.system_prompt);
+          setSystemPromptSource('db');
+        } else {
+          setSystemPromptSource('code');
+        }
       }
       setLoading(false);
     })();
@@ -93,6 +113,23 @@ export default function AgentSettings() {
       setTimeout(() => { setSaved(false); setEditMode(false); }, 1200);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSavePrompt = async () => {
+    if (!agent) return;
+    setSavingPrompt(true);
+    try {
+      await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ system_prompt: systemPrompt }),
+      });
+      setSystemPromptSource('db');
+      setSavedPrompt(true);
+      setTimeout(() => setSavedPrompt(false), 1500);
+    } finally {
+      setSavingPrompt(false);
     }
   };
 
@@ -339,6 +376,60 @@ export default function AgentSettings() {
         </Card>
       </div>
 
+      {/* ── System Prompt ── */}
+      <Card>
+        <button
+          onClick={() => setPromptExpanded(!promptExpanded)}
+          className="flex w-full items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <PromptIcon />
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-txt-primary">System Prompt</h2>
+            {systemPromptSource === 'code' && !systemPrompt && (
+              <span className="rounded bg-raised px-2 py-0.5 text-[10px] font-medium text-txt-faint">Defined in code</span>
+            )}
+            {systemPromptSource === 'db' && (
+              <span className="rounded bg-cyan/10 px-2 py-0.5 text-[10px] font-medium text-cyan">Custom</span>
+            )}
+          </div>
+          <svg
+            className={`h-4 w-4 text-txt-muted transition-transform ${promptExpanded ? 'rotate-180' : ''}`}
+            viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"
+          >
+            <path d="M4 6l4 4 4-4" />
+          </svg>
+        </button>
+
+        {promptExpanded && (
+          <div className="mt-4 space-y-3">
+            {systemPromptSource === 'code' && !systemPrompt && (
+              <p className="text-sm leading-relaxed text-txt-faint">
+                This agent's system prompt is defined in the codebase. Add a custom prompt below to override it at runtime.
+              </p>
+            )}
+            <textarea
+              value={systemPrompt}
+              onChange={(e) => setSystemPrompt(e.target.value)}
+              placeholder="Enter a system prompt for this agent..."
+              rows={12}
+              className="w-full rounded-lg border border-border bg-raised px-4 py-3 font-mono text-[13px] leading-relaxed text-txt-secondary outline-none placeholder:text-txt-faint/50 focus:border-cyan/40"
+            />
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-txt-faint">
+                {systemPrompt.length.toLocaleString()} characters
+              </p>
+              <button
+                onClick={handleSavePrompt}
+                disabled={savingPrompt}
+                className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40"
+              >
+                {savedPrompt ? 'Saved!' : savingPrompt ? 'Saving...' : 'Save Prompt'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Card>
+
       {/* ── Skills + Org Structure (two-column) ── */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* SKILLS */}
@@ -453,6 +544,14 @@ function OrgIcon() {
       <circle cx="4" cy="12" r="1.5" />
       <circle cx="12" cy="12" r="1.5" />
       <path d="M8 5.5v3M5.5 10.5L8 8.5M10.5 10.5L8 8.5" />
+    </svg>
+  );
+}
+
+function PromptIcon() {
+  return (
+    <svg className="h-4 w-4 text-txt-muted" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <path d="M5 3h8M3 6h10M5 9h8M3 12h6" />
     </svg>
   );
 }

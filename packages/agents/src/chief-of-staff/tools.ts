@@ -6,6 +6,7 @@
  */
 
 import type { ToolDefinition, ToolContext, ToolResult, BriefingData } from '@glyphor/agent-runtime';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import {
   sendTeamsWebhook,
