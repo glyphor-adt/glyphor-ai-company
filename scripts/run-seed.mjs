@@ -437,6 +437,7 @@ const bulletinRows = [
 const companyPulseRow = {
   id: 'current',
   mrr: 0,
+  mrr_change_pct: 0,
   active_users: 2,
   platform_status: 'degraded',
   company_mood: 'building',

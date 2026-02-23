@@ -338,14 +338,15 @@ const server = createServer(async (req, res) => {
     if (method === 'POST' && url === '/sync/openai-billing') {
       try {
         const productKeys: Array<{ product: string; key: string }> = [];
-        // Per-product keys: OPENAI_ADMIN_KEY_FUSE, OPENAI_ADMIN_KEY_PULSE
+        // Per-product keys: OPENAI_ADMIN_KEY_FUSE, OPENAI_ADMIN_KEY_PULSE, OPENAI_ADMIN_KEY_COMPANY
         if (process.env.OPENAI_ADMIN_KEY_FUSE) productKeys.push({ product: 'fuse', key: process.env.OPENAI_ADMIN_KEY_FUSE });
         if (process.env.OPENAI_ADMIN_KEY_PULSE) productKeys.push({ product: 'pulse', key: process.env.OPENAI_ADMIN_KEY_PULSE });
+        if (process.env.OPENAI_ADMIN_KEY_COMPANY) productKeys.push({ product: 'glyphor-ai-company', key: process.env.OPENAI_ADMIN_KEY_COMPANY });
         // Fallback: single key defaults to 'pulse'
         if (productKeys.length === 0 && process.env.OPENAI_ADMIN_KEY) {
           productKeys.push({ product: 'pulse', key: process.env.OPENAI_ADMIN_KEY });
         }
-        if (productKeys.length === 0) throw new Error('No OPENAI_ADMIN_KEY_FUSE / OPENAI_ADMIN_KEY_PULSE / OPENAI_ADMIN_KEY configured');
+        if (productKeys.length === 0) throw new Error('No OPENAI_ADMIN_KEY_* configured');
 
         const results: Record<string, { synced: number; models: number }> = {};
         for (const { product, key } of productKeys) {
@@ -378,9 +379,10 @@ const server = createServer(async (req, res) => {
     if (method === 'POST' && url === '/sync/anthropic-billing') {
       try {
         const productKeys: Array<{ product: string; key: string }> = [];
-        // Per-product keys: ANTHROPIC_ADMIN_KEY_FUSE, ANTHROPIC_ADMIN_KEY_PULSE
+        // Per-product keys: ANTHROPIC_ADMIN_KEY_FUSE, ANTHROPIC_ADMIN_KEY_PULSE, ANTHROPIC_ADMIN_KEY_COMPANY
         if (process.env.ANTHROPIC_ADMIN_KEY_FUSE) productKeys.push({ product: 'fuse', key: process.env.ANTHROPIC_ADMIN_KEY_FUSE });
         if (process.env.ANTHROPIC_ADMIN_KEY_PULSE) productKeys.push({ product: 'pulse', key: process.env.ANTHROPIC_ADMIN_KEY_PULSE });
+        if (process.env.ANTHROPIC_ADMIN_KEY_COMPANY) productKeys.push({ product: 'glyphor-ai-company', key: process.env.ANTHROPIC_ADMIN_KEY_COMPANY });
         // Fallback: single key defaults to 'glyphor-ai-company'
         if (productKeys.length === 0) {
           const fallback = process.env.ANTHROPIC_ADMIN_KEY ?? process.env.ANTHROPIC_API_KEY;

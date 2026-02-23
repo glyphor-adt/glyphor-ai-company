@@ -141,7 +141,7 @@ export default function Knowledge() {
       {/* ─── Health Summary ──────────── */}
       <HealthSummary sections={sections} bulletins={bulletins} pulse={pulse} kgStats={kgStats} />
 
-      {/* ─── Company Pulse ────────────── */}
+      {/* ─── Company Heartbeat ────────── */}
       <PulseWidget pulse={pulse} onRefresh={refresh} />
 
       {/* ─── Founder Bulletins ────────── */}
@@ -169,7 +169,7 @@ function HealthSummary({
   const layers = [
     { name: 'Knowledge Base', status: sections.length > 0, detail: `${sections.length} sections` },
     { name: 'Founder Bulletins', status: true, detail: `${bulletins.length} active` },
-    { name: 'Company Pulse', status: !!pulse, detail: pulse ? `Updated ${timeAgo(pulse.updated_at)}` : 'Missing' },
+    { name: 'Company Heartbeat', status: !!pulse, detail: pulse ? `Updated ${timeAgo(pulse.updated_at)}` : 'Missing' },
     { name: 'Knowledge Graph', status: (kgStats?.total_nodes ?? 0) > 0, detail: `${kgStats?.total_nodes ?? 0} nodes, ${kgStats?.total_edges ?? 0} edges` },
   ];
 
@@ -204,7 +204,7 @@ function HealthSummary({
   );
 }
 
-/* ── Company Pulse Widget ─────────────────────── */
+/* ── Company Heartbeat Widget ─────────────────── */
 
 function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () => void }) {
   const [editing, setEditing] = useState(false);
@@ -224,7 +224,7 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
 
   async function handleSave() {
     setSaving(true);
-    await (supabase.from('company_pulse') as any).update({
+    const { error } = await (supabase.from('company_pulse') as any).update({
       mrr: form.mrr,
       active_users: form.active_users,
       platform_status: form.platform_status,
@@ -232,6 +232,10 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
       updated_at: new Date().toISOString(),
     }).eq('id', 'current');
     setSaving(false);
+    if (error) {
+      alert(`Save failed: ${error.message}`);
+      return;
+    }
     setEditing(false);
     onRefresh();
   }
@@ -239,8 +243,8 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
   if (!pulse) {
     return (
       <Card>
-        <SectionHeader title="Company Pulse" />
-        <p className="text-sm text-txt-faint">No pulse data available. Run the migration to seed initial values.</p>
+        <SectionHeader title="Company Heartbeat" />
+        <p className="text-sm text-txt-faint">No heartbeat data available. Run the migration to seed initial values.</p>
       </Card>
     );
   }
@@ -251,7 +255,7 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
   return (
     <Card>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-txt-primary">Company Pulse</h2>
+        <h2 className="text-lg font-semibold text-txt-primary">Company Heartbeat</h2>
         <div className="flex items-center gap-3">
           <span className="text-[11px] text-txt-faint">Updated {timeAgo(pulse.updated_at)}</span>
           <button
@@ -311,7 +315,7 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
               disabled={saving}
               className="rounded-lg bg-cyan px-4 py-2 text-sm font-medium text-black hover:opacity-90 disabled:opacity-40"
             >
-              {saving ? 'Saving…' : 'Save Pulse'}
+              {saving ? 'Saving…' : 'Save'}
             </button>
           </div>
         </div>
