@@ -103,9 +103,8 @@ export async function syncMRR(supabase: SupabaseClient): Promise<{ mrr: number; 
   // Upsert per-subscription rows into stripe_data in batches
   if (stripeRows.length > 0) {
     for (let i = 0; i < stripeRows.length; i += 100) {
-      await supabase.from('stripe_data').insert(stripeRows.slice(i, i + 100)).throwOnError().catch((e: Error) => {
-        console.warn('[Stripe Sync] stripe_data insert partial error:', e.message);
-      });
+      const { error } = await supabase.from('stripe_data').insert(stripeRows.slice(i, i + 100));
+      if (error) console.warn('[Stripe Sync] stripe_data insert partial error:', error.message);
     }
     console.log(`[Stripe Sync] Wrote ${stripeRows.length} rows to stripe_data`);
   }
@@ -198,9 +197,8 @@ export async function syncRecentCharges(supabase: SupabaseClient): Promise<{ cha
 
   if (rows.length > 0) {
     for (let i = 0; i < rows.length; i += 100) {
-      await supabase.from('stripe_data').insert(rows.slice(i, i + 100)).throwOnError().catch((e: Error) => {
-        console.warn('[Stripe Sync] charges insert error:', e.message);
-      });
+      const { error } = await supabase.from('stripe_data').insert(rows.slice(i, i + 100));
+      if (error) console.warn('[Stripe Sync] charges insert error:', error.message);
     }
     console.log(`[Stripe Sync] Wrote ${rows.length} charge rows to stripe_data`);
   }

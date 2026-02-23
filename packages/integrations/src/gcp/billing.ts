@@ -86,17 +86,11 @@ export async function syncBillingToSupabase(
       recorded_at: new Date(`${row.date}T12:00:00Z`).toISOString(),
     }));
 
-    // Upsert in batches of 100
+    // Insert in batches of 100
     for (let i = 0; i < gcpRows.length; i += 100) {
       const batch = gcpRows.slice(i, i + 100);
-      const { error } = await supabase.from('gcp_billing').upsert(batch, {
-        onConflict: 'service,recorded_at',
-        ignoreDuplicates: false,
-      });
-      if (error) {
-        // Fallback: insert ignoring conflicts
-        await supabase.from('gcp_billing').insert(batch).throwOnError().catch(() => null);
-      }
+      const { error } = await supabase.from('gcp_billing').insert(batch);
+      if (error) console.warn('[GCP Billing] gcp_billing insert error:', error.message);
       servicesSynced += batch.length;
     }
     console.log(`[GCP Billing] Wrote ${servicesSynced} per-service rows to gcp_billing`);
