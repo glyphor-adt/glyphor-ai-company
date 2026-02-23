@@ -18,6 +18,7 @@ import { CTO_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCTOTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
+import { createGraphTools } from '../shared/graphTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 
 export interface CTORunParams {
@@ -41,10 +42,13 @@ export async function runCTO(params: CTORunParams = {}) {
   const runner = new CompanyAgentRunner(modelClient);
   const eventBus = new EventBus();
   const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const graphReader = memory.getGraphReader();
+  const graphWriter = memory.getGraphWriter();
   const tools = [
     ...createCTOTools(memory),
     ...createMemoryTools(memory),
     ...createCollectiveIntelligenceTools(memory),
+    ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

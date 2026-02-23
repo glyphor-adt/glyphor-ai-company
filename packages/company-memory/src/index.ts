@@ -11,6 +11,20 @@ export {
   type ProcessPattern,
   type AuthorityProposal,
 } from './collectiveIntelligence.js';
+export {
+  KnowledgeGraphWriter,
+  type GraphOperations,
+  type GraphNodeInput,
+  type GraphEdgeInput,
+  type NodeRef,
+  type GraphWriteResult,
+} from './graphWriter.js';
+export {
+  KnowledgeGraphReader,
+  type GraphContext,
+  type GraphContextNode,
+  type CausalChainNode,
+} from './graphReader.js';
 export type {
   DbCompanyProfile,
   DbProduct,

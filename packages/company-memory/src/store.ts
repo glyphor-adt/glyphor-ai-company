@@ -32,6 +32,8 @@ import type {
   DbAgentReflection,
 } from './schema.js';
 import { CollectiveIntelligenceStore } from './collectiveIntelligence.js';
+import { KnowledgeGraphReader } from './graphReader.js';
+import { KnowledgeGraphWriter } from './graphWriter.js';
 
 export interface CompanyMemoryConfig {
   supabaseUrl: string;
@@ -47,6 +49,8 @@ export class CompanyMemoryStore implements IMemoryBus {
   private bucketName: string;
   private embeddingClient: EmbeddingClient | null;
   private _collectiveIntelligence: CollectiveIntelligenceStore | null = null;
+  private _graphReader: KnowledgeGraphReader | null = null;
+  private _graphWriter: KnowledgeGraphWriter | null = null;
 
   constructor(config: CompanyMemoryConfig) {
     this.supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
@@ -528,6 +532,28 @@ export class CompanyMemoryStore implements IMemoryBus {
       );
     }
     return this._collectiveIntelligence;
+  }
+
+  /**
+   * Get the Knowledge Graph reader for connected context retrieval.
+   */
+  getGraphReader(): KnowledgeGraphReader | null {
+    if (!this.embeddingClient) return null;
+    if (!this._graphReader) {
+      this._graphReader = new KnowledgeGraphReader(this.supabase, this.embeddingClient);
+    }
+    return this._graphReader;
+  }
+
+  /**
+   * Get the Knowledge Graph writer for creating nodes and edges.
+   */
+  getGraphWriter(): KnowledgeGraphWriter | null {
+    if (!this.embeddingClient) return null;
+    if (!this._graphWriter) {
+      this._graphWriter = new KnowledgeGraphWriter(this.supabase, this.embeddingClient);
+    }
+    return this._graphWriter;
   }
 
   // ─── PEER FEEDBACK ───────────────────────────────────────────────

@@ -7,6 +7,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { GlyphorEventBus, RunDependencies, AgentProfileData, CompanyAgentRole } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
+import type { KnowledgeGraphReader } from '@glyphor/company-memory';
 
 /** Map agent roles to their organizational department for knowledge routing. */
 const ROLE_DEPARTMENT: Record<string, string> = {
@@ -44,6 +45,7 @@ export function createRunDeps(
   memory: CompanyMemoryStore,
 ): RunDependencies {
   const ci = memory.getCollectiveIntelligence();
+  const graphReader: KnowledgeGraphReader | null = memory.getGraphReader();
 
   return {
     glyphorEventBus,
@@ -99,6 +101,22 @@ export function createRunDeps(
       // Layer 2b: Organizational Knowledge (cross-functional insights)
       const orgCtx = await ci.formatOrgKnowledgeContext(role, department);
       if (orgCtx) parts.push(orgCtx);
+
+      // Layer 3: Knowledge Graph (connected context, 1-hop expansion)
+      if (graphReader) {
+        try {
+          const graphCtx = await graphReader.getRelevantContext(
+            `${role} ${department} current priorities`,
+            role,
+            { limit: 10, expandHops: 1 },
+          );
+          if (graphCtx.narrative) {
+            parts.push(`## Knowledge Graph Context\n${graphCtx.narrative}`);
+          }
+        } catch (err) {
+          console.warn(`[createRunDeps] Graph context load failed for ${role}:`, (err as Error).message);
+        }
+      }
 
       return parts.length > 0 ? parts.join('\n\n') : null;
     },

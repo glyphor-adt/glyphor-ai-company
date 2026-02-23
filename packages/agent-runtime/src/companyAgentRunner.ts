@@ -270,6 +270,11 @@ export interface AgentMemoryStore {
   saveLastRunSummary?(role: string, summary: string): Promise<void>;
 }
 
+/** Optional graph writer for persisting knowledge graph operations from reflections. */
+export interface GraphOpsWriter {
+  processGraphOps(agentId: string, runId: string, ops: { nodes: unknown[]; edges: unknown[] }): Promise<{ nodesCreated: number; edgesCreated: number }>;
+}
+
 export interface RunDependencies {
   glyphorEventBus?: GlyphorEventBus;
   agentMemoryStore?: AgentMemoryStore;
@@ -285,6 +290,8 @@ export interface RunDependencies {
   knowledgeRouter?: (knowledge: { agent_id: string; content: string; tags: string[]; knowledge_type?: string }) => Promise<number>;
   /** Loader for the agent's last-run summary (working memory between runs). */
   workingMemoryLoader?: (role: CompanyAgentRole) => Promise<{ summary: string | null; lastRunAt: string | null }>;
+  /** Optional: Knowledge Graph writer for persisting graph_operations from reflections. */
+  graphWriter?: GraphOpsWriter;
 }
 
 export class CompanyAgentRunner {
@@ -758,6 +765,7 @@ export class CompanyAgentRunner {
     output: string,
     store: AgentMemoryStore,
     knowledgeRouter?: (knowledge: { agent_id: string; content: string; tags: string[]; knowledge_type?: string }) => Promise<number>,
+    graphWriter?: GraphOpsWriter,
   ): Promise<void> {
     const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt);
 
