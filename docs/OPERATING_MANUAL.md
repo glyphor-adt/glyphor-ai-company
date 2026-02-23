@@ -1443,6 +1443,91 @@ Audit template quality, track template usage, design new templates. **Cannot:** 
 
 ---
 
+## Shared Tool Systems
+
+Every agent receives the following tool modules via the `createRunDeps` factory in addition to their role-specific tools.
+
+### Memory Tools (`memoryTools`)
+
+| Tool | Purpose | Available To |
+|------|---------|-------------|
+| `save_memory` | Persist a memory to long-term storage | All agents |
+| `recall_memories` | Retrieve relevant memories by semantic search | All agents |
+
+### Communication Tools (`communicationTools`)
+
+| Tool | Purpose | Rate Limit |
+|------|---------|-----------|
+| `send_agent_message` | Send a direct message to another agent | 5/hour |
+| `check_messages` | Read pending messages from other agents | No limit |
+| `call_meeting` | Convene a multi-agent meeting (executives only) | 2/day |
+
+### Knowledge Graph Tools (`graphTools`)
+
+| Tool | Purpose |
+|------|---------|
+| `trace_causes` | Walk upstream edges to find root causes of a node |
+| `trace_impact` | Walk downstream edges to find downstream effects |
+| `query_knowledge_graph` | Run arbitrary graph queries across `kg_nodes` / `kg_edges` |
+| `add_knowledge` | Insert a new node + edges into the knowledge graph |
+
+### Collective Intelligence Tools (`collectiveIntelligenceTools`)
+
+Available to **Chief of Staff** and **Ops** agents only. 12 tools across 6 domains:
+
+- **Pulse**: `get_company_pulse`, `record_pulse_snapshot` — real-time health readings
+- **Knowledge**: `search_collective_knowledge`, `add_collective_knowledge` — shared knowledge base
+- **Routing**: `find_expert_for_task`, `get_team_capabilities` — skill-based task routing
+- **Contradictions**: `detect_contradictions`, `resolve_contradiction` — cross-agent conflict detection
+- **Patterns**: `discover_patterns`, `get_pattern_details` — emerging trend detection
+- **Authority**: `check_authority`, `delegate_authority` — governance and permission checks
+
+### Event Tools (`eventTools`)
+
+| Tool | Purpose | Permission |
+|------|---------|-----------|
+| `emit_insight` | Publish an `insight.detected` event | All agents |
+| `emit_alert` | Publish an `alert.triggered` event | Executives only |
+
+### Runtime Context Injection (`createRunDeps`)
+
+The `createRunDeps` factory wires every agent run with these context loaders:
+
+| Loader | Injects |
+|--------|---------|
+| `agentProfileLoader` | Agent identity, persona, display name, avatar |
+| `pendingMessageLoader` | Unread inter-agent messages |
+| `dynamicBriefLoader` | Latest company brief for the agent's role |
+| `collectiveIntelligenceLoader` | Company pulse, graph context, recent patterns |
+| `knowledgeRouter` | Routes tasks to agents with matching skills |
+| `workingMemoryLoader` | Short-term scratchpad from `working_memory` table |
+| `graphWriter` | Writes knowledge graph nodes/edges after each run |
+| `skillContextLoader` | Matches task to skills via `task_skill_map` regex, loads proficiency |
+| `skillFeedbackWriter` | Auto-upgrades proficiency (learning → competent → expert → master) |
+
+---
+
+## Skill Library
+
+The Skill Library system provides competency-based task routing. Three tables back it:
+
+- **`skills`** — 22 skills across 10 categories (engineering, product, marketing, sales, finance, design, ops, strategy, growth, support)
+- **`agent_skills`** — 45 agent-skill assignments with proficiency levels (`learning`, `competent`, `expert`, `master`)
+- **`task_skill_map`** — Regex patterns that map incoming task descriptions to required skills (priority-ordered)
+
+**How it works:**
+1. When a task arrives, `skillContextLoader` matches the task description against `task_skill_map` regex patterns
+2. Matched skills are looked up in `agent_skills` to find agents with the right competency
+3. Results are ordered by proficiency level and priority
+4. After each successful task, `skillFeedbackWriter` may auto-upgrade the agent's proficiency level
+
+**Proficiency auto-upgrade thresholds** (configurable):
+- `learning` → `competent`: 5 successful uses
+- `competent` → `expert`: 15 successful uses
+- `expert` → `master`: 50 successful uses
+
+---
+
 ## Tool Execution Enforcement
 
 ```typescript
