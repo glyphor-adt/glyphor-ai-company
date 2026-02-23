@@ -200,32 +200,31 @@ export class ToolExecutor {
   }
 
   getDeclarations(): GeminiToolDeclaration[] {
-    return Array.from(this.tools.values()).map((t) => {
+    return Array.from(this.tools.values()).map((t): GeminiToolDeclaration => {
       const required = Object.entries(t.parameters)
         .filter(([, v]) => v.required)
         .map(([k]) => k);
 
-      return {
-        name: t.name,
-        description: t.description,
-        parameters: {
-          type: 'object',
-          properties: Object.fromEntries(
-            Object.entries(t.parameters).map(([k, v]) => [
-              k,
-              {
-                type: v.type,
-                description: v.description,
-                ...(v.enum ? { enum: v.enum } : {}),
-                ...(v.items ? { items: v.items } : {}),
-                ...(v.properties ? { properties: v.properties } : {}),
-              },
-            ]),
-          ),
-          // Gemini rejects an empty required array — omit the field when no parameters are required.
-          ...(required.length > 0 ? { required } : {}),
-        },
+      const params: GeminiToolDeclaration['parameters'] = {
+        type: 'object',
+        properties: Object.fromEntries(
+          Object.entries(t.parameters).map(([k, v]) => [
+            k,
+            {
+              type: v.type,
+              description: v.description,
+              ...(v.enum ? { enum: v.enum } : {}),
+              ...(v.items ? { items: v.items } : {}),
+              ...(v.properties ? { properties: v.properties } : {}),
+            },
+          ]),
+        ),
       };
+
+      // Gemini rejects an empty required array — omit the field when no parameters are required.
+      if (required.length > 0) params.required = required;
+
+      return { name: t.name, description: t.description, parameters: params };
     });
   }
 
