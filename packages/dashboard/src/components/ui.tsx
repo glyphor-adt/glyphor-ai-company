@@ -72,7 +72,7 @@ export function StatusDot({ status }: { status: string }) {
 /* ─── Sparkline (SVG mini chart) ─────────── */
 export function Sparkline({
   data,
-  color = '#00E0FF',
+  color = '#0891B2',
   width = 80,
   height = 24,
 }: {

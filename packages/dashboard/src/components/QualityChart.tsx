@@ -47,7 +47,7 @@ export function QualityChart({ data }: { data: PerformanceDay[] }) {
     <div className="space-y-4">
       {/* Chart */}
       <div className="flex items-end gap-4">
-        <Sparkline data={scores} width={320} height={64} color="#00E0FF" />
+        <Sparkline data={scores} width={320} height={64} color="#0891B2" />
       </div>
 
       {/* Stats row */}

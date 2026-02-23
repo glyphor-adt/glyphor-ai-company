@@ -246,7 +246,7 @@ export default function Financials() {
                   labelStyle={{ color: 'var(--color-txt-secondary)' }}
                   formatter={(value: number) => [`$${fmt(value)}`, 'MRR']}
                 />
-                <Line type="monotone" dataKey="mrr" stroke="#00E0FF" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="mrr" stroke="#0891B2" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -270,8 +270,8 @@ export default function Financials() {
                   labelStyle={{ color: 'var(--color-txt-secondary)' }}
                   formatter={(value: number) => [`$${fmt(value)}`]}
                 />
-                <Bar dataKey="infrastructure" fill="#0097FF" stackId="costs" />
-                <Bar dataKey="api" fill="#623CEA" stackId="costs" />
+                <Bar dataKey="infrastructure" fill="#2563EB" stackId="costs" />
+                <Bar dataKey="api" fill="#7C3AED" stackId="costs" />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -296,7 +296,7 @@ export default function Financials() {
                 labelStyle={{ color: 'var(--color-txt-secondary)' }}
                 formatter={(value: number) => [`${value.toFixed(1)}%`, 'Margin']}
               />
-              <Area type="monotone" dataKey="margin" stroke="#4B9FE1" fill="#4B9FE120" strokeWidth={2} />
+              <Area type="monotone" dataKey="margin" stroke="#0369A1" fill="#0369A120" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         )}
@@ -320,7 +320,7 @@ export default function Financials() {
                 labelStyle={{ color: 'var(--color-txt-secondary)' }}
                 formatter={(value: number) => [`$${fmt(Math.abs(value))}`]}
               />
-              <Bar dataKey="inflow" fill="#00E0FF" name="Inflow" />
+              <Bar dataKey="inflow" fill="#0891B2" name="Inflow" />
               <Bar dataKey="outflow" fill="#FF6B6B" name="Outflow" />
             </BarChart>
           </ResponsiveContainer>

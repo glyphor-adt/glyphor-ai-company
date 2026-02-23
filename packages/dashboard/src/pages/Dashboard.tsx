@@ -38,10 +38,10 @@ export default function Dashboard() {
 
       {/* ── Metric Cards ────────────────────── */}
       <div className="grid grid-cols-4 gap-4">
-        <MetricCard label="Active Agents" value={`${activeAgents}/${agents.length}`} sub="online now" color="#00E0FF" sparkData={[3,5,4,7,6,7,7]} loading={agentsLoading} />
-        <MetricCard label="Pending Decisions" value={String(pendingDecisions)} sub="awaiting review" color="#0097FF" sparkData={[2,3,1,4,2,3,pendingDecisions]} loading={decisionsLoading} />
-        <MetricCard label="Avg Agent Score" value={`${avgScore}/100`} sub="across all agents" color="#623CEA" sparkData={[70,72,68,75,80,78,avgScore]} loading={agentsLoading} />
-        <MetricCard label="Products" value={String(products.length)} sub={products.map(p=>p.name).join(', ') || '—'} color="#4B9FE1" sparkData={[1,1,1,2,2,2,products.length]} loading={false} />
+        <MetricCard label="Active Agents" value={`${activeAgents}/${agents.length}`} sub="online now" color="#0891B2" sparkData={[3,5,4,7,6,7,7]} loading={agentsLoading} />
+        <MetricCard label="Pending Decisions" value={String(pendingDecisions)} sub="awaiting review" color="#2563EB" sparkData={[2,3,1,4,2,3,pendingDecisions]} loading={decisionsLoading} />
+        <MetricCard label="Avg Agent Score" value={`${avgScore}/100`} sub="across all agents" color="#7C3AED" sparkData={[70,72,68,75,80,78,avgScore]} loading={agentsLoading} />
+        <MetricCard label="Products" value={String(products.length)} sub={products.map(p=>p.name).join(', ') || '—'} color="#0369A1" sparkData={[1,1,1,2,2,2,products.length]} loading={false} />
       </div>
 
       {/* ── System Health (from Atlas) ─────── */}

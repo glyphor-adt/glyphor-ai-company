@@ -273,7 +273,7 @@ export default function Operations() {
                 labelStyle={{ color: 'var(--color-txt-secondary)' }}
                 formatter={(value: number) => [`${value}/100`, 'Avg Score']}
               />
-              <Line type="monotone" dataKey="score" stroke="#623CEA" strokeWidth={2} dot={{ r: 3, fill: '#623CEA' }} />
+              <Line type="monotone" dataKey="score" stroke="#7C3AED" strokeWidth={2} dot={{ r: 3, fill: '#7C3AED' }} />
             </LineChart>
           </ResponsiveContainer>
         )}

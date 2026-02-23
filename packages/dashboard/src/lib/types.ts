@@ -124,35 +124,35 @@ export interface Database {
   };
 }
 
-/* ── Agent metadata lookup (monochrome blue-cyan spectrum) ── */
+/* ── Agent metadata lookup ── */
 export const AGENT_META: Record<string, { color: string; icon: string }> = {
-  'chief-of-staff': { color: '#623CEA', icon: 'MdBolt' },
-  cto:              { color: '#0097FF', icon: 'MdCode' },
-  cpo:              { color: '#00E0FF', icon: 'MdExplore' },
-  cfo:              { color: '#4B9FE1', icon: 'MdBarChart' },
-  cmo:              { color: '#7B68EE', icon: 'MdCampaign' },
-  'vp-customer-success': { color: '#00BCD4', icon: 'MdSupportAgent' },
-  'vp-sales':       { color: '#5B8DEF', icon: 'MdTrackChanges' },
-  'vp-design':      { color: '#E91E63', icon: 'MdPalette' },
-  ops:              { color: '#FF6B35', icon: 'MdMonitorHeart' },
+  'chief-of-staff': { color: '#7C3AED', icon: 'MdBolt' },
+  cto:              { color: '#2563EB', icon: 'MdCode' },
+  cpo:              { color: '#0891B2', icon: 'MdExplore' },
+  cfo:              { color: '#0369A1', icon: 'MdBarChart' },
+  cmo:              { color: '#7C3AED', icon: 'MdCampaign' },
+  'vp-customer-success': { color: '#0E7490', icon: 'MdSupportAgent' },
+  'vp-sales':       { color: '#1D4ED8', icon: 'MdTrackChanges' },
+  'vp-design':      { color: '#DB2777', icon: 'MdPalette' },
+  ops:              { color: '#EA580C', icon: 'MdMonitorHeart' },
   // Sub-team agents
-  'platform-engineer':     { color: '#0097FF', icon: 'MdDeveloperBoard' },
-  'quality-engineer':      { color: '#0097FF', icon: 'MdBugReport' },
-  'devops-engineer':       { color: '#0097FF', icon: 'MdCloud' },
-  'user-researcher':       { color: '#00E0FF', icon: 'MdPeople' },
-  'competitive-intel':     { color: '#00E0FF', icon: 'MdTravelExplore' },
-  'revenue-analyst':       { color: '#4B9FE1', icon: 'MdTrendingUp' },
-  'cost-analyst':          { color: '#4B9FE1', icon: 'MdSavings' },
-  'content-creator':       { color: '#7B68EE', icon: 'MdEdit' },
-  'seo-analyst':           { color: '#7B68EE', icon: 'MdSearch' },
-  'social-media-manager':  { color: '#7B68EE', icon: 'MdShare' },
-  'onboarding-specialist': { color: '#00BCD4', icon: 'MdSchool' },
-  'support-triage':        { color: '#00BCD4', icon: 'MdHeadsetMic' },
-  'account-research':      { color: '#5B8DEF', icon: 'MdAssignment' },
-  'ui-ux-designer':        { color: '#E91E63', icon: 'MdBrush' },
-  'frontend-engineer':     { color: '#E91E63', icon: 'MdWebAsset' },
-  'design-critic':         { color: '#E91E63', icon: 'MdRateReview' },
-  'template-architect':    { color: '#E91E63', icon: 'MdDashboard' },
+  'platform-engineer':     { color: '#2563EB', icon: 'MdDeveloperBoard' },
+  'quality-engineer':      { color: '#2563EB', icon: 'MdBugReport' },
+  'devops-engineer':       { color: '#2563EB', icon: 'MdCloud' },
+  'user-researcher':       { color: '#0891B2', icon: 'MdPeople' },
+  'competitive-intel':     { color: '#0891B2', icon: 'MdTravelExplore' },
+  'revenue-analyst':       { color: '#0369A1', icon: 'MdTrendingUp' },
+  'cost-analyst':          { color: '#0369A1', icon: 'MdSavings' },
+  'content-creator':       { color: '#7C3AED', icon: 'MdEdit' },
+  'seo-analyst':           { color: '#7C3AED', icon: 'MdSearch' },
+  'social-media-manager':  { color: '#7C3AED', icon: 'MdShare' },
+  'onboarding-specialist': { color: '#0E7490', icon: 'MdSchool' },
+  'support-triage':        { color: '#0E7490', icon: 'MdHeadsetMic' },
+  'account-research':      { color: '#1D4ED8', icon: 'MdAssignment' },
+  'ui-ux-designer':        { color: '#DB2777', icon: 'MdBrush' },
+  'frontend-engineer':     { color: '#DB2777', icon: 'MdWebAsset' },
+  'design-critic':         { color: '#DB2777', icon: 'MdRateReview' },
+  'template-architect':    { color: '#DB2777', icon: 'MdDashboard' },
 };
 
 export const DISPLAY_NAME_MAP: Record<string, string> = {
@@ -383,27 +383,27 @@ export interface SubTeamMember {
 
 export const SUB_TEAM: SubTeamMember[] = [
   // Engineering → Marcus Reeves (CTO)
-  { name: 'Alex Park',     title: 'Platform Engineer',    department: 'Engineering',       reportsTo: 'cto', color: '#0097FF', initials: 'AP', avatar: 'platform-engineer' },
-  { name: 'Sam DeLuca',    title: 'Quality Engineer',     department: 'Engineering',       reportsTo: 'cto', color: '#0097FF', initials: 'SD', avatar: 'quality-engineer' },
-  { name: 'Jordan Hayes',  title: 'DevOps Engineer',      department: 'Engineering',       reportsTo: 'cto', color: '#0097FF', initials: 'JH', avatar: 'devops-engineer' },
+  { name: 'Alex Park',     title: 'Platform Engineer',    department: 'Engineering',       reportsTo: 'cto', color: '#2563EB', initials: 'AP', avatar: 'platform-engineer' },
+  { name: 'Sam DeLuca',    title: 'Quality Engineer',     department: 'Engineering',       reportsTo: 'cto', color: '#2563EB', initials: 'SD', avatar: 'quality-engineer' },
+  { name: 'Jordan Hayes',  title: 'DevOps Engineer',      department: 'Engineering',       reportsTo: 'cto', color: '#2563EB', initials: 'JH', avatar: 'devops-engineer' },
   // Product → Elena Vasquez (CPO)
-  { name: 'Priya Sharma',  title: 'User Researcher',      department: 'Product',           reportsTo: 'cpo', color: '#00E0FF', initials: 'PS', avatar: 'user-researcher' },
-  { name: 'Daniel Ortiz',  title: 'Competitive Intel',    department: 'Product',           reportsTo: 'cpo', color: '#00E0FF', initials: 'DO', avatar: 'competitive-intel' },
+  { name: 'Priya Sharma',  title: 'User Researcher',      department: 'Product',           reportsTo: 'cpo', color: '#0891B2', initials: 'PS', avatar: 'user-researcher' },
+  { name: 'Daniel Ortiz',  title: 'Competitive Intel',    department: 'Product',           reportsTo: 'cpo', color: '#0891B2', initials: 'DO', avatar: 'competitive-intel' },
   // Finance → Nadia Okafor (CFO)
-  { name: 'Anna Park',     title: 'Revenue Analyst',      department: 'Finance',           reportsTo: 'cfo', color: '#4B9FE1', initials: 'AP', avatar: 'revenue-analyst' },
-  { name: 'Omar Hassan',   title: 'Cost Analyst',         department: 'Finance',           reportsTo: 'cfo', color: '#4B9FE1', initials: 'OH', avatar: 'cost-analyst' },
+  { name: 'Anna Park',     title: 'Revenue Analyst',      department: 'Finance',           reportsTo: 'cfo', color: '#0369A1', initials: 'AP', avatar: 'revenue-analyst' },
+  { name: 'Omar Hassan',   title: 'Cost Analyst',         department: 'Finance',           reportsTo: 'cfo', color: '#0369A1', initials: 'OH', avatar: 'cost-analyst' },
   // Marketing → Maya Brooks (CMO)
-  { name: 'Tyler Reed',    title: 'Content Creator',      department: 'Marketing',         reportsTo: 'cmo', color: '#7B68EE', initials: 'TR', avatar: 'content-creator' },
-  { name: 'Lisa Chen',     title: 'SEO Analyst',          department: 'Marketing',         reportsTo: 'cmo', color: '#7B68EE', initials: 'LC', avatar: 'seo-analyst' },
-  { name: 'Kai Johnson',   title: 'Social Media Manager', department: 'Marketing',         reportsTo: 'cmo', color: '#7B68EE', initials: 'KJ', avatar: 'social-media-manager' },
+  { name: 'Tyler Reed',    title: 'Content Creator',      department: 'Marketing',         reportsTo: 'cmo', color: '#7C3AED', initials: 'TR', avatar: 'content-creator' },
+  { name: 'Lisa Chen',     title: 'SEO Analyst',          department: 'Marketing',         reportsTo: 'cmo', color: '#7C3AED', initials: 'LC', avatar: 'seo-analyst' },
+  { name: 'Kai Johnson',   title: 'Social Media Manager', department: 'Marketing',         reportsTo: 'cmo', color: '#7C3AED', initials: 'KJ', avatar: 'social-media-manager' },
   // Customer Success → James Turner (VP CS)
-  { name: 'Emma Wright',   title: 'Onboarding Specialist',department: 'Customer Success',  reportsTo: 'vp-customer-success', color: '#00BCD4', initials: 'EW', avatar: 'onboarding-specialist' },
-  { name: 'David Santos',  title: 'Support Triage',       department: 'Customer Success',  reportsTo: 'vp-customer-success', color: '#00BCD4', initials: 'DS', avatar: 'support-triage' },
+  { name: 'Emma Wright',   title: 'Onboarding Specialist',department: 'Customer Success',  reportsTo: 'vp-customer-success', color: '#0E7490', initials: 'EW', avatar: 'onboarding-specialist' },
+  { name: 'David Santos',  title: 'Support Triage',       department: 'Customer Success',  reportsTo: 'vp-customer-success', color: '#0E7490', initials: 'DS', avatar: 'support-triage' },
   // Sales → Rachel Kim (VP Sales)
-  { name: 'Nathan Cole',   title: 'Account Research',     department: 'Sales',             reportsTo: 'vp-sales', color: '#5B8DEF', initials: 'NC', avatar: 'account-research' },
+  { name: 'Nathan Cole',   title: 'Account Research',     department: 'Sales',             reportsTo: 'vp-sales', color: '#1D4ED8', initials: 'NC', avatar: 'account-research' },
   // Design & Frontend → Mia Tanaka (VP Design)
-  { name: 'Leo Vargas',    title: 'UI/UX Designer',       department: 'Design & Frontend', reportsTo: 'vp-design', color: '#E91E63', initials: 'LV', avatar: 'ui-ux-designer' },
-  { name: 'Ava Chen',      title: 'Frontend Engineer',    department: 'Design & Frontend', reportsTo: 'vp-design', color: '#E91E63', initials: 'AC', avatar: 'frontend-engineer' },
-  { name: 'Sofia Marchetti', title: 'Design Critic',      department: 'Design & Frontend', reportsTo: 'vp-design', color: '#E91E63', initials: 'SM', avatar: 'design-critic' },
-  { name: 'Ryan Park',     title: 'Template Architect',   department: 'Design & Frontend', reportsTo: 'vp-design', color: '#E91E63', initials: 'RP', avatar: 'template-architect' },
+  { name: 'Leo Vargas',    title: 'UI/UX Designer',       department: 'Design & Frontend', reportsTo: 'vp-design', color: '#DB2777', initials: 'LV', avatar: 'ui-ux-designer' },
+  { name: 'Ava Chen',      title: 'Frontend Engineer',    department: 'Design & Frontend', reportsTo: 'vp-design', color: '#DB2777', initials: 'AC', avatar: 'frontend-engineer' },
+  { name: 'Sofia Marchetti', title: 'Design Critic',      department: 'Design & Frontend', reportsTo: 'vp-design', color: '#DB2777', initials: 'SM', avatar: 'design-critic' },
+  { name: 'Ryan Park',     title: 'Template Architect',   department: 'Design & Frontend', reportsTo: 'vp-design', color: '#DB2777', initials: 'RP', avatar: 'template-architect' },
 ];

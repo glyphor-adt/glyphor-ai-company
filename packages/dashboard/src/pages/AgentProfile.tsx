@@ -1005,9 +1005,9 @@ const PROF_COLOR: Record<string, string> = {
 };
 
 const CAT_COLOR: Record<string, string> = {
-  finance: '#4B9FE1', engineering: '#0097FF', marketing: '#7B68EE',
-  product: '#00E0FF', 'customer-success': '#00BCD4', sales: '#5B8DEF',
-  design: '#E91E63', leadership: '#623CEA', operations: '#FF6B35', analytics: '#10B981',
+  finance: '#0369A1', engineering: '#2563EB', marketing: '#7C3AED',
+  product: '#0891B2', 'customer-success': '#0E7490', sales: '#1D4ED8',
+  design: '#DB2777', leadership: '#7C3AED', operations: '#EA580C', analytics: '#059669',
 };
 
 function SkillsTab({ agent }: { agent: AgentRow }) {

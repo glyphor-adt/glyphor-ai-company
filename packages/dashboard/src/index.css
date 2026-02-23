@@ -14,7 +14,7 @@
   --color-txt-muted: #475569;
   --color-txt-faint: #64748b;
   --color-hover-bg: rgba(0,0,0,0.06);
-  --color-shimmer: rgba(0,151,255,0.10);
+  --color-shimmer: rgba(37,99,235,0.10);
   --scrollbar-thumb: #a8b5c4;
   --scrollbar-hover: #64748b;
 }
@@ -137,7 +137,7 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
   padding: 0;
 }
 .prose-chat a {
-  color: var(--color-cyan, #00E0FF);
+  color: var(--color-cyan, #0891B2);
   text-decoration: underline;
   text-underline-offset: 2px;
 }

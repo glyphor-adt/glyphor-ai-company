@@ -13,8 +13,8 @@ import { Link } from 'react-router-dom';
 
 /* ─── Org hierarchy ─────────────────────── */
 const FOUNDERS = [
-  { name: 'Kristina Denney', title: 'CEO & Co-Founder', initials: 'KD', color: '#E040FB', photo: '/kristina_headshot.jpg' },
-  { name: 'Andrew Denney', title: 'COO & Co-Founder', initials: 'AD', color: '#00E0FF', photo: '/andrew_headshot.jpg' },
+  { name: 'Kristina Denney', title: 'CEO & Co-Founder', initials: 'KD', color: '#DB2777', photo: '/kristina_headshot.jpg' },
+  { name: 'Andrew Denney', title: 'COO & Co-Founder', initials: 'AD', color: '#2563EB', photo: '/andrew_headshot.jpg' },
 ];
 
 const DEPARTMENTS = [

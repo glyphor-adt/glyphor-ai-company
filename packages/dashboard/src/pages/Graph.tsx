@@ -36,7 +36,7 @@ type EdgeType =
 /* ── Constants ─────────────────────────────────── */
 
 const NODE_COLORS: Record<NodeType, string> = {
-  entity: '#00E0FF',
+  entity: '#0891B2',
   concept: '#A78BFA',
   decision: '#FB923C',
   metric: '#34D399',

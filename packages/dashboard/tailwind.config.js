@@ -17,21 +17,21 @@ export default {
         'txt-muted': 'var(--color-txt-muted)',
         'txt-faint': 'var(--color-txt-faint)',
         // Primary
-        cyan: { DEFAULT: '#00E0FF', muted: '#00E0FF80' },
-        azure: { DEFAULT: '#0097FF', muted: '#0097FF80' },
-        accent: { DEFAULT: '#623CEA', muted: '#623CEA80' },
-        // Agent roles (monochrome blue-cyan spectrum)
-        exec: '#623CEA',
-        eng: '#0097FF',
-        product: '#00E0FF',
-        finance: '#4B9FE1',
-        marketing: '#7B68EE',
-        cs: '#00BCD4',
-        sales: '#5B8DEF',
-        // Tiers (blue-cyan spectrum, no green/yellow/red)
-        'tier-green': '#00E0FF',
-        'tier-yellow': '#0097FF',
-        'tier-red': '#623CEA',
+        cyan: { DEFAULT: '#0891B2', muted: '#0891B280' },
+        azure: { DEFAULT: '#2563EB', muted: '#2563EB80' },
+        accent: { DEFAULT: '#7C3AED', muted: '#7C3AED80' },
+        // Agent roles
+        exec: '#7C3AED',
+        eng: '#2563EB',
+        product: '#0891B2',
+        finance: '#0369A1',
+        marketing: '#7C3AED',
+        cs: '#0E7490',
+        sales: '#1D4ED8',
+        // Tiers
+        'tier-green': '#0891B2',
+        'tier-yellow': '#2563EB',
+        'tier-red': '#7C3AED',
       },
       fontFamily: {
         sans: ['IBM Plex Sans', 'system-ui', 'sans-serif'],
