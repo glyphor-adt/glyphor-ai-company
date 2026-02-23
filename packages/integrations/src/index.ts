@@ -116,3 +116,19 @@ export { WappalyzerClient } from './wappalyzer/index.js';
 
 // Google Search Console
 export { SearchConsoleClient } from './search-console/index.js';
+
+// GitHub — repo access for Marcus (CTO) and engineering team
+export {
+  getGitHubClient,
+  listOpenPRs,
+  listWorkflowRuns,
+  getRepoStats,
+  createIssue,
+  listRecentCommits,
+  commentOnPR,
+  GLYPHOR_REPOS,
+  type GlyphorRepo,
+  type PullRequest,
+  type WorkflowRun,
+  type RepoStats,
+} from './github/index.js';
