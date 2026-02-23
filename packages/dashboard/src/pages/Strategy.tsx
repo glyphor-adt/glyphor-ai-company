@@ -330,10 +330,17 @@ function AnalysisDetail({ report, id }: { report: AnalysisReport; id: string }) 
   const [enhancing, setEnhancing] = useState(false);
   const [generatingVisual, setGeneratingVisual] = useState(false);
   const [visualSvg, setVisualSvg] = useState<string | null>(null);
+  const [showAllFindings, setShowAllFindings] = useState(false);
+  const [showAllRisks, setShowAllRisks] = useState(false);
 
   const keyFindings = [...report.swot.strengths, ...report.swot.opportunities];
   const riskItems = [...report.swot.weaknesses, ...report.swot.threats];
   const nextSteps = report.recommendations.filter((r) => r.priority === 'high');
+
+  const FINDINGS_PREVIEW = 6;
+  const RISKS_PREVIEW = 5;
+  const visibleFindings = showAllFindings ? keyFindings : keyFindings.slice(0, FINDINGS_PREVIEW);
+  const visibleRisks = showAllRisks ? riskItems : riskItems.slice(0, RISKS_PREVIEW);
 
   async function generateEnhancedReport() {
     setEnhancing(true);
@@ -358,35 +365,35 @@ function AnalysisDetail({ report, id }: { report: AnalysisReport; id: string }) 
   }
 
   return (
-    <div className="mt-4 space-y-4 border-t border-border pt-4">
+    <div className="mt-5 space-y-5 border-t border-border pt-5">
       {/* Export Action Bar */}
       <div className="flex flex-wrap items-center gap-2">
         <ExportButton label="Word (.docx)" href={`${SCHEDULER_URL}/analysis/${id}/export?format=docx`} />
         <ExportButton label="PowerPoint" href={`${SCHEDULER_URL}/analysis/${id}/export?format=pptx`} />
         <ExportButton label="Markdown" href={`${SCHEDULER_URL}/analysis/${id}/export?format=markdown`} />
         <ExportButton label="JSON" href={`${SCHEDULER_URL}/analysis/${id}/export?format=json`} />
-        <span className="mx-1 h-4 w-px bg-border" />
+        <span className="mx-1 h-5 w-px bg-border" />
         <button
           onClick={generateEnhancedReport}
           disabled={enhancing}
-          className="rounded-lg bg-accent/15 border border-accent/30 px-3 py-1.5 text-[11px] font-medium text-accent transition-colors hover:bg-accent/25 disabled:opacity-40"
+          className="rounded-lg bg-accent/15 border border-accent/30 px-3 py-1.5 text-[12px] font-medium text-accent transition-colors hover:bg-accent/25 disabled:opacity-40"
         >
-          {enhancing ? 'Generating…' : <><MdAutoAwesome className="inline h-4 w-4 mr-1" />Enhanced Report</>}
+          {enhancing ? 'Generating…' : <><MdAutoAwesome className="inline h-4 w-4 mr-1 -mt-0.5" />Enhanced Report</>}
         </button>
         <button
           onClick={generateVisual}
           disabled={generatingVisual}
-          className="rounded-lg bg-cyan/15 border border-cyan/30 px-3 py-1.5 text-[11px] font-medium text-cyan transition-colors hover:bg-cyan/25 disabled:opacity-40"
+          className="rounded-lg bg-cyan/15 border border-cyan/30 px-3 py-1.5 text-[12px] font-medium text-cyan transition-colors hover:bg-cyan/25 disabled:opacity-40"
         >
-          {generatingVisual ? 'Generating…' : <><MdPalette className="inline h-4 w-4 mr-1" />AI Visual</>}
+          {generatingVisual ? 'Generating…' : <><MdPalette className="inline h-4 w-4 mr-1 -mt-0.5" />AI Visual</>}
         </button>
       </div>
 
-      {/* AI Visual (if generated) */}
+      {/* AI Visual (if generated) — render SVG inline instead of broken img tag */}
       {visualSvg && (
-        <div className="rounded-xl border border-border bg-raised p-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted">AI-Generated Infographic</p>
+        <div className="rounded-xl border border-cyan/20 bg-raised p-5">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-cyan">AI-Generated Infographic</p>
             <button
               onClick={() => {
                 const blob = new Blob([visualSvg], { type: 'image/svg+xml' });
@@ -395,59 +402,92 @@ function AnalysisDetail({ report, id }: { report: AnalysisReport; id: string }) 
                 a.href = u; a.download = `analysis-${id}-visual.svg`; a.click();
                 URL.revokeObjectURL(u);
               }}
-              className="text-[11px] text-cyan hover:underline"
+              className="text-xs text-cyan hover:underline font-medium"
             >
               Download SVG
             </button>
           </div>
-          <img
-            src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(visualSvg)}`}
-            alt="AI-generated infographic"
-            className="w-full rounded-lg"
+          <div
+            className="w-full overflow-auto rounded-lg [&>svg]:w-full [&>svg]:h-auto [&>svg]:max-w-full"
+            dangerouslySetInnerHTML={{ __html: visualSvg }}
           />
         </div>
       )}
 
       {/* Executive Summary */}
-      <div className="rounded-xl border border-border bg-raised/50 p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Executive Summary</p>
-        <p className="text-[13px] text-txt-secondary leading-relaxed whitespace-pre-line">{report.summary}</p>
+      <div className="rounded-xl border border-border bg-raised p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="h-4 w-1 rounded-full bg-cyan" />
+          <p className="text-xs font-semibold uppercase tracking-wider text-cyan">Executive Summary</p>
+        </div>
+        {report.summary.split('\n').filter(Boolean).map((para, i) => (
+          <p key={i} className="text-sm text-txt-secondary leading-relaxed mb-2 last:mb-0">{para}</p>
+        ))}
       </div>
 
-      {/* Key Findings */}
+      {/* Key Findings — capped with show more */}
       {keyFindings.length > 0 && (
-        <div className="rounded-xl border border-amber-400/25 bg-amber-400/5 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-400 mb-3">Key Findings</p>
-          <div className="space-y-2">
-            {keyFindings.map((item, i) => (
-              <div key={i} className="flex items-start gap-2.5">
-                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
+        <div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.03] p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-1 rounded-full bg-amber-400" />
+              <p className="text-xs font-semibold uppercase tracking-wider text-amber-400">Key Findings</p>
+              <span className="ml-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-medium text-amber-400">
+                {keyFindings.length}
+              </span>
+            </div>
+          </div>
+          <div className="grid gap-2.5 md:grid-cols-2">
+            {visibleFindings.map((item, i) => (
+              <div key={i} className="flex items-start gap-2.5 rounded-lg bg-base/30 px-3 py-2.5">
+                <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-400/15 text-[10px] font-bold text-amber-400">
+                  {i + 1}
+                </span>
                 <p className="text-[13px] text-txt-secondary leading-relaxed">{item}</p>
               </div>
             ))}
           </div>
+          {keyFindings.length > FINDINGS_PREVIEW && (
+            <button
+              onClick={() => setShowAllFindings(!showAllFindings)}
+              className="mt-3 text-xs font-medium text-amber-400 hover:text-amber-300 transition-colors"
+            >
+              {showAllFindings ? 'Show less' : `Show all ${keyFindings.length} findings`}
+            </button>
+          )}
         </div>
       )}
 
       {/* Strategic Recommendations */}
       {report.recommendations.length > 0 && (
-        <div className="rounded-xl border border-cyan/25 bg-cyan/5 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-cyan mb-3">Strategic Recommendations</p>
-          <div className="space-y-3">
+        <div className="rounded-xl border border-cyan/20 bg-cyan/[0.03] p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-4 w-1 rounded-full bg-cyan" />
+            <p className="text-xs font-semibold uppercase tracking-wider text-cyan">Strategic Recommendations</p>
+            <span className="ml-1 rounded-full bg-cyan/15 px-2 py-0.5 text-[10px] font-medium text-cyan">
+              {report.recommendations.length}
+            </span>
+          </div>
+          <div className="space-y-2.5">
             {report.recommendations.map((rec, i) => (
-              <div key={i} className="flex items-start gap-3 rounded-lg bg-base/50 px-3 py-2.5">
-                <span className={`mt-0.5 shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
-                  rec.priority === 'high'
-                    ? 'border-red-400/30 bg-red-400/15 text-red-400'
-                    : rec.priority === 'medium'
-                    ? 'border-amber-400/30 bg-amber-400/15 text-amber-400'
-                    : 'border-blue-400/30 bg-blue-400/15 text-blue-400'
-                }`}>
-                  {rec.priority}
+              <div key={i} className="flex items-start gap-3 rounded-lg border border-border/50 bg-base/30 px-4 py-3">
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan/15 text-[11px] font-bold text-cyan">
+                  {i + 1}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-medium text-txt-primary">{rec.title}</p>
-                  <p className="mt-0.5 text-[12px] text-txt-muted leading-relaxed">{rec.detail}</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-sm font-semibold text-txt-primary">{rec.title}</p>
+                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                      rec.priority === 'high'
+                        ? 'border-red-400/30 bg-red-400/15 text-red-400'
+                        : rec.priority === 'medium'
+                        ? 'border-amber-400/30 bg-amber-400/15 text-amber-400'
+                        : 'border-blue-400/30 bg-blue-400/15 text-blue-400'
+                    }`}>
+                      {rec.priority}
+                    </span>
+                  </div>
+                  <p className="text-[13px] text-txt-muted leading-relaxed">{rec.detail}</p>
                 </div>
               </div>
             ))}
@@ -457,8 +497,11 @@ function AnalysisDetail({ report, id }: { report: AnalysisReport; id: string }) 
 
       {/* Immediate Next Steps */}
       {nextSteps.length > 0 && (
-        <div className="rounded-xl border border-emerald-400/25 bg-emerald-400/5 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400 mb-3">Immediate Next Steps</p>
+        <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/[0.03] p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-4 w-1 rounded-full bg-emerald-400" />
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400">Immediate Next Steps</p>
+          </div>
           <div className="space-y-2.5">
             {nextSteps.map((rec, i) => (
               <div key={i} className="flex items-start gap-3">
