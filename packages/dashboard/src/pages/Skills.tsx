@@ -184,6 +184,14 @@ export default function Skills() {
             </button>
           );
         })}
+        </div>
+
+        <button
+          onClick={() => setShowCreate(true)}
+          className="flex items-center gap-1.5 rounded-lg bg-cyan px-3 py-1.5 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90"
+        >
+          <MdAdd className="h-4 w-4" /> New Skill
+        </button>
       </div>
 
       {/* Skills grid */}
