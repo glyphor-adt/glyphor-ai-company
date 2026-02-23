@@ -170,7 +170,7 @@ export interface GeminiToolDeclaration {
   parameters: {
     type: string;
     properties: Record<string, unknown>;
-    required: string[];
+    required?: string[];
   };
 }
 
