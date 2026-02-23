@@ -67,7 +67,7 @@ export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
     id: `jordan-${task}-${today}`, role: 'devops-engineer',
     systemPrompt: DEVOPS_ENGINEER_SYSTEM_PROMPT,
     model: agentCfg.model, tools, maxTurns: agentCfg.maxTurns,
-    maxStallTurns: 3, timeoutMs: 60_000, temperature: agentCfg.temperature,
+    maxStallTurns: 3, timeoutMs: 180_000, temperature: agentCfg.temperature,
   };
 
   const supervisor = new AgentSupervisor({

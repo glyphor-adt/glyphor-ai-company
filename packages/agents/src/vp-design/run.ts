@@ -107,7 +107,7 @@ Steps:
     tools,
     maxTurns: agentCfg.maxTurns,
     maxStallTurns: 3,
-    timeoutMs: 60_000,
+    timeoutMs: 180_000,
     temperature: agentCfg.temperature,
   };
 

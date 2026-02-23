@@ -450,9 +450,11 @@ export class ModelClient {
   // ─── Shared helpers ──────────────────────────────────────
 
   private async raceAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
-    // Always enforce a per-call timeout (60s) to prevent indefinite API hangs.
+    // Always enforce a per-call timeout (120s) to prevent indefinite API hangs.
     // This is independent of the supervisor's between-turn timeout check.
-    const PER_CALL_TIMEOUT_MS = 60_000;
+    // Large system prompts (knowledge base + memories + personality) can take
+    // 30-90s on first call, so 120s gives enough headroom.
+    const PER_CALL_TIMEOUT_MS = 120_000;
     const timeoutSignal = AbortSignal.timeout(PER_CALL_TIMEOUT_MS);
 
     const signals = signal

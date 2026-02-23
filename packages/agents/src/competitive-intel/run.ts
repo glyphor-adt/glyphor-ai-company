@@ -54,7 +54,7 @@ export async function runCompetitiveIntel(params: CompetitiveIntelRunParams = {}
   const config: AgentConfig = {
     id: `daniel-${task}-${today}`, role: 'competitive-intel',
     systemPrompt: COMPETITIVE_INTEL_SYSTEM_PROMPT, model: agentCfg.model,
-    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 60_000, temperature: agentCfg.temperature,
+    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 180_000, temperature: agentCfg.temperature,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
   const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));

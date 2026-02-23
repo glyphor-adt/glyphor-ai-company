@@ -57,7 +57,7 @@ export async function runAccountResearch(params: AccountResearchRunParams = {}) 
   const config: AgentConfig = {
     id: `nathan-${task}-${today}`, role: 'account-research',
     systemPrompt: ACCOUNT_RESEARCH_SYSTEM_PROMPT, model: agentCfg.model,
-    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 60_000, temperature: agentCfg.temperature,
+    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 180_000, temperature: agentCfg.temperature,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
   const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));
