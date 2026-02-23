@@ -58,6 +58,36 @@ const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
   'ops': 'atlas-vega',
 };
 
+/** Maps roles to their department for knowledge base audience targeting. */
+const ROLE_DEPARTMENT: Record<string, string> = {
+  'chief-of-staff': 'operations',
+  'ops': 'operations',
+  'cto': 'engineering',
+  'platform-engineer': 'engineering',
+  'quality-engineer': 'engineering',
+  'devops-engineer': 'engineering',
+  'cfo': 'finance',
+  'revenue-analyst': 'finance',
+  'cost-analyst': 'finance',
+  'cpo': 'product',
+  'user-researcher': 'product',
+  'competitive-intel': 'product',
+  'cmo': 'marketing',
+  'content-creator': 'marketing',
+  'seo-analyst': 'marketing',
+  'social-media-manager': 'marketing',
+  'vp-customer-success': 'customer_success',
+  'onboarding-specialist': 'customer_success',
+  'support-triage': 'customer_success',
+  'vp-sales': 'sales',
+  'account-research': 'sales',
+  'vp-design': 'design',
+  'ui-ux-designer': 'design',
+  'frontend-engineer': 'design',
+  'design-critic': 'design',
+  'template-architect': 'design',
+};
+
 /** Maps roles to their department context files. */
 const ROLE_CONTEXT_FILES: Record<string, string[]> = {
   'chief-of-staff': ['operations.md'],
@@ -479,7 +509,26 @@ export class CompanyAgentRunner {
           })
         : Promise.resolve(null);
 
-      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult, workingMemory, skillResult] = await Promise.all([
+      // Determine department for knowledge base + bulletin targeting
+      const roleDept = ROLE_DEPARTMENT[config.role] ?? undefined;
+
+      // DB-driven knowledge base (replaces static file reading)
+      const kbPromise = deps?.knowledgeBaseLoader
+        ? deps.knowledgeBaseLoader(roleDept).catch(err => {
+            console.warn(`[CompanyAgentRunner] Knowledge base load failed for ${config.role}:`, (err as Error).message);
+            return null;
+          })
+        : Promise.resolve(null);
+
+      // Founder bulletins
+      const bulletinPromise = deps?.bulletinLoader
+        ? deps.bulletinLoader(roleDept).catch(err => {
+            console.warn(`[CompanyAgentRunner] Bulletin load failed for ${config.role}:`, (err as Error).message);
+            return null;
+          })
+        : Promise.resolve(null);
+
+      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult, workingMemory, skillResult, kbResult, bulletinResult] = await Promise.all([
         memoryPromise,
         briefPromise,
         messagesPromise,
@@ -487,6 +536,8 @@ export class CompanyAgentRunner {
         profilePromise,
         workingMemoryPromise,
         skillPromise,
+        kbPromise,
+        bulletinPromise,
       ]);
 
       // Inject memory context
@@ -548,6 +599,10 @@ export class CompanyAgentRunner {
 
       // Set skill context
       skillContext = skillResult;
+
+      // Set DB-driven knowledge base and bulletins
+      dbKnowledgeBase = kbResult;
+      bulletinContext = bulletinResult;
     }
 
     try {
@@ -600,7 +655,7 @@ export class CompanyAgentRunner {
             tokenEstimate: estimateTokens(history),
           });
 
-          const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt, dynamicBrief, agentProfile, skillContext);
+          const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt, dynamicBrief, agentProfile, skillContext, dbKnowledgeBase, bulletinContext);
 
           response = await this.modelClient.generate({
             model: config.model,
@@ -872,7 +927,7 @@ export class CompanyAgentRunner {
     skillFeedbackWriter?: (role: CompanyAgentRole, feedback: SkillFeedback[]) => Promise<void>,
     skillContext?: SkillContext | null,
   ): Promise<void> {
-    const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt);
+    const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt, undefined, undefined, undefined, undefined, undefined);
 
     const reflectPrompt = `You just completed a task. Here is your final output:
 

@@ -279,6 +279,19 @@ function parseMessage(activity: TeamsActivity, botName: string): ParsedCommand {
 
 // ─── Bot Handler ────────────────────────────────────────────────
 
+/**
+ * Build a lookup from Entra Object ID → founder display name.
+ * Uses the same TEAMS_USER_*_ID env vars as the DM client.
+ */
+function buildEntraIdLookup(): Map<string, string> {
+  const map = new Map<string, string>();
+  const kristinaId = process.env.TEAMS_USER_KRISTINA_ID;
+  if (kristinaId) map.set(kristinaId, 'Kristina Denney');
+  const andrewId = process.env.TEAMS_USER_ANDREW_ID;
+  if (andrewId) map.set(andrewId, 'Andrew Denney');
+  return map;
+}
+
 export class TeamsBotHandler {
   private readonly config: BotConfig;
   private readonly agentRunner: AgentRunner;
@@ -289,6 +302,8 @@ export class TeamsBotHandler {
   private readonly agentBots: Map<string, AgentBotConfig & { appSecret: string }>;
   /** Per-bot token cache for replying as the correct bot identity. */
   private readonly agentTokenCache = new Map<string, { token: string; expiresAt: number }>();
+  /** Maps Entra Object ID → founder display name for authenticated identity resolution. */
+  private readonly entraIdLookup: Map<string, string>;
 
   constructor(config: BotConfig, agentRunner: AgentRunner, agentBots?: AgentBotConfig[]) {
     this.config = config;
@@ -303,6 +318,7 @@ export class TeamsBotHandler {
     }
 
     this.tokenValidator = new BotTokenValidator(config.appId, config.tenantId, additionalAudiences);
+    this.entraIdLookup = buildEntraIdLookup();
   }
 
   static fromEnv(agentRunner: AgentRunner): TeamsBotHandler | null {
@@ -563,8 +579,9 @@ export class TeamsBotHandler {
     // Send typing indicator
     await this.sendTyping(activity.serviceUrl, activity.conversation.id, botAppId);
 
-    // Include the sender's name so agents address the right person
-    const senderName = activity.from?.name;
+    // Resolve sender identity from Entra-authenticated aadObjectId, fall back to display name
+    const senderName = (activity.from?.aadObjectId && this.entraIdLookup.get(activity.from.aadObjectId))
+      || activity.from?.name;
     const contextualMessage = senderName
       ? `[Message from ${senderName}]: ${message}`
       : message;

@@ -17,6 +17,7 @@ const NAV = [
   { to: '/skills', label: 'Skills', icon: SkillsIcon },
   { to: '/builder', label: 'Builder', icon: BuilderIcon },
   { to: '/meetings', label: 'Meetings', icon: MeetingsIcon },
+  { to: '/knowledge', label: 'Knowledge', icon: KnowledgeIcon },
   { to: '/governance', label: 'Governance', icon: GovernanceIcon },
 ] as const;
 
@@ -247,6 +248,18 @@ function DirectivesIcon({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
       <rect x="2" y="1.5" width="12" height="13" rx="1.5" />
       <path d="M5 5h6M5 8h6M5 11h4" />
+    </svg>
+  );
+}
+
+function KnowledgeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <path d="M2 2h5v6H2zM9 2h5v4H9zM9 8h5v6H9zM2 10h5v4H2z" />
+      <circle cx="4.5" cy="5" r="0.5" fill="currentColor" stroke="none" />
+      <circle cx="11.5" cy="4" r="0.5" fill="currentColor" stroke="none" />
+      <circle cx="11.5" cy="11" r="0.5" fill="currentColor" stroke="none" />
+      <circle cx="4.5" cy="12" r="0.5" fill="currentColor" stroke="none" />
     </svg>
   );
 }
