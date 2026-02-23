@@ -87,7 +87,7 @@ export class SimulationEngine {
   constructor(
     private supabase: SupabaseClient,
     private modelClient: ModelClient,
-    private model = 'claude-sonnet-4-6',
+    private model = 'gemini-3-flash-preview',
   ) {}
 
   async launch(req: SimulationRequest): Promise<string> {
