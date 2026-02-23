@@ -19,6 +19,7 @@ import { createPlatformEngineerTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createEventTools } from '../shared/eventTools.js';
+import { createGraphTools } from '../shared/graphTools.js';
 
 export interface PlatformEngineerRunParams {
   task?: 'health_check' | 'metrics_report' | 'on_demand';
@@ -41,10 +42,13 @@ export async function runPlatformEngineer(params: PlatformEngineerRunParams = {}
   const runner = new CompanyAgentRunner(modelClient);
   const eventBus = new EventBus();
   const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const graphReader = memory.getGraphReader();
+  const graphWriter = memory.getGraphWriter();
   const tools = [
     ...createPlatformEngineerTools(memory),
     ...createMemoryTools(memory),
     ...createEventTools(glyphorEventBus),
+    ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

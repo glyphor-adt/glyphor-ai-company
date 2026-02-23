@@ -639,7 +639,7 @@ export class CompanyAgentRunner {
         const isOnDemand = config.id.includes('on_demand');
         const reflectFn = async () => {
           try {
-            await this.reflectOnRun(config, history, lastTextOutput!, deps.agentMemoryStore!, deps?.knowledgeRouter);
+            await this.reflectOnRun(config, history, lastTextOutput!, deps.agentMemoryStore!, deps?.knowledgeRouter, deps?.graphWriter);
           } catch (err) {
             console.warn(
               `[CompanyAgentRunner] Reflection failed for ${config.id}:`,
@@ -788,8 +788,18 @@ Reflect on this run and respond with a JSON object (no markdown fencing):
   ],
   "peerFeedback": [
     { "toAgent": "role-slug", "feedback": "what you observed about their work", "sentiment": "positive|constructive|neutral" }
-  ]
+  ],
+  "graph_operations": {
+    "nodes": [
+      { "node_type": "event|fact|observation|pattern|metric|risk|hypothesis", "title": "short label", "content": "full description", "tags": ["tag1"], "department": "engineering|finance|marketing|product|etc", "importance": 0.0-1.0, "metadata": {} }
+    ],
+    "edges": [
+      { "source": {"this_run_node": 0} | {"find_by": "title_contains"|"entity", "query": "search term"}, "target": {"this_run_node": 0} | {"find_by": "title_contains"|"entity", "query": "search term"}, "edge_type": "caused|contributed_to|supports|contradicts|affects|related_to", "strength": 0.0-1.0, "evidence": "why this relationship exists" }
+    ]
+  }
 }
+
+For graph_operations: Extract key events, metrics, patterns, or risks from this run and connect them to existing knowledge. This builds the organizational knowledge graph — focus on causal chains (what caused what) and cross-functional impacts. Leave arrays empty if nothing noteworthy happened.
 
 For peerFeedback: If during this task you interacted with or observed the work of other agents, include brief feedback for them. Only include genuine observations — leave the array empty if you had no cross-agent interaction.`;
 
@@ -841,6 +851,30 @@ For peerFeedback: If during this task you interacted with or observed the work o
       console.log(
         `[CompanyAgentRunner] Reflection saved for ${config.id}: score=${parsed.qualityScore}, memories=${memories.length}`,
       );
+
+      // Process knowledge graph operations
+      if (graphWriter && parsed.graph_operations) {
+        try {
+          const ops = parsed.graph_operations;
+          const graphNodes = Array.isArray(ops.nodes) ? ops.nodes : [];
+          const graphEdges = Array.isArray(ops.edges) ? ops.edges : [];
+          if (graphNodes.length > 0 || graphEdges.length > 0) {
+            const result = await graphWriter.processGraphOps(
+              config.role,
+              config.id,
+              { nodes: graphNodes.slice(0, 5), edges: graphEdges.slice(0, 10) },
+            );
+            console.log(
+              `[CompanyAgentRunner] Graph ops for ${config.id}: ${result.nodesCreated} nodes, ${result.edgesCreated} edges`,
+            );
+          }
+        } catch (graphErr) {
+          console.warn(
+            `[CompanyAgentRunner] Graph ops failed for ${config.id}:`,
+            (graphErr as Error).message,
+          );
+        }
+      }
 
       // Save working memory (last-run summary for next run's context)
       if (store.saveLastRunSummary && parsed.summary) {

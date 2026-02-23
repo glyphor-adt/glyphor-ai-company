@@ -5,6 +5,7 @@ import {
   DISPLAY_NAME_MAP,
   AGENT_META,
   AGENT_SKILLS,
+  AGENT_SOUL,
   ROLE_TIER,
   ROLE_DEPARTMENT,
   ROLE_TITLE,
@@ -272,6 +273,9 @@ function OverviewTab({ agent, profile }: { agent: AgentRow; profile: AgentProfil
   const [activity, setActivity] = useState<ActivityRow[]>([]);
   const skills = AGENT_SKILLS[agent.role] ?? [];
   const directReports = SUB_TEAM.filter((m) => m.reportsTo === agent.role);
+  const soul = AGENT_SOUL[agent.role];
+  const tier = ROLE_TIER[agent.role] ?? 'Agent';
+  const department = ROLE_DEPARTMENT[agent.role] ?? agent.department ?? '';
 
   useEffect(() => {
     supabase
@@ -283,8 +287,116 @@ function OverviewTab({ agent, profile }: { agent: AgentRow; profile: AgentProfil
       .then(({ data }) => setActivity((data as unknown as ActivityRow[]) ?? []));
   }, [agent.role]);
 
+  // Derive thinking level from temperature
+  const thinkingLevel = (agent.temperature ?? 0.3) <= 0.2
+    ? 'Precise' : (agent.temperature ?? 0.3) <= 0.5
+    ? 'Balanced' : (agent.temperature ?? 0.3) <= 0.8
+    ? 'Creative' : 'Exploratory';
+
   return (
     <div className="space-y-6">
+      {/* Soul */}
+      {soul && (
+        <Card>
+          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-txt-primary">Soul</h3>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-cyan">Mission</p>
+              <p className="mt-1.5 text-sm leading-relaxed text-txt-secondary">{soul.mission}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-cyan">Persona</p>
+              <p className="mt-1.5 text-sm leading-relaxed text-txt-secondary">{soul.persona}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-cyan">Tone</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {soul.tone.split(', ').map((t) => (
+                  <span key={t} className="rounded-full border border-cyan/20 bg-cyan/10 px-2.5 py-0.5 text-[11px] font-medium text-cyan capitalize">
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-cyan">Ethics</p>
+              <p className="mt-1.5 text-sm leading-relaxed text-txt-secondary">{soul.ethics}</p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Configuration */}
+      <Card>
+        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-txt-primary">Configuration</h3>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Agent ID</p>
+            <p className="mt-1 font-mono text-sm text-txt-secondary">{agent.role}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Type</p>
+            <p className="mt-1 text-sm text-txt-secondary">{agent.is_core ? 'Core' : 'Extended'}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Tier</p>
+            <span className={`mt-1 inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
+              tier === 'Orchestrator' ? 'border-accent/30 bg-accent/15 text-accent'
+              : tier === 'Executive' ? 'border-azure/30 bg-azure/15 text-azure'
+              : tier === 'Specialist' ? 'border-cyan/30 bg-cyan/15 text-cyan'
+              : 'border-border bg-raised text-txt-secondary'
+            }`}>
+              {tier}
+            </span>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Office</p>
+            <p className="mt-1 text-sm text-txt-secondary">{department}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Thinking Level</p>
+            <p className="mt-1 text-sm text-txt-secondary">{thinkingLevel}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Model</p>
+            <p className="mt-1 font-mono text-sm text-txt-secondary">{agent.model ?? 'gemini-3-flash-preview'}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Created</p>
+            <p className="mt-1 text-sm text-txt-secondary">{new Date(agent.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Status</p>
+            <span className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+              agent.status === 'active' ? 'bg-tier-green/15 text-tier-green'
+              : agent.status === 'paused' ? 'bg-tier-yellow/15 text-tier-yellow'
+              : 'bg-slate-500/15 text-slate-400'
+            }`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${
+                agent.status === 'active' ? 'bg-tier-green' : agent.status === 'paused' ? 'bg-tier-yellow' : 'bg-slate-500'
+              }`} />
+              {agent.status}
+            </span>
+          </div>
+        </div>
+      </Card>
+
+      {/* Skills */}
+      {skills.length > 0 && (
+        <Card>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-txt-primary">
+            Skills ({skills.length})
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {skills.map((s) => (
+              <span key={s} className="rounded-lg border border-cyan/20 bg-cyan/5 px-3 py-1.5 font-mono text-[12px] text-cyan/80 transition-colors hover:bg-cyan/10 hover:text-cyan">
+                {s}
+              </span>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* Personality + Communication (two-column) */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Personality */}
@@ -342,7 +454,7 @@ function OverviewTab({ agent, profile }: { agent: AgentRow; profile: AgentProfil
         </Card>
       )}
 
-      {/* Recent Activity + Team (two-column) */}
+      {/* Recent Activity + Org Structure (two-column) */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Recent Activity */}
         <Card>
@@ -363,31 +475,52 @@ function OverviewTab({ agent, profile }: { agent: AgentRow; profile: AgentProfil
           )}
         </Card>
 
-        {/* Team */}
+        {/* Org Structure */}
         <Card>
           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-txt-primary">
-            Team {directReports.length > 0 && `(${directReports.length})`}
+            Org Structure
           </h3>
-          {directReports.length > 0 ? (
-            <ul className="space-y-2.5">
-              {directReports.map((m) => (
-                <li key={m.name} className="flex items-center gap-3">
-                  <img
-                    src={`/avatars/${m.avatar}.png`}
-                    alt={m.name}
-                    className="h-7 w-7 rounded-full object-cover"
-                    style={{ border: `1.5px solid ${m.color}40` }}
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-txt-primary">{m.name}</p>
-                    <p className="text-[11px] text-txt-faint">{m.title}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-txt-faint">No direct reports</p>
+          {/* Reports To */}
+          {agent.reports_to && (
+            <div className="mb-4">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint mb-2">Reports To</p>
+              <Link to={`/agents/${agent.reports_to}`} className="flex items-center gap-3 rounded-lg border border-border bg-raised px-3 py-2 transition-colors hover:border-cyan/30">
+                <AgentAvatar role={agent.reports_to} size={28} />
+                <div>
+                  <p className="text-sm font-medium text-txt-primary">{DISPLAY_NAME_MAP[agent.reports_to] ?? agent.reports_to}</p>
+                  <p className="text-[11px] text-txt-faint">{ROLE_TITLE[agent.reports_to] ?? agent.reports_to}</p>
+                </div>
+              </Link>
+            </div>
           )}
+          {/* Direct Reports */}
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint mb-2">
+              Direct Reports ({directReports.length})
+            </p>
+            {directReports.length > 0 ? (
+              <ul className="space-y-2">
+                {directReports.map((m) => (
+                  <li key={m.name}>
+                    <Link to={`/agents/${m.avatar}`} className="flex items-center gap-3 rounded-lg border border-border/50 px-3 py-2 transition-colors hover:border-cyan/30">
+                      <img
+                        src={`/avatars/${m.avatar}.png`}
+                        alt={m.name}
+                        className="h-7 w-7 rounded-full object-cover"
+                        style={{ border: `1.5px solid ${m.color}40` }}
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-txt-primary">{m.name}</p>
+                        <p className="text-[11px] text-txt-faint">{m.title}</p>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-txt-faint">No direct reports</p>
+            )}
+          </div>
         </Card>
       </div>
 
@@ -396,20 +529,6 @@ function OverviewTab({ agent, profile }: { agent: AgentRow; profile: AgentProfil
         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-txt-primary">Key Stats</h3>
         <KeyStatsGrid agent={agent} />
       </Card>
-
-      {/* Skills */}
-      {skills.length > 0 && (
-        <Card>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-txt-primary">Skills</h3>
-          <div className="flex flex-wrap gap-2">
-            {skills.map((s) => (
-              <span key={s} className="rounded-lg border border-border bg-raised px-3 py-1.5 font-mono text-[12px] text-txt-secondary">
-                {s}
-              </span>
-            ))}
-          </div>
-        </Card>
-      )}
     </div>
   );
 }

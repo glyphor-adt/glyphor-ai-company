@@ -12,6 +12,7 @@ import { createCompetitiveIntelTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createEventTools } from '../shared/eventTools.js';
+import { createGraphTools } from '../shared/graphTools.js';
 
 export interface CompetitiveIntelRunParams {
   task?: 'landscape_scan' | 'deep_dive' | 'on_demand';
@@ -27,7 +28,14 @@ export async function runCompetitiveIntel(params: CompetitiveIntelRunParams = {}
   const runner = new CompanyAgentRunner(modelClient);
   const eventBus = new EventBus();
   const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
-  const tools = [...createCompetitiveIntelTools(memory), ...createMemoryTools(memory), ...createEventTools(glyphorEventBus)];
+  const graphReader = memory.getGraphReader();
+  const graphWriter = memory.getGraphWriter();
+  const tools = [
+    ...createCompetitiveIntelTools(memory),
+    ...createMemoryTools(memory),
+    ...createEventTools(glyphorEventBus),
+    ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
+  ];
   const toolExecutor = new ToolExecutor(tools);
 
   const task = params.task || 'landscape_scan';

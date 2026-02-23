@@ -20,6 +20,7 @@ import { createMemoryTools } from '../shared/memoryTools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createEventTools } from '../shared/eventTools.js';
+import { createGraphTools } from '../shared/graphTools.js';
 
 export interface CMORunParams {
   task?: 'weekly_content_planning' | 'generate_content' | 'seo_analysis' | 'on_demand';
@@ -42,11 +43,14 @@ export async function runCMO(params: CMORunParams = {}) {
   const runner = new CompanyAgentRunner(modelClient);
   const eventBus = new EventBus();
   const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const graphReader = memory.getGraphReader();
+  const graphWriter = memory.getGraphWriter();
   const tools = [
     ...createCMOTools(memory),
     ...createMemoryTools(memory),
     ...createCollectiveIntelligenceTools(memory),
     ...createEventTools(glyphorEventBus),
+    ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

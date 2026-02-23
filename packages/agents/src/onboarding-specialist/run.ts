@@ -12,6 +12,7 @@ import { createOnboardingSpecialistTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createEventTools } from '../shared/eventTools.js';
+import { createGraphTools } from '../shared/graphTools.js';
 
 export interface OnboardingSpecialistRunParams {
   task?: 'funnel_report' | 'drop_off_analysis' | 'on_demand';
@@ -27,7 +28,14 @@ export async function runOnboardingSpecialist(params: OnboardingSpecialistRunPar
   const runner = new CompanyAgentRunner(modelClient);
   const eventBus = new EventBus();
   const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
-  const tools = [...createOnboardingSpecialistTools(memory), ...createMemoryTools(memory), ...createEventTools(glyphorEventBus)];
+  const graphReader = memory.getGraphReader();
+  const graphWriter = memory.getGraphWriter();
+  const tools = [
+    ...createOnboardingSpecialistTools(memory),
+    ...createMemoryTools(memory),
+    ...createEventTools(glyphorEventBus),
+    ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
+  ];
   const toolExecutor = new ToolExecutor(tools);
 
   const task = params.task || 'funnel_report';

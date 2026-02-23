@@ -20,6 +20,7 @@ import { createMemoryTools } from '../shared/memoryTools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createEventTools } from '../shared/eventTools.js';
+import { createGraphTools } from '../shared/graphTools.js';
 
 export interface CPORunParams {
   task?: 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand';
@@ -42,11 +43,14 @@ export async function runCPO(params: CPORunParams = {}) {
   const runner = new CompanyAgentRunner(modelClient);
   const eventBus = new EventBus();
   const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const graphReader = memory.getGraphReader();
+  const graphWriter = memory.getGraphWriter();
   const tools = [
     ...createCPOTools(memory),
     ...createMemoryTools(memory),
     ...createCollectiveIntelligenceTools(memory),
     ...createEventTools(glyphorEventBus),
+    ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

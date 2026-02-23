@@ -20,6 +20,7 @@ import { createChiefOfStaffTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { createGraphTools } from '../shared/graphTools.js';
 
 export interface CoSRunParams {
   task?: 'generate_briefing' | 'check_escalations' | 'weekly_review' | 'monthly_retrospective' | 'on_demand';
@@ -43,10 +44,13 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
   const runner = new CompanyAgentRunner(modelClient);
   const eventBus = new EventBus();
   const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const graphReader = memory.getGraphReader();
+  const graphWriter = memory.getGraphWriter();
   const tools = [
     ...createChiefOfStaffTools(memory),
     ...createMemoryTools(memory),
     ...createCollectiveIntelligenceTools(memory),
+    ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

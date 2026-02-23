@@ -122,23 +122,29 @@ async function api<T>(path: string, opts?: RequestInit): Promise<T> {
 
 /* ── Page Component ────────────────────────────── */
 
-type Tab = 'analyses' | 'simulations';
+type Tab = 'analyses' | 'simulations' | 'cot';
 
 export default function Strategy() {
   const [tab, setTab] = useState<Tab>('analyses');
+
+  const TAB_LABELS: Record<Tab, string> = {
+    analyses: 'Strategic Analyses',
+    simulations: 'T+1 Simulations',
+    cot: 'Chain of Thought',
+  };
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-txt-primary">Strategy Lab</h1>
         <p className="mt-1 text-sm text-txt-muted">
-          McKinsey-grade strategic analyses and T+1 impact simulations
+          McKinsey-grade strategic analyses, T+1 impact simulations, and chain-of-thought planning
         </p>
       </div>
 
       {/* Tab Toggle */}
       <div className="flex gap-1 rounded-lg bg-raised p-1 w-fit border border-border">
-        {(['analyses', 'simulations'] as Tab[]).map((t) => (
+        {(['analyses', 'simulations', 'cot'] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -148,12 +154,14 @@ export default function Strategy() {
                 : 'text-txt-muted hover:text-txt-secondary'
             }`}
           >
-            {t === 'analyses' ? 'Strategic Analyses' : 'T+1 Simulations'}
+            {TAB_LABELS[t]}
           </button>
         ))}
       </div>
 
-      {tab === 'analyses' ? <AnalysesPanel /> : <SimulationsPanel />}
+      {tab === 'analyses' && <AnalysesPanel />}
+      {tab === 'simulations' && <SimulationsPanel />}
+      {tab === 'cot' && <ChainOfThoughtPanel />}
     </div>
   );
 }
@@ -634,6 +642,408 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
         )}
         <ExportButton label="Export MD" href={`${SCHEDULER_URL}/simulation/${record.id}/export?format=markdown`} />
         <ExportButton label="Export JSON" href={`${SCHEDULER_URL}/simulation/${record.id}/export?format=json`} />
+      </div>
+    </div>
+  );
+}
+
+/* ─── Chain of Thought Planning Panel ──────────── */
+
+type CotPhase = 'decomposition' | 'solution_space' | 'options' | 'validation';
+
+interface CotProblem {
+  title: string;
+  severity: 'high' | 'medium' | 'low';
+  description: string;
+}
+
+interface CotRootCause {
+  cause: string;
+  linkedProblem: string;
+  evidence: string;
+}
+
+interface CotSolution {
+  title: string;
+  description: string;
+  feasibility: number;
+  timeframe: string;
+  resources: string;
+}
+
+interface CotOption {
+  title: string;
+  pros: string[];
+  cons: string[];
+  feasibilityScore: number;
+  reasoning: string;
+}
+
+interface CotValidation {
+  assumption: string;
+  status: 'valid' | 'questionable' | 'invalid';
+  evidence: string;
+}
+
+interface CotReport {
+  summary: string;
+  problems: CotProblem[];
+  rootCauses: CotRootCause[];
+  solutions: CotSolution[];
+  options: CotOption[];
+  validations: CotValidation[];
+}
+
+interface CotRecord {
+  id: string;
+  query: string;
+  status: 'planning' | 'decomposing' | 'mapping' | 'analyzing' | 'validating' | 'completed' | 'failed';
+  requested_by: string;
+  report: CotReport | null;
+  created_at: string;
+  completed_at: string | null;
+  error: string | null;
+}
+
+const COT_PHASE_LABELS: Record<CotPhase, string> = {
+  decomposition: 'Problem Decomposition',
+  solution_space: 'Solution Space Mapping',
+  options: 'Strategic Options Analysis',
+  validation: 'Logical Validation',
+};
+
+function ChainOfThoughtPanel() {
+  const [records, setRecords] = useState<CotRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [launching, setLaunching] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const refresh = useCallback(async () => {
+    try {
+      const data = await api<CotRecord[]>('/cot');
+      setRecords(data);
+    } catch { setRecords([]); }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  useEffect(() => {
+    const running = records.some((r) => !['completed', 'failed'].includes(r.status));
+    if (!running) return;
+    const interval = setInterval(refresh, 5000);
+    return () => clearInterval(interval);
+  }, [records, refresh]);
+
+  async function launch() {
+    if (!query.trim()) return;
+    setLaunching(true);
+    try {
+      await api('/cot/run', {
+        method: 'POST',
+        body: JSON.stringify({ query: query.trim(), requestedBy: 'dashboard' }),
+      });
+      setQuery('');
+      await refresh();
+    } catch (err) {
+      console.error('Failed to launch CoT analysis:', err);
+    }
+    setLaunching(false);
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Launch Form */}
+      <Card>
+        <SectionHeader title="Chain of Thought Planning" />
+        <p className="mt-1 mb-3 text-[12px] text-txt-muted">
+          Decompose complex strategic problems into structured reasoning chains. The AI executive team will identify core problems, map root causes, evaluate strategic options, and validate logical consistency.
+        </p>
+        <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
+          <div>
+            <label className="text-[11px] font-medium text-txt-muted mb-1 block">Strategic Question</label>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="e.g. 'Should we pivot from B2C to B2B enterprise sales?'"
+              className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-cyan focus:outline-none"
+              onKeyDown={(e) => e.key === 'Enter' && launch()}
+            />
+          </div>
+          <button
+            onClick={launch}
+            disabled={launching || !query.trim()}
+            className="rounded-lg bg-cyan px-4 py-2 text-sm font-medium text-black transition-opacity hover:opacity-90 disabled:opacity-40"
+          >
+            {launching ? 'Launching…' : 'Analyze'}
+          </button>
+        </div>
+      </Card>
+
+      {/* Past CoT Analyses */}
+      <div>
+        <SectionHeader title="Past Analyses" />
+        {loading ? (
+          <div className="space-y-3 mt-3"><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /></div>
+        ) : records.length === 0 ? (
+          <p className="mt-4 text-center text-sm text-txt-faint">No chain-of-thought analyses yet — launch one above</p>
+        ) : (
+          <div className="mt-3 space-y-3">
+            {records.map((r) => (
+              <Card key={r.id}>
+                <button
+                  onClick={() => setExpanded(expanded === r.id ? null : r.id)}
+                  className="flex w-full items-center justify-between text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`inline-block h-2 w-2 rounded-full ${statusColor(r.status)}`} />
+                    <div>
+                      <p className="text-sm font-medium text-txt-primary">{r.query}</p>
+                      <p className="text-[11px] text-txt-muted">
+                        Chain of Thought · {r.status}
+                        {r.report && ` · ${r.report.problems.length} problems · ${r.report.options.length} options`}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] text-txt-faint">{timeAgo(r.created_at)}</span>
+                </button>
+
+                {expanded === r.id && r.report && (
+                  <CotDetail report={r.report} id={r.id} />
+                )}
+                {expanded === r.id && !r.report && r.status !== 'failed' && (
+                  <div className="mt-4">
+                    <p className="text-sm text-txt-muted">Analysis in progress… ({r.status})</p>
+                  </div>
+                )}
+                {expanded === r.id && r.error && (
+                  <p className="mt-3 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-400">
+                    {r.error}
+                  </p>
+                )}
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CotDetail({ report, id }: { report: CotReport; id: string }) {
+  const [phase, setPhase] = useState<CotPhase>('decomposition');
+
+  return (
+    <div className="mt-4 space-y-4 border-t border-border pt-4">
+      {/* Summary */}
+      <p className="text-sm text-txt-secondary leading-relaxed">{report.summary}</p>
+
+      {/* Phase Tabs */}
+      <div className="flex gap-1 rounded-lg bg-base p-1 border border-border">
+        {(['decomposition', 'solution_space', 'options', 'validation'] as CotPhase[]).map((p) => (
+          <button
+            key={p}
+            onClick={() => setPhase(p)}
+            className={`flex-1 rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors ${
+              phase === p
+                ? 'bg-cyan/15 text-cyan'
+                : 'text-txt-muted hover:text-txt-secondary'
+            }`}
+          >
+            {COT_PHASE_LABELS[p]}
+          </button>
+        ))}
+      </div>
+
+      {/* Phase Content */}
+      {phase === 'decomposition' && (
+        <div className="space-y-4">
+          {/* Core Problems */}
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Core Problems</p>
+            <div className="space-y-2">
+              {report.problems.map((p, i) => (
+                <div key={i} className="rounded-lg border border-border bg-raised px-3 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
+                      p.severity === 'high'
+                        ? 'border-red-500/30 bg-red-500/15 text-red-400'
+                        : p.severity === 'medium'
+                        ? 'border-amber-500/30 bg-amber-500/15 text-amber-400'
+                        : 'border-blue-500/30 bg-blue-500/15 text-blue-400'
+                    }`}>
+                      {p.severity}
+                    </span>
+                    <span className="text-sm font-medium text-txt-primary">{p.title}</span>
+                  </div>
+                  <p className="mt-1 text-[12px] text-txt-muted leading-relaxed">{p.description}</p>
+                </div>
+              ))}
+              {report.problems.length === 0 && (
+                <p className="text-sm text-txt-faint">No problems identified</p>
+              )}
+            </div>
+          </div>
+
+          {/* Root Causes */}
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Root Causes</p>
+            <div className="space-y-2">
+              {report.rootCauses.map((rc, i) => (
+                <div key={i} className="rounded-lg border border-border bg-raised px-3 py-2.5">
+                  <p className="text-sm font-medium text-txt-primary">{rc.cause}</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="text-[10px] text-txt-faint">Links to:</span>
+                    <span className="text-[10px] font-medium text-cyan">{rc.linkedProblem}</span>
+                  </div>
+                  <p className="mt-1 text-[12px] text-txt-muted leading-relaxed">{rc.evidence}</p>
+                </div>
+              ))}
+              {report.rootCauses.length === 0 && (
+                <p className="text-sm text-txt-faint">No root causes identified</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {phase === 'solution_space' && (
+        <div>
+          <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Mapped Solutions</p>
+          <div className="space-y-2">
+            {report.solutions.map((s, i) => (
+              <div key={i} className="rounded-lg border border-border bg-raised px-3 py-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-txt-primary">{s.title}</span>
+                  <span className="font-mono text-sm font-semibold text-cyan">
+                    {Math.round(s.feasibility * 100)}%
+                  </span>
+                </div>
+                <p className="mt-1 text-[12px] text-txt-muted leading-relaxed">{s.description}</p>
+                <div className="mt-2 flex items-center gap-4">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-txt-faint">Timeframe:</span>
+                    <span className="text-[10px] font-medium text-txt-secondary">{s.timeframe}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-txt-faint">Resources:</span>
+                    <span className="text-[10px] font-medium text-txt-secondary">{s.resources}</span>
+                  </div>
+                </div>
+                {/* Feasibility bar */}
+                <div className="mt-2 h-1.5 w-full rounded-full bg-base overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-cyan to-azure transition-all"
+                    style={{ width: `${Math.round(s.feasibility * 100)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+            {report.solutions.length === 0 && (
+              <p className="text-sm text-txt-faint">No solutions mapped</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {phase === 'options' && (
+        <div>
+          <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Strategic Options</p>
+          <div className="space-y-3">
+            {report.options.map((opt, i) => (
+              <div key={i} className="rounded-lg border border-border bg-raised px-4 py-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-txt-primary">{opt.title}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-txt-faint">Feasibility</span>
+                    <span className={`font-mono text-sm font-semibold ${
+                      opt.feasibilityScore >= 7 ? 'text-tier-green' : opt.feasibilityScore >= 4 ? 'text-amber-400' : 'text-red-400'
+                    }`}>
+                      {opt.feasibilityScore}/10
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Pros */}
+                  <div className="rounded-lg border border-tier-green/20 bg-tier-green/5 p-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-tier-green mb-1.5">Pros</p>
+                    {opt.pros.length > 0 ? (
+                      <ul className="space-y-1">
+                        {opt.pros.map((p, j) => (
+                          <li key={j} className="text-[11px] text-txt-secondary leading-relaxed">+ {p}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-[11px] text-txt-faint">—</p>
+                    )}
+                  </div>
+                  {/* Cons */}
+                  <div className="rounded-lg border border-red-400/20 bg-red-400/5 p-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-red-400 mb-1.5">Cons</p>
+                    {opt.cons.length > 0 ? (
+                      <ul className="space-y-1">
+                        {opt.cons.map((c, j) => (
+                          <li key={j} className="text-[11px] text-txt-secondary leading-relaxed">- {c}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-[11px] text-txt-faint">—</p>
+                    )}
+                  </div>
+                </div>
+
+                <p className="mt-2 text-[11px] text-txt-muted leading-relaxed">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-txt-faint">Reasoning: </span>
+                  {opt.reasoning}
+                </p>
+              </div>
+            ))}
+            {report.options.length === 0 && (
+              <p className="text-sm text-txt-faint">No options analyzed</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {phase === 'validation' && (
+        <div>
+          <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Logical Validation</p>
+          <div className="space-y-2">
+            {report.validations.map((v, i) => (
+              <div key={i} className="flex items-start gap-3 rounded-lg border border-border bg-raised px-3 py-2.5">
+                <span className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${
+                  v.status === 'valid' ? 'bg-tier-green' : v.status === 'questionable' ? 'bg-amber-400' : 'bg-red-400'
+                }`} />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-txt-primary">{v.assumption}</span>
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                      v.status === 'valid'
+                        ? 'border-tier-green/30 bg-tier-green/15 text-tier-green'
+                        : v.status === 'questionable'
+                        ? 'border-amber-500/30 bg-amber-500/15 text-amber-400'
+                        : 'border-red-500/30 bg-red-500/15 text-red-400'
+                    }`}>
+                      {v.status}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[12px] text-txt-muted leading-relaxed">{v.evidence}</p>
+                </div>
+              </div>
+            ))}
+            {report.validations.length === 0 && (
+              <p className="text-sm text-txt-faint">No validations performed</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Export */}
+      <div className="flex gap-2">
+        <ExportButton label="Export MD" href={`${SCHEDULER_URL}/cot/${id}/export?format=markdown`} />
+        <ExportButton label="Export JSON" href={`${SCHEDULER_URL}/cot/${id}/export?format=json`} />
       </div>
     </div>
   );

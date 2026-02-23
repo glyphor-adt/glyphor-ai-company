@@ -128,6 +128,8 @@ export function createRunDeps(
     workingMemoryLoader: async (role: CompanyAgentRole) => {
       return memory.getLastRunSummary(role);
     },
+
+    graphWriter: memory.getGraphWriter() ?? undefined,
   };
 }
 
