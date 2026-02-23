@@ -130,6 +130,23 @@ export class ModelClient {
       ? [{ functionDeclarations: request.tools }]
       : undefined;
 
+    // Build thinking config based on model family
+    const thinkingEnabled = request.thinkingEnabled ?? true;
+    let thinkingConfig: Record<string, unknown> | undefined;
+    if (request.model.startsWith('gemini-3')) {
+      // Gemini 3.x: use thinkingLevel
+      thinkingConfig = {
+        includeThoughts: true,
+        thinkingLevel: thinkingEnabled ? 'high' : 'minimal',
+      };
+    } else if (request.model.startsWith('gemini-2.5')) {
+      // Gemini 2.5: use thinkingBudget
+      thinkingConfig = {
+        includeThoughts: true,
+        thinkingBudget: thinkingEnabled ? -1 : 0,
+      };
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const apiPromise = this.gemini.models.generateContent({
       model: request.model,
@@ -140,6 +157,7 @@ export class ModelClient {
         topP: request.topP,
         topK: request.topK,
         ...(geminiTools ? { tools: geminiTools as any } : {}),
+        ...(thinkingConfig ? { thinkingConfig } : {}),
       },
     });
 
