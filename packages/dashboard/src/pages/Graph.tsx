@@ -337,6 +337,7 @@ function GraphCanvas({
       ctx.textBaseline = 'top';
       const label = n.title.length > 18 ? n.title.substring(0, 16) + '…' : n.title;
       ctx.fillText(label, n.x, n.y + n.radius + 4);
+      ctx.globalAlpha = 1;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tick, dims, selectedNodeId, highlightedNodeIds, filteredEdges, simNodes]);
