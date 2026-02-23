@@ -104,12 +104,13 @@ export function Sparkline({
 export function Card({
   children,
   className = '',
+  ...rest
 }: {
   children: React.ReactNode;
   className?: string;
-}) {
+} & React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`glass-card rounded-xl border border-border bg-surface p-5 transition-all duration-200 hover:border-border-hover ${className}`}>
+    <div className={`glass-card rounded-xl border border-border bg-surface p-5 transition-all duration-200 hover:border-border-hover ${className}`} {...rest}>
       {children}
     </div>
   );
