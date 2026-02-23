@@ -267,7 +267,8 @@ function GraphCanvas({
 
     ctx.clearRect(0, 0, dims.width, dims.height);
 
-    const isDark = document.documentElement.classList.contains('dark');
+    const rootStyles = getComputedStyle(document.documentElement);
+    const labelColor = rootStyles.getPropertyValue('--color-txt-primary').trim();
     const nodeMap = new Map(simNodes.map((n) => [n.id, n]));
 
     // Draw edges
@@ -329,8 +330,8 @@ function GraphCanvas({
       ctx.stroke();
 
       // Label
-      const labelRgb = isDark ? '255,255,255' : '30,30,30';
-      ctx.fillStyle = `rgba(${labelRgb},${alpha})`;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = labelColor;
       ctx.font = '11px Inter, system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
