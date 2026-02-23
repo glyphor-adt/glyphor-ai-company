@@ -23,7 +23,7 @@ export default function Layout() {
   return (
     <div className="flex h-screen overflow-hidden bg-base">
       {/* ── Sidebar ─────────────────────────── */}
-      <aside className="flex w-[220px] flex-col border-r border-border dark:border-[#1a1a1a] bg-white dark:bg-[#0B0B0C] transition-colors duration-200">
+      <aside className="flex w-[220px] flex-col border-r border-border dark:border-[#222630] bg-white dark:bg-[#0c0e12] transition-colors duration-200">
         {/* Brand */}
         <div className="flex items-center gap-3 px-4 py-4">
           <img src="/glyphor-logo.png" alt="Glyphor" className="h-10 w-10 drop-shadow-[0_0_10px_rgba(34,211,238,0.4)]" />
@@ -67,7 +67,7 @@ export default function Layout() {
           </button>
         </div>
         {/* Footer */}
-        <div className="border-t border-border dark:border-[#1a1a1a] px-4 py-4">
+        <div className="border-t border-border dark:border-[#222630] px-4 py-4">
           <div className="flex items-center gap-2.5">
             {user?.picture ? (
               <img src={user.picture} alt="" className="h-7 w-7 rounded-full" referrerPolicy="no-referrer" />
@@ -85,7 +85,7 @@ export default function Layout() {
       </aside>
 
       {/* ── Main Content ────────────────────── */}
-      <main className="flex-1 overflow-y-auto bg-base transition-colors duration-200 dark:bg-[#14161a] dark:bg-[url('/gradient-dark.svg')] dark:bg-[length:100%_auto] dark:bg-no-repeat dark:bg-top">
+      <main className="flex-1 overflow-y-auto bg-base transition-colors duration-200 dark:bg-[#111318] dark:bg-[url('/gradient-dark.svg')] dark:bg-[length:100%_auto] dark:bg-no-repeat dark:bg-top">
         <div className="page-enter mx-auto max-w-[1400px] px-8 py-8">
           <Outlet />
         </div>

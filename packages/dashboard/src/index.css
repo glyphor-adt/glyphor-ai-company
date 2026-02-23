@@ -25,19 +25,19 @@
 
 .dark {
   color-scheme: dark;
-  --color-base: #14161a;
-  --color-surface: #1a1d23;
-  --color-raised: #1e2128;
-  --color-border: #2a2e38;
-  --color-border-hover: #3a3f4b;
+  --color-base: #111318;
+  --color-surface: #1c1f26;
+  --color-raised: #252830;
+  --color-border: #333842;
+  --color-border-hover: #444b58;
   --color-txt-primary: #f1f5f9;
   --color-txt-secondary: #cbd5e1;
   --color-txt-muted: #7a8599;
   --color-txt-faint: #525d70;
-  --color-hover-bg: rgba(255,255,255,0.05);
+  --color-hover-bg: rgba(255,255,255,0.06);
   --color-shimmer: rgba(34, 211, 238, 0.08);
-  --scrollbar-thumb: #2a2e38;
-  --scrollbar-hover: #3a3f4b;
+  --scrollbar-thumb: #333842;
+  --scrollbar-hover: #444b58;
   /* Accent colors – bright shades for dark-bg contrast (≥ 6:1) */
   --cyan: 34 211 238;      /* #22D3EE  cyan-400 */
   --azure: 96 165 250;     /* #60A5FA  blue-400 */

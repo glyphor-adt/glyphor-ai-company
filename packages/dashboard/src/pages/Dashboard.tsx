@@ -1,4 +1,4 @@
-import { MdCheckCircle, MdSearch, MdDescription, MdQueue, MdChat, MdAutoAwesome, MdGroup } from 'react-icons/md';
+import { MdCheckCircle, MdSearch, MdDescription, MdQueue, MdChat, MdGroup } from 'react-icons/md';
 import { useAgents, useDecisions, useActivity, useProducts } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, TIER_TO_IMPACT } from '../lib/types';
 import {
@@ -67,9 +67,6 @@ export default function Dashboard() {
             {' · '}
             {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
           </p>
-        </div>
-        <div className="hidden lg:flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan/15">
-          <MdAutoAwesome className="h-8 w-8 text-cyan" />
         </div>
       </div>
 
