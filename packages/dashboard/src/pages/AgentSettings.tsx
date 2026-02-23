@@ -232,13 +232,16 @@ export default function AgentSettings() {
               <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Model</span>
               <select value={model} onChange={(e) => setModel(e.target.value)} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40">
                 <optgroup label="Google Gemini">
+                  <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview</option>
                   <option value="gemini-3-flash-preview">gemini-3-flash-preview (default)</option>
-                  <option value="gemini-2.5-flash-preview-05-20">gemini-2.5-flash-preview</option>
-                  <option value="gemini-2.5-pro-preview-05-06">gemini-2.5-pro-preview</option>
+                  <option value="gemini-3-pro-preview">gemini-3-pro-preview</option>
+                  <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+                  <option value="gemini-2.5-pro">gemini-2.5-pro</option>
                 </optgroup>
                 <optgroup label="OpenAI">
                   <option value="gpt-5.2">gpt-5.2</option>
                   <option value="gpt-5.2-pro">gpt-5.2-pro</option>
+                  <option value="gpt-5">gpt-5</option>
                   <option value="gpt-5-mini">gpt-5-mini</option>
                   <option value="gpt-5-nano">gpt-5-nano</option>
                   <option value="gpt-4.1">gpt-4.1</option>

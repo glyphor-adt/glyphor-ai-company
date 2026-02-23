@@ -54,7 +54,7 @@ export async function createTemporaryAgent(
       department: opts.department,
       reports_to: opts.reportsTo,
       status: 'active',
-      model: opts.model || 'gemini-2.0-flash',
+      model: opts.model || 'gemini-2.5-flash',
       temperature: opts.temperature ?? 0.4,
       max_turns: opts.maxTurns ?? 8,
       budget_per_run: opts.budgetPerRun ?? 0.03,

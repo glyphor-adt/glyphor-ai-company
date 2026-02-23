@@ -9,9 +9,23 @@ const DEPARTMENTS = [
 ];
 
 const MODELS = [
-  { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (fastest)' },
-  { value: 'gemini-2.5-flash-preview-05-20', label: 'Gemini 2.5 Flash' },
-  { value: 'gemini-2.5-pro-preview-05-06', label: 'Gemini 2.5 Pro (smartest)' },
+  // Google Gemini
+  { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro' },
+  { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (default)' },
+  { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro' },
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+  { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+  // OpenAI
+  { value: 'gpt-5.2', label: 'GPT-5.2' },
+  { value: 'gpt-5.2-pro', label: 'GPT-5.2 Pro' },
+  { value: 'gpt-5', label: 'GPT-5' },
+  { value: 'gpt-5-mini', label: 'GPT-5 Mini' },
+  { value: 'gpt-5-nano', label: 'GPT-5 Nano' },
+  { value: 'gpt-4.1', label: 'GPT-4.1' },
+  // Anthropic
+  { value: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
+  { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+  { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
 ];
 
 export default function AgentBuilder() {
