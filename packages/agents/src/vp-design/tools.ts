@@ -1,8 +1,8 @@
 /**
  * VP Design & Frontend — Tool Definitions
  *
- * Tools for: design quality auditing, component library management,
- * design token governance, and output quality assessment.
+ * Tools for: design quality auditing, Lighthouse performance audits,
+ * component library management, design token governance, and output quality.
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
@@ -10,6 +10,106 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 
 export function createVPDesignTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
+    {
+      name: 'run_lighthouse',
+      description: 'Run a Lighthouse audit on any live URL using Google PageSpeed Insights. Returns performance, accessibility, best-practices, and SEO scores plus specific opportunities.',
+      parameters: {
+        url: {
+          type: 'string',
+          description: 'Full URL to audit (e.g. https://app.usefuse.ai or https://glyphor.ai)',
+          required: true,
+        },
+        strategy: {
+          type: 'string',
+          description: 'Device strategy: "mobile" or "desktop" (default: desktop)',
+          required: false,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        const url = encodeURIComponent(params.url as string);
+        const strategy = (params.strategy as string) || 'desktop';
+        const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${url}&strategy=${strategy}&category=performance&category=accessibility&category=best-practices&category=seo`;
+        try {
+          const res = await fetch(apiUrl, { signal: AbortSignal.timeout(30_000) });
+          if (!res.ok) {
+            return { success: false, error: `PageSpeed API returned ${res.status}` };
+          }
+          const json = await res.json() as Record<string, unknown>;
+          const cats = (json.lighthouseResult as Record<string, unknown>)?.categories as Record<string, { score: number; title: string }> | undefined;
+          const audits = (json.lighthouseResult as Record<string, unknown>)?.audits as Record<string, { score: number | null; title: string; description: string; displayValue?: string }> | undefined;
+          if (!cats) return { success: false, error: 'Unexpected PageSpeed response format' };
+
+          const scores = Object.fromEntries(
+            Object.entries(cats).map(([k, v]) => [v.title, Math.round(v.score * 100)]),
+          );
+
+          // Pull top opportunities (audits with score < 0.9 and a displayValue)
+          const opportunities = audits
+            ? Object.values(audits)
+                .filter((a) => a.score !== null && a.score < 0.9 && a.displayValue)
+                .sort((a, b) => (a.score ?? 1) - (b.score ?? 1))
+                .slice(0, 8)
+                .map((a) => ({ title: a.title, score: Math.round((a.score ?? 0) * 100), detail: a.displayValue }))
+            : [];
+
+          return {
+            success: true,
+            data: {
+              url: params.url,
+              strategy,
+              scores,
+              opportunities,
+              auditedAt: new Date().toISOString(),
+            },
+          };
+        } catch (err) {
+          return { success: false, error: `Lighthouse audit failed: ${(err as Error).message}` };
+        }
+      },
+    },
+
+    {
+      name: 'run_lighthouse_batch',
+      description: 'Run Lighthouse audits on multiple URLs and compare scores side-by-side.',
+      parameters: {
+        urls: {
+          type: 'array',
+          description: 'List of URLs to audit (max 5)',
+          required: true,
+          items: { type: 'string', description: 'URL' },
+        },
+        strategy: {
+          type: 'string',
+          description: '"mobile" or "desktop" (default: desktop)',
+          required: false,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const urls = (params.urls as string[]).slice(0, 5);
+        const strategy = (params.strategy as string) || 'desktop';
+        const results = [];
+        for (const url of urls) {
+          try {
+            const encoded = encodeURIComponent(url);
+            const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encoded}&strategy=${strategy}&category=performance&category=accessibility&category=best-practices&category=seo`;
+            const res = await fetch(apiUrl, { signal: AbortSignal.timeout(30_000) });
+            if (!res.ok) { results.push({ url, error: `HTTP ${res.status}` }); continue; }
+            const json = await res.json() as Record<string, unknown>;
+            const cats = (json.lighthouseResult as Record<string, unknown>)?.categories as Record<string, { score: number; title: string }> | undefined;
+            if (!cats) { results.push({ url, error: 'bad response' }); continue; }
+            results.push({
+              url,
+              scores: Object.fromEntries(Object.entries(cats).map(([, v]) => [v.title, Math.round(v.score * 100)])),
+            });
+          } catch (err) {
+            results.push({ url, error: (err as Error).message });
+          }
+        }
+        return { success: true, data: { strategy, results, auditedAt: new Date().toISOString() } };
+      },
+    },
+
+
     {
       name: 'get_design_quality_summary',
       description: 'Get a summary of recent Fuse output quality: grade distribution, dimension scores, and trends.',
