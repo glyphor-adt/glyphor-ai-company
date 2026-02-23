@@ -124,7 +124,7 @@ export { queryOpenAICosts, syncOpenAIBilling } from './openai/index.js';
 export { queryAnthropicUsage, syncAnthropicBilling } from './anthropic/index.js';
 
 // Kling AI billing
-export { queryKlingUsage, syncKlingBilling, type KlingCredentials } from './kling/index.js';
+export { queryKlingCosts, syncKlingBilling, type KlingCredentials } from './kling/index.js';
 
 // Platform audit logging
 export { auditedFetch, logPlatformAudit, type AuditContext } from './audit.js';

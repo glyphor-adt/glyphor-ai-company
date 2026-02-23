@@ -40,6 +40,16 @@ interface GcpBillingRow {
   recorded_at: string;
 }
 
+interface ApiBillingRow {
+  id: string;
+  provider: string;
+  service: string;
+  cost_usd: number;
+  usage: Record<string, unknown>;
+  product: string | null;
+  recorded_at: string;
+}
+
 function useGcpBilling(days = 30) {
   const [data, setData] = useState<GcpBillingRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,9 +90,30 @@ function useFinancialsRaw(days = 30) {
   return { data, loading, refresh };
 }
 
+function useApiBilling(days = 30) {
+  const [data, setData] = useState<ApiBillingRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+      const { data: rows } = await supabase
+        .from('api_billing')
+        .select('*')
+        .gte('recorded_at', since)
+        .order('recorded_at', { ascending: false });
+      setData((rows as ApiBillingRow[]) ?? []);
+      setLoading(false);
+    })();
+  }, [days]);
+
+  return { data, loading };
+}
+
 export default function Financials() {
   const { data: raw, loading } = useFinancialsRaw(30);
   const { data: gcpBilling, loading: gcpLoading } = useGcpBilling(30);
+  const { data: apiBilling, loading: apiLoading } = useApiBilling(90);
 
   // Pivot EAV rows into daily snapshots
   const mrrData = useMemo(() => {
@@ -213,6 +244,97 @@ export default function Financials() {
     return Array.from(byProduct.entries()).map(([name, mrr]) => ({ name, mrr }));
   }, [raw]);
 
+  // ── Per-product financials ────────────────────────────────────────
+  const PRODUCTS = ['fuse', 'pulse', 'reve'] as const;
+  const PRODUCT_COLORS: Record<string, string> = { fuse: '#2563EB', pulse: '#7C3AED', reve: '#0891B2', 'glyphor-ai-company': '#EA4335' };
+  const PRODUCT_LABELS: Record<string, string> = { fuse: 'Fuse', pulse: 'Pulse', reve: 'Reve', 'glyphor-ai-company': 'Glyphor AI Co.' };
+
+  const productFinancials = useMemo(() => {
+    const result: Record<string, { mrr: number; costs: number; apiCosts: number; users: number }> = {};
+    for (const p of PRODUCTS) result[p] = { mrr: 0, costs: 0, apiCosts: 0, users: 0 };
+
+    for (const row of raw) {
+      if (!row.product || !result[row.product]) {
+        if (row.product && !result[row.product]) result[row.product] = { mrr: 0, costs: 0, apiCosts: 0, users: 0 };
+        else continue;
+      }
+      // Use only the latest date per metric per product
+      if (row.metric === 'mrr') result[row.product].mrr = Math.max(result[row.product].mrr, row.value);
+      if (row.metric === 'infra_cost') result[row.product].costs += row.value;
+      if (row.metric === 'api_cost') result[row.product].apiCosts += row.value;
+      if (row.metric === 'active_users') result[row.product].users = Math.max(result[row.product].users, row.value);
+    }
+    return result;
+  }, [raw]);
+
+  // Per-product MRR trend for comparison chart
+  const productMRRTrend = useMemo(() => {
+    const allDates = new Set<string>();
+    const byDateProduct = new Map<string, Record<string, number>>();
+    for (const row of raw) {
+      if (row.metric === 'mrr' && row.product) {
+        allDates.add(row.date);
+        const entry = byDateProduct.get(row.date) ?? {};
+        entry[row.product] = (entry[row.product] ?? 0) + row.value;
+        byDateProduct.set(row.date, entry);
+      }
+    }
+    return Array.from(allDates).sort().map((date) => ({
+      date: formatDate(date),
+      ...(byDateProduct.get(date) ?? {}),
+    }));
+  }, [raw]);
+
+  // Per-product cost breakdown (infra + api)
+  const productCostBreakdown = useMemo(() => {
+    const products = new Set<string>();
+    for (const row of raw) {
+      if ((row.metric === 'infra_cost' || row.metric === 'api_cost') && row.product) {
+        products.add(row.product);
+      }
+    }
+    // Also include api_billing products
+    for (const row of apiBilling) {
+      if (row.product) products.add(row.product);
+    }
+    return Array.from(products).map((name) => {
+      const f = productFinancials[name] ?? { mrr: 0, costs: 0, apiCosts: 0, users: 0 };
+      const apiBillingCost = apiBilling.filter((r) => r.product === name).reduce((s, r) => s + r.cost_usd, 0);
+      return {
+        name: PRODUCT_LABELS[name] ?? name,
+        infrastructure: f.costs,
+        api: f.apiCosts + apiBillingCost,
+      };
+    }).filter((p) => p.infrastructure > 0 || p.api > 0);
+  }, [raw, apiBilling, productFinancials]);
+
+  // API billing by provider
+  const apiBillingByProvider = useMemo(() => {
+    const byProvider = new Map<string, { cost: number; rows: number }>();
+    for (const row of apiBilling) {
+      const entry = byProvider.get(row.provider) ?? { cost: 0, rows: 0 };
+      entry.cost += row.cost_usd;
+      entry.rows++;
+      byProvider.set(row.provider, entry);
+    }
+    return Array.from(byProvider.entries()).map(([provider, data]) => ({ provider, ...data }));
+  }, [apiBilling]);
+
+  // Kling resource packs from api_billing
+  const klingPacks = useMemo(() => {
+    return apiBilling
+      .filter((r) => r.provider === 'kling')
+      .map((r) => ({
+        name: r.service,
+        total: (r.usage?.total_quantity as number) ?? 0,
+        remaining: (r.usage?.remaining_quantity as number) ?? 0,
+        consumed: (r.usage?.consumed_quantity as number) ?? 0,
+        status: (r.usage?.status as string) ?? 'unknown',
+        effective: r.usage?.effective_time ? formatDate(String(r.usage.effective_time).split('T')[0]) : '—',
+        expires: r.usage?.invalid_time ? formatDate(String(r.usage.invalid_time).split('T')[0]) : '—',
+      }));
+  }, [apiBilling]);
+
   // Vendor subscriptions from Mercury — deduplicate by vendor name, keep latest sync date
   const subscriptions = useMemo(() => {
     const byVendor = new Map<string, { name: string; monthly: number; lastPayment: string; count: number; syncDate: string }>();
@@ -257,6 +379,203 @@ export default function Financials() {
         <SummaryCard label="Cash Balance (Mercury)" value={`$${fmt(latestBalance)}`} loading={loading} />
         <SummaryCard label="Monthly Burn Rate" value={latestBurnRate > 0 ? `$${fmt(latestBurnRate)}` : '—'} loading={loading} />
         <SummaryCard label="Runway" value={runwayMonths > 0 ? `${runwayMonths.toFixed(1)} mo` : '—'} loading={loading} sub={runwayMonths > 0 ? `at current burn rate` : 'Awaiting burn data'} />
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════
+           PRODUCT FINANCIALS — Fuse · Pulse · Reve
+         ═══════════════════════════════════════════════════════════ */}
+      <div>
+        <h2 className="text-lg font-semibold text-txt-primary">Product Financials</h2>
+        <p className="mt-0.5 text-xs text-txt-muted">Per-product revenue, costs, and API usage</p>
+      </div>
+
+      {/* Per-product summary cards */}
+      <div className="grid grid-cols-3 gap-4">
+        {PRODUCTS.map((p) => {
+          const f = productFinancials[p] ?? { mrr: 0, costs: 0, apiCosts: 0, users: 0 };
+          const totalCost = f.costs + f.apiCosts;
+          const margin = f.mrr > 0 ? ((f.mrr - totalCost) / f.mrr * 100) : 0;
+          return (
+            <Card key={p}>
+              <div className="flex items-center gap-2">
+                <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PRODUCT_COLORS[p] }} />
+                <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">{PRODUCT_LABELS[p]}</p>
+              </div>
+              <p className="mt-1 font-mono text-2xl font-semibold text-txt-primary">${fmt(f.mrr)}<span className="text-sm font-normal text-txt-muted">/mo</span></p>
+              <div className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
+                <div>
+                  <p className="text-txt-faint">Infra</p>
+                  <p className="font-mono text-txt-secondary">${f.costs > 0 ? f.costs.toFixed(2) : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-txt-faint">API</p>
+                  <p className="font-mono text-txt-secondary">${f.apiCosts > 0 ? f.apiCosts.toFixed(2) : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-txt-faint">Margin</p>
+                  <p className="font-mono text-txt-secondary">{f.mrr > 0 ? `${margin.toFixed(0)}%` : '—'}</p>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-2 gap-6">
+        {/* Product MRR Comparison */}
+        <Card>
+          <SectionHeader title="Revenue by Product" />
+          {loading ? (
+            <Skeleton className="h-64" />
+          ) : productMRR.length === 0 ? (
+            <EmptyChart message="No per-product MRR data yet" />
+          ) : productMRRTrend.length > 1 ? (
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={productMRRTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
+                <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${fmt(v)}`} />
+                <Tooltip
+                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
+                  labelStyle={{ color: 'var(--color-txt-secondary)' }}
+                  formatter={(value: number, name: string) => [`$${fmt(value)}`, PRODUCT_LABELS[name] ?? name]}
+                />
+                <Legend formatter={(value) => PRODUCT_LABELS[value] ?? value} wrapperStyle={{ fontSize: 11 }} />
+                {PRODUCTS.map((p) => (
+                  <Bar key={p} dataKey={p} fill={PRODUCT_COLORS[p]} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={productMRR} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${fmt(v)}`} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} width={60} tickFormatter={(v: string) => PRODUCT_LABELS[v] ?? v} />
+                <Tooltip
+                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
+                  formatter={(value: number) => [`$${fmt(value)}`, 'MRR']}
+                />
+                <Bar dataKey="mrr" fill="#0891B2">
+                  {productMRR.map((p) => (
+                    <Cell key={p.name} fill={PRODUCT_COLORS[p.name] ?? '#0891B2'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+
+        {/* Product Cost Breakdown */}
+        <Card>
+          <SectionHeader title="Costs by Product" />
+          {loading ? (
+            <Skeleton className="h-64" />
+          ) : productCostBreakdown.length === 0 ? (
+            <EmptyChart message="No per-product cost data yet" />
+          ) : (
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={productCostBreakdown}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
+                <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${fmt(v)}`} />
+                <Tooltip
+                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
+                  labelStyle={{ color: 'var(--color-txt-secondary)' }}
+                  formatter={(value: number) => [`$${value.toFixed(2)}`]}
+                />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="infrastructure" fill="#2563EB" stackId="costs" name="Infrastructure" />
+                <Bar dataKey="api" fill="#7C3AED" stackId="costs" name="API / AI" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+      </div>
+
+      {/* API Billing by Provider + Kling Packs */}
+      <div className="grid grid-cols-2 gap-6">
+        <Card>
+          <SectionHeader title="API Costs by Provider" />
+          {apiLoading ? (
+            <Skeleton className="h-48" />
+          ) : apiBillingByProvider.length === 0 ? (
+            <EmptyChart message="No API billing data yet — sync Kling, OpenAI, or Anthropic" />
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <PieChart>
+                <Pie
+                  data={apiBillingByProvider}
+                  dataKey="cost"
+                  nameKey="provider"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  innerRadius={45}
+                  paddingAngle={2}
+                  label={({ provider, cost }: { provider: string; cost: number }) =>
+                    `${provider} $${cost.toFixed(2)}`
+                  }
+                >
+                  {apiBillingByProvider.map((_, i) => (
+                    <Cell key={i} fill={API_COLORS[i % API_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
+                  formatter={(value: number) => [`$${value.toFixed(4)}`]}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+
+        <Card>
+          <SectionHeader title="Kling AI Resource Packs (Pulse)" />
+          {apiLoading ? (
+            <Skeleton className="h-48" />
+          ) : klingPacks.length === 0 ? (
+            <div className="flex h-48 items-center justify-center">
+              <p className="text-sm text-txt-faint">No Kling data yet — run /sync/kling-billing</p>
+            </div>
+          ) : (
+            <div className="mt-2 space-y-3">
+              {klingPacks.map((pack, i) => {
+                const pct = pack.total > 0 ? (pack.consumed / pack.total) * 100 : 0;
+                const statusColor = pack.status === 'online' ? '#34A853' : pack.status === 'expired' || pack.status === 'runOut' ? '#EA4335' : '#FBBC04';
+                return (
+                  <div key={i} className="rounded-lg border border-[var(--color-border)] p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-txt-primary">{pack.name}</span>
+                      <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ backgroundColor: statusColor + '20', color: statusColor }}>
+                        {pack.status}
+                      </span>
+                    </div>
+                    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[var(--color-border)]">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: pct > 80 ? '#EA4335' : pct > 50 ? '#FBBC04' : '#34A853' }} />
+                    </div>
+                    <div className="mt-1 flex justify-between text-[10px] text-txt-faint">
+                      <span>{pack.consumed.toLocaleString()} / {pack.total.toLocaleString()} used ({pct.toFixed(0)}%)</span>
+                      <span>{pack.remaining.toLocaleString()} remaining</span>
+                    </div>
+                    <div className="mt-1 flex justify-between text-[10px] text-txt-faint">
+                      <span>Active: {pack.effective}</span>
+                      <span>Expires: {pack.expires}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════
+           COMPANY-WIDE DETAILS
+         ═══════════════════════════════════════════════════════════ */}
+      <div>
+        <h2 className="text-lg font-semibold text-txt-primary">Company-Wide Details</h2>
+        <p className="mt-0.5 text-xs text-txt-muted">Aggregate infrastructure, banking, and vendor data</p>
       </div>
 
       {/* Vendor Subscriptions */}
@@ -513,6 +832,7 @@ export default function Financials() {
 }
 
 const GCP_COLORS = ['#4285F4', '#EA4335', '#FBBC04', '#34A853', '#FF6D01', '#46BDC6', '#7B61FF', '#9AA0A6'];
+const API_COLORS = ['#7C3AED', '#2563EB', '#0891B2', '#EA4335', '#FF6D01'];
 
 function SummaryCard({ label, value, loading, sub }: { label: string; value: string; loading: boolean; sub?: string }) {
   if (loading) return <Skeleton className="h-24" />;

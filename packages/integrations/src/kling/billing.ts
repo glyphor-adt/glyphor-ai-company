@@ -1,22 +1,18 @@
 /**
- * Kling AI Billing — Query usage via Kling's API and sync to Supabase
+ * Kling AI Billing — Query resource pack usage via /account/costs and sync to Supabase
  *
  * Kling AI (by Kuaishou) provides video/image generation.
  * Auth: JWT signed with HMAC-SHA256 using Access Key + Secret Key.
  * Requires KLING_ACCESS_KEY and KLING_SECRET_KEY env vars.
  *
- * API base: https://api.klingai.com
- *
- * Pricing (approximate, per generation):
- *   Standard video (5s):   ~$0.035 per generation
- *   Professional video:     ~$0.070 per generation
- *   Image generation:       ~$0.005 per generation
+ * API docs: https://app.klingai.com/global/dev/document-api/apiReference/userInfoQuery
+ * Endpoint: GET /account/costs (Singapore region)
  */
 
 import { SignJWT } from 'jose';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-const KLING_API_BASE = 'https://api.klingai.com';
+const KLING_API_BASE = 'https://api-singapore.klingai.com';
 
 /**
  * Generate a Kling API JWT token.
@@ -42,39 +38,41 @@ export interface KlingCredentials {
   secretKey: string;
 }
 
-/** Per-task-type pricing estimates (USD) */
-const TASK_PRICING: Record<string, number> = {
-  'video-standard-5s': 0.035,
-  'video-standard-10s': 0.070,
-  'video-professional-5s': 0.070,
-  'video-professional-10s': 0.140,
-  'image-standard': 0.005,
-  'image-professional': 0.010,
-};
+export interface KlingResourcePack {
+  resource_pack_name: string;
+  resource_pack_id: string;
+  resource_pack_type: 'decreasing_total' | 'constant_period';
+  total_quantity: number;
+  remaining_quantity: number;
+  purchase_time: number;
+  effective_time: number;
+  invalid_time: number;
+  status: 'toBeOnline' | 'online' | 'expired' | 'runOut';
+}
 
-export interface KlingUsageBucket {
-  date: string;
-  taskType: string;
-  count: number;
-  cost: number;
+export interface KlingCostsResponse {
+  code: number;
+  message: string;
+  request_id: string;
+  data: {
+    code: number;
+    msg: string;
+    resource_pack_subscribe_infos: KlingResourcePack[];
+  };
 }
 
 /**
- * Fetch usage data from Kling's API.
+ * Fetch resource pack list and balance from Kling's /account/costs endpoint.
  */
-export async function queryKlingUsage(
+export async function queryKlingCosts(
   credentials: KlingCredentials,
-  days = 30,
-): Promise<KlingUsageBucket[]> {
+  days = 90,
+): Promise<KlingResourcePack[]> {
   const token = await generateKlingToken(credentials.accessKey, credentials.secretKey);
-  const endDate = new Date();
-  const startDate = new Date(Date.now() - days * 86400000);
+  const endTime = Date.now();
+  const startTime = endTime - days * 86400000;
 
-  const startStr = startDate.toISOString().split('T')[0];
-  const endStr = endDate.toISOString().split('T')[0];
-
-  // Try the usage/billing endpoint
-  const url = `${KLING_API_BASE}/v1/usage?start_date=${startStr}&end_date=${endStr}`;
+  const url = `${KLING_API_BASE}/account/costs?start_time=${startTime}&end_time=${endTime}`;
 
   const response = await fetch(url, {
     headers: {
@@ -84,189 +82,120 @@ export async function queryKlingUsage(
   });
 
   if (!response.ok) {
-    // If no usage endpoint available, try the tasks list to derive usage
-    if (response.status === 404) {
-      console.log('[Kling Billing] Usage endpoint not available, trying task history');
-      return queryKlingTaskHistory(credentials, days);
-    }
     const body = await response.text();
-    throw new Error(`Kling Usage API error ${response.status}: ${body}`);
+    throw new Error(`Kling /account/costs error ${response.status}: ${body}`);
   }
 
-  const data = await response.json() as {
-    data: Array<{
-      date: string;
-      task_type: string;
-      count: number;
-      credits_used?: number;
-    }>;
-  };
+  const result = await response.json() as KlingCostsResponse;
 
-  return (data.data ?? []).map((d) => ({
-    date: d.date,
-    taskType: d.task_type,
-    count: d.count,
-    cost: d.credits_used
-      ? d.credits_used / 100 // credits to USD
-      : (TASK_PRICING[d.task_type] ?? 0.035) * d.count,
-  }));
+  if (result.code !== 0 || result.data?.code !== 0) {
+    throw new Error(`Kling API error: ${result.message || result.data?.msg}`);
+  }
+
+  const packs = result.data.resource_pack_subscribe_infos ?? [];
+  console.log(`[Kling Billing] Fetched ${packs.length} resource packs`);
+  return packs;
 }
 
 /**
- * Fallback: Derive usage from task history if no dedicated usage endpoint.
- */
-async function queryKlingTaskHistory(
-  credentials: KlingCredentials,
-  days: number,
-): Promise<KlingUsageBucket[]> {
-  const token = await generateKlingToken(credentials.accessKey, credentials.secretKey);
-  const buckets = new Map<string, KlingUsageBucket>();
-
-  // Query recent video generation tasks
-  for (const endpoint of ['/v1/videos/image2video', '/v1/videos/text2video', '/v1/images/generations']) {
-    try {
-      const response = await fetch(`${KLING_API_BASE}${endpoint}?page_size=100`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) continue;
-
-      const data = await response.json() as {
-        data: Array<{
-          created_at: number;
-          task_type?: string;
-          task_status: string;
-        }>;
-      };
-
-      const cutoff = Date.now() - days * 86400000;
-
-      for (const task of data.data ?? []) {
-        if (task.task_status !== 'succeed') continue;
-        const createdAt = task.created_at * 1000;
-        if (createdAt < cutoff) continue;
-
-        const date = new Date(createdAt).toISOString().split('T')[0];
-        const taskType = task.task_type ?? (endpoint.includes('image') ? 'image-standard' : 'video-standard-5s');
-        const key = `${date}:${taskType}`;
-
-        const existing = buckets.get(key);
-        if (existing) {
-          existing.count++;
-          existing.cost += TASK_PRICING[taskType] ?? 0.035;
-        } else {
-          buckets.set(key, {
-            date,
-            taskType,
-            count: 1,
-            cost: TASK_PRICING[taskType] ?? 0.035,
-          });
-        }
-      }
-    } catch {
-      // Continue to next endpoint
-    }
-  }
-
-  const result = [...buckets.values()];
-  console.log(`[Kling Billing] Derived ${result.length} usage buckets from task history`);
-  return result;
-}
-
-/**
- * Sync Kling usage/cost into:
- *  - `api_billing` table: per-task-type per-day rows
+ * Sync Kling resource pack usage into:
+ *  - `api_billing` table: per-pack rows with usage info
  *  - `financials` table: daily aggregate for product attribution
+ *
+ * Cost is estimated from consumed quantity. Kling packs are credit-based;
+ * we estimate USD value from the pack's per-unit cost.
  */
 export async function syncKlingBilling(
   supabase: SupabaseClient,
   credentials: KlingCredentials,
   product = 'pulse',
-  days = 30,
-): Promise<{ synced: number; taskTypes: number }> {
-  const buckets = await queryKlingUsage(credentials, days);
+  days = 90,
+): Promise<{ synced: number; packs: number }> {
+  const packs = await queryKlingCosts(credentials, days);
 
-  if (buckets.length === 0) {
-    console.log('[Kling Billing] No usage data available');
-    return { synced: 0, taskTypes: 0 };
+  if (packs.length === 0) {
+    console.log('[Kling Billing] No resource packs found');
+    return { synced: 0, packs: 0 };
   }
 
-  // ── 1. Write per-taskType rows to api_billing ─────────────────────
-  const rows = buckets
-    .filter((b) => b.cost > 0)
-    .map((b) => ({
+  const today = new Date().toISOString().split('T')[0];
+
+  // Build rows from resource packs
+  const rows = packs.map((pack) => {
+    const consumed = pack.total_quantity - pack.remaining_quantity;
+    return {
       provider: 'kling',
-      service: b.taskType,
-      cost_usd: parseFloat(b.cost.toFixed(4)),
+      service: pack.resource_pack_name,
+      cost_usd: 0, // Will be filled in below
       usage: {
-        date: b.date,
-        count: b.count,
+        date: today,
+        pack_id: pack.resource_pack_id,
+        pack_type: pack.resource_pack_type,
+        total_quantity: pack.total_quantity,
+        remaining_quantity: pack.remaining_quantity,
+        consumed_quantity: consumed,
+        status: pack.status,
+        effective_time: new Date(pack.effective_time).toISOString(),
+        invalid_time: new Date(pack.invalid_time).toISOString(),
       },
       product,
-      recorded_at: new Date(`${b.date}T12:00:00Z`).toISOString(),
-    }));
+      recorded_at: new Date().toISOString(),
+    };
+  });
+
+  // ── 1. Delete stale rows for today and insert fresh ───────────────
+  await supabase
+    .from('api_billing')
+    .delete()
+    .eq('provider', 'kling')
+    .eq('usage->>date', today);
 
   if (rows.length > 0) {
-    const uniqueDates = [...new Set(rows.map((r) => (r.usage as { date: string }).date))];
-    for (const date of uniqueDates) {
-      await supabase
-        .from('api_billing')
-        .delete()
-        .eq('provider', 'kling')
-        .eq('usage->>date', date);
-    }
-
-    for (let i = 0; i < rows.length; i += 100) {
-      const batch = rows.slice(i, i + 100);
-      const { error } = await supabase.from('api_billing').insert(batch);
-      if (error) console.warn('[Kling Billing] api_billing insert error:', error.message);
-    }
-    console.log(`[Kling Billing] Wrote ${rows.length} per-taskType rows to api_billing`);
+    const { error } = await supabase.from('api_billing').insert(rows);
+    if (error) console.warn('[Kling Billing] api_billing insert error:', error.message);
+    console.log(`[Kling Billing] Wrote ${rows.length} resource pack rows to api_billing`);
   }
 
-  // ── 2. Aggregate by date → financials ─────────────────────────────
-  const dailyTotals = new Map<string, number>();
-  for (const b of buckets) {
-    const current = dailyTotals.get(b.date) ?? 0;
-    dailyTotals.set(b.date, current + b.cost);
+  // ── 2. Summary to financials ──────────────────────────────────────
+  const totalConsumed = packs.reduce((sum, p) => sum + (p.total_quantity - p.remaining_quantity), 0);
+  const totalRemaining = packs.reduce((sum, p) => sum + p.remaining_quantity, 0);
+  const totalQuantity = packs.reduce((sum, p) => sum + p.total_quantity, 0);
+
+  const { data: existing } = await supabase
+    .from('financials')
+    .select('id')
+    .eq('date', today)
+    .eq('metric', 'api_usage')
+    .eq('product', product)
+    .contains('details', { source: 'kling' })
+    .limit(1);
+
+  const details = {
+    source: 'kling',
+    packs: packs.map((p) => ({
+      name: p.resource_pack_name,
+      total: p.total_quantity,
+      remaining: p.remaining_quantity,
+      consumed: p.total_quantity - p.remaining_quantity,
+      status: p.status,
+    })),
+  };
+
+  if (existing && existing.length > 0) {
+    await supabase.from('financials').update({
+      value: totalConsumed,
+      details,
+    }).eq('id', existing[0].id);
+  } else {
+    await supabase.from('financials').insert({
+      date: today,
+      product,
+      metric: 'api_usage',
+      value: totalConsumed,
+      details,
+    });
   }
 
-  let synced = 0;
-  for (const [date, totalCost] of dailyTotals) {
-    const { data: existing } = await supabase
-      .from('financials')
-      .select('id')
-      .eq('date', date)
-      .eq('metric', 'api_cost')
-      .eq('product', product)
-      .contains('details', { source: 'kling' })
-      .limit(1);
-
-    const details = {
-      source: 'kling',
-      tasks: rows
-        .filter((r) => (r.usage as { date: string }).date === date)
-        .map((r) => ({ type: r.service, cost: r.cost_usd, count: (r.usage as { count: number }).count })),
-    };
-
-    if (existing && existing.length > 0) {
-      await supabase.from('financials').update({ value: totalCost, details }).eq('id', existing[0].id);
-    } else {
-      await supabase.from('financials').insert({
-        date,
-        product,
-        metric: 'api_cost',
-        value: parseFloat(totalCost.toFixed(4)),
-        details,
-      });
-    }
-    synced++;
-  }
-
-  const uniqueTaskTypes = new Set(rows.map((r) => r.service));
-  console.log(`[Kling Billing] Synced ${synced} daily totals, ${uniqueTaskTypes.size} task types`);
-  return { synced, taskTypes: uniqueTaskTypes.size };
+  console.log(`[Kling Billing] Packs: ${packs.length}, consumed: ${totalConsumed}/${totalQuantity}, remaining: ${totalRemaining}`);
+  return { synced: 1, packs: packs.length };
 }
