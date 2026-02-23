@@ -1593,25 +1593,23 @@ CREATE VIEW david_customer_view AS
 ## Event Emission Permissions
 
 ```typescript
-const EVENT_PERMISSIONS = {
-  executives: [
-    'agent.completed', 'insight.detected', 'decision.filed',
-    'alert.triggered', 'task.requested', 'task.completed',
-    'agent.hired', 'agent.fired', 'project.started', 'project.milestone'
-  ],
-  subTeam: [
-    'task.completed',
-    'insight.detected',
-  ],
-  sarah_additional: [
-    'decision.escalated',
-    'briefing.sent',
-  ],
-  forbidden: [
-    'decision.resolved',  // only founder webhook can emit
-    'system.shutdown',    // only infrastructure
-  ],
-};
+// From packages/agent-runtime/src/types.ts
+
+export const EXECUTIVE_ALLOWED_EVENTS: GlyphorEventType[] = [
+  'agent.completed', 'insight.detected', 'decision.filed',
+  'alert.triggered', 'task.requested',
+  'agent.spawned', 'agent.retired',
+  'message.sent', 'meeting.called', 'meeting.completed',
+];
+
+export const SUB_TEAM_ALLOWED_EVENTS: GlyphorEventType[] = [
+  'insight.detected',
+  'message.sent',
+];
+
+export const FORBIDDEN_AGENT_EVENTS: GlyphorEventType[] = [
+  'decision.resolved',  // only founder webhook can emit
+];
 ```
 
 ## Budget Summary
