@@ -334,19 +334,30 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // OpenAI billing sync endpoint
+    // OpenAI billing sync endpoint — syncs per-product keys
     if (method === 'POST' && url === '/sync/openai-billing') {
       try {
-        const adminKey = process.env.OPENAI_ADMIN_KEY;
-        if (!adminKey) throw new Error('OPENAI_ADMIN_KEY not configured');
-        const result = await syncOpenAIBilling(memory.getSupabaseClient(), adminKey, 'pulse');
+        const productKeys: Array<{ product: string; key: string }> = [];
+        // Per-product keys: OPENAI_ADMIN_KEY_FUSE, OPENAI_ADMIN_KEY_PULSE
+        if (process.env.OPENAI_ADMIN_KEY_FUSE) productKeys.push({ product: 'fuse', key: process.env.OPENAI_ADMIN_KEY_FUSE });
+        if (process.env.OPENAI_ADMIN_KEY_PULSE) productKeys.push({ product: 'pulse', key: process.env.OPENAI_ADMIN_KEY_PULSE });
+        // Fallback: single key defaults to 'pulse'
+        if (productKeys.length === 0 && process.env.OPENAI_ADMIN_KEY) {
+          productKeys.push({ product: 'pulse', key: process.env.OPENAI_ADMIN_KEY });
+        }
+        if (productKeys.length === 0) throw new Error('No OPENAI_ADMIN_KEY_FUSE / OPENAI_ADMIN_KEY_PULSE / OPENAI_ADMIN_KEY configured');
+
+        const results: Record<string, { synced: number; models: number }> = {};
+        for (const { product, key } of productKeys) {
+          results[product] = await syncOpenAIBilling(memory.getSupabaseClient(), key, product);
+        }
         await memory.getSupabaseClient().from('data_sync_status').update({
           last_success_at: new Date().toISOString(),
           consecutive_failures: 0,
           status: 'ok',
           updated_at: new Date().toISOString(),
         }).eq('id', 'openai-billing');
-        json(res, 200, { success: true, ...result });
+        json(res, 200, { success: true, products: results });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'openai-billing').single();
@@ -363,19 +374,31 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // Anthropic billing sync endpoint
+    // Anthropic billing sync endpoint — syncs per-product keys
     if (method === 'POST' && url === '/sync/anthropic-billing') {
       try {
-        const adminKey = process.env.ANTHROPIC_ADMIN_KEY ?? process.env.ANTHROPIC_API_KEY;
-        if (!adminKey) throw new Error('ANTHROPIC_ADMIN_KEY not configured');
-        const result = await syncAnthropicBilling(memory.getSupabaseClient(), adminKey, 'glyphor-ai-company');
+        const productKeys: Array<{ product: string; key: string }> = [];
+        // Per-product keys: ANTHROPIC_ADMIN_KEY_FUSE, ANTHROPIC_ADMIN_KEY_PULSE
+        if (process.env.ANTHROPIC_ADMIN_KEY_FUSE) productKeys.push({ product: 'fuse', key: process.env.ANTHROPIC_ADMIN_KEY_FUSE });
+        if (process.env.ANTHROPIC_ADMIN_KEY_PULSE) productKeys.push({ product: 'pulse', key: process.env.ANTHROPIC_ADMIN_KEY_PULSE });
+        // Fallback: single key defaults to 'glyphor-ai-company'
+        if (productKeys.length === 0) {
+          const fallback = process.env.ANTHROPIC_ADMIN_KEY ?? process.env.ANTHROPIC_API_KEY;
+          if (fallback) productKeys.push({ product: 'glyphor-ai-company', key: fallback });
+        }
+        if (productKeys.length === 0) throw new Error('No ANTHROPIC_ADMIN_KEY_FUSE / ANTHROPIC_ADMIN_KEY_PULSE / ANTHROPIC_ADMIN_KEY configured');
+
+        const results: Record<string, { synced: number; models: number }> = {};
+        for (const { product, key } of productKeys) {
+          results[product] = await syncAnthropicBilling(memory.getSupabaseClient(), key, product);
+        }
         await memory.getSupabaseClient().from('data_sync_status').update({
           last_success_at: new Date().toISOString(),
           consecutive_failures: 0,
           status: 'ok',
           updated_at: new Date().toISOString(),
         }).eq('id', 'anthropic-billing');
-        json(res, 200, { success: true, ...result });
+        json(res, 200, { success: true, products: results });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'anthropic-billing').single();
