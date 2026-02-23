@@ -7,10 +7,18 @@ import { Card, AgentAvatar } from '../components/ui';
 import { supabase, SCHEDULER_URL } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 
+interface Attachment {
+  name: string;
+  type: string;
+  data: string;
+  previewUrl?: string;
+}
+
 interface Message {
   role: 'user' | 'agent';
   content: string;
   timestamp: Date;
+  attachments?: Attachment[];
 }
 
 /** Strip <reasoning>...</reasoning> envelope from agent output */
@@ -18,14 +26,38 @@ function stripReasoning(text: string): string {
   return text.replace(/<reasoning>[\s\S]*?<\/reasoning>\s*/g, '').trim();
 }
 
-/** Persist a message to Supabase */
-async function saveMessage(agentRole: string, role: 'user' | 'agent', content: string, userId: string) {
-  await (supabase.from('chat_messages') as any).insert({
-    agent_role: agentRole,
-    role,
-    content,
-    user_id: userId,
+const ALLOWED_TYPES = [
+  'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml',
+  'application/pdf',
+  'text/plain', 'text/csv', 'text/markdown',
+  'application/json',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
+}
+
+/** Persist a message to Supabase */
+async function saveMessage(
+  agentRole: string,
+  role: 'user' | 'agent',
+  content: string,
+  userId: string,
+  attachments?: Attachment[],
+) {
+  const row: Record<string, unknown> = { agent_role: agentRole, role, content, user_id: userId };
+  if (attachments?.length) {
+    row.attachments = attachments.map((a) => ({ name: a.name, type: a.type }));
+  }
+  await (supabase.from('chat_messages') as any).insert(row);
 }
 
 export default function Chat() {
@@ -34,91 +66,188 @@ export default function Chat() {
   const { user } = useAuth();
   const userEmail = user?.email ?? 'unknown';
   const userInitials = user?.name
-    ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+    ? user.name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
     : '??';
+
   const [selectedRole, setSelectedRole] = useState(agentId ?? 'chief-of-staff');
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [slowResponse, setSlowResponse] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<Attachment[]>([]);
+  const [dragging, setDragging] = useState(false);
+
+  // @mention state
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionFilter, setMentionFilter] = useState('');
+  const [mentionIdx, setMentionIdx] = useState(0);
+
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load chat history for the selected agent
-  const loadHistory = useCallback(async (role: string) => {
-    setLoadingHistory(true);
-    try {
-      const { data } = await (supabase
-        .from('chat_messages') as any)
-        .select('role, content, created_at')
-        .eq('agent_role', role)
-        .eq('user_id', userEmail)
-        .order('created_at', { ascending: true })
-        .limit(100) as { data: { role: string; content: string; created_at: string }[] | null };
+  const mentionables = agents.map((a) => ({
+    role: a.role,
+    name: DISPLAY_NAME_MAP[a.role] ?? a.role,
+  }));
+  const filteredMentions = mentionFilter
+    ? mentionables.filter(
+        (m) =>
+          m.name.toLowerCase().includes(mentionFilter.toLowerCase()) ||
+          m.role.toLowerCase().includes(mentionFilter.toLowerCase()),
+      )
+    : mentionables;
 
-      if (data?.length) {
-        setMessages(
-          data.map((row) => ({
-            role: row.role as 'user' | 'agent',
-            content: row.content,
-            timestamp: new Date(row.created_at),
-          })),
-        );
-      } else {
+  // Load chat history
+  const loadHistory = useCallback(
+    async (role: string) => {
+      setLoadingHistory(true);
+      try {
+        const { data } = (await (supabase.from('chat_messages') as any)
+          .select('role, content, created_at, attachments')
+          .eq('agent_role', role)
+          .eq('user_id', userEmail)
+          .order('created_at', { ascending: true })
+          .limit(100)) as {
+          data: { role: string; content: string; created_at: string; attachments?: { name: string; type: string }[] }[] | null;
+        };
+        if (data?.length) {
+          setMessages(
+            data.map((row) => ({
+              role: row.role as 'user' | 'agent',
+              content: row.content,
+              timestamp: new Date(row.created_at),
+              attachments: row.attachments?.map((a) => ({ ...a, data: '' })),
+            })),
+          );
+        } else {
+          setMessages([]);
+        }
+      } catch {
         setMessages([]);
       }
-    } catch {
-      setMessages([]);
-    }
-    setLoadingHistory(false);
-  }, [userEmail]);
+      setLoadingHistory(false);
+    },
+    [userEmail],
+  );
 
-  // Load history on mount and when agent changes
-  useEffect(() => {
-    loadHistory(selectedRole);
-  }, [selectedRole, loadHistory]);
-
-  // Sync route param
-  useEffect(() => {
-    if (agentId) setSelectedRole(agentId);
-  }, [agentId]);
-
-  // Auto-scroll
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  useEffect(() => { loadHistory(selectedRole); }, [selectedRole, loadHistory]);
+  useEffect(() => { if (agentId) setSelectedRole(agentId); }, [agentId]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   const selectedAgent = agents.find((a) => a.role === selectedRole);
   const codename = DISPLAY_NAME_MAP[selectedRole] ?? selectedRole;
 
+  // ── File handling ──
+  const handleFiles = async (files: FileList | File[]) => {
+    const newAttachments: Attachment[] = [];
+    for (const file of Array.from(files)) {
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        alert(`File type not supported: ${file.type || file.name.split('.').pop()}`);
+        continue;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        alert(`File too large (max 10 MB): ${file.name}`);
+        continue;
+      }
+      const data = await fileToBase64(file);
+      const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined;
+      newAttachments.push({ name: file.name, type: file.type, data, previewUrl });
+    }
+    setPendingFiles((prev) => [...prev, ...newAttachments]);
+  };
+
+  const removeFile = (idx: number) => {
+    setPendingFiles((prev) => {
+      const next = [...prev];
+      if (next[idx]?.previewUrl) URL.revokeObjectURL(next[idx].previewUrl!);
+      next.splice(idx, 1);
+      return next;
+    });
+  };
+
+  // ── @mention handling ──
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setInput(val);
+    const cursorPos = e.target.selectionStart ?? val.length;
+    const textBefore = val.slice(0, cursorPos);
+    const atMatch = textBefore.match(/@(\w*)$/);
+    if (atMatch) {
+      setShowMentions(true);
+      setMentionFilter(atMatch[1]);
+      setMentionIdx(0);
+    } else {
+      setShowMentions(false);
+    }
+  };
+
+  const insertMention = (m: { role: string; name: string }) => {
+    const cursorPos = inputRef.current?.selectionStart ?? input.length;
+    const textBefore = input.slice(0, cursorPos);
+    const atMatch = textBefore.match(/@(\w*)$/);
+    if (atMatch) {
+      const before = textBefore.slice(0, atMatch.index);
+      const after = input.slice(cursorPos);
+      setInput(`${before}@${m.name} ${after}`);
+    }
+    setShowMentions(false);
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showMentions && filteredMentions.length > 0) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setMentionIdx((p) => Math.min(p + 1, filteredMentions.length - 1)); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setMentionIdx((p) => Math.max(p - 1, 0)); return; }
+      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(filteredMentions[mentionIdx]); return; }
+      if (e.key === 'Escape') { e.preventDefault(); setShowMentions(false); return; }
+    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  };
+
+  // ── Send ──
   const sendMessage = async () => {
     const text = input.trim();
-    if (!text || sending) return;
+    if ((!text && pendingFiles.length === 0) || sending) return;
 
-    const userMsg: Message = { role: 'user', content: text, timestamp: new Date() };
+    const attachments = pendingFiles.length > 0 ? [...pendingFiles] : undefined;
+    const userMsg: Message = { role: 'user', content: text, timestamp: new Date(), attachments };
     setInput('');
+    setPendingFiles([]);
     setMessages((prev) => [...prev, userMsg]);
     setSending(true);
 
-    // Persist user message
-    saveMessage(selectedRole, 'user', text, userEmail);
+    saveMessage(selectedRole, 'user', text, userEmail, attachments);
 
-    // Timeout after 120 s — Cloud Run cold starts can take ~60 s
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 120_000);
     const slowId = setTimeout(() => setSlowResponse(true), 12_000);
 
     try {
-      // Send prior conversation for multi-turn context (last 20 messages)
-      const history = messages.slice(-20).map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
+      const history = messages.slice(-20).map((m) => ({ role: m.role, content: m.content }));
+
+      // Build full message with file contents for agent
+      let fullMessage = text;
+      if (attachments?.length) {
+        const parts = attachments.map((a) => {
+          if (a.type.startsWith('image/')) return `[Attached image: ${a.name}]`;
+          if (['text/plain', 'text/csv', 'text/markdown', 'application/json'].includes(a.type)) {
+            try {
+              const decoded = atob(a.data);
+              const content = decoded.length > 8000 ? decoded.slice(0, 8000) + '\n...(truncated)' : decoded;
+              return `[File: ${a.name}]\n\`\`\`\n${content}\n\`\`\``;
+            } catch { return `[Attached file: ${a.name} (${a.type})]`; }
+          }
+          return `[Attached file: ${a.name} (${a.type})]`;
+        });
+        fullMessage = `${text}\n\n${parts.join('\n\n')}`;
+      }
 
       const res = await fetch(`${SCHEDULER_URL}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentRole: selectedRole, task: 'on_demand', message: text, history }),
+        body: JSON.stringify({ agentRole: selectedRole, task: 'on_demand', message: fullMessage, history }),
         signal: controller.signal,
       });
 
@@ -130,24 +259,13 @@ export default function Chat() {
       const data = await res.json();
 
       let content: string;
-      if (data.output) {
-        content = stripReasoning(data.output);
-      } else if (data.error) {
-        content = `I ran into an issue: ${data.error}`;
-      } else if (data.action === 'queued_for_approval') {
-        content = `This request was sent to your approval queue for review.`;
-      } else if (data.status === 'aborted') {
-        content = 'My response was cut short — I may have timed out. Try a simpler question.';
-      } else {
-        content = `I completed the task but had nothing to report back.`;
-      }
+      if (data.output) content = stripReasoning(data.output);
+      else if (data.error) content = `I ran into an issue: ${data.error}`;
+      else if (data.action === 'queued_for_approval') content = `This request was sent to your approval queue for review.`;
+      else if (data.status === 'aborted') content = 'My response was cut short — I may have timed out. Try a simpler question.';
+      else content = `I completed the task but had nothing to report back.`;
 
-      setMessages((prev) => [
-        ...prev,
-        { role: 'agent', content, timestamp: new Date() },
-      ]);
-
-      // Persist agent response
+      setMessages((prev) => [...prev, { role: 'agent', content, timestamp: new Date() }]);
       saveMessage(selectedRole, 'agent', content, userEmail);
     } catch (err) {
       clearTimeout(timeoutId);
@@ -157,10 +275,7 @@ export default function Chat() {
       const errContent = isTimeout
         ? `${codename} is taking longer than expected to respond — the scheduler may be cold-starting. Please try again in a moment.`
         : `Could not reach ${codename}. The scheduler may be offline or cold-starting — try again in a moment.`;
-      setMessages((prev) => [
-        ...prev,
-        { role: 'agent', content: errContent, timestamp: new Date() },
-      ]);
+      setMessages((prev) => [...prev, { role: 'agent', content: errContent, timestamp: new Date() }]);
     } finally {
       setSending(false);
       setSlowResponse(false);
@@ -194,11 +309,7 @@ export default function Chat() {
                 style={{ border: `2px solid ${meta?.color ?? '#64748b'}60` }}
               />
               <div className="min-w-0">
-                <p
-                  className={`text-[13px] font-medium truncate ${
-                    active ? 'text-cyan' : 'text-txt-secondary'
-                  }`}
-                >
+                <p className={`text-[13px] font-medium truncate ${active ? 'text-cyan' : 'text-txt-secondary'}`}>
                   {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
                 </p>
                 <p className="text-[11px] text-txt-faint truncate">{agent.role}</p>
@@ -209,7 +320,12 @@ export default function Chat() {
       </div>
 
       {/* ── Chat Area (Right) ────────────── */}
-      <Card className="flex flex-1 flex-col min-h-0">
+      <Card
+        className={`flex flex-1 flex-col min-h-0 transition-all ${dragging ? 'ring-2 ring-cyan/40' : ''}`}
+        onDragOver={(e: React.DragEvent) => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e: React.DragEvent) => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); }}
+      >
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-border pb-4">
           <AgentAvatar role={selectedRole} size={36} glow />
@@ -247,7 +363,7 @@ export default function Chat() {
                   Start a conversation with <span className="text-cyan">{codename}</span>
                 </p>
                 <p className="mt-1 text-[11px] text-txt-faint">
-                  Messages are sent to the scheduler API on Cloud Run
+                  Drag &amp; drop files, use 📎, or type <span className="text-cyan">@</span> to mention agents
                 </p>
               </div>
             </div>
@@ -256,9 +372,7 @@ export default function Chat() {
           {messages.map((msg, i) => (
             <div
               key={i}
-              className={`flex gap-3 animate-fade-up ${
-                msg.role === 'user' ? 'flex-row-reverse' : ''
-              }`}
+              className={`flex gap-3 animate-fade-up ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
               style={{ animationDelay: `${i * 30}ms` }}
             >
               {msg.role === 'agent' ? (
@@ -275,10 +389,25 @@ export default function Chat() {
                     : 'bg-raised text-txt-secondary border border-border'
                 }`}
               >
-                {msg.role === 'agent' ? (
-                  <div className="prose-chat">
-                    <Markdown>{msg.content}</Markdown>
+                {/* Attachment chips */}
+                {msg.attachments && msg.attachments.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {msg.attachments.map((att, j) => (
+                      <div key={j} className="flex items-center gap-1.5 rounded-md bg-base/50 border border-border px-2 py-1">
+                        {att.previewUrl ? (
+                          <img src={att.previewUrl} alt={att.name} className="h-10 w-10 rounded object-cover" />
+                        ) : att.type.startsWith('image/') ? (
+                          <span className="text-[14px]">🖼️</span>
+                        ) : (
+                          <span className="text-[14px]">📄</span>
+                        )}
+                        <span className="text-[11px] text-txt-muted truncate max-w-[120px]">{att.name}</span>
+                      </div>
+                    ))}
                   </div>
+                )}
+                {msg.role === 'agent' ? (
+                  <div className="prose-chat"><Markdown>{msg.content}</Markdown></div>
                 ) : (
                   <p className="whitespace-pre-wrap">{msg.content}</p>
                 )}
@@ -307,34 +436,90 @@ export default function Chat() {
             </div>
           )}
 
+          {dragging && (
+            <div className="flex h-24 items-center justify-center rounded-xl border-2 border-dashed border-cyan/40 bg-cyan/5">
+              <p className="text-sm text-cyan">Drop files here</p>
+            </div>
+          )}
+
           <div ref={bottomRef} />
         </div>
 
+        {/* Pending files */}
+        {pendingFiles.length > 0 && (
+          <div className="flex flex-wrap gap-2 border-t border-border px-1 pt-2">
+            {pendingFiles.map((f, i) => (
+              <div key={i} className="flex items-center gap-1.5 rounded-lg bg-raised border border-border px-2.5 py-1.5">
+                {f.previewUrl ? (
+                  <img src={f.previewUrl} alt={f.name} className="h-8 w-8 rounded object-cover" />
+                ) : (
+                  <span className="text-[14px]">📄</span>
+                )}
+                <span className="text-[11px] text-txt-secondary truncate max-w-[100px]">{f.name}</span>
+                <button onClick={() => removeFile(i)} className="ml-1 text-[11px] text-txt-faint hover:text-rose transition-colors">✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Input */}
-        <div className="border-t border-border pt-4">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              sendMessage();
-            }}
-            className="flex gap-2"
-          >
+        <div className="border-t border-border pt-3 relative">
+          {/* @mention dropdown */}
+          {showMentions && filteredMentions.length > 0 && (
+            <div className="absolute bottom-full left-0 mb-1 w-64 rounded-lg border border-border bg-surface shadow-lg z-10 max-h-48 overflow-y-auto">
+              {filteredMentions.map((m, i) => (
+                <button
+                  key={m.role}
+                  onClick={() => insertMention(m)}
+                  className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] transition-colors ${
+                    i === mentionIdx ? 'bg-cyan/10 text-cyan' : 'text-txt-secondary hover:bg-[var(--color-hover-bg)]'
+                  }`}
+                >
+                  <AgentAvatar role={m.role} size={20} />
+                  <span className="font-medium">{m.name}</span>
+                  <span className="text-txt-faint ml-auto text-[10px]">{m.role}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-2 items-end">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-shrink-0 rounded-lg border border-border bg-raised px-2.5 py-2.5 text-txt-muted hover:text-cyan transition-colors"
+              title="Attach file"
+            >
+              📎
+            </button>
             <input
-              type="text"
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              accept={ALLOWED_TYPES.join(',')}
+              onChange={(e) => { if (e.target.files?.length) handleFiles(e.target.files); e.target.value = ''; }}
+            />
+            <textarea
+              ref={inputRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={`Message ${codename}...`}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              placeholder={`Message ${codename}... (@ to mention, Shift+Enter for new line)`}
               disabled={sending}
-              className="flex-1 rounded-lg border border-border bg-raised px-4 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none transition-colors focus:border-cyan/40 disabled:opacity-50"
+              rows={1}
+              className="flex-1 rounded-lg border border-border bg-raised px-4 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none transition-colors focus:border-cyan/40 disabled:opacity-50 resize-none min-h-[40px] max-h-[120px]"
+              onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 120)}px`; }}
             />
             <button
-              type="submit"
-              disabled={sending || !input.trim()}
-              className="rounded-lg bg-cyan px-5 py-2.5 text-[13px] font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40"
+              type="button"
+              onClick={sendMessage}
+              disabled={sending || (!input.trim() && pendingFiles.length === 0)}
+              className="flex-shrink-0 rounded-lg bg-cyan px-5 py-2.5 text-[13px] font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40"
             >
               Send
             </button>
-          </form>
+          </div>
         </div>
       </Card>
     </div>
