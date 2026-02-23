@@ -307,25 +307,49 @@ export class ModelClient {
 
     // o-series models (o1, o3, o4) don't accept temperature, top_p, or max_tokens
     const isOSeries = /^o[134]-/.test(request.model);
-    // GPT-5 family supports configurable reasoning_effort; o-series always reasons
-    const isGpt5 = request.model.startsWith('gpt-5');
-    const thinkingEnabled = request.thinkingEnabled ?? true;
-    const reasoningEffort = isGpt5 && thinkingEnabled ? 'medium' : undefined;
+    // GPT-5 family: gpt-5, gpt-5.1, gpt-5.2, gpt-5-mini, gpt-5-nano, etc.
+    const isGpt5Family = request.model.startsWith('gpt-5');
+    // GPT-5.2/5.1 support 'none' reasoning (allows temperature); older gpt-5 does not
+    const supportsNoneReasoning = /^gpt-5\.[12]/.test(request.model);
 
-    const apiPromise = this.openai.chat.completions.create({
+    // Determine reasoning effort for GPT-5 family
+    // GPT-5.2/5.1 default to 'none'; older GPT-5 defaults to 'medium'
+    // SDK type may lag behind the API — cast to string for forward compat
+    let reasoningEffort: string | undefined;
+    if (isGpt5Family) {
+      const thinkingEnabled = request.thinkingEnabled ?? false;
+      if (supportsNoneReasoning) {
+        // gpt-5.1/5.2: default 'none', use 'medium' only when thinking explicitly requested
+        reasoningEffort = thinkingEnabled ? 'medium' : 'none';
+      } else {
+        // gpt-5, gpt-5-mini, gpt-5-nano: always reason, default 'medium'
+        reasoningEffort = thinkingEnabled ? 'high' : 'medium';
+      }
+    }
+
+    // GPT-5 family and o-series require max_completion_tokens instead of max_tokens
+    // temperature and top_p are forbidden for o-series and GPT-5 family (unless reasoning='none')
+    const forbidTempTopP = isOSeries || (isGpt5Family && reasoningEffort !== 'none');
+    const useMaxCompletionTokens = isOSeries || isGpt5Family;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const createParams: any = {
       model: request.model,
       messages,
       tools,
-      // o-series models reject temperature/top_p/max_tokens; use max_completion_tokens instead
-      ...(isOSeries
+      ...(useMaxCompletionTokens
         ? { max_completion_tokens: request.maxTokens }
+        : { max_tokens: request.maxTokens }),
+      ...(forbidTempTopP
+        ? {}
         : {
             temperature: request.temperature ?? 0.7,
             top_p: request.topP,
-            max_tokens: request.maxTokens,
           }),
       ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
-    });
+    };
+
+    const apiPromise = this.openai.chat.completions.create(createParams) as Promise<OpenAI.Chat.Completions.ChatCompletion>;
 
     const response = await this.raceAbort(apiPromise, request.signal);
     return this.mapOpenAIResponse(response);
