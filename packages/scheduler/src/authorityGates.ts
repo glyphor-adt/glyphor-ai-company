@@ -22,7 +22,7 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
   'chief-of-staff': new Set([
     'compile_briefing', 'route_decision', 'log_activity', 'synthesize_report',
     'check_escalations', 'generate_briefing', 'morning_briefing', 'eod_summary',
-    'on_demand', 'send_dm',
+    'on_demand', 'send_dm', 'orchestrate',
   ]),
   'cto': new Set([
     'model_fallback', 'cache_optimization', 'scale_within_budget',
