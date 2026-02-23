@@ -152,6 +152,38 @@ export class AnalysisEngine {
     return (data as AnalysisRecord[]) ?? [];
   }
 
+  /** Cancel a stuck analysis */
+  async cancel(id: string): Promise<void> {
+    await this.supabase.from('analyses').update({
+      status: 'failed',
+      error: 'Cancelled — analysis was stuck or manually stopped.',
+    }).eq('id', id);
+  }
+
+  /**
+   * Recover stale analyses on startup.
+   * Any analysis stuck in an active status for >10 minutes gets marked failed.
+   */
+  async recoverStale(): Promise<number> {
+    const cutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { data } = await this.supabase
+      .from('analyses')
+      .select('id')
+      .in('status', ['planning', 'executing', 'synthesizing'])
+      .lt('created_at', cutoff);
+
+    if (!data || data.length === 0) return 0;
+
+    for (const row of data) {
+      await this.supabase.from('analyses').update({
+        status: 'failed',
+        error: 'Recovered — analysis was orphaned after container restart.',
+      }).eq('id', (row as { id: string }).id);
+    }
+    console.log(`[AnalysisEngine] Recovered ${data.length} stale analyses`);
+    return data.length;
+  }
+
   /**
    * Generate an enhanced McKinsey-style report by spawning additional
    * specialist perspectives and performing deeper analysis.
@@ -250,6 +282,17 @@ export class AnalysisEngine {
       }
     }
     await this.updateThreads(id, threads);
+
+    // If ALL threads failed, mark the whole analysis as failed — don't bother synthesizing
+    const completedCount = threads.filter((t) => t.status === 'completed').length;
+    if (completedCount === 0) {
+      await this.supabase.from('analyses').update({
+        status: 'failed',
+        threads,
+        error: `All ${threads.length} research threads failed. Check API keys and model availability.`,
+      }).eq('id', id);
+      return;
+    }
 
     // Phase 2: Synthesize thread results into a structured report
     await this.updateStatus(id, 'synthesizing');

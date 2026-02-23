@@ -705,6 +705,21 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // Cancel / mark stuck analysis as failed
+    const analysisCancelMatch = url.match(/^\/analysis\/([^/]+)\/cancel$/);
+    if (method === 'POST' && analysisCancelMatch) {
+      const id = decodeURIComponent(analysisCancelMatch[1]);
+      const record = await analysisEngine.get(id);
+      if (!record) { json(res, 404, { error: 'Analysis not found' }); return; }
+      if (record.status === 'completed' || record.status === 'failed') {
+        json(res, 400, { error: `Analysis already ${record.status}` });
+        return;
+      }
+      await analysisEngine.cancel(id);
+      json(res, 200, { success: true, id });
+      return;
+    }
+
     // Enhance analysis (McKinsey-grade deep-dive with additional perspectives)
     const analysisEnhanceMatch = url.match(/^\/analysis\/([^/]+)\/enhance$/);
     if (method === 'POST' && analysisEnhanceMatch) {
@@ -1041,6 +1056,11 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`[Scheduler] Listening on port ${PORT}`);
+
+  // Recover any analyses orphaned by a previous container restart
+  analysisEngine.recoverStale().catch((err) =>
+    console.error('[Scheduler] Failed to recover stale analyses:', err),
+  );
 
   // Start dynamic scheduler for DB-defined cron jobs
   const dynamicScheduler = new DynamicScheduler(memory.getSupabaseClient(), agentExecutor);
