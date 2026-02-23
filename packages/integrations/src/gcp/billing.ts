@@ -34,19 +34,18 @@ export async function queryBillingExport(
   const query = `
     SELECT
       FORMAT_DATE('%Y-%m-%d', usage_start_time) AS date,
-      service.description AS service,
+      IFNULL(service.description, 'Unattributed') AS service,
       SUM(cost) AS cost,
       currency
     FROM \`${projectId}.${billingDataset}.${billingTable}\`
     WHERE usage_start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL @days DAY)
-      AND project.id = @projectId
     GROUP BY date, service, currency
     ORDER BY date DESC, cost DESC
   `;
 
   const [rows] = await bq.query({
     query,
-    params: { days, projectId },
+    params: { days },
   });
 
   return (rows as DailyCost[]) ?? [];
