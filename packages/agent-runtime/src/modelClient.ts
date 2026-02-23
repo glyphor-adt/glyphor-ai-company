@@ -47,6 +47,13 @@ export interface ModelResponse {
   finishReason: string;
 }
 
+export interface ImageResponse {
+  /** Base64-encoded image data */
+  imageData: string;
+  /** MIME type of the image (e.g. 'image/png') */
+  mimeType: string;
+}
+
 // ─── Provider detection ──────────────────────────────────────
 
 export function detectProvider(model: string): ModelProvider {
@@ -118,6 +125,41 @@ export class ModelClient {
     }
     // Unreachable, but TypeScript needs it
     throw new Error('Unexpected: exhausted retries');
+  }
+
+  /**
+   * Generate an image using Gemini's native image generation.
+   * Uses responseModalities: ['IMAGE'] to get a real image back.
+   */
+  async generateImage(prompt: string, model = 'gemini-3-pro-image-preview'): Promise<ImageResponse> {
+    if (!this.gemini) throw new Error('Gemini API key not configured');
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const response = await this.gemini.models.generateContent({
+      model,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }] as any,
+      config: {
+        responseModalities: ['IMAGE'],
+      },
+    });
+
+    const r = response as {
+      candidates?: Array<{
+        content?: { parts?: Array<{ inlineData?: { data?: string; mimeType?: string }; text?: string }> };
+      }>;
+    };
+
+    const parts = r.candidates?.[0]?.content?.parts ?? [];
+    const imagePart = parts.find((p) => p.inlineData?.data);
+
+    if (!imagePart?.inlineData?.data) {
+      throw new Error('No image data returned from Gemini image generation');
+    }
+
+    return {
+      imageData: imagePart.inlineData.data,
+      mimeType: imagePart.inlineData.mimeType ?? 'image/png',
+    };
   }
 
   // ─── Gemini ──────────────────────────────────────────────

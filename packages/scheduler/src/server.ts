@@ -709,7 +709,7 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // Generate AI visual (SVG infographic)
+    // Generate AI visual (PNG infographic via Gemini image generation)
     const analysisVisualMatch = url.match(/^\/analysis\/([^/]+)\/visual$/);
     if (method === 'POST' && analysisVisualMatch) {
       const id = decodeURIComponent(analysisVisualMatch[1]);
@@ -717,16 +717,9 @@ const server = createServer(async (req, res) => {
       if (!record?.report) { json(res, 404, { error: 'Analysis not found or not completed' }); return; }
 
       const prompt = buildVisualPrompt(record);
-      const response = await strategyModelClient.generate({
-        model: 'gemini-2.5-flash',
-        systemInstruction: 'You are an expert data visualization designer. Generate clean, professional SVG infographics. Respond ONLY with SVG markup.',
-        contents: [{ role: 'user', content: prompt, timestamp: Date.now() }],
-        temperature: 0.5,
-      });
+      const imageResponse = await strategyModelClient.generateImage(prompt, 'gemini-3-pro-image-preview');
 
-      const svgText = response.text ?? '';
-      const svgMatch = svgText.match(/<svg[\s\S]*<\/svg>/);
-      json(res, 200, { svg: svgMatch ? svgMatch[0] : '' });
+      json(res, 200, { image: imageResponse.imageData, mimeType: imageResponse.mimeType });
       return;
     }
 

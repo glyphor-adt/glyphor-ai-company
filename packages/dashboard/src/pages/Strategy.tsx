@@ -329,7 +329,7 @@ function AnalysisDetail({ report, id }: { report: AnalysisReport; id: string }) 
   const [showThreads, setShowThreads] = useState(false);
   const [enhancing, setEnhancing] = useState(false);
   const [generatingVisual, setGeneratingVisual] = useState(false);
-  const [visualSvg, setVisualSvg] = useState<string | null>(null);
+  const [visualImage, setVisualImage] = useState<{ data: string; mimeType: string } | null>(null);
   const [showAllFindings, setShowAllFindings] = useState(false);
   const [showAllRisks, setShowAllRisks] = useState(false);
 
@@ -356,8 +356,8 @@ function AnalysisDetail({ report, id }: { report: AnalysisReport; id: string }) 
   async function generateVisual() {
     setGeneratingVisual(true);
     try {
-      const resp = await api<{ svg: string }>(`/analysis/${id}/visual`, { method: 'POST' });
-      setVisualSvg(resp.svg);
+      const resp = await api<{ image: string; mimeType: string }>(`/analysis/${id}/visual`, { method: 'POST' });
+      setVisualImage({ data: resp.image, mimeType: resp.mimeType });
     } catch (err) {
       console.error('Visual generation failed:', err);
     }
@@ -389,27 +389,32 @@ function AnalysisDetail({ report, id }: { report: AnalysisReport; id: string }) 
         </button>
       </div>
 
-      {/* AI Visual (if generated) — render SVG inline instead of broken img tag */}
-      {visualSvg && (
+      {/* AI Visual (if generated) — render as actual image */}
+      {visualImage && (
         <div className="rounded-xl border border-cyan/20 bg-raised p-5">
           <div className="flex items-center justify-between mb-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-cyan">AI-Generated Infographic</p>
             <button
               onClick={() => {
-                const blob = new Blob([visualSvg], { type: 'image/svg+xml' });
+                const byteChars = atob(visualImage.data);
+                const byteArray = new Uint8Array(byteChars.length);
+                for (let i = 0; i < byteChars.length; i++) byteArray[i] = byteChars.charCodeAt(i);
+                const blob = new Blob([byteArray], { type: visualImage.mimeType });
                 const u = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = u; a.download = `analysis-${id}-visual.svg`; a.click();
+                const ext = visualImage.mimeType.split('/')[1] || 'png';
+                a.href = u; a.download = `analysis-${id}-visual.${ext}`; a.click();
                 URL.revokeObjectURL(u);
               }}
               className="text-xs text-cyan hover:underline font-medium"
             >
-              Download SVG
+              Download Image
             </button>
           </div>
-          <div
-            className="w-full overflow-auto rounded-lg [&>svg]:w-full [&>svg]:h-auto [&>svg]:max-w-full"
-            dangerouslySetInnerHTML={{ __html: visualSvg }}
+          <img
+            src={`data:${visualImage.mimeType};base64,${visualImage.data}`}
+            alt="AI-generated strategic analysis infographic"
+            className="w-full rounded-lg"
           />
         </div>
       )}

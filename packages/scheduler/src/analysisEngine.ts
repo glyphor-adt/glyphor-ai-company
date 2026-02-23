@@ -87,7 +87,7 @@ export class AnalysisEngine {
   constructor(
     private supabase: SupabaseClient,
     private modelClient: ModelClient,
-    private model = 'gemini-2.5-flash',
+    private model = 'claude-sonnet-4-6',
   ) {}
 
   /**

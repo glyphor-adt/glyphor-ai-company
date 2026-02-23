@@ -953,7 +953,7 @@ export function exportCotJSON(record: CotRecord): string {
   }, null, 2);
 }
 
-/* ── Analysis: Visual (SVG Infographic) ──── */
+/* ── Analysis: Visual (Image Infographic) ──── */
 
 export function buildVisualPrompt(record: AnalysisRecord): string {
   const report = record.report;
@@ -961,15 +961,18 @@ export function buildVisualPrompt(record: AnalysisRecord): string {
   const typeLabel = record.type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
   return [
-    `Create a professional SVG infographic summarizing this strategic analysis. Use a dark theme (#0D1117 background, white/light text).`,
-    `The SVG should be 800x1200 pixels and contain:`,
-    `1. Title: "${typeLabel}" at the top`,
-    `2. A visual summary section with the executive summary as concise bullet points`,
-    `3. A SWOT quadrant diagram with: ${report.swot.strengths.length} strengths, ${report.swot.weaknesses.length} weaknesses, ${report.swot.opportunities.length} opportunities, ${report.swot.threats.length} threats`,
-    `4. Key recommendations shown as numbered action items`,
-    `5. Color coding: Cyan (#00E0FF) for primary, Amber (#FBBF24) for findings, Green (#34D399) for positives, Rose (#FB7185) for risks`,
+    `Generate a polished, professional infographic image summarizing a strategic analysis.`,
+    `Use a dark theme with a #0D1117 background, white and light-colored text.`,
     ``,
-    `Data:`,
+    `Design requirements:`,
+    `- Title at the top: "${typeLabel}"`,
+    `- A concise executive summary section with bullet points`,
+    `- A SWOT quadrant diagram with labeled sections: Strengths (green), Weaknesses (rose/red), Opportunities (blue/cyan), Threats (amber/orange)`,
+    `- Key recommendations shown as numbered action items`,
+    `- Use modern, clean data visualization styling with clear typography`,
+    `- Color palette: Cyan (#00E0FF) primary, Amber (#FBBF24) findings, Green (#34D399) positives, Rose (#FB7185) risks`,
+    ``,
+    `Data to visualize:`,
     `Query: ${record.query}`,
     `Summary: ${report.summary.slice(0, 300)}`,
     `Strengths: ${report.swot.strengths.slice(0, 3).join('; ')}`,
@@ -977,7 +980,5 @@ export function buildVisualPrompt(record: AnalysisRecord): string {
     `Opportunities: ${report.swot.opportunities.slice(0, 3).join('; ')}`,
     `Threats: ${report.swot.threats.slice(0, 3).join('; ')}`,
     `Top recommendations: ${report.recommendations.slice(0, 3).map((r) => r.title).join('; ')}`,
-    ``,
-    `Respond ONLY with the SVG markup starting with <svg and ending with </svg>. No markdown fences, no commentary.`,
   ].join('\n');
 }

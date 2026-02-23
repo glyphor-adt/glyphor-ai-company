@@ -82,7 +82,7 @@ export class CotEngine {
   constructor(
     private supabase: SupabaseClient,
     private modelClient: ModelClient,
-    private model = 'gemini-2.5-flash',
+    private model = 'claude-sonnet-4-6',
   ) {}
 
   async launch(query: string, requestedBy: string): Promise<string> {

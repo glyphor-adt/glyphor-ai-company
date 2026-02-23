@@ -1,7 +1,7 @@
 export { CompanyAgentRunner } from './companyAgentRunner.js';
 export type { AgentMemoryStore, AgentProfileData, RunDependencies, SkillContext, SkillFeedback } from './companyAgentRunner.js';
 export { ModelClient, detectProvider } from './modelClient.js';
-export type { ModelClientConfig, ModelProvider } from './modelClient.js';
+export type { ModelClientConfig, ModelProvider, ImageResponse } from './modelClient.js';
 export { AgentSupervisor } from './supervisor.js';
 export { ToolExecutor } from './toolExecutor.js';
 export { EventBus } from './eventBus.js';
