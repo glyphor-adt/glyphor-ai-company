@@ -1275,30 +1275,40 @@ export async function exportDeepDiveDOCX(record: DeepDiveRecord): Promise<Buffer
 export function buildVisualPrompt(record: AnalysisRecord): string {
   const report = record.report;
   if (!report) return '';
-  const typeLabel = record.type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+  const visual = visualTheme(record.type);
 
   return [
-    `A polished, high-resolution professional infographic poster for a strategic business analysis titled "${typeLabel}".`,
-    `Dark premium background (#0D1117) with clean modern layout, subtle grid lines, geometric accent shapes.`,
+    `A premium dark-themed data visualization infographic on a solid #0D1117 background.`,
+    `${visual.scene}`,
     ``,
-    `Layout sections from top to bottom:`,
-    `- Large bold title "${typeLabel}" at the top with a thin cyan (#00E0FF) accent line beneath it`,
-    `- Executive summary panel with key bullet points in white text on dark card`,
-    `- SWOT analysis in a 2x2 grid: Strengths (emerald green #34D399), Weaknesses (rose #FB7185), Opportunities (cyan #00E0FF), Threats (amber #FBBF24) — each quadrant with an icon and brief text`,
-    `- Numbered key recommendations section with action items in clean cards`,
-    `- Data visualization elements: bar charts, radial gauges, or metric cards with KPI numbers`,
-    `- Footer with subtle branding line`,
+    `Visual elements:`,
+    `- A 2x2 grid of icon panels: green (#34D399) shield icon, rose (#FB7185) warning triangle icon, cyan (#00E0FF) upward arrow icon, amber (#FBBF24) lightning bolt icon`,
+    `- Stylized bar charts and line graphs with glowing data points in cyan and emerald`,
+    `- Radial gauge meters showing percentage values`,
+    `- Flowing connection lines between data nodes with subtle glow effects`,
+    `- Isometric 3D chart elements and geometric shapes`,
     ``,
-    `Visual style: Magazine-quality, corporate consulting report aesthetic, modern sans-serif typography (like Inter or Helvetica), `,
-    `generous whitespace between sections, subtle gradients and glows on accent elements, no clutter.`,
-    ``,
-    `Content to include:`,
-    `Topic: ${record.query}`,
-    `Summary: ${report.summary.slice(0, 400)}`,
-    `Strengths: ${report.swot.strengths.slice(0, 3).join('; ')}`,
-    `Weaknesses: ${report.swot.weaknesses.slice(0, 3).join('; ')}`,
-    `Opportunities: ${report.swot.opportunities.slice(0, 3).join('; ')}`,
-    `Threats: ${report.swot.threats.slice(0, 3).join('; ')}`,
-    `Recommendations: ${report.recommendations.slice(0, 3).map((r) => r.title).join('; ')}`,
+    `Style: Clean vector illustration aesthetic, no text or words anywhere in the image,`,
+    `dark premium color palette, subtle grid overlay, generous whitespace,`,
+    `gradient accents, data dashboard visualization feel, magazine quality.`,
   ].join('\n');
+}
+
+/** Visual scene description per analysis type — purely graphical, no text. */
+function visualTheme(type: string): { scene: string } {
+  switch (type) {
+    case 'competitive_landscape':
+      return { scene: 'A competitive battlefield overview with chess pieces on a grid, radar chart comparing multiple entities, side-by-side comparison bar charts with contrasting colors.' };
+    case 'market_opportunity':
+      return { scene: 'An expanding opportunity map with concentric circles growing outward, upward-trending area charts, funnel diagram, and glowing target crosshair icon.' };
+    case 'product_strategy':
+      return { scene: 'A product roadmap visualization with connected milestone nodes, branching feature trees, priority matrix quadrants, and timeline arrows.' };
+    case 'growth_diagnostic':
+      return { scene: 'Growth analytics dashboard with hockey-stick curve charts, funnel conversion stages, cohort heatmap grids, and pulse-line heartbeat monitors.' };
+    case 'risk_assessment':
+      return { scene: 'A risk matrix heatmap with probability vs impact axes, warning indicator gauges, shield defense icons, and cascading domino elements.' };
+    default:
+      return { scene: 'A strategic overview with interconnected data nodes, pie charts, bar graphs, trend lines, and KPI dashboard gauges.' };
+  }
 }
