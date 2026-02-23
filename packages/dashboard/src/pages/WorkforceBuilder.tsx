@@ -1,4 +1,9 @@
-import { useState, useRef, useEffect, useCallback, type ReactNode, type DragEvent, type MouseEvent as RMouseEvent } from 'react';
+import { useState, useRef, useEffect, useCallback, type ReactNode, type DragEvent, type MouseEvent as RMouseEvent, type ComponentType } from 'react';
+import {
+  MdElectricBolt, MdAccountBalance, MdPerson, MdDashboard,
+  MdManageSearch, MdSettings, MdInsights, MdBrush,
+  MdBiotech, MdCampaign, MdHeadsetMic, MdStar,
+} from 'react-icons/md';
 import { SCHEDULER_URL } from '../lib/supabase';
 
 /* ═══════════════════════════════════════════════════
@@ -10,24 +15,24 @@ interface Template {
   label: string;
   tier: 'orchestrator' | 'specialist';
   color: string;
-  emoji: string;
+  icon: ComponentType<{ className?: string }>;
   defaultTitle: string;
   defaultDept: string;
 }
 
 const TEMPLATES: Template[] = [
-  { id: 'chief-of-staff', label: 'Chief of Staff', tier: 'orchestrator', color: '#7C3AED', emoji: '⚡', defaultTitle: 'Chief of Staff', defaultDept: 'Executive Office' },
-  { id: 'cxo',            label: 'CxO',            tier: 'orchestrator', color: '#2563EB', emoji: '🏛️', defaultTitle: '',               defaultDept: '' },
-  { id: 'vp',             label: 'VP',             tier: 'orchestrator', color: '#0E7490', emoji: '👤', defaultTitle: '',               defaultDept: '' },
-  { id: 'director',       label: 'Director',       tier: 'orchestrator', color: '#0891B2', emoji: '📋', defaultTitle: '',               defaultDept: '' },
-  { id: 'ops',            label: 'Ops',            tier: 'specialist',   color: '#EA580C', emoji: '🔍', defaultTitle: 'Operations Agent', defaultDept: 'Operations' },
-  { id: 'engineer',       label: 'Engineer',       tier: 'specialist',   color: '#2563EB', emoji: '⚙️', defaultTitle: 'Engineer',       defaultDept: 'Engineering' },
-  { id: 'analyst',        label: 'Analyst',        tier: 'specialist',   color: '#0369A1', emoji: '📈', defaultTitle: 'Analyst',        defaultDept: '' },
-  { id: 'designer',       label: 'Designer',       tier: 'specialist',   color: '#DB2777', emoji: '🎨', defaultTitle: 'Designer',       defaultDept: 'Design' },
-  { id: 'researcher',     label: 'Researcher',     tier: 'specialist',   color: '#0891B2', emoji: '🔬', defaultTitle: 'Researcher',     defaultDept: '' },
-  { id: 'marketer',       label: 'Marketer',       tier: 'specialist',   color: '#7C3AED', emoji: '📢', defaultTitle: 'Marketer',       defaultDept: 'Marketing' },
-  { id: 'support',        label: 'Support',        tier: 'specialist',   color: '#0E7490', emoji: '🎧', defaultTitle: 'Support Agent',  defaultDept: 'Customer Success' },
-  { id: 'specialist',     label: 'Specialist',     tier: 'specialist',   color: '#64748B', emoji: '⭐', defaultTitle: 'Specialist',     defaultDept: '' },
+  { id: 'chief-of-staff', label: 'Chief of Staff', tier: 'orchestrator', color: '#7C3AED', icon: MdElectricBolt,  defaultTitle: 'Chief of Staff', defaultDept: 'Executive Office' },
+  { id: 'cxo',            label: 'CxO',            tier: 'orchestrator', color: '#2563EB', icon: MdAccountBalance, defaultTitle: '',               defaultDept: '' },
+  { id: 'vp',             label: 'VP',             tier: 'orchestrator', color: '#0E7490', icon: MdPerson,         defaultTitle: '',               defaultDept: '' },
+  { id: 'director',       label: 'Director',       tier: 'orchestrator', color: '#0891B2', icon: MdDashboard,      defaultTitle: '',               defaultDept: '' },
+  { id: 'ops',            label: 'Ops',            tier: 'specialist',   color: '#EA580C', icon: MdManageSearch,   defaultTitle: 'Operations Agent', defaultDept: 'Operations' },
+  { id: 'engineer',       label: 'Engineer',       tier: 'specialist',   color: '#2563EB', icon: MdSettings,       defaultTitle: 'Engineer',       defaultDept: 'Engineering' },
+  { id: 'analyst',        label: 'Analyst',        tier: 'specialist',   color: '#0369A1', icon: MdInsights,       defaultTitle: 'Analyst',        defaultDept: '' },
+  { id: 'designer',       label: 'Designer',       tier: 'specialist',   color: '#DB2777', icon: MdBrush,          defaultTitle: 'Designer',       defaultDept: 'Design' },
+  { id: 'researcher',     label: 'Researcher',     tier: 'specialist',   color: '#0891B2', icon: MdBiotech,        defaultTitle: 'Researcher',     defaultDept: '' },
+  { id: 'marketer',       label: 'Marketer',       tier: 'specialist',   color: '#7C3AED', icon: MdCampaign,       defaultTitle: 'Marketer',       defaultDept: 'Marketing' },
+  { id: 'support',        label: 'Support',        tier: 'specialist',   color: '#0E7490', icon: MdHeadsetMic,     defaultTitle: 'Support Agent',  defaultDept: 'Customer Success' },
+  { id: 'specialist',     label: 'Specialist',     tier: 'specialist',   color: '#64748B', icon: MdStar,           defaultTitle: 'Specialist',     defaultDept: '' },
 ];
 
 /* ═══════════════════════════════════════════════════
@@ -312,7 +317,7 @@ export default function WorkforceBuilder() {
                 onDragStart={e => { e.dataTransfer.setData('template-id', t.id); e.dataTransfer.effectAllowed = 'copy'; }}
                 className="flex cursor-grab items-center gap-2.5 rounded-lg border border-border bg-base px-3 py-2 text-sm transition-all hover:border-cyan/40 active:cursor-grabbing active:scale-[0.97]"
               >
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded text-sm" style={{ background: `${t.color}20` }}>{t.emoji}</span>
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded" style={{ background: `${t.color}20`, color: t.color }}><t.icon className="h-3.5 w-3.5" /></span>
                 <span className="font-medium text-txt-primary">{t.label}</span>
                 <span className="ml-auto text-[10px] text-txt-faint">{t.tier === 'orchestrator' ? 'orchestrator' : 'specialist'}</span>
               </div>
@@ -389,8 +394,8 @@ export default function WorkforceBuilder() {
                   }}
                 >
                   <div className="flex items-center gap-2.5">
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-lg" style={{ background: `${color}20` }}>
-                      {t?.emoji ?? '⭐'}
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg" style={{ background: `${color}20`, color }}>
+                      {t ? <t.icon className="h-4 w-4" /> : <MdStar className="h-4 w-4" />}
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-semibold text-txt-primary">{node.name || t?.label || 'Untitled'}</p>
@@ -425,7 +430,7 @@ export default function WorkforceBuilder() {
                 {/* Header */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg">{TEMPLATES.find(x => x.id === selected.templateId)?.emoji ?? '⭐'}</span>
+                    <span className="text-lg" style={{ color: TEMPLATES.find(x => x.id === selected.templateId)?.color }}>{(() => { const T = TEMPLATES.find(x => x.id === selected.templateId); return T ? <T.icon className="h-5 w-5" /> : <MdStar className="h-5 w-5" />; })()}</span>
                     <h3 className="text-sm font-semibold text-txt-primary">Configure Agent</h3>
                   </div>
                   <button onClick={() => setSelectedId(null)} className="grid h-6 w-6 place-items-center rounded text-txt-faint hover:bg-raised hover:text-txt-primary transition-colors">✕</button>
