@@ -4,6 +4,7 @@ import { useAuth } from '../lib/auth';
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: GridIcon },
+  { to: '/directives', label: 'Directives', icon: DirectivesIcon },
   { to: '/workforce', label: 'Workforce', icon: UsersIcon },
   { to: '/agents', label: 'Agents', icon: AgentIcon },
   { to: '/chat', label: 'Chat', icon: ChatIcon },
@@ -224,6 +225,15 @@ function SkillsIcon({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
       <path d="M8 1l2 3h3l-2.5 3L12 10l-4-2-4 2 1.5-3L3 4h3z" />
       <path d="M6 11v3M10 11v3M8 12v3" />
+    </svg>
+  );
+}
+
+function DirectivesIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <rect x="2" y="1.5" width="12" height="13" rx="1.5" />
+      <path d="M5 5h6M5 8h6M5 11h4" />
     </svg>
   );
 }

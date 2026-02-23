@@ -16,12 +16,14 @@ import TeamsConfig from './pages/TeamsConfig';
 import Graph from './pages/Graph';
 import Skills from './pages/Skills';
 import SkillDetail from './pages/SkillDetail';
+import Directives from './pages/Directives';
 
 export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
+        <Route path="directives" element={<Directives />} />
         <Route path="workforce" element={<Workforce />} />
         <Route path="agents" element={<AgentsList />} />
         <Route path="agents/new" element={<AgentBuilder />} />

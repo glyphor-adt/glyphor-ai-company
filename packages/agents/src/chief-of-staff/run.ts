@@ -15,15 +15,15 @@ import {
   type AgentConfig,
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { CHIEF_OF_STAFF_SYSTEM_PROMPT } from './systemPrompt.js';
-import { createChiefOfStaffTools } from './tools.js';
+import { CHIEF_OF_STAFF_SYSTEM_PROMPT, ORCHESTRATION_PROMPT } from './systemPrompt.js';
+import { createChiefOfStaffTools, createOrchestrationTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createGraphTools } from '../shared/graphTools.js';
 
 export interface CoSRunParams {
-  task?: 'generate_briefing' | 'check_escalations' | 'weekly_review' | 'monthly_retrospective' | 'on_demand';
+  task?: 'generate_briefing' | 'check_escalations' | 'weekly_review' | 'monthly_retrospective' | 'orchestrate' | 'on_demand';
   recipient?: 'kristina' | 'andrew';
   message?: string;
 }
@@ -46,11 +46,15 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
   const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
+  const supabase = memory.getSupabaseClient();
+  const schedulerUrl = process.env.SCHEDULER_URL || 'http://localhost:8080';
+  const orchestrationTools = createOrchestrationTools(supabase, schedulerUrl);
   const tools = [
     ...createChiefOfStaffTools(memory),
     ...createMemoryTools(memory),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
+    ...orchestrationTools,
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -124,6 +128,20 @@ Steps:
 Goal: Drive organizational learning — identify what worked, what didn't, and how the company's collective decision-making can improve.`;
       break;
 
+    case 'orchestrate':
+      initialMessage = `Run your orchestration cycle:
+
+1. Read all active founder directives
+2. Check the status of any existing work assignments
+3. For new directives without assignments: plan and create work assignments
+4. For directives with pending assignments: dispatch them to agents
+5. For directives with completed assignments: evaluate the outputs
+6. Update progress notes on all active directives
+7. Report any blockers or issues that need founder attention
+
+Be decisive. Assign real work. Move things forward.`;
+      break;
+
     case 'on_demand':
       initialMessage = params.message || 'Provide a status summary of the company.';
       break;
@@ -132,16 +150,19 @@ Goal: Drive organizational learning — identify what worked, what didn't, and h
       initialMessage = 'Provide a status summary of the company.';
   }
 
-  const supabase = memory.getSupabaseClient();
   const agentCfg = await loadAgentConfig(supabase, 'chief-of-staff', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
+
+  const systemPrompt = task === 'orchestrate'
+    ? CHIEF_OF_STAFF_SYSTEM_PROMPT + ORCHESTRATION_PROMPT
+    : CHIEF_OF_STAFF_SYSTEM_PROMPT;
 
   const config: AgentConfig = {
     id: `cos-${task}-${today}`,
     role: 'chief-of-staff',
-    systemPrompt: CHIEF_OF_STAFF_SYSTEM_PROMPT,
+    systemPrompt,
     model: agentCfg.model,
     tools,
-    maxTurns: agentCfg.maxTurns,
+    maxTurns: task === 'orchestrate' ? 15 : agentCfg.maxTurns,
     maxStallTurns: 3,
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,

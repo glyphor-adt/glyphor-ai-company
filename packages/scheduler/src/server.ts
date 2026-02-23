@@ -64,12 +64,13 @@ const agentExecutor = async (
   const message = (payload.message as string) || undefined;
 
   if (agentRole === 'chief-of-staff') {
-    const taskMap: Record<string, 'generate_briefing' | 'check_escalations' | 'weekly_review' | 'monthly_retrospective' | 'on_demand'> = {
+    const taskMap: Record<string, 'generate_briefing' | 'check_escalations' | 'weekly_review' | 'monthly_retrospective' | 'orchestrate' | 'on_demand'> = {
       morning_briefing: 'generate_briefing',
       check_escalations: 'check_escalations',
       eod_summary: 'generate_briefing',
       weekly_review: 'weekly_review',
       monthly_retrospective: 'monthly_retrospective',
+      orchestrate: 'orchestrate',
     };
     return runChiefOfStaff({
       task: taskMap[task] ?? 'on_demand',
@@ -472,6 +473,20 @@ const server = createServer(async (req, res) => {
         task: body.task,
         payload: { ...(body.payload ?? {}), message },
       });
+
+      // Record agent output back to work_assignments if this run was dispatched by orchestration
+      const assignmentId = body.payload?.directiveAssignmentId as string | undefined;
+      if (assignmentId && result.action === 'executed') {
+        await memory.getSupabaseClient()
+          .from('work_assignments')
+          .update({
+            agent_output: result.output ?? result.error ?? 'No output captured',
+            status: result.error ? 'failed' : 'completed',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', assignmentId);
+      }
+
       json(res, 200, result);
       return;
     }

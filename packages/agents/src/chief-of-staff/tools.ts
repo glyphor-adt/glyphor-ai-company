@@ -570,3 +570,369 @@ export function createChiefOfStaffTools(
     },
   ];
 }
+
+// ============================================================
+// ORCHESTRATION TOOLS — Founder directive management
+// ============================================================
+
+export function createOrchestrationTools(
+  supabase: SupabaseClient,
+  schedulerUrl: string,
+): ToolDefinition[] {
+  return [
+    // ─── READ FOUNDER DIRECTIVES ──────────────────────────────
+
+    {
+      name: 'read_founder_directives',
+      description: 'Read active strategic directives from the founders. Returns all directives that are active or have pending work assignments. Use this at the start of every orchestration run to understand current priorities.',
+      parameters: {
+        status: {
+          type: 'string',
+          description: 'Filter by directive status. Default: active',
+          required: false,
+          enum: ['active', 'paused', 'completed', 'all'],
+        },
+        created_by: {
+          type: 'string',
+          description: 'Filter by founder. Default: all',
+          required: false,
+          enum: ['kristina', 'andrew', 'all'],
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        const status = (params.status as string) || 'active';
+        const createdBy = (params.created_by as string) || 'all';
+
+        let query = supabase
+          .from('founder_directives')
+          .select(`
+            *,
+            work_assignments (
+              id, assigned_to, task_description, status, quality_score, completed_at
+            )
+          `)
+          .order('priority', { ascending: true })
+          .order('created_at', { ascending: false });
+
+        if (status !== 'all') {
+          query = query.eq('status', status);
+        }
+        if (createdBy !== 'all') {
+          query = query.eq('created_by', createdBy);
+        }
+
+        const { data, error } = await query;
+        if (error) return { success: false, error: error.message };
+
+        const formatted = (data ?? []).map((d: any) => ({
+          id: d.id,
+          title: d.title,
+          description: d.description,
+          priority: d.priority,
+          category: d.category,
+          status: d.status,
+          created_by: d.created_by,
+          due_date: d.due_date,
+          target_agents: d.target_agents,
+          progress_notes: d.progress_notes,
+          assignments: d.work_assignments,
+          assignment_summary: {
+            total: d.work_assignments?.length || 0,
+            completed: d.work_assignments?.filter((a: any) => a.status === 'completed').length || 0,
+            pending: d.work_assignments?.filter((a: any) => a.status === 'pending').length || 0,
+            in_progress: d.work_assignments?.filter((a: any) =>
+              ['dispatched', 'in_progress'].includes(a.status)
+            ).length || 0,
+          },
+        }));
+
+        return { success: true, data: formatted };
+      },
+    },
+
+    // ─── CREATE WORK ASSIGNMENTS ──────────────────────────────
+
+    {
+      name: 'create_work_assignments',
+      description: 'Break a founder directive into specific agent work assignments. Creates one or more assignments linked to a directive.',
+      parameters: {
+        directive_id: {
+          type: 'string',
+          description: 'UUID of the founder directive this work serves',
+          required: true,
+        },
+        assignments: {
+          type: 'array',
+          description: 'Array of work assignments to create',
+          required: true,
+          items: {
+            type: 'object',
+            description: 'A work assignment',
+            properties: {
+              assigned_to: { type: 'string', description: 'Agent role (e.g., cmo, vp-sales, cto)' },
+              task_description: { type: 'string', description: 'Clear, specific task for the agent' },
+              task_type: { type: 'string', description: 'Agent task type (e.g., on_demand, blog_post)' },
+              expected_output: { type: 'string', description: 'What you expect the agent to produce' },
+              priority: { type: 'string', description: 'Priority level', enum: ['urgent', 'high', 'normal', 'low'] },
+              sequence_order: { type: 'number', description: 'Execution order. 0 = immediate.' },
+            },
+          },
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        const assignments = params.assignments as any[];
+        const directiveId = params.directive_id as string;
+
+        const rows = assignments.map((a: any, i: number) => ({
+          directive_id: directiveId,
+          assigned_to: a.assigned_to,
+          task_description: a.task_description,
+          task_type: a.task_type || 'on_demand',
+          expected_output: a.expected_output,
+          priority: a.priority || 'normal',
+          sequence_order: a.sequence_order ?? i,
+          status: 'pending',
+        }));
+
+        const { data, error } = await supabase
+          .from('work_assignments')
+          .insert(rows)
+          .select();
+
+        if (error) return { success: false, error: error.message };
+        return { success: true, data: { created: data.length, assignments: data } };
+      },
+    },
+
+    // ─── DISPATCH ASSIGNMENT ──────────────────────────────────
+
+    {
+      name: 'dispatch_assignment',
+      description: 'Send a work assignment to an agent. Sends an inter-agent message with the task details AND schedules their next run.',
+      parameters: {
+        assignment_id: {
+          type: 'string',
+          description: 'UUID of the work assignment to dispatch',
+          required: true,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        const assignmentId = params.assignment_id as string;
+
+        // 1. Get the assignment with its directive
+        const { data: assignment, error } = await supabase
+          .from('work_assignments')
+          .select('*, founder_directives(title, priority)')
+          .eq('id', assignmentId)
+          .single();
+
+        if (error || !assignment) {
+          return { success: false, error: error?.message || 'Assignment not found' };
+        }
+
+        // 2. Send inter-agent message to the target agent
+        const directiveTitle = (assignment as any).founder_directives?.title ?? 'Unknown directive';
+        const directivePriority = (assignment as any).founder_directives?.priority ?? 'high';
+
+        await supabase.from('agent_messages').insert({
+          from_agent: 'chief-of-staff',
+          to_agent: assignment.assigned_to,
+          message: `📋 **Work Assignment from Sarah (Chief of Staff)**\n\n` +
+            `**Directive:** ${directiveTitle}\n` +
+            `**Priority:** ${assignment.priority}\n\n` +
+            `**Your Task:**\n${assignment.task_description}\n\n` +
+            `**Expected Output:**\n${assignment.expected_output}\n\n` +
+            `Please complete this and report back. This is a founder-level priority.`,
+          message_type: 'request',
+          priority: assignment.priority === 'urgent' ? 'urgent' : 'normal',
+          status: 'pending',
+        });
+
+        // 3. Schedule the agent to run
+        try {
+          await fetch(`${schedulerUrl}/run`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              agentRole: assignment.assigned_to,
+              task: assignment.task_type,
+              message: assignment.task_description,
+              payload: { directiveAssignmentId: assignmentId },
+            }),
+          });
+        } catch (e) {
+          console.warn(`[Orchestration] Could not immediately dispatch to ${assignment.assigned_to}:`, e);
+        }
+
+        // 4. Update assignment status
+        await supabase
+          .from('work_assignments')
+          .update({ status: 'dispatched', dispatched_at: new Date().toISOString() })
+          .eq('id', assignmentId);
+
+        return { success: true, data: { dispatched: true, agent: assignment.assigned_to } };
+      },
+    },
+
+    // ─── CHECK ASSIGNMENT STATUS ──────────────────────────────
+
+    {
+      name: 'check_assignment_status',
+      description: 'Check the status of work assignments for a directive. Returns assignment details, agent outputs if completed, and any blockers.',
+      parameters: {
+        directive_id: {
+          type: 'string',
+          description: 'UUID of the directive to check assignments for',
+          required: true,
+        },
+        status_filter: {
+          type: 'string',
+          description: 'Filter by assignment status. Default: all',
+          required: false,
+          enum: ['all', 'pending', 'dispatched', 'in_progress', 'completed', 'failed'],
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        const directiveId = params.directive_id as string;
+        const statusFilter = (params.status_filter as string) || 'all';
+
+        let query = supabase
+          .from('work_assignments')
+          .select('*')
+          .eq('directive_id', directiveId)
+          .order('sequence_order');
+
+        if (statusFilter !== 'all') {
+          query = query.eq('status', statusFilter);
+        }
+
+        const { data, error } = await query;
+        if (error) return { success: false, error: error.message };
+
+        return { success: true, data };
+      },
+    },
+
+    // ─── EVALUATE ASSIGNMENT ──────────────────────────────────
+
+    {
+      name: 'evaluate_assignment',
+      description: 'Evaluate an agent output against assignment expectations. Rate quality, note gaps, and decide if the work meets directive goals.',
+      parameters: {
+        assignment_id: {
+          type: 'string',
+          description: 'UUID of the assignment to evaluate',
+          required: true,
+        },
+        quality_score: {
+          type: 'number',
+          description: 'Quality rating 0-100',
+          required: true,
+        },
+        evaluation: {
+          type: 'string',
+          description: 'Your assessment of the output quality and completeness',
+          required: true,
+        },
+        meets_expectations: {
+          type: 'boolean',
+          description: 'Does this output satisfy the directive goals?',
+          required: true,
+        },
+        next_action: {
+          type: 'string',
+          description: 'What to do next. accept=done, iterate=send back, reassign=different agent, escalate=flag for founder',
+          required: true,
+          enum: ['accept', 'iterate', 'reassign', 'escalate'],
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        const assignmentId = params.assignment_id as string;
+        const nextAction = params.next_action as string;
+
+        const updates: Record<string, unknown> = {
+          quality_score: params.quality_score as number,
+          evaluation: params.evaluation as string,
+          updated_at: new Date().toISOString(),
+        };
+
+        if (nextAction === 'accept') {
+          updates.status = 'completed';
+          updates.completed_at = new Date().toISOString();
+        } else if (nextAction === 'iterate') {
+          updates.status = 'pending';
+        } else if (nextAction === 'escalate') {
+          updates.status = 'blocked';
+        }
+
+        const { error } = await supabase
+          .from('work_assignments')
+          .update(updates)
+          .eq('id', assignmentId);
+
+        if (error) return { success: false, error: error.message };
+        return { success: true, data: { updated: true, next_action: nextAction } };
+      },
+    },
+
+    // ─── UPDATE DIRECTIVE PROGRESS ────────────────────────────
+
+    {
+      name: 'update_directive_progress',
+      description: 'Add a progress note to a directive or mark it complete. Use this to keep founders informed.',
+      parameters: {
+        directive_id: {
+          type: 'string',
+          description: 'UUID of the directive',
+          required: true,
+        },
+        progress_note: {
+          type: 'string',
+          description: 'Status update to append',
+          required: false,
+        },
+        new_status: {
+          type: 'string',
+          description: 'Optionally change directive status',
+          required: false,
+          enum: ['active', 'completed', 'paused'],
+        },
+        completion_summary: {
+          type: 'string',
+          description: 'Final summary when marking directive complete',
+          required: false,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        const directiveId = params.directive_id as string;
+
+        // Get current directive to append to progress_notes
+        const { data: directive } = await supabase
+          .from('founder_directives')
+          .select('progress_notes')
+          .eq('id', directiveId)
+          .single();
+
+        const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+
+        if (params.progress_note) {
+          const timestamp = new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' });
+          const notes: string[] = (directive?.progress_notes as string[]) || [];
+          notes.push(`[${timestamp}] ${params.progress_note}`);
+          updates.progress_notes = notes;
+        }
+
+        if (params.new_status) updates.status = params.new_status;
+        if (params.completion_summary) updates.completion_summary = params.completion_summary;
+
+        const { error } = await supabase
+          .from('founder_directives')
+          .update(updates)
+          .eq('id', directiveId);
+
+        if (error) return { success: false, error: error.message };
+        return { success: true, data: { updated: true } };
+      },
+    },
+  ];
+}
