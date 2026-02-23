@@ -4,19 +4,19 @@
 
 /* ─── Theme Variables ─────────────────────────── */
 :root {
-  --color-base: #edf0f5;
+  --color-base: #f4f5f7;
   --color-surface: #ffffff;
-  --color-raised: #f1f4f8;
-  --color-border: #c4cdd8;
-  --color-border-hover: #a8b5c4;
-  --color-txt-primary: #0a0f1a;
-  --color-txt-secondary: #1e293b;
-  --color-txt-muted: #475569;
-  --color-txt-faint: #64748b;
-  --color-hover-bg: rgba(0,0,0,0.06);
+  --color-raised: #f0f1f3;
+  --color-border: #d1d5db;
+  --color-border-hover: #9ca3af;
+  --color-txt-primary: #0a0a0f;
+  --color-txt-secondary: #1f2937;
+  --color-txt-muted: #4b5563;
+  --color-txt-faint: #6b7280;
+  --color-hover-bg: rgba(0,0,0,0.05);
   --color-shimmer: rgba(14, 116, 144, 0.10);
-  --scrollbar-thumb: #a8b5c4;
-  --scrollbar-hover: #64748b;
+  --scrollbar-thumb: #d1d5db;
+  --scrollbar-hover: #6b7280;
   /* Accent colors – dark shades for white-bg contrast (≥ 5:1) */
   --cyan: 14 116 144;      /* #0E7490  teal-700 */
   --azure: 29 78 216;      /* #1D4ED8  blue-700 */
@@ -25,19 +25,19 @@
 
 .dark {
   color-scheme: dark;
-  --color-base: #0c0f18;
-  --color-surface: #141b2e;
-  --color-raised: #1b2540;
-  --color-border: #273350;
-  --color-border-hover: #3d5480;
-  --color-txt-primary: #eef2f9;
-  --color-txt-secondary: #b8c8de;
-  --color-txt-muted: #6a80a0;
-  --color-txt-faint: #3d5070;
-  --color-hover-bg: rgba(255,255,255,0.06);
-  --color-shimmer: rgba(34, 211, 238, 0.10);
-  --scrollbar-thumb: #273350;
-  --scrollbar-hover: #3d5480;
+  --color-base: #09090e;
+  --color-surface: #0e0e16;
+  --color-raised: #13131c;
+  --color-border: #1c1c28;
+  --color-border-hover: #282838;
+  --color-txt-primary: #f0f2f8;
+  --color-txt-secondary: #96a0b8;
+  --color-txt-muted: #525c75;
+  --color-txt-faint: #2e3448;
+  --color-hover-bg: rgba(255,255,255,0.05);
+  --color-shimmer: rgba(34, 211, 238, 0.08);
+  --scrollbar-thumb: #1c1c28;
+  --scrollbar-hover: #282838;
   /* Accent colors – bright shades for dark-bg contrast (≥ 6:1) */
   --cyan: 34 211 238;      /* #22D3EE  cyan-400 */
   --azure: 96 165 250;     /* #60A5FA  blue-400 */
@@ -63,33 +63,33 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
 
 /* ─── Dark Card Elevation ─────────────────── */
 .dark .glass-card {
-  background: rgba(20, 27, 46, 0.95) !important;
-  backdrop-filter: blur(20px) saturate(1.6);
-  -webkit-backdrop-filter: blur(20px) saturate(1.6);
-  border-color: rgba(255, 255, 255, 0.08) !important;
+  background: rgba(14, 14, 22, 0.96) !important;
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-color: rgba(255, 255, 255, 0.07) !important;
   box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.07) inset,
-    0 -1px 0 0 rgba(0, 0, 0, 0.3) inset,
-    0 8px 40px rgba(0, 0, 0, 0.5),
-    0 2px 8px rgba(0, 0, 0, 0.3);
+    0 1px 0 0 rgba(255, 255, 255, 0.06) inset,
+    0 -1px 0 0 rgba(0, 0, 0, 0.4) inset,
+    0 8px 40px rgba(0, 0, 0, 0.6),
+    0 2px 8px rgba(0, 0, 0, 0.4);
 }
 .dark .glass-card:hover {
-  background: rgba(24, 33, 56, 0.97) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
+  background: rgba(18, 18, 28, 0.98) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
   box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.09) inset,
-    0 -1px 0 0 rgba(0, 0, 0, 0.3) inset,
-    0 12px 48px rgba(0, 0, 0, 0.55),
-    0 3px 10px rgba(0, 0, 0, 0.35);
+    0 1px 0 0 rgba(255, 255, 255, 0.08) inset,
+    0 -1px 0 0 rgba(0, 0, 0, 0.4) inset,
+    0 12px 48px rgba(0, 0, 0, 0.65),
+    0 3px 10px rgba(0, 0, 0, 0.45);
 }
 
 /* Inner raised elements inside glass cards */
 .dark .glass-raised {
-  background: rgba(27, 37, 64, 0.8) !important;
+  background: rgba(19, 19, 28, 0.85) !important;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-color: rgba(255, 255, 255, 0.07) !important;
-  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.05) inset;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset;
 }
 
 /* ─── Glow effect for active agent nodes ──── */

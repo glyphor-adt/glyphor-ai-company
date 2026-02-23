@@ -7,7 +7,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { GraphTeamsClient, GraphEmailClient, GraphCalendarClient } from '@glyphor/integrations';
+import { GraphTeamsClient, GraphEmailClient, GraphCalendarClient, TeamsBotHandler } from '@glyphor/integrations';
 
 function getTeamsClient(): GraphTeamsClient {
   return GraphTeamsClient.fromEnv();
@@ -215,19 +215,38 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
 
     {
       name: 'post_to_channel',
-      description: 'Post a plain-text message to a Teams channel via the bot.',
+      description: 'Post a message to a Teams channel proactively (no @mention required). The bot must be installed in the team.',
       parameters: {
-        channel_id: { type: 'string', description: 'Teams channel ID', required: true },
-        message: { type: 'string', description: 'Message content (plain text)', required: true },
+        channel_id: { type: 'string', description: 'Teams channel ID (use list_channels to find IDs)', required: true },
+        message: { type: 'string', description: 'Message content (plain text or markdown)', required: true },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
+          // Prefer Bot Framework proactive post (rich, proper bot identity)
+          const bot = TeamsBotHandler.fromEnv(() => Promise.resolve(undefined));
+          if (bot) {
+            // Find Riley's app ID in AGENT_BOTS
+            let rileyAppId: string | undefined;
+            if (process.env.AGENT_BOTS) {
+              const bots = JSON.parse(process.env.AGENT_BOTS) as Array<{ role: string; appId: string }>;
+              rileyAppId = bots.find((b) => b.role === 'm365-admin')?.appId;
+            }
+            await bot.sendProactiveToChannel(
+              TEAM_ID,
+              params.channel_id as string,
+              params.message as string,
+              rileyAppId,
+            );
+            return { success: true, data: { posted: true, channelId: params.channel_id, method: 'bot-framework' } };
+          }
+
+          // Fallback: use Graph API sendText (Teamwork.Migrate.All)
           const teamsClient = getTeamsClient();
           await teamsClient.sendText(
             { teamId: TEAM_ID, channelId: params.channel_id as string },
             params.message as string,
           );
-          return { success: true, data: { posted: true, channelId: params.channel_id } };
+          return { success: true, data: { posted: true, channelId: params.channel_id, method: 'graph-api' } };
         } catch (err) {
           return { success: false, error: (err as Error).message };
         }

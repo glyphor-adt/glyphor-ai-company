@@ -85,6 +85,7 @@ const AGENT_ALIASES: Record<string, string> = {
   'emma': 'onboarding-specialist', 'emma wright': 'onboarding-specialist',
   'david': 'support-triage', 'david santos': 'support-triage',
   'nathan': 'account-research', 'nathan cole': 'account-research',
+  'riley': 'm365-admin', 'riley morgan': 'm365-admin', 'm365': 'm365-admin', 'it': 'm365-admin',
 };
 
 const AGENT_DISPLAY: Record<string, string> = {
@@ -98,6 +99,7 @@ const AGENT_DISPLAY: Record<string, string> = {
   'seo-analyst': 'Lisa Chen', 'social-media-manager': 'Kai Johnson',
   'onboarding-specialist': 'Emma Wright', 'support-triage': 'David Santos',
   'account-research': 'Nathan Cole',
+  'm365-admin': 'Riley Morgan',
 };
 
 function resolveAgent(input: string): string | null {
@@ -449,6 +451,56 @@ export class TeamsBotHandler {
       },
       body: JSON.stringify({ type: 'typing' }),
     }).catch(() => {}); // Best-effort
+  }
+
+  /**
+   * Send a proactive message to a Teams channel without being @mentioned.
+   *
+   * Uses the Bot Framework REST API to create/resume a conversation in a channel.
+   * The bot must be installed in the team for this to work.
+   *
+   * @param teamId - The Teams team ID (TEAMS_TEAM_ID env var)
+   * @param channelId - The Teams channel ID (e.g. TEAMS_CHANNEL_ENGINEERING_ID)
+   * @param message - The message text (plain text or markdown)
+   * @param botAppId - Optional: post as a specific agent bot (defaults to main bot)
+   * @param serviceUrl - Bot Framework service URL (default: North America)
+   */
+  async sendProactiveToChannel(
+    teamId: string,
+    channelId: string,
+    message: string,
+    botAppId?: string,
+    serviceUrl = 'https://smba.trafficmanager.net/amer/',
+  ): Promise<void> {
+    const token = await this.getBotToken(botAppId);
+    const appId = botAppId ?? this.config.appId;
+
+    // Create a new conversation in the channel
+    const createUrl = `${serviceUrl}v3/conversations`;
+    const createBody = {
+      bot: { id: `28:${appId}`, name: 'Glyphor Bot' },
+      isGroup: true,
+      tenantId: this.config.tenantId,
+      channelData: {
+        channel: { id: channelId },
+        team: { id: teamId },
+      },
+      activity: {
+        type: 'message',
+        text: message,
+      },
+    };
+
+    const createRes = await fetch(createUrl, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(createBody),
+    });
+
+    if (!createRes.ok) {
+      const errText = await createRes.text();
+      throw new Error(`[TeamsBot] Proactive channel post failed (${createRes.status}): ${errText}`);
+    }
   }
 
   /**
