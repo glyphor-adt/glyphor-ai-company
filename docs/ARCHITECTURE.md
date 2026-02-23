@@ -147,31 +147,39 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │  │ Supabase (PostgreSQL)       │  │  │  Stripe  — MRR, churn, subs │
 │  │  ├ company_profile          │  │  │  Mercury — banking, cash     │
 │  │  ├ products                 │  │  │  GCP     — billing export    │
-│  │  ├ company_agents           │  │  │                              │
+│  │  ├ company_agents (28 cols) │  │  │                              │
 │  │  ├ decisions                │  │  └──────────────────────────────┘
 │  │  ├ activity_log             │  │
 │  │  ├ competitive_intel        │  │
 │  │  ├ customer_health          │  │
 │  │  ├ financials               │  │
 │  │  ├ product_proposals        │  │
-│  │  ├ autonomous_ops_events    │  │
-│  │  ├ agent_memory             │  │
+│  │  ├ events                   │  │
+│  │  ├ agent_memory (pgvector)  │  │
 │  │  ├ agent_reflections        │  │
-│  │  ├ metrics_cache            │  │
-│  │  ├ agent_profiles           │  │         ┌─────────────────────┐
-│  │  ├ agent_briefs             │  │         │ Inter-Agent Comms   │
-│  │  ├ agent_schedules          │  │         │                     │
-│  │  ├ agent_messages           │  │         ┌─────────────────────┐
-│  │  ├ agent_meetings           │  │         │ Inter-Agent Comms   │
-│  │  ├ analyses                 │  │         │                     │
-│  │  ├ simulations              │  ├────────►│ DMs + Meetings      │
-│  │  ├ cot_analyses             │  │         │ Rate limited:       │
-│  │  ├ kg_nodes                 │  │         │  5 DMs/hr/agent     │
-│  │  ├ kg_edges                 │  │         │  2 meetings/day     │
-│  │  ├ skills                   │  │         │  10 meetings/day    │
-│  │  ├ agent_skills             │  │         └─────────────────────┘
+│  │  ├ agent_profiles           │  │
+│  │  ├ agent_performance        │  │         ┌─────────────────────┐
+│  │  ├ agent_runs               │  │         │ Inter-Agent Comms   │
+│  │  ├ agent_briefs             │  │         │                     │
+│  │  ├ agent_schedules          │  │         ┌─────────────────────┐
+│  │  ├ agent_messages           │  │         │ Inter-Agent Comms   │
+│  │  ├ agent_meetings           │  │         │                     │
+│  │  ├ analyses                 │  │         │ DMs + Meetings      │
+│  │  ├ simulations              │  ├────────►│ Rate limited:       │
+│  │  ├ cot_analyses             │  │         │  5 DMs/hr/agent     │
+│  │  ├ deep_dives               │  │         │  2 meetings/day     │
+│  │  ├ company_pulse            │  │         │  10 meetings/day    │
+│  │  ├ company_knowledge        │  │         └─────────────────────┘
+│  │  ├ kg_nodes (pgvector)      │  │
+│  │  ├ kg_edges                 │  │
+│  │  ├ skills + agent_skills    │  │
+│  │  ├ founder_directives       │  │
+│  │  ├ work_assignments         │  │
+│  │  ├ chat_messages            │  │
 │  │  ├ agent_wake_queue         │  │
-│  │  └ chat_messages            │  │
+│  │  ├ platform_iam_state       │  │
+│  │  ├ platform_audit_log       │  │
+│  │  └ ... (69 tables total)    │  │
 │  ├─────────────────────────────┤  │
 │  │ GCS (large documents)       │  │
 │  │  ├ briefings/{founder}/     │  │
@@ -190,13 +198,18 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │   ├ Chat.tsx         (talk to agents)    │
 │   ├ GroupChat.tsx    (multi-agent chat)   │
 │   ├ Workforce.tsx    (org chart + roster)│
+│   ├ WorkforceBuilder.tsx (org builder)   │
 │   ├ AgentsList.tsx   (agent roster)      │
 │   ├ AgentProfile.tsx (identity, perf,    │
 │   │                   memory, messages,  │
 │   │                   settings)          │
 │   ├ AgentBuilder.tsx (create new agents) │
+│   ├ AgentSettings.tsx(agent config)      │
 │   ├ Approvals.tsx    (decision queue)    │
+│   ├ Directives.tsx   (founder tasks)     │
 │   ├ Financials.tsx   (revenue & costs)   │
+│   ├ Governance.tsx   (IAM & secrets)     │
+│   ├ Knowledge.tsx    (knowledge base)    │
 │   ├ Operations.tsx   (system operations) │
 │   ├ Strategy.tsx     (analysis & sims)   │
 │   ├ Graph.tsx        (knowledge graph)   │
@@ -375,6 +388,15 @@ glyphor-ai-company/
 │   │
 │   ├── company-knowledge/       # Shared context (read at runtime)
 │   │   ├── COMPANY_KNOWLEDGE_BASE.md  # ~400 lines: founders, products, metrics, rules
+│   │   ├── CORE.md                    # Core company identity & values
+│   │   ├── context/                   # Department-specific context (7 files)
+│   │   │   ├── design.md              # Design department context
+│   │   │   ├── engineering.md         # Engineering department context
+│   │   │   ├── finance.md             # Finance department context
+│   │   │   ├── marketing.md           # Marketing department context
+│   │   │   ├── operations.md          # Operations department context
+│   │   │   ├── product.md             # Product department context
+│   │   │   └── sales-cs.md            # Sales & CS department context
 │   │   └── briefs/                    # 27 role briefs (8 execs + 18 sub-team + 1 ops)
 │   │       ├── sarah-chen.md          # Chief of Staff
 │   │       ├── marcus-reeves.md       # CTO
@@ -467,22 +489,28 @@ glyphor-ai-company/
 │       │   ├── pages/
 │       │   │   ├── Dashboard.tsx      # Agent overview & metrics
 │       │   │   ├── Chat.tsx           # Real-time agent chat (react-markdown)
+│       │   │   ├── GroupChat.tsx      # Multi-agent group chat
 │       │   │   ├── Workforce.tsx      # Org chart + grid view (7 departments)
+│       │   │   ├── WorkforceBuilder.tsx # Drag-and-drop org chart builder
 │       │   │   ├── AgentsList.tsx     # Agent roster & grid
 │       │   │   ├── AgentProfile.tsx   # 5-tab agent profile (overview, perf,
 │       │   │   │                      #   memory, messages, settings)
 │       │   │   ├── AgentBuilder.tsx   # Create new dynamic agents
-│       │   │   ├── AgentSettings.tsx  # Agent configuration
+│       │   │   ├── AgentSettings.tsx  # Agent configuration & system prompts
 │       │   │   ├── Approvals.tsx      # Decision approval queue
+│       │   │   ├── Directives.tsx     # Founder directives management
 │       │   │   ├── Financials.tsx     # Revenue, costs, GCP billing, vendor subscriptions
+│       │   │   ├── Governance.tsx     # Platform governance, IAM state, secret rotation
+│       │   │   ├── Knowledge.tsx      # Knowledge base management & founder bulletins
 │       │   │   ├── Operations.tsx     # System operations & events
 │       │   │   ├── Strategy.tsx       # Strategic analysis & T+1 simulations & CoT planning
 │       │   │   ├── Graph.tsx          # Interactive force-directed knowledge graph (canvas)
 │       │   │   ├── Skills.tsx         # Skill library browser (10 categories)
 │       │   │   ├── SkillDetail.tsx    # Skill detail + agent assignments
-│       │   │   └── Meetings.tsx       # Inter-agent meetings & messages
+│       │   │   ├── Meetings.tsx       # Inter-agent meetings & messages
+│       │   │   └── TeamsConfig.tsx    # Teams bot setup & configuration
 │       │   ├── components/            # Shared UI components
-│       │   │   ├── Layout.tsx            # Sidebar nav (9 items), theme toggle
+│       │   │   ├── Layout.tsx            # Sidebar nav (14 items), theme toggle
 │       │   │   ├── AgentIcon.tsx         # Agent avatar component
 │       │   │   ├── GrowthAreas.tsx       # Agent growth tracking
 │       │   │   ├── PeerFeedback.tsx      # Agent peer feedback display
@@ -495,7 +523,7 @@ glyphor-ai-company/
 │       │   │   ├── theme.tsx             # Dark/light theme provider
 │       │   │   ├── hooks.ts              # Custom hooks
 │       │   │   └── types.ts              # Dashboard-specific types
-│       │   ├── App.tsx               # Router & layout (12 routes)
+│       │   ├── App.tsx               # Router & layout (21 routes)
 │       │   └── index.css             # Tailwind + Glyphor brand theme
 │       └── package.json
 │
@@ -526,7 +554,7 @@ glyphor-ai-company/
 │       ├── rachel-kim/          # VP Sales bot
 │       └── riley-morgan/        # M365 Admin bot
 │
-├── supabase/migrations/         # 27 migration files
+├── supabase/migrations/         # 33 migration files
 ├── .github/workflows/deploy.yml # CI/CD (GitHub Actions → Cloud Run)
 ├── turbo.json                   # Turborepo pipeline config
 ├── tsconfig.base.json           # Shared TS config
@@ -998,77 +1026,103 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `company_profile` | Company metadata | name, description, founded_at |
-| `products` | Product catalog | slug, name, status, description |
-| `company_agents` | Agent registry | id, role, codename, name, title, department, reports_to, status, model, temperature, max_turns, budget_*, is_core, is_temporary, expires_at |
-| `decisions` | Approval queue | id, tier, status, title, summary, proposed_by, assigned_to, resolved_by |
-| `activity_log` | Audit trail | agent_id, action, detail, created_at |
+| `company_profile` | Company metadata (key-value) | key (unique), value (JSONB), updated_by, version |
+| `products` | Product catalog | slug (unique), name, status, roadmap (JSONB), metrics (JSONB) |
+| `company_agents` | Agent registry (28 columns) | role (unique), display_name, name, title, reports_to, model, temperature, max_turns, budget_per_run, budget_daily, budget_monthly, is_core, is_temporary, expires_at, thinking_enabled, last_run_summary, performance_score, total_runs, total_cost_usd |
+| `decisions` | Approval queue | tier, status, title, summary, proposed_by, reasoning, assigned_to (TEXT[]), resolved_by |
+| `activity_log` | Audit trail | agent_role, action, product, summary, details (JSONB), tier |
 
-### Financial Tables
+### Financial & Revenue Tables
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `financials` | Revenue & costs | date, product, mrr, infra_cost, api_cost, margin |
-| `customer_health` | Customer scores | customer_id, health_score, risk_level, last_contact |
-| `competitive_intel` | Market intelligence | competitor, category, finding, source |
-| `product_proposals` | Feature proposals | title, product, rice_score, status |
+| `financials` | Revenue & costs time series | date, product, metric, value, details (JSONB) |
+| `customer_health` | Customer scoring | user_id + product (composite PK), health_score, churn_risk, segment, builds_last_7d |
+| `competitive_intel` | Market intelligence | competitor, category, summary, source_url, relevance, action_recommended |
+| `product_proposals` | Feature proposals | codename, proposed_by, description, target_market, tam_estimate, financial_model, decision_id → decisions |
+| `stripe_data` | Stripe records | record_type, customer_id, product, plan, amount_usd, status, cohort_month, channel |
+
+### Infrastructure & Cost Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
 | `gcp_billing` | GCP cost tracking | service, cost_usd, usage (JSONB), recorded_at |
 | `infrastructure_metrics` | Infra health metrics | provider, service, metric_type, value, unit, recorded_at |
 | `cost_metrics` | Unit economics | unit_type, cost_usd, volume, period, recorded_at |
-| `stripe_data` | Stripe records | record_type, customer_id, product, plan, amount_usd, status, cohort_month, channel, properties |
+
+### Agent Identity & Performance Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `agent_profiles` | Personality profiles | agent_id → company_agents, personality_summary, backstory, communication_traits, quirks, tone_formality, emoji_usage, verbosity, voice_sample, signature, voice_examples (JSONB), clifton_strengths, working_style |
+| `agent_performance` | Daily performance stats | agent_id + date (unique), total_runs, successful_runs, failed_runs, avg_duration_ms, avg_quality_score, total_cost, total_input_tokens, total_output_tokens, decisions_filed/approved/rejected |
+| `agent_milestones` | Achievement tracking | agent_id, type, title, description, quality_score |
+| `agent_growth` | Growth dimensions | agent_id + dimension (unique), direction, current_value, previous_value, period, evidence |
+| `agent_peer_feedback` | Peer evaluations | from_agent, to_agent, feedback, context, sentiment |
+| `agent_runs` | Individual run log | agent_id, task, status, duration_ms, cost, input_tokens, output_tokens, tool_calls, turns, error |
+| `agent_activities` | Activity stream | agent_role, activity_type, summary, details |
 
 ### Agent Intelligence Tables
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `agent_memory` | Persistent memories | agent_role, memory_type, content, importance, tags |
-| `agent_reflections` | Post-run reflections | agent_role, run_id, summary, quality_score, what_went_well, what_could_improve |
-| `agent_profiles` | Personality profiles | agent_id, personality_summary, backstory, communication_traits, quirks, tone_formality, voice_sample, clifton_strengths |
-| `agent_briefs` | Dynamic agent briefs | agent_id, system_prompt, skills, tools |
-| `agent_schedules` | DB-defined cron jobs | agent_id, cron_expression, task, payload, enabled |
-| `metrics_cache` | Cached metrics | key, value, expires_at |
+| `agent_memory` | Persistent memories (with pgvector) | agent_role, memory_type, content, importance, tags, embedding (vector 768-dim), graph_node_id → kg_nodes |
+| `agent_reflections` | Post-run reflections | agent_role, run_id, summary, quality_score, what_went_well, what_could_improve, prompt_suggestions, knowledge_gaps |
+| `agent_briefs` | Dynamic agent briefs | agent_id (PK), system_prompt, skills, tools |
+| `agent_schedules` | DB-defined cron jobs | agent_id, cron_expression, task, payload (JSONB), enabled |
+| `metrics_cache` | Cached metrics | service, metric, value, labels (JSONB), timestamp |
 | `cot_analyses` | Chain-of-thought analyses | id, query, status, requested_by, report (JSONB), completed_at, error |
 
 ### Communication Tables
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `agent_messages` | Inter-agent DMs | from_agent, to_agent, thread_id, message, message_type, priority, status, response |
-| `agent_meetings` | Multi-agent meetings | called_by, title, purpose, meeting_type, attendees, status, rounds, contributions, transcript, summary, action_items, decisions_made, escalations |
+| `agent_messages` | Inter-agent DMs | from_agent, to_agent, thread_id, message, message_type, priority, status, response, responded_at |
+| `agent_meetings` | Multi-agent meetings | called_by, title, purpose, meeting_type, attendees, status, rounds, contributions, transcript, summary, action_items, decisions_made, escalations, total_cost |
 | `chat_messages` | Founder ↔ agent chat | agent_role, role (user/agent), content, created_at |
 
 ### Strategy Tables
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `analyses` | Strategic analyses | type, query, depth, status, threads, report, requested_by |
-| `simulations` | T+1 simulations | action, perspective, status, dimensions, cascades, report, requested_by |
+| `analyses` | Strategic analyses | type (5 types), query, depth, status (6 phases), threads (JSONB), report (JSONB), requested_by |
+| `simulations` | T+1 simulations | action, perspective (optimistic/neutral/pessimistic), status (9 states), dimensions, report, accepted_at, accepted_by |
+| `deep_dives` | Deep dive research | target, context, status (6 phases), research_areas, sources, report, requested_by |
 
 ### Collective Intelligence Tables
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `company_pulse` | Live company metrics snapshot | mrr, active_users, platform_status, company_mood, highlights |
-| `company_knowledge` | Org-wide knowledge base | knowledge_type, content, confidence, embedding (pgvector 768-dim), discovered_by, departments_affected |
-| `knowledge_inbox` | Pending knowledge deliveries | target_agent, source_agent, content, status |
-| `knowledge_routes` | Auto-routing rules | source_agent, source_tags, target_agents, delivery_method |
-| `process_patterns` | Discovered organizational patterns | pattern_type, description, evidence, frequency, impact_type, implemented |
-| `authority_proposals` | Tier elevation proposals | agent_id, current_tier, proposed_tier, evidence, status |
+| `company_pulse` | Live company metrics snapshot (singleton) | mrr, mrr_change_pct, active_users, new_users_today, churn_events_today, platform_status, uptime_streak_days, active_incidents, decisions_pending, meetings_today, messages_today, highlights (JSONB), company_mood |
+| `company_knowledge` | Org-wide knowledge base (semantic) | knowledge_type (7 types), content, confidence, embedding (vector 768-dim), discovered_by, contributing_agents, departments_affected, agents_who_need_this, times_validated, times_contradicted, status, superseded_by |
+| `knowledge_inbox` | Pending knowledge deliveries | target_agent, knowledge_id, source_agent, content, status |
+| `knowledge_routes` | Auto-routing rules | source_agent, source_tags, source_type, target_agents, target_departments, delivery_method (inject/message/alert) |
+| `process_patterns` | Discovered organizational patterns | pattern_type (6 types), description, evidence, frequency, impact_type, impact_magnitude, suggested_action, action_type, implemented, agents_involved, departments_involved |
+| `authority_proposals` | Tier elevation proposals | agent_id, current_tier, proposed_tier, action, evidence, success_count, total_count, approval_rate, avg_wait_hours, negative_outcomes, status |
+
+### Founder Orchestration Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `founder_directives` | Founder work directives | created_by, title, description, priority (critical/high/medium/low), category (8 categories), target_agents, department, status, due_date, progress_notes, completion_summary |
+| `work_assignments` | Directive task assignments | directive_id → founder_directives, assigned_to, task_description, task_type, expected_output, priority, depends_on (UUID[]), sequence_order, status (6 states), agent_output, evaluation, quality_score |
 
 ### Operations Tables
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `autonomous_ops_events` | System operations | event_type, agent_role, summary, detail |
-| `data_sync_status` | Sync health tracking | id, status, last_success_at, last_failure_at, consecutive_failures |
+| `events` | System event bus | type, source, timestamp, payload (JSONB), priority, processed_by (TEXT[]), correlation_id |
+| `data_sync_status` | Sync health tracking | id (text PK), status, last_success_at, last_failure_at, last_error, consecutive_failures |
+| `incidents` | Incident management | severity, title, description, affected_agents, status, root_cause, resolution, created_by |
+| `system_status` | System health snapshots | status, summary, details, agent_health (JSONB), data_freshness (JSONB), cost_anomalies (JSONB) |
 | `agent_wake_queue` | Reactive wake queue | agent_role, task, reason, context (JSONB), status (pending/dispatched/completed), dispatched_at |
 
 ### Knowledge Graph Tables
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `kg_nodes` | Graph nodes | node_type, title, content, created_by, confidence, department, importance, embedding (pgvector 768-dim), tags, status |
-| `kg_edges` | Graph edges | source_id → kg_nodes, target_id → kg_nodes, edge_type, strength, confidence, evidence, valid_from, valid_until |
+| `kg_nodes` | Graph nodes (with pgvector) | node_type, title, content, created_by, confidence, department, importance, embedding (vector 768-dim), tags, status, occurred_at, valid_from, valid_until, source_run_id, metadata (JSONB) |
+| `kg_edges` | Graph edges | source_id → kg_nodes, target_id → kg_nodes, edge_type, strength, confidence, evidence, valid_from, valid_until, UNIQUE(source_id, target_id, edge_type) |
 
 RPCs: `match_kg_nodes`, `kg_trace_causes`, `kg_trace_impact`, `kg_neighborhood`, `kg_semantic_search_with_context`, `find_unconnected_similar_nodes`.
 
@@ -1076,11 +1130,55 @@ RPCs: `match_kg_nodes`, `kg_trace_causes`, `kg_trace_impact`, `kg_neighborhood`,
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `skills` | Shared skill definitions | slug, name, category, description, methodology, tools_granted, version |
+| `skills` | Shared skill definitions | slug (unique), name, category, description, methodology, tools_granted, version |
 | `agent_skills` | Per-agent assignments | agent_role → company_agents, skill_id → skills, proficiency (learning/competent/expert/master), times_used, successes, failures, learned_refinements, failure_modes |
 | `task_skill_map` | Task → skill routing | task_regex, skill_slug → skills, priority |
 
-Total: **29 migration files**, **35+ tables**.
+### Marketing & Content Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `content_drafts` | Content pipeline | type, title, content, platform, tags, meta_description, media_url, campaign_type, status, author |
+| `content_metrics` | Content performance | content_type, title, url, platform, views, shares, engagement, conversions, clicks |
+| `seo_data` | SEO intelligence | metric_type, keyword, url, position, search_volume, difficulty, clicks, impressions, ctr |
+| `scheduled_posts` | Social media queue | profile_id, text, platform, scheduled_at, media_url, status, buffer_id, agent |
+| `social_metrics` | Social performance | metric_type, platform, followers, engagement, reach, impressions, clicks, demographics (JSONB) |
+| `email_metrics` | Email campaign tracking | campaign_type, template_name, subject, sends, opens, clicks, unsubscribes, bounces, open_rate, click_rate |
+| `experiment_designs` | A/B test designs | agent, hypothesis, variant_description, primary_metric, duration, status, results (JSONB) |
+
+### Sales & Research Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `company_research` | Target company intel | name, domain, source, content (JSONB) |
+| `contact_research` | Contact enrichment | company, name, title, email, linkedin, source |
+| `account_dossiers` | Account summaries | company, domain, summary, opportunity_estimate, buying_signals, compiled_by |
+| `analytics_events` | Product analytics events | user_id, event_type, channel, plan, template_id, properties (JSONB) |
+
+### Support Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `support_tickets` | Support ticket tracking | external_id (unique), subject, body, status, priority, category, customer_email, classified_by, escalated_to |
+| `support_responses` | Ticket responses | ticket_id → support_tickets, message, kb_articles, status, author |
+| `knowledge_base` | Support KB articles | title, content, category, tags, views, helpful |
+
+### Platform Governance Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `platform_iam_state` | IAM state tracking | platform (gcp/m365/github/stripe/vercel) + credential_id (unique), agent_role, permissions (JSONB), desired_permissions, in_sync, drift_details |
+| `platform_audit_log` | Platform action audit | agent_role, platform, action, resource, request_payload, response_code, response_summary, cost_estimate |
+| `platform_secret_rotation` | Secret lifecycle | platform + secret_name (unique), expires_at, rotated_at, status (active/expiring/expired/rotated) |
+
+### Knowledge Management Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `company_knowledge_base` | Editable knowledge sections | section (unique), title, content, audience (10 roles), last_edited_by, version, is_active |
+| `founder_bulletins` | Founder announcements | created_by, content, audience, priority (fyi/normal/important/urgent), active_from, expires_at, is_active |
+
+Total: **33 migration files**, **69 tables**, **9 RPC functions**, **1 extension (pgvector)**.
 
 ---
 
@@ -1181,13 +1279,21 @@ Total: **29 migration files**, **35+ tables**.
 | Chat | `/chat`, `/chat/:agentId` | Multi-turn conversational agent chat with history |
 | Group Chat | `/group-chat` | Multi-agent group chat |
 | Workforce | `/workforce` | Org chart (7 departments) + grid view — 28 total headcount |
+| Workforce Builder | `/workforce/builder` | Drag-and-drop org chart builder with templates |
 | Agents | `/agents` | Agent roster with status, model, last run |
-| Agent Profile | `/agents/:agentId` | 5-tab profile: Overview (personality, backstory, strengths), Performance (quality scores, growth areas, peer feedback), Memory (memories + reflections), Messages (DMs + meeting participation), Settings (model, temperature, budget) |
+| Agent Profile | `/agents/:agentId` | 5-tab profile: Overview (personality, backstory, strengths), Performance (quality scores, growth areas, peer feedback), Memory (memories + reflections), Messages (DMs + meeting participation), Settings (model, temperature, budget, system prompt) |
 | Agent Builder | `/agents/new` | Create new dynamic agents with name, department, model, budget, cron |
+| Agent Settings | `/agents/:agentId/settings` | Agent configuration & system prompt editing |
 | Approvals | `/approvals` | Pending decision queue — approve/reject |
+| Directives | `/directives` | Founder directives management — create, assign, track work assignments |
 | Financials | `/financials` | Revenue (Stripe MRR), costs (GCP billing), cash (Mercury), vendor subscriptions |
+| Governance | `/governance` | Platform IAM state, secret rotation status, audit log |
+| Knowledge | `/knowledge` | Company knowledge base sections, founder bulletins |
 | Operations | `/operations` | System operations & autonomous events |
 | Strategy | `/strategy` | Strategic analysis engine (5 analysis types) + T+1 simulation engine with impact matrix |
+| Graph | `/graph` | Interactive force-directed knowledge graph (HTML5 Canvas) with search, type filtering, neighborhood highlighting |
+| Skills | `/skills` | Skill library browser (10 categories), create new skills |
+| Skill Detail | `/skills/:slug` | Skill detail + agent assignments + proficiency stats |
 | Meetings | `/meetings` | Meeting timeline with transcripts, action items, decisions, escalations; recent message feed |
 | Teams Config | `/teams-config` | Teams bot setup and configuration |
 
