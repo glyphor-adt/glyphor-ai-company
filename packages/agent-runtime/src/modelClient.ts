@@ -35,6 +35,7 @@ export interface ModelRequest {
   topP?: number;
   topK?: number;
   maxTokens?: number;
+  thinkingEnabled?: boolean;
   signal?: AbortSignal;
 }
 

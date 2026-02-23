@@ -22,6 +22,7 @@ export interface AgentConfig {
   temperature?: number;
   topP?: number;
   topK?: number;
+  thinkingEnabled?: boolean;         // Enable extended thinking / reasoning mode
   contextInjector?: ContextInjector;
   dryRun?: boolean;                  // When true, mutative tools are intercepted and logged
 }

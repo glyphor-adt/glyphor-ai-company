@@ -29,6 +29,7 @@ interface AgentRow {
   model: string | null;
   temperature?: number | null;
   max_turns?: number | null;
+  thinking_enabled?: boolean | null;
   budget_per_run?: number | null;
   budget_daily?: number | null;
   budget_monthly?: number | null;
@@ -986,6 +987,7 @@ function SettingsTab({
   const [model, setModel] = useState(agent.model ?? 'gemini-3-flash-preview');
   const [temperature, setTemperature] = useState(agent.temperature ?? 0.3);
   const [maxTurns, setMaxTurns] = useState(agent.max_turns ?? 10);
+  const [thinkingEnabled, setThinkingEnabled] = useState(agent.thinking_enabled ?? true);
   const [budgetPerRun, setBudgetPerRun] = useState(agent.budget_per_run ?? 0.05);
   const [budgetDaily, setBudgetDaily] = useState(agent.budget_daily ?? 0.5);
   const [budgetMonthly, setBudgetMonthly] = useState(agent.budget_monthly ?? 15);
@@ -995,12 +997,17 @@ function SettingsTab({
   const handleSave = async () => {
     setSaving(true);
     try {
-      await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/settings`, {
+      const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, temperature, max_turns: maxTurns, budget_per_run: budgetPerRun, budget_daily: budgetDaily, budget_monthly: budgetMonthly }),
+        body: JSON.stringify({ model, temperature, max_turns: maxTurns, thinking_enabled: thinkingEnabled, budget_per_run: budgetPerRun, budget_daily: budgetDaily, budget_monthly: budgetMonthly }),
       });
-      onUpdate((prev) => prev ? { ...prev, model, temperature, max_turns: maxTurns, budget_per_run: budgetPerRun, budget_daily: budgetDaily, budget_monthly: budgetMonthly } : prev);
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: resp.statusText }));
+        console.error('Save failed:', err);
+        return;
+      }
+      onUpdate((prev) => prev ? { ...prev, model, temperature, max_turns: maxTurns, thinking_enabled: thinkingEnabled, budget_per_run: budgetPerRun, budget_daily: budgetDaily, budget_monthly: budgetMonthly } : prev);
       setSaved(true);
       setTimeout(() => setSaved(false), 1200);
     } finally {
@@ -1102,7 +1109,7 @@ function SettingsTab({
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-4 gap-4">
           <label className="space-y-1">
             <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Model</span>
             <select value={model} onChange={(e) => setModel(e.target.value)} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40">
@@ -1111,15 +1118,20 @@ function SettingsTab({
                 <option value="gemini-3-flash-preview">gemini-3-flash-preview (default)</option>
                 <option value="gemini-3-pro-preview">gemini-3-pro-preview</option>
                 <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+                <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
                 <option value="gemini-2.5-pro">gemini-2.5-pro</option>
               </optgroup>
               <optgroup label="OpenAI">
                 <option value="gpt-5.2">gpt-5.2</option>
                 <option value="gpt-5.2-pro">gpt-5.2-pro</option>
+                <option value="gpt-5.1">gpt-5.1</option>
                 <option value="gpt-5">gpt-5</option>
                 <option value="gpt-5-mini">gpt-5-mini</option>
                 <option value="gpt-5-nano">gpt-5-nano</option>
                 <option value="gpt-4.1">gpt-4.1</option>
+                <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+                <option value="o3">o3</option>
+                <option value="o4-mini">o4-mini</option>
               </optgroup>
               <optgroup label="Anthropic">
                 <option value="claude-opus-4-6">claude-opus-4-6</option>
@@ -1127,6 +1139,23 @@ function SettingsTab({
                 <option value="claude-haiku-4-5">claude-haiku-4-5</option>
               </optgroup>
             </select>
+          </label>
+          <label className="space-y-1">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Thinking</span>
+            <button
+              type="button"
+              onClick={() => setThinkingEnabled(!thinkingEnabled)}
+              className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                thinkingEnabled
+                  ? 'border-cyan/40 bg-cyan/10 text-cyan'
+                  : 'border-border bg-raised text-txt-faint'
+              }`}
+            >
+              <span>{thinkingEnabled ? 'Enabled' : 'Disabled'}</span>
+              <span className={`inline-flex h-5 w-9 items-center rounded-full transition-colors ${thinkingEnabled ? 'bg-cyan' : 'bg-slate-600'}`}>
+                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${thinkingEnabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+              </span>
+            </button>
           </label>
           <label className="space-y-1">
             <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Temperature</span>
