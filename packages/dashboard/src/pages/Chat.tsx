@@ -34,6 +34,7 @@ export default function Chat() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [slowResponse, setSlowResponse] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Load chat history for the selected agent
@@ -94,6 +95,11 @@ export default function Chat() {
     // Persist user message
     saveMessage(selectedRole, 'user', text);
 
+    // Timeout after 120 s — Cloud Run cold starts can take ~60 s
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120_000);
+    const slowId = setTimeout(() => setSlowResponse(true), 12_000);
+
     try {
       // Send prior conversation for multi-turn context (last 20 messages)
       const history = messages.slice(-20).map((m) => ({
@@ -105,7 +111,12 @@ export default function Chat() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agentRole: selectedRole, task: 'on_demand', message: text, history }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
+      clearTimeout(slowId);
+      setSlowResponse(false);
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -115,12 +126,12 @@ export default function Chat() {
         content = stripReasoning(data.output);
       } else if (data.error) {
         content = `I ran into an issue: ${data.error}`;
-      } else if (data.reason) {
-        content = data.reason;
+      } else if (data.action === 'queued_for_approval') {
+        content = `This request was sent to your approval queue for review.`;
       } else if (data.status === 'aborted') {
         content = 'My response was cut short — I may have timed out. Try a simpler question.';
       } else {
-        content = `I completed the task but had nothing to report. (status: ${data.status ?? 'unknown'})`;
+        content = `I completed the task but had nothing to report back.`;
       }
 
       setMessages((prev) => [
@@ -130,14 +141,21 @@ export default function Chat() {
 
       // Persist agent response
       saveMessage(selectedRole, 'agent', content);
-    } catch {
-      const errContent = `Could not reach ${codename}. The scheduler may be cold-starting — try again in a moment.`;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      clearTimeout(slowId);
+      setSlowResponse(false);
+      const isTimeout = err instanceof Error && err.name === 'AbortError';
+      const errContent = isTimeout
+        ? `${codename} is taking longer than expected to respond — the scheduler may be cold-starting. Please try again in a moment.`
+        : `Could not reach ${codename}. The scheduler may be offline or cold-starting — try again in a moment.`;
       setMessages((prev) => [
         ...prev,
         { role: 'agent', content: errContent, timestamp: new Date() },
       ]);
     } finally {
       setSending(false);
+      setSlowResponse(false);
     }
   };
 
@@ -272,6 +290,11 @@ export default function Chat() {
                   <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-cyan" style={{ animationDelay: '200ms' }} />
                   <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-cyan" style={{ animationDelay: '400ms' }} />
                 </div>
+                {slowResponse && (
+                  <p className="mt-2 text-[10px] text-txt-faint animate-pulse">
+                    Starting up — this can take up to 60 s on first message…
+                  </p>
+                )}
               </div>
             </div>
           )}
