@@ -76,7 +76,7 @@ export default function Skills() {
 
       // Compute agent count per skill
       const countMap = new Map<string, number>();
-      for (const as of (agentSkillsData ?? [])) {
+      for (const as of ((agentSkillsData ?? []) as AgentSkillRow[])) {
         countMap.set(as.skill_id, (countMap.get(as.skill_id) ?? 0) + 1);
       }
 

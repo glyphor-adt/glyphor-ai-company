@@ -14,6 +14,8 @@ import Strategy from './pages/Strategy';
 import Meetings from './pages/Meetings';
 import TeamsConfig from './pages/TeamsConfig';
 import Graph from './pages/Graph';
+import Skills from './pages/Skills';
+import SkillDetail from './pages/SkillDetail';
 
 export default function App() {
   return (
@@ -31,6 +33,8 @@ export default function App() {
         <Route path="operations" element={<Operations />} />
         <Route path="strategy" element={<Strategy />} />
         <Route path="graph" element={<Graph />} />
+        <Route path="skills" element={<Skills />} />
+        <Route path="skills/:slug" element={<SkillDetail />} />
         <Route path="meetings" element={<Meetings />} />
         <Route path="chat" element={<Chat />} />
         <Route path="chat/:agentId" element={<Chat />} />

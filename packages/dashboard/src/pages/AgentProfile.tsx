@@ -125,7 +125,7 @@ interface ActivityRow {
   created_at: string;
 }
 
-type Tab = 'overview' | 'performance' | 'memory' | 'messages' | 'settings';
+type Tab = 'overview' | 'performance' | 'memory' | 'messages' | 'skills' | 'settings';
 
 export default function AgentProfile() {
   const { agentId } = useParams();
@@ -194,6 +194,7 @@ export default function AgentProfile() {
     { key: 'performance', label: 'Performance' },
     { key: 'memory', label: 'Memory' },
     { key: 'messages', label: 'Messages' },
+    { key: 'skills', label: 'Skills' },
     { key: 'settings', label: 'Settings' },
   ];
 
@@ -262,6 +263,7 @@ export default function AgentProfile() {
       {tab === 'performance' && <PerformanceTab agent={agent} />}
       {tab === 'memory' && <MemoryTab agent={agent} />}
       {tab === 'messages' && <MessagesTab agent={agent} />}
+      {tab === 'skills' && <SkillsTab agent={agent} />}
       {tab === 'settings' && <SettingsTab agent={agent} profile={profile} onUpdate={setAgent} />}
     </div>
   );
@@ -968,6 +970,159 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
           </ul>
         )}
       </Card>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SKILLS TAB
+   ════════════════════════════════════════════════════════════════ */
+interface AgentSkillRow {
+  id: string;
+  agent_role: string;
+  skill_id: string;
+  proficiency: string;
+  times_used: number;
+  successes: number;
+  failures: number;
+  last_used_at: string | null;
+  learned_refinements: string[];
+  failure_modes: string[];
+  assigned_at: string;
+  skills: { slug: string; name: string; category: string; description: string; tools_granted: string[] } | null;
+}
+
+const PROF_COLOR: Record<string, string> = {
+  learning:  'bg-slate-500/15 text-slate-400 border-slate-500/30',
+  competent: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+  expert:    'bg-cyan/15 text-cyan border-cyan/30',
+  master:    'bg-amber-500/15 text-amber-400 border-amber-500/30',
+};
+
+const CAT_COLOR: Record<string, string> = {
+  finance: '#4B9FE1', engineering: '#0097FF', marketing: '#7B68EE',
+  product: '#00E0FF', 'customer-success': '#00BCD4', sales: '#5B8DEF',
+  design: '#E91E63', leadership: '#623CEA', operations: '#FF6B35', analytics: '#10B981',
+};
+
+function SkillsTab({ agent }: { agent: AgentRow }) {
+  const [skills, setSkills] = useState<AgentSkillRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from('agent_skills')
+        .select('*, skills(slug, name, category, description, tools_granted)')
+        .eq('agent_role', agent.role)
+        .order('times_used', { ascending: false });
+      setSkills((data as unknown as AgentSkillRow[]) ?? []);
+      setLoading(false);
+    })();
+  }, [agent.role]);
+
+  if (loading) return <Skeleton className="h-48" />;
+
+  const totalUsage = skills.reduce((s, sk) => s + sk.times_used, 0);
+  const totalSuccesses = skills.reduce((s, sk) => s + sk.successes, 0);
+  const overallRate = totalUsage > 0 ? ((totalSuccesses / totalUsage) * 100).toFixed(1) : '—';
+  const profCounts = skills.reduce<Record<string, number>>((acc, sk) => {
+    acc[sk.proficiency] = (acc[sk.proficiency] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  return (
+    <div className="space-y-6">
+      {/* Stats */}
+      <div className="grid grid-cols-4 gap-4">
+        {[
+          { label: 'Skills', value: String(skills.length) },
+          { label: 'Total Uses', value: String(totalUsage) },
+          { label: 'Success Rate', value: overallRate !== '—' ? `${overallRate}%` : '—' },
+          { label: 'Master-level', value: String(profCounts.master ?? 0) },
+        ].map((s) => (
+          <Card key={s.label} className="text-center py-3">
+            <p className="text-xl font-bold text-txt-primary">{s.value}</p>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-txt-faint">{s.label}</p>
+          </Card>
+        ))}
+      </div>
+
+      {/* Skill list */}
+      <Card>
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-txt-primary">
+          Assigned Skills ({skills.length})
+        </h3>
+        {skills.length > 0 ? (
+          <div className="space-y-2">
+            {skills.map((sk) => {
+              const s = sk.skills;
+              const rate = sk.times_used > 0 ? ((sk.successes / sk.times_used) * 100).toFixed(0) : null;
+              const catColor = s ? CAT_COLOR[s.category] ?? '#666' : '#666';
+              return (
+                <Link
+                  key={sk.id}
+                  to={`/skills/${s?.slug ?? ''}`}
+                  className="flex items-center gap-3 rounded-lg border border-border/50 px-3 py-2.5 transition-colors hover:border-cyan/30"
+                >
+                  <span
+                    className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                    style={{ backgroundColor: `${catColor}15`, color: catColor }}
+                  >
+                    {s?.category ?? '?'}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-txt-primary">{s?.name ?? sk.skill_id}</p>
+                    <p className="text-[11px] text-txt-faint line-clamp-1">{s?.description ?? ''}</p>
+                    <p className="text-[11px] text-txt-faint mt-0.5">
+                      {sk.times_used > 0 ? `${sk.times_used} uses · ${rate}% success` : 'Not yet used'}
+                      {sk.last_used_at ? ` · Last: ${timeAgo(sk.last_used_at)}` : ''}
+                    </p>
+                  </div>
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${PROF_COLOR[sk.proficiency] ?? PROF_COLOR.learning}`}>
+                    {sk.proficiency}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-txt-faint">No skills assigned to this agent.</p>
+        )}
+      </Card>
+
+      {/* Refinements & Failure modes */}
+      {skills.some((sk) => sk.learned_refinements.length > 0 || sk.failure_modes.length > 0) && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card>
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-txt-primary">Learned Refinements</h3>
+            <ul className="space-y-1.5">
+              {skills.flatMap((sk) =>
+                sk.learned_refinements.map((r, i) => (
+                  <li key={`${sk.id}-r-${i}`} className="flex items-start gap-2 text-sm text-txt-secondary">
+                    <span className="mt-1 text-tier-green">✓</span>
+                    <span><span className="text-txt-faint">[{sk.skills?.name}]</span> {r}</span>
+                  </li>
+                ))
+              )}
+            </ul>
+          </Card>
+          <Card>
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-txt-primary">Failure Modes</h3>
+            <ul className="space-y-1.5">
+              {skills.flatMap((sk) =>
+                sk.failure_modes.map((f, i) => (
+                  <li key={`${sk.id}-f-${i}`} className="flex items-start gap-2 text-sm text-txt-secondary">
+                    <span className="mt-1 text-tier-red">⚠</span>
+                    <span><span className="text-txt-faint">[{sk.skills?.name}]</span> {f}</span>
+                  </li>
+                ))
+              )}
+            </ul>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
