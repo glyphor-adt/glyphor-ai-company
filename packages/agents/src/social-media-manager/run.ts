@@ -1,6 +1,6 @@
 /**
  * Social Media Manager (Kai Johnson) — Runner
- * Reports to Maya Patel (CMO). Social media scheduling and analytics.
+ * Reports to Maya Brooks (CMO). Social media scheduling and analytics.
  */
 import {
   CompanyAgentRunner, ModelClient, AgentSupervisor,

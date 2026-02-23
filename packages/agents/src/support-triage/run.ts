@@ -1,6 +1,6 @@
 /**
  * Support Triage (David Santos) — Runner
- * Reports to James Wilson (VP-CS). Support ticket triage and resolution.
+ * Reports to James Turner (VP-CS). Support ticket triage and resolution.
  */
 import {
   CompanyAgentRunner, ModelClient, AgentSupervisor,

@@ -1,6 +1,6 @@
 /**
  * SEO Analyst (Lisa Chen) — Tools
- * Reports to Maya Patel (CMO). Search engine optimization and keyword strategy.
+ * Reports to Maya Brooks (CMO). Search engine optimization and keyword strategy.
  */
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { ToolDefinition } from '@glyphor/agent-runtime';

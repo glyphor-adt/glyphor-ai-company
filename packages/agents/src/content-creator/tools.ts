@@ -1,6 +1,6 @@
 /**
  * Content Creator (Tyler Reed) — Tools
- * Reports to Maya Patel (CMO). Content drafting and performance analysis.
+ * Reports to Maya Brooks (CMO). Content drafting and performance analysis.
  */
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { ToolDefinition } from '@glyphor/agent-runtime';

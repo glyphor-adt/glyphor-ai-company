@@ -1,6 +1,6 @@
 /**
  * Support Triage (David Santos) — Tools
- * Reports to James Wilson (VP-CS). Support ticket triage and resolution.
+ * Reports to James Turner (VP-CS). Support ticket triage and resolution.
  */
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { ToolDefinition } from '@glyphor/agent-runtime';

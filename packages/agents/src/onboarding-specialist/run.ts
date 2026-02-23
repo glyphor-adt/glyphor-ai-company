@@ -1,6 +1,6 @@
 /**
  * Onboarding Specialist (Emma Wright) — Runner
- * Reports to James Wilson (VP-CS). New user activation and onboarding optimization.
+ * Reports to James Turner (VP-CS). New user activation and onboarding optimization.
  */
 import {
   CompanyAgentRunner, ModelClient, AgentSupervisor,

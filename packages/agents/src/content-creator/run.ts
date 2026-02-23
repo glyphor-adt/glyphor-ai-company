@@ -1,6 +1,6 @@
 /**
  * Content Creator (Tyler Reed) — Runner
- * Reports to Maya Patel (CMO). Content drafting and performance analysis.
+ * Reports to Maya Brooks (CMO). Content drafting and performance analysis.
  */
 import {
   CompanyAgentRunner, ModelClient, AgentSupervisor,

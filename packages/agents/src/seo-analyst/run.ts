@@ -1,6 +1,6 @@
 /**
  * SEO Analyst (Lisa Chen) — Runner
- * Reports to Maya Patel (CMO). Search engine optimization and keyword strategy.
+ * Reports to Maya Brooks (CMO). Search engine optimization and keyword strategy.
  */
 import {
   CompanyAgentRunner, ModelClient, AgentSupervisor,

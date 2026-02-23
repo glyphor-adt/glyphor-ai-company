@@ -1,6 +1,6 @@
 /**
  * Social Media Manager (Kai Johnson) — Tools
- * Reports to Maya Patel (CMO). Social media scheduling and analytics.
+ * Reports to Maya Brooks (CMO). Social media scheduling and analytics.
  */
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { ToolDefinition } from '@glyphor/agent-runtime';

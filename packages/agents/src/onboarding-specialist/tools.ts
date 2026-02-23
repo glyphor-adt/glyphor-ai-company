@@ -1,6 +1,6 @@
 /**
  * Onboarding Specialist (Emma Wright) — Tools
- * Reports to James Wilson (VP-CS). New user activation and onboarding optimization.
+ * Reports to James Turner (VP-CS). New user activation and onboarding optimization.
  */
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { ToolDefinition } from '@glyphor/agent-runtime';
