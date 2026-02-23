@@ -12,11 +12,15 @@ import {
   Bar,
   AreaChart,
   Area,
+  PieChart,
+  Pie,
+  Cell,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
+  Legend,
 } from 'recharts';
 
 interface FinancialRow {
@@ -26,6 +30,34 @@ interface FinancialRow {
   metric: string;
   value: number;
   details: unknown;
+}
+
+interface GcpBillingRow {
+  id: string;
+  service: string;
+  cost_usd: number;
+  usage: { date?: string; currency?: string; raw_service?: string };
+  recorded_at: string;
+}
+
+function useGcpBilling(days = 30) {
+  const [data, setData] = useState<GcpBillingRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+      const { data: rows } = await supabase
+        .from('gcp_billing')
+        .select('*')
+        .gte('recorded_at', since)
+        .order('recorded_at', { ascending: true });
+      setData((rows as GcpBillingRow[]) ?? []);
+      setLoading(false);
+    })();
+  }, [days]);
+
+  return { data, loading };
 }
 
 function useFinancialsRaw(days = 30) {
@@ -50,6 +82,7 @@ function useFinancialsRaw(days = 30) {
 
 export default function Financials() {
   const { data: raw, loading } = useFinancialsRaw(30);
+  const { data: gcpBilling, loading: gcpLoading } = useGcpBilling(30);
 
   // Pivot EAV rows into daily snapshots
   const mrrData = useMemo(() => {
@@ -128,6 +161,41 @@ export default function Financials() {
     ? costData[costData.length - 1].infrastructure + costData[costData.length - 1].api
     : 0;
   const latestMargin = marginData.length > 0 ? marginData[marginData.length - 1].margin : 0;
+
+  // GCP cost by service (pie chart & table)
+  const gcpByService = useMemo(() => {
+    const byService = new Map<string, number>();
+    for (const row of gcpBilling) {
+      byService.set(row.service, (byService.get(row.service) ?? 0) + row.cost_usd);
+    }
+    return Array.from(byService.entries())
+      .map(([service, cost]) => ({ service, cost: parseFloat(cost.toFixed(2)) }))
+      .sort((a, b) => b.cost - a.cost);
+  }, [gcpBilling]);
+
+  // GCP daily cost trend (stacked by top services)
+  const gcpDailyTrend = useMemo(() => {
+    const topServices = gcpByService.slice(0, 6).map((s) => s.service);
+    const byDate = new Map<string, Record<string, number>>();
+    for (const row of gcpBilling) {
+      const date = row.usage?.date ?? row.recorded_at.split('T')[0];
+      const entry = byDate.get(date) ?? {};
+      const key = topServices.includes(row.service) ? row.service : 'other';
+      entry[key] = (entry[key] ?? 0) + row.cost_usd;
+      byDate.set(date, entry);
+    }
+    return Array.from(byDate.entries())
+      .map(([date, services]) => ({ date: formatDate(date), ...services }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [gcpBilling, gcpByService]);
+
+  const gcpTopServices = useMemo(() => {
+    const top = gcpByService.slice(0, 6).map((s) => s.service);
+    if (gcpByService.length > 6) top.push('other');
+    return top;
+  }, [gcpByService]);
+
+  const gcpTotalCost = gcpByService.reduce((sum, s) => sum + s.cost, 0);
 
   // Mercury stats
   const latestBalance = raw.filter((r) => r.metric === 'cash_balance').sort((a, b) => b.date.localeCompare(a.date))[0]?.value ?? 0;
@@ -284,6 +352,114 @@ export default function Financials() {
         </Card>
       </div>
 
+      {/* GCP Billing Breakdown */}
+      <div className="grid grid-cols-2 gap-6">
+        {/* Per-Service Cost (Pie) */}
+        <Card>
+          <div className="flex items-center justify-between">
+            <SectionHeader title="GCP Cost by Service" />
+            {!gcpLoading && gcpTotalCost > 0 && (
+              <span className="text-sm font-medium text-txt-secondary">
+                Total: ${gcpTotalCost.toFixed(2)}
+              </span>
+            )}
+          </div>
+          {gcpLoading ? (
+            <Skeleton className="h-64" />
+          ) : gcpByService.length === 0 ? (
+            <EmptyChart message="No GCP billing data yet" />
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie
+                  data={gcpByService.slice(0, 8)}
+                  dataKey="cost"
+                  nameKey="service"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={90}
+                  innerRadius={50}
+                  paddingAngle={2}
+                  label={({ service, cost }: { service: string; cost: number }) =>
+                    `${service} $${cost.toFixed(2)}`
+                  }
+                >
+                  {gcpByService.slice(0, 8).map((_, i) => (
+                    <Cell key={i} fill={GCP_COLORS[i % GCP_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
+                  formatter={(value: number) => [`$${value.toFixed(4)}`]}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+
+        {/* GCP Daily Trend (Stacked Bar) */}
+        <Card>
+          <SectionHeader title="GCP Daily Cost Trend" />
+          {gcpLoading ? (
+            <Skeleton className="h-64" />
+          ) : gcpDailyTrend.length === 0 ? (
+            <EmptyChart message="No GCP billing data yet" />
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={gcpDailyTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
+                <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${v}`} />
+                <Tooltip
+                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
+                  labelStyle={{ color: 'var(--color-txt-secondary)' }}
+                  formatter={(value: number) => [`$${value.toFixed(4)}`]}
+                />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                {gcpTopServices.map((svc, i) => (
+                  <Bar key={svc} dataKey={svc} stackId="gcp" fill={GCP_COLORS[i % GCP_COLORS.length]} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+      </div>
+
+      {/* GCP Service Cost Table */}
+      <Card>
+        <SectionHeader title="GCP Service Cost Details (30 days)" />
+        {gcpLoading ? (
+          <Skeleton className="h-48" />
+        ) : gcpByService.length === 0 ? (
+          <div className="flex h-32 items-center justify-center">
+            <p className="text-sm text-txt-faint">No GCP billing data yet — billing sync pending</p>
+          </div>
+        ) : (
+          <div className="mt-2 overflow-hidden rounded-lg border border-[var(--color-border)]">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+                  <th className="px-4 py-2 text-left font-medium text-txt-muted">Service</th>
+                  <th className="px-4 py-2 text-right font-medium text-txt-muted">Total Cost</th>
+                  <th className="px-4 py-2 text-right font-medium text-txt-muted">% of Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {gcpByService.map((svc) => (
+                  <tr key={svc.service} className="border-b border-[var(--color-border)] last:border-0">
+                    <td className="px-4 py-2 font-medium text-txt-primary">{svc.service}</td>
+                    <td className="px-4 py-2 text-right font-mono text-txt-secondary">${svc.cost.toFixed(2)}</td>
+                    <td className="px-4 py-2 text-right text-txt-muted">
+                      {gcpTotalCost > 0 ? ((svc.cost / gcpTotalCost) * 100).toFixed(1) : '0.0'}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
       {/* Gross Margin */}
       <Card>
         <SectionHeader title="Gross Margin %" />
@@ -335,6 +511,8 @@ export default function Financials() {
     </div>
   );
 }
+
+const GCP_COLORS = ['#4285F4', '#EA4335', '#FBBC04', '#34A853', '#FF6D01', '#46BDC6', '#7B61FF', '#9AA0A6'];
 
 function SummaryCard({ label, value, loading, sub }: { label: string; value: string; loading: boolean; sub?: string }) {
   if (loading) return <Skeleton className="h-24" />;
