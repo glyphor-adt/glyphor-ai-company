@@ -12,6 +12,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GlyphorEventBus, ModelClient } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent } from '@glyphor/agent-runtime';
 import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll, TeamsBotHandler, extractBearerToken } from '@glyphor/integrations';
+import { SYSTEM_PROMPTS } from '@glyphor/agents';
 import { EventRouter } from './eventRouter.js';
 import { DecisionQueue } from './decisionQueue.js';
 import { DynamicScheduler } from './dynamicScheduler.js';
@@ -612,6 +613,15 @@ const server = createServer(async (req, res) => {
       });
 
       json(res, 200, { success: true, agent: data });
+      return;
+    }
+
+    // Get code-defined system prompt for an agent
+    const promptMatch = url.match(/^\/agents\/([^/]+)\/system-prompt$/);
+    if (method === 'GET' && promptMatch) {
+      const role = decodeURIComponent(promptMatch[1]);
+      const prompt = SYSTEM_PROMPTS[role];
+      json(res, 200, { role, source: prompt ? 'code' : 'none', system_prompt: prompt ?? null });
       return;
     }
 

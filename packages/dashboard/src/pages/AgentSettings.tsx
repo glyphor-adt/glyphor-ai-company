@@ -82,7 +82,7 @@ export default function AgentSettings() {
         setBudgetDaily(a.budget_daily ?? 0.5);
         setBudgetMonthly(a.budget_monthly ?? 15);
 
-        // Fetch system prompt from agent_briefs
+        // Fetch system prompt from agent_briefs (custom override)
         const { data: brief } = await (supabase
           .from('agent_briefs') as any)
           .select('system_prompt')
@@ -92,6 +92,14 @@ export default function AgentSettings() {
           setSystemPrompt(brief.system_prompt);
           setSystemPromptSource('db');
         } else {
+          // Load code-defined system prompt from scheduler
+          try {
+            const promptRes = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(a.role)}/system-prompt`);
+            const promptData = await promptRes.json();
+            if (promptData?.system_prompt) {
+              setSystemPrompt(promptData.system_prompt);
+            }
+          } catch { /* prompt not available */ }
           setSystemPromptSource('code');
         }
       }
@@ -385,7 +393,7 @@ export default function AgentSettings() {
           <div className="flex items-center gap-2">
             <PromptIcon />
             <h2 className="text-sm font-semibold uppercase tracking-wider text-txt-primary">System Prompt</h2>
-            {systemPromptSource === 'code' && !systemPrompt && (
+            {systemPromptSource === 'code' && (
               <span className="rounded bg-raised px-2 py-0.5 text-[10px] font-medium text-txt-faint">Defined in code</span>
             )}
             {systemPromptSource === 'db' && (
@@ -402,30 +410,39 @@ export default function AgentSettings() {
 
         {promptExpanded && (
           <div className="mt-4 space-y-3">
+            {systemPromptSource === 'code' && systemPrompt && (
+              <pre className="max-h-[400px] overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-raised px-4 py-3 font-mono text-[13px] leading-relaxed text-txt-secondary">
+                {systemPrompt}
+              </pre>
+            )}
             {systemPromptSource === 'code' && !systemPrompt && (
               <p className="text-sm leading-relaxed text-txt-faint">
-                This agent's system prompt is defined in the codebase. Add a custom prompt below to override it at runtime.
+                This agent's system prompt is defined in the codebase but could not be loaded.
               </p>
             )}
-            <textarea
-              value={systemPrompt}
-              onChange={(e) => setSystemPrompt(e.target.value)}
-              placeholder="Enter a system prompt for this agent..."
-              rows={12}
-              className="w-full rounded-lg border border-border bg-raised px-4 py-3 font-mono text-[13px] leading-relaxed text-txt-secondary outline-none placeholder:text-txt-faint/50 focus:border-cyan/40"
-            />
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] text-txt-faint">
-                {systemPrompt.length.toLocaleString()} characters
-              </p>
-              <button
-                onClick={handleSavePrompt}
-                disabled={savingPrompt}
-                className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40"
-              >
-                {savedPrompt ? 'Saved!' : savingPrompt ? 'Saving...' : 'Save Prompt'}
-              </button>
-            </div>
+            {systemPromptSource === 'db' && (
+              <>
+                <textarea
+                  value={systemPrompt}
+                  onChange={(e) => setSystemPrompt(e.target.value)}
+                  placeholder="Enter a system prompt for this agent..."
+                  rows={12}
+                  className="w-full rounded-lg border border-border bg-raised px-4 py-3 font-mono text-[13px] leading-relaxed text-txt-secondary outline-none placeholder:text-txt-faint/50 focus:border-cyan/40"
+                />
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] text-txt-faint">
+                    {systemPrompt.length.toLocaleString()} characters
+                  </p>
+                  <button
+                    onClick={handleSavePrompt}
+                    disabled={savingPrompt}
+                    className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40"
+                  >
+                    {savedPrompt ? 'Saved!' : savingPrompt ? 'Saving...' : 'Save Prompt'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </Card>

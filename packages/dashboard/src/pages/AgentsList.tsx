@@ -63,15 +63,15 @@ export default function AgentsList() {
               const directReports = SUB_TEAM.filter((m) => m.reportsTo === agent.role);
               const skills = AGENT_SKILLS[agent.role] ?? [];
               return (
-                <Link key={agent.id} to={`/agents/${agent.role}`} className="group block">
-                  <Card className="relative overflow-hidden transition-all hover:border-cyan/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.06)]">
+                <Link key={agent.id} to={`/agents/${agent.role}`} className="group block h-full">
+                  <Card className="relative flex h-full flex-col overflow-hidden transition-all hover:border-cyan/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.06)]">
                     {/* Color accent */}
                     <div
                       className="absolute left-0 top-0 h-full w-1 rounded-l-xl"
                       style={{ background: meta?.color ?? '#64748b' }}
                     />
 
-                    <div className="pl-3">
+                    <div className="flex flex-1 flex-col pl-3">
                       {/* Top row: avatar + name */}
                       <div className="flex items-start gap-3">
                         <AgentAvatar role={agent.role} size={48} glow={agent.status === 'active'} />
@@ -106,30 +106,36 @@ export default function AgentsList() {
                       </div>
 
                       {/* Skills preview */}
-                      {skills.length > 0 && (
-                        <div className="mt-3 flex flex-wrap gap-1">
-                          {skills.slice(0, 3).map((s) => (
-                            <span
-                              key={s}
-                              className="rounded-md border border-border bg-raised px-1.5 py-0.5 text-[10px] font-mono text-txt-faint"
-                            >
-                              {s}
-                            </span>
-                          ))}
-                          {skills.length > 3 && (
-                            <span className="rounded-md px-1.5 py-0.5 text-[10px] text-txt-faint">
-                              +{skills.length - 3}
-                            </span>
-                          )}
-                        </div>
-                      )}
+                      <div className="mt-3 flex flex-wrap gap-1">
+                        {skills.length > 0 ? (
+                          <>
+                            {skills.slice(0, 3).map((s) => (
+                              <span
+                                key={s}
+                                className="rounded-md border border-border/60 bg-raised px-1.5 py-0.5 text-[10px] font-mono text-txt-secondary"
+                              >
+                                {s}
+                              </span>
+                            ))}
+                            {skills.length > 3 && (
+                              <span className="rounded-md px-1.5 py-0.5 text-[10px] text-txt-muted">
+                                +{skills.length - 3}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-[10px] text-txt-faint">&nbsp;</span>
+                        )}
+                      </div>
 
-                      {/* Direct reports count */}
-                      {directReports.length > 0 && (
-                        <p className="mt-2 text-[10px] text-txt-faint">
-                          {directReports.length} direct report{directReports.length > 1 ? 's' : ''}
-                        </p>
-                      )}
+                      {/* Direct reports count — pinned to bottom */}
+                      <div className="mt-auto pt-2">
+                        {directReports.length > 0 && (
+                          <p className="text-[10px] text-txt-faint">
+                            {directReports.length} direct report{directReports.length > 1 ? 's' : ''}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </Card>
                 </Link>

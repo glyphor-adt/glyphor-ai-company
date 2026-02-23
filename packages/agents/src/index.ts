@@ -38,3 +38,54 @@ export { runM365Admin, type M365AdminRunParams } from './m365-admin/run.js';
 
 // Operations
 export { runOps, type OpsRunParams } from './ops/run.js';
+
+// ── System prompt map (keyed by agent role slug) ──
+import { CHIEF_OF_STAFF_SYSTEM_PROMPT } from './chief-of-staff/systemPrompt.js';
+import { CTO_SYSTEM_PROMPT } from './cto/systemPrompt.js';
+import { CFO_SYSTEM_PROMPT } from './cfo/systemPrompt.js';
+import { CPO_SYSTEM_PROMPT } from './cpo/systemPrompt.js';
+import { CMO_SYSTEM_PROMPT } from './cmo/systemPrompt.js';
+import { VP_CUSTOMER_SUCCESS_SYSTEM_PROMPT } from './vp-customer-success/systemPrompt.js';
+import { VP_SALES_SYSTEM_PROMPT } from './vp-sales/systemPrompt.js';
+import { VP_DESIGN_SYSTEM_PROMPT } from './vp-design/systemPrompt.js';
+import { PLATFORM_ENGINEER_SYSTEM_PROMPT } from './platform-engineer/systemPrompt.js';
+import { QUALITY_ENGINEER_SYSTEM_PROMPT } from './quality-engineer/systemPrompt.js';
+import { DEVOPS_ENGINEER_SYSTEM_PROMPT } from './devops-engineer/systemPrompt.js';
+import { USER_RESEARCHER_SYSTEM_PROMPT } from './user-researcher/systemPrompt.js';
+import { COMPETITIVE_INTEL_SYSTEM_PROMPT } from './competitive-intel/systemPrompt.js';
+import { REVENUE_ANALYST_SYSTEM_PROMPT } from './revenue-analyst/systemPrompt.js';
+import { COST_ANALYST_SYSTEM_PROMPT } from './cost-analyst/systemPrompt.js';
+import { CONTENT_CREATOR_SYSTEM_PROMPT } from './content-creator/systemPrompt.js';
+import { SEO_ANALYST_SYSTEM_PROMPT } from './seo-analyst/systemPrompt.js';
+import { SOCIAL_MEDIA_MANAGER_SYSTEM_PROMPT } from './social-media-manager/systemPrompt.js';
+import { ONBOARDING_SPECIALIST_SYSTEM_PROMPT } from './onboarding-specialist/systemPrompt.js';
+import { SUPPORT_TRIAGE_SYSTEM_PROMPT } from './support-triage/systemPrompt.js';
+import { ACCOUNT_RESEARCH_SYSTEM_PROMPT } from './account-research/systemPrompt.js';
+import { M365_ADMIN_SYSTEM_PROMPT } from './m365-admin/systemPrompt.js';
+import { OPS_SYSTEM_PROMPT } from './ops/systemPrompt.js';
+
+export const SYSTEM_PROMPTS: Record<string, string> = {
+  'chief-of-staff': CHIEF_OF_STAFF_SYSTEM_PROMPT,
+  'cto': CTO_SYSTEM_PROMPT,
+  'cfo': CFO_SYSTEM_PROMPT,
+  'cpo': CPO_SYSTEM_PROMPT,
+  'cmo': CMO_SYSTEM_PROMPT,
+  'vp-customer-success': VP_CUSTOMER_SUCCESS_SYSTEM_PROMPT,
+  'vp-sales': VP_SALES_SYSTEM_PROMPT,
+  'vp-design': VP_DESIGN_SYSTEM_PROMPT,
+  'platform-engineer': PLATFORM_ENGINEER_SYSTEM_PROMPT,
+  'quality-engineer': QUALITY_ENGINEER_SYSTEM_PROMPT,
+  'devops-engineer': DEVOPS_ENGINEER_SYSTEM_PROMPT,
+  'user-researcher': USER_RESEARCHER_SYSTEM_PROMPT,
+  'competitive-intel': COMPETITIVE_INTEL_SYSTEM_PROMPT,
+  'revenue-analyst': REVENUE_ANALYST_SYSTEM_PROMPT,
+  'cost-analyst': COST_ANALYST_SYSTEM_PROMPT,
+  'content-creator': CONTENT_CREATOR_SYSTEM_PROMPT,
+  'seo-analyst': SEO_ANALYST_SYSTEM_PROMPT,
+  'social-media-manager': SOCIAL_MEDIA_MANAGER_SYSTEM_PROMPT,
+  'onboarding-specialist': ONBOARDING_SPECIALIST_SYSTEM_PROMPT,
+  'support-triage': SUPPORT_TRIAGE_SYSTEM_PROMPT,
+  'account-research': ACCOUNT_RESEARCH_SYSTEM_PROMPT,
+  'm365-admin': M365_ADMIN_SYSTEM_PROMPT,
+  'ops': OPS_SYSTEM_PROMPT,
+};
