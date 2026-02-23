@@ -25,7 +25,7 @@
   "bots": [
     {
       "botId": "603b4709-120c-4bdc-9b72-0b15d3aed6d5",
-      "scopes": ["personal"],
+      "scopes": ["personal", "team"],
       "supportsFiles": false,
       "isNotificationOnly": false
     }
