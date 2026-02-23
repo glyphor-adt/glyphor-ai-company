@@ -4,40 +4,40 @@
 
 /* ─── Theme Variables ─────────────────────────── */
 :root {
-  --color-base: #f4f5f7;
+  --color-base: #f2f4f8;
   --color-surface: #ffffff;
-  --color-raised: #f0f1f3;
-  --color-border: #d1d5db;
-  --color-border-hover: #9ca3af;
-  --color-txt-primary: #0a0a0f;
-  --color-txt-secondary: #1f2937;
-  --color-txt-muted: #4b5563;
-  --color-txt-faint: #6b7280;
-  --color-hover-bg: rgba(0,0,0,0.05);
-  --color-shimmer: rgba(14, 116, 144, 0.10);
-  --scrollbar-thumb: #d1d5db;
-  --scrollbar-hover: #6b7280;
+  --color-raised: #f7f8fb;
+  --color-border: #e3e7f0;
+  --color-border-hover: #c8cfdf;
+  --color-txt-primary: #0f1623;
+  --color-txt-secondary: #374151;
+  --color-txt-muted: #6b7280;
+  --color-txt-faint: #9ca3af;
+  --color-hover-bg: rgba(0,0,0,0.04);
+  --color-shimmer: rgba(14, 116, 144, 0.08);
+  --scrollbar-thumb: #dde1ec;
+  --scrollbar-hover: #9ca3af;
   /* Accent colors – dark shades for white-bg contrast (≥ 5:1) */
-  --cyan: 14 116 144;      /* #0E7490  teal-700 */
-  --azure: 29 78 216;      /* #1D4ED8  blue-700 */
-  --accent: 109 40 217;    /* #6D28D9  violet-700 */
+  --cyan: 8 145 178;       /* #0891B2  cyan-600 */
+  --azure: 37 99 235;      /* #2563EB  blue-600 */
+  --accent: 124 58 237;    /* #7C3AED  violet-600 */
 }
 
 .dark {
   color-scheme: dark;
-  --color-base: #0c0d12;
-  --color-surface: #13151f;
-  --color-raised: #1a1c28;
-  --color-border: #232635;
-  --color-border-hover: #2e3244;
-  --color-txt-primary: #e8ecf5;
-  --color-txt-secondary: #8a95b0;
-  --color-txt-muted: #4e5870;
-  --color-txt-faint: #2c3350;
+  --color-base: #0d0f18;
+  --color-surface: #131620;
+  --color-raised: #1a1e2e;
+  --color-border: #242840;
+  --color-border-hover: #313655;
+  --color-txt-primary: #eaedfa;
+  --color-txt-secondary: #8b96b8;
+  --color-txt-muted: #505878;
+  --color-txt-faint: #313558;
   --color-hover-bg: rgba(255,255,255,0.05);
   --color-shimmer: rgba(34, 211, 238, 0.08);
-  --scrollbar-thumb: #232635;
-  --scrollbar-hover: #2e3244;
+  --scrollbar-thumb: #242840;
+  --scrollbar-hover: #313655;
   /* Accent colors – bright shades for dark-bg contrast (≥ 6:1) */
   --cyan: 34 211 238;      /* #22D3EE  cyan-400 */
   --azure: 96 165 250;     /* #60A5FA  blue-400 */
@@ -61,12 +61,27 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
   animation: shimmer 1.8s linear infinite;
 }
 
-/* ─── Dark Card Elevation ─────────────────── */
+/* ─── Light Mode Card Elevation ──────────────── */
+.glass-card {
+  background: #ffffff;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 4px 16px rgba(0, 0, 0, 0.04);
+  border-color: var(--color-border) !important;
+}
+.glass-card:hover {
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    0 8px 32px rgba(0, 0, 0, 0.06);
+  border-color: var(--color-border-hover) !important;
+}
+
+/* ─── Dark Mode Card Elevation ───────────────── */
 .dark .glass-card {
-  background: rgba(19, 21, 31, 0.96) !important;
+  background: rgba(19, 22, 32, 0.97) !important;
   backdrop-filter: blur(20px) saturate(1.5);
   -webkit-backdrop-filter: blur(20px) saturate(1.5);
-  border-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
   box-shadow:
     0 1px 0 0 rgba(255, 255, 255, 0.07) inset,
     0 -1px 0 0 rgba(0, 0, 0, 0.35) inset,
@@ -74,8 +89,8 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
     0 2px 6px rgba(0, 0, 0, 0.3);
 }
 .dark .glass-card:hover {
-  background: rgba(23, 25, 37, 0.98) !important;
-  border-color: rgba(255, 255, 255, 0.11) !important;
+  background: rgba(24, 27, 40, 0.99) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
   box-shadow:
     0 1px 0 0 rgba(255, 255, 255, 0.09) inset,
     0 -1px 0 0 rgba(0, 0, 0, 0.35) inset,
@@ -85,7 +100,7 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
 
 /* Inner raised elements inside glass cards */
 .dark .glass-raised {
-  background: rgba(26, 28, 40, 0.85) !important;
+  background: rgba(26, 30, 46, 0.85) !important;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-color: rgba(255, 255, 255, 0.07) !important;
