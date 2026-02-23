@@ -31,6 +31,12 @@ export async function queryBillingExport(
 ): Promise<DailyCost[]> {
   const bq = getBigQueryClient();
 
+  // First check: does the table have any rows at all?
+  const countQuery = `SELECT COUNT(*) as total FROM \`${projectId}.${billingDataset}.${billingTable}\``;
+  const [countResult] = await bq.query({ query: countQuery });
+  const totalRows = countResult?.[0]?.total ?? 0;
+  console.log(`[GCP Billing] Table ${projectId}.${billingDataset}.${billingTable} has ${totalRows} total rows`);
+
   const query = `
     SELECT
       FORMAT_DATE('%Y-%m-%d', usage_start_time) AS date,
@@ -38,16 +44,15 @@ export async function queryBillingExport(
       SUM(cost) AS cost,
       currency
     FROM \`${projectId}.${billingDataset}.${billingTable}\`
-    WHERE usage_start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL @days DAY)
+    WHERE usage_start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL ${days} DAY)
     GROUP BY date, service, currency
     ORDER BY date DESC, cost DESC
   `;
 
-  const [rows] = await bq.query({
-    query,
-    params: { days },
-  });
+  console.log(`[GCP Billing] Querying last ${days} days`);
+  const [rows] = await bq.query({ query });
 
+  console.log(`[GCP Billing] Query returned ${rows?.length ?? 0} rows`);
   return (rows as DailyCost[]) ?? [];
 }
 
