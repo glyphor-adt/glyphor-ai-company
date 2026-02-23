@@ -1,5 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  MdAttachMoney, MdSettings, MdCampaign, MdExplore, MdHandshake,
+  MdTrackChanges, MdPalette, MdStars, MdBarChart, MdTrendingUp,
+} from 'react-icons/md';
 import { supabase } from '../lib/supabase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { Card, SectionHeader, Skeleton, AgentAvatar } from '../components/ui';
@@ -30,17 +34,17 @@ interface AgentSkillRow {
   };
 }
 
-const CATEGORY_META: Record<string, { label: string; color: string; icon: string }> = {
-  finance:            { label: 'Finance',           color: '#4B9FE1', icon: '💰' },
-  engineering:        { label: 'Engineering',       color: '#0097FF', icon: '⚙️' },
-  marketing:          { label: 'Marketing',         color: '#7B68EE', icon: '📢' },
-  product:            { label: 'Product',           color: '#00E0FF', icon: '🧭' },
-  'customer-success': { label: 'Customer Success',  color: '#00BCD4', icon: '🤝' },
-  sales:              { label: 'Sales',             color: '#5B8DEF', icon: '🎯' },
-  design:             { label: 'Design',            color: '#E91E63', icon: '🎨' },
-  leadership:         { label: 'Leadership',        color: '#623CEA', icon: '👑' },
-  operations:         { label: 'Operations',        color: '#FF6B35', icon: '📊' },
-  analytics:          { label: 'Analytics',         color: '#10B981', icon: '📈' },
+const CATEGORY_META: Record<string, { label: string; color: string; icon: ReactNode }> = {
+  finance:            { label: 'Finance',           color: '#4B9FE1', icon: <MdAttachMoney className="inline h-4 w-4" /> },
+  engineering:        { label: 'Engineering',       color: '#0097FF', icon: <MdSettings className="inline h-4 w-4" /> },
+  marketing:          { label: 'Marketing',         color: '#7B68EE', icon: <MdCampaign className="inline h-4 w-4" /> },
+  product:            { label: 'Product',           color: '#00E0FF', icon: <MdExplore className="inline h-4 w-4" /> },
+  'customer-success': { label: 'Customer Success',  color: '#00BCD4', icon: <MdHandshake className="inline h-4 w-4" /> },
+  sales:              { label: 'Sales',             color: '#5B8DEF', icon: <MdTrackChanges className="inline h-4 w-4" /> },
+  design:             { label: 'Design',            color: '#E91E63', icon: <MdPalette className="inline h-4 w-4" /> },
+  leadership:         { label: 'Leadership',        color: '#623CEA', icon: <MdStars className="inline h-4 w-4" /> },
+  operations:         { label: 'Operations',        color: '#FF6B35', icon: <MdBarChart className="inline h-4 w-4" /> },
+  analytics:          { label: 'Analytics',         color: '#10B981', icon: <MdTrendingUp className="inline h-4 w-4" /> },
 };
 
 const PROFICIENCY_COLOR: Record<string, string> = {

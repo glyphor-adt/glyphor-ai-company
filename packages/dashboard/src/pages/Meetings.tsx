@@ -1,4 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, type ReactNode } from 'react';
+import {
+  MdForum, MdAssignment, MdSquareFoot, MdNotificationImportant,
+  MdPerson, MdWarning,
+} from 'react-icons/md';
 import { supabase, SCHEDULER_URL } from '../lib/supabase';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
 import { DISPLAY_NAME_MAP } from '../lib/types';
@@ -171,12 +175,12 @@ function MeetingCard({
     cancelled: 'bg-red-500/15 text-red-400',
   };
 
-  const typeIcon: Record<MeetingType, string> = {
-    discussion: '💬',
-    review: '📋',
-    planning: '📐',
-    incident: '🚨',
-    standup: '🧍',
+  const typeIcon: Record<MeetingType, ReactNode> = {
+    discussion: <MdForum className="inline h-5 w-5 text-blue-400" />,
+    review: <MdAssignment className="inline h-5 w-5 text-purple-400" />,
+    planning: <MdSquareFoot className="inline h-5 w-5 text-cyan" />,
+    incident: <MdNotificationImportant className="inline h-5 w-5 text-red-400" />,
+    standup: <MdPerson className="inline h-5 w-5 text-tier-green" />,
   };
 
   return (
@@ -186,7 +190,7 @@ function MeetingCard({
         className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-raised/50 transition-colors"
       >
         <div className="flex items-center gap-3">
-          <span className="text-lg">{typeIcon[meeting.meeting_type] ?? '💬'}</span>
+          <span className="text-lg">{typeIcon[meeting.meeting_type] ?? <MdForum className="inline h-5 w-5 text-blue-400" />}</span>
           <div>
             <p className="text-sm font-medium text-txt-primary">{meeting.title}</p>
             <p className="text-[11px] text-txt-faint">
@@ -275,7 +279,7 @@ function MeetingCard({
               <ul className="mt-1 space-y-1.5">
                 {meeting.escalations.map((e, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm text-txt-secondary">
-                    <span className="text-tier-red">⚠</span>
+                    <MdWarning className="h-4 w-4 text-tier-red" />
                     <span>
                       {e.issue}
                       <span className="ml-1 text-txt-faint">— {e.why}</span>

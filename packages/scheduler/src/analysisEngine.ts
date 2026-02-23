@@ -152,6 +152,77 @@ export class AnalysisEngine {
     return (data as AnalysisRecord[]) ?? [];
   }
 
+  /**
+   * Generate an enhanced McKinsey-style report by spawning additional
+   * specialist perspectives and performing deeper analysis.
+   */
+  async enhance(id: string): Promise<void> {
+    const record = await this.get(id);
+    if (!record?.report) throw new Error('Analysis not found or not completed');
+
+    const report = record.report;
+
+    // Determine additional specialist perspectives based on analysis type
+    const additionalPerspectives = this.getEnhancedPerspectives(record.type);
+    const existingPerspectives = new Set(report.threads.map((t) => t.perspective));
+    const newPerspectives = additionalPerspectives.filter((p) => !existingPerspectives.has(p));
+
+    if (newPerspectives.length === 0) return; // Already has all perspectives
+
+    // Create deeper research threads for new perspectives
+    const newThreads: ResearchThread[] = newPerspectives.map((perspective, i) => ({
+      id: `${id}-enhanced-${i}`,
+      label: `${perspective} deep-dive`,
+      perspective,
+      prompt: buildEnhancedThreadPrompt(record.type, record.query, perspective, report),
+      status: 'pending' as const,
+    }));
+
+    // Execute new threads in parallel
+    const results = await Promise.allSettled(
+      newThreads.map((thread) => this.executeThread(thread)),
+    );
+
+    for (let i = 0; i < newThreads.length; i++) {
+      const result = results[i];
+      if (result.status === 'fulfilled') {
+        newThreads[i].result = result.value;
+        newThreads[i].status = 'completed';
+      } else {
+        newThreads[i].result = `Error: ${result.reason?.message ?? String(result.reason)}`;
+        newThreads[i].status = 'failed';
+      }
+    }
+
+    // Re-synthesize with all threads (original + enhanced)
+    const allThreads = [...report.threads, ...newThreads];
+    const enhancedReport = await this.synthesize(
+      { type: record.type, query: record.query, depth: 'deep', requestedBy: record.requested_by },
+      allThreads,
+    );
+
+    // Update the analysis with enhanced report
+    await this.supabase.from('analyses').update({
+      report: enhancedReport,
+      threads: allThreads,
+      depth: 'deep',
+    }).eq('id', id);
+  }
+
+  /**
+   * Get additional specialist perspectives for enhanced analysis.
+   */
+  private getEnhancedPerspectives(type: AnalysisType): string[] {
+    const base = ANALYSIS_PERSPECTIVES[type];
+    const allPerspectives = [
+      'cto', 'cfo', 'cmo', 'cpo', 'vp-sales', 'vp-customer-success',
+      'vp-design', 'competitive-intel', 'user-researcher', 'ops', 'chief-of-staff',
+      'revenue-analyst', 'cost-analyst',
+    ];
+    // Return all perspectives not in the base set — plus always include financial and ops
+    return allPerspectives.filter((p) => !base.includes(p));
+  }
+
   /* ── Internal phase runner ──────────────── */
 
   private async runPhases(
@@ -327,5 +398,56 @@ function buildThreadPrompt(type: AnalysisType, query: string, perspective: strin
     `2. Risks and concerns`,
     `3. Opportunities you see`,
     `4. Specific, actionable recommendations`,
+  ].join('\n');
+}
+
+function buildEnhancedThreadPrompt(
+  type: AnalysisType,
+  query: string,
+  perspective: string,
+  existingReport: AnalysisReport,
+): string {
+  const perspectiveLabels: Record<string, string> = {
+    cto: 'technology and engineering',
+    cfo: 'financial viability and cost',
+    cmo: 'marketing and brand positioning',
+    cpo: 'product strategy and user impact',
+    'vp-sales': 'sales pipeline and revenue potential',
+    'vp-customer-success': 'customer retention and satisfaction',
+    'vp-design': 'user experience and design impact',
+    'competitive-intel': 'competitive landscape and market positioning',
+    'user-researcher': 'user behavior and needs',
+    ops: 'operational feasibility and risks',
+    'chief-of-staff': 'cross-functional coordination and strategic alignment',
+    'revenue-analyst': 'revenue modeling and financial projections',
+    'cost-analyst': 'cost structure and financial optimization',
+  };
+
+  const label = perspectiveLabels[perspective] ?? perspective;
+  const existingSummary = existingReport.summary.slice(0, 500);
+
+  return [
+    `You are contributing to an enhanced McKinsey-grade strategic analysis.`,
+    `An initial analysis has already been performed. Your role is to provide a deep-dive from the perspective of ${label}.`,
+    ``,
+    `Original question: "${query}"`,
+    `Analysis type: ${type.replace(/_/g, ' ')}`,
+    ``,
+    `Existing executive summary: ${existingSummary}`,
+    ``,
+    `Current SWOT findings:`,
+    `- Strengths: ${existingReport.swot.strengths.join('; ')}`,
+    `- Weaknesses: ${existingReport.swot.weaknesses.join('; ')}`,
+    `- Opportunities: ${existingReport.swot.opportunities.join('; ')}`,
+    `- Threats: ${existingReport.swot.threats.join('; ')}`,
+    ``,
+    `Provide an exhaustive deep-dive analysis from your perspective. Challenge existing findings, identify blind spots, and provide specific data-backed insights that the initial analysis may have missed.`,
+    ``,
+    `Cover:`,
+    `1. Deep findings and insights from your perspective`,
+    `2. Gaps or blind spots in the existing analysis`,
+    `3. Quantitative estimates where possible (market size, revenue impact, cost implications)`,
+    `4. Specific, actionable recommendations with implementation details`,
+    `5. Risk factors and mitigation strategies`,
   ].join('\n');
 }

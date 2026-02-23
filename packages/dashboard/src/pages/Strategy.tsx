@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, type ReactNode } from 'react';
+import { MdCheck, MdWarning, MdClose, MdAutoAwesome, MdPalette } from 'react-icons/md';
 import { SCHEDULER_URL } from '../lib/supabase';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
 
@@ -99,10 +100,10 @@ function recommendationBadge(rec: string) {
   return { text: 'Reconsider', cls: 'border-red-500/30 bg-red-500/15 text-red-400' };
 }
 
-function voteIcon(vote: string) {
-  if (vote === 'approve') return '✓';
-  if (vote === 'caution') return '⚠';
-  return '✗';
+function voteIcon(vote: string): ReactNode {
+  if (vote === 'approve') return <MdCheck className="inline h-4 w-4" />;
+  if (vote === 'caution') return <MdWarning className="inline h-4 w-4" />;
+  return <MdClose className="inline h-4 w-4" />;
 }
 
 function voteColor(vote: string) {
@@ -324,66 +325,241 @@ function AnalysesPanel() {
 }
 
 function AnalysisDetail({ report, id }: { report: AnalysisReport; id: string }) {
+  const [showSwot, setShowSwot] = useState(false);
+  const [showThreads, setShowThreads] = useState(false);
+  const [enhancing, setEnhancing] = useState(false);
+  const [generatingVisual, setGeneratingVisual] = useState(false);
+  const [visualSvg, setVisualSvg] = useState<string | null>(null);
+
+  const keyFindings = [...report.swot.strengths, ...report.swot.opportunities];
+  const riskItems = [...report.swot.weaknesses, ...report.swot.threats];
+  const nextSteps = report.recommendations.filter((r) => r.priority === 'high');
+
+  async function generateEnhancedReport() {
+    setEnhancing(true);
+    try {
+      await api(`/analysis/${id}/enhance`, { method: 'POST' });
+      window.open(`${SCHEDULER_URL}/analysis/${id}/export?format=docx`, '_blank');
+    } catch (err) {
+      console.error('Enhanced report failed:', err);
+    }
+    setEnhancing(false);
+  }
+
+  async function generateVisual() {
+    setGeneratingVisual(true);
+    try {
+      const resp = await api<{ svg: string }>(`/analysis/${id}/visual`, { method: 'POST' });
+      setVisualSvg(resp.svg);
+    } catch (err) {
+      console.error('Visual generation failed:', err);
+    }
+    setGeneratingVisual(false);
+  }
+
   return (
     <div className="mt-4 space-y-4 border-t border-border pt-4">
-      {/* Summary */}
-      <p className="text-sm text-txt-secondary leading-relaxed">{report.summary}</p>
-
-      {/* SWOT Grid */}
-      <div className="grid grid-cols-2 gap-3">
-        <SwotCard title="Strengths" items={report.swot.strengths} color="tier-green" />
-        <SwotCard title="Weaknesses" items={report.swot.weaknesses} color="red-400" />
-        <SwotCard title="Opportunities" items={report.swot.opportunities} color="cyan" />
-        <SwotCard title="Threats" items={report.swot.threats} color="amber-400" />
+      {/* Export Action Bar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <ExportButton label="Word (.docx)" href={`${SCHEDULER_URL}/analysis/${id}/export?format=docx`} />
+        <ExportButton label="PowerPoint" href={`${SCHEDULER_URL}/analysis/${id}/export?format=pptx`} />
+        <ExportButton label="Markdown" href={`${SCHEDULER_URL}/analysis/${id}/export?format=markdown`} />
+        <ExportButton label="JSON" href={`${SCHEDULER_URL}/analysis/${id}/export?format=json`} />
+        <span className="mx-1 h-4 w-px bg-border" />
+        <button
+          onClick={generateEnhancedReport}
+          disabled={enhancing}
+          className="rounded-lg bg-accent/15 border border-accent/30 px-3 py-1.5 text-[11px] font-medium text-accent transition-colors hover:bg-accent/25 disabled:opacity-40"
+        >
+          {enhancing ? 'Generating…' : <><MdAutoAwesome className="inline h-4 w-4 mr-1" />Enhanced Report</>}
+        </button>
+        <button
+          onClick={generateVisual}
+          disabled={generatingVisual}
+          className="rounded-lg bg-cyan/15 border border-cyan/30 px-3 py-1.5 text-[11px] font-medium text-cyan transition-colors hover:bg-cyan/25 disabled:opacity-40"
+        >
+          {generatingVisual ? 'Generating…' : <><MdPalette className="inline h-4 w-4 mr-1" />AI Visual</>}
+        </button>
       </div>
 
-      {/* Recommendations */}
-      {report.recommendations.length > 0 && (
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Recommendations</p>
+      {/* AI Visual (if generated) */}
+      {visualSvg && (
+        <div className="rounded-xl border border-border bg-raised p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted">AI-Generated Infographic</p>
+            <button
+              onClick={() => {
+                const blob = new Blob([visualSvg], { type: 'image/svg+xml' });
+                const u = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = u; a.download = `analysis-${id}-visual.svg`; a.click();
+                URL.revokeObjectURL(u);
+              }}
+              className="text-[11px] text-cyan hover:underline"
+            >
+              Download SVG
+            </button>
+          </div>
+          <img
+            src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(visualSvg)}`}
+            alt="AI-generated infographic"
+            className="w-full rounded-lg"
+          />
+        </div>
+      )}
+
+      {/* Executive Summary */}
+      <div className="rounded-xl border border-border bg-raised/50 p-4">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Executive Summary</p>
+        <p className="text-[13px] text-txt-secondary leading-relaxed whitespace-pre-line">{report.summary}</p>
+      </div>
+
+      {/* Key Findings */}
+      {keyFindings.length > 0 && (
+        <div className="rounded-xl border border-amber-400/25 bg-amber-400/5 p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-400 mb-3">Key Findings</p>
           <div className="space-y-2">
-            {report.recommendations.map((rec, i) => (
-              <div key={i} className="rounded-lg border border-border bg-raised px-3 py-2.5">
-                <div className="flex items-center gap-2">
-                  <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
-                    rec.priority === 'high'
-                      ? 'border-red-500/30 bg-red-500/15 text-red-400'
-                      : rec.priority === 'medium'
-                      ? 'border-amber-500/30 bg-amber-500/15 text-amber-400'
-                      : 'border-blue-500/30 bg-blue-500/15 text-blue-400'
-                  }`}>
-                    {rec.priority}
-                  </span>
-                  <span className="text-sm font-medium text-txt-primary">{rec.title}</span>
-                </div>
-                <p className="mt-1 text-[12px] text-txt-muted leading-relaxed">{rec.detail}</p>
+            {keyFindings.map((item, i) => (
+              <div key={i} className="flex items-start gap-2.5">
+                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
+                <p className="text-[13px] text-txt-secondary leading-relaxed">{item}</p>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Export */}
-      <div className="flex gap-2">
-        <ExportButton label="Export MD" href={`${SCHEDULER_URL}/analysis/${id}/export?format=markdown`} />
-        <ExportButton label="Export JSON" href={`${SCHEDULER_URL}/analysis/${id}/export?format=json`} />
-      </div>
-    </div>
-  );
-}
+      {/* Strategic Recommendations */}
+      {report.recommendations.length > 0 && (
+        <div className="rounded-xl border border-cyan/25 bg-cyan/5 p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-cyan mb-3">Strategic Recommendations</p>
+          <div className="space-y-3">
+            {report.recommendations.map((rec, i) => (
+              <div key={i} className="flex items-start gap-3 rounded-lg bg-base/50 px-3 py-2.5">
+                <span className={`mt-0.5 shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
+                  rec.priority === 'high'
+                    ? 'border-red-400/30 bg-red-400/15 text-red-400'
+                    : rec.priority === 'medium'
+                    ? 'border-amber-400/30 bg-amber-400/15 text-amber-400'
+                    : 'border-blue-400/30 bg-blue-400/15 text-blue-400'
+                }`}>
+                  {rec.priority}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-medium text-txt-primary">{rec.title}</p>
+                  <p className="mt-0.5 text-[12px] text-txt-muted leading-relaxed">{rec.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-function SwotCard({ title, items, color }: { title: string; items: string[]; color: string }) {
-  return (
-    <div className={`rounded-lg border border-${color}/20 bg-${color}/5 p-3`}>
-      <p className={`text-[11px] font-semibold uppercase tracking-wider text-${color} mb-2`}>{title}</p>
-      {items.length === 0 ? (
-        <p className="text-[11px] text-txt-faint">—</p>
-      ) : (
-        <ul className="space-y-1">
-          {items.map((item, i) => (
-            <li key={i} className="text-[12px] text-txt-secondary leading-relaxed">• {item}</li>
-          ))}
-        </ul>
+      {/* Immediate Next Steps */}
+      {nextSteps.length > 0 && (
+        <div className="rounded-xl border border-emerald-400/25 bg-emerald-400/5 p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400 mb-3">Immediate Next Steps</p>
+          <div className="space-y-2.5">
+            {nextSteps.map((rec, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-400/15 text-[10px] font-bold text-emerald-400">
+                  {i + 1}
+                </span>
+                <div>
+                  <p className="text-[13px] font-medium text-txt-primary">{rec.title}</p>
+                  <p className="mt-0.5 text-[12px] text-txt-muted leading-relaxed">{rec.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Risk Considerations */}
+      {riskItems.length > 0 && (
+        <div className="rounded-xl border border-rose-400/25 bg-rose-400/5 p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-rose-400 mb-3">Risk Considerations</p>
+          <div className="space-y-2">
+            {riskItems.map((item, i) => (
+              <div key={i} className="flex items-start gap-2.5">
+                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-rose-400 shrink-0" />
+                <p className="text-[13px] text-txt-secondary leading-relaxed">{item}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Collapsible SWOT Matrix */}
+      <div>
+        <button
+          onClick={() => setShowSwot(!showSwot)}
+          className="flex items-center gap-2 text-[12px] font-medium text-txt-muted hover:text-txt-secondary transition-colors"
+        >
+          <span className={`text-[10px] transition-transform duration-200 ${showSwot ? 'rotate-90' : ''}`}>▶</span>
+          SWOT Matrix Detail
+        </button>
+        {showSwot && (
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div className="rounded-lg border border-emerald-400/20 bg-emerald-400/5 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400 mb-2">Strengths</p>
+              {report.swot.strengths.length === 0 ? <p className="text-[11px] text-txt-faint">—</p> : (
+                <ul className="space-y-1">{report.swot.strengths.map((s, i) => <li key={i} className="text-[12px] text-txt-secondary leading-relaxed">• {s}</li>)}</ul>
+              )}
+            </div>
+            <div className="rounded-lg border border-red-400/20 bg-red-400/5 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-red-400 mb-2">Weaknesses</p>
+              {report.swot.weaknesses.length === 0 ? <p className="text-[11px] text-txt-faint">—</p> : (
+                <ul className="space-y-1">{report.swot.weaknesses.map((w, i) => <li key={i} className="text-[12px] text-txt-secondary leading-relaxed">• {w}</li>)}</ul>
+              )}
+            </div>
+            <div className="rounded-lg border border-cyan/20 bg-cyan/5 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-cyan mb-2">Opportunities</p>
+              {report.swot.opportunities.length === 0 ? <p className="text-[11px] text-txt-faint">—</p> : (
+                <ul className="space-y-1">{report.swot.opportunities.map((o, i) => <li key={i} className="text-[12px] text-txt-secondary leading-relaxed">• {o}</li>)}</ul>
+              )}
+            </div>
+            <div className="rounded-lg border border-amber-400/20 bg-amber-400/5 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-400 mb-2">Threats</p>
+              {report.swot.threats.length === 0 ? <p className="text-[11px] text-txt-faint">—</p> : (
+                <ul className="space-y-1">{report.swot.threats.map((t, i) => <li key={i} className="text-[12px] text-txt-secondary leading-relaxed">• {t}</li>)}</ul>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Collapsible Research Threads */}
+      {report.threads.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowThreads(!showThreads)}
+            className="flex items-center gap-2 text-[12px] font-medium text-txt-muted hover:text-txt-secondary transition-colors"
+          >
+            <span className={`text-[10px] transition-transform duration-200 ${showThreads ? 'rotate-90' : ''}`}>▶</span>
+            Research Threads ({report.threads.filter((t) => t.status === 'completed').length}/{report.threads.length})
+          </button>
+          {showThreads && (
+            <div className="mt-3 space-y-2">
+              {report.threads.map((thread) => (
+                <details key={thread.id} className="group rounded-lg border border-border bg-raised">
+                  <summary className="px-3 py-2 cursor-pointer text-[12px] font-medium text-txt-secondary hover:text-txt-primary transition-colors list-none">
+                    <span className={`inline-block h-1.5 w-1.5 rounded-full mr-2 ${
+                      thread.status === 'completed' ? 'bg-emerald-400' : thread.status === 'failed' ? 'bg-red-400' : 'bg-amber-400'
+                    }`} />
+                    {thread.label}
+                    <span className="ml-2 text-[10px] text-txt-faint">({thread.perspective})</span>
+                  </summary>
+                  {thread.result && (
+                    <div className="px-3 pb-3 border-t border-border mt-1 pt-2">
+                      <p className="text-[12px] text-txt-muted leading-relaxed whitespace-pre-wrap">{thread.result}</p>
+                    </div>
+                  )}
+                </details>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -631,7 +807,7 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
       )}
 
       {/* Actions */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {record.status === 'completed' && (
           <button
             onClick={onAccept}
@@ -640,8 +816,10 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
             Accept Recommendation
           </button>
         )}
-        <ExportButton label="Export MD" href={`${SCHEDULER_URL}/simulation/${record.id}/export?format=markdown`} />
-        <ExportButton label="Export JSON" href={`${SCHEDULER_URL}/simulation/${record.id}/export?format=json`} />
+        <ExportButton label="Word (.docx)" href={`${SCHEDULER_URL}/simulation/${record.id}/export?format=docx`} />
+        <ExportButton label="PowerPoint" href={`${SCHEDULER_URL}/simulation/${record.id}/export?format=pptx`} />
+        <ExportButton label="Markdown" href={`${SCHEDULER_URL}/simulation/${record.id}/export?format=markdown`} />
+        <ExportButton label="JSON" href={`${SCHEDULER_URL}/simulation/${record.id}/export?format=json`} />
       </div>
     </div>
   );
@@ -1042,8 +1220,8 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
 
       {/* Export */}
       <div className="flex gap-2">
-        <ExportButton label="Export MD" href={`${SCHEDULER_URL}/cot/${id}/export?format=markdown`} />
-        <ExportButton label="Export JSON" href={`${SCHEDULER_URL}/cot/${id}/export?format=json`} />
+        <ExportButton label="Markdown" href={`${SCHEDULER_URL}/cot/${id}/export?format=markdown`} />
+        <ExportButton label="JSON" href={`${SCHEDULER_URL}/cot/${id}/export?format=json`} />
       </div>
     </div>
   );

@@ -19,7 +19,15 @@ import { AnalysisEngine } from './analysisEngine.js';
 import type { AnalysisType, AnalysisDepth } from './analysisEngine.js';
 import { SimulationEngine } from './simulationEngine.js';
 import { MeetingEngine } from './meetingEngine.js';
-import { exportAnalysisMarkdown, exportAnalysisJSON, exportSimulationMarkdown, exportSimulationJSON } from './reportExporter.js';
+import { CotEngine } from './cotEngine.js';
+import {
+  exportAnalysisMarkdown, exportAnalysisJSON,
+  exportAnalysisPPTX, exportAnalysisDOCX,
+  exportSimulationMarkdown, exportSimulationJSON,
+  exportSimulationPPTX, exportSimulationDOCX,
+  exportCotMarkdown, exportCotJSON,
+  buildVisualPrompt,
+} from './reportExporter.js';
 import { WakeRouter } from './wakeRouter.js';
 import { HeartbeatManager } from './heartbeat.js';
 import {
@@ -140,6 +148,7 @@ const strategyModelClient = new ModelClient({
 const analysisEngine = new AnalysisEngine(memory.getSupabaseClient(), strategyModelClient);
 const simulationEngine = new SimulationEngine(memory.getSupabaseClient(), strategyModelClient);
 const meetingEngine = new MeetingEngine(memory.getSupabaseClient(), agentExecutor);
+const cotEngine = new CotEngine(memory.getSupabaseClient(), strategyModelClient);
 
 // Teams Bot — initialized from env vars (BOT_APP_ID, BOT_APP_SECRET, BOT_TENANT_ID)
 const teamsBot = TeamsBotHandler.fromEnv(
@@ -664,6 +673,22 @@ const server = createServer(async (req, res) => {
           'Access-Control-Allow-Origin': '*',
         });
         res.end(exportAnalysisJSON(record));
+      } else if (format === 'pptx') {
+        const buffer = await exportAnalysisPPTX(record);
+        res.writeHead(200, {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          'Content-Disposition': `attachment; filename="analysis-${id}.pptx"`,
+          'Access-Control-Allow-Origin': '*',
+        });
+        res.end(buffer);
+      } else if (format === 'docx') {
+        const buffer = await exportAnalysisDOCX(record);
+        res.writeHead(200, {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'Content-Disposition': `attachment; filename="analysis-${id}.docx"`,
+          'Access-Control-Allow-Origin': '*',
+        });
+        res.end(buffer);
       } else {
         res.writeHead(200, {
           'Content-Type': 'text/markdown',
@@ -672,6 +697,36 @@ const server = createServer(async (req, res) => {
         });
         res.end(exportAnalysisMarkdown(record));
       }
+      return;
+    }
+
+    // Enhance analysis (McKinsey-grade deep-dive with additional perspectives)
+    const analysisEnhanceMatch = url.match(/^\/analysis\/([^/]+)\/enhance$/);
+    if (method === 'POST' && analysisEnhanceMatch) {
+      const id = decodeURIComponent(analysisEnhanceMatch[1]);
+      await analysisEngine.enhance(id);
+      json(res, 200, { success: true, id });
+      return;
+    }
+
+    // Generate AI visual (SVG infographic)
+    const analysisVisualMatch = url.match(/^\/analysis\/([^/]+)\/visual$/);
+    if (method === 'POST' && analysisVisualMatch) {
+      const id = decodeURIComponent(analysisVisualMatch[1]);
+      const record = await analysisEngine.get(id);
+      if (!record?.report) { json(res, 404, { error: 'Analysis not found or not completed' }); return; }
+
+      const prompt = buildVisualPrompt(record);
+      const response = await strategyModelClient.generate({
+        model: 'gemini-2.5-flash',
+        systemInstruction: 'You are an expert data visualization designer. Generate clean, professional SVG infographics. Respond ONLY with SVG markup.',
+        contents: [{ role: 'user', content: prompt, timestamp: Date.now() }],
+        temperature: 0.5,
+      });
+
+      const svgText = response.text ?? '';
+      const svgMatch = svgText.match(/<svg[\s\S]*<\/svg>/);
+      json(res, 200, { svg: svgMatch ? svgMatch[0] : '' });
       return;
     }
 
@@ -732,6 +787,22 @@ const server = createServer(async (req, res) => {
           'Access-Control-Allow-Origin': '*',
         });
         res.end(exportSimulationJSON(record));
+      } else if (format === 'pptx') {
+        const buffer = await exportSimulationPPTX(record);
+        res.writeHead(200, {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          'Content-Disposition': `attachment; filename="simulation-${id}.pptx"`,
+          'Access-Control-Allow-Origin': '*',
+        });
+        res.end(buffer);
+      } else if (format === 'docx') {
+        const buffer = await exportSimulationDOCX(record);
+        res.writeHead(200, {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'Content-Disposition': `attachment; filename="simulation-${id}.docx"`,
+          'Access-Control-Allow-Origin': '*',
+        });
+        res.end(buffer);
       } else {
         res.writeHead(200, {
           'Content-Type': 'text/markdown',
@@ -776,6 +847,60 @@ const server = createServer(async (req, res) => {
     if (method === 'GET' && url === '/meetings') {
       const records = await meetingEngine.list();
       json(res, 200, records);
+      return;
+    }
+
+    // ─── Chain of Thought Endpoints ─────────────────────────────
+
+    // Launch CoT analysis
+    if (method === 'POST' && url === '/cot/run') {
+      const body = JSON.parse(await readBody(req));
+      const { query, requestedBy } = body;
+      const id = await cotEngine.launch(query, requestedBy ?? 'dashboard');
+      json(res, 200, { success: true, id });
+      return;
+    }
+
+    // Get CoT by ID
+    const cotGetMatch = url.match(/^\/cot\/([^/]+)$/);
+    if (method === 'GET' && cotGetMatch && !url.includes('/export')) {
+      const id = decodeURIComponent(cotGetMatch[1]);
+      const record = await cotEngine.get(id);
+      if (!record) { json(res, 404, { error: 'CoT analysis not found' }); return; }
+      json(res, 200, record);
+      return;
+    }
+
+    // List CoT analyses
+    if (method === 'GET' && url === '/cot') {
+      const records = await cotEngine.list();
+      json(res, 200, records);
+      return;
+    }
+
+    // Export CoT report
+    const cotExportMatch = url.match(/^\/cot\/([^/]+)\/export$/);
+    if (method === 'GET' && cotExportMatch) {
+      const id = decodeURIComponent(cotExportMatch[1]);
+      const record = await cotEngine.get(id);
+      if (!record) { json(res, 404, { error: 'CoT analysis not found' }); return; }
+
+      const format = params.get('format') ?? 'markdown';
+      if (format === 'json') {
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Content-Disposition': `attachment; filename="cot-${id}.json"`,
+          'Access-Control-Allow-Origin': '*',
+        });
+        res.end(exportCotJSON(record));
+      } else {
+        res.writeHead(200, {
+          'Content-Type': 'text/markdown',
+          'Content-Disposition': `attachment; filename="cot-${id}.md"`,
+          'Access-Control-Allow-Origin': '*',
+        });
+        res.end(exportCotMarkdown(record));
+      }
       return;
     }
 

@@ -1,5 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import {
+  MdEmojiEvents, MdLocalFireDepartment, MdMenuBook, MdCelebration,
+  MdPushPin, MdCalendarToday, MdHourglassEmpty, MdCheckCircle,
+  MdCancel, MdCheck, MdWarning,
+} from 'react-icons/md';
 import { supabase, SCHEDULER_URL } from '../lib/supabase';
 import {
   DISPLAY_NAME_MAP,
@@ -655,11 +660,11 @@ function PerformanceTab({ agent }: { agent: AgentRow }) {
     return <div className="space-y-6"><Skeleton className="h-48" /><Skeleton className="h-48" /></div>;
   }
 
-  const milestoneIcon: Record<string, string> = {
-    achievement: '🏆',
-    incident: '🔥',
-    learning: '📚',
-    first: '🎉',
+  const milestoneIcon: Record<string, ReactNode> = {
+    achievement: <MdEmojiEvents className="inline h-4 w-4 text-amber-400" />,
+    incident: <MdLocalFireDepartment className="inline h-4 w-4 text-red-400" />,
+    learning: <MdMenuBook className="inline h-4 w-4 text-blue-400" />,
+    first: <MdCelebration className="inline h-4 w-4 text-purple-400" />,
   };
 
   return (
@@ -702,7 +707,7 @@ function PerformanceTab({ agent }: { agent: AgentRow }) {
             <ul className="space-y-2.5">
               {milestones.map((m) => (
                 <li key={m.id} className="flex items-start gap-2">
-                  <span className="mt-0.5">{milestoneIcon[m.type] ?? '📌'}</span>
+                  <span className="mt-0.5">{milestoneIcon[m.type] ?? <MdPushPin className="inline h-4 w-4 text-txt-faint" />}</span>
                   <div>
                     <p className="text-sm font-medium text-txt-primary">{m.title}</p>
                     <p className="text-[11px] text-txt-faint">
@@ -866,11 +871,11 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
     followup: 'bg-purple-500/15 text-purple-400',
   };
 
-  const statusIcon: Record<string, string> = {
-    scheduled: '📅',
-    in_progress: '⏳',
-    completed: '✅',
-    cancelled: '❌',
+  const statusIcon: Record<string, ReactNode> = {
+    scheduled: <MdCalendarToday className="inline h-4 w-4 text-blue-400" />,
+    in_progress: <MdHourglassEmpty className="inline h-4 w-4 text-amber-400" />,
+    completed: <MdCheckCircle className="inline h-4 w-4 text-tier-green" />,
+    cancelled: <MdCancel className="inline h-4 w-4 text-red-400" />,
   };
 
   return (
@@ -944,7 +949,7 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
           <ul className="space-y-2">
             {meetings.map((m) => (
               <li key={m.id} className="flex items-start gap-3 rounded-lg border border-border/50 px-3 py-2.5">
-                <span className="mt-0.5">{statusIcon[m.status] ?? '📅'}</span>
+                <span className="mt-0.5">{statusIcon[m.status] ?? <MdCalendarToday className="inline h-4 w-4 text-blue-400" />}</span>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-txt-primary">{m.title}</p>
                   <p className="text-[11px] text-txt-faint">
@@ -1101,7 +1106,7 @@ function SkillsTab({ agent }: { agent: AgentRow }) {
               {skills.flatMap((sk) =>
                 sk.learned_refinements.map((r, i) => (
                   <li key={`${sk.id}-r-${i}`} className="flex items-start gap-2 text-sm text-txt-secondary">
-                    <span className="mt-1 text-tier-green">✓</span>
+                    <MdCheck className="mt-1 h-4 w-4 text-tier-green" />
                     <span><span className="text-txt-faint">[{sk.skills?.name}]</span> {r}</span>
                   </li>
                 ))
@@ -1114,7 +1119,7 @@ function SkillsTab({ agent }: { agent: AgentRow }) {
               {skills.flatMap((sk) =>
                 sk.failure_modes.map((f, i) => (
                   <li key={`${sk.id}-f-${i}`} className="flex items-start gap-2 text-sm text-txt-secondary">
-                    <span className="mt-1 text-tier-red">⚠</span>
+                    <MdWarning className="mt-1 h-4 w-4 text-tier-red" />
                     <span><span className="text-txt-faint">[{sk.skills?.name}]</span> {f}</span>
                   </li>
                 ))

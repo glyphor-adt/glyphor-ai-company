@@ -1,3 +1,6 @@
+import { type ReactNode } from 'react';
+import { MdCheck, MdTrendingFlat, MdWarning } from 'react-icons/md';
+
 interface GrowthArea {
   dimension: string;
   direction: string;
@@ -18,10 +21,10 @@ const DIMENSION_LABELS: Record<string, string> = {
   build_time: 'Build Time',
 };
 
-const DIRECTION_CONFIG: Record<string, { icon: string; color: string; label: string }> = {
-  improving: { icon: '✓', color: 'text-tier-green', label: 'Improving' },
-  stable: { icon: '→', color: 'text-txt-muted', label: 'Stable' },
-  declining: { icon: '⚠', color: 'text-tier-yellow', label: 'Needs attention' },
+const DIRECTION_CONFIG: Record<string, { icon: ReactNode; color: string; label: string }> = {
+  improving: { icon: <MdCheck className="inline h-4 w-4" />, color: 'text-tier-green', label: 'Improving' },
+  stable: { icon: <MdTrendingFlat className="inline h-4 w-4" />, color: 'text-txt-muted', label: 'Stable' },
+  declining: { icon: <MdWarning className="inline h-4 w-4" />, color: 'text-tier-yellow', label: 'Needs attention' },
 };
 
 export function GrowthAreas({ data }: { data: GrowthArea[] }) {

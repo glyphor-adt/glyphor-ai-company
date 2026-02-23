@@ -1,3 +1,4 @@
+import { MdCheckCircle } from 'react-icons/md';
 import { useAgents, useDecisions, useActivity, useProducts } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, AGENT_META, TIER_TO_IMPACT } from '../lib/types';
 import {
@@ -146,7 +147,7 @@ export default function Dashboard() {
           </div>
         ) : decisions.filter((d) => d.status === 'pending').length === 0 ? (
           <p className="py-8 text-center text-sm text-txt-faint">
-            No pending decisions — all clear ✓
+            No pending decisions — all clear <MdCheckCircle className="inline h-4 w-4 text-tier-green" />
           </p>
         ) : (
           <div className="space-y-2">

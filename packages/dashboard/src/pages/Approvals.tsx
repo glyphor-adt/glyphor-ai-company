@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { MdCheck, MdClose } from 'react-icons/md';
 import { useDecisions, useAgents } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, TIER_TO_IMPACT } from '../lib/types';
 import {
@@ -105,7 +106,7 @@ export default function Approvals() {
                       <>
                         <span>·</span>
                         <span>
-                          {d.status === 'approved' ? '✓' : '✗'} by{' '}
+                          {d.status === 'approved' ? <MdCheck className="inline h-3.5 w-3.5" /> : <MdClose className="inline h-3.5 w-3.5" />} by{' '}
                           <span className="text-txt-muted">{d.resolved_by}</span>
                         </span>
                       </>
