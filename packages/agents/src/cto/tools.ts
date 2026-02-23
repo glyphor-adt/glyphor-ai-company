@@ -7,7 +7,16 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { queryCloudRunMetrics, pingServices, type CloudRunMetrics } from '@glyphor/integrations';
+import {
+  queryCloudRunMetrics,
+  pingServices,
+  type CloudRunMetrics,
+  listOpenPRs,
+  listWorkflowRuns,
+  getRepoStats,
+  createIssue,
+  type GlyphorRepo,
+} from '@glyphor/integrations';
 
 export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -234,6 +243,138 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
           createdAt: new Date().toISOString(),
         });
         return { success: true, memoryKeysWritten: 1 };
+      },
+    },
+
+    {
+      name: 'get_github_pr_status',
+      description: 'List open pull requests across Fuse, Pulse, and the AI company repo. Shows CI status, reviewers, and labels.',
+      parameters: {
+        repo: {
+          type: 'string',
+          description: 'Which repo to check: "company", "fuse", "fuseRegistry", "pulse", or "all" (default: all)',
+          required: false,
+          enum: ['company', 'fuse', 'fuseRegistry', 'pulse', 'all'],
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const repoKey = (params.repo as GlyphorRepo | 'all' | undefined);
+          const prs = await listOpenPRs(repoKey === 'all' || !repoKey ? undefined : repoKey);
+          const summary = {
+            total: prs.length,
+            failing: prs.filter((p) => p.ciStatus === 'failure').length,
+            pending: prs.filter((p) => p.ciStatus === 'pending').length,
+            drafts: prs.filter((p) => p.draft).length,
+            prs,
+          };
+          return { success: true, data: summary };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('GITHUB_TOKEN')) return { success: false, error: 'NO_DATA: GITHUB_TOKEN not configured yet.' };
+          return { success: false, error: msg };
+        }
+      },
+    },
+
+    {
+      name: 'get_ci_health',
+      description: 'Get CI/CD pipeline health — recent workflow run results (pass/fail/in-progress) for a specific repo.',
+      parameters: {
+        repo: {
+          type: 'string',
+          description: 'Repo to check: "company", "fuse", "fuseRegistry", or "pulse"',
+          required: true,
+          enum: ['company', 'fuse', 'fuseRegistry', 'pulse'],
+        },
+        limit: {
+          type: 'number',
+          description: 'Number of recent runs to fetch (default: 10)',
+          required: false,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const runs = await listWorkflowRuns(params.repo as GlyphorRepo, (params.limit as number) || 10);
+          const passed = runs.filter((r) => r.conclusion === 'success').length;
+          const failed = runs.filter((r) => r.conclusion === 'failure').length;
+          const passRate = runs.length > 0 ? Math.round((passed / runs.length) * 100) : null;
+          return {
+            success: true,
+            data: { passRate, passed, failed, inProgress: runs.filter((r) => r.status === 'in_progress').length, runs },
+          };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('GITHUB_TOKEN')) return { success: false, error: 'NO_DATA: GITHUB_TOKEN not configured yet.' };
+          return { success: false, error: msg };
+        }
+      },
+    },
+
+    {
+      name: 'get_repo_stats',
+      description: 'Get high-level code health stats for a repo: open PRs, issues, CI pass rate, last push.',
+      parameters: {
+        repo: {
+          type: 'string',
+          description: 'Repo to check: "company", "fuse", "fuseRegistry", or "pulse"',
+          required: true,
+          enum: ['company', 'fuse', 'fuseRegistry', 'pulse'],
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const stats = await getRepoStats(params.repo as GlyphorRepo);
+          return { success: true, data: stats };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('GITHUB_TOKEN')) return { success: false, error: 'NO_DATA: GITHUB_TOKEN not configured yet.' };
+          return { success: false, error: msg };
+        }
+      },
+    },
+
+    {
+      name: 'create_github_issue',
+      description: 'Create a GitHub issue on a Glyphor repo (e.g., to track a bug, performance regression, or tech-debt item).',
+      parameters: {
+        repo: {
+          type: 'string',
+          description: 'Target repo: "company", "fuse", "fuseRegistry", or "pulse"',
+          required: true,
+          enum: ['company', 'fuse', 'fuseRegistry', 'pulse'],
+        },
+        title: {
+          type: 'string',
+          description: 'Issue title',
+          required: true,
+        },
+        body: {
+          type: 'string',
+          description: 'Issue body in markdown',
+          required: true,
+        },
+        labels: {
+          type: 'array',
+          description: 'Labels to apply (e.g. ["bug", "P1"])',
+          required: false,
+          items: { type: 'string', description: 'Label name' },
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const result = await createIssue(
+            params.repo as GlyphorRepo,
+            params.title as string,
+            params.body as string,
+            params.labels as string[] | undefined,
+          );
+          return { success: true, data: result };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('GITHUB_TOKEN')) return { success: false, error: 'NO_DATA: GITHUB_TOKEN not configured yet.' };
+          return { success: false, error: msg };
+        }
       },
     },
 

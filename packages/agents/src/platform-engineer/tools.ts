@@ -7,7 +7,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { queryCloudRunMetrics, pingServices } from '@glyphor/integrations';
+import { queryCloudRunMetrics, pingServices, listOpenPRs, getRepoStats, listRecentCommits, type GlyphorRepo } from '@glyphor/integrations';
 
 export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -136,6 +136,33 @@ export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDef
             note: 'Historical uptime tracking via health snapshots',
           },
         };
+      },
+    },
+
+    {
+      name: 'get_repo_code_health',
+      description: 'Get open PRs and recent commits across Glyphor repos — used to assess code health and merge velocity.',
+      parameters: {
+        repo: {
+          type: 'string',
+          description: 'Repo: "company", "fuse", "fuseRegistry", or "pulse"',
+          required: true,
+          enum: ['company', 'fuse', 'fuseRegistry', 'pulse'],
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const [prs, stats, commits] = await Promise.all([
+            listOpenPRs(params.repo as GlyphorRepo),
+            getRepoStats(params.repo as GlyphorRepo),
+            listRecentCommits(params.repo as GlyphorRepo, 10),
+          ]);
+          return { success: true, data: { openPRs: prs, stats, recentCommits: commits } };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('GITHUB_TOKEN')) return { success: false, error: 'NO_DATA: GITHUB_TOKEN not configured.' };
+          return { success: false, error: msg };
+        }
       },
     },
 

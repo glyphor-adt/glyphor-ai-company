@@ -5,6 +5,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
+import { listWorkflowRuns, listRecentCommits, commentOnPR, type GlyphorRepo } from '@glyphor/integrations';
 
 export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -101,6 +102,109 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
           createdAt: new Date().toISOString(),
         });
         return { success: true, memoryKeysWritten: 1 };
+      },
+    },
+
+    {
+      name: 'get_pipeline_runs',
+      description: 'Get recent GitHub Actions CI/CD workflow runs for a repo — shows pass/fail, branch, commit.',
+      parameters: {
+        repo: {
+          type: 'string',
+          description: 'Repo to check: "company", "fuse", "fuseRegistry", or "pulse"',
+          required: true,
+          enum: ['company', 'fuse', 'fuseRegistry', 'pulse'],
+        },
+        limit: {
+          type: 'number',
+          description: 'Number of recent runs (default: 15)',
+          required: false,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const runs = await listWorkflowRuns(params.repo as GlyphorRepo, (params.limit as number) || 15);
+          const failed = runs.filter((r) => r.conclusion === 'failure');
+          return {
+            success: true,
+            data: {
+              totalRuns: runs.length,
+              failedRuns: failed.length,
+              passRate: runs.length > 0 ? Math.round(((runs.length - failed.length) / runs.length) * 100) : null,
+              recentFailures: failed.slice(0, 5),
+              runs,
+            },
+          };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('GITHUB_TOKEN')) return { success: false, error: 'NO_DATA: GITHUB_TOKEN not configured.' };
+          return { success: false, error: msg };
+        }
+      },
+    },
+
+    {
+      name: 'get_recent_commits',
+      description: 'Get recent commits on a repo — useful for tracking what shipped and correlating with incidents.',
+      parameters: {
+        repo: {
+          type: 'string',
+          description: 'Repo to check: "company", "fuse", "fuseRegistry", or "pulse"',
+          required: true,
+          enum: ['company', 'fuse', 'fuseRegistry', 'pulse'],
+        },
+        limit: {
+          type: 'number',
+          description: 'Number of commits (default: 10)',
+          required: false,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const commits = await listRecentCommits(params.repo as GlyphorRepo, (params.limit as number) || 10);
+          return { success: true, data: { commits } };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('GITHUB_TOKEN')) return { success: false, error: 'NO_DATA: GITHUB_TOKEN not configured.' };
+          return { success: false, error: msg };
+        }
+      },
+    },
+
+    {
+      name: 'comment_on_pr',
+      description: 'Post a comment on a GitHub PR — use to flag CI failures, deployment notes, or review feedback.',
+      parameters: {
+        repo: {
+          type: 'string',
+          description: 'Repo: "company", "fuse", "fuseRegistry", or "pulse"',
+          required: true,
+          enum: ['company', 'fuse', 'fuseRegistry', 'pulse'],
+        },
+        pr_number: {
+          type: 'number',
+          description: 'PR number',
+          required: true,
+        },
+        comment: {
+          type: 'string',
+          description: 'Comment body (markdown)',
+          required: true,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const result = await commentOnPR(
+            params.repo as GlyphorRepo,
+            params.pr_number as number,
+            params.comment as string,
+          );
+          return { success: true, data: result };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('GITHUB_TOKEN')) return { success: false, error: 'NO_DATA: GITHUB_TOKEN not configured.' };
+          return { success: false, error: msg };
+        }
       },
     },
   ];
