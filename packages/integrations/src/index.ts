@@ -117,6 +117,15 @@ export { WappalyzerClient } from './wappalyzer/index.js';
 // Google Search Console
 export { SearchConsoleClient } from './search-console/index.js';
 
+// OpenAI billing
+export { queryOpenAICosts, syncOpenAIBilling } from './openai/index.js';
+
+// Anthropic billing
+export { queryAnthropicUsage, syncAnthropicBilling } from './anthropic/index.js';
+
+// Kling AI billing
+export { queryKlingUsage, syncKlingBilling } from './kling/index.js';
+
 // Platform audit logging
 export { auditedFetch, logPlatformAudit, type AuditContext } from './audit.js';
 

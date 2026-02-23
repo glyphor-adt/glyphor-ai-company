@@ -369,6 +369,27 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/sync/mercury',
     enabled: true,
   },
+  {
+    id: 'sync-openai-billing',
+    schedule: '0 9 * * *',     // 9:00 UTC = 3:00 AM CT, daily
+    timezone: 'UTC',
+    endpoint: '/sync/openai-billing',
+    enabled: true,
+  },
+  {
+    id: 'sync-anthropic-billing',
+    schedule: '0 9 * * *',     // 9:00 UTC = 3:00 AM CT, daily
+    timezone: 'UTC',
+    endpoint: '/sync/anthropic-billing',
+    enabled: true,
+  },
+  {
+    id: 'sync-kling-billing',
+    schedule: '0 9 * * *',     // 9:00 UTC = 3:00 AM CT, daily
+    timezone: 'UTC',
+    endpoint: '/sync/kling-billing',
+    enabled: true,
+  },
   // Heartbeat — lightweight agent check-ins (no Gemini calls, DB only)
   {
     id: 'heartbeat',

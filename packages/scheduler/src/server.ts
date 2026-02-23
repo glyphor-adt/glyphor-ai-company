@@ -11,7 +11,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GlyphorEventBus, ModelClient } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent } from '@glyphor/agent-runtime';
-import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll, TeamsBotHandler, extractBearerToken } from '@glyphor/integrations';
+import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, TeamsBotHandler, extractBearerToken } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
 import { EventRouter } from './eventRouter.js';
 import { DecisionQueue } from './decisionQueue.js';
@@ -329,6 +329,93 @@ const server = createServer(async (req, res) => {
           status: failures >= 3 ? 'failing' : 'stale',
           updated_at: new Date().toISOString(),
         }).eq('id', 'mercury');
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // OpenAI billing sync endpoint
+    if (method === 'POST' && url === '/sync/openai-billing') {
+      try {
+        const adminKey = process.env.OPENAI_ADMIN_KEY;
+        if (!adminKey) throw new Error('OPENAI_ADMIN_KEY not configured');
+        const result = await syncOpenAIBilling(memory.getSupabaseClient(), adminKey, 'pulse');
+        await memory.getSupabaseClient().from('data_sync_status').update({
+          last_success_at: new Date().toISOString(),
+          consecutive_failures: 0,
+          status: 'ok',
+          updated_at: new Date().toISOString(),
+        }).eq('id', 'openai-billing');
+        json(res, 200, { success: true, ...result });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'openai-billing').single();
+        const failures = (current?.consecutive_failures ?? 0) + 1;
+        await memory.getSupabaseClient().from('data_sync_status').update({
+          last_failure_at: new Date().toISOString(),
+          last_error: message,
+          consecutive_failures: failures,
+          status: failures >= 3 ? 'failing' : 'stale',
+          updated_at: new Date().toISOString(),
+        }).eq('id', 'openai-billing');
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // Anthropic billing sync endpoint
+    if (method === 'POST' && url === '/sync/anthropic-billing') {
+      try {
+        const adminKey = process.env.ANTHROPIC_ADMIN_KEY ?? process.env.ANTHROPIC_API_KEY;
+        if (!adminKey) throw new Error('ANTHROPIC_ADMIN_KEY not configured');
+        const result = await syncAnthropicBilling(memory.getSupabaseClient(), adminKey, 'glyphor-ai-company');
+        await memory.getSupabaseClient().from('data_sync_status').update({
+          last_success_at: new Date().toISOString(),
+          consecutive_failures: 0,
+          status: 'ok',
+          updated_at: new Date().toISOString(),
+        }).eq('id', 'anthropic-billing');
+        json(res, 200, { success: true, ...result });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'anthropic-billing').single();
+        const failures = (current?.consecutive_failures ?? 0) + 1;
+        await memory.getSupabaseClient().from('data_sync_status').update({
+          last_failure_at: new Date().toISOString(),
+          last_error: message,
+          consecutive_failures: failures,
+          status: failures >= 3 ? 'failing' : 'stale',
+          updated_at: new Date().toISOString(),
+        }).eq('id', 'anthropic-billing');
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // Kling billing sync endpoint
+    if (method === 'POST' && url === '/sync/kling-billing') {
+      try {
+        const apiKey = process.env.KLING_API_KEY;
+        if (!apiKey) throw new Error('KLING_API_KEY not configured');
+        const result = await syncKlingBilling(memory.getSupabaseClient(), apiKey, 'pulse');
+        await memory.getSupabaseClient().from('data_sync_status').update({
+          last_success_at: new Date().toISOString(),
+          consecutive_failures: 0,
+          status: 'ok',
+          updated_at: new Date().toISOString(),
+        }).eq('id', 'kling-billing');
+        json(res, 200, { success: true, ...result });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'kling-billing').single();
+        const failures = (current?.consecutive_failures ?? 0) + 1;
+        await memory.getSupabaseClient().from('data_sync_status').update({
+          last_failure_at: new Date().toISOString(),
+          last_error: message,
+          consecutive_failures: failures,
+          status: failures >= 3 ? 'failing' : 'stale',
+          updated_at: new Date().toISOString(),
+        }).eq('id', 'kling-billing');
         json(res, 500, { success: false, error: message });
       }
       return;
