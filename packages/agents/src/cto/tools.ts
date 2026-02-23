@@ -252,9 +252,9 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       parameters: {
         repo: {
           type: 'string',
-          description: 'Which repo to check: "company", "fuse", "fuseRegistry", "pulse", or "all" (default: all)',
+          description: 'Which repo to check: "company", "fuse", "pulse", or "all" (default: all)',
           required: false,
-          enum: ['company', 'fuse', 'fuseRegistry', 'pulse', 'all'],
+          enum: ['company', 'fuse', 'pulse', 'all'],
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
@@ -283,9 +283,9 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       parameters: {
         repo: {
           type: 'string',
-          description: 'Repo to check: "company", "fuse", "fuseRegistry", or "pulse"',
+          description: 'Repo to check: "company", "fuse", or "pulse"',
           required: true,
-          enum: ['company', 'fuse', 'fuseRegistry', 'pulse'],
+          enum: ['company', 'fuse', 'pulse'],
         },
         limit: {
           type: 'number',
@@ -317,9 +317,9 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       parameters: {
         repo: {
           type: 'string',
-          description: 'Repo to check: "company", "fuse", "fuseRegistry", or "pulse"',
+          description: 'Repo to check: "company", "fuse", or "pulse"',
           required: true,
-          enum: ['company', 'fuse', 'fuseRegistry', 'pulse'],
+          enum: ['company', 'fuse', 'pulse'],
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
@@ -340,9 +340,9 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       parameters: {
         repo: {
           type: 'string',
-          description: 'Target repo: "company", "fuse", "fuseRegistry", or "pulse"',
+          description: 'Target repo: "company", "fuse", or "pulse"',
           required: true,
-          enum: ['company', 'fuse', 'fuseRegistry', 'pulse'],
+          enum: ['company', 'fuse', 'pulse'],
         },
         title: {
           type: 'string',

@@ -15,9 +15,8 @@ const ORG = 'glyphor-adt';
 /** The repos Marcus's team actively monitors */
 export const GLYPHOR_REPOS = {
   company: 'glyphor-ai-company',
-  fuse: 'fuse-builder',
-  fuseRegistry: 'fuse-ui-registry',
-  pulse: 'pulse',
+  fuse: 'glyphor-ai-spark-c03e7e1a',
+  pulse: 'glyphor-ally-ai',
 } as const;
 
 export type GlyphorRepo = keyof typeof GLYPHOR_REPOS;

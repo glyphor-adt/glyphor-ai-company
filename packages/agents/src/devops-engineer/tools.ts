@@ -111,9 +111,9 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
       parameters: {
         repo: {
           type: 'string',
-          description: 'Repo to check: "company", "fuse", "fuseRegistry", or "pulse"',
+          description: 'Repo to check: "company", "fuse", or "pulse"',
           required: true,
-          enum: ['company', 'fuse', 'fuseRegistry', 'pulse'],
+          enum: ['company', 'fuse', 'pulse'],
         },
         limit: {
           type: 'number',
@@ -149,9 +149,9 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
       parameters: {
         repo: {
           type: 'string',
-          description: 'Repo to check: "company", "fuse", "fuseRegistry", or "pulse"',
+          description: 'Repo to check: "company", "fuse", or "pulse"',
           required: true,
-          enum: ['company', 'fuse', 'fuseRegistry', 'pulse'],
+          enum: ['company', 'fuse', 'pulse'],
         },
         limit: {
           type: 'number',
@@ -177,9 +177,9 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
       parameters: {
         repo: {
           type: 'string',
-          description: 'Repo: "company", "fuse", "fuseRegistry", or "pulse"',
+          description: 'Repo: "company", "fuse", or "pulse"',
           required: true,
-          enum: ['company', 'fuse', 'fuseRegistry', 'pulse'],
+          enum: ['company', 'fuse', 'pulse'],
         },
         pr_number: {
           type: 'number',
