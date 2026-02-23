@@ -1,16 +1,16 @@
 # Glyphor AI Company — System Architecture
 
-> Last updated: 2026-02-22
+> Last updated: 2026-02-23
 
 ## Overview
 
-Glyphor AI Company is a monorepo containing 8 AI executive agents, 17 sub-team members, and
+Glyphor AI Company is a monorepo containing 8 AI executive agents, 18 sub-team members, and
 1 operations agent that autonomously operate Glyphor alongside two human founders (Kristina
 Denney, CEO; Andrew Denney, COO). The agents run 24/7 on GCP Cloud Run, share state through
 Supabase, communicate with founders via Microsoft Teams, and are governed by a three-tier
 authority model (Green / Yellow / Red).
 
-Total headcount: **28** — 2 human founders, 8 AI executives, 17 AI team members, 1 AI ops agent.
+Total headcount: **29** — 2 human founders, 8 AI executives, 18 AI team members, 1 AI ops agent.
 
 The founders work full-time at Microsoft with 5-10 h/week for Glyphor. The AI executive team
 handles everything else: daily operations, financial monitoring, content creation, product
@@ -25,8 +25,10 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 ┌──────────────────────────────────────────────────────────────────────┐
 │                      GCP Cloud Scheduler                             │
 │  9 agent cron jobs → Pub/Sub topic "glyphor-agent-events"            │
-│  3 data sync jobs  → HTTP POST to scheduler endpoints                │
+│  4 data sync jobs  → HTTP POST to scheduler endpoints                │
 │  + Dynamic Scheduler (DB-defined cron from agent_schedules table)    │
+│  + Data Sync Scheduler (internal cron for sync jobs when GCP CS      │
+│    hasn't been provisioned)                                          │
 └───────────────────────────┬──────────────────────────────────────────┘
                             │ Pub/Sub push + HTTP
                             ▼
@@ -41,6 +43,7 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │  POST /sync/stripe       ── Stripe data sync                        │
 │  POST /sync/gcp-billing  ── GCP billing export sync                 │
 │  POST /sync/mercury      ── Mercury banking sync                    │
+│  POST /heartbeat         ── Lightweight agent check-in cycle         │
 │  POST /agents/create     ── Create new dynamic agent                │
 │  PUT  /agents/:id/settings── Update agent configuration             │
 │  POST /agents/:id/pause  ── Pause agent                             │
@@ -55,18 +58,29 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │  GET  /simulation        ── List all simulations                    │
 │  POST /simulation/:id/accept ── Accept simulation result            │
 │  GET  /simulation/:id/export ── Export simulation report (md/json)  │
+│  POST /cot/run           ── Launch chain-of-thought analysis         │
+│  GET  /cot               ── List all CoT analyses                   │
+│  GET  /cot/:id           ── Get CoT analysis status/result          │
+│  GET  /cot/:id/export    ── Export CoT report (md/json)             │
 │  POST /meetings/call     ── Convene multi-agent meeting             │
 │  GET  /meetings/:id      ── Get meeting status/transcript           │
 │  GET  /meetings          ── List all meetings                       │
 │  POST /messages/send     ── Send inter-agent message                │
 │  GET  /messages/agent/:id── Get messages for an agent               │
 │  GET  /messages          ── Get all recent messages                 │
+│  GET  /pulse             ── Company pulse snapshot                   │
+│  GET  /knowledge/company ── Company knowledge base                   │
+│  GET  /knowledge/routes  ── Knowledge routing rules                  │
+│  POST /knowledge/routes  ── Update knowledge routing rules           │
+│  GET  /knowledge/patterns── Process patterns                         │
+│  GET  /knowledge/contradictions ── Contradiction detection           │
+│  GET  /authority/proposals── Authority tier proposals                │
 │  GET  /health            ── Health check                             │
 │  OPTIONS /*              ── CORS preflight                           │
 │                                                                      │
 │  ┌──────────────┐  ┌───────────────┐  ┌──────────────────────────┐   │
 │  │ Cron Manager │  │ Event Router  │  │    Authority Gates       │   │
-│  │ (9+3 static  │  │ route()       │  │ checkAuthority(role,act) │   │
+│  │ (9+4 static  │  │ route()       │  │ checkAuthority(role,act) │   │
 │  │  + dynamic)  │  │ handlePubSub()│  │ GREEN per-role           │   │
 │  └──────────────┘  │ handleAgent() │  │ YELLOW → one founder     │   │
 │  ┌──────────────┐  │ handleEvent() │  │ RED    → both founders   │   │
@@ -78,6 +92,14 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │  ├──────────────┤ │ (role→runner)  │    │  submit / approve   │      │
 │  │ Meeting      │ └────────┬───────┘    │  reminders (4 h)    │      │
 │  │ Engine       │          │            └─────────┬───────────┘      │
+│  ├──────────────┤          │                      │                 │
+│  │ CoT Engine   │          │                      │                 │
+│  ├──────────────┤          │                      │                 │
+│  │ Wake Router  │          │                      │                 │
+│  │ + Heartbeat  │          │                      │                 │
+│  ├──────────────┤          │                      │                 │
+│  │ DataSync     │          │                      │                 │
+│  │ Scheduler    │          │                      │                 │
 │  └──────────────┘          │                      │                 │
 └────────────────────────────┼──────────────────────┼──────────────────┘
                              │                      │
@@ -107,9 +129,15 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │  Shared agent tools:              │
 │   ├─ memoryTools (save/recall)    │
 │   ├─ eventTools (emit events)     │
-│   └─ communicationTools           │
-│      (send_message, check_msgs,   │
-│       call_meeting)               │
+│   ├─ communicationTools           │
+│   │  (send_message, check_msgs,   │
+│   │   call_meeting)               │
+│   ├─ graphTools                   │
+│   │  (query_knowledge_graph,      │
+│   │   add_knowledge, trace_*)     │
+│   └─ collectiveIntelligenceTools  │
+│      (pulse, knowledge routing,   │
+│       patterns, contradictions)   │
 └───────────────┬───────────────────┘
                 │
                 ▼
@@ -133,12 +161,19 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │  │  ├ agent_profiles           │  │         ┌─────────────────────┐
 │  │  ├ agent_briefs             │  │         │ Inter-Agent Comms   │
 │  │  ├ agent_schedules          │  │         │                     │
-│  │  ├ agent_messages           │  ├────────►│ DMs + Meetings      │
-│  │  ├ agent_meetings           │  │         │ Rate limited:       │
-│  │  ├ analyses                 │  │         │  5 DMs/hr/agent     │
-│  │  └ simulations              │  │         │  2 meetings/day     │
-│  ├─────────────────────────────┤  │         │  10 meetings/day    │
-│  │ GCS (large documents)       │  │         └─────────────────────┘
+│  │  ├ agent_messages           │  │         ┌─────────────────────┐
+│  │  ├ agent_meetings           │  │         │ Inter-Agent Comms   │
+│  │  ├ analyses                 │  │         │                     │
+│  │  ├ simulations              │  ├────────►│ DMs + Meetings      │
+│  │  ├ cot_analyses             │  │         │ Rate limited:       │
+│  │  ├ kg_nodes                 │  │         │  5 DMs/hr/agent     │
+│  │  ├ kg_edges                 │  │         │  2 meetings/day     │
+│  │  ├ skills                   │  │         │  10 meetings/day    │
+│  │  ├ agent_skills             │  │         └─────────────────────┘
+│  │  ├ agent_wake_queue         │  │
+│  │  └ chat_messages            │  │
+│  ├─────────────────────────────┤  │
+│  │ GCS (large documents)       │  │
 │  │  ├ briefings/{founder}/     │  │
 │  │  ├ reports/{type}/          │  │
 │  │  └ specs/{type}/            │  │
@@ -164,6 +199,9 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │   ├ Financials.tsx   (revenue & costs)   │
 │   ├ Operations.tsx   (system operations) │
 │   ├ Strategy.tsx     (analysis & sims)   │
+│   ├ Graph.tsx        (knowledge graph)   │
+│   ├ Skills.tsx       (skill library)     │
+│   ├ SkillDetail.tsx  (skill detail)      │
 │   ├ Meetings.tsx     (meetings & DMs)    │
 │   └ TeamsConfig.tsx  (Teams bot setup)   │
 │                                           │
@@ -193,7 +231,7 @@ active 24/7 via the scheduler service.
 | **Rachel Kim** | VP Sales | `vp-sales` | `gemini-3-flash-preview` | KYC research, ROI calculators, enterprise proposals, pipeline management, market sizing |
 | **Mia Tanaka** | VP Design & Frontend | `vp-design` | `gemini-3-flash-preview` | Design system governance, component quality audits, template variety, AI-smell detection |
 
-### Sub-Team Members (17)
+### Sub-Team Members (18)
 
 Sub-team members have role briefs and dashboard entries but do not have independent agent runners.
 They operate under their executive's authority scope.
@@ -203,6 +241,7 @@ They operate under their executive's authority scope.
 | **Alex Park** | Platform Engineer | Engineering | Marcus Reeves (CTO) |
 | **Sam DeLuca** | Quality Engineer | Engineering | Marcus Reeves (CTO) |
 | **Jordan Hayes** | DevOps Engineer | Engineering | Marcus Reeves (CTO) |
+| **Riley Morgan** | M365 Administrator | Engineering | Marcus Reeves (CTO) |
 | **Priya Sharma** | User Researcher | Product | Elena Vasquez (CPO) |
 | **Daniel Ortiz** | Competitive Intel | Product | Elena Vasquez (CPO) |
 | **Anna Park** | Revenue Analyst | Finance | Nadia Okafor (CFO) |
@@ -240,7 +279,7 @@ They operate under their executive's authority scope.
    Alex Park  Priya S.  Anna Park  Tyler Reed  Emma W.  Nathan C.  Leo Vargas
    Sam DeLuca Daniel O.  Omar H.   Lisa Chen   David S.             Ava Chen
    Jordan H.                        Kai J.                           Sofia M.
-                                                                     Ryan Park
+   Riley M.                                                          Ryan Park
 ```
 
 ### Cron Schedules (GCP Cloud Scheduler)
@@ -261,13 +300,14 @@ All 9 jobs are **enabled** and run **daily** (every day of the week).
 | `vpcs-health-scoring` | James Turner | `0 13 * * *` | 8:00 AM | Customer health scoring |
 | `vps-pipeline-review` | Rachel Kim | `0 14 * * *` | 9:00 AM | Enterprise pipeline review |
 
-#### Data Sync Jobs (3 jobs, via HTTP)
+#### Data Sync Jobs (3 jobs, via HTTP + internal DataSyncScheduler)
 
 | Job ID | Cron (UTC) | Local (CT) | Endpoint | Source |
 |--------|-----------|------------|----------|--------|
 | `sync-stripe` | `0 6 * * *` | 12:00 AM | `/sync/stripe` | Stripe (MRR, churn, subscriptions) |
 | `sync-gcp-billing` | `0 7 * * *` | 1:00 AM | `/sync/gcp-billing` | GCP BigQuery billing export |
 | `sync-mercury` | `0 8 * * *` | 2:00 AM | `/sync/mercury` | Mercury (cash balance, flows, vendor subs) |
+| `heartbeat` | `*/10 * * * *` | Every 10 min | `/heartbeat` | Lightweight agent check-ins (DB only, no LLM) |
 
 ---
 
@@ -294,11 +334,13 @@ glyphor-ai-company/
 │   │       ├── store.ts               # CompanyMemoryStore (Supabase + GCS)
 │   │       ├── embeddingClient.ts     # Gemini embedding-001 vector embeddings (768-dim)
 │   │       ├── collectiveIntelligence.ts # Collective intelligence store (company pulse, knowledge)
+│   │       ├── graphReader.ts         # KnowledgeGraphReader — semantic search, N-hop, causal chains
+│   │       ├── graphWriter.ts         # KnowledgeGraphWriter — node/edge upsert, deduplication
 │   │       ├── namespaces.ts          # Key prefixes and GCS paths
 │   │       ├── schema.ts             # Database row types
 │   │       └── migrations/           # Schema migration helpers
 │   │
-│   ├── agents/                  # Agent implementations (8 execs + 17 sub-team + 1 ops)
+│   ├── agents/                  # Agent implementations (8 execs + 18 sub-team + 1 ops)
 │   │   └── src/
 │   │       ├── chief-of-staff/        # Sarah Chen — run.ts, systemPrompt.ts, tools.ts
 │   │       ├── cto/                   # Marcus Reeves
@@ -311,6 +353,7 @@ glyphor-ai-company/
 │   │       ├── platform-engineer/     # Alex Park (CTO team)
 │   │       ├── quality-engineer/      # Sam DeLuca (CTO team)
 │   │       ├── devops-engineer/       # Jordan Hayes (CTO team)
+│   │       ├── m365-admin/            # Riley Morgan (CTO team) — M365 user/channel/calendar mgmt
 │   │       ├── user-researcher/       # Priya Sharma (CPO team)
 │   │       ├── competitive-intel/     # Daniel Ortiz (CPO team)
 │   │       ├── revenue-analyst/       # Anna Park (CFO team)
@@ -324,12 +367,15 @@ glyphor-ai-company/
 │   │       ├── shared/                # Shared tools:
 │   │       │   ├── memoryTools.ts        # save/recall agent memories
 │   │       │   ├── eventTools.ts         # emit Glyphor events
-│   │       │   └── communicationTools.ts # send_agent_message, check_messages, call_meeting
+│   │       │   ├── communicationTools.ts # send_agent_message, check_messages, call_meeting
+│   │       │   ├── graphTools.ts         # query_knowledge_graph, add_knowledge, trace_causes/impact
+│   │       │   ├── collectiveIntelligenceTools.ts # pulse, knowledge routes, patterns, contradictions
+│   │       │   └── createRunDeps.ts      # Wire up all run dependencies for any agent
 │   │       └── index.ts              # Re-exports all runners
 │   │
 │   ├── company-knowledge/       # Shared context (read at runtime)
 │   │   ├── COMPANY_KNOWLEDGE_BASE.md  # ~400 lines: founders, products, metrics, rules
-│   │   └── briefs/                    # 26 role briefs (8 execs + 17 sub-team + 1 ops)
+│   │   └── briefs/                    # 27 role briefs (8 execs + 18 sub-team + 1 ops)
 │   │       ├── sarah-chen.md          # Chief of Staff
 │   │       ├── marcus-reeves.md       # CTO
 │   │       ├── nadia-okafor.md        # CFO
@@ -372,22 +418,49 @@ glyphor-ai-company/
 │   │       │   └── index.ts           # MRR sync, churn rate, webhook handler
 │   │       ├── gcp/
 │   │       │   └── index.ts           # Cloud Run metrics, BigQuery billing export
-│   │       └── mercury/
-│   │           └── index.ts           # Bank accounts, cash flows, vendor subscriptions
+│   │       ├── mercury/
+│   │       │   └── index.ts           # Bank accounts, cash flows, vendor subscriptions
+│   │       ├── github/
+│   │       │   └── index.ts           # Repos, PRs, CI/CD runs, commits, issues
+│   │       ├── posthog/
+│   │       │   └── index.ts           # Product analytics, events, funnels
+│   │       ├── intercom/
+│   │       │   └── index.ts           # Support tickets, conversations
+│   │       ├── ghost/
+│   │       │   └── index.ts           # CMS publishing (blog posts)
+│   │       ├── buffer/
+│   │       │   └── index.ts           # Social media scheduling
+│   │       ├── sendgrid/
+│   │       │   └── index.ts           # Transactional email sending
+│   │       ├── apollo/
+│   │       │   └── index.ts           # Company/people enrichment
+│   │       ├── crunchbase/
+│   │       │   └── index.ts           # Funding & company data
+│   │       ├── ahrefs/
+│   │       │   └── index.ts           # SEO analysis & keyword tracking
+│   │       ├── wappalyzer/
+│   │       │   └── index.ts           # Tech stack detection
+│   │       └── search-console/
+│   │           └── index.ts           # Google Search Console data
 │   │
 │   ├── scheduler/               # Orchestration service
 │   │   └── src/
-│   │       ├── server.ts              # HTTP server (Cloud Run entry, 30+ endpoints)
+│   │       ├── server.ts              # HTTP server (Cloud Run entry, 40+ endpoints)
 │   │       ├── eventRouter.ts         # Event → agent routing + authority
-│   │       ├── authorityGates.ts      # Green/Yellow/Red classification (all 26 roles)
-│   │       ├── cronManager.ts         # 9 agent + 3 data sync job definitions
+│   │       ├── authorityGates.ts      # Green/Yellow/Red classification (all 27 roles)
+│   │       ├── cronManager.ts         # 9 agent + 4 data sync job definitions
 │   │       ├── dynamicScheduler.ts    # DB-driven cron for dynamic agents
+│   │       ├── dataSyncScheduler.ts   # Internal cron for data sync jobs (fires HTTP to self)
 │   │       ├── decisionQueue.ts       # Human approval workflow
 │   │       ├── agentLifecycle.ts      # Create/retire temporary agents
 │   │       ├── analysisEngine.ts      # 5-phase strategic analysis engine
 │   │       ├── simulationEngine.ts    # T+1 impact simulation engine
+│   │       ├── cotEngine.ts           # 4-phase chain-of-thought planning engine
 │   │       ├── meetingEngine.ts       # Multi-round inter-agent meetings
-│   │       └── reportExporter.ts      # Analysis/simulation export (md/json)
+│   │       ├── reportExporter.ts      # Analysis/simulation/CoT export (md/json)
+│   │       ├── wakeRouter.ts          # Event-driven agent wake dispatcher
+│   │       ├── wakeRules.ts           # Declarative event-to-agent wake mappings
+│   │       └── heartbeat.ts           # Lightweight periodic agent check-ins (DB only)
 │   │
 │   └── dashboard/               # Web UI
 │       ├── src/
@@ -401,9 +474,12 @@ glyphor-ai-company/
 │       │   │   ├── AgentBuilder.tsx   # Create new dynamic agents
 │       │   │   ├── AgentSettings.tsx  # Agent configuration
 │       │   │   ├── Approvals.tsx      # Decision approval queue
-│       │   │   ├── Financials.tsx     # Revenue, costs, vendor subscriptions
+│       │   │   ├── Financials.tsx     # Revenue, costs, GCP billing, vendor subscriptions
 │       │   │   ├── Operations.tsx     # System operations & events
-│       │   │   ├── Strategy.tsx       # Strategic analysis & T+1 simulations
+│       │   │   ├── Strategy.tsx       # Strategic analysis & T+1 simulations & CoT planning
+│       │   │   ├── Graph.tsx          # Interactive force-directed knowledge graph (canvas)
+│       │   │   ├── Skills.tsx         # Skill library browser (10 categories)
+│       │   │   ├── SkillDetail.tsx    # Skill detail + agent assignments
 │       │   │   └── Meetings.tsx       # Inter-agent meetings & messages
 │       │   ├── components/            # Shared UI components
 │       │   │   ├── Layout.tsx            # Sidebar nav (9 items), theme toggle
@@ -438,10 +514,19 @@ glyphor-ai-company/
 │       └── open-dashboard.sh
 │
 ├── teams/                       # Microsoft Teams app packages
-│   ├── manifest.json            # Main Glyphor AI team tab + bot
-│   └── agents/                  # 8 individual agent bot manifests + zip packages
+│   ├── manifest.json            # Main Glyphor AI team tab + bot (v1.1.0)
+│   └── agents/                  # 9 individual agent bot manifests + zip packages
+│       ├── sarah-chen/          # Chief of Staff bot
+│       ├── atlas-vega/          # Operations bot
+│       ├── marcus-reeves/       # CTO bot
+│       ├── elena-vasquez/       # CPO bot
+│       ├── nadia-okafor/        # CFO bot
+│       ├── maya-brooks/         # CMO bot
+│       ├── james-turner/        # VP CS bot
+│       ├── rachel-kim/          # VP Sales bot
+│       └── riley-morgan/        # M365 Admin bot
 │
-├── supabase/migrations/         # 19 migration files
+├── supabase/migrations/         # 27 migration files
 ├── .github/workflows/deploy.yml # CI/CD (GitHub Actions → Cloud Run)
 ├── turbo.json                   # Turborepo pipeline config
 ├── tsconfig.base.json           # Shared TS config
@@ -530,6 +615,8 @@ The `CompanyAgentRunner.run()` method accepts optional dependencies:
 | `dynamicBriefLoader` | DB-stored briefs for agents without file-based briefs |
 | `agentProfileLoader` | Load personality profile from `agent_profiles` table |
 | `pendingMessageLoader` | Load unread inter-agent messages for injection |
+| `skillContextLoader` | Load assigned skills and proficiency for context |
+| `graphContextLoader` | Load knowledge graph neighborhood for context |
 
 Name mapping (`ROLE_TO_BRIEF`):
 
@@ -556,6 +643,7 @@ Name mapping (`ROLE_TO_BRIEF`):
 | `onboarding-specialist` | `emma-wright.md` |
 | `support-triage` | `david-santos.md` |
 | `account-research` | `nathan-cole.md` |
+| `m365-admin` | `riley-morgan.md` |
 | `ui-ux-designer` | `leo-vargas.md` |
 | `frontend-engineer` | `ava-chen.md` |
 | `design-critic` | `sofia-marchetti.md` |
@@ -747,14 +835,125 @@ Simulation engines. Temporary agents:
 
 ### Report Exporter (`reportExporter.ts`)
 
-Generates downloadable documents from analysis and simulation reports in both
+Generates downloadable documents from analysis, simulation, and CoT reports in both
 Markdown (human-readable) and JSON (structured) formats.
+
+### Chain of Thought Engine (`cotEngine.ts`)
+
+4-phase structured reasoning engine for complex problem decomposition:
+
+```
+1. DECOMPOSE  — Break the problem into root causes and sub-problems
+2. MAP        — Map solution space: approaches, constraints, trade-offs
+3. ANALYZE    — Evaluate strategic options with pros/cons/feasibility
+4. VALIDATE   — Logical validation: assumptions, risks, edge cases
+```
+
+Statuses: `planning`, `decomposing`, `mapping`, `analyzing`, `validating`, `completed`, `failed`.
+
+Output: A `CotReport` containing root causes, solutions, strategic options with scores,
+and validation results. Stored in `cot_analyses` table.
 
 ### Dynamic Scheduler (`dynamicScheduler.ts`)
 
 Polls `agent_schedules` table every 60 seconds for DB-defined cron jobs. Runs alongside
 static Cloud Scheduler jobs. Supports standard 5-field cron expressions with wildcards,
 ranges, steps, and lists.
+
+### Data Sync Scheduler (`dataSyncScheduler.ts`)
+
+Internal scheduler that fires `DATA_SYNC_JOBS` on their cron schedules by POSTing to
+`localhost:PORT` endpoints. Acts as a fallback when GCP Cloud Scheduler jobs haven't
+been provisioned. Runs all sync jobs once on startup so data populates immediately,
+then checks cron expressions every 60 seconds.
+
+### Reactive Wake System
+
+The wake system enables event-driven agent activation beyond scheduled cron jobs:
+
+#### WakeRouter (`wakeRouter.ts`)
+
+Matches incoming events against `WAKE_RULES` to determine which agents should wake.
+Two dispatch modes:
+- **Immediate** — Agent is executed right away (e.g., Teams bot DMs, Stripe events)
+- **Next heartbeat** — Queued in `agent_wake_queue` for the next heartbeat cycle
+
+Cooldown tracking prevents duplicate wakes within a configurable window.
+
+#### Wake Rules (`wakeRules.ts`)
+
+Declarative event-to-agent mappings. Examples:
+- `teams_bot_dm` → wake target agent immediately
+- `customer.subscription.created` → wake VP Customer Success + VP Sales (5 min cooldown)
+- `dashboard_on_demand` → wake target agent immediately
+
+Supports `$target_agent` dynamic token resolution from event data.
+
+#### Heartbeat Manager (`heartbeat.ts`)
+
+Lightweight periodic check-in cycle (every 10 min via `POST /heartbeat`). No LLM calls —
+DB queries only. Three priority tiers:
+- **High** (10 min): chief-of-staff, cto, ops
+- **Medium** (20 min): other executives
+- **Low** (30 min): sub-team members
+
+Each cycle: dequeue pending `agent_wake_queue` items → dispatch agents with staggered
+2-second delays → respect 5-minute minimum gap between runs.
+
+---
+
+## Knowledge Graph
+
+### KnowledgeGraphWriter (`graphWriter.ts`)
+
+Agents contribute knowledge nodes and edges during their runs via `graphTools`. The writer:
+- Deduplicates nodes via semantic similarity (threshold: 0.92)
+- Supports flexible node references: `this_run_node`, `find_by` (entity/title search), `node_id`
+- Creates typed edges between nodes with strength and evidence
+
+### KnowledgeGraphReader (`graphReader.ts`)
+
+Provides graph context to agents during their runs:
+- Semantic search over node embeddings
+- N-hop neighborhood expansion
+- Causal chain tracing (forward: "what does X impact?", backward: "what caused X?")
+- Tiered context loading: light (3 nodes), standard (6 nodes), full (10 nodes)
+
+### Node & Edge Types
+
+11 node types: `event`, `fact`, `observation`, `pattern`, `decision`, `metric`, `entity`,
+`goal`, `risk`, `action`, `hypothesis`.
+
+10 edge types: `causes`, `precedes`, `relates_to`, `part_of`, `depends_on`, `created_by`,
+`assigned_to`, `measured_by`, `mitigates`, `enables`.
+
+### Dashboard Visualization (`Graph.tsx`)
+
+Interactive force-directed graph on HTML5 Canvas with:
+- Color-coded nodes by type, search filtering, type filtering
+- Click-to-select with neighborhood highlighting
+- Detail panel showing summary, metadata, tags, incoming/outgoing edges
+- Theme-aware labels (reads CSS `--color-txt-primary` variable)
+
+---
+
+## Skill Library
+
+### Database Tables
+
+- `skills` — Shared skill definitions: slug, name, category, description, methodology, tools_granted, version
+- `agent_skills` — Per-agent assignments: proficiency (learning → competent → expert → master), usage stats, learned refinements, failure modes
+- `task_skill_map` — Task regex → skill slug routing
+
+### 10 Skill Categories
+
+`finance`, `engineering`, `marketing`, `product`, `customer-success`, `sales`, `design`,
+`leadership`, `operations`, `analytics`.
+
+### Dashboard Pages
+
+- **Skills** (`/skills`) — Browse all skills, see agent assignments per skill, category badges
+- **Skill Detail** (`/skills/:slug`) — Full methodology, tools granted, per-agent proficiency and usage stats
 
 ---
 
@@ -813,6 +1012,10 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 | `customer_health` | Customer scores | customer_id, health_score, risk_level, last_contact |
 | `competitive_intel` | Market intelligence | competitor, category, finding, source |
 | `product_proposals` | Feature proposals | title, product, rice_score, status |
+| `gcp_billing` | GCP cost tracking | service, cost_usd, usage (JSONB), recorded_at |
+| `infrastructure_metrics` | Infra health metrics | provider, service, metric_type, value, unit, recorded_at |
+| `cost_metrics` | Unit economics | unit_type, cost_usd, volume, period, recorded_at |
+| `stripe_data` | Stripe records | record_type, customer_id, product, plan, amount_usd, status, cohort_month, channel, properties |
 
 ### Agent Intelligence Tables
 
@@ -824,6 +1027,7 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 | `agent_briefs` | Dynamic agent briefs | agent_id, system_prompt, skills, tools |
 | `agent_schedules` | DB-defined cron jobs | agent_id, cron_expression, task, payload, enabled |
 | `metrics_cache` | Cached metrics | key, value, expires_at |
+| `cot_analyses` | Chain-of-thought analyses | id, query, status, requested_by, report (JSONB), completed_at, error |
 
 ### Communication Tables
 
@@ -831,6 +1035,7 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 |-------|---------|-------------|
 | `agent_messages` | Inter-agent DMs | from_agent, to_agent, thread_id, message, message_type, priority, status, response |
 | `agent_meetings` | Multi-agent meetings | called_by, title, purpose, meeting_type, attendees, status, rounds, contributions, transcript, summary, action_items, decisions_made, escalations |
+| `chat_messages` | Founder ↔ agent chat | agent_role, role (user/agent), content, created_at |
 
 ### Strategy Tables
 
@@ -856,8 +1061,26 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 |-------|---------|-------------|
 | `autonomous_ops_events` | System operations | event_type, agent_role, summary, detail |
 | `data_sync_status` | Sync health tracking | id, status, last_success_at, last_failure_at, consecutive_failures |
+| `agent_wake_queue` | Reactive wake queue | agent_role, task, reason, context (JSONB), status (pending/dispatched/completed), dispatched_at |
 
-Total: **19 migration files**, **20+ tables**.
+### Knowledge Graph Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `kg_nodes` | Graph nodes | node_type, title, content, created_by, confidence, department, importance, embedding (pgvector 768-dim), tags, status |
+| `kg_edges` | Graph edges | source_id → kg_nodes, target_id → kg_nodes, edge_type, strength, confidence, evidence, valid_from, valid_until |
+
+RPCs: `match_kg_nodes`, `kg_trace_causes`, `kg_trace_impact`, `kg_neighborhood`, `kg_semantic_search_with_context`, `find_unconnected_similar_nodes`.
+
+### Skill Library Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `skills` | Shared skill definitions | slug, name, category, description, methodology, tools_granted, version |
+| `agent_skills` | Per-agent assignments | agent_role → company_agents, skill_id → skills, proficiency (learning/competent/expert/master), times_used, successes, failures, learned_refinements, failure_modes |
+| `task_skill_map` | Task → skill routing | task_regex, skill_slug → skills, priority |
+
+Total: **29 migration files**, **35+ tables**.
 
 ---
 
