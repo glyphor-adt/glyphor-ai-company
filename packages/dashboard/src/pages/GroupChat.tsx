@@ -4,6 +4,7 @@ import { useAgents } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
 import { SCHEDULER_URL } from '../lib/supabase';
+import { useAuth } from '../lib/auth';
 
 interface GroupMessage {
   role: 'user' | 'agent';
@@ -19,6 +20,10 @@ function stripReasoning(text: string): string {
 
 export default function GroupChat() {
   const { data: agents } = useAgents();
+  const { user } = useAuth();
+  const userInitials = user?.name
+    ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+    : '??';
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(
     new Set(['chief-of-staff', 'cto', 'cfo']),
   );
@@ -233,7 +238,7 @@ export default function GroupChat() {
                 <AgentAvatar role={msg.agentRole} size={28} />
               ) : msg.role === 'user' ? (
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan/20 text-[11px] font-bold text-cyan">
-                  KD
+                  {userInitials}
                 </div>
               ) : null}
               <div

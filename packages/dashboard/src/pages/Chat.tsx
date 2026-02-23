@@ -5,6 +5,7 @@ import { useAgents } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
 import { supabase, SCHEDULER_URL } from '../lib/supabase';
+import { useAuth } from '../lib/auth';
 
 interface Message {
   role: 'user' | 'agent';
@@ -18,17 +19,23 @@ function stripReasoning(text: string): string {
 }
 
 /** Persist a message to Supabase */
-async function saveMessage(agentRole: string, role: 'user' | 'agent', content: string) {
+async function saveMessage(agentRole: string, role: 'user' | 'agent', content: string, userId: string) {
   await (supabase.from('chat_messages') as any).insert({
     agent_role: agentRole,
     role,
     content,
+    user_id: userId,
   });
 }
 
 export default function Chat() {
   const { agentId } = useParams();
   const { data: agents } = useAgents();
+  const { user } = useAuth();
+  const userEmail = user?.email ?? 'unknown';
+  const userInitials = user?.name
+    ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+    : '??';
   const [selectedRole, setSelectedRole] = useState(agentId ?? 'chief-of-staff');
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -45,6 +52,7 @@ export default function Chat() {
         .from('chat_messages') as any)
         .select('role, content, created_at')
         .eq('agent_role', role)
+        .eq('user_id', userEmail)
         .order('created_at', { ascending: true })
         .limit(100) as { data: { role: string; content: string; created_at: string }[] | null };
 
@@ -63,7 +71,7 @@ export default function Chat() {
       setMessages([]);
     }
     setLoadingHistory(false);
-  }, []);
+  }, [userEmail]);
 
   // Load history on mount and when agent changes
   useEffect(() => {
@@ -93,7 +101,7 @@ export default function Chat() {
     setSending(true);
 
     // Persist user message
-    saveMessage(selectedRole, 'user', text);
+    saveMessage(selectedRole, 'user', text, userEmail);
 
     // Timeout after 120 s — Cloud Run cold starts can take ~60 s
     const controller = new AbortController();
@@ -140,7 +148,7 @@ export default function Chat() {
       ]);
 
       // Persist agent response
-      saveMessage(selectedRole, 'agent', content);
+      saveMessage(selectedRole, 'agent', content, userEmail);
     } catch (err) {
       clearTimeout(timeoutId);
       clearTimeout(slowId);
@@ -214,7 +222,7 @@ export default function Chat() {
           {messages.length > 0 && (
             <button
               onClick={async () => {
-                await (supabase.from('chat_messages') as any).delete().eq('agent_role', selectedRole);
+                await (supabase.from('chat_messages') as any).delete().eq('agent_role', selectedRole).eq('user_id', userEmail);
                 setMessages([]);
               }}
               className="text-[11px] text-txt-faint hover:text-rose transition-colors"
@@ -257,7 +265,7 @@ export default function Chat() {
                 <AgentAvatar role={selectedRole} size={28} />
               ) : (
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan/20 text-[11px] font-bold text-cyan">
-                  KD
+                  {userInitials}
                 </div>
               )}
               <div

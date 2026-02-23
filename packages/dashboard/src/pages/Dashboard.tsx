@@ -12,6 +12,7 @@ import {
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { SCHEDULER_URL } from '../lib/supabase';
+import { useAuth } from '../lib/auth';
 
 interface AnalysisSummary {
   total: number;
@@ -47,7 +48,8 @@ export default function Dashboard() {
     })();
   }, []);
 
-  const firstName = 'Kristina';
+  const { user } = useAuth();
+  const firstName = user?.name?.split(' ')[0] ?? 'there';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
