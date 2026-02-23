@@ -518,54 +518,94 @@ function AnalysisDetail({ report, id }: { report: AnalysisReport; id: string }) 
         </div>
       )}
 
-      {/* Risk Considerations */}
+      {/* Risk Considerations — capped with show more */}
       {riskItems.length > 0 && (
-        <div className="rounded-xl border border-rose-400/25 bg-rose-400/5 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-rose-400 mb-3">Risk Considerations</p>
-          <div className="space-y-2">
-            {riskItems.map((item, i) => (
-              <div key={i} className="flex items-start gap-2.5">
-                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-rose-400 shrink-0" />
+        <div className="rounded-xl border border-rose-400/20 bg-rose-400/[0.03] p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-4 w-1 rounded-full bg-rose-400" />
+            <p className="text-xs font-semibold uppercase tracking-wider text-rose-400">Risk Considerations</p>
+            <span className="ml-1 rounded-full bg-rose-400/15 px-2 py-0.5 text-[10px] font-medium text-rose-400">
+              {riskItems.length}
+            </span>
+          </div>
+          <div className="grid gap-2.5 md:grid-cols-2">
+            {visibleRisks.map((item, i) => (
+              <div key={i} className="flex items-start gap-2.5 rounded-lg bg-base/30 px-3 py-2.5">
+                <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-rose-400/15 text-[10px] font-bold text-rose-400">
+                  {i + 1}
+                </span>
                 <p className="text-[13px] text-txt-secondary leading-relaxed">{item}</p>
               </div>
             ))}
           </div>
+          {riskItems.length > RISKS_PREVIEW && (
+            <button
+              onClick={() => setShowAllRisks(!showAllRisks)}
+              className="mt-3 text-xs font-medium text-rose-400 hover:text-rose-300 transition-colors"
+            >
+              {showAllRisks ? 'Show less' : `Show all ${riskItems.length} risks`}
+            </button>
+          )}
         </div>
       )}
 
       {/* Collapsible SWOT Matrix */}
-      <div>
+      <div className="rounded-xl border border-border bg-raised p-5">
         <button
           onClick={() => setShowSwot(!showSwot)}
-          className="flex items-center gap-2 text-[12px] font-medium text-txt-muted hover:text-txt-secondary transition-colors"
+          className="flex items-center gap-2 text-xs font-semibold text-txt-secondary hover:text-txt-primary transition-colors"
         >
           <span className={`text-[10px] transition-transform duration-200 ${showSwot ? 'rotate-90' : ''}`}>▶</span>
           SWOT Matrix Detail
         </button>
         {showSwot && (
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <div className="rounded-lg border border-emerald-400/20 bg-emerald-400/5 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400 mb-2">Strengths</p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-lg border border-emerald-400/20 bg-emerald-400/[0.03] p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400 mb-3">Strengths</p>
               {report.swot.strengths.length === 0 ? <p className="text-[11px] text-txt-faint">—</p> : (
-                <ul className="space-y-1">{report.swot.strengths.map((s, i) => <li key={i} className="text-[12px] text-txt-secondary leading-relaxed">• {s}</li>)}</ul>
+                <ul className="space-y-1.5">
+                  {report.swot.strengths.map((s, i) => (
+                    <li key={i} className="flex items-start gap-2 text-[12px] text-txt-secondary leading-relaxed">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />{s}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
-            <div className="rounded-lg border border-red-400/20 bg-red-400/5 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-red-400 mb-2">Weaknesses</p>
+            <div className="rounded-lg border border-red-400/20 bg-red-400/[0.03] p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-red-400 mb-3">Weaknesses</p>
               {report.swot.weaknesses.length === 0 ? <p className="text-[11px] text-txt-faint">—</p> : (
-                <ul className="space-y-1">{report.swot.weaknesses.map((w, i) => <li key={i} className="text-[12px] text-txt-secondary leading-relaxed">• {w}</li>)}</ul>
+                <ul className="space-y-1.5">
+                  {report.swot.weaknesses.map((w, i) => (
+                    <li key={i} className="flex items-start gap-2 text-[12px] text-txt-secondary leading-relaxed">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-400" />{w}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
-            <div className="rounded-lg border border-cyan/20 bg-cyan/5 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-cyan mb-2">Opportunities</p>
+            <div className="rounded-lg border border-cyan/20 bg-cyan/[0.03] p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-cyan mb-3">Opportunities</p>
               {report.swot.opportunities.length === 0 ? <p className="text-[11px] text-txt-faint">—</p> : (
-                <ul className="space-y-1">{report.swot.opportunities.map((o, i) => <li key={i} className="text-[12px] text-txt-secondary leading-relaxed">• {o}</li>)}</ul>
+                <ul className="space-y-1.5">
+                  {report.swot.opportunities.map((o, i) => (
+                    <li key={i} className="flex items-start gap-2 text-[12px] text-txt-secondary leading-relaxed">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan" />{o}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
-            <div className="rounded-lg border border-amber-400/20 bg-amber-400/5 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-400 mb-2">Threats</p>
+            <div className="rounded-lg border border-amber-400/20 bg-amber-400/[0.03] p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-400 mb-3">Threats</p>
               {report.swot.threats.length === 0 ? <p className="text-[11px] text-txt-faint">—</p> : (
-                <ul className="space-y-1">{report.swot.threats.map((t, i) => <li key={i} className="text-[12px] text-txt-secondary leading-relaxed">• {t}</li>)}</ul>
+                <ul className="space-y-1.5">
+                  {report.swot.threats.map((t, i) => (
+                    <li key={i} className="flex items-start gap-2 text-[12px] text-txt-secondary leading-relaxed">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />{t}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
           </div>
@@ -574,13 +614,13 @@ function AnalysisDetail({ report, id }: { report: AnalysisReport; id: string }) 
 
       {/* Collapsible Research Threads */}
       {report.threads.length > 0 && (
-        <div>
+        <div className="rounded-xl border border-border bg-raised p-5">
           <button
             onClick={() => setShowThreads(!showThreads)}
-            className="flex items-center gap-2 text-[12px] font-medium text-txt-muted hover:text-txt-secondary transition-colors"
+            className="flex items-center gap-2 text-xs font-semibold text-txt-secondary hover:text-txt-primary transition-colors"
           >
             <span className={`text-[10px] transition-transform duration-200 ${showThreads ? 'rotate-90' : ''}`}>▶</span>
-            Research Threads ({report.threads.filter((t) => t.status === 'completed').length}/{report.threads.length})
+            Research Threads ({report.threads.filter((t) => t.status === 'completed').length}/{report.threads.length} completed)
           </button>
           {showThreads && (
             <div className="mt-3 space-y-2">

@@ -305,6 +305,8 @@ export class ModelClient {
         }))
       : undefined;
 
+    // o-series models (o1, o3, o4) don't accept temperature, top_p, or max_tokens
+    const isOSeries = /^o[134]-/.test(request.model);
     // GPT-5 family supports configurable reasoning_effort; o-series always reasons
     const isGpt5 = request.model.startsWith('gpt-5');
     const thinkingEnabled = request.thinkingEnabled ?? true;
@@ -314,9 +316,14 @@ export class ModelClient {
       model: request.model,
       messages,
       tools,
-      temperature: request.temperature ?? 0.7,
-      top_p: request.topP,
-      max_tokens: request.maxTokens,
+      // o-series models reject temperature/top_p/max_tokens; use max_completion_tokens instead
+      ...(isOSeries
+        ? { max_completion_tokens: request.maxTokens }
+        : {
+            temperature: request.temperature ?? 0.7,
+            top_p: request.topP,
+            max_tokens: request.maxTokens,
+          }),
       ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
     });
 
@@ -331,35 +338,67 @@ export class ModelClient {
       { role: 'system', content: request.systemInstruction },
     ];
 
-    for (const turn of request.contents) {
+    const turns = request.contents;
+    let i = 0;
+    let lastToolCallIds: string[] = [];
+
+    while (i < turns.length) {
+      const turn = turns[i];
       switch (turn.role) {
         case 'user':
           messages.push({ role: 'user', content: turn.content });
+          i++;
           break;
         case 'assistant':
           messages.push({ role: 'assistant', content: turn.content });
+          i++;
           break;
-        case 'tool_call':
+        case 'tool_call': {
+          // Batch consecutive tool_call turns into a single assistant message
+          const toolCalls: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }> = [];
+          lastToolCallIds = [];
+          while (i < turns.length && turns[i].role === 'tool_call') {
+            const tc = turns[i];
+            const id = `call_${tc.toolName}_${tc.timestamp}`;
+            lastToolCallIds.push(id);
+            toolCalls.push({
+              id,
+              type: 'function',
+              function: {
+                name: tc.toolName!,
+                arguments: JSON.stringify(tc.toolParams ?? {}),
+              },
+            });
+            i++;
+          }
           messages.push({
             role: 'assistant',
             content: null,
-            tool_calls: [{
-              id: `call_${turn.toolName}_${turn.timestamp}`,
-              type: 'function',
-              function: {
-                name: turn.toolName!,
-                arguments: JSON.stringify(turn.toolParams ?? {}),
-              },
-            }],
+            tool_calls: toolCalls,
           });
           break;
-        case 'tool_result':
-          messages.push({
-            role: 'tool',
-            tool_call_id: `call_${turn.toolName}_${turn.timestamp}`,
-            content: turn.content,
-          });
+        }
+        case 'tool_result': {
+          // Each tool_result is a separate 'tool' message, but must reference
+          // the correct tool_call_id from the preceding tool_call batch
+          let resultIndex = 0;
+          while (i < turns.length && turns[i].role === 'tool_result') {
+            const tr = turns[i];
+            const toolCallId = resultIndex < lastToolCallIds.length
+              ? lastToolCallIds[resultIndex]
+              : `call_${tr.toolName}_${tr.timestamp}`;
+            messages.push({
+              role: 'tool',
+              tool_call_id: toolCallId,
+              content: tr.content,
+            });
+            resultIndex++;
+            i++;
+          }
           break;
+        }
+        default:
+          i++;
       }
     }
 
@@ -408,9 +447,11 @@ export class ModelClient {
         }))
       : undefined;
 
-    // Extended thinking: temperature must be 1 when enabled
+    // Extended thinking is only supported on claude-3-5-sonnet-*, claude-3-7-*, claude-4-*, and later
     const thinkingEnabled = request.thinkingEnabled ?? true;
-    const thinkingParam = thinkingEnabled
+    const supportsThinking = /claude-(3-[5-9]|[4-9]|sonnet-4|opus-4)/.test(request.model);
+    const useThinking = thinkingEnabled && supportsThinking;
+    const thinkingParam = useThinking
       ? { thinking: { type: 'enabled' as const, budget_tokens: 8192 } }
       : {};
 
@@ -420,7 +461,7 @@ export class ModelClient {
       messages,
       tools,
       max_tokens: request.maxTokens ?? 4096,
-      temperature: thinkingEnabled ? 1 : (request.temperature ?? 0.7),
+      temperature: useThinking ? 1 : (request.temperature ?? 0.7),
       top_p: request.topP,
       ...thinkingParam,
     } as Parameters<typeof this.anthropic.messages.create>[0]);
@@ -434,35 +475,61 @@ export class ModelClient {
   ): Anthropic.MessageParam[] {
     const messages: Anthropic.MessageParam[] = [];
 
-    for (const turn of turns) {
+    let i = 0;
+    let lastToolUseIds: string[] = [];
+
+    while (i < turns.length) {
+      const turn = turns[i];
       switch (turn.role) {
         case 'user':
           messages.push({ role: 'user', content: turn.content });
+          i++;
           break;
         case 'assistant':
           messages.push({ role: 'assistant', content: turn.content });
+          i++;
           break;
-        case 'tool_call':
-          messages.push({
-            role: 'assistant',
-            content: [{
+        case 'tool_call': {
+          // Batch consecutive tool_call turns into a single assistant message
+          const content: Array<{ type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }> = [];
+          lastToolUseIds = [];
+          while (i < turns.length && turns[i].role === 'tool_call') {
+            const tc = turns[i];
+            const id = `call_${tc.toolName}_${tc.timestamp}`;
+            lastToolUseIds.push(id);
+            content.push({
               type: 'tool_use',
-              id: `call_${turn.toolName}_${turn.timestamp}`,
-              name: turn.toolName!,
-              input: turn.toolParams ?? {},
-            }],
-          });
+              id,
+              name: tc.toolName!,
+              input: (tc.toolParams ?? {}) as Record<string, unknown>,
+            });
+            i++;
+          }
+          messages.push({ role: 'assistant', content });
           break;
-        case 'tool_result':
-          messages.push({
-            role: 'user',
-            content: [{
+        }
+        case 'tool_result': {
+          // Batch consecutive tool_result turns into a single user message
+          const content: Array<{ type: 'tool_result'; tool_use_id: string; content: string }> = [];
+          let resultIndex = 0;
+          while (i < turns.length && turns[i].role === 'tool_result') {
+            const tr = turns[i];
+            const toolUseId = resultIndex < lastToolUseIds.length
+              ? lastToolUseIds[resultIndex]
+              : `call_${tr.toolName}_${tr.timestamp}`;
+            content.push({
               type: 'tool_result',
-              tool_use_id: `call_${turn.toolName}_${turn.timestamp}`,
-              content: turn.content,
-            }],
-          });
+              tool_use_id: toolUseId,
+              content: tr.content,
+            });
+            resultIndex++;
+            i++;
+          }
+          messages.push({ role: 'user', content });
           break;
+        }
+        default:
+          i++;
       }
     }
 
