@@ -21,9 +21,9 @@ export default function Layout() {
   const { theme, toggle } = useTheme();
   const { user, logout } = useAuth();
   return (
-    <div className="flex h-screen overflow-hidden bg-base dark:bg-[#0a0c10]">
+    <div className="flex h-screen overflow-hidden bg-base">
       {/* ── Sidebar ─────────────────────────── */}
-      <aside className="flex w-[220px] flex-col border-r border-border dark:border-white/[0.06] bg-white dark:bg-white/[0.04] dark:backdrop-blur-2xl transition-colors duration-200">
+      <aside className="flex w-[220px] flex-col border-r border-border dark:border-[#1a1a1a] bg-white dark:bg-[#0B0B0C] transition-colors duration-200">
         {/* Brand */}
         <div className="flex items-center gap-3 px-4 py-4">
           <img src="/glyphor-logo.png" alt="Glyphor" className="h-10 w-10 drop-shadow-[0_0_10px_rgba(0,224,255,0.4)]" />
@@ -67,7 +67,7 @@ export default function Layout() {
           </button>
         </div>
         {/* Footer */}
-        <div className="border-t border-border dark:border-white/[0.06] px-4 py-4">
+        <div className="border-t border-border dark:border-[#1a1a1a] px-4 py-4">
           <div className="flex items-center gap-2.5">
             {user?.picture ? (
               <img src={user.picture} alt="" className="h-7 w-7 rounded-full" referrerPolicy="no-referrer" />
