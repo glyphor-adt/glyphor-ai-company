@@ -24,7 +24,6 @@ import {
 interface AgentRow {
   id: string;
   role: string;
-  codename: string;
   total_runs: number;
   total_cost_usd: number;
   last_run_at: string | null;
@@ -47,7 +46,7 @@ function useAgentRuns() {
     setLoading(true);
     const { data: rows } = await supabase
       .from('company_agents')
-      .select('id, role, codename, total_runs, total_cost_usd, last_run_at, last_run_duration_ms, performance_score')
+      .select('id, role, total_runs, total_cost_usd, last_run_at, last_run_duration_ms, performance_score')
       .order('role', { ascending: true });
     setData((rows as AgentRow[]) ?? []);
     setLoading(false);
@@ -81,7 +80,6 @@ const ROLE_ORDER = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-s
 
 interface SyncRow {
   id: string;
-  source_name: string;
   status: string;
   last_success_at: string | null;
   last_failure_at: string | null;
@@ -304,7 +302,7 @@ export default function Operations() {
                           : 'bg-red-400'
                       }`}
                     />
-                    <span className="text-sm font-medium text-txt-secondary">{sync.source_name}</span>
+                    <span className="text-sm font-medium text-txt-secondary">{sync.id}</span>
                   </div>
                   <div className="flex items-center gap-3 text-right">
                     {sync.consecutive_failures > 0 && (
