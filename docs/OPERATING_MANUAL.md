@@ -1664,6 +1664,8 @@ secrets/
 │   ├─ restricted-key-finance   → Nadia, Anna, Omar
 │   ├─ restricted-key-cs        → James, David
 │   └─ webhook-signing-secret   → runtime only
+├─ mercury/
+│   └─ api-token                → Nadia (via DataSyncScheduler)
 ├─ sendgrid/
 │   ├─ api-key-support          → David
 │   ├─ api-key-onboarding       → Emma
@@ -1691,15 +1693,17 @@ secrets/
 │   ├─ api-secret               → (same)
 │   ├─ access-token             → (same)
 │   └─ access-secret            → (same)
+├─ azure/
+│   ├─ tenant-id                → Graph API, Bot Framework
+│   ├─ client-id                → Graph API (Entra app registration)
+│   └─ client-secret            → Graph API (Entra app registration)
 ├─ teams/
-│   ├─ webhook-kristina-briefings  → Sarah only
-│   ├─ webhook-andrew-briefings    → Sarah only
-│   ├─ webhook-decisions           → all executives
-│   ├─ webhook-engineering         → Marcus
-│   ├─ webhook-growth              → Elena, Maya
-│   ├─ webhook-financials          → Nadia
-│   ├─ webhook-customer-intel      → James, Rachel
-│   └─ webhook-glyphor-general     → Sarah, Marcus
+│   ├─ team-id                  → Graph API channel operations
+│   ├─ bot-app-id               → Bot Framework (Teams bot identity)
+│   ├─ bot-app-secret           → Bot Framework (Teams bot auth)
+│   ├─ mail-sender-id           → Graph email (shared mailbox object ID)
+│   ├─ user-kristina-id         → DM target (Atlas, Sarah)
+│   └─ user-andrew-id           → DM target (Atlas, Sarah)
 ├─ google/
 │   ├─ search-console-credentials  → Lisa
 │   └─ service-accounts/
@@ -1709,6 +1713,7 @@ secrets/
 │       ├─ sa-elena@glyphor.iam    → GCS proposals
 │       ├─ sa-maya@glyphor.iam     → GCS content
 │       ├─ sa-rachel@glyphor.iam   → GCS sales
+│       ├─ sa-mia@glyphor.iam     → Lighthouse, design assets
 │       ├─ sa-alex@glyphor.iam     → Cloud Run viewer, Monitoring
 │       ├─ sa-jordan@glyphor.iam   → Cloud Run viewer, staging editor
 │       └─ sa-omar@glyphor.iam     → Billing viewer, Cloud Run viewer
@@ -1726,6 +1731,7 @@ secrets/
 | GitHub Team | ~$4-19 | Existing or set up |
 | Vercel Pro | ~$67 | Existing |
 | Stripe | $0 | Existing |
+| Mercury Banking API | $0 | Existing |
 | GCP (Cloud Run, Pub/Sub, GCS, Billing) | ~$187 | Existing |
 | Gemini API | ~$412 | Existing |
 | Supabase Pro | $125 | Existing |
@@ -1751,25 +1757,32 @@ secrets/
 
 ## Quick Reference Matrix
 
-| Agent | Deploy | Publish | Email Users | Spend >$50 | Hire | File Decisions | GitHub | Vercel | Stripe |
-|-------|:------:|:-------:|:-----------:|:----------:|:----:|:--------------:|:------:|:------:|:------:|
-| Sarah | ✗ | ✗ | Emergency | ✗ | ✗ | Yellow | ✗ | ✗ | ✗ |
-| Marcus | Staging=🟢 Prod=🟡 | ✗ | ✗ | 🟡→Andrew | 🟢temp 🟡perm | Yellow | ✅ admin | ✅ admin | ✗ |
-| Nadia | ✗ | ✗ | ✗ | ✗ (monitors) | ✗ | Yellow (alerts) | ✗ | billing | ✅ read |
-| Elena | ✗ | ✗ | ✗ | ✗ | 🟢temp 🟡perm | Yellow+Red | ✗ | ✗ | ✗ |
-| Maya | ✗ | 🟡→Kristina | 🟡 marketing | ✗ | 🟢temp 🟡perm | Yellow | ✗ | ✗ | ✗ |
-| James | ✗ | ✗ | 🟢 templated | ✗ | 🟢temp 🟡perm | Yellow | ✗ | ✗ | ✅ cust |
-| Rachel | ✗ | ✗ | ✗ | ✗ | 🟢temp 🟡perm | Yellow+Red | ✗ | ✗ | ✗ |
-| Alex | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✅ read | ✅ view | ✗ |
-| Sam | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✅ test | ✗ | ✗ |
-| Jordan | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✅ CI | ✅ metrics | ✗ |
-| Priya | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Daniel | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✅ public | ✗ | ✗ |
-| Anna | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✅ rev |
-| Omar | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✅ billing | ✅ fees |
-| Tyler | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Lisa | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Kai | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Emma | ✗ | ✗ | 🟢 onboarding | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| David | ✗ | ✗ | 🟢 support | ✗ | ✗ | ✗ | ✗ | ✗ | ✅ cust |
-| Nathan | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Agent | Deploy | Publish | Email Users | Spend >$50 | Hire | File Decisions | GitHub | Vercel | Stripe | Teams/M365 |
+|-------|:------:|:-------:|:-----------:|:----------:|:----:|:--------------:|:------:|:------:|:------:|:----------:|
+| Sarah | ✗ | ✗ | Emergency | ✗ | ✗ | Yellow | ✗ | ✗ | ✗ | Graph+DM |
+| Marcus | Staging=🟢 Prod=🟡 | ✗ | ✗ | 🟡→Andrew | 🟢temp 🟡perm | Yellow | ✅ admin | ✅ admin | ✗ | Graph |
+| Nadia | ✗ | ✗ | ✗ | ✗ (monitors) | ✗ | Yellow (alerts) | ✗ | billing | ✅ read | Graph |
+| Elena | ✗ | ✗ | ✗ | ✗ | 🟢temp 🟡perm | Yellow+Red | ✗ | ✗ | ✗ | Graph |
+| Maya | ✗ | 🟡→Kristina | 🟡 marketing | ✗ | 🟢temp 🟡perm | Yellow | ✗ | ✗ | ✗ | Graph |
+| James | ✗ | ✗ | 🟢 templated | ✗ | 🟢temp 🟡perm | Yellow | ✗ | ✗ | ✅ cust | Graph |
+| Rachel | ✗ | ✗ | ✗ | ✗ | 🟢temp 🟡perm | Yellow+Red | ✗ | ✗ | ✗ | Graph |
+| Mia | ✗ | ✗ | ✗ | ✗ | 🟢temp 🟡perm | Yellow | ✗ | ✗ | ✗ | Graph |
+| Atlas | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | Graph+DM |
+| Alex | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✅ read | ✅ view | ✗ | ✗ |
+| Sam | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✅ test | ✗ | ✗ | ✗ |
+| Jordan | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✅ CI | ✅ metrics | ✗ | ✗ |
+| Priya | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Daniel | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✅ public | ✗ | ✗ | ✗ |
+| Anna | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✅ rev | ✗ |
+| Omar | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✅ billing | ✅ fees | ✗ |
+| Tyler | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Lisa | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Kai | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Emma | ✗ | ✗ | 🟢 onboarding | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| David | ✗ | ✗ | 🟢 support | ✗ | ✗ | ✗ | ✗ | ✗ | ✅ cust | ✗ |
+| Nathan | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Riley | ✗ | ✗ | 🟢 via Graph | ✗ | ✗ | Yellow | ✗ | ✗ | ✗ | ✅ admin |
+| Leo | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Ava | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Sofia | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Ryan | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
