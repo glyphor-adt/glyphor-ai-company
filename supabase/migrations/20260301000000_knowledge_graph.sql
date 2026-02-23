@@ -291,22 +291,17 @@ WITH RECURSIVE neighborhood AS (
 
   SELECT
     n.id, n.node_type, n.title, n.content,
-    nb.depth + 1, e.edge_type, 'outgoing',
+    nb.depth + 1,
+    e.edge_type,
+    CASE WHEN e.source_id = nb.node_id THEN 'outgoing' ELSE 'incoming' END,
     nb.visited || n.id
   FROM neighborhood nb
-  JOIN kg_edges e ON e.source_id = nb.node_id AND e.valid_until IS NULL
-  JOIN kg_nodes n ON n.id = e.target_id AND n.status = 'active'
-  WHERE nb.depth < max_depth AND NOT (n.id = ANY(nb.visited))
-
-  UNION ALL
-
-  SELECT
-    n.id, n.node_type, n.title, n.content,
-    nb.depth + 1, e.edge_type, 'incoming',
-    nb.visited || n.id
-  FROM neighborhood nb
-  JOIN kg_edges e ON e.target_id = nb.node_id AND e.valid_until IS NULL
-  JOIN kg_nodes n ON n.id = e.source_id AND n.status = 'active'
+  JOIN kg_edges e
+    ON (e.source_id = nb.node_id OR e.target_id = nb.node_id)
+    AND e.valid_until IS NULL
+  JOIN kg_nodes n
+    ON n.id = CASE WHEN e.source_id = nb.node_id THEN e.target_id ELSE e.source_id END
+    AND n.status = 'active'
   WHERE nb.depth < max_depth AND NOT (n.id = ANY(nb.visited))
 )
 SELECT DISTINCT ON (node_id) node_id, node_type, title, content, depth, relationship, direction
