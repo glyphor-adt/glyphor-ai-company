@@ -196,7 +196,6 @@ export class CollectiveIntelligenceStore {
       .from('company_knowledge_base')
       .update({
         ...updates,
-        version: this.supabase.rpc ? undefined : undefined,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id);
