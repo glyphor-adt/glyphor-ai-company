@@ -12,6 +12,7 @@ const NAV = [
   { to: '/financials', label: 'Financials', icon: ChartIcon },
   { to: '/operations', label: 'Operations', icon: GearIcon },
   { to: '/strategy', label: 'Strategy', icon: StrategyIcon },
+  { to: '/graph', label: 'Graph', icon: GraphIcon },
   { to: '/meetings', label: 'Meetings', icon: MeetingsIcon },
 ] as const;
 
@@ -201,6 +202,18 @@ function GroupChatIcon({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
       <path d="M1 2.5h10v6H4.5l-2 1.5V8.5H1z" />
       <path d="M5 6h9v6h-2.5v1.5l-2-1.5H5z" />
+    </svg>
+  );
+}
+
+function GraphIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <circle cx="4" cy="4" r="2" />
+      <circle cx="12" cy="4" r="2" />
+      <circle cx="8" cy="12" r="2" />
+      <circle cx="13" cy="11" r="1.5" />
+      <path d="M5.8 5.2L7 10M10.2 5.2L9 10M12 5.5L12.5 9.5" />
     </svg>
   );
 }

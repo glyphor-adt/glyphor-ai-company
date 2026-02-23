@@ -13,6 +13,7 @@ import Operations from './pages/Operations';
 import Strategy from './pages/Strategy';
 import Meetings from './pages/Meetings';
 import TeamsConfig from './pages/TeamsConfig';
+import Graph from './pages/Graph';
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="financials" element={<Financials />} />
         <Route path="operations" element={<Operations />} />
         <Route path="strategy" element={<Strategy />} />
+        <Route path="graph" element={<Graph />} />
         <Route path="meetings" element={<Meetings />} />
         <Route path="chat" element={<Chat />} />
         <Route path="chat/:agentId" element={<Chat />} />

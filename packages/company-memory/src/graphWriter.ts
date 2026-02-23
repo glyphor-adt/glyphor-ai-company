@@ -252,12 +252,13 @@ export class KnowledgeGraphWriter {
 
   private async validateNode(nodeId: string): Promise<void> {
     // Increment times_validated atomically
-    await this.supabase.rpc('kg_validate_node', { target_node_id: nodeId }).catch(() => {
+    const { error } = await this.supabase.rpc('kg_validate_node', { target_node_id: nodeId });
+    if (error) {
       // Fallback: non-atomic update if RPC doesn't exist
-      this.supabase
+      await this.supabase
         .from('kg_nodes')
         .update({ updated_at: new Date().toISOString() })
         .eq('id', nodeId);
-    });
+    }
   }
 }
