@@ -146,56 +146,56 @@ ON CONFLICT DO NOTHING;
 -- Connect nodes with meaningful relationships
 
 -- Fuse → Target Market (enables)
-INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence)
-SELECT s.id, t.id, 'enables', 0.9, 0.9, 'Fuse is the primary revenue product targeting the enterprise market'
+INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence, created_by)
+SELECT s.id, t.id, 'enables', 0.9, 0.9, 'Fuse is the primary revenue product targeting the enterprise market', 'system'
 FROM kg_nodes s, kg_nodes t
 WHERE s.title = 'Fuse' AND s.node_type = 'product'
   AND t.title = 'Target Market' AND t.node_type = 'concept'
 ON CONFLICT DO NOTHING;
 
 -- Multi-Agent → GCP Infrastructure (depends_on)
-INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence)
-SELECT s.id, t.id, 'depends_on', 0.95, 1.0, 'All 27 agents run on GCP Cloud Run infrastructure'
+INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence, created_by)
+SELECT s.id, t.id, 'depends_on', 0.95, 1.0, 'All 27 agents run on GCP Cloud Run infrastructure', 'system'
 FROM kg_nodes s, kg_nodes t
 WHERE s.title = 'Multi-Agent Orchestration' AND s.node_type = 'concept'
   AND t.title = 'GCP Infrastructure' AND t.node_type = 'concept'
 ON CONFLICT DO NOTHING;
 
 -- Telemetry Blackout → Infrastructure Cost (causes)
-INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence)
-SELECT s.id, t.id, 'causes', 1.0, 1.0, 'Cannot monitor or optimize costs without working telemetry'
+INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence, created_by)
+SELECT s.id, t.id, 'causes', 1.0, 1.0, 'Cannot monitor or optimize costs without working telemetry', 'system'
 FROM kg_nodes s, kg_nodes t
 WHERE s.title = 'Telemetry Blackout' AND s.node_type = 'risk'
   AND t.title = 'Infrastructure Cost' AND t.node_type = 'metric'
 ON CONFLICT DO NOTHING;
 
 -- Enterprise Pipeline → Pre-Revenue Risk (mitigates)
-INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence)
-SELECT s.id, t.id, 'mitigates', 0.8, 0.8, 'Closing enterprise deals would address pre-revenue risk and validate market'
+INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence, created_by)
+SELECT s.id, t.id, 'mitigates', 0.8, 0.8, 'Closing enterprise deals would address pre-revenue risk and validate market', 'system'
 FROM kg_nodes s, kg_nodes t
 WHERE s.title = 'Enterprise Pipeline' AND s.node_type = 'opportunity'
   AND t.title = 'Pre-Revenue Risk' AND t.node_type = 'risk'
 ON CONFLICT DO NOTHING;
 
 -- Authority Model → Multi-Agent Orchestration (enables)
-INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence)
-SELECT s.id, t.id, 'enables', 0.9, 1.0, 'Authority model governs what agents can do autonomously vs requiring approval'
+INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence, created_by)
+SELECT s.id, t.id, 'enables', 0.9, 1.0, 'Authority model governs what agents can do autonomously vs requiring approval', 'system'
 FROM kg_nodes s, kg_nodes t
 WHERE s.title = 'Authority Model' AND s.node_type = 'concept'
   AND t.title = 'Multi-Agent Orchestration' AND t.node_type = 'concept'
 ON CONFLICT DO NOTHING;
 
 -- Fuse enables Pulse (related products)
-INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence)
-SELECT s.id, t.id, 'relates_to', 0.7, 0.9, 'Same core runtime powers both products; shared infrastructure and agent architecture'
+INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence, created_by)
+SELECT s.id, t.id, 'relates_to', 0.7, 0.9, 'Same core runtime powers both products; shared infrastructure and agent architecture', 'system'
 FROM kg_nodes s, kg_nodes t
 WHERE s.title = 'Fuse' AND s.node_type = 'product'
   AND t.title = 'Pulse' AND t.node_type = 'product'
 ON CONFLICT DO NOTHING;
 
 -- Devin → Fuse (relates_to competitive)
-INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence)
-SELECT s.id, t.id, 'relates_to', 0.8, 0.9, 'Direct competitor — single agent vs our multi-agent orchestration approach'
+INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence, created_by)
+SELECT s.id, t.id, 'relates_to', 0.8, 0.9, 'Direct competitor — single agent vs our multi-agent orchestration approach', 'system'
 FROM kg_nodes s, kg_nodes t
 WHERE s.title = 'Devin (Cognition)' AND s.node_type = 'concept'
   AND t.title = 'Fuse' AND t.node_type = 'product'
