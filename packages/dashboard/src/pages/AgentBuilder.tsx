@@ -316,7 +316,7 @@ export default function AgentBuilder() {
         <button
           onClick={handleCreate}
           disabled={creating || !name.trim()}
-          className="rounded-lg bg-gradient-to-r from-cyan to-azure px-6 py-2 text-sm font-semibold text-[#0B0B0C] transition-all hover:shadow-[0_0_20px_rgba(0,224,255,0.4)] disabled:opacity-40"
+          className="rounded-lg bg-gradient-to-r from-cyan to-azure px-6 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] disabled:opacity-40"
         >
           {creating ? 'Creating...' : 'Create Agent'}
         </button>

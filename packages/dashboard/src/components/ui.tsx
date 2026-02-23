@@ -46,10 +46,10 @@ export function TierBadge({ tier }: { tier: string }) {
 /* ─── Impact Badge ────────────────────────── */
 export function ImpactBadge({ impact }: { impact: string }) {
   const colors: Record<string, string> = {
-    low: 'bg-slate-500/15 text-slate-400 border-slate-500/25',
-    medium: 'bg-blue-500/15 text-blue-400 border-blue-500/25',
-    high: 'bg-amber-500/15 text-amber-400 border-amber-500/25',
-    critical: 'bg-red-500/15 text-red-400 border-red-500/25',
+    low: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-500/15 dark:text-slate-400 dark:border-slate-500/25',
+    medium: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30',
+    high: 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/30',
+    critical: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30',
   };
   return (
     <span
@@ -65,7 +65,7 @@ export function ImpactBadge({ impact }: { impact: string }) {
 /* ─── Status Dot ──────────────────────────── */
 export function StatusDot({ status }: { status: string }) {
   const bg =
-    status === 'active' ? 'bg-tier-green' : status === 'idle' ? 'bg-tier-yellow' : 'bg-slate-600';
+    status === 'active' ? 'bg-emerald-500' : status === 'idle' ? 'bg-amber-500' : 'bg-slate-500';
   return <span className={`inline-block h-2 w-2 rounded-full ${bg}`} />;
 }
 

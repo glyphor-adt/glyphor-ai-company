@@ -26,7 +26,7 @@ export default function Layout() {
       <aside className="flex w-[220px] flex-col border-r border-border dark:border-[#1a1a1a] bg-white dark:bg-[#0B0B0C] transition-colors duration-200">
         {/* Brand */}
         <div className="flex items-center gap-3 px-4 py-4">
-          <img src="/glyphor-logo.png" alt="Glyphor" className="h-10 w-10 drop-shadow-[0_0_10px_rgba(0,224,255,0.4)]" />
+          <img src="/glyphor-logo.png" alt="Glyphor" className="h-10 w-10 drop-shadow-[0_0_10px_rgba(34,211,238,0.4)]" />
           <span className="text-lg font-semibold tracking-tight text-txt-primary dark:text-white">
             Glyphor
           </span>

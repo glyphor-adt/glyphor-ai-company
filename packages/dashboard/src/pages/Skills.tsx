@@ -193,7 +193,7 @@ export default function Skills() {
               to={`/skills/${skill.slug}`}
               className="group"
             >
-              <Card className="h-full transition-all hover:border-cyan/30 hover:shadow-[0_0_15px_rgba(0,224,255,0.08)]">
+              <Card className="h-full transition-all hover:border-cyan/30 hover:shadow-[0_0_15px_rgba(34,211,238,0.08)]">
                 <div className="flex items-start justify-between mb-2">
                   <span
                     className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"

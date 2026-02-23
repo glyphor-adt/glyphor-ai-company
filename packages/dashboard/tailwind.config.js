@@ -17,10 +17,10 @@ export default {
         'txt-muted': 'var(--color-txt-muted)',
         'txt-faint': 'var(--color-txt-faint)',
         // Primary
-        cyan: { DEFAULT: '#0891B2', muted: '#0891B280' },
-        azure: { DEFAULT: '#2563EB', muted: '#2563EB80' },
-        accent: { DEFAULT: '#7C3AED', muted: '#7C3AED80' },
-        // Agent roles
+        cyan: 'rgb(var(--cyan) / <alpha-value>)',
+        azure: 'rgb(var(--azure) / <alpha-value>)',
+        accent: 'rgb(var(--accent) / <alpha-value>)',
+        // Agent roles (fixed mid-tones for decorative accents)
         exec: '#7C3AED',
         eng: '#2563EB',
         product: '#0891B2',
@@ -28,10 +28,10 @@ export default {
         marketing: '#7C3AED',
         cs: '#0E7490',
         sales: '#1D4ED8',
-        // Tiers
-        'tier-green': '#0891B2',
-        'tier-yellow': '#2563EB',
-        'tier-red': '#7C3AED',
+        // Tiers (mode-adaptive via CSS vars)
+        'tier-green': 'rgb(var(--cyan) / <alpha-value>)',
+        'tier-yellow': 'rgb(var(--azure) / <alpha-value>)',
+        'tier-red': 'rgb(var(--accent) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['IBM Plex Sans', 'system-ui', 'sans-serif'],

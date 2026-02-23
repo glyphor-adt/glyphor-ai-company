@@ -1367,7 +1367,7 @@ function SettingsTab({
         )}
 
         <div className="mt-4 flex justify-end">
-          <button onClick={handleSave} disabled={saving} className="rounded-lg bg-gradient-to-r from-cyan to-azure px-6 py-2 text-sm font-semibold text-[#0B0B0C] transition-all hover:shadow-[0_0_20px_rgba(0,224,255,0.4)] disabled:opacity-40">
+          <button onClick={handleSave} disabled={saving} className="rounded-lg bg-gradient-to-r from-cyan to-azure px-6 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] disabled:opacity-40">
             {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>

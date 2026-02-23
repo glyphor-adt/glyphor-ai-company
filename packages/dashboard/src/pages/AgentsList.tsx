@@ -20,7 +20,7 @@ export default function AgentsList() {
         </div>
         <Link
           to="/agents/new"
-          className="rounded-lg bg-gradient-to-r from-cyan to-azure px-4 py-2 text-sm font-semibold text-[#0B0B0C] transition-all hover:shadow-[0_0_16px_rgba(0,224,255,0.4)]"
+          className="rounded-lg bg-gradient-to-r from-cyan to-azure px-4 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:shadow-[0_0_16px_rgba(34,211,238,0.4)]"
         >
           + New Agent
         </Link>
@@ -64,7 +64,7 @@ export default function AgentsList() {
               const skills = AGENT_SKILLS[agent.role] ?? [];
               return (
                 <Link key={agent.id} to={`/agents/${agent.role}`} className="group block">
-                  <Card className="relative overflow-hidden transition-all hover:border-cyan/30 hover:shadow-[0_0_20px_rgba(0,224,255,0.06)]">
+                  <Card className="relative overflow-hidden transition-all hover:border-cyan/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.06)]">
                     {/* Color accent */}
                     <div
                       className="absolute left-0 top-0 h-full w-1 rounded-l-xl"

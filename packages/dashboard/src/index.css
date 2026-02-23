@@ -14,9 +14,13 @@
   --color-txt-muted: #475569;
   --color-txt-faint: #64748b;
   --color-hover-bg: rgba(0,0,0,0.06);
-  --color-shimmer: rgba(37,99,235,0.10);
+  --color-shimmer: rgba(14, 116, 144, 0.10);
   --scrollbar-thumb: #a8b5c4;
   --scrollbar-hover: #64748b;
+  /* Accent colors – dark shades for white-bg contrast (≥ 5:1) */
+  --cyan: 14 116 144;      /* #0E7490  teal-700 */
+  --azure: 29 78 216;      /* #1D4ED8  blue-700 */
+  --accent: 109 40 217;    /* #6D28D9  violet-700 */
 }
 
 .dark {
@@ -31,9 +35,13 @@
   --color-txt-muted: #7a8599;
   --color-txt-faint: #525d70;
   --color-hover-bg: rgba(255,255,255,0.05);
-  --color-shimmer: rgba(0,224,255,0.08);
+  --color-shimmer: rgba(34, 211, 238, 0.08);
   --scrollbar-thumb: #2a2e38;
   --scrollbar-hover: #3a3f4b;
+  /* Accent colors – bright shades for dark-bg contrast (≥ 6:1) */
+  --cyan: 34 211 238;      /* #22D3EE  cyan-400 */
+  --azure: 96 165 250;     /* #60A5FA  blue-400 */
+  --accent: 167 139 250;   /* #A78BFA  violet-400 */
 }
 
 /* ─── Global ──────────────────────────────────── */
@@ -81,7 +89,7 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
 
 /* ─── Glow effect for active agent nodes ──── */
 .agent-glow {
-  box-shadow: 0 0 12px rgba(124,58,237,.35), 0 0 32px rgba(124,58,237,.12);
+  box-shadow: 0 0 12px rgb(var(--accent) / .35), 0 0 32px rgb(var(--accent) / .12);
 }
 
 /* ─── Page transition ────────────────────── */
@@ -119,7 +127,7 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
   font-weight: 600;
 }
 .prose-chat code {
-  background: rgba(0,224,255,0.08);
+  background: rgb(var(--cyan) / 0.08);
   padding: 0.1em 0.35em;
   border-radius: 4px;
   font-size: 12px;
@@ -137,7 +145,7 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
   padding: 0;
 }
 .prose-chat a {
-  color: var(--color-cyan, #0891B2);
+  color: rgb(var(--cyan));
   text-decoration: underline;
   text-underline-offset: 2px;
 }
