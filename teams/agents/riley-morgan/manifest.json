@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.0.0",
+  "id": "100cd349-0c64-4292-9047-12801526ab54",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Riley Morgan",
+    "full": "Riley Morgan — M365 Admin, Glyphor AI"
+  },
+  "description": {
+    "short": "M365 Admin — Teams channels, user provisioning, and email.",
+    "full": "Riley Morgan is the Microsoft 365 Administrator at Glyphor AI. They manage Teams channels, user access, email communications, and calendar coordination. Message directly for M365 admin requests."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#4CAF50",
+  "bots": [
+    {
+      "botId": "100cd349-0c64-4292-9047-12801526ab54",
+      "scopes": ["personal"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-v55622rp6q-uc.a.run.app"
+  ]
+}
