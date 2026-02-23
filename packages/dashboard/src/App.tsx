@@ -18,6 +18,7 @@ import Skills from './pages/Skills';
 import SkillDetail from './pages/SkillDetail';
 import Directives from './pages/Directives';
 import WorkforceBuilder from './pages/WorkforceBuilder';
+import Governance from './pages/Governance';
 
 export default function App() {
   return (
@@ -44,6 +45,7 @@ export default function App() {
         <Route path="chat/:agentId" element={<Chat />} />
         <Route path="group-chat" element={<GroupChat />} />
         <Route path="teams-config" element={<TeamsConfig />} />
+        <Route path="governance" element={<Governance />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

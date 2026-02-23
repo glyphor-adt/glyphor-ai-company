@@ -17,6 +17,7 @@ const NAV = [
   { to: '/skills', label: 'Skills', icon: SkillsIcon },
   { to: '/builder', label: 'Builder', icon: BuilderIcon },
   { to: '/meetings', label: 'Meetings', icon: MeetingsIcon },
+  { to: '/governance', label: 'Governance', icon: GovernanceIcon },
 ] as const;
 
 export default function Layout() {
@@ -246,6 +247,17 @@ function DirectivesIcon({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
       <rect x="2" y="1.5" width="12" height="13" rx="1.5" />
       <path d="M5 5h6M5 8h6M5 11h4" />
+    </svg>
+  );
+}
+
+function GovernanceIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <rect x="2" y="6" width="12" height="8" rx="1.5" />
+      <path d="M5 6V4.5a3 3 0 016 0V6" />
+      <circle cx="8" cy="10.5" r="1.2" />
+      <path d="M8 11.7v1.3" />
     </svg>
   );
 }

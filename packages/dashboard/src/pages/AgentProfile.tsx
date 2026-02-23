@@ -1153,6 +1153,42 @@ function SettingsTab({
   const [budgetMonthly, setBudgetMonthly] = useState(agent.budget_monthly ?? 15);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [systemPrompt, setSystemPrompt] = useState('');
+  const [promptSource, setPromptSource] = useState<'code' | 'db'>('code');
+  const [savingPrompt, setSavingPrompt] = useState(false);
+  const [savedPrompt, setSavedPrompt] = useState(false);
+  const [promptExpanded, setPromptExpanded] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data: brief } = await (supabase.from('agent_briefs') as any)
+        .select('system_prompt')
+        .eq('agent_id', agent.id)
+        .single();
+      if (brief?.system_prompt) {
+        setSystemPrompt(brief.system_prompt);
+        setPromptSource('db');
+      }
+    })();
+  }, [agent.id]);
+
+  const handleSavePrompt = async () => {
+    setSavingPrompt(true);
+    try {
+      const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ system_prompt: systemPrompt }),
+      });
+      if (resp.ok) {
+        setPromptSource('db');
+        setSavedPrompt(true);
+        setTimeout(() => setSavedPrompt(false), 1200);
+      }
+    } finally {
+      setSavingPrompt(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -1251,6 +1287,47 @@ function SettingsTab({
           )}
         </Card>
       )}
+
+      {/* System Prompt */}
+      <Card>
+        <button
+          onClick={() => setPromptExpanded(!promptExpanded)}
+          className="flex w-full items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-txt-primary">System Prompt</h3>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+              promptSource === 'db'
+                ? 'bg-cyan/10 text-cyan'
+                : 'bg-slate-500/15 text-slate-400'
+            }`}>
+              {promptSource === 'db' ? 'Custom' : 'Defined in code'}
+            </span>
+          </div>
+          <span className={`text-txt-faint transition-transform ${promptExpanded ? 'rotate-90' : ''}`}>▸</span>
+        </button>
+        {promptExpanded && (
+          <div className="mt-4 space-y-3">
+            <textarea
+              value={systemPrompt}
+              onChange={(e) => setSystemPrompt(e.target.value)}
+              rows={12}
+              placeholder={promptSource === 'code' ? 'This agent uses a system prompt defined in code. Enter a custom prompt here to override it.' : 'Enter system prompt…'}
+              className="w-full rounded-lg border border-border bg-raised px-4 py-3 font-mono text-[12px] leading-relaxed text-txt-secondary outline-none focus:border-cyan/40"
+            />
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-txt-faint">{systemPrompt.length.toLocaleString()} characters</span>
+              <button
+                onClick={handleSavePrompt}
+                disabled={savingPrompt}
+                className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40"
+              >
+                {savedPrompt ? 'Saved!' : savingPrompt ? 'Saving…' : 'Save Prompt'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Card>
 
       {/* Model & Budget */}
       <Card>

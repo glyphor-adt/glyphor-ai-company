@@ -117,6 +117,16 @@ export { WappalyzerClient } from './wappalyzer/index.js';
 // Google Search Console
 export { SearchConsoleClient } from './search-console/index.js';
 
+// Platform audit logging
+export { auditedFetch, logPlatformAudit, type AuditContext } from './audit.js';
+
+// Credential routing
+export { getM365Client, getM365Token, type M365Operation } from './credentials/m365Router.js';
+export { getScopedGitHubClient, validateGitHubScope, GITHUB_AGENT_SCOPES, type GitHubScope } from './credentials/githubScoping.js';
+
+// Governance sync
+export { syncGCPIAMState, syncSecretRotationStatus, runGovernanceSync } from './governance/iamSync.js';
+
 // GitHub — repo access for Marcus (CTO) and engineering team
 export {
   getGitHubClient,
