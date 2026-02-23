@@ -48,6 +48,18 @@ variable "founder_emails" {
   default     = ["kristina@glyphor.ai", "andrew@glyphor.ai"]
 }
 
+variable "billing_account_id" {
+  description = "GCP billing account ID (format: XXXXXX-XXXXXX-XXXXXX)"
+  type        = string
+  default     = "012B03-F562EC-184CD8"
+}
+
+variable "cfo_emails" {
+  description = "CFO / finance Google accounts granted read-only billing access"
+  type        = list(string)
+  default     = ["cfo@glyphor.ai"]
+}
+
 provider "google" {
   project = var.project_id
   region  = var.region
@@ -381,6 +393,32 @@ resource "google_cloud_run_v2_service_iam_member" "dashboard_public" {
   location = var.region
   role     = "roles/run.invoker"
   member   = "allUsers"
+}
+
+# ─── CFO Billing Access ───────────────────────────────────────
+# billing.viewer  → GCP Console › Billing: cost reports, invoices, budgets
+# bigquery.dataViewer + bigquery.jobUser → direct SQL on the billing export dataset
+
+resource "google_billing_account_iam_member" "cfo_billing_viewer" {
+  for_each           = toset(var.cfo_emails)
+  billing_account_id = var.billing_account_id
+  role               = "roles/billing.viewer"
+  member             = "user:${each.value}"
+}
+
+resource "google_bigquery_dataset_iam_member" "cfo_bq_data_viewer" {
+  for_each   = toset(var.cfo_emails)
+  project    = var.project_id
+  dataset_id = "billing_export"
+  role       = "roles/bigquery.dataViewer"
+  member     = "user:${each.value}"
+}
+
+resource "google_project_iam_member" "cfo_bq_job_user" {
+  for_each = toset(var.cfo_emails)
+  project  = var.project_id
+  role     = "roles/bigquery.jobUser"
+  member   = "user:${each.value}"
 }
 
 # ─── Outputs ──────────────────────────────────────────────────
