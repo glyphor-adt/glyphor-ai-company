@@ -54,8 +54,12 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       {/* ── Welcome Banner ─────────────────── */}
-      <div className="rounded-2xl border border-border bg-gradient-to-r from-surface to-raised p-6 flex items-center justify-between">
-        <div>
+      <div className="relative overflow-hidden rounded-2xl border border-border dark:border-[#1e3050]/70 bg-gradient-to-r from-surface to-raised dark:from-[#0b1425] dark:via-[#0e1830] dark:to-[#111520] p-6 flex items-center justify-between">
+        {/* Decorative glows – dark mode only */}
+        <div className="pointer-events-none absolute -right-10 -top-10 h-52 w-52 rounded-full bg-cyan/10 blur-3xl opacity-0 dark:opacity-100 transition-opacity" />
+        <div className="pointer-events-none absolute right-1/3 -bottom-8 h-36 w-36 rounded-full bg-accent/10 blur-3xl opacity-0 dark:opacity-100 transition-opacity" />
+        <div className="pointer-events-none absolute left-1/2 top-0 h-px w-1/2 bg-gradient-to-r from-transparent via-cyan/30 to-transparent opacity-0 dark:opacity-100" />
+        <div className="relative z-10">
           <h1 className="text-2xl font-bold text-txt-primary">
             {greeting}, {firstName}
           </h1>
@@ -78,6 +82,8 @@ export default function Dashboard() {
           label="Active Agents"
           sub={`${agents.length} total`}
           loading={agentsLoading}
+          iconBg="dark:bg-cyan/10 dark:ring-1 dark:ring-cyan/20"
+          accentClass="dark:border-t-cyan/40"
         />
         <StatCard
           icon={<AnalysisIcon />}
@@ -85,6 +91,8 @@ export default function Dashboard() {
           label="Total Analyses"
           sub={`${analysisSummary.completed} completed`}
           loading={false}
+          iconBg="dark:bg-accent/10 dark:ring-1 dark:ring-accent/20"
+          accentClass="dark:border-t-accent/40"
         />
         <StatCard
           icon={<ReportIcon />}
@@ -92,6 +100,8 @@ export default function Dashboard() {
           label="Reports Generated"
           sub="strategic reports"
           loading={false}
+          iconBg="dark:bg-emerald-500/10 dark:ring-1 dark:ring-emerald-500/20"
+          accentClass="dark:border-t-emerald-500/40"
         />
         <StatCard
           icon={<QueueIcon />}
@@ -99,6 +109,8 @@ export default function Dashboard() {
           label="Active Analyses"
           sub={pendingDecisions > 0 ? `${pendingDecisions} decisions pending` : 'all clear'}
           loading={false}
+          iconBg="dark:bg-amber-500/10 dark:ring-1 dark:ring-amber-500/20"
+          accentClass="dark:border-t-amber-500/40"
         />
       </div>
 
@@ -272,19 +284,23 @@ function StatCard({
   label,
   sub,
   loading,
+  iconBg = '',
+  accentClass = '',
 }: {
   icon: React.ReactNode;
   value: string;
   label: string;
   sub: string;
   loading: boolean;
+  iconBg?: string;
+  accentClass?: string;
 }) {
   if (loading) return <Skeleton className="h-28" />;
 
   return (
-    <Card className="flex flex-col gap-3">
+    <Card className={`flex flex-col gap-3 border-t-2 ${accentClass}`}>
       <div className="flex items-center justify-between">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-raised">
+        <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-raised ${iconBg}`}>
           {icon}
         </div>
       </div>
