@@ -1276,39 +1276,62 @@ export function buildVisualPrompt(record: AnalysisRecord): string {
   const report = record.report;
   if (!report) return '';
 
-  const visual = visualTheme(record.type);
+  const typeLabel: Record<string, string> = {
+    competitive_landscape: 'Competitive Landscape Analysis',
+    market_opportunity: 'Market Opportunity Assessment',
+    product_strategy: 'Product Strategy Review',
+    growth_diagnostic: 'Growth Diagnostic Report',
+    risk_assessment: 'Risk Assessment & Mitigation',
+  };
+  const title = typeLabel[record.type] ?? 'Strategic Analysis';
+
+  // Extract key data points from SWOT
+  const strengths = report.swot.strengths.slice(0, 3);
+  const weaknesses = report.swot.weaknesses.slice(0, 3);
+  const opportunities = report.swot.opportunities.slice(0, 3);
+  const threats = report.swot.threats.slice(0, 3);
+
+  // Extract recommendations
+  const recs = report.recommendations.slice(0, 4);
+  const highPriority = recs.filter(r => r.priority === 'high');
+  const medPriority = recs.filter(r => r.priority === 'medium');
+
+  // Build a summary line from the report
+  const summaryLine = report.summary.length > 200
+    ? report.summary.slice(0, 200) + '…'
+    : report.summary;
 
   return [
-    `A premium dark-themed data visualization infographic on a solid #0D1117 background.`,
-    `${visual.scene}`,
+    `A professional corporate infographic in 16:9 landscape format titled "${title}".`,
+    `Top-left: Glyphor AI logo area with a cyan (#00E0FF) branding bar; top-right: a "Powered by Glyphor Intelligence" co-brand mark. White background, modern flat design, subtle grid pattern, and corporate typography (sans serif).`,
     ``,
-    `Visual elements:`,
-    `- A 2x2 grid of icon panels: green (#34D399) shield icon, rose (#FB7185) warning triangle icon, cyan (#00E0FF) upward arrow icon, amber (#FBBF24) lightning bolt icon`,
-    `- Stylized bar charts and line graphs with glowing data points in cyan and emerald`,
-    `- Radial gauge meters showing percentage values`,
-    `- Flowing connection lines between data nodes with subtle glow effects`,
-    `- Isometric 3D chart elements and geometric shapes`,
+    `Top section: a bold headline banner across the width with a cyan accent bar and the subtitle: "${record.query}".`,
     ``,
-    `Style: Clean vector illustration aesthetic, no text or words anywhere in the image,`,
-    `dark premium color palette, subtle grid overlay, generous whitespace,`,
-    `gradient accents, data dashboard visualization feel, magazine quality.`,
+    `Left-middle quadrant: a "Key Findings" panel with an executive summary callout in a highlighted box:`,
+    `"${summaryLine}"`,
+    `Below it, ${report.threads.length} research perspectives analyzed, shown as small thread-count badges.`,
+    ``,
+    `Right-middle quadrant: a 2x2 SWOT matrix with color-coded quadrants:`,
+    `- Strengths (green #34D399, shield icon): ${strengths.map((s, i) => `${i + 1}) "${s}"`).join('; ')}`,
+    `- Weaknesses (rose #FB7185, warning icon): ${weaknesses.map((w, i) => `${i + 1}) "${w}"`).join('; ')}`,
+    `- Opportunities (cyan #00E0FF, upward arrow): ${opportunities.map((o, i) => `${i + 1}) "${o}"`).join('; ')}`,
+    `- Threats (amber #FBBF24, lightning icon): ${threats.map((t, i) => `${i + 1}) "${t}"`).join('; ')}`,
+    `Each quadrant has a distinct background tint and an icon, with the text clearly readable.`,
+    ``,
+    `Center-lower left: "Strategic Recommendations" panel with ${recs.length} icon-based bullets:`,
+    ...recs.map((r, i) => `${i + 1}) "${r.title}" — priority: ${r.priority} — "${r.detail.slice(0, 80)}…"`),
+    `Each recommendation has a priority badge (high=red, medium=amber, low=blue).`,
+    ``,
+    `Center-lower right: a "Priority Matrix" panel — a 2x2 grid with Impact (Y axis) vs Effort (X axis).`,
+    `${highPriority.length} items plotted in the high-impact zone, ${medPriority.length} in medium.`,
+    `Add a small callout: "${recs.length} strategic actions identified across ${report.threads.length} research threads."`,
+    ``,
+    `Bottom strip: analysis metadata — "Depth: ${record.depth}" · "Type: ${record.type.replace(/_/g, ' ')}" · "${report.threads.filter(t => t.status === 'completed').length}/${report.threads.length} threads completed" · "Requested by: ${record.requested_by}".`,
+    ``,
+    `Color scheme: primary cyan (#00E0FF), with white background, light grays for section dividers, emerald for positive,`,
+    `rose for risks, amber for caution. Use clear section dividers and generous white space — professional, uncluttered, McKinsey-style.`,
+    `Modern sans-serif typography, all text must be crisp and readable.`,
+    ``,
+    `Footer: a full-width thin gray bar with centered text: "Glyphor AI · Strategic Intelligence Platform"`,
   ].join('\n');
-}
-
-/** Visual scene description per analysis type — purely graphical, no text. */
-function visualTheme(type: string): { scene: string } {
-  switch (type) {
-    case 'competitive_landscape':
-      return { scene: 'A competitive battlefield overview with chess pieces on a grid, radar chart comparing multiple entities, side-by-side comparison bar charts with contrasting colors.' };
-    case 'market_opportunity':
-      return { scene: 'An expanding opportunity map with concentric circles growing outward, upward-trending area charts, funnel diagram, and glowing target crosshair icon.' };
-    case 'product_strategy':
-      return { scene: 'A product roadmap visualization with connected milestone nodes, branching feature trees, priority matrix quadrants, and timeline arrows.' };
-    case 'growth_diagnostic':
-      return { scene: 'Growth analytics dashboard with hockey-stick curve charts, funnel conversion stages, cohort heatmap grids, and pulse-line heartbeat monitors.' };
-    case 'risk_assessment':
-      return { scene: 'A risk matrix heatmap with probability vs impact axes, warning indicator gauges, shield defense icons, and cascading domino elements.' };
-    default:
-      return { scene: 'A strategic overview with interconnected data nodes, pie charts, bar graphs, trend lines, and KPI dashboard gauges.' };
-  }
 }

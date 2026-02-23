@@ -158,6 +158,32 @@ export class ModelClient {
     };
   }
 
+  /**
+   * Generate an image using OpenAI gpt-image-1 (text-rich infographics).
+   * Best for corporate infographics with readable text, data callouts, and structured layouts.
+   */
+  async generateImageOpenAI(prompt: string, model = 'gpt-image-1'): Promise<ImageResponse> {
+    if (!this.openai) throw new Error('OpenAI API key not configured');
+
+    const response = await this.openai.images.generate({
+      model,
+      prompt,
+      n: 1,
+      size: '1536x1024', // 16:10 landscape — closest to 16:9 available
+      quality: 'high',
+    });
+
+    const b64 = response.data?.[0]?.b64_json;
+    if (!b64) {
+      throw new Error('No image data returned from OpenAI image generation');
+    }
+
+    return {
+      imageData: b64,
+      mimeType: 'image/png',
+    };
+  }
+
   // ─── Gemini ──────────────────────────────────────────────
 
   private async generateGemini(request: ModelRequest): Promise<ModelResponse> {
