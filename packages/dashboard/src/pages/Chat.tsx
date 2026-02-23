@@ -144,7 +144,7 @@ export default function Chat() {
   return (
     <div className="flex h-[calc(100vh-6rem)] gap-5">
       {/* ── Agent List (Left) ────────────── */}
-      <div className="w-56 flex-shrink-0 space-y-1 overflow-y-auto">
+      <div className="w-64 flex-shrink-0 space-y-1 overflow-y-auto">
         <p className="mb-3 text-[11px] font-medium uppercase tracking-wider text-txt-muted">
           Agents
         </p>
@@ -164,8 +164,8 @@ export default function Chat() {
               <img
                 src={`/avatars/${agent.role}.png`}
                 alt={agent.role}
-                className="h-9 w-9 flex-shrink-0 rounded-full object-cover"
-                style={{ border: `2px solid ${meta?.color ?? '#64748b'}50` }}
+                className="h-11 w-11 flex-shrink-0 rounded-full object-cover"
+                style={{ border: `2px solid ${meta?.color ?? '#64748b'}60` }}
               />
               <div className="min-w-0">
                 <p
