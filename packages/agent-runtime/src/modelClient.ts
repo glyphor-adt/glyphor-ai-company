@@ -348,7 +348,7 @@ export class ModelClient {
       : undefined;
 
     // o-series models (o1, o3, o4) don't accept temperature, top_p, or max_tokens
-    const isOSeries = /^o[134]-/.test(request.model);
+    const isOSeries = /^o[134](-|$)/.test(request.model);
     // GPT-5 family: gpt-5, gpt-5.1, gpt-5.2, gpt-5-mini, gpt-5-nano, etc.
     const isGpt5Family = request.model.startsWith('gpt-5');
     // GPT-5.2/5.1 support 'none' reasoning (allows temperature); older gpt-5 does not
@@ -378,15 +378,17 @@ export class ModelClient {
     const createParams: any = {
       model: request.model,
       messages,
-      tools,
-      ...(useMaxCompletionTokens
-        ? { max_completion_tokens: request.maxTokens }
-        : { max_tokens: request.maxTokens }),
+      ...(tools ? { tools } : {}),
+      ...(request.maxTokens !== undefined
+        ? (useMaxCompletionTokens
+            ? { max_completion_tokens: request.maxTokens }
+            : { max_tokens: request.maxTokens })
+        : {}),
       ...(forbidTempTopP
         ? {}
         : {
             temperature: request.temperature ?? 0.7,
-            top_p: request.topP,
+            ...(request.topP !== undefined ? { top_p: request.topP } : {}),
           }),
       ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
     };
@@ -517,18 +519,24 @@ export class ModelClient {
     const thinkingEnabled = request.thinkingEnabled ?? true;
     const supportsThinking = /claude-(3-[5-9]|[4-9]|sonnet-4|opus-4)/.test(request.model);
     const useThinking = thinkingEnabled && supportsThinking;
+    const thinkingBudget = 8192;
     const thinkingParam = useThinking
-      ? { thinking: { type: 'enabled' as const, budget_tokens: 8192 } }
+      ? { thinking: { type: 'enabled' as const, budget_tokens: thinkingBudget } }
       : {};
+
+    // Anthropic requires max_tokens > budget_tokens when thinking is enabled
+    const maxTokens = useThinking
+      ? Math.max(request.maxTokens ?? 16384, thinkingBudget + 4096)
+      : (request.maxTokens ?? 4096);
 
     const apiPromise = this.anthropic.messages.create({
       model: request.model,
       system: request.systemInstruction,
       messages,
       tools,
-      max_tokens: request.maxTokens ?? 4096,
+      max_tokens: maxTokens,
       temperature: useThinking ? 1 : (request.temperature ?? 0.7),
-      top_p: request.topP,
+      ...(request.topP !== undefined ? { top_p: request.topP } : {}),
       ...thinkingParam,
     } as Parameters<typeof this.anthropic.messages.create>[0]);
 
