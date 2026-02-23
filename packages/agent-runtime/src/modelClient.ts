@@ -305,6 +305,11 @@ export class ModelClient {
         }))
       : undefined;
 
+    // GPT-5 family supports configurable reasoning_effort; o-series always reasons
+    const isGpt5 = request.model.startsWith('gpt-5');
+    const thinkingEnabled = request.thinkingEnabled ?? true;
+    const reasoningEffort = isGpt5 && thinkingEnabled ? 'medium' : undefined;
+
     const apiPromise = this.openai.chat.completions.create({
       model: request.model,
       messages,
@@ -312,6 +317,7 @@ export class ModelClient {
       temperature: request.temperature ?? 0.7,
       top_p: request.topP,
       max_tokens: request.maxTokens,
+      ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
     });
 
     const response = await this.raceAbort(apiPromise, request.signal);
@@ -402,17 +408,24 @@ export class ModelClient {
         }))
       : undefined;
 
+    // Extended thinking: temperature must be 1 when enabled
+    const thinkingEnabled = request.thinkingEnabled ?? true;
+    const thinkingParam = thinkingEnabled
+      ? { thinking: { type: 'enabled' as const, budget_tokens: 8192 } }
+      : {};
+
     const apiPromise = this.anthropic.messages.create({
       model: request.model,
       system: request.systemInstruction,
       messages,
       tools,
       max_tokens: request.maxTokens ?? 4096,
-      temperature: request.temperature ?? 0.7,
+      temperature: thinkingEnabled ? 1 : (request.temperature ?? 0.7),
       top_p: request.topP,
-    });
+      ...thinkingParam,
+    } as Parameters<typeof this.anthropic.messages.create>[0]);
 
-    const response = await this.raceAbort(apiPromise, request.signal);
+    const response = await this.raceAbort(apiPromise, request.signal) as Anthropic.Message;
     return this.mapAnthropicResponse(response);
   }
 

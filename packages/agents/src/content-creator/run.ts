@@ -66,6 +66,7 @@ export async function runContentCreator(params: ContentCreatorRunParams = {}) {
     id: `tyler-${task}-${today}`, role: 'content-creator',
     systemPrompt: CONTENT_CREATOR_SYSTEM_PROMPT, model: agentCfg.model,
     tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
+    thinkingEnabled: agentCfg.thinkingEnabled,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
   const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));

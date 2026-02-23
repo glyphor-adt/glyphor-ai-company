@@ -1,5 +1,5 @@
 export { CompanyAgentRunner } from './companyAgentRunner.js';
-export type { AgentMemoryStore, AgentProfileData, RunDependencies } from './companyAgentRunner.js';
+export type { AgentMemoryStore, AgentProfileData, RunDependencies, SkillContext, SkillFeedback } from './companyAgentRunner.js';
 export { ModelClient, detectProvider } from './modelClient.js';
 export type { ModelClientConfig, ModelProvider } from './modelClient.js';
 export { AgentSupervisor } from './supervisor.js';
@@ -9,6 +9,7 @@ export { GlyphorEventBus } from './glyphorEventBus.js';
 export type { GlyphorEventBusConfig } from './glyphorEventBus.js';
 export { SUBSCRIPTIONS, getSubscribers } from './subscriptions.js';
 export { extractReasoning, stripReasoning, REASONING_PROMPT_SUFFIX } from './reasoning.js';
+export { isKnownTool, filterKnownTools, getAllKnownTools } from './toolRegistry.js';
 export { checkEventPermission, createEventSecurityLog } from './eventPermissions.js';
 export type { EventPermissionCheck } from './eventPermissions.js';
 export {

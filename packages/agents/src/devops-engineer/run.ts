@@ -72,6 +72,7 @@ export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
     systemPrompt: DEVOPS_ENGINEER_SYSTEM_PROMPT,
     model: agentCfg.model, tools, maxTurns: agentCfg.maxTurns,
     maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
+    thinkingEnabled: agentCfg.thinkingEnabled,
   };
 
   const supervisor = new AgentSupervisor({

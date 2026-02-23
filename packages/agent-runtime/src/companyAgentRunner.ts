@@ -186,11 +186,40 @@ function buildPersonalityBlock(profile: AgentProfileData): string {
   return parts.join('\n');
 }
 
+function buildSkillBlock(skillContext: SkillContext): string {
+  const parts: string[] = ['## YOUR SKILLS\n'];
+  parts.push('These are the skills activated for this task. Follow the methodology precisely.\n');
+
+  for (const skill of skillContext.skills) {
+    parts.push(`### ${skill.name} (${skill.proficiency})`);
+    parts.push(`Category: ${skill.category}`);
+    parts.push(`\n**Methodology:**\n${skill.methodology}`);
+
+    if (skill.learned_refinements.length > 0) {
+      parts.push('\n**Your learned refinements (from past runs):**');
+      for (const r of skill.learned_refinements) parts.push(`- ${r}`);
+    }
+
+    if (skill.failure_modes.length > 0) {
+      parts.push('\n**Known failure modes (avoid these):**');
+      for (const f of skill.failure_modes) parts.push(`- ⚠️ ${f}`);
+    }
+
+    if (skill.tools_granted.length > 0) {
+      parts.push(`\nTools available: ${skill.tools_granted.join(', ')}`);
+    }
+    parts.push('');
+  }
+
+  return parts.join('\n');
+}
+
 function buildSystemPrompt(
   role: CompanyAgentRole,
   existingPrompt: string,
   dynamicBrief?: string,
   profile?: AgentProfileData | null,
+  skillContext?: SkillContext | null,
 ): string {
   try {
     const knowledgeDir = join(__dirname, '../../company-knowledge');
@@ -240,6 +269,11 @@ function buildSystemPrompt(
 
     parts.push(REASONING_PROTOCOL);
 
+    // Inject skill methodology if skills are active for this run
+    if (skillContext && skillContext.skills.length > 0) {
+      parts.push(buildSkillBlock(skillContext));
+    }
+
     if (roleBrief) parts.push(roleBrief);
     parts.push(existingPrompt);
     parts.push(knowledgeBase);
@@ -275,6 +309,28 @@ export interface GraphOpsWriter {
   processGraphOps(agentId: string, runId: string, ops: { nodes: unknown[]; edges: unknown[] }): Promise<{ nodesCreated: number; edgesCreated: number }>;
 }
 
+/** Skill context returned by the skill loader for injection into the system prompt. */
+export interface SkillContext {
+  skills: {
+    slug: string;
+    name: string;
+    category: string;
+    methodology: string;
+    proficiency: string;
+    tools_granted: string[];
+    learned_refinements: string[];
+    failure_modes: string[];
+  }[];
+}
+
+/** Post-reflection skill feedback for updating proficiency and learnings. */
+export interface SkillFeedback {
+  skill_slug: string;
+  outcome: 'success' | 'partial' | 'failure';
+  refinement?: string;
+  failure_mode?: string;
+}
+
 export interface RunDependencies {
   glyphorEventBus?: GlyphorEventBus;
   agentMemoryStore?: AgentMemoryStore;
@@ -292,6 +348,10 @@ export interface RunDependencies {
   workingMemoryLoader?: (role: CompanyAgentRole) => Promise<{ summary: string | null; lastRunAt: string | null }>;
   /** Optional: Knowledge Graph writer for persisting graph_operations from reflections. */
   graphWriter?: GraphOpsWriter;
+  /** Loader for agent skill context (methodology, proficiency, refinements). */
+  skillContextLoader?: (role: CompanyAgentRole, task: string) => Promise<SkillContext | null>;
+  /** Updater for post-reflection skill feedback (proficiency, learnings, failures). */
+  skillFeedbackWriter?: (role: CompanyAgentRole, feedback: SkillFeedback[]) => Promise<void>;
 }
 
 export class CompanyAgentRunner {
@@ -322,6 +382,7 @@ export class CompanyAgentRunner {
     // and agent profile all in parallel to minimize latency.
     let dynamicBrief: string | undefined;
     let agentProfile: AgentProfileData | null = null;
+    let skillContext: SkillContext | null = null;
 
     {
       // Memory retrieval (3 sub-fetches already parallelized internally)
@@ -381,13 +442,22 @@ export class CompanyAgentRunner {
           })
         : Promise.resolve(null);
 
-      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult, workingMemory] = await Promise.all([
+      // Skill context (matched skills for this task)
+      const skillPromise = deps?.skillContextLoader
+        ? deps.skillContextLoader(config.role, initialMessage).catch(err => {
+            console.warn(`[CompanyAgentRunner] Skill context load failed for ${config.role}:`, (err as Error).message);
+            return null;
+          })
+        : Promise.resolve(null);
+
+      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult, workingMemory, skillResult] = await Promise.all([
         memoryPromise,
         briefPromise,
         messagesPromise,
         ciPromise,
         profilePromise,
         workingMemoryPromise,
+        skillPromise,
       ]);
 
       // Inject memory context
@@ -446,6 +516,9 @@ export class CompanyAgentRunner {
 
       // Set profile
       agentProfile = profileResult;
+
+      // Set skill context
+      skillContext = skillResult;
     }
 
     try {
@@ -498,7 +571,7 @@ export class CompanyAgentRunner {
             tokenEstimate: estimateTokens(history),
           });
 
-          const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt, dynamicBrief, agentProfile);
+          const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt, dynamicBrief, agentProfile, skillContext);
 
           response = await this.modelClient.generate({
             model: config.model,
@@ -508,6 +581,7 @@ export class CompanyAgentRunner {
             temperature: config.temperature,
             topP: config.topP,
             topK: config.topK,
+            thinkingEnabled: config.thinkingEnabled,
             signal: supervisor.signal,
           });
 
@@ -639,7 +713,7 @@ export class CompanyAgentRunner {
         const isOnDemand = config.id.includes('on_demand');
         const reflectFn = async () => {
           try {
-            await this.reflectOnRun(config, history, lastTextOutput!, deps.agentMemoryStore!, deps?.knowledgeRouter, deps?.graphWriter);
+            await this.reflectOnRun(config, history, lastTextOutput!, deps.agentMemoryStore!, deps?.knowledgeRouter, deps?.graphWriter, deps?.skillFeedbackWriter, skillContext);
           } catch (err) {
             console.warn(
               `[CompanyAgentRunner] Reflection failed for ${config.id}:`,
@@ -766,6 +840,8 @@ export class CompanyAgentRunner {
     store: AgentMemoryStore,
     knowledgeRouter?: (knowledge: { agent_id: string; content: string; tags: string[]; knowledge_type?: string }) => Promise<number>,
     graphWriter?: GraphOpsWriter,
+    skillFeedbackWriter?: (role: CompanyAgentRole, feedback: SkillFeedback[]) => Promise<void>,
+    skillContext?: SkillContext | null,
   ): Promise<void> {
     const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt);
 
@@ -788,7 +864,10 @@ Reflect on this run and respond with a JSON object (no markdown fencing):
   ],
   "peerFeedback": [
     { "toAgent": "role-slug", "feedback": "what you observed about their work", "sentiment": "positive|constructive|neutral" }
-  ],
+  ],${skillContext && skillContext.skills.length > 0 ? `
+  "skill_feedback": [
+    { "skill_slug": "slug-of-skill-used", "outcome": "success|partial|failure", "refinement": "optional tip for next time", "failure_mode": "optional pattern that caused failure" }
+  ],` : ''}
   "graph_operations": {
     "nodes": [
       { "node_type": "event|fact|observation|pattern|metric|risk|hypothesis", "title": "short label", "content": "full description", "tags": ["tag1"], "department": "engineering|finance|marketing|product|etc", "importance": 0.0-1.0, "metadata": {} }
@@ -798,7 +877,7 @@ Reflect on this run and respond with a JSON object (no markdown fencing):
     ]
   }
 }
-
+${skillContext && skillContext.skills.length > 0 ? `\nFor skill_feedback: You used skills [${skillContext.skills.map(s => s.slug).join(', ')}] during this run. Rate how well each skill's methodology worked. Include refinements (tips for next time) or failure_modes (patterns that caused problems). Leave the array empty if no skills were notably helpful or problematic.` : ''}
 For graph_operations: Extract key events, metrics, patterns, or risks from this run and connect them to existing knowledge. This builds the organizational knowledge graph — focus on causal chains (what caused what) and cross-functional impacts. Leave arrays empty if nothing noteworthy happened.
 
 For peerFeedback: If during this task you interacted with or observed the work of other agents, include brief feedback for them. Only include genuine observations — leave the array empty if you had no cross-agent interaction.`;
@@ -931,6 +1010,22 @@ For peerFeedback: If during this task you interacted with or observed the work o
           } catch {
             // Non-critical — skip silently
           }
+        }
+      }
+
+      // Update skill proficiency and learnings from reflection
+      const skillFeedbackItems: SkillFeedback[] = parsed.skill_feedback ?? [];
+      if (skillFeedbackItems.length > 0 && skillFeedbackWriter) {
+        try {
+          await skillFeedbackWriter(config.role, skillFeedbackItems.slice(0, 5));
+          console.log(
+            `[CompanyAgentRunner] Skill feedback saved for ${config.id}: ${skillFeedbackItems.length} skills`,
+          );
+        } catch (skillErr) {
+          console.warn(
+            `[CompanyAgentRunner] Skill feedback failed for ${config.id}:`,
+            (skillErr as Error).message,
+          );
         }
       }
     } catch (parseErr) {

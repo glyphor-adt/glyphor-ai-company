@@ -106,6 +106,7 @@ Steps:
     maxStallTurns: 3,
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,
+    thinkingEnabled: agentCfg.thinkingEnabled,
   };
 
   const supervisor = new AgentSupervisor({
