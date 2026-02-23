@@ -27,7 +27,7 @@ export async function queryBillingExport(
   projectId: string,
   billingDataset: string,
   billingTable: string,
-  days = 7,
+  days = 90,
 ): Promise<DailyCost[]> {
   const bq = getBigQueryClient();
 
@@ -76,7 +76,7 @@ export async function syncBillingToSupabase(
   projectId: string,
   billingDataset: string,
   billingTable: string,
-  days = 7,
+  days = 90,
 ): Promise<{ synced: number; services: number }> {
   const costs = await queryBillingExport(projectId, billingDataset, billingTable, days);
 
