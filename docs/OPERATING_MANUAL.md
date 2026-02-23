@@ -1623,6 +1623,8 @@ export const FORBIDDEN_AGENT_EVENTS: GlyphorEventType[] = [
 | Maya | $0.10 | $1.50 | $40 | Content generation |
 | James | $0.05 | $0.50 | $15 | Health scoring, nurture |
 | Rachel | $0.05 | $0.50 | $15 | Research, proposals |
+| Mia | $0.05 | $0.50 | $15 | Design audits, Lighthouse |
+| Atlas | $0.03 | $0.50 | $15 | Agent health, sync, incidents |
 | Alex | $0.02 | $0.20 | $6 | Short health checks |
 | Sam | $0.03 | $0.30 | $8 | Test analysis |
 | Jordan | $0.02 | $0.20 | $6 | Metrics queries |
@@ -1636,8 +1638,13 @@ export const FORBIDDEN_AGENT_EVENTS: GlyphorEventType[] = [
 | Emma | $0.02 | $0.20 | $6 | Funnel analysis |
 | David | $0.03 | $0.50 | $12 | Ticket volume |
 | Nathan | $0.05 | $0.50 | $12 | Research (token-heavy) |
+| Riley | $0.03 | $0.30 | $8 | M365 admin, email/calendar |
+| Leo | $0.03 | $0.30 | $8 | UI/UX design (DB-seeded only) |
+| Ava | $0.03 | $0.30 | $8 | Frontend eng (DB-seeded only) |
+| Sofia | $0.02 | $0.20 | $6 | Design critique (DB-seeded only) |
+| Ryan | $0.03 | $0.30 | $8 | Template arch (DB-seeded only) |
 | **Spawned (default)** | $0.02 | $0.20 | $5 | Adjustable at hire |
-| | | | **~$308/mo max** | **Full team theoretical max** |
+| | | | **~$376/mo max** | **Full team theoretical max** |
 
 *Actual spend will be well below max — agents don't run at capacity every day.*
 
