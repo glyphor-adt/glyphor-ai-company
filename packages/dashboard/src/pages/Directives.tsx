@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import Markdown from 'react-markdown';
 import { supabase } from '../lib/supabase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
@@ -346,13 +347,13 @@ function DirectiveCard({
                     {a.agent_output && (
                       <details className="mt-2">
                         <summary className="text-[10px] font-medium text-cyan cursor-pointer">View Output</summary>
-                        <p className="mt-1 text-[11px] text-txt-muted leading-relaxed whitespace-pre-wrap border-t border-border pt-2">
-                          {a.agent_output}
-                        </p>
+                        <div className="mt-1 text-[11px] text-txt-muted leading-relaxed prose-chat border-t border-border pt-2">
+                          <Markdown>{a.agent_output}</Markdown>
+                        </div>
                       </details>
                     )}
                     {a.evaluation && (
-                      <p className="mt-1 text-[10px] text-txt-faint italic">Evaluation: {a.evaluation}</p>
+                      <div className="mt-1 text-[10px] text-txt-faint italic prose-chat"><Markdown>{`Evaluation: ${a.evaluation}`}</Markdown></div>
                     )}
                   </div>
                 ))}
@@ -368,9 +369,9 @@ function DirectiveCard({
               </p>
               <div className="space-y-1">
                 {d.progress_notes.map((note, i) => (
-                  <p key={i} className="text-[11px] text-txt-muted leading-relaxed">
-                    {note}
-                  </p>
+                  <div key={i} className="text-[11px] text-txt-muted leading-relaxed prose-chat">
+                    <Markdown>{note}</Markdown>
+                  </div>
                 ))}
               </div>
             </div>
@@ -380,7 +381,7 @@ function DirectiveCard({
           {d.completion_summary && (
             <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
               <p className="text-[11px] font-medium text-emerald-400 mb-1">Completion Summary</p>
-              <p className="text-[12px] text-txt-secondary leading-relaxed">{d.completion_summary}</p>
+              <div className="text-[12px] text-txt-secondary leading-relaxed prose-chat"><Markdown>{d.completion_summary}</Markdown></div>
             </div>
           )}
         </div>
