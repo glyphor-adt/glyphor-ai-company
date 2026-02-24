@@ -66,16 +66,16 @@ async function applyWatermark(imageB64: string): Promise<string> {
   const meta = await sharp(imgBuf).metadata();
   const imgW = meta.width ?? 1536;
   const imgH = meta.height ?? 1024;
-  // Scale logo to ~8% of image width, place bottom-right with padding
-  const logoW = Math.round(imgW * 0.08);
+  // Scale logo to ~4% of image width, place bottom-right corner with padding
+  const logoW = Math.round(imgW * 0.04);
   const resizedLogo = await sharp(logoBuf)
     .resize({ width: logoW, fit: 'inside' })
-    .ensureAlpha(0.6)
+    .ensureAlpha(0.45)
     .toBuffer();
   const logoMeta = await sharp(resizedLogo).metadata();
   const logoH = logoMeta.height ?? logoW;
-  const padX = Math.round(imgW * 0.02);
-  const padY = Math.round(imgH * 0.02);
+  const padX = Math.round(imgW * 0.015);
+  const padY = Math.round(imgH * 0.015);
   const result = await sharp(imgBuf)
     .composite([{
       input: resizedLogo,
