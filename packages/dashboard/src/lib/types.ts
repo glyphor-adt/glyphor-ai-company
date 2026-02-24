@@ -238,6 +238,8 @@ export interface Database {
         Relationships: [];
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
   };
 }
 
