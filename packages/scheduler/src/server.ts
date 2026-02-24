@@ -154,11 +154,12 @@ const trackedAgentExecutor = async (
   payload: Record<string, unknown>,
 ): Promise<AgentExecutionResult | void> => {
   const sb = memory.getSupabaseClient();
+  const inputMsg = typeof payload?.message === 'string' ? payload.message : null;
 
   // Insert a "running" row
   const { data: runRow } = await sb
     .from('agent_runs')
-    .insert({ agent_id: agentRole, task, status: 'running' })
+    .insert({ agent_id: agentRole, task, status: 'running', input: inputMsg })
     .select('id')
     .single();
 
@@ -169,12 +170,19 @@ const trackedAgentExecutor = async (
     const result = await agentExecutor(agentRole, task, payload);
     const durationMs = Date.now() - startMs;
 
+    // Count tool calls from conversation history
+    const toolCalls = result?.conversationHistory
+      ? result.conversationHistory.filter(t => t.role === 'tool_call').length
+      : null;
+
     if (runId) {
       await sb.from('agent_runs').update({
         status: result?.status === 'completed' ? 'completed' : (result?.status === 'error' ? 'failed' : (result?.status ?? 'completed')),
         completed_at: new Date().toISOString(),
         duration_ms: durationMs,
         turns: result?.totalTurns ?? null,
+        tool_calls: toolCalls,
+        output: result?.output ?? null,
         error: result?.error ?? result?.abortReason ?? null,
       }).eq('id', runId);
     }
