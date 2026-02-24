@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import {
   MdEmojiEvents, MdLocalFireDepartment, MdMenuBook, MdCelebration,
   MdPushPin, MdCalendarToday, MdHourglassEmpty, MdCheckCircle,
-  MdCancel, MdCheck, MdWarning,
+  MdCancel, MdCheck, MdWarning, MdArrowForward,
 } from 'react-icons/md';
 import { supabase, SCHEDULER_URL } from '../lib/supabase';
 import {
@@ -920,9 +920,9 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
                   <div className="flex-1 min-w-0">
                     <p className="text-[11px] text-txt-faint">
                       {isSent ? (
-                        <><span className="text-txt-secondary">{displayName}</span> → <span className="font-medium text-txt-secondary">{DISPLAY_NAME_MAP[otherAgent] ?? otherAgent}</span></>
+                        <span className="flex items-center gap-1"><span className="text-txt-secondary">{displayName}</span> <MdArrowForward className="text-[10px]" /> <span className="font-medium text-txt-secondary">{DISPLAY_NAME_MAP[otherAgent] ?? otherAgent}</span></span>
                       ) : (
-                        <><span className="font-medium text-txt-secondary">{DISPLAY_NAME_MAP[otherAgent] ?? otherAgent}</span> → <span className="text-txt-secondary">{displayName}</span></>
+                        <span className="flex items-center gap-1"><span className="font-medium text-txt-secondary">{DISPLAY_NAME_MAP[otherAgent] ?? otherAgent}</span> <MdArrowForward className="text-[10px]" /> <span className="text-txt-secondary">{displayName}</span></span>
                       )}
                       <span className="ml-2">{timeAgo(m.created_at)}</span>
                     </p>

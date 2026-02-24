@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import {
   MdForum, MdAssignment, MdSquareFoot, MdNotificationImportant,
-  MdPerson, MdWarning,
+  MdPerson, MdWarning, MdArrowForward,
 } from 'react-icons/md';
 import { supabase, SCHEDULER_URL } from '../lib/supabase';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
@@ -245,7 +245,7 @@ function MeetingCard({
               <ul className="mt-1 space-y-1.5">
                 {meeting.action_items.map((ai, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm text-txt-secondary">
-                    <span className="text-cyan">→</span>
+                    <MdArrowForward className="text-cyan" />
                     <span>
                       <span className="font-medium text-txt-primary">{DISPLAY_NAME_MAP[ai.owner] ?? ai.owner}:</span>{' '}
                       {ai.action}
@@ -338,7 +338,7 @@ function MessageRow({ message }: { message: MessageRecord }) {
       <div className="flex-1 min-w-0">
         <p className="text-[11px] text-txt-faint">
           <span className="font-medium text-txt-secondary">{DISPLAY_NAME_MAP[message.from_agent] ?? message.from_agent}</span>
-          <span className="mx-1">→</span>
+          <MdArrowForward className="mx-1" />
           <span className="font-medium text-txt-secondary">{DISPLAY_NAME_MAP[message.to_agent] ?? message.to_agent}</span>
           <span className="ml-2">{timeAgo(message.created_at)}</span>
         </p>

@@ -9,6 +9,7 @@ import {
   Skeleton,
   timeAgo,
 } from '../components/ui';
+import { MdArrowForward } from 'react-icons/md';
 import { Link } from 'react-router-dom';
 
 /* ─── Org hierarchy ─────────────────────── */
@@ -225,7 +226,7 @@ export default function Workforce() {
                           to={`/chat/${agent.role}`}
                           className="rounded-lg border border-border px-3 py-1.5 text-[11px] font-medium text-txt-muted transition-colors hover:border-border-hover hover:text-txt-primary"
                         >
-                          Chat →
+                          <span className="flex items-center gap-1">Chat <MdArrowForward /></span>
                         </Link>
                         <Link
                           to={`/agents/${agent.role}`}

@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
 import {
   MdConstruction, MdRocketLaunch, MdCelebration, MdFitnessCenter,
-  MdTrackChanges, MdWarning, MdHelpOutline, MdExpandMore, MdClose,
+  MdTrackChanges, MdWarning, MdHelpOutline, MdExpandMore, MdClose, MdArrowForward,
 } from 'react-icons/md';
 import type { IconType } from 'react-icons';
 
@@ -691,7 +691,7 @@ function KGSummary({ stats }: { stats: KGStats | null }) {
           href="/graph"
           className="text-[11px] font-medium text-cyan hover:underline"
         >
-          Open Full Graph →
+          <span className="inline-flex items-center gap-1">Open Full Graph <MdArrowForward /></span>
         </a>
       </div>
 

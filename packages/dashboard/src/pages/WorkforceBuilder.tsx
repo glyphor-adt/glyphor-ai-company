@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, type ReactNode, type DragEven
 import {
   MdElectricBolt, MdAccountBalance, MdPerson, MdDashboard,
   MdManageSearch, MdSettings, MdInsights, MdBrush,
-  MdBiotech, MdCampaign, MdHeadsetMic, MdStar, MdClose,
+  MdBiotech, MdCampaign, MdHeadsetMic, MdStar, MdClose, MdFileDownload, MdArrowForward,
 } from 'react-icons/md';
 import { SCHEDULER_URL } from '../lib/supabase';
 
@@ -274,7 +274,7 @@ export default function WorkforceBuilder() {
         </div>
         <div className="flex items-center gap-2">
           <button onClick={exportJSON} disabled={!nodes.length} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-secondary transition-colors hover:border-cyan hover:text-cyan disabled:opacity-40">
-            ↓ Export JSON
+            <span className="flex items-center gap-1"><MdFileDownload /> Export JSON</span>
           </button>
           <button onClick={deployAll} disabled={deploying || !nodes.length} className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40">
             {deploying ? 'Deploying...' : 'Deploy All'}
@@ -509,7 +509,7 @@ export default function WorkforceBuilder() {
                         : 'border-border text-txt-muted hover:border-cyan hover:text-cyan'
                     }`}
                   >
-                    {connectFrom === selectedId ? 'Cancel — click target node' : 'Connect to Manager →'}
+                    {connectFrom === selectedId ? 'Cancel — click target node' : <span className="flex items-center gap-1">Connect to Manager <MdArrowForward /></span>}
                   </button>
                 </div>
 

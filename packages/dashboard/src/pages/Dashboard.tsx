@@ -1,4 +1,4 @@
-import { MdCheckCircle, MdSearch, MdDescription, MdQueue, MdChat, MdGroup } from 'react-icons/md';
+import { MdCheckCircle, MdSearch, MdDescription, MdQueue, MdChat, MdGroup, MdArrowForward } from 'react-icons/md';
 import { useAgents, useDecisions, useActivity, useProducts } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, TIER_TO_IMPACT } from '../lib/types';
 import {
@@ -187,7 +187,7 @@ export default function Dashboard() {
                 <span className="text-[11px] text-txt-faint">+{runningAgents.length - 5} more</span>
               )}
             </div>
-            <span className="ml-auto text-[11px] text-txt-faint">View activity →</span>
+            <span className="ml-auto flex items-center gap-1 text-[11px] text-txt-faint">View activity <MdArrowForward /></span>
           </div>
         </Link>
       )}
@@ -324,7 +324,7 @@ export default function Dashboard() {
           title="AI Workforce"
           action={
             <Link to="/workforce" className="text-xs text-txt-muted hover:text-txt-primary hover:underline dark:text-cyan dark:hover:text-cyan">
-              Meet the team →
+              <span className="flex items-center gap-1">Meet the team <MdArrowForward /></span>
             </Link>
           }
         />

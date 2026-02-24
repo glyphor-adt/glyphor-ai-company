@@ -4,7 +4,7 @@ import { Card, SectionHeader, Skeleton } from '../components/ui';
 import {
   MdBusiness, MdLightbulb, MdBalance, MdBarChart, MdWarning,
   MdRocketLaunch, MdMenuBook, MdTrackChanges, MdAssignment,
-  MdSettings, MdPerson, MdDescription,
+  MdSettings, MdPerson, MdDescription, MdArrowForward,
 } from 'react-icons/md';
 import type { IconType } from 'react-icons';
 
@@ -478,7 +478,7 @@ function NodeDetail({
                     className="flex w-full items-center gap-2 rounded-lg border border-border bg-base px-2.5 py-1.5 text-left text-[11px] hover:border-cyan/30 transition-colors"
                   >
                     <span className="text-txt-faint">{e.edge_type.replace(/_/g, ' ')}</span>
-                    <span className="text-txt-faint">→</span>
+                    <MdArrowForward className="text-txt-faint" />
                     <span className="text-txt-secondary font-medium truncate">{target?.title ?? e.target_id.slice(0, 8)}</span>
                   </button>
                 );

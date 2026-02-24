@@ -860,7 +860,7 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
             {report.cascadeChain.map((link, i) => (
               <div key={i} className="flex items-center gap-1.5 rounded-lg border border-border bg-raised px-2.5 py-1.5 text-[11px]">
                 <span className="font-medium text-cyan">{link.from}</span>
-                <span className="text-txt-faint">→</span>
+                <MdArrowForward className="text-txt-faint" />
                 <span className="font-medium text-txt-secondary">{link.to}</span>
                 <span className="text-[10px] text-txt-faint">({link.delay})</span>
               </div>
