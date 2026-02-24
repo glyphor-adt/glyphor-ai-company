@@ -582,6 +582,7 @@ export function createChiefOfStaffTools(
 export function createOrchestrationTools(
   supabase: SupabaseClient,
   schedulerUrl: string,
+  glyphorEventBus?: GlyphorEventBus,
 ): ToolDefinition[] {
   return [
     // ─── READ FOUNDER DIRECTIVES ──────────────────────────────
