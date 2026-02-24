@@ -2,7 +2,7 @@
    Database types — mirrors supabase/migrations schema
    ────────────────────────────────────────────────────── */
 
-export interface Agent {
+export type Agent = {
   id: string;
   role: string;
   display_name: string;
@@ -22,10 +22,11 @@ export interface Agent {
   total_runs: number;
   total_cost_usd: number;
   last_run_at: string | null;
+  last_run_duration_ms: number | null;
   created_at: string;
 }
 
-export interface Decision {
+export type Decision = {
   id: string;
   tier: 'green' | 'yellow' | 'red';
   status: 'pending' | 'approved' | 'rejected';
@@ -48,7 +49,7 @@ export const TIER_TO_IMPACT: Record<string, string> = {
   red: 'high',
 };
 
-export interface ActivityEntry {
+export type ActivityEntry = {
   id: string;
   agent_id: string | null;
   action: string;
@@ -56,7 +57,7 @@ export interface ActivityEntry {
   created_at: string;
 }
 
-export interface CompanyProfile {
+export type CompanyProfile = {
   id: string;
   name: string;
   mission: string;
@@ -66,7 +67,7 @@ export interface CompanyProfile {
   headcount: number;
 }
 
-export interface Product {
+export type Product = {
   id: string;
   name: string;
   tagline: string;
@@ -75,7 +76,7 @@ export interface Product {
   users: number;
 }
 
-export interface Financial {
+export type Financial = {
   id: string;
   date: string;
   product: string | null;
@@ -85,7 +86,7 @@ export interface Financial {
   created_at: string;
 }
 
-export interface CustomerHealth {
+export type CustomerHealth = {
   id: string;
   customer_name: string;
   health_score: number;
@@ -95,7 +96,7 @@ export interface CustomerHealth {
   last_contact: string | null;
 }
 
-export interface ChatMessage {
+export type ChatMessage = {
   id: string;
   agent_role: string;
   role: string;
