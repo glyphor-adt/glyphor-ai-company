@@ -15,6 +15,12 @@ import {
   listWorkflowRuns,
   getRepoStats,
   createIssue,
+  getFileContents,
+  createOrUpdateFile,
+  createBranch,
+  createGitHubPR,
+  mergeGitHubPR,
+  GLYPHOR_REPOS,
   type GlyphorRepo,
 } from '@glyphor/integrations';
 
@@ -421,6 +427,294 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
           assignedTo: params.assigned_to as string[],
         });
         return { success: true, data: { decisionId: id }, memoryKeysWritten: 1 };
+      },
+    },
+
+    // ─── CODE AUTHORING — Agent Self-Extension ──────────────────
+
+    {
+      name: 'get_file_contents',
+      description: 'Read a file from the GitHub repo. Use this to read existing tool code before modifying it, or to understand how existing tools are structured.',
+      parameters: {
+        repo: {
+          type: 'string',
+          description: 'Repo name (e.g. "glyphor-ai-company")',
+          required: true,
+        },
+        path: {
+          type: 'string',
+          description: 'File path in the repo (e.g. "packages/agents/src/cpo/tools.ts")',
+          required: true,
+        },
+        branch: {
+          type: 'string',
+          description: 'Branch to read from (defaults to "main")',
+          required: false,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const result = await getFileContents(
+            params.repo as string,
+            params.path as string,
+            params.branch as string | undefined,
+          );
+          if (!result) {
+            return { success: true, data: { exists: false, path: params.path } };
+          }
+          return { success: true, data: { exists: true, ...result } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'create_or_update_file',
+      description: 'Create or update a file in the GitHub repo on a feature branch. NEVER write directly to main — always use a feature branch. Use this to add new tool declarations, implement tool handlers, modify system prompts, or create new agent files.',
+      parameters: {
+        repo: {
+          type: 'string',
+          description: 'Repo name (e.g. "glyphor-ai-company")',
+          required: true,
+        },
+        path: {
+          type: 'string',
+          description: 'File path in the repo',
+          required: true,
+        },
+        content: {
+          type: 'string',
+          description: 'The COMPLETE file content (not a diff)',
+          required: true,
+        },
+        branch: {
+          type: 'string',
+          description: 'Target branch — must start with "feature/agent-"',
+          required: true,
+        },
+        commit_message: {
+          type: 'string',
+          description: 'Commit message in conventional commit format',
+          required: true,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const branch = params.branch as string;
+        const path = params.path as string;
+
+        // SAFETY: Branch name enforcement
+        if (!branch.startsWith('feature/agent-')) {
+          return {
+            success: false,
+            error: 'Branch name must start with "feature/agent-". Direct writes to main, staging, or production branches are forbidden.',
+          };
+        }
+
+        // SAFETY: Path blocklist — RED-tier files require human review
+        const BLOCKED_PATHS = [
+          'packages/agent-runtime/src/companyAgentRunner.ts',
+          'packages/scheduler/src/authorityGates.ts',
+        ];
+        const BLOCKED_PREFIXES = [
+          'infra/',
+          '.github/workflows/',
+          'docker/',
+        ];
+        const BLOCKED_PATTERNS = [
+          /AGENT_BUDGETS/,
+        ];
+
+        if (BLOCKED_PATHS.includes(path)) {
+          return {
+            success: false,
+            error: `Path "${path}" is a RED-tier protected file. Changes require human review in Cursor.`,
+          };
+        }
+        for (const prefix of BLOCKED_PREFIXES) {
+          if (path.startsWith(prefix)) {
+            return {
+              success: false,
+              error: `Path "${path}" is in a protected directory (${prefix}). Changes require human review.`,
+            };
+          }
+        }
+
+        // Check file content for budget-cap manipulation
+        const content = params.content as string;
+        for (const pattern of BLOCKED_PATTERNS) {
+          if (pattern.test(content) && path.includes('types.ts')) {
+            return {
+              success: false,
+              error: 'Cannot modify AGENT_BUDGETS section in types.ts. Budget cap changes require human review.',
+            };
+          }
+        }
+
+        try {
+          const result = await createOrUpdateFile(
+            params.repo as string,
+            path,
+            content,
+            branch,
+            params.commit_message as string,
+          );
+
+          // Log file write to activity log
+          await memory.appendActivity({
+            agentRole: ctx.agentRole,
+            action: 'deploy',
+            product: 'company',
+            summary: `GitHub file ${result.created_or_updated}: ${path} on ${branch}`,
+            details: { repo: params.repo, path, branch, commit_sha: result.commit_sha },
+            createdAt: new Date().toISOString(),
+          });
+
+          return { success: true, data: result };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'create_branch',
+      description: 'Create a new feature branch from main for tool or agent development. Branch names must follow the pattern: feature/agent-{description}.',
+      parameters: {
+        repo: {
+          type: 'string',
+          description: 'Repo name (e.g. "glyphor-ai-company")',
+          required: true,
+        },
+        branch_name: {
+          type: 'string',
+          description: 'Branch name — must match pattern feature/agent-*',
+          required: true,
+        },
+        from_ref: {
+          type: 'string',
+          description: 'Source ref (defaults to "main")',
+          required: false,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const branchName = params.branch_name as string;
+
+        if (!branchName.startsWith('feature/agent-')) {
+          return {
+            success: false,
+            error: 'Branch name must start with "feature/agent-".',
+          };
+        }
+
+        try {
+          const result = await createBranch(
+            params.repo as string,
+            branchName,
+            (params.from_ref as string) || 'main',
+          );
+
+          await memory.appendActivity({
+            agentRole: ctx.agentRole,
+            action: 'deploy',
+            product: 'company',
+            summary: `Created branch ${branchName} from ${(params.from_ref as string) || 'main'}`,
+            details: { repo: params.repo, branch: branchName, sha: result.sha },
+            createdAt: new Date().toISOString(),
+          });
+
+          return { success: true, data: result };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'create_github_pr',
+      description: 'Open a pull request from a feature branch to main. CI runs automatically on the PR.',
+      parameters: {
+        repo: {
+          type: 'string',
+          description: 'Repo name (e.g. "glyphor-ai-company")',
+          required: true,
+        },
+        branch: {
+          type: 'string',
+          description: 'Source branch for the PR',
+          required: true,
+        },
+        title: {
+          type: 'string',
+          description: 'PR title',
+          required: true,
+        },
+        body: {
+          type: 'string',
+          description: 'PR description in markdown',
+          required: true,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        try {
+          const result = await createGitHubPR(
+            params.repo as string,
+            params.branch as string,
+            params.title as string,
+            params.body as string,
+          );
+
+          await memory.appendActivity({
+            agentRole: ctx.agentRole,
+            action: 'deploy',
+            product: 'company',
+            summary: `Opened PR #${result.number}: ${params.title}`,
+            details: { repo: params.repo, branch: params.branch, pr_number: result.number, url: result.url },
+            createdAt: new Date().toISOString(),
+          });
+
+          return { success: true, data: result };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'merge_github_pr',
+      description: 'Merge a pull request after CI passes. Uses squash merge.',
+      parameters: {
+        repo: {
+          type: 'string',
+          description: 'Repo name (e.g. "glyphor-ai-company")',
+          required: true,
+        },
+        pr_number: {
+          type: 'number',
+          description: 'Pull request number to merge',
+          required: true,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        try {
+          const result = await mergeGitHubPR(
+            params.repo as string,
+            params.pr_number as number,
+          );
+
+          await memory.appendActivity({
+            agentRole: ctx.agentRole,
+            action: 'deploy',
+            product: 'company',
+            summary: `Merged PR #${params.pr_number}`,
+            details: { repo: params.repo, pr_number: params.pr_number, sha: result.sha },
+            createdAt: new Date().toISOString(),
+          });
+
+          return { success: true, data: result };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
       },
     },
   ];

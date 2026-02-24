@@ -253,3 +253,152 @@ export async function commentOnPR(
 
   return { url: data.html_url };
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// CODE AUTHORING — Read/write files and branches for agent self-extension
+// ═══════════════════════════════════════════════════════════════════
+
+export interface FileContents {
+  content: string;
+  sha: string;
+  size: number;
+  path: string;
+}
+
+/** Read a file from a GitHub repo. Returns null if file doesn't exist (404). */
+export async function getFileContents(
+  repoName: string,
+  path: string,
+  ref?: string,
+): Promise<FileContents | null> {
+  const gh = getGitHubClient();
+  try {
+    const { data } = await gh.repos.getContent({
+      owner: ORG,
+      repo: repoName,
+      path,
+      ...(ref ? { ref } : {}),
+    });
+
+    if (Array.isArray(data) || data.type !== 'file') {
+      return null; // Directory, not a file
+    }
+
+    return {
+      content: Buffer.from(data.content, 'base64').toString('utf-8'),
+      sha: data.sha,
+      size: data.size,
+      path: data.path,
+    };
+  } catch (err) {
+    if ((err as any).status === 404) return null;
+    throw err;
+  }
+}
+
+/** Create or update a file on a branch. Automatically detects create vs update. */
+export async function createOrUpdateFile(
+  repoName: string,
+  path: string,
+  content: string,
+  branch: string,
+  commitMessage: string,
+): Promise<{ commit_sha: string; path: string; created_or_updated: 'created' | 'updated' }> {
+  const gh = getGitHubClient();
+
+  // Check if file already exists on this branch to get its SHA
+  const existing = await getFileContents(repoName, path, branch);
+
+  const body: Parameters<typeof gh.repos.createOrUpdateFileContents>[0] = {
+    owner: ORG,
+    repo: repoName,
+    path,
+    message: commitMessage,
+    content: Buffer.from(content).toString('base64'),
+    branch,
+  };
+
+  if (existing) {
+    body.sha = existing.sha;
+  }
+
+  const { data } = await gh.repos.createOrUpdateFileContents(body);
+
+  return {
+    commit_sha: data.commit.sha!,
+    path,
+    created_or_updated: existing ? 'updated' : 'created',
+  };
+}
+
+/** Create a new branch from a ref (defaults to 'main'). */
+export async function createBranch(
+  repoName: string,
+  branchName: string,
+  fromRef = 'main',
+): Promise<{ branch: string; sha: string; created: true }> {
+  const gh = getGitHubClient();
+
+  // Get the SHA of the source ref
+  const { data: refData } = await gh.git.getRef({
+    owner: ORG,
+    repo: repoName,
+    ref: `heads/${fromRef}`,
+  });
+
+  // Create the new branch
+  await gh.git.createRef({
+    owner: ORG,
+    repo: repoName,
+    ref: `refs/heads/${branchName}`,
+    sha: refData.object.sha,
+  });
+
+  return {
+    branch: branchName,
+    sha: refData.object.sha,
+    created: true,
+  };
+}
+
+/** Create a pull request */
+export async function createGitHubPR(
+  repoName: string,
+  branch: string,
+  title: string,
+  body: string,
+): Promise<{ number: number; url: string }> {
+  const gh = getGitHubClient();
+
+  const { data } = await gh.pulls.create({
+    owner: ORG,
+    repo: repoName,
+    head: branch,
+    base: 'main',
+    title,
+    body,
+  });
+
+  return { number: data.number, url: data.html_url };
+}
+
+/** Merge a pull request */
+export async function mergeGitHubPR(
+  repoName: string,
+  prNumber: number,
+): Promise<{ merged: boolean; sha: string; message: string }> {
+  const gh = getGitHubClient();
+
+  const { data } = await gh.pulls.merge({
+    owner: ORG,
+    repo: repoName,
+    pull_number: prNumber,
+    merge_method: 'squash',
+  });
+
+  return {
+    merged: data.merged,
+    sha: data.sha,
+    message: data.message,
+  };
+}
