@@ -104,7 +104,7 @@ export interface ChatMessage {
 }
 
 /* ── Supabase generic DB shape (simplified) ── */
-export interface Database {
+export type Database = {
   public: {
     Tables: {
       company_agents: { Row: Agent; Insert: Agent; Update: Partial<Agent>; Relationships: [] };
