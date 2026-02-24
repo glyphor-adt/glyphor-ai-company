@@ -354,6 +354,7 @@ glyphor-ai-company/
 │   │       ├── eventPermissions.ts     # Per-tier event emission permissions
 │   │       ├── subscriptions.ts        # Agent → event type subscription map
 │   │       ├── reasoning.ts            # Reasoning extraction & stripping
+│   │       ├── workLoop.ts            # Universal always-on work loop (P1-P6 priority stack)
 │   │       └── types.ts               # All core types (26 agent roles, budgets, tool grants)
 │   │
 │   ├── company-memory/          # Persistence layer
@@ -661,6 +662,7 @@ Every Gemini API call receives a composite system prompt built from four layers:
 | Conversation Mode | Hardcoded — casual vs task detection | ~15 lines |
 | Reasoning Protocol | Hardcoded — Orient → Plan → Execute → Reflect | ~10 lines |
 | Work Assignments Protocol | Hardcoded — read → work → submit/flag lifecycle | ~15 lines |
+| Always-On Protocol | Hardcoded — P1-P5 priority stack + proactive work guidelines | ~20 lines |
 | Skill Block | `skills` + `agent_skills` tables → `buildSkillBlock()` | ~20–50 lines |
 | Role Brief | `company-knowledge/briefs/{name}.md` or DB `agent_briefs` | ~80 lines |
 | Agent System Prompt | `agents/src/{role}/systemPrompt.ts` | ~30 lines |
@@ -766,7 +768,8 @@ and can wake other agents in response.
 
 Event types: `agent.completed`, `insight.detected`, `decision.filed`, `decision.resolved`,
 `alert.triggered`, `task.requested`, `agent.spawned`, `agent.retired`, `message.sent`,
-`meeting.called`, `meeting.completed`, `assignment.submitted`, `assignment.blocked`.
+`meeting.called`, `meeting.completed`, `assignment.submitted`, `assignment.blocked`,
+`assignment.revised`.
 
 Rate limited to 10 events per agent per hour.
 
@@ -843,15 +846,20 @@ items available to all agents, closing the Sarah → agent → Sarah orchestrati
 
 ### Agent Budget Caps
 
-Each agent role has per-run, daily, and monthly USD cost caps defined in `AGENT_BUDGETS`:
+Each agent role has per-run, daily, and monthly USD cost caps defined in `AGENT_BUDGETS`.
+Budget caps are set for 24/7 autonomous operations where agents run multiple times per day
+via the work loop:
 
 | Tier | Per Run | Daily | Monthly |
 |------|---------|-------|---------|
-| Executives (CoS, CFO, VP CS/Sales/Design) | $0.05 | $0.50 | $15 |
-| CTO | $0.10 | $2.00 | $50 |
-| CPO | $0.08 | $1.00 | $30 |
-| CMO | $0.10 | $1.50 | $40 |
-| Sub-team (most) | $0.02–0.05 | $0.20–0.50 | $6–12 |
+| Chief of Staff | $0.10 | $5.00 | $150 |
+| CTO | $0.10 | $4.00 | $120 |
+| Ops (Atlas) | $0.08 | $3.00 | $90 |
+| CFO | $0.08 | $2.00 | $60 |
+| CPO | $0.08 | $2.00 | $60 |
+| CMO | $0.08 | $2.00 | $60 |
+| VP Customer Success / VP Sales / VP Design | $0.05 | $1.50 | $45 |
+| Sub-team (all) | $0.05 | $1.00 | $30 |
 
 ### Semantic Memory & Collective Intelligence
 
@@ -987,19 +995,59 @@ Declarative event-to-agent mappings. Examples:
 - `teams_bot_dm` → wake target agent immediately
 - `customer.subscription.created` → wake VP Customer Success + VP Sales (5 min cooldown)
 - `dashboard_on_demand` → wake target agent immediately
+- `assignment.submitted` → wake chief-of-staff immediately (task: orchestrate, 5 min cooldown)
+- `assignment.blocked` → wake chief-of-staff immediately (task: orchestrate, 2 min cooldown)
+- `assignment.revised` → wake `$target_agent` immediately (task: work_loop, 2 min cooldown)
+- `message.sent` → wake `$to_agent` at next heartbeat (task: work_loop, 5 min cooldown)
 
-Supports `$target_agent` dynamic token resolution from event data.
+Supports `$target_agent` and `$to_agent` dynamic token resolution from event payload.
 
 #### Heartbeat Manager (`heartbeat.ts`)
 
-Lightweight periodic check-in cycle (every 10 min via `POST /heartbeat`). No LLM calls —
-DB queries only. Three priority tiers:
+Lightweight periodic check-in cycle (every 10 min via `POST /heartbeat`). Integrates with
+the work loop for always-on operations. Three priority tiers:
 - **High** (10 min): chief-of-staff, cto, ops
 - **Medium** (20 min): other executives
 - **Low** (30 min): sub-team members
 
-Each cycle: dequeue pending `agent_wake_queue` items → dispatch agents with staggered
-2-second delays → respect 5-minute minimum gap between runs.
+Each cycle per agent:
+1. **Reactive wakes first** — dequeue pending `agent_wake_queue` items and dispatch immediately
+2. **Work loop check** — call `executeWorkLoop()` for the full P1–P5 priority stack (pure DB queries, no LLM)
+3. **Knowledge inbox** — check for unread knowledge items
+4. Dispatch with the task type from step 1 or 2 (e.g., `work_loop`, `proactive`, `orchestrate`)
+5. Staggered 2-second delays between agents; respect 5-minute minimum gap between runs
+
+#### Work Loop (`workLoop.ts`)
+
+Universal always-on task handler. Every agent runs through a priority stack on each
+heartbeat — pure DB queries, no LLM call (~$0.005 per check). Only when real work
+exists does the agent load full context and run.
+
+| Priority | Name | Trigger | Context Tier | Task |
+|----------|------|---------|-------------|------|
+| P1 | URGENT | `needs_revision` assignments or urgent messages | full | `work_loop` |
+| P2 | ACTIVE WORK | `pending`/`dispatched`/`in_progress` assignments | standard | `work_loop` |
+| P3 | MESSAGES | Unread messages from colleagues | standard | `work_loop` |
+| P4 | SCHEDULED | Normal cron duties | — | (handled by Cloud Scheduler, skipped here) |
+| P5 | PROACTIVE | Self-directed work if cooldown expired | standard | `proactive` |
+| P6 | NOTHING | No actionable work | — | Fast exit (no dispatch) |
+
+`work_loop` and `proactive` tasks are routed through `on_demand` in the agent executor
+with the work loop's message as context.
+
+##### Proactive Cooldowns
+
+How often each agent does self-directed work when no other tasks exist:
+
+| Tier | Agents | Cooldown |
+|------|--------|----------|
+| Always Hot | chief-of-staff, ops | 1 hour |
+| High Frequency | cto, cfo | 2 hours |
+| Medium | cpo, cmo, vp-customer-success, vp-sales, vp-design | 4 hours |
+| Standard (default) | All sub-team members | 6 hours |
+
+Proactive prompts are role-specific (e.g., CTO reviews platform health trends;
+CFO monitors cost trends; CMO drafts content ideas).
 
 ---
 
