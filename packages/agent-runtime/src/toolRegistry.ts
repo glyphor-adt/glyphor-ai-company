@@ -156,6 +156,7 @@ const KNOWN_TOOLS = new Set([
   'get_pipeline_runs',
   'get_recent_commits',
   'comment_on_pr',
+  'query_vercel_builds',
 
   // ── User Researcher (Priya) tools ──
   'query_user_analytics',
