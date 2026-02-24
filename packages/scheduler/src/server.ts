@@ -277,6 +277,9 @@ const teamsBot = TeamsBotHandler.fromEnv(
   },
 );
 
+// Wire the bot handler into the decision queue for Teams channel notifications
+decisionQueue.setBotHandler(teamsBot);
+
 // ─── Glyphor Event Bus ──────────────────────────────────────────
 
 const glyphorEventBus = new GlyphorEventBus({

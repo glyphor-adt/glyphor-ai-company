@@ -36,7 +36,13 @@ export function createChiefOfStaffTools(
   }
   const channels = buildChannelMap();
 
-  // Initialize DM, email, and calendar clients
+  // Initialize Bot Framework handler for channel messages (proactive cards)
+  // Graph API's Teamwork.Migrate.All permission only allows imports, not regular
+  // channel messaging, so we use the Bot Framework REST API instead.
+  const botHandler = TeamsBotHandler.fromEnv(async () => {});
+
+  // Initialize DM, email, and calendar clients (these use Graph API with
+  // different permissions that work correctly)
   let dmClient: TeamsDirectMessageClient | null = null;
   let emailClient: GraphEmailClient | null = null;
   let calendarClient: GraphCalendarClient | null = null;
@@ -183,12 +189,12 @@ export function createChiefOfStaffTools(
           date: new Date().toISOString().split('T')[0],
         });
 
-        // Send via Graph API (preferred) or webhook fallback
+        // Send via Bot Framework (preferred) or webhook fallback
         const channelKey = recipient === 'kristina' ? 'briefingKristina' : 'briefingAndrew';
         const channel = channels[channelKey];
 
-        if (graphClient && channel) {
-          await graphClient.sendCard(channel, card.attachments[0].content);
+        if (botHandler && channel) {
+          await botHandler.sendProactiveCardToChannel(channel.teamId, channel.channelId, card.attachments[0].content as unknown as Record<string, unknown>);
         } else {
           // Fallback to webhook
           const webhookUrl = recipient === 'kristina'
@@ -270,9 +276,9 @@ export function createChiefOfStaffTools(
           assignedTo: params.assigned_to as string[],
         });
 
-        // Send to Teams #Decisions channel
+        // Send to Teams #Decisions channel via Bot Framework
         const decisionsChannel = channels.decisions;
-        if (graphClient && decisionsChannel) {
+        if (botHandler && decisionsChannel) {
           const { formatDecisionCard } = await import('@glyphor/integrations');
           const card = formatDecisionCard({
             id,
@@ -283,7 +289,7 @@ export function createChiefOfStaffTools(
             reasoning: params.reasoning as string,
             assignedTo: params.assigned_to as string[],
           });
-          await graphClient.sendCard(decisionsChannel, card.attachments[0].content);
+          await botHandler.sendProactiveCardToChannel(decisionsChannel.teamId, decisionsChannel.channelId, card.attachments[0].content as unknown as Record<string, unknown>);
         } else {
           // Fallback to webhook
           const webhookUrl = process.env.TEAMS_WEBHOOK_DECISIONS;

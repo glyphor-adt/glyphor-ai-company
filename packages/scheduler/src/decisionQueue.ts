@@ -24,7 +24,7 @@ export interface PendingDecision extends CompanyDecision {
 export class DecisionQueue {
   private readonly memory: CompanyMemoryStore;
   private readonly founderWebhooks: Record<string, string>;
-  private readonly botHandler: TeamsBotHandler | null;
+  private botHandler: TeamsBotHandler | null;
   private readonly channels: ReturnType<typeof buildChannelMap>;
 
   constructor(
@@ -37,7 +37,13 @@ export class DecisionQueue {
     this.channels = buildChannelMap();
     this.botHandler = botHandler ?? null;
   }
-
+  /**
+   * Set the bot handler for sending Teams channel messages.
+   * Used when the bot handler must be initialized after the queue.
+   */
+  setBotHandler(handler: TeamsBotHandler | null): void {
+    this.botHandler = handler;
+  }
   /**
    * Submit a new decision for founder approval.
    */
@@ -62,7 +68,7 @@ export class DecisionQueue {
     // Send via Bot Framework (preferred) or webhook fallback
     const decisionsChannel = this.channels.decisions;
     if (this.botHandler && decisionsChannel) {
-      await this.botHandler.sendProactiveCardToChannel(decisionsChannel.teamId, decisionsChannel.channelId, card.attachments[0].content)
+      await this.botHandler.sendProactiveCardToChannel(decisionsChannel.teamId, decisionsChannel.channelId, card.attachments[0].content as unknown as Record<string, unknown>)
         .catch((err: unknown) => console.error('Failed to send decision via Bot Framework:', err));
     } else {
       const notifications = targets
@@ -208,7 +214,7 @@ export class DecisionQueue {
         // Send via Bot Framework (preferred) or webhook fallback
         const decisionsChannel = this.channels.decisions;
         if (this.botHandler && decisionsChannel) {
-          await this.botHandler.sendProactiveCardToChannel(decisionsChannel.teamId, decisionsChannel.channelId, card.attachments[0].content)
+          await this.botHandler.sendProactiveCardToChannel(decisionsChannel.teamId, decisionsChannel.channelId, card.attachments[0].content as unknown as Record<string, unknown>)
             .catch((err: unknown) => console.error('Failed to send reminder via Bot Framework:', err));
         } else {
           for (const founder of targets) {
