@@ -147,9 +147,59 @@ const agentExecutor = async (
   }
 };
 
-const router = new EventRouter(agentExecutor, decisionQueue);
-const wakeRouter = new WakeRouter(memory.getSupabaseClient(), agentExecutor);
-const heartbeatManager = new HeartbeatManager(memory.getSupabaseClient(), agentExecutor, wakeRouter);
+// Wrap executor to record every run in agent_runs for the Activity dashboard
+const trackedAgentExecutor = async (
+  agentRole: CompanyAgentRole,
+  task: string,
+  payload: Record<string, unknown>,
+): Promise<AgentExecutionResult | void> => {
+  const sb = memory.getSupabaseClient();
+
+  // Insert a "running" row
+  const { data: runRow } = await sb
+    .from('agent_runs')
+    .insert({ agent_id: agentRole, task, status: 'running' })
+    .select('id')
+    .single();
+
+  const runId = runRow?.id as string | undefined;
+  const startMs = Date.now();
+
+  try {
+    const result = await agentExecutor(agentRole, task, payload);
+    const durationMs = Date.now() - startMs;
+
+    if (runId) {
+      await sb.from('agent_runs').update({
+        status: result?.status === 'completed' ? 'completed' : (result?.status === 'error' ? 'failed' : (result?.status ?? 'completed')),
+        completed_at: new Date().toISOString(),
+        duration_ms: durationMs,
+        turns: result?.totalTurns ?? null,
+        error: result?.error ?? result?.abortReason ?? null,
+      }).eq('id', runId);
+    }
+
+    return result;
+  } catch (err) {
+    const durationMs = Date.now() - startMs;
+    const message = err instanceof Error ? err.message : String(err);
+
+    if (runId) {
+      await sb.from('agent_runs').update({
+        status: 'failed',
+        completed_at: new Date().toISOString(),
+        duration_ms: durationMs,
+        error: message,
+      }).eq('id', runId);
+    }
+
+    throw err;
+  }
+};
+
+const router = new EventRouter(trackedAgentExecutor, decisionQueue);
+const wakeRouter = new WakeRouter(memory.getSupabaseClient(), trackedAgentExecutor);
+const heartbeatManager = new HeartbeatManager(memory.getSupabaseClient(), trackedAgentExecutor, wakeRouter);
 
 const strategyModelClient = new ModelClient({
   geminiApiKey: process.env.GOOGLE_AI_API_KEY,
@@ -158,14 +208,14 @@ const strategyModelClient = new ModelClient({
 });
 const analysisEngine = new AnalysisEngine(memory.getSupabaseClient(), strategyModelClient);
 const simulationEngine = new SimulationEngine(memory.getSupabaseClient(), strategyModelClient);
-const meetingEngine = new MeetingEngine(memory.getSupabaseClient(), agentExecutor);
+const meetingEngine = new MeetingEngine(memory.getSupabaseClient(), trackedAgentExecutor);
 const cotEngine = new CotEngine(memory.getSupabaseClient(), strategyModelClient);
 const deepDiveEngine = new DeepDiveEngine(memory.getSupabaseClient(), strategyModelClient);
 
 // Teams Bot — initialized from env vars (BOT_APP_ID, BOT_APP_SECRET, BOT_TENANT_ID)
 const teamsBot = TeamsBotHandler.fromEnv(
   async (agentRole, task, payload) => {
-    const result = await agentExecutor(agentRole as CompanyAgentRole, task, payload);
+    const result = await trackedAgentExecutor(agentRole as CompanyAgentRole, task, payload);
     return result ?? undefined;
   },
 );
@@ -919,7 +969,7 @@ const server = createServer(async (req, res) => {
       if (!record?.report) { json(res, 404, { error: 'Analysis not found or not completed' }); return; }
 
       const prompt = buildVisualPrompt(record);
-      const imageResponse = await strategyModelClient.generateImage(prompt, 'imagen-4.0-ultra-generate-001');
+      const imageResponse = await strategyModelClient.generateImageOpenAI(prompt);
 
       json(res, 200, { image: imageResponse.imageData, mimeType: imageResponse.mimeType });
       return;
@@ -1191,7 +1241,7 @@ const server = createServer(async (req, res) => {
       if (!record?.report) { json(res, 404, { error: 'Deep dive not found or not completed' }); return; }
 
       const prompt = buildDeepDiveVisualPrompt(record);
-      const imageResponse = await strategyModelClient.generateImage(prompt, 'imagen-4.0-ultra-generate-001');
+      const imageResponse = await strategyModelClient.generateImageOpenAI(prompt);
       json(res, 200, { image: imageResponse.imageData, mimeType: imageResponse.mimeType });
       return;
     }
@@ -1414,19 +1464,70 @@ const server = createServer(async (req, res) => {
 function buildDeepDiveVisualPrompt(record: import('./deepDiveEngine.js').DeepDiveRecord): string {
   const r = record.report;
   if (!r) return '';
+
+  const strengths = r.currentState.keyStrengths.slice(0, 3);
+  const challenges = r.currentState.keyChallenges.slice(0, 3);
+  const competitors = r.competitiveLandscape.competitors.slice(0, 4);
+  const recs = r.strategicRecommendations.slice(0, 4);
+  const roadmap = r.implementationRoadmap.slice(0, 3);
+  const risks = r.riskAssessment.slice(0, 3);
+  const fs = r.currentState.financialSnapshot;
+
+  // Build financial stats line
+  const financialStats = [
+    fs.revenue ? `Revenue: ${fs.revenue}` : null,
+    fs.revenueGrowth ? `Growth: ${fs.revenueGrowth}` : null,
+    fs.headcount ? `Headcount: ${fs.headcount}` : null,
+    fs.profitability ? `Profitability: ${fs.profitability}` : null,
+    fs.valuation ? `Valuation: ${fs.valuation}` : null,
+  ].filter(Boolean).join(' · ');
+
   return [
-    `A polished, high-resolution professional infographic poster for a McKinsey-style strategic deep dive on "${r.targetName}".`,
-    `Dark premium background (#0D1117) with clean modern layout.`,
+    `A professional corporate infographic in 16:9 landscape format titled "${r.targetName} — Strategic Deep Dive".`,
+    `Top-left: Glyphor AI logo area with a cyan (#00E0FF) branding bar; top-right: "${r.analysisDate}" date stamp. White background, modern flat design, subtle grid pattern, corporate sans-serif typography.`,
     ``,
-    `Sections: Company Overview with key stats, SWOT-style current state (${r.currentState.keyStrengths.length} strengths, ${r.currentState.keyChallenges.length} challenges),`,
-    `Market sizing (TAM: ${r.marketAnalysis.tam.value}, SAM: ${r.marketAnalysis.sam.value}, SOM: ${r.marketAnalysis.som.value}),`,
-    `Competitive landscape with ${r.competitiveLandscape.competitors.length} competitors,`,
-    `Porter's 5 Forces radar chart, ${r.strategicRecommendations.length} strategic recommendations,`,
-    `Implementation roadmap timeline, and risk matrix.`,
+    `Top section: a bold headline banner across the full width with the subtitle: "McKinsey-Grade Intelligence Report · ${r.targetType} · ${r.documentCounts.secFilings} SEC Filings · ${r.documentCounts.newsArticles} News Sources · ${r.documentCounts.researchSources} Research Sources Analyzed".`,
     ``,
-    `Visual style: Magazine-quality, McKinsey consulting deck aesthetic, modern sans-serif typography,`,
-    `generous whitespace, data visualizations, metric cards with KPI numbers.`,
-    `Colors: Cyan (#00E0FF) accents, emerald (#34D399) for positive, rose (#FB7185) for risks, amber (#FBBF24) for caution.`,
+    `Left-upper quadrant: a "Financial Snapshot" panel with large numeric callouts in cyan:`,
+    financialStats ? `- ${financialStats}` : `- Financial data pending`,
+    `- Momentum indicator: ${r.currentState.momentum === 'positive' ? '▲ Positive (green)' : r.currentState.momentum === 'negative' ? '▼ Negative (red)' : '► Neutral (amber)'}`,
+    `Each stat has a small icon (dollar, chart, users) and the numbers are large and bold.`,
+    ``,
+    `Right-upper quadrant: a "Market Sizing" panel with three concentric circles or funnel:`,
+    `- TAM: ${r.marketAnalysis.tam.value}`,
+    `- SAM: ${r.marketAnalysis.sam.value}`,
+    `- SOM: ${r.marketAnalysis.som.value}`,
+    `- Market Growth Rate: ${r.marketAnalysis.growthRate}`,
+    `Show as a nested funnel or concentric rings with labels, each ring in a progressively deeper shade of cyan.`,
+    `Caption: "Key drivers: ${r.marketAnalysis.keyDrivers.slice(0, 2).join(', ')}"`,
+    ``,
+    `Center-left: a "Current State" panel split into two columns:`,
+    `Strengths (green #34D399, shield icon):`,
+    ...strengths.map((s, i) => `  ${i + 1}) "${s.point}"`),
+    `Challenges (rose #FB7185, warning icon):`,
+    ...challenges.map((c, i) => `  ${i + 1}) "${c.point}"`),
+    ``,
+    `Center-right: a "Competitive Landscape" panel with a comparison table or bar chart:`,
+    ...competitors.map(c => `- ${c.name}: "${c.positioning}" — Key differentiator: "${c.keyDifferentiator}"`),
+    `Show as a side-by-side comparison with company logos/icons and colored bars.`,
+    ``,
+    `Lower-left: "${recs.length} Strategic Recommendations" panel with icon-based bullets:`,
+    ...recs.map((rec, i) => `${i + 1}) "${rec.title}" [${rec.priority}] — "${rec.description.slice(0, 60)}…" — Impact: ${rec.expectedImpact.slice(0, 40)}`),
+    `Each has a priority badge (immediate=red, short-term=amber, medium-term=blue).`,
+    ``,
+    `Lower-center: "Implementation Roadmap" as a horizontal timeline:`,
+    ...roadmap.map(phase => `- ${phase.phase}: ${phase.timeline} — "${phase.milestones.slice(0, 2).join('; ')}" — Cost: ${phase.cost}`),
+    `Show as connected nodes on a horizontal timeline with milestone markers.`,
+    ``,
+    `Lower-right: "Risk Matrix" — a 2x2 heatmap grid (Probability vs Impact):`,
+    ...risks.map(risk => `- "${risk.risk}" [P: ${risk.probability}, I: ${risk.impact}] — Mitigation: "${risk.mitigation.slice(0, 40)}…"`),
+    `Plot risks as colored dots on the matrix (high-high=red, medium=amber, low=green).`,
+    ``,
+    `Color scheme: primary cyan (#00E0FF) with white background, emerald (#34D399) for positive, rose (#FB7185) for risks,`,
+    `amber (#FBBF24) for caution. Clean section dividers, generous white space, professional and uncluttered.`,
+    `Modern sans-serif typography — all text crisp and fully readable. Magazine-quality, McKinsey consulting aesthetic.`,
+    ``,
+    `Footer: full-width thin gray bar with centered text: "Glyphor AI · Strategic Intelligence Platform · ${r.documentCounts.secFilings + r.documentCounts.newsArticles + r.documentCounts.patents + r.documentCounts.researchSources} Sources Analyzed"`,
   ].join('\n');
 }
 
@@ -1439,7 +1540,7 @@ server.listen(PORT, () => {
   );
 
   // Start dynamic scheduler for DB-defined cron jobs
-  const dynamicScheduler = new DynamicScheduler(memory.getSupabaseClient(), agentExecutor);
+  const dynamicScheduler = new DynamicScheduler(memory.getSupabaseClient(), trackedAgentExecutor);
   dynamicScheduler.start();
 
   // Start data sync scheduler (fires DATA_SYNC_JOBS on their cron schedule)
