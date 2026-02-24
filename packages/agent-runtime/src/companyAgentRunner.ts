@@ -45,8 +45,13 @@ const THINKING_ENABLED_TASKS = new Set([
   'weekly_content_planning',
 ]);
 
-/** 60 s timeout for chat; 180 s for scheduled work. */
+/** 60 s per-model-call timeout for chat; 180 s for scheduled work. */
 const ON_DEMAND_TIMEOUT_MS = 60_000;
+
+/** Overall supervisor limits for on_demand (chat) — keep well within the
+ *  dashboard's 120 s fetch-abort so users actually see the response. */
+const ON_DEMAND_MAX_TURNS = 4;
+const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = 90_000;
 
 // ─── TIERED CONTEXT LOADING ───────────────────────────────────
 // light  → on_demand/chat: profile + pending messages + working memory only
@@ -813,6 +818,18 @@ export class CompanyAgentRunner {
 
     try {
       let turnNumber = 0;
+
+      // ─── ON-DEMAND SPEED GUARD ──────────────────────────────────
+      // Chat (on_demand) must finish within the dashboard's 120 s abort.
+      // Clamp the supervisor's maxTurns and timeoutMs so the agent
+      // doesn't burn 10 tool-call cycles on a simple question.
+      {
+        const task = extractTask(config.id);
+        if (task === 'on_demand') {
+          supervisor.config.maxTurns = Math.min(supervisor.config.maxTurns, ON_DEMAND_MAX_TURNS);
+          supervisor.config.timeoutMs = Math.min(supervisor.config.timeoutMs, ON_DEMAND_SUPERVISOR_TIMEOUT_MS);
+        }
+      }
 
       while (true) {
         turnNumber++;
