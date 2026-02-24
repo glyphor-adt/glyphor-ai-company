@@ -503,7 +503,7 @@ function NodeDetail({
                     className="flex w-full items-center gap-2 rounded-lg border border-border bg-base px-2.5 py-1.5 text-left text-[11px] hover:border-cyan/30 transition-colors"
                   >
                     <span className="text-txt-secondary font-medium truncate">{source?.title ?? e.source_id.slice(0, 8)}</span>
-                    <span className="text-txt-faint">→</span>
+                    <MdArrowForward className="text-txt-faint" />
                     <span className="text-txt-faint">{e.edge_type.replace(/_/g, ' ')}</span>
                   </button>
                 );
