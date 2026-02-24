@@ -9,12 +9,12 @@
 - **Runway** — months of operation at current burn
 - **LTV/CAC** — lifetime value vs acquisition cost
 
-## Current State (as of Feb 21, 2026)
+## Current State (as of Feb 24, 2026)
 
-- MRR: $3,247 (+12% MoM)
-- Paying users: 47 (Fuse: 39, Pulse: 8)
-- Infrastructure cost MTD: $847
-- Gross margin: 62.3%
+- MRR: $0 (telemetry pipeline down — restoring)
+- Paying users: 2
+- Infrastructure cost MTD: TBD (billing sync in progress)
+- Gross margin: N/A
 
 ## Cost Rules
 
