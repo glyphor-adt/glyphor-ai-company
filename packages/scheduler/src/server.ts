@@ -11,7 +11,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GlyphorEventBus, ModelClient, promptCache } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent } from '@glyphor/agent-runtime';
-import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, type KlingCredentials, TeamsBotHandler, extractBearerToken } from '@glyphor/integrations';
+import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, type KlingCredentials, TeamsBotHandler, extractBearerToken, runGovernanceSync } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
 import { EventRouter } from './eventRouter.js';
 import { DecisionQueue } from './decisionQueue.js';
@@ -581,6 +581,18 @@ const server = createServer(async (req, res) => {
           status: failures >= 3 ? 'failing' : 'stale',
           updated_at: new Date().toISOString(),
         }).eq('id', 'kling-billing');
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // Governance IAM audit endpoint
+    if (method === 'POST' && url === '/sync/governance') {
+      try {
+        const result = await runGovernanceSync(memory.getSupabaseClient());
+        json(res, 200, { success: true, ...result });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
         json(res, 500, { success: false, error: message });
       }
       return;

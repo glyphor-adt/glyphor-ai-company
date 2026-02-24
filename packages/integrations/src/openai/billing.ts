@@ -44,10 +44,13 @@ export async function queryOpenAICosts(
   url.searchParams.set('group_by[]', 'line_item');
 
   const allBuckets: OpenAICostBucket[] = [];
-  let nextPage: string | null = url.toString();
+  let pageToken: string | null = null;
 
-  while (nextPage) {
-    const response = await fetch(nextPage, {
+  do {
+    const fetchUrl = new URL(url.toString());
+    if (pageToken) fetchUrl.searchParams.set('page', pageToken);
+
+    const response = await fetch(fetchUrl.toString(), {
       headers: { Authorization: `Bearer ${adminKey}` },
     });
 
@@ -58,8 +61,8 @@ export async function queryOpenAICosts(
 
     const data = (await response.json()) as OpenAICostsResponse;
     allBuckets.push(...data.data);
-    nextPage = data.has_more && data.next_page ? data.next_page : null;
-  }
+    pageToken = data.has_more && data.next_page ? data.next_page : null;
+  } while (pageToken);
 
   console.log(`[OpenAI Billing] Fetched ${allBuckets.length} daily cost buckets`);
   return allBuckets;

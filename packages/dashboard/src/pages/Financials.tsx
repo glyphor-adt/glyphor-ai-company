@@ -112,7 +112,7 @@ function useApiBilling(days = 30) {
 
 export default function Financials() {
   const { data: raw, loading } = useFinancialsRaw(30);
-  const { data: gcpBilling, loading: gcpLoading } = useGcpBilling(30);
+  const { data: gcpBilling, loading: gcpLoading } = useGcpBilling(90);
   const { data: apiBilling, loading: apiLoading } = useApiBilling(90);
 
   // Pivot EAV rows into daily snapshots
@@ -193,7 +193,7 @@ export default function Financials() {
     : 0;
   const latestMargin = marginData.length > 0 ? marginData[marginData.length - 1].margin : 0;
 
-  // GCP cost by service (pie chart & table)
+  // GCP cost by service (pie chart & table) — includes all for the table
   const gcpByService = useMemo(() => {
     const byService = new Map<string, number>();
     for (const row of gcpBilling) {
@@ -203,6 +203,11 @@ export default function Financials() {
       .map(([service, cost]) => ({ service, cost: parseFloat(cost.toFixed(2)) }))
       .sort((a, b) => b.cost - a.cost);
   }, [gcpBilling]);
+
+  // Filtered version for the pie chart — drop zero & near-zero cost items
+  const gcpByServiceForPie = useMemo(() => {
+    return gcpByService.filter((s) => s.cost >= 0.01).slice(0, 8);
+  }, [gcpByService]);
 
   // GCP daily cost trend (stacked by top services)
   const gcpDailyTrend = useMemo(() => {
@@ -691,7 +696,7 @@ export default function Financials() {
             <ResponsiveContainer width="100%" height={280}>
               <PieChart>
                 <Pie
-                  data={gcpByService.slice(0, 8)}
+                  data={gcpByServiceForPie}
                   dataKey="cost"
                   nameKey="service"
                   cx="50%"
@@ -699,11 +704,12 @@ export default function Financials() {
                   outerRadius={90}
                   innerRadius={50}
                   paddingAngle={2}
-                  label={({ service, cost }: { service: string; cost: number }) =>
-                    `${service} $${cost.toFixed(2)}`
+                  label={({ service, cost, percent }: { service: string; cost: number; percent: number }) =>
+                    percent > 0.04 ? `${service} $${cost.toFixed(2)}` : ''
                   }
+                  labelLine={false}
                 >
-                  {gcpByService.slice(0, 8).map((_, i) => (
+                  {gcpByServiceForPie.map((_, i) => (
                     <Cell key={i} fill={GCP_COLORS[i % GCP_COLORS.length]} />
                   ))}
                 </Pie>
@@ -725,9 +731,15 @@ export default function Financials() {
             <EmptyChart message="No GCP billing data yet" />
           ) : (
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={gcpDailyTrend}>
+              <BarChart data={gcpDailyTrend} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }}
+                  interval={Math.max(0, Math.floor(gcpDailyTrend.length / 8) - 1)}
+                  angle={gcpDailyTrend.length > 10 ? -35 : 0}
+                  textAnchor={gcpDailyTrend.length > 10 ? 'end' : 'middle'}
+                />
                 <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${v}`} />
                 <Tooltip
                   contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
@@ -736,7 +748,7 @@ export default function Financials() {
                 />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 {gcpTopServices.map((svc, i) => (
-                  <Bar key={svc} dataKey={svc} stackId="gcp" fill={GCP_COLORS[i % GCP_COLORS.length]} />
+                  <Bar key={svc} dataKey={svc} stackId="gcp" fill={GCP_COLORS[i % GCP_COLORS.length]} maxBarSize={48} />
                 ))}
               </BarChart>
             </ResponsiveContainer>
@@ -746,7 +758,7 @@ export default function Financials() {
 
       {/* GCP Service Cost Table */}
       <Card>
-        <SectionHeader title="GCP Service Cost Details (30 days)" />
+        <SectionHeader title="GCP Service Cost Details" />
         {gcpLoading ? (
           <Skeleton className="h-48" />
         ) : gcpByService.length === 0 ? (

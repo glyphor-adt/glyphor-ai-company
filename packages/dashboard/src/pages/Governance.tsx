@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, SCHEDULER_URL } from '../lib/supabase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
 
@@ -356,6 +356,7 @@ export default function Governance() {
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [secrets, setSecrets] = useState<SecretRotation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [auditing, setAuditing] = useState(false);
 
   // Audit log filters
   const [filterPlatform, setFilterPlatform] = useState<string>('all');
@@ -373,6 +374,16 @@ export default function Governance() {
     setSecrets((secretsRes.data as SecretRotation[]) ?? []);
     setLoading(false);
   }, []);
+
+  const runAudit = useCallback(async () => {
+    setAuditing(true);
+    try {
+      const schedulerUrl = SCHEDULER_URL;
+      await fetch(`${schedulerUrl}/sync/governance`, { method: 'POST' });
+    } catch { /* ignore — reload will show latest */ }
+    await loadData();
+    setAuditing(false);
+  }, [loadData]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -425,10 +436,11 @@ export default function Governance() {
           </div>
         </div>
         <button
-          onClick={loadData}
-          className="rounded-lg border border-border bg-white px-4 py-2 text-[13px] font-medium text-txt-primary shadow-sm transition-colors hover:bg-slate-50 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+          onClick={runAudit}
+          disabled={auditing}
+          className="rounded-lg border border-border bg-white px-4 py-2 text-[13px] font-medium text-txt-primary shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
         >
-          Run Audit Now
+          {auditing ? 'Auditing…' : 'Run Audit Now'}
         </button>
       </div>
 
@@ -485,13 +497,14 @@ export default function Governance() {
       {/* Platform Sections */}
       {(['gcp', 'm365', 'github', 'stripe', 'vercel'] as Platform[]).map((platform) => {
         const items = byPlatform(platform);
-        if (items.length === 0) return null;
+        // GitHub uses hardcoded scope data — always show it
+        if (items.length === 0 && platform !== 'github') return null;
         return (
           <CollapsibleSection
             key={platform}
             title={PLATFORM_LABELS[platform]}
             color={PLATFORM_COLORS[platform]}
-            defaultOpen={platform === 'gcp' || platform === 'm365'}
+            defaultOpen={platform === 'gcp' || platform === 'm365' || platform === 'github'}
           >
             {platform === 'gcp' && <GCPTable items={items} />}
             {platform === 'm365' && <M365Table items={items} />}
