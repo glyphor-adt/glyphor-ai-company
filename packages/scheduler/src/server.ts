@@ -464,13 +464,23 @@ const server = createServer(async (req, res) => {
 
         const results: Record<string, { synced: number; models: number } | { error: string }> = {};
         const errors: string[] = [];
+        // Deduplicate: if multiple products share the same key, call API once and reuse results
+        const keyToProducts = new Map<string, string[]>();
         for (const { product, key } of productKeys) {
+          const existing = keyToProducts.get(key);
+          if (existing) existing.push(product);
+          else keyToProducts.set(key, [product]);
+        }
+        for (const [key, products] of keyToProducts) {
           try {
-            results[product] = await syncOpenAIBilling(memory.getSupabaseClient(), key, product);
+            const result = await syncOpenAIBilling(memory.getSupabaseClient(), key, products[0]);
+            for (const product of products) results[product] = result;
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
-            results[product] = { error: msg };
-            errors.push(`${product}: ${msg}`);
+            for (const product of products) {
+              results[product] = { error: msg };
+              errors.push(`${product}: ${msg}`);
+            }
           }
         }
         const anySuccess = Object.values(results).some((r) => !('error' in r));
@@ -518,13 +528,23 @@ const server = createServer(async (req, res) => {
 
         const results: Record<string, { synced: number; models: number } | { error: string }> = {};
         const errors: string[] = [];
+        // Deduplicate: if multiple products share the same key, call API once and reuse results
+        const keyToProducts = new Map<string, string[]>();
         for (const { product, key } of productKeys) {
+          const existing = keyToProducts.get(key);
+          if (existing) existing.push(product);
+          else keyToProducts.set(key, [product]);
+        }
+        for (const [key, products] of keyToProducts) {
           try {
-            results[product] = await syncAnthropicBilling(memory.getSupabaseClient(), key, product);
+            const result = await syncAnthropicBilling(memory.getSupabaseClient(), key, products[0]);
+            for (const product of products) results[product] = result;
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
-            results[product] = { error: msg };
-            errors.push(`${product}: ${msg}`);
+            for (const product of products) {
+              results[product] = { error: msg };
+              errors.push(`${product}: ${msg}`);
+            }
           }
         }
         const anySuccess = Object.values(results).some((r) => !('error' in r));
