@@ -25,6 +25,8 @@ export interface AgentConfig {
   thinkingEnabled?: boolean;         // Enable extended thinking / reasoning mode
   contextInjector?: ContextInjector;
   dryRun?: boolean;                  // When true, mutative tools are intercepted and logged
+  /** Prior conversation turns for multi-turn chat (on_demand). */
+  conversationHistory?: ConversationTurn[];
 }
 
 export type CompanyAgentRole =

@@ -243,15 +243,23 @@ const ANTI_PATTERNS = [
   'Avoid bullet-point dumps unless the content genuinely warrants it.',
 ];
 
-const CONVERSATION_MODE = `## Conversation Mode Detection
+const CONVERSATION_MODE = `## How to Talk
 
-IMPORTANT: Read the tone and intent of each message BEFORE doing anything else.
+You are a real person having a real conversation. BEFORE doing ANYTHING, read the vibe:
 
-- **Casual messages** (greetings, small talk, quick check-ins like "hello", "hey [name]", "what's up", "how's it going", "good morning"): Respond naturally and conversationally. Be yourself — warm, brief, human. Do NOT use tools. Do NOT run the full reasoning protocol. Do NOT deliver a briefing or report. Just talk like a person.
-- **Task messages** (requests for content, reports, analysis, decisions, data, actions): Follow your full reasoning protocol and methodology.
-- **Ambiguous messages**: Default to conversational. Ask what they need rather than assuming they want a full report.
+- **Casual** ("hey", "what's up", "how's it going", small talk, quick questions): Just talk. Be yourself. Be warm, brief, natural. NO tools, NO reports, NO protocols. Chat like a colleague, not a consultant.
+- **Task** (reports, analysis, decisions, data requests, actions): Use your tools and methodology.
+- **Unclear?** Default to casual. Ask what they need.
 
-This is critical: if someone says "hey" or "hi" or "what's up", just say hi back in your own voice. Do not call any tools. Do not generate a report. Match the energy of the message you received.`;
+CRITICAL RULES:
+- NEVER open with a summary of what you're about to do. Just do it or just talk.
+- NEVER start with "Certainly!", "Of course!", "Absolutely!" or similar filler.
+- NEVER produce bullet-point walls for conversational messages.
+- Match the LENGTH and ENERGY of what you received. Short question → short answer.
+- Use contractions ("I'm", "we're", "that's"). You're a person, not a document.
+- Have opinions. Take positions. Push back when you disagree.
+- Reference shared context naturally — "remember when we...", "last time you asked about..."
+- If someone says hi, say hi back in ≤2 sentences. That's it.`;
 
 const REASONING_PROTOCOL = `## How You Think
 
@@ -403,6 +411,7 @@ function buildSystemPrompt(
   skillContext?: SkillContext | null,
   dbKnowledgeBase?: string | null,
   bulletinContext?: string | null,
+  isOnDemand = false,
 ): string {
   try {
     const knowledgeDir = join(__dirname, '../../company-knowledge');
@@ -457,9 +466,13 @@ function buildSystemPrompt(
     }
 
     parts.push(CONVERSATION_MODE);
-    parts.push(REASONING_PROTOCOL);
-    parts.push(WORK_ASSIGNMENTS_PROTOCOL);
-    parts.push(ALWAYS_ON_PROTOCOL);
+
+    // For on_demand chat, skip heavy operational protocols that make responses robotic
+    if (!isOnDemand) {
+      parts.push(REASONING_PROTOCOL);
+      parts.push(WORK_ASSIGNMENTS_PROTOCOL);
+      parts.push(ALWAYS_ON_PROTOCOL);
+    }
 
     // Inject skill methodology if skills are active for this run
     if (skillContext && skillContext.skills.length > 0) {
@@ -568,7 +581,9 @@ export class CompanyAgentRunner {
     memoryBus: IMemoryBus,
     deps?: RunDependencies,
   ): Promise<AgentExecutionResult> {
+    // Pre-seed with prior conversation history for multi-turn chat
     const history: ConversationTurn[] = [
+      ...(config.conversationHistory ?? []),
       { role: 'user', content: initialMessage, timestamp: Date.now() },
     ];
     let lastTextOutput: string | null = null;
@@ -846,7 +861,7 @@ export class CompanyAgentRunner {
             tokenEstimate: estimateTokens(history),
           });
 
-          const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt, dynamicBrief, agentProfile, skillContext, dbKnowledgeBase, bulletinContext);
+          const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt, dynamicBrief, agentProfile, skillContext, dbKnowledgeBase, bulletinContext, isOnDemand);
 
           // Task-level thinking override
           const task = extractTask(config.id);
@@ -858,12 +873,19 @@ export class CompanyAgentRunner {
             effectiveThinking = true;
           }
 
+          // Gemini 3 strongly recommends temperature 1.0 — lower values cause
+          // robotic/looping output per Google's docs.
+          let effectiveTemp = config.temperature;
+          if (config.model.startsWith('gemini-3') && (effectiveTemp === undefined || effectiveTemp < 1.0)) {
+            effectiveTemp = 1.0;
+          }
+
           response = await this.modelClient.generate({
             model: config.model,
             systemInstruction: systemPrompt,
             contents: history,
             tools: toolExecutor.getDeclarations(),
-            temperature: config.temperature,
+            temperature: effectiveTemp,
             topP: config.topP,
             topK: config.topK,
             thinkingEnabled: effectiveThinking,
