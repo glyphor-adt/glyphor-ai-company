@@ -43,8 +43,8 @@ export interface AnthropicUsageBucket {
 }
 
 /**
- * Fetch usage data from Anthropic's API.
- * Uses the /v1/organizations/usage endpoint if available.
+ * Fetch usage data from Anthropic's Admin Usage API.
+ * Uses /v1/organizations/usage_report/messages with daily buckets grouped by model.
  */
 export async function queryAnthropicUsage(
   adminKey: string,
@@ -53,53 +53,81 @@ export async function queryAnthropicUsage(
   const endDate = new Date();
   const startDate = new Date(Date.now() - days * 86400000);
 
-  const startStr = startDate.toISOString().split('T')[0];
-  const endStr = endDate.toISOString().split('T')[0];
+  const startStr = startDate.toISOString().replace(/\.\d+Z$/, 'Z');
+  const endStr = endDate.toISOString().replace(/\.\d+Z$/, 'Z');
 
-  // Try the organization usage endpoint
-  const url = `${ANTHROPIC_API_BASE}/v1/usage?start_date=${startStr}&end_date=${endStr}`;
+  const allBuckets: AnthropicUsageBucket[] = [];
+  let page: string | null = null;
 
-  const response = await fetch(url, {
-    headers: {
-      'x-api-key': adminKey,
-      'anthropic-version': '2023-06-01',
-    },
-  });
+  do {
+    const params = new URLSearchParams({
+      starting_at: startStr,
+      ending_at: endStr,
+      bucket_width: '1d',
+      'group_by[]': 'model',
+    });
+    if (page) params.set('page', page);
 
-  if (response.ok) {
+    const url = `${ANTHROPIC_API_BASE}/v1/organizations/usage_report/messages?${params}`;
+
+    const response = await fetch(url, {
+      headers: {
+        'x-api-key': adminKey,
+        'anthropic-version': '2023-06-01',
+      },
+    });
+
+    if (response.status === 403 || response.status === 404) {
+      console.warn(
+        `[Anthropic Billing] Usage API returned ${response.status} — ` +
+        `endpoint may not be available for this API key. ` +
+        `Set ANTHROPIC_ADMIN_KEY to an admin-scoped key for usage access.`
+      );
+      return [];
+    }
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Anthropic Usage API error ${response.status}: ${body}`);
+    }
+
     const data = await response.json() as {
       data: Array<{
-        date: string;
-        model: string;
-        input_tokens: number;
-        output_tokens: number;
-        api_requests: number;
+        starting_at: string;
+        ending_at: string;
+        results: Array<{
+          model: string;
+          uncached_input_tokens: number;
+          cached_input_tokens: number;
+          cache_creation_input_tokens: number;
+          output_tokens: number;
+        }>;
       }>;
+      has_more: boolean;
+      next_page: string | null;
     };
 
-    return (data.data ?? []).map((d) => ({
-      date: d.date,
-      model: d.model,
-      inputTokens: d.input_tokens,
-      outputTokens: d.output_tokens,
-      requests: d.api_requests,
-      cost: estimateCost(d.model, d.input_tokens, d.output_tokens),
-    }));
-  }
+    for (const bucket of data.data ?? []) {
+      const date = bucket.starting_at.split('T')[0];
+      for (const r of bucket.results) {
+        const inputTokens = (r.uncached_input_tokens ?? 0)
+          + (r.cached_input_tokens ?? 0)
+          + (r.cache_creation_input_tokens ?? 0);
+        allBuckets.push({
+          date,
+          model: r.model,
+          inputTokens,
+          outputTokens: r.output_tokens ?? 0,
+          requests: 0, // usage endpoint doesn't provide request counts
+          cost: estimateCost(r.model, inputTokens, r.output_tokens ?? 0),
+        });
+      }
+    }
 
-  // If the usage endpoint isn't available (403/404), fall back to
-  // token-based cost estimation from the api_billing table history
-  if (response.status === 403 || response.status === 404) {
-    console.warn(
-      `[Anthropic Billing] Usage API returned ${response.status} — ` +
-      `endpoint may not be available for this API key. ` +
-      `Set ANTHROPIC_ADMIN_KEY to an admin-scoped key for usage access.`
-    );
-    return [];
-  }
+    page = data.has_more ? data.next_page : null;
+  } while (page);
 
-  const body = await response.text();
-  throw new Error(`Anthropic Usage API error ${response.status}: ${body}`);
+  return allBuckets;
 }
 
 /**
