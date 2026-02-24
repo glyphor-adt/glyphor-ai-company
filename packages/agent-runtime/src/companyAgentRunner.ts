@@ -1137,23 +1137,10 @@ export class CompanyAgentRunner {
       // ─── REFLECT: Self-assessment of this run ──────────────────
       // Skip reflection for task-tier runs — narrow executors don't need it
       if (deps?.agentMemoryStore && lastTextOutput && !isTaskTier) {
-        const isOnDemand = config.id.includes('on_demand');
-        const reflectFn = async () => {
-          try {
-            await this.reflectOnRun(config, history, lastTextOutput!, deps.agentMemoryStore!, deps?.knowledgeRouter, deps?.graphWriter, deps?.skillFeedbackWriter, skillContext);
-          } catch (err) {
-            console.warn(
-              `[CompanyAgentRunner] Reflection failed for ${config.id}:`,
-              (err as Error).message,
-            );
-          }
-        };
-        if (isOnDemand) {
-          // Fire-and-forget for chat — don't block the user response
-          reflectFn();
-        } else {
-          await reflectFn();
-        }
+        // Fire-and-forget — reflection is non-critical post-processing
+        // that should never block the run response (saves 10–20s)
+        this.reflectOnRun(config, history, lastTextOutput!, deps.agentMemoryStore!, deps?.knowledgeRouter, deps?.graphWriter, deps?.skillFeedbackWriter, skillContext)
+          .catch(err => console.warn(`[CompanyAgentRunner] Reflection failed for ${config.id}:`, (err as Error).message));
       }
 
       // ─── EMIT: agent.completed event to event bus ──────────────
@@ -1393,117 +1380,92 @@ For peerFeedback: If during this task you interacted with or observed the work o
       const saveFn = store.saveMemoryWithEmbedding
         ? store.saveMemoryWithEmbedding.bind(store)
         : store.saveMemory.bind(store);
-      for (const mem of memories.slice(0, 5)) {
-        await saveFn({
+      const memoryPromises = memories.slice(0, 5).map(mem =>
+        saveFn({
           agentRole: config.role,
           memoryType: mem.type ?? 'observation',
           content: mem.content ?? '',
           importance: Math.max(0, Math.min(1, mem.importance ?? 0.5)),
           sourceRunId: config.id,
-        });
-      }
-
-      console.log(
-        `[CompanyAgentRunner] Reflection saved for ${config.id}: score=${parsed.qualityScore}, memories=${memories.length}`,
+        }).catch(() => {}),
       );
 
       // Process knowledge graph operations
-      if (graphWriter && parsed.graph_operations) {
-        try {
-          const ops = parsed.graph_operations;
-          const graphNodes = Array.isArray(ops.nodes) ? ops.nodes : [];
-          const graphEdges = Array.isArray(ops.edges) ? ops.edges : [];
-          if (graphNodes.length > 0 || graphEdges.length > 0) {
-            const result = await graphWriter.processGraphOps(
-              config.role,
-              config.id,
-              { nodes: graphNodes.slice(0, 5), edges: graphEdges.slice(0, 10) },
-            );
-            console.log(
-              `[CompanyAgentRunner] Graph ops for ${config.id}: ${result.nodesCreated} nodes, ${result.edgesCreated} edges`,
-            );
-          }
-        } catch (graphErr) {
-          console.warn(
-            `[CompanyAgentRunner] Graph ops failed for ${config.id}:`,
-            (graphErr as Error).message,
-          );
-        }
-      }
+      const graphPromise = (graphWriter && parsed.graph_operations)
+        ? (async () => {
+            const ops = parsed.graph_operations;
+            const graphNodes = Array.isArray(ops.nodes) ? ops.nodes : [];
+            const graphEdges = Array.isArray(ops.edges) ? ops.edges : [];
+            if (graphNodes.length > 0 || graphEdges.length > 0) {
+              const result = await graphWriter.processGraphOps(
+                config.role,
+                config.id,
+                { nodes: graphNodes.slice(0, 5), edges: graphEdges.slice(0, 10) },
+              );
+              console.log(
+                `[CompanyAgentRunner] Graph ops for ${config.id}: ${result.nodesCreated} nodes, ${result.edgesCreated} edges`,
+              );
+            }
+          })().catch(graphErr => console.warn(`[CompanyAgentRunner] Graph ops failed for ${config.id}:`, (graphErr as Error).message))
+        : Promise.resolve();
 
       // Save working memory (last-run summary for next run's context)
-      if (store.saveLastRunSummary && parsed.summary) {
-        try {
-          await store.saveLastRunSummary(config.role, parsed.summary);
-        } catch {
-          // Non-critical — skip silently
-        }
-      }
+      const summaryPromise = (store.saveLastRunSummary && parsed.summary)
+        ? store.saveLastRunSummary(config.role, parsed.summary).catch(() => {})
+        : Promise.resolve();
 
       // Update growth metrics for dashboard GrowthAreas component
-      if (store.updateGrowthMetrics) {
-        try {
-          await store.updateGrowthMetrics(config.role);
-        } catch {
-          // Non-critical — skip silently
-        }
-      }
+      const growthPromise = store.updateGrowthMetrics
+        ? store.updateGrowthMetrics(config.role).catch(() => {})
+        : Promise.resolve();
 
       // Route new knowledge to relevant agents via the CI system
-      if (knowledgeRouter && memories.length > 0) {
-        try {
-          for (const mem of memories.slice(0, 5)) {
-            if (mem.type === 'learning' || mem.type === 'fact') {
-              const tags = mem.tags ?? [];
-              await knowledgeRouter({
-                agent_id: config.role,
-                content: mem.content ?? '',
-                tags,
-                knowledge_type: mem.type,
-              });
-            }
-          }
-        } catch (routeErr) {
-          console.warn(
-            `[CompanyAgentRunner] Knowledge routing failed for ${config.id}:`,
-            (routeErr as Error).message,
-          );
-        }
-      }
+      const knowledgePromises = (knowledgeRouter && memories.length > 0)
+        ? memories.slice(0, 5)
+            .filter(mem => mem.type === 'learning' || mem.type === 'fact')
+            .map(mem => knowledgeRouter({
+              agent_id: config.role,
+              content: mem.content ?? '',
+              tags: mem.tags ?? [],
+              knowledge_type: mem.type,
+            }).catch(() => {}))
+        : [];
 
       // Save peer feedback
       const peerFeedback = parsed.peerFeedback ?? [];
-      if (peerFeedback.length > 0 && store.savePeerFeedback) {
-        for (const fb of peerFeedback.slice(0, 3)) {
-          try {
-            await store.savePeerFeedback({
+      const peerPromises = (peerFeedback.length > 0 && store.savePeerFeedback)
+        ? peerFeedback.slice(0, 3).map(fb =>
+            store.savePeerFeedback!({
               fromAgent: config.role,
               toAgent: fb.toAgent,
               feedback: fb.feedback,
               context: config.id,
               sentiment: fb.sentiment ?? 'neutral',
-            });
-          } catch {
-            // Non-critical — skip silently
-          }
-        }
-      }
+            }).catch(() => {}))
+        : [];
 
       // Update skill proficiency and learnings from reflection
       const skillFeedbackItems: SkillFeedback[] = parsed.skill_feedback ?? [];
-      if (skillFeedbackItems.length > 0 && skillFeedbackWriter) {
-        try {
-          await skillFeedbackWriter(config.role, skillFeedbackItems.slice(0, 5));
-          console.log(
-            `[CompanyAgentRunner] Skill feedback saved for ${config.id}: ${skillFeedbackItems.length} skills`,
-          );
-        } catch (skillErr) {
-          console.warn(
-            `[CompanyAgentRunner] Skill feedback failed for ${config.id}:`,
-            (skillErr as Error).message,
-          );
-        }
-      }
+      const skillPromise = (skillFeedbackItems.length > 0 && skillFeedbackWriter)
+        ? skillFeedbackWriter(config.role, skillFeedbackItems.slice(0, 5))
+            .then(() => console.log(`[CompanyAgentRunner] Skill feedback saved for ${config.id}: ${skillFeedbackItems.length} skills`))
+            .catch(skillErr => console.warn(`[CompanyAgentRunner] Skill feedback failed for ${config.id}:`, (skillErr as Error).message))
+        : Promise.resolve();
+
+      // Run all post-reflection DB writes in parallel
+      await Promise.all([
+        ...memoryPromises,
+        graphPromise,
+        summaryPromise,
+        growthPromise,
+        ...knowledgePromises,
+        ...peerPromises,
+        skillPromise,
+      ]);
+
+      console.log(
+        `[CompanyAgentRunner] Reflection saved for ${config.id}: score=${parsed.qualityScore}, memories=${memories.length}`,
+      );
     } catch (parseErr) {
       console.warn(
         `[CompanyAgentRunner] Failed to parse reflection output for ${config.id}:`,
