@@ -264,6 +264,26 @@ Follow this protocol for task-oriented requests (not casual conversation):
 
 When you encounter ambiguity, make your best judgment and note the assumption. When you lack data, use the tools available to gather it before speculating. When multiple approaches exist, choose the one most aligned with company goals.`;
 
+const WORK_ASSIGNMENTS_PROTOCOL = `## Work Assignments
+
+You may receive work assignments dispatched by Sarah (Chief of Staff) as part of company directives.
+
+**At the START of every scheduled run**, use \`read_my_assignments\` to check for pending work. This is your primary source of structured tasks.
+
+**When you have assignments:**
+1. Pick the highest-priority assignment (or the one matching your current task type)
+2. Do the work described in the assignment
+3. Use \`submit_assignment_output\` to report your results — include a substantive summary of what you produced
+4. If an assignment has status \`needs_revision\`, read the evaluation feedback and address it before resubmitting
+
+**If you're blocked:**
+- Use \`flag_assignment_blocker\` immediately — don't wait. Describe what's blocking you and Sarah will reassign or unblock.
+
+**Quality expectations:**
+- Your output should match what \`expected_output\` describes
+- Be thorough but concise — Sarah reviews every submission
+- If an assignment is unclear, flag it as blocked with a clarification request rather than guessing`;
+
 function buildPersonalityBlock(profile: AgentProfileData): string {
   const parts: string[] = ['## WHO YOU ARE\n'];
 
@@ -418,6 +438,7 @@ function buildSystemPrompt(
 
     parts.push(CONVERSATION_MODE);
     parts.push(REASONING_PROTOCOL);
+    parts.push(WORK_ASSIGNMENTS_PROTOCOL);
 
     // Inject skill methodology if skills are active for this run
     if (skillContext && skillContext.skills.length > 0) {
@@ -511,6 +532,8 @@ export interface RunDependencies {
   knowledgeBaseLoader?: (department?: string) => Promise<string>;
   /** Loader for active founder bulletins. */
   bulletinLoader?: (department?: string) => Promise<string>;
+  /** Loader for pending work assignments assigned to this agent. */
+  pendingAssignmentLoader?: (role: CompanyAgentRole) => Promise<{ id: string; task_description: string; task_type: string; expected_output: string | null; priority: string; status: string; evaluation: string | null; directive_title: string | null }[]>;
 }
 
 export class CompanyAgentRunner {
@@ -656,7 +679,15 @@ export class CompanyAgentRunner {
           })
         : Promise.resolve(null);
 
-      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult, workingMemory, skillResult, kbResult, bulletinResult] = await Promise.all([
+      // Pending work assignments
+      const assignmentPromise = deps?.pendingAssignmentLoader
+        ? deps.pendingAssignmentLoader(config.role).catch(err => {
+            console.warn(`[CompanyAgentRunner] Assignment load failed for ${config.role}:`, (err as Error).message);
+            return [] as { id: string; task_description: string; task_type: string; expected_output: string | null; priority: string; status: string; evaluation: string | null; directive_title: string | null }[];
+          })
+        : Promise.resolve([] as { id: string; task_description: string; task_type: string; expected_output: string | null; priority: string; status: string; evaluation: string | null; directive_title: string | null }[]);
+
+      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult, workingMemory, skillResult, kbResult, bulletinResult, pendingAssignments] = await Promise.all([
         memoryPromise,
         briefPromise,
         messagesPromise,
@@ -666,6 +697,7 @@ export class CompanyAgentRunner {
         skillPromise,
         kbPromise,
         bulletinPromise,
+        assignmentPromise,
       ]);
 
       // Inject memory context
@@ -697,6 +729,16 @@ export class CompanyAgentRunner {
         history.push({
           role: 'user',
           content: msgContext,
+          timestamp: Date.now(),
+        });
+      }
+
+      // Inject pending work assignments
+      if (pendingAssignments.length > 0) {
+        const assignContext = buildPendingAssignmentContext(pendingAssignments);
+        history.push({
+          role: 'user',
+          content: assignContext,
           timestamp: Date.now(),
         });
       }
@@ -1338,6 +1380,39 @@ function buildPendingMessageContext(
     for (const m of normalMessages) {
       parts.push(`**From ${m.from_agent}** (${m.message_type}) [thread: ${m.thread_id}]`);
       parts.push(`> ${m.message}`);
+      parts.push('');
+    }
+  }
+
+  return parts.join('\n');
+}
+
+function buildPendingAssignmentContext(
+  assignments: { id: string; task_description: string; task_type: string; expected_output: string | null; priority: string; status: string; evaluation: string | null; directive_title: string | null }[],
+): string {
+  const revision = assignments.filter((a) => a.status === 'needs_revision');
+  const actionable = assignments.filter((a) => a.status !== 'needs_revision');
+
+  const parts: string[] = [
+    `## 📋 Pending Work Assignments (${assignments.length})\n`,
+    'These assignments were dispatched to you by Sarah (Chief of Staff).',
+    'Use `read_my_assignments` for full details, then `submit_assignment_output` when done.\n',
+  ];
+
+  if (revision.length > 0) {
+    parts.push('### 🔄 NEEDS REVISION');
+    for (const a of revision) {
+      parts.push(`**${a.task_type}** [${a.priority}] — ${a.task_description}`);
+      if (a.evaluation) parts.push(`  Feedback: ${a.evaluation}`);
+      parts.push('');
+    }
+  }
+
+  if (actionable.length > 0) {
+    parts.push('### Assignments');
+    for (const a of actionable) {
+      parts.push(`**${a.task_type}** [${a.priority}] (${a.status}) — ${a.task_description}`);
+      if (a.expected_output) parts.push(`  Expected: ${a.expected_output}`);
       parts.push('');
     }
   }

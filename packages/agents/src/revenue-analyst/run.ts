@@ -13,6 +13,7 @@ import { createMemoryTools } from '../shared/memoryTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
+import { createAssignmentTools } from '../shared/assignmentTools.js';
 
 export interface RevenueAnalystRunParams {
   task?: 'revenue_report' | 'forecast' | 'on_demand';
@@ -35,6 +36,7 @@ export async function runRevenueAnalyst(params: RevenueAnalystRunParams = {}) {
     ...createMemoryTools(memory),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
+    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

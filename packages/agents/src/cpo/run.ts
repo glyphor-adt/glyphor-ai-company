@@ -21,6 +21,7 @@ import { createCollectiveIntelligenceTools } from '../shared/collectiveIntellige
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
+import { createAssignmentTools } from '../shared/assignmentTools.js';
 
 export interface CPORunParams {
   task?: 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand';
@@ -51,6 +52,7 @@ export async function runCPO(params: CPORunParams = {}) {
     ...createCollectiveIntelligenceTools(memory),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
+    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

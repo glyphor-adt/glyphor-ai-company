@@ -42,6 +42,11 @@ const KNOWN_TOOLS = new Set([
   'query_logs',
   'read_file',
 
+  // ── Assignment tools ──
+  'read_my_assignments',
+  'submit_assignment_output',
+  'flag_assignment_blocker',
+
   // ── External tools ──
   'web_search',
 ]);

@@ -78,6 +78,40 @@ export function createRunDeps(
       return data ?? [];
     },
 
+    pendingAssignmentLoader: async (role: CompanyAgentRole) => {
+      const { data } = await supabase
+        .from('work_assignments')
+        .select('id, task_description, task_type, expected_output, priority, status, evaluation, directive_id')
+        .eq('assigned_to', role)
+        .in('status', ['pending', 'dispatched', 'needs_revision'])
+        .order('priority', { ascending: true })
+        .order('created_at', { ascending: true });
+
+      if (!data || data.length === 0) return [];
+
+      // Fetch directive titles for context
+      const directiveIds = [...new Set(data.map((a: { directive_id: string }) => a.directive_id))];
+      const { data: directives } = await supabase
+        .from('founder_directives')
+        .select('id, title')
+        .in('id', directiveIds);
+
+      const directiveMap = new Map(
+        (directives ?? []).map((d: { id: string; title: string }) => [d.id, d.title]),
+      );
+
+      return data.map((a: { id: string; task_description: string; task_type: string; expected_output: string | null; priority: string; status: string; evaluation: string | null; directive_id: string }) => ({
+        id: a.id,
+        task_description: a.task_description,
+        task_type: a.task_type,
+        expected_output: a.expected_output,
+        priority: a.priority,
+        status: a.status,
+        evaluation: a.evaluation,
+        directive_title: directiveMap.get(a.directive_id) ?? null,
+      }));
+    },
+
     dynamicBriefLoader: async (agentId: string): Promise<string | null> => {
       const { data } = await supabase
         .from('agent_briefs')

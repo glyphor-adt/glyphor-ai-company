@@ -340,6 +340,13 @@ function AnalysisDetail({ report, id }: { report: AnalysisReport; id: string }) 
   const [generatingVisual, setGeneratingVisual] = useState(false);
   const [visualImage, setVisualImage] = useState<{ data: string; mimeType: string } | null>(null);
 
+  // Load saved visual on mount
+  useEffect(() => {
+    api<{ image: string; mimeType: string }>(`/analysis/${id}/visual`)
+      .then((resp) => setVisualImage({ data: resp.image, mimeType: resp.mimeType }))
+      .catch(() => { /* no saved visual */ });
+  }, [id]);
+
   const keyFindings = [...report.swot.strengths, ...report.swot.opportunities];
   const riskItems = [...report.swot.weaknesses, ...report.swot.threats];
   const nextSteps = report.recommendations.filter((r) => r.priority === 'high');

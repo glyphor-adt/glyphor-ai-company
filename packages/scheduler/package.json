@@ -16,10 +16,12 @@
     "@glyphor/company-memory": "*",
     "@glyphor/integrations": "*",
     "docx": "^9.5.3",
-    "pptxgenjs": "^4.0.1"
+    "pptxgenjs": "^4.0.1",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
+    "@types/sharp": "^0.31.1",
     "typescript": "^5.8.3"
   }
 }

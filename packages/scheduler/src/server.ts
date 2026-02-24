@@ -17,6 +17,9 @@ import { EventRouter } from './eventRouter.js';
 import { DecisionQueue } from './decisionQueue.js';
 import { DynamicScheduler } from './dynamicScheduler.js';
 import { AnalysisEngine } from './analysisEngine.js';
+import sharp from 'sharp';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
 import type { AnalysisType, AnalysisDepth } from './analysisEngine.js';
 import { SimulationEngine } from './simulationEngine.js';
 import { MeetingEngine } from './meetingEngine.js';
@@ -48,6 +51,41 @@ import {
 } from '@glyphor/agents';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
+
+// ─── Logo watermark ─────────────────────────────────────────────
+const LOGO_PATH = path.resolve(import.meta.dirname, '../../dashboard/public/glyphor-logo.png');
+const LOGO_FALLBACK = path.resolve(import.meta.dirname, '../../../public/glyphor-logo.png');
+let logoBuf: Buffer | null = null;
+try {
+  logoBuf = fs.readFileSync(fs.existsSync(LOGO_PATH) ? LOGO_PATH : LOGO_FALLBACK);
+} catch { /* logo not available — skip watermark */ }
+
+async function applyWatermark(imageB64: string): Promise<string> {
+  if (!logoBuf) return imageB64;
+  const imgBuf = Buffer.from(imageB64, 'base64');
+  const meta = await sharp(imgBuf).metadata();
+  const imgW = meta.width ?? 1536;
+  const imgH = meta.height ?? 1024;
+  // Scale logo to ~8% of image width, place bottom-right with padding
+  const logoW = Math.round(imgW * 0.08);
+  const resizedLogo = await sharp(logoBuf)
+    .resize({ width: logoW, fit: 'inside' })
+    .ensureAlpha(0.6)
+    .toBuffer();
+  const logoMeta = await sharp(resizedLogo).metadata();
+  const logoH = logoMeta.height ?? logoW;
+  const padX = Math.round(imgW * 0.02);
+  const padY = Math.round(imgH * 0.02);
+  const result = await sharp(imgBuf)
+    .composite([{
+      input: resizedLogo,
+      left: imgW - logoW - padX,
+      top: imgH - logoH - padY,
+    }])
+    .png()
+    .toBuffer();
+  return result.toString('base64');
+}
 
 // ─── Bootstrap ──────────────────────────────────────────────────
 
@@ -974,7 +1012,21 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // Generate AI visual (PNG infographic via Gemini image generation)
+    // Get saved AI visual for analysis
+    const analysisVisualGetMatch = url.match(/^\/analysis\/([^/]+)\/visual$/);
+    if (method === 'GET' && analysisVisualGetMatch) {
+      const id = decodeURIComponent(analysisVisualGetMatch[1]);
+      const { data } = await memory.getSupabaseClient()
+        .from('analyses').select('visual_image').eq('id', id).single();
+      if (data?.visual_image) {
+        json(res, 200, { image: data.visual_image, mimeType: 'image/png' });
+      } else {
+        json(res, 404, { error: 'No visual saved' });
+      }
+      return;
+    }
+
+    // Generate AI visual (PNG infographic via OpenAI image generation)
     const analysisVisualMatch = url.match(/^\/analysis\/([^/]+)\/visual$/);
     if (method === 'POST' && analysisVisualMatch) {
       const id = decodeURIComponent(analysisVisualMatch[1]);
@@ -984,7 +1036,12 @@ const server = createServer(async (req, res) => {
       const prompt = buildVisualPrompt(record);
       const imageResponse = await strategyModelClient.generateImageOpenAI(prompt);
 
-      json(res, 200, { image: imageResponse.imageData, mimeType: imageResponse.mimeType });
+      // Apply logo watermark and save to DB
+      const watermarked = await applyWatermark(imageResponse.imageData);
+      await memory.getSupabaseClient()
+        .from('analyses').update({ visual_image: watermarked }).eq('id', id);
+
+      json(res, 200, { image: watermarked, mimeType: 'image/png' });
       return;
     }
 
@@ -1246,6 +1303,20 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // Get saved deep dive visual
+    const ddVisualGetMatch = url.match(/^\/deep-dive\/([^/]+)\/visual$/);
+    if (method === 'GET' && ddVisualGetMatch) {
+      const ddId = decodeURIComponent(ddVisualGetMatch[1]);
+      const { data } = await memory.getSupabaseClient()
+        .from('deep_dives').select('visual_image').eq('id', ddId).single();
+      if (data?.visual_image) {
+        json(res, 200, { image: data.visual_image, mimeType: 'image/png' });
+      } else {
+        json(res, 404, { error: 'No visual saved' });
+      }
+      return;
+    }
+
     // Generate deep dive AI visual
     const ddVisualMatch = url.match(/^\/deep-dive\/([^/]+)\/visual$/);
     if (method === 'POST' && ddVisualMatch) {
@@ -1255,7 +1326,13 @@ const server = createServer(async (req, res) => {
 
       const prompt = buildDeepDiveVisualPrompt(record);
       const imageResponse = await strategyModelClient.generateImageOpenAI(prompt);
-      json(res, 200, { image: imageResponse.imageData, mimeType: imageResponse.mimeType });
+
+      // Apply logo watermark and save to DB
+      const watermarked = await applyWatermark(imageResponse.imageData);
+      await memory.getSupabaseClient()
+        .from('deep_dives').update({ visual_image: watermarked }).eq('id', ddId);
+
+      json(res, 200, { image: watermarked, mimeType: 'image/png' });
       return;
     }
 
@@ -1478,69 +1555,66 @@ function buildDeepDiveVisualPrompt(record: import('./deepDiveEngine.js').DeepDiv
   const r = record.report;
   if (!r) return '';
 
-  const strengths = r.currentState.keyStrengths.slice(0, 3);
-  const challenges = r.currentState.keyChallenges.slice(0, 3);
-  const competitors = r.competitiveLandscape.competitors.slice(0, 4);
-  const recs = r.strategicRecommendations.slice(0, 4);
-  const roadmap = r.implementationRoadmap.slice(0, 3);
-  const risks = r.riskAssessment.slice(0, 3);
+  const competitorCount = r.competitiveLandscape.competitors.length;
+  const recCount = Math.min(r.strategicRecommendations.length, 4);
+  const roadmapPhases = r.implementationRoadmap.length;
+  const riskCount = r.riskAssessment.length;
+  const totalSources = r.documentCounts.secFilings + r.documentCounts.newsArticles + r.documentCounts.patents + r.documentCounts.researchSources;
   const fs = r.currentState.financialSnapshot;
 
-  // Build financial stats line
-  const financialStats = [
-    fs.revenue ? `Revenue: ${fs.revenue}` : null,
-    fs.revenueGrowth ? `Growth: ${fs.revenueGrowth}` : null,
-    fs.headcount ? `Headcount: ${fs.headcount}` : null,
-    fs.profitability ? `Profitability: ${fs.profitability}` : null,
-    fs.valuation ? `Valuation: ${fs.valuation}` : null,
-  ].filter(Boolean).join(' · ');
+  // Extract 2-3 key financial numbers for large callouts
+  const finStats: string[] = [];
+  if (fs.revenue) finStats.push(fs.revenue);
+  if (fs.revenueGrowth) finStats.push(fs.revenueGrowth);
+  if (fs.valuation) finStats.push(fs.valuation);
+
+  const momentumIcon = r.currentState.momentum === 'positive' ? '▲' : r.currentState.momentum === 'negative' ? '▼' : '►';
+  const momentumColor = r.currentState.momentum === 'positive' ? 'green' : r.currentState.momentum === 'negative' ? 'red' : 'amber';
 
   return [
-    `A professional corporate infographic in 16:9 landscape format titled "${r.targetName} — Strategic Deep Dive".`,
-    `Top-left: Glyphor AI logo area with a cyan (#00E0FF) branding bar; top-right: "${r.analysisDate}" date stamp. White background, modern flat design, subtle grid pattern, corporate sans-serif typography.`,
+    `Create a polished, magazine-quality corporate infographic in 16:9 landscape format (1536x1024px).`,
+    `Style: clean modern flat design, white background, generous whitespace, minimal text. Use large icons, bold number callouts, color blocks, and data visualizations. Think McKinsey consulting slide deck — NOT a text document.`,
     ``,
-    `Top section: a bold headline banner across the full width with the subtitle: "McKinsey-Grade Intelligence Report · ${r.targetType} · ${r.documentCounts.secFilings} SEC Filings · ${r.documentCounts.newsArticles} News Sources · ${r.documentCounts.researchSources} Research Sources Analyzed".`,
+    `Color palette: primary cyan (#00E0FF), white (#FFFFFF) background, dark charcoal (#1A1A2E) text, emerald (#34D399) for positive, rose (#FB7185) for negative, amber (#FBBF24) for caution.`,
     ``,
-    `Left-upper quadrant: a "Financial Snapshot" panel with large numeric callouts in cyan:`,
-    financialStats ? `- ${financialStats}` : `- Financial data pending`,
-    `- Momentum indicator: ${r.currentState.momentum === 'positive' ? '▲ Positive (green)' : r.currentState.momentum === 'negative' ? '▼ Negative (red)' : '► Neutral (amber)'}`,
-    `Each stat has a small icon (dollar, chart, users) and the numbers are large and bold.`,
+    `LAYOUT (3 rows):`,
     ``,
-    `Right-upper quadrant: a "Market Sizing" panel with three concentric circles or funnel:`,
-    `- TAM: ${r.marketAnalysis.tam.value}`,
-    `- SAM: ${r.marketAnalysis.sam.value}`,
-    `- SOM: ${r.marketAnalysis.som.value}`,
-    `- Market Growth Rate: ${r.marketAnalysis.growthRate}`,
-    `Show as a nested funnel or concentric rings with labels, each ring in a progressively deeper shade of cyan.`,
-    `Caption: "Key drivers: ${r.marketAnalysis.keyDrivers.slice(0, 2).join(', ')}"`,
+    `ROW 1 — Header (10% height):`,
+    `Full-width dark charcoal banner with bold white title: "${r.targetName.toUpperCase()} — DEEP DIVE". Small cyan accent line below. Tiny gray text: "${totalSources} sources analyzed".`,
     ``,
-    `Center-left: a "Current State" panel split into two columns:`,
-    `Strengths (green #34D399, shield icon):`,
-    ...strengths.map((s, i) => `  ${i + 1}) "${s.point}"`),
-    `Challenges (rose #FB7185, warning icon):`,
-    ...challenges.map((c, i) => `  ${i + 1}) "${c.point}"`),
+    `ROW 2 — Main content (60% height), 3 equal columns separated by thin gray dividers:`,
     ``,
-    `Center-right: a "Competitive Landscape" panel with a comparison table or bar chart:`,
-    ...competitors.map(c => `- ${c.name}: "${c.positioning}" — Key differentiator: "${c.keyDifferentiator}"`),
-    `Show as a side-by-side comparison with company logos/icons and colored bars.`,
+    `COLUMN 1 — "Financials":`,
+    finStats.length > 0
+      ? `Show ${finStats.length} large bold cyan numbers stacked vertically: ${finStats.map(s => `"${s}"`).join(', ')}. Each with a tiny gray label above (Revenue, Growth, etc). Below, a large ${momentumColor} ${momentumIcon} momentum arrow icon.`
+      : `Show a large "—" dash with "Data Pending" label. Below, a neutral ${momentumIcon} arrow icon.`,
+    `NO paragraphs. Just big numbers and icons.`,
     ``,
-    `Lower-left: "${recs.length} Strategic Recommendations" panel with icon-based bullets:`,
-    ...recs.map((rec, i) => `${i + 1}) "${rec.title}" [${rec.priority}] — "${rec.description.slice(0, 60)}…" — Impact: ${rec.expectedImpact.slice(0, 40)}`),
-    `Each has a priority badge (immediate=red, short-term=amber, medium-term=blue).`,
+    `COLUMN 2 — "Market":`,
+    `A nested concentric circle / bullseye diagram in 3 shades of cyan (dark→light):`,
+    `• Outer ring labeled "TAM" with value "${r.marketAnalysis.tam.value}"`,
+    `• Middle ring labeled "SAM" with value "${r.marketAnalysis.sam.value}"`,
+    `• Inner circle labeled "SOM" with value "${r.marketAnalysis.som.value}"`,
+    `Below: small text "Growth: ${r.marketAnalysis.growthRate}". That's ALL the text.`,
     ``,
-    `Lower-center: "Implementation Roadmap" as a horizontal timeline:`,
-    ...roadmap.map(phase => `- ${phase.phase}: ${phase.timeline} — "${phase.milestones.slice(0, 2).join('; ')}" — Cost: ${phase.cost}`),
-    `Show as connected nodes on a horizontal timeline with milestone markers.`,
+    `COLUMN 3 — "Competitive":`,
+    `A horizontal bar chart or icon grid showing ${competitorCount} competitors as colored bars/blocks of varying lengths. Each bar has ONLY the company name (1-2 words, no descriptions). Use a gradient from cyan to charcoal.`,
     ``,
-    `Lower-right: "Risk Matrix" — a 2x2 heatmap grid (Probability vs Impact):`,
-    ...risks.map(risk => `- "${risk.risk}" [P: ${risk.probability}, I: ${risk.impact}] — Mitigation: "${risk.mitigation.slice(0, 40)}…"`),
-    `Plot risks as colored dots on the matrix (high-high=red, medium=amber, low=green).`,
+    `ROW 3 — Bottom strip (30% height), 3 sections:`,
     ``,
-    `Color scheme: primary cyan (#00E0FF) with white background, emerald (#34D399) for positive, rose (#FB7185) for risks,`,
-    `amber (#FBBF24) for caution. Clean section dividers, generous white space, professional and uncluttered.`,
-    `Modern sans-serif typography — all text crisp and fully readable. Magazine-quality, McKinsey consulting aesthetic.`,
+    `LEFT (40%): "${recCount} Recommendations" — show as ${recCount} large numbered circles (1, 2, 3, 4) in a horizontal row. Color-code by priority: immediate=red, short-term=amber, medium-term=blue. Below each circle, ONE word label only.`,
     ``,
-    `Footer: full-width thin gray bar with centered text: "Glyphor AI · Strategic Intelligence Platform · ${r.documentCounts.secFilings + r.documentCounts.newsArticles + r.documentCounts.patents + r.documentCounts.researchSources} Sources Analyzed"`,
+    `CENTER (30%): "Roadmap" — a horizontal timeline with ${roadmapPhases} connected nodes/dots. Each node has ONLY the phase name (1-2 words). Color gradient from cyan to emerald.`,
+    ``,
+    `RIGHT (30%): "Risk" — a small 2x2 heatmap grid (Impact vs Probability) with ${riskCount} colored dots plotted on it. Red for high-high, amber for medium, green for low. NO text labels on individual risks.`,
+    ``,
+    `CRITICAL RULES:`,
+    `- MINIMAL TEXT. Maximum 35 words total on the infographic (excluding title).`,
+    `- Use icons, shapes, charts, numbers, and color to convey information.`,
+    `- No sentences, no paragraphs, no bullet-point lists.`,
+    `- All text must be crisp, readable sans-serif.`,
+    `- Professional, clean, corporate aesthetic.`,
+    `- Do NOT include any "Powered by" branding or logo.`,
   ].join('\n');
 }
 

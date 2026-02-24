@@ -1277,61 +1277,55 @@ export function buildVisualPrompt(record: AnalysisRecord): string {
   if (!report) return '';
 
   const typeLabel: Record<string, string> = {
-    competitive_landscape: 'Competitive Landscape Analysis',
-    market_opportunity: 'Market Opportunity Assessment',
-    product_strategy: 'Product Strategy Review',
-    growth_diagnostic: 'Growth Diagnostic Report',
-    risk_assessment: 'Risk Assessment & Mitigation',
+    competitive_landscape: 'Competitive Landscape',
+    market_opportunity: 'Market Opportunity',
+    product_strategy: 'Product Strategy',
+    growth_diagnostic: 'Growth Diagnostic',
+    risk_assessment: 'Risk Assessment',
   };
   const title = typeLabel[record.type] ?? 'Strategic Analysis';
 
-  // Extract key data points from SWOT
-  const strengths = report.swot.strengths.slice(0, 3);
-  const weaknesses = report.swot.weaknesses.slice(0, 3);
-  const opportunities = report.swot.opportunities.slice(0, 3);
-  const threats = report.swot.threats.slice(0, 3);
-
-  // Extract recommendations
-  const recs = report.recommendations.slice(0, 4);
-  const highPriority = recs.filter(r => r.priority === 'high');
-  const medPriority = recs.filter(r => r.priority === 'medium');
-
-  // Build a summary line from the report
-  const summaryLine = report.summary.length > 200
-    ? report.summary.slice(0, 200) + '…'
-    : report.summary;
+  const recCount = Math.min(report.recommendations.length, 4);
+  const threadCount = report.threads.length;
+  const highCount = report.recommendations.filter(r => r.priority === 'high').length;
+  const medCount = report.recommendations.filter(r => r.priority === 'medium').length;
 
   return [
-    `A professional corporate infographic in 16:9 landscape format titled "${title}".`,
-    `Top-left: Glyphor AI logo area with a cyan (#00E0FF) branding bar; top-right: a "Powered by Glyphor Intelligence" co-brand mark. White background, modern flat design, subtle grid pattern, and corporate typography (sans serif).`,
+    `Create a polished, magazine-quality corporate infographic in 16:9 landscape format (1536x1024px).`,
+    `Style: clean modern flat design, white background, generous whitespace, minimal text. Use large icons, bold color blocks, and data visualizations instead of paragraphs of text. Think McKinsey or Bain presentation slide — NOT a document.`,
     ``,
-    `Top section: a bold headline banner across the width with a cyan accent bar and the subtitle: "${record.query}".`,
+    `Color palette: primary cyan (#00E0FF), white (#FFFFFF) background, dark charcoal (#1A1A2E) text, emerald (#34D399) for positive, rose (#FB7185) for negative, amber (#FBBF24) for caution. Use soft pastel tinted backgrounds for card sections.`,
     ``,
-    `Left-middle quadrant: a "Key Findings" panel with an executive summary callout in a highlighted box:`,
-    `"${summaryLine}"`,
-    `Below it, ${report.threads.length} research perspectives analyzed, shown as small thread-count badges.`,
+    `LAYOUT (3 rows):`,
     ``,
-    `Right-middle quadrant: a 2x2 SWOT matrix with color-coded quadrants:`,
-    `- Strengths (green #34D399, shield icon): ${strengths.map((s, i) => `${i + 1}) "${s}"`).join('; ')}`,
-    `- Weaknesses (rose #FB7185, warning icon): ${weaknesses.map((w, i) => `${i + 1}) "${w}"`).join('; ')}`,
-    `- Opportunities (cyan #00E0FF, upward arrow): ${opportunities.map((o, i) => `${i + 1}) "${o}"`).join('; ')}`,
-    `- Threats (amber #FBBF24, lightning icon): ${threats.map((t, i) => `${i + 1}) "${t}"`).join('; ')}`,
-    `Each quadrant has a distinct background tint and an icon, with the text clearly readable.`,
+    `ROW 1 — Header banner (10% height):`,
+    `Full-width cyan gradient banner. Large bold white title: "${title.toUpperCase()}". Smaller subtitle below in light gray: "${record.query}". Keep text SHORT.`,
     ``,
-    `Center-lower left: "Strategic Recommendations" panel with ${recs.length} icon-based bullets:`,
-    ...recs.map((r, i) => `${i + 1}) "${r.title}" — priority: ${r.priority} — "${r.detail.slice(0, 80)}…"`),
-    `Each recommendation has a priority badge (high=red, medium=amber, low=blue).`,
+    `ROW 2 — Main content (65% height), split into 2 columns:`,
     ``,
-    `Center-lower right: a "Priority Matrix" panel — a 2x2 grid with Impact (Y axis) vs Effort (X axis).`,
-    `${highPriority.length} items plotted in the high-impact zone, ${medPriority.length} in medium.`,
-    `Add a small callout: "${recs.length} strategic actions identified across ${report.threads.length} research threads."`,
+    `LEFT COLUMN (45% width):`,
+    `A large "Key Insights" card with a bold number callout: "${threadCount} research threads analyzed". Show 2-3 large circular icons (magnifying glass, lightbulb, target) with ONE-WORD labels beneath each. Below that, a small horizontal bar chart or gauge showing analysis completeness. NO bullet points of text — use icons and shapes only.`,
     ``,
-    `Bottom strip: analysis metadata — "Depth: ${record.depth}" · "Type: ${record.type.replace(/_/g, ' ')}" · "${report.threads.filter(t => t.status === 'completed').length}/${report.threads.length} threads completed" · "Requested by: ${record.requested_by}".`,
+    `RIGHT COLUMN (55% width):`,
+    `A 2x2 SWOT grid using 4 large colored rounded-rectangle cards:`,
+    `• Top-left: STRENGTHS — green (#34D399) tinted card with a shield icon and the number "${report.swot.strengths.length}"`,
+    `• Top-right: WEAKNESSES — rose (#FB7185) tinted card with a warning triangle icon and the number "${report.swot.weaknesses.length}"`,
+    `• Bottom-left: OPPORTUNITIES — cyan (#00E0FF) tinted card with an upward arrow icon and the number "${report.swot.opportunities.length}"`,
+    `• Bottom-right: THREATS — amber (#FBBF24) tinted card with a lightning bolt icon and the number "${report.swot.threats.length}"`,
+    `Each card shows ONLY the category label, icon, and count number in large bold text. NO bullet point text inside the cards.`,
     ``,
-    `Color scheme: primary cyan (#00E0FF), with white background, light grays for section dividers, emerald for positive,`,
-    `rose for risks, amber for caution. Use clear section dividers and generous white space — professional, uncluttered, McKinsey-style.`,
-    `Modern sans-serif typography, all text must be crisp and readable.`,
+    `ROW 3 — Bottom strip (25% height), split into 2 sections:`,
     ``,
-    `Footer: a full-width thin gray bar with centered text: "Glyphor AI · Strategic Intelligence Platform"`,
+    `LEFT: "${recCount} Strategic Actions" — show as ${recCount} large colored pill badges in a row. ${highCount} red pills, ${medCount} amber pills, rest blue. Each pill has only a number inside (1, 2, 3, 4). A small "Priority Matrix" scatter plot beside it with dots plotted on an Impact vs Effort 2x2 grid.`,
+    ``,
+    `RIGHT: A thin metadata strip in small gray text: "${record.depth} depth · ${record.type.replace(/_/g, ' ')} · ${threadCount} threads · ${record.requested_by}"`,
+    ``,
+    `CRITICAL RULES:`,
+    `- MINIMAL TEXT. Use icons, shapes, numbers, charts, and color instead of words.`,
+    `- No paragraphs, no sentences, no bullet-point lists of findings.`,
+    `- Maximum 30 total words on the entire infographic (excluding the title/subtitle).`,
+    `- All text must be crisp, readable sans-serif typography.`,
+    `- Professional, clean, corporate aesthetic with lots of whitespace.`,
+    `- Do NOT include any "Powered by" branding or logo — the image should be clean.`,
   ].join('\n');
 }
