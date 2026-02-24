@@ -861,6 +861,49 @@ via the work loop:
 | VP Customer Success / VP Sales / VP Design | $0.05 | $1.50 | $45 |
 | Sub-team (all) | $0.05 | $1.00 | $30 |
 
+### Dynamic Tool Grants
+
+Sarah (Chief of Staff) can dynamically grant or revoke existing tools to any agent at runtime
+via the `agent_tool_grants` Supabase table. This enables just-in-time capability expansion
+without code changes.
+
+**Runtime enforcement** (`toolExecutor.ts`): Before executing any tool call, `ToolExecutor`
+checks `isToolGranted(agentRole, toolName, supabase)`. Grants are cached per-role for 60 seconds
+to avoid per-call DB queries. Cache is invalidated immediately on grant/revoke.
+
+**Chief of Staff tools** (`chief-of-staff/tools.ts`):
+
+| Tool | Description |
+|------|-------------|
+| `grant_tool_access` | Grant an existing tool to an agent. Read-only tools (`get_*`, `read_*`, `query_*`, `check_*`, `fetch_*`) are granted autonomously; write tools auto-file a Yellow decision for founder approval. Supports optional `expires_in_hours` for time-boxed grants. |
+| `revoke_tool_access` | Revoke a dynamically granted tool. Only affects DB-granted tools — an agent's baseline (code-defined) tools cannot be revoked. |
+
+**Tool Registry** (`toolRegistry.ts`): Central registry of all known tools via `isKnownTool(name)`.
+Grant requests for tools not in the registry are rejected with a message to ask Marcus (CTO) to build it first.
+
+**Database**: `agent_tool_grants` table with columns `agent_role`, `tool_name`, `granted_by`,
+`reason`, `directive_id`, `scope`, `is_active`, `expires_at`. Unique constraint on
+`(agent_role, tool_name)`. Seeded with baseline grants for all 27 agents.
+
+### Code Authoring Tools (CTO)
+
+Marcus (CTO) has GitHub code authoring tools for agent self-extension — agents can read
+and write code in the repo through the CTO, enabling the system to evolve its own capabilities.
+
+**Tools** (`cto/tools.ts`):
+
+| Tool | Description |
+|------|-------------|
+| `get_file_contents` | Read a file from the GitHub repo. Used to inspect existing tool code before modifying it. Supports branch selection. |
+| `create_or_update_file` | Create or update a file on a feature branch. Enforces `feature/agent-*` branch naming. Blocks writes to RED-tier protected files (`companyAgentRunner.ts`, `authorityGates.ts`, `infra/`, `.github/workflows/`, `docker/`) and `AGENT_BUDGETS` modifications. |
+| `create_branch` | Create a new `feature/agent-*` branch from main for tool/agent development. |
+
+**Safety guardrails**:
+- Branch names must start with `feature/agent-` — direct writes to main/staging/production are forbidden
+- Path blocklist prevents agents from modifying core runtime, infrastructure, CI/CD, or Docker files
+- Content analysis blocks budget-cap manipulation in `types.ts`
+- All file writes are logged to `activity_log` with commit SHA
+
 ### Semantic Memory & Collective Intelligence
 
 #### EmbeddingClient (`embeddingClient.ts`)
@@ -1193,6 +1236,7 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 | `agent_schedules` | DB-defined cron jobs | agent_id, cron_expression, task, payload (JSONB), enabled |
 | `metrics_cache` | Cached metrics | service, metric, value, labels (JSONB), timestamp |
 | `cot_analyses` | Chain-of-thought analyses | id, query, status, requested_by, report (JSONB), completed_at, error |
+| `agent_tool_grants` | Dynamic tool grants | agent_role + tool_name (unique), granted_by, reason, directive_id, scope, is_active, expires_at |
 
 ### Communication Tables
 
