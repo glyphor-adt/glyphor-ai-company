@@ -33,6 +33,12 @@ export { runSupportTriage, type SupportTriageRunParams } from './support-triage/
 // Sub-team agents — Sales
 export { runAccountResearch, type AccountResearchRunParams } from './account-research/run.js';
 
+// Sub-team agents — Design
+export { runUiUxDesigner, type UiUxDesignerRunParams } from './ui-ux-designer/run.js';
+export { runFrontendEngineer, type FrontendEngineerRunParams } from './frontend-engineer/run.js';
+export { runDesignCritic, type DesignCriticRunParams } from './design-critic/run.js';
+export { runTemplateArchitect, type TemplateArchitectRunParams } from './template-architect/run.js';
+
 // Sub-team agents — IT / M365
 export { runM365Admin, type M365AdminRunParams } from './m365-admin/run.js';
 
@@ -64,6 +70,10 @@ import { SOCIAL_MEDIA_MANAGER_SYSTEM_PROMPT } from './social-media-manager/syste
 import { ONBOARDING_SPECIALIST_SYSTEM_PROMPT } from './onboarding-specialist/systemPrompt.js';
 import { SUPPORT_TRIAGE_SYSTEM_PROMPT } from './support-triage/systemPrompt.js';
 import { ACCOUNT_RESEARCH_SYSTEM_PROMPT } from './account-research/systemPrompt.js';
+import { UI_UX_DESIGNER_SYSTEM_PROMPT } from './ui-ux-designer/systemPrompt.js';
+import { FRONTEND_ENGINEER_SYSTEM_PROMPT } from './frontend-engineer/systemPrompt.js';
+import { DESIGN_CRITIC_SYSTEM_PROMPT } from './design-critic/systemPrompt.js';
+import { TEMPLATE_ARCHITECT_SYSTEM_PROMPT } from './template-architect/systemPrompt.js';
 import { M365_ADMIN_SYSTEM_PROMPT } from './m365-admin/systemPrompt.js';
 import { GLOBAL_ADMIN_SYSTEM_PROMPT } from './global-admin/systemPrompt.js';
 import { OPS_SYSTEM_PROMPT } from './ops/systemPrompt.js';
@@ -90,6 +100,10 @@ export const SYSTEM_PROMPTS: Record<string, string> = {
   'onboarding-specialist': ONBOARDING_SPECIALIST_SYSTEM_PROMPT,
   'support-triage': SUPPORT_TRIAGE_SYSTEM_PROMPT,
   'account-research': ACCOUNT_RESEARCH_SYSTEM_PROMPT,
+  'ui-ux-designer': UI_UX_DESIGNER_SYSTEM_PROMPT,
+  'frontend-engineer': FRONTEND_ENGINEER_SYSTEM_PROMPT,
+  'design-critic': DESIGN_CRITIC_SYSTEM_PROMPT,
+  'template-architect': TEMPLATE_ARCHITECT_SYSTEM_PROMPT,
   'm365-admin': M365_ADMIN_SYSTEM_PROMPT,
   'global-admin': GLOBAL_ADMIN_SYSTEM_PROMPT,
   'ops': OPS_SYSTEM_PROMPT,

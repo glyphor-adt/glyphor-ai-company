@@ -18,13 +18,14 @@ export function createDesignCriticTools(memory: CompanyMemoryStore): ToolDefinit
       },
       async execute(params) {
         const supabase = memory.getSupabaseClient();
+        const grade = String(params.grade);
         await supabase.from('design_artifacts').insert({
           type: 'build_grade',
           name: params.buildId,
           content: params.feedback,
-          variant: params.grade,
+          variant: grade,
           author: 'design-critic',
-          status: params.grade.startsWith('A') ? 'approved' : 'needs_revision',
+          status: grade.startsWith('A') ? 'approved' : 'needs_revision',
           created_at: new Date().toISOString(),
         });
         return { success: true, message: `Build "${params.buildId}" graded: ${params.grade}` };

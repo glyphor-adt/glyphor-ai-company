@@ -1,0 +1,78 @@
+/**
+ * Template Architect (Ryan Park) — Runner
+ * Reports to Mia Tanaka (VP Design). Template structures, variant management, quality ceilings.
+ */
+import {
+  CompanyAgentRunner, ModelClient, AgentSupervisor,
+  ToolExecutor, EventBus, GlyphorEventBus, type AgentConfig,
+  type ConversationTurn,
+} from '@glyphor/agent-runtime';
+import { CompanyMemoryStore } from '@glyphor/company-memory';
+import { TEMPLATE_ARCHITECT_SYSTEM_PROMPT } from './systemPrompt.js';
+import { createTemplateArchitectTools } from './tools.js';
+import { createMemoryTools } from '../shared/memoryTools.js';
+import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { createEventTools } from '../shared/eventTools.js';
+import { createGraphTools } from '../shared/graphTools.js';
+import { createAssignmentTools } from '../shared/assignmentTools.js';
+
+export interface TemplateArchitectRunParams {
+  task?: 'variant_review' | 'template_quality_audit' | 'on_demand';
+  message?: string;
+  conversationHistory?: ConversationTurn[];
+}
+
+export async function runTemplateArchitect(params: TemplateArchitectRunParams = {}) {
+  const memory = new CompanyMemoryStore({
+    supabaseUrl: process.env.SUPABASE_URL!, supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
+    gcsBucket: process.env.GCS_BUCKET || 'glyphor-company', gcpProjectId: process.env.GCP_PROJECT_ID,
+  });
+  const modelClient = new ModelClient({ geminiApiKey: process.env.GOOGLE_AI_API_KEY, openaiApiKey: process.env.OPENAI_API_KEY, anthropicApiKey: process.env.ANTHROPIC_API_KEY });
+  const runner = new CompanyAgentRunner(modelClient);
+  const eventBus = new EventBus();
+  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const graphReader = memory.getGraphReader();
+  const graphWriter = memory.getGraphWriter();
+  const tools = [
+    ...createTemplateArchitectTools(memory),
+    ...createMemoryTools(memory),
+    ...createEventTools(glyphorEventBus),
+    ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
+    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
+  ];
+  const toolExecutor = new ToolExecutor(tools);
+
+  const task = params.task || 'on_demand';
+  const today = new Date().toISOString().split('T')[0];
+
+  let initialMessage: string;
+  switch (task) {
+    case 'variant_review':
+      initialMessage = 'Review all active template variants. Check quality scores, identify underperformers (below B grade average), and propose deprecations. Test top variants against diverse content types.';
+      break;
+    case 'template_quality_audit':
+      initialMessage = 'Audit template constraint rules. Verify max section counts, color limits, and typography locks are properly enforced. Report quality ceiling per variant.';
+      break;
+    case 'on_demand':
+      initialMessage = params.message || 'Assist with template architecture as directed.';
+      break;
+    default:
+      initialMessage = params.message || 'Assist with template architecture as directed.';
+  }
+
+  const supabase = memory.getSupabaseClient();
+  const agentCfg = await loadAgentConfig(supabase, 'template-architect', { model: 'gemini-3-flash-preview', temperature: 0.7, maxTurns: 10 });
+
+  const config: AgentConfig = {
+    id: `ryan-${task}-${today}`, role: 'template-architect',
+    systemPrompt: TEMPLATE_ARCHITECT_SYSTEM_PROMPT, model: agentCfg.model,
+    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
+    thinkingEnabled: agentCfg.thinkingEnabled,
+    conversationHistory: params.conversationHistory,
+  };
+  const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
+  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));
+  try { await memory.recordAgentRun('template-architect', 0, 0.08); } catch {}
+  console.log(`[Ryan] ${result.status} (${result.totalTurns} turns)`);
+  return result;
+}

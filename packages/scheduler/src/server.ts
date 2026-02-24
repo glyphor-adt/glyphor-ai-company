@@ -46,6 +46,7 @@ import {
   runContentCreator, runSeoAnalyst, runSocialMediaManager,
   runOnboardingSpecialist, runSupportTriage,
   runAccountResearch,
+  runUiUxDesigner, runFrontendEngineer, runDesignCritic, runTemplateArchitect,
   runM365Admin,
   runGlobalAdmin,
   runOps,
@@ -184,6 +185,16 @@ const agentExecutor = async (
   // Sales
   else if (agentRole === 'account-research') {
     return runAccountResearch({ task: (task as 'prospect_research' | 'batch_enrich' | 'on_demand'), message, company: payload.company as string | undefined, conversationHistory });
+  }
+  // Design sub-team
+  else if (agentRole === 'ui-ux-designer') {
+    return runUiUxDesigner({ task: (task as 'component_spec' | 'design_token_review' | 'on_demand'), message, conversationHistory });
+  } else if (agentRole === 'frontend-engineer') {
+    return runFrontendEngineer({ task: (task as 'implement_component' | 'accessibility_audit' | 'on_demand'), message, conversationHistory });
+  } else if (agentRole === 'design-critic') {
+    return runDesignCritic({ task: (task as 'grade_builds' | 'quality_report' | 'on_demand'), message, conversationHistory });
+  } else if (agentRole === 'template-architect') {
+    return runTemplateArchitect({ task: (task as 'variant_review' | 'template_quality_audit' | 'on_demand'), message, conversationHistory });
   }
   // IT / M365
   else if (agentRole === 'm365-admin') {

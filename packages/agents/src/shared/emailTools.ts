@@ -19,7 +19,37 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { getAgentEmail } from '@glyphor/agent-runtime';
+import type { AgentEmailEntry } from '@glyphor/agent-runtime';
 import { GraphTeamsClient, GraphEmailClient } from '@glyphor/integrations';
+
+/* ── HTML Email Template ──────────────────── */
+
+/**
+ * Wrap raw email body content in a professional HTML email template
+ * with a consistent signature block.  Agents write the message text;
+ * this function adds the structure, styling, and sign-off automatically.
+ */
+function formatEmailHtml(body: string, agent: AgentEmailEntry): string {
+  // If the agent already included full HTML structure, don't double-wrap
+  if (body.trim().toLowerCase().startsWith('<!doctype') || body.trim().toLowerCase().startsWith('<html')) {
+    return body;
+  }
+
+  // Convert plain-text line breaks to <br> if the body has no HTML tags
+  const hasHtml = /<[a-z][\s\S]*>/i.test(body);
+  const formattedBody = hasHtml ? body : body.replace(/\n/g, '<br>');
+
+  return `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; color: #1a1a1a; line-height: 1.6;">
+  ${formattedBody}
+  <br>
+  <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e0e0e0;">
+    <strong style="color: #1a1a1a;">${agent.displayName}</strong><br>
+    <span style="color: #555;">${agent.title}</span><br>
+    <span style="color: #555;">Glyphor AI</span><br>
+    <a href="mailto:${agent.email}" style="color: #0066cc; text-decoration: none;">${agent.email}</a>
+  </div>
+</div>`;
+}
 
 /* ── Factory ──────────────────────────────── */
 
@@ -38,7 +68,7 @@ export function createEmailTools(): ToolDefinition[] {
     {
       name: 'send_email',
       description:
-        'Send an email from YOUR mailbox (e.g. sarah@glyphor.ai). Always YELLOW — requires founder approval before sending. Include a professional signature with your name and title.',
+        'Send an email from YOUR mailbox (e.g. sarah@glyphor.ai). Always YELLOW — requires founder approval before sending. Write the message body only — your signature is added automatically. Format the body like a real email: greeting, concise content, professional sign-off (e.g. Best regards, Thanks).',
       parameters: {
         to: {
           type: 'array',
@@ -83,7 +113,7 @@ export function createEmailTools(): ToolDefinition[] {
           to: toAddrs,
           cc: ccAddrs,
           subject: params.subject as string,
-          body: params.body as string,
+          body: formatEmailHtml(params.body as string, agentEmail),
           importance: (params.importance as 'low' | 'normal' | 'high') ?? 'normal',
         });
 
@@ -155,7 +185,7 @@ export function createEmailTools(): ToolDefinition[] {
     {
       name: 'reply_to_email',
       description:
-        'Reply to an email in YOUR inbox. Always YELLOW — requires founder approval. Use the message ID from read_inbox results.',
+        'Reply to an email in YOUR inbox. Always YELLOW — requires founder approval. Use the message ID from read_inbox results. Write the reply body only — your signature is added automatically. Format like a real email reply: address the sender, respond to their points, professional sign-off.',
       parameters: {
         message_id: {
           type: 'string',
@@ -182,7 +212,7 @@ export function createEmailTools(): ToolDefinition[] {
 
         await emailClient.replyToEmail(agentEmail.email, {
           messageId: params.message_id as string,
-          body: params.body as string,
+          body: formatEmailHtml(params.body as string, agentEmail),
           replyAll: params.reply_all === true,
         });
 
