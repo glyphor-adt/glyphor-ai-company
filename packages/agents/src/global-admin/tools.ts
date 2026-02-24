@@ -1,12 +1,14 @@
 /**
  * Global Admin (Morgan Blake) — Tool Definitions
  *
- * Tools for: cross-project IAM management, service account provisioning,
- * secret management, access audits, and standardized onboarding.
+ * Tools for: cross-project GCP IAM, Entra ID user/group/role management,
+ * service account provisioning, secret management, access audits,
+ * and standardized onboarding across GCP + Azure/Entra.
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
+import { GraphTeamsClient } from '@glyphor/integrations';
 
 /** GCP projects this admin manages. */
 const MANAGED_PROJECTS = [
@@ -24,6 +26,37 @@ const PROTECTED_PRINCIPALS = new Set([
 
 function isProtectedPrincipal(member: string): boolean {
   return PROTECTED_PRINCIPALS.has(member);
+}
+
+/** Founder Entra emails — cannot be disabled/deleted/modified. */
+const PROTECTED_ENTRA_EMAILS = new Set([
+  'kristina@glyphor.ai',
+  'andrew@glyphor.ai',
+  'devops@glyphor.ai',
+]);
+
+function isProtectedEntraUser(email: string): boolean {
+  return PROTECTED_ENTRA_EMAILS.has(email.toLowerCase());
+}
+
+/** Graph API token via shared MSAL client. */
+async function graphToken(): Promise<string> {
+  return GraphTeamsClient.fromEnv().getAccessToken();
+}
+
+/** Graph API fetch helper. */
+async function graphFetch(path: string, method = 'GET', body?: unknown): Promise<Response> {
+  const token = await graphToken();
+  const url = path.startsWith('https://') ? path : `https://graph.microsoft.com/v1.0${path}`;
+  return fetch(url, {
+    method,
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      ...(method === 'GET' ? {} : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
 }
 
 /** Generate a unique grant ID for audit trail. */
@@ -784,7 +817,38 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
           }
         }
 
-        // 2. Teams channels — log which channels should be assigned
+        // 2. Entra ID — create user account (humans only, agents are service-principal-based)
+        if (!is_agent) {
+          try {
+            const checkRes = await graphFetch(`/users/${encodeURIComponent(email as string)}?$select=id,accountEnabled`);
+            if (checkRes.ok) {
+              checklist.push({ step: 'Entra ID user', status: 'done', detail: 'User already exists in Entra' });
+            } else {
+              const nameParts = (name as string).split(' ');
+              const tempPw = `Glyphor-${Date.now().toString(36).slice(-6)}!`;
+              const createRes = await graphFetch('/users', 'POST', {
+                accountEnabled: true,
+                displayName: name,
+                mailNickname: nameParts[0].toLowerCase(),
+                userPrincipalName: email,
+                jobTitle: role_slug,
+                department: dept,
+                passwordProfile: { forceChangePasswordNextSignIn: true, password: tempPw },
+              });
+              checklist.push({
+                step: 'Entra ID user',
+                status: createRes.ok ? 'done' : 'failed',
+                detail: createRes.ok ? `Created ${email} (temp password issued)` : `Graph ${createRes.status}`,
+              });
+            }
+          } catch (err) {
+            checklist.push({ step: 'Entra ID user', status: 'failed', detail: (err as Error).message });
+          }
+        } else {
+          checklist.push({ step: 'Entra ID user', status: 'skipped', detail: 'Agent — uses service account, not Entra user' });
+        }
+
+        // 3. Teams channels — log which channels should be assigned
         const channels = DEPT_CHANNELS[dept] || ['TEAMS_CHANNEL_GENERAL_ID'];
         for (const ch of channels) {
           const channelId = process.env[ch];
@@ -797,7 +861,7 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
           });
         }
 
-        // 3. Log onboarding completion
+        // 4. Log onboarding completion
         const supabase = memory.getSupabaseClient();
         try {
           await supabase.from('activity_log').insert({
@@ -841,6 +905,514 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
     },
 
     // ── ADMIN LOG ───────────────────────────────────────────────────
+
+    // ── ENTRA ID — USER MANAGEMENT ──────────────────────────────────
+
+    {
+      name: 'entra_list_users',
+      description: 'List all users in the Entra ID / Microsoft 365 tenant with account status.',
+      parameters: {
+        filter: {
+          type: 'string',
+          description: 'Optional display name or email fragment to search for',
+          required: false,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const filter = params.filter as string | undefined;
+          const url = filter
+            ? `/users?$search="displayName:${encodeURIComponent(filter)}"&$select=id,displayName,mail,userPrincipalName,jobTitle,accountEnabled,createdDateTime&$top=50&ConsistencyLevel=eventual`
+            : `/users?$select=id,displayName,mail,userPrincipalName,jobTitle,accountEnabled,createdDateTime&$top=50&$orderby=displayName`;
+          const res = await graphFetch(url);
+          if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
+          const data = await res.json() as { value: unknown[] };
+          return { success: true, data: { count: data.value?.length || 0, users: data.value || [] } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'entra_create_user',
+      description: 'Create a new Entra ID user with a temporary password. Cannot create founder accounts.',
+      parameters: {
+        display_name: { type: 'string', description: 'Full name', required: true },
+        email: { type: 'string', description: 'user@glyphor.ai email', required: true },
+        job_title: { type: 'string', description: 'Job title', required: true },
+        department: { type: 'string', description: 'Department', required: true },
+        temp_password: { type: 'string', description: 'Temporary password (user must change on first login)', required: true },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const email = params.email as string;
+          if (isProtectedEntraUser(email)) {
+            return { success: false, error: `BLOCKED: ${email} is a protected founder account.` };
+          }
+          const mailNickname = email.split('@')[0];
+          const res = await graphFetch('/users', 'POST', {
+            accountEnabled: true,
+            displayName: params.display_name,
+            mailNickname,
+            userPrincipalName: email,
+            jobTitle: params.job_title,
+            department: params.department,
+            passwordProfile: {
+              forceChangePasswordNextSignIn: true,
+              password: params.temp_password,
+            },
+          });
+          if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
+          const user = await res.json() as { id: string; displayName: string; userPrincipalName: string };
+          return {
+            success: true,
+            data: {
+              grantId: grantId(),
+              action: 'ENTRA_CREATE_USER',
+              userId: user.id,
+              displayName: user.displayName,
+              upn: user.userPrincipalName,
+              createdAt: new Date().toISOString(),
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'entra_disable_user',
+      description: 'Disable an Entra ID user account (block sign-in). Cannot modify founder accounts.',
+      parameters: {
+        email: { type: 'string', description: 'User email to disable', required: true },
+        justification: { type: 'string', description: 'Why this account is being disabled', required: true },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const email = params.email as string;
+          if (isProtectedEntraUser(email)) {
+            return { success: false, error: `BLOCKED: ${email} is a protected founder account.` };
+          }
+          const res = await graphFetch(`/users/${encodeURIComponent(email)}`, 'PATCH', {
+            accountEnabled: false,
+          });
+          if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
+          return {
+            success: true,
+            data: {
+              grantId: grantId(),
+              action: 'ENTRA_DISABLE_USER',
+              email,
+              justification: params.justification,
+              disabledAt: new Date().toISOString(),
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    // ── ENTRA ID — GROUP MANAGEMENT ─────────────────────────────────
+
+    {
+      name: 'entra_list_groups',
+      description: 'List all Entra ID security and M365 groups.',
+      parameters: {
+        filter: {
+          type: 'string',
+          description: 'Optional group name filter',
+          required: false,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const filter = params.filter as string | undefined;
+          const url = filter
+            ? `/groups?$search="displayName:${encodeURIComponent(filter)}"&$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled,membershipRule&$top=50&ConsistencyLevel=eventual`
+            : `/groups?$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled&$top=50&$orderby=displayName`;
+          const res = await graphFetch(url);
+          if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
+          const data = await res.json() as { value: unknown[] };
+          return { success: true, data: { count: data.value?.length || 0, groups: data.value || [] } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'entra_list_group_members',
+      description: 'List members of a specific Entra ID group.',
+      parameters: {
+        group_id: { type: 'string', description: 'Entra group ID (GUID)', required: true },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const res = await graphFetch(`/groups/${encodeURIComponent(params.group_id as string)}/members?$select=id,displayName,mail,userPrincipalName`);
+          if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
+          const data = await res.json() as { value: unknown[] };
+          return { success: true, data: { groupId: params.group_id, count: data.value?.length || 0, members: data.value || [] } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'entra_add_group_member',
+      description: 'Add a user to an Entra ID group. Cannot modify founder group memberships.',
+      parameters: {
+        group_id: { type: 'string', description: 'Entra group ID', required: true },
+        user_email: { type: 'string', description: 'User email to add', required: true },
+        justification: { type: 'string', description: 'Why this membership is needed', required: true },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const email = params.user_email as string;
+          if (isProtectedEntraUser(email)) {
+            return { success: false, error: `BLOCKED: ${email} is a protected founder account.` };
+          }
+          // Resolve user ID
+          const userRes = await graphFetch(`/users/${encodeURIComponent(email)}?$select=id`);
+          if (!userRes.ok) return { success: false, error: `User not found: ${email}` };
+          const user = await userRes.json() as { id: string };
+
+          const res = await graphFetch(`/groups/${encodeURIComponent(params.group_id as string)}/members/$ref`, 'POST', {
+            '@odata.id': `https://graph.microsoft.com/v1.0/directoryObjects/${user.id}`,
+          });
+          if (!res.ok) {
+            const errText = await res.text();
+            if (errText.includes('already exist')) {
+              return { success: true, data: { message: `${email} is already a member of this group` } };
+            }
+            return { success: false, error: `Graph ${res.status}: ${errText}` };
+          }
+          return {
+            success: true,
+            data: {
+              grantId: grantId(),
+              action: 'ENTRA_ADD_GROUP_MEMBER',
+              groupId: params.group_id,
+              email,
+              justification: params.justification,
+              addedAt: new Date().toISOString(),
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'entra_remove_group_member',
+      description: 'Remove a user from an Entra ID group. Cannot modify founder group memberships.',
+      parameters: {
+        group_id: { type: 'string', description: 'Entra group ID', required: true },
+        user_email: { type: 'string', description: 'User email to remove', required: true },
+        justification: { type: 'string', description: 'Why this membership is being revoked', required: true },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const email = params.user_email as string;
+          if (isProtectedEntraUser(email)) {
+            return { success: false, error: `BLOCKED: ${email} is a protected founder account.` };
+          }
+          const userRes = await graphFetch(`/users/${encodeURIComponent(email)}?$select=id`);
+          if (!userRes.ok) return { success: false, error: `User not found: ${email}` };
+          const user = await userRes.json() as { id: string };
+
+          const res = await graphFetch(`/groups/${encodeURIComponent(params.group_id as string)}/members/${user.id}/$ref`, 'DELETE');
+          if (!res.ok && res.status !== 404) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
+          return {
+            success: true,
+            data: {
+              grantId: grantId(),
+              action: 'ENTRA_REMOVE_GROUP_MEMBER',
+              groupId: params.group_id,
+              email,
+              justification: params.justification,
+              removedAt: new Date().toISOString(),
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    // ── ENTRA ID — DIRECTORY ROLES ──────────────────────────────────
+
+    {
+      name: 'entra_list_directory_roles',
+      description: 'List all activated Entra ID directory roles and their members.',
+      parameters: {},
+      execute: async (_params, _ctx): Promise<ToolResult> => {
+        try {
+          const res = await graphFetch('/directoryRoles?$select=id,displayName,description');
+          if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
+          const data = await res.json() as { value: Array<{ id: string; displayName: string; description: string }> };
+
+          const roles = [];
+          for (const role of data.value || []) {
+            const membersRes = await graphFetch(`/directoryRoles/${role.id}/members?$select=id,displayName,mail`);
+            const membersData = membersRes.ok ? (await membersRes.json() as { value: unknown[] }).value : [];
+            roles.push({ ...role, memberCount: membersData.length, members: membersData });
+          }
+          return { success: true, data: { roleCount: roles.length, roles } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'entra_assign_directory_role',
+      description: 'Assign an Entra directory role to a user. Cannot modify founder role assignments.',
+      parameters: {
+        role_id: { type: 'string', description: 'Directory role ID (GUID)', required: true },
+        user_email: { type: 'string', description: 'User email', required: true },
+        justification: { type: 'string', description: 'Why this role is needed', required: true },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const email = params.user_email as string;
+          if (isProtectedEntraUser(email)) {
+            return { success: false, error: `BLOCKED: ${email} is a protected founder account.` };
+          }
+          const userRes = await graphFetch(`/users/${encodeURIComponent(email)}?$select=id`);
+          if (!userRes.ok) return { success: false, error: `User not found: ${email}` };
+          const user = await userRes.json() as { id: string };
+
+          const res = await graphFetch(`/directoryRoles/${encodeURIComponent(params.role_id as string)}/members/$ref`, 'POST', {
+            '@odata.id': `https://graph.microsoft.com/v1.0/directoryObjects/${user.id}`,
+          });
+          if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
+          return {
+            success: true,
+            data: {
+              grantId: grantId(),
+              action: 'ENTRA_ASSIGN_ROLE',
+              roleId: params.role_id,
+              email,
+              justification: params.justification,
+              assignedAt: new Date().toISOString(),
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    // ── ENTRA ID — APP REGISTRATIONS ────────────────────────────────
+
+    {
+      name: 'entra_list_app_registrations',
+      description: 'List all Entra ID app registrations with their client IDs and credential expiry.',
+      parameters: {},
+      execute: async (_params, _ctx): Promise<ToolResult> => {
+        try {
+          const res = await graphFetch('/applications?$select=id,appId,displayName,passwordCredentials,keyCredentials,createdDateTime&$top=50');
+          if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
+          const data = await res.json() as { value: Array<{ id: string; appId: string; displayName: string; passwordCredentials: Array<{ endDateTime: string; displayName: string }>; keyCredentials: Array<{ endDateTime: string }> }> };
+
+          const now = new Date();
+          const apps = (data.value || []).map(app => {
+            const secrets = (app.passwordCredentials || []).map(c => ({
+              name: c.displayName || '(unnamed)',
+              expiresAt: c.endDateTime,
+              isExpired: new Date(c.endDateTime) < now,
+              daysUntilExpiry: Math.ceil((new Date(c.endDateTime).getTime() - now.getTime()) / 86400000),
+            }));
+            const certs = (app.keyCredentials || []).map(c => ({
+              expiresAt: c.endDateTime,
+              isExpired: new Date(c.endDateTime) < now,
+              daysUntilExpiry: Math.ceil((new Date(c.endDateTime).getTime() - now.getTime()) / 86400000),
+            }));
+            return {
+              displayName: app.displayName,
+              appId: app.appId,
+              objectId: app.id,
+              secretCount: secrets.length,
+              secrets,
+              certCount: certs.length,
+              certs,
+              hasExpiringCredentials: [...secrets, ...certs].some(c => c.daysUntilExpiry < 30 && !c.isExpired),
+              hasExpiredCredentials: [...secrets, ...certs].some(c => c.isExpired),
+            };
+          });
+
+          const expiring = apps.filter(a => a.hasExpiringCredentials);
+          const expired = apps.filter(a => a.hasExpiredCredentials);
+
+          return {
+            success: true,
+            data: {
+              totalApps: apps.length,
+              expiringWithin30Days: expiring.length,
+              expired: expired.length,
+              apps,
+              auditedAt: new Date().toISOString(),
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    // ── ENTRA ID — LICENSE MANAGEMENT ───────────────────────────────
+
+    {
+      name: 'entra_list_licenses',
+      description: 'List all M365/Entra license subscriptions and usage counts.',
+      parameters: {},
+      execute: async (_params, _ctx): Promise<ToolResult> => {
+        try {
+          const res = await graphFetch('/subscribedSkus?$select=skuPartNumber,skuId,prepaidUnits,consumedUnits,appliesTo');
+          if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
+          const data = await res.json() as { value: Array<{ skuPartNumber: string; skuId: string; prepaidUnits: { enabled: number }; consumedUnits: number }> };
+          const licenses = (data.value || []).map(l => ({
+            sku: l.skuPartNumber,
+            skuId: l.skuId,
+            total: l.prepaidUnits?.enabled || 0,
+            consumed: l.consumedUnits || 0,
+            available: (l.prepaidUnits?.enabled || 0) - (l.consumedUnits || 0),
+          }));
+          return { success: true, data: { licenseCount: licenses.length, licenses } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'entra_assign_license',
+      description: 'Assign an M365 license to a user. Cannot modify founder licenses.',
+      parameters: {
+        user_email: { type: 'string', description: 'User email', required: true },
+        sku_id: { type: 'string', description: 'License SKU ID (GUID from entra_list_licenses)', required: true },
+        justification: { type: 'string', description: 'Why this license is needed', required: true },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const email = params.user_email as string;
+          if (isProtectedEntraUser(email)) {
+            return { success: false, error: `BLOCKED: ${email} is a protected founder account.` };
+          }
+          const res = await graphFetch(`/users/${encodeURIComponent(email)}/assignLicense`, 'POST', {
+            addLicenses: [{ skuId: params.sku_id, disabledPlans: [] }],
+            removeLicenses: [],
+          });
+          if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
+          return {
+            success: true,
+            data: {
+              grantId: grantId(),
+              action: 'ENTRA_ASSIGN_LICENSE',
+              email,
+              skuId: params.sku_id,
+              justification: params.justification,
+              assignedAt: new Date().toISOString(),
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'entra_revoke_license',
+      description: 'Remove an M365 license from a user. Cannot modify founder licenses.',
+      parameters: {
+        user_email: { type: 'string', description: 'User email', required: true },
+        sku_id: { type: 'string', description: 'License SKU ID to remove', required: true },
+        justification: { type: 'string', description: 'Why this license is being revoked', required: true },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const email = params.user_email as string;
+          if (isProtectedEntraUser(email)) {
+            return { success: false, error: `BLOCKED: ${email} is a protected founder account.` };
+          }
+          const res = await graphFetch(`/users/${encodeURIComponent(email)}/assignLicense`, 'POST', {
+            addLicenses: [],
+            removeLicenses: [params.sku_id],
+          });
+          if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
+          return {
+            success: true,
+            data: {
+              grantId: grantId(),
+              action: 'ENTRA_REVOKE_LICENSE',
+              email,
+              skuId: params.sku_id,
+              justification: params.justification,
+              revokedAt: new Date().toISOString(),
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    // ── ENTRA ID — AUDIT LOGS ───────────────────────────────────────
+
+    {
+      name: 'entra_audit_sign_ins',
+      description: 'Query recent Entra ID sign-in logs for failed or risky logins.',
+      parameters: {
+        hours: { type: 'number', description: 'Look back N hours (default 24)', required: false },
+        status: { type: 'string', description: 'Filter: "failed", "success", or "all"', required: false, enum: ['failed', 'success', 'all'] },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const hours = (params.hours as number) || 24;
+          const since = new Date(Date.now() - hours * 3600_000).toISOString();
+          const statusFilter = params.status as string || 'all';
+
+          let filter = `createdDateTime ge ${since}`;
+          if (statusFilter === 'failed') filter += ` and status/errorCode ne 0`;
+          else if (statusFilter === 'success') filter += ` and status/errorCode eq 0`;
+
+          const res = await graphFetch(`/auditLogs/signIns?$filter=${encodeURIComponent(filter)}&$top=50&$orderby=createdDateTime desc`);
+          if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
+          const data = await res.json() as { value: Array<{ userDisplayName: string; userPrincipalName: string; createdDateTime: string; status: { errorCode: number; failureReason: string }; ipAddress: string; location: { city: string; countryOrRegion: string } }> };
+
+          const signIns = (data.value || []).map(s => ({
+            user: s.userDisplayName,
+            upn: s.userPrincipalName,
+            time: s.createdDateTime,
+            success: s.status?.errorCode === 0,
+            failureReason: s.status?.failureReason || null,
+            ip: s.ipAddress,
+            location: s.location ? `${s.location.city || '?'}, ${s.location.countryOrRegion || '?'}` : 'unknown',
+          }));
+
+          const failed = signIns.filter(s => !s.success);
+          return {
+            success: true,
+            data: {
+              totalSignIns: signIns.length,
+              failedCount: failed.length,
+              lookbackHours: hours,
+              signIns,
+              auditedAt: new Date().toISOString(),
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    // ── ADMIN LOG (existing) ────────────────────────────────────────
 
     {
       name: 'write_admin_log',
