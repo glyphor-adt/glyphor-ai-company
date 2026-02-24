@@ -1190,8 +1190,12 @@ For graph_operations: Extract key events, metrics, patterns, or risks from this 
 
 For peerFeedback: If during this task you interacted with or observed the work of other agents, include brief feedback for them. Only include genuine observations — leave the array empty if you had no cross-agent interaction.`;
 
+    // Filter to only user/assistant text turns for reflection — including
+    // tool_call/tool_result turns violates Gemini's strict ordering requirement
+    // ("function response turn must come immediately after a function call turn")
+    const textOnlyHistory = history.filter(t => t.role === 'user' || t.role === 'assistant');
     const reflectHistory: ConversationTurn[] = [
-      ...history.slice(-4),
+      ...textOnlyHistory.slice(-4),
       { role: 'user', content: reflectPrompt, timestamp: Date.now() },
     ];
 

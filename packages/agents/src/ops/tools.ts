@@ -65,7 +65,7 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
       execute: async (): Promise<ToolResult> => {
         const { data: agents, error: agErr } = await supabase
           .from('company_agents')
-          .select('id, role, codename, status, last_run_at, total_runs, total_cost_usd, performance_score');
+          .select('id, role, display_name, status, last_run_at, total_runs, total_cost_usd, performance_score');
 
         if (agErr) return { success: false, error: agErr.message };
 
@@ -83,7 +83,7 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
           return {
             id: agent.id,
             role: agent.role,
-            codename: agent.codename,
+            display_name: agent.display_name,
             status: agent.status,
             last_run_at: agent.last_run_at,
             total_runs: agent.total_runs,
