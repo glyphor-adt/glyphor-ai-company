@@ -58,6 +58,8 @@ const KNOWN_TOOLS = new Set([
   'check_escalations',
   'send_dm',
   'send_email',
+  'read_inbox',
+  'reply_to_email',
   'create_calendar_event',
   'read_founder_directives',
   'create_work_assignments',

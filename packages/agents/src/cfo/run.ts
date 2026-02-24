@@ -22,6 +22,7 @@ import { createCollectiveIntelligenceTools } from '../shared/collectiveIntellige
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
+import { createEmailTools } from '../shared/emailTools.js';
 
 export interface CFORunParams {
   task?: 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand';
@@ -53,6 +54,7 @@ export async function runCFO(params: CFORunParams = {}) {
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createEmailTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

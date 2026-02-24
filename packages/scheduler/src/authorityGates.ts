@@ -22,46 +22,46 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
   'chief-of-staff': new Set([
     'compile_briefing', 'route_decision', 'log_activity', 'synthesize_report',
     'check_escalations', 'generate_briefing', 'morning_briefing', 'eod_summary',
-    'on_demand', 'send_dm', 'orchestrate',
+    'on_demand', 'send_dm', 'orchestrate', 'read_inbox',
   ]),
   'cto': new Set([
     'model_fallback', 'cache_optimization', 'scale_within_budget',
     'staging_deploy', 'dependency_update', 'health_check',
     'platform_health_check', 'dependency_review',
-    'on_demand',
+    'on_demand', 'read_inbox',
   ]),
   'cpo': new Set([
     'usage_analysis', 'competitive_scan', 'feature_prioritization',
     'user_research', 'roadmap_analysis', 'weekly_usage_analysis',
-    'on_demand',
+    'on_demand', 'read_inbox',
   ]),
   'cmo': new Set([
     'blog_post', 'social_post', 'seo_analysis', 'case_study_draft',
     'content_calendar', 'generate_content', 'weekly_content_planning',
     'content_creation', 'audit',
-    'on_demand',
+    'on_demand', 'read_inbox',
   ]),
   'cfo': new Set([
     'cost_tracking', 'standard_report', 'margin_calculation',
     'financial_modeling', 'daily_cost_check',
     'audit', 'data_pull',
-    'on_demand',
+    'on_demand', 'read_inbox',
   ]),
   'vp-customer-success': new Set([
     'health_scoring', 'nurture_email', 'segment_update',
     'support_triage', 'churn_detection', 'daily_health_scoring',
     'audit',
-    'on_demand',
+    'on_demand', 'read_inbox',
   ]),
   'vp-sales': new Set([
     'account_research', 'roi_calculator', 'market_sizing',
     'kyc_research', 'proposal_draft', 'pipeline_review',
-    'on_demand',
+    'on_demand', 'read_inbox',
   ]),
   'vp-design': new Set([
     'design_audit', 'design_system_review',
     'audit',
-    'on_demand',
+    'on_demand', 'read_inbox',
   ]),
   // Sub-team members — tasks green (they operate under their exec's authority)
   'platform-engineer': new Set(['health_check', 'metrics_report', 'on_demand']),
@@ -77,7 +77,7 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
   'onboarding-specialist': new Set(['funnel_report', 'drop_off_analysis', 'on_demand']),
   'support-triage': new Set(['triage_queue', 'batch_analysis', 'on_demand']),
   'account-research': new Set(['prospect_research', 'batch_enrich', 'on_demand']),
-  'm365-admin': new Set(['channel_audit', 'user_audit', 'on_demand']),
+  'm365-admin': new Set(['channel_audit', 'user_audit', 'read_inbox', 'on_demand']),
   'ui-ux-designer': new Set(['on_demand']),
   'frontend-engineer': new Set(['on_demand']),
   'design-critic': new Set(['on_demand']),
@@ -87,7 +87,7 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
     'evening_status', 'on_demand', 'event_response',
     'retry_run', 'retry_sync', 'pause_agent', 'resume_agent',
     'create_incident', 'resolve_incident', 'trigger_agent',
-    'send_dm',
+    'send_dm', 'read_inbox',
   ]),
 };
 
@@ -104,6 +104,7 @@ const YELLOW_ACTIONS: Record<string, { assignTo: string[] }> = {
   'production_deploy': { assignTo: ['andrew'] },
   'send_dm': { assignTo: ['kristina', 'andrew'] },
   'send_email': { assignTo: ['kristina', 'andrew'] },
+  'reply_to_email': { assignTo: ['kristina', 'andrew'] },
   'create_calendar_event': { assignTo: ['kristina', 'andrew'] },
 };
 

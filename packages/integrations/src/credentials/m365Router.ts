@@ -22,6 +22,8 @@ export type M365Operation =
   | 'send_teams_dm'
   | 'send_email'
   | 'send_emergency_email'
+  | 'read_inbox'
+  | 'reply_to_email'
   | 'read_excel'
   | 'write_excel'
   | 'read_sharepoint'
@@ -43,6 +45,8 @@ const OPERATION_TO_APP: Record<M365Operation, string> = {
   send_teams_dm: 'AZURE_TEAMS_BOT',
   send_email: 'AZURE_MAIL',
   send_emergency_email: 'AZURE_MAIL',
+  read_inbox: 'AZURE_MAIL',
+  reply_to_email: 'AZURE_MAIL',
   read_excel: 'AZURE_FILES',
   write_excel: 'AZURE_FILES',
   read_sharepoint: 'AZURE_FILES',
