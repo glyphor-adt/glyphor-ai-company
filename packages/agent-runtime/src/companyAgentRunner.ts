@@ -130,15 +130,16 @@ class PromptCache {
 /** Shared prompt cache instance — importable by server.ts for invalidation. */
 export const promptCache = new PromptCache();
 
-/** Extract the task segment from a run ID like "cto-on_demand-1718000000". */
+/** Extract the task segment from a run ID like "cto-on_demand-2026-02-24". */
 function extractTask(configId: string): string {
-  const parts = configId.split('-');
-  // Role may contain hyphens (e.g. chief-of-staff), task is second-to-last segment
-  // Format: <role>-<task>-<timestamp>
-  if (parts.length >= 3) {
-    return parts[parts.length - 2];
+  // Strip trailing ISO date (YYYY-MM-DD) which contains hyphens that
+  // would confuse a naive split — e.g. "cto-on_demand-2026-02-24"
+  const withoutDate = configId.replace(/-\d{4}-\d{2}-\d{2}$/, '');
+  const lastDash = withoutDate.lastIndexOf('-');
+  if (lastDash > 0) {
+    return withoutDate.substring(lastDash + 1);
   }
-  return parts.length === 2 ? parts[1] : parts[0];
+  return withoutDate;
 }
 
 const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {

@@ -22,6 +22,11 @@ import {
   mergeGitHubPR,
   GLYPHOR_REPOS,
   type GlyphorRepo,
+  queryVercelHealth,
+  triggerDeployment,
+  rollbackDeployment,
+  VERCEL_PROJECTS,
+  type VercelProject,
 } from '@glyphor/integrations';
 
 export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
@@ -379,6 +384,110 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         } catch (err) {
           const msg = (err as Error).message;
           if (msg.includes('GITHUB_TOKEN')) return { success: false, error: 'NO_DATA: GITHUB_TOKEN not configured yet.' };
+          return { success: false, error: msg };
+        }
+      },
+    },
+
+    // ─── Vercel ─────────────────────────────────────────────────
+
+    {
+      name: 'query_vercel_health',
+      description: 'Get Vercel deployment health for a product: latest deploy state, recent deploy success/error rates.',
+      parameters: {
+        project: {
+          type: 'string',
+          description: 'Product to check: "fuse" or "pulse"',
+          required: true,
+          enum: ['fuse', 'pulse'],
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const health = await queryVercelHealth(params.project as VercelProject);
+          return { success: true, data: health };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('VERCEL_TOKEN')) return { success: false, error: 'NO_DATA: VERCEL_TOKEN not configured yet.' };
+          return { success: false, error: msg };
+        }
+      },
+    },
+
+    {
+      name: 'trigger_vercel_deploy',
+      description: 'Trigger a new Vercel deployment for a product. Redeploys from the latest deployment.',
+      parameters: {
+        project: {
+          type: 'string',
+          description: 'Product to deploy: "fuse" or "pulse"',
+          required: true,
+          enum: ['fuse', 'pulse'],
+        },
+        target: {
+          type: 'string',
+          description: 'Deploy target: "production" or "preview" (default: production)',
+          required: false,
+          enum: ['production', 'preview'],
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        try {
+          const deployment = await triggerDeployment(
+            params.project as VercelProject,
+            (params.target as 'production' | 'preview') || 'production',
+          );
+          await memory.appendActivity({
+            agentRole: ctx.agentRole,
+            action: 'deploy',
+            product: params.project as 'fuse' | 'pulse',
+            summary: `Triggered Vercel deploy for ${params.project} (${params.target || 'production'})`,
+            details: { deploymentId: deployment.uid, url: deployment.url },
+            createdAt: new Date().toISOString(),
+          });
+          return { success: true, data: deployment };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('VERCEL_TOKEN')) return { success: false, error: 'NO_DATA: VERCEL_TOKEN not configured yet.' };
+          return { success: false, error: msg };
+        }
+      },
+    },
+
+    {
+      name: 'rollback_vercel_deploy',
+      description: 'Rollback a Vercel project to a previous deployment by promoting it.',
+      parameters: {
+        project: {
+          type: 'string',
+          description: 'Product to rollback: "fuse" or "pulse"',
+          required: true,
+          enum: ['fuse', 'pulse'],
+        },
+        deployment_id: {
+          type: 'string',
+          description: 'Deployment ID to rollback to',
+          required: true,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        try {
+          const result = await rollbackDeployment(
+            params.project as VercelProject,
+            params.deployment_id as string,
+          );
+          await memory.appendActivity({
+            agentRole: ctx.agentRole,
+            action: 'deploy',
+            product: params.project as 'fuse' | 'pulse',
+            summary: `Rolled back Vercel deploy for ${params.project} to ${params.deployment_id}`,
+            details: result,
+            createdAt: new Date().toISOString(),
+          });
+          return { success: true, data: result };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('VERCEL_TOKEN')) return { success: false, error: 'NO_DATA: VERCEL_TOKEN not configured yet.' };
           return { success: false, error: msg };
         }
       },

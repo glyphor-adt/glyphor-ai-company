@@ -7,7 +7,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { queryCloudRunMetrics, pingServices, listOpenPRs, getRepoStats, listRecentCommits, type GlyphorRepo } from '@glyphor/integrations';
+import { queryCloudRunMetrics, pingServices, listOpenPRs, getRepoStats, listRecentCommits, type GlyphorRepo, queryVercelHealth, type VercelProject } from '@glyphor/integrations';
 
 export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -161,6 +161,29 @@ export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDef
         } catch (err) {
           const msg = (err as Error).message;
           if (msg.includes('GITHUB_TOKEN')) return { success: false, error: 'NO_DATA: GITHUB_TOKEN not configured.' };
+          return { success: false, error: msg };
+        }
+      },
+    },
+
+    {
+      name: 'query_vercel_health',
+      description: 'Get Vercel deployment health for a product: latest deploy state, recent error rate.',
+      parameters: {
+        project: {
+          type: 'string',
+          description: 'Product to check: "fuse" or "pulse"',
+          required: true,
+          enum: ['fuse', 'pulse'],
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const health = await queryVercelHealth(params.project as VercelProject);
+          return { success: true, data: health };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('VERCEL_TOKEN')) return { success: false, error: 'NO_DATA: VERCEL_TOKEN not configured yet.' };
           return { success: false, error: msg };
         }
       },

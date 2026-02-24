@@ -168,3 +168,23 @@ export {
   type RepoStats,
   type FileContents,
 } from './github/index.js';
+
+// Vercel — deployment management, health, and usage metrics
+export {
+  listDeployments,
+  getDeployment,
+  listProjects as listVercelProjects,
+  getProjectInfo,
+  getProjectDomains,
+  triggerDeployment,
+  rollbackDeployment,
+  queryVercelHealth,
+  queryVercelUsage,
+  VERCEL_PROJECTS,
+  type VercelProject,
+  type VercelDeployment,
+  type VercelProjectInfo,
+  type VercelDomainInfo,
+  type VercelHealthSummary,
+  type VercelUsageSummary,
+} from './vercel/index.js';

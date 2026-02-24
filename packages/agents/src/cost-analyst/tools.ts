@@ -3,7 +3,8 @@
  * Reports to Nadia Okafor (CFO). Infrastructure cost tracking and optimization.
  */
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
-import type { ToolDefinition } from '@glyphor/agent-runtime';
+import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import { queryVercelUsage } from '@glyphor/integrations';
 
 export function createCostAnalystTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -93,6 +94,23 @@ export function createCostAnalystTools(memory: CompanyMemoryStore): ToolDefiniti
         const supabase = memory.getSupabaseClient();
         const { data } = await supabase.from('gcp_billing').select('*').order('recorded_at', { ascending: false }).limit(90);
         return { success: true, data: { historical: data || [], horizon: params.horizon, growthRate: params.growthRate } };
+      },
+    },
+    {
+      name: 'query_vercel_usage',
+      description: 'Query Vercel usage: deployment count, build count, error rate, avg build duration across all projects.',
+      parameters: {
+        days: { type: 'number', description: 'Days to look back (default: 7)', required: false },
+      },
+      async execute(params): Promise<ToolResult> {
+        try {
+          const usage = await queryVercelUsage((params.days as number) || 7);
+          return { success: true, data: usage };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('VERCEL_TOKEN')) return { success: false, error: 'NO_DATA: VERCEL_TOKEN not configured yet.' };
+          return { success: false, error: msg };
+        }
       },
     },
     {
