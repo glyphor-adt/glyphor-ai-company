@@ -102,6 +102,8 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │  ├──────────────┤          │                      │                 │
 │  │ Wake Router  │          │                      │                 │
 │  │ + Heartbeat  │          │                      │                 │
+│  │ + Parallel   │          │                      │                 │
+│  │   Dispatch   │          │                      │                 │
 │  ├──────────────┤          │                      │                 │
 │  │ DataSync     │          │                      │                 │
 │  │ Scheduler    │          │                      │                 │
@@ -142,7 +144,8 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │   │   call_meeting)               │
 │   ├─ assignmentTools              │
 │   │  (read_my_assignments,        │
-│   │   submit_assignment_output,   │
+│   │   submit_assignment_output +  │
+│   │   dependency resolution,      │
 │   │   flag_assignment_blocker)    │
 │   ├─ graphTools                   │
 │   │  (query_knowledge_graph,      │
@@ -402,6 +405,7 @@ glyphor-ai-company/
 │   │       │   ├── memoryTools.ts        # save/recall agent memories
 │   │       │   ├── eventTools.ts         # emit Glyphor events
 │   │       │   ├── communicationTools.ts # send_agent_message, check_messages, call_meeting
+│   │       │   ├── assignmentTools.ts    # read/submit/flag assignments + dependency resolution
 │   │       │   ├── graphTools.ts         # query_knowledge_graph, add_knowledge, trace_causes/impact
 │   │       │   ├── collectiveIntelligenceTools.ts # pulse, knowledge routes, patterns, contradictions
 │   │       │   └── createRunDeps.ts      # Wire up all run dependencies for any agent
@@ -845,42 +849,53 @@ no LLM calls until actual work is found.
 ┌────────────────────────────────────────────────────────────────────────┐
 │                     HEARTBEAT CYCLE (every 10 min)                     │
 │                     POST /heartbeat → HeartbeatManager                 │
+│                     3-Phase Parallel Wave Dispatch                      │
 │                                                                        │
 │  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │ 1. SELECT AGENTS FOR THIS CYCLE                                  │  │
+│  │ PHASE 1: SCAN — Select & check agents for this cycle (no LLM)    │  │
 │  │                                                                  │  │
-│  │    High tier  (every cycle / 10 min):                             │  │
-│  │      chief-of-staff, cto, ops                                    │  │
+│  │    Tier selection (same as before):                                │  │
+│  │      High   (every cycle / 10 min): chief-of-staff, cto, ops     │  │
+│  │      Medium (every 2nd / 20 min):   other executives              │  │
+│  │      Low    (every 3rd / 30 min):   all 18 sub-team members       │  │
 │  │                                                                  │  │
-│  │    Medium tier (every 2nd cycle / 20 min):                        │  │
-│  │      cfo, cpo, cmo, vp-customer-success, vp-sales, vp-design    │  │
-│  │                                                                  │  │
-│  │    Low tier (every 3rd cycle / 30 min):                           │  │
-│  │      All 18 sub-team members                                     │  │
+│  │    For each agent in tier:                                        │  │
+│  │      ✓ Skip if ran < 5 min ago (MIN_RUN_GAP)                     │  │
+│  │      Check A: WakeRouter.drainQueue(agent) — queued reactive      │  │
+│  │      Check B: executeWorkLoop(agent) — P1-P5 priority stack       │  │
+│  │      Check C: Knowledge inbox ≥ 5 items pending                  │  │
+│  │      → Build WaveAgent with assignmentId + dependsOn from DB      │  │
+│  │      → Collect into wakeList[]                                    │  │
 │  └──────────────────────────────────────────────────────────────────┘  │
 │                              │                                         │
 │                              ▼                                         │
 │  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │ 2. FOR EACH AGENT — check needs (no LLM)                        │  │
+│  │ PHASE 2: RESOLVE — Build dependency-ordered waves                │  │
 │  │                                                                  │  │
-│  │    ✓ Skip if ran < 5 min ago (MIN_RUN_GAP)                       │  │
+│  │    buildWaves(wakeList) → topological sort into WaveAgent[][]     │  │
+│  │      → Agents with no dependencies → Wave 0                      │  │
+│  │      → Agents depending on Wave N agents → Wave N+1              │  │
+│  │      → Circular dependencies broken automatically                │  │
 │  │                                                                  │  │
-│  │    Check A: WakeRouter.drainQueue(agent)                          │  │
-│  │      → Dequeue pending reactive wakes from agent_wake_queue       │  │
-│  │      → If any: dispatch immediately with queued task              │  │
-│  │                                                                  │  │
-│  │    Check B: executeWorkLoop(agent, supabase) — PRIORITY STACK     │  │
-│  │      → (See Work Loop Priority Stack below)                       │  │
-│  │                                                                  │  │
-│  │    Check C: Knowledge inbox ≥ 5 items pending                    │  │
-│  │      → Wake to process knowledge                                 │  │
+│  │    Example: W1=[sarah, marcus, elena] → W2=[nadia]               │  │
+│  │    (nadia depends on an assignment owned by marcus)               │  │
 │  └──────────────────────────────────────────────────────────────────┘  │
 │                              │                                         │
 │                              ▼                                         │
 │  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │ 3. WAKE MATCHING AGENTS (staggered 2s delay between each)        │  │
-│  │    → trackedAgentExecutor(role, task, payload)                     │  │
-│  │    → Runs through full Agent Execution Loop above                 │  │
+│  │ PHASE 3: DISPATCH — Parallel wave execution                      │  │
+│  │                                                                  │  │
+│  │    dispatchWaves(waves, executor, supabase)                       │  │
+│  │      For each wave (sequential):                                  │  │
+│  │        For each agent in wave (parallel, max 10 concurrent):      │  │
+│  │          ✓ Concurrency guard: skip if agent already running       │  │
+│  │            (checks agent_runs for status='running')               │  │
+│  │          → trackedAgentExecutor(role, task, payload)               │  │
+│  │          → Timeout: 120s per dispatch                             │  │
+│  │        await Promise.allSettled(wave)                             │  │
+│  │      Next wave starts after previous wave completes               │  │
+│  │                                                                  │  │
+│  │    Returns: { dispatched[], skipped[], failed[] }                 │  │
 │  └──────────────────────────────────────────────────────────────────┘  │
 └────────────────────────────────────────────────────────────────────────┘
 ```
@@ -1108,6 +1123,14 @@ Directive: "Analyze competitive landscape for Pulse"
   Each agent runs via work_loop → task tier → submits output.
   Sarah evaluates each output as it comes in.
   Once all 3 parallel are accepted, Sarah dispatches the sequential one.
+
+  EVENT-DRIVEN DEPENDENCY RESOLUTION:
+  When an agent calls submit_assignment_output(status='completed'),
+  dispatchDependentAssignments() fires immediately (no heartbeat wait):
+    → Queries work_assignments WHERE depends_on @> [completed_id]
+    → Checks if ALL dependencies are now completed
+    → If so: dispatches dependent agents via POST /run (fire-and-forget)
+    → CPO starts within seconds of the last parallel assignment completing
 ```
 
 ---
@@ -1383,7 +1406,7 @@ items available to all agents, closing the Sarah → agent → Sarah orchestrati
 | Tool | Description |
 |------|------------|
 | `read_my_assignments` | Read pending work assignments from Sarah. Joins `work_assignments` with `founder_directives` for context. Filters by status (default: actionable). Returns instructions, expected output, priority, directive context, and feedback for revisions. |
-| `submit_assignment_output` | Submit completed work for a specific assignment. Verifies ownership, updates `work_assignments`, sends notification to chief-of-staff, emits `assignment.submitted` event, logs to `activity_log`. Supports `completed` and `in_progress` statuses. |
+| `submit_assignment_output` | Submit completed work for a specific assignment. Verifies ownership, updates `work_assignments`, sends notification to chief-of-staff, emits `assignment.submitted` event, **triggers dependency resolution** (dispatches agents whose `depends_on` are now all met), logs to `activity_log`. Supports `completed` and `in_progress` statuses. |
 | `flag_assignment_blocker` | Flag an assignment as blocked. Verifies ownership, sets status to `blocked`, sends urgent message to chief-of-staff with need type (tool_access, data_access, peer_help, founder_input, external_dependency, unclear_instructions, other), emits `alert.triggered` event. |
 
 ### Agent Budget Caps
@@ -1589,7 +1612,8 @@ then checks cron expressions every 60 seconds.
 
 | File | Purpose |
 |------|---------|
-| `packages/scheduler/src/heartbeat.ts` | HeartbeatManager: 3-tier frequency, drain wake queue, run work loop |
+| `packages/scheduler/src/parallelDispatch.ts` | Wave builder (buildWaves), parallel dispatcher (dispatchWaves), dependency resolver (resolveAndDispatchDependents), concurrency guard (isAgentRunning). Max 10 concurrent agents per wave, 120s dispatch timeout. |
+| `packages/scheduler/src/heartbeat.ts` | HeartbeatManager: 3-tier frequency, drain wake queue, 3-phase parallel wave dispatch (SCAN → RESOLVE → DISPATCH) |
 | `packages/scheduler/src/wakeRouter.ts` | Event → WAKE_RULES matching → immediate/queued dispatch |
 | `packages/scheduler/src/wakeRules.ts` | 14 declarative event-to-agent wake rules |
 | `packages/agent-runtime/src/workLoop.ts` | P1-P6 priority stack, proactive cooldowns, abort cooldowns |
