@@ -12,6 +12,7 @@ import {
   EventBus,
   GlyphorEventBus,
   type AgentConfig,
+  type ConversationTurn,
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { VP_SALES_SYSTEM_PROMPT } from './systemPrompt.js';
@@ -25,6 +26,7 @@ import { createAssignmentTools } from '../shared/assignmentTools.js';
 export interface VPSalesRunParams {
   task?: 'pipeline_review' | 'market_sizing' | 'on_demand';
   message?: string;
+  conversationHistory?: ConversationTurn[];
 }
 
 export async function runVPSales(params: VPSalesRunParams = {}) {
@@ -112,6 +114,7 @@ Steps:
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
+    conversationHistory: params.conversationHistory,
   };
 
   const supervisor = new AgentSupervisor({

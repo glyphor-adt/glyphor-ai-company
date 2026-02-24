@@ -12,6 +12,7 @@ import {
   EventBus,
   GlyphorEventBus,
   type AgentConfig,
+  type ConversationTurn,
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { PLATFORM_ENGINEER_SYSTEM_PROMPT } from './systemPrompt.js';
@@ -25,6 +26,7 @@ import { createAssignmentTools } from '../shared/assignmentTools.js';
 export interface PlatformEngineerRunParams {
   task?: 'health_check' | 'metrics_report' | 'on_demand';
   message?: string;
+  conversationHistory?: ConversationTurn[];
 }
 
 export async function runPlatformEngineer(params: PlatformEngineerRunParams = {}) {
@@ -110,6 +112,7 @@ Steps:
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
+    conversationHistory: params.conversationHistory,
   };
 
   const supervisor = new AgentSupervisor({

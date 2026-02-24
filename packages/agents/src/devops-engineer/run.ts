@@ -6,6 +6,7 @@
 import {
   CompanyAgentRunner, ModelClient, AgentSupervisor,
   ToolExecutor, EventBus, GlyphorEventBus, type AgentConfig,
+  type ConversationTurn,
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { DEVOPS_ENGINEER_SYSTEM_PROMPT } from './systemPrompt.js';
@@ -19,6 +20,7 @@ import { createAssignmentTools } from '../shared/assignmentTools.js';
 export interface DevOpsEngineerRunParams {
   task?: 'optimization_scan' | 'pipeline_report' | 'on_demand';
   message?: string;
+  conversationHistory?: ConversationTurn[];
 }
 
 export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
@@ -75,6 +77,7 @@ export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
     model: agentCfg.model, tools, maxTurns: agentCfg.maxTurns,
     maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
+    conversationHistory: params.conversationHistory,
   };
 
   const supervisor = new AgentSupervisor({

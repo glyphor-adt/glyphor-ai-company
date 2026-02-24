@@ -13,6 +13,7 @@ import {
   EventBus,
   GlyphorEventBus,
   type AgentConfig,
+  type ConversationTurn,
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CHIEF_OF_STAFF_SYSTEM_PROMPT, ORCHESTRATION_PROMPT } from './systemPrompt.js';
@@ -27,6 +28,7 @@ export interface CoSRunParams {
   task?: 'generate_briefing' | 'check_escalations' | 'weekly_review' | 'monthly_retrospective' | 'orchestrate' | 'on_demand';
   recipient?: 'kristina' | 'andrew';
   message?: string;
+  conversationHistory?: ConversationTurn[];
 }
 
 export async function runChiefOfStaff(params: CoSRunParams = {}) {
@@ -169,6 +171,7 @@ Be decisive. Assign real work. Move things forward.`;
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
+    conversationHistory: params.conversationHistory,
   };
 
   const supervisor = new AgentSupervisor({

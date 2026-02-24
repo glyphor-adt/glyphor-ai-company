@@ -12,6 +12,7 @@ import {
   EventBus,
   GlyphorEventBus,
   type AgentConfig,
+  type ConversationTurn,
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { VP_CUSTOMER_SUCCESS_SYSTEM_PROMPT } from './systemPrompt.js';
@@ -26,6 +27,7 @@ import { createAssignmentTools } from '../shared/assignmentTools.js';
 export interface VPCSRunParams {
   task?: 'daily_health_scoring' | 'churn_detection' | 'on_demand';
   message?: string;
+  conversationHistory?: ConversationTurn[];
 }
 
 export async function runVPCS(params: VPCSRunParams = {}) {
@@ -113,6 +115,7 @@ Steps:
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
+    conversationHistory: params.conversationHistory,
   };
 
   const supervisor = new AgentSupervisor({

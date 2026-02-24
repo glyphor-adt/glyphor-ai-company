@@ -10,7 +10,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GlyphorEventBus, ModelClient, promptCache } from '@glyphor/agent-runtime';
-import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent } from '@glyphor/agent-runtime';
+import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn } from '@glyphor/agent-runtime';
 import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, type KlingCredentials, TeamsBotHandler, extractBearerToken, runGovernanceSync } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
 import { EventRouter } from './eventRouter.js';
@@ -104,6 +104,7 @@ const agentExecutor = async (
   payload: Record<string, unknown>,
 ): Promise<AgentExecutionResult | void> => {
   const message = (payload.message as string) || undefined;
+  const conversationHistory = payload.conversationHistory as ConversationTurn[] | undefined;
 
   // ─── Universal work_loop / proactive routing ──────────────
   // These tasks are dispatched by the heartbeat work loop for any agent.
@@ -127,68 +128,69 @@ const agentExecutor = async (
       task: taskMap[task] ?? 'on_demand',
       recipient: payload.founder as 'kristina' | 'andrew' | undefined,
       message,
+      conversationHistory,
     });
   } else if (agentRole === 'cto') {
-    return runCTO({ task: (task as 'platform_health_check' | 'dependency_review' | 'on_demand'), message });
+    return runCTO({ task: (task as 'platform_health_check' | 'dependency_review' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'cfo') {
-    return runCFO({ task: (task as 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand'), message });
+    return runCFO({ task: (task as 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'cpo') {
-    return runCPO({ task: (task as 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand'), message });
+    return runCPO({ task: (task as 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'cmo') {
-    return runCMO({ task: (task as 'weekly_content_planning' | 'generate_content' | 'seo_analysis' | 'on_demand'), message });
+    return runCMO({ task: (task as 'weekly_content_planning' | 'generate_content' | 'seo_analysis' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'vp-customer-success') {
-    return runVPCS({ task: (task as 'daily_health_scoring' | 'churn_detection' | 'on_demand'), message });
+    return runVPCS({ task: (task as 'daily_health_scoring' | 'churn_detection' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'vp-sales') {
-    return runVPSales({ task: (task as 'pipeline_review' | 'market_sizing' | 'on_demand'), message });
+    return runVPSales({ task: (task as 'pipeline_review' | 'market_sizing' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'vp-design') {
-    return runVPDesign({ task: (task as 'design_audit' | 'design_system_review' | 'on_demand'), message });
+    return runVPDesign({ task: (task as 'design_audit' | 'design_system_review' | 'on_demand'), message, conversationHistory });
   }
   // ─── Sub-team agents ────────────────────────────────────────
   // Engineering
   else if (agentRole === 'platform-engineer') {
-    return runPlatformEngineer({ task: (task as 'health_check' | 'metrics_report' | 'on_demand'), message });
+    return runPlatformEngineer({ task: (task as 'health_check' | 'metrics_report' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'quality-engineer') {
-    return runQualityEngineer({ task: (task as 'qa_report' | 'regression_check' | 'on_demand'), message });
+    return runQualityEngineer({ task: (task as 'qa_report' | 'regression_check' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'devops-engineer') {
-    return runDevOpsEngineer({ task: (task as 'optimization_scan' | 'pipeline_report' | 'on_demand'), message });
+    return runDevOpsEngineer({ task: (task as 'optimization_scan' | 'pipeline_report' | 'on_demand'), message, conversationHistory });
   }
   // Product
   else if (agentRole === 'user-researcher') {
-    return runUserResearcher({ task: (task as 'cohort_analysis' | 'churn_signals' | 'on_demand'), message });
+    return runUserResearcher({ task: (task as 'cohort_analysis' | 'churn_signals' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'competitive-intel') {
-    return runCompetitiveIntel({ task: (task as 'landscape_scan' | 'deep_dive' | 'on_demand'), message });
+    return runCompetitiveIntel({ task: (task as 'landscape_scan' | 'deep_dive' | 'on_demand'), message, conversationHistory });
   }
   // Finance
   else if (agentRole === 'revenue-analyst') {
-    return runRevenueAnalyst({ task: (task as 'revenue_report' | 'forecast' | 'on_demand'), message });
+    return runRevenueAnalyst({ task: (task as 'revenue_report' | 'forecast' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'cost-analyst') {
-    return runCostAnalyst({ task: (task as 'cost_report' | 'waste_scan' | 'on_demand'), message });
+    return runCostAnalyst({ task: (task as 'cost_report' | 'waste_scan' | 'on_demand'), message, conversationHistory });
   }
   // Marketing
   else if (agentRole === 'content-creator') {
-    return runContentCreator({ task: (task as 'blog_draft' | 'social_batch' | 'performance_review' | 'on_demand'), message });
+    return runContentCreator({ task: (task as 'blog_draft' | 'social_batch' | 'performance_review' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'seo-analyst') {
-    return runSeoAnalyst({ task: (task as 'ranking_report' | 'keyword_research' | 'competitor_gap' | 'on_demand'), message });
+    return runSeoAnalyst({ task: (task as 'ranking_report' | 'keyword_research' | 'competitor_gap' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'social-media-manager') {
-    return runSocialMediaManager({ task: (task as 'engagement_report' | 'schedule_batch' | 'mention_scan' | 'on_demand'), message });
+    return runSocialMediaManager({ task: (task as 'engagement_report' | 'schedule_batch' | 'mention_scan' | 'on_demand'), message, conversationHistory });
   }
   // Customer Success
   else if (agentRole === 'onboarding-specialist') {
-    return runOnboardingSpecialist({ task: (task as 'funnel_report' | 'drop_off_analysis' | 'on_demand'), message });
+    return runOnboardingSpecialist({ task: (task as 'funnel_report' | 'drop_off_analysis' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'support-triage') {
-    return runSupportTriage({ task: (task as 'triage_queue' | 'batch_analysis' | 'on_demand'), message });
+    return runSupportTriage({ task: (task as 'triage_queue' | 'batch_analysis' | 'on_demand'), message, conversationHistory });
   }
   // Sales
   else if (agentRole === 'account-research') {
-    return runAccountResearch({ task: (task as 'prospect_research' | 'batch_enrich' | 'on_demand'), message, company: payload.company as string | undefined });
+    return runAccountResearch({ task: (task as 'prospect_research' | 'batch_enrich' | 'on_demand'), message, company: payload.company as string | undefined, conversationHistory });
   }
   // IT / M365
   else if (agentRole === 'm365-admin') {
-    return runM365Admin({ task: (task as 'channel_audit' | 'user_audit' | 'on_demand'), message });
+    return runM365Admin({ task: (task as 'channel_audit' | 'user_audit' | 'on_demand'), message, conversationHistory });
   }
   // Operations
   else if (agentRole === 'ops') {
-    return runOps({ task: (task as 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'contradiction_detection' | 'knowledge_hygiene'), message, eventPayload: payload });
+    return runOps({ task: (task as 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'contradiction_detection' | 'knowledge_hygiene'), message, eventPayload: payload, conversationHistory });
   } else {
     console.log(`[Scheduler] Agent ${agentRole} not recognized, skipping task: ${task}`);
   }
@@ -738,26 +740,20 @@ const server = createServer(async (req, res) => {
       const body = JSON.parse(await readBody(req));
       const agentRole = body.agentRole ?? body.agent;
 
-      // Build conversational message — always frame as founder chat
+      // Build conversational message — pass clean message + proper multi-turn history
       let message = body.message as string | undefined;
-      const history = body.history as { role: string; content: string }[] | undefined;
-      if (message) {
-        if (history?.length) {
-          const contextLines = history.map((h) =>
-            h.role === 'user' ? `Founder: ${h.content}` : `You: ${h.content}`,
-          );
-          message = [
-            '## Prior conversation',
-            ...contextLines,
-            '',
-            '## Current message',
-            `Founder: ${message}`,
-            '',
-            'Respond to the founder\'s current message. Use the prior conversation for context.',
-          ].join('\n');
-        } else {
-          // First message — still frame as founder chat so agents detect conversational tone
-          message = `Founder: ${message}\n\nRespond directly to the founder. Match the tone and energy of their message.`;
+      const rawHistory = body.history as { role: string; content: string }[] | undefined;
+
+      // Convert dashboard chat history to proper ConversationTurn[] for multi-turn
+      const conversationHistory: ConversationTurn[] = [];
+      if (rawHistory?.length) {
+        for (const h of rawHistory) {
+          // Skip the last user message — it's the current message
+          conversationHistory.push({
+            role: h.role === 'user' ? 'user' : 'assistant',
+            content: h.content,
+            timestamp: Date.now(),
+          });
         }
       }
 
@@ -765,7 +761,11 @@ const server = createServer(async (req, res) => {
         source: 'manual',
         agentRole,
         task: body.task,
-        payload: { ...(body.payload ?? {}), message },
+        payload: {
+          ...(body.payload ?? {}),
+          message,
+          ...(conversationHistory.length > 0 ? { conversationHistory } : {}),
+        },
       });
 
       // Record agent output back to work_assignments if this run was dispatched by orchestration

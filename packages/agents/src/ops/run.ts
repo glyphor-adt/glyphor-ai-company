@@ -13,6 +13,7 @@ import {
   EventBus,
   GlyphorEventBus,
   type AgentConfig,
+  type ConversationTurn,
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { OPS_SYSTEM_PROMPT } from './systemPrompt.js';
@@ -27,6 +28,7 @@ export interface OpsRunParams {
   task?: 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'performance_rollup' | 'milestone_detection' | 'growth_update' | 'contradiction_detection' | 'knowledge_hygiene';
   message?: string;
   eventPayload?: Record<string, unknown>;
+  conversationHistory?: ConversationTurn[];
 }
 
 export async function runOps(params: OpsRunParams = {}) {
@@ -219,6 +221,7 @@ Goal: Ensure knowledge routing is efficient, stale information is flagged, and t
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
+    conversationHistory: params.conversationHistory,
   };
 
   const supervisor = new AgentSupervisor({

@@ -12,6 +12,7 @@ import {
   EventBus,
   GlyphorEventBus,
   type AgentConfig,
+  type ConversationTurn,
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CMO_SYSTEM_PROMPT } from './systemPrompt.js';
@@ -26,6 +27,7 @@ import { createAssignmentTools } from '../shared/assignmentTools.js';
 export interface CMORunParams {
   task?: 'weekly_content_planning' | 'generate_content' | 'seo_analysis' | 'on_demand';
   message?: string;
+  conversationHistory?: ConversationTurn[];
 }
 
 export async function runCMO(params: CMORunParams = {}) {
@@ -127,6 +129,7 @@ Steps:
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
+    conversationHistory: params.conversationHistory,
   };
 
   const supervisor = new AgentSupervisor({

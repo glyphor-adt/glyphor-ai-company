@@ -6,6 +6,7 @@
 import {
   CompanyAgentRunner, ModelClient, AgentSupervisor,
   ToolExecutor, EventBus, GlyphorEventBus, type AgentConfig,
+  type ConversationTurn,
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { M365_ADMIN_SYSTEM_PROMPT } from './systemPrompt.js';
@@ -19,6 +20,7 @@ import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 export interface M365AdminRunParams {
   task?: 'channel_audit' | 'user_audit' | 'on_demand';
   message?: string;
+  conversationHistory?: ConversationTurn[];
 }
 
 export async function runM365Admin(params: M365AdminRunParams = {}) {
@@ -80,6 +82,7 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
+    conversationHistory: params.conversationHistory,
   };
 
   const supervisor = new AgentSupervisor({

@@ -5,6 +5,7 @@
 import {
   CompanyAgentRunner, ModelClient, AgentSupervisor,
   ToolExecutor, EventBus, GlyphorEventBus, type AgentConfig,
+  type ConversationTurn,
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { ACCOUNT_RESEARCH_SYSTEM_PROMPT } from './systemPrompt.js';
@@ -19,6 +20,7 @@ export interface AccountResearchRunParams {
   task?: 'prospect_research' | 'batch_enrich' | 'on_demand';
   message?: string;
   company?: string;
+  conversationHistory?: ConversationTurn[];
 }
 
 export async function runAccountResearch(params: AccountResearchRunParams = {}) {
@@ -69,6 +71,7 @@ export async function runAccountResearch(params: AccountResearchRunParams = {}) 
     systemPrompt: ACCOUNT_RESEARCH_SYSTEM_PROMPT, model: agentCfg.model,
     tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
+    conversationHistory: params.conversationHistory,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
   const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));

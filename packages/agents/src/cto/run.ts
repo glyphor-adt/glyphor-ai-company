@@ -12,6 +12,7 @@ import {
   EventBus,
   GlyphorEventBus,
   type AgentConfig,
+  type ConversationTurn,
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CTO_SYSTEM_PROMPT } from './systemPrompt.js';
@@ -25,6 +26,7 @@ import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 export interface CTORunParams {
   task?: 'platform_health_check' | 'dependency_review' | 'on_demand';
   message?: string;
+  conversationHistory?: ConversationTurn[];
 }
 
 export async function runCTO(params: CTORunParams = {}) {
@@ -109,6 +111,7 @@ Steps:
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
+    conversationHistory: params.conversationHistory,
   };
 
   const supervisor = new AgentSupervisor({

@@ -861,11 +861,11 @@ export class CompanyAgentRunner {
             tokenEstimate: estimateTokens(history),
           });
 
-          const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt, dynamicBrief, agentProfile, skillContext, dbKnowledgeBase, bulletinContext, isOnDemand);
-
           // Task-level thinking override
           const task = extractTask(config.id);
           const isOnDemand = task === 'on_demand';
+
+          const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt, dynamicBrief, agentProfile, skillContext, dbKnowledgeBase, bulletinContext, isOnDemand);
           let effectiveThinking = config.thinkingEnabled;
           if (THINKING_DISABLED_TASKS.has(task)) {
             effectiveThinking = false;
