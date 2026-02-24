@@ -259,6 +259,7 @@ const KNOWN_TOOLS = new Set([
   'write_admin_log',
 
   // ── Global Admin (Morgan) tools ──
+  // GCP
   'list_project_iam',
   'grant_project_role',
   'revoke_project_role',
@@ -270,6 +271,21 @@ const KNOWN_TOOLS = new Set([
   'revoke_secret_access',
   'run_access_audit',
   'run_onboarding',
+  // Entra ID / Azure AD
+  'entra_list_users',
+  'entra_create_user',
+  'entra_disable_user',
+  'entra_list_groups',
+  'entra_list_group_members',
+  'entra_add_group_member',
+  'entra_remove_group_member',
+  'entra_list_directory_roles',
+  'entra_assign_directory_role',
+  'entra_list_app_registrations',
+  'entra_list_licenses',
+  'entra_assign_license',
+  'entra_revoke_license',
+  'entra_audit_sign_ins',
 
   // ── External / legacy tools ──
   'web_search',

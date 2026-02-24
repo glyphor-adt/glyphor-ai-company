@@ -501,13 +501,21 @@ export const WRITE_TOOLS: ReadonlySet<string> = new Set([
   'resolve_incident',
   'post_system_status',
   'store_intel',
-  // Global admin IAM mutations
+  // Global admin — GCP IAM mutations
   'grant_project_role',
   'revoke_project_role',
   'create_service_account',
   'grant_secret_access',
   'revoke_secret_access',
   'run_onboarding',
+  // Global admin — Entra ID mutations
+  'entra_create_user',
+  'entra_disable_user',
+  'entra_add_group_member',
+  'entra_remove_group_member',
+  'entra_assign_directory_role',
+  'entra_assign_license',
+  'entra_revoke_license',
   // Tool grant management
   'grant_tool_access',
   'revoke_tool_access',

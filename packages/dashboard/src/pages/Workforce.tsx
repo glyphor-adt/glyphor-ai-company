@@ -40,7 +40,8 @@ const TITLE_MAP: Record<string, string> = {
   ops: 'Operations Agent',
 };
 
-const TOTAL_HEADCOUNT = FOUNDERS.length + 8 + SUB_TEAM.length; // founders + execs + ICs
+const EXEC_COUNT = Object.keys(TITLE_MAP).length;
+const TOTAL_HEADCOUNT = FOUNDERS.length + EXEC_COUNT + SUB_TEAM.length; // founders + execs + ICs
 
 type ViewMode = 'org-chart' | 'grid';
 
@@ -61,7 +62,7 @@ export default function Workforce() {
         <div>
           <h1 className="text-2xl font-bold text-txt-primary">Workforce</h1>
           <p className="mt-1 text-sm text-txt-muted">
-            {TOTAL_HEADCOUNT} employees · {FOUNDERS.length} founders · {agents.length} AI executives · {SUB_TEAM.length} team members
+            {TOTAL_HEADCOUNT} employees · {FOUNDERS.length} founders · {EXEC_COUNT} AI executives · {SUB_TEAM.length} team members
           </p>
         </div>
         <div className="flex items-center gap-3">
