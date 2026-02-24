@@ -1380,7 +1380,7 @@ For peerFeedback: If during this task you interacted with or observed the work o
       const saveFn = store.saveMemoryWithEmbedding
         ? store.saveMemoryWithEmbedding.bind(store)
         : store.saveMemory.bind(store);
-      const memoryPromises = memories.slice(0, 5).map(mem =>
+      const memoryPromises = memories.slice(0, 5).map((mem: any) =>
         saveFn({
           agentRole: config.role,
           memoryType: mem.type ?? 'observation',
@@ -1422,8 +1422,8 @@ For peerFeedback: If during this task you interacted with or observed the work o
       // Route new knowledge to relevant agents via the CI system
       const knowledgePromises = (knowledgeRouter && memories.length > 0)
         ? memories.slice(0, 5)
-            .filter(mem => mem.type === 'learning' || mem.type === 'fact')
-            .map(mem => knowledgeRouter({
+            .filter((mem: any) => mem.type === 'learning' || mem.type === 'fact')
+            .map((mem: any) => knowledgeRouter({
               agent_id: config.role,
               content: mem.content ?? '',
               tags: mem.tags ?? [],
@@ -1434,7 +1434,7 @@ For peerFeedback: If during this task you interacted with or observed the work o
       // Save peer feedback
       const peerFeedback = parsed.peerFeedback ?? [];
       const peerPromises = (peerFeedback.length > 0 && store.savePeerFeedback)
-        ? peerFeedback.slice(0, 3).map(fb =>
+        ? peerFeedback.slice(0, 3).map((fb: any) =>
             store.savePeerFeedback!({
               fromAgent: config.role,
               toAgent: fb.toAgent,
