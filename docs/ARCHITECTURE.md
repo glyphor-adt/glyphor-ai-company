@@ -1,12 +1,12 @@
 # Glyphor AI Company — System Architecture
 
-> Last updated: 2026-02-24
+> Last updated: 2026-02-28
 
 ## Overview
 
 Glyphor AI Company is a monorepo containing 8 AI executive agents, 18 sub-team members, and
 1 operations agent that autonomously operate Glyphor alongside two human founders (Kristina
-Denney, CEO; Andrew Denney, COO). The agents run 24/7 on GCP Cloud Run, share state through
+Denney, CEO; Andrew Zwelling, COO). The agents run 24/7 on GCP Cloud Run, share state through
 Supabase, communicate with founders via Microsoft Teams, and are governed by a three-tier
 authority model (Green / Yellow / Red).
 
@@ -293,7 +293,7 @@ and dashboard entries. They operate under their executive's authority scope and 
 ### Org Chart
 
 ```
-             Kristina Denney (CEO)     Andrew Denney (COO)
+             Kristina Denney (CEO)     Andrew Zwelling (COO)
                          \               /
                           \             /
                         Sarah Chen (CoS)
@@ -585,83 +585,596 @@ glyphor-ai-company/
 
 ---
 
-## Agent Runtime — Execution Engine
+## Agent Framework — Execution Engine, Workflows & Loops
 
-### CompanyAgentRunner
+This section documents the complete agent framework: every loop, workflow, and decision
+path that powers 24/7 autonomous operations.
 
-The core execution loop (ported from Fuse V7 `agentRunner.ts`):
+### Master Flow Diagram
 
 ```
-1. BUILD SYSTEM PROMPT
-   buildSystemPrompt(role, existingPrompt, dynamicBrief?, profile?, skillContext?, dbKnowledgeBase?, bulletinContext?)
-    → Personality Block (WHO YOU ARE)    (from agent_profiles table)
-    → Conversation Mode Detection        (casual vs task routing)
-    → Reasoning Protocol                 (Orient → Plan → Execute → Reflect)
-    → Work Assignments Protocol           (check → work → submit/flag)
-    → Skill Block (if skills active)      (methodology, proficiency, refinements)
-    → Role Brief from briefs/{name}.md   (or DB agent_briefs)
-    → Agent's own systemPrompt
-    → Company Knowledge Base              (DB-driven via knowledgeBaseLoader, or static CORE.md fallback)
-    → Department context files            (context/{department}.md)
-    → Founder Bulletins                   (from bulletinLoader, priority-coded)
-    → Anti-patterns appended (no filler phrases, no corporate jargon, etc.)
+                              ┌─────────────────────────────────────────┐
+                              │            ENTRY POINTS                 │
+                              │                                         │
+                              │  ① Cloud Scheduler cron → Pub/Sub      │
+                              │  ② Dashboard chat → POST /run           │
+                              │  ③ Teams bot DM → POST /api/teams/msg   │
+                              │  ④ Heartbeat timer → POST /heartbeat    │
+                              │  ⑤ Event bus → POST /event              │
+                              │  ⑥ Stripe/webhook → POST /webhook/*     │
+                              └──────────────┬──────────────────────────┘
+                                             │
+                                             ▼
+                              ┌──────────────────────────────┐
+                              │     trackedAgentExecutor      │
+                              │  (INSERT agent_runs,          │
+                              │   call agentExecutor,         │
+                              │   UPDATE agent_runs w/ stats) │
+                              └──────────────┬───────────────┘
+                                             │
+                           ┌─────────────────┼──────────────────┐
+                           │                 │                  │
+           task=work_loop  │   task=on_demand │   task=scheduled │
+           task=proactive  │                 │   (briefing,     │
+                           │                 │    orchestrate,  │
+                           ▼                 │    health_check) │
+                   ┌───────────────┐         │                  │
+                   │ Re-route as   │         │                  │
+                   │ on_demand +   │         │                  │
+                   │ work message  │─────────┤                  │
+                   └───────────────┘         │                  │
+                                             ▼                  ▼
+                              ┌──────────────────────────────────┐
+                              │   Role Dispatch (27 branches)    │
+                              │                                  │
+                              │   chief-of-staff → runCoS()      │
+                              │   cto → runCTO()                 │
+                              │   cfo → runCFO()                 │
+                              │   cpo → runCPO()                 │
+                              │   ... (all 27 agent runners)     │
+                              └──────────────┬───────────────────┘
+                                             │
+                                             ▼
+                              ┌──────────────────────────────────┐
+                              │    CompanyAgentRunner.run()       │
+                              │    (Core Execution Loop)          │
+                              │                                  │
+                              │    See: Agent Execution Loop      │
+                              └──────────────────────────────────┘
+```
 
-2. TIERED CONTEXT LOADING
-    → **light** (on_demand/chat): profile + pending messages + working memory only
-    → **task** (work_loop): minimal ~150 line prompt — personality + assignment protocol + cost
-       awareness only. NO KB, brief, memories, reasoning, skills, or bulletins. 6 turns / 120 s.
-    → **standard** (most scheduled tasks): adds KB + brief + memories + bulletins
-    → **full** (briefing, orchestrate, deep analysis): everything including CI, graph, skills
-    → On-demand auto-upgrades light → standard if message matches task keywords
+### Agent Execution Loop (CompanyAgentRunner)
 
-3. PARALLEL PRE-RUN DATA LOADING
-    All loaders run in parallel via Promise.all:
-    → Memory retrieval (up to 20 memories + 3 reflections + 5 semantic matches)
-    → Pending inter-agent messages (marked as read)
-    → Pending work assignments (with directive context)
-    → Collective intelligence (pulse + org knowledge + inbox) — full tier only
-    → Agent personality profile — cached (5 min TTL)
-    → Working memory (last-run summary for continuity)
-    → Skill context (matched skills for task) — full tier only
-    → Knowledge base — cached (5 min TTL)
-    → Founder bulletins — cached (5 min TTL)
+The core execution loop (ported from Fuse V7 `agentRunner.ts`). Every single agent run —
+whether triggered by cron, chat, heartbeat, or event — flows through this exact loop:
 
-4. SUPERVISOR CHECK
-    → Verify turnCount < maxTurns (default 10)
-    → Verify stallCount < maxStallTurns (default 3)
-    → Verify timeout not exceeded (default 60 s)
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    CompanyAgentRunner.run()                       │
+│                                                                  │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │ 1. CONTEXT TIER RESOLUTION                                 │  │
+│  │    resolveContextTier(task, message) →                      │  │
+│  │      on_demand     → light (auto-upgrade to standard       │  │
+│  │                       if message matches task keywords)     │  │
+│  │      work_loop     → task  (narrow executor, ~150 lines)   │  │
+│  │      briefing/orch → full  (everything: CI, graph, skills) │  │
+│  │      other         → standard (KB + brief + memories)      │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                              │                                   │
+│                              ▼                                   │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │ 2. PARALLEL PRE-RUN DATA LOADING (Promise.all)             │  │
+│  │    All 10 loaders fire simultaneously:                      │  │
+│  │                                                             │  │
+│  │    ┌─────────────┐ ┌──────────────┐ ┌───────────────────┐  │  │
+│  │    │ Memory      │ │ Profile      │ │ Pending Messages  │  │  │
+│  │    │ 20 memories │ │ (cached 5m)  │ │ (inter-agent DMs) │  │  │
+│  │    │ 3 reflects  │ │              │ │                   │  │  │
+│  │    │ 5 semantic  │ │              │ │                   │  │  │
+│  │    └─────────────┘ └──────────────┘ └───────────────────┘  │  │
+│  │    ┌─────────────┐ ┌──────────────┐ ┌───────────────────┐  │  │
+│  │    │ Dynamic     │ │ Working Mem  │ │ Knowledge Base    │  │  │
+│  │    │ Brief (DB)  │ │ (last-run    │ │ (DB, cached 5m)   │  │  │
+│  │    │             │ │  summary)    │ │                   │  │  │
+│  │    └─────────────┘ └──────────────┘ └───────────────────┘  │  │
+│  │    ┌─────────────┐ ┌──────────────┐ ┌───────────────────┐  │  │
+│  │    │ CI Context  │ │ Skill Ctx    │ │ Founder Bulletins │  │  │
+│  │    │ (full only) │ │ (full only)  │ │ (cached 5m)       │  │  │
+│  │    └─────────────┘ └──────────────┘ └───────────────────┘  │  │
+│  │    ┌─────────────────────────────────────────────────────┐  │  │
+│  │    │ Pending Work Assignments (with directive context)    │  │  │
+│  │    └─────────────────────────────────────────────────────┘  │  │
+│  │                                                             │  │
+│  │    Light: profile + messages + working memory only          │  │
+│  │    Task:  profile + messages + assignments only             │  │
+│  │    Standard: + KB + brief + memories + bulletins            │  │
+│  │    Full: + CI + graph + skills                              │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                              │                                   │
+│                              ▼                                   │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │ 3. BUILD SYSTEM PROMPT                                     │  │
+│  │                                                             │  │
+│  │    Standard/Full tier (personality-first ordering):          │  │
+│  │    ┌──────────────────────────────────────────────────────┐ │  │
+│  │    │ ① WHO YOU ARE — personality, voice, quirks, examples │ │  │
+│  │    │ ② CONVERSATION MODE — casual vs task routing         │ │  │
+│  │    │ ③ REASONING PROTOCOL — Orient→Plan→Execute→Reflect   │ │  │
+│  │    │ ④ WORK ASSIGNMENTS PROTOCOL — read→work→submit/flag  │ │  │
+│  │    │ ⑤ ALWAYS-ON PROTOCOL — P1-P5 priority stack          │ │  │
+│  │    │ ⑥ SKILLS — methodology, proficiency, refinements     │ │  │
+│  │    │ ⑦ ROLE BRIEF — from briefs/{name}.md or DB           │ │  │
+│  │    │ ⑧ AGENT SYSTEM PROMPT — role-specific instructions   │ │  │
+│  │    │ ⑨ COMPANY KNOWLEDGE BASE — DB or static CORE.md      │ │  │
+│  │    │ ⑩ DEPARTMENT CONTEXT — context/{department}.md        │ │  │
+│  │    │ ⑪ FOUNDER BULLETINS — priority-coded, expiring       │ │  │
+│  │    └──────────────────────────────────────────────────────┘ │  │
+│  │                                                             │  │
+│  │    Task tier (~150 lines only):                             │  │
+│  │    ┌──────────────────────────────────────────────────────┐ │  │
+│  │    │ ① WHO YOU ARE — personality, voice, quirks           │ │  │
+│  │    │ ② ASSIGNMENT PROTOCOL — execute → submit/flag        │ │  │
+│  │    │ ③ COST AWARENESS — budget constraints                │ │  │
+│  │    └──────────────────────────────────────────────────────┘ │  │
+│  │                                                             │  │
+│  │    Chat (on_demand) skips: reasoning protocol, work         │  │
+│  │    assignments protocol, always-on protocol                 │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                              │                                   │
+│                              ▼                                   │
+│  ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐  │
+│  │        MAIN AGENTIC LOOP (repeats until STOP)              │  │
+│  │                                                             │  │
+│  │   ┌─────────────────────────────────────────────────────┐  │  │
+│  │   │ 4. SUPERVISOR CHECK                                 │  │  │
+│  │   │    ✓ turnCount ≤ maxTurns (6 chat, 6 task, 10 std)  │  │  │
+│  │   │    ✓ stallCount < 3 (consecutive failed tool calls)  │  │  │
+│  │   │    ✓ elapsed < timeout (100s chat, 120s task, std)   │  │  │
+│  │   │    ✗ Any fail → abort (task tier: savePartialProgress)│ │  │
+│  │   └─────────────────────────────┬───────────────────────┘  │  │
+│  │                                 │                           │  │
+│  │                                 ▼                           │  │
+│  │   ┌─────────────────────────────────────────────────────┐  │  │
+│  │   │ 5. CONTEXT INJECTION (turn 2+, optional)            │  │  │
+│  │   │    Per-agent contextInjector adds dynamic context    │  │  │
+│  │   └─────────────────────────────┬───────────────────────┘  │  │
+│  │                                 │                           │  │
+│  │                                 ▼                           │  │
+│  │   ┌─────────────────────────────────────────────────────┐  │  │
+│  │   │ 6. MODEL CALL                                       │  │  │
+│  │   │    ModelClient → ProviderFactory → ProviderAdapter   │  │  │
+│  │   │    Provider auto-detected: gemini-* / gpt-* / claude-│ │  │
+│  │   │    Thinking overrides per task:                       │  │  │
+│  │   │      on_demand: thinking DISABLED (speed)            │  │  │
+│  │   │      work_loop: thinking DISABLED (cost)             │  │  │
+│  │   │      briefing/orchestrate: thinking ENABLED (quality)│  │  │
+│  │   │    Gemini 3: forces temperature 1.0+                 │  │  │
+│  │   │    Last turn (chat/task): tools STRIPPED → force text │  │  │
+│  │   └─────────────────────────────┬───────────────────────┘  │  │
+│  │                                 │                           │  │
+│  │                    ┌────────────┴────────────┐              │  │
+│  │                    │                         │              │  │
+│  │              Has tool calls?           Text response?       │  │
+│  │                    │                         │              │  │
+│  │                    ▼                         ▼              │  │
+│  │   ┌────────────────────────────┐  ┌──────────────────────┐ │  │
+│  │   │ 7. TOOL DISPATCH          │  │ 8. COMPLETION        │ │  │
+│  │   │                           │  │                      │ │  │
+│  │   │ Push tool_call turns      │  │ finishReason=STOP    │ │  │
+│  │   │ (batch for thought sigs)  │  │ → break loop         │ │  │
+│  │   │                           │  │                      │ │  │
+│  │   │ For each tool call:       │  │ No text yet? Nudge   │ │  │
+│  │   │   ToolExecutor.execute()  │  │ "provide final       │ │  │
+│  │   │    ├─ grant check (DB)    │  │  response" → re-loop │ │  │
+│  │   │    ├─ scope check         │  │                      │ │  │
+│  │   │    ├─ rate limit check    │  │ Still no text?       │ │  │
+│  │   │    ├─ budget check        │  │ Reconstruct from     │ │  │
+│  │   │    └─ execute + timeout   │  │ last 3 tool results  │ │  │
+│  │   │                           │  └──────────────────────┘ │  │
+│  │   │ Push tool_result turns    │                            │  │
+│  │   │ Supervisor.recordResult() │                            │  │
+│  │   │ → loop back to step 4    │                            │  │
+│  │   └────────────────────────────┘                           │  │
+│  └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘  │
+│                              │                                   │
+│                              ▼                                   │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │ 9. POST-RUN: REFLECTION  (skipped for task tier)           │  │
+│  │                                                             │  │
+│  │  Separate model call → structured JSON:                     │  │
+│  │   ┌──────────────────────────────────────────────────────┐  │  │
+│  │   │ summary, qualityScore (0-100)                        │  │  │
+│  │   │ whatWentWell[], whatCouldImprove[]                    │  │  │
+│  │   │ promptSuggestions[], knowledgeGaps[]                  │  │  │
+│  │   │ memories[] → saved with vector embeddings (768-dim)   │  │  │
+│  │   │ peerFeedback[] → saved to agent_peer_feedback         │  │  │
+│  │   │ skill_feedback[] → updates proficiency                │  │  │
+│  │   │ graph_operations{nodes[], edges[]} → KG writer        │  │  │
+│  │   └──────────────────────────────────────────────────────┘  │  │
+│  │                                                             │  │
+│  │  Post-reflection actions:                                   │  │
+│  │   → Save reflection to agent_reflections                    │  │
+│  │   → Save memories with embeddings to agent_memory           │  │
+│  │   → Process graph ops (nodes + edges → kg_nodes, kg_edges)  │  │
+│  │   → Save working memory (last_run_summary) for next run     │  │
+│  │   → Update growth metrics for dashboard                     │  │
+│  │   → Route new knowledge to relevant agents (CI system)      │  │
+│  │   → Save peer feedback to agent_peer_feedback               │  │
+│  │   → Update skill proficiency via skillFeedbackWriter        │  │
+│  │                                                             │  │
+│  │  Timing:                                                    │  │
+│  │   on_demand → fire-and-forget (don't block user response)   │  │
+│  │   scheduled → awaited (ensure data persists before exit)    │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                              │                                   │
+│                              ▼                                   │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │ 10. POST-RUN: EVENT EMISSION                               │  │
+│  │    → Emit agent.completed event to GlyphorEventBus          │  │
+│  │    → On error: emit alert.triggered event for Atlas          │  │
+│  │    → Return AgentExecutionResult to caller                   │  │
+│  └────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────┘
+```
 
-5. CONTEXT INJECTION (turn 2+)
-    → Optional per-agent contextInjector adds dynamic context
+### Partial Progress Recovery (Task Tier)
 
-6. MODEL CALL
-    → Send systemInstruction + history via ModelClient → ProviderAdapter
-    → Provider auto-detected from model prefix (gemini-*/gpt-*/claude-*)
-    → Include tool declarations for function calling
-    → Handle Gemini 3 thought signatures (batch tool_call/tool_result turns)
-    → Task tier: uses buildTaskTierSystemPrompt (~150 lines), thinking disabled,
-      per-call timeout 60 s; tools stripped on last turn
+When a task-tier run is aborted (supervisor limit, timeout, tool stall, or uncaught error),
+the runner calls `savePartialProgress()`:
 
-7. TOOL DISPATCH
-    → If tool calls → ToolExecutor.execute() each one
-    → Push tool_call turns (with thoughtSignature), then tool_result turns
-    → Loop back to step 4
+```
+Abort detected (task tier only)
+  → Extract assignment_id from initial message regex
+  → Collect last output + last 5 tool results
+  → partialProgressSaver(assignmentId, partialOutput, role, reason)
+    → UPDATE work_assignments SET status='dispatched', agent_output=partial
+    → Send abort notification to chief-of-staff
+  → Prevents complete work loss on timeouts
+```
 
-8. COMPLETION
-    → Model returns text with STOP finish reason → done
-    → Extract reasoning envelope if present
-    → Return AgentExecutionResult
-    → Task tier: on abort, savePartialProgress() saves work + notifies chief-of-staff
+---
 
-9. REFLECTION (post-run, skipped for task tier)
-    → Model self-assesses: summary, quality score, what went well/could improve
-    → Extracts memories (observations, learnings, facts) — saved with embeddings
-    → Extracts graph operations (nodes + edges) — persisted via graphWriter
-    → Extracts peer feedback — saved to agent_peer_feedback
-    → Extracts skill feedback — updates proficiency via skillFeedbackWriter
-    → Routes new knowledge to relevant agents via CI knowledge router
-    → Saves working memory (last-run summary) for next run's context
-    → Fire-and-forget for on_demand (non-blocking); awaited for scheduled runs
+### Heartbeat & Work Loop — The Always-On Engine
+
+The heartbeat is the backbone of 24/7 autonomous operations. Every 10 minutes,
+the system cycles through agents and checks for pending work — all via DB queries,
+no LLM calls until actual work is found.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                     HEARTBEAT CYCLE (every 10 min)                     │
+│                     POST /heartbeat → HeartbeatManager                 │
+│                                                                        │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │ 1. SELECT AGENTS FOR THIS CYCLE                                  │  │
+│  │                                                                  │  │
+│  │    High tier  (every cycle / 10 min):                             │  │
+│  │      chief-of-staff, cto, ops                                    │  │
+│  │                                                                  │  │
+│  │    Medium tier (every 2nd cycle / 20 min):                        │  │
+│  │      cfo, cpo, cmo, vp-customer-success, vp-sales, vp-design    │  │
+│  │                                                                  │  │
+│  │    Low tier (every 3rd cycle / 30 min):                           │  │
+│  │      All 18 sub-team members                                     │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+│                              │                                         │
+│                              ▼                                         │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │ 2. FOR EACH AGENT — check needs (no LLM)                        │  │
+│  │                                                                  │  │
+│  │    ✓ Skip if ran < 5 min ago (MIN_RUN_GAP)                       │  │
+│  │                                                                  │  │
+│  │    Check A: WakeRouter.drainQueue(agent)                          │  │
+│  │      → Dequeue pending reactive wakes from agent_wake_queue       │  │
+│  │      → If any: dispatch immediately with queued task              │  │
+│  │                                                                  │  │
+│  │    Check B: executeWorkLoop(agent, supabase) — PRIORITY STACK     │  │
+│  │      → (See Work Loop Priority Stack below)                       │  │
+│  │                                                                  │  │
+│  │    Check C: Knowledge inbox ≥ 5 items pending                    │  │
+│  │      → Wake to process knowledge                                 │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+│                              │                                         │
+│                              ▼                                         │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │ 3. WAKE MATCHING AGENTS (staggered 2s delay between each)        │  │
+│  │    → trackedAgentExecutor(role, task, payload)                     │  │
+│  │    → Runs through full Agent Execution Loop above                 │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Work Loop Priority Stack (executeWorkLoop)
+
+Pure DB queries, no LLM call (~$0.005 per check). Only dispatches an agent when
+real work exists:
+
+```
+executeWorkLoop(agentRole, supabase)
+  │
+  ├─ ABORT COOLDOWN CHECK
+  │    Last run aborted < 30 min ago? → return shouldRun:false
+  │
+  ├─ P1: URGENT — needs_revision assignments OR urgent messages
+  │    ├─ Query: work_assignments WHERE status='needs_revision'
+  │    ├─ Join: founder_directives(title, priority, description)
+  │    ├─ Mark assignment in_progress immediately
+  │    ├─ Build rich exec message: instructions + revision feedback
+  │    │   + submit/flag tool hints
+  │    └─ Return: contextTier='task', task='work_loop'
+  │    
+  │    ├─ Query: agent_messages WHERE priority='urgent' AND status='pending'
+  │    └─ Return: contextTier='standard', task='work_loop'
+  │
+  ├─ P2: ACTIVE WORK — pending/dispatched/in_progress assignments
+  │    ├─ Query: work_assignments WHERE status IN ('pending','dispatched','in_progress')
+  │    ├─ Sort by directive priority (critical > high > medium > low)
+  │    ├─ Mark top assignment in_progress
+  │    ├─ Build exec message: instructions + directive context + tool hints
+  │    └─ Return: contextTier='task', task='work_loop'
+  │
+  ├─ P3: MESSAGES — unread DMs from colleagues
+  │    ├─ Query: agent_messages WHERE status='pending' (count only)
+  │    └─ Return: contextTier='standard', task='work_loop'
+  │
+  ├─ P4: SCHEDULED — (skipped here, handled by Cloud Scheduler crons)
+  │
+  ├─ P5: PROACTIVE — self-directed work
+  │    ├─ Check proactive cooldown:
+  │    │    chief-of-staff, ops:     1 hour
+  │    │    cto, cfo:                2 hours
+  │    │    cpo, cmo, VPs:           4 hours
+  │    │    sub-team (default):      6 hours
+  │    ├─ Query last meaningful run (status=completed, turns>0)
+  │    ├─ If cooldown expired → build role-specific proactive prompt
+  │    └─ Return: contextTier='standard', task='proactive'
+  │
+  └─ P6: NOTHING — no actionable work
+       └─ Return: shouldRun:false (fast exit, no dispatch)
+```
+
+---
+
+### Reactive Wake System
+
+Beyond the heartbeat's regular polling, the wake system enables event-driven agent
+activation with immediate or deferred dispatch:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    EVENT → WAKE FLOW                              │
+│                                                                  │
+│  Event arrives (webhook, inter-agent, Stripe, etc.)              │
+│       │                                                          │
+│       ▼                                                          │
+│  WakeRouter.processEvent(event)                                  │
+│       │                                                          │
+│       ├─ Match event.type against WAKE_RULES[]                   │
+│       │    Filter by optional condition (is_founder, etc.)        │
+│       │                                                          │
+│       ├─ For each matching rule:                                 │
+│       │    ├─ Resolve dynamic agent tokens:                      │
+│       │    │    $target_agent → event.data.target_agent           │
+│       │    │    $to_agent     → event.data.to_agent              │
+│       │    │    $proposed_by  → event.data.proposed_by            │
+│       │    │    $action_item_owners → event.data.action_item_owners│
+│       │    │                                                      │
+│       │    ├─ Check cooldown (per agent+event, configurable min)  │
+│       │    │                                                      │
+│       │    ├─ IMMEDIATE priority:                                 │
+│       │    │    → wakeAgent() → trackedAgentExecutor → full run   │
+│       │    │                                                      │
+│       │    └─ NEXT_HEARTBEAT priority:                            │
+│       │         → INSERT agent_wake_queue (status=pending)        │
+│       │         → Picked up by HeartbeatManager.checkAgentNeeds() │
+│       │                                                          │
+│       └─ Return: { matched, woken[], queued[], skipped[] }       │
+└──────────────────────────────────────────────────────────────────┘
+
+Wake Rules Summary:
+┌──────────────────────────────────┬──────────────────────────┬───────────┬──────────┐
+│ Event                            │ Agents Woken              │ Priority  │ Cooldown │
+├──────────────────────────────────┼──────────────────────────┼───────────┼──────────┤
+│ teams_bot_dm (founder)           │ $target_agent             │ immediate │ —        │
+│ dashboard_on_demand              │ $target_agent             │ immediate │ —        │
+│ customer.subscription.created    │ vp-cs, vp-sales          │ immediate │ 5 min    │
+│ customer.subscription.deleted    │ vp-cs, cfo               │ immediate │ 5 min    │
+│ invoice.payment_failed           │ cfo, vp-cs               │ immediate │ 15 min   │
+│ agent_message (urgent)           │ $to_agent                │ immediate │ 5 min    │
+│ alert.triggered (critical)       │ cto, ops, chief-of-staff │ immediate │ —        │
+│ alert.triggered (warning/cost)   │ cfo                      │ heartbeat │ 30 min   │
+│ decision.resolved                │ $proposed_by             │ immediate │ 5 min    │
+│ health_check_failure             │ cto, ops                 │ immediate │ —        │
+│ assignment.submitted             │ chief-of-staff           │ immediate │ 5 min    │
+│ assignment.blocked               │ chief-of-staff           │ immediate │ 2 min    │
+│ assignment.revised               │ $target_agent            │ immediate │ 2 min    │
+│ message.sent                     │ $to_agent                │ heartbeat │ 5 min    │
+│ meeting.completed                │ $action_item_owners      │ heartbeat │ —        │
+└──────────────────────────────────┴──────────────────────────┴───────────┴──────────┘
+```
+
+---
+
+### Orchestration Loop — Sarah → Agents → Sarah
+
+The orchestration loop is the core autonomous work cycle. Sarah (Chief of Staff) acts as
+the central dispatcher, breaking founder directives into agent assignments, evaluating
+results, and synthesizing deliverables:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│              FOUNDER DIRECTIVE → DELIVERABLE LIFECYCLE                   │
+│                                                                         │
+│  ① DIRECTIVE CREATED (by founder via Dashboard or proposed by Sarah)    │
+│     │  INSERT founder_directives (status='active')                      │
+│     │                                                                   │
+│     ▼                                                                   │
+│  ② SARAH READS DIRECTIVES                                               │
+│     │  read_founder_directives → get active directives + assignment      │
+│     │  status summary (total/completed/pending/in_progress)             │
+│     │                                                                   │
+│     ▼                                                                   │
+│  ③ PRE-DISPATCH VALIDATION (4 mandatory checks)                         │
+│     │  ┌─────────────────────────────────────────────────────────────┐  │
+│     │  │ CHECK 1 — TOOL CHECK                                       │  │
+│     │  │   Does the target agent have every tool needed?             │  │
+│     │  │   If not → grant_tool_access first, or reassign to         │  │
+│     │  │   an agent who has the tools.                               │  │
+│     │  │                                                             │  │
+│     │  │ CHECK 2 — DATA DEPENDENCY CHECK                            │  │
+│     │  │   Does the task require data the agent can't access?        │  │
+│     │  │   If cross-domain → fetch data first, embed in instructions.│  │
+│     │  │                                                             │  │
+│     │  │ CHECK 3 — SPECIFICITY CHECK                                │  │
+│     │  │   Is the task atomic with a clear deliverable?              │  │
+│     │  │   Bad: "Do marketing." Good: "Draft 3 LinkedIn posts…"     │  │
+│     │  │                                                             │  │
+│     │  │ CHECK 4 — CONTEXT EMBEDDING                                │  │
+│     │  │   Work-loop agents run with ~150-line task-tier prompt.     │  │
+│     │  │   ALL context must be in the assignment instructions.        │  │
+│     │  └─────────────────────────────────────────────────────────────┘  │
+│     │                                                                   │
+│     ▼                                                                   │
+│  ④ SARAH CREATES & DISPATCHES ASSIGNMENTS                               │
+│     │  create_work_assignments → INSERT work_assignments[]               │
+│     │  dispatch_assignment → for each assignment:                        │
+│     │    ├─ INSERT agent_messages (DM to target agent)                  │
+│     │    ├─ POST /run → wake target agent immediately                   │
+│     │    └─ UPDATE work_assignments SET status='dispatched'              │
+│     │                                                                   │
+│     ▼                                                                   │
+│  ⑤ AGENT EXECUTES ASSIGNMENT (work loop / task tier)                    │
+│     │  Heartbeat wakes agent → executeWorkLoop → P2 active work         │
+│     │  Agent runs with task-tier context (~150-line prompt)              │
+│     │  Agent uses submit_assignment_output OR flag_assignment_blocker    │
+│     │                                                                   │
+│     │  ┌─ submit_assignment_output ─┐  ┌─ flag_assignment_blocker ───┐  │
+│     │  │ UPDATE work_assignments    │  │ UPDATE status='blocked'     │  │
+│     │  │   status='completed'       │  │ Send urgent msg to Sarah    │  │
+│     │  │   agent_output=result      │  │ Emit alert.triggered event  │  │
+│     │  │ Emit assignment.submitted  │  │ Sarah wakes to handle       │  │
+│     │  └────────────────────────────┘  └─────────────────────────────┘  │
+│     │                                                                   │
+│     ▼                                                                   │
+│  ⑥ SARAH EVALUATES (woken by assignment.submitted event)                │
+│     │  check_assignment_status → review agent_output                     │
+│     │  evaluate_assignment →                                            │
+│     │    ├─ ACCEPT (quality_score ≥ threshold)                          │
+│     │    │    → status='completed', check if all assignments done       │
+│     │    │                                                              │
+│     │    ├─ ITERATE (needs improvement)                                 │
+│     │    │    → status='needs_revision' + evaluation feedback           │
+│     │    │    → Emit assignment.revised → wake target agent (P1)        │
+│     │    │    → Agent re-executes with revision feedback (loop to ⑤)    │
+│     │    │                                                              │
+│     │    ├─ REASSIGN (wrong agent)                                      │
+│     │    │    → Create new assignment for different agent               │
+│     │    │                                                              │
+│     │    └─ ESCALATE (founder needed)                                   │
+│     │         → status='blocked', flag for founder attention            │
+│     │                                                                   │
+│     ▼                                                                   │
+│  ⑦ POST-DIRECTIVE SYNTHESIS (all assignments completed)                 │
+│     │  Sarah compiles all agent_output values into a coherent           │
+│     │  deliverable for the founders.                                    │
+│     │  update_directive_progress → status='completed',                  │
+│     │  completion_summary=synthesized report                            │
+│     │                                                                   │
+│     ▼                                                                   │
+│  ⑧ FOLLOW-UP PROPOSALS                                                 │
+│     │  If agent outputs contain recommendations for follow-up work,     │
+│     │  Sarah may propose_directive with source_directive_id linking      │
+│     │  to the completed directive → founders approve/reject/edit.       │
+│     │                                                                   │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Orchestration Concurrency Model
+
+```
+Directive: "Analyze competitive landscape for Pulse"
+  │
+  Sarah creates 3 parallel assignments (sequence_order=0):
+  ├── competitive-intel: "Research top 5 competitors' features"
+  ├── seo-analyst: "Pull ranking data for competitor domains"
+  └── user-researcher: "Analyze churn reasons mentioning competitors"
+  
+  + 1 sequential assignment (sequence_order=1):
+  └── cpo: "Synthesize competitor findings into recommendations"
+       depends_on: [first 3 assignments]
+  
+  Sarah dispatches all 3 parallel assignments immediately.
+  Each agent runs via work_loop → task tier → submits output.
+  Sarah evaluates each output as it comes in.
+  Once all 3 parallel are accepted, Sarah dispatches the sequential one.
+```
+
+---
+
+### Event Router & Authority Gates
+
+Every agent action passes through the EventRouter, which enforces the authority model
+before execution:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    EVENT ROUTING FLOW                             │
+│                                                                  │
+│  IncomingEvent { source, agentRole, task, payload }              │
+│       │                                                          │
+│       ▼                                                          │
+│  checkAuthority(agentRole, task)                                 │
+│       │                                                          │
+│       ├─ GREEN (allowed=true)                                    │
+│       │    → Execute immediately via agentExecutor               │
+│       │    → Return output to caller                             │
+│       │                                                          │
+│       ├─ YELLOW (requiresApproval=true, tier='yellow')           │
+│       │    → DecisionQueue.submit()                              │
+│       │    → INSERT decisions (status='pending')                 │
+│       │    → formatDecisionCard() → send to #decisions (Teams)   │
+│       │    → ONE founder must approve                            │
+│       │    → Auto-reminds every 4 hours                          │
+│       │    → Auto-escalates to RED after 48 hours                │
+│       │                                                          │
+│       └─ RED (requiresApproval=true, tier='red')                │
+│            → DecisionQueue.submit()                              │
+│            → BOTH founders must approve                          │
+│            → Only then does the action execute                   │
+│                                                                  │
+│  Source routing:                                                  │
+│  ├─ scheduler  → handleSchedulerMessage (Cloud Scheduler cron)   │
+│  ├─ manual     → route (Dashboard chat POST /run)                │
+│  ├─ agent      → handleAgentEvent (inter-agent trigger)          │
+│  ├─ event      → handleGlyphorEvent (event bus → subscribers)    │
+│  └─ webhook    → route (external webhooks → agent wake)          │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Run Tracking & Observability
+
+Every agent execution is wrapped by `trackedAgentExecutor`, which provides full
+observability in the Activity dashboard:
+
+```
+trackedAgentExecutor(agentRole, task, payload)
+  │
+  ├─ INSERT agent_runs (status='running', input=message)
+  │    → Row ID becomes runId
+  │    → Activity dashboard shows "Running Now" banner
+  │
+  ├─ Call agentExecutor(agentRole, task, payload)
+  │    → Full agent execution (may take 5s–120s)
+  │
+  └─ UPDATE agent_runs with:
+       status: completed | failed | aborted
+       duration_ms, turns, tool_calls
+       input_tokens, output_tokens, cost
+       output (text), error (if any)
+       → Activity dashboard shows in run history
 ```
 
 ### Knowledge Injection
@@ -1064,115 +1577,57 @@ Internal scheduler that fires `DATA_SYNC_JOBS` on their cron schedules by POSTin
 been provisioned. Runs all sync jobs once on startup so data populates immediately,
 then checks cron expressions every 60 seconds.
 
-### Reactive Wake System
+### Reactive Wake, Heartbeat, Work Loop & Task Tier
 
-The wake system enables event-driven agent activation beyond scheduled cron jobs:
+> Full details with flow diagrams in the **Agent Framework** section above:
+> - [Heartbeat & Work Loop — The Always-On Engine](#heartbeat--work-loop--the-always-on-engine)
+> - [Reactive Wake System](#reactive-wake-system)
+> - [Work Loop Priority Stack](#work-loop-priority-stack-executeworkloop)
+> - [Orchestration Loop — Sarah → Agents → Sarah](#orchestration-loop--sarah--agents--sarah)
 
-#### WakeRouter (`wakeRouter.ts`)
+#### Source Files
 
-Matches incoming events against `WAKE_RULES` to determine which agents should wake.
-Two dispatch modes:
-- **Immediate** — Agent is executed right away (e.g., Teams bot DMs, Stripe events)
-- **Next heartbeat** — Queued in `agent_wake_queue` for the next heartbeat cycle
+| File | Purpose |
+|------|---------|
+| `packages/scheduler/src/heartbeat.ts` | HeartbeatManager: 3-tier frequency, drain wake queue, run work loop |
+| `packages/scheduler/src/wakeRouter.ts` | Event → WAKE_RULES matching → immediate/queued dispatch |
+| `packages/scheduler/src/wakeRules.ts` | 14 declarative event-to-agent wake rules |
+| `packages/agent-runtime/src/workLoop.ts` | P1-P6 priority stack, proactive cooldowns, abort cooldowns |
+| `packages/scheduler/src/eventRouter.ts` | Authority gates (GREEN/YELLOW/RED) + event source routing |
+| `packages/agent-runtime/src/supervisor.ts` | Turn/stall/timeout enforcement, abort controller |
+| `packages/agent-runtime/src/toolExecutor.ts` | 5-layer enforcement: grants, scope, rate limit, budget, timeout |
+| `packages/agent-runtime/src/companyAgentRunner.ts` | Core execution loop: context → model → tools → reflect |
 
-Cooldown tracking prevents duplicate wakes within a configurable window.
+#### Quick Reference Tables
 
-#### Wake Rules (`wakeRules.ts`)
+**Heartbeat Tiers:**
 
-Declarative event-to-agent mappings. Examples:
-- `teams_bot_dm` → wake target agent immediately
-- `customer.subscription.created` → wake VP Customer Success + VP Sales (5 min cooldown)
-- `dashboard_on_demand` → wake target agent immediately
-- `assignment.submitted` → wake chief-of-staff immediately (task: orchestrate, 5 min cooldown)
-- `assignment.blocked` → wake chief-of-staff immediately (task: orchestrate, 2 min cooldown)
-- `assignment.revised` → wake `$target_agent` immediately (task: work_loop, 2 min cooldown)
-- `message.sent` → wake `$to_agent` at next heartbeat (task: work_loop, 5 min cooldown)
+| Tier | Frequency | Agents |
+|------|-----------|--------|
+| High | Every 10 min | chief-of-staff, cto, ops |
+| Medium | Every 20 min | other executives |
+| Low | Every 30 min | sub-team members |
 
-Supports `$target_agent` and `$to_agent` dynamic token resolution from event payload.
-
-#### Heartbeat Manager (`heartbeat.ts`)
-
-Lightweight periodic check-in cycle (every 10 min via `POST /heartbeat`). Integrates with
-the work loop for always-on operations. Three priority tiers:
-- **High** (10 min): chief-of-staff, cto, ops
-- **Medium** (20 min): other executives
-- **Low** (30 min): sub-team members
-
-Each cycle per agent:
-1. **Reactive wakes first** — dequeue pending `agent_wake_queue` items and dispatch immediately
-2. **Work loop check** — call `executeWorkLoop()` for the full P1–P5 priority stack (pure DB queries, no LLM)
-3. **Knowledge inbox** — check for unread knowledge items
-4. Dispatch with the task type from step 1 or 2 (e.g., `work_loop`, `proactive`, `orchestrate`)
-5. Staggered 2-second delays between agents; respect 5-minute minimum gap between runs
-
-#### Work Loop (`workLoop.ts`)
-
-Universal always-on task handler. Every agent runs through a priority stack on each
-heartbeat — pure DB queries, no LLM call (~$0.005 per check). Only when real work
-exists does the agent load full context and run.
-
-| Priority | Name | Trigger | Context Tier | Task |
-|----------|------|---------|-------------|------|
-| P1 | URGENT | `needs_revision` assignments or urgent messages | **task** | `work_loop` |
-| P2 | ACTIVE WORK | `pending`/`dispatched`/`in_progress` assignments | **task** | `work_loop` |
-| P3 | MESSAGES | Unread messages from colleagues | standard | `work_loop` |
-| P4 | SCHEDULED | Normal cron duties | — | (handled by Cloud Scheduler, skipped here) |
-| P5 | PROACTIVE | Self-directed work if cooldown expired | standard | `proactive` |
-| P6 | NOTHING | No actionable work | — | Fast exit (no dispatch) |
-
-##### Abort Cooldown
-
-After an aborted run, the agent enters a **30-minute cooldown** (`ABORT_COOLDOWN_MS`). During
-cooldown, `executeWorkLoop()` returns early with `reason: abort_cooldown:Xmin_remaining`, preventing
-the agent from immediately retrying the same work that caused the abort.
-
-##### Full Assignment Dispatch (P1 & P2)
-
-P1 (revision) and P2 (active work) assignments now fetch full assignment details with a
-`founder_directives(title, priority, description)` join, mark the assignment as `in_progress`,
-and build a rich execution message containing:
-- Assignment title & instructions
-- Directive context (title, priority, description)
-- Explicit tool call hints (`submit_assignment_output` / `flag_assignment_blocker`)
-
-This ensures work-loop agents receive all necessary context in the message itself, since they
-run with the minimal **task** context tier (~150-line system prompt, no KB/brief/memories).
-
-##### Partial Progress Save
-
-When a task-tier run is aborted (supervisor limit, model call abort, tool stall, or catch block
-error), `savePartialProgress()` extracts the assignment ID from the initial message, saves any
-partial output + tool results back to the `work_assignments` row (status reset to `dispatched`),
-and sends an abort notification to chief-of-staff. This prevents work loss on timeouts.
-
-`work_loop` and `proactive` tasks are routed through `on_demand` in the agent executor
-with the work loop's message as context.
-
-#### Task Context Tier
-
-The `task` tier is used exclusively by work-loop assignments (P1 revision, P2 active work).
-It treats sub-agents as narrow, stateless executors:
+**Task Context Tier Constraints:**
 
 | Constraint | Value |
 |-----------|-------|
-| Max turns | 6 (`TASK_TIER_MAX_TURNS`) |
-| Timeout | 120 s (`TASK_TIER_TIMEOUT_MS`) |
-| Per-call timeout | 60 s (`TASK_TIER_CALL_TIMEOUT_MS`) |
-| System prompt | ~150 lines (`buildTaskTierSystemPrompt`) — personality + assignment protocol + cost awareness |
+| Max turns | 6 |
+| Timeout | 120 s |
+| Per-call timeout | 60 s |
+| System prompt | ~150 lines (personality + assignment protocol + cost awareness) |
 | Thinking | Disabled |
 | Reflection | Skipped |
 | Tool gating | Tools stripped on last turn |
-| On abort | `savePartialProgress()` called |
+| On abort | `savePartialProgress()` — saves partial output, notifies chief-of-staff |
 
-##### Proactive Cooldowns
-
-How often each agent does self-directed work when no other tasks exist:
+**Proactive Cooldowns:**
 
 | Tier | Agents | Cooldown |
 |------|--------|----------|
 | Always Hot | chief-of-staff, ops | 1 hour |
 | High Frequency | cto, cfo | 2 hours |
-| Medium | cpo, cmo, vp-customer-success, vp-sales, vp-design | 4 hours |
+| Medium | cpo, cmo, VPs | 4 hours |
 | Standard (default) | All sub-team members | 6 hours |
 
 Proactive prompts are role-specific (e.g., CTO reviews platform health trends;
