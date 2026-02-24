@@ -160,21 +160,47 @@ export class ModelClient {
 
   /**
    * Generate an image using OpenAI gpt-image-1 (text-rich infographics).
-   * Best for corporate infographics with readable text, data callouts, and structured layouts.
+   * Uses direct fetch instead of the SDK to avoid connection issues in Cloud Run.
    */
   async generateImageOpenAI(prompt: string, model = 'gpt-image-1'): Promise<ImageResponse> {
     if (!this.openai) throw new Error('OpenAI API key not configured');
 
-    const response = await this.openai.images.generate({
+    // Extract API key from the existing SDK client
+    const apiKey = this.openai.apiKey;
+    if (!apiKey) throw new Error('OpenAI API key is empty');
+
+    const body = JSON.stringify({
       model,
       prompt,
       n: 1,
-      size: '1536x1024', // 16:10 landscape — closest to 16:9 available
+      size: '1536x1024',
       quality: 'high',
     });
 
-    const b64 = response.data?.[0]?.b64_json;
+    const resp = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body,
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => 'unknown');
+      throw new Error(`OpenAI image generation failed (${resp.status}): ${errText}`);
+    }
+
+    const json = await resp.json() as { data?: Array<{ b64_json?: string; url?: string }> };
+    const b64 = json.data?.[0]?.b64_json;
     if (!b64) {
+      // If the API returned a URL instead of b64, download it
+      const url = json.data?.[0]?.url;
+      if (url) {
+        const imgResp = await fetch(url);
+        const buf = Buffer.from(await imgResp.arrayBuffer());
+        return { imageData: buf.toString('base64'), mimeType: 'image/png' };
+      }
       throw new Error('No image data returned from OpenAI image generation');
     }
 

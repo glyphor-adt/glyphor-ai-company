@@ -25,6 +25,8 @@ interface AgentRun {
   tool_calls: number | null;
   turns: number | null;
   error: string | null;
+  output: string | null;
+  input: string | null;
 }
 
 /* ─── Hooks ─────────────────────────────────── */
@@ -95,6 +97,7 @@ export default function Activity() {
   const { data: runs, loading } = useAgentRuns(200);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [agentFilter, setAgentFilter] = useState<string>('all');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Unique agents that have runs
   const agentIds = useMemo(() => {
@@ -244,75 +247,120 @@ export default function Activity() {
             {/* Rows */}
             {filtered.map((run) => {
               const sc = statusConfig(run.status);
+              const isExpanded = expandedId === run.id;
+              const hasDetail = !!(run.output || run.input || run.error);
               return (
-                <div
-                  key={run.id}
-                  className={`grid grid-cols-[2fr_1.5fr_100px_90px_80px_80px_70px_90px] gap-2 items-center px-4 py-2.5 transition-colors hover:bg-raised/50 ${
-                    run.status === 'running' ? 'bg-cyan/[0.03]' : ''
-                  }`}
-                >
-                  {/* Agent */}
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <AgentAvatar role={run.agent_id} size={28} />
-                    <Link
-                      to={`/agents/${run.agent_id}`}
-                      className="text-[13px] font-medium text-txt-secondary hover:text-txt-primary truncate transition-colors"
-                    >
-                      {DISPLAY_NAME_MAP[run.agent_id] ?? run.agent_id}
-                    </Link>
-                  </div>
+                <div key={run.id}>
+                  <div
+                    onClick={() => hasDetail && setExpandedId(isExpanded ? null : run.id)}
+                    className={`grid grid-cols-[2fr_1.5fr_100px_90px_80px_80px_70px_90px] gap-2 items-center px-4 py-2.5 transition-colors hover:bg-raised/50 ${
+                      run.status === 'running' ? 'bg-cyan/[0.03]' : ''
+                    } ${hasDetail ? 'cursor-pointer' : ''}`}
+                  >
+                    {/* Agent */}
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <AgentAvatar role={run.agent_id} size={28} />
+                      <Link
+                        to={`/agents/${run.agent_id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[13px] font-medium text-txt-secondary hover:text-txt-primary truncate transition-colors"
+                      >
+                        {DISPLAY_NAME_MAP[run.agent_id] ?? run.agent_id}
+                      </Link>
+                      {hasDetail && (
+                        <span className={`text-[10px] text-txt-faint transition-transform ${isExpanded ? 'rotate-90' : ''}`}>▶</span>
+                      )}
+                    </div>
 
-                  {/* Task */}
-                  <span className="text-[12px] text-txt-muted truncate font-mono">
-                    {run.task ?? '—'}
-                  </span>
+                    {/* Task */}
+                    <span className="text-[12px] text-txt-muted truncate font-mono">
+                      {run.task ?? '—'}
+                    </span>
 
-                  {/* Status */}
-                  <div className="flex items-center gap-1.5">
-                    <span className={`inline-block h-2 w-2 rounded-full ${sc.dot}`} />
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${sc.badge}`}>
-                      {sc.label}
+                    {/* Status */}
+                    <div className="flex items-center gap-1.5">
+                      <span className={`inline-block h-2 w-2 rounded-full ${sc.dot}`} />
+                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${sc.badge}`}>
+                        {sc.label}
+                      </span>
+                    </div>
+
+                    {/* Duration */}
+                    <span className="text-[12px] font-mono text-txt-muted">
+                      {run.status === 'running' ? (
+                        <span className="text-cyan animate-pulse">…</span>
+                      ) : (
+                        formatDuration(run.duration_ms)
+                      )}
+                    </span>
+
+                    {/* Tokens */}
+                    <span className="text-[11px] text-txt-faint font-mono">
+                      {run.input_tokens != null || run.output_tokens != null
+                        ? `${formatTokens(run.input_tokens)}/${formatTokens(run.output_tokens)}`
+                        : '—'}
+                    </span>
+
+                    {/* Tool calls */}
+                    <span className="text-[11px] text-txt-faint font-mono">
+                      {run.tool_calls ?? '—'}
+                    </span>
+
+                    {/* Cost */}
+                    <span className="text-[12px] font-mono text-txt-muted">
+                      {run.cost != null ? `$${Number(run.cost).toFixed(3)}` : '—'}
+                    </span>
+
+                    {/* Started */}
+                    <span className="text-[10px] text-txt-faint">
+                      {timeAgo(run.started_at)}
                     </span>
                   </div>
 
-                  {/* Duration */}
-                  <span className="text-[12px] font-mono text-txt-muted">
-                    {run.status === 'running' ? (
-                      <span className="text-cyan animate-pulse">…</span>
-                    ) : (
-                      formatDuration(run.duration_ms)
-                    )}
-                  </span>
-
-                  {/* Tokens */}
-                  <span className="text-[11px] text-txt-faint font-mono">
-                    {run.input_tokens != null || run.output_tokens != null
-                      ? `${formatTokens(run.input_tokens)}/${formatTokens(run.output_tokens)}`
-                      : '—'}
-                  </span>
-
-                  {/* Tool calls */}
-                  <span className="text-[11px] text-txt-faint font-mono">
-                    {run.tool_calls ?? '—'}
-                  </span>
-
-                  {/* Cost */}
-                  <span className="text-[12px] font-mono text-txt-muted">
-                    {run.cost != null ? `$${Number(run.cost).toFixed(3)}` : '—'}
-                  </span>
-
-                  {/* Started */}
-                  <span className="text-[10px] text-txt-faint">
-                    {timeAgo(run.started_at)}
-                  </span>
+                  {/* Expanded detail panel */}
+                  {isExpanded && (
+                    <div className="border-t border-border bg-raised/30 px-6 py-4 space-y-3">
+                      {run.input && (
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-1">Input</p>
+                          <p className="text-[12px] text-txt-secondary whitespace-pre-wrap bg-surface rounded-md border border-border px-3 py-2">
+                            {run.input}
+                          </p>
+                        </div>
+                      )}
+                      {run.output && (
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-1">Output</p>
+                          <div className="text-[12px] text-txt-secondary whitespace-pre-wrap bg-surface rounded-md border border-border px-3 py-2 max-h-[400px] overflow-y-auto">
+                            {run.output}
+                          </div>
+                        </div>
+                      )}
+                      {run.error && (
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-red-400 mb-1">Error</p>
+                          <p className="text-[12px] text-red-300 whitespace-pre-wrap bg-red-400/5 rounded-md border border-red-400/20 px-3 py-2">
+                            {run.error}
+                          </p>
+                        </div>
+                      )}
+                      {run.turns != null && (
+                        <div className="flex gap-4 text-[11px] text-txt-faint">
+                          <span>{run.turns} turn{run.turns !== 1 ? 's' : ''}</span>
+                          {run.tool_calls != null && <span>{run.tool_calls} tool call{run.tool_calls !== 1 ? 's' : ''}</span>}
+                          {run.completed_at && <span>Completed {timeAgo(run.completed_at)}</span>}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
 
-            {/* Error rows expanded */}
-            {filtered.some((r) => r.error) && (
+            {/* Hint */}
+            {filtered.some((r) => r.output || r.error) && (
               <div className="bg-raised px-4 py-2 text-[11px] text-txt-faint">
-                Runs with errors are highlighted. Click an agent to view details.
+                Click a row to see what the agent worked on.
               </div>
             )}
           </div>
