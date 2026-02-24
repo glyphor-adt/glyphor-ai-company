@@ -1,60 +1,24 @@
 /**
  * Model Client — Multi-provider LLM wrapper (Gemini, OpenAI, Anthropic)
  *
- * Provides a unified interface over multiple LLM providers.
+ * Delegates to per-provider adapters in ./providers/ while maintaining
+ * the original ModelRequest/ModelResponse contract for backward compatibility.
+ *
  * The provider is determined by the model name prefix:
  *   - gemini-*    → Google Gemini (@google/genai)
- *   - gpt-*, o1-*, o3-* → OpenAI (openai)
+ *   - gpt-*, o1-*, o3-*, o4-* → OpenAI (openai)
  *   - claude-*    → Anthropic (@anthropic-ai/sdk)
- *
- * Originally Gemini-only (ported from Fuse V7). Extended to support
- * OpenAI and Anthropic while keeping the same ModelRequest/ModelResponse contract.
  */
 
-import { GoogleGenAI } from '@google/genai';
-import OpenAI from 'openai';
-import Anthropic from '@anthropic-ai/sdk';
-import type { ConversationTurn, GeminiToolDeclaration } from './types.js';
+import { ProviderFactory, type ProviderFactoryConfig, type GeminiAdapter, type OpenAIAdapter } from './providers/index.js';
+import type { ModelProvider, UnifiedModelRequest, UnifiedModelResponse, ImageResponse } from './providers/types.js';
 
-// ─── Public types ────────────────────────────────────────────
+// ─── Re-export types for backward compatibility ──────────────
 
-export type ModelProvider = 'gemini' | 'openai' | 'anthropic';
-
-export interface ModelClientConfig {
-  geminiApiKey?: string;
-  openaiApiKey?: string;
-  anthropicApiKey?: string;
-}
-
-export interface ModelRequest {
-  model: string;
-  systemInstruction: string;
-  contents: ConversationTurn[];
-  tools?: GeminiToolDeclaration[];
-  temperature?: number;
-  topP?: number;
-  topK?: number;
-  maxTokens?: number;
-  thinkingEnabled?: boolean;
-  signal?: AbortSignal;
-  /** Per-call timeout override in ms. Defaults to 180 000. */
-  callTimeoutMs?: number;
-}
-
-export interface ModelResponse {
-  text: string | null;
-  toolCalls: { name: string; args: Record<string, unknown>; thoughtSignature?: string }[];
-  thinkingText?: string;
-  usageMetadata: { inputTokens: number; outputTokens: number; totalTokens: number };
-  finishReason: string;
-}
-
-export interface ImageResponse {
-  /** Base64-encoded image data */
-  imageData: string;
-  /** MIME type of the image (e.g. 'image/png') */
-  mimeType: string;
-}
+export type { ModelProvider, ImageResponse };
+export type ModelClientConfig = ProviderFactoryConfig;
+export type ModelRequest = UnifiedModelRequest;
+export type ModelResponse = UnifiedModelResponse;
 
 // ─── Provider detection ──────────────────────────────────────
 
@@ -68,26 +32,15 @@ export function detectProvider(model: string): ModelProvider {
 // ─── ModelClient ─────────────────────────────────────────────
 
 export class ModelClient {
-  private gemini?: GoogleGenAI;
-  private openai?: OpenAI;
-  private anthropic?: Anthropic;
+  private factory: ProviderFactory;
 
   constructor(config: ModelClientConfig | string) {
     // Backwards-compatible: if a plain string is passed, treat as Gemini API key
     if (typeof config === 'string') {
-      this.gemini = new GoogleGenAI({ apiKey: config });
+      this.factory = new ProviderFactory({ geminiApiKey: config });
       return;
     }
-
-    if (config.geminiApiKey) {
-      this.gemini = new GoogleGenAI({ apiKey: config.geminiApiKey });
-    }
-    if (config.openaiApiKey) {
-      this.openai = new OpenAI({ apiKey: config.openaiApiKey });
-    }
-    if (config.anthropicApiKey) {
-      this.anthropic = new Anthropic({ apiKey: config.anthropicApiKey });
-    }
+    this.factory = new ProviderFactory(config);
   }
 
   async generate(request: ModelRequest): Promise<ModelResponse> {
@@ -97,25 +50,17 @@ export class ModelClient {
     }
 
     const provider = detectProvider(request.model);
+    const adapter = this.factory.get(provider);
     const MAX_RETRIES = 1;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        switch (provider) {
-          case 'gemini':
-            return await this.generateGemini(request);
-          case 'openai':
-            return await this.generateOpenAI(request);
-          case 'anthropic':
-            return await this.generateAnthropic(request);
-        }
+        const apiPromise = adapter.generate(request);
+        return await this.raceAbort(apiPromise, request.signal, request.callTimeoutMs);
       } catch (err) {
         const msg = (err as Error).message ?? '';
-        // Don't retry if the supervisor aborted or the request was cancelled
         if (request.signal?.aborted) throw err;
-        // Don't retry on auth/validation errors (4xx except 429)
         if (/40[0-3]|404|422/.test(msg)) throw err;
-        // Retry on timeouts and transient server errors (5xx, 429)
         if (attempt < MAX_RETRIES) {
           const backoffMs = 2000 * (attempt + 1);
           console.warn(`[ModelClient] Attempt ${attempt + 1} failed (${msg}), retrying in ${backoffMs}ms…`);
@@ -125,588 +70,28 @@ export class ModelClient {
         throw err;
       }
     }
-    // Unreachable, but TypeScript needs it
     throw new Error('Unexpected: exhausted retries');
   }
 
   /**
    * Generate an image using Google Imagen 4 Ultra.
-   * Uses the Imagen generateImages API for high-quality infographics.
    */
   async generateImage(prompt: string, model = 'imagen-4.0-ultra-generate-001'): Promise<ImageResponse> {
-    if (!this.gemini) throw new Error('Gemini API key not configured');
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await this.gemini.models.generateImages({
-      model,
-      prompt,
-      config: {
-        numberOfImages: 1,
-        aspectRatio: '16:9',
-      },
-    });
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const image = (response as any).generatedImages?.[0];
-    if (!image?.image?.imageBytes) {
-      throw new Error('No image data returned from Imagen image generation');
-    }
-
-    return {
-      imageData: image.image.imageBytes,
-      mimeType: 'image/png',
-    };
+    const adapter = this.factory.get('gemini') as GeminiAdapter;
+    return adapter.generateImage(prompt, model);
   }
 
   /**
    * Generate an image using OpenAI gpt-image-1 (text-rich infographics).
-   * Uses direct fetch instead of the SDK to avoid connection issues in Cloud Run.
    */
   async generateImageOpenAI(prompt: string, model = 'gpt-image-1'): Promise<ImageResponse> {
-    if (!this.openai) throw new Error('OpenAI API key not configured');
-
-    // Extract API key from the existing SDK client
-    const apiKey = this.openai.apiKey;
-    if (!apiKey) throw new Error('OpenAI API key is empty');
-
-    const body = JSON.stringify({
-      model,
-      prompt,
-      n: 1,
-      size: '1536x1024',
-      quality: 'high',
-    });
-
-    const resp = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body,
-    });
-
-    if (!resp.ok) {
-      const errText = await resp.text().catch(() => 'unknown');
-      throw new Error(`OpenAI image generation failed (${resp.status}): ${errText}`);
-    }
-
-    const json = await resp.json() as { data?: Array<{ b64_json?: string; url?: string }> };
-    const b64 = json.data?.[0]?.b64_json;
-    if (!b64) {
-      // If the API returned a URL instead of b64, download it
-      const url = json.data?.[0]?.url;
-      if (url) {
-        const imgResp = await fetch(url);
-        const buf = Buffer.from(await imgResp.arrayBuffer());
-        return { imageData: buf.toString('base64'), mimeType: 'image/png' };
-      }
-      throw new Error('No image data returned from OpenAI image generation');
-    }
-
-    return {
-      imageData: b64,
-      mimeType: 'image/png',
-    };
-  }
-
-  // ─── Gemini ──────────────────────────────────────────────
-
-  private async generateGemini(request: ModelRequest): Promise<ModelResponse> {
-    if (!this.gemini) throw new Error('Gemini API key not configured');
-
-    const geminiContents = this.mapConversationGemini(request.contents);
-    const geminiTools = request.tools?.length
-      ? [{ functionDeclarations: request.tools }]
-      : undefined;
-
-    // Build thinking config based on model family
-    const thinkingEnabled = request.thinkingEnabled ?? true;
-    let thinkingConfig: Record<string, unknown> | undefined;
-    if (request.model.startsWith('gemini-3')) {
-      // Gemini 3.x: use thinkingLevel
-      thinkingConfig = {
-        includeThoughts: true,
-        thinkingLevel: thinkingEnabled ? 'high' : 'minimal',
-      };
-    } else if (request.model.startsWith('gemini-2.5')) {
-      // Gemini 2.5: use thinkingBudget
-      thinkingConfig = {
-        includeThoughts: true,
-        thinkingBudget: thinkingEnabled ? -1 : 0,
-      };
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const apiPromise = this.gemini.models.generateContent({
-      model: request.model,
-      contents: geminiContents as any,
-      config: {
-        systemInstruction: request.systemInstruction,
-        temperature: request.temperature ?? 0.7,
-        ...(request.topP !== undefined ? { topP: request.topP } : {}),
-        ...(request.topK !== undefined ? { topK: request.topK } : {}),
-        ...(geminiTools ? { tools: geminiTools as any } : {}),
-        ...(thinkingConfig ? { thinkingConfig } : {}),
-      },
-    });
-
-    const response = await this.raceAbort(apiPromise, request.signal, request.callTimeoutMs);
-    return this.mapGeminiResponse(response);
-  }
-
-  private mapConversationGemini(turns: ConversationTurn[]): unknown[] {
-    const contents: unknown[] = [];
-    let i = 0;
-
-    while (i < turns.length) {
-      const turn = turns[i];
-
-      switch (turn.role) {
-        case 'user':
-          contents.push({ role: 'user', parts: [{ text: turn.content }] });
-          i++;
-          break;
-        case 'assistant':
-          contents.push({ role: 'model', parts: [{ text: turn.content }] });
-          i++;
-          break;
-        case 'tool_call': {
-          // Batch consecutive tool_call turns into a single model message
-          // including thinking parts and thought signatures (required by Gemini 3+)
-          const modelParts: Record<string, unknown>[] = [];
-
-          if (turn.thinkingBeforeTools) {
-            modelParts.push({ text: turn.thinkingBeforeTools, thought: true });
-          }
-
-          while (i < turns.length && turns[i].role === 'tool_call') {
-            const tc = turns[i];
-            const fcPart: Record<string, unknown> = {
-              functionCall: {
-                name: tc.toolName,
-                args: tc.toolParams ?? {},
-              },
-            };
-            if (tc.thoughtSignature) {
-              fcPart.thoughtSignature = tc.thoughtSignature;
-            }
-            modelParts.push(fcPart);
-            i++;
-          }
-
-          contents.push({ role: 'model', parts: modelParts });
-          break;
-        }
-        case 'tool_result': {
-          // Batch consecutive tool_result turns into a single user message
-          const frParts: unknown[] = [];
-
-          while (i < turns.length && turns[i].role === 'tool_result') {
-            const tr = turns[i];
-            let resultValue: unknown;
-            try {
-              resultValue = JSON.parse(tr.content);
-            } catch {
-              resultValue = tr.content;
-            }
-            frParts.push({
-              functionResponse: {
-                name: tr.toolName,
-                response: { result: resultValue },
-              },
-            });
-            i++;
-          }
-
-          contents.push({ role: 'user', parts: frParts });
-          break;
-        }
-        default:
-          i++;
-      }
-    }
-
-    return contents;
-  }
-
-  private mapGeminiResponse(response: unknown): ModelResponse {
-    const r = response as {
-      candidates?: Array<{
-        content?: { parts?: Array<{ text?: string; thought?: boolean; functionCall?: { name: string; args: Record<string, unknown> }; thoughtSignature?: string }> };
-        finishReason?: string;
-      }>;
-      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
-    };
-
-    const candidate = r.candidates?.[0];
-    if (!candidate) throw new Error('No response candidate from Gemini');
-
-    const parts = candidate.content?.parts ?? [];
-
-    const text = parts
-      .filter((p) => p.text && !p.thought)
-      .map((p) => p.text)
-      .join('') || null;
-
-    const thinkingText = parts
-      .filter((p) => p.text && p.thought)
-      .map((p) => p.text)
-      .join('') || undefined;
-
-    const toolCalls = parts
-      .filter((p) => p.functionCall)
-      .map((p) => ({
-        name: p.functionCall!.name,
-        args: p.functionCall!.args || {},
-        thoughtSignature: p.thoughtSignature,
-      }));
-
-    const usage = r.usageMetadata;
-
-    return {
-      text,
-      toolCalls,
-      thinkingText,
-      usageMetadata: {
-        inputTokens: usage?.promptTokenCount ?? 0,
-        outputTokens: usage?.candidatesTokenCount ?? 0,
-        totalTokens: usage?.totalTokenCount ?? 0,
-      },
-      finishReason: candidate.finishReason ?? 'UNKNOWN',
-    };
-  }
-
-  // ─── OpenAI ──────────────────────────────────────────────
-
-  private async generateOpenAI(request: ModelRequest): Promise<ModelResponse> {
-    if (!this.openai) throw new Error('OpenAI API key not configured');
-
-    const messages = this.mapConversationOpenAI(request);
-
-    const tools = request.tools?.length
-      ? request.tools.map(t => ({
-          type: 'function' as const,
-          function: {
-            name: t.name,
-            description: t.description,
-            parameters: t.parameters,
-          },
-        }))
-      : undefined;
-
-    // o-series models (o1, o3, o4) don't accept temperature, top_p, or max_tokens
-    const isOSeries = /^o[134](-|$)/.test(request.model);
-    // GPT-5 family: gpt-5, gpt-5.1, gpt-5.2, gpt-5-mini, gpt-5-nano, etc.
-    const isGpt5Family = request.model.startsWith('gpt-5');
-    // GPT-5.2/5.1 support 'none' reasoning (allows temperature); older gpt-5 does not
-    const supportsNoneReasoning = /^gpt-5\.[12]/.test(request.model);
-
-    // Determine reasoning effort for GPT-5 family
-    // GPT-5.2/5.1 default to 'none'; older GPT-5 defaults to 'medium'
-    // SDK type may lag behind the API — cast to string for forward compat
-    let reasoningEffort: string | undefined;
-    if (isGpt5Family) {
-      const thinkingEnabled = request.thinkingEnabled ?? false;
-      if (supportsNoneReasoning) {
-        // gpt-5.1/5.2: default 'none', use 'medium' only when thinking explicitly requested
-        reasoningEffort = thinkingEnabled ? 'medium' : 'none';
-      } else {
-        // gpt-5, gpt-5-mini, gpt-5-nano: always reason, default 'medium'
-        reasoningEffort = thinkingEnabled ? 'high' : 'medium';
-      }
-    }
-
-    // GPT-5 family and o-series require max_completion_tokens instead of max_tokens
-    // temperature and top_p are forbidden for o-series and GPT-5 family (unless reasoning='none')
-    const forbidTempTopP = isOSeries || (isGpt5Family && reasoningEffort !== 'none');
-    const useMaxCompletionTokens = isOSeries || isGpt5Family;
-
-    // o-series and GPT-5 family require max_completion_tokens (not max_tokens).
-    // Always provide a value for these models — omitting it can cause 400 errors
-    // on some reasoning-enabled model variants.
-    const resolvedMaxTokens = request.maxTokens ?? (useMaxCompletionTokens ? 16384 : undefined);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const createParams: any = {
-      model: request.model,
-      messages,
-      ...(tools ? { tools } : {}),
-      ...(resolvedMaxTokens !== undefined
-        ? (useMaxCompletionTokens
-            ? { max_completion_tokens: resolvedMaxTokens }
-            : { max_tokens: resolvedMaxTokens })
-        : {}),
-      ...(forbidTempTopP
-        ? {}
-        : {
-            temperature: request.temperature ?? 0.7,
-            ...(request.topP !== undefined ? { top_p: request.topP } : {}),
-          }),
-      ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
-    };
-
-    const apiPromise = this.openai.chat.completions.create(createParams) as Promise<OpenAI.Chat.Completions.ChatCompletion>;
-
-    const response = await this.raceAbort(apiPromise, request.signal, request.callTimeoutMs);
-    return this.mapOpenAIResponse(response);
-  }
-
-  private mapConversationOpenAI(
-    request: ModelRequest,
-  ): Array<OpenAI.Chat.Completions.ChatCompletionMessageParam> {
-    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-      { role: 'system', content: request.systemInstruction },
-    ];
-
-    const turns = request.contents;
-    let i = 0;
-    let lastToolCallIds: string[] = [];
-
-    while (i < turns.length) {
-      const turn = turns[i];
-      switch (turn.role) {
-        case 'user':
-          messages.push({ role: 'user', content: turn.content });
-          i++;
-          break;
-        case 'assistant':
-          messages.push({ role: 'assistant', content: turn.content });
-          i++;
-          break;
-        case 'tool_call': {
-          // Batch consecutive tool_call turns into a single assistant message
-          const toolCalls: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }> = [];
-          lastToolCallIds = [];
-          while (i < turns.length && turns[i].role === 'tool_call') {
-            const tc = turns[i];
-            const id = `call_${tc.toolName}_${tc.timestamp}`;
-            lastToolCallIds.push(id);
-            toolCalls.push({
-              id,
-              type: 'function',
-              function: {
-                name: tc.toolName!,
-                arguments: JSON.stringify(tc.toolParams ?? {}),
-              },
-            });
-            i++;
-          }
-          messages.push({
-            role: 'assistant',
-            content: null,
-            tool_calls: toolCalls,
-          });
-          break;
-        }
-        case 'tool_result': {
-          // Each tool_result is a separate 'tool' message, but must reference
-          // the correct tool_call_id from the preceding tool_call batch
-          let resultIndex = 0;
-          while (i < turns.length && turns[i].role === 'tool_result') {
-            const tr = turns[i];
-            const toolCallId = resultIndex < lastToolCallIds.length
-              ? lastToolCallIds[resultIndex]
-              : `call_${tr.toolName}_${tr.timestamp}`;
-            messages.push({
-              role: 'tool',
-              tool_call_id: toolCallId,
-              content: tr.content,
-            });
-            resultIndex++;
-            i++;
-          }
-          break;
-        }
-        default:
-          i++;
-      }
-    }
-
-    return messages;
-  }
-
-  private mapOpenAIResponse(
-    response: OpenAI.Chat.Completions.ChatCompletion,
-  ): ModelResponse {
-    const choice = response.choices[0];
-    if (!choice) throw new Error('No response choice from OpenAI');
-
-    const toolCalls = (choice.message.tool_calls ?? []).map(tc => ({
-      name: tc.function.name,
-      args: JSON.parse(tc.function.arguments || '{}') as Record<string, unknown>,
-    }));
-
-    return {
-      text: choice.message.content,
-      toolCalls,
-      usageMetadata: {
-        inputTokens: response.usage?.prompt_tokens ?? 0,
-        outputTokens: response.usage?.completion_tokens ?? 0,
-        totalTokens: response.usage?.total_tokens ?? 0,
-      },
-      finishReason: choice.finish_reason ?? 'unknown',
-    };
-  }
-
-  // ─── Anthropic ───────────────────────────────────────────
-
-  private async generateAnthropic(request: ModelRequest): Promise<ModelResponse> {
-    if (!this.anthropic) throw new Error('Anthropic API key not configured');
-
-    const messages = this.mapConversationAnthropic(request.contents);
-
-    const tools = request.tools?.length
-      ? request.tools.map(t => ({
-          name: t.name,
-          description: t.description,
-          input_schema: {
-            type: 'object' as const,
-            properties: t.parameters.properties,
-            required: t.parameters.required,
-          },
-        }))
-      : undefined;
-
-    // Extended thinking — defaults to false; callers must explicitly opt in.
-    // Supported on: claude-3-5-sonnet-*, claude-3-7-*, claude-sonnet-4-*, claude-haiku-4-*, claude-opus-4-*
-    // NOTE: claude-opus-4-6 deprecated manual thinking in favour of adaptive thinking ({type:"adaptive"}).
-    //       All other supported models use manual extended thinking ({type:"enabled"}).
-    const thinkingEnabled = request.thinkingEnabled ?? false;
-    const supportsThinking = /claude-(3-[5-9]|[4-9]|sonnet-4|haiku-4|opus-4)/.test(request.model);
-    const useThinking = thinkingEnabled && supportsThinking;
-    const thinkingBudget = 8192;
-    // claude-opus-4-6 requires adaptive thinking; all other supported models use manual mode.
-    const isOpus46 = request.model === 'claude-opus-4-6';
-    const thinkingParam = useThinking
-      ? { thinking: isOpus46
-          ? { type: 'adaptive' as const, effort: 'medium' as const }
-          : { type: 'enabled' as const, budget_tokens: thinkingBudget }
-        }
-      : {};
-
-    // Anthropic requires max_tokens > budget_tokens when manual thinking is enabled
-    const maxTokens = (useThinking && !isOpus46)
-      ? Math.max(request.maxTokens ?? 16384, thinkingBudget + 4096)
-      : (request.maxTokens ?? 4096);
-
-    const apiPromise = this.anthropic.messages.create({
-      model: request.model,
-      system: request.systemInstruction,
-      messages,
-      ...(tools ? { tools } : {}),
-      max_tokens: maxTokens,
-      temperature: useThinking ? 1 : (request.temperature ?? 0.7),
-      ...(request.topP !== undefined ? { top_p: request.topP } : {}),
-      ...thinkingParam,
-    } as Parameters<typeof this.anthropic.messages.create>[0]);
-
-    const response = await this.raceAbort(apiPromise, request.signal, request.callTimeoutMs) as Anthropic.Message;
-    return this.mapAnthropicResponse(response);
-  }
-
-  private mapConversationAnthropic(
-    turns: ConversationTurn[],
-  ): Anthropic.MessageParam[] {
-    const messages: Anthropic.MessageParam[] = [];
-
-    let i = 0;
-    let lastToolUseIds: string[] = [];
-
-    while (i < turns.length) {
-      const turn = turns[i];
-      switch (turn.role) {
-        case 'user':
-          messages.push({ role: 'user', content: turn.content });
-          i++;
-          break;
-        case 'assistant':
-          messages.push({ role: 'assistant', content: turn.content });
-          i++;
-          break;
-        case 'tool_call': {
-          // Batch consecutive tool_call turns into a single assistant message
-          const content: Array<{ type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }> = [];
-          lastToolUseIds = [];
-          while (i < turns.length && turns[i].role === 'tool_call') {
-            const tc = turns[i];
-            const id = `call_${tc.toolName}_${tc.timestamp}`;
-            lastToolUseIds.push(id);
-            content.push({
-              type: 'tool_use',
-              id,
-              name: tc.toolName!,
-              input: (tc.toolParams ?? {}) as Record<string, unknown>,
-            });
-            i++;
-          }
-          messages.push({ role: 'assistant', content });
-          break;
-        }
-        case 'tool_result': {
-          // Batch consecutive tool_result turns into a single user message
-          const content: Array<{ type: 'tool_result'; tool_use_id: string; content: string }> = [];
-          let resultIndex = 0;
-          while (i < turns.length && turns[i].role === 'tool_result') {
-            const tr = turns[i];
-            const toolUseId = resultIndex < lastToolUseIds.length
-              ? lastToolUseIds[resultIndex]
-              : `call_${tr.toolName}_${tr.timestamp}`;
-            content.push({
-              type: 'tool_result',
-              tool_use_id: toolUseId,
-              content: tr.content,
-            });
-            resultIndex++;
-            i++;
-          }
-          messages.push({ role: 'user', content });
-          break;
-        }
-        default:
-          i++;
-      }
-    }
-
-    return messages;
-  }
-
-  private mapAnthropicResponse(response: Anthropic.Message): ModelResponse {
-    let text: string | null = null;
-    const toolCalls: { name: string; args: Record<string, unknown> }[] = [];
-    let thinkingText: string | undefined;
-
-    for (const block of response.content) {
-      if (block.type === 'text') {
-        text = (text ?? '') + block.text;
-      } else if (block.type === 'tool_use') {
-        toolCalls.push({
-          name: block.name,
-          args: (block.input as Record<string, unknown>) ?? {},
-        });
-      } else if (block.type === 'thinking') {
-        thinkingText = (thinkingText ?? '') + (block as { thinking: string }).thinking;
-      }
-    }
-
-    return {
-      text,
-      toolCalls,
-      thinkingText,
-      usageMetadata: {
-        inputTokens: response.usage.input_tokens,
-        outputTokens: response.usage.output_tokens,
-        totalTokens: response.usage.input_tokens + response.usage.output_tokens,
-      },
-      finishReason: response.stop_reason ?? 'unknown',
-    };
+    const adapter = this.factory.get('openai') as OpenAIAdapter;
+    return adapter.generateImage(prompt, model);
   }
 
   // ─── Shared helpers ──────────────────────────────────────
 
   private async raceAbort<T>(promise: Promise<T>, signal?: AbortSignal, callTimeoutMs?: number): Promise<T> {
-    // Enforce a per-call timeout to prevent indefinite API hangs.
-    // on_demand/chat uses 60s; scheduled tasks get 180s headroom.
     const PER_CALL_TIMEOUT_MS = callTimeoutMs ?? 180_000;
     const timeoutSignal = AbortSignal.timeout(PER_CALL_TIMEOUT_MS);
 

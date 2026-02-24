@@ -55,12 +55,18 @@ const ON_DEMAND_TIMEOUT_MS = 60_000;
 const ON_DEMAND_MAX_TURNS = 6;
 const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = 100_000;
 
+/** Task tier (work_loop) — narrow executor with tight limits. */
+const TASK_TIER_MAX_TURNS = 6;
+const TASK_TIER_TIMEOUT_MS = 120_000;
+const TASK_TIER_CALL_TIMEOUT_MS = 60_000;
+
 // ─── TIERED CONTEXT LOADING ───────────────────────────────────
 // light  → on_demand/chat: profile + pending messages + working memory only
+// task   → work_loop: personality + tools + assignment only (narrow executor)
 // standard → most scheduled tasks: adds KB + brief
 // full   → briefing, orchestrate, deep analysis: everything including CI, graph, skills
 
-type ContextTier = 'light' | 'standard' | 'full';
+type ContextTier = 'light' | 'task' | 'standard' | 'full';
 
 const FULL_CONTEXT_TASKS = new Set([
   'morning_briefing',
@@ -75,6 +81,7 @@ const TASK_KEYWORDS = /\b(report|analys[ei]s|briefing|review|strategy|budget|cos
 
 function resolveContextTier(task: string, message: string): ContextTier {
   if (FULL_CONTEXT_TASKS.has(task)) return 'full';
+  if (task === 'work_loop') return 'task';
   if (task === 'on_demand') {
     return TASK_KEYWORDS.test(message) ? 'standard' : 'light';
   }
@@ -238,6 +245,13 @@ export interface AgentProfileData {
   signature: string | null;
   voice_examples: { situation: string; response: string }[] | null;
 }
+
+const COST_AWARENESS_BLOCK = `## Cost Awareness
+You are running on a limited budget. Every tool call costs money.
+- Do NOT retry the same tool call if it returns empty data — note the gap and move on
+- Do NOT search for additional context beyond what's in your instructions
+- Do NOT investigate tangential issues — focus only on what's assigned
+- Aim to complete your task in 1-3 tool calls`;
 
 const ANTI_PATTERNS = [
   'Do NOT open with "Great question!" or similar filler.',
@@ -513,6 +527,35 @@ function buildSystemPrompt(
 }
 
 /**
+ * Build a minimal system prompt for the 'task' context tier.
+ * Only includes personality + work protocol + cost awareness.
+ * No KB, no brief, no memories, no reasoning protocol, no skills.
+ */
+function buildTaskTierSystemPrompt(
+  profile: AgentProfileData | null,
+): string {
+  const parts: string[] = [];
+
+  if (profile) {
+    parts.push(buildPersonalityBlock(profile));
+  }
+
+  parts.push(`## Your Assignment
+Execute the task described in the user message below. Use your tools to gather data and produce results as instructed.
+
+## Work Protocol
+- When done: call submit_assignment_output with your complete findings
+- If blocked after 2 failed attempts: call flag_assignment_blocker immediately
+- Do NOT search for additional context beyond what's in your instructions
+- Do NOT investigate tangential issues — focus only on what's assigned
+- If a tool call returns empty data, note it and move on — don't retry with variations`);
+
+  parts.push(COST_AWARENESS_BLOCK);
+
+  return parts.join('\n\n---\n\n');
+}
+
+/**
  * Optional store interface for memory/reflection persistence.
  * Matches CompanyMemoryStore methods without a hard dependency.
  */
@@ -582,6 +625,8 @@ export interface RunDependencies {
   bulletinLoader?: (department?: string) => Promise<string>;
   /** Loader for pending work assignments assigned to this agent. */
   pendingAssignmentLoader?: (role: CompanyAgentRole) => Promise<{ id: string; task_description: string; task_type: string; expected_output: string | null; priority: string; status: string; evaluation: string | null; directive_title: string | null }[]>;
+  /** Saves partial progress when a task-tier run is aborted mid-execution. */
+  partialProgressSaver?: (assignmentId: string, partialOutput: string, agentRole: CompanyAgentRole, abortReason: string) => Promise<void>;
 }
 
 export class CompanyAgentRunner {
@@ -610,9 +655,10 @@ export class CompanyAgentRunner {
     });
 
     // ─── PARALLEL PRE-RUN DATA LOADING ────────────────────────
-    // Tiered loading: light (chat) → standard (scheduled) → full (briefing/orchestrate)
+    // Tiered loading: light (chat) → task (work_loop) → standard (scheduled) → full (briefing/orchestrate)
     // light:    profile + pending messages + working memory
-    // standard: + KB + brief
+    // task:     profile + pending messages + assignments (no KB, no brief, no memories)
+    // standard: + KB + brief + memories
     // full:     + memories + CI + graph + skills
     let dynamicBrief: string | undefined;
     let agentProfile: AgentProfileData | null = null;
@@ -624,8 +670,8 @@ export class CompanyAgentRunner {
       const task = extractTask(config.id);
       const tier = resolveContextTier(task, initialMessage);
 
-      // Memory retrieval — standard+ only
-      const memoryPromise = (tier !== 'light' && deps?.agentMemoryStore)
+      // Memory retrieval — standard+ only (skip for light and task tiers)
+      const memoryPromise = (tier !== 'light' && tier !== 'task' && deps?.agentMemoryStore)
         ? (async () => {
             const fetches: [Promise<AgentMemory[]>, Promise<AgentReflection[]>, Promise<(AgentMemory & { similarity: number })[]>] = [
               deps.agentMemoryStore!.getMemories(config.role, { limit: 20 }),
@@ -642,7 +688,7 @@ export class CompanyAgentRunner {
         : Promise.resolve(null);
 
       // Dynamic brief (system prompt override from agent_briefs DB) — standard+ only
-      const briefPromise = (tier !== 'light' && deps?.dynamicBriefLoader)
+      const briefPromise = (tier !== 'light' && tier !== 'task' && deps?.dynamicBriefLoader)
         ? deps.dynamicBriefLoader(config.id).catch(err => {
             console.warn(`[CompanyAgentRunner] Dynamic brief load failed for ${config.id}:`, (err as Error).message);
             return null;
@@ -680,8 +726,8 @@ export class CompanyAgentRunner {
           })
         : Promise.resolve(null);
 
-      // Working memory (last-run summary for continuity between runs)
-      const workingMemoryPromise = deps?.workingMemoryLoader
+      // Working memory (last-run summary for continuity between runs) — skip for task tier
+      const workingMemoryPromise = (tier !== 'task' && deps?.workingMemoryLoader)
         ? deps.workingMemoryLoader(config.role).catch(err => {
             console.warn(`[CompanyAgentRunner] Working memory load failed for ${config.role}:`, (err as Error).message);
             return null;
@@ -700,7 +746,7 @@ export class CompanyAgentRunner {
       const roleDept = ROLE_DEPARTMENT[config.role] ?? undefined;
 
       // DB-driven knowledge base (replaces static file reading) — standard+ only, cached
-      const kbPromise = (tier !== 'light' && deps?.knowledgeBaseLoader)
+      const kbPromise = (tier !== 'light' && tier !== 'task' && deps?.knowledgeBaseLoader)
         ? (async () => {
             const cacheKey = `kb:${roleDept ?? 'all'}`;
             const cached = promptCache.get<string | null>(cacheKey);
@@ -715,7 +761,7 @@ export class CompanyAgentRunner {
         : Promise.resolve(null);
 
       // Founder bulletins — standard+ only, cached
-      const bulletinPromise = (tier !== 'light' && deps?.bulletinLoader)
+      const bulletinPromise = (tier !== 'light' && tier !== 'task' && deps?.bulletinLoader)
         ? (async () => {
             const cacheKey = `bulletin:${roleDept ?? 'all'}`;
             const cached = promptCache.get<string | null>(cacheKey);
@@ -825,18 +871,24 @@ export class CompanyAgentRunner {
       bulletinContext = bulletinResult;
     }
 
+    const task = extractTask(config.id);
+    const isTaskTier = task === 'work_loop';
+
     try {
       let turnNumber = 0;
 
-      // ─── ON-DEMAND SPEED GUARD ──────────────────────────────────
+      // ─── ON-DEMAND / TASK TIER SPEED GUARD ─────────────────────
       // Chat (on_demand) must finish within the dashboard's 120 s abort.
+      // Task tier (work_loop) gets tight limits — narrow executor agents.
       // Clamp the supervisor's maxTurns and timeoutMs so the agent
       // doesn't burn 10 tool-call cycles on a simple question.
       {
-        const task = extractTask(config.id);
         if (task === 'on_demand') {
           supervisor.config.maxTurns = Math.min(supervisor.config.maxTurns, ON_DEMAND_MAX_TURNS);
           supervisor.config.timeoutMs = Math.min(supervisor.config.timeoutMs, ON_DEMAND_SUPERVISOR_TIMEOUT_MS);
+        } else if (isTaskTier) {
+          supervisor.config.maxTurns = Math.min(supervisor.config.maxTurns, TASK_TIER_MAX_TURNS);
+          supervisor.config.timeoutMs = Math.min(supervisor.config.timeoutMs, TASK_TIER_TIMEOUT_MS);
         }
       }
 
@@ -847,6 +899,7 @@ export class CompanyAgentRunner {
         // 1. SUPERVISOR CHECK
         const check = supervisor.checkBeforeModelCall();
         if (!check.ok) {
+          if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, check.reason ?? 'supervisor_limit', deps);
           return this.buildResult(
             config, 'aborted', lastTextOutput, history, supervisor, check.reason,
           );
@@ -888,12 +941,14 @@ export class CompanyAgentRunner {
           });
 
           // Task-level thinking override
-          const task = extractTask(config.id);
           const isOnDemand = task === 'on_demand';
 
-          const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt, dynamicBrief, agentProfile, skillContext, dbKnowledgeBase, bulletinContext, isOnDemand);
+          // Select system prompt based on context tier
+          const systemPrompt = isTaskTier
+            ? buildTaskTierSystemPrompt(agentProfile)
+            : buildSystemPrompt(config.role, config.systemPrompt, dynamicBrief, agentProfile, skillContext, dbKnowledgeBase, bulletinContext, isOnDemand);
           let effectiveThinking = config.thinkingEnabled;
-          if (THINKING_DISABLED_TASKS.has(task)) {
+          if (THINKING_DISABLED_TASKS.has(task) || isTaskTier) {
             effectiveThinking = false;
           } else if (THINKING_ENABLED_TASKS.has(task)) {
             effectiveThinking = true;
@@ -906,13 +961,13 @@ export class CompanyAgentRunner {
             effectiveTemp = 1.0;
           }
 
-          // ─── SMART TOOL GATING (on_demand) ─────────────────────
+          // ─── SMART TOOL GATING (on_demand / task) ────────────────
           // Last turn: strip tools to force a text response and avoid
           //   aborting with max_turns_exceeded and no output.
           // All other turns: full tool access — the CONVERSATION_MODE
           //   prompt guides the model on when to use tools vs. just talk.
           let effectiveTools: ReturnType<typeof toolExecutor.getDeclarations> | undefined = toolExecutor.getDeclarations();
-          if (isOnDemand && turnNumber >= supervisor.config.maxTurns) {
+          if ((isOnDemand || isTaskTier) && turnNumber >= supervisor.config.maxTurns) {
             effectiveTools = undefined;
           }
 
@@ -926,7 +981,7 @@ export class CompanyAgentRunner {
             topK: config.topK,
             thinkingEnabled: effectiveThinking,
             signal: supervisor.signal,
-            callTimeoutMs: isOnDemand ? ON_DEMAND_TIMEOUT_MS : undefined,
+            callTimeoutMs: isOnDemand ? ON_DEMAND_TIMEOUT_MS : isTaskTier ? TASK_TIER_CALL_TIMEOUT_MS : undefined,
           });
 
           emitEvent({
@@ -938,6 +993,7 @@ export class CompanyAgentRunner {
           });
         } catch (error) {
           if (supervisor.isAborted) {
+            if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, (error as Error).message, deps);
             return this.buildResult(
               config, 'aborted', lastTextOutput, history, supervisor,
               (error as Error).message,
@@ -1005,6 +1061,7 @@ export class CompanyAgentRunner {
 
             const progressCheck = supervisor.recordToolResult(call.name, result);
             if (!progressCheck.ok) {
+              if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, progressCheck.reason ?? 'stall_detected', deps);
               return this.buildResult(
                 config, 'aborted', lastTextOutput, history, supervisor,
                 progressCheck.reason,
@@ -1053,7 +1110,8 @@ export class CompanyAgentRunner {
       const stats = supervisor.stats;
 
       // ─── REFLECT: Self-assessment of this run ──────────────────
-      if (deps?.agentMemoryStore && lastTextOutput) {
+      // Skip reflection for task-tier runs — narrow executors don't need it
+      if (deps?.agentMemoryStore && lastTextOutput && !isTaskTier) {
         const isOnDemand = config.id.includes('on_demand');
         const reflectFn = async () => {
           try {
@@ -1137,6 +1195,7 @@ export class CompanyAgentRunner {
         }
       }
 
+      if (isTaskTier && supervisor.isAborted) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, (error as Error).message, deps);
       return this.buildResult(
         config,
         supervisor.isAborted ? 'aborted' : 'error',
@@ -1145,6 +1204,43 @@ export class CompanyAgentRunner {
         supervisor,
         (error as Error).message,
       );
+    }
+  }
+
+  /**
+   * Save partial progress when a task-tier run is aborted.
+   * Extracts assignment_id from the initial message and persists what was done.
+   */
+  private async savePartialProgress(
+    initialMessage: string,
+    config: AgentConfig,
+    lastOutput: string | null,
+    history: ConversationTurn[],
+    abortReason: string,
+    deps?: RunDependencies,
+  ): Promise<void> {
+    if (!deps?.partialProgressSaver) return;
+
+    // Extract assignment_id from the dispatch message
+    const match = initialMessage.match(/assignment_id="([^"]+)"/);
+    if (!match) return;
+
+    const assignmentId = match[1];
+    const toolResults = history
+      .filter(t => t.role === 'tool_result')
+      .map(t => `[${t.toolName}] ${t.content.slice(0, 500)}`)
+      .slice(-5);
+
+    const partialOutput = [
+      lastOutput ? `Last output: ${lastOutput.slice(0, 1000)}` : 'No text output produced.',
+      toolResults.length > 0 ? `Tool results:\n${toolResults.join('\n')}` : '',
+    ].filter(Boolean).join('\n\n');
+
+    try {
+      await deps.partialProgressSaver(assignmentId, partialOutput, config.role, abortReason);
+      console.log(`[CompanyAgentRunner] Partial progress saved for assignment ${assignmentId}`);
+    } catch (err) {
+      console.warn(`[CompanyAgentRunner] Failed to save partial progress:`, (err as Error).message);
     }
   }
 

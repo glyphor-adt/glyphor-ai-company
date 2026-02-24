@@ -2,6 +2,9 @@ export { CompanyAgentRunner, promptCache } from './companyAgentRunner.js';
 export type { AgentMemoryStore, AgentProfileData, RunDependencies, SkillContext, SkillFeedback } from './companyAgentRunner.js';
 export { ModelClient, detectProvider } from './modelClient.js';
 export type { ModelClientConfig, ModelProvider, ImageResponse } from './modelClient.js';
+// Provider adapters
+export { ProviderFactory, GeminiAdapter, OpenAIAdapter, AnthropicAdapter } from './providers/index.js';
+export type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse, UnifiedToolCall, UnifiedUsageMetadata } from './providers/types.js';
 export { AgentSupervisor } from './supervisor.js';
 export { ToolExecutor, isToolGranted, invalidateGrantCache, loadGrantedToolNames } from './toolExecutor.js';
 export { EventBus } from './eventBus.js';

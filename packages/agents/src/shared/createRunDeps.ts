@@ -308,6 +308,26 @@ export function createRunDeps(
       return contextSkills.length > 0 ? { skills: contextSkills } : null;
     },
 
+    partialProgressSaver: async (assignmentId: string, partialOutput: string, agentRole: CompanyAgentRole, abortReason: string): Promise<void> => {
+      // Save partial work so the next run can resume
+      await supabase
+        .from('work_assignments')
+        .update({ output: partialOutput, status: 'dispatched' })
+        .eq('id', assignmentId);
+
+      // Notify chief-of-staff about the abort
+      await supabase
+        .from('agent_messages')
+        .insert({
+          from_agent: agentRole,
+          to_agent: 'chief-of-staff',
+          message: `Assignment ${assignmentId} was aborted (${abortReason}). Partial progress saved. May need re-dispatch or reassignment.`,
+          message_type: 'status_update',
+          priority: 'normal',
+          thread_id: `abort-${assignmentId}`,
+        });
+    },
+
     skillFeedbackWriter: async (role: CompanyAgentRole, feedback: SkillFeedback[]): Promise<void> => {
       for (const fb of feedback) {
         // Look up the skill by slug

@@ -51,7 +51,7 @@ export interface WorkLoopResult {
   /** Whether the agent should be dispatched for a full run */
   shouldRun: boolean;
   /** Context tier to use for the run */
-  contextTier?: 'light' | 'standard' | 'full';
+  contextTier?: 'light' | 'task' | 'standard' | 'full';
   /** Task to dispatch (overrides default) */
   task?: string;
   /** Why the agent is waking (for logging) */
@@ -74,22 +74,67 @@ export async function executeWorkLoop(
   agentRole: CompanyAgentRole,
   supabase: SupabaseClient,
 ): Promise<WorkLoopResult> {
+  // ── ABORT COOLDOWN — Skip if last run was aborted <30 min ago ──
+  const ABORT_COOLDOWN_MS = 30 * 60 * 1000;
+  const { data: lastAbortedRun } = await supabase
+    .from('agent_runs')
+    .select('completed_at')
+    .eq('agent_id', agentRole)
+    .eq('status', 'aborted')
+    .order('completed_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (lastAbortedRun?.completed_at) {
+    const abortedAt = new Date(lastAbortedRun.completed_at).getTime();
+    if (Date.now() - abortedAt < ABORT_COOLDOWN_MS) {
+      return {
+        shouldRun: false,
+        reason: `abort_cooldown:${Math.round((ABORT_COOLDOWN_MS - (Date.now() - abortedAt)) / 60_000)}min_remaining`,
+        priority: 6,
+      };
+    }
+  }
+
   // ── P1: URGENT — Assignments needing revision ──────────────
   const { data: revisionAssignments } = await supabase
     .from('work_assignments')
-    .select('id, task_description')
+    .select('id, task_description, title, instructions, status, evaluation, assigned_to, founder_directives(title, priority, description)')
     .eq('assigned_to', agentRole)
     .eq('status', 'needs_revision')
     .limit(5);
 
   if (revisionAssignments && revisionAssignments.length > 0) {
+    const assignment = revisionAssignments[0];
+    const fd = assignment.founder_directives as { title?: string; priority?: string; description?: string } | null;
+
+    // Mark as in_progress at dispatch time
+    await supabase.from('work_assignments')
+      .update({ status: 'in_progress', started_at: new Date().toISOString() })
+      .eq('id', assignment.id);
+
+    let execMessage = `REVISION REQUIRED: ${assignment.title ?? assignment.task_description}\n`;
+    if (fd?.title) execMessage += `Directive: ${fd.title}\n`;
+    if (fd?.priority) execMessage += `Priority: ${fd.priority}\n\n`;
+    execMessage += (assignment.instructions as string) || assignment.task_description;
+
+    if (assignment.evaluation) {
+      execMessage += `\n\nREVISION FEEDBACK (address these issues):\n`;
+      execMessage += typeof assignment.evaluation === 'string'
+        ? assignment.evaluation
+        : JSON.stringify(assignment.evaluation);
+    }
+
+    execMessage += `\n\nWhen complete: call submit_assignment_output(assignment_id="${assignment.id}", output=..., status="completed")`;
+    execMessage += `\nIf blocked: call flag_assignment_blocker(assignment_id="${assignment.id}", blocker_reason=..., need_type=...)`;
+
     return {
       shouldRun: true,
-      contextTier: 'full',
+      contextTier: 'task',
       task: 'work_loop',
       reason: `revision_needed:${revisionAssignments.length}`,
       priority: 1,
-      message: `You have ${revisionAssignments.length} assignment(s) that need revision based on feedback. Address these first.`,
+      message: execMessage,
     };
   }
 
@@ -115,19 +160,56 @@ export async function executeWorkLoop(
   // ── P2: ACTIVE WORK — Pending/dispatched/in-progress assignments ──
   const { data: activeAssignments } = await supabase
     .from('work_assignments')
-    .select('id, task_description')
+    .select('id, task_description, title, instructions, status, evaluation, assigned_to, founder_directives(title, priority, description)')
     .eq('assigned_to', agentRole)
     .in('status', ['pending', 'dispatched', 'in_progress'])
+    .order('created_at', { ascending: true })
     .limit(5);
 
   if (activeAssignments && activeAssignments.length > 0) {
+    // Sort: needs_revision first (handled above), then by directive priority
+    const priorityOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+    const sorted = [...activeAssignments].sort((a, b) => {
+      const fd_a = a.founder_directives as { priority?: string } | null;
+      const fd_b = b.founder_directives as { priority?: string } | null;
+      const ap = priorityOrder[fd_a?.priority ?? 'medium'] ?? 3;
+      const bp = priorityOrder[fd_b?.priority ?? 'medium'] ?? 3;
+      return ap - bp;
+    });
+
+    const assignment = sorted[0];
+    const fd = assignment.founder_directives as { title?: string; priority?: string; description?: string } | null;
+
+    // Mark as in_progress at dispatch time
+    if (assignment.status === 'dispatched' || assignment.status === 'pending') {
+      await supabase.from('work_assignments')
+        .update({ status: 'in_progress', started_at: new Date().toISOString() })
+        .eq('id', assignment.id);
+    }
+
+    // Build execution message with full context embedded
+    let execMessage = `EXECUTE ASSIGNMENT: ${assignment.title ?? assignment.task_description}\n`;
+    if (fd?.title) execMessage += `Directive: ${fd.title}\n`;
+    if (fd?.priority) execMessage += `Priority: ${fd.priority}\n\n`;
+    execMessage += (assignment.instructions as string) || assignment.task_description;
+
+    if (assignment.status === 'needs_revision' && assignment.evaluation) {
+      execMessage += `\n\nFEEDBACK (address these issues):\n`;
+      execMessage += typeof assignment.evaluation === 'string'
+        ? assignment.evaluation
+        : JSON.stringify(assignment.evaluation);
+    }
+
+    execMessage += `\n\nWhen complete: call submit_assignment_output(assignment_id="${assignment.id}", output=..., status="completed")`;
+    execMessage += `\nIf blocked: call flag_assignment_blocker(assignment_id="${assignment.id}", blocker_reason=..., need_type=...)`;
+
     return {
       shouldRun: true,
-      contextTier: 'standard',
+      contextTier: 'task',
       task: 'work_loop',
       reason: `active_assignments:${activeAssignments.length}`,
       priority: 2,
-      message: `You have ${activeAssignments.length} active assignment(s) to work on.`,
+      message: execMessage,
     };
   }
 
