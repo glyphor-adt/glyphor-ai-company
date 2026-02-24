@@ -231,6 +231,9 @@ const trackedAgentExecutor = async (
         duration_ms: durationMs,
         turns: result?.totalTurns ?? null,
         tool_calls: toolCalls,
+        input_tokens: result?.inputTokens ?? null,
+        output_tokens: result?.outputTokens ?? null,
+        cost: result?.cost ?? null,
         output: result?.output ?? null,
         error: result?.error ?? result?.abortReason ?? null,
       }).eq('id', runId);

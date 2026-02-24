@@ -7,7 +7,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { queryCloudRunMetrics, pingServices, listOpenPRs, getRepoStats, listRecentCommits, type GlyphorRepo, queryVercelHealth, type VercelProject } from '@glyphor/integrations';
+import { queryCloudRunMetrics, pingServices, listOpenPRs, getRepoStats, listRecentCommits, type GlyphorRepo, queryVercelHealth, type VercelTeamKey } from '@glyphor/integrations';
 
 export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -168,18 +168,18 @@ export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDef
 
     {
       name: 'query_vercel_health',
-      description: 'Get Vercel deployment health for a product: latest deploy state, recent error rate.',
+      description: 'Get Vercel deployment health: latest deploy state, recent error rate. "fuse" = Fuse product, "fuse-projects" = user deployments.',
       parameters: {
         project: {
           type: 'string',
-          description: 'Product to check: "fuse" or "pulse"',
+          description: 'Scope: "fuse" (product) or "fuse-projects" (user deployments)',
           required: true,
-          enum: ['fuse', 'pulse'],
+          enum: ['fuse', 'fuse-projects'],
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const health = await queryVercelHealth(params.project as VercelProject);
+          const health = await queryVercelHealth(params.project as VercelTeamKey);
           return { success: true, data: health };
         } catch (err) {
           const msg = (err as Error).message;

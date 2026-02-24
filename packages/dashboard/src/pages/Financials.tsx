@@ -35,6 +35,7 @@ interface FinancialRow {
 interface GcpBillingRow {
   id: string;
   service: string;
+  product: string | null;
   cost_usd: number;
   usage: { date?: string; currency?: string; raw_service?: string };
   recorded_at: string;
@@ -233,6 +234,18 @@ export default function Financials() {
 
   const gcpTotalCost = gcpByService.reduce((sum, s) => sum + s.cost, 0);
 
+  // GCP cost by product (pie chart)
+  const gcpByProduct = useMemo(() => {
+    const byProduct = new Map<string, number>();
+    for (const row of gcpBilling) {
+      const label = row.product ?? 'unassigned';
+      byProduct.set(label, (byProduct.get(label) ?? 0) + row.cost_usd);
+    }
+    return Array.from(byProduct.entries())
+      .map(([product, cost]) => ({ product, cost: parseFloat(cost.toFixed(2)) }))
+      .filter((p) => p.cost >= 0.01)
+      .sort((a, b) => b.cost - a.cost);
+  }, [gcpBilling]);
   // Mercury stats
   const latestBalance = raw.filter((r) => r.metric === 'cash_balance').sort((a, b) => b.date.localeCompare(a.date))[0]?.value ?? 0;
   const latestBurnRate = raw.filter((r) => r.metric === 'burn_rate').sort((a, b) => b.date.localeCompare(a.date))[0]?.value ?? 0;
@@ -251,8 +264,8 @@ export default function Financials() {
 
   // ── Per-product financials ────────────────────────────────────────
   const PRODUCTS = ['fuse', 'pulse', 'reve'] as const;
-  const PRODUCT_COLORS: Record<string, string> = { fuse: '#2563EB', pulse: '#7C3AED', reve: '#0891B2', 'glyphor-ai-company': '#EA4335' };
-  const PRODUCT_LABELS: Record<string, string> = { fuse: 'Fuse', pulse: 'Pulse', reve: 'Reve', 'glyphor-ai-company': 'Glyphor AI Co.' };
+  const PRODUCT_COLORS: Record<string, string> = { fuse: '#2563EB', pulse: '#7C3AED', reve: '#0891B2', glyphor: '#EA4335', unassigned: '#9AA0A6' };
+  const PRODUCT_LABELS: Record<string, string> = { fuse: 'Fuse', pulse: 'Pulse', reve: 'Reve', glyphor: 'Glyphor', unassigned: 'Unassigned' };
 
   const productFinancials = useMemo(() => {
     const result: Record<string, { mrr: number; costs: number; apiCosts: number; users: number }> = {};
@@ -677,7 +690,44 @@ export default function Financials() {
       </div>
 
       {/* GCP Billing Breakdown */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-3 gap-6">
+        {/* Per-Product Cost (Pie) */}
+        <Card>
+          <SectionHeader title="GCP Cost by Product" />
+          {gcpLoading ? (
+            <Skeleton className="h-64" />
+          ) : gcpByProduct.length === 0 ? (
+            <EmptyChart message="No per-product GCP data yet" />
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie
+                  data={gcpByProduct}
+                  dataKey="cost"
+                  nameKey="product"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={90}
+                  innerRadius={50}
+                  paddingAngle={2}
+                  label={({ product, cost }: { product: string; cost: number }) =>
+                    `${PRODUCT_LABELS[product] ?? product} $${cost.toFixed(2)}`
+                  }
+                  labelLine={false}
+                >
+                  {gcpByProduct.map((entry, i) => (
+                    <Cell key={i} fill={PRODUCT_COLORS[entry.product] ?? GCP_COLORS[i % GCP_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
+                  formatter={(value: number) => [`$${value.toFixed(2)}`]}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+
         {/* Per-Service Cost (Pie) */}
         <Card>
           <div className="flex items-center justify-between">

@@ -25,8 +25,7 @@ import {
   queryVercelHealth,
   triggerDeployment,
   rollbackDeployment,
-  VERCEL_PROJECTS,
-  type VercelProject,
+  type VercelTeamKey,
 } from '@glyphor/integrations';
 
 export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
@@ -393,18 +392,18 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
     {
       name: 'query_vercel_health',
-      description: 'Get Vercel deployment health for a product: latest deploy state, recent deploy success/error rates.',
+      description: 'Get Vercel deployment health: latest deploy state, recent error rates. "fuse" = Fuse product, "fuse-projects" = user-created project deployments.',
       parameters: {
         project: {
           type: 'string',
-          description: 'Product to check: "fuse" or "pulse"',
+          description: 'Scope: "fuse" (product) or "fuse-projects" (user deployments)',
           required: true,
-          enum: ['fuse', 'pulse'],
+          enum: ['fuse', 'fuse-projects'],
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const health = await queryVercelHealth(params.project as VercelProject);
+          const health = await queryVercelHealth(params.project as VercelTeamKey);
           return { success: true, data: health };
         } catch (err) {
           const msg = (err as Error).message;
@@ -416,13 +415,13 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
     {
       name: 'trigger_vercel_deploy',
-      description: 'Trigger a new Vercel deployment for a product. Redeploys from the latest deployment.',
+      description: 'Trigger a new Vercel deployment for Fuse. Redeploys from the latest deployment.',
       parameters: {
         project: {
           type: 'string',
-          description: 'Product to deploy: "fuse" or "pulse"',
+          description: 'Product to deploy (only Fuse supported)',
           required: true,
-          enum: ['fuse', 'pulse'],
+          enum: ['fuse'],
         },
         target: {
           type: 'string',
@@ -434,13 +433,13 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       execute: async (params, ctx): Promise<ToolResult> => {
         try {
           const deployment = await triggerDeployment(
-            params.project as VercelProject,
+            params.project as VercelTeamKey,
             (params.target as 'production' | 'preview') || 'production',
           );
           await memory.appendActivity({
             agentRole: ctx.agentRole,
             action: 'deploy',
-            product: params.project as 'fuse' | 'pulse',
+            product: 'fuse',
             summary: `Triggered Vercel deploy for ${params.project} (${params.target || 'production'})`,
             details: { deploymentId: deployment.uid, url: deployment.url },
             createdAt: new Date().toISOString(),
@@ -456,13 +455,13 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
     {
       name: 'rollback_vercel_deploy',
-      description: 'Rollback a Vercel project to a previous deployment by promoting it.',
+      description: 'Rollback a Vercel deployment by promoting a previous one.',
       parameters: {
         project: {
           type: 'string',
-          description: 'Product to rollback: "fuse" or "pulse"',
+          description: 'Product to rollback (only Fuse supported)',
           required: true,
-          enum: ['fuse', 'pulse'],
+          enum: ['fuse'],
         },
         deployment_id: {
           type: 'string',
@@ -473,13 +472,13 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       execute: async (params, ctx): Promise<ToolResult> => {
         try {
           const result = await rollbackDeployment(
-            params.project as VercelProject,
+            params.project as VercelTeamKey,
             params.deployment_id as string,
           );
           await memory.appendActivity({
             agentRole: ctx.agentRole,
             action: 'deploy',
-            product: params.project as 'fuse' | 'pulse',
+            product: 'fuse',
             summary: `Rolled back Vercel deploy for ${params.project} to ${params.deployment_id}`,
             details: result,
             createdAt: new Date().toISOString(),

@@ -1,25 +1,38 @@
 /**
  * Vercel Integration — Deployment management, health checks, and usage metrics
  *
- * Used by:
- *   Marcus (CTO)           — trigger/rollback deploys, query health
- *   Alex (Platform Eng)    — query deployment health
- *   Omar (Cost Analyst)    — query usage/bandwidth costs
- *   Jordan (DevOps)        — query build metrics
+ * Two Vercel team scopes:
+ *   fuse           — the Fuse product deployment (fuse.build)
+ *   fuse-projects  — end-user projects deployed through the Fuse platform
  *
- * Requires VERCEL_TOKEN secret (scoped to team).
- * Optional VERCEL_TEAM_ID for team-scoped operations.
+ * Used by:
+ *   Marcus (CTO)           — deploy/rollback Fuse, query health for both scopes
+ *   Alex (Platform Eng)    — query deployment health for both scopes
+ *   Omar (Cost Analyst)    — query usage/costs across all teams
+ *   Jordan (DevOps)        — query build metrics for both scopes
+ *
+ * Requires VERCEL_TOKEN secret.
+ * Requires VERCEL_TEAM_FUSE and VERCEL_TEAM_FUSE_PROJECTS env vars.
  */
 
 const VERCEL_API = 'https://api.vercel.com';
 
-/** Vercel project mapping — matches our product names to Vercel project IDs/names. */
-export const VERCEL_PROJECTS = {
-  fuse: process.env.VERCEL_PROJECT_FUSE || 'fuse',
-  pulse: process.env.VERCEL_PROJECT_PULSE || 'pulse',
+/** Vercel team mapping — scopes queries to the right Vercel team. */
+export const VERCEL_TEAMS = {
+  fuse: process.env.VERCEL_TEAM_FUSE || '',
+  'fuse-projects': process.env.VERCEL_TEAM_FUSE_PROJECTS || '',
 } as const;
 
-export type VercelProject = keyof typeof VERCEL_PROJECTS;
+export type VercelTeamKey = keyof typeof VERCEL_TEAMS;
+
+function resolveTeamId(key: VercelTeamKey): string {
+  const id = VERCEL_TEAMS[key];
+  if (!id) {
+    const envVar = key === 'fuse' ? 'VERCEL_TEAM_FUSE' : 'VERCEL_TEAM_FUSE_PROJECTS';
+    throw new Error(`${envVar} not configured — add the env var to Cloud Run`);
+  }
+  return id;
+}
 
 // ─── Interfaces ──────────────────────────────────────────────────
 
@@ -51,14 +64,9 @@ export interface VercelProjectInfo {
   }>;
 }
 
-export interface VercelDomainInfo {
-  name: string;
-  verified: boolean;
-  redirect: string | null;
-}
-
 export interface VercelHealthSummary {
-  project: string;
+  team: string;
+  teamKey: VercelTeamKey;
   status: 'healthy' | 'building' | 'error' | 'unknown';
   latestDeployment: VercelDeployment | null;
   recentDeployments: {
@@ -77,10 +85,15 @@ export interface VercelUsageSummary {
   erroredDeployments: number;
   avgBuildDurationMs: number | null;
   period: string;
-  projects: Array<{
-    name: string;
+  teams: Array<{
+    teamKey: string;
     deployments: number;
     errored: number;
+    projects: Array<{
+      name: string;
+      deployments: number;
+      errored: number;
+    }>;
   }>;
   checkedAt: string;
 }
@@ -96,15 +109,9 @@ function getHeaders(): Record<string, string> {
   };
 }
 
-function teamQuery(): string {
-  const teamId = process.env.VERCEL_TEAM_ID;
-  return teamId ? `teamId=${encodeURIComponent(teamId)}` : '';
-}
-
-function buildUrl(path: string, params?: Record<string, string | number | undefined>): string {
+function buildUrl(path: string, teamId: string, params?: Record<string, string | number | undefined>): string {
   const url = new URL(path, VERCEL_API);
-  const tq = teamQuery();
-  if (tq) url.searchParams.set('teamId', process.env.VERCEL_TEAM_ID!);
+  url.searchParams.set('teamId', teamId);
   if (params) {
     for (const [k, v] of Object.entries(params)) {
       if (v !== undefined) url.searchParams.set(k, String(v));
@@ -113,8 +120,8 @@ function buildUrl(path: string, params?: Record<string, string | number | undefi
   return url.toString();
 }
 
-async function vercelFetch<T>(path: string, params?: Record<string, string | number | undefined>, method = 'GET', body?: unknown): Promise<T> {
-  const url = buildUrl(path, params);
+async function vercelFetch<T>(path: string, teamId: string, params?: Record<string, string | number | undefined>, method = 'GET', body?: unknown): Promise<T> {
+  const url = buildUrl(path, teamId, params);
   const res = await fetch(url, {
     method,
     headers: getHeaders(),
@@ -130,19 +137,17 @@ async function vercelFetch<T>(path: string, params?: Record<string, string | num
 // ─── API Functions ───────────────────────────────────────────────
 
 /**
- * List recent deployments, optionally filtered by project.
+ * List recent deployments for a team scope.
  */
 export async function listDeployments(
-  projectKey?: VercelProject,
+  teamKey: VercelTeamKey,
   limit = 20,
 ): Promise<VercelDeployment[]> {
-  const params: Record<string, string | number | undefined> = { limit };
-  if (projectKey) {
-    params.projectId = VERCEL_PROJECTS[projectKey];
-  }
+  const teamId = resolveTeamId(teamKey);
   const data = await vercelFetch<{ deployments: VercelDeployment[] }>(
     '/v6/deployments',
-    params,
+    teamId,
+    { limit },
   );
   return data.deployments;
 }
@@ -150,65 +155,48 @@ export async function listDeployments(
 /**
  * Get a single deployment by ID.
  */
-export async function getDeployment(deploymentId: string): Promise<VercelDeployment> {
-  return vercelFetch<VercelDeployment>(`/v13/deployments/${encodeURIComponent(deploymentId)}`);
+export async function getDeployment(teamKey: VercelTeamKey, deploymentId: string): Promise<VercelDeployment> {
+  const teamId = resolveTeamId(teamKey);
+  return vercelFetch<VercelDeployment>(
+    `/v13/deployments/${encodeURIComponent(deploymentId)}`,
+    teamId,
+  );
 }
 
 /**
- * List all projects on the team.
+ * List all projects on a team.
  */
-export async function listProjects(limit = 20): Promise<VercelProjectInfo[]> {
+export async function listProjects(teamKey: VercelTeamKey, limit = 20): Promise<VercelProjectInfo[]> {
+  const teamId = resolveTeamId(teamKey);
   const data = await vercelFetch<{ projects: VercelProjectInfo[] }>(
     '/v9/projects',
+    teamId,
     { limit },
   );
   return data.projects;
 }
 
 /**
- * Get details for a specific project.
- */
-export async function getProjectInfo(projectKey: VercelProject): Promise<VercelProjectInfo> {
-  const projectId = VERCEL_PROJECTS[projectKey];
-  return vercelFetch<VercelProjectInfo>(
-    `/v9/projects/${encodeURIComponent(projectId)}`,
-  );
-}
-
-/**
- * Get domains for a project.
- */
-export async function getProjectDomains(projectKey: VercelProject): Promise<VercelDomainInfo[]> {
-  const projectId = VERCEL_PROJECTS[projectKey];
-  const data = await vercelFetch<{ domains: VercelDomainInfo[] }>(
-    `/v9/projects/${encodeURIComponent(projectId)}/domains`,
-  );
-  return data.domains;
-}
-
-/**
  * Trigger a new deployment by redeploying the latest.
- * This creates a new deployment from the latest source.
  */
 export async function triggerDeployment(
-  projectKey: VercelProject,
+  teamKey: VercelTeamKey,
   target: 'production' | 'preview' = 'production',
 ): Promise<VercelDeployment> {
-  const projectId = VERCEL_PROJECTS[projectKey];
-
-  // Get the latest production deployment to redeploy from
-  const deployments = await listDeployments(projectKey, 1);
+  const teamId = resolveTeamId(teamKey);
+  const deployments = await listDeployments(teamKey, 1);
   if (deployments.length === 0) {
-    throw new Error(`No existing deployments found for project "${projectKey}" to redeploy`);
+    throw new Error(`No existing deployments found for team "${teamKey}" to redeploy`);
   }
 
   const latest = deployments[0];
   return vercelFetch<VercelDeployment>(
     '/v13/deployments',
+    teamId,
     undefined,
     'POST',
     {
-      name: projectId,
+      name: latest.name,
       deploymentId: latest.uid,
       target,
       meta: { triggeredBy: 'glyphor-agent' },
@@ -220,12 +208,14 @@ export async function triggerDeployment(
  * Rollback to a previous deployment by promoting it.
  */
 export async function rollbackDeployment(
-  projectKey: VercelProject,
+  teamKey: VercelTeamKey,
   deploymentId: string,
 ): Promise<{ uid: string; readyState: string }> {
-  const projectId = VERCEL_PROJECTS[projectKey];
+  const teamId = resolveTeamId(teamKey);
+  const deployment = await getDeployment(teamKey, deploymentId);
   return vercelFetch<{ uid: string; readyState: string }>(
-    `/v9/projects/${encodeURIComponent(projectId)}/rollback/${encodeURIComponent(deploymentId)}`,
+    `/v9/projects/${encodeURIComponent(deployment.name)}/rollback/${encodeURIComponent(deploymentId)}`,
+    teamId,
     undefined,
     'POST',
   );
@@ -234,11 +224,11 @@ export async function rollbackDeployment(
 // ─── Composite Queries (used by agent tools) ─────────────────────
 
 /**
- * Get health summary for a project — used by CTO, Platform Eng, DevOps.
+ * Get health summary for a team scope — used by CTO, Platform Eng, DevOps.
  * Checks latest deployment state plus recent error rate.
  */
-export async function queryVercelHealth(projectKey: VercelProject): Promise<VercelHealthSummary> {
-  const deployments = await listDeployments(projectKey, 10);
+export async function queryVercelHealth(teamKey: VercelTeamKey): Promise<VercelHealthSummary> {
+  const deployments = await listDeployments(teamKey, 10);
 
   const latest = deployments[0] ?? null;
   const ready = deployments.filter((d) => d.state === 'READY').length;
@@ -253,7 +243,8 @@ export async function queryVercelHealth(projectKey: VercelProject): Promise<Verc
   }
 
   return {
-    project: VERCEL_PROJECTS[projectKey],
+    team: teamKey,
+    teamKey,
     status,
     latestDeployment: latest,
     recentDeployments: {
@@ -267,29 +258,35 @@ export async function queryVercelHealth(projectKey: VercelProject): Promise<Verc
 }
 
 /**
- * Get usage summary across all projects — used by Cost Analyst, CFO.
+ * Get usage summary across all configured teams — used by Cost Analyst, CFO.
  * Aggregates deployment counts and build durations over recent history.
  */
 export async function queryVercelUsage(days = 7): Promise<VercelUsageSummary> {
   const since = Date.now() - days * 24 * 60 * 60 * 1000;
-  const projects = await listProjects();
+  const teamEntries = (Object.keys(VERCEL_TEAMS) as VercelTeamKey[]).filter(
+    (k) => VERCEL_TEAMS[k],
+  );
 
-
-  const perProject: VercelUsageSummary['projects'] = [];
+  const perTeam: VercelUsageSummary['teams'] = [];
   let totalDeployments = 0;
   let totalReady = 0;
   let totalErrored = 0;
   let totalBuildDuration = 0;
   let buildCount = 0;
 
-  for (const project of projects) {
-    const deployments = await listDeployments(
-      // Check if it maps to a known key; otherwise skip
-      undefined,
-      50,
-    ).then((ds) =>
-      ds.filter((d) => d.name === project.name && d.createdAt >= since),
+  for (const teamKey of teamEntries) {
+    const deployments = (await listDeployments(teamKey, 50)).filter(
+      (d) => d.createdAt >= since,
     );
+
+    // Group by project name
+    const projectMap = new Map<string, { deployments: number; errored: number }>();
+    for (const d of deployments) {
+      const entry = projectMap.get(d.name) ?? { deployments: 0, errored: 0 };
+      entry.deployments++;
+      if (d.state === 'ERROR') entry.errored++;
+      projectMap.set(d.name, entry);
+    }
 
     const ready = deployments.filter((d) => d.state === 'READY').length;
     const errored = deployments.filter((d) => d.state === 'ERROR').length;
@@ -305,10 +302,11 @@ export async function queryVercelUsage(days = 7): Promise<VercelUsageSummary> {
     totalReady += ready;
     totalErrored += errored;
 
-    perProject.push({
-      name: project.name,
+    perTeam.push({
+      teamKey,
       deployments: deployments.length,
       errored,
+      projects: [...projectMap.entries()].map(([name, stats]) => ({ name, ...stats })),
     });
   }
 
@@ -319,7 +317,7 @@ export async function queryVercelUsage(days = 7): Promise<VercelUsageSummary> {
     erroredDeployments: totalErrored,
     avgBuildDurationMs: buildCount > 0 ? Math.round(totalBuildDuration / buildCount) : null,
     period: `${days}d`,
-    projects: perProject,
+    teams: perTeam,
     checkedAt: new Date().toISOString(),
   };
 }

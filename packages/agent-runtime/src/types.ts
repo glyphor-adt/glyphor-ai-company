@@ -157,6 +157,9 @@ export interface AgentExecutionResult {
   totalFilesWritten: number;
   totalMemoryKeysWritten: number;
   elapsedMs: number;
+  inputTokens: number;
+  outputTokens: number;
+  cost: number;
   abortReason?: string;
   error?: string;
   reasoning?: ReasoningEnvelope;

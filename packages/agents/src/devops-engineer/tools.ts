@@ -5,7 +5,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { listWorkflowRuns, listRecentCommits, commentOnPR, type GlyphorRepo, queryVercelHealth, listDeployments, type VercelProject } from '@glyphor/integrations';
+import { listWorkflowRuns, listRecentCommits, commentOnPR, type GlyphorRepo, listDeployments, type VercelTeamKey } from '@glyphor/integrations';
 
 export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -173,13 +173,13 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
 
     {
       name: 'query_vercel_builds',
-      description: 'Get recent Vercel deployments for a product — shows build status, duration, and error rate.',
+      description: 'Get recent Vercel deployments — shows build status, duration, and error rate. "fuse" = Fuse product, "fuse-projects" = user deployments.',
       parameters: {
         project: {
           type: 'string',
-          description: 'Product to check: "fuse" or "pulse"',
+          description: 'Scope: "fuse" (product) or "fuse-projects" (user deployments)',
           required: true,
-          enum: ['fuse', 'pulse'],
+          enum: ['fuse', 'fuse-projects'],
         },
         limit: {
           type: 'number',
@@ -189,7 +189,7 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const deployments = await listDeployments(params.project as VercelProject, (params.limit as number) || 15);
+          const deployments = await listDeployments(params.project as VercelTeamKey, (params.limit as number) || 15);
           const errored = deployments.filter((d) => d.state === 'ERROR').length;
           const ready = deployments.filter((d) => d.state === 'READY').length;
           const building = deployments.filter((d) => d.state === 'BUILDING').length;

@@ -48,6 +48,24 @@ const THINKING_ENABLED_TASKS = new Set([
 /** 60 s per-model-call timeout for chat; 180 s for scheduled work. */
 const ON_DEMAND_TIMEOUT_MS = 60_000;
 
+/** Approximate per-token pricing (USD) by model prefix for cost tracking. */
+const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+  'gemini-3':   { input: 0.10 / 1_000_000, output: 0.40 / 1_000_000 },
+  'gemini-2.5-flash': { input: 0.15 / 1_000_000, output: 0.60 / 1_000_000 },
+  'gemini-2.5-pro':   { input: 1.25 / 1_000_000, output: 10.0 / 1_000_000 },
+  'gemini-2':   { input: 0.10 / 1_000_000, output: 0.40 / 1_000_000 },
+  'claude':     { input: 3.00 / 1_000_000, output: 15.0 / 1_000_000 },
+  'gpt-4':      { input: 2.50 / 1_000_000, output: 10.0 / 1_000_000 },
+};
+
+function estimateCost(model: string, inputTokens: number, outputTokens: number): number {
+  const entry = Object.entries(MODEL_PRICING)
+    .sort((a, b) => b[0].length - a[0].length)
+    .find(([prefix]) => model.startsWith(prefix));
+  const pricing = entry?.[1] ?? MODEL_PRICING['gemini-3'];
+  return inputTokens * pricing.input + outputTokens * pricing.output;
+}
+
 /** Overall supervisor limits for on_demand (chat) — keep well within the
  *  dashboard's 120 s fetch-abort so users actually see the response.
  *  Turn budget: 1 toolless conversational turn + up to 4 tool turns + 1 forced-text turn = 6.
@@ -647,6 +665,8 @@ export class CompanyAgentRunner {
       { role: 'user', content: initialMessage, timestamp: Date.now() },
     ];
     let lastTextOutput: string | null = null;
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
 
     emitEvent({
       type: 'agent_started',
@@ -902,7 +922,7 @@ export class CompanyAgentRunner {
         if (!check.ok) {
           if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, check.reason ?? 'supervisor_limit', deps);
           return this.buildResult(
-            config, 'aborted', lastTextOutput, history, supervisor, check.reason,
+            config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens,
           );
         }
 
@@ -985,6 +1005,10 @@ export class CompanyAgentRunner {
             callTimeoutMs: isOnDemand ? ON_DEMAND_TIMEOUT_MS : isTaskTier ? TASK_TIER_CALL_TIMEOUT_MS : undefined,
           });
 
+          // Accumulate token usage across turns
+          totalInputTokens += response.usageMetadata.inputTokens;
+          totalOutputTokens += response.usageMetadata.outputTokens;
+
           emitEvent({
             type: 'model_response',
             agentId: config.id,
@@ -997,7 +1021,7 @@ export class CompanyAgentRunner {
             if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, (error as Error).message, deps);
             return this.buildResult(
               config, 'aborted', lastTextOutput, history, supervisor,
-              (error as Error).message,
+              (error as Error).message, totalInputTokens, totalOutputTokens,
             );
           }
           throw error;
@@ -1065,7 +1089,7 @@ export class CompanyAgentRunner {
               if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, progressCheck.reason ?? 'stall_detected', deps);
               return this.buildResult(
                 config, 'aborted', lastTextOutput, history, supervisor,
-                progressCheck.reason,
+                progressCheck.reason, totalInputTokens, totalOutputTokens,
               );
             }
           }
@@ -1165,7 +1189,7 @@ export class CompanyAgentRunner {
         elapsedMs: stats.elapsedMs,
       });
 
-      return this.buildResult(config, 'completed', lastTextOutput, history, supervisor);
+      return this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens);
 
     } catch (error) {
       emitEvent({
@@ -1204,6 +1228,8 @@ export class CompanyAgentRunner {
         history,
         supervisor,
         (error as Error).message,
+        totalInputTokens,
+        totalOutputTokens,
       );
     }
   }
@@ -1252,6 +1278,8 @@ export class CompanyAgentRunner {
     history: ConversationTurn[],
     supervisor: AgentSupervisor,
     errorMsg?: string,
+    inputTokens = 0,
+    outputTokens = 0,
   ): AgentExecutionResult {
     const stats = supervisor.stats;
     return {
@@ -1263,6 +1291,9 @@ export class CompanyAgentRunner {
       totalFilesWritten: stats.filesWritten,
       totalMemoryKeysWritten: stats.memoryKeysWritten,
       elapsedMs: stats.elapsedMs,
+      inputTokens,
+      outputTokens,
+      cost: estimateCost(config.model, inputTokens, outputTokens),
       abortReason: status === 'aborted' ? errorMsg : undefined,
       error: status === 'error' ? errorMsg : undefined,
       reasoning: output ? extractReasoning(output) : undefined,
