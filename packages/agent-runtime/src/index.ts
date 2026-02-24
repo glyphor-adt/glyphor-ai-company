@@ -12,6 +12,8 @@ export { extractReasoning, stripReasoning, REASONING_PROMPT_SUFFIX } from './rea
 export { isKnownTool, filterKnownTools, getAllKnownTools } from './toolRegistry.js';
 export { checkEventPermission, createEventSecurityLog } from './eventPermissions.js';
 export type { EventPermissionCheck } from './eventPermissions.js';
+export { executeWorkLoop, PROACTIVE_COOLDOWNS } from './workLoop.js';
+export type { WorkLoopResult } from './workLoop.js';
 export {
   AGENT_BUDGETS,
   EXECUTIVE_ROLES,

@@ -115,4 +115,34 @@ export const WAKE_RULES: WakeRule[] = [
     task: 'meeting_follow_up',
     priority: 'next_heartbeat',
   },
-];
+  // ── ASSIGNMENT LIFECYCLE (24/7 Autonomous Ops) ──────────
+  {
+    event: 'assignment.submitted',
+    wake: ['chief-of-staff'],
+    task: 'orchestrate',
+    priority: 'immediate',
+    cooldown_min: 5,
+  },
+  {
+    event: 'assignment.blocked',
+    wake: ['chief-of-staff'],
+    task: 'orchestrate',
+    priority: 'immediate',
+    cooldown_min: 2,
+  },
+  {
+    event: 'assignment.revised',
+    wake: ['$target_agent'],
+    task: 'work_loop',
+    priority: 'immediate',
+    cooldown_min: 2,
+  },
+
+  // ── INTER-AGENT MESSAGES (non-urgent — next heartbeat) ──
+  {
+    event: 'message.sent',
+    wake: ['$to_agent'],
+    task: 'work_loop',
+    priority: 'next_heartbeat',
+    cooldown_min: 5,
+  },];

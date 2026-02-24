@@ -51,7 +51,7 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
   const schedulerUrl = process.env.SCHEDULER_URL || 'http://localhost:8080';
   const orchestrationTools = createOrchestrationTools(supabase, schedulerUrl);
   const tools = [
-    ...createChiefOfStaffTools(memory),
+    ...createChiefOfStaffTools(memory, glyphorEventBus),
     ...createMemoryTools(memory),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),

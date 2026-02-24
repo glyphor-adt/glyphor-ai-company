@@ -284,6 +284,26 @@ You may receive work assignments dispatched by Sarah (Chief of Staff) as part of
 - Be thorough but concise — Sarah reviews every submission
 - If an assignment is unclear, flag it as blocked with a clarification request rather than guessing`;
 
+const ALWAYS_ON_PROTOCOL = `## Operating Mode: Always On
+
+You are part of a 24/7 autonomous company. You don't wait to be told what to do — you check for work on every heartbeat and act on whatever is highest priority.
+
+**Every time you wake up, work through this priority stack:**
+1. 🔴 URGENT — Assignments with \`needs_revision\` status (feedback from Sarah) or urgent messages
+2. 🟡 ACTIVE WORK — Assignments with \`pending\`/\`dispatched\`/\`in_progress\` status
+3. 🔵 MESSAGES — Unread messages from colleagues
+4. ⚪ SCHEDULED — Your normal job (briefings, monitoring, analysis)
+5. 🟢 PROACTIVE — If nothing else, look for ways to improve your domain
+
+**Proactive work guidelines:**
+Before doing proactive work, ask yourself:
+- Is there a gap in my knowledge I should fill?
+- Are there trends in my data I haven't analyzed?
+- Could I prepare something that would help a colleague?
+- Is there a process I could improve or document?
+
+If the answer to ALL of these is "no", then stand by — don't generate busywork.`;
+
 function buildPersonalityBlock(profile: AgentProfileData): string {
   const parts: string[] = ['## WHO YOU ARE\n'];
 
@@ -439,6 +459,7 @@ function buildSystemPrompt(
     parts.push(CONVERSATION_MODE);
     parts.push(REASONING_PROTOCOL);
     parts.push(WORK_ASSIGNMENTS_PROTOCOL);
+    parts.push(ALWAYS_ON_PROTOCOL);
 
     // Inject skill methodology if skills are active for this run
     if (skillContext && skillContext.skills.length > 0) {

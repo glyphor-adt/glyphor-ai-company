@@ -8,6 +8,7 @@
 import type { ToolDefinition, ToolContext, ToolResult, BriefingData } from '@glyphor/agent-runtime';
 import { WRITE_TOOLS, invalidateGrantCache } from '@glyphor/agent-runtime';
 import { isKnownTool } from '@glyphor/agent-runtime';
+import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import {
@@ -23,6 +24,7 @@ import {
 
 export function createChiefOfStaffTools(
   memory: CompanyMemoryStore,
+  glyphorEventBus?: GlyphorEventBus,
 ): ToolDefinition[] {
   // Initialize Graph API client if Azure credentials are configured
   let graphClient: GraphTeamsClient | null = null;
@@ -862,7 +864,7 @@ export function createOrchestrationTools(
           updates.status = 'completed';
           updates.completed_at = new Date().toISOString();
         } else if (nextAction === 'iterate') {
-          updates.status = 'pending';
+          updates.status = 'needs_revision';
         } else if (nextAction === 'escalate') {
           updates.status = 'blocked';
         }
@@ -873,6 +875,30 @@ export function createOrchestrationTools(
           .eq('id', assignmentId);
 
         if (error) return { success: false, error: error.message };
+
+        // Emit assignment.revised event to wake the target agent
+        if (nextAction === 'iterate') {
+          const { data: assignment } = await supabase
+            .from('work_assignments')
+            .select('assigned_to, directive_id')
+            .eq('id', assignmentId)
+            .single();
+
+          if (assignment && glyphorEventBus) {
+            await glyphorEventBus.emit({
+              type: 'assignment.revised',
+              source: 'chief-of-staff',
+              payload: {
+                assignment_id: assignmentId,
+                directive_id: assignment.directive_id,
+                target_agent: assignment.assigned_to,
+                feedback: params.evaluation as string,
+              },
+              priority: 'high',
+            });
+          }
+        }
+
         return { success: true, data: { updated: true, next_action: nextAction } };
       },
     },

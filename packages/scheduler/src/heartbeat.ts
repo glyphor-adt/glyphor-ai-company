@@ -14,6 +14,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
 import { EXECUTIVE_ROLES, SUB_TEAM_ROLES } from '@glyphor/agent-runtime';
+import { executeWorkLoop } from '@glyphor/agent-runtime';
 import type { WakeRouter } from './wakeRouter.js';
 
 type AgentExecutorFn = (
@@ -94,8 +95,9 @@ export class HeartbeatManager {
       }
 
       try {
-        console.log(`[Heartbeat] Waking ${role} — reason: ${reason}`);
-        await this.executor(role, 'heartbeat_response', {
+        const dispatchTask = (context.task as string) || 'heartbeat_response';
+        console.log(`[Heartbeat] Waking ${role} — reason: ${reason} (task: ${dispatchTask})`);
+        await this.executor(role, dispatchTask, {
           wake_reason: reason,
           priority: 'heartbeat',
           ...context,
@@ -125,36 +127,14 @@ export class HeartbeatManager {
 
   /**
    * Check what an agent needs — pure DB queries, no model calls.
+   * Uses the universal work loop for priority-ordered work detection.
    */
   private async checkAgentNeeds(agentRole: CompanyAgentRole): Promise<{
     shouldWake: boolean;
     reason: string;
     context: Record<string, unknown>;
   }> {
-    // Check 1: Unread urgent messages
-    const { count: urgentMsgs } = await this.supabase
-      .from('agent_messages')
-      .select('*', { count: 'exact', head: true })
-      .eq('to_agent', agentRole)
-      .eq('status', 'pending')
-      .eq('priority', 'urgent');
-
-    if (urgentMsgs && urgentMsgs > 0) {
-      return { shouldWake: true, reason: 'urgent_messages', context: { count: urgentMsgs } };
-    }
-
-    // Check 2: Batch pending messages (wake if 3+ normal messages waiting)
-    const { count: normalMsgs } = await this.supabase
-      .from('agent_messages')
-      .select('*', { count: 'exact', head: true })
-      .eq('to_agent', agentRole)
-      .eq('status', 'pending');
-
-    if (normalMsgs && normalMsgs >= 3) {
-      return { shouldWake: true, reason: 'pending_messages', context: { count: normalMsgs } };
-    }
-
-    // Check 3: Queued reactive wakes from WakeRouter
+    // Check 1: Queued reactive wakes from WakeRouter (event-driven, highest precedence)
     const queuedWakes = await this.wakeRouter.drainQueue(agentRole);
     if (queuedWakes.length > 0) {
       return {
@@ -166,7 +146,26 @@ export class HeartbeatManager {
       };
     }
 
-    // Check 4: Knowledge inbox items (batch — wake if 5+ pending)
+    // Check 2: Universal work loop (P1-P5 priority stack)
+    try {
+      const workResult = await executeWorkLoop(agentRole, this.supabase);
+      if (workResult.shouldRun) {
+        return {
+          shouldWake: true,
+          reason: workResult.reason ?? 'work_loop',
+          context: {
+            task: workResult.task ?? 'work_loop',
+            contextTier: workResult.contextTier ?? 'standard',
+            priority: workResult.priority,
+            message: workResult.message,
+          },
+        };
+      }
+    } catch (err) {
+      console.warn(`[Heartbeat] Work loop check failed for ${agentRole}:`, (err as Error).message);
+    }
+
+    // Check 3: Knowledge inbox items (batch — wake if 5+ pending)
     try {
       const { count: inboxItems } = await this.supabase
         .from('knowledge_inbox')

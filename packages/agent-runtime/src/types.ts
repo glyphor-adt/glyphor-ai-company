@@ -267,7 +267,8 @@ export type GlyphorEventType =
   | 'meeting.called'
   | 'meeting.completed'
   | 'assignment.submitted'
-  | 'assignment.blocked';
+  | 'assignment.blocked'
+  | 'assignment.revised';
 
 export type EventPriority = 'critical' | 'high' | 'normal' | 'low';
 
@@ -338,33 +339,36 @@ export interface AgentBudget {
 }
 
 export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
-  'chief-of-staff':       { perRunUsd: 0.15, dailyUsd: 1.50, monthlyUsd: 40 },
-  'cto':                  { perRunUsd: 0.10, dailyUsd: 2.00, monthlyUsd: 50 },
-  'cfo':                  { perRunUsd: 0.05, dailyUsd: 0.50, monthlyUsd: 15 },
-  'cpo':                  { perRunUsd: 0.08, dailyUsd: 1.00, monthlyUsd: 30 },
-  'cmo':                  { perRunUsd: 0.10, dailyUsd: 1.50, monthlyUsd: 40 },
-  'vp-customer-success':  { perRunUsd: 0.05, dailyUsd: 0.50, monthlyUsd: 15 },
-  'vp-sales':             { perRunUsd: 0.05, dailyUsd: 0.50, monthlyUsd: 15 },
-  'vp-design':            { perRunUsd: 0.05, dailyUsd: 0.50, monthlyUsd: 15 },
-  'platform-engineer':    { perRunUsd: 0.02, dailyUsd: 0.20, monthlyUsd: 6 },
-  'quality-engineer':     { perRunUsd: 0.03, dailyUsd: 0.30, monthlyUsd: 8 },
-  'devops-engineer':      { perRunUsd: 0.02, dailyUsd: 0.20, monthlyUsd: 6 },
-  'user-researcher':      { perRunUsd: 0.03, dailyUsd: 0.30, monthlyUsd: 8 },
-  'competitive-intel':    { perRunUsd: 0.05, dailyUsd: 0.50, monthlyUsd: 12 },
-  'revenue-analyst':      { perRunUsd: 0.02, dailyUsd: 0.20, monthlyUsd: 6 },
-  'cost-analyst':         { perRunUsd: 0.02, dailyUsd: 0.20, monthlyUsd: 6 },
-  'content-creator':      { perRunUsd: 0.08, dailyUsd: 1.00, monthlyUsd: 25 },
-  'seo-analyst':          { perRunUsd: 0.03, dailyUsd: 0.30, monthlyUsd: 8 },
-  'social-media-manager': { perRunUsd: 0.03, dailyUsd: 0.30, monthlyUsd: 8 },
-  'onboarding-specialist':{ perRunUsd: 0.02, dailyUsd: 0.20, monthlyUsd: 6 },
-  'support-triage':       { perRunUsd: 0.03, dailyUsd: 0.50, monthlyUsd: 12 },
-  'account-research':     { perRunUsd: 0.05, dailyUsd: 0.50, monthlyUsd: 12 },
-  'ui-ux-designer':       { perRunUsd: 0.03, dailyUsd: 0.30, monthlyUsd: 8 },
-  'frontend-engineer':    { perRunUsd: 0.03, dailyUsd: 0.30, monthlyUsd: 8 },
-  'design-critic':        { perRunUsd: 0.02, dailyUsd: 0.20, monthlyUsd: 6 },
-  'template-architect':   { perRunUsd: 0.03, dailyUsd: 0.30, monthlyUsd: 8 },
-  'm365-admin':           { perRunUsd: 0.03, dailyUsd: 0.30, monthlyUsd: 8 },
-  'ops':                  { perRunUsd: 0.03, dailyUsd: 0.50, monthlyUsd: 15 },
+  // ── Executives: 24/7 always-on budgets ──
+  'chief-of-staff':       { perRunUsd: 0.15, dailyUsd: 5.00, monthlyUsd: 150 },
+  'cto':                  { perRunUsd: 0.12, dailyUsd: 4.00, monthlyUsd: 120 },
+  'cfo':                  { perRunUsd: 0.10, dailyUsd: 3.00, monthlyUsd: 90 },
+  'cpo':                  { perRunUsd: 0.10, dailyUsd: 2.00, monthlyUsd: 60 },
+  'cmo':                  { perRunUsd: 0.10, dailyUsd: 2.00, monthlyUsd: 60 },
+  'vp-customer-success':  { perRunUsd: 0.08, dailyUsd: 1.50, monthlyUsd: 45 },
+  'vp-sales':             { perRunUsd: 0.08, dailyUsd: 1.50, monthlyUsd: 45 },
+  'vp-design':            { perRunUsd: 0.08, dailyUsd: 1.50, monthlyUsd: 45 },
+  // ── Ops (Atlas): Always-hot tier ──
+  'ops':                  { perRunUsd: 0.08, dailyUsd: 3.00, monthlyUsd: 90 },
+  // ── Sub-team: Standard 24/7 budgets ──
+  'platform-engineer':    { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
+  'quality-engineer':     { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
+  'devops-engineer':      { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
+  'user-researcher':      { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
+  'competitive-intel':    { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
+  'revenue-analyst':      { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
+  'cost-analyst':         { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
+  'content-creator':      { perRunUsd: 0.08, dailyUsd: 1.00, monthlyUsd: 30 },
+  'seo-analyst':          { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
+  'social-media-manager': { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
+  'onboarding-specialist':{ perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
+  'support-triage':       { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
+  'account-research':     { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
+  'ui-ux-designer':       { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
+  'frontend-engineer':    { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
+  'design-critic':        { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
+  'template-architect':   { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
+  'm365-admin':           { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
 };
 
 // ═══════════════════════════════════════════════════════════════════
