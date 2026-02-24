@@ -14,6 +14,65 @@ import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+/* ── Dependency Resolution ────────────────── */
+
+/**
+ * When an assignment completes, check if any dependent assignments now have
+ * ALL dependencies met. If so, dispatch them immediately via the scheduler.
+ * Fire-and-forget — errors are logged but don't block the submitting agent.
+ */
+async function dispatchDependentAssignments(
+  supabase: SupabaseClient,
+  completedAssignmentId: string,
+): Promise<void> {
+  const schedulerUrl = process.env.SCHEDULER_URL || 'http://localhost:8080';
+
+  // Find assignments that depend on the completed one
+  const { data: dependents } = await supabase
+    .from('work_assignments')
+    .select('id, assigned_to, task_description, depends_on')
+    .contains('depends_on', [completedAssignmentId])
+    .in('status', ['pending', 'dispatched']);
+
+  if (!dependents?.length) return;
+
+  for (const dep of dependents) {
+    const allDeps: string[] = (dep.depends_on as string[]) ?? [];
+
+    // Check if ALL dependencies are now completed
+    const { data: completed } = await supabase
+      .from('work_assignments')
+      .select('id')
+      .in('id', allDeps)
+      .eq('status', 'completed');
+
+    if (completed?.length !== allDeps.length) continue;
+
+    // All dependencies met — dispatch immediately
+    console.log(
+      `[DependencyResolution] All deps met for ${dep.assigned_to} ` +
+      `(${dep.id}) — dispatching immediately`,
+    );
+
+    // Fire-and-forget: same pattern as dispatch_assignment in chief-of-staff tools
+    fetch(`${schedulerUrl}/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        agentRole: dep.assigned_to,
+        task: 'work_loop',
+        message: dep.task_description,
+        payload: {
+          directiveAssignmentId: dep.id,
+          wake_reason: 'dependency_resolved',
+        },
+      }),
+    }).catch(err => {
+      console.warn(`[DependencyResolution] Dispatch failed for ${dep.assigned_to}:`, err);
+    });
+  }
+}
+
 /* ── Factory ──────────────────────────────── */
 
 export function createAssignmentTools(
@@ -195,6 +254,13 @@ export function createAssignmentTools(
           },
           priority: 'normal',
         });
+
+        // Event-driven dependency resolution: dispatch agents whose deps are now met
+        if (status === 'completed') {
+          dispatchDependentAssignments(supabase, assignmentId).catch(err => {
+            console.warn('[DependencyResolution] Failed:', (err as Error).message);
+          });
+        }
 
         // Log to activity_log
         await supabase.from('activity_log').insert({

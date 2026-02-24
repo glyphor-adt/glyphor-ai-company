@@ -16,6 +16,8 @@ import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runt
 import { EXECUTIVE_ROLES, SUB_TEAM_ROLES } from '@glyphor/agent-runtime';
 import { executeWorkLoop } from '@glyphor/agent-runtime';
 import type { WakeRouter } from './wakeRouter.js';
+import { buildWaves, dispatchWaves } from './parallelDispatch.js';
+import type { WaveAgent } from './parallelDispatch.js';
 
 type AgentExecutorFn = (
   agentRole: CompanyAgentRole,
@@ -44,9 +46,6 @@ const LOW_TIER: CompanyAgentRole[] = SUB_TEAM_ROLES as CompanyAgentRole[];
 /** Minimum minutes since last run before a heartbeat can wake an agent */
 const MIN_RUN_GAP_MS = 5 * 60 * 1000;
 
-/** Stagger delay between agent wakes to avoid thundering herd (ms) */
-const WAKE_STAGGER_MS = 2_000;
-
 export class HeartbeatManager {
   private supabase: SupabaseClient;
   private executor: AgentExecutorFn;
@@ -69,10 +68,12 @@ export class HeartbeatManager {
   async runHeartbeat(): Promise<HeartbeatResult> {
     this.cycle++;
     const agentsToCheck = this.getAgentsForCycle(this.cycle);
-    const wakeList: { role: CompanyAgentRole; reason: string; context: Record<string, unknown> }[] = [];
 
     // Batch fetch last run times for all agents being checked
     const lastRuns = await this.getLastRunTimes(agentsToCheck);
+
+    // ── Phase 1: SCAN — check all agents for work (fast DB reads) ──
+    const wakeList: WaveAgent[] = [];
 
     for (const agentRole of agentsToCheck) {
       // Skip if agent ran recently
@@ -81,48 +82,67 @@ export class HeartbeatManager {
 
       const needs = await this.checkAgentNeeds(agentRole);
       if (needs.shouldWake) {
-        wakeList.push({ role: agentRole, reason: needs.reason, context: needs.context });
-      }
-    }
+        const dispatchTask = (needs.context.task as string) || 'heartbeat_response';
 
-    // Wake agents with staggering
-    const wokenAgents: { role: string; reason: string }[] = [];
-    for (let i = 0; i < wakeList.length; i++) {
-      const { role, reason, context } = wakeList[i];
+        // Look up assignment dependency info for wave ordering
+        let assignmentId: string | undefined;
+        let dependsOn: string[] | undefined;
+        if (dispatchTask === 'work_loop' && needs.context.message) {
+          const match = (needs.context.message as string).match(/assignment_id="([^"]+)"/);
+          if (match) {
+            assignmentId = match[1];
+            const { data: assignment } = await this.supabase
+              .from('work_assignments')
+              .select('depends_on')
+              .eq('id', assignmentId)
+              .single();
+            if (assignment?.depends_on?.length) {
+              dependsOn = assignment.depends_on as string[];
+            }
+          }
+        }
 
-      if (i > 0) {
-        await this.sleep(WAKE_STAGGER_MS);
-      }
-
-      try {
-        const dispatchTask = (context.task as string) || 'heartbeat_response';
-        console.log(`[Heartbeat] Waking ${role} — reason: ${reason} (task: ${dispatchTask})`);
-        await this.executor(role, dispatchTask, {
-          wake_reason: reason,
-          priority: 'heartbeat',
-          ...context,
+        wakeList.push({
+          role: agentRole,
+          task: dispatchTask,
+          context: {
+            wake_reason: needs.reason,
+            priority: 'heartbeat',
+            ...needs.context,
+          },
+          assignmentId,
+          dependsOn,
         });
-        wokenAgents.push({ role, reason });
-      } catch (err) {
-        console.error(`[Heartbeat] Failed to wake ${role}:`, (err as Error).message);
       }
     }
 
-    const result: HeartbeatResult = {
+    if (wakeList.length === 0) {
+      return { cycle: this.cycle, checked: agentsToCheck.length, woken: 0, agents: [] };
+    }
+
+    // ── Phase 2: RESOLVE — build dependency-ordered waves ──
+    const waves = buildWaves(wakeList);
+
+    console.log(
+      `[Heartbeat] Cycle ${this.cycle}: checked ${agentsToCheck.length}, ` +
+      `found ${wakeList.length} agents with work → ${waves.length} wave(s): ` +
+      waves.map((w, i) => `W${i + 1}=[${w.map(a => a.role).join(', ')}]`).join(' → '),
+    );
+
+    // ── Phase 3: DISPATCH — parallel wave execution ──
+    const dispatchResult = await dispatchWaves(waves, this.executor, this.supabase);
+
+    const wokenAgents = dispatchResult.dispatched.map(role => {
+      const agent = wakeList.find(a => a.role === role);
+      return { role, reason: (agent?.context.wake_reason as string) ?? 'heartbeat' };
+    });
+
+    return {
       cycle: this.cycle,
       checked: agentsToCheck.length,
       woken: wokenAgents.length,
       agents: wokenAgents,
     };
-
-    if (wokenAgents.length > 0) {
-      console.log(
-        `[Heartbeat] Cycle ${this.cycle}: checked ${agentsToCheck.length}, ` +
-        `woke ${wokenAgents.length} agents: [${wokenAgents.map(a => a.role).join(', ')}]`,
-      );
-    }
-
-    return result;
   }
 
   /**
@@ -214,9 +234,5 @@ export class HeartbeatManager {
       console.warn('[Heartbeat] Failed to fetch last run times:', (err as Error).message);
     }
     return result;
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
