@@ -19,13 +19,19 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { getAgentEmail } from '@glyphor/agent-runtime';
-import type { GraphEmailClient } from '@glyphor/integrations';
+import { GraphTeamsClient, GraphEmailClient } from '@glyphor/integrations';
 
 /* ── Factory ──────────────────────────────── */
 
-export function createEmailTools(
-  emailClient: GraphEmailClient | null,
-): ToolDefinition[] {
+export function createEmailTools(): ToolDefinition[] {
+  // Initialize Graph email client — will be null if Azure credentials aren't set
+  let emailClient: GraphEmailClient | null = null;
+  try {
+    const graphClient = GraphTeamsClient.fromEnv();
+    emailClient = GraphEmailClient.fromEnv(graphClient);
+  } catch {
+    // Graph API not configured — tools will return helpful error
+  }
   return [
 
     /* ── send_email ─────────────────────── */

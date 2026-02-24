@@ -7,7 +7,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { GraphTeamsClient, GraphEmailClient, GraphCalendarClient, TeamsBotHandler } from '@glyphor/integrations';
+import { GraphTeamsClient, GraphCalendarClient, TeamsBotHandler } from '@glyphor/integrations';
 
 function getTeamsClient(): GraphTeamsClient {
   return GraphTeamsClient.fromEnv();
@@ -253,40 +253,7 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
       },
     },
 
-    // ── EMAIL ────────────────────────────────────────────────────────
-
-    {
-      name: 'send_email',
-      description: 'Send an email via Microsoft Outlook/Graph API. Requires GLYPHOR_MAIL_SENDER_ID to be set.',
-      parameters: {
-        to: { type: 'string', description: 'Recipient email(s), comma-separated', required: true },
-        subject: { type: 'string', description: 'Email subject', required: true },
-        body_html: { type: 'string', description: 'HTML email body', required: true },
-        cc: { type: 'string', description: 'CC recipients, comma-separated', required: false },
-        importance: { type: 'string', description: 'low, normal, or high', required: false, enum: ['low', 'normal', 'high'] },
-      },
-      execute: async (params, _ctx): Promise<ToolResult> => {
-        try {
-          const teamsClient = getTeamsClient();
-          const emailClient = GraphEmailClient.fromEnv(teamsClient);
-          if (!emailClient) {
-            return { success: false, error: 'NO_DATA: GLYPHOR_MAIL_SENDER_ID not configured — add the sender mailbox object ID to GCP secrets.' };
-          }
-          const toList = (params.to as string).split(',').map((e) => ({ email: e.trim() }));
-          const ccList = params.cc ? (params.cc as string).split(',').map((e) => ({ email: e.trim() })) : undefined;
-          await emailClient.sendEmail({
-            to: toList,
-            cc: ccList,
-            subject: params.subject as string,
-            body: params.body_html as string,
-            importance: (params.importance as 'low' | 'normal' | 'high') || 'normal',
-          });
-          return { success: true, data: { sent: true, to: params.to, subject: params.subject } };
-        } catch (err) {
-          return { success: false, error: (err as Error).message };
-        }
-      },
-    },
+    // ── EMAIL (moved to shared/emailTools.ts — per-agent mailboxes) ──
 
     // ── CALENDAR ─────────────────────────────────────────────────────
 

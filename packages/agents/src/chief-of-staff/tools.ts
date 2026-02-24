@@ -17,7 +17,6 @@ import {
   GraphTeamsClient,
   buildChannelMap,
   TeamsDirectMessageClient,
-  GraphEmailClient,
   GraphCalendarClient,
   buildFounderDirectory,
   TeamsBotHandler,
@@ -41,14 +40,13 @@ export function createChiefOfStaffTools(
   // channel messaging, so we use the Bot Framework REST API instead.
   const botHandler = TeamsBotHandler.fromEnv(async () => {});
 
-  // Initialize DM, email, and calendar clients (these use Graph API with
+  // Initialize DM and calendar clients (these use Graph API with
   // different permissions that work correctly)
+  // Email is now handled by shared/emailTools.ts (per-agent mailboxes)
   let dmClient: TeamsDirectMessageClient | null = null;
-  let emailClient: GraphEmailClient | null = null;
   let calendarClient: GraphCalendarClient | null = null;
   if (graphClient) {
     dmClient = TeamsDirectMessageClient.fromEnv(graphClient);
-    emailClient = GraphEmailClient.fromEnv(graphClient);
     calendarClient = GraphCalendarClient.fromEnv(graphClient);
   }
   const founderDir = buildFounderDirectory();
@@ -419,71 +417,7 @@ export function createChiefOfStaffTools(
       },
     },
 
-    // ─── EMAIL ──────────────────────────────────────────────────
-
-    {
-      name: 'send_email',
-      description: 'Send an email via the company mailbox. Always YELLOW — requires founder approval before sending.',
-      parameters: {
-        to: {
-          type: 'array',
-          description: 'Recipient email addresses',
-          required: true,
-          items: { type: 'string', description: 'Email address' },
-        },
-        subject: {
-          type: 'string',
-          description: 'Email subject line',
-          required: true,
-        },
-        body: {
-          type: 'string',
-          description: 'Email body (HTML supported)',
-          required: true,
-        },
-        cc: {
-          type: 'array',
-          description: 'CC email addresses',
-          required: false,
-          items: { type: 'string', description: 'Email address' },
-        },
-        importance: {
-          type: 'string',
-          description: 'Email importance',
-          required: false,
-          enum: ['low', 'normal', 'high'],
-        },
-      },
-      execute: async (params, ctx): Promise<ToolResult> => {
-        if (!emailClient) {
-          return {
-            success: false,
-            error: 'Email client not configured. Set GLYPHOR_MAIL_SENDER_ID.',
-          };
-        }
-
-        const toAddrs = (params.to as string[]).map(email => ({ email }));
-        const ccAddrs = params.cc ? (params.cc as string[]).map(email => ({ email })) : undefined;
-
-        await emailClient.sendEmail({
-          to: toAddrs,
-          cc: ccAddrs,
-          subject: params.subject as string,
-          body: params.body as string,
-          importance: (params.importance as 'low' | 'normal' | 'high') ?? 'normal',
-        });
-
-        await memory.appendActivity({
-          agentRole: ctx.agentRole,
-          action: 'alert',
-          product: 'company',
-          summary: `Email sent: ${params.subject}`,
-          createdAt: new Date().toISOString(),
-        });
-
-        return { success: true, data: { sent: true, to: params.to, subject: params.subject } };
-      },
-    },
+    // ─── EMAIL (moved to shared/emailTools.ts) ──────────────────
 
     // ─── CALENDAR ───────────────────────────────────────────────
 
