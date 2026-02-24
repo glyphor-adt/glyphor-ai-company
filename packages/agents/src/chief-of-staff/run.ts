@@ -269,7 +269,7 @@ ${lifecycleContext}`;
     model: agentCfg.model,
     tools,
     maxTurns: task === 'orchestrate' ? 15 : agentCfg.maxTurns,
-    maxStallTurns: 3,
+    maxStallTurns: task === 'orchestrate' ? 10 : 3,
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
