@@ -277,9 +277,9 @@ export default function Chat() {
 
       let content: string;
       if (data.output) content = stripReasoning(data.output);
-      else if (data.error) content = `I ran into an issue: ${data.error}`;
       else if (data.action === 'queued_for_approval') content = `This request was sent to your approval queue for review.`;
       else if (data.status === 'aborted') content = 'My response was cut short — I may have timed out. Try a simpler question.';
+      else if (data.error) content = `I ran into an issue — try rephrasing or asking something simpler.`;
       else content = `I completed the task but had nothing to report back.`;
 
       // Only append to UI if user is still viewing the same agent

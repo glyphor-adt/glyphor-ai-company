@@ -911,7 +911,7 @@ export class CompanyAgentRunner {
           //   aborting with max_turns_exceeded and no output.
           // All other turns: full tool access — the CONVERSATION_MODE
           //   prompt guides the model on when to use tools vs. just talk.
-          let effectiveTools = toolExecutor.getDeclarations();
+          let effectiveTools: ReturnType<typeof toolExecutor.getDeclarations> | undefined = toolExecutor.getDeclarations();
           if (isOnDemand && turnNumber >= supervisor.config.maxTurns) {
             effectiveTools = undefined;
           }
