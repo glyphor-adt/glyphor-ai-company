@@ -265,7 +265,9 @@ export type GlyphorEventType =
   | 'agent.retired'
   | 'message.sent'
   | 'meeting.called'
-  | 'meeting.completed';
+  | 'meeting.completed'
+  | 'assignment.submitted'
+  | 'assignment.blocked';
 
 export type EventPriority = 'critical' | 'high' | 'normal' | 'low';
 
