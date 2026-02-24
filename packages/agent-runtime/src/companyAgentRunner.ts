@@ -11,7 +11,7 @@ import { dirname, join } from 'path';
 import { ModelClient } from './modelClient.js';
 import { ToolExecutor } from './toolExecutor.js';
 import { AgentSupervisor } from './supervisor.js';
-import { extractReasoning } from './reasoning.js';
+import { extractReasoning, REASONING_PROMPT_SUFFIX } from './reasoning.js';
 import type { GlyphorEventBus } from './glyphorEventBus.js';
 import type {
   AgentConfig,
@@ -49,9 +49,11 @@ const THINKING_ENABLED_TASKS = new Set([
 const ON_DEMAND_TIMEOUT_MS = 60_000;
 
 /** Overall supervisor limits for on_demand (chat) — keep well within the
- *  dashboard's 120 s fetch-abort so users actually see the response. */
-const ON_DEMAND_MAX_TURNS = 4;
-const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = 90_000;
+ *  dashboard's 120 s fetch-abort so users actually see the response.
+ *  Turn budget: 1 toolless conversational turn + up to 4 tool turns + 1 forced-text turn = 6.
+ */
+const ON_DEMAND_MAX_TURNS = 6;
+const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = 100_000;
 
 // ─── TIERED CONTEXT LOADING ───────────────────────────────────
 // light  → on_demand/chat: profile + pending messages + working memory only
@@ -446,7 +448,14 @@ function buildSystemPrompt(
 
     // If a DB system prompt override exists (from dashboard edits), use it
     // instead of the code-defined prompt
-    const effectivePrompt = dynamicBrief ?? existingPrompt;
+    let effectivePrompt = dynamicBrief ?? existingPrompt;
+
+    // For on_demand chat, strip the REASONING_PROMPT_SUFFIX which mandates
+    // tool verification for all facts — this conflicts with conversational mode
+    // where the agent should be able to reply naturally without tool calls.
+    if (isOnDemand && effectivePrompt.includes('Data Honesty')) {
+      effectivePrompt = effectivePrompt.replace(REASONING_PROMPT_SUFFIX, '');
+    }
 
     const briefId = ROLE_TO_BRIEF[role];
     let roleBrief: string;
@@ -897,11 +906,21 @@ export class CompanyAgentRunner {
             effectiveTemp = 1.0;
           }
 
+          // ─── SMART TOOL GATING (on_demand) ─────────────────────
+          // Last turn: strip tools to force a text response and avoid
+          //   aborting with max_turns_exceeded and no output.
+          // All other turns: full tool access — the CONVERSATION_MODE
+          //   prompt guides the model on when to use tools vs. just talk.
+          let effectiveTools = toolExecutor.getDeclarations();
+          if (isOnDemand && turnNumber >= supervisor.config.maxTurns) {
+            effectiveTools = undefined;
+          }
+
           response = await this.modelClient.generate({
             model: config.model,
             systemInstruction: systemPrompt,
             contents: history,
-            tools: toolExecutor.getDeclarations(),
+            tools: effectiveTools,
             temperature: effectiveTemp,
             topP: config.topP,
             topK: config.topK,
