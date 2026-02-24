@@ -81,7 +81,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'cto-health-check',
     agentRole: 'cto',
-    schedule: '*/15 * * * *',  // every 15 minutes (SRE frequency)
+    schedule: '0 */2 * * *',  // every 2 hours (on the hour)
     timezone: 'UTC',
     task: 'platform_health_check',
     payload: {},

@@ -539,15 +539,20 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // Pub/Sub push endpoint
+    // Pub/Sub push endpoint — ack immediately, execute async to prevent redelivery
     if (method === 'POST' && url === '/pubsub') {
       const body = JSON.parse(await readBody(req));
       // Pub/Sub wraps the message in { message: { data: base64 } }
       const messageData = Buffer.from(body.message.data, 'base64').toString('utf-8');
       console.log(`[Scheduler] Pub/Sub message: ${messageData}`);
 
-      const result = await router.handleSchedulerMessage(messageData);
-      json(res, 200, result);
+      // Respond 200 immediately so Pub/Sub doesn't redeliver while agent runs
+      json(res, 200, { accepted: true });
+
+      // Execute agent task async (fire-and-forget)
+      router.handleSchedulerMessage(messageData).catch((err) => {
+        console.error(`[Scheduler] Pub/Sub async execution failed:`, (err as Error).message);
+      });
       return;
     }
 
