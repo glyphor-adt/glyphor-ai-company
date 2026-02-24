@@ -95,15 +95,36 @@ export class EventRouter {
 
     if (auth.requiresApproval) {
       // Yellow or Red — queue for approval
+      // Build human-readable title & summary instead of raw slugs / JSON
+      const prettyTask = event.task.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      const prettyRole = event.agentRole.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      const title = `${prettyRole}: ${prettyTask}`;
+
+      // Extract the human-readable message from the payload if present
+      let summary: string;
+      const rawMsg = event.payload?.message as string | undefined;
+      if (rawMsg) {
+        // Strip the "Founder: " prefix and "Respond directly..." boilerplate
+        summary = rawMsg
+          .replace(/^Founder:\s*/i, '')
+          .replace(/\n\n?Respond directly to the founder\..*$/s, '')
+          .trim();
+      } else {
+        summary = auth.reason ?? `${prettyRole} wants to perform: ${prettyTask}`;
+      }
+
       await this.decisionQueue.submit({
         id: `${event.agentRole}-${event.task}-${Date.now()}`,
         proposedBy: event.agentRole,
-        title: `${event.agentRole}: ${event.task}`,
-        summary: JSON.stringify(event.payload),
+        title,
+        summary,
         tier: auth.tier,
         status: 'pending',
         assignedTo: auth.assignTo ?? [],
         reasoning: auth.reason ?? '',
+        data: event.payload?.directiveAssignmentId
+          ? { directiveAssignmentId: event.payload.directiveAssignmentId }
+          : undefined,
         createdAt: new Date().toISOString(),
       });
 

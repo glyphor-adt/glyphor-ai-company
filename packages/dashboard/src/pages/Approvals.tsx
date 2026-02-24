@@ -13,6 +13,30 @@ import {
 
 type Filter = 'pending' | 'approved' | 'rejected' | 'all';
 
+/** Parse a summary that may be raw JSON from the old EventRouter format */
+function parseSummary(raw: string): string {
+  if (!raw.startsWith('{')) return raw;
+  try {
+    const obj = JSON.parse(raw);
+    let msg = (obj.message ?? obj.summary ?? raw) as string;
+    // Strip "Founder: " prefix and boilerplate sign-off
+    msg = msg.replace(/^Founder:\s*/i, '').replace(/\n\n?Respond directly to the founder\..*$/s, '').trim();
+    return msg;
+  } catch {
+    return raw;
+  }
+}
+
+/** Format slug-style titles like "cmo: content_creation" into readable text */
+function formatTitle(raw: string): string {
+  // If it already looks nice (no underscores, not all-lowercase slugs), return as-is
+  if (!raw.includes('_') && !raw.match(/^[a-z-]+:\s/)) return raw;
+  return raw
+    .replace(/_/g, ' ')
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export default function Approvals() {
   const { data: decisions, loading, updateDecision } = useDecisions();
   const { data: agents } = useAgents();
@@ -90,12 +114,12 @@ export default function Approvals() {
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2.5">
-                    <h3 className="text-[14px] font-semibold text-txt-primary">{d.title}</h3>
+                    <h3 className="text-[14px] font-semibold text-txt-primary">{formatTitle(d.title)}</h3>
                     <ImpactBadge impact={TIER_TO_IMPACT[d.tier] ?? d.tier} />
                   </div>
 
                   <p className="mt-1 text-[12px] text-txt-muted leading-relaxed">
-                    {d.summary}
+                    {parseSummary(d.summary)}
                   </p>
 
                   <div className="mt-2.5 flex items-center gap-3 text-[11px] text-txt-faint">

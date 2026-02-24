@@ -38,16 +38,19 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
   'cmo': new Set([
     'blog_post', 'social_post', 'seo_analysis', 'case_study_draft',
     'content_calendar', 'generate_content', 'weekly_content_planning',
+    'content_creation', 'audit',
     'on_demand',
   ]),
   'cfo': new Set([
     'cost_tracking', 'standard_report', 'margin_calculation',
     'financial_modeling', 'daily_cost_check',
+    'audit', 'data_pull',
     'on_demand',
   ]),
   'vp-customer-success': new Set([
     'health_scoring', 'nurture_email', 'segment_update',
     'support_triage', 'churn_detection', 'daily_health_scoring',
+    'audit',
     'on_demand',
   ]),
   'vp-sales': new Set([
@@ -57,6 +60,7 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
   ]),
   'vp-design': new Set([
     'design_audit', 'design_system_review',
+    'audit',
     'on_demand',
   ]),
   // Sub-team members — tasks green (they operate under their exec's authority)
@@ -66,7 +70,7 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
   'user-researcher': new Set(['cohort_analysis', 'churn_signals', 'on_demand']),
   'competitive-intel': new Set(['landscape_scan', 'deep_dive', 'on_demand']),
   'revenue-analyst': new Set(['revenue_report', 'forecast', 'on_demand']),
-  'cost-analyst': new Set(['cost_report', 'waste_scan', 'on_demand']),
+  'cost-analyst': new Set(['cost_report', 'waste_scan', 'data_pull', 'audit', 'on_demand']),
   'content-creator': new Set(['blog_draft', 'social_batch', 'performance_review', 'on_demand']),
   'seo-analyst': new Set(['ranking_report', 'keyword_research', 'competitor_gap', 'on_demand']),
   'social-media-manager': new Set(['engagement_report', 'schedule_batch', 'mention_scan', 'on_demand']),
