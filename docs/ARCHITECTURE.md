@@ -1,6 +1,6 @@
 # Glyphor AI Company — System Architecture
 
-> Last updated: 2026-02-23
+> Last updated: 2026-02-24
 
 ## Overview
 
@@ -249,7 +249,7 @@ active 24/7 via the scheduler service.
 
 | Name | Role | Agent ID | Model | Responsibilities |
 |------|------|----------|-------|-----------------|
-| **Sarah Chen** | Chief of Staff | `chief-of-staff` | `gemini-3-flash-preview` | Morning briefings, decision routing, cross-agent synthesis, escalation tracking, EOD summaries |
+| **Sarah Chen** | Chief of Staff | `chief-of-staff` | `gemini-3-flash-preview` | Morning briefings, decision routing, cross-agent synthesis, escalation tracking, EOD summaries, pre-dispatch validation |
 | **Marcus Reeves** | CTO | `cto` | `gemini-3-flash-preview` | Platform health, deployment management, model fallbacks, incident response, dependency review |
 | **Nadia Okafor** | CFO | `cfo` | `gemini-3-flash-preview` | Daily cost monitoring, revenue tracking, margin analysis, unit economics, budget alerts |
 | **Elena Vasquez** | CPO | `cpo` | `gemini-3-flash-preview` | Usage analysis, competitive intelligence, roadmap management, feature prioritisation (RICE) |
@@ -346,7 +346,13 @@ glyphor-ai-company/
 │   ├── agent-runtime/          # Core execution engine
 │   │   └── src/
 │   │       ├── companyAgentRunner.ts   # Agent loop + knowledge + personality injection
-│   │       ├── modelClient.ts          # Multi-provider LLM (Gemini/OpenAI/Anthropic)
+│   │       ├── modelClient.ts          # Multi-provider LLM facade (delegates to providers/)
+│   │       ├── providers/              # Per-provider LLM adapters
+│   │       │   ├── types.ts               # Unified provider contract (ProviderAdapter interface)
+│   │       │   ├── gemini.ts              # GeminiAdapter (thinkingLevel/thinkingBudget, Imagen)
+│   │       │   ├── openai.ts              # OpenAIAdapter (o-series reasoning_effort, GPT-5, gpt-image-1)
+│   │       │   ├── anthropic.ts           # AnthropicAdapter (extended thinking, adaptive for opus-4-6)
+│   │       │   └── index.ts               # ProviderFactory (lazy singleton per provider)
 │   │       ├── supervisor.ts           # Turn limits, stall detection, timeouts
 │   │       ├── toolExecutor.ts         # Tool declaration → execution bridge
 │   │       ├── eventBus.ts             # Internal event system
@@ -602,6 +608,8 @@ The core execution loop (ported from Fuse V7 `agentRunner.ts`):
 
 2. TIERED CONTEXT LOADING
     → **light** (on_demand/chat): profile + pending messages + working memory only
+    → **task** (work_loop): minimal ~150 line prompt — personality + assignment protocol + cost
+       awareness only. NO KB, brief, memories, reasoning, skills, or bulletins. 6 turns / 120 s.
     → **standard** (most scheduled tasks): adds KB + brief + memories + bulletins
     → **full** (briefing, orchestrate, deep analysis): everything including CI, graph, skills
     → On-demand auto-upgrades light → standard if message matches task keywords
@@ -656,18 +664,19 @@ The core execution loop (ported from Fuse V7 `agentRunner.ts`):
 
 Every Gemini API call receives a composite system prompt built from four layers:
 
-| Layer | Source | Size |
-|-------|--------|------|
-| Personality Block | `agent_profiles` table → `buildPersonalityBlock()` | ~40 lines |
-| Conversation Mode | Hardcoded — casual vs task detection | ~15 lines |
-| Reasoning Protocol | Hardcoded — Orient → Plan → Execute → Reflect | ~10 lines |
-| Work Assignments Protocol | Hardcoded — read → work → submit/flag lifecycle | ~15 lines |
-| Always-On Protocol | Hardcoded — P1-P5 priority stack + proactive work guidelines | ~20 lines |
-| Skill Block | `skills` + `agent_skills` tables → `buildSkillBlock()` | ~20–50 lines |
-| Role Brief | `company-knowledge/briefs/{name}.md` or DB `agent_briefs` | ~80 lines |
-| Agent System Prompt | `agents/src/{role}/systemPrompt.ts` | ~30 lines |
-| Company Knowledge Base | DB `company_knowledge_base` (or static `CORE.md` fallback) | ~400 lines |
-| Founder Bulletins | DB `founder_bulletins` (priority-coded, expiration-filtered) | variable |
+| Layer | Source | Size | Used in Task Tier? |
+|-------|--------|------|--------------------|
+| Personality Block | `agent_profiles` table → `buildPersonalityBlock()` | ~40 lines | ✅ |
+| Conversation Mode | Hardcoded — casual vs task detection | ~15 lines | ❌ |
+| Reasoning Protocol | Hardcoded — Orient → Plan → Execute → Reflect | ~10 lines | ❌ |
+| Work Assignments Protocol | Hardcoded — read → work → submit/flag lifecycle | ~15 lines | ✅ |
+| Cost Awareness Block | Hardcoded — budget constraints + efficiency rules | ~10 lines | ✅ (task only) |
+| Always-On Protocol | Hardcoded — P1-P5 priority stack + proactive work guidelines | ~20 lines | ❌ |
+| Skill Block | `skills` + `agent_skills` tables → `buildSkillBlock()` | ~20–50 lines | ❌ |
+| Role Brief | `company-knowledge/briefs/{name}.md` or DB `agent_briefs` | ~80 lines | ❌ |
+| Agent System Prompt | `agents/src/{role}/systemPrompt.ts` | ~30 lines | ❌ |
+| Company Knowledge Base | DB `company_knowledge_base` (or static `CORE.md` fallback) | ~400 lines | ❌ |
+| Founder Bulletins | DB `founder_bulletins` (priority-coded, expiration-filtered) | variable | ❌ |
 
 The **Personality Block** (WHO YOU ARE section) includes:
 - Personality summary and backstory
@@ -691,6 +700,7 @@ The `CompanyAgentRunner.run()` method accepts optional dependencies:
 | `pendingMessageLoader` | Load unread inter-agent messages for injection |
 | `skillContextLoader` | Load assigned skills and proficiency for context |
 | `graphContextLoader` | Load knowledge graph neighborhood for context |
+| `partialProgressSaver` | Save partial output when a task-tier run is aborted (updates `work_assignments`, notifies chief-of-staff) |
 
 Name mapping (`ROLE_TO_BRIEF`):
 
@@ -726,11 +736,25 @@ Name mapping (`ROLE_TO_BRIEF`):
 
 ### ModelClient — Multi-Provider LLM
 
-| Provider | Model Prefixes | Auth Env Var | Features |
-|----------|---------------|--------------|----------|
-| Google Gemini | `gemini-*` | `GOOGLE_AI_API_KEY` | Function calling, thinking/reasoning, thought signatures |
-| OpenAI | `gpt-*`, `o1-*`, `o3-*` | `OPENAI_API_KEY` | Function calling |
-| Anthropic | `claude-*` | `ANTHROPIC_API_KEY` | Tool use, thinking blocks |
+The `ModelClient` is a thin facade that delegates to per-provider adapters in `providers/`.
+Each adapter implements the `ProviderAdapter` interface (`generate()` + `generateImage()`) and
+handles provider-specific conversation mapping, response parsing, and feature negotiation.
+`ProviderFactory` lazily creates and caches a singleton adapter per provider.
+
+```
+ModelClient.generate(request)
+  → detectProvider(model)           // gemini-* | gpt-*/o*-* | claude-*
+  → ProviderFactory.get(provider)   // lazy singleton
+  → adapter.generate(request)       // provider-specific API call
+  → raceAbort(promise, signal)      // shared timeout/abort racing
+  → UnifiedModelResponse            // common response shape
+```
+
+| Provider | Model Prefixes | Auth Env Var | Adapter | Features |
+|----------|---------------|--------------|---------|----------|
+| Google Gemini | `gemini-*` | `GOOGLE_AI_API_KEY` | `GeminiAdapter` | Function calling, thinkingLevel (3.x) / thinkingBudget (2.5), thought signatures, Imagen image gen |
+| OpenAI | `gpt-*`, `o1-*`, `o3-*`, `o4-*` | `OPENAI_API_KEY` | `OpenAIAdapter` | Function calling, reasoning_effort (o-series/GPT-5), max_completion_tokens, gpt-image-1 |
+| Anthropic | `claude-*` | `ANTHROPIC_API_KEY` | `AnthropicAdapter` | Tool use, extended thinking (manual or adaptive for claude-opus-4-6) |
 
 All agents currently use **`gemini-3-flash-preview`**. Multi-provider support is built in for fallback.
 
@@ -884,6 +908,22 @@ Grant requests for tools not in the registry are rejected with a message to ask 
 **Database**: `agent_tool_grants` table with columns `agent_role`, `tool_name`, `granted_by`,
 `reason`, `directive_id`, `scope`, `is_active`, `expires_at`. Unique constraint on
 `(agent_role, tool_name)`. Seeded with baseline grants for all 27 agents.
+
+### Pre-Dispatch Validation (Chief of Staff)
+
+Sarah's `ORCHESTRATION_PROMPT` includes 4 mandatory checks before dispatching any work assignment
+to a sub-agent. This prevents the ~40% timeout rate caused by agents looping on tasks they
+can't complete:
+
+| Check | Description |
+|-------|-------------|
+| **CHECK 1 — TOOL CHECK** | Does the assigned agent have every tool needed? If not, grant the tool first or reassign to an agent who has it. |
+| **CHECK 2 — DATA DEPENDENCY CHECK** | Does the task require data the agent can't access? If the data lives in another agent's domain, fetch it first and embed it in the instructions. |
+| **CHECK 3 — SPECIFICITY CHECK** | Is the task atomic with a clear deliverable? Bad: "Do marketing." Good: "Draft 3 LinkedIn posts about feature X with CTA to landing page." |
+| **CHECK 4 — CONTEXT EMBEDDING** | Work-loop agents run with minimal ~150-line system prompts (task tier). All context must be embedded in the assignment instructions — agents won't have KB, briefs, or memories. |
+
+After a directive's assignments complete, Sarah also runs **Post-Directive Synthesis** — compiling
+all agent outputs into a coherent deliverable for the founders.
 
 ### Code Authoring Tools (CTO)
 
@@ -1068,15 +1108,56 @@ exists does the agent load full context and run.
 
 | Priority | Name | Trigger | Context Tier | Task |
 |----------|------|---------|-------------|------|
-| P1 | URGENT | `needs_revision` assignments or urgent messages | full | `work_loop` |
-| P2 | ACTIVE WORK | `pending`/`dispatched`/`in_progress` assignments | standard | `work_loop` |
+| P1 | URGENT | `needs_revision` assignments or urgent messages | **task** | `work_loop` |
+| P2 | ACTIVE WORK | `pending`/`dispatched`/`in_progress` assignments | **task** | `work_loop` |
 | P3 | MESSAGES | Unread messages from colleagues | standard | `work_loop` |
 | P4 | SCHEDULED | Normal cron duties | — | (handled by Cloud Scheduler, skipped here) |
 | P5 | PROACTIVE | Self-directed work if cooldown expired | standard | `proactive` |
 | P6 | NOTHING | No actionable work | — | Fast exit (no dispatch) |
 
+##### Abort Cooldown
+
+After an aborted run, the agent enters a **30-minute cooldown** (`ABORT_COOLDOWN_MS`). During
+cooldown, `executeWorkLoop()` returns early with `reason: abort_cooldown:Xmin_remaining`, preventing
+the agent from immediately retrying the same work that caused the abort.
+
+##### Full Assignment Dispatch (P1 & P2)
+
+P1 (revision) and P2 (active work) assignments now fetch full assignment details with a
+`founder_directives(title, priority, description)` join, mark the assignment as `in_progress`,
+and build a rich execution message containing:
+- Assignment title & instructions
+- Directive context (title, priority, description)
+- Explicit tool call hints (`submit_assignment_output` / `flag_assignment_blocker`)
+
+This ensures work-loop agents receive all necessary context in the message itself, since they
+run with the minimal **task** context tier (~150-line system prompt, no KB/brief/memories).
+
+##### Partial Progress Save
+
+When a task-tier run is aborted (supervisor limit, model call abort, tool stall, or catch block
+error), `savePartialProgress()` extracts the assignment ID from the initial message, saves any
+partial output + tool results back to the `work_assignments` row (status reset to `dispatched`),
+and sends an abort notification to chief-of-staff. This prevents work loss on timeouts.
+
 `work_loop` and `proactive` tasks are routed through `on_demand` in the agent executor
 with the work loop's message as context.
+
+#### Task Context Tier
+
+The `task` tier is used exclusively by work-loop assignments (P1 revision, P2 active work).
+It treats sub-agents as narrow, stateless executors:
+
+| Constraint | Value |
+|-----------|-------|
+| Max turns | 6 (`TASK_TIER_MAX_TURNS`) |
+| Timeout | 120 s (`TASK_TIER_TIMEOUT_MS`) |
+| Per-call timeout | 60 s (`TASK_TIER_CALL_TIMEOUT_MS`) |
+| System prompt | ~150 lines (`buildTaskTierSystemPrompt`) — personality + assignment protocol + cost awareness |
+| Thinking | Disabled |
+| Reflection | Skipped |
+| Tool gating | Tools stripped on last turn |
+| On abort | `savePartialProgress()` called |
 
 ##### Proactive Cooldowns
 
