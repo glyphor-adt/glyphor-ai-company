@@ -67,6 +67,10 @@ export class HeartbeatManager {
    */
   async runHeartbeat(): Promise<HeartbeatResult> {
     this.cycle++;
+
+    // ── Phase 0: REAP — mark stale "running" rows as failed ──
+    await this.reapStaleRuns();
+
     const agentsToCheck = this.getAgentsForCycle(this.cycle);
 
     // Batch fetch last run times for all agents being checked
@@ -201,6 +205,34 @@ export class HeartbeatManager {
     }
 
     return { shouldWake: false, reason: '', context: {} };
+  }
+
+  /**
+   * Mark agent_runs stuck in "running" for >10 minutes as "failed".
+   * Prevents stale rows from permanently blocking future dispatches.
+   */
+  private async reapStaleRuns(): Promise<void> {
+    const STALE_THRESHOLD_MS = 10 * 60 * 1000;
+    const cutoff = new Date(Date.now() - STALE_THRESHOLD_MS).toISOString();
+    try {
+      const { data } = await this.supabase
+        .from('agent_runs')
+        .update({
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          error: 'reaped: stuck in running state for >10 minutes',
+        })
+        .eq('status', 'running')
+        .lt('created_at', cutoff)
+        .select('id, agent_id');
+
+      if (data && data.length > 0) {
+        const agents = data.map((r: { agent_id: string }) => r.agent_id);
+        console.log(`[Heartbeat] Reaped ${data.length} stale running rows: [${agents.join(', ')}]`);
+      }
+    } catch (err) {
+      console.warn('[Heartbeat] Failed to reap stale runs:', (err as Error).message);
+    }
   }
 
   /**

@@ -486,6 +486,53 @@ resource "google_project_iam_member" "pulse_access" {
   member   = "serviceAccount:${google_service_account.glyphor.email}"
 }
 
+# ─── Global Admin — Central Access Provisioning ──────────────
+# Manages IAM for all agent service accounts across all projects.
+# Scoped to service-account-level admin — CANNOT modify project-level
+# IAM bindings where founder access (kristina@, andrew@, DevOps@) lives.
+
+resource "google_service_account" "global_admin" {
+  account_id   = "glyphor-global-admin"
+  display_name = "Glyphor Global Admin"
+  description  = "Central admin for provisioning access across all Glyphor projects. Cannot modify founder access."
+}
+
+locals {
+  # Scoped admin roles — can manage service accounts and secrets,
+  # but NOT project-level IAM (protects founder bindings).
+  global_admin_roles = [
+    "roles/iam.serviceAccountAdmin",     # Create/manage service accounts
+    "roles/iam.serviceAccountKeyAdmin",  # Manage SA keys
+    "roles/iam.roleViewer",              # View available roles
+    "roles/secretmanager.admin",         # Manage secrets + their IAM
+    "roles/run.admin",                   # Manage Cloud Run + its IAM
+  ]
+
+  all_project_ids = [
+    var.project_id,
+    var.fuse_project_id,
+    var.pulse_project_id,
+  ]
+
+  # Cartesian product: every (project, role) pair
+  admin_bindings = flatten([
+    for proj in local.all_project_ids : [
+      for role in local.global_admin_roles : {
+        key     = "${proj}--${role}"
+        project = proj
+        role    = role
+      }
+    ]
+  ])
+}
+
+resource "google_project_iam_member" "global_admin_access" {
+  for_each = { for b in local.admin_bindings : b.key => b }
+  project  = each.value.project
+  role     = each.value.role
+  member   = "serviceAccount:${google_service_account.global_admin.email}"
+}
+
 # ─── Outputs ──────────────────────────────────────────────────
 output "dashboard_url" {
   value = google_cloud_run_v2_service.dashboard.uri
@@ -501,4 +548,8 @@ output "chief_of_staff_url" {
 
 output "service_account_email" {
   value = google_service_account.glyphor.email
+}
+
+output "global_admin_email" {
+  value = google_service_account.global_admin.email
 }
