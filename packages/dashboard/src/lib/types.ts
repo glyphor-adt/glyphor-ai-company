@@ -107,13 +107,13 @@ export interface ChatMessage {
 export interface Database {
   public: {
     Tables: {
-      company_agents: { Row: Agent };
-      decisions: { Row: Decision };
-      activity_log: { Row: ActivityEntry };
-      company_profile: { Row: CompanyProfile };
-      products: { Row: Product };
-      financials: { Row: Financial };
-      customer_health: { Row: CustomerHealth };
+      company_agents: { Row: Agent; Insert: Agent; Update: Partial<Agent>; Relationships: [] };
+      decisions: { Row: Decision; Insert: Decision; Update: Partial<Decision>; Relationships: [] };
+      activity_log: { Row: ActivityEntry; Insert: ActivityEntry; Update: Partial<ActivityEntry>; Relationships: [] };
+      company_profile: { Row: CompanyProfile; Insert: CompanyProfile; Update: Partial<CompanyProfile>; Relationships: [] };
+      products: { Row: Product; Insert: Product; Update: Partial<Product>; Relationships: [] };
+      financials: { Row: Financial; Insert: Financial; Update: Partial<Financial>; Relationships: [] };
+      customer_health: { Row: CustomerHealth; Insert: CustomerHealth; Update: Partial<CustomerHealth>; Relationships: [] };
       chat_messages: {
         Row: ChatMessage;
         Insert: Omit<ChatMessage, 'id' | 'created_at'>;
