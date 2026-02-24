@@ -144,9 +144,10 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
   const graphWriter = memory.getGraphWriter();
   const supabase = memory.getSupabaseClient();
   const schedulerUrl = process.env.SCHEDULER_URL || 'http://localhost:8080';
-  const orchestrationTools = createOrchestrationTools(supabase, schedulerUrl, glyphorEventBus);
+  const cosTools = createChiefOfStaffTools(memory, glyphorEventBus);
+  const orchestrationTools = createOrchestrationTools(supabase, schedulerUrl, glyphorEventBus, cosTools);
   const tools = [
-    ...createChiefOfStaffTools(memory, glyphorEventBus),
+    ...cosTools,
     ...createMemoryTools(memory),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),

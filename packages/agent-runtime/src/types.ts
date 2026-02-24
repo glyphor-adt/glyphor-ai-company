@@ -502,6 +502,8 @@ export const WRITE_TOOLS: ReadonlySet<string> = new Set([
   // Tool grant management
   'grant_tool_access',
   'revoke_tool_access',
+  // Directive proposals
+  'propose_directive',
 ]);
 
 // ═══════════════════════════════════════════════════════════════════

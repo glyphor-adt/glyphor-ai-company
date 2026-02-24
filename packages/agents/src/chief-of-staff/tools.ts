@@ -590,7 +590,10 @@ export function createOrchestrationTools(
   supabase: SupabaseClient,
   schedulerUrl: string,
   glyphorEventBus?: GlyphorEventBus,
+  allTools?: ToolDefinition[],
 ): ToolDefinition[] {
+  // allTools allows propose_directive to call send_dm from the CoS tool set
+  const tools = allTools ?? [];
   return [
     // ─── READ FOUNDER DIRECTIVES ──────────────────────────────
 

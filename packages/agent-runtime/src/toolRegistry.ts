@@ -67,6 +67,7 @@ const KNOWN_TOOLS = new Set([
   'update_directive_progress',
   'grant_tool_access',
   'revoke_tool_access',
+  'propose_directive',
 
   // ── CTO tools ──
   'get_platform_health',

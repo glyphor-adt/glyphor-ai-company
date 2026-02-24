@@ -2,13 +2,14 @@ import { useEffect, useState, useCallback } from 'react';
 import Markdown from 'react-markdown';
 import { supabase } from '../lib/supabase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
+import { useAuth } from '../lib/auth';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
 
 /* ── Types ─────────────────────────────────────── */
 
 type Priority = 'critical' | 'high' | 'medium' | 'low';
-type DirectiveStatus = 'active' | 'paused' | 'completed' | 'cancelled';
-type Category = 'revenue' | 'product' | 'engineering' | 'marketing' | 'sales' | 'customer_success' | 'operations' | 'general';
+type DirectiveStatus = 'proposed' | 'active' | 'paused' | 'completed' | 'cancelled' | 'rejected';
+type Category = 'revenue' | 'product' | 'engineering' | 'marketing' | 'sales' | 'customer_success' | 'operations' | 'general' | 'strategy' | 'design';
 
 interface WorkAssignment {
   id: string;
@@ -39,9 +40,15 @@ interface Directive {
   due_date: string | null;
   progress_notes: string[];
   completion_summary: string | null;
+  proposed_by: string | null;
+  proposal_reason: string | null;
+  source_directive_id: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
   created_at: string;
   updated_at: string;
   work_assignments: WorkAssignment[];
+  source_directive?: { title: string } | null;
 }
 
 /* ── Constants ─────────────────────────────────── */
@@ -56,7 +63,7 @@ const PRIORITY_CONFIG: Record<Priority, { label: string; dot: string; border: st
 const CATEGORY_LABELS: Record<Category, string> = {
   revenue: 'Revenue', product: 'Product', engineering: 'Engineering',
   marketing: 'Marketing', sales: 'Sales', customer_success: 'Customer Success',
-  operations: 'Operations', general: 'General',
+  operations: 'Operations', general: 'General', strategy: 'Strategy', design: 'Design',
 };
 
 const TARGET_AGENTS = [
@@ -90,6 +97,7 @@ export default function Directives() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [showRejected, setShowRejected] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -97,7 +105,8 @@ export default function Directives() {
       .from('founder_directives')
       .select(`
         *,
-        work_assignments (*)
+        work_assignments (*),
+        source_directive:source_directive_id ( title )
       `)
       .order('priority', { ascending: true })
       .order('created_at', { ascending: false });
@@ -118,8 +127,10 @@ export default function Directives() {
     return () => { supabase.removeChannel(channel); };
   }, [refresh]);
 
+  const proposed = directives.filter(d => d.status === 'proposed');
   const active = directives.filter(d => d.status === 'active' || d.status === 'paused');
   const completed = directives.filter(d => d.status === 'completed' || d.status === 'cancelled');
+  const rejected = directives.filter(d => d.status === 'rejected');
 
   // Group actives by priority
   const grouped = (['critical', 'high', 'medium', 'low'] as Priority[])
@@ -150,7 +161,7 @@ export default function Directives() {
           <Skeleton className="h-20" />
           <Skeleton className="h-20" />
         </div>
-      ) : active.length === 0 && completed.length === 0 ? (
+      ) : active.length === 0 && completed.length === 0 && proposed.length === 0 ? (
         <Card>
           <p className="text-center text-sm text-txt-faint py-8">
             No directives yet. Create your first directive to start orchestrating agent work.
@@ -158,6 +169,29 @@ export default function Directives() {
         </Card>
       ) : (
         <>
+          {/* Proposed Directives — needs founder attention */}
+          {proposed.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="h-2 w-2 rounded-full bg-violet-500 animate-pulse" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-violet-400">
+                  PROPOSED
+                </span>
+                <span className="text-[11px] text-txt-faint">({proposed.length})</span>
+                <span className="ml-2 text-[10px] text-violet-400/70">Needs your approval</span>
+              </div>
+              <div className="space-y-3">
+                {proposed.map(d => (
+                  <ProposedDirectiveCard
+                    key={d.id}
+                    directive={d}
+                    onAction={refresh}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Active Directives by Priority */}
           {grouped.map(({ priority, items }) => {
             const cfg = PRIORITY_CONFIG[priority];
@@ -199,6 +233,33 @@ export default function Directives() {
               {showCompleted && (
                 <div className="mt-3 space-y-3">
                   {completed.map(d => (
+                    <DirectiveCard
+                      key={d.id}
+                      directive={d}
+                      isExpanded={expanded === d.id}
+                      onToggle={() => setExpanded(expanded === d.id ? null : d.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Rejected Section */}
+          {rejected.length > 0 && (
+            <div>
+              <button
+                onClick={() => setShowRejected(!showRejected)}
+                className="flex items-center gap-2 text-xs font-semibold text-txt-secondary hover:text-txt-primary transition-colors"
+              >
+                <span className={`text-[10px] transition-transform duration-200 ${showRejected ? 'rotate-90' : ''}`}>
+                  ▶
+                </span>
+                REJECTED ({rejected.length})
+              </button>
+              {showRejected && (
+                <div className="mt-3 space-y-3">
+                  {rejected.map(d => (
                     <DirectiveCard
                       key={d.id}
                       directive={d}
@@ -387,6 +448,299 @@ function DirectiveCard({
         </div>
       )}
     </Card>
+  );
+}
+
+/* ── Proposed Directive Card ────────────────────── */
+
+function ProposedDirectiveCard({
+  directive: d,
+  onAction,
+}: {
+  directive: Directive;
+  onAction: () => void;
+}) {
+  const { user } = useAuth();
+  const [acting, setActing] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const cfg = PRIORITY_CONFIG[d.priority];
+  const currentUser = user?.email?.split('@')[0] ?? 'founder';
+
+  async function handleApprove() {
+    setActing(true);
+    await supabase
+      .from('founder_directives')
+      .update({
+        status: 'active',
+        approved_by: currentUser,
+        approved_at: new Date().toISOString(),
+      })
+      .eq('id', d.id);
+    onAction();
+  }
+
+  async function handleReject() {
+    setActing(true);
+    await supabase
+      .from('founder_directives')
+      .update({ status: 'rejected' })
+      .eq('id', d.id);
+    onAction();
+  }
+
+  return (
+    <>
+      <div className="rounded-xl border-l-4 border-violet-500/60 border border-violet-500/20 bg-violet-500/5 p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-txt-primary">{d.title}</p>
+            <p className="mt-0.5 text-[11px] text-violet-400">
+              Proposed by Sarah · {timeAgo(d.created_at)}
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className={`rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${cfg.border} ${cfg.bg} ${cfg.text}`}>
+              {cfg.label}
+            </span>
+            <span className="rounded-md border border-border bg-raised px-1.5 py-0.5 text-[10px] font-medium text-txt-muted">
+              {CATEGORY_LABELS[d.category]}
+            </span>
+          </div>
+        </div>
+
+        {/* Proposal reason — the key context */}
+        {d.proposal_reason && (
+          <div className="mt-3 rounded-lg border border-violet-500/15 bg-violet-500/5 px-3 py-2">
+            <p className="text-[10px] font-medium text-violet-400 mb-0.5">Why this is needed</p>
+            <p className="text-[12px] text-txt-secondary leading-relaxed">{d.proposal_reason}</p>
+          </div>
+        )}
+
+        {/* Target agents */}
+        {d.target_agents?.length > 0 && (
+          <p className="mt-2 text-[11px] text-txt-muted">
+            Scope: <span className="text-txt-secondary font-medium">
+              {d.target_agents.map(r => DISPLAY_NAME_MAP[r] ?? r).join(', ')}
+            </span>
+          </p>
+        )}
+
+        {/* Source directive link */}
+        {d.source_directive_id && d.source_directive && (
+          <p className="mt-1 text-[11px] text-txt-faint">
+            Follow-up from: <span className="text-cyan">{d.source_directive.title}</span>
+          </p>
+        )}
+
+        {d.due_date && (
+          <p className="mt-1 text-[11px] text-txt-faint">
+            Suggested deadline: {new Date(d.due_date).toLocaleDateString()}
+          </p>
+        )}
+
+        {/* Action buttons */}
+        <div className="mt-3 flex items-center gap-2 border-t border-violet-500/10 pt-3">
+          <button
+            onClick={handleApprove}
+            disabled={acting}
+            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+          >
+            ✅ Approve
+          </button>
+          <button
+            onClick={() => setShowEdit(true)}
+            disabled={acting}
+            className="rounded-lg border border-border bg-raised px-3 py-1.5 text-[12px] font-medium text-txt-secondary transition-colors hover:text-txt-primary disabled:opacity-40"
+          >
+            ✏️ Edit & Approve
+          </button>
+          <button
+            onClick={handleReject}
+            disabled={acting}
+            className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[12px] font-medium text-red-400 transition-opacity hover:opacity-90 disabled:opacity-40"
+          >
+            ❌ Reject
+          </button>
+        </div>
+      </div>
+
+      {showEdit && (
+        <EditApproveModal
+          directive={d}
+          onClose={() => setShowEdit(false)}
+          onSaved={() => { setShowEdit(false); onAction(); }}
+        />
+      )}
+    </>
+  );
+}
+
+/* ── Edit & Approve Modal ──────────────────────── */
+
+function EditApproveModal({
+  directive,
+  onClose,
+  onSaved,
+}: {
+  directive: Directive;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { user } = useAuth();
+  const [title, setTitle] = useState(directive.title);
+  const [description, setDescription] = useState(directive.description);
+  const [priority, setPriority] = useState<Priority>(directive.priority);
+  const [category, setCategory] = useState<Category>(directive.category);
+  const [selectedAgents, setSelectedAgents] = useState<string[]>(directive.target_agents ?? []);
+  const [dueDate, setDueDate] = useState(directive.due_date ? directive.due_date.split('T')[0] : '');
+  const [saving, setSaving] = useState(false);
+  const currentUser = user?.email?.split('@')[0] ?? 'founder';
+
+  function toggleAgent(role: string) {
+    setSelectedAgents(prev =>
+      prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
+    );
+  }
+
+  async function handleSave() {
+    if (!title.trim() || !description.trim()) return;
+    setSaving(true);
+
+    await supabase
+      .from('founder_directives')
+      .update({
+        title: title.trim(),
+        description: description.trim(),
+        priority,
+        category,
+        target_agents: selectedAgents,
+        due_date: dueDate || null,
+        status: 'active',
+        approved_by: currentUser,
+        approved_at: new Date().toISOString(),
+      })
+      .eq('id', directive.id);
+
+    onSaved();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 pt-[12vh] overflow-y-auto">
+      <div className="w-full max-w-lg rounded-xl border border-border bg-white dark:bg-[#111827] shadow-2xl mb-8">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <h2 className="text-lg font-semibold text-txt-primary">Edit & Approve Directive</h2>
+          <button onClick={onClose} className="text-txt-muted hover:text-txt-primary transition-colors text-lg">
+            ×
+          </button>
+        </div>
+
+        <div className="space-y-4 px-6 py-5">
+          <div>
+            <label className="text-[11px] font-medium text-txt-muted mb-1 block">Title</label>
+            <input
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] font-medium text-txt-muted mb-1 block">Description</label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              rows={4}
+              className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none resize-none"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-[11px] font-medium text-txt-muted mb-2 block">Priority</label>
+              <div className="flex flex-wrap gap-2">
+                {(['critical', 'high', 'medium', 'low'] as Priority[]).map(p => {
+                  const cfg = PRIORITY_CONFIG[p];
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => setPriority(p)}
+                      className={`rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                        priority === p
+                          ? `${cfg.border} ${cfg.bg} ${cfg.text}`
+                          : 'border-border text-txt-muted hover:text-txt-secondary'
+                      }`}
+                    >
+                      {cfg.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-txt-muted mb-1 block">Category</label>
+              <select
+                value={category}
+                onChange={e => setCategory(e.target.value as Category)}
+                className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none"
+              >
+                {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] font-medium text-txt-muted mb-2 block">Target Agents</label>
+            <div className="flex flex-wrap gap-2">
+              {TARGET_AGENTS.map(({ role, label }) => (
+                <button
+                  key={role}
+                  onClick={() => toggleAgent(role)}
+                  className={`rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                    selectedAgents.includes(role)
+                      ? 'border-cyan/40 bg-cyan/15 text-cyan'
+                      : 'border-border text-txt-muted hover:text-txt-secondary'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] font-medium text-txt-muted mb-1 block">Due Date</label>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={e => setDueDate(e.target.value)}
+              className="rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none"
+            />
+          </div>
+
+          {/* Show proposal reason as read-only context */}
+          {directive.proposal_reason && (
+            <div className="rounded-lg border border-violet-500/15 bg-violet-500/5 px-3 py-2">
+              <p className="text-[10px] font-medium text-violet-400 mb-0.5">Sarah&apos;s reasoning</p>
+              <p className="text-[11px] text-txt-muted leading-relaxed">{directive.proposal_reason}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-muted transition-colors hover:text-txt-primary"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !title.trim() || !description.trim()}
+            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+          >
+            {saving ? 'Saving…' : 'Approve Directive'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
