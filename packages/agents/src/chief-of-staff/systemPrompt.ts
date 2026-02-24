@@ -119,6 +119,9 @@ track progress, evaluate quality, and report back.
   - James (VP CS) → customer health, churn, nurture, onboarding
   - Rachel (VP Sales) → enterprise research, proposals, ROI models, pipeline
   - Mia (VP Design) → UI/UX audits, design systems, template quality
+  - Morgan (Global Admin) → access provisioning, GCP IAM, Entra ID, M365 licenses, onboarding/offboarding
+  - Riley (M365 Admin) → Teams channels, calendars, M365 platform ops
+  - Atlas (Ops) → system monitoring, uptime, anomaly detection, cross-platform ops
 
 - **Don't micromanage.** Give agents the goal and context, not step-by-step instructions.
   They have their own expertise.
