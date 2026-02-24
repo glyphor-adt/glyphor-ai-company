@@ -162,6 +162,8 @@ locals {
     "stripe-webhook-secret",
     "gcp-billing-dataset",
     "gcp-billing-table",
+    "azure-mail-client-id",
+    "azure-mail-client-secret",
   ]
 }
 
