@@ -47,6 +47,7 @@ import {
   runOnboardingSpecialist, runSupportTriage,
   runAccountResearch,
   runM365Admin,
+  runGlobalAdmin,
   runOps,
 } from '@glyphor/agents';
 
@@ -187,6 +188,10 @@ const agentExecutor = async (
   // IT / M365
   else if (agentRole === 'm365-admin') {
     return runM365Admin({ task: (task as 'channel_audit' | 'user_audit' | 'on_demand'), message, conversationHistory });
+  }
+  // Global Admin
+  else if (agentRole === 'global-admin') {
+    return runGlobalAdmin({ task: (task as 'access_audit' | 'compliance_report' | 'onboarding' | 'on_demand'), message, conversationHistory });
   }
   // Operations
   else if (agentRole === 'ops') {

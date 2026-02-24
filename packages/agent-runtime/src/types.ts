@@ -57,6 +57,7 @@ export type CompanyAgentRole =
   | 'design-critic'           // Sofia Marchetti → reports to VP-Design
   | 'template-architect'      // Ryan Park → reports to VP-Design
   | 'm365-admin'              // Riley Morgan → reports to CTO, manages Microsoft 365
+  | 'global-admin'            // Morgan Blake → reports to CoS, cross-project IAM & onboarding
   | 'ops';                    // Atlas Vega → Operations & System Intelligence
 
 export type ContextInjector = (
@@ -374,6 +375,7 @@ export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   'design-critic':        { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'template-architect':   { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'm365-admin':           { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
+  'global-admin':          { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -437,7 +439,7 @@ export const SUB_TEAM_ROLES: CompanyAgentRole[] = [
   'user-researcher', 'competitive-intel', 'revenue-analyst',
   'cost-analyst', 'content-creator', 'seo-analyst',
   'social-media-manager', 'onboarding-specialist',
-  'support-triage', 'account-research', 'm365-admin',
+  'support-triage', 'account-research', 'm365-admin', 'global-admin',
 ];
 
 /** Events executives can emit */
@@ -499,6 +501,13 @@ export const WRITE_TOOLS: ReadonlySet<string> = new Set([
   'resolve_incident',
   'post_system_status',
   'store_intel',
+  // Global admin IAM mutations
+  'grant_project_role',
+  'revoke_project_role',
+  'create_service_account',
+  'grant_secret_access',
+  'revoke_secret_access',
+  'run_onboarding',
   // Tool grant management
   'grant_tool_access',
   'revoke_tool_access',
@@ -525,4 +534,5 @@ export const AGENT_MANAGER: Partial<Record<CompanyAgentRole, CompanyAgentRole>> 
   'support-triage':        'vp-customer-success',
   'account-research':      'vp-sales',
   'm365-admin':            'cto',
+  'global-admin':           'chief-of-staff',
 };

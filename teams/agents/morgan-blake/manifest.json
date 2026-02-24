@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.0.0",
+  "id": "b7e2a1f3-4d6c-4e8a-9f12-3c5d7e8b9a01",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Morgan Blake",
+    "full": "Morgan Blake — Global Administrator, Glyphor AI"
+  },
+  "description": {
+    "short": "Global Admin — cross-project IAM, secrets, and onboarding.",
+    "full": "Morgan Blake is the Global Administrator at Glyphor AI. They manage cross-project GCP IAM bindings, service accounts, secret access, access audits, and standardized employee/agent onboarding. Message directly for access provisioning requests."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#607D8B",
+  "bots": [
+    {
+      "botId": "b7e2a1f3-4d6c-4e8a-9f12-3c5d7e8b9a01",
+      "scopes": ["personal", "team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-v55622rp6q-uc.a.run.app"
+  ]
+}

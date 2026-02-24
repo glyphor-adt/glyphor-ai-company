@@ -188,6 +188,7 @@ const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
   'design-critic': 'sofia-marchetti',
   'template-architect': 'ryan-park',
   'm365-admin': 'riley-morgan',
+  'global-admin': 'morgan-blake',
   'ops': 'atlas-vega',
 };
 
@@ -219,6 +220,7 @@ const ROLE_DEPARTMENT: Record<string, string> = {
   'frontend-engineer': 'design',
   'design-critic': 'design',
   'template-architect': 'design',
+  'global-admin': 'operations',
 };
 
 /** Maps roles to their department context files. */
@@ -249,6 +251,7 @@ const ROLE_CONTEXT_FILES: Record<string, string[]> = {
   'frontend-engineer': ['design.md', 'engineering.md'],
   'design-critic': ['design.md'],
   'template-architect': ['design.md'],
+  'global-admin': ['operations.md'],
 };
 
 /** Profile data loaded from agent_profiles table. */

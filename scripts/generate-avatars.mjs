@@ -37,6 +37,7 @@ const AGENTS = [
   { role: 'quality-engineer', name: 'Sam DeLuca', desc: 'Italian American man, late 20s, short dark curly hair, attentive focused expression' },
   { role: 'devops-engineer', name: 'Jordan Hayes', desc: 'white nonbinary person, late 20s, short undercut hairstyle, calm collected expression' },
   { role: 'm365-admin', name: 'Riley Morgan', desc: 'white woman, early 30s, light brown hair in a practical bun, organized confident expression, clean professional look' },
+  { role: 'global-admin', name: 'Morgan Blake', desc: 'Black woman, mid 30s, short natural hair, calm authoritative expression, sharp blazer over a dark turtleneck, gold stud earrings' },
 
   // ── Product ──
   { role: 'user-researcher', name: 'Priya Sharma', desc: 'South Asian woman, late 20s, long dark hair, inquisitive empathetic expression, nose stud' },

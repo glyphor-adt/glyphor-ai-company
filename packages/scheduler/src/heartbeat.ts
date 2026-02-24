@@ -18,6 +18,7 @@ import { executeWorkLoop } from '@glyphor/agent-runtime';
 import type { WakeRouter } from './wakeRouter.js';
 import { buildWaves, dispatchWaves } from './parallelDispatch.js';
 import type { WaveAgent } from './parallelDispatch.js';
+import { checkAgentInboxes } from './inboxCheck.js';
 
 type AgentExecutorFn = (
   agentRole: CompanyAgentRole,
@@ -117,6 +118,40 @@ export class HeartbeatManager {
           assignmentId,
           dependsOn,
         });
+      }
+    }
+
+    // ── Phase 1b: INBOX — check M365 mailboxes for unread email ──
+    // Runs every 2nd cycle (~20 min) to avoid excessive Graph API calls.
+    if (this.cycle % 2 === 0) {
+      try {
+        const inbox = await checkAgentInboxes();
+        for (const agent of inbox.withMail) {
+          // Skip if this agent is already in the wake list
+          if (wakeList.some(w => w.role === agent.role)) continue;
+          // Skip if agent ran recently
+          const lastRun = lastRuns.get(agent.role);
+          if (lastRun && Date.now() - lastRun.getTime() < MIN_RUN_GAP_MS) continue;
+
+          const subjectList = agent.subjects.slice(0, 3).join(', ');
+          wakeList.push({
+            role: agent.role,
+            task: 'on_demand',
+            context: {
+              wake_reason: 'unread_email',
+              priority: 'heartbeat',
+              message: `You have ${agent.count} unread email(s) in your inbox. Subjects: ${subjectList}. Use read_inbox to review and respond as appropriate.`,
+            },
+          });
+        }
+        if (inbox.errors.length > 0) {
+          console.warn(`[Heartbeat] Inbox check errors: ${inbox.errors.join('; ')}`);
+        }
+        if (inbox.withMail.length > 0) {
+          console.log(`[Heartbeat] Inbox check: ${inbox.withMail.map(a => `${a.role}(${a.count})`).join(', ')}`);
+        }
+      } catch (err) {
+        console.warn(`[Heartbeat] Inbox check failed:`, (err as Error).message);
       }
     }
 

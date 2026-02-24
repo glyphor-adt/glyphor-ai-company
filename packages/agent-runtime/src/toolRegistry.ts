@@ -258,6 +258,19 @@ const KNOWN_TOOLS = new Set([
   'list_calendar_events',
   'write_admin_log',
 
+  // ── Global Admin (Morgan) tools ──
+  'list_project_iam',
+  'grant_project_role',
+  'revoke_project_role',
+  'list_service_accounts',
+  'create_service_account',
+  'list_secrets',
+  'get_secret_iam',
+  'grant_secret_access',
+  'revoke_secret_access',
+  'run_access_audit',
+  'run_onboarding',
+
   // ── External / legacy tools ──
   'web_search',
   'file_decision',

@@ -52,6 +52,7 @@ export const AGENT_EMAIL_MAP: Record<CompanyAgentRole, AgentEmailEntry> = {
   'design-critic':        { email: 'sofia@glyphor.ai',     displayName: 'Sofia Marchetti',   title: 'Design Critic' },
   'template-architect':   { email: 'ryan@glyphor.ai',      displayName: 'Ryan Park',         title: 'Template Architect' },
   'ops':                  { email: 'atlas@glyphor.ai',     displayName: 'Atlas Vega',        title: 'Operations & System Intelligence' },
+  'global-admin':          { email: 'morgan@glyphor.ai',    displayName: 'Morgan Blake',      title: 'Global Administrator' },
 };
 
 /** Founder email addresses for resolveRecipient(). */

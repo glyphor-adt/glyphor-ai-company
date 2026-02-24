@@ -36,6 +36,9 @@ export { runAccountResearch, type AccountResearchRunParams } from './account-res
 // Sub-team agents — IT / M365
 export { runM365Admin, type M365AdminRunParams } from './m365-admin/run.js';
 
+// Sub-team agents — Global Admin
+export { runGlobalAdmin, type GlobalAdminRunParams } from './global-admin/run.js';
+
 // Operations
 export { runOps, type OpsRunParams } from './ops/run.js';
 
@@ -62,6 +65,7 @@ import { ONBOARDING_SPECIALIST_SYSTEM_PROMPT } from './onboarding-specialist/sys
 import { SUPPORT_TRIAGE_SYSTEM_PROMPT } from './support-triage/systemPrompt.js';
 import { ACCOUNT_RESEARCH_SYSTEM_PROMPT } from './account-research/systemPrompt.js';
 import { M365_ADMIN_SYSTEM_PROMPT } from './m365-admin/systemPrompt.js';
+import { GLOBAL_ADMIN_SYSTEM_PROMPT } from './global-admin/systemPrompt.js';
 import { OPS_SYSTEM_PROMPT } from './ops/systemPrompt.js';
 
 export const SYSTEM_PROMPTS: Record<string, string> = {
@@ -87,5 +91,6 @@ export const SYSTEM_PROMPTS: Record<string, string> = {
   'support-triage': SUPPORT_TRIAGE_SYSTEM_PROMPT,
   'account-research': ACCOUNT_RESEARCH_SYSTEM_PROMPT,
   'm365-admin': M365_ADMIN_SYSTEM_PROMPT,
+  'global-admin': GLOBAL_ADMIN_SYSTEM_PROMPT,
   'ops': OPS_SYSTEM_PROMPT,
 };

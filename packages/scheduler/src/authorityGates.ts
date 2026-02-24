@@ -78,6 +78,7 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
   'support-triage': new Set(['triage_queue', 'batch_analysis', 'on_demand']),
   'account-research': new Set(['prospect_research', 'batch_enrich', 'on_demand']),
   'm365-admin': new Set(['channel_audit', 'user_audit', 'read_inbox', 'on_demand']),
+  'global-admin': new Set(['access_audit', 'compliance_report', 'onboarding', 'on_demand']),
   'ui-ux-designer': new Set(['on_demand']),
   'frontend-engineer': new Set(['on_demand']),
   'design-critic': new Set(['on_demand']),
