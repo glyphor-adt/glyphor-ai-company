@@ -1,4 +1,5 @@
 import { Sparkline } from './ui';
+import { MdTrendingUp, MdTrendingDown, MdTrendingFlat } from 'react-icons/md';
 
 interface PerformanceDay {
   date: string;
@@ -40,7 +41,8 @@ export function QualityChart({ data }: { data: PerformanceDay[] }) {
   const bestDate = data.filter((d) => d.avg_quality_score != null)[bestIdx]?.date;
   const worstDate = data.filter((d) => d.avg_quality_score != null)[worstIdx]?.date;
 
-  const trend = delta > 2 ? '↑ Improving' : delta < -2 ? '↓ Declining' : '→ Stable';
+  const TrendIcon = delta > 2 ? MdTrendingUp : delta < -2 ? MdTrendingDown : MdTrendingFlat;
+  const trendLabel = delta > 2 ? 'Improving' : delta < -2 ? 'Declining' : 'Stable';
   const trendColor = delta > 2 ? 'text-tier-green' : delta < -2 ? 'text-tier-red' : 'text-txt-muted';
 
   return (
@@ -63,7 +65,7 @@ export function QualityChart({ data }: { data: PerformanceDay[] }) {
         </div>
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Trend</p>
-          <p className={`mt-0.5 text-lg font-bold ${trendColor}`}>{trend}</p>
+          <p className={`mt-0.5 text-lg font-bold ${trendColor} flex items-center gap-1`}><TrendIcon /> {trendLabel}</p>
         </div>
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Range</p>

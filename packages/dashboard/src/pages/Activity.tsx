@@ -9,6 +9,7 @@ import {
   Skeleton,
   timeAgo,
 } from '../components/ui';
+import { MdChevronRight } from 'react-icons/md';
 
 /* ─── Types ─────────────────────────────────── */
 interface AgentRun {
@@ -283,7 +284,7 @@ export default function Activity() {
                         {DISPLAY_NAME_MAP[run.agent_id] ?? run.agent_id}
                       </Link>
                       {hasDetail && (
-                        <span className={`text-[10px] text-txt-faint transition-transform ${isExpanded ? 'rotate-90' : ''}`}>▶</span>
+                        <span className={`text-txt-faint transition-transform ${isExpanded ? 'rotate-90' : ''}`}><MdChevronRight className="text-[14px]" /></span>
                       )}
                     </div>
 

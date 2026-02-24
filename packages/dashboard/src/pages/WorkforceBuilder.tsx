@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, type ReactNode, type DragEven
 import {
   MdElectricBolt, MdAccountBalance, MdPerson, MdDashboard,
   MdManageSearch, MdSettings, MdInsights, MdBrush,
-  MdBiotech, MdCampaign, MdHeadsetMic, MdStar,
+  MdBiotech, MdCampaign, MdHeadsetMic, MdStar, MdClose,
 } from 'react-icons/md';
 import { SCHEDULER_URL } from '../lib/supabase';
 
@@ -433,7 +433,7 @@ export default function WorkforceBuilder() {
                     <span className="text-lg" style={{ color: TEMPLATES.find(x => x.id === selected.templateId)?.color }}>{(() => { const T = TEMPLATES.find(x => x.id === selected.templateId); return T ? <T.icon className="h-5 w-5" /> : <MdStar className="h-5 w-5" />; })()}</span>
                     <h3 className="text-sm font-semibold text-txt-primary">Configure Agent</h3>
                   </div>
-                  <button onClick={() => setSelectedId(null)} className="grid h-6 w-6 place-items-center rounded text-txt-faint hover:bg-raised hover:text-txt-primary transition-colors">✕</button>
+                  <button onClick={() => setSelectedId(null)} className="grid h-6 w-6 place-items-center rounded text-txt-faint hover:bg-raised hover:text-txt-primary transition-colors"><MdClose /></button>
                 </div>
 
                 {/* Fields */}

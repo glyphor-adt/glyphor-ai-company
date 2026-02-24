@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   MdAttachMoney, MdSettings, MdCampaign, MdExplore, MdHandshake,
   MdTrackChanges, MdPalette, MdStars, MdBarChart, MdTrendingUp,
-  MdAdd,
+  MdAdd, MdClose,
 } from 'react-icons/md';
 import { supabase } from '../lib/supabase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
@@ -341,7 +341,7 @@ function CreateSkillModal({
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <h2 className="text-lg font-semibold text-txt-primary">New Skill</h2>
-          <button onClick={onClose} className="text-txt-faint hover:text-txt-primary transition-colors">✕</button>
+          <button onClick={onClose} className="text-txt-faint hover:text-txt-primary transition-colors"><MdClose /></button>
         </div>
 
         <div className="space-y-4 px-5 py-5">

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, type ReactNode } from 'react';
-import { MdCheck, MdWarning, MdClose, MdAutoAwesome, MdPalette, MdTrendingUp, MdFlag, MdArrowForward } from 'react-icons/md';
+import { MdCheck, MdWarning, MdClose, MdAutoAwesome, MdPalette, MdTrendingUp, MdFlag, MdArrowForward, MdChevronRight } from 'react-icons/md';
 import { SCHEDULER_URL } from '../lib/supabase';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
 
@@ -540,7 +540,7 @@ function AnalysisDetail({ report, id }: { report: AnalysisReport; id: string }) 
           onClick={() => setShowSwot(!showSwot)}
           className="flex items-center gap-2 text-xs font-semibold text-txt-secondary hover:text-txt-primary transition-colors"
         >
-          <span className={`text-[10px] transition-transform duration-200 ${showSwot ? 'rotate-90' : ''}`}>▶</span>
+          <span className={`text-[10px] transition-transform duration-200 ${showSwot ? 'rotate-90' : ''}`}><MdChevronRight /></span>
           SWOT Matrix Detail
         </button>
         {showSwot && (
@@ -560,7 +560,7 @@ function AnalysisDetail({ report, id }: { report: AnalysisReport; id: string }) 
             onClick={() => setShowThreads(!showThreads)}
             className="flex items-center gap-2 text-xs font-semibold text-txt-secondary hover:text-txt-primary transition-colors"
           >
-            <span className={`text-[10px] transition-transform duration-200 ${showThreads ? 'rotate-90' : ''}`}>▶</span>
+            <span className={`text-[10px] transition-transform duration-200 ${showThreads ? 'rotate-90' : ''}`}><MdChevronRight /></span>
             Research Threads ({report.threads.filter((t) => t.status === 'completed').length}/{report.threads.length} completed)
           </button>
           {showThreads && (

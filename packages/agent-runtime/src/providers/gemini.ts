@@ -29,7 +29,7 @@ export class GeminiAdapter implements ProviderAdapter {
     if (request.model.startsWith('gemini-3')) {
       thinkingConfig = {
         includeThoughts: true,
-        thinkingLevel: thinkingEnabled ? 'high' : 'minimal',
+        thinkingLevel: thinkingEnabled ? 'high' : 'none',
       };
     } else if (request.model.startsWith('gemini-2.5')) {
       thinkingConfig = {
