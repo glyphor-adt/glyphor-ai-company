@@ -1,6 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
+import {
+  MdConstruction, MdRocketLaunch, MdCelebration, MdFitnessCenter,
+  MdTrackChanges, MdWarning, MdHelpOutline, MdExpandMore, MdClose,
+} from 'react-icons/md';
+import type { IconType } from 'react-icons';
 
 /* ── Types ─────────────────────────────────────── */
 
@@ -62,9 +67,9 @@ const STATUS_STYLE: Record<string, { label: string; color: string; bg: string }>
   outage:   { label: 'Outage',   color: 'text-red-400',     bg: 'bg-red-500/15' },
 };
 
-const MOOD_EMOJI: Record<string, string> = {
-  building: '🔨', shipping: '🚀', celebrating: '🎉', grinding: '💪',
-  focused: '🎯', cautious: '⚠️', uncertain: '🤔',
+const MOOD_ICON: Record<string, IconType> = {
+  building: MdConstruction, shipping: MdRocketLaunch, celebrating: MdCelebration, grinding: MdFitnessCenter,
+  focused: MdTrackChanges, cautious: MdWarning, uncertain: MdHelpOutline,
 };
 
 /* ── Page ──────────────────────────────────────── */
@@ -250,7 +255,7 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
   }
 
   const st = STATUS_STYLE[pulse.platform_status] ?? STATUS_STYLE.healthy;
-  const mood = MOOD_EMOJI[pulse.company_mood] ?? '❓';
+  const MoodIcon = MOOD_ICON[pulse.company_mood] ?? MdHelpOutline;
 
   return (
     <Card>
@@ -305,7 +310,7 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
                 onChange={e => setForm(f => ({ ...f, company_mood: e.target.value }))}
                 className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none"
               >
-                {Object.keys(MOOD_EMOJI).map(m => <option key={m} value={m}>{MOOD_EMOJI[m]} {m}</option>)}
+                {Object.keys(MOOD_ICON).map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
           </div>
@@ -336,7 +341,7 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
             </div>
             <div className="rounded-lg border border-border bg-raised px-3 py-2.5">
               <p className="text-[11px] text-txt-muted mb-1">Company Mood</p>
-              <p className="text-lg">{mood} <span className="text-[12px] font-medium text-txt-primary capitalize">{pulse.company_mood}</span></p>
+              <p className="text-lg"><MoodIcon className="inline-block text-lg mr-1" /> <span className="text-[12px] font-medium text-txt-primary capitalize">{pulse.company_mood}</span></p>
             </div>
           </div>
 
@@ -429,10 +434,10 @@ function BulletinSection({ bulletins, onRefresh }: { bulletins: Bulletin[]; onRe
                     </div>
                     <button
                       onClick={() => deactivate(b.id)}
-                      className="text-[10px] text-txt-faint hover:text-red-400 transition-colors flex-shrink-0"
+                      className="text-txt-faint hover:text-red-400 transition-colors flex-shrink-0"
                       title="Deactivate bulletin"
                     >
-                      ✕
+                      <MdClose className="text-[14px]" />
                     </button>
                   </div>
                 </div>
@@ -615,9 +620,7 @@ function KBEditor({ sections, onRefresh }: { sections: KBSection[]; onRefresh: (
                   <span className="text-[10px] text-txt-faint">v{s.version}</span>
                   <span className="text-[10px] text-txt-faint">·</span>
                   <span className="text-[10px] text-txt-faint">{timeAgo(s.updated_at)}</span>
-                  <span className={`text-[10px] transition-transform duration-200 text-txt-faint ${isEditing ? 'rotate-180' : ''}`}>
-                    ▼
-                  </span>
+                  <MdExpandMore className={`text-[14px] transition-transform duration-200 text-txt-faint ${isEditing ? '' : '-rotate-90'}`} />
                 </div>
               </button>
 

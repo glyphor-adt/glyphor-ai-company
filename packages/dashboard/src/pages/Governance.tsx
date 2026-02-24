@@ -2,6 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase, SCHEDULER_URL } from '../lib/supabase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
+import {
+  MdExpandMore, MdChevronRight, MdCheck, MdWarning,
+  MdLock, MdVpnKey, MdBarChart, MdClose,
+} from 'react-icons/md';
 
 /* ── Types ────────────────────────────────── */
 
@@ -74,10 +78,10 @@ function CollapsibleSection({ title, color, children, defaultOpen = true }: {
         className="flex w-full items-center gap-3 text-left"
       >
         <span
-          className="flex h-6 w-6 items-center justify-center rounded text-[10px] font-bold text-white"
+          className="flex h-6 w-6 items-center justify-center rounded text-white"
           style={{ backgroundColor: color }}
         >
-          {open ? '▼' : '▶'}
+          {open ? <MdExpandMore className="text-[14px]" /> : <MdChevronRight className="text-[14px]" />}
         </span>
         <h3 className="text-sm font-semibold text-txt-primary">{title}</h3>
       </button>
@@ -300,11 +304,11 @@ function VercelTable({ items }: { items: IAMState[] }) {
 function SyncBadge({ inSync }: { inSync: boolean }) {
   return inSync ? (
     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">
-      ✓ Synced
+      <MdCheck className="text-[13px]" /> Synced
     </span>
   ) : (
     <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
-      ⚠ Drift
+      <MdWarning className="text-[13px]" /> Drift
     </span>
   );
 }
@@ -338,13 +342,13 @@ function ExpiryBadge({ expiresAt, status }: { expiresAt: string | null; status: 
   if (days <= 90) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
-        ⚠ {days}d
+        <MdWarning className="text-[13px]" /> {days}d
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">
-      ✓ {days}d
+      <MdCheck className="text-[13px]" /> {days}d
     </span>
   );
 }
@@ -425,8 +429,8 @@ export default function Governance() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-100 text-lg dark:bg-rose-500/15">
-            🔐
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-100 dark:bg-rose-500/15">
+            <MdLock className="text-lg text-rose-600 dark:text-rose-400" />
           </span>
           <div>
             <h1 className="text-xl font-bold text-txt-primary">Platform Governance</h1>
@@ -456,7 +460,7 @@ export default function Governance() {
                 key={item.id}
                 className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-500/20 dark:bg-amber-500/5"
               >
-                <span className="mt-0.5 text-amber-500">⚠️</span>
+                <MdWarning className="mt-0.5 text-amber-500" />
                 <div className="flex-1">
                   <p className="text-[13px] font-medium text-txt-primary">
                     <code className="rounded bg-white/50 px-1 text-[12px] dark:bg-white/10">{item.credential_id}</code>
@@ -478,7 +482,7 @@ export default function Governance() {
                 key={secret.id}
                 className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-500/20 dark:bg-amber-500/5"
               >
-                <span className="mt-0.5 text-amber-500">🔑</span>
+                <MdVpnKey className="mt-0.5 text-amber-500" />
                 <div className="flex-1">
                   <p className="text-[13px] font-medium text-txt-primary">
                     Secret <code className="rounded bg-white/50 px-1 text-[12px] dark:bg-white/10">{secret.secret_name}</code>
@@ -573,9 +577,9 @@ export default function Governance() {
                     <td className="py-2">
                       {entry.response_code ? (
                         entry.response_code < 400 ? (
-                          <span className="text-emerald-600 dark:text-emerald-400">{entry.response_code} ✓</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1">{entry.response_code} <MdCheck className="text-[14px]" /></span>
                         ) : (
-                          <span className="text-red-600 dark:text-red-400">{entry.response_code} ✗</span>
+                          <span className="text-red-600 dark:text-red-400 inline-flex items-center gap-1">{entry.response_code} <MdClose className="text-[14px]" /></span>
                         )
                       ) : (
                         <span className="text-txt-muted">—</span>
@@ -590,7 +594,7 @@ export default function Governance() {
 
         {/* Stats bar */}
         <div className="mt-4 flex items-center gap-4 border-t border-border pt-3 text-[12px] text-txt-muted">
-          <span>📊 {todayAudit.length} calls today</span>
+          <span><MdBarChart className="inline-block text-[14px] mr-1" />{todayAudit.length} calls today</span>
           <span>|</span>
           <span>{failures.length} failure{failures.length !== 1 ? 's' : ''}</span>
           <span>|</span>

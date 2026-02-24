@@ -1,6 +1,12 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Card, SectionHeader, Skeleton } from '../components/ui';
+import {
+  MdBusiness, MdLightbulb, MdBalance, MdBarChart, MdWarning,
+  MdRocketLaunch, MdMenuBook, MdTrackChanges, MdAssignment,
+  MdSettings, MdPerson, MdDescription,
+} from 'react-icons/md';
+import type { IconType } from 'react-icons';
 
 /* ── Types ─────────────────────────────────────── */
 
@@ -49,18 +55,18 @@ const NODE_COLORS: Record<NodeType, string> = {
   person: '#F472B6',
 };
 
-const NODE_ICONS: Record<NodeType, string> = {
-  entity: '🏢',
-  concept: '💡',
-  decision: '⚖️',
-  metric: '📊',
-  risk: '⚠️',
-  opportunity: '🚀',
-  learning: '📚',
-  goal: '🎯',
-  project: '📋',
-  process: '⚙️',
-  person: '👤',
+const NODE_ICONS: Record<NodeType, IconType> = {
+  entity: MdBusiness,
+  concept: MdLightbulb,
+  decision: MdBalance,
+  metric: MdBarChart,
+  risk: MdWarning,
+  opportunity: MdRocketLaunch,
+  learning: MdMenuBook,
+  goal: MdTrackChanges,
+  project: MdAssignment,
+  process: MdSettings,
+  person: MdPerson,
 };
 
 const EDGE_STYLES: Record<EdgeType, { color: string; dashed: boolean }> = {
@@ -385,7 +391,7 @@ function NodeDetail({
   onNavigateNode: (id: string) => void;
 }) {
   const nodeMap = new Map(allNodes.map((n) => [n.id, n]));
-  const icon = NODE_ICONS[node.node_type as NodeType] ?? '📄';
+  const Icon = NODE_ICONS[node.node_type as NodeType] ?? MdDescription;
   const color = NODE_COLORS[node.node_type as NodeType] ?? '#6B7280';
 
   // Connected edges
@@ -398,7 +404,7 @@ function NodeDetail({
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-xl">{icon}</span>
+            <Icon className="text-xl" style={{ color }} />
             <div>
               <h3 className="text-sm font-semibold text-txt-primary">{node.title}</h3>
               <span
@@ -668,7 +674,7 @@ export default function Graph() {
                         : ({ '--c': color } as React.CSSProperties)
                     }
                   >
-                    {NODE_ICONS[type]} {type}
+                    {(() => { const TypeIcon = NODE_ICONS[type]; return <TypeIcon className="inline-block text-[12px]" />; })()} {type}
                   </button>
                 );
               })}

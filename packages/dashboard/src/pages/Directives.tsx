@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { useAuth } from '../lib/auth';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
+import { MdCheckCircle, MdEdit, MdCancel, MdChevronRight } from 'react-icons/md';
 
 /* ── Types ─────────────────────────────────────── */
 
@@ -226,7 +227,7 @@ export default function Directives() {
                 className="flex items-center gap-2 text-xs font-semibold text-txt-secondary hover:text-txt-primary transition-colors"
               >
                 <span className={`text-[10px] transition-transform duration-200 ${showCompleted ? 'rotate-90' : ''}`}>
-                  ▶
+                  <MdChevronRight />
                 </span>
                 COMPLETED ({completed.length})
               </button>
@@ -253,7 +254,7 @@ export default function Directives() {
                 className="flex items-center gap-2 text-xs font-semibold text-txt-secondary hover:text-txt-primary transition-colors"
               >
                 <span className={`text-[10px] transition-transform duration-200 ${showRejected ? 'rotate-90' : ''}`}>
-                  ▶
+                  <MdChevronRight />
                 </span>
                 REJECTED ({rejected.length})
               </button>
@@ -545,21 +546,21 @@ function ProposedDirectiveCard({
             disabled={acting}
             className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
           >
-            ✅ Approve
+                        <MdCheckCircle className="inline-block text-[14px] mr-1" /> Approve
           </button>
           <button
             onClick={() => setShowEdit(true)}
             disabled={acting}
             className="rounded-lg border border-border bg-raised px-3 py-1.5 text-[12px] font-medium text-txt-secondary transition-colors hover:text-txt-primary disabled:opacity-40"
           >
-            ✏️ Edit & Approve
+                        <MdEdit className="inline-block text-[14px] mr-1" /> Edit & Approve
           </button>
           <button
             onClick={handleReject}
             disabled={acting}
             className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[12px] font-medium text-red-400 transition-opacity hover:opacity-90 disabled:opacity-40"
           >
-            ❌ Reject
+                        <MdCancel className="inline-block text-[14px] mr-1" /> Reject
           </button>
         </div>
       </div>

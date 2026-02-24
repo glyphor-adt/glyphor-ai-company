@@ -6,6 +6,7 @@ import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
 import { supabase, SCHEDULER_URL } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
+import { MdAttachFile, MdImage, MdDescription, MdClose } from 'react-icons/md';
 
 interface Attachment {
   name: string;
@@ -387,7 +388,7 @@ export default function Chat() {
                   Start a conversation with <span className="text-cyan">{codename}</span>
                 </p>
                 <p className="mt-1 text-[11px] text-txt-faint">
-                  Drag &amp; drop files, use 📎, or type <span className="text-cyan">@</span> to mention agents
+                  Drag &amp; drop files, use <MdAttachFile className="inline-block text-[14px]" />, or type <span className="text-cyan">@</span> to mention agents
                 </p>
               </div>
             </div>
@@ -423,9 +424,9 @@ export default function Chat() {
                         {att.previewUrl ? (
                           <img src={att.previewUrl} alt={att.name} className="h-10 w-10 rounded object-cover" />
                         ) : att.type.startsWith('image/') ? (
-                          <span className="text-[14px]">🖼️</span>
+                          <MdImage className="text-[14px] text-txt-muted" />
                         ) : (
-                          <span className="text-[14px]">📄</span>
+                          <MdDescription className="text-[14px] text-txt-muted" />
                         )}
                         <span className="text-[11px] text-txt-muted truncate max-w-[120px]">{att.name}</span>
                       </div>
@@ -479,10 +480,10 @@ export default function Chat() {
                 {f.previewUrl ? (
                   <img src={f.previewUrl} alt={f.name} className="h-8 w-8 rounded object-cover" />
                 ) : (
-                  <span className="text-[14px]">📄</span>
+                  <MdDescription className="text-[14px] text-txt-muted" />
                 )}
                 <span className="text-[11px] text-txt-secondary truncate max-w-[100px]">{f.name}</span>
-                <button onClick={() => removeFile(i)} className="ml-1 text-[11px] text-txt-faint hover:text-rose transition-colors">✕</button>
+                <button onClick={() => removeFile(i)} className="ml-1 text-txt-faint hover:text-rose transition-colors"><MdClose className="text-[14px]" /></button>
               </div>
             ))}
           </div>
@@ -520,7 +521,7 @@ export default function Chat() {
               className="flex-shrink-0 rounded-lg border border-border bg-raised px-2.5 py-2.5 text-txt-muted hover:text-cyan transition-colors"
               title="Attach file"
             >
-              📎
+              <MdAttachFile className="text-[16px]" />
             </button>
             <input
               ref={fileInputRef}
