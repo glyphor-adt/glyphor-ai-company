@@ -15,6 +15,7 @@ import {
   type AgentConfig,
   type ConversationTurn,
 } from '@glyphor/agent-runtime';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CHIEF_OF_STAFF_SYSTEM_PROMPT, ORCHESTRATION_PROMPT } from './systemPrompt.js';
 import { createChiefOfStaffTools, createOrchestrationTools } from './tools.js';
@@ -29,6 +30,98 @@ export interface CoSRunParams {
   recipient?: 'kristina' | 'andrew';
   message?: string;
   conversationHistory?: ConversationTurn[];
+}
+
+/**
+ * Gathers directive lifecycle context for injection into the orchestrate prompt.
+ * Returns a formatted string with:
+ * A. Directives where all assignments are completed (candidates for synthesis)
+ * B. Decisions pending > 2 hours (candidates for reminder DM)
+ * C. Assignments blocked on founder_input > 4 hours (candidates for escalation DM)
+ */
+async function gatherDirectiveLifecycleContext(supabase: SupabaseClient): Promise<string> {
+  const sections: string[] = [];
+
+  try {
+    // A. Directives with all assignments completed (candidates for synthesis)
+    const { data: activeDirectives } = await supabase
+      .from('founder_directives')
+      .select(`
+        id, title, created_by, status,
+        work_assignments (id, assigned_to, status, quality_score, task_description, output, evaluation, need_type, blocker_reason, updated_at)
+      `)
+      .eq('status', 'active');
+
+    if (activeDirectives && activeDirectives.length > 0) {
+      const completionCandidates = activeDirectives.filter((d: any) => {
+        const assignments = d.work_assignments || [];
+        return assignments.length > 0 && assignments.every((a: any) => a.status === 'completed');
+      });
+
+      if (completionCandidates.length > 0) {
+        sections.push(`## COMPLETION CANDIDATES — Directives ready for synthesis\n\nThese directives have ALL assignments completed. Review quality scores and, if all >= 70, run the completion synthesis protocol (synthesize outputs, send DM to creator, mark complete).\n`);
+        for (const d of completionCandidates) {
+          const assignments = (d as any).work_assignments || [];
+          const assignmentSummary = assignments.map((a: any) =>
+            `  - ${a.assigned_to}: quality=${a.quality_score ?? 'not evaluated'} | output preview: ${(a.output || 'no output recorded').substring(0, 200)}`
+          ).join('\n');
+          sections.push(`📋 Directive: "${(d as any).title}" (id: ${(d as any).id})\n   Created by: ${(d as any).created_by}\n   Assignments:\n${assignmentSummary}\n`);
+        }
+      }
+
+      // C. Assignments blocked on founder_input > 4 hours
+      const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+      const blockedAssignments: Array<{ directive: any; assignment: any }> = [];
+
+      for (const d of activeDirectives) {
+        const assignments = (d as any).work_assignments || [];
+        for (const a of assignments) {
+          if (
+            a.status === 'blocked' &&
+            a.need_type === 'founder_input' &&
+            a.updated_at && a.updated_at < fourHoursAgo
+          ) {
+            blockedAssignments.push({ directive: d, assignment: a });
+          }
+        }
+      }
+
+      if (blockedAssignments.length > 0) {
+        sections.push(`## STUCK BLOCKERS — Assignments needing founder input (> 4 hours)\n\nThese assignments are blocked waiting for founder input. DM the directive creator with the agent's question and suggested options.\n`);
+        for (const { directive, assignment } of blockedAssignments) {
+          const waitHours = Math.round((Date.now() - new Date(assignment.updated_at).getTime()) / (1000 * 60 * 60));
+          sections.push(`📋 Directive: "${directive.title}" (id: ${directive.id})\n   Blocked agent: ${assignment.assigned_to}\n   Waiting: ${waitHours} hours\n   Blocker: ${assignment.blocker_reason || 'No reason recorded'}\n   DM target: ${directive.created_by}\n`);
+        }
+      }
+    }
+
+    // B. Decisions pending > 2 hours
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const { data: stuckDecisions } = await supabase
+      .from('decisions')
+      .select('id, title, tier, summary, assigned_to, created_at')
+      .eq('status', 'pending')
+      .lt('created_at', twoHoursAgo)
+      .order('created_at', { ascending: true });
+
+    if (stuckDecisions && stuckDecisions.length > 0) {
+      sections.push(`## STUCK DECISIONS — Pending > 2 hours\n\nThese decisions have been pending for over 2 hours. Send a reminder DM to the assigned approver. Do NOT remind more than once per decision per day — check working memory first.\n`);
+      for (const dec of stuckDecisions) {
+        const waitHours = Math.round((Date.now() - new Date(dec.created_at).getTime()) / (1000 * 60 * 60));
+        const assignedTo = Array.isArray(dec.assigned_to) ? dec.assigned_to.join(', ') : dec.assigned_to;
+        sections.push(`🟡 Decision: "${dec.title}" (id: ${dec.id})\n   Tier: ${dec.tier} | Waiting: ${waitHours} hours\n   Assigned to: ${assignedTo}\n   Summary: ${(dec.summary || '').substring(0, 200)}\n`);
+      }
+    }
+  } catch (e) {
+    console.warn('[CoS] Failed to gather directive lifecycle context:', (e as Error).message);
+    sections.push('(Could not load directive lifecycle context — proceed with standard orchestration.)');
+  }
+
+  if (sections.length === 0) {
+    return '## DIRECTIVE LIFECYCLE STATUS\n\nNo completion candidates, stuck decisions, or stuck blockers found. Proceed with standard orchestration.';
+  }
+
+  return sections.join('\n');
 }
 
 export async function runChiefOfStaff(params: CoSRunParams = {}) {
@@ -132,7 +225,9 @@ Steps:
 Goal: Drive organizational learning — identify what worked, what didn't, and how the company's collective decision-making can improve.`;
       break;
 
-    case 'orchestrate':
+    case 'orchestrate': {
+      // Gather directive lifecycle context for Sarah
+      const lifecycleContext = await gatherDirectiveLifecycleContext(memory.getSupabaseClient());
       initialMessage = `Run your orchestration cycle:
 
 1. Read all active founder directives
@@ -142,9 +237,13 @@ Goal: Drive organizational learning — identify what worked, what didn't, and h
 5. For directives with completed assignments: evaluate the outputs
 6. Update progress notes on all active directives
 7. Report any blockers or issues that need founder attention
+8. Run directive lifecycle checks (completion synthesis, stuck decisions, stuck blockers)
 
-Be decisive. Assign real work. Move things forward.`;
+Be decisive. Assign real work. Move things forward.
+
+${lifecycleContext}`;
       break;
+    }
 
     case 'on_demand':
       initialMessage = params.message || 'Provide a status summary of the company.';
