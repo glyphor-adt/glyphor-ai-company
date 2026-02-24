@@ -65,7 +65,18 @@ export default function Dashboard() {
         .select('id, agent_id, task, started_at')
         .eq('status', 'running')
         .order('started_at', { ascending: false });
-      setRunningAgents((rows as RunningAgent[]) ?? []);
+      setRunningAgents(() => {
+        const allRunning = (rows as RunningAgent[]) ?? [];
+        // Deduplicate by agent — keep the most recent run per agent
+        const byAgent = new Map<string, RunningAgent>();
+        for (const run of allRunning) {
+          const existing = byAgent.get(run.agent_id);
+          if (!existing || new Date(run.started_at) > new Date(existing.started_at)) {
+            byAgent.set(run.agent_id, run);
+          }
+        }
+        return Array.from(byAgent.values());
+      });
     };
     fetchRunning();
     const channel = supabase

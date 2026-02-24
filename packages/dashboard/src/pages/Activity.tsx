@@ -114,8 +114,20 @@ export default function Activity() {
     });
   }, [runs, statusFilter, agentFilter]);
 
-  // Currently running
-  const runningNow = useMemo(() => runs.filter((r) => r.status === 'running'), [runs]);
+  // Currently running — deduplicate by agent, keep most recent run per agent
+  const runningNow = useMemo(() => {
+    const allRunning = runs.filter((r) => r.status === 'running');
+    const byAgent = new Map<string, { run: typeof allRunning[0]; count: number }>();
+    for (const run of allRunning) {
+      const existing = byAgent.get(run.agent_id);
+      if (!existing || new Date(run.started_at) > new Date(existing.run.started_at)) {
+        byAgent.set(run.agent_id, { run, count: (existing?.count ?? 0) + 1 });
+      } else {
+        existing.count++;
+      }
+    }
+    return Array.from(byAgent.values());
+  }, [runs]);
 
   // Stats
   const stats = useMemo(() => {
@@ -153,7 +165,7 @@ export default function Activity() {
         <Card className="border-cyan/20 bg-cyan/5">
           <SectionHeader title={`${runningNow.length} Agent${runningNow.length > 1 ? 's' : ''} Running Now`} />
           <div className="mt-2 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-            {runningNow.map((run) => (
+            {runningNow.map(({ run, count }) => (
               <div
                 key={run.id}
                 className="flex items-center gap-3 rounded-lg border border-cyan/20 bg-surface px-3 py-2.5"
@@ -165,6 +177,9 @@ export default function Activity() {
                 <div className="min-w-0 flex-1">
                   <p className="text-[13px] font-semibold text-txt-primary truncate">
                     {DISPLAY_NAME_MAP[run.agent_id] ?? run.agent_id}
+                    {count > 1 && (
+                      <span className="ml-1.5 text-[11px] font-normal text-txt-muted">×{count}</span>
+                    )}
                   </p>
                   <p className="text-[11px] text-cyan truncate">
                     {run.task ?? 'unknown task'}

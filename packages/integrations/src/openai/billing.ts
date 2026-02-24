@@ -97,16 +97,17 @@ export async function syncOpenAIBilling(
     const date = new Date(bucket.start_time * 1000).toISOString().split('T')[0];
 
     for (const result of bucket.results) {
-      if (result.amount.value === 0) continue;
+      const costValue = Number(result.amount?.value ?? 0);
+      if (!costValue || isNaN(costValue)) continue;
 
       const model = result.line_item ?? 'unknown';
       rows.push({
         provider: 'openai',
         service: model,
-        cost_usd: parseFloat(result.amount.value.toFixed(4)),
+        cost_usd: parseFloat(costValue.toFixed(4)),
         usage: {
           date,
-          currency: result.amount.currency,
+          currency: result.amount?.currency ?? 'usd',
           object: result.object,
         },
         product,
@@ -114,7 +115,7 @@ export async function syncOpenAIBilling(
       });
 
       const current = dailyTotals.get(date) ?? 0;
-      dailyTotals.set(date, current + result.amount.value);
+      dailyTotals.set(date, current + costValue);
     }
   }
 
