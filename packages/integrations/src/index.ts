@@ -39,12 +39,15 @@ export {
   type BotResponse,
 } from './teams/bot.js';
 
-// Email (Graph API sendMail)
+// Email (Graph API sendMail / readInbox / reply)
 export {
   GraphEmailClient,
   type SendEmailOptions,
   type EmailRecipient,
   type EmailAttachment,
+  type ReadInboxOptions,
+  type InboxMessage,
+  type ReplyOptions,
 } from './teams/email.js';
 
 // Calendar (Graph API events)

@@ -68,3 +68,10 @@ export type {
   SecurityEventType,
   SecurityEvent,
 } from './types.js';
+export {
+  AGENT_EMAIL_MAP,
+  FOUNDER_EMAILS,
+  resolveRecipient,
+  getAgentEmail,
+} from './config/agentEmails.js';
+export type { AgentEmailEntry } from './config/agentEmails.js';

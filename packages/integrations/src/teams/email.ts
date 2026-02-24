@@ -1,10 +1,12 @@
 /**
- * Email — send mail via Microsoft Graph API
+ * Email — send / read / reply via Microsoft Graph API
  *
  * Sends email from a shared mailbox or service account using
- * client credentials (app-only) auth.
+ * client credentials (app-only) auth. Supports per-agent mailboxes.
  *
- * Required Entra ID permission (Application): Mail.Send
+ * Required Entra ID permissions (Application):
+ *   Mail.Send       — send on behalf of any mailbox
+ *   Mail.ReadWrite  — read inbox / reply
  *
  * Governance:
  *   YELLOW — all executive agents (requires founder approval)
@@ -40,6 +42,37 @@ export interface SendEmailOptions {
   saveToSentItems?: boolean;
 }
 
+export interface ReadInboxOptions {
+  /** Max messages to return (default: 10, max 50) */
+  limit?: number;
+  /** Only return unread messages (default: true) */
+  unreadOnly?: boolean;
+  /** Filter by sender email contains */
+  fromFilter?: string;
+  /** Mark returned messages as read (default: false) */
+  markAsRead?: boolean;
+}
+
+export interface InboxMessage {
+  id: string;
+  subject: string;
+  from: string;
+  fromName: string;
+  receivedAt: string;
+  preview: string;
+  isRead: boolean;
+  hasAttachments: boolean;
+}
+
+export interface ReplyOptions {
+  /** Message ID to reply to */
+  messageId: string;
+  /** Reply body (HTML) */
+  body: string;
+  /** If true, reply-all instead of reply-to-sender (default: false) */
+  replyAll?: boolean;
+}
+
 // ─── EMAIL CLIENT ───────────────────────────────────────────────
 
 export class GraphEmailClient {
@@ -68,7 +101,7 @@ export class GraphEmailClient {
    * Send an email via Graph API.
    */
   async sendEmail(options: SendEmailOptions): Promise<void> {
-    const token = await (this.graphClient as unknown as { getToken(): Promise<string> }).getToken();
+    const token = await this.getGraphToken();
 
     const toRecipients = options.to.map(r => ({
       emailAddress: { address: r.email, name: r.name },
@@ -116,5 +149,180 @@ export class GraphEmailClient {
       const text = await response.text();
       throw new Error(`Failed to send email (${response.status}): ${text}`);
     }
+  }
+
+  // ─── PER-AGENT SENDER ────────────────────────────────────────
+
+  /**
+   * Send email FROM a specific mailbox (agent's shared mailbox).
+   * Uses `POST /users/{senderEmail}/sendMail`.
+   */
+  async sendEmailAs(senderEmail: string, options: SendEmailOptions): Promise<void> {
+    const token = await this.getGraphToken();
+
+    const toRecipients = options.to.map(r => ({
+      emailAddress: { address: r.email, name: r.name },
+    }));
+    const ccRecipients = (options.cc ?? []).map(r => ({
+      emailAddress: { address: r.email, name: r.name },
+    }));
+    const attachments = (options.attachments ?? []).map(a => ({
+      '@odata.type': '#microsoft.graph.fileAttachment',
+      name: a.name,
+      contentType: a.contentType,
+      contentBytes: a.contentBytes,
+    }));
+
+    const payload = {
+      message: {
+        subject: options.subject,
+        body: { contentType: 'HTML', content: options.body },
+        toRecipients,
+        ...(ccRecipients.length > 0 && { ccRecipients }),
+        importance: options.importance ?? 'normal',
+        ...(attachments.length > 0 && { attachments }),
+      },
+      saveToSentItems: options.saveToSentItems ?? true,
+    };
+
+    const response = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(senderEmail)}/sendMail`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      },
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Failed to send email as ${senderEmail} (${response.status}): ${text}`);
+    }
+  }
+
+  // ─── READ INBOX ──────────────────────────────────────────────
+
+  /**
+   * Read messages from a mailbox inbox.
+   * Uses `GET /users/{mailboxEmail}/mailFolders/inbox/messages`.
+   */
+  async readInbox(mailboxEmail: string, options: ReadInboxOptions = {}): Promise<InboxMessage[]> {
+    const token = await this.getGraphToken();
+
+    const limit = Math.min(options.limit ?? 10, 50);
+    const params = new URLSearchParams({
+      $top: String(limit),
+      $select: 'id,subject,from,receivedDateTime,bodyPreview,isRead,hasAttachments',
+      $orderby: 'receivedDateTime desc',
+    });
+
+    const filters: string[] = [];
+    if (options.unreadOnly !== false) {
+      filters.push('isRead eq false');
+    }
+    if (options.fromFilter) {
+      filters.push(`contains(from/emailAddress/address, '${options.fromFilter.replace(/'/g, "''")}')`);
+    }
+    if (filters.length > 0) {
+      params.set('$filter', filters.join(' and '));
+    }
+
+    const response = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailboxEmail)}/mailFolders/inbox/messages?${params.toString()}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Failed to read inbox for ${mailboxEmail} (${response.status}): ${text}`);
+    }
+
+    interface GraphMessage {
+      id: string;
+      subject: string;
+      from: { emailAddress: { address: string; name: string } };
+      receivedDateTime: string;
+      bodyPreview: string;
+      isRead: boolean;
+      hasAttachments: boolean;
+    }
+    const data = (await response.json()) as { value: GraphMessage[] };
+
+    const messages: InboxMessage[] = data.value.map((m) => ({
+      id: m.id,
+      subject: m.subject,
+      from: m.from?.emailAddress?.address ?? '',
+      fromName: m.from?.emailAddress?.name ?? '',
+      receivedAt: m.receivedDateTime,
+      preview: m.bodyPreview,
+      isRead: m.isRead,
+      hasAttachments: m.hasAttachments,
+    }));
+
+    // Optionally mark as read
+    if (options.markAsRead && messages.length > 0) {
+      const unreadIds = messages.filter(m => !m.isRead).map(m => m.id);
+      await Promise.all(
+        unreadIds.map(id =>
+          fetch(
+            `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailboxEmail)}/messages/${encodeURIComponent(id)}`,
+            {
+              method: 'PATCH',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ isRead: true }),
+            },
+          ),
+        ),
+      );
+    }
+
+    return messages;
+  }
+
+  // ─── REPLY ───────────────────────────────────────────────────
+
+  /**
+   * Reply to a message in a mailbox.
+   * Uses `POST /users/{mailboxEmail}/messages/{messageId}/reply`.
+   */
+  async replyToEmail(mailboxEmail: string, options: ReplyOptions): Promise<void> {
+    const token = await this.getGraphToken();
+    const endpoint = options.replyAll ? 'replyAll' : 'reply';
+
+    const response = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailboxEmail)}/messages/${encodeURIComponent(options.messageId)}/${endpoint}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          comment: options.body,
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Failed to reply to email (${response.status}): ${text}`);
+    }
+  }
+
+  // ─── PRIVATE ─────────────────────────────────────────────────
+
+  private async getGraphToken(): Promise<string> {
+    return (this.graphClient as unknown as { getToken(): Promise<string> }).getToken();
   }
 }
