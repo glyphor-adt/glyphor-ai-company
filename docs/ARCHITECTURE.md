@@ -53,11 +53,16 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │  GET  /analysis/:id      ── Get analysis status/result              │
 │  GET  /analysis          ── List all analyses                       │
 │  GET  /analysis/:id/export── Export analysis report (md/json)       │
+│  GET  /analysis/:id/visual── Get saved AI-generated infographic     │
+│  POST /analysis/:id/visual── Generate & save AI infographic         │
 │  POST /simulation/run    ── Launch T+1 simulation                   │
 │  GET  /simulation/:id    ── Get simulation status/result            │
 │  GET  /simulation        ── List all simulations                    │
 │  POST /simulation/:id/accept ── Accept simulation result            │
 │  GET  /simulation/:id/export ── Export simulation report (md/json)  │
+│  GET  /deep-dive/:id/visual── Get saved deep dive infographic       │
+│  POST /deep-dive/:id/visual── Generate & save deep dive infographic │
+│  POST /cache/invalidate  ── Invalidate prompt cache (by prefix)     │
 │  POST /cot/run           ── Launch chain-of-thought analysis         │
 │  GET  /cot               ── List all CoT analyses                   │
 │  GET  /cot/:id           ── Get CoT analysis status/result          │
@@ -123,6 +128,9 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │  │   ├─ EventBus               │  │  │  ├ Briefing card            │
 │  │   ├─ GlyphorEventBus       │  │  │  ├ Decision card             │
 │  │   ├─ PendingMessageLoader  │  │  │  └ Alert card                │
+│  │   ├─ PendingAssignmentLoader│ │  │                              │
+│  │   ├─ WorkingMemoryLoader   │  │  │                              │
+│  │   ├─ PromptCache (5 min)   │  │  │                              │
 │  │   └─ AgentProfileLoader    │  │  │                              │
 │  └─────────────────────────────┘  │  └──────────────────────────────┘
 │                                   │
@@ -132,6 +140,10 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │   ├─ communicationTools           │
 │   │  (send_message, check_msgs,   │
 │   │   call_meeting)               │
+│   ├─ assignmentTools              │
+│   │  (read_my_assignments,        │
+│   │   submit_assignment_output,   │
+│   │   flag_assignment_blocker)    │
 │   ├─ graphTools                   │
 │   │  (query_knowledge_graph,      │
 │   │   add_knowledge, trace_*)     │
@@ -211,6 +223,8 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │   ├ Governance.tsx   (IAM & secrets)     │
 │   ├ Knowledge.tsx    (knowledge base)    │
 │   ├ Operations.tsx   (system operations) │
+│   ├ Activity.tsx     (run history +      │
+│   │                   live running)      │
 │   ├ Strategy.tsx     (analysis & sims)   │
 │   ├ Graph.tsx        (knowledge graph)   │
 │   ├ Skills.tsx       (skill library)     │
@@ -246,8 +260,8 @@ active 24/7 via the scheduler service.
 
 ### Sub-Team Members (18)
 
-Sub-team members have role briefs and dashboard entries but do not have independent agent runners.
-They operate under their executive's authority scope.
+Sub-team members have full agent runners (`run.ts`, `systemPrompt.ts`, `tools.ts`), role briefs,
+and dashboard entries. They operate under their executive's authority scope and report to them.
 
 | Name | Title | Department | Reports To |
 |------|-------|------------|------------|
@@ -306,7 +320,7 @@ All 9 jobs are **enabled** and run **daily** (every day of the week).
 | `cos-briefing-kristina` | Sarah Chen | `0 12 * * *` | 7:00 AM | Morning briefing for Kristina |
 | `cos-briefing-andrew` | Sarah Chen | `30 12 * * *` | 7:30 AM | Morning briefing for Andrew |
 | `cos-eod-summary` | Sarah Chen | `0 23 * * *` | 6:00 PM | End-of-day summary |
-| `cto-health-check` | Marcus Reeves | `*/30 * * * *` | Every 30 min | Platform health check |
+| `cto-health-check` | Marcus Reeves | `0 */2 * * *` | Every 2 hours | Platform health check |
 | `cfo-daily-costs` | Nadia Okafor | `0 14 * * *` | 9:00 AM | Daily cost analysis |
 | `cpo-usage-analysis` | Elena Vasquez | `0 15 * * *` | 10:00 AM | Usage & competitive analysis |
 | `cmo-content-calendar` | Maya Brooks | `0 14 * * *` | 9:00 AM | Content planning |
@@ -479,7 +493,7 @@ glyphor-ai-company/
 │   │       ├── simulationEngine.ts    # T+1 impact simulation engine
 │   │       ├── cotEngine.ts           # 4-phase chain-of-thought planning engine
 │   │       ├── meetingEngine.ts       # Multi-round inter-agent meetings
-│   │       ├── reportExporter.ts      # Analysis/simulation/CoT export (md/json)
+│   │       ├── reportExporter.ts      # Analysis/simulation/CoT export (md/json) + visual prompt builder
 │   │       ├── wakeRouter.ts          # Event-driven agent wake dispatcher
 │   │       ├── wakeRules.ts           # Declarative event-to-agent wake mappings
 │   │       └── heartbeat.ts           # Lightweight periodic agent check-ins (DB only)
@@ -503,7 +517,8 @@ glyphor-ai-company/
 │       │   │   ├── Governance.tsx     # Platform governance, IAM state, secret rotation
 │       │   │   ├── Knowledge.tsx      # Knowledge base management & founder bulletins
 │       │   │   ├── Operations.tsx     # System operations & events
-│       │   │   ├── Strategy.tsx       # Strategic analysis & T+1 simulations & CoT planning
+│       │   │   ├── Activity.tsx       # Live running-now banner, filterable run history, real-time subscriptions
+│       │   │   ├── Strategy.tsx       # Strategic analysis & T+1 simulations & CoT planning & AI infographics
 │       │   │   ├── Graph.tsx          # Interactive force-directed knowledge graph (canvas)
 │       │   │   ├── Skills.tsx         # Skill library browser (10 categories)
 │       │   │   ├── SkillDetail.tsx    # Skill detail + agent assignments
@@ -523,7 +538,7 @@ glyphor-ai-company/
 │       │   │   ├── theme.tsx             # Dark/light theme provider
 │       │   │   ├── hooks.ts              # Custom hooks
 │       │   │   └── types.ts              # Dashboard-specific types
-│       │   ├── App.tsx               # Router & layout (21 routes)
+│       │   ├── App.tsx               # Router & layout (22 routes)
 │       │   └── index.css             # Tailwind + Glyphor brand theme
 │       └── package.json
 │
@@ -571,22 +586,36 @@ The core execution loop (ported from Fuse V7 `agentRunner.ts`):
 
 ```
 1. BUILD SYSTEM PROMPT
-   buildSystemPrompt(role, existingPrompt, dynamicBrief?, profile?)
-    → Load COMPANY_KNOWLEDGE_BASE.md   (shared company context)
-    → Load briefs/{name}.md            (role-specific brief)
-    → Build Personality Block           (from agent_profiles table)
-    → Append agent's own systemPrompt
-    → Final = Knowledge Base + WHO YOU ARE block + Role Brief + Agent System Prompt
+   buildSystemPrompt(role, existingPrompt, dynamicBrief?, profile?, skillContext?, dbKnowledgeBase?, bulletinContext?)
+    → Personality Block (WHO YOU ARE)    (from agent_profiles table)
+    → Conversation Mode Detection        (casual vs task routing)
+    → Reasoning Protocol                 (Orient → Plan → Execute → Reflect)
+    → Work Assignments Protocol           (check → work → submit/flag)
+    → Skill Block (if skills active)      (methodology, proficiency, refinements)
+    → Role Brief from briefs/{name}.md   (or DB agent_briefs)
+    → Agent's own systemPrompt
+    → Company Knowledge Base              (DB-driven via knowledgeBaseLoader, or static CORE.md fallback)
+    → Department context files            (context/{department}.md)
+    → Founder Bulletins                   (from bulletinLoader, priority-coded)
     → Anti-patterns appended (no filler phrases, no corporate jargon, etc.)
 
-2. MEMORY RETRIEVAL
-    → Load prior memories (up to 20) + reflections (up to 3)
-    → Inject as context turn
+2. TIERED CONTEXT LOADING
+    → **light** (on_demand/chat): profile + pending messages + working memory only
+    → **standard** (most scheduled tasks): adds KB + brief + memories + bulletins
+    → **full** (briefing, orchestrate, deep analysis): everything including CI, graph, skills
+    → On-demand auto-upgrades light → standard if message matches task keywords
 
-3. PENDING MESSAGES
-    → pendingMessageLoader checks agent_messages for unread DMs
-    → Urgent messages flagged with 🔴
-    → Injected as context with thread_id for replies
+3. PARALLEL PRE-RUN DATA LOADING
+    All loaders run in parallel via Promise.all:
+    → Memory retrieval (up to 20 memories + 3 reflections + 5 semantic matches)
+    → Pending inter-agent messages (marked as read)
+    → Pending work assignments (with directive context)
+    → Collective intelligence (pulse + org knowledge + inbox) — full tier only
+    → Agent personality profile — cached (5 min TTL)
+    → Working memory (last-run summary for continuity)
+    → Skill context (matched skills for task) — full tier only
+    → Knowledge base — cached (5 min TTL)
+    → Founder bulletins — cached (5 min TTL)
 
 4. SUPERVISOR CHECK
     → Verify turnCount < maxTurns (default 10)
@@ -610,6 +639,16 @@ The core execution loop (ported from Fuse V7 `agentRunner.ts`):
     → Model returns text with STOP finish reason → done
     → Extract reasoning envelope if present
     → Return AgentExecutionResult
+
+9. REFLECTION (post-run)
+    → Model self-assesses: summary, quality score, what went well/could improve
+    → Extracts memories (observations, learnings, facts) — saved with embeddings
+    → Extracts graph operations (nodes + edges) — persisted via graphWriter
+    → Extracts peer feedback — saved to agent_peer_feedback
+    → Extracts skill feedback — updates proficiency via skillFeedbackWriter
+    → Routes new knowledge to relevant agents via CI knowledge router
+    → Saves working memory (last-run summary) for next run's context
+    → Fire-and-forget for on_demand (non-blocking); awaited for scheduled runs
 ```
 
 ### Knowledge Injection
@@ -618,10 +657,15 @@ Every Gemini API call receives a composite system prompt built from four layers:
 
 | Layer | Source | Size |
 |-------|--------|------|
-| Company Knowledge Base | `company-knowledge/COMPANY_KNOWLEDGE_BASE.md` | ~400 lines |
 | Personality Block | `agent_profiles` table → `buildPersonalityBlock()` | ~40 lines |
+| Conversation Mode | Hardcoded — casual vs task detection | ~15 lines |
+| Reasoning Protocol | Hardcoded — Orient → Plan → Execute → Reflect | ~10 lines |
+| Work Assignments Protocol | Hardcoded — read → work → submit/flag lifecycle | ~15 lines |
+| Skill Block | `skills` + `agent_skills` tables → `buildSkillBlock()` | ~20–50 lines |
 | Role Brief | `company-knowledge/briefs/{name}.md` or DB `agent_briefs` | ~80 lines |
 | Agent System Prompt | `agents/src/{role}/systemPrompt.ts` | ~30 lines |
+| Company Knowledge Base | DB `company_knowledge_base` (or static `CORE.md` fallback) | ~400 lines |
+| Founder Bulletins | DB `founder_bulletins` (priority-coded, expiration-filtered) | variable |
 
 The **Personality Block** (WHO YOU ARE section) includes:
 - Personality summary and backstory
@@ -680,13 +724,23 @@ Name mapping (`ROLE_TO_BRIEF`):
 
 ### ModelClient — Multi-Provider LLM
 
-| Provider | Model Prefixes | Auth Env Var | Gemini 3 Features |
-|----------|---------------|--------------|-------------------|
+| Provider | Model Prefixes | Auth Env Var | Features |
+|----------|---------------|--------------|----------|
 | Google Gemini | `gemini-*` | `GOOGLE_AI_API_KEY` | Function calling, thinking/reasoning, thought signatures |
 | OpenAI | `gpt-*`, `o1-*`, `o3-*` | `OPENAI_API_KEY` | Function calling |
 | Anthropic | `claude-*` | `ANTHROPIC_API_KEY` | Tool use, thinking blocks |
 
 All agents currently use **`gemini-3-flash-preview`**. Multi-provider support is built in for fallback.
+
+#### Image Generation
+
+| Provider | Model | Method | Purpose |
+|----------|-------|--------|---------|
+| Google Imagen | `imagen-4.0-ultra-generate-001` | `generateImage()` | High-quality infographics |
+| OpenAI | `gpt-image-1` | `generateImageOpenAI()` | Text-rich infographics |
+
+Generated images are watermarked with the Glyphor logo (bottom-right, 60% opacity) using `sharp`
+before being saved to the database (`visual_image` column on `analyses` and `deep_dives` tables).
 
 #### Gemini 3 Thought Signature Handling
 
@@ -696,6 +750,14 @@ Gemini 3 returns `thoughtSignature` on tool-call parts. The runtime:
 3. Echoes the `thoughtSignature` back on each `functionCall` part.
 4. Batches consecutive `tool_result` turns into one `user` message with `functionResponse` parts.
 
+### Prompt Cache
+
+In-memory TTL cache (`PromptCache` class) shared across agent runs. Avoids re-fetching
+knowledge base, agent profiles, and founder bulletins on every run. 5-minute TTL; can be
+manually invalidated via `POST /cache/invalidate` with optional `prefix` parameter.
+
+Cached keys: `profile:{role}`, `kb:{department}`, `bulletin:{department}`.
+
 ### Inter-Agent Event Bus
 
 The `GlyphorEventBus` enables reactive communication between agents. When an agent emits an
@@ -704,7 +766,7 @@ and can wake other agents in response.
 
 Event types: `agent.completed`, `insight.detected`, `decision.filed`, `decision.resolved`,
 `alert.triggered`, `task.requested`, `agent.spawned`, `agent.retired`, `message.sent`,
-`meeting.called`, `meeting.completed`.
+`meeting.called`, `meeting.completed`, `assignment.submitted`, `assignment.blocked`.
 
 Rate limited to 10 events per agent per hour.
 
@@ -712,7 +774,7 @@ Rate limited to 10 events per agent per hour.
 
 | Tier | Allowed Events |
 |------|---------------|
-| Executives | `agent.completed`, `insight.detected`, `decision.filed`, `alert.triggered`, `task.requested`, `agent.spawned`, `agent.retired`, `message.sent`, `meeting.called`, `meeting.completed` |
+| Executives | `agent.completed`, `insight.detected`, `decision.filed`, `alert.triggered`, `task.requested`, `agent.spawned`, `agent.retired`, `message.sent`, `meeting.called`, `meeting.completed`, `assignment.submitted`, `assignment.blocked` |
 | Sub-team | `insight.detected`, `message.sent` |
 | System/Founders only | `decision.resolved` |
 
@@ -767,6 +829,17 @@ three `ToolDefinition[]` items available to all agents:
 | `send_agent_message` | Send a DM to another agent (validates recipient, rate limited) |
 | `check_messages` | Check for pending messages, marks as read, returns with thread_id |
 | `call_meeting` | Convene a multi-agent meeting (validates attendees, rate limited) |
+
+### Assignment Tools
+
+Factory function `createAssignmentTools(supabase, glyphorEventBus)` returns three `ToolDefinition[]`
+items available to all agents, closing the Sarah → agent → Sarah orchestration loop:
+
+| Tool | Description |
+|------|------------|
+| `read_my_assignments` | Read pending work assignments from Sarah. Joins `work_assignments` with `founder_directives` for context. Filters by status (default: actionable). Returns instructions, expected output, priority, directive context, and feedback for revisions. |
+| `submit_assignment_output` | Submit completed work for a specific assignment. Verifies ownership, updates `work_assignments`, sends notification to chief-of-staff, emits `assignment.submitted` event, logs to `activity_log`. Supports `completed` and `in_progress` statuses. |
+| `flag_assignment_blocker` | Flag an assignment as blocked. Verifies ownership, sets status to `blocked`, sends urgent message to chief-of-staff with need type (tool_access, data_access, peer_help, founder_input, external_dependency, unclear_instructions, other), emits `alert.triggered` event. |
 
 ### Agent Budget Caps
 
@@ -1085,9 +1158,9 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `analyses` | Strategic analyses | type (5 types), query, depth, status (6 phases), threads (JSONB), report (JSONB), requested_by |
+| `analyses` | Strategic analyses | type (5 types), query, depth, status (6 phases), threads (JSONB), report (JSONB), requested_by, visual_image (TEXT — base64 PNG infographic) |
 | `simulations` | T+1 simulations | action, perspective (optimistic/neutral/pessimistic), status (9 states), dimensions, report, accepted_at, accepted_by |
-| `deep_dives` | Deep dive research | target, context, status (6 phases), research_areas, sources, report, requested_by |
+| `deep_dives` | Deep dive research | target, context, status (6 phases), research_areas, sources, report, requested_by, visual_image (TEXT — base64 PNG infographic) |
 
 ### Collective Intelligence Tables
 
@@ -1178,7 +1251,13 @@ RPCs: `match_kg_nodes`, `kg_trace_causes`, `kg_trace_impact`, `kg_neighborhood`,
 | `company_knowledge_base` | Editable knowledge sections | section (unique), title, content, audience (10 roles), last_edited_by, version, is_active |
 | `founder_bulletins` | Founder announcements | created_by, content, audience, priority (fyi/normal/important/urgent), active_from, expires_at, is_active |
 
-Total: **33 migration files**, **69 tables**, **9 RPC functions**, **1 extension (pgvector)**.
+### Working Memory
+
+Working memory (last-run summary) is stored in the `company_agents` table via the
+`last_run_summary` and `last_run_at` columns — not a separate table. This enables
+continuity between runs without additional migration.
+
+Total: **35+ migration files**, **70+ tables**, **9 RPC functions**, **1 extension (pgvector)**.
 
 ---
 
@@ -1290,7 +1369,8 @@ Total: **33 migration files**, **69 tables**, **9 RPC functions**, **1 extension
 | Governance | `/governance` | Platform IAM state, secret rotation status, audit log |
 | Knowledge | `/knowledge` | Company knowledge base sections, founder bulletins |
 | Operations | `/operations` | System operations & autonomous events |
-| Strategy | `/strategy` | Strategic analysis engine (5 analysis types) + T+1 simulation engine with impact matrix |
+| Activity | `/activity` | Live running-now banner, filterable run history table, real-time Supabase subscriptions |
+| Strategy | `/strategy` | Strategic analysis engine (5 analysis types) + T+1 simulation engine with impact matrix + AI-generated infographics |
 | Graph | `/graph` | Interactive force-directed knowledge graph (HTML5 Canvas) with search, type filtering, neighborhood highlighting |
 | Skills | `/skills` | Skill library browser (10 categories), create new skills |
 | Skill Detail | `/skills/:slug` | Skill detail + agent assignments + proficiency stats |
@@ -1322,6 +1402,9 @@ Total: **33 migration files**, **69 tables**, **9 RPC functions**, **1 extension
 Two-stage build:
 1. **Builder** (`node:22-slim`): `npm ci` → copy all packages → `turbo build --filter=@glyphor/scheduler...`
 2. **Runtime** (`node:22-slim`): `npm ci --omit=dev` → copy `dist/` from builder → **copy `company-knowledge/`** directory (markdown files read at runtime by `buildSystemPrompt()`)
+
+Runtime also includes `sharp` (native image processing) for watermarking AI-generated infographics
+with the Glyphor logo, and copies `glyphor-logo.png` into the container for compositing.
 
 Entry point: `node packages/scheduler/dist/server.js`
 

@@ -3,7 +3,7 @@ export type { AgentMemoryStore, AgentProfileData, RunDependencies, SkillContext,
 export { ModelClient, detectProvider } from './modelClient.js';
 export type { ModelClientConfig, ModelProvider, ImageResponse } from './modelClient.js';
 export { AgentSupervisor } from './supervisor.js';
-export { ToolExecutor } from './toolExecutor.js';
+export { ToolExecutor, isToolGranted, invalidateGrantCache, loadGrantedToolNames } from './toolExecutor.js';
 export { EventBus } from './eventBus.js';
 export { GlyphorEventBus } from './glyphorEventBus.js';
 export type { GlyphorEventBusConfig } from './glyphorEventBus.js';
@@ -20,6 +20,7 @@ export {
   SUB_TEAM_ALLOWED_EVENTS,
   FORBIDDEN_AGENT_EVENTS,
   AGENT_MANAGER,
+  WRITE_TOOLS,
 } from './types.js';
 export type {
   AgentConfig,

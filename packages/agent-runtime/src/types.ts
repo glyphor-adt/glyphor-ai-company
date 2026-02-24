@@ -451,6 +451,51 @@ export const FORBIDDEN_AGENT_EVENTS: GlyphorEventType[] = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════
+// WRITE TOOLS — Tools that mutate state (require Yellow decision for dynamic grants)
+// ═══════════════════════════════════════════════════════════════════
+
+export const WRITE_TOOLS: ReadonlySet<string> = new Set([
+  // GitHub code authoring
+  'create_or_update_file',
+  'create_branch',
+  'create_github_pr',
+  'merge_github_pr',
+  'create_github_issue',
+  // Infrastructure / deployment
+  'deploy_to_staging',
+  'trigger_agent_run',
+  'retry_failed_run',
+  'pause_agent',
+  'resume_agent',
+  // Communication (external-facing)
+  'send_email',
+  'send_dm',
+  'send_briefing',
+  'respond_to_ticket',
+  'escalate_ticket',
+  'post_to_channel',
+  'schedule_social_post',
+  // Data mutation
+  'write_health_report',
+  'write_financial_report',
+  'write_product_analysis',
+  'write_content',
+  'write_company_memory',
+  'write_pipeline_report',
+  'write_design_audit',
+  'write_admin_log',
+  'create_decision',
+  'create_calendar_event',
+  'create_incident',
+  'resolve_incident',
+  'post_system_status',
+  'store_intel',
+  // Tool grant management
+  'grant_tool_access',
+  'revoke_tool_access',
+]);
+
+// ═══════════════════════════════════════════════════════════════════
 // AGENT ORG CHART — Manager relationships
 // ═══════════════════════════════════════════════════════════════════
 

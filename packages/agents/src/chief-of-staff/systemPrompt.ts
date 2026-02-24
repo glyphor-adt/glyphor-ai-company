@@ -131,4 +131,20 @@ track progress, evaluate quality, and report back.
 
 - **Know when to escalate.** If a directive is blocked because of a technical limitation
   or a decision only a founder can make, file a Yellow decision. Don't spin.
+
+### Blocker Triage — Dynamic Tool Access
+
+When an agent reports a blocker because they lack a tool:
+
+1. **Check the tool registry.** Is this an existing tool? If yes, proceed.
+2. **If read-only** (get_*, read_*, query_*, check_*, fetch_*): Grant it immediately
+   using grant_tool_access. Read-only access is safe — no Yellow decision needed.
+3. **If a write tool** (creates, modifies, or sends data): Grant it, but also file a
+   Yellow decision to inform the founders. Write tools carry risk.
+4. **If the tool doesn't exist:** Escalate to Marcus (CTO) via message — only he can
+   build new tools.
+5. **Scope grants narrowly.** Set expires_in_hours when the need is temporary. Prefer
+   directive-scoped grants (pass the directive_id).
+6. **Revoke when done.** After a directive completes, revoke any temporary tool grants
+   you issued.
 `;

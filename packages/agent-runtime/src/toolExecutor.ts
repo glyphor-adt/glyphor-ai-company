@@ -3,6 +3,10 @@
  *
  * Enforces per-agent tool grants, scope checking, rate limiting,
  * budget caps, and logs all tool calls + security events.
+ *
+ * Dynamic grants: Sarah (Chief of Staff) can temporarily grant existing
+ * tools to agents via the agent_tool_grants table. Grants are cached
+ * for 60 seconds to avoid per-call DB queries.
  */
 
 import type {
@@ -17,6 +21,95 @@ import type {
   SecurityEventType,
 } from './types.js';
 import { AGENT_BUDGETS } from './types.js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+// ─── DB Grant Cache ────────────────────────────────────────────
+const GRANT_CACHE_TTL_MS = 60_000; // 60 seconds
+
+interface GrantCacheEntry {
+  toolNames: Set<string>;
+  fetchedAt: number;
+}
+
+const grantCache = new Map<string, GrantCacheEntry>(); // role → cache entry
+
+/**
+ * Check if a tool is granted to an agent via the DB (agent_tool_grants table).
+ * Results are cached for 60s per role to avoid per-call DB queries.
+ */
+export async function isToolGranted(
+  agentRole: CompanyAgentRole,
+  toolName: string,
+  supabase: SupabaseClient,
+): Promise<boolean> {
+  const now = Date.now();
+  const cached = grantCache.get(agentRole);
+
+  if (cached && now - cached.fetchedAt < GRANT_CACHE_TTL_MS) {
+    return cached.toolNames.has(toolName);
+  }
+
+  // Cache miss — fetch from DB
+  const { data, error } = await supabase
+    .from('agent_tool_grants')
+    .select('tool_name')
+    .eq('agent_role', agentRole)
+    .eq('is_active', true)
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
+
+  if (error) {
+    console.warn(`[ToolGrants] Failed to fetch grants for ${agentRole}:`, error.message);
+    // On DB error, allow the tool (fail-open for availability)
+    return true;
+  }
+
+  const toolNames = new Set((data ?? []).map((row: { tool_name: string }) => row.tool_name));
+  grantCache.set(agentRole, { toolNames, fetchedAt: now });
+
+  return toolNames.has(toolName);
+}
+
+/** Invalidate the grant cache for a role (called after grant/revoke). */
+export function invalidateGrantCache(agentRole?: string): void {
+  if (agentRole) {
+    grantCache.delete(agentRole);
+  } else {
+    grantCache.clear();
+  }
+}
+
+/**
+ * Load all granted tool names for an agent from the DB.
+ * Used to check what tools an agent has access to (for system prompt injection).
+ */
+export async function loadGrantedToolNames(
+  agentRole: CompanyAgentRole,
+  supabase: SupabaseClient,
+): Promise<string[]> {
+  const now = Date.now();
+  const cached = grantCache.get(agentRole);
+
+  if (cached && now - cached.fetchedAt < GRANT_CACHE_TTL_MS) {
+    return Array.from(cached.toolNames);
+  }
+
+  const { data, error } = await supabase
+    .from('agent_tool_grants')
+    .select('tool_name')
+    .eq('agent_role', agentRole)
+    .eq('is_active', true)
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
+
+  if (error) {
+    console.warn(`[ToolGrants] Failed to load grants for ${agentRole}:`, error.message);
+    return [];
+  }
+
+  const toolNames = new Set((data ?? []).map((row: { tool_name: string }) => row.tool_name));
+  grantCache.set(agentRole, { toolNames, fetchedAt: now });
+
+  return Array.from(toolNames);
+}
 
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
 const LONG_TOOL_TIMEOUT_MS = 120_000;
@@ -65,11 +158,13 @@ export class ToolExecutor {
   private dailyCosts: Map<string, number> = new Map();   // role → cumulative cost today
   private monthlyCosts: Map<string, number> = new Map(); // role → cumulative cost this month
   private enforcementEnabled: boolean;
+  private supabase: SupabaseClient | null;
 
-  constructor(tools: ToolDefinition[], dryRun = false, enforcement = true) {
+  constructor(tools: ToolDefinition[], dryRun = false, enforcement = true, supabase?: SupabaseClient) {
     this.tools = new Map(tools.map((t) => [t.name, t]));
     this.dryRun = dryRun;
     this.enforcementEnabled = enforcement;
+    this.supabase = supabase ?? null;
   }
 
   // ─── Tool Grant Registration ──────────────────────────────────
@@ -247,9 +342,10 @@ export class ToolExecutor {
       const role = context.agentRole;
       const agentId = context.agentId;
 
-      // 1. Tool grant check
+      // 1. Tool grant check — hardcoded grants (if registered) OR DB grants
       const roleGrants = this.toolGrants.get(role);
       if (roleGrants && !roleGrants.has(toolName)) {
+        // Hardcoded grants exist and tool is not in them
         this.logSecurityEvent(agentId, role, toolName, 'TOOL_NOT_GRANTED');
         return {
           success: false,
@@ -257,6 +353,18 @@ export class ToolExecutor {
           filesWritten: 0,
           memoryKeysWritten: 0,
         };
+      } else if (!roleGrants && this.supabase) {
+        // No hardcoded grants — check DB grants
+        const granted = await isToolGranted(role, toolName, this.supabase);
+        if (!granted) {
+          this.logSecurityEvent(agentId, role, toolName, 'TOOL_NOT_GRANTED');
+          return {
+            success: false,
+            error: `${role} does not have access to ${toolName}`,
+            filesWritten: 0,
+            memoryKeysWritten: 0,
+          };
+        }
       }
 
       const grant = roleGrants?.get(toolName);
