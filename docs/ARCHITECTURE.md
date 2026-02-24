@@ -635,9 +635,12 @@ The core execution loop (ported from Fuse V7 `agentRunner.ts`):
     → Optional per-agent contextInjector adds dynamic context
 
 6. MODEL CALL
-    → Send systemInstruction + history to Gemini API
+    → Send systemInstruction + history via ModelClient → ProviderAdapter
+    → Provider auto-detected from model prefix (gemini-*/gpt-*/claude-*)
     → Include tool declarations for function calling
     → Handle Gemini 3 thought signatures (batch tool_call/tool_result turns)
+    → Task tier: uses buildTaskTierSystemPrompt (~150 lines), thinking disabled,
+      per-call timeout 60 s; tools stripped on last turn
 
 7. TOOL DISPATCH
     → If tool calls → ToolExecutor.execute() each one
@@ -648,8 +651,9 @@ The core execution loop (ported from Fuse V7 `agentRunner.ts`):
     → Model returns text with STOP finish reason → done
     → Extract reasoning envelope if present
     → Return AgentExecutionResult
+    → Task tier: on abort, savePartialProgress() saves work + notifies chief-of-staff
 
-9. REFLECTION (post-run)
+9. REFLECTION (post-run, skipped for task tier)
     → Model self-assesses: summary, quality score, what went well/could improve
     → Extracts memories (observations, learnings, facts) — saved with embeddings
     → Extracts graph operations (nodes + edges) — persisted via graphWriter
@@ -662,7 +666,8 @@ The core execution loop (ported from Fuse V7 `agentRunner.ts`):
 
 ### Knowledge Injection
 
-Every Gemini API call receives a composite system prompt built from four layers:
+Every model call receives a composite system prompt built from multiple layers (full/standard/light
+tiers). Task-tier runs use a minimal ~150-line prompt instead — see "Used in Task Tier?" column:
 
 | Layer | Source | Size | Used in Task Tier? |
 |-------|--------|------|--------------------|
@@ -1603,7 +1608,7 @@ Dashboard → POST /run {agentRole:"cto", task:"on_demand", message:"How's the p
   → CompanyAgentRunner.run()
       → buildSystemPrompt('cto', CTO_SYSTEM_PROMPT)
           reads COMPANY_KNOWLEDGE_BASE.md + briefs/marcus-reeves.md
-      → ModelClient.generate() → Gemini API
+      → ModelClient.generate() → ProviderAdapter (Gemini by default)
       → (tool calls → ToolExecutor → loop)
       → Final text response
   → RouteResult { output: "Platform is healthy…" }
@@ -1620,7 +1625,7 @@ Cloud Scheduler → Pub/Sub "glyphor-agent-events"
   → checkAuthority('cfo','daily_cost_check') → GREEN
   → runCFO({task:'daily_cost_check'})
   → CompanyAgentRunner.run()
-      → buildSystemPrompt + Gemini API
+      → buildSystemPrompt + ModelClient → ProviderAdapter
       → Tool calls: get_financials, get_product_metrics, calculate_unit_economics
       → write_financial_report, log_activity
       → (optional: create_decision if cost spike → YELLOW/RED)
