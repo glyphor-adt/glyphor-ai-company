@@ -20,6 +20,7 @@ import {
   GraphEmailClient,
   GraphCalendarClient,
   buildFounderDirectory,
+  TeamsBotHandler,
 } from '@glyphor/integrations';
 
 export function createChiefOfStaffTools(

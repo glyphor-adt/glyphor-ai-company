@@ -520,6 +520,60 @@ export class TeamsBotHandler {
   }
 
   /**
+   * Send a proactive Adaptive Card to a Teams channel.
+   *
+   * Uses the Bot Framework REST API to post a card (decision, briefing, alert)
+   * to a channel without requiring an incoming message context.
+   *
+   * @param teamId - The Teams team ID (TEAMS_TEAM_ID env var)
+   * @param channelId - The Teams channel ID
+   * @param cardContent - The Adaptive Card JSON object (the `content` field, not the full attachment wrapper)
+   * @param botAppId - Optional: post as a specific agent bot (defaults to main bot)
+   * @param serviceUrl - Bot Framework service URL (default: North America)
+   */
+  async sendProactiveCardToChannel(
+    teamId: string,
+    channelId: string,
+    cardContent: Record<string, unknown>,
+    botAppId?: string,
+    serviceUrl = 'https://smba.trafficmanager.net/amer/',
+  ): Promise<void> {
+    const token = await this.getBotToken(botAppId);
+    const appId = botAppId ?? this.config.appId;
+
+    const createUrl = `${serviceUrl}v3/conversations`;
+    const createBody = {
+      bot: { id: `28:${appId}`, name: 'Glyphor Bot' },
+      isGroup: true,
+      tenantId: this.config.tenantId,
+      channelData: {
+        channel: { id: channelId },
+        team: { id: teamId },
+      },
+      activity: {
+        type: 'message',
+        attachments: [
+          {
+            contentType: 'application/vnd.microsoft.card.adaptive',
+            content: cardContent,
+          },
+        ],
+      },
+    };
+
+    const createRes = await fetch(createUrl, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(createBody),
+    });
+
+    if (!createRes.ok) {
+      const errText = await createRes.text();
+      throw new Error(`[TeamsBot] Proactive card post failed (${createRes.status}): ${errText}`);
+    }
+  }
+
+  /**
    * Handle an incoming Bot Framework activity.
    * If the recipient is an individual agent bot, route directly to that agent.
    * Otherwise, use command parsing (ask, briefing, status, etc.).
