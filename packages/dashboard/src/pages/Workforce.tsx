@@ -38,6 +38,7 @@ const TITLE_MAP: Record<string, string> = {
   'vp-sales': 'VP Sales',
   'vp-design': 'VP Design & Frontend',
   ops: 'Operations Agent',
+  'm365-admin': 'M365 Administrator',
 };
 
 const EXEC_COUNT = Object.keys(TITLE_MAP).length;
@@ -192,12 +193,13 @@ export default function Workforce() {
 
           <SectionHeader title="AI Executives" />
 
-          {/* Agent grid */}
+          {/* Agent grid — executives only */}
           <div className="mb-6 grid grid-cols-2 gap-4">
             {agents
+              .filter((a) => a.role in TITLE_MAP)
               .sort((a, b) => {
-                const order = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales', 'vp-design'];
-                return order.indexOf(a.role) - order.indexOf(b.role);
+                const order = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales', 'vp-design', 'ops', 'm365-admin'];
+                return (order.indexOf(a.role) === -1 ? 99 : order.indexOf(a.role)) - (order.indexOf(b.role) === -1 ? 99 : order.indexOf(b.role));
               })
               .map((agent) => {
                 const meta = AGENT_META[agent.role];
