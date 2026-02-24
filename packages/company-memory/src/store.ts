@@ -140,6 +140,24 @@ export class CompanyMemoryStore implements IMemoryBus {
   async createDecision(
     decision: Omit<CompanyDecision, 'id' | 'createdAt'>,
   ): Promise<string> {
+    // Dedup: each agent may have at most 3 pending decisions.
+    // If they already have 3+, return the most recent one instead of creating another.
+    const { data: pendingList } = await this.supabase
+      .from('decisions')
+      .select('id, title')
+      .eq('proposed_by', decision.proposedBy)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (pendingList && pendingList.length > 0) {
+      // Exact title match — always dedup
+      const exactMatch = pendingList.find((d) => d.title === decision.title);
+      if (exactMatch) return exactMatch.id;
+      // Cap: if agent already has 3+ pending decisions, stop piling up
+      if (pendingList.length >= 3) return pendingList[0].id;
+    }
+
     const { data, error } = await this.supabase
       .from('decisions')
       .insert({
