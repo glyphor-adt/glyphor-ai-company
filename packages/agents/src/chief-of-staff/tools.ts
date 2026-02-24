@@ -1113,5 +1113,131 @@ export function createOrchestrationTools(
         };
       },
     },
+
+    // ─── PROPOSE DIRECTIVE ────────────────────────────────────
+
+    {
+      name: 'propose_directive',
+      description: 'Propose a new strategic directive for founder approval. Creates the directive with status "proposed" — it will NOT be dispatched until a founder approves it in the dashboard. Use when agent findings, completed directives, or operational patterns reveal work that needs to happen.',
+      parameters: {
+        title: {
+          type: 'string',
+          description: 'Short directive title',
+          required: true,
+        },
+        description: {
+          type: 'string',
+          description: 'Full context of what needs to be accomplished and why',
+          required: true,
+        },
+        priority: {
+          type: 'string',
+          description: 'Priority level',
+          required: true,
+          enum: ['critical', 'high', 'medium', 'low'],
+        },
+        category: {
+          type: 'string',
+          description: 'Directive category',
+          required: true,
+          enum: ['engineering', 'product', 'marketing', 'sales', 'revenue', 'customer_success', 'operations', 'general', 'strategy', 'design'],
+        },
+        target_agents: {
+          type: 'array',
+          description: 'Agent display names to assign (e.g. "Elena Vasquez", "Marcus Reeves")',
+          required: true,
+          items: { type: 'string', description: 'Agent display name' },
+        },
+        proposal_reason: {
+          type: 'string',
+          description: 'Evidence-based explanation of why this directive is needed',
+          required: true,
+        },
+        source_directive_id: {
+          type: 'string',
+          description: 'UUID of the parent directive if this is a follow-up',
+          required: false,
+        },
+        due_date: {
+          type: 'string',
+          description: 'ISO date string for suggested deadline',
+          required: false,
+        },
+        notify: {
+          type: 'string',
+          description: 'Which founder to notify',
+          required: false,
+          enum: ['kristina', 'andrew'],
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const title = params.title as string;
+        const description = params.description as string;
+        const priority = params.priority as string;
+        const category = params.category as string;
+        const targetAgents = params.target_agents as string[];
+        const proposalReason = params.proposal_reason as string;
+        const sourceDirectiveId = params.source_directive_id as string | undefined;
+        const dueDate = params.due_date as string | undefined;
+        const notify = (params.notify as string) || 'kristina';
+
+        // 1. Insert the proposed directive
+        const insertData: Record<string, unknown> = {
+          title,
+          description,
+          priority,
+          category,
+          target_agents: targetAgents,
+          status: 'proposed',
+          proposed_by: 'chief-of-staff',
+          created_by: notify,
+          proposal_reason: proposalReason,
+        };
+        if (sourceDirectiveId) insertData.source_directive_id = sourceDirectiveId;
+        if (dueDate) insertData.due_date = dueDate;
+
+        const { data, error } = await supabase
+          .from('founder_directives')
+          .insert(insertData)
+          .select('id')
+          .single();
+
+        if (error) return { success: false, error: error.message };
+        const directiveId = data.id;
+
+        // 2. Send Teams DM to the target founder
+        const agentList = targetAgents.join(', ');
+        const deadlineLine = dueDate ? `\nSuggested deadline: ${dueDate}` : '';
+        const dmMessage =
+          `📋 PROPOSED DIRECTIVE: ${title}\n\n` +
+          `Why: ${proposalReason}\n` +
+          `Scope: ${agentList}\n` +
+          `Priority: ${priority} | Category: ${category}${deadlineLine}\n\n` +
+          `→ Approve, modify, or reject in Dashboard → Directives`;
+
+        // Use the send_dm tool's underlying client if available
+        try {
+          const sendDmTool = tools.find(t => t.name === 'send_dm');
+          if (sendDmTool) {
+            await sendDmTool.execute({ recipient: notify, message: dmMessage }, ctx);
+          }
+        } catch (e) {
+          console.warn('[CoS] Could not DM founder about proposed directive:', (e as Error).message);
+        }
+
+        // 3. Log to activity_log
+        await supabase.from('activity_log').insert({
+          agent_id: ctx.agentRole,
+          action: 'directive_proposed',
+          detail: `Proposed directive: ${title} (${directiveId})`,
+        });
+
+        // 4. Return result
+        return {
+          success: true,
+          data: { directive_id: directiveId, status: 'proposed' },
+        };
+      },
+    },
   ];
 }
