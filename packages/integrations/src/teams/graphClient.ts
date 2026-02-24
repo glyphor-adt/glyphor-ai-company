@@ -5,7 +5,7 @@
  * via Entra ID client credentials flow (MSAL).
  *
  * Required env vars: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET
- * Required Graph API permissions (Application): Teamwork.Migrate.All, Channel.ReadBasic.All
+ * Required Graph API permissions (Application): Teamwork.Migrate.All, Channel.ReadBasic.All, ChannelMember.Read.All, Group.Read.All
  */
 
 import { ConfidentialClientApplication } from '@azure/msal-node';
