@@ -9,12 +9,14 @@ export function createCostAnalystTools(memory: CompanyMemoryStore): ToolDefiniti
   return [
     {
       name: 'query_gcp_billing',
-      description: 'Query GCP billing data by service, SKU, or time period.',
-      parameters: { period: { type: 'string', description: 'Time period: 7d, 30d, 90d', required: true }, service: { type: 'string', description: 'GCP service filter (e.g. cloud-run, bigquery, storage)' } },
+      description: 'Query GCP billing data by service, product (glyphor/pulse/fuse), project, or time period.',
+      parameters: { period: { type: 'string', description: 'Time period: 7d, 30d, 90d', required: true }, service: { type: 'string', description: 'GCP service filter (e.g. cloud-run, bigquery, storage)' }, product: { type: 'string', description: 'Product filter: glyphor, pulse, or fuse' }, project: { type: 'string', description: 'GCP project ID filter' } },
       async execute(params) {
         const supabase = memory.getSupabaseClient();
         let query = supabase.from('gcp_billing').select('*').order('recorded_at', { ascending: false }).limit(params.period === '7d' ? 7 : params.period === '30d' ? 30 : 90);
         if (params.service) { query = query.eq('service', params.service); }
+        if (params.product) { query = query.eq('product', params.product); }
+        if (params.project) { query = query.eq('project', params.project); }
         const { data } = await query;
         return { success: true, data: data || [] };
       },
