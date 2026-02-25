@@ -111,6 +111,69 @@ def _validate_existing(supabase, node_id: str):
     }).eq("id", node_id).execute()
 
 
+# ─── Junk filter ──────────────────────────────────────────────────
+# Filter out entities that are clearly JSON field names, generic programming
+# terms, or too short to be meaningful knowledge graph nodes.
+
+_JUNK_WORDS = frozenset({
+    "summary", "status", "type", "id", "name", "value", "data", "key",
+    "result", "error", "message", "content", "title", "description",
+    "count", "index", "text", "true", "false", "null", "undefined",
+    "object", "array", "string", "number", "boolean", "function",
+    "class", "method", "property", "field", "column", "row", "table",
+    "list", "item", "element", "node", "edge", "source", "target",
+    "weight", "score", "label", "tag", "category", "kind", "mode",
+    "state", "action", "event", "task", "run", "step", "phase",
+    "stage", "level", "tier", "turn", "round", "cycle", "version",
+    "config", "option", "setting", "param", "arg", "input", "output",
+    "format", "url", "path", "file", "dir", "log", "info", "debug",
+    "warn", "test", "spec", "mock", "stub", "fix", "bug", "todo",
+    "note", "comment",
+})
+
+def _is_junk_entity(name: str) -> bool:
+    """Return True if a name is too generic or looks like a code artifact."""
+    t = name.strip()
+    if len(t) <= 2:
+        return True
+    if "[]" in t or "{}" in t:
+        return True
+    if t.lower() in _JUNK_WORDS:
+        return True
+    return False
+
+
+# ─── Smart node_type classifier ──────────────────────────────────
+# Sub-classifies "ORGANIZATIONAL CONCEPT" entities into specific kg_nodes
+# node_types using keyword heuristics on the entity name + description.
+
+_NODE_TYPE_KEYWORDS = [
+    # (keywords_in_name_or_desc, node_type)
+    (r"\b(goal|objective|target|milestone|okr)\b", "goal"),
+    (r"\b(risk|threat|vulnerability|concern)\b", "risk"),
+    (r"\b(decision|approval|ruling|resolution)\b", "decision"),
+    (r"\b(metric|kpi|measurement|score|rate|percentage|ratio)\b", "metric"),
+    (r"\b(event|meeting|launch|incident|outage|release)\b", "event"),
+    (r"\b(pattern|trend|recurring|theme)\b", "pattern"),
+    (r"\b(hypothesis|theory|assumption|conjecture)\b", "hypothesis"),
+]
+
+def _classify_node_type(name: str, description: str, raw_type: str) -> str:
+    """Determine the best kg_nodes node_type for an entity."""
+    # Direct mapping first
+    mapped = ENTITY_TYPE_TO_NODE_TYPE.get(raw_type)
+    if mapped and mapped != "entity":
+        return mapped
+
+    # For ORGANIZATIONAL CONCEPT and other "entity" mappings, try keyword sub-classification
+    text = f"{name} {description}".lower()
+    for pattern, node_type in _NODE_TYPE_KEYWORDS:
+        if re.search(pattern, text):
+            return node_type
+
+    return mapped or "entity"
+
+
 # ─── Sync ─────────────────────────────────────────────────────────
 
 class GraphRAGBridge:
@@ -129,11 +192,13 @@ class GraphRAGBridge:
         """
         created = 0
         deduped = 0
+        skipped = 0
         for i, ent in enumerate(entities):
             name = ent.get("name", "").strip()
             description = ent.get("description", "").strip()
             ent_type = ent.get("type", "UNKNOWN").upper()
-            if not name:
+            if not name or _is_junk_entity(name):
+                skipped += 1
                 continue
 
             embed_text = f"{name}. {description}" if description else name
@@ -149,7 +214,7 @@ class GraphRAGBridge:
                     print(f"[Bridge] Progress: {i + 1}/{len(entities)} ({created} new, {deduped} deduped)")
                 continue
 
-            node_type = ENTITY_TYPE_TO_NODE_TYPE.get(ent_type, "entity")
+            node_type = _classify_node_type(name, description, ent_type)
 
             result = self.supabase.table("kg_nodes").insert({
                 "node_type": node_type,
@@ -176,7 +241,7 @@ class GraphRAGBridge:
             if (i + 1) % 50 == 0:
                 time.sleep(1)
 
-        print(f"[Bridge] Synced entities: {created} new, {deduped} deduplicated")
+        print(f"[Bridge] Synced entities: {created} new, {deduped} deduped, {skipped} junk skipped")
         return created
 
     def sync_relationships(self, relationships: list[dict]) -> int:

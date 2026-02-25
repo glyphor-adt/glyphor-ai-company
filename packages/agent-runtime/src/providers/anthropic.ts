@@ -143,7 +143,27 @@ export class AnthropicAdapter implements ProviderAdapter {
       }
     }
 
-    return messages;
+    // Anthropic requires strict user/assistant alternation.
+    // Merge consecutive same-role messages to avoid API errors.
+    const merged: Anthropic.MessageParam[] = [];
+    for (const msg of messages) {
+      const prev = merged[merged.length - 1];
+      if (prev && prev.role === msg.role) {
+        // Convert both to content-block arrays and concatenate
+        const prevParts = Array.isArray(prev.content)
+          ? prev.content
+          : [{ type: 'text' as const, text: prev.content as string }];
+        const curParts = Array.isArray(msg.content)
+          ? msg.content
+          : [{ type: 'text' as const, text: msg.content as string }];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        prev.content = [...prevParts, ...curParts] as any;
+      } else {
+        merged.push({ ...msg });
+      }
+    }
+
+    return merged;
   }
 
   private mapResponse(response: Anthropic.Message): UnifiedModelResponse {

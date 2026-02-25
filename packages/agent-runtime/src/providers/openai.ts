@@ -212,7 +212,27 @@ export class OpenAIAdapter implements ProviderAdapter {
       }
     }
 
-    return messages;
+    // Merge consecutive user messages to avoid issues with models that
+    // expect alternating user/assistant turns.
+    const merged: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
+    for (const msg of messages) {
+      const prev = merged[merged.length - 1];
+      if (prev && prev.role === 'user' && msg.role === 'user') {
+        // Convert both to content-part arrays and concatenate
+        const prevParts = Array.isArray(prev.content)
+          ? prev.content
+          : [{ type: 'text' as const, text: prev.content as string }];
+        const curParts = Array.isArray(msg.content)
+          ? (msg.content as Array<{ type: string; text?: string }>)
+          : [{ type: 'text' as const, text: msg.content as string }];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (prev as any).content = [...prevParts, ...curParts];
+      } else {
+        merged.push(msg);
+      }
+    }
+
+    return merged;
   }
 
   private mapResponse(
