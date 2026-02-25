@@ -1,5 +1,8 @@
 graphrag>=2.2.0
 supabase>=2.11.0
 python-dotenv>=1.0.0
-google-genativeai>=0.8.0
+google-generativeai>=0.8.0
 tiktoken>=0.9.0
+pandas>=2.0.0
+pyarrow>=14.0.0
+pyyaml>=6.0

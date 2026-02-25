@@ -1,0 +1,21 @@
+# ─── GraphRAG Indexer ─────────────────────────────────────────
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY packages/graphrag-indexer/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy indexer package
+COPY packages/graphrag-indexer/ .
+
+# Copy knowledge docs (needed for document collection)
+COPY packages/company-knowledge/ packages/company-knowledge/
+COPY docs/ docs/
+
+ENV PORT=8090
+
+EXPOSE 8090
+
+CMD ["python", "-m", "graphrag_indexer.server"]
