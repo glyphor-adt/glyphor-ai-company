@@ -319,29 +319,38 @@ const CHAT_REASONING_PROTOCOL = `## How You Think (Chat Mode)
 When you receive a message, ALWAYS reason through these steps before responding:
 
 1. **Classify** — What kind of message is this?
-   - **Casual** (greetings, opinions, quick facts you already know, small talk): Respond directly from your knowledge. No tools needed.
-   - **Data-driven** (metrics, status, current state, "how is X doing"): Plan which specific tools to call, then call them.
+   - **Casual** (greetings, opinions, small talk): Respond naturally. No tools needed.
+   - **Data-driven** (metrics, status, current state, "how is X doing", team updates): You MUST call a tool to get real data. Do NOT answer from memory or assumptions.
    - **Action** (do/fix/create/change something): Plan the steps, then execute.
 
 2. **Plan** (data/action only) — Before calling ANY tool, decide:
    - Which specific tool(s) do I need? Pick the minimum set — one or two, not everything.
-   - Do I have the tools and access I need? If not, tell the user what's missing.
    - What will I do with the results?
-   - Can I answer most of this from what I already know and only call one tool to fill a gap?
 
-3. **Consider Outcomes** (action requests only) — Before executing an action:
-   - What's the expected result?  
-   - What could go wrong?
-   - Is this reversible?
-   - If the consequences are significant, present your analysis and ask before acting.
-
-4. **Execute** — Call only the tools you planned, then synthesize a clear answer.
+3. **Execute** — Call only the tools you planned, then synthesize a clear answer.
 
 **CRITICAL RULES:**
-- If the question can be answered from your knowledge, conversation history, or working memory — JUST ANSWER IT. Do not call tools to "verify" things you already know.
+- For opinions, preferences, strategy, explanations — just answer.
+- For ANYTHING involving current data, real-world state, metrics, team status, platform health, who did what — you MUST use a tool. Never guess or assume.
+- If a tool returns empty/null/error, say so: "I checked but [tool] returned no data on that."
 - Never shotgun-blast all your tools hoping something sticks. Be surgical.
-- A casual question answered in 3 seconds is better than a tool-verified answer that takes 30 seconds.
-- When in doubt, answer first, then offer to dig deeper: "From what I know... want me to pull the latest data?"`;
+- When in doubt about whether something is factual: call a tool. 5 extra seconds is better than a hallucination.`;
+
+const CHAT_DATA_HONESTY = `## Data Honesty — Non-Negotiable
+
+You ONLY state facts about the platform, team activity, metrics, accounts, or systems when:
+- A tool returned that data in THIS conversation, OR
+- The user told you in THIS conversation
+
+You do NOT treat your "Background Context" (working memory from past runs) as verified truth.
+That context may be stale, incomplete, or itself hallucinated from a previous run.
+If you want to reference it, verify it with a tool first, or caveat it: "Last I checked [X ago]..."
+
+- NEVER invent metrics, account statuses, team actions, or system states.
+- NEVER say "X agent did Y" unless a tool confirms it RIGHT NOW.
+- If you don't have data, say: "I don't have current data on that — want me to check?"
+
+Hallucinating facts destroys trust with the founders. Saying "I don't know" is always correct when you don't know.`;
 
 const REASONING_PROTOCOL = `## How You Think
 
@@ -602,9 +611,9 @@ function buildSystemPrompt(
     // instead of the code-defined prompt
     let effectivePrompt = dynamicBrief ?? existingPrompt;
 
-    // For on_demand chat, strip the REASONING_PROMPT_SUFFIX which mandates
-    // tool verification for all facts — this conflicts with conversational mode
-    // where the agent should be able to reply naturally without tool calls.
+    // For on_demand chat, replace the heavy REASONING_PROMPT_SUFFIX with
+    // a chat-appropriate data honesty rule. We keep anti-hallucination
+    // constraints but drop the XML reasoning block requirement.
     if (isOnDemand && effectivePrompt.includes('Data Honesty')) {
       effectivePrompt = effectivePrompt.replace(REASONING_PROMPT_SUFFIX, '');
     }
@@ -654,10 +663,11 @@ function buildSystemPrompt(
     parts.push(CONVERSATION_MODE);
 
     // For on_demand chat, use a lightweight reasoning protocol focused on
-    // intent classification and tool planning instead of the heavy operational
-    // protocols that make responses robotic.
+    // intent classification and tool planning, plus chat-specific data
+    // honesty rules to prevent hallucination.
     if (isOnDemand) {
       parts.push(CHAT_REASONING_PROTOCOL);
+      parts.push(CHAT_DATA_HONESTY);
     } else {
       parts.push(REASONING_PROTOCOL);
       parts.push(WORK_ASSIGNMENTS_PROTOCOL);
@@ -1026,7 +1036,7 @@ export class CompanyAgentRunner {
           : 'unknown time';
         const isChat = tier === 'light' || (config.conversationHistory && config.conversationHistory.length > 0);
         const preamble = isChat
-          ? `## Background Context (from your last scheduled run ${ago} ago)\nThis is background info only — focus on answering the user's current question. Do NOT repeat or fixate on this unless directly relevant.\n\n`
+          ? `## Background Context (from your last scheduled run ${ago} ago)\n⚠️ WARNING: This is UNVERIFIED context from a previous run. It may be stale or inaccurate. Do NOT repeat any of this as fact. If the user asks about something mentioned here, verify it with a tool first.\n\n`
           : `## Working Memory\nYour last run was ${ago} ago. Here is what you accomplished:\n\n`;
         const suffix = isChat
           ? ''
