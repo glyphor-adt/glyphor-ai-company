@@ -1685,46 +1685,74 @@ export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): st
   if (!s) return '';
 
   const typeLabel = record.analysis_type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  const recCount = Math.min(s.strategicRecommendations.length, 4);
-  const highCount = s.strategicRecommendations.filter(r => r.impact === 'high').length;
-  const medCount = s.strategicRecommendations.filter(r => r.impact === 'medium').length;
+
+  // Extract top findings for the infographic
+  const topStrengths = s.unifiedSwot.strengths.slice(0, 3).map(t => truncate(t, 60));
+  const topThreats = s.unifiedSwot.threats.slice(0, 2).map(t => truncate(t, 60));
+  const topRecs = s.strategicRecommendations.slice(0, 4);
+  const topInsights = s.crossFrameworkInsights.slice(0, 3).map(t => truncate(t, 70));
+  const topRisks = s.keyRisks.slice(0, 3).map(t => truncate(t, 60));
+  const summaryShort = truncate(s.executiveSummary, 200);
+
+  const recLines = topRecs.map((r, i) => {
+    const impactColor = r.impact === 'high' ? 'red (#FB7185)' : r.impact === 'medium' ? 'amber (#FBBF24)' : 'blue (#60A5FA)';
+    return `  ${i + 1}. "${truncate(r.title, 40)}" — ${impactColor} badge, owner: ${r.owner}`;
+  }).join('\n');
+
+  const sourceCount = record.total_sources;
+  const searchCount = record.total_searches;
+  const confidence = record.overall_confidence ?? 'medium';
 
   return [
-    `Create a polished, magazine-quality corporate infographic in 16:9 landscape format (1536x1024px).`,
-    `Style: clean modern flat design, white background, generous whitespace, minimal text. Use large icons, bold color blocks, and data visualizations instead of paragraphs of text. Think McKinsey or Bain presentation slide — NOT a document.`,
+    `Create a polished, McKinsey-quality executive strategy infographic in 16:9 landscape format (1536x1024px).`,
+    `Style: modern flat design, white background, generous whitespace. Use bold typography, color-coded cards, and data callouts. This should read like a strategy consulting deliverable, not a generic chart.`,
     ``,
-    `Color palette: primary cyan (#00E0FF), white (#FFFFFF) background, dark charcoal (#1A1A2E) text, emerald (#34D399) for positive, rose (#FB7185) for negative, amber (#FBBF24) for caution. Use soft pastel tinted backgrounds for card sections.`,
+    `Color palette: cyan (#00E0FF), charcoal (#1A1A2E), emerald (#34D399), rose (#FB7185), amber (#FBBF24), soft gray (#F3F4F6) for backgrounds.`,
     ``,
-    `LAYOUT (3 rows):`,
+    `LAYOUT:`,
     ``,
-    `ROW 1 — Header banner (10% height):`,
-    `Full-width cyan gradient banner. Large bold white title: "${typeLabel.toUpperCase()}". Smaller subtitle below in light gray: "${record.query}". Keep text SHORT.`,
+    `TOP BANNER (8%):`,
+    `Full-width dark charcoal banner. Bold white title: "${typeLabel.toUpperCase()}". Subtitle in gray: "${truncate(record.query, 80)}". Right-aligned: "${sourceCount} sources · ${searchCount} searches · ${confidence} confidence".`,
     ``,
-    `ROW 2 — Main content (65% height), split into 2 columns:`,
+    `SECTION 1 — Executive Summary (20%):`,
+    `A single wide card with a thin cyan left border. Inside, render this text in clean 14px charcoal type:`,
+    `"${summaryShort}"`,
     ``,
-    `LEFT COLUMN (45% width):`,
-    `A large "Research Depth" card with a bold number callout: "${record.total_sources} sources from ${record.total_searches} searches". Show 2-3 large circular icons (magnifying glass, lightbulb, target) with ONE-WORD labels beneath each. Below that, a small horizontal bar chart showing analysis completeness. NO bullet points of text — use icons and shapes only.`,
+    `SECTION 2 — Key Findings (35%), split into 2 columns:`,
     ``,
-    `RIGHT COLUMN (55% width):`,
-    `A 2x2 SWOT grid using 4 large colored rounded-rectangle cards:`,
-    `• Top-left: STRENGTHS — green (#34D399) tinted card with a shield icon and the number "${s.unifiedSwot.strengths.length}"`,
-    `• Top-right: WEAKNESSES — rose (#FB7185) tinted card with a warning triangle icon and the number "${s.unifiedSwot.weaknesses.length}"`,
-    `• Bottom-left: OPPORTUNITIES — cyan (#00E0FF) tinted card with an upward arrow icon and the number "${s.unifiedSwot.opportunities.length}"`,
-    `• Bottom-right: THREATS — amber (#FBBF24) tinted card with a lightning bolt icon and the number "${s.unifiedSwot.threats.length}"`,
-    `Each card shows ONLY the category label, icon, and count number in large bold text. NO bullet point text inside the cards.`,
+    `LEFT — "Strategic Advantages" (emerald header bar):`,
+    `${topStrengths.map((s, i) => `  • ${s}`).join('\n')}`,
+    `Show each as a short line with an emerald dot. Clean and readable.`,
     ``,
-    `ROW 3 — Bottom strip (25% height), split into 2 sections:`,
+    `RIGHT — "Critical Insights" (cyan header bar):`,
+    `${topInsights.map((s, i) => `  • ${s}`).join('\n')}`,
+    `Show each as a short line with a cyan dot.`,
     ``,
-    `LEFT: "${recCount} Strategic Actions" — show as ${recCount} large colored pill badges in a row. ${highCount} red pills, ${medCount} amber pills, rest blue. Each pill has only a number inside (1, 2, 3, 4). A small "Impact vs Feasibility" scatter plot beside it with dots plotted on a 2x2 grid.`,
+    `SECTION 3 — Recommendations & Risks (30%), split into 2 columns:`,
     ``,
-    `RIGHT: A thin metadata strip in small gray text: "${record.depth} depth · ${record.analysis_type.replace(/_/g, ' ')} · ${record.total_sources} sources"`,
+    `LEFT — "Strategic Actions" with color-coded priority badges:`,
+    recLines,
+    `Each recommendation is a card row with the priority badge, title, and owner.`,
+    ``,
+    `RIGHT — "Key Risks & Threats" (rose header bar):`,
+    `${[...topThreats, ...topRisks].slice(0, 4).map(r => `  ⚠ ${r}`).join('\n')}`,
+    `Show each as a short line with a rose warning icon.`,
+    ``,
+    `BOTTOM FOOTER (7%):`,
+    `Thin gray strip. Left: "${record.depth} depth · ${record.analysis_type.replace(/_/g, ' ')}". Right: "Glyphor Strategy Lab"`,
     ``,
     `CRITICAL RULES:`,
-    `- MINIMAL TEXT. Use icons, shapes, numbers, charts, and color instead of words.`,
-    `- No paragraphs, no sentences, no bullet-point lists of findings.`,
-    `- Maximum 30 total words on the entire infographic (excluding the title/subtitle).`,
-    `- All text must be crisp, readable sans-serif typography.`,
-    `- Professional, clean, corporate aesthetic with lots of whitespace.`,
-    `- Do NOT include any "Powered by" branding or logo — the image should be clean.`,
+    `- This infographic MUST contain REAL findings from the analysis — not just counts.`,
+    `- Use short phrases (5-12 words each), not sentences or paragraphs.`,
+    `- Maximum 120 words on the entire infographic.`,
+    `- Professional consulting aesthetic: clean typography, color-coded sections, clear hierarchy.`,
+    `- All text must be legible — minimum 11px equivalent, sans-serif.`,
+    `- Do NOT include any "Powered by" branding.`,
   ].join('\n');
+}
+
+/** Truncate a string to maxLen chars, adding "…" if needed */
+function truncate(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  return text.slice(0, maxLen - 1) + '…';
 }

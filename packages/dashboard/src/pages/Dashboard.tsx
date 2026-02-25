@@ -40,11 +40,11 @@ export default function Dashboard() {
   const activeAgents = agents.filter((a) => a.status === 'active').length;
   const pendingDecisions = decisions.filter((d) => d.status === 'pending').length;
 
-  // Fetch analysis counts
+  // Fetch analysis counts (from Strategy Lab v2)
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${SCHEDULER_URL}/analysis`);
+        const res = await fetch(`${SCHEDULER_URL}/strategy-lab`);
         if (res.ok) {
           const data = await res.json();
           const analyses = Array.isArray(data) ? data : [];

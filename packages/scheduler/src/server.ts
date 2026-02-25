@@ -25,7 +25,7 @@ import { SimulationEngine } from './simulationEngine.js';
 import { MeetingEngine } from './meetingEngine.js';
 import { CotEngine } from './cotEngine.js';
 import { DeepDiveEngine } from './deepDiveEngine.js';
-import { StrategyLabEngine } from './strategyLabEngine.js';
+import { StrategyLabEngine, type StrategyAnalysisType } from './strategyLabEngine.js';
 import {
   exportAnalysisMarkdown, exportAnalysisJSON,
   exportAnalysisPPTX, exportAnalysisDOCX,
@@ -1004,16 +1004,16 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // ─── Analysis Engine Endpoints ──────────────────────────────
+    // ─── Analysis Engine Endpoints (v1 → Strategy Lab v2 redirect) ────
 
-    // Launch analysis
+    // Launch analysis — redirects to Strategy Lab v2 engine
     if (method === 'POST' && url === '/analysis/run') {
       const body = JSON.parse(await readBody(req));
       const { type, query, depth, requestedBy } = body;
-      const id = await analysisEngine.launch({
-        type: type as AnalysisType,
+      const id = await strategyLabEngine.launch({
         query,
-        depth: (depth ?? 'standard') as AnalysisDepth,
+        analysisType: (type as StrategyAnalysisType) || 'competitive_landscape',
+        depth: (depth ?? 'standard') as 'quick' | 'standard' | 'deep',
         requestedBy: requestedBy ?? 'dashboard',
       });
       json(res, 200, { success: true, id });
@@ -1030,9 +1030,9 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // List analyses
+    // List analyses — redirects to Strategy Lab v2
     if (method === 'GET' && url === '/analysis') {
-      const records = await analysisEngine.list();
+      const records = await strategyLabEngine.list();
       json(res, 200, records);
       return;
     }
