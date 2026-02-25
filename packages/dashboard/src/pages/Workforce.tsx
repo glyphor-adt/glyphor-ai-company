@@ -137,19 +137,19 @@ export default function Workforce() {
           <div className="flex justify-center">
             <div className="relative h-10 w-full max-w-6xl">
               <div className="absolute left-1/2 top-0 h-4 w-px bg-border" />
-              <div className="absolute left-[6.25%] top-4 h-px bg-border" style={{ width: '87.5%' }} />
-              {DEPARTMENTS.map((_, i) => (
+              <div className="absolute top-4 h-px bg-border" style={{ left: '10%', width: '80%' }} />
+              {Array.from({ length: Math.min(DEPARTMENTS.length, 5) }).map((_, i) => (
                 <div
                   key={i}
                   className="absolute top-4 h-6 w-px bg-border"
-                  style={{ left: `${6.25 + i * (87.5 / (DEPARTMENTS.length - 1))}%` }}
+                  style={{ left: `${10 + i * 20}%` }}
                 />
               ))}
             </div>
           </div>
 
           {/* Department columns with heads + sub-teams */}
-          <div className="grid grid-cols-2 gap-6 md:grid-cols-4 xl:grid-cols-8">
+          <div className="grid grid-cols-2 gap-6 md:grid-cols-3 xl:grid-cols-5">
             {DEPARTMENTS.map((dept) => {
               const agent = agentMap.get(dept.role);
               const members = SUB_TEAM.filter((m) => m.reportsTo === dept.role);
@@ -286,7 +286,7 @@ export default function Workforce() {
 /* ─── Founder Node (org chart) ────────────── */
 function FounderNode({ name, title, initials, color, photo }: { name: string; title: string; initials: string; color: string; photo: string }) {
   return (
-    <Card className="w-64 h-52 text-center p-5">
+    <Card className="w-64 min-h-[13rem] text-center p-5">
       <div className="flex flex-col items-center justify-center gap-3 h-full">
         <img
           src={photo}
@@ -295,8 +295,8 @@ function FounderNode({ name, title, initials, color, photo }: { name: string; ti
           style={{ width: 88, height: 88, border: `2px solid ${color}50` }}
         />
         <div>
-          <h3 className="text-base font-semibold text-txt-primary truncate">{name}</h3>
-          <p className="text-xs text-txt-muted truncate">{title}</p>
+          <h3 className="text-base font-semibold text-txt-primary leading-tight">{name}</h3>
+          <p className="text-xs text-txt-muted leading-tight">{title}</p>
           <span
             className="mt-1 inline-block rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20">
             Human
@@ -312,17 +312,17 @@ function AgentNode({ agent, compact = false }: { agent: Agent; compact?: boolean
   const meta = AGENT_META[agent.role];
   return (
     <Link to={`/agents/${agent.role}`} className="block transition-transform hover:scale-[1.02]">
-      <Card className={`${compact ? 'p-4 h-44' : 'p-5 h-56 w-64'} text-center`}>
+      <Card className={`${compact ? 'p-4 min-h-[11rem]' : 'p-5 min-h-[14rem] w-64'} text-center`}>
         <div className="flex flex-col items-center justify-center gap-2 h-full">
           <AgentAvatar role={agent.role} size={compact ? 48 : 80} glow={agent.status === 'active'} />
           <div className="min-w-0 w-full">
             <div className="flex items-center justify-center gap-1.5">
-              <h3 className={`font-semibold text-txt-primary truncate ${compact ? 'text-xs' : 'text-base'}`}>
+              <h3 className={`font-semibold text-txt-primary leading-tight ${compact ? 'text-xs' : 'text-base'}`}>
                 {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
               </h3>
               <StatusDot status={agent.status} />
             </div>
-            <p className={`text-txt-muted truncate ${compact ? 'text-[10px]' : 'text-sm'}`}>
+            <p className={`text-txt-muted leading-tight ${compact ? 'text-[10px]' : 'text-sm'}`}>
               {TITLE_MAP[agent.role] ?? agent.role}
             </p>
             <div className={`mt-2 flex items-center justify-center gap-2 ${compact ? 'text-xs' : 'text-sm'}`}>
@@ -361,19 +361,21 @@ function StatCard({ label, value, total, color, loading }: { label: string; valu
 /* ─── Sub-Team Node (org chart) ───────────── */
 function SubTeamNode({ member }: { member: SubTeamMember }) {
   return (
-    <Card className="p-3 h-[72px]">
-      <div className="flex items-center gap-3 h-full">
-        <img
-          src={`/avatars/${member.avatar}.png`}
-          alt={member.name}
-          className="shrink-0 rounded-full object-cover"
-          style={{ width: 48, height: 48, border: `1.5px solid ${member.color}40` }}
-        />
-        <div className="min-w-0 text-left">
-          <p className="text-sm font-semibold text-txt-primary truncate">{member.name}</p>
-          <p className="text-xs text-txt-muted truncate">{member.title}</p>
+    <Link to={`/agents/${member.avatar}`} className="block transition-transform hover:scale-[1.02]">
+      <Card className="p-3 min-h-[72px]">
+        <div className="flex items-center gap-3 h-full">
+          <img
+            src={`/avatars/${member.avatar}.png`}
+            alt={member.name}
+            className="shrink-0 rounded-full object-cover"
+            style={{ width: 48, height: 48, border: `1.5px solid ${member.color}40` }}
+          />
+          <div className="min-w-0 text-left">
+            <p className="text-sm font-semibold text-txt-primary leading-tight">{member.name}</p>
+            <p className="text-xs text-txt-muted leading-tight">{member.title}</p>
+          </div>
         </div>
-      </div>
-    </Card>
+      </Card>
+    </Link>
   );
 }

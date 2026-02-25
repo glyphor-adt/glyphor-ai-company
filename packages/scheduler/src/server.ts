@@ -241,19 +241,20 @@ const trackedAgentExecutor = async (
 ): Promise<AgentExecutionResult | void> => {
   const sb = memory.getSupabaseClient();
   const inputMsg = typeof payload?.message === 'string' ? payload.message : null;
+  const startMs = Date.now();
 
-  // Insert a "running" row
-  const { data: runRow } = await sb
+  // Insert a "running" row in parallel with agent execution to avoid blocking
+  const runIdPromise = sb
     .from('agent_runs')
     .insert({ agent_id: agentRole, task, status: 'running', input: inputMsg })
     .select('id')
-    .single();
-
-  const runId = runRow?.id as string | undefined;
-  const startMs = Date.now();
+    .single()
+    .then(({ data }) => data?.id as string | undefined)
+    .catch(() => undefined);
 
   try {
     const result = await agentExecutor(agentRole, task, payload);
+    const runId = await runIdPromise;
     const durationMs = Date.now() - startMs;
 
     // Count tool calls from conversation history
@@ -278,6 +279,7 @@ const trackedAgentExecutor = async (
 
     return result;
   } catch (err) {
+    const runId = await runIdPromise;
     const durationMs = Date.now() - startMs;
     const message = err instanceof Error ? err.message : String(err);
 

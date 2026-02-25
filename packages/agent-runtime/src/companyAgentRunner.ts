@@ -742,8 +742,8 @@ export class CompanyAgentRunner {
           })
         : Promise.resolve(null);
 
-      // Pending inter-agent messages
-      const messagesPromise = deps?.pendingMessageLoader
+      // Pending inter-agent messages — skip for light tier (chat)
+      const messagesPromise = (tier !== 'light' && deps?.pendingMessageLoader)
         ? deps.pendingMessageLoader(config.role).catch(err => {
             console.warn(`[CompanyAgentRunner] Pending message load failed for ${config.role}:`, (err as Error).message);
             return [] as { id: string; from_agent: string; message: string; message_type: string; priority: string; thread_id: string; created_at: string }[];
@@ -822,8 +822,8 @@ export class CompanyAgentRunner {
           })
         : Promise.resolve(null);
 
-      // Pending work assignments
-      const assignmentPromise = deps?.pendingAssignmentLoader
+      // Pending work assignments — skip for light tier (chat)
+      const assignmentPromise = (tier !== 'light' && deps?.pendingAssignmentLoader)
         ? deps.pendingAssignmentLoader(config.role).catch(err => {
             console.warn(`[CompanyAgentRunner] Assignment load failed for ${config.role}:`, (err as Error).message);
             return [] as { id: string; task_description: string; task_type: string; expected_output: string | null; priority: string; status: string; evaluation: string | null; directive_title: string | null }[];
