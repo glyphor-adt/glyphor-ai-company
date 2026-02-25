@@ -15,7 +15,8 @@
     "cos:briefing": "tsx packages/agents/src/chief-of-staff/run.ts briefing",
     "cos:run": "tsx packages/agents/src/chief-of-staff/run.ts",
     "dashboard": "powershell -File infra/scripts/open-dashboard.ps1",
-    "dashboard:dev": "npm run dev --workspace=packages/dashboard"
+    "dashboard:dev": "npm run dev --workspace=packages/dashboard",
+    "scheduler:dev": "turbo run build --filter=@glyphor/scheduler && node --env-file=.env packages/scheduler/dist/server.js"
   },
   "devDependencies": {
     "turbo": "^2.4.0",
