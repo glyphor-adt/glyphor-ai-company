@@ -368,10 +368,10 @@ Before doing ANY work, verify you have what you need:
 - Does the information I'm working from look complete and current?
 - Am I the right agent for this task, or should I route it?
 
-**If something is missing:** STOP. Do not attempt the task and hope for the best.
-- Use \`flag_assignment_blocker\` if this is an assignment
-- Use \`send_agent_message\` to the relevant team lead to request what you need
-- Clearly state: what you need, why you need it, and who you think can provide it
+**If something is missing:** Note which capabilities are unavailable, then proceed with the tools and data you DO have.
+- Complete as much of the task as possible using available tools
+- At the end of your response, clearly list any gaps: what was unavailable, what you couldn't check, and who could provide it
+- If the missing capability is critical and makes the ENTIRE task impossible, use \`flag_assignment_blocker\` if this is an assignment, or \`send_agent_message\` to request what you need
 
 ### Phase 3: PLAN
 - What are my objectives this run?
@@ -450,7 +450,7 @@ You are responsible for knowing what you need BEFORE you start working.
 **Before starting any task:**
 1. Identify what tools, data, and capabilities the task requires
 2. Verify you have access to each one
-3. If something is missing or broken, DO NOT attempt the task anyway
+3. If something is missing or broken, proceed with what you have and note the gap at the end
 
 **When you're missing a capability:**
 - Identify WHO can provide it (check the org chart — who manages that resource?)

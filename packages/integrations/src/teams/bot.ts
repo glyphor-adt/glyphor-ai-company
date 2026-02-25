@@ -86,6 +86,7 @@ const AGENT_ALIASES: Record<string, string> = {
   'david': 'support-triage', 'david santos': 'support-triage',
   'nathan': 'account-research', 'nathan cole': 'account-research',
   'riley': 'm365-admin', 'riley morgan': 'm365-admin', 'm365': 'm365-admin', 'it': 'm365-admin',
+  'morgan': 'global-admin', 'morgan blake': 'global-admin', 'global admin': 'global-admin',
 };
 
 const AGENT_DISPLAY: Record<string, string> = {
@@ -100,6 +101,7 @@ const AGENT_DISPLAY: Record<string, string> = {
   'onboarding-specialist': 'Emma Wright', 'support-triage': 'David Santos',
   'account-research': 'Nathan Cole',
   'm365-admin': 'Riley Morgan',
+  'global-admin': 'Morgan Blake',
 };
 
 function resolveAgent(input: string): string | null {

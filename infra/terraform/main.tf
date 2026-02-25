@@ -164,9 +164,8 @@ locals {
     "gcp-billing-table",
     "azure-mail-client-id",
     "azure-mail-client-secret",
-    "vercel-token",
-    "vercel-team-fuse",
-    "vercel-team-fuse-projects",
+    "github-token",
+    "gcp-project-id",
   ]
 }
 
