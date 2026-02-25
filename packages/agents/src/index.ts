@@ -48,6 +48,12 @@ export { runGlobalAdmin, type GlobalAdminRunParams } from './global-admin/run.js
 // Operations
 export { runOps, type OpsRunParams } from './ops/run.js';
 
+// Strategy Lab v2 — Research Analysts
+export { runCompetitiveResearchAnalyst, type CompetitiveResearchAnalystRunParams } from './competitive-research-analyst/run.js';
+export { runMarketResearchAnalyst, type MarketResearchAnalystRunParams } from './market-research-analyst/run.js';
+export { runTechnicalResearchAnalyst, type TechnicalResearchAnalystRunParams } from './technical-research-analyst/run.js';
+export { runIndustryResearchAnalyst, type IndustryResearchAnalystRunParams } from './industry-research-analyst/run.js';
+
 // ── System prompt map (keyed by agent role slug) ──
 import { CHIEF_OF_STAFF_SYSTEM_PROMPT } from './chief-of-staff/systemPrompt.js';
 import { CTO_SYSTEM_PROMPT } from './cto/systemPrompt.js';
@@ -77,6 +83,10 @@ import { TEMPLATE_ARCHITECT_SYSTEM_PROMPT } from './template-architect/systemPro
 import { M365_ADMIN_SYSTEM_PROMPT } from './m365-admin/systemPrompt.js';
 import { GLOBAL_ADMIN_SYSTEM_PROMPT } from './global-admin/systemPrompt.js';
 import { OPS_SYSTEM_PROMPT } from './ops/systemPrompt.js';
+import { COMPETITIVE_RESEARCH_ANALYST_SYSTEM_PROMPT } from './competitive-research-analyst/systemPrompt.js';
+import { MARKET_RESEARCH_ANALYST_SYSTEM_PROMPT } from './market-research-analyst/systemPrompt.js';
+import { TECHNICAL_RESEARCH_ANALYST_SYSTEM_PROMPT } from './technical-research-analyst/systemPrompt.js';
+import { INDUSTRY_RESEARCH_ANALYST_SYSTEM_PROMPT } from './industry-research-analyst/systemPrompt.js';
 
 export const SYSTEM_PROMPTS: Record<string, string> = {
   'chief-of-staff': CHIEF_OF_STAFF_SYSTEM_PROMPT,
@@ -107,4 +117,8 @@ export const SYSTEM_PROMPTS: Record<string, string> = {
   'm365-admin': M365_ADMIN_SYSTEM_PROMPT,
   'global-admin': GLOBAL_ADMIN_SYSTEM_PROMPT,
   'ops': OPS_SYSTEM_PROMPT,
+  'competitive-research-analyst': COMPETITIVE_RESEARCH_ANALYST_SYSTEM_PROMPT,
+  'market-research-analyst': MARKET_RESEARCH_ANALYST_SYSTEM_PROMPT,
+  'technical-research-analyst': TECHNICAL_RESEARCH_ANALYST_SYSTEM_PROMPT,
+  'industry-research-analyst': INDUSTRY_RESEARCH_ANALYST_SYSTEM_PROMPT,
 };

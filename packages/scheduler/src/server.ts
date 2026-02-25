@@ -25,6 +25,7 @@ import { SimulationEngine } from './simulationEngine.js';
 import { MeetingEngine } from './meetingEngine.js';
 import { CotEngine } from './cotEngine.js';
 import { DeepDiveEngine } from './deepDiveEngine.js';
+import { StrategyLabEngine } from './strategyLabEngine.js';
 import {
   exportAnalysisMarkdown, exportAnalysisJSON,
   exportAnalysisPPTX, exportAnalysisDOCX,
@@ -50,6 +51,10 @@ import {
   runM365Admin,
   runGlobalAdmin,
   runOps,
+  runCompetitiveResearchAnalyst,
+  runMarketResearchAnalyst,
+  runTechnicalResearchAnalyst,
+  runIndustryResearchAnalyst,
 } from '@glyphor/agents';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
@@ -207,6 +212,16 @@ const agentExecutor = async (
   // Operations
   else if (agentRole === 'ops') {
     return runOps({ task: (task as 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'contradiction_detection' | 'knowledge_hygiene'), message, eventPayload: payload, conversationHistory });
+  }
+  // Strategy Lab v2 — Research Analysts
+  else if (agentRole === 'competitive-research-analyst') {
+    return runCompetitiveResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, brief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
+  } else if (agentRole === 'market-research-analyst') {
+    return runMarketResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, brief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
+  } else if (agentRole === 'technical-research-analyst') {
+    return runTechnicalResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, brief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
+  } else if (agentRole === 'industry-research-analyst') {
+    return runIndustryResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, brief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
   } else {
     console.log(`[Scheduler] Agent ${agentRole} not recognized, skipping task: ${task}`);
   }
@@ -287,6 +302,7 @@ const simulationEngine = new SimulationEngine(memory.getSupabaseClient(), strate
 const meetingEngine = new MeetingEngine(memory.getSupabaseClient(), trackedAgentExecutor);
 const cotEngine = new CotEngine(memory.getSupabaseClient(), strategyModelClient);
 const deepDiveEngine = new DeepDiveEngine(memory.getSupabaseClient(), strategyModelClient);
+const strategyLabEngine = new StrategyLabEngine(memory.getSupabaseClient(), strategyModelClient, trackedAgentExecutor);
 
 // Teams Bot — initialized from env vars (BOT_APP_ID, BOT_APP_SECRET, BOT_TENANT_ID)
 const teamsBot = TeamsBotHandler.fromEnv(

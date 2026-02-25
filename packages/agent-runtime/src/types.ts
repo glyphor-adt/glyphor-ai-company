@@ -58,7 +58,12 @@ export type CompanyAgentRole =
   | 'template-architect'      // Ryan Park → reports to VP-Design
   | 'm365-admin'              // Riley Morgan → reports to CTO, manages Microsoft 365
   | 'global-admin'            // Morgan Blake → reports to CoS, cross-project IAM & onboarding
-  | 'ops';                    // Atlas Vega → Operations & System Intelligence
+  | 'ops'                     // Atlas Vega → Operations & System Intelligence
+  // Strategy Lab v2 — Research Analysts
+  | 'competitive-research-analyst'  // Lena Park → Strategy Lab competitive research
+  | 'market-research-analyst'       // Daniel Okafor → Strategy Lab market research
+  | 'technical-research-analyst'    // Kai Nakamura → Strategy Lab technical research
+  | 'industry-research-analyst';    // Amara Diallo → Strategy Lab industry research
 
 export type ContextInjector = (
   turnNumber: number,

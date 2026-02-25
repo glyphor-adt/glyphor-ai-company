@@ -287,6 +287,11 @@ const KNOWN_TOOLS = new Set([
   'entra_revoke_license',
   'entra_audit_sign_ins',
 
+  // ── Strategy Lab v2 Research Analyst tools ──
+  'web_fetch',
+  'search_news',
+  'submit_research_packet',
+
   // ── External / legacy tools ──
   'web_search',
   'file_decision',
