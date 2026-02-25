@@ -42,7 +42,8 @@ export function isOfficeDocument(mimeType: string, fileName: string): boolean {
 export async function extractDocumentText(base64Data: string, fileName: string): Promise<string> {
   try {
     const buffer = Buffer.from(base64Data, 'base64');
-    const text = await parseOffice(buffer, { outputEncoding: 'utf8' }) as string;
+    const ast = await parseOffice(buffer);
+    const text = ast.toText();
     if (!text || text.trim().length === 0) {
       return `[Document "${fileName}" contained no extractable text]`;
     }

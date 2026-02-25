@@ -4,6 +4,11 @@
  */
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { ToolDefinition } from '@glyphor/agent-runtime';
+import { PulseClient } from '@glyphor/integrations';
+
+function getPulseClient(): PulseClient | null {
+  try { return PulseClient.fromEnv(); } catch { return null; }
+}
 
 export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -81,6 +86,52 @@ export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolD
         const supabase = memory.getSupabaseClient();
         await supabase.from('agent_activities').insert({ agent_role: 'social-media-manager', activity_type: 'social_media', summary: params.summary, details: params.details || null, created_at: new Date().toISOString() });
         return { success: true };
+      },
+    },
+
+    // ── Pulse Creative Studio tools ──
+
+    {
+      name: 'pulse_generate_post_image',
+      description: 'Generate an image for a social media post using Pulse. Always generate visuals for scheduled posts — we dogfood our own product.',
+      parameters: {
+        prompt: { type: 'string', description: 'Image prompt describing the visual', required: true },
+        platform: { type: 'string', description: 'Target platform (affects aspect ratio)', required: true, enum: ['twitter', 'linkedin', 'instagram', 'tiktok'] },
+        style: { type: 'string', description: 'Visual style: photorealistic, illustration, minimalist, branded' },
+      },
+      async execute(params) {
+        const pulse = getPulseClient();
+        if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
+        const ratioMap: Record<string, '1:1' | '16:9' | '9:16'> = { twitter: '16:9', linkedin: '16:9', instagram: '1:1', tiktok: '9:16' };
+        const asset = await pulse.generateImage({
+          prompt: params.prompt as string,
+          aspectRatio: ratioMap[params.platform as string] || '1:1',
+          style: params.style as string,
+          brandKit: 'glyphor',
+        });
+        return { success: true, data: { url: asset.url, assetId: asset.id, platform: params.platform }, message: `Image generated for ${params.platform}: ${asset.url}` };
+      },
+    },
+
+    {
+      name: 'pulse_generate_short_video',
+      description: 'Generate a short-form video clip for social media using Pulse. Use for Reels, TikToks, LinkedIn video.',
+      parameters: {
+        prompt: { type: 'string', description: 'Video prompt', required: true },
+        platform: { type: 'string', description: 'Target platform', required: true, enum: ['tiktok', 'instagram', 'linkedin', 'twitter'] },
+        duration: { type: 'number', description: 'Duration in seconds (5 or 10)' },
+      },
+      async execute(params) {
+        const pulse = getPulseClient();
+        if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
+        const verticalPlatforms = ['tiktok', 'instagram'];
+        const asset = await pulse.generateVideo({
+          prompt: params.prompt as string,
+          model: 'kling',
+          duration: (params.duration as number) ?? 5,
+          aspectRatio: verticalPlatforms.includes(params.platform as string) ? '9:16' : '16:9',
+        });
+        return { success: true, data: { url: asset.url, assetId: asset.id, platform: params.platform }, message: `Video generated for ${params.platform}: ${asset.url}` };
       },
     },
   ];

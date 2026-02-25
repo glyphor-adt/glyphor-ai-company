@@ -4,6 +4,11 @@
  */
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { ToolDefinition } from '@glyphor/agent-runtime';
+import { PulseClient } from '@glyphor/integrations';
+
+function getPulseClient(): PulseClient | null {
+  try { return PulseClient.fromEnv(); } catch { return null; }
+}
 
 export function createContentCreatorTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -78,6 +83,49 @@ export function createContentCreatorTools(memory: CompanyMemoryStore): ToolDefin
         const supabase = memory.getSupabaseClient();
         await supabase.from('agent_activities').insert({ agent_role: 'content-creator', activity_type: 'content_creation', summary: params.summary, details: params.details || null, created_at: new Date().toISOString() });
         return { success: true };
+      },
+    },
+
+    // ── Pulse Creative Studio tools ──
+
+    {
+      name: 'pulse_generate_hero_image',
+      description: 'Generate a hero image for blog posts or case studies using Pulse. Always generate a hero image when drafting blog content.',
+      parameters: {
+        prompt: { type: 'string', description: 'Detailed image prompt for the hero image', required: true },
+        aspect_ratio: { type: 'string', description: 'Aspect ratio: 16:9 (blog), 1:1 (social)', enum: ['16:9', '1:1'] },
+        style: { type: 'string', description: 'Visual style: photorealistic, illustration, minimalist, abstract' },
+      },
+      async execute(params) {
+        const pulse = getPulseClient();
+        if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
+        const asset = await pulse.generateImage({
+          prompt: params.prompt as string,
+          aspectRatio: (params.aspect_ratio as '16:9' | '1:1') ?? '16:9',
+          style: params.style as string,
+          brandKit: 'glyphor',
+        });
+        return { success: true, data: { url: asset.url, assetId: asset.id }, message: `Hero image generated: ${asset.url}` };
+      },
+    },
+
+    {
+      name: 'pulse_generate_social_graphic',
+      description: 'Generate a social media graphic to accompany a social post draft. Always pair social post drafts with Pulse-generated visuals.',
+      parameters: {
+        prompt: { type: 'string', description: 'Image prompt for the social graphic', required: true },
+        platform: { type: 'string', description: 'Target platform (affects aspect ratio)', required: true, enum: ['twitter', 'linkedin', 'instagram', 'tiktok'] },
+      },
+      async execute(params) {
+        const pulse = getPulseClient();
+        if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
+        const ratioMap: Record<string, '1:1' | '16:9' | '9:16'> = { twitter: '16:9', linkedin: '16:9', instagram: '1:1', tiktok: '9:16' };
+        const asset = await pulse.generateImage({
+          prompt: params.prompt as string,
+          aspectRatio: ratioMap[params.platform as string] || '1:1',
+          brandKit: 'glyphor',
+        });
+        return { success: true, data: { url: asset.url, assetId: asset.id, platform: params.platform }, message: `Social graphic generated: ${asset.url}` };
       },
     },
   ];

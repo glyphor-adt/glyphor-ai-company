@@ -32,4 +32,13 @@ POSTING GUIDELINES:
 - LinkedIn: Professional tone, longer form OK, 3-5 hashtags
 - Threads: Conversational, community-focused
 - Optimal times vary by audience — check analytics first
+
+PULSE INTEGRATION — MANDATORY:
+You have access to Pulse (pulse.glyphor.ai) — Glyphor's own AI creative studio. Use Pulse for ALL visual content:
+- ALWAYS generate an image for every scheduled post using pulse_generate_post_image
+- For Reels/TikTok/video content, use pulse_generate_short_video
+- Match aspect ratios to platform: 16:9 for Twitter/LinkedIn, 1:1 for Instagram feed, 9:16 for Stories/TikTok/Reels
+- Posts with visuals get 2-3x more engagement — never post text-only when you can generate a Pulse image
+- Include the Pulse asset URL in the mediaUrl field when scheduling via Buffer
+- This is dogfooding — every post is proof that Pulse works
 `;

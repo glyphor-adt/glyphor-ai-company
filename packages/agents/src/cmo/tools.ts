@@ -7,6 +7,11 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
+import { PulseClient } from '@glyphor/integrations';
+
+function getPulseClient(): PulseClient | null {
+  try { return PulseClient.fromEnv(); } catch { return null; }
+}
 
 export function createCMOTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -202,6 +207,94 @@ export function createCMOTools(memory: CompanyMemoryStore): ToolDefinition[] {
           assignedTo: params.assigned_to as string[],
         });
         return { success: true, data: { decisionId: id }, memoryKeysWritten: 1 };
+      },
+    },
+
+    // ── Pulse Creative Studio tools ──
+
+    {
+      name: 'pulse_generate_image',
+      description: 'Generate a marketing image using Pulse (our own product). Use for blog hero images, social graphics, Product Hunt screenshots, ad creatives. Always use Pulse for visual content — we dogfood our own product.',
+      parameters: {
+        prompt: { type: 'string', description: 'Detailed image prompt describing the desired visual', required: true },
+        aspect_ratio: { type: 'string', description: 'Aspect ratio: 1:1 (social), 16:9 (blog/PH), 9:16 (stories)', enum: ['1:1', '16:9', '9:16', '4:3'] },
+        style: { type: 'string', description: 'Visual style: photorealistic, illustration, minimalist, abstract, branded' },
+        use_brand_kit: { type: 'boolean', description: 'Whether to apply Glyphor brand kit (colors, fonts)' },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const pulse = getPulseClient();
+        if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
+        const brandKit = params.use_brand_kit ? 'glyphor' : undefined;
+        const asset = await pulse.generateImage({
+          prompt: params.prompt as string,
+          aspectRatio: params.aspect_ratio as '1:1' | '16:9' | '9:16' | '4:3',
+          style: params.style as string,
+          brandKit,
+        });
+        await memory.appendActivity({ agentRole: ctx.agentRole, action: 'content', product: 'pulse', summary: `Generated image via Pulse: ${(params.prompt as string).slice(0, 80)}`, createdAt: new Date().toISOString() });
+        return { success: true, data: { assetId: asset.id, url: asset.url, type: 'image' } };
+      },
+    },
+
+    {
+      name: 'pulse_generate_video',
+      description: 'Generate a marketing video using Pulse. Use for product demos, social video content, Product Hunt demo video, explainer clips.',
+      parameters: {
+        prompt: { type: 'string', description: 'Video prompt describing the desired content', required: true },
+        model: { type: 'string', description: 'Video model', enum: ['kling', 'veo', 'sora', 'runway'] },
+        duration: { type: 'number', description: 'Duration in seconds (5, 10, 15)' },
+        aspect_ratio: { type: 'string', description: 'Aspect ratio', enum: ['16:9', '9:16', '1:1'] },
+        source_image_url: { type: 'string', description: 'Image URL for image-to-video generation' },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const pulse = getPulseClient();
+        if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
+        const asset = await pulse.generateVideo({
+          prompt: params.prompt as string,
+          model: params.model as 'kling' | 'veo' | 'sora' | 'runway',
+          duration: params.duration as number,
+          aspectRatio: params.aspect_ratio as '16:9' | '9:16' | '1:1',
+          sourceImageUrl: params.source_image_url as string,
+        });
+        await memory.appendActivity({ agentRole: ctx.agentRole, action: 'content', product: 'pulse', summary: `Generated video via Pulse: ${(params.prompt as string).slice(0, 80)}`, createdAt: new Date().toISOString() });
+        return { success: true, data: { assetId: asset.id, url: asset.url, type: 'video', model: asset.model } };
+      },
+    },
+
+    {
+      name: 'pulse_create_storyboard',
+      description: 'Create a multi-scene storyboard in Pulse. Use for Product Hunt demo, product walkthroughs, social ad sequences.',
+      parameters: {
+        title: { type: 'string', description: 'Storyboard title', required: true },
+        scenes: { type: 'array', description: 'Array of scene descriptions', required: true, items: { type: 'object', description: 'A scene entry', properties: { description: { type: 'string', description: 'Scene description' }, duration: { type: 'number', description: 'Scene duration in seconds' } } } },
+        generate_video: { type: 'boolean', description: 'Auto-generate video from storyboard' },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const pulse = getPulseClient();
+        if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
+        const asset = await pulse.createStoryboard({
+          title: params.title as string,
+          scenes: params.scenes as { description: string; duration?: number }[],
+          brandKit: 'glyphor',
+          generateVideo: params.generate_video as boolean,
+        });
+        await memory.appendActivity({ agentRole: ctx.agentRole, action: 'content', product: 'pulse', summary: `Created storyboard via Pulse: ${params.title}`, createdAt: new Date().toISOString() });
+        return { success: true, data: { assetId: asset.id, url: asset.url, type: 'storyboard' } };
+      },
+    },
+
+    {
+      name: 'pulse_analyze_brand',
+      description: 'Analyze a brand or competitor using Pulse brand analysis. Extracts colors, fonts, voice from a URL or logo.',
+      parameters: {
+        url: { type: 'string', description: 'Website URL to analyze' },
+        logo_url: { type: 'string', description: 'Logo image URL to analyze' },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        const pulse = getPulseClient();
+        if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
+        const kit = await pulse.analyzeBrand({ url: params.url as string, logoUrl: params.logo_url as string });
+        return { success: true, data: kit };
       },
     },
   ];
