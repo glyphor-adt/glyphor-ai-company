@@ -47,6 +47,10 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
     'audit', 'data_pull',
     'on_demand', 'read_inbox',
   ]),
+  'clo': new Set([
+    'regulatory_scan', 'contract_review', 'compliance_check',
+    'on_demand', 'read_inbox',
+  ]),
   'vp-customer-success': new Set([
     'health_scoring', 'nurture_email', 'segment_update',
     'support_triage', 'churn_detection', 'daily_health_scoring',
@@ -90,6 +94,11 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
     'create_incident', 'resolve_incident', 'trigger_agent',
     'send_dm', 'read_inbox',
   ]),
+  // Strategy Lab v2 Research Analysts
+  'competitive-research-analyst': new Set(['research', 'on_demand']),
+  'market-research-analyst': new Set(['research', 'on_demand']),
+  'technical-research-analyst': new Set(['research', 'on_demand']),
+  'industry-research-analyst': new Set(['research', 'on_demand']),
 };
 
 /**

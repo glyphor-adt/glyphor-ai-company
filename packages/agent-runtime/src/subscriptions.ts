@@ -51,6 +51,13 @@ export const SUBSCRIPTIONS: Record<CompanyAgentRole, GlyphorEventType[]> = {
     'message.sent',
     'meeting.completed',
   ],
+  'clo': [
+    'alert.triggered',
+    'decision.filed',
+    'decision.resolved',
+    'message.sent',
+    'meeting.completed',
+  ],
   'vp-customer-success': [
     'insight.detected',
     'alert.triggered',
@@ -90,6 +97,11 @@ export const SUBSCRIPTIONS: Record<CompanyAgentRole, GlyphorEventType[]> = {
   'm365-admin': ['alert.triggered', 'task.requested', 'message.sent'],
   'ops': ['alert.triggered', 'message.sent', 'meeting.completed'],
   'global-admin': ['alert.triggered', 'task.requested', 'message.sent'],
+  // Strategy Lab v2 Research Analysts
+  'competitive-research-analyst': ['task.requested', 'message.sent'],
+  'market-research-analyst': ['task.requested', 'message.sent'],
+  'technical-research-analyst': ['task.requested', 'message.sent'],
+  'industry-research-analyst': ['task.requested', 'message.sent'],
 };
 
 /**

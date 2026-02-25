@@ -164,6 +164,7 @@ const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
   'chief-of-staff': 'sarah-chen',
   'cto': 'marcus-reeves',
   'cfo': 'nadia-okafor',
+  'clo': 'victoria-chase',
   'cpo': 'elena-vasquez',
   'cmo': 'maya-brooks',
   'vp-customer-success': 'james-turner',
@@ -190,6 +191,11 @@ const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
   'm365-admin': 'riley-morgan',
   'global-admin': 'morgan-blake',
   'ops': 'atlas-vega',
+  // Strategy Lab v2 Research Analysts
+  'competitive-research-analyst': 'lena-park',
+  'market-research-analyst': 'daniel-okafor',
+  'technical-research-analyst': 'kai-nakamura',
+  'industry-research-analyst': 'amara-diallo',
 };
 
 /** Maps roles to their department for knowledge base audience targeting. */
@@ -201,6 +207,7 @@ const ROLE_DEPARTMENT: Record<string, string> = {
   'quality-engineer': 'engineering',
   'devops-engineer': 'engineering',
   'cfo': 'finance',
+  'clo': 'legal',
   'revenue-analyst': 'finance',
   'cost-analyst': 'finance',
   'cpo': 'product',
@@ -232,6 +239,7 @@ const ROLE_CONTEXT_FILES: Record<string, string[]> = {
   'quality-engineer': ['engineering.md'],
   'devops-engineer': ['engineering.md'],
   'cfo': ['finance.md'],
+  'clo': ['operations.md'],
   'revenue-analyst': ['finance.md'],
   'cost-analyst': ['finance.md'],
   'cpo': ['product.md'],

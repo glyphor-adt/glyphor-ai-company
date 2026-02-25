@@ -19,6 +19,7 @@ const EMAIL_ENABLED_AGENTS: CompanyAgentRole[] = [
   'chief-of-staff',
   'cto',
   'cfo',
+  'clo',
   'cpo',
   'cmo',
   'vp-customer-success',

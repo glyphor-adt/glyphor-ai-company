@@ -119,14 +119,19 @@ export function Card({
 /* ─── Section header ──────────────────────── */
 export function SectionHeader({
   title,
+  subtitle,
   action,
 }: {
   title: string;
+  subtitle?: string;
   action?: React.ReactNode;
 }) {
   return (
     <div className="mb-4 flex items-center justify-between">
-      <h2 className="text-lg font-semibold text-txt-primary">{title}</h2>
+      <div>
+        <h2 className="text-lg font-semibold text-txt-primary">{title}</h2>
+        {subtitle && <p className="text-xs text-txt-muted mt-0.5">{subtitle}</p>}
+      </div>
       {action}
     </div>
   );

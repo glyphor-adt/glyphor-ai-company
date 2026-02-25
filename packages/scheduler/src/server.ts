@@ -40,7 +40,7 @@ import { WakeRouter } from './wakeRouter.js';
 import { DataSyncScheduler } from './dataSyncScheduler.js';
 import { HeartbeatManager } from './heartbeat.js';
 import {
-  runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPCS, runVPSales, runVPDesign,
+  runChiefOfStaff, runCTO, runCFO, runCLO, runCPO, runCMO, runVPCS, runVPSales, runVPDesign,
   runPlatformEngineer, runQualityEngineer, runDevOpsEngineer,
   runUserResearcher, runCompetitiveIntel,
   runRevenueAnalyst, runCostAnalyst,
@@ -141,6 +141,8 @@ const agentExecutor = async (
     return runCTO({ task: (task as 'platform_health_check' | 'dependency_review' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'cfo') {
     return runCFO({ task: (task as 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand'), message, conversationHistory });
+  } else if (agentRole === 'clo') {
+    return runCLO({ task: (task as 'regulatory_scan' | 'contract_review' | 'compliance_check' | 'read_inbox' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'cpo') {
     return runCPO({ task: (task as 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'cmo') {
@@ -215,13 +217,13 @@ const agentExecutor = async (
   }
   // Strategy Lab v2 — Research Analysts
   else if (agentRole === 'competitive-research-analyst') {
-    return runCompetitiveResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, brief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
+    return runCompetitiveResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, researchBrief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
   } else if (agentRole === 'market-research-analyst') {
-    return runMarketResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, brief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
+    return runMarketResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, researchBrief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
   } else if (agentRole === 'technical-research-analyst') {
-    return runTechnicalResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, brief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
+    return runTechnicalResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, researchBrief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
   } else if (agentRole === 'industry-research-analyst') {
-    return runIndustryResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, brief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
+    return runIndustryResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, researchBrief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
   } else {
     console.log(`[Scheduler] Agent ${agentRole} not recognized, skipping task: ${task}`);
   }

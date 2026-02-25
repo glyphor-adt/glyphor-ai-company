@@ -35,6 +35,7 @@ export type CompanyAgentRole =
   | 'cpo'
   | 'cmo'
   | 'cfo'
+  | 'clo'
   | 'vp-customer-success'
   | 'vp-sales'
   | 'vp-design'
@@ -354,6 +355,7 @@ export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   'chief-of-staff':       { perRunUsd: 0.15, dailyUsd: 5.00, monthlyUsd: 150 },
   'cto':                  { perRunUsd: 0.12, dailyUsd: 4.00, monthlyUsd: 120 },
   'cfo':                  { perRunUsd: 0.10, dailyUsd: 3.00, monthlyUsd: 90 },
+  'clo':                  { perRunUsd: 0.10, dailyUsd: 3.00, monthlyUsd: 90 },
   'cpo':                  { perRunUsd: 0.10, dailyUsd: 2.00, monthlyUsd: 60 },
   'cmo':                  { perRunUsd: 0.10, dailyUsd: 2.00, monthlyUsd: 60 },
   'vp-customer-success':  { perRunUsd: 0.08, dailyUsd: 1.50, monthlyUsd: 45 },
@@ -381,6 +383,11 @@ export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   'template-architect':   { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'm365-admin':           { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'global-admin':          { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
+  // Strategy Lab v2 Research Analysts
+  'competitive-research-analyst': { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
+  'market-research-analyst':      { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
+  'technical-research-analyst':   { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
+  'industry-research-analyst':    { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -435,7 +442,7 @@ export interface SecurityEvent {
 export type AgentTier = 'executive' | 'sub-team';
 
 export const EXECUTIVE_ROLES: CompanyAgentRole[] = [
-  'chief-of-staff', 'cto', 'cpo', 'cmo', 'cfo',
+  'chief-of-staff', 'cto', 'cpo', 'cmo', 'cfo', 'clo',
   'vp-customer-success', 'vp-sales', 'vp-design',
 ];
 
@@ -445,6 +452,8 @@ export const SUB_TEAM_ROLES: CompanyAgentRole[] = [
   'cost-analyst', 'content-creator', 'seo-analyst',
   'social-media-manager', 'onboarding-specialist',
   'support-triage', 'account-research', 'm365-admin', 'global-admin',
+  'competitive-research-analyst', 'market-research-analyst',
+  'technical-research-analyst', 'industry-research-analyst',
 ];
 
 /** Events executives can emit */

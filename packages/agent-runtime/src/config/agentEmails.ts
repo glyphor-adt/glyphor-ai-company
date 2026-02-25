@@ -30,6 +30,7 @@ export const AGENT_EMAIL_MAP: Record<CompanyAgentRole, AgentEmailEntry> = {
   'cpo':                  { email: 'elena@glyphor.ai',     displayName: 'Elena Vasquez',     title: 'CPO' },
   'cmo':                  { email: 'james@glyphor.ai',     displayName: 'Maya Brooks',       title: 'CMO' },
   'cfo':                  { email: 'rachel@glyphor.ai',    displayName: 'Nadia Okafor',      title: 'CFO' },
+  'clo':                  { email: 'victoria@glyphor.ai',  displayName: 'Victoria Chase',    title: 'CLO' },
   'vp-customer-success':  { email: 'maya@glyphor.ai',      displayName: 'James Turner',      title: 'VP Customer Success' },
   'vp-sales':             { email: 'derek@glyphor.ai',     displayName: 'Rachel Kim',        title: 'VP Sales' },
   'vp-design':            { email: 'claire@glyphor.ai',    displayName: 'Mia Tanaka',        title: 'VP Design' },
@@ -53,6 +54,11 @@ export const AGENT_EMAIL_MAP: Record<CompanyAgentRole, AgentEmailEntry> = {
   'template-architect':   { email: 'ryan@glyphor.ai',      displayName: 'Ryan Park',         title: 'Template Architect' },
   'ops':                  { email: 'atlas@glyphor.ai',     displayName: 'Atlas Vega',        title: 'Operations & System Intelligence' },
   'global-admin':          { email: 'morgan@glyphor.ai',    displayName: 'Morgan Blake',      title: 'Global Administrator' },
+  // Strategy Lab v2 Research Analysts
+  'competitive-research-analyst': { email: 'lena@glyphor.ai',    displayName: 'Lena Park',         title: 'Competitive Research Analyst' },
+  'market-research-analyst':      { email: 'dokafor@glyphor.ai', displayName: 'Daniel Okafor',     title: 'Market Research Analyst' },
+  'technical-research-analyst':   { email: 'kain@glyphor.ai',    displayName: 'Kai Nakamura',      title: 'Technical Research Analyst' },
+  'industry-research-analyst':    { email: 'amara@glyphor.ai',   displayName: 'Amara Diallo',      title: 'Industry Research Analyst' },
 };
 
 /** Founder email addresses for resolveRecipient(). */

@@ -2,6 +2,7 @@
 export { runChiefOfStaff, type CoSRunParams } from './chief-of-staff/run.js';
 export { runCTO, type CTORunParams } from './cto/run.js';
 export { runCFO, type CFORunParams } from './cfo/run.js';
+export { runCLO, type CLORunParams } from './clo/run.js';
 export { runCPO, type CPORunParams } from './cpo/run.js';
 export { runCMO, type CMORunParams } from './cmo/run.js';
 export { runVPCS, type VPCSRunParams } from './vp-customer-success/run.js';
@@ -58,6 +59,7 @@ export { runIndustryResearchAnalyst, type IndustryResearchAnalystRunParams } fro
 import { CHIEF_OF_STAFF_SYSTEM_PROMPT } from './chief-of-staff/systemPrompt.js';
 import { CTO_SYSTEM_PROMPT } from './cto/systemPrompt.js';
 import { CFO_SYSTEM_PROMPT } from './cfo/systemPrompt.js';
+import { CLO_SYSTEM_PROMPT } from './clo/systemPrompt.js';
 import { CPO_SYSTEM_PROMPT } from './cpo/systemPrompt.js';
 import { CMO_SYSTEM_PROMPT } from './cmo/systemPrompt.js';
 import { VP_CUSTOMER_SUCCESS_SYSTEM_PROMPT } from './vp-customer-success/systemPrompt.js';
@@ -92,6 +94,7 @@ export const SYSTEM_PROMPTS: Record<string, string> = {
   'chief-of-staff': CHIEF_OF_STAFF_SYSTEM_PROMPT,
   'cto': CTO_SYSTEM_PROMPT,
   'cfo': CFO_SYSTEM_PROMPT,
+  'clo': CLO_SYSTEM_PROMPT,
   'cpo': CPO_SYSTEM_PROMPT,
   'cmo': CMO_SYSTEM_PROMPT,
   'vp-customer-success': VP_CUSTOMER_SUCCESS_SYSTEM_PROMPT,
