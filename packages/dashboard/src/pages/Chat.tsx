@@ -6,7 +6,8 @@ import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
 import { supabase, SCHEDULER_URL } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
-import { MdAttachFile, MdImage, MdDescription, MdClose } from 'react-icons/md';
+import * as teamsJs from '@microsoft/teams-js';
+import { MdAttachFile, MdImage, MdDescription, MdClose, MdVideoCall, MdCallEnd } from 'react-icons/md';
 import { HiMiniSignal, HiStop, HiMicrophone } from 'react-icons/hi2';
 import { useVoiceChat } from '../lib/useVoiceChat';
 import VoiceOverlay from '../components/VoiceOverlay';
@@ -83,6 +84,72 @@ export default function Chat() {
 
   // Voice chat
   const voice = useVoiceChat();
+
+  // Teams call state
+  const [showTeamsModal, setShowTeamsModal] = useState(false);
+  const [teamsMeetingUrl, setTeamsMeetingUrl] = useState('');
+  const [teamsSessionId, setTeamsSessionId] = useState<string | null>(null);
+  const [teamsJoining, setTeamsJoining] = useState(false);
+  const [teamsError, setTeamsError] = useState<string | null>(null);
+  const [currentMeetingUrl, setCurrentMeetingUrl] = useState<string | null>(null);
+
+  const VOICE_GW = import.meta.env.VITE_VOICE_GATEWAY_URL || '';
+
+  // Auto-detect current Teams meeting when running inside Teams
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await teamsJs.app.initialize();
+        const ctx = await teamsJs.app.getContext();
+        if (cancelled || ctx.page?.frameContext !== 'meetingStage' && ctx.page?.frameContext !== 'sidePanel') return;
+        // We're inside a Teams meeting — try to get the join URL
+        if (ctx.meeting?.id) {
+          teamsJs.meeting.getMeetingDetails((err, details) => {
+            if (cancelled || err || !details) return;
+            const joinUrl = (details as any).details?.joinUrl || (details as any).details?.joinWebUrl;
+            if (joinUrl) setCurrentMeetingUrl(joinUrl);
+          });
+        }
+      } catch { /* not in Teams context */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const joinTeamsCall = useCallback(async (urlOverride?: string) => {
+    const url = urlOverride || teamsMeetingUrl.trim();
+    if (!url) return;
+    setTeamsJoining(true);
+    setTeamsError(null);
+    try {
+      const resp = await fetch(`${VOICE_GW}/voice/teams/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentRole: selectedRole, meetingUrl: url, invitedBy: userEmail }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Failed to join');
+      setTeamsSessionId(data.sessionId);
+      setShowTeamsModal(false);
+      setTeamsMeetingUrl('');
+    } catch (e: any) {
+      setTeamsError(e.message);
+    } finally {
+      setTeamsJoining(false);
+    }
+  }, [teamsMeetingUrl, selectedRole, userEmail, VOICE_GW]);
+
+  const leaveTeamsCall = useCallback(async () => {
+    if (!teamsSessionId) return;
+    try {
+      await fetch(`${VOICE_GW}/voice/teams/leave`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: teamsSessionId }),
+      });
+    } catch { /* ignore */ }
+    setTeamsSessionId(null);
+  }, [teamsSessionId, VOICE_GW]);
 
   // Speech-to-text (dictation into textarea)
   const [isListening, setIsListening] = useState(false);
@@ -393,6 +460,38 @@ export default function Chat() {
               {selectedAgent?.role ?? selectedRole} · {selectedAgent?.model ?? 'unknown model'}
             </p>
           </div>
+          {/* Teams call button */}
+          {VOICE_GW && (
+            teamsSessionId ? (
+              <button
+                onClick={leaveTeamsCall}
+                className="flex items-center gap-1.5 rounded-full bg-rose-500/15 px-3 py-1.5 text-[11px] font-medium text-rose-400 hover:bg-rose-500/25 transition-colors"
+                title="Remove agent from Teams call"
+              >
+                <MdCallEnd size={14} />
+                In Call — Leave
+              </button>
+            ) : currentMeetingUrl ? (
+              <button
+                onClick={() => joinTeamsCall(currentMeetingUrl)}
+                disabled={teamsJoining}
+                className="flex items-center gap-1.5 rounded-full bg-cyan/10 border border-cyan/25 px-3 py-1.5 text-[11px] font-medium text-cyan hover:bg-cyan/20 transition-colors disabled:opacity-40"
+                title="Add this agent to your current Teams call"
+              >
+                <MdVideoCall size={16} />
+                {teamsJoining ? 'Joining…' : 'Add to This Call'}
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowTeamsModal(true)}
+                className="flex items-center gap-1.5 rounded-full bg-raised border border-border px-3 py-1.5 text-[11px] font-medium text-txt-muted hover:text-cyan hover:border-cyan/40 transition-colors"
+                title="Add agent to a Teams call"
+              >
+                <MdVideoCall size={16} />
+                Teams Call
+              </button>
+            )
+          )}
           {messages.length > 0 && (
             <button
               onClick={async () => {
@@ -632,6 +731,66 @@ export default function Chat() {
         </>
         )}
       </Card>
+
+      {/* Teams Call Modal */}
+      {showTeamsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowTeamsModal(false)}>
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-txt-primary flex items-center gap-2">
+                <MdVideoCall size={20} className="text-cyan" />
+                Add {codename} to Teams Call
+              </h3>
+              <button onClick={() => setShowTeamsModal(false)} className="text-txt-faint hover:text-txt-primary transition-colors">
+                <MdClose size={18} />
+              </button>
+            </div>
+            <p className="text-[12px] text-txt-muted mb-4">
+              Paste a Teams meeting join link and {codename} will join the call with voice, listen, and respond in real-time.
+            </p>
+            {currentMeetingUrl && (
+              <button
+                onClick={() => { joinTeamsCall(currentMeetingUrl); }}
+                disabled={teamsJoining}
+                className="w-full rounded-lg bg-cyan/10 border border-cyan/25 px-4 py-3 text-[12px] font-medium text-cyan hover:bg-cyan/20 transition-colors mb-3 flex items-center gap-2 disabled:opacity-40"
+              >
+                <MdVideoCall size={18} />
+                {teamsJoining ? 'Joining…' : 'Add to current meeting'}
+              </button>
+            )}
+            <div className="flex items-center gap-2 mb-3">
+              {currentMeetingUrl && <span className="text-[10px] text-txt-faint uppercase tracking-wider">or paste a link</span>}
+            </div>
+            <input
+              type="text"
+              value={teamsMeetingUrl}
+              onChange={(e) => setTeamsMeetingUrl(e.target.value)}
+              placeholder="https://teams.microsoft.com/l/meetup-join/..."
+              className="w-full rounded-lg border border-border bg-raised px-4 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none focus:border-cyan/40 mb-3"
+              onKeyDown={(e) => { if (e.key === 'Enter') joinTeamsCall(); }}
+              autoFocus
+            />
+            {teamsError && (
+              <p className="text-[11px] text-rose-400 mb-3">{teamsError}</p>
+            )}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowTeamsModal(false)}
+                className="rounded-lg border border-border px-4 py-2 text-[12px] text-txt-muted hover:bg-raised transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={joinTeamsCall}
+                disabled={teamsJoining || !teamsMeetingUrl.trim()}
+                className="rounded-lg bg-cyan px-4 py-2 text-[12px] font-medium text-white hover:bg-cyan/80 disabled:opacity-40 transition-colors"
+              >
+                {teamsJoining ? 'Joining…' : 'Join Call'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
