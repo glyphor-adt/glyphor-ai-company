@@ -373,7 +373,7 @@ export function createVPDesignTools(memory: CompanyMemoryStore): ToolDefinition[
       },
       execute: async (params): Promise<ToolResult> => {
         await commentOnPR(params.repo as GlyphorRepo, params.prNumber as number, params.comment as string);
-        return { success: true, message: `Comment posted on PR #${params.prNumber}` };
+        return { success: true, data: `Comment posted on PR #${params.prNumber}` };
       },
     },
     {

@@ -34,7 +34,15 @@ export interface InboxCheckResult {
   checked: number;
   withMail: { role: CompanyAgentRole; count: number; subjects: string[] }[];
   errors: string[];
+  skippedInvalidMailboxes: string[];
 }
+
+/**
+ * Mailboxes that returned ErrorInvalidUser (404) are cached here
+ * so we don't spam Graph API + logs every heartbeat cycle.
+ * Cleared on process restart so newly-created mailboxes are picked up.
+ */
+const INVALID_MAILBOXES = new Set<CompanyAgentRole>();
 
 /**
  * Check all email-enabled agents for unread mail.
@@ -49,13 +57,20 @@ export async function checkAgentInboxes(): Promise<InboxCheckResult> {
       checked: 0,
       withMail: [],
       errors: [`Failed to acquire mail token: ${(err as Error).message}`],
+      skippedInvalidMailboxes: [],
     };
   }
 
-  const result: InboxCheckResult = { checked: 0, withMail: [], errors: [] };
+  const result: InboxCheckResult = { checked: 0, withMail: [], errors: [], skippedInvalidMailboxes: [] };
 
   // Check all inboxes in parallel (lightweight HEAD-style queries)
   const checks = EMAIL_ENABLED_AGENTS.map(async (role) => {
+    // Skip mailboxes that previously returned ErrorInvalidUser
+    if (INVALID_MAILBOXES.has(role)) {
+      result.skippedInvalidMailboxes.push(role);
+      return;
+    }
+
     const entry = AGENT_EMAIL_MAP[role];
     if (!entry) return;
 
@@ -79,6 +94,12 @@ export async function checkAgentInboxes(): Promise<InboxCheckResult> {
 
       if (!response.ok) {
         const text = await response.text();
+        // Cache invalid mailboxes to avoid spamming Graph API + logs every heartbeat
+        if (response.status === 404 && text.includes('ErrorInvalidUser')) {
+          INVALID_MAILBOXES.add(role);
+          result.errors.push(`${role} (${entry.email}): Mailbox does not exist in M365 — skipping future checks until restart. Create with: New-Mailbox -Shared -Name "${entry.displayName}" -PrimarySmtpAddress "${entry.email}"`);
+          return;
+        }
         result.errors.push(`${role} (${entry.email}): ${response.status} ${text.slice(0, 200)}`);
         return;
       }

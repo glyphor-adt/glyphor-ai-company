@@ -77,7 +77,7 @@ export function createFrontendEngineerTools(memory: CompanyMemoryStore): ToolDef
         const repoName = GLYPHOR_REPOS[params.repo as GlyphorRepo];
         if (!repoName) return { success: false, error: `Unknown repo "${params.repo}"` };
         await createOrUpdateFile(repoName, params.path as string, params.content as string, params.message as string, params.branch as string);
-        return { success: true, message: `Pushed ${params.path} to ${params.branch}` };
+        return { success: true, data: `Pushed ${params.path} to ${params.branch}` };
       },
     },
 
@@ -93,7 +93,7 @@ export function createFrontendEngineerTools(memory: CompanyMemoryStore): ToolDef
         const repoName = GLYPHOR_REPOS[params.repo as GlyphorRepo];
         if (!repoName) return { success: false, error: `Unknown repo "${params.repo}"` };
         await createBranch(repoName, params.branch as string);
-        return { success: true, message: `Branch "${params.branch}" created` };
+        return { success: true, data: `Branch "${params.branch}" created` };
       },
     },
     {

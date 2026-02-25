@@ -51,9 +51,15 @@ export function createUserResearcherTools(memory: CompanyMemoryStore): ToolDefin
         metric: { type: 'string', description: 'Metric: retention, ltv, activation', required: true },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
+        const cohortData = await memory.read(`analytics.cohorts.${params.criteria}.${params.metric}`);
+        if (cohortData) {
+          return { success: true, data: cohortData };
+        }
+        // Fall back to querying aggregated analytics
+        const fallback = await memory.read(`analytics.users.${params.metric}`);
         return {
           success: true,
-          data: { criteria: params.criteria, metric: params.metric, note: 'Cohort analysis run against analytics data' },
+          data: fallback ?? { criteria: params.criteria, metric: params.metric, note: 'No cohort data available yet. Analytics pipeline may not have run.' },
         };
       },
     },
