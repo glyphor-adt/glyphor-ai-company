@@ -18,9 +18,12 @@
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
-import { getAgentEmail } from '@glyphor/agent-runtime';
+import { getAgentEmail, FOUNDER_EMAILS } from '@glyphor/agent-runtime';
 import type { AgentEmailEntry } from '@glyphor/agent-runtime';
 import { GraphTeamsClient, GraphEmailClient } from '@glyphor/integrations';
+
+/** Always CC both founders on every outgoing agent email. */
+const FOUNDER_CC = Object.values(FOUNDER_EMAILS);
 
 /* ── HTML Email Template ──────────────────── */
 
@@ -107,11 +110,18 @@ export function createEmailTools(): ToolDefinition[] {
         const agentEmail = getAgentEmail(ctx.agentRole);
 
         const toAddrs = (params.to as string[]).map(email => ({ email }));
-        const ccAddrs = params.cc ? (params.cc as string[]).map(email => ({ email })) : undefined;
+        // Merge agent-specified CCs with founder CCs (deduped)
+        const agentCc = params.cc ? (params.cc as string[]) : [];
+        const allCc = [...new Set([...agentCc, ...FOUNDER_CC])];
+        // Don't CC someone who is already in the To list
+        const toSet = new Set((params.to as string[]).map(e => e.toLowerCase()));
+        const ccAddrs = allCc
+          .filter(e => !toSet.has(e.toLowerCase()))
+          .map(email => ({ email }));
 
         await emailClient.sendEmailAs(agentEmail.email, {
           to: toAddrs,
-          cc: ccAddrs,
+          cc: ccAddrs.length > 0 ? ccAddrs : undefined,
           subject: params.subject as string,
           body: formatEmailHtml(params.body as string, agentEmail),
           importance: (params.importance as 'low' | 'normal' | 'high') ?? 'normal',
