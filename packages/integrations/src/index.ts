@@ -193,14 +193,22 @@ export {
   type VercelUsageSummary,
 } from './vercel/index.js';
 
-// Pulse creative studio — image/video generation, brand analysis, storyboards
+// Pulse creative studio — MCP client for image/video generation, storyboards
 export {
   PulseClient,
   type PulseConfig,
-  type ImageGenerationParams,
-  type VideoGenerationParams,
-  type BrandAnalysisParams,
-  type StoryboardParams,
+  type CreateStoryboardArgs,
+  type GenerateSceneImagesArgs,
+  type GenerateVideoArgs,
+  type GenerateConceptImageArgs,
+  type EnhancePromptArgs,
+  type ListStoryboardsArgs,
+  type GetStoryboardArgs,
+  type ListVideosArgs,
+  type PollVideoStatusArgs,
+  type McpToolResult,
+  type Storyboard,
+  type GeneratedImage,
+  type GeneratedVideo,
   type PulseAsset,
-  type BrandKit,
 } from './pulse/index.js';

@@ -1,166 +1,210 @@
 /**
- * Pulse Creative Studio Integration
+ * Pulse Creative Studio — MCP Client
  *
- * API client for Glyphor Pulse (pulse.glyphor.ai) — image generation,
- * video generation, brand analysis, and storyboard creation.
+ * Calls the Pulse MCP server (Model Context Protocol) at:
+ *   https://iyabxcmsncmbtbbdngid.supabase.co/functions/v1/pulse-mcp
  *
- * Backend: Supabase Edge Functions (Deno/TS)
- * Project ID: iyabxcmsncmbtbbdngid
+ * Available MCP tools:
+ *   create_storyboard_from_idea — Idea → screenplay → parsed scenes → saved storyboard
+ *   generate_scene_images      — Batch Imagen 4 / Gemini 3 Pro image generation
+ *   generate_video             — Single video clip via Veo 3.1 or Kling
+ *   generate_concept_image     — Standalone image generation (thumbnails, social assets)
+ *   enhance_prompt             — Rough description → production-ready prompt
+ *   list_storyboards           — Browse storyboards
+ *   get_storyboard             — Retrieve a storyboard by ID
+ *   list_videos                — Browse generated videos
+ *   poll_video_status          — Check video generation progress
  *
  * Used by: Maya (CMO), Tyler (Content Creator), Kai (Social Media Manager)
  */
 
 export interface PulseConfig {
-  supabaseUrl: string;     // https://iyabxcmsncmbtbbdngid.supabase.co
-  serviceRoleKey: string;  // Pulse project service role key
+  mcpEndpoint: string;     // https://<project>.supabase.co/functions/v1/pulse-mcp
+  serviceRoleKey: string;  // Pulse project service role key (Bearer token)
 }
 
-export interface ImageGenerationParams {
+// ── MCP tool argument types ──
+
+export interface CreateStoryboardArgs {
+  idea: string;
+  title?: string;
+}
+
+export interface GenerateSceneImagesArgs {
+  storyboard_id: string;
+  model?: 'imagen-4' | 'gemini-3-pro';
+}
+
+export interface GenerateVideoArgs {
   prompt: string;
-  model?: 'imagen-4' | 'gemini';
-  aspectRatio?: '1:1' | '16:9' | '9:16' | '4:3';
-  style?: string;           // e.g., "photorealistic", "illustration", "minimalist"
-  brandKit?: string;         // Brand kit ID for on-brand generation
-  count?: number;            // Number of variants (1-4)
+  model?: 'veo-3.1' | 'kling';
+  aspect_ratio?: '16:9' | '9:16' | '1:1';
+  source_image_url?: string;
 }
 
-export interface VideoGenerationParams {
+export interface GenerateConceptImageArgs {
   prompt: string;
-  model?: 'kling' | 'veo' | 'sora' | 'runway';
-  duration?: number;         // seconds (5, 10, 15)
-  aspectRatio?: '16:9' | '9:16' | '1:1';
-  sourceImageUrl?: string;   // For image-to-video
+  aspect_ratio?: '1:1' | '16:9' | '9:16' | '4:3';
+  style?: string;
 }
 
-export interface BrandAnalysisParams {
-  url?: string;              // Website URL to analyze
-  logoUrl?: string;          // Logo image URL
+export interface EnhancePromptArgs {
+  prompt: string;
+  medium?: 'image' | 'video';
 }
 
-export interface StoryboardParams {
-  title: string;
-  scenes: { description: string; duration?: number }[];
-  brandKit?: string;
-  generateVideo?: boolean;
+export interface ListStoryboardsArgs {
+  limit?: number;
+  offset?: number;
 }
 
-export interface PulseAsset {
+export interface GetStoryboardArgs {
+  storyboard_id: string;
+}
+
+export interface ListVideosArgs {
+  limit?: number;
+  offset?: number;
+}
+
+export interface PollVideoStatusArgs {
+  video_id: string;
+}
+
+// ── Response types ──
+
+export interface McpToolResult {
+  content: { type: string; text: string }[];
+  isError?: boolean;
+}
+
+export interface Storyboard {
   id: string;
-  url: string;
-  type: 'image' | 'video' | 'brand_kit' | 'storyboard';
-  model?: string;
-  prompt?: string;
-  metadata?: Record<string, unknown>;
+  title: string;
+  scenes: { id: string; description: string; imageUrl?: string }[];
   createdAt: string;
 }
 
-export interface BrandKit {
+export interface GeneratedImage {
   id: string;
-  name: string;
-  colors: { primary: string; secondary: string; accent: string; background: string };
-  fonts: { heading: string; body: string };
-  logoUrl?: string;
-  voiceTone?: string;
+  url: string;
+  prompt: string;
+  model?: string;
 }
 
+export interface GeneratedVideo {
+  id: string;
+  url?: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  prompt: string;
+  model?: string;
+}
+
+// Keep backward-compat alias used by barrel export
+export type PulseAsset = GeneratedImage | GeneratedVideo | Storyboard;
+
+let mcpRequestId = 0;
+
 export class PulseClient {
-  private readonly supabaseUrl: string;
+  private readonly mcpEndpoint: string;
   private readonly serviceRoleKey: string;
 
   constructor(config: PulseConfig) {
-    this.supabaseUrl = config.supabaseUrl.replace(/\/$/, '');
+    this.mcpEndpoint = config.mcpEndpoint.replace(/\/$/, '');
     this.serviceRoleKey = config.serviceRoleKey;
   }
 
   static fromEnv(): PulseClient {
-    const supabaseUrl = process.env.PULSE_SUPABASE_URL ?? 'https://iyabxcmsncmbtbbdngid.supabase.co';
+    const supabaseUrl = (process.env.PULSE_SUPABASE_URL ?? 'https://iyabxcmsncmbtbbdngid.supabase.co').replace(/\/$/, '');
+    const mcpEndpoint = `${supabaseUrl}/functions/v1/pulse-mcp`;
     const serviceRoleKey = process.env.PULSE_SERVICE_ROLE_KEY;
     if (!serviceRoleKey) throw new Error('PULSE_SERVICE_ROLE_KEY not configured');
-    return new PulseClient({ supabaseUrl, serviceRoleKey });
+    return new PulseClient({ mcpEndpoint, serviceRoleKey });
   }
 
-  private async callEdgeFunction<T>(functionName: string, body: Record<string, unknown>): Promise<T> {
-    const url = `${this.supabaseUrl}/functions/v1/${functionName}`;
-    const res = await fetch(url, {
+  /** Send an MCP tools/call request to the Pulse server */
+  private async callTool(toolName: string, args: Record<string, unknown>): Promise<McpToolResult> {
+    const res = await fetch(this.mcpEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${this.serviceRoleKey}`,
-        'apikey': this.serviceRoleKey,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: ++mcpRequestId,
+        method: 'tools/call',
+        params: { name: toolName, arguments: args },
+      }),
     });
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      throw new Error(`Pulse ${functionName} ${res.status}: ${text}`);
+      throw new Error(`Pulse MCP ${toolName} ${res.status}: ${text}`);
     }
-    return res.json() as Promise<T>;
+    const json = (await res.json()) as { result?: McpToolResult; error?: { message: string } };
+    if (json.error) throw new Error(`Pulse MCP ${toolName}: ${json.error.message}`);
+    return json.result!;
   }
 
-  /** Generate images using Pulse's AI image pipeline */
-  async generateImage(params: ImageGenerationParams): Promise<PulseAsset> {
-    return this.callEdgeFunction<PulseAsset>('generate-image', {
-      prompt: params.prompt,
-      model: params.model ?? 'imagen-4',
-      aspect_ratio: params.aspectRatio ?? '1:1',
-      style: params.style,
-      brand_kit_id: params.brandKit,
-      count: params.count ?? 1,
-      source: 'agent-platform',
-    });
+  /** Parse the text content from an MCP tool result */
+  private parseResult<T>(result: McpToolResult): T {
+    const text = result.content.map((c) => c.text).join('');
+    return JSON.parse(text) as T;
   }
 
-  /** Generate video using Pulse's video pipeline */
-  async generateVideo(params: VideoGenerationParams): Promise<PulseAsset> {
-    return this.callEdgeFunction<PulseAsset>('generate-video', {
-      prompt: params.prompt,
-      model: params.model ?? 'kling',
-      duration: params.duration ?? 5,
-      aspect_ratio: params.aspectRatio ?? '16:9',
-      source_image_url: params.sourceImageUrl,
-      source: 'agent-platform',
-    });
+  // ── High-level convenience methods ──
+
+  /** Create a storyboard from an idea string */
+  async createStoryboardFromIdea(args: CreateStoryboardArgs): Promise<Storyboard> {
+    const result = await this.callTool('create_storyboard_from_idea', args as unknown as Record<string, unknown>);
+    return this.parseResult<Storyboard>(result);
   }
 
-  /** Analyze a brand from URL/logo and extract brand kit */
-  async analyzeBrand(params: BrandAnalysisParams): Promise<BrandKit> {
-    return this.callEdgeFunction<BrandKit>('analyze-brand', {
-      url: params.url,
-      logo_url: params.logoUrl,
-      source: 'agent-platform',
-    });
+  /** Generate images for all scenes in a storyboard */
+  async generateSceneImages(args: GenerateSceneImagesArgs): Promise<GeneratedImage[]> {
+    const result = await this.callTool('generate_scene_images', args as unknown as Record<string, unknown>);
+    return this.parseResult<GeneratedImage[]>(result);
   }
 
-  /** Create a multi-scene storyboard */
-  async createStoryboard(params: StoryboardParams): Promise<PulseAsset> {
-    return this.callEdgeFunction<PulseAsset>('create-storyboard', {
-      title: params.title,
-      scenes: params.scenes,
-      brand_kit_id: params.brandKit,
-      generate_video: params.generateVideo ?? false,
-      source: 'agent-platform',
-    });
+  /** Generate a single video clip */
+  async generateVideo(args: GenerateVideoArgs): Promise<GeneratedVideo> {
+    const result = await this.callTool('generate_video', args as unknown as Record<string, unknown>);
+    return this.parseResult<GeneratedVideo>(result);
   }
 
-  /** Get the Glyphor brand kit for on-brand content generation */
-  async getGlyphorBrandKit(): Promise<BrandKit> {
-    return this.callEdgeFunction<BrandKit>('get-brand-kit', {
-      brand_name: 'glyphor',
-      source: 'agent-platform',
-    });
+  /** Generate a standalone concept image (thumbnails, social assets, hero images) */
+  async generateConceptImage(args: GenerateConceptImageArgs): Promise<GeneratedImage> {
+    const result = await this.callTool('generate_concept_image', args as unknown as Record<string, unknown>);
+    return this.parseResult<GeneratedImage>(result);
   }
 
-  /** List recently generated assets by the agent platform */
-  async listAgentAssets(options?: { type?: string; limit?: number }): Promise<PulseAsset[]> {
-    return this.callEdgeFunction<PulseAsset[]>('list-assets', {
-      source: 'agent-platform',
-      type: options?.type,
-      limit: options?.limit ?? 20,
-    });
+  /** Enhance a rough prompt into a production-ready prompt */
+  async enhancePrompt(args: EnhancePromptArgs): Promise<string> {
+    const result = await this.callTool('enhance_prompt', args as unknown as Record<string, unknown>);
+    return result.content.map((c) => c.text).join('');
   }
 
-  /** Check generation status for async jobs (video generation) */
-  async checkJobStatus(jobId: string): Promise<{ status: 'pending' | 'processing' | 'completed' | 'failed'; asset?: PulseAsset }> {
-    return this.callEdgeFunction('check-job-status', { job_id: jobId });
+  /** List storyboards */
+  async listStoryboards(args?: ListStoryboardsArgs): Promise<Storyboard[]> {
+    const result = await this.callTool('list_storyboards', (args ?? {}) as Record<string, unknown>);
+    return this.parseResult<Storyboard[]>(result);
+  }
+
+  /** Get a storyboard by ID */
+  async getStoryboard(args: GetStoryboardArgs): Promise<Storyboard> {
+    const result = await this.callTool('get_storyboard', args as unknown as Record<string, unknown>);
+    return this.parseResult<Storyboard>(result);
+  }
+
+  /** List generated videos */
+  async listVideos(args?: ListVideosArgs): Promise<GeneratedVideo[]> {
+    const result = await this.callTool('list_videos', (args ?? {}) as Record<string, unknown>);
+    return this.parseResult<GeneratedVideo[]>(result);
+  }
+
+  /** Poll video generation status */
+  async pollVideoStatus(args: PollVideoStatusArgs): Promise<GeneratedVideo> {
+    const result = await this.callTool('poll_video_status', args as unknown as Record<string, unknown>);
+    return this.parseResult<GeneratedVideo>(result);
   }
 }

@@ -89,7 +89,7 @@ export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolD
       },
     },
 
-    // ── Pulse Creative Studio tools ──
+    // ── Pulse Creative Studio tools (MCP) ──
 
     {
       name: 'pulse_generate_post_image',
@@ -97,19 +97,18 @@ export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolD
       parameters: {
         prompt: { type: 'string', description: 'Image prompt describing the visual', required: true },
         platform: { type: 'string', description: 'Target platform (affects aspect ratio)', required: true, enum: ['twitter', 'linkedin', 'instagram', 'tiktok'] },
-        style: { type: 'string', description: 'Visual style: photorealistic, illustration, minimalist, branded' },
+        style: { type: 'string', description: 'Visual style hint to include in the prompt' },
       },
       async execute(params) {
         const pulse = getPulseClient();
         if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
         const ratioMap: Record<string, '1:1' | '16:9' | '9:16'> = { twitter: '16:9', linkedin: '16:9', instagram: '1:1', tiktok: '9:16' };
-        const asset = await pulse.generateImage({
+        const image = await pulse.generateConceptImage({
           prompt: params.prompt as string,
-          aspectRatio: ratioMap[params.platform as string] || '1:1',
+          aspect_ratio: ratioMap[params.platform as string] || '1:1',
           style: params.style as string,
-          brandKit: 'glyphor',
         });
-        return { success: true, data: { url: asset.url, assetId: asset.id, platform: params.platform }, message: `Image generated for ${params.platform}: ${asset.url}` };
+        return { success: true, data: { url: image.url, imageId: image.id, platform: params.platform }, message: `Image generated for ${params.platform}: ${image.url}` };
       },
     },
 
@@ -119,19 +118,32 @@ export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolD
       parameters: {
         prompt: { type: 'string', description: 'Video prompt', required: true },
         platform: { type: 'string', description: 'Target platform', required: true, enum: ['tiktok', 'instagram', 'linkedin', 'twitter'] },
-        duration: { type: 'number', description: 'Duration in seconds (5 or 10)' },
+        model: { type: 'string', description: 'Video model', enum: ['veo-3.1', 'kling'] },
       },
       async execute(params) {
         const pulse = getPulseClient();
         if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
         const verticalPlatforms = ['tiktok', 'instagram'];
-        const asset = await pulse.generateVideo({
+        const video = await pulse.generateVideo({
           prompt: params.prompt as string,
-          model: 'kling',
-          duration: (params.duration as number) ?? 5,
-          aspectRatio: verticalPlatforms.includes(params.platform as string) ? '9:16' : '16:9',
+          model: (params.model as 'veo-3.1' | 'kling') ?? 'kling',
+          aspect_ratio: verticalPlatforms.includes(params.platform as string) ? '9:16' : '16:9',
         });
-        return { success: true, data: { url: asset.url, assetId: asset.id, platform: params.platform }, message: `Video generated for ${params.platform}: ${asset.url}` };
+        return { success: true, data: { videoId: video.id, status: video.status, url: video.url, platform: params.platform }, message: `Video generated for ${params.platform}: ${video.url ?? 'processing...'}` };
+      },
+    },
+
+    {
+      name: 'pulse_poll_video_status',
+      description: 'Check the generation status of a Pulse video. Video generation is async — poll until completed.',
+      parameters: {
+        video_id: { type: 'string', description: 'Video ID to check', required: true },
+      },
+      async execute(params) {
+        const pulse = getPulseClient();
+        if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
+        const status = await pulse.pollVideoStatus({ video_id: params.video_id as string });
+        return { success: true, data: status };
       },
     },
   ];

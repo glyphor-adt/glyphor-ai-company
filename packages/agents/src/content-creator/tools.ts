@@ -86,26 +86,25 @@ export function createContentCreatorTools(memory: CompanyMemoryStore): ToolDefin
       },
     },
 
-    // ── Pulse Creative Studio tools ──
+    // ── Pulse Creative Studio tools (MCP) ──
 
     {
       name: 'pulse_generate_hero_image',
       description: 'Generate a hero image for blog posts or case studies using Pulse. Always generate a hero image when drafting blog content.',
       parameters: {
         prompt: { type: 'string', description: 'Detailed image prompt for the hero image', required: true },
-        aspect_ratio: { type: 'string', description: 'Aspect ratio: 16:9 (blog), 1:1 (social)', enum: ['16:9', '1:1'] },
-        style: { type: 'string', description: 'Visual style: photorealistic, illustration, minimalist, abstract' },
+        aspect_ratio: { type: 'string', description: 'Aspect ratio: 16:9 (blog), 1:1 (social), 4:3', enum: ['16:9', '1:1', '4:3'] },
+        style: { type: 'string', description: 'Visual style hint to include in the prompt' },
       },
       async execute(params) {
         const pulse = getPulseClient();
         if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
-        const asset = await pulse.generateImage({
+        const image = await pulse.generateConceptImage({
           prompt: params.prompt as string,
-          aspectRatio: (params.aspect_ratio as '16:9' | '1:1') ?? '16:9',
+          aspect_ratio: (params.aspect_ratio as '16:9' | '1:1' | '4:3') ?? '16:9',
           style: params.style as string,
-          brandKit: 'glyphor',
         });
-        return { success: true, data: { url: asset.url, assetId: asset.id }, message: `Hero image generated: ${asset.url}` };
+        return { success: true, data: { url: image.url, imageId: image.id }, message: `Hero image generated: ${image.url}` };
       },
     },
 
@@ -120,12 +119,29 @@ export function createContentCreatorTools(memory: CompanyMemoryStore): ToolDefin
         const pulse = getPulseClient();
         if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
         const ratioMap: Record<string, '1:1' | '16:9' | '9:16'> = { twitter: '16:9', linkedin: '16:9', instagram: '1:1', tiktok: '9:16' };
-        const asset = await pulse.generateImage({
+        const image = await pulse.generateConceptImage({
           prompt: params.prompt as string,
-          aspectRatio: ratioMap[params.platform as string] || '1:1',
-          brandKit: 'glyphor',
+          aspect_ratio: ratioMap[params.platform as string] || '1:1',
         });
-        return { success: true, data: { url: asset.url, assetId: asset.id, platform: params.platform }, message: `Social graphic generated: ${asset.url}` };
+        return { success: true, data: { url: image.url, imageId: image.id, platform: params.platform }, message: `Social graphic generated: ${image.url}` };
+      },
+    },
+
+    {
+      name: 'pulse_enhance_prompt',
+      description: 'Enhance a rough image or video prompt into a production-ready prompt using Pulse AI. Use before generating visuals for better quality.',
+      parameters: {
+        prompt: { type: 'string', description: 'Rough prompt to enhance', required: true },
+        medium: { type: 'string', description: 'Target medium: image or video', enum: ['image', 'video'] },
+      },
+      async execute(params) {
+        const pulse = getPulseClient();
+        if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
+        const enhanced = await pulse.enhancePrompt({
+          prompt: params.prompt as string,
+          medium: params.medium as 'image' | 'video',
+        });
+        return { success: true, data: { enhancedPrompt: enhanced } };
       },
     },
   ];
