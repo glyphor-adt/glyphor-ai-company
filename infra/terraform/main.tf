@@ -524,6 +524,7 @@ locals {
     "roles/monitoring.viewer",
     "roles/run.viewer",
     "roles/logging.viewer",
+    "roles/cloudbuild.builds.viewer",
   ]
 }
 
