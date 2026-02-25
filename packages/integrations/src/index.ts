@@ -192,3 +192,15 @@ export {
   type VercelHealthSummary,
   type VercelUsageSummary,
 } from './vercel/index.js';
+
+// Pulse creative studio — image/video generation, brand analysis, storyboards
+export {
+  PulseClient,
+  type PulseConfig,
+  type ImageGenerationParams,
+  type VideoGenerationParams,
+  type BrandAnalysisParams,
+  type StoryboardParams,
+  type PulseAsset,
+  type BrandKit,
+} from './pulse/index.js';

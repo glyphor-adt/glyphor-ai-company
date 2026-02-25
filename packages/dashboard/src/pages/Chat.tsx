@@ -37,6 +37,10 @@ const ALLOWED_TYPES = [
   'application/json',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/msword',
+  'application/vnd.ms-excel',
+  'application/vnd.ms-powerpoint',
 ];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 

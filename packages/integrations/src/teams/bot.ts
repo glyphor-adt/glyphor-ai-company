@@ -385,6 +385,99 @@ export class TeamsBotHandler {
   }
 
   /**
+   * Download file attachments from a Teams activity.
+   * Teams sends file attachments with contentType 'application/vnd.microsoft.teams.file.download.info'
+   * and the actual download URL is inside content.downloadUrl.
+   */
+  private async downloadTeamsAttachments(
+    activity: TeamsActivity,
+  ): Promise<Array<{ name: string; mimeType: string; data: string }>> {
+    if (!activity.attachments || activity.attachments.length === 0) {
+      return [];
+    }
+
+    const results: Array<{ name: string; mimeType: string; data: string }> = [];
+
+    for (const att of activity.attachments) {
+      // Teams file downloads have this specific content type
+      if (att.contentType !== 'application/vnd.microsoft.teams.file.download.info') {
+        continue;
+      }
+
+      const downloadUrl = (att.content as { downloadUrl?: string })?.downloadUrl;
+      if (!downloadUrl) {
+        console.warn('[TeamsBot] File attachment missing downloadUrl:', att.name);
+        continue;
+      }
+
+      // Validate the download URL is from a trusted Microsoft domain
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(downloadUrl);
+      } catch {
+        console.warn('[TeamsBot] Invalid download URL for attachment:', att.name);
+        continue;
+      }
+      const trustedDomains = ['.sharepoint.com', '.microsoft.com', '.office.com', '.office365.com'];
+      if (!trustedDomains.some((d) => parsedUrl.hostname.endsWith(d))) {
+        console.warn('[TeamsBot] Untrusted download domain:', parsedUrl.hostname);
+        continue;
+      }
+
+      try {
+        const token = await this.getBotToken();
+        const res = await fetch(downloadUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!res.ok) {
+          console.warn(`[TeamsBot] Failed to download attachment ${att.name}: ${res.status}`);
+          continue;
+        }
+
+        const buffer = Buffer.from(await res.arrayBuffer());
+        const base64 = buffer.toString('base64');
+        const mimeType = att.contentType === 'application/vnd.microsoft.teams.file.download.info'
+          ? this.inferMimeType(att.name ?? 'unknown')
+          : att.contentType;
+
+        results.push({
+          name: att.name ?? 'unknown',
+          mimeType,
+          data: base64,
+        });
+
+        console.log(`[TeamsBot] Downloaded attachment: ${att.name} (${mimeType}, ${buffer.length} bytes)`);
+      } catch (err) {
+        console.warn(`[TeamsBot] Error downloading attachment ${att.name}:`, err);
+      }
+    }
+
+    return results;
+  }
+
+  private inferMimeType(filename: string): string {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    const mimeMap: Record<string, string> = {
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      doc: 'application/msword',
+      xls: 'application/vnd.ms-excel',
+      ppt: 'application/vnd.ms-powerpoint',
+      pdf: 'application/pdf',
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      gif: 'image/gif',
+      txt: 'text/plain',
+      csv: 'text/csv',
+      json: 'application/json',
+    };
+    return mimeMap[ext ?? ''] ?? 'application/octet-stream';
+  }
+
+  /**
    * Acquire a Bot Framework token for replying to messages.
    * If botAppId is provided, uses that bot's credentials; otherwise uses the main bot.
    */
