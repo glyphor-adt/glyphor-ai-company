@@ -116,11 +116,12 @@ const agentExecutor = async (
 
   // ─── Universal work_loop / proactive routing ──────────────
   // These tasks are dispatched by the heartbeat work loop for any agent.
-  // They route through 'on_demand' with the work-loop message as context.
+  // Route as 'work_loop' so agents get task-tier limits (6 turns / 120s)
+  // instead of on_demand limits (3 turns / 45s).
   if (task === 'work_loop' || task === 'proactive') {
     const effectiveMessage = message ?? (payload.wake_reason as string) ?? `Work loop: ${task}`;
-    // Route to the agent's normal runner with on_demand + work-loop message
-    return agentExecutor(agentRole, 'on_demand', { ...payload, message: effectiveMessage });
+    // Route to the agent's normal runner, preserving 'work_loop' task type
+    return agentExecutor(agentRole, 'on_demand', { ...payload, message: effectiveMessage, _sourceTask: task });
   }
 
   if (agentRole === 'chief-of-staff') {
