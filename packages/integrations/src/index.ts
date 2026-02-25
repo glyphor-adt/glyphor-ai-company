@@ -143,7 +143,7 @@ export { getScopedGitHubClient, validateGitHubScope, GITHUB_AGENT_SCOPES, type G
 // Governance sync
 export { syncGCPIAMState, syncSecretRotationStatus, runGovernanceSync } from './governance/iamSync.js';
 
-// Web search (Serper)
+// Web search (OpenAI GPT-5.2 web_search_preview)
 export {
   searchWeb,
   searchNews,

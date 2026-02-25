@@ -196,6 +196,8 @@ export interface SupervisorConfig {
   maxTurns: number;
   maxStallTurns: number;
   timeoutMs: number;
+  /** When true, any successful tool result counts as progress (not just writes). */
+  readsAsProgress?: boolean;
   onEvent?: (event: AgentEvent) => void;
 }
 

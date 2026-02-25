@@ -2,11 +2,12 @@
  * Web Search Integration
  *
  * Provides real web search capability for agent research threads.
- * Supports Serper (Google SERP) as the primary provider, with a
- * fallback stub when no API key is configured.
+ * Uses OpenAI's Responses API with web_search_preview tool (GPT-5.2)
+ * to perform grounded web searches. No external search API key needed —
+ * uses the existing OPENAI_API_KEY.
  *
  * Environment variables:
- *   SERPER_API_KEY — API key from serper.dev
+ *   OPENAI_API_KEY — OpenAI API key (already configured in Cloud Run)
  */
 
 /* ── Types ──────────────────────────────────── */
@@ -36,97 +37,210 @@ export interface WebSearchOptions {
   timeRange?: string;
 }
 
-/* ── Implementation ─────────────────────────── */
+/* ── OpenAI Responses API types ─────────────── */
 
-const SERPER_BASE = 'https://google.serper.dev';
+interface OpenAIResponseItem {
+  type: string;
+  id?: string;
+  status?: string;
+  // web_search_call items
+  // message items
+  role?: string;
+  content?: Array<{
+    type: string;
+    text?: string;
+    annotations?: Array<{
+      type: string;
+      url?: string;
+      title?: string;
+      start_index?: number;
+      end_index?: number;
+    }>;
+  }>;
+}
+
+interface OpenAIResponsesResult {
+  id: string;
+  output: OpenAIResponseItem[];
+}
+
+const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
+const SEARCH_MODEL = 'gpt-5.2';
+
+/**
+ * Call OpenAI Responses API with web_search_preview to get grounded search results.
+ */
+async function openaiWebSearch(
+  prompt: string,
+  searchContextSize: 'low' | 'medium' | 'high' = 'medium',
+): Promise<{ text: string; annotations: Array<{ url: string; title: string }> }> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    console.warn('[WebSearch] No OPENAI_API_KEY configured — returning empty results');
+    return { text: '', annotations: [] };
+  }
+
+  const res = await fetch(OPENAI_RESPONSES_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: SEARCH_MODEL,
+      tools: [{ type: 'web_search_preview', search_context_size: searchContextSize }],
+      input: prompt,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => 'unknown');
+    console.error(`[WebSearch] OpenAI Responses API error: ${res.status} ${errText}`);
+    return { text: '', annotations: [] };
+  }
+
+  const data = await res.json() as OpenAIResponsesResult;
+
+  // Extract text and URL annotations from the response output
+  const annotations: Array<{ url: string; title: string }> = [];
+  let text = '';
+
+  for (const item of data.output ?? []) {
+    if (item.type === 'message' && item.content) {
+      for (const block of item.content) {
+        if (block.type === 'output_text' && block.text) {
+          text += block.text;
+        }
+        if (block.annotations) {
+          for (const ann of block.annotations) {
+            if (ann.type === 'url_citation' && ann.url) {
+              annotations.push({ url: ann.url, title: ann.title ?? '' });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return { text, annotations };
+}
+
+/**
+ * Parse the OpenAI grounded response into structured SearchResult items.
+ * Each URL citation becomes a search result, with the surrounding text as a snippet.
+ */
+function parseSearchResults(
+  text: string,
+  annotations: Array<{ url: string; title: string }>,
+  maxResults: number,
+): SearchResult[] {
+  // Deduplicate by URL, preserve order
+  const seen = new Set<string>();
+  const results: SearchResult[] = [];
+
+  for (const ann of annotations) {
+    if (seen.has(ann.url) || results.length >= maxResults) continue;
+    seen.add(ann.url);
+    results.push({
+      title: ann.title || ann.url,
+      url: ann.url,
+      snippet: '', // Will fill below
+    });
+  }
+
+  // Use the full response text as context — split into rough per-source snippets
+  // by finding text near each citation
+  if (text && results.length > 0) {
+    // Simple approach: give each result the full summary text (it's already grounded)
+    // For better UX, try to extract relevant chunks
+    const sentences = text.split(/(?<=[.!?])\s+/);
+    for (const result of results) {
+      // Find sentences that reference this source's domain or title
+      const domain = new URL(result.url).hostname.replace('www.', '');
+      const relevant = sentences.filter(
+        s => s.toLowerCase().includes(domain.toLowerCase())
+          || (result.title && s.toLowerCase().includes(result.title.toLowerCase().slice(0, 30))),
+      );
+      result.snippet = relevant.length > 0
+        ? relevant.slice(0, 3).join(' ')
+        : text.slice(0, 300);
+    }
+  }
+
+  return results;
+}
 
 /**
  * Execute a web search and return structured results.
- * Uses Serper (Google SERP API) when SERPER_API_KEY is set.
+ * Uses OpenAI GPT-5.2 with web_search_preview for grounded results.
  */
 export async function searchWeb(
   query: string,
   options: WebSearchOptions = {},
 ): Promise<SearchResult[]> {
-  const apiKey = process.env.SERPER_API_KEY;
-  if (!apiKey) {
-    console.warn('[WebSearch] No SERPER_API_KEY configured — returning empty results');
-    return [];
-  }
+  const maxResults = options.num ?? 10;
+  const timeContext = options.timeRange
+    ? ` Focus on results from the last ${options.timeRange}.`
+    : '';
+  const prompt = `Search the web for: ${query}${timeContext}\n\nProvide comprehensive results with specific sources and URLs.`;
 
-  const body: Record<string, unknown> = {
-    q: query,
-    num: options.num ?? 10,
-    gl: options.gl ?? 'us',
-  };
-  if (options.timeRange) {
-    const rangeMap: Record<string, string> = { day: 'qdr:d', week: 'qdr:w', month: 'qdr:m', year: 'qdr:y' };
-    body.tbs = rangeMap[options.timeRange] ?? options.timeRange;
-  }
+  const { text, annotations } = await openaiWebSearch(prompt, 'medium');
+  if (!text && annotations.length === 0) return [];
 
-  const res = await fetch(`${SERPER_BASE}/search`, {
-    method: 'POST',
-    headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    console.error(`[WebSearch] Serper API error: ${res.status} ${res.statusText}`);
-    return [];
-  }
-
-  const data = await res.json() as {
-    organic?: { title: string; link: string; snippet: string; date?: string }[];
-    knowledgeGraph?: { title: string; description: string };
-  };
-
-  return (data.organic ?? []).map((r) => ({
-    title: r.title,
-    url: r.link,
-    snippet: r.snippet,
-    date: r.date,
-  }));
+  return parseSearchResults(text, annotations, maxResults);
 }
 
 /**
  * Search for recent news articles.
+ * Uses OpenAI GPT-5.2 with web_search_preview, prompting for news specifically.
  */
 export async function searchNews(
   query: string,
   options: WebSearchOptions = {},
 ): Promise<NewsResult[]> {
-  const apiKey = process.env.SERPER_API_KEY;
-  if (!apiKey) {
-    console.warn('[WebSearch] No SERPER_API_KEY configured — returning empty news results');
-    return [];
+  const maxResults = options.num ?? 10;
+  const prompt = `Search for the latest news about: ${query}\n\nFocus on recent news articles, press releases, and breaking developments. Include publication dates and source names.`;
+
+  const { text, annotations } = await openaiWebSearch(prompt, 'high');
+  if (!text && annotations.length === 0) return [];
+
+  // Parse into news results
+  const seen = new Set<string>();
+  const results: NewsResult[] = [];
+
+  for (const ann of annotations) {
+    if (seen.has(ann.url) || results.length >= maxResults) continue;
+    seen.add(ann.url);
+
+    // Extract domain as source name
+    let source = '';
+    try { source = new URL(ann.url).hostname.replace('www.', ''); } catch { /* skip */ }
+
+    results.push({
+      title: ann.title || ann.url,
+      url: ann.url,
+      snippet: '',
+      date: new Date().toISOString().split('T')[0], // Best-effort — OpenAI doesn't give per-result dates
+      source,
+    });
   }
 
-  const res = await fetch(`${SERPER_BASE}/news`, {
-    method: 'POST',
-    headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      q: query,
-      num: options.num ?? 10,
-      gl: options.gl ?? 'us',
-    }),
-  });
-
-  if (!res.ok) {
-    console.error(`[WebSearch] Serper news API error: ${res.status} ${res.statusText}`);
-    return [];
+  // Fill snippets from the grounded text
+  if (text && results.length > 0) {
+    const sentences = text.split(/(?<=[.!?])\s+/);
+    for (const result of results) {
+      const domain = new URL(result.url).hostname.replace('www.', '');
+      const relevant = sentences.filter(
+        s => s.toLowerCase().includes(domain.toLowerCase())
+          || (result.title && s.toLowerCase().includes(result.title.toLowerCase().slice(0, 30))),
+      );
+      result.snippet = relevant.length > 0
+        ? relevant.slice(0, 3).join(' ')
+        : text.slice(0, 300);
+    }
   }
 
-  const data = await res.json() as {
-    news?: { title: string; link: string; snippet: string; date: string; source: string }[];
-  };
-
-  return (data.news ?? []).map((r) => ({
-    title: r.title,
-    url: r.link,
-    snippet: r.snippet,
-    date: r.date,
-    source: r.source,
-  }));
+  return results;
 }
 
 /**

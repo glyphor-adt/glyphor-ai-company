@@ -45,8 +45,8 @@ const THINKING_ENABLED_TASKS = new Set([
   'weekly_content_planning',
 ]);
 
-/** 60 s per-model-call timeout for chat; 180 s for scheduled work. */
-const ON_DEMAND_TIMEOUT_MS = 60_000;
+/** 30 s per-model-call timeout for chat — keeps total run under 90 s. */
+const ON_DEMAND_TIMEOUT_MS = 30_000;
 
 /** Approximate per-token pricing (USD) by model prefix for cost tracking. */
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
@@ -491,26 +491,29 @@ function buildSystemPrompt(
   try {
     const knowledgeDir = join(__dirname, '../../company-knowledge');
 
-    // Use DB-driven knowledge base if available, otherwise fall back to static files
-    let knowledgeBase: string;
-    if (dbKnowledgeBase) {
-      knowledgeBase = dbKnowledgeBase;
-    } else {
-      try {
-        knowledgeBase = readFileSync(join(knowledgeDir, 'CORE.md'), 'utf-8');
-      } catch {
-        knowledgeBase = readFileSync(join(knowledgeDir, 'COMPANY_KNOWLEDGE_BASE.md'), 'utf-8');
+    // On-demand chat uses a slim prompt — skip KB and context files to keep
+    // the model call fast and focused on the user's question.
+    let knowledgeBase = '';
+    if (!isOnDemand) {
+      if (dbKnowledgeBase) {
+        knowledgeBase = dbKnowledgeBase;
+      } else {
+        try {
+          knowledgeBase = readFileSync(join(knowledgeDir, 'CORE.md'), 'utf-8');
+        } catch {
+          knowledgeBase = readFileSync(join(knowledgeDir, 'COMPANY_KNOWLEDGE_BASE.md'), 'utf-8');
+        }
       }
-    }
 
-    // Load department-specific context (still file-based — rarely changes)
-    const contextFiles = ROLE_CONTEXT_FILES[role] ?? [];
-    for (const file of contextFiles) {
-      try {
-        const ctx = readFileSync(join(knowledgeDir, 'context', file), 'utf-8');
-        knowledgeBase += '\n\n---\n\n' + ctx;
-      } catch {
-        // Context file missing — not critical
+      // Load department-specific context (still file-based — rarely changes)
+      const contextFiles = ROLE_CONTEXT_FILES[role] ?? [];
+      for (const file of contextFiles) {
+        try {
+          const ctx = readFileSync(join(knowledgeDir, 'context', file), 'utf-8');
+          knowledgeBase += '\n\n---\n\n' + ctx;
+        } catch {
+          // Context file missing — not critical
+        }
       }
     }
 
@@ -525,14 +528,20 @@ function buildSystemPrompt(
       effectivePrompt = effectivePrompt.replace(REASONING_PROMPT_SUFFIX, '');
     }
 
-    const briefId = ROLE_TO_BRIEF[role];
-    let roleBrief: string;
-    if (briefId) {
-      roleBrief = readFileSync(
-        join(__dirname, `../../company-knowledge/briefs/${briefId}.md`), 'utf-8',
-      );
-    } else {
-      roleBrief = '';
+    // Skip the heavy role brief for on_demand chat — the agent's system
+    // prompt already defines their role sufficiently for conversations.
+    let roleBrief = '';
+    if (!isOnDemand) {
+      const briefId = ROLE_TO_BRIEF[role];
+      if (briefId) {
+        try {
+          roleBrief = readFileSync(
+            join(__dirname, `../../company-knowledge/briefs/${briefId}.md`), 'utf-8',
+          );
+        } catch {
+          // Brief file missing — not critical
+        }
+      }
     }
 
     // PERSONALITY-FIRST prompt ordering:
@@ -970,6 +979,9 @@ export class CompanyAgentRunner {
         if (task === 'on_demand') {
           supervisor.config.maxTurns = Math.min(supervisor.config.maxTurns, ON_DEMAND_MAX_TURNS);
           supervisor.config.timeoutMs = Math.min(supervisor.config.timeoutMs, ON_DEMAND_SUPERVISOR_TIMEOUT_MS);
+          // Successful read-only tool results count as progress in chat —
+          // the agent is gathering info to answer a question, not stalling.
+          supervisor.config.readsAsProgress = true;
         } else if (isTaskTier) {
           supervisor.config.maxTurns = Math.min(supervisor.config.maxTurns, TASK_TIER_MAX_TURNS);
           supervisor.config.timeoutMs = Math.min(supervisor.config.timeoutMs, TASK_TIER_TIMEOUT_MS);
@@ -983,6 +995,18 @@ export class CompanyAgentRunner {
         // 1. SUPERVISOR CHECK
         const check = supervisor.checkBeforeModelCall();
         if (!check.ok) {
+          // For on_demand chat: if we collected tool data but never got text,
+          // synthesize a response from the tool results so the user sees
+          // something useful instead of "Sorry, I wasn't able to finish."
+          if (task === 'on_demand' && !lastTextOutput) {
+            const toolData = history
+              .filter(t => t.role === 'tool_result' && t.toolResult?.success)
+              .map(t => t.content)
+              .slice(-3);
+            if (toolData.length > 0) {
+              lastTextOutput = `Here's what I found before running out of time:\n\n${toolData.join('\n\n')}`;
+            }
+          }
           if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, check.reason ?? 'supervisor_limit', deps);
           return this.buildResult(
             config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens,
@@ -1046,13 +1070,15 @@ export class CompanyAgentRunner {
           }
 
           // ─── SMART TOOL GATING (on_demand / task) ────────────────
-          // on_demand: tools available on turns 1-3. The reasoning protocol
-          //   guides the model to classify intent first and only call tools
-          //   when genuinely needed. Strip tools on turn 4+ to force text.
+          // on_demand: time-aware gating. The model gets tools on early turns
+          //   BUT if we've used >55% of the time budget, strip tools immediately
+          //   to force a text response before the supervisor times out.
+          //   Also strip after turn 3 regardless.
           // task tier: strip tools on last turn to force a text response.
           // Scheduled: full tool access every turn.
           let effectiveTools: ReturnType<typeof toolExecutor.getDeclarations> | undefined = toolExecutor.getDeclarations();
-          if (isOnDemand && turnNumber > 3) {
+          const elapsedRatio = supervisor.elapsedMs / supervisor.config.timeoutMs;
+          if (isOnDemand && (turnNumber > 3 || elapsedRatio > 0.55)) {
             effectiveTools = undefined;
           } else if (isTaskTier && turnNumber >= supervisor.config.maxTurns) {
             effectiveTools = undefined;
