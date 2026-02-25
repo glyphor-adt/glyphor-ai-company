@@ -896,13 +896,23 @@ export class CompanyAgentRunner {
       }
 
       // Inject working memory (last-run summary)
+      // In chat (light tier or with conversation history), deprioritize working
+      // memory so the agent focuses on the user's question instead of fixating
+      // on stale scheduled-run context.
       if (workingMemory?.summary) {
         const ago = workingMemory.lastRunAt
           ? formatTimeAgo(new Date(workingMemory.lastRunAt))
           : 'unknown time';
+        const isChat = tier === 'light' || (config.conversationHistory && config.conversationHistory.length > 0);
+        const preamble = isChat
+          ? `## Background Context (from your last scheduled run ${ago} ago)\nThis is background info only — focus on answering the user's current question. Do NOT repeat or fixate on this unless directly relevant.\n\n`
+          : `## Working Memory\nYour last run was ${ago} ago. Here is what you accomplished:\n\n`;
+        const suffix = isChat
+          ? ''
+          : '\n\nUse this context to build on your previous work and avoid repeating completed tasks.';
         history.push({
           role: 'user',
-          content: `## Working Memory\nYour last run was ${ago} ago. Here is what you accomplished:\n\n${workingMemory.summary}\n\nUse this context to build on your previous work and avoid repeating completed tasks.`,
+          content: `${preamble}${workingMemory.summary}${suffix}`,
           timestamp: Date.now(),
         });
       }
