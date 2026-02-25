@@ -273,6 +273,8 @@ export const AGENT_META: Record<string, { color: string; icon: string }> = {
   'frontend-engineer':     { color: '#DB2777', icon: 'MdWebAsset' },
   'design-critic':         { color: '#DB2777', icon: 'MdRateReview' },
   'template-architect':    { color: '#DB2777', icon: 'MdDashboard' },
+  'm365-admin':            { color: '#EA580C', icon: 'MdAdminPanelSettings' },
+  'global-admin':          { color: '#EA580C', icon: 'MdSecurity' },
 };
 
 export const DISPLAY_NAME_MAP: Record<string, string> = {
@@ -303,6 +305,8 @@ export const DISPLAY_NAME_MAP: Record<string, string> = {
   'frontend-engineer': 'Ava Chen',
   'design-critic': 'Sofia Marchetti',
   'template-architect': 'Ryan Park',
+  'm365-admin': 'Riley Morgan',
+  'global-admin': 'Morgan Blake',
 };
 
 /** @deprecated Use DISPLAY_NAME_MAP instead */
@@ -526,4 +530,7 @@ export const SUB_TEAM: SubTeamMember[] = [
   { name: 'Ava Chen',      title: 'Frontend Engineer',    department: 'Design & Frontend', reportsTo: 'vp-design', color: '#DB2777', initials: 'AC', avatar: 'frontend-engineer' },
   { name: 'Sofia Marchetti', title: 'Design Critic',      department: 'Design & Frontend', reportsTo: 'vp-design', color: '#DB2777', initials: 'SM', avatar: 'design-critic' },
   { name: 'Ryan Park',     title: 'Template Architect',   department: 'Design & Frontend', reportsTo: 'vp-design', color: '#DB2777', initials: 'RP', avatar: 'template-architect' },
+  // Operations & IT → direct reports
+  { name: 'Riley Morgan',  title: 'M365 Administrator',   department: 'Operations & IT',   reportsTo: 'ops', color: '#EA580C', initials: 'RM', avatar: 'm365-admin' },
+  { name: 'Morgan Blake',  title: 'Global Administrator', department: 'Operations & IT',   reportsTo: 'ops', color: '#EA580C', initials: 'MB', avatar: 'global-admin' },
 ];

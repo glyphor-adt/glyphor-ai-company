@@ -26,6 +26,7 @@ const DEPARTMENTS = [
   { label: 'Customer Success', role: 'vp-customer-success' },
   { label: 'Sales', role: 'vp-sales' },
   { label: 'Design & Frontend', role: 'vp-design' },
+  { label: 'Operations & IT', role: 'ops' },
 ];
 
 const TITLE_MAP: Record<string, string> = {
@@ -39,6 +40,7 @@ const TITLE_MAP: Record<string, string> = {
   'vp-design': 'VP Design & Frontend',
   ops: 'Operations Agent',
   'm365-admin': 'M365 Administrator',
+  'global-admin': 'Global Administrator',
 };
 
 const EXEC_COUNT = Object.keys(TITLE_MAP).length;
@@ -125,21 +127,21 @@ export default function Workforce() {
 
           {/* Connector: CoS → departments */}
           <div className="flex justify-center">
-            <div className="relative h-10 w-full max-w-5xl">
+            <div className="relative h-10 w-full max-w-6xl">
               <div className="absolute left-1/2 top-0 h-4 w-px bg-border" />
-              <div className="absolute left-[8.3%] top-4 h-px bg-border" style={{ width: '83.4%' }} />
+              <div className="absolute left-[6.25%] top-4 h-px bg-border" style={{ width: '87.5%' }} />
               {DEPARTMENTS.map((_, i) => (
                 <div
                   key={i}
                   className="absolute top-4 h-6 w-px bg-border"
-                  style={{ left: `${8.3 + i * (83.4 / 5)}%` }}
+                  style={{ left: `${6.25 + i * (87.5 / (DEPARTMENTS.length - 1))}%` }}
                 />
               ))}
             </div>
           </div>
 
           {/* Department columns with heads + sub-teams */}
-          <div className="grid grid-cols-2 gap-6 md:grid-cols-4 xl:grid-cols-7">
+          <div className="grid grid-cols-2 gap-6 md:grid-cols-4 xl:grid-cols-8">
             {DEPARTMENTS.map((dept) => {
               const agent = agentMap.get(dept.role);
               const members = SUB_TEAM.filter((m) => m.reportsTo === dept.role);
@@ -198,7 +200,7 @@ export default function Workforce() {
             {agents
               .filter((a) => a.role in TITLE_MAP)
               .sort((a, b) => {
-                const order = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales', 'vp-design', 'ops', 'm365-admin'];
+                const order = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales', 'vp-design', 'ops', 'm365-admin', 'global-admin'];
                 return (order.indexOf(a.role) === -1 ? 99 : order.indexOf(a.role)) - (order.indexOf(b.role) === -1 ? 99 : order.indexOf(b.role));
               })
               .map((agent) => {
