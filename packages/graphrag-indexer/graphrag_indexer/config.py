@@ -63,6 +63,14 @@ ENTITY_TYPE_TO_NODE_TYPE = {
     "INFRASTRUCTURE": "entity",
     "COMPETITOR": "entity",
     "DEPARTMENT": "entity",
+    # Types actually produced by the tuned extraction prompt
+    "ORGANIZATIONAL CONCEPT": "entity",
+    "TECHNOLOGY PLATFORM/SERVICE": "entity",
+    "DATA STORE/TABLE": "entity",
+    "AI AGENT ROLE": "entity",
+    "COMMUNICATION CHANNEL": "entity",
+    "AUTHORITY TIER": "entity",
+    "HUMAN FOUNDER": "entity",
 }
 
 # Map GraphRAG relationship types → kg_edges edge_type

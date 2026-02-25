@@ -5,9 +5,12 @@ Uses the graphrag v3 library to:
 1. Load config (settings.yaml) with Gemini via litellm
 2. Extract entities and relationships from staged documents
 3. Return structured entity/relationship data for the bridge
+
+Includes a cache-based fallback for when the Gemini API is flaky.
 """
 
 import json
+import re
 from pathlib import Path
 
 from .config import (
@@ -175,3 +178,72 @@ def load_community_reports() -> list[dict]:
     except ImportError:
         print("[Extractor] pandas not available — skipping community reports")
         return []
+
+
+def load_entities_from_cache() -> tuple[list[dict], list[dict]]:
+    """
+    Extract entities and relationships directly from the GraphRAG LLM cache.
+    Fallback for when the Gemini API is flaky and build_index() can't complete.
+    Parses the cached extract_graph responses and extracts entity/relationship tuples.
+    """
+    cache_dir = INDEXER_ROOT / "cache" / "extract_graph"
+    if not cache_dir.exists():
+        print("[Extractor] No extract_graph cache found")
+        return [], []
+
+    entities = {}  # name -> entity dict (dedup by name)
+    relationships = []
+    entity_pattern = re.compile(
+        r'\("entity"<\|>(.+?)<\|>(.+?)<\|>(.+?)\)',
+        re.DOTALL
+    )
+    rel_pattern = re.compile(
+        r'\("relationship"<\|>(.+?)<\|>(.+?)<\|>(.+?)<\|>(.+?)<\|>(\d+(?:\.\d+)?)\)',
+        re.DOTALL
+    )
+
+    for cache_file in cache_dir.iterdir():
+        if not cache_file.is_file():
+            continue
+        try:
+            data = json.loads(cache_file.read_text(encoding="utf-8"))
+            content = data.get("result", {}).get("response", {})
+            # Get the LLM response content
+            text = content.get("content", "")
+            if not text:
+                choices = content.get("choices", [])
+                if choices:
+                    text = choices[0].get("message", {}).get("content", "")
+            if not text:
+                continue
+
+            for m in entity_pattern.finditer(text):
+                name = m.group(1).strip()
+                etype = m.group(2).strip().strip("<>")  # Remove angle brackets
+                desc = m.group(3).strip()
+                if name not in entities:
+                    entities[name] = {
+                        "name": name,
+                        "type": etype.upper(),
+                        "description": desc,
+                    }
+
+            for m in rel_pattern.finditer(text):
+                source = m.group(1).strip()
+                target = m.group(2).strip()
+                rtype = m.group(3).strip()
+                rdesc = m.group(4).strip()
+                weight = float(m.group(5))
+                relationships.append({
+                    "source": source,
+                    "target": target,
+                    "type": rtype.upper(),
+                    "description": rdesc,
+                    "weight": weight,
+                })
+        except (json.JSONDecodeError, KeyError):
+            continue
+
+    entity_list = list(entities.values())
+    print(f"[Extractor] Loaded {len(entity_list)} entities, {len(relationships)} relationships from cache")
+    return entity_list, relationships

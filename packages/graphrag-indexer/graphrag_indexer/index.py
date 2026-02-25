@@ -11,7 +11,7 @@ import os
 
 from .collector import stage_documents
 from .config import INDEXER_ROOT, OUTPUT_DIR, PROMPTS_DIR, GEMINI_API_KEY
-from .extractor import write_settings_yaml, load_extracted_entities, load_community_reports
+from .extractor import write_settings_yaml, load_extracted_entities, load_community_reports, load_entities_from_cache
 from .bridge import GraphRAGBridge
 
 
@@ -70,6 +70,7 @@ def run_pipeline(source: str = "all", skip_collect: bool = False) -> dict:
         print("  Warning: No tuned prompts found. Run `python -m graphrag_indexer.tune` first.")
 
     max_retries = 3
+    use_cache_fallback = False
     for attempt in range(1, max_retries + 1):
         try:
             asyncio.run(run_graphrag_index())
@@ -81,12 +82,17 @@ def run_pipeline(source: str = "all", skip_collect: bool = False) -> dict:
                 print(f"  [Retry] Attempt {attempt}/{max_retries} failed ({e}), retrying in {wait}s...")
                 time.sleep(wait)
             else:
-                raise
+                print(f"  [Warning] All {max_retries} attempts failed. Using cache-based extraction fallback.")
+                use_cache_fallback = True
 
     # 3. Load results and bridge to Supabase
     print("[Pipeline] Step 3/3: Syncing to knowledge graph...")
-    entities, relationships = load_extracted_entities()
-    community_reports = load_community_reports()
+    if use_cache_fallback:
+        entities, relationships = load_entities_from_cache()
+        community_reports = []
+    else:
+        entities, relationships = load_extracted_entities()
+        community_reports = load_community_reports()
 
     bridge = GraphRAGBridge()
     result = bridge.run(entities, relationships, community_reports)
