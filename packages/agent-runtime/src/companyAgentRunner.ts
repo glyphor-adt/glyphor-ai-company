@@ -71,12 +71,12 @@ function estimateCost(model: string, inputTokens: number, outputTokens: number):
  *  Turn budget: 1 reasoning turn + up to 3 tool turns + 1 forced-text turn = 5.
  *  Timeout leaves 30 s headroom before the dashboard's 120 s abort.
  */
-const ON_DEMAND_MAX_TURNS = 6;
+const ON_DEMAND_MAX_TURNS = 8;
 const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = 90_000;
 
 /** Task tier (work_loop) — narrow executor with tight limits. */
-const TASK_TIER_MAX_TURNS = 6;
-const TASK_TIER_TIMEOUT_MS = 120_000;
+const TASK_TIER_MAX_TURNS = 10;
+const TASK_TIER_TIMEOUT_MS = 180_000;
 const TASK_TIER_CALL_TIMEOUT_MS = 60_000;
 
 // ─── TIERED CONTEXT LOADING ───────────────────────────────────
