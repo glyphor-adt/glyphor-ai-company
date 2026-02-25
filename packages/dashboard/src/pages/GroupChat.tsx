@@ -200,7 +200,23 @@ export default function GroupChat() {
     setMessages((prev) => [...prev, userMsg]);
     setSending(true);
 
-    const roles = Array.from(selectedRoles);
+    // Parse @mentions and auto-add mentioned agents to recipients
+    const nameToRole = new Map<string, string>();
+    for (const [role, name] of Object.entries(DISPLAY_NAME_MAP)) {
+      nameToRole.set(name.toLowerCase(), role);
+    }
+    const mentionRegex = /@([A-Za-z]+(?: [A-Za-z]+)?)/g;
+    let match: RegExpExecArray | null;
+    const mentionedRoles = new Set<string>();
+    while ((match = mentionRegex.exec(text)) !== null) {
+      const role = nameToRole.get(match[1].toLowerCase());
+      if (role) mentionedRoles.add(role);
+    }
+    // Merge mentioned agents into selected roles for this send
+    const effectiveRoles = new Set(selectedRoles);
+    for (const role of mentionedRoles) effectiveRoles.add(role);
+
+    const roles = Array.from(effectiveRoles);
     setRespondingAgents(new Set(roles));
 
     const history = messages.slice(-20).map((m) => ({

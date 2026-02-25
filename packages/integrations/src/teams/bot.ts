@@ -275,7 +275,25 @@ function parseMessage(activity: TeamsActivity, botName: string): ParsedCommand {
     return { command: 'ask', agentRole: 'chief-of-staff', message: rest };
   }
 
-  // Free text — route to chief-of-staff
+  // Free text — check if message starts with an agent name (with or without @)
+  const freeWords = text.replace(/^@/, '').split(/\s+/);
+  // Try two-word name first
+  if (freeWords.length >= 2) {
+    const twoWord = `${freeWords[0]} ${freeWords[1]}`;
+    const agent = resolveAgent(twoWord);
+    if (agent) {
+      return { command: 'ask', agentRole: agent, message: freeWords.slice(2).join(' ') || 'Hello!' };
+    }
+  }
+  // Try single word name
+  if (freeWords.length >= 1) {
+    const agent = resolveAgent(freeWords[0]);
+    if (agent) {
+      return { command: 'ask', agentRole: agent, message: freeWords.slice(1).join(' ') || 'Hello!' };
+    }
+  }
+
+  // No agent name detected — route to chief-of-staff
   return { command: 'freetext', agentRole: 'chief-of-staff', message: text };
 }
 
