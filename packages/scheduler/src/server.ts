@@ -1415,6 +1415,72 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // ─── Strategy Lab v2 Endpoints ──────────────────────────────
+
+    // Launch a strategy analysis
+    if (method === 'POST' && url === '/strategy-lab/run') {
+      const body = JSON.parse(await readBody(req));
+      const { query, analysisType, depth, requestedBy } = body;
+      if (!query) { json(res, 400, { error: 'query is required' }); return; }
+      const id = await strategyLabEngine.launch({
+        query,
+        analysisType: analysisType || 'competitive_landscape',
+        depth: depth || 'standard',
+        requestedBy: requestedBy || 'api',
+      });
+      json(res, 200, { id, status: 'planning' });
+      return;
+    }
+
+    // List strategy analyses
+    if (method === 'GET' && url === '/strategy-lab') {
+      const analyses = await strategyLabEngine.list();
+      json(res, 200, analyses);
+      return;
+    }
+
+    // Get single strategy analysis
+    const strategyLabGetMatch = url.match(/^\/strategy-lab\/([^/]+)$/);
+    if (method === 'GET' && strategyLabGetMatch) {
+      const id = decodeURIComponent(strategyLabGetMatch[1]);
+      const record = await strategyLabEngine.get(id);
+      if (!record) { json(res, 404, { error: 'Strategy analysis not found' }); return; }
+      json(res, 200, record);
+      return;
+    }
+
+    // Cancel a strategy analysis
+    const strategyLabCancelMatch = url.match(/^\/strategy-lab\/([^/]+)\/cancel$/);
+    if (method === 'POST' && strategyLabCancelMatch) {
+      const id = decodeURIComponent(strategyLabCancelMatch[1]);
+      await strategyLabEngine.cancel(id);
+      json(res, 200, { success: true });
+      return;
+    }
+
+    // Export strategy analysis
+    const strategyLabExportMatch = url.match(/^\/strategy-lab\/([^/]+)\/export$/);
+    if (method === 'GET' && strategyLabExportMatch) {
+      const id = decodeURIComponent(strategyLabExportMatch[1]);
+      const record = await strategyLabEngine.get(id);
+      if (!record?.synthesis) { json(res, 404, { error: 'Strategy analysis not found or not completed' }); return; }
+      const params = new URLSearchParams(url.split('?')[1] || '');
+      const format = params.get('format') || 'json';
+      if (format === 'json') {
+        json(res, 200, record);
+      } else {
+        // Markdown export
+        const md = exportStrategyLabMarkdown(record);
+        res.writeHead(200, {
+          'Content-Type': 'text/markdown',
+          'Content-Disposition': `attachment; filename="strategy-${id}.md"`,
+          'Access-Control-Allow-Origin': '*',
+        });
+        res.end(md);
+      }
+      return;
+    }
+
     // ─── Message Endpoints ──────────────────────────────────────
 
     // Send a message (via API, not tool)
@@ -1695,6 +1761,67 @@ function buildDeepDiveVisualPrompt(record: import('./deepDiveEngine.js').DeepDiv
     `- Professional, clean, corporate aesthetic.`,
     `- Do NOT include any "Powered by" branding or logo.`,
   ].join('\n');
+}
+
+/* ── Strategy Lab v2 Markdown Export ─────────────── */
+
+function exportStrategyLabMarkdown(record: import('./strategyLabEngine.js').StrategyAnalysisRecord): string {
+  const s = record.synthesis;
+  if (!s) return `# Strategy Analysis: ${record.query}\n\n_Analysis not yet completed._`;
+
+  const lines: string[] = [
+    `# Strategy Analysis: ${record.query}`,
+    ``,
+    `**Type:** ${record.analysis_type} | **Depth:** ${record.depth} | **Sources:** ${record.total_sources} | **Searches:** ${record.total_searches}`,
+    `**Date:** ${new Date(record.created_at).toLocaleDateString()}`,
+    ``,
+    `---`,
+    ``,
+    `## Executive Summary`,
+    ``,
+    s.executiveSummary,
+    ``,
+    `## SWOT Analysis`,
+    ``,
+    `### Strengths`,
+    ...s.unifiedSwot.strengths.map(i => `- ${i}`),
+    ``,
+    `### Weaknesses`,
+    ...s.unifiedSwot.weaknesses.map(i => `- ${i}`),
+    ``,
+    `### Opportunities`,
+    ...s.unifiedSwot.opportunities.map(i => `- ${i}`),
+    ``,
+    `### Threats`,
+    ...s.unifiedSwot.threats.map(i => `- ${i}`),
+    ``,
+    `## Cross-Framework Insights`,
+    ``,
+    ...s.crossFrameworkInsights.map(i => `- ${i}`),
+    ``,
+    `## Strategic Recommendations`,
+    ``,
+  ];
+
+  for (const rec of s.strategicRecommendations) {
+    lines.push(`### ${rec.title}`);
+    lines.push(`**Impact:** ${rec.impact} | **Feasibility:** ${rec.feasibility} | **Owner:** ${rec.owner}`);
+    lines.push(``);
+    lines.push(rec.description);
+    lines.push(``);
+    lines.push(`- **Expected Outcome:** ${rec.expectedOutcome}`);
+    lines.push(`- **Risk if Not:** ${rec.riskIfNot}`);
+    lines.push(``);
+  }
+
+  lines.push(`## Key Risks`, ``);
+  for (const risk of s.keyRisks) lines.push(`- ${risk}`);
+  lines.push(``);
+
+  lines.push(`## Open Questions for Founders`, ``);
+  for (const q of s.openQuestionsForFounders) lines.push(`- ${q}`);
+
+  return lines.join('\n');
 }
 
 server.listen(PORT, () => {

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, type ReactNode } from 'react';
-import { MdCheck, MdWarning, MdClose, MdAutoAwesome, MdPalette, MdTrendingUp, MdFlag, MdArrowForward, MdChevronRight } from 'react-icons/md';
+import { MdCheck, MdWarning, MdClose, MdAutoAwesome, MdPalette, MdTrendingUp, MdFlag, MdArrowForward, MdChevronRight, MdSearch, MdPerson, MdExpandMore } from 'react-icons/md';
 import { SCHEDULER_URL } from '../lib/supabase';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
 
@@ -123,7 +123,7 @@ async function api<T>(path: string, opts?: RequestInit): Promise<T> {
 
 /* ── Page Component ────────────────────────────── */
 
-type Tab = 'analyses' | 'simulations' | 'cot';
+type Tab = 'analyses' | 'simulations' | 'cot' | 'strategy-lab-v2';
 
 export default function Strategy() {
   const [tab, setTab] = useState<Tab>('analyses');
@@ -132,6 +132,7 @@ export default function Strategy() {
     analyses: 'Strategic Analyses',
     simulations: 'T+1 Simulations',
     cot: 'Chain of Thought',
+    'strategy-lab-v2': 'Strategy Lab v2',
   };
 
   return (
@@ -145,7 +146,7 @@ export default function Strategy() {
 
       {/* Tab Toggle */}
       <div className="flex gap-1 rounded-lg bg-raised p-1 w-fit border border-border">
-        {(['analyses', 'simulations', 'cot'] as Tab[]).map((t) => (
+        {(['analyses', 'simulations', 'cot', 'strategy-lab-v2'] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -163,6 +164,7 @@ export default function Strategy() {
       {tab === 'analyses' && <AnalysesPanel />}
       {tab === 'simulations' && <SimulationsPanel />}
       {tab === 'cot' && <ChainOfThoughtPanel />}
+      {tab === 'strategy-lab-v2' && <StrategyLabV2Panel />}
     </div>
   );
 }
@@ -1325,5 +1327,477 @@ function ExportButton({ label, href }: { label: string; href: string }) {
     >
       {label}
     </a>
+  );
+}
+
+/* ══════════════════════════════════════════════
+   Strategy Lab v2 — Multi-Agent Strategic Analysis
+   ══════════════════════════════════════════════ */
+
+type SLv2AnalysisType = 'competitive_landscape' | 'market_opportunity' | 'product_strategy' | 'growth_diagnostic' | 'risk_assessment' | 'market_entry' | 'due_diligence';
+type SLv2Depth = 'quick' | 'standard' | 'deep' | 'comprehensive';
+type SLv2Status = 'planning' | 'researching' | 'analyzing' | 'synthesizing' | 'deepening' | 'completed' | 'failed';
+
+interface SLv2ResearchProgress {
+  analystRole: string;
+  analystName: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  startedAt?: string;
+  completedAt?: string;
+  searchCount?: number;
+  sourceCount?: number;
+  error?: string;
+}
+
+interface SLv2ExecProgress {
+  execRole: string;
+  execName: string;
+  framework: string;
+  status: 'waiting' | 'running' | 'completed' | 'failed';
+  startedAt?: string;
+  completedAt?: string;
+  error?: string;
+}
+
+interface SLv2Synthesis {
+  executiveSummary: string;
+  unifiedSwot: { strengths: string[]; weaknesses: string[]; opportunities: string[]; threats: string[] };
+  crossFrameworkInsights: string[];
+  strategicRecommendations: { title: string; description: string; impact: string; feasibility: string; owner: string; expectedOutcome: string; riskIfNot: string }[];
+  keyRisks: string[];
+  openQuestionsForFounders: string[];
+}
+
+interface SLv2Record {
+  id: string;
+  query: string;
+  analysis_type: SLv2AnalysisType;
+  depth: SLv2Depth;
+  status: SLv2Status;
+  requested_by: string;
+  research_progress: SLv2ResearchProgress[];
+  executive_progress: SLv2ExecProgress[];
+  synthesis: SLv2Synthesis | null;
+  total_searches: number;
+  total_sources: number;
+  created_at: string;
+  completed_at: string | null;
+  error: string | null;
+}
+
+const SLV2_TYPE_LABELS: Record<SLv2AnalysisType, string> = {
+  competitive_landscape: 'Competitive Landscape',
+  market_opportunity: 'Market Opportunity',
+  product_strategy: 'Product Strategy',
+  growth_diagnostic: 'Growth Diagnostic',
+  risk_assessment: 'Risk Assessment',
+  market_entry: 'Market Entry',
+  due_diligence: 'Due Diligence',
+};
+
+const SLV2_DEPTH_LABELS: Record<SLv2Depth, string> = {
+  quick: 'Quick — Sarah only (~2 min)',
+  standard: 'Standard — 2 analysts + 2 execs (~10 min)',
+  deep: 'Deep — 4 analysts + 4 execs (~20 min)',
+  comprehensive: 'Comprehensive — full + follow-up (~35 min)',
+};
+
+const SLV2_STATUS_LABELS: Record<SLv2Status, string> = {
+  planning: 'Planning research briefs…',
+  researching: 'Wave 1: Research team gathering data…',
+  analyzing: 'Wave 2: Executive analysis…',
+  synthesizing: 'Wave 3: Sarah synthesizing…',
+  deepening: 'Wave 4: Follow-up research…',
+  completed: 'Completed',
+  failed: 'Failed',
+};
+
+function slv2StatusColor(status: SLv2Status) {
+  if (status === 'completed') return 'bg-tier-green';
+  if (status === 'failed') return 'bg-red-400';
+  return 'bg-cyan animate-pulse';
+}
+
+function StrategyLabV2Panel() {
+  const [records, setRecords] = useState<SLv2Record[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [launching, setLaunching] = useState(false);
+
+  const [query, setQuery] = useState('');
+  const [analysisType, setAnalysisType] = useState<SLv2AnalysisType>('competitive_landscape');
+  const [depth, setDepth] = useState<SLv2Depth>('standard');
+
+  const refresh = useCallback(async () => {
+    try {
+      const data = await api<SLv2Record[]>('/strategy-lab');
+      setRecords(data);
+    } catch { setRecords([]); }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  // Poll while any are running
+  useEffect(() => {
+    const running = records.some((r) => !['completed', 'failed'].includes(r.status));
+    if (!running) return;
+    const interval = setInterval(refresh, 4000);
+    return () => clearInterval(interval);
+  }, [records, refresh]);
+
+  const launch = async () => {
+    if (!query.trim()) return;
+    setLaunching(true);
+    try {
+      await api('/strategy-lab/run', {
+        method: 'POST',
+        body: JSON.stringify({ query, analysisType, depth, requestedBy: 'dashboard' }),
+      });
+      setQuery('');
+      await refresh();
+    } finally { setLaunching(false); }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Launch Form */}
+      <Card>
+        <SectionHeader title="Launch Multi-Agent Strategy Analysis" subtitle="Research team → Executive analysis → Sarah synthesis" />
+        <div className="mt-4 space-y-3">
+          <textarea
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="e.g. 'Analyze competitor landscape for AI-powered website builders targeting SMBs'"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-txt-primary placeholder:text-txt-faint focus:outline-none focus:ring-1 focus:ring-cyan/50 resize-none"
+            rows={2}
+          />
+          <div className="flex gap-3 items-end flex-wrap">
+            <div className="flex-1 min-w-[200px]">
+              <label className="text-[11px] font-medium text-txt-muted mb-1 block">Analysis Type</label>
+              <select
+                value={analysisType}
+                onChange={(e) => setAnalysisType(e.target.value as SLv2AnalysisType)}
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-txt-primary focus:outline-none focus:ring-1 focus:ring-cyan/50"
+              >
+                {Object.entries(SLV2_TYPE_LABELS).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <label className="text-[11px] font-medium text-txt-muted mb-1 block">Depth</label>
+              <select
+                value={depth}
+                onChange={(e) => setDepth(e.target.value as SLv2Depth)}
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-txt-primary focus:outline-none focus:ring-1 focus:ring-cyan/50"
+              >
+                {Object.entries(SLV2_DEPTH_LABELS).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={launch}
+              disabled={launching || !query.trim()}
+              className="rounded-lg bg-cyan/20 border border-cyan/30 px-5 py-2 text-sm font-medium text-cyan transition-all hover:bg-cyan/30 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {launching ? 'Launching…' : 'Launch Analysis'}
+            </button>
+          </div>
+        </div>
+      </Card>
+
+      {/* Records list */}
+      {loading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+        </div>
+      ) : records.length === 0 ? (
+        <Card><p className="text-sm text-txt-faint py-4 text-center">No strategy lab v2 analyses yet</p></Card>
+      ) : (
+        <div className="space-y-3">
+          {records.map((rec) => (
+            <SLv2RecordCard
+              key={rec.id}
+              record={rec}
+              expanded={expanded === rec.id}
+              onToggle={() => setExpanded(expanded === rec.id ? null : rec.id)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SLv2RecordCard({ record, expanded, onToggle }: { record: SLv2Record; expanded: boolean; onToggle: () => void }) {
+  const r = record;
+  const isRunning = !['completed', 'failed'].includes(r.status);
+
+  // Progress counts
+  const researchDone = r.research_progress.filter((p) => p.status === 'completed').length;
+  const researchTotal = r.research_progress.length;
+  const execDone = r.executive_progress.filter((p) => p.status === 'completed').length;
+  const execTotal = r.executive_progress.length;
+
+  return (
+    <Card>
+      <button onClick={onToggle} className="w-full text-left">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <span className={`h-2 w-2 rounded-full shrink-0 ${slv2StatusColor(r.status)}`} />
+              <span className="text-sm font-medium text-txt-primary line-clamp-1">{r.query}</span>
+            </div>
+            <div className="mt-1 flex items-center gap-3 text-[11px] text-txt-muted">
+              <span>{SLV2_TYPE_LABELS[r.analysis_type]}</span>
+              <span>•</span>
+              <span className="capitalize">{r.depth}</span>
+              <span>•</span>
+              <span>{timeAgo(r.created_at)}</span>
+              {r.total_searches > 0 && (<><span>•</span><span>{r.total_searches} searches, {r.total_sources} sources</span></>)}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {isRunning && (
+              <span className="rounded-full border border-cyan/30 bg-cyan/10 px-2.5 py-0.5 text-[10px] font-medium text-cyan">
+                {SLV2_STATUS_LABELS[r.status]}
+              </span>
+            )}
+            <MdExpandMore className={`h-5 w-5 text-txt-faint transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          </div>
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="mt-4 space-y-5 border-t border-border pt-4">
+          {/* Wave Progress */}
+          <SLv2WaveProgress record={r} />
+
+          {/* Synthesis */}
+          {r.synthesis && <SLv2SynthesisView synthesis={r.synthesis} id={r.id} />}
+
+          {/* Error */}
+          {r.error && (
+            <div className="rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2">
+              <p className="text-sm text-red-400">{r.error}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function SLv2WaveProgress({ record }: { record: SLv2Record }) {
+  const r = record;
+  const waves = [
+    { label: 'Research', icon: <MdSearch className="h-4 w-4" />, active: r.status === 'researching' },
+    { label: 'Analysis', icon: <MdPerson className="h-4 w-4" />, active: r.status === 'analyzing' },
+    { label: 'Synthesis', icon: <MdAutoAwesome className="h-4 w-4" />, active: r.status === 'synthesizing' || r.status === 'deepening' },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* Wave indicator */}
+      <div className="flex items-center gap-2 justify-center">
+        {waves.map((w, i) => (
+          <div key={w.label} className="flex items-center gap-2">
+            <div className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium ${
+              w.active
+                ? 'border-cyan/40 bg-cyan/15 text-cyan'
+                : r.status === 'completed' || (i === 0 && ['analyzing', 'synthesizing', 'deepening', 'completed'].includes(r.status)) || (i === 1 && ['synthesizing', 'deepening', 'completed'].includes(r.status))
+                  ? 'border-tier-green/30 bg-tier-green/10 text-tier-green'
+                  : 'border-border bg-surface text-txt-faint'
+            }`}>
+              {w.icon}
+              {w.label}
+            </div>
+            {i < waves.length - 1 && <MdArrowForward className="h-3 w-3 text-txt-faint" />}
+          </div>
+        ))}
+      </div>
+
+      {/* Research analysts */}
+      {r.research_progress.length > 0 && (
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Research Team</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {r.research_progress.map((rp) => (
+              <div key={rp.analystRole} className="rounded-lg border border-border bg-raised px-3 py-2">
+                <div className="flex items-center gap-1.5">
+                  <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                    rp.status === 'completed' ? 'bg-tier-green' : rp.status === 'running' ? 'bg-cyan animate-pulse' : rp.status === 'failed' ? 'bg-red-400' : 'bg-txt-faint/30'
+                  }`} />
+                  <span className="text-[12px] font-medium text-txt-primary truncate">{rp.analystName}</span>
+                </div>
+                {(rp.searchCount || rp.sourceCount) && (
+                  <p className="mt-0.5 text-[10px] text-txt-faint">{rp.searchCount ?? 0} searches · {rp.sourceCount ?? 0} pages</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Executive analysts */}
+      {r.executive_progress.length > 0 && (
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Executive Analysis</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {r.executive_progress.map((ep) => (
+              <div key={ep.execRole} className="rounded-lg border border-border bg-raised px-3 py-2">
+                <div className="flex items-center gap-1.5">
+                  <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                    ep.status === 'completed' ? 'bg-tier-green' : ep.status === 'running' ? 'bg-cyan animate-pulse' : ep.status === 'failed' ? 'bg-red-400' : 'bg-txt-faint/30'
+                  }`} />
+                  <span className="text-[12px] font-medium text-txt-primary truncate">{ep.execName}</span>
+                </div>
+                <p className="mt-0.5 text-[10px] text-txt-faint truncate">{ep.framework}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SLv2SynthesisView({ synthesis, id }: { synthesis: SLv2Synthesis; id: string }) {
+  const s = synthesis;
+  const [showSection, setShowSection] = useState<'summary' | 'swot' | 'recs' | 'risks'>('summary');
+
+  return (
+    <div className="space-y-3">
+      {/* Section tabs */}
+      <div className="flex gap-1 rounded-lg bg-surface p-1 w-fit border border-border">
+        {([
+          ['summary', 'Summary'],
+          ['swot', 'SWOT'],
+          ['recs', 'Recommendations'],
+          ['risks', 'Risks & Questions'],
+        ] as const).map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setShowSection(k)}
+            className={`rounded-md px-3 py-1 text-[11px] font-medium transition-colors ${
+              showSection === k ? 'bg-cyan/15 text-cyan' : 'text-txt-muted hover:text-txt-secondary'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {showSection === 'summary' && (
+        <div className="space-y-3">
+          <div className="rounded-lg border border-cyan/20 bg-cyan/5 px-4 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan mb-1.5">Executive Summary</p>
+            <p className="text-sm text-txt-primary leading-relaxed">{s.executiveSummary}</p>
+          </div>
+          {s.crossFrameworkInsights.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-1.5">Cross-Framework Insights</p>
+              <ul className="space-y-1">
+                {s.crossFrameworkInsights.map((i, idx) => (
+                  <li key={idx} className="text-[12px] text-txt-secondary leading-relaxed">• {i}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {showSection === 'swot' && (
+        <div className="grid grid-cols-2 gap-3">
+          {(['strengths', 'weaknesses', 'opportunities', 'threats'] as const).map((cat) => {
+            const colors = {
+              strengths: { border: 'border-tier-green/20', bg: 'bg-tier-green/5', label: 'text-tier-green' },
+              weaknesses: { border: 'border-red-400/20', bg: 'bg-red-400/5', label: 'text-red-400' },
+              opportunities: { border: 'border-cyan/20', bg: 'bg-cyan/5', label: 'text-cyan' },
+              threats: { border: 'border-amber-400/20', bg: 'bg-amber-400/5', label: 'text-amber-400' },
+            };
+            const c = colors[cat];
+            return (
+              <div key={cat} className={`rounded-lg border ${c.border} ${c.bg} p-3`}>
+                <p className={`text-[10px] font-semibold uppercase tracking-wider ${c.label} mb-1.5`}>{cat}</p>
+                <ul className="space-y-1">
+                  {s.unifiedSwot[cat].map((item, i) => (
+                    <li key={i} className="text-[11px] text-txt-secondary leading-relaxed">• {item}</li>
+                  ))}
+                </ul>
+                {s.unifiedSwot[cat].length === 0 && <p className="text-[11px] text-txt-faint">—</p>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {showSection === 'recs' && (
+        <div className="space-y-3">
+          {s.strategicRecommendations.map((rec, i) => (
+            <div key={i} className="rounded-lg border border-border bg-raised px-4 py-3">
+              <div className="flex items-start justify-between mb-1.5">
+                <span className="text-sm font-medium text-txt-primary">{rec.title}</span>
+                <div className="flex gap-1.5">
+                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-medium ${
+                    rec.impact === 'high' ? 'border-tier-green/30 bg-tier-green/10 text-tier-green' : rec.impact === 'medium' ? 'border-amber-400/30 bg-amber-400/10 text-amber-400' : 'border-border bg-surface text-txt-faint'
+                  }`}>
+                    Impact: {rec.impact}
+                  </span>
+                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-medium ${
+                    rec.feasibility === 'high' ? 'border-tier-green/30 bg-tier-green/10 text-tier-green' : rec.feasibility === 'medium' ? 'border-amber-400/30 bg-amber-400/10 text-amber-400' : 'border-border bg-surface text-txt-faint'
+                  }`}>
+                    Feasibility: {rec.feasibility}
+                  </span>
+                </div>
+              </div>
+              <p className="text-[12px] text-txt-muted leading-relaxed mb-2">{rec.description}</p>
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div><span className="text-txt-faint">Owner:</span> <span className="text-txt-secondary">{rec.owner}</span></div>
+                <div><span className="text-txt-faint">Expected:</span> <span className="text-txt-secondary">{rec.expectedOutcome}</span></div>
+              </div>
+              <p className="mt-1.5 text-[11px] text-red-400/80">⚠ {rec.riskIfNot}</p>
+            </div>
+          ))}
+          {s.strategicRecommendations.length === 0 && <p className="text-sm text-txt-faint">No recommendations generated</p>}
+        </div>
+      )}
+
+      {showSection === 'risks' && (
+        <div className="space-y-4">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Key Risks</p>
+            <ul className="space-y-1">
+              {s.keyRisks.map((risk, i) => (
+                <li key={i} className="flex items-start gap-2 text-[12px] text-txt-secondary leading-relaxed">
+                  <MdFlag className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
+                  {risk}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Open Questions for Founders</p>
+            <ul className="space-y-1">
+              {s.openQuestionsForFounders.map((q, i) => (
+                <li key={i} className="flex items-start gap-2 text-[12px] text-txt-secondary leading-relaxed">
+                  <MdChevronRight className="h-3.5 w-3.5 text-cyan shrink-0 mt-0.5" />
+                  {q}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Export */}
+      <div className="flex gap-2 pt-2">
+        <ExportButton label="JSON" href={`${SCHEDULER_URL}/strategy-lab/${id}/export?format=json`} />
+        <ExportButton label="Markdown" href={`${SCHEDULER_URL}/strategy-lab/${id}/export?format=markdown`} />
+      </div>
+    </div>
   );
 }
