@@ -1,12 +1,15 @@
 /**
  * Quality Engineer (Sam DeLuca) — Tool Definitions
  *
- * Tools for: test execution, build analysis, bug reporting.
- * Read-only except for test results and bug reports.
+ * Tools for: test execution, build analysis, bug reporting, CI/CD visibility.
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
+import {
+  listCloudBuilds, getCloudBuildDetails,
+  listWorkflowRuns, createIssue, type GlyphorRepo,
+} from '@glyphor/integrations';
 
 export function createQualityEngineerTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [

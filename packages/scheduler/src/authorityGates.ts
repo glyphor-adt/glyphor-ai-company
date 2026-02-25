@@ -94,7 +94,8 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
     'create_incident', 'resolve_incident', 'trigger_agent',
     'send_dm', 'read_inbox',
   ]),
-  // Strategy Lab v2 Research Analysts
+  // Research & Intelligence
+  'vp-research': new Set(['decompose_research', 'qc_and_package_research', 'follow_up_research', 'on_demand']),
   'competitive-research-analyst': new Set(['research', 'on_demand']),
   'market-research-analyst': new Set(['research', 'on_demand']),
   'technical-research-analyst': new Set(['research', 'on_demand']),

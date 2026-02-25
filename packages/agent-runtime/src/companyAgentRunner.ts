@@ -191,7 +191,8 @@ const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
   'm365-admin': 'riley-morgan',
   'global-admin': 'morgan-blake',
   'ops': 'atlas-vega',
-  // Strategy Lab v2 Research Analysts
+  // Research & Intelligence
+  'vp-research': 'sophia-lin',
   'competitive-research-analyst': 'lena-park',
   'market-research-analyst': 'daniel-okafor',
   'technical-research-analyst': 'kai-nakamura',

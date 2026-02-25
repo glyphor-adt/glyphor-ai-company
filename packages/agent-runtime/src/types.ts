@@ -60,11 +60,12 @@ export type CompanyAgentRole =
   | 'm365-admin'              // Riley Morgan → reports to CTO, manages Microsoft 365
   | 'global-admin'            // Morgan Blake → reports to CoS, cross-project IAM & onboarding
   | 'ops'                     // Atlas Vega → Operations & System Intelligence
-  // Strategy Lab v2 — Research Analysts
-  | 'competitive-research-analyst'  // Lena Park → Strategy Lab competitive research
-  | 'market-research-analyst'       // Daniel Okafor → Strategy Lab market research
-  | 'technical-research-analyst'    // Kai Nakamura → Strategy Lab technical research
-  | 'industry-research-analyst';    // Amara Diallo → Strategy Lab industry research
+  // Research & Intelligence
+  | 'vp-research'                   // Sophia Lin → VP of Research & Intelligence
+  | 'competitive-research-analyst'  // Lena Park → reports to Sophia Lin
+  | 'market-research-analyst'       // Daniel Okafor → reports to Sophia Lin
+  | 'technical-research-analyst'    // Kai Nakamura → reports to Sophia Lin
+  | 'industry-research-analyst';    // Amara Diallo → reports to Sophia Lin
 
 export type ContextInjector = (
   turnNumber: number,
@@ -383,7 +384,8 @@ export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   'template-architect':   { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'm365-admin':           { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'global-admin':          { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
-  // Strategy Lab v2 Research Analysts
+  // Research & Intelligence
+  'vp-research':                    { perRunUsd: 0.10, dailyUsd: 2.00, monthlyUsd: 60 },
   'competitive-research-analyst': { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
   'market-research-analyst':      { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
   'technical-research-analyst':   { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
@@ -452,6 +454,7 @@ export const SUB_TEAM_ROLES: CompanyAgentRole[] = [
   'cost-analyst', 'content-creator', 'seo-analyst',
   'social-media-manager', 'onboarding-specialist',
   'support-triage', 'account-research', 'm365-admin', 'global-admin',
+  'vp-research',
   'competitive-research-analyst', 'market-research-analyst',
   'technical-research-analyst', 'industry-research-analyst',
 ];
