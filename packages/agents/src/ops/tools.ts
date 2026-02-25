@@ -552,6 +552,25 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
     },
 
     {
+      name: 'refresh_performance_scores',
+      description: 'Recompute the composite performance_score on company_agents from trailing 30-day data (success rate, reflection quality, assignment quality). Run after daily rollup.',
+      parameters: {},
+      execute: async (): Promise<ToolResult> => {
+        const { data, error } = await supabase.rpc('compute_performance_scores');
+        if (error) return { success: false, error: error.message };
+        const results = (data as Array<{ agent_role: string; new_score: number | null }>) ?? [];
+        const updated = results.filter((r) => r.new_score != null);
+        return {
+          success: true,
+          data: {
+            agents_scored: updated.length,
+            scores: Object.fromEntries(updated.map((r) => [r.agent_role, r.new_score])),
+          },
+        };
+      },
+    },
+
+    {
       name: 'detect_milestones',
       description: 'Scan for notable achievements or incidents. Run after daily rollup.',
       parameters: {

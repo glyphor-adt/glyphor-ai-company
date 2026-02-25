@@ -155,7 +155,8 @@ Steps:
 
 Steps:
 1. Use rollup_agent_performance to aggregate yesterday's agent_runs into agent_performance
-2. Report how many agents were rolled up and any notable findings`;
+2. Use refresh_performance_scores to recompute each agent's composite performance_score from the last 30 days
+3. Report how many agents were rolled up, their updated scores, and any notable findings`;
       break;
 
     case 'milestone_detection':
