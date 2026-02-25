@@ -1336,7 +1336,7 @@ function ExportButton({ label, href }: { label: string; href: string }) {
 
 type SLv2AnalysisType = 'competitive_landscape' | 'market_opportunity' | 'product_strategy' | 'growth_diagnostic' | 'risk_assessment' | 'market_entry' | 'due_diligence';
 type SLv2Depth = 'quick' | 'standard' | 'deep' | 'comprehensive';
-type SLv2Status = 'planning' | 'researching' | 'analyzing' | 'synthesizing' | 'deepening' | 'completed' | 'failed';
+type SLv2Status = 'planning' | 'framing' | 'decomposing' | 'researching' | 'quality-check' | 'analyzing' | 'synthesizing' | 'deepening' | 'completed' | 'failed';
 
 interface SLv2ResearchProgress {
   analystRole: string;
@@ -1380,6 +1380,11 @@ interface SLv2Record {
   synthesis: SLv2Synthesis | null;
   total_searches: number;
   total_sources: number;
+  sophia_qc: Record<string, unknown> | null;
+  cover_memos: Record<string, unknown> | null;
+  gaps_filled: string[];
+  remaining_gaps: string[];
+  overall_confidence: string | null;
   created_at: string;
   completed_at: string | null;
   error: string | null;
@@ -1404,7 +1409,10 @@ const SLV2_DEPTH_LABELS: Record<SLv2Depth, string> = {
 
 const SLV2_STATUS_LABELS: Record<SLv2Status, string> = {
   planning: 'Planning research briefs…',
+  framing: 'Phase 0: Sarah framing request…',
+  decomposing: 'Phase 0.5: Sophia decomposing research…',
   researching: 'Wave 1: Research team gathering data…',
+  'quality-check': 'Wave 1.5: Sophia QC & packaging…',
   analyzing: 'Wave 2: Executive analysis…',
   synthesizing: 'Wave 3: Sarah synthesizing…',
   deepening: 'Wave 4: Follow-up research…',
@@ -1593,22 +1601,29 @@ function SLv2RecordCard({ record, expanded, onToggle }: { record: SLv2Record; ex
 
 function SLv2WaveProgress({ record }: { record: SLv2Record }) {
   const r = record;
+  const pastStatuses = new Set<string>();
+  const statusOrder: SLv2Status[] = ['planning', 'framing', 'decomposing', 'researching', 'quality-check', 'analyzing', 'synthesizing', 'deepening', 'completed'];
+  const currentIdx = statusOrder.indexOf(r.status);
+
   const waves = [
-    { label: 'Research', icon: <MdSearch className="h-4 w-4" />, active: r.status === 'researching' },
-    { label: 'Analysis', icon: <MdPerson className="h-4 w-4" />, active: r.status === 'analyzing' },
-    { label: 'Synthesis', icon: <MdAutoAwesome className="h-4 w-4" />, active: r.status === 'synthesizing' || r.status === 'deepening' },
+    { label: 'Frame', icon: <MdAutoAwesome className="h-4 w-4" />, active: r.status === 'framing', done: currentIdx > 1 },
+    { label: 'Decompose', icon: <MdSearch className="h-4 w-4" />, active: r.status === 'decomposing', done: currentIdx > 2 },
+    { label: 'Research', icon: <MdSearch className="h-4 w-4" />, active: r.status === 'researching', done: currentIdx > 3 },
+    { label: 'QC', icon: <MdPerson className="h-4 w-4" />, active: r.status === 'quality-check', done: currentIdx > 4 },
+    { label: 'Analysis', icon: <MdPerson className="h-4 w-4" />, active: r.status === 'analyzing', done: currentIdx > 5 },
+    { label: 'Synthesis', icon: <MdAutoAwesome className="h-4 w-4" />, active: r.status === 'synthesizing' || r.status === 'deepening', done: r.status === 'completed' },
   ];
 
   return (
     <div className="space-y-4">
       {/* Wave indicator */}
-      <div className="flex items-center gap-2 justify-center">
+      <div className="flex items-center gap-2 justify-center flex-wrap">
         {waves.map((w, i) => (
           <div key={w.label} className="flex items-center gap-2">
             <div className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium ${
               w.active
                 ? 'border-cyan/40 bg-cyan/15 text-cyan'
-                : r.status === 'completed' || (i === 0 && ['analyzing', 'synthesizing', 'deepening', 'completed'].includes(r.status)) || (i === 1 && ['synthesizing', 'deepening', 'completed'].includes(r.status))
+                : w.done || r.status === 'completed'
                   ? 'border-tier-green/30 bg-tier-green/10 text-tier-green'
                   : 'border-border bg-surface text-txt-faint'
             }`}>
@@ -1619,6 +1634,26 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
           </div>
         ))}
       </div>
+
+      {/* Sophia QC summary */}
+      {r.overall_confidence && (
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-400">Sophia QC</span>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+              r.overall_confidence === 'high' ? 'bg-tier-green/15 text-tier-green' :
+              r.overall_confidence === 'medium' ? 'bg-amber-500/15 text-amber-400' :
+              'bg-red-400/15 text-red-400'
+            }`}>{r.overall_confidence} confidence</span>
+          </div>
+          {r.gaps_filled?.length > 0 && (
+            <p className="mt-1 text-[10px] text-txt-faint">Gaps filled: {r.gaps_filled.length}</p>
+          )}
+          {r.remaining_gaps?.length > 0 && (
+            <p className="mt-0.5 text-[10px] text-red-400">Remaining gaps: {r.remaining_gaps.join(', ')}</p>
+          )}
+        </div>
+      )}
 
       {/* Research analysts */}
       {r.research_progress.length > 0 && (
