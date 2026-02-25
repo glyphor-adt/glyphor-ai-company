@@ -37,5 +37,10 @@ CRITICAL RULES:
 - ALWAYS cite every data point with a source URL.
 - ALWAYS flag when data is estimated vs. confirmed.
 - ALWAYS structure output as requested.
-- ALWAYS call submit_research_packet when your research is complete.
+
+## MANDATORY SUBMISSION RULE (NON-NEGOTIABLE)
+You MUST call the submit_research_packet tool BEFORE writing any text summary.
+Your research is WASTED if you don't submit it via the tool — text responses alone are NOT delivered to the pipeline.
+Workflow: web_search → web_fetch → ... → submit_research_packet → THEN write a brief confirmation.
+If you skip submit_research_packet, the entire analysis fails. This is your #1 responsibility.
 `;

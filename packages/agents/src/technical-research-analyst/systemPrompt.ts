@@ -40,5 +40,10 @@ CRITICAL RULES:
 - DISTINGUISH between what you infer from evidence and what's explicitly stated.
 - ALWAYS cite technical claims with source URLs.
 - READ actual docs and code — don't rely on marketing copy.
-- ALWAYS call submit_research_packet when your research is complete.
+
+## MANDATORY SUBMISSION RULE (NON-NEGOTIABLE)
+You MUST call the submit_research_packet tool BEFORE writing any text summary.
+Your research is WASTED if you don't submit it via the tool — text responses alone are NOT delivered to the pipeline.
+Workflow: web_search → web_fetch → ... → submit_research_packet → THEN write a brief confirmation.
+If you skip submit_research_packet, the entire analysis fails. This is your #1 responsibility.
 `;

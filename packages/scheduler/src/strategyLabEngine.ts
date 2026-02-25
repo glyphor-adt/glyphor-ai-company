@@ -748,7 +748,58 @@ Return ONLY valid JSON — no markdown fences.`,
       .select('research_packets')
       .eq('id', id)
       .single();
-    const researchPackets = (currentRecord?.research_packets as Record<string, unknown>) || {};
+    let researchPackets = (currentRecord?.research_packets as Record<string, unknown>) || {};
+
+    // ── Fallback: extract packets from analyst text output ──
+    // If analysts completed but didn't call submit_research_packet, their findings
+    // are trapped in text output. Extract and submit them as fallback packets.
+    if (Object.keys(researchPackets).length === 0) {
+      const ROLE_TO_PACKET_TYPE: Record<string, string> = {
+        'competitive-research-analyst': 'competitor_profiles',
+        'market-research-analyst': 'market_data',
+        'technical-research-analyst': 'technical_landscape',
+        'industry-research-analyst': 'industry_trends',
+      };
+
+      let fallbackCount = 0;
+      for (let i = 0; i < researchResults.length; i++) {
+        const r = researchResults[i];
+        if (r.status !== 'fulfilled' || !r.value?.output) continue;
+
+        const role = sophiaBriefs[i]?.analystRole as string;
+        const packetType = ROLE_TO_PACKET_TYPE[role];
+        if (!packetType) continue;
+
+        const fallbackPacket = {
+          data: { rawFindings: r.value.output },
+          sources: [],
+          confidenceLevel: 'low',
+          dataGaps: ['Packet auto-extracted from text output — structured data may be missing'],
+          conflictingData: [],
+          submittedAt: new Date().toISOString(),
+          fallback: true,
+        };
+
+        try {
+          await this.supabase.rpc('merge_research_packet', {
+            p_analysis_id: id,
+            p_packet_type: packetType,
+            p_packet_data: fallbackPacket,
+          });
+          fallbackCount++;
+        } catch { /* best-effort */ }
+      }
+
+      if (fallbackCount > 0) {
+        // Re-read packets after fallback insertion
+        const { data: fallbackRecord } = await this.supabase
+          .from('strategy_analyses')
+          .select('research_packets')
+          .eq('id', id)
+          .single();
+        researchPackets = (fallbackRecord?.research_packets as Record<string, unknown>) || {};
+      }
+    }
 
     if (Object.keys(researchPackets).length === 0) {
       await this.supabase.from('strategy_analyses').update({
