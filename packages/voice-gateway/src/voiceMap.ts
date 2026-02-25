@@ -7,21 +7,21 @@ import type { AgentVoiceConfig, RealtimeVoice } from './types.js';
 
 /** Voice assignment for every agent role */
 export const AGENT_VOICES: Record<string, RealtimeVoice> = {
-  'chief-of-staff':  'nova',      // Sarah Chen — warm, professional
-  'cto':             'onyx',      // Marcus Reeves — deep, technical
+  'chief-of-staff':  'marin',     // Sarah Chen — warm, professional
+  'cto':             'ash',       // Marcus Reeves — deep, technical
   'cfo':             'coral',     // Nadia Okafor — precise, measured
   'cpo':             'sage',      // Elena Vasquez — thoughtful, analytical
   'cmo':             'shimmer',   // Maya Brooks — energetic, creative
   'clo':             'echo',      // Victoria Chase — authoritative, calm
-  'vp-design':       'fable',     // Mia Tanaka — expressive, artistic
+  'vp-design':       'cedar',     // Mia Tanaka — expressive, artistic
   'vp-sales':        'alloy',     // Rachel Kim — confident, persuasive
-  'vp-customer-success': 'ash',   // James Turner — calm, supportive
-  'ops':             'ballad',    // Atlas Vega — steady, operational
-  'vp-research':     'verse',     // Sophia Lin — articulate, precise
+  'vp-customer-success': 'ballad',// James Turner — calm, supportive
+  'ops':             'verse',     // Atlas Vega — steady, operational
+  'vp-research':     'coral',     // Sophia Lin — articulate, precise
   // Sub-team: Engineering
   'platform-engineer': 'echo',    // Alex Park
   'quality-engineer':  'ash',     // Sam DeLuca
-  'devops-engineer':   'onyx',    // Jordan Hayes
+  'devops-engineer':   'marin',   // Jordan Hayes
   // Sub-team: Product
   'user-researcher':     'coral', // Priya Sharma
   'competitive-intel':   'sage',  // Daniel Ortiz
@@ -30,26 +30,26 @@ export const AGENT_VOICES: Record<string, RealtimeVoice> = {
   'cost-analyst':     'verse',    // Omar Hassan
   // Sub-team: Marketing
   'content-creator':       'shimmer', // Tyler Reed
-  'seo-analyst':           'nova',    // Lisa Chen
-  'social-media-manager':  'fable',   // Kai Johnson
+  'seo-analyst':           'cedar',   // Lisa Chen
+  'social-media-manager':  'marin',   // Kai Johnson
   // Sub-team: Customer Success
   'onboarding-specialist': 'ballad',  // Emma Wright
   'support-triage':        'alloy',   // David Santos
   // Sub-team: Sales
-  'account-research': 'onyx',         // Nathan Cole
+  'account-research': 'ash',          // Nathan Cole
   // Sub-team: Design
   'ui-ux-designer':    'coral',       // Leo Vargas
   'frontend-engineer': 'sage',        // Ava Chen
   'design-critic':     'echo',        // Sofia Marchetti
   'template-architect':'verse',       // Ryan Park
   // IT / Admin
-  'm365-admin':   'ash',              // Riley Morgan
+  'm365-admin':   'cedar',            // Riley Morgan
   'global-admin': 'ballad',           // Morgan Blake
   // Research team
-  'competitive-research-analyst': 'nova',    // Lena Park
+  'competitive-research-analyst': 'marin',   // Lena Park
   'market-research-analyst':      'shimmer', // Daniel Okafor
-  'technical-research-analyst':   'onyx',    // Kai Nakamura
-  'industry-research-analyst':    'fable',   // Amara Diallo
+  'technical-research-analyst':   'ash',     // Kai Nakamura
+  'industry-research-analyst':    'cedar',   // Amara Diallo
 };
 
 /** Display names for agents (mirrors dashboard DISPLAY_NAME_MAP) */
