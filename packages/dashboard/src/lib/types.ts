@@ -104,6 +104,68 @@ export type ChatMessage = {
   created_at: string;
 }
 
+export type FounderDirective = {
+  id: string;
+  created_by: string;
+  title: string;
+  description: string;
+  priority: string;
+  category: string;
+  target_agents: string[];
+  status: string;
+  due_date: string | null;
+  progress_notes: string[];
+  completion_summary: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type Incident = {
+  id: string;
+  severity: string;
+  title: string;
+  description: string | null;
+  affected_agents: string[] | null;
+  status: string;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export type AgentReflection = {
+  id: string;
+  agent_role: string;
+  summary: string;
+  quality_score: number | null;
+  what_went_well: string[];
+  what_could_improve: string[];
+  created_at: string;
+}
+
+export type CompanyPulse = {
+  id: string;
+  mrr: number | null;
+  mrr_change_pct: number | null;
+  active_users: number | null;
+  new_users_today: number | null;
+  churn_events_today: number | null;
+  platform_status: string;
+  active_incidents: number | null;
+  decisions_pending: number | null;
+  highlights: unknown[];
+  company_mood: string;
+  updated_at: string;
+}
+
+export type WorkAssignment = {
+  id: string;
+  directive_id: string;
+  assigned_to: string;
+  task_description: string;
+  status: string;
+  priority: string;
+  created_at: string;
+}
+
 /* ── Supabase generic DB shape (simplified) ── */
 export type Database = {
   public: {

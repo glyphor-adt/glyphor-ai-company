@@ -35,6 +35,8 @@ import {
   exportDeepDiveMarkdown, exportDeepDiveJSON,
   exportDeepDiveDOCX, exportDeepDivePPTX,
   buildVisualPrompt,
+  exportStrategyLabPPTX, exportStrategyLabDOCX,
+  buildStrategyLabVisualPrompt,
 } from './reportExporter.js';
 import { WakeRouter } from './wakeRouter.js';
 import { DataSyncScheduler } from './dataSyncScheduler.js';
@@ -1478,6 +1480,22 @@ const server = createServer(async (req, res) => {
       const format = params.get('format') || 'json';
       if (format === 'json') {
         json(res, 200, record);
+      } else if (format === 'pptx') {
+        const buffer = await exportStrategyLabPPTX(record);
+        res.writeHead(200, {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          'Content-Disposition': `attachment; filename="strategy-${id}.pptx"`,
+          'Access-Control-Allow-Origin': '*',
+        });
+        res.end(buffer);
+      } else if (format === 'docx') {
+        const buffer = await exportStrategyLabDOCX(record);
+        res.writeHead(200, {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'Content-Disposition': `attachment; filename="strategy-${id}.docx"`,
+          'Access-Control-Allow-Origin': '*',
+        });
+        res.end(buffer);
       } else {
         // Markdown export
         const md = exportStrategyLabMarkdown(record);
@@ -1488,6 +1506,38 @@ const server = createServer(async (req, res) => {
         });
         res.end(md);
       }
+      return;
+    }
+
+    // Get saved AI visual for strategy analysis
+    const strategyLabVisualGetMatch = url.match(/^\/strategy-lab\/([^/]+)\/visual$/);
+    if (method === 'GET' && strategyLabVisualGetMatch) {
+      const id = decodeURIComponent(strategyLabVisualGetMatch[1]);
+      const { data } = await memory.getSupabaseClient()
+        .from('strategy_analyses').select('visual_image').eq('id', id).single();
+      if (data?.visual_image) {
+        json(res, 200, { image: data.visual_image, mimeType: 'image/png' });
+      } else {
+        json(res, 404, { error: 'No visual saved' });
+      }
+      return;
+    }
+
+    // Generate AI visual for strategy analysis
+    const strategyLabVisualMatch = url.match(/^\/strategy-lab\/([^/]+)\/visual$/);
+    if (method === 'POST' && strategyLabVisualMatch) {
+      const id = decodeURIComponent(strategyLabVisualMatch[1]);
+      const record = await strategyLabEngine.get(id);
+      if (!record?.synthesis) { json(res, 404, { error: 'Strategy analysis not found or not completed' }); return; }
+
+      const prompt = buildStrategyLabVisualPrompt(record);
+      const imageResponse = await strategyModelClient.generateImageOpenAI(prompt);
+
+      const watermarked = await applyWatermark(imageResponse.imageData);
+      await memory.getSupabaseClient()
+        .from('strategy_analyses').update({ visual_image: watermarked }).eq('id', id);
+
+      json(res, 200, { image: watermarked, mimeType: 'image/png' });
       return;
     }
 

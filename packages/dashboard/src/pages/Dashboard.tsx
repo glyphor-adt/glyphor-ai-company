@@ -1,5 +1,6 @@
 import { MdCheckCircle, MdSearch, MdDescription, MdQueue, MdChat, MdGroup, MdArrowForward } from 'react-icons/md';
-import { useAgents, useDecisions, useActivity, useProducts } from '../lib/hooks';
+import { useAgents, useDecisions, useProducts } from '../lib/hooks';
+import FounderBriefing from '../components/FounderBriefing';
 import { DISPLAY_NAME_MAP, TIER_TO_IMPACT } from '../lib/types';
 import {
   Card,
@@ -31,7 +32,7 @@ interface RunningAgent {
 export default function Dashboard() {
   const { data: agents, loading: agentsLoading } = useAgents();
   const { data: decisions, loading: decisionsLoading } = useDecisions();
-  const { data: activity, loading: activityLoading } = useActivity(10);
+
   const { data: products } = useProducts();
   const [analysisSummary, setAnalysisSummary] = useState<AnalysisSummary>({ total: 0, completed: 0, active: 0 });
   const [runningAgents, setRunningAgents] = useState<RunningAgent[]>([]);
@@ -224,56 +225,8 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-3 gap-6">
-        {/* ── Recent Activity ────────────── */}
-        <Card className="col-span-2">
-          <SectionHeader
-            title="Recent Activity"
-            action={
-              <Link to="/operations" className="text-xs text-txt-muted hover:text-txt-primary hover:underline dark:text-cyan dark:hover:text-cyan">
-                View all
-              </Link>
-            }
-          />
-          {activityLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-12" />
-              ))}
-            </div>
-          ) : activity.length === 0 ? (
-            <p className="py-8 text-center text-sm text-txt-faint">No recent activity</p>
-          ) : (
-            <div className="space-y-1.5">
-              {activity.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-raised transition-colors"
-                >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-raised">
-                    {entry.agent_id ? (
-                      <AgentAvatar role={entry.agent_id} size={24} />
-                    ) : (
-                      <MdDescription className="h-4 w-4 text-txt-faint" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] text-txt-secondary line-clamp-1">
-                      {entry.action}
-                    </p>
-                    {entry.detail && (
-                      <p className="mt-0.5 text-[11px] text-txt-faint line-clamp-1">
-                        {entry.detail}
-                      </p>
-                    )}
-                  </div>
-                  <span className="flex-shrink-0 text-[10px] text-txt-faint">
-                    {timeAgo(entry.created_at)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+        {/* ── Founder Briefing ──────────── */}
+        <FounderBriefing />
 
         {/* ── Decision Queue ─────────────── */}
         <Card>

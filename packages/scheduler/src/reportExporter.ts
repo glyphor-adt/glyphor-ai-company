@@ -9,6 +9,7 @@ import type { AnalysisReport, AnalysisRecord } from './analysisEngine.js';
 import type { SimulationReport, SimulationRecord } from './simulationEngine.js';
 import type { CotReport, CotRecord } from './cotEngine.js';
 import type { DeepDiveRecord, DeepDiveReport } from './deepDiveEngine.js';
+import type { StrategyAnalysisRecord, SynthesisOutput } from './strategyLabEngine.js';
 import PptxGenJS from 'pptxgenjs';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType, PageNumber, Header, Footer, Tab, TabStopPosition, TabStopType, convertInchesToTwip } from 'docx';
 
@@ -1319,6 +1320,406 @@ export function buildVisualPrompt(record: AnalysisRecord): string {
     `LEFT: "${recCount} Strategic Actions" — show as ${recCount} large colored pill badges in a row. ${highCount} red pills, ${medCount} amber pills, rest blue. Each pill has only a number inside (1, 2, 3, 4). A small "Priority Matrix" scatter plot beside it with dots plotted on an Impact vs Effort 2x2 grid.`,
     ``,
     `RIGHT: A thin metadata strip in small gray text: "${record.depth} depth · ${record.type.replace(/_/g, ' ')} · ${threadCount} threads · ${record.requested_by}"`,
+    ``,
+    `CRITICAL RULES:`,
+    `- MINIMAL TEXT. Use icons, shapes, numbers, charts, and color instead of words.`,
+    `- No paragraphs, no sentences, no bullet-point lists of findings.`,
+    `- Maximum 30 total words on the entire infographic (excluding the title/subtitle).`,
+    `- All text must be crisp, readable sans-serif typography.`,
+    `- Professional, clean, corporate aesthetic with lots of whitespace.`,
+    `- Do NOT include any "Powered by" branding or logo — the image should be clean.`,
+  ].join('\n');
+}
+
+/* ═══════════════════════════════════════════════
+   Strategy Lab v2 Exports
+   ═══════════════════════════════════════════════ */
+
+/* ── Strategy Lab v2: PPTX ─────────────────── */
+
+export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Promise<Buffer> {
+  const pptx = new PptxGenJS();
+  pptx.layout = 'LAYOUT_16x9';
+  pptx.author = 'Glyphor AI';
+  const typeLabel = record.analysis_type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  pptx.title = `Strategic Analysis: ${typeLabel}`;
+
+  // 1. Title slide
+  pptxTitleSlide(
+    pptx, typeLabel, record.query,
+    `Depth: ${record.depth}  ·  ${record.total_sources} sources  ·  ${record.total_searches} searches  ·  ${new Date(record.created_at).toLocaleDateString()}`,
+  );
+
+  const s = record.synthesis;
+  if (!s) {
+    const slide = pptx.addSlide();
+    slide.background = { color: SLIDE_BG };
+    slide.addText('Report not yet generated.', { x: 1, y: 2, w: 8, fontSize: 18, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
+    return (await pptx.write({ outputType: 'nodebuffer' })) as unknown as Buffer;
+  }
+
+  // 2. Executive Summary
+  {
+    const slide = pptx.addSlide();
+    slide.background = { color: SLIDE_BG };
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: SLIDE_CYAN } });
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.06, h: 5.63, fill: { color: SLIDE_CYAN } });
+    slide.addText('Executive Summary', { x: 0.6, y: 0.25, w: 9, fontSize: 24, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true });
+    slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 0.7, w: 1.2, h: 0.035, fill: { color: SLIDE_CYAN } });
+
+    slide.addShape(pptx.ShapeType.roundRect, {
+      x: 0.5, y: 0.95, w: 9, h: 3.8,
+      fill: { color: SLIDE_BG2 }, line: { color: '30363D', width: 0.5 }, rectRadius: 0.08,
+    });
+    const summaryText = s.executiveSummary.length > 800 ? s.executiveSummary.slice(0, 800) + '…' : s.executiveSummary;
+    slide.addText(summaryText, {
+      x: 0.8, y: 1.1, w: 8.4, h: 3.5,
+      fontSize: 13.5, color: SLIDE_TEXT, fontFace: FONT_BODY, valign: 'top', lineSpacingMultiple: 1.4,
+    });
+
+    const statsData = [
+      { label: 'Strengths', val: String(s.unifiedSwot.strengths.length), clr: SLIDE_GREEN },
+      { label: 'Weaknesses', val: String(s.unifiedSwot.weaknesses.length), clr: SLIDE_RED },
+      { label: 'Opportunities', val: String(s.unifiedSwot.opportunities.length), clr: SLIDE_CYAN },
+      { label: 'Threats', val: String(s.unifiedSwot.threats.length), clr: SLIDE_AMBER },
+      { label: 'Actions', val: String(s.strategicRecommendations.length), clr: SLIDE_ACCENT },
+    ];
+    statsData.forEach((st, idx) => {
+      const xPos = 0.5 + idx * 1.85;
+      slide.addShape(pptx.ShapeType.roundRect, {
+        x: xPos, y: 4.85, w: 1.7, h: 0.55,
+        fill: { color: SLIDE_BG2 }, line: { color: st.clr, width: 1 }, rectRadius: 0.05,
+      });
+      slide.addText(st.val, { x: xPos, y: 4.82, w: 1.7, fontSize: 18, color: st.clr, fontFace: FONT_HEADING, bold: true, align: 'center' });
+      slide.addText(st.label, { x: xPos, y: 5.08, w: 1.7, fontSize: 8, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
+    });
+    addSlideFooter(slide, pptx);
+  }
+
+  // 3. Cross-Framework Insights
+  if (s.crossFrameworkInsights.length > 0) {
+    pptxSectionSlides(pptx, 'Cross-Framework Insights', s.crossFrameworkInsights, SLIDE_CYAN);
+  }
+
+  // 4. SWOT Analysis
+  {
+    const slide = pptx.addSlide();
+    slide.background = { color: SLIDE_BG };
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: SLIDE_WHITE } });
+    slide.addText('SWOT Analysis', { x: 0.5, y: 0.2, w: 9, fontSize: 22, color: SLIDE_WHITE, fontFace: FONT_HEADING, bold: true });
+    slide.addShape(pptx.ShapeType.rect, { x: 0.5, y: 0.6, w: 1.0, h: 0.035, fill: { color: SLIDE_WHITE } });
+
+    const quadrants = [
+      { label: 'STRENGTHS', items: s.unifiedSwot.strengths, color: SLIDE_GREEN, x: 0.3, y: 0.85 },
+      { label: 'WEAKNESSES', items: s.unifiedSwot.weaknesses, color: SLIDE_RED, x: 5.15, y: 0.85 },
+      { label: 'OPPORTUNITIES', items: s.unifiedSwot.opportunities, color: SLIDE_CYAN, x: 0.3, y: 2.95 },
+      { label: 'THREATS', items: s.unifiedSwot.threats, color: SLIDE_AMBER, x: 5.15, y: 2.95 },
+    ];
+    for (const q of quadrants) {
+      slide.addShape(pptx.ShapeType.roundRect, {
+        x: q.x, y: q.y, w: 4.65, h: 1.95,
+        fill: { color: SLIDE_BG2 }, line: { color: q.color, width: 1.5 }, rectRadius: 0.08,
+      });
+      slide.addShape(pptx.ShapeType.rect, { x: q.x, y: q.y, w: 4.65, h: 0.3, fill: { color: q.color } });
+      slide.addText(q.label, { x: q.x + 0.15, y: q.y + 0.02, w: 4.3, fontSize: 11, color: SLIDE_BG, fontFace: FONT_HEADING, bold: true, charSpacing: 2 });
+      const bullets = q.items.slice(0, 5).map((item, i) => `${i + 1}. ${item}`).join('\n');
+      slide.addText(bullets || 'None identified', {
+        x: q.x + 0.15, y: q.y + 0.38, w: 4.35, h: 1.45,
+        fontSize: 9.5, color: SLIDE_TEXT, fontFace: FONT_BODY, valign: 'top', lineSpacingMultiple: 1.35,
+      });
+    }
+    addSlideFooter(slide, pptx);
+  }
+
+  // 5. Strategic Recommendations
+  if (s.strategicRecommendations.length > 0) {
+    const highImpact = s.strategicRecommendations.filter((r) => r.impact === 'high');
+    const otherRecs = s.strategicRecommendations.filter((r) => r.impact !== 'high');
+
+    highImpact.forEach((rec, idx) => {
+      const slide = pptx.addSlide();
+      slide.background = { color: SLIDE_BG };
+      slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: SLIDE_RED } });
+      slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.06, h: 5.63, fill: { color: SLIDE_RED } });
+      slide.addText(`HIGH IMPACT  ·  Recommendation ${idx + 1}`, {
+        x: 0.6, y: 0.3, w: 9, fontSize: 12, color: SLIDE_RED, fontFace: FONT_HEADING, bold: true, charSpacing: 2,
+      });
+      slide.addText(rec.title, { x: 0.6, y: 0.8, w: 8.5, fontSize: 28, color: SLIDE_WHITE, fontFace: FONT_HEADING, bold: true });
+      slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 1.5, w: 1.0, h: 0.035, fill: { color: SLIDE_RED } });
+      slide.addShape(pptx.ShapeType.roundRect, {
+        x: 0.5, y: 1.75, w: 9, h: 2.8,
+        fill: { color: SLIDE_BG2 }, line: { color: '30363D', width: 0.5 }, rectRadius: 0.08,
+      });
+      slide.addText(rec.description, {
+        x: 0.8, y: 1.9, w: 8.4, h: 2.5,
+        fontSize: 14, color: SLIDE_TEXT, fontFace: FONT_BODY, valign: 'top', lineSpacingMultiple: 1.4,
+      });
+      // Owner & expected outcome
+      slide.addText(`Owner: ${rec.owner}  ·  Expected: ${rec.expectedOutcome}`, {
+        x: 0.8, y: 4.6, w: 8.4, fontSize: 10, color: SLIDE_MUTED, fontFace: FONT_BODY,
+      });
+      addSlideFooter(slide, pptx);
+    });
+
+    if (otherRecs.length > 0) {
+      pptxSectionSlides(
+        pptx,
+        'Additional Recommendations',
+        otherRecs.map((r) => `[${r.impact.toUpperCase()}] ${r.title}: ${r.description.slice(0, 120)}`),
+        SLIDE_CYAN,
+        { numbered: true },
+      );
+    }
+  }
+
+  // 6. Risks & Open Questions
+  if (s.keyRisks.length > 0) {
+    pptxSectionSlides(pptx, 'Key Risks', s.keyRisks, SLIDE_RED);
+  }
+  if (s.openQuestionsForFounders.length > 0) {
+    pptxSectionSlides(pptx, 'Open Questions for Founders', s.openQuestionsForFounders, SLIDE_AMBER);
+  }
+
+  // 7. Closing slide
+  {
+    const slide = pptx.addSlide();
+    slide.background = { color: SLIDE_BG };
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 2.6, w: 10, h: 0.04, fill: { color: SLIDE_CYAN } });
+    slide.addText('G L Y P H O R   A I', { x: 0.6, y: 1.8, w: 8.8, fontSize: 28, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, align: 'center', charSpacing: 6 });
+    slide.addText('Strategic Intelligence Platform', { x: 0.6, y: 2.9, w: 8.8, fontSize: 14, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
+    slide.addText(`Generated ${new Date().toLocaleDateString()}  ·  Confidential`, { x: 0.6, y: 3.5, w: 8.8, fontSize: 10, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
+    addSlideFooter(slide, pptx);
+  }
+
+  return (await pptx.write({ outputType: 'nodebuffer' })) as unknown as Buffer;
+}
+
+/* ── Strategy Lab v2: DOCX ─────────────────── */
+
+export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Promise<Buffer> {
+  const s = record.synthesis;
+  const typeLabel = record.analysis_type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+  const children: (Paragraph | Table)[] = [];
+
+  // Branded header
+  children.push(new Paragraph({
+    spacing: { after: 60 },
+    children: [new TextRun({ text: 'G L Y P H O R   A I', bold: true, size: 20, color: '00B4D8', font: 'Segoe UI' })],
+  }));
+  children.push(new Paragraph({
+    spacing: { after: 120 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '00B4D8', space: 6 } },
+    children: [],
+  }));
+
+  // Title block
+  children.push(new Paragraph({
+    spacing: { before: 200, after: 80 },
+    children: [new TextRun({ text: `Strategic Analysis: ${typeLabel}`, bold: true, size: 48, font: 'Segoe UI', color: '1A1A2E' })],
+  }));
+  children.push(new Paragraph({
+    spacing: { after: 80 },
+    children: [new TextRun({ text: record.query, italics: true, size: 24, color: '555555', font: 'Segoe UI' })],
+  }));
+  children.push(new Paragraph({
+    spacing: { after: 400 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'DDDDDD', space: 12 } },
+    children: [
+      new TextRun({ text: `Depth: ${record.depth}`, size: 18, color: '888888', font: 'Segoe UI' }),
+      new TextRun({ text: `  ·  Sources: ${record.total_sources}`, size: 18, color: '888888', font: 'Segoe UI' }),
+      new TextRun({ text: `  ·  Searches: ${record.total_searches}`, size: 18, color: '888888', font: 'Segoe UI' }),
+      new TextRun({ text: `  ·  Date: ${new Date(record.created_at).toLocaleDateString()}`, size: 18, color: '888888', font: 'Segoe UI' }),
+    ],
+  }));
+
+  if (!s) {
+    children.push(new Paragraph({ children: [new TextRun({ text: 'Report not yet generated.', italics: true })] }));
+    return Packer.toBuffer(new Document({ sections: [{ children }] }));
+  }
+
+  // Executive Summary
+  children.push(...docxSectionHeading('Executive Summary', '00B4D8'));
+  for (const para of s.executiveSummary.split('\n').filter(Boolean)) {
+    children.push(new Paragraph({
+      spacing: { after: 160 },
+      children: [new TextRun({ text: para, size: 22, font: 'Segoe UI', color: '2D2D2D' })],
+    }));
+  }
+
+  // Cross-Framework Insights
+  if (s.crossFrameworkInsights.length > 0) {
+    children.push(...docxSectionHeading('Cross-Framework Insights', 'D97706'));
+    for (const insight of s.crossFrameworkInsights) {
+      children.push(docxBulletItem(insight, '3D3D3D'));
+    }
+  }
+
+  // SWOT Table
+  children.push(...docxSectionHeading('SWOT Analysis', '1A1A2E'));
+  const swotData: [string, string[], string][] = [
+    ['Strengths', s.unifiedSwot.strengths, '059669'],
+    ['Weaknesses', s.unifiedSwot.weaknesses, 'DC2626'],
+    ['Opportunities', s.unifiedSwot.opportunities, '0284C7'],
+    ['Threats', s.unifiedSwot.threats, 'D97706'],
+  ];
+  const swotRows: TableRow[] = [];
+  for (let row = 0; row < 2; row++) {
+    const cells: TableCell[] = [];
+    for (let col = 0; col < 2; col++) {
+      const [label, items, color] = swotData[row * 2 + col];
+      const cellChildren: Paragraph[] = [
+        new Paragraph({
+          spacing: { after: 100 },
+          children: [new TextRun({ text: label.toUpperCase(), bold: true, size: 20, color, font: 'Segoe UI' })],
+        }),
+      ];
+      if (items.length === 0) {
+        cellChildren.push(new Paragraph({ children: [new TextRun({ text: 'None identified', italics: true, size: 18, color: '999999', font: 'Segoe UI' })] }));
+      } else {
+        for (const item of items) {
+          cellChildren.push(new Paragraph({
+            bullet: { level: 0 },
+            spacing: { after: 60 },
+            children: [new TextRun({ text: item, size: 19, color: '444444', font: 'Segoe UI' })],
+          }));
+        }
+      }
+      cells.push(new TableCell({
+        width: { size: 50, type: WidthType.PERCENTAGE },
+        borders: {
+          top: { style: BorderStyle.SINGLE, size: 3, color },
+          bottom: { style: BorderStyle.SINGLE, size: 1, color: 'E5E5E5' },
+          left: { style: BorderStyle.SINGLE, size: 1, color: 'E5E5E5' },
+          right: { style: BorderStyle.SINGLE, size: 1, color: 'E5E5E5' },
+        },
+        margins: { top: convertInchesToTwip(0.1), bottom: convertInchesToTwip(0.1), left: convertInchesToTwip(0.12), right: convertInchesToTwip(0.12) },
+        children: cellChildren,
+      }));
+    }
+    swotRows.push(new TableRow({ children: cells }));
+  }
+  children.push(new Table({ rows: swotRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+
+  // Strategic Recommendations
+  if (s.strategicRecommendations.length > 0) {
+    children.push(...docxSectionHeading('Strategic Recommendations', '00B4D8'));
+    const sorted = [...s.strategicRecommendations].sort((a, b) => {
+      const order: Record<string, number> = { high: 0, medium: 1, low: 2 };
+      return (order[a.impact] ?? 2) - (order[b.impact] ?? 2);
+    });
+    for (let i = 0; i < sorted.length; i++) {
+      const rec = sorted[i];
+      const impactColor = rec.impact === 'high' ? 'DC2626' : rec.impact === 'medium' ? 'D97706' : '2563EB';
+      children.push(new Paragraph({
+        spacing: { before: 240, after: 80 },
+        children: [
+          new TextRun({ text: `${i + 1}. `, bold: true, size: 22, color: '00B4D8', font: 'Segoe UI' }),
+          new TextRun({ text: rec.title, bold: true, size: 22, font: 'Segoe UI', color: '1A1A2E' }),
+          new TextRun({ text: `  [${rec.impact.toUpperCase()} IMPACT]`, bold: true, size: 18, color: impactColor, font: 'Segoe UI' }),
+        ],
+      }));
+      children.push(new Paragraph({
+        spacing: { after: 60 },
+        indent: { left: convertInchesToTwip(0.3) },
+        children: [new TextRun({ text: rec.description, size: 21, color: '444444', font: 'Segoe UI' })],
+      }));
+      children.push(new Paragraph({
+        spacing: { after: 40 },
+        indent: { left: convertInchesToTwip(0.3) },
+        children: [
+          new TextRun({ text: 'Owner: ', bold: true, size: 18, color: '666666', font: 'Segoe UI' }),
+          new TextRun({ text: rec.owner, size: 18, color: '333333', font: 'Segoe UI' }),
+          new TextRun({ text: '  ·  Expected: ', bold: true, size: 18, color: '666666', font: 'Segoe UI' }),
+          new TextRun({ text: rec.expectedOutcome, size: 18, color: '333333', font: 'Segoe UI' }),
+        ],
+      }));
+      children.push(new Paragraph({
+        spacing: { after: 120 },
+        indent: { left: convertInchesToTwip(0.3) },
+        children: [new TextRun({ text: `⚠ Risk if not: ${rec.riskIfNot}`, size: 18, color: 'DC2626', font: 'Segoe UI' })],
+      }));
+    }
+  }
+
+  // Key Risks
+  if (s.keyRisks.length > 0) {
+    children.push(...docxSectionHeading('Key Risks', 'DC2626'));
+    for (const risk of s.keyRisks) {
+      children.push(docxBulletItem(risk, '555555'));
+    }
+  }
+
+  // Open Questions
+  if (s.openQuestionsForFounders.length > 0) {
+    children.push(...docxSectionHeading('Open Questions for Founders', 'D97706'));
+    for (const q of s.openQuestionsForFounders) {
+      children.push(docxBulletItem(q, '555555'));
+    }
+  }
+
+  // Footer
+  children.push(new Paragraph({
+    spacing: { before: 600 },
+    border: { top: { style: BorderStyle.SINGLE, size: 2, color: '00B4D8', space: 12 } },
+    alignment: AlignmentType.CENTER,
+    children: [new TextRun({ text: `Glyphor AI  ·  Strategy Lab  ·  ${new Date().toLocaleDateString()}  ·  Confidential`, size: 16, color: '999999', font: 'Segoe UI' })],
+  }));
+
+  return Packer.toBuffer(new Document({
+    creator: 'Glyphor AI',
+    title: `Strategic Analysis: ${typeLabel}`,
+    sections: [{
+      properties: {
+        page: {
+          margin: { top: convertInchesToTwip(0.8), bottom: convertInchesToTwip(0.8), left: convertInchesToTwip(1.0), right: convertInchesToTwip(1.0) },
+        },
+      },
+      children: children as Paragraph[],
+    }],
+  }));
+}
+
+/* ── Strategy Lab v2: Visual Prompt ────────── */
+
+export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): string {
+  const s = record.synthesis;
+  if (!s) return '';
+
+  const typeLabel = record.analysis_type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  const recCount = Math.min(s.strategicRecommendations.length, 4);
+  const highCount = s.strategicRecommendations.filter(r => r.impact === 'high').length;
+  const medCount = s.strategicRecommendations.filter(r => r.impact === 'medium').length;
+
+  return [
+    `Create a polished, magazine-quality corporate infographic in 16:9 landscape format (1536x1024px).`,
+    `Style: clean modern flat design, white background, generous whitespace, minimal text. Use large icons, bold color blocks, and data visualizations instead of paragraphs of text. Think McKinsey or Bain presentation slide — NOT a document.`,
+    ``,
+    `Color palette: primary cyan (#00E0FF), white (#FFFFFF) background, dark charcoal (#1A1A2E) text, emerald (#34D399) for positive, rose (#FB7185) for negative, amber (#FBBF24) for caution. Use soft pastel tinted backgrounds for card sections.`,
+    ``,
+    `LAYOUT (3 rows):`,
+    ``,
+    `ROW 1 — Header banner (10% height):`,
+    `Full-width cyan gradient banner. Large bold white title: "${typeLabel.toUpperCase()}". Smaller subtitle below in light gray: "${record.query}". Keep text SHORT.`,
+    ``,
+    `ROW 2 — Main content (65% height), split into 2 columns:`,
+    ``,
+    `LEFT COLUMN (45% width):`,
+    `A large "Research Depth" card with a bold number callout: "${record.total_sources} sources from ${record.total_searches} searches". Show 2-3 large circular icons (magnifying glass, lightbulb, target) with ONE-WORD labels beneath each. Below that, a small horizontal bar chart showing analysis completeness. NO bullet points of text — use icons and shapes only.`,
+    ``,
+    `RIGHT COLUMN (55% width):`,
+    `A 2x2 SWOT grid using 4 large colored rounded-rectangle cards:`,
+    `• Top-left: STRENGTHS — green (#34D399) tinted card with a shield icon and the number "${s.unifiedSwot.strengths.length}"`,
+    `• Top-right: WEAKNESSES — rose (#FB7185) tinted card with a warning triangle icon and the number "${s.unifiedSwot.weaknesses.length}"`,
+    `• Bottom-left: OPPORTUNITIES — cyan (#00E0FF) tinted card with an upward arrow icon and the number "${s.unifiedSwot.opportunities.length}"`,
+    `• Bottom-right: THREATS — amber (#FBBF24) tinted card with a lightning bolt icon and the number "${s.unifiedSwot.threats.length}"`,
+    `Each card shows ONLY the category label, icon, and count number in large bold text. NO bullet point text inside the cards.`,
+    ``,
+    `ROW 3 — Bottom strip (25% height), split into 2 sections:`,
+    ``,
+    `LEFT: "${recCount} Strategic Actions" — show as ${recCount} large colored pill badges in a row. ${highCount} red pills, ${medCount} amber pills, rest blue. Each pill has only a number inside (1, 2, 3, 4). A small "Impact vs Feasibility" scatter plot beside it with dots plotted on a 2x2 grid.`,
+    ``,
+    `RIGHT: A thin metadata strip in small gray text: "${record.depth} depth · ${record.analysis_type.replace(/_/g, ' ')} · ${record.total_sources} sources"`,
     ``,
     `CRITICAL RULES:`,
     `- MINIMAL TEXT. Use icons, shapes, numbers, charts, and color instead of words.`,

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
-import type { Agent, Decision, ActivityEntry, Product, Financial } from './types';
+import type { Agent, Decision, ActivityEntry, Product, Financial, FounderDirective, Incident, AgentReflection, CompanyPulse, WorkAssignment } from './types';
 
 /* ─── Generic fetch helper ─────────────────── */
 function useQuery<T>(table: string, orderCol = 'created_at', ascending = false) {
@@ -86,4 +86,107 @@ export function useRealtimeActivity(onNew: (entry: ActivityEntry) => void) {
 
     return () => { supabase.removeChannel(channel); };
   }, [onNew]);
+}
+
+/* ─── Company Pulse (singleton) ───────────── */
+export function useCompanyPulse() {
+  const [data, setData] = useState<CompanyPulse | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data: row } = await supabase
+        .from('company_pulse')
+        .select('*')
+        .eq('id', 'current')
+        .single();
+      setData(row as CompanyPulse | null);
+      setLoading(false);
+    })();
+  }, []);
+
+  return { data, loading };
+}
+
+/* ─── Active Founder Directives ───────────── */
+export function useActiveDirectives() {
+  const [data, setData] = useState<(FounderDirective & { assignments: WorkAssignment[] })[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data: directives } = await supabase
+        .from('founder_directives')
+        .select('*')
+        .in('status', ['active', 'paused'])
+        .order('priority', { ascending: true })
+        .limit(5);
+
+      const items = (directives as FounderDirective[]) ?? [];
+
+      if (items.length > 0) {
+        const ids = items.map((d) => d.id);
+        const { data: assignments } = await supabase
+          .from('work_assignments')
+          .select('*')
+          .in('directive_id', ids);
+
+        const assignmentsByDirective = new Map<string, WorkAssignment[]>();
+        for (const a of (assignments as WorkAssignment[]) ?? []) {
+          const list = assignmentsByDirective.get(a.directive_id) ?? [];
+          list.push(a);
+          assignmentsByDirective.set(a.directive_id, list);
+        }
+
+        setData(items.map((d) => ({ ...d, assignments: assignmentsByDirective.get(d.id) ?? [] })));
+      } else {
+        setData([]);
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  return { data, loading };
+}
+
+/* ─── Open Incidents ──────────────────────── */
+export function useOpenIncidents() {
+  const [data, setData] = useState<Incident[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data: rows } = await supabase
+        .from('incidents')
+        .select('*')
+        .eq('status', 'open')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      setData((rows as Incident[]) ?? []);
+      setLoading(false);
+    })();
+  }, []);
+
+  return { data, loading };
+}
+
+/* ─── Top Agent Reflections (recent, high quality) ── */
+export function useTopReflections(limit = 4) {
+  const [data, setData] = useState<AgentReflection[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data: rows } = await supabase
+        .from('agent_reflections')
+        .select('*')
+        .gte('quality_score', 60)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      setData((rows as AgentReflection[]) ?? []);
+      setLoading(false);
+    })();
+  }, [limit]);
+
+  return { data, loading };
 }

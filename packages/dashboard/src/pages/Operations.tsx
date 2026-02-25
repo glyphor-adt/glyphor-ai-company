@@ -38,6 +38,23 @@ interface ReflectionRow {
   created_at: string;
 }
 
+interface RecentRunRow {
+  agent_id: string;
+  status: string;
+  duration_ms: number | null;
+  error: string | null;
+  started_at: string;
+}
+
+interface AgentHealthMetrics {
+  successRate: number | null;
+  avgDuration: number | null;
+  failureCount: number;
+  qualityScore: number | null;
+  totalRuns: number;
+  composite: number;
+}
+
 function useAgentRuns() {
   const [data, setData] = useState<AgentRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,7 +93,107 @@ function useReflections(days = 14) {
   return { data, loading };
 }
 
-const ROLE_ORDER = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales', 'ops'];
+function useRecentRuns(hours = 48) {
+  const [data, setData] = useState<RecentRunRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+      const { data: rows } = await supabase
+        .from('agent_runs')
+        .select('agent_id, status, duration_ms, error, started_at')
+        .gte('started_at', since);
+      setData((rows as RecentRunRow[]) ?? []);
+      setLoading(false);
+    })();
+  }, [hours]);
+
+  return { data, loading };
+}
+
+function computeHealthMap(
+  agents: AgentRow[],
+  recentRuns: RecentRunRow[],
+  reflections: ReflectionRow[],
+): Map<string, AgentHealthMetrics> {
+  const map = new Map<string, AgentHealthMetrics>();
+
+  const byAgent = new Map<string, RecentRunRow[]>();
+  for (const run of recentRuns) {
+    const arr = byAgent.get(run.agent_id) ?? [];
+    arr.push(run);
+    byAgent.set(run.agent_id, arr);
+  }
+
+  const reflByAgent = new Map<string, number[]>();
+  for (const r of reflections) {
+    const arr = reflByAgent.get(r.agent_role) ?? [];
+    arr.push(r.quality_score);
+    reflByAgent.set(r.agent_role, arr);
+  }
+
+  for (const agent of agents) {
+    const runs = byAgent.get(agent.role) ?? [];
+    const total = runs.length;
+    const successes = runs.filter(r => r.status === 'completed' || r.status === 'success').length;
+    const failures = runs.filter(r => r.status === 'error' || r.status === 'failed').length;
+    const durations = runs.map(r => r.duration_ms).filter((d): d is number => d != null);
+    const avgDuration = durations.length > 0
+      ? durations.reduce((a, b) => a + b, 0) / durations.length
+      : null;
+
+    const qualityScores = reflByAgent.get(agent.role) ?? [];
+    const avgQuality = qualityScores.length > 0
+      ? qualityScores.reduce((a, b) => a + b, 0) / qualityScores.length
+      : null;
+
+    const successRate = total > 0 ? successes / total : null;
+    const perfScore = agent.performance_score ?? 0;
+
+    // Composite health: weighted average of available signals
+    let composite = perfScore;
+    if (total > 0) {
+      let weight = 0;
+      let score = 0;
+
+      if (successRate !== null) { score += successRate * 0.4; weight += 0.4; }
+      if (avgQuality !== null) { score += (avgQuality / 100) * 0.25; weight += 0.25; }
+      score += perfScore * 0.2; weight += 0.2;
+
+      const hasRecentRun = runs.some(r =>
+        Date.now() - new Date(r.started_at).getTime() < 24 * 60 * 60 * 1000,
+      );
+      score += (hasRecentRun ? 1 : 0.3) * 0.15; weight += 0.15;
+
+      composite = weight > 0 ? score / weight : perfScore;
+    }
+
+    map.set(agent.role, {
+      successRate,
+      avgDuration,
+      failureCount: failures,
+      qualityScore: avgQuality,
+      totalRuns: total,
+      composite,
+    });
+  }
+
+  return map;
+}
+
+const ROLE_ORDER = [
+  'chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'clo',
+  'vp-customer-success', 'vp-sales', 'vp-design', 'vp-research', 'ops',
+  'platform-engineer', 'quality-engineer', 'devops-engineer',
+  'user-researcher', 'competitive-intel', 'revenue-analyst', 'cost-analyst',
+  'content-creator', 'seo-analyst', 'social-media-manager',
+  'onboarding-specialist', 'support-triage', 'account-research',
+  'ui-ux-designer', 'frontend-engineer', 'design-critic', 'template-architect',
+  'm365-admin', 'global-admin',
+  'competitive-research-analyst', 'market-research-analyst',
+  'technical-research-analyst', 'industry-research-analyst',
+];
 
 interface SyncRow {
   id: string;
@@ -126,10 +243,16 @@ function useIncidents() {
 export default function Operations() {
   const { data: agents, loading: agentsLoading } = useAgentRuns();
   const { data: reflections, loading: reflectionsLoading } = useReflections(14);
+  const { data: recentRuns, loading: recentRunsLoading } = useRecentRuns(48);
   const { data: syncs, loading: syncsLoading } = useDataSyncs();
   const { data: incidents, loading: incidentsLoading } = useIncidents();
 
-  const loading = agentsLoading || reflectionsLoading;
+  const loading = agentsLoading || reflectionsLoading || recentRunsLoading;
+
+  const healthMap = useMemo(
+    () => computeHealthMap(agents, recentRuns, reflections),
+    [agents, recentRuns, reflections],
+  );
 
   // Agent runs per agent
   const runsData = useMemo(() =>
@@ -368,42 +491,110 @@ export default function Operations() {
 
       {/* Agent Health Matrix */}
       <Card>
-        <SectionHeader title="Agent Health Matrix" />
+        <SectionHeader title="Agent Health Matrix" subtitle="Composite score: 40% success rate + 25% quality + 20% performance + 15% recency" />
         {loading ? (
           <Skeleton className="h-40" />
         ) : (
-          <div className="grid grid-cols-4 gap-3 md:grid-cols-7">
+          <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7">
             {agents
-              .sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role))
+              .sort((a, b) => {
+                const ai = ROLE_ORDER.indexOf(a.role);
+                const bi = ROLE_ORDER.indexOf(b.role);
+                return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+              })
               .map((agent) => {
-                const score = agent.performance_score ?? 0;
-                const health = score >= 0.8 ? 'healthy' : score >= 0.5 ? 'degraded' : 'critical';
+                const h = healthMap.get(agent.role);
+                const composite = h?.composite ?? agent.performance_score ?? 0;
+                const health = composite >= 0.8 ? 'healthy' : composite >= 0.5 ? 'degraded' : 'critical';
+                const successPct = h?.successRate != null ? Math.round(h.successRate * 100) : null;
+                const avgDur = h?.avgDuration != null
+                  ? h.avgDuration < 1000 ? `${Math.round(h.avgDuration)}ms`
+                  : h.avgDuration < 60_000 ? `${(h.avgDuration / 1000).toFixed(1)}s`
+                  : `${(h.avgDuration / 60_000).toFixed(1)}m`
+                  : null;
+
                 return (
                   <div
                     key={agent.id}
-                    className={`flex flex-col items-center gap-2 rounded-lg border p-3 ${
+                    className={`relative flex flex-col gap-1.5 rounded-lg border p-3 ${
                       health === 'healthy'
-                        ? 'border-tier-green/20 bg-tier-green/5'
+                        ? 'border-tier-green/25 bg-tier-green/5'
                         : health === 'degraded'
-                        ? 'border-tier-yellow/20 bg-tier-yellow/5'
-                        : 'border-red-500/20 bg-red-500/5'
+                        ? 'border-tier-yellow/25 bg-tier-yellow/5'
+                        : 'border-red-500/25 bg-red-500/5'
                     }`}
                   >
-                    <AgentAvatar role={agent.role} size={32} />
-                    <span className="text-[11px] font-medium text-txt-secondary text-center">
-                      {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
-                    </span>
-                    <span
-                      className={`text-[10px] font-medium ${
-                        health === 'healthy'
-                          ? 'text-tier-green'
-                          : health === 'degraded'
-                          ? 'text-tier-yellow'
-                          : 'text-red-400'
-                      }`}
-                    >
-                      {Math.round(score * 100)}%
-                    </span>
+                    {/* Header: avatar + name + composite */}
+                    <div className="flex items-center gap-2">
+                      <AgentAvatar role={agent.role} size={28} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[11px] font-semibold text-txt-secondary">
+                          {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
+                        </p>
+                      </div>
+                      <span
+                        className={`text-sm font-bold tabular-nums ${
+                          health === 'healthy'
+                            ? 'text-tier-green'
+                            : health === 'degraded'
+                            ? 'text-tier-yellow'
+                            : 'text-red-400'
+                        }`}
+                      >
+                        {Math.round(composite * 100)}
+                      </span>
+                    </div>
+
+                    {/* Metrics row 1: success rate + avg duration */}
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-txt-muted">
+                        {successPct != null ? (
+                          <><span className={successPct >= 80 ? 'text-tier-green' : successPct >= 50 ? 'text-tier-yellow' : 'text-red-400'}>&#10003; {successPct}%</span></>
+                        ) : (
+                          <span className="text-txt-faint">no runs</span>
+                        )}
+                      </span>
+                      {avgDur && <span className="text-txt-faint">&#9201; {avgDur}</span>}
+                    </div>
+
+                    {/* Metrics row 2: quality + failures */}
+                    <div className="flex items-center justify-between text-[10px]">
+                      {h?.qualityScore != null ? (
+                        <span className={`font-medium ${h.qualityScore >= 70 ? 'text-purple-400' : h.qualityScore >= 40 ? 'text-amber-400' : 'text-red-400'}`}>
+                          &#9733; {Math.round(h.qualityScore)}
+                        </span>
+                      ) : (
+                        <span className="text-txt-faint">&#9733; —</span>
+                      )}
+                      {(h?.failureCount ?? 0) > 0 ? (
+                        <span className="font-medium text-red-400">
+                          {h!.failureCount} fail{h!.failureCount > 1 ? 's' : ''}
+                        </span>
+                      ) : (
+                        <span className="text-txt-faint">{h?.totalRuns ?? 0} runs</span>
+                      )}
+                    </div>
+
+                    {/* Activity bar: last 48h runs visualized as dots */}
+                    {h && h.totalRuns > 0 && (
+                      <div className="flex items-center gap-0.5 pt-0.5">
+                        {recentRuns
+                          .filter(r => r.agent_id === agent.role)
+                          .slice(-10)
+                          .map((r, i) => (
+                            <span
+                              key={i}
+                              className={`inline-block h-1.5 w-1.5 rounded-full ${
+                                r.status === 'completed' || r.status === 'success'
+                                  ? 'bg-tier-green'
+                                  : r.status === 'running'
+                                  ? 'bg-blue-400'
+                                  : 'bg-red-400'
+                              }`}
+                            />
+                          ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -415,7 +606,11 @@ export default function Operations() {
       <div>
         <SectionHeader title="Agent Details" />
         <div className="grid grid-cols-2 gap-4">
-          {agents.sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role)).map((agent) => (
+          {agents.sort((a, b) => {
+            const ai = ROLE_ORDER.indexOf(a.role);
+            const bi = ROLE_ORDER.indexOf(b.role);
+            return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+          }).map((agent) => (
             <Card key={agent.id}>
               <div className="flex items-center gap-3">
                 <AgentAvatar role={agent.role} size={36} />

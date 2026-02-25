@@ -123,16 +123,15 @@ async function api<T>(path: string, opts?: RequestInit): Promise<T> {
 
 /* ── Page Component ────────────────────────────── */
 
-type Tab = 'analyses' | 'simulations' | 'cot' | 'strategy-lab-v2';
+type Tab = 'strategy-lab-v2' | 'simulations' | 'cot';
 
 export default function Strategy() {
-  const [tab, setTab] = useState<Tab>('analyses');
+  const [tab, setTab] = useState<Tab>('strategy-lab-v2');
 
   const TAB_LABELS: Record<Tab, string> = {
-    analyses: 'Strategic Analyses',
+    'strategy-lab-v2': 'Strategic Analyses',
     simulations: 'T+1 Simulations',
     cot: 'Chain of Thought',
-    'strategy-lab-v2': 'Strategy Lab v2',
   };
 
   return (
@@ -140,13 +139,13 @@ export default function Strategy() {
       <div>
         <h1 className="text-2xl font-bold text-txt-primary">Strategy Lab</h1>
         <p className="mt-1 text-sm text-txt-muted">
-          McKinsey-grade strategic analyses, T+1 impact simulations, and chain-of-thought planning
+          Multi-agent strategic analyses, T+1 impact simulations, and chain-of-thought planning
         </p>
       </div>
 
       {/* Tab Toggle */}
       <div className="flex gap-1 rounded-lg bg-raised p-1 w-fit border border-border">
-        {(['analyses', 'simulations', 'cot', 'strategy-lab-v2'] as Tab[]).map((t) => (
+        {(['strategy-lab-v2', 'simulations', 'cot'] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -161,10 +160,9 @@ export default function Strategy() {
         ))}
       </div>
 
-      {tab === 'analyses' && <AnalysesPanel />}
+      {tab === 'strategy-lab-v2' && <StrategyLabV2Panel />}
       {tab === 'simulations' && <SimulationsPanel />}
       {tab === 'cot' && <ChainOfThoughtPanel />}
-      {tab === 'strategy-lab-v2' && <StrategyLabV2Panel />}
     </div>
   );
 }
@@ -1702,6 +1700,26 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
 function SLv2SynthesisView({ synthesis, id }: { synthesis: SLv2Synthesis; id: string }) {
   const s = synthesis;
   const [showSection, setShowSection] = useState<'summary' | 'swot' | 'recs' | 'risks'>('summary');
+  const [generatingVisual, setGeneratingVisual] = useState(false);
+  const [visualImage, setVisualImage] = useState<{ data: string; mimeType: string } | null>(null);
+
+  // Load saved visual on mount
+  useEffect(() => {
+    api<{ image: string; mimeType: string }>(`/strategy-lab/${id}/visual`)
+      .then((resp) => setVisualImage({ data: resp.image, mimeType: resp.mimeType }))
+      .catch(() => { /* no saved visual */ });
+  }, [id]);
+
+  async function generateVisual() {
+    setGeneratingVisual(true);
+    try {
+      const resp = await api<{ image: string; mimeType: string }>(`/strategy-lab/${id}/visual`, { method: 'POST' });
+      setVisualImage({ data: resp.image, mimeType: resp.mimeType });
+    } catch (err) {
+      console.error('Visual generation failed:', err);
+    }
+    setGeneratingVisual(false);
+  }
 
   return (
     <div className="space-y-3">
@@ -1827,11 +1845,51 @@ function SLv2SynthesisView({ synthesis, id }: { synthesis: SLv2Synthesis; id: st
         </div>
       )}
 
-      {/* Export */}
-      <div className="flex gap-2 pt-2">
-        <ExportButton label="JSON" href={`${SCHEDULER_URL}/strategy-lab/${id}/export?format=json`} />
+      {/* Export Action Bar */}
+      <div className="flex flex-wrap items-center gap-2 pt-2">
+        <ExportButton label="Word (.docx)" href={`${SCHEDULER_URL}/strategy-lab/${id}/export?format=docx`} />
+        <ExportButton label="PowerPoint" href={`${SCHEDULER_URL}/strategy-lab/${id}/export?format=pptx`} />
         <ExportButton label="Markdown" href={`${SCHEDULER_URL}/strategy-lab/${id}/export?format=markdown`} />
+        <ExportButton label="JSON" href={`${SCHEDULER_URL}/strategy-lab/${id}/export?format=json`} />
+        <span className="mx-1 h-5 w-px bg-border" />
+        <button
+          onClick={generateVisual}
+          disabled={generatingVisual}
+          className="rounded-lg bg-cyan/15 border border-cyan/30 px-3 py-1.5 text-[12px] font-medium text-cyan transition-colors hover:bg-cyan/25 disabled:opacity-40"
+        >
+          {generatingVisual ? 'Generating…' : <><MdPalette className="inline h-4 w-4 mr-1 -mt-0.5" />AI Visual</>}
+        </button>
       </div>
+
+      {/* AI Visual (if generated) */}
+      {visualImage && (
+        <div className="rounded-xl border border-cyan/20 bg-raised p-5">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-cyan">AI-Generated Infographic</p>
+            <button
+              onClick={() => {
+                const byteChars = atob(visualImage.data);
+                const byteArray = new Uint8Array(byteChars.length);
+                for (let i = 0; i < byteChars.length; i++) byteArray[i] = byteChars.charCodeAt(i);
+                const blob = new Blob([byteArray], { type: visualImage.mimeType });
+                const u = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const ext = visualImage.mimeType.split('/')[1] || 'png';
+                a.href = u; a.download = `strategy-${id}-visual.${ext}`; a.click();
+                URL.revokeObjectURL(u);
+              }}
+              className="text-xs text-cyan hover:underline font-medium"
+            >
+              Download Image
+            </button>
+          </div>
+          <img
+            src={`data:${visualImage.mimeType};base64,${visualImage.data}`}
+            alt="AI-generated strategic analysis infographic"
+            className="w-full rounded-lg"
+          />
+        </div>
+      )}
     </div>
   );
 }
