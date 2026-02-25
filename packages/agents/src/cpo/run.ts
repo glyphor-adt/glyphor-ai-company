@@ -24,6 +24,7 @@ import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
+import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 
 export interface CPORunParams {
   task?: 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand';
@@ -57,6 +58,7 @@ export async function runCPO(params: CPORunParams = {}) {
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
     ...createEmailTools(),
+    ...createAgentCreationTools(memory.getSupabaseClient()),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

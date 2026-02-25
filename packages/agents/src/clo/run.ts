@@ -25,6 +25,7 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createEventTools } from '../shared/eventTools.js';
+import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 
 export interface CLORunParams {
   task?: 'regulatory_scan' | 'contract_review' | 'compliance_check' | 'read_inbox' | 'on_demand';
@@ -57,6 +58,7 @@ export async function runCLO(params: CLORunParams = {}) {
     ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
     ...createEmailTools(),
     ...createEventTools(glyphorEventBus),
+    ...createAgentCreationTools(memory.getSupabaseClient()),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
