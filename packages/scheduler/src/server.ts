@@ -244,12 +244,12 @@ const trackedAgentExecutor = async (
   const startMs = Date.now();
 
   // Insert a "running" row in parallel with agent execution to avoid blocking
-  const runIdPromise = sb
+  const runIdPromise = Promise.resolve(sb
     .from('agent_runs')
     .insert({ agent_id: agentRole, task, status: 'running', input: inputMsg })
     .select('id')
     .single()
-    .then(({ data }) => data?.id as string | undefined)
+    .then(({ data }) => data?.id as string | undefined))
     .catch(() => undefined);
 
   try {
