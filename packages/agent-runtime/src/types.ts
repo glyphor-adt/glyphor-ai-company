@@ -113,6 +113,16 @@ export interface ToolResult {
 // CONVERSATION
 // ═══════════════════════════════════════════════════════════════════
 
+/** An inline file attachment (image, PDF, or text document). */
+export interface ConversationAttachment {
+  /** Original filename */
+  name: string;
+  /** MIME type (e.g. 'image/png', 'application/pdf', 'text/plain') */
+  mimeType: string;
+  /** Base64-encoded file data */
+  data: string;
+}
+
 export interface ConversationTurn {
   role: 'user' | 'assistant' | 'tool_call' | 'tool_result';
   content: string;
@@ -122,6 +132,8 @@ export interface ConversationTurn {
   thoughtSignature?: string;
   thinkingBeforeTools?: string;
   timestamp: number;
+  /** Inline file attachments (images, PDFs, documents) for multimodal input. */
+  attachments?: ConversationAttachment[];
 }
 
 // ═══════════════════════════════════════════════════════════════════

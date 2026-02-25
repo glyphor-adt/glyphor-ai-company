@@ -73,10 +73,30 @@ export class AnthropicAdapter implements ProviderAdapter {
     while (i < turns.length) {
       const turn = turns[i];
       switch (turn.role) {
-        case 'user':
-          messages.push({ role: 'user', content: turn.content });
+        case 'user': {
+          if (turn.attachments?.length) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const parts: any[] = [];
+            if (turn.content) parts.push({ type: 'text', text: turn.content });
+            for (const att of turn.attachments) {
+              if (att.mimeType.startsWith('image/')) {
+                parts.push({ type: 'image', source: { type: 'base64', media_type: att.mimeType, data: att.data } });
+              } else if (att.mimeType === 'application/pdf') {
+                parts.push({ type: 'document', source: { type: 'base64', media_type: att.mimeType, data: att.data } });
+              } else {
+                // Text-based files: decode and inject as text
+                const decoded = Buffer.from(att.data, 'base64').toString('utf-8');
+                const content = decoded.length > 50000 ? decoded.slice(0, 50000) + '\n...(truncated)' : decoded;
+                parts.push({ type: 'text', text: `[File: ${att.name}]\n\`\`\`\n${content}\n\`\`\`` });
+              }
+            }
+            messages.push({ role: 'user', content: parts });
+          } else {
+            messages.push({ role: 'user', content: turn.content });
+          }
           i++;
           break;
+        }
         case 'assistant':
           messages.push({ role: 'assistant', content: turn.content });
           i++;

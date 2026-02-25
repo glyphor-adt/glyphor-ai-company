@@ -32,6 +32,7 @@ export type {
   AgentEvent,
   AgentExecutionResult,
   CompanyAgentRole,
+  ConversationAttachment,
   ConversationTurn,
   ContextInjector,
   GeminiToolDeclaration,

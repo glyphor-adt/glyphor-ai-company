@@ -870,6 +870,12 @@ const server = createServer(async (req, res) => {
       let message = body.message as string | undefined;
       const rawHistory = body.history as { role: string; content: string }[] | undefined;
 
+      // Accept file attachments for multimodal input (images, PDFs, documents)
+      const rawAttachments = body.attachments as { name: string; mimeType: string; data: string }[] | undefined;
+      const attachments = rawAttachments?.length
+        ? rawAttachments.map((a) => ({ name: a.name, mimeType: a.mimeType, data: a.data }))
+        : undefined;
+
       // Convert dashboard chat history to proper ConversationTurn[] for multi-turn
       const conversationHistory: ConversationTurn[] = [];
       if (rawHistory?.length) {
@@ -890,6 +896,7 @@ const server = createServer(async (req, res) => {
         payload: {
           ...(body.payload ?? {}),
           message,
+          ...(attachments ? { attachments } : {}),
           ...(conversationHistory.length > 0 ? { conversationHistory } : {}),
         },
       });

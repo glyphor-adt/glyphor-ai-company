@@ -92,10 +92,27 @@ export class GeminiAdapter implements ProviderAdapter {
       const turn = turns[i];
 
       switch (turn.role) {
-        case 'user':
-          contents.push({ role: 'user', parts: [{ text: turn.content }] });
+        case 'user': {
+          const userParts: Record<string, unknown>[] = [];
+          if (turn.content) userParts.push({ text: turn.content });
+          if (turn.attachments?.length) {
+            for (const att of turn.attachments) {
+              // Gemini accepts images and PDFs as inline data
+              if (att.mimeType.startsWith('image/') || att.mimeType === 'application/pdf') {
+                userParts.push({ inlineData: { mimeType: att.mimeType, data: att.data } });
+              } else {
+                // Text-based files: decode and inject as text
+                const decoded = Buffer.from(att.data, 'base64').toString('utf-8');
+                const content = decoded.length > 50000 ? decoded.slice(0, 50000) + '\n...(truncated)' : decoded;
+                userParts.push({ text: `[File: ${att.name}]\n\`\`\`\n${content}\n\`\`\`` });
+              }
+            }
+          }
+          if (userParts.length === 0) userParts.push({ text: '' });
+          contents.push({ role: 'user', parts: userParts });
           i++;
           break;
+        }
         case 'assistant':
           contents.push({ role: 'model', parts: [{ text: turn.content }] });
           i++;
