@@ -3,7 +3,7 @@ chunking:
   size: 1200
 community_reports: {}
 completion_models:
-  default:
+  default_completion_model:
     api_key: ${GOOGLE_AI_API_KEY}
     call_args:
       max_tokens: 8192
@@ -11,7 +11,7 @@ completion_models:
     model: gemini/gemini-2.5-flash
     model_provider: gemini
 embedding_models:
-  default:
+  default_embedding_model:
     api_key: ${GOOGLE_AI_API_KEY}
     model: gemini/gemini-embedding-001
     model_provider: gemini
@@ -31,8 +31,9 @@ extract_graph:
   - COMPETITOR
   - DEPARTMENT
 input:
+  type: text
+input_storage:
   base_dir: C:\Users\KristinaDenney\source\repos\glyphor-ai-company\packages\graphrag-indexer\input
-  file_type: text
   type: file
 output_storage:
   base_dir: C:\Users\KristinaDenney\source\repos\glyphor-ai-company\packages\graphrag-indexer\output

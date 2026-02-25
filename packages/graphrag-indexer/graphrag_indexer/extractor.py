@@ -21,11 +21,11 @@ def write_settings_yaml() -> Path:
     """Write a settings.yaml that GraphRAG v3 load_config() can read."""
     import yaml
 
-    # GraphRAG v3 uses litellm — Gemini models use "gemini/" prefix
+    # GraphRAG v3 uses litellm — model_provider routes to right backend
+    # model name should include the litellm provider prefix (gemini/)
     settings = {
         "completion_models": {
-            "default": {
-                "model_provider": "gemini",
+            "default_completion_model": {
                 "model": f"gemini/{LLM_MODEL}",
                 "api_key": "${GOOGLE_AI_API_KEY}",
                 "call_args": {
@@ -35,15 +35,16 @@ def write_settings_yaml() -> Path:
             },
         },
         "embedding_models": {
-            "default": {
-                "model_provider": "gemini",
+            "default_embedding_model": {
                 "model": f"gemini/{EMBEDDING_MODEL}",
                 "api_key": "${GOOGLE_AI_API_KEY}",
             },
         },
         "input": {
+            "type": "text",
+        },
+        "input_storage": {
             "type": "file",
-            "file_type": "text",
             "base_dir": str(INPUT_DIR),
         },
         "output_storage": {
