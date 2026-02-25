@@ -1113,10 +1113,17 @@ export class CompanyAgentRunner {
           if (task === 'on_demand' && !lastTextOutput) {
             const toolData = history
               .filter(t => t.role === 'tool_result' && t.toolResult?.success)
-              .map(t => t.content)
+              .map(t => {
+                const raw = t.content;
+                // Truncate large tool results to avoid raw JSON dumps
+                if (raw.length > 800) {
+                  return raw.substring(0, 800) + '\n... [data truncated]';
+                }
+                return raw;
+              })
               .slice(-3);
             if (toolData.length > 0) {
-              lastTextOutput = `Here's what I found before running out of time:\n\n${toolData.join('\n\n')}`;
+              lastTextOutput = `I gathered some data but ran out of time to fully synthesize it. Here's a summary of what I found:\n\n${toolData.join('\n\n')}`;
             }
           }
           if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, check.reason ?? 'supervisor_limit', deps);

@@ -747,7 +747,7 @@ export function createOrchestrationTools(
 
         let query = supabase
           .from('work_assignments')
-          .select('*')
+          .select('id, assigned_to, task_description, task_type, expected_output, status, priority, sequence_order, agent_output, evaluation, quality_score, dispatched_at, completed_at, need_type, blocker_reason')
           .eq('directive_id', directiveId)
           .order('sequence_order');
 
@@ -758,7 +758,17 @@ export function createOrchestrationTools(
         const { data, error } = await query;
         if (error) return { success: false, error: error.message };
 
-        return { success: true, data };
+        // Truncate agent_output to keep context window manageable
+        const truncated = (data ?? []).map((a: any) => ({
+          ...a,
+          agent_output: a.agent_output
+            ? a.agent_output.length > 500
+              ? a.agent_output.substring(0, 500) + '... [truncated — use evaluate_assignment to review full output]'
+              : a.agent_output
+            : null,
+        }));
+
+        return { success: true, data: truncated };
       },
     },
 
