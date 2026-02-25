@@ -59,7 +59,7 @@ export async function runTechnicalResearchAnalyst(params: TechnicalResearchAnaly
     const searchSuggestions = params.searchQueries
       ? `\n\nSuggested search queries (start with these, then follow leads):\n${params.searchQueries.map((q, i) => `${i + 1}. ${q}`).join('\n')}`
       : '';
-    initialMessage = `Research Brief:\n${params.researchBrief}${searchSuggestions}\n\nAnalysis ID: ${params.analysisId || 'standalone'}\n\nExecute your research systematically and submit your findings via submit_research_packet when complete.`;
+    initialMessage = `Research Brief:\n${params.researchBrief}${searchSuggestions}\n\nAnalysis ID: ${params.analysisId || 'standalone'}\n\nExecute your research systematically. When done, you MUST call the submit_research_packet tool BEFORE writing any text response. Text output alone is NOT delivered — only tool submissions count.`;
   } else {
     initialMessage = params.message || 'Run a technical landscape research scan.';
   }
