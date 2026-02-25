@@ -2,7 +2,7 @@
  * Voice Gateway Server — Cloud Run entry point
  *
  * HTTP server handling voice session management for both
- * Dashboard (WebRTC) and Teams (ACS) modes.
+ * Dashboard (WebRTC) and Teams (Graph) modes.
  *
  * Endpoints:
  *   POST /voice/dashboard        — Create dashboard voice session
@@ -10,7 +10,7 @@
  *   POST /voice/dashboard/transcript — Record transcript entry
  *   POST /voice/teams/join       — Join agent to Teams meeting
  *   POST /voice/teams/leave      — Remove agent from Teams meeting
- *   POST /voice/teams/callback   — ACS event callbacks
+ *   POST /voice/teams/callback   — Graph Communications API callbacks
  *   GET  /voice/sessions         — List active voice sessions
  *   GET  /voice/usage            — Get daily usage summary
  *   GET  /health                 — Health check
@@ -47,20 +47,22 @@ sessions.onAutoEnd = (session) => {
 const dashboardHandler = new DashboardVoiceHandler(openai, sessions, supabase);
 
 let teamsHandler: TeamsCallHandler | null = null;
-const acsConnectionString = process.env.ACS_CONNECTION_STRING;
+const botAppId = process.env.BOT_APP_ID;
+const botAppSecret = process.env.BOT_APP_SECRET;
+const tenantId = process.env.AZURE_TENANT_ID ?? process.env.BOT_TENANT_ID;
 const gatewayUrl = process.env.VOICE_GATEWAY_URL ?? `http://localhost:${PORT}`;
 
-if (acsConnectionString) {
+if (botAppId && botAppSecret && tenantId) {
   teamsHandler = new TeamsCallHandler(
-    acsConnectionString,
+    { appId: botAppId, appSecret: botAppSecret, tenantId },
     openai,
     sessions,
     supabase,
     gatewayUrl,
   );
-  console.log('[Voice] Teams call handler initialized (ACS configured)');
+  console.log('[Voice] Teams call handler initialized (Graph Communications API)');
 } else {
-  console.log('[Voice] Teams call handler disabled (no ACS_CONNECTION_STRING)');
+  console.log('[Voice] Teams call handler disabled (missing BOT_APP_ID, BOT_APP_SECRET, or AZURE_TENANT_ID)');
 }
 
 // ─── HTTP helpers ───────────────────────────────────────────────
@@ -181,7 +183,7 @@ const server = createServer(async (req, res) => {
     // ── Teams: Join meeting ─────────────────────────────────
     if (method === 'POST' && url === '/voice/teams/join') {
       if (!teamsHandler) {
-        json(res, 503, { error: 'Teams voice not configured (missing ACS_CONNECTION_STRING)' });
+        json(res, 503, { error: 'Teams voice not configured (missing BOT_APP_ID / BOT_APP_SECRET / AZURE_TENANT_ID)' });
         return;
       }
 
@@ -223,7 +225,7 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // ── Teams: ACS callback ─────────────────────────────────
+    // ── Teams: Graph Communications callback ────────────────
     if (method === 'POST' && url === '/voice/teams/callback') {
       if (!teamsHandler) {
         json(res, 200, { ok: true });
