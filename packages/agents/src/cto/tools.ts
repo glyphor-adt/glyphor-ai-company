@@ -6,6 +6,7 @@
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import {
   queryCloudRunMetrics,
@@ -888,6 +889,346 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
           });
 
           return { success: true, data: result };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    // ─── Supabase — Database Health & Diagnostics ───────────────
+
+    {
+      name: 'query_supabase_health',
+      description: 'Check Supabase connectivity, query latency, and connection pool state.',
+      parameters: {},
+      execute: async (_params, _ctx): Promise<ToolResult> => {
+        try {
+          const supabase = memory.getSupabaseClient();
+          const start = Date.now();
+          const { data, error } = await supabase.from('company_agents').select('role').limit(1);
+          const latencyMs = Date.now() - start;
+          return {
+            success: true,
+            data: { connected: !error, queryLatencyMs: latencyMs, error: error?.message, checkedAt: new Date().toISOString() },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'query_supabase_table',
+      description: 'Read-only query on a Supabase table for diagnostics. Returns matching rows. Use this to investigate data issues, check agent state, review schedules, or diagnose problems.',
+      parameters: {
+        table: {
+          type: 'string',
+          description: 'Table name to query',
+          required: true,
+          enum: [
+            'company_agents', 'agent_schedules', 'agent_runs', 'agent_performance',
+            'agent_memory', 'agent_reflections', 'activity_log', 'work_assignments',
+            'decisions', 'agent_messages', 'infrastructure_metrics', 'gcp_billing',
+            'products', 'financials', 'company_profile',
+          ],
+        },
+        select: {
+          type: 'string',
+          description: 'Columns to select (default: "*"). E.g. "role,status,last_run_at"',
+          required: false,
+        },
+        filters: {
+          type: 'object',
+          description: 'Equality filters as key-value pairs. E.g. {"status": "active", "department": "engineering"}',
+          required: false,
+        },
+        order_by: {
+          type: 'string',
+          description: 'Column to order by (descending). E.g. "created_at"',
+          required: false,
+        },
+        limit: {
+          type: 'number',
+          description: 'Max rows to return (default: 25, max: 100)',
+          required: false,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const supabase = memory.getSupabaseClient();
+          const table = params.table as string;
+          const selectCols = (params.select as string) || '*';
+          const limit = Math.min((params.limit as number) || 25, 100);
+
+          let query = supabase.from(table).select(selectCols);
+
+          const filters = params.filters as Record<string, string> | undefined;
+          if (filters) {
+            for (const [col, val] of Object.entries(filters)) {
+              query = query.eq(col, val);
+            }
+          }
+
+          if (params.order_by) {
+            query = query.order(params.order_by as string, { ascending: false });
+          }
+
+          query = query.limit(limit);
+
+          const { data, error } = await query;
+          if (error) return { success: false, error: error.message };
+          return { success: true, data: { table, rowCount: (data as unknown[]).length, rows: data } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    // ─── Agent Management ───────────────────────────────────────
+
+    {
+      name: 'list_agents',
+      description: 'List all agents with their status, last run time, performance score, model, and department.',
+      parameters: {
+        status: {
+          type: 'string',
+          description: 'Filter by status (default: all)',
+          required: false,
+          enum: ['active', 'inactive', 'disabled'],
+        },
+        department: {
+          type: 'string',
+          description: 'Filter by department (e.g. "engineering", "product")',
+          required: false,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const supabase = memory.getSupabaseClient();
+          let query = supabase.from('company_agents')
+            .select('role, display_name, title, department, model, status, is_core, last_run_at, last_run_duration_ms, last_run_cost_usd, performance_score');
+
+          if (params.status) query = query.eq('status', params.status as string);
+          if (params.department) query = query.eq('department', params.department as string);
+
+          const { data, error } = await query.order('department').order('role');
+          if (error) return { success: false, error: error.message };
+          return { success: true, data: { count: (data as unknown[]).length, agents: data } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'get_agent_run_history',
+      description: 'Get recent run history for a specific agent — shows when it ran, duration, cost, success/failure.',
+      parameters: {
+        agent_role: {
+          type: 'string',
+          description: 'Agent role ID (e.g. "cto", "cpo", "platform-engineer")',
+          required: true,
+        },
+        limit: {
+          type: 'number',
+          description: 'Number of recent runs (default: 10)',
+          required: false,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const supabase = memory.getSupabaseClient();
+          const { data, error } = await supabase.from('agent_runs')
+            .select('*')
+            .eq('agent_role', params.agent_role as string)
+            .order('created_at', { ascending: false })
+            .limit((params.limit as number) || 10);
+
+          if (error) return { success: false, error: error.message };
+
+          const lastSummary = await memory.getLastRunSummary(params.agent_role as string);
+          return {
+            success: true,
+            data: {
+              agentRole: params.agent_role,
+              runs: data,
+              lastSummary: lastSummary?.summary,
+              lastRunAt: lastSummary?.lastRunAt,
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'update_agent_status',
+      description: 'Activate or deactivate an agent. Use this to disable a misbehaving agent or re-enable one after a fix.',
+      parameters: {
+        agent_role: {
+          type: 'string',
+          description: 'Agent role ID (e.g. "platform-engineer", "devops-engineer")',
+          required: true,
+        },
+        status: {
+          type: 'string',
+          description: 'New status',
+          required: true,
+          enum: ['active', 'inactive'],
+        },
+        reason: {
+          type: 'string',
+          description: 'Reason for the status change',
+          required: true,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        try {
+          const supabase = memory.getSupabaseClient();
+          const agentRole = params.agent_role as string;
+          const newStatus = params.status as string;
+
+          const { error } = await supabase.from('company_agents')
+            .update({ status: newStatus })
+            .eq('role', agentRole);
+
+          if (error) return { success: false, error: error.message };
+
+          await memory.appendActivity({
+            agentRole: ctx.agentRole,
+            action: 'deploy',
+            product: 'company',
+            summary: `Agent ${agentRole} set to ${newStatus}: ${params.reason}`,
+            createdAt: new Date().toISOString(),
+          });
+
+          return { success: true, data: { agentRole, status: newStatus, reason: params.reason } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'get_agent_schedules',
+      description: 'List all agent schedules — shows cron expressions, enabled/disabled state, and next run metadata.',
+      parameters: {
+        agent_role: {
+          type: 'string',
+          description: 'Filter by agent role (omit for all schedules)',
+          required: false,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const supabase = memory.getSupabaseClient();
+          let query = supabase.from('agent_schedules').select('*');
+          if (params.agent_role) query = query.eq('agent_role', params.agent_role as string);
+          const { data, error } = await query.order('agent_role');
+          if (error) return { success: false, error: error.message };
+          return { success: true, data: { count: (data as unknown[]).length, schedules: data } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'update_agent_schedule',
+      description: 'Enable, disable, or modify an agent schedule. Use this to pause a runaway agent or adjust run frequency.',
+      parameters: {
+        schedule_id: {
+          type: 'string',
+          description: 'The schedule ID (from get_agent_schedules)',
+          required: true,
+        },
+        enabled: {
+          type: 'boolean',
+          description: 'Enable or disable the schedule',
+          required: false,
+        },
+        cron: {
+          type: 'string',
+          description: 'New cron expression (e.g. "0 */4 * * *" for every 4 hours)',
+          required: false,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        try {
+          const supabase = memory.getSupabaseClient();
+          const updates: Record<string, unknown> = {};
+          if (params.enabled !== undefined) updates.enabled = params.enabled;
+          if (params.cron) updates.cron_expression = params.cron;
+
+          if (Object.keys(updates).length === 0) {
+            return { success: false, error: 'No updates specified — provide enabled and/or cron.' };
+          }
+
+          const { error } = await supabase.from('agent_schedules')
+            .update(updates)
+            .eq('id', params.schedule_id as string);
+
+          if (error) return { success: false, error: error.message };
+
+          await memory.appendActivity({
+            agentRole: ctx.agentRole,
+            action: 'deploy',
+            product: 'company',
+            summary: `Updated schedule ${params.schedule_id}: ${JSON.stringify(updates)}`,
+            createdAt: new Date().toISOString(),
+          });
+
+          return { success: true, data: { scheduleId: params.schedule_id, updates } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'get_agent_performance',
+      description: 'Get performance metrics for an agent — success rate, avg duration, cost trends, quality scores.',
+      parameters: {
+        agent_role: {
+          type: 'string',
+          description: 'Agent role ID',
+          required: true,
+        },
+        days: {
+          type: 'number',
+          description: 'Days to look back (default: 7)',
+          required: false,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const supabase = memory.getSupabaseClient();
+          const agentRole = params.agent_role as string;
+          const days = (params.days as number) || 7;
+          const since = new Date(Date.now() - days * 86400000).toISOString();
+
+          const [perfResult, reflResult, qualityScore] = await Promise.all([
+            supabase.from('agent_performance')
+              .select('*')
+              .eq('agent_role', agentRole)
+              .gte('recorded_at', since)
+              .order('recorded_at', { ascending: false })
+              .limit(30),
+            memory.getReflections(agentRole as CompanyAgentRole, 5),
+            memory.getAverageQualityScore(agentRole as CompanyAgentRole, days),
+          ]);
+
+          return {
+            success: true,
+            data: {
+              agentRole,
+              period: `${days}d`,
+              performance: perfResult.data,
+              qualityScore,
+              recentReflections: reflResult,
+            },
+          };
         } catch (err) {
           return { success: false, error: (err as Error).message };
         }

@@ -5,6 +5,9 @@
 -- 1. Research Team Agents
 -- ═══════════════════════════════════════════════════════════════
 
+-- Add department column if it doesn't exist yet
+ALTER TABLE company_agents ADD COLUMN IF NOT EXISTS department TEXT;
+
 INSERT INTO company_agents (role, display_name, department, reports_to, model, status, is_core)
 VALUES
   ('competitive-research-analyst', 'Lena Park',     'Research & Intelligence', 'chief-of-staff', 'gemini-3-flash-preview', 'active', false),
