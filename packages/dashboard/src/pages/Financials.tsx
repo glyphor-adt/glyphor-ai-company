@@ -35,9 +35,10 @@ interface FinancialRow {
 interface GcpBillingRow {
   id: string;
   service: string;
+  project: string | null;
   product: string | null;
   cost_usd: number;
-  usage: { date?: string; currency?: string; raw_service?: string };
+  usage: { date?: string; currency?: string; raw_service?: string; project?: string };
   recorded_at: string;
 }
 
@@ -265,6 +266,49 @@ export default function Financials() {
       .filter((p) => p.cost >= 0.01)
       .sort((a, b) => b.cost - a.cost);
   }, [gcpBillingCurrentMonth]);
+
+  // GCP cost by project — current month (table + pie)
+  const gcpByProject = useMemo(() => {
+    const byProject = new Map<string, number>();
+    for (const row of gcpBillingCurrentMonth) {
+      const label = row.project ?? 'unknown';
+      byProject.set(label, (byProject.get(label) ?? 0) + row.cost_usd);
+    }
+    return Array.from(byProject.entries())
+      .map(([project, cost]) => ({ project, product: PROJECT_TO_PRODUCT_LABEL[project] ?? null, cost: parseFloat(cost.toFixed(2)) }))
+      .filter((p) => p.cost >= 0.01)
+      .sort((a, b) => b.cost - a.cost);
+  }, [gcpBillingCurrentMonth]);
+
+  // GCP daily trend by project (stacked bar)
+  const gcpDailyByProject = useMemo(() => {
+    const projects = gcpByProject.map((p) => p.project);
+    const byDate = new Map<string, Record<string, number>>();
+    for (const row of gcpBilling) {
+      const date = row.usage?.date ?? row.recorded_at.split('T')[0];
+      const proj = row.project ?? 'unknown';
+      if (!projects.includes(proj)) continue;
+      const entry = byDate.get(date) ?? {};
+      entry[proj] = (entry[proj] ?? 0) + row.cost_usd;
+      byDate.set(date, entry);
+    }
+    return Array.from(byDate.entries())
+      .map(([date, projs]) => ({ date: formatDate(date), ...projs }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [gcpBilling, gcpByProject]);
+
+  // Per-project service breakdown — current month
+  const gcpProjectServiceBreakdown = useMemo(() => {
+    const result = new Map<string, Map<string, number>>();
+    for (const row of gcpBillingCurrentMonth) {
+      const proj = row.project ?? 'unknown';
+      if (!result.has(proj)) result.set(proj, new Map());
+      const svcMap = result.get(proj)!;
+      svcMap.set(row.service, (svcMap.get(row.service) ?? 0) + row.cost_usd);
+    }
+    return result;
+  }, [gcpBillingCurrentMonth]);
+
   // Mercury stats
   const latestBalance = raw.filter((r) => r.metric === 'cash_balance').sort((a, b) => b.date.localeCompare(a.date))[0]?.value ?? 0;
   const latestBurnRate = raw.filter((r) => r.metric === 'burn_rate').sort((a, b) => b.date.localeCompare(a.date))[0]?.value ?? 0;
@@ -285,6 +329,7 @@ export default function Financials() {
   const PRODUCTS = ['fuse', 'pulse', 'reve'] as const;
   const PRODUCT_COLORS: Record<string, string> = { fuse: '#2563EB', pulse: '#7C3AED', reve: '#0891B2', glyphor: '#EA4335', unassigned: '#9AA0A6' };
   const PRODUCT_LABELS: Record<string, string> = { fuse: 'Fuse', pulse: 'Pulse', reve: 'Reve', glyphor: 'Glyphor', unassigned: 'Unassigned' };
+  const PROJECT_TO_PRODUCT_LABEL: Record<string, string> = { 'ai-glyphor-company': 'Glyphor', 'glyphor-pulse': 'Pulse', 'gen-lang-client-0834143721': 'Fuse' };
 
   const productFinancials = useMemo(() => {
     const result: Record<string, { mrr: number; costs: number; apiCosts: number; users: number }> = {};
@@ -792,6 +837,94 @@ export default function Financials() {
         </Card>
 
       </div>
+
+      {/* GCP Cost by Project — table with per-project service breakdown */}
+      <Card>
+        <SectionHeader title={`GCP Cost by Project (${currentMonthLabel})`} />
+        {gcpLoading ? (
+          <Skeleton className="h-48" />
+        ) : gcpByProject.length === 0 ? (
+          <EmptyChart message="No per-project GCP data yet" />
+        ) : (
+          <div className="mt-2 space-y-4">
+            {gcpByProject.map((proj) => {
+              const services = gcpProjectServiceBreakdown.get(proj.project);
+              const serviceList = services
+                ? Array.from(services.entries())
+                    .map(([svc, cost]) => ({ service: svc, cost: parseFloat(cost.toFixed(4)) }))
+                    .sort((a, b) => b.cost - a.cost)
+                : [];
+              const pct = gcpTotalCost > 0 ? (proj.cost / gcpTotalCost) * 100 : 0;
+              return (
+                <div key={proj.project} className="rounded-lg border border-[var(--color-border)] p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm font-medium text-txt-primary">{proj.project}</span>
+                      {proj.product && (
+                        <span className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-0.5 text-[10px] font-medium text-txt-muted">
+                          {proj.product}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <span className="font-mono text-sm font-semibold text-txt-primary">${proj.cost.toFixed(2)}</span>
+                      <span className="ml-2 text-[11px] text-txt-faint">{pct.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                  {/* Cost bar */}
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-border)]">
+                    <div className="h-full rounded-full bg-[#4285F4] transition-all" style={{ width: `${Math.min(pct, 100)}%` }} />
+                  </div>
+                  {/* Service breakdown */}
+                  {serviceList.length > 0 && (
+                    <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1">
+                      {serviceList.map((svc) => (
+                        <div key={svc.service} className="flex items-center justify-between text-[11px]">
+                          <span className="text-txt-muted truncate mr-2">{svc.service}</span>
+                          <span className="font-mono text-txt-secondary shrink-0">${svc.cost.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+
+      {/* GCP Daily Cost by Project — stacked bar */}
+      <Card>
+        <SectionHeader title="GCP Daily Cost by Project" />
+        {gcpLoading ? (
+          <Skeleton className="h-64" />
+        ) : gcpDailyByProject.length === 0 ? (
+          <EmptyChart message="No per-project GCP data yet" />
+        ) : (
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={gcpDailyByProject} margin={{ top: 5, right: 20, left: 10, bottom: 25 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }}
+                interval={Math.max(0, Math.floor(gcpDailyByProject.length / 12) - 1)}
+                angle={gcpDailyByProject.length > 14 ? -40 : 0}
+                textAnchor={gcpDailyByProject.length > 14 ? 'end' : 'middle'}
+              />
+              <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${v}`} />
+              <Tooltip
+                contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
+                labelStyle={{ color: 'var(--color-txt-secondary)' }}
+                formatter={(value: number, name: string) => [`$${value.toFixed(4)}`, PROJECT_TO_PRODUCT_LABEL[name] ?? name]}
+              />
+              <Legend formatter={(value) => PROJECT_TO_PRODUCT_LABEL[value] ?? value} wrapperStyle={{ fontSize: 11 }} />
+              {gcpByProject.map((p, i) => (
+                <Bar key={p.project} dataKey={p.project} stackId="proj" fill={GCP_COLORS[i % GCP_COLORS.length]} maxBarSize={36} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </Card>
 
       {/* GCP Daily Trend — full width */}
       <Card>
