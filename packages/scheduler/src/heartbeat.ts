@@ -124,6 +124,23 @@ export class HeartbeatManager {
     // ── Phase 1b: INBOX — check M365 mailboxes for unread email ──
     // Runs every 2nd cycle (~20 min) to avoid excessive Graph API calls.
     if (this.cycle % 2 === 0) {
+      // Pre-fetch recent aborts for abort cooldown checks
+      const ABORT_COOLDOWN_MS = 30 * 60 * 1000;
+      const recentAborts = new Map<string, Date>();
+      try {
+        const { data: aborts } = await this.supabase
+          .from('agent_runs')
+          .select('agent_id, completed_at')
+          .eq('status', 'aborted')
+          .gte('completed_at', new Date(Date.now() - ABORT_COOLDOWN_MS).toISOString())
+          .order('completed_at', { ascending: false });
+        for (const row of aborts ?? []) {
+          if (!recentAborts.has(row.agent_id)) {
+            recentAborts.set(row.agent_id, new Date(row.completed_at));
+          }
+        }
+      } catch { /* table may not exist */ }
+
       try {
         const inbox = await checkAgentInboxes();
         for (const agent of inbox.withMail) {
@@ -132,6 +149,12 @@ export class HeartbeatManager {
           // Skip if agent ran recently
           const lastRun = lastRuns.get(agent.role);
           if (lastRun && Date.now() - lastRun.getTime() < MIN_RUN_GAP_MS) continue;
+          // Skip if agent was recently aborted (prevents inbox→abort→inbox loop)
+          const lastAbort = recentAborts.get(agent.role);
+          if (lastAbort && Date.now() - lastAbort.getTime() < ABORT_COOLDOWN_MS) {
+            console.log(`[Heartbeat] Skipping inbox wake for ${agent.role}: abort cooldown (${Math.round((ABORT_COOLDOWN_MS - (Date.now() - lastAbort.getTime())) / 60_000)}min remaining)`);
+            continue;
+          }
 
           const subjectList = agent.subjects.slice(0, 3).join(', ');
           wakeList.push({

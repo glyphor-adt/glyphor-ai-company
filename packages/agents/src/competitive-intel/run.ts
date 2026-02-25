@@ -57,7 +57,7 @@ export async function runCompetitiveIntel(params: CompetitiveIntelRunParams = {}
       initialMessage = params.message || 'Run a competitive intelligence scan.';
       break;
     default:
-      initialMessage = 'Run a competitive intelligence scan.';
+      initialMessage = params.message || 'Run a competitive intelligence scan.';
   }
 
   const supabase = memory.getSupabaseClient();

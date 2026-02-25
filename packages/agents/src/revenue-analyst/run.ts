@@ -57,7 +57,7 @@ export async function runRevenueAnalyst(params: RevenueAnalystRunParams = {}) {
       initialMessage = params.message || 'Run a revenue analysis.';
       break;
     default:
-      initialMessage = 'Run a revenue analysis.';
+      initialMessage = params.message || 'Run a revenue analysis.';
   }
 
   const supabase = memory.getSupabaseClient();

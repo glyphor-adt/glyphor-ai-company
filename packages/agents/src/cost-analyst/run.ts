@@ -57,7 +57,7 @@ export async function runCostAnalyst(params: CostAnalystRunParams = {}) {
       initialMessage = params.message || 'Run a cost analysis.';
       break;
     default:
-      initialMessage = 'Run a cost analysis.';
+      initialMessage = params.message || 'Run a cost analysis.';
   }
 
   const supabase = memory.getSupabaseClient();

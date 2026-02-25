@@ -60,7 +60,7 @@ export async function runSeoAnalyst(params: SeoAnalystRunParams = {}) {
       initialMessage = params.message || 'Run an SEO analysis.';
       break;
     default:
-      initialMessage = 'Run an SEO analysis.';
+      initialMessage = params.message || 'Run an SEO analysis.';
   }
 
   const supabase = memory.getSupabaseClient();

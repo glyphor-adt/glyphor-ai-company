@@ -99,7 +99,7 @@ Steps:
       break;
 
     default:
-      initialMessage = 'Provide a sales analysis and pipeline summary.';
+      initialMessage = params.message || 'Provide a sales analysis and pipeline summary.';
   }
 
   const supabase = memory.getSupabaseClient();

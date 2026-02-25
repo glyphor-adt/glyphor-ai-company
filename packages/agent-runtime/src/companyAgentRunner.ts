@@ -929,7 +929,7 @@ export class CompanyAgentRunner {
     }
 
     const task = extractTask(config.id);
-    const isTaskTier = task === 'work_loop';
+    const isTaskTier = task === 'work_loop' || task === 'proactive';
 
     try {
       let turnNumber = 0;

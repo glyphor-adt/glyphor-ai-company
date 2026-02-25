@@ -100,7 +100,7 @@ Steps:
       break;
 
     default:
-      initialMessage = 'Provide a customer success analysis.';
+      initialMessage = params.message || 'Provide a customer success analysis.';
   }
 
   const supabase = memory.getSupabaseClient();

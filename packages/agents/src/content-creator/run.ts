@@ -60,7 +60,7 @@ export async function runContentCreator(params: ContentCreatorRunParams = {}) {
       initialMessage = params.message || 'Create content as directed.';
       break;
     default:
-      initialMessage = 'Create content as directed.';
+      initialMessage = params.message || 'Create content as directed.';
   }
 
   const supabase = memory.getSupabaseClient();

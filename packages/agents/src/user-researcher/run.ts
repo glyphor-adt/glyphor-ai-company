@@ -57,7 +57,7 @@ export async function runUserResearcher(params: UserResearcherRunParams = {}) {
       initialMessage = params.message || 'Run a user behavior analysis.';
       break;
     default:
-      initialMessage = 'Run a user behavior analysis.';
+      initialMessage = params.message || 'Run a user behavior analysis.';
   }
 
   const supabase = memory.getSupabaseClient();

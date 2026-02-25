@@ -114,7 +114,7 @@ Steps:
       break;
 
     default:
-      initialMessage = 'Provide a content and marketing strategy summary.';
+      initialMessage = params.message || 'Provide a content and marketing strategy summary.';
   }
 
   const supabase = memory.getSupabaseClient();

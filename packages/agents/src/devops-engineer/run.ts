@@ -65,7 +65,7 @@ export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
       initialMessage = params.message || 'Analyze infrastructure for optimization opportunities.';
       break;
     default:
-      initialMessage = 'Analyze infrastructure for optimization opportunities.';
+      initialMessage = params.message || 'Analyze infrastructure for optimization opportunities.';
   }
 
   const supabase = memory.getSupabaseClient();

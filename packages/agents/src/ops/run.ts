@@ -207,7 +207,7 @@ Goal: Ensure knowledge routing is efficient, stale information is flagged, and t
       break;
 
     default:
-      initialMessage = 'Provide a current system status summary.';
+      initialMessage = params.message || 'Provide a current system status summary.';
   }
 
   const supabase = memory.getSupabaseClient();

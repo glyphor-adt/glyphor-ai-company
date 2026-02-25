@@ -103,7 +103,7 @@ Steps:
       break;
 
     default:
-      initialMessage = 'Provide a design quality and system status summary.';
+      initialMessage = params.message || 'Provide a design quality and system status summary.';
   }
 
   const supabase = memory.getSupabaseClient();

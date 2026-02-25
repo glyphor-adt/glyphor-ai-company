@@ -103,7 +103,7 @@ Steps:
       break;
 
     default:
-      initialMessage = 'Provide a product strategy summary for both Fuse and Pulse.';
+      initialMessage = params.message || 'Provide a product strategy summary for both Fuse and Pulse.';
   }
 
   const supabase = memory.getSupabaseClient();

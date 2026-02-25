@@ -67,7 +67,7 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
       initialMessage = params.message || 'Review the current state of the M365 tenant and report anything that needs attention.';
       break;
     default:
-      initialMessage = 'Review Teams channels and user access for any issues.';
+      initialMessage = params.message || 'Review Teams channels and user access for any issues.';
   }
 
   const supabase = memory.getSupabaseClient();

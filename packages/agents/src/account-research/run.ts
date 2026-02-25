@@ -60,7 +60,7 @@ export async function runAccountResearch(params: AccountResearchRunParams = {}) 
       initialMessage = params.message || 'Research a prospect account.';
       break;
     default:
-      initialMessage = 'Research a prospect account.';
+      initialMessage = params.message || 'Research a prospect account.';
   }
 
   const supabase = memory.getSupabaseClient();

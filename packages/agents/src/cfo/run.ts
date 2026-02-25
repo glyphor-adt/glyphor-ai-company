@@ -98,7 +98,7 @@ Steps:
       break;
 
     default:
-      initialMessage = 'Provide a financial health summary of the company.';
+      initialMessage = params.message || 'Provide a financial health summary of the company.';
   }
 
   const supabase = memory.getSupabaseClient();

@@ -95,7 +95,7 @@ Steps:
       break;
 
     default:
-      initialMessage = 'Run a health check on all platform services.';
+      initialMessage = params.message || 'Run a health check on all platform services.';
   }
 
   const supabase = memory.getSupabaseClient();

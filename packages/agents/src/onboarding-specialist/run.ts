@@ -57,7 +57,7 @@ export async function runOnboardingSpecialist(params: OnboardingSpecialistRunPar
       initialMessage = params.message || 'Analyze the onboarding experience.';
       break;
     default:
-      initialMessage = 'Analyze the onboarding experience.';
+      initialMessage = params.message || 'Analyze the onboarding experience.';
   }
 
   const supabase = memory.getSupabaseClient();

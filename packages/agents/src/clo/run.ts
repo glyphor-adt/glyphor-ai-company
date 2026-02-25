@@ -106,7 +106,7 @@ Steps:
       break;
 
     default:
-      initialMessage = 'Provide a legal health summary covering current compliance status, pending legal items, and any regulatory developments requiring attention.';
+      initialMessage = params.message || 'Provide a legal health summary covering current compliance status, pending legal items, and any regulatory developments requiring attention.';
   }
 
   const supabase = memory.getSupabaseClient();

@@ -65,7 +65,7 @@ export async function runQualityEngineer(params: QualityEngineerRunParams = {}) 
       initialMessage = params.message || 'Run a QA analysis on recent builds.';
       break;
     default:
-      initialMessage = 'Run a QA analysis on recent builds.';
+      initialMessage = params.message || 'Run a QA analysis on recent builds.';
   }
 
   const supabase = memory.getSupabaseClient();

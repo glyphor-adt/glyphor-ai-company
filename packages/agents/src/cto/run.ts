@@ -96,7 +96,7 @@ Steps:
       break;
 
     default:
-      initialMessage = 'Provide a technical status summary of the platform.';
+      initialMessage = params.message || 'Provide a technical status summary of the platform.';
   }
 
   const supabase = memory.getSupabaseClient();

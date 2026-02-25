@@ -60,7 +60,7 @@ export async function runSocialMediaManager(params: SocialMediaManagerRunParams 
       initialMessage = params.message || 'Manage social media as directed.';
       break;
     default:
-      initialMessage = 'Manage social media as directed.';
+      initialMessage = params.message || 'Manage social media as directed.';
   }
 
   const supabase = memory.getSupabaseClient();

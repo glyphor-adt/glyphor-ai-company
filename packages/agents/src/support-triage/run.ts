@@ -57,7 +57,7 @@ export async function runSupportTriage(params: SupportTriageRunParams = {}) {
       initialMessage = params.message || 'Triage support tickets.';
       break;
     default:
-      initialMessage = 'Triage support tickets.';
+      initialMessage = params.message || 'Triage support tickets.';
   }
 
   const supabase = memory.getSupabaseClient();

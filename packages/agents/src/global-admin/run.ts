@@ -73,7 +73,7 @@ export async function runGlobalAdmin(params: GlobalAdminRunParams = {}) {
       initialMessage = params.message || 'Check the current access posture across all managed GCP projects and report any issues.';
       break;
     default:
-      initialMessage = 'Run a quick access health check across all managed GCP projects.';
+      initialMessage = params.message || 'Run a quick access health check across all managed GCP projects.';
   }
 
   const supabase = memory.getSupabaseClient();
