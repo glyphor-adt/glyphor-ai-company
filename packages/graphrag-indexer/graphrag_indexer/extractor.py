@@ -22,12 +22,16 @@ def write_settings_yaml() -> Path:
     import yaml
 
     # GraphRAG v3 uses litellm — model_provider routes to right backend
-    # model name should include the litellm provider prefix (gemini/)
+    # GraphRAG v3 uses litellm — model_provider is required and adds
+    # the provider prefix automatically, so model is just the bare name
     settings = {
         "completion_models": {
             "default_completion_model": {
-                "model": f"gemini/{LLM_MODEL}",
+                "model_provider": "gemini",
+                "model": LLM_MODEL,
                 "api_key": "${GOOGLE_AI_API_KEY}",
+                "retry": {"max_retries": 5},
+                "rate_limit": {"requests_per_period": 10, "period_in_seconds": 60},
                 "call_args": {
                     "max_tokens": 8192,
                     "temperature": 0.0,
@@ -36,10 +40,14 @@ def write_settings_yaml() -> Path:
         },
         "embedding_models": {
             "default_embedding_model": {
-                "model": f"gemini/{EMBEDDING_MODEL}",
+                "model_provider": "gemini",
+                "model": EMBEDDING_MODEL,
                 "api_key": "${GOOGLE_AI_API_KEY}",
+                "retry": {"max_retries": 5},
+                "rate_limit": {"requests_per_period": 10, "period_in_seconds": 60},
             },
         },
+        "concurrent_requests": 5,
         "input": {
             "type": "text",
         },

@@ -8,12 +8,12 @@ completion_models:
     call_args:
       max_tokens: 8192
       temperature: 0.0
-    model: gemini/gemini-2.5-flash
+    model: gemini-2.0-flash
     model_provider: gemini
 embedding_models:
   default_embedding_model:
     api_key: ${GOOGLE_AI_API_KEY}
-    model: gemini/gemini-embedding-001
+    model: gemini-embedding-001
     model_provider: gemini
 extract_graph:
   entity_types:

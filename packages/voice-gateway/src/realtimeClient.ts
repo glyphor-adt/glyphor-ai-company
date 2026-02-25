@@ -46,6 +46,7 @@ export async function createRealtimeSession(
   const response = await openaiClient.post('/realtime/sessions', {
     body: {
       model: REALTIME_MODEL,
+      modalities: ['text', 'audio'],
       voice: voiceConfig.voice,
       instructions: systemPrompt,
       tools: realtimeTools,

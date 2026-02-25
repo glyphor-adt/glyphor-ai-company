@@ -7,7 +7,7 @@ import { Card, AgentAvatar } from '../components/ui';
 import { supabase, SCHEDULER_URL } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { MdAttachFile, MdImage, MdDescription, MdClose } from 'react-icons/md';
-import { HiMiniSignal, HiStop } from 'react-icons/hi2';
+import { HiMiniSignal, HiStop, HiMicrophone } from 'react-icons/hi2';
 import { useVoiceChat } from '../lib/useVoiceChat';
 import VoiceOverlay from '../components/VoiceOverlay';
 
@@ -83,6 +83,43 @@ export default function Chat() {
 
   // Voice chat
   const voice = useVoiceChat();
+
+  // Speech-to-text (dictation into textarea)
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const sttSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+
+  const toggleDictation = useCallback(() => {
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      return;
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    const rec = new SR();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = 'en-US';
+    let finalTranscript = '';
+    rec.onresult = (e: SpeechRecognitionEvent) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalTranscript += t;
+        else interim = t;
+      }
+      setInput(prev => {
+        const base = prev.replace(/\u200B[\s\S]*$/, ''); // strip previous interim
+        const combined = (base ? base + ' ' : '') + finalTranscript + (interim ? '\u200B' + interim : '');
+        return combined.trimStart();
+      });
+    };
+    rec.onend = () => setIsListening(false);
+    rec.onerror = () => setIsListening(false);
+    recognitionRef.current = rec;
+    rec.start();
+    setIsListening(true);
+  }, [isListening]);
 
   // @mention state
   const [showMentions, setShowMentions] = useState(false);
@@ -227,7 +264,9 @@ export default function Chat() {
 
   // ── Send ──
   const sendMessage = async () => {
-    const text = input.trim();
+    // Stop dictation if active and strip interim markers
+    if (isListening && recognitionRef.current) recognitionRef.current.stop();
+    const text = input.replace(/\u200B[\s\S]*/g, '').trim();
     if ((!text && pendingFiles.length === 0) || sending) return;
 
     // Capture which agent we're sending to — this won't change even if user switches agents
@@ -549,6 +588,20 @@ export default function Chat() {
               className="flex-1 rounded-lg border border-border bg-raised px-4 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none transition-colors focus:border-cyan/40 disabled:opacity-50 resize-none min-h-[40px] max-h-[120px]"
               onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 120)}px`; }}
             />
+            {sttSupported && (
+              <button
+                type="button"
+                onClick={toggleDictation}
+                className={`flex-shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-full transition-all ${
+                  isListening
+                    ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/25 animate-pulse'
+                    : 'bg-raised border border-border text-txt-muted hover:text-cyan hover:border-cyan/40 hover:bg-cyan/5'
+                }`}
+                title={isListening ? 'Stop dictation' : 'Dictate (speech to text)'}
+              >
+                <HiMicrophone size={18} />
+              </button>
+            )}
             {voice.isAvailable && (
               <button
                 type="button"

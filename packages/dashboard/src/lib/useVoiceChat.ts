@@ -122,6 +122,7 @@ export function useVoiceChat(): UseVoiceChatReturn {
 
       pc.ontrack = (event) => {
         audioEl.srcObject = event.streams[0];
+        audioEl.play().catch(() => { /* autoplay blocked */ });
       };
 
       // Add mic track to peer connection
