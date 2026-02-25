@@ -1019,12 +1019,15 @@ export class CompanyAgentRunner {
           }
 
           // ─── SMART TOOL GATING (on_demand / task) ────────────────
-          // Last turn: strip tools to force a text response and avoid
-          //   aborting with max_turns_exceeded and no output.
-          // All other turns: full tool access — the CONVERSATION_MODE
-          //   prompt guides the model on when to use tools vs. just talk.
+          // on_demand: tools on turn 1 only — the model gets one shot to
+          //   fetch data, then must respond with text. This prevents the
+          //   multi-turn tool-call loops that make chat feel slow.
+          // task tier: strip tools on last turn to force a text response.
+          // Scheduled: full tool access every turn.
           let effectiveTools: ReturnType<typeof toolExecutor.getDeclarations> | undefined = toolExecutor.getDeclarations();
-          if ((isOnDemand || isTaskTier) && turnNumber >= supervisor.config.maxTurns) {
+          if (isOnDemand && turnNumber > 1) {
+            effectiveTools = undefined;
+          } else if (isTaskTier && turnNumber >= supervisor.config.maxTurns) {
             effectiveTools = undefined;
           }
 

@@ -379,6 +379,186 @@ resource "google_cloud_scheduler_job" "cos_orchestrate_evening" {
   depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
 }
 
+# ─── Cloud Scheduler: CoS EOD Summary ───────────────────────
+resource "google_cloud_scheduler_job" "cos_eod_summary" {
+  name      = "cos-eod-summary"
+  schedule  = "0 23 * * *"
+  time_zone = "UTC"
+  region    = var.region
+
+  pubsub_target {
+    topic_name = google_pubsub_topic.agent_tasks.id
+    data = base64encode(jsonencode({
+      agentRole = "chief-of-staff"
+      task      = "eod_summary"
+      payload   = {}
+    }))
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
+# ─── Cloud Scheduler: C-Suite Agents ─────────────────────────
+resource "google_cloud_scheduler_job" "cto_health_check" {
+  name      = "cto-health-check"
+  schedule  = "0 */2 * * *"
+  time_zone = "UTC"
+  region    = var.region
+
+  pubsub_target {
+    topic_name = google_pubsub_topic.agent_tasks.id
+    data = base64encode(jsonencode({
+      agentRole = "cto"
+      task      = "platform_health_check"
+      payload   = {}
+    }))
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
+resource "google_cloud_scheduler_job" "cfo_daily_costs" {
+  name      = "cfo-daily-costs"
+  schedule  = "0 14 * * *"
+  time_zone = "America/Chicago"
+  region    = var.region
+
+  pubsub_target {
+    topic_name = google_pubsub_topic.agent_tasks.id
+    data = base64encode(jsonencode({
+      agentRole = "cfo"
+      task      = "daily_cost_check"
+      payload   = {}
+    }))
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
+resource "google_cloud_scheduler_job" "cpo_usage_analysis" {
+  name      = "cpo-usage-analysis"
+  schedule  = "0 15 * * *"
+  time_zone = "America/Chicago"
+  region    = var.region
+
+  pubsub_target {
+    topic_name = google_pubsub_topic.agent_tasks.id
+    data = base64encode(jsonencode({
+      agentRole = "cpo"
+      task      = "weekly_usage_analysis"
+      payload   = {}
+    }))
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
+resource "google_cloud_scheduler_job" "cmo_content_calendar" {
+  name      = "cmo-content-calendar"
+  schedule  = "0 14 * * *"
+  time_zone = "America/Chicago"
+  region    = var.region
+
+  pubsub_target {
+    topic_name = google_pubsub_topic.agent_tasks.id
+    data = base64encode(jsonencode({
+      agentRole = "cmo"
+      task      = "weekly_content_planning"
+      payload   = {}
+    }))
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
+resource "google_cloud_scheduler_job" "vpcs_health_scoring" {
+  name      = "vpcs-health-scoring"
+  schedule  = "0 13 * * *"
+  time_zone = "America/Chicago"
+  region    = var.region
+
+  pubsub_target {
+    topic_name = google_pubsub_topic.agent_tasks.id
+    data = base64encode(jsonencode({
+      agentRole = "vp-customer-success"
+      task      = "daily_health_scoring"
+      payload   = {}
+    }))
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
+resource "google_cloud_scheduler_job" "vps_pipeline_review" {
+  name      = "vps-pipeline-review"
+  schedule  = "0 14 * * *"
+  time_zone = "America/Chicago"
+  region    = var.region
+
+  pubsub_target {
+    topic_name = google_pubsub_topic.agent_tasks.id
+    data = base64encode(jsonencode({
+      agentRole = "vp-sales"
+      task      = "pipeline_review"
+      payload   = {}
+    }))
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
+# ─── Cloud Scheduler: Data Sync Jobs ─────────────────────────
+resource "google_cloud_scheduler_job" "sync_stripe" {
+  name      = "sync-stripe"
+  schedule  = "0 6 * * *"
+  time_zone = "UTC"
+  region    = var.region
+
+  http_target {
+    uri         = "${google_cloud_run_v2_service.scheduler.uri}/sync/stripe"
+    http_method = "POST"
+    oidc_token {
+      service_account_email = google_service_account.glyphor.email
+    }
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
+resource "google_cloud_scheduler_job" "sync_gcp_billing" {
+  name      = "sync-gcp-billing"
+  schedule  = "0 7 * * *"
+  time_zone = "UTC"
+  region    = var.region
+
+  http_target {
+    uri         = "${google_cloud_run_v2_service.scheduler.uri}/sync/gcp-billing"
+    http_method = "POST"
+    oidc_token {
+      service_account_email = google_service_account.glyphor.email
+    }
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
+resource "google_cloud_scheduler_job" "sync_mercury" {
+  name      = "sync-mercury"
+  schedule  = "0 8 * * *"
+  time_zone = "UTC"
+  region    = var.region
+
+  http_target {
+    uri         = "${google_cloud_run_v2_service.scheduler.uri}/sync/mercury"
+    http_method = "POST"
+    oidc_token {
+      service_account_email = google_service_account.glyphor.email
+    }
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
 # ─── IAM ──────────────────────────────────────────────────────
 resource "google_cloud_run_v2_service_iam_member" "scheduler_invoker" {
   name     = google_cloud_run_v2_service.scheduler.name
