@@ -9,7 +9,7 @@ import json
 import os
 from datetime import datetime, timezone
 
-import google.generativeai as genai
+from google import genai as google_genai
 from supabase import create_client
 
 from .config import (
@@ -20,16 +20,15 @@ from .config import (
 
 # ─── Embedding helper ────────────────────────────────────────────
 
-genai.configure(api_key=GEMINI_API_KEY)
+_genai_client = google_genai.Client(api_key=GEMINI_API_KEY)
 
 def _embed(text: str) -> list[float]:
     """Generate a 768-dim embedding via Gemini."""
-    result = genai.embed_content(
-        model=f"models/{EMBEDDING_MODEL}",
-        content=text,
-        task_type="RETRIEVAL_DOCUMENT",
+    result = _genai_client.models.embed_content(
+        model=EMBEDDING_MODEL,
+        contents=text,
     )
-    return result["embedding"][:EMBEDDING_DIMENSIONS]
+    return result.embeddings[0].values[:EMBEDDING_DIMENSIONS]
 
 
 # ─── Deduplication ────────────────────────────────────────────────

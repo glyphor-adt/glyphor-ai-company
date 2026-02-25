@@ -1,0 +1,664 @@
+# Final Knowledge Seed — Complete SQL
+## Run this in Supabase SQL Editor to populate all agent knowledge
+
+---
+
+## 1. COMPANY KNOWLEDGE BASE
+
+```sql
+-- ============================================================
+-- COMPANY KNOWLEDGE BASE (replaces static COMPANY_KNOWLEDGE_BASE.md)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS company_knowledge_base (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  section TEXT UNIQUE NOT NULL,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  audience TEXT NOT NULL DEFAULT 'all'
+    CHECK (audience IN ('all', 'executives', 'engineering', 'finance', 
+           'product', 'marketing', 'sales', 'customer_success', 'design', 'operations')),
+  last_edited_by TEXT DEFAULT 'system',
+  version INT DEFAULT 1,
+  is_active BOOLEAN DEFAULT true,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Clear any existing data
+TRUNCATE company_knowledge_base;
+
+INSERT INTO company_knowledge_base (section, title, content, audience) VALUES
+
+-- ---- MISSION ----
+('mission', 'Company Mission & Identity', 
+'Glyphor, Inc. is an AI-native product company building production-grade creative and development tools. Delaware C Corporation, incorporated July 21, 2025. Founded by Kristina Denney (CEO) and Andrew Zwelling (Co-founder).
+
+Main domain: glyphor.ai
+Products: pulse.glyphor.ai (PRIORITY ONE), fuse.glyphor.ai (PRIORITY TWO), Rêve (FUTURE — not built)
+Social: @glyphor.ai on Facebook, LinkedIn, Instagram, TikTok
+
+We build tools that operationalize AI into reliable workflows producing premium results. We are a PRODUCT company shipping consumer and prosumer SaaS. Not a services company, not an agency, not building internal tools for other enterprises.
+
+Non-negotiable standards:
+- Production over prototype: outputs must be shippable, not just plausible
+- Clarity over cleverness: prefer simple, direct solutions users understand
+- Design quality is a requirement: visual polish and UX coherence are not optional
+- Guardrails are product features: preventing failure modes is part of the job
+- Do not invent facts: if information is unknown, label it unknown', 'all'),
+
+-- ---- CURRENT PRIORITIES ----
+('current_priorities', 'Current Strategic Priorities',
+'READ THIS FIRST ON EVERY RUN.
+
+PRIORITY ORDER (non-negotiable):
+1. PULSE — Launch-ready ASAP. This is the lead product. All marketing, content, pricing, and launch planning centers on Pulse first.
+2. FUSE — Secondary. Continue monitoring infrastructure, but do not divert resources from Pulse launch.
+3. RÊVE — Future. Domain only. No development, no marketing, no resource allocation.
+
+IMMEDIATE OBJECTIVES (next 30 days):
+1. Pulse product audit — Elena, Marcus, and Mia must assess what is working, what needs updating, and what UI needs polish. Deliver recommendations to Kristina.
+2. Establish Pulse pricing model — Nadia to model scenarios (this is an OPEN question, not decided)
+3. Prepare Product Hunt launch — Maya to build all launch assets
+4. Pull real AI model costs via API — Nadia/Omar need actual per-call costs from Google Cloud, Kling, OpenAI, ElevenLabs, Runway dashboards
+5. Activate the AI agent workforce — all 27 agents running autonomously
+
+90-DAY OBJECTIVES:
+1. Launch Pulse publicly via Product Hunt
+2. Acquire first paying customers (content creators and influencers)
+3. Reach initial MRR milestone (target TBD based on pricing model)
+4. Begin Fuse launch preparation once Pulse is live
+5. Establish content marketing cadence for organic growth
+
+WHAT AGENTS SHOULD NOT SPEND TIME ON:
+- Enterprise sales outreach (we are B2C/prosumer first with Pulse)
+- Fuse marketing or content (until Pulse is launched)
+- Rêve anything
+- Complex financial modeling beyond Pulse pricing analysis
+- Hiring plans or organizational scaling', 'all'),
+
+-- ---- FINANCIALS ----
+('financials', 'Financial Reality',
+'Current state: PRE-REVENUE. $0 MRR. No paying customers.
+
+Monthly burn rate: ~$800/month (infrastructure only)
+- GCP (Cloud Run, Pub/Sub, Storage, Billing): ~$187
+- Gemini API: ~$412
+- Supabase Pro: ~$125
+- Vercel Pro: ~$67
+- Other (domains, minor tools): ~$10
+
+Funding: Bootstrapped. Both founders contribute $1,000/month each = $2,000/month inflow.
+Net position: +$1,200/month surplus after infrastructure costs.
+Runway: Effectively indefinite at current burn. No external investors. No debt.
+
+Revenue target: $1,000,000 in the first 12 months after launching the first product (Pulse).
+
+Agent implications:
+- Every dollar of infrastructure spend must justify itself
+- Revenue modeling should focus on Pulse pricing × volume scenarios
+- The $1M target at consumer price points ($15-50/month) means significant user volume needed
+- Growth efficiency matters more than speed — no paid acquisition budget initially
+- Track costs across THREE separate infrastructure stacks (Pulse, Fuse, Agent Platform)
+
+Financial decisions route to: Both founders (Kristina and Andrew jointly)', 'all'),
+
+-- ---- PULSE ----
+('products_pulse', 'Pulse — Full Product Knowledge (PRIORITY ONE)',
+'WHAT PULSE IS: An AI-powered creative production studio for generating, editing, and launching video and image content. Four-stage workflow: Discover → Create → Refine → Manage.
+
+URL: pulse.glyphor.ai (landing page live)
+Status: Production beta. ~80-90% complete. Stripe payments already wired. Mobile support configured (Capacitor iOS/Android). Weeks from launch.
+
+WHAT PULSE CAN DO TODAY:
+- Video Generation: Text-to-video and image-to-video via Kling, Sora, Veo, Runway
+- Image Generation: AI images via Gemini/Imagen 4
+- Storyboarding: Multi-scene planning with AI narrative agents, batch generation, per-scene video
+- Video Editing: Multi-track timeline editor (Canva-inspired) with overlays, text, effects, transitions
+- Audio Suite: AI sound effects, music generation, TTS, lip-sync (ElevenLabs + Kling)
+- Brand Analysis: URL/logo → complete brand kit extraction
+- Launch Campaigns: Guided campaign creation from brand assets
+- Avatar System: AI avatar video with identity preservation
+- Sharing: Public share links with short codes
+
+TECH STACK:
+- Frontend: React 18 + TypeScript + Vite + TailwindCSS + shadcn/ui + Framer Motion → Vercel
+- Backend: Supabase PostgreSQL + 100+ Edge Functions (Deno/TS) + Auth + Storage
+- Supabase Project ID: iyabxcmsncmbtbbdngid
+- Storage: 6 Supabase buckets + Cloudflare R2
+- Payments: Stripe (checkout, subscriptions, credits, customer portal) — BUILT
+- AI: Gemini 3 Pro + Imagen 4, Kling v2.6, Veo 3.1, GPT-5, Sora, ElevenLabs, Runway Gen-3
+- Mobile: Capacitor (iOS + Android)
+
+DESIGN SYSTEM — "Precision Dark":
+Monochrome blue-cyan on deep black. Cyan (#00E0FF) for borders/text/glows only — NEVER as fills. Azure (#0097FF) secondary, purple (#623CEA) tertiary. IBM Plex Sans body, Orbitron headings. Glassmorphic cards with backdrop blur. Film grain overlay.
+
+SCALE: 100+ edge functions, 80+ hooks, 48 storyboard components, 40 studio components, 30+ pages.
+
+TARGET CUSTOMER: Individual content creators and influencers. B2C/prosumer. NOT enterprise (yet).
+
+PRICING: NOT DECIDED. Nadia must model scenarios. Stripe infrastructure is ready — pricing decisions become live immediately.
+
+LAUNCH: Product Hunt. Maya preparing all assets.
+
+WHAT NEEDS TO HAPPEN BEFORE LAUNCH: Elena, Marcus, and Mia need to audit current state — what works, what needs updating, what UI needs polish. Their recommendations determine launch timeline.', 'all'),
+
+-- ---- FUSE ----
+('products_fuse', 'Fuse — Full Product Knowledge (PRIORITY TWO)',
+'WHAT FUSE IS: An AI development platform that transforms natural language prompts into fully built, deployed React SPAs and Next.js apps. Uses a squad of specialized build agents (NOT the 27 company agents — these are product agents).
+
+URL: fuse.glyphor.ai (landing page live)
+Status: Production beta (V8.1). Core pipeline functional. SECONDARY PRIORITY — Pulse launches first.
+
+THREE EXECUTION TIERS:
+1. Prototype (Tier 1): Single Gemini Flash agent → preview in <60 seconds. Fast validation.
+2. Full Build (Tier 2): Squad pipeline: UX Engineer → Build Verifier → Developer (repair) → Publisher → Deployment Sentinel. 2-5 minutes. Deployed to live URL.
+3. Iterate (Tier 3): Targeted changes via GitHub MCP → verify → deploy. 30-90 seconds.
+
+FUSE BUILD AGENTS (product agents, NOT company agents):
+- UX Engineer (Gemini 3 Pro): Single-pass full site builder
+- Build Verifier: npm build hard gate — nothing ships without passing
+- Developer Agent: LLM-based error repair
+- Publisher: GitHub commit with integrity checks
+- Deployment Sentinel: Vercel deployment + URL extraction
+- Iteration Agent: Targeted changes via GitHub MCP
+
+INTELLIGENCE SYSTEMS (already built):
+- Persistent Onboarding: Account-level brand profiles improve over builds
+- Semantic Plan Cache: 92%+ similar prompts reuse cached successful plans
+- Graph Memory: Causal decision chains for planning context
+- Critique-Revise: Diagnoses which agent caused errors, routes fixes to responsible agent
+- T+1 Evaluation: 48-hour deferred analysis for pattern learning
+
+TECH STACK:
+- Frontend: React 18 + Vite + Tailwind + shadcn/ui → Vercel
+- Agent Orchestration: GCP Cloud Run
+- Metadata + Auth: Supabase (Project ID: mkuswtoicpnhkcwkpjaa)
+- Real-time: Firebase Firestore
+- Artifacts: GCS bucket
+- Edge: Cloudflare Workers (OAuth, preview proxy, SSE gateway)
+- Sandbox: Node.js runner (Vite dev server)
+- AI: Gemini 3 Pro, Gemini 3 Flash, Gemini 3.1 Pro preview
+
+TERMINOLOGY: NEVER call Fuse "vibe coding" — not internally, not externally. Fuse is a "structured, observable AI development platform" or "autonomous development platform."
+
+CURRENT AGENT ACTIONS: Marcus monitors Fuse infrastructure. Daniel tracks competitors. All others focus on Pulse.', 'all'),
+
+-- ---- RÊVE ----
+('products_reve', 'Rêve — Future Product (NOT ACTIVE)',
+'AI-powered virtual try-on fashion app. Target: women 18-50, creators, influencers.
+Status: Domain only. No development. FUTURE product.
+Agent directive: Do not plan for, market, research, or reference Rêve externally. Zero resource allocation.', 'all'),
+
+-- ---- INFRASTRUCTURE MAP ----
+('infrastructure_map', 'Infrastructure Map — Three Separate Systems',
+'Glyphor operates THREE distinct infrastructure stacks. Know which is which.
+
+1. PULSE (pulse.glyphor.ai) — PRIORITY ONE
+   Frontend: Vercel
+   Backend: Supabase Edge Functions + PostgreSQL (Project: iyabxcmsncmbtbbdngid)
+   Storage: Supabase Storage (6 buckets) + Cloudflare R2
+   Payments: Stripe
+   AI APIs: Google (Gemini/Imagen), Kling, Veo, Sora, OpenAI, ElevenLabs, Runway
+   Secrets: 34 configured in Supabase Dashboard
+
+2. FUSE (fuse.glyphor.ai) — PRIORITY TWO
+   Frontend: Vercel
+   Agent Orchestration: GCP Cloud Run
+   Metadata + Auth: Supabase (Project: mkuswtoicpnhkcwkpjaa)
+   Real-time: Firebase Firestore
+   Artifacts: GCS bucket
+   Edge: Cloudflare Workers
+   Sandbox: Node.js runner
+   AI APIs: Gemini 3 Pro, Gemini Flash, Gemini 3.1 Pro
+
+3. AGENT COMPANY PLATFORM — INTERNAL
+   Execution: GCP Cloud Run (glyphor-scheduler)
+   Dashboard: GCP Cloud Run (glyphor-dashboard)
+   Scheduler: Cloud Scheduler → Pub/Sub → Cloud Run
+   Database: Supabase (separate project)
+   AI: Gemini API
+   Messaging: Microsoft Teams (Graph API + Bot Framework)
+   Region: us-central1
+
+CRITICAL: These are separate systems. A Pulse outage ≠ a Fuse outage ≠ an agent platform outage. Monitor, cost-track, and incident-manage each independently.', 'all'),
+
+-- ---- AI MODELS ----
+('ai_models', 'AI Model Portfolio',
+'Multi-provider AI strategy across products. NOT locked to one vendor.
+
+PULSE MODELS:
+- Gemini 3 Pro (Google): Scene planning, narrative, scripts, analysis
+- Imagen 4 (Google): Image generation
+- Kling v2.6: Video generation, lip-sync, motion, avatars
+- Veo 3.1 (Google): Storyboard video rendering
+- GPT-5 (OpenAI): Brand analysis, prototype planning
+- Sora (OpenAI): Video generation
+- ElevenLabs: Sound effects, music, TTS
+- Runway Gen-3: Video generation
+
+FUSE MODELS:
+- Gemini 3 Pro: UX Engineer (full site builds)
+- Gemini 3 Flash: Prototyping, iteration
+- Gemini 3.1 Pro preview: Latest model
+
+AGENT PLATFORM:
+- Gemini (various): All 27 company agents
+
+COST NOTE: Exact per-call costs need to be pulled from provider APIs/dashboards. Video generation ($0.10-0.50/call) is 10-50x more expensive than text ($0.01). Pricing models MUST account for model mix. Nadia/Omar: pull actual costs as a first task.', 'all'),
+
+-- ---- TEAM STRUCTURE ----
+('team_structure', 'Company Structure',
+'Two human founders + 27 AI agents. No human employees, contractors, or advisors.
+
+Kristina Denney (CEO): Product vision, platform architecture, engineering execution, quality standards, ALL technical and product decisions. Built the entire technology platform end-to-end. Source of truth for product/tech.
+Andrew Zwelling (Co-founder): GTM execution, partnerships, operations, business readiness. Focus on scaling with discipline.
+
+AI Agent Team: 8 executives + 18 specialists + 1 ops agent (Atlas) = 27 total. This IS the workforce.
+
+Decision routing:
+- Product, engineering, architecture, quality → Kristina
+- GTM, partnerships, operations → Andrew
+- Financial decisions → Both founders jointly
+- Strategic direction → Both founders jointly
+
+Founder availability: Both work full-time jobs in addition to Glyphor. Kristina is at Microsoft. Agents should be maximally autonomous within their authority. Do not request founder input for clear Green-tier decisions.', 'all'),
+
+-- ---- GO TO MARKET ----
+('go_to_market', 'Go-to-Market Strategy',
+'Phase 1 (NOW → Pulse Launch):
+- Complete Pulse product audit (Elena, Marcus, Mia)
+- Model pricing (Nadia)
+- Prepare Product Hunt launch assets (Maya team)
+- Build pre-launch content for social (@glyphor.ai on FB, LinkedIn, Instagram, TikTok)
+- Organic growth only — zero paid acquisition budget
+
+Phase 2 (Post-Pulse Launch → 3 months):
+- Product Hunt launch execution
+- Drive signups and conversions from PH traffic
+- Content marketing engine (SEO, social, community)
+- User feedback collection and iteration
+- Begin Fuse launch prep
+
+Phase 3 (Months 3-6):
+- Launch Fuse
+- Expand Pulse customer base
+- Evaluate enterprise/agency segments
+
+Target customer (Pulse): Individual content creators and influencers
+Launch channel: Product Hunt
+Growth model: Organic (content, social, SEO, community, creator partnerships)
+
+Social presence: @glyphor.ai on Facebook, LinkedIn, Instagram, TikTok. Maya has access to Meta Business Platform.', 'all'),
+
+-- ---- CULTURE ----
+('culture', 'Culture, Communication & Brand Voice',
+'HOW WE WORK:
+- Direct communication. No corporate jargon.
+- Metrics-backed arguments. Show data, not opinions.
+- Speed over perfection. Ship, learn, iterate.
+- Production quality is the floor. "Good enough" is not good enough.
+- Challenge ideas constructively.
+
+BRAND VOICE (all external content):
+- Confident but not arrogant
+- Technical but accessible — a smart friend, not a textbook
+- Premium without pretension
+- Direct. No filler.
+
+ALWAYS AVOID: "revolutionize," "disrupt," "game-changing," "vibe coding," "just a wrapper," "leverage," "synergize"
+NEVER: Invent facts, claim unbuilt capabilities, attribute decisions to anyone other than Kristina without verification
+
+GOOD: "Pulse takes you from idea to share-ready video in under a minute."
+BAD: "Pulse is a revolutionary AI platform disrupting the creative industry."
+GOOD: "Fuse replaces your development process — strategy, design, build, verify, deploy."
+BAD: "Fuse leverages cutting-edge AI to optimize development workflows."', 'all'),
+
+-- ---- COMPETITIVE LANDSCAPE ----
+('competitive_landscape', 'Competitive Landscape',
+'PULSE COMPETITORS (know these cold):
+
+Midjourney ($10-30/mo): Best image generation. Discord-only (high friction). No editing, video, audio, storyboards, brand tools, or campaigns. OUR EDGE: Full production studio vs single-feature generator.
+
+Canva ($13/mo Pro): Excellent templates and workflows. AI generation is secondary add-on. OUR EDGE: AI-native. Generation + editing + production unified. More powerful models.
+
+Runway ($12-76/mo): Leading video generation. Video-only. OUR EDGE: Video + image + audio + editing + storyboards + brand tools. Complete studio vs video generator.
+
+Adobe Firefly ($10-55/mo): Enterprise, trusted. Complex, slow, expensive. OUR EDGE: Faster, simpler, built for individual creators. No learning curve.
+
+Leonardo AI ($12-48/mo): Good generation, model variety. Weak workflows. OUR EDGE: Full pipeline, not just generation.
+
+FUSE COMPETITORS (secondary):
+
+Devin (~$500/mo): Single agent, black box. OUR EDGE: Transparent squad pipeline. See every decision, every file, every build result. Three tiers (60s prototype → 5min build → 90s iterate).
+
+Cursor (~$20/mo): Developer copilot, not replacement. Different category. OUR EDGE: No coding knowledge required.
+
+Bolt / Lovable: Quick builders, prototype quality. OUR EDGE: Production quality + learning system + persistent intelligence.
+
+RULES: Lead with what we do, not what competitors lack. Be factual. Respect competitors publicly. Microsoft-sensitive: Kristina works at Microsoft. Never disparage Microsoft products. Neutral references only.', 'all'),
+
+-- ---- FOUNDER BACKGROUND ----
+('founder_background', 'Founder Background (for content and credibility)',
+'KRISTINA DENNEY:
+- Senior Cloud & AI Platform Specialist at Microsoft (current)
+- 20+ years enterprise technology experience
+- Platinum Club — top 1% of 70,000+ sellers at Microsoft
+- Influenced over $157M in technology investments
+- Built Glyphor entire technology platform end-to-end (Pulse, Fuse, agent platform)
+- AI transformation specialist across Fortune 500 (HP, Textron Aviation, NI/Emerson, Eaton)
+- Based in Dallas, TX
+
+USE HER BACKGROUND FOR: Enterprise credibility, thought leadership, personal brand content
+DO NOT: Reference specific Microsoft deals/internal data. Do not imply Microsoft endorsement of Glyphor.
+
+ANDREW ZWELLING:
+- Co-founder, GTM + partnerships + operations
+- Microsoft experience + broad cloud ecosystem exposure (AWS, GCP)
+DO NOT: Attribute technical/architectural decisions to Andrew unless instructed.', 'all'),
+
+-- ---- PRICING ANALYSIS BRIEF ----
+('pricing_analysis_brief', 'Pricing Analysis Brief (for Nadia)',
+'THIS IS AN OPEN QUESTION. Model scenarios, do not assume a price.
+
+Context:
+- Target: $1M revenue in 12 months post-launch
+- Product: Pulse (creative production studio)
+- Customer: Individual content creators and influencers
+- Launch: Product Hunt
+- Growth: Organic only — no paid acquisition
+- Competitors: $7/mo (Ideogram basic) to $76/mo (Runway unlimited)
+- Payment infrastructure: Stripe already built (checkout, subscriptions, credits, portal)
+
+FIRST TASK: Pull actual AI model costs via provider APIs. Video generation (Kling, Veo, Sora, Runway) is the most expensive. Unit economics depend on model mix per workflow.
+
+Scenarios to model:
+1. Freemium: Free (limited gen) + Pro $19/mo + Studio $39/mo
+2. Paid-only: 7-day trial → $29/mo flat with generous caps
+3. Tiered: Creator $15/mo (100 gen) → Pro $35/mo (500 gen) → Studio $69/mo (unlimited)
+
+For each: required user count for $1M, conversion rates (2-5% free→paid typical), churn (5-10% monthly for creator tools), break-even, infra cost per user.
+
+Deliver: One-page pricing recommendation with 3 scenarios, recommended option, rationale.', 'finance'),
+
+-- ---- PRODUCT HUNT BRIEF ----
+('product_hunt_brief', 'Product Hunt Launch Brief (for Maya)',
+'Primary go-to-market event for Pulse. Must be excellent.
+
+PREPARE:
+1. Product Hunt page: tagline (≤60 chars), description, 5-6 screenshots/GIFs, maker story
+2. Launch day social: Twitter/X, LinkedIn, Instagram, TikTok (all @glyphor.ai). Posts from Glyphor + Kristina personal
+3. Demo video: 60-90 second workflow walkthrough
+4. Blog post: "Introducing Pulse" — published launch day on glyphor.ai
+5. Community engagement plan: relevant subreddits, Discord servers, creator communities
+
+SOCIAL ACCESS: Maya has Meta Business Platform access. Accounts: @glyphor.ai on Facebook, LinkedIn, Instagram, TikTok.
+
+BEST PRACTICES:
+- Launch Tuesday-Thursday for best visibility
+- First hour matters most — rally early supporters
+- Respond to every comment (Kristina and Andrew personally)
+- Have a "first 100 users" incentive ready
+
+TAGLINE SHOULD CONVEY: AI-powered full creative studio. Idea to share-ready content. For creators, not engineers. Premium quality.
+
+DELIVERABLES FROM MAYA: 5 tagline options, content calendar for launch week, community plan. Tyler drafts blog post. Lisa identifies SEO keywords. Kai prepares social posts across all 4 platforms.', 'marketing');
+```
+
+---
+
+## 2. FOUNDER BULLETINS
+
+```sql
+-- ============================================================
+-- FOUNDER BULLETINS (immediate broadcasts to agents)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS founder_bulletins (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_by TEXT NOT NULL,
+  content TEXT NOT NULL,
+  audience TEXT NOT NULL DEFAULT 'all',
+  priority TEXT DEFAULT 'normal'
+    CHECK (priority IN ('fyi', 'normal', 'important', 'urgent')),
+  active_from TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+INSERT INTO founder_bulletins (created_by, content, audience, priority, expires_at) VALUES
+
+('kristina', 
+'COMPANY PRIORITY: Pulse launches first. ALL marketing, content, pricing, and launch planning centers on Pulse. Fuse is secondary. Rêve does not exist yet. If your current task does not serve the Pulse launch, re-evaluate whether it should wait.',
+'all', 'urgent', NULL),
+
+('kristina',
+'GO-TO-MARKET SHIFT: We are B2C/prosumer, not enterprise. Pulse targets individual content creators and influencers via Product Hunt launch. Do NOT pursue enterprise outreach. Focus on creator communities, Product Hunt strategy, social content (@glyphor.ai on FB, LinkedIn, Instagram, TikTok), and organic growth.',
+'sales', 'important', NOW() + INTERVAL '90 days'),
+
+('kristina',
+'PRICING IS OPEN: We have NOT decided Pulse pricing. Do not assume any price point. First task: pull actual AI model costs from provider APIs (Google Cloud Billing, Kling dashboard, OpenAI usage, ElevenLabs, Runway). Then model 3 pricing scenarios. See the Pricing Analysis Brief in the knowledge base.',
+'finance', 'important', NOW() + INTERVAL '60 days'),
+
+('kristina',
+'PULSE AUDIT NEEDED: Pulse is ~80-90% built but needs a thorough audit before we commit to a launch date. Elena (product), Marcus (engineering), and Mia (design) must assess: what is working, what needs updating, what UI needs polish. Deliver your recommendations to me. This determines our launch timeline.',
+'all', 'important', NOW() + INTERVAL '30 days'),
+
+('kristina',
+'INFRASTRUCTURE NOTE: We run THREE separate systems — Pulse (Supabase + Vercel), Fuse (GCP Cloud Run + Supabase + Firebase), and the Agent Platform (GCP Cloud Run + Supabase). These are different databases, different hosting, different AI providers. Monitor and cost-track each independently. Supabase project IDs — Pulse: iyabxcmsncmbtbbdngid, Fuse: mkuswtoicpnhkcwkpjaa.',
+'engineering', 'important', NOW() + INTERVAL '30 days'),
+
+('kristina',
+'SOCIAL MEDIA: All accounts are @glyphor.ai on Facebook, LinkedIn, Instagram, and TikTok. Maya has Meta Business Platform access. All pre-launch content should build toward the Product Hunt launch. Start building audience NOW.',
+'marketing', 'normal', NOW() + INTERVAL '60 days');
+```
+
+---
+
+## 3. COMPANY PULSE
+
+```sql
+-- ============================================================
+-- COMPANY PULSE (real-time company heartbeat)
+-- ============================================================
+
+INSERT INTO company_pulse (id, mrr, active_users, platform_status, company_mood, highlights, updated_at)
+VALUES (
+  1, 0, 2, 'degraded', 'building',
+  ARRAY[
+    'Pulse ~80-90% built, targeting Product Hunt launch (PRIORITY ONE)',
+    'Fuse ~80% built (PRIORITY TWO, launches after Pulse)',
+    'Pulse audit needed — Elena, Marcus, Mia to assess launch readiness',
+    'Pricing not decided — Nadia modeling scenarios',
+    'Agent platform deployed on GCP, activation in progress',
+    '27 AI agents configured, first runs imminent',
+    'Bootstrapped: $2K/mo in, $800/mo burn, net +$1,200/mo',
+    'Social accounts live: @glyphor.ai on FB, LinkedIn, Instagram, TikTok',
+    'Revenue target: $1M first year post-launch'
+  ],
+  NOW()
+)
+ON CONFLICT (id) DO UPDATE SET
+  mrr = EXCLUDED.mrr,
+  active_users = EXCLUDED.active_users,
+  platform_status = EXCLUDED.platform_status,
+  company_mood = EXCLUDED.company_mood,
+  highlights = EXCLUDED.highlights,
+  updated_at = NOW();
+```
+
+---
+
+## 4. KNOWLEDGE GRAPH NODES
+
+```sql
+-- ============================================================
+-- KNOWLEDGE GRAPH SEED (foundational business knowledge)
+-- ============================================================
+-- NOTE: Embeddings should be generated after insert via a one-time script
+-- using EmbeddingClient.embed() on each node's content field.
+
+INSERT INTO kg_nodes (node_type, title, content, department, importance, tags, created_by, status) VALUES
+
+-- Products
+('product', 'Pulse', 'Glyphor creative production studio. PRIORITY ONE. AI-powered image generation (Imagen 4), video generation (Kling, Veo, Sora, Runway), multi-track video editing, storyboarding with AI narrative agents, audio suite (ElevenLabs), brand analysis, campaign launcher, avatar system. 100+ edge functions, 80+ hooks. Deployed at pulse.glyphor.ai on Supabase + Vercel. Stripe payments built. ~80-90% complete, needs audit before Product Hunt launch.', 'product', 1.0, ARRAY['pulse', 'product', 'priority-one', 'creative', 'launch', 'B2C'], 'system', 'active'),
+
+('product', 'Fuse', 'Glyphor AI development platform. PRIORITY TWO. Transforms prompts into deployed React/Next.js apps via squad of build agents (UX Engineer, Build Verifier, Developer, Publisher, Deployment Sentinel). Three tiers: Prototype (<60s), Full Build (2-5min), Iterate (30-90s). Persistent intelligence with plan caching, graph memory, critique-revise loops. Deployed at fuse.glyphor.ai on GCP Cloud Run + Supabase + Firebase. NEVER call it "vibe coding."', 'product', 0.8, ARRAY['fuse', 'product', 'priority-two', 'development', 'agents'], 'system', 'active'),
+
+('product', 'Reve', 'AI-powered virtual try-on fashion app. FUTURE — domain only, no development. Zero resource allocation.', 'product', 0.2, ARRAY['reve', 'future', 'inactive'], 'system', 'active'),
+
+-- Market
+('concept', 'Target Customer - Pulse', 'Individual content creators and influencers who need consistent, professional visual and video content. B2C/prosumer model. Currently use Midjourney ($10-30/mo), Canva ($13/mo), Runway ($12-76/mo), or combinations. Pain: too many tools, inconsistent results, no end-to-end workflow. Pulse is the single-platform solution.', 'marketing', 0.9, ARRAY['market', 'pulse', 'creators', 'B2C', 'ICP'], 'system', 'active'),
+
+('concept', 'Product Hunt Launch', 'Primary GTM event for Pulse. Requirements: polished product, PH page (tagline ≤60 chars, screenshots, demo video, maker story), launch day social across @glyphor.ai (FB, LinkedIn, Instagram, TikTok), community engagement, first-100-users incentive. Best on Tuesday-Thursday. First hour critical for ranking.', 'marketing', 1.0, ARRAY['launch', 'product-hunt', 'GTM', 'pulse'], 'system', 'active'),
+
+-- Financial
+('metric', 'Revenue Target', '$1M revenue in first 12 months post-launch. At $15-50/month consumer pricing, requires 1,700-5,500+ paying users. Bootstrapped organic growth only — no paid acquisition.', 'finance', 0.9, ARRAY['revenue', 'target', 'pricing'], 'system', 'active'),
+
+('metric', 'Monthly Burn', '~$800/mo infrastructure. GCP $187, Gemini API $412, Supabase $125, Vercel $67. Offset by $2K/mo founder contributions. Net +$1,200/mo surplus.', 'finance', 0.8, ARRAY['burn', 'cost', 'budget'], 'system', 'active'),
+
+-- Infrastructure
+('concept', 'Three Infrastructure Stacks', 'Glyphor runs three separate systems: (1) Pulse on Supabase + Vercel + R2, (2) Fuse on GCP Cloud Run + Supabase + Firebase + GCS + Cloudflare Workers, (3) Agent Platform on GCP Cloud Run + Supabase + Pub/Sub. Different databases, hosting, AI providers. Must monitor, cost-track, incident-manage independently.', 'engineering', 0.9, ARRAY['infrastructure', 'architecture', 'monitoring'], 'system', 'active'),
+
+-- Competitive
+('concept', 'Midjourney', 'Primary Pulse competitor. Best image generation quality. Discord-only (friction). No editing/video/audio/storyboards/campaigns. $10-30/mo. Our edge: full production studio vs single generator.', 'marketing', 0.7, ARRAY['competitor', 'midjourney', 'pulse'], 'system', 'active'),
+
+('concept', 'Canva', 'Indirect Pulse competitor. Excellent templates. AI is secondary add-on. $13/mo. Our edge: AI-native, generation is core, more powerful models, unified workflow.', 'marketing', 0.7, ARRAY['competitor', 'canva', 'pulse'], 'system', 'active'),
+
+('concept', 'Runway', 'Video-focused Pulse competitor. Gen-3 model. $12-76/mo. Our edge: video + image + audio + editing + storyboards + brand tools. Complete vs video-only.', 'marketing', 0.7, ARRAY['competitor', 'runway', 'pulse'], 'system', 'active'),
+
+('concept', 'Devin', 'Primary Fuse competitor. Single AI agent, black box, ~$500/mo. Our edge: transparent squad pipeline, three execution tiers, persistent learning, observable.', 'product', 0.6, ARRAY['competitor', 'devin', 'fuse'], 'system', 'active'),
+
+-- Social
+('concept', 'Social Media Presence', 'All accounts: @glyphor.ai on Facebook, LinkedIn, Instagram, TikTok. Maya has Meta Business Platform access. Pre-launch content should build audience toward Product Hunt launch.', 'marketing', 0.8, ARRAY['social', 'marketing', 'channels'], 'system', 'active'),
+
+-- Risks
+('risk', 'Telemetry Blackout', 'Agent platform reporting $0 costs, 0% build success, Teams HTTP 400. Likely Pub/Sub OIDC token issue (fix identified). P0 for Marcus on agent platform.', 'engineering', 0.9, ARRAY['incident', 'telemetry', 'p0'], 'system', 'active'),
+
+('risk', 'Crowded Market Launch', 'Pulse launching into competitive creative AI space. Differentiation is workflow + full production pipeline, not raw generation quality. Product Hunt is one-shot — must be polished. No paid acquisition fallback.', 'operations', 0.8, ARRAY['risk', 'launch', 'competition'], 'system', 'active'),
+
+-- Opportunities
+('opportunity', 'Creator Economy Distribution', 'Creators share tools with audiences. One influential creator using Pulse visibly could drive thousands of signups. Maya: identify creator partnerships. Kai: social content showing Pulse outputs.', 'marketing', 0.8, ARRAY['growth', 'creators', 'viral', 'distribution'], 'system', 'active'),
+
+-- Eaton (informational context only)
+('opportunity', 'Eaton Corporation (Context)', 'Fortune 500 manufacturer. Active AI transformation. Met Feb 20, 2026. CONTEXT ONLY — Microsoft customer engagement, not a Glyphor prospect currently. May become relevant for Fuse enterprise positioning in future.', 'sales', 0.3, ARRAY['eaton', 'context', 'future', 'microsoft'], 'system', 'active');
+
+-- Key edges
+INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence)
+SELECT s.id, t.id, 'enables', 1.0, 1.0, 'Pulse is the lead product driving first revenue'
+FROM kg_nodes s, kg_nodes t WHERE s.title = 'Pulse' AND t.title = 'Revenue Target';
+
+INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence)
+SELECT s.id, t.id, 'depends_on', 1.0, 1.0, 'Product Hunt is the launch channel for Pulse'
+FROM kg_nodes s, kg_nodes t WHERE s.title = 'Product Hunt Launch' AND t.title = 'Pulse';
+
+INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence)
+SELECT s.id, t.id, 'blocks', 0.8, 0.9, 'Crowded market increases need for differentiated positioning'
+FROM kg_nodes s, kg_nodes t WHERE s.title = 'Crowded Market Launch' AND t.title = 'Revenue Target';
+```
+
+---
+
+## 5. FIRST DIRECTIVES (for Sarah's orchestration system)
+
+```sql
+-- ============================================================
+-- FOUNDER DIRECTIVES (first work assignments for orchestration)
+-- These only work after the orchestration system is built.
+-- Include here for reference / immediate manual use.
+-- ============================================================
+
+-- If the founder_directives table exists:
+INSERT INTO founder_directives (title, description, priority, category, target_agents, status, due_date) VALUES
+
+('Pulse Launch Readiness Audit',
+'Elena, Marcus, and Mia must assess Pulse (pulse.glyphor.ai) current state. Connect to Supabase project iyabxcmsncmbtbbdngid. For each feature/workflow: (1) Does it work correctly? (2) Does it need updating? (3) Does the UI need polish? Deliver a prioritized recommendation: what must be fixed before launch, what can ship as-is, what can wait for v2. This determines our launch timeline.',
+'critical', 'product',
+ARRAY['cpo', 'cto', 'vp-design'],
+'active',
+NOW() + INTERVAL '7 days'),
+
+('Pulse Pricing Model',
+'Nadia: Model 3 pricing scenarios for Pulse. FIRST pull actual AI model costs from provider APIs (Google Cloud Billing API, Kling billing, OpenAI usage API, ElevenLabs, Runway). Then model: (1) Freemium with Pro $19/mo + Studio $39/mo, (2) Paid-only $29/mo with trial, (3) Tiered $15/$35/$69. For each: required users for $1M/year, conversion rates, churn, break-even, cost per user. Deliver one-page recommendation.',
+'high', 'finance',
+ARRAY['cfo'],
+'active',
+NOW() + INTERVAL '10 days'),
+
+('Product Hunt Launch Preparation',
+'Maya: Prepare complete Product Hunt launch package for Pulse. Deliverables: (1) 5 tagline options, (2) PH page description, (3) 5-6 screenshots/GIFs, (4) maker story draft, (5) launch day social posts for @glyphor.ai on FB/LinkedIn/Instagram/TikTok, (6) community engagement plan, (7) content calendar for launch week. Tyler drafts "Introducing Pulse" blog post. Lisa researches SEO keywords. Kai prepares social content.',
+'high', 'marketing',
+ARRAY['cmo'],
+'active',
+NOW() + INTERVAL '14 days'),
+
+('AI Model Cost Analysis',
+'Omar and Nadia: Pull actual per-call costs from ALL AI provider APIs across all three infrastructure stacks. Google Cloud Billing API (Gemini, Imagen, Veo — for both Pulse and Fuse), Kling dashboard/API, OpenAI usage API (GPT-5, Sora), ElevenLabs usage, Runway usage. Categorize by: product (Pulse/Fuse/Agent Platform), model, cost per call, monthly total. This feeds directly into pricing analysis.',
+'high', 'finance',
+ARRAY['cfo', 'cost-analyst'],
+'active',
+NOW() + INTERVAL '5 days'),
+
+('Competitive Pricing Intelligence',
+'Daniel: Research current pricing for all Pulse competitors. Midjourney, Canva, Runway, Adobe Firefly, Leonardo, Ideogram, DALL-E/ChatGPT Plus. For each: tier names, prices, what is included (generation limits, features, storage), free tier details. Compile into comparison matrix. This feeds Maya content and Nadia pricing model.',
+'high', 'product',
+ARRAY['competitive-intel'],
+'active',
+NOW() + INTERVAL '7 days');
+```
+
+---
+
+## 6. INTEGRATION ACCESS NOTES
+
+```sql
+-- ============================================================
+-- AGENT INTEGRATION NOTES (for capability management system)
+-- These are reference notes, not table inserts.
+-- ============================================================
+
+-- Agents that need Supabase API access to product databases:
+-- Marcus (CTO): Both Pulse (iyabxcmsncmbtbbdngid) and Fuse (mkuswtoicpnhkcwkpjaa) — health monitoring
+-- Elena (CPO): Pulse (iyabxcmsncmbtbbdngid) — product audit, feature assessment
+-- Mia (VP Design): Pulse (iyabxcmsncmbtbbdngid) — UI audit
+-- Nadia (CFO): Both — cost tracking
+-- Alex (SRE): Both — monitoring, uptime
+
+-- Agents that need AI provider billing API access:
+-- Nadia (CFO): Google Cloud Billing API, OpenAI usage API
+-- Omar (Cost Analyst): All provider billing APIs
+
+-- Agents that need social media platform access:
+-- Maya (CMO): Meta Business Platform (FB, Instagram), LinkedIn, TikTok
+-- Kai (Social Media): Same platforms for posting
+-- Tyler (Content): Blog publishing (need to determine platform — Ghost? glyphor.ai blog?)
+
+-- Agents that need Stripe access:
+-- Nadia (CFO): Stripe dashboard/API — revenue tracking once live
+-- Anna (Revenue): Stripe API — subscription analytics
+```
+
+---
+
+## WHAT THIS GIVES YOUR AGENTS
+
+When an agent wakes up for the first time, their context now includes:
+
+**Sarah (CoS):** Knows Pulse is priority one. Knows the audit is the first deliverable. Knows pricing is open. Knows social accounts exist. Routes decisions correctly.
+
+**Marcus (CTO):** Knows three separate infrastructures. Has Supabase project IDs for both products. Knows to audit Pulse launch readiness. Knows telemetry fix is P0 for agent platform.
+
+**Nadia (CFO):** Knows $0 MRR, $800 burn, $2K inflow. Knows pricing is her first task. Knows to pull actual AI costs via API. Has three scenarios to model. Knows the $1M target.
+
+**Elena (CPO):** Knows Pulse is the audit target. Has Supabase access to inspect. Knows to deliver prioritized recommendations. Knows Fuse waits.
+
+**Maya (CMO):** Knows Product Hunt is the launch event. Has social access on all 4 platforms. Knows to prepare taglines, screenshots, demo video, blog, community plan. Knows @glyphor.ai handles.
+
+**Rachel (VP Sales):** Knows this is B2C/prosumer, not enterprise. Knows to focus on creator communities and Product Hunt strategy, not Fortune 500 outbound.
+
+**Mia (VP Design):** Knows the Precision Dark design system. Knows to audit Pulse UI. Has Supabase access to inspect components.
+
+**Daniel (Competitive Intel):** Knows to focus on Pulse competitors (Midjourney, Canva, Runway) not Fuse competitors. Knows to compile pricing matrix.
+
+**Everyone:** Knows the domain structure, product priority, financial reality, and what NOT to work on.

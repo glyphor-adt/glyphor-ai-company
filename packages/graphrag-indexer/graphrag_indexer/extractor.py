@@ -1,8 +1,8 @@
 """
 Entity Extractor — runs GraphRAG entity extraction with auto-tuned prompts.
 
-Uses the graphrag library to:
-1. Load tuned prompts (or default ones)
+Uses the graphrag v3 library to:
+1. Load config (settings.yaml) with Gemini via litellm
 2. Extract entities and relationships from staged documents
 3. Return structured entity/relationship data for the bridge
 """
@@ -10,38 +10,52 @@ Uses the graphrag library to:
 import json
 from pathlib import Path
 
-from graphrag.config import create_graphrag_config
-from graphrag.index import run_pipeline
-
 from .config import (
-    GEMINI_API_KEY, LLM_MODEL, EMBEDDING_MODEL, EMBEDDING_DIMENSIONS,
+    GEMINI_API_KEY, LLM_MODEL, EMBEDDING_MODEL,
     INDEXER_ROOT, PROMPTS_DIR, INPUT_DIR, OUTPUT_DIR,
-    ENTITY_TYPES, DOMAIN,
+    ENTITY_TYPES,
 )
 
 
-def build_settings() -> dict:
-    """Build GraphRAG settings dict for the Gemini-based pipeline."""
-    return {
-        "llm": {
-            "api_key": GEMINI_API_KEY,
-            "type": "openai_chat",  # GraphRAG uses OpenAI-compatible interface
-            "model": LLM_MODEL,
-            "api_base": "https://generativelanguage.googleapis.com/v1beta/openai",
-            "max_tokens": 8192,
-            "temperature": 0.0,
-        },
-        "embeddings": {
-            "llm": {
-                "api_key": GEMINI_API_KEY,
-                "type": "openai_embedding",
-                "model": f"models/{EMBEDDING_MODEL}",
-                "api_base": "https://generativelanguage.googleapis.com/v1beta/openai",
+def write_settings_yaml() -> Path:
+    """Write a settings.yaml that GraphRAG v3 load_config() can read."""
+    import yaml
+
+    # GraphRAG v3 uses litellm — Gemini models use "gemini/" prefix
+    settings = {
+        "completion_models": {
+            "default": {
+                "model_provider": "gemini",
+                "model": f"gemini/{LLM_MODEL}",
+                "api_key": "${GOOGLE_AI_API_KEY}",
+                "call_args": {
+                    "max_tokens": 8192,
+                    "temperature": 0.0,
+                },
             },
         },
-        "entity_extraction": {
+        "embedding_models": {
+            "default": {
+                "model_provider": "gemini",
+                "model": f"gemini/{EMBEDDING_MODEL}",
+                "api_key": "${GOOGLE_AI_API_KEY}",
+            },
+        },
+        "input": {
+            "type": "file",
+            "file_type": "text",
+            "base_dir": str(INPUT_DIR),
+        },
+        "output_storage": {
+            "type": "file",
+            "base_dir": str(OUTPUT_DIR),
+        },
+        "chunking": {
+            "size": 1200,
+            "overlap": 200,
+        },
+        "extract_graph": {
             "entity_types": ENTITY_TYPES,
-            "max_gleanings": 1,
             "prompt": str(PROMPTS_DIR / "entity_extraction.txt") if (PROMPTS_DIR / "entity_extraction.txt").exists() else None,
         },
         "community_reports": {
@@ -50,34 +64,25 @@ def build_settings() -> dict:
         "summarize_descriptions": {
             "prompt": str(PROMPTS_DIR / "summarize_descriptions.txt") if (PROMPTS_DIR / "summarize_descriptions.txt").exists() else None,
         },
-        "input": {
-            "type": "file",
-            "file_type": "text",
-            "base_dir": str(INPUT_DIR),
-        },
-        "storage": {
-            "type": "file",
-            "base_dir": str(OUTPUT_DIR),
-        },
-        "chunks": {
-            "size": 1200,
-            "overlap": 200,
-        },
-        "claim_extraction": {"enabled": False},
         "snapshots": {"graphml": True},
     }
 
+    # Remove None prompt entries
+    for section in ("extract_graph", "community_reports", "summarize_descriptions"):
+        if settings[section].get("prompt") is None:
+            del settings[section]["prompt"]
 
-def write_settings_yaml():
-    """Write a settings.yaml for graphrag CLI compatibility."""
-    import yaml
-
-    settings = build_settings()
     settings_path = INDEXER_ROOT / "settings.yaml"
     with open(settings_path, "w") as f:
         yaml.dump(settings, f, default_flow_style=False)
     print(f"[Extractor] Wrote settings to {settings_path}")
     return settings_path
+
+
+def load_config():
+    """Load GraphRagConfig from the settings.yaml."""
+    from graphrag.config import load_config as _load_config
+    return _load_config(root_dir=str(INDEXER_ROOT))
 
 
 def load_extracted_entities() -> tuple[list[dict], list[dict]]:

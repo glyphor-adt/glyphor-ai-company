@@ -6,49 +6,50 @@ Usage:
 """
 
 import argparse
-import subprocess
-import sys
-from pathlib import Path
+import asyncio
+import os
 
 from .collector import stage_documents
-from .config import INDEXER_ROOT, OUTPUT_DIR, PROMPTS_DIR
-from .extractor import (
-    build_settings, write_settings_yaml,
-    load_extracted_entities, load_community_reports,
-)
+from .config import INDEXER_ROOT, OUTPUT_DIR, PROMPTS_DIR, GEMINI_API_KEY
+from .extractor import write_settings_yaml, load_extracted_entities, load_community_reports
 from .bridge import GraphRAGBridge
 
 
-def run_graphrag_index():
+async def run_graphrag_index():
     """
-    Invoke graphrag CLI to run the indexing pipeline.
-    This generates entities, relationships, and community reports
-    from the staged input documents.
+    Run GraphRAG indexing via the v3 Python API.
+    Extracts entities, relationships, and community reports from staged input docs.
     """
+    from graphrag.config import load_config
+    from graphrag.api import build_index
+
+    # Ensure API key is set for litellm
+    os.environ.setdefault("GOOGLE_AI_API_KEY", GEMINI_API_KEY)
+
     write_settings_yaml()
+    config = load_config(root_dir=str(INDEXER_ROOT))
 
-    result = subprocess.run(
-        [sys.executable, "-m", "graphrag", "index", "--root", str(INDEXER_ROOT)],
-        capture_output=True,
-        text=True,
-        timeout=600,
-    )
+    print("[Index] Running GraphRAG indexing...")
+    results = await build_index(config=config, verbose=True)
 
-    if result.returncode != 0:
-        print(f"[Index] graphrag index failed:\n{result.stderr[:2000]}")
-        raise RuntimeError("GraphRAG indexing failed")
+    for result in results:
+        if result.errors:
+            for err in result.errors:
+                print(f"  [ERROR] {err}")
+        else:
+            print(f"  [OK] {result.workflow}")
 
-    print(f"[Index] graphrag index completed successfully")
-    if result.stdout:
-        # Print last few lines of output for visibility
-        lines = result.stdout.strip().split("\n")
-        for line in lines[-5:]:
-            print(f"  {line}")
+    # Check for fatal errors
+    errors = [e for r in results if r.errors for e in r.errors]
+    if errors:
+        print(f"[Index] Completed with {len(errors)} error(s)")
+    else:
+        print("[Index] Indexing completed successfully")
 
 
 def run_pipeline(source: str = "all", skip_collect: bool = False) -> dict:
     """
-    Full pipeline: collect → extract (via graphrag CLI) → bridge to Supabase.
+    Full pipeline: collect → extract (via graphrag API) → bridge to Supabase.
     Returns summary dict with counts.
     """
     # 1. Collect and stage documents
@@ -66,9 +67,9 @@ def run_pipeline(source: str = "all", skip_collect: bool = False) -> dict:
     print("[Pipeline] Step 2/3: Running GraphRAG entity extraction...")
     has_tuned = (PROMPTS_DIR / "entity_extraction.txt").exists()
     if not has_tuned:
-        print("  ⚠ No tuned prompts found — using defaults. Run `python -m graphrag_indexer.tune` first.")
+        print("  Warning: No tuned prompts found. Run `python -m graphrag_indexer.tune` first.")
 
-    run_graphrag_index()
+    asyncio.run(run_graphrag_index())
 
     # 3. Load results and bridge to Supabase
     print("[Pipeline] Step 3/3: Syncing to knowledge graph...")

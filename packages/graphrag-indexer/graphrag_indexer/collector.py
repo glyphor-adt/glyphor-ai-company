@@ -109,7 +109,10 @@ def stage_documents(source: str = "all") -> int:
         documents.extend(collect_assignment_outputs())
 
     for doc in documents:
-        safe_name = doc["id"].replace("/", "_").replace(" ", "_")
+        safe_name = doc["id"].replace("/", "_").replace("\\", "_").replace(" ", "_")
+        # Strip .md extension before adding .txt
+        if safe_name.endswith(".md"):
+            safe_name = safe_name[:-3]
         file_path = INPUT_DIR / f"{safe_name}.txt"
         file_path.write_text(doc["text"], encoding="utf-8")
 
