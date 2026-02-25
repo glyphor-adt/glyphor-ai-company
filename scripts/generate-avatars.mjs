@@ -70,6 +70,13 @@ const AGENTS = [
 
   // ── Legal ──
   { role: 'clo', name: 'Victoria Chase', desc: 'white woman, late 30s, sleek auburn hair pulled back, sharp green eyes, poised commanding presence, tailored blazer, pearl earrings' },
+
+  // ── Research & Intelligence ──
+  { role: 'vp-research', name: 'Sophia Lin', desc: 'Chinese American woman, mid 30s, elegant straight black hair past shoulders, intellectual warm expression, thin-framed glasses, pearl necklace' },
+  { role: 'competitive-research-analyst', name: 'Lena Park', desc: 'Korean American woman, late 20s, shoulder-length dark hair with subtle highlights, alert inquisitive expression, minimalist style' },
+  { role: 'market-research-analyst', name: 'Daniel Okafor', desc: 'Nigerian man, early 30s, short neat hair, calm analytical expression, wire-rimmed glasses, crisp collared shirt' },
+  { role: 'technical-research-analyst', name: 'Kai Nakamura', desc: 'Japanese American man, late 20s, slightly tousled dark hair, focused intense expression, casual smart style' },
+  { role: 'industry-research-analyst', name: 'Amara Diallo', desc: 'Senegalese woman, early 30s, natural hair in neat twists, warm confident smile, colorful earrings, professional blazer' },
 ];
 
 function buildPrompt(agent) {

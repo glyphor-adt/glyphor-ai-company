@@ -229,6 +229,7 @@ const agentExecutor = async (
     return runIndustryResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, researchBrief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
   } else {
     console.log(`[Scheduler] Agent ${agentRole} not recognized, skipping task: ${task}`);
+    return { output: `Agent "${agentRole}" is not available for direct chat yet.`, status: 'error' } as AgentExecutionResult;
   }
 };
 

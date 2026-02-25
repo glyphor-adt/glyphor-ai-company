@@ -256,6 +256,7 @@ export const AGENT_META: Record<string, { color: string; icon: string }> = {
   'vp-design':      { color: '#DB2777', icon: 'MdPalette' },
   ops:              { color: '#EA580C', icon: 'MdMonitorHeart' },
   clo:              { color: '#6D28D9', icon: 'MdGavel' },
+  'vp-research':    { color: '#059669', icon: 'MdBiotech' },
   // Sub-team agents
   'platform-engineer':     { color: '#2563EB', icon: 'MdDeveloperBoard' },
   'quality-engineer':      { color: '#2563EB', icon: 'MdBugReport' },
@@ -276,6 +277,10 @@ export const AGENT_META: Record<string, { color: string; icon: string }> = {
   'template-architect':    { color: '#DB2777', icon: 'MdDashboard' },
   'm365-admin':            { color: '#EA580C', icon: 'MdAdminPanelSettings' },
   'global-admin':          { color: '#EA580C', icon: 'MdSecurity' },
+  'competitive-research-analyst': { color: '#059669', icon: 'MdTravelExplore' },
+  'market-research-analyst':      { color: '#059669', icon: 'MdInsights' },
+  'technical-research-analyst':   { color: '#059669', icon: 'MdScience' },
+  'industry-research-analyst':    { color: '#059669', icon: 'MdPublic' },
 };
 
 export const DISPLAY_NAME_MAP: Record<string, string> = {
@@ -289,6 +294,7 @@ export const DISPLAY_NAME_MAP: Record<string, string> = {
   'vp-design': 'Mia Tanaka',
   ops: 'Atlas Vega',
   clo: 'Victoria Chase',
+  'vp-research': 'Sophia Lin',
   // Sub-team agents
   'platform-engineer': 'Alex Park',
   'quality-engineer': 'Sam DeLuca',
@@ -309,6 +315,10 @@ export const DISPLAY_NAME_MAP: Record<string, string> = {
   'template-architect': 'Ryan Park',
   'm365-admin': 'Riley Morgan',
   'global-admin': 'Morgan Blake',
+  'competitive-research-analyst': 'Lena Park',
+  'market-research-analyst': 'Daniel Okafor',
+  'technical-research-analyst': 'Kai Nakamura',
+  'industry-research-analyst': 'Amara Diallo',
 };
 
 /** @deprecated Use DISPLAY_NAME_MAP instead */
@@ -376,6 +386,12 @@ export const AGENT_SOUL: Record<string, { mission: string; persona: string; tone
     tone: 'precise, authoritative, plain-English, risk-aware, structured',
     ethics: 'Compliance is a floor, not a ceiling. Never give legal advice without citing the source framework. Flag ambiguity explicitly — silence on a risk is agreement with that risk.',
   },
+  'vp-research': {
+    mission: 'Lead strategic research initiatives by orchestrating the four research analysts to produce multi-wave analyses covering competitive landscape, market sizing, technical feasibility, and industry trends.',
+    persona: 'Synthesizer-in-chief. Former McKinsey engagement manager who ran 12-person research teams on strategy projects. Sees the big picture in disconnected data points and structures complex analyses into executive-ready deliverables.',
+    tone: 'strategic, synthesizing, structured, evidence-based, executive-ready',
+    ethics: 'Never present a single source as fact. Cross-reference everything. Label confidence levels explicitly. The quality of the synthesis is only as good as the weakest source.',
+  },
 };
 
 /* ── Agent skills / capabilities ── */
@@ -390,6 +406,7 @@ export const AGENT_SKILLS: Record<string, string[]> = {
   'vp-design': ['output_quality_auditor', 'design_system_owner', 'ui_reviewer', 'quality_grader', 'anti_ai_smell', 'template_reviewer'],
   ops: ['agent_health_monitor', 'data_freshness_checker', 'cost_anomaly_detector', 'incident_manager', 'status_reporter'],
   clo: ['regulatory_scanner', 'contract_reviewer', 'compliance_auditor', 'risk_assessor', 'policy_drafter', 'privacy_monitor'],
+  'vp-research': ['research_orchestrator', 'multi_wave_analysis', 'strategic_synthesis', 'brief_compiler', 'source_validator'],
   // Sub-team agents
   'platform-engineer': ['infrastructure_management', 'service_deployment', 'performance_tuning', 'cloud_run_ops'],
   'quality-engineer': ['test_automation', 'regression_testing', 'code_review', 'bug_triage'],
@@ -408,6 +425,10 @@ export const AGENT_SKILLS: Record<string, string[]> = {
   'frontend-engineer': ['component_development', 'responsive_design', 'performance_optimization', 'animation'],
   'design-critic': ['design_review', 'quality_scoring', 'anti_ai_smell_detection', 'consistency_check'],
   'template-architect': ['template_design', 'component_library', 'design_tokens', 'layout_systems'],
+  'competitive-research-analyst': ['competitor_tracking', 'product_teardown', 'pricing_analysis', 'feature_gap_detection'],
+  'market-research-analyst': ['market_sizing', 'tam_sam_som', 'cohort_analysis', 'trend_forecasting'],
+  'technical-research-analyst': ['tech_stack_analysis', 'architecture_review', 'feasibility_assessment', 'patent_scan'],
+  'industry-research-analyst': ['industry_mapping', 'regulatory_scan', 'partnership_research', 'ecosystem_analysis'],
 };
 
 /* ── Role → tier mapping (for display) ── */
@@ -422,6 +443,7 @@ export const ROLE_TIER: Record<string, string> = {
   'vp-design': 'Executive',
   ops: 'Specialist',
   clo: 'Executive',
+  'vp-research': 'Executive',
   // Sub-team agents
   'platform-engineer': 'Sub-Team',
   'quality-engineer': 'Sub-Team',
@@ -440,6 +462,10 @@ export const ROLE_TIER: Record<string, string> = {
   'frontend-engineer': 'Sub-Team',
   'design-critic': 'Sub-Team',
   'template-architect': 'Sub-Team',
+  'competitive-research-analyst': 'Sub-Team',
+  'market-research-analyst': 'Sub-Team',
+  'technical-research-analyst': 'Sub-Team',
+  'industry-research-analyst': 'Sub-Team',
 };
 
 /* ── Role → office/department ── */
@@ -454,6 +480,7 @@ export const ROLE_DEPARTMENT: Record<string, string> = {
   'vp-design': 'Design & Frontend',
   ops: 'Operations',
   clo: 'Legal',
+  'vp-research': 'Research & Intelligence',
   // Sub-team agents
   'platform-engineer': 'Engineering',
   'quality-engineer': 'Engineering',
@@ -472,6 +499,10 @@ export const ROLE_DEPARTMENT: Record<string, string> = {
   'frontend-engineer': 'Design & Frontend',
   'design-critic': 'Design & Frontend',
   'template-architect': 'Design & Frontend',
+  'competitive-research-analyst': 'Research & Intelligence',
+  'market-research-analyst': 'Research & Intelligence',
+  'technical-research-analyst': 'Research & Intelligence',
+  'industry-research-analyst': 'Research & Intelligence',
 };
 
 /* ── Role → title ── */
@@ -486,6 +517,7 @@ export const ROLE_TITLE: Record<string, string> = {
   'vp-design': 'VP Design & Frontend',
   ops: 'Operations & System Intelligence',
   clo: 'Chief Legal Officer',
+  'vp-research': 'VP Research & Intelligence',
   // Sub-team agents
   'platform-engineer': 'Platform Engineer',
   'quality-engineer': 'Quality Engineer',
@@ -504,6 +536,10 @@ export const ROLE_TITLE: Record<string, string> = {
   'frontend-engineer': 'Frontend Engineer',
   'design-critic': 'Design Critic',
   'template-architect': 'Template Architect',
+  'competitive-research-analyst': 'Competitive Research Analyst',
+  'market-research-analyst': 'Market Research Analyst',
+  'technical-research-analyst': 'Technical Research Analyst',
+  'industry-research-analyst': 'Industry Research Analyst',
 };
 
 /* ── Sub-team members (report to executives) ── */
@@ -545,4 +581,9 @@ export const SUB_TEAM: SubTeamMember[] = [
   // Operations & IT → direct reports
   { name: 'Riley Morgan',  title: 'M365 Administrator',   department: 'Operations & IT',   reportsTo: 'ops', color: '#EA580C', initials: 'RM', avatar: 'm365-admin' },
   { name: 'Morgan Blake',  title: 'Global Administrator', department: 'Operations & IT',   reportsTo: 'ops', color: '#EA580C', initials: 'MB', avatar: 'global-admin' },
+  // Research & Intelligence → Sophia Lin (VP Research)
+  { name: 'Lena Park',     title: 'Competitive Research Analyst', department: 'Research & Intelligence', reportsTo: 'vp-research', color: '#059669', initials: 'LP', avatar: 'competitive-research-analyst' },
+  { name: 'Daniel Okafor', title: 'Market Research Analyst',      department: 'Research & Intelligence', reportsTo: 'vp-research', color: '#059669', initials: 'DO', avatar: 'market-research-analyst' },
+  { name: 'Kai Nakamura',  title: 'Technical Research Analyst',   department: 'Research & Intelligence', reportsTo: 'vp-research', color: '#059669', initials: 'KN', avatar: 'technical-research-analyst' },
+  { name: 'Amara Diallo',  title: 'Industry Research Analyst',    department: 'Research & Intelligence', reportsTo: 'vp-research', color: '#059669', initials: 'AD', avatar: 'industry-research-analyst' },
 ];
