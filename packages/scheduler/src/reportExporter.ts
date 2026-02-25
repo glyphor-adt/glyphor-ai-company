@@ -15,10 +15,10 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Tabl
 
 /* ── Shared PPTX theme ──────────────────────── */
 
-const SLIDE_BG    = '0D1117';
-const SLIDE_BG2   = '161B22';  // slightly lighter panel bg
-const SLIDE_TEXT  = 'E6EDF3';
-const SLIDE_MUTED = '8B949E';
+const SLIDE_BG    = 'FFFFFF';
+const SLIDE_BG2   = 'F3F4F6';  // light gray card/panel bg
+const SLIDE_TEXT  = '1F2937';
+const SLIDE_MUTED = '6B7280';
 const SLIDE_CYAN  = '00E0FF';
 const SLIDE_AMBER = 'FBBF24';
 const SLIDE_GREEN = '34D399';
@@ -31,7 +31,7 @@ const FONT_BODY    = 'Segoe UI';
 /** Branded footer bar on every slide */
 function addSlideFooter(slide: PptxGenJS.Slide, pptx: PptxGenJS): void {
   slide.addShape(pptx.ShapeType.rect, { x: 0, y: 5.1, w: 10, h: 0.15, fill: { color: SLIDE_CYAN } });
-  slide.addText('GLYPHOR AI  ·  Confidential', { x: 0.3, y: 4.85, w: 5, fontSize: 7, color: SLIDE_MUTED, fontFace: FONT_BODY });
+  slide.addText('GLYPHOR AI  ·  Confidential', { x: 0.3, y: 4.85, w: 5, fontSize: 9, color: SLIDE_MUTED, fontFace: FONT_BODY });
 }
 
 function pptxTitleSlide(pptx: PptxGenJS, title: string, subtitle: string, meta: string): void {
@@ -44,7 +44,7 @@ function pptxTitleSlide(pptx: PptxGenJS, title: string, subtitle: string, meta: 
   // Accent rule
   slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 0.8, w: 1.4, h: 0.04, fill: { color: SLIDE_CYAN } });
   // Title
-  slide.addText(title, { x: 0.6, y: 1.6, w: 8.5, fontSize: 36, color: SLIDE_WHITE, fontFace: FONT_HEADING, bold: true, lineSpacingMultiple: 1.1 });
+  slide.addText(title, { x: 0.6, y: 1.6, w: 8.5, fontSize: 36, color: SLIDE_TEXT, fontFace: FONT_HEADING, bold: true, lineSpacingMultiple: 1.1 });
   // Subtitle
   slide.addText(subtitle, { x: 0.6, y: 2.8, w: 8.5, fontSize: 16, color: SLIDE_MUTED, fontFace: FONT_BODY, lineSpacingMultiple: 1.3 });
   // Meta
@@ -81,7 +81,7 @@ function pptxSectionSlides(pptx: PptxGenJS, heading: string, items: string[], co
       // Item card with subtle bg
       slide.addShape(pptx.ShapeType.roundRect, {
         x: 0.5, y: yPos - 0.05, w: 9, h: 0.55,
-        fill: { color: SLIDE_BG2 }, line: { color: '30363D', width: 0.5 }, rectRadius: 0.05,
+        fill: { color: SLIDE_BG2 }, line: { color: 'E5E7EB', width: 0.5 }, rectRadius: 0.05,
       });
       slide.addText(`${prefix}  ${item}`, {
         x: 0.7, y: yPos, w: 8.6, h: 0.45,
@@ -269,10 +269,9 @@ export async function exportAnalysisPPTX(record: AnalysisRecord): Promise<Buffer
     // Summary text in a card
     slide.addShape(pptx.ShapeType.roundRect, {
       x: 0.5, y: 0.95, w: 9, h: 3.8,
-      fill: { color: SLIDE_BG2 }, line: { color: '30363D', width: 0.5 }, rectRadius: 0.08,
+      fill: { color: SLIDE_BG2 }, line: { color: 'E5E7EB', width: 0.5 }, rectRadius: 0.08,
     });
-    // Split summary into paragraphs, limit to ~600 chars per slide
-    const summaryText = report.summary.length > 800 ? report.summary.slice(0, 800) + '…' : report.summary;
+    const summaryText = report.summary;
     slide.addText(summaryText, {
       x: 0.8, y: 1.1, w: 8.4, h: 3.5,
       fontSize: 13.5, color: SLIDE_TEXT, fontFace: FONT_BODY, valign: 'top', lineSpacingMultiple: 1.4,
@@ -293,7 +292,7 @@ export async function exportAnalysisPPTX(record: AnalysisRecord): Promise<Buffer
         fill: { color: SLIDE_BG2 }, line: { color: s.clr, width: 1 }, rectRadius: 0.05,
       });
       slide.addText(s.val, { x: xPos, y: 4.82, w: 1.7, fontSize: 18, color: s.clr, fontFace: FONT_HEADING, bold: true, align: 'center' });
-      slide.addText(s.label, { x: xPos, y: 5.08, w: 1.7, fontSize: 8, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
+      slide.addText(s.label, { x: xPos, y: 5.08, w: 1.7, fontSize: 10, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
     });
     addSlideFooter(slide, pptx);
   }
@@ -308,9 +307,9 @@ export async function exportAnalysisPPTX(record: AnalysisRecord): Promise<Buffer
   {
     const slide = pptx.addSlide();
     slide.background = { color: SLIDE_BG };
-    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: SLIDE_WHITE } });
-    slide.addText('SWOT Analysis', { x: 0.5, y: 0.2, w: 9, fontSize: 22, color: SLIDE_WHITE, fontFace: FONT_HEADING, bold: true });
-    slide.addShape(pptx.ShapeType.rect, { x: 0.5, y: 0.6, w: 1.0, h: 0.035, fill: { color: SLIDE_WHITE } });
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: SLIDE_CYAN } });
+    slide.addText('SWOT Analysis', { x: 0.5, y: 0.2, w: 9, fontSize: 22, color: SLIDE_TEXT, fontFace: FONT_HEADING, bold: true });
+    slide.addShape(pptx.ShapeType.rect, { x: 0.5, y: 0.6, w: 1.0, h: 0.035, fill: { color: SLIDE_CYAN } });
 
     const quadrants = [
       { label: 'STRENGTHS', items: report.swot.strengths, color: SLIDE_GREEN, x: 0.3, y: 0.85 },
@@ -326,12 +325,11 @@ export async function exportAnalysisPPTX(record: AnalysisRecord): Promise<Buffer
       });
       // Label with colored bg strip
       slide.addShape(pptx.ShapeType.rect, { x: q.x, y: q.y, w: 4.65, h: 0.3, fill: { color: q.color } });
-      slide.addText(q.label, { x: q.x + 0.15, y: q.y + 0.02, w: 4.3, fontSize: 11, color: SLIDE_BG, fontFace: FONT_HEADING, bold: true, charSpacing: 2 });
-      // Bullet items (up to 5)
-      const bullets = q.items.slice(0, 5).map((item, i) => `${i + 1}. ${item}`).join('\n');
+      slide.addText(q.label, { x: q.x + 0.15, y: q.y + 0.02, w: 4.3, fontSize: 11, color: SLIDE_WHITE, fontFace: FONT_HEADING, bold: true, charSpacing: 2 });
+      const bullets = q.items.slice(0, 7).map((item, i) => `${i + 1}. ${item}`).join('\n');
       slide.addText(bullets || 'None identified', {
         x: q.x + 0.15, y: q.y + 0.38, w: 4.35, h: 1.45,
-        fontSize: 9.5, color: SLIDE_TEXT, fontFace: FONT_BODY, valign: 'top', lineSpacingMultiple: 1.35,
+        fontSize: 11, color: SLIDE_TEXT, fontFace: FONT_BODY, valign: 'top', lineSpacingMultiple: 1.35,
       });
     }
     addSlideFooter(slide, pptx);
@@ -351,11 +349,11 @@ export async function exportAnalysisPPTX(record: AnalysisRecord): Promise<Buffer
       slide.addText(`HIGH PRIORITY  ·  Recommendation ${idx + 1}`, {
         x: 0.6, y: 0.3, w: 9, fontSize: 12, color: SLIDE_RED, fontFace: FONT_HEADING, bold: true, charSpacing: 2,
       });
-      slide.addText(rec.title, { x: 0.6, y: 0.8, w: 8.5, fontSize: 28, color: SLIDE_WHITE, fontFace: FONT_HEADING, bold: true });
+      slide.addText(rec.title, { x: 0.6, y: 0.8, w: 8.5, fontSize: 28, color: SLIDE_TEXT, fontFace: FONT_HEADING, bold: true });
       slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 1.5, w: 1.0, h: 0.035, fill: { color: SLIDE_RED } });
       slide.addShape(pptx.ShapeType.roundRect, {
         x: 0.5, y: 1.75, w: 9, h: 2.8,
-        fill: { color: SLIDE_BG2 }, line: { color: '30363D', width: 0.5 }, rectRadius: 0.08,
+        fill: { color: SLIDE_BG2 }, line: { color: 'E5E7EB', width: 0.5 }, rectRadius: 0.08,
       });
       slide.addText(rec.detail, {
         x: 0.8, y: 1.9, w: 8.4, h: 2.5,
@@ -369,7 +367,7 @@ export async function exportAnalysisPPTX(record: AnalysisRecord): Promise<Buffer
       pptxSectionSlides(
         pptx,
         'Additional Recommendations',
-        otherRecs.map((r) => `[${r.priority.toUpperCase()}] ${r.title}: ${r.detail.slice(0, 120)}`),
+        otherRecs.map((r) => `[${r.priority.toUpperCase()}] ${r.title}: ${r.detail}`),
         SLIDE_CYAN,
         { numbered: true },
       );
@@ -646,7 +644,7 @@ export async function exportSimulationPPTX(record: SimulationRecord): Promise<Bu
     slide.addText(`${report.overallScore > 0 ? '+' : ''}${report.overallScore}`, {
       x: 7.8, y: 0.15, w: 1.8, fontSize: 36, color: scoreColor, fontFace: FONT_HEADING, bold: true, align: 'center',
     });
-    slide.addText('IMPACT', { x: 7.8, y: 0.7, w: 1.8, fontSize: 8, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center', charSpacing: 3 });
+    slide.addText('IMPACT', { x: 7.8, y: 0.7, w: 1.8, fontSize: 10, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center', charSpacing: 3 });
 
     // Recommendation badge
     const recLabel = report.recommendation.replace(/_/g, ' ').toUpperCase();
@@ -655,14 +653,14 @@ export async function exportSimulationPPTX(record: SimulationRecord): Promise<Bu
       x: 7.8, y: 1.3, w: 1.8, h: 0.35,
       fill: { color: SLIDE_BG2 }, line: { color: recColor, width: 1 }, rectRadius: 0.05,
     });
-    slide.addText(recLabel, { x: 7.8, y: 1.3, w: 1.8, h: 0.35, fontSize: 8, color: recColor, fontFace: FONT_HEADING, bold: true, align: 'center', valign: 'middle' });
+    slide.addText(recLabel, { x: 7.8, y: 1.3, w: 1.8, h: 0.35, fontSize: 10, color: recColor, fontFace: FONT_HEADING, bold: true, align: 'center', valign: 'middle' });
 
     // Summary card
     slide.addShape(pptx.ShapeType.roundRect, {
       x: 0.5, y: 1.0, w: 7.0, h: 3.6,
-      fill: { color: SLIDE_BG2 }, line: { color: '30363D', width: 0.5 }, rectRadius: 0.08,
+      fill: { color: SLIDE_BG2 }, line: { color: 'E5E7EB', width: 0.5 }, rectRadius: 0.08,
     });
-    const summaryText = report.summary.length > 600 ? report.summary.slice(0, 600) + '…' : report.summary;
+    const summaryText = report.summary;
     slide.addText(summaryText, {
       x: 0.7, y: 1.15, w: 6.6, h: 3.3,
       fontSize: 13, color: SLIDE_TEXT, fontFace: FONT_BODY, valign: 'top', lineSpacingMultiple: 1.4,
@@ -692,16 +690,16 @@ export async function exportSimulationPPTX(record: SimulationRecord): Promise<Bu
       });
       // Header strip
       slide.addShape(pptx.ShapeType.rect, { x: xPos, y: yPos, w: 3.0, h: 0.28, fill: { color: dimColor } });
-      slide.addText(dim.area, { x: xPos + 0.1, y: yPos + 0.02, w: 2.2, fontSize: 10, color: SLIDE_BG, fontFace: FONT_HEADING, bold: true });
-      slide.addText(`${dim.magnitude > 0 ? '+' : ''}${dim.magnitude}`, { x: xPos + 2.2, y: yPos + 0.02, w: 0.7, fontSize: 12, color: SLIDE_BG, fontFace: FONT_HEADING, bold: true, align: 'right' });
+      slide.addText(dim.area, { x: xPos + 0.1, y: yPos + 0.02, w: 2.2, fontSize: 10, color: SLIDE_WHITE, fontFace: FONT_HEADING, bold: true });
+      slide.addText(`${dim.magnitude > 0 ? '+' : ''}${dim.magnitude}`, { x: xPos + 2.2, y: yPos + 0.02, w: 0.7, fontSize: 12, color: SLIDE_WHITE, fontFace: FONT_HEADING, bold: true, align: 'right' });
       // Reasoning
-      slide.addText(dim.reasoning.slice(0, 140), {
+      slide.addText(dim.reasoning, {
         x: xPos + 0.1, y: yPos + 0.38, w: 2.8, h: 1.0,
-        fontSize: 9, color: SLIDE_TEXT, fontFace: FONT_BODY, valign: 'top', lineSpacingMultiple: 1.3,
+        fontSize: 10, color: SLIDE_TEXT, fontFace: FONT_BODY, valign: 'top', lineSpacingMultiple: 1.3,
       });
       // Confidence bar
       slide.addText(`${Math.round(dim.confidence * 100)}% confidence`, {
-        x: xPos + 0.1, y: yPos + 1.5, w: 2.8, fontSize: 7.5, color: SLIDE_MUTED, fontFace: FONT_BODY,
+        x: xPos + 0.1, y: yPos + 1.5, w: 2.8, fontSize: 9, color: SLIDE_MUTED, fontFace: FONT_BODY,
       });
     });
     addSlideFooter(slide, pptx);
@@ -711,7 +709,7 @@ export async function exportSimulationPPTX(record: SimulationRecord): Promise<Bu
   if (report.votes.length > 0) {
     const voteItems = report.votes.map((v) => {
       const emoji = v.vote === 'approve' ? '✓ APPROVE' : v.vote === 'reject' ? '✗ REJECT' : '⚠ CAUTION';
-      return `${v.agent}  [${emoji}]  —  ${v.reasoning.slice(0, 100)}`;
+      return `${v.agent}  [${emoji}]  —  ${v.reasoning}`;
     });
     pptxSectionSlides(pptx, 'Executive Votes', voteItems, SLIDE_ACCENT);
   }
@@ -1131,7 +1129,7 @@ export async function exportDeepDivePPTX(record: DeepDiveRecord): Promise<Buffer
     pptxSectionSlides(
       pptx,
       'Strategic Recommendations',
-      report.strategicRecommendations.map((r) => `[${r.priority.toUpperCase()}] ${r.title}: ${r.description.slice(0, 120)}`),
+      report.strategicRecommendations.map((r) => `[${r.priority.toUpperCase()}] ${r.title}: ${r.description}`),
       SLIDE_CYAN,
       { numbered: true },
     );
@@ -1142,7 +1140,7 @@ export async function exportDeepDivePPTX(record: DeepDiveRecord): Promise<Buffer
     pptxSectionSlides(
       pptx,
       'Risk Assessment',
-      report.riskAssessment.map((r) => `[${r.probability.toUpperCase()} / ${r.impact.toUpperCase()}] ${r.risk}: ${r.mitigation.slice(0, 100)}`),
+      report.riskAssessment.map((r) => `[${r.probability.toUpperCase()} / ${r.impact.toUpperCase()}] ${r.risk}: ${r.mitigation}`),
       SLIDE_RED,
     );
   }
@@ -1369,9 +1367,9 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
 
     slide.addShape(pptx.ShapeType.roundRect, {
       x: 0.5, y: 0.95, w: 9, h: 3.8,
-      fill: { color: SLIDE_BG2 }, line: { color: '30363D', width: 0.5 }, rectRadius: 0.08,
+      fill: { color: SLIDE_BG2 }, line: { color: 'E5E7EB', width: 0.5 }, rectRadius: 0.08,
     });
-    const summaryText = s.executiveSummary.length > 800 ? s.executiveSummary.slice(0, 800) + '…' : s.executiveSummary;
+    const summaryText = s.executiveSummary;
     slide.addText(summaryText, {
       x: 0.8, y: 1.1, w: 8.4, h: 3.5,
       fontSize: 13.5, color: SLIDE_TEXT, fontFace: FONT_BODY, valign: 'top', lineSpacingMultiple: 1.4,
@@ -1391,7 +1389,7 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
         fill: { color: SLIDE_BG2 }, line: { color: st.clr, width: 1 }, rectRadius: 0.05,
       });
       slide.addText(st.val, { x: xPos, y: 4.82, w: 1.7, fontSize: 18, color: st.clr, fontFace: FONT_HEADING, bold: true, align: 'center' });
-      slide.addText(st.label, { x: xPos, y: 5.08, w: 1.7, fontSize: 8, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
+      slide.addText(st.label, { x: xPos, y: 5.08, w: 1.7, fontSize: 10, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
     });
     addSlideFooter(slide, pptx);
   }
@@ -1405,9 +1403,9 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
   {
     const slide = pptx.addSlide();
     slide.background = { color: SLIDE_BG };
-    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: SLIDE_WHITE } });
-    slide.addText('SWOT Analysis', { x: 0.5, y: 0.2, w: 9, fontSize: 22, color: SLIDE_WHITE, fontFace: FONT_HEADING, bold: true });
-    slide.addShape(pptx.ShapeType.rect, { x: 0.5, y: 0.6, w: 1.0, h: 0.035, fill: { color: SLIDE_WHITE } });
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: SLIDE_CYAN } });
+    slide.addText('SWOT Analysis', { x: 0.5, y: 0.2, w: 9, fontSize: 22, color: SLIDE_TEXT, fontFace: FONT_HEADING, bold: true });
+    slide.addShape(pptx.ShapeType.rect, { x: 0.5, y: 0.6, w: 1.0, h: 0.035, fill: { color: SLIDE_CYAN } });
 
     const quadrants = [
       { label: 'STRENGTHS', items: s.unifiedSwot.strengths, color: SLIDE_GREEN, x: 0.3, y: 0.85 },
@@ -1421,11 +1419,11 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
         fill: { color: SLIDE_BG2 }, line: { color: q.color, width: 1.5 }, rectRadius: 0.08,
       });
       slide.addShape(pptx.ShapeType.rect, { x: q.x, y: q.y, w: 4.65, h: 0.3, fill: { color: q.color } });
-      slide.addText(q.label, { x: q.x + 0.15, y: q.y + 0.02, w: 4.3, fontSize: 11, color: SLIDE_BG, fontFace: FONT_HEADING, bold: true, charSpacing: 2 });
-      const bullets = q.items.slice(0, 5).map((item, i) => `${i + 1}. ${item}`).join('\n');
+      slide.addText(q.label, { x: q.x + 0.15, y: q.y + 0.02, w: 4.3, fontSize: 11, color: SLIDE_WHITE, fontFace: FONT_HEADING, bold: true, charSpacing: 2 });
+      const bullets = q.items.slice(0, 7).map((item, i) => `${i + 1}. ${item}`).join('\n');
       slide.addText(bullets || 'None identified', {
         x: q.x + 0.15, y: q.y + 0.38, w: 4.35, h: 1.45,
-        fontSize: 9.5, color: SLIDE_TEXT, fontFace: FONT_BODY, valign: 'top', lineSpacingMultiple: 1.35,
+        fontSize: 11, color: SLIDE_TEXT, fontFace: FONT_BODY, valign: 'top', lineSpacingMultiple: 1.35,
       });
     }
     addSlideFooter(slide, pptx);
@@ -1444,11 +1442,11 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
       slide.addText(`HIGH IMPACT  ·  Recommendation ${idx + 1}`, {
         x: 0.6, y: 0.3, w: 9, fontSize: 12, color: SLIDE_RED, fontFace: FONT_HEADING, bold: true, charSpacing: 2,
       });
-      slide.addText(rec.title, { x: 0.6, y: 0.8, w: 8.5, fontSize: 28, color: SLIDE_WHITE, fontFace: FONT_HEADING, bold: true });
+      slide.addText(rec.title, { x: 0.6, y: 0.8, w: 8.5, fontSize: 28, color: SLIDE_TEXT, fontFace: FONT_HEADING, bold: true });
       slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 1.5, w: 1.0, h: 0.035, fill: { color: SLIDE_RED } });
       slide.addShape(pptx.ShapeType.roundRect, {
         x: 0.5, y: 1.75, w: 9, h: 2.8,
-        fill: { color: SLIDE_BG2 }, line: { color: '30363D', width: 0.5 }, rectRadius: 0.08,
+        fill: { color: SLIDE_BG2 }, line: { color: 'E5E7EB', width: 0.5 }, rectRadius: 0.08,
       });
       slide.addText(rec.description, {
         x: 0.8, y: 1.9, w: 8.4, h: 2.5,
@@ -1465,7 +1463,7 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
       pptxSectionSlides(
         pptx,
         'Additional Recommendations',
-        otherRecs.map((r) => `[${r.impact.toUpperCase()}] ${r.title}: ${r.description.slice(0, 120)}`),
+        otherRecs.map((r) => `[${r.impact.toUpperCase()}] ${r.title}: ${r.description}`),
         SLIDE_CYAN,
         { numbered: true },
       );
