@@ -1476,7 +1476,6 @@ const server = createServer(async (req, res) => {
       const id = decodeURIComponent(strategyLabExportMatch[1]);
       const record = await strategyLabEngine.get(id);
       if (!record?.synthesis) { json(res, 404, { error: 'Strategy analysis not found or not completed' }); return; }
-      const params = new URLSearchParams(url.split('?')[1] || '');
       const format = params.get('format') || 'json';
       if (format === 'json') {
         json(res, 200, record);
