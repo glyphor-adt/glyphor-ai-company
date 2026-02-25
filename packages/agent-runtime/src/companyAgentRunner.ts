@@ -12,6 +12,7 @@ import { ModelClient } from './modelClient.js';
 import { ToolExecutor } from './toolExecutor.js';
 import { AgentSupervisor } from './supervisor.js';
 import { extractReasoning, REASONING_PROMPT_SUFFIX } from './reasoning.js';
+import { isOfficeDocument, extractDocumentText } from './documentExtractor.js';
 import type { GlyphorEventBus } from './glyphorEventBus.js';
 import type {
   AgentConfig,
@@ -843,6 +844,24 @@ export class CompanyAgentRunner {
       }
       return true;
     });
+
+    // Pre-process Office documents (.docx, .pptx, .xlsx) — extract text content
+    // so providers don't pass raw binary to the LLM.
+    if (initialAttachments?.length) {
+      initialAttachments = await Promise.all(
+        initialAttachments.map(async (att) => {
+          if (isOfficeDocument(att.mimeType, att.name)) {
+            const text = await extractDocumentText(att.data, att.name);
+            return {
+              name: att.name,
+              mimeType: 'text/plain',
+              data: Buffer.from(text).toString('base64'),
+            };
+          }
+          return att;
+        }),
+      );
+    }
 
     // Pre-seed with prior conversation history for multi-turn chat
     const history: ConversationTurn[] = [

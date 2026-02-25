@@ -6,7 +6,6 @@ import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
 import { supabase, SCHEDULER_URL } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
-import * as teamsJs from '@microsoft/teams-js';
 import { MdAttachFile, MdImage, MdDescription, MdClose, MdVideoCall, MdCallEnd } from 'react-icons/md';
 import { HiMiniSignal, HiStop, HiMicrophone } from 'react-icons/hi2';
 import { useVoiceChat } from '../lib/useVoiceChat';
@@ -97,12 +96,18 @@ export default function Chat() {
 
   // Auto-detect current Teams meeting when running inside Teams
   useEffect(() => {
+    // Only attempt detection when embedded in an iframe (Teams tab)
+    let inIframe = false;
+    try { inIframe = window.self !== window.top; } catch { inIframe = true; }
+    if (!inIframe) return;
+
     let cancelled = false;
     (async () => {
       try {
+        const teamsJs = await import('@microsoft/teams-js');
         await teamsJs.app.initialize();
         const ctx = await teamsJs.app.getContext();
-        if (cancelled || ctx.page?.frameContext !== 'meetingStage' && ctx.page?.frameContext !== 'sidePanel') return;
+        if (cancelled || (ctx.page?.frameContext !== 'meetingStage' && ctx.page?.frameContext !== 'sidePanel')) return;
         // We're inside a Teams meeting — try to get the join URL
         if (ctx.meeting?.id) {
           teamsJs.meeting.getMeetingDetails((err, details) => {

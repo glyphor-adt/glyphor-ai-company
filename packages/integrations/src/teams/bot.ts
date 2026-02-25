@@ -34,6 +34,13 @@ export interface AgentBotConfig {
   name: string;
 }
 
+export interface TeamsFileAttachment {
+  contentType: string;
+  contentUrl?: string;
+  content?: unknown;
+  name?: string;
+}
+
 export interface TeamsActivity {
   type: string;
   id: string;
@@ -44,6 +51,7 @@ export interface TeamsActivity {
   conversation: { id: string; conversationType?: string; tenantId?: string; isGroup?: boolean };
   recipient: { id: string; name: string };
   text?: string;
+  attachments?: TeamsFileAttachment[];
   entities?: Array<{ type: string; mentioned?: { id: string; name: string }; text?: string }>;
   channelData?: Record<string, unknown>;
 }
@@ -660,10 +668,16 @@ export class TeamsBotHandler {
       ? `[Message from ${senderName}]: ${message}`
       : message;
 
+    // Download file attachments from Teams (if any)
+    const fileAttachments = await this.downloadTeamsAttachments(activity);
+
     let responseText: string;
 
     try {
-      const result = await this.agentRunner(agentRole, 'on_demand', { message: contextualMessage });
+      const result = await this.agentRunner(agentRole, 'on_demand', {
+        message: contextualMessage,
+        ...(fileAttachments.length > 0 ? { attachments: fileAttachments } : {}),
+      });
       const displayName = agentBot?.name ?? AGENT_DISPLAY[agentRole] ?? agentRole;
 
       if (result?.output) {
