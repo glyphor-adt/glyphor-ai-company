@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { useAuth } from '../lib/auth';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
-import { MdCheckCircle, MdEdit, MdCancel, MdChevronRight } from 'react-icons/md';
+import { MdCheckCircle, MdEdit, MdCancel, MdChevronRight, MdDelete, MdBlock } from 'react-icons/md';
 
 /* ── Types ─────────────────────────────────────── */
 
@@ -212,6 +212,7 @@ export default function Directives() {
                       directive={d}
                       isExpanded={expanded === d.id}
                       onToggle={() => setExpanded(expanded === d.id ? null : d.id)}
+                      onAction={refresh}
                     />
                   ))}
                 </div>
@@ -239,6 +240,7 @@ export default function Directives() {
                       directive={d}
                       isExpanded={expanded === d.id}
                       onToggle={() => setExpanded(expanded === d.id ? null : d.id)}
+                      onAction={refresh}
                     />
                   ))}
                 </div>
@@ -266,6 +268,7 @@ export default function Directives() {
                       directive={d}
                       isExpanded={expanded === d.id}
                       onToggle={() => setExpanded(expanded === d.id ? null : d.id)}
+                      onAction={refresh}
                     />
                   ))}
                 </div>
@@ -292,10 +295,12 @@ function DirectiveCard({
   directive: d,
   isExpanded,
   onToggle,
+  onAction,
 }: {
   directive: Directive;
   isExpanded: boolean;
   onToggle: () => void;
+  onAction: () => void;
 }) {
   const assignments = d.work_assignments ?? [];
   const pct = progressPercent(assignments);
@@ -304,6 +309,32 @@ function DirectiveCard({
   const agentNames = [...new Set(assignments.map(a => DISPLAY_NAME_MAP[a.assigned_to] ?? a.assigned_to))];
   const lastNote = d.progress_notes?.length ? d.progress_notes[d.progress_notes.length - 1] : null;
   const cfg = PRIORITY_CONFIG[d.priority];
+  const [acting, setActing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const canCancel = d.status === 'active' || d.status === 'paused';
+  const canDelete = d.status !== 'completed';
+
+  async function handleCancel() {
+    setActing(true);
+    await supabase
+      .from('founder_directives')
+      .update({ status: 'cancelled' })
+      .eq('id', d.id);
+    setActing(false);
+    onAction();
+  }
+
+  async function handleDelete() {
+    setActing(true);
+    // Clean up related rows (no CASCADE on FK)
+    await supabase.from('agent_tool_grants').delete().eq('directive_id', d.id);
+    await supabase.from('work_assignments').delete().eq('directive_id', d.id);
+    await supabase.from('founder_directives').delete().eq('id', d.id);
+    setActing(false);
+    setConfirmDelete(false);
+    onAction();
+  }
 
   return (
     <Card>
@@ -444,6 +475,49 @@ function DirectiveCard({
             <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
               <p className="text-[11px] font-medium text-emerald-400 mb-1">Completion Summary</p>
               <div className="text-[12px] text-txt-secondary leading-relaxed prose-chat"><Markdown>{d.completion_summary}</Markdown></div>
+            </div>
+          )}
+
+          {/* Cancel / Delete Actions */}
+          {(canCancel || canDelete) && (
+            <div className="flex items-center gap-2 border-t border-border pt-3">
+              {canCancel && (
+                <button
+                  onClick={handleCancel}
+                  disabled={acting}
+                  className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[12px] font-medium text-amber-400 transition-opacity hover:opacity-90 disabled:opacity-40"
+                >
+                  <MdBlock className="inline-block text-[14px] mr-1" /> Cancel
+                </button>
+              )}
+              {canDelete && !confirmDelete && (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  disabled={acting}
+                  className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[12px] font-medium text-red-400 transition-opacity hover:opacity-90 disabled:opacity-40"
+                >
+                  <MdDelete className="inline-block text-[14px] mr-1" /> Delete
+                </button>
+              )}
+              {confirmDelete && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-red-400">Delete this directive and all its assignments?</span>
+                  <button
+                    onClick={handleDelete}
+                    disabled={acting}
+                    className="rounded-lg bg-red-600 px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    disabled={acting}
+                    className="rounded-lg border border-border bg-raised px-3 py-1.5 text-[12px] font-medium text-txt-secondary transition-colors hover:text-txt-primary disabled:opacity-40"
+                  >
+                    No
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
