@@ -87,14 +87,13 @@ export default function Chat() {
   // Speech-to-text (dictation into textarea)
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const sttSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
-
   const toggleDictation = useCallback(() => {
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
       return;
     }
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) { alert('Speech recognition is not supported in this browser.'); return; }
     if (!SR) return;
     const rec = new SR();
     rec.continuous = true;
@@ -588,20 +587,18 @@ export default function Chat() {
               className="flex-1 rounded-lg border border-border bg-raised px-4 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none transition-colors focus:border-cyan/40 disabled:opacity-50 resize-none min-h-[40px] max-h-[120px]"
               onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 120)}px`; }}
             />
-            {sttSupported && (
-              <button
-                type="button"
-                onClick={toggleDictation}
-                className={`flex-shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-full transition-all ${
-                  isListening
-                    ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/25 animate-pulse'
-                    : 'bg-raised border border-border text-txt-muted hover:text-cyan hover:border-cyan/40 hover:bg-cyan/5'
-                }`}
-                title={isListening ? 'Stop dictation' : 'Dictate (speech to text)'}
-              >
-                <HiMicrophone size={18} />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={toggleDictation}
+              className={`flex-shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-full transition-all ${
+                isListening
+                  ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/25 animate-pulse'
+                  : 'bg-raised border border-border text-txt-muted hover:text-cyan hover:border-cyan/40 hover:bg-cyan/5'
+              }`}
+              title={isListening ? 'Stop dictation' : 'Dictate (speech to text)'}
+            >
+              <HiMicrophone size={18} />
+            </button>
             {voice.isAvailable && (
               <button
                 type="button"
