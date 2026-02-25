@@ -92,9 +92,11 @@
     }
   ],
   "permissions": ["identity", "messageTeamMembers"],
+  "devicePermissions": ["media"],
   "validDomains": [
     "glyphor-dashboard-610179349713.us-central1.run.app",
     "glyphor-scheduler-610179349713.us-central1.run.app",
+    "glyphor-voice-gateway-610179349713.us-central1.run.app",
     "*.supabase.co"
   ],
   "webApplicationInfo": {

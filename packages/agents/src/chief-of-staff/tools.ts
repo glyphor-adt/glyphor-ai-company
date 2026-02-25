@@ -691,7 +691,12 @@ export function createOrchestrationTools(
             `**Priority:** ${assignment.priority}\n\n` +
             `**Your Task:**\n${assignment.task_description}\n\n` +
             `**Expected Output:**\n${assignment.expected_output}\n\n` +
-            `Please complete this and report back. This is a founder-level priority.`,
+            `**⚡ ACTION MODE:** This is not a report-only task. You are expected to TAKE ACTION:\n` +
+            `- If you find issues you can fix → fix them immediately and log what you did\n` +
+            `- If you find issues requiring another agent → use send_agent_message to assign them with specifics\n` +
+            `- If you hit a blocker → use flag_assignment_blocker immediately, don't just note it\n` +
+            `- Your output should be a punch list of: what you fixed, what you assigned (to whom), and what's still blocked\n\n` +
+            `This is a founder-level priority. Act, don't just analyze.`,
           message_type: 'request',
           priority: assignment.priority === 'urgent' ? 'urgent' : 'normal',
           status: 'pending',

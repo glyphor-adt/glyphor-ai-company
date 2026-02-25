@@ -30,19 +30,26 @@ from .config import (
 
 _REL_KEYWORD_MAP = [
     # order matters — first match wins
-    (r"\b(reports?\s+to|reporting)\b", "belongs_to"),
-    (r"\b(manages?|oversees?|leads?|supervises?)\b", "owns"),
-    (r"\b(uses?|utilizes?|leverages?|employs?)\b", "depends_on"),
-    (r"\b(depends?\s+on|relies?\s+on|requires?)\b", "depends_on"),
-    (r"\b(part\s+of|member\s+of|belongs?\s+to|within)\b", "belongs_to"),
-    (r"\b(creates?|produces?|generates?|builds?|develops?)\b", "resulted_in"),
-    (r"\b(causes?|triggers?|results?\s+in)\b", "caused"),
-    (r"\b(mitigates?|reduces?|addresses?)\b", "mitigates"),
-    (r"\b(affects?|impacts?|influences?)\b", "affects"),
-    (r"\b(supports?|enables?|facilitates?|assists?)\b", "supports"),
-    (r"\b(contradicts?|conflicts?\s+with|opposes?)\b", "contradicts"),
-    (r"\b(monitors?|tracks?|measures?|evaluates?)\b", "monitors"),
-    (r"\b(collaborates?|works?\s+with|coordinates?)\b", "relates_to"),
+    (r"\b(reports?\s+to|reporting|accountable\s+to)\b", "belongs_to"),
+    (r"\b(manages?|oversees?|leads?|supervises?|directs?|runs?|heads?)\b", "owns"),
+    (r"\b(uses?|utilizes?|leverages?|employs?|interfaces?\s+with|integrates?\s+with)\b", "depends_on"),
+    (r"\b(depends?\s+on|relies?\s+on|requires?|needs?|demands?)\b", "depends_on"),
+    (r"\b(part\s+of|member\s+of|belongs?\s+to|within|under|inside|component\s+of)\b", "belongs_to"),
+    (r"\b(creates?|produces?|generates?|builds?|develops?|designs?|implements?|writes?)\b", "resulted_in"),
+    (r"\b(defines?|specifies?|describes?|outlines?|establishes?|sets?\s+up)\b", "resulted_in"),
+    (r"\b(causes?|triggers?|results?\s+in|leads?\s+to|brings?\s+about)\b", "caused"),
+    (r"\b(mitigates?|reduces?|addresses?|resolves?|fixes?|handles?|prevents?)\b", "mitigates"),
+    (r"\b(affects?|impacts?|influences?|shapes?|changes?|modifies?|alters?)\b", "affects"),
+    (r"\b(supports?|enables?|facilitates?|assists?|helps?|aids?|empowers?)\b", "supports"),
+    (r"\b(provides?|supplies?|delivers?|offers?|gives?|sends?|transfers?)\b", "supports"),
+    (r"\b(contradicts?|conflicts?\s+with|opposes?|disagrees?|challenges?)\b", "contradicts"),
+    (r"\b(monitors?|tracks?|measures?|evaluates?|assesses?|observes?|watches?)\b", "monitors"),
+    (r"\b(reviews?|validates?|approves?|checks?|verifies?|audits?)\b", "monitors"),
+    (r"\b(assigns?|allocat|delegates?|distributes?)\b", "owns"),
+    (r"\b(processes?|orchestrat|execut)\b", "owns"),
+    (r"\b(stores?|saves?|persists?|records?|logs?|captures?)\b", "depends_on"),
+    (r"\b(collaborates?|works?\s+with|coordinates?|partners?|cooperat)\b", "supports"),
+    (r"\b(connects?|links?|bridges?|maps?\s+to|associated\s+with)\b", "relates_to"),
     (r"\b(competes?\s+with|rivals?|competing)\b", "relates_to"),
 ]
 
@@ -83,6 +90,15 @@ def _embed(text: str) -> list[float]:
 # ─── Deduplication ────────────────────────────────────────────────
 
 SIMILARITY_THRESHOLD = 0.92  # match KnowledgeGraphWriter threshold
+
+def _normalize_title(title: str) -> str:
+    """Normalize a title for near-duplicate detection.
+    Strips parenthetical suffixes, underscores, extra whitespace, case."""
+    t = title.strip().upper()
+    t = re.sub(r"\s*\([^)]*\)\s*$", "", t)
+    t = t.replace("_", " ")
+    t = re.sub(r"\s+", " ", t).strip()
+    return t
 
 def _find_duplicate(supabase, embedding: list[float], threshold: float = SIMILARITY_THRESHOLD):
     """
@@ -148,14 +164,45 @@ def _is_junk_entity(name: str) -> bool:
 # node_types using keyword heuristics on the entity name + description.
 
 _NODE_TYPE_KEYWORDS = [
-    # (keywords_in_name_or_desc, node_type)
-    (r"\b(goal|objective|target|milestone|okr)\b", "goal"),
-    (r"\b(risk|threat|vulnerability|concern)\b", "risk"),
-    (r"\b(decision|approval|ruling|resolution)\b", "decision"),
-    (r"\b(metric|kpi|measurement|score|rate|percentage|ratio)\b", "metric"),
-    (r"\b(event|meeting|launch|incident|outage|release)\b", "event"),
-    (r"\b(pattern|trend|recurring|theme)\b", "pattern"),
-    (r"\b(hypothesis|theory|assumption|conjecture)\b", "hypothesis"),
+    # People and roles
+    (r"\b(ceo|cto|cfo|coo|vp|director|manager|engineer|analyst|designer|lead|founder|chief|head)\b", "person"),
+    (r"\b(team|department|division|unit|group|squad)\b", "team"),
+    # Tech / tools
+    (r"\b(api|sdk|framework|library|package|module|service|microservice|endpoint|webhook)\b", "tool"),
+    (r"\b(database|supabase|postgres|redis|cache|storage|bucket|queue)\b", "tool"),
+    (r"\b(model|gpt|gemini|claude|llm|embedding|vector|transformer|neural)\b", "tool"),
+    (r"\b(github|slack|teams|discord|jira|confluence|notion|figma)\b", "tool"),
+    (r"\b(docker|kubernetes|k8s|terraform|cloud\s*run|gcp|aws|azure)\b", "tool"),
+    (r"\b(typescript|python|javascript|react|node|next\.?js|vue|angular)\b", "tool"),
+    # Organizations
+    (r"\b(company|organization|corporation|startup|venture|enterprise)\b", "organization"),
+    (r"\b(glyphor|openai|google|microsoft|anthropic|meta)\b", "organization"),
+    # Products and projects
+    (r"\b(product|platform|app|application|dashboard|portal|website|feature)\b", "project"),
+    (r"\b(project|initiative|program|workstream|sprint|roadmap)\b", "project"),
+    # Concepts and processes
+    (r"\b(strategy|plan|approach|methodology|framework|process|workflow|pipeline)\b", "concept"),
+    (r"\b(protocol|standard|guideline|policy|rule|requirement|specification)\b", "concept"),
+    (r"\b(architecture|design|pattern|principle|practice|convention)\b", "concept"),
+    (r"\b(authority|permission|access|role|rbac|tier|level)\b", "concept"),
+    (r"\b(memory|context|knowledge|intelligence|learning|training)\b", "concept"),
+    (r"\b(communication|collaboration|coordination|orchestration|integration)\b", "concept"),
+    # Goals and metrics
+    (r"\b(goal|objective|target|milestone|okr|kpi)\b", "goal"),
+    (r"\b(metric|measurement|score|rate|percentage|ratio|benchmark)\b", "metric"),
+    # Events
+    (r"\b(meeting|standup|review|retrospective|demo|presentation|launch)\b", "event"),
+    (r"\b(incident|outage|failure|error|issue|bug|alert)\b", "event"),
+    (r"\b(release|deployment|migration|upgrade|update)\b", "event"),
+    # Risks and decisions
+    (r"\b(risk|threat|vulnerability|concern|blocker|impediment)\b", "risk"),
+    (r"\b(decision|approval|resolution|verdict|judgment)\b", "decision"),
+    # Patterns and hypotheses
+    (r"\b(trend|signal|insight|finding|observation|analysis)\b", "pattern"),
+    (r"\b(hypothesis|theory|assumption|experiment|test)\b", "hypothesis"),
+    # Documents
+    (r"\b(document|report|brief|summary|memo|proposal|specification|runbook)\b", "document"),
+    (r"\b(checklist|template|guide|manual|playbook|handbook)\b", "document"),
 ]
 
 def _classify_node_type(name: str, description: str, raw_type: str) -> str:
@@ -182,6 +229,7 @@ class GraphRAGBridge:
     def __init__(self):
         self.supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
         self._entity_id_map: dict[str, str] = {}  # graphrag entity name → kg_node UUID
+        self._norm_title_map: dict[str, str] = {}  # normalized title → kg_node UUID (for dedup)
 
     def sync_entities(self, entities: list[dict]) -> int:
         """
@@ -201,6 +249,16 @@ class GraphRAGBridge:
                 skipped += 1
                 continue
 
+            # Check normalized title for near-duplicate (catches parenthetical variants)
+            norm = _normalize_title(name)
+            if norm in self._norm_title_map:
+                self._entity_id_map[name.upper()] = self._norm_title_map[norm]
+                _validate_existing(self.supabase, self._norm_title_map[norm])
+                deduped += 1
+                if (i + 1) % 100 == 0:
+                    print(f"[Bridge] Progress: {i + 1}/{len(entities)} ({created} new, {deduped} deduped)")
+                continue
+
             embed_text = f"{name}. {description}" if description else name
             embedding = _embed(embed_text)
 
@@ -209,6 +267,7 @@ class GraphRAGBridge:
             if existing:
                 _validate_existing(self.supabase, existing["id"])
                 self._entity_id_map[name.upper()] = existing["id"]
+                self._norm_title_map[norm] = existing["id"]
                 deduped += 1
                 if (i + 1) % 100 == 0:
                     print(f"[Bridge] Progress: {i + 1}/{len(entities)} ({created} new, {deduped} deduped)")
@@ -231,6 +290,7 @@ class GraphRAGBridge:
 
             if result.data and len(result.data) > 0:
                 self._entity_id_map[name.upper()] = result.data[0]["id"]
+                self._norm_title_map[norm] = result.data[0]["id"]
                 created += 1
             else:
                 print(f"[Bridge] Failed to insert entity: {name}")
