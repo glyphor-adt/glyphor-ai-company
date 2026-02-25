@@ -271,4 +271,12 @@ class GraphRAGBridge:
         edges_created = self.sync_relationships(relationships)
         communities_created = 0
         if community_reports:
-          
+            communities_created = self.sync_community_reports(community_reports)
+
+        return {
+            "nodes_created": nodes_created,
+            "edges_created": edges_created,
+            "communities_created": communities_created,
+            "total_entities_processed": len(entities),
+            "total_relationships_processed": len(relationships),
+        }
