@@ -33,16 +33,16 @@ async def run_graphrag_index():
     results = await build_index(config=config, verbose=True)
 
     for result in results:
-        if result.errors:
-            for err in result.errors:
-                print(f"  [ERROR] {err}")
+        if result.error:
+            print(f"  [ERROR] {result.workflow}: {result.error}")
         else:
             print(f"  [OK] {result.workflow}")
 
     # Check for fatal errors
-    errors = [e for r in results if r.errors for e in r.errors]
-    if errors:
-        print(f"[Index] Completed with {len(errors)} error(s)")
+    failed = [r for r in results if r.error]
+    if failed:
+        print(f"[Index] Completed with {len(failed)} error(s)")
+        raise RuntimeError(f"GraphRAG indexing failed: {failed[0].workflow}: {failed[0].error}")
     else:
         print("[Index] Indexing completed successfully")
 
@@ -63,13 +63,25 @@ def run_pipeline(source: str = "all", skip_collect: bool = False) -> dict:
     else:
         print("[Pipeline] Step 1/3: Skipping collection (--skip-collect)")
 
-    # 2. Run GraphRAG extraction
+    # 2. Run GraphRAG extraction (with retry for transient API errors)
     print("[Pipeline] Step 2/3: Running GraphRAG entity extraction...")
     has_tuned = (PROMPTS_DIR / "entity_extraction.txt").exists()
     if not has_tuned:
         print("  Warning: No tuned prompts found. Run `python -m graphrag_indexer.tune` first.")
 
-    asyncio.run(run_graphrag_index())
+    max_retries = 3
+    for attempt in range(1, max_retries + 1):
+        try:
+            asyncio.run(run_graphrag_index())
+            break
+        except RuntimeError as e:
+            if attempt < max_retries:
+                import time
+                wait = 30 * attempt
+                print(f"  [Retry] Attempt {attempt}/{max_retries} failed ({e}), retrying in {wait}s...")
+                time.sleep(wait)
+            else:
+                raise
 
     # 3. Load results and bridge to Supabase
     print("[Pipeline] Step 3/3: Syncing to knowledge graph...")

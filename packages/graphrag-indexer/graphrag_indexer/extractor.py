@@ -30,7 +30,7 @@ def write_settings_yaml() -> Path:
                 "model_provider": "gemini",
                 "model": LLM_MODEL,
                 "api_key": "${GOOGLE_AI_API_KEY}",
-                "retry": {"max_retries": 5},
+                "retry": {"max_retries": 10},
                 "rate_limit": {"requests_per_period": 10, "period_in_seconds": 60},
                 "call_args": {
                     "max_tokens": 8192,
@@ -43,11 +43,11 @@ def write_settings_yaml() -> Path:
                 "model_provider": "gemini",
                 "model": EMBEDDING_MODEL,
                 "api_key": "${GOOGLE_AI_API_KEY}",
-                "retry": {"max_retries": 5},
+                "retry": {"max_retries": 10},
                 "rate_limit": {"requests_per_period": 10, "period_in_seconds": 60},
             },
         },
-        "concurrent_requests": 5,
+        "concurrent_requests": 2,
         "input": {
             "type": "text",
         },

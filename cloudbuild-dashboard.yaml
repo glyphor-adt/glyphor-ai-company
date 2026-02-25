@@ -1,0 +1,20 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-f'
+      - 'docker/Dockerfile.dashboard'
+      - '--build-arg'
+      - 'VITE_SUPABASE_URL=https://ztucrgzcoaryzuvkcaif.supabase.co'
+      - '--build-arg'
+      - 'VITE_SUPABASE_ANON_KEY=${_SUPABASE_ANON_KEY}'
+      - '--build-arg'
+      - 'VITE_SCHEDULER_URL=https://glyphor-scheduler-610179349713.us-central1.run.app'
+      - '--build-arg'
+      - 'VITE_GOOGLE_CLIENT_ID=${_GOOGLE_CLIENT_ID}'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/dashboard:latest'
+      - '.'
+images:
+  - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/dashboard:latest'
+timeout: '600s'

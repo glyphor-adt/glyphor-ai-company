@@ -15,8 +15,8 @@ completion_models:
       period_in_seconds: 60
       requests_per_period: 10
     retry:
-      max_retries: 5
-concurrent_requests: 5
+      max_retries: 10
+concurrent_requests: 2
 embedding_models:
   default_embedding_model:
     api_key: ${GOOGLE_AI_API_KEY}
@@ -26,7 +26,7 @@ embedding_models:
       period_in_seconds: 60
       requests_per_period: 10
     retry:
-      max_retries: 5
+      max_retries: 10
 extract_graph:
   entity_types:
   - PERSON
