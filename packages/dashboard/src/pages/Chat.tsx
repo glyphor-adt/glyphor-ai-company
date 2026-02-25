@@ -781,7 +781,7 @@ export default function Chat() {
                 Cancel
               </button>
               <button
-                onClick={joinTeamsCall}
+                onClick={() => joinTeamsCall()}
                 disabled={teamsJoining || !teamsMeetingUrl.trim()}
                 className="rounded-lg bg-cyan px-4 py-2 text-[12px] font-medium text-white hover:bg-cyan/80 disabled:opacity-40 transition-colors"
               >
