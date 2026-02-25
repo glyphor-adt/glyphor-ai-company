@@ -20,7 +20,7 @@ async def run_graphrag_index():
     Run GraphRAG indexing via the v3 Python API.
     Extracts entities, relationships, and community reports from staged input docs.
     """
-    from graphrag.config import load_config
+    from graphrag.config.load_config import load_config
     from graphrag.api import build_index
 
     # Ensure API key is set for litellm

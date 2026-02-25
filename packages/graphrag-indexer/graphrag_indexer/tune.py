@@ -46,7 +46,7 @@ async def run_auto_tune(source: str = "all", limit: int = 15):
     # Write settings.yaml and load config
     write_settings_yaml()
 
-    from graphrag.config import load_config
+    from graphrag.config.load_config import load_config
     from graphrag.api import prompt_tune
 
     config = load_config(root_dir=str(INDEXER_ROOT))

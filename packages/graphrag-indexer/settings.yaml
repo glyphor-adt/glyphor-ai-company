@@ -1,0 +1,42 @@
+chunking:
+  overlap: 200
+  size: 1200
+community_reports: {}
+completion_models:
+  default:
+    api_key: ${GOOGLE_AI_API_KEY}
+    call_args:
+      max_tokens: 8192
+      temperature: 0.0
+    model: gemini/gemini-2.5-flash
+    model_provider: gemini
+embedding_models:
+  default:
+    api_key: ${GOOGLE_AI_API_KEY}
+    model: gemini/gemini-embedding-001
+    model_provider: gemini
+extract_graph:
+  entity_types:
+  - PERSON
+  - AGENT
+  - PRODUCT
+  - COMPANY
+  - TECHNOLOGY
+  - METRIC
+  - DECISION
+  - RISK
+  - EVENT
+  - GOAL
+  - INFRASTRUCTURE
+  - COMPETITOR
+  - DEPARTMENT
+input:
+  base_dir: C:\Users\KristinaDenney\source\repos\glyphor-ai-company\packages\graphrag-indexer\input
+  file_type: text
+  type: file
+output_storage:
+  base_dir: C:\Users\KristinaDenney\source\repos\glyphor-ai-company\packages\graphrag-indexer\output
+  type: file
+snapshots:
+  graphml: true
+summarize_descriptions: {}

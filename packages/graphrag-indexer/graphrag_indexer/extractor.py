@@ -81,7 +81,7 @@ def write_settings_yaml() -> Path:
 
 def load_config():
     """Load GraphRagConfig from the settings.yaml."""
-    from graphrag.config import load_config as _load_config
+    from graphrag.config.load_config import load_config as _load_config
     return _load_config(root_dir=str(INDEXER_ROOT))
 
 
