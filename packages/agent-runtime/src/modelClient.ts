@@ -24,9 +24,9 @@ export type ModelResponse = UnifiedModelResponse;
 
 export function detectProvider(model: string): ModelProvider {
   if (model.startsWith('gemini-')) return 'gemini';
-  if (model.startsWith('gpt-') || model.startsWith('o1-') || model.startsWith('o3-') || model.startsWith('o4-')) return 'openai';
+  if (model.startsWith('gpt-') || /^o[134](-|$)/.test(model)) return 'openai';
   if (model.startsWith('claude-')) return 'anthropic';
-  throw new Error(`Unknown model provider for "${model}". Expected prefix: gemini-, gpt-, o1-, o3-, o4-, or claude-`);
+  throw new Error(`Unknown model provider for "${model}". Expected prefix: gemini-, gpt-, o1/o3/o4, or claude-`);
 }
 
 // ─── ModelClient ─────────────────────────────────────────────

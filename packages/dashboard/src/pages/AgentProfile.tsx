@@ -1417,9 +1417,9 @@ function SettingsTab({
                 <option value="o4-mini">o4-mini</option>
               </optgroup>
               <optgroup label="Anthropic">
-                <option value="claude-opus-4-6">claude-opus-4-6</option>
-                <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
-                <option value="claude-haiku-4-5">claude-haiku-4-5</option>
+                <option value="claude-opus-4-20250514">Claude Opus 4</option>
+                <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                <option value="claude-haiku-4-5-20250514">Claude Haiku 4.5</option>
               </optgroup>
             </select>
           </label>

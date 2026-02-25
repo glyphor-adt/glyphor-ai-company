@@ -1258,11 +1258,13 @@ export class CompanyAgentRunner {
             thinkingText: response.thinkingText,
           });
         } catch (error) {
+          const errMsg = (error as Error).message ?? String(error);
+          console.error(`[CompanyAgentRunner] Model call failed for ${config.id} (model=${config.model}, turn=${turnNumber}): ${errMsg}`);
           if (supervisor.isAborted) {
-            if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, (error as Error).message, deps);
+            if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, errMsg, deps);
             return this.buildResult(
               config, 'aborted', lastTextOutput, history, supervisor,
-              (error as Error).message, totalInputTokens, totalOutputTokens,
+              errMsg, totalInputTokens, totalOutputTokens,
             );
           }
           throw error;
