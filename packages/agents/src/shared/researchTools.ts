@@ -235,6 +235,7 @@ export function createResearchTools(supabase: SupabaseClient): ToolDefinition[] 
           type: 'array',
           description: 'Array of source objects with url, title, and relevance (primary/supporting/background).',
           required: true,
+          items: { type: 'object', description: 'A source reference.', properties: { url: { type: 'string', description: 'Source URL.' }, title: { type: 'string', description: 'Source title.' }, relevance: { type: 'string', description: 'Relevance level: primary, supporting, or background.' } } },
         },
         confidence_level: {
           type: 'string',
@@ -245,10 +246,12 @@ export function createResearchTools(supabase: SupabaseClient): ToolDefinition[] 
         data_gaps: {
           type: 'array',
           description: 'List of things you looked for but could not find.',
+          items: { type: 'string', description: 'A data gap description.' },
         },
         conflicting_data: {
           type: 'array',
           description: 'List of areas where sources disagreed.',
+          items: { type: 'string', description: 'A conflicting data point.' },
         },
       },
       async execute(params): Promise<ToolResult> {
