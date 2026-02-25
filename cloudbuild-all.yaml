@@ -1,0 +1,48 @@
+steps:
+  # Build scheduler
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-f'
+      - 'docker/Dockerfile.scheduler'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:latest'
+      - '.'
+    id: 'build-scheduler'
+
+  # Build voice-gateway
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-f'
+      - 'docker/Dockerfile.voice-gateway'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/voice-gateway:latest'
+      - '.'
+    id: 'build-voice-gateway'
+
+  # Build dashboard
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-f'
+      - 'docker/Dockerfile.dashboard'
+      - '--build-arg'
+      - 'VITE_SUPABASE_URL=https://ztucrgzcoaryzuvkcaif.supabase.co'
+      - '--build-arg'
+      - 'VITE_SUPABASE_ANON_KEY=${_SUPABASE_ANON_KEY}'
+      - '--build-arg'
+      - 'VITE_SCHEDULER_URL=https://glyphor-scheduler-610179349713.us-central1.run.app'
+      - '--build-arg'
+      - 'VITE_GOOGLE_CLIENT_ID=${_GOOGLE_CLIENT_ID}'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/dashboard:latest'
+      - '.'
+    id: 'build-dashboard'
+
+images:
+  - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:latest'
+  - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/voice-gateway:latest'
+  - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/dashboard:latest'
+
+timeout: '1200s'

@@ -1,0 +1,16 @@
+.git
+.turbo
+node_modules
+dist
+*.tsbuildinfo
+.env
+.env.*
+teams/*.zip
+teams/agents/*.zip
+__pycache__
+*.pyc
+packages/graphrag-indexer/cache/
+packages/graphrag-indexer/output/
+packages/graphrag-indexer/logs/
+.terraform/
+*.tfvars

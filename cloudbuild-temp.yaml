@@ -5,7 +5,8 @@ steps:
       - '-f'
       - 'docker/Dockerfile.scheduler'
       - '-t'
-      - 'us-central1-docker.pkg.dev/ai-glyphor-company/cloud-run-source-deploy/scheduler:latest'
+      - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:latest'
       - '.'
 images:
-  - 'us-central1-docker.pkg.dev/ai-glyphor-company/cloud-run-source-deploy/scheduler:latest'
+  - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:latest'
+timeout: '600s'
