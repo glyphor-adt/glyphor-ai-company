@@ -22,7 +22,10 @@ import type { AgentExecutionResult, CompanyAgentRole } from '@glyphor/agent-runt
 
 export type StrategyAnalysisStatus =
   | 'planning'
+  | 'framing'
+  | 'decomposing'
   | 'researching'
+  | 'quality-check'
   | 'analyzing'
   | 'synthesizing'
   | 'deepening'
@@ -142,6 +145,16 @@ export interface StrategyAnalysisRecord {
   synthesis_started_at: string | null;
   completed_at: string | null;
   error: string | null;
+  // Sophia Lin (VP Research) fields
+  sarah_frame: Record<string, unknown> | null;
+  sophia_decomposition: Record<string, unknown> | null;
+  sophia_qc: Record<string, unknown> | null;
+  cover_memos: Record<string, unknown> | null;
+  qc_started_at: string | null;
+  qc_completed_at: string | null;
+  gaps_filled: string[];
+  remaining_gaps: string[];
+  overall_confidence: string | null;
 }
 
 /* ── Constants ──────────────────────────────── */
@@ -212,8 +225,11 @@ function getDepthConfig(depth: StrategyAnalysisDepth) {
 
 /* ── Executive Analysis Prompts ─────────────── */
 
-function buildExecutivePrompt(execRole: string, query: string, packets: Record<string, unknown>): string {
+function buildExecutivePrompt(execRole: string, query: string, packets: Record<string, unknown>, coverMemo?: string): string {
   const packetsJSON = JSON.stringify(packets, null, 2);
+  const memoSection = coverMemo
+    ? `\n\nCOVER MEMO FROM VP RESEARCH (Sophia Lin):\n${coverMemo}\n`
+    : '';
 
   switch (execRole) {
     case 'cpo':
@@ -221,7 +237,7 @@ function buildExecutivePrompt(execRole: string, query: string, packets: Record<s
 
 You are reviewing compiled competitive research to provide product strategy analysis.
 You are NOT doing research — your research team has already done that. Your job is to THINK.
-
+${memoSection}
 RESEARCH PACKETS PROVIDED:
 ${packetsJSON}
 
@@ -254,7 +270,7 @@ Be opinionated. You're the CPO — make product calls. Return your analysis as s
 
 You are reviewing compiled market research to provide financial analysis.
 You are NOT doing research — your research team has already done that. Your job is to MODEL and ASSESS.
-
+${memoSection}
 RESEARCH PACKETS PROVIDED:
 ${packetsJSON}
 
@@ -283,7 +299,7 @@ Show your math. Cite your assumptions. Return your analysis as structured JSON w
       return `You are Maya Brooks, Chief Marketing Officer at Glyphor.
 
 You are reviewing compiled competitive and market research for positioning and GTM analysis.
-
+${memoSection}
 RESEARCH PACKETS PROVIDED:
 ${packetsJSON}
 
@@ -312,7 +328,7 @@ Be creative but data-backed. Return your analysis as structured JSON with keys: 
       return `You are Marcus Reeves, Chief Technology Officer at Glyphor.
 
 You are reviewing compiled technical research for technology strategy analysis.
-
+${memoSection}
 RESEARCH PACKETS PROVIDED:
 ${packetsJSON}
 
@@ -351,15 +367,26 @@ function buildSynthesisPrompt(
   executiveOutputs: Record<string, ExecutiveAnalysisOutput>,
   researchPackets: Record<string, unknown>,
   sources: StrategySource[],
+  overallConfidence?: string,
+  remainingGaps?: string[],
+  sarahFrame?: Record<string, unknown>,
 ): string {
   const execAnalyses = Object.entries(executiveOutputs)
     .map(([role, output]) => `=== ${output.execName} (${output.framework}) ===\n${JSON.stringify(output.analysis, null, 2)}`)
     .join('\n\n');
 
+  const sophiaSection = overallConfidence
+    ? `\n\nSOPHIA'S QC ASSESSMENT:\n- Overall Confidence: ${overallConfidence}\n- Remaining Gaps: ${(remainingGaps || []).join(', ') || 'none'}\n`
+    : '';
+
+  const frameSection = sarahFrame && Object.keys(sarahFrame).length > 0
+    ? `\n\nYOUR EARLIER FRAMING:\n${JSON.stringify(sarahFrame, null, 2)}\n`
+    : '';
+
   return `You are Sarah Chen, Chief of Staff at Glyphor.
 
 Your team has completed a strategic analysis. You now have:
-
+${frameSection}${sophiaSection}
 EXECUTIVE ANALYSES:
 ${execAnalyses}
 
@@ -450,6 +477,13 @@ export class StrategyLabEngine {
       total_searches: 0,
       total_sources: 0,
       sources: [],
+      sarah_frame: null,
+      sophia_decomposition: null,
+      sophia_qc: null,
+      cover_memos: null,
+      gaps_filled: [],
+      remaining_gaps: [],
+      overall_confidence: null,
       created_at: new Date().toISOString(),
     };
 
@@ -512,21 +546,112 @@ export class StrategyLabEngine {
     }
 
     // ═══════════════════════════════════════════
-    // PHASE 0: Plan research briefs
+    // PHASE 0: Sarah frames the request
     // ═══════════════════════════════════════════
+    await this.updateStatus(id, 'framing');
+
+    const sarahFrameResult = await this.agentExecutor('chief-of-staff' as CompanyAgentRole, 'on_demand', {
+      message: `A founder has requested a strategic analysis. Frame this request with strategic context.
+
+Query: "${req.query}"
+Analysis Type: "${analysisType}"
+Depth: "${depth}"
+
+YOUR ROLE:
+1. Determine the right analysis type and depth
+2. Add strategic context from your knowledge of the company (what are the founders trying to decide? what's the subtext?)
+3. Identify specific angles or priorities the founders care about
+4. Note any internal context that should inform the research
+
+YOU DO NOT decompose queries into research briefs (Sophia does this) or assign individual analysts (Sophia manages her team).
+
+Return a JSON object with keys: strategicContext (string), founderPriorities (string[]), specificAngles (string[]), analysisNotes (string).
+Return ONLY valid JSON — no markdown fences.`,
+    });
+
+    let sarahFrame: Record<string, unknown> = {};
+    if (sarahFrameResult?.output) {
+      const jsonMatch = sarahFrameResult.output.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try { sarahFrame = JSON.parse(jsonMatch[0]); } catch { sarahFrame = { strategicContext: sarahFrameResult.output }; }
+      } else {
+        sarahFrame = { strategicContext: sarahFrameResult.output };
+      }
+    }
+
+    await this.supabase.from('strategy_analyses').update({ sarah_frame: sarahFrame }).eq('id', id);
+
+    // ═══════════════════════════════════════════
+    // PHASE 1: Sophia decomposes the research
+    // ═══════════════════════════════════════════
+    await this.updateStatus(id, 'decomposing');
+
+    const sarahNotes = typeof sarahFrame.strategicContext === 'string'
+      ? sarahFrame.strategicContext
+      : JSON.stringify(sarahFrame);
+
+    const sophiaDecompResult = await this.agentExecutor('vp-research' as CompanyAgentRole, 'decompose_research', {
+      query: req.query,
+      analysisType,
+      depth,
+      sarahNotes,
+    });
+
+    // Parse Sophia's decomposition to get briefs and routing
+    let sophiaBriefs: ResearchBrief[] = [];
+    let sophiaRouting: ExecutiveRouting = {};
+    let sophiaDecomp: Record<string, unknown> = {};
+
+    if (sophiaDecompResult?.output) {
+      const jsonMatch = sophiaDecompResult.output.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          sophiaDecomp = parsed;
+
+          // Extract briefs from Sophia's structured output
+          if (Array.isArray(parsed.briefs)) {
+            sophiaBriefs = parsed.briefs.map((b: Record<string, unknown>) => ({
+              analystRole: b.analystRole as string || '',
+              analystName: RESEARCH_ANALYST_ROLES[b.analystRole as string]?.name || b.analystName as string || '',
+              researchBrief: b.researchBrief as string || b.brief as string || '',
+              suggestedSearches: (b.suggestedSearches as string[] || b.searchQueries as string[] || []),
+              expectedOutput: RESEARCH_ANALYST_ROLES[b.analystRole as string]?.packetType || b.expectedOutput as string || '',
+              targetExecutives: b.targetExecutives as string[] || [],
+            }));
+          }
+
+          // Extract routing
+          if (parsed.executiveRouting && typeof parsed.executiveRouting === 'object') {
+            sophiaRouting = parsed.executiveRouting as ExecutiveRouting;
+          }
+        } catch { /* fall through to default briefs */ }
+      }
+    }
+
+    // Fallback: if Sophia's decomposition didn't produce valid briefs, use defaults
     const selectedAnalysts = analysisCfg.analysts.slice(0, depthCfg.maxAnalysts);
     const selectedExecs = analysisCfg.executives.slice(0, depthCfg.maxExecs);
 
-    const researchBriefs = this.buildResearchBriefs(req.query, analysisType, selectedAnalysts);
-    const executiveRouting = this.buildRouting(selectedExecs);
+    if (sophiaBriefs.length === 0) {
+      sophiaBriefs = this.buildResearchBriefs(req.query, analysisType, selectedAnalysts);
+    }
+    if (Object.keys(sophiaRouting).length === 0) {
+      sophiaRouting = this.buildRouting(selectedExecs);
+    }
 
-    const researchProgress: ResearchProgress[] = selectedAnalysts.map((role) => ({
-      analystRole: role,
-      analystName: RESEARCH_ANALYST_ROLES[role]?.name || role,
+    const researchProgress: ResearchProgress[] = sophiaBriefs.map((brief) => ({
+      analystRole: brief.analystRole,
+      analystName: brief.analystName || RESEARCH_ANALYST_ROLES[brief.analystRole]?.name || brief.analystRole,
       status: 'pending' as const,
     }));
 
-    const executiveProgress: ExecutiveProgress[] = selectedExecs.map((role) => ({
+    // Determine which execs are actually being used from routing
+    const activeExecs = Object.keys(sophiaRouting).length > 0
+      ? Object.keys(sophiaRouting)
+      : selectedExecs;
+
+    const executiveProgress: ExecutiveProgress[] = activeExecs.map((role) => ({
       execRole: role,
       execName: EXEC_FRAMEWORKS[role]?.name || role,
       framework: EXEC_FRAMEWORKS[role]?.framework || 'Strategic Analysis',
@@ -534,10 +659,11 @@ export class StrategyLabEngine {
     }));
 
     await this.supabase.from('strategy_analyses').update({
-      research_briefs: researchBriefs,
-      executive_routing: executiveRouting,
+      research_briefs: sophiaBriefs,
+      executive_routing: sophiaRouting,
       research_progress: researchProgress,
       executive_progress: executiveProgress,
+      sophia_decomposition: sophiaDecomp,
     }).eq('id', id);
 
     // ═══════════════════════════════════════════
@@ -546,7 +672,7 @@ export class StrategyLabEngine {
     await this.updateStatus(id, 'researching', { research_started_at: new Date().toISOString() });
 
     const researchResults = await Promise.allSettled(
-      researchBriefs.map(async (brief, i) => {
+      sophiaBriefs.map(async (brief, i) => {
         // Mark this analyst as running
         researchProgress[i].status = 'running';
         researchProgress[i].startedAt = new Date().toISOString();
@@ -566,7 +692,6 @@ export class StrategyLabEngine {
         // Mark completed
         researchProgress[i].status = 'completed';
         researchProgress[i].completedAt = new Date().toISOString();
-        // Count tool calls from result
         if (result?.conversationHistory) {
           researchProgress[i].searchCount = result.conversationHistory
             .filter((t) => t.role === 'tool_call' && (t.toolName === 'web_search' || t.toolName === 'search_news'))
@@ -581,7 +706,7 @@ export class StrategyLabEngine {
       }),
     );
 
-    // Check for failed research — mark those
+    // Check for failed research
     researchResults.forEach((r, i) => {
       if (r.status === 'rejected') {
         researchProgress[i].status = 'failed';
@@ -590,7 +715,7 @@ export class StrategyLabEngine {
     });
     await this.supabase.from('strategy_analyses').update({ research_progress: researchProgress }).eq('id', id);
 
-    // Load the research packets that analysts submitted via submit_research_packet tool
+    // Load research packets submitted by analysts
     const { data: currentRecord } = await this.supabase
       .from('strategy_analyses')
       .select('research_packets')
@@ -598,10 +723,58 @@ export class StrategyLabEngine {
       .single();
     const researchPackets = (currentRecord?.research_packets as Record<string, unknown>) || {};
 
-    // Collect all sources from research packets
+    if (Object.keys(researchPackets).length === 0) {
+      await this.supabase.from('strategy_analyses').update({
+        status: 'failed',
+        error: 'No research packets were submitted. All research analysts may have failed.',
+      }).eq('id', id);
+      return;
+    }
+
+    // ═══════════════════════════════════════════
+    // WAVE 1.5: Sophia QC's and packages
+    // ═══════════════════════════════════════════
+    await this.updateStatus(id, 'quality-check', { qc_started_at: new Date().toISOString() });
+
+    const sophiaQCResult = await this.agentExecutor('vp-research' as CompanyAgentRole, 'qc_and_package_research', {
+      analysisId: id,
+      query: req.query,
+      rawPackets: researchPackets,
+      executiveRouting: sophiaRouting,
+    });
+
+    let sophiaQC: Record<string, unknown> = {};
+    let coverMemos: Record<string, unknown> = {};
+    let gapsFilled: string[] = [];
+    let remainingGaps: string[] = [];
+    let overallConfidence = 'medium';
+
+    if (sophiaQCResult?.output) {
+      const jsonMatch = sophiaQCResult.output.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          sophiaQC = parsed;
+          coverMemos = parsed.coverMemos || {};
+          gapsFilled = parsed.gapsFilled || [];
+          remainingGaps = parsed.remainingGaps || [];
+          overallConfidence = parsed.overallConfidence || 'medium';
+        } catch { /* use raw output */ }
+      }
+    }
+
+    // Re-read research packets (Sophia may have added via web_search + submit_research_packet)
+    const { data: postQCRecord } = await this.supabase
+      .from('strategy_analyses')
+      .select('research_packets')
+      .eq('id', id)
+      .single();
+    const qcPackets = (postQCRecord?.research_packets as Record<string, unknown>) || researchPackets;
+
+    // Collect all sources
     const allSources: StrategySource[] = [];
     let totalSearches = 0;
-    for (const [packetType, packet] of Object.entries(researchPackets)) {
+    for (const [packetType, packet] of Object.entries(qcPackets)) {
       const p = packet as { sources?: StrategySource[]; data?: unknown };
       if (p.sources) {
         allSources.push(...p.sources.map((s: StrategySource) => ({ ...s, analystRole: packetType })));
@@ -612,19 +785,16 @@ export class StrategyLabEngine {
     });
 
     await this.supabase.from('strategy_analyses').update({
+      sophia_qc: sophiaQC,
+      cover_memos: coverMemos,
+      gaps_filled: gapsFilled,
+      remaining_gaps: remainingGaps,
+      overall_confidence: overallConfidence,
+      qc_completed_at: new Date().toISOString(),
       sources: allSources,
       total_searches: totalSearches,
       total_sources: allSources.length,
     }).eq('id', id);
-
-    // Check if we have any research to work with
-    if (Object.keys(researchPackets).length === 0) {
-      await this.supabase.from('strategy_analyses').update({
-        status: 'failed',
-        error: 'No research packets were submitted. All research analysts may have failed.',
-      }).eq('id', id);
-      return;
-    }
 
     // ═══════════════════════════════════════════
     // WAVE 2: Executive analysis (parallel)
@@ -634,26 +804,27 @@ export class StrategyLabEngine {
     const executiveOutputs: Record<string, ExecutiveAnalysisOutput> = {};
 
     const execResults = await Promise.allSettled(
-      selectedExecs.map(async (execRole, i) => {
+      activeExecs.map(async (execRole, i) => {
         // Mark running
         executiveProgress[i].status = 'running';
         executiveProgress[i].startedAt = new Date().toISOString();
         await this.supabase.from('strategy_analyses').update({ executive_progress: executiveProgress }).eq('id', id);
 
         // Build exec's packet subset based on routing
-        const routing = executiveRouting[execRole] || [];
+        const routing = sophiaRouting[execRole] || [];
         const execPackets: Record<string, unknown> = {};
         for (const packetType of routing) {
-          if (researchPackets[packetType]) {
-            execPackets[packetType] = researchPackets[packetType];
+          if (qcPackets[packetType]) {
+            execPackets[packetType] = qcPackets[packetType];
           }
         }
-        // If not enough packets routed, give all available
         if (Object.keys(execPackets).length === 0) {
-          Object.assign(execPackets, researchPackets);
+          Object.assign(execPackets, qcPackets);
         }
 
-        const prompt = buildExecutivePrompt(execRole, req.query, execPackets);
+        // Inject Sophia's cover memo for this executive
+        const execCoverMemo = coverMemos[execRole] as string || '';
+        const prompt = buildExecutivePrompt(execRole, req.query, execPackets, execCoverMemo);
         const startMs = Date.now();
 
         const response = await this.modelClient.generate({
@@ -682,7 +853,6 @@ export class StrategyLabEngine {
 
         executiveOutputs[execRole] = execOutput;
 
-        // Mark completed
         executiveProgress[i].status = 'completed';
         executiveProgress[i].completedAt = new Date().toISOString();
         await this.supabase.from('strategy_analyses').update({
@@ -711,7 +881,7 @@ export class StrategyLabEngine {
     // ═══════════════════════════════════════════
     await this.updateStatus(id, 'synthesizing', { synthesis_started_at: new Date().toISOString() });
 
-    const synthesisPrompt = buildSynthesisPrompt(req.query, executiveOutputs, researchPackets, allSources);
+    const synthesisPrompt = buildSynthesisPrompt(req.query, executiveOutputs, qcPackets, allSources, overallConfidence, remainingGaps, sarahFrame);
 
     const synthesisResponse = await this.modelClient.generate({
       model: this.model,
@@ -752,7 +922,7 @@ export class StrategyLabEngine {
     // WAVE 4: Follow-up (comprehensive only)
     // ═══════════════════════════════════════════
     if (depth === 'comprehensive' && synthesis) {
-      await this.runFollowUp(id, req, synthesis, researchBriefs, researchPackets, executiveOutputs, allSources);
+      await this.runFollowUp(id, req, synthesis, sophiaBriefs, qcPackets, executiveOutputs, allSources);
     }
 
     await this.supabase.from('strategy_analyses').update({
@@ -765,7 +935,7 @@ export class StrategyLabEngine {
     await this.supabase.from('activity_log').insert({
       agent_id: 'system',
       action: 'strategy_analysis.completed',
-      detail: `Strategy Lab v2 analysis completed for "${req.query}" (${depth}): ${Object.keys(researchPackets).length} research packets, ${Object.keys(executiveOutputs).length} executive analyses, ${allSources.length} sources`,
+      detail: `Strategy Lab v2 analysis completed for "${req.query}" (${depth}): ${Object.keys(qcPackets).length} research packets, ${Object.keys(executiveOutputs).length} executive analyses, ${allSources.length} sources. Confidence: ${overallConfidence}. Gaps filled by Sophia: ${gapsFilled.length}`,
       created_at: new Date().toISOString(),
     });
   }

@@ -1,13 +1,19 @@
 /**
  * Platform Engineer (Alex Park) — Tool Definitions
  *
- * Tools for: infrastructure monitoring, health checks, metrics querying.
- * All read-only — Alex cannot deploy, change configs, or create incidents.
+ * Tools for: infrastructure monitoring, health checks, metrics querying,
+ * Cloud Build visibility, and issue reporting.
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { queryCloudRunMetrics, pingServices, listOpenPRs, getRepoStats, listRecentCommits, type GlyphorRepo, queryVercelHealth, type VercelTeamKey } from '@glyphor/integrations';
+import {
+  queryCloudRunMetrics, pingServices,
+  listOpenPRs, getRepoStats, listRecentCommits, type GlyphorRepo,
+  queryVercelHealth, type VercelTeamKey,
+  listCloudBuilds, getCloudBuildDetails,
+  createIssue,
+} from '@glyphor/integrations';
 
 export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -205,6 +211,74 @@ export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDef
           createdAt: new Date().toISOString(),
         });
         return { success: true, memoryKeysWritten: 1 };
+      },
+    },
+
+    // ── CLOUD BUILD VISIBILITY ────────────────────────────────────
+
+    {
+      name: 'list_cloud_builds',
+      description: 'List recent GCP Cloud Build runs — status, duration, trigger. Correlate with Cloud Run health.',
+      parameters: {
+        limit: { type: 'number', description: 'Max results (default: 10)', required: false },
+        status: { type: 'string', description: 'Filter: SUCCESS, FAILURE, WORKING, QUEUED', required: false },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        const projectId = process.env.GCP_PROJECT_ID;
+        if (!projectId) return { success: false, error: 'GCP_PROJECT_ID not configured' };
+        try {
+          const builds = await listCloudBuilds(projectId, (params.limit as number) || 10, params.status as string | undefined);
+          const failed = builds.filter((b) => b.status === 'FAILURE');
+          return { success: true, data: { totalReturned: builds.length, failedCount: failed.length, builds } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'get_cloud_build_logs',
+      description: 'Get detailed logs for a specific Cloud Build — step-by-step output and errors.',
+      parameters: {
+        build_id: { type: 'string', description: 'Cloud Build ID', required: true },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        const projectId = process.env.GCP_PROJECT_ID;
+        if (!projectId) return { success: false, error: 'GCP_PROJECT_ID not configured' };
+        try {
+          const details = await getCloudBuildDetails(projectId, params.build_id as string);
+          return { success: true, data: details };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    // ── ISSUE REPORTING ───────────────────────────────────────────
+
+    {
+      name: 'create_github_issue',
+      description: 'Create a GitHub issue to report a platform health problem, outage, or degradation you detected.',
+      parameters: {
+        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: true, enum: ['company', 'fuse', 'pulse'] },
+        title: { type: 'string', description: 'Issue title', required: true },
+        body: { type: 'string', description: 'Issue body with diagnostic data (markdown)', required: true },
+        labels: { type: 'array', description: 'Labels (e.g., ["platform", "health"])', required: false, items: { type: 'string', description: 'Label' } },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const result = await createIssue(
+            params.repo as GlyphorRepo,
+            params.title as string,
+            params.body as string,
+            (params.labels as string[]) ?? [],
+          );
+          return { success: true, data: result };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('GITHUB_TOKEN')) return { success: false, error: 'NO_DATA: GITHUB_TOKEN not configured.' };
+          return { success: false, error: msg };
+        }
       },
     },
   ];

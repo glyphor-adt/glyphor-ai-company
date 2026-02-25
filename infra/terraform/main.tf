@@ -406,6 +406,12 @@ resource "google_project_iam_member" "monitoring_viewer" {
   member  = "serviceAccount:${google_service_account.glyphor.email}"
 }
 
+resource "google_project_iam_member" "cloudbuild_viewer" {
+  project = var.project_id
+  role    = "roles/cloudbuild.builds.viewer"
+  member  = "serviceAccount:${google_service_account.glyphor.email}"
+}
+
 # ─── Cloud Run: Dashboard ─────────────────────────────────────
 resource "google_cloud_run_v2_service" "dashboard" {
   name     = "glyphor-dashboard"

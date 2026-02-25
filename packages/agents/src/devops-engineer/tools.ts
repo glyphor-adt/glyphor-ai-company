@@ -8,7 +8,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import {
   listWorkflowRuns, listRecentCommits, commentOnPR, createIssue,
   getFileContents, createOrUpdateFile, createBranch, createGitHubPR,
-  type GlyphorRepo, type FileContents,
+  GLYPHOR_REPOS, type GlyphorRepo,
   listDeployments, type VercelTeamKey,
   listCloudBuilds, getCloudBuildDetails,
 } from '@glyphor/integrations';
@@ -354,11 +354,13 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const contents: FileContents = await getFileContents(
-            params.repo as GlyphorRepo,
+          const repoName = GLYPHOR_REPOS[params.repo as GlyphorRepo];
+          const contents = await getFileContents(
+            repoName,
             params.path as string,
             (params.branch as string) ?? 'main',
           );
+          if (!contents) return { success: false, error: `File not found: ${params.path}` };
           return { success: true, data: contents };
         } catch (err) {
           const msg = (err as Error).message;
@@ -377,7 +379,8 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const result = await createBranch(params.repo as GlyphorRepo, params.branch_name as string);
+          const repoName = GLYPHOR_REPOS[params.repo as GlyphorRepo];
+          const result = await createBranch(repoName, params.branch_name as string);
           return { success: true, data: result };
         } catch (err) {
           const msg = (err as Error).message;
@@ -399,12 +402,13 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
+          const repoName = GLYPHOR_REPOS[params.repo as GlyphorRepo];
           const result = await createOrUpdateFile(
-            params.repo as GlyphorRepo,
+            repoName,
             params.path as string,
             params.content as string,
-            params.commit_message as string,
             params.branch as string,
+            params.commit_message as string,
           );
           return { success: true, data: result };
         } catch (err) {
@@ -427,12 +431,12 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
+          const repoName = GLYPHOR_REPOS[params.repo as GlyphorRepo];
           const result = await createGitHubPR(
-            params.repo as GlyphorRepo,
+            repoName,
+            params.head as string,
             params.title as string,
             params.body as string,
-            params.head as string,
-            (params.base as string) ?? 'main',
           );
           return { success: true, data: result };
         } catch (err) {

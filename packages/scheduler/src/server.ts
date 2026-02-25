@@ -55,6 +55,7 @@ import {
   runMarketResearchAnalyst,
   runTechnicalResearchAnalyst,
   runIndustryResearchAnalyst,
+  runVPResearch,
 } from '@glyphor/agents';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
@@ -216,7 +217,9 @@ const agentExecutor = async (
     return runOps({ task: (task as 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'contradiction_detection' | 'knowledge_hygiene'), message, eventPayload: payload, conversationHistory });
   }
   // Strategy Lab v2 — Research Analysts
-  else if (agentRole === 'competitive-research-analyst') {
+  else if (agentRole === 'vp-research') {
+    return runVPResearch({ task: (task as 'decompose_research' | 'qc_and_package_research' | 'follow_up_research' | 'on_demand'), message, analysisId: payload.analysisId as string | undefined, query: payload.query as string | undefined, analysisType: payload.analysisType as string | undefined, depth: payload.depth as string | undefined, sarahNotes: payload.sarahNotes as string | undefined, rawPackets: payload.rawPackets as Record<string, unknown> | undefined, executiveRouting: payload.executiveRouting as Record<string, string[]> | undefined, gaps: payload.gaps as unknown[] | undefined, conversationHistory });
+  } else if (agentRole === 'competitive-research-analyst') {
     return runCompetitiveResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, researchBrief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
   } else if (agentRole === 'market-research-analyst') {
     return runMarketResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, researchBrief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });

@@ -27,6 +27,7 @@ const DEPARTMENTS = [
   { label: 'Sales', role: 'vp-sales' },
   { label: 'Design & Frontend', role: 'vp-design' },
   { label: 'Operations & IT', role: 'ops' },
+  { label: 'Legal', role: 'clo' },
 ];
 
 const TITLE_MAP: Record<string, string> = {
@@ -39,6 +40,7 @@ const TITLE_MAP: Record<string, string> = {
   'vp-sales': 'VP Sales',
   'vp-design': 'VP Design & Frontend',
   ops: 'Operations Agent',
+  clo: 'Chief Legal Officer',
   'm365-admin': 'M365 Administrator',
   'global-admin': 'Global Administrator',
 };
@@ -200,7 +202,7 @@ export default function Workforce() {
             {agents
               .filter((a) => a.role in TITLE_MAP)
               .sort((a, b) => {
-                const order = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales', 'vp-design', 'ops', 'm365-admin', 'global-admin'];
+                const order = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales', 'vp-design', 'ops', 'clo', 'm365-admin', 'global-admin'];
                 return (order.indexOf(a.role) === -1 ? 99 : order.indexOf(a.role)) - (order.indexOf(b.role) === -1 ? 99 : order.indexOf(b.role));
               })
               .map((agent) => {
@@ -362,8 +364,8 @@ function SubTeamNode({ member }: { member: SubTeamMember }) {
           style={{ width: 48, height: 48, border: `1.5px solid ${member.color}40` }}
         />
         <div className="min-w-0 text-left">
-          <p className="truncate text-sm font-semibold text-txt-primary">{member.name}</p>
-          <p className="truncate text-xs text-txt-muted">{member.title}</p>
+          <p className="text-sm font-semibold text-txt-primary">{member.name}</p>
+          <p className="text-xs text-txt-muted">{member.title}</p>
         </div>
       </div>
     </Card>

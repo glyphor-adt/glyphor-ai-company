@@ -255,6 +255,7 @@ export const AGENT_META: Record<string, { color: string; icon: string }> = {
   'vp-sales':       { color: '#1D4ED8', icon: 'MdTrackChanges' },
   'vp-design':      { color: '#DB2777', icon: 'MdPalette' },
   ops:              { color: '#EA580C', icon: 'MdMonitorHeart' },
+  clo:              { color: '#6D28D9', icon: 'MdGavel' },
   // Sub-team agents
   'platform-engineer':     { color: '#2563EB', icon: 'MdDeveloperBoard' },
   'quality-engineer':      { color: '#2563EB', icon: 'MdBugReport' },
@@ -287,6 +288,7 @@ export const DISPLAY_NAME_MAP: Record<string, string> = {
   'vp-sales': 'Rachel Kim',
   'vp-design': 'Mia Tanaka',
   ops: 'Atlas Vega',
+  clo: 'Victoria Chase',
   // Sub-team agents
   'platform-engineer': 'Alex Park',
   'quality-engineer': 'Sam DeLuca',
