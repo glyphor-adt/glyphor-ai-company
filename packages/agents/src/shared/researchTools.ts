@@ -259,15 +259,10 @@ export function createResearchTools(supabase: SupabaseClient): ToolDefinition[] 
         const packetType = params.packet_type as string;
 
         try {
-          // Store the research packet in the strategy_analyses record
-          const { data: current } = await supabase
-            .from('strategy_analyses')
-            .select('research_packets')
-            .eq('id', analysisId)
-            .single();
-
-          const packets = (current?.research_packets as Record<string, unknown>) || {};
-          packets[packetType] = {
+          // Atomically merge the new packet into the JSONB column to avoid
+          // race conditions when multiple analysts submit in parallel.
+          // Using jsonb_set ensures concurrent writes don't overwrite each other.
+          const packet = {
             data: params.data,
             sources: params.sources,
             confidenceLevel: params.confidence_level,
@@ -276,10 +271,11 @@ export function createResearchTools(supabase: SupabaseClient): ToolDefinition[] 
             submittedAt: new Date().toISOString(),
           };
 
-          await supabase
-            .from('strategy_analyses')
-            .update({ research_packets: packets })
-            .eq('id', analysisId);
+          await supabase.rpc('merge_research_packet', {
+            p_analysis_id: analysisId,
+            p_packet_type: packetType,
+            p_packet_data: packet,
+          });
 
           return {
             success: true,
