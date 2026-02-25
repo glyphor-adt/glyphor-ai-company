@@ -67,7 +67,7 @@ export {
   syncAll as syncStripeAll,
 } from './stripe/index.js';
 
-// GCP monitoring & billing
+// GCP monitoring, billing & Cloud Build
 export {
   queryCloudRunMetrics,
   queryAllServices,
@@ -75,9 +75,13 @@ export {
   syncBillingToSupabase,
   pingService,
   pingServices,
+  listCloudBuilds,
+  getCloudBuildDetails,
   type CloudRunMetrics,
   type DailyCost,
   type ServiceHealth,
+  type CloudBuildSummary,
+  type CloudBuildLog,
 } from './gcp/index.js';
 
 // Mercury banking

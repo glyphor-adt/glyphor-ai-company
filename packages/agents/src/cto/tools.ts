@@ -26,6 +26,8 @@ import {
   triggerDeployment,
   rollbackDeployment,
   type VercelTeamKey,
+  listCloudBuilds,
+  getCloudBuildDetails,
 } from '@glyphor/integrations';
 
 export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
@@ -389,6 +391,72 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
     },
 
     // ─── Vercel ─────────────────────────────────────────────────
+
+    {
+      name: 'list_cloud_builds',
+      description: 'List recent GCP Cloud Build runs. Shows status, duration, images, and failure info. Use this to find failed builds and get their build IDs for further investigation.',
+      parameters: {
+        limit: {
+          type: 'number',
+          description: 'Number of recent builds to list (default: 10)',
+          required: false,
+        },
+        status: {
+          type: 'string',
+          description: 'Filter by status: "SUCCESS", "FAILURE", "TIMEOUT", "CANCELLED", or omit for all',
+          required: false,
+          enum: ['SUCCESS', 'FAILURE', 'TIMEOUT', 'CANCELLED'],
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        const projectId = process.env.GCP_PROJECT_ID;
+        if (!projectId) {
+          return { success: false, error: 'GCP_PROJECT_ID not configured' };
+        }
+        try {
+          const builds = await listCloudBuilds(
+            projectId,
+            (params.limit as number) || 10,
+            params.status as string | undefined,
+          );
+          const failed = builds.filter((b) => b.status === 'FAILURE' || b.status === 'TIMEOUT');
+          return {
+            success: true,
+            data: {
+              total: builds.length,
+              failed: failed.length,
+              builds,
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'get_cloud_build_logs',
+      description: 'Get detailed Cloud Build log for a specific build — step-by-step status, timing, failure reason, and log URL. Use the build ID from list_cloud_builds.',
+      parameters: {
+        build_id: {
+          type: 'string',
+          description: 'The Cloud Build build ID to inspect',
+          required: true,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        const projectId = process.env.GCP_PROJECT_ID;
+        if (!projectId) {
+          return { success: false, error: 'GCP_PROJECT_ID not configured' };
+        }
+        try {
+          const details = await getCloudBuildDetails(projectId, params.build_id as string);
+          return { success: true, data: details };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
 
     {
       name: 'query_vercel_health',
