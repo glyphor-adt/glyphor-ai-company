@@ -1,0 +1,513 @@
+
+-Goal-
+Given a text document that is potentially relevant to this activity and a list of entity types, identify all entities of those types from the text and all relationships among the identified entities.
+
+-Steps-
+1. Identify all entities. For each identified entity, extract the following information:
+- entity_name: Name of the entity, capitalized
+- entity_type: One of the following types: [Company, Human Founder, AI Agent Role, Product, Technology Platform/Service, Authority Tier, Organizational Concept, Metric, Data Store/Table, Communication Channel]
+- entity_description: Comprehensive description of the entity's attributes and activities
+Format each entity as ("entity"<|><entity_name><|><entity_type><|><entity_description>)
+
+2. From the entities identified in step 1, identify all pairs of (source_entity, target_entity) that are *clearly related* to each other.
+For each pair of related entities, extract the following information:
+- source_entity: name of the source entity, as identified in step 1
+- target_entity: name of the target entity, as identified in step 1
+- relationship_description: explanation as to why you think the source entity and the target entity are related to each other
+- relationship_strength: an integer score between 1 to 10, indicating strength of the relationship between the source entity and target entity
+Format each relationship as ("relationship"<|><source_entity><|><target_entity><|><relationship_description><|><relationship_strength>)
+
+3. Return output in English as a single list of all the entities and relationships identified in steps 1 and 2. Use **##** as the list delimiter.
+
+4. If you have to translate into English, just translate the descriptions, nothing else!
+
+5. When finished, output <|COMPLETE|>.
+
+-Examples-
+######################
+
+Example 1:
+
+entity_types: [Company, Human Founder, AI Agent Role, Product, Technology Platform/Service, Authority Tier, Organizational Concept, Metric, Data Store/Table, Communication Channel]
+text:
+gemini-3-flash-preview` | Usage analysis, competitive intelligence, roadmap management, feature prioritisation (RICE) |
+| **Maya Brooks** | CMO | `cmo` | `gemini-3-flash-preview` | Content generation, social media, SEO strategy, brand positioning, growth analytics |
+| **James Turner** | VP Customer Success | `vp-customer-success` | `gemini-3-flash-preview` | Health scoring, churn prevention, nurture outreach, cross-product recommendations |
+| **Rachel Kim** | VP Sales | `vp-sales` | `gemini-3-flash-preview` | KYC research, ROI calculators, enterprise proposals, pipeline management, market sizing |
+| **Mia Tanaka** | VP Design & Frontend | `vp-design` | `gemini-3-flash-preview` | Design system governance, component quality audits, template variety, AI-smell detection |
+
+### Sub-Team Members (18)
+
+Sub-team members have full agent runners (`run.ts`, `systemPrompt.ts`, `tools.ts`), role briefs,
+and dashboard entries. They operate under their executive's authority scope and report to them.
+
+| Name | Title | Department | Reports To |
+|------|-------|------------|------------|
+| **Alex Park** | Platform Engineer | Engineering | Marcus Reeves (CTO) |
+| **Sam DeLuca** | Quality Engineer | Engineering | Marcus Reeves (CTO) |
+| **Jordan Hayes** | DevOps Engineer | Engineering | Marcus Reeves (CTO) |
+| **Riley Morgan** | M365 Administrator | Engineering | Marcus Reeves (CTO) |
+| **Priya Sharma** | User Researcher | Product | Elena Vasquez (CPO) |
+| **Daniel Ortiz** | Competitive Intel | Product | Elena Vasquez (CPO) |
+| **Anna Park** | Revenue Analyst | Finance | Nadia Okafor (CFO) |
+| **Omar Hassan** | Cost Analyst | Finance | Nadia Okafor (CFO) |
+| **Tyler Reed** | Content Creator | Marketing | Maya Brooks (CMO) |
+| **Lisa Chen** | SEO Analyst | Marketing | Maya Brooks (CMO) |
+| **Kai Johnson** | Social Media Manager | Marketing | Maya Brooks (CMO) |
+| **Emma Wright** | Onboarding Specialist | Customer Success | James Turner (VP CS) |
+| **David Santos** | Support Triage | Customer Success | James Turner (VP CS) |
+| **Nathan Cole** | Account Research | Sales | Rachel Kim (VP Sales) |
+| **Leo Vargas** | UI/UX Designer | Design & Frontend | Mia Tanaka (VP Design) |
+| **Ava Chen** | Frontend Engineer | Design & Frontend | Mia Tanaka (VP Design) |
+| **Sofia Marchetti** | Design Critic | Design & Frontend | Mia Tanaka (VP Design) |
+| **Ryan Park** | Template Architect | Design & Frontend | Mia Tanaka (VP Design) |
+
+### Operations Agent (1)
+
+| Name | Role | Agent ID | Model | Responsibilities |
+|------|------|----------|-------|-----------------|
+| **Atlas Vega** | Operations & System Intelligence | `ops` | `gemini-3-flash-preview` | System health checks, data freshness monitoring, cost awareness, morning/evening status reports, event response |
+
+### Org Chart
+
+```
+             Kristina Denney (CEO)     Andrew Zwelling (COO)
+                         \               /
+                          \             /
+                        Sarah Chen (CoS)
+                              |
+        ┌─────────┬──────────┼──────────┬──────────┬──────────┬──────────┐
+        │         │          │          │          │          │          │
+     Marcus    Elena      Nadia      Maya      James     Rachel      Mia
+     (CTO)     (CPO)      (CFO)      (CMO)     (VP CS)   (VP Sales)  (VP Design)
+       │         │          │          │          │          │          │
+   Alex Park  Priya S.  Anna Park  Tyler Reed  Emma W.  Nathan C.  Leo Vargas
+   Sam DeLuca Daniel O.  Omar H.   Lisa Chen   David S.             Ava Chen
+   Jordan H.                        Kai J.                           Sofia M.
+   Riley M.                                                          Ryan Park
+```
+
+### Cron Schedules (GCP Cloud Scheduler)
+
+#### Agent Task Jobs (9 jobs, via Pub/Sub)
+
+All 9 jobs are **enabled** and run **daily** (every day of the week).
+
+| Job ID | Agent | Cron (UTC) | Local (CT) | Task |
+|--------|-------|-----------|------------|------|
+| `cos-briefing-kristina` | Sarah Chen | `0 12 * * *` | 7:00 AM | Morning briefing for Kristina |
+| `cos-briefing-andrew` | Sarah Chen | `30 12 * * *` | 7:30 AM | Morning briefing for Andrew |
+| `cos-eod-summary` | Sarah Chen | `0 23 * * *` | 6:00 PM | End-of-day summary |
+| `cto-health-check` | Marcus Reeves | `0 */2 * * *` | Every 2 hours | Platform health check |
+| `cfo-daily-costs` | Nadia Okafor | `0 14 * * *` | 9:00 AM | Daily cost analysis |
+| `cpo-usage-analysis` | Elena Vasquez | `0 15 * * *` | 10:00 AM | Usage & competitive analysis |
+| `cmo-content-calendar` | Maya Brooks
+------------------------
+output:
+("entity"<|>EXTERNAL CONTENT TONE & VOICE<|>Organizational Concept<|>The defined stylistic and communicative guidelines for all external content, including blog posts, social media, and case studies, emphasizing boldness, technical accessibility, authentic builder energy, and a policy against disparaging competitors.)
+##
+("entity"<|>INTERNAL/FOUNDER COMMUNICATION TONE & VOICE<|>Organizational Concept<|>The defined stylistic and communicative guidelines for internal and founder communications, characterized by directness, data-first approach, inclusion of recommendations, and conciseness for mobile readability.)
+##
+("entity"<|>GROWTH METRICS<|>Organizational Concept<|>A category of key performance indicators used to measure and track the company's overall growth and performance.)
+##
+("entity"<|>SEO RANKINGS<|>Metric<|>A measure of the company's visibility and position in search engine results for specific keywords, tracked on a weekly basis.)
+##
+("entity"<|>SOCIAL ENGAGEMENT<|>Metric<|>A measure of user interaction and activity on the company's social media content, primarily on LinkedIn and secondarily on Twitter.)
+##
+("entity"<|>INBOUND FUNNEL<|>Metric<|>A sequential metric tracking user progression from blog visits to signup, activation, and ultimately paid conversion.)
+##
+("entity"<|>ENTERPRISE PIPELINE<|>Metric<|>A metric representing the potential value of future enterprise business, including identified prospects and their estimated Annual Recurring Revenue (ARR) potential.)
+##
+("entity"<|>AI WEBSITE BUILDER RANKING<|>Metric<|>The current search engine ranking for the specific keyword phrase 'ai website builder', which is #11.)
+##
+("entity"<|>AUTONOMOUS DEVELOPMENT PLATFORM RANKING<|>Metric<|>The current search engine ranking for the specific keyword phrase 'autonomous development platform', which is within the top 50.)
+##
+("entity"<|>CONTENT STRATEGY<|>Organizational Concept<|>The strategic framework guiding the creation, publication, and management of all company content, with defined approval processes for changes.)
+##
+("entity"<|>GREEN AUTHORITY TIER (CONTENT STRATEGY)<|>Authority Tier<|>The lowest authority tier for content strategy, allowing autonomous action for content creation that adheres to the approved strategy.)
+##
+("entity"<|>YELLOW AUTHORITY TIER (CONTENT STRATEGY)<|>Authority Tier<|>An intermediate authority tier for content strategy, requiring approval from Kristina for any shifts in the content strategy.)
+##
+("entity"<|>RED AUTHORITY TIER (CONTENT STRATEGY)<|>Authority Tier<|>The highest authority tier for content strategy, which is input-only and provides assessment but does not make decisions regarding brand positioning changes.)
+##
+("entity"<|>KRISTINA<|>Human Founder<|>A human founder who holds the authority to approve Yellow tier changes related to content strategy.)
+##
+("entity"<|>Q1 2026 GOALS<|>Organizational Concept<|>Specific, marketing-relevant objectives set to be achieved during the first quarter of 2026.)
+##
+("entity"<|>ACTIVE FUSE USERS GOAL<|>Metric<|>A Q1 2026 goal to achieve 100 active users for the Fuse product.)
+##
+("entity"<|>FUSE<|>Product<|>A product offered by the company, for which a goal of 100 active users has been set.)
+##
+("entity"<|>PULSE<|>Product<|>A product planned for a public launch as part of the Q1 2026 goals.)
+##
+("entity"<|>ENTERPRISE PILOT GOAL<|>Metric<|>A Q1 2026 goal to secure 1 enterprise pilot.)
+##
+("entity"<|>LINKEDIN<|>Communication Channel<|>A professional social media platform identified as the primary channel for social engagement.)
+##
+("entity"<|>TWITTER<|>Communication Channel<|>A social media platform identified as the secondary channel for social engagement.)
+##
+("relationship"<|>EXTERNAL CONTENT TONE & VOICE<|>CONTENT STRATEGY<|>The external content tone and voice are fundamental guidelines that inform and shape the overall content strategy.<|>8)
+##
+("relationship"<|>GROWTH METRICS<|>SEO RANKINGS<|>SEO rankings are explicitly listed as one of the key growth metrics.<|>9)
+##
+("relationship"<|>GROWTH METRICS<|>SOCIAL ENGAGEMENT<|>Social engagement is explicitly listed as one of the key growth metrics.<|>9)
+##
+("relationship"<|>GROWTH METRICS<|>INBOUND FUNNEL<|>The inbound funnel is explicitly listed as one of the key growth metrics.<|>9)
+##
+("relationship"<|>GROWTH METRICS<|>ENTERPRISE PIPELINE<|>The enterprise pipeline is explicitly listed as one of the key growth metrics.<|>9)
+##
+("relationship"<|>SEO RANKINGS<|>AI WEBSITE BUILDER RANKING<|>The 'ai website builder' ranking is a specific instance and current position for a tracked SEO ranking.<|>8)
+##
+("relationship"<|>SEO RANKINGS<|>AUTONOMOUS DEVELOPMENT PLATFORM RANKING<|>The 'autonomous development platform' ranking is a specific instance and current position for a tracked SEO ranking.<|>8)
+##
+("relationship"<|>CONTENT STRATEGY<|>GREEN AUTHORITY TIER (CONTENT STRATEGY)<|>The content strategy defines what actions fall under the Green authority tier.<|>9)
+##
+("relationship"<|>CONTENT STRATEGY<|>YELLOW AUTHORITY TIER (CONTENT STRATEGY)<|>The content strategy defines what actions fall under the Yellow authority tier.<|>9)
+##
+("relationship"<|>CONTENT STRATEGY<|>RED AUTHORITY TIER (CONTENT STRATEGY)<|>The content strategy defines what actions fall under the Red authority tier.<|>9)
+##
+("relationship"<|>YELLOW AUTHORITY TIER (CONTENT STRATEGY)<|>KRISTINA<|>Kristina is the individual responsible for approving shifts in content strategy that fall under the Yellow authority tier.<|>9)
+##
+("relationship"<|>Q1 2026 GOALS<|>ACTIVE FUSE USERS GOAL<|>The active Fuse users goal is one of the specific marketing-relevant objectives for Q1 2026.<|>9)
+##
+("relationship"<|>Q1 2026 GOALS<|>PULSE<|>The public launch of Pulse is one of the specific marketing-relevant objectives for Q1 2026.<|>9)
+##
+("relationship"<|>Q1 2026 GOALS<|>ENTERPRISE PILOT GOAL<|>The enterprise pilot goal is one of the specific marketing-relevant objectives for Q1 2026.<|>9)
+##
+("relationship"<|>ACTIVE FUSE USERS GOAL<|>FUSE<|>The goal of 100 active users is specifically tied to the Fuse product.<|>9)
+##
+("relationship"<|>SOCIAL ENGAGEMENT<|>LINKEDIN<|>LinkedIn is identified as the primary platform for tracking social engagement.<|>8)
+##
+("relationship"<|>SOCIAL ENGAGEMENT<|>TWITTER<|>Twitter is identified as the secondary platform for tracking social engagement.<|>8)
+##
+("relationship"<|>INTERNAL/FOUNDER COMMUNICATION TONE & VOICE<|>KRISTINA<|>Kristina, as a founder, would adhere to the internal/founder communication tone and voice.<|>7)
+<|COMPLETE|>
+#############################
+
+
+Example 2:
+
+entity_types: [Company, Human Founder, AI Agent Role, Product, Technology Platform/Service, Authority Tier, Organizational Concept, Metric, Data Store/Table, Communication Channel]
+text:
+# Anna Park — Revenue Analyst
+
+**Name:** Anna Park
+**Title:** Revenue Analyst
+**Department:** Finance
+**Reports to:** Nadia Okafor (CFO)
+
+---
+
+## Your Identity
+
+You are Anna Park, the pattern finder. You look at revenue data and see stories. A spike in signups isn't just a number — it's a blog post that converted, or a Product Hunt feature, or a competitor outage. You connect revenue events to their causes with obsessive attention to attribution. Every dollar of MRR has a story and your job is to know it.
+
+### Personality & Voice
+
+- Always attributes revenue to its source
+- Thinks in cohorts: which signup month has the best LTV?
+- Presents trends with trajectory: "At current growth (12% MoM), we hit $5K in April"
+- Highlights expansion revenue separately
+- Uses clean data tables, never buries numbers in paragraphs
+
+**Backstory:** You started in investment banking doing financial modeling and realized you'd rather model a startup you believed in than a Fortune 500 you didn't care about. You think about MRR the way a gardener thinks about growth — patient, attentive, always nurturing.
+
+**Quirks:**
+- Tracks MRR to the dollar, never rounds: "$3,247" not "~$3.2K"
+- Calls revenue cohorts by their signup month
+- Always includes LTV/CAC ratio even when nobody asks
+- Gets excited about expansion revenue: "That's FREE growth — no acquisition cost."
+- Projects forward with conservative/base/optimistic scenarios
+
+---
+
+## Core Mission
+
+1. **Revenue Tracking** — Monitor MRR, new revenue, expansion, and churn to the dollar
+2. **Attribution Analysis** — Connect every revenue event to its acquisition source
+3. **Cohort Health** — Track retention and LTV by signup cohort
+4. **Financial Projections** — Maintain conservative/base/optimistic growth scenarios
+
+## Relationships
+
+- **Nadia Okafor (CFO):** Reports revenue analysis and projections.
+- **Maya Brooks (CMO):** Shares content attribution data to optimize marketing spend.
+- **Lisa Chen (SEO):** Connects SEO rankings to actual revenue impact.
+
+------------------------
+output:
+("entity"<|>TONE & VOICE<|>Organizational Concept<|>The defined style and manner of communication for the company, differentiating between external content (bold, technical but accessible, authentic builder energy, never disparaging competitors) and internal/founder communication (direct, no filler, data-first, recommendation-included, concise).")
+##
+("entity"<|>EXTERNAL CONTENT<|>Organizational Concept<|>Content produced for public consumption, such as blogs, social media posts, and case studies, adhering to a bold, technical yet accessible, and authentic builder energy tone.")
+##
+("entity"<|>INTERNAL/FOUNDER COMMUNICATION<|>Organizational Concept<|>Communication intended for internal stakeholders and founders, characterized by being direct, data-first, recommendation-included, and concise.")
+##
+("entity"<|>KRISTINA DENNEY<|>Human Founder<|>A founder of the company, likely the CEO, who holds Yellow authority for content strategy shifts and permanent team member hires, and provides assessment for Red authority items like brand positioning changes.")
+##
+("entity"<|>ANDREW ZWELLING<|>Human Founder<|>A founder of the company, likely the COO, who holds Yellow authority for approving production deployments, model changes increasing cost, new infrastructure services, infrastructure scaling, and spawned agents projected to cost over $50.")
+##
+("entity"<|>SEO RANKINGS<|>Metric<|>A key performance indicator that tracks the company's position in search engine results for specific keywords, monitored weekly as part of growth metrics.")
+##
+("entity"<|>SOCIAL ENGAGEMENT<|>Metric<|>A key performance indicator that tracks interactions on social media platforms, primarily LinkedIn and secondarily Twitter, as part of growth metrics.")
+##
+("entity"<|>INBOUND FUNNEL<|>Organizational Concept<|>The sequential process through which potential customers are acquired, starting from blog readership, leading to signup, activation, and ultimately paid conversion.")
+##
+("entity"<|>ENTERPRISE PIPELINE<|>Organizational Concept<|>The collection of potential enterprise customers and their associated Annual Recurring Revenue (ARR) potential, tracked as a growth metric.")
+##
+("entity"<|>ARR POTENTIAL<|>Metric<|>The projected Annual Recurring Revenue that could be generated from the enterprise pipeline.")
+##
+("entity"<|>AI WEBSITE BUILDER<|>Product<|>A product category or keyword for which the company tracks its SEO ranking, currently positioned at #11.")
+##
+("entity"<|>AUTONOMOUS DEVELOPMENT PLATFORM<|>Product<|>A product category or keyword for which the company tracks its SEO ranking, currently positioned within the top 50.")
+##
+("entity"<|>CONTENT STRATEGY<|>Organizational Concept<|>The overarching plan for content creation and distribution, with changes subject to different authority tiers.")
+##
+("entity"<|>GREEN AUTHORITY<|>Authority Tier<|>The lowest level of operational authority, allowing autonomous actions such as monitoring platform health, deploying hotfixes to staging, rolling back production deployments, switching fallback models, optimizing caches and scaling, classifying and annotating errors, performance tuning, creating and resolving incidents, creating PRs, managing branches, running CI, spawning temporary team members, and assigning tasks to specific engineers. Content within approved strategy falls under this tier.")
+##
+("entity"<|>YELLOW AUTHORITY<|>Authority Tier<|>An intermediate level of authority requiring approval from specific founders for actions such as production deployments (non-hotfix), model changes increasing cost >$50/mo, new infrastructure services, infrastructure scaling >$200/mo, spawned agents projected to cost >$50, permanent team member hires, and content strategy shifts.")
+##
+("entity"<|>RED AUTHORITY<|>Authority Tier<|>The highest level of authority, which involves providing assessment and input but not making final decisions, for critical actions like architectural changes to core runtime, new product technical feasibility assessment, infrastructure migration or provider changes, and brand positioning changes.")
+##
+("entity"<|>FUSE<|>Product<|>A product for which the company has a Q1 2026 goal of achieving 100 active users.")
+##
+("entity"<|>PULSE<|>Product<|>A product scheduled for a public launch in Q1 2026.")
+##
+("entity"<|>100 ACTIVE FUSE USERS<|>Metric<|>A specific Q1 2026 goal to have 100 active users for the Fuse product.")
+##
+("entity"<|>PULSE PUBLIC LAUNCH<|>Organizational Concept<|>A Q1 2026 goal involving the public release and introduction of the Pulse product.")
+##
+("entity"<|>1 ENTERPRISE PILOT<|>Metric<|>A Q1 2026 goal to secure a single enterprise pilot engagement.")
+##
+("entity"<|>BRAND POSITIONING CHANGES<|>Organizational Concept<|>Modifications to the company's market perception and identity, which are subject to assessment under Red Authority.")
+##
+("entity"<|>CONTENT STRATEGY SHIFTS<|>Organizational Concept<|>Significant alterations to the company's content plan, requiring approval under Yellow Authority by Kristina Denney.")
+##
+("entity"<|>Q1 2026 GOALS<|>Organizational Concept<|>A set of marketing-relevant objectives established for the first quarter of 2026, including achieving 100 active Fuse users, the public launch of Pulse, and securing one enterprise pilot.")
+##
+("relationship"<|>KRISTINA DENNEY<|>CONTENT STRATEGY SHIFTS<|>Kristina Denney is explicitly identified as the approver for content strategy shifts, which fall under Yellow Authority.<|>9)
+##
+("relationship"<|>KRISTINA DENNEY<|>BRAND POSITIONING CHANGES<|>Kristina Denney provides assessment for brand positioning changes, which are classified under Red Authority.<|>7)
+##
+("relationship"<|>ANDREW ZWELLING<|>YELLOW AUTHORITY<|>Andrew Zwelling is the designated approver for multiple actions categorized under Yellow Authority, including production deployments and infrastructure scaling.<|>9)
+##
+("relationship"<|>KRISTINA DENNEY<|>YELLOW AUTHORITY<|>Kristina Denney is the designated approver for permanent team member hires, which fall under Yellow Authority.<|>8)
+##
+("relationship"<|>SEO RANKINGS<|>AI WEBSITE BUILDER<|>The 'ai website builder' keyword is a specific target for tracking SEO rankings.<|>8)
+##
+("relationship"<|>SEO RANKINGS<|>AUTONOMOUS DEVELOPMENT PLATFORM<|>The 'autonomous development platform' keyword is a specific target for tracking SEO rankings.<|>8)
+##
+("relationship"<|>FUSE<|>100 ACTIVE FUSE USERS<|>The metric '100 active Fuse users' is a direct goal for the Fuse product.<|>9)
+##
+("relationship"<|>PULSE<|>
+#############################
+
+
+Example 3:
+
+entity_types: [Company, Human Founder, AI Agent Role, Product, Technology Platform/Service, Authority Tier, Organizational Concept, Metric, Data Store/Table, Communication Channel]
+text:
+lyphor.iam` / `roles/storage.objectAdmin` (scoped) |
+| Microsoft Teams | Post to #engineering, #glyphor-general | `secrets/teams/graph-*` (Graph API) + `secrets/teams/webhook-engineering`, `webhook-glyphor-general` |
+
+### GitHub Branch Protection (enforced by GitHub, not just the prompt)
+```
+main:
+  ├─ Require PR with CI passing before merge
+  ├─ No direct push (Marcus pushes via PR)
+  ├─ Build agents can ONLY create branches: feature/agent-{{name}}-{{task}}
+  └─ Tagged releases only
+
+staging:
+  ├─ Marcus can merge directly (Green authority)
+  ├─ CI must pass
+  └─ Build agents cannot touch staging
+
+production:
+  ├─ Marcus only, after Yellow approval from Andrew
+  ├─ CI + Sam's QA sign-off required
+  └─ Tagged releases only
+```
+
+### Data Access
+```
+READ:  build_logs, error_patterns, cloud_run_metrics, gemini_usage,
+       infrastructure_costs, deployments, incidents, agent_memory (engineering dept),
+       agent_reflections (engineering dept), company_agents, github_activity,
+       kg_nodes, kg_edges, cot_analyses, agent_wake_queue
+WRITE: deployments, incidents, model_config, build_logs (annotations),
+       agent_memory (own + engineering dept), github_repos (PRs, merges, releases),
+       kg_nodes, kg_edges
+```
+
+### Governance
+```
+🟢 GREEN (autonomous):
+   - Monitor all platform health metrics
+   - Deploy hotfixes to staging
+   - Rollback ANY production deployment (safety valve — always Green)
+   - Switch to fallback models within existing budget
+   - Optimize caches and scaling within current infrastructure
+   - Classify and annotate errors
+   - Performance tuning and query optimization
+   - Create and resolve incidents
+   - Create PRs, manage branches, run CI
+   - Spawn temporary team members (≤7 days, <$50 projected cost)
+   - Assign tasks to Alex, Sam, Jordan, Riley
+
+🟡 YELLOW:
+   - Production deployments (non-hotfix) → Andrew
+   - Model changes increasing cost >$50/mo → Andrew
+   - New infrastructure services → Andrew
+   - Infrastructure scaling >$200/mo → Andrew
+   - Permanent team member hires → Kristina
+   - Spawned agents projected to cost >$50 → Andrew
+
+🔴 RED (input only — provides assessment, doesn't decide):
+   - Architectural changes to core runtime
+   - New product technical feasibility assessment
+   - Infrastructure migration or provider changes
+```
+
+### Budget
+```
+Per run: $0.10 | Daily: $2.00 | Monthly: $50
+```
+
+---
+
+## NADIA OKAFOR — CFO
+
+### Skills
+- Financial modeling and forecasting (conservative/base/optimistic)
+- Unit economics analysis (cost per build, per user, margins)
+- Cost optimization and budget tracking
+- P&L reporting and monthly close
+- Break-even analysis for new initiatives
+- Revenue cohort analysis and LTV modeling
+- Pricing strategy modeling
+
+### Tools
+```
+query_stripe(metric, period, filters)       — MRR, subscriptions, churn, invoices, by product
+query_gcp_billing(period, service)          — cost breakdown by GCP service and SKU
+query_bigquery_billing(query)               — granular billing export queries
+query_supabase_usage()                      — database size, bandwidth, row counts, cost
+query_vercel_usage()                        — builds, bandwidth, serverless invocations, cost
+calculate_unit_economics(product)           — cost per build, per user, margins
+calculate_break_even(params)                — break-even for proposed initiatives
+generate_financial_report(type, period)     — formatted P&L, weekly summary, or monthly report
+store_to_gcs(bucket, path, content)         — save reports to Cloud Storage
+file_cost_alert(severity, data)             — create Yellow alert for Andrew
+post_to_teams(channel, card)                — post to #financials
+emit_event(type, payload)                   — publish to event bus
+```
+
+### Integrations
+| Platform | Access | Credential |
+|----------|--------|------------|
+| Stripe | **Read** — subscriptions, invoices, charges, customers, balance | `secrets/stripe/restricted-key-finance` (read-only, no write) |
+| GCP Billing | **Viewer** — cost breakdown by service | `sa-nadia@glyphor.iam` / `roles/billing.viewer` |
+| GCP BigQuery | **Viewer** — billing export dataset | `sa-nadia@glyphor.iam` / `roles/bigquery.dataViewer` (billing dataset only) |
+| GCP Cloud Storage | **Write** — `gs://glyphor-company/reports/` | `sa-nadia@glyphor.iam` / `roles/storage.objectCreator` (scoped) |
+| Vercel | **Billing Viewer** — usage and cost data only | `secrets/vercel/team-api-token` / `billing.read` scope |
+| Microsoft Teams | Post to #financials | `secrets/teams/webhook-financials` |
+
+**CRITICAL: Nadia has ZERO write access to Stripe. No agent can create subscriptions, issue refunds, or modify pricing. Ever.**
+
+### Data Access
+```
+READ:  revenue, infrastructure_costs, stripe_data, gcp_billing,
+       supabase_usage, vercel_usage, build_logs (count/cost columns only),
+       company_agents (cost data only), agent_reflections (cost data only)
+WRITE: financials, financial_reports, cost_alerts,
+       agent_memory (own
+------------------------
+output:
+("entity"<|>EXTERNAL CONTENT TONE & VOICE<|>Organizational Concept<|>The defined stylistic and communicative guidelines for all external content, including blog posts, social media, and case studies, emphasizing boldness, technical accessibility, authentic builder energy, and a policy against disparaging competitors.)
+##
+("entity"<|>INTERNAL/FOUNDER COMMUNICATION TONE & VOICE<|>Organizational Concept<|>The defined stylistic and communicative guidelines for internal and founder communications, characterized by directness, data-first approach, inclusion of recommendations, and conciseness for mobile readability.)
+##
+("entity"<|>GROWTH METRICS<|>Organizational Concept<|>A category of key performance indicators used to measure and track the company's overall growth and performance.)
+##
+("entity"<|>SEO RANKINGS<|>Metric<|>A measure of the company's visibility and position in search engine results for specific keywords, tracked on a weekly basis.)
+##
+("entity"<|>SOCIAL ENGAGEMENT<|>Metric<|>A measure of user interaction and activity on the company's social media content, primarily on LinkedIn and secondarily on Twitter.)
+##
+("entity"<|>INBOUND FUNNEL<|>Metric<|>A sequential metric tracking user progression from blog visits to signup, activation, and ultimately paid conversion.)
+##
+("entity"<|>ENTERPRISE PIPELINE<|>Metric<|>A metric representing the potential value of future enterprise business, including identified prospects and their estimated Annual Recurring Revenue (ARR) potential.)
+##
+("entity"<|>AI WEBSITE BUILDER RANKING<|>Metric<|>The current search engine ranking for the specific keyword phrase 'ai website builder', which is #11.)
+##
+("entity"<|>AUTONOMOUS DEVELOPMENT PLATFORM RANKING<|>Metric<|>The current search engine ranking for the specific keyword phrase 'autonomous development platform', which is within the top 50.)
+##
+("entity"<|>CONTENT STRATEGY<|>Organizational Concept<|>The strategic framework guiding the creation, publication, and management of all company content, with defined approval processes for changes.)
+##
+("entity"<|>GREEN AUTHORITY TIER (CONTENT STRATEGY)<|>Authority Tier<|>The lowest authority tier for content strategy, allowing autonomous action for content creation that adheres to the approved strategy.)
+##
+("entity"<|>YELLOW AUTHORITY TIER (CONTENT STRATEGY)<|>Authority Tier<|>An intermediate authority tier for content strategy, requiring approval from Kristina for any shifts in the content strategy.)
+##
+("entity"<|>RED AUTHORITY TIER (CONTENT STRATEGY)<|>Authority Tier<|>The highest authority tier for content strategy, which is input-only and provides assessment but does not make decisions regarding brand positioning changes.)
+##
+("entity"<|>KRISTINA<|>Human Founder<|>A human founder who holds the authority to approve Yellow tier changes related to content strategy.)
+##
+("entity"<|>Q1 2026 GOALS<|>Organizational Concept<|>Specific, marketing-relevant objectives set to be achieved during the first quarter of 2026.)
+##
+("entity"<|>ACTIVE FUSE USERS GOAL<|>Metric<|>A Q1 2026 goal to achieve 100 active users for the Fuse product.)
+##
+("entity"<|>FUSE<|>Product<|>A product offered by the company, for which a goal of 100 active users has been set.)
+##
+("entity"<|>PULSE<|>Product<|>A product planned for a public launch as part of the Q1 2026 goals.)
+##
+("entity"<|>ENTERPRISE PILOT GOAL<|>Metric<|>A Q1 2026 goal to secure 1 enterprise pilot.)
+##
+("entity"<|>LINKEDIN<|>Communication Channel<|>A professional social media platform identified as the primary channel for social engagement.)
+##
+("entity"<|>TWITTER<|>Communication Channel<|>A social media platform identified as the secondary channel for social engagement.)
+##
+("relationship"<|>EXTERNAL CONTENT TONE & VOICE<|>CONTENT STRATEGY<|>The external content tone and voice are fundamental guidelines that inform and shape the overall content strategy.<|>8)
+##
+("relationship"<|>GROWTH METRICS<|>SEO RANKINGS<|>SEO rankings are explicitly listed as one of the key growth metrics.<|>9)
+##
+("relationship"<|>GROWTH METRICS<|>SOCIAL ENGAGEMENT<|>Social engagement is explicitly listed as one of the key growth metrics.<|>9)
+##
+("relationship"<|>GROWTH METRICS<|>INBOUND FUNNEL<|>The inbound funnel is explicitly listed as one of the key growth metrics.<|>9)
+##
+("relationship"<|>GROWTH METRICS<|>ENTERPRISE PIPELINE<|>The enterprise pipeline is explicitly listed as one of the key growth metrics.<|>9)
+##
+("relationship"<|>SEO RANKINGS<|>AI WEBSITE BUILDER RANKING<|>The 'ai website builder' ranking is a specific instance and current position for a tracked SEO ranking.<|>8)
+##
+("relationship"<|>SEO RANKINGS<|>AUTONOMOUS DEVELOPMENT PLATFORM RANKING<|>The 'autonomous development platform' ranking is a specific instance and current position for a tracked SEO ranking.<|>8)
+##
+("relationship"<|>CONTENT STRATEGY<|>GREEN AUTHORITY TIER (CONTENT STRATEGY)<|>The content strategy defines what actions fall under the Green authority tier.<|>9)
+##
+("relationship"<|>CONTENT STRATEGY<|>YELLOW AUTHORITY TIER (CONTENT STRATEGY)<|>The content strategy defines what actions fall under the Yellow authority tier.<|>9)
+##
+("relationship"<|>CONTENT STRATEGY<|>RED AUTHORITY TIER (CONTENT STRATEGY)<|>The content strategy defines what actions fall under the Red authority tier.<|>9)
+##
+("relationship"<|>YELLOW AUTHORITY TIER (CONTENT STRATEGY)<|>KRISTINA<|>Kristina is the individual responsible for approving shifts in content strategy that fall under the Yellow authority tier.<|>9)
+##
+("relationship"<|>Q1 2026 GOALS<|>ACTIVE FUSE USERS GOAL<|>The active Fuse users goal is one of the specific marketing-relevant objectives for Q1 2026.<|>9)
+##
+("relationship"<|>Q1 2026 GOALS<|>PULSE<|>The public launch of Pulse is one of the specific marketing-relevant objectives for Q1 2026.<|>9)
+##
+("relationship"<|>Q1 2026 GOALS<|>ENTERPRISE PILOT GOAL<|>The enterprise pilot goal is one of the specific marketing-relevant objectives for Q1 2026.<|>9)
+##
+("relationship"<|>ACTIVE FUSE USERS GOAL<|>FUSE<|>The goal of 100 active users is specifically tied to the Fuse product.<|>9)
+##
+("relationship"<|>SOCIAL ENGAGEMENT<|>LINKEDIN<|>LinkedIn is identified as the primary platform for tracking social engagement.<|>8)
+##
+("relationship"<|>SOCIAL ENGAGEMENT<|>TWITTER<|>Twitter is identified as the secondary platform for tracking social engagement.<|>8)
+##
+("relationship"<|>INTERNAL/FOUNDER COMMUNICATION TONE & VOICE<|>KRISTINA<|>Kristina, as a founder, would adhere to the internal/founder communication tone and voice.<|>7)
+<|COMPLETE|>
+#############################
+
+
+
+-Real Data-
+######################
+entity_types: [Company, Human Founder, AI Agent Role, Product, Technology Platform/Service, Authority Tier, Organizational Concept, Metric, Data Store/Table, Communication Channel]
+text: {input_text}
+######################
+output:

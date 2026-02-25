@@ -1,7 +1,8 @@
 chunking:
   overlap: 200
   size: 1200
-community_reports: {}
+community_reports:
+  prompt: C:\Users\KristinaDenney\source\repos\glyphor-ai-company\packages\graphrag-indexer\prompts\community_report.txt
 completion_models:
   default_completion_model:
     api_key: ${GOOGLE_AI_API_KEY}
@@ -41,6 +42,7 @@ extract_graph:
   - INFRASTRUCTURE
   - COMPETITOR
   - DEPARTMENT
+  prompt: C:\Users\KristinaDenney\source\repos\glyphor-ai-company\packages\graphrag-indexer\prompts\entity_extraction.txt
 input:
   type: text
 input_storage:
@@ -51,4 +53,5 @@ output_storage:
   type: file
 snapshots:
   graphml: true
-summarize_descriptions: {}
+summarize_descriptions:
+  prompt: C:\Users\KristinaDenney\source\repos\glyphor-ai-company\packages\graphrag-indexer\prompts\summarize_descriptions.txt

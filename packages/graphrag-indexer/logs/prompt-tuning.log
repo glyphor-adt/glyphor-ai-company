@@ -740,3 +740,37 @@ litellm.exceptions.BadRequestError: litellm.BadRequestError: GeminiException Bad
 2026-02-25 09:50:03.0673 - INFO - graphrag.api.prompt_tune - Generating community report ranking description...
 2026-02-25 09:50:10.0172 - INFO - graphrag.api.prompt_tune - Generating entity types...
 2026-02-25 09:50:25.0123 - INFO - graphrag.api.prompt_tune - Generating entity relationship examples...
+2026-02-25 09:51:26.0673 - INFO - graphrag.api.prompt_tune - Generating entity extraction prompt...
+2026-02-25 09:51:26.0697 - INFO - graphrag.api.prompt_tune - Generating entity summarization prompt...
+2026-02-25 09:51:26.0697 - INFO - graphrag.api.prompt_tune - Generating community reporter role...
+2026-02-25 09:51:38.0355 - INFO - graphrag.api.prompt_tune - Generating community summarization prompt...
+2026-02-25 09:51:38.0392 - INFO - graphrag_llm.metrics.log_metrics_writer - Metrics for gemini/gemini-2.5-flash: {
+  "attempted_request_count": 9,
+  "successful_response_count": 9,
+  "failed_response_count": 0,
+  "failure_rate": 0.0,
+  "requests_with_retries": 0,
+  "retries": 0,
+  "retry_rate": 0.0,
+  "compute_duration_seconds": 265.70949244499207,
+  "compute_duration_per_response_seconds": 29.52327693833245,
+  "cache_hit_rate": 0.0,
+  "streaming_responses": 0,
+  "responses_with_tokens": 9,
+  "prompt_tokens": 99243,
+  "completion_tokens": 40091,
+  "total_tokens": 139334,
+  "tokens_per_response": 15481.555555555555,
+  "responses_with_cost": 9,
+  "input_cost": 0.029772899999999998,
+  "output_cost": 0.10022750000000001,
+  "total_cost": 0.1300004,
+  "cost_per_response": 0.014444488888888888
+}
+2026-02-25 09:51:38.0392 - INFO - graphrag_llm.metrics.log_metrics_writer - Metrics for gemini/gemini-embedding-001: {
+  "failure_rate": 0.0,
+  "compute_duration_per_response_seconds": 0.0,
+  "cache_hit_rate": 0.0,
+  "tokens_per_response": 0.0,
+  "cost_per_response": 0.0
+}
