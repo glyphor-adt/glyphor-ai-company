@@ -1,21 +1,23 @@
 # Glyphor AI Company — System Architecture
 
-> Last updated: 2026-02-28
+> Last updated: 2026-03-26
 
 ## Overview
 
-Glyphor AI Company is a monorepo containing 8 AI executive agents, 18 sub-team members, and
-1 operations agent that autonomously operate Glyphor alongside two human founders (Kristina
-Denney, CEO; Andrew Zwelling, COO). The agents run 24/7 on GCP Cloud Run, share state through
-Supabase, communicate with founders via Microsoft Teams, and are governed by a three-tier
-authority model (Green / Yellow / Red).
+Glyphor AI Company is a monorepo containing 9 AI executive agents, 23 sub-team/specialist
+members, and 2 operations agents that autonomously operate Glyphor alongside two human founders
+(Kristina Denney, CEO; Andrew Zwelling, COO). The agents run 24/7 on GCP Cloud Run, share
+state through Supabase, communicate with founders via Microsoft Teams, and are governed by a
+three-tier authority model (Green / Yellow / Red).
 
-Total headcount: **29** — 2 human founders, 8 AI executives, 18 AI team members, 1 AI ops agent.
+Total headcount: **36** — 2 human founders, 9 AI executives (8 reporting to CoS + 1 CLO
+reporting directly to founders), 1 VP, 4 research analysts, 18 AI team members, 2 AI ops agents.
 
 The founders work full-time at Microsoft with 5-10 h/week for Glyphor. The AI executive team
 handles everything else: daily operations, financial monitoring, content creation, product
 analysis, customer success, enterprise sales research, design & frontend quality,
-cross-functional synthesis, inter-agent communication, and strategic analysis.
+cross-functional synthesis, inter-agent communication, strategic analysis, legal & compliance,
+market research & intelligence, and global platform administration.
 
 ---
 
@@ -95,9 +97,9 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │  │ Simulation   │ ┌────────────────┐    ┌─────────────────────┐      │
 │  │ Engine       │ │ Agent Executor │    │  Decision Queue     │      │
 │  ├──────────────┤ │ (role→runner)  │    │  submit / approve   │      │
-│  │ Meeting      │ └────────┬───────┘    │  reminders (4 h)    │      │
-│  │ Engine       │          │            └─────────┬───────────┘      │
-│  ├──────────────┤          │                      │                 │
+│  │ Meeting      │ │ (34 agent      │    │  reminders (4 h)    │      │
+│  │ Engine       │ │  roles routed) │    └─────────┬───────────┘      │
+│  ├──────────────┤ └────────┬───────┘              │                 │
 │  │ CoT Engine   │          │                      │                 │
 │  ├──────────────┤          │                      │                 │
 │  │ Wake Router  │          │                      │                 │
@@ -150,29 +152,43 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │   ├─ graphTools                   │
 │   │  (query_knowledge_graph,      │
 │   │   add_knowledge, trace_*)     │
-│   └─ collectiveIntelligenceTools  │
-│      (pulse, knowledge routing,   │
-│       patterns, contradictions)   │
+│   ├─ collectiveIntelligenceTools  │
+│   │  (pulse, knowledge routing,   │
+│   │   patterns, contradictions)   │
+│   ├─ emailTools                   │
+│   │  (send_email, read_inbox,     │
+│   │   reply_to_email)             │
+│   ├─ agentCreationTools           │
+│   │  (create_specialist_agent,    │
+│   │   list/retire created agents) │
+│   └─ researchTools                │
+│      (web_search, web_fetch,      │
+│       submit_research_packet)     │
+│                                   │
+│  documentExtractor.ts             │
+│   (Office doc text extraction)    │
+│  config/agentEmails.ts            │
+│   (34 agent email registry)      │
 └───────────────┬───────────────────┘
                 │
                 ▼
 ┌───────────────────────────────────┐  ┌──────────────────────────────┐
 │        Company Memory             │  │   External Integrations      │
 │  ┌─────────────────────────────┐  │  │                              │
-│  │ Supabase (PostgreSQL)       │  │  │  Stripe  — MRR, churn, subs │
-│  │  ├ company_profile          │  │  │  Mercury — banking, cash     │
-│  │  ├ products                 │  │  │  GCP     — billing export    │
-│  │  ├ company_agents (28 cols) │  │  │                              │
-│  │  ├ decisions                │  │  └──────────────────────────────┘
-│  │  ├ activity_log             │  │
-│  │  ├ competitive_intel        │  │
-│  │  ├ customer_health          │  │
-│  │  ├ financials               │  │
-│  │  ├ product_proposals        │  │
-│  │  ├ events                   │  │
-│  │  ├ agent_memory (pgvector)  │  │
-│  │  ├ agent_reflections        │  │
-│  │  ├ agent_profiles           │  │
+│  │ Supabase (PostgreSQL)       │  │  │  Stripe     — MRR, churn    │
+│  │  ├ company_profile          │  │  │  Mercury    — banking, cash  │
+│  │  ├ products                 │  │  │  GCP        — billing export │
+│  │  ├ company_agents (28 cols) │  │  │  Anthropic  — billing/usage  │
+│  │  ├ decisions                │  │  │  OpenAI     — billing/usage  │
+│  │  ├ activity_log             │  │  │  Kling AI   — video billing  │
+│  │  ├ competitive_intel        │  │  │  Vercel     — deployments    │
+│  │  ├ customer_health          │  │  │  Web Search — OpenAI API     │
+│  │  ├ financials               │  │  │  Credentials— GitHub/M365   │
+│  │  ├ product_proposals        │  │  │  Governance — IAM sync      │
+│  │  ├ events                   │  │  │  Pulse      — company pulse │
+│  │  ├ agent_memory (pgvector)  │  │  │  Audit      — platform logs │
+│  │  ├ agent_reflections        │  │  │                              │
+│  │  ├ agent_profiles           │  │  └──────────────────────────────┘
 │  │  ├ agent_performance        │  │         ┌─────────────────────┐
 │  │  ├ agent_runs               │  │         │ Inter-Agent Comms   │
 │  │  ├ agent_briefs             │  │         │                     │
@@ -239,15 +255,51 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │         Sign-In (OAuth 2.0)               │
 │   API: Supabase direct + Scheduler /run   │
 └──────────────────────────────────────────┘
+
+┌──────────────────────────────────────────┐
+│  Voice Gateway (Cloud Run: voice-gateway) │
+│  TypeScript — OpenAI Realtime API         │
+│                                           │
+│  Endpoints:                               │
+│  POST /voice/dashboard      — WebRTC      │
+│  POST /voice/dashboard/end  — End session │
+│  POST /voice/teams/join     — Join call   │
+│  POST /voice/teams/leave    — Leave call  │
+│  POST /voice/teams/callback — Graph CB    │
+│  GET  /voice/sessions       — Active list │
+│  GET  /voice/usage          — Usage stats │
+│  GET  /health               — Health      │
+│                                           │
+│  10 OpenAI voices: alloy, ash, ballad,    │
+│  coral, echo, sage, shimmer, verse,       │
+│  marin, cedar                             │
+└──────────────────────────────────────────┘
+
+┌──────────────────────────────────────────┐
+│  GraphRAG Indexer (Python)                │
+│  Microsoft GraphRAG + Gemini extraction   │
+│                                           │
+│  Modules:                                 │
+│  ├ collector.py  — gather source docs     │
+│  ├ extractor.py  — entity extraction      │
+│  ├ bridge.py     — sync to Supabase       │
+│  ├ tune.py       — auto-tune prompts      │
+│  ├ index.py      — run indexing pipeline  │
+│  ├ server.py     — HTTP API               │
+│  └ config.py     — configuration          │
+│                                           │
+│  CLI: python -m graphrag_indexer.index    │
+│       python -m graphrag_indexer.tune     │
+└──────────────────────────────────────────┘
 ```
 
 ---
 
 ## Agent Roster
 
-### AI Executives (8)
+### AI Executives (9)
 
-All 8 executives have full agent runners (`run.ts`, `systemPrompt.ts`, `tools.ts`) and are
+All 9 executives have full agent runners (`run.ts`, `systemPrompt.ts`, `tools.ts`) and are
 active 24/7 via the scheduler service.
 
 | Name | Role | Agent ID | Model | Responsibilities |
@@ -260,6 +312,23 @@ active 24/7 via the scheduler service.
 | **James Turner** | VP Customer Success | `vp-customer-success` | `gemini-3-flash-preview` | Health scoring, churn prevention, nurture outreach, cross-product recommendations |
 | **Rachel Kim** | VP Sales | `vp-sales` | `gemini-3-flash-preview` | KYC research, ROI calculators, enterprise proposals, pipeline management, market sizing |
 | **Mia Tanaka** | VP Design & Frontend | `vp-design` | `gemini-3-flash-preview` | Design system governance, component quality audits, template variety, AI-smell detection |
+| **Victoria Chase** | Chief Legal Officer | `clo` | `gemini-3-flash-preview` | AI regulation (EU AI Act, FTC), IP protection, commercial agreements, data privacy (GDPR, CCPA, SOC 2), corporate governance |
+
+> **Note:** Victoria Chase (CLO) reports directly to both founders, not through Sarah Chen.
+
+### VP & Research Team (5)
+
+| Name | Title | Agent ID | Department | Reports To |
+|------|-------|----------|------------|------------|
+| **Sophia Lin** | VP Research & Intelligence | `vp-research` | Research & Intelligence | Sarah Chen (CoS) |
+| **Lena Park** | Competitive Research Analyst | `competitive-research-analyst` | Research & Intelligence | Sophia Lin |
+| **Daniel Okafor** | Market Research Analyst | `market-research-analyst` | Research & Intelligence | Sophia Lin |
+| **Kai Nakamura** | Technical Research Analyst | `technical-research-analyst` | Research & Intelligence | Sophia Lin |
+| **Amara Diallo** | Industry Research Analyst | `industry-research-analyst` | Research & Intelligence | Sophia Lin |
+
+The Research & Intelligence department uses a multi-wave workflow: Sarah Chen requests research →
+Sophia decomposes into analyst briefs → analysts execute in parallel with web search → Sophia QCs
+and synthesizes → executive-ready brief delivered. Supported by the `merge_research_packet` RPC.
 
 ### Sub-Team Members (18)
 
@@ -287,29 +356,32 @@ and dashboard entries. They operate under their executive's authority scope and 
 | **Sofia Marchetti** | Design Critic | Design & Frontend | Mia Tanaka (VP Design) |
 | **Ryan Park** | Template Architect | Design & Frontend | Mia Tanaka (VP Design) |
 
-### Operations Agent (1)
+### Operations Agents (2)
 
 | Name | Role | Agent ID | Model | Responsibilities |
 |------|------|----------|-------|-----------------|
 | **Atlas Vega** | Operations & System Intelligence | `ops` | `gemini-3-flash-preview` | System health checks, data freshness monitoring, cost awareness, morning/evening status reports, event response |
+| **Morgan Blake** | Global Administrator | `global-admin` | `gemini-3-flash-preview` | Cross-platform access provisioning (GCP, Entra ID, M365, GitHub, Vercel, Supabase, Stripe), onboarding/offboarding, access audits, compliance reporting |
+
+> **Note:** Morgan Blake has **Founder Protection** — cannot modify Kristina/Andrew/devops@glyphor.ai access.
 
 ### Org Chart
 
 ```
              Kristina Denney (CEO)     Andrew Zwelling (COO)
-                         \               /
-                          \             /
+                         \               /       \
+                          \             /         Victoria Chase (CLO)
                         Sarah Chen (CoS)
                               |
-        ┌─────────┬──────────┼──────────┬──────────┬──────────┬──────────┐
-        │         │          │          │          │          │          │
-     Marcus    Elena      Nadia      Maya      James     Rachel      Mia
-     (CTO)     (CPO)      (CFO)      (CMO)     (VP CS)   (VP Sales)  (VP Design)
-       │         │          │          │          │          │          │
-   Alex Park  Priya S.  Anna Park  Tyler Reed  Emma W.  Nathan C.  Leo Vargas
-   Sam DeLuca Daniel O.  Omar H.   Lisa Chen   David S.             Ava Chen
-   Jordan H.                        Kai J.                           Sofia M.
-   Riley M.                                                          Ryan Park
+   ┌─────────┬──────────┬────┴────┬──────────┬──────────┬──────────┬──────────┬──────────┐
+   │         │          │         │          │          │          │          │          │
+Marcus    Elena      Nadia      Maya      James     Rachel      Mia      Sophia    Morgan
+(CTO)     (CPO)      (CFO)      (CMO)     (VP CS)   (VP Sales)  (VP Des) (VP Res)  (Global Admin)
+  │         │          │          │          │          │          │          │
+Alex P.  Priya S.  Anna Park  Tyler R.   Emma W.  Nathan C.  Leo V.    Lena Park
+Sam D.   Daniel O.  Omar H.   Lisa C.    David S.             Ava C.    Daniel Okafor
+Jordan H.                      Kai J.                          Sofia M.  Kai Nakamura
+Riley M.                                                       Ryan P.   Amara Diallo
 ```
 
 ### Cron Schedules (GCP Cloud Scheduler)
@@ -350,11 +422,14 @@ glyphor-ai-company/
 │   │   └── src/
 │   │       ├── companyAgentRunner.ts   # Agent loop + knowledge + personality injection
 │   │       ├── modelClient.ts          # Multi-provider LLM facade (delegates to providers/)
+│   │       ├── documentExtractor.ts    # Office doc text extraction (officeparser: .docx/.pptx/.xlsx)
+│   │       ├── config/
+│   │       │   └── agentEmails.ts         # Agent email registry (34 agents → M365 shared mailboxes)
 │   │       ├── providers/              # Per-provider LLM adapters
 │   │       │   ├── types.ts               # Unified provider contract (ProviderAdapter interface)
 │   │       │   ├── gemini.ts              # GeminiAdapter (thinkingLevel/thinkingBudget, Imagen)
 │   │       │   ├── openai.ts              # OpenAIAdapter (o-series reasoning_effort, GPT-5, gpt-image-1)
-│   │       │   ├── anthropic.ts           # AnthropicAdapter (extended thinking, adaptive for opus-4-6)
+│   │       │   ├── anthropic.ts           # AnthropicAdapter (extended thinking, adaptive for claude-opus-4)
 │   │       │   └── index.ts               # ProviderFactory (lazy singleton per provider)
 │   │       ├── supervisor.ts           # Turn limits, stall detection, timeouts
 │   │       ├── toolExecutor.ts         # Tool declaration → execution bridge
@@ -377,7 +452,7 @@ glyphor-ai-company/
 │   │       ├── schema.ts             # Database row types
 │   │       └── migrations/           # Schema migration helpers
 │   │
-│   ├── agents/                  # Agent implementations (8 execs + 18 sub-team + 1 ops)
+│   ├── agents/                  # Agent implementations (9 execs + 5 research + 18 sub-team + 2 ops)
 │   │   └── src/
 │   │       ├── chief-of-staff/        # Sarah Chen — run.ts, systemPrompt.ts, tools.ts
 │   │       ├── cto/                   # Marcus Reeves
@@ -387,6 +462,13 @@ glyphor-ai-company/
 │   │       ├── vp-customer-success/   # James Turner
 │   │       ├── vp-sales/              # Rachel Kim
 │   │       ├── vp-design/             # Mia Tanaka
+│   │       ├── clo/                   # Victoria Chase (Chief Legal Officer)
+│   │       ├── vp-research/           # Sophia Lin (VP Research & Intelligence)
+│   │       ├── competitive-research-analyst/ # Lena Park (→ Sophia)
+│   │       ├── market-research-analyst/     # Daniel Okafor (→ Sophia)
+│   │       ├── technical-research-analyst/  # Kai Nakamura (→ Sophia)
+│   │       ├── industry-research-analyst/   # Amara Diallo (→ Sophia)
+│   │       ├── global-admin/          # Morgan Blake (Global Administrator)
 │   │       ├── platform-engineer/     # Alex Park (CTO team)
 │   │       ├── quality-engineer/      # Sam DeLuca (CTO team)
 │   │       ├── devops-engineer/       # Jordan Hayes (CTO team)
@@ -408,6 +490,9 @@ glyphor-ai-company/
 │   │       │   ├── assignmentTools.ts    # read/submit/flag assignments + dependency resolution
 │   │       │   ├── graphTools.ts         # query_knowledge_graph, add_knowledge, trace_causes/impact
 │   │       │   ├── collectiveIntelligenceTools.ts # pulse, knowledge routes, patterns, contradictions
+│   │       │   ├── emailTools.ts         # send_email, read_inbox, reply_to_email (M365 Graph API)
+│   │       │   ├── agentCreationTools.ts # create_specialist_agent, list/retire (max 3, 7d TTL)
+│   │       │   ├── researchTools.ts      # web_search, web_fetch, submit_research_packet
 │   │       │   └── createRunDeps.ts      # Wire up all run dependencies for any agent
 │   │       └── index.ts              # Re-exports all runners
 │   │
@@ -422,7 +507,7 @@ glyphor-ai-company/
 │   │   │   ├── operations.md          # Operations department context
 │   │   │   ├── product.md             # Product department context
 │   │   │   └── sales-cs.md            # Sales & CS department context
-│   │   └── briefs/                    # 27 role briefs (8 execs + 18 sub-team + 1 ops)
+│   │   └── briefs/                    # 34 role briefs (9 execs + 5 research + 18 sub-team + 2 ops)
 │   │       ├── sarah-chen.md          # Chief of Staff
 │   │       ├── marcus-reeves.md       # CTO
 │   │       ├── nadia-okafor.md        # CFO
@@ -431,7 +516,10 @@ glyphor-ai-company/
 │   │       ├── james-turner.md        # VP Customer Success
 │   │       ├── rachel-kim.md          # VP Sales
 │   │       ├── mia-tanaka.md          # VP Design & Frontend
+│   │       ├── victoria-chase.md      # Chief Legal Officer
+│   │       ├── sophia-lin.md          # VP Research & Intelligence
 │   │       ├── atlas-vega.md          # Operations & System Intelligence
+│   │       ├── morgan-blake.md        # Global Administrator
 │   │       ├── alex-park.md           # Platform Engineer (→ CTO)
 │   │       ├── sam-deluca.md          # Quality Engineer (→ CTO)
 │   │       ├── jordan-hayes.md        # DevOps Engineer (→ CTO)
@@ -448,11 +536,17 @@ glyphor-ai-company/
 │   │       ├── leo-vargas.md          # UI/UX Designer (→ VP Design)
 │   │       ├── ava-chen.md            # Frontend Engineer (→ VP Design)
 │   │       ├── sofia-marchetti.md     # Design Critic (→ VP Design)
-│   │       └── ryan-park.md           # Template Architect (→ VP Design)
+│   │       ├── ryan-park.md           # Template Architect (→ VP Design)
+│   │       ├── lena-park.md           # Competitive Research Analyst (→ VP Research)
+│   │       ├── daniel-okafor.md       # Market Research Analyst (→ VP Research)
+│   │       ├── kai-nakamura.md        # Technical Research Analyst (→ VP Research)
+│   │       └── amara-diallo.md        # Industry Research Analyst (→ VP Research)
 │   │
 │   ├── integrations/            # External service connectors
 │   │   └── src/
 │   │       ├── index.ts               # Re-exports all integrations
+│   │       ├── audit.ts               # Platform audit logger (structured logging to platform_audit_log)
+│   │       ├── webSearch.ts           # Web search via OpenAI Responses API (web_search_preview)
 │   │       ├── teams/
 │   │       │   ├── bot.ts             # Bot Framework handler (multi-bot, JWT validation)
 │   │       │   ├── webhooks.ts        # Incoming webhook sender
@@ -487,14 +581,32 @@ glyphor-ai-company/
 │   │       │   └── index.ts           # SEO analysis & keyword tracking
 │   │       ├── wappalyzer/
 │   │       │   └── index.ts           # Tech stack detection
-│   │       └── search-console/
-│   │           └── index.ts           # Google Search Console data
+│   │       ├── search-console/
+│   │       │   └── index.ts           # Google Search Console data
+│   │       ├── anthropic/
+│   │       │   ├── billing.ts         # Anthropic (Claude) billing/usage tracking
+│   │       │   └── index.ts
+│   │       ├── openai/
+│   │       │   ├── billing.ts         # OpenAI billing/usage tracking
+│   │       │   └── index.ts
+│   │       ├── kling/
+│   │       │   ├── billing.ts         # Kling AI video generation billing
+│   │       │   └── index.ts
+│   │       ├── vercel/
+│   │       │   └── index.ts           # Vercel deployment platform
+│   │       ├── credentials/
+│   │       │   ├── githubScoping.ts   # GitHub scope management
+│   │       │   └── m365Router.ts      # M365 credential routing
+│   │       ├── governance/
+│   │       │   └── iamSync.ts         # IAM state synchronization
+│   │       └── pulse/
+│   │           └── index.ts           # Company Pulse data
 │   │
 │   ├── scheduler/               # Orchestration service
 │   │   └── src/
-│   │       ├── server.ts              # HTTP server (Cloud Run entry, 40+ endpoints)
+│   │       ├── server.ts              # HTTP server (Cloud Run entry, 40+ endpoints, 34 agent routes)
 │   │       ├── eventRouter.ts         # Event → agent routing + authority
-│   │       ├── authorityGates.ts      # Green/Yellow/Red classification (all 27 roles)
+│   │       ├── authorityGates.ts      # Green/Yellow/Red classification (all 34 roles)
 │   │       ├── cronManager.ts         # 9 agent + 4 data sync job definitions
 │   │       ├── dynamicScheduler.ts    # DB-driven cron for dynamic agents
 │   │       ├── dataSyncScheduler.ts   # Internal cron for data sync jobs (fires HTTP to self)
@@ -509,13 +621,13 @@ glyphor-ai-company/
 │   │       ├── wakeRules.ts           # Declarative event-to-agent wake mappings
 │   │       └── heartbeat.ts           # Lightweight periodic agent check-ins (DB only)
 │   │
-│   └── dashboard/               # Web UI
+│   ├── dashboard/               # Web UI
 │       ├── src/
 │       │   ├── pages/
 │       │   │   ├── Dashboard.tsx      # Agent overview & metrics
 │       │   │   ├── Chat.tsx           # Real-time agent chat (react-markdown)
 │       │   │   ├── GroupChat.tsx      # Multi-agent group chat
-│       │   │   ├── Workforce.tsx      # Org chart + grid view (7 departments)
+│       │   │   ├── Workforce.tsx      # Org chart + grid view (10 departments)
 │       │   │   ├── WorkforceBuilder.tsx # Drag-and-drop org chart builder
 │       │   │   ├── AgentsList.tsx     # Agent roster & grid
 │       │   │   ├── AgentProfile.tsx   # 5-tab agent profile (overview, perf,
@@ -553,6 +665,28 @@ glyphor-ai-company/
 │       │   └── index.css             # Tailwind + Glyphor brand theme
 │       └── package.json
 │
+│   ├── voice-gateway/           # Voice agent gateway (Cloud Run service)
+│   │   └── src/
+│   │       ├── server.ts              # HTTP server (dashboard + Teams voice endpoints)
+│   │       ├── sessionManager.ts      # Voice session lifecycle management
+│   │       ├── realtimeClient.ts      # OpenAI Realtime API WebSocket client
+│   │       ├── dashboardHandler.ts    # Dashboard WebRTC voice sessions
+│   │       ├── teamsHandler.ts        # Teams meeting voice (Graph Communications API)
+│   │       ├── voiceMap.ts            # Agent → voice mapping (10 OpenAI voices)
+│   │       ├── voicePrompt.ts         # Voice-optimized system prompts
+│   │       ├── toolBridge.ts          # Bridge agent tools into voice sessions
+│   │       └── types.ts              # VoiceSession, AgentVoiceConfig, RealtimeVoice
+│   │
+│   └── graphrag-indexer/        # Knowledge graph indexer (Python)
+│       └── graphrag_indexer/
+│           ├── config.py              # Configuration (Gemini, embeddings, Supabase)
+│           ├── collector.py           # Gather source docs (knowledge base + agent outputs)
+│           ├── extractor.py           # Entity extraction (Microsoft GraphRAG + Gemini)
+│           ├── bridge.py              # Sync extracted graph to Supabase kg_nodes/kg_edges
+│           ├── tune.py                # Auto-tune extraction prompts to Glyphor domain
+│           ├── index.py               # Run full indexing pipeline
+│           └── server.py              # HTTP API for on-demand indexing
+│
 ├── docker/
 │   ├── Dockerfile.scheduler     # node:22-slim builder → node:22-slim runtime
 │   ├── Dockerfile.dashboard     # node:22-slim builder → nginx:1.27-alpine
@@ -568,8 +702,8 @@ glyphor-ai-company/
 │       └── open-dashboard.sh
 │
 ├── teams/                       # Microsoft Teams app packages
-│   ├── manifest.json            # Main Glyphor AI team tab + bot (v1.1.0)
-│   └── agents/                  # 9 individual agent bot manifests + zip packages
+│   ├── manifest.json            # Main Glyphor AI team tab + bot (v1.2.0, manifest v1.17)
+│   └── agents/                  # 10 individual agent bot manifests + zip packages
 │       ├── sarah-chen/          # Chief of Staff bot
 │       ├── atlas-vega/          # Operations bot
 │       ├── marcus-reeves/       # CTO bot
@@ -578,9 +712,10 @@ glyphor-ai-company/
 │       ├── maya-brooks/         # CMO bot
 │       ├── james-turner/        # VP CS bot
 │       ├── rachel-kim/          # VP Sales bot
-│       └── riley-morgan/        # M365 Admin bot
+│       ├── riley-morgan/        # M365 Admin bot
+│       └── morgan-blake/        # Global Admin bot
 │
-├── supabase/migrations/         # 33 migration files
+├── supabase/migrations/         # 56 migration files
 ├── .github/workflows/deploy.yml # CI/CD (GitHub Actions → Cloud Run)
 ├── turbo.json                   # Turborepo pipeline config
 ├── tsconfig.base.json           # Shared TS config
@@ -629,13 +764,13 @@ path that powers 24/7 autonomous operations.
                    └───────────────┘         │                  │
                                              ▼                  ▼
                               ┌──────────────────────────────────┐
-                              │   Role Dispatch (27 branches)    │
+                              │   Role Dispatch (34 branches)    │
                               │                                  │
                               │   chief-of-staff → runCoS()      │
                               │   cto → runCTO()                 │
                               │   cfo → runCFO()                 │
                               │   cpo → runCPO()                 │
-                              │   ... (all 27 agent runners)     │
+                              │   ... (all 34 agent runners)     │
                               └──────────────┬───────────────────┘
                                              │
                                              ▼
@@ -857,7 +992,7 @@ no LLM calls until actual work is found.
 │  │    Tier selection (same as before):                                │  │
 │  │      High   (every cycle / 10 min): chief-of-staff, cto, ops     │  │
 │  │      Medium (every 2nd / 20 min):   other executives              │  │
-│  │      Low    (every 3rd / 30 min):   all 18 sub-team members       │  │
+│  │      Low    (every 3rd / 30 min):   all 23 sub-team/research      │  │
 │  │                                                                  │  │
 │  │    For each agent in tier:                                        │  │
 │  │      ✓ Skip if ran < 5 min ago (MIN_RUN_GAP)                     │  │
@@ -1255,6 +1390,13 @@ Name mapping (`ROLE_TO_BRIEF`):
 | `vp-customer-success` | `james-turner.md` |
 | `vp-sales` | `rachel-kim.md` |
 | `vp-design` | `mia-tanaka.md` |
+| `clo` | `victoria-chase.md` |
+| `vp-research` | `sophia-lin.md` |
+| `competitive-research-analyst` | `lena-park.md` |
+| `market-research-analyst` | `daniel-okafor.md` |
+| `technical-research-analyst` | `kai-nakamura.md` |
+| `industry-research-analyst` | `amara-diallo.md` |
+| `global-admin` | `morgan-blake.md` |
 | `platform-engineer` | `alex-park.md` |
 | `quality-engineer` | `sam-deluca.md` |
 | `devops-engineer` | `jordan-hayes.md` |
@@ -1284,7 +1426,7 @@ handles provider-specific conversation mapping, response parsing, and feature ne
 
 ```
 ModelClient.generate(request)
-  → detectProvider(model)           // gemini-* | gpt-*/o*-* | claude-*
+  → detectProvider(model)           // gemini-* | gpt-*/o[134]* | claude-*
   → ProviderFactory.get(provider)   // lazy singleton
   → adapter.generate(request)       // provider-specific API call
   → raceAbort(promise, signal)      // shared timeout/abort racing
@@ -1294,10 +1436,16 @@ ModelClient.generate(request)
 | Provider | Model Prefixes | Auth Env Var | Adapter | Features |
 |----------|---------------|--------------|---------|----------|
 | Google Gemini | `gemini-*` | `GOOGLE_AI_API_KEY` | `GeminiAdapter` | Function calling, thinkingLevel (3.x) / thinkingBudget (2.5), thought signatures, Imagen image gen |
-| OpenAI | `gpt-*`, `o1-*`, `o3-*`, `o4-*` | `OPENAI_API_KEY` | `OpenAIAdapter` | Function calling, reasoning_effort (o-series/GPT-5), max_completion_tokens, gpt-image-1 |
-| Anthropic | `claude-*` | `ANTHROPIC_API_KEY` | `AnthropicAdapter` | Tool use, extended thinking (manual or adaptive for claude-opus-4-6) |
+| OpenAI | `gpt-*`, `/^o[134](-\|$)/` | `OPENAI_API_KEY` | `OpenAIAdapter` | Function calling, reasoning_effort (o-series/GPT-5), max_completion_tokens, gpt-image-1 |
+| Anthropic | `claude-*` | `ANTHROPIC_API_KEY` | `AnthropicAdapter` | Tool use, extended thinking (manual or adaptive for claude-opus-4) |
 
-All agents currently use **`gemini-3-flash-preview`**. Multi-provider support is built in for fallback.
+All agents currently use **`gemini-3-flash-preview`**. Multi-provider support is built in for
+fallback. Agents can be switched to any supported model via the dashboard Settings tab.
+
+**Supported models (dashboard dropdowns):**
+- **Gemini:** gemini-3.1-pro-preview, gemini-3-flash-preview, gemini-3-pro-preview, gemini-2.5-flash, gemini-2.5-flash-lite, gemini-2.5-pro
+- **OpenAI:** gpt-5.2, gpt-5.2-pro, gpt-5.1, gpt-5, gpt-5-mini, gpt-5-nano, gpt-4.1, gpt-4.1-mini, o3, o4-mini
+- **Anthropic:** claude-opus-4-20250514, claude-sonnet-4-20250514, claude-haiku-4-5-20250514
 
 #### Image Generation
 
@@ -1448,7 +1596,7 @@ Grant requests for tools not in the registry are rejected with a message to ask 
 
 **Database**: `agent_tool_grants` table with columns `agent_role`, `tool_name`, `granted_by`,
 `reason`, `directive_id`, `scope`, `is_active`, `expires_at`. Unique constraint on
-`(agent_role, tool_name)`. Seeded with baseline grants for all 27 agents.
+`(agent_role, tool_name)`. Seeded with baseline grants for all 34 agents.
 
 ### Pre-Dispatch Validation (Chief of Staff)
 
@@ -1914,7 +2062,7 @@ Working memory (last-run summary) is stored in the `company_agents` table via th
 `last_run_summary` and `last_run_at` columns — not a separate table. This enables
 continuity between runs without additional migration.
 
-Total: **35+ migration files**, **70+ tables**, **9 RPC functions**, **1 extension (pgvector)**.
+Total: **56 migration files**, **70+ tables**, **9 RPC functions**, **1 extension (pgvector)**.
 
 ---
 
@@ -1935,6 +2083,7 @@ Total: **35+ migration files**, **70+ tables**, **9 RPC functions**, **1 extensi
 | Cloud Run | `glyphor-scheduler` | Agent execution, API endpoints, financial syncs |
 | Cloud Run | `glyphor-dashboard` | React dashboard (nginx) |
 | Cloud Run | `glyphor-chief-of-staff` | Dedicated CoS agent service |
+| Cloud Run | `voice-gateway` | Voice agent sessions (WebRTC + Teams) |
 | Cloud Scheduler | 9 agent + 3 sync jobs | Agent triggers → Pub/Sub; data syncs → HTTP |
 | Pub/Sub | `glyphor-agent-events` | Cron message delivery |
 | Pub/Sub | `glyphor-events` | Inter-agent event bus |
@@ -1949,9 +2098,11 @@ Total: **35+ migration files**, **70+ tables**, **9 RPC functions**, **1 extensi
 | Service | Purpose | Config |
 |---------|---------|--------|
 | Supabase | PostgreSQL, auth, realtime | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` |
-| Google Gemini API | All AI inference | `GOOGLE_AI_API_KEY` |
+| Google Gemini API | Primary AI inference | `GOOGLE_AI_API_KEY` |
+| OpenAI API | Alternative AI inference + web search + image gen | `OPENAI_API_KEY` |
+| Anthropic API | Alternative AI inference (Claude) | `ANTHROPIC_API_KEY` |
 | Microsoft Entra ID | Teams auth (MSAL client credentials) | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` |
-| Azure Bot Service | Bot Framework (main + 8 agent bots) | `BOT_APP_ID`, `BOT_APP_SECRET`, `BOT_TENANT_ID`, `AGENT_BOTS` |
+| Azure Bot Service | Bot Framework (main + 10 agent bots) | `BOT_APP_ID`, `BOT_APP_SECRET`, `BOT_TENANT_ID`, `AGENT_BOTS` |
 | Stripe | Revenue tracking (MRR, churn, subscriptions) | `STRIPE_SECRET_KEY` |
 | Mercury | Banking (cash balance, cash flows, vendor subs) | `MERCURY_API_TOKEN` |
 
@@ -2014,7 +2165,7 @@ Total: **35+ migration files**, **70+ tables**, **9 RPC functions**, **1 extensi
 | Dashboard | `/` | Agent activity overview, key metrics |
 | Chat | `/chat`, `/chat/:agentId` | Multi-turn conversational agent chat with history |
 | Group Chat | `/group-chat` | Multi-agent group chat |
-| Workforce | `/workforce` | Org chart (7 departments) + grid view — 28 total headcount |
+| Workforce | `/workforce` | Org chart (10 departments) + grid view — 36 total headcount |
 | Workforce Builder | `/workforce/builder` | Drag-and-drop org chart builder with templates |
 | Agents | `/agents` | Agent roster with status, model, last run |
 | Agent Profile | `/agents/:agentId` | 5-tab profile: Overview (personality, backstory, strengths), Performance (quality scores, growth areas, peer feedback), Memory (memories + reflections), Messages (DMs + meeting participation), Settings (model, temperature, budget, system prompt) |
@@ -2038,13 +2189,16 @@ Total: **35+ migration files**, **70+ tables**, **9 RPC functions**, **1 extensi
 
 | Department | Executive | Team Members |
 |------------|-----------|-------------|
-| Engineering | Marcus Reeves (CTO) | Alex Park, Sam DeLuca, Jordan Hayes |
+| Engineering | Marcus Reeves (CTO) | Alex Park, Sam DeLuca, Jordan Hayes, Riley Morgan |
 | Product | Elena Vasquez (CPO) | Priya Sharma, Daniel Ortiz |
 | Finance | Nadia Okafor (CFO) | Anna Park, Omar Hassan |
 | Marketing | Maya Brooks (CMO) | Tyler Reed, Lisa Chen, Kai Johnson |
 | Customer Success | James Turner (VP CS) | Emma Wright, David Santos |
 | Sales | Rachel Kim (VP Sales) | Nathan Cole |
 | Design & Frontend | Mia Tanaka (VP Design) | Leo Vargas, Ava Chen, Sofia Marchetti, Ryan Park |
+| Research & Intelligence | Sophia Lin (VP Research) | Lena Park, Daniel Okafor, Kai Nakamura, Amara Diallo |
+| Legal | Victoria Chase (CLO) | — |
+| Operations | — | Atlas Vega, Morgan Blake |
 
 ### Build Args (baked at Docker build)
 
@@ -2207,7 +2361,7 @@ Dashboard → POST /analysis/run {type:"competitive_landscape", query:"AI market
 | Bot Auth | JWT validation via `jose` — JWKS from Bot Framework and Entra ID OpenID endpoints, multi-audience support |
 | Supabase | Service key server-side; anon key client-side with RLS |
 | Teams Auth | MSAL client credentials (app-only) for Graph API; Bot Framework tokens for bot replies |
-| Azure Entra ID | SingleTenant app registrations — 1 main + 8 agent bots, all with client secrets in GCP Secret Manager |
+| Azure Entra ID | SingleTenant app registrations — 1 main + 10 agent bots, all with client secrets in GCP Secret Manager |
 | CORS | Scheduler allows `*` for dashboard |
 | Network | Scheduler: `--allow-unauthenticated` (for Bot Framework callbacks); Dashboard: `--allow-unauthenticated` |
 | IAM | `allUsers` → `roles/run.invoker` on scheduler |
@@ -2225,7 +2379,7 @@ Dashboard → POST /analysis/run {type:"competitive_landscape", query:"AI market
 
 ```bash
 npm install                   # Install all workspace deps
-npx turbo build               # Turborepo build (all 6 packages)
+npx turbo build               # Turborepo build (all 8 packages)
 npm run cos:briefing          # Run CoS briefing locally
 npm run dashboard:dev         # Dashboard dev server
 ```
@@ -2242,7 +2396,7 @@ Deployment is handled by GitHub Actions CI/CD (`.github/workflows/deploy.yml`) o
 
 ```
 push to main
-  → build job: npm ci → turbo build (6 packages)
+  → build job: npm ci → turbo build (8 packages)
   → deploy-scheduler job:
       → Auth via Workload Identity Federation
       → Docker build + push to Artifact Registry
@@ -2265,7 +2419,7 @@ push to main
 | `teams-team-id` | Teams team |
 | `teams-channel-*-id` (9 secrets) | Teams channels |
 | `bot-app-id`, `bot-app-secret`, `bot-tenant-id` | Main bot |
-| `agent-bots` | JSON array of 8 agent bot configs |
+| `agent-bots` | JSON array of 10 agent bot configs |
 
 ```bash
 # Full deploy (scheduler + chief-of-staff + dashboard)
