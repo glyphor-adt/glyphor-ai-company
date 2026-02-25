@@ -1601,7 +1601,6 @@ function SLv2RecordCard({ record, expanded, onToggle }: { record: SLv2Record; ex
 
 function SLv2WaveProgress({ record }: { record: SLv2Record }) {
   const r = record;
-  const pastStatuses = new Set<string>();
   const statusOrder: SLv2Status[] = ['planning', 'framing', 'decomposing', 'researching', 'quality-check', 'analyzing', 'synthesizing', 'deepening', 'completed'];
   const currentIdx = statusOrder.indexOf(r.status);
 

@@ -67,6 +67,9 @@ const AGENTS = [
 
   // ── Operations ──
   { role: 'ops', name: 'Atlas Vega', desc: 'androgynous person, mid 30s, silver-streaked dark hair, calm watchful eyes, neutral composed' },
+
+  // ── Legal ──
+  { role: 'clo', name: 'Victoria Chase', desc: 'white woman, late 30s, sleek auburn hair pulled back, sharp green eyes, poised commanding presence, tailored blazer, pearl earrings' },
 ];
 
 function buildPrompt(agent) {

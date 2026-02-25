@@ -146,20 +146,23 @@ Return structured JSON with keys: findings (object), analystBriefs (array of { a
     maxStallTurns: 3,
     timeoutMs: 600_000,  // 10 min — QC + gap-filling takes time
     temperature: agentCfg.temperature,
+    thinkingEnabled: agentCfg.thinkingEnabled,
+    conversationHistory: params.conversationHistory,
   };
 
-  const supervisor = new AgentSupervisor();
-  const result = await runner.run(config, initialMessage, toolExecutor, supervisor);
+  const supervisor = new AgentSupervisor({
+    maxTurns: config.maxTurns,
+    maxStallTurns: config.maxStallTurns,
+    timeoutMs: config.timeoutMs,
+    onEvent: (event) => eventBus.emit(event),
+  });
 
-  const glyphorEvent = {
-    type: 'agent.completed' as const,
-    agentId: config.id,
-    agentRole: 'vp-research',
-    summary: result.output?.slice(0, 300) || 'VP Research task completed.',
-    timestamp: new Date().toISOString(),
-    data: { task, totalTurns: result.totalTurns, totalToolCalls: result.totalToolCalls },
-  };
-  try { await glyphorEventBus.emit(glyphorEvent); } catch { /* best-effort */ }
-
+  const result = await runner.run(
+    config, initialMessage, supervisor, toolExecutor,
+    (event) => eventBus.emit(event), memory,
+    createRunDeps(supabase, glyphorEventBus, memory),
+  );
+  try { await memory.recordAgentRun('vp-research', 0, 0.10); } catch {}
+  console.log(`[Sophia] ${result.status} (${result.totalTurns} turns)`);
   return result;
 }

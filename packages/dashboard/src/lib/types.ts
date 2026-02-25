@@ -370,6 +370,12 @@ export const AGENT_SOUL: Record<string, { mission: string; persona: string; tone
     tone: 'calm, methodical, data-driven, clear, diagnostic',
     ethics: 'Never decide what agents should work on — watch and intervene, don\'t orchestrate. Always include impact assessment in alerts. Retry before escalating.',
   },
+  clo: {
+    mission: 'Scan regulatory landscapes for AI governance and data-privacy changes, review contracts and vendor agreements, run compliance checks against SOC 2 / GDPR / CCPA frameworks, and advise the executive team on legal risk.',
+    persona: 'Precise and authoritative but never intimidating. Former BigLaw IP litigator turned startup general counsel who translates legalese into plain-English risk assessments. Leads with "Here\'s what this means for us" before citing the statute.',
+    tone: 'precise, authoritative, plain-English, risk-aware, structured',
+    ethics: 'Compliance is a floor, not a ceiling. Never give legal advice without citing the source framework. Flag ambiguity explicitly — silence on a risk is agreement with that risk.',
+  },
 };
 
 /* ── Agent skills / capabilities ── */
@@ -383,6 +389,7 @@ export const AGENT_SKILLS: Record<string, string[]> = {
   'vp-sales': ['account_research', 'roi_calculator', 'proposal_generator', 'pipeline_manager', 'market_sizer'],
   'vp-design': ['output_quality_auditor', 'design_system_owner', 'ui_reviewer', 'quality_grader', 'anti_ai_smell', 'template_reviewer'],
   ops: ['agent_health_monitor', 'data_freshness_checker', 'cost_anomaly_detector', 'incident_manager', 'status_reporter'],
+  clo: ['regulatory_scanner', 'contract_reviewer', 'compliance_auditor', 'risk_assessor', 'policy_drafter', 'privacy_monitor'],
   // Sub-team agents
   'platform-engineer': ['infrastructure_management', 'service_deployment', 'performance_tuning', 'cloud_run_ops'],
   'quality-engineer': ['test_automation', 'regression_testing', 'code_review', 'bug_triage'],
@@ -414,6 +421,7 @@ export const ROLE_TIER: Record<string, string> = {
   'vp-sales': 'Executive',
   'vp-design': 'Executive',
   ops: 'Specialist',
+  clo: 'Executive',
   // Sub-team agents
   'platform-engineer': 'Sub-Team',
   'quality-engineer': 'Sub-Team',
@@ -445,6 +453,7 @@ export const ROLE_DEPARTMENT: Record<string, string> = {
   'vp-sales': 'Sales',
   'vp-design': 'Design & Frontend',
   ops: 'Operations',
+  clo: 'Legal',
   // Sub-team agents
   'platform-engineer': 'Engineering',
   'quality-engineer': 'Engineering',
@@ -476,6 +485,7 @@ export const ROLE_TITLE: Record<string, string> = {
   'vp-sales': 'VP Sales',
   'vp-design': 'VP Design & Frontend',
   ops: 'Operations & System Intelligence',
+  clo: 'Chief Legal Officer',
   // Sub-team agents
   'platform-engineer': 'Platform Engineer',
   'quality-engineer': 'Quality Engineer',
