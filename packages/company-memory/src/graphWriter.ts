@@ -88,7 +88,7 @@ export class KnowledgeGraphWriter {
           importance: node.importance ?? 0.5,
           tags: node.tags ?? [],
           embedding: JSON.stringify(emb),
-          source_run_id: runId,
+          source_run_id: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(runId) ? runId : null,
           source_type: 'reflection',
           metadata: node.metadata ?? {},
           occurred_at: node.occurred_at ?? new Date().toISOString(),

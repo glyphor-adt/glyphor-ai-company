@@ -166,6 +166,25 @@ const RESEARCH_ANALYST_ROLES: Record<string, { name: string; packetType: string 
   'industry-research-analyst': { name: 'Amara Diallo', packetType: 'industry_trends' },
 };
 
+/** Normalise analyst role strings from LLM output to canonical role IDs */
+function normalizeAnalystRole(raw: string): string {
+  if (!raw) return '';
+  const key = raw.toLowerCase().replace(/[_\s]+/g, '-').trim();
+  if (RESEARCH_ANALYST_ROLES[key]) return key;
+  // Match by keyword prefix
+  if (/^compet/.test(key)) return 'competitive-research-analyst';
+  if (/^market/.test(key)) return 'market-research-analyst';
+  if (/^tech/.test(key)) return 'technical-research-analyst';
+  if (/^industr/.test(key)) return 'industry-research-analyst';
+  // Match by analyst name
+  const lower = raw.toLowerCase();
+  if (lower.includes('lena')) return 'competitive-research-analyst';
+  if (lower.includes('daniel')) return 'market-research-analyst';
+  if (lower.includes('kai')) return 'technical-research-analyst';
+  if (lower.includes('amara')) return 'industry-research-analyst';
+  return '';
+}
+
 const EXEC_FRAMEWORKS: Record<string, { name: string; framework: string }> = {
   'cpo': { name: 'Elena Vasquez', framework: 'Ansoff Matrix + Product Strategy' },
   'cfo': { name: 'Nadia Al-Rashid', framework: 'BCG Matrix + Financial Analysis' },
@@ -611,14 +630,22 @@ Return ONLY valid JSON — no markdown fences.`,
 
           // Extract briefs from Sophia's structured output
           if (Array.isArray(parsed.briefs)) {
-            sophiaBriefs = parsed.briefs.map((b: Record<string, unknown>) => ({
-              analystRole: b.analystRole as string || '',
-              analystName: RESEARCH_ANALYST_ROLES[b.analystRole as string]?.name || b.analystName as string || '',
-              researchBrief: b.researchBrief as string || b.brief as string || '',
-              suggestedSearches: (b.suggestedSearches as string[] || b.searchQueries as string[] || []),
-              expectedOutput: RESEARCH_ANALYST_ROLES[b.analystRole as string]?.packetType || b.expectedOutput as string || '',
-              targetExecutives: b.targetExecutives as string[] || [],
-            }));
+            sophiaBriefs = parsed.briefs
+              .map((b: Record<string, unknown>) => {
+                const role = normalizeAnalystRole(
+                  (b.analystRole ?? b.analyst_role ?? b.role ?? b.analyst ?? '') as string,
+                );
+                if (!role) return null;
+                return {
+                  analystRole: role,
+                  analystName: RESEARCH_ANALYST_ROLES[role]?.name || b.analystName as string || '',
+                  researchBrief: b.researchBrief as string || b.brief as string || '',
+                  suggestedSearches: (b.suggestedSearches as string[] || b.searchQueries as string[] || []),
+                  expectedOutput: RESEARCH_ANALYST_ROLES[role]?.packetType || b.expectedOutput as string || '',
+                  targetExecutives: b.targetExecutives as string[] || [],
+                };
+              })
+              .filter(Boolean) as ResearchBrief[];
           }
 
           // Extract routing
@@ -1019,7 +1046,12 @@ Return an empty array [] if the analysis is sufficiently thorough.`;
     const gapText = gapResponse.text ?? '';
     const gapMatch = gapText.match(/\[[\s\S]*\]/);
     if (gapMatch) {
-      try { gaps = JSON.parse(gapMatch[0]); } catch { /* no gaps */ }
+      try {
+        const rawGaps = JSON.parse(gapMatch[0]) as { analystRole: string; researchBrief: string; searchQueries: string[] }[];
+        gaps = rawGaps
+          .map((g) => ({ ...g, analystRole: normalizeAnalystRole(g.analystRole) }))
+          .filter((g) => g.analystRole !== '');
+      } catch { /* no gaps */ }
     }
 
     if (gaps.length === 0) return;

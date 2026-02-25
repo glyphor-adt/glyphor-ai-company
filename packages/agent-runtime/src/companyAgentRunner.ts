@@ -68,10 +68,11 @@ function estimateCost(model: string, inputTokens: number, outputTokens: number):
 
 /** Overall supervisor limits for on_demand (chat) — keep well within the
  *  dashboard's 120 s fetch-abort so users actually see the response.
- *  Turn budget: 1 toolless conversational turn + up to 4 tool turns + 1 forced-text turn = 6.
+ *  Turn budget: 1 reasoning turn + up to 3 tool turns + 1 forced-text turn = 5.
+ *  Timeout leaves 30 s headroom before the dashboard's 120 s abort.
  */
-const ON_DEMAND_MAX_TURNS = 3;
-const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = 45_000;
+const ON_DEMAND_MAX_TURNS = 6;
+const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = 90_000;
 
 /** Task tier (work_loop) — narrow executor with tight limits. */
 const TASK_TIER_MAX_TURNS = 6;
@@ -313,6 +314,28 @@ CRITICAL RULES:
 - Reference shared context naturally — "remember when we...", "last time you asked about..."
 - If someone says hi, say hi back in ≤2 sentences. That's it.`;
 
+const CHAT_REASONING_PROTOCOL = `## How You Think (Chat Mode)
+
+When you receive a message, ALWAYS reason through these steps before responding:
+
+1. **Classify** — What kind of message is this?
+   - **Casual** (greetings, opinions, quick facts you already know, small talk): Respond directly from your knowledge. No tools needed.
+   - **Data-driven** (metrics, status, current state, "how is X doing"): Plan which specific tools to call, then call them.
+   - **Action** (do/fix/create/change something): Plan the steps, then execute.
+
+2. **Plan** (data/action only) — Before calling ANY tool, decide:
+   - Which specific tool(s) do I need? Pick the minimum set — one or two, not everything.
+   - What will I do with the results?
+   - Can I answer most of this from what I already know and only call one tool to fill a gap?
+
+3. **Execute** — Call only the tools you planned, then synthesize a clear answer.
+
+**CRITICAL RULES:**
+- If the question can be answered from your knowledge, conversation history, or working memory — JUST ANSWER IT. Do not call tools to "verify" things you already know.
+- Never shotgun-blast all your tools hoping something sticks. Be surgical.
+- A casual question answered in 3 seconds is better than a tool-verified answer that takes 30 seconds.
+- When in doubt, answer first, then offer to dig deeper: "From what I know... want me to pull the latest data?"`;
+
 const REASONING_PROTOCOL = `## How You Think
 
 Follow this protocol for task-oriented requests (not casual conversation):
@@ -540,8 +563,12 @@ function buildSystemPrompt(
 
     parts.push(CONVERSATION_MODE);
 
-    // For on_demand chat, skip heavy operational protocols that make responses robotic
-    if (!isOnDemand) {
+    // For on_demand chat, use a lightweight reasoning protocol focused on
+    // intent classification and tool planning instead of the heavy operational
+    // protocols that make responses robotic.
+    if (isOnDemand) {
+      parts.push(CHAT_REASONING_PROTOCOL);
+    } else {
       parts.push(REASONING_PROTOCOL);
       parts.push(WORK_ASSIGNMENTS_PROTOCOL);
       parts.push(ALWAYS_ON_PROTOCOL);
@@ -1019,13 +1046,13 @@ export class CompanyAgentRunner {
           }
 
           // ─── SMART TOOL GATING (on_demand / task) ────────────────
-          // on_demand: tools on turn 1 only — the model gets one shot to
-          //   fetch data, then must respond with text. This prevents the
-          //   multi-turn tool-call loops that make chat feel slow.
+          // on_demand: tools available on turns 1-3. The reasoning protocol
+          //   guides the model to classify intent first and only call tools
+          //   when genuinely needed. Strip tools on turn 4+ to force text.
           // task tier: strip tools on last turn to force a text response.
           // Scheduled: full tool access every turn.
           let effectiveTools: ReturnType<typeof toolExecutor.getDeclarations> | undefined = toolExecutor.getDeclarations();
-          if (isOnDemand && turnNumber > 1) {
+          if (isOnDemand && turnNumber > 3) {
             effectiveTools = undefined;
           } else if (isTaskTier && turnNumber >= supervisor.config.maxTurns) {
             effectiveTools = undefined;

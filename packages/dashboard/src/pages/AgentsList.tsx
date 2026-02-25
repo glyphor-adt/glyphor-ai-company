@@ -38,7 +38,7 @@ export default function AgentsList() {
           {agents
             .sort((a, b) => {
               const order = [
-                'chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales', 'vp-design', 'ops',
+                'chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales', 'vp-design', 'vp-research', 'clo', 'ops',
                 // Engineering
                 'platform-engineer', 'quality-engineer', 'devops-engineer',
                 // Product
@@ -53,6 +53,10 @@ export default function AgentsList() {
                 'account-research',
                 // Design
                 'ui-ux-designer', 'frontend-engineer', 'design-critic', 'template-architect',
+                // IT / Ops
+                'm365-admin', 'global-admin',
+                // Research & Intelligence
+                'competitive-research-analyst', 'market-research-analyst', 'technical-research-analyst', 'industry-research-analyst',
               ];
               const ai = order.indexOf(a.role);
               const bi = order.indexOf(b.role);
