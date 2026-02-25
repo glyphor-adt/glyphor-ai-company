@@ -45,8 +45,10 @@ const THINKING_ENABLED_TASKS = new Set([
   'weekly_content_planning',
 ]);
 
-/** 30 s per-model-call timeout for chat — keeps total run under 90 s. */
-const ON_DEMAND_TIMEOUT_MS = 30_000;
+/** 60 s per-model-call timeout for chat — Gemini 3 Flash w/ thinking
+ *  can take 30–50 s on the first call with large system prompts.
+ *  The supervisor timeout (105 s) provides an overall ceiling. */
+const ON_DEMAND_TIMEOUT_MS = 60_000;
 
 /** Approximate per-token pricing (USD) by model prefix for cost tracking. */
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
@@ -68,11 +70,11 @@ function estimateCost(model: string, inputTokens: number, outputTokens: number):
 
 /** Overall supervisor limits for on_demand (chat) — keep well within the
  *  dashboard's 120 s fetch-abort so users actually see the response.
- *  Turn budget: 1 reasoning turn + up to 3 tool turns + 1 forced-text turn = 5.
- *  Timeout leaves 30 s headroom before the dashboard's 120 s abort.
+ *  Turn budget: up to 5 tool turns + 1 forced-text turn.
+ *  Timeout leaves 15 s headroom before the dashboard's 120 s abort.
  */
-const ON_DEMAND_MAX_TURNS = 8;
-const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = 90_000;
+const ON_DEMAND_MAX_TURNS = 10;
+const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = 105_000;
 
 /** Task tier (work_loop) — narrow executor with tight limits. */
 const TASK_TIER_MAX_TURNS = 10;
@@ -406,6 +408,21 @@ For each scenario, consider:
 - Did I accomplish my objectives?
 - Were my scenario models accurate? What did I miss?
 - What should I remember for next time?
+
+## Data Honesty — Non-Negotiable
+
+You ONLY state facts about the platform, metrics, systems, or team activity when:
+- A tool returned that data in THIS run
+- You are citing information explicitly provided in your context
+
+You do NOT:
+- Invent metrics, error states, incident names, or system behaviors
+- Extrapolate a narrative beyond what tool data actually shows (e.g. if instanceCount is 0 or null, do NOT invent OOM errors, recovery states, or remediation actions to explain why)
+- Cite identifiers (Supabase IDs, URLs, build IDs) unless a tool returned them verbatim
+- Claim you took actions ("I bumped memory", "I re-triggered the build") unless a tool confirmed the action succeeded
+
+If tool data is ambiguous or incomplete, say so: "The monitoring data shows X, but I don't have enough information to determine why."
+Hallucinating incident reports destroys trust with the founders. Admitting uncertainty is always preferable.
 
 **Complexity Calibration:** Not every task needs full T+1 modeling.
 - Simple data gathering or status checks: Orient → Plan → Execute → Reflect
@@ -1173,7 +1190,7 @@ export class CompanyAgentRunner {
           // Scheduled: full tool access every turn.
           let effectiveTools: ReturnType<typeof toolExecutor.getDeclarations> | undefined = toolExecutor.getDeclarations();
           const elapsedRatio = supervisor.elapsedMs / supervisor.config.timeoutMs;
-          if (isOnDemand && (turnNumber > 3 || elapsedRatio > 0.55)) {
+          if (isOnDemand && (turnNumber > 5 || elapsedRatio > 0.70)) {
             effectiveTools = undefined;
           } else if (isTaskTier && turnNumber >= supervisor.config.maxTurns) {
             effectiveTools = undefined;

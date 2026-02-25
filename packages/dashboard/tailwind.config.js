@@ -44,6 +44,7 @@ export default {
         shimmer: 'shimmer 1.8s linear infinite',
         breathe: 'breathe 1.4s ease-in-out infinite',
         'slide-in': 'slideIn .35s ease-out both',
+        'voice-bar': 'voiceBar 1.2s ease-in-out infinite',
       },
       keyframes: {
         fadeUp: { from: { opacity: 0, transform: 'translateY(10px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
@@ -51,6 +52,7 @@ export default {
         shimmer: { '0%': { backgroundPosition: '-400px 0' }, '100%': { backgroundPosition: '400px 0' } },
         breathe: { '0%,100%': { opacity: '.4' }, '50%': { opacity: '1' } },
         slideIn: { from: { opacity: 0, transform: 'translateX(60px)' }, to: { opacity: 1, transform: 'translateX(0)' } },
+        voiceBar: { '0%,100%': { transform: 'scaleY(0.3)' }, '50%': { transform: 'scaleY(1)' } },
       },
     },
   },

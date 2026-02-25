@@ -16,7 +16,7 @@ export interface CloudRunMetrics {
   requestCount: number;
   avgLatencyMs: number;
   errorRate: number;
-  instanceCount: number;
+  instanceCount: number | null;
   period: string;
 }
 
@@ -112,7 +112,7 @@ function avgPoints(timeSeries: unknown[]): number {
   return count > 0 ? total / count : 0;
 }
 
-function lastPoint(timeSeries: unknown[]): number {
+function lastPoint(timeSeries: unknown[]): number | null {
   for (const ts of timeSeries) {
     const series = ts as { points?: Array<{ value?: { int64Value?: string; doubleValue?: number } }> };
     if (series.points && series.points.length > 0) {
@@ -120,5 +120,5 @@ function lastPoint(timeSeries: unknown[]): number {
       return Number(point.value?.int64Value ?? point.value?.doubleValue ?? 0);
     }
   }
-  return 0;
+  return null; // no monitoring data available — distinct from actual 0 instances
 }

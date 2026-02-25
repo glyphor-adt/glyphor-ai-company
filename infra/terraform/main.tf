@@ -166,6 +166,7 @@ locals {
     "azure-mail-client-secret",
     "github-token",
     "gcp-project-id",
+    "acs-connection-string",
   ]
 }
 
@@ -277,6 +278,64 @@ resource "google_cloud_run_v2_service" "chief_of_staff" {
     scaling {
       min_instance_count = 0
       max_instance_count = 2
+    }
+  }
+
+  depends_on = [
+    google_project_service.apis["run.googleapis.com"],
+    google_secret_manager_secret_iam_member.runner_access,
+  ]
+}
+
+# ─── Cloud Run: Voice Gateway ─────────────────────────────────
+resource "google_cloud_run_v2_service" "voice_gateway" {
+  name     = "glyphor-voice-gateway"
+  location = var.region
+
+  template {
+    service_account = google_service_account.glyphor.email
+
+    containers {
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/glyphor/voice-gateway:latest"
+
+      ports {
+        container_port = 8090
+      }
+
+      resources {
+        limits = {
+          cpu    = "2"
+          memory = "2Gi"
+        }
+      }
+
+      env {
+        name  = "NODE_ENV"
+        value = "production"
+      }
+
+      env {
+        name  = "PORT"
+        value = "8090"
+      }
+
+      dynamic "env" {
+        for_each = local.secrets
+        content {
+          name = upper(replace(env.value, "-", "_"))
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.secrets[env.value].secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
+    }
+
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 3
     }
   }
 
@@ -573,6 +632,14 @@ resource "google_cloud_run_v2_service_iam_member" "cos_invoker" {
   member   = "serviceAccount:${google_service_account.glyphor.email}"
 }
 
+# Voice gateway is publicly accessible — dashboard browser calls it directly
+resource "google_cloud_run_v2_service_iam_member" "voice_gateway_public" {
+  name     = google_cloud_run_v2_service.voice_gateway.name
+  location = var.region
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
 resource "google_project_iam_member" "gcs_access" {
   project = var.project_id
   role    = "roles/storage.objectAdmin"
@@ -785,6 +852,10 @@ output "scheduler_url" {
 
 output "chief_of_staff_url" {
   value = google_cloud_run_v2_service.chief_of_staff.uri
+}
+
+output "voice_gateway_url" {
+  value = google_cloud_run_v2_service.voice_gateway.uri
 }
 
 output "service_account_email" {

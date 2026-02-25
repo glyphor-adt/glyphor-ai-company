@@ -6,7 +6,9 @@ import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
 import { supabase, SCHEDULER_URL } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
-import { MdAttachFile, MdImage, MdDescription, MdClose } from 'react-icons/md';
+import { MdAttachFile, MdImage, MdDescription, MdClose, MdMic, MdMicOff } from 'react-icons/md';
+import { useVoiceChat } from '../lib/useVoiceChat';
+import VoiceOverlay from '../components/VoiceOverlay';
 
 interface Attachment {
   name: string;
@@ -77,6 +79,9 @@ export default function Chat() {
   const [sending, setSending] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<Attachment[]>([]);
   const [dragging, setDragging] = useState(false);
+
+  // Voice chat
+  const voice = useVoiceChat();
 
   // @mention state
   const [showMentions, setShowMentions] = useState(false);
@@ -353,6 +358,30 @@ export default function Chat() {
               {selectedAgent?.role ?? selectedRole} · {selectedAgent?.model ?? 'unknown model'}
             </p>
           </div>
+          {/* Voice chat button */}
+          {voice.isAvailable && (
+            <button
+              onClick={() => {
+                if (voice.isActive) {
+                  voice.stopVoice();
+                } else {
+                  voice.startVoice(selectedRole, userEmail);
+                }
+              }}
+              disabled={voice.isConnecting}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-all ${
+                voice.isActive
+                  ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-rose-500/15 hover:border-rose-500/30 hover:text-rose-400'
+                  : voice.isConnecting
+                    ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400 opacity-70'
+                    : 'bg-raised border border-border text-txt-muted hover:text-cyan hover:border-cyan/30'
+              }`}
+              title={voice.isActive ? 'End voice chat' : 'Start voice chat'}
+            >
+              {voice.isActive ? <MdMicOff className="text-[14px]" /> : <MdMic className="text-[14px]" />}
+              {voice.isConnecting ? 'Connecting…' : voice.isActive ? 'End Voice' : 'Voice'}
+            </button>
+          )}
           {messages.length > 0 && (
             <button
               onClick={async () => {
@@ -366,6 +395,18 @@ export default function Chat() {
           )}
         </div>
 
+        {/* Voice Chat Overlay — replaces messages area when voice is active */}
+        {voice.isActive ? (
+          <VoiceOverlay
+            agentName={codename}
+            agentRole={selectedRole}
+            durationSec={voice.durationSec}
+            transcript={voice.transcript}
+            onStop={voice.stopVoice}
+            error={voice.error}
+          />
+        ) : (
+        <>
         {/* Messages */}
         <div className="flex-1 overflow-y-auto py-4 space-y-4 min-h-0">
           {loadingHistory && (
@@ -541,6 +582,8 @@ export default function Chat() {
             </button>
           </div>
         </div>
+        </>
+        )}
       </Card>
     </div>
   );
