@@ -9,9 +9,8 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { SCHEDULER_URL } from './supabase';
 
-const VOICE_GATEWAY_URL = (import.meta.env.VITE_VOICE_GATEWAY_URL as string) ?? '';
+const VOICE_GATEWAY_URL = import.meta.env.VITE_VOICE_GATEWAY_URL || '';
 
 export interface VoiceTranscriptEntry {
   role: 'user' | 'agent';

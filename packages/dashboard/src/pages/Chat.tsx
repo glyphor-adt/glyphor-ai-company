@@ -6,7 +6,8 @@ import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
 import { supabase, SCHEDULER_URL } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
-import { MdAttachFile, MdImage, MdDescription, MdClose, MdMic, MdMicOff } from 'react-icons/md';
+import { MdAttachFile, MdImage, MdDescription, MdClose } from 'react-icons/md';
+import { HiMiniSignal, HiStop } from 'react-icons/hi2';
 import { useVoiceChat } from '../lib/useVoiceChat';
 import VoiceOverlay from '../components/VoiceOverlay';
 
@@ -358,30 +359,6 @@ export default function Chat() {
               {selectedAgent?.role ?? selectedRole} · {selectedAgent?.model ?? 'unknown model'}
             </p>
           </div>
-          {/* Voice chat button */}
-          {voice.isAvailable && (
-            <button
-              onClick={() => {
-                if (voice.isActive) {
-                  voice.stopVoice();
-                } else {
-                  voice.startVoice(selectedRole, userEmail);
-                }
-              }}
-              disabled={voice.isConnecting}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-all ${
-                voice.isActive
-                  ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-rose-500/15 hover:border-rose-500/30 hover:text-rose-400'
-                  : voice.isConnecting
-                    ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400 opacity-70'
-                    : 'bg-raised border border-border text-txt-muted hover:text-cyan hover:border-cyan/30'
-              }`}
-              title={voice.isActive ? 'End voice chat' : 'Start voice chat'}
-            >
-              {voice.isActive ? <MdMicOff className="text-[14px]" /> : <MdMic className="text-[14px]" />}
-              {voice.isConnecting ? 'Connecting…' : voice.isActive ? 'End Voice' : 'Voice'}
-            </button>
-          )}
           {messages.length > 0 && (
             <button
               onClick={async () => {
@@ -572,6 +549,30 @@ export default function Chat() {
               className="flex-1 rounded-lg border border-border bg-raised px-4 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none transition-colors focus:border-cyan/40 disabled:opacity-50 resize-none min-h-[40px] max-h-[120px]"
               onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 120)}px`; }}
             />
+            {voice.isAvailable && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (voice.isActive) voice.stopVoice();
+                  else voice.startVoice(selectedRole, userEmail);
+                }}
+                disabled={voice.isConnecting}
+                className={`flex-shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-full transition-all ${
+                  voice.isActive
+                    ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25 hover:bg-rose-500 hover:shadow-rose-500/25'
+                    : voice.isConnecting
+                      ? 'bg-amber-500/20 text-amber-400 animate-pulse'
+                      : 'bg-raised border border-border text-txt-muted hover:text-cyan hover:border-cyan/40 hover:bg-cyan/5'
+                }`}
+                title={voice.isActive ? 'End voice chat' : 'Start voice chat'}
+              >
+                {voice.isActive ? (
+                  <HiStop size={18} />
+                ) : (
+                  <HiMiniSignal size={18} />
+                )}
+              </button>
+            )}
             <button
               type="button"
               onClick={sendMessage}
