@@ -194,16 +194,35 @@ export default function Financials() {
     : 0;
   const latestMargin = marginData.length > 0 ? marginData[marginData.length - 1].margin : 0;
 
-  // GCP cost by service (pie chart & table) — includes all for the table
+  // Current month prefix for filtering GCP data (e.g. "2026-02")
+  const currentMonthPrefix = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+
+  const currentMonthLabel = useMemo(() => {
+    const d = new Date();
+    return d.toLocaleString('default', { month: 'long' });
+  }, []);
+
+  // Filter GCP billing to current month for totals
+  const gcpBillingCurrentMonth = useMemo(() => {
+    return gcpBilling.filter((row) => {
+      const date = row.usage?.date ?? row.recorded_at.split('T')[0];
+      return date.startsWith(currentMonthPrefix);
+    });
+  }, [gcpBilling, currentMonthPrefix]);
+
+  // GCP cost by service — current month only (pie chart & table)
   const gcpByService = useMemo(() => {
     const byService = new Map<string, number>();
-    for (const row of gcpBilling) {
+    for (const row of gcpBillingCurrentMonth) {
       byService.set(row.service, (byService.get(row.service) ?? 0) + row.cost_usd);
     }
     return Array.from(byService.entries())
       .map(([service, cost]) => ({ service, cost: parseFloat(cost.toFixed(2)) }))
       .sort((a, b) => b.cost - a.cost);
-  }, [gcpBilling]);
+  }, [gcpBillingCurrentMonth]);
 
   // Filtered version for the pie chart — drop zero & near-zero cost items
   const gcpByServiceForPie = useMemo(() => {
@@ -234,10 +253,10 @@ export default function Financials() {
 
   const gcpTotalCost = gcpByService.reduce((sum, s) => sum + s.cost, 0);
 
-  // GCP cost by product (pie chart)
+  // GCP cost by product — current month only (pie chart)
   const gcpByProduct = useMemo(() => {
     const byProduct = new Map<string, number>();
-    for (const row of gcpBilling) {
+    for (const row of gcpBillingCurrentMonth) {
       const label = row.product ?? 'unassigned';
       byProduct.set(label, (byProduct.get(label) ?? 0) + row.cost_usd);
     }
@@ -245,7 +264,7 @@ export default function Financials() {
       .map(([product, cost]) => ({ product, cost: parseFloat(cost.toFixed(2)) }))
       .filter((p) => p.cost >= 0.01)
       .sort((a, b) => b.cost - a.cost);
-  }, [gcpBilling]);
+  }, [gcpBillingCurrentMonth]);
   // Mercury stats
   const latestBalance = raw.filter((r) => r.metric === 'cash_balance').sort((a, b) => b.date.localeCompare(a.date))[0]?.value ?? 0;
   const latestBurnRate = raw.filter((r) => r.metric === 'burn_rate').sort((a, b) => b.date.localeCompare(a.date))[0]?.value ?? 0;
@@ -388,7 +407,7 @@ export default function Financials() {
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-4">
         <SummaryCard label="Monthly Revenue (Stripe)" value={`$${fmt(latestMRR)}`} loading={loading} sub={productMRR.map((p) => `${p.name}: $${fmt(p.mrr)}`).join(', ') || 'No product data'} />
-        <SummaryCard label="Monthly Costs (GCP)" value={`$${fmt(latestCost)}`} loading={loading} />
+        <SummaryCard label={`${currentMonthLabel} Costs (GCP)`} value={`$${fmt(gcpTotalCost)}`} loading={gcpLoading} />
         <SummaryCard label="Gross Margin" value={`${latestMargin.toFixed(1)}%`} loading={loading} />
       </div>
 
@@ -693,7 +712,7 @@ export default function Financials() {
       <div className="grid grid-cols-2 gap-6">
         {/* Per-Product Cost (Pie) */}
         <Card>
-          <SectionHeader title="GCP Cost by Product" />
+          <SectionHeader title={`GCP Cost by Product (${currentMonthLabel})`} />
           {gcpLoading ? (
             <Skeleton className="h-64" />
           ) : gcpByProduct.length === 0 ? (
@@ -731,10 +750,10 @@ export default function Financials() {
         {/* Per-Service Cost (Pie) */}
         <Card>
           <div className="flex items-center justify-between">
-            <SectionHeader title="GCP Cost by Service" />
+            <SectionHeader title={`GCP Cost by Service (${currentMonthLabel})`} />
             {!gcpLoading && gcpTotalCost > 0 && (
               <span className="text-sm font-medium text-txt-secondary">
-                Total: ${gcpTotalCost.toFixed(2)}
+                ${gcpTotalCost.toFixed(2)}
               </span>
             )}
           </div>
@@ -809,7 +828,7 @@ export default function Financials() {
 
       {/* GCP Service Cost Table */}
       <Card>
-        <SectionHeader title="GCP Service Cost Details" />
+        <SectionHeader title={`GCP Service Cost Details (${currentMonthLabel})`} />
         {gcpLoading ? (
           <Skeleton className="h-48" />
         ) : gcpByService.length === 0 ? (

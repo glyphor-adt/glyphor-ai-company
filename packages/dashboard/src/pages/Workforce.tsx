@@ -312,7 +312,7 @@ function AgentNode({ agent, compact = false }: { agent: Agent; compact?: boolean
   const meta = AGENT_META[agent.role];
   return (
     <Link to={`/agents/${agent.role}`} className="block transition-transform hover:scale-[1.02]">
-      <Card className={`${compact ? 'p-4 min-h-[11rem]' : 'p-5 min-h-[14rem] w-64'} text-center`}>
+      <Card className={`${compact ? 'p-4 h-[11rem]' : 'p-5 h-[14rem] w-64'} text-center`}>
         <div className="flex flex-col items-center justify-center gap-2 h-full">
           <AgentAvatar role={agent.role} size={compact ? 48 : 80} glow={agent.status === 'active'} />
           <div className="min-w-0 w-full">
