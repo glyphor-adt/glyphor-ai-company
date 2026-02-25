@@ -7,6 +7,11 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
+import {
+  getFileContents, createIssue, listOpenPRs, commentOnPR, createGitHubPR, createBranch,
+  GLYPHOR_REPOS, type GlyphorRepo,
+  queryVercelHealth, type VercelTeamKey, VERCEL_TEAMS,
+} from '@glyphor/integrations';
 
 export function createVPDesignTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -328,6 +333,77 @@ export function createVPDesignTools(memory: CompanyMemoryStore): ToolDefinition[
           assignedTo: params.assigned_to as string[],
         });
         return { success: true, data: { decisionId: id }, memoryKeysWritten: 1 };
+      },
+    },
+
+    /* ─── GitHub: code review & PR management ─── */
+    {
+      name: 'get_file_contents',
+      description: 'Read a file from a Glyphor GitHub repo to review code quality, inspect components, or audit implementations.',
+      parameters: {
+        repo: { type: 'string', description: 'Repo key: company, fuse, pulse', required: true },
+        path: { type: 'string', description: 'File path within the repo', required: true },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        const repoName = GLYPHOR_REPOS[params.repo as GlyphorRepo];
+        if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company, fuse, pulse` };
+        const result = await getFileContents(repoName, params.path as string);
+        if (!result) return { success: false, error: `File not found: ${params.path}` };
+        return { success: true, data: result };
+      },
+    },
+    {
+      name: 'list_open_prs',
+      description: 'List open PRs in a Glyphor repo. Use to review design-related PRs from the team.',
+      parameters: {
+        repo: { type: 'string', description: 'Repo key: company, fuse, pulse', required: true },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        const prs = await listOpenPRs(params.repo as GlyphorRepo);
+        return { success: true, data: prs };
+      },
+    },
+    {
+      name: 'comment_on_pr',
+      description: 'Leave a design review comment on a PR.',
+      parameters: {
+        repo: { type: 'string', description: 'Repo key: company, fuse, pulse', required: true },
+        prNumber: { type: 'number', description: 'PR number', required: true },
+        comment: { type: 'string', description: 'Review comment with design feedback', required: true },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        await commentOnPR(params.repo as GlyphorRepo, params.prNumber as number, params.comment as string);
+        return { success: true, message: `Comment posted on PR #${params.prNumber}` };
+      },
+    },
+    {
+      name: 'create_design_issue',
+      description: 'Create a GitHub issue for a design problem, quality gap, or improvement task.',
+      parameters: {
+        repo: { type: 'string', description: 'Repo key: company, fuse, pulse', required: true },
+        title: { type: 'string', description: 'Issue title', required: true },
+        body: { type: 'string', description: 'Issue description with design context and expected fix', required: true },
+        labels: { type: 'string', description: 'Comma-separated labels (e.g., "design,quality")' },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        const labels = params.labels ? (params.labels as string).split(',').map(l => l.trim()) : ['design'];
+        const issue = await createIssue(params.repo as GlyphorRepo, params.title as string, params.body as string, labels);
+        return { success: true, data: issue };
+      },
+    },
+
+    /* ─── Vercel health ─── */
+    {
+      name: 'check_vercel_health',
+      description: 'Check Vercel deployment health for Fuse or Pulse frontends.',
+      parameters: {
+        team: { type: 'string', description: 'Team key: fuse or pulse', required: true },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        const teamKey = params.team as VercelTeamKey;
+        if (!VERCEL_TEAMS[teamKey]) return { success: false, error: `Unknown team "${params.team}". Use: fuse, pulse` };
+        const health = await queryVercelHealth(teamKey);
+        return { success: true, data: health };
       },
     },
   ];

@@ -44,6 +44,22 @@ export function createUiUxDesignerTools(memory: CompanyMemoryStore): ToolDefinit
       },
     },
     {
+      name: 'query_component_implementations',
+      description: 'Query component implementations from Ava to verify specs were implemented correctly.',
+      parameters: {
+        componentName: { type: 'string', description: 'Component name filter (or "all")' },
+        status: { type: 'string', description: 'Filter by status: review, approved, needs_revision' },
+      },
+      async execute(params) {
+        const supabase = memory.getSupabaseClient();
+        let query = supabase.from('design_artifacts').select('*').eq('type', 'component_implementation').order('created_at', { ascending: false });
+        if (params.componentName && params.componentName !== 'all') { query = query.ilike('name', `%${params.componentName}%`); }
+        if (params.status) { query = query.eq('status', params.status); }
+        const { data } = await query.limit(20);
+        return { success: true, data: data || [] };
+      },
+    },
+    {
       name: 'log_activity',
       description: 'Log an activity or finding to the agent activity log.',
       parameters: {

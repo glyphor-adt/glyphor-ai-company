@@ -176,9 +176,9 @@ export default function Workforce() {
           {/* Founders */}
           <div className="mb-6 grid grid-cols-2 gap-4">
             {FOUNDERS.map((f) => (
-              <Card key={f.name} className="relative overflow-hidden">
+              <Card key={f.name} className="relative overflow-hidden h-28">
                 <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl" style={{ background: f.color }} />
-                <div className="flex items-center gap-4 pl-3">
+                <div className="flex items-center gap-4 pl-3 h-full">
                   <img
                     src={f.photo}
                     alt={f.name}
@@ -208,9 +208,9 @@ export default function Workforce() {
               .map((agent) => {
                 const meta = AGENT_META[agent.role];
                 return (
-                  <Card key={agent.id} className="group relative overflow-hidden">
+                  <Card key={agent.id} className="group relative overflow-hidden h-28">
                     <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl" style={{ background: meta?.color ?? '#64748b' }} />
-                    <div className="flex items-start gap-4 pl-3">
+                    <div className="flex items-start gap-4 pl-3 h-full">
                       <AgentAvatar role={agent.role} size={60} glow={agent.status === 'active'} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
@@ -253,9 +253,9 @@ export default function Workforce() {
           {/* Sub-team grid */}
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
             {SUB_TEAM.map((m) => (
-              <Card key={m.name} className="relative overflow-hidden">
+              <Card key={m.name} className="relative overflow-hidden h-24">
                 <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl" style={{ background: m.color }} />
-                <div className="flex items-center gap-3 pl-3">
+                <div className="flex items-center gap-3 pl-3 h-full">
                   <img
                     src={`/avatars/${m.avatar}.png`}
                     alt={m.name}
@@ -280,17 +280,17 @@ export default function Workforce() {
 /* ─── Founder Node (org chart) ────────────── */
 function FounderNode({ name, title, initials, color, photo }: { name: string; title: string; initials: string; color: string; photo: string }) {
   return (
-    <Card className="w-64 text-center p-5">
-      <div className="flex flex-col items-center gap-3">
+    <Card className="w-64 h-52 text-center p-5">
+      <div className="flex flex-col items-center justify-center gap-3 h-full">
         <img
           src={photo}
           alt={name}
-          className="rounded-full object-cover"
+          className="rounded-full object-cover shrink-0"
           style={{ width: 88, height: 88, border: `2px solid ${color}50` }}
         />
         <div>
-          <h3 className="text-base font-semibold text-txt-primary">{name}</h3>
-          <p className="text-xs text-txt-muted">{title}</p>
+          <h3 className="text-base font-semibold text-txt-primary truncate">{name}</h3>
+          <p className="text-xs text-txt-muted truncate">{title}</p>
           <span
             className="mt-1 inline-block rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20">
             Human
@@ -306,17 +306,17 @@ function AgentNode({ agent, compact = false }: { agent: Agent; compact?: boolean
   const meta = AGENT_META[agent.role];
   return (
     <Link to={`/agents/${agent.role}`} className="block transition-transform hover:scale-[1.02]">
-      <Card className={`${compact ? 'p-4' : 'p-5'} text-center`}>
-        <div className="flex flex-col items-center gap-2">
-          <AgentAvatar role={agent.role} size={compact ? 64 : 80} glow={agent.status === 'active'} />
-          <div>
+      <Card className={`${compact ? 'p-4 h-44' : 'p-5 h-56 w-64'} text-center`}>
+        <div className="flex flex-col items-center justify-center gap-2 h-full">
+          <AgentAvatar role={agent.role} size={compact ? 48 : 80} glow={agent.status === 'active'} />
+          <div className="min-w-0 w-full">
             <div className="flex items-center justify-center gap-1.5">
-              <h3 className={`font-semibold text-txt-primary ${compact ? 'text-sm' : 'text-base'}`}>
+              <h3 className={`font-semibold text-txt-primary truncate ${compact ? 'text-xs' : 'text-base'}`}>
                 {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
               </h3>
               <StatusDot status={agent.status} />
             </div>
-            <p className={`text-txt-muted ${compact ? 'text-xs' : 'text-sm'}`}>
+            <p className={`text-txt-muted truncate ${compact ? 'text-[10px]' : 'text-sm'}`}>
               {TITLE_MAP[agent.role] ?? agent.role}
             </p>
             <div className={`mt-2 flex items-center justify-center gap-2 ${compact ? 'text-xs' : 'text-sm'}`}>
@@ -355,8 +355,8 @@ function StatCard({ label, value, total, color, loading }: { label: string; valu
 /* ─── Sub-Team Node (org chart) ───────────── */
 function SubTeamNode({ member }: { member: SubTeamMember }) {
   return (
-    <Card className="p-3">
-      <div className="flex items-center gap-3">
+    <Card className="p-3 h-[72px]">
+      <div className="flex items-center gap-3 h-full">
         <img
           src={`/avatars/${member.avatar}.png`}
           alt={member.name}
@@ -364,8 +364,8 @@ function SubTeamNode({ member }: { member: SubTeamMember }) {
           style={{ width: 48, height: 48, border: `1.5px solid ${member.color}40` }}
         />
         <div className="min-w-0 text-left">
-          <p className="text-sm font-semibold text-txt-primary">{member.name}</p>
-          <p className="text-xs text-txt-muted">{member.title}</p>
+          <p className="text-sm font-semibold text-txt-primary truncate">{member.name}</p>
+          <p className="text-xs text-txt-muted truncate">{member.title}</p>
         </div>
       </div>
     </Card>
