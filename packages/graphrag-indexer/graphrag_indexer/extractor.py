@@ -1,0 +1,163 @@
+"""
+Entity Extractor — runs GraphRAG entity extraction with auto-tuned prompts.
+
+Uses the graphrag library to:
+1. Load tuned prompts (or default ones)
+2. Extract entities and relationships from staged documents
+3. Return structured entity/relationship data for the bridge
+"""
+
+import json
+from pathlib import Path
+
+from graphrag.config import create_graphrag_config
+from graphrag.index import run_pipeline
+
+from .config import (
+    GEMINI_API_KEY, LLM_MODEL, EMBEDDING_MODEL, EMBEDDING_DIMENSIONS,
+    INDEXER_ROOT, PROMPTS_DIR, INPUT_DIR, OUTPUT_DIR,
+    ENTITY_TYPES, DOMAIN,
+)
+
+
+def build_settings() -> dict:
+    """Build GraphRAG settings dict for the Gemini-based pipeline."""
+    return {
+        "llm": {
+            "api_key": GEMINI_API_KEY,
+            "type": "openai_chat",  # GraphRAG uses OpenAI-compatible interface
+            "model": LLM_MODEL,
+            "api_base": "https://generativelanguage.googleapis.com/v1beta/openai",
+            "max_tokens": 8192,
+            "temperature": 0.0,
+        },
+        "embeddings": {
+            "llm": {
+                "api_key": GEMINI_API_KEY,
+                "type": "openai_embedding",
+                "model": f"models/{EMBEDDING_MODEL}",
+                "api_base": "https://generativelanguage.googleapis.com/v1beta/openai",
+            },
+        },
+        "entity_extraction": {
+            "entity_types": ENTITY_TYPES,
+            "max_gleanings": 1,
+            "prompt": str(PROMPTS_DIR / "entity_extraction.txt") if (PROMPTS_DIR / "entity_extraction.txt").exists() else None,
+        },
+        "community_reports": {
+            "prompt": str(PROMPTS_DIR / "community_report.txt") if (PROMPTS_DIR / "community_report.txt").exists() else None,
+        },
+        "summarize_descriptions": {
+            "prompt": str(PROMPTS_DIR / "summarize_descriptions.txt") if (PROMPTS_DIR / "summarize_descriptions.txt").exists() else None,
+        },
+        "input": {
+            "type": "file",
+            "file_type": "text",
+            "base_dir": str(INPUT_DIR),
+        },
+        "storage": {
+            "type": "file",
+            "base_dir": str(OUTPUT_DIR),
+        },
+        "chunks": {
+            "size": 1200,
+            "overlap": 200,
+        },
+        "claim_extraction": {"enabled": False},
+        "snapshots": {"graphml": True},
+    }
+
+
+def write_settings_yaml():
+    """Write a settings.yaml for graphrag CLI compatibility."""
+    import yaml
+
+    settings = build_settings()
+    settings_path = INDEXER_ROOT / "settings.yaml"
+    with open(settings_path, "w") as f:
+        yaml.dump(settings, f, default_flow_style=False)
+    print(f"[Extractor] Wrote settings to {settings_path}")
+    return settings_path
+
+
+def load_extracted_entities() -> tuple[list[dict], list[dict]]:
+    """
+    Load entities and relationships from GraphRAG output artifacts.
+    Returns (entities, relationships) as lists of dicts.
+    """
+    entities = []
+    relationships = []
+
+    # GraphRAG outputs parquet files in output/artifacts/
+    artifacts_dir = OUTPUT_DIR / "artifacts"
+    if not artifacts_dir.exists():
+        print(f"[Extractor] No artifacts found at {artifacts_dir}")
+        return entities, relationships
+
+    # Try to load entities from parquet
+    entities_file = artifacts_dir / "create_final_entities.parquet"
+    rels_file = artifacts_dir / "create_final_relationships.parquet"
+
+    if entities_file.exists():
+        try:
+            import pandas as pd
+            df = pd.read_parquet(entities_file)
+            for _, row in df.iterrows():
+                entities.append({
+                    "id": str(row.get("id", "")),
+                    "name": str(row.get("name", row.get("title", ""))),
+                    "type": str(row.get("type", "UNKNOWN")).upper(),
+                    "description": str(row.get("description", "")),
+                })
+        except ImportError:
+            # Fallback: try JSON output
+            json_file = artifacts_dir / "entities.json"
+            if json_file.exists():
+                entities = json.loads(json_file.read_text())
+
+    if rels_file.exists():
+        try:
+            import pandas as pd
+            df = pd.read_parquet(rels_file)
+            for _, row in df.iterrows():
+                relationships.append({
+                    "source": str(row.get("source", "")),
+                    "target": str(row.get("target", "")),
+                    "type": str(row.get("type", row.get("description", "RELATES_TO"))).upper(),
+                    "description": str(row.get("description", "")),
+                    "weight": float(row.get("weight", 0.7)),
+                })
+        except ImportError:
+            json_file = artifacts_dir / "relationships.json"
+            if json_file.exists():
+                relationships = json.loads(json_file.read_text())
+
+    print(f"[Extractor] Loaded {len(entities)} entities, {len(relationships)} relationships")
+    return entities, relationships
+
+
+def load_community_reports() -> list[dict]:
+    """Load community summaries from GraphRAG output."""
+    artifacts_dir = OUTPUT_DIR / "artifacts"
+    reports_file = artifacts_dir / "create_final_community_reports.parquet"
+
+    if not reports_file.exists():
+        return []
+
+    try:
+        import pandas as pd
+        df = pd.read_parquet(reports_file)
+        reports = []
+        for _, row in df.iterrows():
+            reports.append({
+                "id": str(row.get("id", "")),
+                "title": str(row.get("title", "")),
+                "summary": str(row.get("summary", "")),
+                "level": int(row.get("level", 0)),
+                "rank": float(row.get("rank", 0)),
+            })
+        print(f"[Extractor] Loaded {len(reports)} community reports")
+        return reports
+    except ImportError:
+        print("[Extractor] pandas not available — skipping community reports")
+        return []
