@@ -515,6 +515,20 @@ function buildSystemPrompt(
       parts.push(buildPersonalityBlock(profile));
     }
 
+    // Inject current date/time in US Central so agents report in the correct timezone
+    const now = new Date();
+    const centralTime = now.toLocaleString('en-US', {
+      timeZone: 'America/Chicago',
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+    parts.push(`Current date and time: ${centralTime} CT (US Central Time). Always report times in US Central Time.`);
+
     parts.push(CONVERSATION_MODE);
 
     // For on_demand chat, skip heavy operational protocols that make responses robotic
