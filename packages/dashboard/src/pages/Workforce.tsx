@@ -130,7 +130,9 @@ export default function Workforce() {
 
           {/* Chief of Staff */}
           <div className="flex justify-center">
-            {cos ? <AgentNode agent={cos} /> : <Skeleton className="h-24 w-72" />}
+            <div className="w-48">
+              {cos ? <AgentNode agent={cos} /> : <Skeleton className="h-24 w-full" />}
+            </div>
           </div>
 
           {/* Connector: CoS → departments */}
@@ -312,20 +314,20 @@ function AgentNode({ agent, compact = false }: { agent: Agent; compact?: boolean
   const meta = AGENT_META[agent.role];
   return (
     <Link to={`/agents/${agent.role}`} className="block transition-transform hover:scale-[1.02]">
-      <Card className={`${compact ? 'p-4 h-[11rem]' : 'p-5 h-[14rem] w-64'} text-center`}>
+      <Card className={`${compact ? 'p-4' : 'p-5'} w-full h-[12rem] text-center`}>
         <div className="flex flex-col items-center justify-center gap-2 h-full">
-          <AgentAvatar role={agent.role} size={compact ? 48 : 80} glow={agent.status === 'active'} />
+          <AgentAvatar role={agent.role} size={compact ? 48 : 64} glow={agent.status === 'active'} />
           <div className="min-w-0 w-full">
             <div className="flex items-center justify-center gap-1.5">
-              <h3 className={`font-semibold text-txt-primary leading-tight ${compact ? 'text-xs' : 'text-base'}`}>
+              <h3 className="font-semibold text-txt-primary leading-tight text-xs">
                 {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
               </h3>
               <StatusDot status={agent.status} />
             </div>
-            <p className={`text-txt-muted leading-tight ${compact ? 'text-[10px]' : 'text-sm'}`}>
+            <p className="text-[10px] text-txt-muted leading-tight">
               {TITLE_MAP[agent.role] ?? agent.role}
             </p>
-            <div className={`mt-2 flex items-center justify-center gap-2 ${compact ? 'text-xs' : 'text-sm'}`}>
+            <div className="mt-2 flex items-center justify-center gap-2 text-xs">
               <span className="font-mono text-txt-faint">
                 {agent.performance_score != null ? `${Math.round(Number(agent.performance_score) * 100)}/100` : '—'}
               </span>
