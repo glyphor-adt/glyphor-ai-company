@@ -135,15 +135,17 @@ export class DynamicScheduler {
       if (matching.length === 0) return;
 
       // Verify agents are still active
+      // agent_schedules.agent_id stores the role string (e.g. 'chief-of-staff'),
+      // so we must query company_agents.role, not .id (which is a UUID).
       const agentIds = [...new Set(matching.map((s) => s.agent_id))];
       const { data: agents } = await this.supabase
         .from('company_agents')
         .select('id, role, status')
-        .in('id', agentIds)
+        .in('role', agentIds)
         .eq('status', 'active');
 
       const activeAgentMap = new Map(
-        (agents ?? []).map((a: { id: string; role: string }) => [a.id, a.role as CompanyAgentRole]),
+        (agents ?? []).map((a: { id: string; role: string }) => [a.role, a.role as CompanyAgentRole]),
       );
 
       for (const schedule of matching) {

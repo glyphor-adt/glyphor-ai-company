@@ -70,8 +70,8 @@ function estimateCost(model: string, inputTokens: number, outputTokens: number):
  *  dashboard's 120 s fetch-abort so users actually see the response.
  *  Turn budget: 1 toolless conversational turn + up to 4 tool turns + 1 forced-text turn = 6.
  */
-const ON_DEMAND_MAX_TURNS = 6;
-const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = 100_000;
+const ON_DEMAND_MAX_TURNS = 3;
+const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = 45_000;
 
 /** Task tier (work_loop) — narrow executor with tight limits. */
 const TASK_TIER_MAX_TURNS = 6;
