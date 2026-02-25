@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { Card, SectionHeader, Skeleton } from '../components/ui';
 import {
@@ -230,17 +230,19 @@ function GraphCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dims, setDims] = useState({ width: 800, height: 600 });
 
-  // Filter nodes
-  const filteredNodes = nodes.filter((n) => {
+  // Filter nodes — memoize so simulation doesn't restart every render
+  const filteredNodes = useMemo(() => nodes.filter((n) => {
     if (filterNodeTypes.size > 0 && !filterNodeTypes.has(n.node_type as NodeType)) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return n.title.toLowerCase().includes(q) || n.summary?.toLowerCase().includes(q) || n.tags.some((t) => t.toLowerCase().includes(q));
     }
     return true;
-  });
-  const filteredNodeIds = new Set(filteredNodes.map((n) => n.id));
-  const filteredEdges = edges.filter((e) => filteredNodeIds.has(e.source_id) && filteredNodeIds.has(e.target_id));
+  }), [nodes, filterNodeTypes, searchQuery]);
+  const filteredEdges = useMemo(() => {
+    const filteredNodeIds = new Set(filteredNodes.map((n) => n.id));
+    return edges.filter((e) => filteredNodeIds.has(e.source_id) && filteredNodeIds.has(e.target_id));
+  }, [filteredNodes, edges]);
 
   const { simNodes, tick } = useForceSimulation(filteredNodes, filteredEdges, dims.width, dims.height);
 
@@ -518,14 +520,14 @@ function NodeDetail({
 
 /* ── Stats Bar ─────────────────────────────────── */
 
-function StatsBar({ nodes, edges }: { nodes: KgNode[]; edges: KgEdge[] }) {
+function StatsBar({ nodes, edges, totalNodes }: { nodes: KgNode[]; edges: KgEdge[]; totalNodes?: number }) {
   const typeCounts = new Map<string, number>();
   nodes.forEach((n) => typeCounts.set(n.node_type, (typeCounts.get(n.node_type) ?? 0) + 1));
 
   return (
     <div className="flex items-center gap-4 text-[11px]">
       <span className="text-txt-muted">
-        <span className="font-semibold text-txt-primary">{nodes.length}</span> nodes
+        <span className="font-semibold text-txt-primary">{nodes.length}</span>{totalNodes != null && totalNodes !== nodes.length ? `/${totalNodes}` : ''} nodes
       </span>
       <span className="text-txt-muted">
         <span className="font-semibold text-txt-primary">{edges.length}</span> edges
@@ -690,7 +692,18 @@ export default function Graph() {
           </div>
 
           {/* Stats */}
-          <StatsBar nodes={nodes} edges={edges} />
+          <StatsBar
+            nodes={nodes.filter((n) => {
+              if (filterNodeTypes.size > 0 && !filterNodeTypes.has(n.node_type as NodeType)) return false;
+              if (searchQuery) {
+                const q = searchQuery.toLowerCase();
+                return n.title.toLowerCase().includes(q) || n.summary?.toLowerCase().includes(q) || n.tags.some((t) => t.toLowerCase().includes(q));
+              }
+              return true;
+            })}
+            edges={edges}
+            totalNodes={nodes.length}
+          />
 
           {/* Graph + Detail Panel */}
           <div className="relative overflow-hidden rounded-xl border border-border bg-surface dark:bg-white/[0.04] dark:backdrop-blur-xl dark:border-white/[0.08]" style={{ height: '560px' }}>

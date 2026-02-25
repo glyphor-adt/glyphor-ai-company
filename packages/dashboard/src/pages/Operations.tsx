@@ -205,16 +205,16 @@ export default function Operations() {
           ) : runsData.length === 0 ? (
             <EmptyChart message="No run data yet" />
           ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={runsData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+            <ResponsiveContainer width="100%" height={Math.max(300, runsData.length * 38)}>
+              <BarChart data={runsData} layout="vertical" margin={{ top: 5, right: 20, left: 5, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
-                <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} width={70} />
+                <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} width={120} />
                 <Tooltip
                   contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
                   labelStyle={{ color: 'var(--color-txt-secondary)' }}
                 />
-                <Bar dataKey="runs" radius={[0, 4, 4, 0]}>
+                <Bar dataKey="runs" radius={[0, 4, 4, 0]} maxBarSize={28}>
                   {runsData.map((entry) => (
                     <Cell key={entry.role} fill={AGENT_META[entry.role]?.color ?? '#64748b'} />
                   ))}
@@ -232,17 +232,17 @@ export default function Operations() {
           ) : costData.length === 0 ? (
             <EmptyChart message="No cost data yet" />
           ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={costData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+            <ResponsiveContainer width="100%" height={Math.max(300, costData.length * 38)}>
+              <BarChart data={costData} layout="vertical" margin={{ top: 5, right: 20, left: 5, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${v}`} />
-                <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} width={70} />
+                <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} width={120} />
                 <Tooltip
                   contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
                   labelStyle={{ color: 'var(--color-txt-secondary)' }}
                   formatter={(value: number) => [`$${value.toFixed(2)}`]}
                 />
-                <Bar dataKey="cost" radius={[0, 4, 4, 0]}>
+                <Bar dataKey="cost" radius={[0, 4, 4, 0]} maxBarSize={28}>
                   {costData.map((entry) => (
                     <Cell key={entry.role} fill={AGENT_META[entry.role]?.color ?? '#64748b'} />
                   ))}
@@ -261,11 +261,15 @@ export default function Operations() {
         ) : qualityTrend.length === 0 ? (
           <EmptyChart message="No reflection data yet" />
         ) : (
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={qualityTrend}>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={qualityTrend} margin={{ top: 5, right: 20, left: 5, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
-              <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} domain={[0, 100]} />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }}
+                interval={Math.max(0, Math.floor(qualityTrend.length / 10) - 1)}
+              />
+              <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} domain={[0, 100]} width={40} />
               <Tooltip
                 contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
                 labelStyle={{ color: 'var(--color-txt-secondary)' }}

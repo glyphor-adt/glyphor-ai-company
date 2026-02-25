@@ -690,7 +690,7 @@ export default function Financials() {
       </div>
 
       {/* GCP Billing Breakdown */}
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-2 gap-6">
         {/* Per-Product Cost (Pie) */}
         <Card>
           <SectionHeader title="GCP Cost by Product" />
@@ -699,7 +699,7 @@ export default function Financials() {
           ) : gcpByProduct.length === 0 ? (
             <EmptyChart message="No per-product GCP data yet" />
           ) : (
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={320}>
               <PieChart>
                 <Pie
                   data={gcpByProduct}
@@ -707,13 +707,13 @@ export default function Financials() {
                   nameKey="product"
                   cx="50%"
                   cy="50%"
-                  outerRadius={90}
-                  innerRadius={50}
+                  outerRadius={100}
+                  innerRadius={55}
                   paddingAngle={2}
-                  label={({ product, cost }: { product: string; cost: number }) =>
-                    `${PRODUCT_LABELS[product] ?? product} $${cost.toFixed(2)}`
+                  label={({ product, cost, percent }: { product: string; cost: number; percent: number }) =>
+                    percent > 0.05 ? `${PRODUCT_LABELS[product] ?? product} $${cost.toFixed(2)}` : ''
                   }
-                  labelLine={false}
+                  labelLine={{ stroke: 'var(--color-txt-faint)', strokeWidth: 1 }}
                 >
                   {gcpByProduct.map((entry, i) => (
                     <Cell key={i} fill={PRODUCT_COLORS[entry.product] ?? GCP_COLORS[i % GCP_COLORS.length]} />
@@ -743,7 +743,7 @@ export default function Financials() {
           ) : gcpByService.length === 0 ? (
             <EmptyChart message="No GCP billing data yet" />
           ) : (
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={320}>
               <PieChart>
                 <Pie
                   data={gcpByServiceForPie}
@@ -751,13 +751,13 @@ export default function Financials() {
                   nameKey="service"
                   cx="50%"
                   cy="50%"
-                  outerRadius={90}
-                  innerRadius={50}
+                  outerRadius={100}
+                  innerRadius={55}
                   paddingAngle={2}
                   label={({ service, cost, percent }: { service: string; cost: number; percent: number }) =>
                     percent > 0.04 ? `${service} $${cost.toFixed(2)}` : ''
                   }
-                  labelLine={false}
+                  labelLine={{ stroke: 'var(--color-txt-faint)', strokeWidth: 1 }}
                 >
                   {gcpByServiceForPie.map((_, i) => (
                     <Cell key={i} fill={GCP_COLORS[i % GCP_COLORS.length]} />
@@ -772,39 +772,40 @@ export default function Financials() {
           )}
         </Card>
 
-        {/* GCP Daily Trend (Stacked Bar) */}
-        <Card>
-          <SectionHeader title="GCP Daily Cost Trend" />
-          {gcpLoading ? (
-            <Skeleton className="h-64" />
-          ) : gcpDailyTrend.length === 0 ? (
-            <EmptyChart message="No GCP billing data yet" />
-          ) : (
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={gcpDailyTrend} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }}
-                  interval={Math.max(0, Math.floor(gcpDailyTrend.length / 8) - 1)}
-                  angle={gcpDailyTrend.length > 10 ? -35 : 0}
-                  textAnchor={gcpDailyTrend.length > 10 ? 'end' : 'middle'}
-                />
-                <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${v}`} />
-                <Tooltip
-                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
-                  labelStyle={{ color: 'var(--color-txt-secondary)' }}
-                  formatter={(value: number) => [`$${value.toFixed(4)}`]}
-                />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                {gcpTopServices.map((svc, i) => (
-                  <Bar key={svc} dataKey={svc} stackId="gcp" fill={GCP_COLORS[i % GCP_COLORS.length]} maxBarSize={48} />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </Card>
       </div>
+
+      {/* GCP Daily Trend — full width */}
+      <Card>
+        <SectionHeader title="GCP Daily Cost Trend" />
+        {gcpLoading ? (
+          <Skeleton className="h-64" />
+        ) : gcpDailyTrend.length === 0 ? (
+          <EmptyChart message="No GCP billing data yet" />
+        ) : (
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={gcpDailyTrend} margin={{ top: 5, right: 20, left: 10, bottom: 25 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }}
+                interval={Math.max(0, Math.floor(gcpDailyTrend.length / 12) - 1)}
+                angle={gcpDailyTrend.length > 14 ? -40 : 0}
+                textAnchor={gcpDailyTrend.length > 14 ? 'end' : 'middle'}
+              />
+              <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${v}`} />
+              <Tooltip
+                contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
+                labelStyle={{ color: 'var(--color-txt-secondary)' }}
+                formatter={(value: number) => [`$${value.toFixed(4)}`]}
+              />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              {gcpTopServices.map((svc, i) => (
+                <Bar key={svc} dataKey={svc} stackId="gcp" fill={GCP_COLORS[i % GCP_COLORS.length]} maxBarSize={36} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </Card>
 
       {/* GCP Service Cost Table */}
       <Card>
