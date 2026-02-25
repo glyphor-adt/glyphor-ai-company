@@ -202,7 +202,7 @@ const agentExecutor = async (
   }
   // Global Admin
   else if (agentRole === 'global-admin') {
-    return runGlobalAdmin({ task: (task as 'access_audit' | 'compliance_report' | 'onboarding' | 'on_demand'), message, conversationHistory });
+    return runGlobalAdmin({ task: (task as 'access_audit' | 'compliance_report' | 'onboarding' | 'read_inbox' | 'on_demand'), message, conversationHistory });
   }
   // Operations
   else if (agentRole === 'ops') {

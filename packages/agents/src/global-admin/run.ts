@@ -19,7 +19,7 @@ import { createEmailTools } from '../shared/emailTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 
 export interface GlobalAdminRunParams {
-  task?: 'access_audit' | 'compliance_report' | 'onboarding' | 'on_demand';
+  task?: 'access_audit' | 'compliance_report' | 'onboarding' | 'read_inbox' | 'on_demand';
   message?: string;
   conversationHistory?: ConversationTurn[];
 }
@@ -65,6 +65,9 @@ export async function runGlobalAdmin(params: GlobalAdminRunParams = {}) {
       break;
     case 'onboarding':
       initialMessage = params.message || 'Review any pending onboarding requests and process them according to the standardized onboarding checklist.';
+      break;
+    case 'read_inbox':
+      initialMessage = params.message || 'Check your email inbox for new messages. Read and process any unread emails — respond to requests, take actions within your authority, and escalate anything outside your scope.';
       break;
     case 'on_demand':
       initialMessage = params.message || 'Check the current access posture across all managed GCP projects and report any issues.';

@@ -26,6 +26,7 @@ const EMAIL_ENABLED_AGENTS: CompanyAgentRole[] = [
   'vp-design',
   'm365-admin',
   'ops',
+  'global-admin',
 ];
 
 export interface InboxCheckResult {
