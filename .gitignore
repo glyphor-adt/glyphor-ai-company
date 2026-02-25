@@ -1,8 +1,14 @@
 node_modules/
 dist/
-.env
 .turbo/
 *.tsbuildinfo
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Teams build artifacts
 teams/*.zip
 teams/agents/*.zip
 teams/agents/*/icon-color.png
@@ -11,8 +17,20 @@ teams/agents/*/icon-outline.png
 # Python
 __pycache__/
 *.pyc
+*.pyo
 
 # GraphRAG indexer cache & output
 packages/graphrag-indexer/cache/
 packages/graphrag-indexer/output/
 packages/graphrag-indexer/logs/
+
+# Terraform
+*.tfvars
+!*.tfvars.example
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# OS
+.DS_Store
+Thumbs.db
