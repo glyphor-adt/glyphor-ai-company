@@ -658,6 +658,82 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // GraphRAG knowledge graph indexing — calls Python indexer service
+    if (method === 'POST' && url === '/sync/graphrag-index') {
+      try {
+        const indexerUrl = process.env.GRAPHRAG_INDEXER_URL || 'http://localhost:8090';
+        const body = JSON.stringify({ source: 'all' });
+        const indexRes = await fetch(`${indexerUrl}/index`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+          signal: AbortSignal.timeout(600_000), // 10 min timeout
+        });
+        const result = await indexRes.json() as Record<string, unknown>;
+        if (!indexRes.ok) throw new Error(String(result.error || `Indexer returned ${indexRes.status}`));
+        await memory.getSupabaseClient().from('data_sync_status').upsert({
+          id: 'graphrag-index',
+          last_success_at: new Date().toISOString(),
+          consecutive_failures: 0,
+          status: 'ok',
+          updated_at: new Date().toISOString(),
+        });
+        json(res, 200, { success: true, ...result });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'graphrag-index').single();
+        const failures = (current?.consecutive_failures ?? 0) + 1;
+        await memory.getSupabaseClient().from('data_sync_status').upsert({
+          id: 'graphrag-index',
+          last_failure_at: new Date().toISOString(),
+          last_error: message,
+          consecutive_failures: failures,
+          status: failures >= 3 ? 'failing' : 'stale',
+          updated_at: new Date().toISOString(),
+        });
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // GraphRAG prompt auto-tune — calls Python indexer service
+    if (method === 'POST' && url === '/sync/graphrag-tune') {
+      try {
+        const indexerUrl = process.env.GRAPHRAG_INDEXER_URL || 'http://localhost:8090';
+        const body = JSON.stringify({ source: 'docs', limit: 15 });
+        const tuneRes = await fetch(`${indexerUrl}/tune`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+          signal: AbortSignal.timeout(300_000), // 5 min timeout
+        });
+        const result = await tuneRes.json() as Record<string, unknown>;
+        if (!tuneRes.ok) throw new Error(String(result.error || `Indexer returned ${tuneRes.status}`));
+        await memory.getSupabaseClient().from('data_sync_status').upsert({
+          id: 'graphrag-tune',
+          last_success_at: new Date().toISOString(),
+          consecutive_failures: 0,
+          status: 'ok',
+          updated_at: new Date().toISOString(),
+        });
+        json(res, 200, { success: true, ...result });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'graphrag-tune').single();
+        const failures = (current?.consecutive_failures ?? 0) + 1;
+        await memory.getSupabaseClient().from('data_sync_status').upsert({
+          id: 'graphrag-tune',
+          last_failure_at: new Date().toISOString(),
+          last_error: message,
+          consecutive_failures: failures,
+          status: failures >= 3 ? 'failing' : 'stale',
+          updated_at: new Date().toISOString(),
+        });
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
     // Governance IAM audit endpoint
     if (method === 'POST' && url === '/sync/governance') {
       try {

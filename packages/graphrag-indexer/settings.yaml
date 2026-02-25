@@ -8,13 +8,24 @@ completion_models:
     call_args:
       max_tokens: 8192
       temperature: 0.0
-    model: gemini-2.0-flash
+    model: gemini-2.5-flash
     model_provider: gemini
+    rate_limit:
+      period_in_seconds: 60
+      requests_per_period: 10
+    retry:
+      max_retries: 5
+concurrent_requests: 5
 embedding_models:
   default_embedding_model:
     api_key: ${GOOGLE_AI_API_KEY}
     model: gemini-embedding-001
     model_provider: gemini
+    rate_limit:
+      period_in_seconds: 60
+      requests_per_period: 10
+    retry:
+      max_retries: 5
 extract_graph:
   entity_types:
   - PERSON

@@ -425,6 +425,22 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/heartbeat',
     enabled: true,
   },
+  // GraphRAG knowledge graph indexing — weekly full re-index
+  {
+    id: 'sync-graphrag-index',
+    schedule: '0 4 * * 0',     // 4:00 UTC Sunday = 10:00 PM CT Saturday
+    timezone: 'UTC',
+    endpoint: '/sync/graphrag-index',
+    enabled: true,
+  },
+  // GraphRAG prompt auto-tune — monthly
+  {
+    id: 'sync-graphrag-tune',
+    schedule: '0 3 1 * *',     // 3:00 UTC 1st of month
+    timezone: 'UTC',
+    endpoint: '/sync/graphrag-tune',
+    enabled: true,
+  },
 ];
 
 /**
