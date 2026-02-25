@@ -7,3 +7,12 @@ teams/*.zip
 teams/agents/*.zip
 teams/agents/*/icon-color.png
 teams/agents/*/icon-outline.png
+
+# Python
+__pycache__/
+*.pyc
+
+# GraphRAG indexer cache & output
+packages/graphrag-indexer/cache/
+packages/graphrag-indexer/output/
+packages/graphrag-indexer/logs/

@@ -86,7 +86,7 @@ export default function Chat() {
 
   // Speech-to-text (dictation into textarea)
   const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<any>(null);
   const toggleDictation = useCallback(() => {
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
@@ -100,7 +100,7 @@ export default function Chat() {
     rec.interimResults = true;
     rec.lang = 'en-US';
     let finalTranscript = '';
-    rec.onresult = (e: SpeechRecognitionEvent) => {
+    rec.onresult = (e: any) => {
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript;
