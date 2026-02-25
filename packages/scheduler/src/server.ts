@@ -10,7 +10,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GlyphorEventBus, ModelClient, promptCache } from '@glyphor/agent-runtime';
-import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn } from '@glyphor/agent-runtime';
+import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment } from '@glyphor/agent-runtime';
 import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, type KlingCredentials, TeamsBotHandler, extractBearerToken, runGovernanceSync } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
 import { EventRouter } from './eventRouter.js';
@@ -114,7 +114,19 @@ const agentExecutor = async (
   payload: Record<string, unknown>,
 ): Promise<AgentExecutionResult | void> => {
   const message = (payload.message as string) || undefined;
-  const conversationHistory = payload.conversationHistory as ConversationTurn[] | undefined;
+  let conversationHistory = payload.conversationHistory as ConversationTurn[] | undefined;
+
+  // Thread multimodal attachments: inject as a carrier turn at the end of
+  // conversationHistory so they reach CompanyAgentRunner without modifying
+  // every individual runner's parameter interface.
+  const rawAttach = payload.attachments as ConversationAttachment[] | undefined;
+  if (rawAttach?.length) {
+    if (!conversationHistory) conversationHistory = [];
+    conversationHistory = [
+      ...conversationHistory,
+      { role: 'user', content: '__multimodal_attachments__', timestamp: Date.now(), attachments: rawAttach },
+    ];
+  }
 
   // ─── Universal work_loop / proactive routing ──────────────
   // These tasks are dispatched by the heartbeat work loop for any agent.

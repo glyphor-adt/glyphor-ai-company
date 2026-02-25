@@ -167,6 +167,8 @@ locals {
     "github-token",
     "gcp-project-id",
     "acs-connection-string",
+    "bot-app-id",
+    "bot-app-secret",
   ]
 }
 

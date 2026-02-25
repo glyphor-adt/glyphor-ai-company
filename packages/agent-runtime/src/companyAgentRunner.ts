@@ -20,6 +20,7 @@ import type {
   AgentMemory,
   AgentReflection,
   CompanyAgentRole,
+  ConversationAttachment,
   ConversationTurn,
   IMemoryBus,
 } from './types.js';
@@ -833,10 +834,20 @@ export class CompanyAgentRunner {
     memoryBus: IMemoryBus,
     deps?: RunDependencies,
   ): Promise<AgentExecutionResult> {
+    // Extract multimodal attachments from carrier turn (injected by scheduler)
+    let initialAttachments: ConversationAttachment[] | undefined;
+    const cleanHistory = (config.conversationHistory ?? []).filter((t) => {
+      if (t.content === '__multimodal_attachments__' && t.attachments?.length) {
+        initialAttachments = t.attachments;
+        return false; // Remove carrier turn from history
+      }
+      return true;
+    });
+
     // Pre-seed with prior conversation history for multi-turn chat
     const history: ConversationTurn[] = [
-      ...(config.conversationHistory ?? []),
-      { role: 'user', content: initialMessage, timestamp: Date.now() },
+      ...cleanHistory,
+      { role: 'user', content: initialMessage, timestamp: Date.now(), ...(initialAttachments ? { attachments: initialAttachments } : {}) },
     ];
     let lastTextOutput: string | null = null;
     let totalInputTokens = 0;

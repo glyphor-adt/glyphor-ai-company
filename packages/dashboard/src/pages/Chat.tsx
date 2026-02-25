@@ -287,27 +287,23 @@ export default function Chat() {
     try {
       const history = messages.slice(-20).map((m) => ({ role: m.role, content: m.content }));
 
-      // Build full message with file contents for agent
-      let fullMessage = text;
-      if (attachments?.length) {
-        const parts = attachments.map((a) => {
-          if (a.type.startsWith('image/')) return `[Attached image: ${a.name}]`;
-          if (['text/plain', 'text/csv', 'text/markdown', 'application/json'].includes(a.type)) {
-            try {
-              const decoded = atob(a.data);
-              const content = decoded.length > 8000 ? decoded.slice(0, 8000) + '\n...(truncated)' : decoded;
-              return `[File: ${a.name}]\n\`\`\`\n${content}\n\`\`\``;
-            } catch { return `[Attached file: ${a.name} (${a.type})]`; }
-          }
-          return `[Attached file: ${a.name} (${a.type})]`;
-        });
-        fullMessage = `${text}\n\n${parts.join('\n\n')}`;
-      }
+      // Send attachments as structured data for native multimodal processing
+      const apiAttachments = attachments?.map((a) => ({
+        name: a.name,
+        mimeType: a.type,
+        data: a.data,
+      }));
 
       const res = await fetch(`${SCHEDULER_URL}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentRole: targetRole, task: 'on_demand', message: fullMessage, history }),
+        body: JSON.stringify({
+          agentRole: targetRole,
+          task: 'on_demand',
+          message: text || 'Please review the attached file(s).',
+          history,
+          ...(apiAttachments ? { attachments: apiAttachments } : {}),
+        }),
         signal: controller.signal,
       });
 
