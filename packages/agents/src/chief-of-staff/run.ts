@@ -68,7 +68,7 @@ async function gatherDirectiveLifecycleContext(supabase: SupabaseClient): Promis
           const assignmentSummary = assignments.map((a: any) =>
             `  - ${a.assigned_to}: quality=${a.quality_score ?? 'not evaluated'} | output preview: ${(a.output || 'no output recorded').substring(0, 200)}`
           ).join('\n');
-          sections.push(`📋 Directive: "${(d as any).title}" (id: ${(d as any).id})\n   Created by: ${(d as any).created_by}\n   Assignments:\n${assignmentSummary}\n`);
+          sections.push(`Directive: "${(d as any).title}" (id: ${(d as any).id})\n   Created by: ${(d as any).created_by}\n   Assignments:\n${assignmentSummary}\n`);
         }
       }
 
@@ -93,7 +93,7 @@ async function gatherDirectiveLifecycleContext(supabase: SupabaseClient): Promis
         sections.push(`## STUCK BLOCKERS — Assignments needing founder input (> 4 hours)\n\nThese assignments are blocked waiting for founder input. DM the directive creator with the agent's question and suggested options.\n`);
         for (const { directive, assignment } of blockedAssignments) {
           const waitHours = Math.round((Date.now() - new Date(assignment.updated_at).getTime()) / (1000 * 60 * 60));
-          sections.push(`📋 Directive: "${directive.title}" (id: ${directive.id})\n   Blocked agent: ${assignment.assigned_to}\n   Waiting: ${waitHours} hours\n   Blocker: ${assignment.blocker_reason || 'No reason recorded'}\n   DM target: ${directive.created_by}\n`);
+          sections.push(`Directive: "${directive.title}" (id: ${directive.id})\n   Blocked agent: ${assignment.assigned_to}\n   Waiting: ${waitHours} hours\n   Blocker: ${assignment.blocker_reason || 'No reason recorded'}\n   DM target: ${directive.created_by}\n`);
         }
       }
     }
@@ -112,7 +112,7 @@ async function gatherDirectiveLifecycleContext(supabase: SupabaseClient): Promis
       for (const dec of stuckDecisions) {
         const waitHours = Math.round((Date.now() - new Date(dec.created_at).getTime()) / (1000 * 60 * 60));
         const assignedTo = Array.isArray(dec.assigned_to) ? dec.assigned_to.join(', ') : dec.assigned_to;
-        sections.push(`🟡 Decision: "${dec.title}" (id: ${dec.id})\n   Tier: ${dec.tier} | Waiting: ${waitHours} hours\n   Assigned to: ${assignedTo}\n   Summary: ${(dec.summary || '').substring(0, 200)}\n`);
+        sections.push(`Decision: "${dec.title}" (id: ${dec.id})\n   Tier: ${dec.tier} | Waiting: ${waitHours} hours\n   Assigned to: ${assignedTo}\n   Summary: ${(dec.summary || '').substring(0, 200)}\n`);
       }
     }
   } catch (e) {

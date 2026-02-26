@@ -1,7 +1,7 @@
 # Building a Brand Compliance AI Agent on Azure
 
 > A guide for deploying an autonomous AI brand compliance agent (Cassandra Voss) into
-> Eaton's Azure environment. One agent, Azure-native, Graph API for Teams.
+> Eaton's Azure environment. One agent, Azure-native, Bot Service + Graph API for Teams & Outlook.
 
 ---
 
@@ -10,7 +10,7 @@
 1. [What You're Building](#what-youre-building)
 2. [Azure Resources Required](#azure-resources-required)
 3. [Entra ID & Permissions](#entra-id--permissions)
-4. [Teams Setup](#teams-setup)
+4. [Teams & Outlook Setup](#teams--outlook-setup)
 5. [Database Schema](#database-schema)
 6. [Knowledge Graph & GraphRAG](#knowledge-graph--graphrag)
 7. [Project Structure](#project-structure)
@@ -28,12 +28,13 @@ A single AI agent persona — **Cassandra Voss, Brand Compliance & Identity Mana
 - **Runs on a schedule** — daily brand audits, weekly compliance reports
 - **Responds on demand** — review a campaign brief, check a logo, answer brand questions
 - **Persists memory** — remembers past violations, rulings, and brand precedents
-- **Posts to Teams** — sends compliance reports and violation alerts to channels
+- **Lives in Teams & Outlook** — replies to @mentions and DMs in Teams, sends proactive compliance reports to channels, sends and reads email via Outlook
 - **Calls LLMs** — Azure OpenAI (GPT-5.2 / GPT-5.2-mini) for reasoning
-- **Has tools** — can fetch web pages, analyze documents & images, query the knowledge graph, send messages
+- **Has tools** — can fetch web pages, analyze documents & images, query the knowledge graph, post to Teams, send email
 
-This is NOT a chatbot. It's an autonomous agent with a persistent identity, memory, scheduled
-work cycles, and the ability to take actions in your enterprise environment.
+This is NOT just a chatbot. It's an autonomous agent with a persistent identity, memory, scheduled
+work cycles, and the ability to take actions in your enterprise environment — responding to Teams
+@mentions, posting compliance reports to channels, sending email, and reading its inbox through Outlook.
 
 ---
 
@@ -48,7 +49,8 @@ work cycles, and the ability to take actions in your enterprise environment.
 | **Azure Database for PostgreSQL** | Flexible Server, Burstable B1ms | Agent memory, activity log, agent config. 5 core tables + optional Knowledge Graph tables. Enable `pgvector` extension for KG embeddings. |
 | **Azure Key Vault** | Standard | Store all secrets: API keys, DB connection strings, Entra app credentials. Never hardcode. |
 | **Azure Container Registry** | Basic | Store your Docker images. |
-| **Entra ID App Registration** | Free (included with M365) | Service principal for Graph API (Teams, email). |
+| **Azure Bot Service** | F0 (Free) | Bot Framework registration — enables bi-directional Teams messaging (users @mention → agent responds). Uses the same Entra app registration. |
+| **Entra ID App Registration** | Free (included with M365) | Service principal for Bot Framework + Microsoft Graph API (Teams, Outlook, calendar). |
 
 ### Supporting (Recommended)
 
@@ -73,6 +75,7 @@ work cycles, and the ability to take actions in your enterprise environment.
 ```
 rg-ai-agent-sandbox/
 ├── acr-aiagent                    # Container Registry
+├── bot-aiagent                    # Bot Service (Teams channel registration)
 ├── cae-aiagent-env                # Container Apps Environment
 ├── ca-agent-scheduler             # Container App (your service)
 ├── openai-aiagent                 # Azure OpenAI account
@@ -92,29 +95,36 @@ rg-ai-agent-sandbox/
 
 You need **two** Entra ID app registrations:
 
-### App 1: Agent Service Principal (backend)
+### App 1: Agent Service Principal (backend) + Bot Registration
 
-This is the identity your agent service uses to call Microsoft Graph API.
+This is the identity your agent service uses for Microsoft Graph API — posting to Teams
+channels, sending/reading email via Outlook, and calendar access.
 
 **Create the registration:**
 1. Azure Portal → Entra ID → App registrations → New registration
 2. Name: `ai-agent-service`
 3. Supported account types: "Accounts in this organizational directory only" (Single tenant)
-4. No redirect URI needed
+4. No redirect URI needed (daemon/service app — Bot Framework uses callback, no redirect needed)
 
 **API Permissions (Application, NOT delegated):**
 
 | Permission | Type | Why |
 |-----------|------|-----|
-| `Teamwork.Migrate.All` | Application | Send messages to Teams channels |
+| `ChatMessage.Send` | Application | Bot Framework — send replies to Teams conversations |
+| `ChannelMessage.Send` | Application | Post proactive messages to Teams channels via Graph API |
+| `Chat.ReadWrite.All` | Application | Manage bot conversations in Teams |
+| `ChannelMember.Read.All` | Application | Read channel membership for @mention resolution |
 | `Channel.ReadBasic.All` | Application | List channels in a team |
-| `ChannelMember.Read.All` | Application | Read channel members |
 | `Group.Read.All` | Application | Read team metadata |
-| `Chat.ReadWrite.All` | Application | Send DMs to users (1:1 chat) |
-| `Mail.Send` | Application | Send email on behalf of agent mailbox |
-| `Mail.Read` | Application | Read agent's inbox |
+| `Mail.Send` | Application | Send email from the agent's shared mailbox |
+| `Mail.Read` | Application | Read the agent's inbox (content review requests) |
+| `Mail.ReadWrite` | Application | Mark emails as read after processing |
 | `Calendars.ReadWrite` | Application | Schedule meetings |
 | `User.Read.All` | Application | Look up user profiles |
+
+> **Note:** Bot Framework also requires the endpoint URL to be registered in the Bot Service
+> resource. The `appId` and `appSecret` from this Entra registration are shared between Bot
+> Service and Graph API calls.
 
 > **Admin consent required.** An Entra Global Admin or Privileged Role Administrator must
 > grant admin consent for these application permissions.
@@ -163,17 +173,193 @@ az role assignment create --assignee $PRINCIPAL_ID \
 |-------------|-------------|
 | **Entra Global Admin** | Grant admin consent for Graph API permissions |
 | **Subscription Owner/Contributor** | Create the Azure resources, assign RBAC roles |
-| **Teams Admin** | Install the Teams bot app in the org (later) |
-| **M365 Admin** | Create the shared mailbox for the agent (optional) |
+| **Teams Admin** | Upload the Teams app manifest, pin the app for target users |
+| **M365 Admin** | Create the shared mailbox for the agent (e.g. cassandra.voss@eaton.com) |
 
 ---
 
-## Teams Setup
+## Teams & Outlook Setup
 
-Your agent posts to Teams channels via **Microsoft Graph API** using app-only
-authentication (Entra ID client credentials flow). This requires the Entra app
-registration from the previous section with `ChannelMessage.Send` (or `Teamwork.Migrate.All`)
-permission and admin consent.
+Your agent is **bi-directional** in Teams:
+
+- **Inbound:** Users @mention or DM the bot → Azure Bot Service routes the message to your
+  Container App's `/api/messages` webhook → agent processes it and replies via Bot Framework SDK
+- **Outbound (proactive):** Scheduled tasks (brand audits, compliance reports) send messages
+  to Teams channels via Bot Framework's `continueConversation` or Graph API fallback
+
+### Step 1 — Create Azure Bot Service Resource
+
+```bash
+# Create the Bot Service resource (uses the same Entra app registration)
+az bot create \
+  --resource-group rg-ai-agent-sandbox \
+  --name bot-aiagent \
+  --kind registration \
+  --app-type SingleTenant \
+  --appid $AZURE_CLIENT_ID \
+  --tenant-id $AZURE_TENANT_ID \
+  --endpoint https://ca-agent-scheduler.your-region.azurecontainerapps.io/api/messages
+
+# Enable the Teams channel
+az bot msteams create \
+  --resource-group rg-ai-agent-sandbox \
+  --name bot-aiagent
+```
+
+### Step 2 — Teams App Manifest
+
+Create a Teams app package (`.zip`) with three files:
+
+**manifest.json:**
+```json
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.0.0",
+  "id": "{{AZURE_CLIENT_ID}}",
+  "developer": {
+    "name": "Eaton",
+    "websiteUrl": "https://www.eaton.com",
+    "privacyUrl": "https://www.eaton.com/privacy",
+    "termsOfUseUrl": "https://www.eaton.com/terms"
+  },
+  "name": { "short": "Cassandra Voss", "full": "Brand Compliance Agent" },
+  "description": {
+    "short": "Eaton brand compliance AI agent",
+    "full": "Cassandra Voss is your AI brand compliance agent. @mention her to review content, check brand guidelines, or ask brand questions."
+  },
+  "icons": { "outline": "outline.png", "color": "color.png" },
+  "accentColor": "#0058A2",
+  "bots": [
+    {
+      "botId": "{{AZURE_CLIENT_ID}}",
+      "scopes": ["personal", "team", "groupChat"],
+      "supportsFiles": false,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": ["personal", "team"],
+          "commands": [
+            { "title": "review", "description": "Review content for brand compliance" },
+            { "title": "audit", "description": "Run a brand audit now" },
+            { "title": "guidelines", "description": "Look up a brand guideline" },
+            { "title": "report", "description": "Generate a compliance report" }
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": ["ca-agent-scheduler.your-region.azurecontainerapps.io"]
+}
+```
+
+Add 32x32 `outline.png` and 192x192 `color.png` icons, zip all three files, and upload:
+- **For testing:** Teams Admin Center → Manage Apps → Upload custom app
+- **For org-wide:** Teams Admin → Setup Policies → pin the app for target users
+
+### Step 3 — Bot Framework Webhook (in your scheduler)
+
+```typescript
+// packages/scheduler/src/botHandler.ts
+import { CloudAdapter, ConfigurationBotFrameworkAuthentication,
+         TurnContext, ActivityTypes, ConversationReference } from 'botbuilder';
+import { runBrandAgent } from '../../agents/src/brand-agent/run';
+import type { Pool } from 'pg';
+
+const botAuth = new ConfigurationBotFrameworkAuthentication({
+  MicrosoftAppId: process.env.AZURE_CLIENT_ID!,
+  MicrosoftAppPassword: process.env.AZURE_CLIENT_SECRET!,
+  MicrosoftAppTenantId: process.env.AZURE_TENANT_ID!,
+  MicrosoftAppType: 'SingleTenant',
+});
+
+export const adapter = new CloudAdapter(botAuth);
+
+// Store conversation references for proactive messaging
+const conversationRefs = new Map<string, Partial<ConversationReference>>();
+
+export function getConversationRef(channelId: string) {
+  return conversationRefs.get(channelId);
+}
+
+export async function botMessageHandler(context: TurnContext): Promise<void> {
+  if (context.activity.type !== ActivityTypes.Message) return;
+
+  // Store the conversation reference for proactive messaging later
+  const ref = TurnContext.getConversationReference(context.activity);
+  conversationRefs.set(ref.conversation!.id, ref);
+
+  // Strip the @mention from the message text
+  const text = TurnContext.removeRecipientMention(context.activity)?.trim()
+    || context.activity.text?.trim()
+    || '';
+
+  if (!text) return;
+
+  // Show typing indicator while agent thinks
+  await context.sendActivity({ type: ActivityTypes.Typing });
+
+  // Run the agent with the user's message
+  const result = await runBrandAgent({
+    task: 'on_demand',
+    message: text,
+  });
+
+  // Reply in the same conversation
+  await context.sendActivity(result.text || 'I completed the task but had no text response.');
+}
+```
+
+```typescript
+// In packages/scheduler/src/server.ts — add the bot endpoint
+import { adapter, botMessageHandler } from './botHandler';
+
+app.post('/api/messages', async (req, res) => {
+  await adapter.process(req, res, botMessageHandler);
+});
+```
+
+> **Dependency:** `npm install botbuilder`
+
+### Step 4 — Proactive Messaging (scheduled tasks → Teams)
+
+When scheduled tasks (brand_audit, compliance_report) need to push messages to Teams,
+they use the stored conversation reference or fall back to Graph API:
+
+```typescript
+// packages/integrations/src/teams/proactive.ts
+import { adapter, getConversationRef } from '../../../scheduler/src/botHandler';
+import { GraphTeamsClient } from './graphClient';
+
+export async function sendToTeamsChannel(
+  channelConversationId: string,
+  message: string,
+): Promise<void> {
+  // Prefer Bot Framework (no extra Graph permissions needed)
+  const ref = getConversationRef(channelConversationId);
+  if (ref) {
+    await adapter.continueConversationAsync(
+      process.env.AZURE_CLIENT_ID!,
+      ref,
+      async (ctx) => { await ctx.sendActivity(message); },
+    );
+    return;
+  }
+
+  // Fallback: Graph API for channels where bot has no stored reference
+  const client = GraphTeamsClient.fromEnv();
+  await client.sendText(
+    { teamId: process.env.TEAMS_TEAM_ID!, channelId: process.env.TEAMS_CHANNEL_ID! },
+    message,
+  );
+}
+```
+
+### Step 5 — Graph API Client (fallback + proactive)
+
+Keep the Graph client for proactive messages to channels where the bot hasn't been directly
+invoked yet, and for non-Teams integrations (email, calendar):
 
 1. Register the Entra app (see above) and grant admin consent for Graph permissions
 2. Find your **Team ID** and **Channel ID** — run `GET /me/joinedTeams` and `GET /teams/{id}/channels`
@@ -237,7 +423,102 @@ class GraphTeamsClient {
 }
 ```
 
-> **Dependency:** `npm install @azure/msal-node`
+> **Dependencies:** `npm install @azure/msal-node botbuilder`
+
+### Step 6 — Outlook Email Integration
+
+The agent uses Graph API to send and read email through a shared mailbox
+(e.g. `cassandra.voss@eaton.com`). This lets stakeholders email content review requests
+directly to the agent.
+
+**Shared mailbox setup:**
+1. M365 Admin creates a shared mailbox: `cassandra.voss@eaton.com`
+2. The Entra app registration's `Mail.Send`, `Mail.Read`, and `Mail.ReadWrite` permissions
+   allow the agent to send/read from this mailbox without a licensed user
+
+```typescript
+// packages/integrations/src/email/emailClient.ts
+import { ConfidentialClientApplication } from '@azure/msal-node';
+
+interface EmailMessage {
+  to: string[];
+  subject: string;
+  body: string;
+  contentType?: 'Text' | 'HTML';
+}
+
+export class GraphEmailClient {
+  private msalApp: ConfidentialClientApplication;
+  private mailbox: string;
+
+  constructor(tenantId: string, clientId: string, clientSecret: string, mailbox: string) {
+    this.msalApp = new ConfidentialClientApplication({
+      auth: { clientId, clientSecret, authority: `https://login.microsoftonline.com/${tenantId}` },
+    });
+    this.mailbox = mailbox;
+  }
+
+  static fromEnv(): GraphEmailClient {
+    return new GraphEmailClient(
+      process.env.AZURE_TENANT_ID!,
+      process.env.AZURE_CLIENT_ID!,
+      process.env.AZURE_CLIENT_SECRET!,
+      process.env.AGENT_MAILBOX || 'cassandra.voss@eaton.com',
+    );
+  }
+
+  private async getToken(): Promise<string> {
+    const result = await this.msalApp.acquireTokenByClientCredential({
+      scopes: ['https://graph.microsoft.com/.default'],
+    });
+    if (!result?.accessToken) throw new Error('Failed to acquire Graph token');
+    return result.accessToken;
+  }
+
+  async sendEmail(msg: EmailMessage): Promise<void> {
+    const token = await this.getToken();
+    const resp = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${this.mailbox}/sendMail`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: {
+            subject: msg.subject,
+            body: { contentType: msg.contentType || 'Text', content: msg.body },
+            toRecipients: msg.to.map(addr => ({ emailAddress: { address: addr } })),
+          },
+        }),
+      },
+    );
+    if (!resp.ok) throw new Error(`Email send failed (${resp.status}): ${await resp.text()}`);
+  }
+
+  async readInbox(top = 10, unreadOnly = true): Promise<any[]> {
+    const token = await this.getToken();
+    const filter = unreadOnly ? "&$filter=isRead eq false" : '';
+    const resp = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${this.mailbox}/mailFolders/inbox/messages?$top=${top}&$orderby=receivedDateTime desc${filter}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    if (!resp.ok) throw new Error(`Inbox read failed (${resp.status}): ${await resp.text()}`);
+    const data = await resp.json();
+    return data.value;
+  }
+
+  async markAsRead(messageId: string): Promise<void> {
+    const token = await this.getToken();
+    await fetch(
+      `https://graph.microsoft.com/v1.0/users/${this.mailbox}/messages/${messageId}`,
+      {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isRead: true }),
+      },
+    );
+  }
+}
+```
 
 ---
 
@@ -370,7 +651,7 @@ CREATE TABLE kg_edges (
 Give your agent tools to read and write the knowledge graph:
 
 ```typescript
-// Graph tools for agents
+// Graph tools for agents — add these to the tools array in createTools(pool)
 {
   name: 'query_knowledge_graph',
   description: 'Search the knowledge graph for entities and their relationships. Returns nodes and connected context.',
@@ -381,13 +662,11 @@ Give your agent tools to read and write the knowledge graph:
   },
   execute: async (params) => {
     const embedding = await embeddingClient.embed(params.query as string);
-    const { data } = await db.rpc('kg_semantic_search_with_context', {
-      query_embedding: JSON.stringify(embedding),
-      match_threshold: 0.65,
-      match_count: 10,
-      expand_hops: (params.hops as number) || 1,
-    });
-    return { success: true, data };
+    const { rows } = await pool.query(
+      `SELECT * FROM kg_semantic_search_with_context($1, $2, $3, $4)`,
+      [JSON.stringify(embedding), 0.65, 10, (params.hops as number) || 1],
+    );
+    return { success: true, data: rows };
   },
 },
 {
@@ -402,29 +681,25 @@ Give your agent tools to read and write the knowledge graph:
   },
   execute: async (params) => {
     const embedding = await embeddingClient.embed(`${params.title}: ${params.content}`);
-    const { data: node } = await db.from('kg_nodes').insert({
-      node_type: params.node_type,
-      title: params.title,
-      content: params.content,
-      source_agent: 'brand-agent',
-      embedding: JSON.stringify(embedding),
-    }).select().single();
+    const { rows } = await pool.query(
+      `INSERT INTO kg_nodes (node_type, title, content, source_agent, embedding)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [params.node_type, params.title, params.content, 'brand-agent', JSON.stringify(embedding)],
+    );
+    const node = rows[0];
 
     // Optionally connect to existing node
     if (params.connect_to && params.edge_type && node) {
       const connectEmb = await embeddingClient.embed(params.connect_to as string);
-      const { data: targets } = await db.rpc('match_kg_nodes', {
-        query_embedding: JSON.stringify(connectEmb),
-        match_threshold: 0.8,
-        match_count: 1,
-      });
+      const { rows: targets } = await pool.query(
+        `SELECT * FROM match_kg_nodes($1, $2, $3)`,
+        [JSON.stringify(connectEmb), 0.8, 1],
+      );
       if (targets?.[0]) {
-        await db.from('kg_edges').insert({
-          source_id: node.id,
-          target_id: targets[0].id,
-          edge_type: params.edge_type,
-          created_by: 'brand-agent',
-        });
+        await pool.query(
+          `INSERT INTO kg_edges (source_id, target_id, edge_type, created_by) VALUES ($1, $2, $3, $4)`,
+          [node.id, targets[0].id, params.edge_type, 'brand-agent'],
+        );
       }
     }
     return { success: true, data: node };
@@ -439,12 +714,11 @@ Give your agent tools to read and write the knowledge graph:
   },
   execute: async (params) => {
     const embedding = await embeddingClient.embed(params.query as string);
-    const { data } = await db.rpc('kg_trace_causal_chain', {
-      query_embedding: JSON.stringify(embedding),
-      direction: 'backward',
-      max_depth: (params.depth as number) || 3,
-    });
-    return { success: true, data };
+    const { rows } = await pool.query(
+      `SELECT * FROM kg_trace_causal_chain($1, $2, $3)`,
+      [JSON.stringify(embedding), 'backward', (params.depth as number) || 3],
+    );
+    return { success: true, data: rows };
   },
 }
 ```
@@ -585,7 +859,15 @@ ai-agent/
 │   │       │   └── schedule.ts        # WHEN this agent runs
 │   │       └── shared/
 │   │           ├── memoryTools.ts     # save/recall memories
-│   │           └── communicationTools.ts  # send Teams messages
+│   │           └── communicationTools.ts  # send Teams messages, email
+│   │
+│   ├── integrations/            # Microsoft Graph integrations
+│   │   └── src/
+│   │       ├── teams/
+│   │       │   ├── graphClient.ts     # Graph API (outbound channel posts)
+│   │       │   └── proactive.ts       # Bot Framework + Graph proactive messaging
+│   │       └── email/
+│   │           └── emailClient.ts     # Graph API email (send, read inbox)
 │   │
 │   ├── memory/                  # Database persistence
 │   │   └── src/
@@ -594,11 +876,17 @@ ai-agent/
 │   └── scheduler/               # HTTP service (the deployed app)
 │       └── src/
 │           ├── server.ts              # Express/Hono HTTP server
+│           ├── botHandler.ts          # Bot Framework webhook + proactive messaging
 │           ├── cronManager.ts         # Cron job scheduling
 │           └── routes.ts              # HTTP route handlers
 │
 ├── docker/
 │   └── Dockerfile                    # node:22-slim multi-stage build
+│
+├── teams/                            # Teams app manifest
+│   ├── manifest.json
+│   ├── color.png                         # 192x192 bot icon
+│   └── outline.png                       # 32x32 bot icon
 │
 ├── package.json                      # npm workspaces root
 ├── turbo.json                        # (optional) Turborepo config
@@ -737,13 +1025,50 @@ export function createTools(pool: Pool): ToolDefinition[] {
         message: { type: 'string', description: 'Message text', required: true },
       },
       execute: async (params) => {
-        const { GraphTeamsClient } = await import('../integrations/teams/graphClient');
-        const client = GraphTeamsClient.fromEnv();
-        await client.sendText(
-          { teamId: process.env.TEAMS_TEAM_ID!, channelId: process.env.TEAMS_CHANNEL_ID! },
+        const { sendToTeamsChannel } = await import('../integrations/teams/proactive');
+        await sendToTeamsChannel(
+          process.env.TEAMS_CHANNEL_CONVERSATION_ID || process.env.TEAMS_CHANNEL_ID!,
           params.message as string,
         );
         return { success: true };
+      },
+    },
+    {
+      name: 'send_email',
+      description: 'Send an email from the agent\'s shared mailbox (cassandra.voss@eaton.com).',
+      parameters: {
+        to: { type: 'string', description: 'Comma-separated recipient email addresses', required: true },
+        subject: { type: 'string', description: 'Email subject line', required: true },
+        body: { type: 'string', description: 'Email body text', required: true },
+      },
+      execute: async (params) => {
+        const { GraphEmailClient } = await import('../integrations/email/emailClient');
+        const client = GraphEmailClient.fromEnv();
+        await client.sendEmail({
+          to: (params.to as string).split(',').map(s => s.trim()),
+          subject: params.subject as string,
+          body: params.body as string,
+        });
+        return { success: true };
+      },
+    },
+    {
+      name: 'read_inbox',
+      description: 'Read unread emails from the agent\'s inbox for content review requests.',
+      parameters: {
+        limit: { type: 'number', description: 'Max emails to read (default 10)', required: false },
+      },
+      execute: async (params) => {
+        const { GraphEmailClient } = await import('../integrations/email/emailClient');
+        const client = GraphEmailClient.fromEnv();
+        const messages = await client.readInbox((params.limit as number) || 10);
+        return { success: true, data: messages.map(m => ({
+          id: m.id,
+          from: m.from?.emailAddress?.address,
+          subject: m.subject,
+          preview: m.bodyPreview,
+          received: m.receivedDateTime,
+        })) };
       },
     },
     {
@@ -774,7 +1099,7 @@ import { createTools } from './tools';
 import pg from 'pg';
 
 export interface RunParams {
-  task: 'brand_audit' | 'compliance_report' | 'on_demand';
+  task: 'brand_audit' | 'compliance_report' | 'inbox_review' | 'on_demand';
   message?: string;           // for on_demand chat
   conversationHistory?: any[];
 }
@@ -786,6 +1111,7 @@ export async function runBrandAgent(params: RunParams) {
   const taskPrompts: Record<string, string> = {
     brand_audit: 'Run a brand compliance audit. Fetch eaton.com and key regional pages. Check logo usage, color compliance, messaging consistency, and outdated content. Log all findings and send a summary to the #brand-compliance Teams channel.',
     compliance_report: 'Generate the weekly brand compliance report for Zari Venhaus. Include: executive summary (Green/Yellow/Red), hard violations with evidence and fixes, soft deviations with coaching notes, positive examples, trend analysis, and recommendations. Send to Teams.',
+    inbox_review: 'Check your email inbox for new content review requests. For each unread email, review the content for brand compliance, reply with your assessment, and log findings. Mark processed emails as read.',
     on_demand: params.message || 'How can I help with brand compliance?',
   };
 
@@ -811,6 +1137,7 @@ export async function runBrandAgent(params: RunParams) {
 export const SCHEDULES = [
   { task: 'brand_audit',       cron: '0 14 * * 1-5', description: '9 AM CT weekdays — daily brand audit' },
   { task: 'compliance_report', cron: '0 16 * * 5',   description: '11 AM CT Friday — weekly compliance report' },
+  { task: 'inbox_review',      cron: '0 13 * * 1-5', description: '8 AM CT weekdays — check inbox for review requests' },
 ];
 ```
 
@@ -1001,6 +1328,7 @@ For one brand compliance agent with daily audits + weekly reports + occasional o
 | Container Apps (Consumption) | $5-15 (scales to zero) |
 | Azure OpenAI (gpt-5.2) | $10-30 (depends on token volume) |
 | PostgreSQL (B1ms) | $13 |
+| Azure Bot Service (F0) | Free |
 | Key Vault | <$1 |
 | Container Registry (Basic) | $5 |
 | Blob Storage | <$1 |
@@ -1028,9 +1356,13 @@ AZURE_TENANT_ID=...
 AZURE_CLIENT_ID=...
 AZURE_CLIENT_SECRET=...
 
-# Teams (Graph API)
+# Teams (Bot Service + Graph API)
 TEAMS_TEAM_ID=...                           # Your team's ID (from Graph Explorer)
 TEAMS_CHANNEL_ID=...                        # Target channel ID
+TEAMS_CHANNEL_CONVERSATION_ID=...           # Bot conversation ref for proactive messages (auto-stored)
+
+# Outlook (shared mailbox)
+AGENT_MAILBOX=cassandra.voss@eaton.com      # Shared mailbox for sending/receiving email
 
 # Optional
 APPLICATIONINSIGHTS_CONNECTION_STRING=...   # App Insights telemetry
@@ -1050,9 +1382,14 @@ APPLICATIONINSIGHTS_CONNECTION_STRING=...   # App Insights telemetry
 - [ ] Build one agent (four files: systemPrompt, tools, run, schedule)
 - [ ] Build the scheduler HTTP service
 - [ ] Containerize and deploy to Container Apps
-- [ ] Find your Teams team/channel IDs and test your first brand audit via Graph API
+- [ ] Create Azure Bot Service resource + enable Teams channel
+- [ ] Build Teams app manifest (manifest.json + icons), upload to Teams Admin Center
+- [ ] Test @mentioning Cassandra Voss in a Teams channel — verify she responds
+- [ ] Find your Teams team/channel IDs for proactive messaging fallback
+- [ ] Create shared mailbox (cassandra.voss@eaton.com) for Outlook integration
+- [ ] Test sending an email to the shared mailbox and running inbox_review
 - [ ] Set up cron jobs for daily audits and weekly compliance reports
-- [ ] Run your first brand audit and send a compliance report to Teams
+- [ ] Run your first brand audit and verify the compliance report appears in Teams
 
 ---
 

@@ -43,17 +43,17 @@ export interface CausalChainNode {
 // ─── Icons ────────────────────────────────────────────────────────
 
 const NODE_ICONS: Record<string, string> = {
-  event: '⚡',
-  fact: '📌',
-  observation: '👁',
-  pattern: '🔄',
-  decision: '⚖️',
-  metric: '📊',
-  entity: '🏢',
-  goal: '🎯',
-  risk: '⚠️',
-  action: '🔧',
-  hypothesis: '🔬',
+  event: '[event]',
+  fact: '[fact]',
+  observation: '[obs]',
+  pattern: '[pattern]',
+  decision: '[decision]',
+  metric: '[metric]',
+  entity: '[entity]',
+  goal: '[goal]',
+  risk: '[risk]',
+  action: '[action]',
+  hypothesis: '[hypothesis]',
 };
 
 // ─── Reader ───────────────────────────────────────────────────────

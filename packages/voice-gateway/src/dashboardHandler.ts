@@ -121,7 +121,7 @@ export class DashboardVoiceHandler {
       await this.supabase.from('chat_messages').insert({
         agent_role: agentRole,
         role: 'agent',
-        content: `🎤 *Voice conversation transcript:*\n\n${transcript}`,
+        content: `*Voice conversation transcript:*\n\n${transcript}`,
         user_id: userId,
       });
     }

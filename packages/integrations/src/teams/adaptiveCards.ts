@@ -23,9 +23,9 @@ export interface BriefingCardData {
 }
 
 const TREND_ICONS: Record<string, string> = {
-  up: '📈',
-  down: '📉',
-  flat: '➡️',
+  up: '(up)',
+  down: '(down)',
+  flat: '(flat)',
 };
 
 export function formatBriefingCard(data: BriefingCardData): TeamsWebhookPayload {
@@ -54,7 +54,7 @@ export function formatBriefingCard(data: BriefingCardData): TeamsWebhookPayload 
     // Header
     {
       type: 'TextBlock',
-      text: `☀️ Good Morning, ${capitalize(data.recipient)}`,
+      text: `Good Morning, ${capitalize(data.recipient)}`,
       size: 'large',
       weight: 'bolder',
       wrap: true,
@@ -96,7 +96,7 @@ export function formatBriefingCard(data: BriefingCardData): TeamsWebhookPayload 
     body.push(
       {
         type: 'TextBlock',
-        text: '⚡ Action Required',
+        text: 'Action Required',
         size: 'medium',
         weight: 'bolder',
         color: 'attention',
@@ -121,7 +121,7 @@ export function formatBriefingCard(data: BriefingCardData): TeamsWebhookPayload 
     actions: [
       {
         type: 'Action.OpenUrl',
-        title: '🔗 Open Dashboard',
+        title: 'Open Dashboard',
         url: process.env.DASHBOARD_URL || 'https://dashboard.glyphor.com',
       },
     ],
@@ -157,8 +157,8 @@ const TIER_COLORS: Record<string, string> = {
 };
 
 const TIER_LABELS: Record<string, string> = {
-  yellow: '🟡 YELLOW — One Founder Approval Needed',
-  red: '🔴 RED — Both Founders Required',
+  yellow: 'YELLOW — One Founder Approval Needed',
+  red: 'RED — Both Founders Required',
 };
 
 export function formatDecisionCard(data: DecisionCardData): TeamsWebhookPayload {
@@ -220,7 +220,7 @@ export function formatDecisionCard(data: DecisionCardData): TeamsWebhookPayload 
     actions: [
       {
         type: 'Action.OpenUrl',
-        title: '🔗 View in Dashboard',
+        title: 'View in Dashboard',
         url: `${process.env.DASHBOARD_URL || 'https://dashboard.glyphor.com'}/decisions`,
       },
     ],
@@ -249,9 +249,9 @@ export interface AlertCardData {
 }
 
 const SEVERITY_ICONS: Record<string, string> = {
-  info: 'ℹ️',
-  warning: '⚠️',
-  critical: '🚨',
+  info: '[info]',
+  warning: '[warning]',
+  critical: '[critical]',
 };
 
 export function formatAlertCard(data: AlertCardData): TeamsWebhookPayload {

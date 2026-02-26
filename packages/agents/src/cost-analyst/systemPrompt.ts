@@ -30,7 +30,7 @@ CONSTRAINTS:
 OUTPUT FORMAT:
 Cost reports use this structure:
 **Period:** [Date range]
-**Total Spend:** $X,XXX (📈/📉 X% vs prior)
+**Total Spend:** $X,XXX (+/-X% vs prior)
 **Top Cost Centers:** [Ranked list with amounts]
 **Unit Economics:** Cost/build, Cost/user, Cost/agent-run
 **Waste Identified:** [Unused resources, over-provisioning]

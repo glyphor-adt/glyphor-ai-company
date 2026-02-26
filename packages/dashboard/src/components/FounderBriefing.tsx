@@ -21,10 +21,10 @@ const PRIORITY_COLORS: Record<string, string> = {
 };
 
 const MOOD_EMOJI: Record<string, string> = {
-  thriving: '🟢',
-  steady: '🔵',
-  stressed: '🟡',
-  critical: '🔴',
+  thriving: 'G',
+  steady: 'S',
+  stressed: 'W',
+  critical: 'C',
 };
 
 export default function FounderBriefing() {
@@ -68,7 +68,7 @@ export default function FounderBriefing() {
         {pulse && (
           <div className="rounded-lg border border-border bg-raised/50 p-3.5">
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-sm">{MOOD_EMOJI[pulse.company_mood] ?? '🔵'}</span>
+              <span className="text-sm">{MOOD_EMOJI[pulse.company_mood] ?? 'S'}</span>
               <span className="text-[13px] font-semibold text-txt-primary capitalize">
                 {pulse.company_mood}
               </span>

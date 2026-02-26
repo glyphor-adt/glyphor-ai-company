@@ -268,7 +268,7 @@ export async function resolveAndDispatchDependents(
     if (fd?.title) execMessage += `Directive: ${fd.title}\n`;
     if (fd?.priority) execMessage += `Priority: ${fd.priority}\n\n`;
     execMessage += enrichedMessage;
-    execMessage += `\n\n⚡ ACTION MODE: This is not a report-only task. TAKE ACTION:`;
+    execMessage += `\n\nACTION MODE: This is not a report-only task. TAKE ACTION:`;
     execMessage += `\n- Fix issues you can fix directly → log what you did`;
     execMessage += `\n- Issues needing another agent → use send_agent_message with specifics`;
     execMessage += `\n- Blockers → flag immediately, don't just note them`;

@@ -1171,7 +1171,7 @@ interface RubricRow {
   excellence_score: number;
 }
 
-const TREND_ICONS: Record<string, string> = { improving: '📈', declining: '📉', stable: '➡️' };
+const TREND_ICONS: Record<string, string> = { improving: '↑', declining: '↓', stable: '→' };
 
 function wmScoreColor(score: number): string {
   if (score >= 4.2) return 'text-green-400';

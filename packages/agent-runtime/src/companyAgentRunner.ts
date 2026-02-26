@@ -472,11 +472,11 @@ const ALWAYS_ON_PROTOCOL = `## Operating Mode: Always On
 You are part of a 24/7 autonomous company. You don't wait to be told what to do — you check for work on every heartbeat and act on whatever is highest priority.
 
 **Every time you wake up, work through this priority stack:**
-1. 🔴 URGENT — Assignments with \`needs_revision\` status (feedback from Sarah) or urgent messages
-2. 🟡 ACTIVE WORK — Assignments with \`pending\`/\`dispatched\`/\`in_progress\` status
-3. 🔵 MESSAGES — Unread messages from colleagues
-4. ⚪ SCHEDULED — Your normal job (briefings, monitoring, analysis)
-5. 🟢 PROACTIVE — If nothing else, look for ways to improve your domain
+1. [URGENT] — Assignments with \`needs_revision\` status (feedback from Sarah) or urgent messages
+2. [ACTIVE] — Assignments with \`pending\`/\`dispatched\`/\`in_progress\` status
+3. [MESSAGES] — Unread messages from colleagues
+4. [SCHEDULED] — Your normal job (briefings, monitoring, analysis)
+5. [PROACTIVE] — If nothing else, look for ways to improve your domain
 
 ## Dependency & Capability Management
 
@@ -571,7 +571,7 @@ function buildSkillBlock(skillContext: SkillContext): string {
 
     if (skill.failure_modes.length > 0) {
       parts.push('\n**Known failure modes (avoid these):**');
-      for (const f of skill.failure_modes) parts.push(`- ⚠️ ${f}`);
+      for (const f of skill.failure_modes) parts.push(`- [!] ${f}`);
     }
 
     if (skill.tools_granted.length > 0) {
@@ -1099,7 +1099,7 @@ export class CompanyAgentRunner {
           : 'unknown time';
         const isChat = tier === 'light' || (config.conversationHistory && config.conversationHistory.length > 0);
         const preamble = isChat
-          ? `## Background Context (from your last scheduled run ${ago} ago)\n⚠️ WARNING: This is UNVERIFIED context from a previous run. It may be stale or inaccurate. Do NOT repeat any of this as fact. If the user asks about something mentioned here, verify it with a tool first.\n\n`
+          ? `## Background Context (from your last scheduled run ${ago} ago)\nWARNING: This is UNVERIFIED context from a previous run. It may be stale or inaccurate. Do NOT repeat any of this as fact. If the user asks about something mentioned here, verify it with a tool first.\n\n`
           : `## Working Memory\nYour last run was ${ago} ago. Here is what you accomplished:\n\n`;
         const suffix = isChat
           ? ''
@@ -1799,7 +1799,7 @@ function buildPendingMessageContext(
   ];
 
   if (urgentMessages.length > 0) {
-    parts.push('### 🔴 URGENT');
+    parts.push('### URGENT');
     for (const m of urgentMessages) {
       parts.push(`**From ${m.from_agent}** (${m.message_type}) [thread: ${m.thread_id}]`);
       parts.push(`> ${m.message}`);
@@ -1826,13 +1826,13 @@ function buildPendingAssignmentContext(
   const actionable = assignments.filter((a) => a.status !== 'needs_revision');
 
   const parts: string[] = [
-    `## 📋 Pending Work Assignments (${assignments.length})\n`,
+    `## Pending Work Assignments (${assignments.length})\n`,
     'These assignments were dispatched to you by Sarah (Chief of Staff).',
     'Use `read_my_assignments` for full details, then `submit_assignment_output` when done.\n',
   ];
 
   if (revision.length > 0) {
-    parts.push('### 🔄 NEEDS REVISION');
+    parts.push('### NEEDS REVISION');
     for (const a of revision) {
       parts.push(`**${a.task_type}** [${a.priority}] — ${a.task_description}`);
       if (a.evaluation) parts.push(`  Feedback: ${a.evaluation}`);

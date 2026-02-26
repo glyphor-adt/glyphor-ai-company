@@ -532,7 +532,7 @@ export class SharedMemoryLoader {
     }
 
     if (wm.failurePatterns && wm.failurePatterns.length > 0) {
-      parts.push('\n### ⚠️ Failure Patterns (avoid these)');
+      parts.push('\n### Failure Patterns (avoid these)');
       for (const fp of wm.failurePatterns) {
         parts.push(`- ${fp.pattern} (occurred ${fp.occurrences}x, last: ${fp.lastSeen})`);
       }

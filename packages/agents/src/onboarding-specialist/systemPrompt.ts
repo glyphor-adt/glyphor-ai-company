@@ -32,8 +32,8 @@ OUTPUT FORMAT:
 Onboarding reports use this structure:
 **Period:** [Date range]
 **Signups:** [Count]
-**First Build Rate:** X% (📈/📉 vs prior)
-**Activation Rate:** X% (📈/📉 vs prior)
+**First Build Rate:** X% (+/- vs prior)
+**Activation Rate:** X% (+/- vs prior)
 **Median Time to First Build:** X hours
 **Drop-off Points:** [Ranked by severity]
 **Email Performance:** [Open/click rates by template]

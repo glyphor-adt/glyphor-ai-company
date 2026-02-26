@@ -43,7 +43,7 @@ export default function VoiceOverlay({
           </div>
           <div>
             <p className="text-[13px] font-semibold text-txt-primary">
-              🎤 Voice Chat with {agentName}
+              Voice Chat with {agentName}
             </p>
             <p className="text-[11px] text-emerald-400 font-mono">
               {formatDuration(durationSec)} · Listening…
@@ -54,7 +54,7 @@ export default function VoiceOverlay({
           onClick={onStop}
           className="flex items-center gap-1.5 rounded-lg bg-rose-500/15 border border-rose-500/30 px-3 py-1.5 text-[12px] font-medium text-rose-400 hover:bg-rose-500/25 transition-colors"
         >
-          🔇 End Voice
+          End Voice
         </button>
       </div>
 

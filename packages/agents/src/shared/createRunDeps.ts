@@ -221,11 +221,11 @@ export function createRunDeps(
       if (active.length === 0) return '';
 
       const entries = active.map(b => {
-        const icon = b.priority === 'urgent' ? '🔴' : b.priority === 'important' ? '🟡' : '';
+        const icon = b.priority === 'urgent' ? '[URGENT]' : b.priority === 'important' ? '[IMPORTANT]' : '';
         return `${icon} **From ${b.created_by}:** ${b.content}`.trim();
       });
 
-      return `## 📢 Founder Bulletins\n\n${entries.join('\n\n')}`;
+      return `## Founder Bulletins\n\n${entries.join('\n\n')}`;
     },
 
     skillContextLoader: async (role: CompanyAgentRole, task: string): Promise<SkillContext | null> => {

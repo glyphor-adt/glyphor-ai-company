@@ -216,7 +216,7 @@ export function exportSimulationMarkdown(record: SimulationRecord): string {
   // Votes
   lines.push('## Agent Votes', '');
   for (const vote of report.votes) {
-    const emoji = vote.vote === 'approve' ? '✅' : vote.vote === 'reject' ? '❌' : '⚠️';
+    const emoji = vote.vote === 'approve' ? 'APPROVE' : vote.vote === 'reject' ? 'REJECT' : 'CAUTION';
     lines.push(`- ${emoji} **${vote.agent}**: ${vote.vote} — ${vote.reasoning.slice(0, 100)}`);
   }
 
@@ -934,7 +934,7 @@ export function exportCotMarkdown(record: CotRecord): string {
   // Validations
   lines.push('## Logical Validation', '');
   for (const v of report.validations) {
-    const icon = v.status === 'valid' ? '✅' : v.status === 'questionable' ? '⚠️' : '❌';
+    const icon = v.status === 'valid' ? 'VALID' : v.status === 'questionable' ? 'QUESTIONABLE' : 'INVALID';
     lines.push(`- ${icon} **${v.assumption}** [${v.status}]: ${v.evidence}`);
   }
 
@@ -1635,7 +1635,7 @@ export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Pro
       children.push(new Paragraph({
         spacing: { after: 120 },
         indent: { left: convertInchesToTwip(0.3) },
-        children: [new TextRun({ text: `⚠ Risk if not: ${rec.riskIfNot}`, size: 18, color: 'DC2626', font: 'Segoe UI' })],
+        children: [new TextRun({ text: `Risk if not: ${rec.riskIfNot}`, size: 18, color: 'DC2626', font: 'Segoe UI' })],
       }));
     }
   }
@@ -1735,7 +1735,7 @@ export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): st
     `Each recommendation is a card row with the priority badge, title, and owner.`,
     ``,
     `RIGHT — "Key Risks & Threats" (rose header bar):`,
-    `${[...topThreats, ...topRisks].slice(0, 4).map(r => `  ⚠ ${r}`).join('\n')}`,
+    `${[...topThreats, ...topRisks].slice(0, 4).map(r => `  - ${r}`).join('\n')}`,
     `Show each as a short line with a rose warning icon.`,
     ``,
     `BOTTOM FOOTER (7%):`,

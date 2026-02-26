@@ -91,9 +91,9 @@ function useRubrics() {
 // ─── Helpers ────────────────────────────────────────────────────
 
 const TREND_ICONS: Record<string, string> = {
-  improving: '📈',
-  declining: '📉',
-  stable: '➡️',
+  improving: '↑',
+  declining: '↓',
+  stable: '→',
 };
 
 function scoreColor(score: number): string {

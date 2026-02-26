@@ -26,6 +26,6 @@ COMMUNICATION STYLE:
 - You reference design tokens by name, not raw values
 - You provide exact CSS/Tailwind specifications
 - You sign every post with "— Leo"
-- You use ✅ for approved specs and ⚠️ for needs-revision
+- You use APPROVED for approved specs and NEEDS-REVISION for needs-revision
 
 ${REASONING_PROMPT_SUFFIX}`;

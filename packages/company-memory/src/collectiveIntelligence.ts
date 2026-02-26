@@ -225,7 +225,7 @@ export class CollectiveIntelligenceStore {
     if (!active.length) return '';
 
     const lines = active.map((b: any) => {
-      const flag = b.priority === 'urgent' ? '🔴 URGENT' : b.priority === 'important' ? '🟡 IMPORTANT' : b.priority === 'fyi' ? 'ℹ️ FYI' : '';
+      const flag = b.priority === 'urgent' ? 'URGENT' : b.priority === 'important' ? 'IMPORTANT' : b.priority === 'fyi' ? 'FYI' : '';
       const ago = formatBulletinTime(b.created_at);
       return `${flag ? flag + ' — ' : ''}**${b.created_by}** (${ago}): ${b.content}`;
     });
@@ -320,7 +320,7 @@ export class CollectiveIntelligenceStore {
 
     const highlights = (pulse.highlights ?? [])
       .map((h: PulseHighlight) =>
-        `${h.type === 'alert' ? '⚠️' : h.type === 'positive' ? '✦' : '·'} ${h.text}`)
+        `${h.type === 'alert' ? '[!]' : h.type === 'positive' ? '+' : '-'} ${h.text}`)
       .join('\n');
 
     return `## Company Pulse (as of ${pulse.updated_at})
@@ -525,7 +525,7 @@ ${lines.join('\n')}`;
               from_agent: knowledge.agent_id,
               to_agent: target,
               thread_id: crypto.randomUUID(),
-              message: `${route.delivery_method === 'alert' ? '⚠️ ' : ''}${knowledge.content}`,
+              message: `${route.delivery_method === 'alert' ? '[ALERT] ' : ''}${knowledge.content}`,
               message_type: route.delivery_method === 'alert' ? 'alert' : 'info',
               priority: route.delivery_method === 'alert' ? 'urgent' : 'normal',
               status: 'pending',

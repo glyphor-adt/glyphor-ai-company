@@ -688,12 +688,12 @@ export function createOrchestrationTools(
         await supabase.from('agent_messages').insert({
           from_agent: 'chief-of-staff',
           to_agent: assignment.assigned_to,
-          message: `📋 **Work Assignment from Sarah (Chief of Staff)**\n\n` +
+          message: `**Work Assignment from Sarah (Chief of Staff)**\n\n` +
             `**Directive:** ${directiveTitle}\n` +
             `**Priority:** ${assignment.priority}\n\n` +
             `**Your Task:**\n${assignment.task_description}\n\n` +
             `**Expected Output:**\n${assignment.expected_output}\n\n` +
-            `**⚡ ACTION MODE:** This is not a report-only task. You are expected to TAKE ACTION:\n` +
+            `**ACTION MODE:** This is not a report-only task. You are expected to TAKE ACTION:\n` +
             `- If you find issues you can fix → fix them immediately and log what you did\n` +
             `- If you find issues requiring another agent → use send_agent_message to assign them with specifics\n` +
             `- If you hit a blocker → use flag_assignment_blocker immediately, don't just note it\n` +
@@ -1217,7 +1217,7 @@ export function createOrchestrationTools(
         const agentList = targetAgents.join(', ');
         const deadlineLine = dueDate ? `\nSuggested deadline: ${dueDate}` : '';
         const dmMessage =
-          `📋 PROPOSED DIRECTIVE: ${title}\n\n` +
+          `PROPOSED DIRECTIVE: ${title}\n\n` +
           `Why: ${proposalReason}\n` +
           `Scope: ${agentList}\n` +
           `Priority: ${priority} | Category: ${category}${deadlineLine}\n\n` +

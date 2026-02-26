@@ -229,8 +229,8 @@ export function createAssignmentTools(
         // Notify Sarah
         const title = (assignment.task_description as string)?.slice(0, 80) ?? 'Assignment';
         const msgContent = status === 'completed'
-          ? `✅ Assignment '${title}' completed. Output submitted for review.`
-          : `📝 Assignment '${title}' progress update submitted.`;
+          ? `Assignment '${title}' completed. Output submitted for review.`
+          : `Assignment '${title}' progress update submitted.`;
 
         await supabase.from('agent_messages').insert({
           from_agent: ctx.agentRole,
@@ -345,7 +345,7 @@ export function createAssignmentTools(
           from_agent: ctx.agentRole,
           to_agent: 'chief-of-staff',
           thread_id: crypto.randomUUID(),
-          message: `🚫 BLOCKED: Assignment '${title}'\nReason: ${blockerReason}\nNeed: ${needType}`,
+          message: `BLOCKED: Assignment '${title}'\nReason: ${blockerReason}\nNeed: ${needType}`,
           message_type: 'alert',
           priority: 'urgent',
           status: 'pending',
