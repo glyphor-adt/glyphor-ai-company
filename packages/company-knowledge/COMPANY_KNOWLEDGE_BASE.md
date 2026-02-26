@@ -138,7 +138,7 @@ When creating external content (blog posts, social, case studies):
 
 ### Authority Tiers
 
-#### 🟢 Green — Act Autonomously
+#### Green — Act Autonomously
 No approval needed. Log it. Mention in daily briefing.
 
 **Examples:**
@@ -149,7 +149,7 @@ No approval needed. Log it. Mention in daily briefing.
 - Bug fixes to staging
 - Cost tracking and standard reports
 
-#### 🟡 Yellow — One Founder Approval
+#### Yellow — One Founder Approval
 Post to #decisions with Adaptive Card. Founder can approve async via Teams.
 Auto-escalates to Red after 48 hours with no response.
 
@@ -161,7 +161,7 @@ Auto-escalates to Red after 48 hours with no response.
 - Infrastructure scaling >$200/mo → Andrew
 - Production deploys (non-hotfix) → Andrew
 
-#### 🔴 Red — Both Founders Required
+#### Red — Both Founders Required
 Flagged in both briefings. Discussed at weekly sync or ad-hoc if urgent.
 
 **Examples:**

@@ -88,7 +88,7 @@ WRITE: decisions, activity_log, weekly_agendas,
 
 ### Governance
 ```
-🟢 GREEN (autonomous):
+GREEN (autonomous):
    - Compile and send morning briefings (7:00 Kristina, 7:30 Andrew)
    - Route decisions to correct founder
    - Log activity and events
@@ -98,12 +98,12 @@ WRITE: decisions, activity_log, weekly_agendas,
    - Connect cross-department insights
    - Store briefings and agendas to GCS
 
-🟡 YELLOW:
+YELLOW:
    - Escalate decision tier (Yellow → Red after 48h) → Kristina
    - Propose agent performance review → Kristina
    - Suggest prompt updates from aggregated reflection data → Kristina
 
-🔴 RED:
+RED:
    - Sarah never makes Red decisions. She packages and routes them.
 ```
 
@@ -201,7 +201,7 @@ WRITE: deployments, incidents, model_config, build_logs (annotations),
 
 ### Governance
 ```
-🟢 GREEN (autonomous):
+GREEN (autonomous):
    - Monitor all platform health metrics
    - Deploy hotfixes to staging
    - Rollback ANY production deployment (safety valve — always Green)
@@ -214,7 +214,7 @@ WRITE: deployments, incidents, model_config, build_logs (annotations),
    - Spawn temporary team members (≤7 days, <$50 projected cost)
    - Assign tasks to Alex, Sam, Jordan, Riley
 
-🟡 YELLOW:
+YELLOW:
    - Production deployments (non-hotfix) → Andrew
    - Model changes increasing cost >$50/mo → Andrew
    - New infrastructure services → Andrew
@@ -222,7 +222,7 @@ WRITE: deployments, incidents, model_config, build_logs (annotations),
    - Permanent team member hires → Kristina
    - Spawned agents projected to cost >$50 → Andrew
 
-🔴 RED (input only — provides assessment, doesn't decide):
+RED (input only — provides assessment, doesn't decide):
    - Architectural changes to core runtime
    - New product technical feasibility assessment
    - Infrastructure migration or provider changes
@@ -285,7 +285,7 @@ WRITE: financials, financial_reports, cost_alerts,
 
 ### Governance
 ```
-🟢 GREEN (autonomous):
+GREEN (autonomous):
    - Daily financial snapshots (by 6:30 AM, before Sarah)
    - Revenue tracking and cohort analysis
    - Cost monitoring and trend analysis
@@ -294,12 +294,12 @@ WRITE: financials, financial_reports, cost_alerts,
    - Financial modeling for proposed initiatives
    - Margin tracking and reporting
 
-🟡 YELLOW:
+YELLOW:
    - Cost spike alerts (>20% WoW on any line item) → Andrew (immediate)
    - Budget reforecast when actuals diverge >10% → Andrew
    - Pricing model recommendations → both founders
 
-🔴 RED:
+RED:
    - Nadia never makes Red decisions. She provides financial models
      and assessments that inform Red decisions.
 ```
@@ -358,7 +358,7 @@ WRITE: roadmap, product_proposals, competitive_assessments,
 
 ### Governance
 ```
-🟢 GREEN (autonomous):
+GREEN (autonomous):
    - Usage analysis and pattern detection
    - Competitive landscape monitoring and assessment
    - Feature prioritization within existing roadmap
@@ -367,12 +367,12 @@ WRITE: roadmap, product_proposals, competitive_assessments,
    - Spawn temporary researchers (≤7 days)
    - Assign tasks to Priya, Daniel
 
-🟡 YELLOW:
+YELLOW:
    - Roadmap priority changes → Kristina
    - Feature scope changes for shipped products → Kristina
    - Competitive response recommendations → Kristina
 
-🔴 RED:
+RED:
    - New product proposals → both founders
    - Product sunset/deprecation → both founders
    - Major pivot in product direction → both founders
@@ -447,7 +447,7 @@ WRITE: content_library, content_calendar, social_queue, content_drafts,
 
 ### Governance
 ```
-🟢 GREEN (autonomous):
+GREEN (autonomous):
    - Social media posts within approved brand voice and calendar
    - SEO content optimization recommendations
    - Content calendar management and planning
@@ -455,7 +455,7 @@ WRITE: content_library, content_calendar, social_queue, content_drafts,
    - Assign tasks to Tyler, Lisa, Kai
    - Spawn temporary content specialists (≤7 days)
 
-🟡 YELLOW:
+YELLOW:
    - Blog post publication → Kristina
    - Case study publication → Kristina
    - Brand voice or positioning changes → Kristina
@@ -463,7 +463,7 @@ WRITE: content_library, content_calendar, social_queue, content_drafts,
    - Counter-narrative competitive content → Kristina
    - Marketing email campaigns → Kristina
 
-🔴 RED:
+RED:
    - Major brand overhaul → both founders
    - Paid advertising budget → both founders
 ```
@@ -535,7 +535,7 @@ WRITE: user_health, customer_segments, nurture_log, case_study_candidates,
 
 ### Governance
 ```
-🟢 GREEN (autonomous):
+GREEN (autonomous):
    - Health score calculations and daily updates
    - Automated nurture emails within approved templates
    - Segment analysis and reporting
@@ -545,12 +545,12 @@ WRITE: user_health, customer_segments, nurture_log, case_study_candidates,
    - Assign tasks to Emma, David
    - Spawn temporary support specialists (≤7 days)
 
-🟡 YELLOW:
+YELLOW:
    - Custom outreach campaigns (non-templated) → Kristina
    - Enterprise upsell outreach → Kristina
    - Onboarding flow change recommendations → Kristina
 
-🔴 RED:
+RED:
    - James never makes Red decisions. Provides customer intelligence
      that informs product and business decisions.
 ```
@@ -615,7 +615,7 @@ WRITE: enterprise_pipeline, enterprise_prospects, proposals, prospect_research,
 
 ### Governance
 ```
-🟢 GREEN (autonomous):
+GREEN (autonomous):
    - Account research and KYC dossiers
    - ROI model generation
    - Pipeline tracking and reporting
@@ -623,12 +623,12 @@ WRITE: enterprise_pipeline, enterprise_prospects, proposals, prospect_research,
    - Assign tasks to Nathan
    - Spawn temporary research specialists (≤7 days)
 
-🟡 YELLOW:
+YELLOW:
    - Completed proposal ready for review → Kristina
    - Enterprise outreach recommendation → Kristina
    - Pricing negotiation parameters → Kristina
 
-🔴 RED:
+RED:
    - Deals >$25K annual value → both founders
    - Custom enterprise pricing → both founders
    - Partnership/reseller agreements → both founders
@@ -684,7 +684,7 @@ WRITE: design quality reports, design audit GCS, agent_memory (own + design dept
 
 ### Governance
 ```
-🟢 GREEN (autonomous):
+GREEN (autonomous):
    - Run Lighthouse audits on any live URL
    - Grade Fuse builds based on quality data
    - Write design audit reports
@@ -692,14 +692,14 @@ WRITE: design quality reports, design audit GCS, agent_memory (own + design dept
    - Spawn temporary design specialists (≤7 days)
    - Monitor design quality trends
 
-🟡 YELLOW:
+YELLOW:
    - Design token changes → Andrew
    - Component library changes → Andrew
    - Template additions → Andrew
    - Production deploys → Andrew
    - Permanent hires → Kristina
 
-🔴 RED:
+RED:
    - Major design system overhaul → both founders
    - Brand/visual identity changes → both founders + Maya
 ```
@@ -762,7 +762,7 @@ WRITE: incidents, system_status, autonomous_ops_events, data_sync_status,
 
 ### Governance
 ```
-🟢 GREEN (autonomous):
+GREEN (autonomous):
    - Monitor all agent health every 10 min
    - Check data freshness every 30 min
    - Scan for cost anomalies every 60 min
@@ -772,10 +772,10 @@ WRITE: incidents, system_status, autonomous_ops_events, data_sync_status,
    - Create and resolve incidents
    - DM founders for critical system alerts
 
-🟡 YELLOW:
+YELLOW:
    - None — Atlas does not file Yellow decisions
 
-🔴 RED:
+RED:
    - Atlas never makes Red decisions. Monitors and intervenes only.
 ```
 
@@ -1267,7 +1267,7 @@ emit_event(type, payload)                 — insight.detected or task.completed
 ### Email Templates (Emma can send these without approval)
 ```
 - onboarding_welcome ("Build your first app in 3 minutes")
-- onboarding_first_build_success ("Your first build is live 🎉")
+- onboarding_first_build_success ("Your first build is live")
 - onboarding_first_build_failure ("Let's try again — here's an easier template")
 - onboarding_day3_nudge ("You haven't built anything yet — here's inspiration")
 - onboarding_day7_inactive ("We miss you — come build something")
@@ -1760,13 +1760,13 @@ secrets/
 | Agent | Deploy | Publish | Email Users | Spend >$50 | Hire | File Decisions | GitHub | Vercel | Stripe | Teams/M365 |
 |-------|:------:|:-------:|:-----------:|:----------:|:----:|:--------------:|:------:|:------:|:------:|:----------:|
 | Sarah | ✗ | ✗ | Emergency | ✗ | ✗ | Yellow | ✗ | ✗ | ✗ | Graph+DM |
-| Marcus | Staging=🟢 Prod=🟡 | ✗ | ✗ | 🟡→Andrew | 🟢temp 🟡perm | Yellow | ✅ admin | ✅ admin | ✗ | Graph |
+| Marcus | Staging=G Prod=Y | ✗ | ✗ | Y→Andrew | G temp Y perm | Yellow | ✅ admin | ✅ admin | ✗ | Graph |
 | Nadia | ✗ | ✗ | ✗ | ✗ (monitors) | ✗ | Yellow (alerts) | ✗ | billing | ✅ read | Graph |
-| Elena | ✗ | ✗ | ✗ | ✗ | 🟢temp 🟡perm | Yellow+Red | ✗ | ✗ | ✗ | Graph |
-| Maya | ✗ | 🟡→Kristina | 🟡 marketing | ✗ | 🟢temp 🟡perm | Yellow | ✗ | ✗ | ✗ | Graph |
-| James | ✗ | ✗ | 🟢 templated | ✗ | 🟢temp 🟡perm | Yellow | ✗ | ✗ | ✅ cust | Graph |
-| Rachel | ✗ | ✗ | ✗ | ✗ | 🟢temp 🟡perm | Yellow+Red | ✗ | ✗ | ✗ | Graph |
-| Mia | ✗ | ✗ | ✗ | ✗ | 🟢temp 🟡perm | Yellow | ✗ | ✗ | ✗ | Graph |
+| Elena | ✗ | ✗ | ✗ | ✗ | G temp Y perm | Yellow+Red | ✗ | ✗ | ✗ | Graph |
+| Maya | ✗ | Y→Kristina | Y marketing | ✗ | G temp Y perm | Yellow | ✗ | ✗ | ✗ | Graph |
+| James | ✗ | ✗ | G templated | ✗ | G temp Y perm | Yellow | ✗ | ✗ | ✅ cust | Graph |
+| Rachel | ✗ | ✗ | ✗ | ✗ | G temp Y perm | Yellow+Red | ✗ | ✗ | ✗ | Graph |
+| Mia | ✗ | ✗ | ✗ | ✗ | G temp Y perm | Yellow | ✗ | ✗ | ✗ | Graph |
 | Atlas | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | Graph+DM |
 | Alex | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✅ read | ✅ view | ✗ | ✗ |
 | Sam | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✅ test | ✗ | ✗ | ✗ |
@@ -1778,10 +1778,10 @@ secrets/
 | Tyler | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | Lisa | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | Kai | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Emma | ✗ | ✗ | 🟢 onboarding | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| David | ✗ | ✗ | 🟢 support | ✗ | ✗ | ✗ | ✗ | ✗ | ✅ cust | ✗ |
+| Emma | ✗ | ✗ | G onboarding | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| David | ✗ | ✗ | G support | ✗ | ✗ | ✗ | ✗ | ✗ | ✅ cust | ✗ |
 | Nathan | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Riley | ✗ | ✗ | 🟢 via Graph | ✗ | ✗ | Yellow | ✗ | ✗ | ✗ | ✅ admin |
+| Riley | ✗ | ✗ | G via Graph | ✗ | ✗ | Yellow | ✗ | ✗ | ✗ | ✅ admin |
 | Leo | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | Ava | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | Sofia | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |

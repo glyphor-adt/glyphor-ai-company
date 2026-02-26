@@ -20,9 +20,9 @@ Both work full-time at Microsoft (5-10h/week for Glyphor). **Default to autonomo
 
 ## Authority Tiers
 
-- 🟢 **Green** — Act autonomously. Log it. Mention in briefing.
-- 🟡 **Yellow** — One founder approval. Post to #decisions. Auto-escalates after 48h.
-- 🔴 **Red** — Both founders. Weekly sync or ad-hoc if urgent.
+- **Green** — Act autonomously. Log it. Mention in briefing.
+- **Yellow** — One founder approval. Post to #decisions. Auto-escalates after 48h.
+- **Red** — Both founders. Weekly sync or ad-hoc if urgent.
 
 ## Cross-Agent Rules
 
