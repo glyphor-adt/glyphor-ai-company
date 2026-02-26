@@ -25,10 +25,10 @@ export default function Settings() {
 
   const fetchUsers = useCallback(async () => {
     const { data } = await supabase
-      .from('dashboard_users')
+      .from('dashboard_users' as any)
       .select('*')
       .order('created_at', { ascending: true });
-    setUsers((data as DashboardUser[]) ?? []);
+    setUsers((data as unknown as DashboardUser[]) ?? []);
     setLoading(false);
   }, []);
 
@@ -55,8 +55,8 @@ export default function Settings() {
     setSaving(true);
     setError('');
     const { error: err } = await supabase
-      .from('dashboard_users')
-      .insert({ email: trimmedEmail, name: name.trim(), role, created_by: user?.email ?? '' });
+      .from('dashboard_users' as any)
+      .insert({ email: trimmedEmail, name: name.trim(), role, created_by: user?.email ?? '' } as any);
 
     if (err) {
       setError(err.message);
@@ -75,7 +75,7 @@ export default function Settings() {
     if (targetUser.email.toLowerCase() === user?.email.toLowerCase()) return;
 
     const { error: err } = await supabase
-      .from('dashboard_users')
+      .from('dashboard_users' as any)
       .delete()
       .eq('id', targetUser.id);
 
@@ -89,8 +89,8 @@ export default function Settings() {
     if (targetUser.email.toLowerCase() === user?.email.toLowerCase()) return;
     const newRole = targetUser.role === 'admin' ? 'viewer' : 'admin';
     await supabase
-      .from('dashboard_users')
-      .update({ role: newRole })
+      .from('dashboard_users' as any)
+      .update({ role: newRole } as any)
       .eq('id', targetUser.id);
     invalidateAllowedCache();
     await fetchUsers();

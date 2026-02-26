@@ -10,18 +10,15 @@ const STORAGE_KEY = 'glyphor-auth';
 let _allowedCache: Set<string> | null = null;
 let _cachePromise: Promise<Set<string>> | null = null;
 
-function fetchAllowedEmails(): Promise<Set<string>> {
+async function fetchAllowedEmails(): Promise<Set<string>> {
   if (_cachePromise) return _cachePromise;
-  _cachePromise = supabase
-    .from('dashboard_users')
-    .select('email')
-    .then(({ data }) => {
-      const set = new Set((data ?? []).map((r: { email: string }) => r.email.toLowerCase()));
-      _allowedCache = set;
-      // Refresh cache every 60s
-      setTimeout(() => { _allowedCache = null; _cachePromise = null; }, 60_000);
-      return set;
-    });
+  _cachePromise = (async () => {
+    const { data } = await supabase.from('dashboard_users' as any).select('email') as { data: { email: string }[] | null };
+    const set = new Set((data ?? []).map((r) => r.email.toLowerCase()));
+    _allowedCache = set;
+    setTimeout(() => { _allowedCache = null; _cachePromise = null; }, 60_000);
+    return set;
+  })();
   return _cachePromise;
 }
 
