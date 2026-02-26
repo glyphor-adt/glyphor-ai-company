@@ -11,6 +11,7 @@ import { isKnownTool } from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { CompanyMemoryStore, SharedMemoryLoader, WorldModelUpdater, EmbeddingClient } from '@glyphor/company-memory';
+import type { KnowledgeGraphReader } from '@glyphor/company-memory';
 import {
   sendTeamsWebhook,
   formatBriefingCard,
@@ -525,6 +526,7 @@ export function createOrchestrationTools(
   schedulerUrl: string,
   glyphorEventBus?: GlyphorEventBus,
   allTools?: ToolDefinition[],
+  graphReader?: KnowledgeGraphReader | null,
 ): ToolDefinition[] {
   // allTools allows propose_directive to call send_dm from the CoS tool set
   const tools = allTools ?? [];
@@ -869,13 +871,9 @@ export function createOrchestrationTools(
             .eq('id', assignmentId)
             .single();
 
-          if (assignmentData?.assigned_to) {
-            const graphReader = memory.getGraphReader();
-            if (graphReader) {
-              const embeddingClient = new EmbeddingClient({
-                supabaseUrl: process.env.SUPABASE_URL!,
-                supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
-              });
+          if (assignmentData?.assigned_to && graphReader) {
+            {
+              const embeddingClient = new EmbeddingClient(process.env.GOOGLE_AI_API_KEY!);
               const sharedMemLoader = new SharedMemoryLoader(supabase, embeddingClient, graphReader);
               const updater = new WorldModelUpdater(supabase, sharedMemLoader);
 
