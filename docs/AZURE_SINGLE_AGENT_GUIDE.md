@@ -12,13 +12,15 @@
 3. [Entra ID & Permissions](#entra-id--permissions)
 4. [Microsoft 365 & Teams Setup](#microsoft-365--teams-setup)
 5. [Database Schema (Minimal)](#database-schema-minimal)
-6. [Project Structure](#project-structure)
-7. [Agent Anatomy — The Four Files](#agent-anatomy--the-four-files)
-8. [Agent Runtime — The Execution Loop](#agent-runtime--the-execution-loop)
-9. [Authority Model](#authority-model)
-10. [Deployment](#deployment)
-11. [Cost Estimate](#cost-estimate)
-12. [Scaling to Multiple Agents](#scaling-to-multiple-agents)
+6. [Persistent Memory Architecture](#persistent-memory-architecture)
+7. [Knowledge Graph & GraphRAG](#knowledge-graph--graphrag)
+8. [Project Structure](#project-structure)
+9. [Agent Anatomy — The Four Files](#agent-anatomy--the-four-files)
+10. [Agent Runtime — The Execution Loop](#agent-runtime--the-execution-loop)
+11. [Authority Model](#authority-model)
+12. [Deployment](#deployment)
+13. [Cost Estimate](#cost-estimate)
+14. [Scaling to Multiple Agents](#scaling-to-multiple-agents)
 
 ---
 
@@ -31,7 +33,7 @@ A single AI agent persona (e.g., "Chief of Staff") that:
 - **Persists memory** — remembers past interactions, decisions, and context
 - **Posts to Teams** — sends briefings, decision requests, and alerts to channels
 - **Uses an authority model** — some actions are autonomous, others require human approval
-- **Calls LLMs** — Azure OpenAI (GPT-4o / o4-mini) for reasoning
+- **Calls LLMs** — Azure OpenAI (GPT-5.2 / GPT-5.2-mini) for reasoning
 - **Has tools** — can read/write to a database, search the web, send messages
 
 This is NOT a chatbot. It's an autonomous agent with a persistent identity, memory, scheduled
@@ -46,7 +48,7 @@ work cycles, and the ability to take actions in your enterprise environment.
 | Resource | SKU / Tier | Purpose |
 |----------|-----------|---------|
 | **Azure Container Apps** | Consumption plan | Hosts the agent scheduler service (the "brain"). Scales to zero when idle, wakes on cron/HTTP. Replaces GCP Cloud Run. |
-| **Azure OpenAI Service** | S0 (Standard) | LLM inference. Deploy `gpt-4o` for quality or `gpt-4o-mini` for cost. This is your agent's "thinking" engine. |
+| **Azure OpenAI Service** | S0 (Standard) | LLM inference. Deploy `gpt-5.2` for quality or `gpt-5.2-mini` for cost. This is your agent's "thinking" engine. |
 | **Azure Database for PostgreSQL** | Flexible Server, Burstable B1ms | Agent memory, decisions, activity log, agent config. ~15 core tables. Enable `pgvector` extension for embeddings. |
 | **Azure Key Vault** | Standard | Store all secrets: API keys, DB connection strings, Entra app credentials. Never hardcode. |
 | **Azure Container Registry** | Basic | Store your Docker images. |
@@ -65,7 +67,7 @@ work cycles, and the ability to take actions in your enterprise environment.
 
 | Resource | Why Not |
 |----------|---------|
-| Azure AI Search | Only needed if you add GraphRAG/knowledge graph later |
+
 | Azure Communication Services | Only needed for voice/calling |
 | Azure Service Bus | Container Apps has built-in job scheduling; simple HTTP works for one agent |
 | Azure Functions | Container Apps is more flexible for a long-running agent service |
@@ -78,7 +80,9 @@ rg-ai-agent-sandbox/
 ├── cae-aiagent-env                # Container Apps Environment
 ├── ca-agent-scheduler             # Container App (your service)
 ├── openai-aiagent                 # Azure OpenAI account
-├── psql-aiagent                   # PostgreSQL Flexible Server
+│   ├── gpt-5.2 deployment         #   Chat/reasoning model
+│   └── text-embedding-3-small     #   Embedding model (memory + KG)
+├── psql-aiagent                   # PostgreSQL Flexible Server (+ pgvector)
 ├── kv-aiagent                     # Key Vault
 ├── st-aiagent                     # Storage Account (blob)
 ├── log-aiagent                    # Log Analytics Workspace
@@ -254,7 +258,7 @@ CREATE TABLE company_agents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   role TEXT UNIQUE NOT NULL,            -- 'chief-of-staff'
   display_name TEXT NOT NULL,           -- 'Sarah Chen'
-  model TEXT NOT NULL,                  -- 'gpt-4o'
+  model TEXT NOT NULL,                  -- 'gpt-5.2'
   status TEXT DEFAULT 'active',         -- active | paused | retired
   schedule_cron TEXT,                   -- '0 12 * * *' (UTC)
   last_run_at TIMESTAMPTZ,
@@ -383,13 +387,485 @@ CREATE TABLE agent_schedules (
 
 -- Seed your agent
 INSERT INTO company_agents (role, display_name, model, status, schedule_cron)
-VALUES ('chief-of-staff', 'Sarah Chen', 'gpt-4o', 'active', '0 12 * * *');
+VALUES ('chief-of-staff', 'Sarah Chen', 'gpt-5.2', 'active', '0 12 * * *');
 
 -- Seed schedules
 INSERT INTO agent_schedules (agent_id, task, cron_expression) VALUES
   ('chief-of-staff', 'morning_briefing', '0 12 * * *'),   -- 7 AM CT
   ('chief-of-staff', 'eod_summary',      '0 23 * * *'),   -- 6 PM CT
   ('chief-of-staff', 'orchestrate',      '0 * * * *');     -- hourly
+```
+
+---
+
+## Persistent Memory Architecture
+
+Agents are not chatbots — they need to **remember** across runs. The Glyphor system uses a
+5-layer memory architecture. For a single agent on Azure, start with Layers 1-3 and add
+the rest as you scale.
+
+### Memory Layers
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  L1: WORKING MEMORY (hot — per-run scratchpad)                   │
+│  In-memory only. Current task state, tool results, conversation. │
+│  Cleared after each run. NOT persisted.                          │
+├──────────────────────────────────────────────────────────────────┤
+│  L2: EPISODIC MEMORY (warm — recent experiences)                 │
+│  Table: agent_memory                                             │
+│  What happened? Observations, decisions, learnings.              │
+│  Vector-searchable via pgvector embeddings.                      │
+│  TTL-based expiry for low-importance memories.                   │
+├──────────────────────────────────────────────────────────────────┤
+│  L3: SEMANTIC MEMORY (cool — facts & knowledge)                  │
+│  Table: company_knowledge + kg_nodes (knowledge graph)           │
+│  Company facts, domain knowledge, verified truths.               │
+│  Shared across all agents. Never expires.                        │
+├──────────────────────────────────────────────────────────────────┤
+│  L4: PROCEDURAL MEMORY (persistent — proven playbooks)           │
+│  Table: shared_procedures                                        │
+│  "When X happens, do Y." Learned from repeated successes.        │
+│  Agent proposes → orchestrator promotes to procedure.            │
+├──────────────────────────────────────────────────────────────────┤
+│  L5: WORLD MODEL (meta — self-knowledge)                         │
+│  Table: agent_world_model                                        │
+│  The agent's model of itself: strengths, weaknesses, failure     │
+│  patterns, task-type scores, improvement goals.                  │
+│  Updated via REFLECT → GRADE → LEARN loop after each run.        │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### How Memory Loads into Each Run
+
+Before every agent execution, the runtime injects relevant memories into the system prompt
+context window. This is what makes the agent feel like it "knows" things:
+
+```typescript
+// Simplified context injection — runs before every LLM call
+async function loadMemoryContext(agentId: string, taskPrompt: string, db: any) {
+  // 1. Recall relevant episodic memories via vector similarity
+  const embedding = await embedText(taskPrompt);  // Azure OpenAI text-embedding-3-small
+  const { data: memories } = await db.rpc('match_agent_memory', {
+    query_embedding: JSON.stringify(embedding),
+    match_threshold: 0.7,
+    match_count: 10,
+    agent_filter: agentId,
+  });
+
+  // 2. Load relevant knowledge graph context
+  const { data: kgContext } = await db.rpc('kg_semantic_search_with_context', {
+    query_embedding: JSON.stringify(embedding),
+    match_threshold: 0.65,
+    match_count: 5,
+    expand_hops: 1,
+  });
+
+  // 3. Load the agent's world model (self-knowledge)
+  const { data: worldModel } = await db
+    .from('agent_world_model')
+    .select('*')
+    .eq('agent_role', agentId)
+    .single();
+
+  // 4. Combine into context string injected into system prompt
+  return formatMemoryContext(memories, kgContext, worldModel);
+}
+```
+
+### Embedding Setup (Azure OpenAI)
+
+Deploy `text-embedding-3-small` in your Azure OpenAI resource. This generates 1536-dim
+vectors for semantic search across memories and knowledge.
+
+```typescript
+import { AzureOpenAI } from 'openai';
+
+export class EmbeddingClient {
+  private client: AzureOpenAI;
+
+  constructor() {
+    this.client = new AzureOpenAI({ apiVersion: '2025-01-01-preview' });
+  }
+
+  async embed(text: string): Promise<number[]> {
+    const result = await this.client.embeddings.create({
+      model: 'text-embedding-3-small',  // your deployment name
+      input: text,
+    });
+    return result.data[0].embedding;     // 1536-dim float array
+  }
+
+  async embedBatch(texts: string[]): Promise<number[][]> {
+    const result = await this.client.embeddings.create({
+      model: 'text-embedding-3-small',
+      input: texts,
+    });
+    return result.data.map(d => d.embedding);
+  }
+}
+```
+
+### PostgreSQL Vector Search Function
+
+Create this RPC function in PostgreSQL to enable semantic memory recall:
+
+```sql
+-- Semantic search over agent memories
+CREATE OR REPLACE FUNCTION match_agent_memory(
+  query_embedding vector(1536),
+  match_threshold float DEFAULT 0.7,
+  match_count int DEFAULT 10,
+  agent_filter text DEFAULT NULL
+) RETURNS TABLE (
+  id uuid,
+  agent_id text,
+  category text,
+  content text,
+  importance numeric,
+  similarity float
+) LANGUAGE plpgsql AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    m.id, m.agent_id, m.category, m.content, m.importance,
+    1 - (m.embedding <=> query_embedding) AS similarity
+  FROM agent_memory m
+  WHERE
+    (agent_filter IS NULL OR m.agent_id = agent_filter)
+    AND m.embedding IS NOT NULL
+    AND 1 - (m.embedding <=> query_embedding) > match_threshold
+    AND (m.expires_at IS NULL OR m.expires_at > NOW())
+  ORDER BY m.embedding <=> query_embedding
+  LIMIT match_count;
+END;
+$$;
+```
+
+### Memory Save with Auto-Embedding
+
+When an agent calls `save_memory`, automatically embed the content:
+
+```typescript
+{
+  name: 'save_memory',
+  description: 'Save an observation, decision, or learning to long-term memory.',
+  parameters: {
+    category: { type: 'string', description: 'observation|decision|learning|preference', required: true },
+    content: { type: 'string', description: 'What to remember', required: true },
+    importance: { type: 'number', description: '0.0-1.0 importance score', required: false },
+  },
+  execute: async (params) => {
+    const embedding = await embeddingClient.embed(params.content as string);
+    const { data } = await db.from('agent_memory').insert({
+      agent_id: 'chief-of-staff',
+      category: params.category,
+      content: params.content,
+      importance: params.importance || 0.5,
+      embedding: JSON.stringify(embedding),
+    }).select();
+    return { success: true, data };
+  },
+}
+```
+
+### World Model — The REFLECT → LEARN → IMPROVE Loop
+
+After each scheduled run, the agent self-reflects and the system updates its world model:
+
+```
+ Agent Run Completes
+       │
+       ▼
+ ┌─ REFLECT ─────────────────────────────────┐
+ │ Agent self-assesses: "How did I do?"       │
+ │ Structured output: confidence, gaps,       │
+ │ what worked, what failed, predictions      │
+ └──────────────────┬────────────────────────┘
+                    │
+                    ▼
+ ┌─ GRADE ───────────────────────────────────┐
+ │ Orchestrator (or rule-based scorer)        │
+ │ evaluates against a rubric:                │
+ │   completeness, accuracy, actionability,   │
+ │   timeliness, authority compliance         │
+ └──────────────────┬────────────────────────┘
+                    │
+                    ▼
+ ┌─ UPDATE WORLD MODEL ─────────────────────┐
+ │ Merge grade into agent_world_model:       │
+ │   - Rolling avg scores by task type       │
+ │   - Add new strengths / weaknesses        │
+ │   - Track failure patterns                │
+ │   - Set improvement goals                 │
+ │   - Update prediction accuracy            │
+ └───────────────────────────────────────────┘
+```
+
+The world model is injected into the agent's next run, so it gets better over time.
+
+```sql
+-- World model table
+CREATE TABLE agent_world_model (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_role TEXT UNIQUE NOT NULL,
+  strengths TEXT[] DEFAULT '{}',
+  weaknesses TEXT[] DEFAULT '{}',
+  failure_patterns TEXT[] DEFAULT '{}',
+  task_type_scores JSONB DEFAULT '{}',    -- { "morning_briefing": { "avgScore": 0.85, "count": 42 } }
+  improvement_goals JSONB DEFAULT '[]',
+  preferred_approaches JSONB DEFAULT '{}',
+  prediction_accuracy DECIMAL(3,2) DEFAULT 0.5,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+---
+
+## Knowledge Graph & GraphRAG
+
+The knowledge graph gives your agent **structured understanding** of how things relate —
+not just flat memory, but a web of entities, relationships, and causal chains.
+
+### Why a Knowledge Graph?
+
+| Without KG | With KG |
+|-----------|---------|
+| Agent remembers "Revenue dropped 15%" | Agent traces: Revenue dropped → because churn spiked → because onboarding broke → caused by deploy on Jan 5 |
+| Flat keyword search over memories | Semantic search + N-hop graph expansion (finds related context) |
+| Each memory is isolated | Memories are connected — agent sees patterns across domains |
+| Agent forgets relationships | Agent can trace cause → effect chains across time |
+
+### Core Tables
+
+```sql
+-- Knowledge graph nodes (entities, events, facts, decisions, etc.)
+CREATE TABLE kg_nodes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  node_type TEXT NOT NULL,        -- 'event', 'fact', 'entity', 'decision', 'metric',
+                                  -- 'goal', 'risk', 'pattern', 'observation', 'action'
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  tags TEXT[] DEFAULT '{}',
+  department TEXT,                -- 'engineering', 'finance', 'product', etc.
+  importance DECIMAL(3,2) DEFAULT 0.5,
+  source_agent TEXT,              -- which agent created this
+  source_type TEXT DEFAULT 'agent',  -- 'agent', 'graphrag', 'manual'
+  embedding vector(1536),
+  metadata JSONB DEFAULT '{}',
+  occurred_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_kg_nodes_embedding ON kg_nodes USING ivfflat (embedding vector_cosine_ops);
+
+-- Knowledge graph edges (relationships between nodes)
+CREATE TABLE kg_edges (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_id UUID NOT NULL REFERENCES kg_nodes(id) ON DELETE CASCADE,
+  target_id UUID NOT NULL REFERENCES kg_nodes(id) ON DELETE CASCADE,
+  edge_type TEXT NOT NULL,        -- 'caused', 'supports', 'contradicts', 'depends_on',
+                                  -- 'belongs_to', 'affects', 'mitigates', 'monitors',
+                                  -- 'owns', 'resulted_in', 'relates_to'
+  strength DECIMAL(3,2) DEFAULT 0.5,
+  confidence DECIMAL(3,2) DEFAULT 0.8,
+  evidence TEXT,
+  created_by TEXT,                -- agent role or 'graphrag-indexer'
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### Agent Graph Tools
+
+Give your agent tools to read and write the knowledge graph:
+
+```typescript
+// Graph tools for agents
+{
+  name: 'query_knowledge_graph',
+  description: 'Search the knowledge graph for entities and their relationships. Returns nodes and connected context.',
+  parameters: {
+    query: { type: 'string', description: 'Natural language query', required: true },
+    node_types: { type: 'array', description: 'Filter by node types', required: false },
+    hops: { type: 'number', description: 'How many relationship hops to expand (1-3)', required: false },
+  },
+  execute: async (params) => {
+    const embedding = await embeddingClient.embed(params.query as string);
+    const { data } = await db.rpc('kg_semantic_search_with_context', {
+      query_embedding: JSON.stringify(embedding),
+      match_threshold: 0.65,
+      match_count: 10,
+      expand_hops: (params.hops as number) || 1,
+    });
+    return { success: true, data };
+  },
+},
+{
+  name: 'add_knowledge',
+  description: 'Add a new fact, observation, or connection to the knowledge graph.',
+  parameters: {
+    node_type: { type: 'string', description: 'event|fact|entity|decision|metric|pattern|risk', required: true },
+    title: { type: 'string', description: 'Short title', required: true },
+    content: { type: 'string', description: 'Full description', required: true },
+    connect_to: { type: 'string', description: 'Title of an existing node to connect to', required: false },
+    edge_type: { type: 'string', description: 'Relationship type if connecting', required: false },
+  },
+  execute: async (params) => {
+    const embedding = await embeddingClient.embed(`${params.title}: ${params.content}`);
+    const { data: node } = await db.from('kg_nodes').insert({
+      node_type: params.node_type,
+      title: params.title,
+      content: params.content,
+      source_agent: 'chief-of-staff',
+      embedding: JSON.stringify(embedding),
+    }).select().single();
+
+    // Optionally connect to existing node
+    if (params.connect_to && params.edge_type && node) {
+      const connectEmb = await embeddingClient.embed(params.connect_to as string);
+      const { data: targets } = await db.rpc('match_kg_nodes', {
+        query_embedding: JSON.stringify(connectEmb),
+        match_threshold: 0.8,
+        match_count: 1,
+      });
+      if (targets?.[0]) {
+        await db.from('kg_edges').insert({
+          source_id: node.id,
+          target_id: targets[0].id,
+          edge_type: params.edge_type,
+          created_by: 'chief-of-staff',
+        });
+      }
+    }
+    return { success: true, data: node };
+  },
+},
+{
+  name: 'trace_causes',
+  description: 'Trace backward through the knowledge graph to find root causes of an event or problem.',
+  parameters: {
+    query: { type: 'string', description: 'The event or problem to trace', required: true },
+    depth: { type: 'number', description: 'How many levels back to trace (1-5)', required: false },
+  },
+  execute: async (params) => {
+    const embedding = await embeddingClient.embed(params.query as string);
+    const { data } = await db.rpc('kg_trace_causal_chain', {
+      query_embedding: JSON.stringify(embedding),
+      direction: 'backward',
+      max_depth: (params.depth as number) || 3,
+    });
+    return { success: true, data };
+  },
+}
+```
+
+### GraphRAG — Automated Knowledge Extraction
+
+[Microsoft GraphRAG](https://github.com/microsoft/graphrag) can automatically extract
+entities and relationships from your company documents, reports, and agent outputs. This
+populates the knowledge graph without manual effort.
+
+**How it works in Glyphor:**
+
+```
+ Source Documents (knowledge base, agent briefs, reports)
+       │
+       ▼
+ ┌─ COLLECT ─────────────────────────────────┐
+ │ Gather all .md files from knowledge base,  │
+ │ agent outputs, briefings, meeting notes    │
+ └──────────────────┬────────────────────────┘
+                    │
+                    ▼
+ ┌─ EXTRACT (LLM) ──────────────────────────┐
+ │ GPT-5.2 reads each document chunk and     │
+ │ extracts: entities, relationships,         │
+ │ claims, summaries                          │
+ └──────────────────┬────────────────────────┘
+                    │
+                    ▼
+ ┌─ BRIDGE ──────────────────────────────────┐
+ │ Map extracted entities → kg_nodes          │
+ │ Map relationships → kg_edges               │
+ │ Deduplicate (0.92 cosine similarity)       │
+ │ Classify relationship types via regex      │
+ └──────────────────┬────────────────────────┘
+                    │
+                    ▼
+ ┌─ AVAILABLE ───────────────────────────────┐
+ │ Agents can now query_knowledge_graph()     │
+ │ and trace_causes() using the extracted     │
+ │ knowledge                                  │
+ └───────────────────────────────────────────┘
+```
+
+**Azure setup for GraphRAG:**
+
+| Component | Azure Resource | Notes |
+|-----------|---------------|-------|
+| LLM extraction | Azure OpenAI `gpt-5.2` | Same deployment as your agent |
+| Embeddings | Azure OpenAI `text-embedding-3-small` | Same deployment as memory |
+| Document storage | Azure Blob Storage | Source docs in a container |
+| Graph storage | PostgreSQL `kg_nodes` / `kg_edges` | Same database |
+| Scheduling | Container Apps Job | Weekly cron: re-index all documents |
+
+**When to add GraphRAG:**
+- Start without it — your agent can still write to the knowledge graph manually via tools
+- Add it when you have 50+ documents worth of institutional knowledge
+- Run weekly re-indexing to keep the graph fresh as new reports/briefings accumulate
+
+### Semantic Search RPC for Knowledge Graph
+
+```sql
+-- Semantic search with N-hop graph expansion
+CREATE OR REPLACE FUNCTION kg_semantic_search_with_context(
+  query_embedding vector(1536),
+  match_threshold float DEFAULT 0.65,
+  match_count int DEFAULT 10,
+  expand_hops int DEFAULT 1
+) RETURNS TABLE (
+  node_id uuid,
+  node_type text,
+  title text,
+  content text,
+  similarity float,
+  is_direct_match boolean,
+  connected_via text,
+  connected_from text
+) LANGUAGE plpgsql AS $$
+BEGIN
+  -- Direct semantic matches
+  RETURN QUERY
+  SELECT
+    n.id, n.node_type, n.title, n.content,
+    (1 - (n.embedding <=> query_embedding))::float AS similarity,
+    true AS is_direct_match,
+    NULL::text AS connected_via,
+    NULL::text AS connected_from
+  FROM kg_nodes n
+  WHERE n.embedding IS NOT NULL
+    AND 1 - (n.embedding <=> query_embedding) > match_threshold
+  ORDER BY n.embedding <=> query_embedding
+  LIMIT match_count;
+
+  -- 1-hop expansion (if requested)
+  IF expand_hops >= 1 THEN
+    RETURN QUERY
+    SELECT DISTINCT
+      n2.id, n2.node_type, n2.title, n2.content,
+      (1 - (n1.embedding <=> query_embedding))::float AS similarity,
+      false AS is_direct_match,
+      e.edge_type AS connected_via,
+      n1.title AS connected_from
+    FROM kg_nodes n1
+    JOIN kg_edges e ON (e.source_id = n1.id OR e.target_id = n1.id)
+    JOIN kg_nodes n2 ON (n2.id = CASE WHEN e.source_id = n1.id THEN e.target_id ELSE e.source_id END)
+    WHERE n1.embedding IS NOT NULL
+      AND 1 - (n1.embedding <=> query_embedding) > match_threshold
+    ORDER BY similarity DESC
+    LIMIT match_count;
+  END IF;
+END;
+$$;
 ```
 
 ---
@@ -635,7 +1111,7 @@ export async function runChiefOfStaff(params: RunParams) {
     id: `cos-${params.task}-${Date.now()}`,
     role: 'chief-of-staff',
     systemPrompt: SYSTEM_PROMPT,
-    model: 'gpt-4o',                    // Azure OpenAI deployment name
+    model: 'gpt-5.2',                   // Azure OpenAI deployment name
     tools,
     maxTurns: params.task === 'on_demand' ? 10 : 20,
     maxStallTurns: 3,
@@ -700,7 +1176,7 @@ export class ModelClient {
   }
 
   async generate(request: {
-    model: string;           // Your deployment name, e.g. 'gpt-4o'
+    model: string;           // Your deployment name, e.g. 'gpt-5.2'
     systemPrompt: string;
     messages: any[];
     tools?: any[];
@@ -871,7 +1347,7 @@ For one agent with 3-5 daily scheduled runs + occasional on-demand chat:
 | Resource | Estimated Monthly Cost |
 |----------|----------------------|
 | Container Apps (Consumption) | $5-15 (scales to zero) |
-| Azure OpenAI (gpt-4o) | $10-30 (depends on token volume) |
+| Azure OpenAI (gpt-5.2) | $10-30 (depends on token volume) |
 | PostgreSQL (B1ms) | $13 |
 | Key Vault | <$1 |
 | Container Registry (Basic) | $5 |
@@ -879,7 +1355,7 @@ For one agent with 3-5 daily scheduled runs + occasional on-demand chat:
 | Log Analytics | $2-5 |
 | **Total** | **~$35-70/month** |
 
-> Use `gpt-4o-mini` instead of `gpt-4o` to cut LLM costs by ~90%.
+> Use `gpt-5.2-mini` instead of `gpt-5.2` to cut LLM costs by ~90%.
 
 ---
 
@@ -889,13 +1365,16 @@ Once your single agent is working, the architecture scales naturally:
 
 1. **Add a persona** — Copy the `chief-of-staff/` folder, write new `systemPrompt.ts` and `tools.ts`
 2. **Register it** — INSERT into `company_agents` + `agent_schedules`
-3. **Add inter-agent communication** — agents can write messages to each other via the `agent_messages` table
+3. **Add inter-agent communication** — agents can write messages to each other via an `agent_messages` table
 4. **Add orchestration** — your CoS agent can dispatch work to other agents via `work_assignments`
 5. **Add more tools** — each agent gets role-specific tools (CFO gets financial tools, CTO gets infra tools)
-6. **Add the knowledge graph** — introduce `kg_nodes` / `kg_edges` tables for shared knowledge
+6. **Promote to L4/L5 memory** — add `shared_procedures` (proven playbooks) and `agent_world_model` (self-improvement)
+7. **Add GraphRAG** — point the indexer at your growing document corpus for automated knowledge extraction
+8. **Add shared episodes** — `shared_episodes` table lets agents share experiences across departments
 
-The Glyphor system runs 34 agents on this exact pattern. The jump from 1 to N is
-mostly configuration, not new architecture.
+The Glyphor system runs 34 agents on this exact pattern with 73 database tables, a 5-layer
+memory system, and a full knowledge graph. The jump from 1 to N is mostly configuration,
+not new architecture.
 
 ---
 
@@ -905,6 +1384,8 @@ mostly configuration, not new architecture.
 # Azure OpenAI
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
 AZURE_OPENAI_API_KEY=...                    # or use managed identity
+AZURE_OPENAI_DEPLOYMENT=gpt-5.2            # chat/reasoning model deployment name
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-small  # embedding model
 
 # Database (PostgreSQL)
 DATABASE_URL=postgresql://user:pass@host:5432/dbname
@@ -951,7 +1432,7 @@ APPLICATIONINSIGHTS_CONNECTION_STRING=...   # App Insights telemetry
 |---|---|---|
 | GCP Cloud Run | Azure Container Apps | Same scale-to-zero model |
 | GCP Cloud Scheduler + Pub/Sub | Container Apps Jobs or node-cron | Jobs are simpler for small scale |
-| Gemini 3 Flash | Azure OpenAI GPT-4o / 4o-mini | Swap model name in config |
+| Gemini 3 Flash | Azure OpenAI GPT-5.2 / 5.2-mini | Swap model name in config |
 | Supabase (hosted PostgreSQL) | Azure Database for PostgreSQL | Same PostgreSQL, just Azure-hosted |
 | GCS (Cloud Storage) | Azure Blob Storage | Same concept, different SDK |
 | Google Gemini embeddings | Azure OpenAI text-embedding-3-small | 1536-dim instead of 768-dim |
