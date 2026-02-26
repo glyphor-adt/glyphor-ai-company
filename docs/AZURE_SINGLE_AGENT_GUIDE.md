@@ -1,7 +1,7 @@
 # Building a Single AI Executive Agent on Azure
 
 > A peer-ready guide for deploying one autonomous AI persona into an enterprise Azure environment.
-> Based on the Glyphor AI Company architecture — simplified to one agent, zero voice, Azure-native.
+> Simplified to one agent, zero voice, Azure-native.
 
 ---
 
@@ -246,7 +246,7 @@ For enterprise agents that need to send/receive email:
 
 ## Database Schema (Minimal)
 
-These are the essential tables for a single-agent system. In Glyphor we have 73 tables; you
+These are the essential tables for a single-agent system. A full multi-agent system may have 50-70+ tables; you
 need about 15 to start.
 
 ```sql
@@ -400,8 +400,8 @@ INSERT INTO agent_schedules (agent_id, task, cron_expression) VALUES
 
 ## Persistent Memory Architecture
 
-Agents are not chatbots — they need to **remember** across runs. The Glyphor system uses a
-5-layer memory architecture. For a single agent on Azure, start with Layers 1-3 and add
+Agents are not chatbots — they need to **remember** across runs. This architecture uses a
+5-layer memory system. For a single agent on Azure, start with Layers 1-3 and add
 the rest as you scale.
 
 ### Memory Layers
@@ -764,7 +764,7 @@ Give your agent tools to read and write the knowledge graph:
 entities and relationships from your company documents, reports, and agent outputs. This
 populates the knowledge graph without manual effort.
 
-**How it works in Glyphor:**
+**How it works:**
 
 ```
  Source Documents (knowledge base, agent briefs, reports)
@@ -919,7 +919,7 @@ ai-agent/
 
 ## Agent Anatomy — The Four Files
 
-Every agent in the Glyphor system is defined by four files. Here's a simplified example
+Every agent is defined by four files. Here's a simplified example
 for your single agent using Azure OpenAI:
 
 ### 1. `systemPrompt.ts` — WHO the agent is
@@ -1372,7 +1372,7 @@ Once your single agent is working, the architecture scales naturally:
 7. **Add GraphRAG** — point the indexer at your growing document corpus for automated knowledge extraction
 8. **Add shared episodes** — `shared_episodes` table lets agents share experiences across departments
 
-The Glyphor system runs 34 agents on this exact pattern with 73 database tables, a 5-layer
+This pattern scales to dozens of agents with 50-70+ database tables, a 5-layer
 memory system, and a full knowledge graph. The jump from 1 to N is mostly configuration,
 not new architecture.
 
@@ -1426,16 +1426,18 @@ APPLICATIONINSIGHTS_CONNECTION_STRING=...   # App Insights telemetry
 
 ---
 
-## Key Differences from Glyphor (GCP → Azure)
+## GCP → Azure Mapping Reference
 
-| Glyphor (GCP) | Your Setup (Azure) | Notes |
+If you're comparing to a GCP-based reference architecture, here's how the services map:
+
+| GCP Equivalent | Azure Service | Notes |
 |---|---|---|
 | GCP Cloud Run | Azure Container Apps | Same scale-to-zero model |
 | GCP Cloud Scheduler + Pub/Sub | Container Apps Jobs or node-cron | Jobs are simpler for small scale |
-| Gemini 3 Flash | Azure OpenAI GPT-5.2 / 5.2-mini | Swap model name in config |
+| Gemini models | Azure OpenAI GPT-5.2 / 5.2-mini | Swap model name in config |
 | Supabase (hosted PostgreSQL) | Azure Database for PostgreSQL | Same PostgreSQL, just Azure-hosted |
 | GCS (Cloud Storage) | Azure Blob Storage | Same concept, different SDK |
 | Google Gemini embeddings | Azure OpenAI text-embedding-3-small | 1536-dim instead of 768-dim |
 | GCP Artifact Registry | Azure Container Registry | Same role |
-| Entra ID (same) | Entra ID (same) | Already Azure-native in Glyphor |
-| GitHub Actions | GitHub Actions (same) or Azure DevOps | CI/CD is provider-agnostic |
+| Entra ID | Entra ID | Already Azure-native |
+| GitHub Actions | GitHub Actions or Azure DevOps | CI/CD is provider-agnostic |
