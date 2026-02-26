@@ -27,9 +27,8 @@ A single AI agent persona (e.g., "Chief of Staff") that:
 
 - **Runs on a schedule** — cron-triggered tasks (morning briefing, end-of-day summary)
 - **Responds on demand** — chat via a web dashboard or Teams DM
-- **Persists memory** — remembers past interactions, decisions, and context
-- **Posts to Teams** — sends briefings, decision requests, and alerts to channels
-- **Uses an authority model** — some actions are autonomous, others require human approval
+- **Persists memory** — remembers past interactions and context
+- **Posts to Teams** — sends briefings and alerts to channels
 - **Calls LLMs** — Azure OpenAI (GPT-5.2 / GPT-5.2-mini) for reasoning
 - **Has tools** — can read/write to a database, search the web, send messages
 
@@ -44,9 +43,9 @@ work cycles, and the ability to take actions in your enterprise environment.
 
 | Resource | SKU / Tier | Purpose |
 |----------|-----------|---------|
-| **Azure Container Apps** | Consumption plan | Hosts the agent scheduler service (the "brain"). Scales to zero when idle, wakes on cron/HTTP. Replaces GCP Cloud Run. |
+| **Azure Container Apps** | Consumption plan | Hosts the agent scheduler service (the "brain"). Scales to zero when idle, wakes on cron/HTTP. |
 | **Azure OpenAI Service** | S0 (Standard) | LLM inference. Deploy `gpt-5.2` for quality or `gpt-5.2-mini` for cost. This is your agent's "thinking" engine. |
-| **Azure Database for PostgreSQL** | Flexible Server, Burstable B1ms | Agent memory, decisions, activity log, agent config. ~15 core tables. Enable `pgvector` extension for embeddings. |
+| **Azure Database for PostgreSQL** | Flexible Server, Burstable B1ms | Agent memory, activity log, agent config. 5 core tables + optional Knowledge Graph tables. Enable `pgvector` extension for KG embeddings. |
 | **Azure Key Vault** | Standard | Store all secrets: API keys, DB connection strings, Entra app credentials. Never hardcode. |
 | **Azure Container Registry** | Basic | Store your Docker images. |
 | **Entra ID App Registration** | Free (included with M365) | Service principal for Graph API (Teams, email). |
@@ -548,8 +547,7 @@ ai-agent/
 │       └── src/
 │           ├── server.ts              # Express/Hono HTTP server
 │           ├── cronManager.ts         # Cron job scheduling
-│           ├── authorityGates.ts      # Green/Yellow/Red classification
-│           └── decisionQueue.ts       # Human approval workflow
+│           └── routes.ts              # HTTP route handlers
 │
 ├── docker/
 │   └── Dockerfile                    # node:22-slim multi-stage build
@@ -580,19 +578,14 @@ everyone's context and connect the dots nobody else sees.
 
 ## Your Responsibilities
 1. Morning Briefings — concise, actionable, tailored to each leader
-2. Decision Routing — Green (auto) / Yellow (one approver) / Red (both approve)
-3. Activity Synthesis — aggregate activity into coherent summaries
-4. Directive Execution — translate high-level directives into work assignments
+2. Activity Synthesis — aggregate activity into coherent summaries
+3. On-demand Q&A — answer questions from leadership using memory and knowledge
 
 ## Communication Style
 - Warm but efficient — lead with what matters
 - Numbers before narratives
 - Flag risks prominently
 - Use ▸ for action items
-
-## Authority Level
-- GREEN: Compile briefings, route decisions, log activities, synthesize reports
-- YELLOW: Cannot approve — only route to leadership
 - RED: Cannot approve — must flag all designated approvers
 `;
 ```
@@ -675,38 +668,6 @@ export function createTools(db: any): ToolDefinition[] {
       },
     },
     {
-      name: 'submit_decision',
-      description: 'Submit a decision to the approval queue.',
-      parameters: {
-        tier: { type: 'string', description: 'green|yellow|red', required: true },
-        title: { type: 'string', description: 'Decision title', required: true },
-        summary: { type: 'string', description: 'What needs deciding', required: true },
-      },
-      execute: async (params) => {
-        const { data } = await db.from('decisions').insert({
-          tier: params.tier,
-          title: params.title,
-          summary: params.summary,
-          proposed_by: 'chief-of-staff',
-          assigned_to: params.tier === 'red' ? ['leader1', 'leader2'] : ['leader1'],
-        }).select();
-        return { success: true, data };
-      },
-    },
-    {
-      name: 'read_directives',
-      description: 'Read active founder directives.',
-      parameters: {},
-      execute: async () => {
-        const { data } = await db
-          .from('founder_directives')
-          .select('*')
-          .eq('status', 'active')
-          .order('priority', { ascending: false });
-        return { success: true, data };
-      },
-    },
-    {
       name: 'log_activity',
       description: 'Log an action you took.',
       parameters: {
@@ -735,7 +696,7 @@ import { createTools } from './tools';
 import { createClient } from '@supabase/supabase-js';
 
 export interface RunParams {
-  task: 'morning_briefing' | 'eod_summary' | 'orchestrate' | 'on_demand';
+  task: 'morning_briefing' | 'eod_summary' | 'on_demand';
   message?: string;           // for on_demand chat
   conversationHistory?: any[];
 }
@@ -745,9 +706,8 @@ export async function runChiefOfStaff(params: RunParams) {
   const tools = createTools(db);
 
   const taskPrompts: Record<string, string> = {
-    morning_briefing: 'Generate the morning briefing. Read recent activity, metrics, and pending decisions. Send to the #briefings Teams channel.',
+    morning_briefing: 'Generate the morning briefing. Read recent activity and metrics. Send to the #briefings Teams channel.',
     eod_summary: 'Generate the end-of-day summary. What happened today? What needs attention tomorrow?',
-    orchestrate: 'Check for active directives. Plan and dispatch work. Track progress on in-flight tasks.',
     on_demand: params.message || 'How can I help?',
   };
 
@@ -773,7 +733,6 @@ export async function runChiefOfStaff(params: RunParams) {
 export const SCHEDULES = [
   { task: 'morning_briefing', cron: '0 12 * * *', description: '7 AM CT — morning briefing' },
   { task: 'eod_summary',      cron: '0 23 * * *', description: '6 PM CT — end of day' },
-  { task: 'orchestrate',      cron: '0 * * * *',   description: 'Every hour — directive sweep' },
 ];
 ```
 
@@ -788,7 +747,7 @@ tool-use loop:
 START
   │
   ├─ 1. Load system prompt + task prompt
-  ├─ 2. Inject context (recent memories, active directives, pending decisions)
+  ├─ 2. Inject context (recent memories)
   │
   ├─ LOOP (max N turns):
   │   ├─ 3. Call LLM with system prompt + conversation history + tool definitions
@@ -861,35 +820,6 @@ export class ModelClient {
       outputTokens: response.usage?.completion_tokens ?? 0,
     };
   }
-}
-```
-
----
-
-## Authority Model
-
-Every action the agent wants to take is classified:
-
-| Tier | What Happens | Enterprise Example |
-|------|-------------|-------------------|
-| **Green** | Agent executes immediately. Logged but no approval needed. | Compile briefing, read metrics, save memory, log activity |
-| **Yellow** | Agent submits to decision queue. One designated approver. | Send external email, modify a work assignment, escalate an issue |
-| **Red** | Both/all designated approvers must approve. | Change agent configuration, create new agent, modify access |
-
-```typescript
-// authorityGates.ts — simplified
-const GREEN_ACTIONS: Record<string, string[]> = {
-  'chief-of-staff': [
-    'compile_briefing', 'route_decision', 'log_activity',
-    'synthesize_report', 'generate_briefing', 'morning_briefing',
-    'eod_summary', 'on_demand',
-  ],
-};
-
-export function checkAuthority(role: string, action: string): 'green' | 'yellow' | 'red' {
-  if (GREEN_ACTIONS[role]?.includes(action)) return 'green';
-  // Default unknown actions to yellow (safe default)
-  return 'yellow';
 }
 ```
 
@@ -1003,25 +933,6 @@ For one agent with 3-5 daily scheduled runs + occasional on-demand chat:
 
 ---
 
-## Scaling to Multiple Agents
-
-Once your single agent is working, the architecture scales naturally:
-
-1. **Add a persona** — Copy the `chief-of-staff/` folder, write new `systemPrompt.ts` and `tools.ts`
-2. **Register it** — INSERT into `company_agents` + `agent_schedules`
-3. **Add inter-agent communication** — agents can write messages to each other via an `agent_messages` table
-4. **Add orchestration** — your CoS agent can dispatch work to other agents via `work_assignments`
-5. **Add more tools** — each agent gets role-specific tools (CFO gets financial tools, CTO gets infra tools)
-6. **Promote to L4/L5 memory** — add `shared_procedures` (proven playbooks) and `agent_world_model` (self-improvement)
-7. **Add GraphRAG** — point the indexer at your growing document corpus for automated knowledge extraction
-8. **Add shared episodes** — `shared_episodes` table lets agents share experiences across departments
-
-This pattern scales to dozens of agents with 50-70+ database tables, a 5-layer
-memory system, and a full knowledge graph. The jump from 1 to N is mostly configuration,
-not new architecture.
-
----
-
 ## Environment Variables Checklist
 
 ```env
@@ -1070,18 +981,4 @@ APPLICATIONINSIGHTS_CONNECTION_STRING=...   # App Insights telemetry
 
 ---
 
-## GCP → Azure Mapping Reference
 
-If you're comparing to a GCP-based reference architecture, here's how the services map:
-
-| GCP Equivalent | Azure Service | Notes |
-|---|---|---|
-| GCP Cloud Run | Azure Container Apps | Same scale-to-zero model |
-| GCP Cloud Scheduler + Pub/Sub | Container Apps Jobs or node-cron | Jobs are simpler for small scale |
-| Gemini models | Azure OpenAI GPT-5.2 / 5.2-mini | Swap model name in config |
-| Supabase (hosted PostgreSQL) | Azure Database for PostgreSQL | Same PostgreSQL, just Azure-hosted |
-| GCS (Cloud Storage) | Azure Blob Storage | Same concept, different SDK |
-| Google Gemini embeddings | Azure OpenAI text-embedding-3-small | 1536-dim instead of 768-dim |
-| GCP Artifact Registry | Azure Container Registry | Same role |
-| Entra ID | Entra ID | Already Azure-native |
-| GitHub Actions | GitHub Actions or Azure DevOps | CI/CD is provider-agnostic |
