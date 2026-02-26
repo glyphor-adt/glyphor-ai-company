@@ -56,6 +56,9 @@ export { runMarketResearchAnalyst, type MarketResearchAnalystRunParams } from '.
 export { runTechnicalResearchAnalyst, type TechnicalResearchAnalystRunParams } from './technical-research-analyst/run.js';
 export { runIndustryResearchAnalyst, type IndustryResearchAnalystRunParams } from './industry-research-analyst/run.js';
 
+// Dynamic agents (DB-defined, no file-based runner)
+export { runDynamicAgent, type DynamicAgentRunParams } from './shared/runDynamicAgent.js';
+
 // ── System prompt map (keyed by agent role slug) ──
 import { CHIEF_OF_STAFF_SYSTEM_PROMPT } from './chief-of-staff/systemPrompt.js';
 import { CTO_SYSTEM_PROMPT } from './cto/systemPrompt.js';

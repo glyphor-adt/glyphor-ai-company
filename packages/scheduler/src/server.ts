@@ -58,6 +58,7 @@ import {
   runTechnicalResearchAnalyst,
   runIndustryResearchAnalyst,
   runVPResearch,
+  runDynamicAgent,
 } from '@glyphor/agents';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
@@ -244,8 +245,9 @@ const agentExecutor = async (
   } else if (agentRole === 'industry-research-analyst') {
     return runIndustryResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, researchBrief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
   } else {
-    console.log(`[Scheduler] Agent ${agentRole} not recognized, skipping task: ${task}`);
-    return { output: `Agent "${agentRole}" is not available for direct chat yet.`, status: 'error' } as AgentExecutionResult;
+    // Dynamic agent — look up in DB and run with generic runner
+    console.log(`[Scheduler] Agent ${agentRole} not in static roster, trying dynamic runner...`);
+    return runDynamicAgent({ role: agentRole, task, message, conversationHistory });
   }
 };
 
