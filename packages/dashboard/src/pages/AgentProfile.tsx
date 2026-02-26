@@ -54,7 +54,6 @@ interface AgentRow {
 
 interface AgentProfile {
   agent_id: string;
-  avatar_emoji: string | null;
   personality_summary: string | null;
   backstory: string | null;
   communication_traits: string[] | null;
