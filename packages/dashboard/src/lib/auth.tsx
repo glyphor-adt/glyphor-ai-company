@@ -6,6 +6,9 @@ import { supabase } from './supabase';
 
 const STORAGE_KEY = 'glyphor-auth';
 
+// Fallback allowlist in case DB is unreachable
+const FALLBACK_EMAILS = ['kristina@glyphor.ai', 'andrew@glyphor.ai', 'devops@glyphor.ai'];
+
 // Cache allowed emails from the DB so we don't query on every check
 let _allowedCache: Set<string> | null = null;
 let _cachePromise: Promise<Set<string>> | null = null;
@@ -13,11 +16,19 @@ let _cachePromise: Promise<Set<string>> | null = null;
 async function fetchAllowedEmails(): Promise<Set<string>> {
   if (_cachePromise) return _cachePromise;
   _cachePromise = (async () => {
-    const { data } = await supabase.from('dashboard_users' as any).select('email') as { data: { email: string }[] | null };
-    const set = new Set((data ?? []).map((r) => r.email.toLowerCase()));
-    _allowedCache = set;
-    setTimeout(() => { _allowedCache = null; _cachePromise = null; }, 60_000);
-    return set;
+    try {
+      const { data, error } = await supabase.from('dashboard_users' as any).select('email') as { data: { email: string }[] | null; error: any };
+      if (error || !data || data.length === 0) {
+        // DB unavailable or empty — use fallback
+        return new Set(FALLBACK_EMAILS);
+      }
+      const set = new Set(data.map((r) => r.email.toLowerCase()));
+      _allowedCache = set;
+      setTimeout(() => { _allowedCache = null; _cachePromise = null; }, 60_000);
+      return set;
+    } catch {
+      return new Set(FALLBACK_EMAILS);
+    }
   })();
   return _cachePromise;
 }

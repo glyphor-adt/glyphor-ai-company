@@ -21,7 +21,10 @@ export default function Settings() {
   const [role, setRole] = useState<'admin' | 'viewer'>('viewer');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [isAdmin, setIsAdmin] = useState(false);
+
+  const isAdmin = !loading && users.some(
+    u => u.email.toLowerCase() === user?.email.toLowerCase() && u.role === 'admin'
+  );
 
   const fetchUsers = useCallback(async () => {
     const { data } = await supabase
@@ -35,14 +38,6 @@ export default function Settings() {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
-
-  // Check if current user is admin
-  useEffect(() => {
-    if (user && users.length > 0) {
-      const me = users.find(u => u.email.toLowerCase() === user.email.toLowerCase());
-      setIsAdmin(me?.role === 'admin');
-    }
-  }, [user, users]);
 
   const addUser = async () => {
     const trimmedEmail = email.trim().toLowerCase();
