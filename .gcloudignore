@@ -11,13 +11,7 @@ teams/agents/*.zip
 __pycache__/
 *.pyc
 packages/graphrag-indexer/
-packages/agent-runtime/
-packages/agents/
-packages/company-knowledge/
-packages/company-memory/
-packages/integrations/
-packages/scheduler/
-packages/voice-gateway/
+packages/dashboard/src/
 infra/
 supabase/
 .terraform/
