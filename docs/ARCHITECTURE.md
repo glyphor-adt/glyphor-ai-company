@@ -240,9 +240,13 @@ market research & intelligence, and global platform administration.
 │  │  ├ work_assignments         │  │
 │  │  ├ chat_messages            │  │
 │  │  ├ agent_wake_queue         │  │
+│  │  ├ agent_world_model        │  │
+│  │  ├ role_rubrics             │  │
+│  │  ├ shared_episodes          │  │
+│  │  ├ shared_procedures        │  │
 │  │  ├ platform_iam_state       │  │
 │  │  ├ platform_audit_log       │  │
-│  │  └ ... (69 tables total)    │  │
+│  │  └ ... (73 tables total)    │  │
 │  ├─────────────────────────────┤  │
 │  │ GCS (large documents)       │  │
 │  │  ├ briefings/{founder}/     │  │
@@ -264,7 +268,8 @@ market research & intelligence, and global platform administration.
 │   ├ AgentsList.tsx   (agent roster)      │
 │   ├ AgentProfile.tsx (identity, perf,    │
 │   │                   memory, messages,  │
-│   │                   settings)          │
+│   │                   skills, world      │
+│   │                   model, settings)   │
 │   ├ AgentBuilder.tsx (create new agents) │
 │   ├ Approvals.tsx    (decision queue)    │
 │   ├ Directives.tsx   (founder tasks)     │
@@ -529,7 +534,8 @@ glyphor-ai-company/
 │   │       │   ├── emailTools.ts         # send_email, read_inbox, reply_to_email (M365 Graph API)
 │   │       │   ├── agentCreationTools.ts # create_specialist_agent, list/retire (max 3, 7d TTL)
 │   │       │   ├── researchTools.ts      # web_search, web_fetch, submit_research_packet
-│   │       │   └── createRunDeps.ts      # Wire up all run dependencies for any agent
+│   │       │   ├── createRunDeps.ts      # Wire up all run dependencies for any agent
+│   │       │   └── createRunner.ts       # Runner factory: role + task → Orchestrator/Task/CompanyAgent
 │   │       └── index.ts              # Re-exports all runners
 │   │
 │   ├── company-knowledge/       # Shared context (read at runtime)
@@ -666,8 +672,9 @@ glyphor-ai-company/
 │       │   │   ├── Workforce.tsx      # Org chart + grid view (10 departments)
 │       │   │   ├── WorkforceBuilder.tsx # Drag-and-drop org chart builder
 │       │   │   ├── AgentsList.tsx     # Agent roster & grid
-│       │   │   ├── AgentProfile.tsx   # 5-tab agent profile (overview, perf,
-│       │   │   │                      #   memory, messages, settings)
+│       │   │   ├── AgentProfile.tsx   # 7-tab agent profile (overview, perf,
+│       │   │   │                      #   memory, messages, skills, world model,
+│       │   │   │                      #   settings)
 │       │   │   ├── AgentBuilder.tsx   # Create new dynamic agents
 │       │   │   ├── AgentSettings.tsx  # Agent configuration & system prompts
 │       │   │   ├── Approvals.tsx      # Decision approval queue
@@ -1413,6 +1420,8 @@ The `CompanyAgentRunner.run()` method accepts optional dependencies:
 | `skillContextLoader` | Load assigned skills and proficiency for context |
 | `graphContextLoader` | Load knowledge graph neighborhood for context |
 | `partialProgressSaver` | Save partial output when a task-tier run is aborted (updates `work_assignments`, notifies chief-of-staff) |
+| `sharedMemoryLoader` | 5-layer shared memory (Working, Episodic, Semantic, Procedural, WorldModel) — cross-agent context via `shared_episodes` and `shared_procedures` tables |
+| `worldModelUpdater` | REFLECT→LEARN→IMPROVE loop — evolves per-agent self-models in `agent_world_model` after graded evaluations |
 
 Name mapping (`ROLE_TO_BRIEF`):
 
@@ -1921,7 +1930,7 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 
 ### AgentProfile Page (Dashboard)
 
-5-tab profile page at `/agents/:agentId`:
+7-tab profile page at `/agents/:agentId`:
 
 | Tab | Content |
 |-----|---------|
@@ -1929,6 +1938,8 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 | **Performance** | Quality score trends (chart), growth areas, peer feedback from other agents |
 | **Memory** | Agent memories (observations, learnings, preferences, facts) + reflections with quality scores |
 | **Messages** | Stats row (received/sent/meetings/pending), DM list with directional arrows, meeting participation list |
+| **Skills** | Assigned skills with proficiency bars, category badges, skill assignment management |
+| **World Model** | Radar chart (rubric dimensions), strengths/weaknesses, improvement goals bar chart, failure patterns, blindspots, rubric dimension details |
 | **Settings** | Model selection, temperature, max turns, budget caps, cron schedule |
 
 ---
@@ -2204,7 +2215,7 @@ Total: **56 migration files**, **70+ tables**, **9 RPC functions**, **1 extensio
 | Workforce | `/workforce` | Org chart (10 departments) + grid view — 36 total headcount |
 | Workforce Builder | `/workforce/builder` | Drag-and-drop org chart builder with templates |
 | Agents | `/agents` | Agent roster with status, model, last run |
-| Agent Profile | `/agents/:agentId` | 5-tab profile: Overview (personality, backstory, strengths), Performance (quality scores, growth areas, peer feedback), Memory (memories + reflections), Messages (DMs + meeting participation), Settings (model, temperature, budget, system prompt) |
+| Agent Profile | `/agents/:agentId` | 7-tab profile: Overview (personality, backstory, strengths), Performance (quality scores, growth areas, peer feedback), Memory (memories + reflections), Messages (DMs + meeting participation), Skills (proficiency bars, categories), World Model (radar chart, strengths/weaknesses, improvement goals, failure patterns, blindspots), Settings (model, temperature, budget, system prompt) |
 | Agent Builder | `/agents/new` | Create new dynamic agents with name, department, model, budget, cron |
 | Agent Settings | `/agents/:agentId/settings` | Agent configuration & system prompt editing |
 | Approvals | `/approvals` | Pending decision queue — approve/reject |
