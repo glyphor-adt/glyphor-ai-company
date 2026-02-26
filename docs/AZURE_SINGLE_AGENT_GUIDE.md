@@ -10,17 +10,14 @@
 1. [What You're Building](#what-youre-building)
 2. [Azure Resources Required](#azure-resources-required)
 3. [Entra ID & Permissions](#entra-id--permissions)
-4. [Microsoft 365 & Teams Setup](#microsoft-365--teams-setup)
-5. [Database Schema (Minimal)](#database-schema-minimal)
-6. [Persistent Memory Architecture](#persistent-memory-architecture)
-7. [Knowledge Graph & GraphRAG](#knowledge-graph--graphrag)
-8. [Project Structure](#project-structure)
-9. [Agent Anatomy — The Four Files](#agent-anatomy--the-four-files)
-10. [Agent Runtime — The Execution Loop](#agent-runtime--the-execution-loop)
-11. [Authority Model](#authority-model)
-12. [Deployment](#deployment)
-13. [Cost Estimate](#cost-estimate)
-14. [Scaling to Multiple Agents](#scaling-to-multiple-agents)
+4. [Teams Setup](#teams-setup)
+5. [Database Schema](#database-schema)
+6. [Knowledge Graph & GraphRAG](#knowledge-graph--graphrag)
+7. [Project Structure](#project-structure)
+8. [Agent Anatomy — The Four Files](#agent-anatomy--the-four-files)
+9. [Agent Runtime — The Execution Loop](#agent-runtime--the-execution-loop)
+10. [Deployment](#deployment)
+11. [Cost Estimate](#cost-estimate)
 
 ---
 
@@ -172,187 +169,84 @@ az role assignment create --assignee $PRINCIPAL_ID \
 
 ---
 
-## Microsoft 365 & Teams Setup
+## Teams Setup
 
-### Phase 1: Incoming Webhooks (Start Here — No Admin Needed)
-
-The fastest way to get your agent posting to Teams:
+The fastest path to get your agent posting to Teams — **no admin approval needed:**
 
 1. In a Teams channel, click `...` → Connectors → Incoming Webhook
-2. Name it after your agent (e.g., "Sarah - Chief of Staff")
+2. Name it after your agent (e.g., "AI Chief of Staff")
 3. Save the webhook URL in Key Vault as `TEAMS-WEBHOOK-URL`
-4. Your agent POSTs adaptive cards to this URL — no Graph API needed
+4. Your agent POSTs messages to this URL — no Graph API, no bot registration
 
 ```typescript
-// Simplest Teams integration — just HTTP POST
-async function sendToTeams(webhookUrl: string, card: object) {
+// That's it. One function to post to Teams.
+async function sendToTeams(webhookUrl: string, message: string) {
   await fetch(webhookUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: 'message',
-      attachments: [{
-        contentType: 'application/vnd.microsoft.card.adaptive',
-        content: card,
-      }],
-    }),
+    body: JSON.stringify({ text: message }),
   });
 }
 ```
 
-### Phase 2: Bot Framework (For DMs & Interactive Cards)
-
-When you want the agent to receive messages (not just send):
-
-1. Go to https://dev.botframework.com → Create a bot
-2. Use the Entra app registration from above
-3. Set messaging endpoint: `https://your-container-app-url/api/teams/messages`
-4. Enable the Teams channel
-5. Create a Teams app manifest:
-
-```json
-{
-  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
-  "manifestVersion": "1.17",
-  "version": "1.0.0",
-  "id": "{{BOT_APP_ID}}",
-  "name": { "short": "AI Chief of Staff" },
-  "description": { "short": "Your AI Chief of Staff agent" },
-  "bots": [{
-    "botId": "{{BOT_APP_ID}}",
-    "scopes": ["personal", "team"],
-    "commandLists": [{
-      "scopes": ["personal"],
-      "commands": [
-        { "title": "briefing", "description": "Get your morning briefing" },
-        { "title": "status", "description": "Company status check" }
-      ]
-    }]
-  }]
-}
-```
-
-6. Upload to Teams Admin Center → Manage apps → Upload custom app
-
-### Phase 3: Agent Email (Optional)
-
-For enterprise agents that need to send/receive email:
-
-1. M365 Admin → Shared mailboxes → Create: `chief-of-staff@yourdomain.com`
-2. Grant the Entra app registration `Mail.Send` + `Mail.Read` (application permission)
-3. Scope with an Application Access Policy if you want to limit which mailboxes the app can access
+> **Later:** When you want the agent to *receive* messages (DMs, interactive cards),
+> add a Bot Framework registration and a Teams app manifest. That's a Phase 2 effort.
 
 ---
 
-## Database Schema (Minimal)
+## Database Schema
 
-These are the essential tables for a single-agent system. A full multi-agent system may have 50-70+ tables; you
-need about 15 to start.
+Five tables are all you need to prove out a single agent.
 
 ```sql
--- Enable pgvector for embeddings
-CREATE EXTENSION IF NOT EXISTS vector;
-
--- 1. Agent roster (even for one agent, this is the source of truth)
+-- 1. Agent roster
 CREATE TABLE company_agents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   role TEXT UNIQUE NOT NULL,            -- 'chief-of-staff'
   display_name TEXT NOT NULL,           -- 'Sarah Chen'
   model TEXT NOT NULL,                  -- 'gpt-5.2'
-  status TEXT DEFAULT 'active',         -- active | paused | retired
-  schedule_cron TEXT,                   -- '0 12 * * *' (UTC)
+  status TEXT DEFAULT 'active',
   last_run_at TIMESTAMPTZ,
   total_runs INT DEFAULT 0,
-  total_cost_usd DECIMAL(10,2) DEFAULT 0,
-  config JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Agent run history (every execution is tracked)
+-- 2. Agent run history
 CREATE TABLE agent_runs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  agent_id TEXT NOT NULL,               -- 'chief-of-staff'
-  task TEXT NOT NULL,                    -- 'morning_briefing', 'on_demand', 'orchestrate'
-  status TEXT DEFAULT 'running',        -- running | completed | failed | aborted
+  agent_id TEXT NOT NULL,
+  task TEXT NOT NULL,                    -- 'morning_briefing', 'on_demand'
+  status TEXT DEFAULT 'running',        -- running | completed | failed
   started_at TIMESTAMPTZ DEFAULT NOW(),
   completed_at TIMESTAMPTZ,
   duration_ms INT,
   model_used TEXT,
   input_tokens INT,
   output_tokens INT,
-  cost_usd DECIMAL(10,6),
-  turns_used INT,
-  result TEXT,                          -- summary of what the agent did
-  error TEXT                            -- error message if failed
+  result TEXT,
+  error TEXT
 );
 
--- 3. Agent memory (long-term, vector-searchable)
+-- 3. Agent memory (simple text — no embeddings needed for v1)
 CREATE TABLE agent_memory (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id TEXT NOT NULL,
-  category TEXT NOT NULL,               -- 'observation', 'decision', 'learning', 'preference'
+  category TEXT NOT NULL,               -- 'observation', 'decision', 'learning'
   content TEXT NOT NULL,
-  importance DECIMAL(3,2) DEFAULT 0.5,  -- 0.0-1.0
-  embedding vector(1536),              -- text-embedding-3-small (Azure OpenAI)
-  metadata JSONB DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  expires_at TIMESTAMPTZ               -- optional TTL
-);
-CREATE INDEX idx_memory_embedding ON agent_memory USING ivfflat (embedding vector_cosine_ops);
-
--- 4. Decision queue (authority model)
-CREATE TABLE decisions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tier TEXT NOT NULL,                   -- 'green', 'yellow', 'red'
-  status TEXT DEFAULT 'pending',        -- pending | approved | rejected
-  title TEXT NOT NULL,
-  summary TEXT NOT NULL,
-  proposed_by TEXT NOT NULL,            -- agent role
-  assigned_to TEXT[],                   -- human approver(s)
-  resolved_by TEXT,
-  resolution_note TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  resolved_at TIMESTAMPTZ
+  importance DECIMAL(3,2) DEFAULT 0.5,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 5. Activity log (what the agent actually did)
+-- 4. Activity log
 CREATE TABLE activity_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id TEXT NOT NULL,
-  action TEXT NOT NULL,                 -- 'compiled_briefing', 'sent_teams_message'
+  action TEXT NOT NULL,
   details JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 6. Founder directives (marching orders)
-CREATE TABLE founder_directives (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  title TEXT NOT NULL,
-  description TEXT NOT NULL,
-  priority TEXT DEFAULT 'medium',       -- low | medium | high | critical
-  status TEXT DEFAULT 'active',         -- active | completed | cancelled
-  created_by TEXT NOT NULL,             -- 'kristina', 'andrew', etc.
-  progress_notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  completed_at TIMESTAMPTZ
-);
-
--- 7. Work assignments (orchestrator → agent task dispatch)
-CREATE TABLE work_assignments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  directive_id UUID REFERENCES founder_directives(id),
-  assigned_to TEXT NOT NULL,
-  task_description TEXT NOT NULL,
-  expected_output TEXT,
-  status TEXT DEFAULT 'assigned',       -- assigned | in_progress | completed | blocked
-  priority TEXT DEFAULT 'medium',
-  output TEXT,
-  quality_score DECIMAL(3,2),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  completed_at TIMESTAMPTZ
-);
-
--- 8. Chat messages (dashboard conversation history)
+-- 5. Chat messages (if you build a web dashboard)
 CREATE TABLE chat_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id TEXT NOT NULL,
@@ -362,263 +256,13 @@ CREATE TABLE chat_messages (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 9. Company knowledge base (shared context)
-CREATE TABLE company_knowledge (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  category TEXT NOT NULL,               -- 'product', 'process', 'policy', 'metric'
-  title TEXT NOT NULL,
-  content TEXT NOT NULL,
-  source TEXT,
-  embedding vector(1536),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 10. Agent schedules (cron definitions, DB-driven)
-CREATE TABLE agent_schedules (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  agent_id TEXT NOT NULL,
-  task TEXT NOT NULL,
-  cron_expression TEXT NOT NULL,        -- e.g. '0 12 * * *'
-  enabled BOOLEAN DEFAULT true,
-  last_triggered_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
 -- Seed your agent
-INSERT INTO company_agents (role, display_name, model, status, schedule_cron)
-VALUES ('chief-of-staff', 'Sarah Chen', 'gpt-5.2', 'active', '0 12 * * *');
-
--- Seed schedules
-INSERT INTO agent_schedules (agent_id, task, cron_expression) VALUES
-  ('chief-of-staff', 'morning_briefing', '0 12 * * *'),   -- 7 AM CT
-  ('chief-of-staff', 'eod_summary',      '0 23 * * *'),   -- 6 PM CT
-  ('chief-of-staff', 'orchestrate',      '0 * * * *');     -- hourly
+INSERT INTO company_agents (role, display_name, model, status)
+VALUES ('chief-of-staff', 'Sarah Chen', 'gpt-5.2', 'active');
 ```
 
----
-
-## Persistent Memory Architecture
-
-Agents are not chatbots — they need to **remember** across runs. This architecture uses a
-5-layer memory system. For a single agent on Azure, start with Layers 1-3 and add
-the rest as you scale.
-
-### Memory Layers
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  L1: WORKING MEMORY (hot — per-run scratchpad)                   │
-│  In-memory only. Current task state, tool results, conversation. │
-│  Cleared after each run. NOT persisted.                          │
-├──────────────────────────────────────────────────────────────────┤
-│  L2: EPISODIC MEMORY (warm — recent experiences)                 │
-│  Table: agent_memory                                             │
-│  What happened? Observations, decisions, learnings.              │
-│  Vector-searchable via pgvector embeddings.                      │
-│  TTL-based expiry for low-importance memories.                   │
-├──────────────────────────────────────────────────────────────────┤
-│  L3: SEMANTIC MEMORY (cool — facts & knowledge)                  │
-│  Table: company_knowledge + kg_nodes (knowledge graph)           │
-│  Company facts, domain knowledge, verified truths.               │
-│  Shared across all agents. Never expires.                        │
-├──────────────────────────────────────────────────────────────────┤
-│  L4: PROCEDURAL MEMORY (persistent — proven playbooks)           │
-│  Table: shared_procedures                                        │
-│  "When X happens, do Y." Learned from repeated successes.        │
-│  Agent proposes → orchestrator promotes to procedure.            │
-├──────────────────────────────────────────────────────────────────┤
-│  L5: WORLD MODEL (meta — self-knowledge)                         │
-│  Table: agent_world_model                                        │
-│  The agent's model of itself: strengths, weaknesses, failure     │
-│  patterns, task-type scores, improvement goals.                  │
-│  Updated via REFLECT → GRADE → LEARN loop after each run.        │
-└──────────────────────────────────────────────────────────────────┘
-```
-
-### How Memory Loads into Each Run
-
-Before every agent execution, the runtime injects relevant memories into the system prompt
-context window. This is what makes the agent feel like it "knows" things:
-
-```typescript
-// Simplified context injection — runs before every LLM call
-async function loadMemoryContext(agentId: string, taskPrompt: string, db: any) {
-  // 1. Recall relevant episodic memories via vector similarity
-  const embedding = await embedText(taskPrompt);  // Azure OpenAI text-embedding-3-small
-  const { data: memories } = await db.rpc('match_agent_memory', {
-    query_embedding: JSON.stringify(embedding),
-    match_threshold: 0.7,
-    match_count: 10,
-    agent_filter: agentId,
-  });
-
-  // 2. Load relevant knowledge graph context
-  const { data: kgContext } = await db.rpc('kg_semantic_search_with_context', {
-    query_embedding: JSON.stringify(embedding),
-    match_threshold: 0.65,
-    match_count: 5,
-    expand_hops: 1,
-  });
-
-  // 3. Load the agent's world model (self-knowledge)
-  const { data: worldModel } = await db
-    .from('agent_world_model')
-    .select('*')
-    .eq('agent_role', agentId)
-    .single();
-
-  // 4. Combine into context string injected into system prompt
-  return formatMemoryContext(memories, kgContext, worldModel);
-}
-```
-
-### Embedding Setup (Azure OpenAI)
-
-Deploy `text-embedding-3-small` in your Azure OpenAI resource. This generates 1536-dim
-vectors for semantic search across memories and knowledge.
-
-```typescript
-import { AzureOpenAI } from 'openai';
-
-export class EmbeddingClient {
-  private client: AzureOpenAI;
-
-  constructor() {
-    this.client = new AzureOpenAI({ apiVersion: '2025-01-01-preview' });
-  }
-
-  async embed(text: string): Promise<number[]> {
-    const result = await this.client.embeddings.create({
-      model: 'text-embedding-3-small',  // your deployment name
-      input: text,
-    });
-    return result.data[0].embedding;     // 1536-dim float array
-  }
-
-  async embedBatch(texts: string[]): Promise<number[][]> {
-    const result = await this.client.embeddings.create({
-      model: 'text-embedding-3-small',
-      input: texts,
-    });
-    return result.data.map(d => d.embedding);
-  }
-}
-```
-
-### PostgreSQL Vector Search Function
-
-Create this RPC function in PostgreSQL to enable semantic memory recall:
-
-```sql
--- Semantic search over agent memories
-CREATE OR REPLACE FUNCTION match_agent_memory(
-  query_embedding vector(1536),
-  match_threshold float DEFAULT 0.7,
-  match_count int DEFAULT 10,
-  agent_filter text DEFAULT NULL
-) RETURNS TABLE (
-  id uuid,
-  agent_id text,
-  category text,
-  content text,
-  importance numeric,
-  similarity float
-) LANGUAGE plpgsql AS $$
-BEGIN
-  RETURN QUERY
-  SELECT
-    m.id, m.agent_id, m.category, m.content, m.importance,
-    1 - (m.embedding <=> query_embedding) AS similarity
-  FROM agent_memory m
-  WHERE
-    (agent_filter IS NULL OR m.agent_id = agent_filter)
-    AND m.embedding IS NOT NULL
-    AND 1 - (m.embedding <=> query_embedding) > match_threshold
-    AND (m.expires_at IS NULL OR m.expires_at > NOW())
-  ORDER BY m.embedding <=> query_embedding
-  LIMIT match_count;
-END;
-$$;
-```
-
-### Memory Save with Auto-Embedding
-
-When an agent calls `save_memory`, automatically embed the content:
-
-```typescript
-{
-  name: 'save_memory',
-  description: 'Save an observation, decision, or learning to long-term memory.',
-  parameters: {
-    category: { type: 'string', description: 'observation|decision|learning|preference', required: true },
-    content: { type: 'string', description: 'What to remember', required: true },
-    importance: { type: 'number', description: '0.0-1.0 importance score', required: false },
-  },
-  execute: async (params) => {
-    const embedding = await embeddingClient.embed(params.content as string);
-    const { data } = await db.from('agent_memory').insert({
-      agent_id: 'chief-of-staff',
-      category: params.category,
-      content: params.content,
-      importance: params.importance || 0.5,
-      embedding: JSON.stringify(embedding),
-    }).select();
-    return { success: true, data };
-  },
-}
-```
-
-### World Model — The REFLECT → LEARN → IMPROVE Loop
-
-After each scheduled run, the agent self-reflects and the system updates its world model:
-
-```
- Agent Run Completes
-       │
-       ▼
- ┌─ REFLECT ─────────────────────────────────┐
- │ Agent self-assesses: "How did I do?"       │
- │ Structured output: confidence, gaps,       │
- │ what worked, what failed, predictions      │
- └──────────────────┬────────────────────────┘
-                    │
-                    ▼
- ┌─ GRADE ───────────────────────────────────┐
- │ Orchestrator (or rule-based scorer)        │
- │ evaluates against a rubric:                │
- │   completeness, accuracy, actionability,   │
- │   timeliness, authority compliance         │
- └──────────────────┬────────────────────────┘
-                    │
-                    ▼
- ┌─ UPDATE WORLD MODEL ─────────────────────┐
- │ Merge grade into agent_world_model:       │
- │   - Rolling avg scores by task type       │
- │   - Add new strengths / weaknesses        │
- │   - Track failure patterns                │
- │   - Set improvement goals                 │
- │   - Update prediction accuracy            │
- └───────────────────────────────────────────┘
-```
-
-The world model is injected into the agent's next run, so it gets better over time.
-
-```sql
--- World model table
-CREATE TABLE agent_world_model (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  agent_role TEXT UNIQUE NOT NULL,
-  strengths TEXT[] DEFAULT '{}',
-  weaknesses TEXT[] DEFAULT '{}',
-  failure_patterns TEXT[] DEFAULT '{}',
-  task_type_scores JSONB DEFAULT '{}',    -- { "morning_briefing": { "avgScore": 0.85, "count": 42 } }
-  improvement_goals JSONB DEFAULT '[]',
-  preferred_approaches JSONB DEFAULT '{}',
-  prediction_accuracy DECIMAL(3,2) DEFAULT 0.5,
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
+> **Later:** Add `pgvector`, embeddings, and vector search when you want semantic memory recall
+> instead of keyword search. The Knowledge Graph section below shows that pattern.
 
 ---
 
