@@ -1,6 +1,6 @@
 # Glyphor AI Company — System Architecture
 
-> Last updated: 2026-02-25
+> Last updated: 2026-02-26
 
 ## Overview
 
@@ -26,8 +26,8 @@ market research & intelligence, and global platform administration.
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │                      GCP Cloud Scheduler                             │
-│  9 agent cron jobs → Pub/Sub topic "glyphor-agent-events"            │
-│  4 data sync jobs  → HTTP POST to scheduler endpoints                │
+│  33 agent cron jobs → Pub/Sub topic "glyphor-agent-tasks"            │
+│  9 data sync + utility jobs → HTTP POST to scheduler endpoints       │
 │  + Dynamic Scheduler (DB-defined cron from agent_schedules table)    │
 │  + Data Sync Scheduler (internal cron for sync jobs when GCP CS      │
 │    hasn't been provisioned)                                          │
@@ -84,7 +84,7 @@ market research & intelligence, and global platform administration.
 │  GET  /strategy-lab/:id/export── Export strategy lab report          │
 │  GET  /strategy-lab/:id/visual── Get strategy lab infographic        │
 │  POST /strategy-lab/:id/visual── Generate strategy lab infographic   │
-│  GET  /agents/:id/prompt ── Get agent system prompt                  │
+│  GET  /agents/:id/system-prompt ── Get agent system prompt           │
 │  POST /cache/invalidate  ── Invalidate prompt cache (by prefix)     │
 │  POST /cot/run           ── Launch chain-of-thought analysis         │
 │  GET  /cot               ── List all CoT analyses                   │
@@ -113,7 +113,7 @@ market research & intelligence, and global platform administration.
 │                                                                      │
 │  ┌──────────────┐  ┌───────────────┐  ┌──────────────────────────┐   │
 │  │ Cron Manager │  │ Event Router  │  │    Authority Gates       │   │
-│  │ (9+4 static  │  │ route()       │  │ checkAuthority(role,act) │   │
+│  │ (33+9 static │  │ route()       │  │ checkAuthority(role,act) │   │
 │  │  + dynamic)  │  │ handlePubSub()│  │ GREEN per-role           │   │
 │  └──────────────┘  │ handleAgent() │  │ YELLOW → one founder     │   │
 │  ┌──────────────┐  │ handleEvent() │  │ RED    → both founders   │   │
@@ -429,9 +429,13 @@ Riley M.                                                       Ryan P.   Amara D
 
 ### Cron Schedules (GCP Cloud Scheduler)
 
-#### Agent Task Jobs (8 jobs, via Pub/Sub)
+#### Agent Task Jobs (33 jobs, via Pub/Sub)
 
-All 8 jobs are **enabled** and run **daily** (every day of the week).
+All 33 jobs are **enabled** and delivered via Cloud Scheduler → Pub/Sub → POST /pubsub.
+Design sub-team agents (ui-ux-designer, frontend-engineer, design-critic, template-architect)
+use DB-driven schedules via `agent_schedules` table rather than static crons.
+
+**Executive & CoS Jobs (12)**
 
 | Job ID | Agent | Cron (UTC) | Local (CT) | Task |
 |--------|-------|-----------|------------|------|
@@ -441,19 +445,57 @@ All 8 jobs are **enabled** and run **daily** (every day of the week).
 | `cos-orchestrate` | Sarah Chen | `0 * * * *` | Every hour | Hourly directive sweep (backup — heartbeat handles real-time) |
 | `cto-health-check` | Marcus Reeves | `0 */2 * * *` | Every 2 hours | Platform health check |
 | `cfo-daily-costs` | Nadia Okafor | `0 14 * * *` | 9:00 AM | Daily cost analysis |
+| `cfo-afternoon-costs` | Nadia Okafor | `0 20 * * *` | 3:00 PM | Afternoon anomaly catch |
 | `cpo-usage-analysis` | Elena Vasquez | `0 15 * * *` | 10:00 AM | Usage & competitive analysis |
 | `cmo-content-calendar` | Maya Brooks | `0 14 * * *` | 9:00 AM | Content planning |
+| `cmo-afternoon-publishing` | Maya Brooks | `0 19 * * *` | 2:00 PM | Afternoon publishing/scheduling |
 | `vpcs-health-scoring` | James Turner | `0 13 * * *` | 8:00 AM | Customer health scoring |
 | `vps-pipeline-review` | Rachel Kim | `0 14 * * *` | 9:00 AM | Enterprise pipeline review |
 
-#### Data Sync Jobs (3 jobs, via HTTP + internal DataSyncScheduler)
+**Operations Jobs — Atlas Vega (5)**
+
+| Job ID | Agent | Cron (UTC) | Local (CT) | Task |
+|--------|-------|-----------|------------|------|
+| `ops-health-check` | Atlas Vega | `*/10 * * * *` | Every 10 min | System health check |
+| `ops-freshness-check` | Atlas Vega | `*/30 * * * *` | Every 30 min | Data freshness monitoring |
+| `ops-cost-check` | Atlas Vega | `0 * * * *` | Every hour | Cost awareness check |
+| `ops-morning-status` | Atlas Vega | `0 11 * * *` | 6:00 AM | Morning status report |
+| `ops-evening-status` | Atlas Vega | `0 22 * * *` | 5:00 PM | Evening status report |
+
+**Sub-Team Jobs (16)**
+
+| Job ID | Agent | Cron (UTC) | Local (CT) | Task |
+|--------|-------|-----------|------------|------|
+| `platform-eng-daily` | Alex Park (Platform Eng) | `30 12 * * *` | 6:30 AM | Infrastructure review |
+| `quality-eng-daily` | Sam DeLuca (Quality Eng) | `0 13 * * *` | 7:00 AM | Quality metrics |
+| `devops-eng-daily` | Jordan Hayes (DevOps) | `0 12 * * *` | 6:00 AM | Deployment health, CI/CD |
+| `user-researcher-daily` | Priya Sharma (User Research) | `30 16 * * *` | 10:30 AM | Usage patterns, cohort analysis |
+| `competitive-intel-daily` | Daniel Ortiz (Competitive Intel) | `0 14 * * *` | 8:00 AM | Competitor monitoring |
+| `revenue-analyst-daily` | Anna Park (Revenue) | `30 15 * * *` | 9:30 AM | Revenue breakdown |
+| `cost-analyst-daily` | Omar Hassan (Cost) | `30 15 * * *` | 9:30 AM | Cost breakdown |
+| `content-creator-daily` | Tyler Reed (Content) | `0 16 * * *` | 10:00 AM | Content drafting |
+| `seo-analyst-daily` | Lisa Chen (SEO) | `30 14 * * *` | 8:30 AM | SEO performance |
+| `social-media-morning` | Kai Johnson (Social) | `0 15 * * *` | 9:00 AM | Morning plan & scheduling |
+| `social-media-afternoon` | Kai Johnson (Social) | `0 22 * * *` | 4:00 PM | Afternoon engagement |
+| `onboarding-daily` | Emma Wright (Onboarding) | `30 14 * * *` | 8:30 AM | New user check |
+| `support-triage-recurring` | David Santos (Support) | `0 */2 * * *` | Every 2 hours | Triage queue |
+| `account-research-daily` | Nathan Cole (Account Research) | `30 15 * * *` | 9:30 AM | Account intelligence |
+| `m365-admin-weekly-audit` | Riley Morgan (M365) | `0 12 * * 1` | Mon 7:00 AM | Weekly channel audit |
+| `m365-admin-user-audit` | Riley Morgan (M365) | `0 13 * * 1` | Mon 8:00 AM | User access audit |
+
+#### Data Sync & Utility Jobs (9 jobs, via HTTP + internal DataSyncScheduler)
 
 | Job ID | Cron (UTC) | Local (CT) | Endpoint | Source |
 |--------|-----------|------------|----------|--------|
 | `sync-stripe` | `0 6 * * *` | 12:00 AM | `/sync/stripe` | Stripe (MRR, churn, subscriptions) |
 | `sync-gcp-billing` | `0 7 * * *` | 1:00 AM | `/sync/gcp-billing` | GCP BigQuery billing export |
 | `sync-mercury` | `0 8 * * *` | 2:00 AM | `/sync/mercury` | Mercury (cash balance, flows, vendor subs) |
+| `sync-openai-billing` | `0 9 * * *` | 3:00 AM | `/sync/openai-billing` | OpenAI API billing/usage |
+| `sync-anthropic-billing` | `0 9 * * *` | 3:00 AM | `/sync/anthropic-billing` | Anthropic (Claude) billing/usage |
+| `sync-kling-billing` | `0 9 * * *` | 3:00 AM | `/sync/kling-billing` | Kling AI video generation billing |
 | `heartbeat` | `*/10 * * * *` | Every 10 min | `/heartbeat` | Agent check-ins + real-time directive detection |
+| `sync-graphrag-index` | `0 4 * * 0` | Sat 10:00 PM | `/sync/graphrag-index` | Weekly full GraphRAG re-index |
+| `sync-graphrag-tune` | `0 3 1 * *` | 1st of month | `/sync/graphrag-tune` | Monthly GraphRAG prompt auto-tune |
 
 ---
 
@@ -657,7 +699,7 @@ glyphor-ai-company/
 │   │       ├── server.ts              # HTTP server (Cloud Run entry, 40+ endpoints, 34 agent routes)
 │   │       ├── eventRouter.ts         # Event → agent routing + authority
 │   │       ├── authorityGates.ts      # Green/Yellow/Red classification (all 34 roles)
-│   │       ├── cronManager.ts         # 9 agent + 4 data sync job definitions
+│   │       ├── cronManager.ts         # 33 agent + 9 data sync job definitions
 │   │       ├── dynamicScheduler.ts    # DB-driven cron for dynamic agents
 │   │       ├── dataSyncScheduler.ts   # Internal cron for data sync jobs (fires HTTP to self)
 │   │       ├── decisionQueue.ts       # Human approval workflow
