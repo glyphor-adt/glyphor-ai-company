@@ -2,16 +2,39 @@ import { createContext, useContext, useState, useCallback, useEffect, type React
 import { GoogleOAuthProvider, GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
 import * as teamsJs from '@microsoft/teams-js';
+import { supabase } from './supabase';
 
-const ALLOWED_DOMAINS = ['glyphor.ai'];
-const ALLOWED_EMAILS = ['kristina@glyphor.ai', 'andrew@glyphor.ai', 'devops@glyphor.ai'];
 const STORAGE_KEY = 'glyphor-auth';
 
-function isAllowedEmail(email: string): boolean {
+// Cache allowed emails from the DB so we don't query on every check
+let _allowedCache: Set<string> | null = null;
+let _cachePromise: Promise<Set<string>> | null = null;
+
+function fetchAllowedEmails(): Promise<Set<string>> {
+  if (_cachePromise) return _cachePromise;
+  _cachePromise = supabase
+    .from('dashboard_users')
+    .select('email')
+    .then(({ data }) => {
+      const set = new Set((data ?? []).map((r: { email: string }) => r.email.toLowerCase()));
+      _allowedCache = set;
+      // Refresh cache every 60s
+      setTimeout(() => { _allowedCache = null; _cachePromise = null; }, 60_000);
+      return set;
+    });
+  return _cachePromise;
+}
+
+async function isAllowedEmail(email: string): Promise<boolean> {
   const lower = email.toLowerCase();
-  if (ALLOWED_EMAILS.includes(lower)) return true;
-  const domain = lower.split('@')[1];
-  return ALLOWED_DOMAINS.includes(domain);
+  const allowed = _allowedCache ?? await fetchAllowedEmails();
+  return allowed.has(lower);
+}
+
+/** Invalidate the cache (called after adding/removing users) */
+export function invalidateAllowedCache() {
+  _allowedCache = null;
+  _cachePromise = null;
 }
 
 /** Detect Teams context via URL param or iframe ancestor */
@@ -62,7 +85,7 @@ function TeamsAuthGate({ children }: { children: ReactNode }) {
           }>(token);
 
           const email = decoded.preferred_username ?? decoded.upn ?? decoded.email ?? '';
-          if (!email || !isAllowedEmail(email)) {
+          if (!email || !(await isAllowedEmail(email))) {
             if (!cancelled) setError(`Access denied for ${email}`);
             if (!cancelled) setLoading(false);
             return;
@@ -85,7 +108,7 @@ function TeamsAuthGate({ children }: { children: ReactNode }) {
         const loginHint = context.user?.loginHint ?? '';
         const displayName = context.user?.displayName ?? loginHint.split('@')[0];
 
-        if (loginHint && isAllowedEmail(loginHint)) {
+        if (loginHint && await isAllowedEmail(loginHint)) {
           if (!cancelled) {
             setUser({
               email: loginHint,
@@ -165,7 +188,7 @@ function GoogleAuthGate({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  const handleSuccess = useCallback((response: CredentialResponse) => {
+  const handleSuccess = useCallback(async (response: CredentialResponse) => {
     if (!response.credential) return;
     try {
       const decoded = jwtDecode<{
@@ -175,7 +198,7 @@ function GoogleAuthGate({ children }: { children: ReactNode }) {
         exp: number;
       }>(response.credential);
 
-      if (!isAllowedEmail(decoded.email)) {
+      if (!(await isAllowedEmail(decoded.email))) {
         setError(`Access denied for ${decoded.email}`);
         return;
       }

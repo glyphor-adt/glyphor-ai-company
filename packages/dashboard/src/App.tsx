@@ -17,6 +17,7 @@ import Governance from './pages/Governance';
 import Knowledge from './pages/Knowledge';
 import Capabilities from './pages/Capabilities';
 import Comms from './pages/Comms';
+import Settings from './pages/Settings';
 
 export default function App() {
   return (
@@ -40,6 +41,7 @@ export default function App() {
         <Route path="chat/:agentId" element={<Chat />} />
         <Route path="teams-config" element={<TeamsConfig />} />
         <Route path="governance" element={<Governance />} />
+        <Route path="settings" element={<Settings />} />
         {/* Legacy redirects */}
         <Route path="agents" element={<Navigate to="/workforce" replace />} />
         <Route path="chat" element={<Navigate to="/comms" replace />} />
