@@ -75,7 +75,8 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         // Also get recent activity for deploy/alert context
         const activity = await memory.getRecentActivity(6);
         const deployEvents = activity.filter(a => a.action === 'deploy');
-        const alertEvents = activity.filter(a => a.action === 'alert');
+        // Exclude CTO's own alerts to break self-referencing feedback loop
+        const alertEvents = activity.filter(a => a.action === 'alert' && a.agentRole !== 'cto');
 
         const overallStatus = healthChecks.some((h) => h.status === 'down')
           ? 'degraded'
@@ -99,7 +100,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
     {
       name: 'get_cloud_run_metrics',
-      description: 'Get detailed Cloud Run metrics (request count, latency, error rate, instance count) for a specific service.',
+      description: 'Get detailed Cloud Run metrics. errorRate = 5xx server errors only (not 3xx/4xx). clientErrorRate = 4xx responses (normal for CORS, auth, 404s). instanceCount = null means scaled-to-zero (healthy idle state, not an outage). instanceStatus indicates running/scaled-to-zero/scaling-down.',
       parameters: {
         service: {
           type: 'string',
@@ -143,15 +144,37 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       execute: async (params, _ctx): Promise<ToolResult> => {
         const days = (params.days as number) || 7;
         const financials = await memory.getFinancials(days);
-        const totalInfra = financials.reduce((s, f) => s + f.infraCost, 0);
-        const totalApi = financials.reduce((s, f) => s + f.apiCost, 0);
+        const hasData = financials.length > 0;
+        const totalInfra = hasData ? financials.reduce((s, f) => s + f.infraCost, 0) : null;
+        const totalApi = hasData ? financials.reduce((s, f) => s + f.apiCost, 0) : null;
+
+        // Check billing sync status
+        let billingSyncStatus: string = 'unknown';
+        let lastBillingSync: string | null = null;
+        try {
+          const { data: syncStatus } = await memory.getSupabaseClient()
+            .from('data_sync_status')
+            .select('status, last_success_at')
+            .eq('id', 'gcp-billing')
+            .single();
+          billingSyncStatus = syncStatus?.status ?? 'unknown';
+          lastBillingSync = syncStatus?.last_success_at ?? null;
+        } catch { /* ignore */ }
+
         return {
           success: true,
           data: {
             period: `${days} days`,
             totalInfraCost: totalInfra,
             totalApiCost: totalApi,
+            hasData,
+            dataStatus: hasData ? 'data_available' : 'no_billing_data_synced',
+            billingSyncStatus,
+            lastBillingSync,
             dailySnapshots: financials,
+            note: hasData
+              ? undefined
+              : 'No billing data found for this period. The GCP billing export sync has not run or has not populated data yet. This is NOT a platform outage.',
           },
         };
       },

@@ -16,7 +16,9 @@ export interface CloudRunMetrics {
   requestCount: number;
   avgLatencyMs: number;
   errorRate: number;
+  clientErrorRate: number;
   instanceCount: number | null;
+  instanceStatus: 'running' | 'scaled-to-zero' | 'scaling-down';
   period: string;
 }
 
@@ -38,22 +40,31 @@ export async function queryCloudRunMetrics(
   const serviceName = `projects/${projectId}`;
   const serviceFilter = `resource.type = "cloud_run_revision" AND resource.labels.service_name = "${serviceId}"`;
 
-  const [requestCount, latency, errorCount, instances] = await Promise.all([
+  const [requestCount, latency, serverErrorCount, clientErrorCount, instances] = await Promise.all([
     queryMetric(monitoringClient, serviceName, `${serviceFilter} AND metric.type = "run.googleapis.com/request_count"`, interval),
     queryMetric(monitoringClient, serviceName, `${serviceFilter} AND metric.type = "run.googleapis.com/request_latencies"`, interval),
-    queryMetric(monitoringClient, serviceName, `${serviceFilter} AND metric.type = "run.googleapis.com/request_count" AND metric.labels.response_code_class != "2xx"`, interval),
+    queryMetric(monitoringClient, serviceName, `${serviceFilter} AND metric.type = "run.googleapis.com/request_count" AND metric.labels.response_code_class = "5xx"`, interval),
+    queryMetric(monitoringClient, serviceName, `${serviceFilter} AND metric.type = "run.googleapis.com/request_count" AND metric.labels.response_code_class = "4xx"`, interval),
     queryMetric(monitoringClient, serviceName, `${serviceFilter} AND metric.type = "run.googleapis.com/container/instance_count"`, interval),
   ]);
 
   const totalRequests = sumPoints(requestCount);
-  const totalErrors = sumPoints(errorCount);
+  const totalServerErrors = sumPoints(serverErrorCount);
+  const totalClientErrors = sumPoints(clientErrorCount);
+  const rawInstanceCount = lastPoint(instances);
 
   return {
     service: serviceId,
     requestCount: totalRequests,
     avgLatencyMs: avgPoints(latency),
-    errorRate: totalRequests > 0 ? (totalErrors / totalRequests) * 100 : 0,
-    instanceCount: lastPoint(instances),
+    errorRate: totalRequests > 0 ? (totalServerErrors / totalRequests) * 100 : 0,
+    clientErrorRate: totalRequests > 0 ? (totalClientErrors / totalRequests) * 100 : 0,
+    instanceCount: rawInstanceCount,
+    instanceStatus: rawInstanceCount === null
+      ? 'scaled-to-zero'
+      : rawInstanceCount === 0
+        ? 'scaling-down'
+        : 'running',
     period: `${hours}h`,
   };
 }
