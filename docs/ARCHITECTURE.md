@@ -765,7 +765,7 @@ glyphor-ai-company/
 │       ├── riley-morgan/        # M365 Admin bot
 │       └── morgan-blake/        # Global Admin bot
 │
-├── supabase/migrations/         # 56 migration files
+├── supabase/migrations/         # 58 migration files
 ├── .github/workflows/deploy.yml # CI/CD (GitHub Actions → Cloud Run)
 ├── turbo.json                   # Turborepo pipeline config
 ├── tsconfig.base.json           # Shared TS config
@@ -2137,7 +2137,7 @@ Working memory (last-run summary) is stored in the `company_agents` table via th
 `last_run_summary` and `last_run_at` columns — not a separate table. This enables
 continuity between runs without additional migration.
 
-Total: **56 migration files**, **70+ tables**, **9 RPC functions**, **1 extension (pgvector)**.
+Total: **58 migration files**, **73+ tables**, **10 RPC functions**, **1 extension (pgvector)**.
 
 ---
 
