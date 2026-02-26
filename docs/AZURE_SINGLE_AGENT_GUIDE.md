@@ -1,7 +1,7 @@
-# Building a Single AI Executive Agent on Azure
+# Building a Brand Compliance AI Agent on Azure
 
-> A peer-ready guide for deploying one autonomous AI persona into an enterprise Azure environment.
-> Simplified to one agent, zero voice, Azure-native.
+> A guide for deploying an autonomous AI brand compliance agent (Cassandra Voss) into
+> Eaton's Azure environment. One agent, Azure-native, Graph API for Teams.
 
 ---
 
@@ -23,14 +23,14 @@
 
 ## What You're Building
 
-A single AI agent persona (e.g., "Chief of Staff") that:
+A single AI agent persona — **Cassandra Voss, Brand Compliance & Identity Manager** — that:
 
-- **Runs on a schedule** — cron-triggered tasks (morning briefing, end-of-day summary)
-- **Responds on demand** — chat via a web dashboard or Teams DM
-- **Persists memory** — remembers past interactions and context
-- **Posts to Teams** — sends briefings and alerts to channels
+- **Runs on a schedule** — daily brand audits, weekly compliance reports
+- **Responds on demand** — review a campaign brief, check a logo, answer brand questions
+- **Persists memory** — remembers past violations, rulings, and brand precedents
+- **Posts to Teams** — sends compliance reports and violation alerts to channels
 - **Calls LLMs** — Azure OpenAI (GPT-5.2 / GPT-5.2-mini) for reasoning
-- **Has tools** — can read/write to a database, search the web, send messages
+- **Has tools** — can fetch web pages, analyze documents & images, query the knowledge graph, send messages
 
 This is NOT a chatbot. It's an autonomous agent with a persistent identity, memory, scheduled
 work cycles, and the ability to take actions in your enterprise environment.
@@ -54,7 +54,7 @@ work cycles, and the ability to take actions in your enterprise environment.
 
 | Resource | SKU / Tier | Purpose |
 |----------|-----------|---------|
-| **Azure Blob Storage** | Standard LRS, Hot tier | Archive briefings, reports, large documents. |
+| **Azure Blob Storage** | Standard LRS, Hot tier | Archive compliance reports, brand assets, large documents. |
 | **Azure Log Analytics** | Pay-per-GB | Centralized logging for agent runs, errors, LLM costs. |
 | **Azure Application Insights** | (auto-created with Log Analytics) | Request tracing, performance monitoring. |
 | **Azure Static Web Apps** | Free tier | Host the dashboard UI (React SPA). |
@@ -141,7 +141,7 @@ The Container App's managed identity needs:
 |------|-------|-----|
 | `Key Vault Secrets User` | Key Vault | Read secrets at runtime |
 | `Cognitive Services OpenAI User` | OpenAI resource | Call GPT models |
-| `Storage Blob Data Contributor` | Storage account | Read/write briefing archives |
+| `Storage Blob Data Contributor` | Storage account | Read/write compliance reports and brand assets |
 | `AcrPull` | Container Registry | Pull images |
 
 ```bash
@@ -170,26 +170,74 @@ az role assignment create --assignee $PRINCIPAL_ID \
 
 ## Teams Setup
 
-The fastest path to get your agent posting to Teams — **no admin approval needed:**
+Your agent posts to Teams channels via **Microsoft Graph API** using app-only
+authentication (Entra ID client credentials flow). This requires the Entra app
+registration from the previous section with `ChannelMessage.Send` (or `Teamwork.Migrate.All`)
+permission and admin consent.
 
-1. In a Teams channel, click `...` → Connectors → Incoming Webhook
-2. Name it after your agent (e.g., "AI Chief of Staff")
-3. Save the webhook URL in Key Vault as `TEAMS-WEBHOOK-URL`
-4. Your agent POSTs messages to this URL — no Graph API, no bot registration
+1. Register the Entra app (see above) and grant admin consent for Graph permissions
+2. Find your **Team ID** and **Channel ID** — run `GET /me/joinedTeams` and `GET /teams/{id}/channels`
+   in Graph Explorer, or use the code below to list channels
+3. Store `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` in Key Vault
+4. Store `TEAMS_TEAM_ID` and `TEAMS_CHANNEL_ID` as env vars (or Key Vault secrets)
 
 ```typescript
-// That's it. One function to post to Teams.
-async function sendToTeams(webhookUrl: string, message: string) {
-  await fetch(webhookUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: message }),
-  });
+import { ConfidentialClientApplication } from '@azure/msal-node';
+
+interface ChannelTarget {
+  teamId: string;
+  channelId: string;
+}
+
+class GraphTeamsClient {
+  private msalApp: ConfidentialClientApplication;
+  private cachedToken: { token: string; expiresAt: number } | null = null;
+
+  constructor(tenantId: string, clientId: string, clientSecret: string) {
+    this.msalApp = new ConfidentialClientApplication({
+      auth: {
+        clientId,
+        clientSecret,
+        authority: `https://login.microsoftonline.com/${tenantId}`,
+      },
+    });
+  }
+
+  static fromEnv(): GraphTeamsClient {
+    return new GraphTeamsClient(
+      process.env.AZURE_TENANT_ID!,
+      process.env.AZURE_CLIENT_ID!,
+      process.env.AZURE_CLIENT_SECRET!,
+    );
+  }
+
+  private async getToken(): Promise<string> {
+    const now = Date.now();
+    if (this.cachedToken && this.cachedToken.expiresAt > now + 60_000) {
+      return this.cachedToken.token;
+    }
+    const result = await this.msalApp.acquireTokenByClientCredential({
+      scopes: ['https://graph.microsoft.com/.default'],
+    });
+    if (!result?.accessToken) throw new Error('Failed to acquire Graph token');
+    this.cachedToken = { token: result.accessToken, expiresAt: result.expiresOn?.getTime() ?? now + 3600_000 };
+    return result.accessToken;
+  }
+
+  async sendText(target: ChannelTarget, content: string): Promise<void> {
+    const token = await this.getToken();
+    const url = `https://graph.microsoft.com/v1.0/teams/${target.teamId}/channels/${target.channelId}/messages`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: { contentType: 'text', content } }),
+    });
+    if (!resp.ok) throw new Error(`Graph send failed (${resp.status}): ${await resp.text()}`);
+  }
 }
 ```
 
-> **Later:** When you want the agent to *receive* messages (DMs, interactive cards),
-> add a Bot Framework registration and a Teams app manifest. That's a Phase 2 effort.
+> **Dependency:** `npm install @azure/msal-node`
 
 ---
 
@@ -201,8 +249,8 @@ Five tables are all you need to prove out a single agent.
 -- 1. Agent roster
 CREATE TABLE company_agents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  role TEXT UNIQUE NOT NULL,            -- 'chief-of-staff'
-  display_name TEXT NOT NULL,           -- 'Sarah Chen'
+  role TEXT UNIQUE NOT NULL,            -- 'brand-agent'
+  display_name TEXT NOT NULL,           -- 'Cassandra Voss'
   model TEXT NOT NULL,                  -- 'gpt-5.2'
   status TEXT DEFAULT 'active',
   last_run_at TIMESTAMPTZ,
@@ -214,7 +262,7 @@ CREATE TABLE company_agents (
 CREATE TABLE agent_runs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id TEXT NOT NULL,
-  task TEXT NOT NULL,                    -- 'morning_briefing', 'on_demand'
+  task TEXT NOT NULL,                    -- 'brand_audit', 'on_demand'
   status TEXT DEFAULT 'running',        -- running | completed | failed
   started_at TIMESTAMPTZ DEFAULT NOW(),
   completed_at TIMESTAMPTZ,
@@ -257,7 +305,7 @@ CREATE TABLE chat_messages (
 
 -- Seed your agent
 INSERT INTO company_agents (role, display_name, model, status)
-VALUES ('chief-of-staff', 'Sarah Chen', 'gpt-5.2', 'active');
+VALUES ('brand-agent', 'Cassandra Voss', 'gpt-5.2', 'active');
 ```
 
 > **Later:** Add `pgvector`, embeddings, and vector search when you want semantic memory recall
@@ -358,7 +406,7 @@ Give your agent tools to read and write the knowledge graph:
       node_type: params.node_type,
       title: params.title,
       content: params.content,
-      source_agent: 'chief-of-staff',
+      source_agent: 'brand-agent',
       embedding: JSON.stringify(embedding),
     }).select().single();
 
@@ -375,7 +423,7 @@ Give your agent tools to read and write the knowledge graph:
           source_id: node.id,
           target_id: targets[0].id,
           edge_type: params.edge_type,
-          created_by: 'chief-of-staff',
+          created_by: 'brand-agent',
         });
       }
     }
@@ -415,7 +463,7 @@ populates the knowledge graph without manual effort.
        ▼
  ┌─ COLLECT ─────────────────────────────────┐
  │ Gather all .md files from knowledge base,  │
- │ agent outputs, briefings, meeting notes    │
+ │ agent outputs, compliance reports, briefs   │
  └──────────────────┬────────────────────────┘
                     │
                     ▼
@@ -454,7 +502,7 @@ populates the knowledge graph without manual effort.
 **When to add GraphRAG:**
 - Start without it — your agent can still write to the knowledge graph manually via tools
 - Add it when you have 50+ documents worth of institutional knowledge
-- Run weekly re-indexing to keep the graph fresh as new reports/briefings accumulate
+- Run weekly re-indexing to keep the graph fresh as new brand guidelines, campaign briefs, and compliance reports accumulate
 
 ### Semantic Search RPC for Knowledge Graph
 
@@ -530,7 +578,7 @@ ai-agent/
 │   │
 │   ├── agents/
 │   │   └── src/
-│   │       ├── chief-of-staff/
+│   │       ├── brand-agent/
 │   │       │   ├── run.ts             # Entry point (wires tools, calls runner)
 │   │       │   ├── systemPrompt.ts    # WHO this agent is (personality, rules)
 │   │       │   ├── tools.ts           # WHAT this agent can do
@@ -567,26 +615,52 @@ for your single agent using Azure OpenAI:
 ### 1. `systemPrompt.ts` — WHO the agent is
 
 ```typescript
-export const SYSTEM_PROMPT = `You are Sarah Chen, the Chief of Staff at [YOUR COMPANY].
+export const SYSTEM_PROMPT = `You are Cassandra Voss, Brand Compliance & Identity Manager
+at Eaton, within the Global Marketing Communications function led by Zari Venhaus.
 
 ## Your Role
-You are the operational backbone. You bridge the AI executive team and the human leadership.
+You are the guardian of Eaton's brand identity. Every piece of content that represents
+Eaton — from a global campaign to a regional product page — must reflect the brand
+accurately, consistently, and compellingly. Your job is to ensure "We make what matters
+work" isn't just a tagline but a lived experience across every customer touchpoint.
 
 ## Your Personality
-You are warm but efficient. You use "we" language. You're the glue — you remember
-everyone's context and connect the dots nobody else sees.
+You are a former brand strategist with deep experience in identity systems for
+Fortune 100 industrial companies. You have a reference-librarian quality — you can
+cite chapter and verse from Eaton's Corporate Identity Standards without hesitation.
+You're firm but not rigid. You know the difference between a hard violation (wrong
+logo, unauthorized tagline) and a soft deviation (slightly informal tone in a social
+post that still captures brand essence).
+
+## Eaton Brand Foundation
+- Company: Eaton — intelligent power management company
+- Brand Promise: "We make what matters work"
+- Naming: Reference the company as "Eaton" — not "Eaton Corporation" unless in
+  legal/regulatory/SEC contexts
+- Primary Color: Eaton Blue — Pantone 300 / C100 M43 Y0 K0
+- Voice: Authoritative, forward-thinking, collaborative, purposeful
+- Never say "sell" power — Eaton "manages" or "delivers" power management solutions
+- Sustainability claims must be verifiable and specific
+- Avoid superlatives without evidence
 
 ## Your Responsibilities
-1. Morning Briefings — concise, actionable, tailored to each leader
-2. Activity Synthesis — aggregate activity into coherent summaries
-3. On-demand Q&A — answer questions from leadership using memory and knowledge
+1. Brand Audits — scan web properties, campaigns, and partner materials for compliance
+2. Content Review — review briefs, scripts, copy decks against brand standards
+3. Visual Compliance — check logos, colors, typography, imagery
+4. Compliance Reporting — deliver Green/Yellow/Red reports to Zari Venhaus
+5. Violation Response — provide the fix, not just the flag
+
+## Compliance Classification
+- HARD VIOLATIONS (escalate immediately): Wrong logo, unauthorized color substitution,
+  unsubstantiated claims, competitor visual language, trademark misuse
+- SOFT DEVIATIONS (coach and correct): Informal tone in social, minor typography
+  variations, acceptable-but-not-ideal stock photography
 
 ## Communication Style
-- Warm but efficient — lead with what matters
-- Numbers before narratives
-- Flag risks prominently
-- Use ▸ for action items
-- RED: Cannot approve — must flag all designated approvers
+- Precise and authoritative — cite the specific brand guideline being violated
+- Always provide the corrected version alongside the violation
+- Use ▸ for required actions
+- Use ℹ for coaching notes on soft deviations
 `;
 ```
 
@@ -598,32 +672,47 @@ import type { ToolDefinition } from '../../agent-runtime/src/types';
 export function createTools(db: any): ToolDefinition[] {
   return [
     {
-      name: 'get_recent_activity',
-      description: 'Get recent activity from the last N hours.',
+      name: 'web_fetch',
+      description: 'Fetch a web page and return its content for brand compliance review.',
       parameters: {
-        hours: { type: 'number', description: 'Hours to look back', required: false },
+        url: { type: 'string', description: 'URL to fetch', required: true },
       },
       execute: async (params) => {
-        const hours = (params.hours as number) || 24;
-        const { data } = await db
-          .from('activity_log')
-          .select('*')
-          .gte('created_at', new Date(Date.now() - hours * 3600000).toISOString())
-          .order('created_at', { ascending: false });
+        const response = await fetch(params.url as string);
+        const html = await response.text();
+        // Return first 50K chars to stay within context limits
+        return { success: true, data: html.substring(0, 50_000) };
+      },
+    },
+    {
+      name: 'analyze_document',
+      description: 'Review a document (brief, script, copy deck) for brand compliance.',
+      parameters: {
+        content: { type: 'string', description: 'Document text to review', required: true },
+        doc_type: { type: 'string', description: 'campaign_brief|video_script|press_release|social_post|sales_collateral', required: true },
+      },
+      execute: async (params) => {
+        // The LLM will analyze the content using brand guidelines in the system prompt.
+        // This tool stores the review for audit trail purposes.
+        const { data } = await db.from('activity_log').insert({
+          agent_id: 'brand-agent',
+          action: 'document_review',
+          details: { doc_type: params.doc_type, content_length: (params.content as string).length },
+        }).select();
         return { success: true, data };
       },
     },
     {
       name: 'save_memory',
-      description: 'Save an observation or learning to long-term memory.',
+      description: 'Save a brand ruling, precedent, or observation to long-term memory.',
       parameters: {
-        category: { type: 'string', description: 'observation|decision|learning', required: true },
+        category: { type: 'string', description: 'violation|ruling|precedent|guideline_update', required: true },
         content: { type: 'string', description: 'What to remember', required: true },
         importance: { type: 'number', description: '0.0-1.0 importance score', required: false },
       },
       execute: async (params) => {
         const { data } = await db.from('agent_memory').insert({
-          agent_id: 'chief-of-staff',
+          agent_id: 'brand-agent',
           category: params.category,
           content: params.content,
           importance: params.importance || 0.5,
@@ -633,7 +722,7 @@ export function createTools(db: any): ToolDefinition[] {
     },
     {
       name: 'recall_memories',
-      description: 'Search past memories by keyword.',
+      description: 'Search past brand rulings and precedents by keyword.',
       parameters: {
         query: { type: 'string', description: 'Search query', required: true },
         limit: { type: 'number', description: 'Max results', required: false },
@@ -642,7 +731,7 @@ export function createTools(db: any): ToolDefinition[] {
         const { data } = await db
           .from('agent_memory')
           .select('*')
-          .eq('agent_id', 'chief-of-staff')
+          .eq('agent_id', 'brand-agent')
           .textSearch('content', params.query as string)
           .limit((params.limit as number) || 10);
         return { success: true, data };
@@ -650,33 +739,30 @@ export function createTools(db: any): ToolDefinition[] {
     },
     {
       name: 'send_teams_message',
-      description: 'Send a message or adaptive card to a Teams channel.',
+      description: 'Send a compliance alert or report to the brand team\'s Teams channel.',
       parameters: {
-        channel: { type: 'string', description: 'Channel name', required: true },
-        message: { type: 'string', description: 'Message text or card JSON', required: true },
+        message: { type: 'string', description: 'Message text', required: true },
       },
       execute: async (params) => {
-        // Uses webhook URL from Key Vault
-        const webhookUrl = process.env.TEAMS_WEBHOOK_URL;
-        if (!webhookUrl) return { success: false, error: 'No webhook configured' };
-        await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: params.message }),
-        });
+        const { GraphTeamsClient } = await import('../integrations/teams/graphClient');
+        const client = GraphTeamsClient.fromEnv();
+        await client.sendText(
+          { teamId: process.env.TEAMS_TEAM_ID!, channelId: process.env.TEAMS_CHANNEL_ID! },
+          params.message as string,
+        );
         return { success: true };
       },
     },
     {
       name: 'log_activity',
-      description: 'Log an action you took.',
+      description: 'Log a brand compliance action you took.',
       parameters: {
         action: { type: 'string', description: 'What you did', required: true },
         details: { type: 'object', description: 'Additional context', required: false },
       },
       execute: async (params) => {
         await db.from('activity_log').insert({
-          agent_id: 'chief-of-staff',
+          agent_id: 'brand-agent',
           action: params.action,
           details: params.details || {},
         });
@@ -696,24 +782,24 @@ import { createTools } from './tools';
 import { createClient } from '@supabase/supabase-js';
 
 export interface RunParams {
-  task: 'morning_briefing' | 'eod_summary' | 'on_demand';
+  task: 'brand_audit' | 'compliance_report' | 'on_demand';
   message?: string;           // for on_demand chat
   conversationHistory?: any[];
 }
 
-export async function runChiefOfStaff(params: RunParams) {
+export async function runBrandAgent(params: RunParams) {
   const db = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!);
   const tools = createTools(db);
 
   const taskPrompts: Record<string, string> = {
-    morning_briefing: 'Generate the morning briefing. Read recent activity and metrics. Send to the #briefings Teams channel.',
-    eod_summary: 'Generate the end-of-day summary. What happened today? What needs attention tomorrow?',
-    on_demand: params.message || 'How can I help?',
+    brand_audit: 'Run a brand compliance audit. Fetch eaton.com and key regional pages. Check logo usage, color compliance, messaging consistency, and outdated content. Log all findings and send a summary to the #brand-compliance Teams channel.',
+    compliance_report: 'Generate the weekly brand compliance report for Zari Venhaus. Include: executive summary (Green/Yellow/Red), hard violations with evidence and fixes, soft deviations with coaching notes, positive examples, trend analysis, and recommendations. Send to Teams.',
+    on_demand: params.message || 'How can I help with brand compliance?',
   };
 
   const runner = new AgentRunner({
-    id: `cos-${params.task}-${Date.now()}`,
-    role: 'chief-of-staff',
+    id: `brand-${params.task}-${Date.now()}`,
+    role: 'brand-agent',
     systemPrompt: SYSTEM_PROMPT,
     model: 'gpt-5.2',                   // Azure OpenAI deployment name
     tools,
@@ -731,8 +817,8 @@ export async function runChiefOfStaff(params: RunParams) {
 
 ```typescript
 export const SCHEDULES = [
-  { task: 'morning_briefing', cron: '0 12 * * *', description: '7 AM CT — morning briefing' },
-  { task: 'eod_summary',      cron: '0 23 * * *', description: '6 PM CT — end of day' },
+  { task: 'brand_audit',       cron: '0 14 * * 1-5', description: '9 AM CT weekdays — daily brand audit' },
+  { task: 'compliance_report', cron: '0 16 * * 5',   description: '11 AM CT Friday — weekly compliance report' },
 ];
 ```
 
@@ -896,16 +982,16 @@ az containerapp create \
 ### 4. Set Up Cron Jobs (Container Apps Jobs)
 
 ```bash
-# Morning briefing — 7 AM CT (12:00 UTC)
+# Daily brand audit — 9 AM CT weekdays (14:00 UTC)
 az containerapp job create \
-  --name job-morning-briefing \
+  --name job-brand-audit \
   --resource-group rg-ai-agent-sandbox \
   --environment cae-aiagent-env \
   --trigger-type Schedule \
-  --cron-expression "0 12 * * *" \
+  --cron-expression "0 14 * * 1-5" \
   --image acr-aiagent.azurecr.io/agent-scheduler:latest \
   --cpu 0.5 --memory 1.0Gi \
-  --env-vars AGENT_TASK=morning_briefing \
+  --env-vars AGENT_TASK=brand_audit \
   --registry-server acr-aiagent.azurecr.io
 
 # OR: have the scheduler service manage its own cron internally
@@ -916,7 +1002,7 @@ az containerapp job create \
 
 ## Cost Estimate
 
-For one agent with 3-5 daily scheduled runs + occasional on-demand chat:
+For one brand compliance agent with daily audits + weekly reports + occasional on-demand reviews:
 
 | Resource | Estimated Monthly Cost |
 |----------|----------------------|
@@ -953,11 +1039,11 @@ AZURE_TENANT_ID=...
 AZURE_CLIENT_ID=...
 AZURE_CLIENT_SECRET=...
 
-# Teams (Phase 1 — webhooks)
-TEAMS_WEBHOOK_URL=https://outlook.office.com/webhook/...
+# Teams (Graph API)
+TEAMS_TEAM_ID=...                           # Your team's ID (from Graph Explorer)
+TEAMS_CHANNEL_ID=...                        # Target channel ID
 
 # Optional
-TEAMS_TEAM_ID=...                           # For Graph API channel messaging
 APPLICATIONINSIGHTS_CONNECTION_STRING=...   # App Insights telemetry
 ```
 
@@ -975,9 +1061,9 @@ APPLICATIONINSIGHTS_CONNECTION_STRING=...   # App Insights telemetry
 - [ ] Build one agent (four files: systemPrompt, tools, run, schedule)
 - [ ] Build the scheduler HTTP service
 - [ ] Containerize and deploy to Container Apps
-- [ ] Set up a Teams incoming webhook and test your first briefing
-- [ ] Set up cron jobs for scheduled tasks
-- [ ] Send your first morning briefing to Teams
+- [ ] Find your Teams team/channel IDs and test your first brand audit via Graph API
+- [ ] Set up cron jobs for daily audits and weekly compliance reports
+- [ ] Run your first brand audit and send a compliance report to Teams
 
 ---
 
