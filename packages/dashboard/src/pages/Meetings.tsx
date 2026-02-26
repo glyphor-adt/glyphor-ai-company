@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, type ReactNode } from 'react';
+import Markdown from 'react-markdown';
 import {
   MdForum, MdAssignment, MdSquareFoot, MdNotificationImportant,
   MdPerson, MdWarning, MdArrowForward,
@@ -232,7 +233,7 @@ function MeetingCard({
           {meeting.summary && (
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Summary</p>
-              <p className="mt-1 text-sm text-txt-secondary leading-relaxed">{meeting.summary}</p>
+              <div className="mt-1 text-sm text-txt-secondary leading-relaxed prose-chat"><Markdown>{meeting.summary}</Markdown></div>
             </div>
           )}
 
@@ -301,7 +302,7 @@ function MeetingCard({
                       <span className="text-[11px] font-medium text-cyan">{DISPLAY_NAME_MAP[t.agent] ?? t.agent}</span>
                       <span className="text-[10px] text-txt-faint">Round {t.round}</span>
                     </div>
-                    <p className="text-sm text-txt-secondary whitespace-pre-wrap">{t.content}</p>
+                    <div className="text-sm text-txt-secondary prose-chat"><Markdown>{t.content}</Markdown></div>
                   </div>
                 ))}
               </div>
@@ -340,7 +341,7 @@ function MessageRow({ message }: { message: MessageRecord }) {
           <span className="font-medium text-txt-secondary">{DISPLAY_NAME_MAP[message.to_agent] ?? message.to_agent}</span>
           <span className="ml-2">{timeAgo(message.created_at)}</span>
         </p>
-        <p className="mt-0.5 text-sm text-txt-secondary line-clamp-2">{message.message}</p>
+        <div className="mt-0.5 text-sm text-txt-secondary line-clamp-2 prose-chat"><Markdown>{message.message}</Markdown></div>
       </div>
       <span className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${
         message.status === 'pending' ? 'bg-cyan' : message.status === 'read' ? 'bg-slate-500' : 'bg-tier-green'

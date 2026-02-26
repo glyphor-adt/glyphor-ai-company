@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import Markdown from 'react-markdown';
 import {
   MdEmojiEvents, MdLocalFireDepartment, MdMenuBook, MdCelebration,
   MdPushPin, MdCalendarToday, MdHourglassEmpty, MdCheckCircle,
@@ -932,7 +933,7 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
                       )}
                       <span className="ml-2">{timeAgo(m.created_at)}</span>
                     </p>
-                    <p className="mt-0.5 text-sm text-txt-secondary">{m.message}</p>
+                    <div className="mt-0.5 text-sm text-txt-secondary prose-chat"><Markdown>{m.message}</Markdown></div>
                   </div>
                   <span className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${
                     m.status === 'pending' ? 'bg-cyan' : m.status === 'read' ? 'bg-slate-500' : 'bg-tier-green'
@@ -966,7 +967,7 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
                     {timeAgo(m.created_at)}
                   </p>
                   {m.summary && (
-                    <p className="mt-1 text-sm text-txt-secondary line-clamp-2">{m.summary}</p>
+                    <div className="mt-1 text-sm text-txt-secondary line-clamp-2 prose-chat"><Markdown>{m.summary}</Markdown></div>
                   )}
                 </div>
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
