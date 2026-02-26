@@ -213,7 +213,25 @@ Steps:
 7. Update the company pulse with current highlights using update_pulse_highlights
 8. Use get_knowledge_routes to verify routing rules are working well
 
-Goal: Ensure the collective intelligence of the organization is healthy, contradictions are surfaced, and important knowledge is properly circulated.`;
+## WEEKLY OPS DIGEST — Voice & World Model Health
+After completing the CI review, produce a short "Ops Digest" appendix with these sections:
+
+**A. Voice coherence spot-check**
+Pick 3 random agents. Review their last on_demand run output (from agent_runs).
+For each, note: (1) did they sound like themselves per their personality_summary? (2) any anti-pattern violations? (3) overall voice grade (A/B/C).
+
+**B. World model freshness**
+Query agent_world_model for each executive. Note the last_updated timestamp.
+Flag any executive whose world model hasn't been updated in > 3 days.
+
+**C. Shared memory circulation**
+Query shared_episodes for the past 7 days. Count episodes per agent.
+Flag agents with 0 episodes written (they're not contributing to collective memory).
+
+**D. Recommendations**
+Based on A-C, list 1-3 concrete actions (e.g., "Re-seed Maya's anti-patterns — she's still saying 'stakeholder alignment'").
+
+Goal: Ensure the collective intelligence of the organization is healthy, contradictions are surfaced, important knowledge is properly circulated, and all executive voices are calibrated correctly.`;
       break;
 
     case 'monthly_retrospective':

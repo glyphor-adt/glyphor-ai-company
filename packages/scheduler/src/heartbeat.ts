@@ -242,18 +242,32 @@ export class HeartbeatManager {
         );
 
         if (newDirectives.length > 0) {
-          console.log(
-            `[Heartbeat] CoS: ${newDirectives.length} new directive(s) detected: ` +
-            newDirectives.map((d: any) => `"${d.title}"`).join(', '),
-          );
-          return {
-            shouldWake: true,
-            reason: `new_directives:${newDirectives.length}`,
-            context: {
-              task: 'orchestrate',
-              message: `${newDirectives.length} new directive(s) need orchestration: ${newDirectives.map((d: any) => `"${d.title}"`).join(', ')}. Run your orchestration protocol to break them into work assignments and dispatch to agents.`,
-            },
-          };
+          // Idempotency guard: skip if Sarah already ran orchestrate in the last 15 min
+          const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+          const { data: recentRun } = await this.supabase
+            .from('agent_runs')
+            .select('id')
+            .eq('agent_id', 'chief-of-staff')
+            .like('run_id', 'cos-orchestrate-%')
+            .gte('started_at', fifteenMinAgo)
+            .limit(1);
+
+          if (recentRun && recentRun.length > 0) {
+            console.log('[Heartbeat] CoS: Skipping directive wake — orchestrate ran within 15 min');
+          } else {
+            console.log(
+              `[Heartbeat] CoS: ${newDirectives.length} new directive(s) detected: ` +
+              newDirectives.map((d: any) => `"${d.title}"`).join(', '),
+            );
+            return {
+              shouldWake: true,
+              reason: `new_directives:${newDirectives.length}`,
+              context: {
+                task: 'orchestrate',
+                message: `${newDirectives.length} new directive(s) need orchestration: ${newDirectives.map((d: any) => `"${d.title}"`).join(', ')}. Run your orchestration protocol to break them into work assignments and dispatch to agents.`,
+              },
+            };
+          }
         }
       } catch (err) {
         console.warn('[Heartbeat] CoS directive check failed:', (err as Error).message);
