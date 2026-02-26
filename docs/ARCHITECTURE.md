@@ -149,24 +149,31 @@ market research & intelligence, and global platform administration.
 ┌───────────────────────────────────┐  ┌──────────────────────────────┐
 │        Agent Runtime              │  │     Microsoft Teams          │
 │  ┌─────────────────────────────┐  │  │                              │
-│  │   CompanyAgentRunner        │  │  │  9 channels in Glyphor team: │
+│  │   createRunner() Factory    │  │  │  9 channels in Glyphor team: │
 │  │   ┌───────────────────────┐ │  │  │  #kristina-briefings        │
-│  │   │ buildSystemPrompt()   │ │  │  │  #andrew-briefings          │
-│  │   │  Knowledge Base .md   │ │  │  │  #decisions                 │
-│  │   │  + Role Brief .md     │ │  │  │  #engineering               │
-│  │   │  + Personality Block  │ │  │  │  #growth                    │
-│  │   │  + Agent systemPrompt │ │  │  │  #financials                │
-│  │   └───────────────────────┘ │  │  │  #glyphor-general           │
-│  │   ├─ ModelClient            │  │  │  #product-fuse              │
-│  │   │  (Gemini/OpenAI/Claude) │  │  │  #product-pulse             │
+│  │   │ OrchestratorRunner    │ │  │  │  #andrew-briefings          │
+│  │   │  (5 exec roles:       │ │  │  │  #decisions                 │
+│  │   │   cos,cto,clo,vp-r,   │ │  │  │  #engineering               │
+│  │   │   ops)                │ │  │  │  #growth                    │
+│  │   ├───────────────────────┤ │  │  │  #financials                │
+│  │   │ TaskRunner            │ │  │  │  #glyphor-general           │
+│  │   │  (29 task roles)      │ │  │  │  #product-fuse              │
+│  │   ├───────────────────────┤ │  │  │  #product-pulse             │
+│  │   │ CompanyAgentRunner    │ │  │  │                              │
+│  │   │  (on_demand chat)     │ │  │  │  Adaptive Cards:            │
+│  │   └───────────────────────┘ │  │  │  ├ Briefing card            │
+│  │   ├─ ModelClient            │  │  │  ├ Decision card             │
+│  │   │  (Gemini/OpenAI/Claude) │  │  │  └ Alert card                │
 │  │   ├─ AgentSupervisor        │  │  │                              │
-│  │   ├─ ToolExecutor           │  │  │  Adaptive Cards:            │
-│  │   ├─ EventBus               │  │  │  ├ Briefing card            │
-│  │   ├─ GlyphorEventBus       │  │  │  ├ Decision card             │
-│  │   ├─ PendingMessageLoader  │  │  │  └ Alert card                │
+│  │   ├─ ToolExecutor           │  │  │                              │
+│  │   ├─ EventBus               │  │  │                              │
+│  │   ├─ GlyphorEventBus       │  │  │                              │
+│  │   ├─ PendingMessageLoader  │  │  │                              │
 │  │   ├─ PendingAssignmentLoader│ │  │                              │
 │  │   ├─ WorkingMemoryLoader   │  │  │                              │
 │  │   ├─ PromptCache (5 min)   │  │  │                              │
+│  │   ├─ SharedMemoryLoader    │  │  │                              │
+│  │   ├─ WorldModelUpdater     │  │  │                              │
 │  │   └─ AgentProfileLoader    │  │  │                              │
 │  └─────────────────────────────┘  │  └──────────────────────────────┘
 │                                   │
@@ -818,14 +825,23 @@ path that powers 24/7 autonomous operations.
                                              │
                                              ▼
                               ┌──────────────────────────────────┐
-                              │    CompanyAgentRunner.run()       │
-                              │    (Core Execution Loop)          │
+                              │    createRunner(role, task)       │
+                              │    (Runner Factory)               │
                               │                                  │
-                              │    See: Agent Execution Loop      │
+                              │  on_demand → CompanyAgentRunner   │
+                              │  orchestrator → OrchestratorRunner│
+                              │  task agent → TaskRunner          │
                               └──────────────────────────────────┘
 ```
 
-### Agent Execution Loop (CompanyAgentRunner)
+### Agent Execution Loop
+
+Three runner archetypes handle all agent execution. The `createRunner()` factory
+selects the correct runner based on role and task type:
+
+- **OrchestratorRunner** — 5 executive roles (chief-of-staff, cto, clo, vp-research, ops): OBSERVE→PLAN→DELEGATE→MONITOR→EVALUATE
+- **TaskRunner** — 29 task roles: RECEIVE→REASON→EXECUTE→REPORT
+- **CompanyAgentRunner** — on-demand chat: knowledge + personality injection
 
 The core execution loop (ported from Fuse V7 `agentRunner.ts`). Every single agent run —
 whether triggered by cron, chat, heartbeat, or event — flows through this exact loop:
@@ -1408,7 +1424,7 @@ The **Personality Block** (WHO YOU ARE section) includes:
 
 ### RunDependencies
 
-The `CompanyAgentRunner.run()` method accepts optional dependencies:
+The `BaseAgentRunner.run()` method accepts optional dependencies (via `ClassifiedRunDependencies`):
 
 | Dependency | Purpose |
 |-----------|---------|
@@ -1813,7 +1829,10 @@ then checks cron expressions every 60 seconds.
 | `packages/scheduler/src/eventRouter.ts` | Authority gates (GREEN/YELLOW/RED) + event source routing |
 | `packages/agent-runtime/src/supervisor.ts` | Turn/stall/timeout enforcement, abort controller |
 | `packages/agent-runtime/src/toolExecutor.ts` | 5-layer enforcement: grants, scope, rate limit, budget, timeout |
-| `packages/agent-runtime/src/companyAgentRunner.ts` | Core execution loop: context → model → tools → reflect |
+| `packages/agent-runtime/src/companyAgentRunner.ts` | On-demand chat runner: context → model → tools → reflect |
+| `packages/agent-runtime/src/orchestratorRunner.ts` | Orchestrator archetype: OBSERVE→PLAN→DELEGATE→MONITOR→EVALUATE |
+| `packages/agent-runtime/src/taskRunner.ts` | Task archetype: RECEIVE→REASON→EXECUTE→REPORT |
+| `packages/agents/src/shared/createRunner.ts` | Runner factory: role + task → Orchestrator/Task/CompanyAgent |
 
 #### Quick Reference Tables
 
@@ -1997,6 +2016,15 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 | `metrics_cache` | Cached metrics | service, metric, value, labels (JSONB), timestamp |
 | `cot_analyses` | Chain-of-thought analyses | id, query, status, requested_by, report (JSONB), completed_at, error |
 | `agent_tool_grants` | Dynamic tool grants | agent_role + tool_name (unique), granted_by, reason, directive_id, scope, is_active, expires_at |
+
+### World Model Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `agent_world_model` | Per-agent self-model (strengths, weaknesses, task scores, prediction accuracy) | agent_role (PK), strengths (JSONB), weaknesses (JSONB), failure_patterns (JSONB), task_type_scores (JSONB), prediction_accuracy, improvement_goals (JSONB), preferred_approaches (JSONB), rubric_version |
+| `role_rubrics` | Evaluation rubrics per role/task type | role + task_type + version (unique), dimensions (JSONB array of 5-level rubrics), passing_score, excellence_score |
+| `shared_episodes` | Cross-agent episodic memory | author_agent, episode_type, summary, detail (JSONB), outcome, confidence, domains (TEXT[]), tags (TEXT[]), related_agents (TEXT[]), embedding (vector 768-dim) |
+| `shared_procedures` | Discovered best practices shared across agents | author_agent, procedure_type, title, steps (JSONB), success_rate, times_used, domains (TEXT[]) |
 
 ### Communication Tables
 
@@ -2285,12 +2313,7 @@ Dashboard → POST /run {agentRole:"cto", task:"on_demand", message:"How's the p
   → checkAuthority('cto','on_demand') → GREEN
   → agentExecutor('cto','on_demand',{message:…})
   → runCTO({task:'on_demand', message:…})
-  → CompanyAgentRunner.run()
-      → buildSystemPrompt('cto', CTO_SYSTEM_PROMPT)
-          reads COMPANY_KNOWLEDGE_BASE.md + briefs/marcus-reeves.md
-      → ModelClient.generate() → ProviderAdapter (Gemini by default)
-      → (tool calls → ToolExecutor → loop)
-      → Final text response
+  → createRunner('cto','on_demand') → CompanyAgentRunner.run()
   → RouteResult { output: "Platform is healthy…" }
   → JSON response → Chat.tsx renders via <Markdown>
 ```
@@ -2304,8 +2327,7 @@ Cloud Scheduler → Pub/Sub "glyphor-agent-events"
   → decode: {agentRole:"cfo", task:"daily_cost_check", payload:{}}
   → checkAuthority('cfo','daily_cost_check') → GREEN
   → runCFO({task:'daily_cost_check'})
-  → CompanyAgentRunner.run()
-      → buildSystemPrompt + ModelClient → ProviderAdapter
+  → createRunner('cfo','daily_cost_check') → TaskRunner.run()
       → Tool calls: get_financials, get_product_metrics, calculate_unit_economics
       → write_financial_report, log_activity
       → (optional: create_decision if cost spike → YELLOW/RED)
