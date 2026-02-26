@@ -3,8 +3,12 @@ import { useParams, Link } from 'react-router-dom';
 import {
   MdEmojiEvents, MdLocalFireDepartment, MdMenuBook, MdCelebration,
   MdPushPin, MdCalendarToday, MdHourglassEmpty, MdCheckCircle,
-  MdCancel, MdCheck, MdWarning, MdArrowForward,
+  MdCancel, MdCheck, MdWarning, MdArrowForward, MdPsychology,
 } from 'react-icons/md';
+import {
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
+} from 'recharts';
 import { supabase, SCHEDULER_URL } from '../lib/supabase';
 import {
   DISPLAY_NAME_MAP,
@@ -130,7 +134,7 @@ interface ActivityRow {
   created_at: string;
 }
 
-type Tab = 'overview' | 'performance' | 'memory' | 'messages' | 'skills' | 'settings';
+type Tab = 'overview' | 'performance' | 'memory' | 'messages' | 'skills' | 'world-model' | 'settings';
 
 export default function AgentProfile() {
   const { agentId } = useParams();
@@ -200,6 +204,7 @@ export default function AgentProfile() {
     { key: 'memory', label: 'Memory' },
     { key: 'messages', label: 'Messages' },
     { key: 'skills', label: 'Skills' },
+    { key: 'world-model', label: 'World Model' },
     { key: 'settings', label: 'Settings' },
   ];
 
@@ -269,6 +274,7 @@ export default function AgentProfile() {
       {tab === 'memory' && <MemoryTab agent={agent} />}
       {tab === 'messages' && <MessagesTab agent={agent} />}
       {tab === 'skills' && <SkillsTab agent={agent} />}
+      {tab === 'world-model' && <WorldModelTab agent={agent} />}
       {tab === 'settings' && <SettingsTab agent={agent} profile={profile} onUpdate={setAgent} />}
     </div>
   );
@@ -1128,6 +1134,270 @@ function SkillsTab({ agent }: { agent: AgentRow }) {
           </Card>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   WORLD MODEL TAB
+   ════════════════════════════════════════════════════════════════ */
+
+interface WorldModelRow {
+  id: string;
+  agent_role: string;
+  updated_at: string;
+  strengths: { dimension: string; evidence: string; confidence: number }[];
+  weaknesses: { dimension: string; evidence: string; confidence: number }[];
+  blindspots: string[];
+  failure_patterns: { pattern: string; occurrences: number; lastSeen: string }[];
+  task_type_scores: Record<string, { avgScore: number; count: number; trend: string }>;
+  prediction_accuracy: number;
+  improvement_goals: { dimension: string; currentScore: number; targetScore: number; strategy: string; progress: number }[];
+}
+
+interface RubricDimension {
+  name: string;
+  weight: number;
+}
+
+interface RubricRow {
+  id: string;
+  role: string;
+  task_type: string;
+  version: number;
+  dimensions: RubricDimension[];
+  passing_score: number;
+  excellence_score: number;
+}
+
+const TREND_ICONS: Record<string, string> = { improving: '📈', declining: '📉', stable: '➡️' };
+
+function wmScoreColor(score: number): string {
+  if (score >= 4.2) return 'text-green-400';
+  if (score >= 3.0) return 'text-yellow-400';
+  return 'text-red-400';
+}
+
+function WorldModelTab({ agent }: { agent: AgentRow }) {
+  const [model, setModel] = useState<WorldModelRow | null>(null);
+  const [rubrics, setRubrics] = useState<RubricRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const [{ data: wmRows }, { data: rubricRows }] = await Promise.all([
+        supabase.from('agent_world_model').select('*').eq('agent_role', agent.role).single(),
+        supabase.from('role_rubrics').select('*').or(`role.eq.${agent.role},role.eq._default`).order('role'),
+      ]);
+      setModel(wmRows as WorldModelRow | null);
+      setRubrics((rubricRows as RubricRow[]) ?? []);
+      setLoading(false);
+    })();
+  }, [agent.role]);
+
+  if (loading) {
+    return <div className="space-y-4"><Skeleton className="h-64" /><Skeleton className="h-48" /></div>;
+  }
+
+  if (!model) {
+    return (
+      <Card className="flex h-48 flex-col items-center justify-center gap-2 p-6">
+        <MdPsychology className="text-3xl text-txt-faint" />
+        <p className="text-sm text-txt-muted">No world model data yet for this agent.</p>
+        <p className="text-xs text-txt-faint">World model data is built as the agent completes evaluated tasks.</p>
+      </Card>
+    );
+  }
+
+  // Radar data from task_type_scores
+  const radarData = Object.entries(model.task_type_scores).map(([type, score]) => ({
+    taskType: type.replace(/_/g, ' '),
+    score: score.avgScore,
+    fullMark: 5,
+  }));
+
+  // Goal progress data
+  const goalData = model.improvement_goals.map(g => ({
+    name: g.dimension,
+    current: g.currentScore,
+    target: g.targetScore,
+  }));
+
+  return (
+    <div className="space-y-6">
+      {/* Summary header */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card className="p-4 text-center">
+          <p className="text-xs text-txt-muted">Prediction Accuracy</p>
+          <p className={`text-2xl font-bold ${wmScoreColor(model.prediction_accuracy * 5)}`}>
+            {(model.prediction_accuracy * 100).toFixed(0)}%
+          </p>
+        </Card>
+        <Card className="p-4 text-center">
+          <p className="text-xs text-txt-muted">Strengths</p>
+          <p className="text-2xl font-bold text-green-400">{model.strengths.length}</p>
+        </Card>
+        <Card className="p-4 text-center">
+          <p className="text-xs text-txt-muted">Failure Patterns</p>
+          <p className="text-2xl font-bold text-red-400">{model.failure_patterns.length}</p>
+        </Card>
+      </div>
+
+      {/* Task Performance Radar */}
+      {radarData.length >= 3 && (
+        <Card className="p-4">
+          <h3 className="text-sm font-semibold text-txt-primary mb-3">Task Performance</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart data={radarData}>
+                <PolarGrid stroke="var(--color-border)" />
+                <PolarAngleAxis dataKey="taskType" tick={{ fill: 'var(--color-txt-muted)', fontSize: 11 }} />
+                <PolarRadiusAxis angle={30} domain={[0, 5]} tick={{ fill: 'var(--color-txt-faint)', fontSize: 9 }} />
+                <Radar name="Score" dataKey="score" stroke="#818cf8" fill="#818cf8" fillOpacity={0.3} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      )}
+
+      {/* Task Type Scores table (fallback when < 3 dimensions for radar) */}
+      {radarData.length > 0 && radarData.length < 3 && (
+        <Card className="p-4">
+          <h3 className="text-sm font-semibold text-txt-primary mb-3">Task Performance</h3>
+          {Object.entries(model.task_type_scores).map(([type, score]) => (
+            <div key={type} className="flex items-center justify-between text-sm py-1">
+              <span className="text-txt-muted">{type.replace(/_/g, ' ')}</span>
+              <span className={`font-mono ${wmScoreColor(score.avgScore)}`}>
+                {score.avgScore.toFixed(1)} {TREND_ICONS[score.trend] ?? ''} <span className="text-txt-faint text-xs">({score.count} runs)</span>
+              </span>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {/* Strengths & Weaknesses */}
+      <div className="grid grid-cols-2 gap-4">
+        <Card className="p-4">
+          <h3 className="text-sm font-semibold text-green-400 mb-3">Strengths</h3>
+          {model.strengths.length === 0 ? (
+            <p className="text-xs text-txt-faint">No strengths recorded yet</p>
+          ) : (
+            <ul className="space-y-2">
+              {model.strengths.map((s, i) => (
+                <li key={i} className="text-sm text-txt-secondary">
+                  <span className="text-green-400 mr-1">✓</span> {s.dimension}
+                  <span className="text-txt-faint text-xs ml-1">({(s.confidence * 100).toFixed(0)}% confidence)</span>
+                  {s.evidence && <p className="text-xs text-txt-faint mt-0.5 ml-4">{s.evidence}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+        <Card className="p-4">
+          <h3 className="text-sm font-semibold text-amber-400 mb-3">Weaknesses</h3>
+          {model.weaknesses.length === 0 ? (
+            <p className="text-xs text-txt-faint">No weaknesses recorded yet</p>
+          ) : (
+            <ul className="space-y-2">
+              {model.weaknesses.map((w, i) => (
+                <li key={i} className="text-sm text-txt-secondary">
+                  <span className="text-amber-400 mr-1">⚠</span> {w.dimension}
+                  <span className="text-txt-faint text-xs ml-1">({(w.confidence * 100).toFixed(0)}% confidence)</span>
+                  {w.evidence && <p className="text-xs text-txt-faint mt-0.5 ml-4">{w.evidence}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+
+      {/* Improvement Goals */}
+      {model.improvement_goals.length > 0 && (
+        <Card className="p-4">
+          <h3 className="text-sm font-semibold text-txt-primary mb-3">Improvement Goals</h3>
+          <div className="h-48 mb-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={goalData} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis type="number" domain={[0, 5]} tick={{ fill: 'var(--color-txt-faint)', fontSize: 10 }} />
+                <YAxis type="category" dataKey="name" tick={{ fill: 'var(--color-txt-muted)', fontSize: 11 }} width={100} />
+                <Tooltip contentStyle={{ background: 'var(--color-raised)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }} />
+                <Bar dataKey="current" fill="#818cf8" name="Current" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="target" fill="#818cf830" name="Target" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          {model.improvement_goals.map((g, i) => (
+            <div key={i} className="mb-3">
+              <div className="flex justify-between text-sm text-txt-secondary">
+                <span>{g.dimension}</span>
+                <span className="font-mono text-xs">{g.currentScore.toFixed(1)} → {g.targetScore.toFixed(1)}</span>
+              </div>
+              <div className="w-full bg-raised rounded-full h-2 mt-1">
+                <div
+                  className="bg-indigo-500 h-2 rounded-full transition-all"
+                  style={{ width: `${Math.min(100, Math.round((g.currentScore / g.targetScore) * 100))}%` }}
+                />
+              </div>
+              <p className="text-[11px] text-txt-faint mt-0.5">{g.strategy}</p>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {/* Failure Patterns */}
+      {model.failure_patterns.length > 0 && (
+        <Card className="p-4">
+          <h3 className="text-sm font-semibold text-red-400 mb-3">Failure Patterns</h3>
+          <ul className="space-y-2">
+            {model.failure_patterns.map((fp, i) => (
+              <li key={i} className="text-sm text-txt-secondary">
+                <span className="text-red-400 mr-1">⚠</span> {fp.pattern}
+                <span className="text-txt-faint text-xs ml-2">({fp.occurrences}x, last: {timeAgo(fp.lastSeen)})</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {/* Blindspots */}
+      {model.blindspots.length > 0 && (
+        <Card className="p-4">
+          <h3 className="text-sm font-semibold text-orange-400 mb-3">Blindspots</h3>
+          <ul className="space-y-1">
+            {model.blindspots.map((b, i) => (
+              <li key={i} className="text-sm text-txt-muted">• {b}</li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {/* Rubric Dimensions */}
+      {rubrics.length > 0 && (
+        <Card className="p-4">
+          <h3 className="text-sm font-semibold text-txt-primary mb-3">Evaluation Rubric</h3>
+          {rubrics.map(r => (
+            <div key={r.id} className="mb-3">
+              <p className="text-xs font-medium text-txt-muted mb-1">
+                {r.role === '_default' ? 'Default' : r.role} / {r.task_type.replace(/_/g, ' ')}
+                <span className="text-txt-faint ml-2">v{r.version} · pass: {r.passing_score} · excellence: {r.excellence_score}</span>
+              </p>
+              <div className="flex gap-1 flex-wrap">
+                {r.dimensions.map((d, i) => (
+                  <span key={i} className="text-[11px] bg-raised text-txt-muted px-2 py-0.5 rounded">
+                    {d.name} ({(d.weight * 100).toFixed(0)}%)
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      <p className="text-[11px] text-txt-faint text-center">
+        Last updated {timeAgo(model.updated_at)}
+      </p>
     </div>
   );
 }

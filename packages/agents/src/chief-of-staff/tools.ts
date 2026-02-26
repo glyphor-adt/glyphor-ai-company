@@ -5,12 +5,12 @@
  * routing decisions, posting to Teams.
  */
 
-import type { ToolDefinition, ToolContext, ToolResult, BriefingData } from '@glyphor/agent-runtime';
+import type { ToolDefinition, ToolContext, ToolResult, BriefingData, CompanyAgentRole, StructuredReflection, OrchestratorGrade } from '@glyphor/agent-runtime';
 import { WRITE_TOOLS, invalidateGrantCache } from '@glyphor/agent-runtime';
 import { isKnownTool } from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { CompanyMemoryStore } from '@glyphor/company-memory';
+import { CompanyMemoryStore, SharedMemoryLoader, WorldModelUpdater, EmbeddingClient } from '@glyphor/company-memory';
 import {
   sendTeamsWebhook,
   formatBriefingCard,
@@ -857,6 +857,64 @@ export function createOrchestrationTools(
               priority: 'high',
             });
           }
+        }
+
+        // ── World Model Update ──────────────────────────────────
+        // After evaluating an assignment, update the assigned agent's
+        // world model so it learns from the orchestrator's grading.
+        try {
+          const { data: assignmentData } = await supabase
+            .from('work_assignments')
+            .select('assigned_to, task_type')
+            .eq('id', assignmentId)
+            .single();
+
+          if (assignmentData?.assigned_to) {
+            const graphReader = memory.getGraphReader();
+            if (graphReader) {
+              const embeddingClient = new EmbeddingClient({
+                supabaseUrl: process.env.SUPABASE_URL!,
+                supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
+              });
+              const sharedMemLoader = new SharedMemoryLoader(supabase, embeddingClient, graphReader);
+              const updater = new WorldModelUpdater(supabase, sharedMemLoader);
+
+              const qualityScore = params.quality_score as number;
+              const scaledScore = (qualityScore / 100) * 5; // Map 0-100 → 0-5
+              const taskType = (assignmentData.task_type as string) || 'general';
+
+              const reflection: StructuredReflection = {
+                runId: assignmentId,
+                taskType,
+                rubricScores: [],
+                predictedScore: 0,
+                approachUsed: 'unknown',
+                wouldChange: '',
+                newKnowledge: '',
+                blockedBy: null,
+              };
+
+              const grade: OrchestratorGrade = {
+                assignmentId,
+                agentRole: assignmentData.assigned_to as CompanyAgentRole,
+                rubricScores: [
+                  { dimension: 'task_completion', orchestratorScore: scaledScore, evidence: params.evaluation as string, feedback: params.evaluation as string },
+                  { dimension: 'overall_quality', orchestratorScore: scaledScore, evidence: params.evaluation as string, feedback: params.evaluation as string },
+                ],
+                weightedTotal: scaledScore,
+                disposition: nextAction as OrchestratorGrade['disposition'],
+              };
+
+              await updater.updateFromGrade(
+                assignmentData.assigned_to as CompanyAgentRole,
+                reflection,
+                grade,
+                3.0,
+              );
+            }
+          }
+        } catch (err) {
+          console.warn('[CoS] World model update failed:', (err as Error).message);
         }
 
         return { success: true, data: { updated: true, next_action: nextAction } };
