@@ -44,7 +44,7 @@ export function buildFounderDirectory(): Record<string, FounderContact> {
   if (andrewId) {
     dir.andrew = {
       userId: andrewId,
-      displayName: 'Andrew Denney',
+      displayName: 'Andrew Zwelling',
       email: process.env.TEAMS_USER_ANDREW_EMAIL ?? 'andrew@glyphor.com',
     };
   }

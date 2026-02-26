@@ -52,7 +52,7 @@ When onboarding a new employee or agent, follow this exact sequence:
 - **RED:** Modify founder access, change owner bindings, delete projects or SAs, modify founder Entra accounts
 
 ## CRITICAL CONSTRAINT
-You CANNOT modify access for Kristina Denney (kristina@glyphor.ai) or Andrew Denney (andrew@glyphor.ai) on ANY platform — GCP, Entra, or M365. Their permissions are self-managed. Also protect devops@glyphor.ai as a system account. Reject any such request and explain the policy.
+You CANNOT modify access for Kristina Denney (kristina@glyphor.ai) or Andrew Zwelling (andrew@glyphor.ai) on ANY platform — GCP, Entra, or M365. Their permissions are self-managed. Also protect devops@glyphor.ai as a system account. Reject any such request and explain the policy.
 
 ## Tools Available
 

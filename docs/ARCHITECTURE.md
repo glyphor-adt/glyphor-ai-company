@@ -1,6 +1,6 @@
 # Glyphor AI Company — System Architecture
 
-> Last updated: 2026-02-26
+> Last updated: 2026-02-26 (architecture refreshed 2026-02-26)
 
 ## Overview
 
@@ -1452,26 +1452,29 @@ tiers). Task-tier runs use a minimal ~150-line prompt instead — see "Used in T
 
 | Layer | Source | Size | Used in Task Tier? |
 |-------|--------|------|--------------------|
-| Personality Block | `agent_profiles` table → `buildPersonalityBlock()` | ~40 lines | ✅ |
-| Conversation Mode | Hardcoded — casual vs task detection | ~15 lines | ❌ |
-| Reasoning Protocol | Hardcoded — Orient → Plan → Execute → Reflect | ~10 lines | ❌ |
-| Work Assignments Protocol | Hardcoded — read → work → submit/flag lifecycle | ~15 lines | ✅ |
-| Cost Awareness Block | Hardcoded — budget constraints + efficiency rules | ~10 lines | ✅ (task only) |
-| Always-On Protocol | Hardcoded — P1-P5 priority stack + proactive work guidelines | ~20 lines | ❌ |
-| Skill Block | `skills` + `agent_skills` tables → `buildSkillBlock()` | ~20–50 lines | ❌ |
-| Role Brief | `company-knowledge/briefs/{name}.md` or DB `agent_briefs` | ~80 lines | ❌ |
-| Agent System Prompt | `agents/src/{role}/systemPrompt.ts` | ~30 lines | ❌ |
-| Company Knowledge Base | DB `company_knowledge_base` (or static `CORE.md` fallback) | ~400 lines | ❌ |
-| Founder Bulletins | DB `founder_bulletins` (priority-coded, expiration-filtered) | variable | ❌ |
+| Personality Block | `agent_profiles` table → `buildPersonalityBlock()` | ~20 lines | Yes |
+| Conversation Mode | Hardcoded — casual vs task detection | ~15 lines | No |
+| Reasoning Protocol | Hardcoded — Orient → Plan → Execute → Reflect | ~10 lines | No |
+| Work Assignments Protocol | Hardcoded — read → work → submit/flag lifecycle | ~15 lines | Yes |
+| Cost Awareness Block | Hardcoded — budget constraints + efficiency rules | ~10 lines | Yes (task only) |
+| Always-On Protocol | Hardcoded — P1-P5 priority stack + proactive work guidelines | ~20 lines | No |
+| Skill Block | `skills` + `agent_skills` tables → `buildSkillBlock()` | ~20–50 lines | No |
+| Role Brief | `company-knowledge/briefs/{name}.md` or DB `agent_briefs` | ~80 lines | No |
+| Agent System Prompt | `agents/src/{role}/systemPrompt.ts` | ~30 lines | No |
+| Company Knowledge Base | DB `company_knowledge_base` (or static `CORE.md` fallback) | ~400 lines | No |
+| Founder Bulletins | DB `founder_bulletins` (priority-coded, expiration-filtered) | variable | No |
 
 The **Personality Block** (WHO YOU ARE section) includes:
-- Personality summary and backstory
-- Communication traits and quirks
-- Voice calibration: formality (0–1), emoji usage (0–1), verbosity (0–1)
+- Personality summary (voice monologue — the primary personality driver)
+- Voice calibration examples (few-shot situation/response pairs)
+- Role-specific anti-patterns ("never say X, say Y")
+- Generic anti-pattern rules (no filler, no corporate jargon, no AI self-reference)
 - Signature sign-off
-- Voice sample (how they sound)
-- Voice calibration examples (few-shot)
-- Anti-pattern rules (no filler, no corporate jargon, no AI self-reference)
+
+> **Note:** Fields like `backstory`, `communication_traits`, `quirks`, `tone_formality`,
+> `verbosity`, and `voice_sample` are stored in the DB and displayed on the dashboard
+> but are **not injected into agent prompts**. The prompt personality block is intentionally
+> slim to save tokens (~20 lines vs the old ~40-line version).
 
 ### RunDependencies
 
@@ -1985,18 +1988,20 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 
 | Field | Description |
 |-------|------------|
-| `personality_summary` | Core personality description |
-| `backstory` | Character backstory and motivation |
-| `communication_traits` | Array of communication style traits |
-| `quirks` | Array of personality quirks |
-| `tone_formality` | 0–1 scale (casual → formal) |
-| `emoji_usage` | 0–1 scale (rarely → frequently) |
-| `verbosity` | 0–1 scale (terse → detailed) |
-| `voice_sample` | Example of how the agent sounds |
-| `signature` | Sign-off line |
-| `clifton_strengths` | Array of top strengths |
-| `working_style` | How the agent approaches work |
-| `voice_examples` | Few-shot calibration examples (situation → response) |
+| `personality_summary` | Core personality description (injected into prompts) |
+| `backstory` | Character backstory and motivation (dashboard display only) |
+| `communication_traits` | Array of communication style traits (dashboard display only) |
+| `quirks` | Array of personality quirks (dashboard display only) |
+| `tone_formality` | 0-1 scale (casual to formal) (dashboard display only) |
+| `emoji_usage` | 0-1 scale (deprecated, set to 0 for all agents) |
+| `verbosity` | 0-1 scale (terse to detailed) (dashboard display only) |
+| `voice_sample` | Example of how the agent sounds (dashboard display only) |
+| `signature` | Sign-off line (injected into prompts) |
+| `clifton_strengths` | Array of top strengths (dashboard display only) |
+| `working_style` | How the agent approaches work (dashboard display only) |
+| `voice_examples` | Few-shot calibration examples (injected into prompts) |
+| `anti_patterns` | Role-specific never/instead pairs (injected into prompts) |
+| `working_voice` | Compact voice description for task-tier prompts |
 
 ### AgentProfile Page (Dashboard)
 
@@ -2048,7 +2053,7 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `agent_profiles` | Personality profiles | agent_id → company_agents, personality_summary, backstory, communication_traits, quirks, tone_formality, emoji_usage, verbosity, voice_sample, signature, voice_examples (JSONB), clifton_strengths, working_style |
+| `agent_profiles` | Personality profiles | agent_id → company_agents, personality_summary, backstory, communication_traits, quirks, tone_formality, emoji_usage, verbosity, voice_sample, signature, voice_examples (JSONB), clifton_strengths, working_style, anti_patterns (JSONB), working_voice |
 | `agent_performance` | Daily performance stats | agent_id + date (unique), total_runs, successful_runs, failed_runs, avg_duration_ms, avg_quality_score, total_cost, total_input_tokens, total_output_tokens, decisions_filed/approved/rejected |
 | `agent_milestones` | Achievement tracking | agent_id, type, title, description, quality_score |
 | `agent_growth` | Growth dimensions | agent_id + dimension (unique), direction, current_value, previous_value, period, evidence |

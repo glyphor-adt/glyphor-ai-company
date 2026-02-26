@@ -316,7 +316,7 @@ function buildEntraIdLookup(): Map<string, string> {
   const kristinaId = process.env.TEAMS_USER_KRISTINA_ID;
   if (kristinaId) map.set(kristinaId, 'Kristina Denney');
   const andrewId = process.env.TEAMS_USER_ANDREW_ID;
-  if (andrewId) map.set(andrewId, 'Andrew Denney');
+  if (andrewId) map.set(andrewId, 'Andrew Zwelling');
   return map;
 }
 
