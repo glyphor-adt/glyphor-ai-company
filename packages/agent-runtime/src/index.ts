@@ -1,5 +1,10 @@
 export { CompanyAgentRunner, promptCache } from './companyAgentRunner.js';
 export type { AgentMemoryStore, AgentProfileData, RunDependencies, SkillContext, SkillFeedback } from './companyAgentRunner.js';
+// Classified runners (orchestrator / task split)
+export { BaseAgentRunner } from './baseAgentRunner.js';
+export type { ClassifiedRunDependencies } from './baseAgentRunner.js';
+export { OrchestratorRunner } from './orchestratorRunner.js';
+export { TaskRunner } from './taskRunner.js';
 export { ModelClient, detectProvider } from './modelClient.js';
 export type { ModelClientConfig, ModelProvider, ImageResponse } from './modelClient.js';
 // Provider adapters
@@ -26,6 +31,9 @@ export {
   FORBIDDEN_AGENT_EVENTS,
   AGENT_MANAGER,
   WRITE_TOOLS,
+  ORCHESTRATOR_ROLES,
+  TASK_AGENT_ROLES,
+  getAgentArchetype,
 } from './types.js';
 export type {
   AgentConfig,
@@ -68,6 +76,27 @@ export type {
   ToolCallLog,
   SecurityEventType,
   SecurityEvent,
+  // Agent classification types
+  AgentArchetype,
+  // Shared memory types
+  EpisodeType,
+  SharedEpisode,
+  SharedProcedure,
+  ProcedureStatus,
+  SharedMemoryContext,
+  // World model types
+  AgentWorldModel,
+  WorldModelDimension,
+  TaskTypeScore,
+  PredictionRecord,
+  ImprovementGoal,
+  RubricLevel,
+  RubricDimension,
+  RoleRubric,
+  // Structured reflection types
+  RubricScore,
+  StructuredReflection,
+  OrchestratorGrade,
 } from './types.js';
 export {
   AGENT_EMAIL_MAP,

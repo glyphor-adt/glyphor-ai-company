@@ -20,6 +20,7 @@ import WorkforceBuilder from './pages/WorkforceBuilder';
 import Governance from './pages/Governance';
 import Knowledge from './pages/Knowledge';
 import Activity from './pages/Activity';
+import WorldModel from './pages/WorldModel';
 
 export default function App() {
   return (
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="teams-config" element={<TeamsConfig />} />
         <Route path="knowledge" element={<Knowledge />} />
         <Route path="governance" element={<Governance />} />
+        <Route path="world-model" element={<WorldModel />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

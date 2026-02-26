@@ -19,6 +19,7 @@ const NAV = [
   { to: '/meetings', label: 'Meetings', icon: MeetingsIcon },
   { to: '/knowledge', label: 'Knowledge', icon: KnowledgeIcon },
   { to: '/governance', label: 'Governance', icon: GovernanceIcon },
+  { to: '/world-model', label: 'World Model', icon: WorldModelIcon },
 ] as const;
 
 export default function Layout() {
@@ -279,6 +280,15 @@ function GovernanceIcon({ className }: { className?: string }) {
       <path d="M5 6V4.5a3 3 0 016 0V6" />
       <circle cx="8" cy="10.5" r="1.2" />
       <path d="M8 11.7v1.3" />
+    </svg>
+  );
+}
+
+function WorldModelIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <circle cx="8" cy="8" r="6" />
+      <path d="M8 2v12M2 8h12M3.5 4.5Q8 7 12.5 4.5M3.5 11.5Q8 9 12.5 11.5" />
     </svg>
   );
 }

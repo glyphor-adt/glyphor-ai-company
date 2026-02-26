@@ -27,6 +27,8 @@ export {
   type GraphContextNode,
   type CausalChainNode,
 } from './graphReader.js';
+export { SharedMemoryLoader } from './sharedMemoryLoader.js';
+export { WorldModelUpdater } from './worldModelUpdater.js';
 export type {
   DbCompanyProfile,
   DbProduct,

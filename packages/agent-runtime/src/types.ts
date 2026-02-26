@@ -575,3 +575,224 @@ export const AGENT_MANAGER: Partial<Record<CompanyAgentRole, CompanyAgentRole>> 
   'm365-admin':            'cto',
   'global-admin':           'chief-of-staff',
 };
+
+// ═══════════════════════════════════════════════════════════════════
+// AGENT CLASSIFICATION — Orchestrator vs Task Agent
+// ═══════════════════════════════════════════════════════════════════
+
+export type AgentArchetype = 'orchestrator' | 'task';
+
+/** Roles that use the OrchestratorRunner — they decompose, delegate, evaluate, and synthesize. */
+export const ORCHESTRATOR_ROLES: ReadonlySet<CompanyAgentRole> = new Set([
+  'chief-of-staff',   // Master orchestrator — decomposes directives, routes to departments
+  'vp-research',      // Research orchestrator — decomposes research into analyst briefs
+  'cto',              // Engineering orchestrator — triages, delegates to eng sub-team
+  'clo',              // Legal orchestrator — decomposes compliance across departments
+  'ops',              // System orchestrator — monitors health, triages alerts
+]);
+
+/** All remaining roles use the TaskRunner — they receive, reason, execute, and report. */
+export const TASK_AGENT_ROLES: ReadonlySet<CompanyAgentRole> = new Set([
+  'cfo', 'cpo', 'cmo', 'vp-customer-success', 'vp-sales', 'vp-design',
+  'platform-engineer', 'quality-engineer', 'devops-engineer',
+  'user-researcher', 'competitive-intel',
+  'revenue-analyst', 'cost-analyst',
+  'content-creator', 'seo-analyst', 'social-media-manager',
+  'onboarding-specialist', 'support-triage', 'account-research',
+  'ui-ux-designer', 'frontend-engineer', 'design-critic', 'template-architect',
+  'm365-admin', 'global-admin',
+  'competitive-research-analyst', 'market-research-analyst',
+  'technical-research-analyst', 'industry-research-analyst',
+]);
+
+export function getAgentArchetype(role: CompanyAgentRole): AgentArchetype {
+  return ORCHESTRATOR_ROLES.has(role) ? 'orchestrator' : 'task';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SHARED MEMORY LAYER — Cross-agent knowledge types
+// ═══════════════════════════════════════════════════════════════════
+
+export type EpisodeType =
+  | 'task_completed'
+  | 'discovery'
+  | 'decision_made'
+  | 'problem_solved'
+  | 'customer_interaction'
+  | 'market_signal'
+  | 'system_event'
+  | 'collaboration'
+  | 'failure_lesson'
+  | 'process_improvement';
+
+export interface SharedEpisode {
+  id: string;
+  createdAt: string;
+  authorAgent: CompanyAgentRole;
+  episodeType: EpisodeType;
+  summary: string;
+  detail?: Record<string, unknown>;
+  outcome?: string;
+  confidence: number;
+  domains: string[];
+  tags?: string[];
+  relatedAgents?: string[];
+  directiveId?: string;
+  assignmentId?: string;
+  timesAccessed: number;
+  promotedToSemantic: boolean;
+  archivedAt?: string;
+}
+
+export type ProcedureStatus = 'proposed' | 'active' | 'deprecated';
+
+export interface SharedProcedure {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  slug: string;
+  name: string;
+  domain: string;
+  description: string;
+  steps: { order: number; instruction: string; tools?: string[] }[];
+  preconditions?: string[];
+  toolsNeeded?: string[];
+  exampleInput?: string;
+  exampleOutput?: string;
+  discoveredBy?: CompanyAgentRole;
+  validatedBy?: string[];
+  sourceEpisodes?: string[];
+  timesUsed: number;
+  successRate?: number;
+  version: number;
+  status: ProcedureStatus;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// WORLD MODEL — Per-agent self-model + rubrics
+// ═══════════════════════════════════════════════════════════════════
+
+export interface WorldModelDimension {
+  dimension: string;
+  evidence: string;
+  confidence: number;
+}
+
+export interface TaskTypeScore {
+  avgScore: number;
+  count: number;
+  trend: 'improving' | 'stable' | 'declining';
+}
+
+export interface PredictionRecord {
+  predicted: number;
+  actual: number;
+  delta: number;
+  timestamp: string;
+}
+
+export interface ImprovementGoal {
+  dimension: string;
+  currentScore: number;
+  targetScore: number;
+  strategy: string;
+  progress: number;  // 0-1
+}
+
+export interface AgentWorldModel {
+  id: string;
+  agentRole: CompanyAgentRole;
+  updatedAt: string;
+  strengths: WorldModelDimension[];
+  weaknesses: WorldModelDimension[];
+  blindspots?: WorldModelDimension[];
+  preferredApproaches?: Record<string, string>;
+  failurePatterns?: { pattern: string; occurrences: number; lastSeen: string }[];
+  taskTypeScores: Record<string, TaskTypeScore>;
+  toolProficiency?: Record<string, { successRate: number; avgTimeMs: number }>;
+  collaborationMap?: Record<string, { quality: number; friction: number }>;
+  lastPredictions: PredictionRecord[];
+  predictionAccuracy: number;
+  improvementGoals: ImprovementGoal[];
+  rubricVersion: number;
+}
+
+export interface RubricLevel {
+  '1_novice': string;
+  '2_developing': string;
+  '3_competent': string;
+  '4_expert': string;
+  '5_master': string;
+}
+
+export interface RubricDimension {
+  name: string;
+  weight: number;
+  levels: RubricLevel;
+}
+
+export interface RoleRubric {
+  id: string;
+  role: string;
+  taskType: string;
+  version: number;
+  createdAt: string;
+  dimensions: RubricDimension[];
+  passingScore: number;
+  excellenceScore: number;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STRUCTURED REFLECTION — Rubric-based self-assessment
+// ═══════════════════════════════════════════════════════════════════
+
+export interface RubricScore {
+  dimension: string;
+  selfScore: number;
+  evidence: string;
+  confidence: number;
+}
+
+export interface StructuredReflection {
+  runId: string;
+  taskType: string;
+  rubricScores: RubricScore[];
+  predictedScore: number;
+  actualScore?: number;
+  predictionDelta?: number;
+  approachUsed: string;
+  wouldChange: string;
+  newKnowledge: string;
+  blockedBy: string | null;
+}
+
+export interface OrchestratorGrade {
+  assignmentId: string;
+  agentRole: CompanyAgentRole;
+  rubricScores: {
+    dimension: string;
+    orchestratorScore: number;
+    evidence: string;
+    feedback: string;
+  }[];
+  weightedTotal: number;
+  disposition: 'accept' | 'iterate' | 'reassign' | 'escalate';
+  calibrationNote?: string;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SHARED MEMORY CONTEXT — Loaded per-agent per-run
+// ═══════════════════════════════════════════════════════════════════
+
+export interface SharedMemoryContext {
+  /** Layer 1: Hot — current cycle state */
+  working: { activeAssignments: number; alerts: string[]; companyPulse?: Record<string, unknown> };
+  /** Layer 2: Warm — recent episodes relevant to current task */
+  episodes: SharedEpisode[];
+  /** Layer 3: Cool — knowledge graph matches */
+  semantic: { title: string; content: string; nodeType: string; similarity: number }[];
+  /** Layer 4: Persistent — applicable procedures */
+  procedures: SharedProcedure[];
+  /** Layer 5: Meta — world model state (orchestrators only) */
+  worldModel: AgentWorldModel | null;
+}
