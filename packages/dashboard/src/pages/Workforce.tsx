@@ -8,9 +8,11 @@ import {
   StatusDot,
   Skeleton,
   timeAgo,
+  PageTabs,
 } from '../components/ui';
 import { MdArrowForward } from 'react-icons/md';
 import { Link } from 'react-router-dom';
+import AgentsList from './AgentsList';
 
 /* ─── Org hierarchy ─────────────────────── */
 const FOUNDERS = [
@@ -55,10 +57,12 @@ const EXEC_COUNT = Object.keys(TITLE_MAP).length;
 const TOTAL_HEADCOUNT = FOUNDERS.length + EXEC_COUNT + SUB_TEAM.length; // founders + execs + ICs
 
 type ViewMode = 'org-chart' | 'grid';
+type Tab = 'overview' | 'roster';
 
 export default function Workforce() {
   const { data: agents, loading } = useAgents();
   const [view, setView] = useState<ViewMode>('org-chart');
+  const [tab, setTab] = useState<Tab>('overview');
 
   const agentMap = new Map(agents.map((a) => [a.role, a]));
   const cos = agentMap.get('chief-of-staff');
@@ -76,14 +80,29 @@ export default function Workforce() {
             {TOTAL_HEADCOUNT} employees · {FOUNDERS.length} founders · {EXEC_COUNT} AI executives · {SUB_TEAM.length} team members
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Link
-            to="/agents/new"
-            className="rounded-lg border border-border bg-surface px-4 py-1.5 text-xs font-semibold text-txt-primary transition-all hover:border-border-hover hover:shadow-md"
-          >
-            + New Agent
-          </Link>
-          <div className="flex gap-1 rounded-lg border border-border bg-surface p-0.5">
+        <Link
+          to="/agents/new"
+          className="rounded-lg border border-border bg-surface px-4 py-1.5 text-xs font-semibold text-txt-primary transition-all hover:border-border-hover hover:shadow-md"
+        >
+          + New Agent
+        </Link>
+      </div>
+
+      <PageTabs
+        tabs={[
+          { key: 'overview' as Tab, label: 'Overview' },
+          { key: 'roster' as Tab, label: 'Agent Roster' },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+
+      {tab === 'roster' ? (
+        <AgentsList />
+      ) : (
+      <>
+      <div className="flex justify-end">
+        <div className="flex gap-1 rounded-lg border border-border bg-surface p-0.5">
           <button
             onClick={() => setView('org-chart')}
             className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
@@ -100,7 +119,6 @@ export default function Workforce() {
           >
             Grid
           </button>
-        </div>
         </div>
       </div>
 
@@ -280,6 +298,8 @@ export default function Workforce() {
             ))}
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );

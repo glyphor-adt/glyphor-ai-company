@@ -765,13 +765,6 @@ export default function Graph() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-txt-primary">Knowledge Graph</h1>
-        <p className="mt-1 text-sm text-txt-muted">
-          Explore the company's collective knowledge — entities, decisions, metrics, and their relationships
-        </p>
-      </div>
-
       {loading ? (
         <div className="space-y-3">
           <Skeleton className="h-10" />

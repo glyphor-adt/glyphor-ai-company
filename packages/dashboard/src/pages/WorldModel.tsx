@@ -338,11 +338,6 @@ export default function WorldModel() {
 
   return (
     <div className="space-y-6 p-6">
-      <SectionHeader
-        title="World Model"
-        subtitle="Agent self-awareness, performance tracking, and capability evolution"
-      />
-
       {/* Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="p-4 text-center">

@@ -154,3 +154,32 @@ export function timeAgo(iso: string | null): string {
   const days = Math.floor(hrs / 24);
   return `${days}d ago`;
 }
+
+/* ─── Page-level tab bar ──────────────────── */
+export function PageTabs<T extends string>({
+  tabs,
+  active,
+  onChange,
+}: {
+  tabs: { key: T; label: string }[];
+  active: T;
+  onChange: (key: T) => void;
+}) {
+  return (
+    <div className="flex gap-1 rounded-lg bg-raised p-1 w-fit border border-border">
+      {tabs.map((t) => (
+        <button
+          key={t.key}
+          onClick={() => onChange(t.key)}
+          className={`rounded-md px-4 py-1.5 text-[13px] font-medium transition-colors ${
+            active === t.key
+              ? 'bg-cyan/15 text-cyan'
+              : 'text-txt-muted hover:text-txt-secondary'
+          }`}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}

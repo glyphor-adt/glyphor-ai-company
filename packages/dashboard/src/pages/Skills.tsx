@@ -136,8 +136,6 @@ export default function Skills() {
 
   return (
     <div className="space-y-6">
-      <SectionHeader title="Skill Library" />
-
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-4">
         <Card className="text-center py-3">

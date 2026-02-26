@@ -142,11 +142,6 @@ export default function Activity() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-txt-primary">Activity</h1>
-        <p className="mt-1 text-sm text-txt-muted">Live agent runs and task history</p>
-      </div>
-
       {/* ── Summary Stats ──────────────────── */}
       <div className="grid grid-cols-5 gap-4">
         <MiniStat label="Total Runs" value={String(stats.total)} loading={loading} />

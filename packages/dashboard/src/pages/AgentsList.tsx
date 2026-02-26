@@ -10,22 +10,6 @@ export default function AgentsList() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-txt-primary">Agents</h1>
-          <p className="mt-1 text-sm text-txt-muted">
-            {agents.length} agents · {activeCount} active
-          </p>
-        </div>
-        <Link
-          to="/agents/new"
-          className="rounded-lg bg-cyan px-4 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90"
-        >
-          + New Agent
-        </Link>
-      </div>
-
       {/* Agent Grid */}
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

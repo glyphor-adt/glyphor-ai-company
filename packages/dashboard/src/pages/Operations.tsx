@@ -7,6 +7,7 @@ import {
   AgentAvatar,
   Skeleton,
   timeAgo,
+  PageTabs,
 } from '../components/ui';
 import {
   BarChart,
@@ -20,6 +21,7 @@ import {
   CartesianGrid,
   Cell,
 } from 'recharts';
+import Activity from './Activity';
 
 interface AgentRow {
   id: string;
@@ -240,7 +242,31 @@ function useIncidents() {
   return { data, loading };
 }
 
+type Tab = 'overview' | 'history';
+
 export default function Operations() {
+  const [tab, setTab] = useState<Tab>('overview');
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-txt-primary">Operations</h1>
+        <p className="mt-1 text-sm text-txt-muted">Agent performance, runs, and costs</p>
+      </div>
+      <PageTabs
+        tabs={[
+          { key: 'overview' as Tab, label: 'Overview' },
+          { key: 'history' as Tab, label: 'Run History' },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+      {tab === 'history' ? <Activity /> : <OperationsOverview />}
+    </div>
+  );
+}
+
+function OperationsOverview() {
   const { data: agents, loading: agentsLoading } = useAgentRuns();
   const { data: reflections, loading: reflectionsLoading } = useReflections(14);
   const { data: recentRuns, loading: recentRunsLoading } = useRecentRuns(48);
@@ -306,11 +332,6 @@ export default function Operations() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-txt-primary">Operations</h1>
-        <p className="mt-1 text-sm text-txt-muted">Agent performance, runs, and costs</p>
-      </div>
-
       {/* Summary Cards */}
       <div className="grid grid-cols-4 gap-4">
         <SummaryCard label="Total Runs" value={String(totalRuns)} loading={loading} />

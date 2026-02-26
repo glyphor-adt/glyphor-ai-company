@@ -103,8 +103,6 @@ export default function Meetings() {
 
   return (
     <div className="space-y-6">
-      <SectionHeader title="Meetings & Messages" />
-
       {/* Stats bar */}
       <div className="grid grid-cols-5 gap-4">
         {[

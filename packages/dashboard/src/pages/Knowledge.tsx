@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
+import { Card, SectionHeader, Skeleton, timeAgo, PageTabs } from '../components/ui';
 import {
   MdConstruction, MdRocketLaunch, MdCelebration, MdFitnessCenter,
   MdTrackChanges, MdWarning, MdHelpOutline, MdExpandMore, MdClose, MdArrowForward,
 } from 'react-icons/md';
 import type { IconType } from 'react-icons';
+import Graph from './Graph';
 
 /* ── Types ─────────────────────────────────────── */
 
@@ -74,7 +75,33 @@ const MOOD_ICON: Record<string, IconType> = {
 
 /* ── Page ──────────────────────────────────────── */
 
+type Tab = 'base' | 'graph';
+
 export default function Knowledge() {
+  const [tab, setTab] = useState<Tab>('base');
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-txt-primary">Knowledge</h1>
+        <p className="mt-1 text-sm text-txt-muted">
+          Company knowledge base, founder bulletins, and organizational intelligence
+        </p>
+      </div>
+      <PageTabs
+        tabs={[
+          { key: 'base' as Tab, label: 'Knowledge Base' },
+          { key: 'graph' as Tab, label: 'Graph Explorer' },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+      {tab === 'graph' ? <Graph /> : <KnowledgeBase />}
+    </div>
+  );
+}
+
+function KnowledgeBase() {
   const [sections, setSections] = useState<KBSection[]>([]);
   const [bulletins, setBulletins] = useState<Bulletin[]>([]);
   const [pulse, setPulse] = useState<Pulse | null>(null);
@@ -125,7 +152,6 @@ export default function Knowledge() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div><h1 className="text-2xl font-bold text-txt-primary">Knowledge</h1></div>
         <Skeleton className="h-32" />
         <Skeleton className="h-64" />
         <Skeleton className="h-48" />
@@ -135,14 +161,6 @@ export default function Knowledge() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-txt-primary">Knowledge</h1>
-        <p className="mt-1 text-sm text-txt-muted">
-          Company knowledge base, founder bulletins, and organizational intelligence
-        </p>
-      </div>
-
       {/* ─── Health Summary ──────────── */}
       <HealthSummary sections={sections} bulletins={bulletins} pulse={pulse} kgStats={kgStats} />
 

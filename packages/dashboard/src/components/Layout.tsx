@@ -6,20 +6,15 @@ const NAV = [
   { to: '/', label: 'Dashboard', icon: GridIcon },
   { to: '/directives', label: 'Directives', icon: DirectivesIcon },
   { to: '/workforce', label: 'Workforce', icon: UsersIcon },
-  { to: '/agents', label: 'Agents', icon: AgentIcon },
-  { to: '/chat', label: 'Chat', icon: ChatIcon },
+  { to: '/comms', label: 'Comms', icon: ChatIcon },
   { to: '/approvals', label: 'Approvals', icon: CheckIcon },
   { to: '/financials', label: 'Financials', icon: ChartIcon },
-  { to: '/activity', label: 'Activity', icon: ActivityIcon },
   { to: '/operations', label: 'Operations', icon: GearIcon },
   { to: '/strategy', label: 'Strategy', icon: StrategyIcon },
-  { to: '/graph', label: 'Graph', icon: GraphIcon },
-  { to: '/skills', label: 'Skills', icon: SkillsIcon },
-  { to: '/builder', label: 'Builder', icon: BuilderIcon },
-  { to: '/meetings', label: 'Meetings', icon: MeetingsIcon },
   { to: '/knowledge', label: 'Knowledge', icon: KnowledgeIcon },
+  { to: '/capabilities', label: 'Capabilities', icon: SkillsIcon },
+  { to: '/builder', label: 'Builder', icon: BuilderIcon },
   { to: '/governance', label: 'Governance', icon: GovernanceIcon },
-  { to: '/world-model', label: 'World Model', icon: WorldModelIcon },
 ] as const;
 
 export default function Layout() {
