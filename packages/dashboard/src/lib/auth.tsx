@@ -7,7 +7,7 @@ import { supabase } from './supabase';
 const STORAGE_KEY = 'glyphor-auth';
 
 // Fallback allowlist in case DB is unreachable
-const FALLBACK_EMAILS = ['kristina@glyphor.ai', 'andrew@glyphor.ai', 'devops@glyphor.ai'];
+const FALLBACK_EMAILS = ['kristina@glyphor.ai', 'andrew@glyphor.ai', 'devops@glyphor.ai', 'andrew.zwelling@gmail.com'];
 
 // Cache allowed emails from the DB so we don't query on every check
 let _allowedCache: Set<string> | null = null;

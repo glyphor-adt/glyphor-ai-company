@@ -12,7 +12,8 @@ create table if not exists dashboard_users (
 insert into dashboard_users (email, name, role, created_by) values
   ('kristina@glyphor.ai', 'Kristina Denney', 'admin', 'system'),
   ('andrew@glyphor.ai', 'Andrew Zwelling', 'admin', 'system'),
-  ('devops@glyphor.ai', 'DevOps', 'viewer', 'system')
+  ('devops@glyphor.ai', 'DevOps', 'viewer', 'system'),
+  ('andrew.zwelling@gmail.com', 'Andrew Zwelling', 'admin', 'system')
 on conflict (email) do nothing;
 
 -- RLS: allow anon to read (for auth checks) and admins to insert/delete
