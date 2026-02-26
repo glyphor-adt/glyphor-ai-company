@@ -589,7 +589,7 @@ ai-agent/
 │   │
 │   ├── memory/                  # Database persistence
 │   │   └── src/
-│   │       └── store.ts              # MemoryStore (Supabase/PostgreSQL client)
+│   │       └── store.ts              # MemoryStore (PostgreSQL client)
 │   │
 │   └── scheduler/               # HTTP service (the deployed app)
 │       └── src/
@@ -668,8 +668,9 @@ post that still captures brand essence).
 
 ```typescript
 import type { ToolDefinition } from '../../agent-runtime/src/types';
+import type { Pool } from 'pg';
 
-export function createTools(db: any): ToolDefinition[] {
+export function createTools(pool: Pool): ToolDefinition[] {
   return [
     {
       name: 'web_fetch',
@@ -680,7 +681,6 @@ export function createTools(db: any): ToolDefinition[] {
       execute: async (params) => {
         const response = await fetch(params.url as string);
         const html = await response.text();
-        // Return first 50K chars to stay within context limits
         return { success: true, data: html.substring(0, 50_000) };
       },
     },
@@ -692,14 +692,11 @@ export function createTools(db: any): ToolDefinition[] {
         doc_type: { type: 'string', description: 'campaign_brief|video_script|press_release|social_post|sales_collateral', required: true },
       },
       execute: async (params) => {
-        // The LLM will analyze the content using brand guidelines in the system prompt.
-        // This tool stores the review for audit trail purposes.
-        const { data } = await db.from('activity_log').insert({
-          agent_id: 'brand-agent',
-          action: 'document_review',
-          details: { doc_type: params.doc_type, content_length: (params.content as string).length },
-        }).select();
-        return { success: true, data };
+        const { rows } = await pool.query(
+          `INSERT INTO activity_log (agent_id, action, details) VALUES ($1, $2, $3) RETURNING *`,
+          ['brand-agent', 'document_review', JSON.stringify({ doc_type: params.doc_type, content_length: (params.content as string).length })],
+        );
+        return { success: true, data: rows[0] };
       },
     },
     {
@@ -711,13 +708,11 @@ export function createTools(db: any): ToolDefinition[] {
         importance: { type: 'number', description: '0.0-1.0 importance score', required: false },
       },
       execute: async (params) => {
-        const { data } = await db.from('agent_memory').insert({
-          agent_id: 'brand-agent',
-          category: params.category,
-          content: params.content,
-          importance: params.importance || 0.5,
-        }).select();
-        return { success: true, data };
+        const { rows } = await pool.query(
+          `INSERT INTO agent_memory (agent_id, category, content, importance) VALUES ($1, $2, $3, $4) RETURNING *`,
+          ['brand-agent', params.category, params.content, params.importance || 0.5],
+        );
+        return { success: true, data: rows[0] };
       },
     },
     {
@@ -728,13 +723,11 @@ export function createTools(db: any): ToolDefinition[] {
         limit: { type: 'number', description: 'Max results', required: false },
       },
       execute: async (params) => {
-        const { data } = await db
-          .from('agent_memory')
-          .select('*')
-          .eq('agent_id', 'brand-agent')
-          .textSearch('content', params.query as string)
-          .limit((params.limit as number) || 10);
-        return { success: true, data };
+        const { rows } = await pool.query(
+          `SELECT * FROM agent_memory WHERE agent_id = $1 AND content ILIKE $2 ORDER BY created_at DESC LIMIT $3`,
+          ['brand-agent', `%${params.query}%`, (params.limit as number) || 10],
+        );
+        return { success: true, data: rows };
       },
     },
     {
@@ -761,11 +754,10 @@ export function createTools(db: any): ToolDefinition[] {
         details: { type: 'object', description: 'Additional context', required: false },
       },
       execute: async (params) => {
-        await db.from('activity_log').insert({
-          agent_id: 'brand-agent',
-          action: params.action,
-          details: params.details || {},
-        });
+        await pool.query(
+          `INSERT INTO activity_log (agent_id, action, details) VALUES ($1, $2, $3)`,
+          ['brand-agent', params.action, JSON.stringify(params.details || {})],
+        );
         return { success: true };
       },
     },
@@ -779,7 +771,7 @@ export function createTools(db: any): ToolDefinition[] {
 import { AgentRunner } from '../../agent-runtime/src/agentRunner';
 import { SYSTEM_PROMPT } from './systemPrompt';
 import { createTools } from './tools';
-import { createClient } from '@supabase/supabase-js';
+import pg from 'pg';
 
 export interface RunParams {
   task: 'brand_audit' | 'compliance_report' | 'on_demand';
@@ -788,8 +780,8 @@ export interface RunParams {
 }
 
 export async function runBrandAgent(params: RunParams) {
-  const db = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!);
-  const tools = createTools(db);
+  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+  const tools = createTools(pool);
 
   const taskPrompts: Record<string, string> = {
     brand_audit: 'Run a brand compliance audit. Fetch eaton.com and key regional pages. Check logo usage, color compliance, messaging consistency, and outdated content. Log all findings and send a summary to the #brand-compliance Teams channel.',
@@ -1028,11 +1020,8 @@ AZURE_OPENAI_API_KEY=...                    # or use managed identity
 AZURE_OPENAI_DEPLOYMENT=gpt-5.2            # chat/reasoning model deployment name
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-small  # embedding model
 
-# Database (PostgreSQL)
-DATABASE_URL=postgresql://user:pass@host:5432/dbname
-# OR Supabase-style:
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_KEY=...
+# Database (Azure Database for PostgreSQL)
+DATABASE_URL=postgresql://user:pass@your-server.postgres.database.azure.com:5432/dbname?sslmode=require
 
 # Entra ID (for Graph API / Teams)
 AZURE_TENANT_ID=...
