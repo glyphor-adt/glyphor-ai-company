@@ -20,6 +20,7 @@ import { createCPOTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { createRunner } from '../shared/createRunner.js';
 import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
@@ -45,7 +46,7 @@ export async function runCPO(params: CPORunParams = {}) {
     openaiApiKey: process.env.OPENAI_API_KEY,
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
   });
-  const runner = new CompanyAgentRunner(modelClient);
+  const runner = createRunner(modelClient, 'cpo', params.task ?? 'on_demand');
   const eventBus = new EventBus();
   const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
   const graphReader = memory.getGraphReader();

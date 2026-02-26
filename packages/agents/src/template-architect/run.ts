@@ -12,6 +12,7 @@ import { TEMPLATE_ARCHITECT_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createTemplateArchitectTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { createRunner } from '../shared/createRunner.js';
 import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
@@ -28,7 +29,7 @@ export async function runTemplateArchitect(params: TemplateArchitectRunParams = 
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company', gcpProjectId: process.env.GCP_PROJECT_ID,
   });
   const modelClient = new ModelClient({ geminiApiKey: process.env.GOOGLE_AI_API_KEY, openaiApiKey: process.env.OPENAI_API_KEY, anthropicApiKey: process.env.ANTHROPIC_API_KEY });
-  const runner = new CompanyAgentRunner(modelClient);
+  const runner = createRunner(modelClient, 'template-architect', params.task ?? 'on_demand');
   const eventBus = new EventBus();
   const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
   const graphReader = memory.getGraphReader();

@@ -12,6 +12,7 @@ import { VP_RESEARCH_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createVPResearchTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 
 export interface VPResearchRunParams {
@@ -48,7 +49,7 @@ export async function runVPResearch(params: VPResearchRunParams = {}) {
     openaiApiKey: process.env.OPENAI_API_KEY,
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
   });
-  const runner = new CompanyAgentRunner(modelClient);
+  const runner = createRunner(modelClient, 'vp-research', params.task ?? 'on_demand');
   const eventBus = new EventBus();
   const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
   const graphReader = memory.getGraphReader();

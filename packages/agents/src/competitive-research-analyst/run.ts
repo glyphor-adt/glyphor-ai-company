@@ -12,6 +12,7 @@ import { COMPETITIVE_RESEARCH_ANALYST_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCompetitiveResearchAnalystTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 
 export interface CompetitiveResearchAnalystRunParams {
@@ -36,7 +37,7 @@ export async function runCompetitiveResearchAnalyst(params: CompetitiveResearchA
     openaiApiKey: process.env.OPENAI_API_KEY,
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
   });
-  const runner = new CompanyAgentRunner(modelClient);
+  const runner = createRunner(modelClient, 'competitive-research-analyst', params.task ?? 'on_demand');
   const eventBus = new EventBus();
   const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
   const graphReader = memory.getGraphReader();

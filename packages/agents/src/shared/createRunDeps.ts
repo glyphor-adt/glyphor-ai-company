@@ -6,8 +6,10 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { GlyphorEventBus, RunDependencies, AgentProfileData, CompanyAgentRole, SkillContext, SkillFeedback } from '@glyphor/agent-runtime';
+import type { ClassifiedRunDependencies } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { KnowledgeGraphReader } from '@glyphor/company-memory';
+import { SharedMemoryLoader, WorldModelUpdater, EmbeddingClient } from '@glyphor/company-memory';
 
 /** Map agent roles to their organizational department for knowledge routing. */
 const ROLE_DEPARTMENT: Record<string, string> = {
@@ -44,9 +46,18 @@ export function createRunDeps(
   supabase: SupabaseClient,
   glyphorEventBus: GlyphorEventBus,
   memory: CompanyMemoryStore,
-): RunDependencies {
+): ClassifiedRunDependencies {
   const ci = memory.getCollectiveIntelligence();
   const graphReader: KnowledgeGraphReader | null = memory.getGraphReader();
+
+  // Build shared memory infrastructure for classified runners
+  const embeddingClient = new EmbeddingClient({ supabaseUrl: process.env.SUPABASE_URL!, supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY! });
+  const sharedMemoryLoader = graphReader
+    ? new SharedMemoryLoader(supabase, embeddingClient, graphReader)
+    : null;
+  const worldModelUpdater = sharedMemoryLoader
+    ? new WorldModelUpdater(supabase, sharedMemoryLoader)
+    : null;
 
   return {
     glyphorEventBus,
@@ -388,6 +399,26 @@ export function createRunDeps(
           .eq('id', agentSkill.id);
       }
     },
+
+    // ─── Shared memory + world model (for classified runners) ───
+    sharedMemoryLoader: sharedMemoryLoader
+      ? {
+          loadForAgent: (role: CompanyAgentRole, currentTask: string) =>
+            sharedMemoryLoader.loadForAgent(role, currentTask, 'standard'),
+          formatForPrompt: (ctx) => sharedMemoryLoader.formatForPrompt(ctx),
+          writeEpisode: (episode) => sharedMemoryLoader.writeEpisode(episode),
+        }
+      : undefined,
+    worldModelUpdater: worldModelUpdater
+      ? {
+          updateFromGrade: (grade) => worldModelUpdater.updateFromGrade(
+            grade.agentRole,
+            { selfScore: grade.overallScore, rubricScores: [], strengths: [], weaknesses: [], uncertainties: [], taskType: grade.taskType },
+            { overallScore: grade.overallScore, dimensionScores: Object.entries(grade.dimensionScores).map(([name, score]) => ({ dimension: name, score, feedback: '' })), feedback: grade.evaluatorFeedback, evaluatorRole: 'chief-of-staff' as CompanyAgentRole },
+            70,
+          ),
+        }
+      : undefined,
   };
 }
 
