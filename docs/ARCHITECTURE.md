@@ -429,15 +429,16 @@ Riley M.                                                       Ryan P.   Amara D
 
 ### Cron Schedules (GCP Cloud Scheduler)
 
-#### Agent Task Jobs (9 jobs, via Pub/Sub)
+#### Agent Task Jobs (8 jobs, via Pub/Sub)
 
-All 9 jobs are **enabled** and run **daily** (every day of the week).
+All 8 jobs are **enabled** and run **daily** (every day of the week).
 
 | Job ID | Agent | Cron (UTC) | Local (CT) | Task |
 |--------|-------|-----------|------------|------|
 | `cos-briefing-kristina` | Sarah Chen | `0 12 * * *` | 7:00 AM | Morning briefing for Kristina |
 | `cos-briefing-andrew` | Sarah Chen | `30 12 * * *` | 7:30 AM | Morning briefing for Andrew |
 | `cos-eod-summary` | Sarah Chen | `0 23 * * *` | 6:00 PM | End-of-day summary |
+| `cos-orchestrate` | Sarah Chen | `0 * * * *` | Every hour | Hourly directive sweep (backup — heartbeat handles real-time) |
 | `cto-health-check` | Marcus Reeves | `0 */2 * * *` | Every 2 hours | Platform health check |
 | `cfo-daily-costs` | Nadia Okafor | `0 14 * * *` | 9:00 AM | Daily cost analysis |
 | `cpo-usage-analysis` | Elena Vasquez | `0 15 * * *` | 10:00 AM | Usage & competitive analysis |
@@ -452,7 +453,7 @@ All 9 jobs are **enabled** and run **daily** (every day of the week).
 | `sync-stripe` | `0 6 * * *` | 12:00 AM | `/sync/stripe` | Stripe (MRR, churn, subscriptions) |
 | `sync-gcp-billing` | `0 7 * * *` | 1:00 AM | `/sync/gcp-billing` | GCP BigQuery billing export |
 | `sync-mercury` | `0 8 * * *` | 2:00 AM | `/sync/mercury` | Mercury (cash balance, flows, vendor subs) |
-| `heartbeat` | `*/10 * * * *` | Every 10 min | `/heartbeat` | Lightweight agent check-ins (DB only, no LLM) |
+| `heartbeat` | `*/10 * * * *` | Every 10 min | `/heartbeat` | Agent check-ins + real-time directive detection |
 
 ---
 
@@ -844,7 +845,15 @@ selects the correct runner based on role and task type:
 - **CompanyAgentRunner** — on-demand chat: knowledge + personality injection
 
 The core execution loop (ported from Fuse V7 `agentRunner.ts`). Every single agent run —
-whether triggered by cron, chat, heartbeat, or event — flows through this exact loop:
+whether triggered by cron, chat, heartbeat, or event — flows through this exact loop.
+
+**Directive Detection (Real-Time):** The heartbeat cycle (`/heartbeat`, every 10 min) includes a
+CoS-specific check: query `founder_directives` for active directives with zero `work_assignments`.
+When a new directive is detected, the heartbeat immediately wakes Sarah with an `orchestrate` task.
+This means new directives are picked up within ~10 minutes of creation, not waiting for the hourly
+cron backup sweep.
+
+Execution loop:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
