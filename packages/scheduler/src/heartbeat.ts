@@ -228,6 +228,38 @@ export class HeartbeatManager {
       };
     }
 
+    // Check 1.5 (CoS only): Detect new directives needing orchestration
+    // Runs every heartbeat cycle (~10 min) so Sarah picks up directives in near real-time
+    if (agentRole === 'chief-of-staff') {
+      try {
+        const { data: activeDirectives } = await this.supabase
+          .from('founder_directives')
+          .select('id, title, work_assignments(id)')
+          .eq('status', 'active');
+
+        const newDirectives = (activeDirectives ?? []).filter(
+          (d: any) => !d.work_assignments || d.work_assignments.length === 0,
+        );
+
+        if (newDirectives.length > 0) {
+          console.log(
+            `[Heartbeat] CoS: ${newDirectives.length} new directive(s) detected: ` +
+            newDirectives.map((d: any) => `"${d.title}"`).join(', '),
+          );
+          return {
+            shouldWake: true,
+            reason: `new_directives:${newDirectives.length}`,
+            context: {
+              task: 'orchestrate',
+              message: `${newDirectives.length} new directive(s) need orchestration: ${newDirectives.map((d: any) => `"${d.title}"`).join(', ')}. Run your orchestration protocol to break them into work assignments and dispatch to agents.`,
+            },
+          };
+        }
+      } catch (err) {
+        console.warn('[Heartbeat] CoS directive check failed:', (err as Error).message);
+      }
+    }
+
     // Check 2: Universal work loop (P1-P5 priority stack)
     try {
       const workResult = await executeWorkLoop(agentRole, this.supabase);

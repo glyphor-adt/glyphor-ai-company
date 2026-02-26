@@ -27,13 +27,11 @@ export class GeminiAdapter implements ProviderAdapter {
     const thinkingEnabled = request.thinkingEnabled ?? true;
     let thinkingConfig: Record<string, unknown> | undefined;
     if (request.model.startsWith('gemini-3')) {
-      // Gemini 3.x: only set thinkingLevel when enabled; omit config entirely when disabled
-      if (thinkingEnabled) {
-        thinkingConfig = {
-          includeThoughts: true,
-          thinkingLevel: 'high',
-        };
-      }
+      // Gemini 3.x: always set thinkingConfig — omitting it defaults to MINIMAL which is unsupported
+      thinkingConfig = {
+        includeThoughts: thinkingEnabled,
+        thinkingLevel: thinkingEnabled ? 'high' : 'low',
+      };
     } else if (request.model.startsWith('gemini-2.5')) {
       thinkingConfig = {
         includeThoughts: true,

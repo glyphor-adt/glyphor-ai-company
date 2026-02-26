@@ -78,8 +78,10 @@ function estimateCost(model: string, inputTokens: number, outputTokens: number):
 const ON_DEMAND_MAX_TURNS = 10;
 const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = 105_000;
 
-/** Task tier (work_loop) — narrow executor with tight limits. */
-const TASK_TIER_MAX_TURNS = 10;
+/** Task tier (work_loop) — narrow executor with tight limits.
+ *  Research/account agents need multi-step tool calls (each = 2 turns),
+ *  so 10 is too tight — raised to 20 for headroom. */
+const TASK_TIER_MAX_TURNS = 20;
 const TASK_TIER_TIMEOUT_MS = 180_000;
 const TASK_TIER_CALL_TIMEOUT_MS = 60_000;
 

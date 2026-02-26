@@ -309,7 +309,10 @@ export class ToolExecutor {
               type: v.type,
               description: v.description,
               ...(v.enum ? { enum: v.enum } : {}),
-              ...(v.items ? { items: v.items } : {}),
+              // Gemini API requires items for array types — default to string if missing
+              ...(v.type === 'array'
+                ? { items: v.items ?? { type: 'string' } }
+                : v.items ? { items: v.items } : {}),
               ...(v.properties ? { properties: v.properties } : {}),
             },
           ]),

@@ -384,47 +384,12 @@ resource "google_cloud_scheduler_job" "briefing_andrew" {
   depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
 }
 
-# ─── Cloud Scheduler: CoS Orchestration (3x daily) ──────────
-resource "google_cloud_scheduler_job" "cos_orchestrate_morning" {
-  name      = "cos-orchestrate-morning"
-  schedule  = "0 14 * * *"
-  time_zone = "America/Chicago"
-  region    = var.region
-
-  pubsub_target {
-    topic_name = google_pubsub_topic.agent_tasks.id
-    data = base64encode(jsonencode({
-      agentRole = "chief-of-staff"
-      task      = "orchestrate"
-      payload   = {}
-    }))
-  }
-
-  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
-}
-
-resource "google_cloud_scheduler_job" "cos_orchestrate_midday" {
-  name      = "cos-orchestrate-midday"
-  schedule  = "0 18 * * *"
-  time_zone = "America/Chicago"
-  region    = var.region
-
-  pubsub_target {
-    topic_name = google_pubsub_topic.agent_tasks.id
-    data = base64encode(jsonencode({
-      agentRole = "chief-of-staff"
-      task      = "orchestrate"
-      payload   = {}
-    }))
-  }
-
-  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
-}
-
-resource "google_cloud_scheduler_job" "cos_orchestrate_evening" {
-  name      = "cos-orchestrate-evening"
-  schedule  = "0 22 * * *"
-  time_zone = "America/Chicago"
+# ─── Cloud Scheduler: CoS Orchestration (hourly backup sweep) ──
+# Primary detection is via heartbeat (~10 min); this hourly cron is a safety net.
+resource "google_cloud_scheduler_job" "cos_orchestrate" {
+  name      = "cos-orchestrate"
+  schedule  = "0 * * * *"
+  time_zone = "UTC"
   region    = var.region
 
   pubsub_target {
