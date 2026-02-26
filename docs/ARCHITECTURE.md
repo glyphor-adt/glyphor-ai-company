@@ -1,6 +1,6 @@
 # Glyphor AI Company — System Architecture
 
-> Last updated: 2026-03-26
+> Last updated: 2026-02-25
 
 ## Overview
 
@@ -45,6 +45,12 @@ market research & intelligence, and global platform administration.
 │  POST /sync/stripe       ── Stripe data sync                        │
 │  POST /sync/gcp-billing  ── GCP billing export sync                 │
 │  POST /sync/mercury      ── Mercury banking sync                    │
+│  POST /sync/openai-billing ── OpenAI billing sync                    │
+│  POST /sync/anthropic-billing ── Anthropic billing sync              │
+│  POST /sync/kling-billing ── Kling AI billing sync                   │
+│  POST /sync/governance   ── Governance platform sync                 │
+│  POST /sync/graphrag-index ── GraphRAG index trigger                 │
+│  POST /sync/graphrag-tune ── GraphRAG tuning trigger                 │
 │  POST /heartbeat         ── Lightweight agent check-in cycle         │
 │  POST /agents/create     ── Create new dynamic agent                │
 │  PUT  /agents/:id/settings── Update agent configuration             │
@@ -55,6 +61,8 @@ market research & intelligence, and global platform administration.
 │  GET  /analysis/:id      ── Get analysis status/result              │
 │  GET  /analysis          ── List all analyses                       │
 │  GET  /analysis/:id/export── Export analysis report (md/json)       │
+│  POST /analysis/:id/cancel── Cancel in-progress analysis            │
+│  POST /analysis/:id/enhance── McKinsey-grade analysis enhancement   │
 │  GET  /analysis/:id/visual── Get saved AI-generated infographic     │
 │  POST /analysis/:id/visual── Generate & save AI infographic         │
 │  POST /simulation/run    ── Launch T+1 simulation                   │
@@ -62,8 +70,21 @@ market research & intelligence, and global platform administration.
 │  GET  /simulation        ── List all simulations                    │
 │  POST /simulation/:id/accept ── Accept simulation result            │
 │  GET  /simulation/:id/export ── Export simulation report (md/json)  │
+│  POST /deep-dive/run     ── Launch McKinsey-style deep dive          │
+│  GET  /deep-dive         ── List all deep dives                     │
+│  GET  /deep-dive/:id     ── Get deep dive status/result             │
+│  POST /deep-dive/:id/cancel── Cancel in-progress deep dive          │
+│  GET  /deep-dive/:id/export── Export deep dive report (md/json)     │
 │  GET  /deep-dive/:id/visual── Get saved deep dive infographic       │
 │  POST /deep-dive/:id/visual── Generate & save deep dive infographic │
+│  POST /strategy-lab/run  ── Launch Strategy Lab v2 analysis          │
+│  GET  /strategy-lab      ── List all strategy lab analyses           │
+│  GET  /strategy-lab/:id  ── Get strategy lab status/result           │
+│  POST /strategy-lab/:id/cancel── Cancel strategy lab analysis        │
+│  GET  /strategy-lab/:id/export── Export strategy lab report          │
+│  GET  /strategy-lab/:id/visual── Get strategy lab infographic        │
+│  POST /strategy-lab/:id/visual── Generate strategy lab infographic   │
+│  GET  /agents/:id/prompt ── Get agent system prompt                  │
 │  POST /cache/invalidate  ── Invalidate prompt cache (by prefix)     │
 │  POST /cot/run           ── Launch chain-of-thought analysis         │
 │  GET  /cot               ── List all CoT analyses                   │
@@ -81,7 +102,12 @@ market research & intelligence, and global platform administration.
 │  POST /knowledge/routes  ── Update knowledge routing rules           │
 │  GET  /knowledge/patterns── Process patterns                         │
 │  GET  /knowledge/contradictions ── Contradiction detection           │
+│  GET  /directives        ── List founder directives                  │
+│  POST /directives        ── Create founder directive                 │
+│  PATCH /directives/:id   ── Update directive                         │
+│  DELETE /directives/:id  ── Delete directive                         │
 │  GET  /authority/proposals── Authority tier proposals                │
+│  POST /authority/proposals/:id/resolve── Resolve authority proposal  │
 │  GET  /health            ── Health check                             │
 │  OPTIONS /*              ── CORS preflight                           │
 │                                                                      │
@@ -101,6 +127,12 @@ market research & intelligence, and global platform administration.
 │  │ Engine       │ │  roles routed) │    └─────────┬───────────┘      │
 │  ├──────────────┤ └────────┬───────┘              │                 │
 │  │ CoT Engine   │          │                      │                 │
+│  ├──────────────┤          │                      │                 │
+│  │ Deep Dive    │          │                      │                 │
+│  │ Engine       │          │                      │                 │
+│  ├──────────────┤          │                      │                 │
+│  │ Strategy Lab │          │                      │                 │
+│  │ v2 Engine    │          │                      │                 │
 │  ├──────────────┤          │                      │                 │
 │  │ Wake Router  │          │                      │                 │
 │  │ + Heartbeat  │          │                      │                 │
@@ -227,7 +259,6 @@ market research & intelligence, and global platform administration.
 │   Pages:                                  │
 │   ├ Dashboard.tsx    (agent overview)     │
 │   ├ Chat.tsx         (talk to agents)    │
-│   ├ GroupChat.tsx    (multi-agent chat)   │
 │   ├ Workforce.tsx    (org chart + roster)│
 │   ├ WorkforceBuilder.tsx (org builder)   │
 │   ├ AgentsList.tsx   (agent roster)      │
@@ -235,7 +266,6 @@ market research & intelligence, and global platform administration.
 │   │                   memory, messages,  │
 │   │                   settings)          │
 │   ├ AgentBuilder.tsx (create new agents) │
-│   ├ AgentSettings.tsx(agent config)      │
 │   ├ Approvals.tsx    (decision queue)    │
 │   ├ Directives.tsx   (founder tasks)     │
 │   ├ Financials.tsx   (revenue & costs)   │
@@ -249,7 +279,8 @@ market research & intelligence, and global platform administration.
 │   ├ Skills.tsx       (skill library)     │
 │   ├ SkillDetail.tsx  (skill detail)      │
 │   ├ Meetings.tsx     (meetings & DMs)    │
-│   └ TeamsConfig.tsx  (Teams bot setup)   │
+│   ├ TeamsConfig.tsx  (Teams bot setup)   │
+│   └ WorldModel.tsx   (agent self-models) │
 │                                           │
 │   Auth: Teams SSO (Entra ID) or Google   │
 │         Sign-In (OAuth 2.0)               │
@@ -420,7 +451,10 @@ glyphor-ai-company/
 ├── packages/
 │   ├── agent-runtime/          # Core execution engine
 │   │   └── src/
-│   │       ├── companyAgentRunner.ts   # Agent loop + knowledge + personality injection
+│   │       ├── companyAgentRunner.ts   # Agent loop + knowledge + personality injection (on-demand chat)
+│   │       ├── baseAgentRunner.ts      # Base class: shared context loading, model calling, tool dispatch
+│   │       ├── orchestratorRunner.ts   # Orchestrator archetype: OBSERVE→PLAN→DELEGATE→MONITOR→EVALUATE
+│   │       ├── taskRunner.ts           # Task archetype: RECEIVE→REASON→EXECUTE→REPORT
 │   │       ├── modelClient.ts          # Multi-provider LLM facade (delegates to providers/)
 │   │       ├── documentExtractor.ts    # Office doc text extraction (officeparser: .docx/.pptx/.xlsx)
 │   │       ├── config/
@@ -448,6 +482,8 @@ glyphor-ai-company/
 │   │       ├── collectiveIntelligence.ts # Collective intelligence store (company pulse, knowledge)
 │   │       ├── graphReader.ts         # KnowledgeGraphReader — semantic search, N-hop, causal chains
 │   │       ├── graphWriter.ts         # KnowledgeGraphWriter — node/edge upsert, deduplication
+│   │       ├── sharedMemoryLoader.ts  # 5-layer shared memory (L1-L5) cross-agent memory access
+│   │       ├── worldModelUpdater.ts   # REFLECT→LEARN→IMPROVE loop — evolves agent self-models
 │   │       ├── namespaces.ts          # Key prefixes and GCS paths
 │   │       ├── schema.ts             # Database row types
 │   │       └── migrations/           # Schema migration helpers

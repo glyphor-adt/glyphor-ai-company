@@ -28,9 +28,9 @@ const MODELS = [
   { value: 'o3', label: 'o3' },
   { value: 'o4-mini', label: 'o4-mini' },
   // Anthropic
-  { value: 'claude-opus-4-20250514', label: 'Claude Opus 4' },
-  { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
-  { value: 'claude-haiku-4-5-20250514', label: 'Claude Haiku 4.5' },
+  { value: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
+  { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+  { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
 ];
 
 export default function AgentBuilder() {

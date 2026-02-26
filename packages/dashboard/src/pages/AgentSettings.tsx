@@ -55,6 +55,7 @@ export default function AgentSettings() {
   const [budgetMonthly, setBudgetMonthly] = useState(15);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   // System prompt state
   const [systemPrompt, setSystemPrompt] = useState('');
@@ -115,15 +116,23 @@ export default function AgentSettings() {
   const handleSave = async () => {
     if (!agent) return;
     setSaving(true);
+    setSaveError('');
     try {
-      await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/settings`, {
+      const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model, temperature, max_turns: maxTurns, budget_per_run: budgetPerRun, budget_daily: budgetDaily, budget_monthly: budgetMonthly }),
       });
+      const result = await resp.json();
+      if (!resp.ok || !result.success) {
+        setSaveError(result.error || `Save failed (${resp.status})`);
+        return;
+      }
       setAgent((prev) => prev ? { ...prev, model, temperature, max_turns: maxTurns, budget_per_run: budgetPerRun, budget_daily: budgetDaily, budget_monthly: budgetMonthly } : prev);
       setSaved(true);
       setTimeout(() => { setSaved(false); setEditMode(false); }, 1200);
+    } catch (err) {
+      setSaveError(`Could not reach scheduler: ${(err as Error).message}`);
     } finally {
       setSaving(false);
     }
@@ -315,9 +324,9 @@ export default function AgentSettings() {
                   <option value="gpt-4.1">gpt-4.1</option>
                 </optgroup>
                 <optgroup label="Anthropic">
-                  <option value="claude-opus-4-20250514">Claude Opus 4</option>
-                  <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
-                  <option value="claude-haiku-4-5-20250514">Claude Haiku 4.5</option>
+                  <option value="claude-opus-4-6">Claude Opus 4.6</option>
+                  <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
+                  <option value="claude-haiku-4-5">Claude Haiku 4.5</option>
                 </optgroup>
               </select>
             </label>
@@ -346,7 +355,8 @@ export default function AgentSettings() {
             </label>
           </div>
 
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex items-center justify-end gap-3">
+            {saveError && <span className="text-sm text-red-400">{saveError}</span>}
             <button onClick={handleSave} disabled={saving} className="rounded-lg bg-cyan px-6 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40">
               {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Changes'}
             </button>
