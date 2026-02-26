@@ -105,7 +105,7 @@ Steps:
   }
 
   const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'cfo', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig(supabase, 'cfo', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 }, task);
 
   const config: AgentConfig = {
     id: `cfo-${task}-${today}`,

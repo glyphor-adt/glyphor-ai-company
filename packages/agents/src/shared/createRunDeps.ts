@@ -66,7 +66,7 @@ export function createRunDeps(
     agentProfileLoader: async (role: CompanyAgentRole): Promise<AgentProfileData | null> => {
       const { data } = await supabase
         .from('agent_profiles')
-        .select('personality_summary, backstory, communication_traits, quirks, tone_formality, emoji_usage, verbosity, voice_sample, signature, voice_examples')
+        .select('personality_summary, backstory, communication_traits, quirks, tone_formality, emoji_usage, verbosity, voice_sample, signature, voice_examples, anti_patterns, working_voice')
         .eq('agent_id', role)
         .single();
       return data as AgentProfileData | null;
@@ -453,12 +453,16 @@ export function createRunDeps(
 /**
  * Load agent config (model, temperature, max_turns, thinking_enabled) from company_agents table.
  * Falls back to provided defaults if the DB lookup fails or returns null.
+ * When task is provided, applies model routing (e.g. Pro model for exec chat).
  */
 export async function loadAgentConfig(
   supabase: SupabaseClient,
   role: string,
   defaults: { model: string; temperature: number; maxTurns: number },
+  task?: string,
 ): Promise<{ model: string; temperature: number; maxTurns: number; thinkingEnabled: boolean }> {
+  // Lazy import to avoid circular deps
+  const { resolveModel } = await import('./createRunner.js');
   try {
     const { data } = await supabase
       .from('company_agents')
@@ -467,8 +471,9 @@ export async function loadAgentConfig(
       .single();
 
     if (data) {
+      const baseModel = data.model || defaults.model;
       return {
-        model: data.model || defaults.model,
+        model: task ? resolveModel(role as any, task, baseModel) : baseModel,
         temperature: data.temperature ?? defaults.temperature,
         maxTurns: data.max_turns ?? defaults.maxTurns,
         thinkingEnabled: data.thinking_enabled ?? true,
@@ -477,5 +482,11 @@ export async function loadAgentConfig(
   } catch {
     // Fall through to defaults
   }
-  return { ...defaults, thinkingEnabled: true };
+  const baseModel = defaults.model;
+  return {
+    model: task ? resolveModel(role as any, task, baseModel) : baseModel,
+    temperature: defaults.temperature,
+    maxTurns: defaults.maxTurns,
+    thinkingEnabled: true,
+  };
 }

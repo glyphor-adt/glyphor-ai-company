@@ -259,7 +259,7 @@ ${lifecycleContext}`;
       initialMessage = params.message || 'Provide a status summary of the company.';
   }
 
-  const agentCfg = await loadAgentConfig(supabase, 'chief-of-staff', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig(supabase, 'chief-of-staff', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 }, task);
 
   const systemPrompt = task === 'orchestrate'
     ? CHIEF_OF_STAFF_SYSTEM_PROMPT + ORCHESTRATION_PROMPT

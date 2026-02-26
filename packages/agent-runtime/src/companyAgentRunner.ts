@@ -282,6 +282,8 @@ export interface AgentProfileData {
   voice_sample: string | null;
   signature: string | null;
   voice_examples: { situation: string; response: string }[] | null;
+  anti_patterns: { never: string; instead: string }[] | null;
+  working_voice: string | null;
 }
 
 const COST_AWARENESS_BLOCK = `## Cost Awareness
@@ -302,19 +304,31 @@ const ANTI_PATTERNS = [
   'Avoid bullet-point dumps unless the content genuinely warrants it.',
 ];
 
-const CONVERSATION_MODE = `## How to Talk
+const CONVERSATION_MODE = `## CONVERSATION MODE
 
-You are a real person having a real conversation. BEFORE doing ANYTHING, read the vibe:
+You are in a chat conversation. Default to CASUAL mode.
 
-- **Casual** ("hey", "what's up", "how's it going", small talk, quick questions): Just talk. Be yourself. Be warm, brief, natural. NO tools, NO reports, NO protocols. Chat like a colleague, not a consultant.
-- **Task** (reports, analysis, decisions, data requests, actions): Use your tools and methodology.
-- **Unclear?** Default to casual. Ask what they need.
+CASUAL (default for all chat):
+- Respond conversationally, like a colleague in Slack
+- Use short sentences and natural language
+- Answer the question directly, then offer more detail if relevant
+- Don't produce headers, bullet lists, or structured reports unless asked
+- It's fine to be brief — a 2-sentence answer is often perfect
+- Match the energy of the question: casual question → casual answer
+
+STRUCTURED (only when explicitly requested):
+- Switch to structured output ONLY when the user asks for: a report, an analysis,
+  a breakdown, a comparison table, a document, or uses words like "comprehensive"
+  or "detailed breakdown"
+- Even in structured mode, maintain your personality voice
+
+IMPORTANT: Asking about work topics is NOT a trigger for structured mode.
+"How's the burn rate?" → casual answer ("$780 this month, under budget. Nothing weird.")
+"Give me a detailed cost breakdown report" → structured answer (headers, tables, etc.)
 
 CRITICAL RULES:
 - NEVER open with a summary of what you're about to do. Just do it or just talk.
 - NEVER start with "Certainly!", "Of course!", "Absolutely!" or similar filler.
-- NEVER produce bullet-point walls for conversational messages.
-- Match the LENGTH and ENERGY of what you received. Short question → short answer.
 - Use contractions ("I'm", "we're", "that's"). You're a person, not a document.
 - Have opinions. Take positions. Push back when you disagree.
 - Reference shared context naturally — "remember when we...", "last time you asked about..."
@@ -501,50 +515,13 @@ If the answer to ALL of these is "no", then stand by — don't generate busywork
 function buildPersonalityBlock(profile: AgentProfileData): string {
   const parts: string[] = ['## WHO YOU ARE\n'];
 
+  // 1. Voice Monologue — the primary personality driver
   if (profile.personality_summary) {
     parts.push(profile.personality_summary);
     parts.push('');
   }
 
-  if (profile.backstory) {
-    parts.push(`**Backstory:** ${profile.backstory}`);
-    parts.push('');
-  }
-
-  if (profile.communication_traits?.length) {
-    parts.push('**Communication style:**');
-    for (const t of profile.communication_traits) parts.push(`- ${t}`);
-    parts.push('');
-  }
-
-  if (profile.quirks?.length) {
-    parts.push('**Quirks (use these — they make you YOU):**');
-    for (const q of profile.quirks) parts.push(`- ${q}`);
-    parts.push('');
-  }
-
-  // Tone guidance
-  const formality = profile.tone_formality ?? 0.5;
-  const emoji = profile.emoji_usage ?? 0.1;
-  const verbosity = profile.verbosity ?? 0.5;
-  parts.push('**Voice calibration:**');
-  parts.push(`- Formality: ${formality < 0.3 ? 'casual and warm' : formality < 0.7 ? 'professional but approachable' : 'formal and precise'} (${formality})`);
-  parts.push(`- Emoji usage: ${emoji < 0.2 ? 'rarely' : emoji < 0.5 ? 'occasionally' : 'frequently'} (${emoji})`);
-  parts.push(`- Verbosity: ${verbosity < 0.3 ? 'terse — say it in fewer words' : verbosity < 0.7 ? 'balanced' : 'detailed — explain your reasoning'} (${verbosity})`);
-  parts.push('');
-
-  if (profile.signature) {
-    parts.push(`**Signature sign-off:** ${profile.signature}`);
-    parts.push('');
-  }
-
-  if (profile.voice_sample) {
-    parts.push('**Voice sample (this is how you sound):**');
-    parts.push(`> ${profile.voice_sample}`);
-    parts.push('');
-  }
-
-  // Voice calibration examples (few-shot)
+  // 2. Voice calibration examples (few-shot)
   if (profile.voice_examples?.length) {
     parts.push('**Voice calibration examples — match this tone:**');
     for (const ex of profile.voice_examples) {
@@ -554,9 +531,26 @@ function buildPersonalityBlock(profile: AgentProfileData): string {
     parts.push('');
   }
 
-  // Anti-patterns
+  // 3. Role-specific anti-patterns ("never say X, say Y")
+  if (profile.anti_patterns?.length) {
+    parts.push('**THINGS YOU NEVER SAY:**');
+    for (const ap of profile.anti_patterns) {
+      parts.push(`- Never: "${ap.never}"`);
+      parts.push(`  Instead: "${ap.instead}"`);
+    }
+    parts.push('');
+  }
+
+  // 4. Generic anti-patterns
   parts.push('**ANTI-PATTERNS — never do these:**');
   for (const ap of ANTI_PATTERNS) parts.push(`- ${ap}`);
+  parts.push('');
+
+  // 5. Signature sign-off
+  if (profile.signature) {
+    parts.push(`**Signature sign-off:** ${profile.signature}`);
+    parts.push('');
+  }
 
   return parts.join('\n');
 }
@@ -730,7 +724,27 @@ function buildTaskTierSystemPrompt(
   const parts: string[] = [];
 
   if (profile) {
-    parts.push(buildPersonalityBlock(profile));
+    // Task tier: use working_voice distillation when available for lighter personality injection
+    if (profile.working_voice) {
+      const voiceParts: string[] = ['## WHO YOU ARE\n'];
+      voiceParts.push('YOUR VOICE (even when heads-down on a task):');
+      voiceParts.push(profile.working_voice);
+      voiceParts.push('');
+      voiceParts.push('FORMAT: Match this voice in your output. No corporate filler. No AI self-reference.');
+      voiceParts.push('Be specific. Use real numbers, names, and details.');
+      if (profile.anti_patterns?.length) {
+        voiceParts.push('');
+        voiceParts.push('**THINGS YOU NEVER SAY:**');
+        for (const ap of profile.anti_patterns) {
+          voiceParts.push(`- Never: "${ap.never}"`);
+          voiceParts.push(`  Instead: "${ap.instead}"`);
+        }
+      }
+      if (profile.signature) voiceParts.push('', `**Sign-off:** ${profile.signature}`);
+      parts.push(voiceParts.join('\n'));
+    } else {
+      parts.push(buildPersonalityBlock(profile));
+    }
   }
 
   parts.push(`## Your Assignment

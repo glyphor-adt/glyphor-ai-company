@@ -156,25 +156,27 @@ export class TaskRunner extends BaseAgentRunner {
 
   private buildPersonalityBlock(profile: AgentProfileData): string {
     const parts: string[] = ['## WHO YOU ARE\n'];
-    if (profile.personality_summary) parts.push(profile.personality_summary, '');
-    if (profile.backstory) parts.push(`**Backstory:** ${profile.backstory}`, '');
-    if (profile.communication_traits?.length) {
-      parts.push('**Communication style:**');
-      for (const t of profile.communication_traits) parts.push(`- ${t}`);
+
+    // Task tier: use working_voice distillation if available, otherwise fall back to full monologue
+    if (profile.working_voice) {
+      parts.push('YOUR VOICE (even when heads-down on a task):');
+      parts.push(profile.working_voice);
       parts.push('');
+      parts.push('FORMAT: Match this voice in your output. No corporate filler. No AI self-reference.');
+      parts.push('Be specific. Use real numbers, names, and details.');
+    } else if (profile.personality_summary) {
+      parts.push(profile.personality_summary, '');
     }
-    if (profile.quirks?.length) {
-      parts.push('**Quirks:**');
-      for (const q of profile.quirks) parts.push(`- ${q}`);
+
+    if (profile.anti_patterns?.length) {
       parts.push('');
+      parts.push('**THINGS YOU NEVER SAY:**');
+      for (const ap of profile.anti_patterns) {
+        parts.push(`- Never: "${ap.never}"`);
+        parts.push(`  Instead: "${ap.instead}"`);
+      }
     }
-    const formality = profile.tone_formality ?? 0.5;
-    const emoji = profile.emoji_usage ?? 0.1;
-    const verbosity = profile.verbosity ?? 0.5;
-    parts.push('**Voice calibration:**');
-    parts.push(`- Formality: ${formality < 0.3 ? 'casual' : formality < 0.7 ? 'professional' : 'formal'} (${formality})`);
-    parts.push(`- Emoji: ${emoji < 0.2 ? 'rarely' : emoji < 0.5 ? 'occasionally' : 'frequently'} (${emoji})`);
-    parts.push(`- Verbosity: ${verbosity < 0.3 ? 'terse' : verbosity < 0.7 ? 'balanced' : 'detailed'} (${verbosity})`);
+
     if (profile.signature) parts.push('', `**Sign-off:** ${profile.signature}`);
     return parts.join('\n');
   }
