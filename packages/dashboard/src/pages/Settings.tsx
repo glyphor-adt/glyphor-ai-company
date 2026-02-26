@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../lib/auth';
-import { invalidateAllowedCache } from '../lib/auth';
+import { useAuth, invalidateAllowedCache, FALLBACK_ADMINS } from '../lib/auth';
 import { Card, SectionHeader } from '../components/ui';
 
 interface DashboardUser {
@@ -22,16 +21,27 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const isAdmin = !loading && users.some(
-    u => u.email.toLowerCase() === user?.email.toLowerCase() && u.role === 'admin'
+  const isFallbackAdmin = FALLBACK_ADMINS.some(e => e.toLowerCase() === user?.email.toLowerCase());
+  const isAdmin = !loading && (
+    users.some(u => u.email.toLowerCase() === user?.email.toLowerCase() && u.role === 'admin')
+    || (users.length === 0 && isFallbackAdmin)
   );
 
   const fetchUsers = useCallback(async () => {
-    const { data } = await supabase
-      .from('dashboard_users' as any)
-      .select('*')
-      .order('created_at', { ascending: true });
-    setUsers((data as unknown as DashboardUser[]) ?? []);
+    try {
+      const { data, error: queryError } = await supabase
+        .from('dashboard_users' as any)
+        .select('*')
+        .order('created_at', { ascending: true });
+      if (queryError) {
+        console.error('Failed to fetch dashboard_users:', queryError.message);
+        setError(`DB error: ${queryError.message}`);
+      }
+      setUsers((data as unknown as DashboardUser[]) ?? []);
+    } catch (e) {
+      console.error('fetchUsers exception:', e);
+      setError('Failed to load users from database');
+    }
     setLoading(false);
   }, []);
 

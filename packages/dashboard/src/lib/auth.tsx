@@ -9,6 +9,9 @@ const STORAGE_KEY = 'glyphor-auth';
 // Fallback allowlist in case DB is unreachable
 const FALLBACK_EMAILS = ['kristina@glyphor.ai', 'andrew@glyphor.ai', 'devops@glyphor.ai', 'andrew.zwelling@gmail.com'];
 
+/** Emails that are always treated as admin even if DB is down */
+export const FALLBACK_ADMINS = ['kristina@glyphor.ai', 'andrew@glyphor.ai', 'andrew.zwelling@gmail.com'];
+
 // Cache allowed emails from the DB so we don't query on every check
 let _allowedCache: Set<string> | null = null;
 let _cachePromise: Promise<Set<string>> | null = null;
