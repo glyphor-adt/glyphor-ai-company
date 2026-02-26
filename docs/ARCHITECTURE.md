@@ -2424,7 +2424,7 @@ Agent A (during run) calls send_agent_message("cfo", "Need Q3 cost data")
 
   ... next CFO run ...
   → pendingMessageLoader queries agent_messages WHERE to_agent='cfo' AND status='pending'
-  → Messages injected into system prompt: "📨 Pending Messages: ..."
+  → Messages injected into system prompt: "Pending Messages: ..."
   → CFO processes and responds via send_agent_message()
   → Original message status → 'read'
 ```

@@ -12,14 +12,14 @@ Glyphor AI Company replaces traditional org-chart roles with AI agents powered b
 
 | Agent | Name | Focus | Status |
 |-------|------|-------|--------|
-| **Chief of Staff** | Sarah Chen | Morning briefings, decision routing, synthesis | ✅ Active |
-| **CTO** | Marcus Reeves | Platform health, deploys, model management | ✅ Active |
-| **CFO** | Nadia Okafor | Cost monitoring, revenue, margin analysis | ✅ Active |
-| **CPO** | Elena Vasquez | Usage analysis, roadmap, competitive intel | ✅ Active |
-| **CMO** | Maya Brooks | Content generation, social, SEO, brand | ✅ Active |
-| **VP Customer Success** | James Turner | Health scoring, churn prediction, nurture | ✅ Active |
-| **VP Sales** | Rachel Kim | KYC research, proposals, pipeline | ✅ Active |
-| **VP Design** | Mia Tanaka | Design system governance, component quality | ✅ Active |
+| **Chief of Staff** | Sarah Chen | Morning briefings, decision routing, synthesis | Active |
+| **CTO** | Marcus Reeves | Platform health, deploys, model management | Active |
+| **CFO** | Nadia Okafor | Cost monitoring, revenue, margin analysis | Active |
+| **CPO** | Elena Vasquez | Usage analysis, roadmap, competitive intel | Active |
+| **CMO** | Maya Brooks | Content generation, social, SEO, brand | Active |
+| **VP Customer Success** | James Turner | Health scoring, churn prediction, nurture | Active |
+| **VP Sales** | Rachel Kim | KYC research, proposals, pipeline | Active |
+| **VP Design** | Mia Tanaka | Design system governance, component quality | Active |
 
 ### Sub-Team (17) & Operations (1)
 
@@ -100,9 +100,9 @@ Agents are available in Teams through multiple channels:
 
 Agents follow a three-tier decision model:
 
-- **🟢 Green** — Autonomous. Agent executes, logs the action.
-- **🟡 Yellow** — One founder approves via Teams.
-- **🔴 Red** — Both founders must approve.
+- **Green** — Autonomous. Agent executes, logs the action.
+- **Yellow** — One founder approves via Teams.
+- **Red** — Both founders must approve.
 
 See [docs/AUTHORITY_MODEL.md](docs/AUTHORITY_MODEL.md) for full details.
 
