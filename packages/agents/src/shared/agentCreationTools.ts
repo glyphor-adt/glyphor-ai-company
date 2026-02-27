@@ -163,19 +163,21 @@ export function createAgentCreationTools(supabase: SupabaseClient): ToolDefiniti
         }
 
         // ── Store dynamic brief ──
-        await supabase.from('agent_briefs').upsert({
+        const { error: briefErr } = await supabase.from('agent_briefs').upsert({
           agent_id: agentId,
           system_prompt: systemPrompt,
           skills: [],
           tools: [],
           updated_at: new Date().toISOString(),
         });
+        if (briefErr) {
+          console.error(`[agentCreation] Failed to store brief for ${agentId}:`, briefErr.message);
+        }
 
         // Ensure each dynamic agent has a profile avatar at creation time.
-        await supabase.from('agent_profiles').upsert({
+        const { error: profileErr } = await supabase.from('agent_profiles').upsert({
           agent_id: agentId,
           avatar_url: avatarUrl,
-          avatar_emoji: '🤖',
           personality_summary: personalitySummary,
           backstory: backstory,
           communication_traits: ['clear', 'structured', 'action-oriented'],
@@ -186,6 +188,9 @@ export function createAgentCreationTools(supabase: SupabaseClient): ToolDefiniti
           working_style: 'outcome-driven',
           updated_at: new Date().toISOString(),
         });
+        if (profileErr) {
+          console.error(`[agentCreation] Failed to store profile for ${agentId}:`, profileErr.message);
+        }
 
         // ── Store schedule if provided ──
         if (cronExpression) {

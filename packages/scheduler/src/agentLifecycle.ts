@@ -47,7 +47,6 @@ export async function createTemporaryAgent(
   const { data: agent, error } = await supabase
     .from('company_agents')
     .insert({
-      id: agentId,
       role: agentId,
       codename: opts.name,
       name: opts.name,
@@ -76,19 +75,22 @@ export async function createTemporaryAgent(
   if (error) throw new Error(`Failed to spawn agent ${agentId}: ${error.message}`);
 
   // Store the dynamic brief (system prompt)
-  await supabase.from('agent_briefs').upsert({
+  const { error: briefErr } = await supabase.from('agent_briefs').upsert({
     agent_id: agentId,
     system_prompt: opts.systemPrompt,
     skills: [],
     tools: [],
     updated_at: new Date().toISOString(),
   });
+  if (briefErr) {
+    console.error(`[agentLifecycle] Failed to store brief for ${agentId}:`, briefErr.message);
+  }
 
   // Create agent profile with personality and avatar
-  await supabase.from('agent_profiles').upsert({
+  const { error: profileErr } = await supabase.from('agent_profiles').upsert({
     agent_id: agentId,
     avatar_url: avatarUrl,
-    avatar_emoji: '🤖',
+
     personality_summary: `${opts.name} is a focused specialist in ${opts.department} who prioritizes clear recommendations, practical execution steps, and concise communication.`,
     backstory: `Provisioned as a specialist to support ${opts.department} with targeted expertise on high-priority initiatives.`,
     communication_traits: ['clear', 'structured', 'action-oriented'],
@@ -99,6 +101,9 @@ export async function createTemporaryAgent(
     working_style: 'outcome-driven',
     updated_at: new Date().toISOString(),
   });
+  if (profileErr) {
+    console.error(`[agentLifecycle] Failed to store profile for ${agentId}:`, profileErr.message);
+  }
 
   // Log the creation
   await supabase.from('activity_log').insert({

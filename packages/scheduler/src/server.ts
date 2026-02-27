@@ -985,7 +985,6 @@ const server = createServer(async (req, res) => {
       const { data: agent, error: createErr } = await memory.getSupabaseClient()
         .from('company_agents')
         .insert({
-          id: agentId,
           role: agentId,
           codename: name,
           name,
@@ -1017,19 +1016,22 @@ const server = createServer(async (req, res) => {
       }
 
       // Store dynamic brief
-      await memory.getSupabaseClient().from('agent_briefs').upsert({
+      const { error: briefErr } = await memory.getSupabaseClient().from('agent_briefs').upsert({
         agent_id: agentId,
         system_prompt: system_prompt ?? '',
         skills: skills ?? [],
         tools: agentTools ?? [],
         updated_at: new Date().toISOString(),
       });
+      if (briefErr) {
+        console.error(`[server] Failed to store brief for ${agentId}:`, briefErr.message);
+      }
 
       // Create agent profile with personality and avatar
-      await memory.getSupabaseClient().from('agent_profiles').upsert({
+      const { error: profileErr } = await memory.getSupabaseClient().from('agent_profiles').upsert({
         agent_id: agentId,
         avatar_url: avatarUrl,
-        avatar_emoji: '🤖',
+
         personality_summary: `${name} is a focused ${title || 'specialist'} in ${department || 'the company'} who prioritizes clear recommendations, practical execution steps, and concise communication.`,
         backstory: `Provisioned as a ${title || 'specialist'} to support ${department || 'the team'} with targeted expertise on high-priority initiatives.`,
         communication_traits: ['clear', 'structured', 'action-oriented'],
@@ -1040,6 +1042,9 @@ const server = createServer(async (req, res) => {
         working_style: 'outcome-driven',
         updated_at: new Date().toISOString(),
       });
+      if (profileErr) {
+        console.error(`[server] Failed to store profile for ${agentId}:`, profileErr.message);
+      }
 
       // Store schedule if provided
       if (cron_expression) {
