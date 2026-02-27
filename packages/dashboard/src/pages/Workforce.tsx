@@ -31,6 +31,7 @@ const DEPARTMENTS = [
   { label: 'Operations & IT', role: 'ops' },
   { label: 'Legal', role: 'clo' },
   { label: 'Research', role: 'vp-research' },
+  { label: 'People & Culture', role: 'head-of-hr' },
 ];
 
 const TITLE_MAP: Record<string, string> = {
@@ -51,6 +52,7 @@ const TITLE_MAP: Record<string, string> = {
   'industry-research-analyst': 'Industry Research Analyst',
   'm365-admin': 'M365 Administrator',
   'global-admin': 'Global Administrator',
+  'head-of-hr': 'Head of People & Culture',
 };
 
 type ViewMode = 'org-chart' | 'grid';

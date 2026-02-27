@@ -52,6 +52,7 @@ import {
   runUiUxDesigner, runFrontendEngineer, runDesignCritic, runTemplateArchitect,
   runM365Admin,
   runGlobalAdmin,
+  runHeadOfHR,
   runOps,
   runCompetitiveResearchAnalyst,
   runMarketResearchAnalyst,
@@ -228,6 +229,10 @@ const agentExecutor = async (
   // Global Admin
   else if (agentRole === 'global-admin') {
     return runGlobalAdmin({ task: (task as 'access_audit' | 'compliance_report' | 'onboarding' | 'read_inbox' | 'on_demand'), message, conversationHistory });
+  }
+  // People & Culture
+  else if (agentRole === 'head-of-hr') {
+    return runHeadOfHR({ task: (task as 'workforce_audit' | 'onboard_agent' | 'retire_agent' | 'read_inbox' | 'on_demand'), message, conversationHistory });
   }
   // Operations
   else if (agentRole === 'ops') {

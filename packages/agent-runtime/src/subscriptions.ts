@@ -97,6 +97,14 @@ export const SUBSCRIPTIONS: Record<CompanyAgentRole, GlyphorEventType[]> = {
   'm365-admin': ['alert.triggered', 'task.requested', 'message.sent'],
   'ops': ['alert.triggered', 'message.sent', 'meeting.completed'],
   'global-admin': ['alert.triggered', 'task.requested', 'message.sent'],
+  // People & Culture
+  'head-of-hr': [
+    'agent.spawned',
+    'agent.retired',
+    'task.requested',
+    'message.sent',
+    'alert.triggered',
+  ],
   // Research & Intelligence
   'vp-research': ['task.requested', 'message.sent'],
   'competitive-research-analyst': ['task.requested', 'message.sent'],

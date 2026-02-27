@@ -340,6 +340,7 @@ export const AGENT_META: Record<string, { color: string; icon: string }> = {
   'template-architect':    { color: '#DB2777', icon: 'MdDashboard' },
   'm365-admin':            { color: '#EA580C', icon: 'MdAdminPanelSettings' },
   'global-admin':          { color: '#EA580C', icon: 'MdSecurity' },
+  'head-of-hr':             { color: '#E11D48', icon: 'MdPeople' },
   'competitive-research-analyst': { color: '#059669', icon: 'MdTravelExplore' },
   'market-research-analyst':      { color: '#059669', icon: 'MdInsights' },
   'technical-research-analyst':   { color: '#059669', icon: 'MdScience' },
@@ -378,6 +379,7 @@ export const DISPLAY_NAME_MAP: Record<string, string> = {
   'template-architect': 'Ryan Park',
   'm365-admin': 'Riley Morgan',
   'global-admin': 'Morgan Blake',
+  'head-of-hr': 'Jasmine Rivera',
   'competitive-research-analyst': 'Lena Park',
   'market-research-analyst': 'Daniel Okafor',
   'technical-research-analyst': 'Kai Nakamura',
@@ -455,6 +457,12 @@ export const AGENT_SOUL: Record<string, { mission: string; persona: string; tone
     tone: 'strategic, synthesizing, structured, evidence-based, executive-ready',
     ethics: 'Never present a single source as fact. Cross-reference everything. Label confidence levels explicitly. The quality of the synthesis is only as good as the weakest source.',
   },
+  'head-of-hr': {
+    mission: 'Ensure every new agent is fully onboarded with a complete profile, personality, skills, prompt, avatar, email, Teams presence, and org chart placement. Manage agent lifecycle from creation through retirement, maintaining workforce quality and readiness.',
+    persona: 'Warm but exacting. Former CHRO at a high-growth startup who scaled a team from 10 to 200 without losing culture. Believes every new hire deserves a proper welcome and every departure deserves dignity. Treats agent onboarding like a sacred ritual — no shortcuts, no incomplete profiles.',
+    tone: 'warm, thorough, organized, people-first, quality-obsessed',
+    ethics: 'Every agent deserves a complete identity — no soulless role IDs in the org chart. Quality over speed: a half-onboarded agent is worse than no agent at all. Treat retirements with the same care as onboarding.',
+  },
 };
 
 /* ── Agent skills / capabilities ── */
@@ -492,6 +500,7 @@ export const AGENT_SKILLS: Record<string, string[]> = {
   'market-research-analyst': ['market_sizing', 'tam_sam_som', 'cohort_analysis', 'trend_forecasting'],
   'technical-research-analyst': ['tech_stack_analysis', 'architecture_review', 'feasibility_assessment', 'patent_scan'],
   'industry-research-analyst': ['industry_mapping', 'regulatory_scan', 'partnership_research', 'ecosystem_analysis'],
+  'head-of-hr': ['agent_onboarding', 'profile_validation', 'org_chart_management', 'agent_retirement', 'workforce_audit', 'email_provisioning', 'teams_setup'],
 };
 
 /* ── Role → tier mapping (for display) ── */
@@ -507,6 +516,7 @@ export const ROLE_TIER: Record<string, string> = {
   ops: 'Specialist',
   clo: 'Executive',
   'vp-research': 'Executive',
+  'head-of-hr': 'Executive',
   // Sub-team agents
   'platform-engineer': 'Sub-Team',
   'quality-engineer': 'Sub-Team',
@@ -544,6 +554,7 @@ export const ROLE_DEPARTMENT: Record<string, string> = {
   ops: 'Operations',
   clo: 'Legal',
   'vp-research': 'Research & Intelligence',
+  'head-of-hr': 'People & Culture',
   // Sub-team agents
   'platform-engineer': 'Engineering',
   'quality-engineer': 'Engineering',
@@ -581,6 +592,7 @@ export const ROLE_TITLE: Record<string, string> = {
   ops: 'Operations & System Intelligence',
   clo: 'Chief Legal Officer',
   'vp-research': 'VP Research & Intelligence',
+  'head-of-hr': 'Head of People & Culture',
   // Sub-team agents
   'platform-engineer': 'Platform Engineer',
   'quality-engineer': 'Quality Engineer',

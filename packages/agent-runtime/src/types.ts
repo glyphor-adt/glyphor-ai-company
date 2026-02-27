@@ -60,6 +60,8 @@ export type CompanyAgentRole =
   | 'm365-admin'              // Riley Morgan → reports to CTO, manages Microsoft 365
   | 'global-admin'            // Morgan Blake → reports to CoS, cross-project IAM & onboarding
   | 'ops'                     // Atlas Vega → Operations & System Intelligence
+  // People & Culture
+  | 'head-of-hr'                // Jasmine Rivera → Head of People & Culture, reports to CoS
   // Research & Intelligence
   | 'vp-research'                   // Sophia Lin → VP of Research & Intelligence
   | 'competitive-research-analyst'  // Lena Park → reports to Sophia Lin
@@ -398,6 +400,8 @@ export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   'template-architect':   { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'm365-admin':           { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'global-admin':          { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
+  // People & Culture
+  'head-of-hr':             { perRunUsd: 0.10, dailyUsd: 2.00, monthlyUsd: 60 },
   // Research & Intelligence
   'vp-research':                    { perRunUsd: 0.10, dailyUsd: 2.00, monthlyUsd: 60 },
   'competitive-research-analyst': { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
@@ -459,7 +463,7 @@ export type AgentTier = 'executive' | 'sub-team';
 
 export const EXECUTIVE_ROLES: CompanyAgentRole[] = [
   'chief-of-staff', 'cto', 'cpo', 'cmo', 'cfo', 'clo',
-  'vp-customer-success', 'vp-sales', 'vp-design',
+  'vp-customer-success', 'vp-sales', 'vp-design', 'head-of-hr',
 ];
 
 export const SUB_TEAM_ROLES: CompanyAgentRole[] = [
@@ -574,6 +578,7 @@ export const AGENT_MANAGER: Partial<Record<CompanyAgentRole, CompanyAgentRole>> 
   'account-research':      'vp-sales',
   'm365-admin':            'cto',
   'global-admin':           'chief-of-staff',
+  'head-of-hr':              'chief-of-staff',
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -593,7 +598,7 @@ export const ORCHESTRATOR_ROLES: ReadonlySet<CompanyAgentRole> = new Set([
 
 /** All remaining roles use the TaskRunner — they receive, reason, execute, and report. */
 export const TASK_AGENT_ROLES: ReadonlySet<CompanyAgentRole> = new Set([
-  'cfo', 'cpo', 'cmo', 'vp-customer-success', 'vp-sales', 'vp-design',
+  'cfo', 'cpo', 'cmo', 'vp-customer-success', 'vp-sales', 'vp-design', 'head-of-hr',
   'platform-engineer', 'quality-engineer', 'devops-engineer',
   'user-researcher', 'competitive-intel',
   'revenue-analyst', 'cost-analyst',

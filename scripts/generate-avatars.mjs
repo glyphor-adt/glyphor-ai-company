@@ -68,6 +68,9 @@ const AGENTS = [
   // ── Operations ──
   { role: 'ops', name: 'Atlas Vega', desc: 'androgynous person, mid 30s, silver-streaked dark hair, calm watchful eyes, neutral composed' },
 
+  // ── People & Culture ──
+  { role: 'head-of-hr', name: 'Jasmine Rivera', desc: 'Latina woman, early 30s, warm brown eyes, dark wavy hair pulled back in a low bun, approachable confident smile, tailored blazer over a soft blouse, gold hoop earrings' },
+
   // ── Legal ──
   { role: 'clo', name: 'Victoria Chase', desc: 'white woman, late 30s, sleek auburn hair pulled back, sharp green eyes, poised commanding presence, tailored blazer, pearl earrings' },
 

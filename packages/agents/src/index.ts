@@ -46,6 +46,9 @@ export { runM365Admin, type M365AdminRunParams } from './m365-admin/run.js';
 // Sub-team agents — Global Admin
 export { runGlobalAdmin, type GlobalAdminRunParams } from './global-admin/run.js';
 
+// People & Culture
+export { runHeadOfHR, type HeadOfHRRunParams } from './head-of-hr/run.js';
+
 // Operations
 export { runOps, type OpsRunParams } from './ops/run.js';
 
@@ -88,6 +91,7 @@ import { DESIGN_CRITIC_SYSTEM_PROMPT } from './design-critic/systemPrompt.js';
 import { TEMPLATE_ARCHITECT_SYSTEM_PROMPT } from './template-architect/systemPrompt.js';
 import { M365_ADMIN_SYSTEM_PROMPT } from './m365-admin/systemPrompt.js';
 import { GLOBAL_ADMIN_SYSTEM_PROMPT } from './global-admin/systemPrompt.js';
+import { HEAD_OF_HR_SYSTEM_PROMPT } from './head-of-hr/systemPrompt.js';
 import { OPS_SYSTEM_PROMPT } from './ops/systemPrompt.js';
 import { VP_RESEARCH_SYSTEM_PROMPT } from './vp-research/systemPrompt.js';
 import { COMPETITIVE_RESEARCH_ANALYST_SYSTEM_PROMPT } from './competitive-research-analyst/systemPrompt.js';
@@ -124,6 +128,7 @@ export const SYSTEM_PROMPTS: Record<string, string> = {
   'template-architect': TEMPLATE_ARCHITECT_SYSTEM_PROMPT,
   'm365-admin': M365_ADMIN_SYSTEM_PROMPT,
   'global-admin': GLOBAL_ADMIN_SYSTEM_PROMPT,
+  'head-of-hr': HEAD_OF_HR_SYSTEM_PROMPT,
   'ops': OPS_SYSTEM_PROMPT,
   'vp-research': VP_RESEARCH_SYSTEM_PROMPT,
   'competitive-research-analyst': COMPETITIVE_RESEARCH_ANALYST_SYSTEM_PROMPT,
