@@ -28,6 +28,19 @@ const MAX_BUDGET_DAILY = 1.00;
 const MAX_BUDGET_MONTHLY = 20;
 const MAX_TURNS_CAP = 10;
 
+function buildGeneratedAvatarUrl(name: string): string {
+  const seed = encodeURIComponent(name.trim() || 'Agent');
+  return `https://api.dicebear.com/9.x/initials/svg?seed=${seed}&radius=50&bold=true`;
+}
+
+function buildDefaultPersonalitySummary(name: string, title: string, department: string): string {
+  return `${name} is a focused ${title} in ${department} who prioritizes clear recommendations, practical execution steps, and concise communication.`;
+}
+
+function buildDefaultBackstory(title: string, department: string): string {
+  return `Provisioned as a specialist ${title} to support ${department} with targeted expertise on high-priority initiatives.`;
+}
+
 export function createAgentCreationTools(supabase: SupabaseClient): ToolDefinition[] {
   return [
     {
@@ -115,6 +128,9 @@ export function createAgentCreationTools(supabase: SupabaseClient): ToolDefiniti
         // ── Create the agent ──
         const agentId = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
         const expiresAt = new Date(Date.now() + ttlDays * 86400000).toISOString();
+        const avatarUrl = buildGeneratedAvatarUrl(name);
+        const personalitySummary = buildDefaultPersonalitySummary(name, title, department);
+        const backstory = buildDefaultBackstory(title, department);
 
         const { data: agent, error: createErr } = await supabase
           .from('company_agents')
@@ -152,6 +168,22 @@ export function createAgentCreationTools(supabase: SupabaseClient): ToolDefiniti
           system_prompt: systemPrompt,
           skills: [],
           tools: [],
+          updated_at: new Date().toISOString(),
+        });
+
+        // Ensure each dynamic agent has a profile avatar at creation time.
+        await supabase.from('agent_profiles').upsert({
+          agent_id: agentId,
+          avatar_url: avatarUrl,
+          avatar_emoji: '🤖',
+          personality_summary: personalitySummary,
+          backstory: backstory,
+          communication_traits: ['clear', 'structured', 'action-oriented'],
+          quirks: ['summarizes key decisions before details'],
+          tone_formality: 0.6,
+          emoji_usage: 0.1,
+          verbosity: 0.45,
+          working_style: 'outcome-driven',
           updated_at: new Date().toISOString(),
         });
 
@@ -198,6 +230,7 @@ export function createAgentCreationTools(supabase: SupabaseClient): ToolDefiniti
             ttlDays,
             budget: { perRun: MAX_BUDGET_PER_RUN, daily: MAX_BUDGET_DAILY, monthly: MAX_BUDGET_MONTHLY },
             schedule: cronExpression || 'on-demand only',
+            avatarUrl,
             note: `Agent is active and ready. It will auto-retire on ${expiresAt.split('T')[0]}. Use assign_task to give it work, or trigger it via the scheduler. You can retire it early with retire_created_agent.`,
           },
         };

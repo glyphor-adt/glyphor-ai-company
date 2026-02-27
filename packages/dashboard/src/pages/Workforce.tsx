@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAgents } from '../lib/hooks';
-import { DISPLAY_NAME_MAP, AGENT_META, SUB_TEAM, type Agent, type SubTeamMember } from '../lib/types';
+import { DISPLAY_NAME_MAP, AGENT_META, type Agent } from '../lib/types';
 import {
   Card,
   SectionHeader,
@@ -53,9 +53,6 @@ const TITLE_MAP: Record<string, string> = {
   'global-admin': 'Global Administrator',
 };
 
-const EXEC_COUNT = Object.keys(TITLE_MAP).length;
-const TOTAL_HEADCOUNT = FOUNDERS.length + EXEC_COUNT + SUB_TEAM.length; // founders + execs + ICs
-
 type ViewMode = 'org-chart' | 'grid';
 type Tab = 'overview' | 'roster';
 
@@ -66,9 +63,14 @@ export default function Workforce() {
 
   const agentMap = new Map(agents.map((a) => [a.role, a]));
   const cos = agentMap.get('chief-of-staff');
-  const activeCount = agents.filter((a) => a.status === 'active').length;
-  const scored = agents.filter((a) => a.performance_score != null);
-  const avgScore = scored.length ? Math.round(scored.reduce((s, a) => s + Number(a.performance_score) * 100, 0) / scored.length) : 0;
+  const executiveAgents = agents.filter((a) => a.role in TITLE_MAP);
+  const execCount = executiveAgents.length;
+  const individualContributors = agents.filter((a) => {
+    const hasManager = Boolean(a.reports_to);
+    const isExec = a.role in TITLE_MAP;
+    return hasManager && !isExec;
+  });
+  const totalHeadcount = FOUNDERS.length + agents.length;
 
   return (
     <div className="space-y-8">
@@ -77,7 +79,7 @@ export default function Workforce() {
         <div>
           <h1 className="text-2xl font-bold text-txt-primary">Workforce</h1>
           <p className="mt-1 text-sm text-txt-muted">
-            {TOTAL_HEADCOUNT} employees · {FOUNDERS.length} founders · {EXEC_COUNT} AI executives · {SUB_TEAM.length} team members
+            {totalHeadcount} employees · {FOUNDERS.length} founders · {execCount} AI executives · {individualContributors.length} team members
           </p>
         </div>
         <Link
@@ -172,7 +174,7 @@ export default function Workforce() {
           <div className="grid grid-cols-2 gap-6 md:grid-cols-3 xl:grid-cols-5">
             {DEPARTMENTS.map((dept) => {
               const agent = agentMap.get(dept.role);
-              const members = SUB_TEAM.filter((m) => m.reportsTo === dept.role);
+              const members = agents.filter((m) => m.reports_to === dept.role && m.role !== dept.role);
               return (
                 <div key={dept.label} className="flex flex-col items-center gap-2">
                   <span className="text-[10px] font-medium uppercase tracking-widest text-txt-faint">
@@ -186,7 +188,7 @@ export default function Workforce() {
                   {/* Sub-team members */}
                   <div className="flex w-full flex-col gap-1.5">
                     {members.map((m) => (
-                      <SubTeamNode key={m.name} member={m} />
+                      <SubTeamNode key={m.id} member={m} />
                     ))}
                   </div>
                 </div>
@@ -274,28 +276,25 @@ export default function Workforce() {
               })}
           </div>
 
-          <SectionHeader title={`Team Members (${SUB_TEAM.length})`} />
+          <SectionHeader title={`Team Members (${individualContributors.length})`} />
 
           {/* Sub-team grid */}
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-            {SUB_TEAM.map((m) => (
-              <Card key={m.name} className="relative overflow-hidden h-24">
-                <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl" style={{ background: m.color }} />
+            {individualContributors.map((m) => {
+              const meta = AGENT_META[m.role];
+              return (
+              <Card key={m.id} className="relative overflow-hidden h-24">
+                <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl" style={{ background: meta?.color ?? '#64748b' }} />
                 <div className="flex items-center gap-3 pl-3 h-full">
-                  <img
-                    src={`/avatars/${m.avatar}.png`}
-                    alt={m.name}
-                    className="rounded-full object-cover"
-                    style={{ width: 48, height: 48, border: `1.5px solid ${m.color}40` }}
-                  />
+                  <AgentAvatar role={m.role} size={48} glow={m.status === 'active'} />
                   <div>
-                    <h3 className="text-[13px] font-semibold text-txt-primary">{m.name}</h3>
-                    <p className="text-[11px] text-txt-muted">{m.title}</p>
-                    <p className="mt-0.5 text-[10px] text-txt-faint">{m.department} · Reports to {DISPLAY_NAME_MAP[m.reportsTo]}</p>
+                    <h3 className="text-[13px] font-semibold text-txt-primary">{DISPLAY_NAME_MAP[m.role] ?? m.name ?? m.display_name ?? m.role}</h3>
+                    <p className="text-[11px] text-txt-muted">{TITLE_MAP[m.role] ?? m.title ?? m.role}</p>
+                    <p className="mt-0.5 text-[10px] text-txt-faint">{m.department ?? 'Unassigned'} · Reports to {DISPLAY_NAME_MAP[m.reports_to ?? ''] ?? m.reports_to ?? 'Founders'}</p>
                   </div>
                 </div>
               </Card>
-            ))}
+            );})}
           </div>
         </div>
       )}
@@ -381,20 +380,17 @@ function StatCard({ label, value, total, color, loading }: { label: string; valu
 }
 
 /* ─── Sub-Team Node (org chart) ───────────── */
-function SubTeamNode({ member }: { member: SubTeamMember }) {
+function SubTeamNode({ member }: { member: Agent }) {
+  const displayName = DISPLAY_NAME_MAP[member.role] ?? member.name ?? member.display_name ?? member.role;
+  const title = TITLE_MAP[member.role] ?? member.title ?? member.role;
   return (
-    <Link to={`/agents/${member.avatar}`} className="block transition-transform hover:scale-[1.02]">
+    <Link to={`/agents/${member.role}`} className="block transition-transform hover:scale-[1.02]">
       <Card className="p-3 min-h-[72px]">
         <div className="flex items-center gap-3 h-full">
-          <img
-            src={`/avatars/${member.avatar}.png`}
-            alt={member.name}
-            className="shrink-0 rounded-full object-cover"
-            style={{ width: 48, height: 48, border: `1.5px solid ${member.color}40` }}
-          />
+          <AgentAvatar role={member.role} size={48} glow={member.status === 'active'} />
           <div className="min-w-0 text-left">
-            <p className="text-sm font-semibold text-txt-primary leading-tight">{member.name}</p>
-            <p className="text-xs text-txt-muted leading-tight">{member.title}</p>
+            <p className="text-sm font-semibold text-txt-primary leading-tight">{displayName}</p>
+            <p className="text-xs text-txt-muted leading-tight">{title}</p>
           </div>
         </div>
       </Card>

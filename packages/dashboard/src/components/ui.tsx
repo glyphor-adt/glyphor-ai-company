@@ -5,16 +5,26 @@ export function AgentAvatar({
   role,
   size = 36,
   glow = false,
+  avatarUrl,
 }: {
   role: string;
   size?: number;
   glow?: boolean;
+  avatarUrl?: string | null;
 }) {
   const meta = AGENT_META[role] ?? { color: '#64748b', icon: 'MdSmartToy' };
+  const fallbackAvatar = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(role)}&radius=50&bold=true`;
   return (
     <img
-      src={`/avatars/${role}.png`}
+      src={avatarUrl ?? `/avatars/${role}.png`}
       alt={role}
+      onError={(e) => {
+        const img = e.currentTarget;
+        if (img.src !== fallbackAvatar) {
+          img.src = fallbackAvatar;
+          img.onerror = null;
+        }
+      }}
       className={`rounded-full object-cover ${glow ? 'agent-glow' : ''}`}
       style={{
         width: size,

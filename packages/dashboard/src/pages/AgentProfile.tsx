@@ -19,7 +19,6 @@ import {
   ROLE_TIER,
   ROLE_DEPARTMENT,
   ROLE_TITLE,
-  SUB_TEAM,
 } from '../lib/types';
 import { Card, AgentAvatar, Skeleton, timeAgo } from '../components/ui';
 import { QualityChart } from '../components/QualityChart';
@@ -54,6 +53,7 @@ interface AgentRow {
 
 interface AgentProfile {
   agent_id: string;
+  avatar_url: string | null;
   personality_summary: string | null;
   backstory: string | null;
   communication_traits: string[] | null;
@@ -66,6 +66,13 @@ interface AgentProfile {
   clifton_strengths: string[] | null;
   working_style: string | null;
   voice_examples: VoiceExample[] | null;
+}
+
+interface AgentBrief {
+  agent_id: string;
+  system_prompt: string | null;
+  skills: string[] | null;
+  tools: string[] | null;
 }
 
 interface VoiceExample {
@@ -141,6 +148,8 @@ export default function AgentProfile() {
   const [tab, setTab] = useState<Tab>('overview');
   const [agent, setAgent] = useState<AgentRow | null>(null);
   const [profile, setProfile] = useState<AgentProfile | null>(null);
+  const [brief, setBrief] = useState<AgentBrief | null>(null);
+  const [directReports, setDirectReports] = useState<AgentRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -156,15 +165,24 @@ export default function AgentProfile() {
       }
 
       let profileData: AgentProfile | null = null;
+      let briefData: AgentBrief | null = null;
+      let reportsData: AgentRow[] = [];
       if (agentData) {
         const role = (agentData as unknown as AgentRow).role;
-        const { data: p } = await supabase
-          .from('agent_profiles').select('*').eq('agent_id', role).single();
+        const [{ data: p }, { data: b }, { data: r }] = await Promise.all([
+          supabase.from('agent_profiles').select('*').eq('agent_id', role).single(),
+          supabase.from('agent_briefs').select('agent_id, system_prompt, skills, tools').eq('agent_id', role).single(),
+          supabase.from('company_agents').select('*').eq('reports_to', role).order('created_at', { ascending: true }),
+        ]);
         profileData = p as AgentProfile | null;
+        briefData = (b as AgentBrief | null) ?? null;
+        reportsData = (r as AgentRow[]) ?? [];
       }
 
       setAgent(agentData as unknown as AgentRow | null);
       setProfile(profileData);
+      setBrief(briefData);
+      setDirectReports(reportsData);
       setLoading(false);
     })();
   }, [agentId]);
@@ -218,7 +236,7 @@ export default function AgentProfile() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <AgentAvatar role={agent.role} size={64} glow={agent.status === 'active'} />
+          <AgentAvatar role={agent.role} size={64} glow={agent.status === 'active'} avatarUrl={profile?.avatar_url} />
           <div>
             <h1 className="text-2xl font-bold text-txt-primary">{displayName}</h1>
             <p className="text-sm text-txt-muted">{titleText}</p>
@@ -269,11 +287,11 @@ export default function AgentProfile() {
       </div>
 
       {/* Tab content */}
-      {tab === 'overview' && <OverviewTab agent={agent} profile={profile} />}
+      {tab === 'overview' && <OverviewTab agent={agent} profile={profile} brief={brief} directReports={directReports} />}
       {tab === 'performance' && <PerformanceTab agent={agent} />}
       {tab === 'memory' && <MemoryTab agent={agent} />}
       {tab === 'messages' && <MessagesTab agent={agent} />}
-      {tab === 'skills' && <SkillsTab agent={agent} />}
+      {tab === 'skills' && <SkillsTab agent={agent} brief={brief} />}
       {tab === 'world-model' && <WorldModelTab agent={agent} />}
       {tab === 'settings' && <SettingsTab agent={agent} profile={profile} onUpdate={setAgent} />}
     </div>
@@ -283,10 +301,20 @@ export default function AgentProfile() {
 /* ════════════════════════════════════════════════════════════════
    OVERVIEW TAB
    ════════════════════════════════════════════════════════════════ */
-function OverviewTab({ agent, profile }: { agent: AgentRow; profile: AgentProfile | null }) {
+function OverviewTab({
+  agent,
+  profile,
+  brief,
+  directReports,
+}: {
+  agent: AgentRow;
+  profile: AgentProfile | null;
+  brief: AgentBrief | null;
+  directReports: AgentRow[];
+}) {
   const [activity, setActivity] = useState<ActivityRow[]>([]);
-  const skills = AGENT_SKILLS[agent.role] ?? [];
-  const directReports = SUB_TEAM.filter((m) => m.reportsTo === agent.role);
+  const skills = (brief?.skills && brief.skills.length > 0) ? brief.skills : (AGENT_SKILLS[agent.role] ?? []);
+  const tools = brief?.tools ?? [];
   const soul = AGENT_SOUL[agent.role];
   const tier = ROLE_TIER[agent.role] ?? 'Agent';
   const department = ROLE_DEPARTMENT[agent.role] ?? agent.department ?? '';
@@ -411,6 +439,32 @@ function OverviewTab({ agent, profile }: { agent: AgentRow; profile: AgentProfil
         </Card>
       )}
 
+      {/* Tools */}
+      {tools.length > 0 && (
+        <Card>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-txt-primary">
+            Tools ({tools.length})
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {tools.map((t) => (
+              <span key={t} className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-1.5 font-mono text-[12px] text-amber-300 transition-colors hover:bg-amber-500/10">
+                {t}
+              </span>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* System Prompt */}
+      {brief?.system_prompt && (
+        <Card>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-txt-primary">System Prompt</h3>
+          <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-border/50 bg-raised p-3 text-xs leading-relaxed text-txt-secondary">
+            {brief.system_prompt}
+          </pre>
+        </Card>
+      )}
+
       {/* Personality + Communication (two-column) */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Personality */}
@@ -515,17 +569,12 @@ function OverviewTab({ agent, profile }: { agent: AgentRow; profile: AgentProfil
             {directReports.length > 0 ? (
               <ul className="space-y-2">
                 {directReports.map((m) => (
-                  <li key={m.name}>
-                    <Link to={`/agents/${m.avatar}`} className="flex items-center gap-3 rounded-lg border border-border/50 px-3 py-2 transition-colors hover:border-cyan/30">
-                      <img
-                        src={`/avatars/${m.avatar}.png`}
-                        alt={m.name}
-                        className="h-7 w-7 rounded-full object-cover"
-                        style={{ border: `1.5px solid ${m.color}40` }}
-                      />
+                  <li key={m.id}>
+                    <Link to={`/agents/${m.role}`} className="flex items-center gap-3 rounded-lg border border-border/50 px-3 py-2 transition-colors hover:border-cyan/30">
+                      <AgentAvatar role={m.role} size={28} />
                       <div>
-                        <p className="text-sm font-medium text-txt-primary">{m.name}</p>
-                        <p className="text-[11px] text-txt-faint">{m.title}</p>
+                        <p className="text-sm font-medium text-txt-primary">{DISPLAY_NAME_MAP[m.role] ?? m.name ?? m.display_name ?? m.role}</p>
+                        <p className="text-[11px] text-txt-faint">{ROLE_TITLE[m.role] ?? m.title ?? m.role}</p>
                       </div>
                     </Link>
                   </li>
@@ -1016,7 +1065,7 @@ const CAT_COLOR: Record<string, string> = {
   design: '#DB2777', leadership: '#7C3AED', operations: '#EA580C', analytics: '#059669',
 };
 
-function SkillsTab({ agent }: { agent: AgentRow }) {
+function SkillsTab({ agent, brief }: { agent: AgentRow; brief: AgentBrief | null }) {
   const [skills, setSkills] = useState<AgentSkillRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -1042,6 +1091,8 @@ function SkillsTab({ agent }: { agent: AgentRow }) {
     acc[sk.proficiency] = (acc[sk.proficiency] ?? 0) + 1;
     return acc;
   }, {});
+  const fallbackSkills = (brief?.skills && brief.skills.length > 0) ? brief.skills : (AGENT_SKILLS[agent.role] ?? []);
+  const fallbackTools = brief?.tools ?? [];
 
   return (
     <div className="space-y-6">
@@ -1099,7 +1150,35 @@ function SkillsTab({ agent }: { agent: AgentRow }) {
             })}
           </div>
         ) : (
-          <p className="text-sm text-txt-faint">No skills assigned to this agent.</p>
+          <div className="space-y-3">
+            {fallbackSkills.length > 0 ? (
+              <>
+                <p className="text-xs text-txt-muted">No runtime skill telemetry yet. Showing configured capabilities.</p>
+                <div className="flex flex-wrap gap-2">
+                  {fallbackSkills.map((s) => (
+                    <span key={s} className="rounded-lg border border-cyan/20 bg-cyan/5 px-3 py-1.5 font-mono text-[12px] text-cyan/80">
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-txt-faint">No skills assigned to this agent.</p>
+            )}
+
+            {fallbackTools.length > 0 && (
+              <div>
+                <p className="mb-2 text-xs text-txt-muted">Configured tools</p>
+                <div className="flex flex-wrap gap-2">
+                  {fallbackTools.map((t) => (
+                    <span key={t} className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-1.5 font-mono text-[12px] text-amber-300">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </Card>
 
@@ -1446,7 +1525,7 @@ function SettingsTab({
       // Check for custom DB override
       const { data: brief } = await (supabase.from('agent_briefs') as any)
         .select('system_prompt')
-        .eq('agent_id', agent.id)
+        .eq('agent_id', agent.role)
         .single();
       if (brief?.system_prompt) {
         setSystemPrompt(brief.system_prompt);
@@ -1456,12 +1535,12 @@ function SettingsTab({
         setPromptSource('code');
       }
     })();
-  }, [agent.id, agent.role]);
+  }, [agent.role]);
 
   const handleSavePrompt = async () => {
     setSavingPrompt(true);
     try {
-      const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/settings`, {
+      const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.role)}/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ system_prompt: systemPrompt }),
@@ -1479,7 +1558,7 @@ function SettingsTab({
   const handleResetPrompt = async () => {
     setSavingPrompt(true);
     try {
-      const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/settings`, {
+      const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.role)}/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ system_prompt: null }),
@@ -1498,7 +1577,7 @@ function SettingsTab({
   const handleSave = async () => {
     setSaving(true);
     try {
-      const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/settings`, {
+      const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.role)}/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model, temperature, max_turns: maxTurns, thinking_enabled: thinkingEnabled, budget_per_run: budgetPerRun, budget_daily: budgetDaily, budget_monthly: budgetMonthly }),
@@ -1517,12 +1596,12 @@ function SettingsTab({
   };
 
   const handlePause = async () => {
-    await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/pause`, { method: 'POST' });
+    await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.role)}/pause`, { method: 'POST' });
     onUpdate((prev) => prev ? { ...prev, status: 'paused' } : prev);
   };
 
   const handleResume = async () => {
-    await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/resume`, { method: 'POST' });
+    await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.role)}/resume`, { method: 'POST' });
     onUpdate((prev) => prev ? { ...prev, status: 'active' } : prev);
   };
 
