@@ -7,6 +7,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { GlyphorEventBus, RunDependencies, AgentProfileData, CompanyAgentRole, SkillContext, SkillFeedback } from '@glyphor/agent-runtime';
 import type { ClassifiedRunDependencies } from '@glyphor/agent-runtime';
+import { ORCHESTRATOR_ROLES } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { KnowledgeGraphReader } from '@glyphor/company-memory';
 import { SharedMemoryLoader, WorldModelUpdater, EmbeddingClient } from '@glyphor/company-memory';
@@ -404,7 +405,7 @@ export function createRunDeps(
     sharedMemoryLoader: sharedMemoryLoader
       ? {
           loadForAgent: (role: CompanyAgentRole, currentTask: string) =>
-            sharedMemoryLoader.loadForAgent(role, currentTask, 'standard'),
+            sharedMemoryLoader.loadForAgent(role, currentTask, ORCHESTRATOR_ROLES.has(role) ? 'full' : 'standard'),
           formatForPrompt: (ctx) => sharedMemoryLoader.formatForPrompt(ctx),
           writeEpisode: async (episode) => {
             const id = await sharedMemoryLoader.writeEpisode(episode as Parameters<typeof sharedMemoryLoader.writeEpisode>[0]);
