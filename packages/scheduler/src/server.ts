@@ -980,6 +980,7 @@ const server = createServer(async (req, res) => {
       } = body;
 
       const agentId = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const avatarUrl = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent((name || 'Agent').trim())}&radius=50&bold=true`;
 
       const { data: agent, error: createErr } = await memory.getSupabaseClient()
         .from('company_agents')
@@ -988,6 +989,7 @@ const server = createServer(async (req, res) => {
           role: agentId,
           codename: name,
           name,
+          display_name: name,
           title: title ?? '',
           department: department ?? '',
           reports_to: reports_to ?? null,
@@ -1015,15 +1017,29 @@ const server = createServer(async (req, res) => {
       }
 
       // Store dynamic brief
-      if (system_prompt || skills || agentTools) {
-        await memory.getSupabaseClient().from('agent_briefs').upsert({
-          agent_id: agentId,
-          system_prompt: system_prompt ?? '',
-          skills: skills ?? [],
-          tools: agentTools ?? [],
-          updated_at: new Date().toISOString(),
-        });
-      }
+      await memory.getSupabaseClient().from('agent_briefs').upsert({
+        agent_id: agentId,
+        system_prompt: system_prompt ?? '',
+        skills: skills ?? [],
+        tools: agentTools ?? [],
+        updated_at: new Date().toISOString(),
+      });
+
+      // Create agent profile with personality and avatar
+      await memory.getSupabaseClient().from('agent_profiles').upsert({
+        agent_id: agentId,
+        avatar_url: avatarUrl,
+        avatar_emoji: '🤖',
+        personality_summary: `${name} is a focused ${title || 'specialist'} in ${department || 'the company'} who prioritizes clear recommendations, practical execution steps, and concise communication.`,
+        backstory: `Provisioned as a ${title || 'specialist'} to support ${department || 'the team'} with targeted expertise on high-priority initiatives.`,
+        communication_traits: ['clear', 'structured', 'action-oriented'],
+        quirks: ['summarizes key decisions before details'],
+        tone_formality: 0.6,
+        emoji_usage: 0.1,
+        verbosity: 0.45,
+        working_style: 'outcome-driven',
+        updated_at: new Date().toISOString(),
+      });
 
       // Store schedule if provided
       if (cron_expression) {

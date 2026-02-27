@@ -42,6 +42,7 @@ export async function createTemporaryAgent(
   const agentId = opts.role.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   const ttlDays = opts.ttlDays ?? 1;
   const expiresAt = new Date(Date.now() + ttlDays * 86_400_000).toISOString();
+  const avatarUrl = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(opts.name.trim() || 'Agent')}&radius=50&bold=true`;
 
   const { data: agent, error } = await supabase
     .from('company_agents')
@@ -50,11 +51,12 @@ export async function createTemporaryAgent(
       role: agentId,
       codename: opts.name,
       name: opts.name,
+      display_name: opts.name,
       title: opts.spawnedFor,
       department: opts.department,
       reports_to: opts.reportsTo,
       status: 'active',
-      model: opts.model || 'gemini-2.5-flash',
+      model: opts.model || 'gemini-3-flash-preview',
       temperature: opts.temperature ?? 0.4,
       max_turns: opts.maxTurns ?? 8,
       budget_per_run: opts.budgetPerRun ?? 0.03,
@@ -79,6 +81,22 @@ export async function createTemporaryAgent(
     system_prompt: opts.systemPrompt,
     skills: [],
     tools: [],
+    updated_at: new Date().toISOString(),
+  });
+
+  // Create agent profile with personality and avatar
+  await supabase.from('agent_profiles').upsert({
+    agent_id: agentId,
+    avatar_url: avatarUrl,
+    avatar_emoji: '🤖',
+    personality_summary: `${opts.name} is a focused specialist in ${opts.department} who prioritizes clear recommendations, practical execution steps, and concise communication.`,
+    backstory: `Provisioned as a specialist to support ${opts.department} with targeted expertise on high-priority initiatives.`,
+    communication_traits: ['clear', 'structured', 'action-oriented'],
+    quirks: ['summarizes key decisions before details'],
+    tone_formality: 0.6,
+    emoji_usage: 0.1,
+    verbosity: 0.45,
+    working_style: 'outcome-driven',
     updated_at: new Date().toISOString(),
   });
 

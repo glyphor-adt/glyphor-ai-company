@@ -242,10 +242,10 @@ export default function Workforce() {
                       <AgentAvatar role={agent.role} size={60} glow={agent.status === 'active'} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <h3 className="text-[15px] font-semibold text-txt-primary">{DISPLAY_NAME_MAP[agent.role] ?? agent.role}</h3>
+                          <h3 className="text-[15px] font-semibold text-txt-primary">{DISPLAY_NAME_MAP[agent.role] ?? agent.display_name ?? agent.name ?? agent.role}</h3>
                           <StatusDot status={agent.status} />
                         </div>
-                        <p className="text-[12px] text-txt-muted">{TITLE_MAP[agent.role] ?? agent.role}</p>
+                        <p className="text-[12px] text-txt-muted">{TITLE_MAP[agent.role] ?? agent.title ?? agent.role}</p>
                         <p className="mt-0.5 text-[11px] text-txt-faint">
                           AI Agent · <span className="font-mono text-txt-muted">{agent.model}</span>
                         </p>
@@ -339,12 +339,12 @@ function AgentNode({ agent, compact = false }: { agent: Agent; compact?: boolean
           <div className="min-w-0 w-full">
             <div className="flex items-center justify-center gap-1.5">
               <h3 className="font-semibold text-txt-primary leading-tight text-xs">
-                {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
+                {DISPLAY_NAME_MAP[agent.role] ?? agent.display_name ?? agent.name ?? agent.role}
               </h3>
               <StatusDot status={agent.status} />
             </div>
             <p className="text-[10px] text-txt-muted leading-tight">
-              {TITLE_MAP[agent.role] ?? agent.role}
+              {TITLE_MAP[agent.role] ?? agent.title ?? agent.role}
             </p>
             <div className="mt-2 flex items-center justify-center gap-2 text-xs">
               <span className="font-mono text-txt-faint">

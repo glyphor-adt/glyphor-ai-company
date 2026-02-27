@@ -134,7 +134,16 @@ export function createRunDeps(
     },
 
     collectiveIntelligenceLoader: async (role: CompanyAgentRole): Promise<string | null> => {
-      const department = ROLE_DEPARTMENT[role];
+      // Fall back to DB lookup for dynamic agents not in the static map
+      let department = ROLE_DEPARTMENT[role];
+      if (!department) {
+        const { data: agentRow } = await supabase
+          .from('company_agents')
+          .select('department')
+          .eq('role', role)
+          .single();
+        department = agentRow?.department ?? undefined;
+      }
       const parts: string[] = [];
 
       // Layer 1: Company Pulse

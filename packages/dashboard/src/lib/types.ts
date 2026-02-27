@@ -8,6 +8,7 @@ export type Agent = {
   display_name: string;
   name: string | null;
   title: string | null;
+  department: string | null;
   model: string;
   status: 'active' | 'idle' | 'paused';
   reports_to: string | null;
