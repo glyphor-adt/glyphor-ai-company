@@ -283,23 +283,51 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
     {
       name: 'pause_agent',
-      description: 'Temporarily stop an agent from running. Use when agent is repeatedly failing.',
+      description: 'Temporarily stop an agent from running. Only use after verifying 5+ failures in the last 24 hours AND no successful runs in between. Never pause chief-of-staff or ops agents.',
       parameters: {
         agent_id: { type: 'string', description: 'The agent ID to pause', required: true },
-        reason: { type: 'string', description: 'Why this agent is being paused', required: true },
+        reason: { type: 'string', description: 'Why this agent is being paused — must reference specific failure count and timeframe', required: true },
+        failure_count: { type: 'number', description: 'Number of consecutive failures observed (must be >= 5)', required: true },
       },
       execute: async (params): Promise<ToolResult> => {
+        const agentId = params.agent_id as string;
+        const failureCount = (params.failure_count as number) || 0;
+
+        // Guard: never pause critical infrastructure agents
+        const PROTECTED_AGENTS = ['chief-of-staff', 'ops'];
+        if (PROTECTED_AGENTS.includes(agentId)) {
+          return { success: false, error: `Cannot pause protected agent "${agentId}". Escalate to founders instead.` };
+        }
+
+        // Guard: require minimum failure threshold
+        if (failureCount < 5) {
+          return { success: false, error: `Failure count ${failureCount} is below the minimum threshold of 5. Monitor and retry instead.` };
+        }
+
+        // Guard: cooldown — don't re-pause an agent that was resumed in the last 2 hours
+        const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+        const { data: recentResume } = await supabase
+          .from('activity_log')
+          .select('created_at')
+          .eq('action', 'agent.resumed')
+          .gte('created_at', twoHoursAgo)
+          .limit(1);
+        if (recentResume && recentResume.length > 0) {
+          return { success: false, error: `Agent "${agentId}" was resumed within the last 2 hours. Allow more time before re-pausing.` };
+        }
+
         const { error } = await supabase
           .from('company_agents')
           .update({ status: 'paused' })
-          .eq('role', params.agent_id as string);
+          .eq('role', agentId);
 
         if (error) return { success: false, error: error.message };
 
         await supabase.from('activity_log').insert({
-          agent_id: 'ops',
+          agent_role: 'ops',
           action: 'agent.paused',
-          detail: `Atlas paused ${params.agent_id}: ${params.reason}`,
+          summary: `Atlas paused ${params.agent_id}: ${params.reason}`,
+          tier: 'yellow',
           created_at: new Date().toISOString(),
         });
 
@@ -322,9 +350,10 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         if (error) return { success: false, error: error.message };
 
         await supabase.from('activity_log').insert({
-          agent_id: 'ops',
+          agent_role: 'ops',
           action: 'agent.resumed',
-          detail: `Atlas resumed ${params.agent_id}`,
+          summary: `Atlas resumed ${params.agent_id}`,
+          tier: 'green',
           created_at: new Date().toISOString(),
         });
 

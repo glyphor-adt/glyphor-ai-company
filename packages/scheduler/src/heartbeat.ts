@@ -72,7 +72,10 @@ export class HeartbeatManager {
     // ── Phase 0: REAP — mark stale "running" rows as failed ──
     await this.reapStaleRuns();
 
-    const agentsToCheck = this.getAgentsForCycle(this.cycle);
+    const allAgentsForCycle = this.getAgentsForCycle(this.cycle);
+
+    // Filter out paused / inactive / retired agents before doing any work
+    const agentsToCheck = await this.filterActiveAgents(allAgentsForCycle);
 
     // Batch fetch last run times for all agents being checked
     const lastRuns = await this.getLastRunTimes(agentsToCheck);
@@ -347,6 +350,30 @@ export class HeartbeatManager {
     if (cycle % 2 === 0) agents.push(...MEDIUM_TIER);
     if (cycle % 3 === 0) agents.push(...LOW_TIER);
     return agents;
+  }
+
+  /**
+   * Remove agents whose status is not 'active' so the heartbeat
+   * respects pause / inactive / retired / under-review states.
+   */
+  private async filterActiveAgents(agents: CompanyAgentRole[]): Promise<CompanyAgentRole[]> {
+    try {
+      const { data } = await this.supabase
+        .from('company_agents')
+        .select('role, status')
+        .in('role', agents)
+        .eq('status', 'active');
+
+      const activeRoles = new Set((data ?? []).map((r: { role: string }) => r.role));
+      const skipped = agents.filter(a => !activeRoles.has(a));
+      if (skipped.length > 0) {
+        console.log(`[Heartbeat] Skipping non-active agents: [${skipped.join(', ')}]`);
+      }
+      return agents.filter(a => activeRoles.has(a));
+    } catch (err) {
+      console.warn('[Heartbeat] Failed to filter active agents, proceeding with all:', (err as Error).message);
+      return agents;
+    }
   }
 
   /**
