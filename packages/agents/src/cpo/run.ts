@@ -59,7 +59,7 @@ export async function runCPO(params: CPORunParams = {}) {
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
     ...createEmailTools(),
-    ...createAgentCreationTools(memory.getSupabaseClient()),
+    ...createAgentCreationTools(memory.getSupabaseClient(), glyphorEventBus),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

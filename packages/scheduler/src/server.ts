@@ -1069,6 +1069,26 @@ const server = createServer(async (req, res) => {
         created_at: new Date().toISOString(),
       });
 
+      // Emit agent.spawned event to wake HR for onboarding
+      try {
+        await glyphorEventBus.emit({
+          type: 'agent.spawned',
+          source: 'system',
+          payload: {
+            agentRole: agentId,
+            name,
+            title: title ?? '',
+            department: department ?? '',
+            reportsTo: reports_to ?? null,
+            isTemporary: is_temporary || false,
+            createdBy: 'dashboard',
+          },
+          priority: 'normal',
+        });
+      } catch (e) {
+        console.error(`[server] Failed to emit agent.spawned:`, e);
+      }
+
       json(res, 200, { success: true, agent });
       return;
     }

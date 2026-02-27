@@ -115,6 +115,15 @@ export const WAKE_RULES: WakeRule[] = [
     task: 'meeting_follow_up',
     priority: 'next_heartbeat',
   },
+  // ── AGENT LIFECYCLE ─────────────────────────────────────
+  {
+    event: 'agent.spawned',
+    wake: ['head-of-hr'],
+    task: 'onboard_agent',
+    priority: 'immediate',
+    cooldown_min: 2,
+  },
+
   // ── ASSIGNMENT LIFECYCLE (24/7 Autonomous Ops) ──────────
   {
     event: 'assignment.submitted',

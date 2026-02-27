@@ -6,6 +6,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 
 export interface SpawnAgentOptions {
   name: string;
@@ -38,6 +39,7 @@ export interface SpawnedAgent {
 export async function createTemporaryAgent(
   supabase: SupabaseClient,
   opts: SpawnAgentOptions,
+  glyphorEventBus?: GlyphorEventBus,
 ): Promise<SpawnedAgent> {
   const agentId = opts.role.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   const ttlDays = opts.ttlDays ?? 1;
@@ -112,6 +114,28 @@ export async function createTemporaryAgent(
     detail: `Spawned temporary agent "${opts.name}" (${agentId}) for: ${opts.spawnedFor}`,
     created_at: new Date().toISOString(),
   });
+
+  // Emit agent.spawned event to wake HR for onboarding
+  if (glyphorEventBus) {
+    try {
+      await glyphorEventBus.emit({
+        type: 'agent.spawned',
+        source: 'system',
+        payload: {
+          agentRole: agentId,
+          name: opts.name,
+          title: opts.spawnedFor,
+          department: opts.department,
+          reportsTo: opts.reportsTo,
+          isTemporary: true,
+          createdBy: opts.spawnedBy,
+        },
+        priority: 'normal',
+      });
+    } catch (e) {
+      console.error(`[agentLifecycle] Failed to emit agent.spawned:`, e);
+    }
+  }
 
   return agent as SpawnedAgent;
 }

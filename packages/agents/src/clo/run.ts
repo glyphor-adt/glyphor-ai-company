@@ -59,7 +59,7 @@ export async function runCLO(params: CLORunParams = {}) {
     ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
     ...createEmailTools(),
     ...createEventTools(glyphorEventBus),
-    ...createAgentCreationTools(memory.getSupabaseClient()),
+    ...createAgentCreationTools(memory.getSupabaseClient(), glyphorEventBus),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

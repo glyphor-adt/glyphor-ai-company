@@ -17,6 +17,7 @@
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { EXECUTIVE_ROLES } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
+import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /** Hard limits — cannot be overridden by agents */
@@ -41,7 +42,7 @@ function buildDefaultBackstory(title: string, department: string): string {
   return `Provisioned as a specialist ${title} to support ${department} with targeted expertise on high-priority initiatives.`;
 }
 
-export function createAgentCreationTools(supabase: SupabaseClient): ToolDefinition[] {
+export function createAgentCreationTools(supabase: SupabaseClient, glyphorEventBus?: GlyphorEventBus): ToolDefinition[] {
   return [
     {
       name: 'create_specialist_agent',
@@ -221,6 +222,28 @@ export function createAgentCreationTools(supabase: SupabaseClient): ToolDefiniti
           summary: `Created specialist agent: ${name} (${agentId}) — ${justification}`,
           created_at: new Date().toISOString(),
         });
+
+        // ── Emit agent.spawned event to wake HR for onboarding ──
+        if (glyphorEventBus) {
+          try {
+            await glyphorEventBus.emit({
+              type: 'agent.spawned',
+              source: ctx.agentRole,
+              payload: {
+                agentRole: agentId,
+                name,
+                title,
+                department,
+                reportsTo: ctx.agentRole,
+                isTemporary: true,
+                createdBy: ctx.agentRole,
+              },
+              priority: 'normal',
+            });
+          } catch (e) {
+            console.error(`[agentCreation] Failed to emit agent.spawned:`, e);
+          }
+        }
 
         return {
           success: true,
