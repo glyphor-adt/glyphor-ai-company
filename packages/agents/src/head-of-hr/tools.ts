@@ -532,5 +532,172 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         return { success: true, output: 'HR action logged.' };
       },
     },
+
+    // ── Generate Avatar ──
+    {
+      name: 'generate_avatar',
+      description:
+        'Generate a professional AI headshot for an agent using Imagen and upload it to GCS. ' +
+        'Updates agent_profiles.avatar_url with the resulting public URL.',
+      parameters: {
+        role: { type: 'string', description: 'Agent role slug.', required: true },
+        name: { type: 'string', description: 'Human name for the agent.', required: true },
+        appearance_description: {
+          type: 'string',
+          description:
+            'Physical appearance description for the headshot (ethnicity, age range, hair, style, distinguishing features).',
+          required: true,
+        },
+      },
+      execute: async (params) => {
+        const role = params.role as string;
+        const name = params.name as string;
+        const desc = params.appearance_description as string;
+
+        const apiKey = process.env.GOOGLE_AI_API_KEY;
+        if (!apiKey) {
+          return { success: false, output: 'GOOGLE_AI_API_KEY not set — cannot generate avatar.' };
+        }
+
+        const { GoogleGenAI } = await import('@google/genai');
+        const ai = new GoogleGenAI({ apiKey });
+
+        const prompt =
+          `Professional corporate headshot portrait photo of ${desc}. ` +
+          `Clean solid neutral background, soft studio lighting, shot from chest up. ` +
+          `High quality, photorealistic, corporate photography style. ` +
+          `The person looks like a tech industry professional. ` +
+          `No text, no watermark, no logo.`;
+
+        try {
+          const response = await ai.models.generateImages({
+            model: 'imagen-4.0-generate-001',
+            prompt,
+            config: { numberOfImages: 1, aspectRatio: '1:1' },
+          });
+
+          const image = response.generatedImages?.[0];
+          if (!image?.image?.imageBytes) {
+            return { success: false, output: `Imagen returned no image for "${name}".` };
+          }
+
+          // Upload to GCS
+          const { Storage } = await import('@google-cloud/storage');
+          const storage = new Storage();
+          const bucketName = process.env.GCS_BUCKET || 'glyphor-company';
+          const gcsPath = `avatars/${role}.png`;
+          const file = storage.bucket(bucketName).file(gcsPath);
+
+          await file.save(Buffer.from(image.image.imageBytes, 'base64'), {
+            contentType: 'image/png',
+            metadata: { cacheControl: 'public, max-age=86400' },
+          });
+
+          const avatarUrl = `https://storage.googleapis.com/${bucketName}/${gcsPath}`;
+
+          // Update agent_profiles with the new URL
+          await supabase
+            .from('agent_profiles')
+            .upsert({ agent_role: role, avatar_url: avatarUrl }, { onConflict: 'agent_role' });
+
+          return {
+            success: true,
+            output: `Avatar generated for "${name}" (${role}) and uploaded to ${avatarUrl}.`,
+          };
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err);
+          return { success: false, output: `Avatar generation failed: ${message}` };
+        }
+      },
+    },
+
+    // ── Enrich Agent Profile ──
+    {
+      name: 'enrich_agent_profile',
+      description:
+        'Use AI to generate a rich personality profile for a new or sparse agent. ' +
+        'Generates personality_summary, backstory, communication_traits, quirks, ' +
+        'working_style, tone_formality, verbosity, and emoji_usage based on agent context.',
+      parameters: {
+        role: { type: 'string', description: 'Agent role slug.', required: true },
+        title: { type: 'string', description: 'Job title (e.g. "VP of Sales").', required: false },
+        department: { type: 'string', description: 'Department (e.g. "Revenue").', required: false },
+        name: { type: 'string', description: 'Human name for the agent.', required: false },
+      },
+      execute: async (params) => {
+        const role = params.role as string;
+        const title = (params.title as string) || role;
+        const department = (params.department as string) || 'General';
+        const agentName = (params.name as string) || role;
+
+        const apiKey = process.env.GOOGLE_AI_API_KEY;
+        if (!apiKey) {
+          return { success: false, output: 'GOOGLE_AI_API_KEY not set — cannot enrich profile.' };
+        }
+
+        const { GoogleGenAI } = await import('@google/genai');
+        const ai = new GoogleGenAI({ apiKey });
+
+        const genPrompt =
+          `You are generating a personality profile for an AI agent at a tech company called Glyphor.\n\n` +
+          `Agent details:\n` +
+          `- Role slug: ${role}\n` +
+          `- Title: ${title}\n` +
+          `- Department: ${department}\n` +
+          `- Name: ${agentName}\n\n` +
+          `Generate a JSON object with these fields:\n` +
+          `- personality_summary: 2-3 sentence first-person personality summary\n` +
+          `- backstory: 2-3 sentences on why they joined Glyphor and what drives them\n` +
+          `- communication_traits: array of 4-5 trait strings\n` +
+          `- quirks: array of 2-3 personality quirks\n` +
+          `- working_style: 1 sentence description\n` +
+          `- tone_formality: number 0.0-1.0\n` +
+          `- verbosity: number 0.0-1.0\n` +
+          `- emoji_usage: "none" | "minimal" | "moderate"\n\n` +
+          `Return ONLY the JSON object, no markdown fencing.`;
+
+        try {
+          const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: genPrompt,
+          });
+
+          const text = response.text?.trim();
+          if (!text) {
+            return { success: false, output: 'Gemini returned empty response.' };
+          }
+
+          const cleaned = text.replace(/^```json\s*/, '').replace(/```\s*$/, '');
+          const profile = JSON.parse(cleaned) as Record<string, unknown>;
+
+          const { error } = await supabase
+            .from('agent_profiles')
+            .upsert(
+              {
+                agent_role: role,
+                personality_summary: profile.personality_summary,
+                backstory: profile.backstory,
+                communication_traits: profile.communication_traits,
+                quirks: profile.quirks,
+                working_style: profile.working_style,
+                tone_formality: profile.tone_formality,
+                verbosity: profile.verbosity,
+                emoji_usage: profile.emoji_usage,
+              },
+              { onConflict: 'agent_role' },
+            );
+
+          if (error) return { success: false, output: `DB upsert failed: ${error.message}` };
+
+          return {
+            success: true,
+            output: `Profile enriched for "${agentName}" (${role}):\n${JSON.stringify(profile, null, 2)}`,
+          };
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err);
+          return { success: false, output: `Profile enrichment failed: ${message}` };
+        }
+      },
+    },
   ];
 }
