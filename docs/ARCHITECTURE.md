@@ -48,6 +48,7 @@ market research & intelligence, and global platform administration.
 │  POST /sync/openai-billing ── OpenAI billing sync                    │
 │  POST /sync/anthropic-billing ── Anthropic billing sync              │
 │  POST /sync/kling-billing ── Kling AI billing sync                   │
+│  POST /sync/sharepoint-knowledge ── SharePoint knowledge ingest sync │
 │  POST /sync/governance   ── Governance platform sync                 │
 │  POST /sync/graphrag-index ── GraphRAG index trigger                 │
 │  POST /sync/graphrag-tune ── GraphRAG tuning trigger                 │
@@ -483,7 +484,7 @@ use DB-driven schedules via `agent_schedules` table rather than static crons.
 | `m365-admin-weekly-audit` | Riley Morgan (M365) | `0 12 * * 1` | Mon 7:00 AM | Weekly channel audit |
 | `m365-admin-user-audit` | Riley Morgan (M365) | `0 13 * * 1` | Mon 8:00 AM | User access audit |
 
-#### Data Sync & Utility Jobs (9 jobs, via HTTP + internal DataSyncScheduler)
+#### Data Sync & Utility Jobs (10 jobs, via HTTP + internal DataSyncScheduler)
 
 | Job ID | Cron (UTC) | Local (CT) | Endpoint | Source |
 |--------|-----------|------------|----------|--------|
@@ -493,6 +494,7 @@ use DB-driven schedules via `agent_schedules` table rather than static crons.
 | `sync-openai-billing` | `0 9 * * *` | 3:00 AM | `/sync/openai-billing` | OpenAI API billing/usage |
 | `sync-anthropic-billing` | `0 9 * * *` | 3:00 AM | `/sync/anthropic-billing` | Anthropic (Claude) billing/usage |
 | `sync-kling-billing` | `0 9 * * *` | 3:00 AM | `/sync/kling-billing` | Kling AI video generation billing |
+| `sync-sharepoint-knowledge` | `0 10 * * *` | 4:00 AM | `/sync/sharepoint-knowledge` | SharePoint doc library to company knowledge ingestion |
 | `heartbeat` | `*/10 * * * *` | Every 10 min | `/heartbeat` | Agent check-ins + real-time directive detection |
 | `sync-graphrag-index` | `0 4 * * 0` | Sat 10:00 PM | `/sync/graphrag-index` | Weekly full GraphRAG re-index |
 | `sync-graphrag-tune` | `0 3 1 * *` | 1st of month | `/sync/graphrag-tune` | Monthly GraphRAG prompt auto-tune |

@@ -11,7 +11,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GlyphorEventBus, ModelClient, promptCache } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment } from '@glyphor/agent-runtime';
-import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, type KlingCredentials, TeamsBotHandler, extractBearerToken, runGovernanceSync } from '@glyphor/integrations';
+import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, TeamsBotHandler, extractBearerToken, runGovernanceSync } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
 import { EventRouter } from './eventRouter.js';
 import { DecisionQueue } from './decisionQueue.js';
@@ -667,6 +667,40 @@ const server = createServer(async (req, res) => {
           status: failures >= 3 ? 'failing' : 'stale',
           updated_at: new Date().toISOString(),
         }).eq('id', 'kling-billing');
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // SharePoint knowledge sync endpoint
+    if (method === 'POST' && url === '/sync/sharepoint-knowledge') {
+      try {
+        const result = await syncSharePointKnowledge(memory.getSupabaseClient());
+        await memory.getSupabaseClient().from('data_sync_status').upsert({
+          id: 'sharepoint-knowledge',
+          last_success_at: new Date().toISOString(),
+          consecutive_failures: 0,
+          status: 'ok',
+          last_error: null,
+          updated_at: new Date().toISOString(),
+        });
+        json(res, 200, { success: true, ...result });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const { data: current } = await memory.getSupabaseClient()
+          .from('data_sync_status')
+          .select('consecutive_failures')
+          .eq('id', 'sharepoint-knowledge')
+          .single();
+        const failures = (current?.consecutive_failures ?? 0) + 1;
+        await memory.getSupabaseClient().from('data_sync_status').upsert({
+          id: 'sharepoint-knowledge',
+          last_failure_at: new Date().toISOString(),
+          last_error: message,
+          consecutive_failures: failures,
+          status: failures >= 3 ? 'failing' : 'stale',
+          updated_at: new Date().toISOString(),
+        });
         json(res, 500, { success: false, error: message });
       }
       return;

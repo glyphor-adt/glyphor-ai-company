@@ -399,6 +399,13 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/sync/kling-billing',
     enabled: true,
   },
+  {
+    id: 'sync-sharepoint-knowledge',
+    schedule: '0 10 * * *',    // 10:00 UTC = 4:00 AM CT, daily
+    timezone: 'UTC',
+    endpoint: '/sync/sharepoint-knowledge',
+    enabled: true,
+  },
   // Heartbeat — lightweight agent check-ins (no Gemini calls, DB only)
   {
     id: 'heartbeat',

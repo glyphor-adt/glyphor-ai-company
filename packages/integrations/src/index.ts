@@ -143,6 +143,13 @@ export { getScopedGitHubClient, validateGitHubScope, GITHUB_AGENT_SCOPES, type G
 // Governance sync
 export { syncGCPIAMState, syncSecretRotationStatus, runGovernanceSync } from './governance/iamSync.js';
 
+// SharePoint knowledge sync
+export {
+  syncSharePointKnowledge,
+  type SharePointSyncOptions,
+  type SharePointSyncResult,
+} from './sharepoint/index.js';
+
 // Web search (OpenAI GPT-5.2 web_search_preview)
 export {
   searchWeb,
