@@ -631,6 +631,106 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
       },
     },
 
+    // ── SECRET VALUE MANAGEMENT ─────────────────────────────────────
+
+    {
+      name: 'update_secret_value',
+      description: 'Add a new version to an existing GCP secret with a new value. Use for rotating credentials stored in Secret Manager.',
+      parameters: {
+        project_id: { type: 'string', description: 'GCP project ID', required: true },
+        secret_id: { type: 'string', description: 'Secret name (e.g. azure-client-secret)', required: true },
+        value: { type: 'string', description: 'New secret value to store', required: true },
+        justification: { type: 'string', description: 'Why this secret is being updated', required: true },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const { project_id, secret_id, value, justification } = params as Record<string, string>;
+          const payload = Buffer.from(value).toString('base64');
+          const res = await gcpFetch(
+            `https://secretmanager.googleapis.com/v1/projects/${project_id}/secrets/${secret_id}:addVersion`,
+            'POST',
+            { payload: { data: payload } },
+          );
+          if (!res.ok) return { success: false, error: `API ${res.status}: ${await res.text()}` };
+          const version = await res.json() as { name: string; createTime: string; state: string };
+          return {
+            success: true,
+            data: {
+              grantId: grantId(),
+              action: 'UPDATE_SECRET_VALUE',
+              secret: secret_id,
+              project: project_id,
+              versionName: version.name,
+              state: version.state,
+              justification,
+              updatedAt: new Date().toISOString(),
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'rotate_app_credential',
+      description: 'Rotate an Entra ID app registration client secret: generates a new secret and stores it in GCP Secret Manager. Old secrets are NOT removed.',
+      parameters: {
+        app_id: { type: 'string', description: 'Entra app registration client ID (GUID)', required: true },
+        gcp_project_id: { type: 'string', description: 'GCP project to store the new secret in', required: true },
+        gcp_secret_id: { type: 'string', description: 'Secret Manager secret name to update (e.g. azure-mail-client-secret)', required: true },
+        display_name: { type: 'string', description: 'Label for the new credential (e.g. rotated-2026-02)', required: true },
+        justification: { type: 'string', description: 'Why this credential is being rotated', required: true },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const { app_id, gcp_project_id, gcp_secret_id, display_name, justification } = params as Record<string, string>;
+
+          // Step 1: Generate a new client secret on the Entra app registration
+          const addRes = await graphFetch(`/applications(appId='${encodeURIComponent(app_id)}')/addPassword`, 'POST', {
+            passwordCredential: {
+              displayName: display_name,
+              endDateTime: new Date(Date.now() + 730 * 86400000).toISOString(), // 2 years
+            },
+          });
+          if (!addRes.ok) return { success: false, error: `Graph addPassword ${addRes.status}: ${await addRes.text()}` };
+          const cred = await addRes.json() as { secretText: string; keyId: string; endDateTime: string };
+
+          // Step 2: Store the new secret value in GCP Secret Manager
+          const payload = Buffer.from(cred.secretText).toString('base64');
+          const storeRes = await gcpFetch(
+            `https://secretmanager.googleapis.com/v1/projects/${gcp_project_id}/secrets/${gcp_secret_id}:addVersion`,
+            'POST',
+            { payload: { data: payload } },
+          );
+          if (!storeRes.ok) {
+            return {
+              success: false,
+              error: `Entra secret created (keyId: ${cred.keyId}) but FAILED to store in GCP: ${storeRes.status}: ${await storeRes.text()}. Manually store the secret or it will be lost.`,
+            };
+          }
+          const version = await storeRes.json() as { name: string };
+
+          return {
+            success: true,
+            data: {
+              grantId: grantId(),
+              action: 'ROTATE_APP_CREDENTIAL',
+              appId: app_id,
+              credentialKeyId: cred.keyId,
+              credentialExpiry: cred.endDateTime,
+              gcpSecret: gcp_secret_id,
+              gcpVersion: version.name,
+              justification,
+              rotatedAt: new Date().toISOString(),
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
     // ── ACCESS AUDIT ────────────────────────────────────────────────
 
     {
@@ -1007,6 +1107,39 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
               email,
               justification: params.justification,
               disabledAt: new Date().toISOString(),
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'entra_enable_user',
+      description: 'Re-enable a disabled Entra ID user account (unblock sign-in). Cannot modify founder accounts.',
+      parameters: {
+        email: { type: 'string', description: 'User email to enable', required: true },
+        justification: { type: 'string', description: 'Why this account is being re-enabled', required: true },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const email = params.email as string;
+          if (isProtectedEntraUser(email)) {
+            return { success: false, error: `BLOCKED: ${email} is a protected founder account.` };
+          }
+          const res = await graphFetch(`/users/${encodeURIComponent(email)}`, 'PATCH', {
+            accountEnabled: true,
+          });
+          if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
+          return {
+            success: true,
+            data: {
+              grantId: grantId(),
+              action: 'ENTRA_ENABLE_USER',
+              email,
+              justification: params.justification,
+              enabledAt: new Date().toISOString(),
             },
           };
         } catch (err) {
