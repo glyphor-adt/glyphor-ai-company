@@ -241,7 +241,7 @@ export default function Workforce() {
                   <Card key={agent.id} className="group relative overflow-hidden h-28">
                     <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl" style={{ background: meta?.color ?? '#64748b' }} />
                     <div className="flex items-start gap-4 pl-3 h-full">
-                      <AgentAvatar role={agent.role} size={60} glow={agent.status === 'active'} />
+                      <AgentAvatar role={agent.role} size={60} glow={agent.status === 'active'} avatarUrl={agent.avatar_url} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <h3 className="text-[15px] font-semibold text-txt-primary">{DISPLAY_NAME_MAP[agent.role] ?? agent.display_name ?? agent.name ?? agent.role}</h3>
@@ -288,7 +288,7 @@ export default function Workforce() {
               <Card key={m.id} className="relative overflow-hidden h-24">
                 <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl" style={{ background: meta?.color ?? '#64748b' }} />
                 <div className="flex items-center gap-3 pl-3 h-full">
-                  <AgentAvatar role={m.role} size={48} glow={m.status === 'active'} />
+                  <AgentAvatar role={m.role} size={48} glow={m.status === 'active'} avatarUrl={m.avatar_url} />
                   <div>
                     <h3 className="text-[13px] font-semibold text-txt-primary">{DISPLAY_NAME_MAP[m.role] ?? m.name ?? m.display_name ?? m.role}</h3>
                     <p className="text-[11px] text-txt-muted">{TITLE_MAP[m.role] ?? m.title ?? m.role}</p>
@@ -337,7 +337,7 @@ function AgentNode({ agent, compact = false }: { agent: Agent; compact?: boolean
     <Link to={`/agents/${agent.role}`} className="block transition-transform hover:scale-[1.02]">
       <Card className={`${compact ? 'p-4' : 'p-5'} w-full h-[12rem] text-center`}>
         <div className="flex flex-col items-center justify-center gap-2 h-full">
-          <AgentAvatar role={agent.role} size={compact ? 48 : 64} glow={agent.status === 'active'} />
+          <AgentAvatar role={agent.role} size={compact ? 48 : 64} glow={agent.status === 'active'} avatarUrl={agent.avatar_url} />
           <div className="min-w-0 w-full">
             <div className="flex items-center justify-center gap-1.5">
               <h3 className="font-semibold text-txt-primary leading-tight text-xs">
@@ -389,7 +389,7 @@ function SubTeamNode({ member }: { member: Agent }) {
     <Link to={`/agents/${member.role}`} className="block transition-transform hover:scale-[1.02]">
       <Card className="p-3 min-h-[72px]">
         <div className="flex items-center gap-3 h-full">
-          <AgentAvatar role={member.role} size={48} glow={member.status === 'active'} />
+          <AgentAvatar role={member.role} size={48} glow={member.status === 'active'} avatarUrl={member.avatar_url} />
           <div className="min-w-0 text-left">
             <p className="text-sm font-semibold text-txt-primary leading-tight">{displayName}</p>
             <p className="text-xs text-txt-muted leading-tight">{title}</p>

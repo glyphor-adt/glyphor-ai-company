@@ -62,7 +62,7 @@ export default function AgentsList() {
                     <div className="flex flex-1 flex-col pl-3">
                       {/* Top row: avatar + name */}
                       <div className="flex items-start gap-3">
-                        <AgentAvatar role={agent.role} size={48} glow={agent.status === 'active'} />
+                        <AgentAvatar role={agent.role} size={48} glow={agent.status === 'active'} avatarUrl={agent.avatar_url} />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <h3 className="text-[15px] font-semibold text-txt-primary">
@@ -71,10 +71,10 @@ export default function AgentsList() {
                             <StatusDot status={agent.status} />
                           </div>
                           <p className="text-[12px] text-txt-muted">
-                            {ROLE_TITLE[agent.role] ?? agent.role}
+                            {ROLE_TITLE[agent.role] ?? agent.title ?? agent.role}
                           </p>
                           <div className="mt-1 flex items-center gap-2 text-[11px] text-txt-faint">
-                            <span>{ROLE_DEPARTMENT[agent.role] ?? ''}</span>
+                            <span>{ROLE_DEPARTMENT[agent.role] ?? agent.department ?? ''}</span>
                             <span>·</span>
                             <span className="font-mono text-txt-muted">{agent.model}</span>
                           </div>

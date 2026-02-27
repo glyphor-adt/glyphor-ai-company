@@ -24,7 +24,27 @@ function useQuery<T>(table: string, orderCol = 'created_at', ascending = false) 
 
 /* ─── Agents ──────────────────────────────── */
 export function useAgents() {
-  return useQuery<Agent>('company_agents', 'role', true);
+  const [data, setData] = useState<Agent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    const { data: rows } = await supabase
+      .from('company_agents')
+      .select('*, agent_profiles(avatar_url)')
+      .order('role', { ascending: true });
+    const agents = (rows ?? []).map((r: Record<string, unknown>) => {
+      const profile = r.agent_profiles as { avatar_url: string | null } | null;
+      const { agent_profiles: _, ...rest } = r;
+      return { ...rest, avatar_url: profile?.avatar_url ?? null } as Agent;
+    });
+    setData(agents);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  return { data, loading, refresh };
 }
 
 /* ─── Decisions ───────────────────────────── */

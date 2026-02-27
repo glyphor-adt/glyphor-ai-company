@@ -295,9 +295,9 @@ export default function Dashboard() {
                 to={`/chat/${agent.role}`}
                 className="group flex flex-col items-center gap-2 rounded-xl border border-border bg-raised p-3 transition-all hover:border-border-hover hover:shadow-md"
               >
-                <AgentAvatar role={agent.role} size={40} glow={agent.status === 'active'} />
+                <AgentAvatar role={agent.role} size={40} glow={agent.status === 'active'} avatarUrl={agent.avatar_url} />
                 <p className="text-[11px] font-medium text-txt-muted group-hover:text-txt-primary text-center leading-tight transition-colors">
-                  {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
+                  {DISPLAY_NAME_MAP[agent.role] ?? agent.display_name ?? agent.role}
                 </p>
               </Link>
             ))}

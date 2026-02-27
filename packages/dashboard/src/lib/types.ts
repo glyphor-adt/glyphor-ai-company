@@ -25,6 +25,7 @@ export type Agent = {
   last_run_at: string | null;
   last_run_duration_ms: number | null;
   created_at: string;
+  avatar_url?: string | null;
 }
 
 export type Decision = {
