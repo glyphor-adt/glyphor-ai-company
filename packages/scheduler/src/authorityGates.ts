@@ -28,6 +28,8 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
     'model_fallback', 'cache_optimization', 'scale_within_budget',
     'staging_deploy', 'dependency_update', 'health_check',
     'platform_health_check', 'dependency_review',
+    'rollback', 'incident_management', 'assign_task',
+    'model_config', 'vercel_deploy', 'vercel_rollback',
     'on_demand', 'read_inbox',
   ]),
   'cpo': new Set([

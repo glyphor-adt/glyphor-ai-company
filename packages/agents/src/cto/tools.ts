@@ -16,6 +16,8 @@ import {
   listWorkflowRuns,
   getRepoStats,
   createIssue,
+  listRecentCommits,
+  commentOnPR,
   getFileContents,
   createOrUpdateFile,
   createBranch,
@@ -25,6 +27,15 @@ import {
   type GlyphorRepo,
   listCloudBuilds,
   getCloudBuildDetails,
+  listDeployments,
+  triggerDeployment,
+  rollbackDeployment,
+  queryVercelHealth,
+  VERCEL_TEAMS,
+  type VercelTeamKey,
+  GraphTeamsClient,
+  buildChannelMap,
+  type ChannelTarget,
 } from '@glyphor/integrations';
 
 export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
@@ -1151,5 +1162,878 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         }
       },
     },
+
+    // ─── INCIDENT MANAGEMENT ────────────────────────────────────
+
+    {
+      name: 'create_incident',
+      description: 'Create a platform incident record. Use when a service is degraded or down. Severity P0=total outage, P1=major degradation, P2=partial, P3=minor.',
+      parameters: {
+        severity: {
+          type: 'string',
+          description: 'Incident severity level',
+          required: true,
+          enum: ['P0', 'P1', 'P2', 'P3'],
+        },
+        title: {
+          type: 'string',
+          description: 'Short incident title (e.g. "Scheduler 5xx spike")',
+          required: true,
+        },
+        description: {
+          type: 'string',
+          description: 'Detailed description of the incident, symptoms, and affected services',
+          required: true,
+        },
+        affected_services: {
+          type: 'array',
+          description: 'List of affected services',
+          required: false,
+          items: { type: 'string', description: 'Service name' },
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        try {
+          const supabase = memory.getSupabaseClient();
+          const incident = {
+            severity: params.severity as string,
+            title: params.title as string,
+            description: params.description as string,
+            affected_services: params.affected_services as string[] || [],
+            status: 'open',
+            opened_by: ctx.agentRole,
+            opened_at: new Date().toISOString(),
+          };
+
+          // Store in company memory
+          const incidentId = `incident-${Date.now()}`;
+          await memory.write(`incidents.${incidentId}`, incident, ctx.agentId);
+
+          // Log to activity feed
+          await memory.appendActivity({
+            agentRole: ctx.agentRole,
+            action: 'alert',
+            product: 'company',
+            summary: `[${params.severity}] Incident opened: ${params.title}`,
+            details: incident,
+            createdAt: new Date().toISOString(),
+          });
+
+          // P0/P1 auto-creates a founder decision
+          if (params.severity === 'P0' || params.severity === 'P1') {
+            await memory.createDecision({
+              tier: 'yellow',
+              status: 'pending',
+              title: `[${params.severity}] ${params.title}`,
+              summary: params.description as string,
+              proposedBy: ctx.agentRole,
+              reasoning: `Incident auto-escalated due to ${params.severity} severity.`,
+              assignedTo: ['Kristina', 'Andrew'],
+            });
+          }
+
+          return { success: true, data: { incidentId, ...incident }, memoryKeysWritten: 1 };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'resolve_incident',
+      description: 'Close an incident with root cause analysis and resolution notes.',
+      parameters: {
+        incident_id: {
+          type: 'string',
+          description: 'The incident ID from create_incident',
+          required: true,
+        },
+        root_cause: {
+          type: 'string',
+          description: 'Root cause analysis',
+          required: true,
+        },
+        resolution: {
+          type: 'string',
+          description: 'What was done to resolve the incident',
+          required: true,
+        },
+        prevention: {
+          type: 'string',
+          description: 'Steps to prevent recurrence',
+          required: false,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        try {
+          const incidentId = params.incident_id as string;
+          const existing = await memory.read<Record<string, unknown>>(`incidents.${incidentId}`);
+          if (!existing) {
+            return { success: false, error: `Incident ${incidentId} not found` };
+          }
+
+          const resolved = {
+            ...existing,
+            status: 'resolved',
+            root_cause: params.root_cause,
+            resolution: params.resolution,
+            prevention: params.prevention,
+            resolved_by: ctx.agentRole,
+            resolved_at: new Date().toISOString(),
+          };
+
+          await memory.write(`incidents.${incidentId}`, resolved, ctx.agentId);
+
+          await memory.appendActivity({
+            agentRole: ctx.agentRole,
+            action: 'deploy',
+            product: 'company',
+            summary: `Incident resolved: ${(existing as any).title} — ${params.root_cause}`,
+            createdAt: new Date().toISOString(),
+          });
+
+          return { success: true, data: resolved, memoryKeysWritten: 1 };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    // ─── DEPLOYMENT — Cloud Run ─────────────────────────────────
+
+    {
+      name: 'deploy_cloud_run',
+      description: 'Trigger a Cloud Build deploy for a Cloud Run service. This creates a new build from the latest source. For staging deploys (GREEN). Production deploys require a decision (YELLOW).',
+      parameters: {
+        service: {
+          type: 'string',
+          description: 'Cloud Run service to deploy',
+          required: true,
+          enum: ['scheduler', 'dashboard', 'voice-gateway'],
+        },
+        environment: {
+          type: 'string',
+          description: 'Target environment',
+          required: true,
+          enum: ['staging', 'production'],
+        },
+        reason: {
+          type: 'string',
+          description: 'Reason for the deployment',
+          required: true,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const environment = params.environment as string;
+        const service = params.service as string;
+
+        // Production deploys require a decision
+        if (environment === 'production') {
+          const decisionId = await memory.createDecision({
+            tier: 'yellow',
+            status: 'pending',
+            title: `Production deploy: glyphor-${service}`,
+            summary: `${params.reason}`,
+            proposedBy: ctx.agentRole,
+            reasoning: `Production deployment of glyphor-${service} requires founder approval.`,
+            assignedTo: ['Kristina', 'Andrew'],
+          });
+          return {
+            success: true,
+            data: {
+              status: 'pending_approval',
+              decisionId,
+              message: `Production deploy requires approval. Decision ${decisionId} created.`,
+            },
+          };
+        }
+
+        // Staging deploys — trigger Cloud Build
+        const projectId = process.env.GCP_PROJECT_ID;
+        if (!projectId) {
+          return { success: false, error: 'GCP_PROJECT_ID not configured' };
+        }
+
+        try {
+          const token = await getGCPAccessToken();
+          const triggersUrl = `https://cloudbuild.googleapis.com/v1/projects/${projectId}/triggers`;
+          const triggersRes = await fetch(triggersUrl, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const triggersData = await triggersRes.json() as { triggers?: Array<{ id: string; name: string; description?: string }> };
+          const triggers = triggersData.triggers || [];
+
+          // Find matching trigger for the service
+          const trigger = triggers.find((t: { id: string; name: string; description?: string }) =>
+            t.name.includes(service) || (t.description && t.description.includes(service)),
+          );
+
+          if (!trigger) {
+            return {
+              success: false,
+              error: `No Cloud Build trigger found for service "${service}". Available triggers: ${triggers.map((t: { name: string }) => t.name).join(', ')}`,
+            };
+          }
+
+          // Trigger the build
+          const runUrl = `https://cloudbuild.googleapis.com/v1/projects/${projectId}/triggers/${trigger.id}:run`;
+          const runRes = await fetch(runUrl, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ branchName: 'main' }),
+          });
+
+          if (!runRes.ok) {
+            const errText = await runRes.text();
+            return { success: false, error: `Cloud Build trigger failed: ${runRes.status} ${errText}` };
+          }
+
+          const buildData = await runRes.json() as { metadata?: { build?: { id?: string; logUrl?: string } } };
+          const buildId = buildData.metadata?.build?.id;
+
+          await memory.appendActivity({
+            agentRole: ctx.agentRole,
+            action: 'deploy',
+            product: 'company',
+            summary: `Triggered ${environment} deploy for glyphor-${service} via Cloud Build`,
+            details: { service, environment, buildId, trigger: trigger.name },
+            createdAt: new Date().toISOString(),
+          });
+
+          return {
+            success: true,
+            data: {
+              buildId,
+              trigger: trigger.name,
+              logUrl: buildData.metadata?.build?.logUrl,
+              environment,
+              service: `glyphor-${service}`,
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'rollback_cloud_run',
+      description: 'Rollback a Cloud Run service to its previous revision. GREEN authority — safety valve for bad deploys.',
+      parameters: {
+        service: {
+          type: 'string',
+          description: 'Cloud Run service to rollback',
+          required: true,
+          enum: ['scheduler', 'dashboard', 'voice-gateway'],
+        },
+        reason: {
+          type: 'string',
+          description: 'Reason for the rollback',
+          required: true,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const projectId = process.env.GCP_PROJECT_ID;
+        if (!projectId) {
+          return { success: false, error: 'GCP_PROJECT_ID not configured' };
+        }
+
+        const serviceName = `glyphor-${params.service as string}`;
+        const region = 'us-central1';
+
+        try {
+          const token = await getGCPAccessToken();
+
+          // List revisions to find previous
+          const listUrl = `https://run.googleapis.com/v2/projects/${projectId}/locations/${region}/services/${serviceName}/revisions`;
+          const listRes = await fetch(listUrl, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (!listRes.ok) {
+            return { success: false, error: `Failed to list revisions: ${listRes.status}` };
+          }
+
+          const listData = await listRes.json() as { revisions?: Array<{ name: string; createTime: string }> };
+          const revisions = (listData.revisions || []).sort(
+            (a: { createTime: string }, b: { createTime: string }) =>
+              new Date(b.createTime).getTime() - new Date(a.createTime).getTime(),
+          );
+
+          if (revisions.length < 2) {
+            return { success: false, error: 'No previous revision available for rollback' };
+          }
+
+          const currentRevision = revisions[0].name.split('/').pop()!;
+          const previousRevision = revisions[1].name.split('/').pop()!;
+
+          // Route 100% traffic to previous revision
+          const serviceUrl = `https://run.googleapis.com/v2/projects/${projectId}/locations/${region}/services/${serviceName}`;
+          const getRes = await fetch(serviceUrl, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const serviceData = await getRes.json() as Record<string, unknown>;
+
+          const patchRes = await fetch(serviceUrl, {
+            method: 'PATCH',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              ...serviceData,
+              traffic: [{ type: 'TRAFFIC_TARGET_ALLOCATION_TYPE_REVISION', revision: previousRevision, percent: 100 }],
+            }),
+          });
+
+          if (!patchRes.ok) {
+            const errText = await patchRes.text();
+            return { success: false, error: `Rollback failed: ${patchRes.status} ${errText}` };
+          }
+
+          await memory.appendActivity({
+            agentRole: ctx.agentRole,
+            action: 'deploy',
+            product: 'company',
+            summary: `Rolled back ${serviceName}: ${currentRevision} → ${previousRevision}. Reason: ${params.reason}`,
+            createdAt: new Date().toISOString(),
+          });
+
+          return {
+            success: true,
+            data: {
+              service: serviceName,
+              rolledBackFrom: currentRevision,
+              rolledBackTo: previousRevision,
+              reason: params.reason,
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    // ─── DEPLOYMENT — Vercel ────────────────────────────────────
+
+    {
+      name: 'trigger_vercel_deploy',
+      description: 'Trigger a Vercel deployment for Fuse. Re-deploys the latest commit to production or preview.',
+      parameters: {
+        target: {
+          type: 'string',
+          description: 'Deployment target',
+          required: false,
+          enum: ['production', 'preview'],
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        try {
+          const target = (params.target as 'production' | 'preview') || 'preview';
+
+          // Production Vercel deploys require decision
+          if (target === 'production') {
+            const decisionId = await memory.createDecision({
+              tier: 'yellow',
+              status: 'pending',
+              title: 'Vercel production deploy: Fuse',
+              summary: 'Manual production deploy triggered by CTO.',
+              proposedBy: ctx.agentRole,
+              reasoning: 'Production Vercel deployments require founder approval.',
+              assignedTo: ['Kristina', 'Andrew'],
+            });
+            return { success: true, data: { status: 'pending_approval', decisionId } };
+          }
+
+          const deployment = await triggerDeployment('fuse', target);
+
+          await memory.appendActivity({
+            agentRole: ctx.agentRole,
+            action: 'deploy',
+            product: 'fuse',
+            summary: `Triggered Vercel ${target} deploy for Fuse`,
+            details: { deploymentId: deployment.uid, url: deployment.url },
+            createdAt: new Date().toISOString(),
+          });
+
+          return { success: true, data: deployment };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'rollback_vercel_deploy',
+      description: 'Rollback Vercel to a previous deployment. GREEN authority — safety valve.',
+      parameters: {
+        deployment_id: {
+          type: 'string',
+          description: 'Deployment ID to rollback to (get from list_vercel_deployments)',
+          required: true,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        try {
+          const result = await rollbackDeployment('fuse', params.deployment_id as string);
+
+          await memory.appendActivity({
+            agentRole: ctx.agentRole,
+            action: 'deploy',
+            product: 'fuse',
+            summary: `Rolled back Vercel Fuse to deployment ${params.deployment_id}`,
+            createdAt: new Date().toISOString(),
+          });
+
+          return { success: true, data: result };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'list_vercel_deployments',
+      description: 'List recent Vercel deployments for Fuse — shows status, URL, created time, and errors.',
+      parameters: {
+        limit: {
+          type: 'number',
+          description: 'Number of recent deployments (default: 10)',
+          required: false,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const deployments = await listDeployments('fuse', (params.limit as number) || 10);
+          return { success: true, data: { count: deployments.length, deployments } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'get_vercel_health',
+      description: 'Get Vercel health summary: latest deployment state, recent error rate, build status.',
+      parameters: {},
+      execute: async (_params, _ctx): Promise<ToolResult> => {
+        try {
+          const health = await queryVercelHealth('fuse');
+          return { success: true, data: health };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    // ─── MODEL CONFIGURATION ────────────────────────────────────
+
+    {
+      name: 'update_model_config',
+      description: 'Update an agent\'s AI model configuration. GREEN for model fallbacks and temperature tuning. YELLOW if monthly cost impact > $50.',
+      parameters: {
+        agent_role: {
+          type: 'string',
+          description: 'Agent role to update (e.g. "cto", "cpo", "cmo")',
+          required: true,
+        },
+        model: {
+          type: 'string',
+          description: 'New model name (e.g. "gemini-2.5-pro", "gpt-4o", "claude-sonnet-4")',
+          required: false,
+        },
+        temperature: {
+          type: 'number',
+          description: 'New temperature (0.0 - 1.0)',
+          required: false,
+        },
+        max_turns: {
+          type: 'number',
+          description: 'Max turns per run',
+          required: false,
+        },
+        reason: {
+          type: 'string',
+          description: 'Reason for the model change',
+          required: true,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        try {
+          const supabase = memory.getSupabaseClient();
+          const agentRole = params.agent_role as string;
+          const updates: Record<string, unknown> = {};
+
+          if (params.model) updates.model = params.model;
+          if (params.temperature !== undefined) updates.temperature = params.temperature;
+          if (params.max_turns) updates.max_turns = params.max_turns;
+
+          if (Object.keys(updates).length === 0) {
+            return { success: false, error: 'No updates specified — provide model, temperature, or max_turns.' };
+          }
+
+          const { error } = await supabase.from('company_agents')
+            .update(updates)
+            .eq('role', agentRole);
+
+          if (error) return { success: false, error: error.message };
+
+          await memory.appendActivity({
+            agentRole: ctx.agentRole,
+            action: 'deploy',
+            product: 'company',
+            summary: `Model config updated for ${agentRole}: ${JSON.stringify(updates)}. Reason: ${params.reason}`,
+            createdAt: new Date().toISOString(),
+          });
+
+          return { success: true, data: { agentRole, updates, reason: params.reason } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'query_ai_usage',
+      description: 'Get AI model usage and cost breakdown from recent agent runs. Shows tokens, cost, and model distribution.',
+      parameters: {
+        days: {
+          type: 'number',
+          description: 'Days to look back (default: 7)',
+          required: false,
+        },
+        agent_role: {
+          type: 'string',
+          description: 'Filter by specific agent role (omit for all)',
+          required: false,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const supabase = memory.getSupabaseClient();
+          const days = (params.days as number) || 7;
+          const since = new Date(Date.now() - days * 86400000).toISOString();
+
+          let query = supabase.from('agent_runs')
+            .select('agent_role, model, tokens_used, cost_usd, created_at, status')
+            .gte('created_at', since)
+            .order('created_at', { ascending: false });
+
+          if (params.agent_role) {
+            query = query.eq('agent_role', params.agent_role as string);
+          }
+
+          const { data, error } = await query.limit(200);
+          if (error) return { success: false, error: error.message };
+
+          const runs = data as Array<{ agent_role: string; model: string; tokens_used: number; cost_usd: number; status: string }>;
+
+          // Aggregate by model
+          const byModel: Record<string, { runs: number; tokens: number; cost: number }> = {};
+          for (const run of runs) {
+            const model = run.model || 'unknown';
+            if (!byModel[model]) byModel[model] = { runs: 0, tokens: 0, cost: 0 };
+            byModel[model].runs++;
+            byModel[model].tokens += run.tokens_used || 0;
+            byModel[model].cost += run.cost_usd || 0;
+          }
+
+          // Aggregate by agent
+          const byAgent: Record<string, { runs: number; tokens: number; cost: number }> = {};
+          for (const run of runs) {
+            if (!byAgent[run.agent_role]) byAgent[run.agent_role] = { runs: 0, tokens: 0, cost: 0 };
+            byAgent[run.agent_role].runs++;
+            byAgent[run.agent_role].tokens += run.tokens_used || 0;
+            byAgent[run.agent_role].cost += run.cost_usd || 0;
+          }
+
+          const totalCost = runs.reduce((s, r) => s + (r.cost_usd || 0), 0);
+          const totalTokens = runs.reduce((s, r) => s + (r.tokens_used || 0), 0);
+
+          return {
+            success: true,
+            data: {
+              period: `${days}d`,
+              totalRuns: runs.length,
+              totalTokens,
+              totalCost: Math.round(totalCost * 100) / 100,
+              byModel,
+              byAgent,
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    // ─── GITHUB — Additional Operations ─────────────────────────
+
+    {
+      name: 'comment_on_pr',
+      description: 'Post a review comment on a pull request.',
+      parameters: {
+        repo: {
+          type: 'string',
+          description: 'Repo key: "company", "fuse", or "pulse"',
+          required: true,
+          enum: ['company', 'fuse', 'pulse'],
+        },
+        pr_number: {
+          type: 'number',
+          description: 'Pull request number',
+          required: true,
+        },
+        comment: {
+          type: 'string',
+          description: 'Comment body in markdown',
+          required: true,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const result = await commentOnPR(
+            params.repo as GlyphorRepo,
+            params.pr_number as number,
+            params.comment as string,
+          );
+          return { success: true, data: result };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('GITHUB_TOKEN')) return { success: false, error: 'NO_DATA: GITHUB_TOKEN not configured.' };
+          return { success: false, error: msg };
+        }
+      },
+    },
+
+    {
+      name: 'list_recent_commits',
+      description: 'List recent commits on the default branch of a repo.',
+      parameters: {
+        repo: {
+          type: 'string',
+          description: 'Repo key: "company", "fuse", or "pulse"',
+          required: true,
+          enum: ['company', 'fuse', 'pulse'],
+        },
+        limit: {
+          type: 'number',
+          description: 'Number of commits to list (default: 15)',
+          required: false,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const commits = await listRecentCommits(
+            params.repo as GlyphorRepo,
+            (params.limit as number) || 15,
+          );
+          return { success: true, data: { count: commits.length, commits } };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('GITHUB_TOKEN')) return { success: false, error: 'NO_DATA: GITHUB_TOKEN not configured.' };
+          return { success: false, error: msg };
+        }
+      },
+    },
+
+    // ─── TEAM MANAGEMENT ────────────────────────────────────────
+
+    {
+      name: 'assign_task',
+      description: 'Assign a task to one of your direct reports (Alex Park, Sam DeLuca, Jordan Hayes, or Riley Morgan). Creates a work assignment and sends them an inter-agent message.',
+      parameters: {
+        agent_role: {
+          type: 'string',
+          description: 'Agent role of your direct report',
+          required: true,
+          enum: ['platform-engineer', 'quality-engineer', 'devops-engineer', 'm365-admin'],
+        },
+        task_description: {
+          type: 'string',
+          description: 'Clear description of what you need them to do',
+          required: true,
+        },
+        expected_output: {
+          type: 'string',
+          description: 'What you expect them to produce',
+          required: true,
+        },
+        priority: {
+          type: 'string',
+          description: 'Task priority',
+          required: false,
+          enum: ['urgent', 'high', 'normal', 'low'],
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        try {
+          const supabase = memory.getSupabaseClient();
+          const agentRole = params.agent_role as string;
+          const priority = (params.priority as string) || 'normal';
+
+          // Create work assignment
+          const { data: assignment, error: assignError } = await supabase
+            .from('work_assignments')
+            .insert({
+              assigned_to: agentRole,
+              assigned_by: ctx.agentRole,
+              task_description: params.task_description as string,
+              task_type: 'on_demand',
+              expected_output: params.expected_output as string,
+              priority,
+              status: 'pending',
+            })
+            .select()
+            .single();
+
+          if (assignError) return { success: false, error: assignError.message };
+
+          // Send inter-agent message
+          await supabase.from('agent_messages').insert({
+            from_agent: ctx.agentRole,
+            to_agent: agentRole,
+            message: `**Task Assignment from Marcus (CTO)**\n\n` +
+              `**Priority:** ${priority}\n\n` +
+              `**Task:**\n${params.task_description}\n\n` +
+              `**Expected Output:**\n${params.expected_output}\n\n` +
+              `Use \`submit_assignment_output\` when complete, or \`flag_assignment_blocker\` if blocked.`,
+          });
+
+          await memory.appendActivity({
+            agentRole: ctx.agentRole,
+            action: 'analysis',
+            product: 'company',
+            summary: `Assigned task to ${agentRole}: ${(params.task_description as string).slice(0, 100)}`,
+            createdAt: new Date().toISOString(),
+          });
+
+          return { success: true, data: { assignmentId: assignment.id, assignedTo: agentRole, priority } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'check_team_assignments',
+      description: 'Check the status of work assignments for your direct reports. See what\'s pending, in-progress, completed, or blocked.',
+      parameters: {
+        agent_role: {
+          type: 'string',
+          description: 'Filter by specific report (omit for all)',
+          required: false,
+          enum: ['platform-engineer', 'quality-engineer', 'devops-engineer', 'm365-admin'],
+        },
+        status: {
+          type: 'string',
+          description: 'Filter by status (omit for all)',
+          required: false,
+          enum: ['pending', 'in_progress', 'completed', 'blocked'],
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const supabase = memory.getSupabaseClient();
+          const myReports = ['platform-engineer', 'quality-engineer', 'devops-engineer', 'm365-admin'];
+
+          let query = supabase.from('work_assignments')
+            .select('*')
+            .in('assigned_to', params.agent_role ? [params.agent_role as string] : myReports)
+            .order('created_at', { ascending: false })
+            .limit(30);
+
+          if (params.status) query = query.eq('status', params.status as string);
+
+          const { data, error } = await query;
+          if (error) return { success: false, error: error.message };
+
+          const assignments = data as Array<{ status: string; assigned_to: string }>;
+          return {
+            success: true,
+            data: {
+              total: assignments.length,
+              byStatus: {
+                pending: assignments.filter(a => a.status === 'pending').length,
+                in_progress: assignments.filter(a => a.status === 'in_progress').length,
+                completed: assignments.filter(a => a.status === 'completed').length,
+                blocked: assignments.filter(a => a.status === 'blocked').length,
+              },
+              assignments,
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    // ─── TEAMS CHANNEL POSTING ──────────────────────────────────
+
+    {
+      name: 'post_to_teams',
+      description: 'Post a message to a Microsoft Teams channel (#engineering or #glyphor-general).',
+      parameters: {
+        channel: {
+          type: 'string',
+          description: 'Target channel',
+          required: true,
+          enum: ['engineering', 'general'],
+        },
+        message: {
+          type: 'string',
+          description: 'Message content (plain text or HTML)',
+          required: true,
+        },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const graphClient = GraphTeamsClient.fromEnv();
+          const channelMap = buildChannelMap();
+
+          const channelKey = params.channel === 'general' ? 'general' : 'engineering';
+          const target = channelMap[channelKey] as ChannelTarget | undefined;
+
+          if (!target) {
+            return { success: false, error: `Channel "${channelKey}" not configured. Set TEAMS_CHANNEL_${channelKey.toUpperCase()} env vars.` };
+          }
+
+          await graphClient.sendText(target, params.message as string);
+
+          return { success: true, data: { channel: channelKey, sent: true } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
   ];
+}
+
+// ─── Helper: GCP Access Token ───────────────────────────────
+
+async function getGCPAccessToken(): Promise<string> {
+  // Use metadata server when running on GCP, or gcloud auth for local dev
+  try {
+    const metadataRes = await fetch(
+      'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token',
+      { headers: { 'Metadata-Flavor': 'Google' } },
+    );
+    if (metadataRes.ok) {
+      const tokenData = await metadataRes.json() as { access_token: string };
+      return tokenData.access_token;
+    }
+  } catch {
+    // Not on GCP — fall through to ADC
+  }
+
+  // Fall back to Application Default Credentials
+  const { GoogleAuth } = await import('google-auth-library');
+  const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/cloud-platform'] });
+  const client = await auth.getClient();
+  const tokenRes = await client.getAccessToken();
+  if (!tokenRes.token) throw new Error('Failed to get GCP access token via ADC');
+  return tokenRes.token;
 }
