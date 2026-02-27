@@ -204,6 +204,7 @@ const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
   'market-research-analyst': 'daniel-okafor',
   'technical-research-analyst': 'kai-nakamura',
   'industry-research-analyst': 'amara-diallo',
+  'head-of-hr': 'jasmine-rivera',
 };
 
 /** Maps roles to their department for knowledge base audience targeting. */

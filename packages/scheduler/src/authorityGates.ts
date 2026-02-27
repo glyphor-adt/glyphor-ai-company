@@ -102,6 +102,7 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
   'market-research-analyst': new Set(['research', 'on_demand']),
   'technical-research-analyst': new Set(['research', 'on_demand']),
   'industry-research-analyst': new Set(['research', 'on_demand']),
+  'head-of-hr': new Set(['on_demand', 'read_inbox']),
 };
 
 /**
