@@ -9,7 +9,6 @@ import type { AnalysisReport, AnalysisRecord } from './analysisEngine.js';
 import type { SimulationReport, SimulationRecord } from './simulationEngine.js';
 import type { CotReport, CotRecord } from './cotEngine.js';
 import type { DeepDiveRecord, DeepDiveReport } from './deepDiveEngine.js';
-import type { DeepDiveRecord, DeepDiveReport } from './deepDiveEngine.js';
 import type { StrategyAnalysisRecord, SynthesisOutput } from './strategyLabEngine.js';
 import PptxGenJS from 'pptxgenjs';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType, PageNumber, Header, Footer, Tab, TabStopPosition, TabStopType, convertInchesToTwip } from 'docx';
@@ -1757,10 +1756,6 @@ function truncate(text: string, maxLen: number): string {
   if (text.length <= maxLen) return text;
   return text.slice(0, maxLen - 1) + '…';
 }
-
-/* ══════════════════════════════════════════════════════
-   Deep Dive Export Functions (McKinsey-Style)
-   ══════════════════════════════════════════════════════ */
 
 /* ── Deep Dive: Markdown ──────────────────── */
 
