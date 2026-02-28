@@ -1667,6 +1667,179 @@ skill system and dynamic grant system verify tool availability without importing
 tool module. Grant requests for unknown tools are rejected with a message to ask the CTO
 to build it first.
 
+### Intelligence Engine Enhancements
+
+Added 2026-02-28. Eight cross-cutting modules that strengthen agent governance,
+trust calibration, decision traceability, formal safety, causal reasoning,
+output verification, organizational learning, and behavioral stability.
+All are opt-in via `ClassifiedRunDependencies` and degrade gracefully when
+their backing tables haven't been migrated.
+
+#### 1. Constitutional Agent Governance (`constitutionalGovernor.ts`, `constitutionDefaults.ts`)
+
+Every agent runs under a **constitution** — a versioned set of principles organized by
+category (`safety`, `accuracy`, `transparency`, `efficiency`, `collaboration`, `ethics`).
+Constitutions are stored in `agent_constitutions` and seeded on first access from
+`constitutionDefaults.ts` (role-specific defaults for each executive + analyst fallback set).
+
+After each run, the governor evaluates the agent's output against its constitution via a
+distiller-model LLM call and records a `ConstitutionalEvaluation` (per-principle pass/fail,
+overall compliance score 0–1, suggested revisions). Evaluations are persisted in
+`constitutional_evaluations` and feed the trust scorer.
+
+Agents can propose constitutional amendments (via `proposed_constitutional_amendments`);
+the Episodic Replay process reviews and escalates them.
+
+**Integration points:**
+- `baseAgentRunner.ts` — pre-loads constitution before prompt build; evaluates output after
+  reasoning verification; records evaluation and applies trust delta.
+- `orchestratorRunner.ts` / `taskRunner.ts` — inject active constitutional principles into
+  the system prompt so the LLM is aware of its governing rules.
+
+Tables: `agent_constitutions`, `constitutional_evaluations`, `proposed_constitutional_amendments`.
+
+#### 2. Dynamic Trust Scoring (`trustScorer.ts`)
+
+Each agent carries a continuous trust score (0–1, default 0.7) that modulates its effective
+authority tier. Trust decays or grows based on nine signal sources:
+
+| Source | Weight | Direction |
+|--------|--------|-----------|
+| `reasoning_confidence` | 1.0 | ± |
+| `reasoning_verification` | 0.8 | ± |
+| `constitutional_adherence` | 1.2 | ± |
+| `constitutional_eval` | 1.0 | ± |
+| `peer_feedback` | 0.6 | ± |
+| `human_override` | 2.0 | − (penalty) |
+| `formal_failure` | 1.5 | − (penalty) |
+| `reflection_quality` | 0.4 | ± |
+| `drift_detection` | 1.0 | − (penalty) |
+
+Trust is clamped to `[0.1, 1.0]` and cached in Redis (`trust:{role}`, 5 min TTL).
+`getEffectiveAuthority()` maps the trust score to a `DecisionTier`:
+- `≥ 0.7` → agent's own tier
+- `0.4–0.7` → demoted one tier (yellow → red, green → yellow)
+- `< 0.4` → forced to `red` (human approval required for all actions)
+
+Table: `agent_trust_scores` (with DB-side `update_trust_score()` function for atomic updates).
+
+#### 3. Provenance Decision Chains (`decisionChainTracker.ts`)
+
+Every orchestration or multi-step reasoning flow is tracked as a **decision chain** — an
+ordered list of links recording who did what, when, and why.
+
+Each `ChainLink` captures: `agent_role`, `action`, `input_summary`, `output_summary`,
+`confidence`, `reasoning_passes`, `timestamp`, and optional `metadata`.
+
+Links are batched (10 links or 5 s flush timer) and written to `decision_chains` via the
+`append_chain_links()` Postgres function. Chains also record `computeContributions()` —
+per-agent link count and average confidence — for post-hoc accountability audits.
+
+Table: `decision_chains` (JSONB `links` array, `contributions` JSON, `status` enum).
+
+#### 4. Formal Verification Gates (`formalVerifier.ts`)
+
+Pure deterministic verification checks that run **before** high-impact tool calls
+(budget writes, financial mutations). No LLM involved — all checks are algorithmic.
+
+| Verifier | What it checks |
+|----------|---------------|
+| `verifyArithmetic(expr, claimed)` | Safe recursive-descent parser evaluates the expression and compares to the agent's claimed result (tolerance: 0.001). No `eval()`. |
+| `verifyDependencyGraph(nodes, edges)` | DFS cycle detection on task/dependency graphs. |
+| `verifyBudgetConstraint(proposed, limit, current)` | `current + proposed ≤ limit`. |
+| `verifySchedule(items)` | Detects time-range overlaps and resource double-booking. |
+| `verifyInvariant(name, value, constraint)` | Generic min/max/equals/not_equals constraint check. |
+
+Each returns a `VerificationResult` (`{ passed, details }`). In `toolExecutor.ts`, a budget
+verification gate fires before every write tool when enforcement is active — failures block
+the tool call.
+
+#### 5. Counterfactual Causal Reasoning (`graphWriter.ts`, `graphReader.ts` extensions)
+
+Extends the Knowledge Graph with typed causal edges (`CAUSAL_INFLUENCES`) carrying:
+- `causal_confidence` (0–1) — strength of the causal link
+- `causal_lag` (interval) — estimated delay between cause and effect
+- `causal_mechanism` (text) — human-readable explanation of the causal pathway
+
+New KG methods:
+- `upsertCausalEdge(source, target, confidence, lag?, mechanism?)` — idempotent
+  create/update of causal edges between KG nodes.
+- `updateCausalConfidence(edgeId, newConfidence)` — refine confidence as evidence accrues.
+- `traceCausalImpact(nodeTitle, maxDepth?)` — multi-hop BFS traversal returning upstream
+  causes and downstream effects with confidence and mechanism at each hop.
+
+Migration: `ALTER TABLE kg_edges ADD COLUMN causal_confidence, causal_lag, causal_mechanism`,
+`ALTER TABLE shared_episodes ADD COLUMN significance_score`.
+
+#### 6. Verifier Agents — Dual-Track Verification (`verifierRunner.ts`)
+
+Cross-model verification layer on top of the Reasoning Engine. When an agent produces a
+high-stakes output, the verifier re-evaluates it using a **different LLM provider**:
+
+| Primary model family | Verifier model |
+|---------------------|---------------|
+| Gemini | Claude |
+| OpenAI | Gemini |
+| Claude | Gemini |
+
+The verifier receives the original task + agent output + formal check results and returns
+a `VerificationReport` with:
+- `verdict`: `APPROVE` / `WARN` / `ESCALATE` / `BLOCK`
+- Per-dimension scores: `factual_accuracy`, `logical_consistency`, `authority_compliance`,
+  `risk_assessment` (each 0–1)
+- `issues[]` with severity and descriptions
+- `suggestions[]` for improvement
+
+Designed for extension — currently invokable manually; can be wired into the run loop for
+automatic dual-track verification on red-tier decisions.
+
+#### 7. Episodic Replay (`episodicReplay.ts`)
+
+Scheduled process (runs every **2 hours**) that performs organizational learning:
+
+1. Fetches recent agent episodes + high-significance past episodes from `shared_episodes`.
+2. Groups episodes and sends them to an LLM for pattern analysis.
+3. Updates `significance_score` on episodes to surface important ones in future replays.
+4. Reviews pending constitutional amendment proposals and escalates approved ones.
+5. Updates `company_pulse.highlights` with newly discovered cross-agent patterns.
+
+Requires an `EmbeddingClient`-compatible object for semantic similarity during
+deduplication. Uses Redis locking (`episodic-replay-lock`, 30 min TTL) to prevent
+overlapping runs.
+
+#### 8. Semantic Drift Detection (`driftDetector.ts`)
+
+Scheduled process (runs every **6 hours**) that monitors behavioral stability per agent:
+
+1. Computes a **30-day baseline** (mean + stddev) for each metric per agent.
+2. Computes a **7-day recent window** for the same metrics.
+3. Flags any metric deviating **> 2σ** from baseline as a drift alert.
+4. For severe drift (> 2.5σ degradation in confidence or compliance), automatically
+   applies a negative trust delta.
+5. Persists alerts to `drift_alerts` with `severity` (`low` / `medium` / `high` / `critical`).
+
+Tracked metrics: `reasoning_confidence`, `cost_per_run`, `reasoning_passes`,
+`tokens_used`, `constitutional_compliance`.
+
+Table: `drift_alerts` (agent_id, metric, baseline_mean, baseline_stddev, recent_mean,
+deviation_sigma, severity, acknowledged).
+
+#### New Database Tables Summary
+
+| Table | Enhancement | Key Columns |
+|-------|------------|-------------|
+| `agent_constitutions` | Constitutional Governance | `agent_role`, `principles` (JSONB), `version` |
+| `constitutional_evaluations` | Constitutional Governance | `run_id`, `agent_role`, `compliance_score`, `evaluation` (JSONB) |
+| `proposed_constitutional_amendments` | Constitutional Governance | `proposing_agent`, `principle_id`, `rationale`, `status` |
+| `agent_trust_scores` | Trust Scoring | `agent_role` (unique), `trust_score`, `total_positive/negative_signals` |
+| `decision_chains` | Decision Chains | `chain_id`, `links` (JSONB), `status`, `contributions` (JSONB) |
+| `drift_alerts` | Drift Detection | `agent_id`, `metric`, `deviation_sigma`, `severity` |
+
+Altered tables: `kg_edges` (+`causal_confidence`, `causal_lag`, `causal_mechanism`),
+`shared_episodes` (+`significance_score`).
+
+---
+
 ### Inter-Agent Event Bus
 
 The `GlyphorEventBus` enables reactive communication between agents. When an agent emits an
@@ -2179,6 +2352,12 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 | `agent_peer_feedback` | Peer evaluations | from_agent, to_agent, feedback, context, sentiment |
 | `agent_runs` | Individual run log | agent_id, task, status, duration_ms, cost, input_tokens, output_tokens, tool_calls, turns, error |
 | `agent_activities` | Activity stream | agent_role, activity_type, summary, details |
+| `agent_trust_scores` | Dynamic trust scores | agent_role (unique), trust_score (0–1), total_positive_signals, total_negative_signals, last_updated |
+| `agent_constitutions` | Per-agent constitutional principles | agent_role, principles (JSONB), version, is_active |
+| `constitutional_evaluations` | Post-run constitutional compliance | run_id, agent_role, constitution_version, compliance_score, evaluation (JSONB), pre/post_revision_confidence |
+| `proposed_constitutional_amendments` | Agent-proposed principle changes | proposing_agent, principle_id, amendment_type, current_text, proposed_text, rationale, status |
+| `decision_chains` | Provenance chain of multi-step decisions | chain_id (PK), initiating_agent, task_description, links (JSONB), status, contributions (JSONB) |
+| `drift_alerts` | Behavioral drift notifications | agent_id, metric, baseline_mean, baseline_stddev, recent_mean, deviation_sigma, severity, acknowledged |
 
 ### Agent Intelligence Tables
 
@@ -2198,7 +2377,7 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 |-------|---------|-------------|
 | `agent_world_model` | Per-agent self-model (strengths, weaknesses, task scores, prediction accuracy) | agent_role (PK), strengths (JSONB), weaknesses (JSONB), failure_patterns (JSONB), task_type_scores (JSONB), prediction_accuracy, improvement_goals (JSONB), preferred_approaches (JSONB), rubric_version |
 | `role_rubrics` | Evaluation rubrics per role/task type | role + task_type + version (unique), dimensions (JSONB array of 5-level rubrics), passing_score, excellence_score |
-| `shared_episodes` | Cross-agent episodic memory | author_agent, episode_type, summary, detail (JSONB), outcome, confidence, domains (TEXT[]), tags (TEXT[]), related_agents (TEXT[]), embedding (vector 768-dim) |
+| `shared_episodes` | Cross-agent episodic memory | author_agent, episode_type, summary, detail (JSONB), outcome, confidence, domains (TEXT[]), tags (TEXT[]), related_agents (TEXT[]), embedding (vector 768-dim), significance_score (0–1, default 0.5) |
 | `shared_procedures` | Discovered best practices shared across agents | author_agent, procedure_type, title, steps (JSONB), success_rate, times_used, domains (TEXT[]) |
 
 ### Communication Tables
@@ -2250,7 +2429,7 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
 | `kg_nodes` | Graph nodes (with pgvector) | node_type, title, content, created_by, confidence, department, importance, embedding (vector 768-dim), tags, status, occurred_at, valid_from, valid_until, source_run_id, metadata (JSONB) |
-| `kg_edges` | Graph edges | source_id → kg_nodes, target_id → kg_nodes, edge_type, strength, confidence, evidence, valid_from, valid_until, UNIQUE(source_id, target_id, edge_type) |
+| `kg_edges` | Graph edges | source_id → kg_nodes, target_id → kg_nodes, edge_type, strength, confidence, evidence, valid_from, valid_until, causal_confidence, causal_lag (interval), causal_mechanism, UNIQUE(source_id, target_id, edge_type) |
 
 RPCs: `match_kg_nodes`, `kg_trace_causes`, `kg_trace_impact`, `kg_neighborhood`, `kg_semantic_search_with_context`, `find_unconnected_similar_nodes`.
 
