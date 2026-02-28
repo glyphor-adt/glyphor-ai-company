@@ -12,6 +12,7 @@ import type { DeepDiveRecord, DeepDiveReport } from './deepDiveEngine.js';
 import type { StrategyAnalysisRecord, SynthesisOutput } from './strategyLabEngine.js';
 import PptxGenJS from 'pptxgenjs';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType, PageNumber, Header, Footer, Tab, TabStopPosition, TabStopType, convertInchesToTwip } from 'docx';
+import { BRAND, TYPOGRAPHY, IDENTITY, DOC_LABELS, SLIDE, VISUAL_PALETTE_PROMPT, VISUAL_STYLE_PROMPT } from './brandTheme.js';
 
 /* â”€â”€ Shared PPTX theme â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 

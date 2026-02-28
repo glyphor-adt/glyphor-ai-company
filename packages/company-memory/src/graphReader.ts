@@ -276,21 +276,17 @@ export class KnowledgeGraphReader {
       visited.add(nodeId);
 
       // Query edges based on direction
-      const edgeFilter = direction === 'upstream'
-        ? { column: 'target_id', value: nodeId, follow: 'source_id' }
-        : { column: 'source_id', value: nodeId, follow: 'target_id' };
-
       const { data: edges } = await this.supabase
         .from('kg_edges')
-        .select(`${edgeFilter.follow}, causal_confidence, causal_mechanism, edge_type`)
-        .eq(edgeFilter.column, edgeFilter.value)
+        .select('source_id, target_id, causal_confidence, causal_mechanism, edge_type')
+        .eq(direction === 'upstream' ? 'target_id' : 'source_id', nodeId)
         .eq('edge_type', 'CAUSAL_INFLUENCES')
         .gt('causal_confidence', 0);
 
       if (!edges) continue;
 
       for (const edge of edges) {
-        const nextId = edge[edgeFilter.follow] as string;
+        const nextId = (direction === 'upstream' ? edge.source_id : edge.target_id) as string;
         if (visited.has(nextId)) continue;
 
         // Get node title
