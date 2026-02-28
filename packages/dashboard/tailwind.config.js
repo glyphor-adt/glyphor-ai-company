@@ -17,6 +17,7 @@ export default {
         'txt-muted': 'var(--color-txt-muted)',
         'txt-faint': 'var(--color-txt-faint)',
         // Primary
+        primary: 'rgb(var(--cyan) / <alpha-value>)',
         cyan: 'rgb(var(--cyan) / <alpha-value>)',
         azure: 'rgb(var(--azure) / <alpha-value>)',
         accent: 'rgb(var(--accent) / <alpha-value>)',
