@@ -166,6 +166,8 @@ interface DeepDiveReport {
   implementationRoadmap: { phase: string; timeline: string; milestones: string[]; resources: string; cost: string }[];
   roiAnalysis: { scenario: string; projections: { year: number; revenue: string; cost: string; netBenefit: string }[]; paybackPeriod: string; irr?: string; npv?: string }[];
   riskAssessment: { risk: string; probability: string; impact: string; mitigation: string; owner: string }[];
+  sourceCitations?: { id: number; title: string; url?: string; type: string; snippet?: string; date?: string }[];
+  verificationSummary?: { overallConfidence: number; areasVerified: number; flaggedClaims: string[]; correctionsMade: string[]; modelsUsed: string[] };
 }
 
 interface DeepDiveRecord {
@@ -181,13 +183,13 @@ interface DeepDiveRecord {
   error: string | null;
 }
 
-type DeepDiveTab = 'current-state' | 'overview' | 'market' | 'competitive' | 'recommendations' | 'roadmap' | 'roi' | 'risks';
+type DeepDiveTab = 'current-state' | 'overview' | 'market' | 'competitive' | 'recommendations' | 'roadmap' | 'roi' | 'risks' | 'sources' | 'verification';
 
 const DD_STATUS_LABELS: Record<DeepDiveStatus, string> = {
   scoping: 'Scoping research plan…',
-  researching: 'Researching across 8 areas…',
-  analyzing: 'Specialist analysis in progress…',
-  synthesizing: 'Synthesizing final report…',
+  researching: 'Researching across 8 areas (5 queries each)…',
+  analyzing: 'Multi-agent analysis + cross-model challenge…',
+  synthesizing: 'Synthesizing with source citations…',
   completed: 'Completed',
   failed: 'Failed',
   cancelled: 'Cancelled',
@@ -242,7 +244,7 @@ function DeepDivesPanel() {
     <div className="space-y-6">
       {/* Launch Form */}
       <Card>
-        <SectionHeader title="Launch Strategic Deep Dive" subtitle="8 research areas → specialist analysis → comprehensive synthesis with real web search" />
+        <SectionHeader title="Launch Strategic Deep Dive" subtitle="8 areas × 5 queries × multi-model analysis → cross-model challenge → verification → cited synthesis" />
         <div className="mt-4 space-y-3">
           <input
             value={target}
@@ -311,6 +313,14 @@ function DeepDiveCard({ record, expanded, onToggle }: { record: DeepDiveRecord; 
               <>
                 <span>·</span>
                 <span>{record.report.documentCounts.researchSources} sources</span>
+                {record.report.verificationSummary && (
+                  <>
+                    <span>·</span>
+                    <span className={record.report.verificationSummary.overallConfidence >= 0.8 ? 'text-tier-green' : record.report.verificationSummary.overallConfidence >= 0.6 ? 'text-amber-400' : 'text-red-400'}>
+                      {Math.round(record.report.verificationSummary.overallConfidence * 100)}% verified
+                    </span>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -346,6 +356,8 @@ function DeepDiveDetail({ record, report }: { record: DeepDiveRecord; report: De
     { key: 'roadmap', label: 'Roadmap' },
     { key: 'roi', label: 'ROI Analysis' },
     { key: 'risks', label: 'Risk Assessment' },
+    { key: 'sources', label: 'Sources' },
+    { key: 'verification', label: 'Verification' },
   ];
 
   return (
@@ -396,6 +408,8 @@ function DeepDiveDetail({ record, report }: { record: DeepDiveRecord; report: De
         {ddTab === 'roadmap' && <DDRoadmap report={report} />}
         {ddTab === 'roi' && <DDRoi report={report} />}
         {ddTab === 'risks' && <DDRisks report={report} />}
+        {ddTab === 'sources' && <DDSources report={report} />}
+        {ddTab === 'verification' && <DDVerification report={report} />}
       </div>
     </div>
   );
@@ -748,6 +762,77 @@ function DDRisks({ report }: { report: DeepDiveReport }) {
           <p className="text-[11px] text-txt-faint mt-1">Owner: {risk.owner}</p>
         </div>
       ))}
+    </div>
+  );
+}
+
+function DDSources({ report }: { report: DeepDiveReport }) {
+  const citations = report.sourceCitations ?? [];
+  if (citations.length === 0) return <p className="text-sm text-txt-muted">No source citations available.</p>;
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs text-txt-faint mb-3">{citations.length} sources cited in this analysis</p>
+      {citations.map((src) => (
+        <div key={src.id} className="flex items-start gap-2 rounded-lg bg-raised/40 px-3 py-2">
+          <span className="text-xs font-bold text-cyan mt-0.5">[{src.id}]</span>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm text-txt-primary">{src.title}</span>
+            {src.url && (
+              <a href={src.url} target="_blank" rel="noopener noreferrer" className="block text-[11px] text-cyan/70 hover:text-cyan truncate">{src.url}</a>
+            )}
+            <div className="flex gap-2 mt-0.5">
+              <span className="text-[10px] text-txt-faint uppercase">{src.type}</span>
+              {src.date && <span className="text-[10px] text-txt-faint">{src.date}</span>}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DDVerification({ report }: { report: DeepDiveReport }) {
+  const vs = report.verificationSummary;
+  if (!vs) return <p className="text-sm text-txt-muted">No verification data available.</p>;
+
+  const confColor = vs.overallConfidence >= 0.8 ? 'text-tier-green' : vs.overallConfidence >= 0.6 ? 'text-amber-400' : 'text-red-400';
+  const confBg = vs.overallConfidence >= 0.8 ? 'bg-tier-green/10 border-tier-green/30' : vs.overallConfidence >= 0.6 ? 'bg-amber-400/10 border-amber-400/30' : 'bg-red-400/10 border-red-400/30';
+
+  return (
+    <div className="space-y-4">
+      <div className={`rounded-lg border p-4 ${confBg}`}>
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-txt-primary">Overall Confidence</span>
+          <span className={`text-2xl font-bold ${confColor}`}>{Math.round(vs.overallConfidence * 100)}%</span>
+        </div>
+        <div className="mt-2 flex gap-4 text-[12px] text-txt-muted">
+          <span>{vs.areasVerified} areas verified</span>
+          <span>·</span>
+          <span>{vs.modelsUsed.join(', ')}</span>
+        </div>
+      </div>
+
+      {vs.flaggedClaims.length > 0 && (
+        <div>
+          <h4 className="text-xs font-semibold text-amber-400 uppercase mb-2">Flagged Claims</h4>
+          <div className="space-y-1.5">
+            {vs.flaggedClaims.map((claim, i) => (
+              <div key={i} className="rounded-lg bg-amber-400/5 border border-amber-400/20 px-3 py-2 text-sm text-txt-secondary">{claim}</div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {vs.correctionsMade.length > 0 && (
+        <div>
+          <h4 className="text-xs font-semibold text-tier-green uppercase mb-2">Corrections Applied</h4>
+          <div className="space-y-1.5">
+            {vs.correctionsMade.map((corr, i) => (
+              <div key={i} className="rounded-lg bg-tier-green/5 border border-tier-green/20 px-3 py-2 text-sm text-txt-secondary">{corr}</div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

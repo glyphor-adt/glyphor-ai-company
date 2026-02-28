@@ -1059,10 +1059,33 @@ export function exportDeepDiveMarkdown(record: DeepDiveRecord): string {
 
   // Sources
   if (record.sources.length > 0) {
-    lines.push('## Sources', '');
-    for (const s of record.sources.slice(0, 30)) {
-      lines.push(`- [${s.title}](${s.url ?? '#'}) (${s.type})`);
+    lines.push('## Sources & References', '');
+    if (report.sourceCitations && report.sourceCitations.length > 0) {
+      for (const src of report.sourceCitations.slice(0, 40)) {
+        lines.push(`${src.id}. [${src.title}](${src.url ?? '#'}) (${src.type})`);
+      }
+    } else {
+      for (const s of record.sources.slice(0, 30)) {
+        lines.push(`- [${s.title}](${s.url ?? '#'}) (${s.type})`);
+      }
     }
+    lines.push('');
+  }
+
+  // Cross-Model Verification
+  if (report.verificationSummary) {
+    const vs = report.verificationSummary;
+    lines.push('## Cross-Model Verification', '');
+    lines.push(`**Overall Confidence:** ${Math.round(vs.overallConfidence * 100)}%`);
+    lines.push(`**Areas Verified:** ${vs.areasVerified}`);
+    lines.push(`**Models Used:** ${vs.modelsUsed.join(', ')}`);
+    if (vs.flaggedClaims.length > 0) {
+      lines.push('', '### Flagged Claims');
+      for (const claim of vs.flaggedClaims) {
+        lines.push(`- ${claim}`);
+      }
+    }
+    lines.push('');
   }
 
   return lines.join('\n');
@@ -1307,6 +1330,46 @@ export async function exportDeepDiveDOCX(record: DeepDiveRecord): Promise<Buffer
     children.push(...docxSectionHeading('Risk Assessment', 'DC2626'));
     for (const risk of report.riskAssessment) {
       children.push(docxBulletItem(`[${risk.probability}/${risk.impact}] ${risk.risk} â€” ${risk.mitigation}`, '555555'));
+    }
+  }
+
+
+  // Cross-Model Verification Summary
+  if (report.verificationSummary) {
+    const vs = report.verificationSummary;
+    children.push(...docxSectionHeading('Cross-Model Verification', '00B4D8'));
+    children.push(new Paragraph({
+      spacing: { after: 120 },
+      children: [
+        new TextRun({ text: `Overall Confidence: ${Math.round(vs.overallConfidence * 100)}%`, bold: true, size: 24, font: 'Segoe UI', color: vs.overallConfidence >= 0.8 ? '059669' : vs.overallConfidence >= 0.6 ? 'D97706' : 'DC2626' }),
+        new TextRun({ text: `  ·  ${vs.areasVerified} areas verified  ·  Models: ${vs.modelsUsed.join(', ')}`, size: 20, font: 'Segoe UI', color: '888888' }),
+      ],
+    }));
+    if (vs.flaggedClaims.length > 0) {
+      children.push(new Paragraph({
+        spacing: { before: 120, after: 60 },
+        children: [new TextRun({ text: 'Flagged Claims:', bold: true, size: 20, font: 'Segoe UI', color: 'D97706' })],
+      }));
+      for (const claim of vs.flaggedClaims.slice(0, 6)) {
+        children.push(docxBulletItem(claim, 'D97706'));
+      }
+    }
+  }
+
+  // Source Citations
+  if (report.sourceCitations && report.sourceCitations.length > 0) {
+    children.push(...docxSectionHeading('Sources & References', '00B4D8'));
+    for (const src of report.sourceCitations.slice(0, 40)) {
+      children.push(new Paragraph({
+        spacing: { after: 60 },
+        indent: { left: convertInchesToTwip(0.2) },
+        children: [
+          new TextRun({ text: `[${src.id}] `, bold: true, size: 18, font: 'Segoe UI', color: '00B4D8' }),
+          new TextRun({ text: src.title, size: 18, font: 'Segoe UI', color: '2D2D2D' }),
+          new TextRun({ text: src.url ? ` — ${src.url}` : '', size: 16, font: 'Segoe UI', color: '888888' }),
+          new TextRun({ text: ` (${src.type})`, size: 16, font: 'Segoe UI', color: '888888' }),
+        ],
+      }));
     }
   }
 
