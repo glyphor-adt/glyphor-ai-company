@@ -8,8 +8,12 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { EmbeddingClient } from '@glyphor/company-memory';
 import type { RedisCache } from './redisCache.js';
+
+/** Minimal interface to avoid circular dependency on @glyphor/company-memory */
+export interface EmbeddingClient {
+  embed(text: string): Promise<number[]>;
+}
 import { CACHE_KEYS, CACHE_TTL } from './redisCache.js';
 import { createHash } from 'node:crypto';
 

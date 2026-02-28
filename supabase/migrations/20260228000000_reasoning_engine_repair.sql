@@ -1,11 +1,12 @@
--- ═══════════════════════════════════════════════════════════════
--- Reasoning Engine — Schema & Functions
--- ═══════════════════════════════════════════════════════════════
+-- Repair migration: re-apply reasoning engine objects that failed
+-- due to vector type not being in search_path.
+-- The original 20260227200000 was recorded as applied but errored
+-- at statement 9 (match_shared_episodes function).
 
--- Ensure vector type is available (pgvector lives in extensions schema on Supabase)
-CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA extensions;
+-- Ensure vector type is visible (pgvector is in extensions schema)
+SET search_path TO public, extensions;
 
--- Per-agent reasoning configuration (overrides default reasoning behavior)
+-- Re-create tables idempotently (IF NOT EXISTS) in case they were rolled back
 CREATE TABLE IF NOT EXISTS agent_reasoning_config (
   agent_role   TEXT PRIMARY KEY REFERENCES company_agents(role),
   enabled      BOOLEAN   NOT NULL DEFAULT true,
@@ -19,7 +20,6 @@ CREATE TABLE IF NOT EXISTS agent_reasoning_config (
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Reasoning pass results — one row per verification pass per run
 CREATE TABLE IF NOT EXISTS reasoning_passes (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   run_id       UUID NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
@@ -31,37 +31,20 @@ CREATE TABLE IF NOT EXISTS reasoning_passes (
   suggestions  JSONB NOT NULL DEFAULT '[]',
   reasoning    TEXT,
   duration_ms  INT,
+  token_count  INT,
   cost_usd     FLOAT,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_reasoning_passes_run_id ON reasoning_passes(run_id);
+CREATE INDEX IF NOT EXISTS idx_reasoning_passes_run ON reasoning_passes(run_id);
 
--- Value assessments — pre-loop value gate decisions
-CREATE TABLE IF NOT EXISTS value_assessments (
-  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  run_id         UUID NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
-  score          FLOAT NOT NULL,
-  reasoning      TEXT,
-  recommendation TEXT NOT NULL,
-  alternatives   JSONB,
-  cost_usd       FLOAT,
-  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_value_assessments_run_id ON value_assessments(run_id);
-
--- Add reasoning metadata columns to agent_runs
+-- Ensure agent_runs has reasoning columns
 ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS reasoning_passes   INT;
 ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS reasoning_confidence FLOAT;
 ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS reasoning_revised   BOOLEAN;
 ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS reasoning_cost_usd  FLOAT;
 
--- ═══════════════════════════════════════════════════════════════
--- Semantic match functions for JIT context retrieval
--- ═══════════════════════════════════════════════════════════════
-
--- Match shared episodes by embedding similarity
+-- Semantic match functions (these failed before due to missing vector type)
 CREATE OR REPLACE FUNCTION match_shared_episodes(
   query_embedding  vector(768),
   match_count      INT DEFAULT 5,
@@ -98,7 +81,6 @@ BEGIN
 END;
 $$;
 
--- Match company knowledge entries by embedding similarity
 CREATE OR REPLACE FUNCTION match_company_knowledge(
   query_embedding  vector(768),
   match_count      INT DEFAULT 5,
@@ -130,10 +112,7 @@ BEGIN
 END;
 $$;
 
--- ═══════════════════════════════════════════════════════════════
--- Seed default reasoning configs for orchestrator roles
--- ═══════════════════════════════════════════════════════════════
-
+-- Seed reasoning configs
 INSERT INTO agent_reasoning_config (agent_role, enabled, pass_types, min_confidence, max_reasoning_budget, cross_model_enabled, value_gate_enabled, verification_models)
 VALUES
   ('chief-of-staff', true, '{self_critique,consistency_check,goal_alignment}', 0.7, 0.03, false, true, '{gemini-2.5-flash-lite}'),
