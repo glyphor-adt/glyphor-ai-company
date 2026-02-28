@@ -80,6 +80,21 @@ const AGENTS = [
   { role: 'market-research-analyst', name: 'Daniel Okafor', desc: 'Nigerian man, early 30s, short neat hair, calm analytical expression, wire-rimmed glasses, crisp collared shirt' },
   { role: 'technical-research-analyst', name: 'Kai Nakamura', desc: 'Japanese American man, late 20s, slightly tousled dark hair, focused intense expression, casual smart style' },
   { role: 'industry-research-analyst', name: 'Amara Diallo', desc: 'Senegalese woman, early 30s, natural hair in neat twists, warm confident smile, colorful earrings, professional blazer' },
+
+  // ── Sales (additional) ──
+  { role: 'enterprise-account-researcher', name: 'Ethan Morse', desc: 'white man, early 30s, light brown hair neatly parted, sharp blue eyes, clean-shaven, polished business casual, confident analytical expression' },
+  { role: 'lead-gen-specialist', name: 'Derek Owens', desc: 'Black man, late 20s, short cropped hair with clean lineup, bright determined eyes, friendly competitive smile, smart casual blazer' },
+
+  // ── Finance (additional) ──
+  { role: 'bob-the-tax-pro', name: 'Robert Finley', desc: 'white man, late 40s, salt-and-pepper hair neatly combed, reading glasses on nose, warm avuncular smile, classic button-down shirt, seasoned trustworthy look' },
+  { role: 'data-integrity-auditor', name: 'Grace Hwang', desc: 'Korean American woman, early 30s, straight dark hair in a low ponytail, attentive precise expression, thin-framed rectangular glasses, neat blouse' },
+  { role: 'tax-strategy-specialist', name: 'Mariana Solis', desc: 'Latina woman, mid 30s, dark wavy hair shoulder-length, composed professional expression, subtle gold necklace, tailored blazer' },
+
+  // ── Marketing (additional) ──
+  { role: 'marketing-intelligence-analyst', name: 'Zara Petrov', desc: 'Eastern European woman, late 20s, light brown hair in a sleek bob, sharp observant eyes, minimalist modern style, small stud earrings' },
+
+  // ── Executive Support ──
+  { role: 'adi-rose', name: 'Adi Rose', desc: 'woman, late 20s, dark hair in a neat side braid, warm professional expression, blouse, small gold hoop earrings' },
 ];
 
 function buildPrompt(agent) {
