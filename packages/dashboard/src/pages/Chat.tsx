@@ -588,7 +588,7 @@ export default function Chat() {
                   Start a conversation with <span className="text-cyan">{codename}</span>
                 </p>
                 <p className="mt-1 text-[11px] text-txt-faint">
-                  Drag &amp; drop files, use <MdAttachFile className="inline-block text-[14px]" />, or type <span className="text-cyan">@</span> to mention agents
+                  Drag &amp; drop, paste, or use <MdAttachFile className="inline-block text-[14px]" /> to attach files • Type <span className="text-cyan">@</span> to mention agents
                 </p>
               </div>
             </div>
