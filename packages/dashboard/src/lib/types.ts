@@ -180,6 +180,8 @@ export type DashboardChangeRequest = {
   status: 'submitted' | 'triaged' | 'in_progress' | 'review' | 'deployed' | 'rejected';
   affected_area: string | null;
   assigned_to: string | null;
+  github_issue_number: number | null;
+  github_issue_url: string | null;
   github_branch: string | null;
   github_pr_url: string | null;
   commit_sha: string | null;
@@ -363,7 +365,7 @@ export type Database = {
       };
       dashboard_change_requests: {
         Row: DashboardChangeRequest;
-        Insert: Pick<DashboardChangeRequest, 'submitted_by' | 'title' | 'description' | 'request_type' | 'priority' | 'affected_area'> & Partial<Pick<DashboardChangeRequest, 'status' | 'assigned_to' | 'completed_at' | 'github_branch' | 'github_pr_url' | 'commit_sha' | 'agent_notes' | 'rejection_reason' | 'started_at'>>;
+        Insert: Pick<DashboardChangeRequest, 'submitted_by' | 'title' | 'description' | 'request_type' | 'priority' | 'affected_area'> & Partial<Pick<DashboardChangeRequest, 'status' | 'assigned_to' | 'completed_at' | 'github_issue_number' | 'github_issue_url' | 'github_branch' | 'github_pr_url' | 'commit_sha' | 'agent_notes' | 'rejection_reason' | 'started_at'>>;
         Update: Partial<Omit<DashboardChangeRequest, 'id'>>;
         Relationships: [];
       };

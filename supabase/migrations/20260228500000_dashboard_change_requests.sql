@@ -17,7 +17,9 @@ CREATE TABLE IF NOT EXISTS dashboard_change_requests (
       'builder', 'governance', 'settings', 'chat', 'other'
     )),
   assigned_to TEXT,                               -- agent role: 'frontend-engineer', 'devops-engineer', etc.
-  github_branch TEXT,                             -- branch created by agent
+  github_issue_number INTEGER,                    -- GitHub issue number assigned to Copilot
+  github_issue_url TEXT,                          -- GitHub issue link
+  github_branch TEXT,                             -- branch created by Copilot
   github_pr_url TEXT,                             -- PR link when ready for review
   commit_sha TEXT,                                -- latest commit SHA
   agent_notes TEXT,                               -- agent's progress notes / implementation summary

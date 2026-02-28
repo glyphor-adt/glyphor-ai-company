@@ -19,6 +19,7 @@ import type { WakeRouter } from './wakeRouter.js';
 import { buildWaves, dispatchWaves } from './parallelDispatch.js';
 import type { WaveAgent } from './parallelDispatch.js';
 import { checkAgentInboxes } from './inboxCheck.js';
+import { processNewChangeRequests, syncChangeRequestProgress } from './changeRequestHandler.js';
 
 type AgentExecutorFn = (
   agentRole: CompanyAgentRole,
@@ -71,6 +72,17 @@ export class HeartbeatManager {
 
     // ── Phase 0: REAP — mark stale "running" rows as failed ──
     await this.reapStaleRuns();
+
+    // ── Phase 0b: CHANGE REQUESTS — process founder requests → Copilot ──
+    try {
+      const newlyProcessed = await processNewChangeRequests(this.supabase);
+      const synced = await syncChangeRequestProgress(this.supabase);
+      if (newlyProcessed || synced) {
+        console.log(`[Heartbeat] Change requests: ${newlyProcessed} new → Copilot, ${synced} progress updates`);
+      }
+    } catch (err) {
+      console.warn(`[Heartbeat] Change request processing failed:`, (err as Error).message);
+    }
 
     const allAgentsForCycle = this.getAgentsForCycle(this.cycle);
 

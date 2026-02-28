@@ -205,29 +205,60 @@ function RequestCard({ request: r }: { request: DashboardChangeRequest }) {
               <span className="rounded bg-raised px-1.5 py-0.5 text-[10px]">{r.affected_area}</span>
             )}
             {r.assigned_to && (
-              <span>→ {DISPLAY_NAME_MAP[r.assigned_to] ?? r.assigned_to}</span>
+              <span>→ {r.assigned_to === 'copilot' ? 'GitHub Copilot' : (DISPLAY_NAME_MAP[r.assigned_to] ?? r.assigned_to)}</span>
             )}
           </div>
         </div>
 
-        {/* PR link */}
-        {r.github_pr_url && (
-          <a
-            href={r.github_pr_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={e => e.stopPropagation()}
-            className="flex items-center gap-1 rounded-lg bg-raised px-2.5 py-1.5 text-[11px] font-medium text-cyan hover:bg-cyan/10 transition-colors"
-          >
-            <MdOpenInNew className="text-sm" />
-            PR
-          </a>
-        )}
+        {/* GitHub links */}
+        <div className="flex items-center gap-2">
+          {r.github_issue_url && (
+            <a
+              href={r.github_issue_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="flex items-center gap-1 rounded-lg bg-raised px-2.5 py-1.5 text-[11px] font-medium text-txt-secondary hover:bg-purple-500/10 hover:text-purple-400 transition-colors"
+            >
+              <MdOpenInNew className="text-sm" />
+              Issue
+            </a>
+          )}
+          {r.github_pr_url && (
+            <a
+              href={r.github_pr_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="flex items-center gap-1 rounded-lg bg-raised px-2.5 py-1.5 text-[11px] font-medium text-cyan hover:bg-cyan/10 transition-colors"
+            >
+              <MdOpenInNew className="text-sm" />
+              PR
+            </a>
+          )}
+        </div>
       </div>
 
       {/* Expanded details */}
       {expanded && (
         <div className="mt-4 border-t border-border pt-4 space-y-3">
+          {r.assigned_to === 'copilot' && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/10 px-2.5 py-1 text-[11px] font-medium text-purple-400">
+                <svg className="h-3 w-3" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM5.78 8.75a9.64 9.64 0 0 0 1.363 4.177c.255.426.542.832.857 1.215.245-.296.551-.705.857-1.215A9.64 9.64 0 0 0 10.22 8.75Zm4.44-1.5a9.64 9.64 0 0 0-1.363-4.177c-.307-.51-.612-.919-.857-1.215a9.927 9.927 0 0 0-.857 1.215A9.64 9.64 0 0 0 5.78 7.25Z"/></svg>
+                Assigned to GitHub Copilot
+              </span>
+            </div>
+          )}
+          {r.github_issue_url && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-txt-faint w-20">Issue:</span>
+              <a href={r.github_issue_url} target="_blank" rel="noopener noreferrer"
+                className="text-cyan hover:underline font-mono text-[11px]">
+                #{r.github_issue_number}
+              </a>
+            </div>
+          )}
           {r.github_branch && (
             <div className="flex items-center gap-2 text-xs">
               <span className="text-txt-faint w-20">Branch:</span>
