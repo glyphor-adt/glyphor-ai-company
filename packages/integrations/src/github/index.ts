@@ -188,7 +188,7 @@ export async function getRepoStats(repoKey: GlyphorRepo): Promise<RepoStats> {
   };
 }
 
-/** Create a GitHub issue on a repo and assign to Copilot */
+/** Create a GitHub issue on a repo */
 export async function createIssue(
   repoKey: GlyphorRepo,
   title: string,
@@ -204,7 +204,6 @@ export async function createIssue(
     title,
     body,
     labels,
-    assignees: ['copilot'],
   });
 
   return { number: data.number, url: data.html_url };
@@ -408,7 +407,7 @@ export async function mergeGitHubPR(
 // COPILOT CODING AGENT — Create issues assigned to GitHub Copilot
 // ═══════════════════════════════════════════════════════════════════
 
-/** Create a GitHub issue and assign it to Copilot coding agent for implementation */
+/** Create a GitHub issue labeled for Copilot coding agent to implement */
 export async function createIssueForCopilot(
   repoKey: GlyphorRepo,
   title: string,
@@ -424,7 +423,6 @@ export async function createIssueForCopilot(
     title,
     body,
     labels: [...(labels ?? []), 'copilot'],
-    assignees: ['copilot'],
   });
 
   return { number: data.number, url: data.html_url };
