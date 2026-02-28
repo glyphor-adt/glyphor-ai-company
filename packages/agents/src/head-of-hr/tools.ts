@@ -611,6 +611,110 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
       },
     },
 
+    // ── Provision Agent ──
+    {
+      name: 'provision_agent',
+      description:
+        'Create a new permanent agent in company_agents. Use this to onboard a new team member ' +
+        'that does not yet exist in the system. This creates the base record — follow up with ' +
+        'update_agent_profile or enrich_agent_profile to complete their profile, and generate_avatar for their headshot.',
+      parameters: {
+        role: {
+          type: 'string',
+          description: 'Agent role slug (lowercase, hyphenated, e.g. "vp-partnerships"). Must be unique.',
+          required: true,
+        },
+        name: {
+          type: 'string',
+          description: 'Human name (e.g. "Elena Vance").',
+          required: true,
+        },
+        title: {
+          type: 'string',
+          description: 'Job title (e.g. "VP of Partnerships").',
+          required: true,
+        },
+        department: {
+          type: 'string',
+          description: 'Department (e.g. "Sales", "Engineering", "Legal").',
+          required: true,
+        },
+        reports_to: {
+          type: 'string',
+          description: 'Role slug of the manager this agent reports to (e.g. "chief-of-staff").',
+          required: true,
+        },
+        model: {
+          type: 'string',
+          description: 'AI model to use (default: gemini-3-flash-preview).',
+          required: false,
+        },
+      },
+      execute: async (params) => {
+        const role = (params.role as string).toLowerCase().replace(/[^a-z0-9-]+/g, '-');
+        const name = params.name as string;
+        const title = params.title as string;
+        const department = params.department as string;
+        const reportsTo = params.reports_to as string;
+        const model = (params.model as string) || 'gemini-3-flash-preview';
+
+        if (!role || !name || !title || !department || !reportsTo) {
+          return { success: false, output: 'role, name, title, department, and reports_to are all required.' };
+        }
+
+        // Verify manager exists
+        const { data: mgr } = await supabase
+          .from('company_agents')
+          .select('role')
+          .eq('role', reportsTo)
+          .maybeSingle();
+        if (!mgr) {
+          return { success: false, output: `Manager "${reportsTo}" not found in company_agents.` };
+        }
+
+        // Check if agent already exists
+        const { data: existing } = await supabase
+          .from('company_agents')
+          .select('role')
+          .eq('role', role)
+          .maybeSingle();
+        if (existing) {
+          return { success: false, output: `Agent "${role}" already exists. Use validate_agent to check its profile.` };
+        }
+
+        const { error: insertErr } = await supabase
+          .from('company_agents')
+          .insert({
+            role,
+            display_name: name,
+            name,
+            title,
+            department,
+            reports_to: reportsTo,
+            model,
+            status: 'active',
+            is_core: false,
+            is_temporary: false,
+          });
+
+        if (insertErr) {
+          return { success: false, output: `Failed to provision agent: ${insertErr.message}` };
+        }
+
+        // Log the provisioning
+        await supabase.from('activity_log').insert({
+          agent_role: 'head-of-hr',
+          action: 'agent_provisioned',
+          details: { role, name, title, department, reports_to: reportsTo },
+        });
+
+        return {
+          success: true,
+          output: `Agent "${name}" (${role}) provisioned successfully in ${department}, reporting to ${reportsTo}.\n\nNext steps:\n1. Use enrich_agent_profile to generate personality\n2. Use generate_avatar to create headshot\n3. Use validate_agent to confirm onboarding completeness`,
+        };
+      },
+    },
+
     // ── Enrich Agent Profile ──
     {
       name: 'enrich_agent_profile',
