@@ -6,15 +6,24 @@
  */
 
 import OpenAI from 'openai';
+import https from 'node:https';
 import type { ConversationTurn } from '../types.js';
 import type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse, ImageResponse } from './types.js';
+
+// Disable keep-alive to prevent stale connections in Cloud Run
+const httpAgent = new https.Agent({ keepAlive: false });
 
 export class OpenAIAdapter implements ProviderAdapter {
   readonly provider = 'openai' as const;
   private client: OpenAI;
 
   constructor(apiKey: string) {
-    this.client = new OpenAI({ apiKey });
+    this.client = new OpenAI({
+      apiKey,
+      maxRetries: 0,      // We handle retries in ModelClient
+      timeout: 120_000,   // 2 minute timeout per request
+      httpAgent,           // No keep-alive — Cloud Run drops idle connections
+    });
   }
 
   async generate(request: UnifiedModelRequest): Promise<UnifiedModelResponse> {

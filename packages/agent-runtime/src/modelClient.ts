@@ -56,7 +56,7 @@ export class ModelClient {
     } catch (err) {
       throw new Error(`[${provider}] ${(err as Error).message} (model: ${request.model})`);
     }
-    const MAX_RETRIES = 1;
+    const MAX_RETRIES = 2;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {

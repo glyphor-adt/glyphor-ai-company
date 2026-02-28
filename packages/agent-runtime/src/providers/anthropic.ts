@@ -6,15 +6,24 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import https from 'node:https';
 import type { ConversationTurn } from '../types.js';
 import type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse } from './types.js';
+
+// Disable keep-alive to prevent stale connections in Cloud Run
+const httpAgent = new https.Agent({ keepAlive: false });
 
 export class AnthropicAdapter implements ProviderAdapter {
   readonly provider = 'anthropic' as const;
   private client: Anthropic;
 
   constructor(apiKey: string) {
-    this.client = new Anthropic({ apiKey });
+    this.client = new Anthropic({
+      apiKey,
+      maxRetries: 0,      // We handle retries in ModelClient
+      timeout: 120_000,   // 2 minute timeout per request
+      httpAgent,           // No keep-alive — Cloud Run drops idle connections
+    });
   }
 
   async generate(request: UnifiedModelRequest): Promise<UnifiedModelResponse> {
