@@ -246,8 +246,26 @@ function RequestCard({ request: r }: { request: DashboardChangeRequest }) {
           </div>
         </div>
 
-        {/* GitHub links */}
+        {/* Actions */}
         <div className="flex items-center gap-2">
+          {showApprovalActions && (
+            <>
+              <button
+                onClick={handleApprove}
+                className="flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-medium text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+              >
+                <MdCheck className="text-sm" />
+                Approve
+              </button>
+              <button
+                onClick={handleReject}
+                className="flex items-center gap-1 rounded-lg bg-red-500/10 px-2.5 py-1.5 text-[11px] font-medium text-red-400 hover:bg-red-500/20 transition-colors"
+              >
+                <MdBlock className="text-sm" />
+                Reject
+              </button>
+            </>
+          )}
           {r.github_issue_url && (
             <a
               href={r.github_issue_url}
@@ -278,6 +296,20 @@ function RequestCard({ request: r }: { request: DashboardChangeRequest }) {
       {/* Expanded details */}
       {expanded && (
         <div className="mt-4 border-t border-border pt-4 space-y-3">
+          {r.status === 'pending_approval' && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 px-2.5 py-1 text-[11px] font-medium text-orange-400">
+                Awaiting approval from Kristina
+              </span>
+            </div>
+          )}
+          {r.approved_by && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-txt-faint w-20">Approved:</span>
+              <span className="text-emerald-400">{r.approved_by.split('@')[0]}</span>
+              {r.approved_at && <span className="text-txt-faint">— {new Date(r.approved_at).toLocaleString()}</span>}
+            </div>
+          )}
           {r.assigned_to === 'copilot' && (
             <div className="flex items-center gap-2 text-xs">
               <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/10 px-2.5 py-1 text-[11px] font-medium text-purple-400">

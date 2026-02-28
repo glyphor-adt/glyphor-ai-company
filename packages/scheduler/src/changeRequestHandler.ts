@@ -20,6 +20,8 @@ interface ChangeRequest {
   status: string;
   affected_area: string | null;
   assigned_to: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
   github_issue_number: number | null;
   github_issue_url: string | null;
   github_branch: string | null;
