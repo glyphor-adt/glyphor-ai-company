@@ -205,6 +205,13 @@ const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
   'technical-research-analyst': 'kai-nakamura',
   'industry-research-analyst': 'amara-diallo',
   'head-of-hr': 'jasmine-rivera',
+  'enterprise-account-researcher': 'ethan-morse',
+  'bob-the-tax-pro': 'robert-finley',
+  'data-integrity-auditor': 'grace-hwang',
+  'tax-strategy-specialist': 'mariana-solis',
+  'lead-gen-specialist': 'derek-owens',
+  'marketing-intelligence-analyst': 'zara-petrov',
+  'adi-rose': 'adi-rose',
 };
 
 /** Maps roles to their department for knowledge base audience targeting. */
@@ -237,6 +244,14 @@ const ROLE_DEPARTMENT: Record<string, string> = {
   'design-critic': 'design',
   'template-architect': 'design',
   'global-admin': 'operations',
+  'enterprise-account-researcher': 'sales',
+  'bob-the-tax-pro': 'finance',
+  'data-integrity-auditor': 'operations',
+  'tax-strategy-specialist': 'finance',
+  'lead-gen-specialist': 'sales',
+  'marketing-intelligence-analyst': 'marketing',
+  'adi-rose': 'operations',
+  'head-of-hr': 'operations',
 };
 
 /** Maps roles to their department context files. */
@@ -269,6 +284,14 @@ const ROLE_CONTEXT_FILES: Record<string, string[]> = {
   'design-critic': ['design.md'],
   'template-architect': ['design.md'],
   'global-admin': ['operations.md'],
+  'enterprise-account-researcher': ['sales-cs.md'],
+  'bob-the-tax-pro': ['finance.md'],
+  'data-integrity-auditor': ['operations.md'],
+  'tax-strategy-specialist': ['finance.md'],
+  'lead-gen-specialist': ['sales-cs.md', 'marketing.md'],
+  'marketing-intelligence-analyst': ['marketing.md'],
+  'adi-rose': ['operations.md'],
+  'head-of-hr': ['operations.md'],
 };
 
 /** Profile data loaded from agent_profiles table. */
