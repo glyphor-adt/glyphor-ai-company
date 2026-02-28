@@ -4,7 +4,7 @@ import { useAgents } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
 import { supabase, SCHEDULER_URL } from '../lib/supabase';
-import { useAuth } from '../lib/auth';
+import { useAuth, getEmailAliases } from '../lib/auth';
 import { MdAttachFile, MdImage, MdDescription, MdClose } from 'react-icons/md';
 
 interface Attachment {
@@ -98,12 +98,12 @@ export default function GroupChat() {
   useEffect(() => {
     if (historyLoaded.current) return;
     historyLoaded.current = true;
-    const userId = user?.email ?? 'unknown';
+    const aliases = getEmailAliases(user?.email ?? 'unknown');
     (async () => {
       const { data } = await supabase
         .from('chat_messages')
         .select('agent_role, role, content, attachments, created_at')
-        .eq('user_id', userId)
+        .in('user_id', aliases)
         .order('created_at', { ascending: true })
         .limit(200);
       if (data && data.length > 0) {

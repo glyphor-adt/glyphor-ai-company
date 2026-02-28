@@ -12,6 +12,19 @@ const FALLBACK_EMAILS = ['kristina@glyphor.ai', 'andrew@glyphor.ai', 'devops@gly
 /** Emails that are always treated as admin even if DB is down */
 export const FALLBACK_ADMINS = ['kristina@glyphor.ai', 'andrew@glyphor.ai', 'andrew.zwelling@gmail.com', 'devops@glyphor.ai'];
 
+/** Email alias groups — all emails in a group share the same chat history */
+const EMAIL_ALIAS_GROUPS: string[][] = [
+  ['kristina@glyphor.ai', 'devops@glyphor.ai'],
+  ['andrew@glyphor.ai', 'andrew.zwelling@gmail.com'],
+];
+
+/** Return all email aliases for the given email (including itself) */
+export function getEmailAliases(email: string): string[] {
+  const lower = email.toLowerCase();
+  const group = EMAIL_ALIAS_GROUPS.find(g => g.includes(lower));
+  return group ?? [lower];
+}
+
 // Cache allowed emails from the DB so we don't query on every check
 let _allowedCache: Set<string> | null = null;
 let _cachePromise: Promise<Set<string>> | null = null;

@@ -5,7 +5,7 @@ import { useAgents } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
 import { supabase, SCHEDULER_URL } from '../lib/supabase';
-import { useAuth } from '../lib/auth';
+import { useAuth, getEmailAliases } from '../lib/auth';
 import { MdAttachFile, MdImage, MdDescription, MdClose, MdVideoCall, MdCallEnd } from 'react-icons/md';
 import { HiMiniSignal, HiStop, HiMicrophone } from 'react-icons/hi2';
 import { useVoiceChat } from '../lib/useVoiceChat';
@@ -253,6 +253,8 @@ export default function Chat() {
       )
     : mentionables;
 
+  const userAliases = getEmailAliases(userEmail);
+
   // Load chat history
   const loadHistory = useCallback(
     async (role: string) => {
@@ -261,7 +263,7 @@ export default function Chat() {
         const { data } = await supabase.from('chat_messages')
           .select('role, content, created_at, attachments')
           .eq('agent_role', role)
-          .eq('user_id', userEmail)
+          .in('user_id', userAliases)
           .order('created_at', { ascending: true })
           .limit(100);
         if (data?.length) {
@@ -281,7 +283,7 @@ export default function Chat() {
       }
       setLoadingHistory(false);
     },
-    [userEmail],
+    [userAliases],
   );
 
   useEffect(() => { loadHistory(selectedRole); }, [selectedRole, loadHistory]);
