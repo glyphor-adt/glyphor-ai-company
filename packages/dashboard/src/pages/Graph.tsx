@@ -121,7 +121,7 @@ const EDGE_STYLES: Record<EdgeType, { color: string; dashed: boolean }> = {
   refines: { color: '#C084FC', dashed: true },
 };
 
-/* ── Force Graph Simulation ────────────────────── */
+/* ── Force Graph — merged sim + canvas rendering ── */
 
 interface SimNode extends KgNode {
   x: number;
@@ -130,123 +130,6 @@ interface SimNode extends KgNode {
   vy: number;
   radius: number;
 }
-
-function useForceSimulation(
-  nodes: KgNode[],
-  edges: KgEdge[],
-  width: number,
-  height: number,
-) {
-  const simNodes = useRef<SimNode[]>([]);
-  const frameRef = useRef<number>(0);
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    // Use a much larger virtual canvas for layout — zoom/pan lets users explore
-    const layoutW = Math.max(width, nodes.length * 8);
-    const layoutH = Math.max(height, nodes.length * 8);
-
-    const existing = new Map(simNodes.current.map((n) => [n.id, n]));
-    simNodes.current = nodes.map((n) => {
-      const prev = existing.get(n.id);
-      if (prev) return { ...n, x: prev.x, y: prev.y, vx: prev.vx, vy: prev.vy, radius: prev.radius };
-      return {
-        ...n,
-        x: layoutW / 2 + (Math.random() - 0.5) * layoutW * 0.8,
-        y: layoutH / 2 + (Math.random() - 0.5) * layoutH * 0.8,
-        vx: 0,
-        vy: 0,
-        radius: 20,
-      };
-    });
-
-    const edgeIndex = new Map<string, string[]>();
-    edges.forEach((e) => {
-      edgeIndex.set(e.source_id, [...(edgeIndex.get(e.source_id) ?? []), e.target_id]);
-      edgeIndex.set(e.target_id, [...(edgeIndex.get(e.target_id) ?? []), e.source_id]);
-    });
-
-    simNodes.current.forEach((n) => {
-      const connections = edgeIndex.get(n.id)?.length ?? 0;
-      n.radius = Math.max(14, Math.min(28, 14 + connections * 2));
-    });
-
-    let iterations = 0;
-    const maxIterations = 400;
-
-    function simulate() {
-      const sn = simNodes.current;
-      const alpha = Math.max(0.001, 1 - iterations / maxIterations);
-      // Scale repulsion with node count so graphs spread proportionally
-      const repulsion = 1200 + sn.length * 2;
-      const attraction = 0.008;
-      const damping = 0.82;
-
-      // Repulsion between all nodes
-      for (let i = 0; i < sn.length; i++) {
-        for (let j = i + 1; j < sn.length; j++) {
-          const dx = sn[j].x - sn[i].x;
-          const dy = sn[j].y - sn[i].y;
-          const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-          const force = (repulsion * alpha) / (dist * dist);
-          const fx = (dx / dist) * force;
-          const fy = (dy / dist) * force;
-          sn[i].vx -= fx;
-          sn[i].vy -= fy;
-          sn[j].vx += fx;
-          sn[j].vy += fy;
-        }
-      }
-
-      // Attraction along edges — stronger to form visible clusters
-      const nodeMap = new Map(sn.map((n) => [n.id, n]));
-      edges.forEach((e) => {
-        const s = nodeMap.get(e.source_id);
-        const t = nodeMap.get(e.target_id);
-        if (!s || !t) return;
-        const dx = t.x - s.x;
-        const dy = t.y - s.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const targetDist = 80;
-        const force = (dist - targetDist) * attraction * alpha;
-        const fx = (dx / Math.max(1, dist)) * force;
-        const fy = (dy / Math.max(1, dist)) * force;
-        s.vx += fx;
-        s.vy += fy;
-        t.vx -= fx;
-        t.vy -= fy;
-      });
-
-      // Center gravity — stronger to keep everything visible
-      sn.forEach((n) => {
-        n.vx += (layoutW / 2 - n.x) * 0.003 * alpha;
-        n.vy += (layoutH / 2 - n.y) * 0.003 * alpha;
-      });
-
-      // Apply velocity — no hard boundary so zoom/pan works
-      sn.forEach((n) => {
-        n.vx *= damping;
-        n.vy *= damping;
-        n.x += n.vx;
-        n.y += n.vy;
-      });
-
-      iterations++;
-      setTick((t) => t + 1);
-
-      if (iterations < maxIterations) {
-        frameRef.current = requestAnimationFrame(simulate);
-      }
-    }
-
-    frameRef.current = requestAnimationFrame(simulate);
-    return () => cancelAnimationFrame(frameRef.current);
-  }, [nodes, edges, width, height]);
-
-  return { simNodes: simNodes.current, tick };
-}
-
-/* ── Canvas Graph Component ────────────────────── */
 
 function GraphCanvas({
   nodes,
@@ -269,12 +152,22 @@ function GraphCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dims, setDims] = useState({ width: 800, height: 600 });
 
-  // Zoom/pan state
-  const transform = useRef({ x: 0, y: 0, scale: 1 });
+  // All animation state in refs — no React re-renders during sim
+  const transformRef = useRef({ x: 0, y: 0, scale: 1 });
   const isPanning = useRef(false);
   const panStart = useRef({ x: 0, y: 0 });
+  const simNodesRef = useRef<SimNode[]>([]);
+  const frameRef = useRef<number>(0);
+  const drawFnRef = useRef<(() => void) | null>(null);
+  const hasFitRef = useRef(false);
 
-  // Filter nodes — memoize so simulation doesn't restart every render
+  // Render-only props in refs so the rAF loop sees current values
+  const selectedRef = useRef(selectedNodeId);
+  const highlightedRef = useRef(highlightedNodeIds);
+  useEffect(() => { selectedRef.current = selectedNodeId; }, [selectedNodeId]);
+  useEffect(() => { highlightedRef.current = highlightedNodeIds; }, [highlightedNodeIds]);
+
+  // Filter nodes/edges
   const filteredNodes = useMemo(() => nodes.filter((n) => {
     if (filterNodeTypes.size > 0 && !filterNodeTypes.has(n.node_type as NodeType)) return false;
     if (searchQuery) {
@@ -283,35 +176,11 @@ function GraphCanvas({
     }
     return true;
   }), [nodes, filterNodeTypes, searchQuery]);
+
   const filteredEdges = useMemo(() => {
-    const filteredNodeIds = new Set(filteredNodes.map((n) => n.id));
-    return edges.filter((e) => filteredNodeIds.has(e.source_id) && filteredNodeIds.has(e.target_id));
+    const ids = new Set(filteredNodes.map((n) => n.id));
+    return edges.filter((e) => ids.has(e.source_id) && ids.has(e.target_id));
   }, [filteredNodes, edges]);
-
-  const { simNodes, tick } = useForceSimulation(filteredNodes, filteredEdges, dims.width, dims.height);
-
-  // Auto-fit on first meaningful layout
-  const hasFit = useRef(false);
-  useEffect(() => {
-    if (hasFit.current || simNodes.length === 0 || tick < 50) return;
-    hasFit.current = true;
-    const xs = simNodes.map((n) => n.x);
-    const ys = simNodes.map((n) => n.y);
-    const minX = Math.min(...xs) - 40;
-    const maxX = Math.max(...xs) + 40;
-    const minY = Math.min(...ys) - 40;
-    const maxY = Math.max(...ys) + 40;
-    const graphW = maxX - minX;
-    const graphH = maxY - minY;
-    const scale = Math.min(dims.width / graphW, dims.height / graphH, 1.5) * 0.9;
-    const cx = (minX + maxX) / 2;
-    const cy = (minY + maxY) / 2;
-    transform.current = {
-      x: dims.width / 2 - cx * scale,
-      y: dims.height / 2 - cy * scale,
-      scale,
-    };
-  }, [tick, simNodes, dims]);
 
   // Resize observer
   useEffect(() => {
@@ -326,7 +195,253 @@ function GraphCanvas({
     return () => ro.disconnect();
   }, []);
 
-  // Zoom handler
+  // ── Main simulation + render loop ──────────────
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Layout in a larger virtual space — zoom/pan lets users explore
+    const layoutW = Math.max(dims.width, filteredNodes.length * 8);
+    const layoutH = Math.max(dims.height, filteredNodes.length * 8);
+
+    // Init sim nodes, preserving positions for nodes that already exist
+    const existing = new Map(simNodesRef.current.map((n) => [n.id, n]));
+    const edgeIndex = new Map<string, string[]>();
+    filteredEdges.forEach((e) => {
+      edgeIndex.set(e.source_id, [...(edgeIndex.get(e.source_id) ?? []), e.target_id]);
+      edgeIndex.set(e.target_id, [...(edgeIndex.get(e.target_id) ?? []), e.source_id]);
+    });
+
+    const sn: SimNode[] = filteredNodes.map((n) => {
+      const prev = existing.get(n.id);
+      const connections = edgeIndex.get(n.id)?.length ?? 0;
+      const radius = Math.max(14, Math.min(28, 14 + connections * 2));
+      if (prev) return { ...n, x: prev.x, y: prev.y, vx: prev.vx, vy: prev.vy, radius };
+      return {
+        ...n,
+        x: layoutW / 2 + (Math.random() - 0.5) * layoutW * 0.8,
+        y: layoutH / 2 + (Math.random() - 0.5) * layoutH * 0.8,
+        vx: 0, vy: 0, radius,
+      };
+    });
+    simNodesRef.current = sn;
+
+    const nodeMap = new Map(sn.map((n) => [n.id, n]));
+    let iteration = 0;
+    const maxIterations = 300;
+    hasFitRef.current = false;
+
+    // Force parameters scaled for large graphs
+    const repulsion = 1500 + sn.length * 3;
+    const attraction = 0.012;
+    const damping = 0.85;
+    // Skip repulsion between nodes further apart than this
+    const cutoff = 400;
+
+    function simulateStep() {
+      const alpha = Math.max(0.001, 1 - iteration / maxIterations);
+
+      // Repulsion with distance cutoff
+      for (let i = 0; i < sn.length; i++) {
+        for (let j = i + 1; j < sn.length; j++) {
+          const dx = sn[j].x - sn[i].x;
+          const dy = sn[j].y - sn[i].y;
+          // Cheap axis-aligned distance check
+          if (Math.abs(dx) > cutoff || Math.abs(dy) > cutoff) continue;
+          const distSq = dx * dx + dy * dy;
+          if (distSq > cutoff * cutoff) continue;
+          const dist = Math.max(1, Math.sqrt(distSq));
+          const force = (repulsion * alpha) / (dist * dist);
+          const fx = (dx / dist) * force;
+          const fy = (dy / dist) * force;
+          sn[i].vx -= fx;
+          sn[i].vy -= fy;
+          sn[j].vx += fx;
+          sn[j].vy += fy;
+        }
+      }
+
+      // Attraction along edges
+      filteredEdges.forEach((e) => {
+        const s = nodeMap.get(e.source_id);
+        const t = nodeMap.get(e.target_id);
+        if (!s || !t) return;
+        const dx = t.x - s.x;
+        const dy = t.y - s.y;
+        const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+        const targetDist = 70;
+        const force = (dist - targetDist) * attraction * alpha;
+        const fx = (dx / dist) * force;
+        const fy = (dy / dist) * force;
+        s.vx += fx; s.vy += fy;
+        t.vx -= fx; t.vy -= fy;
+      });
+
+      // Center gravity
+      const g = 0.004 * alpha;
+      sn.forEach((n) => {
+        n.vx += (layoutW / 2 - n.x) * g;
+        n.vy += (layoutH / 2 - n.y) * g;
+      });
+
+      // Velocity + position
+      sn.forEach((n) => {
+        n.vx *= damping;
+        n.vy *= damping;
+        n.x += n.vx;
+        n.y += n.vy;
+      });
+    }
+
+    function autoFit() {
+      if (sn.length === 0) return;
+      const xs = sn.map((n) => n.x);
+      const ys = sn.map((n) => n.y);
+      const minX = Math.min(...xs) - 40;
+      const maxX = Math.max(...xs) + 40;
+      const minY = Math.min(...ys) - 40;
+      const maxY = Math.max(...ys) + 40;
+      const graphW = maxX - minX;
+      const graphH = maxY - minY;
+      const scale = Math.min(dims.width / graphW, dims.height / graphH, 1.5) * 0.9;
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      transformRef.current = {
+        x: dims.width / 2 - cx * scale,
+        y: dims.height / 2 - cy * scale,
+        scale,
+      };
+    }
+
+    function draw() {
+      const dpr = window.devicePixelRatio || 1;
+      const targetW = Math.round(dims.width * dpr);
+      const targetH = Math.round(dims.height * dpr);
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+        canvas.style.width = `${dims.width}px`;
+        canvas.style.height = `${dims.height}px`;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, dims.width, dims.height);
+
+      const t = transformRef.current;
+      ctx.save();
+      ctx.translate(t.x, t.y);
+      ctx.scale(t.scale, t.scale);
+
+      const rootStyles = getComputedStyle(document.documentElement);
+      const labelColor = rootStyles.getPropertyValue('--color-txt-primary').trim() || '#e2e8f0';
+      const sel = selectedRef.current;
+      const highlighted = highlightedRef.current;
+
+      // Draw edges
+      filteredEdges.forEach((e) => {
+        const s = nodeMap.get(e.source_id);
+        const tgt = nodeMap.get(e.target_id);
+        if (!s || !tgt) return;
+
+        const style = EDGE_STYLES[e.edge_type as EdgeType] ?? { color: '#6B7280', dashed: true };
+        const isHl = highlighted.has(e.source_id) && highlighted.has(e.target_id);
+
+        ctx.beginPath();
+        ctx.strokeStyle = isHl ? style.color : `${style.color}40`;
+        ctx.lineWidth = isHl ? 2 : 1;
+        if (style.dashed) ctx.setLineDash([4, 4]);
+        else ctx.setLineDash([]);
+        ctx.moveTo(s.x, s.y);
+        ctx.lineTo(tgt.x, tgt.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Arrow
+        const angle = Math.atan2(tgt.y - s.y, tgt.x - s.x);
+        const arrowDist = tgt.radius + 4;
+        const ax = tgt.x - Math.cos(angle) * arrowDist;
+        const ay = tgt.y - Math.sin(angle) * arrowDist;
+        ctx.beginPath();
+        ctx.fillStyle = isHl ? style.color : `${style.color}40`;
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(ax - 6 * Math.cos(angle - 0.4), ay - 6 * Math.sin(angle - 0.4));
+        ctx.lineTo(ax - 6 * Math.cos(angle + 0.4), ay - 6 * Math.sin(angle + 0.4));
+        ctx.closePath();
+        ctx.fill();
+      });
+
+      // Draw nodes
+      sn.forEach((n) => {
+        const color = NODE_COLORS[n.node_type as NodeType] ?? '#6B7280';
+        const isSelected = n.id === sel;
+        const isHl = highlighted.size === 0 || highlighted.has(n.id);
+        const alpha = isHl ? 1 : 0.2;
+
+        if (isSelected) {
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, n.radius + 6, 0, Math.PI * 2);
+          ctx.fillStyle = `${color}30`;
+          ctx.fill();
+        }
+
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+        ctx.fillStyle = isSelected ? color : `${color}${Math.round(alpha * 0.3 * 255).toString(16).padStart(2, '0')}`;
+        ctx.fill();
+        ctx.strokeStyle = `${color}${Math.round(alpha * 255).toString(16).padStart(2, '0')}`;
+        ctx.lineWidth = isSelected ? 2.5 : 1.5;
+        ctx.stroke();
+
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = labelColor;
+        ctx.font = '11px Inter, system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        const label = n.title.length > 18 ? n.title.substring(0, 16) + '…' : n.title;
+        ctx.fillText(label, n.x, n.y + n.radius + 4);
+        ctx.globalAlpha = 1;
+      });
+
+      ctx.restore();
+    }
+
+    // Expose draw for pan/zoom/selection redraws
+    drawFnRef.current = draw;
+
+    let running = true;
+    function loop() {
+      if (!running) return;
+
+      // Run multiple sim steps per frame for faster convergence
+      const steps = iteration < 60 ? 5 : 3;
+      for (let s = 0; s < steps && iteration < maxIterations; s++) {
+        simulateStep();
+        iteration++;
+      }
+
+      // Auto-fit once layout roughly stabilizes
+      if (!hasFitRef.current && iteration >= 40) {
+        autoFit();
+        hasFitRef.current = true;
+      }
+
+      draw();
+
+      if (iteration < maxIterations) {
+        frameRef.current = requestAnimationFrame(loop);
+      }
+    }
+
+    frameRef.current = requestAnimationFrame(loop);
+    return () => { running = false; drawFnRef.current = null; cancelAnimationFrame(frameRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredNodes, filteredEdges, dims]);
+
+  // Redraw when selection/highlight changes (without restarting sim)
+  useEffect(() => { drawFnRef.current?.(); }, [selectedNodeId, highlightedNodeIds]);
+
+  // Zoom handler — triggers redraw
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -335,30 +450,31 @@ function GraphCanvas({
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
-      const t = transform.current;
+      const t = transformRef.current;
       const zoomFactor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
       const newScale = Math.max(0.1, Math.min(5, t.scale * zoomFactor));
-      // Zoom toward mouse position
       t.x = mx - (mx - t.x) * (newScale / t.scale);
       t.y = my - (my - t.y) * (newScale / t.scale);
       t.scale = newScale;
+      drawFnRef.current?.();
     };
     canvas.addEventListener('wheel', handleWheel, { passive: false });
     return () => canvas.removeEventListener('wheel', handleWheel);
   }, []);
 
-  // Pan handlers
+  // Pan handlers — trigger redraw
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button === 0) {
       isPanning.current = true;
-      panStart.current = { x: e.clientX - transform.current.x, y: e.clientY - transform.current.y };
+      panStart.current = { x: e.clientX - transformRef.current.x, y: e.clientY - transformRef.current.y };
     }
   }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (isPanning.current) {
-      transform.current.x = e.clientX - panStart.current.x;
-      transform.current.y = e.clientY - panStart.current.y;
+      transformRef.current.x = e.clientX - panStart.current.x;
+      transformRef.current.y = e.clientY - panStart.current.y;
+      drawFnRef.current?.();
     }
   }, []);
 
@@ -366,125 +482,24 @@ function GraphCanvas({
     isPanning.current = false;
   }, []);
 
-  // Draw
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = dims.width * dpr;
-    canvas.height = dims.height * dpr;
-    ctx.scale(dpr, dpr);
-    canvas.style.width = `${dims.width}px`;
-    canvas.style.height = `${dims.height}px`;
-
-    ctx.clearRect(0, 0, dims.width, dims.height);
-
-    // Apply zoom/pan transform
-    const t = transform.current;
-    ctx.save();
-    ctx.translate(t.x, t.y);
-    ctx.scale(t.scale, t.scale);
-
-    const rootStyles = getComputedStyle(document.documentElement);
-    const labelColor = rootStyles.getPropertyValue('--color-txt-primary').trim();
-    const nodeMap = new Map(simNodes.map((n) => [n.id, n]));
-
-    // Draw edges
-    filteredEdges.forEach((e) => {
-      const s = nodeMap.get(e.source_id);
-      const t = nodeMap.get(e.target_id);
-      if (!s || !t) return;
-
-      const style = EDGE_STYLES[e.edge_type as EdgeType] ?? { color: '#6B7280', dashed: true };
-      const isHighlighted =
-        highlightedNodeIds.has(e.source_id) && highlightedNodeIds.has(e.target_id);
-
-      ctx.beginPath();
-      ctx.strokeStyle = isHighlighted ? style.color : `${style.color}40`;
-      ctx.lineWidth = isHighlighted ? 2 : 1;
-      if (style.dashed) ctx.setLineDash([4, 4]);
-      else ctx.setLineDash([]);
-      ctx.moveTo(s.x, s.y);
-      ctx.lineTo(t.x, t.y);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Arrow
-      const angle = Math.atan2(t.y - s.y, t.x - s.x);
-      const arrowDist = t.radius + 4;
-      const ax = t.x - Math.cos(angle) * arrowDist;
-      const ay = t.y - Math.sin(angle) * arrowDist;
-      ctx.beginPath();
-      ctx.fillStyle = isHighlighted ? style.color : `${style.color}40`;
-      ctx.moveTo(ax, ay);
-      ctx.lineTo(ax - 6 * Math.cos(angle - 0.4), ay - 6 * Math.sin(angle - 0.4));
-      ctx.lineTo(ax - 6 * Math.cos(angle + 0.4), ay - 6 * Math.sin(angle + 0.4));
-      ctx.closePath();
-      ctx.fill();
-    });
-
-    // Draw nodes
-    simNodes.forEach((n) => {
-      const color = NODE_COLORS[n.node_type as NodeType] ?? '#6B7280';
-      const isSelected = n.id === selectedNodeId;
-      const isHighlighted = highlightedNodeIds.size === 0 || highlightedNodeIds.has(n.id);
-      const alpha = isHighlighted ? 1 : 0.2;
-
-      // Glow for selected
-      if (isSelected) {
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, n.radius + 6, 0, Math.PI * 2);
-        ctx.fillStyle = `${color}30`;
-        ctx.fill();
-      }
-
-      // Circle
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
-      ctx.fillStyle = isSelected ? color : `${color}${Math.round(alpha * 0.3 * 255).toString(16).padStart(2, '0')}`;
-      ctx.fill();
-      ctx.strokeStyle = `${color}${Math.round(alpha * 255).toString(16).padStart(2, '0')}`;
-      ctx.lineWidth = isSelected ? 2.5 : 1.5;
-      ctx.stroke();
-
-      // Label
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = labelColor;
-      ctx.font = '11px Inter, system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      const label = n.title.length > 18 ? n.title.substring(0, 16) + '…' : n.title;
-      ctx.fillText(label, n.x, n.y + n.radius + 4);
-      ctx.globalAlpha = 1;
-    });
-
-    ctx.restore(); // pop zoom/pan transform
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tick, dims, selectedNodeId, highlightedNodeIds, filteredEdges, simNodes]);
-
   // Click handler
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
-      const t = transform.current;
-      // Convert screen coords to graph coords via inverse transform
+      const t = transformRef.current;
       const x = (e.clientX - rect.left - t.x) / t.scale;
       const y = (e.clientY - rect.top - t.y) / t.scale;
 
-      const clicked = simNodes.find((n) => {
+      const clicked = simNodesRef.current.find((n) => {
         const dx = n.x - x;
         const dy = n.y - y;
         return dx * dx + dy * dy <= (n.radius + 4) * (n.radius + 4);
       });
-
       onSelectNode(clicked ?? null);
     },
-    [simNodes, onSelectNode],
+    [onSelectNode],
   );
 
   return (
@@ -501,17 +516,18 @@ function GraphCanvas({
       {/* Zoom controls */}
       <div className="absolute bottom-3 right-3 flex flex-col gap-1">
         <button
-          onClick={() => { const t = transform.current; t.scale = Math.min(5, t.scale * 1.3); }}
+          onClick={() => { transformRef.current.scale = Math.min(5, transformRef.current.scale * 1.3); drawFnRef.current?.(); }}
           className="rounded border border-border bg-base px-2 py-1 text-xs text-txt-muted hover:text-txt-primary"
         >+</button>
         <button
-          onClick={() => { const t = transform.current; t.scale = Math.max(0.1, t.scale / 1.3); }}
+          onClick={() => { transformRef.current.scale = Math.max(0.1, transformRef.current.scale / 1.3); drawFnRef.current?.(); }}
           className="rounded border border-border bg-base px-2 py-1 text-xs text-txt-muted hover:text-txt-primary"
         >−</button>
         <button
           onClick={() => {
-            hasFit.current = false;
-            transform.current = { x: 0, y: 0, scale: 1 };
+            hasFitRef.current = false;
+            transformRef.current = { x: 0, y: 0, scale: 1 };
+            drawFnRef.current?.();
           }}
           className="rounded border border-border bg-base px-2 py-1 text-[9px] text-txt-muted hover:text-txt-primary"
         >Fit</button>
