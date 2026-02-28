@@ -680,8 +680,9 @@ const server = createServer(async (req, res) => {
     // SharePoint knowledge sync endpoint
     if (method === 'POST' && url === '/sync/sharepoint-knowledge') {
       try {
-        const result = await syncSharePointKnowledge(memory.getSupabaseClient());
-        await memory.getSupabaseClient().from('data_sync_status').upsert({
+        const supabase = memory.getSupabaseClient();
+        const result = await syncSharePointKnowledge(supabase);
+        await supabase.from('data_sync_status').upsert({
           id: 'sharepoint-knowledge',
           last_success_at: new Date().toISOString(),
           consecutive_failures: 0,
@@ -689,6 +690,19 @@ const server = createServer(async (req, res) => {
           last_error: null,
           updated_at: new Date().toISOString(),
         });
+        // Update sharepoint_sites with sync result
+        const siteId = process.env.SHAREPOINT_SITE_ID;
+        if (siteId) {
+          await supabase.from('sharepoint_sites')
+            .update({
+              last_full_sync_at: new Date().toISOString(),
+              last_sync_result: result,
+              total_documents: result.scanned,
+              total_synced: result.updated + result.skipped,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('site_id', siteId);
+        }
         json(res, 200, { success: true, ...result });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

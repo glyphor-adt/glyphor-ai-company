@@ -146,8 +146,15 @@ export { syncGCPIAMState, syncSecretRotationStatus, runGovernanceSync } from './
 // SharePoint knowledge sync
 export {
   syncSharePointKnowledge,
+  uploadToSharePoint,
+  searchSharePoint,
+  listSharePointFolders,
+  readSharePointDocument,
   type SharePointSyncOptions,
   type SharePointSyncResult,
+  type SharePointUploadOptions,
+  type SharePointSearchOptions,
+  type SharePointDocument,
 } from './sharepoint/index.js';
 
 // Web search (OpenAI GPT-5.2 web_search_preview)

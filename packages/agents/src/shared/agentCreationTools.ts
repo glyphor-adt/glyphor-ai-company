@@ -17,7 +17,6 @@
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { EXECUTIVE_ROLES } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
-import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /** Hard limits — cannot be overridden by agents */
@@ -42,7 +41,7 @@ function buildDefaultBackstory(title: string, department: string): string {
   return `Provisioned as a specialist ${title} to support ${department} with targeted expertise on high-priority initiatives.`;
 }
 
-export function createAgentCreationTools(supabase: SupabaseClient, glyphorEventBus?: GlyphorEventBus): ToolDefinition[] {
+export function createAgentCreationTools(supabase: SupabaseClient): ToolDefinition[] {
   return [
     {
       name: 'create_specialist_agent',
@@ -164,21 +163,19 @@ export function createAgentCreationTools(supabase: SupabaseClient, glyphorEventB
         }
 
         // ── Store dynamic brief ──
-        const { error: briefErr } = await supabase.from('agent_briefs').upsert({
+        await supabase.from('agent_briefs').upsert({
           agent_id: agentId,
           system_prompt: systemPrompt,
           skills: [],
           tools: [],
           updated_at: new Date().toISOString(),
         });
-        if (briefErr) {
-          console.error(`[agentCreation] Failed to store brief for ${agentId}:`, briefErr.message);
-        }
 
         // Ensure each dynamic agent has a profile avatar at creation time.
-        const { error: profileErr } = await supabase.from('agent_profiles').upsert({
+        await supabase.from('agent_profiles').upsert({
           agent_id: agentId,
           avatar_url: avatarUrl,
+          avatar_emoji: '🤖',
           personality_summary: personalitySummary,
           backstory: backstory,
           communication_traits: ['clear', 'structured', 'action-oriented'],
@@ -189,9 +186,6 @@ export function createAgentCreationTools(supabase: SupabaseClient, glyphorEventB
           working_style: 'outcome-driven',
           updated_at: new Date().toISOString(),
         });
-        if (profileErr) {
-          console.error(`[agentCreation] Failed to store profile for ${agentId}:`, profileErr.message);
-        }
 
         // ── Store schedule if provided ──
         if (cronExpression) {
@@ -222,28 +216,6 @@ export function createAgentCreationTools(supabase: SupabaseClient, glyphorEventB
           summary: `Created specialist agent: ${name} (${agentId}) — ${justification}`,
           created_at: new Date().toISOString(),
         });
-
-        // ── Emit agent.spawned event to wake HR for onboarding ──
-        if (glyphorEventBus) {
-          try {
-            await glyphorEventBus.emit({
-              type: 'agent.spawned',
-              source: ctx.agentRole,
-              payload: {
-                agentRole: agentId,
-                name,
-                title,
-                department,
-                reportsTo: ctx.agentRole,
-                isTemporary: true,
-                createdBy: ctx.agentRole,
-              },
-              priority: 'normal',
-            });
-          } catch (e) {
-            console.error(`[agentCreation] Failed to emit agent.spawned:`, e);
-          }
-        }
 
         return {
           success: true,

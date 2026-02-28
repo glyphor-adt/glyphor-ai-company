@@ -1,0 +1,169 @@
+/**
+ * SharePoint Tools — Shared tools for knowledge management
+ *
+ * Provides search_sharepoint, read_sharepoint_document, upload_to_sharepoint,
+ * and list_sharepoint_folders tools. These allow agents to interact with
+ * the company knowledge SharePoint site directly.
+ */
+
+import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  searchSharePoint,
+  readSharePointDocument,
+  uploadToSharePoint,
+  listSharePointFolders,
+} from '@glyphor/integrations';
+
+/**
+ * Create SharePoint knowledge tools for agents.
+ * Available to all agents — the SharePoint site is the canonical
+ * source of truth for company documents.
+ */
+export function createSharePointTools(supabase: SupabaseClient): ToolDefinition[] {
+  return [
+    {
+      name: 'search_sharepoint',
+      description:
+        'Search the company SharePoint knowledge base for documents. ' +
+        'Returns matching files with their paths and URLs. Use this to find ' +
+        'policies, briefs, strategy docs, meeting notes, and other company knowledge.',
+      parameters: {
+        query: {
+          type: 'string',
+          description: 'Search keywords (e.g., "pricing strategy", "Q1 roadmap", "brand guidelines")',
+          required: true,
+        },
+        max_results: {
+          type: 'number',
+          description: 'Maximum results to return (default: 10)',
+          required: false,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        try {
+          const results = await searchSharePoint(params.query as string, {
+            maxResults: (params.max_results as number) ?? 10,
+          });
+
+          if (results.length === 0) {
+            return { success: true, data: 'No documents found matching that query.' };
+          }
+
+          const formatted = results.map((doc: { name: string; path: string; webUrl: string | null; lastModified: string | null }, i: number) =>
+            `${i + 1}. **${doc.name}**\n   Path: ${doc.path}\n   URL: ${doc.webUrl ?? 'N/A'}\n   Modified: ${doc.lastModified ?? 'Unknown'}`,
+          ).join('\n\n');
+
+          return { success: true, data: { count: results.length, documents: formatted } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'read_sharepoint_document',
+      description:
+        'Read the full content of a document from SharePoint. ' +
+        'Provide the file path relative to the knowledge root (e.g., "Strategy/CORE.md").',
+      parameters: {
+        path: {
+          type: 'string',
+          description: 'File path within the knowledge root (e.g., "Strategy/CORE.md", "Products/Pulse/roadmap.md")',
+          required: true,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        try {
+          const rootFolder = process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge';
+          const fullPath = `${rootFolder}/${params.path as string}`;
+
+          const doc = await readSharePointDocument(fullPath);
+          return {
+            success: true,
+            data: {
+              content: doc.content,
+              webUrl: doc.webUrl,
+              lastModified: doc.lastModified,
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'upload_to_sharepoint',
+      description:
+        'Upload a new document to the company SharePoint knowledge base. ' +
+        'The document is also automatically synced to the company_knowledge table in Supabase. ' +
+        'Use this to publish briefs, research findings, policies, or analysis reports.',
+      parameters: {
+        file_name: {
+          type: 'string',
+          description: 'File name with extension (e.g., "q1-growth-strategy.md", "competitive-analysis.txt")',
+          required: true,
+        },
+        content: {
+          type: 'string',
+          description: 'The document content (markdown or plain text)',
+          required: true,
+        },
+        folder: {
+          type: 'string',
+          description: 'Target folder within the knowledge root (e.g., "Strategy", "Products/Pulse", "Briefs")',
+          required: false,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        try {
+          const rootFolder = process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge';
+          const folder = params.folder
+            ? `${rootFolder}/${params.folder as string}`
+            : rootFolder;
+
+          const result = await uploadToSharePoint(
+            supabase,
+            params.file_name as string,
+            params.content as string,
+            { folder },
+          );
+
+          return {
+            success: true,
+            data: {
+              webUrl: result.webUrl,
+              knowledgeId: result.knowledgeId,
+              message: `Document uploaded to SharePoint and indexed in company knowledge.`,
+            },
+            memoryKeysWritten: 1,
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'list_sharepoint_folders',
+      description:
+        'List the top-level folders in the company SharePoint knowledge base. ' +
+        'Use this to understand the document structure before reading or uploading.',
+      parameters: {},
+      execute: async (): Promise<ToolResult> => {
+        try {
+          const folders = await listSharePointFolders();
+          return {
+            success: true,
+            data: folders.length > 0
+              ? `Folders: ${folders.join(', ')}`
+              : 'No folders found in knowledge root.',
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+  ];
+}

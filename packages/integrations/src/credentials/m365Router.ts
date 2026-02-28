@@ -27,6 +27,8 @@ export type M365Operation =
   | 'read_excel'
   | 'write_excel'
   | 'read_sharepoint'
+  | 'write_sharepoint'
+  | 'search_sharepoint'
   | 'get_user_profile'
   | 'list_users';
 
@@ -50,6 +52,8 @@ const OPERATION_TO_APP: Record<M365Operation, string> = {
   read_excel: 'AZURE_FILES',
   write_excel: 'AZURE_FILES',
   read_sharepoint: 'AZURE_FILES',
+  write_sharepoint: 'AZURE_FILES',
+  search_sharepoint: 'AZURE_FILES',
   get_user_profile: 'AZURE_USERS',
   list_users: 'AZURE_USERS',
 };

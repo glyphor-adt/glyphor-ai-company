@@ -462,3 +462,197 @@ function buildKnowledgeText(
 function hashText(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
+
+/* ─── Upload & Search ─────────────────────────────────────────── */
+
+export interface SharePointUploadOptions {
+  siteId?: string;
+  driveId?: string;
+  folder?: string;
+}
+
+export interface SharePointSearchOptions {
+  siteId?: string;
+  driveId?: string;
+  maxResults?: number;
+}
+
+export interface SharePointDocument {
+  id: string;
+  name: string;
+  path: string;
+  webUrl: string | null;
+  lastModified: string | null;
+  size?: number;
+}
+
+/**
+ * Upload a markdown/text document to SharePoint and sync it to company_knowledge.
+ */
+export async function uploadToSharePoint(
+  supabase: SupabaseClient,
+  fileName: string,
+  content: string,
+  options?: SharePointUploadOptions,
+): Promise<{ webUrl: string; knowledgeId: string }> {
+  const siteId = options?.siteId ?? process.env.SHAREPOINT_SITE_ID;
+  if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
+
+  const token = await getM365Token('write_sharepoint');
+  const driveId = options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId);
+
+  const folder = options?.folder ?? process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge';
+  const safeName = fileName.replace(/[<>:"/\\|?*]/g, '-');
+  const remotePath = folder ? `${folder}/${safeName}` : safeName;
+
+  const encodedPath = remotePath.split('/').map(encodeURIComponent).join('/');
+  const url = `${GRAPH_BASE}/sites/${encodeURIComponent(siteId)}/drives/${encodeURIComponent(driveId)}/root:/${encodedPath}:/content`;
+
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'text/plain',
+    },
+    body: content,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to upload to SharePoint (${response.status}): ${text}`);
+  }
+
+  const item = (await response.json()) as GraphDriveItem;
+
+  // Also insert into company_knowledge for immediate availability
+  const knowledgeId = await saveKnowledgeEntry(supabase, {
+    content: buildKnowledgeText(safeName, remotePath, item.webUrl ?? null, content),
+    evidence: item.webUrl ?? null,
+    tags: ['sharepoint', 'document', getExtension(safeName).replace('.', '')],
+  });
+
+  await upsertIndexRow(supabase, {
+    site_id: siteId,
+    drive_id: driveId,
+    drive_item_id: item.id,
+    name: safeName,
+    path: remotePath,
+    web_url: item.webUrl ?? null,
+    etag: item.eTag ?? null,
+    mime_type: item.file?.mimeType ?? null,
+    content_hash: hashText(content),
+    last_modified_at: item.lastModifiedDateTime ?? null,
+    last_synced_at: new Date().toISOString(),
+    status: 'active',
+    error_text: null,
+    knowledge_id: knowledgeId,
+    metadata: { extension: getExtension(safeName), uploadedBy: 'agent' },
+  });
+
+  return { webUrl: item.webUrl ?? '', knowledgeId };
+}
+
+/**
+ * Search SharePoint documents by keyword via Microsoft Graph Search API.
+ */
+export async function searchSharePoint(
+  query: string,
+  options?: SharePointSearchOptions,
+): Promise<SharePointDocument[]> {
+  const siteId = options?.siteId ?? process.env.SHAREPOINT_SITE_ID;
+  if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
+
+  const token = await getM365Token('search_sharepoint');
+  const maxResults = options?.maxResults ?? 20;
+
+  const searchUrl = `${GRAPH_BASE}/search/query`;
+  const response = await fetch(searchUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      requests: [
+        {
+          entityTypes: ['driveItem'],
+          query: { queryString: query },
+          from: 0,
+          size: maxResults,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`SharePoint search failed (${response.status}): ${text}`);
+  }
+
+  const data = await response.json();
+  const hits = data.value?.[0]?.hitsContainers?.[0]?.hits ?? [];
+
+  return hits.map((hit: { resource: GraphDriveItem & { size?: number } }) => ({
+    id: hit.resource.id,
+    name: hit.resource.name,
+    path: normalizeParentPath(hit.resource.parentReference?.path) + '/' + hit.resource.name,
+    webUrl: hit.resource.webUrl ?? null,
+    lastModified: hit.resource.lastModifiedDateTime ?? null,
+    size: hit.resource.size,
+  }));
+}
+
+/**
+ * List all folders in the SharePoint knowledge root.
+ */
+export async function listSharePointFolders(
+  options?: SharePointSearchOptions,
+): Promise<string[]> {
+  const siteId = options?.siteId ?? process.env.SHAREPOINT_SITE_ID;
+  if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
+
+  const token = await getM365Token('read_sharepoint');
+  const driveId = options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId);
+  const rootFolder = process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge';
+
+  const children = await listChildren(token, siteId, driveId, null, rootFolder);
+  return children
+    .filter((item) => item.folder)
+    .map((item) => item.name);
+}
+
+/**
+ * Read a specific document from SharePoint by path.
+ */
+export async function readSharePointDocument(
+  filePath: string,
+  options?: SharePointSearchOptions,
+): Promise<{ content: string; webUrl: string | null; lastModified: string | null }> {
+  const siteId = options?.siteId ?? process.env.SHAREPOINT_SITE_ID;
+  if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
+
+  const token = await getM365Token('read_sharepoint');
+  const driveId = options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId);
+
+  // Get item metadata
+  const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
+  const metaUrl = `${GRAPH_BASE}/sites/${encodeURIComponent(siteId)}/drives/${encodeURIComponent(driveId)}/root:/${encodedPath}`;
+  const metaRes = await fetch(metaUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!metaRes.ok) {
+    throw new Error(`Document not found: ${filePath}`);
+  }
+
+  const meta = (await metaRes.json()) as GraphDriveItem;
+
+  // Download content
+  const content = await downloadTextContent(token, siteId, driveId, meta.id);
+
+  return {
+    content,
+    webUrl: meta.webUrl ?? null,
+    lastModified: meta.lastModifiedDateTime ?? null,
+  };
+}
