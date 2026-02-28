@@ -3,6 +3,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
+      - '--progress=plain'
       - '-f'
       - 'docker/Dockerfile.scheduler'
       - '-t'
@@ -14,6 +15,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
+      - '--progress=plain'
       - '-f'
       - 'docker/Dockerfile.voice-gateway'
       - '-t'
@@ -25,6 +27,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
+      - '--progress=plain'
       - '-f'
       - 'docker/Dockerfile.dashboard'
       - '--build-arg'
@@ -44,5 +47,10 @@ images:
   - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:latest'
   - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/voice-gateway:latest'
   - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/dashboard:latest'
+
+# Improved logging to capture detailed build output
+options:
+  logging: CLOUD_LOGGING_ONLY
+  logStreamingOption: STREAM_ON
 
 timeout: '1200s'
