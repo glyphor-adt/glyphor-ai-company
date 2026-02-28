@@ -88,6 +88,7 @@ export class EventRouter {
           action: 'rejected',
           agentRole: event.agentRole,
           task: event.task,
+          error: message,
           reason: `Execution error: ${message}`,
         };
       }

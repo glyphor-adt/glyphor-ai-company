@@ -171,6 +171,17 @@ export class GeminiAdapter implements ProviderAdapter {
     return contents;
   }
 
+  /** Normalize Gemini finish reasons to a consistent set: stop | tool_use | length */
+  private normalizeFinishReason(reason?: string): string {
+    if (!reason) return 'stop';
+    switch (reason.toUpperCase()) {
+      case 'STOP': return 'stop';
+      case 'MAX_TOKENS': return 'length';
+      case 'SAFETY': return 'safety';
+      default: return reason.toLowerCase();
+    }
+  }
+
   private mapResponse(response: unknown): UnifiedModelResponse {
     const r = response as {
       candidates?: Array<{
@@ -214,7 +225,7 @@ export class GeminiAdapter implements ProviderAdapter {
         outputTokens: usage?.candidatesTokenCount ?? 0,
         totalTokens: usage?.totalTokenCount ?? 0,
       },
-      finishReason: candidate.finishReason ?? 'UNKNOWN',
+      finishReason: this.normalizeFinishReason(candidate.finishReason),
     };
   }
 }

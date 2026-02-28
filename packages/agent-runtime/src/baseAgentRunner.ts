@@ -377,7 +377,7 @@ export abstract class BaseAgentRunner {
           history.push({ role: 'assistant', content: response.text, timestamp: Date.now() });
         }
 
-        if (response.finishReason === 'STOP' || response.toolCalls.length === 0) {
+        if (response.finishReason === 'stop' || response.toolCalls.length === 0) {
           if (!lastTextOutput && !history.some(h => h.content === 'Please provide your final text response summarizing what you found and any actions taken.')) {
             history.push({ role: 'user', content: 'Please provide your final text response summarizing what you found and any actions taken.', timestamp: Date.now() });
             continue;

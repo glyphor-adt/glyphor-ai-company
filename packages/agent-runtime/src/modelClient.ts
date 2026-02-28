@@ -50,7 +50,12 @@ export class ModelClient {
     }
 
     const provider = detectProvider(request.model);
-    const adapter = this.factory.get(provider);
+    let adapter: import('./providers/types.js').ProviderAdapter;
+    try {
+      adapter = this.factory.get(provider);
+    } catch (err) {
+      throw new Error(`[${provider}] ${(err as Error).message} (model: ${request.model})`);
+    }
     const MAX_RETRIES = 1;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -60,14 +65,16 @@ export class ModelClient {
       } catch (err) {
         const msg = (err as Error).message ?? '';
         if (request.signal?.aborted) throw err;
-        if (/40[0-3]|404|422/.test(msg)) throw err;
+        if (/40[0-3]|404|422/.test(msg)) {
+          throw new Error(`[${provider}] ${msg} (model: ${request.model})`);
+        }
         if (attempt < MAX_RETRIES) {
           const backoffMs = 2000 * (attempt + 1);
-          console.warn(`[ModelClient] Attempt ${attempt + 1} failed (${msg}), retrying in ${backoffMs}ms…`);
+          console.warn(`[ModelClient] Attempt ${attempt + 1} for ${request.model} failed (${msg}), retrying in ${backoffMs}ms…`);
           await new Promise(r => setTimeout(r, backoffMs));
           continue;
         }
-        throw err;
+        throw new Error(`[${provider}] ${msg} (model: ${request.model})`);
       }
     }
     throw new Error('Unexpected: exhausted retries');

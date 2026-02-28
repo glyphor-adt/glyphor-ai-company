@@ -235,6 +235,18 @@ export class OpenAIAdapter implements ProviderAdapter {
     return merged;
   }
 
+  /** Normalize OpenAI finish reasons to a consistent set: stop | tool_use | length */
+  private normalizeFinishReason(reason?: string | null): string {
+    if (!reason) return 'stop';
+    switch (reason) {
+      case 'stop': return 'stop';
+      case 'tool_calls': return 'tool_use';
+      case 'length': return 'length';
+      case 'content_filter': return 'safety';
+      default: return reason;
+    }
+  }
+
   private mapResponse(
     response: OpenAI.Chat.Completions.ChatCompletion,
   ): UnifiedModelResponse {
@@ -254,7 +266,7 @@ export class OpenAIAdapter implements ProviderAdapter {
         outputTokens: response.usage?.completion_tokens ?? 0,
         totalTokens: response.usage?.total_tokens ?? 0,
       },
-      finishReason: choice.finish_reason ?? 'unknown',
+      finishReason: this.normalizeFinishReason(choice.finish_reason),
     };
   }
 }

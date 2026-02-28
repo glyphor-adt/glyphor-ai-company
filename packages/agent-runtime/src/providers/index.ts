@@ -43,15 +43,15 @@ export class ProviderFactory {
   private create(provider: ModelProvider): ProviderAdapter {
     switch (provider) {
       case 'gemini': {
-        if (!this.config.geminiApiKey) throw new Error('Gemini API key not configured');
+        if (!this.config.geminiApiKey) throw new Error('Gemini API key not configured — set GOOGLE_AI_API_KEY environment variable');
         return new GeminiAdapter(this.config.geminiApiKey);
       }
       case 'openai': {
-        if (!this.config.openaiApiKey) throw new Error('OpenAI API key not configured');
+        if (!this.config.openaiApiKey) throw new Error('OpenAI API key not configured — set OPENAI_API_KEY environment variable');
         return new OpenAIAdapter(this.config.openaiApiKey);
       }
       case 'anthropic': {
-        if (!this.config.anthropicApiKey) throw new Error('Anthropic API key not configured');
+        if (!this.config.anthropicApiKey) throw new Error('Anthropic API key not configured — set ANTHROPIC_API_KEY environment variable');
         return new AnthropicAdapter(this.config.anthropicApiKey);
       }
     }

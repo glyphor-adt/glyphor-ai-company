@@ -49,7 +49,7 @@ export class AnthropicAdapter implements ProviderAdapter {
     // Anthropic requires max_tokens > budget_tokens when manual thinking is enabled
     const maxTokens = (useThinking && !isOpus4)
       ? Math.max(request.maxTokens ?? 16384, thinkingBudget + 4096)
-      : (request.maxTokens ?? 4096);
+      : (request.maxTokens ?? 16384);
 
     const response = await this.client.messages.create({
       model: request.model,
@@ -166,6 +166,18 @@ export class AnthropicAdapter implements ProviderAdapter {
     return merged;
   }
 
+  /** Normalize Anthropic stop reasons to a consistent set: stop | tool_use | length */
+  private normalizeFinishReason(reason?: string | null): string {
+    if (!reason) return 'stop';
+    switch (reason) {
+      case 'end_turn': return 'stop';
+      case 'tool_use': return 'tool_use';
+      case 'max_tokens': return 'length';
+      case 'stop_sequence': return 'stop';
+      default: return reason;
+    }
+  }
+
   private mapResponse(response: Anthropic.Message): UnifiedModelResponse {
     let text: string | null = null;
     const toolCalls: { name: string; args: Record<string, unknown> }[] = [];
@@ -193,7 +205,7 @@ export class AnthropicAdapter implements ProviderAdapter {
         outputTokens: response.usage.output_tokens,
         totalTokens: response.usage.input_tokens + response.usage.output_tokens,
       },
-      finishReason: response.stop_reason ?? 'unknown',
+      finishReason: this.normalizeFinishReason(response.stop_reason),
     };
   }
 }

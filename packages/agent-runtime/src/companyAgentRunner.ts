@@ -1441,7 +1441,7 @@ export class CompanyAgentRunner {
           });
         }
 
-        if (response.finishReason === 'STOP' || response.toolCalls.length === 0) {
+        if (response.finishReason === 'stop' || response.toolCalls.length === 0) {
           // Safety: model stopped without producing text output.
           // Nudge it for a final summary (once only).
           if (!lastTextOutput && !history.some(h => h.content === 'Please provide your final text response summarizing what you found and any actions taken.')) {
