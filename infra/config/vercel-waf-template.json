@@ -1,0 +1,31 @@
+{
+  "description": "Vercel WAF rule template to bypass rate limiting for Google PageSpeed Insights",
+  "instructions": "Replace <GOOGLE_IP_RANGES> with actual IP ranges from google-ips.json",
+  "waf_rule": {
+    "name": "Allow Google PageSpeed Insights",
+    "description": "Bypass rate limiting for Lighthouse audits from Google PageSpeed API",
+    "enabled": true,
+    "conditionGroup": [
+      {
+        "conditions": [
+          {
+            "type": "ip_address",
+            "op": "inc",
+            "value": "<GOOGLE_IP_RANGES>",
+            "comment": "Google IP ranges from https://www.gstatic.com/ipranges/goog.json"
+          }
+        ]
+      }
+    ],
+    "action": {
+      "type": "bypass",
+      "comment": "Allow through without rate limiting"
+    }
+  },
+  "notes": [
+    "This rule should be ordered BEFORE any rate-limiting rules in the WAF",
+    "Update the IP ranges weekly using the update-google-ips.sh script",
+    "Monitor Vercel logs for 429 errors to ensure the rule is working",
+    "For Vercel Pro/Enterprise plans only - Trusted IPs feature required"
+  ]
+}
