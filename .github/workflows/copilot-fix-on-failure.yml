@@ -1,0 +1,99 @@
+name: Auto-fix build failures with Copilot
+
+on:
+  workflow_run:
+    workflows: ["Build & Deploy to Cloud Run"]
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  create-fix-issue:
+    # Only trigger when the build workflow failed on main
+    if: >
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download failed run logs
+        id: logs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUN_ID="${{ github.event.workflow_run.id }}"
+
+          # Download logs and extract the build failure
+          gh api "/repos/${{ github.repository }}/actions/runs/${RUN_ID}/logs" > logs.zip || true
+          if [ -f logs.zip ]; then
+            unzip -o logs.zip -d run-logs 2>/dev/null || true
+            # Grab the last 80 lines from any log file containing "error" (case-insensitive)
+            LOG_SNIPPET=$(grep -rli "error" run-logs/ | head -3 | xargs -I{} tail -80 {} 2>/dev/null | tail -120)
+          fi
+
+          if [ -z "$LOG_SNIPPET" ]; then
+            LOG_SNIPPET="Could not extract logs automatically. See the failed run link below."
+          fi
+
+          # Write to file to avoid shell escaping issues
+          echo "$LOG_SNIPPET" > /tmp/log_snippet.txt
+
+      - name: Check for existing open issue
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Don't create duplicate issues if one is already open
+          EXISTING=$(gh issue list \
+            --repo "${{ github.repository }}" \
+            --label "copilot-fix" \
+            --state open \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty')
+
+          if [ -n "$EXISTING" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Existing open fix issue #$EXISTING found — skipping."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create issue and assign Copilot
+        if: steps.check.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUN_URL="${{ github.event.workflow_run.html_url }}"
+          LOG_SNIPPET=$(cat /tmp/log_snippet.txt)
+
+          ISSUE_BODY=$(cat <<ENDOFBODY
+          ## Build failure on \`main\`
+
+          The **Build & Deploy to Cloud Run** workflow failed.
+
+          **Failed run:** ${RUN_URL}
+          **Commit:** ${{ github.event.workflow_run.head_sha }}
+
+          ### Build log excerpt
+          \`\`\`
+          ${LOG_SNIPPET}
+          \`\`\`
+
+          ### What to do
+          1. Look at the build errors above and in the linked workflow run
+          2. Identify the root cause (e.g. TypeScript compilation errors, duplicate exports, missing imports)
+          3. Fix the source files
+          4. Ensure \`npx turbo build\` passes with no errors
+          ENDOFBODY
+          )
+
+          ISSUE_URL=$(gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "fix: build failure on main ($(date +%Y-%m-%d))" \
+            --body "$ISSUE_BODY" \
+            --label "bug,copilot-fix" \
+            --assignee "copilot")
+
+          echo "Created issue: $ISSUE_URL"
