@@ -6,7 +6,12 @@
  * full ToolDefinition[] arrays; this registry lets the skill system
  * and the dynamic grant system verify which tools are available
  * without importing every tool module.
+ *
+ * Two sources: static KNOWN_TOOLS set (compiled in) + dynamic
+ * tool_registry DB table (loaded on demand).
  */
+
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /** All known tool names in the system. */
 const KNOWN_TOOLS = new Set([
@@ -305,22 +310,92 @@ const KNOWN_TOOLS = new Set([
 ]);
 
 /**
- * Check whether a tool name is known to the system.
+ * Check whether a tool name is known to the system (static registry).
  */
 export function isKnownTool(name: string): boolean {
-  return KNOWN_TOOLS.has(name);
+  return KNOWN_TOOLS.has(name) || _dynamicToolCache.has(name);
 }
 
 /**
  * Filter a list of tool names to only those that exist in the system.
  */
 export function filterKnownTools(toolNames: string[]): string[] {
-  return toolNames.filter((n) => KNOWN_TOOLS.has(n));
+  return toolNames.filter((n) => KNOWN_TOOLS.has(n) || _dynamicToolCache.has(n));
 }
 
 /**
  * Get all known tool names.
  */
 export function getAllKnownTools(): string[] {
-  return [...KNOWN_TOOLS];
+  return [...new Set([...KNOWN_TOOLS, ..._dynamicToolCache])];
+}
+
+// ── Dynamic Tool Registry (DB-backed) ────────────────────────────
+
+/** Cache of dynamically registered tool names. Refreshed periodically. */
+const _dynamicToolCache = new Set<string>();
+let _dynamicToolCacheExpiry = 0;
+const DYNAMIC_CACHE_TTL = 60_000; // 60 seconds
+
+/**
+ * Refresh the dynamic tool cache from the DB.
+ */
+export async function refreshDynamicToolCache(supabase: SupabaseClient): Promise<void> {
+  const { data } = await supabase
+    .from('tool_registry')
+    .select('name')
+    .eq('is_active', true);
+
+  _dynamicToolCache.clear();
+  if (data) {
+    for (const row of data) _dynamicToolCache.add(row.name);
+  }
+  _dynamicToolCacheExpiry = Date.now() + DYNAMIC_CACHE_TTL;
+}
+
+/**
+ * Check if a tool is known, including DB-registered tools.
+ * Refreshes dynamic cache if stale.
+ */
+export async function isKnownToolAsync(name: string, supabase: SupabaseClient): Promise<boolean> {
+  if (KNOWN_TOOLS.has(name)) return true;
+  if (Date.now() > _dynamicToolCacheExpiry) {
+    await refreshDynamicToolCache(supabase);
+  }
+  return _dynamicToolCache.has(name);
+}
+
+export interface RegisteredToolDef {
+  name: string;
+  description: string;
+  category: string;
+  parameters: Record<string, unknown>;
+  api_config: ApiToolConfig | null;
+}
+
+export interface ApiToolConfig {
+  method: string;
+  url_template: string;
+  headers_template?: Record<string, string>;
+  body_template?: unknown;
+  auth_type: 'bearer_env' | 'header_env' | 'none';
+  auth_env_var?: string;
+  response_path?: string;
+}
+
+/**
+ * Load a registered tool definition from the DB.
+ */
+export async function loadRegisteredTool(
+  name: string,
+  supabase: SupabaseClient,
+): Promise<RegisteredToolDef | null> {
+  const { data } = await supabase
+    .from('tool_registry')
+    .select('name, description, category, parameters, api_config')
+    .eq('name', name)
+    .eq('is_active', true)
+    .single();
+
+  return data as RegisteredToolDef | null;
 }

@@ -75,6 +75,8 @@ resource "google_project_service" "apis" {
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
     "bigquery.googleapis.com",
+    "redis.googleapis.com",
+    "vpcaccess.googleapis.com",
   ])
   service            = each.value
   disable_on_destroy = false
@@ -190,6 +192,36 @@ resource "google_secret_manager_secret_iam_member" "runner_access" {
   member    = "serviceAccount:${google_service_account.glyphor.email}"
 }
 
+# ─── VPC Connector (required for Memorystore access) ─────────
+resource "google_vpc_access_connector" "glyphor" {
+  name          = "glyphor-connector"
+  region        = var.region
+  ip_cidr_range = "10.8.0.0/28"
+  network       = "default"
+
+  depends_on = [google_project_service.apis["vpcaccess.googleapis.com"]]
+}
+
+# ─── Memorystore for Redis ───────────────────────────────────
+resource "google_redis_instance" "cache" {
+  name           = "glyphor-cache"
+  tier           = "BASIC"
+  memory_size_gb = 1
+  region         = var.region
+
+  redis_version = "REDIS_7_2"
+  display_name  = "Glyphor Agent Cache"
+
+  # Auth disabled — access controlled by VPC
+  auth_enabled = false
+
+  redis_configs = {
+    maxmemory-policy = "allkeys-lru"
+  }
+
+  depends_on = [google_project_service.apis["redis.googleapis.com"]]
+}
+
 # ─── Cloud Run: Scheduler ────────────────────────────────────
 resource "google_cloud_run_v2_service" "scheduler" {
   name     = "glyphor-scheduler"
@@ -197,6 +229,11 @@ resource "google_cloud_run_v2_service" "scheduler" {
 
   template {
     service_account = google_service_account.glyphor.email
+
+    vpc_access {
+      connector = google_vpc_access_connector.glyphor.id
+      egress    = "PRIVATE_RANGES_ONLY"
+    }
 
     containers {
       image = "${var.region}-docker.pkg.dev/${var.project_id}/glyphor/scheduler:latest"
@@ -211,6 +248,16 @@ resource "google_cloud_run_v2_service" "scheduler" {
       env {
         name  = "NODE_ENV"
         value = "production"
+      }
+
+      env {
+        name  = "REDIS_HOST"
+        value = google_redis_instance.cache.host
+      }
+
+      env {
+        name  = "REDIS_PORT"
+        value = tostring(google_redis_instance.cache.port)
       }
 
       dynamic "env" {
@@ -248,6 +295,11 @@ resource "google_cloud_run_v2_service" "chief_of_staff" {
     service_account = google_service_account.glyphor.email
     timeout         = "300s"
 
+    vpc_access {
+      connector = google_vpc_access_connector.glyphor.id
+      egress    = "PRIVATE_RANGES_ONLY"
+    }
+
     containers {
       image = "${var.region}-docker.pkg.dev/${var.project_id}/glyphor/chief-of-staff:latest"
 
@@ -261,6 +313,16 @@ resource "google_cloud_run_v2_service" "chief_of_staff" {
       env {
         name  = "NODE_ENV"
         value = "production"
+      }
+
+      env {
+        name  = "REDIS_HOST"
+        value = google_redis_instance.cache.host
+      }
+
+      env {
+        name  = "REDIS_PORT"
+        value = tostring(google_redis_instance.cache.port)
       }
 
       dynamic "env" {
@@ -297,6 +359,11 @@ resource "google_cloud_run_v2_service" "voice_gateway" {
   template {
     service_account = google_service_account.glyphor.email
 
+    vpc_access {
+      connector = google_vpc_access_connector.glyphor.id
+      egress    = "PRIVATE_RANGES_ONLY"
+    }
+
     containers {
       image = "${var.region}-docker.pkg.dev/${var.project_id}/glyphor/voice-gateway:latest"
 
@@ -319,6 +386,16 @@ resource "google_cloud_run_v2_service" "voice_gateway" {
       env {
         name  = "PORT"
         value = "8090"
+      }
+
+      env {
+        name  = "REDIS_HOST"
+        value = google_redis_instance.cache.host
+      }
+
+      env {
+        name  = "REDIS_PORT"
+        value = tostring(google_redis_instance.cache.port)
       }
 
       dynamic "env" {
@@ -831,4 +908,12 @@ output "service_account_email" {
 
 output "global_admin_email" {
   value = google_service_account.global_admin.email
+}
+
+output "redis_host" {
+  value = google_redis_instance.cache.host
+}
+
+output "redis_port" {
+  value = google_redis_instance.cache.port
 }

@@ -25,6 +25,7 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
+import { createToolRequestTools } from '../shared/toolRequestTools.js';
 
 export interface VPSalesRunParams {
   task?: 'pipeline_review' | 'market_sizing' | 'on_demand';
@@ -58,6 +59,7 @@ export async function runVPSales(params: VPSalesRunParams = {}) {
     ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
     ...createEmailTools(),
     ...createAgentCreationTools(memory.getSupabaseClient()),
+    ...createToolRequestTools(memory.getSupabaseClient()),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

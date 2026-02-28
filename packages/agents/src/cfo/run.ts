@@ -26,6 +26,7 @@ import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
+import { createToolRequestTools } from '../shared/toolRequestTools.js';
 
 export interface CFORunParams {
   task?: 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand';
@@ -60,6 +61,7 @@ export async function runCFO(params: CFORunParams = {}) {
     ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
     ...createEmailTools(),
     ...createAgentCreationTools(memory.getSupabaseClient()),
+    ...createToolRequestTools(memory.getSupabaseClient()),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

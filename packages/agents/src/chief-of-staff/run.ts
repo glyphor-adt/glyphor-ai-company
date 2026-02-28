@@ -28,6 +28,7 @@ import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
+import { createToolRequestTools } from '../shared/toolRequestTools.js';
 
 export interface CoSRunParams {
   task?: 'generate_briefing' | 'check_escalations' | 'weekly_review' | 'monthly_retrospective' | 'orchestrate' | 'on_demand';
@@ -160,6 +161,7 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
     ...createAssignmentTools(supabase, glyphorEventBus),
     ...createEmailTools(),
     ...createAgentCreationTools(supabase),
+    ...createToolRequestTools(supabase),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

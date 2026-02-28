@@ -26,6 +26,9 @@ import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
+import { createToolGrantTools } from '../shared/toolGrantTools.js';
+import { createToolRegistryTools } from '../shared/toolRegistryTools.js';
+import { createToolRequestTools } from '../shared/toolRequestTools.js';
 
 export interface CTORunParams {
   task?: 'platform_health_check' | 'dependency_review' | 'on_demand';
@@ -60,6 +63,9 @@ export async function runCTO(params: CTORunParams = {}) {
     ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
     ...createEmailTools(),
     ...createAgentCreationTools(memory.getSupabaseClient()),
+    ...createToolGrantTools(memory.getSupabaseClient(), 'cto'),
+    ...createToolRegistryTools(memory.getSupabaseClient()),
+    ...createToolRequestTools(memory.getSupabaseClient()),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

@@ -17,7 +17,15 @@ export { GlyphorEventBus } from './glyphorEventBus.js';
 export type { GlyphorEventBusConfig } from './glyphorEventBus.js';
 export { SUBSCRIPTIONS, getSubscribers } from './subscriptions.js';
 export { extractReasoning, stripReasoning, REASONING_PROMPT_SUFFIX } from './reasoning.js';
-export { isKnownTool, filterKnownTools, getAllKnownTools } from './toolRegistry.js';
+export {
+  isKnownTool,
+  filterKnownTools,
+  getAllKnownTools,
+  isKnownToolAsync,
+  refreshDynamicToolCache,
+  loadRegisteredTool,
+} from './toolRegistry.js';
+export type { RegisteredToolDef, ApiToolConfig } from './toolRegistry.js';
 export { checkEventPermission, createEventSecurityLog } from './eventPermissions.js';
 export type { EventPermissionCheck } from './eventPermissions.js';
 export { executeWorkLoop, PROACTIVE_COOLDOWNS } from './workLoop.js';

@@ -8,6 +8,8 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "echo 'no linter configured yet'"
   },
   "dependencies": {

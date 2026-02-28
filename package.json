@@ -19,10 +19,11 @@
     "scheduler:dev": "turbo run build --filter=@glyphor/scheduler && node --env-file=.env packages/scheduler/dist/server.js"
   },
   "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.19.0",
     "turbo": "^2.4.0",
     "typescript": "^5.8.3",
-    "tsx": "^4.19.0",
-    "@types/node": "^22.15.0"
+    "vitest": "^4.0.18"
   },
   "packageManager": "npm@10.9.0",
   "engines": {
