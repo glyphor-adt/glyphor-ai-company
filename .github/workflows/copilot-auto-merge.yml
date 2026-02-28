@@ -1,0 +1,61 @@
+name: Auto-merge Copilot PRs
+
+on:
+  pull_request_review:
+    types: [submitted]
+  check_suite:
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find Copilot PRs ready to merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get all open PRs authored by Copilot
+          PRS=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --author "Copilot" \
+            --state open \
+            --json number,isDraft,title \
+            --jq '.[] | select(.isDraft == false) | .number')
+
+          if [ -z "$PRS" ]; then
+            echo "No non-draft Copilot PRs found."
+            exit 0
+          fi
+
+          for PR in $PRS; do
+            echo "Checking PR #$PR..."
+
+            # Check if Copilot review passed (look for copilot-pull-request-reviewer)
+            REVIEW_STATE=$(gh api \
+              "repos/${{ github.repository }}/pulls/$PR/reviews" \
+              --jq '[.[] | select(.user.login == "copilot-pull-request-reviewer[bot]")] | last | .state // "NONE"')
+
+            # Check CI status
+            CI_STATUS=$(gh pr checks "$PR" \
+              --repo "${{ github.repository }}" \
+              --json state \
+              --jq 'if all(.state == "SUCCESS" or .state == "SKIPPED") then "pass" else "fail" end' 2>/dev/null || echo "fail")
+
+            echo "  Review: $REVIEW_STATE, CI: $CI_STATUS"
+
+            if [ "$CI_STATUS" = "pass" ]; then
+              echo "  Merging PR #$PR..."
+              gh pr merge "$PR" \
+                --repo "${{ github.repository }}" \
+                --squash \
+                --auto \
+                --delete-branch
+              echo "  PR #$PR merged successfully."
+            else
+              echo "  PR #$PR not ready yet (CI: $CI_STATUS)."
+            fi
+          done
