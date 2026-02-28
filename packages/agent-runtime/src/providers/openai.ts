@@ -183,7 +183,7 @@ export class OpenAIAdapter implements ProviderAdapter {
           lastToolCallIds = [];
           while (i < turns.length && turns[i].role === 'tool_call') {
             const tc = turns[i];
-            const id = `call_${tc.toolName}_${tc.timestamp}`;
+            const id = `call_${tc.toolName}_${tc.timestamp}`.slice(0, 40);
             lastToolCallIds.push(id);
             toolCalls.push({
               id,
@@ -208,7 +208,7 @@ export class OpenAIAdapter implements ProviderAdapter {
             const tr = turns[i];
             const toolCallId = resultIndex < lastToolCallIds.length
               ? lastToolCallIds[resultIndex]
-              : `call_${tr.toolName}_${tr.timestamp}`;
+              : `call_${tr.toolName}_${tr.timestamp}`.slice(0, 40);
             messages.push({
               role: 'tool',
               tool_call_id: toolCallId,
