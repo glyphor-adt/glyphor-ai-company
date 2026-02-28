@@ -65,13 +65,24 @@ function grantId(): string {
   return `GRT-${ts}-${rand}`.toUpperCase();
 }
 
-/** Safe fetch wrapper for GCP APIs using ADC metadata server. */
+/** Service account Morgan's tools impersonate for admin-level GCP access. */
+const GCP_ADMIN_SA = process.env.GCP_ADMIN_SA || 'glyphor-global-admin@ai-glyphor-company.iam.gserviceaccount.com';
+
+/** Safe fetch wrapper for GCP APIs — impersonates the global-admin SA. */
 async function gcpFetch(url: string, method = 'GET', body?: unknown): Promise<Response> {
-  // Use Google Auth Library's Application Default Credentials
-  const { GoogleAuth } = await import('google-auth-library');
-  const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/cloud-platform'] });
-  const client = await auth.getClient();
-  const token = await client.getAccessToken();
+  const { GoogleAuth, Impersonated } = await import('google-auth-library');
+  const sourceAuth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/cloud-platform'] });
+  const sourceClient = await sourceAuth.getClient();
+
+  // Impersonate the dedicated admin SA so Morgan has IAM/Secret Manager admin
+  const impersonated = new Impersonated({
+    sourceClient: sourceClient as InstanceType<typeof Impersonated>['sourceClient'],
+    targetPrincipal: GCP_ADMIN_SA,
+    lifetime: 3600,
+    delegates: [],
+    targetScopes: ['https://www.googleapis.com/auth/cloud-platform'],
+  });
+  const token = await impersonated.getAccessToken();
 
   const headers: Record<string, string> = {
     'Authorization': `Bearer ${token.token}`,
