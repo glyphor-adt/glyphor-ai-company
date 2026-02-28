@@ -171,11 +171,9 @@ export function createAgentCreationTools(supabase: SupabaseClient): ToolDefiniti
           updated_at: new Date().toISOString(),
         });
 
-        // Ensure each dynamic agent has a profile avatar at creation time.
+        // Ensure each dynamic agent has a profile at creation time.
         await supabase.from('agent_profiles').upsert({
           agent_id: agentId,
-          avatar_url: avatarUrl,
-          avatar_emoji: '🤖',
           personality_summary: personalitySummary,
           backstory: backstory,
           communication_traits: ['clear', 'structured', 'action-oriented'],
@@ -186,6 +184,12 @@ export function createAgentCreationTools(supabase: SupabaseClient): ToolDefiniti
           working_style: 'outcome-driven',
           updated_at: new Date().toISOString(),
         });
+
+        // Set DiceBear avatar only for new profiles (don't overwrite existing PNG avatars)
+        await supabase.from('agent_profiles')
+          .update({ avatar_url: avatarUrl })
+          .eq('agent_id', agentId)
+          .is('avatar_url', null);
 
         // ── Store schedule if provided ──
         if (cronExpression) {

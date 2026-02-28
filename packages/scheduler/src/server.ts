@@ -1070,11 +1070,9 @@ const server = createServer(async (req, res) => {
         console.error(`[server] Failed to store brief for ${agentId}:`, briefErr.message);
       }
 
-      // Create agent profile with personality and avatar
+      // Create agent profile with personality — avatar set separately to avoid overwriting
       const { error: profileErr } = await memory.getSupabaseClient().from('agent_profiles').upsert({
         agent_id: agentId,
-        avatar_url: avatarUrl,
-
         personality_summary: `${name} is a focused ${title || 'specialist'} in ${department || 'the company'} who prioritizes clear recommendations, practical execution steps, and concise communication.`,
         backstory: `Provisioned as a ${title || 'specialist'} to support ${department || 'the team'} with targeted expertise on high-priority initiatives.`,
         communication_traits: ['clear', 'structured', 'action-oriented'],
@@ -1088,6 +1086,12 @@ const server = createServer(async (req, res) => {
       if (profileErr) {
         console.error(`[server] Failed to store profile for ${agentId}:`, profileErr.message);
       }
+
+      // Set DiceBear avatar only for new profiles (don't overwrite existing PNG avatars)
+      await memory.getSupabaseClient().from('agent_profiles')
+        .update({ avatar_url: avatarUrl })
+        .eq('agent_id', agentId)
+        .is('avatar_url', null);
 
       // Store schedule if provided
       if (cron_expression) {
