@@ -227,13 +227,4 @@ export {
   type PulseAsset,
 } from './pulse/index.js';
 
-// Web search (Serper API)
-export {
-  searchWeb,
-  searchNews,
-  batchSearch,
-  searchResultsToContext,
-  type SearchResult,
-  type NewsResult,
-  type WebSearchOptions,
-} from './webSearch.js';
+

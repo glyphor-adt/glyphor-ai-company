@@ -44,6 +44,7 @@ export const CACHE_KEYS = {
   kb: (dept: string) => `kb:${dept}`,
   bulletins: (dept: string) => `bulletins:${dept}`,
   reasoningConfig: (role: string) => `reasoning-config:${role}`,
+  distilledContext: (role: string, taskHash: string) => `distilled:${role}:${taskHash}`,
 } as const;
 
 export const CACHE_TTL = {
@@ -57,6 +58,7 @@ export const CACHE_TTL = {
   kb: 600,             // 10 min — knowledge base
   bulletins: 300,      // 5 min — founder bulletins
   reasoningConfig: 600, // 10 min — per-agent reasoning config
+  distilledContext: 300, // 5 min — distilled JIT context briefings
 } as const;
 
 // ─── RedisCache class ───────────────────────────────────────────
