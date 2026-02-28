@@ -84,6 +84,7 @@ export async function processNewChangeRequests(supabase: SupabaseClient): Promis
     .from('dashboard_change_requests')
     .select('*')
     .eq('status', 'submitted')
+    .is('github_issue_number', null)
     .order('created_at', { ascending: true })
     .limit(5); // Process max 5 per cycle to avoid rate limits
 
@@ -94,14 +95,14 @@ export async function processNewChangeRequests(supabase: SupabaseClient): Promis
   for (const req of requests as ChangeRequest[]) {
     try {
       // Claim the row first to prevent duplicate processing on next heartbeat
-      const { count } = await supabase
+      const { data: claimed } = await supabase
         .from('dashboard_change_requests')
         .update({ status: 'triaged', updated_at: new Date().toISOString() })
         .eq('id', req.id)
         .eq('status', 'submitted')
-        .select('*', { count: 'exact', head: true });
+        .select('id');
 
-      if (!count) {
+      if (!claimed?.length) {
         // Another cycle already claimed this row — skip
         continue;
       }

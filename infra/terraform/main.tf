@@ -276,9 +276,10 @@ resource "google_cloud_run_v2_service" "scheduler" {
       }
     }
 
+    # Scheduler must be single-instance to prevent duplicate heartbeat processing
     scaling {
       min_instance_count = 0
-      max_instance_count = 3
+      max_instance_count = 1
     }
   }
 
