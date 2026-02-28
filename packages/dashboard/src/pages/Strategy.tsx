@@ -88,13 +88,14 @@ async function api<T>(path: string, opts?: RequestInit): Promise<T> {
 
 /* ── Page Component ────────────────────────────── */
 
-type Tab = 'strategy-lab-v2' | 'simulations' | 'cot';
+type Tab = 'strategy-lab-v2' | 'deep-dives' | 'simulations' | 'cot';
 
 export default function Strategy() {
   const [tab, setTab] = useState<Tab>('strategy-lab-v2');
 
   const TAB_LABELS: Record<Tab, string> = {
     'strategy-lab-v2': 'Strategic Analyses',
+    'deep-dives': 'Deep Dives',
     simulations: 'T+1 Simulations',
     cot: 'Chain of Thought',
   };
@@ -104,13 +105,13 @@ export default function Strategy() {
       <div>
         <h1 className="text-2xl font-bold text-txt-primary">Strategy Lab</h1>
         <p className="mt-1 text-sm text-txt-muted">
-          Multi-agent strategic analyses, T+1 impact simulations, and chain-of-thought planning
+          Multi-agent strategic analyses, McKinsey-style deep dives, T+1 impact simulations, and chain-of-thought planning
         </p>
       </div>
 
       {/* Tab Toggle */}
       <div className="flex gap-1 rounded-lg bg-raised p-1 w-fit border border-border">
-        {(['strategy-lab-v2', 'simulations', 'cot'] as Tab[]).map((t) => (
+        {(['strategy-lab-v2', 'deep-dives', 'simulations', 'cot'] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -126,6 +127,7 @@ export default function Strategy() {
       </div>
 
       {tab === 'strategy-lab-v2' && <StrategyLabV2Panel />}
+      {tab === 'deep-dives' && <DeepDivesPanel />}
       {tab === 'simulations' && <SimulationsPanel />}
       {tab === 'cot' && <ChainOfThoughtPanel />}
     </div>

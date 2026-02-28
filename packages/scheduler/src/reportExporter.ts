@@ -1757,3 +1757,523 @@ function truncate(text: string, maxLen: number): string {
   if (text.length <= maxLen) return text;
   return text.slice(0, maxLen - 1) + '…';
 }
+
+/* ══════════════════════════════════════════════════════
+   Deep Dive Export Functions (McKinsey-Style)
+   ══════════════════════════════════════════════════════ */
+
+/* ── Deep Dive: Markdown ──────────────────── */
+
+export function exportDeepDiveMarkdown(record: DeepDiveRecord): string {
+  const r = record.report;
+  const lines: string[] = [
+    `# McKinsey-Style Deep Dive: ${record.target}`,
+    '',
+    `**Target:** ${record.target}`,
+    `**Requested by:** ${record.requested_by}`,
+    `**Created:** ${new Date(record.created_at).toLocaleString()}`,
+    `**Status:** ${record.status}`,
+    '',
+  ];
+
+  if (!r) {
+    lines.push('*Report not yet generated.*');
+    return lines.join('\n');
+  }
+
+  lines.push(
+    `**Type:** ${r.targetType}`,
+    `**Analysis Date:** ${r.analysisDate}`,
+    '',
+    '## Document Sources',
+    `- SEC Filings: ${r.documentCounts.secFilings}`,
+    `- News Articles: ${r.documentCounts.newsArticles}`,
+    `- Patents: ${r.documentCounts.patents}`,
+    `- Research Sources: ${r.documentCounts.researchSources}`,
+    '',
+  );
+
+  // Current State
+  lines.push('## Current State Assessment', '', `**Momentum:** ${r.currentState.momentum.toUpperCase()}`, '', '### Key Strengths');
+  for (const s of r.currentState.keyStrengths) lines.push(`- **${s.point}**: ${s.evidence}`);
+  lines.push('', '### Key Challenges');
+  for (const c of r.currentState.keyChallenges) lines.push(`- **${c.point}**: ${c.evidence}`);
+
+  const fs = r.currentState.financialSnapshot;
+  if (fs.revenue || fs.funding) {
+    lines.push('', '### Financial Snapshot');
+    if (fs.revenue) lines.push(`- Revenue: ${fs.revenue}`);
+    if (fs.revenueGrowth) lines.push(`- Revenue Growth: ${fs.revenueGrowth}`);
+    if (fs.headcount) lines.push(`- Headcount: ${fs.headcount}`);
+    if (fs.funding) lines.push(`- Funding: ${fs.funding}`);
+    if (fs.valuation) lines.push(`- Valuation: ${fs.valuation}`);
+    if (fs.profitability) lines.push(`- Profitability: ${fs.profitability}`);
+  }
+  lines.push('');
+
+  // Company Overview
+  lines.push('## Company Overview', '', r.overview.description, '', `- **Industry:** ${r.overview.industry}`);
+  if (r.overview.founded) lines.push(`- **Founded:** ${r.overview.founded}`);
+  if (r.overview.headquarters) lines.push(`- **Headquarters:** ${r.overview.headquarters}`);
+  lines.push(`- **Business Model:** ${r.overview.businessModel}`, '', '### Leadership');
+  for (const l of r.overview.leadership) lines.push(`- **${l.name}** — ${l.title}`);
+  lines.push('', '### Products & Services');
+  for (const p of r.overview.products) lines.push(`- **${p.name}**: ${p.description}`);
+  lines.push('');
+
+  // Market Analysis
+  lines.push(
+    '## Market Analysis', '',
+    `| Metric | Value | Methodology |`,
+    `|--------|-------|-------------|`,
+    `| TAM | ${r.marketAnalysis.tam.value} | ${r.marketAnalysis.tam.methodology} |`,
+    `| SAM | ${r.marketAnalysis.sam.value} | ${r.marketAnalysis.sam.methodology} |`,
+    `| SOM | ${r.marketAnalysis.som.value} | ${r.marketAnalysis.som.methodology} |`,
+    '', `**Growth Rate:** ${r.marketAnalysis.growthRate}`, '', '### Key Drivers',
+  );
+  for (const d of r.marketAnalysis.keyDrivers) lines.push(`- ${d}`);
+  lines.push('', '### Key Trends');
+  for (const t of r.marketAnalysis.keyTrends) lines.push(`- ${t}`);
+  if (r.marketAnalysis.regulatoryFactors.length > 0) {
+    lines.push('', '### Regulatory Factors');
+    for (const f of r.marketAnalysis.regulatoryFactors) lines.push(`- ${f}`);
+  }
+  lines.push('');
+
+  // Competitive Landscape
+  lines.push('## Competitive Landscape', '', "### Porter's Five Forces", '');
+  const pf = r.competitiveLandscape.portersFiveForces;
+  lines.push(
+    `| Force | Score | Assessment |`,
+    `|-------|-------|-----------|`,
+    `| Threat of New Entrants | ${pf.threatOfNewEntrants.score}/5 | ${pf.threatOfNewEntrants.reasoning} |`,
+    `| Buyer Power | ${pf.bargainingPowerBuyers.score}/5 | ${pf.bargainingPowerBuyers.reasoning} |`,
+    `| Supplier Power | ${pf.bargainingPowerSuppliers.score}/5 | ${pf.bargainingPowerSuppliers.reasoning} |`,
+    `| Substitutes | ${pf.threatOfSubstitutes.score}/5 | ${pf.threatOfSubstitutes.reasoning} |`,
+    `| Rivalry | ${pf.competitiveRivalry.score}/5 | ${pf.competitiveRivalry.reasoning} |`,
+    '', `**Competitive Advantage:** ${r.competitiveLandscape.competitiveAdvantage}`, '', '### Competitors',
+  );
+  for (const c of r.competitiveLandscape.competitors) {
+    lines.push(`#### ${c.name}`, `- Positioning: ${c.positioning}`, `- Key Differentiator: ${c.keyDifferentiator}`);
+    if (c.estimatedRevenue) lines.push(`- Est. Revenue: ${c.estimatedRevenue}`);
+    lines.push(`- Strengths: ${c.strengths.join(', ')}`, `- Weaknesses: ${c.weaknesses.join(', ')}`, '');
+  }
+
+  // Strategic Recommendations
+  lines.push('## Strategic Recommendations', '');
+  for (const rec of r.strategicRecommendations) {
+    lines.push(`### ${rec.title} [${rec.priority.toUpperCase()}]`, '', rec.description);
+    lines.push(`- **Expected Impact:** ${rec.expectedImpact}`, `- **Investment:** ${rec.investmentRequired}`, `- **Risk Level:** ${rec.riskLevel}`, '', '**Steps:**');
+    for (const step of rec.implementationSteps) lines.push(`1. ${step}`);
+    lines.push('');
+  }
+
+  // Implementation Roadmap
+  lines.push('## Implementation Roadmap', '');
+  for (const phase of r.implementationRoadmap) {
+    lines.push(`### ${phase.phase} (${phase.timeline})`, `- Resources: ${phase.resources}`, `- Cost: ${phase.cost}`, '', '**Milestones:**');
+    for (const m of phase.milestones) lines.push(`- [ ] ${m}`);
+    lines.push('');
+  }
+
+  // ROI Analysis
+  lines.push('## ROI Analysis', '');
+  for (const scenario of r.roiAnalysis) {
+    lines.push(`### ${scenario.scenario.charAt(0).toUpperCase() + scenario.scenario.slice(1)} Case`);
+    if (scenario.paybackPeriod) lines.push(`- Payback Period: ${scenario.paybackPeriod}`);
+    if (scenario.irr) lines.push(`- IRR: ${scenario.irr}`);
+    if (scenario.npv) lines.push(`- NPV: ${scenario.npv}`);
+    lines.push('', '| Year | Revenue | Cost | Net Benefit |', '|------|---------|------|-------------|');
+    for (const p of scenario.projections) lines.push(`| Year ${p.year} | ${p.revenue} | ${p.cost} | ${p.netBenefit} |`);
+    lines.push('');
+  }
+
+  // Risk Assessment
+  lines.push('## Risk Assessment', '', '| Risk | Probability | Impact | Mitigation | Owner |', '|------|-------------|--------|------------|-------|');
+  for (const risk of r.riskAssessment) lines.push(`| ${risk.risk} | ${risk.probability} | ${risk.impact} | ${risk.mitigation} | ${risk.owner} |`);
+
+  // Sources
+  if (record.sources.length > 0) {
+    lines.push('', '## Sources', '');
+    for (const src of record.sources) lines.push(`- [${src.title}](${src.url}) — ${src.researchArea} (${new Date(src.retrievedAt).toLocaleDateString()})`);
+  }
+
+  return lines.join('\n');
+}
+
+/* ── Deep Dive: JSON ─────────────────────── */
+
+export function exportDeepDiveJSON(record: DeepDiveRecord): string {
+  return JSON.stringify({
+    id: record.id,
+    target: record.target,
+    context: record.context,
+    status: record.status,
+    requested_by: record.requested_by,
+    created_at: record.created_at,
+    completed_at: record.completed_at,
+    sources: record.sources,
+    report: record.report,
+  }, null, 2);
+}
+
+/* ── Deep Dive: PPTX ────────────────────── */
+
+export async function exportDeepDivePPTX(record: DeepDiveRecord): Promise<Buffer> {
+  const pptx = new PptxGenJS();
+  pptx.layout = 'LAYOUT_16x9';
+  pptx.author = 'Glyphor AI';
+  pptx.title = `Deep Dive: ${record.target}`;
+
+  const r = record.report;
+
+  pptxTitleSlide(
+    pptx, record.target,
+    r ? `${r.targetType}  ·  McKinsey-Style Strategic Deep Dive` : 'Strategic Deep Dive',
+    r ? `${r.analysisDate}  ·  ${r.documentCounts.researchSources} sources analyzed  ·  Glyphor AI` : `Glyphor AI`,
+  );
+
+  if (!r) {
+    return (await pptx.write({ outputType: 'nodebuffer' })) as unknown as Buffer;
+  }
+
+  // Research Coverage slide
+  {
+    const slide = pptx.addSlide();
+    slide.background = { color: SLIDE_BG };
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: SLIDE_CYAN } });
+    slide.addText('Research Coverage', { x: 0.6, y: 0.25, w: 9, fontSize: 24, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true });
+    slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 0.7, w: 1.2, h: 0.035, fill: { color: SLIDE_CYAN } });
+
+    const counts = [
+      { label: 'SEC Filings', val: String(r.documentCounts.secFilings), clr: SLIDE_CYAN },
+      { label: 'News Articles', val: String(r.documentCounts.newsArticles), clr: SLIDE_GREEN },
+      { label: 'Patents', val: String(r.documentCounts.patents), clr: SLIDE_AMBER },
+      { label: 'Research Sources', val: String(r.documentCounts.researchSources), clr: SLIDE_ACCENT },
+    ];
+    counts.forEach((c, idx) => {
+      const xPos = 0.5 + idx * 2.35;
+      slide.addShape(pptx.ShapeType.roundRect, { x: xPos, y: 1.4, w: 2.1, h: 1.8, fill: { color: SLIDE_BG2 }, line: { color: c.clr, width: 2 }, rectRadius: 0.1 });
+      slide.addText(c.val, { x: xPos, y: 1.5, w: 2.1, fontSize: 48, color: c.clr, fontFace: FONT_HEADING, bold: true, align: 'center' });
+      slide.addText(c.label, { x: xPos, y: 2.5, w: 2.1, fontSize: 11, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
+    });
+
+    const momColor = r.currentState.momentum === 'positive' ? SLIDE_GREEN : r.currentState.momentum === 'negative' ? SLIDE_RED : SLIDE_AMBER;
+    slide.addShape(pptx.ShapeType.roundRect, { x: 3.5, y: 3.8, w: 3.0, h: 0.6, fill: { color: SLIDE_BG2 }, line: { color: momColor, width: 1.5 }, rectRadius: 0.05 });
+    slide.addText(`MOMENTUM: ${r.currentState.momentum.toUpperCase()}`, { x: 3.5, y: 3.8, w: 3.0, h: 0.6, fontSize: 14, color: momColor, fontFace: FONT_HEADING, bold: true, align: 'center', valign: 'middle' });
+    addSlideFooter(slide, pptx);
+  }
+
+  // Current State slide
+  {
+    const slide = pptx.addSlide();
+    slide.background = { color: SLIDE_BG };
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: SLIDE_GREEN } });
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.06, h: 5.63, fill: { color: SLIDE_GREEN } });
+    slide.addText('Current State Assessment', { x: 0.6, y: 0.25, w: 9, fontSize: 22, color: SLIDE_GREEN, fontFace: FONT_HEADING, bold: true });
+
+    slide.addText('KEY STRENGTHS', { x: 0.5, y: 0.7, w: 4.5, fontSize: 10, color: SLIDE_GREEN, fontFace: FONT_HEADING, bold: true, charSpacing: 2 });
+    r.currentState.keyStrengths.slice(0, 4).forEach((s, idx) => {
+      const yPos = 1.0 + idx * 0.95;
+      slide.addShape(pptx.ShapeType.roundRect, { x: 0.5, y: yPos, w: 4.5, h: 0.85, fill: { color: SLIDE_BG2 }, line: { color: '30363D', width: 0.5 }, rectRadius: 0.05 });
+      slide.addText(s.point, { x: 0.7, y: yPos + 0.05, w: 4.1, fontSize: 11, color: SLIDE_WHITE, fontFace: FONT_HEADING, bold: true });
+      slide.addText(truncate(s.evidence, 100), { x: 0.7, y: yPos + 0.35, w: 4.1, fontSize: 9, color: SLIDE_MUTED, fontFace: FONT_BODY, lineSpacingMultiple: 1.2 });
+    });
+
+    slide.addText('KEY CHALLENGES', { x: 5.2, y: 0.7, w: 4.5, fontSize: 10, color: SLIDE_RED, fontFace: FONT_HEADING, bold: true, charSpacing: 2 });
+    r.currentState.keyChallenges.slice(0, 4).forEach((c, idx) => {
+      const yPos = 1.0 + idx * 0.95;
+      slide.addShape(pptx.ShapeType.roundRect, { x: 5.2, y: yPos, w: 4.5, h: 0.85, fill: { color: SLIDE_BG2 }, line: { color: '30363D', width: 0.5 }, rectRadius: 0.05 });
+      slide.addText(c.point, { x: 5.4, y: yPos + 0.05, w: 4.1, fontSize: 11, color: SLIDE_WHITE, fontFace: FONT_HEADING, bold: true });
+      slide.addText(truncate(c.evidence, 100), { x: 5.4, y: yPos + 0.35, w: 4.1, fontSize: 9, color: SLIDE_MUTED, fontFace: FONT_BODY, lineSpacingMultiple: 1.2 });
+    });
+    addSlideFooter(slide, pptx);
+  }
+
+  // Market Analysis slide
+  {
+    const slide = pptx.addSlide();
+    slide.background = { color: SLIDE_BG };
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: SLIDE_CYAN } });
+    slide.addText('Market Analysis', { x: 0.6, y: 0.25, w: 9, fontSize: 22, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true });
+    slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 0.65, w: 1.0, h: 0.035, fill: { color: SLIDE_CYAN } });
+
+    const sizing = [
+      { label: 'TAM', val: r.marketAnalysis.tam.value, desc: r.marketAnalysis.tam.methodology },
+      { label: 'SAM', val: r.marketAnalysis.sam.value, desc: r.marketAnalysis.sam.methodology },
+      { label: 'SOM', val: r.marketAnalysis.som.value, desc: r.marketAnalysis.som.methodology },
+    ];
+    sizing.forEach((s, idx) => {
+      const xPos = 0.3 + idx * 3.2;
+      slide.addShape(pptx.ShapeType.roundRect, { x: xPos, y: 0.9, w: 3.0, h: 1.5, fill: { color: SLIDE_BG2 }, line: { color: SLIDE_CYAN, width: 1 }, rectRadius: 0.08 });
+      slide.addText(s.label, { x: xPos, y: 0.95, w: 3.0, fontSize: 12, color: SLIDE_MUTED, fontFace: FONT_HEADING, bold: true, align: 'center', charSpacing: 3 });
+      slide.addText(s.val, { x: xPos, y: 1.25, w: 3.0, fontSize: 24, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, align: 'center' });
+      slide.addText(truncate(s.desc, 80), { x: xPos + 0.15, y: 1.75, w: 2.7, fontSize: 8, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center', lineSpacingMultiple: 1.2 });
+    });
+
+    slide.addText(`Growth Rate: ${r.marketAnalysis.growthRate}`, { x: 0.6, y: 2.6, w: 9, fontSize: 14, color: SLIDE_GREEN, fontFace: FONT_HEADING, bold: true });
+
+    const drivers = r.marketAnalysis.keyDrivers.slice(0, 3).map((d) => `● ${d}`).join('\n');
+    slide.addShape(pptx.ShapeType.roundRect, { x: 0.3, y: 3.0, w: 4.6, h: 1.6, fill: { color: SLIDE_BG2 }, line: { color: '30363D', width: 0.5 }, rectRadius: 0.05 });
+    slide.addText('KEY DRIVERS', { x: 0.5, y: 3.05, w: 4.2, fontSize: 9, color: SLIDE_AMBER, fontFace: FONT_HEADING, bold: true, charSpacing: 2 });
+    slide.addText(drivers, { x: 0.5, y: 3.35, w: 4.2, fontSize: 10, color: SLIDE_TEXT, fontFace: FONT_BODY, lineSpacingMultiple: 1.4 });
+
+    const trends = r.marketAnalysis.keyTrends.slice(0, 3).map((t) => `● ${t}`).join('\n');
+    slide.addShape(pptx.ShapeType.roundRect, { x: 5.1, y: 3.0, w: 4.6, h: 1.6, fill: { color: SLIDE_BG2 }, line: { color: '30363D', width: 0.5 }, rectRadius: 0.05 });
+    slide.addText('KEY TRENDS', { x: 5.3, y: 3.05, w: 4.2, fontSize: 9, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, charSpacing: 2 });
+    slide.addText(trends, { x: 5.3, y: 3.35, w: 4.2, fontSize: 10, color: SLIDE_TEXT, fontFace: FONT_BODY, lineSpacingMultiple: 1.4 });
+    addSlideFooter(slide, pptx);
+  }
+
+  // Porter's Five Forces slide
+  {
+    const slide = pptx.addSlide();
+    slide.background = { color: SLIDE_BG };
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: SLIDE_AMBER } });
+    slide.addText("Competitive Landscape: Porter's Five Forces", { x: 0.6, y: 0.25, w: 9, fontSize: 20, color: SLIDE_AMBER, fontFace: FONT_HEADING, bold: true });
+
+    const forces = [
+      { label: 'New Entrants', ...r.competitiveLandscape.portersFiveForces.threatOfNewEntrants },
+      { label: 'Buyer Power', ...r.competitiveLandscape.portersFiveForces.bargainingPowerBuyers },
+      { label: 'Supplier Power', ...r.competitiveLandscape.portersFiveForces.bargainingPowerSuppliers },
+      { label: 'Substitutes', ...r.competitiveLandscape.portersFiveForces.threatOfSubstitutes },
+      { label: 'Rivalry', ...r.competitiveLandscape.portersFiveForces.competitiveRivalry },
+    ];
+    forces.forEach((f, idx) => {
+      const yPos = 0.8 + idx * 0.85;
+      const forceColor = f.score >= 4 ? SLIDE_RED : f.score >= 3 ? SLIDE_AMBER : SLIDE_GREEN;
+      slide.addShape(pptx.ShapeType.roundRect, { x: 0.5, y: yPos, w: 9.0, h: 0.75, fill: { color: SLIDE_BG2 }, line: { color: '30363D', width: 0.5 }, rectRadius: 0.05 });
+      slide.addText(f.label, { x: 0.7, y: yPos + 0.05, w: 2.0, fontSize: 12, color: SLIDE_WHITE, fontFace: FONT_HEADING, bold: true });
+      const barWidth = (f.score / 5) * 3.0;
+      slide.addShape(pptx.ShapeType.rect, { x: 2.8, y: yPos + 0.2, w: 3.0, h: 0.35, fill: { color: '21262D' } });
+      slide.addShape(pptx.ShapeType.rect, { x: 2.8, y: yPos + 0.2, w: barWidth, h: 0.35, fill: { color: forceColor } });
+      slide.addText(`${f.score}/5`, { x: 6.0, y: yPos + 0.15, w: 0.8, fontSize: 14, color: forceColor, fontFace: FONT_HEADING, bold: true });
+      slide.addText(truncate(f.reasoning, 80), { x: 6.8, y: yPos + 0.15, w: 2.5, fontSize: 8.5, color: SLIDE_MUTED, fontFace: FONT_BODY, lineSpacingMultiple: 1.2 });
+    });
+    addSlideFooter(slide, pptx);
+  }
+
+  // Competitors
+  if (r.competitiveLandscape.competitors.length > 0) {
+    const compItems = r.competitiveLandscape.competitors.map((c) =>
+      `${c.name}  —  ${c.positioning}  ·  Differentiator: ${c.keyDifferentiator}`
+    );
+    pptxSectionSlides(pptx, 'Key Competitors', compItems, SLIDE_AMBER);
+  }
+
+  // Strategic Recommendations
+  for (const rec of r.strategicRecommendations) {
+    const slide = pptx.addSlide();
+    slide.background = { color: SLIDE_BG };
+    const priColor = rec.priority === 'immediate' ? SLIDE_RED : rec.priority === 'short-term' ? SLIDE_AMBER : SLIDE_CYAN;
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: priColor } });
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.06, h: 5.63, fill: { color: priColor } });
+    slide.addText(`RECOMMENDATION  ·  ${rec.priority.toUpperCase()}`, { x: 0.6, y: 0.2, w: 9, fontSize: 10, color: priColor, fontFace: FONT_HEADING, bold: true, charSpacing: 2 });
+    slide.addText(rec.title, { x: 0.6, y: 0.5, w: 8.5, fontSize: 24, color: SLIDE_WHITE, fontFace: FONT_HEADING, bold: true });
+    slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 1.05, w: 1.0, h: 0.035, fill: { color: priColor } });
+
+    slide.addShape(pptx.ShapeType.roundRect, { x: 0.5, y: 1.3, w: 9.0, h: 1.8, fill: { color: SLIDE_BG2 }, line: { color: '30363D', width: 0.5 }, rectRadius: 0.06 });
+    slide.addText(truncate(rec.description, 400), { x: 0.7, y: 1.4, w: 8.6, h: 1.6, fontSize: 12, color: SLIDE_TEXT, fontFace: FONT_BODY, valign: 'top', lineSpacingMultiple: 1.3 });
+
+    const kpis = [
+      { label: 'Impact', val: truncate(rec.expectedImpact, 30), clr: SLIDE_GREEN },
+      { label: 'Investment', val: truncate(rec.investmentRequired, 30), clr: SLIDE_CYAN },
+      { label: 'Risk', val: rec.riskLevel.toUpperCase(), clr: rec.riskLevel === 'high' ? SLIDE_RED : rec.riskLevel === 'medium' ? SLIDE_AMBER : SLIDE_GREEN },
+    ];
+    kpis.forEach((k, kIdx) => {
+      const xPos = 0.5 + kIdx * 3.1;
+      slide.addShape(pptx.ShapeType.roundRect, { x: xPos, y: 3.3, w: 2.9, h: 0.6, fill: { color: SLIDE_BG2 }, line: { color: k.clr, width: 1 }, rectRadius: 0.05 });
+      slide.addText(k.label, { x: xPos, y: 3.3, w: 2.9, h: 0.25, fontSize: 8, color: SLIDE_MUTED, fontFace: FONT_HEADING, align: 'center', charSpacing: 2 });
+      slide.addText(k.val, { x: xPos, y: 3.55, w: 2.9, h: 0.3, fontSize: 11, color: k.clr, fontFace: FONT_HEADING, bold: true, align: 'center' });
+    });
+
+    if (rec.implementationSteps.length > 0) {
+      const steps = rec.implementationSteps.slice(0, 4).map((s, i) => `${i + 1}. ${s}`).join('\n');
+      slide.addText('Implementation Steps', { x: 0.6, y: 4.1, w: 4, fontSize: 9, color: SLIDE_MUTED, fontFace: FONT_HEADING, charSpacing: 2 });
+      slide.addText(steps, { x: 0.7, y: 4.35, w: 8.6, fontSize: 10, color: SLIDE_TEXT, fontFace: FONT_BODY, lineSpacingMultiple: 1.3 });
+    }
+    addSlideFooter(slide, pptx);
+  }
+
+  // Implementation Roadmap
+  if (r.implementationRoadmap.length > 0) {
+    const items = r.implementationRoadmap.map((p) => `${p.phase} (${p.timeline})  —  Cost: ${p.cost}  ·  ${p.milestones.length} milestones`);
+    pptxSectionSlides(pptx, 'Implementation Roadmap', items, SLIDE_CYAN, { numbered: true });
+  }
+
+  // Risk Assessment
+  if (r.riskAssessment.length > 0) {
+    const items = r.riskAssessment.map((risk) => `[${risk.probability.toUpperCase()} / ${risk.impact.toUpperCase()}] ${risk.risk}  —  ${truncate(risk.mitigation, 80)}`);
+    pptxSectionSlides(pptx, 'Risk Assessment', items, SLIDE_RED);
+  }
+
+  // Closing
+  {
+    const slide = pptx.addSlide();
+    slide.background = { color: SLIDE_BG };
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 2.6, w: 10, h: 0.04, fill: { color: SLIDE_CYAN } });
+    slide.addText('G L Y P H O R   A I', { x: 0.6, y: 1.8, w: 8.8, fontSize: 28, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, align: 'center', charSpacing: 6 });
+    slide.addText('Strategic Deep Dive Complete', { x: 0.6, y: 2.9, w: 8.8, fontSize: 14, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
+    slide.addText(`${r.documentCounts.researchSources} sources analyzed  ·  ${new Date().toLocaleDateString()}  ·  Confidential`, { x: 0.6, y: 3.5, w: 8.8, fontSize: 10, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
+    addSlideFooter(slide, pptx);
+  }
+
+  return (await pptx.write({ outputType: 'nodebuffer' })) as unknown as Buffer;
+}
+
+/* ── Deep Dive: DOCX ────────────────────── */
+
+export async function exportDeepDiveDOCX(record: DeepDiveRecord): Promise<Buffer> {
+  const r = record.report;
+  const children: (Paragraph | Table)[] = [];
+
+  // Branded header
+  children.push(new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: 'G L Y P H O R   A I', bold: true, size: 20, color: '00B4D8', font: 'Segoe UI' })] }));
+  children.push(new Paragraph({ spacing: { after: 120 }, border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '00B4D8', space: 6 } }, children: [] }));
+
+  // Title
+  children.push(new Paragraph({ spacing: { before: 200, after: 40 }, children: [new TextRun({ text: 'McKinsey-Style Strategic Deep Dive', size: 20, color: '00B4D8', font: 'Segoe UI', bold: true })] }));
+  children.push(new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: record.target, bold: true, size: 52, font: 'Segoe UI', color: '1A1A2E' })] }));
+  children.push(new Paragraph({
+    spacing: { after: 400 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'DDDDDD', space: 12 } },
+    children: [
+      new TextRun({ text: r ? `${r.targetType}  ·  ` : '', size: 18, color: '888888', font: 'Segoe UI' }),
+      new TextRun({ text: `Date: ${new Date(record.created_at).toLocaleDateString()}`, size: 18, color: '888888', font: 'Segoe UI' }),
+      new TextRun({ text: r ? `  ·  ${r.documentCounts.researchSources} sources analyzed` : '', size: 18, color: '888888', font: 'Segoe UI' }),
+    ],
+  }));
+
+  if (!r) {
+    children.push(new Paragraph({ children: [new TextRun({ text: 'Report not yet generated.', italics: true })] }));
+    return Packer.toBuffer(new Document({ sections: [{ children: children as Paragraph[] }] }));
+  }
+
+  // Current State Assessment
+  children.push(...docxSectionHeading('Current State Assessment', '059669'));
+  const momColor = r.currentState.momentum === 'positive' ? '059669' : r.currentState.momentum === 'negative' ? 'DC2626' : 'D97706';
+  children.push(new Paragraph({
+    spacing: { after: 200 },
+    children: [
+      new TextRun({ text: 'Momentum: ', bold: true, size: 22, font: 'Segoe UI', color: '333333' }),
+      new TextRun({ text: r.currentState.momentum.toUpperCase(), bold: true, size: 24, font: 'Segoe UI', color: momColor }),
+    ],
+  }));
+
+  children.push(new Paragraph({ spacing: { before: 160, after: 80 }, children: [new TextRun({ text: 'Key Strengths', bold: true, size: 22, color: '059669', font: 'Segoe UI' })] }));
+  for (const s of r.currentState.keyStrengths) {
+    children.push(new Paragraph({
+      bullet: { level: 0 }, spacing: { after: 60 },
+      children: [
+        new TextRun({ text: `${s.point}: `, bold: true, size: 20, font: 'Segoe UI', color: '333333' }),
+        new TextRun({ text: s.evidence, size: 20, font: 'Segoe UI', color: '555555' }),
+      ],
+    }));
+  }
+
+  children.push(new Paragraph({ spacing: { before: 160, after: 80 }, children: [new TextRun({ text: 'Key Challenges', bold: true, size: 22, color: 'DC2626', font: 'Segoe UI' })] }));
+  for (const c of r.currentState.keyChallenges) {
+    children.push(new Paragraph({
+      bullet: { level: 0 }, spacing: { after: 60 },
+      children: [
+        new TextRun({ text: `${c.point}: `, bold: true, size: 20, font: 'Segoe UI', color: '333333' }),
+        new TextRun({ text: c.evidence, size: 20, font: 'Segoe UI', color: '555555' }),
+      ],
+    }));
+  }
+
+  // Company Overview
+  children.push(...docxSectionHeading('Company Overview', '00B4D8'));
+  children.push(new Paragraph({ spacing: { after: 160 }, children: [new TextRun({ text: r.overview.description, size: 22, font: 'Segoe UI', color: '2D2D2D' })] }));
+  const facts = [`Industry: ${r.overview.industry}`, r.overview.founded ? `Founded: ${r.overview.founded}` : '', r.overview.headquarters ? `Headquarters: ${r.overview.headquarters}` : '', `Business Model: ${r.overview.businessModel}`].filter(Boolean);
+  for (const fact of facts) children.push(docxBulletItem(fact));
+
+  // Market Analysis TAM/SAM/SOM table
+  children.push(...docxSectionHeading('Market Analysis', '00B4D8'));
+  const mktHeader = ['Metric', 'Value', 'Methodology'].map((label) =>
+    new TableCell({ shading: { fill: '1A1A2E', type: ShadingType.CLEAR, color: 'FFFFFF' }, margins: { top: 60, bottom: 60, left: 80, right: 80 }, children: [new Paragraph({ children: [new TextRun({ text: label, bold: true, size: 18, color: 'FFFFFF', font: 'Segoe UI' })] })] })
+  );
+  const mktRows = [
+    { m: 'TAM', ...r.marketAnalysis.tam },
+    { m: 'SAM', ...r.marketAnalysis.sam },
+    { m: 'SOM', ...r.marketAnalysis.som },
+  ].map((row) => new TableRow({
+    children: [
+      new TableCell({ margins: { top: 50, bottom: 50, left: 80, right: 80 }, children: [new Paragraph({ children: [new TextRun({ text: row.m, bold: true, size: 20, font: 'Segoe UI', color: '00B4D8' })] })] }),
+      new TableCell({ margins: { top: 50, bottom: 50, left: 80, right: 80 }, children: [new Paragraph({ children: [new TextRun({ text: row.value, bold: true, size: 20, font: 'Segoe UI', color: '333333' })] })] }),
+      new TableCell({ margins: { top: 50, bottom: 50, left: 80, right: 80 }, children: [new Paragraph({ children: [new TextRun({ text: row.methodology, size: 18, font: 'Segoe UI', color: '666666' })] })] }),
+    ],
+  }));
+  children.push(new Table({ rows: [new TableRow({ children: mktHeader }), ...mktRows], width: { size: 100, type: WidthType.PERCENTAGE } }));
+
+  children.push(new Paragraph({
+    spacing: { before: 200, after: 120 },
+    children: [
+      new TextRun({ text: 'Growth Rate: ', bold: true, size: 22, font: 'Segoe UI', color: '333333' }),
+      new TextRun({ text: r.marketAnalysis.growthRate, size: 22, font: 'Segoe UI', color: '059669' }),
+    ],
+  }));
+
+  // Strategic Recommendations
+  if (r.strategicRecommendations.length > 0) {
+    children.push(...docxSectionHeading('Strategic Recommendations', '00B4D8'));
+    r.strategicRecommendations.forEach((rec, i) => {
+      const priColor = rec.priority === 'immediate' ? 'DC2626' : rec.priority === 'short-term' ? 'D97706' : '2563EB';
+      children.push(new Paragraph({
+        spacing: { before: 240, after: 80 },
+        children: [
+          new TextRun({ text: `${i + 1}. `, bold: true, size: 22, color: '00B4D8', font: 'Segoe UI' }),
+          new TextRun({ text: rec.title, bold: true, size: 22, font: 'Segoe UI', color: '1A1A2E' }),
+          new TextRun({ text: `  [${rec.priority.toUpperCase()}]`, bold: true, size: 18, color: priColor, font: 'Segoe UI' }),
+        ],
+      }));
+      children.push(new Paragraph({ spacing: { after: 80 }, indent: { left: convertInchesToTwip(0.3) }, children: [new TextRun({ text: rec.description, size: 20, color: '444444', font: 'Segoe UI' })] }));
+      children.push(new Paragraph({
+        spacing: { after: 60 }, indent: { left: convertInchesToTwip(0.3) },
+        children: [
+          new TextRun({ text: `Impact: ${rec.expectedImpact}`, size: 18, color: '059669', font: 'Segoe UI' }),
+          new TextRun({ text: `  ·  Investment: ${rec.investmentRequired}`, size: 18, color: '666666', font: 'Segoe UI' }),
+          new TextRun({ text: `  ·  Risk: ${rec.riskLevel}`, size: 18, color: priColor, font: 'Segoe UI' }),
+        ],
+      }));
+    });
+  }
+
+  // Risk Assessment as table
+  if (r.riskAssessment.length > 0) {
+    children.push(...docxSectionHeading('Risk Assessment', 'DC2626'));
+    const riskHeader = ['Risk', 'Probability', 'Impact', 'Mitigation', 'Owner'].map((label) =>
+      new TableCell({ shading: { fill: '1A1A2E', type: ShadingType.CLEAR, color: 'FFFFFF' }, margins: { top: 60, bottom: 60, left: 80, right: 80 }, children: [new Paragraph({ children: [new TextRun({ text: label, bold: true, size: 16, color: 'FFFFFF', font: 'Segoe UI' })] })] })
+    );
+    const riskRows = r.riskAssessment.map((risk) => {
+      const probColor = risk.probability === 'high' ? 'DC2626' : risk.probability === 'medium' ? 'D97706' : '059669';
+      return new TableRow({
+        children: [
+          new TableCell({ margins: { top: 50, bottom: 50, left: 80, right: 80 }, children: [new Paragraph({ children: [new TextRun({ text: risk.risk, size: 18, font: 'Segoe UI', color: '333333' })] })] }),
+          new TableCell({ margins: { top: 50, bottom: 50, left: 80, right: 80 }, children: [new Paragraph({ children: [new TextRun({ text: risk.probability.toUpperCase(), bold: true, size: 16, font: 'Segoe UI', color: probColor })] })] }),
+          new TableCell({ margins: { top: 50, bottom: 50, left: 80, right: 80 }, children: [new Paragraph({ children: [new TextRun({ text: risk.impact.toUpperCase(), bold: true, size: 16, font: 'Segoe UI', color: probColor })] })] }),
+          new TableCell({ margins: { top: 50, bottom: 50, left: 80, right: 80 }, children: [new Paragraph({ children: [new TextRun({ text: risk.mitigation, size: 17, font: 'Segoe UI', color: '555555' })] })] }),
+          new TableCell({ margins: { top: 50, bottom: 50, left: 80, right: 80 }, children: [new Paragraph({ children: [new TextRun({ text: risk.owner, size: 17, font: 'Segoe UI', color: '666666' })] })] }),
+        ],
+      });
+    });
+    children.push(new Table({ rows: [new TableRow({ children: riskHeader }), ...riskRows], width: { size: 100, type: WidthType.PERCENTAGE } }));
+  }
+
+  // Footer
+  children.push(new Paragraph({
+    spacing: { before: 600 },
+    border: { top: { style: BorderStyle.SINGLE, size: 2, color: '00B4D8', space: 12 } },
+    alignment: AlignmentType.CENTER,
+    children: [new TextRun({ text: `Glyphor AI  ·  Strategic Deep Dive  ·  ${new Date().toLocaleDateString()}  ·  Confidential`, size: 16, color: '999999', font: 'Segoe UI' })],
+  }));
+
+  return Packer.toBuffer(new Document({
+    creator: 'Glyphor AI',
+    title: `Deep Dive: ${record.target}`,
+    sections: [{
+      properties: { page: { margin: { top: convertInchesToTwip(0.8), bottom: convertInchesToTwip(0.8), left: convertInchesToTwip(1.0), right: convertInchesToTwip(1.0) } } },
+      children: children as Paragraph[],
+    }],
+  }));
+}
