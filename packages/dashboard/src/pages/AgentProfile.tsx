@@ -1577,7 +1577,7 @@ function SettingsTab({
   const handleSave = async () => {
     setSaving(true);
     try {
-      const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.role)}/settings`, {
+      const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model, temperature, max_turns: maxTurns, thinking_enabled: thinkingEnabled, budget_per_run: budgetPerRun, budget_daily: budgetDaily, budget_monthly: budgetMonthly }),
@@ -1596,12 +1596,12 @@ function SettingsTab({
   };
 
   const handlePause = async () => {
-    await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.role)}/pause`, { method: 'POST' });
+    await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/pause`, { method: 'POST' });
     onUpdate((prev) => prev ? { ...prev, status: 'paused' } : prev);
   };
 
   const handleResume = async () => {
-    await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.role)}/resume`, { method: 'POST' });
+    await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/resume`, { method: 'POST' });
     onUpdate((prev) => prev ? { ...prev, status: 'active' } : prev);
   };
 
