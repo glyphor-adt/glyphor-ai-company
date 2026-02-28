@@ -291,6 +291,8 @@ export type Database = {
           agent_output: string | null;
           dispatched_at: string | null;
           completed_at: string | null;
+          need_type: string | null;
+          blocker_reason: string | null;
           created_at: string;
         };
         Insert: Omit<{
@@ -307,6 +309,8 @@ export type Database = {
           agent_output: string | null;
           dispatched_at: string | null;
           completed_at: string | null;
+          need_type: string | null;
+          blocker_reason: string | null;
           created_at: string;
         }, 'id' | 'created_at'>;
         Update: Partial<Omit<{
@@ -323,6 +327,8 @@ export type Database = {
           agent_output: string | null;
           dispatched_at: string | null;
           completed_at: string | null;
+          need_type: string | null;
+          blocker_reason: string | null;
           created_at: string;
         }, 'id'>>;
         Relationships: [];

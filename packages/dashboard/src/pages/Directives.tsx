@@ -25,6 +25,8 @@ interface WorkAssignment {
   agent_output: string | null;
   dispatched_at: string | null;
   completed_at: string | null;
+  need_type: string | null;
+  blocker_reason: string | null;
   created_at: string;
 }
 
