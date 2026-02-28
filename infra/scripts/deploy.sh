@@ -78,7 +78,7 @@ gcloud run deploy glyphor-dashboard \
   --project="$PROJECT_ID" \
   --platform=managed \
   --allow-unauthenticated \
-  --memory=256Mi \
+  --memory=4Gi \
   --cpu=1 \
   --min-instances=0 \
   --max-instances=3 \
