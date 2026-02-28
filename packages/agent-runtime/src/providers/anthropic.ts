@@ -37,11 +37,11 @@ export class AnthropicAdapter implements ProviderAdapter {
     const supportsThinking = /claude-(3-[5-9]|[4-9]|sonnet-4|haiku-4|opus-4)/.test(request.model);
     const useThinking = thinkingEnabled && supportsThinking;
     const thinkingBudget = 8192;
-    // claude-opus-4 requires adaptive thinking
+    // claude-opus-4 uses adaptive thinking (no effort field); others use manual budget
     const isOpus4 = /claude-opus-4/.test(request.model);
     const thinkingParam = useThinking
       ? { thinking: isOpus4
-          ? { type: 'adaptive' as const, effort: 'medium' as const }
+          ? { type: 'adaptive' as const }
           : { type: 'enabled' as const, budget_tokens: thinkingBudget }
         }
       : {};
