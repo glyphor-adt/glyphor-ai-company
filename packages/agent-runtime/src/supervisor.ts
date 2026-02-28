@@ -92,10 +92,11 @@ export class AgentSupervisor {
       this.filesWritten > this.lastFileCount ||
       this.memoryKeysWritten > this.lastMemoryKeyCount;
 
-    // In readsAsProgress mode (on_demand chat), any successful tool result
-    // counts as progress — the agent is gathering info to answer a question.
+    // In readsAsProgress mode, any successful tool result
+    // counts as progress — the agent is gathering info, not stalling.
+    // Without it, only write operations (filesWritten, memoryKeysWritten) count.
     const madeProgress = wroteData ||
-      (this.config.readsAsProgress === true && result.success);
+      (this.config.readsAsProgress !== false && result.success);
 
     if (madeProgress) {
       this.turnHadProgress = true;
