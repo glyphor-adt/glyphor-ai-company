@@ -28,6 +28,10 @@ interface AgentRun {
   error: string | null;
   output: string | null;
   input: string | null;
+  reasoning_passes: number | null;
+  reasoning_confidence: number | null;
+  reasoning_revised: boolean | null;
+  reasoning_cost_usd: number | null;
 }
 
 /* ─── Hooks ─────────────────────────────────── */
@@ -244,7 +248,7 @@ export default function Activity() {
         ) : (
           <div className="divide-y divide-border">
             {/* Header */}
-            <div className="grid grid-cols-[2fr_1.5fr_100px_90px_80px_80px_70px_90px] gap-2 bg-raised px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-txt-muted">
+            <div className="grid grid-cols-[2fr_1.5fr_100px_90px_80px_80px_70px_60px_70px_90px] gap-2 bg-raised px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-txt-muted">
               <span>Agent</span>
               <span>Task</span>
               <span>Status</span>
@@ -252,6 +256,8 @@ export default function Activity() {
               <span>Tokens</span>
               <span>Tools</span>
               <span>Cost</span>
+              <span>Passes</span>
+              <span>Conf.</span>
               <span>Started</span>
             </div>
 
@@ -264,7 +270,7 @@ export default function Activity() {
                 <div key={run.id}>
                   <div
                     onClick={() => hasDetail && setExpandedId(isExpanded ? null : run.id)}
-                    className={`grid grid-cols-[2fr_1.5fr_100px_90px_80px_80px_70px_90px] gap-2 items-center px-4 py-2.5 transition-colors hover:bg-raised/50 ${
+                    className={`grid grid-cols-[2fr_1.5fr_100px_90px_80px_80px_70px_60px_70px_90px] gap-2 items-center px-4 py-2.5 transition-colors hover:bg-raised/50 ${
                       run.status === 'running' ? 'bg-cyan/[0.03]' : ''
                     } ${hasDetail ? 'cursor-pointer' : ''}`}
                   >
@@ -322,6 +328,31 @@ export default function Activity() {
                       {run.cost != null ? `$${Number(run.cost).toFixed(3)}` : '—'}
                     </span>
 
+                    {/* Reasoning Passes */}
+                    <span className="text-[11px] font-mono text-txt-faint">
+                      {run.reasoning_passes != null ? (
+                        <span className="flex items-center gap-1">
+                          {run.reasoning_passes}
+                          {run.reasoning_revised && (
+                            <span className="h-1.5 w-1.5 rounded-full bg-tier-yellow" title="Output was revised" />
+                          )}
+                        </span>
+                      ) : '—'}
+                    </span>
+
+                    {/* Confidence */}
+                    <span className={`text-[11px] font-mono ${
+                      run.reasoning_confidence != null
+                        ? run.reasoning_confidence >= 0.8 ? 'text-tier-green'
+                          : run.reasoning_confidence >= 0.5 ? 'text-tier-yellow'
+                          : 'text-red-400'
+                        : 'text-txt-faint'
+                    }`}>
+                      {run.reasoning_confidence != null
+                        ? `${Math.round(run.reasoning_confidence * 100)}%`
+                        : '—'}
+                    </span>
+
                     {/* Started */}
                     <span className="text-[10px] text-txt-faint">
                       {timeAgo(run.started_at)}
@@ -360,6 +391,23 @@ export default function Activity() {
                           <span>{run.turns} turn{run.turns !== 1 ? 's' : ''}</span>
                           {run.tool_calls != null && <span>{run.tool_calls} tool call{run.tool_calls !== 1 ? 's' : ''}</span>}
                           {run.completed_at && <span>Completed {timeAgo(run.completed_at)}</span>}
+                        </div>
+                      )}
+                      {run.reasoning_passes != null && run.reasoning_passes > 0 && (
+                        <div className="mt-2 rounded-md border border-cyan/20 bg-cyan/5 px-3 py-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan mb-1">Reasoning</p>
+                          <div className="flex gap-4 text-[11px] text-txt-secondary">
+                            <span>{run.reasoning_passes} pass{run.reasoning_passes !== 1 ? 'es' : ''}</span>
+                            {run.reasoning_confidence != null && (
+                              <span>Confidence: {Math.round(run.reasoning_confidence * 100)}%</span>
+                            )}
+                            {run.reasoning_revised && (
+                              <span className="text-tier-yellow">Output revised</span>
+                            )}
+                            {run.reasoning_cost_usd != null && (
+                              <span>Reasoning cost: ${run.reasoning_cost_usd.toFixed(4)}</span>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>

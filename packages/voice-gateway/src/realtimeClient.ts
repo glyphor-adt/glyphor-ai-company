@@ -10,7 +10,7 @@ import OpenAI from 'openai';
 import type { CompanyAgentRole, ToolDefinition } from '@glyphor/agent-runtime';
 import type { RealtimeVoice, VoiceToolDeclaration } from './types.js';
 import { getAgentVoiceConfig } from './voiceMap.js';
-import { buildVoiceSystemPrompt } from './voicePrompt.js';
+import { buildVoiceSystemPrompt, type VoicePromptContext } from './voicePrompt.js';
 import { toRealtimeTools } from './toolBridge.js';
 
 const REALTIME_MODEL = 'gpt-4o-realtime-preview';
@@ -25,7 +25,7 @@ export interface RealtimeSessionResult {
 export interface RealtimeSessionOptions {
   agentRole: CompanyAgentRole;
   tools: ToolDefinition[];
-  personalityBlock?: string;
+  promptContext?: VoicePromptContext;
 }
 
 /**
@@ -36,9 +36,9 @@ export async function createRealtimeSession(
   openaiClient: OpenAI,
   options: RealtimeSessionOptions,
 ): Promise<RealtimeSessionResult> {
-  const { agentRole, tools, personalityBlock } = options;
+  const { agentRole, tools, promptContext } = options;
   const voiceConfig = getAgentVoiceConfig(agentRole);
-  const systemPrompt = buildVoiceSystemPrompt(voiceConfig, personalityBlock);
+  const systemPrompt = buildVoiceSystemPrompt(voiceConfig, promptContext);
   const realtimeTools = toRealtimeTools(tools);
 
   // Use the OpenAI Realtime sessions REST endpoint

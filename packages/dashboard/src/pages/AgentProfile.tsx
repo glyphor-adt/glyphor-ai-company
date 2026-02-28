@@ -1509,6 +1509,72 @@ function SettingsTab({
   const [savedPrompt, setSavedPrompt] = useState(false);
   const [promptExpanded, setPromptExpanded] = useState(false);
 
+  // Reasoning config state
+  const [reasoningEnabled, setReasoningEnabled] = useState(false);
+  const [reasoningPassTypes, setReasoningPassTypes] = useState<string[]>([]);
+  const [reasoningMinConfidence, setReasoningMinConfidence] = useState(0.7);
+  const [reasoningMaxBudget, setReasoningMaxBudget] = useState(0.02);
+  const [reasoningCrossModel, setReasoningCrossModel] = useState(false);
+  const [reasoningValueGate, setReasoningValueGate] = useState(true);
+  const [reasoningVerificationModels, setReasoningVerificationModels] = useState<string[]>([]);
+  const [reasoningLoading, setReasoningLoading] = useState(true);
+  const [savingReasoning, setSavingReasoning] = useState(false);
+  const [savedReasoning, setSavedReasoning] = useState(false);
+
+  const ALL_PASS_TYPES = ['self_critique', 'consistency_check', 'factual_verification', 'goal_alignment', 'cross_model', 'value_analysis'] as const;
+  const ALL_VERIFICATION_MODELS = ['gemini-3-flash-preview', 'gpt-4.1-mini', 'claude-haiku-4-5', 'gemini-2.5-flash', 'o4-mini'] as const;
+
+  useEffect(() => {
+    // Load reasoning config
+    (async () => {
+      setReasoningLoading(true);
+      const { data: rc } = await supabase
+        .from('agent_reasoning_config')
+        .select('*')
+        .eq('agent_role', agent.role)
+        .single();
+      if (rc) {
+        setReasoningEnabled(rc.enabled ?? false);
+        setReasoningPassTypes((rc.pass_types as string[]) ?? []);
+        setReasoningMinConfidence(rc.min_confidence ?? 0.7);
+        setReasoningMaxBudget(rc.max_reasoning_budget ?? 0.02);
+        setReasoningCrossModel(rc.cross_model_enabled ?? false);
+        setReasoningValueGate(rc.value_gate_enabled ?? true);
+        setReasoningVerificationModels((rc.verification_models as string[]) ?? []);
+      }
+      setReasoningLoading(false);
+    })();
+  }, [agent.role]);
+
+  const handleSaveReasoning = async () => {
+    setSavingReasoning(true);
+    try {
+      await supabase.from('agent_reasoning_config').upsert({
+        agent_role: agent.role,
+        enabled: reasoningEnabled,
+        pass_types: reasoningPassTypes,
+        min_confidence: reasoningMinConfidence,
+        max_reasoning_budget: reasoningMaxBudget,
+        cross_model_enabled: reasoningCrossModel,
+        value_gate_enabled: reasoningValueGate,
+        verification_models: reasoningVerificationModels,
+        updated_at: new Date().toISOString(),
+      });
+      // Invalidate reasoning config cache
+      try {
+        await fetch(`${SCHEDULER_URL}/cache/invalidate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prefix: `reasoning:config:${agent.role}` }),
+        });
+      } catch { /* best-effort */ }
+      setSavedReasoning(true);
+      setTimeout(() => setSavedReasoning(false), 1200);
+    } finally {
+      setSavingReasoning(false);
+    }
+  };
+
   useEffect(() => {
     (async () => {
       // Load code-defined prompt from scheduler

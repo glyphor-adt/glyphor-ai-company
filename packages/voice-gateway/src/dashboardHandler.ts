@@ -69,20 +69,30 @@ export class DashboardVoiceHandler {
       execute: async () => ({ success: true }),
     }));
 
-    // Load personality from agent_profiles table
+    // Load personality & identity from agent_profiles
     const { data: profile } = await this.supabase
       .from('agent_profiles')
-      .select('personality_block')
-      .eq('role', agentRole)
+      .select('personality_summary, backstory, communication_traits')
+      .eq('agent_id', agentRole)
       .single();
 
-    const personalityBlock = profile?.personality_block ?? undefined;
+    // Load role-specific system prompt from agent_briefs
+    const { data: brief } = await this.supabase
+      .from('agent_briefs')
+      .select('system_prompt')
+      .eq('agent_id', agentRole)
+      .single();
 
     // Create OpenAI Realtime session
     const result = await createRealtimeSession(this.openai, {
       agentRole,
       tools: toolDefs,
-      personalityBlock,
+      promptContext: {
+        personalitySummary: profile?.personality_summary ?? undefined,
+        backstory: profile?.backstory ?? undefined,
+        communicationTraits: profile?.communication_traits ?? undefined,
+        systemPrompt: brief?.system_prompt ?? undefined,
+      },
     });
 
     // Track the session
