@@ -219,6 +219,8 @@ export interface DbWorkAssignment {
   agent_output: string | null;
   evaluation: string | null;
   quality_score: number | null;
+  need_type: string | null;
+  blocker_reason: string | null;
   created_at: string;
   updated_at: string;
 }

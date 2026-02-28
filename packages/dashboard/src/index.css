@@ -54,6 +54,35 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
 ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 999px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover); }
 
+/* Utility: Hide scrollbar (use sparingly, e.g. hidden sidebars) */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Utility: Force scrollbar visibility (use for content-heavy areas) */
+.scrollbar-visible {
+  scrollbar-width: thin;
+  -ms-overflow-style: auto;
+}
+.scrollbar-visible::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-visible::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-visible::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+}
+.scrollbar-visible::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-hover);
+}
+
 /* ─── Gradient shimmer for skeleton loaders ── */
 .shimmer-bg {
   background: linear-gradient(90deg, transparent 0%, var(--color-shimmer) 50%, transparent 100%);

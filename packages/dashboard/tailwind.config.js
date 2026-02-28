@@ -17,8 +17,10 @@ export default {
         'txt-muted': 'var(--color-txt-muted)',
         'txt-faint': 'var(--color-txt-faint)',
         // Primary
+        primary: 'rgb(var(--cyan) / <alpha-value>)',
         cyan: 'rgb(var(--cyan) / <alpha-value>)',
         azure: 'rgb(var(--azure) / <alpha-value>)',
+        purple: '#623CEA', // Brand tertiary color (design system)
         accent: 'rgb(var(--accent) / <alpha-value>)',
         // Agent roles (fixed mid-tones for decorative accents)
         exec: '#7C3AED',

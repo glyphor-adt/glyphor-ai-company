@@ -160,6 +160,8 @@ locals {
     "teams-channel-financials-id",
     "teams-channel-product-fuse-id",
     "teams-channel-product-pulse-id",
+    "teams-user-andrew-id",
+    "teams-user-kristina-id",
     "stripe-secret-key",
     "stripe-webhook-secret",
     "gcp-billing-dataset",
@@ -718,7 +720,7 @@ resource "google_cloud_run_v2_service" "dashboard" {
       resources {
         limits = {
           cpu    = "1"
-          memory = "256Mi"
+          memory = "4Gi"
         }
       }
 
