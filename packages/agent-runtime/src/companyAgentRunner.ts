@@ -14,6 +14,7 @@ import { AgentSupervisor } from './supervisor.js';
 import { extractReasoning, REASONING_PROMPT_SUFFIX } from './reasoning.js';
 import { isOfficeDocument, extractDocumentText } from './documentExtractor.js';
 import type { GlyphorEventBus } from './glyphorEventBus.js';
+import type { JitContextRetriever, JitContext } from './jitContextRetriever.js';
 import type {
   AgentConfig,
   AgentEvent,
@@ -878,6 +879,8 @@ export interface RunDependencies {
   pendingAssignmentLoader?: (role: CompanyAgentRole) => Promise<{ id: string; task_description: string; task_type: string; expected_output: string | null; priority: string; status: string; evaluation: string | null; directive_title: string | null }[]>;
   /** Saves partial progress when a task-tier run is aborted mid-execution. */
   partialProgressSaver?: (assignmentId: string, partialOutput: string, agentRole: CompanyAgentRole, abortReason: string) => Promise<void>;
+  /** JIT context retriever for task-aware semantic retrieval. */
+  jitContextRetriever?: JitContextRetriever;
 }
 
 export class CompanyAgentRunner {
@@ -1064,7 +1067,15 @@ export class CompanyAgentRunner {
           })
         : Promise.resolve([] as { id: string; task_description: string; task_type: string; expected_output: string | null; priority: string; status: string; evaluation: string | null; directive_title: string | null }[]);
 
-      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult, workingMemory, skillResult, kbResult, bulletinResult, pendingAssignments] = await Promise.all([
+      // JIT context — semantic retrieval tuned to the current task. All tiers.
+      const jitPromise: Promise<JitContext | null> = deps?.jitContextRetriever
+        ? deps.jitContextRetriever.retrieve(config.role, `${task}: ${initialMessage.slice(0, 200)}`).catch(err => {
+            console.warn(`[CompanyAgentRunner] JIT context load failed for ${config.role}:`, (err as Error).message);
+            return null;
+          })
+        : Promise.resolve(null);
+
+      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult, workingMemory, skillResult, kbResult, bulletinResult, pendingAssignments, jitResult] = await Promise.all([
         memoryPromise,
         briefPromise,
         messagesPromise,
@@ -1075,6 +1086,7 @@ export class CompanyAgentRunner {
         kbPromise,
         bulletinPromise,
         assignmentPromise,
+        jitPromise,
       ]);
 
       // Inject memory context
@@ -1160,6 +1172,30 @@ export class CompanyAgentRunner {
       // Set DB-driven knowledge base and bulletins
       dbKnowledgeBase = kbResult;
       bulletinContext = bulletinResult;
+
+      // Inject JIT context
+      if (jitResult && jitResult.tokenEstimate > 0) {
+        const jitSections: string[] = [];
+        if (jitResult.relevantMemories.length > 0) {
+          jitSections.push('## Relevant Memories\n' + jitResult.relevantMemories.map((m: { content: string }) => `- ${m.content}`).join('\n'));
+        }
+        if (jitResult.relevantKnowledge.length > 0) {
+          jitSections.push('## Relevant Knowledge\n' + jitResult.relevantKnowledge.map((k: { content: string }) => `- ${k.content}`).join('\n'));
+        }
+        if (jitResult.relevantEpisodes.length > 0) {
+          jitSections.push('## Relevant Episodes\n' + jitResult.relevantEpisodes.map((e: { content: string }) => `- ${e.content}`).join('\n'));
+        }
+        if (jitResult.relevantProcedures.length > 0) {
+          jitSections.push('## Relevant Procedures\n' + jitResult.relevantProcedures.map((p: { content: string }) => `- ${p.content}`).join('\n'));
+        }
+        if (jitSections.length > 0) {
+          history.push({
+            role: 'user',
+            content: `# Task-Relevant Context (JIT Retrieved)\n\n${jitSections.join('\n\n')}`,
+            timestamp: Date.now(),
+          });
+        }
+      }
     }
 
     const task = extractTask(config.id);
