@@ -1318,7 +1318,7 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // Enhance analysis (McKinsey-grade deep-dive with additional perspectives)
+    // Enhance analysis (executive-grade deep-dive with additional perspectives)
     const analysisEnhanceMatch = url.match(/^\/analysis\/([^/]+)\/enhance$/);
     if (method === 'POST' && analysisEnhanceMatch) {
       const id = decodeURIComponent(analysisEnhanceMatch[1]);
@@ -2009,7 +2009,7 @@ function buildDeepDiveVisualPrompt(record: import('./deepDiveEngine.js').DeepDiv
 
   return [
     `Create a polished, magazine-quality corporate infographic in 16:9 landscape format (1536x1024px).`,
-    `Style: clean modern flat design, white background, generous whitespace, minimal text. Use large icons, bold number callouts, color blocks, and data visualizations. Think McKinsey consulting slide deck — NOT a text document.`,
+    `Style: clean modern flat design, white background, generous whitespace, minimal text. Use large icons, bold number callouts, color blocks, and data visualizations. Think executive consulting slide deck — NOT a text document.`,
     ``,
     `Color palette: primary cyan (#00E0FF), white (#FFFFFF) background, dark charcoal (#1A1A2E) text, emerald (#34D399) for positive, rose (#FB7185) for negative, amber (#FBBF24) for caution.`,
     ``,

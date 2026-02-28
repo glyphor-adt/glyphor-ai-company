@@ -1,4 +1,4 @@
--- McKinsey-Style Deep Dive table
+-- Strategic Deep Dive table
 -- Stores structured research and reports from the DeepDiveEngine
 
 CREATE TABLE IF NOT EXISTS deep_dives (

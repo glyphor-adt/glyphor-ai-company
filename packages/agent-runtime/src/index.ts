@@ -41,6 +41,22 @@ export { ContextDistiller } from './contextDistiller.js';
 export type { DistilledContext } from './contextDistiller.js';
 export { RuntimeToolFactory } from './runtimeToolFactory.js';
 export type { RuntimeToolDefinition, RuntimeToolImpl } from './runtimeToolFactory.js';
+// Patentable Engine Enhancements
+export { ConstitutionalGovernor } from './constitutionalGovernor.js';
+export type { ConstitutionalPrinciple, ConstitutionalEvaluation, Constitution } from './constitutionalGovernor.js';
+export { DEFAULT_CONSTITUTIONS, getDefaultConstitution } from './constitutionDefaults.js';
+export { TrustScorer } from './trustScorer.js';
+export type { TrustScore, TrustDelta, TrustDeltaSource } from './trustScorer.js';
+export { DecisionChainTracker } from './decisionChainTracker.js';
+export type { ChainLink, ChainLinkType } from './decisionChainTracker.js';
+export { FormalVerifier } from './formalVerifier.js';
+export type { VerificationResult } from './formalVerifier.js';
+export { VerifierRunner } from './verifierRunner.js';
+export type { VerificationReport, VerificationVerdict } from './verifierRunner.js';
+export { EpisodicReplay } from './episodicReplay.js';
+export type { ReplayResult } from './episodicReplay.js';
+export { DriftDetector } from './driftDetector.js';
+export type { DriftAlert, DriftDetectionResult } from './driftDetector.js';
 export {
   AGENT_BUDGETS,
   EXECUTIVE_ROLES,

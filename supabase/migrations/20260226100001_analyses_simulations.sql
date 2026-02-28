@@ -1,4 +1,4 @@
--- Analyses table (Strategic Analysis Engine / "McKinsey analysis")
+-- Analyses table (Strategic Analysis Engine)
 CREATE TABLE IF NOT EXISTS analyses (
   id TEXT PRIMARY KEY,
   type TEXT NOT NULL CHECK (type IN ('market_opportunity', 'competitive_landscape', 'product_strategy', 'growth_diagnostic', 'risk_assessment')),

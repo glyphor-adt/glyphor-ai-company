@@ -261,4 +261,66 @@ export class KnowledgeGraphWriter {
         .eq('id', nodeId);
     }
   }
+
+  // ─── Causal Edge Support (Enhancement 5) ──────────────────────
+
+  /**
+   * Create or update a causal edge between two nodes.
+   * Sets the causal metadata columns added by the causal_edges migration.
+   */
+  async upsertCausalEdge(params: {
+    agentId: string;
+    sourceId: string;
+    targetId: string;
+    causalConfidence: number;
+    causalLag?: string;
+    causalMechanism?: string;
+    strength?: number;
+    evidence?: string;
+  }): Promise<boolean> {
+    if (params.sourceId === params.targetId) return false;
+
+    const { error } = await this.supabase.from('kg_edges').upsert(
+      {
+        source_id: params.sourceId,
+        target_id: params.targetId,
+        edge_type: 'CAUSAL_INFLUENCES',
+        strength: params.strength ?? 0.7,
+        confidence: params.causalConfidence,
+        created_by: params.agentId,
+        evidence: params.evidence ?? null,
+        causal_confidence: params.causalConfidence,
+        causal_lag: params.causalLag ?? null,
+        causal_mechanism: params.causalMechanism ?? null,
+      },
+      { onConflict: 'source_id,target_id,edge_type' },
+    );
+    return !error;
+  }
+
+  /**
+   * Update the causal confidence of an existing causal edge
+   * (e.g., after counterfactual analysis confirms/weakens the link).
+   */
+  async updateCausalConfidence(
+    sourceId: string,
+    targetId: string,
+    newConfidence: number,
+    mechanism?: string,
+  ): Promise<boolean> {
+    const update: Record<string, unknown> = {
+      causal_confidence: Math.max(0, Math.min(1, newConfidence)),
+      confidence: Math.max(0, Math.min(1, newConfidence)),
+      updated_at: new Date().toISOString(),
+    };
+    if (mechanism) update.causal_mechanism = mechanism;
+
+    const { error } = await this.supabase
+      .from('kg_edges')
+      .update(update)
+      .eq('source_id', sourceId)
+      .eq('target_id', targetId)
+      .eq('edge_type', 'CAUSAL_INFLUENCES');
+    return !error;
+  }
 }

@@ -33,6 +33,9 @@ import type { JitContextRetriever, JitContext } from './jitContextRetriever.js';
 import type { RedisCache } from './redisCache.js';
 import type { ContextDistiller } from './contextDistiller.js';
 import type { RuntimeToolFactory } from './runtimeToolFactory.js';
+import type { ConstitutionalGovernor } from './constitutionalGovernor.js';
+import type { TrustScorer } from './trustScorer.js';
+import type { DecisionChainTracker } from './decisionChainTracker.js';
 
 // ─── Cost estimation (mirrors companyAgentRunner) ───────────────
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
@@ -97,6 +100,12 @@ export interface ClassifiedRunDependencies extends RunDependencies {
   contextDistiller?: ContextDistiller;
   /** Runtime tool factory — lets agents define new tools mid-run. */
   runtimeToolFactory?: RuntimeToolFactory;
+  /** Constitutional governor — evaluates outputs against agent principles. */
+  constitutionalGovernor?: ConstitutionalGovernor;
+  /** Trust scorer — tracks agent trust and adjusts effective authority. */
+  trustScorer?: TrustScorer;
+  /** Decision chain tracker factory — creates per-run chain trackers. */
+  chainTrackerFactory?: (supabase: import('@supabase/supabase-js').SupabaseClient) => DecisionChainTracker;
 }
 
 /**
@@ -276,6 +285,15 @@ export abstract class BaseAgentRunner {
       }
     }
 
+    // ─── Pre-load constitution for prompt injection ───────────
+    if (safeDeps.constitutionalGovernor) {
+      try {
+        await safeDeps.constitutionalGovernor.getConstitution(config.role);
+      } catch {
+        // Non-critical — prompt just won't include principles
+      }
+    }
+
     // ─── Build system prompt via subclass ────────────────────────
     const systemPrompt = this.buildRunPrompt(config, agentProfile, sharedMemory, safeDeps);
 
@@ -426,6 +444,53 @@ export abstract class BaseAgentRunner {
         } catch (err) {
           console.warn(`[${this.archetype}Runner] Verification failed for ${config.id}:`, (err as Error).message);
         }
+      }
+
+      // ─── Constitutional evaluation ────────────────────────────
+      let constitutionalPassed = true;
+      if (safeDeps.constitutionalGovernor && lastTextOutput) {
+        try {
+          const constitution = await safeDeps.constitutionalGovernor.getConstitution(config.role);
+          if (constitution) {
+            const constResult = await safeDeps.constitutionalGovernor.evaluate(
+              config.role,
+              initialMessage,
+              lastTextOutput,
+              constitution,
+            );
+            constitutionalPassed = !constResult.revisionRequired;
+
+            if (constResult.revisionRequired) {
+              console.warn(
+                `[${this.archetype}Runner] Constitutional eval FAILED for ${config.role}: ` +
+                `${constResult.violations.length} violation(s) — ${constResult.violations.join(', ')}`,
+              );
+            }
+
+            // Record evaluation (fire-and-forget)
+            void safeDeps.constitutionalGovernor.recordEvaluation(
+              config.id,
+              config.role,
+              constitution.version,
+              constResult,
+              reasoningResult?.overallConfidence,
+            );
+
+            // Apply trust delta based on constitutional compliance
+            if (safeDeps.trustScorer) {
+              const delta = !constResult.revisionRequired ? 0.01 : -0.03;
+              void safeDeps.trustScorer.applyDelta(config.role, { delta, source: 'constitutional_eval', reason: 'Constitutional compliance result' });
+            }
+          }
+        } catch (err) {
+          console.warn(`[${this.archetype}Runner] Constitutional eval failed for ${config.id}:`, (err as Error).message);
+        }
+      }
+
+      // ─── Trust scoring for reasoning quality ─────────────────
+      if (safeDeps.trustScorer && reasoningResult) {
+        const confidenceDelta = (reasoningResult.overallConfidence - 0.7) * 0.02;
+        void safeDeps.trustScorer.applyDelta(config.role, { delta: confidenceDelta, source: 'reasoning_verification', reason: 'Reasoning confidence delta' });
       }
 
       // ─── Post-run hook (archetype-specific) ───────────────────

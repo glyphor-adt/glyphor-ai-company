@@ -8,6 +8,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { GlyphorEventBus, RunDependencies, AgentProfileData, CompanyAgentRole, SkillContext, SkillFeedback } from '@glyphor/agent-runtime';
 import type { ClassifiedRunDependencies } from '@glyphor/agent-runtime';
 import { ORCHESTRATOR_ROLES, getRedisCache, ReasoningEngine, JitContextRetriever, ModelClient, ContextDistiller, RuntimeToolFactory } from '@glyphor/agent-runtime';
+import { ConstitutionalGovernor, TrustScorer } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { KnowledgeGraphReader } from '@glyphor/company-memory';
 import { SharedMemoryLoader, WorldModelUpdater, EmbeddingClient } from '@glyphor/company-memory';
@@ -75,6 +76,12 @@ export function createRunDeps(
   // Runtime tool factory — lets agents define new tools mid-run
   const runtimeToolFactory = new RuntimeToolFactory(supabase);
 
+  // Constitutional governor — evaluates outputs against agent principles
+  const constitutionalGovernor = new ConstitutionalGovernor(supabase, distillerModelClient, cache);
+
+  // Trust scorer — tracks agent trust and adjusts effective authority
+  const trustScorer = new TrustScorer(supabase, cache);
+
   // Reasoning engine factory — creates per-agent reasoning engines
   const reasoningEngineFactory = async (agentRole: string) => {
     const config = await ReasoningEngine.loadConfig(supabase, agentRole, cache);
@@ -95,6 +102,8 @@ export function createRunDeps(
     contextDistiller,
     runtimeToolFactory,
     reasoningEngineFactory,
+    constitutionalGovernor,
+    trustScorer,
 
     agentProfileLoader: async (role: CompanyAgentRole): Promise<AgentProfileData | null> => {
       const { data } = await supabase

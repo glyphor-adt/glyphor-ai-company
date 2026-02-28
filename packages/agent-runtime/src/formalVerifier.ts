@@ -173,8 +173,8 @@ export class FormalVerifier {
     return {
       passed: cyclePath === null,
       check: 'dependency_graph',
-      detail: cyclePath
-        ? `Cycle detected: ${cyclePath.join(' → ')}`
+      detail: cyclePath !== null
+        ? `Cycle detected: ${(cyclePath as string[]).join(' → ')}`
         : `No cycles in ${nodes.length} nodes`,
     };
   }

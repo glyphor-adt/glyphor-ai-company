@@ -1,22 +1,29 @@
 /**
- * McKinsey-Style Deep Dive Engine
+ * Glyphor Strategic Deep Dive Engine
  *
- * A multi-phase research engine that produces consultant-grade strategic analyses.
- * Unlike the standard AnalysisEngine (which asks LLMs to opine), this engine:
+ * A multi-phase research engine that produces executive-grade strategic analyses
+ * with cross-model verification for maximum accuracy. Unlike the standard
+ * AnalysisEngine (which asks LLMs to opine), this engine:
  *
  *   1. SCOPE   — Identify the target, build an issue tree, define research questions
  *   2. RESEARCH — Execute real web searches per research area in parallel
  *   3. ANALYZE  — Run specialist agents over search-enriched context
- *   4. SYNTHESIZE — Produce a structured McKinsey deliverable with all sections
+ *   4. VERIFY   — Cross-model evaluation of each research area's findings
+ *   5. SYNTHESIZE — Produce a structured strategic deliverable with all sections
  *
  * The output is a tabbed report: Current State, Overview, Market Analysis,
  * Competitive Landscape, Strategic Recommendations, Implementation Path,
- * ROI Analysis, Risk Assessment — each backed by cited evidence.
+ * ROI Analysis, Risk Assessment — each backed by cited, cross-verified evidence.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ModelClient } from '@glyphor/agent-runtime';
 import { searchWeb, searchNews, batchSearch, searchResultsToContext } from '@glyphor/integrations';
+
+/* ── Cross-model verification config ──────── */
+
+const VERIFICATION_MODELS = ['gemini-3-flash-preview', 'gpt-4.1-mini'] as const;
+const VERIFICATION_CONFIDENCE_THRESHOLD = 0.7;
 
 /* ── Types ──────────────────────────────────── */
 
@@ -421,7 +428,7 @@ export class DeepDiveEngine {
         await this.updateAreas(id, areas);
 
         const analysisPrompt = [
-          `You are a senior McKinsey consultant analyzing "${req.target}" from the perspective of ${area.label}.`,
+          `You are a senior strategic consultant at Glyphor analyzing "${req.target}" from the perspective of ${area.label}.`,
           req.context ? `Additional context: ${req.context}` : '',
           ``,
           `Below are real search results gathered from the web. Use ONLY this data to form your analysis.`,
@@ -477,9 +484,12 @@ export class DeepDiveEngine {
       return;
     }
 
-    // ── Phase 3: SYNTHESIZE — produce the full McKinsey report ──
+    // ── Phase 3: VERIFY — cross-model evaluation of area analyses ──
+    const verificationResults = await this.crossModelVerify(req, completedAreas);
+
+    // ── Phase 4: SYNTHESIZE — produce the full strategic report ──
     await this.updateStatus(id, 'synthesizing');
-    const report = await this.synthesize(req, areas, dedupedSources);
+    const report = await this.synthesize(req, areas, dedupedSources, verificationResults);
 
     await this.supabase.from('deep_dives').update({
       status: 'completed',
@@ -492,9 +502,68 @@ export class DeepDiveEngine {
     await this.supabase.from('activity_log').insert({
       agent_id: 'system',
       action: 'deep_dive.completed',
-      detail: `McKinsey deep dive completed for "${req.target}": ${completedAreas.length}/${areas.length} areas researched, ${dedupedSources.length} sources analyzed`,
+      detail: `Strategic deep dive completed for "${req.target}": ${completedAreas.length}/${areas.length} areas researched, ${dedupedSources.length} sources analyzed, cross-model verified`,
       created_at: new Date().toISOString(),
     });
+  }
+
+  /* ── Cross-Model Verification ─────────────── */
+
+  private async crossModelVerify(
+    req: DeepDiveRequest,
+    completedAreas: ResearchArea[],
+  ): Promise<Map<string, { confidence: number; issues: string[]; corrections: string[] }>> {
+    const results = new Map<string, { confidence: number; issues: string[]; corrections: string[] }>();
+
+    // Use a different model than the primary to verify each area's analysis
+    const verifyModel = VERIFICATION_MODELS.find(m => m !== this.model) ?? VERIFICATION_MODELS[0];
+
+    const verifications = await Promise.allSettled(
+      completedAreas.map(async (area) => {
+        const verifyPrompt = [
+          `You are an independent verification analyst. A colleague produced the following research analysis on "${req.target}" (${area.label}).`,
+          `Your job is to identify factual errors, unsupported claims, logical gaps, and biases.`,
+          ``,
+          `== ANALYSIS TO VERIFY ==`,
+          area.analysis ?? '',
+          ``,
+          `Respond ONLY with valid JSON (no markdown fences):`,
+          `{`,
+          `  "confidence": <0.0-1.0 overall quality score>,`,
+          `  "issues": ["<factual error or unsupported claim>", ...],`,
+          `  "corrections": ["<suggested correction or nuance>", ...]`,
+          `}`,
+        ].join('\n');
+
+        const response = await this.modelClient.generate({
+          model: verifyModel,
+          systemInstruction: 'You are a JSON-only verification engine. Evaluate research quality rigorously. Always respond with valid JSON.',
+          contents: [{ role: 'user', content: verifyPrompt, timestamp: Date.now() }],
+          temperature: 0.1,
+        });
+
+        const output = response.text ?? '';
+        const jsonMatch = output.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          return {
+            areaId: area.id,
+            confidence: Math.max(0, Math.min(1, parsed.confidence ?? 0.5)),
+            issues: parsed.issues ?? [],
+            corrections: parsed.corrections ?? [],
+          };
+        }
+        return { areaId: area.id, confidence: 0.5, issues: ['Failed to parse verification'], corrections: [] };
+      }),
+    );
+
+    for (const v of verifications) {
+      if (v.status === 'fulfilled') {
+        results.set(v.value.areaId, v.value);
+      }
+    }
+
+    return results;
   }
 
   /* ── Synthesis — Produce the Full Report ──── */
@@ -503,12 +572,17 @@ export class DeepDiveEngine {
     req: DeepDiveRequest,
     areas: ResearchArea[],
     sources: Source[],
+    verificationResults?: Map<string, { confidence: number; issues: string[]; corrections: string[] }>,
   ): Promise<DeepDiveReport> {
     const completedAreas = areas.filter((a) => a.status === 'completed' && a.analysis);
 
-    const researchContext = completedAreas.map((a) =>
-      `=== ${a.label.toUpperCase()} (${a.perspective}) ===\n${a.analysis}\n`,
-    ).join('\n');
+    const researchContext = completedAreas.map((a) => {
+      const verification = verificationResults?.get(a.id);
+      const verifyNote = verification
+        ? `\n[Cross-Model Verification: confidence=${verification.confidence.toFixed(2)}${verification.issues.length > 0 ? `, issues: ${verification.issues.join('; ')}` : ''}${verification.corrections.length > 0 ? `, corrections: ${verification.corrections.join('; ')}` : ''}]`
+        : '';
+      return `=== ${a.label.toUpperCase()} (${a.perspective}) ===\n${a.analysis}${verifyNote}\n`;
+    }).join('\n');
 
     const sourceCounts = {
       secFilings: sources.filter((s) => s.type === 'sec').length,
@@ -518,7 +592,7 @@ export class DeepDiveEngine {
     };
 
     const synthesisPrompt = [
-      `You are a senior partner at McKinsey & Company producing a comprehensive strategic deep dive on "${req.target}".`,
+      `You are a senior strategist at Glyphor's Strategy Lab producing a comprehensive strategic deep dive on "${req.target}".`,
       req.context ? `Additional context: ${req.context}` : '',
       ``,
       `Below is research gathered by your specialist team from real web sources. Synthesize ALL findings into a single structured report.`,
@@ -611,7 +685,7 @@ export class DeepDiveEngine {
     try {
       const response = await this.modelClient.generate({
         model: this.model,
-        systemInstruction: 'You are producing a McKinsey-grade strategic analysis. Output ONLY the JSON requested — no markdown fences, no preamble, no commentary.',
+        systemInstruction: 'You are producing an executive-grade strategic analysis for Glyphor Strategy Lab. Output ONLY the JSON requested — no markdown fences, no preamble, no commentary.',
         contents: [{ role: 'user', content: synthesisPrompt, timestamp: Date.now() }],
         temperature: 0.2,
       });

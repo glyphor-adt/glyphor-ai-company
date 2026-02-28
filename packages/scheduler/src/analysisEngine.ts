@@ -185,7 +185,7 @@ export class AnalysisEngine {
   }
 
   /**
-   * Generate an enhanced McKinsey-style report by spawning additional
+   * Generate an enhanced executive-grade report by spawning additional
    * specialist perspectives and performing deeper analysis.
    */
   async enhance(id: string): Promise<void> {
@@ -470,7 +470,7 @@ function buildEnhancedThreadPrompt(
   const existingSummary = existingReport.summary.slice(0, 500);
 
   return [
-    `You are contributing to an enhanced McKinsey-grade strategic analysis.`,
+    `You are contributing to an enhanced executive-grade strategic analysis.`,
     `An initial analysis has already been performed. Your role is to provide a deep-dive from the perspective of ${label}.`,
     ``,
     `Original question: "${query}"`,

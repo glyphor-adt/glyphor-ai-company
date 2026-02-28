@@ -211,4 +211,108 @@ export class KnowledgeGraphReader {
 
     return parts.join('\n');
   }
+
+  // ─── Causal Impact Analysis (Enhancement 5) ──────────────────
+
+  /**
+   * Multi-hop causal traversal: find all causal edges (CAUSAL_INFLUENCES)
+   * reachable from a node, both upstream (causes) and downstream (effects).
+   * Returns a structured report with confidence scores.
+   */
+  async traceCausalImpact(nodeTitle: string, maxDepth = 3): Promise<{
+    causes: Array<{ title: string; confidence: number; mechanism: string | null; depth: number }>;
+    effects: Array<{ title: string; confidence: number; mechanism: string | null; depth: number }>;
+    narrative: string;
+  }> {
+    const node = await this.findNodeByTitle(nodeTitle);
+    if (!node) {
+      return { causes: [], effects: [], narrative: `No matching node for "${nodeTitle}".` };
+    }
+
+    // Trace upstream (causes → this node)
+    const causes = await this.traceCausalDirection(node.id, 'upstream', maxDepth);
+
+    // Trace downstream (this node → effects)
+    const effects = await this.traceCausalDirection(node.id, 'downstream', maxDepth);
+
+    // Build narrative
+    const parts: string[] = [`## Causal Impact Analysis: "${nodeTitle}"`];
+
+    if (causes.length > 0) {
+      parts.push('\n### Root Causes');
+      for (const c of causes) {
+        const mech = c.mechanism ? ` via ${c.mechanism}` : '';
+        parts.push(`${'  '.repeat(c.depth)}← (${Math.round(c.confidence * 100)}%${mech}) ${c.title}`);
+      }
+    }
+
+    if (effects.length > 0) {
+      parts.push('\n### Downstream Effects');
+      for (const e of effects) {
+        const mech = e.mechanism ? ` via ${e.mechanism}` : '';
+        parts.push(`${'  '.repeat(e.depth)}→ (${Math.round(e.confidence * 100)}%${mech}) ${e.title}`);
+      }
+    }
+
+    if (causes.length === 0 && effects.length === 0) {
+      parts.push('\nNo causal relationships found.');
+    }
+
+    return { causes, effects, narrative: parts.join('\n') };
+  }
+
+  private async traceCausalDirection(
+    startId: string,
+    direction: 'upstream' | 'downstream',
+    maxDepth: number,
+  ): Promise<Array<{ title: string; confidence: number; mechanism: string | null; depth: number }>> {
+    const results: Array<{ title: string; confidence: number; mechanism: string | null; depth: number }> = [];
+    const visited = new Set<string>();
+    const queue: Array<{ nodeId: string; depth: number }> = [{ nodeId: startId, depth: 0 }];
+
+    while (queue.length > 0) {
+      const { nodeId, depth } = queue.shift()!;
+      if (depth >= maxDepth || visited.has(nodeId)) continue;
+      visited.add(nodeId);
+
+      // Query edges based on direction
+      const edgeFilter = direction === 'upstream'
+        ? { column: 'target_id', value: nodeId, follow: 'source_id' }
+        : { column: 'source_id', value: nodeId, follow: 'target_id' };
+
+      const { data: edges } = await this.supabase
+        .from('kg_edges')
+        .select(`${edgeFilter.follow}, causal_confidence, causal_mechanism, edge_type`)
+        .eq(edgeFilter.column, edgeFilter.value)
+        .eq('edge_type', 'CAUSAL_INFLUENCES')
+        .gt('causal_confidence', 0);
+
+      if (!edges) continue;
+
+      for (const edge of edges) {
+        const nextId = edge[edgeFilter.follow] as string;
+        if (visited.has(nextId)) continue;
+
+        // Get node title
+        const { data: nodeData } = await this.supabase
+          .from('kg_nodes')
+          .select('title')
+          .eq('id', nextId)
+          .single();
+
+        if (nodeData) {
+          results.push({
+            title: nodeData.title,
+            confidence: edge.causal_confidence ?? 0.5,
+            mechanism: edge.causal_mechanism ?? null,
+            depth: depth + 1,
+          });
+        }
+
+        queue.push({ nodeId: nextId, depth: depth + 1 });
+      }
+    }
+
+    return results;
+  }
 }

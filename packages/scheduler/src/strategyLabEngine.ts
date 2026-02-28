@@ -963,7 +963,7 @@ Return ONLY valid JSON — no markdown fences.`,
 
     const synthesisResponse = await this.modelClient.generate({
       model: this.model,
-      systemInstruction: 'You are producing a McKinsey-grade strategic synthesis. Output ONLY the JSON requested — no markdown fences, no preamble, no commentary.',
+      systemInstruction: 'You are producing a executive-grade strategic synthesis. Output ONLY the JSON requested — no markdown fences, no preamble, no commentary.',
       contents: [{ role: 'user', content: synthesisPrompt, timestamp: Date.now() }],
       temperature: 0.2,
     });

@@ -105,7 +105,7 @@ export default function Strategy() {
       <div>
         <h1 className="text-2xl font-bold text-txt-primary">Strategy Lab</h1>
         <p className="mt-1 text-sm text-txt-muted">
-          Multi-agent strategic analyses, McKinsey-style deep dives, T+1 impact simulations, and chain-of-thought planning
+          Multi-agent strategic analyses, strategic deep dives, T+1 impact simulations, and chain-of-thought planning
         </p>
       </div>
 
@@ -135,7 +135,7 @@ export default function Strategy() {
 }
 
 /* ══════════════════════════════════════════════════
-   Deep Dives Panel — McKinsey-Style Research
+   Deep Dives Panel — Strategic Research
    ══════════════════════════════════════════════════ */
 
 type DeepDiveStatus = 'scoping' | 'researching' | 'analyzing' | 'synthesizing' | 'completed' | 'failed' | 'cancelled';
@@ -242,7 +242,7 @@ function DeepDivesPanel() {
     <div className="space-y-6">
       {/* Launch Form */}
       <Card>
-        <SectionHeader title="Launch McKinsey-Style Deep Dive" subtitle="8 research areas → specialist analysis → comprehensive synthesis with real web search" />
+        <SectionHeader title="Launch Strategic Deep Dive" subtitle="8 research areas → specialist analysis → comprehensive synthesis with real web search" />
         <div className="mt-4 space-y-3">
           <input
             value={target}

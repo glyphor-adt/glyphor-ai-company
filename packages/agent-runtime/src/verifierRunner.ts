@@ -100,17 +100,14 @@ export class VerifierRunner {
     const contents: ConversationTurn[] = [
       {
         role: 'user',
-        parts: [
-          {
-            text: [
-              `## Task Given to Agent`,
-              params.task,
-              params.context ? `\n## Additional Context\n${params.context}` : '',
-              `\n## Agent Output to Verify`,
-              params.agentOutput,
-            ].filter(Boolean).join('\n'),
-          },
-        ],
+        content: [
+          `## Task Given to Agent`,
+          params.task,
+          params.context ? `\n## Additional Context\n${params.context}` : '',
+          `\n## Agent Output to Verify`,
+          params.agentOutput,
+        ].filter(Boolean).join('\n'),
+        timestamp: Date.now(),
       },
     ];
 

@@ -63,7 +63,7 @@ market research & intelligence, and global platform administration.
 │  GET  /analysis          ── List all analyses                       │
 │  GET  /analysis/:id/export── Export analysis report (md/json)       │
 │  POST /analysis/:id/cancel── Cancel in-progress analysis            │
-│  POST /analysis/:id/enhance── McKinsey-grade analysis enhancement   │
+│  POST /analysis/:id/enhance── Executive-grade analysis enhancement   │
 │  GET  /analysis/:id/visual── Get saved AI-generated infographic     │
 │  POST /analysis/:id/visual── Generate & save AI infographic         │
 │  POST /simulation/run    ── Launch T+1 simulation                   │
@@ -71,7 +71,7 @@ market research & intelligence, and global platform administration.
 │  GET  /simulation        ── List all simulations                    │
 │  POST /simulation/:id/accept ── Accept simulation result            │
 │  GET  /simulation/:id/export ── Export simulation report (md/json)  │
-│  POST /deep-dive/run     ── Launch McKinsey-style deep dive          │
+│  POST /deep-dive/run     ── Launch strategic deep dive          │
 │  GET  /deep-dive         ── List all deep dives                     │
 │  GET  /deep-dive/:id     ── Get deep dive status/result             │
 │  POST /deep-dive/:id/cancel── Cancel in-progress deep dive          │
@@ -721,7 +721,7 @@ glyphor-ai-company/
 │   │       ├── agentLifecycle.ts      # Create/retire temporary agents
 │   │       ├── analysisEngine.ts      # 5-phase strategic analysis engine
 │   │       ├── strategyLabEngine.ts   # Strategy Lab v2: multi-wave analysis (Research→Analysis→Synthesis)
-│   │       ├── deepDiveEngine.ts      # McKinsey-style deep dive engine with cited evidence
+│   │       ├── deepDiveEngine.ts      # Strategic deep dive engine with cross-model verified evidence
 │   │       ├── simulationEngine.ts    # T+1 impact simulation engine
 │   │       ├── cotEngine.ts           # 4-phase chain-of-thought planning engine
 │   │       ├── meetingEngine.ts       # Multi-round inter-agent meetings
@@ -1929,7 +1929,7 @@ The `/analysis/run` endpoint now redirects to Strategy Lab v2 automatically.
 
 ### Deep Dive Engine (`deepDiveEngine.ts`)
 
-McKinsey-style deep dive engine with cited evidence. Four-phase pipeline:
+Strategic deep dive engine with cross-model verified evidence. Four-phase pipeline:
 
 ```
 1. SCOPE      — Define research scope and boundaries
@@ -1989,7 +1989,7 @@ then checks cron expressions every 60 seconds.
 | `packages/scheduler/src/decisionQueue.ts` | Human approval workflow for founder decisions, Teams Bot integration |
 | `packages/scheduler/src/cronManager.ts` | Cloud Scheduler configuration & local cron execution |
 | `packages/scheduler/src/strategyLabEngine.ts` | Strategy Lab v2: multi-wave strategic analysis pipeline (Research → Analysis → Synthesis) |
-| `packages/scheduler/src/deepDiveEngine.ts` | McKinsey-style deep dive engine with cited evidence (Scope → Research → Analyze → Synthesize) |
+| `packages/scheduler/src/deepDiveEngine.ts` | Strategic deep dive engine with cross-model verified evidence (Scope → Research → Analyze → Synthesize) |
 | `packages/scheduler/src/inboxCheck.ts` | M365 mailbox polling for agent email (12 email-enabled agents, MEDIUM tier cadence) |
 | `packages/agent-runtime/src/workLoop.ts` | P1-P6 priority stack, proactive cooldowns, abort cooldowns |
 | `packages/scheduler/src/eventRouter.ts` | Event source routing (scheduler/manual/agent/event/webhook) |

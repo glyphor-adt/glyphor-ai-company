@@ -76,6 +76,9 @@ Respond ONLY with JSON, no markdown fences:
 // ─── Class ──────────────────────────────────────────────────────
 
 export class ConstitutionalGovernor {
+  /** In-memory cache for synchronous access in prompt builders. */
+  private memCache = new Map<string, Constitution>();
+
   constructor(
     private supabase: SupabaseClient,
     private modelClient: ModelClient,
@@ -91,7 +94,10 @@ export class ConstitutionalGovernor {
 
     if (this.cache) {
       const cached = await this.cache.get<Constitution>(cacheKey);
-      if (cached) return cached;
+      if (cached) {
+        this.memCache.set(agentRole, cached);
+        return cached;
+      }
     }
 
     const { data, error } = await this.supabase
@@ -109,11 +115,22 @@ export class ConstitutionalGovernor {
       version: data.version,
     };
 
+    this.memCache.set(agentRole, constitution);
+
     if (this.cache) {
       await this.cache.set(cacheKey, constitution, CONSTITUTION_CACHE_TTL);
     }
 
     return constitution;
+  }
+
+  /**
+   * Synchronous access to a previously-loaded constitution.
+   * Used by prompt builders (buildRunPrompt) which are synchronous.
+   * Falls back to null if not yet loaded via getConstitution().
+   */
+  getConstitutionSync(agentRole: string): Constitution | null {
+    return this.memCache.get(agentRole) ?? null;
   }
 
   /**

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Report Exporter
  *
  * Generates downloadable documents from analysis, simulation, and CoT reports.
@@ -958,7 +958,7 @@ export function exportCotJSON(record: CotRecord): string {
 export function exportDeepDiveMarkdown(record: DeepDiveRecord): string {
   const report = record.report;
   const lines: string[] = [
-    `# McKinsey Deep Dive: ${record.target}`,
+    `# Strategic Deep Dive: ${record.target}`,
     '',
     `**Target:** ${record.target}`,
     `**Requested by:** ${record.requested_by}`,
@@ -1087,7 +1087,7 @@ export async function exportDeepDivePPTX(record: DeepDiveRecord): Promise<Buffer
   pptx.title = `Deep Dive: ${record.target}`;
 
   const report = record.report;
-  pptxTitleSlide(pptx, `McKinsey Deep Dive`, record.target, `${record.sources.length} sources analyzed  Â·  ${new Date(record.created_at).toLocaleDateString()}  Â·  Glyphor AI Strategy Lab`);
+  pptxTitleSlide(pptx, `Strategic Deep Dive`, record.target, `${record.sources.length} sources analyzed  ·  ${new Date(record.created_at).toLocaleDateString()}  ·  Glyphor AI Strategy Lab`);
 
   if (!report) {
     const slide = pptx.addSlide();
@@ -1151,7 +1151,7 @@ export async function exportDeepDivePPTX(record: DeepDiveRecord): Promise<Buffer
     slide.background = { color: SLIDE_BG };
     slide.addShape(pptx.ShapeType.rect, { x: 0, y: 2.6, w: 10, h: 0.04, fill: { color: SLIDE_CYAN } });
     slide.addText('G L Y P H O R   A I', { x: 0.6, y: 1.8, w: 8.8, fontSize: 28, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, align: 'center', charSpacing: 6 });
-    slide.addText('McKinsey Deep Dive Complete', { x: 0.6, y: 2.9, w: 8.8, fontSize: 14, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
+    slide.addText('Strategic Deep Dive Complete', { x: 0.6, y: 2.9, w: 8.8, fontSize: 14, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
     addSlideFooter(slide, pptx);
   }
 
@@ -1178,7 +1178,7 @@ export async function exportDeepDiveDOCX(record: DeepDiveRecord): Promise<Buffer
   // Title
   children.push(new Paragraph({
     spacing: { before: 200, after: 80 },
-    children: [new TextRun({ text: `McKinsey Deep Dive: ${record.target}`, bold: true, size: 48, font: 'Segoe UI', color: '1A1A2E' })],
+    children: [new TextRun({ text: `Strategic Deep Dive: ${record.target}`, bold: true, size: 48, font: 'Segoe UI', color: '1A1A2E' })],
   }));
   children.push(new Paragraph({
     spacing: { after: 400 },
@@ -1252,7 +1252,7 @@ export async function exportDeepDiveDOCX(record: DeepDiveRecord): Promise<Buffer
     spacing: { before: 600 },
     border: { top: { style: BorderStyle.SINGLE, size: 2, color: '00B4D8', space: 12 } },
     alignment: AlignmentType.CENTER,
-    children: [new TextRun({ text: `Glyphor AI  Â·  McKinsey Deep Dive  Â·  ${new Date().toLocaleDateString()}  Â·  Confidential`, size: 16, color: '999999', font: 'Segoe UI' })],
+    children: [new TextRun({ text: `Glyphor AI  ·  Strategic Deep Dive  ·  ${new Date().toLocaleDateString()}  ·  Confidential`, size: 16, color: '999999', font: 'Segoe UI' })],
   }));
 
   return Packer.toBuffer(new Document({
@@ -1291,7 +1291,7 @@ export function buildVisualPrompt(record: AnalysisRecord): string {
 
   return [
     `Create a polished, magazine-quality corporate infographic in 16:9 landscape format (1536x1024px).`,
-    `Style: clean modern flat design, white background, generous whitespace, minimal text. Use large icons, bold color blocks, and data visualizations instead of paragraphs of text. Think McKinsey or Bain presentation slide â€” NOT a document.`,
+    `Style: clean modern flat design, white background, generous whitespace, minimal text. Use large icons, bold color blocks, and data visualizations instead of paragraphs of text. Think executive strategy consulting slide â€” NOT a document.`,
     ``,
     `Color palette: primary cyan (#00E0FF), white (#FFFFFF) background, dark charcoal (#1A1A2E) text, emerald (#34D399) for positive, rose (#FB7185) for negative, amber (#FBBF24) for caution. Use soft pastel tinted backgrounds for card sections.`,
     ``,
@@ -1704,7 +1704,7 @@ export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): st
   const confidence = record.overall_confidence ?? 'medium';
 
   return [
-    `Create a polished, McKinsey-quality executive strategy infographic in 16:9 landscape format (1536x1024px).`,
+    `Create a polished, executive-quality strategy infographic in 16:9 landscape format (1536x1024px).`,
     `Style: modern flat design, white background, generous whitespace. Use bold typography, color-coded cards, and data callouts. This should read like a strategy consulting deliverable, not a generic chart.`,
     ``,
     `Color palette: cyan (#00E0FF), charcoal (#1A1A2E), emerald (#34D399), rose (#FB7185), amber (#FBBF24), soft gray (#F3F4F6) for backgrounds.`,

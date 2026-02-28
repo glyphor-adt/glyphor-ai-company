@@ -90,7 +90,7 @@ export class DecisionChainTracker {
     this.pendingLinks.push({
       ...link,
       timestamp: new Date().toISOString(),
-    });
+    } as ChainLink);
 
     // Auto-flush every 5 seconds or when buffer hits 10
     if (this.pendingLinks.length >= 10) {

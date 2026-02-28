@@ -22,6 +22,7 @@ import type {
 } from './types.js';
 import { AGENT_BUDGETS } from './types.js';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { FormalVerifier } from './formalVerifier.js';
 
 // ─── DB Grant Cache ────────────────────────────────────────────
 const GRANT_CACHE_TTL_MS = 60_000; // 60 seconds
@@ -159,12 +160,14 @@ export class ToolExecutor {
   private monthlyCosts: Map<string, number> = new Map(); // role → cumulative cost this month
   private enforcementEnabled: boolean;
   private supabase: SupabaseClient | null;
+  private formalVerifier: FormalVerifier | null;
 
-  constructor(tools: ToolDefinition[], dryRun = false, enforcement = true, supabase?: SupabaseClient) {
+  constructor(tools: ToolDefinition[], dryRun = false, enforcement = true, supabase?: SupabaseClient, formalVerifier?: FormalVerifier) {
     this.tools = new Map(tools.map((t) => [t.name, t]));
     this.dryRun = dryRun;
     this.enforcementEnabled = enforcement;
     this.supabase = supabase ?? null;
+    this.formalVerifier = formalVerifier ?? null;
   }
 
   // ─── Tool Grant Registration ──────────────────────────────────
@@ -436,6 +439,27 @@ export class ToolExecutor {
       this.runCosts.set(agentId, (this.runCosts.get(agentId) ?? 0) + estimatedCost);
       this.addDailyCost(role, estimatedCost);
       this.addMonthlyCost(role, estimatedCost);
+
+      // 5. Formal budget verification for write tools
+      if (this.formalVerifier && !isReadOnlyTool(toolName)) {
+        const budget = AGENT_BUDGETS[role];
+        if (budget) {
+          const result = this.formalVerifier.verifyBudgetConstraint({
+            proposedSpend: estimatedCost,
+            currentSpend: this.runCosts.get(agentId) ?? 0,
+            budgetLimit: budget.perRunUsd,
+          });
+          if (!result.passed) {
+            this.logSecurityEvent(agentId, role, toolName, 'BUDGET_EXCEEDED', { formal: result.detail });
+            return {
+              success: false,
+              error: `Formal verification failed: ${result.detail}`,
+              filesWritten: 0,
+              memoryKeysWritten: 0,
+            };
+          }
+        }
+      }
     }
 
     // Dry-run mode: intercept mutative tools, allow read-only tools through

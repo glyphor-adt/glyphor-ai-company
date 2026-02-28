@@ -98,7 +98,7 @@ export class OrchestratorRunner extends BaseAgentRunner {
     config: AgentConfig,
     profile: AgentProfileData | null,
     sharedMemory: SharedMemoryContext | null,
-    _deps: ClassifiedRunDependencies,
+    deps: ClassifiedRunDependencies,
   ): string {
     const parts: string[] = [];
 
@@ -127,7 +127,18 @@ export class OrchestratorRunner extends BaseAgentRunner {
     // 5. Cost awareness
     parts.push(COST_AWARENESS);
 
-    // 6. Agent-specific system prompt
+    // 6. Constitutional principles (if governor available)
+    if (deps.constitutionalGovernor) {
+      const constitution = deps.constitutionalGovernor.getConstitutionSync(config.role);
+      if (constitution && constitution.principles.length > 0) {
+        const principleLines = constitution.principles
+          .map((p, i) => `${i + 1}. **${p.id}** (${p.category}): ${p.text}`)
+          .join('\n');
+        parts.push(`## Constitutional Principles\n\nYour outputs will be evaluated against these principles. Adhere to them:\n\n${principleLines}`);
+      }
+    }
+
+    // 7. Agent-specific system prompt
     parts.push(config.systemPrompt);
 
     return parts.join('\n\n---\n\n');

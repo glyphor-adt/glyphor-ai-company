@@ -22,11 +22,14 @@ export interface TrustScore {
 
 export type TrustDeltaSource =
   | 'reasoning_confidence'
+  | 'reasoning_verification'
   | 'constitutional_adherence'
+  | 'constitutional_eval'
   | 'peer_feedback'
   | 'human_override'
   | 'formal_failure'
-  | 'reflection_quality';
+  | 'reflection_quality'
+  | 'drift_detection';
 
 export interface TrustDelta {
   source: TrustDeltaSource;
@@ -45,11 +48,14 @@ const MAX_HISTORY_ENTRIES = 50;
 
 const DELTA_WEIGHTS: Record<TrustDeltaSource, number> = {
   reasoning_confidence: 0.02,
+  reasoning_verification: 0.02,
   constitutional_adherence: 0.03,
+  constitutional_eval: 0.03,
   peer_feedback: 0.02,
   human_override: -0.06,
   formal_failure: -0.09,
   reflection_quality: 0.02,
+  drift_detection: -0.04,
 };
 
 // ─── Class ──────────────────────────────────────────────────────
