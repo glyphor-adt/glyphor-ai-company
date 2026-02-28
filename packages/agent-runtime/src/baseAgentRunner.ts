@@ -28,6 +28,9 @@ import type {
   SharedMemoryContext,
 } from './types.js';
 import type { RunDependencies, AgentProfileData, SkillContext } from './companyAgentRunner.js';
+import type { ReasoningEngine } from './reasoningEngine.js';
+import type { JitContextRetriever, JitContext } from './jitContextRetriever.js';
+import type { RedisCache } from './redisCache.js';
 
 // ─── Cost estimation (mirrors companyAgentRunner) ───────────────
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
@@ -81,6 +84,12 @@ export interface ClassifiedRunDependencies extends RunDependencies {
       evaluatorFeedback: string;
     }): Promise<void>;
   };
+  /** Redis cache instance for shared caching. */
+  cache?: RedisCache;
+  /** Factory to create a ReasoningEngine for the current agent. */
+  reasoningEngineFactory?: (agentRole: string) => Promise<ReasoningEngine | null>;
+  /** JIT context retriever for task-aware semantic retrieval. */
+  jitContextRetriever?: JitContextRetriever;
 }
 
 /**
@@ -163,15 +172,31 @@ export abstract class BaseAgentRunner {
 
     emitEvent({ type: 'agent_started', agentId: config.id, role: config.role, model: config.model });
 
-    // ─── Load shared memory context ─────────────────────────────
+    // ─── Load shared memory + JIT context in parallel ───────────
+    const taskForContext = config.id.replace(/-\d{4}-\d{2}-\d{2}$/, '').split('-').pop() ?? 'general';
+
     let sharedMemory: SharedMemoryContext | null = null;
-    if (safeDeps.sharedMemoryLoader) {
-      try {
-        const task = config.id.replace(/-\d{4}-\d{2}-\d{2}$/, '').split('-').pop() ?? 'general';
-        sharedMemory = await safeDeps.sharedMemoryLoader.loadForAgent(config.role, task);
-      } catch (err) {
-        console.warn(`[${this.archetype}Runner] Shared memory load failed for ${config.role}:`, (err as Error).message);
-      }
+    let jitContext: JitContext | null = null;
+
+    const [sharedMemResult, jitResult] = await Promise.allSettled([
+      safeDeps.sharedMemoryLoader
+        ? safeDeps.sharedMemoryLoader.loadForAgent(config.role, taskForContext)
+        : Promise.resolve(null),
+      safeDeps.jitContextRetriever
+        ? safeDeps.jitContextRetriever.retrieve(config.role, `${taskForContext}: ${initialMessage.slice(0, 200)}`)
+        : Promise.resolve(null),
+    ]);
+
+    if (sharedMemResult.status === 'fulfilled') {
+      sharedMemory = sharedMemResult.value;
+    } else {
+      console.warn(`[${this.archetype}Runner] Shared memory load failed for ${config.role}:`, (sharedMemResult.reason as Error).message);
+    }
+
+    if (jitResult.status === 'fulfilled') {
+      jitContext = jitResult.value;
+    } else {
+      console.warn(`[${this.archetype}Runner] JIT context load failed for ${config.role}:`, (jitResult.reason as Error).message);
     }
 
     // ─── Load agent profile ─────────────────────────────────────
@@ -189,6 +214,58 @@ export abstract class BaseAgentRunner {
       const memPrompt = safeDeps.sharedMemoryLoader.formatForPrompt(sharedMemory);
       if (memPrompt) {
         history.push({ role: 'user', content: memPrompt, timestamp: Date.now() });
+      }
+    }
+
+    // ─── Inject JIT context into history ────────────────────────
+    if (jitContext && jitContext.tokenEstimate > 0) {
+      const jitSections: string[] = [];
+      if (jitContext.relevantMemories.length > 0) {
+        jitSections.push('## Relevant Memories\n' + jitContext.relevantMemories.map(m => `- ${m.content}`).join('\n'));
+      }
+      if (jitContext.relevantKnowledge.length > 0) {
+        jitSections.push('## Relevant Knowledge\n' + jitContext.relevantKnowledge.map(k => `- ${k.content}`).join('\n'));
+      }
+      if (jitContext.relevantEpisodes.length > 0) {
+        jitSections.push('## Relevant Episodes\n' + jitContext.relevantEpisodes.map(e => `- ${e.content}`).join('\n'));
+      }
+      if (jitContext.relevantProcedures.length > 0) {
+        jitSections.push('## Relevant Procedures\n' + jitContext.relevantProcedures.map(p => `- ${p.content}`).join('\n'));
+      }
+      if (jitSections.length > 0) {
+        history.push({
+          role: 'user',
+          content: `# Task-Relevant Context (JIT Retrieved)\n\n${jitSections.join('\n\n')}`,
+          timestamp: Date.now(),
+        });
+      }
+    }
+
+    // ─── Value gate (optional pre-loop check) ───────────────────
+    let reasoningEngine: import('./reasoningEngine.js').ReasoningEngine | null = null;
+    let valueAssessment: import('./reasoningEngine.js').ValueScore | null = null;
+
+    if (safeDeps.reasoningEngineFactory) {
+      try {
+        reasoningEngine = await safeDeps.reasoningEngineFactory(config.role);
+      } catch (err) {
+        console.warn(`[${this.archetype}Runner] Reasoning engine init failed for ${config.role}:`, (err as Error).message);
+      }
+    }
+
+    if (reasoningEngine && (reasoningEngine as any).config?.valueGateEnabled) {
+      try {
+        const contextSummary = jitContext
+          ? `JIT context: ${jitContext.tokenEstimate} tokens from ${jitContext.relevantMemories.length + jitContext.relevantKnowledge.length} sources`
+          : 'No JIT context';
+        valueAssessment = await reasoningEngine.evaluateValue(config.role, initialMessage, contextSummary);
+
+        if (valueAssessment.recommendation === 'abort') {
+          console.log(`[${this.archetype}Runner] Value gate aborted run for ${config.role}: ${valueAssessment.reasoning}`);
+          return this.buildResult(config, 'aborted', `Value gate: ${valueAssessment.reasoning}`, history, supervisor, 'value_gate_abort', totalInputTokens, totalOutputTokens);
+        }
+      } catch (err) {
+        console.warn(`[${this.archetype}Runner] Value gate failed for ${config.role}:`, (err as Error).message);
       }
     }
 
@@ -314,6 +391,36 @@ export abstract class BaseAgentRunner {
         lastTextOutput = toolResults.length > 0 ? `Completed. Tool results:\n${toolResults.join('\n')}` : 'Run completed but produced no text output.';
       }
 
+      // ─── Verification pipeline (reasoning engine) ─────────────
+      let reasoningResult: import('./reasoningEngine.js').ReasoningResult | null = null;
+      if (reasoningEngine && lastTextOutput) {
+        try {
+          const contextForVerification = jitContext
+            ? jitContext.relevantKnowledge.map(k => k.content).join('\n').slice(0, 2000)
+            : '';
+          reasoningResult = await reasoningEngine.verify(
+            config.role,
+            initialMessage,
+            lastTextOutput,
+            contextForVerification,
+          );
+
+          if (reasoningResult.revised && reasoningResult.revisedOutput) {
+            lastTextOutput = reasoningResult.revisedOutput;
+          }
+
+          console.log(
+            `[${this.archetype}Runner] Reasoning for ${config.role}: ` +
+            `${reasoningResult.passes.length} passes, ` +
+            `confidence=${reasoningResult.overallConfidence.toFixed(2)}, ` +
+            `revised=${reasoningResult.revised}, ` +
+            `cost=$${reasoningResult.totalCostUsd.toFixed(4)}`,
+          );
+        } catch (err) {
+          console.warn(`[${this.archetype}Runner] Verification failed for ${config.id}:`, (err as Error).message);
+        }
+      }
+
       // ─── Post-run hook (archetype-specific) ───────────────────
       try {
         await this.postRun(config, lastTextOutput, history, safeDeps);
@@ -327,7 +434,19 @@ export abstract class BaseAgentRunner {
           await safeDeps.glyphorEventBus.emit({
             type: 'agent.completed',
             source: config.role,
-            payload: { runId: config.id, archetype: this.archetype, totalTurns: supervisor.stats.turnCount, elapsedMs: supervisor.stats.elapsedMs, summary: lastTextOutput.slice(0, 500) },
+            payload: {
+              runId: config.id,
+              archetype: this.archetype,
+              totalTurns: supervisor.stats.turnCount,
+              elapsedMs: supervisor.stats.elapsedMs,
+              summary: lastTextOutput.slice(0, 500),
+              ...(reasoningResult ? {
+                reasoning_passes: reasoningResult.passes.length,
+                reasoning_confidence: reasoningResult.overallConfidence,
+                reasoning_revised: reasoningResult.revised,
+                reasoning_cost_usd: reasoningResult.totalCostUsd,
+              } : {}),
+            },
             priority: 'normal',
           });
         } catch { /* non-critical */ }
@@ -342,7 +461,23 @@ export abstract class BaseAgentRunner {
         elapsedMs: supervisor.stats.elapsedMs,
       });
 
-      return this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens);
+      const result = this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens);
+      if (reasoningResult) {
+        (result as any).reasoningMeta = {
+          passes: reasoningResult.passes.length,
+          confidence: reasoningResult.overallConfidence,
+          revised: reasoningResult.revised,
+          costUsd: reasoningResult.totalCostUsd,
+        };
+      }
+      if (valueAssessment) {
+        (result as any).valueAssessment = {
+          score: valueAssessment.score,
+          recommendation: valueAssessment.recommendation,
+          costUsd: valueAssessment.costUsd,
+        };
+      }
+      return result;
     } catch (error) {
       emitEvent({ type: 'agent_error', agentId: config.id, error: (error as Error).message, turnNumber: supervisor.stats.turnCount });
       return this.buildResult(config, supervisor.isAborted ? 'aborted' : 'error', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens);

@@ -7,7 +7,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { GlyphorEventBus, RunDependencies, AgentProfileData, CompanyAgentRole, SkillContext, SkillFeedback } from '@glyphor/agent-runtime';
 import type { ClassifiedRunDependencies } from '@glyphor/agent-runtime';
-import { ORCHESTRATOR_ROLES } from '@glyphor/agent-runtime';
+import { ORCHESTRATOR_ROLES, getRedisCache, ReasoningEngine, JitContextRetriever, ModelClient } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { KnowledgeGraphReader } from '@glyphor/company-memory';
 import { SharedMemoryLoader, WorldModelUpdater, EmbeddingClient } from '@glyphor/company-memory';
@@ -61,9 +61,28 @@ export function createRunDeps(
     ? new WorldModelUpdater(supabase, sharedMemoryLoader)
     : null;
 
+  // Redis cache (singleton) + JIT context retriever
+  const cache = getRedisCache();
+  const jitContextRetriever = new JitContextRetriever(supabase, embeddingClient, cache);
+
+  // Reasoning engine factory — creates per-agent reasoning engines
+  const reasoningEngineFactory = async (agentRole: string) => {
+    const config = await ReasoningEngine.loadConfig(supabase, agentRole, cache);
+    if (!config || !config.enabled) return null;
+    const modelClient = new ModelClient({
+      geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+      openaiApiKey: process.env.OPENAI_API_KEY,
+      anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+    });
+    return new ReasoningEngine(supabase, modelClient, config, cache);
+  };
+
   return {
     glyphorEventBus,
     agentMemoryStore: memory,
+    cache,
+    jitContextRetriever,
+    reasoningEngineFactory,
 
     agentProfileLoader: async (role: CompanyAgentRole): Promise<AgentProfileData | null> => {
       const { data } = await supabase

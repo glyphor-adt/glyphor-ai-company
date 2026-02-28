@@ -22,6 +22,13 @@ export { checkEventPermission, createEventSecurityLog } from './eventPermissions
 export type { EventPermissionCheck } from './eventPermissions.js';
 export { executeWorkLoop, PROACTIVE_COOLDOWNS } from './workLoop.js';
 export type { WorkLoopResult } from './workLoop.js';
+// Reasoning Engine + JIT Context + Redis Cache
+export { ReasoningEngine } from './reasoningEngine.js';
+export type { ReasoningConfig, ReasoningResult, ReasoningPassResult, ValueScore, PassType } from './reasoningEngine.js';
+export { JitContextRetriever } from './jitContextRetriever.js';
+export type { JitContext, JitContextItem } from './jitContextRetriever.js';
+export { RedisCache, getRedisCache, CACHE_KEYS, CACHE_TTL } from './redisCache.js';
+export type { CacheConfig, CacheEntry } from './redisCache.js';
 export {
   AGENT_BUDGETS,
   EXECUTIVE_ROLES,

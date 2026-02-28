@@ -13,7 +13,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
-import { EXECUTIVE_ROLES, SUB_TEAM_ROLES } from '@glyphor/agent-runtime';
+import { EXECUTIVE_ROLES, SUB_TEAM_ROLES, getRedisCache, CACHE_KEYS, CACHE_TTL } from '@glyphor/agent-runtime';
 import { executeWorkLoop } from '@glyphor/agent-runtime';
 import type { WakeRouter } from './wakeRouter.js';
 import { buildWaves, dispatchWaves } from './parallelDispatch.js';
@@ -187,6 +187,9 @@ export class HeartbeatManager {
 
     // ── Phase 2: RESOLVE — build dependency-ordered waves ──
     const waves = buildWaves(wakeList);
+
+    // Pre-cache wave context for agents about to be dispatched
+    await this.preCacheWaveContext(wakeList);
 
     console.log(
       `[Heartbeat] Cycle ${this.cycle}: checked ${agentsToCheck.length}, ` +
@@ -397,5 +400,27 @@ export class HeartbeatManager {
       console.warn('[Heartbeat] Failed to fetch last run times:', (err as Error).message);
     }
     return result;
+  }
+
+  /**
+   * Pre-cache frequently-needed context for agents about to be dispatched.
+   * Warms Redis with wave metadata so agent runs hit cache instead of DB.
+   */
+  private async preCacheWaveContext(wakeList: WaveAgent[]): Promise<void> {
+    const cache = getRedisCache();
+    try {
+      // Cache the wave metadata (which agents are running and why)
+      await cache.set(
+        CACHE_KEYS.wave(this.cycle),
+        {
+          cycle: this.cycle,
+          agents: wakeList.map(w => ({ role: w.role, task: w.task, reason: w.context.wake_reason })),
+          cachedAt: Date.now(),
+        },
+        CACHE_TTL.wave,
+      );
+    } catch (err) {
+      console.warn('[Heartbeat] Pre-cache wave context failed:', (err as Error).message);
+    }
   }
 }

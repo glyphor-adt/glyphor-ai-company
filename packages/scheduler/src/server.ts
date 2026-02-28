@@ -9,7 +9,7 @@
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { GlyphorEventBus, ModelClient, promptCache } from '@glyphor/agent-runtime';
+import { GlyphorEventBus, ModelClient, promptCache, getRedisCache } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment } from '@glyphor/agent-runtime';
 import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, TeamsBotHandler, extractBearerToken, runGovernanceSync } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
@@ -297,6 +297,13 @@ const trackedAgentExecutor = async (
         cost: result?.cost ?? null,
         output: result?.output ?? null,
         error: result?.error ?? result?.abortReason ?? null,
+        // Reasoning engine metadata
+        ...((result as any)?.reasoningMeta ? {
+          reasoning_passes: (result as any).reasoningMeta.passes,
+          reasoning_confidence: (result as any).reasoningMeta.confidence,
+          reasoning_revised: (result as any).reasoningMeta.revised,
+          reasoning_cost_usd: (result as any).reasoningMeta.costUsd,
+        } : {}),
       }).eq('id', runId);
     }
 
@@ -399,7 +406,19 @@ const server = createServer(async (req, res) => {
   try {
     // Health check
     if (url === '/health' || url === '/') {
-      json(res, 200, { status: 'ok', service: 'glyphor-scheduler' });
+      const cache = getRedisCache();
+      const [redisPing, redisStats] = await Promise.allSettled([
+        cache.ping(),
+        cache.stats(),
+      ]);
+      json(res, 200, {
+        status: 'ok',
+        service: 'glyphor-scheduler',
+        redis: {
+          connected: redisPing.status === 'fulfilled' ? redisPing.value : false,
+          ...(redisStats.status === 'fulfilled' ? redisStats.value : {}),
+        },
+      });
       return;
     }
 
@@ -2089,4 +2108,17 @@ server.listen(PORT, () => {
   // Start data sync scheduler (fires DATA_SYNC_JOBS on their cron schedule)
   const dataSyncScheduler = new DataSyncScheduler(PORT);
   dataSyncScheduler.start();
+});
+
+// ─── Graceful shutdown ──────────────────────────────────────────
+process.on('SIGTERM', async () => {
+  console.log('[Scheduler] SIGTERM received, shutting down gracefully...');
+  try {
+    const cache = getRedisCache();
+    await cache.disconnect();
+  } catch { /* best-effort */ }
+  server.close(() => {
+    console.log('[Scheduler] Server closed');
+    process.exit(0);
+  });
 });
