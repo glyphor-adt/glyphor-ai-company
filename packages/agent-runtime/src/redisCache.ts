@@ -68,6 +68,8 @@ export class RedisCache {
   private connected = false;
   private connecting = false;
   private config: Required<CacheConfig>;
+  /** When true, all operations silently no-op (no connection attempts). */
+  private disabled = false;
   /** Timestamp of last failed connection attempt — used for cooldown. */
   private lastFailedAt = 0;
 
@@ -83,9 +85,15 @@ export class RedisCache {
     };
   }
 
+  /** Mark this instance as permanently disabled — all operations become no-ops. */
+  disable(): void {
+    this.disabled = true;
+  }
+
   /** Lazy connect — only connects on first operation.
    *  After a failed attempt, skips retries for `retryCooldownMs`. */
   async ensureConnected(): Promise<boolean> {
+    if (this.disabled) return false;
     if (this.connected && this.client) return true;
 
     // Cooldown — don't hammer a dead connection
@@ -292,14 +300,13 @@ let _instance: RedisCache | null = null;
 export function getRedisCache(): RedisCache {
   if (!_instance) {
     if (!process.env.REDIS_HOST) {
-      // No Redis configured — return a disabled stub
+      // No Redis configured — return a disabled stub that never connects
       _instance = new RedisCache({
-        host: '127.0.0.1',
+        host: 'disabled',
         port: 0,
         keyPrefix: 'glyphor:',
-        connectTimeoutMs: 1,   // fail instantly
-        retryCooldownMs: 300_000, // don't retry for 5 minutes
       });
+      _instance.disable();
       console.log('[RedisCache] REDIS_HOST not set — cache disabled');
     } else {
       _instance = new RedisCache({
