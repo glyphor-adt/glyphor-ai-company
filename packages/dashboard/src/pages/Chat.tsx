@@ -365,6 +365,25 @@ export default function Chat() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    const imageFiles: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) imageFiles.push(file);
+      }
+    }
+
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      handleFiles(imageFiles);
+    }
+  };
+
   // ── Send ──
   const sendMessage = async () => {
     // Stop dictation if active and strip interim markers
@@ -569,7 +588,7 @@ export default function Chat() {
                   Start a conversation with <span className="text-cyan">{codename}</span>
                 </p>
                 <p className="mt-1 text-[11px] text-txt-faint">
-                  Drag &amp; drop files, use <MdAttachFile className="inline-block text-[14px]" />, or type <span className="text-cyan">@</span> to mention agents
+                  Drag &amp; drop, paste, or use <MdAttachFile className="inline-block text-[14px]" /> to attach files • Type <span className="text-cyan">@</span> to mention agents
                 </p>
               </div>
             </div>
@@ -713,6 +732,7 @@ export default function Chat() {
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               placeholder={`Message ${codename}... (@ to mention, Shift+Enter for new line)`}
               disabled={sending}
               rows={1}
