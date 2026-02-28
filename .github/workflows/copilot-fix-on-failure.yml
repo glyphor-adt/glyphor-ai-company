@@ -93,8 +93,7 @@ jobs:
             --repo "${{ github.repository }}" \
             --title "fix: build failure on main ($(date +%Y-%m-%d))" \
             --body "$ISSUE_BODY" \
-            --label "bug,copilot-fix" \
-            --assignee "copilot")
+            --label "bug,copilot,copilot-fix")
 
           echo "Created issue: $ISSUE_URL"
 
@@ -177,7 +176,6 @@ jobs:
             --repo "${{ github.repository }}" \
             --title "fix: ${APP_NAME} check failure on main ($(date +%Y-%m-%d))" \
             --body "$ISSUE_BODY" \
-            --label "bug,copilot-fix" \
-            --assignee "copilot")
+            --label "bug,copilot,copilot-fix")
 
           echo "Created issue: $ISSUE_URL"
