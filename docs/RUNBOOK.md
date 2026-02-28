@@ -324,3 +324,40 @@ ORDER BY date DESC;
 | Docker build uses wrong code | Always `--no-cache`; clear builder cache with `docker builder prune` |
 | Teams cards not posting | Check `AZURE_CLIENT_SECRET` (currently a 2-char placeholder — needs real secret) |
 | Reasoning tags in chat | Dashboard `Chat.tsx` has `stripReasoning()` — verify it runs before render |
+| Lighthouse audits return 429 | Google PageSpeed IPs being rate-limited by Vercel WAF. See [Lighthouse IP Whitelist Guide](LIGHTHOUSE_IP_WHITELIST.md) |
+
+### Lighthouse Rate Limiting (HTTP 429)
+
+**Symptom**: VP Design (Mia) or Design Critic (Sofia) agents report 429 errors when running `run_lighthouse` or `run_lighthouse_batch` tools on `pulse.glyphor.ai` or `fuse.glyphor.ai`.
+
+**Root Cause**: Vercel WAF/rate-limiting is blocking Google PageSpeed Insights API requests.
+
+**Quick Fix**:
+1. Access Vercel dashboard for affected project
+2. Navigate to Settings → Firewall → Trusted IPs
+3. Add Google IP ranges from `/infra/config/google-ips.sample.json`
+4. Test with: `run_lighthouse(url: "https://pulse.glyphor.ai")`
+5. Verify no 429 errors in agent activity logs
+
+**Permanent Solution**:
+1. Read full guide: [docs/LIGHTHOUSE_IP_WHITELIST.md](LIGHTHOUSE_IP_WHITELIST.md)
+2. Run automation script: `./infra/scripts/update-google-ips.sh json > infra/config/google-ips.json`
+3. Apply IP ranges to Vercel Trusted IPs or WAF exceptions
+4. Set up weekly automation via GitHub Actions: `.github/workflows/update-google-ips.yml`
+5. Monitor agent logs for recurring 429 errors
+
+**Verification Query** (Supabase):
+```sql
+SELECT 
+  agent_role,
+  tool_name,
+  created_at,
+  result
+FROM activity_log
+WHERE tool_name IN ('run_lighthouse', 'run_lighthouse_batch')
+  AND result LIKE '%429%'
+  AND created_at > NOW() - INTERVAL '7 days'
+ORDER BY created_at DESC;
+```
+
+**Escalation**: If whitelisting doesn't resolve the issue, escalate to Marcus (CTO) for alternative solutions (dedicated Lighthouse server, Lighthouse CI service, etc.).

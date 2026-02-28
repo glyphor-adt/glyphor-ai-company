@@ -1,0 +1,115 @@
+name: Update Google IP Ranges
+
+on:
+  schedule:
+    # Run every Monday at 6:00 AM UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    # Allow manual trigger
+
+jobs:
+  update-google-ips:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+      
+      - name: Fetch Google IP ranges
+        id: fetch-ips
+        run: |
+          chmod +x ./infra/scripts/update-google-ips.sh
+          
+          # Generate JSON output
+          ./infra/scripts/update-google-ips.sh json > infra/config/google-ips.json
+          
+          # Generate CIDR list for reference
+          ./infra/scripts/update-google-ips.sh cidr > infra/config/google-ips.txt
+          
+          # Extract counts for PR description
+          IPV4_COUNT=$(jq -r '.ipv4_ranges | length' infra/config/google-ips.json)
+          IPV6_COUNT=$(jq -r '.ipv6_ranges | length' infra/config/google-ips.json)
+          TOTAL_COUNT=$(jq -r '.total_ranges' infra/config/google-ips.json)
+          
+          echo "ipv4_count=$IPV4_COUNT" >> $GITHUB_OUTPUT
+          echo "ipv6_count=$IPV6_COUNT" >> $GITHUB_OUTPUT
+          echo "total_count=$TOTAL_COUNT" >> $GITHUB_OUTPUT
+          
+          # Check if there are changes
+          if git diff --quiet infra/config/google-ips.json; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Create Pull Request
+        if: steps.fetch-ips.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'Update Google IP ranges for Lighthouse whitelisting'
+          branch: automated/update-google-ips
+          delete-branch: true
+          title: '[Automated] Update Google IP Ranges'
+          body: |
+            ## Automated Google IP Range Update
+            
+            This PR updates the Google IP ranges used for whitelisting Lighthouse audits.
+            
+            ### Changes
+            
+            - **IPv4 ranges**: ${{ steps.fetch-ips.outputs.ipv4_count }}
+            - **IPv6 ranges**: ${{ steps.fetch-ips.outputs.ipv6_count }}
+            - **Total ranges**: ${{ steps.fetch-ips.outputs.total_count }}
+            
+            ### Action Required
+            
+            After merging this PR, the updated IP ranges should be applied to:
+            
+            1. **Vercel Pulse project** (`pulse.glyphor.ai`)
+               - Update Trusted IPs or WAF configuration
+            2. **Vercel Fuse project** (`fuse.glyphor.ai`)
+               - Update Trusted IPs or WAF configuration
+            
+            ### Verification Steps
+            
+            After deployment:
+            - [ ] Test Lighthouse audit on Pulse: `run_lighthouse(url: "https://pulse.glyphor.ai")`
+            - [ ] Test Lighthouse audit on Fuse: `run_lighthouse(url: "https://fuse.glyphor.ai")`
+            - [ ] Verify no 429 errors in agent activity logs
+            - [ ] Check Vercel logs for successful Google PageSpeed requests
+            
+            ### Resources
+            
+            - [Documentation](/docs/LIGHTHOUSE_IP_WHITELIST.md)
+            - [Configuration Guide](/infra/config/README.md)
+            - [Source: Google IP Ranges](https://www.gstatic.com/ipranges/goog.json)
+            
+            ---
+            
+            🤖 This PR was generated automatically by the GitHub Action workflow.
+          labels: |
+            automated
+            infrastructure
+            lighthouse
+            vercel
+          assignees: |
+            # Add CTO/Engineering lead if known
+          reviewers: |
+            # Add reviewer if known
+      
+      - name: No changes detected
+        if: steps.fetch-ips.outputs.has_changes == 'false'
+        run: |
+          echo "✅ No changes detected in Google IP ranges"
+          echo "Current total: ${{ steps.fetch-ips.outputs.total_count }} ranges"
