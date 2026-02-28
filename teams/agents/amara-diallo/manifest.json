@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.1.0",
+  "id": "55d2075d-d48d-47be-8488-4cc3c59176c8",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Amara Diallo",
+    "full": "Amara Diallo — Industry Research Analyst, Glyphor AI"
+  },
+  "description": {
+    "short": "Industry Research — ecosystem mapping, regulatory scanning, and partnership research.",
+    "full": "Amara Diallo is the Industry Research Analyst at Glyphor AI. She maps industry ecosystems, tracks regulatory shifts, identifies partnership opportunities, and analyzes macro trends. Message her directly for industry intelligence."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#059669",
+  "bots": [
+    {
+      "botId": "55d2075d-d48d-47be-8488-4cc3c59176c8",
+      "scopes": ["personal", "team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-610179349713.us-central1.run.app"
+  ]
+}

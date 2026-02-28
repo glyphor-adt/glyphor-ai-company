@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.1.0",
+  "id": "17d1fa97-7b9c-4595-9a5a-22b6c1cf7b99",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Zara Petrov",
+    "full": "Zara Petrov — Marketing Intelligence Analyst, Glyphor AI"
+  },
+  "description": {
+    "short": "Marketing Intelligence — competitive campaigns, market trends, and channel performance.",
+    "full": "Zara Petrov is the Marketing Intelligence Analyst at Glyphor AI. She turns market noise into actionable intelligence by tracking competitors, trends, audience sentiment, and channel performance. Message her directly for marketing intelligence."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#7C3AED",
+  "bots": [
+    {
+      "botId": "17d1fa97-7b9c-4595-9a5a-22b6c1cf7b99",
+      "scopes": ["personal", "team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-610179349713.us-central1.run.app"
+  ]
+}

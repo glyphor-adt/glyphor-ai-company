@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.1.0",
+  "id": "7afb6321-ec60-4acf-b526-ac0310e42d69",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Alex Park",
+    "full": "Alex Park — Platform Engineer, Glyphor AI"
+  },
+  "description": {
+    "short": "Platform Engineer — system monitoring, incident response, and performance tracking.",
+    "full": "Alex Park is the Platform Engineer at Glyphor AI. He monitors systems like a pilot monitors instruments — calm, precise, always scanning. Reports service health, latency percentiles, and uptime metrics. Message him directly for platform status."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#2563EB",
+  "bots": [
+    {
+      "botId": "7afb6321-ec60-4acf-b526-ac0310e42d69",
+      "scopes": ["personal", "team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-610179349713.us-central1.run.app"
+  ]
+}

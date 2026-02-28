@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.1.0",
+  "id": "d45769a2-d693-4c2c-a48d-317a2b15773c",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Lisa Chen",
+    "full": "Lisa Chen — SEO Analyst, Glyphor AI"
+  },
+  "description": {
+    "short": "SEO Analyst — keyword strategy, rank tracking, and search optimization.",
+    "full": "Lisa Chen is the SEO Analyst at Glyphor AI. She tracks SEO performance, manages keyword strategy, optimizes on-page elements, and conducts technical SEO audits. Message her directly for SEO requests."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#7C3AED",
+  "bots": [
+    {
+      "botId": "d45769a2-d693-4c2c-a48d-317a2b15773c",
+      "scopes": ["personal", "team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-610179349713.us-central1.run.app"
+  ]
+}

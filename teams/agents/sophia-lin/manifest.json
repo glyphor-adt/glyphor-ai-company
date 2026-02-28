@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.1.0",
+  "id": "31f63a06-d169-4662-bd66-ae130aceb12b",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Sophia Lin",
+    "full": "Sophia Lin — VP Research & Intelligence, Glyphor AI"
+  },
+  "description": {
+    "short": "VP Research — research orchestration, strategic synthesis, and multi-wave analysis.",
+    "full": "Sophia Lin is the VP of Research & Intelligence at Glyphor AI. She orchestrates the research team, decomposes strategic questions into analyst briefs, and synthesizes findings into executive-ready deliverables. Message her directly for research requests."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#059669",
+  "bots": [
+    {
+      "botId": "31f63a06-d169-4662-bd66-ae130aceb12b",
+      "scopes": ["personal", "team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-610179349713.us-central1.run.app"
+  ]
+}

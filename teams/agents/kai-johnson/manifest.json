@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.1.0",
+  "id": "401d691a-7f78-4c4c-8dd4-b2bef20dc003",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Kai Johnson",
+    "full": "Kai Johnson — Social Media Manager, Glyphor AI"
+  },
+  "description": {
+    "short": "Social Media Manager — post scheduling, engagement tracking, and social strategy.",
+    "full": "Kai Johnson is the Social Media Manager at Glyphor AI. He plans social media content, schedules posts, tracks engagement, and manages community interactions. Message him directly for social media requests."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#7C3AED",
+  "bots": [
+    {
+      "botId": "401d691a-7f78-4c4c-8dd4-b2bef20dc003",
+      "scopes": ["personal", "team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-610179349713.us-central1.run.app"
+  ]
+}

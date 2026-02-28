@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.1.0",
+  "id": "abaf9a8f-16a5-48a4-831c-47a7a9b43b93",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Tyler Reed",
+    "full": "Tyler Reed — Content Creator, Glyphor AI"
+  },
+  "description": {
+    "short": "Content Creator — blog posts, case studies, and content calendar planning.",
+    "full": "Tyler Reed is the Content Creator at Glyphor AI. He drafts blog posts, case studies, technical writing, and manages the content calendar. Message him directly for content requests."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#7C3AED",
+  "bots": [
+    {
+      "botId": "abaf9a8f-16a5-48a4-831c-47a7a9b43b93",
+      "scopes": ["personal", "team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-610179349713.us-central1.run.app"
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.1.0",
+  "id": "22e861a1-a58c-455f-8e1a-6eb44011a33d",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Kai Nakamura",
+    "full": "Kai Nakamura — Technical Research Analyst, Glyphor AI"
+  },
+  "description": {
+    "short": "Technical Research — tech stack analysis, feasibility assessment, and architecture review.",
+    "full": "Kai Nakamura is the Technical Research Analyst at Glyphor AI. He evaluates technologies, reads whitepapers, assesses feasibility, and bridges the gap between 'cool tech' and 'viable tech.' Message him directly for technical research."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#059669",
+  "bots": [
+    {
+      "botId": "22e861a1-a58c-455f-8e1a-6eb44011a33d",
+      "scopes": ["personal", "team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-610179349713.us-central1.run.app"
+  ]
+}

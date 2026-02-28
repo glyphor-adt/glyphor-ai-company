@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.1.0",
+  "id": "b4997c2d-e91a-4d3c-b77b-617d781b0fec",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Sam DeLuca",
+    "full": "Sam DeLuca — Quality Engineer, Glyphor AI"
+  },
+  "description": {
+    "short": "Quality Engineer — test automation, QA oversight, and build stability.",
+    "full": "Sam DeLuca is the Quality Engineer at Glyphor AI. He manages test automation, QA processes, quality metrics, and build stability. Message him directly for quality and testing requests."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#2563EB",
+  "bots": [
+    {
+      "botId": "b4997c2d-e91a-4d3c-b77b-617d781b0fec",
+      "scopes": ["personal", "team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-610179349713.us-central1.run.app"
+  ]
+}

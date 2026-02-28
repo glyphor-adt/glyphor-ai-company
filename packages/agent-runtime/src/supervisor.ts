@@ -20,6 +20,7 @@ export class AgentSupervisor {
   private memoryKeysWritten = 0;
   private lastFileCount = 0;
   private lastMemoryKeyCount = 0;
+  private turnHadProgress = false;
 
   constructor(config: SupervisorConfig) {
     this.config = config;
@@ -49,6 +50,15 @@ export class AgentSupervisor {
   }
 
   checkBeforeModelCall(): { ok: boolean; reason?: string } {
+    // Evaluate stall status for the previous turn (turns > 1).
+    // A turn with no progress across ALL its tool results counts as one stall.
+    if (this.turnCount > 0 && !this.turnHadProgress) {
+      this.stallCount++;
+    } else if (this.turnCount > 0) {
+      this.stallCount = 0;
+    }
+    this.turnHadProgress = false;
+
     this.turnCount++;
 
     if (this.isAborted) {
@@ -64,6 +74,11 @@ export class AgentSupervisor {
     if (this.elapsedMs > this.config.timeoutMs) {
       this.abort(`Exceeded timeout (${this.config.timeoutMs}ms)`);
       return { ok: false, reason: 'timeout' };
+    }
+
+    if (this.stallCount >= this.config.maxStallTurns) {
+      this.abort(`Stalled: ${this.config.maxStallTurns} consecutive turns without progress`);
+      return { ok: false, reason: 'stalled' };
     }
 
     return { ok: true };
@@ -83,16 +98,9 @@ export class AgentSupervisor {
       (this.config.readsAsProgress === true && result.success);
 
     if (madeProgress) {
-      this.stallCount = 0;
+      this.turnHadProgress = true;
       this.lastFileCount = this.filesWritten;
       this.lastMemoryKeyCount = this.memoryKeysWritten;
-    } else if (!result.success) {
-      this.stallCount++;
-    }
-
-    if (this.stallCount >= this.config.maxStallTurns) {
-      this.abort(`Stalled: ${this.config.maxStallTurns} turns without progress`);
-      return { ok: false, reason: 'stalled' };
     }
 
     return { ok: true };

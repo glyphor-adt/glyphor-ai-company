@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.1.0",
+  "id": "65265d50-78a5-4b77-be9a-cbf72a630ece",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Jordan Hayes",
+    "full": "Jordan Hayes — DevOps Engineer, Glyphor AI"
+  },
+  "description": {
+    "short": "DevOps Engineer — CI/CD pipelines, deployment health, and infrastructure optimization.",
+    "full": "Jordan Hayes is the DevOps Engineer at Glyphor AI. He manages CI/CD pipelines, deployment health, infrastructure optimization, and cloud resource management. Message him directly for DevOps requests."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#2563EB",
+  "bots": [
+    {
+      "botId": "65265d50-78a5-4b77-be9a-cbf72a630ece",
+      "scopes": ["personal", "team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-610179349713.us-central1.run.app"
+  ]
+}

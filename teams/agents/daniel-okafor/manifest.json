@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.1.0",
+  "id": "929abe0c-1c7c-425c-afa6-fca0a2247eff",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Daniel Okafor",
+    "full": "Daniel Okafor — Market Research Analyst, Glyphor AI"
+  },
+  "description": {
+    "short": "Market Research — market sizing, cohort analysis, trend forecasting, and growth modeling.",
+    "full": "Daniel Okafor is the Market Research Analyst at Glyphor AI. He maps markets, builds bottom-up TAM/SAM/SOM models, analyzes cohorts, and forecasts growth with stated assumptions. Message him directly for market research."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#059669",
+  "bots": [
+    {
+      "botId": "929abe0c-1c7c-425c-afa6-fca0a2247eff",
+      "scopes": ["personal", "team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-610179349713.us-central1.run.app"
+  ]
+}

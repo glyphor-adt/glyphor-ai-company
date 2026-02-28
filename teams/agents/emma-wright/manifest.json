@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.1.0",
+  "id": "2893a21a-bfc8-42e9-a80a-73cfac89c21c",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Emma Wright",
+    "full": "Emma Wright — Onboarding Specialist, Glyphor AI"
+  },
+  "description": {
+    "short": "Onboarding Specialist — new user onboarding, activation tracking, and early lifecycle engagement.",
+    "full": "Emma Wright is the Onboarding Specialist at Glyphor AI. She manages new user onboarding flows, tracks activation metrics, designs welcome sequences, and optimizes early lifecycle engagement. Message her directly for onboarding requests."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#0E7490",
+  "bots": [
+    {
+      "botId": "2893a21a-bfc8-42e9-a80a-73cfac89c21c",
+      "scopes": ["personal", "team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-610179349713.us-central1.run.app"
+  ]
+}

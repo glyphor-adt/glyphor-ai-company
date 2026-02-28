@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.1.0",
+  "id": "d69980e7-2264-4c61-ba5b-a16b313c7113",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Lena Park",
+    "full": "Lena Park — Competitive Research Analyst, Glyphor AI"
+  },
+  "description": {
+    "short": "Competitive Research — competitor tracking, product teardowns, and feature gap detection.",
+    "full": "Lena Park is the Competitive Research Analyst at Glyphor AI. She tracks competitors, writes product teardowns, analyzes pricing models, and identifies feature gaps before they become threats. Message her directly for competitive intelligence."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#059669",
+  "bots": [
+    {
+      "botId": "d69980e7-2264-4c61-ba5b-a16b313c7113",
+      "scopes": ["personal", "team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-610179349713.us-central1.run.app"
+  ]
+}

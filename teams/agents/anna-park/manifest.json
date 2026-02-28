@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.1.0",
+  "id": "ac724b3e-2021-4285-be7a-7dab0bd3594e",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Anna Park",
+    "full": "Anna Park — Revenue Analyst, Glyphor AI"
+  },
+  "description": {
+    "short": "Revenue Analyst — MRR tracking, subscription cohort analysis, and financial metrics.",
+    "full": "Anna Park is the Revenue Analyst at Glyphor AI. She tracks MRR, analyzes subscription cohorts, forecasts revenue, and produces financial metrics reports. Message her directly for revenue analysis."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#0369A1",
+  "bots": [
+    {
+      "botId": "ac724b3e-2021-4285-be7a-7dab0bd3594e",
+      "scopes": ["personal", "team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-610179349713.us-central1.run.app"
+  ]
+}
