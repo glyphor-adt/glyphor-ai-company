@@ -331,7 +331,8 @@ export function createAssignmentTools(
           .from('work_assignments')
           .update({
             status: 'blocked',
-            agent_output: `BLOCKED: ${blockerReason}\nNeed type: ${needType}`,
+            blocker_reason: blockerReason,
+            need_type: needType,
             updated_at: now,
           })
           .eq('id', assignmentId);

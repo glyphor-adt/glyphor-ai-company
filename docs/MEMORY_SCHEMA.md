@@ -781,6 +781,8 @@ Task breakdowns for directives.
 | `agent_output` | TEXT | |
 | `evaluation` | TEXT | |
 | `quality_score` | REAL | |
+| `need_type` | TEXT | |
+| `blocker_reason` | TEXT | |
 | `created_at` | TIMESTAMPTZ | NOT NULL DEFAULT NOW() |
 | `updated_at` | TIMESTAMPTZ | NOT NULL DEFAULT NOW() |
 
