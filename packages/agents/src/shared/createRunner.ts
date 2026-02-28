@@ -22,14 +22,19 @@ const PRO_CHAT_ROLES: ReadonlySet<CompanyAgentRole> = new Set([
 
 /**
  * Resolve the model for an agent run.
- * Founder-facing executives get gemini-3-pro-preview for on_demand chat;
- * everyone else keeps the default (usually gemini-3-flash-preview).
+ * Founder-facing executives get gemini-3-pro-preview for on_demand chat
+ * ONLY if they haven't been assigned a specific model in the dashboard.
+ * When dbModel is provided (i.e. the agent has a saved model), it is always respected.
  */
 export function resolveModel(
   role: CompanyAgentRole,
   task: string,
   defaultModel: string,
+  dbModel?: string | null,
 ): string {
+  // If the agent has an explicit DB-saved model, always respect it
+  if (dbModel) return dbModel;
+  // Otherwise, upgrade C-suite to pro for on_demand chat
   if (task === 'on_demand' && PRO_CHAT_ROLES.has(role)) {
     return 'gemini-3-pro-preview';
   }

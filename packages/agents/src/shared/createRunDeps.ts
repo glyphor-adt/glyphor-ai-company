@@ -497,9 +497,10 @@ export async function loadAgentConfig(
       .single();
 
     if (data) {
-      const baseModel = data.model || defaults.model;
+      const dbModel = data.model || null;
+      const baseModel = dbModel || defaults.model;
       return {
-        model: task ? resolveModel(role as any, task, baseModel) : baseModel,
+        model: task ? resolveModel(role as any, task, baseModel, dbModel) : baseModel,
         temperature: data.temperature ?? defaults.temperature,
         maxTurns: data.max_turns ?? defaults.maxTurns,
         thinkingEnabled: data.thinking_enabled ?? true,
@@ -510,7 +511,7 @@ export async function loadAgentConfig(
   }
   const baseModel = defaults.model;
   return {
-    model: task ? resolveModel(role as any, task, baseModel) : baseModel,
+    model: task ? resolveModel(role as any, task, baseModel, null) : baseModel,
     temperature: defaults.temperature,
     maxTurns: defaults.maxTurns,
     thinkingEnabled: true,
