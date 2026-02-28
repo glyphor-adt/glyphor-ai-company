@@ -23,7 +23,7 @@ const SLIDE_CYAN  = '00E0FF';
 const SLIDE_AMBER = 'FBBF24';
 const SLIDE_GREEN = '34D399';
 const SLIDE_RED   = 'FB7185';
-const SLIDE_ACCENT = '623CEA';
+const SLIDE_PURPLE = '623CEA';
 const SLIDE_WHITE = 'FFFFFF';
 const FONT_HEADING = 'Segoe UI';
 const FONT_BODY    = 'Segoe UI';
@@ -283,7 +283,7 @@ export async function exportAnalysisPPTX(record: AnalysisRecord): Promise<Buffer
       { label: 'Weaknesses', val: String(report.swot.weaknesses.length), clr: SLIDE_RED },
       { label: 'Opportunities', val: String(report.swot.opportunities.length), clr: SLIDE_CYAN },
       { label: 'Threats', val: String(report.swot.threats.length), clr: SLIDE_AMBER },
-      { label: 'Recommendations', val: String(report.recommendations.length), clr: SLIDE_ACCENT },
+      { label: 'Recommendations', val: String(report.recommendations.length), clr: SLIDE_PURPLE },
     ];
     statsData.forEach((s, idx) => {
       const xPos = 0.5 + idx * 1.85;
@@ -711,7 +711,7 @@ export async function exportSimulationPPTX(record: SimulationRecord): Promise<Bu
       const emoji = v.vote === 'approve' ? 'âœ“ APPROVE' : v.vote === 'reject' ? 'âœ— REJECT' : 'âš  CAUTION';
       return `${v.agent}  [${emoji}]  â€”  ${v.reasoning}`;
     });
-    pptxSectionSlides(pptx, 'Executive Votes', voteItems, SLIDE_ACCENT);
+    pptxSectionSlides(pptx, 'Executive Votes', voteItems, SLIDE_PURPLE);
   }
 
   // Closing slide
@@ -1380,7 +1380,7 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
       { label: 'Weaknesses', val: String(s.unifiedSwot.weaknesses.length), clr: SLIDE_RED },
       { label: 'Opportunities', val: String(s.unifiedSwot.opportunities.length), clr: SLIDE_CYAN },
       { label: 'Threats', val: String(s.unifiedSwot.threats.length), clr: SLIDE_AMBER },
-      { label: 'Actions', val: String(s.strategicRecommendations.length), clr: SLIDE_ACCENT },
+      { label: 'Actions', val: String(s.strategicRecommendations.length), clr: SLIDE_PURPLE },
     ];
     statsData.forEach((st, idx) => {
       const xPos = 0.5 + idx * 1.85;
