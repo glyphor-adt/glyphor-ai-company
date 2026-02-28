@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.1.0",
+  "id": "66459b85-26de-4877-a6a3-194f68bcc5a3",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Ryan Park",
+    "full": "Ryan Park — Template Architect, Glyphor AI"
+  },
+  "description": {
+    "short": "Template Architect — parameterized templates, design tokens, and layout systems.",
+    "full": "Ryan Park is the Template Architect at Glyphor AI. He designs parameterized templates, manages the template registry, maintains design tokens, and builds layout systems. Message him directly for template requests."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#DB2777",
+  "bots": [
+    {
+      "botId": "66459b85-26de-4877-a6a3-194f68bcc5a3",
+      "scopes": ["personal", "team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-610179349713.us-central1.run.app"
+  ]
+}
