@@ -16,6 +16,7 @@ import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
+import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 
@@ -50,6 +51,7 @@ export async function runGlobalAdmin(params: GlobalAdminRunParams = {}) {
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
     ...createEmailTools(),
+    ...createToolGrantTools(memory.getSupabaseClient(), 'global-admin'),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

@@ -67,7 +67,15 @@ export type CompanyAgentRole =
   | 'competitive-research-analyst'  // Lena Park → reports to Sophia Lin
   | 'market-research-analyst'       // Daniel Okafor → reports to Sophia Lin
   | 'technical-research-analyst'    // Kai Nakamura → reports to Sophia Lin
-  | 'industry-research-analyst';    // Amara Diallo → reports to Sophia Lin
+  | 'industry-research-analyst'       // Amara Diallo → reports to Sophia Lin
+  // Sales, Finance, Marketing, Operations specialists
+  | 'enterprise-account-researcher'   // Ethan Morse → reports to VP-Sales
+  | 'bob-the-tax-pro'                 // Robert "Bob" Finley → CPA & Tax Strategist, reports to CLO
+  | 'data-integrity-auditor'          // Grace Hwang → reports to CLO
+  | 'tax-strategy-specialist'         // Mariana Solis → reports to CLO
+  | 'lead-gen-specialist'             // Derek Owens → reports to CoS
+  | 'marketing-intelligence-analyst'  // Zara Petrov → reports to CMO
+  | 'adi-rose';                       // Adi Rose → Executive Assistant, reports to CoS
 
 export type ContextInjector = (
   turnNumber: number,
