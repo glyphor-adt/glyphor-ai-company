@@ -1,6 +1,6 @@
 # Glyphor AI Company — System Architecture
 
-> Last updated: 2026-02-28 (full architecture audit 2026-02-28)
+> Last updated: 2026-02-28 (full architecture audit 2026-02-28, specialist roster expansion)
 
 ## Overview
 
@@ -10,14 +10,16 @@ members, and 2 operations agents that autonomously operate Glyphor alongside two
 state through Supabase, communicate with founders via Microsoft Teams, and are governed by a
 three-tier authority model (Green / Yellow / Red).
 
-Total headcount: **37** — 2 human founders, 9 AI executives (8 reporting to CoS + 1 CLO
-reporting directly to founders), 1 VP, 4 research analysts, 19 AI team members, 2 AI ops agents.
+Total headcount: **44** — 2 human founders, 9 AI executives (8 reporting to CoS + 1 CLO
+reporting directly to founders), 1 VP, 4 research analysts, 19 AI team members, 2 AI ops agents,
+7 AI specialist agents (DB-defined, no file-based runners).
 
 The founders work full-time at Microsoft with 5-10 h/week for Glyphor. The AI executive team
 handles everything else: daily operations, financial monitoring, content creation, product
 analysis, customer success, enterprise sales research, design & frontend quality,
 cross-functional synthesis, inter-agent communication, strategic analysis, legal & compliance,
-market research & intelligence, and global platform administration.
+market research & intelligence, global platform administration, tax strategy, data integrity
+auditing, lead generation, and executive assistantship.
 
 ---
 
@@ -124,7 +126,7 @@ market research & intelligence, and global platform administration.
 │  │ Simulation   │ ┌────────────────┐    ┌─────────────────────┐      │
 │  │ Engine       │ │ Agent Executor │    │  Decision Queue     │      │
 │  ├──────────────┤ │ (role→runner)  │    │  submit / approve   │      │
-│  │ Meeting      │ │ (35 agent      │    │  reminders (4 h)    │      │
+│  │ Meeting      │ │ (42 agent      │    │  reminders (4 h)    │      │
 │  │ Engine       │ │  roles routed) │    └─────────┬───────────┘      │
 │  ├──────────────┤ └────────┬───────┘              │                 │
 │  │ CoT Engine   │          │                      │                 │
@@ -208,7 +210,7 @@ market research & intelligence, and global platform administration.
 │  documentExtractor.ts             │
 │   (Office doc text extraction)    │
 │  config/agentEmails.ts            │
-│   (35 agent email registry)      │
+│   (42 agent email registry)      │
 └───────────────┬───────────────────┘
                 │
                 ▼
@@ -254,7 +256,7 @@ market research & intelligence, and global platform administration.
 │  │  ├ shared_procedures        │  │
 │  │  ├ platform_iam_state       │  │
 │  │  ├ platform_audit_log       │  │
-│  │  └ ... (73 tables total)    │  │
+│  │  └ ... (86 tables total)    │  │
 │  ├─────────────────────────────┤  │
 │  │ GCS (large documents)       │  │
 │  │  ├ briefings/{founder}/     │  │
@@ -399,7 +401,7 @@ and dashboard entries. They operate under their executive's authority scope and 
 | **Ava Chen** | Frontend Engineer | Design & Frontend | Mia Tanaka (VP Design) |
 | **Sofia Marchetti** | Design Critic | Design & Frontend | Mia Tanaka (VP Design) |
 | **Ryan Park** | Template Architect | Design & Frontend | Mia Tanaka (VP Design) |
-| **TBD** | Head of HR | People & Culture | Sarah Chen (CoS) |
+| **Jasmine Rivera** | Head of HR | People & Culture | Sarah Chen (CoS) |
 
 ### Operations Agents (2)
 
@@ -410,23 +412,42 @@ and dashboard entries. They operate under their executive's authority scope and 
 
 > **Note:** Morgan Blake has **Founder Protection** — cannot modify Kristina/Andrew/devops@glyphor.ai access.
 
+### Specialist Agents (7 — DB-defined, no file-based runners)
+
+Specialist agents are defined in `CompanyAgentRole` and the database but use `runDynamicAgent.ts`
+instead of dedicated file-based runners. They have role briefs, Teams bots, profiles, and budgets,
+but no `run.ts`/`systemPrompt.ts`/`tools.ts` folders under `packages/agents/src/`.
+
+| Name | Title | Agent ID | Department | Reports To |
+|------|-------|----------|------------|------------|
+| **Ethan Morse** | Enterprise Account Researcher | `enterprise-account-researcher` | Sales | Rachel Kim (VP Sales) |
+| **Robert "Bob" Finley** | CPA & Tax Strategist | `bob-the-tax-pro` | Legal | Victoria Chase (CLO) |
+| **Grace Hwang** | Data Integrity Auditor | `data-integrity-auditor` | Legal | Victoria Chase (CLO) |
+| **Mariana Solis** | Tax Strategy Specialist | `tax-strategy-specialist` | Legal | Victoria Chase (CLO) |
+| **Derek Owens** | Lead Gen Specialist | `lead-gen-specialist` | Operations | Sarah Chen (CoS) |
+| **Zara Petrov** | Marketing Intelligence Analyst | `marketing-intelligence-analyst` | Marketing | Maya Brooks (CMO) |
+| **Adi Rose** | Executive Assistant | `adi-rose` | Executive Office | Sarah Chen (CoS) |
+
+Budget: all specialist agents use `$0.08 / $2.00 / $60` (per run / daily / monthly).
+
 ### Org Chart
 
 ```
              Kristina Denney (CEO)     Andrew Zwelling (COO)
                          \               /       \
                           \             /         Victoria Chase (CLO)
-                        Sarah Chen (CoS)
-                              |
-   ┌─────────┬──────────┬────┴────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┐
-   │         │          │         │          │          │          │          │          │          │
-Marcus    Elena      Nadia      Maya      James     Rachel      Mia      Sophia    Morgan    Head of HR
-(CTO)     (CPO)      (CFO)      (CMO)     (VP CS)   (VP Sales)  (VP Des) (VP Res)  (Glob.Admin) (People)
+                        Sarah Chen (CoS)             │
+                              |                   Bob Finley
+   ┌─────────┬──────────┬────┴────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┐
+   │         │          │         │          │          │          │          │          │          │          │
+Marcus    Elena      Nadia      Maya      James     Rachel      Mia      Sophia    Morgan    Jasmine   Adi Rose
+(CTO)     (CPO)      (CFO)      (CMO)     (VP CS)   (VP Sales)  (VP Des) (VP Res)  (Glob.Ad) (HR)     (Exec.Asst)
   │         │          │          │          │          │          │          │
 Alex P.  Priya S.  Anna Park  Tyler R.   Emma W.  Nathan C.  Leo V.    Lena Park
-Sam D.   Daniel O.  Omar H.   Lisa C.    David S.             Ava C.    Daniel Okafor
+Sam D.   Daniel O.  Omar H.   Lisa C.    David S.  Ethan M.   Ava C.    Daniel Okafor
 Jordan H.                      Kai J.                          Sofia M.  Kai Nakamura
-Riley M.                                                       Ryan P.   Amara Diallo
+Riley M.                       Zara P.                         Ryan P.   Amara Diallo
+                               Derek O.
 ```
 
 ### Cron Schedules (GCP Cloud Scheduler)
@@ -517,10 +538,12 @@ glyphor-ai-company/
 │   │       ├── documentExtractor.ts    # Office doc text extraction (officeparser: .docx/.pptx/.xlsx)
 │   │       ├── reasoningEngine.ts      # Multi-pass verification & cross-model consensus
 │   │       ├── jitContextRetriever.ts  # Just-In-Time context retrieval (task-aware semantic search)
+│   │       ├── contextDistiller.ts     # Compresses JIT context into task-focused briefings (~$0.001/call)
+│   │       ├── runtimeToolFactory.ts   # Mid-run tool synthesis (HTTP, Supabase query, sandboxed JS)
 │   │       ├── redisCache.ts           # Redis cache layer for GCP Memorystore (ioredis)
 │   │       ├── toolRegistry.ts         # Central tool lookup (static + dynamic DB table)
 │   │       ├── config/
-│   │       │   └── agentEmails.ts         # Agent email registry (35 agents → M365 shared mailboxes)
+│   │       │   └── agentEmails.ts         # Agent email registry (42 agents → M365 shared mailboxes)
 │   │       ├── providers/              # Per-provider LLM adapters (each has normalizeFinishReason)
 │   │       │   ├── types.ts               # Unified provider contract (ProviderAdapter interface)
 │   │       │   ├── gemini.ts              # GeminiAdapter (thinkingLevel/thinkingBudget, Imagen)
@@ -551,7 +574,7 @@ glyphor-ai-company/
 │   │       ├── schema.ts             # Database row types
 │   │       └── migrations/           # Schema migration helpers
 │   │
-│   ├── agents/                  # Agent implementations (9 execs + 5 research + 18 sub-team + 2 ops)
+│   ├── agents/                  # Agent implementations (9 execs + 5 research + 18 sub-team + 2 ops + 1 HR)
 │   │   └── src/
 │   │       ├── chief-of-staff/        # Sarah Chen — run.ts, systemPrompt.ts, tools.ts
 │   │       ├── cto/                   # Marcus Reeves
@@ -614,7 +637,7 @@ glyphor-ai-company/
 │   │   │   ├── operations.md          # Operations department context
 │   │   │   ├── product.md             # Product department context
 │   │   │   └── sales-cs.md            # Sales & CS department context
-│   │   └── briefs/                    # 35 role briefs (9 execs + 5 research + 19 sub-team + 2 ops)
+│   │   └── briefs/                    # 42 role briefs (9 execs + 5 research + 19 sub-team + 2 ops + 7 specialists)
 │   │       ├── sarah-chen.md          # Chief of Staff
 │   │       ├── marcus-reeves.md       # CTO
 │   │       ├── nadia-okafor.md        # CFO
@@ -730,6 +753,9 @@ glyphor-ai-company/
 │   │       ├── wakeRouter.ts          # Event-driven agent wake dispatcher
 │   │       ├── wakeRules.ts           # Declarative event-to-agent wake mappings
 │   │       ├── heartbeat.ts           # Lightweight periodic agent check-ins (DB only)
+│   │       ├── changeRequestHandler.ts # Dashboard change request → GitHub issue pipeline
+│   │       ├── brandTheme.ts          # Centralized design-system constants for PPTX/DOCX/images
+│   │       ├── logoAsset.ts           # Logo PNG asset loading for branded exports
 │   │       └── index.ts              # Package public API exports
 │   │
 │   ├── dashboard/               # Web UI
@@ -767,6 +793,8 @@ glyphor-ai-company/
 │       │   │   ├── PeerFeedback.tsx      # Agent peer feedback display
 │       │   │   ├── QualityChart.tsx      # Quality score charts
 │       │   │   ├── SystemHealth.tsx      # System health monitor
+│       │   │   ├── VoiceOverlay.tsx      # Live voice session UI with transcript
+│       │   │   ├── FounderBriefing.tsx   # Executive summary panel (pulse, incidents, decisions)
 │       │   │   └── ui.tsx                # Shared primitives
 │       │   ├── lib/                   # Hooks, Supabase client, types, utilities
 │       │   │   ├── supabase.ts           # Supabase client init
@@ -774,7 +802,7 @@ glyphor-ai-company/
 │       │   │   ├── theme.tsx             # Dark/light theme provider
 │       │   │   ├── hooks.ts              # Custom hooks
 │       │   │   └── types.ts              # Dashboard-specific types
-│       │   ├── App.tsx               # Router & layout (19 routes + 8 legacy redirects)
+│       │   ├── App.tsx               # Router & layout (21 routes + 8 legacy redirects)
 │       │   └── index.css             # Tailwind + Glyphor brand theme
 │       └── package.json
 │
@@ -816,7 +844,7 @@ glyphor-ai-company/
 │
 ├── teams/                       # Microsoft Teams app packages
 │   ├── manifest.json            # Main Glyphor AI team tab + bot (v1.2.0, manifest v1.17)
-│   └── agents/                  # 10 individual agent bot manifests + zip packages
+│   └── agents/                  # 42 individual agent bot manifests + zip packages
 │       ├── sarah-chen/          # Chief of Staff bot
 │       ├── atlas-vega/          # Operations bot
 │       ├── marcus-reeves/       # CTO bot
@@ -826,9 +854,18 @@ glyphor-ai-company/
 │       ├── james-turner/        # VP CS bot
 │       ├── rachel-kim/          # VP Sales bot
 │       ├── riley-morgan/        # M365 Admin bot
-│       └── morgan-blake/        # Global Admin bot
+│       ├── morgan-blake/        # Global Admin bot
+│       ├── jasmine-rivera/      # Head of HR bot
+│       ├── ethan-morse/         # Enterprise Account Researcher bot
+│       ├── bob-finley/          # Tax Strategist bot
+│       ├── grace-hwang/         # Data Integrity Auditor bot
+│       ├── mariana-solis/       # Tax Strategy Specialist bot
+│       ├── derek-owens/         # Lead Gen Specialist bot
+│       ├── zara-petrov/         # Marketing Intelligence bot
+│       ├── adi-rose/            # Executive Assistant bot
+│       └── ... (24 more)        # All other agents
 │
-├── supabase/migrations/         # 73 migration files
+├── supabase/migrations/         # 86 migration files
 ├── .github/workflows/deploy.yml # CI/CD (GitHub Actions → Cloud Run)
 ├── turbo.json                   # Turborepo pipeline config
 ├── tsconfig.base.json           # Shared TS config
@@ -1556,7 +1593,14 @@ Name mapping (`ROLE_TO_BRIEF`):
 | `design-critic` | `sofia-marchetti.md` |
 | `template-architect` | `ryan-park.md` |
 | `ops` | `atlas-vega.md` |
-| `head-of-hr` | `people` (department key) |
+| `head-of-hr` | `jasmine-rivera.md` |
+| `enterprise-account-researcher` | `ethan-morse.md` |
+| `bob-the-tax-pro` | `robert-finley.md` |
+| `data-integrity-auditor` | `grace-hwang.md` |
+| `tax-strategy-specialist` | `mariana-solis.md` |
+| `lead-gen-specialist` | `derek-owens.md` |
+| `marketing-intelligence-analyst` | `zara-petrov.md` |
+| `adi-rose` | `adi-rose.md` |
 
 ### ModelClient — Multi-Provider LLM
 
@@ -2142,6 +2186,64 @@ Internal scheduler that fires `DATA_SYNC_JOBS` on their cron schedules by POSTin
 been provisioned. Runs all sync jobs once on startup so data populates immediately,
 then checks cron expressions every 60 seconds.
 
+### Context Distiller (`contextDistiller.ts`)
+
+JIT context compression layer that runs before each agent turn. Takes raw context data
+(memories, knowledge graph nodes, past episodes, procedures, organizational knowledge)
+and compresses it into a focused briefing via `gemini-3-flash-preview`.
+
+```
+Raw context (memories + graph + episodes + procedures)
+  → ContextDistiller.distill(role, task, jitContext)
+  → gemini-3-flash-preview (compression)
+  → DistilledContext { briefing, keyFacts, relevantHistory, costUsd, durationMs }
+```
+
+| Constant | Value |
+|----------|-------|
+| Model | `gemini-3-flash-preview` |
+| Cache TTL | 300s (5 min) via Redis |
+| Typical cost | ~$0.001 per call |
+| Cache key | `distilled:{role}:{md5(context)}` |
+
+### Runtime Tool Factory (`runtimeToolFactory.ts`)
+
+Enables agents to synthesize new tools mid-run when no existing tool covers their need.
+Supports three implementation types: HTTP fetch, Supabase query, and sandboxed JavaScript.
+
+```
+Agent requests new tool → RuntimeToolFactory.register(definition)
+  → validate (blocked patterns, code length, table access)
+  → register as runtime_{name} tool
+  → optionally persist to runtime_tools table
+```
+
+| Constraint | Value |
+|------------|-------|
+| Max tools per run | 3 |
+| Max persisted tools | 20 |
+| Max code length | 2,000 chars |
+| Max response length | 4,000 chars |
+| Blocked patterns | `eval`, `require`, `import`, `process`, `child_process`, `Function()` |
+| Blocked tables | `company_agents`, `agent_budgets`, `platform_iam_state`, `platform_audit_log` |
+
+### Change Request Pipeline (`changeRequestHandler.ts`)
+
+Dashboard-to-GitHub workflow for feature/bug requests. Users submit change requests
+via the `/change-requests` dashboard page, which are stored in `dashboard_change_requests`.
+The scheduler heartbeat processes pending requests every 10 minutes.
+
+```
+ChangeRequests.tsx (dashboard)
+  → dashboard_change_requests table (status: pending)
+  → heartbeat → processNewChangeRequests()
+  → GitHub issue (labeled: copilot, change-request, {type})
+  → GitHub Copilot auto-implementation
+  → syncChangeRequestProgress() updates status from PR state
+```
+
+Statuses: `pending` → `submitted` → `in_progress` → `review` → `merged` / `closed`.
+
 ### Reactive Wake, Heartbeat, Work Loop & Task Tier
 
 > Full details with flow diagrams in the **Agent Framework** section above:
@@ -2175,6 +2277,11 @@ then checks cron expressions every 60 seconds.
 | `packages/agent-runtime/src/jitContextRetriever.ts` | Just-In-Time context retrieval (task-aware semantic retrieval) |
 | `packages/agent-runtime/src/redisCache.ts` | Redis cache layer for GCP Memorystore (TTL management, graceful degradation) |
 | `packages/agent-runtime/src/toolRegistry.ts` | Central tool lookup via static KNOWN_TOOLS + dynamic `tool_registry` DB table |
+| `packages/agent-runtime/src/contextDistiller.ts` | JIT context compression via gemini-3-flash-preview (~$0.001/call), 5-min Redis cache |
+| `packages/agent-runtime/src/runtimeToolFactory.ts` | Mid-run tool synthesis (HTTP/Supabase/sandboxed JS), max 3 per run, 20 persisted |
+| `packages/scheduler/src/changeRequestHandler.ts` | Dashboard change request → GitHub issue pipeline, heartbeat-driven (every 10 min) |
+| `packages/scheduler/src/brandTheme.ts` | Centralized design-system constants for PPTX/DOCX/image exports |
+| `packages/scheduler/src/logoAsset.ts` | Logo PNG asset loading for branded report exports |
 | `packages/agents/src/shared/createRunner.ts` | Runner factory: role + task → Orchestrator/Task/CompanyAgent |
 
 #### Quick Reference Tables
@@ -2491,7 +2598,7 @@ Working memory (last-run summary) is stored in the `company_agents` table via th
 `last_run_summary` and `last_run_at` columns — not a separate table. This enables
 continuity between runs without additional migration.
 
-Total: **73 migration files**, **73+ tables**, **10 RPC functions**, **1 extension (pgvector)**.
+Total: **86 migration files**, **86+ tables**, **10 RPC functions**, **1 extension (pgvector)**.
 
 ---
 
@@ -2594,7 +2701,7 @@ Total: **73 migration files**, **73+ tables**, **10 RPC functions**, **1 extensi
 |------|-------|----------|
 | Dashboard | `/` | Agent activity overview, key metrics |
 | Directives | `/directives` | Founder directives management — create, assign, track work assignments |
-| Workforce | `/workforce` | Org chart (11 departments) + grid view — 37 total headcount |
+| Workforce | `/workforce` | Org chart (11 departments) + grid view — 44 total headcount |
 | Workforce Builder | `/builder` | Drag-and-drop org chart builder with templates |
 | Agent Profile | `/agents/:agentId` | 7-tab profile: Overview, Performance, Memory, Messages, Skills, World Model, Settings |
 | Agent Builder | `/agents/new` | Create new dynamic agents with name, department, model, budget, cron |
@@ -2611,6 +2718,8 @@ Total: **73 migration files**, **73+ tables**, **10 RPC functions**, **1 extensi
 | Chat (direct) | `/chat/:agentId` | Direct agent chat (navigates to specific agent conversation) |
 | Settings | `/settings` | User management page |
 | Teams Config | `/teams-config` | Teams bot setup and configuration |
+| Change Requests | `/change-requests` | Submit & track feature/bug change requests → GitHub issues → Copilot |
+| Group Chat | `/group-chat` | Multi-agent group chat with @mentions, file uploads, concurrent responses |
 
 **Legacy redirects** (backwards compatibility):
 `/agents` → `/workforce`, `/chat` → `/comms`, `/activity` → `/operations`, `/graph` → `/knowledge`,
@@ -2626,12 +2735,14 @@ Total: **73 migration files**, **73+ tables**, **10 RPC functions**, **1 extensi
 | Finance | Nadia Okafor (CFO) | Anna Park, Omar Hassan |
 | Marketing | Maya Brooks (CMO) | Tyler Reed, Lisa Chen, Kai Johnson |
 | Customer Success | James Turner (VP CS) | Emma Wright, David Santos |
-| Sales | Rachel Kim (VP Sales) | Nathan Cole |
+| Sales | Rachel Kim (VP Sales) | Nathan Cole, Ethan Morse |
 | Design & Frontend | Mia Tanaka (VP Design) | Leo Vargas, Ava Chen, Sofia Marchetti, Ryan Park |
 | Research & Intelligence | Sophia Lin (VP Research) | Lena Park, Daniel Okafor, Kai Nakamura, Amara Diallo |
-| Legal | Victoria Chase (CLO) | — |
-| People & Culture | — | Head of HR |
+| Legal | Victoria Chase (CLO) | Robert Finley, Grace Hwang, Mariana Solis |
+| People & Culture | Jasmine Rivera (Head of HR) | — |
 | Operations | — | Atlas Vega, Morgan Blake |
+| Executive Support | Sarah Chen (CoS) | Derek Owens, Adi Rose |
+| Marketing Intelligence | Maya Brooks (CMO) | Zara Petrov |
 
 ### Build Args (baked at Docker build)
 

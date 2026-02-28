@@ -1263,6 +1263,10 @@ export class CompanyAgentRunner {
         } else if (isTaskTier) {
           supervisor.config.maxTurns = Math.min(supervisor.config.maxTurns, TASK_TIER_MAX_TURNS);
           supervisor.config.timeoutMs = Math.min(supervisor.config.timeoutMs, TASK_TIER_TIMEOUT_MS);
+          // Task-tier agents survive transient API errors (rate limits, token expiry).
+          // Stalls only trigger on *failed* tool calls (reads count as progress),
+          // so 3 was too aggressive for agents hitting intermittent outages.
+          supervisor.config.maxStallTurns = Math.max(supervisor.config.maxStallTurns, 5);
         } else if (usesThinking) {
           // Thinking-enabled scheduled tasks: ensure at least 10 min
           supervisor.config.timeoutMs = Math.max(supervisor.config.timeoutMs, SCHEDULED_THINKING_TIMEOUT_MS);

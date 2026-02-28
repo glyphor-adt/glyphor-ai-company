@@ -20,7 +20,9 @@ import type { CompanyAgentRole } from './types.js';
 // PROACTIVE COOLDOWNS — How often each agent does self-directed work
 // ═══════════════════════════════════════════════════════════════════
 
-/** Proactive cooldown per role in milliseconds */
+/** Proactive cooldown per role in milliseconds.
+ *  Only roles explicitly listed here are eligible for proactive (P5) work.
+ *  Sub-team agents are intentionally excluded during stabilization. */
 export const PROACTIVE_COOLDOWNS: Record<string, number> = {
   // Always Hot — 1 hour
   'chief-of-staff': 60 * 60 * 1000,
@@ -36,12 +38,7 @@ export const PROACTIVE_COOLDOWNS: Record<string, number> = {
   'vp-customer-success': 4 * 60 * 60 * 1000,
   'vp-sales':            4 * 60 * 60 * 1000,
   'vp-design':           4 * 60 * 60 * 1000,
-
-  // Standard — 6 hours (all sub-team, default fallback)
 };
-
-/** Default proactive cooldown for roles not explicitly listed (6 hours) */
-const DEFAULT_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 
 // ═══════════════════════════════════════════════════════════════════
 // WORK LOOP RESULT
@@ -74,29 +71,8 @@ export async function executeWorkLoop(
   agentRole: CompanyAgentRole,
   supabase: SupabaseClient,
 ): Promise<WorkLoopResult> {
-  // ── ABORT COOLDOWN — Skip if last run was aborted <30 min ago ──
-  const ABORT_COOLDOWN_MS = 30 * 60 * 1000;
-  const { data: lastAbortedRun } = await supabase
-    .from('agent_runs')
-    .select('completed_at')
-    .eq('agent_id', agentRole)
-    .eq('status', 'aborted')
-    .order('completed_at', { ascending: false })
-    .limit(1)
-    .single();
-
-  if (lastAbortedRun?.completed_at) {
-    const abortedAt = new Date(lastAbortedRun.completed_at).getTime();
-    if (Date.now() - abortedAt < ABORT_COOLDOWN_MS) {
-      return {
-        shouldRun: false,
-        reason: `abort_cooldown:${Math.round((ABORT_COOLDOWN_MS - (Date.now() - abortedAt)) / 60_000)}min_remaining`,
-        priority: 6,
-      };
-    }
-  }
-
   // ── P1: URGENT — Assignments needing revision ──────────────
+  // Checked FIRST so P1 work always runs regardless of abort cooldown.
   const { data: revisionAssignments } = await supabase
     .from('work_assignments')
     .select('id, task_description, title, instructions, status, evaluation, assigned_to, founder_directives(title, priority, description)')
@@ -138,7 +114,7 @@ export async function executeWorkLoop(
     };
   }
 
-  // Also check for urgent messages
+  // Also check for urgent messages (still P1, bypasses cooldown)
   const { count: urgentMsgCount } = await supabase
     .from('agent_messages')
     .select('*', { count: 'exact', head: true })
@@ -155,6 +131,39 @@ export async function executeWorkLoop(
       priority: 1,
       message: `You have ${urgentMsgCount} urgent message(s). Handle them immediately.`,
     };
+  }
+
+  // ── ABORT COOLDOWN — Exponential backoff, applied after P1 ──
+  // 1 consecutive abort → 5 min, 2 → 10 min, 3 → 20 min, 4+ → 30 min (cap)
+  const { data: recentAborts } = await supabase
+    .from('agent_runs')
+    .select('completed_at, status')
+    .eq('agent_id', agentRole)
+    .order('completed_at', { ascending: false })
+    .limit(10);
+
+  if (recentAborts && recentAborts.length > 0) {
+    // Count consecutive aborts (stop at the first non-aborted run)
+    let consecutiveAborts = 0;
+    for (const run of recentAborts) {
+      if (run.status === 'aborted') consecutiveAborts++;
+      else break;
+    }
+
+    if (consecutiveAborts > 0) {
+      const lastAbortedAt = new Date(recentAborts[0].completed_at).getTime();
+      // Exponential backoff: 5min * 2^(n-1), capped at 30 min
+      const cooldownMs = Math.min(5 * 60 * 1000 * Math.pow(2, consecutiveAborts - 1), 30 * 60 * 1000);
+      const elapsed = Date.now() - lastAbortedAt;
+
+      if (elapsed < cooldownMs) {
+        return {
+          shouldRun: false,
+          reason: `abort_cooldown:${Math.round((cooldownMs - elapsed) / 60_000)}min_remaining(${consecutiveAborts}_consecutive)`,
+          priority: 6,
+        };
+      }
+    }
   }
 
   // ── P2: ACTIVE WORK — Pending/dispatched/in-progress assignments ──
@@ -236,18 +245,23 @@ export async function executeWorkLoop(
   // by Cloud Scheduler crons, not the heartbeat work_loop. Skip.
 
   // ── P5: PROACTIVE — Self-directed work if cooldown expired ──
-  const cooldownMs = PROACTIVE_COOLDOWNS[agentRole] ?? DEFAULT_COOLDOWN_MS;
-  const lastMeaningfulRun = await getLastMeaningfulRunTime(agentRole, supabase);
+  // Only roles explicitly listed in PROACTIVE_COOLDOWNS are eligible.
+  // Sub-team agents are excluded during stabilization — they should
+  // be purely reactive, working only on assigned tasks.
+  const cooldownMs = PROACTIVE_COOLDOWNS[agentRole];
+  if (cooldownMs != null) {
+    const lastMeaningfulRun = await getLastMeaningfulRunTime(agentRole, supabase);
 
-  if (Date.now() - lastMeaningfulRun > cooldownMs) {
-    return {
-      shouldRun: true,
-      contextTier: 'standard',
-      task: 'proactive',
-      reason: 'proactive_cooldown_expired',
-      priority: 5,
-      message: buildProactivePrompt(agentRole),
-    };
+    if (Date.now() - lastMeaningfulRun > cooldownMs) {
+      return {
+        shouldRun: true,
+        contextTier: 'standard',
+        task: 'proactive',
+        reason: 'proactive_cooldown_expired',
+        priority: 5,
+        message: buildProactivePrompt(agentRole),
+      };
+    }
   }
 
   // ── P6: NOTHING — Fast exit ───────────────────────────────

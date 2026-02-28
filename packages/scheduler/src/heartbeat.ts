@@ -330,11 +330,13 @@ export class HeartbeatManager {
   }
 
   /**
-   * Mark agent_runs stuck in "running" for >10 minutes as "failed".
+   * Mark agent_runs stuck in "running" for >5 minutes as "failed".
    * Prevents stale rows from permanently blocking future dispatches.
+   * Threshold lowered from 10 min: task-tier max timeout is 180s (3 min),
+   * so a run still "running" after 5 min is certainly dead.
    */
   private async reapStaleRuns(): Promise<void> {
-    const STALE_THRESHOLD_MS = 10 * 60 * 1000;
+    const STALE_THRESHOLD_MS = 5 * 60 * 1000;
     const cutoff = new Date(Date.now() - STALE_THRESHOLD_MS).toISOString();
     try {
       const { data } = await this.supabase
@@ -342,7 +344,7 @@ export class HeartbeatManager {
         .update({
           status: 'failed',
           completed_at: new Date().toISOString(),
-          error: 'reaped: stuck in running state for >10 minutes',
+          error: 'reaped: stuck in running state for >5 minutes',
         })
         .eq('status', 'running')
         .lt('created_at', cutoff)

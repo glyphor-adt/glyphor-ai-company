@@ -290,6 +290,22 @@ Include: relevant metrics, background context, links to prior work, specific dat
 and the "why" behind the task. The agent cannot look up company strategy, recent decisions,
 or cross-department context on its own.
 
+**MINIMUM CONTEXT REQUIREMENTS for non-trivial assignments (anything beyond a single tool call):**
+  - **Target length:** 300-500 words. Short instructions (< 100 words) cause agents to
+    waste turns discovering context, stall on failed tool calls, and abort.
+  - **Required sections in every assignment message:**
+    1. CONTEXT — Why this task exists. Include the directive title, priority, and any
+       relevant background (market data, competitor names, prior findings).
+    2. TASK — The specific, atomic deliverable. What exactly to produce.
+    3. TOOLS — Which tools to use. Name them explicitly (e.g., "use web_search to find...",
+       "use query_supabase_table to check..."). If the task requires research, include
+       2-3 suggested search queries.
+    4. DATA — Any metrics, numbers, or facts the agent will need. Paste them inline.
+       Do NOT say "look up our revenue" — include the actual number.
+    5. OUTPUT FORMAT — Exactly what the output should look like (report, JSON, summary,
+       action list). Include a template if helpful.
+    6. SUBMISSION — The submit_assignment_output call with the assignment_id.
+
 ### Post-Directive Synthesis
 
 When a directive completes (all assignments done):
@@ -400,4 +416,35 @@ For each one:
 - DM the directive creator with the agent's question
 - Include the blocker reason and suggested options
 - This is an escalation — the agent tried and needs human judgment.
+
+### Retry Strategy — Adapting When Assignments Fail
+
+When an assignment fails (agent aborts, times out, or submits low-quality output), do NOT
+simply send it back with "needs_revision" unchanged. Diagnose the failure and adapt:
+
+**TIMEOUT (agent ran out of time):**
+- The task is too large for a single run. Split it into 2-3 smaller atomic assignments.
+- Example: "Research competitors AND write analysis" → Assignment 1: "Research competitors,
+  output a bullet list of findings" → Assignment 2 (depends on 1): "Write analysis using
+  these findings: {output from assignment 1}"
+
+**STALL (agent made no progress — consecutive failed tool calls):**
+- The agent lacked context or used wrong tools. Enrich the assignment:
+  - Add explicit tool call sequences: "Step 1: call web_search('query'). Step 2: ..."
+  - Embed any data the agent was trying to look up
+  - If a specific tool kept failing, check agent_tool_grants and grant access before retry
+
+**TOOL GRANT FAILURE (agent reported a blocker about missing tools):**
+- Check the tool registry. If the tool exists, grant it immediately (read-only) or via
+  Yellow decision (write). Then re-dispatch — do NOT just send needs_revision.
+
+**REPEATED FAILURES (same assignment failed 3+ times):**
+- Stop retrying the same agent with the same approach. Choose ONE:
+  a) Reassign to a different agent with stronger capabilities for this task type
+  b) Simplify the task to its absolute minimum (one tool call, one output)
+  c) Escalate to founders — the task may require human input or a system fix
+
+**NEVER do this:** Send the same assignment back 3+ times with identical instructions and
+expect different results. Each retry must change something: more context, smaller scope,
+different agent, or explicit tool sequences.
 `;
