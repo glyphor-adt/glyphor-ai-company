@@ -48,10 +48,11 @@ const THINKING_ENABLED_TASKS = new Set([
   'weekly_content_planning',
 ]);
 
-/** 60 s per-model-call timeout for chat — Gemini 3 Flash w/ thinking
- *  can take 30–50 s on the first call with large system prompts.
- *  The supervisor timeout (105 s) provides an overall ceiling. */
-const ON_DEMAND_TIMEOUT_MS = 60_000;
+/** 30 s per-model-call timeout for non-thinking chat calls.
+ *  Thinking calls get 90 s since Gemini 3 w/ thinking can take 30–50 s.
+ *  The supervisor timeout provides an overall ceiling. */
+const ON_DEMAND_CALL_TIMEOUT_MS = 30_000;
+const THINKING_CALL_TIMEOUT_MS = 90_000;
 
 /** Approximate per-token pricing (USD) by model prefix for cost tracking. */
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
@@ -85,6 +86,10 @@ const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = 150_000;
 const TASK_TIER_MAX_TURNS = 20;
 const TASK_TIER_TIMEOUT_MS = 180_000;
 const TASK_TIER_CALL_TIMEOUT_MS = 60_000;
+
+/** Scheduled tasks with thinking enabled get generous limits. */
+const SCHEDULED_THINKING_TIMEOUT_MS = 600_000;
+const SCHEDULED_CALL_TIMEOUT_MS = 90_000;
 
 // ─── TIERED CONTEXT LOADING ───────────────────────────────────
 // light  → on_demand/chat: profile + pending messages + working memory only
@@ -1214,10 +1219,12 @@ export class CompanyAgentRunner {
       let turnNumber = 0;
 
       // ─── ON-DEMAND / TASK TIER SPEED GUARD ─────────────────────
-      // Chat (on_demand) must finish within the dashboard's 120 s abort.
+      // Chat (on_demand) must finish within the dashboard's 180 s abort.
       // Task tier (work_loop) gets tight limits — narrow executor agents.
+      // Scheduled thinking tasks get generous timeouts (10 min).
       // Clamp the supervisor's maxTurns and timeoutMs so the agent
       // doesn't burn 10 tool-call cycles on a simple question.
+      const usesThinking = THINKING_ENABLED_TASKS.has(task) || (config.thinkingEnabled && !THINKING_DISABLED_TASKS.has(task) && !isTaskTier);
       {
         if (task === 'on_demand') {
           supervisor.config.maxTurns = Math.min(supervisor.config.maxTurns, ON_DEMAND_MAX_TURNS);
@@ -1228,6 +1235,9 @@ export class CompanyAgentRunner {
         } else if (isTaskTier) {
           supervisor.config.maxTurns = Math.min(supervisor.config.maxTurns, TASK_TIER_MAX_TURNS);
           supervisor.config.timeoutMs = Math.min(supervisor.config.timeoutMs, TASK_TIER_TIMEOUT_MS);
+        } else if (usesThinking) {
+          // Thinking-enabled scheduled tasks: ensure at least 10 min
+          supervisor.config.timeoutMs = Math.max(supervisor.config.timeoutMs, SCHEDULED_THINKING_TIMEOUT_MS);
         }
       }
 
@@ -1358,7 +1368,11 @@ export class CompanyAgentRunner {
             topK: config.topK,
             thinkingEnabled: effectiveThinking,
             signal: supervisor.signal,
-            callTimeoutMs: isOnDemand ? ON_DEMAND_TIMEOUT_MS : isTaskTier ? TASK_TIER_CALL_TIMEOUT_MS : undefined,
+            callTimeoutMs: isOnDemand
+              ? (effectiveThinking ? THINKING_CALL_TIMEOUT_MS : ON_DEMAND_CALL_TIMEOUT_MS)
+              : isTaskTier
+                ? TASK_TIER_CALL_TIMEOUT_MS
+                : (effectiveThinking ? THINKING_CALL_TIMEOUT_MS : SCHEDULED_CALL_TIMEOUT_MS),
           });
 
           // Accumulate token usage across turns
