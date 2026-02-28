@@ -1,8 +1,10 @@
-name: Auto-fix build failures with Copilot
+name: Auto-fix failures with Copilot
 
 on:
   workflow_run:
     workflows: ["Build & Deploy to Cloud Run"]
+    types: [completed]
+  check_suite:
     types: [completed]
 
 permissions:
@@ -10,9 +12,10 @@ permissions:
   issues: write
 
 jobs:
-  create-fix-issue:
-    # Only trigger when the build workflow failed on main
+  create-fix-issue-workflow:
+    # Trigger when a GitHub Actions workflow failed on main
     if: >
+      github.event_name == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'failure' &&
       github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
@@ -28,7 +31,6 @@ jobs:
           gh api "/repos/${{ github.repository }}/actions/runs/${RUN_ID}/logs" > logs.zip || true
           if [ -f logs.zip ]; then
             unzip -o logs.zip -d run-logs 2>/dev/null || true
-            # Grab the last 80 lines from any log file containing "error" (case-insensitive)
             LOG_SNIPPET=$(grep -rli "error" run-logs/ | head -3 | xargs -I{} tail -80 {} 2>/dev/null | tail -120)
           fi
 
@@ -36,7 +38,6 @@ jobs:
             LOG_SNIPPET="Could not extract logs automatically. See the failed run link below."
           fi
 
-          # Write to file to avoid shell escaping issues
           echo "$LOG_SNIPPET" > /tmp/log_snippet.txt
 
       - name: Check for existing open issue
@@ -44,7 +45,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Don't create duplicate issues if one is already open
           EXISTING=$(gh issue list \
             --repo "${{ github.repository }}" \
             --label "copilot-fix" \
@@ -92,6 +92,90 @@ jobs:
           ISSUE_URL=$(gh issue create \
             --repo "${{ github.repository }}" \
             --title "fix: build failure on main ($(date +%Y-%m-%d))" \
+            --body "$ISSUE_BODY" \
+            --label "bug,copilot-fix" \
+            --assignee "copilot")
+
+          echo "Created issue: $ISSUE_URL"
+
+  create-fix-issue-check:
+    # Trigger when an external check (Supabase, etc.) fails on main
+    if: >
+      github.event_name == 'check_suite' &&
+      github.event.check_suite.conclusion == 'failure' &&
+      github.event.check_suite.head_branch == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get failed check details
+        id: details
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APP_NAME="${{ github.event.check_suite.app.name }}"
+          HEAD_SHA="${{ github.event.check_suite.head_sha }}"
+
+          # Get check run details for this suite
+          CHECK_RUNS=$(gh api \
+            "/repos/${{ github.repository }}/check-suites/${{ github.event.check_suite.id }}/check-runs" \
+            --jq '.check_runs[] | select(.conclusion == "failure") | {name: .name, output_title: .output.title, output_summary: .output.summary, details_url: .details_url}' 2>/dev/null || echo "")
+
+          echo "APP_NAME=$APP_NAME" >> "$GITHUB_OUTPUT"
+          echo "HEAD_SHA=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "$CHECK_RUNS" > /tmp/check_details.txt
+
+      - name: Check for existing open issue
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APP_NAME="${{ steps.details.outputs.APP_NAME }}"
+          EXISTING=$(gh issue list \
+            --repo "${{ github.repository }}" \
+            --label "copilot-fix" \
+            --state open \
+            --search "$APP_NAME failure" \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty')
+
+          if [ -n "$EXISTING" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create issue and assign Copilot
+        if: steps.check.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APP_NAME="${{ steps.details.outputs.APP_NAME }}"
+          HEAD_SHA="${{ steps.details.outputs.HEAD_SHA }}"
+          CHECK_DETAILS=$(cat /tmp/check_details.txt)
+
+          ISSUE_BODY=$(cat <<ENDOFBODY
+          ## External check failure on \`main\`
+
+          The **${APP_NAME}** check failed.
+
+          **Commit:** ${HEAD_SHA}
+
+          ### Check details
+          \`\`\`json
+          ${CHECK_DETAILS}
+          \`\`\`
+
+          ### What to do
+          1. Review the check failure details above
+          2. Investigate the root cause (e.g. migration errors, schema issues, configuration problems)
+          3. Fix the relevant files
+          4. Ensure the check passes on the next push
+          ENDOFBODY
+          )
+
+          ISSUE_URL=$(gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "fix: ${APP_NAME} check failure on main ($(date +%Y-%m-%d))" \
             --body "$ISSUE_BODY" \
             --label "bug,copilot-fix" \
             --assignee "copilot")
