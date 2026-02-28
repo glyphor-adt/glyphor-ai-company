@@ -171,6 +171,9 @@ locals {
     "acs-connection-string",
     "bot-app-id",
     "bot-app-secret",
+    "vercel-token",
+    "vercel-team-fuse",
+    "vercel-team-fuse-projects",
   ]
 }
 
