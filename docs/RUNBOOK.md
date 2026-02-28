@@ -292,6 +292,8 @@ ORDER BY date DESC;
 | `AZURE_CLIENT_SECRET` | Secret Manager | Entra ID app secret |
 | `TEAMS_TEAM_ID` | Secret Manager | Teams team ID |
 | `TEAMS_CHANNEL_*_ID` | Secret Manager | 9 channel IDs |
+| `TEAMS_USER_ANDREW_ID` | Secret Manager | Andrew's Entra Object ID for DMs |
+| `TEAMS_USER_KRISTINA_ID` | Secret Manager | Kristina's Entra Object ID for DMs |
 | `TEAMS_WEBHOOK_KRISTINA` | Secret Manager | Webhook fallback URL |
 | `TEAMS_WEBHOOK_ANDREW` | Secret Manager | Webhook fallback URL |
 | `PORT` | Cloud Run | Auto-set to 8080 |
