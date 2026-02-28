@@ -124,7 +124,7 @@ market research & intelligence, and global platform administration.
 │  │ Simulation   │ ┌────────────────┐    ┌─────────────────────┐      │
 │  │ Engine       │ │ Agent Executor │    │  Decision Queue     │      │
 │  ├──────────────┤ │ (role→runner)  │    │  submit / approve   │      │
-│  │ Meeting      │ │ (34 agent      │    │  reminders (4 h)    │      │
+│  │ Meeting      │ │ (35 agent      │    │  reminders (4 h)    │      │
 │  │ Engine       │ │  roles routed) │    └─────────┬───────────┘      │
 │  ├──────────────┤ └────────┬───────┘              │                 │
 │  │ CoT Engine   │          │                      │                 │
@@ -208,7 +208,7 @@ market research & intelligence, and global platform administration.
 │  documentExtractor.ts             │
 │   (Office doc text extraction)    │
 │  config/agentEmails.ts            │
-│   (34 agent email registry)      │
+│   (35 agent email registry)      │
 └───────────────┬───────────────────┘
                 │
                 ▼
@@ -877,13 +877,13 @@ path that powers 24/7 autonomous operations.
                    └───────────────┘         │                  │
                                              ▼                  ▼
                               ┌──────────────────────────────────┐
-                              │   Role Dispatch (34 branches)    │
+                              │   Role Dispatch (35 branches)    │
                               │                                  │
                               │   chief-of-staff → runCoS()      │
                               │   cto → runCTO()                 │
                               │   cfo → runCFO()                 │
                               │   cpo → runCPO()                 │
-                              │   ... (all 34 agent runners)     │
+                              │   ... (all 35 agent runners)     │
                               └──────────────┬───────────────────┘
                                              │
                                              ▼
@@ -1790,7 +1790,7 @@ Grant requests for tools not in the registry are rejected with a message to ask 
 
 **Database**: `agent_tool_grants` table with columns `agent_role`, `tool_name`, `granted_by`,
 `reason`, `directive_id`, `scope`, `is_active`, `expires_at`. Unique constraint on
-`(agent_role, tool_name)`. Seeded with baseline grants for all 34 agents.
+`(agent_role, tool_name)`. Seeded with baseline grants for all 35 agents.
 
 ### Pre-Dispatch Validation (Chief of Staff)
 
