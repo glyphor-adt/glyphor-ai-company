@@ -32,11 +32,12 @@ const __dirname = dirname(__filename);
 
 // ─── THINKING CONFIG — Task-level override ─────────────────────
 // Controls whether the model uses extended thinking per task type.
-// on_demand (chat) disables thinking entirely for speed.
-// Heavy tasks enable thinking for quality.
+// on_demand (chat) uses dynamic classification — simple questions skip
+// thinking for speed; complex questions enable it for quality.
+// Heavy scheduled tasks always enable thinking.
 
 const THINKING_DISABLED_TASKS = new Set([
-  'on_demand',
+  // on_demand is intentionally NOT here — it uses dynamic classification
 ]);
 
 const THINKING_ENABLED_TASKS = new Set([
@@ -76,9 +77,11 @@ function estimateCost(model: string, inputTokens: number, outputTokens: number):
  *  dashboard's 180 s fetch-abort so users actually see the response.
  *  Turn budget: up to 6 tool turns + 1 forced-text turn.
  *  Timeout leaves 30 s headroom before the dashboard's 180 s abort.
+ *  When thinking is dynamically enabled, use a higher supervisor timeout.
  */
 const ON_DEMAND_MAX_TURNS = 12;
 const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = 150_000;
+const ON_DEMAND_THINKING_SUPERVISOR_TIMEOUT_MS = 170_000;
 
 /** Task tier (work_loop) — narrow executor with tight limits.
  *  Research/account agents need multi-step tool calls (each = 2 turns),
@@ -98,6 +101,25 @@ const SCHEDULED_CALL_TIMEOUT_MS = 90_000;
 // full   → briefing, orchestrate, deep analysis: everything including CI, graph, skills
 
 type ContextTier = 'light' | 'task' | 'standard' | 'full';
+
+// ─── DYNAMIC THINKING CLASSIFIER ──────────────────────────────
+// Heuristic classifier for on_demand (chat) messages. Returns true when
+// the question is complex enough to benefit from extended thinking.
+
+const THINKING_TRIGGERS = /\b(analy[sz]e|compar[ei]|evaluat|strateg|prioriti[sz]|trade.?off|pros?.and?.cons|debug|refactor|architect|design|optimi[sz]|root.cause|correlat|recommend|assess|scenario|simulat|forecast|plan|roadmap|review|audit|break.?down|deep.dive|think.through|step.by.step|explain.why|explain.how|what.should|how.would|in.depth|comprehensive|thorough)\b/i;
+const COMPLEX_INDICATORS = /\?.*\?|\band\b.*\band\b|\bvs\.?\b|\bversus\b|\bbetween\b.*\band\b/i;
+
+function needsThinking(message: string): boolean {
+  // Short messages (< 15 chars) are almost always simple greetings/commands
+  if (message.length < 15) return false;
+  // Check for analytical / complex question patterns
+  if (THINKING_TRIGGERS.test(message)) return true;
+  // Multiple questions or comparison patterns
+  if (COMPLEX_INDICATORS.test(message)) return true;
+  // Long messages with question marks tend to be complex
+  if (message.length > 200 && message.includes('?')) return true;
+  return false;
+}
 
 const FULL_CONTEXT_TASKS = new Set([
   'morning_briefing',
@@ -1224,11 +1246,17 @@ export class CompanyAgentRunner {
       // Scheduled thinking tasks get generous timeouts (10 min).
       // Clamp the supervisor's maxTurns and timeoutMs so the agent
       // doesn't burn 10 tool-call cycles on a simple question.
-      const usesThinking = THINKING_ENABLED_TASKS.has(task) || (config.thinkingEnabled && !THINKING_DISABLED_TASKS.has(task) && !isTaskTier);
+      // Dynamic thinking for on_demand: classify the user's message to decide.
+      // For scheduled tasks, use the static config.
+      const chatNeedsThinking = task === 'on_demand' && config.thinkingEnabled !== false && needsThinking(initialMessage);
+      const usesThinking = chatNeedsThinking || THINKING_ENABLED_TASKS.has(task) || (config.thinkingEnabled && !THINKING_DISABLED_TASKS.has(task) && !isTaskTier);
       {
         if (task === 'on_demand') {
           supervisor.config.maxTurns = Math.min(supervisor.config.maxTurns, ON_DEMAND_MAX_TURNS);
-          supervisor.config.timeoutMs = Math.min(supervisor.config.timeoutMs, ON_DEMAND_SUPERVISOR_TIMEOUT_MS);
+          supervisor.config.timeoutMs = Math.min(
+            supervisor.config.timeoutMs,
+            chatNeedsThinking ? ON_DEMAND_THINKING_SUPERVISOR_TIMEOUT_MS : ON_DEMAND_SUPERVISOR_TIMEOUT_MS,
+          );
           // Successful read-only tool results count as progress in chat —
           // the agent is gathering info to answer a question, not stalling.
           supervisor.config.readsAsProgress = true;
@@ -1330,7 +1358,12 @@ export class CompanyAgentRunner {
             ? buildTaskTierSystemPrompt(agentProfile)
             : buildSystemPrompt(config.role, config.systemPrompt, dynamicBrief, agentProfile, skillContext, dbKnowledgeBase, bulletinContext, isOnDemand);
           let effectiveThinking = config.thinkingEnabled;
-          if (THINKING_DISABLED_TASKS.has(task) || isTaskTier) {
+          if (isTaskTier) {
+            effectiveThinking = false;
+          } else if (task === 'on_demand') {
+            // Dynamic: enable thinking only when the message warrants it
+            effectiveThinking = chatNeedsThinking;
+          } else if (THINKING_DISABLED_TASKS.has(task)) {
             effectiveThinking = false;
           } else if (THINKING_ENABLED_TASKS.has(task)) {
             effectiveThinking = true;
