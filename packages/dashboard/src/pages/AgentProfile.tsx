@@ -1522,7 +1522,7 @@ function SettingsTab({
   const [savedReasoning, setSavedReasoning] = useState(false);
 
   const ALL_PASS_TYPES = ['self_critique', 'consistency_check', 'factual_verification', 'goal_alignment', 'cross_model', 'value_analysis'] as const;
-  const ALL_VERIFICATION_MODELS = ['gemini-3-flash-preview', 'gpt-4.1-mini', 'claude-haiku-4-5', 'gemini-2.5-flash', 'o4-mini'] as const;
+  const ALL_VERIFICATION_MODELS = ['gemini-3-flash-preview', 'gpt-5.2-2025-12-11', 'claude-opus-4-6'] as const;
 
   useEffect(() => {
     // Load reasoning config

@@ -48,7 +48,7 @@ function defaultConfig(overrides?: Partial<ReasoningConfig>): ReasoningConfig {
     maxReasoningBudget: 0.05,
     crossModelEnabled: false,
     valueGateEnabled: true,
-    verificationModels: ['gemini-2.5-flash-lite'],
+    verificationModels: ['gemini-3-flash-preview'],
     ...overrides,
   };
 }
@@ -243,7 +243,7 @@ describe('ReasoningEngine', () => {
         max_reasoning_budget: 0.03,
         cross_model_enabled: true,
         value_gate_enabled: false,
-        verification_models: ['gpt-4.1-mini'],
+        verification_models: ['gpt-5.2-2025-12-11'],
       };
       const sb = {
         from: vi.fn().mockReturnValue({
@@ -277,7 +277,7 @@ describe('ReasoningEngine', () => {
         maxReasoningBudget: 0.02,
         crossModelEnabled: false,
         valueGateEnabled: true,
-        verificationModels: ['gemini-2.5-flash-lite'],
+        verificationModels: ['gemini-3-flash-preview'],
       };
       cache.get = vi.fn().mockResolvedValue(cachedConfig);
 

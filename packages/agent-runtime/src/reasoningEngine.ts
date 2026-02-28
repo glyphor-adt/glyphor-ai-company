@@ -69,15 +69,15 @@ export interface ValueAlternative {
 // ─── Verification model pricing (cheapest tiers) ────────────────
 
 const VERIFICATION_PRICING: Record<string, { input: number; output: number }> = {
-  'gemini-2.5-flash-lite': { input: 0.015 / 1_000_000, output: 0.06 / 1_000_000 },
-  'gpt-4.1-mini':          { input: 0.40 / 1_000_000, output: 1.60 / 1_000_000 },
-  'claude-haiku-4-5-20250514': { input: 0.80 / 1_000_000, output: 4.00 / 1_000_000 },
+  'gemini-3-flash-preview':    { input: 0.10 / 1_000_000, output: 0.40 / 1_000_000 },
+  'gpt-5.2-2025-12-11':        { input: 2.00 / 1_000_000, output: 8.00 / 1_000_000 },
+  'claude-opus-4-6':           { input: 15.00 / 1_000_000, output: 75.00 / 1_000_000 },
 };
 
 const MAX_REVISIONS = 2;
 
 function estimateVerificationCost(model: string, inputTokens: number, outputTokens: number): number {
-  const pricing = VERIFICATION_PRICING[model] ?? VERIFICATION_PRICING['gemini-2.5-flash-lite'];
+  const pricing = VERIFICATION_PRICING[model] ?? VERIFICATION_PRICING['gemini-3-flash-preview'];
   return inputTokens * pricing.input + outputTokens * pricing.output;
 }
 
@@ -129,6 +129,7 @@ Respond ONLY with valid JSON (no markdown):
         systemInstruction: 'You are a JSON-only value assessment engine. Always respond with valid JSON.',
         contents: [{ role: 'user', content: prompt, timestamp: Date.now() }],
         temperature: 0.1,
+        thinkingEnabled: true,
         callTimeoutMs: 15_000,
       });
 
@@ -278,6 +279,7 @@ Respond ONLY with valid JSON (no markdown):
         systemInstruction: 'You are a JSON-only verification engine. Always respond with valid JSON.',
         contents: [{ role: 'user', content: prompt, timestamp: Date.now() }],
         temperature: 0.1,
+        thinkingEnabled: true,
         callTimeoutMs: 20_000,
       });
 
@@ -393,6 +395,7 @@ Provide the revised output directly (no JSON wrapping, no explanation).`;
         systemInstruction: 'You are a precise output revision engine. Return only the improved output.',
         contents: [{ role: 'user', content: prompt, timestamp: Date.now() }],
         temperature: 0.2,
+        thinkingEnabled: true,
         callTimeoutMs: 20_000,
       });
 
@@ -406,7 +409,7 @@ Provide the revised output directly (no JSON wrapping, no explanation).`;
   /** Select verification model by round-robin through configured models. */
   private getVerificationModel(passIndex: number): string {
     const models = this.config.verificationModels;
-    if (models.length === 0) return 'gemini-2.5-flash-lite';
+    if (models.length === 0) return 'gemini-3-flash-preview';
     return models[passIndex % models.length];
   }
 
