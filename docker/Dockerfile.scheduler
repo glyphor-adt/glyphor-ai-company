@@ -43,8 +43,8 @@ COPY --from=builder /app/packages/scheduler/dist packages/scheduler/dist
 # Copy company knowledge files (read at runtime by agent runner)
 COPY packages/company-knowledge/ packages/company-knowledge/
 
-# Copy logo for watermarking
-COPY packages/dashboard/public/glyphor-logo.png public/glyphor-logo.png
+# Copy logo for watermarking from builder stage (dashboard package is in builder, not runtime)
+COPY --from=builder /app/packages/dashboard/public/glyphor-logo.png ./public/glyphor-logo.png
 
 ENV NODE_ENV=production
 
