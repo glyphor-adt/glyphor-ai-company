@@ -36,7 +36,7 @@ const __dirname = dirname(__filename);
 // thinking for speed; complex questions enable it for quality.
 // Heavy scheduled tasks always enable thinking.
 
-const THINKING_DISABLED_TASKS = new Set([
+const THINKING_DISABLED_TASKS = new Set<string>([
   // on_demand is intentionally NOT here — it uses dynamic classification
 ]);
 
