@@ -37,8 +37,8 @@ CREATE TABLE IF NOT EXISTS tool_registry (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_tool_registry_category ON tool_registry(category) WHERE is_active = true;
-CREATE INDEX idx_tool_registry_created_by ON tool_registry(created_by);
+CREATE INDEX IF NOT EXISTS idx_tool_registry_category ON tool_registry(category) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_tool_registry_created_by ON tool_registry(created_by);
 
 -- ─── Tool Requests ─────────────────────────────────────────────
 -- Any agent can request a new tool. Goes through approval workflow.
@@ -67,8 +67,8 @@ CREATE TABLE IF NOT EXISTS tool_requests (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_tool_requests_status ON tool_requests(status) WHERE status IN ('pending', 'approved', 'building');
-CREATE INDEX idx_tool_requests_requested_by ON tool_requests(requested_by);
+CREATE INDEX IF NOT EXISTS idx_tool_requests_status ON tool_requests(status) WHERE status IN ('pending', 'approved', 'building');
+CREATE INDEX IF NOT EXISTS idx_tool_requests_requested_by ON tool_requests(requested_by);
 
 -- ─── Functions ──────────────────────────────────────────────────
 
