@@ -18,11 +18,10 @@ export class OpenAIAdapter implements ProviderAdapter {
       apiKey,
       maxRetries: 0,      // We handle retries in ModelClient
       timeout: 120_000,   // 2 minute timeout per request
-      fetch: async (url: RequestInfo | URL, init?: RequestInit) => {
+      fetch: async (url: string | URL | Request, init?: RequestInit) => {
         // Force fresh TCP connections in Cloud Run (no connection pool reuse)
         const resp = await globalThis.fetch(url, {
           ...init,
-          // @ts-expect-error — Node.js fetch supports keepalive
           keepalive: false,
         });
         return resp;

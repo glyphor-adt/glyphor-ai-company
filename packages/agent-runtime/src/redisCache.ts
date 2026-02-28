@@ -284,15 +284,29 @@ let _instance: RedisCache | null = null;
 /**
  * Get or create the singleton RedisCache instance.
  * Uses REDIS_HOST / REDIS_PORT env vars (defaults for GCP Memorystore).
+ * If REDIS_HOST is not set, returns a no-op stub to avoid 15s connection
+ * timeouts against a non-existent default IP.
  */
 export function getRedisCache(): RedisCache {
   if (!_instance) {
-    _instance = new RedisCache({
-      host: process.env.REDIS_HOST ?? '10.0.0.3',
-      port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
-      tls: process.env.REDIS_TLS !== 'false',
-      keyPrefix: process.env.REDIS_PREFIX ?? 'glyphor:',
-    });
+    if (!process.env.REDIS_HOST) {
+      // No Redis configured — return a disabled stub
+      _instance = new RedisCache({
+        host: '127.0.0.1',
+        port: 0,
+        keyPrefix: 'glyphor:',
+        connectTimeoutMs: 1,   // fail instantly
+        retryCooldownMs: 300_000, // don't retry for 5 minutes
+      });
+      console.log('[RedisCache] REDIS_HOST not set — cache disabled');
+    } else {
+      _instance = new RedisCache({
+        host: process.env.REDIS_HOST,
+        port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
+        tls: process.env.REDIS_TLS !== 'false',
+        keyPrefix: process.env.REDIS_PREFIX ?? 'glyphor:',
+      });
+    }
   }
   return _instance;
 }
