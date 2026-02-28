@@ -10,7 +10,7 @@ const STORAGE_KEY = 'glyphor-auth';
 const FALLBACK_EMAILS = ['kristina@glyphor.ai', 'andrew@glyphor.ai', 'devops@glyphor.ai', 'andrew.zwelling@gmail.com'];
 
 /** Emails that are always treated as admin even if DB is down */
-export const FALLBACK_ADMINS = ['kristina@glyphor.ai', 'andrew@glyphor.ai', 'andrew.zwelling@gmail.com'];
+export const FALLBACK_ADMINS = ['kristina@glyphor.ai', 'andrew@glyphor.ai', 'andrew.zwelling@gmail.com', 'devops@glyphor.ai'];
 
 // Cache allowed emails from the DB so we don't query on every check
 let _allowedCache: Set<string> | null = null;
