@@ -193,6 +193,11 @@ echo -n "..." | gcloud secrets versions add teams-channel-product-pulse-id --dat
 # Teams — Webhook fallbacks
 echo -n "https://..." | gcloud secrets versions add teams-webhook-kristina --data-file=-
 echo -n "https://..." | gcloud secrets versions add teams-webhook-andrew --data-file=-
+
+# Vercel — Deployment monitoring & health checks
+echo -n "..." | gcloud secrets versions add vercel-token --data-file=-
+echo -n "..." | gcloud secrets versions add vercel-team-fuse --data-file=-
+echo -n "..." | gcloud secrets versions add vercel-team-fuse-projects --data-file=-
 ```
 
 ---
@@ -294,6 +299,9 @@ ORDER BY date DESC;
 | `TEAMS_CHANNEL_*_ID` | Secret Manager | 9 channel IDs |
 | `TEAMS_WEBHOOK_KRISTINA` | Secret Manager | Webhook fallback URL |
 | `TEAMS_WEBHOOK_ANDREW` | Secret Manager | Webhook fallback URL |
+| `VERCEL_TOKEN` | Secret Manager | Vercel API authentication token |
+| `VERCEL_TEAM_FUSE` | Secret Manager | Vercel team ID for Fuse product |
+| `VERCEL_TEAM_FUSE_PROJECTS` | Secret Manager | Vercel team ID for Fuse user projects |
 | `PORT` | Cloud Run | Auto-set to 8080 |
 
 ### Dashboard (Build Args)
