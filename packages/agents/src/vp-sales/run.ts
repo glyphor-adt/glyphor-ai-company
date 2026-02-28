@@ -85,8 +85,10 @@ Steps:
 4. Analyse the current pipeline: leads → qualified → proposals → closed
 5. Identify any stalled deals or conversion-rate issues
 6. Use write_pipeline_report with summary and recommendations
-7. If any large deal needs founder attention, use create_decision
-8. Use log_activity summarising findings`;
+7. If any large deal FROM VERIFIED DATA needs founder attention, use create_decision
+8. Use log_activity summarising findings
+
+IMPORTANT: Only report on deals and prospects that exist in the data you retrieve. If the pipeline is empty or has no active deals, report that honestly. Do NOT invent companies, ARR figures, or opportunities.`;
       break;
 
     case 'market_sizing':

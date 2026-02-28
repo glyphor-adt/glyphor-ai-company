@@ -13,6 +13,7 @@ import type { StrategyAnalysisRecord, SynthesisOutput } from './strategyLabEngin
 import PptxGenJS from 'pptxgenjs';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType, PageNumber, Header, Footer, Tab, TabStopPosition, TabStopType, convertInchesToTwip } from 'docx';
 import { BRAND, TYPOGRAPHY, IDENTITY, DOC_LABELS, SLIDE, VISUAL_PALETTE_PROMPT, VISUAL_STYLE_PROMPT } from './brandTheme.js';
+import { LOGO_DATA_URI } from './logoAsset.js';
 
 /* â”€â”€ Shared PPTX theme â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
@@ -40,8 +41,10 @@ function pptxTitleSlide(pptx: PptxGenJS, title: string, subtitle: string, meta: 
   slide.background = { color: SLIDE_BG };
   // Top accent bar
   slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: SLIDE_CYAN } });
-  // Brand mark
-  slide.addText('GLYPHOR', { x: 0.6, y: 0.4, w: 9, fontSize: 13, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, charSpacing: 5 });
+  // Logo
+  slide.addImage({ data: LOGO_DATA_URI, x: 0.4, y: 0.2, w: 0.45, h: 0.5 });
+  // Brand mark (next to logo)
+  slide.addText('GLYPHOR', { x: 0.9, y: 0.3, w: 9, fontSize: 13, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, charSpacing: 5 });
   // Accent rule
   slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 0.8, w: 1.4, h: 0.04, fill: { color: SLIDE_CYAN } });
   // Title
@@ -1088,13 +1091,41 @@ export async function exportDeepDivePPTX(record: DeepDiveRecord): Promise<Buffer
   pptx.title = `Deep Dive: ${record.target}`;
 
   const report = record.report;
-  pptxTitleSlide(pptx, `Strategic Deep Dive`, record.target, `${record.sources.length} sources analyzed  ·  ${new Date(record.created_at).toLocaleDateString()}  ·  Glyphor AI Strategy Lab`);
+  pptxTitleSlide(pptx, `Strategic Deep Dive`, record.target, `${record.sources.length} sources analyzed  ·  Cross-model verified  ·  ${new Date(record.created_at).toLocaleDateString()}  ·  Glyphor AI Strategy Lab`);
 
   if (!report) {
     const slide = pptx.addSlide();
     slide.background = { color: SLIDE_BG };
     slide.addText('Report not yet generated.', { x: 1, y: 2, w: 8, fontSize: 18, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
     return (await pptx.write({ outputType: 'nodebuffer' })) as unknown as Buffer;
+  }
+
+  // Verification Summary slide
+  if (report.verificationSummary) {
+    const vs = report.verificationSummary;
+    const slide = pptx.addSlide();
+    slide.background = { color: SLIDE_BG };
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: SLIDE_CYAN } });
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.06, h: 5.63, fill: { color: SLIDE_CYAN } });
+    slide.addText('Cross-Model Verification', { x: 0.6, y: 0.25, w: 7, fontSize: 22, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true });
+    const confColor = vs.overallConfidence >= 0.8 ? SLIDE_GREEN : vs.overallConfidence >= 0.6 ? SLIDE_AMBER : SLIDE_RED;
+    slide.addShape(pptx.ShapeType.roundRect, { x: 7.2, y: 0.15, w: 2.5, h: 0.5, fill: { color: SLIDE_BG2 }, line: { color: confColor, width: 2 }, rectRadius: 0.08 });
+    slide.addText(`${Math.round(vs.overallConfidence * 100)}% Confidence`, { x: 7.2, y: 0.15, w: 2.5, h: 0.5, fontSize: 12, color: confColor, fontFace: FONT_HEADING, bold: true, align: 'center', valign: 'middle' });
+    slide.addText(`${vs.areasVerified} research areas verified across ${vs.modelsUsed.length} AI models`, { x: 0.6, y: 0.9, w: 9, fontSize: 13, color: SLIDE_TEXT, fontFace: FONT_BODY });
+    slide.addText(`Models used: ${vs.modelsUsed.join(', ')}`, { x: 0.6, y: 1.3, w: 9, fontSize: 11, color: SLIDE_MUTED, fontFace: FONT_BODY });
+    if (vs.flaggedClaims.length > 0) {
+      slide.addText('Flagged Claims', { x: 0.6, y: 1.9, w: 4, fontSize: 14, color: SLIDE_AMBER, fontFace: FONT_HEADING, bold: true });
+      vs.flaggedClaims.slice(0, 4).forEach((c, i) => {
+        slide.addText(`⚠ ${c}`, { x: 0.6, y: 2.3 + i * 0.45, w: 4.2, fontSize: 10, color: SLIDE_TEXT, fontFace: FONT_BODY });
+      });
+    }
+    if (vs.correctionsMade.length > 0) {
+      slide.addText('Corrections Applied', { x: 5.2, y: 1.9, w: 4, fontSize: 14, color: SLIDE_GREEN, fontFace: FONT_HEADING, bold: true });
+      vs.correctionsMade.slice(0, 4).forEach((c, i) => {
+        slide.addText(`✓ ${c}`, { x: 5.2, y: 2.3 + i * 0.45, w: 4.5, fontSize: 10, color: SLIDE_TEXT, fontFace: FONT_BODY });
+      });
+    }
+    addSlideFooter(slide, pptx);
   }
 
   // Current State
@@ -1146,13 +1177,44 @@ export async function exportDeepDivePPTX(record: DeepDiveRecord): Promise<Buffer
     );
   }
 
+  // Source Citations
+  if (report.sourceCitations && report.sourceCitations.length > 0) {
+    const SOURCES_PER_SLIDE = 10;
+    const sourceChunks: typeof report.sourceCitations[] = [];
+    for (let i = 0; i < report.sourceCitations.length; i += SOURCES_PER_SLIDE) {
+      sourceChunks.push(report.sourceCitations.slice(i, i + SOURCES_PER_SLIDE));
+    }
+    sourceChunks.forEach((chunk, pageIdx) => {
+      const slide = pptx.addSlide();
+      slide.background = { color: SLIDE_BG };
+      slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: SLIDE_CYAN } });
+      slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.06, h: 5.63, fill: { color: SLIDE_CYAN } });
+      slide.addText(`Sources & References${sourceChunks.length > 1 ? ` (${pageIdx + 1}/${sourceChunks.length})` : ''}`, {
+        x: 0.6, y: 0.25, w: 9, fontSize: 22, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true,
+      });
+      chunk.forEach((src, i) => {
+        const yPos = 0.9 + i * 0.4;
+        const label = `[${src.id}] ${src.title}${src.url ? ` — ${src.url}` : ''} (${src.type})`;
+        slide.addText(label, { x: 0.6, y: yPos, w: 9, fontSize: 9, color: SLIDE_TEXT, fontFace: FONT_BODY });
+      });
+      addSlideFooter(slide, pptx);
+    });
+  }
+
   // Closing
   {
     const slide = pptx.addSlide();
     slide.background = { color: SLIDE_BG };
     slide.addShape(pptx.ShapeType.rect, { x: 0, y: 2.6, w: 10, h: 0.04, fill: { color: SLIDE_CYAN } });
-    slide.addText('GLYPHOR', { x: 0.6, y: 1.8, w: 8.8, fontSize: 28, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, align: 'center', charSpacing: 6 });
+    // Logo on closing slide
+    slide.addImage({ data: LOGO_DATA_URI, x: 4.3, y: 1.0, w: 1.0, h: 1.1 });
+    slide.addText('GLYPHOR', { x: 0.6, y: 2.1, w: 8.8, fontSize: 28, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, align: 'center', charSpacing: 6 });
     slide.addText('Strategic Deep Dive Complete', { x: 0.6, y: 2.9, w: 8.8, fontSize: 14, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
+    if (report.verificationSummary) {
+      slide.addText(`Cross-model verified (${Math.round(report.verificationSummary.overallConfidence * 100)}% confidence)  ·  ${record.sources.length} sources cited`, {
+        x: 0.6, y: 3.4, w: 8.8, fontSize: 11, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center',
+      });
+    }
     addSlideFooter(slide, pptx);
   }
 

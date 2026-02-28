@@ -25,6 +25,27 @@ import { searchWeb, searchNews, batchSearch, searchResultsToContext } from '@gly
 const VERIFICATION_MODELS = ['gemini-3-flash-preview', 'gpt-4.1-mini'] as const;
 const VERIFICATION_CONFIDENCE_THRESHOLD = 0.7;
 
+/**
+ * Multi-agent research model assignments — each research area gets a different
+ * primary model to ensure diverse perspectives and reduce single-model bias.
+ * A second model challenges each area's findings.
+ */
+const RESEARCH_MODELS: Record<string, string> = {
+  overview:    'gemini-3-flash-preview',
+  financials:  'gpt-4.1-mini',
+  technology:  'gemini-3-flash-preview',
+  market:      'gpt-4.1-mini',
+  competitive: 'gemini-3-flash-preview',
+  leadership:  'gpt-4.1-mini',
+  customers:   'gemini-3-flash-preview',
+  risks:       'gpt-4.1-mini',
+};
+
+/** The challenger model critiques work done by the primary */
+function getChallengerModel(primary: string): string {
+  return primary === 'gemini-3-flash-preview' ? 'gpt-4.1-mini' : 'gemini-3-flash-preview';
+}
+
 /* ── Types ──────────────────────────────────── */
 
 export type DeepDiveStatus =
@@ -155,6 +176,23 @@ export interface RiskItem {
   owner: string;
 }
 
+export interface SourceCitation {
+  id: number;            // [1], [2], etc. for in-text references
+  title: string;
+  url?: string;
+  type: 'web' | 'news' | 'sec' | 'patent' | 'report';
+  snippet?: string;
+  date?: string;
+}
+
+export interface VerificationSummary {
+  overallConfidence: number;        // 0.0-1.0
+  areasVerified: number;
+  flaggedClaims: string[];
+  correctionsMade: string[];
+  modelsUsed: string[];
+}
+
 export interface DeepDiveReport {
   targetName: string;
   targetType: string;             // 'Public Company' | 'Private Company' | 'Market' | 'Topic'
@@ -173,6 +211,8 @@ export interface DeepDiveReport {
   implementationRoadmap: RoadmapPhase[];
   roiAnalysis: RoiScenario[];
   riskAssessment: RiskItem[];
+  sourceCitations: SourceCitation[];
+  verificationSummary: VerificationSummary;
 }
 
 export interface DeepDiveRecord {
@@ -199,8 +239,10 @@ function buildResearchAreas(target: string): ResearchArea[] {
       perspective: 'chief-of-staff',
       searchQueries: [
         `${target} company overview history founded`,
-        `${target} leadership team CEO executives`,
+        `${target} leadership team CEO executives board`,
         `${target} products services business model`,
+        `${target} company mission vision strategy`,
+        `${target} recent announcements milestones 2024 2025`,
       ],
       status: 'pending',
       sourcesFound: 0,
@@ -211,8 +253,10 @@ function buildResearchAreas(target: string): ResearchArea[] {
       perspective: 'cfo',
       searchQueries: [
         `${target} revenue growth funding valuation`,
-        `${target} financial performance earnings`,
-        `${target} investors funding rounds`,
+        `${target} financial performance earnings quarterly`,
+        `${target} investors funding rounds series`,
+        `${target} profitability margins unit economics`,
+        `${target} financial outlook analyst estimates`,
       ],
       status: 'pending',
       sourcesFound: 0,
@@ -223,8 +267,10 @@ function buildResearchAreas(target: string): ResearchArea[] {
       perspective: 'cto',
       searchQueries: [
         `${target} technology stack platform architecture`,
-        `${target} patents intellectual property`,
-        `${target} product features capabilities`,
+        `${target} patents intellectual property innovations`,
+        `${target} product features capabilities roadmap`,
+        `${target} API developer ecosystem integrations`,
+        `${target} engineering team technical blog infrastructure`,
       ],
       status: 'pending',
       sourcesFound: 0,
@@ -234,9 +280,11 @@ function buildResearchAreas(target: string): ResearchArea[] {
       label: 'Market & Industry',
       perspective: 'cmo',
       searchQueries: [
-        `${target} market size TAM industry`,
-        `${target} industry trends growth forecast`,
-        `${target} market positioning segment`,
+        `${target} market size TAM industry forecast`,
+        `${target} industry trends growth drivers CAGR`,
+        `${target} market positioning target segment`,
+        `${target} addressable market opportunity expansion`,
+        `${target} industry report analyst forecast`,
       ],
       status: 'pending',
       sourcesFound: 0,
@@ -247,8 +295,10 @@ function buildResearchAreas(target: string): ResearchArea[] {
       perspective: 'competitive-intel',
       searchQueries: [
         `${target} competitors competitive analysis`,
-        `${target} vs alternatives comparison`,
-        `${target} market share competitive position`,
+        `${target} vs alternatives comparison review`,
+        `${target} market share competitive position ranking`,
+        `${target} competitive advantages moat differentiation`,
+        `${target} competitor funding revenue comparison`,
       ],
       status: 'pending',
       sourcesFound: 0,
@@ -258,9 +308,11 @@ function buildResearchAreas(target: string): ResearchArea[] {
       label: 'Leadership & Culture',
       perspective: 'vp-customer-success',
       searchQueries: [
-        `${target} company culture glassdoor reviews`,
-        `${target} leadership team management changes`,
-        `${target} hiring headcount growth`,
+        `${target} company culture glassdoor reviews workplace`,
+        `${target} leadership team management changes CEO`,
+        `${target} hiring headcount growth layoffs`,
+        `${target} executive appointments departures reorganization`,
+        `${target} diversity inclusion employee satisfaction`,
       ],
       status: 'pending',
       sourcesFound: 0,
@@ -271,8 +323,10 @@ function buildResearchAreas(target: string): ResearchArea[] {
       perspective: 'vp-sales',
       searchQueries: [
         `${target} customers case studies testimonials`,
-        `${target} pricing plans tiers`,
+        `${target} pricing plans tiers enterprise`,
         `${target} sales go-to-market distribution channels`,
+        `${target} customer acquisition retention churn NPS`,
+        `${target} partnerships strategic alliances channels`,
       ],
       status: 'pending',
       sourcesFound: 0,
@@ -284,7 +338,9 @@ function buildResearchAreas(target: string): ResearchArea[] {
       searchQueries: [
         `${target} risks lawsuits regulatory issues`,
         `${target} challenges controversy problems`,
-        `${target} industry regulation compliance`,
+        `${target} industry regulation compliance requirements`,
+        `${target} cybersecurity data privacy incidents`,
+        `${target} geopolitical supply chain risks vulnerabilities`,
       ],
       status: 'pending',
       sourcesFound: 0,
@@ -368,7 +424,7 @@ export class DeepDiveEngine {
   ): Promise<void> {
     const allSources: Source[] = [];
 
-    // ── Phase 1: RESEARCH — web search all areas in parallel ──
+    // ── Phase 1: RESEARCH — web search all areas in parallel (expanded) ──
     await this.updateStatus(id, 'researching');
 
     const searchResults = await Promise.allSettled(
@@ -376,11 +432,11 @@ export class DeepDiveEngine {
         area.status = 'searching';
         await this.updateAreas(id, areas);
 
-        // Run web searches for this area
-        const webResults = await batchSearch(area.searchQueries, { num: 8 });
+        // Run web searches for this area — 5 queries × 10 results each
+        const webResults = await batchSearch(area.searchQueries, { num: 10 });
 
-        // Also search news for this area
-        const newsResults = await searchNews(`${req.target} ${area.label}`, { num: 5 });
+        // Also search news for this area (2 news queries for depth)
+        const newsResults = await searchNews(`${req.target} ${area.label}`, { num: 8 });
 
         const areaContext = searchResultsToContext(webResults);
         const newsSummary = newsResults.map((n) =>
@@ -412,8 +468,10 @@ export class DeepDiveEngine {
       }),
     );
 
-    // ── Phase 2: ANALYZE — specialist analysis per area ──
+    // ── Phase 2: ANALYZE — multi-model specialist analysis per area ──
     await this.updateStatus(id, 'analyzing');
+
+    const areaAnalyses = new Map<string, { analysis: string; model: string }>();
 
     const analysisResults = await Promise.allSettled(
       searchResults.map(async (sr, i) => {
@@ -427,12 +485,16 @@ export class DeepDiveEngine {
         area.status = 'analyzing';
         await this.updateAreas(id, areas);
 
+        // Use area-specific model for diverse perspectives
+        const primaryModel = RESEARCH_MODELS[area.id] ?? this.model;
+
         const analysisPrompt = [
           `You are a senior strategic consultant at Glyphor analyzing "${req.target}" from the perspective of ${area.label}.`,
           req.context ? `Additional context: ${req.context}` : '',
           ``,
           `Below are real search results gathered from the web. Use ONLY this data to form your analysis.`,
           `Mark any claims that aren't directly supported by the sources as [ESTIMATED].`,
+          `When citing specific facts, reference the source like [Source: "article title"].`,
           ``,
           `## Web Search Results`,
           context || 'No web results found.',
@@ -441,25 +503,80 @@ export class DeepDiveEngine {
           news || 'No recent news found.',
           ``,
           `Provide a thorough, data-backed analysis covering:`,
-          `1. Key findings with specific data points and evidence`,
-          `2. Notable trends or patterns`,
-          `3. Gaps in available data`,
-          `4. Implications for strategic positioning`,
+          `1. Key findings with specific data points and evidence — CITE YOUR SOURCES for every fact`,
+          `2. Notable trends or patterns — with supporting data`,
+          `3. Gaps in available data — be explicit about what you couldn't find`,
+          `4. Implications for strategic positioning — with evidence`,
+          `5. Contradictions or uncertainties across sources`,
+          `6. Quantitative data points (revenue, growth %, market size, headcount, etc.)`,
           ``,
           `Be specific. Quote numbers, dates, and sources. Don't hedge — if data is limited, say so explicitly.`,
+          `This analysis should be at least 800 words with detailed evidence.`,
         ].join('\n');
 
         const response = await this.modelClient.generate({
-          model: this.model,
-          systemInstruction: `You are a senior strategic consultant producing research-grade analysis. Be precise, data-driven, and cite your sources. No filler or corporate boilerplate.`,
+          model: primaryModel,
+          systemInstruction: `You are a senior strategic consultant producing research-grade analysis. Be precise, data-driven, and cite your sources. No filler or corporate boilerplate. Produce detailed, evidence-rich prose.`,
           contents: [{ role: 'user', content: analysisPrompt, timestamp: Date.now() }],
           temperature: 0.3,
         });
 
         area.analysis = response.text ?? 'No analysis produced.';
         area.status = 'completed';
+        areaAnalyses.set(area.id, { analysis: area.analysis, model: primaryModel });
       }),
     );
+
+    await this.updateAreas(id, areas);
+
+    // ── Phase 2b: CHALLENGE — second model critiques each area (multi-agent) ──
+    const challengeResults = new Map<string, string>();
+
+    const completedAreas = areas.filter((a) => a.status === 'completed' && a.analysis);
+
+    await Promise.allSettled(
+      completedAreas.map(async (area) => {
+        const primary = areaAnalyses.get(area.id);
+        if (!primary) return;
+
+        const challengerModel = getChallengerModel(primary.model);
+
+        const challengePrompt = [
+          `A colleague produced the following research analysis on "${req.target}" (${area.label}).`,
+          `Your job is to critically evaluate it: identify gaps, unsupported claims, missing data,`,
+          `alternative interpretations, and areas that need deeper investigation.`,
+          ``,
+          `== ANALYSIS TO CHALLENGE ==`,
+          primary.analysis,
+          ``,
+          `Respond with:`,
+          `1. STRENGTHS: What's well-supported and accurate`,
+          `2. GAPS: What important data or perspectives are missing`,
+          `3. CHALLENGES: Claims that may be wrong or oversimplified`,
+          `4. ADDITIONAL INSIGHTS: What the analyst missed or should have included`,
+          `5. REVISED CONCLUSIONS: Your refined view incorporating all of the above`,
+          ``,
+          `Be rigorous. Challenge assumptions. Provide alternative data interpretations.`,
+        ].join('\n');
+
+        const response = await this.modelClient.generate({
+          model: challengerModel,
+          systemInstruction: 'You are a devil\'s advocate analyst. Rigorously challenge research findings. Identify what\'s missing, wrong, or oversimplified.',
+          contents: [{ role: 'user', content: challengePrompt, timestamp: Date.now() }],
+          temperature: 0.3,
+        });
+
+        challengeResults.set(area.id, response.text ?? '');
+      }),
+    );
+
+    // Merge challenge insights back into area analyses
+    for (const area of completedAreas) {
+      const challenge = challengeResults.get(area.id);
+      if (challenge) {
+        area.analysis = `${area.analysis}\n\n--- CROSS-MODEL CHALLENGE (${getChallengerModel(areaAnalyses.get(area.id)?.model ?? this.model)}) ---\n${challenge}`;
+      }
+    }
 
     await this.updateAreas(id, areas);
 
@@ -475,7 +592,6 @@ export class DeepDiveEngine {
     await this.supabase.from('deep_dives').update({ sources: dedupedSources }).eq('id', id);
 
     // Check that at least some areas completed
-    const completedAreas = areas.filter((a) => a.status === 'completed' && a.analysis);
     if (completedAreas.length === 0) {
       await this.supabase.from('deep_dives').update({
         status: 'failed',
@@ -486,6 +602,75 @@ export class DeepDiveEngine {
 
     // ── Phase 3: VERIFY — cross-model evaluation of area analyses ──
     const verificationResults = await this.crossModelVerify(req, completedAreas);
+
+    // ── Phase 3b: RE-RESEARCH — deepen areas with low verification confidence ──
+    const lowConfidenceAreas = completedAreas.filter((a) => {
+      const v = verificationResults.get(a.id);
+      return v && v.confidence < VERIFICATION_CONFIDENCE_THRESHOLD;
+    });
+
+    if (lowConfidenceAreas.length > 0) {
+      // Do follow-up searches on flagged areas to fill gaps
+      const followUpResults = await Promise.allSettled(
+        lowConfidenceAreas.map(async (area) => {
+          const verification = verificationResults.get(area.id)!;
+          const gapQueries = verification.issues.slice(0, 3).map(
+            (issue) => `${req.target} ${issue}`,
+          );
+          if (gapQueries.length === 0) return;
+
+          const extraResults = await batchSearch(gapQueries, { num: 8 });
+          const extraContext = searchResultsToContext(extraResults);
+
+          // Track new sources
+          const extraSources: Source[] = extraResults.flatMap((b) =>
+            b.results.map((r) => ({
+              title: r.title,
+              url: r.url,
+              type: 'web' as const,
+              snippet: r.snippet,
+              date: r.date,
+            })),
+          );
+          allSources.push(...extraSources);
+
+          // Re-analyze with additional context
+          const challengerModel = getChallengerModel(RESEARCH_MODELS[area.id] ?? this.model);
+          const reAnalyzePrompt = [
+            `You previously analyzed "${req.target}" (${area.label}) but the verification flagged these issues:`,
+            ...verification.issues.map((i) => `- ${i}`),
+            ``,
+            `Here is additional research to address those gaps:`,
+            extraContext || 'No additional results found.',
+            ``,
+            `Provide a supplementary analysis addressing ONLY the flagged issues, with new evidence.`,
+            `Cite all sources.`,
+          ].join('\n');
+
+          const response = await this.modelClient.generate({
+            model: challengerModel,
+            systemInstruction: 'Produce precise, evidence-backed supplementary analysis to fill research gaps.',
+            contents: [{ role: 'user', content: reAnalyzePrompt, timestamp: Date.now() }],
+            temperature: 0.3,
+          });
+
+          area.analysis += `\n\n--- SUPPLEMENTARY ANALYSIS (gap-fill) ---\n${response.text ?? ''}`;
+          area.sourcesFound += extraSources.length;
+        }),
+      );
+
+      // Re-deduplicate sources
+      const reseenUrls = new Set<string>();
+      const rededupedSources = allSources.filter((s) => {
+        if (!s.url) return true;
+        if (reseenUrls.has(s.url)) return false;
+        reseenUrls.add(s.url);
+        return true;
+      });
+      dedupedSources.length = 0;
+      dedupedSources.push(...rededupedSources);
+      await this.supabase.from('deep_dives').update({ sources: dedupedSources, research_areas: areas }).eq('id', id);
+    }
 
     // ── Phase 4: SYNTHESIZE — produce the full strategic report ──
     await this.updateStatus(id, 'synthesizing');
@@ -502,7 +687,7 @@ export class DeepDiveEngine {
     await this.supabase.from('activity_log').insert({
       agent_id: 'system',
       action: 'deep_dive.completed',
-      detail: `Strategic deep dive completed for "${req.target}": ${completedAreas.length}/${areas.length} areas researched, ${dedupedSources.length} sources analyzed, cross-model verified`,
+      detail: `Strategic deep dive completed for "${req.target}": ${completedAreas.length}/${areas.length} areas researched, ${dedupedSources.length} sources analyzed, cross-model verified with challenge rounds`,
       created_at: new Date().toISOString(),
     });
   }
@@ -576,6 +761,40 @@ export class DeepDiveEngine {
   ): Promise<DeepDiveReport> {
     const completedAreas = areas.filter((a) => a.status === 'completed' && a.analysis);
 
+    // Build numbered source list for citation references
+    const numberedSources = sources.slice(0, 60).map((s, i) => ({
+      id: i + 1,
+      title: s.title,
+      url: s.url,
+      type: s.type,
+      snippet: s.snippet,
+      date: s.date,
+    }));
+    const sourceIndex = numberedSources.map((s) =>
+      `[${s.id}] ${s.title} (${s.type}${s.url ? `, ${s.url}` : ''})`,
+    ).join('\n');
+
+    // Build verification summary
+    const verificationSummary: VerificationSummary = {
+      overallConfidence: 0,
+      areasVerified: 0,
+      flaggedClaims: [],
+      correctionsMade: [],
+      modelsUsed: [...new Set(Object.values(RESEARCH_MODELS))],
+    };
+    if (verificationResults) {
+      const confidences: number[] = [];
+      for (const [, v] of verificationResults) {
+        confidences.push(v.confidence);
+        verificationSummary.areasVerified++;
+        verificationSummary.flaggedClaims.push(...v.issues.slice(0, 3));
+        verificationSummary.correctionsMade.push(...v.corrections.slice(0, 3));
+      }
+      verificationSummary.overallConfidence = confidences.length > 0
+        ? confidences.reduce((a, b) => a + b, 0) / confidences.length
+        : 0;
+    }
+
     const researchContext = completedAreas.map((a) => {
       const verification = verificationResults?.get(a.id);
       const verifyNote = verification
@@ -595,14 +814,18 @@ export class DeepDiveEngine {
       `You are a senior strategist at Glyphor's Strategy Lab producing a comprehensive strategic deep dive on "${req.target}".`,
       req.context ? `Additional context: ${req.context}` : '',
       ``,
-      `Below is research gathered by your specialist team from real web sources, along with cross-model verification results that flag potential issues and corrections. Synthesize ALL findings into a single structured report.`,
+      `Below is research gathered by your multi-agent specialist team (using both Gemini and GPT models for diverse perspectives), including challenge critiques and supplementary gap-fill research. Synthesize ALL findings into a single structured report.`,
       ``,
-      `IMPORTANT: Each research area includes [Cross-Model Verification] notes from an independent AI reviewer. Use these to:`,
+      `IMPORTANT: Each research area includes [Cross-Model Verification] notes from an independent AI reviewer, plus a CROSS-MODEL CHALLENGE section from a second AI. Use these to:`,
       `- Discard or qualify any claims flagged as unsupported`,
       `- Incorporate suggested corrections into your synthesis`,
       `- Weight higher-confidence research areas more heavily`,
       `- Be explicit about confidence levels — distinguish verified facts from estimates`,
       ``,
+      `== SOURCE INDEX (cite these by number, e.g. [1], [2]) ==`,
+      sourceIndex,
+      ``,
+      `== RESEARCH FROM SPECIALIST AGENTS ==`,
       researchContext,
       ``,
       `Respond ONLY with valid JSON (no markdown fences, no commentary) matching this exact schema:`,
@@ -680,6 +903,7 @@ export class DeepDiveEngine {
       ``,
       `Rules:`,
       `- Use ONLY data from the research above. If data is missing, write "[Data not available]" or provide your best estimate marked as "[Estimated]".`,
+      `- CITE SOURCES: Use [1], [2], etc. referencing the SOURCE INDEX. Every factual claim must have at least one source citation.`,
       `- Include 5-8 key strengths and challenges each, with specific evidence and source references.`,
       `- Include 5-8 competitors with real data — pricing, funding, differentiation, and estimated revenue where available.`,
       `- Include 6-10 strategic recommendations with detailed implementation steps (3-5 steps each).`,
@@ -690,6 +914,7 @@ export class DeepDiveEngine {
       `- Flag any claims that were disputed by cross-model verification with "[Verification note: ...]".`,
       `- Provide quantitative estimates wherever possible — avoid vague qualitative statements.`,
       `- Each Porter's Five Forces score must include 2-3 sentences of reasoning with specific evidence.`,
+      `- The evidence fields in currentState should include source citation numbers like "[1][3]".`,
     ].join('\n');
 
     try {
@@ -717,6 +942,15 @@ export class DeepDiveEngine {
           implementationRoadmap: parsed.implementationRoadmap ?? [],
           roiAnalysis: parsed.roiAnalysis ?? [],
           riskAssessment: parsed.riskAssessment ?? [],
+          sourceCitations: numberedSources.map((s) => ({
+            id: s.id,
+            title: s.title,
+            url: s.url,
+            type: s.type,
+            snippet: s.snippet,
+            date: s.date,
+          })),
+          verificationSummary,
         };
       }
     } catch (err) {
@@ -737,6 +971,15 @@ export class DeepDiveEngine {
       implementationRoadmap: [],
       roiAnalysis: [],
       riskAssessment: [],
+      sourceCitations: numberedSources.map((s) => ({
+        id: s.id,
+        title: s.title,
+        url: s.url,
+        type: s.type,
+        snippet: s.snippet,
+        date: s.date,
+      })),
+      verificationSummary,
     };
   }
 
