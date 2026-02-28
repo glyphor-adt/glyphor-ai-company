@@ -264,7 +264,7 @@ const ROLE_CONTEXT_FILES: Record<string, string[]> = {
   'quality-engineer': ['engineering.md'],
   'devops-engineer': ['engineering.md'],
   'cfo': ['finance.md'],
-  'clo': ['operations.md'],
+  'clo': ['operations.md', 'product.md'],
   'revenue-analyst': ['finance.md'],
   'cost-analyst': ['finance.md'],
   'cpo': ['product.md'],

@@ -42,3 +42,19 @@
 | Canva AI / Runway | Creative AI tools | Pulse: autonomous vs assisted |
 
 Be factual about competitors, not dismissive. Position on autonomy and enterprise readiness.
+
+## Legal & Compliance Pages (Live)
+
+Both products have legal pages accessible from the site footer and during sign-up.
+
+### Fuse (fuse.glyphor.com)
+- **Terms of Service** — `/terms` (footer link)
+- **Privacy Policy** — `/privacy` (footer link)
+- **Consent flow** — Users accept ToS + Privacy Policy during account creation
+
+### Pulse (pulse.glyphor.com)
+- **Terms of Service** — `/terms` (footer link)
+- **Privacy Policy** — `/privacy` (footer link)
+- **Consent flow** — Users accept ToS + Privacy Policy during account creation
+
+> Last verified: 2026-02-28. If either product's legal pages change, update this section.

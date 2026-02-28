@@ -101,7 +101,9 @@ Steps:
 3. Audit open source license compliance
 4. Review AI disclosure and transparency requirements
 5. Update the legal risk register with any new findings
-6. Brief the founders on compliance status`;
+6. Brief the founders on compliance status
+
+IMPORTANT: Only assert findings about live product features (e.g. footer links, consent flows, UI elements) if you have verified them with a tool or if your loaded context explicitly confirms their status. Do not infer absence from lack of data.`;
       break;
 
     case 'read_inbox':
