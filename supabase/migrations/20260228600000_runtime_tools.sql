@@ -2,7 +2,7 @@
 -- Agents (primarily CTO) can define new tools mid-run that become
 -- immediately usable and persist for future runs.
 
-CREATE TABLE runtime_tools (
+CREATE TABLE IF NOT EXISTS runtime_tools (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name             TEXT UNIQUE NOT NULL,
   description      TEXT NOT NULL,
