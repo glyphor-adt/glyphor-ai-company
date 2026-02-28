@@ -42,7 +42,7 @@ function pptxTitleSlide(pptx: PptxGenJS, title: string, subtitle: string, meta: 
   // Top accent bar
   slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: SLIDE_CYAN } });
   // Logo
-  slide.addImage({ data: LOGO_DATA_URI, x: 0.4, y: 0.2, w: 0.45, h: 0.5 });
+  if (LOGO_DATA_URI) slide.addImage({ data: LOGO_DATA_URI, x: 0.4, y: 0.2, w: 0.45, h: 0.5 });
   // Brand mark (next to logo)
   slide.addText('GLYPHOR', { x: 0.9, y: 0.3, w: 9, fontSize: 13, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, charSpacing: 5 });
   // Accent rule
@@ -1230,7 +1230,7 @@ export async function exportDeepDivePPTX(record: DeepDiveRecord): Promise<Buffer
     slide.background = { color: SLIDE_BG };
     slide.addShape(pptx.ShapeType.rect, { x: 0, y: 2.6, w: 10, h: 0.04, fill: { color: SLIDE_CYAN } });
     // Logo on closing slide
-    slide.addImage({ data: LOGO_DATA_URI, x: 4.3, y: 1.0, w: 1.0, h: 1.1 });
+    if (LOGO_DATA_URI) slide.addImage({ data: LOGO_DATA_URI, x: 4.3, y: 1.0, w: 1.0, h: 1.1 });
     slide.addText('GLYPHOR', { x: 0.6, y: 2.1, w: 8.8, fontSize: 28, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, align: 'center', charSpacing: 6 });
     slide.addText('Strategic Deep Dive Complete', { x: 0.6, y: 2.9, w: 8.8, fontSize: 14, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
     if (report.verificationSummary) {
