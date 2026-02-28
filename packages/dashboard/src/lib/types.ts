@@ -302,6 +302,42 @@ export type Database = {
         }, 'id'>>;
         Relationships: [];
       };
+      agent_reasoning_config: {
+        Row: {
+          agent_role: string;
+          enabled: boolean;
+          pass_types: string[];
+          min_confidence: number;
+          max_reasoning_budget: number;
+          cross_model_enabled: boolean;
+          value_gate_enabled: boolean;
+          verification_models: string[];
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          agent_role: string;
+          enabled?: boolean;
+          pass_types?: string[];
+          min_confidence?: number;
+          max_reasoning_budget?: number;
+          cross_model_enabled?: boolean;
+          value_gate_enabled?: boolean;
+          verification_models?: string[];
+          updated_at?: string;
+        };
+        Update: Partial<{
+          enabled: boolean;
+          pass_types: string[];
+          min_confidence: number;
+          max_reasoning_budget: number;
+          cross_model_enabled: boolean;
+          value_gate_enabled: boolean;
+          verification_models: string[];
+          updated_at: string;
+        }>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

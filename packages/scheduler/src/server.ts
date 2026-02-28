@@ -427,6 +427,11 @@ const server = createServer(async (req, res) => {
       const body = await readBody(req).catch(() => '{}');
       const { prefix } = JSON.parse(body || '{}');
       promptCache.invalidate(prefix);
+      // Also invalidate Redis cache
+      const cache = getRedisCache();
+      if (prefix) {
+        await cache.invalidatePattern(`${prefix}*`).catch(() => {});
+      }
       json(res, 200, { invalidated: true, prefix: prefix ?? 'all' });
       return;
     }
@@ -1161,6 +1166,11 @@ const server = createServer(async (req, res) => {
         created_at: new Date().toISOString(),
       });
 
+      // Invalidate cached config for this agent
+      const cache = getRedisCache();
+      await cache.invalidatePattern(`reasoning:config:*`).catch(() => {});
+      await cache.invalidatePattern(`agent:context:*`).catch(() => {});
+
       json(res, 200, { success: true, agent: data });
       return;
     }
@@ -1840,6 +1850,8 @@ const server = createServer(async (req, res) => {
       const body = JSON.parse(await readBody(req));
       const ci = memory.getCollectiveIntelligence();
       const route = await ci.createRoute(body);
+      // Invalidate knowledge caches
+      getRedisCache().invalidatePattern('jit:knowledge:*').catch(() => {});
       json(res, 200, { success: true, route });
       return;
     }
@@ -1919,6 +1931,8 @@ const server = createServer(async (req, res) => {
         .select()
         .single();
       if (error) { json(res, 500, { error: error.message }); return; }
+      // Invalidate directive/context caches
+      getRedisCache().invalidatePattern('jit:directives:*').catch(() => {});
       json(res, 201, data);
       return;
     }
@@ -1937,6 +1951,8 @@ const server = createServer(async (req, res) => {
         .select()
         .single();
       if (error) { json(res, 500, { error: error.message }); return; }
+      // Invalidate directive/context caches
+      getRedisCache().invalidatePattern('jit:directives:*').catch(() => {});
       json(res, 200, data);
       return;
     }
@@ -1951,6 +1967,8 @@ const server = createServer(async (req, res) => {
         .delete()
         .eq('id', id);
       if (error) { json(res, 500, { error: error.message }); return; }
+      // Invalidate directive/context caches
+      getRedisCache().invalidatePattern('jit:directives:*').catch(() => {});
       json(res, 200, { success: true });
       return;
     }

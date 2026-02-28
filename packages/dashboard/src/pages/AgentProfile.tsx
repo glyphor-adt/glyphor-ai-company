@@ -1528,8 +1528,8 @@ function SettingsTab({
     // Load reasoning config
     (async () => {
       setReasoningLoading(true);
-      const { data: rc } = await supabase
-        .from('agent_reasoning_config')
+      const { data: rc } = await (supabase
+        .from('agent_reasoning_config') as any)
         .select('*')
         .eq('agent_role', agent.role)
         .single();
@@ -1549,7 +1549,7 @@ function SettingsTab({
   const handleSaveReasoning = async () => {
     setSavingReasoning(true);
     try {
-      await supabase.from('agent_reasoning_config').upsert({
+      await (supabase.from('agent_reasoning_config') as any).upsert({
         agent_role: agent.role,
         enabled: reasoningEnabled,
         pass_types: reasoningPassTypes,
@@ -1909,6 +1909,164 @@ function SettingsTab({
             {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
+      </Card>
+
+      {/* Reasoning Engine Config */}
+      <Card>
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MdPsychology className="text-lg text-cyan" />
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-txt-primary">Reasoning Engine</h3>
+          </div>
+          <button
+            type="button"
+            onClick={() => setReasoningEnabled(!reasoningEnabled)}
+            className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+              reasoningEnabled
+                ? 'border-cyan/40 bg-cyan/10 text-cyan'
+                : 'border-border bg-raised text-txt-faint'
+            }`}
+          >
+            <span>{reasoningEnabled ? 'Enabled' : 'Disabled'}</span>
+            <span className={`inline-flex h-5 w-9 items-center rounded-full transition-colors ${reasoningEnabled ? 'bg-cyan' : 'bg-slate-600'}`}>
+              <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${reasoningEnabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+            </span>
+          </button>
+        </div>
+
+        {reasoningLoading ? (
+          <Skeleton className="h-32" />
+        ) : (
+          <div className={`space-y-4 ${!reasoningEnabled ? 'opacity-50 pointer-events-none' : ''}`}>
+            {/* Pass Types */}
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Verification Passes</p>
+              <div className="flex flex-wrap gap-2">
+                {ALL_PASS_TYPES.map((pt) => (
+                  <button
+                    key={pt}
+                    type="button"
+                    onClick={() =>
+                      setReasoningPassTypes((prev) =>
+                        prev.includes(pt) ? prev.filter((p) => p !== pt) : [...prev, pt],
+                      )
+                    }
+                    className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
+                      reasoningPassTypes.includes(pt)
+                        ? 'border-cyan/40 bg-cyan/10 text-cyan'
+                        : 'border-border bg-raised text-txt-faint hover:text-txt-secondary'
+                    }`}
+                  >
+                    {pt.replace(/_/g, ' ')}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Sliders & toggles */}
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              <label className="space-y-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">
+                  Min Confidence ({Math.round(reasoningMinConfidence * 100)}%)
+                </span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={reasoningMinConfidence}
+                  onChange={(e) => setReasoningMinConfidence(parseFloat(e.target.value))}
+                  className="w-full accent-cyan"
+                />
+              </label>
+
+              <label className="space-y-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Max Budget ($)</span>
+                <input
+                  type="number"
+                  step="0.005"
+                  min="0"
+                  value={reasoningMaxBudget}
+                  onChange={(e) => setReasoningMaxBudget(parseFloat(e.target.value))}
+                  className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40"
+                />
+              </label>
+
+              <label className="space-y-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Cross-Model</span>
+                <button
+                  type="button"
+                  onClick={() => setReasoningCrossModel(!reasoningCrossModel)}
+                  className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    reasoningCrossModel
+                      ? 'border-cyan/40 bg-cyan/10 text-cyan'
+                      : 'border-border bg-raised text-txt-faint'
+                  }`}
+                >
+                  <span>{reasoningCrossModel ? 'Enabled' : 'Disabled'}</span>
+                  <span className={`inline-flex h-5 w-9 items-center rounded-full transition-colors ${reasoningCrossModel ? 'bg-cyan' : 'bg-slate-600'}`}>
+                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${reasoningCrossModel ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                  </span>
+                </button>
+              </label>
+
+              <label className="space-y-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Value Gate</span>
+                <button
+                  type="button"
+                  onClick={() => setReasoningValueGate(!reasoningValueGate)}
+                  className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    reasoningValueGate
+                      ? 'border-cyan/40 bg-cyan/10 text-cyan'
+                      : 'border-border bg-raised text-txt-faint'
+                  }`}
+                >
+                  <span>{reasoningValueGate ? 'Enabled' : 'Disabled'}</span>
+                  <span className={`inline-flex h-5 w-9 items-center rounded-full transition-colors ${reasoningValueGate ? 'bg-cyan' : 'bg-slate-600'}`}>
+                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${reasoningValueGate ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                  </span>
+                </button>
+              </label>
+            </div>
+
+            {/* Verification Models */}
+            {reasoningCrossModel && (
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Verification Models</p>
+                <div className="flex flex-wrap gap-2">
+                  {ALL_VERIFICATION_MODELS.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() =>
+                        setReasoningVerificationModels((prev) =>
+                          prev.includes(m) ? prev.filter((v) => v !== m) : [...prev, m],
+                        )
+                      }
+                      className={`rounded-full border px-3 py-1 text-[11px] font-medium font-mono transition-colors ${
+                        reasoningVerificationModels.includes(m)
+                          ? 'border-cyan/40 bg-cyan/10 text-cyan'
+                          : 'border-border bg-raised text-txt-faint hover:text-txt-secondary'
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <button
+                onClick={handleSaveReasoning}
+                disabled={savingReasoning}
+                className="rounded-lg bg-cyan px-6 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40"
+              >
+                {savedReasoning ? 'Saved!' : savingReasoning ? 'Saving…' : 'Save Reasoning Config'}
+              </button>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Voice Examples */}
