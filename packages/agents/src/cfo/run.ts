@@ -59,7 +59,7 @@ export async function runCFO(params: CFORunParams = {}) {
     ...createSharePointTools(memory.getSupabaseClient()),
     ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
     ...createEmailTools(),
-    ...createAgentCreationTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createAgentCreationTools(memory.getSupabaseClient()),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

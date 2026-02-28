@@ -61,7 +61,7 @@ export async function runCPO(params: CPORunParams = {}) {
     ...createSharePointTools(memory.getSupabaseClient()),
     ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
     ...createEmailTools(),
-    ...createAgentCreationTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createAgentCreationTools(memory.getSupabaseClient()),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

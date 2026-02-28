@@ -159,7 +159,7 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
     ...orchestrationTools,
     ...createAssignmentTools(supabase, glyphorEventBus),
     ...createEmailTools(),
-    ...createAgentCreationTools(supabase, glyphorEventBus),
+    ...createAgentCreationTools(supabase),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
