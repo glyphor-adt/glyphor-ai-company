@@ -23,8 +23,8 @@ export default function Settings() {
 
   const isFallbackAdmin = FALLBACK_ADMINS.some(e => e.toLowerCase() === user?.email.toLowerCase());
   const isAdmin = !loading && (
-    users.some(u => u.email.toLowerCase() === user?.email.toLowerCase() && u.role === 'admin')
-    || (users.length === 0 && isFallbackAdmin)
+    isFallbackAdmin
+    || users.some(u => u.email.toLowerCase() === user?.email.toLowerCase() && u.role === 'admin')
   );
 
   const fetchUsers = useCallback(async () => {

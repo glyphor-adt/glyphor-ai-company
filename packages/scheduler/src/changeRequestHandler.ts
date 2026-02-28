@@ -26,6 +26,8 @@ interface ChangeRequest {
   github_pr_url: string | null;
   commit_sha: string | null;
   agent_notes: string | null;
+  started_at: string | null;
+  completed_at: string | null;
 }
 
 /**
