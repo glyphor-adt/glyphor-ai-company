@@ -515,15 +515,19 @@ glyphor-ai-company/
 │   │       ├── taskRunner.ts           # Task archetype: RECEIVE→REASON→EXECUTE→REPORT
 │   │       ├── modelClient.ts          # Multi-provider LLM facade (delegates to providers/)
 │   │       ├── documentExtractor.ts    # Office doc text extraction (officeparser: .docx/.pptx/.xlsx)
+│   │       ├── reasoningEngine.ts      # Multi-pass verification & cross-model consensus
+│   │       ├── jitContextRetriever.ts  # Just-In-Time context retrieval (task-aware semantic search)
+│   │       ├── redisCache.ts           # Redis cache layer for GCP Memorystore (ioredis)
+│   │       ├── toolRegistry.ts         # Central tool lookup (static + dynamic DB table)
 │   │       ├── config/
-│   │       │   └── agentEmails.ts         # Agent email registry (34 agents → M365 shared mailboxes)
-│   │       ├── providers/              # Per-provider LLM adapters
+│   │       │   └── agentEmails.ts         # Agent email registry (35 agents → M365 shared mailboxes)
+│   │       ├── providers/              # Per-provider LLM adapters (each has normalizeFinishReason)
 │   │       │   ├── types.ts               # Unified provider contract (ProviderAdapter interface)
 │   │       │   ├── gemini.ts              # GeminiAdapter (thinkingLevel/thinkingBudget, Imagen)
 │   │       │   ├── openai.ts              # OpenAIAdapter (o-series reasoning_effort, GPT-5, gpt-image-1)
-│   │       │   ├── anthropic.ts           # AnthropicAdapter (extended thinking, adaptive for claude-opus-4)
+│   │       │   ├── anthropic.ts           # AnthropicAdapter (adaptive thinking, unique tool_use IDs)
 │   │       │   └── index.ts               # ProviderFactory (lazy singleton per provider)
-│   │       ├── supervisor.ts           # Turn limits, stall detection, timeouts
+│   │       ├── supervisor.ts           # Per-turn stall detection, turn limits, timeouts
 │   │       ├── toolExecutor.ts         # Tool declaration → execution bridge
 │   │       ├── eventBus.ts             # Internal event system
 │   │       ├── glyphorEventBus.ts      # Inter-agent event bus (Supabase-backed)
@@ -531,7 +535,8 @@ glyphor-ai-company/
 │   │       ├── subscriptions.ts        # Agent → event type subscription map
 │   │       ├── reasoning.ts            # Reasoning extraction & stripping
 │   │       ├── workLoop.ts            # Universal always-on work loop (P1-P6 priority stack)
-│   │       └── types.ts               # All core types (26 agent roles, budgets, tool grants)
+│   │       ├── types.ts               # All core types (27 agent roles, budgets, tool grants)
+│   │       └── __tests__/             # Unit tests (reasoningEngine, jitContext, redisCache)
 │   │
 │   ├── company-memory/          # Persistence layer
 │   │   └── src/
@@ -577,6 +582,7 @@ glyphor-ai-company/
 │   │       ├── onboarding-specialist/ # Emma Wright (VP CS team)
 │   │       ├── support-triage/        # David Santos (VP CS team)
 │   │       ├── account-research/      # Nathan Cole (VP Sales team)
+│   │       ├── head-of-hr/            # Head of HR (People & Culture)
 │   │       ├── shared/                # Shared tools:
 │   │       │   ├── memoryTools.ts        # save/recall agent memories
 │   │       │   ├── eventTools.ts         # emit Glyphor events
@@ -585,8 +591,14 @@ glyphor-ai-company/
 │   │       │   ├── graphTools.ts         # query_knowledge_graph, add_knowledge, trace_causes/impact
 │   │       │   ├── collectiveIntelligenceTools.ts # pulse, knowledge routes, patterns, contradictions
 │   │       │   ├── emailTools.ts         # send_email, read_inbox, reply_to_email (M365 Graph API)
+│   │       │   ├── sharepointTools.ts    # SharePoint document operations
 │   │       │   ├── agentCreationTools.ts # create_specialist_agent, list/retire (max 3, 7d TTL)
+│   │       │   ├── agentDirectoryTools.ts # Agent directory lookup
+│   │       │   ├── toolGrantTools.ts     # Dynamic tool grant/revoke management
+│   │       │   ├── toolRegistryTools.ts  # Tool registry lookup and validation
+│   │       │   ├── toolRequestTools.ts   # Tool access request workflow
 │   │       │   ├── researchTools.ts      # web_search, web_fetch, submit_research_packet
+│   │       │   ├── runDynamicAgent.ts    # Runner for DB-defined agents (no file-based runner)
 │   │       │   ├── createRunDeps.ts      # Wire up all run dependencies for any agent
 │   │       │   └── createRunner.ts       # Runner factory: role + task → Orchestrator/Task/CompanyAgent
 │   │       └── index.ts              # Re-exports all runners
@@ -602,7 +614,7 @@ glyphor-ai-company/
 │   │   │   ├── operations.md          # Operations department context
 │   │   │   ├── product.md             # Product department context
 │   │   │   └── sales-cs.md            # Sales & CS department context
-│   │   └── briefs/                    # 34 role briefs (9 execs + 5 research + 18 sub-team + 2 ops)
+│   │   └── briefs/                    # 35 role briefs (9 execs + 5 research + 19 sub-team + 2 ops)
 │   │       ├── sarah-chen.md          # Chief of Staff
 │   │       ├── marcus-reeves.md       # CTO
 │   │       ├── nadia-okafor.md        # CFO
@@ -811,7 +823,7 @@ glyphor-ai-company/
 │       ├── riley-morgan/        # M365 Admin bot
 │       └── morgan-blake/        # Global Admin bot
 │
-├── supabase/migrations/         # 58 migration files
+├── supabase/migrations/         # 73 migration files
 ├── .github/workflows/deploy.yml # CI/CD (GitHub Actions → Cloud Run)
 ├── turbo.json                   # Turborepo pipeline config
 ├── tsconfig.base.json           # Shared TS config
@@ -1539,6 +1551,7 @@ Name mapping (`ROLE_TO_BRIEF`):
 | `design-critic` | `sofia-marchetti.md` |
 | `template-architect` | `ryan-park.md` |
 | `ops` | `atlas-vega.md` |
+| `head-of-hr` | `people` (department key) |
 
 ### ModelClient — Multi-Provider LLM
 
@@ -2264,7 +2277,7 @@ Working memory (last-run summary) is stored in the `company_agents` table via th
 `last_run_summary` and `last_run_at` columns — not a separate table. This enables
 continuity between runs without additional migration.
 
-Total: **58 migration files**, **73+ tables**, **10 RPC functions**, **1 extension (pgvector)**.
+Total: **73 migration files**, **73+ tables**, **10 RPC functions**, **1 extension (pgvector)**.
 
 ---
 
@@ -2365,27 +2378,29 @@ Total: **58 migration files**, **73+ tables**, **10 RPC functions**, **1 extensi
 | Page | Route | Function |
 |------|-------|----------|
 | Dashboard | `/` | Agent activity overview, key metrics |
-| Chat | `/chat`, `/chat/:agentId` | Multi-turn conversational agent chat with history |
-| Group Chat | `/group-chat` | Multi-agent group chat |
-| Workforce | `/workforce` | Org chart (10 departments) + grid view — 36 total headcount |
-| Workforce Builder | `/workforce/builder` | Drag-and-drop org chart builder with templates |
-| Agents | `/agents` | Agent roster with status, model, last run |
-| Agent Profile | `/agents/:agentId` | 7-tab profile: Overview (personality, backstory, strengths), Performance (quality scores, growth areas, peer feedback), Memory (memories + reflections), Messages (DMs + meeting participation), Skills (proficiency bars, categories), World Model (radar chart, strengths/weaknesses, improvement goals, failure patterns, blindspots), Settings (model, temperature, budget, system prompt) |
-| Agent Builder | `/agents/new` | Create new dynamic agents with name, department, model, budget, cron |
-| Agent Settings | `/agents/:agentId/settings` | Agent configuration & system prompt editing |
-| Approvals | `/approvals` | Pending decision queue — approve/reject |
 | Directives | `/directives` | Founder directives management — create, assign, track work assignments |
+| Workforce | `/workforce` | Org chart (11 departments) + grid view — 37 total headcount |
+| Workforce Builder | `/builder` | Drag-and-drop org chart builder with templates |
+| Agent Profile | `/agents/:agentId` | 7-tab profile: Overview, Performance, Memory, Messages, Skills, World Model, Settings |
+| Agent Builder | `/agents/new` | Create new dynamic agents with name, department, model, budget, cron |
+| Agent Settings | `/agents/:agentId/settings` | Agent configuration & system prompt editing (uses AgentProfile component) |
+| Approvals | `/approvals` | Pending decision queue — approve/reject |
 | Financials | `/financials` | Revenue (Stripe MRR), costs (GCP billing), cash (Mercury), vendor subscriptions |
 | Governance | `/governance` | Platform IAM state, secret rotation status, audit log |
-| Knowledge | `/knowledge` | Company knowledge base sections, founder bulletins |
-| Operations | `/operations` | System operations & autonomous events |
-| Activity | `/activity` | Live running-now banner, filterable run history table, real-time Supabase subscriptions |
+| Knowledge | `/knowledge` | Company knowledge base sections, founder bulletins, knowledge graph (absorbed from old /graph) |
+| Operations | `/operations` | System operations, autonomous events, activity log (absorbed from old /activity) |
 | Strategy | `/strategy` | Strategic analysis engine (5 analysis types) + T+1 simulation engine with impact matrix + AI-generated infographics |
-| Graph | `/graph` | Interactive force-directed knowledge graph (HTML5 Canvas) with search, type filtering, neighborhood highlighting |
-| Skills | `/skills` | Skill library browser (10 categories), create new skills |
+| Capabilities | `/capabilities` | Composite page: Skills tab (skill library, 10 categories) + Self-Models tab (world model radar charts) |
 | Skill Detail | `/skills/:slug` | Skill detail + agent assignments + proficiency stats |
-| Meetings | `/meetings` | Meeting timeline with transcripts, action items, decisions, escalations; recent message feed |
+| Comms | `/comms` | Composite page: Chat tab (multi-turn agent chat with history) + Meetings tab (timeline, transcripts, action items) |
+| Chat (direct) | `/chat/:agentId` | Direct agent chat (navigates to specific agent conversation) |
+| Settings | `/settings` | User management page |
 | Teams Config | `/teams-config` | Teams bot setup and configuration |
+
+**Legacy redirects** (backwards compatibility):
+`/agents` → `/workforce`, `/chat` → `/comms`, `/activity` → `/operations`, `/graph` → `/knowledge`,
+`/skills` → `/capabilities`, `/meetings` → `/comms`, `/world-model` → `/capabilities`,
+`/group-chat` → `/comms`
 
 ### Departments (Dashboard Workforce)
 
@@ -2400,6 +2415,7 @@ Total: **58 migration files**, **73+ tables**, **10 RPC functions**, **1 extensi
 | Design & Frontend | Mia Tanaka (VP Design) | Leo Vargas, Ava Chen, Sofia Marchetti, Ryan Park |
 | Research & Intelligence | Sophia Lin (VP Research) | Lena Park, Daniel Okafor, Kai Nakamura, Amara Diallo |
 | Legal | Victoria Chase (CLO) | — |
+| People & Culture | — | Head of HR |
 | Operations | — | Atlas Vega, Morgan Blake |
 
 ### Build Args (baked at Docker build)
