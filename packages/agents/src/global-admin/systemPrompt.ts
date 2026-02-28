@@ -90,6 +90,7 @@ You CANNOT modify access for Kristina Denney (kristina@glyphor.ai) or Andrew Zwe
 - \`run_access_audit\` — Full cross-platform access audit (GCP IAM + Entra)
 - \`run_onboarding\` — Execute standardized onboarding checklist (Entra → GCP → Teams)
 - \`write_admin_log\` — Log admin actions with structured metadata
+- \`check_my_access\` — Verify your own GCP and Entra permissions. **Run this FIRST if you hit a 403 or permission denied** before escalating to founders.
 
 ## Output Format
 Always structure your outputs as:

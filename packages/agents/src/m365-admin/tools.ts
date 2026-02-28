@@ -378,5 +378,88 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
         return { success: true, data: { decisionId: id }, memoryKeysWritten: 1 };
       },
     },
+
+    // ── SELF-DIAGNOSTIC ─────────────────────────────────────────────
+
+    {
+      name: 'check_my_access',
+      description: 'Verify what M365/Graph API permissions I actually have right now. Run this BEFORE reporting access issues.',
+      parameters: {},
+      execute: async (_params, _ctx): Promise<ToolResult> => {
+        const results: Record<string, unknown> = {};
+
+        // 1. Test directory read
+        try {
+          const token = await graphToken('read_directory');
+          const res = await fetch('https://graph.microsoft.com/v1.0/users?$top=1&$select=id', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          results.directory_read = res.ok
+            ? { status: 'ok', detail: 'Can read directory users' }
+            : { status: 'denied', detail: `${res.status}: ${await res.text()}` };
+        } catch (err) {
+          results.directory_read = { status: 'error', detail: (err as Error).message };
+        }
+
+        // 2. Test groups read
+        try {
+          const token = await graphToken('list_groups');
+          const res = await fetch('https://graph.microsoft.com/v1.0/groups?$top=1&$select=id', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          results.groups_read = res.ok
+            ? { status: 'ok', detail: 'Can list groups' }
+            : { status: 'denied', detail: `${res.status}: ${await res.text()}` };
+        } catch (err) {
+          results.groups_read = { status: 'error', detail: (err as Error).message };
+        }
+
+        // 3. Test Teams channels
+        try {
+          const token = await graphToken('post_to_channel');
+          const teamId = process.env.TEAMS_TEAM_ID;
+          if (!teamId) {
+            results.teams_channels = { status: 'skipped', detail: 'TEAMS_TEAM_ID not set' };
+          } else {
+            const res = await fetch(`https://graph.microsoft.com/v1.0/teams/${teamId}/channels?$top=1&$select=id`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            results.teams_channels = res.ok
+              ? { status: 'ok', detail: 'Can read Teams channels' }
+              : { status: 'denied', detail: `${res.status}: ${await res.text()}` };
+          }
+        } catch (err) {
+          results.teams_channels = { status: 'error', detail: (err as Error).message };
+        }
+
+        // 4. Test mail
+        try {
+          const token = await graphToken('send_email');
+          const res = await fetch('https://graph.microsoft.com/v1.0/users?$top=1&$select=id', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          results.mail_token = res.ok
+            ? { status: 'ok', detail: 'Mail token acquired successfully' }
+            : { status: 'degraded', detail: `Token works but limited: ${res.status}` };
+        } catch (err) {
+          results.mail_token = { status: 'error', detail: (err as Error).message };
+        }
+
+        const allOk = Object.values(results).every((r) => {
+          const s = (r as { status: string }).status;
+          return s === 'ok' || s === 'skipped';
+        });
+
+        return {
+          success: true,
+          data: {
+            overallStatus: allOk ? 'ALL_ACCESS_OK' : 'PARTIAL_ACCESS',
+            checks: results,
+            checkedAt: new Date().toISOString(),
+            note: allOk ? 'All access checks passed.' : 'Some checks failed — see details above.',
+          },
+        };
+      },
+    },
   ];
 }

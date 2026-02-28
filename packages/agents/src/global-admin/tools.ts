@@ -1613,5 +1613,84 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
         }
       },
     },
+
+    // ── SELF-DIAGNOSTIC ─────────────────────────────────────────────
+
+    {
+      name: 'check_my_access',
+      description: 'Verify what GCP and Entra ID permissions I actually have right now. Run this BEFORE reporting access issues.',
+      parameters: {},
+      execute: async (_params, _ctx): Promise<ToolResult> => {
+        const results: Record<string, unknown> = {};
+
+        // 1. Test GCP IAM — can I read IAM policies?
+        try {
+          const res = await gcpFetch(
+            `https://cloudresourcemanager.googleapis.com/v1/projects/${MANAGED_PROJECTS[0]}:getIamPolicy`,
+            'POST',
+            { options: { requestedPolicyVersion: 3 } },
+          );
+          results.gcp_iam = res.ok
+            ? { status: 'ok', detail: 'Can read IAM policies' }
+            : { status: 'denied', detail: `${res.status}: ${await res.text()}` };
+        } catch (err) {
+          results.gcp_iam = { status: 'error', detail: (err as Error).message };
+        }
+
+        // 2. Test GCP Secret Manager — can I list secrets?
+        try {
+          const res = await gcpFetch(
+            `https://secretmanager.googleapis.com/v1/projects/${MANAGED_PROJECTS[0]}/secrets?pageSize=1`,
+          );
+          results.gcp_secrets = res.ok
+            ? { status: 'ok', detail: 'Can list secrets' }
+            : { status: 'denied', detail: `${res.status}: ${await res.text()}` };
+        } catch (err) {
+          results.gcp_secrets = { status: 'error', detail: (err as Error).message };
+        }
+
+        // 3. Test Entra ID — can I read the directory?
+        try {
+          const res = await graphFetch('/users?$top=1&$select=id', 'GET', undefined, 'read_directory');
+          results.entra_directory = res.ok
+            ? { status: 'ok', detail: 'Can read directory' }
+            : { status: 'denied', detail: `${res.status}: ${await res.text()}` };
+        } catch (err) {
+          results.entra_directory = { status: 'error', detail: (err as Error).message };
+        }
+
+        // 4. Test Entra ID — can I read directory roles?
+        try {
+          const res = await graphFetch('/directoryRoles?$top=1&$select=id', 'GET', undefined, 'list_directory_roles');
+          results.entra_roles = res.ok
+            ? { status: 'ok', detail: 'Can read directory roles' }
+            : { status: 'denied', detail: `${res.status}: ${await res.text()}` };
+        } catch (err) {
+          results.entra_roles = { status: 'error', detail: (err as Error).message };
+        }
+
+        // 5. Test Entra ID — can I manage groups?
+        try {
+          const res = await graphFetch('/groups?$top=1&$select=id', 'GET', undefined, 'list_groups');
+          results.entra_groups = res.ok
+            ? { status: 'ok', detail: 'Can list groups' }
+            : { status: 'denied', detail: `${res.status}: ${await res.text()}` };
+        } catch (err) {
+          results.entra_groups = { status: 'error', detail: (err as Error).message };
+        }
+
+        const allOk = Object.values(results).every((r) => (r as { status: string }).status === 'ok');
+
+        return {
+          success: true,
+          data: {
+            overallStatus: allOk ? 'ALL_ACCESS_OK' : 'PARTIAL_ACCESS',
+            checks: results,
+            checkedAt: new Date().toISOString(),
+            note: allOk ? 'All access checks passed.' : 'Some checks failed — see details above.',
+          },
+        };
+      },
+    },
   ];
 }
