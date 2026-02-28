@@ -225,6 +225,25 @@ export default function GroupChat() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    const imageFiles: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) imageFiles.push(file);
+      }
+    }
+
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      handleFiles(imageFiles);
+    }
+  };
+
   // Total member count (agents + founders)
   const totalMembers = selectedRoles.size + selectedFounders.size;
 
@@ -679,6 +698,7 @@ export default function GroupChat() {
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               placeholder={
                 selectedRoles.size === 0
                   ? 'Select at least one agent...'
