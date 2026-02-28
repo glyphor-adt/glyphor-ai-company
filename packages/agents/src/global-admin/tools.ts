@@ -1061,7 +1061,7 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
               forceChangePasswordNextSignIn: true,
               password: params.temp_password,
             },
-          });
+          }, 'write_directory');
           if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
           const user = await res.json() as { id: string; displayName: string; userPrincipalName: string };
           return {

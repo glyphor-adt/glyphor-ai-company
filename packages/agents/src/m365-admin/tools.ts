@@ -7,15 +7,15 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { GraphTeamsClient, GraphCalendarClient, TeamsBotHandler } from '@glyphor/integrations';
+import { GraphTeamsClient, GraphCalendarClient, TeamsBotHandler, getM365Token, type M365Operation } from '@glyphor/integrations';
 
 function getTeamsClient(): GraphTeamsClient {
   return GraphTeamsClient.fromEnv();
 }
 
-/** Shared token fetch helper */
-async function graphToken(): Promise<string> {
-  return getTeamsClient().getAccessToken();
+/** Get a Graph token routed through the M365 credential router for the correct operation scope. */
+async function graphToken(operation: M365Operation = 'read_directory'): Promise<string> {
+  return getM365Token(operation);
 }
 
 const TEAM_ID = process.env.TEAMS_TEAM_ID ?? '';
@@ -37,7 +37,7 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const token = await graphToken();
+          const token = await graphToken('read_directory');
           const filter = params.filter as string | undefined;
           const url = filter
             ? `https://graph.microsoft.com/v1.0/users?$search="displayName:${filter}"&$select=id,displayName,mail,jobTitle,accountEnabled&ConsistencyLevel=eventual`
@@ -66,7 +66,7 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const token = await graphToken();
+          const token = await graphToken('read_directory');
           const email = encodeURIComponent(params.email as string);
           const [userRes, groupsRes] = await Promise.all([
             fetch(`https://graph.microsoft.com/v1.0/users/${email}?$select=id,displayName,mail,jobTitle,accountEnabled,createdDateTime`, { headers: { Authorization: `Bearer ${token}` } }),
@@ -90,7 +90,7 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
       parameters: {},
       execute: async (_params, _ctx): Promise<ToolResult> => {
         try {
-          const token = await graphToken();
+          const token = await graphToken('post_to_channel');
           const res = await fetch(
             `https://graph.microsoft.com/v1.0/teams/${TEAM_ID}/channels?$select=id,displayName,description,membershipType,webUrl`,
             { headers: { Authorization: `Bearer ${token}` } },
@@ -116,7 +116,7 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const token = await graphToken();
+          const token = await graphToken('post_to_channel');
           const res = await fetch(
             `https://graph.microsoft.com/v1.0/teams/${TEAM_ID}/channels/${params.channel_id}/members`,
             { headers: { Authorization: `Bearer ${token}` } },
@@ -153,7 +153,7 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const token = await graphToken();
+          const token = await graphToken('manage_groups');
           const userRes = await fetch(
             `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(params.user_email as string)}?$select=id,displayName`,
             { headers: { Authorization: `Bearer ${token}` } },
@@ -194,7 +194,7 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const token = await graphToken();
+          const token = await graphToken('manage_groups');
           const body = {
             displayName: params.name,
             description: (params.description as string) ?? '',
@@ -304,7 +304,7 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const token = await graphToken();
+          const token = await graphToken('read_directory');
           const days = (params.days as number) || 7;
           const start = new Date().toISOString();
           const end = new Date(Date.now() + days * 86_400_000).toISOString();
