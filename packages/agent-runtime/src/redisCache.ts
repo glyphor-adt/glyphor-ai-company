@@ -21,6 +21,8 @@ export interface CacheConfig {
   defaultTtlSeconds?: number;
   /** Connect timeout in ms — 5000 */
   connectTimeoutMs?: number;
+  /** Cooldown between reconnect attempts in ms — 60000 (60s) */
+  retryCooldownMs?: number;
 }
 
 export interface CacheEntry<T> {
@@ -64,6 +66,8 @@ export class RedisCache {
   private connected = false;
   private connecting = false;
   private config: Required<CacheConfig>;
+  /** Timestamp of last failed connection attempt — used for cooldown. */
+  private lastFailedAt = 0;
 
   constructor(config: CacheConfig) {
     this.config = {
@@ -73,12 +77,20 @@ export class RedisCache {
       keyPrefix: config.keyPrefix ?? 'glyphor:',
       defaultTtlSeconds: config.defaultTtlSeconds ?? 300,
       connectTimeoutMs: config.connectTimeoutMs ?? 5000,
+      retryCooldownMs: config.retryCooldownMs ?? 60_000,
     };
   }
 
-  /** Lazy connect — only connects on first operation. */
+  /** Lazy connect — only connects on first operation.
+   *  After a failed attempt, skips retries for `retryCooldownMs`. */
   async ensureConnected(): Promise<boolean> {
     if (this.connected && this.client) return true;
+
+    // Cooldown — don't hammer a dead connection
+    if (this.lastFailedAt && Date.now() - this.lastFailedAt < this.config.retryCooldownMs) {
+      return false;
+    }
+
     if (this.connecting) {
       // Wait for in-flight connection
       await new Promise<void>((resolve) => setTimeout(resolve, 100));
@@ -102,7 +114,9 @@ export class RedisCache {
       });
 
       this.client.on('error', (err) => {
-        console.warn('[RedisCache] Connection error:', err.message);
+        if (this.connected) {
+          console.warn('[RedisCache] Connection error:', err.message);
+        }
         this.connected = false;
       });
 
@@ -112,12 +126,15 @@ export class RedisCache {
 
       await this.client.connect();
       this.connected = true;
+      this.lastFailedAt = 0; // reset cooldown on success
       console.log('[RedisCache] Connected to Redis');
       return true;
     } catch (err) {
-      console.warn('[RedisCache] Failed to connect:', (err as Error).message);
+      console.warn('[RedisCache] Failed to connect (will retry in ' +
+        Math.round(this.config.retryCooldownMs / 1000) + 's):', (err as Error).message);
       this.client = null;
       this.connected = false;
+      this.lastFailedAt = Date.now();
       return false;
     } finally {
       this.connecting = false;

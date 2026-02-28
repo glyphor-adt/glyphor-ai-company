@@ -6,12 +6,8 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import https from 'node:https';
 import type { ConversationTurn } from '../types.js';
 import type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse } from './types.js';
-
-// Disable keep-alive to prevent stale connections in Cloud Run
-const httpAgent = new https.Agent({ keepAlive: false });
 
 export class AnthropicAdapter implements ProviderAdapter {
   readonly provider = 'anthropic' as const;
@@ -22,7 +18,15 @@ export class AnthropicAdapter implements ProviderAdapter {
       apiKey,
       maxRetries: 0,      // We handle retries in ModelClient
       timeout: 120_000,   // 2 minute timeout per request
-      httpAgent,           // No keep-alive — Cloud Run drops idle connections
+      fetch: async (url: RequestInfo | URL, init?: RequestInit) => {
+        // Force fresh TCP connections in Cloud Run (no connection pool reuse)
+        const resp = await globalThis.fetch(url, {
+          ...init,
+          // @ts-expect-error — Node.js fetch supports keepalive
+          keepalive: false,
+        });
+        return resp;
+      },
     });
   }
 
