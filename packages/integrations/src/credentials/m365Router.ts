@@ -12,6 +12,7 @@
  *   3. glyphor-mail            → Mail.Send (shared mailbox)
  *   4. glyphor-files           → Sites.Selected
  *   5. glyphor-users           → User.Read.All
+ *   6. glyphor-directory       → Directory.ReadWrite.All, Group.ReadWrite.All, Application.Read.All
  */
 
 import { ConfidentialClientApplication } from '@azure/msal-node';
@@ -30,7 +31,16 @@ export type M365Operation =
   | 'write_sharepoint'
   | 'search_sharepoint'
   | 'get_user_profile'
-  | 'list_users';
+  | 'list_users'
+  | 'read_directory'
+  | 'write_directory'
+  | 'list_groups'
+  | 'manage_groups'
+  | 'list_directory_roles'
+  | 'manage_directory_roles'
+  | 'list_app_registrations'
+  | 'manage_licenses'
+  | 'audit_sign_ins';
 
 interface EntraAppConfig {
   clientId: string;
@@ -56,6 +66,15 @@ const OPERATION_TO_APP: Record<M365Operation, string> = {
   search_sharepoint: 'AZURE_FILES',
   get_user_profile: 'AZURE_USERS',
   list_users: 'AZURE_USERS',
+  read_directory: 'AZURE_DIRECTORY',
+  write_directory: 'AZURE_DIRECTORY',
+  list_groups: 'AZURE_DIRECTORY',
+  manage_groups: 'AZURE_DIRECTORY',
+  list_directory_roles: 'AZURE_DIRECTORY',
+  manage_directory_roles: 'AZURE_DIRECTORY',
+  list_app_registrations: 'AZURE_DIRECTORY',
+  manage_licenses: 'AZURE_DIRECTORY',
+  audit_sign_ins: 'AZURE_DIRECTORY',
 };
 
 // Cache MSAL clients to avoid recreating on every call

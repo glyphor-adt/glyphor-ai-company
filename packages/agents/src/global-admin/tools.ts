@@ -8,7 +8,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { GraphTeamsClient } from '@glyphor/integrations';
+import { getM365Token, type M365Operation } from '@glyphor/integrations';
 
 /** GCP projects this admin manages. */
 const MANAGED_PROJECTS = [
@@ -39,21 +39,20 @@ function isProtectedEntraUser(email: string): boolean {
   return PROTECTED_ENTRA_EMAILS.has(email.toLowerCase());
 }
 
-/** Graph API token via shared MSAL client. */
-async function graphToken(): Promise<string> {
-  return GraphTeamsClient.fromEnv().getAccessToken();
+/** Graph API token routed through M365 credential router. */
+async function graphToken(operation: M365Operation = 'read_directory'): Promise<string> {
+  return getM365Token(operation);
 }
 
-/** Graph API fetch helper. */
-async function graphFetch(path: string, method = 'GET', body?: unknown): Promise<Response> {
-  const token = await graphToken();
+/** Graph API fetch helper — routes token via M365 credential router. */
+async function graphFetch(path: string, method = 'GET', body?: unknown, operation: M365Operation = 'read_directory'): Promise<Response> {
+  const token = await graphToken(operation);
   const url = path.startsWith('https://') ? path : `https://graph.microsoft.com/v1.0${path}`;
   return fetch(url, {
     method,
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
-      ...(method === 'GET' ? {} : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -692,7 +691,7 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
               displayName: display_name,
               endDateTime: new Date(Date.now() + 730 * 86400000).toISOString(), // 2 years
             },
-          });
+          }, 'list_app_registrations');
           if (!addRes.ok) return { success: false, error: `Graph addPassword ${addRes.status}: ${await addRes.text()}` };
           const cred = await addRes.json() as { secretText: string; keyId: string; endDateTime: string };
 
@@ -920,7 +919,7 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
         // 2. Entra ID — create user account (humans only, agents are service-principal-based)
         if (!is_agent) {
           try {
-            const checkRes = await graphFetch(`/users/${encodeURIComponent(email as string)}?$select=id,accountEnabled`);
+            const checkRes = await graphFetch(`/users/${encodeURIComponent(email as string)}?$select=id,accountEnabled`, 'GET', undefined, 'read_directory');
             if (checkRes.ok) {
               checklist.push({ step: 'Entra ID user', status: 'done', detail: 'User already exists in Entra' });
             } else {
@@ -934,7 +933,7 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
                 jobTitle: role_slug,
                 department: dept,
                 passwordProfile: { forceChangePasswordNextSignIn: true, password: tempPw },
-              });
+              }, 'write_directory');
               checklist.push({
                 step: 'Entra ID user',
                 status: createRes.ok ? 'done' : 'failed',
@@ -1097,7 +1096,7 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
           }
           const res = await graphFetch(`/users/${encodeURIComponent(email)}`, 'PATCH', {
             accountEnabled: false,
-          });
+          }, 'write_directory');
           if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
           return {
             success: true,
@@ -1130,7 +1129,7 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
           }
           const res = await graphFetch(`/users/${encodeURIComponent(email)}`, 'PATCH', {
             accountEnabled: true,
-          });
+          }, 'write_directory');
           if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
           return {
             success: true,
@@ -1166,7 +1165,7 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
           const url = filter
             ? `/groups?$search="displayName:${encodeURIComponent(filter)}"&$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled,membershipRule&$top=50&ConsistencyLevel=eventual`
             : `/groups?$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled&$top=50&$orderby=displayName`;
-          const res = await graphFetch(url);
+          const res = await graphFetch(url, 'GET', undefined, 'list_groups');
           if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
           const data = await res.json() as { value: unknown[] };
           return { success: true, data: { count: data.value?.length || 0, groups: data.value || [] } };
@@ -1184,7 +1183,7 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const res = await graphFetch(`/groups/${encodeURIComponent(params.group_id as string)}/members?$select=id,displayName,mail,userPrincipalName`);
+          const res = await graphFetch(`/groups/${encodeURIComponent(params.group_id as string)}/members?$select=id,displayName,mail,userPrincipalName`, 'GET', undefined, 'list_groups');
           if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
           const data = await res.json() as { value: unknown[] };
           return { success: true, data: { groupId: params.group_id, count: data.value?.length || 0, members: data.value || [] } };
@@ -1209,13 +1208,13 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
             return { success: false, error: `BLOCKED: ${email} is a protected founder account.` };
           }
           // Resolve user ID
-          const userRes = await graphFetch(`/users/${encodeURIComponent(email)}?$select=id`);
+          const userRes = await graphFetch(`/users/${encodeURIComponent(email)}?$select=id`, 'GET', undefined, 'read_directory');
           if (!userRes.ok) return { success: false, error: `User not found: ${email}` };
           const user = await userRes.json() as { id: string };
 
           const res = await graphFetch(`/groups/${encodeURIComponent(params.group_id as string)}/members/$ref`, 'POST', {
             '@odata.id': `https://graph.microsoft.com/v1.0/directoryObjects/${user.id}`,
-          });
+          }, 'manage_groups');
           if (!res.ok) {
             const errText = await res.text();
             if (errText.includes('already exist')) {
@@ -1254,11 +1253,11 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
           if (isProtectedEntraUser(email)) {
             return { success: false, error: `BLOCKED: ${email} is a protected founder account.` };
           }
-          const userRes = await graphFetch(`/users/${encodeURIComponent(email)}?$select=id`);
+          const userRes = await graphFetch(`/users/${encodeURIComponent(email)}?$select=id`, 'GET', undefined, 'read_directory');
           if (!userRes.ok) return { success: false, error: `User not found: ${email}` };
           const user = await userRes.json() as { id: string };
 
-          const res = await graphFetch(`/groups/${encodeURIComponent(params.group_id as string)}/members/${user.id}/$ref`, 'DELETE');
+          const res = await graphFetch(`/groups/${encodeURIComponent(params.group_id as string)}/members/${user.id}/$ref`, 'DELETE', undefined, 'manage_groups');
           if (!res.ok && res.status !== 404) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
           return {
             success: true,
@@ -1285,13 +1284,13 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
       parameters: {},
       execute: async (_params, _ctx): Promise<ToolResult> => {
         try {
-          const res = await graphFetch('/directoryRoles?$select=id,displayName,description');
+          const res = await graphFetch('/directoryRoles?$select=id,displayName,description', 'GET', undefined, 'list_directory_roles');
           if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
           const data = await res.json() as { value: Array<{ id: string; displayName: string; description: string }> };
 
           const roles = [];
           for (const role of data.value || []) {
-            const membersRes = await graphFetch(`/directoryRoles/${role.id}/members?$select=id,displayName,mail`);
+            const membersRes = await graphFetch(`/directoryRoles/${role.id}/members?$select=id,displayName,mail`, 'GET', undefined, 'list_directory_roles');
             const membersData = membersRes.ok ? (await membersRes.json() as { value: unknown[] }).value : [];
             roles.push({ ...role, memberCount: membersData.length, members: membersData });
           }
@@ -1316,13 +1315,13 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
           if (isProtectedEntraUser(email)) {
             return { success: false, error: `BLOCKED: ${email} is a protected founder account.` };
           }
-          const userRes = await graphFetch(`/users/${encodeURIComponent(email)}?$select=id`);
+          const userRes = await graphFetch(`/users/${encodeURIComponent(email)}?$select=id`, 'GET', undefined, 'read_directory');
           if (!userRes.ok) return { success: false, error: `User not found: ${email}` };
           const user = await userRes.json() as { id: string };
 
           const res = await graphFetch(`/directoryRoles/${encodeURIComponent(params.role_id as string)}/members/$ref`, 'POST', {
             '@odata.id': `https://graph.microsoft.com/v1.0/directoryObjects/${user.id}`,
-          });
+          }, 'manage_directory_roles');
           if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
           return {
             success: true,
@@ -1349,7 +1348,7 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
       parameters: {},
       execute: async (_params, _ctx): Promise<ToolResult> => {
         try {
-          const res = await graphFetch('/applications?$select=id,appId,displayName,passwordCredentials,keyCredentials,createdDateTime&$top=50');
+          const res = await graphFetch('/applications?$select=id,appId,displayName,passwordCredentials,keyCredentials,createdDateTime&$top=50', 'GET', undefined, 'list_app_registrations');
           if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
           const data = await res.json() as { value: Array<{ id: string; appId: string; displayName: string; passwordCredentials: Array<{ endDateTime: string; displayName: string }>; keyCredentials: Array<{ endDateTime: string }> }> };
 
@@ -1406,7 +1405,7 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
       parameters: {},
       execute: async (_params, _ctx): Promise<ToolResult> => {
         try {
-          const res = await graphFetch('/subscribedSkus?$select=skuPartNumber,skuId,prepaidUnits,consumedUnits,appliesTo');
+          const res = await graphFetch('/subscribedSkus?$select=skuPartNumber,skuId,prepaidUnits,consumedUnits,appliesTo', 'GET', undefined, 'manage_licenses');
           if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
           const data = await res.json() as { value: Array<{ skuPartNumber: string; skuId: string; prepaidUnits: { enabled: number }; consumedUnits: number }> };
           const licenses = (data.value || []).map(l => ({
@@ -1440,7 +1439,7 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
           const res = await graphFetch(`/users/${encodeURIComponent(email)}/assignLicense`, 'POST', {
             addLicenses: [{ skuId: params.sku_id, disabledPlans: [] }],
             removeLicenses: [],
-          });
+          }, 'manage_licenses');
           if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
           return {
             success: true,
@@ -1476,7 +1475,7 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
           const res = await graphFetch(`/users/${encodeURIComponent(email)}/assignLicense`, 'POST', {
             addLicenses: [],
             removeLicenses: [params.sku_id],
-          });
+          }, 'manage_licenses');
           if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
           return {
             success: true,
@@ -1514,7 +1513,7 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
           if (statusFilter === 'failed') filter += ` and status/errorCode ne 0`;
           else if (statusFilter === 'success') filter += ` and status/errorCode eq 0`;
 
-          const res = await graphFetch(`/auditLogs/signIns?$filter=${encodeURIComponent(filter)}&$top=50&$orderby=createdDateTime desc`);
+          const res = await graphFetch(`/auditLogs/signIns?$filter=${encodeURIComponent(filter)}&$top=50&$orderby=createdDateTime desc`, 'GET', undefined, 'audit_sign_ins');
           if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
           const data = await res.json() as { value: Array<{ userDisplayName: string; userPrincipalName: string; createdDateTime: string; status: { errorCode: number; failureReason: string }; ipAddress: string; location: { city: string; countryOrRegion: string } }> };
 
