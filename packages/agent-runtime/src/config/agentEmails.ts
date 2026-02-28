@@ -62,6 +62,14 @@ export const AGENT_EMAIL_MAP: Record<CompanyAgentRole, AgentEmailEntry> = {
   'market-research-analyst':      { email: 'dokafor@glyphor.ai', displayName: 'Daniel Okafor',     title: 'Market Research Analyst' },
   'technical-research-analyst':   { email: 'kain@glyphor.ai',    displayName: 'Kai Nakamura',      title: 'Technical Research Analyst' },
   'industry-research-analyst':    { email: 'amara@glyphor.ai',   displayName: 'Amara Diallo',      title: 'Industry Research Analyst' },
+  // Sales, Finance, Marketing, Operations specialists
+  'enterprise-account-researcher': { email: 'ethan@glyphor.ai',   displayName: 'Ethan Morse',        title: 'Enterprise Account Researcher' },
+  'bob-the-tax-pro':               { email: 'bob@glyphor.ai',     displayName: 'Robert Finley',      title: 'CPA & Tax Strategist' },
+  'data-integrity-auditor':        { email: 'grace@glyphor.ai',   displayName: 'Grace Hwang',        title: 'Data Integrity Auditor' },
+  'tax-strategy-specialist':       { email: 'mariana@glyphor.ai', displayName: 'Mariana Solis',      title: 'Tax Strategy Specialist' },
+  'lead-gen-specialist':           { email: 'derek@glyphor.ai',   displayName: 'Derek Owens',        title: 'Lead Generation Specialist' },
+  'marketing-intelligence-analyst': { email: 'zara@glyphor.ai',  displayName: 'Zara Petrov',        title: 'Marketing Intelligence Analyst' },
+  'adi-rose':                      { email: 'adi@glyphor.ai',     displayName: 'Adi Rose',           title: 'Executive Assistant to COO' },
 };
 
 /** Founder email addresses for resolveRecipient(). */

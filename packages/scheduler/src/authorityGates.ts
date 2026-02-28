@@ -103,6 +103,14 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
   'technical-research-analyst': new Set(['research', 'on_demand']),
   'industry-research-analyst': new Set(['research', 'on_demand']),
   'head-of-hr': new Set(['on_demand', 'read_inbox']),
+  // Sales, Finance, Marketing, Operations specialists
+  'enterprise-account-researcher': new Set(['on_demand']),
+  'bob-the-tax-pro': new Set(['on_demand']),
+  'data-integrity-auditor': new Set(['on_demand']),
+  'tax-strategy-specialist': new Set(['on_demand']),
+  'lead-gen-specialist': new Set(['on_demand']),
+  'marketing-intelligence-analyst': new Set(['on_demand']),
+  'adi-rose': new Set(['on_demand']),
 };
 
 /**

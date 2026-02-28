@@ -416,6 +416,14 @@ export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   'market-research-analyst':      { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
   'technical-research-analyst':   { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
   'industry-research-analyst':    { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
+  // Sales, Finance, Marketing, Operations specialists
+  'enterprise-account-researcher': { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
+  'bob-the-tax-pro':               { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
+  'data-integrity-auditor':        { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
+  'tax-strategy-specialist':       { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
+  'lead-gen-specialist':           { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
+  'marketing-intelligence-analyst': { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
+  'adi-rose':                      { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
 };
 
 // ═══════════════════════════════════════════════════════════════════
