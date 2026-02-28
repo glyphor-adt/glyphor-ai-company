@@ -711,32 +711,36 @@ glyphor-ai-company/
 │   │
 │   ├── scheduler/               # Orchestration service
 │   │   └── src/
-│   │       ├── server.ts              # HTTP server (Cloud Run entry, 40+ endpoints, 34 agent routes)
+│   │       ├── server.ts              # HTTP server (Cloud Run entry, 58+ endpoints, 35 agent routes)
 │   │       ├── eventRouter.ts         # Event → agent routing + authority
-│   │       ├── authorityGates.ts      # Green/Yellow/Red classification (all 34 roles)
+│   │       ├── authorityGates.ts      # Green/Yellow/Red classification (all 35 roles)
 │   │       ├── cronManager.ts         # 33 agent + 9 data sync job definitions
 │   │       ├── dynamicScheduler.ts    # DB-driven cron for dynamic agents
 │   │       ├── dataSyncScheduler.ts   # Internal cron for data sync jobs (fires HTTP to self)
 │   │       ├── decisionQueue.ts       # Human approval workflow
 │   │       ├── agentLifecycle.ts      # Create/retire temporary agents
 │   │       ├── analysisEngine.ts      # 5-phase strategic analysis engine
+│   │       ├── strategyLabEngine.ts   # Strategy Lab v2: multi-wave analysis (Research→Analysis→Synthesis)
+│   │       ├── deepDiveEngine.ts      # McKinsey-style deep dive engine with cited evidence
 │   │       ├── simulationEngine.ts    # T+1 impact simulation engine
 │   │       ├── cotEngine.ts           # 4-phase chain-of-thought planning engine
 │   │       ├── meetingEngine.ts       # Multi-round inter-agent meetings
-│   │       ├── reportExporter.ts      # Analysis/simulation/CoT export (md/json) + visual prompt builder
+│   │       ├── reportExporter.ts      # Analysis/simulation/CoT export (md/json/pptx/docx) + visual prompt builder
+│   │       ├── inboxCheck.ts          # M365 mailbox polling for agent email (12 email-enabled agents)
 │   │       ├── wakeRouter.ts          # Event-driven agent wake dispatcher
 │   │       ├── wakeRules.ts           # Declarative event-to-agent wake mappings
-│   │       └── heartbeat.ts           # Lightweight periodic agent check-ins (DB only)
+│   │       ├── heartbeat.ts           # Lightweight periodic agent check-ins (DB only)
+│   │       └── index.ts              # Package public API exports
 │   │
 │   ├── dashboard/               # Web UI
 │       ├── src/
 │       │   ├── pages/
 │       │   │   ├── Dashboard.tsx      # Agent overview & metrics
 │       │   │   ├── Chat.tsx           # Real-time agent chat (react-markdown)
-│       │   │   ├── GroupChat.tsx      # Multi-agent group chat
-│       │   │   ├── Workforce.tsx      # Org chart + grid view (10 departments)
+│       │   │   ├── Comms.tsx          # Composite: Chat + Meetings tabs
+│       │   │   ├── Capabilities.tsx   # Composite: Skills + Self-Models (WorldModel) tabs
+│       │   │   ├── Workforce.tsx      # Org chart + grid view (11 departments)
 │       │   │   ├── WorkforceBuilder.tsx # Drag-and-drop org chart builder
-│       │   │   ├── AgentsList.tsx     # Agent roster & grid
 │       │   │   ├── AgentProfile.tsx   # 7-tab agent profile (overview, perf,
 │       │   │   │                      #   memory, messages, skills, world model,
 │       │   │   │                      #   settings)
@@ -746,17 +750,18 @@ glyphor-ai-company/
 │       │   │   ├── Directives.tsx     # Founder directives management
 │       │   │   ├── Financials.tsx     # Revenue, costs, GCP billing, vendor subscriptions
 │       │   │   ├── Governance.tsx     # Platform governance, IAM state, secret rotation
-│       │   │   ├── Knowledge.tsx      # Knowledge base management & founder bulletins
-│       │   │   ├── Operations.tsx     # System operations & events
-│       │   │   ├── Activity.tsx       # Live running-now banner, filterable run history, real-time subscriptions
+│       │   │   ├── Knowledge.tsx      # Knowledge base management, bulletins & knowledge graph
+│       │   │   ├── Operations.tsx     # System operations, events & activity log
 │       │   │   ├── Strategy.tsx       # Strategic analysis & T+1 simulations & CoT planning & AI infographics
-│       │   │   ├── Graph.tsx          # Interactive force-directed knowledge graph (canvas)
+│       │   │   ├── Graph.tsx          # Force-directed knowledge graph (canvas, ref-based animation)
 │       │   │   ├── Skills.tsx         # Skill library browser (10 categories)
 │       │   │   ├── SkillDetail.tsx    # Skill detail + agent assignments
+│       │   │   ├── WorldModel.tsx     # Agent self-model radar charts
 │       │   │   ├── Meetings.tsx       # Inter-agent meetings & messages
+│       │   │   ├── Settings.tsx       # User management
 │       │   │   └── TeamsConfig.tsx    # Teams bot setup & configuration
 │       │   ├── components/            # Shared UI components
-│       │   │   ├── Layout.tsx            # Sidebar nav (14 items), theme toggle
+│       │   │   ├── Layout.tsx            # Sidebar nav, theme toggle
 │       │   │   ├── AgentIcon.tsx         # Agent avatar component
 │       │   │   ├── GrowthAreas.tsx       # Agent growth tracking
 │       │   │   ├── PeerFeedback.tsx      # Agent peer feedback display
@@ -769,7 +774,7 @@ glyphor-ai-company/
 │       │   │   ├── theme.tsx             # Dark/light theme provider
 │       │   │   ├── hooks.ts              # Custom hooks
 │       │   │   └── types.ts              # Dashboard-specific types
-│       │   ├── App.tsx               # Router & layout (22 routes)
+│       │   ├── App.tsx               # Router & layout (19 routes + 8 legacy redirects)
 │       │   └── index.css             # Tailwind + Glyphor brand theme
 │       └── package.json
 │
@@ -1905,8 +1910,35 @@ Simulation engines. Temporary agents:
 
 ### Report Exporter (`reportExporter.ts`)
 
-Generates downloadable documents from analysis, simulation, and CoT reports in both
-Markdown (human-readable) and JSON (structured) formats.
+Generates downloadable documents from analysis, simulation, CoT, deep-dive, and strategy lab
+reports in Markdown, JSON, PPTX, and DOCX formats. All PPTX/DOCX exports are watermarked with
+the Glyphor logo using Sharp image processing.
+
+### Strategy Lab v2 Engine (`strategyLabEngine.ts`)
+
+Multi-wave strategic analysis pipeline (upgrades v1 `analysisEngine.ts`). Three-layer
+architecture:
+
+```
+1. RESEARCH   — Spawn research agents for data gathering
+2. ANALYSIS   — Run analysis agents on research findings
+3. SYNTHESIS  — Merge into executive-ready strategic report
+```
+
+The `/analysis/run` endpoint now redirects to Strategy Lab v2 automatically.
+
+### Deep Dive Engine (`deepDiveEngine.ts`)
+
+McKinsey-style deep dive engine with cited evidence. Four-phase pipeline:
+
+```
+1. SCOPE      — Define research scope and boundaries
+2. RESEARCH   — Gather evidence from multiple sources
+3. ANALYZE    — Synthesize findings with cited evidence
+4. SYNTHESIZE — Generate structured report with recommendations
+```
+
+Stored in `deep_dives` table. Supports visual infographic generation (base64 PNG).
 
 ### Chain of Thought Engine (`cotEngine.ts`)
 
@@ -2036,11 +2068,14 @@ Provides graph context to agents during their runs:
 
 ### Dashboard Visualization (`Graph.tsx`)
 
-Interactive force-directed graph on HTML5 Canvas with:
+Interactive force-directed graph on HTML5 Canvas with unified rAF loop:
 - Color-coded nodes by type, search filtering, type filtering
 - Click-to-select with neighborhood highlighting
 - Detail panel showing summary, metadata, tags, incoming/outgoing edges
 - Theme-aware labels (reads CSS `--color-txt-primary` variable)
+- Performance: zero React state updates during simulation (all via refs), distance cutoff
+  (400px) for O(n²) repulsion, 3-5 batched sim steps per frame, `drawFnRef` for immediate
+  redraws on pan/zoom/selection changes
 
 ---
 
@@ -2306,6 +2341,7 @@ Total: **73 migration files**, **73+ tables**, **10 RPC functions**, **1 extensi
 | Artifact Registry | `us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/` | Docker images |
 | Cloud Storage | `glyphor-company` bucket | Briefings, reports, specs |
 | BigQuery | `billing_export` dataset | GCP billing export data |
+| Memorystore (Redis) | `glyphor-redis` | Redis cache for JIT context, directives, profiles, reasoning |
 | Azure | Resource group `glyphor-resources` (centralus) | Bot registrations, Entra apps |
 
 ### External Services
