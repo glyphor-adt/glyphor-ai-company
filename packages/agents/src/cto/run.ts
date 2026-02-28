@@ -29,6 +29,7 @@ import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createToolRegistryTools } from '../shared/toolRegistryTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
+import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 
 export interface CTORunParams {
   task?: 'platform_health_check' | 'dependency_review' | 'on_demand';
@@ -66,6 +67,7 @@ export async function runCTO(params: CTORunParams = {}) {
     ...createToolGrantTools(memory.getSupabaseClient(), 'cto'),
     ...createToolRegistryTools(memory.getSupabaseClient()),
     ...createToolRequestTools(memory.getSupabaseClient()),
+    ...createAgentDirectoryTools(memory.getSupabaseClient()),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

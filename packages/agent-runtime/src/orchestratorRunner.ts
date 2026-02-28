@@ -155,6 +155,13 @@ export class OrchestratorRunner extends BaseAgentRunner {
       } catch (err) {
         console.warn(`[OrchestratorRunner] Episode write failed for ${config.id}:`, (err as Error).message);
       }
+
+      // Initialize world model if it doesn't exist yet
+      try {
+        await deps.sharedMemoryLoader.initializeWorldModel?.(config.role);
+      } catch (err) {
+        console.warn(`[OrchestratorRunner] World model init failed for ${config.role}:`, (err as Error).message);
+      }
     }
   }
 

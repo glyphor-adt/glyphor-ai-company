@@ -27,6 +27,7 @@ import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
+import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 
 export interface VPCSRunParams {
   task?: 'daily_health_scoring' | 'churn_detection' | 'on_demand';
@@ -62,6 +63,7 @@ export async function runVPCS(params: VPCSRunParams = {}) {
     ...createEmailTools(),
     ...createAgentCreationTools(memory.getSupabaseClient()),
     ...createToolRequestTools(memory.getSupabaseClient()),
+    ...createAgentDirectoryTools(memory.getSupabaseClient()),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

@@ -27,6 +27,7 @@ import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
+import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 
 export interface CFORunParams {
   task?: 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand';
@@ -62,6 +63,7 @@ export async function runCFO(params: CFORunParams = {}) {
     ...createEmailTools(),
     ...createAgentCreationTools(memory.getSupabaseClient()),
     ...createToolRequestTools(memory.getSupabaseClient()),
+    ...createAgentDirectoryTools(memory.getSupabaseClient()),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

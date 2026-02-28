@@ -73,7 +73,7 @@ export class SharedMemoryLoader {
   constructor(
     private supabase: SupabaseClient,
     private embedding: EmbeddingClient,
-    private graphReader: KnowledgeGraphReader,
+    private graphReader: KnowledgeGraphReader | null = null,
   ) {}
 
   /**
@@ -253,6 +253,7 @@ export class SharedMemoryLoader {
     options: { limit?: number } = {},
   ): Promise<{ title: string; content: string; nodeType: string; similarity: number }[]> {
     try {
+      if (!this.graphReader) return [];
       const context = await this.graphReader.getRelevantContext(query, 'system', {
         limit: options.limit ?? 6,
         expandHops: 1,

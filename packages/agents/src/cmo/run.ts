@@ -28,6 +28,7 @@ import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
+import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 
 export interface CMORunParams {
   task?: 'weekly_content_planning' | 'generate_content' | 'seo_analysis' | 'on_demand';
@@ -64,6 +65,7 @@ export async function runCMO(params: CMORunParams = {}) {
     ...createEmailTools(),
     ...createAgentCreationTools(memory.getSupabaseClient()),
     ...createToolRequestTools(memory.getSupabaseClient()),
+    ...createAgentDirectoryTools(memory.getSupabaseClient()),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

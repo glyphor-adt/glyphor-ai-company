@@ -73,6 +73,7 @@ export interface ClassifiedRunDependencies extends RunDependencies {
       directiveId?: string;
       assignmentId?: string;
     }): Promise<string>;
+    initializeWorldModel?(role: CompanyAgentRole): Promise<void>;
   };
   /** World model updater — updates agent self-models after grading. */
   worldModelUpdater?: {

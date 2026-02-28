@@ -33,7 +33,7 @@ interface WorldModelRow {
   updated_at: string;
   strengths: { dimension: string; evidence: string; confidence: number }[];
   weaknesses: { dimension: string; evidence: string; confidence: number }[];
-  blindspots: string[];
+  blindspots: { dimension: string; evidence: string; confidence: number }[];
   failure_patterns: { pattern: string; occurrences: number; lastSeen: string }[];
   task_type_scores: Record<string, { avgScore: number; count: number; trend: string }>;
   prediction_accuracy: number;
@@ -261,7 +261,10 @@ function AgentWorldCard({ model }: { model: WorldModelRow }) {
             <div>
               <h4 className="text-xs font-medium text-orange-400 mb-1">Blindspots</h4>
               {model.blindspots.map((b, i) => (
-                <p key={i} className="text-xs text-txt-muted">• {b}</p>
+                <p key={i} className="text-xs text-txt-muted">
+                  • {b.dimension}
+                  <span className="text-txt-faint ml-1">({(b.confidence * 100).toFixed(0)}%)</span>
+                </p>
               ))}
             </div>
           )}

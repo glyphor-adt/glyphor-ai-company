@@ -871,45 +871,59 @@ export function createOrchestrationTools(
             .eq('id', assignmentId)
             .single();
 
-          if (assignmentData?.assigned_to && graphReader) {
-            {
-              const embeddingClient = new EmbeddingClient(process.env.GOOGLE_AI_API_KEY!);
-              const sharedMemLoader = new SharedMemoryLoader(supabase, embeddingClient, graphReader);
-              const updater = new WorldModelUpdater(supabase, sharedMemLoader);
+          if (assignmentData?.assigned_to) {
+            const embeddingClient = new EmbeddingClient(process.env.GOOGLE_AI_API_KEY!);
+            const sharedMemLoader = new SharedMemoryLoader(supabase, embeddingClient, graphReader ?? null);
+            const updater = new WorldModelUpdater(supabase, sharedMemLoader);
 
-              const qualityScore = params.quality_score as number;
-              const scaledScore = (qualityScore / 100) * 5; // Map 0-100 → 0-5
-              const taskType = (assignmentData.task_type as string) || 'general';
+            const qualityScore = params.quality_score as number;
+            const scaledScore = (qualityScore / 100) * 5; // Map 0-100 → 0-5
+            const agentRole = assignmentData.assigned_to as CompanyAgentRole;
+            const taskType = (assignmentData.task_type as string) || 'general';
 
-              const reflection: StructuredReflection = {
-                runId: assignmentId,
-                taskType,
-                rubricScores: [],
-                predictedScore: 0,
-                approachUsed: 'unknown',
-                wouldChange: '',
-                newKnowledge: '',
-                blockedBy: null,
-              };
+            // Look up the actual rubric for this agent's role + task type
+            const rubric = await sharedMemLoader.getRubric(agentRole, taskType);
+            const rubricDimensions = rubric?.dimensions ?? [
+              { name: 'task_completion', weight: 0.5 },
+              { name: 'overall_quality', weight: 0.5 },
+            ];
+            const passingScore = rubric?.passingScore ?? 3.0;
 
-              const grade: OrchestratorGrade = {
-                assignmentId,
-                agentRole: assignmentData.assigned_to as CompanyAgentRole,
-                rubricScores: [
-                  { dimension: 'task_completion', orchestratorScore: scaledScore, evidence: params.evaluation as string, feedback: params.evaluation as string },
-                  { dimension: 'overall_quality', orchestratorScore: scaledScore, evidence: params.evaluation as string, feedback: params.evaluation as string },
-                ],
-                weightedTotal: scaledScore,
-                disposition: nextAction as OrchestratorGrade['disposition'],
-              };
+            // Build per-dimension scores from the rubric
+            const rubricScores = rubricDimensions.map(dim => ({
+              dimension: dim.name,
+              orchestratorScore: scaledScore,
+              evidence: params.evaluation as string,
+              feedback: params.evaluation as string,
+            }));
 
-              await updater.updateFromGrade(
-                assignmentData.assigned_to as CompanyAgentRole,
-                reflection,
-                grade,
-                3.0,
-              );
-            }
+            const reflection: StructuredReflection = {
+              runId: assignmentId,
+              taskType,
+              rubricScores: rubricDimensions.map(dim => ({
+                dimension: dim.name,
+                selfScore: scaledScore,
+                evidence: '',
+                confidence: 0.5,
+              })),
+              predictedScore: scaledScore,
+              approachUsed: taskType,
+              wouldChange: '',
+              newKnowledge: '',
+              blockedBy: null,
+            };
+
+            const grade: OrchestratorGrade = {
+              assignmentId,
+              agentRole,
+              rubricScores,
+              weightedTotal: scaledScore,
+              disposition: nextAction as OrchestratorGrade['disposition'],
+            };
+
+            // Initialize the world model if it doesn't exist yet
+            await updater.initializeForAgent(agentRole);
+            await updater.updateFromGrade(agentRole, reflection, grade, passingScore);
           }
         } catch (err) {
           console.warn('[CoS] World model update failed:', (err as Error).message);

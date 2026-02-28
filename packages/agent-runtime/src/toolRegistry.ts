@@ -26,6 +26,8 @@ const KNOWN_TOOLS = new Set([
   'check_messages',
   'call_meeting',
   'log_activity',
+  'get_agent_directory',
+  'who_handles',
 
   // ── Collective Intelligence tools ──
   'get_company_pulse',
@@ -74,6 +76,13 @@ const KNOWN_TOOLS = new Set([
   'update_directive_progress',
   'grant_tool_access',
   'revoke_tool_access',
+  'request_new_tool',
+  'check_tool_request_status',
+  'list_tool_requests',
+  'review_tool_request',
+  'register_tool',
+  'deactivate_tool',
+  'list_registered_tools',
   'propose_directive',
 
   // ── CTO tools ──

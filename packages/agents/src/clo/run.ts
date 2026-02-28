@@ -28,6 +28,7 @@ import { createEmailTools } from '../shared/emailTools.js';
 import { createEventTools } from '../shared/eventTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
+import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 
 export interface CLORunParams {
   task?: 'regulatory_scan' | 'contract_review' | 'compliance_check' | 'read_inbox' | 'on_demand';
@@ -62,6 +63,7 @@ export async function runCLO(params: CLORunParams = {}) {
     ...createEventTools(glyphorEventBus),
     ...createAgentCreationTools(memory.getSupabaseClient()),
     ...createToolRequestTools(memory.getSupabaseClient()),
+    ...createAgentDirectoryTools(memory.getSupabaseClient()),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

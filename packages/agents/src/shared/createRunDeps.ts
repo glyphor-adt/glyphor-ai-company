@@ -54,12 +54,11 @@ export function createRunDeps(
 
   // Build shared memory infrastructure for classified runners
   const embeddingClient = new EmbeddingClient(process.env.GOOGLE_AI_API_KEY!);
-  const sharedMemoryLoader = graphReader
-    ? new SharedMemoryLoader(supabase, embeddingClient, graphReader)
-    : null;
-  const worldModelUpdater = sharedMemoryLoader
-    ? new WorldModelUpdater(supabase, sharedMemoryLoader)
-    : null;
+  if (!graphReader) {
+    console.warn('[createRunDeps] Knowledge graph reader unavailable (GOOGLE_AI_API_KEY may be missing from CompanyMemoryStore). L3 semantic memory will be skipped, but world models and episodes still work.');
+  }
+  const sharedMemoryLoader = new SharedMemoryLoader(supabase, embeddingClient, graphReader);
+  const worldModelUpdater = new WorldModelUpdater(supabase, sharedMemoryLoader);
 
   // Redis cache (singleton) + JIT context retriever
   const cache = getRedisCache();
@@ -431,52 +430,49 @@ export function createRunDeps(
     },
 
     // ─── Shared memory + world model (for classified runners) ───
-    sharedMemoryLoader: sharedMemoryLoader
-      ? {
-          loadForAgent: (role: CompanyAgentRole, currentTask: string) =>
-            sharedMemoryLoader.loadForAgent(role, currentTask, ORCHESTRATOR_ROLES.has(role) ? 'full' : 'standard'),
-          formatForPrompt: (ctx) => sharedMemoryLoader.formatForPrompt(ctx),
-          writeEpisode: async (episode) => {
-            const id = await sharedMemoryLoader.writeEpisode(episode as Parameters<typeof sharedMemoryLoader.writeEpisode>[0]);
-            return id ?? '';
-          },
-        }
-      : undefined,
-    worldModelUpdater: worldModelUpdater
-      ? {
-          updateFromGrade: (grade) => worldModelUpdater.updateFromGrade(
-            grade.agentRole,
-            {
-              runId: 'auto',
-              taskType: grade.taskType,
-              rubricScores: Object.entries(grade.dimensionScores).map(([dimension, score]) => ({
-                dimension,
-                selfScore: score,
-                evidence: '',
-                confidence: 0.5,
-              })),
-              predictedScore: 0,
-              approachUsed: 'unknown',
-              wouldChange: '',
-              newKnowledge: '',
-              blockedBy: null,
-            },
-            {
-              assignmentId: 'auto',
-              agentRole: grade.agentRole,
-              rubricScores: Object.entries(grade.dimensionScores).map(([dimension, score]) => ({
-                dimension,
-                orchestratorScore: score,
-                evidence: grade.evaluatorFeedback,
-                feedback: grade.evaluatorFeedback,
-              })),
-              weightedTotal: grade.overallScore,
-              disposition: 'accept' as const,
-            },
-            3.0,
-          ),
-        }
-      : undefined,
+    sharedMemoryLoader: {
+      loadForAgent: (role: CompanyAgentRole, currentTask: string) =>
+        sharedMemoryLoader.loadForAgent(role, currentTask, ORCHESTRATOR_ROLES.has(role) ? 'full' : 'standard'),
+      formatForPrompt: (ctx) => sharedMemoryLoader.formatForPrompt(ctx),
+      writeEpisode: async (episode) => {
+        const id = await sharedMemoryLoader.writeEpisode(episode as Parameters<typeof sharedMemoryLoader.writeEpisode>[0]);
+        return id ?? '';
+      },
+      initializeWorldModel: (role: CompanyAgentRole) => worldModelUpdater.initializeForAgent(role),
+    },
+    worldModelUpdater: {
+      updateFromGrade: (grade) => worldModelUpdater.updateFromGrade(
+        grade.agentRole,
+        {
+          runId: 'auto',
+          taskType: grade.taskType,
+          rubricScores: Object.entries(grade.dimensionScores).map(([dimension, score]) => ({
+            dimension,
+            selfScore: score,
+            evidence: '',
+            confidence: 0.5,
+          })),
+          predictedScore: 0,
+          approachUsed: 'unknown',
+          wouldChange: '',
+          newKnowledge: '',
+          blockedBy: null,
+        },
+        {
+          assignmentId: 'auto',
+          agentRole: grade.agentRole,
+          rubricScores: Object.entries(grade.dimensionScores).map(([dimension, score]) => ({
+            dimension,
+            orchestratorScore: score,
+            evidence: grade.evaluatorFeedback,
+            feedback: grade.evaluatorFeedback,
+          })),
+          weightedTotal: grade.overallScore,
+          disposition: 'accept' as const,
+        },
+        3.0,
+      ),
+    },
   };
 }
 
