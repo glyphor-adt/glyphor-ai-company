@@ -1,14 +1,15 @@
 /**
  * Document Text Extraction
  *
- * Extracts plain text from binary Office formats (.docx, .pptx, .xlsx)
- * so they can be provided to LLMs as text context instead of raw binary gibberish.
+ * Extracts plain text from binary document formats (.docx, .pptx, .xlsx, .pdf)
+ * so they can be provided to LLMs as text context instead of raw binary.
  */
 
 import { parseOffice } from 'officeparser';
 
-/** MIME types that require binary-to-text extraction (Office Open XML formats). */
+/** MIME types that require binary-to-text extraction. */
 const OFFICE_MIME_TYPES = new Set([
+  'application/pdf',                                                            // .pdf
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',   // .docx
   'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',         // .xlsx
@@ -22,7 +23,7 @@ const OFFICE_MIME_TYPES = new Set([
 
 /** File extensions that indicate Office formats (fallback when MIME type is generic). */
 const OFFICE_EXTENSIONS = new Set([
-  '.docx', '.doc', '.pptx', '.ppt', '.xlsx', '.xls', '.odt', '.ods', '.odp',
+  '.pdf', '.docx', '.doc', '.pptx', '.ppt', '.xlsx', '.xls', '.odt', '.ods', '.odp',
 ]);
 
 /**
