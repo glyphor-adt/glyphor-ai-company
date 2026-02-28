@@ -427,7 +427,7 @@ export class SharedMemoryLoader {
       const { data: fallback } = await this.supabase
         .from('role_rubrics')
         .select('*')
-        .eq('role', 'default')
+        .eq('role', '_default')
         .eq('task_type', taskType)
         .order('version', { ascending: false })
         .limit(1)

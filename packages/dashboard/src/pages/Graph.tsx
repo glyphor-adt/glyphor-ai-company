@@ -316,6 +316,7 @@ function GraphCanvas({
     }
 
     function draw() {
+      if (!ctx || !canvas) return;
       const dpr = window.devicePixelRatio || 1;
       const targetW = Math.round(dims.width * dpr);
       const targetH = Math.round(dims.height * dpr);

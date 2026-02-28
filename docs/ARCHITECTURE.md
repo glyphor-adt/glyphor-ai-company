@@ -1,17 +1,17 @@
 # Glyphor AI Company — System Architecture
 
-> Last updated: 2026-02-26 (architecture refreshed 2026-02-26)
+> Last updated: 2026-02-28 (full architecture audit 2026-02-28)
 
 ## Overview
 
-Glyphor AI Company is a monorepo containing 9 AI executive agents, 23 sub-team/specialist
+Glyphor AI Company is a monorepo containing 9 AI executive agents, 24 sub-team/specialist
 members, and 2 operations agents that autonomously operate Glyphor alongside two human founders
 (Kristina Denney, CEO; Andrew Zwelling, COO). The agents run 24/7 on GCP Cloud Run, share
 state through Supabase, communicate with founders via Microsoft Teams, and are governed by a
 three-tier authority model (Green / Yellow / Red).
 
-Total headcount: **36** — 2 human founders, 9 AI executives (8 reporting to CoS + 1 CLO
-reporting directly to founders), 1 VP, 4 research analysts, 18 AI team members, 2 AI ops agents.
+Total headcount: **37** — 2 human founders, 9 AI executives (8 reporting to CoS + 1 CLO
+reporting directly to founders), 1 VP, 4 research analysts, 19 AI team members, 2 AI ops agents.
 
 The founders work full-time at Microsoft with 5-10 h/week for Glyphor. The AI executive team
 handles everything else: daily operations, financial monitoring, content creation, product
@@ -374,7 +374,7 @@ The Research & Intelligence department uses a multi-wave workflow: Sarah Chen re
 Sophia decomposes into analyst briefs → analysts execute in parallel with web search → Sophia QCs
 and synthesizes → executive-ready brief delivered. Supported by the `merge_research_packet` RPC.
 
-### Sub-Team Members (18)
+### Sub-Team Members (19)
 
 Sub-team members have full agent runners (`run.ts`, `systemPrompt.ts`, `tools.ts`), role briefs,
 and dashboard entries. They operate under their executive's authority scope and report to them.
@@ -399,6 +399,7 @@ and dashboard entries. They operate under their executive's authority scope and 
 | **Ava Chen** | Frontend Engineer | Design & Frontend | Mia Tanaka (VP Design) |
 | **Sofia Marchetti** | Design Critic | Design & Frontend | Mia Tanaka (VP Design) |
 | **Ryan Park** | Template Architect | Design & Frontend | Mia Tanaka (VP Design) |
+| **TBD** | Head of HR | People & Culture | Sarah Chen (CoS) |
 
 ### Operations Agents (2)
 
@@ -417,10 +418,10 @@ and dashboard entries. They operate under their executive's authority scope and 
                           \             /         Victoria Chase (CLO)
                         Sarah Chen (CoS)
                               |
-   ┌─────────┬──────────┬────┴────┬──────────┬──────────┬──────────┬──────────┬──────────┐
-   │         │          │         │          │          │          │          │          │
-Marcus    Elena      Nadia      Maya      James     Rachel      Mia      Sophia    Morgan
-(CTO)     (CPO)      (CFO)      (CMO)     (VP CS)   (VP Sales)  (VP Des) (VP Res)  (Global Admin)
+   ┌─────────┬──────────┬────┴────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┐
+   │         │          │         │          │          │          │          │          │          │
+Marcus    Elena      Nadia      Maya      James     Rachel      Mia      Sophia    Morgan    Head of HR
+(CTO)     (CPO)      (CFO)      (CMO)     (VP CS)   (VP Sales)  (VP Des) (VP Res)  (Glob.Admin) (People)
   │         │          │          │          │          │          │          │
 Alex P.  Priya S.  Anna Park  Tyler R.   Emma W.  Nathan C.  Leo V.    Lena Park
 Sam D.   Daniel O.  Omar H.   Lisa C.    David S.             Ava C.    Daniel Okafor
@@ -978,10 +979,15 @@ Execution loop:
 │  │        MAIN AGENTIC LOOP (repeats until STOP)              │  │
 │  │                                                             │  │
 │  │   ┌─────────────────────────────────────────────────────┐  │  │
-│  │   │ 4. SUPERVISOR CHECK                                 │  │  │
+│  │   │ 4. SUPERVISOR CHECK (per-turn stall detection)      │  │  │
 │  │   │    ✓ turnCount ≤ maxTurns (6 chat, 6 task, 10 std)  │  │  │
-│  │   │    ✓ stallCount < 3 (consecutive failed tool calls)  │  │  │
-│  │   │    ✓ elapsed < timeout (100s chat, 120s task, std)   │  │  │
+│  │   │    ✓ stallCount < 3 (turns with zero progress)       │  │  │
+│  │   │      Stall evaluation: checkBeforeModelCall() at     │  │  │
+│  │   │      start of each new turn — if previous turn had   │  │  │
+│  │   │      no progress (turnHadProgress=false), stallCount │  │  │
+│  │   │      increments. Multiple failed tool calls in one   │  │  │
+│  │   │      turn count as ONE stall, not per-call.          │  │  │
+│  │   │    ✓ elapsed < timeout (105s chat, 120s task, std)   │  │  │
 │  │   │    ✗ Any fail → abort (task tier: savePartialProgress)│ │  │
 │  │   └─────────────────────────────┬───────────────────────┘  │  │
 │  │                                 │                           │  │
@@ -1012,8 +1018,8 @@ Execution loop:
 │  │   ┌────────────────────────────┐  ┌──────────────────────┐ │  │
 │  │   │ 7. TOOL DISPATCH          │  │ 8. COMPLETION        │ │  │
 │  │   │                           │  │                      │ │  │
-│  │   │ Push tool_call turns      │  │ finishReason=STOP    │ │  │
-│  │   │ (batch for thought sigs)  │  │ → break loop         │ │  │
+│  │   │ Push tool_call turns      │  │ finishReason='stop'  │ │  │
+│  │   │ (batch for thought sigs)  │  │ (normalized)         │ │  │
 │  │   │                           │  │                      │ │  │
 │  │   │ For each tool call:       │  │ No text yet? Nudge   │ │  │
 │  │   │   ToolExecutor.execute()  │  │ "provide final       │ │  │
@@ -1552,9 +1558,12 @@ ModelClient.generate(request)
 
 | Provider | Model Prefixes | Auth Env Var | Adapter | Features |
 |----------|---------------|--------------|---------|----------|
-| Google Gemini | `gemini-*` | `GOOGLE_AI_API_KEY` | `GeminiAdapter` | Function calling, thinkingLevel (3.x) / thinkingBudget (2.5), thought signatures, Imagen image gen |
-| OpenAI | `gpt-*`, `/^o[134](-\|$)/` | `OPENAI_API_KEY` | `OpenAIAdapter` | Function calling, reasoning_effort (o-series/GPT-5), max_completion_tokens, gpt-image-1 |
-| Anthropic | `claude-*` | `ANTHROPIC_API_KEY` | `AnthropicAdapter` | Tool use, extended thinking (manual or adaptive for claude-opus-4) |
+| Google Gemini | `gemini-*` | `GOOGLE_AI_API_KEY` | `GeminiAdapter` | Function calling, thinkingLevel (3.x) / thinkingBudget (2.5), thought signatures, Imagen image gen, normalizeFinishReason (STOP→stop) |
+| OpenAI | `gpt-*`, `/^o[134](-\|$)/` | `OPENAI_API_KEY` | `OpenAIAdapter` | Function calling, reasoning_effort (o-series/GPT-5), max_completion_tokens, gpt-image-1, normalizeFinishReason (stop→stop) |
+| Anthropic | `claude-*` | `ANTHROPIC_API_KEY` | `AnthropicAdapter` | Tool use, extended thinking (adaptive for claude-opus-4, no `effort` field), max_tokens 16384 default, unique tool_use IDs with per-call index, normalizeFinishReason (end_turn→stop) |
+
+All providers normalize `finishReason` to a lowercase `'stop'` | `'length'` | `'tool_calls'` | `'error'`
+contract via `normalizeFinishReason()` so runners can check `=== 'stop'` uniformly.
 
 All agents currently use **`gemini-3-flash-preview`**. Multi-provider support is built in for
 fallback. Agents can be switched to any supported model via the dashboard Settings tab.
@@ -1589,6 +1598,56 @@ knowledge base, agent profiles, and founder bulletins on every run. 5-minute TTL
 manually invalidated via `POST /cache/invalidate` with optional `prefix` parameter.
 
 Cached keys: `profile:{role}`, `kb:{department}`, `bulletin:{department}`.
+
+### Reasoning Engine Layer
+
+Added 2026-02-28. Three new modules provide advanced reasoning, targeted context retrieval,
+and Redis-backed caching. All are optional layers on top of the existing execution loop.
+
+#### ReasoningEngine (`reasoningEngine.ts`)
+
+Multi-pass verification and cross-model consensus engine. Wraps the model call loop with
+structured verification passes to improve output quality for high-stakes decisions.
+
+Pass types: `self_critique`, `consistency_check`, `factual_verification`, `goal_alignment`,
+`cross_model`, `value_analysis`.
+
+Returns a `ReasoningResult` with `overallConfidence`, `passes[]`, and `suggestions`.
+Supports value gating — outputs below a confidence threshold can be blocked or flagged.
+
+Verification models:
+- `gpt-5.2-2025-12-11` (OpenAI)
+- `claude-opus-4-6` (Anthropic)
+- `gemini-3-flash-preview` (Google — same as primary)
+
+#### JitContextRetriever (`jitContextRetriever.ts`)
+
+Just-In-Time context retrieval replaces the tier-based "load everything" approach with
+targeted semantic retrieval. Given a task description, it:
+1. Embeds the task for semantic search
+2. Queries all stores in parallel (memories, graph nodes, episodes, procedures, knowledge)
+3. Scores results by relevance
+4. Trims to a token budget
+
+Returns: `relevantMemories`, `relevantGraphNodes`, `relevantEpisodes`, `relevantProcedures`,
+`relevantKnowledge` — with Redis cache support for repeated queries.
+
+#### RedisCache (`redisCache.ts`)
+
+Redis cache layer for GCP Memorystore via `ioredis`. Provides typed `get`/`set`/`getOrSet`
+with TTL management. Graceful degradation — all operations return `null` when Redis is
+unavailable. Singleton pattern for shared access across the process.
+
+Key patterns: `jit:{hash}`, `directive:{id}`, `profile:{role}`, `reasoning:{hash}`,
+`wave:{id}`, `kb:{section}`, `bulletin:{dept}`.
+
+#### ToolRegistry (`toolRegistry.ts`)
+
+Central tool lookup that maps tool names to an availability flag. Two sources:
+static `KNOWN_TOOLS` set (compiled in) and dynamic `tool_registry` DB table. Lets the
+skill system and dynamic grant system verify tool availability without importing every
+tool module. Grant requests for unknown tools are rejected with a message to ask the CTO
+to build it first.
 
 ### Inter-Agent Event Bus
 
@@ -1881,13 +1940,23 @@ then checks cron expressions every 60 seconds.
 | `packages/scheduler/src/heartbeat.ts` | HeartbeatManager: 3-tier frequency, drain wake queue, 3-phase parallel wave dispatch (SCAN → RESOLVE → DISPATCH) |
 | `packages/scheduler/src/wakeRouter.ts` | Event → WAKE_RULES matching → immediate/queued dispatch |
 | `packages/scheduler/src/wakeRules.ts` | 14 declarative event-to-agent wake rules |
+| `packages/scheduler/src/authorityGates.ts` | Decision tier enforcement (GREEN/YELLOW/RED) — used by EventRouter |
+| `packages/scheduler/src/decisionQueue.ts` | Human approval workflow for founder decisions, Teams Bot integration |
+| `packages/scheduler/src/cronManager.ts` | Cloud Scheduler configuration & local cron execution |
+| `packages/scheduler/src/strategyLabEngine.ts` | Strategy Lab v2: multi-wave strategic analysis pipeline (Research → Analysis → Synthesis) |
+| `packages/scheduler/src/deepDiveEngine.ts` | McKinsey-style deep dive engine with cited evidence (Scope → Research → Analyze → Synthesize) |
+| `packages/scheduler/src/inboxCheck.ts` | M365 mailbox polling for agent email (12 email-enabled agents, MEDIUM tier cadence) |
 | `packages/agent-runtime/src/workLoop.ts` | P1-P6 priority stack, proactive cooldowns, abort cooldowns |
-| `packages/scheduler/src/eventRouter.ts` | Authority gates (GREEN/YELLOW/RED) + event source routing |
-| `packages/agent-runtime/src/supervisor.ts` | Turn/stall/timeout enforcement, abort controller |
+| `packages/scheduler/src/eventRouter.ts` | Event source routing (scheduler/manual/agent/event/webhook) |
+| `packages/agent-runtime/src/supervisor.ts` | Per-turn stall detection, turn/timeout enforcement, abort controller |
 | `packages/agent-runtime/src/toolExecutor.ts` | 5-layer enforcement: grants, scope, rate limit, budget, timeout |
 | `packages/agent-runtime/src/companyAgentRunner.ts` | On-demand chat runner: context → model → tools → reflect |
 | `packages/agent-runtime/src/orchestratorRunner.ts` | Orchestrator archetype: OBSERVE→PLAN→DELEGATE→MONITOR→EVALUATE |
 | `packages/agent-runtime/src/taskRunner.ts` | Task archetype: RECEIVE→REASON→EXECUTE→REPORT |
+| `packages/agent-runtime/src/reasoningEngine.ts` | Multi-pass verification & cross-model consensus engine |
+| `packages/agent-runtime/src/jitContextRetriever.ts` | Just-In-Time context retrieval (task-aware semantic retrieval) |
+| `packages/agent-runtime/src/redisCache.ts` | Redis cache layer for GCP Memorystore (TTL management, graceful degradation) |
+| `packages/agent-runtime/src/toolRegistry.ts` | Central tool lookup via static KNOWN_TOOLS + dynamic `tool_registry` DB table |
 | `packages/agents/src/shared/createRunner.ts` | Runner factory: role + task → Orchestrator/Task/CompanyAgent |
 
 #### Quick Reference Tables
