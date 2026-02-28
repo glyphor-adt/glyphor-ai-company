@@ -392,7 +392,7 @@ function NewRequestModal({
     if (!title.trim() || !description.trim()) return;
 
     setSubmitting(true);
-    const needsApproval = APPROVAL_REQUIRED_EMAILS.includes(userEmail.toLowerCase());
+    const needsApproval = APPROVAL_REQUIRED_EMAILS.includes(userEmail.toLowerCase()) && requestType !== 'fix';
     await (supabase.from('dashboard_change_requests') as ReturnType<typeof supabase.from>).insert({
       submitted_by: userEmail,
       title: title.trim(),
