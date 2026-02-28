@@ -881,6 +881,8 @@ export interface RunDependencies {
   partialProgressSaver?: (assignmentId: string, partialOutput: string, agentRole: CompanyAgentRole, abortReason: string) => Promise<void>;
   /** JIT context retriever for task-aware semantic retrieval. */
   jitContextRetriever?: JitContextRetriever;
+  /** Ensures an agent_world_model row exists for this agent (creates baseline if missing). */
+  initializeWorldModel?: (role: CompanyAgentRole) => Promise<void>;
 }
 
 export class CompanyAgentRunner {
@@ -1074,6 +1076,13 @@ export class CompanyAgentRunner {
             return null;
           })
         : Promise.resolve(null);
+
+      // World model initialization — ensures agent_world_model row exists. Fire-and-forget.
+      if (deps?.initializeWorldModel) {
+        deps.initializeWorldModel(config.role).catch(err => {
+          console.warn(`[CompanyAgentRunner] World model init failed for ${config.role}:`, (err as Error).message);
+        });
+      }
 
       const [memoryResult, briefResult, pendingMessages, ciContext, profileResult, workingMemory, skillResult, kbResult, bulletinResult, pendingAssignments, jitResult] = await Promise.all([
         memoryPromise,

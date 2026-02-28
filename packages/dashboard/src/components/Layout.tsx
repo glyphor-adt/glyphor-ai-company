@@ -15,6 +15,7 @@ const NAV = [
   { to: '/capabilities', label: 'Capabilities', icon: SkillsIcon },
   { to: '/builder', label: 'Builder', icon: BuilderIcon },
   { to: '/governance', label: 'Governance', icon: GovernanceIcon },
+  { to: '/change-requests', label: 'Change Requests', icon: ChangeRequestIcon },
   { to: '/settings', label: 'Settings', icon: SettingsIcon },
 ] as const;
 
@@ -294,6 +295,16 @@ function WorldModelIcon({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
       <circle cx="8" cy="8" r="6" />
       <path d="M8 2v12M2 8h12M3.5 4.5Q8 7 12.5 4.5M3.5 11.5Q8 9 12.5 11.5" />
+    </svg>
+  );
+}
+
+function ChangeRequestIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <rect x="2" y="1.5" width="12" height="13" rx="1.5" />
+      <path d="M5 5h3M5 8h6" />
+      <path d="M10 4l2 2-2 2" />
     </svg>
   );
 }

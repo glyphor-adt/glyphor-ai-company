@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
-import type { Agent, Decision, ActivityEntry, Product, Financial, FounderDirective, Incident, AgentReflection, CompanyPulse, WorkAssignment } from './types';
+import type { Agent, Decision, ActivityEntry, Product, Financial, FounderDirective, Incident, AgentReflection, CompanyPulse, WorkAssignment, DashboardChangeRequest } from './types';
 
 /* ─── Generic fetch helper ─────────────────── */
 function useQuery<T>(table: string, orderCol = 'created_at', ascending = false) {
@@ -209,4 +209,36 @@ export function useTopReflections(limit = 4) {
   }, [limit]);
 
   return { data, loading };
+}
+
+/* ─── Dashboard Change Requests ───────────── */
+export function useChangeRequests() {
+  const [data, setData] = useState<DashboardChangeRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    const { data: rows } = await supabase
+      .from('dashboard_change_requests')
+      .select('*')
+      .order('created_at', { ascending: false });
+    setData((rows as DashboardChangeRequest[]) ?? []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const submitRequest = async (req: {
+    submitted_by: string;
+    title: string;
+    description: string;
+    request_type: DashboardChangeRequest['request_type'];
+    priority: DashboardChangeRequest['priority'];
+    affected_area: string | null;
+  }) => {
+    await supabase.from('dashboard_change_requests').insert(req);
+    refresh();
+  };
+
+  return { data, loading, refresh, submitRequest };
 }

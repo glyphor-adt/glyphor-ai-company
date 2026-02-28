@@ -429,6 +429,9 @@ export function createRunDeps(
       }
     },
 
+    // ─── World model initialization (for CompanyAgentRunner compat) ───
+    initializeWorldModel: (role: CompanyAgentRole) => worldModelUpdater.initializeForAgent(role),
+
     // ─── Shared memory + world model (for classified runners) ───
     sharedMemoryLoader: {
       loadForAgent: (role: CompanyAgentRole, currentTask: string) =>

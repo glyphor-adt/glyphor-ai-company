@@ -134,6 +134,624 @@ export default function Strategy() {
   );
 }
 
+/* ══════════════════════════════════════════════════
+   Deep Dives Panel — McKinsey-Style Research
+   ══════════════════════════════════════════════════ */
+
+type DeepDiveStatus = 'scoping' | 'researching' | 'analyzing' | 'synthesizing' | 'completed' | 'failed' | 'cancelled';
+
+interface DeepDiveSource { title: string; url: string; snippet: string; researchArea: string; retrievedAt: string }
+
+interface FinancialSnapshot { revenue?: string; revenueGrowth?: string; headcount?: string; funding?: string; valuation?: string; profitability?: string }
+
+interface DeepDiveReport {
+  targetName: string;
+  targetType: string;
+  analysisDate: string;
+  documentCounts: { secFilings: number; newsArticles: number; patents: number; researchSources: number };
+  currentState: {
+    momentum: 'positive' | 'neutral' | 'negative';
+    keyStrengths: { point: string; evidence: string }[];
+    keyChallenges: { point: string; evidence: string }[];
+    financialSnapshot: FinancialSnapshot;
+  };
+  overview: { description: string; industry: string; founded?: string; headquarters?: string; leadership: { name: string; title: string }[]; products: { name: string; description: string }[]; businessModel: string };
+  marketAnalysis: { tam: { value: string; methodology: string }; sam: { value: string; methodology: string }; som: { value: string; methodology: string }; growthRate: string; keyDrivers: string[]; keyTrends: string[]; regulatoryFactors: string[] };
+  competitiveLandscape: {
+    portersFiveForces: Record<string, { score: number; reasoning: string }>;
+    competitors: { name: string; positioning: string; strengths: string[]; weaknesses: string[]; estimatedRevenue?: string; keyDifferentiator: string }[];
+    competitiveAdvantage: string;
+  };
+  strategicRecommendations: { title: string; priority: string; description: string; expectedImpact: string; investmentRequired: string; riskLevel: string; implementationSteps: string[] }[];
+  implementationRoadmap: { phase: string; timeline: string; milestones: string[]; resources: string; cost: string }[];
+  roiAnalysis: { scenario: string; projections: { year: number; revenue: string; cost: string; netBenefit: string }[]; paybackPeriod: string; irr?: string; npv?: string }[];
+  riskAssessment: { risk: string; probability: string; impact: string; mitigation: string; owner: string }[];
+}
+
+interface DeepDiveRecord {
+  id: string;
+  target: string;
+  context: string | null;
+  status: DeepDiveStatus;
+  requested_by: string;
+  sources: DeepDiveSource[];
+  report: DeepDiveReport | null;
+  created_at: string;
+  completed_at: string | null;
+  error: string | null;
+}
+
+type DeepDiveTab = 'current-state' | 'overview' | 'market' | 'competitive' | 'recommendations' | 'roadmap' | 'roi' | 'risks';
+
+const DD_STATUS_LABELS: Record<DeepDiveStatus, string> = {
+  scoping: 'Scoping research plan…',
+  researching: 'Researching across 8 areas…',
+  analyzing: 'Specialist analysis in progress…',
+  synthesizing: 'Synthesizing final report…',
+  completed: 'Completed',
+  failed: 'Failed',
+  cancelled: 'Cancelled',
+};
+
+function ddStatusColor(status: DeepDiveStatus) {
+  if (status === 'completed') return 'bg-tier-green';
+  if (status === 'failed' || status === 'cancelled') return 'bg-red-400';
+  return 'bg-cyan animate-pulse';
+}
+
+function DeepDivesPanel() {
+  const [records, setRecords] = useState<DeepDiveRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [launching, setLaunching] = useState(false);
+  const [target, setTarget] = useState('');
+  const [context, setContext] = useState('');
+
+  const refresh = useCallback(async () => {
+    try {
+      const data = await api<DeepDiveRecord[]>('/deep-dive');
+      setRecords(data);
+    } catch { setRecords([]); }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  useEffect(() => {
+    const running = records.some((r) => !['completed', 'failed', 'cancelled'].includes(r.status));
+    if (!running) return;
+    const interval = setInterval(refresh, 4000);
+    return () => clearInterval(interval);
+  }, [records, refresh]);
+
+  const launch = async () => {
+    if (!target.trim()) return;
+    setLaunching(true);
+    try {
+      await api('/deep-dive/run', {
+        method: 'POST',
+        body: JSON.stringify({ target, context: context || undefined, requestedBy: 'dashboard' }),
+      });
+      setTarget('');
+      setContext('');
+      await refresh();
+    } finally { setLaunching(false); }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Launch Form */}
+      <Card>
+        <SectionHeader title="Launch McKinsey-Style Deep Dive" subtitle="8 research areas → specialist analysis → comprehensive synthesis with real web search" />
+        <div className="mt-4 space-y-3">
+          <input
+            value={target}
+            onChange={(e) => setTarget(e.target.value)}
+            placeholder="Enter company name, market, or topic — e.g. 'Eaton Corporation plc'"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-txt-primary placeholder:text-txt-faint focus:outline-none focus:ring-1 focus:ring-cyan/50"
+          />
+          <textarea
+            value={context}
+            onChange={(e) => setContext(e.target.value)}
+            placeholder="Optional context — e.g. 'Focus on their electrification strategy and industrial automation segment'"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-txt-primary placeholder:text-txt-faint focus:outline-none focus:ring-1 focus:ring-cyan/50 resize-none"
+            rows={2}
+          />
+          <div className="flex justify-end">
+            <button
+              onClick={launch}
+              disabled={launching || !target.trim()}
+              className="rounded-lg bg-cyan/20 border border-cyan/30 px-5 py-2 text-sm font-medium text-cyan transition-all hover:bg-cyan/30 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <MdSearch className="text-base" />
+              {launching ? 'Launching…' : 'Launch Deep Dive'}
+            </button>
+          </div>
+        </div>
+      </Card>
+
+      {/* Records list */}
+      {loading ? (
+        <div className="space-y-3">{[1, 2].map((i) => <Skeleton key={i} className="h-24" />)}</div>
+      ) : records.length === 0 ? (
+        <Card><p className="text-center text-sm text-txt-muted py-6">No deep dives yet. Launch one above.</p></Card>
+      ) : (
+        <div className="space-y-3">
+          {records.map((rec) => (
+            <DeepDiveCard
+              key={rec.id}
+              record={rec}
+              expanded={expanded === rec.id}
+              onToggle={() => setExpanded(expanded === rec.id ? null : rec.id)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DeepDiveCard({ record, expanded, onToggle }: { record: DeepDiveRecord; expanded: boolean; onToggle: () => void }) {
+  return (
+    <Card className="overflow-hidden">
+      <button onClick={onToggle} className="w-full text-left px-5 py-4 flex items-center justify-between group">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2.5">
+            <span className={`h-2 w-2 rounded-full flex-shrink-0 ${ddStatusColor(record.status)}`} />
+            <span className="font-medium text-txt-primary truncate">{record.target}</span>
+            {record.report && (
+              <span className="text-[11px] text-txt-faint bg-raised px-2 py-0.5 rounded-full">{record.report.targetType}</span>
+            )}
+          </div>
+          <div className="mt-1 flex items-center gap-3 text-[12px] text-txt-muted">
+            <span>{DD_STATUS_LABELS[record.status]}</span>
+            <span>·</span>
+            <span>{timeAgo(record.created_at)}</span>
+            {record.report && (
+              <>
+                <span>·</span>
+                <span>{record.report.documentCounts.researchSources} sources</span>
+              </>
+            )}
+          </div>
+        </div>
+        <MdExpandMore className={`text-xl text-txt-muted transition-transform ${expanded ? 'rotate-180' : ''}`} />
+      </button>
+
+      {expanded && record.report && <DeepDiveDetail record={record} report={record.report} />}
+      {expanded && !record.report && record.status !== 'completed' && (
+        <div className="px-5 pb-4">
+          <div className="rounded-lg bg-raised/60 p-4">
+            <div className="flex items-center gap-2 text-sm text-txt-muted">
+              <span className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
+              {DD_STATUS_LABELS[record.status]}
+            </div>
+            {record.error && <p className="mt-2 text-sm text-red-400">{record.error}</p>}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function DeepDiveDetail({ record, report }: { record: DeepDiveRecord; report: DeepDiveReport }) {
+  const [ddTab, setDdTab] = useState<DeepDiveTab>('current-state');
+
+  const TAB_ITEMS: { key: DeepDiveTab; label: string }[] = [
+    { key: 'current-state', label: 'Current State' },
+    { key: 'overview', label: 'Overview' },
+    { key: 'market', label: 'Market Analysis' },
+    { key: 'competitive', label: 'Competitive' },
+    { key: 'recommendations', label: 'Strategic Recs' },
+    { key: 'roadmap', label: 'Roadmap' },
+    { key: 'roi', label: 'ROI Analysis' },
+    { key: 'risks', label: 'Risk Assessment' },
+  ];
+
+  return (
+    <div className="border-t border-border">
+      {/* Document counts banner */}
+      <div className="flex gap-4 px-5 py-3 bg-raised/40 border-b border-border">
+        {[
+          { label: 'SEC Filings', val: report.documentCounts.secFilings, color: 'text-cyan' },
+          { label: 'News Articles', val: report.documentCounts.newsArticles, color: 'text-tier-green' },
+          { label: 'Patents', val: report.documentCounts.patents, color: 'text-amber-400' },
+          { label: 'Research Sources', val: report.documentCounts.researchSources, color: 'text-purple-400' },
+        ].map((d) => (
+          <div key={d.label} className="text-center">
+            <span className={`text-lg font-bold ${d.color}`}>{d.val}</span>
+            <span className="block text-[10px] text-txt-muted">{d.label}</span>
+          </div>
+        ))}
+        <div className="ml-auto flex items-center gap-2">
+          <ExportButton label="DOCX" href={`${SCHEDULER_URL}/deep-dive/${record.id}/export?format=docx`} />
+          <ExportButton label="PPTX" href={`${SCHEDULER_URL}/deep-dive/${record.id}/export?format=pptx`} />
+          <ExportButton label="MD" href={`${SCHEDULER_URL}/deep-dive/${record.id}/export?format=markdown`} />
+          <ExportButton label="JSON" href={`${SCHEDULER_URL}/deep-dive/${record.id}/export?format=json`} />
+        </div>
+      </div>
+
+      {/* Inner tab navigation */}
+      <div className="flex gap-1 px-5 py-2 border-b border-border overflow-x-auto">
+        {TAB_ITEMS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setDdTab(t.key)}
+            className={`rounded-md px-3 py-1 text-[12px] font-medium whitespace-nowrap transition-colors ${
+              ddTab === t.key ? 'bg-cyan/15 text-cyan' : 'text-txt-muted hover:text-txt-secondary'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      <div className="px-5 py-4 max-h-[600px] overflow-y-auto">
+        {ddTab === 'current-state' && <DDCurrentState report={report} />}
+        {ddTab === 'overview' && <DDOverview report={report} />}
+        {ddTab === 'market' && <DDMarket report={report} />}
+        {ddTab === 'competitive' && <DDCompetitive report={report} />}
+        {ddTab === 'recommendations' && <DDRecommendations report={report} />}
+        {ddTab === 'roadmap' && <DDRoadmap report={report} />}
+        {ddTab === 'roi' && <DDRoi report={report} />}
+        {ddTab === 'risks' && <DDRisks report={report} />}
+      </div>
+    </div>
+  );
+}
+
+/* ── Deep Dive Sub-Tab Views ─────────────────── */
+
+function DDCurrentState({ report }: { report: DeepDiveReport }) {
+  const momColor = report.currentState.momentum === 'positive' ? 'text-tier-green' : report.currentState.momentum === 'negative' ? 'text-red-400' : 'text-amber-400';
+  const momBg = report.currentState.momentum === 'positive' ? 'bg-tier-green/10 border-tier-green/30' : report.currentState.momentum === 'negative' ? 'bg-red-400/10 border-red-400/30' : 'bg-amber-400/10 border-amber-400/30';
+  const fs = report.currentState.financialSnapshot;
+
+  return (
+    <div className="space-y-4">
+      <div className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 border ${momBg}`}>
+        <MdTrendingUp className={`text-base ${momColor}`} />
+        <span className={`text-sm font-semibold ${momColor}`}>Momentum: {report.currentState.momentum.toUpperCase()}</span>
+      </div>
+
+      {(fs.revenue || fs.funding) && (
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: 'Revenue', val: fs.revenue },
+            { label: 'Growth', val: fs.revenueGrowth },
+            { label: 'Headcount', val: fs.headcount },
+            { label: 'Funding', val: fs.funding },
+            { label: 'Valuation', val: fs.valuation },
+            { label: 'Profitability', val: fs.profitability },
+          ].filter((f) => f.val).map((f) => (
+            <div key={f.label} className="rounded-lg bg-raised/60 p-3 border border-border">
+              <span className="text-[10px] text-txt-muted uppercase tracking-wider">{f.label}</span>
+              <p className="text-sm font-semibold text-txt-primary mt-0.5">{f.val}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <h4 className="text-xs font-semibold text-tier-green uppercase tracking-wider mb-2">Key Strengths</h4>
+          <div className="space-y-2">
+            {report.currentState.keyStrengths.map((s, i) => (
+              <div key={i} className="rounded-lg bg-tier-green/5 border border-tier-green/20 p-3">
+                <p className="text-sm font-medium text-txt-primary">{s.point}</p>
+                <p className="text-[12px] text-txt-muted mt-1">{s.evidence}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div>
+          <h4 className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-2">Key Challenges</h4>
+          <div className="space-y-2">
+            {report.currentState.keyChallenges.map((c, i) => (
+              <div key={i} className="rounded-lg bg-red-400/5 border border-red-400/20 p-3">
+                <p className="text-sm font-medium text-txt-primary">{c.point}</p>
+                <p className="text-[12px] text-txt-muted mt-1">{c.evidence}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DDOverview({ report }: { report: DeepDiveReport }) {
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-txt-secondary leading-relaxed">{report.overview.description}</p>
+      <div className="grid grid-cols-2 gap-3">
+        {[
+          { label: 'Industry', val: report.overview.industry },
+          { label: 'Founded', val: report.overview.founded },
+          { label: 'Headquarters', val: report.overview.headquarters },
+          { label: 'Business Model', val: report.overview.businessModel },
+        ].filter((f) => f.val).map((f) => (
+          <div key={f.label} className="rounded-lg bg-raised/60 p-3 border border-border">
+            <span className="text-[10px] text-txt-muted uppercase tracking-wider">{f.label}</span>
+            <p className="text-sm text-txt-primary mt-0.5">{f.val}</p>
+          </div>
+        ))}
+      </div>
+
+      {report.overview.leadership.length > 0 && (
+        <div>
+          <h4 className="text-xs font-semibold text-cyan uppercase tracking-wider mb-2">Leadership</h4>
+          <div className="flex flex-wrap gap-2">
+            {report.overview.leadership.map((l, i) => (
+              <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-raised px-3 py-1 text-[12px] border border-border">
+                <MdPerson className="text-cyan text-sm" />
+                <span className="font-medium text-txt-primary">{l.name}</span>
+                <span className="text-txt-muted">— {l.title}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {report.overview.products.length > 0 && (
+        <div>
+          <h4 className="text-xs font-semibold text-cyan uppercase tracking-wider mb-2">Products & Services</h4>
+          <div className="space-y-2">
+            {report.overview.products.map((p, i) => (
+              <div key={i} className="rounded-lg bg-raised/60 p-3 border border-border">
+                <p className="text-sm font-medium text-txt-primary">{p.name}</p>
+                <p className="text-[12px] text-txt-muted mt-0.5">{p.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DDMarket({ report }: { report: DeepDiveReport }) {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: 'TAM', ...report.marketAnalysis.tam },
+          { label: 'SAM', ...report.marketAnalysis.sam },
+          { label: 'SOM', ...report.marketAnalysis.som },
+        ].map((s) => (
+          <div key={s.label} className="rounded-lg bg-raised/60 p-4 border border-cyan/20 text-center">
+            <span className="text-[11px] text-txt-muted font-semibold tracking-widest">{s.label}</span>
+            <p className="text-lg font-bold text-cyan mt-1">{s.value}</p>
+            <p className="text-[11px] text-txt-muted mt-1">{s.methodology}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-lg bg-tier-green/10 border border-tier-green/20 px-4 py-2">
+        <span className="text-sm font-semibold text-tier-green">Growth Rate: {report.marketAnalysis.growthRate}</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <h4 className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-2">Key Drivers</h4>
+          <ul className="space-y-1">
+            {report.marketAnalysis.keyDrivers.map((d, i) => (
+              <li key={i} className="text-sm text-txt-secondary flex items-start gap-2">
+                <MdChevronRight className="text-amber-400 mt-0.5 flex-shrink-0" />{d}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <h4 className="text-xs font-semibold text-cyan uppercase tracking-wider mb-2">Key Trends</h4>
+          <ul className="space-y-1">
+            {report.marketAnalysis.keyTrends.map((t, i) => (
+              <li key={i} className="text-sm text-txt-secondary flex items-start gap-2">
+                <MdChevronRight className="text-cyan mt-0.5 flex-shrink-0" />{t}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {report.marketAnalysis.regulatoryFactors.length > 0 && (
+        <div>
+          <h4 className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-2">Regulatory Factors</h4>
+          <ul className="space-y-1">
+            {report.marketAnalysis.regulatoryFactors.map((f, i) => (
+              <li key={i} className="text-sm text-txt-secondary flex items-start gap-2">
+                <MdWarning className="text-red-400 mt-0.5 flex-shrink-0" />{f}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DDCompetitive({ report }: { report: DeepDiveReport }) {
+  const forces = report.competitiveLandscape.portersFiveForces;
+  const forceLabels: [string, string][] = [
+    ['threatOfNewEntrants', 'Threat of New Entrants'],
+    ['bargainingPowerBuyers', 'Buyer Power'],
+    ['bargainingPowerSuppliers', 'Supplier Power'],
+    ['threatOfSubstitutes', 'Threat of Substitutes'],
+    ['competitiveRivalry', 'Competitive Rivalry'],
+  ];
+
+  return (
+    <div className="space-y-4">
+      <h4 className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Porter's Five Forces</h4>
+      <div className="space-y-2">
+        {forceLabels.map(([key, label]) => {
+          const f = forces[key];
+          if (!f) return null;
+          const pct = (f.score / 5) * 100;
+          const barColor = f.score >= 4 ? 'bg-red-400' : f.score >= 3 ? 'bg-amber-400' : 'bg-tier-green';
+          return (
+            <div key={key} className="rounded-lg bg-raised/60 p-3 border border-border">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-medium text-txt-primary">{label}</span>
+                <span className="text-sm font-bold text-txt-secondary">{f.score}/5</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-surface overflow-hidden">
+                <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+              </div>
+              <p className="text-[11px] text-txt-muted mt-1.5">{f.reasoning}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="rounded-lg bg-cyan/5 border border-cyan/20 p-3">
+        <span className="text-[10px] text-txt-muted uppercase tracking-wider">Competitive Advantage</span>
+        <p className="text-sm text-txt-primary mt-1">{report.competitiveLandscape.competitiveAdvantage}</p>
+      </div>
+
+      {report.competitiveLandscape.competitors.length > 0 && (
+        <>
+          <h4 className="text-xs font-semibold text-cyan uppercase tracking-wider pt-2">Key Competitors</h4>
+          <div className="space-y-2">
+            {report.competitiveLandscape.competitors.map((c, i) => (
+              <div key={i} className="rounded-lg bg-raised/60 p-3 border border-border">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-txt-primary">{c.name}</span>
+                  {c.estimatedRevenue && <span className="text-[11px] text-txt-muted">{c.estimatedRevenue}</span>}
+                </div>
+                <p className="text-[12px] text-txt-muted mt-1">{c.positioning}</p>
+                <p className="text-[11px] text-cyan mt-1">Differentiator: {c.keyDifferentiator}</p>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function DDRecommendations({ report }: { report: DeepDiveReport }) {
+  const priColor = (p: string) => p === 'immediate' ? 'text-red-400 bg-red-400/10 border-red-400/20' : p === 'short-term' ? 'text-amber-400 bg-amber-400/10 border-amber-400/20' : 'text-cyan bg-cyan/10 border-cyan/20';
+
+  return (
+    <div className="space-y-3">
+      {report.strategicRecommendations.map((rec, i) => (
+        <div key={i} className="rounded-lg bg-raised/60 border border-border p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm font-bold text-cyan">{i + 1}.</span>
+            <span className="text-sm font-semibold text-txt-primary flex-1">{rec.title}</span>
+            <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full border ${priColor(rec.priority)}`}>
+              {rec.priority}
+            </span>
+          </div>
+          <p className="text-[13px] text-txt-secondary mb-3">{rec.description}</p>
+          <div className="flex gap-3 text-[11px]">
+            <span className="text-tier-green"><MdFlag className="inline mr-1" />Impact: {rec.expectedImpact}</span>
+            <span className="text-txt-muted">Investment: {rec.investmentRequired}</span>
+            <span className={rec.riskLevel === 'high' ? 'text-red-400' : rec.riskLevel === 'medium' ? 'text-amber-400' : 'text-tier-green'}>
+              Risk: {rec.riskLevel}
+            </span>
+          </div>
+          {rec.implementationSteps.length > 0 && (
+            <div className="mt-3 pl-3 border-l-2 border-cyan/20">
+              {rec.implementationSteps.map((s, j) => (
+                <p key={j} className="text-[12px] text-txt-muted py-0.5">{j + 1}. {s}</p>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DDRoadmap({ report }: { report: DeepDiveReport }) {
+  return (
+    <div className="space-y-3">
+      {report.implementationRoadmap.map((phase, i) => (
+        <div key={i} className="rounded-lg bg-raised/60 border border-border p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-semibold text-txt-primary">{phase.phase}</span>
+            <span className="text-[11px] text-cyan font-medium">{phase.timeline}</span>
+          </div>
+          <div className="flex gap-4 text-[11px] text-txt-muted mb-2">
+            <span>Resources: {phase.resources}</span>
+            <span>Cost: {phase.cost}</span>
+          </div>
+          <div className="space-y-1">
+            {phase.milestones.map((m, j) => (
+              <div key={j} className="flex items-center gap-2 text-[12px] text-txt-secondary">
+                <MdArrowForward className="text-cyan text-xs flex-shrink-0" />{m}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DDRoi({ report }: { report: DeepDiveReport }) {
+  return (
+    <div className="space-y-4">
+      {report.roiAnalysis.map((scenario, i) => (
+        <div key={i} className="rounded-lg bg-raised/60 border border-border p-4">
+          <h4 className="text-sm font-semibold text-txt-primary capitalize mb-2">{scenario.scenario} Case</h4>
+          <div className="flex gap-4 text-[12px] text-txt-muted mb-3">
+            {scenario.paybackPeriod && <span>Payback: <span className="text-cyan font-medium">{scenario.paybackPeriod}</span></span>}
+            {scenario.irr && <span>IRR: <span className="text-tier-green font-medium">{scenario.irr}</span></span>}
+            {scenario.npv && <span>NPV: <span className="text-tier-green font-medium">{scenario.npv}</span></span>}
+          </div>
+          <table className="w-full text-[12px]">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="text-left py-1 text-txt-muted font-medium">Year</th>
+                <th className="text-right py-1 text-txt-muted font-medium">Revenue</th>
+                <th className="text-right py-1 text-txt-muted font-medium">Cost</th>
+                <th className="text-right py-1 text-txt-muted font-medium">Net Benefit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {scenario.projections.map((p) => (
+                <tr key={p.year} className="border-b border-border/50">
+                  <td className="py-1.5 text-txt-secondary">Year {p.year}</td>
+                  <td className="py-1.5 text-right text-tier-green">{p.revenue}</td>
+                  <td className="py-1.5 text-right text-red-400">{p.cost}</td>
+                  <td className="py-1.5 text-right text-cyan font-medium">{p.netBenefit}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DDRisks({ report }: { report: DeepDiveReport }) {
+  const probColor = (p: string) => p === 'high' ? 'text-red-400' : p === 'medium' ? 'text-amber-400' : 'text-tier-green';
+  const impactBg = (impact: string) => impact === 'high' ? 'bg-red-400/10 border-red-400/30' : impact === 'medium' ? 'bg-amber-400/10 border-amber-400/30' : 'bg-tier-green/10 border-tier-green/30';
+
+  return (
+    <div className="space-y-2">
+      {report.riskAssessment.map((risk, i) => (
+        <div key={i} className={`rounded-lg border p-3 ${impactBg(risk.impact)}`}>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm font-medium text-txt-primary">{risk.risk}</span>
+            <div className="flex gap-2 text-[10px] font-semibold uppercase">
+              <span className={probColor(risk.probability)}>P: {risk.probability}</span>
+              <span className={probColor(risk.impact)}>I: {risk.impact}</span>
+            </div>
+          </div>
+          <p className="text-[12px] text-txt-muted">{risk.mitigation}</p>
+          <p className="text-[11px] text-txt-faint mt-1">Owner: {risk.owner}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ─── Simulations Panel ────────────────────────── */
 
 function SimulationsPanel() {

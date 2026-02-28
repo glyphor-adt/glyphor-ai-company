@@ -170,6 +170,27 @@ export type WorkAssignment = {
   created_at: string;
 }
 
+export type DashboardChangeRequest = {
+  id: string;
+  submitted_by: string;
+  title: string;
+  description: string;
+  request_type: 'feature' | 'fix' | 'improvement' | 'refactor';
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  status: 'submitted' | 'triaged' | 'in_progress' | 'review' | 'deployed' | 'rejected';
+  affected_area: string | null;
+  assigned_to: string | null;
+  github_branch: string | null;
+  github_pr_url: string | null;
+  commit_sha: string | null;
+  agent_notes: string | null;
+  rejection_reason: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /* ── Supabase generic DB shape (simplified) ── */
 export type Database = {
   public: {
@@ -338,6 +359,12 @@ export type Database = {
           verification_models: string[];
           updated_at: string;
         }>;
+        Relationships: [];
+      };
+      dashboard_change_requests: {
+        Row: DashboardChangeRequest;
+        Insert: Omit<DashboardChangeRequest, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<DashboardChangeRequest, 'id'>>;
         Relationships: [];
       };
     };
