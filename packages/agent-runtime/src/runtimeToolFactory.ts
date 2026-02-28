@@ -273,12 +273,12 @@ export class RuntimeToolFactory {
     // Update usage counter (fire and forget)
     const uses = (registered.definition.uses ?? 0) + 1;
     registered.definition.uses = uses;
-    this.supabase
-      .from('runtime_tools')
-      .update({ uses, last_used_at: new Date().toISOString() })
-      .eq('name', registered.definition.name)
-      .then(() => {})
-      .catch(() => {});
+    Promise.resolve(
+      this.supabase
+        .from('runtime_tools')
+        .update({ uses, last_used_at: new Date().toISOString() })
+        .eq('name', registered.definition.name)
+    ).catch(() => {});
 
     return result.slice(0, MAX_RESPONSE_LENGTH);
   }
