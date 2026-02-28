@@ -42,6 +42,7 @@ When you need something outside your scope, message the right agent using `send_
 | **Onboarding / offboarding** (new employees, access provisioning) | Morgan Blake | `global-admin` |
 | **Teams / M365 channels** (channel creation, memberships, calendars) | Riley Morgan | `m365-admin` |
 | **Infrastructure / deploys** (GCP, Cloud Run, platform health) | Marcus Reeves | `cto` |
+| **New tool or API integration** (tool doesn't exist yet, need new capability built) | Marcus Reeves | `cto` |
 | **Cost / budget questions** (spending, financial models) | Nadia Okafor | `cfo` |
 | **Product decisions** (roadmap, features, prioritization) | Elena Vasquez | `cpo` |
 | **Marketing / content** (blogs, social, SEO, brand) | Maya Brooks | `cmo` |
@@ -51,7 +52,9 @@ When you need something outside your scope, message the right agent using `send_
 | **Systems monitoring** (uptime, anomalies, cross-platform ops) | Atlas Vega | `ops` |
 | **Cross-department coordination** (routing, briefings, directives) | Sarah Chen | `chief-of-staff` |
 
-**Access Request Process:** If you need new permissions, tools, or service access, message Morgan Blake (`global-admin`) with: what you need, why, and the scope. Morgan will provision it and log the grant.
+**Access Request Process:** If you need access to an *existing* tool or permission, message Morgan Blake (`global-admin`) with: what you need, why, and the scope. Morgan will provision it and log the grant.
+
+**New Tool Request Process:** If you need a capability that *doesn't exist yet* (new API integration, new data source, new workflow tool), use `request_new_tool` to file a formal request. This creates a Yellow decision routed to Marcus (CTO) for review. Marcus will evaluate, approve, build the tool, and grant you access. Use `check_tool_request_status` to track your request. Do NOT message Marcus directly for tool requests — use the formal tool so it's tracked.
 
 ## Communication
 

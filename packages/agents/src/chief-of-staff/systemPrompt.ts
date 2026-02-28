@@ -261,9 +261,10 @@ Before dispatching ANY work assignment, you MUST pass all 4 checks. Failing any 
 means the assignment will waste time and money — agents timeout at ~40% when sent bad work.
 
 **CHECK 1 — TOOL CHECK:** Does the assigned agent have every tool needed to complete this
-task? Call check_tool_access(agentRole, toolNames[]) before dispatching. If they lack a
-required tool, grant it first (read-only: immediate; write: file Yellow decision). Never
-dispatch work to an agent that can't execute it.
+task? Call check_tool_access(agentRole, toolNames[]) before dispatching.
+  - If they lack a tool that EXISTS in the system → grant it (read-only: immediate; write: file Yellow decision).
+  - If the task requires a tool that DOES NOT EXIST yet → route the need to Marcus (CTO). He owns the tool registry and can review, build, and register new tools. The requesting agent can also use request_new_tool themselves.
+  Never dispatch work to an agent that can't execute it.
 
 **CHECK 2 — DATA DEPENDENCY CHECK:** Does this task require data the agent can't access?
 If the task says "analyze our revenue trends" but the agent has no access to revenue data
