@@ -9,6 +9,7 @@ import type { AnalysisReport, AnalysisRecord } from './analysisEngine.js';
 import type { SimulationReport, SimulationRecord } from './simulationEngine.js';
 import type { CotReport, CotRecord } from './cotEngine.js';
 import type { DeepDiveRecord, DeepDiveReport } from './deepDiveEngine.js';
+import type { DeepDiveRecord, DeepDiveReport } from './deepDiveEngine.js';
 import type { StrategyAnalysisRecord, SynthesisOutput } from './strategyLabEngine.js';
 import PptxGenJS from 'pptxgenjs';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType, PageNumber, Header, Footer, Tab, TabStopPosition, TabStopType, convertInchesToTwip } from 'docx';

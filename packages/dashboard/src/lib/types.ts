@@ -103,6 +103,8 @@ export type ChatMessage = {
   agent_role: string;
   role: string;
   content: string;
+  user_id: string;
+  attachments: { name: string; type: string }[] | null;
   created_at: string;
 }
 

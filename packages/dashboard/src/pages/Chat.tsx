@@ -54,6 +54,7 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 /** Persist a message to Supabase */
+/** Persist a message to Supabase */
 async function saveMessage(
   agentRole: string,
   role: 'user' | 'agent',
@@ -61,11 +62,13 @@ async function saveMessage(
   userId: string,
   attachments?: Attachment[],
 ) {
-  const row: Record<string, unknown> = { agent_role: agentRole, role, content, user_id: userId };
-  if (attachments?.length) {
-    row.attachments = attachments.map((a) => ({ name: a.name, type: a.type }));
-  }
-  await (supabase.from('chat_messages') as any).insert(row);
+  await supabase.from('chat_messages').insert({
+    agent_role: agentRole,
+    role,
+    content,
+    user_id: userId,
+    attachments: attachments?.length ? attachments.map((a) => ({ name: a.name, type: a.type })) : null,
+  });
 }
 
 export default function Chat() {
@@ -235,14 +238,12 @@ export default function Chat() {
     async (role: string) => {
       setLoadingHistory(true);
       try {
-        const { data } = (await (supabase.from('chat_messages') as any)
+        const { data } = await supabase.from('chat_messages')
           .select('role, content, created_at, attachments')
           .eq('agent_role', role)
           .eq('user_id', userEmail)
           .order('created_at', { ascending: true })
-          .limit(100)) as {
-          data: { role: string; content: string; created_at: string; attachments?: { name: string; type: string }[] }[] | null;
-        };
+          .limit(100);
         if (data?.length) {
           setMessages(
             data.map((row) => ({
@@ -504,7 +505,7 @@ export default function Chat() {
           {messages.length > 0 && (
             <button
               onClick={async () => {
-                await (supabase.from('chat_messages') as any).delete().eq('agent_role', selectedRole).eq('user_id', userEmail);
+                await supabase.from('chat_messages').delete().eq('agent_role', selectedRole).eq('user_id', userEmail);
                 setMessages([]);
               }}
               className="text-[11px] text-txt-faint hover:text-rose transition-colors"
