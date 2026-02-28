@@ -87,7 +87,7 @@ export const TYPOGRAPHY = {
 
 export const IDENTITY = {
   /** Spaced-out brand mark for slides/headers */
-  brandMark: 'G L Y P H O R   A I',
+  brandMark: 'GLYPHOR',
   /** Standard company name */
   companyName: 'Glyphor AI',
   /** Strategy division name */

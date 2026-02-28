@@ -41,7 +41,7 @@ function pptxTitleSlide(pptx: PptxGenJS, title: string, subtitle: string, meta: 
   // Top accent bar
   slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: SLIDE_CYAN } });
   // Brand mark
-  slide.addText('G L Y P H O R   A I', { x: 0.6, y: 0.4, w: 9, fontSize: 13, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, charSpacing: 5 });
+  slide.addText('GLYPHOR', { x: 0.6, y: 0.4, w: 9, fontSize: 13, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, charSpacing: 5 });
   // Accent rule
   slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 0.8, w: 1.4, h: 0.04, fill: { color: SLIDE_CYAN } });
   // Title
@@ -386,7 +386,7 @@ export async function exportAnalysisPPTX(record: AnalysisRecord): Promise<Buffer
     const slide = pptx.addSlide();
     slide.background = { color: SLIDE_BG };
     slide.addShape(pptx.ShapeType.rect, { x: 0, y: 2.6, w: 10, h: 0.04, fill: { color: SLIDE_CYAN } });
-    slide.addText('G L Y P H O R   A I', { x: 0.6, y: 1.8, w: 8.8, fontSize: 28, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, align: 'center', charSpacing: 6 });
+    slide.addText('GLYPHOR', { x: 0.6, y: 1.8, w: 8.8, fontSize: 28, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, align: 'center', charSpacing: 6 });
     slide.addText('Strategic Intelligence Platform', { x: 0.6, y: 2.9, w: 8.8, fontSize: 14, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
     slide.addText(`Generated ${new Date().toLocaleDateString()}  Â·  Confidential`, { x: 0.6, y: 3.5, w: 8.8, fontSize: 10, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
     addSlideFooter(slide, pptx);
@@ -430,7 +430,7 @@ export async function exportAnalysisDOCX(record: AnalysisRecord): Promise<Buffer
   // â”€â”€ Branded header â”€â”€
   children.push(new Paragraph({
     spacing: { after: 60 },
-    children: [new TextRun({ text: 'G L Y P H O R   A I', bold: true, size: 20, color: '00B4D8', font: 'Segoe UI' })],
+    children: [new TextRun({ text: 'GLYPHOR', bold: true, size: 20, color: '00B4D8', font: 'Segoe UI' })],
   }));
   children.push(new Paragraph({
     spacing: { after: 120 },
@@ -720,7 +720,7 @@ export async function exportSimulationPPTX(record: SimulationRecord): Promise<Bu
     const slide = pptx.addSlide();
     slide.background = { color: SLIDE_BG };
     slide.addShape(pptx.ShapeType.rect, { x: 0, y: 2.6, w: 10, h: 0.04, fill: { color: SLIDE_CYAN } });
-    slide.addText('G L Y P H O R   A I', { x: 0.6, y: 1.8, w: 8.8, fontSize: 28, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, align: 'center', charSpacing: 6 });
+    slide.addText('GLYPHOR', { x: 0.6, y: 1.8, w: 8.8, fontSize: 28, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, align: 'center', charSpacing: 6 });
     slide.addText('T+1 Impact Simulation Complete', { x: 0.6, y: 2.9, w: 8.8, fontSize: 14, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
     addSlideFooter(slide, pptx);
   }
@@ -737,7 +737,7 @@ export async function exportSimulationDOCX(record: SimulationRecord): Promise<Bu
   // â”€â”€ Branded header â”€â”€
   children.push(new Paragraph({
     spacing: { after: 60 },
-    children: [new TextRun({ text: 'G L Y P H O R   A I', bold: true, size: 20, color: '00B4D8', font: 'Segoe UI' })],
+    children: [new TextRun({ text: 'GLYPHOR', bold: true, size: 20, color: '00B4D8', font: 'Segoe UI' })],
   }));
   children.push(new Paragraph({
     spacing: { after: 120 },
@@ -1151,7 +1151,7 @@ export async function exportDeepDivePPTX(record: DeepDiveRecord): Promise<Buffer
     const slide = pptx.addSlide();
     slide.background = { color: SLIDE_BG };
     slide.addShape(pptx.ShapeType.rect, { x: 0, y: 2.6, w: 10, h: 0.04, fill: { color: SLIDE_CYAN } });
-    slide.addText('G L Y P H O R   A I', { x: 0.6, y: 1.8, w: 8.8, fontSize: 28, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, align: 'center', charSpacing: 6 });
+    slide.addText('GLYPHOR', { x: 0.6, y: 1.8, w: 8.8, fontSize: 28, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, align: 'center', charSpacing: 6 });
     slide.addText('Strategic Deep Dive Complete', { x: 0.6, y: 2.9, w: 8.8, fontSize: 14, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
     addSlideFooter(slide, pptx);
   }
@@ -1168,7 +1168,7 @@ export async function exportDeepDiveDOCX(record: DeepDiveRecord): Promise<Buffer
   // Branded header
   children.push(new Paragraph({
     spacing: { after: 60 },
-    children: [new TextRun({ text: 'G L Y P H O R   A I', bold: true, size: 20, color: '00B4D8', font: 'Segoe UI' })],
+    children: [new TextRun({ text: 'GLYPHOR', bold: true, size: 20, color: '00B4D8', font: 'Segoe UI' })],
   }));
   children.push(new Paragraph({
     spacing: { after: 120 },
@@ -1484,7 +1484,7 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
     const slide = pptx.addSlide();
     slide.background = { color: SLIDE_BG };
     slide.addShape(pptx.ShapeType.rect, { x: 0, y: 2.6, w: 10, h: 0.04, fill: { color: SLIDE_CYAN } });
-    slide.addText('G L Y P H O R   A I', { x: 0.6, y: 1.8, w: 8.8, fontSize: 28, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, align: 'center', charSpacing: 6 });
+    slide.addText('GLYPHOR', { x: 0.6, y: 1.8, w: 8.8, fontSize: 28, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, align: 'center', charSpacing: 6 });
     slide.addText('Strategic Intelligence Platform', { x: 0.6, y: 2.9, w: 8.8, fontSize: 14, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
     slide.addText(`Generated ${new Date().toLocaleDateString()}  Â·  Confidential`, { x: 0.6, y: 3.5, w: 8.8, fontSize: 10, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
     addSlideFooter(slide, pptx);
@@ -1504,7 +1504,7 @@ export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Pro
   // Branded header
   children.push(new Paragraph({
     spacing: { after: 60 },
-    children: [new TextRun({ text: 'G L Y P H O R   A I', bold: true, size: 20, color: '00B4D8', font: 'Segoe UI' })],
+    children: [new TextRun({ text: 'GLYPHOR', bold: true, size: 20, color: '00B4D8', font: 'Segoe UI' })],
   }));
   children.push(new Paragraph({
     spacing: { after: 120 },
