@@ -423,6 +423,7 @@ export async function createIssueForCopilot(
     title,
     body,
     labels: [...(labels ?? []), 'copilot'],
+    assignees: ['Copilot'],
   });
 
   return { number: data.number, url: data.html_url };

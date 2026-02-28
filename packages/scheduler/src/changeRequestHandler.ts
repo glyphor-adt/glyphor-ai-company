@@ -93,6 +93,19 @@ export async function processNewChangeRequests(supabase: SupabaseClient): Promis
 
   for (const req of requests as ChangeRequest[]) {
     try {
+      // Claim the row first to prevent duplicate processing on next heartbeat
+      const { count } = await supabase
+        .from('dashboard_change_requests')
+        .update({ status: 'triaged', updated_at: new Date().toISOString() })
+        .eq('id', req.id)
+        .eq('status', 'submitted')
+        .select('*', { count: 'exact', head: true });
+
+      if (!count) {
+        // Another cycle already claimed this row — skip
+        continue;
+      }
+
       // Create GitHub issue assigned to Copilot
       const issueTitle = `[${req.request_type}] ${req.title}`;
       const issueBody = buildIssueBody(req);
@@ -109,7 +122,6 @@ export async function processNewChangeRequests(supabase: SupabaseClient): Promis
       await supabase
         .from('dashboard_change_requests')
         .update({
-          status: 'triaged',
           assigned_to: 'copilot',
           github_issue_number: issue.number,
           github_issue_url: issue.url,
@@ -123,10 +135,11 @@ export async function processNewChangeRequests(supabase: SupabaseClient): Promis
     } catch (err) {
       console.error(`[ChangeRequests] Failed to process request "${req.title}":`, (err as Error).message);
 
-      // Update with error note but don't block
+      // Revert to submitted so it retries next cycle
       await supabase
         .from('dashboard_change_requests')
         .update({
+          status: 'submitted',
           agent_notes: `Failed to create GitHub issue: ${(err as Error).message}. Will retry next cycle.`,
           updated_at: new Date().toISOString(),
         })
