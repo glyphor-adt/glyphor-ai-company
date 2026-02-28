@@ -177,9 +177,11 @@ export type DashboardChangeRequest = {
   description: string;
   request_type: 'feature' | 'fix' | 'improvement' | 'refactor';
   priority: 'critical' | 'high' | 'medium' | 'low';
-  status: 'submitted' | 'triaged' | 'in_progress' | 'review' | 'deployed' | 'rejected';
+  status: 'pending_approval' | 'submitted' | 'triaged' | 'in_progress' | 'review' | 'deployed' | 'rejected';
   affected_area: string | null;
   assigned_to: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
   github_issue_number: number | null;
   github_issue_url: string | null;
   github_branch: string | null;
@@ -365,7 +367,7 @@ export type Database = {
       };
       dashboard_change_requests: {
         Row: DashboardChangeRequest;
-        Insert: Pick<DashboardChangeRequest, 'submitted_by' | 'title' | 'description' | 'request_type' | 'priority' | 'affected_area'> & Partial<Pick<DashboardChangeRequest, 'status' | 'assigned_to' | 'completed_at' | 'github_issue_number' | 'github_issue_url' | 'github_branch' | 'github_pr_url' | 'commit_sha' | 'agent_notes' | 'rejection_reason' | 'started_at'>>;
+        Insert: Pick<DashboardChangeRequest, 'submitted_by' | 'title' | 'description' | 'request_type' | 'priority' | 'affected_area'> & Partial<Pick<DashboardChangeRequest, 'status' | 'assigned_to' | 'approved_by' | 'approved_at' | 'completed_at' | 'github_issue_number' | 'github_issue_url' | 'github_branch' | 'github_pr_url' | 'commit_sha' | 'agent_notes' | 'rejection_reason' | 'started_at'>>;
         Update: Partial<Omit<DashboardChangeRequest, 'id'>>;
         Relationships: [];
       };

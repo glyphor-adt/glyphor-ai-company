@@ -5,7 +5,7 @@ import { useAuth } from '../lib/auth';
 import { Card, Skeleton, timeAgo } from '../components/ui';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import type { DashboardChangeRequest } from '../lib/types';
-import { MdAdd, MdClose, MdOpenInNew, MdCode, MdBugReport, MdAutoFixHigh, MdBuild } from 'react-icons/md';
+import { MdAdd, MdClose, MdOpenInNew, MdCode, MdBugReport, MdAutoFixHigh, MdBuild, MdCheck, MdBlock } from 'react-icons/md';
 
 /* ── Constants ─────────────────────────────────── */
 
@@ -21,6 +21,7 @@ const PRIORITY_CONFIG: Record<Priority, { label: string; dot: string; text: stri
 };
 
 const STATUS_CONFIG: Record<Status, { label: string; color: string; bg: string }> = {
+  pending_approval: { label: 'Pending Approval', color: 'text-orange-400', bg: 'bg-orange-500/10' },
   submitted:   { label: 'Submitted',   color: 'text-slate-400',   bg: 'bg-slate-500/10' },
   triaged:     { label: 'Triaged',     color: 'text-violet-400',  bg: 'bg-violet-500/10' },
   in_progress: { label: 'In Progress', color: 'text-amber-400',   bg: 'bg-amber-500/10' },
@@ -41,6 +42,10 @@ const AREA_OPTIONS = [
   'financials', 'operations', 'strategy', 'knowledge', 'capabilities',
   'builder', 'governance', 'settings', 'chat', 'other',
 ] as const;
+
+// Requests from these emails require Kristina's approval before proceeding
+const APPROVAL_REQUIRED_EMAILS = ['andrew@glyphor.ai', 'andrew.zwelling@gmail.com'];
+const APPROVER_EMAIL = 'kristina@glyphor.ai';
 
 const IT_AGENTS = [
   { role: 'frontend-engineer', label: 'Ava Chen (Frontend Engineer)' },
@@ -167,11 +172,41 @@ export default function ChangeRequests() {
 /* ── Request Card ──────────────────────────────── */
 
 function RequestCard({ request: r }: { request: DashboardChangeRequest }) {
+  const { user } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const status = STATUS_CONFIG[r.status];
   const priority = PRIORITY_CONFIG[r.priority];
   const type = TYPE_CONFIG[r.request_type];
   const TypeIcon = type.icon;
+
+  const isApprover = user?.email?.toLowerCase() === APPROVER_EMAIL;
+  const showApprovalActions = r.status === 'pending_approval' && isApprover;
+
+  const handleApprove = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await supabase
+      .from('dashboard_change_requests')
+      .update({
+        status: 'submitted',
+        approved_by: user?.email ?? null,
+        approved_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', r.id);
+  };
+
+  const handleReject = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const reason = prompt('Rejection reason (optional):');
+    await supabase
+      .from('dashboard_change_requests')
+      .update({
+        status: 'rejected',
+        rejection_reason: reason || 'Rejected by approver',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', r.id);
+  };
 
   return (
     <Card className="cursor-pointer" onClick={() => setExpanded(!expanded)}>
@@ -325,6 +360,7 @@ function NewRequestModal({
     if (!title.trim() || !description.trim()) return;
 
     setSubmitting(true);
+    const needsApproval = APPROVAL_REQUIRED_EMAILS.includes(userEmail.toLowerCase());
     await (supabase.from('dashboard_change_requests') as ReturnType<typeof supabase.from>).insert({
       submitted_by: userEmail,
       title: title.trim(),
@@ -332,6 +368,7 @@ function NewRequestModal({
       request_type: requestType,
       priority,
       affected_area: affectedArea || null,
+      ...(needsApproval ? { status: 'pending_approval' } : {}),
     });
     setSubmitting(false);
     onSubmitted();
