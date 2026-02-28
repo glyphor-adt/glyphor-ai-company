@@ -21,10 +21,11 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const isFallbackAdmin = FALLBACK_ADMINS.some(e => e.toLowerCase() === user?.email.toLowerCase());
+  const userEmail = (user?.email ?? '').trim().toLowerCase();
+  const isFallbackAdmin = FALLBACK_ADMINS.some(e => e.trim().toLowerCase() === userEmail);
   const isAdmin = !loading && (
     isFallbackAdmin
-    || users.some(u => u.email.toLowerCase() === user?.email.toLowerCase() && u.role === 'admin')
+    || users.some(u => u.email.trim().toLowerCase() === userEmail && u.role === 'admin')
   );
 
   const fetchUsers = useCallback(async () => {
@@ -104,7 +105,7 @@ export default function Settings() {
   if (!isAdmin && !loading) {
     return (
       <div>
-        <SectionHeader title="Settings" subtitle="You don't have admin access to manage users." />
+        <SectionHeader title="Settings" subtitle={`You don't have admin access to manage users. Logged in as: ${user?.email ?? 'unknown'}`} />
       </div>
     );
   }
