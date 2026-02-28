@@ -402,3 +402,93 @@ export async function mergeGitHubPR(
     message: data.message,
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// COPILOT CODING AGENT — Create issues assigned to GitHub Copilot
+// ═══════════════════════════════════════════════════════════════════
+
+/** Create a GitHub issue and assign it to Copilot coding agent for implementation */
+export async function createIssueForCopilot(
+  repoKey: GlyphorRepo,
+  title: string,
+  body: string,
+  labels?: string[],
+): Promise<{ number: number; url: string }> {
+  const gh = getGitHubClient();
+  const repoName = GLYPHOR_REPOS[repoKey];
+
+  const { data } = await gh.issues.create({
+    owner: ORG,
+    repo: repoName,
+    title,
+    body,
+    labels: [...(labels ?? []), 'copilot'],
+    assignees: ['copilot-swe-agent[bot]'],
+  });
+
+  return { number: data.number, url: data.html_url };
+}
+
+/** Find a PR linked to a specific GitHub issue number */
+export async function findPRForIssue(
+  repoKey: GlyphorRepo,
+  issueNumber: number,
+): Promise<{ number: number; url: string; branch: string; state: string; draft: boolean; sha: string } | null> {
+  const gh = getGitHubClient();
+  const repoName = GLYPHOR_REPOS[repoKey];
+
+  // List recent PRs and find one that references this issue
+  const { data: prs } = await gh.pulls.list({
+    owner: ORG,
+    repo: repoName,
+    state: 'all',
+    per_page: 30,
+    sort: 'created',
+    direction: 'desc',
+  });
+
+  // Copilot typically links to the issue in the PR body or branch name
+  for (const pr of prs) {
+    const refersToIssue =
+      pr.body?.includes(`#${issueNumber}`) ||
+      pr.body?.includes(`issues/${issueNumber}`) ||
+      pr.head.ref.includes(`issue-${issueNumber}`) ||
+      pr.head.ref.includes(`copilot/fix-${issueNumber}`);
+
+    if (refersToIssue) {
+      return {
+        number: pr.number,
+        url: pr.html_url,
+        branch: pr.head.ref,
+        state: pr.state,
+        draft: pr.draft ?? false,
+        sha: pr.head.sha,
+      };
+    }
+  }
+
+  return null;
+}
+
+/** Get issue details (to check if Copilot has started work) */
+export async function getIssueDetails(
+  repoKey: GlyphorRepo,
+  issueNumber: number,
+): Promise<{ number: number; state: string; assignees: string[]; labels: string[]; url: string }> {
+  const gh = getGitHubClient();
+  const repoName = GLYPHOR_REPOS[repoKey];
+
+  const { data } = await gh.issues.get({
+    owner: ORG,
+    repo: repoName,
+    issue_number: issueNumber,
+  });
+
+  return {
+    number: data.number,
+    state: data.state,
+    assignees: (data.assignees ?? []).map(a => a?.login ?? ''),
+    labels: (data.labels ?? []).map(l => typeof l === 'string' ? l : l.name ?? ''),
+    url: data.html_url,
+  };
+}

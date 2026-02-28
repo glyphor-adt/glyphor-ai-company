@@ -109,6 +109,8 @@ export interface ToolContext {
   abortSignal: AbortSignal;
   memoryBus: IMemoryBus;
   emitEvent: (event: AgentEvent) => void;
+  /** RuntimeToolFactory — present when runtime tool synthesis is enabled. */
+  runtimeToolFactory?: import('./runtimeToolFactory.js').RuntimeToolFactory;
 }
 
 export interface ToolResult {

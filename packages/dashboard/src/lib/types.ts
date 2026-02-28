@@ -363,7 +363,7 @@ export type Database = {
       };
       dashboard_change_requests: {
         Row: DashboardChangeRequest;
-        Insert: Omit<DashboardChangeRequest, 'id' | 'created_at' | 'updated_at'>;
+        Insert: Pick<DashboardChangeRequest, 'submitted_by' | 'title' | 'description' | 'request_type' | 'priority' | 'affected_area'> & Partial<Pick<DashboardChangeRequest, 'status' | 'assigned_to' | 'completed_at' | 'github_branch' | 'github_pr_url' | 'commit_sha' | 'agent_notes' | 'rejection_reason' | 'started_at'>>;
         Update: Partial<Omit<DashboardChangeRequest, 'id'>>;
         Relationships: [];
       };

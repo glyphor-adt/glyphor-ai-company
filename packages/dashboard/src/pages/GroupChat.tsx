@@ -3,7 +3,7 @@ import Markdown from 'react-markdown';
 import { useAgents } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
-import { SCHEDULER_URL } from '../lib/supabase';
+import { supabase, SCHEDULER_URL } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { MdAttachFile, MdImage, MdDescription, MdClose } from 'react-icons/md';
 
@@ -78,6 +78,33 @@ export default function GroupChat() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const historyLoaded = useRef(false);
+
+  // ── Load chat history on mount ──
+  useEffect(() => {
+    if (historyLoaded.current) return;
+    historyLoaded.current = true;
+    const userId = user?.email ?? 'unknown';
+    (async () => {
+      const { data } = await supabase
+        .from('chat_messages')
+        .select('agent_role, role, content, attachments, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
+        .limit(200);
+      if (data && data.length > 0) {
+        setMessages(
+          data.map((row: any) => ({
+            role: row.role as 'user' | 'agent',
+            agentRole: row.role === 'agent' ? row.agent_role : undefined,
+            content: row.content,
+            timestamp: new Date(row.created_at),
+            attachments: row.attachments ?? undefined,
+          })),
+        );
+      }
+    })();
+  }, [user?.email]);
 
   const mentionables = [
     ...agents.map((a) => ({ role: a.role, name: DISPLAY_NAME_MAP[a.role] ?? a.role })),
@@ -200,6 +227,16 @@ export default function GroupChat() {
     setMessages((prev) => [...prev, userMsg]);
     setSending(true);
 
+    // Persist user message
+    const userId = user?.email ?? 'unknown';
+    supabase.from('chat_messages').insert({
+      user_id: userId,
+      agent_role: 'user',
+      role: 'user',
+      content: text,
+      attachments: attachments ? attachments.map((a) => ({ name: a.name, type: a.type })) : null,
+    }).then();
+
     // Parse @mentions and auto-add mentioned agents to recipients
     const nameToRole = new Map<string, string>();
     for (const [role, name] of Object.entries(DISPLAY_NAME_MAP)) {
@@ -299,6 +336,15 @@ export default function GroupChat() {
           ...prev,
           { role: 'agent', agentRole, content, timestamp: new Date() },
         ]);
+
+        // Persist agent response
+        supabase.from('chat_messages').insert({
+          user_id: userId,
+          agent_role: agentRole,
+          role: 'agent',
+          content,
+          attachments: null,
+        }).then();
       }
     }
 

@@ -333,6 +333,17 @@ export class ToolExecutor {
   ): Promise<ToolResult> {
     const tool = this.tools.get(toolName);
     if (!tool) {
+      // ─── Runtime tool routing ──────────────────────────────
+      // Tools created mid-run via RuntimeToolFactory are prefixed
+      // with 'runtime_' and executed through the factory.
+      if (toolName.startsWith('runtime_') && context.runtimeToolFactory) {
+        try {
+          const result = await context.runtimeToolFactory.execute(toolName, params as Record<string, any>);
+          return { success: true, data: result };
+        } catch (err: any) {
+          return { success: false, error: `Runtime tool error: ${err.message}` };
+        }
+      }
       return { success: false, error: `Unknown tool: ${toolName}`, filesWritten: 0, memoryKeysWritten: 0 };
     }
 

@@ -31,6 +31,8 @@ import type { RunDependencies, AgentProfileData, SkillContext } from './companyA
 import type { ReasoningEngine } from './reasoningEngine.js';
 import type { JitContextRetriever, JitContext } from './jitContextRetriever.js';
 import type { RedisCache } from './redisCache.js';
+import type { ContextDistiller } from './contextDistiller.js';
+import type { RuntimeToolFactory } from './runtimeToolFactory.js';
 
 // ─── Cost estimation (mirrors companyAgentRunner) ───────────────
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
@@ -91,6 +93,10 @@ export interface ClassifiedRunDependencies extends RunDependencies {
   reasoningEngineFactory?: (agentRole: string) => Promise<ReasoningEngine | null>;
   /** JIT context retriever for task-aware semantic retrieval. */
   jitContextRetriever?: JitContextRetriever;
+  /** Context distiller — compresses raw JIT results into a focused briefing. */
+  contextDistiller?: ContextDistiller;
+  /** Runtime tool factory — lets agents define new tools mid-run. */
+  runtimeToolFactory?: RuntimeToolFactory;
 }
 
 /**

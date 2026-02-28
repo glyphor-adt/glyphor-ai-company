@@ -37,6 +37,10 @@ export { JitContextRetriever } from './jitContextRetriever.js';
 export type { JitContext, JitContextItem } from './jitContextRetriever.js';
 export { RedisCache, getRedisCache, CACHE_KEYS, CACHE_TTL } from './redisCache.js';
 export type { CacheConfig, CacheEntry } from './redisCache.js';
+export { ContextDistiller } from './contextDistiller.js';
+export type { DistilledContext } from './contextDistiller.js';
+export { RuntimeToolFactory } from './runtimeToolFactory.js';
+export type { RuntimeToolDefinition, RuntimeToolImpl } from './runtimeToolFactory.js';
 export {
   AGENT_BUDGETS,
   EXECUTIVE_ROLES,
