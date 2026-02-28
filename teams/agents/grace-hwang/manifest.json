@@ -1,8 +1,8 @@
 {
   "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
   "manifestVersion": "1.17",
-  "version": "1.0.0",
-  "id": "b7e2a1f3-4d6c-4e8a-9f12-3c5d7e8b9a01",
+  "version": "1.1.0",
+  "id": "b480481d-bf37-4662-867d-7b96c2b9d84d",
   "developer": {
     "name": "Glyphor",
     "websiteUrl": "https://glyphor.com",
@@ -10,21 +10,21 @@
     "termsOfUseUrl": "https://glyphor.com/terms"
   },
   "name": {
-    "short": "Morgan Blake",
-    "full": "Morgan Blake — Global Administrator, Glyphor AI"
+    "short": "Grace Hwang",
+    "full": "Grace Hwang — Data Integrity Auditor, Glyphor AI"
   },
   "description": {
-    "short": "Global Admin — cross-project IAM, secrets, and onboarding.",
-    "full": "Morgan Blake is the Global Administrator at Glyphor AI. They manage cross-project GCP IAM bindings, service accounts, secret access, access audits, and standardized employee/agent onboarding. Message directly for access provisioning requests."
+    "short": "Data Integrity — data accuracy audits, pipeline validation, and cross-system consistency.",
+    "full": "Grace Hwang is the Data Integrity Auditor at Glyphor AI. She audits data accuracy, validates pipelines, ensures cross-system consistency, and tracks remediation. Message her directly for data integrity requests."
   },
   "icons": {
     "outline": "icon-outline.png",
     "color": "icon-color.png"
   },
-  "accentColor": "#607D8B",
+  "accentColor": "#6D28D9",
   "bots": [
     {
-      "botId": "b7e2a1f3-4d6c-4e8a-9f12-3c5d7e8b9a01",
+      "botId": "b480481d-bf37-4662-867d-7b96c2b9d84d",
       "scopes": ["personal", "team"],
       "supportsFiles": false,
       "isNotificationOnly": false

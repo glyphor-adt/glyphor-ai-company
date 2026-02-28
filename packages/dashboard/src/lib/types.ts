@@ -382,6 +382,14 @@ export const AGENT_META: Record<string, { color: string; icon: string }> = {
   'market-research-analyst':      { color: '#059669', icon: 'MdInsights' },
   'technical-research-analyst':   { color: '#059669', icon: 'MdScience' },
   'industry-research-analyst':    { color: '#059669', icon: 'MdPublic' },
+  // Specialist agents
+  'bob-the-tax-pro':               { color: '#6D28D9', icon: 'MdAccountBalance' },
+  'data-integrity-auditor':        { color: '#6D28D9', icon: 'MdFactCheck' },
+  'tax-strategy-specialist':       { color: '#6D28D9', icon: 'MdGavel' },
+  'enterprise-account-researcher': { color: '#1D4ED8', icon: 'MdBusiness' },
+  'lead-gen-specialist':           { color: '#1D4ED8', icon: 'MdPersonSearch' },
+  'marketing-intelligence-analyst':{ color: '#7C3AED', icon: 'MdQueryStats' },
+  'adi-rose':                      { color: '#7C3AED', icon: 'MdEventNote' },
 };
 
 export const DISPLAY_NAME_MAP: Record<string, string> = {
@@ -421,6 +429,14 @@ export const DISPLAY_NAME_MAP: Record<string, string> = {
   'market-research-analyst': 'Daniel Okafor',
   'technical-research-analyst': 'Kai Nakamura',
   'industry-research-analyst': 'Amara Diallo',
+  // Specialist agents
+  'bob-the-tax-pro': 'Bob Finley',
+  'data-integrity-auditor': 'Grace Hwang',
+  'tax-strategy-specialist': 'Mariana Solis',
+  'enterprise-account-researcher': 'Ethan Morse',
+  'lead-gen-specialist': 'Derek Owens',
+  'marketing-intelligence-analyst': 'Zara Petrov',
+  'adi-rose': 'Adi Rose',
 };
 
 /** @deprecated Use DISPLAY_NAME_MAP instead */
@@ -538,6 +554,14 @@ export const AGENT_SKILLS: Record<string, string[]> = {
   'technical-research-analyst': ['tech_stack_analysis', 'architecture_review', 'feasibility_assessment', 'patent_scan'],
   'industry-research-analyst': ['industry_mapping', 'regulatory_scan', 'partnership_research', 'ecosystem_analysis'],
   'head-of-hr': ['agent_onboarding', 'profile_validation', 'org_chart_management', 'agent_retirement', 'workforce_audit', 'email_provisioning', 'teams_setup'],
+  // Specialist agents
+  'bob-the-tax-pro': ['tax_optimization', 'rd_credits', 'startup_deductions', 'tax_risk_assessment'],
+  'data-integrity-auditor': ['data_accuracy_audit', 'pipeline_validation', 'cross_system_consistency', 'remediation_tracking'],
+  'tax-strategy-specialist': ['compliance_architecture', 'entity_structuring', 'nexus_analysis', 'audit_documentation'],
+  'enterprise-account-researcher': ['enterprise_org_mapping', 'procurement_cycle_analysis', 'deal_strategy', 'influence_mapping'],
+  'lead-gen-specialist': ['lead_identification', 'signal_monitoring', 'outreach_strategy', 'pipeline_analytics'],
+  'marketing-intelligence-analyst': ['competitive_campaigns', 'market_trend_analysis', 'channel_benchmarking', 'signal_intelligence'],
+  'adi-rose': ['action_item_tracking', 'meeting_prep', 'cross_department_liaison', 'operational_rhythm'],
 };
 
 /* ── Role → tier mapping (for display) ── */
@@ -576,6 +600,14 @@ export const ROLE_TIER: Record<string, string> = {
   'market-research-analyst': 'Sub-Team',
   'technical-research-analyst': 'Sub-Team',
   'industry-research-analyst': 'Sub-Team',
+  // Specialist agents
+  'bob-the-tax-pro': 'Specialist',
+  'data-integrity-auditor': 'Specialist',
+  'tax-strategy-specialist': 'Specialist',
+  'enterprise-account-researcher': 'Sub-Team',
+  'lead-gen-specialist': 'Sub-Team',
+  'marketing-intelligence-analyst': 'Sub-Team',
+  'adi-rose': 'Specialist',
 };
 
 /* ── Role → office/department ── */
@@ -614,6 +646,13 @@ export const ROLE_DEPARTMENT: Record<string, string> = {
   'market-research-analyst': 'Research & Intelligence',
   'technical-research-analyst': 'Research & Intelligence',
   'industry-research-analyst': 'Research & Intelligence',
+  'bob-the-tax-pro': 'Legal',
+  'data-integrity-auditor': 'Legal',
+  'tax-strategy-specialist': 'Legal',
+  'enterprise-account-researcher': 'Sales',
+  'lead-gen-specialist': 'Sales',
+  'marketing-intelligence-analyst': 'Marketing',
+  'adi-rose': 'Executive Office',
 };
 
 /* ── Role → title ── */
@@ -652,6 +691,13 @@ export const ROLE_TITLE: Record<string, string> = {
   'market-research-analyst': 'Market Research Analyst',
   'technical-research-analyst': 'Technical Research Analyst',
   'industry-research-analyst': 'Industry Research Analyst',
+  'bob-the-tax-pro': 'Tax Compliance Specialist',
+  'data-integrity-auditor': 'Data Integrity Auditor',
+  'tax-strategy-specialist': 'Tax Strategy Specialist',
+  'enterprise-account-researcher': 'Enterprise Account Researcher',
+  'lead-gen-specialist': 'Lead Generation Specialist',
+  'marketing-intelligence-analyst': 'Marketing Intelligence Analyst',
+  'adi-rose': 'Adi Rose — AI Digital Identity',
 };
 
 /* ── Sub-team members (report to executives) ── */

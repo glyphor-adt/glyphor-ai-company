@@ -32,6 +32,6 @@
   ],
   "permissions": ["identity", "messageTeamMembers"],
   "validDomains": [
-    "glyphor-scheduler-v55622rp6q-uc.a.run.app"
+    "glyphor-scheduler-610179349713.us-central1.run.app"
   ]
 }

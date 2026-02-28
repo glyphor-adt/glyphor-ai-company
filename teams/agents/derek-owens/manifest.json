@@ -1,8 +1,8 @@
 {
   "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
   "manifestVersion": "1.17",
-  "version": "1.0.0",
-  "id": "b7e2a1f3-4d6c-4e8a-9f12-3c5d7e8b9a01",
+  "version": "1.1.0",
+  "id": "72fd0c53-9fad-4f78-955e-c921ff148bfe",
   "developer": {
     "name": "Glyphor",
     "websiteUrl": "https://glyphor.com",
@@ -10,21 +10,21 @@
     "termsOfUseUrl": "https://glyphor.com/terms"
   },
   "name": {
-    "short": "Morgan Blake",
-    "full": "Morgan Blake — Global Administrator, Glyphor AI"
+    "short": "Derek Owens",
+    "full": "Derek Owens — Lead Generation Specialist, Glyphor AI"
   },
   "description": {
-    "short": "Global Admin — cross-project IAM, secrets, and onboarding.",
-    "full": "Morgan Blake is the Global Administrator at Glyphor AI. They manage cross-project GCP IAM bindings, service accounts, secret access, access audits, and standardized employee/agent onboarding. Message directly for access provisioning requests."
+    "short": "Lead Generation — signal monitoring, outreach strategy, and pipeline analytics.",
+    "full": "Derek Owens is the Lead Generation Specialist at Glyphor AI. He identifies leads, monitors signals, designs outreach sequences, and tracks pipeline conversion rates. Message him directly for lead gen requests."
   },
   "icons": {
     "outline": "icon-outline.png",
     "color": "icon-color.png"
   },
-  "accentColor": "#607D8B",
+  "accentColor": "#1D4ED8",
   "bots": [
     {
-      "botId": "b7e2a1f3-4d6c-4e8a-9f12-3c5d7e8b9a01",
+      "botId": "72fd0c53-9fad-4f78-955e-c921ff148bfe",
       "scopes": ["personal", "team"],
       "supportsFiles": false,
       "isNotificationOnly": false
