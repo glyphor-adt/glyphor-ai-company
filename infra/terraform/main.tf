@@ -171,6 +171,13 @@ locals {
     "acs-connection-string",
     "bot-app-id",
     "bot-app-secret",
+    "mercury-api-token",
+    "vercel-token",
+    "vercel-team-fuse",
+    "vercel-team-fuse-projects",
+    "teams-user-kristina-id",
+    "teams-user-andrew-id",
+    "glyphor-mail-sender-id",
   ]
 }
 
