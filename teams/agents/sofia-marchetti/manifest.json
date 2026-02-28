@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.1.0",
+  "id": "7edaa974-3fe3-491b-9ae6-158e43832f0f",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Sofia Marchetti",
+    "full": "Sofia Marchetti — Design Critic, Glyphor AI"
+  },
+  "description": {
+    "short": "Design Critic — quality auditing, consistency checking, and AI-smell detection.",
+    "full": "Sofia Marchetti is the Design Critic at Glyphor AI. She audits design quality, checks visual consistency, detects AI-generated patterns ('AI smell'), and enforces design system standards. Message her directly for design reviews."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#DB2777",
+  "bots": [
+    {
+      "botId": "7edaa974-3fe3-491b-9ae6-158e43832f0f",
+      "scopes": ["personal", "team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-610179349713.us-central1.run.app"
+  ]
+}

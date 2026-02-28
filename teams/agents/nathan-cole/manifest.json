@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.1.0",
+  "id": "76306d1c-d611-4103-9ade-27c4a5681ec7",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Nathan Cole",
+    "full": "Nathan Cole — Account Research, Glyphor AI"
+  },
+  "description": {
+    "short": "Account Research — prospect dossiers, account profiles, and sales enablement.",
+    "full": "Nathan Cole is the Account Research analyst at Glyphor AI. He builds prospect dossiers, profiles target accounts, provides sales enablement research, and matches accounts to ICP criteria. Message him directly for account research."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#1D4ED8",
+  "bots": [
+    {
+      "botId": "76306d1c-d611-4103-9ade-27c4a5681ec7",
+      "scopes": ["personal", "team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-610179349713.us-central1.run.app"
+  ]
+}

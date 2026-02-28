@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.1.0",
+  "id": "2d69e2eb-be26-40a3-ae21-6e5ced8a8a1d",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Ethan Morse",
+    "full": "Ethan Morse — Enterprise Account Researcher, Glyphor AI"
+  },
+  "description": {
+    "short": "Enterprise Research — org mapping, procurement cycles, and deal strategy.",
+    "full": "Ethan Morse is the Enterprise Account Researcher at Glyphor AI. He maps buying committees, tracks procurement cycles, identifies internal initiatives, and builds influence maps for enterprise deals. Message him directly for enterprise account research."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#1D4ED8",
+  "bots": [
+    {
+      "botId": "2d69e2eb-be26-40a3-ae21-6e5ced8a8a1d",
+      "scopes": ["personal", "team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-610179349713.us-central1.run.app"
+  ]
+}

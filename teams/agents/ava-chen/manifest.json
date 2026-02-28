@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.1.0",
+  "id": "e00871c8-3ecb-4292-b8e8-a347ba079401",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Ava Chen",
+    "full": "Ava Chen — Frontend Engineer, Glyphor AI"
+  },
+  "description": {
+    "short": "Frontend Engineer — component development, design fidelity, and performance.",
+    "full": "Ava Chen is the Frontend Engineer at Glyphor AI. She implements frontend components, ensures design fidelity, optimizes performance, and maintains code quality. Message her directly for frontend engineering requests."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#DB2777",
+  "bots": [
+    {
+      "botId": "e00871c8-3ecb-4292-b8e8-a347ba079401",
+      "scopes": ["personal", "team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [
+    "glyphor-scheduler-610179349713.us-central1.run.app"
+  ]
+}
