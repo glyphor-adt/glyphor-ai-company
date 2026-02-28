@@ -144,6 +144,22 @@ async function createSiteViaGroup(token) {
 
   console.log(`  Group created: ${group.id}`);
 
+  // Add founding team as group owners
+  const founders = ['kristina@glyphor.ai', 'andrew@glyphor.ai'];
+  for (const email of founders) {
+    try {
+      const user = await graphGet(token, `/users/${email}`);
+      if (user?.id) {
+        const ref = { '@odata.id': `https://graph.microsoft.com/v1.0/directoryObjects/${user.id}` };
+        await graphPost(token, `/groups/${group.id}/owners/$ref`, ref).catch(() => {});
+        await graphPost(token, `/groups/${group.id}/members/$ref`, ref).catch(() => {});
+        console.log(`  Added ${email} as owner/member`);
+      }
+    } catch {
+      console.log(`  Could not add ${email} (user may not exist)`);
+    }
+  }
+
   // Wait for SharePoint site provisioning (can take 10-30 seconds)
   console.log('  Waiting for SharePoint site provisioning...');
   let site = null;

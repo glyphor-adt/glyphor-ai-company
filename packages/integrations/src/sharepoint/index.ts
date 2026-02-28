@@ -589,7 +589,7 @@ export async function searchSharePoint(
     throw new Error(`SharePoint search failed (${response.status}): ${text}`);
   }
 
-  const data = await response.json();
+  const data: any = await response.json();
   const hits = data.value?.[0]?.hitsContainers?.[0]?.hits ?? [];
 
   return hits.map((hit: { resource: GraphDriveItem & { size?: number } }) => ({
