@@ -41,6 +41,20 @@ const ALLOWED_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ];
+
+const EXT_TO_MIME: Record<string, string> = {
+  '.md': 'text/markdown',
+  '.markdown': 'text/markdown',
+  '.txt': 'text/plain',
+  '.csv': 'text/csv',
+  '.json': 'application/json',
+  '.pdf': 'application/pdf',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+};
+
+const ACCEPT_EXTENSIONS = '.png,.jpg,.jpeg,.gif,.webp,.svg,.pdf,.txt,.csv,.md,.markdown,.json,.xlsx,.docx';
+
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 function fileToBase64(file: File): Promise<string> {
@@ -144,8 +158,12 @@ export default function GroupChat() {
   const handleFiles = async (files: FileList | File[]) => {
     const newAttachments: Attachment[] = [];
     for (const file of Array.from(files)) {
-      if (!ALLOWED_TYPES.includes(file.type)) {
-        alert(`File type not supported: ${file.type || file.name.split('.').pop()}`);
+      const ext = file.name.toLowerCase().match(/\.[^.]+$/)?.[0] ?? '';
+      const resolvedType = (file.type && file.type !== 'application/octet-stream')
+        ? file.type
+        : EXT_TO_MIME[ext] ?? '';
+      if (!ALLOWED_TYPES.includes(resolvedType)) {
+        alert(`File type not supported: ${file.type || ext || file.name}`);
         continue;
       }
       if (file.size > MAX_FILE_SIZE) {
@@ -153,8 +171,8 @@ export default function GroupChat() {
         continue;
       }
       const data = await fileToBase64(file);
-      const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined;
-      newAttachments.push({ name: file.name, type: file.type, data, previewUrl });
+      const previewUrl = resolvedType.startsWith('image/') ? URL.createObjectURL(file) : undefined;
+      newAttachments.push({ name: file.name, type: resolvedType, data, previewUrl });
     }
     setPendingFiles((prev) => [...prev, ...newAttachments]);
   };
@@ -653,7 +671,7 @@ export default function GroupChat() {
               type="file"
               multiple
               className="hidden"
-              accept={ALLOWED_TYPES.join(',')}
+              accept={`${ALLOWED_TYPES.join(',')},${ACCEPT_EXTENSIONS}`}
               onChange={(e) => { if (e.target.files?.length) handleFiles(e.target.files); e.target.value = ''; }}
             />
             <textarea
