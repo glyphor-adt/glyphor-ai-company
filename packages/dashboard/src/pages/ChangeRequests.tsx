@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { Card, Skeleton, timeAgo } from '../components/ui';
@@ -336,7 +337,7 @@ function NewRequestModal({
     onSubmitted();
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div
         className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-2xl"
@@ -447,6 +448,7 @@ function NewRequestModal({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
