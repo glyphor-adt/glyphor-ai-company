@@ -116,9 +116,10 @@ export class AnthropicAdapter implements ProviderAdapter {
         case 'tool_call': {
           const content: Array<{ type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }> = [];
           lastToolUseIds = [];
+          let callIdx = 0;
           while (i < turns.length && turns[i].role === 'tool_call') {
             const tc = turns[i];
-            const id = `call_${tc.toolName}_${tc.timestamp}`;
+            const id = `call_${tc.toolName}_${tc.timestamp}_${callIdx++}`;
             lastToolUseIds.push(id);
             content.push({
               type: 'tool_use',
