@@ -188,7 +188,7 @@ export async function getRepoStats(repoKey: GlyphorRepo): Promise<RepoStats> {
   };
 }
 
-/** Create a GitHub issue on a repo */
+/** Create a GitHub issue on a repo and assign to Copilot */
 export async function createIssue(
   repoKey: GlyphorRepo,
   title: string,
@@ -204,6 +204,7 @@ export async function createIssue(
     title,
     body,
     labels,
+    assignees: ['copilot'],
   });
 
   return { number: data.number, url: data.html_url };
@@ -423,7 +424,7 @@ export async function createIssueForCopilot(
     title,
     body,
     labels: [...(labels ?? []), 'copilot'],
-    assignees: ['copilot-swe-agent[bot]'],
+    assignees: ['copilot'],
   });
 
   return { number: data.number, url: data.html_url };
