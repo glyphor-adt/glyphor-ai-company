@@ -72,12 +72,12 @@ function estimateCost(model: string, inputTokens: number, outputTokens: number):
 }
 
 /** Overall supervisor limits for on_demand (chat) — keep well within the
- *  dashboard's 120 s fetch-abort so users actually see the response.
- *  Turn budget: up to 5 tool turns + 1 forced-text turn.
- *  Timeout leaves 15 s headroom before the dashboard's 120 s abort.
+ *  dashboard's 180 s fetch-abort so users actually see the response.
+ *  Turn budget: up to 6 tool turns + 1 forced-text turn.
+ *  Timeout leaves 30 s headroom before the dashboard's 180 s abort.
  */
-const ON_DEMAND_MAX_TURNS = 10;
-const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = 105_000;
+const ON_DEMAND_MAX_TURNS = 12;
+const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = 150_000;
 
 /** Task tier (work_loop) — narrow executor with tight limits.
  *  Research/account agents need multi-step tool calls (each = 2 turns),
@@ -1239,22 +1239,36 @@ export class CompanyAgentRunner {
         const check = supervisor.checkBeforeModelCall();
         if (!check.ok) {
           // For on_demand chat: if we collected tool data but never got text,
-          // synthesize a response from the tool results so the user sees
-          // something useful instead of "Sorry, I wasn't able to finish."
+          // make one final no-tools model call to synthesize the data into
+          // a proper response instead of dumping raw JSON.
           if (task === 'on_demand' && !lastTextOutput) {
             const toolData = history
               .filter(t => t.role === 'tool_result' && t.toolResult?.success)
-              .map(t => {
-                const raw = t.content;
-                // Truncate large tool results to avoid raw JSON dumps
-                if (raw.length > 800) {
-                  return raw.substring(0, 800) + '\n... [data truncated]';
-                }
-                return raw;
-              })
-              .slice(-3);
+              .map(t => t.content)
+              .slice(-5);
             if (toolData.length > 0) {
-              lastTextOutput = `I gathered some data but ran out of time to fully synthesize it. Here's a summary of what I found:\n\n${toolData.join('\n\n')}`;
+              try {
+                const synthPrompt = 'You ran out of time. Using ONLY the tool results already in the conversation, give a clear, concise answer to the user. Do NOT apologize about running out of time. Just answer naturally.';
+                history.push({ role: 'user', content: synthPrompt, timestamp: Date.now() });
+                const synthResponse = await this.modelClient.generate({
+                  model: config.model,
+                  systemInstruction: '',
+                  contents: history,
+                  tools: undefined,
+                  temperature: config.temperature,
+                  thinkingEnabled: false,
+                  callTimeoutMs: 30_000,
+                });
+                if (synthResponse.text) {
+                  lastTextOutput = synthResponse.text;
+                  totalInputTokens += synthResponse.usageMetadata.inputTokens;
+                  totalOutputTokens += synthResponse.usageMetadata.outputTokens;
+                }
+              } catch {
+                // Synthesis call failed — fall back to truncated data
+                const truncated = toolData.map(d => d.length > 500 ? d.substring(0, 500) + '...' : d);
+                lastTextOutput = `Here's what I found:\n\n${truncated.join('\n\n')}`;
+              }
             }
           }
           if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, check.reason ?? 'supervisor_limit', deps);
@@ -1328,7 +1342,7 @@ export class CompanyAgentRunner {
           // Scheduled: full tool access every turn.
           let effectiveTools: ReturnType<typeof toolExecutor.getDeclarations> | undefined = toolExecutor.getDeclarations();
           const elapsedRatio = supervisor.elapsedMs / supervisor.config.timeoutMs;
-          if (isOnDemand && (turnNumber > 5 || elapsedRatio > 0.70)) {
+          if (isOnDemand && (turnNumber > 6 || elapsedRatio > 0.55)) {
             effectiveTools = undefined;
           } else if (isTaskTier && turnNumber >= supervisor.config.maxTurns) {
             effectiveTools = undefined;

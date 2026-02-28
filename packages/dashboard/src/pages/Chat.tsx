@@ -386,7 +386,7 @@ export default function Chat() {
     saveMessage(targetRole, 'user', text, userEmail, attachments);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120_000);
+    const timeoutId = setTimeout(() => controller.abort(), 180_000);
 
     try {
       const history = messages.slice(-20).map((m) => ({ role: m.role, content: m.content }));
