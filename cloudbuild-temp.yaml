@@ -2,11 +2,20 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
+      - '--progress=plain'
       - '-f'
       - 'docker/Dockerfile.scheduler'
       - '-t'
       - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:latest'
       - '.'
+    env:
+      - 'DOCKER_BUILDKIT=1'
 images:
   - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:latest'
+
+# Improved logging and reliability
+options:
+  logging: CLOUD_LOGGING_ONLY
+  logStreamingOption: STREAM_ON
+
 timeout: '600s'

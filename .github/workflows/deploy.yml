@@ -51,12 +51,32 @@ jobs:
         run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
 
       - name: Build & push scheduler image
+        env:
+          DOCKER_BUILDKIT: 1
         run: |
           IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/scheduler:${{ github.sha }}"
           IMAGE_LATEST="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/scheduler:latest"
-          docker build -f docker/Dockerfile.scheduler -t "$IMAGE" -t "$IMAGE_LATEST" .
-          docker push "$IMAGE"
-          docker push "$IMAGE_LATEST"
+          
+          # Retry logic for transient failures
+          MAX_RETRIES=3
+          for attempt in $(seq 1 $MAX_RETRIES); do
+            echo "Build attempt $attempt/$MAX_RETRIES"
+            if docker build --progress=plain -f docker/Dockerfile.scheduler -t "$IMAGE" -t "$IMAGE_LATEST" .; then
+              echo "Build succeeded on attempt $attempt"
+              docker push "$IMAGE"
+              docker push "$IMAGE_LATEST"
+              exit 0
+            else
+              exit_code=$?
+              echo "Build failed with exit code $exit_code"
+              if [ $attempt -lt $MAX_RETRIES ]; then
+                sleep $((10 * attempt))
+                echo "Retrying..."
+              else
+                exit $exit_code
+              fi
+            fi
+          done
 
       - name: Deploy to Cloud Run
         run: |
@@ -95,17 +115,37 @@ jobs:
         run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
 
       - name: Build & push dashboard image
+        env:
+          DOCKER_BUILDKIT: 1
         run: |
           IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/dashboard:${{ github.sha }}"
           IMAGE_LATEST="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/dashboard:latest"
-          docker build -f docker/Dockerfile.dashboard \
-            --build-arg VITE_SUPABASE_URL="${{ secrets.VITE_SUPABASE_URL }}" \
-            --build-arg VITE_SUPABASE_ANON_KEY="${{ secrets.VITE_SUPABASE_ANON_KEY }}" \
-            --build-arg VITE_SCHEDULER_URL="${{ secrets.VITE_SCHEDULER_URL }}" \
-            --build-arg VITE_GOOGLE_CLIENT_ID="${{ secrets.VITE_GOOGLE_CLIENT_ID }}" \
-            -t "$IMAGE" -t "$IMAGE_LATEST" .
-          docker push "$IMAGE"
-          docker push "$IMAGE_LATEST"
+          
+          # Retry logic for transient failures
+          MAX_RETRIES=3
+          for attempt in $(seq 1 $MAX_RETRIES); do
+            echo "Build attempt $attempt/$MAX_RETRIES"
+            if docker build --progress=plain -f docker/Dockerfile.dashboard \
+              --build-arg VITE_SUPABASE_URL="${{ secrets.VITE_SUPABASE_URL }}" \
+              --build-arg VITE_SUPABASE_ANON_KEY="${{ secrets.VITE_SUPABASE_ANON_KEY }}" \
+              --build-arg VITE_SCHEDULER_URL="${{ secrets.VITE_SCHEDULER_URL }}" \
+              --build-arg VITE_GOOGLE_CLIENT_ID="${{ secrets.VITE_GOOGLE_CLIENT_ID }}" \
+              -t "$IMAGE" -t "$IMAGE_LATEST" .; then
+              echo "Build succeeded on attempt $attempt"
+              docker push "$IMAGE"
+              docker push "$IMAGE_LATEST"
+              exit 0
+            else
+              exit_code=$?
+              echo "Build failed with exit code $exit_code"
+              if [ $attempt -lt $MAX_RETRIES ]; then
+                sleep $((10 * attempt))
+                echo "Retrying..."
+              else
+                exit $exit_code
+              fi
+            fi
+          done
 
       - name: Deploy to Cloud Run
         run: |
