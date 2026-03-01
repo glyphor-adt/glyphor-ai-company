@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import Markdown from 'react-markdown';
-import { supabase } from '../lib/supabase';
+import { apiCall } from '../lib/firebase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { useAuth } from '../lib/auth';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
@@ -104,15 +104,7 @@ export default function Directives() {
   const [showForm, setShowForm] = useState(false);
 
   const refresh = useCallback(async () => {
-    const { data } = await supabase
-      .from('founder_directives')
-      .select(`
-        *,
-        work_assignments (*),
-        source_directive:source_directive_id ( title )
-      `)
-      .order('priority', { ascending: true })
-      .order('created_at', { ascending: false });
+    const data = await apiCall('/api/founder-directives?include=work_assignments,source_directive');
 
     setDirectives((data as Directive[] | null) ?? []);
     setLoading(false);
@@ -120,15 +112,8 @@ export default function Directives() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  // Real-time subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel('directives-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'founder_directives' }, () => refresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'work_assignments' }, () => refresh())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [refresh]);
+  // Real-time subscription removed (was Supabase realtime)
+  useEffect(() => {}, [refresh]);
 
   const proposed = directives.filter(d => d.status === 'proposed');
   const active = directives.filter(d => d.status === 'active' || d.status === 'paused');
@@ -319,20 +304,25 @@ function DirectiveCard({
 
   async function handleCancel() {
     setActing(true);
-    await supabase
-      .from('founder_directives')
-      .update({ status: 'cancelled' })
-      .eq('id', d.id);
+    try {
+      await apiCall(`/api/founder-directives/${d.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'cancelled' }) });
+    } catch (err) {
+      console.error('Failed to cancel directive:', err);
+    }
     setActing(false);
     onAction();
   }
 
   async function handleDelete() {
     setActing(true);
-    // Clean up related rows (no CASCADE on FK)
-    await supabase.from('agent_tool_grants').delete().eq('directive_id', d.id);
-    await supabase.from('work_assignments').delete().eq('directive_id', d.id);
-    await supabase.from('founder_directives').delete().eq('id', d.id);
+    try {
+      // Clean up related rows (no CASCADE on FK)
+      await apiCall(`/api/agent-tool-grants/${d.id}`, { method: 'DELETE' });
+      await apiCall(`/api/work-assignments/${d.id}`, { method: 'DELETE' });
+      await apiCall(`/api/founder-directives/${d.id}`, { method: 'DELETE' });
+    } catch (err) {
+      console.error('Failed to delete directive:', err);
+    }
     setActing(false);
     setConfirmDelete(false);
     onAction();
@@ -545,23 +535,25 @@ function ProposedDirectiveCard({
 
   async function handleApprove() {
     setActing(true);
-    await supabase
-      .from('founder_directives')
-      .update({
+    try {
+      await apiCall(`/api/founder-directives/${d.id}`, { method: 'PATCH', body: JSON.stringify({
         status: 'active',
         approved_by: currentUser,
         approved_at: new Date().toISOString(),
-      })
-      .eq('id', d.id);
+      }) });
+    } catch (err) {
+      console.error('Failed to approve directive:', err);
+    }
     onAction();
   }
 
   async function handleReject() {
     setActing(true);
-    await supabase
-      .from('founder_directives')
-      .update({ status: 'rejected' })
-      .eq('id', d.id);
+    try {
+      await apiCall(`/api/founder-directives/${d.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'rejected' }) });
+    } catch (err) {
+      console.error('Failed to reject directive:', err);
+    }
     onAction();
   }
 
@@ -683,9 +675,8 @@ function EditApproveModal({
     if (!title.trim() || !description.trim()) return;
     setSaving(true);
 
-    await supabase
-      .from('founder_directives')
-      .update({
+    try {
+      await apiCall(`/api/founder-directives/${directive.id}`, { method: 'PATCH', body: JSON.stringify({
         title: title.trim(),
         description: description.trim(),
         priority,
@@ -695,8 +686,12 @@ function EditApproveModal({
         status: 'active',
         approved_by: currentUser,
         approved_at: new Date().toISOString(),
-      })
-      .eq('id', directive.id);
+      }) });
+    } catch (err) {
+      console.error('Failed to save directive:', err);
+      setSaving(false);
+      return;
+    }
 
     onSaved();
   }
@@ -848,17 +843,17 @@ function NewDirectiveModal({
     if (!title.trim() || !description.trim()) return;
     setSaving(true);
 
-    const { error } = await (supabase.from('founder_directives') as any).insert({
-      title: title.trim(),
-      description: description.trim(),
-      priority,
-      category,
-      target_agents: selectedAgents,
-      due_date: dueDate || null,
-      created_by: 'kristina',
-    });
-
-    if (error) {
+    try {
+      await apiCall('/api/founder-directives', { method: 'POST', body: JSON.stringify({
+        title: title.trim(),
+        description: description.trim(),
+        priority,
+        category,
+        target_agents: selectedAgents,
+        due_date: dueDate || null,
+        created_by: 'kristina',
+      }) });
+    } catch (error) {
       console.error('Failed to create directive:', error);
       setSaving(false);
       return;

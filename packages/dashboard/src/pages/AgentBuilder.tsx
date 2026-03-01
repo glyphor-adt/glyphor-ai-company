@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { SCHEDULER_URL } from '../lib/supabase';
+import { SCHEDULER_URL } from '../lib/firebase';
 import { Card, SectionHeader } from '../components/ui';
 
 const DEPARTMENTS = [

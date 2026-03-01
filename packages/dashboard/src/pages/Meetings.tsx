@@ -4,7 +4,7 @@ import {
   MdForum, MdAssignment, MdSquareFoot, MdNotificationImportant,
   MdPerson, MdWarning, MdArrowForward,
 } from 'react-icons/md';
-import { supabase, SCHEDULER_URL } from '../lib/supabase';
+import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 
@@ -68,12 +68,12 @@ export default function Meetings() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [meetRes, msgRes] = await Promise.all([
-      supabase.from('agent_meetings').select('*').order('created_at', { ascending: false }).limit(30),
-      supabase.from('agent_messages').select('*').order('created_at', { ascending: false }).limit(50),
+    const [meetData, msgData] = await Promise.all([
+      apiCall<MeetingRecord[]>('/api/agent-meetings?limit=30'),
+      apiCall<MessageRecord[]>('/api/agent-messages?limit=50'),
     ]);
-    setMeetings((meetRes.data as unknown as MeetingRecord[]) ?? []);
-    setMessages((msgRes.data as unknown as MessageRecord[]) ?? []);
+    setMeetings(meetData ?? []);
+    setMessages(msgData ?? []);
     setLoading(false);
   }, []);
 

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { apiCall } from '../lib/firebase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import {
   Card,
@@ -58,11 +58,12 @@ function useWorldModels() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const { data: rows } = await supabase
-      .from('agent_world_model')
-      .select('*')
-      .order('agent_role');
-    setData((rows as WorldModelRow[]) ?? []);
+    try {
+      const rows = await apiCall<WorldModelRow[]>('/api/agent-world-model');
+      setData(rows ?? []);
+    } catch {
+      setData([]);
+    }
     setLoading(false);
   }, []);
 
@@ -76,11 +77,12 @@ function useRubrics() {
 
   useEffect(() => {
     (async () => {
-      const { data: rows } = await supabase
-        .from('role_rubrics')
-        .select('*')
-        .order('role');
-      setData((rows as RubricRow[]) ?? []);
+      try {
+        const rows = await apiCall<RubricRow[]>('/api/role-rubrics');
+        setData(rows ?? []);
+      } catch {
+        setData([]);
+      }
       setLoading(false);
     })();
   }, []);

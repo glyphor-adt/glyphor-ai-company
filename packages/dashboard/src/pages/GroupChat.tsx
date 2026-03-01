@@ -3,7 +3,7 @@ import Markdown from 'react-markdown';
 import { useAgents } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
-import { supabase, SCHEDULER_URL } from '../lib/supabase';
+import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { useAuth, getEmailAliases } from '../lib/auth';
 import { MdAttachFile, MdImage, MdDescription, MdClose } from 'react-icons/md';
 
@@ -100,12 +100,9 @@ export default function GroupChat() {
     historyLoaded.current = true;
     const aliases = getEmailAliases(user?.email ?? 'unknown');
     (async () => {
-      const { data } = await supabase
-        .from('chat_messages')
-        .select('agent_role, role, content, attachments, created_at')
-        .in('user_id', aliases)
-        .order('created_at', { ascending: true })
-        .limit(200);
+      const data = await apiCall<{ agent_role: string; role: string; content: string; attachments: any; created_at: string }[]>(
+        `/api/chat-messages?user_id=${encodeURIComponent(aliases.join(','))}&limit=200`
+      ).catch(() => null);
       if (data && data.length > 0) {
         setMessages(
           data.map((row: any) => ({
@@ -266,12 +263,15 @@ export default function GroupChat() {
 
     // Persist user message
     const userId = user?.email ?? 'unknown';
-    supabase.from('chat_messages').insert({
-      user_id: userId,
-      agent_role: 'user',
-      role: 'user',
-      content: text,
-      attachments: attachments ? attachments.map((a) => ({ name: a.name, type: a.type })) : null,
+    apiCall('/api/chat-messages', {
+      method: 'POST',
+      body: JSON.stringify({
+        user_id: userId,
+        agent_role: 'user',
+        role: 'user',
+        content: text,
+        attachments: attachments ? attachments.map((a) => ({ name: a.name, type: a.type })) : null,
+      }),
     }).then();
 
     // Parse @mentions and auto-add mentioned agents to recipients
@@ -375,13 +375,16 @@ export default function GroupChat() {
         ]);
 
         // Persist agent response
-        supabase.from('chat_messages').insert({
-          user_id: userId,
-          agent_role: agentRole,
-          role: 'agent',
-          content,
-          attachments: null,
-        }).then();
+        apiCall('/api/chat-messages', {
+          method: 'POST',
+          body: JSON.stringify({
+            user_id: userId,
+            agent_role: agentRole,
+            role: 'agent',
+            content,
+            attachments: null,
+          }),
+        }).catch(() => {});
       }
     }
 

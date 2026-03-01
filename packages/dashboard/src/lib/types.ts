@@ -1,5 +1,5 @@
 /* ──────────────────────────────────────────────────────
-   Database types — mirrors supabase/migrations schema
+   Database types — mirrors database schema
    ────────────────────────────────────────────────────── */
 
 export type Agent = {
@@ -195,7 +195,7 @@ export type DashboardChangeRequest = {
   updated_at: string;
 }
 
-/* ── Supabase generic DB shape (simplified) ── */
+/* ── Generic DB shape (simplified) ── */
 export type Database = {
   public: {
     Tables: {

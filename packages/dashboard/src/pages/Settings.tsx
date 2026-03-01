@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { apiCall } from '../lib/firebase';
 import { useAuth, invalidateAllowedCache, FALLBACK_ADMINS } from '../lib/auth';
 import { Card, SectionHeader } from '../components/ui';
 
@@ -30,15 +30,8 @@ export default function Settings() {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const { data, error: queryError } = await supabase
-        .from('dashboard_users' as any)
-        .select('*')
-        .order('created_at', { ascending: true });
-      if (queryError) {
-        console.error('Failed to fetch dashboard_users:', queryError.message);
-        setError(`DB error: ${queryError.message}`);
-      }
-      setUsers((data as unknown as DashboardUser[]) ?? []);
+      const data = await apiCall<DashboardUser[]>('/api/dashboard-users');
+      setUsers(data ?? []);
     } catch (e) {
       console.error('fetchUsers exception:', e);
       setError('Failed to load users from database');
@@ -60,18 +53,18 @@ export default function Settings() {
 
     setSaving(true);
     setError('');
-    const { error: err } = await supabase
-      .from('dashboard_users' as any)
-      .insert({ email: trimmedEmail, name: name.trim(), role, created_by: user?.email ?? '' } as any);
-
-    if (err) {
-      setError(err.message);
-    } else {
+    try {
+      await apiCall('/api/dashboard-users', {
+        method: 'POST',
+        body: JSON.stringify({ email: trimmedEmail, name: name.trim(), role, created_by: user?.email ?? '' }),
+      });
       setEmail('');
       setName('');
       setRole('viewer');
       invalidateAllowedCache();
       await fetchUsers();
+    } catch (err) {
+      setError((err as Error).message);
     }
     setSaving(false);
   };
@@ -80,24 +73,20 @@ export default function Settings() {
     // Don't allow removing yourself
     if (targetUser.email.toLowerCase() === user?.email.toLowerCase()) return;
 
-    const { error: err } = await supabase
-      .from('dashboard_users' as any)
-      .delete()
-      .eq('id', targetUser.id);
-
-    if (!err) {
+    try {
+      await apiCall(`/api/dashboard-users/${targetUser.id}`, { method: 'DELETE' });
       invalidateAllowedCache();
       await fetchUsers();
-    }
+    } catch { /* ignore */ }
   };
 
   const toggleRole = async (targetUser: DashboardUser) => {
     if (targetUser.email.toLowerCase() === user?.email.toLowerCase()) return;
     const newRole = targetUser.role === 'admin' ? 'viewer' : 'admin';
-    await supabase
-      .from('dashboard_users' as any)
-      .update({ role: newRole } as any)
-      .eq('id', targetUser.id);
+    await apiCall(`/api/dashboard-users/${targetUser.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role: newRole }),
+    });
     invalidateAllowedCache();
     await fetchUsers();
   };

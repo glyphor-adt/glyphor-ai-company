@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { MdCheck, MdWarning, MdClose, MdAutoAwesome, MdPalette, MdTrendingUp, MdFlag, MdArrowForward, MdChevronRight, MdSearch, MdPerson, MdExpandMore } from 'react-icons/md';
-import { SCHEDULER_URL } from '../lib/supabase';
+import { SCHEDULER_URL } from '../lib/firebase';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
 
 /* ── Types ─────────────────────────────────────── */

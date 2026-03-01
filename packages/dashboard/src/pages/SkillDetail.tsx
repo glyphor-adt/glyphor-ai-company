@@ -5,7 +5,7 @@ import {
   MdTrackChanges, MdPalette, MdStars, MdBarChart, MdTrendingUp,
   MdCheck, MdWarning,
 } from 'react-icons/md';
-import { supabase } from '../lib/supabase';
+import { apiCall } from '../lib/firebase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { Card, Skeleton, AgentAvatar } from '../components/ui';
 
@@ -79,23 +79,15 @@ export default function SkillDetailPage() {
     (async () => {
       setLoading(true);
 
-      const { data: skillData } = await supabase
-        .from('skills')
-        .select('*')
-        .eq('slug', slug)
-        .single();
+      const skillData = await apiCall<SkillDetail>(`/api/skills?slug=${slug}`).catch(() => null);
 
       if (skillData) {
-        const typed = skillData as unknown as SkillDetail;
+        const typed = skillData;
         setSkill(typed);
 
-        const { data: agentSkills } = await supabase
-          .from('agent_skills')
-          .select('*')
-          .eq('skill_id', typed.id)
-          .order('proficiency');
+        const agentSkills = await apiCall<AgentAssignment[]>(`/api/agent-skills?skill_id=${typed.id}`).catch(() => []);
 
-        setAssignments((agentSkills as unknown as AgentAssignment[]) ?? []);
+        setAssignments(agentSkills ?? []);
       }
 
       setLoading(false);

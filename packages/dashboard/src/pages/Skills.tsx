@@ -5,7 +5,7 @@ import {
   MdTrackChanges, MdPalette, MdStars, MdBarChart, MdTrendingUp,
   MdAdd, MdClose,
 } from 'react-icons/md';
-import { supabase } from '../lib/supabase';
+import { apiCall } from '../lib/firebase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { Card, SectionHeader, Skeleton, AgentAvatar } from '../components/ui';
 
@@ -66,16 +66,10 @@ export default function Skills() {
     setLoading(true);
 
     // Load all skills
-    const { data: skillsData } = await supabase
-      .from('skills')
-      .select('id, slug, name, category, description, tools_granted, version')
-      .order('category')
-      .order('name');
+    const skillsData = await apiCall<SkillRow[]>('/api/skills').catch(() => []);
 
     // Load agent_skills to compute agent counts and top performers
-    const { data: agentSkillsData } = await supabase
-      .from('agent_skills')
-      .select('agent_role, proficiency, times_used, successes, failures, skill_id');
+    const agentSkillsData = await apiCall<AgentSkillRow[]>('/api/agent-skills').catch(() => []);
 
     // Load skills for join
     const skillMap = new Map((skillsData ?? []).map((s: SkillRow) => [s.id, s]));
@@ -313,17 +307,20 @@ function CreateSkillModal({
       .map(t => t.trim())
       .filter(Boolean);
 
-    const { error: dbError } = await (supabase.from('skills') as any).insert({
-      slug,
-      name: name.trim(),
-      category,
-      description: description.trim(),
-      methodology: methodology.trim(),
-      tools_granted: tools,
-    });
-
-    if (dbError) {
-      setError(dbError.message ?? 'Failed to create skill.');
+    try {
+      await apiCall('/api/skills', {
+        method: 'POST',
+        body: JSON.stringify({
+          slug,
+          name: name.trim(),
+          category,
+          description: description.trim(),
+          methodology: methodology.trim(),
+          tools_granted: tools,
+        }),
+      });
+    } catch (err) {
+      setError((err as Error).message ?? 'Failed to create skill.');
       setSaving(false);
       return;
     }

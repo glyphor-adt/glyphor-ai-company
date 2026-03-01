@@ -109,13 +109,13 @@ export class GlyphorEventBus {
     const data = await systemQuery<Record<string, unknown>>(query, params);
 
     return data.map((row) => ({
-      id: row.id,
+      id: row.id as string,
       type: row.type as GlyphorEventType,
       source: row.source as GlyphorEvent['source'],
-      timestamp: row.timestamp,
-      payload: row.payload ?? {},
+      timestamp: row.timestamp as string,
+      payload: (row.payload ?? {}) as Record<string, unknown>,
       priority: row.priority as EventPriority,
-      correlationId: row.correlation_id ?? undefined,
+      correlationId: (row.correlation_id as string) ?? undefined,
     }));
   }
 

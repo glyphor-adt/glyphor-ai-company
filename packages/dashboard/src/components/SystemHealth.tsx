@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { apiCall } from '../lib/firebase';
 import { Card, SectionHeader, Skeleton, timeAgo } from './ui';
 
 interface SyncStatus {
@@ -27,12 +27,12 @@ export function SystemHealth() {
 
   useEffect(() => {
     (async () => {
-      const [{ data: syncData }, { data: incidentData }] = await Promise.all([
-        supabase.from('data_sync_status').select('*'),
-        supabase.from('incidents').select('*').order('created_at', { ascending: false }).limit(5),
+      const [syncData, incidentData] = await Promise.all([
+        apiCall<SyncStatus[]>('/api/data-sync-status'),
+        apiCall<Incident[]>('/api/incidents?limit=5'),
       ]);
-      setSyncs((syncData as SyncStatus[] | null) ?? []);
-      setIncidents((incidentData as Incident[] | null) ?? []);
+      setSyncs(syncData ?? []);
+      setIncidents(incidentData ?? []);
       setLoading(false);
     })();
   }, []);

@@ -10,7 +10,7 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts';
-import { supabase, SCHEDULER_URL } from '../lib/supabase';
+import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import {
   DISPLAY_NAME_MAP,
   AGENT_META,
@@ -157,11 +157,9 @@ export default function AgentProfile() {
     (async () => {
       setLoading(true);
       // Load agent + profile in parallel
-      let { data: agentData } = await supabase
-        .from('company_agents').select('*').eq('role', agentId).single();
+      let agentData = await apiCall('/api/company_agents?role=' + encodeURIComponent(agentId));
       if (!agentData) {
-        ({ data: agentData } = await supabase
-          .from('company_agents').select('*').eq('id', agentId).single());
+        agentData = await apiCall('/api/company_agents?id=' + encodeURIComponent(agentId));
       }
 
       let profileData: AgentProfile | null = null;
@@ -169,10 +167,10 @@ export default function AgentProfile() {
       let reportsData: AgentRow[] = [];
       if (agentData) {
         const role = (agentData as unknown as AgentRow).role;
-        const [{ data: p }, { data: b }, { data: r }] = await Promise.all([
-          supabase.from('agent_profiles').select('*').eq('agent_id', role).single(),
-          supabase.from('agent_briefs').select('agent_id, system_prompt, skills, tools').eq('agent_id', role).single(),
-          supabase.from('company_agents').select('*').eq('reports_to', role).order('created_at', { ascending: true }),
+        const [p, b, r] = await Promise.all([
+          apiCall('/api/agent_profiles?agent_id=' + encodeURIComponent(role)),
+          apiCall('/api/agent_briefs?agent_id=' + encodeURIComponent(role)),
+          apiCall('/api/company_agents?reports_to=' + encodeURIComponent(role) + '&order=created_at.asc'),
         ]);
         profileData = p as AgentProfile | null;
         briefData = (b as AgentBrief | null) ?? null;
@@ -320,13 +318,8 @@ function OverviewTab({
   const department = ROLE_DEPARTMENT[agent.role] ?? agent.department ?? '';
 
   useEffect(() => {
-    supabase
-      .from('activity_log')
-      .select('id, agent_role, action, summary, created_at')
-      .eq('agent_role', agent.role)
-      .order('created_at', { ascending: false })
-      .limit(8)
-      .then(({ data }) => setActivity((data as unknown as ActivityRow[]) ?? []));
+    apiCall('/api/activity_log?agent_role=' + encodeURIComponent(agent.role) + '&order=created_at.desc&limit=8')
+      .then((data) => setActivity((data as unknown as ActivityRow[]) ?? []));
   }, [agent.role]);
 
   // Derive thinking level from temperature
@@ -605,12 +598,8 @@ function KeyStatsGrid({ agent }: { agent: AgentRow }) {
 
   useEffect(() => {
     const since = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
-    supabase
-      .from('agent_performance')
-      .select('*')
-      .eq('agent_id', agent.role)
-      .gte('date', since)
-      .then(({ data }) => {
+    apiCall('/api/agent_performance?agent_id=' + encodeURIComponent(agent.role) + '&date=gte.' + encodeURIComponent(since))
+      .then((data) => {
         const rows = (data ?? []) as PerformanceDay[];
         if (!rows.length) {
           // Fall back to agent-level stats
@@ -689,20 +678,20 @@ function PerformanceTab({ agent }: { agent: AgentRow }) {
     const role = agent.role;
 
     Promise.all([
-      supabase.from('agent_performance').select('*').eq('agent_id', role).order('date', { ascending: true }).limit(30),
-      supabase.from('agent_growth').select('*').eq('agent_id', role),
-      supabase.from('agent_milestones').select('*').eq('agent_id', role).order('created_at', { ascending: false }).limit(10),
-      supabase.from('agent_peer_feedback').select('*').eq('to_agent', role).order('created_at', { ascending: false }).limit(10),
-      supabase.from('agent_reflections').select('what_went_well, what_could_improve').eq('agent_role', role).order('created_at', { ascending: false }).limit(10),
+      apiCall('/api/agent_performance?agent_id=' + encodeURIComponent(role) + '&order=date.asc&limit=30'),
+      apiCall('/api/agent_growth?agent_id=' + encodeURIComponent(role)),
+      apiCall('/api/agent_milestones?agent_id=' + encodeURIComponent(role) + '&order=created_at.desc&limit=10'),
+      apiCall('/api/agent_peer_feedback?to_agent=' + encodeURIComponent(role) + '&order=created_at.desc&limit=10'),
+      apiCall('/api/agent_reflections?agent_role=' + encodeURIComponent(role) + '&order=created_at.desc&limit=10'),
     ]).then(([perfRes, growthRes, mileRes, fbRes, reflRes]) => {
-      setPerf((perfRes.data ?? []) as PerformanceDay[]);
-      setGrowth((growthRes.data ?? []) as GrowthArea[]);
-      setMilestones((mileRes.data ?? []) as Milestone[]);
-      setFeedback((fbRes.data ?? []) as FeedbackRow[]);
+      setPerf((perfRes ?? []) as PerformanceDay[]);
+      setGrowth((growthRes ?? []) as GrowthArea[]);
+      setMilestones((mileRes ?? []) as Milestone[]);
+      setFeedback((fbRes ?? []) as FeedbackRow[]);
 
       // Extract unique learnings from reflections
       const allLearnings: string[] = [];
-      for (const r of (reflRes.data ?? []) as { what_went_well: string[]; what_could_improve: string[] }[]) {
+      for (const r of (reflRes ?? []) as { what_went_well: string[]; what_could_improve: string[] }[]) {
         if (r.what_could_improve) allLearnings.push(...r.what_could_improve);
       }
       // Deduplicate
@@ -797,12 +786,7 @@ function MemoryTab({ agent }: { agent: AgentRow }) {
 
   const loadMemories = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('agent_memory')
-      .select('*')
-      .eq('agent_role', agent.role)
-      .order('importance', { ascending: false })
-      .limit(30);
+    const data = await apiCall('/api/agent_memory?agent_role=' + encodeURIComponent(agent.role) + '&order=importance.desc&limit=30');
     setMemories((data as MemoryRow[]) ?? []);
     setLoading(false);
   }, [agent.role]);
@@ -894,21 +878,11 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      supabase
-        .from('agent_messages')
-        .select('*')
-        .or(`from_agent.eq.${agent.role},to_agent.eq.${agent.role}`)
-        .order('created_at', { ascending: false })
-        .limit(30),
-      supabase
-        .from('agent_meetings')
-        .select('id, called_by, title, meeting_type, attendees, status, summary, created_at')
-        .contains('attendees', [agent.role])
-        .order('created_at', { ascending: false })
-        .limit(15),
+      apiCall('/api/agent_messages?or=(from_agent.eq.' + encodeURIComponent(agent.role) + ',to_agent.eq.' + encodeURIComponent(agent.role) + ')&order=created_at.desc&limit=30'),
+      apiCall('/api/agent_meetings?attendees=cs.' + encodeURIComponent(JSON.stringify([agent.role])) + '&order=created_at.desc&limit=15'),
     ]).then(([msgRes, mtgRes]) => {
-      setMessages((msgRes.data as unknown as AgentMessage[]) ?? []);
-      setMeetings((mtgRes.data as unknown as AgentMeeting[]) ?? []);
+      setMessages((msgRes as unknown as AgentMessage[]) ?? []);
+      setMeetings((mtgRes as unknown as AgentMeeting[]) ?? []);
       setLoading(false);
     });
   }, [agent.role]);
@@ -1072,11 +1046,7 @@ function SkillsTab({ agent, brief }: { agent: AgentRow; brief: AgentBrief | null
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from('agent_skills')
-        .select('*, skills(slug, name, category, description, tools_granted)')
-        .eq('agent_role', agent.role)
-        .order('times_used', { ascending: false });
+      const data = await apiCall('/api/agent_skills?agent_role=' + encodeURIComponent(agent.role) + '&order=times_used.desc');
       setSkills((data as unknown as AgentSkillRow[]) ?? []);
       setLoading(false);
     })();
@@ -1265,9 +1235,9 @@ function WorldModelTab({ agent }: { agent: AgentRow }) {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [{ data: wmRows }, { data: rubricRows }] = await Promise.all([
-        supabase.from('agent_world_model').select('*').eq('agent_role', agent.role).single(),
-        supabase.from('role_rubrics').select('*').or(`role.eq.${agent.role},role.eq._default`).order('role'),
+      const [wmRows, rubricRows] = await Promise.all([
+        apiCall('/api/agent_world_model?agent_role=' + encodeURIComponent(agent.role)),
+        apiCall('/api/role_rubrics?or=(role.eq.' + encodeURIComponent(agent.role) + ',role.eq._default)&order=role.asc'),
       ]);
       setModel(wmRows as WorldModelRow | null);
       setRubrics((rubricRows as RubricRow[]) ?? []);
@@ -1528,11 +1498,7 @@ function SettingsTab({
     // Load reasoning config
     (async () => {
       setReasoningLoading(true);
-      const { data: rc } = await (supabase
-        .from('agent_reasoning_config') as any)
-        .select('*')
-        .eq('agent_role', agent.role)
-        .single();
+      const rc = await apiCall('/api/agent_reasoning_config?agent_role=' + encodeURIComponent(agent.role));
       if (rc) {
         setReasoningEnabled(rc.enabled ?? false);
         setReasoningPassTypes((rc.pass_types as string[]) ?? []);
@@ -1549,7 +1515,7 @@ function SettingsTab({
   const handleSaveReasoning = async () => {
     setSavingReasoning(true);
     try {
-      await (supabase.from('agent_reasoning_config') as any).upsert({
+      await apiCall('/api/agent_reasoning_config', { method: 'PUT', body: JSON.stringify({
         agent_role: agent.role,
         enabled: reasoningEnabled,
         pass_types: reasoningPassTypes,
@@ -1559,7 +1525,7 @@ function SettingsTab({
         value_gate_enabled: reasoningValueGate,
         verification_models: reasoningVerificationModels,
         updated_at: new Date().toISOString(),
-      });
+      }) });
       // Invalidate reasoning config cache
       try {
         await fetch(`${SCHEDULER_URL}/cache/invalidate`, {
@@ -1589,10 +1555,7 @@ function SettingsTab({
       setCodePrompt(codeDefinedPrompt);
 
       // Check for custom DB override
-      const { data: brief } = await (supabase.from('agent_briefs') as any)
-        .select('system_prompt')
-        .eq('agent_id', agent.role)
-        .single();
+      const brief = await apiCall('/api/agent_briefs?agent_id=' + encodeURIComponent(agent.role));
       if (brief?.system_prompt) {
         setSystemPrompt(brief.system_prompt);
         setPromptSource('db');

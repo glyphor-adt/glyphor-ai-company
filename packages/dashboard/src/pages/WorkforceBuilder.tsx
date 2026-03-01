@@ -4,7 +4,7 @@ import {
   MdManageSearch, MdSettings, MdInsights, MdBrush,
   MdBiotech, MdCampaign, MdHeadsetMic, MdStar, MdClose, MdFileDownload, MdArrowForward,
 } from 'react-icons/md';
-import { SCHEDULER_URL } from '../lib/supabase';
+import { SCHEDULER_URL } from '../lib/firebase';
 
 /* ═══════════════════════════════════════════════════
    Agent Template Palette

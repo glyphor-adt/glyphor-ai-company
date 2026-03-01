@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, SCHEDULER_URL } from '../lib/supabase';
+import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
 import {
@@ -368,14 +368,20 @@ export default function Governance() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [iamRes, auditRes, secretsRes] = await Promise.all([
-      supabase.from('platform_iam_state').select('*').order('platform'),
-      supabase.from('platform_audit_log').select('*').order('timestamp', { ascending: false }).limit(50),
-      supabase.from('platform_secret_rotation').select('*').order('platform'),
-    ]);
-    setIamState((iamRes.data as IAMState[]) ?? []);
-    setAuditLog((auditRes.data as AuditEntry[]) ?? []);
-    setSecrets((secretsRes.data as SecretRotation[]) ?? []);
+    try {
+      const [iamData, auditData, secretsData] = await Promise.all([
+        apiCall<IAMState[]>('/api/platform-iam-state'),
+        apiCall<AuditEntry[]>('/api/platform-audit-log?limit=50'),
+        apiCall<SecretRotation[]>('/api/platform-secret-rotation'),
+      ]);
+      setIamState(iamData ?? []);
+      setAuditLog(auditData ?? []);
+      setSecrets(secretsData ?? []);
+    } catch {
+      setIamState([]);
+      setAuditLog([]);
+      setSecrets([]);
+    }
     setLoading(false);
   }, []);
 

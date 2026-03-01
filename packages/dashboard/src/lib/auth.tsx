@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useCallback, useEffect, type React
 import { GoogleOAuthProvider, GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
 import * as teamsJs from '@microsoft/teams-js';
-import { supabase } from './supabase';
+import { apiCall } from './firebase';
 
 const STORAGE_KEY = 'glyphor-auth';
 
@@ -33,9 +33,9 @@ async function fetchAllowedEmails(): Promise<Set<string>> {
   if (_cachePromise) return _cachePromise;
   _cachePromise = (async () => {
     try {
-      const { data, error } = await supabase.from('dashboard_users' as any).select('email') as { data: { email: string }[] | null; error: any };
-      if (error || !data || data.length === 0) {
-        // DB unavailable or empty — use fallback
+      const data = await apiCall<{ email: string }[]>('/api/dashboard-users');
+      if (!data || data.length === 0) {
+        // API unavailable or empty — use fallback
         return new Set(FALLBACK_EMAILS);
       }
       const set = new Set(data.map((r) => r.email.toLowerCase()));

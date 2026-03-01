@@ -57,20 +57,18 @@ function mockCache() {
 // ─── Tests ──────────────────────────────────────────────────────
 
 describe('JitContextRetriever', () => {
-  let supabase: ReturnType<typeof mockSupabase>;
   let embeddingClient: ReturnType<typeof mockEmbeddingClient>;
   let cache: ReturnType<typeof mockCache>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    supabase = mockSupabase();
     embeddingClient = mockEmbeddingClient();
     cache = mockCache();
   });
 
   describe('retrieve', () => {
     it('embeds the task and queries all stores', async () => {
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'platform health check');
 
       expect(embeddingClient.embed).toHaveBeenCalledWith('cto: platform health check');
@@ -79,7 +77,7 @@ describe('JitContextRetriever', () => {
     });
 
     it('returns items from all knowledge stores', async () => {
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'health check');
 
       expect(result.relevantMemories.length).toBeGreaterThanOrEqual(0);
@@ -88,7 +86,7 @@ describe('JitContextRetriever', () => {
     });
 
     it('sorts items by score descending', async () => {
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'test', 10000);
 
       // All items combined should be score-sorted
@@ -107,7 +105,7 @@ describe('JitContextRetriever', () => {
     });
 
     it('trims to token budget', async () => {
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       // Very small budget — should limit items
       const result = await retriever.retrieve('cto', 'task', 5);
       expect(result.tokenEstimate).toBeLessThanOrEqual(10); // some tolerance
@@ -127,7 +125,7 @@ describe('JitContextRetriever', () => {
       };
       cache.get = vi.fn().mockResolvedValue(cachedCtx);
 
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'health check');
 
       expect(result.fromCache).toBe(true);
@@ -136,7 +134,7 @@ describe('JitContextRetriever', () => {
     });
 
     it('caches fresh retrieval results', async () => {
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       await retriever.retrieve('cto', 'health check');
 
       expect(cache.set).toHaveBeenCalledWith(
@@ -147,7 +145,7 @@ describe('JitContextRetriever', () => {
     });
 
     it('works without cache (undefined)', async () => {
-      const retriever = new JitContextRetriever(supabase, embeddingClient);
+      const retriever = new JitContextRetriever(embeddingClient);
       const result = await retriever.retrieve('cto', 'health check');
       expect(result.fromCache).toBe(false);
       expect(result.tokenEstimate).toBeGreaterThanOrEqual(0);
@@ -157,7 +155,7 @@ describe('JitContextRetriever', () => {
   describe('error handling', () => {
     it('returns empty context when embedding fails', async () => {
       embeddingClient.embed = vi.fn().mockRejectedValue(new Error('Embedding API down'));
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'task');
 
       expect(result.relevantMemories).toHaveLength(0);
@@ -179,7 +177,7 @@ describe('JitContextRetriever', () => {
         }),
       });
 
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'task');
 
       // Should not throw — returns empty arrays
@@ -200,7 +198,7 @@ describe('JitContextRetriever', () => {
         return Promise.reject(new Error('Store unavailable'));
       });
 
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'task');
 
       // Should have at least the memory that succeeded
@@ -216,7 +214,7 @@ describe('JitContextRetriever', () => {
           { content: 'Low importance', importance: 0.3, similarity: 0.95 },
         ],
       });
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'task', 10000);
 
       if (result.relevantMemories.length >= 2) {
@@ -233,7 +231,7 @@ describe('JitContextRetriever', () => {
           { summary: 'Uncertain', confidence: 0.3, similarity: 0.9, outcome: 'Maybe' },
         ],
       });
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'task', 10000);
 
       if (result.relevantEpisodes.length >= 2) {

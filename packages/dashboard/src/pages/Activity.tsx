@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { apiCall } from '../lib/firebase';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import {
   Card,
@@ -41,29 +41,19 @@ function useAgentRuns(limit = 100) {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const { data: rows } = await supabase
-      .from('agent_runs')
-      .select('*')
-      .order('started_at', { ascending: false })
-      .limit(limit);
-    setData((rows as AgentRun[]) ?? []);
+    try {
+      const rows = await apiCall<AgentRun[]>(`/api/agent-runs?limit=${limit}`);
+      setData(rows ?? []);
+    } catch {
+      setData([]);
+    }
     setLoading(false);
   }, [limit]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  // Real-time subscription for new runs and status updates
-  useEffect(() => {
-    const channel = supabase
-      .channel('agent_runs_realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'agent_runs' },
-        () => { refresh(); },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [refresh]);
+  // Real-time not available after Firebase migration
+  useEffect(() => {}, [refresh]);
 
   return { data, loading, refresh };
 }
