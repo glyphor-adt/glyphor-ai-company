@@ -15,6 +15,20 @@ async function main() {
   console.log('  teamId:', teamId ? `${teamId.substring(0,8)}...` : 'MISSING');
   console.log('  channelId:', channelId ? `${channelId.substring(0,8)}...` : 'MISSING');
 
+  // Validate all required env vars are present
+  const missing = [];
+  if (!tenantId) missing.push('AZURE_TENANT_ID');
+  if (!clientId) missing.push('AZURE_CLIENT_ID');
+  if (!clientSecret) missing.push('AZURE_CLIENT_SECRET');
+  if (!teamId) missing.push('TEAMS_TEAM_ID');
+  if (!channelId) missing.push('TEAMS_CHANNEL_GENERAL_ID');
+
+  if (missing.length > 0) {
+    console.error(`\n❌ FAILED: Missing required environment variables: ${missing.join(', ')}`);
+    console.error('Set these environment variables before running this test.');
+    process.exit(1);
+  }
+
   const msalApp = new ConfidentialClientApplication({
     auth: { clientId, clientSecret, authority: `https://login.microsoftonline.com/${tenantId}` },
   });
@@ -25,13 +39,14 @@ async function main() {
     const result = await msalApp.acquireTokenByClientCredential({ scopes: ['https://graph.microsoft.com/.default'] });
     if (!result?.accessToken) { console.error('FAILED: No access token'); process.exit(1); }
     token = result.accessToken;
-    console.log('SUCCESS: Token acquired, expires:', result.expiresOn);
+    console.log('✅ SUCCESS: Token acquired, expires:', result.expiresOn);
   } catch (err) {
-    console.error('FAILED to acquire token:', err.message);
+    console.error('❌ FAILED to acquire token:', err.message);
     process.exit(1);
   }
 
   const textUrl = `https://graph.microsoft.com/v1.0/teams/${encodeURIComponent(teamId)}/channels/${encodeURIComponent(channelId)}/messages`;
+  console.log('Graph API URL:', textUrl.substring(0, 120) + '...');
 
   console.log('\n--- Step 2: Sending text message ---');
   try {
@@ -42,9 +57,12 @@ async function main() {
     });
     const body = await resp.text();
     console.log(`Response: ${resp.status} ${resp.statusText}`);
-    if (!resp.ok) console.error('FAILED:', body);
-    else console.log('SUCCESS');
-  } catch (err) { console.error('FAILED:', err.message); }
+    if (!resp.ok) {
+      console.error('❌ FAILED:', body);
+      process.exit(1);
+    }
+    console.log('✅ SUCCESS');
+  } catch (err) { console.error('❌ FAILED:', err.message); process.exit(1); }
 
   console.log('\n--- Step 3: Sending Adaptive Card ---');
   const card = {
@@ -66,8 +84,13 @@ async function main() {
     });
     const body = await resp.text();
     console.log(`Response: ${resp.status} ${resp.statusText}`);
-    if (!resp.ok) console.error('FAILED:', body);
-    else console.log('SUCCESS');
-  } catch (err) { console.error('FAILED:', err.message); }
+    if (!resp.ok) {
+      console.error('❌ FAILED:', body);
+      process.exit(1);
+    }
+    console.log('✅ SUCCESS');
+  } catch (err) { console.error('❌ FAILED:', err.message); process.exit(1); }
+
+  console.log('\n✅ All tests passed!');
 }
 main().catch(console.error);

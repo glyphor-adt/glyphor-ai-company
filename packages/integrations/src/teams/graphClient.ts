@@ -91,6 +91,13 @@ export class GraphTeamsClient {
    * Send an Adaptive Card to a Teams channel.
    */
   async sendCard(target: ChannelTarget, card: AdaptiveCard): Promise<void> {
+    if (!target.teamId || !target.channelId) {
+      throw new Error(
+        `Invalid Teams channel target: teamId=${target.teamId}, channelId=${target.channelId}. ` +
+        `Check TEAMS_TEAM_ID and TEAMS_CHANNEL_*_ID environment variables.`
+      );
+    }
+
     const token = await this.getToken();
     const url = `https://graph.microsoft.com/v1.0/teams/${encodeURIComponent(target.teamId)}/channels/${encodeURIComponent(target.channelId)}/messages`;
 
@@ -119,7 +126,10 @@ export class GraphTeamsClient {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`Graph API send failed (${response.status}): ${text}`);
+      throw new Error(
+        `Graph API sendCard failed (${response.status}): ${response.statusText} - ${text}. ` +
+        `URL: ${url.substring(0, 100)}...`
+      );
     }
   }
 
@@ -127,6 +137,13 @@ export class GraphTeamsClient {
    * Send a plain text message to a Teams channel.
    */
   async sendText(target: ChannelTarget, content: string): Promise<void> {
+    if (!target.teamId || !target.channelId) {
+      throw new Error(
+        `Invalid Teams channel target: teamId=${target.teamId}, channelId=${target.channelId}. ` +
+        `Check TEAMS_TEAM_ID and TEAMS_CHANNEL_*_ID environment variables.`
+      );
+    }
+
     const token = await this.getToken();
     const url = `https://graph.microsoft.com/v1.0/teams/${encodeURIComponent(target.teamId)}/channels/${encodeURIComponent(target.channelId)}/messages`;
 
@@ -145,7 +162,10 @@ export class GraphTeamsClient {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`Graph API send failed (${response.status}): ${text}`);
+      throw new Error(
+        `Graph API sendText failed (${response.status}): ${response.statusText} - ${text}. ` +
+        `URL: ${url.substring(0, 100)}...`
+      );
     }
   }
 
