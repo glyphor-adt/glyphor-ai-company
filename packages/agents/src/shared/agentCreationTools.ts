@@ -46,8 +46,9 @@ function buildDefaultBackstory(title: string, department: string): string {
  * @deprecated The supabase parameter is deprecated and will be removed in a future version.
  * The function now uses systemQuery for database access.
  */
-export function createAgentCreationTools(_supabase?: SupabaseClient): ToolDefinition[] {
+export function createAgentCreationTools(supabase?: SupabaseClient): ToolDefinition[] {
   // Note: supabase parameter is ignored - kept for backwards compatibility during migration
+  void supabase;
   return [
     {
       name: 'create_specialist_agent',
