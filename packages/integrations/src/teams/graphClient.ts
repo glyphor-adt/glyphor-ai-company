@@ -4,8 +4,27 @@
  * Sends messages to Teams channels using app-only authentication
  * via Entra ID client credentials flow (MSAL).
  *
- * Required env vars: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET
- * Required Graph API permissions (Application): Teamwork.Migrate.All, Channel.ReadBasic.All, ChannelMember.Read.All, Group.Read.All
+ * Required environment variables:
+ *   - AZURE_TENANT_ID: Microsoft Entra (Azure AD) tenant ID
+ *   - AZURE_CLIENT_ID: Entra app registration client ID
+ *   - AZURE_CLIENT_SECRET: Entra app registration secret
+ *   - TEAMS_TEAM_ID: Microsoft Teams team ID
+ *   - TEAMS_CHANNEL_GENERAL_ID: Channel ID for #general
+ *   - TEAMS_CHANNEL_ENGINEERING_ID: Channel ID for #engineering
+ *   (see buildChannelMap() for full list of supported channels)
+ *
+ * Required Graph API permissions (Application):
+ *   - ChannelMessage.Send: Required to post messages to channels
+ *   - Channel.ReadBasic.All: Required to list channels
+ *   - Team.ReadBasic.All: Required to access team information
+ *
+ * Troubleshooting:
+ *   - "Invalid URL" error: Check that TEAMS_TEAM_ID and channel IDs are set
+ *   - "Forbidden" error: Verify app has ChannelMessage.Send permission
+ *   - "Unauthorized" error: Check AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET
+ *
+ * Testing:
+ *   Run `node test-teams.cjs` from repo root to validate configuration
  */
 
 import { ConfidentialClientApplication } from '@azure/msal-node';
@@ -91,6 +110,13 @@ export class GraphTeamsClient {
    * Send an Adaptive Card to a Teams channel.
    */
   async sendCard(target: ChannelTarget, card: AdaptiveCard): Promise<void> {
+    if (!target.teamId || !target.channelId) {
+      throw new Error(
+        `Invalid Teams channel target: teamId=${target.teamId}, channelId=${target.channelId}. ` +
+        `Check TEAMS_TEAM_ID and TEAMS_CHANNEL_*_ID environment variables.`
+      );
+    }
+
     const token = await this.getToken();
     const url = `https://graph.microsoft.com/v1.0/teams/${encodeURIComponent(target.teamId)}/channels/${encodeURIComponent(target.channelId)}/messages`;
 
@@ -119,7 +145,10 @@ export class GraphTeamsClient {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`Graph API send failed (${response.status}): ${text}`);
+      throw new Error(
+        `Graph API sendCard failed (${response.status}): ${response.statusText} - ${text}. ` +
+        `URL: ${url.substring(0, 100)}...`
+      );
     }
   }
 
@@ -127,6 +156,13 @@ export class GraphTeamsClient {
    * Send a plain text message to a Teams channel.
    */
   async sendText(target: ChannelTarget, content: string): Promise<void> {
+    if (!target.teamId || !target.channelId) {
+      throw new Error(
+        `Invalid Teams channel target: teamId=${target.teamId}, channelId=${target.channelId}. ` +
+        `Check TEAMS_TEAM_ID and TEAMS_CHANNEL_*_ID environment variables.`
+      );
+    }
+
     const token = await this.getToken();
     const url = `https://graph.microsoft.com/v1.0/teams/${encodeURIComponent(target.teamId)}/channels/${encodeURIComponent(target.channelId)}/messages`;
 
@@ -145,7 +181,10 @@ export class GraphTeamsClient {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`Graph API send failed (${response.status}): ${text}`);
+      throw new Error(
+        `Graph API sendText failed (${response.status}): ${response.statusText} - ${text}. ` +
+        `URL: ${url.substring(0, 100)}...`
+      );
     }
   }
 
@@ -176,6 +215,17 @@ export class GraphTeamsClient {
  * Known Glyphor Teams channels. Configure via env vars:
  *   TEAMS_TEAM_ID — the Team ID in Microsoft Teams
  *   TEAMS_CHANNEL_<NAME>_ID — channel IDs within that team
+ *
+ * Example channel environment variables:
+ *   - TEAMS_CHANNEL_GENERAL_ID
+ *   - TEAMS_CHANNEL_ENGINEERING_ID
+ *   - TEAMS_CHANNEL_BRIEFING_KRISTINA_ID
+ *   - TEAMS_CHANNEL_BRIEFING_ANDREW_ID
+ *   - TEAMS_CHANNEL_DECISIONS_ID
+ *   - TEAMS_CHANNEL_GROWTH_ID
+ *   - TEAMS_CHANNEL_FINANCIALS_ID
+ *   - TEAMS_CHANNEL_PRODUCT_FUSE_ID
+ *   - TEAMS_CHANNEL_PRODUCT_PULSE_ID
  */
 export interface ChannelMap {
   briefingKristina: ChannelTarget;
