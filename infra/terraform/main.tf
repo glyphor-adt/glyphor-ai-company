@@ -77,6 +77,9 @@ resource "google_project_service" "apis" {
     "bigquery.googleapis.com",
     "redis.googleapis.com",
     "vpcaccess.googleapis.com",
+    "sqladmin.googleapis.com",
+    "cloudtasks.googleapis.com",
+    "firebase.googleapis.com",
   ])
   service            = each.value
   disable_on_destroy = false
@@ -86,6 +89,11 @@ resource "google_project_service" "apis" {
 resource "google_service_account" "glyphor" {
   account_id   = "glyphor-agent-runner"
   display_name = "Glyphor Agent Runner"
+}
+
+resource "google_service_account" "worker" {
+  account_id   = "glyphor-worker"
+  display_name = "Glyphor Worker"
 }
 
 # ─── Artifact Registry ───────────────────────────────────────
@@ -173,6 +181,10 @@ locals {
     "acs-connection-string",
     "bot-app-id",
     "bot-app-secret",
+    "db-password",
+    "db-readonly-password",
+    "firebase-client-email",
+    "firebase-private-key",
   ]
 }
 
@@ -222,6 +234,155 @@ resource "google_redis_instance" "cache" {
   }
 
   depends_on = [google_project_service.apis["redis.googleapis.com"]]
+}
+
+# ─── Cloud SQL for PostgreSQL ─────────────────────────────────
+resource "google_sql_database_instance" "glyphor_db" {
+  name             = "glyphor-db"
+  database_version = "POSTGRES_15"
+  region           = var.region
+
+  settings {
+    tier              = "db-custom-2-8192"
+    availability_type = "REGIONAL"
+    disk_size         = 20
+    disk_autoresize   = true
+
+    backup_configuration {
+      enabled                        = true
+      start_time                     = "03:00"
+      point_in_time_recovery_enabled = true
+      transaction_log_retention_days = 7
+      backup_retention_settings {
+        retained_backups = 14
+      }
+    }
+
+    maintenance_window {
+      day  = 7 # Sunday
+      hour = 5
+    }
+
+    database_flags {
+      name  = "max_connections"
+      value = "200"
+    }
+
+    database_flags {
+      name  = "log_min_duration_statement"
+      value = "1000"
+    }
+
+    ip_configuration {
+      ipv4_enabled    = false
+      private_network = "projects/${var.project_id}/global/networks/default"
+    }
+  }
+
+  deletion_protection = true
+
+  depends_on = [google_project_service.apis["sqladmin.googleapis.com"]]
+}
+
+resource "google_sql_database" "glyphor" {
+  name     = "glyphor"
+  instance = google_sql_database_instance.glyphor_db.name
+}
+
+resource "google_sql_user" "glyphor_app" {
+  name     = "glyphor_app"
+  instance = google_sql_database_instance.glyphor_db.name
+  password = data.google_secret_manager_secret_version.db_password.secret_data
+}
+
+resource "google_sql_user" "glyphor_readonly" {
+  name     = "glyphor_readonly"
+  instance = google_sql_database_instance.glyphor_db.name
+  password = data.google_secret_manager_secret_version.db_readonly_password.secret_data
+}
+
+data "google_secret_manager_secret_version" "db_password" {
+  secret  = google_secret_manager_secret.secrets["db-password"].secret_id
+  version = "latest"
+}
+
+data "google_secret_manager_secret_version" "db_readonly_password" {
+  secret  = google_secret_manager_secret.secrets["db-readonly-password"].secret_id
+  version = "latest"
+}
+
+# ─── Cloud Storage: Platform Assets ──────────────────────────
+resource "google_storage_bucket" "platform_assets" {
+  name     = "glyphor-platform-assets"
+  location = var.region
+
+  uniform_bucket_level_access = true
+  force_destroy               = false
+
+  cors {
+    origin          = ["https://app.glyphor.ai", "http://localhost:3000"]
+    response_header = ["Content-Type", "Content-Range"]
+    method          = ["GET", "HEAD", "PUT", "POST"]
+    max_age_seconds = 3600
+  }
+}
+
+# ─── Cloud Tasks Queues ──────────────────────────────────────
+resource "google_cloud_tasks_queue" "agent_runs" {
+  name     = "agent-runs"
+  location = var.region
+
+  rate_limits {
+    max_dispatches_per_second = 50
+    max_concurrent_dispatches = 100
+  }
+
+  retry_config {
+    max_attempts       = 3
+    min_backoff        = "10s"
+    max_backoff        = "300s"
+    max_retry_duration = "0s"
+  }
+
+  depends_on = [google_project_service.apis["cloudtasks.googleapis.com"]]
+}
+
+resource "google_cloud_tasks_queue" "agent_runs_priority" {
+  name     = "agent-runs-priority"
+  location = var.region
+
+  rate_limits {
+    max_dispatches_per_second = 20
+    max_concurrent_dispatches = 50
+  }
+
+  retry_config {
+    max_attempts       = 5
+    min_backoff        = "5s"
+    max_backoff        = "120s"
+    max_retry_duration = "0s"
+  }
+
+  depends_on = [google_project_service.apis["cloudtasks.googleapis.com"]]
+}
+
+resource "google_cloud_tasks_queue" "delivery" {
+  name     = "delivery"
+  location = var.region
+
+  rate_limits {
+    max_dispatches_per_second = 10
+    max_concurrent_dispatches = 50
+  }
+
+  retry_config {
+    max_attempts       = 3
+    min_backoff        = "5s"
+    max_backoff        = "60s"
+    max_retry_duration = "0s"
+  }
+
+  depends_on = [google_project_service.apis["cloudtasks.googleapis.com"]]
 }
 
 # ─── Cloud Run: Scheduler ────────────────────────────────────

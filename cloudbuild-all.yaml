@@ -9,6 +9,8 @@ steps:
       - '-t'
       - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:latest'
       - '.'
+    env:
+      - 'DOCKER_BUILDKIT=1'
     id: 'build-scheduler'
 
   # Build voice-gateway
@@ -21,6 +23,8 @@ steps:
       - '-t'
       - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/voice-gateway:latest'
       - '.'
+    env:
+      - 'DOCKER_BUILDKIT=1'
     id: 'build-voice-gateway'
 
   # Build dashboard
@@ -41,6 +45,8 @@ steps:
       - '-t'
       - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/dashboard:latest'
       - '.'
+    env:
+      - 'DOCKER_BUILDKIT=1'
     id: 'build-dashboard'
 
 images:
@@ -48,7 +54,7 @@ images:
   - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/voice-gateway:latest'
   - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/dashboard:latest'
 
-# Improved logging to capture detailed build output
+# Improved logging and reliability
 options:
   logging: CLOUD_LOGGING_ONLY
   logStreamingOption: STREAM_ON

@@ -8,10 +8,12 @@ steps:
       - '-t'
       - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/voice-gateway:latest'
       - '.'
+    env:
+      - 'DOCKER_BUILDKIT=1'
 images:
   - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/voice-gateway:latest'
 
-# Improved logging to capture detailed build output
+# Improved logging and reliability
 options:
   logging: CLOUD_LOGGING_ONLY
   logStreamingOption: STREAM_ON
