@@ -18,7 +18,7 @@ export async function tenantQuery<T = any>(
 ): Promise<T[]> {
   const client = await pool.connect();
   try {
-    await client.query(`SET app.current_tenant = $1`, [tenantId]);
+    await client.query(`SELECT set_config('app.current_tenant', $1, true)`, [tenantId]);
     const result = await client.query(sql, params);
     return result.rows as T[];
   } finally {
@@ -48,7 +48,7 @@ export async function tenantTransaction<T>(
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query(`SET app.current_tenant = $1`, [tenantId]);
+    await client.query(`SELECT set_config('app.current_tenant', $1, true)`, [tenantId]);
     const result = await fn(client);
     await client.query('COMMIT');
     return result;
