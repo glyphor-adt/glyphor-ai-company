@@ -154,7 +154,7 @@ export class DriftDetector {
     // Fetch baseline runs (30 days, excluding last 7)
     const { data: baselineRuns } = await this.supabase
       .from('agent_runs')
-      .select('reasoning_confidence, reasoning_cost_usd, reasoning_passes, tokens_used, created_at')
+      .select('reasoning_confidence, reasoning_cost_usd, reasoning_passes, input_tokens, output_tokens, created_at')
       .eq('agent_id', agentId)
       .gte('created_at', baselineStart)
       .lt('created_at', recentStart)
@@ -167,7 +167,7 @@ export class DriftDetector {
     // Fetch recent runs (7 days)
     const { data: recentRuns } = await this.supabase
       .from('agent_runs')
-      .select('reasoning_confidence, reasoning_cost_usd, reasoning_passes, tokens_used, created_at')
+      .select('reasoning_confidence, reasoning_cost_usd, reasoning_passes, input_tokens, output_tokens, created_at')
       .eq('agent_id', agentId)
       .gte('created_at', recentStart)
       .limit(200);
@@ -209,7 +209,8 @@ export class DriftDetector {
       reasoning_confidence: number | null;
       reasoning_cost_usd: number | null;
       reasoning_passes: number | null;
-      tokens_used: number | null;
+      input_tokens: number | null;
+      output_tokens: number | null;
     }>,
     complianceRate: number | null,
   ): Record<string, MetricStats> {
@@ -230,7 +231,10 @@ export class DriftDetector {
       metrics.reasoning_passes = this.statsOf(passes);
     }
 
-    const tokens = runs.map(r => r.tokens_used).filter((v): v is number => v != null);
+    // Compute total tokens from input_tokens + output_tokens
+    const tokens = runs
+      .map(r => (r.input_tokens || 0) + (r.output_tokens || 0))
+      .filter(v => v > 0);
     if (tokens.length > 0) {
       metrics.tokens_used = this.statsOf(tokens);
     }

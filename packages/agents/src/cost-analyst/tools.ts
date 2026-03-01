@@ -38,8 +38,9 @@ export function createCostAnalystTools(memory: CompanyMemoryStore): ToolDefiniti
       parameters: { period: { type: 'string', description: 'Time period', required: true }, agentRole: { type: 'string', description: 'Filter by agent role (optional)' } },
       async execute(params) {
         const supabase = memory.getSupabaseClient();
-        let query = supabase.from('agent_runs').select('agent_role, cost_usd, created_at').order('created_at', { ascending: false }).limit(200);
-        if (params.agentRole) { query = query.eq('agent_role', params.agentRole); }
+        // Use agent_id (matches company_agents.role), cost (not cost_usd)
+        let query = supabase.from('agent_runs').select('agent_id, cost, created_at').order('created_at', { ascending: false }).limit(200);
+        if (params.agentRole) { query = query.eq('agent_id', params.agentRole); }
         const { data } = await query;
         return { success: true, data: data || [] };
       },
@@ -50,7 +51,8 @@ export function createCostAnalystTools(memory: CompanyMemoryStore): ToolDefiniti
       parameters: { period: { type: 'string', description: 'Time period', required: true } },
       async execute(params) {
         const supabase = memory.getSupabaseClient();
-        const { data } = await supabase.from('agent_runs').select('agent_role, cost_usd, tokens_used, created_at').order('created_at', { ascending: false }).limit(500);
+        // Use agent_id, cost, input_tokens + output_tokens (not tokens_used)
+        const { data } = await supabase.from('agent_runs').select('agent_id, cost, input_tokens, output_tokens, created_at').order('created_at', { ascending: false }).limit(500);
         return { success: true, data: data || [] };
       },
     },
