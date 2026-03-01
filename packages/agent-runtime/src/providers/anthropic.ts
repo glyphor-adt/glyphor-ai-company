@@ -139,7 +139,7 @@ export class AnthropicAdapter implements ProviderAdapter {
             const tr = turns[i];
             const toolUseId = resultIndex < lastToolUseIds.length
               ? lastToolUseIds[resultIndex]
-              : `call_${tr.toolName}_${tr.timestamp}`;
+              : `call_${tr.toolName}_${tr.timestamp}_${resultIndex}`;
             content.push({
               type: 'tool_result',
               tool_use_id: toolUseId,

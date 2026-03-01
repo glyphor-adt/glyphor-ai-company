@@ -181,9 +181,12 @@ export class OpenAIAdapter implements ProviderAdapter {
         case 'tool_call': {
           const toolCalls: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }> = [];
           lastToolCallIds = [];
+          // Per-batch counter ensures uniqueness even when the same tool
+          // is called multiple times in one turn with the same timestamp.
+          let batchIdx = 0;
           while (i < turns.length && turns[i].role === 'tool_call') {
             const tc = turns[i];
-            const id = `call_${tc.toolName}_${tc.timestamp}`.slice(0, 40);
+            const id = `call_${tc.toolName}_${tc.timestamp}_${batchIdx}`.slice(0, 40);
             lastToolCallIds.push(id);
             toolCalls.push({
               id,
@@ -193,6 +196,7 @@ export class OpenAIAdapter implements ProviderAdapter {
                 arguments: JSON.stringify(tc.toolParams ?? {}),
               },
             });
+            batchIdx++;
             i++;
           }
           messages.push({
@@ -208,7 +212,7 @@ export class OpenAIAdapter implements ProviderAdapter {
             const tr = turns[i];
             const toolCallId = resultIndex < lastToolCallIds.length
               ? lastToolCallIds[resultIndex]
-              : `call_${tr.toolName}_${tr.timestamp}`.slice(0, 40);
+              : `call_${tr.toolName}_${tr.timestamp}_${resultIndex}`.slice(0, 40);
             messages.push({
               role: 'tool',
               tool_call_id: toolCallId,
