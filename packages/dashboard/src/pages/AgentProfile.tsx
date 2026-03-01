@@ -158,27 +158,28 @@ export default function AgentProfile() {
     (async () => {
       setLoading(true);
       // Load agent + profile in parallel
-      let agentData = await apiCall('/api/company_agents?role=' + encodeURIComponent(agentId));
-      if (!agentData) {
-        agentData = await apiCall('/api/company_agents?id=' + encodeURIComponent(agentId));
+      let agentRows = await apiCall<AgentRow[]>('/api/company_agents?role=' + encodeURIComponent(agentId));
+      if (!agentRows || (Array.isArray(agentRows) && agentRows.length === 0)) {
+        agentRows = await apiCall<AgentRow[]>('/api/company_agents?id=' + encodeURIComponent(agentId));
       }
+      const agentData = Array.isArray(agentRows) ? agentRows[0] ?? null : agentRows;
 
       let profileData: AgentProfile | null = null;
       let briefData: AgentBrief | null = null;
       let reportsData: AgentRow[] = [];
       if (agentData) {
-        const role = (agentData as unknown as AgentRow).role;
+        const role = agentData.role;
         const [p, b, r] = await Promise.all([
-          apiCall('/api/agent_profiles?agent_id=' + encodeURIComponent(role)),
-          apiCall('/api/agent_briefs?agent_id=' + encodeURIComponent(role)),
-          apiCall('/api/company_agents?reports_to=' + encodeURIComponent(role) + '&order=created_at.asc'),
+          apiCall<AgentProfile[]>('/api/agent_profiles?agent_id=' + encodeURIComponent(role)),
+          apiCall<AgentBrief[]>('/api/agent_briefs?agent_id=' + encodeURIComponent(role)),
+          apiCall<AgentRow[]>('/api/company_agents?reports_to=' + encodeURIComponent(role) + '&order=created_at.asc'),
         ]);
-        profileData = p as AgentProfile | null;
-        briefData = (b as AgentBrief | null) ?? null;
+        profileData = (Array.isArray(p) ? p[0] : p) as AgentProfile | null;
+        briefData = (Array.isArray(b) ? b[0] : b) as AgentBrief | null ?? null;
         reportsData = (r as AgentRow[]) ?? [];
       }
 
-      setAgent(agentData as unknown as AgentRow | null);
+      setAgent(agentData as AgentRow | null);
       setProfile(profileData);
       setBrief(briefData);
       setDirectReports(reportsData);
@@ -1240,7 +1241,7 @@ function WorldModelTab({ agent }: { agent: AgentRow }) {
         apiCall('/api/agent_world_model?agent_role=' + encodeURIComponent(agent.role)),
         apiCall('/api/role_rubrics?or=(role.eq.' + encodeURIComponent(agent.role) + ',role.eq._default)&order=role.asc'),
       ]);
-      setModel(wmRows as WorldModelRow | null);
+      setModel(Array.isArray(wmRows) ? (wmRows[0] as WorldModelRow ?? null) : wmRows as WorldModelRow | null);
       setRubrics((rubricRows as RubricRow[]) ?? []);
       setLoading(false);
     })();
@@ -1499,7 +1500,8 @@ function SettingsTab({
     // Load reasoning config
     (async () => {
       setReasoningLoading(true);
-      const rc = await apiCall('/api/agent_reasoning_config?agent_role=' + encodeURIComponent(agent.role));
+      const rcData = await apiCall('/api/agent_reasoning_config?agent_role=' + encodeURIComponent(agent.role));
+      const rc = Array.isArray(rcData) ? rcData[0] : rcData;
       if (rc) {
         setReasoningEnabled(rc.enabled ?? false);
         setReasoningPassTypes((rc.pass_types as string[]) ?? []);
@@ -1556,7 +1558,8 @@ function SettingsTab({
       setCodePrompt(codeDefinedPrompt);
 
       // Check for custom DB override
-      const brief = await apiCall('/api/agent_briefs?agent_id=' + encodeURIComponent(agent.role));
+      const briefRows = await apiCall('/api/agent_briefs?agent_id=' + encodeURIComponent(agent.role));
+      const brief = Array.isArray(briefRows) ? briefRows[0] : briefRows;
       if (brief?.system_prompt) {
         setSystemPrompt(brief.system_prompt);
         setPromptSource('db');

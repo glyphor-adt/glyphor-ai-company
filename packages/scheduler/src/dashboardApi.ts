@@ -19,6 +19,7 @@ import { systemQuery } from '@glyphor/shared/db';
 /** Maps URL slug to actual PostgreSQL table name. */
 const TABLE_MAP: Record<string, string> = {
   'company_agents': 'company_agents',
+  'agents': 'company_agents',
   'agent_profiles': 'agent_profiles',
   'agent_briefs': 'agent_briefs',
   'activity_log': 'activity_log',
@@ -28,6 +29,7 @@ const TABLE_MAP: Record<string, string> = {
   'agent_milestones': 'agent_milestones',
   'agent_peer_feedback': 'agent_peer_feedback',
   'agent_reflections': 'agent_reflections',
+  'agent-reflections': 'agent_reflections',
   'agent_memory': 'agent_memory',
   'agent_meetings': 'agent_meetings',
   'agent_skills': 'agent_skills',
@@ -39,6 +41,7 @@ const TABLE_MAP: Record<string, string> = {
   'chat_messages': 'chat_messages',
   'decisions': 'decisions',
   'founder-directives': 'founder_directives',
+  'directives': 'founder_directives',
   'founder-bulletins': 'founder_bulletins',
   'dashboard-change-requests': 'dashboard_change_requests',
   'dashboard-users': 'dashboard_users',
@@ -120,6 +123,13 @@ function parseQueryParams(
     }
     if (key === 'include' || key === 'select') {
       continue; // join hints — handled separately
+    }
+
+    // Custom filter: min_quality → quality_score >= $N
+    if (key === 'min_quality') {
+      clauses.push(`quality_score >= $${paramIdx++}`);
+      values.push(parseInt(value, 10));
+      continue;
     }
 
     // OR clause: ?or=(from_agent.eq.cto,to_agent.eq.cto)
@@ -219,6 +229,14 @@ export async function handleDashboardApi(
 
   try {
     // ── Special endpoints ───────────────────────────────────────
+
+    // GET /api/company-pulse → return latest single row (not array)
+    if (tableName === 'company_pulse' && method === 'GET' && !resourceId) {
+      const rows = await systemQuery('SELECT * FROM company_pulse ORDER BY created_at DESC LIMIT 1');
+      jsonResponse(res, 200, rows[0] ?? null);
+      return true;
+    }
+
     if (tableSlug === 'company-pulse' && resourceId === 'current') {
       if (method === 'POST') {
         const body = JSON.parse(await readBody(req));
@@ -241,8 +259,34 @@ export async function handleDashboardApi(
       }
     }
 
+    // GET /api/directives/active → active directives with work_assignments
+    if (tableName === 'founder_directives' && method === 'GET' && resourceId === 'active') {
+      const directives = await systemQuery<Record<string, unknown>>(
+        `SELECT * FROM founder_directives WHERE status = 'active' ORDER BY created_at DESC`,
+      );
+      if (directives.length > 0) {
+        const ids = directives.map(d => d.id);
+        const placeholders = ids.map((_, i) => `$${i + 1}`).join(',');
+        const assignments = await systemQuery<Record<string, unknown>>(
+          `SELECT * FROM work_assignments WHERE directive_id IN (${placeholders})`,
+          ids,
+        );
+        const byDirective = new Map<string, Record<string, unknown>[]>();
+        for (const a of assignments) {
+          const did = a.directive_id as string;
+          if (!byDirective.has(did)) byDirective.set(did, []);
+          byDirective.get(did)!.push(a);
+        }
+        for (const d of directives) {
+          (d as any).assignments = byDirective.get(d.id as string) ?? [];
+        }
+      }
+      jsonResponse(res, 200, directives);
+      return true;
+    }
+
     // Handle directives include=work_assignments,source_directive
-    if (tableSlug === 'founder-directives' && method === 'GET' && !resourceId) {
+    if ((tableSlug === 'founder-directives' || tableSlug === 'directives') && method === 'GET' && !resourceId) {
       const include = params.get('include');
       params.delete('include');
       const { where, values, order, limit } = parseQueryParams(params);
@@ -264,6 +308,26 @@ export async function handleDashboardApi(
         }
         for (const d of directives) {
           (d as any).work_assignments = byDirective.get(d.id as string) ?? [];
+        }
+      }
+
+      if (include?.includes('source_directive') && directives.length > 0) {
+        const srcIds = directives
+          .map(d => d.source_directive_id)
+          .filter((id): id is string => typeof id === 'string');
+        if (srcIds.length > 0) {
+          const uniqueIds = [...new Set(srcIds)];
+          const ph = uniqueIds.map((_, i) => `$${i + 1}`).join(',');
+          const sources = await systemQuery<Record<string, unknown>>(
+            `SELECT id, title FROM founder_directives WHERE id IN (${ph})`,
+            uniqueIds,
+          );
+          const srcMap = new Map(sources.map(s => [s.id as string, s]));
+          for (const d of directives) {
+            (d as any).source_directive = d.source_directive_id
+              ? srcMap.get(d.source_directive_id as string) ?? null
+              : null;
+          }
         }
       }
 
