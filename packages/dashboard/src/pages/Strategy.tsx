@@ -2167,7 +2167,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
                               <div className="flex items-center justify-between mb-1">
                                 <div className="flex items-center gap-1.5">
                                   <span className="text-[9px] font-bold text-txt-muted bg-surface px-1.5 py-0.5 rounded">{pair.priority_score as number ?? '—'}</span>
-                                  {pair.confidence && <span className={`text-[9px] ${confidenceColor(pair.confidence as string)}`}>● {pair.confidence as string}</span>}
+                                  {pair.confidence ? <span className={`text-[9px] ${confidenceColor(pair.confidence as string)}`}>● {pair.confidence as string}</span> : null}
                                 </div>
                               </div>
                               <div className="grid grid-cols-2 gap-1 text-[10px] mb-1">
@@ -2175,9 +2175,9 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
                                 <div><span className="text-txt-faint">{q.bLabel}:</span> <span className="text-txt-secondary">{(pair[q.bLabel.toLowerCase()] ?? pair.item_b) as string}</span></div>
                               </div>
                               <p className="text-[10px] text-txt-primary leading-relaxed">{(pair[q.actionKey] ?? pair.interaction) as string}</p>
-                              {pair[q.extraKey] && (
+                              {pair[q.extraKey] ? (
                                 <p className="text-[9px] text-txt-muted mt-1"><span className="font-medium">{q.extraLabel}:</span> {pair[q.extraKey] as string}</p>
-                              )}
+                              ) : null}
                             </div>
                           ))}
                         </div>

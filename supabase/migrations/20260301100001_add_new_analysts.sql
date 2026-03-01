@@ -1,6 +1,8 @@
 -- New analyst agents: AI Impact Analyst (Riya Mehta) and Org Analyst (Marcus Chen)
 
-INSERT INTO company_agents (id, role, name, title, department, team, reports_to, status, model, temperature, max_tool_calls)
+ALTER TABLE company_agents ADD COLUMN IF NOT EXISTS team TEXT;
+
+INSERT INTO company_agents (id, role, name, title, department, team, reports_to, status, model, temperature, max_turns)
 VALUES
   ('ai-impact-analyst', 'ai-impact-analyst', 'Riya Mehta', 'AI Impact Analyst', 'Strategy', 'Research & Intelligence', 'vp-research', 'active', 'gemini-3-flash-preview', 0.2, 15),
   ('org-analyst', 'org-analyst', 'Marcus Chen', 'Organizational & Talent Analyst', 'Strategy', 'Research & Intelligence', 'vp-research', 'active', 'gemini-3-flash-preview', 0.2, 15)
