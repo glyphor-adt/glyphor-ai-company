@@ -37,38 +37,33 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   // T4.0 — Direct Work Assignment (CTO assign_task)
   tests.push(
     await runTest('T4.0', 'Direct Work Assignment', async () => {
-      const sb = getSupabase(config);
-      
       // Create a work assignment directly (simulating CTO assign_task tool)
-      const { data: assignment, error: assignError } = await sb
-        .from('work_assignments')
-        .insert({
-          assigned_to: 'platform-engineer',
-          assigned_by: 'cto',
-          task_description: 'Smoke test: Verify platform health monitoring is operational',
-          task_type: 'on_demand',
-          expected_output: 'Confirmation that all health checks are passing',
-          priority: 'normal',
-          status: 'pending',
-          directive_id: null, // CTO assignments don't require a directive
-        })
-        .select('id')
-        .single();
+      const rows = await query<{ id: string }>(
+        `INSERT INTO work_assignments (assigned_to, assigned_by, task_description, task_type, expected_output, priority, status, directive_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+        [
+          'platform-engineer',
+          'cto',
+          'Smoke test: Verify platform health monitoring is operational',
+          'on_demand',
+          'Confirmation that all health checks are passing',
+          'normal',
+          'pending',
+          null, // CTO assignments don't require a directive
+        ],
+      );
 
-      if (assignError) {
-        throw new Error(`Failed to create work assignment: ${assignError.message}`);
-      }
-      if (!assignment?.id) {
+      if (!rows[0]?.id) {
         throw new Error('No assignment ID returned');
       }
 
       // Clean up — mark as completed so it doesn't interfere with agent operations
-      await sb
-        .from('work_assignments')
-        .update({ status: 'completed' })
-        .eq('id', assignment.id);
+      await query(
+        `UPDATE work_assignments SET status = 'completed' WHERE id = $1`,
+        [rows[0].id],
+      );
 
-      return `Work assignment created successfully (ID: ${assignment.id})`;
+      return `Work assignment created successfully (ID: ${rows[0].id})`;
     }),
   );
 

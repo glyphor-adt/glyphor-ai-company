@@ -13,6 +13,7 @@
     "lint": "echo 'no linter configured yet'"
   },
   "dependencies": {
+    "@glyphor/shared": "*",
     "@glyphor/agent-runtime": "*",
     "@glyphor/agents": "*",
     "@glyphor/company-memory": "*",
