@@ -25,6 +25,10 @@
     "./middleware/auth": {
       "types": "./dist/middleware/auth.d.ts",
       "default": "./dist/middleware/auth.js"
+    },
+    "./models": {
+      "types": "./dist/models.d.ts",
+      "default": "./dist/models.js"
     }
   },
   "scripts": {

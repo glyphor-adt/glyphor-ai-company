@@ -12,8 +12,7 @@ import type { RealtimeVoice, VoiceToolDeclaration } from './types.js';
 import { getAgentVoiceConfig } from './voiceMap.js';
 import { buildVoiceSystemPrompt, type VoicePromptContext } from './voicePrompt.js';
 import { toRealtimeTools } from './toolBridge.js';
-
-const REALTIME_MODEL = 'gpt-4o-realtime-preview';
+import { REALTIME_MODEL } from '@glyphor/shared/models';
 
 export interface RealtimeSessionResult {
   sessionId: string;

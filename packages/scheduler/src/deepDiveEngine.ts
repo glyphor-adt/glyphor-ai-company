@@ -21,10 +21,11 @@ import type { ModelClient } from '@glyphor/agent-runtime';
 import { searchWeb, searchNews, batchSearch, searchResultsToContext } from '@glyphor/integrations';
 import type { FrameworkId, WatchlistItem } from './frameworkTypes.js';
 import { FRAMEWORK_CONFIGS, buildFrameworkPrompt, buildConvergencePrompt } from './strategyLabEngine.js';
+import { DEEP_DIVE_MODELS, DEEP_DIVE_VERIFICATION_MODELS } from '@glyphor/shared/models';
 
 /* ── Cross-model verification config ──────── */
 
-const VERIFICATION_MODELS = ['gemini-3-pro-preview', 'gpt-5-mini', 'claude-sonnet-4-20250514'] as const;
+const VERIFICATION_MODELS = DEEP_DIVE_VERIFICATION_MODELS;
 const VERIFICATION_CONFIDENCE_THRESHOLD = 0.7;
 
 /**
@@ -33,23 +34,7 @@ const VERIFICATION_CONFIDENCE_THRESHOLD = 0.7;
  * perspectives and reduce single-model bias. Two challenger models then critique
  * each area's findings.
  */
-const RESEARCH_MODELS: Record<string, string> = {
-  overview:            'gemini-3-pro-preview',
-  financials:          'gpt-5-mini',
-  technology:          'claude-sonnet-4-20250514',
-  market:              'gemini-3-pro-preview',
-  competitive:         'gpt-5-mini',
-  leadership:          'claude-sonnet-4-20250514',
-  customers:           'gemini-3-pro-preview',
-  risks:               'gpt-5-mini',
-  company_profile:     'claude-sonnet-4-20250514',
-  strategic_direction: 'gemini-3-pro-preview',
-  segment_analysis:    'gpt-5-mini',
-  ma_activity:         'claude-sonnet-4-20250514',
-  ai_impact:           'gemini-3-pro-preview',
-  talent_assessment:   'gpt-5-mini',
-  regulatory_landscape:'claude-sonnet-4-20250514',
-};
+const RESEARCH_MODELS = DEEP_DIVE_MODELS;
 
 /** The challenger models that critique work done by the primary (returns both) */
 function getChallengerModels(primary: string): string[] {
