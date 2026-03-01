@@ -16,7 +16,7 @@
  * ROI Analysis, Risk Assessment — each backed by cited, cross-verified evidence.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { ModelClient } from '@glyphor/agent-runtime';
 import { searchWeb, searchNews, batchSearch, searchResultsToContext } from '@glyphor/integrations';
 import type { FrameworkId, WatchlistItem } from './frameworkTypes.js';
@@ -24,7 +24,7 @@ import { FRAMEWORK_CONFIGS, buildFrameworkPrompt, buildConvergencePrompt } from 
 
 /* ── Cross-model verification config ──────── */
 
-const VERIFICATION_MODELS = ['gemini-3-flash-preview', 'gpt-4.1-mini'] as const;
+const VERIFICATION_MODELS = ['gemini-3-pro-preview', 'gpt-4.1'] as const;
 const VERIFICATION_CONFIDENCE_THRESHOLD = 0.7;
 
 /**
@@ -33,26 +33,26 @@ const VERIFICATION_CONFIDENCE_THRESHOLD = 0.7;
  * A second model challenges each area's findings.
  */
 const RESEARCH_MODELS: Record<string, string> = {
-  overview:            'gemini-3-flash-preview',
-  financials:          'gpt-4.1-mini',
-  technology:          'gemini-3-flash-preview',
-  market:              'gpt-4.1-mini',
-  competitive:         'gemini-3-flash-preview',
-  leadership:          'gpt-4.1-mini',
-  customers:           'gemini-3-flash-preview',
-  risks:               'gpt-4.1-mini',
-  company_profile:     'gemini-3-flash-preview',
-  strategic_direction: 'gpt-4.1-mini',
-  segment_analysis:    'gemini-3-flash-preview',
-  ma_activity:         'gpt-4.1-mini',
-  ai_impact:           'gemini-3-flash-preview',
-  talent_assessment:   'gpt-4.1-mini',
-  regulatory_landscape:'gemini-3-flash-preview',
+  overview:            'gemini-3-pro-preview',
+  financials:          'gpt-4.1',
+  technology:          'gemini-3-pro-preview',
+  market:              'gpt-4.1',
+  competitive:         'gemini-3-pro-preview',
+  leadership:          'gpt-4.1',
+  customers:           'gemini-3-pro-preview',
+  risks:               'gpt-4.1',
+  company_profile:     'gemini-3-pro-preview',
+  strategic_direction: 'gpt-4.1',
+  segment_analysis:    'gemini-3-pro-preview',
+  ma_activity:         'gpt-4.1',
+  ai_impact:           'gemini-3-pro-preview',
+  talent_assessment:   'gpt-4.1',
+  regulatory_landscape:'gemini-3-pro-preview',
 };
 
 /** The challenger model critiques work done by the primary */
 function getChallengerModel(primary: string): string {
-  return primary === 'gemini-3-flash-preview' ? 'gpt-4.1-mini' : 'gemini-3-flash-preview';
+  return primary === 'gemini-3-pro-preview' ? 'gpt-4.1' : 'gemini-3-pro-preview';
 }
 
 /* ── Types ──────────────────────────────────── */
