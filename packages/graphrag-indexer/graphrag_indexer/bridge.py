@@ -1,5 +1,5 @@
 """
-Bridge — syncs GraphRAG extracted entities and relationships to Supabase kg_nodes / kg_edges.
+Bridge — syncs GraphRAG extracted entities and relationships to Cloud SQL kg_nodes / kg_edges.
 
 Mirrors the deduplication logic from KnowledgeGraphWriter (0.92 similarity threshold)
 and maps GraphRAG types to existing kg_nodes node_type / kg_edges edge_type.
@@ -11,13 +11,14 @@ import re
 import time
 from datetime import datetime, timezone
 
+import psycopg2
+import psycopg2.extras
 from google import genai as google_genai
-from supabase import create_client
 
 import re
 
 from .config import (
-    SUPABASE_URL, SUPABASE_KEY,
+    DB_HOST, DB_NAME, DB_USER, DB_PASSWORD,
     GEMINI_API_KEY, EMBEDDING_MODEL, EMBEDDING_DIMENSIONS,
     ENTITY_TYPE_TO_NODE_TYPE, RELATIONSHIP_TYPE_MAP,
 )
@@ -100,31 +101,47 @@ def _normalize_title(title: str) -> str:
     t = re.sub(r"\s+", " ", t).strip()
     return t
 
-def _find_duplicate(supabase, embedding: list[float], threshold: float = SIMILARITY_THRESHOLD):
+def _get_connection():
+    """Get a psycopg2 connection to Cloud SQL."""
+    return psycopg2.connect(
+        host=DB_HOST,
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+    )
+
+
+def _find_duplicate(conn, embedding: list[float], threshold: float = SIMILARITY_THRESHOLD):
     """
-    Find a near-duplicate kg_node using cosine similarity via the
-    match_kg_nodes RPC (same one KnowledgeGraphReader uses).
+    Find a near-duplicate kg_node using cosine similarity via pgvector's <=> operator.
     Returns the matching row dict or None.
     """
-    result = supabase.rpc("match_kg_nodes", {
-        "query_embedding": json.dumps(embedding),
-        "match_count": 1,
-        "match_threshold": threshold,
-    }).execute()
-
-    if result.data and len(result.data) > 0:
-        return result.data[0]
+    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute(
+            """SELECT id, title, node_type, content, 1 - (embedding <=> %s::vector) AS similarity
+               FROM kg_nodes
+               WHERE embedding IS NOT NULL
+               ORDER BY embedding <=> %s::vector
+               LIMIT 1""",
+            (json.dumps(embedding), json.dumps(embedding)),
+        )
+        row = cur.fetchone()
+        if row and row["similarity"] >= threshold:
+            return dict(row)
     return None
 
 
-def _validate_existing(supabase, node_id: str):
+def _validate_existing(conn, node_id: str):
     """Bump times_validated on an existing node via read + update."""
-    row = supabase.table("kg_nodes").select("times_validated").eq("id", node_id).single().execute()
-    current = row.data.get("times_validated", 0) if row.data else 0
-    supabase.table("kg_nodes").update({
-        "times_validated": current + 1,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-    }).eq("id", node_id).execute()
+    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute("SELECT times_validated FROM kg_nodes WHERE id = %s", (node_id,))
+        row = cur.fetchone()
+        current = row["times_validated"] if row and row.get("times_validated") else 0
+        cur.execute(
+            "UPDATE kg_nodes SET times_validated = %s, updated_at = %s WHERE id = %s",
+            (current + 1, datetime.now(timezone.utc).isoformat(), node_id),
+        )
+    conn.commit()
 
 
 # ─── Junk filter ──────────────────────────────────────────────────
@@ -224,10 +241,10 @@ def _classify_node_type(name: str, description: str, raw_type: str) -> str:
 # ─── Sync ─────────────────────────────────────────────────────────
 
 class GraphRAGBridge:
-    """Syncs GraphRAG extraction output into Supabase kg_nodes / kg_edges."""
+    """Syncs GraphRAG extraction output into Cloud SQL kg_nodes / kg_edges."""
 
     def __init__(self):
-        self.supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        self.conn = _get_connection()
         self._entity_id_map: dict[str, str] = {}  # graphrag entity name → kg_node UUID
         self._norm_title_map: dict[str, str] = {}  # normalized title → kg_node UUID (for dedup)
 
@@ -253,7 +270,7 @@ class GraphRAGBridge:
             norm = _normalize_title(name)
             if norm in self._norm_title_map:
                 self._entity_id_map[name.upper()] = self._norm_title_map[norm]
-                _validate_existing(self.supabase, self._norm_title_map[norm])
+                _validate_existing(self.conn, self._norm_title_map[norm])
                 deduped += 1
                 if (i + 1) % 100 == 0:
                     print(f"[Bridge] Progress: {i + 1}/{len(entities)} ({created} new, {deduped} deduped)")
@@ -263,9 +280,9 @@ class GraphRAGBridge:
             embedding = _embed(embed_text)
 
             # Deduplicate
-            existing = _find_duplicate(self.supabase, embedding)
+            existing = _find_duplicate(self.conn, embedding)
             if existing:
-                _validate_existing(self.supabase, existing["id"])
+                _validate_existing(self.conn, existing["id"])
                 self._entity_id_map[name.upper()] = existing["id"]
                 self._norm_title_map[norm] = existing["id"]
                 deduped += 1
@@ -275,22 +292,26 @@ class GraphRAGBridge:
 
             node_type = _classify_node_type(name, description, ent_type)
 
-            result = self.supabase.table("kg_nodes").insert({
-                "node_type": node_type,
-                "title": name,
-                "content": description or name,
-                "created_by": "graphrag-indexer",
-                "embedding": json.dumps(embedding),
-                "source_type": "graphrag",
-                "importance": 0.6,
-                "tags": [ent_type.lower()],
-                "metadata": {"graphrag_type": ent_type, "graphrag_id": ent.get("id", "")},
-                "occurred_at": datetime.now(timezone.utc).isoformat(),
-            }).execute()
+            now = datetime.now(timezone.utc).isoformat()
+            metadata = json.dumps({"graphrag_type": ent_type, "graphrag_id": ent.get("id", "")})
+            tags = [ent_type.lower()]
 
-            if result.data and len(result.data) > 0:
-                self._entity_id_map[name.upper()] = result.data[0]["id"]
-                self._norm_title_map[norm] = result.data[0]["id"]
+            with self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(
+                    """INSERT INTO kg_nodes
+                       (node_type, title, content, created_by, embedding, source_type,
+                        importance, tags, metadata, occurred_at)
+                       VALUES (%s, %s, %s, %s, %s::vector, %s, %s, %s, %s, %s)
+                       RETURNING id""",
+                    (node_type, name, description or name, "graphrag-indexer",
+                     json.dumps(embedding), "graphrag", 0.6, tags, metadata, now),
+                )
+                row = cur.fetchone()
+            self.conn.commit()
+
+            if row:
+                self._entity_id_map[name.upper()] = row["id"]
+                self._norm_title_map[norm] = row["id"]
                 created += 1
             else:
                 print(f"[Bridge] Failed to insert entity: {name}")
@@ -327,20 +348,23 @@ class GraphRAGBridge:
             edge_type = _classify_relationship_type(rel_type)
             weight = rel.get("weight", 0.7)
 
-            result = self.supabase.table("kg_edges").upsert(
-                {
-                    "source_id": source_id,
-                    "target_id": target_id,
-                    "edge_type": edge_type,
-                    "strength": min(max(weight, 0.1), 1.0),
-                    "confidence": 0.7,
-                    "created_by": "graphrag-indexer",
-                    "evidence": rel.get("description", "Extracted by GraphRAG"),
-                },
-                on_conflict="source_id,target_id,edge_type",
-            ).execute()
+            with self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(
+                    """INSERT INTO kg_edges
+                       (source_id, target_id, edge_type, strength, confidence, created_by, evidence)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)
+                       ON CONFLICT (source_id, target_id, edge_type)
+                       DO UPDATE SET strength = EXCLUDED.strength, evidence = EXCLUDED.evidence
+                       RETURNING id""",
+                    (source_id, target_id, edge_type,
+                     min(max(weight, 0.1), 1.0), 0.7,
+                     "graphrag-indexer",
+                     rel.get("description", "Extracted by GraphRAG")),
+                )
+                row = cur.fetchone()
+            self.conn.commit()
 
-            if result.data:
+            if row:
                 synced += 1
 
         print(f"[Bridge] Synced {synced}/{len(relationships)} relationships")
@@ -361,29 +385,33 @@ class GraphRAGBridge:
             embed_text = f"{title}. {summary[:500]}"
             embedding = _embed(embed_text)
 
-            existing = _find_duplicate(self.supabase, embedding)
+            existing = _find_duplicate(self.conn, embedding)
             if existing:
-                _validate_existing(self.supabase, existing["id"])
+                _validate_existing(self.conn, existing["id"])
                 continue
 
-            result = self.supabase.table("kg_nodes").insert({
-                "node_type": "pattern",
-                "title": f"[Community] {title}",
-                "content": summary,
-                "created_by": "graphrag-indexer",
-                "embedding": json.dumps(embedding),
-                "source_type": "graphrag",
-                "importance": 0.7,
-                "tags": ["community-report", f"level-{report.get('level', 0)}"],
-                "metadata": {
-                    "graphrag_community_id": report.get("id", ""),
-                    "level": report.get("level", 0),
-                    "rank": report.get("rank", 0),
-                },
-                "occurred_at": datetime.now(timezone.utc).isoformat(),
-            }).execute()
+            now = datetime.now(timezone.utc).isoformat()
+            metadata = json.dumps({
+                "graphrag_community_id": report.get("id", ""),
+                "level": report.get("level", 0),
+                "rank": report.get("rank", 0),
+            })
+            tags = ["community-report", f"level-{report.get('level', 0)}"]
 
-            if result.data and len(result.data) > 0:
+            with self.conn.cursor() as cur:
+                cur.execute(
+                    """INSERT INTO kg_nodes
+                       (node_type, title, content, created_by, embedding, source_type,
+                        importance, tags, metadata, occurred_at)
+                       VALUES (%s, %s, %s, %s, %s::vector, %s, %s, %s, %s, %s)
+                       RETURNING id""",
+                    ("pattern", f"[Community] {title}", summary, "graphrag-indexer",
+                     json.dumps(embedding), "graphrag", 0.7, tags, metadata, now),
+                )
+                row = cur.fetchone()
+            self.conn.commit()
+
+            if row:
                 created += 1
 
         print(f"[Bridge] Synced {created} community reports as pattern nodes")

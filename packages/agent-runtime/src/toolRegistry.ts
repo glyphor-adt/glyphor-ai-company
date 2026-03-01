@@ -153,7 +153,7 @@ const KNOWN_TOOLS = new Set([
   'query_cloud_run_metrics',
   'run_health_check',
   'query_gemini_latency',
-  'query_supabase_health',
+  'query_db_health',
   'query_uptime',
   'get_repo_code_health',
 
@@ -203,7 +203,7 @@ const KNOWN_TOOLS = new Set([
 
   // ── Cost Analyst (Omar) tools ──
   'query_gcp_billing',
-  'query_supabase_usage',
+  'query_db_usage',
   'query_gemini_cost',
   'query_agent_run_costs',
   'identify_waste',

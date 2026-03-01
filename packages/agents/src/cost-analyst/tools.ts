@@ -27,11 +27,11 @@ export function createCostAnalystTools(memory: CompanyMemoryStore): ToolDefiniti
       },
     },
     {
-      name: 'query_supabase_usage',
-      description: 'Query Supabase usage metrics: database size, API calls, storage, bandwidth.',
+      name: 'query_db_usage',
+      description: 'Query database usage metrics: database size, API calls, storage, bandwidth.',
       parameters: { period: { type: 'string', description: 'Time period', required: true } },
       async execute(params) {
-        const data = await systemQuery('SELECT * FROM infrastructure_metrics WHERE provider=$1 ORDER BY recorded_at DESC LIMIT 30', ['supabase']);
+        const data = await systemQuery('SELECT * FROM infrastructure_metrics WHERE provider=$1 ORDER BY recorded_at DESC LIMIT 30', ['cloud-sql']);
         return { success: true, data };
       },
     },

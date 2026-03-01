@@ -48,7 +48,7 @@ export async function runCostAnalyst(params: CostAnalystRunParams = {}) {
   let initialMessage: string;
   switch (task) {
     case 'cost_report':
-      initialMessage = `Generate a cost report. Query GCP billing, Supabase usage, and Gemini API costs. Calculate unit economics. Compare against prior period. Flag any cost spikes > 20%.`;
+      initialMessage = `Generate a cost report. Query GCP billing, Cloud SQL usage, and Gemini API costs. Calculate unit economics. Compare against prior period. Flag any cost spikes > 20%.`;
       break;
     case 'waste_scan':
       initialMessage = `Run a waste scan. Identify unused resources, underutilized services, and over-provisioned infrastructure. Calculate potential savings for each finding.`;

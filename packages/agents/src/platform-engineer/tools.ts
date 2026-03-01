@@ -93,8 +93,8 @@ export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDef
     },
 
     {
-      name: 'query_supabase_health',
-      description: 'Check Supabase connection pool, query latency, and replication lag.',
+      name: 'query_db_health',
+      description: 'Check Cloud SQL connection pool, query latency, and replication lag.',
       parameters: {},
       execute: async (_params, _ctx): Promise<ToolResult> => {
         try {

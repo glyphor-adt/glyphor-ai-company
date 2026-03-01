@@ -298,7 +298,7 @@ or cross-department context on its own.
        relevant background (market data, competitor names, prior findings).
     2. TASK — The specific, atomic deliverable. What exactly to produce.
     3. TOOLS — Which tools to use. Name them explicitly (e.g., "use web_search to find...",
-       "use query_supabase_table to check..."). If the task requires research, include
+       "use query_db_table to check..."). If the task requires research, include
        2-3 suggested search queries.
     4. DATA — Any metrics, numbers, or facts the agent will need. Paste them inline.
        Do NOT say "look up our revenue" — include the actual number.

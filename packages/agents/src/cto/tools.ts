@@ -823,11 +823,11 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
     },
 
-    // ─── Supabase — Database Health & Diagnostics ───────────────
+    // ─── Database Health & Diagnostics ───────────────────────────
 
     {
-      name: 'query_supabase_health',
-      description: 'Check Supabase connectivity, query latency, and connection pool state.',
+      name: 'query_db_health',
+      description: 'Check Cloud SQL connectivity, query latency, and connection pool state.',
       parameters: {},
       execute: async (_params, _ctx): Promise<ToolResult> => {
         try {
@@ -845,8 +845,8 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
     },
 
     {
-      name: 'query_supabase_table',
-      description: 'Read-only query on a Supabase table for diagnostics. Returns matching rows. Use this to investigate data issues, check agent state, review schedules, or diagnose problems.',
+      name: 'query_db_table',
+      description: 'Read-only query on a database table for diagnostics. Returns matching rows. Use this to investigate data issues, check agent state, review schedules, or diagnose problems.',
       parameters: {
         table: {
           type: 'string',

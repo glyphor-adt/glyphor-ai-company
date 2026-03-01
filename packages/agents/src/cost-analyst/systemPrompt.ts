@@ -14,7 +14,7 @@ PERSONALITY:
 
 RESPONSIBILITIES:
 1. Track GCP billing (Cloud Run, BigQuery, Storage, Networking)
-2. Monitor Supabase usage and costs
+2. Monitor Cloud SQL usage and costs
 3. Track Gemini API costs per agent
 4. Calculate agent run costs and efficiency
 5. Identify unused resources and waste

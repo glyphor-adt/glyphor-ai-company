@@ -1,5 +1,5 @@
 """
-Configuration — loads env vars, builds GraphRAG and Supabase configs.
+Configuration — loads env vars, builds GraphRAG and Cloud SQL configs.
 """
 
 import os
@@ -10,9 +10,11 @@ from dotenv import load_dotenv
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(_REPO_ROOT / ".env")
 
-# ─── Supabase ────────────────────────────────────────────────────
-SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
+# ─── Cloud SQL (PostgreSQL) ──────────────────────────────────────
+DB_HOST = os.environ.get("DB_HOST", "localhost")
+DB_NAME = os.environ.get("DB_NAME", "glyphor")
+DB_USER = os.environ.get("DB_USER", "glyphor")
+DB_PASSWORD = os.environ.get("DB_PASSWORD", "")
 
 # ─── LLM ─────────────────────────────────────────────────────────
 GEMINI_API_KEY = os.environ["GOOGLE_AI_API_KEY"]
@@ -39,7 +41,7 @@ DOMAIN = (
     "include: multi-agent orchestration, authority tiers (green/yellow/red), knowledge "
     "graph, founder directives, work assignments, competitive landscape (Lovable, Bolt, "
     "Devin, Cursor), enterprise sales pipeline, Cloud Run infrastructure on GCP, "
-    "Supabase for data, Gemini for LLM inference."
+    "Cloud SQL for data, Gemini for LLM inference."
 )
 
 ENTITY_TYPES = [

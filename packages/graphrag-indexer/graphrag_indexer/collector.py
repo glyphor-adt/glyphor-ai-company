@@ -4,15 +4,16 @@ Document Collector — gathers text from knowledge base and agent outputs.
 Sources:
 1. Company knowledge docs (CORE.md, briefs/*.md, context/*.md, COMPANY_KNOWLEDGE_BASE.md)
 2. Architecture / operating docs (docs/*.md)
-3. Completed agent assignment outputs (from Supabase work_assignments table)
+3. Completed agent assignment outputs (from Cloud SQL work_assignments table)
 """
 
 import json
 from pathlib import Path
-from supabase import create_client
+import psycopg2
+import psycopg2.extras
 
 from .config import (
-    SUPABASE_URL, SUPABASE_KEY,
+    DB_HOST, DB_NAME, DB_USER, DB_PASSWORD,
     KNOWLEDGE_DIR, DOCS_DIR, INPUT_DIR,
 )
 
@@ -50,25 +51,35 @@ def collect_knowledge_docs() -> list[dict]:
 
 
 def collect_assignment_outputs(limit: int = 200) -> list[dict]:
-    """Collect completed agent assignment outputs from Supabase."""
-    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-    result = supabase.table("work_assignments").select(
-        "id, assigned_to, task_description, agent_output, completed_at, "
-        "founder_directives(title, category)"
-    ).eq("status", "completed").not_.is_("agent_output", "null").order(
-        "completed_at", desc=True
-    ).limit(limit).execute()
+    """Collect completed agent assignment outputs from Cloud SQL."""
+    conn = psycopg2.connect(
+        host=DB_HOST, dbname=DB_NAME, user=DB_USER, password=DB_PASSWORD,
+    )
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """SELECT wa.id, wa.assigned_to, wa.task_description,
+                          wa.agent_output, wa.completed_at,
+                          fd.title AS directive_title, fd.category
+                   FROM work_assignments wa
+                   LEFT JOIN founder_directives fd ON wa.directive_id = fd.id
+                   WHERE wa.status = 'completed' AND wa.agent_output IS NOT NULL
+                   ORDER BY wa.completed_at DESC
+                   LIMIT %s""",
+                (limit,),
+            )
+            rows = cur.fetchall()
+    finally:
+        conn.close()
 
     documents = []
-    for row in result.data or []:
+    for row in rows:
         output = row.get("agent_output", "")
         if not output or len(output.strip()) < 100:
             continue
 
-        directive = row.get("founder_directives") or {}
-        directive_title = directive.get("title", "Unknown Directive")
-        category = directive.get("category", "general")
+        directive_title = row.get("directive_title") or "Unknown Directive"
+        category = row.get("category") or "general"
 
         title = f"{row['assigned_to']} — {directive_title}"
         text = (

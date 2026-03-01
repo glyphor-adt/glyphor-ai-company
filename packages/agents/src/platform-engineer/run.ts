@@ -71,7 +71,7 @@ export async function runPlatformEngineer(params: PlatformEngineerRunParams = {}
 Steps:
 1. Use run_health_check to ping all services
 2. Use query_cloud_run_metrics for each service (scheduler, dashboard)
-3. Use query_supabase_health to check database connectivity
+3. Use query_db_health to check database connectivity
 4. If any anomalies detected, emit an insight event for Marcus
 5. Log your findings as an activity
 
@@ -83,7 +83,7 @@ Report format: STATUS → SERVICES → ANOMALIES → TRENDS`;
 
 Steps:
 1. Query Cloud Run metrics for all services (last 6 hours)
-2. Check Supabase health
+2. Check Cloud SQL health
 3. Query Gemini API latency
 4. Compile into a structured report
 5. Log as activity`;
