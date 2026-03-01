@@ -325,6 +325,7 @@ ORDER BY date DESC;
 | Teams cards not posting | Check `AZURE_CLIENT_SECRET` (currently a 2-char placeholder — needs real secret) |
 | Reasoning tags in chat | Dashboard `Chat.tsx` has `stripReasoning()` — verify it runs before render |
 | Lighthouse audits return 429 | Google PageSpeed IPs being rate-limited by Vercel WAF. See [Lighthouse IP Whitelist Guide](LIGHTHOUSE_IP_WHITELIST.md) |
+| **post_to_teams fails (400 Invalid URL)** | **Run `node test-teams.cjs` to validate config. Ensure TEAMS_TEAM_ID and TEAMS_CHANNEL_*_ID are set** |
 
 ### Lighthouse Rate Limiting (HTTP 429)
 
@@ -361,3 +362,58 @@ ORDER BY created_at DESC;
 ```
 
 **Escalation**: If whitelisting doesn't resolve the issue, escalate to Marcus (CTO) for alternative solutions (dedicated Lighthouse server, Lighthouse CI service, etc.).
+
+### Teams Integration Issues (Graph API)
+
+**Symptom**: `post_to_teams` tool fails with "Graph API send failed (400): Bad Request - Invalid URL"
+
+**Root Cause**: Missing or invalid Teams channel configuration in environment variables.
+
+**Quick Validation**:
+```bash
+# Run the Teams connectivity test
+node test-teams.cjs
+```
+
+**Common Issues**:
+
+1. **Missing Environment Variables**
+   - Check that all required variables are set:
+     - `AZURE_TENANT_ID` (Entra tenant ID)
+     - `AZURE_CLIENT_ID` (App registration client ID)
+     - `AZURE_CLIENT_SECRET` (App secret)
+     - `TEAMS_TEAM_ID` (Microsoft Teams team ID)
+     - `TEAMS_CHANNEL_GENERAL_ID` (Channel ID for #general)
+     - `TEAMS_CHANNEL_ENGINEERING_ID` (Channel ID for #engineering)
+
+2. **Invalid Channel IDs**
+   - Channel IDs must not be empty, null, or undefined
+   - Format: typically `19:...@thread.tacv2` for standard channels
+   - Get IDs via: Microsoft Teams Admin Center → Teams → Channels → Copy channel ID
+
+3. **Wrong Graph API Permissions**
+   - App registration must have **Application** permissions (not Delegated):
+     - `ChannelMessage.Send` (required to post messages)
+     - `Channel.ReadBasic.All` (required to list channels)
+     - `Team.ReadBasic.All` (required to access team)
+   - After adding permissions, click "Grant admin consent"
+
+4. **Expired or Invalid Secret**
+   - Client secrets expire (check Entra portal)
+   - Generate a new secret and update `AZURE_CLIENT_SECRET`
+
+**Debugging Steps**:
+1. Run `node test-teams.cjs` to isolate the issue
+2. Check Cloud Run logs for the full error message (includes URL)
+3. Verify environment variables in GCP Secret Manager
+4. Test token acquisition separately (Step 1 of test script)
+5. Validate channel IDs using `listChannels()` method
+
+**Verification** (after fix):
+```bash
+# Should pass all 3 tests
+node test-teams.cjs
+# ✅ Step 1: Token acquired
+# ✅ Step 2: Text message sent
+# ✅ Step 3: Adaptive Card sent
+```

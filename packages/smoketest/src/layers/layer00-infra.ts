@@ -120,5 +120,27 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
     tests[tests.length - 1].status = 'skipped';
   }
 
+  // T0.6 — Vercel Environment Variables
+  tests.push(
+    await runTest('T0.6', 'Vercel Environment Variables', async () => {
+      // Check if required Vercel env vars are configured
+      // These should be set in Cloud Run environment or Secret Manager
+      const teamFuse = process.env.VERCEL_TEAM_FUSE;
+      const teamFuseProjects = process.env.VERCEL_TEAM_FUSE_PROJECTS;
+      const vercelToken = process.env.VERCEL_TOKEN;
+
+      const missing: string[] = [];
+      if (!teamFuse) missing.push('VERCEL_TEAM_FUSE');
+      if (!teamFuseProjects) missing.push('VERCEL_TEAM_FUSE_PROJECTS');
+      if (!vercelToken) missing.push('VERCEL_TOKEN');
+
+      if (missing.length > 0) {
+        throw new Error(`Missing Vercel env vars: ${missing.join(', ')} — add to Cloud Run or Secret Manager`);
+      }
+
+      return `Vercel env vars configured: VERCEL_TEAM_FUSE, VERCEL_TEAM_FUSE_PROJECTS, VERCEL_TOKEN`;
+    }),
+  );
+
   return { layer: 0, name: 'Infrastructure Health', tests };
 }

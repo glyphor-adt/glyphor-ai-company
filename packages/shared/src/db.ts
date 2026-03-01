@@ -1,5 +1,4 @@
-import { Pool } from 'pg';
-import type { PoolClient } from 'pg';
+import { Pool, PoolClient } from 'pg';
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -18,7 +17,7 @@ export async function tenantQuery<T = any>(
 ): Promise<T[]> {
   const client = await pool.connect();
   try {
-    await client.query(`SELECT set_config('app.current_tenant', $1, true)`, [tenantId]);
+    await client.query(`SET app.current_tenant = $1`, [tenantId]);
     const result = await client.query(sql, params);
     return result.rows as T[];
   } finally {
@@ -48,7 +47,7 @@ export async function tenantTransaction<T>(
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query(`SELECT set_config('app.current_tenant', $1, true)`, [tenantId]);
+    await client.query(`SET app.current_tenant = $1`, [tenantId]);
     const result = await fn(client);
     await client.query('COMMIT');
     return result;
@@ -120,4 +119,4 @@ export async function closePool(): Promise<void> {
   await pool.end();
 }
 
-export { pool, Pool };
+export { pool, Pool, PoolClient };

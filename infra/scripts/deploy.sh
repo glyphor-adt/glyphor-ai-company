@@ -21,17 +21,17 @@ gcloud artifacts repositories create "$REPO" \
 
 # Build & push scheduler
 echo "--- Building scheduler ---"
-docker build -f docker/Dockerfile.scheduler -t "${AR_REGISTRY}/scheduler:latest" .
+DOCKER_BUILDKIT=1 docker build --progress=plain -f docker/Dockerfile.scheduler -t "${AR_REGISTRY}/scheduler:latest" .
 docker push "${AR_REGISTRY}/scheduler:latest"
 
 # Build & push chief-of-staff agent
 echo "--- Building chief-of-staff ---"
-docker build -f docker/Dockerfile.chief-of-staff -t "${AR_REGISTRY}/chief-of-staff:latest" .
+DOCKER_BUILDKIT=1 docker build --progress=plain -f docker/Dockerfile.chief-of-staff -t "${AR_REGISTRY}/chief-of-staff:latest" .
 docker push "${AR_REGISTRY}/chief-of-staff:latest"
 
 # Build & push dashboard
 echo "--- Building dashboard ---"
-docker build -f docker/Dockerfile.dashboard \
+DOCKER_BUILDKIT=1 docker build --progress=plain -f docker/Dockerfile.dashboard \
   --build-arg VITE_SUPABASE_URL="${SUPABASE_URL}" \
   --build-arg VITE_SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY}" \
   --build-arg VITE_SCHEDULER_URL="https://glyphor-scheduler-${PROJECT_NUMBER}.${REGION}.run.app" \
