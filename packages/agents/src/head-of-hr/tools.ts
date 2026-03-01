@@ -34,12 +34,12 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         if (agentsErr) return { success: false, output: `Failed to fetch agents: ${agentsErr.message}` };
 
         // Fetch all profiles
-        const { data: profiles } = await supabase.from('agent_profiles').select('agent_role, personality_summary, backstory, avatar_url, communication_traits');
-        const profileMap = new Map((profiles || []).map((p: Record<string, unknown>) => [p.agent_role, p]));
+        const { data: profiles } = await supabase.from('agent_profiles').select('agent_id, personality_summary, backstory, avatar_url, communication_traits');
+        const profileMap = new Map((profiles || []).map((p: Record<string, unknown>) => [p.agent_id, p]));
 
         // Fetch all briefs
-        const { data: briefs } = await supabase.from('agent_briefs').select('agent_role, system_prompt');
-        const briefMap = new Map((briefs || []).map((b: Record<string, unknown>) => [b.agent_role, b]));
+        const { data: briefs } = await supabase.from('agent_briefs').select('agent_id, system_prompt');
+        const briefMap = new Map((briefs || []).map((b: Record<string, unknown>) => [b.agent_id, b]));
 
         const issues: Array<{ role: string; problems: string[] }> = [];
         const validRoles = new Set((agents || []).map((a: Record<string, unknown>) => a.role));
@@ -125,13 +125,13 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         const { data: profile } = await supabase
           .from('agent_profiles')
           .select('*')
-          .eq('agent_role', role)
+          .eq('agent_id', role)
           .maybeSingle();
 
         const { data: brief } = await supabase
           .from('agent_briefs')
           .select('*')
-          .eq('agent_role', role)
+          .eq('agent_id', role)
           .maybeSingle();
 
         const checklist: Record<string, { pass: boolean; detail: string }> = {};
@@ -289,7 +289,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
 
         const { error } = await supabase
           .from('agent_profiles')
-          .upsert({ agent_role: role, ...updateData }, { onConflict: 'agent_role' });
+          .upsert({ agent_id: role, ...updateData }, { onConflict: 'agent_id' });
 
         if (error) return { success: false, output: `Failed to update profile: ${error.message}` };
         return { success: true, output: `Profile for "${role}" updated: ${Object.keys(updateData).join(', ')}` };
@@ -364,7 +364,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         await supabase
           .from('agent_schedules')
           .update({ is_active: false })
-          .eq('agent_role', role);
+          .eq('agent_id', role);
 
         // Log activity
         await supabase.from('activity_log').insert({
@@ -436,10 +436,10 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         // Get recent runs
         const { data: recentRuns } = await supabase
           .from('agent_runs')
-          .select('agent_role, started_at')
+          .select('agent_id, started_at')
           .gte('started_at', cutoff);
 
-        const recentRoles = new Set((recentRuns || []).map((r: Record<string, unknown>) => r.agent_role));
+        const recentRoles = new Set((recentRuns || []).map((r: Record<string, unknown>) => r.agent_id));
 
         const stale = agents.filter((a: Record<string, unknown>) => !recentRoles.has(a.role));
 
@@ -598,7 +598,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
           // Update agent_profiles with the new URL
           await supabase
             .from('agent_profiles')
-            .upsert({ agent_role: role, avatar_url: avatarUrl }, { onConflict: 'agent_role' });
+            .upsert({ agent_id: role, avatar_url: avatarUrl }, { onConflict: 'agent_id' });
 
           return {
             success: true,
@@ -778,7 +778,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
             .from('agent_profiles')
             .upsert(
               {
-                agent_role: role,
+                agent_id: role,
                 personality_summary: profile.personality_summary,
                 backstory: profile.backstory,
                 communication_traits: profile.communication_traits,
@@ -788,7 +788,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
                 verbosity: profile.verbosity,
                 emoji_usage: profile.emoji_usage,
               },
-              { onConflict: 'agent_role' },
+              { onConflict: 'agent_id' },
             );
 
           if (error) return { success: false, output: `DB upsert failed: ${error.message}` };
