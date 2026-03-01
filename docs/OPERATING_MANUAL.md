@@ -11,7 +11,7 @@ Every team member has six things defined:
 1. **Skills** — what they know how to do (baked into their system prompt)
 2. **Tools** — Gemini function calling definitions they can invoke
 3. **Integrations** — external platforms, API keys, and permission scopes they hold
-4. **Data Access** — Supabase tables and external data they can read/write
+4. **Data Access** — Database tables and external data they can read/write
 5. **Governance** — Green (autonomous) / Yellow (one founder) / Red (both founders)
 6. **Budget** — per-run, daily, and monthly token/cost caps
 
@@ -251,7 +251,7 @@ Per run: $0.10 | Daily: $2.00 | Monthly: $50
 query_stripe(metric, period, filters)       — MRR, subscriptions, churn, invoices, by product
 query_gcp_billing(period, service)          — cost breakdown by GCP service and SKU
 query_bigquery_billing(query)               — granular billing export queries
-query_supabase_usage()                      — database size, bandwidth, row counts, cost
+query_db_usage()                            — database size, bandwidth, row counts, cost
 query_vercel_usage()                        — builds, bandwidth, serverless invocations, cost
 calculate_unit_economics(product)           — cost per build, per user, margins
 calculate_break_even(params)                — break-even for proposed initiatives
@@ -277,7 +277,7 @@ emit_event(type, payload)                   — publish to event bus
 ### Data Access
 ```
 READ:  revenue, infrastructure_costs, stripe_data, gcp_billing,
-       supabase_usage, vercel_usage, build_logs (count/cost columns only),
+       db_usage, vercel_usage, build_logs (count/cost columns only),
        company_agents (cost data only), agent_reflections (cost data only)
 WRITE: financials, financial_reports, cost_alerts,
        agent_memory (own + finance dept)
@@ -520,7 +520,7 @@ emit_event(type, payload)                       — publish to event bus
 - Max 1 email per user per 24 hours (enforced at runtime)
 - All emails logged in email_log table
 - Unsubscribe link required on all non-support emails
-- Templates stored in Supabase: nurture_at_risk, nurture_dormant,
+- Templates stored in database: nurture_at_risk, nurture_dormant,
   nurture_cross_sell, health_checkin, milestone_celebration
 ```
 
@@ -749,7 +749,7 @@ send_dm(recipient, message)                 — direct message founders via Team
 | Platform | Access | Credential |
 |----------|--------|------------|
 | Microsoft Teams | **DM founders** — 1:1 proactive messaging via Bot Framework | `secrets/teams/bot-app-id`, `secrets/teams/bot-app-password`, `secrets/teams/user-kristina-id`, `secrets/teams/user-andrew-id` |
-| Supabase | **Read/Write** — system tables | via runtime service role |
+| Cloud SQL | **Read/Write** — system tables | via runtime service role |
 
 ### Data Access
 ```
@@ -808,7 +808,7 @@ Infrastructure monitoring, health assessment, performance benchmarking, capacity
 ```
 query_cloud_run_metrics(service, hours)   — instances, latency, errors, cold starts
 query_gemini_latency(model, hours)        — API response times by model
-query_supabase_health()                   — connection pool, query latency, replication lag
+query_db_health()                         — connection pool, query latency, replication lag
 query_vercel_health()                     — build status, edge function performance
 run_health_check()                        — ping all services, return status matrix
 check_ssl_certs()                         — expiration dates for all certificates
@@ -826,7 +826,7 @@ emit_event(type, payload)                 — insight.detected or task.completed
 
 ### Data Access
 ```
-READ:  cloud_run_metrics, gemini_usage (latency only), supabase_health,
+READ:  cloud_run_metrics, gemini_usage (latency only), db_health,
        vercel_health, incidents (history), uptime_logs, github_ci_status
 WRITE: health_snapshots, agent_memory (own only)
 ```
@@ -1089,7 +1089,7 @@ Infrastructure cost analysis, waste identification, resource utilization assessm
 ```
 query_gcp_billing(period, service)        — detailed cost by service and SKU
 query_bigquery_billing(query)             — granular billing queries
-query_supabase_usage()                    — database costs and usage
+query_db_usage()                          — database costs and usage
 query_vercel_usage()                      — hosting costs and usage
 query_gemini_cost(period, model)          — API cost by model and use case
 query_agent_run_costs(period, agent)      — compute cost per agent per run
@@ -1110,7 +1110,7 @@ emit_event(type, payload)                 — insight.detected or task.completed
 
 ### Data Access
 ```
-READ:  infrastructure_costs, gcp_billing, supabase_usage, vercel_usage,
+READ:  infrastructure_costs, gcp_billing, db_usage, vercel_usage,
        gemini_usage, agent_run_logs (cost data only), build_logs (count only)
 WRITE: cost_reports, waste_findings, agent_memory (own only)
 ```

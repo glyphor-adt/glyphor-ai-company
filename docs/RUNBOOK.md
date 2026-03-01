@@ -8,7 +8,7 @@
 - npm (npm workspaces — **not** pnpm)
 - Docker Desktop
 - GCP CLI (`gcloud`) authenticated to project `ai-glyphor-company`
-- Supabase project (`https://ztucrgzcoaryzuvkcaif.supabase.co`)
+- Cloud SQL PostgreSQL instance (via `ai-glyphor-company` project)
 - Microsoft Teams incoming webhook URLs (or Entra ID app credentials for Graph API)
 - Terraform 1.5+ (for infra changes only)
 
@@ -29,19 +29,18 @@ cp .env.example .env
 # Fill in all values — see "Environment Variables" section below
 ```
 
-### 3. Run Supabase migrations
+### 3. Run Cloud SQL migrations
 
-Apply schema via Supabase Dashboard SQL Editor or CLI:
+Apply schema via psql against the Cloud SQL instance:
 
 ```bash
-# Via Supabase CLI (if installed)
-supabase db push
+# Connect to Cloud SQL via Cloud SQL Auth Proxy or direct IP
+psql -h $DB_HOST -U $DB_USER -d $DB_NAME
 
-# Or paste contents of supabase/migrations/*.sql
-# into Supabase Dashboard > SQL Editor, in order:
-#   20260222025612_new-migration.sql
-#   20260222025852_remote_schema.sql
-#   20260222030000_create_tables.sql
+# Apply migrations in order:
+\i supabase/migrations/20260222025612_new-migration.sql
+\i supabase/migrations/20260222025852_remote_schema.sql
+\i supabase/migrations/20260222030000_create_tables.sql
 ```
 
 ### 4. Seed company memory
@@ -113,8 +112,6 @@ gcloud run deploy glyphor-scheduler \
 # Build (requires VITE_* build args)
 docker build --no-cache \
   -f docker/Dockerfile.dashboard \
-  --build-arg VITE_SUPABASE_URL=https://ztucrgzcoaryzuvkcaif.supabase.co \
-  --build-arg VITE_SUPABASE_ANON_KEY=<your-anon-key> \
   --build-arg VITE_SCHEDULER_URL=https://glyphor-scheduler-610179349713.us-central1.run.app \
   --build-arg VITE_GOOGLE_CLIENT_ID=610179349713-hsb5cloabe445k72uk4nv79d8jcaag67.apps.googleusercontent.com \
   -t us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/dashboard:latest .
@@ -169,8 +166,10 @@ All secrets are injected as environment variables at Cloud Run deploy time.
 ```bash
 # Core
 echo -n "..." | gcloud secrets versions add google-ai-api-key --data-file=-
-echo -n "https://ztucrgzcoaryzuvkcaif.supabase.co" | gcloud secrets versions add supabase-url --data-file=-
-echo -n "..." | gcloud secrets versions add supabase-service-key --data-file=-
+echo -n "<cloud-sql-host>" | gcloud secrets versions add db-host --data-file=-
+echo -n "glyphor" | gcloud secrets versions add db-name --data-file=-
+echo -n "<db-user>" | gcloud secrets versions add db-user --data-file=-
+echo -n "..." | gcloud secrets versions add db-password --data-file=-
 echo -n "glyphor-company" | gcloud secrets versions add gcs-bucket --data-file=-
 
 # Teams — Graph API (primary)
@@ -247,7 +246,7 @@ gcloud run revisions list --service=glyphor-dashboard \
   --region=us-central1 --project=ai-glyphor-company
 ```
 
-### Supabase Queries
+### Database Queries
 
 ```sql
 -- Recent agent activity
@@ -283,8 +282,10 @@ ORDER BY date DESC;
 | Variable | Source | Description |
 |----------|--------|-------------|
 | `GOOGLE_AI_API_KEY` | Secret Manager | Gemini API key |
-| `SUPABASE_URL` | Secret Manager | Supabase project URL |
-| `SUPABASE_SERVICE_KEY` | Secret Manager | Supabase service role key |
+| `DB_HOST` | Secret Manager | Cloud SQL host |
+| `DB_NAME` | Secret Manager | Cloud SQL database name |
+| `DB_USER` | Secret Manager | Cloud SQL user |
+| `DB_PASSWORD` | Secret Manager | Cloud SQL password |
 | `GCS_BUCKET` | Secret Manager | GCS bucket name |
 | `GCP_PROJECT_ID` | Hardcoded | `ai-glyphor-company` |
 | `AZURE_TENANT_ID` | Secret Manager | Entra ID tenant |
@@ -302,8 +303,6 @@ ORDER BY date DESC;
 
 | Variable | Description |
 |----------|-------------|
-| `VITE_SUPABASE_URL` | Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anonymous key |
 | `VITE_SCHEDULER_URL` | Scheduler Cloud Run URL |
 | `VITE_GOOGLE_CLIENT_ID` | Google OAuth client ID for Sign-In |
 
@@ -347,7 +346,7 @@ ORDER BY date DESC;
 4. Set up weekly automation via GitHub Actions: `.github/workflows/update-google-ips.yml`
 5. Monitor agent logs for recurring 429 errors
 
-**Verification Query** (Supabase):
+**Verification Query** (Cloud SQL):
 ```sql
 SELECT 
   agent_role,

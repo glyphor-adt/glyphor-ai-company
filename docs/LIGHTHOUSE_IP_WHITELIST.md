@@ -164,7 +164,7 @@ curl "https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=https://pul
 2. **Agent Logs**: Monitor VP Design and Design Critic agent tool execution logs
 3. **Alert on 429s**: Set up monitoring to alert when Lighthouse tools return 429 errors
 
-### Supabase Query for Agent Tool Failures
+### Database Query for Agent Tool Failures
 
 ```sql
 SELECT 

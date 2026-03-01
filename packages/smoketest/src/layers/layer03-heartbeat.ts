@@ -5,7 +5,7 @@
  */
 
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
-import { queryTable, query } from '../utils/supabase.js';
+import { queryTable, query } from '../utils/db.js';
 
 interface AgentRun {
   id: string;

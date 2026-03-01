@@ -7,7 +7,7 @@
 
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
 import { pollUntil } from '../utils/http.js';
-import { query, queryTable } from '../utils/supabase.js';
+import { query, queryTable } from '../utils/db.js';
 
 // Module-level state shared across tests
 let directiveId: string | null = null;

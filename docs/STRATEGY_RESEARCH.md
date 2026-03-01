@@ -358,7 +358,7 @@ Putting it all together, here's how a strategic question becomes a verified rese
 | VP Research Orchestration | `packages/agents/src/vp-research/run.ts` |
 | Research Tools (web_search, etc.) | `packages/agents/src/shared/researchTools.ts` |
 | Collective Intelligence Tools | `packages/agents/src/shared/collectiveIntelligenceTools.ts` |
-| Deep Dive Schema | `supabase/migrations/20260227100012_deep_dive_tables.sql` |
-| CoT Schema | `supabase/migrations/20260227100008_cot_analyses.sql` |
-| Strategy Lab v2 | `supabase/migrations/20260227100027_strategy_lab_v2.sql` |
-| World Model Architecture | `supabase/migrations/20260227100034_world_model_architecture.sql` |
+| Deep Dive Schema | `supabase/migrations/20260227100012_deep_dive_tables.sql` (applied to Cloud SQL) |
+| CoT Schema | `supabase/migrations/20260227100008_cot_analyses.sql` (applied to Cloud SQL) |
+| Strategy Lab v2 | `supabase/migrations/20260227100027_strategy_lab_v2.sql` (applied to Cloud SQL) |
+| World Model Architecture | `supabase/migrations/20260227100034_world_model_architecture.sql` (applied to Cloud SQL) |

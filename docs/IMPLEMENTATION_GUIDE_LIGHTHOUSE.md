@@ -115,7 +115,7 @@ Ask VP Design (Mia) or trigger a manual test:
 Test Lighthouse audits on Pulse and Fuse to verify 429 errors are resolved.
 ```
 
-**Via Supabase (if direct access):**
+**Via Cloud SQL (if direct access):**
 ```sql
 -- Trigger VP Design agent run
 INSERT INTO agent_tasks (agent_role, task, payload, status)
@@ -204,9 +204,9 @@ The workflow `.github/workflows/update-google-ips.yml` is already created. To ac
 - Set up alert rule: `status_code == 429`
 - Configure notification to #engineering channel
 
-**2. Set Up Supabase Query Dashboard**
+**2. Set Up Cloud SQL Query Dashboard**
 ```sql
--- Save as a favorite query in Supabase Dashboard
+-- Save as a query to run periodically
 -- Run weekly to check for 429 errors
 SELECT 
   DATE(created_at) as date,
@@ -244,7 +244,7 @@ After implementation, confirm:
 - [ ] Vercel shows Trusted IPs as "Active"
 - [ ] Manual Lighthouse test succeeds (returns scores, not 429)
 - [ ] Agent Lighthouse tools return successful results
-- [ ] No 429 errors in Supabase activity_log
+- [ ] No 429 errors in Cloud SQL activity_log
 - [ ] GitHub Actions workflow runs successfully
 - [ ] Monitoring alerts configured
 - [ ] Documentation updated
