@@ -31,8 +31,8 @@ if (!process.env.VERCEL_TEAM_FUSE_PROJECTS) {
 
 /** Vercel team mapping — scopes queries to the right Vercel team. */
 export const VERCEL_TEAMS = {
-  fuse: process.env.VERCEL_TEAM_FUSE,
-  'fuse-projects': process.env.VERCEL_TEAM_FUSE_PROJECTS,
+  fuse: process.env.VERCEL_TEAM_FUSE!,
+  'fuse-projects': process.env.VERCEL_TEAM_FUSE_PROJECTS!,
 } as const;
 
 export type VercelTeamKey = keyof typeof VERCEL_TEAMS;
