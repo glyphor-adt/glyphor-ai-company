@@ -51,7 +51,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
   });
   const runner = createRunner(modelClient, 'vp-design', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -112,8 +112,6 @@ Steps:
     default:
       initialMessage = params.message || 'Provide a design quality and system status summary.';
   }
-
-  const supabase = memory.getSupabaseClient();
   const agentCfg = await loadAgentConfig('vp-design', { model: 'gemini-3-flash-preview', temperature: 0.4, maxTurns: 10 });
 
   const config: AgentConfig = {

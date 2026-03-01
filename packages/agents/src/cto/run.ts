@@ -52,7 +52,7 @@ export async function runCTO(params: CTORunParams = {}) {
   });
   const runner = createRunner(modelClient, 'cto', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -111,8 +111,6 @@ Steps:
     default:
       initialMessage = params.message || 'Provide a technical status summary of the platform.';
   }
-
-  const supabase = memory.getSupabaseClient();
   const agentCfg = await loadAgentConfig('cto', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 }, task);
 
   const config: AgentConfig = {

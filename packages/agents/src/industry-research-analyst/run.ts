@@ -39,10 +39,9 @@ export async function runIndustryResearchAnalyst(params: IndustryResearchAnalyst
   });
   const runner = createRunner(modelClient, 'industry-research-analyst', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
-  const supabase = memory.getSupabaseClient();
 
   const tools = [
     ...createIndustryResearchAnalystTools(),

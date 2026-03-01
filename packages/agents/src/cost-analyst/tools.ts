@@ -5,6 +5,7 @@
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { queryVercelUsage } from '@glyphor/integrations';
+import { systemQuery } from '@glyphor/shared/db';
 
 export function createCostAnalystTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -13,13 +14,16 @@ export function createCostAnalystTools(memory: CompanyMemoryStore): ToolDefiniti
       description: 'Query GCP billing data by service, product (glyphor/pulse/fuse), project, or time period.',
       parameters: { period: { type: 'string', description: 'Time period: 7d, 30d, 90d', required: true }, service: { type: 'string', description: 'GCP service filter (e.g. cloud-run, bigquery, storage)' }, product: { type: 'string', description: 'Product filter: glyphor, pulse, or fuse' }, project: { type: 'string', description: 'GCP project ID filter' } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        let query = supabase.from('gcp_billing').select('*').order('recorded_at', { ascending: false }).limit(params.period === '7d' ? 7 : params.period === '30d' ? 30 : 90);
-        if (params.service) { query = query.eq('service', params.service); }
-        if (params.product) { query = query.eq('product', params.product); }
-        if (params.project) { query = query.eq('project', params.project); }
-        const { data } = await query;
-        return { success: true, data: data || [] };
+        const limit = params.period === '7d' ? 7 : params.period === '30d' ? 30 : 90;
+        let sql = 'SELECT * FROM gcp_billing WHERE 1=1';
+        const values: unknown[] = [];
+        if (params.service) { values.push(params.service); sql += ` AND service=$${values.length}`; }
+        if (params.product) { values.push(params.product); sql += ` AND product=$${values.length}`; }
+        if (params.project) { values.push(params.project); sql += ` AND project=$${values.length}`; }
+        values.push(limit);
+        sql += ` ORDER BY recorded_at DESC LIMIT $${values.length}`;
+        const data = await systemQuery(sql, values);
+        return { success: true, data };
       },
     },
     {
@@ -27,9 +31,8 @@ export function createCostAnalystTools(memory: CompanyMemoryStore): ToolDefiniti
       description: 'Query Supabase usage metrics: database size, API calls, storage, bandwidth.',
       parameters: { period: { type: 'string', description: 'Time period', required: true } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        const { data } = await supabase.from('infrastructure_metrics').select('*').eq('provider', 'supabase').order('recorded_at', { ascending: false }).limit(30);
-        return { success: true, data: data || [] };
+        const data = await systemQuery('SELECT * FROM infrastructure_metrics WHERE provider=$1 ORDER BY recorded_at DESC LIMIT 30', ['supabase']);
+        return { success: true, data };
       },
     },
     {
@@ -37,11 +40,12 @@ export function createCostAnalystTools(memory: CompanyMemoryStore): ToolDefiniti
       description: 'Query Gemini API costs broken down by agent role.',
       parameters: { period: { type: 'string', description: 'Time period', required: true }, agentRole: { type: 'string', description: 'Filter by agent role (optional)' } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        let query = supabase.from('agent_runs').select('agent_role, cost_usd, created_at').order('created_at', { ascending: false }).limit(200);
-        if (params.agentRole) { query = query.eq('agent_role', params.agentRole); }
-        const { data } = await query;
-        return { success: true, data: data || [] };
+        let sql = 'SELECT agent_role, cost_usd, created_at FROM agent_runs';
+        const values: unknown[] = [];
+        if (params.agentRole) { values.push(params.agentRole); sql += ` WHERE agent_role=$${values.length}`; }
+        sql += ' ORDER BY created_at DESC LIMIT 200';
+        const data = await systemQuery(sql, values);
+        return { success: true, data };
       },
     },
     {
@@ -49,9 +53,8 @@ export function createCostAnalystTools(memory: CompanyMemoryStore): ToolDefiniti
       description: 'Get aggregate agent run costs and efficiency metrics.',
       parameters: { period: { type: 'string', description: 'Time period', required: true } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        const { data } = await supabase.from('agent_runs').select('agent_role, cost_usd, tokens_used, created_at').order('created_at', { ascending: false }).limit(500);
-        return { success: true, data: data || [] };
+        const data = await systemQuery('SELECT agent_role, cost_usd, tokens_used, created_at FROM agent_runs ORDER BY created_at DESC LIMIT 500');
+        return { success: true, data };
       },
     },
     {
@@ -59,11 +62,12 @@ export function createCostAnalystTools(memory: CompanyMemoryStore): ToolDefiniti
       description: 'Query Cloud Run resource utilization (CPU, memory, instances).',
       parameters: { service: { type: 'string', description: 'Cloud Run service name (optional)' } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        let query = supabase.from('infrastructure_metrics').select('*').eq('provider', 'gcp').eq('metric_type', 'utilization').order('recorded_at', { ascending: false }).limit(50);
-        if (params.service) { query = query.eq('service', params.service); }
-        const { data } = await query;
-        return { success: true, data: data || [] };
+        let sql = 'SELECT * FROM infrastructure_metrics WHERE provider=$1 AND metric_type=$2';
+        const values: unknown[] = ['gcp', 'utilization'];
+        if (params.service) { values.push(params.service); sql += ` AND service=$${values.length}`; }
+        sql += ' ORDER BY recorded_at DESC LIMIT 50';
+        const data = await systemQuery(sql, values);
+        return { success: true, data };
       },
     },
     {
@@ -71,9 +75,8 @@ export function createCostAnalystTools(memory: CompanyMemoryStore): ToolDefiniti
       description: 'Identify unused or underutilized resources across all infrastructure.',
       parameters: { threshold: { type: 'number', description: 'Utilization threshold %. Resources below this are flagged (default: 20)' } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        const { data } = await supabase.from('infrastructure_metrics').select('*').eq('metric_type', 'utilization').lt('value', params.threshold || 20).order('recorded_at', { ascending: false }).limit(50);
-        return { success: true, data: data || [] };
+        const data = await systemQuery('SELECT * FROM infrastructure_metrics WHERE metric_type=$1 AND value < $2 ORDER BY recorded_at DESC LIMIT 50', ['utilization', params.threshold || 20]);
+        return { success: true, data };
       },
     },
     {
@@ -81,9 +84,8 @@ export function createCostAnalystTools(memory: CompanyMemoryStore): ToolDefiniti
       description: 'Calculate unit economics: cost per build, cost per user, cost per agent run.',
       parameters: { metric: { type: 'string', description: 'Unit: per_build, per_user, per_agent_run, per_request', required: true }, period: { type: 'string', description: 'Time period' } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        const { data } = await supabase.from('cost_metrics').select('*').eq('unit_type', params.metric).order('recorded_at', { ascending: false }).limit(30);
-        return { success: true, data: data || [] };
+        const data = await systemQuery('SELECT * FROM cost_metrics WHERE unit_type=$1 ORDER BY recorded_at DESC LIMIT 30', [params.metric]);
+        return { success: true, data };
       },
     },
     {
@@ -91,9 +93,8 @@ export function createCostAnalystTools(memory: CompanyMemoryStore): ToolDefiniti
       description: 'Project future costs based on current trends and growth rate.',
       parameters: { horizon: { type: 'string', description: 'Projection horizon: 30d, 60d, 90d', required: true }, growthRate: { type: 'number', description: 'Assumed monthly growth rate % (default: current)' } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        const { data } = await supabase.from('gcp_billing').select('*').order('recorded_at', { ascending: false }).limit(90);
-        return { success: true, data: { historical: data || [], horizon: params.horizon, growthRate: params.growthRate } };
+        const data = await systemQuery('SELECT * FROM gcp_billing ORDER BY recorded_at DESC LIMIT 90');
+        return { success: true, data: { historical: data, horizon: params.horizon, growthRate: params.growthRate } };
       },
     },
     {
@@ -118,8 +119,7 @@ export function createCostAnalystTools(memory: CompanyMemoryStore): ToolDefiniti
       description: 'Log an activity or finding to the agent activity log.',
       parameters: { summary: { type: 'string', description: 'Activity summary', required: true }, details: { type: 'string', description: 'Detailed notes' } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        await supabase.from('agent_activities').insert({ agent_role: 'cost-analyst', activity_type: 'cost_analysis', summary: params.summary, details: params.details || null, created_at: new Date().toISOString() });
+        await systemQuery('INSERT INTO agent_activities (agent_role, activity_type, summary, details, created_at) VALUES ($1, $2, $3, $4, $5)', ['cost-analyst', 'cost_analysis', params.summary, params.details || null, new Date().toISOString()]);
         return { success: true };
       },
     },

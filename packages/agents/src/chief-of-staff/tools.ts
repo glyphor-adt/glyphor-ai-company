@@ -857,16 +857,13 @@ export function createOrchestrationTools(
         // After evaluating an assignment, update the assigned agent's
         // world model so it learns from the orchestrator's grading.
         try {
-          const { data: assignmentData } = await supabase
-            .from('work_assignments')
-            .select('assigned_to, task_type')
-            .eq('id', assignmentId)
-            .single();
+          const [assignmentData] = await systemQuery(
+            'SELECT assigned_to, task_type FROM work_assignments WHERE id = $1', [assignmentId]) as any[];
 
           if (assignmentData?.assigned_to) {
             const embeddingClient = new EmbeddingClient(process.env.GOOGLE_AI_API_KEY!);
-            const sharedMemLoader = new SharedMemoryLoader(supabase, embeddingClient, graphReader ?? null);
-            const updater = new WorldModelUpdater(supabase, sharedMemLoader);
+            const sharedMemLoader = new SharedMemoryLoader(embeddingClient, graphReader ?? null);
+            const updater = new WorldModelUpdater(sharedMemLoader);
 
             const qualityScore = params.quality_score as number;
             const scaledScore = (qualityScore / 100) * 5; // Map 0-100 → 0-5
@@ -957,11 +954,8 @@ export function createOrchestrationTools(
         const directiveId = params.directive_id as string;
 
         // Get current directive to append to progress_notes
-        const { data: directive } = await supabase
-          .from('founder_directives')
-          .select('progress_notes')
-          .eq('id', directiveId)
-          .single();
+        const [directive] = await systemQuery(
+          'SELECT progress_notes FROM founder_directives WHERE id = $1', [directiveId]) as any[];
 
         const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
@@ -975,12 +969,15 @@ export function createOrchestrationTools(
         if (params.new_status) updates.status = params.new_status;
         if (params.completion_summary) updates.completion_summary = params.completion_summary;
 
-        const { error } = await supabase
-          .from('founder_directives')
-          .update(updates)
-          .eq('id', directiveId);
+        const setClauses: string[] = [];
+        const updateParams: unknown[] = [];
+        for (const [key, value] of Object.entries(updates)) {
+          updateParams.push(value);
+          setClauses.push(`${key} = $${updateParams.length}`);
+        }
+        updateParams.push(directiveId);
+        await systemQuery(`UPDATE founder_directives SET ${setClauses.join(', ')} WHERE id = $${updateParams.length}`, updateParams);
 
-        if (error) return { success: false, error: error.message };
         return { success: true, data: { updated: true } };
       },
     },
@@ -1040,23 +1037,11 @@ export function createOrchestrationTools(
           : null;
 
         // Upsert the grant
-        const { error } = await supabase
-          .from('agent_tool_grants')
-          .upsert(
-            {
-              agent_role: agentRole,
-              tool_name: toolName,
-              granted_by: 'chief-of-staff',
-              reason,
-              directive_id: directiveId ?? null,
-              scope: 'full',
-              is_active: true,
-              expires_at: expiresAt,
-            },
-            { onConflict: 'agent_role,tool_name' },
-          );
-
-        if (error) return { success: false, error: error.message };
+        await systemQuery(
+          `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason, directive_id, scope, is_active, expires_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           ON CONFLICT (agent_role, tool_name) DO UPDATE SET granted_by = $3, reason = $4, directive_id = $5, scope = $6, is_active = $7, expires_at = $8`,
+          [agentRole, toolName, 'chief-of-staff', reason, directiveId ?? null, 'full', true, expiresAt]);
 
         // Invalidate cache so the grant takes effect immediately
         invalidateGrantCache(agentRole);
@@ -1101,17 +1086,11 @@ export function createOrchestrationTools(
         const agentRole = params.agent_role as string;
         const toolName = params.tool_name as string;
 
-        const { data, error } = await supabase
-          .from('agent_tool_grants')
-          .update({ is_active: false, updated_at: new Date().toISOString() })
-          .eq('agent_role', agentRole)
-          .eq('tool_name', toolName)
-          .eq('granted_by', 'chief-of-staff')
-          .select();
+        const data = await systemQuery(
+          'UPDATE agent_tool_grants SET is_active = false, updated_at = $1 WHERE agent_role = $2 AND tool_name = $3 AND granted_by = $4 RETURNING *',
+          [new Date().toISOString(), agentRole, toolName, 'chief-of-staff']);
 
-        if (error) return { success: false, error: error.message };
-
-        if (!data || data.length === 0) {
+        if (!data || (data as any[]).length === 0) {
           return {
             success: false,
             error: `No active dynamic grant found for ${agentRole}:${toolName}. System-granted (baseline) tools cannot be revoked via this tool.`,
@@ -1196,27 +1175,15 @@ export function createOrchestrationTools(
         const notify = (params.notify as string) || 'kristina';
 
         // 1. Insert the proposed directive
-        const insertData: Record<string, unknown> = {
-          title,
-          description,
-          priority,
-          category,
-          target_agents: targetAgents,
-          status: 'proposed',
-          proposed_by: 'chief-of-staff',
-          created_by: notify,
-          proposal_reason: proposalReason,
-        };
-        if (sourceDirectiveId) insertData.source_directive_id = sourceDirectiveId;
-        if (dueDate) insertData.due_date = dueDate;
+        const columns: string[] = ['title', 'description', 'priority', 'category', 'target_agents', 'status', 'proposed_by', 'created_by', 'proposal_reason'];
+        const insertValues: unknown[] = [title, description, priority, category, JSON.stringify(targetAgents), 'proposed', 'chief-of-staff', notify, proposalReason];
+        if (sourceDirectiveId) { columns.push('source_directive_id'); insertValues.push(sourceDirectiveId); }
+        if (dueDate) { columns.push('due_date'); insertValues.push(dueDate); }
+        const placeholders = insertValues.map((_, i) => `$${i + 1}`).join(', ');
 
-        const { data, error } = await supabase
-          .from('founder_directives')
-          .insert(insertData)
-          .select('id')
-          .single();
+        const [data] = await systemQuery(
+          `INSERT INTO founder_directives (${columns.join(', ')}) VALUES (${placeholders}) RETURNING id`, insertValues) as any[];
 
-        if (error) return { success: false, error: error.message };
         const directiveId = data.id;
 
         // 2. Send Teams DM to the target founder
@@ -1240,11 +1207,8 @@ export function createOrchestrationTools(
         }
 
         // 3. Log to activity_log
-        await supabase.from('activity_log').insert({
-          agent_id: ctx.agentRole,
-          action: 'directive_proposed',
-          detail: `Proposed directive: ${title} (${directiveId})`,
-        });
+        await systemQuery('INSERT INTO activity_log (agent_id, action, detail) VALUES ($1, $2, $3)',
+          [ctx.agentRole, 'directive_proposed', `Proposed directive: ${title} (${directiveId})`]);
 
         // 4. Return result
         return {

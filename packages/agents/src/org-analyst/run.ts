@@ -39,10 +39,9 @@ export async function runOrgAnalyst(params: OrgAnalystRunParams = {}) {
   });
   const runner = createRunner(modelClient, 'org-analyst', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
-  const supabase = memory.getSupabaseClient();
 
   const tools = [
     ...createOrgAnalystTools(),

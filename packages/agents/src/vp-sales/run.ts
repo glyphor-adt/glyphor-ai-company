@@ -49,7 +49,7 @@ export async function runVPSales(params: VPSalesRunParams = {}) {
   });
   const runner = createRunner(modelClient, 'vp-sales', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -110,8 +110,6 @@ Steps:
     default:
       initialMessage = params.message || 'Provide a sales analysis and pipeline summary.';
   }
-
-  const supabase = memory.getSupabaseClient();
   const agentCfg = await loadAgentConfig('vp-sales', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
 
   const config: AgentConfig = {

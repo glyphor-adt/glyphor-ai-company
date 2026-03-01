@@ -31,7 +31,7 @@ export async function runRevenueAnalyst(params: RevenueAnalystRunParams = {}) {
   const modelClient = new ModelClient({ geminiApiKey: process.env.GOOGLE_AI_API_KEY, openaiApiKey: process.env.OPENAI_API_KEY, anthropicApiKey: process.env.ANTHROPIC_API_KEY });
   const runner = createRunner(modelClient, 'revenue-analyst', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -60,8 +60,6 @@ export async function runRevenueAnalyst(params: RevenueAnalystRunParams = {}) {
     default:
       initialMessage = params.message || 'Run a revenue analysis.';
   }
-
-  const supabase = memory.getSupabaseClient();
   const agentCfg = await loadAgentConfig('revenue-analyst', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
 
   const config: AgentConfig = {

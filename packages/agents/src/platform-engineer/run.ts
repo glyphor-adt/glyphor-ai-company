@@ -45,7 +45,7 @@ export async function runPlatformEngineer(params: PlatformEngineerRunParams = {}
   });
   const runner = createRunner(modelClient, 'platform-engineer', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -98,8 +98,6 @@ Steps:
     default:
       initialMessage = params.message || 'Run a health check on all platform services.';
   }
-
-  const supabase = memory.getSupabaseClient();
   const agentCfg = await loadAgentConfig('platform-engineer', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
 
   const config: AgentConfig = {

@@ -5,9 +5,9 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
+import { systemQuery } from '@glyphor/shared/db';
 
 export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[] {
-  const supabase = memory.getSupabaseClient();
 
   return [
     // ── Workforce Audit ──
@@ -28,23 +28,29 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         const statusFilter = (params.status_filter as string) || 'active';
 
         // Fetch all agents
-        let agentsQuery = supabase.from('company_agents').select('*');
-        if (statusFilter !== 'all') agentsQuery = agentsQuery.eq('status', statusFilter);
-        const { data: agents, error: agentsErr } = await agentsQuery;
-        if (agentsErr) return { success: false, output: `Failed to fetch agents: ${agentsErr.message}` };
+        let agents: Record<string, unknown>[];
+        try {
+          if (statusFilter !== 'all') {
+            agents = await systemQuery('SELECT * FROM company_agents WHERE status = $1', [statusFilter]);
+          } else {
+            agents = await systemQuery('SELECT * FROM company_agents', []);
+          }
+        } catch (err) {
+          return { success: false, output: `Failed to fetch agents: ${(err as Error).message}` };
+        }
 
         // Fetch all profiles
-        const { data: profiles } = await supabase.from('agent_profiles').select('agent_role, personality_summary, backstory, avatar_url, communication_traits');
-        const profileMap = new Map((profiles || []).map((p: Record<string, unknown>) => [p.agent_role, p]));
+        const profiles = await systemQuery('SELECT agent_role, personality_summary, backstory, avatar_url, communication_traits FROM agent_profiles', []);
+        const profileMap = new Map(profiles.map((p: Record<string, unknown>) => [p.agent_role, p]));
 
         // Fetch all briefs
-        const { data: briefs } = await supabase.from('agent_briefs').select('agent_role, system_prompt');
-        const briefMap = new Map((briefs || []).map((b: Record<string, unknown>) => [b.agent_role, b]));
+        const briefs = await systemQuery('SELECT agent_role, system_prompt FROM agent_briefs', []);
+        const briefMap = new Map(briefs.map((b: Record<string, unknown>) => [b.agent_role, b]));
 
         const issues: Array<{ role: string; problems: string[] }> = [];
-        const validRoles = new Set((agents || []).map((a: Record<string, unknown>) => a.role));
+        const validRoles = new Set((agents).map((a: Record<string, unknown>) => a.role));
 
-        for (const agent of agents || []) {
+        for (const agent of agents) {
           const problems: string[] = [];
           const role = agent.role as string;
 
@@ -82,7 +88,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
           }
         }
 
-        const total = (agents || []).length;
+        const total = agents.length;
         const compliant = total - issues.length;
 
         return {
@@ -114,25 +120,15 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
       execute: async (params) => {
         const role = params.role as string;
 
-        const { data: agent, error: agentErr } = await supabase
-          .from('company_agents')
-          .select('*')
-          .eq('role', role)
-          .maybeSingle();
-        if (agentErr) return { success: false, output: `DB error: ${agentErr.message}` };
+        const agentRows = await systemQuery('SELECT * FROM company_agents WHERE role = $1', [role]);
+        const agent = agentRows[0] ?? null;
         if (!agent) return { success: false, output: `Agent "${role}" not found in company_agents.` };
 
-        const { data: profile } = await supabase
-          .from('agent_profiles')
-          .select('*')
-          .eq('agent_role', role)
-          .maybeSingle();
+        const profileRows = await systemQuery('SELECT * FROM agent_profiles WHERE agent_role = $1', [role]);
+        const profile = profileRows[0] ?? null;
 
-        const { data: brief } = await supabase
-          .from('agent_briefs')
-          .select('*')
-          .eq('agent_role', role)
-          .maybeSingle();
+        const briefRows = await systemQuery('SELECT * FROM agent_briefs WHERE agent_role = $1', [role]);
+        const brief = briefRows[0] ?? null;
 
         const checklist: Record<string, { pass: boolean; detail: string }> = {};
 
@@ -287,11 +283,18 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
           return { success: false, output: 'No fields provided to update.' };
         }
 
-        const { error } = await supabase
-          .from('agent_profiles')
-          .upsert({ agent_role: role, ...updateData }, { onConflict: 'agent_role' });
-
-        if (error) return { success: false, output: `Failed to update profile: ${error.message}` };
+        try {
+          const keys = Object.keys(updateData);
+          const allCols = ['agent_role', ...keys];
+          const placeholders = allCols.map((_, i) => `$${i + 1}`).join(', ');
+          const setClauses = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+          await systemQuery(
+            `INSERT INTO agent_profiles (${allCols.join(', ')}) VALUES (${placeholders}) ON CONFLICT (agent_role) DO UPDATE SET ${setClauses}`,
+            [role, ...keys.map(k => updateData[k])]
+          );
+        } catch (err) {
+          return { success: false, output: `Failed to update profile: ${(err as Error).message}` };
+        }
         return { success: true, output: `Profile for "${role}" updated: ${Object.keys(updateData).join(', ')}` };
       },
     },
@@ -316,12 +319,11 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         const role = params.role as string;
         const displayName = params.display_name as string;
 
-        const { error } = await supabase
-          .from('company_agents')
-          .update({ display_name: displayName, name: displayName })
-          .eq('role', role);
-
-        if (error) return { success: false, output: `Failed: ${error.message}` };
+        try {
+          await systemQuery('UPDATE company_agents SET display_name = $1, name = $1 WHERE role = $2', [displayName, role]);
+        } catch (err) {
+          return { success: false, output: `Failed: ${(err as Error).message}` };
+        }
         return { success: true, output: `Agent "${role}" display_name set to "${displayName}".` };
       },
     },
@@ -354,24 +356,20 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         }
 
         // Update agent status
-        const { error: agentErr } = await supabase
-          .from('company_agents')
-          .update({ status: 'retired' })
-          .eq('role', role);
-        if (agentErr) return { success: false, output: `Failed to retire: ${agentErr.message}` };
+        try {
+          await systemQuery('UPDATE company_agents SET status = $1 WHERE role = $2', ['retired', role]);
+        } catch (err) {
+          return { success: false, output: `Failed to retire: ${(err as Error).message}` };
+        }
 
         // Disable schedules
-        await supabase
-          .from('agent_schedules')
-          .update({ is_active: false })
-          .eq('agent_role', role);
+        await systemQuery('UPDATE agent_schedules SET is_active = $1 WHERE agent_role = $2', [false, role]);
 
         // Log activity
-        await supabase.from('activity_log').insert({
-          agent_role: 'head-of-hr',
-          action: 'agent_retired',
-          details: { retired_role: role, reason },
-        });
+        await systemQuery(
+          'INSERT INTO activity_log (agent_role, action, details) VALUES ($1, $2, $3)',
+          ['head-of-hr', 'agent_retired', JSON.stringify({ retired_role: role, reason })]
+        );
 
         return { success: true, output: `Agent "${role}" retired. Reason: ${reason}. Schedules disabled.` };
       },
@@ -391,18 +389,16 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
       execute: async (params) => {
         const role = params.role as string;
 
-        const { error } = await supabase
-          .from('company_agents')
-          .update({ status: 'active' })
-          .eq('role', role);
+        try {
+          await systemQuery('UPDATE company_agents SET status = $1 WHERE role = $2', ['active', role]);
+        } catch (err) {
+          return { success: false, output: `Failed: ${(err as Error).message}` };
+        }
 
-        if (error) return { success: false, output: `Failed: ${error.message}` };
-
-        await supabase.from('activity_log').insert({
-          agent_role: 'head-of-hr',
-          action: 'agent_reactivated',
-          details: { reactivated_role: role },
-        });
+        await systemQuery(
+          'INSERT INTO activity_log (agent_role, action, details) VALUES ($1, $2, $3)',
+          ['head-of-hr', 'agent_reactivated', JSON.stringify({ reactivated_role: role })]
+        );
 
         return { success: true, output: `Agent "${role}" reactivated.` };
       },
@@ -424,22 +420,16 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
 
         // Get active agents
-        const { data: agents } = await supabase
-          .from('company_agents')
-          .select('role, display_name, status')
-          .eq('status', 'active');
+        const agents = await systemQuery('SELECT role, display_name, status FROM company_agents WHERE status = $1', ['active']);
 
-        if (!agents || agents.length === 0) {
+        if (agents.length === 0) {
           return { success: true, output: 'No active agents found.' };
         }
 
         // Get recent runs
-        const { data: recentRuns } = await supabase
-          .from('agent_runs')
-          .select('agent_role, started_at')
-          .gte('started_at', cutoff);
+        const recentRuns = await systemQuery('SELECT agent_role, started_at FROM agent_runs WHERE started_at >= $1', [cutoff]);
 
-        const recentRoles = new Set((recentRuns || []).map((r: Record<string, unknown>) => r.agent_role));
+        const recentRoles = new Set(recentRuns.map((r: Record<string, unknown>) => r.agent_role));
 
         const stale = agents.filter((a: Record<string, unknown>) => !recentRoles.has(a.role));
 
@@ -478,22 +468,17 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         const manager = params.manager_role as string;
 
         // Verify manager exists
-        const { data: managerAgent } = await supabase
-          .from('company_agents')
-          .select('role')
-          .eq('role', manager)
-          .maybeSingle();
+        const [managerAgent] = await systemQuery('SELECT role FROM company_agents WHERE role = $1', [manager]);
 
         if (!managerAgent) {
           return { success: false, output: `Manager "${manager}" not found in company_agents.` };
         }
 
-        const { error } = await supabase
-          .from('company_agents')
-          .update({ reports_to: manager })
-          .eq('role', role);
-
-        if (error) return { success: false, output: `Failed: ${error.message}` };
+        try {
+          await systemQuery('UPDATE company_agents SET reports_to = $1 WHERE role = $2', [manager, role]);
+        } catch (err) {
+          return { success: false, output: `Failed: ${(err as Error).message}` };
+        }
         return { success: true, output: `Agent "${role}" now reports to "${manager}".` };
       },
     },
@@ -522,13 +507,14 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
           parsedDetails = { raw: params.details };
         }
 
-        const { error } = await supabase.from('activity_log').insert({
-          agent_role: 'head-of-hr',
-          action: params.action as string,
-          details: parsedDetails,
-        });
-
-        if (error) return { success: false, output: `Failed to write log: ${error.message}` };
+        try {
+          await systemQuery(
+            'INSERT INTO activity_log (agent_role, action, details) VALUES ($1, $2, $3)',
+            ['head-of-hr', params.action as string, JSON.stringify(parsedDetails)]
+          );
+        } catch (err) {
+          return { success: false, output: `Failed to write log: ${(err as Error).message}` };
+        }
         return { success: true, output: 'HR action logged.' };
       },
     },
@@ -596,9 +582,10 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
           const avatarUrl = `https://storage.googleapis.com/${bucketName}/${gcsPath}`;
 
           // Update agent_profiles with the new URL
-          await supabase
-            .from('agent_profiles')
-            .upsert({ agent_role: role, avatar_url: avatarUrl }, { onConflict: 'agent_role' });
+          await systemQuery(
+            'INSERT INTO agent_profiles (agent_role, avatar_url) VALUES ($1, $2) ON CONFLICT (agent_role) DO UPDATE SET avatar_url = $2',
+            [role, avatarUrl]
+          );
 
           return {
             success: true,
@@ -663,50 +650,31 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         }
 
         // Verify manager exists
-        const { data: mgr } = await supabase
-          .from('company_agents')
-          .select('role')
-          .eq('role', reportsTo)
-          .maybeSingle();
+        const [mgr] = await systemQuery('SELECT role FROM company_agents WHERE role = $1', [reportsTo]);
         if (!mgr) {
           return { success: false, output: `Manager "${reportsTo}" not found in company_agents.` };
         }
 
         // Check if agent already exists
-        const { data: existing } = await supabase
-          .from('company_agents')
-          .select('role')
-          .eq('role', role)
-          .maybeSingle();
+        const [existing] = await systemQuery('SELECT role FROM company_agents WHERE role = $1', [role]);
         if (existing) {
           return { success: false, output: `Agent "${role}" already exists. Use validate_agent to check its profile.` };
         }
 
-        const { error: insertErr } = await supabase
-          .from('company_agents')
-          .insert({
-            role,
-            display_name: name,
-            name,
-            title,
-            department,
-            reports_to: reportsTo,
-            model,
-            status: 'active',
-            is_core: false,
-            is_temporary: false,
-          });
-
-        if (insertErr) {
-          return { success: false, output: `Failed to provision agent: ${insertErr.message}` };
+        try {
+          await systemQuery(
+            'INSERT INTO company_agents (role, display_name, name, title, department, reports_to, model, status, is_core, is_temporary) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+            [role, name, name, title, department, reportsTo, model, 'active', false, false]
+          );
+        } catch (err) {
+          return { success: false, output: `Failed to provision agent: ${(err as Error).message}` };
         }
 
         // Log the provisioning
-        await supabase.from('activity_log').insert({
-          agent_role: 'head-of-hr',
-          action: 'agent_provisioned',
-          details: { role, name, title, department, reports_to: reportsTo },
-        });
+        await systemQuery(
+          'INSERT INTO activity_log (agent_role, action, details) VALUES ($1, $2, $3)',
+          ['head-of-hr', 'agent_provisioned', JSON.stringify({ role, name, title, department, reports_to: reportsTo })]
+        );
 
         return {
           success: true,
@@ -774,24 +742,18 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
           const cleaned = text.replace(/^```json\s*/, '').replace(/```\s*$/, '');
           const profile = JSON.parse(cleaned) as Record<string, unknown>;
 
-          const { error } = await supabase
-            .from('agent_profiles')
-            .upsert(
-              {
-                agent_role: role,
-                personality_summary: profile.personality_summary,
-                backstory: profile.backstory,
-                communication_traits: profile.communication_traits,
-                quirks: profile.quirks,
-                working_style: profile.working_style,
-                tone_formality: profile.tone_formality,
-                verbosity: profile.verbosity,
-                emoji_usage: profile.emoji_usage,
-              },
-              { onConflict: 'agent_role' },
+          try {
+            await systemQuery(
+              `INSERT INTO agent_profiles (agent_role, personality_summary, backstory, communication_traits, quirks, working_style, tone_formality, verbosity, emoji_usage)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               ON CONFLICT (agent_role) DO UPDATE SET
+                 personality_summary = $2, backstory = $3, communication_traits = $4, quirks = $5,
+                 working_style = $6, tone_formality = $7, verbosity = $8, emoji_usage = $9`,
+              [role, profile.personality_summary, profile.backstory, JSON.stringify(profile.communication_traits), JSON.stringify(profile.quirks), profile.working_style, profile.tone_formality, profile.verbosity, profile.emoji_usage]
             );
-
-          if (error) return { success: false, output: `DB upsert failed: ${error.message}` };
+          } catch (err) {
+            return { success: false, output: `DB upsert failed: ${(err as Error).message}` };
+          }
 
           return {
             success: true,

@@ -51,10 +51,9 @@ export async function runVPResearch(params: VPResearchRunParams = {}) {
   });
   const runner = createRunner(modelClient, 'vp-research', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
-  const supabase = memory.getSupabaseClient();
 
   const tools = [
     ...createVPResearchTools(),

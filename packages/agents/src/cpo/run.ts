@@ -51,7 +51,7 @@ export async function runCPO(params: CPORunParams = {}) {
   });
   const runner = createRunner(modelClient, 'cpo', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -114,8 +114,6 @@ Steps:
     default:
       initialMessage = params.message || 'Provide a product strategy summary for both Fuse and Pulse.';
   }
-
-  const supabase = memory.getSupabaseClient();
   const agentCfg = await loadAgentConfig('cpo', { model: 'gemini-3-flash-preview', temperature: 0.4, maxTurns: 10 }, task);
 
   const config: AgentConfig = {

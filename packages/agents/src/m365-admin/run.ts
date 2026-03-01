@@ -41,7 +41,7 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
   });
   const runner = createRunner(modelClient, 'm365-admin', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -72,8 +72,6 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
     default:
       initialMessage = params.message || 'Review Teams channels and user access for any issues.';
   }
-
-  const supabase = memory.getSupabaseClient();
   const agentCfg = await loadAgentConfig('m365-admin', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 12 });
 
   const config: AgentConfig = {

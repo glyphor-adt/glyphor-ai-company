@@ -51,7 +51,7 @@ export async function runCMO(params: CMORunParams = {}) {
   });
   const runner = createRunner(modelClient, 'cmo', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -125,8 +125,6 @@ Steps:
     default:
       initialMessage = params.message || 'Provide a content and marketing strategy summary.';
   }
-
-  const supabase = memory.getSupabaseClient();
   const agentCfg = await loadAgentConfig('cmo', { model: 'gemini-3-flash-preview', temperature: 0.6, maxTurns: 10 }, task);
 
   const config: AgentConfig = {

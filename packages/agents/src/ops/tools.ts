@@ -8,14 +8,13 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
+import { systemQuery } from '@glyphor/shared/db';
 import {
   GraphTeamsClient,
   TeamsDirectMessageClient,
 } from '@glyphor/integrations';
 
 export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
-  const supabase = memory.getSupabaseClient();
-
   // Initialize DM client for direct founder alerts
   let dmClient: TeamsDirectMessageClient | null = null;
   try {
@@ -42,18 +41,25 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         const limit = (params.limit as number) || 50;
         const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
 
-        let query = supabase
-          .from('agent_runs')
-          .select('*')
-          .gte('started_at', since)
-          .order('started_at', { ascending: false })
-          .limit(limit);
+        const conditions: string[] = ['started_at >= $1'];
+        const queryParams: unknown[] = [since];
+        let paramIdx = 2;
 
-        if (params.agent_id) query = query.eq('agent_id', params.agent_id as string);
-        if (params.status) query = query.eq('status', params.status as string);
+        if (params.agent_id) {
+          conditions.push(`agent_id = $${paramIdx++}`);
+          queryParams.push(params.agent_id as string);
+        }
+        if (params.status) {
+          conditions.push(`status = $${paramIdx++}`);
+          queryParams.push(params.status as string);
+        }
 
-        const { data, error } = await query;
-        if (error) return { success: false, error: error.message };
+        queryParams.push(limit);
+        const where = conditions.join(' AND ');
+        const data = await systemQuery(
+          `SELECT * FROM agent_runs WHERE ${where} ORDER BY started_at DESC LIMIT $${paramIdx}`,
+          queryParams,
+        );
         return { success: true, data };
       },
     },
@@ -63,23 +69,19 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
       description: 'Get health summary for all agents: last run time, status, quality score trend, cost MTD.',
       parameters: {},
       execute: async (): Promise<ToolResult> => {
-        const { data: agents, error: agErr } = await supabase
-          .from('company_agents')
-          .select('id, role, display_name, status, last_run_at, total_runs, total_cost_usd, performance_score');
-
-        if (agErr) return { success: false, error: agErr.message };
+        const agents = await systemQuery(
+          'SELECT id, role, display_name, status, last_run_at, total_runs, total_cost_usd, performance_score FROM company_agents',
+        );
 
         const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        const { data: recentRuns } = await supabase
-          .from('agent_runs')
-          .select('agent_id, status, cost, started_at')
-          .gte('started_at', since24h)
-          .order('started_at', { ascending: false });
+        const runs = await systemQuery(
+          'SELECT agent_id, status, cost, started_at FROM agent_runs WHERE started_at >= $1 ORDER BY started_at DESC',
+          [since24h],
+        );
 
-        const runs = recentRuns ?? [];
-        const health = (agents ?? []).map((agent) => {
-          const agentRuns = runs.filter((r) => r.agent_id === agent.id || r.agent_id === agent.role);
-          const failures = agentRuns.filter((r) => r.status === 'failed');
+        const health = agents.map((agent: Record<string, unknown>) => {
+          const agentRuns = runs.filter((r: Record<string, unknown>) => r.agent_id === agent.id || r.agent_id === agent.role);
+          const failures = agentRuns.filter((r: Record<string, unknown>) => r.status === 'failed');
           return {
             id: agent.id,
             role: agent.role,
@@ -104,11 +106,7 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
       description: 'Check when each data sync (Stripe, Mercury, GCP billing) last succeeded.',
       parameters: {},
       execute: async (): Promise<ToolResult> => {
-        const { data, error } = await supabase
-          .from('data_sync_status')
-          .select('*');
-
-        if (error) return { success: false, error: error.message };
+        const data = await systemQuery('SELECT * FROM data_sync_status');
         return { success: true, data };
       },
     },
@@ -123,22 +121,19 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         const hours = (params.hours as number) || 6;
         const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
 
-        const { data, error } = await supabase
-          .from('events')
-          .select('id, type, source, priority, timestamp, processed_by')
-          .gte('timestamp', since)
-          .order('timestamp', { ascending: false });
+        const data = await systemQuery(
+          'SELECT id, type, source, priority, timestamp, processed_by FROM events WHERE timestamp >= $1 ORDER BY timestamp DESC',
+          [since],
+        );
 
-        if (error) return { success: false, error: error.message };
-
-        const unprocessed = (data ?? []).filter(
-          (e) => !e.processed_by || (e.processed_by as string[]).length === 0,
+        const unprocessed = data.filter(
+          (e: Record<string, unknown>) => !e.processed_by || (e.processed_by as string[]).length === 0,
         );
 
         return {
           success: true,
           data: {
-            total_events: (data ?? []).length,
+            total_events: data.length,
             unprocessed_count: unprocessed.length,
             unprocessed: unprocessed.slice(0, 20),
           },
@@ -158,22 +153,26 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         const periodMs = period === '1h' ? 3600000 : period === '24h' ? 86400000 : 604800000;
         const since = new Date(Date.now() - periodMs).toISOString();
 
-        let query = supabase
-          .from('agent_runs')
-          .select('agent_id, cost, started_at')
-          .gte('started_at', since)
-          .not('cost', 'is', null);
+        const conditions: string[] = ['started_at >= $1', 'cost IS NOT NULL'];
+        const queryParams: unknown[] = [since];
+        let paramIdx = 2;
 
-        if (params.agent_id) query = query.eq('agent_id', params.agent_id as string);
+        if (params.agent_id) {
+          conditions.push(`agent_id = $${paramIdx++}`);
+          queryParams.push(params.agent_id as string);
+        }
 
-        const { data, error } = await query;
-        if (error) return { success: false, error: error.message };
+        const where = conditions.join(' AND ');
+        const data = await systemQuery(
+          `SELECT agent_id, cost, started_at FROM agent_runs WHERE ${where}`,
+          queryParams,
+        );
 
         // Group by agent
         const byAgent = new Map<string, number>();
-        for (const run of data ?? []) {
-          const cost = byAgent.get(run.agent_id) ?? 0;
-          byAgent.set(run.agent_id, cost + (run.cost ?? 0));
+        for (const run of data) {
+          const cost = byAgent.get(run.agent_id as string) ?? 0;
+          byAgent.set(run.agent_id as string, cost + (Number(run.cost) ?? 0));
         }
 
         const trends = Array.from(byAgent.entries()).map(([id, cost]) => ({
@@ -199,12 +198,10 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
       execute: async (params): Promise<ToolResult> => {
         // Log the trigger request — the scheduler server will
         // handle the actual execution via the /run endpoint
-        await supabase.from('activity_log').insert({
-          agent_id: 'ops',
-          action: 'agent.triggered',
-          detail: `Atlas triggered ${params.agent_role}: ${params.reason}`,
-          created_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',
+          ['ops', 'agent.triggered', `Atlas triggered ${params.agent_role}: ${params.reason}`, new Date().toISOString()],
+        );
 
         return {
           success: true,
@@ -225,22 +222,20 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         run_id: { type: 'string', description: 'The failed run ID to retry', required: true },
       },
       execute: async (params): Promise<ToolResult> => {
-        const { data: run, error } = await supabase
-          .from('agent_runs')
-          .select('*')
-          .eq('id', params.run_id)
-          .single();
+        const rows = await systemQuery(
+          'SELECT * FROM agent_runs WHERE id = $1',
+          [params.run_id],
+        );
 
-        if (error || !run) return { success: false, error: error?.message ?? 'Run not found' };
+        const run = rows[0];
+        if (!run) return { success: false, error: 'Run not found' };
         if (run.status !== 'failed') return { success: false, error: `Run status is "${run.status}", not "failed"` };
 
         // Log retry attempt
-        await supabase.from('activity_log').insert({
-          agent_id: 'ops',
-          action: 'run.retried',
-          detail: `Atlas retrying run ${params.run_id} for agent ${run.agent_id}`,
-          created_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',
+          ['ops', 'run.retried', `Atlas retrying run ${params.run_id} for agent ${run.agent_id}`, new Date().toISOString()],
+        );
 
         return {
           success: true,
@@ -263,12 +258,10 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
       execute: async (params): Promise<ToolResult> => {
         const syncType = params.sync_type as string;
 
-        await supabase.from('activity_log').insert({
-          agent_id: 'ops',
-          action: 'sync.retried',
-          detail: `Atlas retrying ${syncType} data sync`,
-          created_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',
+          ['ops', 'sync.retried', `Atlas retrying ${syncType} data sync`, new Date().toISOString()],
+        );
 
         return {
           success: true,
@@ -306,30 +299,23 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
         // Guard: cooldown — don't re-pause an agent that was resumed in the last 2 hours
         const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-        const { data: recentResume } = await supabase
-          .from('activity_log')
-          .select('created_at')
-          .eq('action', 'agent.resumed')
-          .gte('created_at', twoHoursAgo)
-          .limit(1);
-        if (recentResume && recentResume.length > 0) {
+        const recentResume = await systemQuery(
+          'SELECT created_at FROM activity_log WHERE action = $1 AND created_at >= $2 LIMIT 1',
+          ['agent.resumed', twoHoursAgo],
+        );
+        if (recentResume.length > 0) {
           return { success: false, error: `Agent "${agentId}" was resumed within the last 2 hours. Allow more time before re-pausing.` };
         }
 
-        const { error } = await supabase
-          .from('company_agents')
-          .update({ status: 'paused' })
-          .eq('role', agentId);
+        await systemQuery(
+          'UPDATE company_agents SET status = $1 WHERE role = $2',
+          ['paused', agentId],
+        );
 
-        if (error) return { success: false, error: error.message };
-
-        await supabase.from('activity_log').insert({
-          agent_role: 'ops',
-          action: 'agent.paused',
-          summary: `Atlas paused ${params.agent_id}: ${params.reason}`,
-          tier: 'yellow',
-          created_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          'INSERT INTO activity_log (agent_role, action, summary, tier, created_at) VALUES ($1, $2, $3, $4, $5)',
+          ['ops', 'agent.paused', `Atlas paused ${params.agent_id}: ${params.reason}`, 'yellow', new Date().toISOString()],
+        );
 
         return { success: true, data: { agent_id: params.agent_id, paused: true, reason: params.reason } };
       },
@@ -342,20 +328,15 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         agent_id: { type: 'string', description: 'The agent ID to resume', required: true },
       },
       execute: async (params): Promise<ToolResult> => {
-        const { error } = await supabase
-          .from('company_agents')
-          .update({ status: 'active' })
-          .eq('role', params.agent_id as string);
+        await systemQuery(
+          'UPDATE company_agents SET status = $1 WHERE role = $2',
+          ['active', params.agent_id as string],
+        );
 
-        if (error) return { success: false, error: error.message };
-
-        await supabase.from('activity_log').insert({
-          agent_role: 'ops',
-          action: 'agent.resumed',
-          summary: `Atlas resumed ${params.agent_id}`,
-          tier: 'green',
-          created_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          'INSERT INTO activity_log (agent_role, action, summary, tier, created_at) VALUES ($1, $2, $3, $4, $5)',
+          ['ops', 'agent.resumed', `Atlas resumed ${params.agent_id}`, 'green', new Date().toISOString()],
+        );
 
         return { success: true, data: { agent_id: params.agent_id, resumed: true } };
       },
@@ -373,30 +354,25 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         affected_agents: { type: 'array', description: 'Agent IDs affected', required: false, items: { type: 'string', description: 'Agent ID' } },
       },
       execute: async (params): Promise<ToolResult> => {
-        const { data, error } = await supabase
-          .from('incidents')
-          .insert({
-            severity: params.severity as string,
-            title: params.title as string,
-            description: params.description as string,
-            affected_agents: (params.affected_agents as string[]) ?? [],
-            status: 'open',
-            created_by: 'atlas',
-            created_at: new Date().toISOString(),
-          })
-          .select('id')
-          .single();
+        const rows = await systemQuery(
+          'INSERT INTO incidents (severity, title, description, affected_agents, status, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+          [
+            params.severity as string,
+            params.title as string,
+            params.description as string,
+            JSON.stringify((params.affected_agents as string[]) ?? []),
+            'open',
+            'atlas',
+            new Date().toISOString(),
+          ],
+        );
 
-        if (error) return { success: false, error: error.message };
+        await systemQuery(
+          'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',
+          ['ops', 'incident.created', `[${params.severity}] ${params.title}`, new Date().toISOString()],
+        );
 
-        await supabase.from('activity_log').insert({
-          agent_id: 'ops',
-          action: 'incident.created',
-          detail: `[${params.severity}] ${params.title}`,
-          created_at: new Date().toISOString(),
-        });
-
-        return { success: true, data: { incident_id: data.id, severity: params.severity, title: params.title } };
+        return { success: true, data: { incident_id: rows[0].id, severity: params.severity, title: params.title } };
       },
     },
 
@@ -409,24 +385,15 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         resolution: { type: 'string', description: 'How it was resolved', required: true },
       },
       execute: async (params): Promise<ToolResult> => {
-        const { error } = await supabase
-          .from('incidents')
-          .update({
-            status: 'resolved',
-            root_cause: params.root_cause as string,
-            resolution: params.resolution as string,
-            resolved_at: new Date().toISOString(),
-          })
-          .eq('id', params.incident_id as string);
+        await systemQuery(
+          'UPDATE incidents SET status = $1, root_cause = $2, resolution = $3, resolved_at = $4 WHERE id = $5',
+          ['resolved', params.root_cause as string, params.resolution as string, new Date().toISOString(), params.incident_id as string],
+        );
 
-        if (error) return { success: false, error: error.message };
-
-        await supabase.from('activity_log').insert({
-          agent_id: 'ops',
-          action: 'incident.resolved',
-          detail: `Resolved: ${params.resolution}`,
-          created_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',
+          ['ops', 'incident.resolved', `Resolved: ${params.resolution}`, new Date().toISOString()],
+        );
 
         return { success: true, data: { incident_id: params.incident_id, resolved: true } };
       },
@@ -444,40 +411,33 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params): Promise<ToolResult> => {
         // Gather current health data for the snapshot
-        const { data: agents } = await supabase
-          .from('company_agents')
-          .select('id, role, status, last_run_at, performance_score');
+        const agents = await systemQuery(
+          'SELECT id, role, status, last_run_at, performance_score FROM company_agents',
+        );
 
-        const { data: syncs } = await supabase
-          .from('data_sync_status')
-          .select('*');
+        const syncs = await systemQuery('SELECT * FROM data_sync_status');
 
-        const { data: statusRow, error } = await supabase
-          .from('system_status')
-          .insert({
-            status: params.status as string,
-            summary: params.summary as string,
-            details: (params.details as string) ?? null,
-            agent_health: agents ?? [],
-            data_freshness: syncs ?? [],
-            cost_anomalies: [],
-            created_at: new Date().toISOString(),
-          })
-          .select('id')
-          .single();
+        const statusRows = await systemQuery(
+          'INSERT INTO system_status (status, summary, details, agent_health, data_freshness, cost_anomalies, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+          [
+            params.status as string,
+            params.summary as string,
+            (params.details as string) ?? null,
+            JSON.stringify(agents),
+            JSON.stringify(syncs),
+            JSON.stringify([]),
+            new Date().toISOString(),
+          ],
+        );
 
-        if (error) return { success: false, error: error.message };
-
-        await supabase.from('activity_log').insert({
-          agent_id: 'ops',
-          action: 'system.status',
-          detail: `[${(params.status as string).toUpperCase()}] ${params.summary}`,
-          created_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',
+          ['ops', 'system.status', `[${(params.status as string).toUpperCase()}] ${params.summary}`, new Date().toISOString()],
+        );
 
         return {
           success: true,
-          data: { status_id: statusRow.id, status: params.status, summary: params.summary },
+          data: { status_id: statusRows[0].id, status: params.status, summary: params.summary },
           memoryKeysWritten: 1,
         };
       },
@@ -498,80 +458,85 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         const dayEnd = `${date}T23:59:59.999Z`;
 
         // Get all active agents
-        const { data: agents } = await supabase
-          .from('company_agents')
-          .select('role')
-          .eq('status', 'active');
+        const agents = await systemQuery(
+          "SELECT role FROM company_agents WHERE status = 'active'",
+        );
 
-        if (!agents?.length) return { success: true, data: { message: 'No active agents', date } };
+        if (!agents.length) return { success: true, data: { message: 'No active agents', date } };
 
         let rolledUp = 0;
         for (const agent of agents) {
-          const { data: runs } = await supabase
-            .from('agent_runs')
-            .select('*')
-            .eq('agent_id', agent.role)
-            .gte('started_at', dayStart)
-            .lte('started_at', dayEnd);
+          const runs = await systemQuery(
+            'SELECT * FROM agent_runs WHERE agent_id = $1 AND started_at >= $2 AND started_at <= $3',
+            [agent.role, dayStart, dayEnd],
+          );
 
-          if (!runs?.length) continue;
+          if (!runs.length) continue;
 
           const totalRuns = runs.length;
-          const successful = runs.filter((r) => r.status === 'completed').length;
-          const failed = runs.filter((r) => r.status === 'failed').length;
-          const costs = runs.map((r) => Number(r.cost) || 0);
-          const durations = runs.filter((r) => r.duration_ms != null).map((r) => r.duration_ms as number);
-          const toolCalls = runs.reduce((s, r) => s + (r.tool_calls ?? 0), 0);
+          const successful = runs.filter((r: Record<string, unknown>) => r.status === 'completed').length;
+          const failed = runs.filter((r: Record<string, unknown>) => r.status === 'failed').length;
+          const costs = runs.map((r: Record<string, unknown>) => Number(r.cost) || 0);
+          const durations = runs.filter((r: Record<string, unknown>) => r.duration_ms != null).map((r: Record<string, unknown>) => r.duration_ms as number);
+          const toolCalls = runs.reduce((s: number, r: Record<string, unknown>) => s + ((r.tool_calls as number) ?? 0), 0);
 
           // Get quality scores from reflections for this day
-          const { data: reflections } = await supabase
-            .from('agent_reflections')
-            .select('quality_score')
-            .eq('agent_role', agent.role)
-            .gte('created_at', dayStart)
-            .lte('created_at', dayEnd);
+          const reflections = await systemQuery(
+            'SELECT quality_score FROM agent_reflections WHERE agent_role = $1 AND created_at >= $2 AND created_at <= $3',
+            [agent.role, dayStart, dayEnd],
+          );
 
-          const scores = (reflections ?? []).map((r) => r.quality_score).filter((s): s is number => s != null);
+          const scores = reflections.map((r: Record<string, unknown>) => r.quality_score).filter((s: unknown): s is number => s != null);
 
           // Get decisions and incidents
-          const { count: decisionCount } = await supabase
-            .from('decisions')
-            .select('id', { count: 'exact', head: true })
-            .eq('agent_role', agent.role)
-            .gte('created_at', dayStart)
-            .lte('created_at', dayEnd);
+          const [{ count: decisionCount }] = await systemQuery<{ count: number }>(
+            'SELECT COUNT(*)::int as count FROM decisions WHERE agent_role = $1 AND created_at >= $2 AND created_at <= $3',
+            [agent.role, dayStart, dayEnd],
+          );
 
-          const { count: incidentsCreated } = await supabase
-            .from('incidents')
-            .select('id', { count: 'exact', head: true })
-            .eq('created_by', agent.role)
-            .gte('created_at', dayStart)
-            .lte('created_at', dayEnd);
+          const [{ count: incidentsCreated }] = await systemQuery<{ count: number }>(
+            'SELECT COUNT(*)::int as count FROM incidents WHERE created_by = $1 AND created_at >= $2 AND created_at <= $3',
+            [agent.role, dayStart, dayEnd],
+          );
 
-          const { count: incidentsResolved } = await supabase
-            .from('incidents')
-            .select('id', { count: 'exact', head: true })
-            .eq('created_by', agent.role)
-            .not('resolved_at', 'is', null)
-            .gte('resolved_at', dayStart)
-            .lte('resolved_at', dayEnd);
+          const [{ count: incidentsResolved }] = await systemQuery<{ count: number }>(
+            'SELECT COUNT(*)::int as count FROM incidents WHERE created_by = $1 AND resolved_at IS NOT NULL AND resolved_at >= $2 AND resolved_at <= $3',
+            [agent.role, dayStart, dayEnd],
+          );
 
-          await supabase.from('agent_performance').upsert({
-            agent_id: agent.role,
-            date,
-            total_runs: totalRuns,
-            successful_runs: successful,
-            failed_runs: failed,
-            total_cost: costs.reduce((a, b) => a + b, 0),
-            avg_duration_ms: durations.length ? durations.reduce((a, b) => a + b, 0) / durations.length : null,
-            avg_quality_score: scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null,
-            max_quality_score: scores.length ? Math.max(...scores) : null,
-            min_quality_score: scores.length ? Math.min(...scores) : null,
-            total_tool_calls: toolCalls,
-            decisions_filed: decisionCount ?? 0,
-            incidents_created: incidentsCreated ?? 0,
-            incidents_resolved: incidentsResolved ?? 0,
-          }, { onConflict: 'agent_id,date' });
+          await systemQuery(
+            `INSERT INTO agent_performance (agent_id, date, total_runs, successful_runs, failed_runs, total_cost, avg_duration_ms, avg_quality_score, max_quality_score, min_quality_score, total_tool_calls, decisions_filed, incidents_created, incidents_resolved)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+             ON CONFLICT (agent_id, date) DO UPDATE SET
+               total_runs = EXCLUDED.total_runs,
+               successful_runs = EXCLUDED.successful_runs,
+               failed_runs = EXCLUDED.failed_runs,
+               total_cost = EXCLUDED.total_cost,
+               avg_duration_ms = EXCLUDED.avg_duration_ms,
+               avg_quality_score = EXCLUDED.avg_quality_score,
+               max_quality_score = EXCLUDED.max_quality_score,
+               min_quality_score = EXCLUDED.min_quality_score,
+               total_tool_calls = EXCLUDED.total_tool_calls,
+               decisions_filed = EXCLUDED.decisions_filed,
+               incidents_created = EXCLUDED.incidents_created,
+               incidents_resolved = EXCLUDED.incidents_resolved`,
+            [
+              agent.role,
+              date,
+              totalRuns,
+              successful,
+              failed,
+              costs.reduce((a, b) => a + b, 0),
+              durations.length ? durations.reduce((a, b) => a + b, 0) / durations.length : null,
+              scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null,
+              scores.length ? Math.max(...scores) : null,
+              scores.length ? Math.min(...scores) : null,
+              toolCalls,
+              decisionCount ?? 0,
+              incidentsCreated ?? 0,
+              incidentsResolved ?? 0,
+            ],
+          );
 
           rolledUp++;
         }
@@ -585,9 +550,9 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
       description: 'Recompute the composite performance_score on company_agents from trailing 30-day data (success rate, reflection quality, assignment quality). Run after daily rollup.',
       parameters: {},
       execute: async (): Promise<ToolResult> => {
-        const { data, error } = await supabase.rpc('compute_performance_scores');
-        if (error) return { success: false, error: error.message };
-        const results = (data as Array<{ agent_role: string; new_score: number | null }>) ?? [];
+        const results = await systemQuery<{ agent_role: string; new_score: number | null }>(
+          'SELECT * FROM compute_performance_scores()',
+        );
         const updated = results.filter((r) => r.new_score != null);
         return {
           success: true,
@@ -608,23 +573,29 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
       execute: async (params): Promise<ToolResult> => {
         const filter = params.agent_id as string | undefined;
 
-        let query = supabase
-          .from('agent_performance')
-          .select('agent_id, date, total_runs, successful_runs, failed_runs, avg_quality_score, total_cost')
-          .order('date', { ascending: false })
-          .limit(60);
+        const conditions: string[] = [];
+        const queryParams: unknown[] = [];
+        let paramIdx = 1;
 
-        if (filter) query = query.eq('agent_id', filter);
+        if (filter) {
+          conditions.push(`agent_id = $${paramIdx++}`);
+          queryParams.push(filter);
+        }
 
-        const { data: perfRows } = await query;
-        if (!perfRows?.length) return { success: true, data: { milestones: [] } };
+        queryParams.push(60);
+        const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+        const perfRows = await systemQuery(
+          `SELECT agent_id, date, total_runs, successful_runs, failed_runs, avg_quality_score, total_cost FROM agent_performance ${where} ORDER BY date DESC LIMIT $${paramIdx}`,
+          queryParams,
+        );
+        if (!perfRows.length) return { success: true, data: { milestones: [] } };
 
         // Group by agent
         const byAgent = new Map<string, typeof perfRows>();
         for (const row of perfRows) {
-          const arr = byAgent.get(row.agent_id) ?? [];
+          const arr = byAgent.get(row.agent_id as string) ?? [];
           arr.push(row);
-          byAgent.set(row.agent_id, arr);
+          byAgent.set(row.agent_id as string, arr);
         }
 
         const milestones: { agent_id: string; type: string; title: string; description: string }[] = [];
@@ -632,17 +603,15 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         for (const [agentId, rows] of byAgent) {
           if (rows.length < 2) continue;
           const latest = rows[0];
-          const totalRuns = rows.reduce((s, r) => s + r.total_runs, 0);
+          const totalRuns = rows.reduce((s, r) => s + (r.total_runs as number), 0);
 
           // First: 100th run
           if (totalRuns >= 100) {
-            const { data: existing } = await supabase
-              .from('agent_milestones')
-              .select('id')
-              .eq('agent_id', agentId)
-              .eq('title', '100 Runs Completed')
-              .limit(1);
-            if (!existing?.length) {
+            const existing = await systemQuery(
+              "SELECT id FROM agent_milestones WHERE agent_id = $1 AND title = '100 Runs Completed' LIMIT 1",
+              [agentId],
+            );
+            if (!existing.length) {
               milestones.push({
                 agent_id: agentId,
                 type: 'achievement',
@@ -653,7 +622,7 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
           }
 
           // Perfect day (5+ runs, 0 failures)
-          if (latest.total_runs >= 5 && latest.failed_runs === 0) {
+          if ((latest.total_runs as number) >= 5 && latest.failed_runs === 0) {
             milestones.push({
               agent_id: agentId,
               type: 'achievement',
@@ -663,17 +632,17 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
           }
 
           // Quality spike (latest quality >= 90)
-          if (latest.avg_quality_score != null && latest.avg_quality_score >= 90) {
+          if (latest.avg_quality_score != null && (latest.avg_quality_score as number) >= 90) {
             milestones.push({
               agent_id: agentId,
               type: 'achievement',
               title: 'Quality Spike',
-              description: `Quality score hit ${Math.round(latest.avg_quality_score)} on ${latest.date}`,
+              description: `Quality score hit ${Math.round(latest.avg_quality_score as number)} on ${latest.date}`,
             });
           }
 
           // High failure rate (> 50% failures, 3+ runs)
-          if (latest.total_runs >= 3 && latest.failed_runs > latest.total_runs * 0.5) {
+          if ((latest.total_runs as number) >= 3 && (latest.failed_runs as number) > (latest.total_runs as number) * 0.5) {
             milestones.push({
               agent_id: agentId,
               type: 'incident',
@@ -685,13 +654,10 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
         // Write milestones
         for (const m of milestones) {
-          await supabase.from('agent_milestones').insert({
-            agent_id: m.agent_id,
-            type: m.type,
-            title: m.title,
-            description: m.description,
-            created_at: new Date().toISOString(),
-          });
+          await systemQuery(
+            'INSERT INTO agent_milestones (agent_id, type, title, description, created_at) VALUES ($1, $2, $3, $4, $5)',
+            [m.agent_id, m.type, m.title, m.description, new Date().toISOString()],
+          );
         }
 
         return { success: true, data: { milestones_created: milestones.length, milestones } };
@@ -710,32 +676,28 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         const currentStart = new Date(now.getTime() - periodDays * 86400000).toISOString().split('T')[0];
         const previousStart = new Date(now.getTime() - periodDays * 2 * 86400000).toISOString().split('T')[0];
 
-        const { data: agents } = await supabase
-          .from('company_agents')
-          .select('role')
-          .eq('status', 'active');
+        const agents = await systemQuery(
+          "SELECT role FROM company_agents WHERE status = 'active'",
+        );
 
-        if (!agents?.length) return { success: true, data: { message: 'No active agents' } };
+        if (!agents.length) return { success: true, data: { message: 'No active agents' } };
 
         let updated = 0;
 
         for (const agent of agents) {
           // Current period
-          const { data: currentRows } = await supabase
-            .from('agent_performance')
-            .select('avg_quality_score, total_runs, successful_runs, failed_runs, total_cost, avg_duration_ms')
-            .eq('agent_id', agent.role)
-            .gte('date', currentStart);
+          const currentRows = await systemQuery(
+            'SELECT avg_quality_score, total_runs, successful_runs, failed_runs, total_cost, avg_duration_ms FROM agent_performance WHERE agent_id = $1 AND date >= $2',
+            [agent.role, currentStart],
+          );
 
           // Previous period
-          const { data: prevRows } = await supabase
-            .from('agent_performance')
-            .select('avg_quality_score, total_runs, successful_runs, failed_runs, total_cost, avg_duration_ms')
-            .eq('agent_id', agent.role)
-            .gte('date', previousStart)
-            .lt('date', currentStart);
+          const prevRows = await systemQuery(
+            'SELECT avg_quality_score, total_runs, successful_runs, failed_runs, total_cost, avg_duration_ms FROM agent_performance WHERE agent_id = $1 AND date >= $2 AND date < $3',
+            [agent.role, previousStart, currentStart],
+          );
 
-          if (!currentRows?.length || !prevRows?.length) continue;
+          if (!currentRows.length || !prevRows.length) continue;
 
           const avg = (rows: typeof currentRows, key: string) => {
             const vals = rows.map((r) => Number((r as Record<string, unknown>)[key]) || 0);
@@ -744,7 +706,7 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
           const dimensions = [
             { dimension: 'quality', current: avg(currentRows, 'avg_quality_score'), previous: avg(prevRows, 'avg_quality_score') },
-            { dimension: 'reliability', current: currentRows.reduce((s, r) => s + r.successful_runs, 0) / Math.max(1, currentRows.reduce((s, r) => s + r.total_runs, 0)), previous: prevRows.reduce((s, r) => s + r.successful_runs, 0) / Math.max(1, prevRows.reduce((s, r) => s + r.total_runs, 0)) },
+            { dimension: 'reliability', current: currentRows.reduce((s, r) => s + (r.successful_runs as number), 0) / Math.max(1, currentRows.reduce((s, r) => s + (r.total_runs as number), 0)), previous: prevRows.reduce((s, r) => s + (r.successful_runs as number), 0) / Math.max(1, prevRows.reduce((s, r) => s + (r.total_runs as number), 0)) },
             { dimension: 'efficiency', current: avg(currentRows, 'avg_duration_ms'), previous: avg(prevRows, 'avg_duration_ms') },
             { dimension: 'cost-efficiency', current: avg(currentRows, 'total_cost'), previous: avg(prevRows, 'total_cost') },
           ];
@@ -761,16 +723,27 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
                 : d.current < d.previous * (1 - threshold) ? 'declining' : 'stable';
             }
 
-            await supabase.from('agent_growth').upsert({
-              agent_id: agent.role,
-              dimension: d.dimension,
-              direction,
-              current_value: parseFloat(d.current.toFixed(4)),
-              previous_value: parseFloat(d.previous.toFixed(4)),
-              period: `${periodDays}d`,
-              evidence: `Current: ${d.current.toFixed(2)}, Previous: ${d.previous.toFixed(2)}`,
-              updated_at: new Date().toISOString(),
-            }, { onConflict: 'agent_id,dimension' });
+            await systemQuery(
+              `INSERT INTO agent_growth (agent_id, dimension, direction, current_value, previous_value, period, evidence, updated_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+               ON CONFLICT (agent_id, dimension) DO UPDATE SET
+                 direction = EXCLUDED.direction,
+                 current_value = EXCLUDED.current_value,
+                 previous_value = EXCLUDED.previous_value,
+                 period = EXCLUDED.period,
+                 evidence = EXCLUDED.evidence,
+                 updated_at = EXCLUDED.updated_at`,
+              [
+                agent.role,
+                d.dimension,
+                direction,
+                parseFloat(d.current.toFixed(4)),
+                parseFloat(d.previous.toFixed(4)),
+                `${periodDays}d`,
+                `Current: ${d.current.toFixed(2)}, Previous: ${d.previous.toFixed(2)}`,
+                new Date().toISOString(),
+              ],
+            );
           }
 
           updated++;
@@ -809,12 +782,10 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         const recipient = params.recipient as 'kristina' | 'andrew';
         await dmClient.sendText(recipient, params.message as string, 'Atlas Vega');
 
-        await supabase.from('activity_log').insert({
-          agent_id: 'ops',
-          action: 'dm.sent',
-          detail: `Atlas DM to ${recipient}: ${(params.message as string).slice(0, 100)}`,
-          created_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',
+          ['ops', 'dm.sent', `Atlas DM to ${recipient}: ${(params.message as string).slice(0, 100)}`, new Date().toISOString()],
+        );
 
         return { success: true, data: { sent: true, recipient } };
       },

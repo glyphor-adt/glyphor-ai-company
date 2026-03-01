@@ -39,10 +39,9 @@ export async function runAIImpactAnalyst(params: AIImpactAnalystRunParams = {}) 
   });
   const runner = createRunner(modelClient, 'ai-impact-analyst', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
-  const supabase = memory.getSupabaseClient();
 
   const tools = [
     ...createAIImpactAnalystTools(),

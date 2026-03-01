@@ -51,7 +51,7 @@ export async function runCLO(params: CLORunParams = {}) {
   });
   const runner = createRunner(modelClient, 'clo', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -117,8 +117,6 @@ IMPORTANT: Only assert findings about live product features (e.g. footer links, 
     default:
       initialMessage = params.message || 'Provide a legal health summary covering current compliance status, pending legal items, and any regulatory developments requiring attention.';
   }
-
-  const supabase = memory.getSupabaseClient();
   const agentCfg = await loadAgentConfig('clo', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
 
   const config: AgentConfig = {

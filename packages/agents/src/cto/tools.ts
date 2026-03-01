@@ -8,6 +8,7 @@
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
+import { systemQuery } from '@glyphor/shared/db';
 import {
   queryCloudRunMetrics,
   pingServices,
@@ -163,11 +164,10 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         let billingSyncStatus: string = 'unknown';
         let lastBillingSync: string | null = null;
         try {
-          const { data: syncStatus } = await memory.getSupabaseClient()
-            .from('data_sync_status')
-            .select('status, last_success_at')
-            .eq('id', 'gcp-billing')
-            .single();
+          const rows = await systemQuery<{ status: string; last_success_at: string | null }>(
+            'SELECT status, last_success_at FROM data_sync_status WHERE id=$1', ['gcp-billing'],
+          );
+          const syncStatus = rows[0];
           billingSyncStatus = syncStatus?.status ?? 'unknown';
           lastBillingSync = syncStatus?.last_success_at ?? null;
         } catch { /* ignore */ }
@@ -831,13 +831,12 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       parameters: {},
       execute: async (_params, _ctx): Promise<ToolResult> => {
         try {
-          const supabase = memory.getSupabaseClient();
           const start = Date.now();
-          const { data, error } = await supabase.from('company_agents').select('role').limit(1);
+          await systemQuery('SELECT role FROM company_agents LIMIT 1');
           const latencyMs = Date.now() - start;
           return {
             success: true,
-            data: { connected: !error, queryLatencyMs: latencyMs, error: error?.message, checkedAt: new Date().toISOString() },
+            data: { connected: true, queryLatencyMs: latencyMs, checkedAt: new Date().toISOString() },
           };
         } catch (err) {
           return { success: false, error: (err as Error).message };
@@ -883,29 +882,46 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const supabase = memory.getSupabaseClient();
           const table = params.table as string;
           const selectCols = (params.select as string) || '*';
           const limit = Math.min((params.limit as number) || 25, 100);
 
-          let query = supabase.from(table).select(selectCols);
+          const ALLOWED_TABLES = [
+            'company_agents', 'agent_schedules', 'agent_runs', 'agent_performance',
+            'agent_memory', 'agent_reflections', 'activity_log', 'work_assignments',
+            'decisions', 'agent_messages', 'infrastructure_metrics', 'gcp_billing',
+            'products', 'financials', 'company_profile',
+          ];
+          if (!ALLOWED_TABLES.includes(table)) {
+            return { success: false, error: `Table "${table}" is not in the allowed list.` };
+          }
+
+          const conditions: string[] = [];
+          const queryParams: unknown[] = [];
+          let paramIndex = 1;
 
           const filters = params.filters as Record<string, string> | undefined;
           if (filters) {
             for (const [col, val] of Object.entries(filters)) {
-              query = query.eq(col, val);
+              conditions.push(`${col}=$${paramIndex++}`);
+              queryParams.push(val);
             }
           }
 
-          if (params.order_by) {
-            query = query.order(params.order_by as string, { ascending: false });
+          let sql = `SELECT ${selectCols} FROM ${table}`;
+          if (conditions.length > 0) {
+            sql += ` WHERE ${conditions.join(' AND ')}`;
           }
 
-          query = query.limit(limit);
+          if (params.order_by) {
+            sql += ` ORDER BY ${params.order_by as string} DESC`;
+          }
 
-          const { data, error } = await query;
-          if (error) return { success: false, error: error.message };
-          return { success: true, data: { table, rowCount: (data as unknown[]).length, rows: data } };
+          queryParams.push(limit);
+          sql += ` LIMIT $${paramIndex}`;
+
+          const data = await systemQuery(sql, queryParams);
+          return { success: true, data: { table, rowCount: data.length, rows: data } };
         } catch (err) {
           return { success: false, error: (err as Error).message };
         }
@@ -932,16 +948,27 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const supabase = memory.getSupabaseClient();
-          let query = supabase.from('company_agents')
-            .select('role, display_name, title, department, model, status, is_core, last_run_at, last_run_duration_ms, last_run_cost_usd, performance_score');
+          const conditions: string[] = [];
+          const queryParams: unknown[] = [];
+          let paramIndex = 1;
 
-          if (params.status) query = query.eq('status', params.status as string);
-          if (params.department) query = query.eq('department', params.department as string);
+          if (params.status) {
+            conditions.push(`status=$${paramIndex++}`);
+            queryParams.push(params.status as string);
+          }
+          if (params.department) {
+            conditions.push(`department=$${paramIndex++}`);
+            queryParams.push(params.department as string);
+          }
 
-          const { data, error } = await query.order('department').order('role');
-          if (error) return { success: false, error: error.message };
-          return { success: true, data: { count: (data as unknown[]).length, agents: data } };
+          let sql = 'SELECT role, display_name, title, department, model, status, is_core, last_run_at, last_run_duration_ms, last_run_cost_usd, performance_score FROM company_agents';
+          if (conditions.length > 0) {
+            sql += ` WHERE ${conditions.join(' AND ')}`;
+          }
+          sql += ' ORDER BY department, role';
+
+          const data = await systemQuery(sql, queryParams);
+          return { success: true, data: { count: data.length, agents: data } };
         } catch (err) {
           return { success: false, error: (err as Error).message };
         }
@@ -965,14 +992,10 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const supabase = memory.getSupabaseClient();
-          const { data, error } = await supabase.from('agent_runs')
-            .select('*')
-            .eq('agent_role', params.agent_role as string)
-            .order('created_at', { ascending: false })
-            .limit((params.limit as number) || 10);
-
-          if (error) return { success: false, error: error.message };
+          const data = await systemQuery(
+            'SELECT * FROM agent_runs WHERE agent_role=$1 ORDER BY created_at DESC LIMIT $2',
+            [params.agent_role as string, (params.limit as number) || 10],
+          );
 
           const lastSummary = await memory.getLastRunSummary(params.agent_role as string);
           return {
@@ -1013,15 +1036,10 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params, ctx): Promise<ToolResult> => {
         try {
-          const supabase = memory.getSupabaseClient();
           const agentRole = params.agent_role as string;
           const newStatus = params.status as string;
 
-          const { error } = await supabase.from('company_agents')
-            .update({ status: newStatus })
-            .eq('role', agentRole);
-
-          if (error) return { success: false, error: error.message };
+          await systemQuery('UPDATE company_agents SET status=$1 WHERE role=$2', [newStatus, agentRole]);
 
           await memory.appendActivity({
             agentRole: ctx.agentRole,
@@ -1050,12 +1068,16 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const supabase = memory.getSupabaseClient();
-          let query = supabase.from('agent_schedules').select('*');
-          if (params.agent_role) query = query.eq('agent_role', params.agent_role as string);
-          const { data, error } = await query.order('agent_role');
-          if (error) return { success: false, error: error.message };
-          return { success: true, data: { count: (data as unknown[]).length, schedules: data } };
+          const queryParams: unknown[] = [];
+          let sql = 'SELECT * FROM agent_schedules';
+          if (params.agent_role) {
+            sql += ' WHERE agent_role=$1';
+            queryParams.push(params.agent_role as string);
+          }
+          sql += ' ORDER BY agent_role';
+
+          const data = await systemQuery(sql, queryParams);
+          return { success: true, data: { count: data.length, schedules: data } };
         } catch (err) {
           return { success: false, error: (err as Error).message };
         }
@@ -1084,20 +1106,32 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params, ctx): Promise<ToolResult> => {
         try {
-          const supabase = memory.getSupabaseClient();
-          const updates: Record<string, unknown> = {};
-          if (params.enabled !== undefined) updates.enabled = params.enabled;
-          if (params.cron) updates.cron_expression = params.cron;
+          const setClauses: string[] = [];
+          const queryParams: unknown[] = [];
+          let paramIndex = 1;
 
-          if (Object.keys(updates).length === 0) {
+          if (params.enabled !== undefined) {
+            setClauses.push(`enabled=$${paramIndex++}`);
+            queryParams.push(params.enabled);
+          }
+          if (params.cron) {
+            setClauses.push(`cron_expression=$${paramIndex++}`);
+            queryParams.push(params.cron);
+          }
+
+          if (setClauses.length === 0) {
             return { success: false, error: 'No updates specified — provide enabled and/or cron.' };
           }
 
-          const { error } = await supabase.from('agent_schedules')
-            .update(updates)
-            .eq('id', params.schedule_id as string);
+          queryParams.push(params.schedule_id as string);
+          await systemQuery(
+            `UPDATE agent_schedules SET ${setClauses.join(', ')} WHERE id=$${paramIndex}`,
+            queryParams,
+          );
 
-          if (error) return { success: false, error: error.message };
+          const updates: Record<string, unknown> = {};
+          if (params.enabled !== undefined) updates.enabled = params.enabled;
+          if (params.cron) updates.cron_expression = params.cron;
 
           await memory.appendActivity({
             agentRole: ctx.agentRole,
@@ -1131,18 +1165,15 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const supabase = memory.getSupabaseClient();
           const agentRole = params.agent_role as string;
           const days = (params.days as number) || 7;
           const since = new Date(Date.now() - days * 86400000).toISOString();
 
-          const [perfResult, reflResult, qualityScore] = await Promise.all([
-            supabase.from('agent_performance')
-              .select('*')
-              .eq('agent_role', agentRole)
-              .gte('recorded_at', since)
-              .order('recorded_at', { ascending: false })
-              .limit(30),
+          const [perfData, reflResult, qualityScore] = await Promise.all([
+            systemQuery(
+              'SELECT * FROM agent_performance WHERE agent_role=$1 AND recorded_at >= $2 ORDER BY recorded_at DESC LIMIT 30',
+              [agentRole, since],
+            ),
             memory.getReflections(agentRole as CompanyAgentRole, 5),
             memory.getAverageQualityScore(agentRole as CompanyAgentRole, days),
           ]);
@@ -1152,7 +1183,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
             data: {
               agentRole,
               period: `${days}d`,
-              performance: perfResult.data,
+              performance: perfData,
               qualityScore,
               recentReflections: reflResult,
             },
@@ -1194,7 +1225,6 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params, ctx): Promise<ToolResult> => {
         try {
-          const supabase = memory.getSupabaseClient();
           const incident = {
             severity: params.severity as string,
             title: params.title as string,
@@ -1663,23 +1693,38 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params, ctx): Promise<ToolResult> => {
         try {
-          const supabase = memory.getSupabaseClient();
           const agentRole = params.agent_role as string;
-          const updates: Record<string, unknown> = {};
+          const setClauses: string[] = [];
+          const queryParams: unknown[] = [];
+          let paramIndex = 1;
 
-          if (params.model) updates.model = params.model;
-          if (params.temperature !== undefined) updates.temperature = params.temperature;
-          if (params.max_turns) updates.max_turns = params.max_turns;
+          if (params.model) {
+            setClauses.push(`model=$${paramIndex++}`);
+            queryParams.push(params.model);
+          }
+          if (params.temperature !== undefined) {
+            setClauses.push(`temperature=$${paramIndex++}`);
+            queryParams.push(params.temperature);
+          }
+          if (params.max_turns) {
+            setClauses.push(`max_turns=$${paramIndex++}`);
+            queryParams.push(params.max_turns);
+          }
 
-          if (Object.keys(updates).length === 0) {
+          if (setClauses.length === 0) {
             return { success: false, error: 'No updates specified — provide model, temperature, or max_turns.' };
           }
 
-          const { error } = await supabase.from('company_agents')
-            .update(updates)
-            .eq('role', agentRole);
+          queryParams.push(agentRole);
+          await systemQuery(
+            `UPDATE company_agents SET ${setClauses.join(', ')} WHERE role=$${paramIndex}`,
+            queryParams,
+          );
 
-          if (error) return { success: false, error: error.message };
+          const updates: Record<string, unknown> = {};
+          if (params.model) updates.model = params.model;
+          if (params.temperature !== undefined) updates.temperature = params.temperature;
+          if (params.max_turns) updates.max_turns = params.max_turns;
 
           await memory.appendActivity({
             agentRole: ctx.agentRole,
@@ -1713,23 +1758,23 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const supabase = memory.getSupabaseClient();
           const days = (params.days as number) || 7;
           const since = new Date(Date.now() - days * 86400000).toISOString();
 
-          let query = supabase.from('agent_runs')
-            .select('agent_role, model, tokens_used, cost_usd, created_at, status')
-            .gte('created_at', since)
-            .order('created_at', { ascending: false });
+          const conditions = ['created_at >= $1'];
+          const queryParams: unknown[] = [since];
+          let paramIndex = 2;
 
           if (params.agent_role) {
-            query = query.eq('agent_role', params.agent_role as string);
+            conditions.push(`agent_role=$${paramIndex++}`);
+            queryParams.push(params.agent_role as string);
           }
 
-          const { data, error } = await query.limit(200);
-          if (error) return { success: false, error: error.message };
-
-          const runs = data as Array<{ agent_role: string; model: string; tokens_used: number; cost_usd: number; status: string }>;
+          queryParams.push(200);
+          const runs = await systemQuery<{ agent_role: string; model: string; tokens_used: number; cost_usd: number; status: string }>(
+            `SELECT agent_role, model, tokens_used, cost_usd, created_at, status FROM agent_runs WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT $${paramIndex}`,
+            queryParams,
+          );
 
           // Aggregate by model
           const byModel: Record<string, { runs: number; tokens: number; cost: number }> = {};
@@ -1871,37 +1916,28 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params, ctx): Promise<ToolResult> => {
         try {
-          const supabase = memory.getSupabaseClient();
           const agentRole = params.agent_role as string;
           const priority = (params.priority as string) || 'normal';
 
           // Create work assignment
-          const { data: assignment, error: assignError } = await supabase
-            .from('work_assignments')
-            .insert({
-              assigned_to: agentRole,
-              assigned_by: ctx.agentRole,
-              task_description: params.task_description as string,
-              task_type: 'on_demand',
-              expected_output: params.expected_output as string,
-              priority,
-              status: 'pending',
-            })
-            .select()
-            .single();
-
-          if (assignError) return { success: false, error: assignError.message };
+          const [assignment] = await systemQuery<{ id: string }>(
+            'INSERT INTO work_assignments (assigned_to, assigned_by, task_description, task_type, expected_output, priority, status) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+            [agentRole, ctx.agentRole, params.task_description as string, 'on_demand', params.expected_output as string, priority, 'pending'],
+          );
 
           // Send inter-agent message
-          await supabase.from('agent_messages').insert({
-            from_agent: ctx.agentRole,
-            to_agent: agentRole,
-            message: `**Task Assignment from Marcus (CTO)**\n\n` +
+          await systemQuery(
+            'INSERT INTO agent_messages (from_agent, to_agent, message) VALUES ($1,$2,$3)',
+            [
+              ctx.agentRole,
+              agentRole,
+              `**Task Assignment from Marcus (CTO)**\n\n` +
               `**Priority:** ${priority}\n\n` +
               `**Task:**\n${params.task_description}\n\n` +
               `**Expected Output:**\n${params.expected_output}\n\n` +
               `Use \`submit_assignment_output\` when complete, or \`flag_assignment_blocker\` if blocked.`,
-          });
+            ],
+          );
 
           await memory.appendActivity({
             agentRole: ctx.agentRole,
@@ -1937,21 +1973,23 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const supabase = memory.getSupabaseClient();
           const myReports = ['platform-engineer', 'quality-engineer', 'devops-engineer', 'm365-admin'];
+          const targetRoles = params.agent_role ? [params.agent_role as string] : myReports;
 
-          let query = supabase.from('work_assignments')
-            .select('*')
-            .in('assigned_to', params.agent_role ? [params.agent_role as string] : myReports)
-            .order('created_at', { ascending: false })
-            .limit(30);
+          const conditions = ['assigned_to = ANY($1)'];
+          const queryParams: unknown[] = [targetRoles];
+          let paramIndex = 2;
 
-          if (params.status) query = query.eq('status', params.status as string);
+          if (params.status) {
+            conditions.push(`status=$${paramIndex++}`);
+            queryParams.push(params.status as string);
+          }
 
-          const { data, error } = await query;
-          if (error) return { success: false, error: error.message };
+          const assignments = await systemQuery<{ status: string; assigned_to: string }>(
+            `SELECT * FROM work_assignments WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT 30`,
+            queryParams,
+          );
 
-          const assignments = data as Array<{ status: string; assigned_to: string }>;
           return {
             success: true,
             data: {

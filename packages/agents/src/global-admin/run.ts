@@ -41,7 +41,7 @@ export async function runGlobalAdmin(params: GlobalAdminRunParams = {}) {
   });
   const runner = createRunner(modelClient, 'global-admin', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -78,8 +78,6 @@ export async function runGlobalAdmin(params: GlobalAdminRunParams = {}) {
     default:
       initialMessage = params.message || 'Run a quick access health check across all managed GCP projects.';
   }
-
-  const supabase = memory.getSupabaseClient();
   const agentCfg = await loadAgentConfig('global-admin', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 12 });
 
   const config: AgentConfig = {

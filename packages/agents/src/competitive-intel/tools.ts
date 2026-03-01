@@ -4,6 +4,7 @@
  */
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { ToolDefinition } from '@glyphor/agent-runtime';
+import { systemQuery } from '@glyphor/shared/db';
 
 export function createCompetitiveIntelTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -12,9 +13,8 @@ export function createCompetitiveIntelTools(memory: CompanyMemoryStore): ToolDef
       description: 'Fetch recent releases from a public GitHub repository to track competitor product updates.',
       parameters: { owner: { type: 'string', description: 'GitHub org or user', required: true }, repo: { type: 'string', description: 'Repository name', required: true }, limit: { type: 'number', description: 'Max releases to fetch (default 5)' } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        const { data } = await supabase.from('competitive_intel').select('*').eq('source', 'github').eq('subject', `${params.owner}/${params.repo}`).order('created_at', { ascending: false }).limit(Number(params.limit) || 5);
-        return { success: true, data: data || [] };
+        const data = await systemQuery('SELECT * FROM competitive_intel WHERE source=$1 AND subject=$2 ORDER BY created_at DESC LIMIT $3', ['github', `${params.owner}/${params.repo}`, Number(params.limit) || 5]);
+        return { success: true, data };
       },
     },
     {
@@ -22,9 +22,8 @@ export function createCompetitiveIntelTools(memory: CompanyMemoryStore): ToolDef
       description: 'Search Hacker News for mentions of competitors or relevant topics.',
       parameters: { query: { type: 'string', description: 'Search query', required: true }, limit: { type: 'number', description: 'Max results (default 10)' } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        const { data } = await supabase.from('competitive_intel').select('*').eq('source', 'hackernews').ilike('content', `%${params.query}%`).order('created_at', { ascending: false }).limit(Number(params.limit) || 10);
-        return { success: true, data: data || [] };
+        const data = await systemQuery('SELECT * FROM competitive_intel WHERE source=$1 AND content ILIKE $2 ORDER BY created_at DESC LIMIT $3', ['hackernews', `%${params.query}%`, Number(params.limit) || 10]);
+        return { success: true, data };
       },
     },
     {
@@ -32,10 +31,9 @@ export function createCompetitiveIntelTools(memory: CompanyMemoryStore): ToolDef
       description: 'Search Product Hunt for competitor launches and trending products.',
       parameters: { query: { type: 'string', description: 'Search query', required: true }, days: { type: 'number', description: 'Look back N days (default 30)' } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
         const since = new Date(Date.now() - (Number(params.days) || 30) * 86400000).toISOString();
-        const { data } = await supabase.from('competitive_intel').select('*').eq('source', 'producthunt').ilike('content', `%${params.query}%`).gte('created_at', since).order('created_at', { ascending: false });
-        return { success: true, data: data || [] };
+        const data = await systemQuery('SELECT * FROM competitive_intel WHERE source=$1 AND content ILIKE $2 AND created_at >= $3 ORDER BY created_at DESC', ['producthunt', `%${params.query}%`, since]);
+        return { success: true, data };
       },
     },
     {
@@ -43,9 +41,8 @@ export function createCompetitiveIntelTools(memory: CompanyMemoryStore): ToolDef
       description: 'Retrieve cached competitor pricing page snapshots for comparison.',
       parameters: { competitor: { type: 'string', description: 'Competitor name', required: true } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        const { data } = await supabase.from('competitive_intel').select('*').eq('source', 'pricing').ilike('subject', `%${params.competitor}%`).order('created_at', { ascending: false }).limit(1);
-        return { success: true, data: data?.[0] || null };
+        const data = await systemQuery('SELECT * FROM competitive_intel WHERE source=$1 AND subject ILIKE $2 ORDER BY created_at DESC LIMIT 1', ['pricing', `%${params.competitor}%`]);
+        return { success: true, data: data[0] ?? null };
       },
     },
     {
@@ -53,9 +50,8 @@ export function createCompetitiveIntelTools(memory: CompanyMemoryStore): ToolDef
       description: 'Look up a competitor\'s technology stack from cached Wappalyzer data.',
       parameters: { domain: { type: 'string', description: 'Competitor domain (e.g. figma.com)', required: true } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        const { data } = await supabase.from('competitive_intel').select('*').eq('source', 'wappalyzer').eq('subject', params.domain).order('created_at', { ascending: false }).limit(1);
-        return { success: true, data: data?.[0] || null };
+        const data = await systemQuery('SELECT * FROM competitive_intel WHERE source=$1 AND subject=$2 ORDER BY created_at DESC LIMIT 1', ['wappalyzer', params.domain]);
+        return { success: true, data: data[0] ?? null };
       },
     },
     {
@@ -63,11 +59,12 @@ export function createCompetitiveIntelTools(memory: CompanyMemoryStore): ToolDef
       description: 'Check cached competitor job postings to infer strategic direction.',
       parameters: { company: { type: 'string', description: 'Company name', required: true }, keywords: { type: 'string', description: 'Optional filter keywords' } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        let query = supabase.from('competitive_intel').select('*').eq('source', 'jobs').ilike('subject', `%${params.company}%`).order('created_at', { ascending: false }).limit(20);
-        if (params.keywords) { query = query.ilike('content', `%${params.keywords}%`); }
-        const { data } = await query;
-        return { success: true, data: data || [] };
+        let sql = 'SELECT * FROM competitive_intel WHERE source=$1 AND subject ILIKE $2';
+        const values: unknown[] = ['jobs', `%${params.company}%`];
+        if (params.keywords) { sql += ` AND content ILIKE $${values.length + 1}`; values.push(`%${params.keywords}%`); }
+        sql += ' ORDER BY created_at DESC LIMIT 20';
+        const data = await systemQuery(sql, values);
+        return { success: true, data };
       },
     },
     {
@@ -75,10 +72,12 @@ export function createCompetitiveIntelTools(memory: CompanyMemoryStore): ToolDef
       description: 'Store a new competitive intelligence finding in the database.',
       parameters: { source: { type: 'string', description: 'Source (github, hackernews, producthunt, pricing, etc.)', required: true }, subject: { type: 'string', description: 'Subject company or product', required: true }, content: { type: 'string', description: 'Intel content/summary', required: true }, urgency: { type: 'string', description: 'green, yellow, or red' } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        const { error } = await supabase.from('competitive_intel').insert({ source: params.source, subject: params.subject, content: params.content, urgency: params.urgency || 'green', agent: 'competitive-intel', created_at: new Date().toISOString() });
-        if (error) return { success: false, error: error.message };
-        return { success: true, message: 'Intel stored.' };
+        try {
+          await systemQuery('INSERT INTO competitive_intel (source, subject, content, urgency, agent, created_at) VALUES ($1, $2, $3, $4, $5, $6)', [params.source, params.subject, params.content, params.urgency || 'green', 'competitive-intel', new Date().toISOString()]);
+          return { success: true, message: 'Intel stored.' };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
       },
     },
     {
@@ -86,8 +85,7 @@ export function createCompetitiveIntelTools(memory: CompanyMemoryStore): ToolDef
       description: 'Log an activity or finding to the agent activity log.',
       parameters: { summary: { type: 'string', description: 'Activity summary', required: true }, details: { type: 'string', description: 'Detailed notes' } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        await supabase.from('agent_activities').insert({ agent_role: 'competitive-intel', activity_type: 'intel_scan', summary: params.summary, details: params.details || null, created_at: new Date().toISOString() });
+        await systemQuery('INSERT INTO agent_activities (agent_role, activity_type, summary, details, created_at) VALUES ($1, $2, $3, $4, $5)', ['competitive-intel', 'intel_scan', params.summary, params.details || null, new Date().toISOString()]);
         return { success: true };
       },
     },

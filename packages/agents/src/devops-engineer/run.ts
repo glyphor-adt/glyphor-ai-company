@@ -39,7 +39,7 @@ export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
   });
   const runner = createRunner(modelClient, 'devops-engineer', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -68,8 +68,6 @@ export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
     default:
       initialMessage = params.message || 'Analyze infrastructure for optimization opportunities.';
   }
-
-  const supabase = memory.getSupabaseClient();
   const agentCfg = await loadAgentConfig('devops-engineer', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
 
   const config: AgentConfig = {

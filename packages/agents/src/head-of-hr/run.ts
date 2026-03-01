@@ -41,7 +41,7 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
   });
   const runner = createRunner(modelClient, 'head-of-hr', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -78,8 +78,6 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
     default:
       initialMessage = params.message || 'Run a quick workforce health check across all active agents.';
   }
-
-  const supabase = memory.getSupabaseClient();
   const agentCfg = await loadAgentConfig('head-of-hr', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 12 });
 
   const config: AgentConfig = {

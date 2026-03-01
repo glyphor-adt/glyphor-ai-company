@@ -50,7 +50,7 @@ export async function runCFO(params: CFORunParams = {}) {
   });
   const runner = createRunner(modelClient, 'cfo', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -109,8 +109,6 @@ Steps:
     default:
       initialMessage = params.message || 'Provide a financial health summary of the company.';
   }
-
-  const supabase = memory.getSupabaseClient();
   const agentCfg = await loadAgentConfig('cfo', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 }, task);
 
   const config: AgentConfig = {
