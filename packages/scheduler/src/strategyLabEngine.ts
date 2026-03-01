@@ -1764,7 +1764,7 @@ Return valid JSON: { "checks": [...], "overall_consistency_score": N, "critical_
     sourceType: 'strategy_analysis' | 'deep_dive',
     synthesis: SynthesisOutput | null,
     frameworkOutputs: Record<string, unknown>,
-    executiveOutputs: Record<string, string>,
+    executiveOutputs: Record<string, ExecutiveAnalysisOutput>,
   ): Promise<WatchlistItem[]> {
     const prompt = `You are an expert strategic analyst. Review the following analysis outputs and extract items that should be monitored on an ongoing basis.
 

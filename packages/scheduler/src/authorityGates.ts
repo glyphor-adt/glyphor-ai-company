@@ -110,6 +110,8 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
   'tax-strategy-specialist': new Set(['on_demand']),
   'lead-gen-specialist': new Set(['on_demand']),
   'marketing-intelligence-analyst': new Set(['on_demand']),
+  'ai-impact-analyst': new Set(['on_demand']),
+  'org-analyst': new Set(['on_demand']),
   'adi-rose': new Set(['on_demand']),
 };
 
