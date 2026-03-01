@@ -1,0 +1,32 @@
+{
+  "name": "@glyphor/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./db": "./dist/db.js",
+    "./auth": "./dist/auth.js",
+    "./storage": "./dist/storage.js",
+    "./middleware/auth": "./dist/middleware/auth.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'no linter configured yet'"
+  },
+  "dependencies": {
+    "pg": "^8.13.0",
+    "firebase-admin": "^12.0.0",
+    "@google-cloud/storage": "^7.19.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/pg": "^8.11.0",
+    "@types/node": "^22.15.0",
+    "typescript": "^5.8.3"
+  }
+}
