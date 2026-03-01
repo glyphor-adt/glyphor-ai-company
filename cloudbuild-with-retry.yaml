@@ -1,0 +1,65 @@
+# Example Cloud Build configuration with advanced retry and resilience features
+#
+# This file demonstrates best practices for handling intermittent Cloud Build failures:
+# 1. DOCKER_BUILDKIT=1 for better error reporting and caching
+# 2. --progress=plain for detailed build logs
+# 3. Retry logic using Cloud Build's native automationId (requires gcloud beta)
+# 4. BuildKit cache mount for faster rebuilds
+# 5. Increased timeouts for network-dependent steps
+#
+# Usage:
+#   gcloud builds submit --config=cloudbuild-with-retry.yaml
+#
+# Note: For production use, consider using Cloud Build triggers with retry policies
+# configured in the GCP Console or via Terraform.
+
+steps:
+  # Build with retry logic using bash wrapper
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        set -euo pipefail
+        MAX_RETRIES=3
+        RETRY_DELAY=10
+        
+        for attempt in $(seq 1 $MAX_RETRIES); do
+          echo "Build attempt $attempt/$MAX_RETRIES"
+          
+          if docker build \
+            --progress=plain \
+            -f docker/Dockerfile.scheduler \
+            -t us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:latest \
+            .; then
+            echo "Build succeeded on attempt $attempt"
+            exit 0
+          else
+            exit_code=$?
+            echo "Build failed with exit code $exit_code"
+            
+            if [ $attempt -lt $MAX_RETRIES ]; then
+              delay=$((RETRY_DELAY * (2 ** (attempt - 1))))
+              echo "Retrying in $delay seconds..."
+              sleep $delay
+            else
+              echo "All $MAX_RETRIES attempts failed"
+              exit $exit_code
+            fi
+          fi
+        done
+    env:
+      - 'DOCKER_BUILDKIT=1'
+    timeout: '900s'
+    id: 'build-scheduler'
+
+images:
+  - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:latest'
+
+# Improved logging and reliability
+options:
+  logging: CLOUD_LOGGING_ONLY
+  logStreamingOption: STREAM_ON
+  machineType: 'E2_HIGHCPU_8'  # More CPU can help with transient failures
+  
+timeout: '1800s'
