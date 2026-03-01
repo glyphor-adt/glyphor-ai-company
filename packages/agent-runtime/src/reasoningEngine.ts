@@ -74,7 +74,6 @@ const MAX_REVISIONS = 2;
 
 function estimateVerificationCost(model: string, inputTokens: number, outputTokens: number): number {
   return estimateModelCost(model, inputTokens, outputTokens);
-  return inputTokens * pricing.input + outputTokens * pricing.output;
 }
 
 // ─── ReasoningEngine ────────────────────────────────────────────

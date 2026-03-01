@@ -21,24 +21,25 @@
 
 const VERCEL_API = 'https://api.vercel.com';
 
-// Validate required environment variables at module load
-if (!process.env.VERCEL_TEAM_FUSE) {
-  throw new Error('VERCEL_TEAM_FUSE not configured — add the env var to Cloud Run');
-}
-if (!process.env.VERCEL_TEAM_FUSE_PROJECTS) {
-  throw new Error('VERCEL_TEAM_FUSE_PROJECTS not configured — add the env var to Cloud Run');
+// Warn (don't crash) if Vercel env vars are missing — the scheduler imports
+// @glyphor/integrations for non-Vercel integrations too, so a missing optional
+// env var must not kill the entire process at module load.
+if (!process.env.VERCEL_TEAM_FUSE || !process.env.VERCEL_TEAM_FUSE_PROJECTS) {
+  console.warn('[Vercel] VERCEL_TEAM_FUSE / VERCEL_TEAM_FUSE_PROJECTS not configured — Vercel integration disabled');
 }
 
 /** Vercel team mapping — scopes queries to the right Vercel team. */
 export const VERCEL_TEAMS = {
-  fuse: process.env.VERCEL_TEAM_FUSE!,
-  'fuse-projects': process.env.VERCEL_TEAM_FUSE_PROJECTS!,
+  fuse: process.env.VERCEL_TEAM_FUSE ?? '',
+  'fuse-projects': process.env.VERCEL_TEAM_FUSE_PROJECTS ?? '',
 } as const;
 
 export type VercelTeamKey = keyof typeof VERCEL_TEAMS;
 
 function resolveTeamId(key: VercelTeamKey): string {
-  return VERCEL_TEAMS[key];
+  const id = VERCEL_TEAMS[key];
+  if (!id) throw new Error(`Vercel integration not configured — set VERCEL_TEAM_FUSE and VERCEL_TEAM_FUSE_PROJECTS env vars`);
+  return id;
 }
 
 // ─── Interfaces ──────────────────────────────────────────────────

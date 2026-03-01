@@ -10,7 +10,8 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts';
-import { apiCall, SCHEDULER_URL } from '../lib/firebase';\nimport { MODELS, VERIFICATION_MODELS, getModelsByProvider, PROVIDER_LABELS } from '../lib/models';
+import { apiCall, SCHEDULER_URL } from '../lib/firebase';
+import { MODELS, VERIFICATION_MODELS, getModelsByProvider, PROVIDER_LABELS } from '../lib/models';
 import {
   DISPLAY_NAME_MAP,
   AGENT_META,
