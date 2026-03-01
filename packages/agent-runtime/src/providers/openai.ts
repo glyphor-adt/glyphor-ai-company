@@ -145,6 +145,10 @@ export class OpenAIAdapter implements ProviderAdapter {
     const turns = request.contents;
     let i = 0;
     let lastToolCallIds: string[] = [];
+    // Global counter across all tool_call batches ensures unique IDs even when
+    // the same long-named tool is called multiple times.  Placed at the front
+    // of the ID so .slice(0, 40) never amputates the differentiator.
+    let toolCallCounter = 0;
 
     while (i < turns.length) {
       const turn = turns[i];
@@ -181,12 +185,12 @@ export class OpenAIAdapter implements ProviderAdapter {
         case 'tool_call': {
           const toolCalls: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }> = [];
           lastToolCallIds = [];
-          // Per-batch counter ensures uniqueness even when the same tool
-          // is called multiple times in one turn with the same timestamp.
-          let batchIdx = 0;
           while (i < turns.length && turns[i].role === 'tool_call') {
             const tc = turns[i];
-            const id = `call_${tc.toolName}_${tc.timestamp}_${batchIdx}`.slice(0, 40);
+            // Counter goes first so truncation never removes the uniqueness
+            // differentiator.  Tool name is trimmed to leave room for counter.
+            const id = `call_${toolCallCounter}_${(tc.toolName ?? '').slice(0, 20)}`.slice(0, 40);
+            toolCallCounter++;
             lastToolCallIds.push(id);
             toolCalls.push({
               id,
@@ -196,7 +200,6 @@ export class OpenAIAdapter implements ProviderAdapter {
                 arguments: JSON.stringify(tc.toolParams ?? {}),
               },
             });
-            batchIdx++;
             i++;
           }
           messages.push({
@@ -212,7 +215,7 @@ export class OpenAIAdapter implements ProviderAdapter {
             const tr = turns[i];
             const toolCallId = resultIndex < lastToolCallIds.length
               ? lastToolCallIds[resultIndex]
-              : `call_${tr.toolName}_${tr.timestamp}_${resultIndex}`.slice(0, 40);
+              : `call_fallback_${resultIndex}_${(tr.toolName ?? '').slice(0, 15)}`.slice(0, 40);
             messages.push({
               role: 'tool',
               tool_call_id: toolCallId,
