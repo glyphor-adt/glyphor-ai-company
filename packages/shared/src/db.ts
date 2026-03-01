@@ -1,4 +1,5 @@
-import { Pool, PoolClient } from 'pg';
+import { Pool } from 'pg';
+import type { PoolClient } from 'pg';
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -119,4 +120,4 @@ export async function closePool(): Promise<void> {
   await pool.end();
 }
 
-export { pool, Pool, PoolClient };
+export { pool, Pool };
