@@ -232,6 +232,8 @@ const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
   'market-research-analyst': 'daniel-okafor',
   'technical-research-analyst': 'kai-nakamura',
   'industry-research-analyst': 'amara-diallo',
+  'ai-impact-analyst': 'riya-mehta',
+  'org-analyst': 'marcus-chen',
   'head-of-hr': 'jasmine-rivera',
   'enterprise-account-researcher': 'ethan-morse',
   'bob-the-tax-pro': 'robert-finley',

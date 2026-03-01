@@ -67,7 +67,9 @@ export type CompanyAgentRole =
   | 'competitive-research-analyst'  // Lena Park → reports to Sophia Lin
   | 'market-research-analyst'       // Daniel Okafor → reports to Sophia Lin
   | 'technical-research-analyst'    // Kai Nakamura → reports to Sophia Lin
-  | 'industry-research-analyst'       // Amara Diallo → reports to Sophia Lin
+  | 'industry-research-analyst'     // Amara Diallo → reports to Sophia Lin
+  | 'ai-impact-analyst'             // Riya Mehta → reports to Sophia Lin
+  | 'org-analyst'                   // Marcus Chen → reports to Sophia Lin
   // Sales, Finance, Marketing, Operations specialists
   | 'enterprise-account-researcher'   // Ethan Morse → reports to VP-Sales
   | 'bob-the-tax-pro'                 // Robert "Bob" Finley → CPA & Tax Strategist, reports to CLO
@@ -418,6 +420,8 @@ export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   'market-research-analyst':      { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
   'technical-research-analyst':   { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
   'industry-research-analyst':    { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
+  'ai-impact-analyst':            { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
+  'org-analyst':                  { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
   // Sales, Finance, Marketing, Operations specialists
   'enterprise-account-researcher': { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
   'bob-the-tax-pro':               { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },

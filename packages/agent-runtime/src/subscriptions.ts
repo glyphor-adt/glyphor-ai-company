@@ -111,6 +111,8 @@ export const SUBSCRIPTIONS: Record<CompanyAgentRole, GlyphorEventType[]> = {
   'market-research-analyst': ['task.requested', 'message.sent'],
   'technical-research-analyst': ['task.requested', 'message.sent'],
   'industry-research-analyst': ['task.requested', 'message.sent'],
+  'ai-impact-analyst': ['task.requested', 'message.sent'],
+  'org-analyst': ['task.requested', 'message.sent'],
   // Sales, Finance, Marketing, Operations specialists
   'enterprise-account-researcher': ['task.requested', 'message.sent'],
   'bob-the-tax-pro': ['task.requested', 'message.sent'],
