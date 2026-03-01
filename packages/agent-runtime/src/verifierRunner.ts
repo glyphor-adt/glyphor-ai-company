@@ -14,6 +14,7 @@
 
 import type { ModelClient } from './modelClient.js';
 import type { ConversationTurn } from './types.js';
+import { getVerifierFor } from '@glyphor/shared/models';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -32,35 +33,10 @@ export interface VerificationReport {
 
 /**
  * Maps a primary model to a different-provider verifier model.
- * The key insight: use a different provider to prevent correlated errors.
+ * Delegates to the centralized model registry in @glyphor/shared.
  */
-const VERIFIER_MODEL_MAP: Record<string, string> = {
-  // Gemini primary → Claude verifier
-  'gemini-2.5-flash': 'claude-sonnet-4-20250514',
-  'gemini-2.5-pro': 'claude-sonnet-4-20250514',
-  'gemini-2.0-flash': 'claude-sonnet-4-20250514',
-  // OpenAI primary → Gemini verifier
-  'gpt-4o': 'gemini-2.5-flash',
-  'gpt-4o-mini': 'gemini-2.5-flash',
-  'o4-mini': 'gemini-2.5-flash',
-  // Claude primary → Gemini verifier
-  'claude-sonnet-4-20250514': 'gemini-2.5-flash',
-  'claude-3-5-haiku-latest': 'gemini-2.5-flash',
-};
-
 function getVerifierModel(primaryModel: string): string {
-  // Direct mapping
-  if (VERIFIER_MODEL_MAP[primaryModel]) {
-    return VERIFIER_MODEL_MAP[primaryModel];
-  }
-
-  // Prefix-based fallback
-  if (primaryModel.startsWith('gemini-')) return 'claude-sonnet-4-20250514';
-  if (primaryModel.startsWith('gpt-') || /^o[134](-|$)/.test(primaryModel)) return 'gemini-2.5-flash';
-  if (primaryModel.startsWith('claude-')) return 'gemini-2.5-flash';
-
-  // Ultimate fallback
-  return 'gemini-2.5-flash';
+  return getVerifierFor(primaryModel);
 }
 
 // ─── Verifier Runner ────────────────────────────────────────────

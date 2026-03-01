@@ -26,6 +26,7 @@ import type {
   ConversationTurn,
   IMemoryBus,
 } from './types.js';
+import { estimateModelCost } from '@glyphor/shared/models';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -55,22 +56,10 @@ const THINKING_ENABLED_TASKS = new Set([
 const ON_DEMAND_CALL_TIMEOUT_MS = 30_000;
 const THINKING_CALL_TIMEOUT_MS = 90_000;
 
-/** Approximate per-token pricing (USD) by model prefix for cost tracking. */
-const MODEL_PRICING: Record<string, { input: number; output: number }> = {
-  'gemini-3':   { input: 0.10 / 1_000_000, output: 0.40 / 1_000_000 },
-  'gemini-2.5-flash': { input: 0.15 / 1_000_000, output: 0.60 / 1_000_000 },
-  'gemini-2.5-pro':   { input: 1.25 / 1_000_000, output: 10.0 / 1_000_000 },
-  'gemini-2':   { input: 0.10 / 1_000_000, output: 0.40 / 1_000_000 },
-  'claude':     { input: 3.00 / 1_000_000, output: 15.0 / 1_000_000 },
-  'gpt-4':      { input: 2.50 / 1_000_000, output: 10.0 / 1_000_000 },
-};
+/** Approximate per-token pricing (USD) — uses centralized model registry. */
 
 function estimateCost(model: string, inputTokens: number, outputTokens: number): number {
-  const entry = Object.entries(MODEL_PRICING)
-    .sort((a, b) => b[0].length - a[0].length)
-    .find(([prefix]) => model.startsWith(prefix));
-  const pricing = entry?.[1] ?? MODEL_PRICING['gemini-3'];
-  return inputTokens * pricing.input + outputTokens * pricing.output;
+  return estimateModelCost(model, inputTokens, outputTokens);
 }
 
 /** Overall supervisor limits for on_demand (chat) — keep well within the

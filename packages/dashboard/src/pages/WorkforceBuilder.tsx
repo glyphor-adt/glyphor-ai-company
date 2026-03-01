@@ -5,6 +5,7 @@ import {
   MdBiotech, MdCampaign, MdHeadsetMic, MdStar, MdClose, MdFileDownload, MdArrowForward,
 } from 'react-icons/md';
 import { SCHEDULER_URL } from '../lib/firebase';
+import { getModelsByProvider, PROVIDER_LABELS } from '../lib/models';
 
 /* ═══════════════════════════════════════════════════
    Agent Template Palette
@@ -448,25 +449,13 @@ export default function WorkforceBuilder() {
                 </Fld>
                 <Fld label="Model">
                   <select value={selected.model} onChange={e => updateNode({ model: e.target.value })} className={INPUT_CLS}>
-                    <optgroup label="Google Gemini">
-                      <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro</option>
-                      <option value="gemini-3-flash-preview">Gemini 3 Flash (default)</option>
-                      <option value="gemini-3-pro-preview">Gemini 3 Pro</option>
-                      <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                      <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                    </optgroup>
-                    <optgroup label="OpenAI">
-                      <option value="gpt-5.2">GPT-5.2</option>
-                      <option value="gpt-5.2-pro">GPT-5.2 Pro</option>
-                      <option value="gpt-5">GPT-5</option>
-                      <option value="gpt-5-mini">GPT-5 Mini</option>
-                      <option value="gpt-4.1">GPT-4.1</option>
-                    </optgroup>
-                    <optgroup label="Anthropic">
-                      <option value="claude-opus-4-6">Claude Opus 4.6</option>
-                      <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
-                      <option value="claude-haiku-4-5">Claude Haiku 4.5</option>
-                    </optgroup>
+                    {(['gemini', 'openai', 'anthropic'] as const).map(provider => (
+                      <optgroup key={provider} label={PROVIDER_LABELS[provider]}>
+                        {getModelsByProvider()[provider].map(m => (
+                          <option key={m.value} value={m.value}>{m.label}</option>
+                        ))}
+                      </optgroup>
+                    ))}
                   </select>
                 </Fld>
                 <div className="grid grid-cols-2 gap-3">

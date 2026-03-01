@@ -65,7 +65,9 @@ interface OpenAIResponsesResult {
 }
 
 const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
-const SEARCH_MODEL = 'gpt-5.2';
+
+import { WEB_SEARCH_MODEL } from '@glyphor/shared/models';
+const SEARCH_MODEL = WEB_SEARCH_MODEL;
 
 /**
  * Call OpenAI Responses API with web_search_preview to get grounded search results.

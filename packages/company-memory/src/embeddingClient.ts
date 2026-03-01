@@ -6,8 +6,8 @@
  */
 
 import { GoogleGenAI } from '@google/genai';
+import { EMBEDDING_MODEL } from '@glyphor/shared/models';
 
-const EMBEDDING_MODEL = 'gemini-embedding-001';
 const EMBEDDING_DIMENSIONS = 768;
 
 export class EmbeddingClient {

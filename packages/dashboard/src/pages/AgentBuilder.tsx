@@ -2,35 +2,11 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SCHEDULER_URL } from '../lib/firebase';
 import { Card, SectionHeader } from '../components/ui';
+import { MODELS, DEFAULT_MODEL } from '../lib/models';
 
 const DEPARTMENTS = [
   'Engineering', 'Product', 'Finance', 'Marketing',
   'Customer Success', 'Sales', 'Design & Frontend', 'Operations',
-];
-
-const MODELS = [
-  // Google Gemini
-  { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro' },
-  { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (default)' },
-  { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro' },
-  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-  { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
-  { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-  // OpenAI
-  { value: 'gpt-5.2', label: 'GPT-5.2' },
-  { value: 'gpt-5.2-pro', label: 'GPT-5.2 Pro' },
-  { value: 'gpt-5.1', label: 'GPT-5.1' },
-  { value: 'gpt-5', label: 'GPT-5' },
-  { value: 'gpt-5-mini', label: 'GPT-5 Mini' },
-  { value: 'gpt-5-nano', label: 'GPT-5 Nano' },
-  { value: 'gpt-4.1', label: 'GPT-4.1' },
-  { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
-  { value: 'o3', label: 'o3' },
-  { value: 'o4-mini', label: 'o4-mini' },
-  // Anthropic
-  { value: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
-  { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
-  { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
 ];
 
 export default function AgentBuilder() {
@@ -43,7 +19,7 @@ export default function AgentBuilder() {
   const [title, setTitle] = useState('');
   const [department, setDepartment] = useState('');
   const [reportsTo, setReportsTo] = useState('');
-  const [model, setModel] = useState('gemini-3-flash-preview');
+  const [model, setModel] = useState(DEFAULT_MODEL);
   const [temperature, setTemperature] = useState(0.3);
   const [maxTurns, setMaxTurns] = useState(10);
   const [budgetPerRun, setBudgetPerRun] = useState(0.05);

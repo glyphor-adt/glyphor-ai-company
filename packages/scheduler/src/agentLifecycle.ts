@@ -7,6 +7,7 @@
 
 import { systemQuery } from '@glyphor/shared/db';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
+import { DEFAULT_AGENT_MODEL } from '@glyphor/shared/models';
 
 export interface SpawnAgentOptions {
   name: string;
@@ -51,7 +52,7 @@ export async function createTemporaryAgent(
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
      RETURNING id, role, codename, status`,
     [agentId, opts.name, opts.name, opts.name, opts.spawnedFor, opts.department, opts.reportsTo, 'active',
-     opts.model || 'gemini-3-flash-preview', opts.temperature ?? 0.4, opts.maxTurns ?? 8,
+     opts.model || DEFAULT_AGENT_MODEL, opts.temperature ?? 0.4, opts.maxTurns ?? 8,
      opts.budgetPerRun ?? 0.03, opts.budgetDaily ?? 0.25, opts.budgetMonthly ?? 5,
      true, false, expiresAt, opts.spawnedBy, opts.spawnedFor, now, now],
   );

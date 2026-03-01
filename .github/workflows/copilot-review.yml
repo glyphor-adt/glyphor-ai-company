@@ -1,0 +1,28 @@
+name: Request Copilot Review
+
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+    branches: [main]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  assign-copilot:
+    if: "!github.event.pull_request.draft"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request Copilot review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --add-reviewer "copilot-pull-request-reviewer[bot]" || \
+          gh api \
+            --method POST \
+            "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers" \
+            -f '{"reviewers":[],"team_reviewers":[]}' \
+            --input - <<< '{"reviewers":["copilot-pull-request-reviewer[bot]"]}' || \
+          echo "Could not assign Copilot reviewer — ensure Copilot code review is enabled in repo settings."

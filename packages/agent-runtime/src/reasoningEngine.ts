@@ -66,19 +66,14 @@ export interface ValueAlternative {
   estimatedSavings: string;
 }
 
-// ─── Verification model pricing (cheapest tiers) ────────────────
+// ─── Verification model pricing (uses centralized registry) ────────────────
 
-const VERIFICATION_PRICING: Record<string, { input: number; output: number }> = {
-  'gemini-3-flash-preview':    { input: 0.10 / 1_000_000, output: 0.40 / 1_000_000 },
-  'gpt-5.2-2025-12-11':        { input: 2.00 / 1_000_000, output: 8.00 / 1_000_000 },
-  'claude-opus-4-6':           { input: 15.00 / 1_000_000, output: 75.00 / 1_000_000 },
-};
+import { estimateModelCost } from '@glyphor/shared/models';
 
 const MAX_REVISIONS = 2;
 
 function estimateVerificationCost(model: string, inputTokens: number, outputTokens: number): number {
-  const pricing = VERIFICATION_PRICING[model] ?? VERIFICATION_PRICING['gemini-3-flash-preview'];
-  return inputTokens * pricing.input + outputTokens * pricing.output;
+  return estimateModelCost(model, inputTokens, outputTokens);
 }
 
 // ─── ReasoningEngine ────────────────────────────────────────────

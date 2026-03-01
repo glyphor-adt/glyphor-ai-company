@@ -30,6 +30,7 @@ import type {
 import type { RunDependencies, AgentProfileData, SkillContext } from './companyAgentRunner.js';
 import type { ReasoningEngine } from './reasoningEngine.js';
 import type { JitContextRetriever, JitContext } from './jitContextRetriever.js';
+import { estimateModelCost } from '@glyphor/shared/models';
 import type { RedisCache } from './redisCache.js';
 import type { ContextDistiller } from './contextDistiller.js';
 import type { RuntimeToolFactory } from './runtimeToolFactory.js';
@@ -37,22 +38,10 @@ import type { ConstitutionalGovernor } from './constitutionalGovernor.js';
 import type { TrustScorer } from './trustScorer.js';
 import type { DecisionChainTracker } from './decisionChainTracker.js';
 
-// ─── Cost estimation (mirrors companyAgentRunner) ───────────────
-const MODEL_PRICING: Record<string, { input: number; output: number }> = {
-  'gemini-3':         { input: 0.10 / 1_000_000, output: 0.40 / 1_000_000 },
-  'gemini-2.5-flash': { input: 0.15 / 1_000_000, output: 0.60 / 1_000_000 },
-  'gemini-2.5-pro':   { input: 1.25 / 1_000_000, output: 10.0 / 1_000_000 },
-  'gemini-2':         { input: 0.10 / 1_000_000, output: 0.40 / 1_000_000 },
-  'claude':           { input: 3.00 / 1_000_000, output: 15.0 / 1_000_000 },
-  'gpt-4':            { input: 2.50 / 1_000_000, output: 10.0 / 1_000_000 },
-};
+// ─── Cost estimation (uses centralized model registry) ───────────────
 
 function estimateCost(model: string, inputTokens: number, outputTokens: number): number {
-  const entry = Object.entries(MODEL_PRICING)
-    .sort((a, b) => b[0].length - a[0].length)
-    .find(([prefix]) => model.startsWith(prefix));
-  const pricing = entry?.[1] ?? MODEL_PRICING['gemini-3'];
-  return inputTokens * pricing.input + outputTokens * pricing.output;
+  return estimateModelCost(model, inputTokens, outputTokens);
 }
 
 function estimateTokens(history: ConversationTurn[]): number {
