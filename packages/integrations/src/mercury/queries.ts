@@ -1,5 +1,5 @@
 /**
- * Mercury Queries — Sync banking data to Supabase financials table
+ * Mercury Queries — Sync banking data to financials table
  *
  * Writes these metrics:
  * - cash_balance: Total cash across all Mercury accounts

@@ -1,5 +1,5 @@
 /**
- * Kling AI Billing — Query resource pack usage via /account/costs and sync to Supabase
+ * Kling AI Billing — Query resource pack usage via /account/costs and sync to database
  *
  * Kling AI (by Kuaishou) provides video/image generation.
  * Auth: JWT signed with HMAC-SHA256 using Access Key + Secret Key.

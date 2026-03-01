@@ -1,5 +1,5 @@
 /**
- * Stripe Webhook Handler — Processes Stripe events and writes to Supabase
+ * Stripe Webhook Handler — Processes Stripe events and writes to database
  *
  * Handles:
  * - invoice.paid → financials (mrr)

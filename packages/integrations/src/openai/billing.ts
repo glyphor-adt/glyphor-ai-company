@@ -1,5 +1,5 @@
 /**
- * OpenAI Billing — Query costs via the Organization Costs API and sync to Supabase
+ * OpenAI Billing — Query costs via the Organization Costs API and sync to database
  *
  * Requires an OpenAI Admin API key (sk-admin-...) set as OPENAI_ADMIN_KEY env var.
  * API docs: https://platform.openai.com/docs/api-reference/organization/costs

@@ -1,5 +1,5 @@
 /**
- * GCP Billing — Query billing export from BigQuery and sync to Supabase
+ * GCP Billing — Query billing export from BigQuery and sync to database
  */
 
 import { BigQuery } from '@google-cloud/bigquery';

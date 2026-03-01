@@ -18,7 +18,7 @@ export interface AuditContext {
 
 /**
  * Wrap any external API call with audit logging.
- * Logs the agent, platform, action, and response status to Supabase.
+ * Logs the agent, platform, action, and response status to the database.
  */
 export async function auditedFetch<T>(
   ctx: AuditContext,

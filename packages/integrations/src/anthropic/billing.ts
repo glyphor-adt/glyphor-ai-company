@@ -1,5 +1,5 @@
 /**
- * Anthropic Billing — Query usage via the Admin API and sync to Supabase
+ * Anthropic Billing — Query usage via the Admin API and sync to database
  *
  * Requires an Anthropic Admin API key set as ANTHROPIC_ADMIN_KEY env var.
  * Uses the /v1/messages/count_tokens-style usage tracking plus the

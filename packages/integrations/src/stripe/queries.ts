@@ -2,7 +2,7 @@
  * Stripe Queries — Scheduled sync functions for pulling financial data
  *
  * These run on a schedule (daily) to sync MRR, subscription counts,
- * and churn rates from Stripe into the Supabase financials table.
+ * and churn rates from Stripe into the financials table.
  */
 
 import { systemQuery } from '@glyphor/shared/db';

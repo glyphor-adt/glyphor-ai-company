@@ -15,7 +15,7 @@
  */
 
 import OpenAI from 'openai';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import { SessionManager } from './sessionManager.js';
 import { getAgentVoiceConfig } from './voiceMap.js';
 import type { TeamsJoinRequest, TeamsJoinResponse, TeamsLeaveRequest, TranscriptEntry } from './types.js';
@@ -30,7 +30,6 @@ export class TeamsCallHandler {
   private graphConfig: GraphCallConfig;
   private openai: OpenAI;
   private sessions: SessionManager;
-  private supabase: SupabaseClient;
   private gatewayUrl: string;
   /** Map from sessionId → Graph call ID */
   private calls = new Map<string, string>();
@@ -43,13 +42,11 @@ export class TeamsCallHandler {
     graphConfig: GraphCallConfig,
     openai: OpenAI,
     sessions: SessionManager,
-    supabase: SupabaseClient,
     gatewayUrl: string,
   ) {
     this.graphConfig = graphConfig;
     this.openai = openai;
     this.sessions = sessions;
-    this.supabase = supabase;
     this.gatewayUrl = gatewayUrl;
   }
 
@@ -198,29 +195,26 @@ export class TeamsCallHandler {
         .map((e) => `[${e.role}] ${e.text}`)
         .join('\n');
 
-      // Save meeting notes to knowledge graph via Supabase
-      await this.supabase.from('activity_log').insert({
-        agent_role: session.agentRole,
-        action: 'briefing',
-        product: 'company',
-        summary: `Meeting notes — ${voiceConfig.displayName} participated in a Teams call`,
-        details: { transcript: summary, meetingUrl: session.meetingUrl },
-      });
+      // Save meeting notes to knowledge graph
+      await systemQuery(
+        'INSERT INTO activity_log (agent_role, action, product, summary, details) VALUES ($1, $2, $3, $4, $5)',
+        [
+          session.agentRole,
+          'briefing',
+          'company',
+          `Meeting notes — ${voiceConfig.displayName} participated in a Teams call`,
+          JSON.stringify({ transcript: summary, meetingUrl: session.meetingUrl }),
+        ],
+      );
     }
 
     // Save usage
     const usage = this.sessions.end(sessionId);
     if (usage) {
-      await this.supabase.from('voice_usage').insert({
-        session_id: usage.sessionId,
-        agent_role: usage.agentRole,
-        mode: usage.mode,
-        duration_sec: usage.durationSec,
-        estimated_cost: usage.estimatedCost,
-        user_id: usage.userId,
-        started_at: usage.startedAt,
-        ended_at: usage.endedAt,
-      });
+      await systemQuery(
+        'INSERT INTO voice_usage (session_id, agent_role, mode, duration_sec, estimated_cost, user_id, started_at, ended_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+        [usage.sessionId, usage.agentRole, usage.mode, usage.durationSec, usage.estimatedCost, usage.userId, usage.startedAt, usage.endedAt],
+      );
     }
 
     this.transcripts.delete(sessionId);
