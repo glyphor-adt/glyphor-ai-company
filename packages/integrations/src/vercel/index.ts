@@ -11,27 +11,34 @@
  *   Omar (Cost Analyst)    — query usage/costs across all teams
  *   Jordan (DevOps)        — query build metrics for both scopes
  *
- * Requires VERCEL_TOKEN secret.
- * Requires VERCEL_TEAM_FUSE and VERCEL_TEAM_FUSE_PROJECTS env vars.
+ * Environment Variables (required):
+ *   VERCEL_TOKEN               — Vercel API token (secret)
+ *   VERCEL_TEAM_FUSE           — Vercel team ID for fuse.build
+ *   VERCEL_TEAM_FUSE_PROJECTS  — Vercel team ID for end-user projects
+ *
+ * These must be configured in Cloud Run environment or Secret Manager.
  */
 
 const VERCEL_API = 'https://api.vercel.com';
 
+// Validate required environment variables at module load
+if (!process.env.VERCEL_TEAM_FUSE) {
+  throw new Error('VERCEL_TEAM_FUSE not configured — add the env var to Cloud Run');
+}
+if (!process.env.VERCEL_TEAM_FUSE_PROJECTS) {
+  throw new Error('VERCEL_TEAM_FUSE_PROJECTS not configured — add the env var to Cloud Run');
+}
+
 /** Vercel team mapping — scopes queries to the right Vercel team. */
 export const VERCEL_TEAMS = {
-  fuse: process.env.VERCEL_TEAM_FUSE || '',
-  'fuse-projects': process.env.VERCEL_TEAM_FUSE_PROJECTS || '',
+  fuse: process.env.VERCEL_TEAM_FUSE,
+  'fuse-projects': process.env.VERCEL_TEAM_FUSE_PROJECTS,
 } as const;
 
 export type VercelTeamKey = keyof typeof VERCEL_TEAMS;
 
 function resolveTeamId(key: VercelTeamKey): string {
-  const id = VERCEL_TEAMS[key];
-  if (!id) {
-    const envVar = key === 'fuse' ? 'VERCEL_TEAM_FUSE' : 'VERCEL_TEAM_FUSE_PROJECTS';
-    throw new Error(`${envVar} not configured — add the env var to Cloud Run`);
-  }
-  return id;
+  return VERCEL_TEAMS[key];
 }
 
 // ─── Interfaces ──────────────────────────────────────────────────
