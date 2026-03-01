@@ -29,14 +29,19 @@ The database implements row-level security (RLS) for tenant isolation. See migra
 After running the RLS migration, you must set a password for `glyphor_system_user`:
 
 ```sql
-ALTER ROLE glyphor_system_user WITH PASSWORD 'your-secure-password';
+ALTER ROLE glyphor_system_user WITH PASSWORD 'REPLACE_WITH_SECURE_PASSWORD';
+```
+
+Generate a strong password using:
+```bash
+openssl rand -base64 32
 ```
 
 Store this password in GCP Secret Manager:
 
 ```bash
-# Create the secret
-echo -n "your-secure-password" | gcloud secrets create db-system-password \
+# Generate and store the password (replace the password with actual generated value)
+openssl rand -base64 32 | gcloud secrets create db-system-password \
   --data-file=- \
   --project=ai-glyphor-company
 

@@ -18,7 +18,8 @@
 -- PASSWORD SETUP:
 -- --------------
 -- After running this migration, set a password for glyphor_system_user:
---   ALTER ROLE glyphor_system_user WITH PASSWORD 'secure_password';
+--   ALTER ROLE glyphor_system_user WITH PASSWORD 'REPLACE_WITH_SECURE_PASSWORD';
+-- Generate a strong password: openssl rand -base64 32
 -- Store the password in GCP Secret Manager as 'db-system-password'
 
 -- Create system role for scheduler bypass
