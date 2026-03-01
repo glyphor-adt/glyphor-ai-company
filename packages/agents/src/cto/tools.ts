@@ -1717,41 +1717,51 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
           const days = (params.days as number) || 7;
           const since = new Date(Date.now() - days * 86400000).toISOString();
 
+          // Join agent_runs with company_agents to get model info
+          // agent_runs columns: agent_id, input_tokens, output_tokens, cost, created_at, status
+          // company_agents columns: role (matches agent_id), model
           let query = supabase.from('agent_runs')
-            .select('agent_role, model, tokens_used, cost_usd, created_at, status')
+            .select('agent_id, input_tokens, output_tokens, cost, created_at, status, company_agents!inner(role, model)')
             .gte('created_at', since)
             .order('created_at', { ascending: false });
 
           if (params.agent_role) {
-            query = query.eq('agent_role', params.agent_role as string);
+            query = query.eq('agent_id', params.agent_role as string);
           }
 
           const { data, error } = await query.limit(200);
           if (error) return { success: false, error: error.message };
 
-          const runs = data as Array<{ agent_role: string; model: string; tokens_used: number; cost_usd: number; status: string }>;
+          const runs = data as Array<{
+            agent_id: string;
+            input_tokens: number;
+            output_tokens: number;
+            cost: number;
+            status: string;
+            company_agents: { role: string; model: string };
+          }>;
 
           // Aggregate by model
           const byModel: Record<string, { runs: number; tokens: number; cost: number }> = {};
           for (const run of runs) {
-            const model = run.model || 'unknown';
+            const model = run.company_agents?.model || 'unknown';
             if (!byModel[model]) byModel[model] = { runs: 0, tokens: 0, cost: 0 };
             byModel[model].runs++;
-            byModel[model].tokens += run.tokens_used || 0;
-            byModel[model].cost += run.cost_usd || 0;
+            byModel[model].tokens += (run.input_tokens || 0) + (run.output_tokens || 0);
+            byModel[model].cost += Number(run.cost) || 0;
           }
 
           // Aggregate by agent
           const byAgent: Record<string, { runs: number; tokens: number; cost: number }> = {};
           for (const run of runs) {
-            if (!byAgent[run.agent_role]) byAgent[run.agent_role] = { runs: 0, tokens: 0, cost: 0 };
-            byAgent[run.agent_role].runs++;
-            byAgent[run.agent_role].tokens += run.tokens_used || 0;
-            byAgent[run.agent_role].cost += run.cost_usd || 0;
+            if (!byAgent[run.agent_id]) byAgent[run.agent_id] = { runs: 0, tokens: 0, cost: 0 };
+            byAgent[run.agent_id].runs++;
+            byAgent[run.agent_id].tokens += (run.input_tokens || 0) + (run.output_tokens || 0);
+            byAgent[run.agent_id].cost += Number(run.cost) || 0;
           }
 
-          const totalCost = runs.reduce((s, r) => s + (r.cost_usd || 0), 0);
-          const totalTokens = runs.reduce((s, r) => s + (r.tokens_used || 0), 0);
+          const totalCost = runs.reduce((s, r) => s + (Number(r.cost) || 0), 0);
+          const totalTokens = runs.reduce((s, r) => s + ((r.input_tokens || 0) + (r.output_tokens || 0)), 0);
 
           return {
             success: true,

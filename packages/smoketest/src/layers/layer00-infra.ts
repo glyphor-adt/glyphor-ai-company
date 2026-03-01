@@ -120,5 +120,42 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
     tests[tests.length - 1].status = 'skipped';
   }
 
+  // T0.6 — Agent Runs Query Schema
+  tests.push(
+    await runTest('T0.6', 'Agent Runs Query Schema', async () => {
+      const { getSupabase } = await import('../utils/supabase.js');
+      const sb = getSupabase(config);
+      
+      // Validate query_ai_usage schema compatibility:
+      // Test that we can query agent_runs with join to company_agents
+      const since = new Date(Date.now() - 7 * 86400000).toISOString();
+      const { data, error } = await sb
+        .from('agent_runs')
+        .select('agent_id, input_tokens, output_tokens, cost, created_at, status, company_agents!inner(role, model)')
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) {
+        throw new Error(`Query failed: ${error.message}`);
+      }
+
+      // Validate structure of returned data
+      if (data && data.length > 0) {
+        const sample = data[0] as any;
+        if (!('agent_id' in sample)) throw new Error('Missing agent_id column');
+        if (!('input_tokens' in sample)) throw new Error('Missing input_tokens column');
+        if (!('output_tokens' in sample)) throw new Error('Missing output_tokens column');
+        if (!('cost' in sample)) throw new Error('Missing cost column');
+        if (!('company_agents' in sample)) throw new Error('Missing company_agents join');
+        if (sample.company_agents && !('model' in sample.company_agents)) {
+          throw new Error('Missing model in company_agents join');
+        }
+      }
+
+      return `agent_runs schema validated — ${data?.length ?? 0} recent run(s) found`;
+    }),
+  );
+
   return { layer: 0, name: 'Infrastructure Health', tests };
 }
