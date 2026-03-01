@@ -8,15 +8,15 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- Link facts to product entities
-INSERT INTO kg_edges (source_id, target_id, relation, weight)
-SELECT src.id, tgt.id, 'HAS_COMPLIANCE', 1.0
+INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, created_by)
+SELECT src.id, tgt.id, 'HAS_COMPLIANCE', 1.0, 1.0, 'system'
 FROM kg_nodes src, kg_nodes tgt
 WHERE src.title = 'Fuse' AND src.node_type = 'entity'
   AND tgt.title = 'Fuse Legal Pages' AND tgt.node_type = 'fact'
 ON CONFLICT DO NOTHING;
 
-INSERT INTO kg_edges (source_id, target_id, relation, weight)
-SELECT src.id, tgt.id, 'HAS_COMPLIANCE', 1.0
+INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, created_by)
+SELECT src.id, tgt.id, 'HAS_COMPLIANCE', 1.0, 1.0, 'system'
 FROM kg_nodes src, kg_nodes tgt
 WHERE src.title = 'Pulse' AND src.node_type = 'entity'
   AND tgt.title = 'Pulse Legal Pages' AND tgt.node_type = 'fact'

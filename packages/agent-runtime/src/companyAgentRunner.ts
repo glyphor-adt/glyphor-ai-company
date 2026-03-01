@@ -239,6 +239,8 @@ const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
   'tax-strategy-specialist': 'mariana-solis',
   'lead-gen-specialist': 'derek-owens',
   'marketing-intelligence-analyst': 'zara-petrov',
+  'ai-impact-analyst': 'riya-mehta',
+  'org-analyst': 'marcus-chen',
   'adi-rose': 'adi-rose',
 };
 

@@ -1,6 +1,18 @@
 -- Fix agents created at runtime without proper display names or profiles.
 -- Assigns real persona names, titles, and creates missing profiles.
 
+-- ── Ensure these agents exist (they may have been created at runtime) ──
+INSERT INTO company_agents (role, display_name, name, title, model, status, reports_to, is_core)
+VALUES
+  ('enterprise-account-researcher', 'Ethan Morse', 'Ethan Morse', 'Enterprise Account Researcher', 'gemini-3-flash-preview', 'active', 'vp-sales', true),
+  ('bob-the-tax-pro', 'Robert "Bob" Finley', 'Robert Finley', 'CPA & Tax Strategist', 'gemini-3-flash-preview', 'active', 'clo', true),
+  ('data-integrity-auditor', 'Grace Hwang', 'Grace Hwang', 'Data Integrity Auditor', 'gemini-3-flash-preview', 'active', 'clo', true),
+  ('tax-strategy-specialist', 'Mariana Solis', 'Mariana Solis', 'CPA & Tax Strategist', 'gemini-3-flash-preview', 'active', 'clo', true),
+  ('lead-gen-specialist', 'Derek Owens', 'Derek Owens', 'Lead Generation Specialist', 'gemini-3-flash-preview', 'active', 'chief-of-staff', true),
+  ('marketing-intelligence-analyst', 'Zara Petrov', 'Zara Petrov', 'Marketing Intelligence Analyst', 'gemini-3-flash-preview', 'active', 'cmo', true),
+  ('adi-rose', 'Adi Rose', 'Adi Rose', 'Executive Assistant to COO', 'gemini-3-flash-preview', 'active', 'chief-of-staff', true)
+ON CONFLICT (role) DO NOTHING;
+
 -- ── Fix display_name and name for agents that were using their role as name ──
 UPDATE company_agents SET
   display_name = 'Ethan Morse',
