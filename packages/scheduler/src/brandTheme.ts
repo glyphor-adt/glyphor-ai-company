@@ -5,8 +5,8 @@
  * presentations, infographics, and reports. Ensures visual consistency
  * across PPTX, DOCX, Markdown, and image outputs.
  *
- * Design language: Modern, minimal, data-forward. Clean white backgrounds,
- * cyan accent, charcoal typography, generous whitespace. Professional
+ * Design language: Modern, minimal, data-forward. Dark backgrounds,
+ * cyan accent, light typography, generous whitespace. Professional
  * consulting-grade aesthetic with Glyphor's own identity.
  */
 
@@ -21,29 +21,29 @@ export const BRAND = {
   indigo:   '#623CEA',
   indigoHex: '623CEA',
 
-  /** Dark charcoal — primary text, headers */
+  /** Dark charcoal — used for dark fills on colored bars */
   charcoal: '#1A1A2E',
   charcoalHex: '1A1A2E',
 
-  /** Text color — body copy */
-  text:     '#1F2937',
-  textHex:  '1F2937',
+  /** Text color — body copy (light for dark backgrounds) */
+  text:     '#E5E7EB',
+  textHex:  'E5E7EB',
 
   /** Muted text — captions, subtitles, metadata */
-  muted:    '#6B7280',
-  mutedHex: '6B7280',
+  muted:    '#8B95A5',
+  mutedHex: '8B95A5',
 
   /** Light muted — footer text, watermarks */
-  faint:    '#999999',
-  faintHex: '999999',
+  faint:    '#6B7280',
+  faintHex: '6B7280',
 
-  /** Background — primary white */
-  bg:       '#FFFFFF',
-  bgHex:    'FFFFFF',
+  /** Background — primary dark */
+  bg:       '#0F1117',
+  bgHex:    '0F1117',
 
   /** Background — raised panels, cards */
-  bgRaised: '#F3F4F6',
-  bgRaisedHex: 'F3F4F6',
+  bgRaised: '#1A1D27',
+  bgRaisedHex: '1A1D27',
 
   /** Semantic: positive/success */
   green:    '#34D399',
@@ -111,13 +111,13 @@ export const DOC_LABELS = {
 /* ── Visual Prompt Palette Description ── */
 
 export const VISUAL_PALETTE_PROMPT = [
-  `Color palette: primary cyan (${BRAND.cyan}), white (${BRAND.bg}) background, dark charcoal (${BRAND.charcoal}) text,`,
+  `Color palette: primary cyan (${BRAND.cyan}), dark (${BRAND.bg}) background, light (#E5E7EB) text,`,
   `emerald (${BRAND.green}) for positive, rose (${BRAND.red}) for negative, amber (${BRAND.amber}) for caution.`,
-  `Use soft pastel tinted backgrounds for card sections.`,
+  `Use dark-tinted backgrounds for card sections.`,
 ].join(' ');
 
 export const VISUAL_STYLE_PROMPT = [
-  `Style: modern flat design, white background, generous whitespace, minimal text.`,
+  `Style: modern flat design, dark charcoal background, generous whitespace, minimal text.`,
   `Use bold typography, color-coded cards, and data callouts.`,
   `Professional executive consulting aesthetic — clean, data-forward, not decorative.`,
   `All text must be legible — minimum 11px equivalent, sans-serif.`,
@@ -147,8 +147,8 @@ export const DOCX_STYLES = {
   headingColor: BRAND.cyanHex.replace('#', ''),
   /** Section divider color */
   dividerColor: BRAND.cyanHex.replace('#', ''),
-  /** Body text color */
-  bodyColor: '2D2D2D',
+  /** Body text color (light for dark backgrounds) */
+  bodyColor: 'E5E7EB',
   /** Page margins in inches */
   margin: { top: 0.8, bottom: 0.8, left: 1.0, right: 1.0 },
 } as const;

@@ -17,10 +17,10 @@ import { LOGO_DATA_URI } from './logoAsset.js';
 
 /* â”€â”€ Shared PPTX theme â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
-const SLIDE_BG    = 'FFFFFF';
-const SLIDE_BG2   = 'F3F4F6';  // light gray card/panel bg
-const SLIDE_TEXT  = '1F2937';
-const SLIDE_MUTED = '6B7280';
+const SLIDE_BG    = '0F1117';
+const SLIDE_BG2   = '1A1D27';  // dark card/panel bg
+const SLIDE_TEXT  = 'E5E7EB';
+const SLIDE_MUTED = '8B95A5';
 const SLIDE_CYAN  = '00E0FF';
 const SLIDE_AMBER = 'FBBF24';
 const SLIDE_GREEN = '34D399';
@@ -85,7 +85,7 @@ function pptxSectionSlides(pptx: PptxGenJS, heading: string, items: string[], co
       // Item card with subtle bg
       slide.addShape(pptx.ShapeType.roundRect, {
         x: 0.5, y: yPos - 0.05, w: 9, h: 0.55,
-        fill: { color: SLIDE_BG2 }, line: { color: 'E5E7EB', width: 0.5 }, rectRadius: 0.05,
+        fill: { color: SLIDE_BG2 }, line: { color: '2D3348', width: 0.5 }, rectRadius: 0.05,
       });
       slide.addText(`${prefix}  ${item}`, {
         x: 0.7, y: yPos, w: 8.6, h: 0.45,
@@ -273,7 +273,7 @@ export async function exportAnalysisPPTX(record: AnalysisRecord): Promise<Buffer
     // Summary text in a card
     slide.addShape(pptx.ShapeType.roundRect, {
       x: 0.5, y: 0.95, w: 9, h: 3.8,
-      fill: { color: SLIDE_BG2 }, line: { color: 'E5E7EB', width: 0.5 }, rectRadius: 0.08,
+      fill: { color: SLIDE_BG2 }, line: { color: '2D3348', width: 0.5 }, rectRadius: 0.08,
     });
     const summaryText = report.summary;
     slide.addText(summaryText, {
@@ -357,7 +357,7 @@ export async function exportAnalysisPPTX(record: AnalysisRecord): Promise<Buffer
       slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 1.5, w: 1.0, h: 0.035, fill: { color: SLIDE_RED } });
       slide.addShape(pptx.ShapeType.roundRect, {
         x: 0.5, y: 1.75, w: 9, h: 2.8,
-        fill: { color: SLIDE_BG2 }, line: { color: 'E5E7EB', width: 0.5 }, rectRadius: 0.08,
+        fill: { color: SLIDE_BG2 }, line: { color: '2D3348', width: 0.5 }, rectRadius: 0.08,
       });
       slide.addText(rec.detail, {
         x: 0.8, y: 1.9, w: 8.4, h: 2.5,
@@ -420,7 +420,7 @@ function docxBulletItem(text: string, color?: string): Paragraph {
   return new Paragraph({
     bullet: { level: 0 },
     spacing: { after: 80 },
-    children: [new TextRun({ text, size: 21, color: color ?? '333333', font: 'Segoe UI' })],
+    children: [new TextRun({ text, size: 21, color: color ?? 'D1D5DB', font: 'Segoe UI' })],
   });
 }
 
@@ -433,30 +433,30 @@ export async function exportAnalysisDOCX(record: AnalysisRecord): Promise<Buffer
   // â”€â”€ Branded header â”€â”€
   children.push(new Paragraph({
     spacing: { after: 60 },
-    children: [new TextRun({ text: 'GLYPHOR', bold: true, size: 20, color: '00B4D8', font: 'Segoe UI' })],
+    children: [new TextRun({ text: 'GLYPHOR', bold: true, size: 20, color: '00E0FF', font: 'Segoe UI' })],
   }));
   children.push(new Paragraph({
     spacing: { after: 120 },
-    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '00B4D8', space: 6 } },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '00E0FF', space: 6 } },
     children: [],
   }));
 
   // â”€â”€ Title block â”€â”€
   children.push(new Paragraph({
     spacing: { before: 200, after: 80 },
-    children: [new TextRun({ text: `Strategic Analysis: ${typeLabel}`, bold: true, size: 48, font: 'Segoe UI', color: '1A1A2E' })],
+    children: [new TextRun({ text: `Strategic Analysis: ${typeLabel}`, bold: true, size: 48, font: 'Segoe UI', color: 'E5E7EB' })],
   }));
   children.push(new Paragraph({
     spacing: { after: 80 },
-    children: [new TextRun({ text: record.query, italics: true, size: 24, color: '555555', font: 'Segoe UI' })],
+    children: [new TextRun({ text: record.query, italics: true, size: 24, color: 'B0B8C4', font: 'Segoe UI' })],
   }));
   children.push(new Paragraph({
     spacing: { after: 400 },
-    border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'DDDDDD', space: 12 } },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: '2D3348', space: 12 } },
     children: [
-      new TextRun({ text: `Depth: ${record.depth}`, size: 18, color: '888888', font: 'Segoe UI' }),
-      new TextRun({ text: `  Â·  Date: ${new Date(record.created_at).toLocaleDateString()}`, size: 18, color: '888888', font: 'Segoe UI' }),
-      new TextRun({ text: `  Â·  Status: ${record.status}`, size: 18, color: '888888', font: 'Segoe UI' }),
+      new TextRun({ text: `Depth: ${record.depth}`, size: 18, color: '8B95A5', font: 'Segoe UI' }),
+      new TextRun({ text: `  Â·  Date: ${new Date(record.created_at).toLocaleDateString()}`, size: 18, color: '8B95A5', font: 'Segoe UI' }),
+      new TextRun({ text: `  Â·  Status: ${record.status}`, size: 18, color: '8B95A5', font: 'Segoe UI' }),
     ],
   }));
 
@@ -466,11 +466,11 @@ export async function exportAnalysisDOCX(record: AnalysisRecord): Promise<Buffer
   }
 
   // â”€â”€ Executive Summary â”€â”€
-  children.push(...docxSectionHeading('Executive Summary', '00B4D8'));
+  children.push(...docxSectionHeading('Executive Summary', '00E0FF'));
   for (const para of report.summary.split('\n').filter(Boolean)) {
     children.push(new Paragraph({
       spacing: { after: 160 },
-      children: [new TextRun({ text: para, size: 22, font: 'Segoe UI', color: '2D2D2D' })],
+      children: [new TextRun({ text: para, size: 22, font: 'Segoe UI', color: 'E5E7EB' })],
     }));
   }
 
@@ -506,13 +506,13 @@ export async function exportAnalysisDOCX(record: AnalysisRecord): Promise<Buffer
         }),
       ];
       if (items.length === 0) {
-        cellChildren.push(new Paragraph({ children: [new TextRun({ text: 'None identified', italics: true, size: 18, color: '999999', font: 'Segoe UI' })] }));
+        cellChildren.push(new Paragraph({ children: [new TextRun({ text: 'None identified', italics: true, size: 18, color: '6B7280', font: 'Segoe UI' })] }));
       } else {
         for (const item of items) {
           cellChildren.push(new Paragraph({
             bullet: { level: 0 },
             spacing: { after: 60 },
-            children: [new TextRun({ text: item, size: 19, color: '444444', font: 'Segoe UI' })],
+            children: [new TextRun({ text: item, size: 19, color: 'C4C9D4', font: 'Segoe UI' })],
           }));
         }
       }
@@ -520,9 +520,9 @@ export async function exportAnalysisDOCX(record: AnalysisRecord): Promise<Buffer
         width: { size: 50, type: WidthType.PERCENTAGE },
         borders: {
           top: { style: BorderStyle.SINGLE, size: 3, color },
-          bottom: { style: BorderStyle.SINGLE, size: 1, color: 'E5E5E5' },
-          left: { style: BorderStyle.SINGLE, size: 1, color: 'E5E5E5' },
-          right: { style: BorderStyle.SINGLE, size: 1, color: 'E5E5E5' },
+          bottom: { style: BorderStyle.SINGLE, size: 1, color: '2D3348' },
+          left: { style: BorderStyle.SINGLE, size: 1, color: '2D3348' },
+          right: { style: BorderStyle.SINGLE, size: 1, color: '2D3348' },
         },
         margins: { top: convertInchesToTwip(0.1), bottom: convertInchesToTwip(0.1), left: convertInchesToTwip(0.12), right: convertInchesToTwip(0.12) },
         children: cellChildren,
@@ -537,7 +537,7 @@ export async function exportAnalysisDOCX(record: AnalysisRecord): Promise<Buffer
 
   // â”€â”€ Strategic Recommendations â”€â”€
   if (report.recommendations.length > 0) {
-    children.push(...docxSectionHeading('Strategic Recommendations', '00B4D8'));
+    children.push(...docxSectionHeading('Strategic Recommendations', '00E0FF'));
     const sorted = [...report.recommendations].sort((a, b) => {
       const order = { high: 0, medium: 1, low: 2 };
       return (order[a.priority] ?? 2) - (order[b.priority] ?? 2);
@@ -548,15 +548,15 @@ export async function exportAnalysisDOCX(record: AnalysisRecord): Promise<Buffer
       children.push(new Paragraph({
         spacing: { before: 240, after: 80 },
         children: [
-          new TextRun({ text: `${i + 1}. `, bold: true, size: 22, color: '00B4D8', font: 'Segoe UI' }),
-          new TextRun({ text: rec.title, bold: true, size: 22, font: 'Segoe UI', color: '1A1A2E' }),
+          new TextRun({ text: `${i + 1}. `, bold: true, size: 22, color: '00E0FF', font: 'Segoe UI' }),
+          new TextRun({ text: rec.title, bold: true, size: 22, font: 'Segoe UI', color: 'E5E7EB' }),
           new TextRun({ text: `  [${rec.priority.toUpperCase()}]`, bold: true, size: 18, color: priorityColor, font: 'Segoe UI' }),
         ],
       }));
       children.push(new Paragraph({
         spacing: { after: 120 },
         indent: { left: convertInchesToTwip(0.3) },
-        children: [new TextRun({ text: rec.detail, size: 21, color: '444444', font: 'Segoe UI' })],
+        children: [new TextRun({ text: rec.detail, size: 21, color: 'C4C9D4', font: 'Segoe UI' })],
       }));
     }
   }
@@ -577,8 +577,8 @@ export async function exportAnalysisDOCX(record: AnalysisRecord): Promise<Buffer
       children.push(new Paragraph({
         spacing: { before: 240, after: 60 },
         children: [
-          new TextRun({ text: `${thread.label}`, bold: true, size: 20, font: 'Segoe UI', color: '333333' }),
-          new TextRun({ text: ` (${thread.perspective})`, size: 18, color: '888888', font: 'Segoe UI' }),
+          new TextRun({ text: `${thread.label}`, bold: true, size: 20, font: 'Segoe UI', color: 'D1D5DB' }),
+          new TextRun({ text: ` (${thread.perspective})`, size: 18, color: '8B95A5', font: 'Segoe UI' }),
           new TextRun({ text: `  â€”  ${thread.status}`, size: 18, color: thread.status === 'completed' ? '059669' : '888888', font: 'Segoe UI' }),
         ],
       }));
@@ -587,7 +587,7 @@ export async function exportAnalysisDOCX(record: AnalysisRecord): Promise<Buffer
           children.push(new Paragraph({
             spacing: { after: 40 },
             indent: { left: convertInchesToTwip(0.2) },
-            children: [new TextRun({ text: line, size: 18, color: '666666', font: 'Segoe UI' })],
+            children: [new TextRun({ text: line, size: 18, color: '9CA3AF', font: 'Segoe UI' })],
           }));
         }
       }
@@ -597,9 +597,9 @@ export async function exportAnalysisDOCX(record: AnalysisRecord): Promise<Buffer
   // â”€â”€ Footer line â”€â”€
   children.push(new Paragraph({
     spacing: { before: 600 },
-    border: { top: { style: BorderStyle.SINGLE, size: 2, color: '00B4D8', space: 12 } },
+    border: { top: { style: BorderStyle.SINGLE, size: 2, color: '00E0FF', space: 12 } },
     alignment: AlignmentType.CENTER,
-    children: [new TextRun({ text: `Glyphor AI  Â·  Strategic Analysis  Â·  ${new Date().toLocaleDateString()}  Â·  Confidential`, size: 16, color: '999999', font: 'Segoe UI' })],
+    children: [new TextRun({ text: `Glyphor AI  Â·  Strategic Analysis  Â·  ${new Date().toLocaleDateString()}  Â·  Confidential`, size: 16, color: '6B7280', font: 'Segoe UI' })],
   }));
 
   return Packer.toBuffer(new Document({
@@ -662,7 +662,7 @@ export async function exportSimulationPPTX(record: SimulationRecord): Promise<Bu
     // Summary card
     slide.addShape(pptx.ShapeType.roundRect, {
       x: 0.5, y: 1.0, w: 7.0, h: 3.6,
-      fill: { color: SLIDE_BG2 }, line: { color: 'E5E7EB', width: 0.5 }, rectRadius: 0.08,
+      fill: { color: SLIDE_BG2 }, line: { color: '2D3348', width: 0.5 }, rectRadius: 0.08,
     });
     const summaryText = report.summary;
     slide.addText(summaryText, {
@@ -740,29 +740,29 @@ export async function exportSimulationDOCX(record: SimulationRecord): Promise<Bu
   // â”€â”€ Branded header â”€â”€
   children.push(new Paragraph({
     spacing: { after: 60 },
-    children: [new TextRun({ text: 'GLYPHOR', bold: true, size: 20, color: '00B4D8', font: 'Segoe UI' })],
+    children: [new TextRun({ text: 'GLYPHOR', bold: true, size: 20, color: '00E0FF', font: 'Segoe UI' })],
   }));
   children.push(new Paragraph({
     spacing: { after: 120 },
-    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '00B4D8', space: 6 } },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '00E0FF', space: 6 } },
     children: [],
   }));
 
   // â”€â”€ Title â”€â”€
   children.push(new Paragraph({
     spacing: { before: 200, after: 80 },
-    children: [new TextRun({ text: 'T+1 Impact Simulation', bold: true, size: 48, font: 'Segoe UI', color: '1A1A2E' })],
+    children: [new TextRun({ text: 'T+1 Impact Simulation', bold: true, size: 48, font: 'Segoe UI', color: 'E5E7EB' })],
   }));
   children.push(new Paragraph({
     spacing: { after: 80 },
-    children: [new TextRun({ text: record.action, italics: true, size: 24, color: '555555', font: 'Segoe UI' })],
+    children: [new TextRun({ text: record.action, italics: true, size: 24, color: 'B0B8C4', font: 'Segoe UI' })],
   }));
   children.push(new Paragraph({
     spacing: { after: 400 },
-    border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'DDDDDD', space: 12 } },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: '2D3348', space: 12 } },
     children: [
-      new TextRun({ text: `Perspective: ${record.perspective}`, size: 18, color: '888888', font: 'Segoe UI' }),
-      new TextRun({ text: `  Â·  Date: ${new Date(record.created_at).toLocaleDateString()}`, size: 18, color: '888888', font: 'Segoe UI' }),
+      new TextRun({ text: `Perspective: ${record.perspective}`, size: 18, color: '8B95A5', font: 'Segoe UI' }),
+      new TextRun({ text: `  Â·  Date: ${new Date(record.created_at).toLocaleDateString()}`, size: 18, color: '8B95A5', font: 'Segoe UI' }),
     ],
   }));
 
@@ -772,24 +772,24 @@ export async function exportSimulationDOCX(record: SimulationRecord): Promise<Bu
   }
 
   // â”€â”€ Executive Summary with Score â”€â”€
-  children.push(...docxSectionHeading('Executive Summary', '00B4D8'));
+  children.push(...docxSectionHeading('Executive Summary', '00E0FF'));
   const scoreColor = report.overallScore >= 3 ? '059669' : report.overallScore >= 0 ? 'D97706' : 'DC2626';
   children.push(new Paragraph({
     spacing: { after: 160 },
     children: [
-      new TextRun({ text: 'Overall Impact Score: ', bold: true, size: 24, font: 'Segoe UI', color: '333333' }),
+      new TextRun({ text: 'Overall Impact Score: ', bold: true, size: 24, font: 'Segoe UI', color: 'D1D5DB' }),
       new TextRun({ text: `${report.overallScore > 0 ? '+' : ''}${report.overallScore}/10`, bold: true, size: 28, font: 'Segoe UI', color: scoreColor }),
       new TextRun({ text: `    Recommendation: ${report.recommendation.replace(/_/g, ' ').toUpperCase()}`, bold: true, size: 20, font: 'Segoe UI', color: scoreColor }),
     ],
   }));
   children.push(new Paragraph({
     spacing: { after: 200 },
-    children: [new TextRun({ text: report.summary, size: 22, font: 'Segoe UI', color: '2D2D2D' })],
+    children: [new TextRun({ text: report.summary, size: 22, font: 'Segoe UI', color: 'E5E7EB' })],
   }));
 
   // â”€â”€ Impact by Department as table â”€â”€
   if (report.dimensions.length > 0) {
-    children.push(...docxSectionHeading('Impact by Department', '00B4D8'));
+    children.push(...docxSectionHeading('Impact by Department', '00E0FF'));
 
     // Header row
     const headerCells = ['Department', 'Impact', 'Score', 'Confidence', 'Analysis'].map((label) =>
@@ -804,14 +804,14 @@ export async function exportSimulationDOCX(record: SimulationRecord): Promise<Bu
       const impactColor = dim.impact === 'positive' ? '059669' : dim.impact === 'negative' ? 'DC2626' : '888888';
       return new TableRow({
         children: [
-          new TableCell({ margins: { top: 50, bottom: 50, left: 80, right: 80 }, children: [new Paragraph({ children: [new TextRun({ text: dim.area, bold: true, size: 19, font: 'Segoe UI', color: '333333' })] })] }),
+          new TableCell({ margins: { top: 50, bottom: 50, left: 80, right: 80 }, children: [new Paragraph({ children: [new TextRun({ text: dim.area, bold: true, size: 19, font: 'Segoe UI', color: 'D1D5DB' })] })] }),
           new TableCell({ margins: { top: 50, bottom: 50, left: 80, right: 80 }, children: [new Paragraph({ children: [new TextRun({ text: dim.impact.toUpperCase(), bold: true, size: 17, font: 'Segoe UI', color: impactColor })] })] }),
           new TableCell({ margins: { top: 50, bottom: 50, left: 80, right: 80 }, children: [new Paragraph({ children: [new TextRun({ text: `${dim.magnitude > 0 ? '+' : ''}${dim.magnitude}`, bold: true, size: 20, font: 'Segoe UI', color: impactColor })] })] }),
-          new TableCell({ margins: { top: 50, bottom: 50, left: 80, right: 80 }, children: [new Paragraph({ children: [new TextRun({ text: `${Math.round(dim.confidence * 100)}%`, size: 18, font: 'Segoe UI', color: '666666' })] })] }),
+          new TableCell({ margins: { top: 50, bottom: 50, left: 80, right: 80 }, children: [new Paragraph({ children: [new TextRun({ text: `${Math.round(dim.confidence * 100)}%`, size: 18, font: 'Segoe UI', color: '9CA3AF' })] })] }),
           new TableCell({
             width: { size: 45, type: WidthType.PERCENTAGE },
             margins: { top: 50, bottom: 50, left: 80, right: 80 },
-            children: [new Paragraph({ children: [new TextRun({ text: dim.reasoning, size: 18, font: 'Segoe UI', color: '555555' })] })],
+            children: [new Paragraph({ children: [new TextRun({ text: dim.reasoning, size: 18, font: 'Segoe UI', color: 'B0B8C4' })] })],
           }),
         ],
       });
@@ -830,11 +830,11 @@ export async function exportSimulationDOCX(record: SimulationRecord): Promise<Bu
       children.push(new Paragraph({
         spacing: { after: 80 },
         children: [
-          new TextRun({ text: `${link.from}`, bold: true, size: 20, color: '00B4D8', font: 'Segoe UI' }),
-          new TextRun({ text: '  â†’  ', size: 20, color: '888888', font: 'Segoe UI' }),
-          new TextRun({ text: `${link.to}`, bold: true, size: 20, color: '333333', font: 'Segoe UI' }),
-          new TextRun({ text: `: ${link.effect}`, size: 20, color: '555555', font: 'Segoe UI' }),
-          new TextRun({ text: `  (${link.delay})`, italics: true, size: 18, color: '888888', font: 'Segoe UI' }),
+          new TextRun({ text: `${link.from}`, bold: true, size: 20, color: '00E0FF', font: 'Segoe UI' }),
+          new TextRun({ text: '  â†’  ', size: 20, color: '8B95A5', font: 'Segoe UI' }),
+          new TextRun({ text: `${link.to}`, bold: true, size: 20, color: 'D1D5DB', font: 'Segoe UI' }),
+          new TextRun({ text: `: ${link.effect}`, size: 20, color: 'B0B8C4', font: 'Segoe UI' }),
+          new TextRun({ text: `  (${link.delay})`, italics: true, size: 18, color: '8B95A5', font: 'Segoe UI' }),
         ],
       }));
     }
@@ -856,7 +856,7 @@ export async function exportSimulationDOCX(record: SimulationRecord): Promise<Bu
       children.push(new Paragraph({
         spacing: { after: 100 },
         indent: { left: convertInchesToTwip(0.3) },
-        children: [new TextRun({ text: v.reasoning, size: 20, color: '555555', font: 'Segoe UI' })],
+        children: [new TextRun({ text: v.reasoning, size: 20, color: 'B0B8C4', font: 'Segoe UI' })],
       }));
     }
   }
@@ -864,9 +864,9 @@ export async function exportSimulationDOCX(record: SimulationRecord): Promise<Bu
   // â”€â”€ Footer â”€â”€
   children.push(new Paragraph({
     spacing: { before: 600 },
-    border: { top: { style: BorderStyle.SINGLE, size: 2, color: '00B4D8', space: 12 } },
+    border: { top: { style: BorderStyle.SINGLE, size: 2, color: '00E0FF', space: 12 } },
     alignment: AlignmentType.CENTER,
-    children: [new TextRun({ text: `Glyphor AI  Â·  T+1 Simulation  Â·  ${new Date().toLocaleDateString()}  Â·  Confidential`, size: 16, color: '999999', font: 'Segoe UI' })],
+    children: [new TextRun({ text: `Glyphor AI  Â·  T+1 Simulation  Â·  ${new Date().toLocaleDateString()}  Â·  Confidential`, size: 16, color: '6B7280', font: 'Segoe UI' })],
   }));
 
   return Packer.toBuffer(new Document({
@@ -1253,39 +1253,39 @@ export async function exportDeepDiveDOCX(record: DeepDiveRecord): Promise<Buffer
   // Branded header
   children.push(new Paragraph({
     spacing: { after: 60 },
-    children: [new TextRun({ text: 'GLYPHOR', bold: true, size: 20, color: '00B4D8', font: 'Segoe UI' })],
+    children: [new TextRun({ text: 'GLYPHOR', bold: true, size: 20, color: '00E0FF', font: 'Segoe UI' })],
   }));
   children.push(new Paragraph({
     spacing: { after: 120 },
-    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '00B4D8', space: 6 } },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '00E0FF', space: 6 } },
     children: [],
   }));
 
   // Title
   children.push(new Paragraph({
     spacing: { before: 200, after: 80 },
-    children: [new TextRun({ text: `Strategic Deep Dive: ${record.target}`, bold: true, size: 48, font: 'Segoe UI', color: '1A1A2E' })],
+    children: [new TextRun({ text: `Strategic Deep Dive: ${record.target}`, bold: true, size: 48, font: 'Segoe UI', color: 'E5E7EB' })],
   }));
   children.push(new Paragraph({
     spacing: { after: 400 },
-    border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'DDDDDD', space: 12 } },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: '2D3348', space: 12 } },
     children: [
-      new TextRun({ text: `Sources: ${record.sources.length}`, size: 18, color: '888888', font: 'Segoe UI' }),
-      new TextRun({ text: `  Â·  Date: ${new Date(record.created_at).toLocaleDateString()}`, size: 18, color: '888888', font: 'Segoe UI' }),
-      new TextRun({ text: `  Â·  Status: ${record.status}`, size: 18, color: '888888', font: 'Segoe UI' }),
+      new TextRun({ text: `Sources: ${record.sources.length}`, size: 18, color: '8B95A5', font: 'Segoe UI' }),
+      new TextRun({ text: `  Â·  Date: ${new Date(record.created_at).toLocaleDateString()}`, size: 18, color: '8B95A5', font: 'Segoe UI' }),
+      new TextRun({ text: `  Â·  Status: ${record.status}`, size: 18, color: '8B95A5', font: 'Segoe UI' }),
     ],
   }));
 
   if (!report) {
     children.push(new Paragraph({ children: [new TextRun({ text: 'Report not yet generated.', italics: true })] }));
-    return Packer.toBuffer(new Document({ sections: [{ children: children as Paragraph[] }] }));
+    return Packer.toBuffer(new Document({ background: { color: '0F1117' }, sections: [{ children: children as Paragraph[] }] }));
   }
 
   // Overview
-  children.push(...docxSectionHeading('Company Overview', '00B4D8'));
+  children.push(...docxSectionHeading('Company Overview', '00E0FF'));
   children.push(new Paragraph({
     spacing: { after: 160 },
-    children: [new TextRun({ text: report.overview.description, size: 22, font: 'Segoe UI', color: '2D2D2D' })],
+    children: [new TextRun({ text: report.overview.description, size: 22, font: 'Segoe UI', color: 'E5E7EB' })],
   }));
 
   // Current State
@@ -1305,22 +1305,22 @@ export async function exportDeepDiveDOCX(record: DeepDiveRecord): Promise<Buffer
 
   // Strategic Recommendations
   if (report.strategicRecommendations.length > 0) {
-    children.push(...docxSectionHeading('Strategic Recommendations', '00B4D8'));
+    children.push(...docxSectionHeading('Strategic Recommendations', '00E0FF'));
     for (let i = 0; i < report.strategicRecommendations.length; i++) {
       const rec = report.strategicRecommendations[i];
       const priorityColor = rec.priority === 'immediate' ? 'DC2626' : rec.priority === 'short-term' ? 'D97706' : '2563EB';
       children.push(new Paragraph({
         spacing: { before: 240, after: 80 },
         children: [
-          new TextRun({ text: `${i + 1}. `, bold: true, size: 22, color: '00B4D8', font: 'Segoe UI' }),
-          new TextRun({ text: rec.title, bold: true, size: 22, font: 'Segoe UI', color: '1A1A2E' }),
+          new TextRun({ text: `${i + 1}. `, bold: true, size: 22, color: '00E0FF', font: 'Segoe UI' }),
+          new TextRun({ text: rec.title, bold: true, size: 22, font: 'Segoe UI', color: 'E5E7EB' }),
           new TextRun({ text: `  [${rec.priority.toUpperCase()}]`, bold: true, size: 18, color: priorityColor, font: 'Segoe UI' }),
         ],
       }));
       children.push(new Paragraph({
         spacing: { after: 120 },
         indent: { left: convertInchesToTwip(0.3) },
-        children: [new TextRun({ text: rec.description, size: 21, color: '444444', font: 'Segoe UI' })],
+        children: [new TextRun({ text: rec.description, size: 21, color: 'C4C9D4', font: 'Segoe UI' })],
       }));
     }
   }
@@ -1337,12 +1337,12 @@ export async function exportDeepDiveDOCX(record: DeepDiveRecord): Promise<Buffer
   // Cross-Model Verification Summary
   if (report.verificationSummary) {
     const vs = report.verificationSummary;
-    children.push(...docxSectionHeading('Cross-Model Verification', '00B4D8'));
+    children.push(...docxSectionHeading('Cross-Model Verification', '00E0FF'));
     children.push(new Paragraph({
       spacing: { after: 120 },
       children: [
         new TextRun({ text: `Overall Confidence: ${Math.round(vs.overallConfidence * 100)}%`, bold: true, size: 24, font: 'Segoe UI', color: vs.overallConfidence >= 0.8 ? '059669' : vs.overallConfidence >= 0.6 ? 'D97706' : 'DC2626' }),
-        new TextRun({ text: `  ·  ${vs.areasVerified} areas verified  ·  Models: ${vs.modelsUsed.join(', ')}`, size: 20, font: 'Segoe UI', color: '888888' }),
+        new TextRun({ text: `  ·  ${vs.areasVerified} areas verified  ·  Models: ${vs.modelsUsed.join(', ')}`, size: 20, font: 'Segoe UI', color: '8B95A5' }),
       ],
     }));
     if (vs.flaggedClaims.length > 0) {
@@ -1358,16 +1358,16 @@ export async function exportDeepDiveDOCX(record: DeepDiveRecord): Promise<Buffer
 
   // Source Citations
   if (report.sourceCitations && report.sourceCitations.length > 0) {
-    children.push(...docxSectionHeading('Sources & References', '00B4D8'));
+    children.push(...docxSectionHeading('Sources & References', '00E0FF'));
     for (const src of report.sourceCitations.slice(0, 40)) {
       children.push(new Paragraph({
         spacing: { after: 60 },
         indent: { left: convertInchesToTwip(0.2) },
         children: [
-          new TextRun({ text: `[${src.id}] `, bold: true, size: 18, font: 'Segoe UI', color: '00B4D8' }),
-          new TextRun({ text: src.title, size: 18, font: 'Segoe UI', color: '2D2D2D' }),
-          new TextRun({ text: src.url ? ` — ${src.url}` : '', size: 16, font: 'Segoe UI', color: '888888' }),
-          new TextRun({ text: ` (${src.type})`, size: 16, font: 'Segoe UI', color: '888888' }),
+          new TextRun({ text: `[${src.id}] `, bold: true, size: 18, font: 'Segoe UI', color: '00E0FF' }),
+          new TextRun({ text: src.title, size: 18, font: 'Segoe UI', color: 'E5E7EB' }),
+          new TextRun({ text: src.url ? ` — ${src.url}` : '', size: 16, font: 'Segoe UI', color: '8B95A5' }),
+          new TextRun({ text: ` (${src.type})`, size: 16, font: 'Segoe UI', color: '8B95A5' }),
         ],
       }));
     }
@@ -1376,9 +1376,9 @@ export async function exportDeepDiveDOCX(record: DeepDiveRecord): Promise<Buffer
   // Footer
   children.push(new Paragraph({
     spacing: { before: 600 },
-    border: { top: { style: BorderStyle.SINGLE, size: 2, color: '00B4D8', space: 12 } },
+    border: { top: { style: BorderStyle.SINGLE, size: 2, color: '00E0FF', space: 12 } },
     alignment: AlignmentType.CENTER,
-    children: [new TextRun({ text: `Glyphor AI  ·  Strategic Deep Dive  ·  ${new Date().toLocaleDateString()}  ·  Confidential`, size: 16, color: '999999', font: 'Segoe UI' })],
+    children: [new TextRun({ text: `Glyphor AI  ·  Strategic Deep Dive  ·  ${new Date().toLocaleDateString()}  ·  Confidential`, size: 16, color: '6B7280', font: 'Segoe UI' })],
   }));
 
   return Packer.toBuffer(new Document({
@@ -1493,7 +1493,7 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
 
     slide.addShape(pptx.ShapeType.roundRect, {
       x: 0.5, y: 0.95, w: 9, h: 3.8,
-      fill: { color: SLIDE_BG2 }, line: { color: 'E5E7EB', width: 0.5 }, rectRadius: 0.08,
+      fill: { color: SLIDE_BG2 }, line: { color: '2D3348', width: 0.5 }, rectRadius: 0.08,
     });
     const summaryText = s.executiveSummary;
     slide.addText(summaryText, {
@@ -1572,7 +1572,7 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
       slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 1.5, w: 1.0, h: 0.035, fill: { color: SLIDE_RED } });
       slide.addShape(pptx.ShapeType.roundRect, {
         x: 0.5, y: 1.75, w: 9, h: 2.8,
-        fill: { color: SLIDE_BG2 }, line: { color: 'E5E7EB', width: 0.5 }, rectRadius: 0.08,
+        fill: { color: SLIDE_BG2 }, line: { color: '2D3348', width: 0.5 }, rectRadius: 0.08,
       });
       slide.addText(rec.description, {
         x: 0.8, y: 1.9, w: 8.4, h: 2.5,
@@ -1629,45 +1629,45 @@ export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Pro
   // Branded header
   children.push(new Paragraph({
     spacing: { after: 60 },
-    children: [new TextRun({ text: 'GLYPHOR', bold: true, size: 20, color: '00B4D8', font: 'Segoe UI' })],
+    children: [new TextRun({ text: 'GLYPHOR', bold: true, size: 20, color: '00E0FF', font: 'Segoe UI' })],
   }));
   children.push(new Paragraph({
     spacing: { after: 120 },
-    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '00B4D8', space: 6 } },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: '00E0FF', space: 6 } },
     children: [],
   }));
 
   // Title block
   children.push(new Paragraph({
     spacing: { before: 200, after: 80 },
-    children: [new TextRun({ text: `Strategic Analysis: ${typeLabel}`, bold: true, size: 48, font: 'Segoe UI', color: '1A1A2E' })],
+    children: [new TextRun({ text: `Strategic Analysis: ${typeLabel}`, bold: true, size: 48, font: 'Segoe UI', color: 'E5E7EB' })],
   }));
   children.push(new Paragraph({
     spacing: { after: 80 },
-    children: [new TextRun({ text: record.query, italics: true, size: 24, color: '555555', font: 'Segoe UI' })],
+    children: [new TextRun({ text: record.query, italics: true, size: 24, color: 'B0B8C4', font: 'Segoe UI' })],
   }));
   children.push(new Paragraph({
     spacing: { after: 400 },
-    border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'DDDDDD', space: 12 } },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: '2D3348', space: 12 } },
     children: [
-      new TextRun({ text: `Depth: ${record.depth}`, size: 18, color: '888888', font: 'Segoe UI' }),
-      new TextRun({ text: `  Â·  Sources: ${record.total_sources}`, size: 18, color: '888888', font: 'Segoe UI' }),
-      new TextRun({ text: `  Â·  Searches: ${record.total_searches}`, size: 18, color: '888888', font: 'Segoe UI' }),
-      new TextRun({ text: `  Â·  Date: ${new Date(record.created_at).toLocaleDateString()}`, size: 18, color: '888888', font: 'Segoe UI' }),
+      new TextRun({ text: `Depth: ${record.depth}`, size: 18, color: '8B95A5', font: 'Segoe UI' }),
+      new TextRun({ text: `  Â·  Sources: ${record.total_sources}`, size: 18, color: '8B95A5', font: 'Segoe UI' }),
+      new TextRun({ text: `  Â·  Searches: ${record.total_searches}`, size: 18, color: '8B95A5', font: 'Segoe UI' }),
+      new TextRun({ text: `  Â·  Date: ${new Date(record.created_at).toLocaleDateString()}`, size: 18, color: '8B95A5', font: 'Segoe UI' }),
     ],
   }));
 
   if (!s) {
     children.push(new Paragraph({ children: [new TextRun({ text: 'Report not yet generated.', italics: true })] }));
-    return Packer.toBuffer(new Document({ sections: [{ children }] }));
+    return Packer.toBuffer(new Document({ background: { color: '0F1117' }, sections: [{ children }] }));
   }
 
   // Executive Summary
-  children.push(...docxSectionHeading('Executive Summary', '00B4D8'));
+  children.push(...docxSectionHeading('Executive Summary', '00E0FF'));
   for (const para of s.executiveSummary.split('\n').filter(Boolean)) {
     children.push(new Paragraph({
       spacing: { after: 160 },
-      children: [new TextRun({ text: para, size: 22, font: 'Segoe UI', color: '2D2D2D' })],
+      children: [new TextRun({ text: para, size: 22, font: 'Segoe UI', color: 'E5E7EB' })],
     }));
   }
 
@@ -1699,13 +1699,13 @@ export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Pro
         }),
       ];
       if (items.length === 0) {
-        cellChildren.push(new Paragraph({ children: [new TextRun({ text: 'None identified', italics: true, size: 18, color: '999999', font: 'Segoe UI' })] }));
+        cellChildren.push(new Paragraph({ children: [new TextRun({ text: 'None identified', italics: true, size: 18, color: '6B7280', font: 'Segoe UI' })] }));
       } else {
         for (const item of items) {
           cellChildren.push(new Paragraph({
             bullet: { level: 0 },
             spacing: { after: 60 },
-            children: [new TextRun({ text: item, size: 19, color: '444444', font: 'Segoe UI' })],
+            children: [new TextRun({ text: item, size: 19, color: 'C4C9D4', font: 'Segoe UI' })],
           }));
         }
       }
@@ -1713,9 +1713,9 @@ export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Pro
         width: { size: 50, type: WidthType.PERCENTAGE },
         borders: {
           top: { style: BorderStyle.SINGLE, size: 3, color },
-          bottom: { style: BorderStyle.SINGLE, size: 1, color: 'E5E5E5' },
-          left: { style: BorderStyle.SINGLE, size: 1, color: 'E5E5E5' },
-          right: { style: BorderStyle.SINGLE, size: 1, color: 'E5E5E5' },
+          bottom: { style: BorderStyle.SINGLE, size: 1, color: '2D3348' },
+          left: { style: BorderStyle.SINGLE, size: 1, color: '2D3348' },
+          right: { style: BorderStyle.SINGLE, size: 1, color: '2D3348' },
         },
         margins: { top: convertInchesToTwip(0.1), bottom: convertInchesToTwip(0.1), left: convertInchesToTwip(0.12), right: convertInchesToTwip(0.12) },
         children: cellChildren,
@@ -1727,7 +1727,7 @@ export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Pro
 
   // Strategic Recommendations
   if (s.strategicRecommendations.length > 0) {
-    children.push(...docxSectionHeading('Strategic Recommendations', '00B4D8'));
+    children.push(...docxSectionHeading('Strategic Recommendations', '00E0FF'));
     const sorted = [...s.strategicRecommendations].sort((a, b) => {
       const order: Record<string, number> = { high: 0, medium: 1, low: 2 };
       return (order[a.impact] ?? 2) - (order[b.impact] ?? 2);
@@ -1738,24 +1738,24 @@ export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Pro
       children.push(new Paragraph({
         spacing: { before: 240, after: 80 },
         children: [
-          new TextRun({ text: `${i + 1}. `, bold: true, size: 22, color: '00B4D8', font: 'Segoe UI' }),
-          new TextRun({ text: rec.title, bold: true, size: 22, font: 'Segoe UI', color: '1A1A2E' }),
+          new TextRun({ text: `${i + 1}. `, bold: true, size: 22, color: '00E0FF', font: 'Segoe UI' }),
+          new TextRun({ text: rec.title, bold: true, size: 22, font: 'Segoe UI', color: 'E5E7EB' }),
           new TextRun({ text: `  [${rec.impact.toUpperCase()} IMPACT]`, bold: true, size: 18, color: impactColor, font: 'Segoe UI' }),
         ],
       }));
       children.push(new Paragraph({
         spacing: { after: 60 },
         indent: { left: convertInchesToTwip(0.3) },
-        children: [new TextRun({ text: rec.description, size: 21, color: '444444', font: 'Segoe UI' })],
+        children: [new TextRun({ text: rec.description, size: 21, color: 'C4C9D4', font: 'Segoe UI' })],
       }));
       children.push(new Paragraph({
         spacing: { after: 40 },
         indent: { left: convertInchesToTwip(0.3) },
         children: [
-          new TextRun({ text: 'Owner: ', bold: true, size: 18, color: '666666', font: 'Segoe UI' }),
-          new TextRun({ text: rec.owner, size: 18, color: '333333', font: 'Segoe UI' }),
-          new TextRun({ text: '  Â·  Expected: ', bold: true, size: 18, color: '666666', font: 'Segoe UI' }),
-          new TextRun({ text: rec.expectedOutcome, size: 18, color: '333333', font: 'Segoe UI' }),
+          new TextRun({ text: 'Owner: ', bold: true, size: 18, color: '9CA3AF', font: 'Segoe UI' }),
+          new TextRun({ text: rec.owner, size: 18, color: 'D1D5DB', font: 'Segoe UI' }),
+          new TextRun({ text: '  Â·  Expected: ', bold: true, size: 18, color: '9CA3AF', font: 'Segoe UI' }),
+          new TextRun({ text: rec.expectedOutcome, size: 18, color: 'D1D5DB', font: 'Segoe UI' }),
         ],
       }));
       children.push(new Paragraph({
@@ -1785,9 +1785,9 @@ export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Pro
   // Footer
   children.push(new Paragraph({
     spacing: { before: 600 },
-    border: { top: { style: BorderStyle.SINGLE, size: 2, color: '00B4D8', space: 12 } },
+    border: { top: { style: BorderStyle.SINGLE, size: 2, color: '00E0FF', space: 12 } },
     alignment: AlignmentType.CENTER,
-    children: [new TextRun({ text: `Glyphor AI  Â·  Strategy Lab  Â·  ${new Date().toLocaleDateString()}  Â·  Confidential`, size: 16, color: '999999', font: 'Segoe UI' })],
+    children: [new TextRun({ text: `Glyphor AI  Â·  Strategy Lab  Â·  ${new Date().toLocaleDateString()}  Â·  Confidential`, size: 16, color: '6B7280', font: 'Segoe UI' })],
   }));
 
   return Packer.toBuffer(new Document({
@@ -1831,7 +1831,7 @@ export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): st
 
   return [
     `Create a polished, executive-quality strategy infographic in 16:9 landscape format (1536x1024px).`,
-    `Style: modern flat design, white background, generous whitespace. Use bold typography, color-coded cards, and data callouts. This should read like a strategy consulting deliverable, not a generic chart.`,
+    `Style: modern flat design, dark charcoal (#0F1117) background, generous whitespace. Use bold typography, color-coded cards, and data callouts. This should read like a strategy consulting deliverable, not a generic chart.`,
     ``,
     `Color palette: cyan (#00E0FF), charcoal (#1A1A2E), emerald (#34D399), rose (#FB7185), amber (#FBBF24), soft gray (#F3F4F6) for backgrounds.`,
     ``,

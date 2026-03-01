@@ -9,6 +9,7 @@ import path from 'node:path';
 const LOGO_PATHS = [
   path.resolve(import.meta.dirname, '../../dashboard/public/glyphor-logo.png'),
   path.resolve(import.meta.dirname, '../public/glyphor-logo.png'),
+  path.resolve(import.meta.dirname, '../../../public/glyphor-logo.png'),
   path.resolve(import.meta.dirname, '../../../public/FullLogo_Transparent.png'),
 ];
 
