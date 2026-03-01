@@ -1,4 +1,26 @@
 -- Multi-tenancy: Row Level Security for tenant isolation
+--
+-- SECURITY MODEL:
+-- ---------------
+-- 1. glyphor_system role: NOLOGIN role with RLS bypass policies
+-- 2. glyphor_system_user: Dedicated LOGIN user for backend services (scheduler, worker)
+--    - Should be set as DB_USER for services that need systemQuery() access
+--    - Has glyphor_system granted, allowing SET ROLE glyphor_system for RLS bypass
+-- 3. glyphor_app: General application role (NOT granted glyphor_system)
+--    - Used by dashboard and other tenant-scoped services
+--    - Cannot bypass RLS, ensuring tenant isolation
+--
+-- DEPLOYMENT:
+-- -----------
+-- Backend services (scheduler, worker): DB_USER=glyphor_system_user
+-- Dashboard and tenant-scoped services: DB_USER=glyphor_app (or tenant-specific users)
+--
+-- PASSWORD SETUP:
+-- --------------
+-- After running this migration, set a password for glyphor_system_user:
+--   ALTER ROLE glyphor_system_user WITH PASSWORD 'REPLACE_WITH_SECURE_PASSWORD';
+-- Generate a strong password: openssl rand -base64 32
+-- Store the password in GCP Secret Manager as 'db-system-password'
 
 -- Create system role for scheduler bypass
 DO $$
@@ -9,11 +31,28 @@ BEGIN
 END
 $$;
 
--- Grant bypass to glyphor_app user
+-- Note: Do NOT grant glyphor_system to general application roles like glyphor_app
+-- to preserve multi-tenant isolation. Instead, the application should connect
+-- using a dedicated user (e.g., postgres or a service account) that has
+-- glyphor_system granted. This ensures only explicit SET ROLE glyphor_system
+-- calls (via systemQuery) can bypass RLS, not all connections.
+
+-- Create dedicated system user for scheduler/worker services that need RLS bypass
+-- This user should be used ONLY by backend services (scheduler, worker) via DB_USER env var
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'glyphor_app') THEN
-    GRANT glyphor_system TO glyphor_app;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'glyphor_system_user') THEN
+    CREATE ROLE glyphor_system_user LOGIN;
+    GRANT glyphor_system TO glyphor_system_user;
+  END IF;
+END
+$$;
+
+-- Grant glyphor_system to postgres superuser for admin operations
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'postgres') THEN
+    GRANT glyphor_system TO postgres;
   END IF;
 END
 $$;
