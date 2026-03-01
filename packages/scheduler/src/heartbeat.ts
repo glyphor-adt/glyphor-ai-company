@@ -49,17 +49,14 @@ const LOW_TIER: CompanyAgentRole[] = SUB_TEAM_ROLES as CompanyAgentRole[];
 const MIN_RUN_GAP_MS = 5 * 60 * 1000;
 
 export class HeartbeatManager {
-  private supabase: SupabaseClient;
   private executor: AgentExecutorFn;
   private wakeRouter: WakeRouter;
   private cycle = 0;
 
   constructor(
-    supabase: SupabaseClient,
     executor: AgentExecutorFn,
     wakeRouter: WakeRouter,
   ) {
-    this.supabase = supabase;
     this.executor = executor;
     this.wakeRouter = wakeRouter;
   }
@@ -75,8 +72,8 @@ export class HeartbeatManager {
 
     // ── Phase 0b: CHANGE REQUESTS — process founder requests → Copilot ──
     try {
-      const newlyProcessed = await processNewChangeRequests(this.supabase);
-      const synced = await syncChangeRequestProgress(this.supabase);
+      const newlyProcessed = await processNewChangeRequests();
+      const synced = await syncChangeRequestProgress();
       if (newlyProcessed || synced) {
         console.log(`[Heartbeat] Change requests: ${newlyProcessed} new → Copilot, ${synced} progress updates`);
       }
@@ -111,13 +108,12 @@ export class HeartbeatManager {
           const match = (needs.context.message as string).match(/assignment_id="([^"]+)"/);
           if (match) {
             assignmentId = match[1];
-            const { data: assignment } = await this.supabase
-              .from('work_assignments')
-              .select('depends_on')
-              .eq('id', assignmentId)
-              .single();
+            const [assignment] = await systemQuery<{depends_on: string[]}>(
+              'SELECT depends_on FROM work_assignments WHERE id=$1',
+              [assignmentId],
+            );
             if (assignment?.depends_on?.length) {
-              dependsOn = assignment.depends_on as string[];
+              dependsOn = assignment.depends_on;
             }
           }
         }
@@ -143,13 +139,11 @@ export class HeartbeatManager {
       const ABORT_COOLDOWN_MS = 30 * 60 * 1000;
       const recentAborts = new Map<string, Date>();
       try {
-        const { data: aborts } = await this.supabase
-          .from('agent_runs')
-          .select('agent_id, completed_at')
-          .eq('status', 'aborted')
-          .gte('completed_at', new Date(Date.now() - ABORT_COOLDOWN_MS).toISOString())
-          .order('completed_at', { ascending: false });
-        for (const row of aborts ?? []) {
+        const aborts = await systemQuery<{agent_id: string; completed_at: string}>(
+          'SELECT agent_id, completed_at FROM agent_runs WHERE status=$1 AND completed_at >= $2 ORDER BY completed_at DESC',
+          ['aborted', new Date(Date.now() - ABORT_COOLDOWN_MS).toISOString()],
+        );
+        for (const row of aborts) {
           if (!recentAborts.has(row.agent_id)) {
             recentAborts.set(row.agent_id, new Date(row.completed_at));
           }
@@ -210,7 +204,7 @@ export class HeartbeatManager {
     );
 
     // ── Phase 3: DISPATCH — parallel wave execution ──
-    const dispatchResult = await dispatchWaves(waves, this.executor, this.supabase);
+    const dispatchResult = await dispatchWaves(waves, this.executor);
 
     const wokenAgents = dispatchResult.dispatched.map(role => {
       const agent = wakeList.find(a => a.role === role);
@@ -250,27 +244,32 @@ export class HeartbeatManager {
     // Runs every heartbeat cycle (~10 min) so Sarah picks up directives in near real-time
     if (agentRole === 'chief-of-staff') {
       try {
-        const { data: activeDirectives } = await this.supabase
-          .from('founder_directives')
-          .select('id, title, work_assignments(id)')
-          .eq('status', 'active');
-
-        const newDirectives = (activeDirectives ?? []).filter(
-          (d: any) => !d.work_assignments || d.work_assignments.length === 0,
+        const rows = await systemQuery<{id: string; title: string; wa_id: string | null}>(
+          'SELECT fd.id, fd.title, wa.id as wa_id FROM founder_directives fd LEFT JOIN work_assignments wa ON wa.directive_id = fd.id WHERE fd.status=$1',
+          ['active'],
         );
+
+        // Group by directive; directives with no assignments have wa_id = null
+        const directiveMap = new Map<string, { id: string; title: string; hasAssignments: boolean }>();
+        for (const row of rows) {
+          const existing = directiveMap.get(row.id);
+          if (existing) {
+            if (row.wa_id) existing.hasAssignments = true;
+          } else {
+            directiveMap.set(row.id, { id: row.id, title: row.title, hasAssignments: !!row.wa_id });
+          }
+        }
+        const newDirectives = [...directiveMap.values()].filter(d => !d.hasAssignments);
 
         if (newDirectives.length > 0) {
           // Idempotency guard: skip if Sarah already ran orchestrate in the last 15 min
           const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-          const { data: recentRun } = await this.supabase
-            .from('agent_runs')
-            .select('id')
-            .eq('agent_id', 'chief-of-staff')
-            .like('run_id', 'cos-orchestrate-%')
-            .gte('started_at', fifteenMinAgo)
-            .limit(1);
+          const recentRun = await systemQuery<{id: string}>(
+            'SELECT id FROM agent_runs WHERE agent_id=$1 AND run_id LIKE $2 AND started_at >= $3 LIMIT 1',
+            ['chief-of-staff', 'cos-orchestrate-%', fifteenMinAgo],
+          );
 
-          if (recentRun && recentRun.length > 0) {
+          if (recentRun.length > 0) {
             console.log('[Heartbeat] CoS: Skipping directive wake — orchestrate ran within 15 min');
           } else {
             console.log(
@@ -294,7 +293,7 @@ export class HeartbeatManager {
 
     // Check 2: Universal work loop (P1-P5 priority stack)
     try {
-      const workResult = await executeWorkLoop(agentRole, this.supabase);
+      const workResult = await executeWorkLoop(agentRole);
       if (workResult.shouldRun) {
         return {
           shouldWake: true,
@@ -313,11 +312,10 @@ export class HeartbeatManager {
 
     // Check 3: Knowledge inbox items (batch — wake if 5+ pending)
     try {
-      const { count: inboxItems } = await this.supabase
-        .from('knowledge_inbox')
-        .select('*', { count: 'exact', head: true })
-        .eq('target_agent', agentRole)
-        .eq('status', 'pending');
+      const [{ count: inboxItems }] = await systemQuery<{ count: number }>(
+        'SELECT COUNT(*) as count FROM knowledge_inbox WHERE target_agent=$1 AND status=$2',
+        [agentRole, 'pending'],
+      );
 
       if (inboxItems && inboxItems >= 5) {
         return { shouldWake: true, reason: 'knowledge_inbox', context: { count: inboxItems } };
@@ -339,16 +337,10 @@ export class HeartbeatManager {
     const STALE_THRESHOLD_MS = 5 * 60 * 1000;
     const cutoff = new Date(Date.now() - STALE_THRESHOLD_MS).toISOString();
     try {
-      const { data } = await this.supabase
-        .from('agent_runs')
-        .update({
-          status: 'failed',
-          completed_at: new Date().toISOString(),
-          error: 'reaped: stuck in running state for >5 minutes',
-        })
-        .eq('status', 'running')
-        .lt('created_at', cutoff)
-        .select('id, agent_id');
+      const data = await systemQuery<{id: string; agent_id: string}>(
+        'UPDATE agent_runs SET status=$1, completed_at=$2, error=$3 WHERE status=$4 AND created_at < $5 RETURNING id, agent_id',
+        ['failed', new Date().toISOString(), 'reaped: stuck in running state for >5 minutes', 'running', cutoff],
+      );
 
       if (data && data.length > 0) {
         const agents = data.map((r: { agent_id: string }) => r.agent_id);
@@ -375,13 +367,12 @@ export class HeartbeatManager {
    */
   private async filterActiveAgents(agents: CompanyAgentRole[]): Promise<CompanyAgentRole[]> {
     try {
-      const { data } = await this.supabase
-        .from('company_agents')
-        .select('role, status')
-        .in('role', agents)
-        .eq('status', 'active');
+      const data = await systemQuery<{role: string; status: string}>(
+        'SELECT role, status FROM company_agents WHERE role = ANY($1) AND status = $2',
+        [agents, 'active'],
+      );
 
-      const activeRoles = new Set((data ?? []).map((r: { role: string }) => r.role));
+      const activeRoles = new Set(data.map((r: { role: string }) => r.role));
       const skipped = agents.filter(a => !activeRoles.has(a));
       if (skipped.length > 0) {
         console.log(`[Heartbeat] Skipping non-active agents: [${skipped.join(', ')}]`);
@@ -399,12 +390,12 @@ export class HeartbeatManager {
   private async getLastRunTimes(agents: CompanyAgentRole[]): Promise<Map<CompanyAgentRole, Date | null>> {
     const result = new Map<CompanyAgentRole, Date | null>();
     try {
-      const { data } = await this.supabase
-        .from('company_agents')
-        .select('role, last_run_at')
-        .in('role', agents);
+      const data = await systemQuery<{role: string; last_run_at: string | null}>(
+        'SELECT role, last_run_at FROM company_agents WHERE role = ANY($1)',
+        [agents],
+      );
 
-      for (const row of data ?? []) {
+      for (const row of data) {
         result.set(
           row.role as CompanyAgentRole,
           row.last_run_at ? new Date(row.last_run_at) : null,

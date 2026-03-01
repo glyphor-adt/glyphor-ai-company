@@ -466,7 +466,6 @@ function buildResearchAreas(target: string): ResearchArea[] {
 
 export class DeepDiveEngine {
   constructor(
-    private supabase: SupabaseClient,
     private modelClient: ModelClient,
     private model = 'gemini-3-flash-preview',
   ) {}
@@ -490,44 +489,30 @@ export class DeepDiveEngine {
       error: null,
     };
 
-    await this.supabase.from('deep_dives').insert(record);
+    await systemQuery('INSERT INTO deep_dives (id, target, context, status, requested_by, research_areas, sources, report, created_at, completed_at, error) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)', [record.id, record.target, record.context, record.status, record.requested_by, JSON.stringify(record.research_areas), JSON.stringify(record.sources), null, record.created_at, null, null]);
 
     // Run all phases — caller must await `completion` to keep the
     // Cloud Run instance alive for the duration of the research.
     const completion = this.runPhases(id, req, researchAreas).catch((err) => {
       console.error(`[DeepDiveEngine] Fatal error in ${id}:`, err);
-      this.supabase.from('deep_dives').update({
-        status: 'failed',
-        error: err instanceof Error ? err.message : String(err),
-      }).eq('id', id);
+      systemQuery('UPDATE deep_dives SET status=$1, error=$2 WHERE id=$3', ['failed', err instanceof Error ? err.message : String(err), id]);
     });
 
     return { id, completion };
   }
 
   async get(id: string): Promise<DeepDiveRecord | null> {
-    const { data } = await this.supabase
-      .from('deep_dives')
-      .select('*')
-      .eq('id', id)
-      .single();
-    return data as DeepDiveRecord | null;
+    const [row] = await systemQuery<DeepDiveRecord>('SELECT * FROM deep_dives WHERE id = $1', [id]);
+    return row ?? null;
   }
 
   async list(limit = 20): Promise<DeepDiveRecord[]> {
-    const { data } = await this.supabase
-      .from('deep_dives')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    return (data as DeepDiveRecord[]) ?? [];
+    const rows = await systemQuery<DeepDiveRecord>('SELECT * FROM deep_dives ORDER BY created_at DESC LIMIT $1', [limit]);
+    return rows;
   }
 
   async cancel(id: string): Promise<void> {
-    await this.supabase.from('deep_dives').update({
-      status: 'failed',
-      error: 'Cancelled by user.',
-    }).eq('id', id);
+    await systemQuery('UPDATE deep_dives SET status=$1, error=$2 WHERE id=$3', ['failed', 'Cancelled by user.', id]);
   }
 
   /* ── Phase Runner ───────────────────────── */
@@ -714,14 +699,11 @@ export class DeepDiveEngine {
       return true;
     });
 
-    await this.supabase.from('deep_dives').update({ sources: dedupedSources }).eq('id', id);
+    await systemQuery('UPDATE deep_dives SET sources=$1 WHERE id=$2', [JSON.stringify(dedupedSources), id]);
 
     // Check that at least some areas completed
     if (completedAreas.length === 0) {
-      await this.supabase.from('deep_dives').update({
-        status: 'failed',
-        error: 'All research areas failed. Check API keys and search availability.',
-      }).eq('id', id);
+      await systemQuery('UPDATE deep_dives SET status=$1, error=$2 WHERE id=$3', ['failed', 'All research areas failed. Check API keys and search availability.', id]);
       return;
     }
 
@@ -794,7 +776,7 @@ export class DeepDiveEngine {
       });
       dedupedSources.length = 0;
       dedupedSources.push(...rededupedSources);
-      await this.supabase.from('deep_dives').update({ sources: dedupedSources, research_areas: areas }).eq('id', id);
+      await systemQuery('UPDATE deep_dives SET sources=$1, research_areas=$2 WHERE id=$3', [JSON.stringify(dedupedSources), JSON.stringify(areas), id]);
     }
 
     // ── Phase 3.5: FRAMEWORK ANALYSIS — apply 6 strategic frameworks ──
@@ -808,20 +790,9 @@ export class DeepDiveEngine {
     // ── Post-Synthesis: Extract monitoring watchlist ──
     await this.extractAndStoreWatchlist(id, report, frameworkOutputs, areas);
 
-    await this.supabase.from('deep_dives').update({
-      status: 'completed',
-      report,
-      sources: dedupedSources,
-      research_areas: areas,
-      completed_at: new Date().toISOString(),
-    }).eq('id', id);
+    await systemQuery('UPDATE deep_dives SET status=$1, report=$2, sources=$3, research_areas=$4, completed_at=$5 WHERE id=$6', ['completed', JSON.stringify(report), JSON.stringify(dedupedSources), JSON.stringify(areas), new Date().toISOString(), id]);
 
-    await this.supabase.from('activity_log').insert({
-      agent_id: 'system',
-      action: 'deep_dive.completed',
-      detail: `Strategic deep dive completed for "${req.target}": ${completedAreas.length}/${areas.length} areas researched, ${dedupedSources.length} sources analyzed, cross-model verified with challenge rounds`,
-      created_at: new Date().toISOString(),
-    });
+    await systemQuery('INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4)', ['system', 'deep_dive.completed', `Strategic deep dive completed for "${req.target}": ${completedAreas.length}/${areas.length} areas researched, ${dedupedSources.length} sources analyzed, cross-model verified with challenge rounds`, new Date().toISOString()]);
   }
 
   /* ── Framework Analysis (Phase 3.5) ────────── */
@@ -864,12 +835,7 @@ export class DeepDiveEngine {
           const parsed = JSON.parse(jsonMatch[0]);
 
           // Store in relational table
-          await this.supabase.from('deep_dive_frameworks').insert({
-            deep_dive_id: id,
-            framework: frameworkId,
-            analysis: parsed,
-            confidence_score: parsed.confidence ?? null,
-          });
+          await systemQuery('INSERT INTO deep_dive_frameworks (deep_dive_id, framework, analysis, confidence_score) VALUES ($1,$2,$3,$4)', [id, frameworkId, JSON.stringify(parsed), parsed.confidence ?? null]);
 
           return { frameworkId, analysis: parsed };
         }
@@ -884,9 +850,7 @@ export class DeepDiveEngine {
     }
 
     // Store aggregated outputs on the deep_dives record
-    await this.supabase.from('deep_dives').update({
-      framework_outputs: frameworkOutputs,
-    }).eq('id', id);
+    await systemQuery('UPDATE deep_dives SET framework_outputs=$1 WHERE id=$2', [JSON.stringify(frameworkOutputs), id]);
 
     // Generate convergence narrative (with consistency check)
     let convergenceNarrative: string | null = null;
@@ -910,9 +874,7 @@ export class DeepDiveEngine {
         convergenceNarrative = parsed.narrative ?? JSON.stringify(parsed);
       }
 
-      await this.supabase.from('deep_dives').update({
-        framework_convergence: convergenceNarrative,
-      }).eq('id', id);
+      await systemQuery('UPDATE deep_dives SET framework_convergence=$1 WHERE id=$2', [convergenceNarrative, id]);
     }
 
     return { frameworkOutputs, convergenceNarrative };
@@ -1245,11 +1207,11 @@ export class DeepDiveEngine {
   /* ── Helpers ────────────────────────────── */
 
   private async updateStatus(id: string, status: DeepDiveStatus): Promise<void> {
-    await this.supabase.from('deep_dives').update({ status }).eq('id', id);
+    await systemQuery('UPDATE deep_dives SET status=$1 WHERE id=$2', [status, id]);
   }
 
   private async updateAreas(id: string, areas: ResearchArea[]): Promise<void> {
-    await this.supabase.from('deep_dives').update({ research_areas: areas }).eq('id', id);
+    await systemQuery('UPDATE deep_dives SET research_areas=$1 WHERE id=$2', [JSON.stringify(areas), id]);
   }
 
   /* ── Framework Consistency Check ─────────── */
@@ -1352,17 +1314,9 @@ Extract 5-15 items. Focus on actionable, monitorable items — not vague concern
       }));
 
       if (items.length > 0) {
-        await this.supabase.from('deep_dive_watchlist').insert(
-          items.map((item) => ({
-            deep_dive_id: id,
-            item: item.item,
-            category: item.category,
-            trigger_signals: item.trigger_signals,
-            current_status: item.current_status,
-            priority: item.priority,
-            created_at: new Date().toISOString(),
-          })),
-        );
+        for (const item of items) {
+          await systemQuery('INSERT INTO deep_dive_watchlist (deep_dive_id, item, category, trigger_signals, current_status, priority, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, item.item, item.category, JSON.stringify(item.trigger_signals), item.current_status, item.priority, new Date().toISOString()]);
+        }
       }
 
       return items;

@@ -756,7 +756,6 @@ Respond ONLY with valid JSON — no markdown fences, no commentary.`;
 
 export class StrategyLabEngine {
   constructor(
-    private supabase: SupabaseClient,
     private modelClient: ModelClient,
     private agentExecutor: (role: CompanyAgentRole, task: string, payload: Record<string, unknown>) => Promise<AgentExecutionResult | void>,
     private model = 'gemini-3-flash-preview',
@@ -798,43 +797,57 @@ export class StrategyLabEngine {
       created_at: new Date().toISOString(),
     };
 
-    await this.supabase.from('strategy_analyses').insert(record);
+    await systemQuery(
+      `INSERT INTO strategy_analyses (id, query, analysis_type, depth, status, requested_by, research_briefs, executive_routing, research_packets, research_progress, executive_outputs, executive_progress, synthesis, total_searches, total_sources, sources, sarah_frame, sophia_decomposition, sophia_qc, cover_memos, gaps_filled, remaining_gaps, overall_confidence, framework_outputs, framework_convergence, framework_progress, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)`,
+      [
+        record.id, record.query, record.analysis_type, record.depth, record.status, record.requested_by,
+        JSON.stringify(record.research_briefs), JSON.stringify(record.executive_routing),
+        JSON.stringify(record.research_packets), JSON.stringify(record.research_progress),
+        JSON.stringify(record.executive_outputs), JSON.stringify(record.executive_progress),
+        JSON.stringify(record.synthesis), record.total_searches, record.total_sources,
+        JSON.stringify(record.sources), JSON.stringify(record.sarah_frame),
+        JSON.stringify(record.sophia_decomposition), JSON.stringify(record.sophia_qc),
+        JSON.stringify(record.cover_memos), JSON.stringify(record.gaps_filled),
+        JSON.stringify(record.remaining_gaps), record.overall_confidence,
+        JSON.stringify(record.framework_outputs), record.framework_convergence,
+        JSON.stringify(record.framework_progress), record.created_at,
+      ],
+    );
 
     // Run phases async
     this.runPipeline(id, req, depth, analysisType).catch((err) => {
       console.error(`[StrategyLab] Fatal error in ${id}:`, err);
-      this.supabase.from('strategy_analyses').update({
-        status: 'failed',
-        error: err instanceof Error ? err.message : String(err),
-      }).eq('id', id);
+      systemQuery(
+        'UPDATE strategy_analyses SET status=$1, error=$2 WHERE id=$3',
+        ['failed', err instanceof Error ? err.message : String(err), id],
+      );
     });
 
     return id;
   }
 
   async get(id: string): Promise<StrategyAnalysisRecord | null> {
-    const { data } = await this.supabase
-      .from('strategy_analyses')
-      .select('*')
-      .eq('id', id)
-      .single();
-    return data as StrategyAnalysisRecord | null;
+    const [row] = await systemQuery<StrategyAnalysisRecord>(
+      'SELECT * FROM strategy_analyses WHERE id=$1',
+      [id],
+    );
+    return row ?? null;
   }
 
   async list(limit = 20): Promise<StrategyAnalysisRecord[]> {
-    const { data } = await this.supabase
-      .from('strategy_analyses')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    return (data as StrategyAnalysisRecord[]) ?? [];
+    const rows = await systemQuery<StrategyAnalysisRecord>(
+      'SELECT * FROM strategy_analyses ORDER BY created_at DESC LIMIT $1',
+      [limit],
+    );
+    return rows;
   }
 
   async cancel(id: string): Promise<void> {
-    await this.supabase.from('strategy_analyses').update({
-      status: 'failed',
-      error: 'Cancelled by user.',
-    }).eq('id', id);
+    await systemQuery(
+      'UPDATE strategy_analyses SET status=$1, error=$2 WHERE id=$3',
+      ['failed', 'Cancelled by user.', id],
+    );
   }
 
   /* ── Pipeline Runner ────────────────────── */
@@ -890,7 +903,7 @@ Return ONLY valid JSON — no markdown fences.`,
       }
     }
 
-    await this.supabase.from('strategy_analyses').update({ sarah_frame: sarahFrame }).eq('id', id);
+    await systemQuery('UPDATE strategy_analyses SET sarah_frame=$1 WHERE id=$2', [JSON.stringify(sarahFrame), id]);
 
     // ═══════════════════════════════════════════
     // PHASE 1: Sophia decomposes the research
@@ -977,13 +990,10 @@ Return ONLY valid JSON — no markdown fences.`,
       status: 'waiting' as const,
     }));
 
-    await this.supabase.from('strategy_analyses').update({
-      research_briefs: sophiaBriefs,
-      executive_routing: sophiaRouting,
-      research_progress: researchProgress,
-      executive_progress: executiveProgress,
-      sophia_decomposition: sophiaDecomp,
-    }).eq('id', id);
+    await systemQuery(
+      'UPDATE strategy_analyses SET research_briefs=$1, executive_routing=$2, research_progress=$3, executive_progress=$4, sophia_decomposition=$5 WHERE id=$6',
+      [JSON.stringify(sophiaBriefs), JSON.stringify(sophiaRouting), JSON.stringify(researchProgress), JSON.stringify(executiveProgress), JSON.stringify(sophiaDecomp), id],
+    );
 
     // ═══════════════════════════════════════════
     // WAVE 1: Research team (parallel)
@@ -995,7 +1005,7 @@ Return ONLY valid JSON — no markdown fences.`,
         // Mark this analyst as running
         researchProgress[i].status = 'running';
         researchProgress[i].startedAt = new Date().toISOString();
-        await this.supabase.from('strategy_analyses').update({ research_progress: researchProgress }).eq('id', id);
+        await systemQuery('UPDATE strategy_analyses SET research_progress=$1 WHERE id=$2', [JSON.stringify(researchProgress), id]);
 
         const result = await this.agentExecutor(
           brief.analystRole as CompanyAgentRole,
@@ -1019,7 +1029,7 @@ Return ONLY valid JSON — no markdown fences.`,
             .filter((t) => t.role === 'tool_call' && t.toolName === 'web_fetch')
             .length;
         }
-        await this.supabase.from('strategy_analyses').update({ research_progress: researchProgress }).eq('id', id);
+        await systemQuery('UPDATE strategy_analyses SET research_progress=$1 WHERE id=$2', [JSON.stringify(researchProgress), id]);
 
         return result;
       }),
@@ -1032,14 +1042,13 @@ Return ONLY valid JSON — no markdown fences.`,
         researchProgress[i].error = r.reason?.message ?? String(r.reason);
       }
     });
-    await this.supabase.from('strategy_analyses').update({ research_progress: researchProgress }).eq('id', id);
+    await systemQuery('UPDATE strategy_analyses SET research_progress=$1 WHERE id=$2', [JSON.stringify(researchProgress), id]);
 
     // Load research packets submitted by analysts
-    const { data: currentRecord } = await this.supabase
-      .from('strategy_analyses')
-      .select('research_packets')
-      .eq('id', id)
-      .single();
+    const [currentRecord] = await systemQuery<{ research_packets: Record<string, unknown> }>(
+      'SELECT research_packets FROM strategy_analyses WHERE id=$1',
+      [id],
+    );
     let researchPackets = (currentRecord?.research_packets as Record<string, unknown>) || {};
 
     // ── Fallback: extract packets from analyst text output ──
@@ -1073,31 +1082,26 @@ Return ONLY valid JSON — no markdown fences.`,
         };
 
         try {
-          await this.supabase.rpc('merge_research_packet', {
-            p_analysis_id: id,
-            p_packet_type: packetType,
-            p_packet_data: fallbackPacket,
-          });
+          await systemQuery('SELECT * FROM merge_research_packet($1, $2, $3)', [id, packetType, JSON.stringify(fallbackPacket)]);
           fallbackCount++;
         } catch { /* best-effort */ }
       }
 
       if (fallbackCount > 0) {
         // Re-read packets after fallback insertion
-        const { data: fallbackRecord } = await this.supabase
-          .from('strategy_analyses')
-          .select('research_packets')
-          .eq('id', id)
-          .single();
+        const [fallbackRecord] = await systemQuery<{ research_packets: Record<string, unknown> }>(
+          'SELECT research_packets FROM strategy_analyses WHERE id=$1',
+          [id],
+        );
         researchPackets = (fallbackRecord?.research_packets as Record<string, unknown>) || {};
       }
     }
 
     if (Object.keys(researchPackets).length === 0) {
-      await this.supabase.from('strategy_analyses').update({
-        status: 'failed',
-        error: 'No research packets were submitted. All research analysts may have failed.',
-      }).eq('id', id);
+      await systemQuery(
+        'UPDATE strategy_analyses SET status=$1, error=$2 WHERE id=$3',
+        ['failed', 'No research packets were submitted. All research analysts may have failed.', id],
+      );
       return;
     }
 
@@ -1134,11 +1138,10 @@ Return ONLY valid JSON — no markdown fences.`,
     }
 
     // Re-read research packets (Sophia may have added via web_search + submit_research_packet)
-    const { data: postQCRecord } = await this.supabase
-      .from('strategy_analyses')
-      .select('research_packets')
-      .eq('id', id)
-      .single();
+    const [postQCRecord] = await systemQuery<{ research_packets: Record<string, unknown> }>(
+      'SELECT research_packets FROM strategy_analyses WHERE id=$1',
+      [id],
+    );
     const qcPackets = (postQCRecord?.research_packets as Record<string, unknown>) || researchPackets;
 
     // Collect all sources
@@ -1154,17 +1157,10 @@ Return ONLY valid JSON — no markdown fences.`,
       totalSearches += rp.searchCount || 0;
     });
 
-    await this.supabase.from('strategy_analyses').update({
-      sophia_qc: sophiaQC,
-      cover_memos: coverMemos,
-      gaps_filled: gapsFilled,
-      remaining_gaps: remainingGaps,
-      overall_confidence: overallConfidence,
-      qc_completed_at: new Date().toISOString(),
-      sources: allSources,
-      total_searches: totalSearches,
-      total_sources: allSources.length,
-    }).eq('id', id);
+    await systemQuery(
+      'UPDATE strategy_analyses SET sophia_qc=$1, cover_memos=$2, gaps_filled=$3, remaining_gaps=$4, overall_confidence=$5, qc_completed_at=$6, sources=$7, total_searches=$8, total_sources=$9 WHERE id=$10',
+      [JSON.stringify(sophiaQC), JSON.stringify(coverMemos), JSON.stringify(gapsFilled), JSON.stringify(remainingGaps), overallConfidence, new Date().toISOString(), JSON.stringify(allSources), totalSearches, allSources.length, id],
+    );
 
     // ═══════════════════════════════════════════
     // WAVE 1.75: Framework Analysis (parallel)
@@ -1187,7 +1183,7 @@ Return ONLY valid JSON — no markdown fences.`,
         // Mark running
         executiveProgress[i].status = 'running';
         executiveProgress[i].startedAt = new Date().toISOString();
-        await this.supabase.from('strategy_analyses').update({ executive_progress: executiveProgress }).eq('id', id);
+        await systemQuery('UPDATE strategy_analyses SET executive_progress=$1 WHERE id=$2', [JSON.stringify(executiveProgress), id]);
 
         // Build exec's packet subset based on routing
         const routing = sophiaRouting[execRole] || [];
@@ -1240,10 +1236,10 @@ Return ONLY valid JSON — no markdown fences.`,
 
         executiveProgress[i].status = 'completed';
         executiveProgress[i].completedAt = new Date().toISOString();
-        await this.supabase.from('strategy_analyses').update({
-          executive_progress: executiveProgress,
-          executive_outputs: executiveOutputs,
-        }).eq('id', id);
+        await systemQuery(
+          'UPDATE strategy_analyses SET executive_progress=$1, executive_outputs=$2 WHERE id=$3',
+          [JSON.stringify(executiveProgress), JSON.stringify(executiveOutputs), id],
+        );
 
         return execOutput;
       }),
@@ -1256,10 +1252,10 @@ Return ONLY valid JSON — no markdown fences.`,
         executiveProgress[i].error = r.reason?.message ?? String(r.reason);
       }
     });
-    await this.supabase.from('strategy_analyses').update({
-      executive_progress: executiveProgress,
-      executive_outputs: executiveOutputs,
-    }).eq('id', id);
+    await systemQuery(
+      'UPDATE strategy_analyses SET executive_progress=$1, executive_outputs=$2 WHERE id=$3',
+      [JSON.stringify(executiveProgress), JSON.stringify(executiveOutputs), id],
+    );
 
     // ═══════════════════════════════════════════
     // WAVE 3: Sarah synthesizes
@@ -1315,19 +1311,16 @@ Return ONLY valid JSON — no markdown fences.`,
     // ═══════════════════════════════════════════
     await this.extractAndStoreWatchlist(id, 'strategy_analysis', synthesis, frameworkOutputs, executiveOutputs);
 
-    await this.supabase.from('strategy_analyses').update({
-      status: 'completed',
-      synthesis,
-      completed_at: new Date().toISOString(),
-    }).eq('id', id);
+    await systemQuery(
+      'UPDATE strategy_analyses SET status=$1, synthesis=$2, completed_at=$3 WHERE id=$4',
+      ['completed', JSON.stringify(synthesis), new Date().toISOString(), id],
+    );
 
     // Log activity
-    await this.supabase.from('activity_log').insert({
-      agent_id: 'system',
-      action: 'strategy_analysis.completed',
-      detail: `Strategy Lab v2 analysis completed for "${req.query}" (${depth}): ${Object.keys(qcPackets).length} research packets, ${Object.keys(executiveOutputs).length} executive analyses, ${allSources.length} sources. Confidence: ${overallConfidence}. Gaps filled by Sophia: ${gapsFilled.length}`,
-      created_at: new Date().toISOString(),
-    });
+    await systemQuery(
+      'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',
+      ['system', 'strategy_analysis.completed', `Strategy Lab v2 analysis completed for "${req.query}" (${depth}): ${Object.keys(qcPackets).length} research packets, ${Object.keys(executiveOutputs).length} executive analyses, ${allSources.length} sources. Confidence: ${overallConfidence}. Gaps filled by Sophia: ${gapsFilled.length}`, new Date().toISOString()],
+    );
   }
 
   /* ── Quick Analysis ─────────────────────── */
@@ -1363,11 +1356,10 @@ Return ONLY valid JSON — no markdown fences.`,
       }
     }
 
-    await this.supabase.from('strategy_analyses').update({
-      status: 'completed',
-      synthesis,
-      completed_at: new Date().toISOString(),
-    }).eq('id', id);
+    await systemQuery(
+      'UPDATE strategy_analyses SET status=$1, synthesis=$2, completed_at=$3 WHERE id=$4',
+      ['completed', JSON.stringify(synthesis), new Date().toISOString(), id],
+    );
   }
 
   /* ── Follow-Up Research (Comprehensive) ── */
@@ -1432,11 +1424,10 @@ Return an empty array [] if the analysis is sufficiently thorough.`;
     );
 
     // Re-read research packets (analysts added to them)
-    const { data: updatedRecord } = await this.supabase
-      .from('strategy_analyses')
-      .select('research_packets')
-      .eq('id', id)
-      .single();
+    const [updatedRecord] = await systemQuery<{ research_packets: Record<string, unknown> }>(
+      'SELECT research_packets FROM strategy_analyses WHERE id=$1',
+      [id],
+    );
     const updatedPackets = (updatedRecord?.research_packets as Record<string, unknown>) || researchPackets;
 
     // Re-synthesize with new data
@@ -1492,9 +1483,10 @@ Return an empty array [] if the analysis is sufficiently thorough.`;
       status: 'pending' as const,
     }));
 
-    await this.supabase.from('strategy_analyses').update({
-      framework_progress: frameworkProgress,
-    }).eq('id', id);
+    await systemQuery(
+      'UPDATE strategy_analyses SET framework_progress=$1 WHERE id=$2',
+      [JSON.stringify(frameworkProgress), id],
+    );
 
     // Extract target name from query for framework prompts
     const target = query;
@@ -1507,9 +1499,10 @@ Return an empty array [] if the analysis is sufficiently thorough.`;
         // Mark running
         frameworkProgress[i].status = 'running';
         frameworkProgress[i].startedAt = new Date().toISOString();
-        await this.supabase.from('strategy_analyses').update({
-          framework_progress: frameworkProgress,
-        }).eq('id', id);
+        await systemQuery(
+          'UPDATE strategy_analyses SET framework_progress=$1 WHERE id=$2',
+          [JSON.stringify(frameworkProgress), id],
+        );
 
         const prompt = buildFrameworkPrompt(frameworkId, target, researchPackets);
         const startMs = Date.now();
@@ -1535,10 +1528,10 @@ Return an empty array [] if the analysis is sufficiently thorough.`;
         // Mark completed
         frameworkProgress[i].status = 'completed';
         frameworkProgress[i].completedAt = new Date().toISOString();
-        await this.supabase.from('strategy_analyses').update({
-          framework_progress: frameworkProgress,
-          framework_outputs: frameworkOutputs,
-        }).eq('id', id);
+        await systemQuery(
+          'UPDATE strategy_analyses SET framework_progress=$1, framework_outputs=$2 WHERE id=$3',
+          [JSON.stringify(frameworkProgress), JSON.stringify(frameworkOutputs), id],
+        );
 
         return { frameworkId, analysis, duration: Date.now() - startMs };
       }),
@@ -1552,10 +1545,10 @@ Return an empty array [] if the analysis is sufficiently thorough.`;
       }
     });
 
-    await this.supabase.from('strategy_analyses').update({
-      framework_progress: frameworkProgress,
-      framework_outputs: frameworkOutputs,
-    }).eq('id', id);
+    await systemQuery(
+      'UPDATE strategy_analyses SET framework_progress=$1, framework_outputs=$2 WHERE id=$3',
+      [JSON.stringify(frameworkProgress), JSON.stringify(frameworkOutputs), id],
+    );
 
     // Generate convergence narrative (includes consistency check results)
     let convergenceNarrative = '';
@@ -1648,9 +1641,10 @@ Return valid JSON: { "checks": [...], "overall_consistency_score": N, "critical_
       narrative = text;
     }
 
-    await this.supabase.from('strategy_analyses').update({
-      framework_convergence: narrative,
-    }).eq('id', id);
+    await systemQuery(
+      'UPDATE strategy_analyses SET framework_convergence=$1 WHERE id=$2',
+      [narrative, id],
+    );
 
     return narrative;
   }
@@ -1754,7 +1748,19 @@ Return valid JSON: { "checks": [...], "overall_consistency_score": N, "critical_
   /* ── Helpers ────────────────────────────── */
 
   private async updateStatus(id: string, status: StrategyAnalysisStatus, extra?: Record<string, unknown>): Promise<void> {
-    await this.supabase.from('strategy_analyses').update({ status, ...extra }).eq('id', id);
+    const fields = ['status'];
+    const values: unknown[] = [status];
+    let paramIdx = 2;
+    if (extra) {
+      for (const [key, value] of Object.entries(extra)) {
+        fields.push(key);
+        values.push(value);
+        paramIdx++;
+      }
+    }
+    const setClause = fields.map((f, i) => `${f}=$${i + 1}`).join(', ');
+    values.push(id);
+    await systemQuery(`UPDATE strategy_analyses SET ${setClause} WHERE id=$${paramIdx}`, values);
   }
 
   /* ── Watchlist Extraction ───────────────── */
@@ -1822,17 +1828,12 @@ Extract 5-15 items. Focus on actionable, monitorable items — not vague concern
       const fkColumn = sourceType === 'strategy_analysis' ? 'strategy_analysis_id' : 'deep_dive_id';
 
       if (items.length > 0) {
-        await this.supabase.from(tableName).insert(
-          items.map((item) => ({
-            [fkColumn]: id,
-            item: item.item,
-            category: item.category,
-            trigger_signals: item.trigger_signals,
-            current_status: item.current_status,
-            priority: item.priority,
-            created_at: new Date().toISOString(),
-          })),
-        );
+        for (const item of items) {
+          await systemQuery(
+            `INSERT INTO ${tableName} (${fkColumn}, item, category, trigger_signals, current_status, priority, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [id, item.item, item.category, JSON.stringify(item.trigger_signals), item.current_status, item.priority, new Date().toISOString()],
+          );
+        }
       }
 
       return items;

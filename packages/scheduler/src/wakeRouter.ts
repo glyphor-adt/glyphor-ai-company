@@ -34,11 +34,9 @@ type AgentExecutorFn = (
 
 export class WakeRouter {
   private cooldowns = new Map<string, number>();
-  private supabase: SupabaseClient;
   private executor: AgentExecutorFn;
 
-  constructor(supabase: SupabaseClient, executor: AgentExecutorFn) {
-    this.supabase = supabase;
+  constructor(executor: AgentExecutorFn) {
     this.executor = executor;
   }
 
@@ -124,18 +122,13 @@ export class WakeRouter {
     reason: string,
     eventData: Record<string, unknown>,
   ): Promise<void> {
-    const { error } = await this.supabase
-      .from('agent_wake_queue')
-      .insert({
-        agent_role: agentRole,
-        task,
-        reason,
-        context: eventData,
-        status: 'pending',
-      });
-
-    if (error) {
-      console.error(`[WakeRouter] Failed to queue wake for ${agentRole}:`, error.message);
+    try {
+      await systemQuery(
+        'INSERT INTO agent_wake_queue (agent_role, task, reason, context, status) VALUES ($1,$2,$3,$4,$5)',
+        [agentRole, task, reason, JSON.stringify(eventData), 'pending'],
+      );
+    } catch (error) {
+      console.error(`[WakeRouter] Failed to queue wake for ${agentRole}:`, (error as Error).message);
     }
   }
 
@@ -186,22 +179,19 @@ export class WakeRouter {
     reason: string;
     context: Record<string, unknown>;
   }[]> {
-    const { data: pending, error } = await this.supabase
-      .from('agent_wake_queue')
-      .select('id, task, reason, context')
-      .eq('agent_role', agentRole)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: true })
-      .limit(10);
+    const pending = await systemQuery<{ id: string; task: string; reason: string; context: Record<string, unknown> }>(
+      'SELECT id, task, reason, context FROM agent_wake_queue WHERE agent_role = $1 AND status = $2 ORDER BY created_at ASC LIMIT $3',
+      [agentRole, 'pending', 10],
+    );
 
-    if (error || !pending?.length) return [];
+    if (!pending?.length) return [];
 
     // Mark as dispatched
     const ids = pending.map(p => p.id);
-    await this.supabase
-      .from('agent_wake_queue')
-      .update({ status: 'dispatched', dispatched_at: new Date().toISOString() })
-      .in('id', ids);
+    await systemQuery(
+      'UPDATE agent_wake_queue SET status = $1, dispatched_at = $2 WHERE id = ANY($3)',
+      ['dispatched', new Date().toISOString(), ids],
+    );
 
     return pending.map(p => ({
       task: p.task,

@@ -95,7 +95,6 @@ const MIN_ROUNDS = 2;
 
 export class MeetingEngine {
   constructor(
-    private supabase: SupabaseClient,
     private agentExecutor: (
       role: CompanyAgentRole,
       task: string,
@@ -119,10 +118,10 @@ export class MeetingEngine {
     // Check daily meeting limit
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
-    const { count } = await this.supabase
-      .from('agent_meetings')
-      .select('id', { count: 'exact', head: true })
-      .gte('created_at', todayStart.toISOString());
+    const [{ count }] = await systemQuery<{ count: number }>(
+      'SELECT COUNT(*) as count FROM agent_meetings WHERE created_at >= $1',
+      [todayStart.toISOString()],
+    );
 
     if ((count ?? 0) >= MAX_MEETINGS_PER_DAY) {
       throw new Error(`Daily meeting limit reached (${MAX_MEETINGS_PER_DAY})`);
@@ -130,24 +129,26 @@ export class MeetingEngine {
 
     const id = crypto.randomUUID();
 
-    await this.supabase.from('agent_meetings').insert({
-      id,
-      called_by: req.calledBy,
-      title: req.title,
-      purpose: req.purpose,
-      meeting_type: req.meetingType ?? 'discussion',
-      attendees: req.attendees,
-      status: 'scheduled',
-      rounds,
-      agenda: req.agenda ?? [],
-    });
+    await systemQuery(
+      `INSERT INTO agent_meetings (id, called_by, title, purpose, meeting_type, attendees, status, rounds, agenda)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        id,
+        req.calledBy,
+        req.title,
+        req.purpose,
+        req.meetingType ?? 'discussion',
+        JSON.stringify(req.attendees),
+        'scheduled',
+        rounds,
+        JSON.stringify(req.agenda ?? []),
+      ],
+    );
 
     // Run meeting asynchronously
     this.runMeeting(id).catch((err) => {
       console.error(`[MeetingEngine] Meeting ${id} failed:`, err);
-      this.supabase.from('agent_meetings').update({
-        status: 'cancelled',
-      }).eq('id', id);
+      systemQuery('UPDATE agent_meetings SET status = $1 WHERE id = $2', ['cancelled', id]);
     });
 
     return id;
@@ -155,22 +156,19 @@ export class MeetingEngine {
 
   /** Get a meeting by ID. */
   async get(id: string): Promise<MeetingRecord | null> {
-    const { data } = await this.supabase
-      .from('agent_meetings')
-      .select('*')
-      .eq('id', id)
-      .single();
-    return data as MeetingRecord | null;
+    const rows = await systemQuery<MeetingRecord>(
+      'SELECT * FROM agent_meetings WHERE id = $1',
+      [id],
+    );
+    return rows[0] ?? null;
   }
 
   /** List recent meetings. */
   async list(limit = 20): Promise<MeetingRecord[]> {
-    const { data } = await this.supabase
-      .from('agent_meetings')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    return (data ?? []) as MeetingRecord[];
+    return systemQuery<MeetingRecord>(
+      'SELECT * FROM agent_meetings ORDER BY created_at DESC LIMIT $1',
+      [limit],
+    );
   }
 
   /**
@@ -184,9 +182,10 @@ export class MeetingEngine {
     const transcript: TranscriptEntry[] = [];
 
     // Mark in-progress
-    await this.supabase.from('agent_meetings').update({
-      status: 'in_progress',
-    }).eq('id', meetingId);
+    await systemQuery(
+      'UPDATE agent_meetings SET status = $1 WHERE id = $2',
+      ['in_progress', meetingId],
+    );
 
     try {
       // ─── Round 1: Opening Statements ──────────────────────
@@ -209,10 +208,10 @@ export class MeetingEngine {
         });
 
         // Update progress after each contribution
-        await this.supabase.from('agent_meetings').update({
-          contributions,
-          transcript,
-        }).eq('id', meetingId);
+        await systemQuery(
+          'UPDATE agent_meetings SET contributions = $1, transcript = $2 WHERE id = $3',
+          [JSON.stringify(contributions), JSON.stringify(transcript), meetingId],
+        );
       }
 
       // ─── Rounds 2-N: Discussion ──────────────────────────
@@ -235,10 +234,10 @@ export class MeetingEngine {
             timestamp: new Date().toISOString(),
           });
 
-          await this.supabase.from('agent_meetings').update({
-            contributions,
-            transcript,
-          }).eq('id', meetingId);
+          await systemQuery(
+            'UPDATE agent_meetings SET contributions = $1, transcript = $2 WHERE id = $3',
+            [JSON.stringify(contributions), JSON.stringify(transcript), meetingId],
+          );
         }
       }
 
@@ -255,27 +254,38 @@ export class MeetingEngine {
 
       // ─── Dispatch action items as messages ────────────────
       for (const item of synthesis.action_items) {
-        await this.supabase.from('agent_messages').insert({
-          from_agent: meeting.called_by,
-          to_agent: item.owner,
-          message: `Action from meeting "${meeting.title}": ${item.action}${item.deadline ? ` (deadline: ${item.deadline})` : ''}`,
-          message_type: 'request',
-          priority: 'normal',
-          context: { meeting_id: meetingId, type: 'action_item' },
-        });
+        await systemQuery(
+          `INSERT INTO agent_messages (from_agent, to_agent, message, message_type, priority, context)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            meeting.called_by,
+            item.owner,
+            `Action from meeting "${meeting.title}": ${item.action}${item.deadline ? ` (deadline: ${item.deadline})` : ''}`,
+            'request',
+            'normal',
+            JSON.stringify({ meeting_id: meetingId, type: 'action_item' }),
+          ],
+        );
       }
 
       // ─── Store results ────────────────────────────────────
-      await this.supabase.from('agent_meetings').update({
-        status: 'completed',
-        contributions,
-        transcript,
-        summary: synthesis.summary,
-        action_items: synthesis.action_items as unknown as Record<string, unknown>[],
-        decisions_made: synthesis.decisions_made as unknown as Record<string, unknown>[],
-        escalations: synthesis.escalations as unknown as Record<string, unknown>[],
-        completed_at: new Date().toISOString(),
-      }).eq('id', meetingId);
+      await systemQuery(
+        `UPDATE agent_meetings
+         SET status = $1, contributions = $2, transcript = $3, summary = $4,
+             action_items = $5, decisions_made = $6, escalations = $7, completed_at = $8
+         WHERE id = $9`,
+        [
+          'completed',
+          JSON.stringify(contributions),
+          JSON.stringify(transcript),
+          synthesis.summary,
+          JSON.stringify(synthesis.action_items),
+          JSON.stringify(synthesis.decisions_made),
+          JSON.stringify(synthesis.escalations),
+          new Date().toISOString(),
+          meetingId,
+        ],
+      );
 
       console.log(
         `[MeetingEngine] Meeting "${meeting.title}" completed. ` +
@@ -283,11 +293,10 @@ export class MeetingEngine {
       );
 
     } catch (err) {
-      await this.supabase.from('agent_meetings').update({
-        status: 'cancelled',
-        contributions,
-        transcript,
-      }).eq('id', meetingId);
+      await systemQuery(
+        'UPDATE agent_meetings SET status = $1, contributions = $2, transcript = $3 WHERE id = $4',
+        ['cancelled', JSON.stringify(contributions), JSON.stringify(transcript), meetingId],
+      );
       throw err;
     }
   }
