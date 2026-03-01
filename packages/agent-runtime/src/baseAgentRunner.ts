@@ -40,8 +40,8 @@ import type { DecisionChainTracker } from './decisionChainTracker.js';
 
 // ─── Cost estimation (uses centralized model registry) ───────────────
 
-function estimateCost(model: string, inputTokens: number, outputTokens: number): number {
-  return estimateModelCost(model, inputTokens, outputTokens);
+function estimateCost(model: string, inputTokens: number, outputTokens: number, thinkingTokens = 0, cachedInputTokens = 0): number {
+  return estimateModelCost(model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens);
 }
 
 function estimateTokens(history: ConversationTurn[]): number {
@@ -174,6 +174,8 @@ export abstract class BaseAgentRunner {
     let lastTextOutput: string | null = null;
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    let totalThinkingTokens = 0;
+    let totalCachedInputTokens = 0;
 
     emitEvent({ type: 'agent_started', agentId: config.id, role: config.role, model: config.model });
 
@@ -267,7 +269,7 @@ export abstract class BaseAgentRunner {
 
         if (valueAssessment.recommendation === 'abort') {
           console.log(`[${this.archetype}Runner] Value gate aborted run for ${config.role}: ${valueAssessment.reasoning}`);
-          return this.buildResult(config, 'aborted', `Value gate: ${valueAssessment.reasoning}`, history, supervisor, 'value_gate_abort', totalInputTokens, totalOutputTokens);
+          return this.buildResult(config, 'aborted', `Value gate: ${valueAssessment.reasoning}`, history, supervisor, 'value_gate_abort', totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens);
         }
       } catch (err) {
         console.warn(`[${this.archetype}Runner] Value gate failed for ${config.role}:`, (err as Error).message);
@@ -296,7 +298,7 @@ export abstract class BaseAgentRunner {
         // ── Supervisor check ────────────────────────────────────
         const check = supervisor.checkBeforeModelCall();
         if (!check.ok) {
-          return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens);
+          return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens);
         }
 
         // ── Context injector ────────────────────────────────────
@@ -338,10 +340,12 @@ export abstract class BaseAgentRunner {
 
           totalInputTokens += response.usageMetadata.inputTokens;
           totalOutputTokens += response.usageMetadata.outputTokens;
+          totalThinkingTokens += response.usageMetadata.thinkingTokens ?? 0;
+          totalCachedInputTokens += response.usageMetadata.cachedInputTokens ?? 0;
           emitEvent({ type: 'model_response', agentId: config.id, turnNumber, hasToolCalls: response.toolCalls.length > 0, thinkingText: response.thinkingText });
         } catch (error) {
           if (supervisor.isAborted) {
-            return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens);
+            return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens);
           }
           throw error;
         }
@@ -378,7 +382,7 @@ export abstract class BaseAgentRunner {
 
             const progressCheck = supervisor.recordToolResult(call.name, result);
             if (!progressCheck.ok) {
-              return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, progressCheck.reason, totalInputTokens, totalOutputTokens);
+              return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, progressCheck.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens);
             }
           }
           continue;
@@ -522,7 +526,7 @@ export abstract class BaseAgentRunner {
         elapsedMs: supervisor.stats.elapsedMs,
       });
 
-      const result = this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens);
+      const result = this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens);
       if (reasoningResult) {
         (result as any).reasoningMeta = {
           passes: reasoningResult.passes.length,
@@ -541,7 +545,7 @@ export abstract class BaseAgentRunner {
       return result;
     } catch (error) {
       emitEvent({ type: 'agent_error', agentId: config.id, error: (error as Error).message, turnNumber: supervisor.stats.turnCount });
-      return this.buildResult(config, supervisor.isAborted ? 'aborted' : 'error', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens);
+      return this.buildResult(config, supervisor.isAborted ? 'aborted' : 'error', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens);
     }
   }
 
@@ -554,6 +558,8 @@ export abstract class BaseAgentRunner {
     errorMsg?: string,
     inputTokens = 0,
     outputTokens = 0,
+    thinkingTokens = 0,
+    cachedInputTokens = 0,
   ): AgentExecutionResult {
     const stats = supervisor.stats;
     return {
@@ -567,7 +573,7 @@ export abstract class BaseAgentRunner {
       elapsedMs: stats.elapsedMs,
       inputTokens,
       outputTokens,
-      cost: estimateCost(config.model, inputTokens, outputTokens),
+      cost: estimateCost(config.model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens),
       abortReason: status === 'aborted' ? errorMsg : undefined,
       error: status === 'error' ? errorMsg : undefined,
       reasoning: output ? extractReasoning(output) : undefined,
