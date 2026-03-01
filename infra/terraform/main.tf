@@ -262,6 +262,11 @@ resource "google_cloud_run_v2_service" "scheduler" {
         value = tostring(google_redis_instance.cache.port)
       }
 
+      env {
+        name  = "REDIS_TLS"
+        value = "false"
+      }
+
       dynamic "env" {
         for_each = local.secrets
         content {
@@ -326,6 +331,11 @@ resource "google_cloud_run_v2_service" "chief_of_staff" {
       env {
         name  = "REDIS_PORT"
         value = tostring(google_redis_instance.cache.port)
+      }
+
+      env {
+        name  = "REDIS_TLS"
+        value = "false"
       }
 
       dynamic "env" {
@@ -399,6 +409,11 @@ resource "google_cloud_run_v2_service" "voice_gateway" {
       env {
         name  = "REDIS_PORT"
         value = tostring(google_redis_instance.cache.port)
+      }
+
+      env {
+        name  = "REDIS_TLS"
+        value = "false"
       }
 
       dynamic "env" {
