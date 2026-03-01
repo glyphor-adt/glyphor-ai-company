@@ -39,10 +39,6 @@ export interface CompanyMemoryConfig {
   gcsBucket: string;
   gcpProjectId?: string;
   geminiApiKey?: string;
-  /** @deprecated No longer used — DB connection managed by @glyphor/shared/db */
-  supabaseUrl?: string;
-  /** @deprecated No longer used — DB connection managed by @glyphor/shared/db */
-  supabaseServiceKey?: string;
 }
 
 export class CompanyMemoryStore implements IMemoryBus {
@@ -426,15 +422,7 @@ export class CompanyMemoryStore implements IMemoryBus {
   }
 
   /**
-   * @deprecated Use getQueryFunctions() instead. Will be removed in next release.
-   */
-  getSupabaseClient(): any {
-    throw new Error('getSupabaseClient() is deprecated. Use getQueryFunctions() instead.');
-  }
-
-  /**
    * Get the query functions for direct PostgreSQL access.
-   * Replaces the deprecated getSupabaseClient().
    */
   getQueryFunctions() {
     return { systemQuery, tenantQuery };

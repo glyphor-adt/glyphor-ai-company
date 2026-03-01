@@ -2,7 +2,7 @@
  * Runtime Tool Factory — Lets agents define and register new tools mid-run.
  *
  * A runtime tool has a name, description, parameter definitions, and an
- * implementation (HTTP API call, Supabase query, or sandboxed JavaScript).
+ * implementation (HTTP API call, database query, or sandboxed JavaScript).
  * Tools are validated for safety, registered in the current run's tool set,
  * and optionally persisted to the database for future runs.
  */
@@ -34,7 +34,7 @@ export type RuntimeToolImpl =
       bodyTemplate?: string;            // JSON string with {{param_name}} placeholders
     }
   | {
-      type: 'supabase_query';
+      type: 'db_query';
       table: string;
       select: string;
       filters: Record<string, string>;  // column → value template with {{param_name}}
@@ -256,8 +256,8 @@ export class RuntimeToolFactory {
       case 'http':
         result = await this.executeHttp(impl, args);
         break;
-      case 'supabase_query':
-        result = await this.executeSupabaseQuery(impl, args);
+      case 'db_query':
+        result = await this.executeDbQuery(impl, args);
         break;
       case 'code':
         result = await this.executeCode(impl, args);
@@ -309,8 +309,8 @@ export class RuntimeToolFactory {
     return await response.text();
   }
 
-  private async executeSupabaseQuery(
-    impl: Extract<RuntimeToolImpl, { type: 'supabase_query' }>,
+  private async executeDbQuery(
+    impl: Extract<RuntimeToolImpl, { type: 'db_query' }>,
     args: Record<string, any>,
   ): Promise<string> {
     const tableLower = impl.table.toLowerCase();
@@ -376,9 +376,9 @@ export class RuntimeToolFactory {
         }
         break;
 
-      case 'supabase_query':
+      case 'db_query':
         if (!impl.table || !impl.select) {
-          throw new Error('supabase_query requires table and select');
+          throw new Error('db_query requires table and select');
         }
         if (BLOCKED_TABLES.some(t => impl.table.toLowerCase().includes(t))) {
           throw new Error(`Table '${impl.table}' is blocked`);

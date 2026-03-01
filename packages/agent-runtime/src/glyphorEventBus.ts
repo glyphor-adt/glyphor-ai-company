@@ -1,7 +1,7 @@
 /**
  * Glyphor Event Bus — Persistent Inter-Agent Communication
  *
- * Persists events to Supabase (queryable history) and optionally
+ * Persists events to PostgreSQL (queryable history) and optionally
  * publishes to GCP Pub/Sub (durability + push delivery).
  *
  * Separate from the in-process EventBus which handles lifecycle events
@@ -31,7 +31,7 @@ export class GlyphorEventBus {
   }
 
   /**
-   * Emit a new event: persist to Supabase and optionally publish to Pub/Sub.
+   * Emit a new event: persist to PostgreSQL and optionally publish to Pub/Sub.
    */
   async emit(params: {
     type: GlyphorEventType;

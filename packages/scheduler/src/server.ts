@@ -103,8 +103,6 @@ async function applyWatermark(imageB64: string): Promise<string> {
 // ─── Bootstrap ──────────────────────────────────────────────────
 
 const memory = new CompanyMemoryStore({
-  supabaseUrl: process.env.SUPABASE_URL!,
-  supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
   gcsBucket: process.env.GCS_BUCKET || 'glyphor-company',
   gcpProjectId: process.env.GCP_PROJECT_ID,
 });
@@ -424,7 +422,7 @@ const server = createServer(async (req, res) => {
     // Stripe webhook endpoint
     if (method === 'POST' && url === '/webhook/stripe') {
       const rawBody = await readBody(req);
-      const result = await handleStripeWebhook(req, rawBody, memory.getSupabaseClient());
+      const result = await handleStripeWebhook(req, rawBody);
 
       // Reactive wake: notify relevant agents of Stripe events
       try {
@@ -445,7 +443,7 @@ const server = createServer(async (req, res) => {
     // Stripe data sync endpoint (called by Cloud Scheduler)
     if (method === 'POST' && url === '/sync/stripe') {
       try {
-        const result = await syncStripeAll(memory.getSupabaseClient());
+        const result = await syncStripeAll();
         await systemQuery(
           'UPDATE data_sync_status SET last_success_at=$1, consecutive_failures=$2, status=$3, updated_at=$4 WHERE id=$5',
           [new Date().toISOString(), 0, 'ok', new Date().toISOString(), 'stripe'],
@@ -471,7 +469,7 @@ const server = createServer(async (req, res) => {
         const billingDataset = process.env.GCP_BILLING_DATASET || 'billing_export';
         const billingTable = process.env.GCP_BILLING_TABLE || 'gcp_billing_export_v1_012B03_F562EC_184CD8';
         const result = await syncBillingToSupabase(
-          memory.getSupabaseClient(), projectId, billingDataset, billingTable,
+          projectId, billingDataset, billingTable,
         );
         await systemQuery(
           'UPDATE data_sync_status SET last_success_at=$1, consecutive_failures=$2, status=$3, updated_at=$4 WHERE id=$5',
@@ -494,7 +492,7 @@ const server = createServer(async (req, res) => {
     // Mercury banking sync endpoint
     if (method === 'POST' && url === '/sync/mercury') {
       try {
-        const result = await syncMercuryAll(memory.getSupabaseClient());
+        const result = await syncMercuryAll();
         await systemQuery(
           'UPDATE data_sync_status SET last_success_at=$1, consecutive_failures=$2, status=$3, updated_at=$4 WHERE id=$5',
           [new Date().toISOString(), 0, 'ok', new Date().toISOString(), 'mercury'],
@@ -538,7 +536,7 @@ const server = createServer(async (req, res) => {
         }
         for (const [key, products] of keyToProducts) {
           try {
-            const result = await syncOpenAIBilling(memory.getSupabaseClient(), key, products[0]);
+            const result = await syncOpenAIBilling(key, products[0]);
             for (const product of products) results[product] = result;
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
@@ -596,7 +594,7 @@ const server = createServer(async (req, res) => {
         }
         for (const [key, products] of keyToProducts) {
           try {
-            const result = await syncAnthropicBilling(memory.getSupabaseClient(), key, products[0]);
+            const result = await syncAnthropicBilling(key, products[0]);
             for (const product of products) results[product] = result;
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
@@ -635,7 +633,7 @@ const server = createServer(async (req, res) => {
         const secretKey = process.env.KLING_SECRET_KEY;
         if (!accessKey || !secretKey) throw new Error('KLING_ACCESS_KEY and KLING_SECRET_KEY not configured');
         const credentials: KlingCredentials = { accessKey, secretKey };
-        const result = await syncKlingBilling(memory.getSupabaseClient(), credentials, 'pulse');
+        const result = await syncKlingBilling(credentials, 'pulse');
         await systemQuery(
           'UPDATE data_sync_status SET last_success_at=$1, consecutive_failures=$2, status=$3, updated_at=$4 WHERE id=$5',
           [new Date().toISOString(), 0, 'ok', new Date().toISOString(), 'kling-billing'],
@@ -657,7 +655,7 @@ const server = createServer(async (req, res) => {
     // SharePoint knowledge sync endpoint
     if (method === 'POST' && url === '/sync/sharepoint-knowledge') {
       try {
-        const result = await syncSharePointKnowledge(memory.getSupabaseClient());
+        const result = await syncSharePointKnowledge();
         await systemQuery(
           'INSERT INTO data_sync_status (id, last_success_at, consecutive_failures, status, last_error, updated_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO UPDATE SET last_success_at=EXCLUDED.last_success_at, consecutive_failures=EXCLUDED.consecutive_failures, status=EXCLUDED.status, last_error=EXCLUDED.last_error, updated_at=EXCLUDED.updated_at',
           ['sharepoint-knowledge', new Date().toISOString(), 0, 'ok', null, new Date().toISOString()],
@@ -749,7 +747,7 @@ const server = createServer(async (req, res) => {
     // Governance IAM audit endpoint
     if (method === 'POST' && url === '/sync/governance') {
       try {
-        const result = await runGovernanceSync(memory.getSupabaseClient());
+        const result = await runGovernanceSync();
         json(res, 200, { success: true, ...result });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

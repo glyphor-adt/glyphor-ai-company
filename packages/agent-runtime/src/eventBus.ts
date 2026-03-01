@@ -2,7 +2,7 @@
  * Event Bus — Typed event emitter for agent lifecycle
  *
  * Simplified from Fuse V7 eventBus.ts. Removed SSE mapping
- * (company agents log to console/Supabase instead of streaming to frontend).
+ * (company agents log to console/database instead of streaming to frontend).
  */
 
 import type { AgentEvent } from './types.js';

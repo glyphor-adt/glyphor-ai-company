@@ -66,9 +66,8 @@ ${req.description}
 - This is a dashboard change request from a Glyphor founder
 - The dashboard is a React + TypeScript + Vite app in \`packages/dashboard/\`
 - Styling uses **Tailwind CSS** with custom design tokens (see \`tailwind.config.js\`)
-- Data layer uses **Supabase** (\`packages/dashboard/src/lib/supabase.ts\`)
+- Data layer uses **@glyphor/shared/db** for PostgreSQL queries
 - Follow existing patterns in nearby files for consistency
-- If a new Supabase table is needed, add a migration in \`supabase/migrations/\`
 
 ---
 *Auto-generated from dashboard change request #${req.id.slice(0, 8)}*`;

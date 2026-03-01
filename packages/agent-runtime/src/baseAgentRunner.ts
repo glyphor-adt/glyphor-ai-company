@@ -105,7 +105,7 @@ export interface ClassifiedRunDependencies extends RunDependencies {
   /** Trust scorer — tracks agent trust and adjusts effective authority. */
   trustScorer?: TrustScorer;
   /** Decision chain tracker factory — creates per-run chain trackers. */
-  chainTrackerFactory?: (supabase: import('@supabase/supabase-js').SupabaseClient) => DecisionChainTracker;
+  chainTrackerFactory?: () => DecisionChainTracker;
 }
 
 /**
