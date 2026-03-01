@@ -5,8 +5,7 @@
  */
 
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
-import { queryTable } from '../utils/supabase.js';
-import { getSupabase } from '../utils/supabase.js';
+import { queryTable, query } from '../utils/supabase.js';
 
 interface AgentRun {
   id: string;
@@ -40,7 +39,6 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   tests.push(
     await runTest('T3.1', 'Heartbeat Firing', async () => {
       const runs = await queryTable<AgentRun>(
-        config,
         'agent_runs',
         '*',
         undefined,
@@ -67,14 +65,10 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   tests.push(
     await runTest('T3.2', 'Tier Selection', async () => {
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-      const sb = getSupabase(config);
-      const { data, error } = await sb
-        .from('agent_runs')
-        .select('agent_id')
-        .gte('started_at', oneHourAgo);
-
-      if (error) throw new Error(`Query failed: ${error.message}`);
-      const rows = (data ?? []) as { agent_id: string }[];
+      const rows = await query<{ agent_id: string }>(
+        `SELECT agent_id FROM agent_runs WHERE started_at >= $1`,
+        [oneHourAgo],
+      );
       if (rows.length === 0) {
         throw new Error('No agent runs in the last hour');
       }
@@ -96,15 +90,10 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   tests.push(
     await runTest('T3.3', 'Proactive Disabled for Sub-Team', async () => {
       const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
-      const sb = getSupabase(config);
-      const { data, error } = await sb
-        .from('agent_runs')
-        .select('agent_id, task')
-        .eq('task', 'proactive')
-        .gte('started_at', fourHoursAgo);
-
-      if (error) throw new Error(`Query failed: ${error.message}`);
-      const rows = (data ?? []) as { agent_id: string; task: string }[];
+      const rows = await query<{ agent_id: string; task: string }>(
+        `SELECT agent_id, task FROM agent_runs WHERE task = 'proactive' AND started_at >= $1`,
+        [fourHoursAgo],
+      );
 
       const subTeamProactive = rows.filter(
         (r) => !EXECUTIVE_ROLES.includes(r.agent_id),
@@ -124,16 +113,10 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   tests.push(
     await runTest('T3.4', 'Abort Cooldown', async () => {
       const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
-      const sb = getSupabase(config);
-      const { data: aborted, error: abortErr } = await sb
-        .from('agent_runs')
-        .select('*')
-        .eq('status', 'aborted')
-        .gte('started_at', fourHoursAgo)
-        .order('started_at', { ascending: false });
-
-      if (abortErr) throw new Error(`Query failed: ${abortErr.message}`);
-      const abortedRuns = (aborted ?? []) as AgentRun[];
+      const abortedRuns = await query<AgentRun>(
+        `SELECT * FROM agent_runs WHERE status = 'aborted' AND started_at >= $1 ORDER BY started_at DESC`,
+        [fourHoursAgo],
+      );
 
       if (abortedRuns.length === 0) {
         return 'SKIP: No aborted runs found to verify cooldown';
@@ -141,16 +124,12 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
 
       // Find the next run for the same agent after the abort
       const sample = abortedRuns[0];
-      const { data: nextRuns, error: nextErr } = await sb
-        .from('agent_runs')
-        .select('started_at')
-        .eq('agent_id', sample.agent_id)
-        .gt('started_at', sample.started_at)
-        .order('started_at', { ascending: true })
-        .limit(1);
+      const nextRuns = await query<{ started_at: string }>(
+        `SELECT started_at FROM agent_runs WHERE agent_id = $1 AND started_at > $2 ORDER BY started_at ASC LIMIT 1`,
+        [sample.agent_id, sample.started_at],
+      );
 
-      if (nextErr) throw new Error(`Follow-up query failed: ${nextErr.message}`);
-      if (!nextRuns || nextRuns.length === 0) {
+      if (nextRuns.length === 0) {
         return 'SKIP: Aborted agent has not run again yet';
       }
 

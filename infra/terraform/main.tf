@@ -30,18 +30,6 @@ variable "environment" {
   default     = "prod"
 }
 
-variable "supabase_url" {
-  description = "Public Supabase URL for dashboard build"
-  type        = string
-  default     = "https://ztucrgzcoaryzuvkcaif.supabase.co"
-}
-
-variable "supabase_anon_key" {
-  description = "Public Supabase anon key for dashboard build"
-  type        = string
-  sensitive   = true
-}
-
 variable "founder_emails" {
   description = "Google accounts allowed to access the dashboard"
   type        = list(string)
@@ -152,8 +140,6 @@ locals {
     "google-ai-api-key",
     "openai-api-key",
     "anthropic-api-key",
-    "supabase-url",
-    "supabase-service-key",
     "gcs-bucket",
     "azure-tenant-id",
     "azure-client-id",

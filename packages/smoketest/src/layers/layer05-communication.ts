@@ -43,7 +43,7 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
         id: string;
         from_agent: string;
         to_agent: string;
-      }>(config, 'agent_messages', 'id,from_agent,to_agent', {
+      }>('agent_messages', 'id,from_agent,to_agent', {
         from_agent: 'chief-of-staff',
         to_agent: 'cto',
       }, { order: 'created_at', desc: true, limit: 5 });
@@ -62,7 +62,6 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       const result = await pollUntil(
         () =>
           queryTable<{ id: string; status: string }>(
-            config,
             'agent_messages',
             'id,status',
             { to_agent: 'cto' },
@@ -100,7 +99,6 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       const meetings = await pollUntil(
         () =>
           queryTable<{ id: string; status: string; title: string }>(
-            config,
             'agent_meetings',
             'id,status,title',
             {},
@@ -127,7 +125,6 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   tests.push(
     await runTest('T5.4', 'Teams Channel Delivery', async () => {
       const logs = await queryTable<{ id: string; action: string }>(
-        config,
         'activity_log',
         'id,action',
         {},

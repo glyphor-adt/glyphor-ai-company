@@ -61,7 +61,7 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
         id: string;
         tier: string;
         status: string;
-      }>(config, 'decisions', 'id,tier,status', {}, {
+      }>('decisions', 'id,tier,status', {}, {
         order: 'created_at',
         desc: true,
         limit: 10,
@@ -104,7 +104,7 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       const scores = await queryTable<{
         agent_role: string;
         trust_score: number;
-      }>(config, 'agent_trust_scores', 'agent_role,trust_score');
+      }>('agent_trust_scores', 'agent_role,trust_score');
 
       if (scores.length === 0) {
         throw new Error('No trust scores found in agent_trust_scores');

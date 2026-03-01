@@ -6,7 +6,7 @@
 
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
 import { httpPost } from '../utils/http.js';
-import { getSupabase } from '../utils/supabase.js';
+import { query } from '../utils/supabase.js';
 
 async function runTest(
   id: string,
@@ -28,13 +28,10 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   // T8.1 — Graph Has Nodes
   tests.push(
     await runTest('T8.1', 'Graph Has Nodes', async () => {
-      const sb = getSupabase(config);
-      const { data, error } = await sb
-        .from('kg_nodes')
-        .select('node_type')
-        .eq('status', 'active');
-      if (error) throw new Error(`Query failed: ${error.message}`);
-      if (!data?.length) throw new Error('No active kg_nodes found');
+      const data = await query<{ node_type: string }>(
+        `SELECT node_type FROM kg_nodes WHERE status = 'active'`,
+      );
+      if (!data.length) throw new Error('No active kg_nodes found');
 
       const types = new Set(data.map(r => r.node_type));
       const expected = ['entity', 'fact', 'observation', 'pattern'];
@@ -52,10 +49,10 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   // T8.2 — Graph Has Edges
   tests.push(
     await runTest('T8.2', 'Graph Has Edges', async () => {
-      const sb = getSupabase(config);
-      const { data, error } = await sb.from('kg_edges').select('edge_type');
-      if (error) throw new Error(`Query failed: ${error.message}`);
-      if (!data?.length) throw new Error('No kg_edges found');
+      const data = await query<{ edge_type: string }>(
+        `SELECT edge_type FROM kg_edges`,
+      );
+      if (!data.length) throw new Error('No kg_edges found');
 
       const types = new Set(data.map(r => r.edge_type));
       if (types.size < 2) {
@@ -69,12 +66,10 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   // T8.3 — Semantic Search
   tests.push(
     await runTest('T8.3', 'Semantic Search', async () => {
-      const sb = getSupabase(config);
-      const { count, error } = await sb
-        .from('kg_nodes')
-        .select('*', { count: 'exact', head: true })
-        .not('embedding', 'is', null);
-      if (error) throw new Error(`Query failed: ${error.message}`);
+      const result = await query<{ count: number }>(
+        `SELECT COUNT(*)::int AS count FROM kg_nodes WHERE embedding IS NOT NULL`,
+      );
+      const count = result[0]?.count ?? 0;
       if (!count) throw new Error('No kg_nodes with embeddings');
 
       return `${count} nodes have embeddings`;

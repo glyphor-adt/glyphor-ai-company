@@ -23,6 +23,18 @@ steps:
       - '.'
     id: 'build-voice-gateway'
 
+  # Build worker
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--progress=plain'
+      - '-f'
+      - 'docker/Dockerfile.worker'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/worker:latest'
+      - '.'
+    id: 'build-worker'
+
   # Build dashboard
   - name: 'gcr.io/cloud-builders/docker'
     args:
@@ -46,6 +58,7 @@ steps:
 images:
   - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:latest'
   - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/voice-gateway:latest'
+  - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/worker:latest'
   - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/dashboard:latest'
 
 # Improved logging to capture detailed build output

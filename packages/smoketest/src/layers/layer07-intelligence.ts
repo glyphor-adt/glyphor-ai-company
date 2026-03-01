@@ -7,7 +7,7 @@
 
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
 import { httpPost } from '../utils/http.js';
-import { queryTable, getSupabase } from '../utils/supabase.js';
+import { queryTable, query } from '../utils/supabase.js';
 
 async function runTest(
   id: string,
@@ -29,11 +29,10 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   // T7.1 — Constitutional Governance
   tests.push(
     await runTest('T7.1', 'Constitutional Governance', async () => {
-      const constitutions = await queryTable(config, 'agent_constitutions', '*', { active: true });
+      const constitutions = await queryTable('agent_constitutions', '*', { active: true });
       if (!constitutions.length) throw new Error('No active agent constitutions found');
 
       const evals = await queryTable<{ compliance_score: number }>(
-        config,
         'constitutional_evaluations',
         '*',
         undefined,
@@ -52,7 +51,6 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   tests.push(
     await runTest('T7.2', 'Decision Chains', async () => {
       const chains = await queryTable(
-        config,
         'decision_chains',
         '*',
         undefined,
@@ -66,14 +64,10 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   // T7.3 — Formal Verification
   tests.push(
     await runTest('T7.3', 'Formal Verification', async () => {
-      const sb = getSupabase(config);
-      const { data, error } = await sb
-        .from('platform_audit_log')
-        .select('*')
-        .or('action.ilike.%verif%,response_summary.ilike.%verif%')
-        .limit(10);
-      if (error) throw new Error(`Query failed: ${error.message}`);
-      if (!data?.length) throw new Error('No verification entries in audit log');
+      const data = await query<Record<string, unknown>>(
+        `SELECT * FROM platform_audit_log WHERE action ILIKE '%verif%' OR response_summary ILIKE '%verif%' LIMIT 10`,
+      );
+      if (!data.length) throw new Error('No verification entries in audit log');
       return `${data.length} verification-related audit entries`;
     }),
   );
@@ -81,14 +75,10 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   // T7.4 — Causal Knowledge Graph
   tests.push(
     await runTest('T7.4', 'Causal Knowledge Graph', async () => {
-      const sb = getSupabase(config);
-      const { data, error } = await sb
-        .from('kg_edges')
-        .select('*')
-        .not('causal_confidence', 'is', null)
-        .limit(10);
-      if (error) throw new Error(`Query failed: ${error.message}`);
-      if (!data?.length) throw new Error('No kg_edges with causal_confidence');
+      const data = await query<Record<string, unknown>>(
+        `SELECT * FROM kg_edges WHERE causal_confidence IS NOT NULL LIMIT 10`,
+      );
+      if (!data.length) throw new Error('No kg_edges with causal_confidence');
       return `${data.length} causal edges found`;
     }),
   );
@@ -97,7 +87,6 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   tests.push(
     await runTest('T7.5', 'Episodic Replay', async () => {
       const episodes = await queryTable(
-        config,
         'shared_episodes',
         '*',
         undefined,
@@ -105,14 +94,11 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       );
       if (!episodes.length) throw new Error('No shared episodes found');
 
-      const sb = getSupabase(config);
-      const { count, error } = await sb
-        .from('shared_episodes')
-        .select('*', { count: 'exact', head: true })
-        .gt('significance_score', 0.7);
-      if (error) throw new Error(`Count query failed: ${error.message}`);
+      const highSig = await query<{ count: number }>(
+        `SELECT COUNT(*)::int AS count FROM shared_episodes WHERE significance_score > 0.7`,
+      );
 
-      return `${episodes.length} recent episodes, ${count ?? 0} with significance > 0.7`;
+      return `${episodes.length} recent episodes, ${highSig[0]?.count ?? 0} with significance > 0.7`;
     }),
   );
 
@@ -120,7 +106,6 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   tests.push(
     await runTest('T7.6', 'Drift Detection', async () => {
       const alerts = await queryTable<{ severity?: string; acknowledged?: boolean }>(
-        config,
         'drift_alerts',
         '*',
         undefined,

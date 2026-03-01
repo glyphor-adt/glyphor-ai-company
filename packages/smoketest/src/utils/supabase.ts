@@ -1,89 +1,76 @@
 /**
- * Supabase client factory and query helper.
+ * Database query helpers using @glyphor/shared direct pg connection.
  */
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { SmokeTestConfig } from '../types.js';
-
-let client: SupabaseClient | null = null;
-
-export function getSupabase(config: SmokeTestConfig): SupabaseClient {
-  if (!client) {
-    client = createClient(config.supabaseUrl, config.supabaseKey);
-  }
-  return client;
-}
+import { systemQuery } from '@glyphor/shared/db';
 
 /**
- * Run a raw SQL query via Supabase's rpc or from().
- * Uses the `rpc` endpoint with a helper function, or falls back to `.from()`.
+ * Run a raw SQL query via the shared pg pool.
  */
 export async function query<T = Record<string, unknown>>(
-  config: SmokeTestConfig,
   sql: string,
+  params?: unknown[],
 ): Promise<T[]> {
-  const sb = getSupabase(config);
-  // Use Supabase's raw SQL via the `exec_sql` rpc if available
-  const { data, error } = await sb.rpc('exec_sql', { query: sql });
-  if (error) {
-    throw new Error(`Supabase query failed: ${error.message}\nSQL: ${sql}`);
-  }
-  return (data ?? []) as T[];
+  return systemQuery<T>(sql, params);
 }
 
 /**
- * Query a Supabase table directly using the PostgREST API.
+ * Query a table with optional filters, ordering, and limits.
  */
 export async function queryTable<T = Record<string, unknown>>(
-  config: SmokeTestConfig,
   table: string,
   select: string = '*',
   filters?: Record<string, unknown>,
   options?: { order?: string; limit?: number; desc?: boolean },
 ): Promise<T[]> {
-  const sb = getSupabase(config);
-  let q = sb.from(table).select(select);
+  const clauses: string[] = [];
+  const values: unknown[] = [];
+  let paramIdx = 1;
 
   if (filters) {
     for (const [key, value] of Object.entries(filters)) {
-      q = q.eq(key, value);
+      clauses.push(`${key} = $${paramIdx++}`);
+      values.push(value);
     }
   }
 
+  let sql = `SELECT ${select} FROM ${table}`;
+  if (clauses.length > 0) {
+    sql += ` WHERE ${clauses.join(' AND ')}`;
+  }
   if (options?.order) {
-    q = q.order(options.order, { ascending: !(options.desc ?? false) });
+    sql += ` ORDER BY ${options.order}${options.desc ? ' DESC' : ' ASC'}`;
   }
   if (options?.limit) {
-    q = q.limit(options.limit);
+    sql += ` LIMIT ${options.limit}`;
   }
 
-  const { data, error } = await q;
-  if (error) {
-    throw new Error(`Supabase query on ${table} failed: ${error.message}`);
-  }
-  return (data ?? []) as T[];
+  return systemQuery<T>(sql, values);
 }
 
 /**
  * Count rows in a table with optional filters.
  */
 export async function countRows(
-  config: SmokeTestConfig,
   table: string,
   filters?: Record<string, unknown>,
 ): Promise<number> {
-  const sb = getSupabase(config);
-  let q = sb.from(table).select('*', { count: 'exact', head: true });
+  const clauses: string[] = [];
+  const values: unknown[] = [];
+  let paramIdx = 1;
 
   if (filters) {
     for (const [key, value] of Object.entries(filters)) {
-      q = q.eq(key, value);
+      clauses.push(`${key} = $${paramIdx++}`);
+      values.push(value);
     }
   }
 
-  const { count, error } = await q;
-  if (error) {
-    throw new Error(`Supabase count on ${table} failed: ${error.message}`);
+  let sql = `SELECT COUNT(*)::int AS count FROM ${table}`;
+  if (clauses.length > 0) {
+    sql += ` WHERE ${clauses.join(' AND ')}`;
   }
-  return count ?? 0;
+
+  const rows = await systemQuery<{ count: number }>(sql, values);
+  return rows[0]?.count ?? 0;
 }
