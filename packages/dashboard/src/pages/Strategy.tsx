@@ -138,9 +138,18 @@ export default function Strategy() {
    Deep Dives Panel — Strategic Research
    ══════════════════════════════════════════════════ */
 
-type DeepDiveStatus = 'scoping' | 'researching' | 'analyzing' | 'synthesizing' | 'completed' | 'failed' | 'cancelled';
+type DeepDiveStatus = 'scoping' | 'researching' | 'analyzing' | 'framework-analysis' | 'synthesizing' | 'completed' | 'failed' | 'cancelled';
 
 interface DeepDiveSource { title: string; url: string; snippet: string; researchArea: string; retrievedAt: string }
+
+interface WatchlistItem {
+  item: string;
+  category: 'risk' | 'catalyst' | 'transaction' | 'leadership' | 'regulatory';
+  trigger_signals: string[];
+  current_status: string;
+  priority: 'high' | 'medium' | 'low';
+  created_at?: string;
+}
 
 interface FinancialSnapshot { revenue?: string; revenueGrowth?: string; headcount?: string; funding?: string; valuation?: string; profitability?: string }
 
@@ -178,17 +187,21 @@ interface DeepDiveRecord {
   requested_by: string;
   sources: DeepDiveSource[];
   report: DeepDiveReport | null;
+  framework_outputs?: Record<string, unknown>;
+  framework_convergence?: string | null;
+  watchlist?: WatchlistItem[];
   created_at: string;
   completed_at: string | null;
   error: string | null;
 }
 
-type DeepDiveTab = 'current-state' | 'overview' | 'market' | 'competitive' | 'recommendations' | 'roadmap' | 'roi' | 'risks' | 'sources' | 'verification';
+type DeepDiveTab = 'current-state' | 'overview' | 'market' | 'competitive' | 'frameworks' | 'recommendations' | 'roadmap' | 'roi' | 'risks' | 'watchlist' | 'sources' | 'verification';
 
 const DD_STATUS_LABELS: Record<DeepDiveStatus, string> = {
   scoping: 'Scoping research plan…',
   researching: 'Researching across 8 areas (5 queries each)…',
   analyzing: 'Multi-agent analysis + cross-model challenge…',
+  'framework-analysis': 'Running 6 strategic frameworks…',
   synthesizing: 'Synthesizing with source citations…',
   completed: 'Completed',
   failed: 'Failed',
@@ -352,10 +365,12 @@ function DeepDiveDetail({ record, report }: { record: DeepDiveRecord; report: De
     { key: 'overview', label: 'Overview' },
     { key: 'market', label: 'Market Analysis' },
     { key: 'competitive', label: 'Competitive' },
+    { key: 'frameworks', label: 'Frameworks' },
     { key: 'recommendations', label: 'Strategic Recs' },
     { key: 'roadmap', label: 'Roadmap' },
     { key: 'roi', label: 'ROI Analysis' },
     { key: 'risks', label: 'Risk Assessment' },
+    { key: 'watchlist', label: 'Watchlist' },
     { key: 'sources', label: 'Sources' },
     { key: 'verification', label: 'Verification' },
   ];
@@ -404,10 +419,12 @@ function DeepDiveDetail({ record, report }: { record: DeepDiveRecord; report: De
         {ddTab === 'overview' && <DDOverview report={report} />}
         {ddTab === 'market' && <DDMarket report={report} />}
         {ddTab === 'competitive' && <DDCompetitive report={report} />}
+        {ddTab === 'frameworks' && <DDFrameworks record={record} />}
         {ddTab === 'recommendations' && <DDRecommendations report={report} />}
         {ddTab === 'roadmap' && <DDRoadmap report={report} />}
         {ddTab === 'roi' && <DDRoi report={report} />}
         {ddTab === 'risks' && <DDRisks report={report} />}
+        {ddTab === 'watchlist' && <DDWatchlist items={record.watchlist} />}
         {ddTab === 'sources' && <DDSources report={report} />}
         {ddTab === 'verification' && <DDVerification report={report} />}
       </div>
@@ -645,6 +662,93 @@ function DDCompetitive({ report }: { report: DeepDiveReport }) {
   );
 }
 
+/* ── Framework Analysis Tab ──────────────────── */
+
+const FRAMEWORK_NAMES: Record<string, { label: string; color: string }> = {
+  'framework-ansoff': { label: 'Ansoff Growth Matrix', color: 'text-tier-green' },
+  'framework-bcg': { label: 'BCG Matrix', color: 'text-purple-400' },
+  'framework-blue-ocean': { label: 'Blue Ocean Strategy', color: 'text-cyan' },
+  'framework-porters': { label: "Porter's Five Forces", color: 'text-amber-400' },
+  'framework-pestle': { label: 'PESTLE Analysis', color: 'text-orange-400' },
+  'framework-swot': { label: 'Enhanced SWOT', color: 'text-red-400' },
+};
+
+function DDFrameworks({ record }: { record: DeepDiveRecord }) {
+  const outputs = record.framework_outputs ?? {};
+  const convergence = record.framework_convergence;
+  const frameworkIds = Object.keys(outputs);
+
+  if (frameworkIds.length === 0) {
+    return <p className="text-sm text-txt-faint">No framework analyses available yet.</p>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Convergence narrative */}
+      {convergence && (
+        <div className="rounded-lg border border-cyan/20 bg-cyan/5 px-4 py-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan mb-1.5">Framework Convergence</p>
+          <p className="text-[12px] text-txt-primary leading-relaxed whitespace-pre-wrap">{convergence}</p>
+        </div>
+      )}
+
+      {/* Individual framework cards */}
+      <div className="grid grid-cols-1 gap-3">
+        {frameworkIds.map((fId) => {
+          const meta = FRAMEWORK_NAMES[fId] ?? { label: fId, color: 'text-txt-secondary' };
+          const data = outputs[fId] as Record<string, unknown> | undefined;
+          if (!data) return null;
+
+          const summary = typeof data.summary === 'string' ? data.summary : null;
+          const keyInsight = typeof data.key_insight === 'string' ? data.key_insight : null;
+
+          return (
+            <FrameworkCard
+              key={fId}
+              label={meta.label}
+              color={meta.color}
+              summary={summary}
+              keyInsight={keyInsight}
+              data={data}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function FrameworkCard({ label, color, summary, keyInsight, data }: {
+  label: string;
+  color: string;
+  summary: string | null;
+  keyInsight: string | null;
+  data: Record<string, unknown>;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="rounded-lg border border-border bg-raised/60 p-4">
+      <button onClick={() => setExpanded(!expanded)} className="w-full flex items-center justify-between text-left">
+        <span className={`text-xs font-semibold uppercase tracking-wider ${color}`}>{label}</span>
+        <MdExpandMore className={`h-4 w-4 text-txt-muted transition-transform ${expanded ? 'rotate-180' : ''}`} />
+      </button>
+      {summary && <p className="text-[12px] text-txt-secondary leading-relaxed mt-2">{summary}</p>}
+      {keyInsight && (
+        <div className="mt-2 rounded-md bg-amber-400/5 border border-amber-400/15 px-3 py-1.5">
+          <span className="text-[10px] font-semibold text-amber-400">Key Insight: </span>
+          <span className="text-[11px] text-txt-secondary">{keyInsight}</span>
+        </div>
+      )}
+      {expanded && (
+        <pre className="mt-3 rounded-md bg-surface p-3 text-[10px] text-txt-muted overflow-x-auto max-h-[300px] overflow-y-auto">
+          {JSON.stringify(data, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
+}
+
 function DDRecommendations({ report }: { report: DeepDiveReport }) {
   const priColor = (p: string) => p === 'immediate' ? 'text-red-400 bg-red-400/10 border-red-400/20' : p === 'short-term' ? 'text-amber-400 bg-amber-400/10 border-amber-400/20' : 'text-cyan bg-cyan/10 border-cyan/20';
 
@@ -762,6 +866,56 @@ function DDRisks({ report }: { report: DeepDiveReport }) {
           <p className="text-[11px] text-txt-faint mt-1">Owner: {risk.owner}</p>
         </div>
       ))}
+    </div>
+  );
+}
+
+const WATCHLIST_CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
+  risk: { bg: 'bg-red-400/10 border-red-400/30', text: 'text-red-400' },
+  catalyst: { bg: 'bg-tier-green/10 border-tier-green/30', text: 'text-tier-green' },
+  transaction: { bg: 'bg-cyan/10 border-cyan/30', text: 'text-cyan' },
+  leadership: { bg: 'bg-purple-400/10 border-purple-400/30', text: 'text-purple-400' },
+  regulatory: { bg: 'bg-amber-400/10 border-amber-400/30', text: 'text-amber-400' },
+};
+
+function DDWatchlist({ items }: { items?: WatchlistItem[] }) {
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  if (!items || items.length === 0) return <p className="text-sm text-txt-muted">No watchlist items extracted yet.</p>;
+
+  const categories = [...new Set(items.map((w) => w.category))];
+  const filtered = categoryFilter ? items.filter((w) => w.category === categoryFilter) : items;
+  const priorityOrder = { high: 0, medium: 1, low: 2 };
+  const sorted = [...filtered].sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={() => setCategoryFilter(null)} className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase ${!categoryFilter ? 'bg-cyan/20 text-cyan' : 'bg-raised text-txt-muted hover:text-txt-primary'}`}>All ({items.length})</button>
+        {categories.map((cat) => {
+          const colors = WATCHLIST_CATEGORY_COLORS[cat] || { text: 'text-txt-muted' };
+          return <button key={cat} onClick={() => setCategoryFilter(cat)} className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase ${categoryFilter === cat ? `${colors.text} bg-white/5` : 'text-txt-muted hover:text-txt-primary'}`}>{cat} ({items.filter((w) => w.category === cat).length})</button>;
+        })}
+      </div>
+      {sorted.map((w, i) => {
+        const colors = WATCHLIST_CATEGORY_COLORS[w.category] || { bg: 'bg-raised border-border', text: 'text-txt-muted' };
+        return (
+          <div key={i} className={`rounded-lg border p-3 ${colors.bg}`}>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm font-medium text-txt-primary flex-1">{w.item}</span>
+              <div className="flex gap-2 shrink-0 ml-2">
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${colors.text}`}>{w.category}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${w.priority === 'high' ? 'bg-red-400/15 text-red-400' : w.priority === 'medium' ? 'bg-amber-400/15 text-amber-400' : 'bg-tier-green/15 text-tier-green'}`}>{w.priority}</span>
+              </div>
+            </div>
+            <p className="text-[12px] text-txt-muted">{w.current_status}</p>
+            {w.trigger_signals.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {w.trigger_signals.map((sig, si) => <span key={si} className="rounded bg-raised px-1.5 py-0.5 text-[10px] text-txt-faint">{sig}</span>)}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1520,7 +1674,7 @@ function ExportButton({ label, href }: { label: string; href: string }) {
 
 type SLv2AnalysisType = 'competitive_landscape' | 'market_opportunity' | 'product_strategy' | 'growth_diagnostic' | 'risk_assessment' | 'market_entry' | 'due_diligence';
 type SLv2Depth = 'quick' | 'standard' | 'deep' | 'comprehensive';
-type SLv2Status = 'planning' | 'framing' | 'decomposing' | 'researching' | 'quality-check' | 'analyzing' | 'synthesizing' | 'deepening' | 'completed' | 'failed';
+type SLv2Status = 'planning' | 'framing' | 'decomposing' | 'researching' | 'quality-check' | 'framework-analysis' | 'analyzing' | 'synthesizing' | 'deepening' | 'completed' | 'failed';
 
 interface SLv2ResearchProgress {
   analystRole: string;
@@ -1569,6 +1723,9 @@ interface SLv2Record {
   gaps_filled: string[];
   remaining_gaps: string[];
   overall_confidence: string | null;
+  framework_outputs?: Record<string, unknown>;
+  framework_convergence?: string | null;
+  watchlist?: WatchlistItem[];
   created_at: string;
   completed_at: string | null;
   error: string | null;
@@ -1586,8 +1743,8 @@ const SLV2_TYPE_LABELS: Record<SLv2AnalysisType, string> = {
 
 const SLV2_DEPTH_LABELS: Record<SLv2Depth, string> = {
   quick: 'Quick — Sarah only (~2 min)',
-  standard: 'Standard — 2 analysts + 2 execs (~10 min)',
-  deep: 'Deep — 4 analysts + 4 execs (~20 min)',
+  standard: 'Standard — 3 analysts + 2 execs (~10 min)',
+  deep: 'Deep — 6 analysts + 4 execs (~20 min)',
   comprehensive: 'Comprehensive — full + follow-up (~35 min)',
 };
 
@@ -1597,6 +1754,7 @@ const SLV2_STATUS_LABELS: Record<SLv2Status, string> = {
   decomposing: 'Phase 0.5: Sophia decomposing research…',
   researching: 'Wave 1: Research team gathering data…',
   'quality-check': 'Wave 1.5: Sophia QC & packaging…',
+  'framework-analysis': 'Wave 1.75: Running 6 strategic frameworks…',
   analyzing: 'Wave 2: Executive analysis…',
   synthesizing: 'Wave 3: Sarah synthesizing…',
   deepening: 'Wave 4: Follow-up research…',
@@ -1769,7 +1927,7 @@ function SLv2RecordCard({ record, expanded, onToggle }: { record: SLv2Record; ex
           <SLv2WaveProgress record={r} />
 
           {/* Synthesis */}
-          {r.synthesis && <SLv2SynthesisView synthesis={r.synthesis} id={r.id} />}
+          {r.synthesis && <SLv2SynthesisView synthesis={r.synthesis} id={r.id} frameworkOutputs={r.framework_outputs} frameworkConvergence={r.framework_convergence} watchlist={r.watchlist} />}
 
           {/* Error */}
           {r.error && (
@@ -1842,7 +2000,7 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
       {r.research_progress.length > 0 && (
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Research Team</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
             {r.research_progress.map((rp) => (
               <div key={rp.analystRole} className="rounded-lg border border-border bg-raised px-3 py-2">
                 <div className="flex items-center gap-1.5">
@@ -1883,9 +2041,11 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
   );
 }
 
-function SLv2SynthesisView({ synthesis, id }: { synthesis: SLv2Synthesis; id: string }) {
+function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergence, watchlist }: { synthesis: SLv2Synthesis; id: string; frameworkOutputs?: Record<string, unknown>; frameworkConvergence?: string | null; watchlist?: WatchlistItem[] }) {
   const s = synthesis;
-  const [showSection, setShowSection] = useState<'summary' | 'swot' | 'recs' | 'risks'>('summary');
+  const hasFrameworks = frameworkOutputs && Object.keys(frameworkOutputs).length > 0;
+  const hasWatchlist = watchlist && watchlist.length > 0;
+  const [showSection, setShowSection] = useState<'summary' | 'swot' | 'frameworks' | 'recs' | 'risks' | 'watchlist'>('summary');
   const [generatingVisual, setGeneratingVisual] = useState(false);
   const [visualImage, setVisualImage] = useState<{ data: string; mimeType: string } | null>(null);
 
@@ -1914,8 +2074,10 @@ function SLv2SynthesisView({ synthesis, id }: { synthesis: SLv2Synthesis; id: st
         {([
           ['summary', 'Summary'],
           ['swot', 'SWOT'],
+          ...(hasFrameworks ? [['frameworks', 'Frameworks'] as const] : []),
           ['recs', 'Recommendations'],
           ['risks', 'Risks & Questions'],
+          ...(hasWatchlist ? [['watchlist', 'Watchlist'] as const] : []),
         ] as const).map(([k, label]) => (
           <button
             key={k}
@@ -1948,28 +2110,112 @@ function SLv2SynthesisView({ synthesis, id }: { synthesis: SLv2Synthesis; id: st
         </div>
       )}
 
-      {showSection === 'swot' && (
-        <div className="grid grid-cols-2 gap-3">
-          {(['strengths', 'weaknesses', 'opportunities', 'threats'] as const).map((cat) => {
-            const colors = {
-              strengths: { border: 'border-tier-green/20', bg: 'bg-tier-green/5', label: 'text-tier-green' },
-              weaknesses: { border: 'border-red-400/20', bg: 'bg-red-400/5', label: 'text-red-400' },
-              opportunities: { border: 'border-cyan/20', bg: 'bg-cyan/5', label: 'text-cyan' },
-              threats: { border: 'border-amber-400/20', bg: 'bg-amber-400/5', label: 'text-amber-400' },
-            };
-            const c = colors[cat];
-            return (
-              <div key={cat} className={`rounded-lg border ${c.border} ${c.bg} p-3`}>
-                <p className={`text-[10px] font-semibold uppercase tracking-wider ${c.label} mb-1.5`}>{cat}</p>
-                <ul className="space-y-1">
-                  {s.unifiedSwot[cat].map((item, i) => (
-                    <li key={i} className="text-[11px] text-txt-secondary leading-relaxed">• {item}</li>
-                  ))}
-                </ul>
-                {s.unifiedSwot[cat].length === 0 && <p className="text-[11px] text-txt-faint">—</p>}
+      {showSection === 'swot' && (() => {
+        const swotData = frameworkOutputs?.['framework-swot'] as Record<string, unknown> | undefined;
+        const matrix = swotData?.interaction_matrix as Record<string, unknown[]> | undefined;
+        const QUADRANTS = [
+          { key: 'so_strategies', label: 'SO Strategies', subtitle: 'Strengths × Opportunities', color: 'text-tier-green', border: 'border-tier-green/20', bg: 'bg-tier-green/5', aLabel: 'Strength', bLabel: 'Opportunity', actionLabel: 'Strategy', actionKey: 'strategy', extraKey: 'expected_impact', extraLabel: 'Expected Impact' },
+          { key: 'st_defenses', label: 'ST Defenses', subtitle: 'Strengths × Threats', color: 'text-cyan', border: 'border-cyan/20', bg: 'bg-cyan/5', aLabel: 'Strength', bLabel: 'Threat', actionLabel: 'Defense', actionKey: 'defense', extraKey: 'defensive_action', extraLabel: 'Action' },
+          { key: 'wo_gaps', label: 'WO Gaps', subtitle: 'Weaknesses × Opportunities', color: 'text-amber-400', border: 'border-amber-400/20', bg: 'bg-amber-400/5', aLabel: 'Weakness', bLabel: 'Opportunity', actionLabel: 'Gap', actionKey: 'gap', extraKey: 'development_priority', extraLabel: 'Dev Priority' },
+          { key: 'wt_vulnerabilities', label: 'WT Vulnerabilities', subtitle: 'Weaknesses × Threats', color: 'text-red-400', border: 'border-red-400/20', bg: 'bg-red-400/5', aLabel: 'Weakness', bLabel: 'Threat', actionLabel: 'Vulnerability', actionKey: 'vulnerability', extraKey: 'urgency', extraLabel: 'Urgency' },
+        ] as const;
+        const confidenceColor = (c: string) => c === 'high' ? 'text-tier-green' : c === 'medium' ? 'text-amber-400' : 'text-red-400';
+        return (
+          <div className="space-y-4">
+            {/* Classic 2×2 SWOT grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {(['strengths', 'weaknesses', 'opportunities', 'threats'] as const).map((cat) => {
+                const colors = {
+                  strengths: { border: 'border-tier-green/20', bg: 'bg-tier-green/5', label: 'text-tier-green' },
+                  weaknesses: { border: 'border-red-400/20', bg: 'bg-red-400/5', label: 'text-red-400' },
+                  opportunities: { border: 'border-cyan/20', bg: 'bg-cyan/5', label: 'text-cyan' },
+                  threats: { border: 'border-amber-400/20', bg: 'bg-amber-400/5', label: 'text-amber-400' },
+                };
+                const c = colors[cat];
+                return (
+                  <div key={cat} className={`rounded-lg border ${c.border} ${c.bg} p-3`}>
+                    <p className={`text-[10px] font-semibold uppercase tracking-wider ${c.label} mb-1.5`}>{cat}</p>
+                    <ul className="space-y-1">
+                      {s.unifiedSwot[cat].map((item, i) => (
+                        <li key={i} className="text-[11px] text-txt-secondary leading-relaxed">• {item}</li>
+                      ))}
+                    </ul>
+                    {s.unifiedSwot[cat].length === 0 && <p className="text-[11px] text-txt-faint">—</p>}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Interaction Matrix */}
+            {matrix && (
+              <div className="space-y-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted">Interaction Matrix</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {QUADRANTS.map((q) => {
+                    const pairs = (matrix[q.key] ?? matrix[q.key.replace(/so_strategies/, 'strength_opportunity_pairs').replace(/wt_vulnerabilities/, 'weakness_threat_pairs').replace(/st_defenses/, 'strength_threat_pairs').replace(/wo_gaps/, 'weakness_opportunity_pairs')] ?? []) as Record<string, unknown>[];
+                    if (pairs.length === 0) return null;
+                    const sorted = [...pairs].sort((a, b) => ((b.priority_score as number) ?? 0) - ((a.priority_score as number) ?? 0));
+                    return (
+                      <div key={q.key} className={`rounded-lg border ${q.border} ${q.bg} p-3`}>
+                        <div className="mb-2">
+                          <p className={`text-[10px] font-semibold uppercase tracking-wider ${q.color}`}>{q.label}</p>
+                          <p className="text-[9px] text-txt-faint">{q.subtitle}</p>
+                        </div>
+                        <div className="space-y-2">
+                          {sorted.map((pair, i) => (
+                            <div key={i} className="rounded-md bg-surface/60 border border-border/50 p-2">
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[9px] font-bold text-txt-muted bg-surface px-1.5 py-0.5 rounded">{pair.priority_score as number ?? '—'}</span>
+                                  {pair.confidence && <span className={`text-[9px] ${confidenceColor(pair.confidence as string)}`}>● {pair.confidence as string}</span>}
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-1 text-[10px] mb-1">
+                                <div><span className="text-txt-faint">{q.aLabel}:</span> <span className="text-txt-secondary">{(pair[q.aLabel.toLowerCase()] ?? pair.item_a) as string}</span></div>
+                                <div><span className="text-txt-faint">{q.bLabel}:</span> <span className="text-txt-secondary">{(pair[q.bLabel.toLowerCase()] ?? pair.item_b) as string}</span></div>
+                              </div>
+                              <p className="text-[10px] text-txt-primary leading-relaxed">{(pair[q.actionKey] ?? pair.interaction) as string}</p>
+                              {pair[q.extraKey] && (
+                                <p className="text-[9px] text-txt-muted mt-1"><span className="font-medium">{q.extraLabel}:</span> {pair[q.extraKey] as string}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            );
-          })}
+            )}
+          </div>
+        );
+      })()}
+
+      {showSection === 'frameworks' && hasFrameworks && (
+        <div className="space-y-4">
+          {frameworkConvergence && (
+            <div className="rounded-lg border border-cyan/20 bg-cyan/5 px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan mb-1.5">Framework Convergence</p>
+              <p className="text-[12px] text-txt-primary leading-relaxed whitespace-pre-wrap">{frameworkConvergence}</p>
+            </div>
+          )}
+          <div className="grid grid-cols-1 gap-3">
+            {Object.entries(frameworkOutputs!).map(([fId, data]) => {
+              const meta = FRAMEWORK_NAMES[fId] ?? { label: fId, color: 'text-txt-secondary' };
+              const d = data as Record<string, unknown> | undefined;
+              if (!d) return null;
+              return (
+                <FrameworkCard
+                  key={fId}
+                  label={meta.label}
+                  color={meta.color}
+                  summary={typeof d.summary === 'string' ? d.summary : null}
+                  keyInsight={typeof d.key_insight === 'string' ? d.key_insight : null}
+                  data={d}
+                />
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -2029,6 +2275,10 @@ function SLv2SynthesisView({ synthesis, id }: { synthesis: SLv2Synthesis; id: st
             </ul>
           </div>
         </div>
+      )}
+
+      {showSection === 'watchlist' && hasWatchlist && (
+        <DDWatchlist items={watchlist} />
       )}
 
       {/* Export Action Bar */}

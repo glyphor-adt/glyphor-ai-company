@@ -19,6 +19,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ModelClient } from '@glyphor/agent-runtime';
 import { searchWeb, searchNews, batchSearch, searchResultsToContext } from '@glyphor/integrations';
+import type { FrameworkId, WatchlistItem } from './frameworkTypes.js';
+import { FRAMEWORK_CONFIGS, buildFrameworkPrompt, buildConvergencePrompt } from './strategyLabEngine.js';
 
 /* ── Cross-model verification config ──────── */
 
@@ -31,14 +33,21 @@ const VERIFICATION_CONFIDENCE_THRESHOLD = 0.7;
  * A second model challenges each area's findings.
  */
 const RESEARCH_MODELS: Record<string, string> = {
-  overview:    'gemini-3-flash-preview',
-  financials:  'gpt-4.1-mini',
-  technology:  'gemini-3-flash-preview',
-  market:      'gpt-4.1-mini',
-  competitive: 'gemini-3-flash-preview',
-  leadership:  'gpt-4.1-mini',
-  customers:   'gemini-3-flash-preview',
-  risks:       'gpt-4.1-mini',
+  overview:            'gemini-3-flash-preview',
+  financials:          'gpt-4.1-mini',
+  technology:          'gemini-3-flash-preview',
+  market:              'gpt-4.1-mini',
+  competitive:         'gemini-3-flash-preview',
+  leadership:          'gpt-4.1-mini',
+  customers:           'gemini-3-flash-preview',
+  risks:               'gpt-4.1-mini',
+  company_profile:     'gemini-3-flash-preview',
+  strategic_direction: 'gpt-4.1-mini',
+  segment_analysis:    'gemini-3-flash-preview',
+  ma_activity:         'gpt-4.1-mini',
+  ai_impact:           'gemini-3-flash-preview',
+  talent_assessment:   'gpt-4.1-mini',
+  regulatory_landscape:'gemini-3-flash-preview',
 };
 
 /** The challenger model critiques work done by the primary */
@@ -52,6 +61,7 @@ export type DeepDiveStatus =
   | 'scoping'
   | 'researching'
   | 'analyzing'
+  | 'framework-analysis'
   | 'synthesizing'
   | 'completed'
   | 'failed';
@@ -341,6 +351,104 @@ function buildResearchAreas(target: string): ResearchArea[] {
         `${target} industry regulation compliance requirements`,
         `${target} cybersecurity data privacy incidents`,
         `${target} geopolitical supply chain risks vulnerabilities`,
+      ],
+      status: 'pending',
+      sourcesFound: 0,
+    },
+    {
+      id: 'company_profile',
+      label: 'Company Profile & Identity',
+      perspective: 'chief-of-staff',
+      searchQueries: [
+        `${target} company profile about corporate identity`,
+        `${target} brand positioning value proposition mission`,
+        `${target} organizational structure subsidiaries divisions`,
+        `${target} corporate history milestones timeline`,
+        `${target} company size employees global footprint`,
+      ],
+      status: 'pending',
+      sourcesFound: 0,
+    },
+    {
+      id: 'strategic_direction',
+      label: 'Strategic Direction & Vision',
+      perspective: 'cpo',
+      searchQueries: [
+        `${target} strategic plan vision 2025 2026 roadmap`,
+        `${target} growth strategy expansion plans new markets`,
+        `${target} CEO investor letter annual report strategy`,
+        `${target} strategic pivots transformation initiatives`,
+        `${target} long-term goals objectives OKRs priorities`,
+      ],
+      status: 'pending',
+      sourcesFound: 0,
+    },
+    {
+      id: 'segment_analysis',
+      label: 'Market Segments & Verticals',
+      perspective: 'cmo',
+      searchQueries: [
+        `${target} market segments verticals industry focus`,
+        `${target} customer segments enterprise SMB consumer`,
+        `${target} geographic markets international expansion`,
+        `${target} segment revenue breakdown business units`,
+        `${target} vertical strategy specialization focus areas`,
+      ],
+      status: 'pending',
+      sourcesFound: 0,
+    },
+    {
+      id: 'ma_activity',
+      label: 'M&A & Partnerships',
+      perspective: 'cfo',
+      searchQueries: [
+        `${target} acquisitions mergers M&A activity`,
+        `${target} strategic partnerships joint ventures alliances`,
+        `${target} divestitures spin-offs restructuring`,
+        `${target} acquisition targets expansion inorganic growth`,
+        `${target} partnership ecosystem integrations`,
+      ],
+      status: 'pending',
+      sourcesFound: 0,
+    },
+    {
+      id: 'ai_impact',
+      label: 'AI & Automation Impact',
+      perspective: 'cto',
+      searchQueries: [
+        `${target} artificial intelligence AI strategy adoption`,
+        `${target} machine learning automation deployment`,
+        `${target} AI products features capabilities generative`,
+        `${target} AI investment R&D spending technology`,
+        `${target} AI competitive advantage differentiation moat`,
+      ],
+      status: 'pending',
+      sourcesFound: 0,
+    },
+    {
+      id: 'talent_assessment',
+      label: 'Talent & Organization',
+      perspective: 'vp-customer-success',
+      searchQueries: [
+        `${target} talent acquisition hiring strategy workforce`,
+        `${target} employee retention turnover employer brand`,
+        `${target} organizational design team structure changes`,
+        `${target} skills gap training development programs`,
+        `${target} remote work culture DEI initiatives`,
+      ],
+      status: 'pending',
+      sourcesFound: 0,
+    },
+    {
+      id: 'regulatory_landscape',
+      label: 'Regulatory & Compliance Landscape',
+      perspective: 'ops',
+      searchQueries: [
+        `${target} regulatory compliance requirements obligations`,
+        `${target} government policy regulation industry rules`,
+        `${target} data privacy GDPR CCPA compliance`,
+        `${target} regulatory risk enforcement actions fines`,
+        `${target} industry standards certifications SOC ISO`,
       ],
       status: 'pending',
       sourcesFound: 0,
@@ -673,9 +781,16 @@ export class DeepDiveEngine {
       await this.supabase.from('deep_dives').update({ sources: dedupedSources, research_areas: areas }).eq('id', id);
     }
 
+    // ── Phase 3.5: FRAMEWORK ANALYSIS — apply 6 strategic frameworks ──
+    await this.updateStatus(id, 'framework-analysis');
+    const { frameworkOutputs, convergenceNarrative } = await this.runFrameworkAnalysis(id, req, areas);
+
     // ── Phase 4: SYNTHESIZE — produce the full strategic report ──
     await this.updateStatus(id, 'synthesizing');
-    const report = await this.synthesize(req, areas, dedupedSources, verificationResults);
+    const report = await this.synthesize(req, areas, dedupedSources, verificationResults, frameworkOutputs, convergenceNarrative);
+
+    // ── Post-Synthesis: Extract monitoring watchlist ──
+    await this.extractAndStoreWatchlist(id, report, frameworkOutputs, areas);
 
     await this.supabase.from('deep_dives').update({
       status: 'completed',
@@ -691,6 +806,100 @@ export class DeepDiveEngine {
       detail: `Strategic deep dive completed for "${req.target}": ${completedAreas.length}/${areas.length} areas researched, ${dedupedSources.length} sources analyzed, cross-model verified with challenge rounds`,
       created_at: new Date().toISOString(),
     });
+  }
+
+  /* ── Framework Analysis (Phase 3.5) ────────── */
+
+  private async runFrameworkAnalysis(
+    id: string,
+    req: DeepDiveRequest,
+    areas: ResearchArea[],
+  ): Promise<{ frameworkOutputs: Record<string, unknown>; convergenceNarrative: string | null }> {
+    const completedAreas = areas.filter((a) => a.status === 'completed' && a.analysis);
+
+    // Pack research area analyses into a record the framework prompts can consume
+    const researchPackets: Record<string, unknown> = {};
+    for (const area of completedAreas) {
+      researchPackets[area.id] = {
+        label: area.label,
+        perspective: area.perspective,
+        sourcesFound: area.sourcesFound,
+        analysis: area.analysis,
+      };
+    }
+
+    const frameworkIds = Object.keys(FRAMEWORK_CONFIGS) as FrameworkId[];
+    const frameworkOutputs: Record<string, unknown> = {};
+
+    // Run all 6 frameworks in parallel
+    const results = await Promise.allSettled(
+      frameworkIds.map(async (frameworkId) => {
+        const prompt = buildFrameworkPrompt(frameworkId, req.target, researchPackets);
+        const response = await this.modelClient.generate({
+          model: this.model,
+          systemInstruction: `You are a senior strategic analyst applying the ${FRAMEWORK_CONFIGS[frameworkId].name} framework. Output ONLY valid JSON — no markdown fences.`,
+          contents: [{ role: 'user', content: prompt, timestamp: Date.now() }],
+          temperature: 0.2,
+        });
+
+        const output = response.text ?? '';
+        const jsonMatch = output.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+
+          // Store in relational table
+          await this.supabase.from('deep_dive_frameworks').insert({
+            deep_dive_id: id,
+            framework: frameworkId,
+            analysis: parsed,
+            confidence_score: parsed.confidence ?? null,
+          });
+
+          return { frameworkId, analysis: parsed };
+        }
+        return { frameworkId, analysis: null };
+      }),
+    );
+
+    for (const r of results) {
+      if (r.status === 'fulfilled' && r.value.analysis) {
+        frameworkOutputs[r.value.frameworkId] = r.value.analysis;
+      }
+    }
+
+    // Store aggregated outputs on the deep_dives record
+    await this.supabase.from('deep_dives').update({
+      framework_outputs: frameworkOutputs,
+    }).eq('id', id);
+
+    // Generate convergence narrative (with consistency check)
+    let convergenceNarrative: string | null = null;
+    if (Object.keys(frameworkOutputs).length >= 3) {
+      const consistencyReport = await this.validateFrameworkConsistency(frameworkOutputs);
+      let convergencePrompt = buildConvergencePrompt(frameworkOutputs, req.target);
+      if (consistencyReport) {
+        convergencePrompt += `\n\nFRAMEWORK CONSISTENCY CHECK RESULTS:\n${consistencyReport}\n\nIncorporate these consistency findings into your convergence narrative. Note where frameworks align, where they conflict, and what the conflicts suggest about strategic ambiguity.`;
+      }
+      const response = await this.modelClient.generate({
+        model: this.model,
+        systemInstruction: 'You are a senior strategic analyst synthesizing framework findings. Output ONLY valid JSON.',
+        contents: [{ role: 'user', content: convergencePrompt, timestamp: Date.now() }],
+        temperature: 0.2,
+      });
+
+      const output = response.text ?? '';
+      const jsonMatch = output.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        convergenceNarrative = parsed.narrative ?? JSON.stringify(parsed);
+      }
+
+      await this.supabase.from('deep_dives').update({
+        framework_convergence: convergenceNarrative,
+      }).eq('id', id);
+    }
+
+    return { frameworkOutputs, convergenceNarrative };
   }
 
   /* ── Cross-Model Verification ─────────────── */
@@ -759,6 +968,8 @@ export class DeepDiveEngine {
     areas: ResearchArea[],
     sources: Source[],
     verificationResults?: Map<string, { confidence: number; issues: string[]; corrections: string[] }>,
+    frameworkOutputs?: Record<string, unknown>,
+    convergenceNarrative?: string | null,
   ): Promise<DeepDiveReport> {
     const completedAreas = areas.filter((a) => a.status === 'completed' && a.analysis);
 
@@ -817,6 +1028,16 @@ export class DeepDiveEngine {
       ``,
       `Below is research gathered by your multi-agent specialist team (using both Gemini and GPT models for diverse perspectives), including challenge critiques and supplementary gap-fill research. Synthesize ALL findings into a single structured report.`,
       ``,
+      ...(frameworkOutputs && Object.keys(frameworkOutputs).length > 0 ? [
+        `== STRATEGIC FRAMEWORK ANALYSES (Ansoff, BCG, Blue Ocean, Porter's, PESTLE, Enhanced SWOT) ==`,
+        JSON.stringify(frameworkOutputs, null, 2),
+        ``,
+      ] : []),
+      ...(convergenceNarrative ? [
+        `== FRAMEWORK CONVERGENCE NARRATIVE ==`,
+        convergenceNarrative,
+        ``,
+      ] : []),
       `IMPORTANT: Each research area includes [Cross-Model Verification] notes from an independent AI reviewer, plus a CROSS-MODEL CHALLENGE section from a second AI. Use these to:`,
       `- Discard or qualify any claims flagged as unsupported`,
       `- Incorporate suggested corrections into your synthesis`,
@@ -992,5 +1213,124 @@ export class DeepDiveEngine {
 
   private async updateAreas(id: string, areas: ResearchArea[]): Promise<void> {
     await this.supabase.from('deep_dives').update({ research_areas: areas }).eq('id', id);
+  }
+
+  /* ── Framework Consistency Check ─────────── */
+
+  private async validateFrameworkConsistency(
+    frameworkOutputs: Record<string, unknown>,
+  ): Promise<string> {
+    const prompt = `You are a senior strategy consultant reviewing 6 framework analyses for internal consistency. Cross-check these frameworks against each other and identify alignments and contradictions.
+
+FRAMEWORK OUTPUTS:
+${JSON.stringify(frameworkOutputs, null, 2)}
+
+Perform these specific consistency checks:
+1. BCG Stars ↔ SWOT Strengths: Do the "Star" products/segments align with identified strengths?
+2. Porter's high-force threats ↔ SWOT Threats: Do Porter's high-intensity forces appear as SWOT threats?
+3. Ansoff primary quadrant ↔ Strategic Direction: Does the recommended Ansoff quadrant align with the overall strategic direction?
+4. PESTLE favorable dimensions ↔ Blue Ocean spaces: Do favorable PESTLE factors support identified Blue Ocean opportunities?
+5. SWOT Opportunities ↔ Ansoff growth vectors: Are SWOT opportunities consistent with Ansoff growth recommendations?
+6. BCG resource allocation ↔ SWOT feasibility: Do BCG investment recommendations align with resource constraints?
+
+For each check: alignment_score (0-10), findings, implications.
+Also: overall_consistency_score (0-10), critical_contradictions[], reinforced_themes[].
+
+Return valid JSON: { "checks": [...], "overall_consistency_score": N, "critical_contradictions": [...], "reinforced_themes": [...] }`;
+
+    const response = await this.modelClient.generate({
+      model: this.model,
+      systemInstruction: 'Perform framework consistency validation. Output ONLY valid JSON.',
+      contents: [{ role: 'user', content: prompt, timestamp: Date.now() }],
+      temperature: 0.1,
+    });
+
+    return response.text ?? '';
+  }
+
+  /* ── Watchlist Extraction ───────────────── */
+
+  private async extractAndStoreWatchlist(
+    id: string,
+    report: DeepDiveReport | null,
+    frameworkOutputs: Record<string, unknown>,
+    areas: ResearchArea[],
+  ): Promise<WatchlistItem[]> {
+    const completedAreas = areas.filter((a) => a.status === 'completed' && a.analysis);
+    const areaAnalyses: Record<string, string> = {};
+    for (const area of completedAreas) {
+      areaAnalyses[area.id] = area.analysis!;
+    }
+
+    const prompt = `You are an expert strategic analyst. Review the following deep dive outputs and extract items that should be monitored on an ongoing basis.
+
+REPORT SUMMARY:
+${JSON.stringify(report ? { riskAssessment: report.riskAssessment, strategicRecommendations: report.strategicRecommendations, currentState: report.currentState } : null, null, 2)}
+
+FRAMEWORK OUTPUTS:
+${JSON.stringify(frameworkOutputs, null, 2)}
+
+RESEARCH AREAS (key findings):
+${Object.entries(areaAnalyses).map(([k, v]) => `=== ${k} ===\n${typeof v === 'string' ? v.slice(0, 1000) : JSON.stringify(v).slice(0, 1000)}`).join('\n\n')}
+
+Extract monitoring watchlist items. Focus on:
+1. RISKS — threats that could materialize (from risk assessment, SWOT threats, Porter's forces)
+2. CATALYSTS — potential positive triggers (from opportunities, Blue Ocean spaces, Ansoff growth vectors)
+3. TRANSACTIONS — pending M&A, partnerships, or deals that could shift dynamics
+4. LEADERSHIP — key person changes, succession risks, executive moves
+5. REGULATORY — upcoming regulations, policy changes, compliance deadlines
+
+For each item, provide:
+- item: concise description (one sentence)
+- category: "risk" | "catalyst" | "transaction" | "leadership" | "regulatory"
+- source_packet: which research area or framework this came from
+- trigger_signals: array of specific observable signals that would indicate this item is materializing
+- current_status: current state of this item
+- priority: "high" | "medium" | "low"
+
+Return JSON: { "watchlist": [...] }
+Extract 5-15 items. Focus on actionable, monitorable items — not vague concerns.`;
+
+    const response = await this.modelClient.generate({
+      model: this.model,
+      systemInstruction: 'Extract monitoring watchlist items from deep dive analysis. Output ONLY valid JSON.',
+      contents: [{ role: 'user', content: prompt, timestamp: Date.now() }],
+      temperature: 0.1,
+    });
+
+    const text = response.text ?? '';
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return [];
+
+    try {
+      const parsed = JSON.parse(match[0]);
+      const items: WatchlistItem[] = (parsed.watchlist || []).map((w: Record<string, unknown>) => ({
+        item: w.item || '',
+        category: w.category || 'risk',
+        source_packet: w.source_packet || '',
+        trigger_signals: Array.isArray(w.trigger_signals) ? w.trigger_signals : [],
+        current_status: w.current_status || '',
+        last_updated: new Date().toISOString(),
+        priority: w.priority || 'medium',
+      }));
+
+      if (items.length > 0) {
+        await this.supabase.from('deep_dive_watchlist').insert(
+          items.map((item) => ({
+            deep_dive_id: id,
+            item: item.item,
+            category: item.category,
+            trigger_signals: item.trigger_signals,
+            current_status: item.current_status,
+            priority: item.priority,
+            created_at: new Date().toISOString(),
+          })),
+        );
+      }
+
+      return items;
+    } catch {
+      return [];
+    }
   }
 }

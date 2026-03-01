@@ -1,0 +1,227 @@
+/**
+ * Layer 4 — Orchestration Loop
+ *
+ * Creates a real directive and watches the full orchestration pipeline:
+ * detection → assignment → execution → evaluation → completion.
+ */
+
+import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
+import { pollUntil } from '../utils/http.js';
+import { getSupabase, queryTable } from '../utils/supabase.js';
+
+// Module-level state shared across tests
+let directiveId: string | null = null;
+let directiveCreatedAt: number | null = null;
+
+async function runTest(
+  id: string,
+  name: string,
+  fn: () => Promise<string>,
+): Promise<TestResult> {
+  const start = Date.now();
+  try {
+    const message = await fn();
+    return { id, name, status: 'pass', message, durationMs: Date.now() - start };
+  } catch (err) {
+    return { id, name, status: 'fail', message: (err as Error).message, durationMs: Date.now() - start };
+  }
+}
+
+function blocked(id: string, name: string): TestResult {
+  return { id, name, status: 'blocked', message: 'Skipped — directive creation (T4.1) failed', durationMs: 0 };
+}
+
+export async function run(config: SmokeTestConfig): Promise<LayerResult> {
+  const tests: TestResult[] = [];
+
+  // T4.1 — Create Directive
+  tests.push(
+    await runTest('T4.1', 'Create Directive', async () => {
+      const sb = getSupabase(config);
+      const { data, error } = await sb
+        .from('founder_directives')
+        .insert({
+          title: 'Smoke Test — Automated ' + new Date().toISOString(),
+          description:
+            'Automated smoke test. Create a brief comparing Glyphor to top 3 competitors.',
+          priority: 'medium',
+          category: 'strategy',
+          status: 'active',
+        })
+        .select('id')
+        .single();
+
+      if (error) throw new Error(`Insert failed: ${error.message}`);
+      if (!data?.id) throw new Error('No directive ID returned');
+
+      directiveId = data.id as string;
+      directiveCreatedAt = Date.now();
+      return `Directive created: ${directiveId}`;
+    }),
+  );
+
+  // If T4.1 failed, block remaining tests
+  if (!directiveId) {
+    tests.push(blocked('T4.2', 'Sarah Detects'));
+    tests.push(blocked('T4.3', 'Assignments Created'));
+    tests.push(blocked('T4.4', 'Agents Pick Up'));
+    tests.push(blocked('T4.5', 'Dependency Resolution'));
+    tests.push(blocked('T4.6', 'Evaluation'));
+    tests.push(blocked('T4.7', 'Full Loop Timing'));
+    return { layer: 4, name: 'Orchestration Loop', tests };
+  }
+
+  // T4.2 — Sarah Detects
+  tests.push(
+    await runTest('T4.2', 'Sarah Detects', async () => {
+      const fifteenMinAgo = new Date(Date.now() - 15 * 60_000).toISOString();
+      const runs = await pollUntil(
+        () =>
+          queryTable<{ id: string; task: string }>(config, 'agent_runs', 'id,task', {
+            agent_id: 'chief-of-staff',
+          }, { order: 'created_at', desc: true, limit: 10 }),
+        (rows) =>
+          rows.some(
+            (r) =>
+              r.task?.toLowerCase().includes('orchestrat'),
+          ),
+        15_000,
+        10 * 60_000,
+      );
+      const match = runs.find((r) => r.task?.toLowerCase().includes('orchestrat'));
+      return `Sarah detected orchestration task: ${match?.id}`;
+    }),
+  );
+
+  // T4.3 — Assignments Created
+  tests.push(
+    await runTest('T4.3', 'Assignments Created', async () => {
+      const assignments = await queryTable<{
+        id: string;
+        task_description: string;
+      }>(config, 'work_assignments', 'id,task_description', {
+        directive_id: directiveId!,
+      });
+
+      if (assignments.length < 2) {
+        throw new Error(
+          `Expected 2+ assignments, got ${assignments.length}`,
+        );
+      }
+
+      const short = assignments.filter(
+        (a) => !a.task_description || a.task_description.length <= 100,
+      );
+      if (short.length > 0) {
+        throw new Error(
+          `${short.length} assignment(s) have task_description ≤ 100 chars`,
+        );
+      }
+
+      return `${assignments.length} assignments created, all instructions > 100 chars`;
+    }),
+  );
+
+  // T4.4 — Agents Pick Up
+  tests.push(
+    await runTest('T4.4', 'Agents Pick Up', async () => {
+      const result = await pollUntil(
+        () =>
+          queryTable<{ id: string; status: string }>(
+            config,
+            'work_assignments',
+            'id,status',
+            { directive_id: directiveId! },
+          ),
+        (rows) =>
+          rows.some(
+            (r) => r.status === 'in_progress' || r.status === 'completed',
+          ),
+        15_000,
+        15 * 60_000,
+      );
+      const active = result.filter(
+        (r) => r.status === 'in_progress' || r.status === 'completed',
+      );
+      return `${active.length}/${result.length} assignments picked up or completed`;
+    }),
+  );
+
+  // T4.5 — Dependency Resolution
+  tests.push(
+    await runTest('T4.5', 'Dependency Resolution', async () => {
+      const assignments = await queryTable<{
+        id: string;
+        status: string;
+        sequence_order: number;
+        dispatched_at: string | null;
+      }>(config, 'work_assignments', 'id,status,sequence_order,dispatched_at', {
+        directive_id: directiveId!,
+      });
+
+      const parallel = assignments.filter((a) => a.sequence_order === 0);
+      const sequential = assignments.filter((a) => a.sequence_order === 1);
+
+      if (sequential.length === 0) {
+        return 'No sequential assignments — dependency ordering not applicable';
+      }
+
+      const allParallelDone = parallel.every((a) => a.status === 'completed');
+      if (!allParallelDone) {
+        // Sequential should not be dispatched yet
+        const premature = sequential.filter((a) => a.dispatched_at !== null);
+        if (premature.length > 0) {
+          throw new Error(
+            `${premature.length} sequential assignment(s) dispatched before parallel ones completed`,
+          );
+        }
+        return 'Sequential assignments correctly waiting for parallel to complete';
+      }
+
+      return `Dependency order respected: ${parallel.length} parallel done before ${sequential.length} sequential`;
+    }),
+  );
+
+  // T4.6 — Evaluation
+  tests.push(
+    await runTest('T4.6', 'Evaluation', async () => {
+      const result = await pollUntil(
+        () =>
+          queryTable<{ status: string; completion_summary: string | null }>(
+            config,
+            'founder_directives',
+            'status,completion_summary',
+            { id: directiveId! },
+          ),
+        (rows) => rows.length > 0 && rows[0].status === 'completed',
+        30_000,
+        30 * 60_000,
+      );
+
+      const directive = result[0];
+      if (!directive.completion_summary) {
+        throw new Error('Directive completed but completion_summary is empty');
+      }
+
+      return `Directive completed with summary (${directive.completion_summary.length} chars)`;
+    }),
+  );
+
+  // T4.7 — Full Loop Timing
+  tests.push(
+    await runTest('T4.7', 'Full Loop Timing', async () => {
+      const elapsedMs = Date.now() - directiveCreatedAt!;
+      const elapsedMin = (elapsedMs / 60_000).toFixed(1);
+
+      if (elapsedMs > 30 * 60_000) {
+        throw new Error(
+          `Full loop took ${elapsedMin} min — exceeds 30 min threshold`,
+        );
+      }
+
+      return `Full orchestration loop completed in ${elapsedMin} min`;
+    }),
+  );
+
+  return { layer: 4, name: 'Orchestration Loop', tests };
+}

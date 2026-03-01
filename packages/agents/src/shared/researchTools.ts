@@ -224,7 +224,10 @@ export function createResearchTools(supabase: SupabaseClient): ToolDefinition[] 
           type: 'string',
           description: 'The type of research packet.',
           required: true,
-          enum: ['competitor_profiles', 'market_data', 'technical_landscape', 'industry_trends'],
+          enum: ['competitor_profiles', 'market_data', 'technical_landscape', 'industry_trends',
+                 'company_profile', 'strategic_direction', 'leadership_profile', 'segment_analysis',
+                 'financial_analysis', 'ma_activity', 'ai_impact', 'talent_assessment',
+                 'regulatory_landscape', 'risk_assessment', 'opportunity_map'],
         },
         data: {
           type: 'object',

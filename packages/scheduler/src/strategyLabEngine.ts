@@ -17,6 +17,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ModelClient } from '@glyphor/agent-runtime';
 import type { AgentExecutionResult, CompanyAgentRole } from '@glyphor/agent-runtime';
+import type { FrameworkId, FrameworkResult, FrameworkConvergence, WatchlistItem } from './frameworkTypes.js';
 
 /* ── Types ──────────────────────────────────── */
 
@@ -26,6 +27,7 @@ export type StrategyAnalysisStatus =
   | 'decomposing'
   | 'researching'
   | 'quality-check'
+  | 'framework-analysis'
   | 'analyzing'
   | 'synthesizing'
   | 'deepening'
@@ -155,6 +157,19 @@ export interface StrategyAnalysisRecord {
   gaps_filled: string[];
   remaining_gaps: string[];
   overall_confidence: string | null;
+  // Framework analysis fields
+  framework_outputs: Record<string, unknown>;
+  framework_convergence: string | null;
+  framework_progress: FrameworkProgress[];
+}
+
+export interface FrameworkProgress {
+  frameworkId: FrameworkId;
+  frameworkName: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  startedAt?: string;
+  completedAt?: string;
+  error?: string;
 }
 
 /* ── Constants ──────────────────────────────── */
@@ -164,6 +179,8 @@ const RESEARCH_ANALYST_ROLES: Record<string, { name: string; packetType: string 
   'market-research-analyst': { name: 'Daniel Okafor', packetType: 'market_data' },
   'technical-research-analyst': { name: 'Kai Nakamura', packetType: 'technical_landscape' },
   'industry-research-analyst': { name: 'Amara Diallo', packetType: 'industry_trends' },
+  'ai-impact-analyst': { name: 'Riya Mehta', packetType: 'ai_impact' },
+  'org-analyst': { name: 'Marcus Chen', packetType: 'talent_assessment' },
 };
 
 /** Normalise analyst role strings from LLM output to canonical role IDs */
@@ -176,12 +193,16 @@ function normalizeAnalystRole(raw: string): string {
   if (/^market/.test(key)) return 'market-research-analyst';
   if (/^tech/.test(key)) return 'technical-research-analyst';
   if (/^industr/.test(key)) return 'industry-research-analyst';
+  if (/^ai[- ]?impact/.test(key)) return 'ai-impact-analyst';
+  if (/^org|^talent/.test(key)) return 'org-analyst';
   // Match by analyst name
   const lower = raw.toLowerCase();
   if (lower.includes('lena')) return 'competitive-research-analyst';
   if (lower.includes('daniel')) return 'market-research-analyst';
   if (lower.includes('kai')) return 'technical-research-analyst';
   if (lower.includes('amara')) return 'industry-research-analyst';
+  if (lower.includes('riya')) return 'ai-impact-analyst';
+  if (lower.includes('marcus chen')) return 'org-analyst';
   return '';
 }
 
@@ -192,42 +213,70 @@ const EXEC_FRAMEWORKS: Record<string, { name: string; framework: string }> = {
   'cto': { name: 'Marcus Reeves', framework: "Porter's Five Forces + Technical Strategy" },
 };
 
+/** Framework analysis configs — 6 strategic frameworks applied to validated research data */
+export const FRAMEWORK_CONFIGS: Record<FrameworkId, { name: string; outputKeys: string[] }> = {
+  'framework-ansoff': {
+    name: 'Ansoff Growth Matrix',
+    outputKeys: ['summary', 'primary_quadrant', 'quadrants', 'key_insight', 'growth_balance_assessment'],
+  },
+  'framework-bcg': {
+    name: 'BCG Growth-Share Matrix',
+    outputKeys: ['summary', 'portfolio_balance', 'portfolio_rating', 'segments', 'capital_allocation_recommendation', 'key_insight'],
+  },
+  'framework-blue-ocean': {
+    name: 'Blue Ocean Strategy',
+    outputKeys: ['summary', 'uncontested_spaces', 'four_actions_framework', 'strategy_canvas', 'primary_blue_ocean', 'defensibility', 'key_insight'],
+  },
+  'framework-porters': {
+    name: "Porter's Five Forces",
+    outputKeys: ['summary', 'overall_attractiveness', 'overall_attractiveness_score', 'forces', 'most_critical_force', 'strategic_implications', 'key_insight'],
+  },
+  'framework-pestle': {
+    name: 'PESTLE Analysis',
+    outputKeys: ['summary', 'overall_environment', 'dimensions', 'top_3_tailwinds', 'top_3_headwinds', 'key_insight'],
+  },
+  'framework-swot': {
+    name: 'Enhanced SWOT',
+    outputKeys: ['summary', 'items', 'interaction_matrix', 'strategic_priority', 'key_insight'],
+  },
+};
+
 /** Default routing: which exec gets which research packets */
 const DEFAULT_ROUTING: ExecutiveRouting = {
-  'cpo': ['competitor_profiles', 'technical_landscape'],
-  'cfo': ['market_data', 'competitor_profiles'],
-  'cmo': ['competitor_profiles', 'market_data', 'industry_trends'],
-  'cto': ['technical_landscape', 'competitor_profiles'],
+  'cpo': ['competitor_profiles', 'technical_landscape', 'segment_analysis', 'strategic_direction'],
+  'cfo': ['market_data', 'competitor_profiles', 'financial_analysis', 'segment_analysis', 'ma_activity'],
+  'cmo': ['competitor_profiles', 'market_data', 'industry_trends', 'opportunity_map', 'ai_impact'],
+  'cto': ['technical_landscape', 'competitor_profiles', 'ai_impact', 'talent_assessment'],
 };
 
 /** Analysis type → which analysts and executives to use */
 const ANALYSIS_CONFIGS: Record<StrategyAnalysisType, { analysts: string[]; executives: string[] }> = {
   competitive_landscape: {
-    analysts: ['competitive-research-analyst', 'market-research-analyst', 'technical-research-analyst', 'industry-research-analyst'],
+    analysts: ['competitive-research-analyst', 'market-research-analyst', 'technical-research-analyst', 'industry-research-analyst', 'ai-impact-analyst', 'org-analyst'],
     executives: ['cpo', 'cfo', 'cmo', 'cto'],
   },
   market_opportunity: {
-    analysts: ['market-research-analyst', 'industry-research-analyst', 'competitive-research-analyst'],
+    analysts: ['market-research-analyst', 'industry-research-analyst', 'competitive-research-analyst', 'ai-impact-analyst'],
     executives: ['cmo', 'cfo', 'cpo'],
   },
   product_strategy: {
-    analysts: ['competitive-research-analyst', 'technical-research-analyst', 'market-research-analyst'],
+    analysts: ['competitive-research-analyst', 'technical-research-analyst', 'market-research-analyst', 'ai-impact-analyst'],
     executives: ['cpo', 'cto', 'cmo'],
   },
   growth_diagnostic: {
-    analysts: ['market-research-analyst', 'competitive-research-analyst', 'industry-research-analyst'],
+    analysts: ['market-research-analyst', 'competitive-research-analyst', 'industry-research-analyst', 'org-analyst'],
     executives: ['cmo', 'cfo', 'cpo'],
   },
   risk_assessment: {
-    analysts: ['industry-research-analyst', 'competitive-research-analyst', 'technical-research-analyst'],
+    analysts: ['industry-research-analyst', 'competitive-research-analyst', 'technical-research-analyst', 'ai-impact-analyst', 'org-analyst'],
     executives: ['cto', 'cfo', 'cpo'],
   },
   market_entry: {
-    analysts: ['market-research-analyst', 'competitive-research-analyst', 'industry-research-analyst', 'technical-research-analyst'],
+    analysts: ['market-research-analyst', 'competitive-research-analyst', 'industry-research-analyst', 'technical-research-analyst', 'ai-impact-analyst', 'org-analyst'],
     executives: ['cmo', 'cfo', 'cpo', 'cto'],
   },
   due_diligence: {
-    analysts: ['competitive-research-analyst', 'market-research-analyst', 'technical-research-analyst', 'industry-research-analyst'],
+    analysts: ['competitive-research-analyst', 'market-research-analyst', 'technical-research-analyst', 'industry-research-analyst', 'ai-impact-analyst', 'org-analyst'],
     executives: ['cfo', 'cpo', 'cto', 'cmo'],
   },
 };
@@ -236,9 +285,9 @@ const ANALYSIS_CONFIGS: Record<StrategyAnalysisType, { analysts: string[]; execu
 function getDepthConfig(depth: StrategyAnalysisDepth) {
   switch (depth) {
     case 'quick': return { maxAnalysts: 0, maxExecs: 0, maxToolCalls: 5, quickMode: true };
-    case 'standard': return { maxAnalysts: 2, maxExecs: 2, maxToolCalls: 10, quickMode: false };
-    case 'deep': return { maxAnalysts: 4, maxExecs: 4, maxToolCalls: 15, quickMode: false };
-    case 'comprehensive': return { maxAnalysts: 4, maxExecs: 4, maxToolCalls: 20, quickMode: false };
+    case 'standard': return { maxAnalysts: 3, maxExecs: 2, maxToolCalls: 10, quickMode: false };
+    case 'deep': return { maxAnalysts: 6, maxExecs: 4, maxToolCalls: 15, quickMode: false };
+    case 'comprehensive': return { maxAnalysts: 6, maxExecs: 4, maxToolCalls: 20, quickMode: false };
   }
 }
 
@@ -389,6 +438,8 @@ function buildSynthesisPrompt(
   overallConfidence?: string,
   remainingGaps?: string[],
   sarahFrame?: Record<string, unknown>,
+  frameworkOutputs?: Record<string, unknown>,
+  frameworkConvergence?: string,
 ): string {
   const execAnalyses = Object.entries(executiveOutputs)
     .map(([role, output]) => `=== ${output.execName} (${output.framework}) ===\n${JSON.stringify(output.analysis, null, 2)}`)
@@ -402,10 +453,18 @@ function buildSynthesisPrompt(
     ? `\n\nYOUR EARLIER FRAMING:\n${JSON.stringify(sarahFrame, null, 2)}\n`
     : '';
 
+  const frameworkSection = frameworkOutputs && Object.keys(frameworkOutputs).length > 0
+    ? `\n\nFRAMEWORK ANALYSES (Ansoff, BCG, Blue Ocean, Porter's, PESTLE, Enhanced SWOT):\n${JSON.stringify(frameworkOutputs, null, 2)}\n`
+    : '';
+
+  const convergenceSection = frameworkConvergence
+    ? `\n\nFRAMEWORK CONVERGENCE NARRATIVE:\n${frameworkConvergence}\n`
+    : '';
+
   return `You are Sarah Chen, Chief of Staff at Glyphor.
 
 Your team has completed a strategic analysis. You now have:
-${frameSection}${sophiaSection}
+${frameSection}${sophiaSection}${frameworkSection}${convergenceSection}
 EXECUTIVE ANALYSES:
 ${execAnalyses}
 
@@ -436,7 +495,8 @@ PRODUCE THE FINAL STRATEGIC ANALYSIS as a JSON object:
     }
   ],
   "keyRisks": ["What could invalidate this analysis? What assumptions?"],
-  "openQuestionsForFounders": ["Decisions only Kristina and Andrew can make"]
+  "openQuestionsForFounders": ["Decisions only Kristina and Andrew can make"],
+  "monitoringRecommendations": ["Items that should be tracked on an ongoing basis — key risks to watch, catalysts that could accelerate, pending transactions, leadership changes, regulatory developments. Be specific and actionable."]
 }
 
 Respond ONLY with valid JSON — no markdown fences, no commentary.
@@ -461,6 +521,235 @@ This is a QUICK analysis — you have limited research capability. Do your own w
 Be direct and practical. This is a 2-minute briefing, not a board presentation.
 
 After researching, submit your findings using submit_research_packet with packet_type "competitor_profiles" and analysis_id from the brief.`;
+}
+
+/* ── Framework Analysis Prompts ─────────────── */
+
+export function buildFrameworkPrompt(frameworkId: FrameworkId, target: string, researchPackets: Record<string, unknown>): string {
+  const packetsJSON = JSON.stringify(researchPackets, null, 2);
+
+  switch (frameworkId) {
+    case 'framework-ansoff':
+      return `You are a growth strategy analyst applying the Ansoff Growth Matrix.
+Given the research data on ${target}, classify and analyze growth initiatives across all four quadrants.
+For each quadrant, identify specific current and potential initiatives with revenue impact estimates.
+Your output must include concrete examples with financial evidence, not abstract descriptions.
+
+QUALITY REQUIREMENTS:
+- Each quadrant must have at least one initiative with evidence
+- If a quadrant is genuinely empty, explain WHY rather than leaving it blank
+- Every initiative must have a status (active/planned/potential) and estimated impact
+
+RESEARCH DATA:
+${packetsJSON}
+
+Return a JSON object with these exact keys:
+{
+  "summary": "2-3 sentence synthesis of primary growth path",
+  "primary_quadrant": "market_penetration|market_development|product_development|diversification",
+  "quadrants": {
+    "market_penetration": { "description": "...", "initiatives": [{"name":"...", "status":"active|planned|potential", "detail":"...", "estimated_impact":"..."}], "revenue_impact": "...", "evidence": ["..."] },
+    "market_development": { ... },
+    "product_development": { ... },
+    "diversification": { ... }
+  },
+  "key_insight": "Single most important strategic takeaway",
+  "growth_balance_assessment": "Whether the portfolio is well-balanced or over-indexed"
+}
+Respond ONLY with valid JSON — no markdown fences, no commentary.`;
+
+    case 'framework-bcg':
+      return `You are a portfolio strategy analyst applying the BCG Growth-Share Matrix.
+Given the research data on ${target}, classify each business segment or product line into the appropriate BCG quadrant.
+Use actual market growth rates and competitive position data. Calculate or estimate relative market share where possible.
+Identify portfolio balance and recommended capital allocation shifts.
+
+QUALITY REQUIREMENTS:
+- Every segment must have a market growth rate (estimated ranges acceptable)
+- Every segment must have a competitive position justification
+- Flag segments where data is insufficient for confident classification
+
+RESEARCH DATA:
+${packetsJSON}
+
+Return a JSON object with these exact keys:
+{
+  "summary": "2-3 sentence portfolio health assessment",
+  "portfolio_balance": "healthy|top-heavy|aging|unbalanced",
+  "portfolio_rating": "e.g. '100% Star Portfolio' or '3 Stars, 1 Cash Cow, 1 Question Mark'",
+  "segments": [{"name":"...", "classification":"star|cash_cow|question_mark|dog", "market_growth_rate":"...", "relative_market_share":"...", "revenue":"...", "revenue_share_pct":0, "margin":"...", "trajectory":"improving|stable|declining", "rationale":"...", "recommendation":"invest|hold|harvest|divest"}],
+  "capital_allocation_recommendation": "...",
+  "key_insight": "..."
+}
+Respond ONLY with valid JSON — no markdown fences, no commentary.`;
+
+    case 'framework-blue-ocean':
+      return `You are a Blue Ocean strategy analyst.
+Given the research data on ${target}, identify areas where the company is creating or could create uncontested market space.
+Apply the Four Actions Framework (Eliminate, Reduce, Raise, Create) to the company's value proposition.
+Map the strategy canvas showing how the company differentiates from industry norms.
+Identify the most promising blue ocean opportunity with supporting evidence.
+
+QUALITY REQUIREMENTS:
+- Strategy canvas must have at least 6 competing factors
+- Blue ocean spaces must have explicit evidence from research data — no speculative spaces without grounding
+- Each action item must have an impact rating
+
+RESEARCH DATA:
+${packetsJSON}
+
+Return a JSON object with these exact keys:
+{
+  "summary": "...",
+  "uncontested_spaces": [{"space":"...", "description":"...", "current_competitors":"None identified or specific names", "moat_source":"...", "evidence":["..."]}],
+  "four_actions_framework": {
+    "eliminate": [{"factor":"...", "rationale":"...", "impact":"high|medium|low"}],
+    "reduce": [...],
+    "raise": [...],
+    "create": [...]
+  },
+  "strategy_canvas": {
+    "competing_factors": ["factor1", "factor2", ...at least 6],
+    "company_curve": [1-10 scores],
+    "industry_average_curve": [1-10 scores],
+    "key_divergence_points": ["..."]
+  },
+  "primary_blue_ocean": "The single most promising uncontested space",
+  "defensibility": "How defensible this blue ocean is",
+  "key_insight": "..."
+}
+Respond ONLY with valid JSON — no markdown fences, no commentary.`;
+
+    case 'framework-porters':
+      return `You are an industry structure analyst applying Porter's Five Forces.
+Given the research data on ${target}'s industry, assess each of the five forces with a quantified intensity rating and specific evidence.
+Determine overall industry attractiveness and identify which forces most constrain or enable profitability.
+Provide specific recommendations for how the company should position against each force.
+
+QUALITY REQUIREMENTS:
+- Each force must have at least 3 named key drivers with evidence
+- No force can be rated without a trend direction
+- Distinguish between the industry-level force and the specific company's position against it
+
+RESEARCH DATA:
+${packetsJSON}
+
+Return a JSON object with these exact keys:
+{
+  "summary": "...",
+  "overall_attractiveness": "high|moderate-high|moderate|moderate-low|low",
+  "overall_attractiveness_score": 1-10,
+  "forces": {
+    "competitive_rivalry": {"intensity":"high|moderate-high|moderate|moderate-low|low", "intensity_score":1-10, "trend":"intensifying|stable|weakening", "key_drivers":["...","...","..."], "evidence":["..."], "company_position":"...", "recommendation":"..."},
+    "threat_of_new_entrants": {...},
+    "threat_of_substitutes": {...},
+    "bargaining_power_suppliers": {...},
+    "bargaining_power_buyers": {...}
+  },
+  "most_critical_force": "Which force matters most right now",
+  "strategic_implications": ["How should the company position given these forces"],
+  "key_insight": "..."
+}
+Respond ONLY with valid JSON — no markdown fences, no commentary.`;
+
+    case 'framework-pestle':
+      return `You are a macro-environment analyst applying the PESTLE framework.
+Given the research data on ${target}, analyze each of the six dimensions with specific, current factors.
+Every factor must include a quantified impact score and timeline.
+Distinguish between factors that are confirmed/in-effect versus emerging/anticipated.
+Prioritize factors by their actual financial impact on the company, not general relevance to the industry.
+
+QUALITY REQUIREMENTS:
+- Each dimension must have at least 2 factors
+- Every factor must have a quantification attempt — if no hard number exists, state "quantification unavailable"
+- Factors rated "speculative" must be labeled as such
+
+RESEARCH DATA:
+${packetsJSON}
+
+Return a JSON object with these exact keys:
+{
+  "summary": "...",
+  "overall_environment": "highly_favorable|favorable|mixed|challenging|hostile",
+  "dimensions": {
+    "political": {"assessment":"favorable|neutral|unfavorable", "factors":[{"factor":"...", "description":"...", "impact":"high_positive|moderate_positive|neutral|moderate_negative|high_negative", "impact_score":-10 to +10, "quantification":"hard number or 'quantification unavailable'", "status":"confirmed|emerging|speculative", "timeline":"...", "company_specific_impact":"...", "evidence":["..."]}]},
+    "economic": {...},
+    "social": {...},
+    "technological": {...},
+    "legal": {...},
+    "environmental": {...}
+  },
+  "top_3_tailwinds": [top 3 most favorable factors from any dimension],
+  "top_3_headwinds": [top 3 most threatening factors from any dimension],
+  "key_insight": "..."
+}
+Respond ONLY with valid JSON — no markdown fences, no commentary.`;
+
+    case 'framework-swot':
+      return `You are an enhanced SWOT analyst producing a prioritized, quantified SWOT analysis.
+Given the research data on ${target}, produce a SWOT analysis where every item includes:
+- A quantified impact estimate
+- A confidence level
+- Evidence references
+
+Then build a complete interaction matrix showing strategic implications of each pair:
+- SO strategies: how strengths can exploit opportunities (offensive moves)
+- WT vulnerabilities: where weaknesses amplify threats (urgent fixes)
+- ST defenses: how strengths can counter threats (defensive moves)
+- WO gaps: where weaknesses prevent capturing opportunities (development priorities)
+
+Rank all items by priority_score = impact_score × probability.
+
+QUALITY REQUIREMENTS:
+- At least 5 items per category (S/W/O/T)
+- Every item must have a quantification attempt (revenue impact, growth potential, or risk exposure)
+- Interaction matrix must have at least 3 pairs per quadrant (SO, WT, ST, WO)
+- Each interaction pair must have a priority_score (1-100) and confidence level
+
+RESEARCH DATA:
+${packetsJSON}
+
+Return a JSON object with these exact keys:
+{
+  "summary": "...",
+  "items": [{"category":"strength|weakness|opportunity|threat", "item":"...", "detail":"...", "impact_score":1-10, "probability":0.0-1.0, "priority_score": impact_score * probability * 10, "quantification":"$X revenue or +Y% growth or similar", "confidence":"high|medium|low", "evidence":["..."]}],
+  "interaction_matrix": {
+    "so_strategies": [{"strength":"...", "opportunity":"...", "strategy":"how to exploit this combination", "priority_score":1-100, "confidence":"high|medium|low", "expected_impact":"quantified expected outcome"}],
+    "wt_vulnerabilities": [{"weakness":"...", "threat":"...", "vulnerability":"how weakness amplifies threat", "priority_score":1-100, "confidence":"high|medium|low", "urgency":"immediate|short_term|medium_term"}],
+    "st_defenses": [{"strength":"...", "threat":"...", "defense":"how strength counters threat", "priority_score":1-100, "confidence":"high|medium|low", "defensive_action":"specific action to take"}],
+    "wo_gaps": [{"weakness":"...", "opportunity":"...", "gap":"how weakness prevents capturing opportunity", "priority_score":1-100, "confidence":"high|medium|low", "development_priority":"what capability to build"}]
+  },
+  "strategic_priority": "The single most important SWOT-derived action",
+  "key_insight": "...",
+  "overall_strategic_position": "favorable|neutral|vulnerable"
+}
+Respond ONLY with valid JSON — no markdown fences, no commentary.`;
+  }
+}
+
+export function buildConvergencePrompt(frameworkOutputs: Record<string, unknown>, target: string): string {
+  const frameworksJSON = JSON.stringify(frameworkOutputs, null, 2);
+  return `You are a senior strategic analyst synthesizing findings from six strategic frameworks applied to ${target}.
+
+FRAMEWORK ANALYSES:
+${frameworksJSON}
+
+Write a 3-5 paragraph FRAMEWORK CONVERGENCE NARRATIVE that:
+1. Identifies where the frameworks AGREE — what thesis do they converge on?
+2. Identifies where the frameworks DIVERGE — what contradictions or tensions exist?
+3. Synthesizes a combined strategic picture that goes beyond any single framework
+4. Highlights the single most important strategic insight that emerges from looking across all six
+
+This is what executives actually read. Be specific, cite framework names and their key findings, and draw connections between them.
+
+Return a JSON object:
+{
+  "narrative": "3-5 paragraph convergence analysis",
+  "agreement_points": ["Where frameworks converge"],
+  "divergence_points": ["Where frameworks disagree or show tension"],
+  "combined_thesis": "The overarching strategic thesis in 2-3 sentences"
+}
+Respond ONLY with valid JSON — no markdown fences, no commentary.`;
 }
 
 /* ── Engine ─────────────────────────────────── */
@@ -503,6 +792,9 @@ export class StrategyLabEngine {
       gaps_filled: [],
       remaining_gaps: [],
       overall_confidence: null,
+      framework_outputs: {},
+      framework_convergence: null,
+      framework_progress: [],
       created_at: new Date().toISOString(),
     };
 
@@ -875,6 +1167,15 @@ Return ONLY valid JSON — no markdown fences.`,
     }).eq('id', id);
 
     // ═══════════════════════════════════════════
+    // WAVE 1.75: Framework Analysis (parallel)
+    // ═══════════════════════════════════════════
+    await this.updateStatus(id, 'framework-analysis');
+
+    const { frameworkOutputs, convergenceNarrative } = await this.runFrameworkAnalysis(
+      id, req.query, qcPackets,
+    );
+
+    // ═══════════════════════════════════════════
     // WAVE 2: Executive analysis (parallel)
     // ═══════════════════════════════════════════
     await this.updateStatus(id, 'analyzing', { analysis_started_at: new Date().toISOString() });
@@ -902,7 +1203,13 @@ Return ONLY valid JSON — no markdown fences.`,
 
         // Inject Sophia's cover memo for this executive
         const execCoverMemo = coverMemos[execRole] as string || '';
-        const prompt = buildExecutivePrompt(execRole, req.query, execPackets, execCoverMemo);
+
+        // Inject framework analysis context for the executive
+        const frameworkContext = Object.keys(frameworkOutputs).length > 0
+          ? `\n\nFRAMEWORK ANALYSES (from Wave 1.75 — use as additional strategic context):\n${JSON.stringify(frameworkOutputs, null, 2)}\n\n${convergenceNarrative ? `FRAMEWORK CONVERGENCE:\n${convergenceNarrative}\n` : ''}`
+          : '';
+
+        const prompt = buildExecutivePrompt(execRole, req.query, execPackets, execCoverMemo + frameworkContext);
         const startMs = Date.now();
 
         const response = await this.modelClient.generate({
@@ -959,7 +1266,7 @@ Return ONLY valid JSON — no markdown fences.`,
     // ═══════════════════════════════════════════
     await this.updateStatus(id, 'synthesizing', { synthesis_started_at: new Date().toISOString() });
 
-    const synthesisPrompt = buildSynthesisPrompt(req.query, executiveOutputs, qcPackets, allSources, overallConfidence, remainingGaps, sarahFrame);
+    const synthesisPrompt = buildSynthesisPrompt(req.query, executiveOutputs, qcPackets, allSources, overallConfidence, remainingGaps, sarahFrame, frameworkOutputs, convergenceNarrative);
 
     const synthesisResponse = await this.modelClient.generate({
       model: this.model,
@@ -1002,6 +1309,11 @@ Return ONLY valid JSON — no markdown fences.`,
     if (depth === 'comprehensive' && synthesis) {
       await this.runFollowUp(id, req, synthesis, sophiaBriefs, qcPackets, executiveOutputs, allSources);
     }
+
+    // ═══════════════════════════════════════════
+    // POST-SYNTHESIS: Extract monitoring watchlist
+    // ═══════════════════════════════════════════
+    await this.extractAndStoreWatchlist(id, 'strategy_analysis', synthesis, frameworkOutputs, executiveOutputs);
 
     await this.supabase.from('strategy_analyses').update({
       status: 'completed',
@@ -1159,6 +1471,190 @@ Return an empty array [] if the analysis is sufficiently thorough.`;
     }
   }
 
+  /* ── Framework Analysis ─────────────────── */
+
+  /**
+   * Run all 6 strategic framework analyses in parallel against validated research packets.
+   * Framework agents consume research data only — no web searches.
+   * Returns structured framework outputs + convergence narrative.
+   */
+  private async runFrameworkAnalysis(
+    id: string,
+    query: string,
+    researchPackets: Record<string, unknown>,
+  ): Promise<{ frameworkOutputs: Record<string, unknown>; convergenceNarrative: string }> {
+    const frameworkIds = Object.keys(FRAMEWORK_CONFIGS) as FrameworkId[];
+
+    // Initialize framework progress tracking
+    const frameworkProgress: FrameworkProgress[] = frameworkIds.map((fId) => ({
+      frameworkId: fId,
+      frameworkName: FRAMEWORK_CONFIGS[fId].name,
+      status: 'pending' as const,
+    }));
+
+    await this.supabase.from('strategy_analyses').update({
+      framework_progress: frameworkProgress,
+    }).eq('id', id);
+
+    // Extract target name from query for framework prompts
+    const target = query;
+
+    // Run all 6 frameworks in parallel
+    const frameworkOutputs: Record<string, unknown> = {};
+
+    const results = await Promise.allSettled(
+      frameworkIds.map(async (frameworkId, i) => {
+        // Mark running
+        frameworkProgress[i].status = 'running';
+        frameworkProgress[i].startedAt = new Date().toISOString();
+        await this.supabase.from('strategy_analyses').update({
+          framework_progress: frameworkProgress,
+        }).eq('id', id);
+
+        const prompt = buildFrameworkPrompt(frameworkId, target, researchPackets);
+        const startMs = Date.now();
+
+        const response = await this.modelClient.generate({
+          model: this.model,
+          systemInstruction: `You are a strategic framework analyst. Analyze the research data and produce structured analysis. Output ONLY valid JSON — no markdown fences, no preamble.`,
+          contents: [{ role: 'user', content: prompt, timestamp: Date.now() }],
+          temperature: 0.2,
+        });
+
+        const output = response.text ?? '';
+        let analysis: Record<string, unknown> = {};
+        const jsonMatch = output.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try { analysis = JSON.parse(jsonMatch[0]); } catch { analysis = { rawOutput: output }; }
+        } else {
+          analysis = { rawOutput: output };
+        }
+
+        frameworkOutputs[frameworkId] = analysis;
+
+        // Mark completed
+        frameworkProgress[i].status = 'completed';
+        frameworkProgress[i].completedAt = new Date().toISOString();
+        await this.supabase.from('strategy_analyses').update({
+          framework_progress: frameworkProgress,
+          framework_outputs: frameworkOutputs,
+        }).eq('id', id);
+
+        return { frameworkId, analysis, duration: Date.now() - startMs };
+      }),
+    );
+
+    // Mark failed frameworks
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') {
+        frameworkProgress[i].status = 'failed';
+        frameworkProgress[i].error = r.reason?.message ?? String(r.reason);
+      }
+    });
+
+    await this.supabase.from('strategy_analyses').update({
+      framework_progress: frameworkProgress,
+      framework_outputs: frameworkOutputs,
+    }).eq('id', id);
+
+    // Generate convergence narrative (includes consistency check results)
+    let convergenceNarrative = '';
+    if (Object.keys(frameworkOutputs).length >= 3) {
+      const consistencyReport = await this.validateFrameworkConsistency(frameworkOutputs);
+      convergenceNarrative = await this.generateConvergenceNarrative(id, target, frameworkOutputs, consistencyReport);
+    }
+
+    return { frameworkOutputs, convergenceNarrative };
+  }
+
+  /**
+   * Validate consistency across framework outputs.
+   * Cross-checks: BCG Stars ↔ SWOT Strengths, Porter's threats ↔ SWOT Threats,
+   * Ansoff primary quadrant ↔ strategic direction, PESTLE favorable ↔ Blue Ocean spaces.
+   */
+  private async validateFrameworkConsistency(
+    frameworkOutputs: Record<string, unknown>,
+  ): Promise<string> {
+    const prompt = `You are a senior strategy consultant reviewing 6 framework analyses for internal consistency. Cross-check these frameworks against each other and identify alignments and contradictions.
+
+FRAMEWORK OUTPUTS:
+${JSON.stringify(frameworkOutputs, null, 2)}
+
+Perform these specific consistency checks:
+
+1. BCG Stars ↔ SWOT Strengths: Do the "Star" products/segments align with identified strengths? Are any Stars not supported by strengths?
+2. Porter's high-force threats ↔ SWOT Threats: Do Porter's Five Forces high-intensity forces appear as SWOT threats? Are there threats in SWOT not covered by Porter's?
+3. Ansoff primary quadrant ↔ Strategic Direction: Does the recommended Ansoff quadrant align with the overall strategic direction from other frameworks?
+4. PESTLE favorable dimensions ↔ Blue Ocean spaces: Do favorable PESTLE factors support identified Blue Ocean opportunities? Are there Blue Ocean recommendations in unfavorable PESTLE environments?
+5. SWOT Opportunities ↔ Ansoff growth vectors: Are SWOT opportunities consistent with Ansoff growth recommendations?
+6. BCG resource allocation ↔ SWOT feasibility: Do BCG investment recommendations align with resource constraints identified elsewhere?
+
+For each check, report:
+- alignment_score: 0-10 (10 = perfectly aligned)
+- findings: specific alignment or contradiction details
+- implications: what the alignment/contradiction means for strategy
+
+Also provide:
+- overall_consistency_score: 0-10
+- critical_contradictions: any contradictions that need resolution before acting on recommendations
+- reinforced_themes: themes that multiple frameworks consistently support
+
+Return valid JSON: { "checks": [...], "overall_consistency_score": N, "critical_contradictions": [...], "reinforced_themes": [...] }`;
+
+    const response = await this.modelClient.generate({
+      model: this.model,
+      systemInstruction: 'Perform framework consistency validation. Output ONLY valid JSON.',
+      contents: [{ role: 'user', content: prompt, timestamp: Date.now() }],
+      temperature: 0.1,
+    });
+
+    return response.text ?? '';
+  }
+
+  /**
+   * Generate the Framework Convergence Narrative — the highest-value output
+   * of the framework phase. Identifies where frameworks agree, diverge,
+   * and what the combined picture says about strategic position.
+   */
+  private async generateConvergenceNarrative(
+    id: string,
+    target: string,
+    frameworkOutputs: Record<string, unknown>,
+    consistencyReport?: string,
+  ): Promise<string> {
+    let prompt = buildConvergencePrompt(frameworkOutputs, target);
+    if (consistencyReport) {
+      prompt += `\n\nFRAMEWORK CONSISTENCY CHECK RESULTS:\n${consistencyReport}\n\nIncorporate these consistency findings into your convergence narrative. Note where frameworks align, where they conflict, and what the conflicts suggest about strategic ambiguity.`;
+    }
+
+    const response = await this.modelClient.generate({
+      model: this.model,
+      systemInstruction: 'Produce a senior-level strategic convergence narrative. Output ONLY valid JSON — no markdown fences.',
+      contents: [{ role: 'user', content: prompt, timestamp: Date.now() }],
+      temperature: 0.3,
+    });
+
+    const text = response.text ?? '';
+    let narrative = '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        narrative = parsed.narrative || text;
+      } catch {
+        narrative = text;
+      }
+    } else {
+      narrative = text;
+    }
+
+    await this.supabase.from('strategy_analyses').update({
+      framework_convergence: narrative,
+    }).eq('id', id);
+
+    return narrative;
+  }
+
   /* ── Research Brief Builder ─────────────── */
 
   private buildResearchBriefs(
@@ -1259,5 +1755,89 @@ Return an empty array [] if the analysis is sufficiently thorough.`;
 
   private async updateStatus(id: string, status: StrategyAnalysisStatus, extra?: Record<string, unknown>): Promise<void> {
     await this.supabase.from('strategy_analyses').update({ status, ...extra }).eq('id', id);
+  }
+
+  /* ── Watchlist Extraction ───────────────── */
+
+  private async extractAndStoreWatchlist(
+    id: string,
+    sourceType: 'strategy_analysis' | 'deep_dive',
+    synthesis: SynthesisOutput | null,
+    frameworkOutputs: Record<string, unknown>,
+    executiveOutputs: Record<string, string>,
+  ): Promise<WatchlistItem[]> {
+    const prompt = `You are an expert strategic analyst. Review the following analysis outputs and extract items that should be monitored on an ongoing basis.
+
+SYNTHESIS:
+${JSON.stringify(synthesis, null, 2)}
+
+FRAMEWORK OUTPUTS:
+${JSON.stringify(frameworkOutputs, null, 2)}
+
+EXECUTIVE ANALYSES:
+${JSON.stringify(executiveOutputs, null, 2)}
+
+Extract monitoring watchlist items. Focus on:
+1. RISKS — threats that could materialize (from risk assessment, SWOT threats, Porter's forces)
+2. CATALYSTS — potential positive triggers (from opportunities, Blue Ocean spaces, Ansoff growth vectors)
+3. TRANSACTIONS — pending M&A, partnerships, or deals that could shift dynamics
+4. LEADERSHIP — key person changes, succession risks, executive moves
+5. REGULATORY — upcoming regulations, policy changes, compliance deadlines
+
+For each item, provide:
+- item: concise description (one sentence)
+- category: "risk" | "catalyst" | "transaction" | "leadership" | "regulatory"
+- source_packet: which analysis area this came from
+- trigger_signals: array of specific observable signals that would indicate this item is materializing
+- current_status: current state of this item
+- priority: "high" | "medium" | "low"
+
+Return JSON: { "watchlist": [...] }
+Extract 5-15 items. Focus on actionable, monitorable items — not vague concerns.`;
+
+    const response = await this.modelClient.generate({
+      model: this.model,
+      systemInstruction: 'Extract monitoring watchlist items from strategic analysis. Output ONLY valid JSON.',
+      contents: [{ role: 'user', content: prompt, timestamp: Date.now() }],
+      temperature: 0.1,
+    });
+
+    const text = response.text ?? '';
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return [];
+
+    try {
+      const parsed = JSON.parse(match[0]);
+      const items: WatchlistItem[] = (parsed.watchlist || []).map((w: Record<string, unknown>) => ({
+        item: w.item || '',
+        category: w.category || 'risk',
+        source_packet: w.source_packet || '',
+        trigger_signals: Array.isArray(w.trigger_signals) ? w.trigger_signals : [],
+        current_status: w.current_status || '',
+        last_updated: new Date().toISOString(),
+        priority: w.priority || 'medium',
+      }));
+
+      const tableName = sourceType === 'strategy_analysis' ? 'strategy_analysis_watchlist' : 'deep_dive_watchlist';
+      const fkColumn = sourceType === 'strategy_analysis' ? 'strategy_analysis_id' : 'deep_dive_id';
+
+      if (items.length > 0) {
+        await this.supabase.from(tableName).insert(
+          items.map((item) => ({
+            [fkColumn]: id,
+            item: item.item,
+            category: item.category,
+            trigger_signals: item.trigger_signals,
+            current_status: item.current_status,
+            priority: item.priority,
+            created_at: new Date().toISOString(),
+          })),
+        );
+      }
+
+      return items;
+    } catch {
+      return [];
+    }
   }
 }

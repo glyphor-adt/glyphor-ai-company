@@ -58,6 +58,8 @@ export { runCompetitiveResearchAnalyst, type CompetitiveResearchAnalystRunParams
 export { runMarketResearchAnalyst, type MarketResearchAnalystRunParams } from './market-research-analyst/run.js';
 export { runTechnicalResearchAnalyst, type TechnicalResearchAnalystRunParams } from './technical-research-analyst/run.js';
 export { runIndustryResearchAnalyst, type IndustryResearchAnalystRunParams } from './industry-research-analyst/run.js';
+export { runAIImpactAnalyst, type AIImpactAnalystRunParams } from './ai-impact-analyst/run.js';
+export { runOrgAnalyst, type OrgAnalystRunParams } from './org-analyst/run.js';
 
 // Dynamic agents (DB-defined, no file-based runner)
 export { runDynamicAgent, type DynamicAgentRunParams } from './shared/runDynamicAgent.js';
@@ -98,6 +100,8 @@ import { COMPETITIVE_RESEARCH_ANALYST_SYSTEM_PROMPT } from './competitive-resear
 import { MARKET_RESEARCH_ANALYST_SYSTEM_PROMPT } from './market-research-analyst/systemPrompt.js';
 import { TECHNICAL_RESEARCH_ANALYST_SYSTEM_PROMPT } from './technical-research-analyst/systemPrompt.js';
 import { INDUSTRY_RESEARCH_ANALYST_SYSTEM_PROMPT } from './industry-research-analyst/systemPrompt.js';
+import { AI_IMPACT_ANALYST_SYSTEM_PROMPT } from './ai-impact-analyst/systemPrompt.js';
+import { ORG_ANALYST_SYSTEM_PROMPT } from './org-analyst/systemPrompt.js';
 
 export const SYSTEM_PROMPTS: Record<string, string> = {
   'chief-of-staff': CHIEF_OF_STAFF_SYSTEM_PROMPT,
@@ -135,4 +139,6 @@ export const SYSTEM_PROMPTS: Record<string, string> = {
   'market-research-analyst': MARKET_RESEARCH_ANALYST_SYSTEM_PROMPT,
   'technical-research-analyst': TECHNICAL_RESEARCH_ANALYST_SYSTEM_PROMPT,
   'industry-research-analyst': INDUSTRY_RESEARCH_ANALYST_SYSTEM_PROMPT,
+  'ai-impact-analyst': AI_IMPACT_ANALYST_SYSTEM_PROMPT,
+  'org-analyst': ORG_ANALYST_SYSTEM_PROMPT,
 };
