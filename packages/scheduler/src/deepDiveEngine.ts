@@ -644,8 +644,8 @@ export class DeepDiveEngine {
 
     await this.updateAreas(id, areas);
 
-    // ── Phase 2b: CHALLENGE — second model critiques each area (multi-agent) ──
-    const challengeResults = new Map<string, string>();
+    // ── Phase 2b: CHALLENGE — two challenger models critique each area (tri-model) ──
+    const challengeResults = new Map<string, string[]>();
 
     const completedAreas = areas.filter((a) => a.status === 'completed' && a.analysis);
 
@@ -654,42 +654,52 @@ export class DeepDiveEngine {
         const primary = areaAnalyses.get(area.id);
         if (!primary) return;
 
-        const challengerModel = getChallengerModel(primary.model);
+        const challengers = getChallengerModels(primary.model);
+        const challenges: string[] = [];
 
-        const challengePrompt = [
-          `A colleague produced the following research analysis on "${req.target}" (${area.label}).`,
-          `Your job is to critically evaluate it: identify gaps, unsupported claims, missing data,`,
-          `alternative interpretations, and areas that need deeper investigation.`,
-          ``,
-          `== ANALYSIS TO CHALLENGE ==`,
-          primary.analysis,
-          ``,
-          `Respond with:`,
-          `1. STRENGTHS: What's well-supported and accurate`,
-          `2. GAPS: What important data or perspectives are missing`,
-          `3. CHALLENGES: Claims that may be wrong or oversimplified`,
-          `4. ADDITIONAL INSIGHTS: What the analyst missed or should have included`,
-          `5. REVISED CONCLUSIONS: Your refined view incorporating all of the above`,
-          ``,
-          `Be rigorous. Challenge assumptions. Provide alternative data interpretations.`,
-        ].join('\n');
+        await Promise.allSettled(
+          challengers.map(async (challengerModel) => {
+            const challengePrompt = [
+              `A colleague produced the following research analysis on "${req.target}" (${area.label}).`,
+              `Your job is to critically evaluate it: identify gaps, unsupported claims, missing data,`,
+              `alternative interpretations, and areas that need deeper investigation.`,
+              ``,
+              `== ANALYSIS TO CHALLENGE ==`,
+              primary.analysis,
+              ``,
+              `Respond with:`,
+              `1. STRENGTHS: What's well-supported and accurate`,
+              `2. GAPS: What important data or perspectives are missing`,
+              `3. CHALLENGES: Claims that may be wrong or oversimplified`,
+              `4. ADDITIONAL INSIGHTS: What the analyst missed or should have included`,
+              `5. REVISED CONCLUSIONS: Your refined view incorporating all of the above`,
+              ``,
+              `Be rigorous. Challenge assumptions. Provide alternative data interpretations.`,
+            ].join('\n');
 
-        const response = await this.modelClient.generate({
-          model: challengerModel,
-          systemInstruction: 'You are a devil\'s advocate analyst. Rigorously challenge research findings. Identify what\'s missing, wrong, or oversimplified.',
-          contents: [{ role: 'user', content: challengePrompt, timestamp: Date.now() }],
-          temperature: 0.3,
-        });
+            const response = await this.modelClient.generate({
+              model: challengerModel,
+              systemInstruction: 'You are a devil\'s advocate analyst. Rigorously challenge research findings. Identify what\'s missing, wrong, or oversimplified.',
+              contents: [{ role: 'user', content: challengePrompt, timestamp: Date.now() }],
+              temperature: 0.3,
+            });
 
-        challengeResults.set(area.id, response.text ?? '');
+            if (response.text) {
+              challenges.push(`[${challengerModel}]\n${response.text}`);
+            }
+          }),
+        );
+
+        challengeResults.set(area.id, challenges);
       }),
     );
 
     // Merge challenge insights back into area analyses
     for (const area of completedAreas) {
-      const challenge = challengeResults.get(area.id);
-      if (challenge) {
-        area.analysis = `${area.analysis}\n\n--- CROSS-MODEL CHALLENGE (${getChallengerModel(areaAnalyses.get(area.id)?.model ?? this.model)}) ---\n${challenge}`;
+      const challenges = challengeResults.get(area.id);
+      if (challenges?.length) {
+        const challengeSection = challenges.map(c => `--- CROSS-MODEL CHALLENGE ---\n${c}`).join('\n\n');
+        area.analysis = `${area.analysis}\n\n${challengeSection}`;
       }
     }
 
@@ -916,45 +926,66 @@ export class DeepDiveEngine {
   ): Promise<Map<string, { confidence: number; issues: string[]; corrections: string[] }>> {
     const results = new Map<string, { confidence: number; issues: string[]; corrections: string[] }>();
 
-    // Use a different model than the primary to verify each area's analysis
-    const verifyModel = VERIFICATION_MODELS.find(m => m !== this.model) ?? VERIFICATION_MODELS[0];
-
+    // Each area is verified by all models that weren't the primary author
     const verifications = await Promise.allSettled(
       completedAreas.map(async (area) => {
-        const verifyPrompt = [
-          `You are an independent verification analyst. A colleague produced the following research analysis on "${req.target}" (${area.label}).`,
-          `Your job is to identify factual errors, unsupported claims, logical gaps, and biases.`,
-          ``,
-          `== ANALYSIS TO VERIFY ==`,
-          area.analysis ?? '',
-          ``,
-          `Respond ONLY with valid JSON (no markdown fences):`,
-          `{`,
-          `  "confidence": <0.0-1.0 overall quality score>,`,
-          `  "issues": ["<factual error or unsupported claim>", ...],`,
-          `  "corrections": ["<suggested correction or nuance>", ...]`,
-          `}`,
-        ].join('\n');
+        const primaryModel = RESEARCH_MODELS[area.id] ?? this.model;
+        const verifyModels = VERIFICATION_MODELS.filter(m => m !== primaryModel);
+        // If all models are different from primary, use all; otherwise fall back to all
+        const modelsToUse = verifyModels.length > 0 ? verifyModels : [...VERIFICATION_MODELS];
 
-        const response = await this.modelClient.generate({
-          model: verifyModel,
-          systemInstruction: 'You are a JSON-only verification engine. Evaluate research quality rigorously. Always respond with valid JSON.',
-          contents: [{ role: 'user', content: verifyPrompt, timestamp: Date.now() }],
-          temperature: 0.1,
-        });
+        const modelResults = await Promise.allSettled(
+          modelsToUse.map(async (verifyModel) => {
+            const verifyPrompt = [
+              `You are an independent verification analyst. A colleague produced the following research analysis on "${req.target}" (${area.label}).`,
+              `Your job is to identify factual errors, unsupported claims, logical gaps, and biases.`,
+              ``,
+              `== ANALYSIS TO VERIFY ==`,
+              area.analysis ?? '',
+              ``,
+              `Respond ONLY with valid JSON (no markdown fences):`,
+              `{`,
+              `  "confidence": <0.0-1.0 overall quality score>,`,
+              `  "issues": ["<factual error or unsupported claim>", ...],`,
+              `  "corrections": ["<suggested correction or nuance>", ...]`,
+              `}`,
+            ].join('\n');
 
-        const output = response.text ?? '';
-        const jsonMatch = output.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          return {
-            areaId: area.id,
-            confidence: Math.max(0, Math.min(1, parsed.confidence ?? 0.5)),
-            issues: parsed.issues ?? [],
-            corrections: parsed.corrections ?? [],
-          };
-        }
-        return { areaId: area.id, confidence: 0.5, issues: ['Failed to parse verification'], corrections: [] };
+            const response = await this.modelClient.generate({
+              model: verifyModel,
+              systemInstruction: 'You are a JSON-only verification engine. Evaluate research quality rigorously. Always respond with valid JSON.',
+              contents: [{ role: 'user', content: verifyPrompt, timestamp: Date.now() }],
+              temperature: 0.1,
+            });
+
+            const output = response.text ?? '';
+            const jsonMatch = output.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              const parsed = JSON.parse(jsonMatch[0]);
+              return {
+                confidence: Math.max(0, Math.min(1, parsed.confidence ?? 0.5)),
+                issues: parsed.issues ?? [] as string[],
+                corrections: parsed.corrections ?? [] as string[],
+              };
+            }
+            return { confidence: 0.5, issues: ['Failed to parse verification'] as string[], corrections: [] as string[] };
+          }),
+        );
+
+        // Average confidence across verifier models, union issues and corrections
+        const fulfilled = modelResults.filter(r => r.status === 'fulfilled').map(r => (r as PromiseFulfilledResult<{ confidence: number; issues: string[]; corrections: string[] }>).value);
+        const avgConfidence = fulfilled.length > 0
+          ? fulfilled.reduce((sum, r) => sum + r.confidence, 0) / fulfilled.length
+          : 0.5;
+        const allIssues = [...new Set(fulfilled.flatMap(r => r.issues))];
+        const allCorrections = [...new Set(fulfilled.flatMap(r => r.corrections))];
+
+        return {
+          areaId: area.id,
+          confidence: avgConfidence,
+          issues: allIssues,
+          corrections: allCorrections,
+        };
       }),
     );
 
