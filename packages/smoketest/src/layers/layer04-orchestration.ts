@@ -34,6 +34,44 @@ function blocked(id: string, name: string): TestResult {
 export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   const tests: TestResult[] = [];
 
+  // T4.0 — Direct Work Assignment (CTO assign_task)
+  tests.push(
+    await runTest('T4.0', 'Direct Work Assignment', async () => {
+      const sb = getSupabase(config);
+      
+      // Create a work assignment directly (simulating CTO assign_task tool)
+      const { data: assignment, error: assignError } = await sb
+        .from('work_assignments')
+        .insert({
+          assigned_to: 'platform-engineer',
+          assigned_by: 'cto',
+          task_description: 'Smoke test: Verify platform health monitoring is operational',
+          task_type: 'on_demand',
+          expected_output: 'Confirmation that all health checks are passing',
+          priority: 'normal',
+          status: 'pending',
+          directive_id: null, // CTO assignments don't require a directive
+        })
+        .select('id')
+        .single();
+
+      if (assignError) {
+        throw new Error(`Failed to create work assignment: ${assignError.message}`);
+      }
+      if (!assignment?.id) {
+        throw new Error('No assignment ID returned');
+      }
+
+      // Clean up — mark as completed so it doesn't interfere with agent operations
+      await sb
+        .from('work_assignments')
+        .update({ status: 'completed' })
+        .eq('id', assignment.id);
+
+      return `Work assignment created successfully (ID: ${assignment.id})`;
+    }),
+  );
+
   // T4.1 — Create Directive
   tests.push(
     await runTest('T4.1', 'Create Directive', async () => {
