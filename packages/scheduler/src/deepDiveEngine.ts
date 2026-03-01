@@ -24,7 +24,7 @@ import { FRAMEWORK_CONFIGS, buildFrameworkPrompt, buildConvergencePrompt } from 
 
 /* ── Cross-model verification config ──────── */
 
-const VERIFICATION_MODELS = ['gemini-3-pro-preview', 'gpt-4.1'] as const;
+const VERIFICATION_MODELS = ['gemini-3-pro-preview', 'gpt-5-mini'] as const;
 const VERIFICATION_CONFIDENCE_THRESHOLD = 0.7;
 
 /**
@@ -34,25 +34,25 @@ const VERIFICATION_CONFIDENCE_THRESHOLD = 0.7;
  */
 const RESEARCH_MODELS: Record<string, string> = {
   overview:            'gemini-3-pro-preview',
-  financials:          'gpt-4.1',
+  financials:          'gpt-5-mini',
   technology:          'gemini-3-pro-preview',
-  market:              'gpt-4.1',
+  market:              'gpt-5-mini',
   competitive:         'gemini-3-pro-preview',
-  leadership:          'gpt-4.1',
+  leadership:          'gpt-5-mini',
   customers:           'gemini-3-pro-preview',
-  risks:               'gpt-4.1',
+  risks:               'gpt-5-mini',
   company_profile:     'gemini-3-pro-preview',
-  strategic_direction: 'gpt-4.1',
+  strategic_direction: 'gpt-5-mini',
   segment_analysis:    'gemini-3-pro-preview',
-  ma_activity:         'gpt-4.1',
+  ma_activity:         'gpt-5-mini',
   ai_impact:           'gemini-3-pro-preview',
-  talent_assessment:   'gpt-4.1',
+  talent_assessment:   'gpt-5-mini',
   regulatory_landscape:'gemini-3-pro-preview',
 };
 
 /** The challenger model critiques work done by the primary */
 function getChallengerModel(primary: string): string {
-  return primary === 'gemini-3-pro-preview' ? 'gpt-4.1' : 'gemini-3-pro-preview';
+  return primary === 'gemini-3-pro-preview' ? 'gpt-5-mini' : 'gemini-3-pro-preview';
 }
 
 /* ── Types ──────────────────────────────────── */
