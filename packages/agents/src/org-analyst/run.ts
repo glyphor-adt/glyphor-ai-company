@@ -45,7 +45,7 @@ export async function runOrgAnalyst(params: OrgAnalystRunParams = {}) {
   const supabase = memory.getSupabaseClient();
 
   const tools = [
-    ...createOrgAnalystTools(supabase),
+    ...createOrgAnalystTools(),
     ...createMemoryTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
   ];
@@ -65,7 +65,7 @@ export async function runOrgAnalyst(params: OrgAnalystRunParams = {}) {
     initialMessage = params.message || 'Run a talent and organizational assessment.';
   }
 
-  const agentCfg = await loadAgentConfig(supabase, 'org-analyst', {
+  const agentCfg = await loadAgentConfig('org-analyst', {
     model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns,
   });
 
@@ -93,7 +93,7 @@ export async function runOrgAnalyst(params: OrgAnalystRunParams = {}) {
   const result = await runner.run(
     config, initialMessage, supervisor, toolExecutor,
     (event) => eventBus.emit(event), memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
   try { await memory.recordAgentRun('org-analyst', 0, 0.08); } catch {}
   console.log(`[Marcus Chen] ${result.status} (${result.totalTurns} turns)`);

@@ -45,7 +45,7 @@ export async function runAIImpactAnalyst(params: AIImpactAnalystRunParams = {}) 
   const supabase = memory.getSupabaseClient();
 
   const tools = [
-    ...createAIImpactAnalystTools(supabase),
+    ...createAIImpactAnalystTools(),
     ...createMemoryTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
   ];
@@ -65,7 +65,7 @@ export async function runAIImpactAnalyst(params: AIImpactAnalystRunParams = {}) 
     initialMessage = params.message || 'Run an AI impact assessment.';
   }
 
-  const agentCfg = await loadAgentConfig(supabase, 'ai-impact-analyst', {
+  const agentCfg = await loadAgentConfig('ai-impact-analyst', {
     model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns,
   });
 
@@ -93,7 +93,7 @@ export async function runAIImpactAnalyst(params: AIImpactAnalystRunParams = {}) 
   const result = await runner.run(
     config, initialMessage, supervisor, toolExecutor,
     (event) => eventBus.emit(event), memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
   try { await memory.recordAgentRun('ai-impact-analyst', 0, 0.08); } catch {}
   console.log(`[Riya] ${result.status} (${result.totalTurns} turns)`);

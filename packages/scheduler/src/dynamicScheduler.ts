@@ -76,13 +76,11 @@ function fieldMatches(field: string, value: number): boolean {
 }
 
 export class DynamicScheduler {
-  private supabase: SupabaseClient;
   private executor: AgentExecutorFn;
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private lastCheckMinute = -1;
 
-  constructor(supabase: SupabaseClient, executor: AgentExecutorFn) {
-    this.supabase = supabase;
+  constructor(executor: AgentExecutorFn) {
     this.executor = executor;
   }
 
@@ -115,15 +113,10 @@ export class DynamicScheduler {
 
     try {
       // Fetch enabled schedules for active agents
-      const { data: schedules, error } = await this.supabase
-        .from('agent_schedules')
-        .select('id, agent_id, cron_expression, task, payload, enabled')
-        .eq('enabled', true);
-
-      if (error) {
-        console.error('[DynamicScheduler] Failed to fetch schedules:', error.message);
-        return;
-      }
+      const schedules = await systemQuery<DynamicScheduleRow>(
+        'SELECT id, agent_id, cron_expression, task, payload, enabled FROM agent_schedules WHERE enabled = $1',
+        [true],
+      );
 
       if (!schedules || schedules.length === 0) return;
 
@@ -138,11 +131,10 @@ export class DynamicScheduler {
       // agent_schedules.agent_id stores the role string (e.g. 'chief-of-staff'),
       // so we must query company_agents.role, not .id (which is a UUID).
       const agentIds = [...new Set(matching.map((s) => s.agent_id))];
-      const { data: agents } = await this.supabase
-        .from('company_agents')
-        .select('id, role, status')
-        .in('role', agentIds)
-        .eq('status', 'active');
+      const agents = await systemQuery<{ id: string; role: string; status: string }>(
+        'SELECT id, role, status FROM company_agents WHERE role = ANY($1) AND status = $2',
+        [agentIds, 'active'],
+      );
 
       const activeAgentMap = new Map(
         (agents ?? []).map((a: { id: string; role: string }) => [a.role, a.role as CompanyAgentRole]),

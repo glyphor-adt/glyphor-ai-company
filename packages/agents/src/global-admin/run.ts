@@ -51,7 +51,7 @@ export async function runGlobalAdmin(params: GlobalAdminRunParams = {}) {
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
-    ...createToolGrantTools(memory.getSupabaseClient(), 'global-admin'),
+    ...createToolGrantTools('global-admin'),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -80,7 +80,7 @@ export async function runGlobalAdmin(params: GlobalAdminRunParams = {}) {
   }
 
   const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'global-admin', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 12 });
+  const agentCfg = await loadAgentConfig('global-admin', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 12 });
 
   const config: AgentConfig = {
     id: `morgan-${task}-${today}`,
@@ -106,7 +106,7 @@ export async function runGlobalAdmin(params: GlobalAdminRunParams = {}) {
   const result = await runner.run(
     config, initialMessage, supervisor, toolExecutor,
     (event) => eventBus.emit(event), memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
 
   try { await memory.recordAgentRun('global-admin', 0, 0.02); } catch {}

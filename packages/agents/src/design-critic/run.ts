@@ -62,7 +62,7 @@ export async function runDesignCritic(params: DesignCriticRunParams = {}) {
   }
 
   const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'design-critic', { model: 'gemini-3-flash-preview', temperature: 0.7, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('design-critic', { model: 'gemini-3-flash-preview', temperature: 0.7, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `sofia-${task}-${today}`, role: 'design-critic',
@@ -72,7 +72,7 @@ export async function runDesignCritic(params: DesignCriticRunParams = {}) {
     conversationHistory: params.conversationHistory,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
-  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));
+  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(glyphorEventBus, memory));
   try { await memory.recordAgentRun('design-critic', 0, 0.08); } catch {}
   console.log(`[Sofia] ${result.status} (${result.totalTurns} turns)`);
   return result;

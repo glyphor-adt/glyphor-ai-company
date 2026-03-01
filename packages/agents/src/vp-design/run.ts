@@ -62,9 +62,9 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
-    ...createAgentCreationTools(memory.getSupabaseClient()),
-    ...createToolRequestTools(memory.getSupabaseClient()),
-    ...createAgentDirectoryTools(memory.getSupabaseClient()),
+    ...createAgentCreationTools(),
+    ...createToolRequestTools(),
+    ...createAgentDirectoryTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -114,7 +114,7 @@ Steps:
   }
 
   const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'vp-design', { model: 'gemini-3-flash-preview', temperature: 0.4, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('vp-design', { model: 'gemini-3-flash-preview', temperature: 0.4, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `vp-design-${task}-${today}`,
@@ -146,7 +146,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;

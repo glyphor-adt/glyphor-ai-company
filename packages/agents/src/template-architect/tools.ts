@@ -4,6 +4,7 @@
  */
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { ToolDefinition } from '@glyphor/agent-runtime';
+import { systemQuery } from '@glyphor/shared/db';
 
 export function createTemplateArchitectTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -17,16 +18,7 @@ export function createTemplateArchitectTools(memory: CompanyMemoryStore): ToolDe
         qualityCeiling: { type: 'string', description: 'Expected quality ceiling grade (A+, A, B+, etc.)' },
       },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        await supabase.from('design_artifacts').insert({
-          type: 'template_variant',
-          name: `${params.templateName}/${params.variant}`,
-          content: params.constraints,
-          variant: params.qualityCeiling || null,
-          author: 'template-architect',
-          status: 'draft',
-          created_at: new Date().toISOString(),
-        });
+        await systemQuery('INSERT INTO design_artifacts (type, name, content, variant, author, status, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)', ['template_variant', `${params.templateName}/${params.variant}`, params.constraints, params.qualityCeiling || null, 'template-architect', 'draft', new Date().toISOString()]);
         return { success: true, message: `Template "${params.templateName}/${params.variant}" saved.` };
       },
     },
@@ -38,12 +30,12 @@ export function createTemplateArchitectTools(memory: CompanyMemoryStore): ToolDe
         status: { type: 'string', description: 'Filter by status: draft, active, deprecated' },
       },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        let query = supabase.from('design_artifacts').select('*').eq('type', 'template_variant').order('created_at', { ascending: false });
-        if (params.templateName && params.templateName !== 'all') { query = query.ilike('name', `%${params.templateName}%`); }
-        if (params.status) { query = query.eq('status', params.status); }
-        const { data } = await query.limit(30);
-        return { success: true, data: data || [] };
+        const conditions = ['type=$1'];
+        const values: unknown[] = ['template_variant'];
+        if (params.templateName && params.templateName !== 'all') { conditions.push(`name ILIKE $${values.length + 1}`); values.push(`%${params.templateName}%`); }
+        if (params.status) { conditions.push(`status=$${values.length + 1}`); values.push(params.status); }
+        const data = await systemQuery(`SELECT * FROM design_artifacts WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT 30`, values);
+        return { success: true, data };
       },
     },
     {
@@ -55,12 +47,11 @@ export function createTemplateArchitectTools(memory: CompanyMemoryStore): ToolDe
         reason: { type: 'string', description: 'Reason for the status change', required: true },
       },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        const { data: existing } = await supabase.from('design_artifacts').select('id').eq('type', 'template_variant').eq('name', params.templateName).limit(1);
-        if (!existing || existing.length === 0) {
+        const existing = await systemQuery('SELECT id FROM design_artifacts WHERE type=$1 AND name=$2 LIMIT 1', ['template_variant', params.templateName]);
+        if (existing.length === 0) {
           return { success: false, error: `Template "${params.templateName}" not found` };
         }
-        await supabase.from('design_artifacts').update({ status: params.newStatus, content: `${params.reason}\n\nStatus changed to ${params.newStatus} at ${new Date().toISOString()}` }).eq('id', existing[0].id);
+        await systemQuery('UPDATE design_artifacts SET status=$1, content=$2 WHERE id=$3', [params.newStatus, `${params.reason}\n\nStatus changed to ${params.newStatus} at ${new Date().toISOString()}`, existing[0].id]);
         return { success: true, message: `Template "${params.templateName}" status updated to ${params.newStatus}` };
       },
     },
@@ -71,9 +62,8 @@ export function createTemplateArchitectTools(memory: CompanyMemoryStore): ToolDe
         templateName: { type: 'string', description: 'Template name to filter grades for', required: true },
       },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        const { data } = await supabase.from('design_artifacts').select('*').eq('type', 'build_grade').ilike('name', `%${params.templateName}%`).order('created_at', { ascending: false }).limit(30);
-        return { success: true, data: data || [] };
+        const data = await systemQuery('SELECT * FROM design_artifacts WHERE type=$1 AND name ILIKE $2 ORDER BY created_at DESC LIMIT 30', ['build_grade', `%${params.templateName}%`]);
+        return { success: true, data };
       },
     },
     {
@@ -84,14 +74,7 @@ export function createTemplateArchitectTools(memory: CompanyMemoryStore): ToolDe
         details: { type: 'string', description: 'Detailed notes' },
       },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        await supabase.from('agent_activities').insert({
-          agent_role: 'template-architect',
-          activity_type: 'template_design',
-          summary: params.summary,
-          details: params.details || null,
-          created_at: new Date().toISOString(),
-        });
+        await systemQuery('INSERT INTO agent_activities (agent_role, activity_type, summary, details, created_at) VALUES ($1, $2, $3, $4, $5)', ['template-architect', 'template_design', params.summary, params.details || null, new Date().toISOString()]);
         return { success: true };
       },
     },

@@ -61,9 +61,9 @@ export async function runCLO(params: CLORunParams = {}) {
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createEventTools(glyphorEventBus),
-    ...createAgentCreationTools(memory.getSupabaseClient()),
-    ...createToolRequestTools(memory.getSupabaseClient()),
-    ...createAgentDirectoryTools(memory.getSupabaseClient()),
+    ...createAgentCreationTools(),
+    ...createToolRequestTools(),
+    ...createAgentDirectoryTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -119,7 +119,7 @@ IMPORTANT: Only assert findings about live product features (e.g. footer links, 
   }
 
   const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'clo', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('clo', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `clo-${task}-${today}`,
@@ -151,7 +151,7 @@ IMPORTANT: Only assert findings about live product features (e.g. footer links, 
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;

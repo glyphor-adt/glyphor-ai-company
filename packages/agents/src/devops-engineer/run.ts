@@ -70,7 +70,7 @@ export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
   }
 
   const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'devops-engineer', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('devops-engineer', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `jordan-${task}-${today}`, role: 'devops-engineer',
@@ -87,7 +87,7 @@ export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
   });
 
   const result = await runner.run(config, initialMessage, supervisor, toolExecutor,
-    (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));
+    (event) => eventBus.emit(event), memory, createRunDeps(glyphorEventBus, memory));
 
   try { await memory.recordAgentRun('devops-engineer', 0, 0.02); } catch {}
   console.log(`[Jordan] ${result.status} (${result.totalTurns} turns)`);

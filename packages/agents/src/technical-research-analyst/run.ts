@@ -45,7 +45,7 @@ export async function runTechnicalResearchAnalyst(params: TechnicalResearchAnaly
   const supabase = memory.getSupabaseClient();
 
   const tools = [
-    ...createTechnicalResearchAnalystTools(supabase),
+    ...createTechnicalResearchAnalystTools(),
     ...createMemoryTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
   ];
@@ -65,7 +65,7 @@ export async function runTechnicalResearchAnalyst(params: TechnicalResearchAnaly
     initialMessage = params.message || 'Run a technical landscape research scan.';
   }
 
-  const agentCfg = await loadAgentConfig(supabase, 'technical-research-analyst', {
+  const agentCfg = await loadAgentConfig('technical-research-analyst', {
     model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns,
   });
 
@@ -93,7 +93,7 @@ export async function runTechnicalResearchAnalyst(params: TechnicalResearchAnaly
   const result = await runner.run(
     config, initialMessage, supervisor, toolExecutor,
     (event) => eventBus.emit(event), memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
   try { await memory.recordAgentRun('technical-research-analyst', 0, 0.08); } catch {}
   console.log(`[Kai] ${result.status} (${result.totalTurns} turns)`);

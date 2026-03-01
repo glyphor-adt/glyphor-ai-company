@@ -4,6 +4,7 @@
  */
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { ToolDefinition } from '@glyphor/agent-runtime';
+import { systemQuery } from '@glyphor/shared/db';
 import { PulseClient } from '@glyphor/integrations';
 
 function getPulseClient(): PulseClient | null {
@@ -17,8 +18,7 @@ export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolD
       description: 'Schedule a pre-approved post via Buffer. Only schedule content that has been reviewed.',
       parameters: { profileId: { type: 'string', description: 'Buffer profile ID', required: true }, text: { type: 'string', description: 'Post text', required: true }, scheduledAt: { type: 'string', description: 'ISO 8601 datetime to publish' }, mediaUrl: { type: 'string', description: 'Optional media URL' } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        await supabase.from('scheduled_posts').insert({ profile_id: params.profileId, text: params.text, scheduled_at: params.scheduledAt || null, media_url: params.mediaUrl || null, status: 'queued', agent: 'social-media-manager', created_at: new Date().toISOString() });
+        await systemQuery('INSERT INTO scheduled_posts (profile_id, text, scheduled_at, media_url, status, agent, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)', [params.profileId, params.text, params.scheduledAt || null, params.mediaUrl || null, 'queued', 'social-media-manager', new Date().toISOString()]);
         return { success: true, message: 'Post queued for scheduling via Buffer.' };
       },
     },
@@ -27,11 +27,12 @@ export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolD
       description: 'Query aggregate social media metrics: followers, engagement rate, reach.',
       parameters: { platform: { type: 'string', description: 'Platform: twitter, linkedin, all', required: true }, period: { type: 'string', description: 'Time period: 7d, 30d, 90d' } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        let query = supabase.from('social_metrics').select('*').order('recorded_at', { ascending: false }).limit(30);
-        if (params.platform !== 'all') { query = query.eq('platform', params.platform); }
-        const { data } = await query;
-        return { success: true, data: data || [] };
+        const conditions: string[] = [];
+        const values: unknown[] = [];
+        if (params.platform !== 'all') { conditions.push(`platform=$${values.length + 1}`); values.push(params.platform); }
+        const where = conditions.length ? ` WHERE ${conditions.join(' AND ')}` : '';
+        const data = await systemQuery(`SELECT * FROM social_metrics${where} ORDER BY recorded_at DESC LIMIT 30`, values);
+        return { success: true, data };
       },
     },
     {
@@ -39,11 +40,12 @@ export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolD
       description: 'Get performance data for individual published posts.',
       parameters: { platform: { type: 'string', description: 'Platform filter (optional)' }, sortBy: { type: 'string', description: 'Sort by: engagement, impressions, clicks' }, limit: { type: 'number', description: 'Max results (default 20)' } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        let query = supabase.from('social_metrics').select('*').eq('metric_type', 'post_performance').order(String(params.sortBy || 'engagement'), { ascending: false }).limit(Number(params.limit) || 20);
-        if (params.platform) { query = query.eq('platform', params.platform); }
-        const { data } = await query;
-        return { success: true, data: data || [] };
+        const conditions = ['metric_type=$1'];
+        const values: unknown[] = ['post_performance'];
+        if (params.platform) { conditions.push(`platform=$${values.length + 1}`); values.push(params.platform); }
+        const sortCol = ['engagement', 'impressions', 'clicks'].includes(String(params.sortBy)) ? String(params.sortBy) : 'engagement';
+        const data = await systemQuery(`SELECT * FROM social_metrics WHERE ${conditions.join(' AND ')} ORDER BY ${sortCol} DESC LIMIT $${values.length + 1}`, [...values, Number(params.limit) || 20]);
+        return { success: true, data };
       },
     },
     {
@@ -51,9 +53,8 @@ export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolD
       description: 'Get optimal posting times based on historical engagement data.',
       parameters: { platform: { type: 'string', description: 'Platform: twitter, linkedin', required: true } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        const { data } = await supabase.from('social_metrics').select('*').eq('metric_type', 'optimal_times').eq('platform', params.platform).order('recorded_at', { ascending: false }).limit(1);
-        return { success: true, data: data?.[0] || null };
+        const data = await systemQuery('SELECT * FROM social_metrics WHERE metric_type=$1 AND platform=$2 ORDER BY recorded_at DESC LIMIT 1', ['optimal_times', params.platform]);
+        return { success: true, data: data[0] ?? null };
       },
     },
     {
@@ -61,11 +62,11 @@ export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolD
       description: 'Get audience demographic data: location, industry, job titles.',
       parameters: { platform: { type: 'string', description: 'Platform: twitter, linkedin, all', required: true } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        let query = supabase.from('social_metrics').select('*').eq('metric_type', 'demographics').order('recorded_at', { ascending: false }).limit(5);
-        if (params.platform !== 'all') { query = query.eq('platform', params.platform); }
-        const { data } = await query;
-        return { success: true, data: data || [] };
+        const conditions = ['metric_type=$1'];
+        const values: unknown[] = ['demographics'];
+        if (params.platform !== 'all') { conditions.push(`platform=$${values.length + 1}`); values.push(params.platform); }
+        const data = await systemQuery(`SELECT * FROM social_metrics WHERE ${conditions.join(' AND ')} ORDER BY recorded_at DESC LIMIT 5`, values);
+        return { success: true, data };
       },
     },
     {
@@ -73,9 +74,8 @@ export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolD
       description: 'Check recent brand mentions and relevant conversations.',
       parameters: { query: { type: 'string', description: 'Search term (default: "glyphor")' }, limit: { type: 'number', description: 'Max results (default 20)' } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        const { data } = await supabase.from('social_metrics').select('*').eq('metric_type', 'mention').ilike('content', `%${params.query || 'glyphor'}%`).order('recorded_at', { ascending: false }).limit(Number(params.limit) || 20);
-        return { success: true, data: data || [] };
+        const data = await systemQuery('SELECT * FROM social_metrics WHERE metric_type=$1 AND content ILIKE $2 ORDER BY recorded_at DESC LIMIT $3', ['mention', `%${params.query || 'glyphor'}%`, Number(params.limit) || 20]);
+        return { success: true, data };
       },
     },
     {
@@ -83,8 +83,7 @@ export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolD
       description: 'Log an activity or finding to the agent activity log.',
       parameters: { summary: { type: 'string', description: 'Activity summary', required: true }, details: { type: 'string', description: 'Detailed notes' } },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        await supabase.from('agent_activities').insert({ agent_role: 'social-media-manager', activity_type: 'social_media', summary: params.summary, details: params.details || null, created_at: new Date().toISOString() });
+        await systemQuery('INSERT INTO agent_activities (agent_role, activity_type, summary, details, created_at) VALUES ($1, $2, $3, $4, $5)', ['social-media-manager', 'social_media', params.summary, params.details || null, new Date().toISOString()]);
         return { success: true };
       },
     },

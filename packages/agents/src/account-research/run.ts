@@ -65,7 +65,7 @@ export async function runAccountResearch(params: AccountResearchRunParams = {}) 
   }
 
   const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'account-research', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('account-research', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `nathan-${task}-${today}`, role: 'account-research',
@@ -75,7 +75,7 @@ export async function runAccountResearch(params: AccountResearchRunParams = {}) 
     conversationHistory: params.conversationHistory,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
-  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));
+  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(glyphorEventBus, memory));
   try { await memory.recordAgentRun('account-research', 0, 0.05); } catch {}
   console.log(`[Nathan] ${result.status} (${result.totalTurns} turns)`);
   return result;

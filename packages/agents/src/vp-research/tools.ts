@@ -1,5 +1,4 @@
 import type { ToolDefinition } from '@glyphor/agent-runtime';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { createResearchTools } from '../shared/researchTools.js';
 
 /**
@@ -8,6 +7,6 @@ import { createResearchTools } from '../shared/researchTools.js';
  * Sophia gets the same research tools as her analysts (she can fill gaps herself),
  * plus she inherits graph/memory tools via the runner.
  */
-export function createVPResearchTools(supabase: SupabaseClient): ToolDefinition[] {
-  return createResearchTools(supabase);
+export function createVPResearchTools(): ToolDefinition[] {
+  return createResearchTools();
 }

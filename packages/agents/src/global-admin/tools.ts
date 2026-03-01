@@ -8,6 +8,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
+import { systemQuery } from '@glyphor/shared/db';
 import { getM365Token, type M365Operation } from '@glyphor/integrations';
 
 /** GCP projects this admin manages. */
@@ -972,12 +973,10 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
         }
 
         // 4. Log onboarding completion
-        const supabase = memory.getSupabaseClient();
         try {
-          await supabase.from('activity_log').insert({
-            agent_role: 'global-admin',
-            action: 'onboarding',
-            details: {
+          await systemQuery(
+            'INSERT INTO activity_log (agent_role, action, details) VALUES ($1, $2, $3)',
+            ['global-admin', 'onboarding', JSON.stringify({
               employee: name,
               email,
               role: role_slug,
@@ -985,8 +984,8 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
               reports_to,
               is_agent,
               checklist,
-            },
-          });
+            })],
+          );
           checklist.push({ step: 'Log onboarding', status: 'done', detail: 'Recorded in activity_log' });
         } catch (err) {
           checklist.push({ step: 'Log onboarding', status: 'failed', detail: (err as Error).message });
@@ -1580,7 +1579,6 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const supabase = memory.getSupabaseClient();
           let details: Record<string, unknown>;
           try {
             details = JSON.parse(params.details as string);
@@ -1588,18 +1586,16 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
             details = { raw: params.details };
           }
 
-          const { error } = await supabase.from('activity_log').insert({
-            agent_role: 'global-admin',
-            action: params.action as string,
-            details: {
+          await systemQuery(
+            'INSERT INTO activity_log (agent_role, action, details) VALUES ($1, $2, $3)',
+            ['global-admin', params.action as string, JSON.stringify({
               ...details,
               severity: params.severity || 'INFO',
               loggedBy: 'Morgan Blake (Global Admin)',
               loggedAt: new Date().toISOString(),
-            },
-          });
+            })],
+          );
 
-          if (error) return { success: false, error: error.message };
           return {
             success: true,
             data: {

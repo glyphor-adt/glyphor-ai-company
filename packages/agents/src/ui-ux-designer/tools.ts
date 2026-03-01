@@ -4,6 +4,7 @@
  */
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { ToolDefinition } from '@glyphor/agent-runtime';
+import { systemQuery } from '@glyphor/shared/db';
 
 export function createUiUxDesignerTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -16,16 +17,7 @@ export function createUiUxDesignerTools(memory: CompanyMemoryStore): ToolDefinit
         variant: { type: 'string', description: 'Variant name if applicable (e.g., dark, compact)' },
       },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        await supabase.from('design_artifacts').insert({
-          type: 'component_spec',
-          name: params.componentName,
-          content: params.spec,
-          variant: params.variant || null,
-          author: 'ui-ux-designer',
-          status: 'draft',
-          created_at: new Date().toISOString(),
-        });
+        await systemQuery('INSERT INTO design_artifacts (type, name, content, variant, author, status, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)', ['component_spec', params.componentName, params.spec, params.variant || null, 'ui-ux-designer', 'draft', new Date().toISOString()]);
         return { success: true, message: `Component spec "${params.componentName}" saved.` };
       },
     },
@@ -36,11 +28,11 @@ export function createUiUxDesignerTools(memory: CompanyMemoryStore): ToolDefinit
         category: { type: 'string', description: 'Token category: colors, spacing, typography, shadows, all', required: true },
       },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        let query = supabase.from('design_artifacts').select('*').eq('type', 'design_token').order('created_at', { ascending: false });
-        if (params.category !== 'all') { query = query.eq('variant', params.category); }
-        const { data } = await query.limit(50);
-        return { success: true, data: data || [] };
+        const conditions = ['type=$1'];
+        const values: unknown[] = ['design_token'];
+        if (params.category !== 'all') { conditions.push(`variant=$${values.length + 1}`); values.push(params.category); }
+        const data = await systemQuery(`SELECT * FROM design_artifacts WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT 50`, values);
+        return { success: true, data };
       },
     },
     {
@@ -51,12 +43,12 @@ export function createUiUxDesignerTools(memory: CompanyMemoryStore): ToolDefinit
         status: { type: 'string', description: 'Filter by status: review, approved, needs_revision' },
       },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        let query = supabase.from('design_artifacts').select('*').eq('type', 'component_implementation').order('created_at', { ascending: false });
-        if (params.componentName && params.componentName !== 'all') { query = query.ilike('name', `%${params.componentName}%`); }
-        if (params.status) { query = query.eq('status', params.status); }
-        const { data } = await query.limit(20);
-        return { success: true, data: data || [] };
+        const conditions = ['type=$1'];
+        const values: unknown[] = ['component_implementation'];
+        if (params.componentName && params.componentName !== 'all') { conditions.push(`name ILIKE $${values.length + 1}`); values.push(`%${params.componentName}%`); }
+        if (params.status) { conditions.push(`status=$${values.length + 1}`); values.push(params.status); }
+        const data = await systemQuery(`SELECT * FROM design_artifacts WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT 20`, values);
+        return { success: true, data };
       },
     },
     {
@@ -67,14 +59,7 @@ export function createUiUxDesignerTools(memory: CompanyMemoryStore): ToolDefinit
         details: { type: 'string', description: 'Detailed notes' },
       },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        await supabase.from('agent_activities').insert({
-          agent_role: 'ui-ux-designer',
-          activity_type: 'design',
-          summary: params.summary,
-          details: params.details || null,
-          created_at: new Date().toISOString(),
-        });
+        await systemQuery('INSERT INTO agent_activities (agent_role, activity_type, summary, details, created_at) VALUES ($1, $2, $3, $4, $5)', ['ui-ux-designer', 'design', params.summary, params.details || null, new Date().toISOString()]);
         return { success: true };
       },
     },

@@ -65,7 +65,7 @@ export async function runSocialMediaManager(params: SocialMediaManagerRunParams 
   }
 
   const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'social-media-manager', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('social-media-manager', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `kai-${task}-${today}`, role: 'social-media-manager',
@@ -75,7 +75,7 @@ export async function runSocialMediaManager(params: SocialMediaManagerRunParams 
     conversationHistory: params.conversationHistory,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
-  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));
+  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(glyphorEventBus, memory));
   try { await memory.recordAgentRun('social-media-manager', 0, 0.03); } catch {}
   console.log(`[Kai] ${result.status} (${result.totalTurns} turns)`);
   return result;

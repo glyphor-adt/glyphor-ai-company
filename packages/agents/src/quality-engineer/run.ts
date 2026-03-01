@@ -70,7 +70,7 @@ export async function runQualityEngineer(params: QualityEngineerRunParams = {}) 
   }
 
   const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'quality-engineer', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('quality-engineer', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `sam-${task}-${today}`, role: 'quality-engineer',
@@ -87,7 +87,7 @@ export async function runQualityEngineer(params: QualityEngineerRunParams = {}) 
   });
 
   const result = await runner.run(config, initialMessage, supervisor, toolExecutor,
-    (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));
+    (event) => eventBus.emit(event), memory, createRunDeps(glyphorEventBus, memory));
 
   try { await memory.recordAgentRun('quality-engineer', 0, 0.03); } catch {}
   console.log(`[Sam] ${result.status} (${result.totalTurns} turns)`);

@@ -157,13 +157,13 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
     ...createMemoryTools(memory),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createSharePointTools(supabase),
+    ...createSharePointTools(),
     ...orchestrationTools,
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
-    ...createAgentCreationTools(supabase),
-    ...createToolRequestTools(supabase),
-    ...createAgentDirectoryTools(supabase),
+    ...createAgentCreationTools(),
+    ...createToolRequestTools(),
+    ...createAgentDirectoryTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -283,7 +283,7 @@ ${lifecycleContext}`;
       initialMessage = params.message || 'Provide a status summary of the company.';
   }
 
-  const agentCfg = await loadAgentConfig(supabase, 'chief-of-staff', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 }, task);
+  const agentCfg = await loadAgentConfig('chief-of-staff', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 }, task);
 
   const systemPrompt = task === 'orchestrate'
     ? CHIEF_OF_STAFF_SYSTEM_PROMPT + ORCHESTRATION_PROMPT
@@ -319,7 +319,7 @@ ${lifecycleContext}`;
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;

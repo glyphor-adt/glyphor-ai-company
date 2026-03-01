@@ -62,7 +62,7 @@ export async function runCostAnalyst(params: CostAnalystRunParams = {}) {
   }
 
   const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'cost-analyst', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('cost-analyst', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `omar-${task}-${today}`, role: 'cost-analyst',
@@ -72,7 +72,7 @@ export async function runCostAnalyst(params: CostAnalystRunParams = {}) {
     conversationHistory: params.conversationHistory,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
-  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));
+  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(glyphorEventBus, memory));
   try { await memory.recordAgentRun('cost-analyst', 0, 0.02); } catch {}
   console.log(`[Omar] ${result.status} (${result.totalTurns} turns)`);
   return result;

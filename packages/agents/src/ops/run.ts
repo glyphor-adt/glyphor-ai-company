@@ -57,7 +57,7 @@ export async function runOps(params: OpsRunParams = {}) {
     ...createMemoryTools(memory),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createSharePointTools(memory.getSupabaseClient()),
+    ...createSharePointTools(),
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
   ];
@@ -214,7 +214,7 @@ Goal: Ensure knowledge routing is efficient, stale information is flagged, and t
   }
 
   const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'ops', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('ops', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `ops-${task}-${today}`,
@@ -246,7 +246,7 @@ Goal: Ensure knowledge routing is efficient, stale information is flagged, and t
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;

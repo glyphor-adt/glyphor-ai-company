@@ -7,6 +7,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
+import { systemQuery } from '@glyphor/shared/db';
 import {
   queryCloudRunMetrics, pingServices,
   listOpenPRs, getRepoStats, listRecentCommits, type GlyphorRepo,
@@ -98,14 +99,13 @@ export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDef
       execute: async (_params, _ctx): Promise<ToolResult> => {
         try {
           const start = Date.now();
-          const { data, error } = await memory.getSupabaseClient().from('company_agents').select('role').limit(1);
+          await systemQuery('SELECT role FROM company_agents LIMIT 1', []);
           const latencyMs = Date.now() - start;
           return {
             success: true,
             data: {
-              connected: !error,
+              connected: true,
               queryLatencyMs: latencyMs,
-              error: error?.message,
               checkedAt: new Date().toISOString(),
             },
           };

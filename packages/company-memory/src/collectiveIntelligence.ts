@@ -288,20 +288,25 @@ export class CollectiveIntelligenceStore {
   // ─── LAYER 1: COMPANY PULSE ─────────────────────────────────
 
   async getPulse(): Promise<CompanyPulse | null> {
-    const { data } = await this.supabase
-      .from('company_pulse')
-      .select('*')
-      .eq('id', 'current')
-      .single();
-    return data as CompanyPulse | null;
+    const rows = await systemQuery<CompanyPulse>(
+      "SELECT * FROM company_pulse WHERE id = 'current'",
+    );
+    return rows[0] as CompanyPulse | null ?? null;
   }
 
   async updatePulse(updates: Partial<CompanyPulse>): Promise<void> {
-    const { error } = await this.supabase
-      .from('company_pulse')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', 'current');
-    if (error) throw new Error(`Pulse update failed: ${error.message}`);
+    const fields: string[] = [];
+    const params: any[] = [];
+
+    for (const [key, value] of Object.entries({ ...updates, updated_at: new Date().toISOString() })) {
+      params.push(typeof value === 'object' && value !== null ? JSON.stringify(value) : value);
+      fields.push(`${key} = $${params.length}`);
+    }
+
+    await systemQuery(
+      `UPDATE company_pulse SET ${fields.join(', ')} WHERE id = 'current'`,
+      params,
+    );
   }
 
   /**
@@ -351,25 +356,17 @@ ${highlights || '(no highlights)'}`;
       }
     }
 
-    const { data, error } = await this.supabase
-      .from('company_knowledge')
-      .insert({
-        knowledge_type: entry.knowledge_type,
-        content: entry.content,
-        evidence: entry.evidence ?? null,
-        discovered_by: entry.discovered_by ?? null,
-        contributing_agents: entry.contributing_agents ?? [],
-        discovery_context: entry.discovery_context ?? null,
-        departments_affected: entry.departments_affected ?? [],
-        agents_who_need_this: entry.agents_who_need_this ?? [],
-        confidence: entry.confidence ?? 0.7,
-        tags: entry.tags ?? [],
-        ...(embedding ? { embedding: JSON.stringify(embedding) } : {}),
-      })
-      .select('id')
-      .single();
-
-    if (error || !data) throw new Error(`Company knowledge save failed: ${error?.message}`);
+    const [data] = await systemQuery<{ id: string }>(
+      `INSERT INTO company_knowledge (knowledge_type, content, evidence, discovered_by, contributing_agents, discovery_context, departments_affected, agents_who_need_this, confidence, tags${embedding ? ', embedding' : ''})
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10${embedding ? ', $11' : ''}) RETURNING id`,
+      [
+        entry.knowledge_type, entry.content, entry.evidence ?? null, entry.discovered_by ?? null,
+        entry.contributing_agents ?? [], entry.discovery_context ?? null,
+        entry.departments_affected ?? [], entry.agents_who_need_this ?? [],
+        entry.confidence ?? 0.7, entry.tags ?? [],
+        ...(embedding ? [JSON.stringify(embedding)] : []),
+      ],
+    );
     return data.id;
   }
 
@@ -378,23 +375,23 @@ ${highlights || '(no highlights)'}`;
     department?: string;
     limit?: number;
   }): Promise<CompanyKnowledgeEntry[]> {
-    let query = this.supabase
-      .from('company_knowledge')
-      .select('*')
-      .eq('status', 'active')
-      .order('confidence', { ascending: false })
-      .limit(options?.limit ?? 15);
+    let sql = "SELECT * FROM company_knowledge WHERE status = 'active'";
+    const params: any[] = [];
 
     if (options?.agentId) {
-      query = query.or(`agents_who_need_this.cs.{${options.agentId}},agents_who_need_this.eq.{}`);
+      params.push(`{${options.agentId}}`);
+      sql += ` AND (agents_who_need_this @> $${params.length}::text[] OR agents_who_need_this = '{}')`;
     }
     if (options?.department) {
-      query = query.or(`departments_affected.cs.{${options.department}},departments_affected.eq.{}`);
+      params.push(`{${options.department}}`);
+      sql += ` AND (departments_affected @> $${params.length}::text[] OR departments_affected = '{}')`;
     }
 
-    const { data, error } = await query;
-    if (error) throw new Error(`Company knowledge query failed: ${error.message}`);
-    return (data ?? []) as CompanyKnowledgeEntry[];
+    params.push(options?.limit ?? 15);
+    sql += ` ORDER BY confidence DESC LIMIT $${params.length}`;
+
+    const data = await systemQuery<CompanyKnowledgeEntry>(sql, params);
+    return data;
   }
 
   /**
@@ -411,25 +408,23 @@ ${knowledge.map(k => `- [${k.knowledge_type}] ${k.content} (confidence: ${k.conf
   // --- Knowledge Inbox ---
 
   async getKnowledgeInbox(agentId: string, limit = 10): Promise<KnowledgeInboxItem[]> {
-    const { data, error } = await this.supabase
-      .from('knowledge_inbox')
-      .select('*')
-      .eq('target_agent', agentId)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (error) throw new Error(`Knowledge inbox query failed: ${error.message}`);
-    return (data ?? []) as KnowledgeInboxItem[];
+    const data = await systemQuery<KnowledgeInboxItem>(
+      "SELECT * FROM knowledge_inbox WHERE target_agent = $1 AND status = 'pending' ORDER BY created_at DESC LIMIT $2",
+      [agentId, limit],
+    );
+    return data;
   }
 
   async consumeKnowledgeInbox(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
-    const { error } = await this.supabase
-      .from('knowledge_inbox')
-      .update({ status: 'consumed' })
-      .in('id', ids);
-    if (error) console.warn('[CI] Failed to mark inbox items consumed:', error.message);
+    try {
+      await systemQuery(
+        "UPDATE knowledge_inbox SET status = 'consumed' WHERE id = ANY($1)",
+        [ids],
+      );
+    } catch (err) {
+      console.warn('[CI] Failed to mark inbox items consumed:', (err as Error).message);
+    }
   }
 
   /**
@@ -452,13 +447,10 @@ ${lines.join('\n')}`;
   // --- Knowledge Routes ---
 
   async getActiveRoutes(): Promise<KnowledgeRoute[]> {
-    const { data, error } = await this.supabase
-      .from('knowledge_routes')
-      .select('*')
-      .eq('active', true);
-
-    if (error) throw new Error(`Knowledge routes query failed: ${error.message}`);
-    return (data ?? []) as KnowledgeRoute[];
+    const data = await systemQuery<KnowledgeRoute>(
+      'SELECT * FROM knowledge_routes WHERE active = true',
+    );
+    return data;
   }
 
   async createRoute(route: {
@@ -470,21 +462,11 @@ ${lines.join('\n')}`;
     delivery_method?: string;
     description?: string;
   }): Promise<string> {
-    const { data, error } = await this.supabase
-      .from('knowledge_routes')
-      .insert({
-        source_agent: route.source_agent ?? null,
-        source_tags: route.source_tags ?? [],
-        source_type: route.source_type ?? null,
-        target_agents: route.target_agents ?? [],
-        target_departments: route.target_departments ?? [],
-        delivery_method: route.delivery_method ?? 'inject',
-        description: route.description ?? null,
-      })
-      .select('id')
-      .single();
-
-    if (error || !data) throw new Error(`Route creation failed: ${error?.message}`);
+    const [data] = await systemQuery<{ id: string }>(
+      `INSERT INTO knowledge_routes (source_agent, source_tags, source_type, target_agents, target_departments, delivery_method, description)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      [route.source_agent ?? null, route.source_tags ?? [], route.source_type ?? null, route.target_agents ?? [], route.target_departments ?? [], route.delivery_method ?? 'inject', route.description ?? null],
+    );
     return data.id;
   }
 
@@ -517,24 +499,21 @@ ${lines.join('\n')}`;
 
         for (const target of targets) {
           if (route.delivery_method === 'alert' || route.delivery_method === 'message') {
-            // Send as agent DM (urgent or normal)
-            await this.supabase.from('agent_messages').insert({
-              from_agent: knowledge.agent_id,
-              to_agent: target,
-              thread_id: crypto.randomUUID(),
-              message: `${route.delivery_method === 'alert' ? '[ALERT] ' : ''}${knowledge.content}`,
-              message_type: route.delivery_method === 'alert' ? 'alert' : 'info',
-              priority: route.delivery_method === 'alert' ? 'urgent' : 'normal',
-              status: 'pending',
-            });
+            await systemQuery(
+              `INSERT INTO agent_messages (from_agent, to_agent, thread_id, message, message_type, priority, status)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+              [knowledge.agent_id, target, crypto.randomUUID(),
+               `${route.delivery_method === 'alert' ? '[ALERT] ' : ''}${knowledge.content}`,
+               route.delivery_method === 'alert' ? 'alert' : 'info',
+               route.delivery_method === 'alert' ? 'urgent' : 'normal',
+               'pending'],
+            );
           } else {
-            // Inject: write to knowledge inbox
-            await this.supabase.from('knowledge_inbox').insert({
-              target_agent: target,
-              knowledge_id: knowledge.knowledge_id ?? null,
-              source_agent: knowledge.agent_id,
-              content: knowledge.content,
-            });
+            await systemQuery(
+              `INSERT INTO knowledge_inbox (target_agent, knowledge_id, source_agent, content)
+               VALUES ($1, $2, $3, $4)`,
+              [target, knowledge.knowledge_id ?? null, knowledge.agent_id, knowledge.content],
+            );
           }
           routed++;
         }
@@ -553,15 +532,13 @@ ${lines.join('\n')}`;
     if (!this.embeddingClient) return [];
 
     // Get recent active knowledge with embeddings
-    const { data: allKnowledge } = await this.supabase
-      .from('agent_memory')
-      .select('id, agent_role, content, embedding, memory_type')
-      .eq('memory_type', 'fact')
-      .not('embedding', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(100);
+    const allKnowledge = await systemQuery<{
+      id: string; agent_role: string; content: string; embedding: string; memory_type: string;
+    }>(
+      "SELECT id, agent_role, content, embedding, memory_type FROM agent_memory WHERE memory_type = 'fact' AND embedding IS NOT NULL ORDER BY created_at DESC LIMIT 100",
+    );
 
-    if (!allKnowledge?.length) return [];
+    if (!allKnowledge.length) return [];
 
     const conflicts: {
       knowledge_a: { id: string; agent_role: string; content: string };
@@ -571,15 +548,15 @@ ${lines.join('\n')}`;
     // Sample a subset to avoid O(n²) explosion
     const sample = allKnowledge.slice(0, 30);
     for (const k of sample) {
-      const { data: similar } = await this.supabase.rpc('match_memories', {
-        query_embedding: k.embedding,
-        match_role: k.agent_role,
-        match_threshold: 0.85,
-        match_count: 5,
-      });
+      const similar = await systemQuery<{
+        id: string; agent_role: string; content: string; similarity: number;
+      }>(
+        'SELECT * FROM match_memories($1, $2, $3, $4)',
+        [k.embedding, k.agent_role, 0.85, 5],
+      );
 
       // Filter to knowledge from DIFFERENT agents
-      const crossAgent = (similar ?? []).filter(
+      const crossAgent = (similar).filter(
         (s: { id: string; agent_role: string }) =>
           s.agent_role !== k.agent_role && s.id !== k.id,
       );
@@ -610,25 +587,11 @@ ${lines.join('\n')}`;
     departments_involved?: string[];
     discovered_by?: string;
   }): Promise<string> {
-    const { data, error } = await this.supabase
-      .from('process_patterns')
-      .insert({
-        pattern_type: pattern.pattern_type,
-        description: pattern.description,
-        evidence: pattern.evidence,
-        frequency: pattern.frequency ?? 1,
-        impact_type: pattern.impact_type ?? null,
-        impact_magnitude: pattern.impact_magnitude ?? null,
-        suggested_action: pattern.suggested_action ?? null,
-        action_type: pattern.action_type ?? null,
-        agents_involved: pattern.agents_involved ?? [],
-        departments_involved: pattern.departments_involved ?? [],
-        discovered_by: pattern.discovered_by ?? 'chief-of-staff',
-      })
-      .select('id')
-      .single();
-
-    if (error || !data) throw new Error(`Process pattern save failed: ${error?.message}`);
+    const [data] = await systemQuery<{ id: string }>(
+      `INSERT INTO process_patterns (pattern_type, description, evidence, frequency, impact_type, impact_magnitude, suggested_action, action_type, agents_involved, departments_involved, discovered_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+      [pattern.pattern_type, pattern.description, pattern.evidence, pattern.frequency ?? 1, pattern.impact_type ?? null, pattern.impact_magnitude ?? null, pattern.suggested_action ?? null, pattern.action_type ?? null, pattern.agents_involved ?? [], pattern.departments_involved ?? [], pattern.discovered_by ?? 'chief-of-staff'],
+    );
     return data.id;
   }
 
@@ -636,19 +599,19 @@ ${lines.join('\n')}`;
     implemented?: boolean;
     limit?: number;
   }): Promise<ProcessPattern[]> {
-    let query = this.supabase
-      .from('process_patterns')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(options?.limit ?? 20);
+    let sql = 'SELECT * FROM process_patterns';
+    const params: any[] = [];
 
     if (options?.implemented !== undefined) {
-      query = query.eq('implemented', options.implemented);
+      params.push(options.implemented);
+      sql += ` WHERE implemented = $${params.length}`;
     }
 
-    const { data, error } = await query;
-    if (error) throw new Error(`Process pattern query failed: ${error.message}`);
-    return (data ?? []) as ProcessPattern[];
+    params.push(options?.limit ?? 20);
+    sql += ` ORDER BY created_at DESC LIMIT $${params.length}`;
+
+    const data = await systemQuery<ProcessPattern>(sql, params);
+    return data;
   }
 
   async saveAuthorityProposal(proposal: {
@@ -663,46 +626,33 @@ ${lines.join('\n')}`;
     avg_wait_hours?: number;
     negative_outcomes?: number;
   }): Promise<string> {
-    const { data, error } = await this.supabase
-      .from('authority_proposals')
-      .insert({
-        agent_id: proposal.agent_id,
-        current_tier: proposal.current_tier,
-        proposed_tier: proposal.proposed_tier,
-        action: proposal.action,
-        evidence: proposal.evidence,
-        success_count: proposal.success_count ?? null,
-        total_count: proposal.total_count ?? null,
-        approval_rate: proposal.approval_rate ?? null,
-        avg_wait_hours: proposal.avg_wait_hours ?? null,
-        negative_outcomes: proposal.negative_outcomes ?? 0,
-      })
-      .select('id')
-      .single();
-
-    if (error || !data) throw new Error(`Authority proposal save failed: ${error?.message}`);
+    const [data] = await systemQuery<{ id: string }>(
+      `INSERT INTO authority_proposals (agent_id, current_tier, proposed_tier, action, evidence, success_count, total_count, approval_rate, avg_wait_hours, negative_outcomes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+      [proposal.agent_id, proposal.current_tier, proposal.proposed_tier, proposal.action, proposal.evidence, proposal.success_count ?? null, proposal.total_count ?? null, proposal.approval_rate ?? null, proposal.avg_wait_hours ?? null, proposal.negative_outcomes ?? 0],
+    );
     return data.id;
   }
 
   async getAuthorityProposals(status?: string): Promise<AuthorityProposal[]> {
-    let query = this.supabase
-      .from('authority_proposals')
-      .select('*')
-      .order('created_at', { ascending: false });
+    let sql = 'SELECT * FROM authority_proposals';
+    const params: any[] = [];
 
-    if (status) query = query.eq('status', status);
+    if (status) {
+      params.push(status);
+      sql += ` WHERE status = $${params.length}`;
+    }
+    sql += ' ORDER BY created_at DESC';
 
-    const { data, error } = await query;
-    if (error) throw new Error(`Authority proposal query failed: ${error.message}`);
-    return (data ?? []) as AuthorityProposal[];
+    const data = await systemQuery<AuthorityProposal>(sql, params);
+    return data;
   }
 
   async resolveAuthorityProposal(id: string, status: 'approved' | 'rejected'): Promise<void> {
-    const { error } = await this.supabase
-      .from('authority_proposals')
-      .update({ status })
-      .eq('id', id);
-    if (error) throw new Error(`Authority proposal resolution failed: ${error.message}`);
+    await systemQuery(
+      'UPDATE authority_proposals SET status = $1 WHERE id = $2',
+      [status, id],
+    );
   }
 }
 

@@ -51,7 +51,7 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
-    ...createToolGrantTools(memory.getSupabaseClient(), 'm365-admin'),
+    ...createToolGrantTools('m365-admin'),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -74,7 +74,7 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
   }
 
   const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'm365-admin', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 12 });
+  const agentCfg = await loadAgentConfig('m365-admin', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 12 });
 
   const config: AgentConfig = {
     id: `riley-${task}-${today}`,
@@ -100,7 +100,7 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
   const result = await runner.run(
     config, initialMessage, supervisor, toolExecutor,
     (event) => eventBus.emit(event), memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
 
   try { await memory.recordAgentRun('m365-admin', 0, 0.02); } catch {}

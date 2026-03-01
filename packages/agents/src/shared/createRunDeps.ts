@@ -334,21 +334,12 @@ export function createRunDeps(
     skillFeedbackWriter: async (role: CompanyAgentRole, feedback: SkillFeedback[]): Promise<void> => {
       for (const fb of feedback) {
         // Look up the skill by slug
-        const { data: skill } = await supabase
-          .from('skills')
-          .select('id')
-          .eq('slug', fb.skill_slug)
-          .single();
+        const [skill] = await systemQuery('SELECT id FROM skills WHERE slug = $1', [fb.skill_slug]);
 
         if (!skill) continue;
 
         // Load current agent_skill record
-        const { data: agentSkill } = await supabase
-          .from('agent_skills')
-          .select('id, times_used, successes, failures, learned_refinements, failure_modes, proficiency')
-          .eq('agent_role', role)
-          .eq('skill_id', skill.id)
-          .single();
+        const [agentSkill] = await systemQuery('SELECT id, times_used, successes, failures, learned_refinements, failure_modes, proficiency FROM agent_skills WHERE agent_role = $1 AND skill_id = $2', [role, skill.id]);
 
         if (!agentSkill) continue;
 
@@ -377,18 +368,7 @@ export function createRunDeps(
         else if (timesUsed >= 10 && successRate >= 0.8) proficiency = 'expert';
         else if (timesUsed >= 5 && successRate >= 0.7) proficiency = 'competent';
 
-        await supabase
-          .from('agent_skills')
-          .update({
-            times_used: timesUsed,
-            successes,
-            failures,
-            learned_refinements: refinements,
-            failure_modes: failureModes,
-            proficiency,
-            last_used_at: new Date().toISOString(),
-          })
-          .eq('id', agentSkill.id);
+        await systemQuery('UPDATE agent_skills SET times_used = $1, successes = $2, failures = $3, learned_refinements = $4, failure_modes = $5, proficiency = $6, last_used_at = $7 WHERE id = $8', [timesUsed, successes, failures, refinements, failureModes, proficiency, new Date().toISOString(), agentSkill.id]);
       }
     },
 
@@ -448,7 +428,6 @@ export function createRunDeps(
  * When task is provided, applies model routing (e.g. Pro model for exec chat).
  */
 export async function loadAgentConfig(
-  supabase: SupabaseClient,
   role: string,
   defaults: { model: string; temperature: number; maxTurns: number },
   task?: string,
@@ -456,11 +435,7 @@ export async function loadAgentConfig(
   // Lazy import to avoid circular deps
   const { resolveModel } = await import('./createRunner.js');
   try {
-    const { data } = await supabase
-      .from('company_agents')
-      .select('model, temperature, max_turns, thinking_enabled')
-      .eq('role', role)
-      .single();
+    const [data] = await systemQuery('SELECT model, temperature, max_turns, thinking_enabled FROM company_agents WHERE role = $1', [role]);
 
     if (data) {
       const dbModel = data.model || null;

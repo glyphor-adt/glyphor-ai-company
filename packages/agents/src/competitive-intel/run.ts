@@ -62,7 +62,7 @@ export async function runCompetitiveIntel(params: CompetitiveIntelRunParams = {}
   }
 
   const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'competitive-intel', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('competitive-intel', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `daniel-${task}-${today}`, role: 'competitive-intel',
@@ -72,7 +72,7 @@ export async function runCompetitiveIntel(params: CompetitiveIntelRunParams = {}
     conversationHistory: params.conversationHistory,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
-  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));
+  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(glyphorEventBus, memory));
   try { await memory.recordAgentRun('competitive-intel', 0, 0.05); } catch {}
   console.log(`[Daniel] ${result.status} (${result.totalTurns} turns)`);
   return result;

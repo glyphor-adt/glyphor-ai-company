@@ -45,7 +45,7 @@ export async function runCompetitiveResearchAnalyst(params: CompetitiveResearchA
   const supabase = memory.getSupabaseClient();
 
   const tools = [
-    ...createCompetitiveResearchAnalystTools(supabase),
+    ...createCompetitiveResearchAnalystTools(),
     ...createMemoryTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
   ];
@@ -65,7 +65,7 @@ export async function runCompetitiveResearchAnalyst(params: CompetitiveResearchA
     initialMessage = params.message || 'Run a competitive research scan.';
   }
 
-  const agentCfg = await loadAgentConfig(supabase, 'competitive-research-analyst', {
+  const agentCfg = await loadAgentConfig('competitive-research-analyst', {
     model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns,
   });
 
@@ -93,7 +93,7 @@ export async function runCompetitiveResearchAnalyst(params: CompetitiveResearchA
   const result = await runner.run(
     config, initialMessage, supervisor, toolExecutor,
     (event) => eventBus.emit(event), memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
   try { await memory.recordAgentRun('competitive-research-analyst', 0, 0.08); } catch {}
   console.log(`[Lena] ${result.status} (${result.totalTurns} turns)`);

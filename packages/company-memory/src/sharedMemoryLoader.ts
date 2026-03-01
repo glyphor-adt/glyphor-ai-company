@@ -12,7 +12,7 @@
  * All layers are searchable by any agent; no explicit routing needed.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { EmbeddingClient } from './embeddingClient.js';
 import type { KnowledgeGraphReader } from './graphReader.js';
 import type {
@@ -71,7 +71,6 @@ type ContextTier = 'light' | 'task' | 'standard' | 'full';
 
 export class SharedMemoryLoader {
   constructor(
-    private supabase: SupabaseClient,
     private embedding: EmbeddingClient,
     private graphReader: KnowledgeGraphReader | null = null,
   ) {}
@@ -128,30 +127,24 @@ export class SharedMemoryLoader {
   // ─── Layer 1: Working Memory ────────────────────────────────
 
   private async getWorkingMemory(): Promise<SharedMemoryContext['working']> {
-    const [assignmentResult, alertResult, pulseResult] = await Promise.all([
-      this.supabase
-        .from('work_assignments')
-        .select('id', { count: 'exact', head: true })
-        .in('status', ['pending', 'dispatched', 'in_progress']),
-      this.supabase
-        .from('events')
-        .select('payload')
-        .eq('type', 'alert.triggered')
-        .gte('created_at', new Date(Date.now() - 10 * 60 * 1000).toISOString())
-        .order('created_at', { ascending: false })
-        .limit(5),
-      this.supabase
-        .from('company_pulse')
-        .select('*')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .single(),
+    const [countResult, alertResult, pulseResult] = await Promise.all([
+      systemQuery<{ count: string }>(
+        "SELECT COUNT(*) as count FROM work_assignments WHERE status = ANY($1)",
+        [['pending', 'dispatched', 'in_progress']],
+      ),
+      systemQuery<{ payload: any }>(
+        "SELECT payload FROM events WHERE type = $1 AND created_at >= $2 ORDER BY created_at DESC LIMIT 5",
+        ['alert.triggered', new Date(Date.now() - 10 * 60 * 1000).toISOString()],
+      ),
+      systemQuery<any>(
+        'SELECT * FROM company_pulse ORDER BY updated_at DESC LIMIT 1',
+      ),
     ]);
 
     return {
-      activeAssignments: assignmentResult.count ?? 0,
-      alerts: (alertResult.data ?? []).map((e: any) => e.payload?.message ?? 'Alert'),
-      companyPulse: pulseResult.data ?? undefined,
+      activeAssignments: Number(countResult[0]?.count ?? 0),
+      alerts: alertResult.map((e: any) => e.payload?.message ?? 'Alert'),
+      companyPulse: pulseResult[0] ?? undefined,
     };
   }
 
@@ -166,20 +159,17 @@ export class SharedMemoryLoader {
     const queryEmb = await this.embedding.embed(query);
     const cutoff = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000).toISOString();
 
-    const { data, error } = await this.supabase.rpc('match_shared_episodes', {
-      query_embedding: JSON.stringify(queryEmb),
-      match_threshold: 0.6,
-      match_count: limit,
-      filter_domains: domains.length > 0 ? domains : null,
-      since: cutoff,
-    });
+    const data = await systemQuery(
+      'SELECT * FROM match_shared_episodes($1, $2, $3, $4, $5)',
+      [JSON.stringify(queryEmb), 0.6, limit, domains.length > 0 ? domains : null, cutoff],
+    );
 
-    if (error || !data) return [];
+    if (!data.length) return [];
 
     // Increment access counters (fire-and-forget)
     const ids = data.map((e: any) => e.id);
     if (ids.length > 0) {
-      void this.supabase.rpc('increment_episode_access', { episode_ids: ids }).then(() => {});
+      void systemQuery('SELECT * FROM increment_episode_access($1)', [ids]).catch(() => {});
     }
 
     return data.map((row: any) => ({
@@ -220,30 +210,17 @@ export class SharedMemoryLoader {
   }): Promise<string | null> {
     const embedding = await this.embedding.embed(episode.summary);
 
-    const { data, error } = await this.supabase
-      .from('shared_episodes')
-      .insert({
-        author_agent: episode.authorAgent,
-        episode_type: episode.episodeType,
-        summary: episode.summary,
-        detail: episode.detail ?? null,
-        outcome: episode.outcome ?? null,
-        confidence: episode.confidence ?? 0.8,
-        domains: episode.domains,
-        tags: episode.tags ?? [],
-        related_agents: episode.relatedAgents ?? [],
-        directive_id: episode.directiveId ?? null,
-        assignment_id: episode.assignmentId ?? null,
-        embedding: JSON.stringify(embedding),
-      })
-      .select('id')
-      .single();
-
-    if (error) {
-      console.warn('[SharedMemoryLoader] Failed to write episode:', error.message);
+    try {
+      const [data] = await systemQuery<{ id: string }>(
+        `INSERT INTO shared_episodes (author_agent, episode_type, summary, detail, outcome, confidence, domains, tags, related_agents, directive_id, assignment_id, embedding)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+        [episode.authorAgent, episode.episodeType, episode.summary, JSON.stringify(episode.detail ?? null), episode.outcome ?? null, episode.confidence ?? 0.8, episode.domains, episode.tags ?? [], episode.relatedAgents ?? [], episode.directiveId ?? null, episode.assignmentId ?? null, JSON.stringify(embedding)],
+      );
+      return data?.id ?? null;
+    } catch (err) {
+      console.warn('[SharedMemoryLoader] Failed to write episode:', (err as Error).message);
       return null;
     }
-    return data?.id ?? null;
   }
 
   // ─── Layer 3: Semantic Memory (Knowledge Graph) ─────────────
@@ -275,20 +252,19 @@ export class SharedMemoryLoader {
     task: string,
     domains: string[],
   ): Promise<SharedProcedure[]> {
-    let query = this.supabase
-      .from('shared_procedures')
-      .select('*')
-      .eq('status', 'active')
-      .order('times_used', { ascending: false })
-      .limit(5);
+    let sql = "SELECT * FROM shared_procedures WHERE status = 'active'";
+    const params: any[] = [];
 
     if (domains.length > 0) {
-      query = query.in('domain', domains);
+      params.push(domains);
+      sql += ` AND domain = ANY($${params.length})`;
     }
 
-    const { data, error } = await query;
+    sql += ' ORDER BY times_used DESC LIMIT 5';
 
-    if (error || !data) return [];
+    const data = await systemQuery(sql, params);
+
+    if (!data.length) return [];
 
     return data.map((row: any) => ({
       id: row.id,
@@ -327,7 +303,7 @@ export class SharedMemoryLoader {
     discoveredBy: CompanyAgentRole;
     sourceEpisodes?: string[];
   }): Promise<string | null> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.supabase // TODO: remove legacy reference
       .from('shared_procedures')
       .insert({
         slug: procedure.slug,

@@ -62,7 +62,7 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
   }
 
   const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'frontend-engineer', { model: 'gemini-3-flash-preview', temperature: 0.7, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('frontend-engineer', { model: 'gemini-3-flash-preview', temperature: 0.7, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `ava-${task}-${today}`, role: 'frontend-engineer',
@@ -72,7 +72,7 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
     conversationHistory: params.conversationHistory,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
-  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));
+  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(glyphorEventBus, memory));
   try { await memory.recordAgentRun('frontend-engineer', 0, 0.08); } catch {}
   console.log(`[Ava] ${result.status} (${result.totalTurns} turns)`);
   return result;

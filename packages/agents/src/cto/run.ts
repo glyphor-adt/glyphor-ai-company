@@ -60,14 +60,14 @@ export async function runCTO(params: CTORunParams = {}) {
     ...createMemoryTools(memory),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createSharePointTools(memory.getSupabaseClient()),
+    ...createSharePointTools(),
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
-    ...createAgentCreationTools(memory.getSupabaseClient()),
-    ...createToolGrantTools(memory.getSupabaseClient(), 'cto'),
-    ...createToolRegistryTools(memory.getSupabaseClient()),
-    ...createToolRequestTools(memory.getSupabaseClient()),
-    ...createAgentDirectoryTools(memory.getSupabaseClient()),
+    ...createAgentCreationTools(),
+    ...createToolGrantTools('cto'),
+    ...createToolRegistryTools(),
+    ...createToolRequestTools(),
+    ...createAgentDirectoryTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -113,7 +113,7 @@ Steps:
   }
 
   const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'cto', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 }, task);
+  const agentCfg = await loadAgentConfig('cto', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 }, task);
 
   const config: AgentConfig = {
     id: `cto-${task}-${today}`,
@@ -145,7 +145,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;

@@ -60,12 +60,12 @@ export async function runCMO(params: CMORunParams = {}) {
     ...createCollectiveIntelligenceTools(memory),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createSharePointTools(memory.getSupabaseClient()),
+    ...createSharePointTools(),
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
-    ...createAgentCreationTools(memory.getSupabaseClient()),
-    ...createToolRequestTools(memory.getSupabaseClient()),
-    ...createAgentDirectoryTools(memory.getSupabaseClient()),
+    ...createAgentCreationTools(),
+    ...createToolRequestTools(),
+    ...createAgentDirectoryTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -127,7 +127,7 @@ Steps:
   }
 
   const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'cmo', { model: 'gemini-3-flash-preview', temperature: 0.6, maxTurns: 10 }, task);
+  const agentCfg = await loadAgentConfig('cmo', { model: 'gemini-3-flash-preview', temperature: 0.6, maxTurns: 10 }, task);
 
   const config: AgentConfig = {
     id: `cmo-${task}-${today}`,
@@ -159,7 +159,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;

@@ -45,7 +45,7 @@ export async function runMarketResearchAnalyst(params: MarketResearchAnalystRunP
   const supabase = memory.getSupabaseClient();
 
   const tools = [
-    ...createMarketResearchAnalystTools(supabase),
+    ...createMarketResearchAnalystTools(),
     ...createMemoryTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
   ];
@@ -65,7 +65,7 @@ export async function runMarketResearchAnalyst(params: MarketResearchAnalystRunP
     initialMessage = params.message || 'Run a market data research scan.';
   }
 
-  const agentCfg = await loadAgentConfig(supabase, 'market-research-analyst', {
+  const agentCfg = await loadAgentConfig('market-research-analyst', {
     model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns,
   });
 
@@ -93,7 +93,7 @@ export async function runMarketResearchAnalyst(params: MarketResearchAnalystRunP
   const result = await runner.run(
     config, initialMessage, supervisor, toolExecutor,
     (event) => eventBus.emit(event), memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
   try { await memory.recordAgentRun('market-research-analyst', 0, 0.08); } catch {}
   console.log(`[Daniel-MRA] ${result.status} (${result.totalTurns} turns)`);

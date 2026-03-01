@@ -60,12 +60,12 @@ export async function runCPO(params: CPORunParams = {}) {
     ...createCollectiveIntelligenceTools(memory),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createSharePointTools(memory.getSupabaseClient()),
+    ...createSharePointTools(),
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
-    ...createAgentCreationTools(memory.getSupabaseClient()),
-    ...createToolRequestTools(memory.getSupabaseClient()),
-    ...createAgentDirectoryTools(memory.getSupabaseClient()),
+    ...createAgentCreationTools(),
+    ...createToolRequestTools(),
+    ...createAgentDirectoryTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -116,7 +116,7 @@ Steps:
   }
 
   const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'cpo', { model: 'gemini-3-flash-preview', temperature: 0.4, maxTurns: 10 }, task);
+  const agentCfg = await loadAgentConfig('cpo', { model: 'gemini-3-flash-preview', temperature: 0.4, maxTurns: 10 }, task);
 
   const config: AgentConfig = {
     id: `cpo-${task}-${today}`,
@@ -148,7 +148,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;
