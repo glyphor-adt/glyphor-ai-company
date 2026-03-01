@@ -1,8 +1,14 @@
 # Glyphor Architecture Smoke Test Suite
 
-**Date:** 2026-02-28
+**Date:** 2026-03-01
 **Purpose:** Verify every layer of the architecture works end-to-end
 **Estimated time:** 2-3 hours for full pass
+
+> **Migration Note (2026-03-01):** This document has been updated to reflect the
+> GCP migration from Supabase to Cloud SQL (PostgreSQL), Firebase Auth, Cloud
+> Storage, and Cloud Tasks. SQL snippets now target the Cloud SQL database
+> directly (via `psql` or any PostgreSQL client). The automated smoketest package
+> (`@glyphor/smoketest`) uses `systemQuery` from `@glyphor/shared/db`.
 
 ---
 
@@ -31,21 +37,56 @@ curl -s https://glyphor-dashboard-<hash>-uc.a.run.app/ -o /dev/null -w "%{http_c
 
 # Voice Gateway
 curl -s https://voice-gateway-<hash>-uc.a.run.app/health | jq .
+
+# Worker (new — handles async agent runs & delivery)
+curl -s https://glyphor-worker-<hash>-uc.a.run.app/health | jq .
 ```
 
-**Pass:** Scheduler returns JSON with `{ status: "ok" }`. Dashboard returns 200. Voice returns health JSON.
+**Pass:** Scheduler returns JSON with `{ status: "ok" }`. Dashboard returns 200. Voice returns health JSON. Worker returns `{ status: "ok" }`.
 **Fail:** 503/502 = Cloud Run instance not starting. Check GCP Console → Cloud Run → Logs for startup errors.
 
-### T0.2 — Supabase Connection
+### T0.2 — Cloud SQL Connection
 
 ```sql
--- Run in Supabase SQL Editor
+-- Run via psql or Cloud SQL Studio
 SELECT COUNT(*) as table_count FROM information_schema.tables 
 WHERE table_schema = 'public';
 ```
 
-**Pass:** Returns 86+ tables.
-**Fail:** If significantly fewer, migrations are missing. Check `supabase/migrations/` — should be 86 files.
+**Pass:** Returns 90+ tables (includes new `tenants`, `tenant_members` tables from multi-tenancy migration).
+**Fail:** If significantly fewer, migrations are missing. Check `supabase/migrations/` — should be 90+ files. Verify `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` env vars on Cloud Run services.
+
+### T0.2b — Cloud SQL Multi-Tenancy
+
+```sql
+-- Verify tenant infrastructure exists
+SELECT id, slug, display_name FROM tenants;
+-- Should return at least Glyphor as tenant 0
+SELECT COUNT(*) FROM information_schema.columns 
+WHERE column_name = 'tenant_id' AND table_schema = 'public';
+-- Should return 14+ (tables with tenant_id column)
+```
+
+**Pass:** Glyphor tenant exists (`00000000-0000-0000-0000-000000000000`). 14+ tables have `tenant_id` column. RLS policies are active.
+**Fail:** Multi-tenancy migration files not applied. Run migrations `20260302100001` through `20260302100004`.
+
+### T0.2c — Cloud Tasks Queues
+
+```bash
+gcloud tasks queues list --location=us-central1 --project=ai-glyphor-company
+```
+
+**Pass:** Three queues listed: `agent-runs`, `agent-delivery`, `agent-low-priority`.
+**Fail:** Cloud Tasks not provisioned. Check Terraform `google_cloud_tasks_queue` resources.
+
+### T0.2d — Cloud Storage Bucket
+
+```bash
+gsutil ls gs://glyphor-company-assets/
+```
+
+**Pass:** Bucket exists and is accessible.
+**Fail:** GCS bucket not created. Check Terraform `google_storage_bucket` resource.
 
 ### T0.3 — Redis Connected
 
@@ -833,8 +874,8 @@ GROUP BY agent_role;
 
 Open `https://glyphor-dashboard-<hash>-uc.a.run.app/` in browser.
 
-**Pass:** Dashboard loads, shows agent overview with 44 headcount. Auth works (Google OAuth or Teams SSO).
-**Fail:** Blank page = build error. Check VITE_* build args. CORS errors = scheduler URL mismatch.
+**Pass:** Dashboard loads, shows agent overview with 44 headcount. Auth works (Firebase Auth — Google OAuth or Teams SSO).
+**Fail:** Blank page = build error. Check `VITE_FIREBASE_*` and `VITE_API_URL` build args. CORS errors = scheduler URL mismatch. Auth redirect failures = Firebase Auth config mismatch (check `VITE_FIREBASE_AUTH_DOMAIN`).
 
 ### T11.2 — Key Pages Render
 
@@ -883,7 +924,7 @@ After running all tests, fill in:
 
 | Layer | Tests | Pass | Fail | Blocked | Notes |
 |-------|-------|------|------|---------|-------|
-| 0 — Infrastructure | 5 | | | | |
+| 0 — Infrastructure | 8 | | | | Includes Cloud SQL, Cloud Tasks, GCS |
 | 1 — Data Syncs | 4 | | | | |
 | 2 — Model Clients | 4 | | | | |
 | 3 — Heartbeat/Work Loop | 4 | | | | |
@@ -894,9 +935,9 @@ After running all tests, fill in:
 | 8 — Knowledge Graph | 4 | | | | |
 | 9 — Strategy Engines | 4 | | | | |
 | 10 — Specialist Agents | 3 | | | | |
-| 11 — Dashboard | 2 | | | | |
+| 11 — Dashboard | 2 | | | | Firebase Auth |
 | 12 — Voice | 2 | | | | |
-| **TOTAL** | **55** | | | | |
+| **TOTAL** | **58** | | | | |
 
 ### Known Blockers from This Session
 
