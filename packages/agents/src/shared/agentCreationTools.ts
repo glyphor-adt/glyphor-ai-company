@@ -18,7 +18,6 @@ import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { EXECUTIVE_ROLES } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 /** Hard limits — cannot be overridden by agents */
 const MAX_ACTIVE_PER_CREATOR = 3;
@@ -43,12 +42,9 @@ function buildDefaultBackstory(title: string, department: string): string {
 }
 
 /**
- * @deprecated The supabase parameter is deprecated and will be removed in a future version.
- * The function now uses systemQuery for database access.
+ * Creates tools that allow agents to provision specialist agents.
  */
-export function createAgentCreationTools(supabase?: SupabaseClient): ToolDefinition[] {
-  // Note: supabase parameter is ignored - kept for backwards compatibility during migration
-  void supabase;
+export function createAgentCreationTools(): ToolDefinition[] {
   return [
     {
       name: 'create_specialist_agent',

@@ -5,46 +5,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { JitContextRetriever, type JitContext, type JitContextItem } from '../jitContextRetriever.js';
 
+// Mock @glyphor/shared/db so queries return test data without a real DB
+vi.mock('@glyphor/shared/db', () => ({
+  systemQuery: vi.fn().mockResolvedValue([]),
+}));
+import { systemQuery } from '@glyphor/shared/db';
+
 // ─── Mock helpers ───────────────────────────────────────────────
 
 function mockEmbeddingClient() {
   return {
     embed: vi.fn().mockResolvedValue(new Array(768).fill(0.01)),
   };
-}
-
-function mockSupabase(rpcResults?: Record<string, unknown[]>) {
-  const defaults: Record<string, unknown[]> = {
-    match_memories: [
-      { content: 'Previous analysis showed growth', importance: 0.8, similarity: 0.9 },
-    ],
-    match_kg_nodes: [
-      { name: 'Fuse Platform', description: 'AI productivity tool', similarity: 0.85 },
-    ],
-    match_shared_episodes: [
-      { summary: 'Successfully launched v2', confidence: 0.9, similarity: 0.88, outcome: 'Positive user reception' },
-    ],
-    match_company_knowledge: [
-      { content: 'Company policy on deployments', similarity: 0.82 },
-    ],
-    ...rpcResults,
-  };
-
-  return {
-    rpc: vi.fn().mockImplementation((fnName: string) => {
-      const data = defaults[fnName] ?? [];
-      return Promise.resolve({ data, error: null });
-    }),
-    from: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        textSearch: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue({ data: [
-            { name: 'Deploy procedure', steps: 'Step 1, Step 2', trigger_pattern: 'deploy' },
-          ], error: null }),
-        }),
-      }),
-    }),
-  } as any;
 }
 
 function mockCache() {
@@ -167,15 +139,8 @@ describe('JitContextRetriever', () => {
     });
 
     it('handles individual store failures gracefully', async () => {
-      // Make all RPCs fail
-      supabase.rpc = vi.fn().mockResolvedValue({ data: null, error: { message: 'RPC failed' } });
-      supabase.from = vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          textSearch: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue({ data: null, error: { message: 'Query failed' } }),
-          }),
-        }),
-      });
+      // Make all DB queries fail
+      vi.mocked(systemQuery).mockRejectedValue(new Error('Query failed'));
 
       const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'task');
@@ -187,13 +152,12 @@ describe('JitContextRetriever', () => {
 
     it('continues when some stores fail and others succeed', async () => {
       let callCount = 0;
-      supabase.rpc = vi.fn().mockImplementation(() => {
+      vi.mocked(systemQuery).mockImplementation(() => {
         callCount++;
         if (callCount === 1) {
-          return Promise.resolve({
-            data: [{ content: 'working memory', importance: 0.8, similarity: 0.9 }],
-            error: null,
-          });
+          return Promise.resolve([
+            { content: 'working memory', importance: 0.8, similarity: 0.9 },
+          ] as any);
         }
         return Promise.reject(new Error('Store unavailable'));
       });
@@ -208,12 +172,10 @@ describe('JitContextRetriever', () => {
 
   describe('item scoring', () => {
     it('multiplies similarity by importance for memories', async () => {
-      supabase = mockSupabase({
-        match_memories: [
-          { content: 'High importance', importance: 1.0, similarity: 0.95 },
-          { content: 'Low importance', importance: 0.3, similarity: 0.95 },
-        ],
-      });
+      vi.mocked(systemQuery).mockResolvedValueOnce([
+        { content: 'High importance', importance: 1.0, similarity: 0.95 },
+        { content: 'Low importance', importance: 0.3, similarity: 0.95 },
+      ] as any);
       const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'task', 10000);
 
@@ -225,12 +187,14 @@ describe('JitContextRetriever', () => {
     });
 
     it('multiplies similarity by confidence for episodes', async () => {
-      supabase = mockSupabase({
-        match_shared_episodes: [
+      // memories query returns empty, then episodes return data
+      vi.mocked(systemQuery)
+        .mockResolvedValueOnce([] as any) // memories
+        .mockResolvedValueOnce([] as any) // graph nodes
+        .mockResolvedValueOnce([
           { summary: 'Confident', confidence: 1.0, similarity: 0.9, outcome: 'Good' },
           { summary: 'Uncertain', confidence: 0.3, similarity: 0.9, outcome: 'Maybe' },
-        ],
-      });
+        ] as any);
       const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'task', 10000);
 

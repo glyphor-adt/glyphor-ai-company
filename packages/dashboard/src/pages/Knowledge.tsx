@@ -122,14 +122,14 @@ function KnowledgeBase() {
     setPulse(pulseData ?? null);
 
     // Compute KG stats
-    const nodes = (nodesRes.data ?? []) as { node_type: string }[];
+    const nodes = (nodesData ?? []) as { node_type: string }[];
     const typeCounts: Record<string, number> = {};
     for (const n of nodes) {
       typeCounts[n.node_type] = (typeCounts[n.node_type] ?? 0) + 1;
     }
     setKgStats({
       total_nodes: nodes.length,
-      total_edges: edgesRes.count ?? 0,
+      total_edges: (edgesData as any)?.count ?? 0,
       node_types: typeCounts,
     });
 

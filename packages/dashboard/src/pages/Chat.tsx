@@ -265,11 +265,11 @@ export default function Chat() {
         const data = await apiCall(`/api/chat-messages?agent_role=${role}&user_id=${userAliases.join(',')}&order=created_at.asc&limit=100`);
         if (data?.length) {
           setMessages(
-            data.map((row) => ({
+            data.map((row: Record<string, unknown>) => ({
               role: row.role as 'user' | 'agent',
               content: row.content,
-              timestamp: new Date(row.created_at),
-              attachments: row.attachments?.map((a) => ({ ...a, data: '' })),
+              timestamp: new Date(row.created_at as string),
+              attachments: (row.attachments as any[])?.map((a: Record<string, unknown>) => ({ ...a, data: '' })),
             })),
           );
         } else {

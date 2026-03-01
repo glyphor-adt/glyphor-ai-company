@@ -68,7 +68,7 @@ export class DashboardVoiceHandler {
     }));
 
     // Load personality & identity from agent_profiles
-    const profileRows = await systemQuery<{ personality_summary: string | null; backstory: string | null; communication_traits: unknown }>(
+    const profileRows = await systemQuery<{ personality_summary: string | null; backstory: string | null; communication_traits: string[] | null }>(
       'SELECT personality_summary, backstory, communication_traits FROM agent_profiles WHERE agent_id = $1 LIMIT 1',
       [agentRole],
     );
