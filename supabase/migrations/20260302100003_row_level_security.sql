@@ -9,11 +9,17 @@ BEGIN
 END
 $$;
 
--- Grant bypass to glyphor_app user
+-- Note: Do NOT grant glyphor_system to general application roles like glyphor_app
+-- to preserve multi-tenant isolation. Instead, the application should connect
+-- using a dedicated user (e.g., postgres or a service account) that has
+-- glyphor_system granted. This ensures only explicit SET ROLE glyphor_system
+-- calls (via systemQuery) can bypass RLS, not all connections.
+
+-- Grant glyphor_system to postgres superuser for system operations
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'glyphor_app') THEN
-    GRANT glyphor_system TO glyphor_app;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'postgres') THEN
+    GRANT glyphor_system TO postgres;
   END IF;
 END
 $$;
