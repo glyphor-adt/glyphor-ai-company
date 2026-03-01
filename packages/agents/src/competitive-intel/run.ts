@@ -25,13 +25,12 @@ export interface CompetitiveIntelRunParams {
 
 export async function runCompetitiveIntel(params: CompetitiveIntelRunParams = {}) {
   const memory = new CompanyMemoryStore({
-    supabaseUrl: process.env.SUPABASE_URL!, supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company', gcpProjectId: process.env.GCP_PROJECT_ID,
   });
   const modelClient = new ModelClient({ geminiApiKey: process.env.GOOGLE_AI_API_KEY, openaiApiKey: process.env.OPENAI_API_KEY, anthropicApiKey: process.env.ANTHROPIC_API_KEY });
   const runner = createRunner(modelClient, 'competitive-intel', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -39,7 +38,7 @@ export async function runCompetitiveIntel(params: CompetitiveIntelRunParams = {}
     ...createMemoryTools(memory),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createAssignmentTools(glyphorEventBus),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -60,9 +59,7 @@ export async function runCompetitiveIntel(params: CompetitiveIntelRunParams = {}
     default:
       initialMessage = params.message || 'Run a competitive intelligence scan.';
   }
-
-  const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'competitive-intel', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('competitive-intel', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `daniel-${task}-${today}`, role: 'competitive-intel',
@@ -72,7 +69,7 @@ export async function runCompetitiveIntel(params: CompetitiveIntelRunParams = {}
     conversationHistory: params.conversationHistory,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
-  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));
+  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(glyphorEventBus, memory));
   try { await memory.recordAgentRun('competitive-intel', 0, 0.05); } catch {}
   console.log(`[Daniel] ${result.status} (${result.totalTurns} turns)`);
   return result;

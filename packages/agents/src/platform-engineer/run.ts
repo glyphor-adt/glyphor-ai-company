@@ -32,8 +32,6 @@ export interface PlatformEngineerRunParams {
 
 export async function runPlatformEngineer(params: PlatformEngineerRunParams = {}) {
   const memory = new CompanyMemoryStore({
-    supabaseUrl: process.env.SUPABASE_URL!,
-    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company',
     gcpProjectId: process.env.GCP_PROJECT_ID,
   });
@@ -45,7 +43,7 @@ export async function runPlatformEngineer(params: PlatformEngineerRunParams = {}
   });
   const runner = createRunner(modelClient, 'platform-engineer', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -53,7 +51,7 @@ export async function runPlatformEngineer(params: PlatformEngineerRunParams = {}
     ...createMemoryTools(memory),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createAssignmentTools(glyphorEventBus),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -98,9 +96,7 @@ Steps:
     default:
       initialMessage = params.message || 'Run a health check on all platform services.';
   }
-
-  const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'platform-engineer', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('platform-engineer', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `alex-${task}-${today}`,
@@ -126,7 +122,7 @@ Steps:
   const result = await runner.run(
     config, initialMessage, supervisor, toolExecutor,
     (event) => eventBus.emit(event), memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - Date.parse(String(result.conversationHistory[0]?.timestamp || new Date().toISOString()));

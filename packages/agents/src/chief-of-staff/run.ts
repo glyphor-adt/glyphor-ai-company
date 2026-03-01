@@ -15,8 +15,8 @@ import {
   type AgentConfig,
   type ConversationTurn,
 } from '@glyphor/agent-runtime';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
+import { systemQuery } from '@glyphor/shared/db';
 import { CHIEF_OF_STAFF_SYSTEM_PROMPT, ORCHESTRATION_PROMPT } from './systemPrompt.js';
 import { createChiefOfStaffTools, createOrchestrationTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
@@ -45,18 +45,28 @@ export interface CoSRunParams {
  * B. Decisions pending > 2 hours (candidates for reminder DM)
  * C. Assignments blocked on founder_input > 4 hours (candidates for escalation DM)
  */
-async function gatherDirectiveLifecycleContext(supabase: SupabaseClient): Promise<string> {
+async function gatherDirectiveLifecycleContext(): Promise<string> {
   const sections: string[] = [];
 
   try {
     // A. Directives with all assignments completed (candidates for synthesis)
-    const { data: activeDirectives } = await supabase
-      .from('founder_directives')
-      .select(`
-        id, title, created_by, status,
-        work_assignments (id, assigned_to, status, quality_score, task_description, output, evaluation, need_type, blocker_reason, updated_at)
-      `)
-      .eq('status', 'active');
+    const activeDirectives = await systemQuery('SELECT id, title, created_by, status FROM founder_directives WHERE status = $1', ['active']);
+    const directiveIds = activeDirectives.map((d: any) => d.id);
+    let allAssignments: any[] = [];
+    if (directiveIds.length > 0) {
+      allAssignments = await systemQuery('SELECT id, directive_id, assigned_to, status, quality_score, task_description, output, evaluation, need_type, blocker_reason, updated_at FROM work_assignments WHERE directive_id = ANY($1)', [directiveIds]);
+    }
+    // Group assignments by directive_id
+    const assignmentMap = new Map<string, any[]>();
+    for (const a of allAssignments) {
+      const list = assignmentMap.get(a.directive_id) || [];
+      list.push(a);
+      assignmentMap.set(a.directive_id, list);
+    }
+    // Attach to directives
+    for (const d of activeDirectives as any[]) {
+      d.work_assignments = assignmentMap.get(d.id) || [];
+    }
 
     if (activeDirectives && activeDirectives.length > 0) {
       const completionCandidates = activeDirectives.filter((d: any) => {
@@ -103,12 +113,7 @@ async function gatherDirectiveLifecycleContext(supabase: SupabaseClient): Promis
 
     // B. Decisions pending > 2 hours
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-    const { data: stuckDecisions } = await supabase
-      .from('decisions')
-      .select('id, title, tier, summary, assigned_to, created_at')
-      .eq('status', 'pending')
-      .lt('created_at', twoHoursAgo)
-      .order('created_at', { ascending: true });
+    const stuckDecisions = await systemQuery('SELECT id, title, tier, summary, assigned_to, created_at FROM decisions WHERE status = $1 AND created_at < $2 ORDER BY created_at ASC', ['pending', twoHoursAgo]);
 
     if (stuckDecisions && stuckDecisions.length > 0) {
       sections.push(`## STUCK DECISIONS — Pending > 2 hours\n\nThese decisions have been pending for over 2 hours. Send a reminder DM to the assigned approver. Do NOT remind more than once per decision per day — check working memory first.\n`);
@@ -132,8 +137,6 @@ async function gatherDirectiveLifecycleContext(supabase: SupabaseClient): Promis
 
 export async function runChiefOfStaff(params: CoSRunParams = {}) {
   const memory = new CompanyMemoryStore({
-    supabaseUrl: process.env.SUPABASE_URL!,
-    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company',
     gcpProjectId: process.env.GCP_PROJECT_ID,
   });
@@ -145,25 +148,24 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
   });
   const runner = createRunner(modelClient, 'chief-of-staff', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
-  const supabase = memory.getSupabaseClient();
   const schedulerUrl = process.env.SCHEDULER_URL || 'http://localhost:8080';
   const cosTools = createChiefOfStaffTools(memory, glyphorEventBus);
-  const orchestrationTools = createOrchestrationTools(supabase, schedulerUrl, glyphorEventBus, cosTools, graphReader);
+  const orchestrationTools = createOrchestrationTools(schedulerUrl, glyphorEventBus, cosTools, graphReader);
   const tools = [
     ...cosTools,
     ...createMemoryTools(memory),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createSharePointTools(supabase),
+    ...createSharePointTools(),
     ...orchestrationTools,
-    ...createAssignmentTools(supabase, glyphorEventBus),
+    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
-    ...createAgentCreationTools(supabase),
-    ...createToolRequestTools(supabase),
-    ...createAgentDirectoryTools(supabase),
+    ...createAgentCreationTools(),
+    ...createToolRequestTools(),
+    ...createAgentDirectoryTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -257,7 +259,7 @@ Goal: Drive organizational learning — identify what worked, what didn't, and h
 
     case 'orchestrate': {
       // Gather directive lifecycle context for Sarah
-      const lifecycleContext = await gatherDirectiveLifecycleContext(memory.getSupabaseClient());
+      const lifecycleContext = await gatherDirectiveLifecycleContext();
       initialMessage = `Run your orchestration cycle:
 
 1. Read all active founder directives
@@ -283,7 +285,7 @@ ${lifecycleContext}`;
       initialMessage = params.message || 'Provide a status summary of the company.';
   }
 
-  const agentCfg = await loadAgentConfig(supabase, 'chief-of-staff', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 }, task);
+  const agentCfg = await loadAgentConfig('chief-of-staff', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 }, task);
 
   const systemPrompt = task === 'orchestrate'
     ? CHIEF_OF_STAFF_SYSTEM_PROMPT + ORCHESTRATION_PROMPT
@@ -319,7 +321,7 @@ ${lifecycleContext}`;
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;

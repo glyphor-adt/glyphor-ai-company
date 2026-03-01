@@ -8,7 +8,7 @@
  *   4. Synthesize— Merge into an impact matrix with confidence scores
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { ModelClient } from '@glyphor/agent-runtime';
 
 /* ── Types ──────────────────────────────────── */
@@ -85,7 +85,6 @@ const SIMULATION_AGENTS: Array<{ role: string; area: string }> = [
 
 export class SimulationEngine {
   constructor(
-    private supabase: SupabaseClient,
     private modelClient: ModelClient,
     private model = 'gemini-3-flash-preview',
   ) {}
@@ -108,51 +107,50 @@ export class SimulationEngine {
       error: null,
     };
 
-    await this.supabase.from('simulations').insert(record);
+    await systemQuery(
+      `INSERT INTO simulations (id, action, perspective, status, requested_by, dimensions, report, created_at, completed_at, accepted_at, accepted_by, error)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [record.id, record.action, record.perspective, record.status, record.requested_by, JSON.stringify(record.dimensions), record.report, record.created_at, record.completed_at, record.accepted_at, record.accepted_by, record.error],
+    );
 
     // Run phases async
     this.runPhases(id, req).catch((err) => {
       console.error(`[SimulationEngine] Fatal error in sim ${id}:`, err);
-      this.supabase.from('simulations').update({
-        status: 'failed',
-        error: err instanceof Error ? err.message : String(err),
-      }).eq('id', id);
+      systemQuery(
+        'UPDATE simulations SET status=$1, error=$2 WHERE id=$3',
+        ['failed', err instanceof Error ? err.message : String(err), id],
+      );
     });
 
     return id;
   }
 
   async get(id: string): Promise<SimulationRecord | null> {
-    const { data } = await this.supabase
-      .from('simulations')
-      .select('*')
-      .eq('id', id)
-      .single();
-    return data as SimulationRecord | null;
+    const [row] = await systemQuery(
+      'SELECT * FROM simulations WHERE id=$1',
+      [id],
+    );
+    return (row as SimulationRecord) ?? null;
   }
 
   async list(limit = 20): Promise<SimulationRecord[]> {
-    const { data } = await this.supabase
-      .from('simulations')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    return (data as SimulationRecord[]) ?? [];
+    const rows = await systemQuery(
+      'SELECT * FROM simulations ORDER BY created_at DESC LIMIT $1',
+      [limit],
+    );
+    return (rows as SimulationRecord[]) ?? [];
   }
 
   async accept(id: string, acceptedBy: string): Promise<void> {
-    await this.supabase.from('simulations').update({
-      status: 'accepted',
-      accepted_at: new Date().toISOString(),
-      accepted_by: acceptedBy,
-    }).eq('id', id);
+    await systemQuery(
+      'UPDATE simulations SET status=$1, accepted_at=$2, accepted_by=$3 WHERE id=$4',
+      ['accepted', new Date().toISOString(), acceptedBy, id],
+    );
 
-    await this.supabase.from('activity_log').insert({
-      agent_id: 'system',
-      action: 'simulation.accepted',
-      detail: `Simulation ${id} accepted by ${acceptedBy}`,
-      created_at: new Date().toISOString(),
-    });
+    await systemQuery(
+      'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4)',
+      ['system', 'simulation.accepted', `Simulation ${id} accepted by ${acceptedBy}`, new Date().toISOString()],
+    );
   }
 
   /* ── Internal phase runner ──────────────── */
@@ -181,7 +179,10 @@ export class SimulationEngine {
       };
     });
 
-    await this.supabase.from('simulations').update({ dimensions }).eq('id', id);
+    await systemQuery(
+      'UPDATE simulations SET dimensions=$1 WHERE id=$2',
+      [JSON.stringify(dimensions), id],
+    );
 
     // Phase 2: Cascade — identify second-order effects
     await this.updateStatus(id, 'cascading');
@@ -191,19 +192,15 @@ export class SimulationEngine {
     await this.updateStatus(id, 'synthesizing');
     const report = await this.synthesize(req, dimensions, cascadeChain);
 
-    await this.supabase.from('simulations').update({
-      status: 'completed',
-      report,
-      dimensions,
-      completed_at: new Date().toISOString(),
-    }).eq('id', id);
+    await systemQuery(
+      'UPDATE simulations SET status=$1, report=$2, dimensions=$3, completed_at=$4 WHERE id=$5',
+      ['completed', JSON.stringify(report), JSON.stringify(dimensions), new Date().toISOString(), id],
+    );
 
-    await this.supabase.from('activity_log').insert({
-      agent_id: 'system',
-      action: 'simulation.completed',
-      detail: `Simulation completed: "${req.action.slice(0, 100)}" — score: ${report.overallScore}`,
-      created_at: new Date().toISOString(),
-    });
+    await systemQuery(
+      'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4)',
+      ['system', 'simulation.completed', `Simulation completed: "${req.action.slice(0, 100)}" — score: ${report.overallScore}`, new Date().toISOString()],
+    );
   }
 
   private async assessImpact(
@@ -282,7 +279,7 @@ export class SimulationEngine {
   }
 
   private async updateStatus(id: string, status: SimulationStatus): Promise<void> {
-    await this.supabase.from('simulations').update({ status }).eq('id', id);
+    await systemQuery('UPDATE simulations SET status=$1 WHERE id=$2', [status, id]);
   }
 }
 

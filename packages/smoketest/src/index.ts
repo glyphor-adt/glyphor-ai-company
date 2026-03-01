@@ -11,8 +11,6 @@
  *   SCHEDULER_URL       — Cloud Run scheduler base URL (required)
  *   DASHBOARD_URL       — Cloud Run dashboard base URL (required)
  *   VOICE_GATEWAY_URL   — Cloud Run voice gateway base URL (required)
- *   SUPABASE_URL        — Supabase project URL (required)
- *   SUPABASE_SERVICE_KEY — Supabase service-role key (required)
  *   GCP_PROJECT         — GCP project ID (default: ai-glyphor-company)
  */
 
@@ -69,8 +67,6 @@ function loadConfig(): SmokeTestConfig {
     schedulerUrl: required('SCHEDULER_URL').replace(/\/$/, ''),
     dashboardUrl: required('DASHBOARD_URL').replace(/\/$/, ''),
     voiceGatewayUrl: required('VOICE_GATEWAY_URL').replace(/\/$/, ''),
-    supabaseUrl: required('SUPABASE_URL'),
-    supabaseKey: required('SUPABASE_SERVICE_KEY'),
     gcpProject: process.env.GCP_PROJECT ?? 'ai-glyphor-company',
     interactive,
     selectedLayers,

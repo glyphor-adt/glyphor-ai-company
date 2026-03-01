@@ -12,6 +12,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.49.0"
+    "@glyphor/shared": "*"
   }
 }

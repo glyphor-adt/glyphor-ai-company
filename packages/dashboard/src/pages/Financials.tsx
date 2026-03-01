@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { supabase } from '../lib/supabase';
+import { apiCall } from '../lib/firebase';
 import {
   Card,
   SectionHeader,
@@ -59,12 +59,12 @@ function useGcpBilling(days = 30) {
   useEffect(() => {
     (async () => {
       const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-      const { data: rows } = await supabase
-        .from('gcp_billing')
-        .select('*')
-        .gte('recorded_at', since)
-        .order('recorded_at', { ascending: true });
-      setData((rows as GcpBillingRow[]) ?? []);
+      try {
+        const rows = await apiCall<GcpBillingRow[]>(`/api/gcp-billing?since=${since}`);
+        setData(rows ?? []);
+      } catch {
+        setData([]);
+      }
       setLoading(false);
     })();
   }, [days]);
@@ -79,12 +79,12 @@ function useFinancialsRaw(days = 30) {
   const refresh = useCallback(async () => {
     setLoading(true);
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const { data: rows } = await supabase
-      .from('financials')
-      .select('*')
-      .gte('date', since)
-      .order('date', { ascending: true });
-    setData((rows as FinancialRow[]) ?? []);
+    try {
+      const rows = await apiCall<FinancialRow[]>(`/api/financials?since=${since}`);
+      setData(rows ?? []);
+    } catch {
+      setData([]);
+    }
     setLoading(false);
   }, [days]);
 
@@ -99,12 +99,12 @@ function useApiBilling(days = 30) {
   useEffect(() => {
     (async () => {
       const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-      const { data: rows } = await supabase
-        .from('api_billing')
-        .select('*')
-        .gte('recorded_at', since)
-        .order('recorded_at', { ascending: false });
-      setData((rows as ApiBillingRow[]) ?? []);
+      try {
+        const rows = await apiCall<ApiBillingRow[]>(`/api/api-billing?since=${since}`);
+        setData(rows ?? []);
+      } catch {
+        setData([]);
+      }
       setLoading(false);
     })();
   }, [days]);

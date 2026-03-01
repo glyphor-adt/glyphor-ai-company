@@ -27,8 +27,6 @@ export interface OrgAnalystRunParams {
 
 export async function runOrgAnalyst(params: OrgAnalystRunParams = {}) {
   const memory = new CompanyMemoryStore({
-    supabaseUrl: process.env.SUPABASE_URL!,
-    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company',
     gcpProjectId: process.env.GCP_PROJECT_ID,
   });
@@ -39,13 +37,12 @@ export async function runOrgAnalyst(params: OrgAnalystRunParams = {}) {
   });
   const runner = createRunner(modelClient, 'org-analyst', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
-  const supabase = memory.getSupabaseClient();
 
   const tools = [
-    ...createOrgAnalystTools(supabase),
+    ...createOrgAnalystTools(),
     ...createMemoryTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
   ];
@@ -65,7 +62,7 @@ export async function runOrgAnalyst(params: OrgAnalystRunParams = {}) {
     initialMessage = params.message || 'Run a talent and organizational assessment.';
   }
 
-  const agentCfg = await loadAgentConfig(supabase, 'org-analyst', {
+  const agentCfg = await loadAgentConfig('org-analyst', {
     model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns,
   });
 
@@ -93,7 +90,7 @@ export async function runOrgAnalyst(params: OrgAnalystRunParams = {}) {
   const result = await runner.run(
     config, initialMessage, supervisor, toolExecutor,
     (event) => eventBus.emit(event), memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
   try { await memory.recordAgentRun('org-analyst', 0, 0.08); } catch {}
   console.log(`[Marcus Chen] ${result.status} (${result.totalTurns} turns)`);

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { supabase } from '../lib/supabase';
+import { apiCall } from '../lib/firebase';
 import { Card, SectionHeader, Skeleton } from '../components/ui';
 import {
   MdBusiness, MdLightbulb, MdBalance, MdBarChart, MdWarning,
@@ -724,12 +724,12 @@ export default function Graph() {
   // Load data
   useEffect(() => {
     async function load() {
-      const [nodesRes, edgesRes] = await Promise.all([
-        supabase.from('kg_nodes').select('*').order('created_at', { ascending: false }).limit(500),
-        supabase.from('kg_edges').select('*').limit(2000),
+      const [nodesData, edgesData] = await Promise.all([
+        apiCall<KgNode[]>('/api/kg-nodes?limit=500'),
+        apiCall<KgEdge[]>('/api/kg-edges?limit=2000'),
       ]);
-      setNodes((nodesRes.data as KgNode[]) ?? []);
-      setEdges((edgesRes.data as KgEdge[]) ?? []);
+      setNodes(nodesData ?? []);
+      setEdges(edgesData ?? []);
       setLoading(false);
     }
     load();

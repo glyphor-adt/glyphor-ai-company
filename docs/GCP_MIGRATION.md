@@ -1,5 +1,7 @@
 # Glyphor Platform: Supabase → All-In GCP Migration Spec
 
+> **Status: Implementation in progress.** Infrastructure provisioned, code migration from Supabase to GCP-native services completed. See Phase 8 checklist for verification status.
+
 ## Executive Summary
 
 Migrate all Supabase dependencies to native GCP services. After this migration, the entire Glyphor platform runs on a single vendor (Google Cloud) with zero third-party database or auth dependencies.

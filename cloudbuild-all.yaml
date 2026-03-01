@@ -27,6 +27,18 @@ steps:
       - 'DOCKER_BUILDKIT=1'
     id: 'build-voice-gateway'
 
+  # Build worker
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--progress=plain'
+      - '-f'
+      - 'docker/Dockerfile.worker'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/worker:latest'
+      - '.'
+    id: 'build-worker'
+
   # Build dashboard
   - name: 'gcr.io/cloud-builders/docker'
     args:
@@ -34,10 +46,6 @@ steps:
       - '--progress=plain'
       - '-f'
       - 'docker/Dockerfile.dashboard'
-      - '--build-arg'
-      - 'VITE_SUPABASE_URL=https://ztucrgzcoaryzuvkcaif.supabase.co'
-      - '--build-arg'
-      - 'VITE_SUPABASE_ANON_KEY=${_SUPABASE_ANON_KEY}'
       - '--build-arg'
       - 'VITE_SCHEDULER_URL=https://glyphor-scheduler-610179349713.us-central1.run.app'
       - '--build-arg'
@@ -52,6 +60,7 @@ steps:
 images:
   - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:latest'
   - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/voice-gateway:latest'
+  - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/worker:latest'
   - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/dashboard:latest'
 
 # Improved logging and reliability

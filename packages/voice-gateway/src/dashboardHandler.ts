@@ -14,7 +14,7 @@
 import OpenAI from 'openai';
 import type { CompanyAgentRole, ToolDefinition } from '@glyphor/agent-runtime';
 import { loadGrantedToolNames } from '@glyphor/agent-runtime';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import { SessionManager } from './sessionManager.js';
 import { createRealtimeSession } from './realtimeClient.js';
 import type { DashboardVoiceRequest, DashboardVoiceResponse, TranscriptEntry } from './types.js';
@@ -23,13 +23,11 @@ import { getAgentVoiceConfig } from './voiceMap.js';
 export class DashboardVoiceHandler {
   private openai: OpenAI;
   private sessions: SessionManager;
-  private supabase: SupabaseClient;
   private transcripts = new Map<string, TranscriptEntry[]>();
 
-  constructor(openai: OpenAI, sessions: SessionManager, supabase: SupabaseClient) {
+  constructor(openai: OpenAI, sessions: SessionManager) {
     this.openai = openai;
     this.sessions = sessions;
-    this.supabase = supabase;
   }
 
   /**
@@ -52,7 +50,7 @@ export class DashboardVoiceHandler {
     }
 
     // Load the agent's granted tool names to build tool declarations
-    const grantedTools = await loadGrantedToolNames(agentRole, this.supabase);
+    const grantedTools = await loadGrantedToolNames(agentRole);
 
     // Build minimal tool declarations for the Realtime session.
     // We use the granted tool names but create lightweight stubs —
@@ -70,18 +68,18 @@ export class DashboardVoiceHandler {
     }));
 
     // Load personality & identity from agent_profiles
-    const { data: profile } = await this.supabase
-      .from('agent_profiles')
-      .select('personality_summary, backstory, communication_traits')
-      .eq('agent_id', agentRole)
-      .single();
+    const profileRows = await systemQuery<{ personality_summary: string | null; backstory: string | null; communication_traits: string[] | null }>(
+      'SELECT personality_summary, backstory, communication_traits FROM agent_profiles WHERE agent_id = $1 LIMIT 1',
+      [agentRole],
+    );
+    const profile = profileRows[0] ?? null;
 
     // Load role-specific system prompt from agent_briefs
-    const { data: brief } = await this.supabase
-      .from('agent_briefs')
-      .select('system_prompt')
-      .eq('agent_id', agentRole)
-      .single();
+    const briefRows = await systemQuery<{ system_prompt: string | null }>(
+      'SELECT system_prompt FROM agent_briefs WHERE agent_id = $1 LIMIT 1',
+      [agentRole],
+    );
+    const brief = briefRows[0] ?? null;
 
     // Create OpenAI Realtime session
     const result = await createRealtimeSession(this.openai, {
@@ -128,26 +126,18 @@ export class DashboardVoiceHandler {
         .map((e) => `**${e.role === 'user' ? 'You' : getAgentVoiceConfig(agentRole as CompanyAgentRole).displayName}**: ${e.text}`)
         .join('\n\n');
 
-      await this.supabase.from('chat_messages').insert({
-        agent_role: agentRole,
-        role: 'agent',
-        content: `*Voice conversation transcript:*\n\n${transcript}`,
-        user_id: userId,
-      });
+      await systemQuery(
+        'INSERT INTO chat_messages (agent_role, role, content, user_id) VALUES ($1, $2, $3, $4)',
+        [agentRole, 'agent', `*Voice conversation transcript:*\n\n${transcript}`, userId],
+      );
     }
 
-    // Save usage record to Supabase
+    // Save usage record
     if (usage) {
-      await this.supabase.from('voice_usage').insert({
-        session_id: usage.sessionId,
-        agent_role: usage.agentRole,
-        mode: usage.mode,
-        duration_sec: usage.durationSec,
-        estimated_cost: usage.estimatedCost,
-        user_id: usage.userId,
-        started_at: usage.startedAt,
-        ended_at: usage.endedAt,
-      });
+      await systemQuery(
+        'INSERT INTO voice_usage (session_id, agent_role, mode, duration_sec, estimated_cost, user_id, started_at, ended_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+        [usage.sessionId, usage.agentRole, usage.mode, usage.durationSec, usage.estimatedCost, usage.userId, usage.startedAt, usage.endedAt],
+      );
     }
 
     this.transcripts.delete(sessionId);

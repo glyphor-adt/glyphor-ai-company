@@ -12,7 +12,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 
 /* ── Dependency Resolution ────────────────── */
 
@@ -22,17 +22,15 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * Fire-and-forget — errors are logged but don't block the submitting agent.
  */
 async function dispatchDependentAssignments(
-  supabase: SupabaseClient,
   completedAssignmentId: string,
 ): Promise<void> {
   const schedulerUrl = process.env.SCHEDULER_URL || 'http://localhost:8080';
 
   // Find assignments that depend on the completed one
-  const { data: dependents } = await supabase
-    .from('work_assignments')
-    .select('id, assigned_to, task_description, depends_on')
-    .contains('depends_on', [completedAssignmentId])
-    .in('status', ['pending', 'dispatched']);
+  const dependents = await systemQuery(
+    'SELECT id, assigned_to, task_description, depends_on FROM work_assignments WHERE depends_on @> $1::jsonb AND status = ANY($2)',
+    [JSON.stringify([completedAssignmentId]), ['pending', 'dispatched']],
+  );
 
   if (!dependents?.length) return;
 
@@ -40,11 +38,10 @@ async function dispatchDependentAssignments(
     const allDeps: string[] = (dep.depends_on as string[]) ?? [];
 
     // Check if ALL dependencies are now completed
-    const { data: completed } = await supabase
-      .from('work_assignments')
-      .select('id')
-      .in('id', allDeps)
-      .eq('status', 'completed');
+    const completed = await systemQuery(
+      'SELECT id FROM work_assignments WHERE id = ANY($1) AND status = $2',
+      [allDeps, 'completed'],
+    );
 
     if (completed?.length !== allDeps.length) continue;
 
@@ -76,7 +73,6 @@ async function dispatchDependentAssignments(
 /* ── Factory ──────────────────────────────── */
 
 export function createAssignmentTools(
-  supabase: SupabaseClient,
   glyphorEventBus: GlyphorEventBus,
 ): ToolDefinition[] {
   return [
@@ -96,61 +92,57 @@ export function createAssignmentTools(
       execute: async (params, ctx): Promise<ToolResult> => {
         const statusFilter = params.status as string | undefined;
 
-        let query = supabase
-          .from('work_assignments')
-          .select(`
-            id, task_description, task_type, expected_output, status,
-            priority, sequence_order, agent_output, evaluation, quality_score,
-            dispatched_at, completed_at, created_at, updated_at,
-            founder_directives (
-              id, title, description, priority, category, status, due_date
-            )
-          `)
-          .eq('assigned_to', ctx.agentRole);
-
+        let whereClause = 'wa.assigned_to = $1';
+        const queryParams: unknown[] = [ctx.agentRole];
         if (statusFilter) {
-          query = query.eq('status', statusFilter);
+          queryParams.push(statusFilter);
+          whereClause += ` AND wa.status = $${queryParams.length}`;
         } else {
-          // Default: show actionable assignments
-          query = query.in('status', ['pending', 'dispatched', 'in_progress', 'needs_revision']);
+          queryParams.push(['pending', 'dispatched', 'in_progress', 'needs_revision']);
+          whereClause += ` AND wa.status = ANY($${queryParams.length})`;
         }
 
-        query = query
-          .order('priority', { ascending: true })
-          .order('created_at', { ascending: true });
+        try {
+          const data = await systemQuery(
+            `SELECT wa.id, wa.task_description, wa.task_type, wa.expected_output, wa.status,
+                    wa.priority, wa.sequence_order, wa.agent_output, wa.evaluation, wa.quality_score,
+                    wa.dispatched_at, wa.completed_at, wa.created_at, wa.updated_at,
+                    fd.id as directive_id, fd.title as directive_title, fd.description as directive_description,
+                    fd.priority as directive_priority, fd.category as directive_category,
+                    fd.status as directive_status, fd.due_date as directive_due_date
+             FROM work_assignments wa
+             LEFT JOIN founder_directives fd ON wa.directive_id = fd.id
+             WHERE ${whereClause}
+             ORDER BY wa.priority ASC, wa.created_at ASC`,
+            queryParams,
+          );
 
-        const { data, error } = await query;
-
-        if (error) {
-          return { success: false, error: error.message };
-        }
-
-        const assignments = (data ?? []).map((a: Record<string, unknown>) => {
-          const directive = a.founder_directives as Record<string, unknown> | null;
-          return {
+          const assignments = (data ?? []).map((a: Record<string, unknown>) => ({
             id: a.id,
             title: (a.task_description as string)?.slice(0, 100),
             instructions: a.task_description,
             expected_output: a.expected_output,
             status: a.status,
             priority: a.priority,
-            directive_title: directive?.title ?? null,
-            directive_priority: directive?.priority ?? null,
-            directive_description: directive?.description ?? null,
-            directive_due_date: directive?.due_date ?? null,
+            directive_title: a.directive_title ?? null,
+            directive_priority: a.directive_priority ?? null,
+            directive_description: a.directive_description ?? null,
+            directive_due_date: a.directive_due_date ?? null,
             feedback: a.status === 'needs_revision' ? a.evaluation : null,
             quality_score: a.quality_score,
             assigned_at: a.dispatched_at ?? a.created_at,
-          };
-        });
+          }));
 
-        return {
-          success: true,
-          data: {
-            count: assignments.length,
-            assignments,
-          },
-        };
+          return {
+            success: true,
+            data: {
+              count: assignments.length,
+              assignments,
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
       },
     },
 
@@ -182,102 +174,105 @@ export function createAssignmentTools(
         const output = params.output as string;
         const status = (params.status as string) ?? 'completed';
 
-        // Verify the assignment belongs to this agent
-        const { data: assignment, error: fetchErr } = await supabase
-          .from('work_assignments')
-          .select('id, assigned_to, task_description, directive_id')
-          .eq('id', assignmentId)
-          .single();
+        try {
+          // Verify the assignment belongs to this agent
+          const [assignment] = await systemQuery(
+            'SELECT id, assigned_to, task_description, directive_id FROM work_assignments WHERE id = $1',
+            [assignmentId],
+          );
 
-        if (fetchErr || !assignment) {
-          return { success: false, error: 'Assignment not found' };
-        }
-        if (assignment.assigned_to !== ctx.agentRole) {
-          return { success: false, error: 'This assignment is not assigned to you' };
-        }
+          if (!assignment) {
+            return { success: false, error: 'Assignment not found' };
+          }
+          if (assignment.assigned_to !== ctx.agentRole) {
+            return { success: false, error: 'This assignment is not assigned to you' };
+          }
 
-        // Build update
-        const now = new Date().toISOString();
-        const updates: Record<string, unknown> = {
-          agent_output: output,
-          status,
-          updated_at: now,
-        };
-        if (status === 'completed') {
-          updates.completed_at = now;
-        }
+          // Build update
+          const now = new Date().toISOString();
 
-        // Check if this is the first work — set dispatched_at if not already set
-        const { data: current } = await supabase
-          .from('work_assignments')
-          .select('dispatched_at')
-          .eq('id', assignmentId)
-          .single();
-        if (current && !current.dispatched_at) {
-          updates.dispatched_at = now;
-        }
+          // Check if this is the first work — set dispatched_at if not already set
+          const [current] = await systemQuery(
+            'SELECT dispatched_at FROM work_assignments WHERE id = $1',
+            [assignmentId],
+          );
 
-        const { error: updateErr } = await supabase
-          .from('work_assignments')
-          .update(updates)
-          .eq('id', assignmentId);
+          if (status === 'completed') {
+            if (current && !current.dispatched_at) {
+              await systemQuery(
+                'UPDATE work_assignments SET agent_output = $1, status = $2, updated_at = $3, completed_at = $3, dispatched_at = $3 WHERE id = $4',
+                [output, status, now, assignmentId],
+              );
+            } else {
+              await systemQuery(
+                'UPDATE work_assignments SET agent_output = $1, status = $2, updated_at = $3, completed_at = $3 WHERE id = $4',
+                [output, status, now, assignmentId],
+              );
+            }
+          } else {
+            if (current && !current.dispatched_at) {
+              await systemQuery(
+                'UPDATE work_assignments SET agent_output = $1, status = $2, updated_at = $3, dispatched_at = $3 WHERE id = $4',
+                [output, status, now, assignmentId],
+              );
+            } else {
+              await systemQuery(
+                'UPDATE work_assignments SET agent_output = $1, status = $2, updated_at = $3 WHERE id = $4',
+                [output, status, now, assignmentId],
+              );
+            }
+          }
 
-        if (updateErr) {
-          return { success: false, error: updateErr.message };
-        }
+          // Notify Sarah
+          const title = (assignment.task_description as string)?.slice(0, 80) ?? 'Assignment';
+          const msgContent = status === 'completed'
+            ? `Assignment '${title}' completed. Output submitted for review.`
+            : `Assignment '${title}' progress update submitted.`;
 
-        // Notify Sarah
-        const title = (assignment.task_description as string)?.slice(0, 80) ?? 'Assignment';
-        const msgContent = status === 'completed'
-          ? `Assignment '${title}' completed. Output submitted for review.`
-          : `Assignment '${title}' progress update submitted.`;
+          await systemQuery(
+            `INSERT INTO agent_messages (from_agent, to_agent, thread_id, message, message_type, priority, status, context)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [ctx.agentRole, 'chief-of-staff', crypto.randomUUID(), msgContent, 'response', 'normal', 'pending',
+             JSON.stringify({ assignment_id: assignmentId, directive_id: assignment.directive_id })],
+          );
 
-        await supabase.from('agent_messages').insert({
-          from_agent: ctx.agentRole,
-          to_agent: 'chief-of-staff',
-          thread_id: crypto.randomUUID(),
-          message: msgContent,
-          message_type: 'response',
-          priority: 'normal',
-          status: 'pending',
-          context: { assignment_id: assignmentId, directive_id: assignment.directive_id },
-        });
-
-        // Emit event
-        await glyphorEventBus.emit({
-          type: 'assignment.submitted',
-          source: ctx.agentRole,
-          payload: {
-            assignment_id: assignmentId,
-            directive_id: assignment.directive_id,
-            status,
-          },
-          priority: 'normal',
-        });
-
-        // Event-driven dependency resolution: dispatch agents whose deps are now met
-        if (status === 'completed') {
-          dispatchDependentAssignments(supabase, assignmentId).catch(err => {
-            console.warn('[DependencyResolution] Failed:', (err as Error).message);
+          // Emit event
+          await glyphorEventBus.emit({
+            type: 'assignment.submitted',
+            source: ctx.agentRole,
+            payload: {
+              assignment_id: assignmentId,
+              directive_id: assignment.directive_id,
+              status,
+            },
+            priority: 'normal',
           });
+
+          // Event-driven dependency resolution: dispatch agents whose deps are now met
+          if (status === 'completed') {
+            dispatchDependentAssignments(assignmentId).catch(err => {
+              console.warn('[DependencyResolution] Failed:', (err as Error).message);
+            });
+          }
+
+          // Log to activity_log
+          await systemQuery(
+            'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',
+            [ctx.agentRole, status === 'completed' ? 'assignment.completed' : 'assignment.progress',
+             `${status === 'completed' ? 'Completed' : 'Updated'} assignment: ${title}`, now],
+          );
+
+          return {
+            success: true,
+            data: {
+              assignment_id: assignmentId,
+              status,
+              message: 'Output submitted. Sarah will evaluate.',
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
         }
-
-        // Log to activity_log
-        await supabase.from('activity_log').insert({
-          agent_id: ctx.agentRole,
-          action: status === 'completed' ? 'assignment.completed' : 'assignment.progress',
-          detail: `${status === 'completed' ? 'Completed' : 'Updated'} assignment: ${title}`,
-          created_at: now,
-        });
-
-        return {
-          success: true,
-          data: {
-            assignment_id: assignmentId,
-            status,
-            message: 'Output submitted. Sarah will evaluate.',
-          },
-        };
       },
     },
 
@@ -309,80 +304,70 @@ export function createAssignmentTools(
         const blockerReason = params.blocker_reason as string;
         const needType = (params.need_type as string) ?? 'other';
 
-        // Verify the assignment belongs to this agent
-        const { data: assignment, error: fetchErr } = await supabase
-          .from('work_assignments')
-          .select('id, assigned_to, task_description, directive_id')
-          .eq('id', assignmentId)
-          .single();
+        try {
+          // Verify the assignment belongs to this agent
+          const [assignment] = await systemQuery(
+            'SELECT id, assigned_to, task_description, directive_id FROM work_assignments WHERE id = $1',
+            [assignmentId],
+          );
 
-        if (fetchErr || !assignment) {
-          return { success: false, error: 'Assignment not found' };
+          if (!assignment) {
+            return { success: false, error: 'Assignment not found' };
+          }
+          if (assignment.assigned_to !== ctx.agentRole) {
+            return { success: false, error: 'This assignment is not assigned to you' };
+          }
+
+          const now = new Date().toISOString();
+          const title = (assignment.task_description as string)?.slice(0, 80) ?? 'Assignment';
+
+          // Update assignment status to blocked
+          await systemQuery(
+            'UPDATE work_assignments SET status = $1, blocker_reason = $2, need_type = $3, updated_at = $4 WHERE id = $5',
+            ['blocked', blockerReason, needType, now, assignmentId],
+          );
+
+          // Send urgent message to Sarah
+          await systemQuery(
+            `INSERT INTO agent_messages (from_agent, to_agent, thread_id, message, message_type, priority, status, context)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [ctx.agentRole, 'chief-of-staff', crypto.randomUUID(),
+             `BLOCKED: Assignment '${title}'\nReason: ${blockerReason}\nNeed: ${needType}`,
+             'alert', 'urgent', 'pending',
+             JSON.stringify({ assignment_id: assignmentId, directive_id: assignment.directive_id, need_type: needType })],
+          );
+
+          // Emit alert event
+          await glyphorEventBus.emit({
+            type: 'alert.triggered',
+            source: ctx.agentRole,
+            payload: {
+              title: `Assignment blocked: ${title}`,
+              description: blockerReason,
+              assignment_id: assignmentId,
+              directive_id: assignment.directive_id,
+              need_type: needType,
+            },
+            priority: 'high',
+          });
+
+          // Log to activity_log
+          await systemQuery(
+            'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',
+            [ctx.agentRole, 'assignment.blocked', `Blocked on assignment: ${title} — ${blockerReason}`, now],
+          );
+
+          return {
+            success: true,
+            data: {
+              assignment_id: assignmentId,
+              status: 'blocked',
+              message: 'Blocker flagged. Sarah will triage.',
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
         }
-        if (assignment.assigned_to !== ctx.agentRole) {
-          return { success: false, error: 'This assignment is not assigned to you' };
-        }
-
-        const now = new Date().toISOString();
-        const title = (assignment.task_description as string)?.slice(0, 80) ?? 'Assignment';
-
-        // Update assignment status to blocked
-        const { error: updateErr } = await supabase
-          .from('work_assignments')
-          .update({
-            status: 'blocked',
-            blocker_reason: blockerReason,
-            need_type: needType,
-            updated_at: now,
-          })
-          .eq('id', assignmentId);
-
-        if (updateErr) {
-          return { success: false, error: updateErr.message };
-        }
-
-        // Send urgent message to Sarah
-        await supabase.from('agent_messages').insert({
-          from_agent: ctx.agentRole,
-          to_agent: 'chief-of-staff',
-          thread_id: crypto.randomUUID(),
-          message: `BLOCKED: Assignment '${title}'\nReason: ${blockerReason}\nNeed: ${needType}`,
-          message_type: 'alert',
-          priority: 'urgent',
-          status: 'pending',
-          context: { assignment_id: assignmentId, directive_id: assignment.directive_id, need_type: needType },
-        });
-
-        // Emit alert event
-        await glyphorEventBus.emit({
-          type: 'alert.triggered',
-          source: ctx.agentRole,
-          payload: {
-            title: `Assignment blocked: ${title}`,
-            description: blockerReason,
-            assignment_id: assignmentId,
-            directive_id: assignment.directive_id,
-            need_type: needType,
-          },
-          priority: 'high',
-        });
-
-        // Log to activity_log
-        await supabase.from('activity_log').insert({
-          agent_id: ctx.agentRole,
-          action: 'assignment.blocked',
-          detail: `Blocked on assignment: ${title} — ${blockerReason}`,
-          created_at: now,
-        });
-
-        return {
-          success: true,
-          data: {
-            assignment_id: assignmentId,
-            status: 'blocked',
-            message: 'Blocker flagged. Sarah will triage.',
-          },
-        };
       },
     },
   ];

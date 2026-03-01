@@ -13,6 +13,7 @@ import { GlyphorEventBus, ModelClient, promptCache, getRedisCache } from '@glyph
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment } from '@glyphor/agent-runtime';
 import { handleStripeWebhook, syncStripeAll, syncBillingToSupabase, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, TeamsBotHandler, extractBearerToken, runGovernanceSync } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
+import { systemQuery } from '@glyphor/shared/db';
 import { EventRouter } from './eventRouter.js';
 import { DecisionQueue } from './decisionQueue.js';
 import { DynamicScheduler } from './dynamicScheduler.js';
@@ -102,8 +103,6 @@ async function applyWatermark(imageB64: string): Promise<string> {
 // ─── Bootstrap ──────────────────────────────────────────────────
 
 const memory = new CompanyMemoryStore({
-  supabaseUrl: process.env.SUPABASE_URL!,
-  supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
   gcsBucket: process.env.GCS_BUCKET || 'glyphor-company',
   gcpProjectId: process.env.GCP_PROJECT_ID,
 });
@@ -262,18 +261,15 @@ const trackedAgentExecutor = async (
   task: string,
   payload: Record<string, unknown>,
 ): Promise<AgentExecutionResult | void> => {
-  const sb = memory.getSupabaseClient();
   const inputMsg = typeof payload?.message === 'string' ? payload.message : null;
   const startMs = Date.now();
 
   // Insert a "running" row in parallel with agent execution to avoid blocking
-  const runIdPromise = Promise.resolve(sb
-    .from('agent_runs')
-    .insert({ agent_id: agentRole, task, status: 'running', input: inputMsg })
-    .select('id')
-    .single()
-    .then(({ data }) => data?.id as string | undefined))
-    .catch(() => undefined);
+  const runIdPromise = systemQuery<{ id: string }>(
+    'INSERT INTO agent_runs (agent_id, task, status, input) VALUES ($1,$2,$3,$4) RETURNING id',
+    [agentRole, task, 'running', inputMsg],
+  ).then(([row]) => row?.id as string | undefined)
+  .catch(() => undefined);
 
   try {
     const result = await agentExecutor(agentRole, task, payload);
@@ -286,25 +282,16 @@ const trackedAgentExecutor = async (
       : null;
 
     if (runId) {
-      await sb.from('agent_runs').update({
-        status: result?.status === 'completed' ? 'completed' : (result?.status === 'error' ? 'failed' : (result?.status ?? 'completed')),
-        completed_at: new Date().toISOString(),
-        duration_ms: durationMs,
-        turns: result?.totalTurns ?? null,
-        tool_calls: toolCalls,
-        input_tokens: result?.inputTokens ?? null,
-        output_tokens: result?.outputTokens ?? null,
-        cost: result?.cost ?? null,
-        output: result?.output ?? null,
-        error: result?.error ?? result?.abortReason ?? null,
-        // Reasoning engine metadata
-        ...((result as any)?.reasoningMeta ? {
-          reasoning_passes: (result as any).reasoningMeta.passes,
-          reasoning_confidence: (result as any).reasoningMeta.confidence,
-          reasoning_revised: (result as any).reasoningMeta.revised,
-          reasoning_cost_usd: (result as any).reasoningMeta.costUsd,
-        } : {}),
-      }).eq('id', runId);
+      const runStatus = result?.status === 'completed' ? 'completed' : (result?.status === 'error' ? 'failed' : (result?.status ?? 'completed'));
+      const reasoningMeta = (result as any)?.reasoningMeta;
+      await systemQuery(
+        `UPDATE agent_runs SET status=$1, completed_at=$2, duration_ms=$3, turns=$4, tool_calls=$5, input_tokens=$6, output_tokens=$7, cost=$8, output=$9, error=$10${reasoningMeta ? ', reasoning_passes=$11, reasoning_confidence=$12, reasoning_revised=$13, reasoning_cost_usd=$14' : ''} WHERE id=$${reasoningMeta ? 15 : 11}`,
+        [
+          runStatus, new Date().toISOString(), durationMs, result?.totalTurns ?? null, toolCalls, result?.inputTokens ?? null, result?.outputTokens ?? null, result?.cost ?? null, result?.output ?? null, result?.error ?? result?.abortReason ?? null,
+          ...(reasoningMeta ? [reasoningMeta.passes, reasoningMeta.confidence, reasoningMeta.revised, reasoningMeta.costUsd] : []),
+          runId,
+        ],
+      );
     }
 
     return result;
@@ -314,12 +301,10 @@ const trackedAgentExecutor = async (
     const message = err instanceof Error ? err.message : String(err);
 
     if (runId) {
-      await sb.from('agent_runs').update({
-        status: 'failed',
-        completed_at: new Date().toISOString(),
-        duration_ms: durationMs,
-        error: message,
-      }).eq('id', runId);
+      await systemQuery(
+        'UPDATE agent_runs SET status=$1, completed_at=$2, duration_ms=$3, error=$4 WHERE id=$5',
+        ['failed', new Date().toISOString(), durationMs, message, runId],
+      );
     }
 
     throw err;
@@ -327,20 +312,20 @@ const trackedAgentExecutor = async (
 };
 
 const router = new EventRouter(trackedAgentExecutor, decisionQueue);
-const wakeRouter = new WakeRouter(memory.getSupabaseClient(), trackedAgentExecutor);
-const heartbeatManager = new HeartbeatManager(memory.getSupabaseClient(), trackedAgentExecutor, wakeRouter);
+const wakeRouter = new WakeRouter(trackedAgentExecutor);
+const heartbeatManager = new HeartbeatManager(trackedAgentExecutor, wakeRouter);
 
 const strategyModelClient = new ModelClient({
   geminiApiKey: process.env.GOOGLE_AI_API_KEY,
   openaiApiKey: process.env.OPENAI_API_KEY,
   anthropicApiKey: process.env.ANTHROPIC_API_KEY,
 });
-const analysisEngine = new AnalysisEngine(memory.getSupabaseClient(), strategyModelClient);
-const simulationEngine = new SimulationEngine(memory.getSupabaseClient(), strategyModelClient);
-const meetingEngine = new MeetingEngine(memory.getSupabaseClient(), trackedAgentExecutor);
-const cotEngine = new CotEngine(memory.getSupabaseClient(), strategyModelClient);
-const deepDiveEngine = new DeepDiveEngine(memory.getSupabaseClient(), strategyModelClient);
-const strategyLabEngine = new StrategyLabEngine(memory.getSupabaseClient(), strategyModelClient, trackedAgentExecutor);
+const analysisEngine = new AnalysisEngine(strategyModelClient);
+const simulationEngine = new SimulationEngine(strategyModelClient);
+const meetingEngine = new MeetingEngine(trackedAgentExecutor);
+const cotEngine = new CotEngine(strategyModelClient);
+const deepDiveEngine = new DeepDiveEngine(strategyModelClient);
+const strategyLabEngine = new StrategyLabEngine(strategyModelClient, trackedAgentExecutor);
 
 // Teams Bot — initialized from env vars (BOT_APP_ID, BOT_APP_SECRET, BOT_TENANT_ID)
 const teamsBot = TeamsBotHandler.fromEnv(
@@ -355,9 +340,7 @@ decisionQueue.setBotHandler(teamsBot);
 
 // ─── Glyphor Event Bus ──────────────────────────────────────────
 
-const glyphorEventBus = new GlyphorEventBus({
-  supabase: memory.getSupabaseClient(),
-});
+const glyphorEventBus = new GlyphorEventBus({});
 router.setGlyphorEventBus(glyphorEventBus);
 
 // ─── Rate Limiter (10 events per agent per hour) ────────────────
@@ -439,7 +422,7 @@ const server = createServer(async (req, res) => {
     // Stripe webhook endpoint
     if (method === 'POST' && url === '/webhook/stripe') {
       const rawBody = await readBody(req);
-      const result = await handleStripeWebhook(req, rawBody, memory.getSupabaseClient());
+      const result = await handleStripeWebhook(req, rawBody);
 
       // Reactive wake: notify relevant agents of Stripe events
       try {
@@ -460,25 +443,20 @@ const server = createServer(async (req, res) => {
     // Stripe data sync endpoint (called by Cloud Scheduler)
     if (method === 'POST' && url === '/sync/stripe') {
       try {
-        const result = await syncStripeAll(memory.getSupabaseClient());
-        await memory.getSupabaseClient().from('data_sync_status').update({
-          last_success_at: new Date().toISOString(),
-          consecutive_failures: 0,
-          status: 'ok',
-          updated_at: new Date().toISOString(),
-        }).eq('id', 'stripe');
+        const result = await syncStripeAll();
+        await systemQuery(
+          'UPDATE data_sync_status SET last_success_at=$1, consecutive_failures=$2, status=$3, updated_at=$4 WHERE id=$5',
+          [new Date().toISOString(), 0, 'ok', new Date().toISOString(), 'stripe'],
+        );
         json(res, 200, { success: true, ...result });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'stripe').single();
+        const [current] = await systemQuery<{ consecutive_failures: number }>('SELECT consecutive_failures FROM data_sync_status WHERE id=$1', ['stripe']);
         const failures = (current?.consecutive_failures ?? 0) + 1;
-        await memory.getSupabaseClient().from('data_sync_status').update({
-          last_failure_at: new Date().toISOString(),
-          last_error: message,
-          consecutive_failures: failures,
-          status: failures >= 3 ? 'failing' : 'stale',
-          updated_at: new Date().toISOString(),
-        }).eq('id', 'stripe');
+        await systemQuery(
+          'UPDATE data_sync_status SET last_failure_at=$1, last_error=$2, consecutive_failures=$3, status=$4, updated_at=$5 WHERE id=$6',
+          [new Date().toISOString(), message, failures, failures >= 3 ? 'failing' : 'stale', new Date().toISOString(), 'stripe'],
+        );
         json(res, 500, { success: false, error: message });
       }
       return;
@@ -491,26 +469,21 @@ const server = createServer(async (req, res) => {
         const billingDataset = process.env.GCP_BILLING_DATASET || 'billing_export';
         const billingTable = process.env.GCP_BILLING_TABLE || 'gcp_billing_export_v1_012B03_F562EC_184CD8';
         const result = await syncBillingToSupabase(
-          memory.getSupabaseClient(), projectId, billingDataset, billingTable,
+          projectId, billingDataset, billingTable,
         );
-        await memory.getSupabaseClient().from('data_sync_status').update({
-          last_success_at: new Date().toISOString(),
-          consecutive_failures: 0,
-          status: 'ok',
-          updated_at: new Date().toISOString(),
-        }).eq('id', 'gcp-billing');
+        await systemQuery(
+          'UPDATE data_sync_status SET last_success_at=$1, consecutive_failures=$2, status=$3, updated_at=$4 WHERE id=$5',
+          [new Date().toISOString(), 0, 'ok', new Date().toISOString(), 'gcp-billing'],
+        );
         json(res, 200, { success: true, ...result });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'gcp-billing').single();
+        const [current] = await systemQuery<{ consecutive_failures: number }>('SELECT consecutive_failures FROM data_sync_status WHERE id=$1', ['gcp-billing']);
         const failures = (current?.consecutive_failures ?? 0) + 1;
-        await memory.getSupabaseClient().from('data_sync_status').update({
-          last_failure_at: new Date().toISOString(),
-          last_error: message,
-          consecutive_failures: failures,
-          status: failures >= 3 ? 'failing' : 'stale',
-          updated_at: new Date().toISOString(),
-        }).eq('id', 'gcp-billing');
+        await systemQuery(
+          'UPDATE data_sync_status SET last_failure_at=$1, last_error=$2, consecutive_failures=$3, status=$4, updated_at=$5 WHERE id=$6',
+          [new Date().toISOString(), message, failures, failures >= 3 ? 'failing' : 'stale', new Date().toISOString(), 'gcp-billing'],
+        );
         json(res, 500, { success: false, error: message });
       }
       return;
@@ -519,25 +492,20 @@ const server = createServer(async (req, res) => {
     // Mercury banking sync endpoint
     if (method === 'POST' && url === '/sync/mercury') {
       try {
-        const result = await syncMercuryAll(memory.getSupabaseClient());
-        await memory.getSupabaseClient().from('data_sync_status').update({
-          last_success_at: new Date().toISOString(),
-          consecutive_failures: 0,
-          status: 'ok',
-          updated_at: new Date().toISOString(),
-        }).eq('id', 'mercury');
+        const result = await syncMercuryAll();
+        await systemQuery(
+          'UPDATE data_sync_status SET last_success_at=$1, consecutive_failures=$2, status=$3, updated_at=$4 WHERE id=$5',
+          [new Date().toISOString(), 0, 'ok', new Date().toISOString(), 'mercury'],
+        );
         json(res, 200, { success: true, ...result });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'mercury').single();
+        const [current] = await systemQuery<{ consecutive_failures: number }>('SELECT consecutive_failures FROM data_sync_status WHERE id=$1', ['mercury']);
         const failures = (current?.consecutive_failures ?? 0) + 1;
-        await memory.getSupabaseClient().from('data_sync_status').update({
-          last_failure_at: new Date().toISOString(),
-          last_error: message,
-          consecutive_failures: failures,
-          status: failures >= 3 ? 'failing' : 'stale',
-          updated_at: new Date().toISOString(),
-        }).eq('id', 'mercury');
+        await systemQuery(
+          'UPDATE data_sync_status SET last_failure_at=$1, last_error=$2, consecutive_failures=$3, status=$4, updated_at=$5 WHERE id=$6',
+          [new Date().toISOString(), message, failures, failures >= 3 ? 'failing' : 'stale', new Date().toISOString(), 'mercury'],
+        );
         json(res, 500, { success: false, error: message });
       }
       return;
@@ -568,7 +536,7 @@ const server = createServer(async (req, res) => {
         }
         for (const [key, products] of keyToProducts) {
           try {
-            const result = await syncOpenAIBilling(memory.getSupabaseClient(), key, products[0]);
+            const result = await syncOpenAIBilling(key, products[0]);
             for (const product of products) results[product] = result;
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
@@ -580,23 +548,17 @@ const server = createServer(async (req, res) => {
         }
         const anySuccess = Object.values(results).some((r) => !('error' in r));
         if (anySuccess) {
-          await memory.getSupabaseClient().from('data_sync_status').update({
-            last_success_at: new Date().toISOString(),
-            consecutive_failures: 0,
-            status: errors.length > 0 ? 'partial' : 'ok',
-            last_error: errors.length > 0 ? errors.join('; ') : null,
-            updated_at: new Date().toISOString(),
-          }).eq('id', 'openai-billing');
+          await systemQuery(
+            'UPDATE data_sync_status SET last_success_at=$1, consecutive_failures=$2, status=$3, last_error=$4, updated_at=$5 WHERE id=$6',
+            [new Date().toISOString(), 0, errors.length > 0 ? 'partial' : 'ok', errors.length > 0 ? errors.join('; ') : null, new Date().toISOString(), 'openai-billing'],
+          );
         } else {
-          const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'openai-billing').single();
+          const [current] = await systemQuery<{ consecutive_failures: number }>('SELECT consecutive_failures FROM data_sync_status WHERE id=$1', ['openai-billing']);
           const failures = (current?.consecutive_failures ?? 0) + 1;
-          await memory.getSupabaseClient().from('data_sync_status').update({
-            last_failure_at: new Date().toISOString(),
-            last_error: errors.join('; '),
-            consecutive_failures: failures,
-            status: failures >= 3 ? 'failing' : 'stale',
-            updated_at: new Date().toISOString(),
-          }).eq('id', 'openai-billing');
+          await systemQuery(
+            'UPDATE data_sync_status SET last_failure_at=$1, last_error=$2, consecutive_failures=$3, status=$4, updated_at=$5 WHERE id=$6',
+            [new Date().toISOString(), errors.join('; '), failures, failures >= 3 ? 'failing' : 'stale', new Date().toISOString(), 'openai-billing'],
+          );
         }
         json(res, anySuccess ? 200 : 500, { success: anySuccess, products: results, errors: errors.length > 0 ? errors : undefined });
       } catch (err) {
@@ -632,7 +594,7 @@ const server = createServer(async (req, res) => {
         }
         for (const [key, products] of keyToProducts) {
           try {
-            const result = await syncAnthropicBilling(memory.getSupabaseClient(), key, products[0]);
+            const result = await syncAnthropicBilling(key, products[0]);
             for (const product of products) results[product] = result;
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
@@ -644,23 +606,17 @@ const server = createServer(async (req, res) => {
         }
         const anySuccess = Object.values(results).some((r) => !('error' in r));
         if (anySuccess) {
-          await memory.getSupabaseClient().from('data_sync_status').update({
-            last_success_at: new Date().toISOString(),
-            consecutive_failures: 0,
-            status: errors.length > 0 ? 'partial' : 'ok',
-            last_error: errors.length > 0 ? errors.join('; ') : null,
-            updated_at: new Date().toISOString(),
-          }).eq('id', 'anthropic-billing');
+          await systemQuery(
+            'UPDATE data_sync_status SET last_success_at=$1, consecutive_failures=$2, status=$3, last_error=$4, updated_at=$5 WHERE id=$6',
+            [new Date().toISOString(), 0, errors.length > 0 ? 'partial' : 'ok', errors.length > 0 ? errors.join('; ') : null, new Date().toISOString(), 'anthropic-billing'],
+          );
         } else {
-          const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'anthropic-billing').single();
+          const [current] = await systemQuery<{ consecutive_failures: number }>('SELECT consecutive_failures FROM data_sync_status WHERE id=$1', ['anthropic-billing']);
           const failures = (current?.consecutive_failures ?? 0) + 1;
-          await memory.getSupabaseClient().from('data_sync_status').update({
-            last_failure_at: new Date().toISOString(),
-            last_error: errors.join('; '),
-            consecutive_failures: failures,
-            status: failures >= 3 ? 'failing' : 'stale',
-            updated_at: new Date().toISOString(),
-          }).eq('id', 'anthropic-billing');
+          await systemQuery(
+            'UPDATE data_sync_status SET last_failure_at=$1, last_error=$2, consecutive_failures=$3, status=$4, updated_at=$5 WHERE id=$6',
+            [new Date().toISOString(), errors.join('; '), failures, failures >= 3 ? 'failing' : 'stale', new Date().toISOString(), 'anthropic-billing'],
+          );
         }
         json(res, anySuccess ? 200 : 500, { success: anySuccess, products: results, errors: errors.length > 0 ? errors : undefined });
       } catch (err) {
@@ -677,25 +633,20 @@ const server = createServer(async (req, res) => {
         const secretKey = process.env.KLING_SECRET_KEY;
         if (!accessKey || !secretKey) throw new Error('KLING_ACCESS_KEY and KLING_SECRET_KEY not configured');
         const credentials: KlingCredentials = { accessKey, secretKey };
-        const result = await syncKlingBilling(memory.getSupabaseClient(), credentials, 'pulse');
-        await memory.getSupabaseClient().from('data_sync_status').update({
-          last_success_at: new Date().toISOString(),
-          consecutive_failures: 0,
-          status: 'ok',
-          updated_at: new Date().toISOString(),
-        }).eq('id', 'kling-billing');
+        const result = await syncKlingBilling(credentials, 'pulse');
+        await systemQuery(
+          'UPDATE data_sync_status SET last_success_at=$1, consecutive_failures=$2, status=$3, updated_at=$4 WHERE id=$5',
+          [new Date().toISOString(), 0, 'ok', new Date().toISOString(), 'kling-billing'],
+        );
         json(res, 200, { success: true, ...result });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'kling-billing').single();
+        const [current] = await systemQuery<{ consecutive_failures: number }>('SELECT consecutive_failures FROM data_sync_status WHERE id=$1', ['kling-billing']);
         const failures = (current?.consecutive_failures ?? 0) + 1;
-        await memory.getSupabaseClient().from('data_sync_status').update({
-          last_failure_at: new Date().toISOString(),
-          last_error: message,
-          consecutive_failures: failures,
-          status: failures >= 3 ? 'failing' : 'stale',
-          updated_at: new Date().toISOString(),
-        }).eq('id', 'kling-billing');
+        await systemQuery(
+          'UPDATE data_sync_status SET last_failure_at=$1, last_error=$2, consecutive_failures=$3, status=$4, updated_at=$5 WHERE id=$6',
+          [new Date().toISOString(), message, failures, failures >= 3 ? 'failing' : 'stale', new Date().toISOString(), 'kling-billing'],
+        );
         json(res, 500, { success: false, error: message });
       }
       return;
@@ -704,46 +655,28 @@ const server = createServer(async (req, res) => {
     // SharePoint knowledge sync endpoint
     if (method === 'POST' && url === '/sync/sharepoint-knowledge') {
       try {
-        const supabase = memory.getSupabaseClient();
-        const result = await syncSharePointKnowledge(supabase);
-        await supabase.from('data_sync_status').upsert({
-          id: 'sharepoint-knowledge',
-          last_success_at: new Date().toISOString(),
-          consecutive_failures: 0,
-          status: 'ok',
-          last_error: null,
-          updated_at: new Date().toISOString(),
-        });
+        const result = await syncSharePointKnowledge();
+        await systemQuery(
+          'INSERT INTO data_sync_status (id, last_success_at, consecutive_failures, status, last_error, updated_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO UPDATE SET last_success_at=EXCLUDED.last_success_at, consecutive_failures=EXCLUDED.consecutive_failures, status=EXCLUDED.status, last_error=EXCLUDED.last_error, updated_at=EXCLUDED.updated_at',
+          ['sharepoint-knowledge', new Date().toISOString(), 0, 'ok', null, new Date().toISOString()],
+        );
         // Update sharepoint_sites with sync result
         const siteId = process.env.SHAREPOINT_SITE_ID;
         if (siteId) {
-          await supabase.from('sharepoint_sites')
-            .update({
-              last_full_sync_at: new Date().toISOString(),
-              last_sync_result: result,
-              total_documents: result.scanned,
-              total_synced: result.updated + result.skipped,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('site_id', siteId);
+          await systemQuery(
+            'UPDATE sharepoint_sites SET last_full_sync_at=$1, last_sync_result=$2, total_documents=$3, total_synced=$4, updated_at=$5 WHERE site_id=$6',
+            [new Date().toISOString(), JSON.stringify(result), result.scanned, result.updated + result.skipped, new Date().toISOString(), siteId],
+          );
         }
         json(res, 200, { success: true, ...result });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        const { data: current } = await memory.getSupabaseClient()
-          .from('data_sync_status')
-          .select('consecutive_failures')
-          .eq('id', 'sharepoint-knowledge')
-          .single();
+        const [current] = await systemQuery<{ consecutive_failures: number }>('SELECT consecutive_failures FROM data_sync_status WHERE id=$1', ['sharepoint-knowledge']);
         const failures = (current?.consecutive_failures ?? 0) + 1;
-        await memory.getSupabaseClient().from('data_sync_status').upsert({
-          id: 'sharepoint-knowledge',
-          last_failure_at: new Date().toISOString(),
-          last_error: message,
-          consecutive_failures: failures,
-          status: failures >= 3 ? 'failing' : 'stale',
-          updated_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          'INSERT INTO data_sync_status (id, last_failure_at, last_error, consecutive_failures, status, updated_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO UPDATE SET last_failure_at=EXCLUDED.last_failure_at, last_error=EXCLUDED.last_error, consecutive_failures=EXCLUDED.consecutive_failures, status=EXCLUDED.status, updated_at=EXCLUDED.updated_at',
+          ['sharepoint-knowledge', new Date().toISOString(), message, failures, failures >= 3 ? 'failing' : 'stale', new Date().toISOString()],
+        );
         json(res, 500, { success: false, error: message });
       }
       return;
@@ -762,26 +695,19 @@ const server = createServer(async (req, res) => {
         });
         const result = await indexRes.json() as Record<string, unknown>;
         if (!indexRes.ok) throw new Error(String(result.error || `Indexer returned ${indexRes.status}`));
-        await memory.getSupabaseClient().from('data_sync_status').upsert({
-          id: 'graphrag-index',
-          last_success_at: new Date().toISOString(),
-          consecutive_failures: 0,
-          status: 'ok',
-          updated_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          'INSERT INTO data_sync_status (id, last_success_at, consecutive_failures, status, updated_at) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (id) DO UPDATE SET last_success_at=EXCLUDED.last_success_at, consecutive_failures=EXCLUDED.consecutive_failures, status=EXCLUDED.status, updated_at=EXCLUDED.updated_at',
+          ['graphrag-index', new Date().toISOString(), 0, 'ok', new Date().toISOString()],
+        );
         json(res, 200, { success: true, ...result });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'graphrag-index').single();
+        const [current] = await systemQuery<{ consecutive_failures: number }>('SELECT consecutive_failures FROM data_sync_status WHERE id=$1', ['graphrag-index']);
         const failures = (current?.consecutive_failures ?? 0) + 1;
-        await memory.getSupabaseClient().from('data_sync_status').upsert({
-          id: 'graphrag-index',
-          last_failure_at: new Date().toISOString(),
-          last_error: message,
-          consecutive_failures: failures,
-          status: failures >= 3 ? 'failing' : 'stale',
-          updated_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          'INSERT INTO data_sync_status (id, last_failure_at, last_error, consecutive_failures, status, updated_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO UPDATE SET last_failure_at=EXCLUDED.last_failure_at, last_error=EXCLUDED.last_error, consecutive_failures=EXCLUDED.consecutive_failures, status=EXCLUDED.status, updated_at=EXCLUDED.updated_at',
+          ['graphrag-index', new Date().toISOString(), message, failures, failures >= 3 ? 'failing' : 'stale', new Date().toISOString()],
+        );
         json(res, 500, { success: false, error: message });
       }
       return;
@@ -800,26 +726,19 @@ const server = createServer(async (req, res) => {
         });
         const result = await tuneRes.json() as Record<string, unknown>;
         if (!tuneRes.ok) throw new Error(String(result.error || `Indexer returned ${tuneRes.status}`));
-        await memory.getSupabaseClient().from('data_sync_status').upsert({
-          id: 'graphrag-tune',
-          last_success_at: new Date().toISOString(),
-          consecutive_failures: 0,
-          status: 'ok',
-          updated_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          'INSERT INTO data_sync_status (id, last_success_at, consecutive_failures, status, updated_at) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (id) DO UPDATE SET last_success_at=EXCLUDED.last_success_at, consecutive_failures=EXCLUDED.consecutive_failures, status=EXCLUDED.status, updated_at=EXCLUDED.updated_at',
+          ['graphrag-tune', new Date().toISOString(), 0, 'ok', new Date().toISOString()],
+        );
         json(res, 200, { success: true, ...result });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        const { data: current } = await memory.getSupabaseClient().from('data_sync_status').select('consecutive_failures').eq('id', 'graphrag-tune').single();
+        const [current] = await systemQuery<{ consecutive_failures: number }>('SELECT consecutive_failures FROM data_sync_status WHERE id=$1', ['graphrag-tune']);
         const failures = (current?.consecutive_failures ?? 0) + 1;
-        await memory.getSupabaseClient().from('data_sync_status').upsert({
-          id: 'graphrag-tune',
-          last_failure_at: new Date().toISOString(),
-          last_error: message,
-          consecutive_failures: failures,
-          status: failures >= 3 ? 'failing' : 'stale',
-          updated_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          'INSERT INTO data_sync_status (id, last_failure_at, last_error, consecutive_failures, status, updated_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO UPDATE SET last_failure_at=EXCLUDED.last_failure_at, last_error=EXCLUDED.last_error, consecutive_failures=EXCLUDED.consecutive_failures, status=EXCLUDED.status, updated_at=EXCLUDED.updated_at',
+          ['graphrag-tune', new Date().toISOString(), message, failures, failures >= 3 ? 'failing' : 'stale', new Date().toISOString()],
+        );
         json(res, 500, { success: false, error: message });
       }
       return;
@@ -828,7 +747,7 @@ const server = createServer(async (req, res) => {
     // Governance IAM audit endpoint
     if (method === 'POST' && url === '/sync/governance') {
       try {
-        const result = await runGovernanceSync(memory.getSupabaseClient());
+        const result = await runGovernanceSync();
         json(res, 200, { success: true, ...result });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -872,9 +791,9 @@ const server = createServer(async (req, res) => {
       // Look up last run times for smart wake decisions
       const agentLastRuns = new Map<CompanyAgentRole, Date | null>();
       try {
-        const { data: agents } = await memory.getSupabaseClient()
-          .from('company_agents')
-          .select('role, last_run_at');
+        const agents = await systemQuery<{ role: string; last_run_at: string | null }>(
+          'SELECT role, last_run_at FROM company_agents', [],
+        );
         for (const agent of agents ?? []) {
           agentLastRuns.set(
             agent.role as CompanyAgentRole,
@@ -995,14 +914,10 @@ const server = createServer(async (req, res) => {
       // Record agent output back to work_assignments if this run was dispatched by orchestration
       const assignmentId = body.payload?.directiveAssignmentId as string | undefined;
       if (assignmentId && result.action === 'executed') {
-        await memory.getSupabaseClient()
-          .from('work_assignments')
-          .update({
-            agent_output: result.output ?? result.error ?? 'No output captured',
-            status: result.error ? 'failed' : 'completed',
-            completed_at: new Date().toISOString(),
-          })
-          .eq('id', assignmentId);
+        await systemQuery(
+          'UPDATE work_assignments SET agent_output=$1, status=$2, completed_at=$3 WHERE id=$4',
+          [result.output ?? result.error ?? 'No output captured', result.error ? 'failed' : 'completed', new Date().toISOString(), assignmentId],
+        );
       }
 
       json(res, 200, result);
@@ -1025,91 +940,50 @@ const server = createServer(async (req, res) => {
       const agentId = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       const avatarUrl = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent((name || 'Agent').trim())}&radius=50&bold=true`;
 
-      const { data: agent, error: createErr } = await memory.getSupabaseClient()
-        .from('company_agents')
-        .insert({
-          role: agentId,
-          codename: name,
-          name,
-          display_name: name,
-          title: title ?? '',
-          department: department ?? '',
-          reports_to: reports_to ?? null,
-          status: 'active',
-          model: model || 'gemini-3-flash-preview',
-          temperature: temperature ?? 0.3,
-          max_turns: max_turns ?? 10,
-          budget_per_run: budget_per_run ?? 0.05,
-          budget_daily: budget_daily ?? 0.50,
-          budget_monthly: budget_monthly ?? 15,
-          is_temporary: is_temporary || false,
-          expires_at: is_temporary && ttl_days
-            ? new Date(Date.now() + ttl_days * 86400000).toISOString()
-            : null,
-          is_core: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (createErr) {
-        json(res, 400, { success: false, error: createErr.message });
+      let agent;
+      try {
+        [agent] = await systemQuery(
+          `INSERT INTO company_agents (role, codename, name, display_name, title, department, reports_to, status, model, temperature, max_turns, budget_per_run, budget_daily, budget_monthly, is_temporary, expires_at, is_core, created_at, updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
+          [agentId, name, name, name, title ?? '', department ?? '', reports_to ?? null, 'active', model || 'gemini-3-flash-preview', temperature ?? 0.3, max_turns ?? 10, budget_per_run ?? 0.05, budget_daily ?? 0.50, budget_monthly ?? 15, is_temporary || false, is_temporary && ttl_days ? new Date(Date.now() + ttl_days * 86400000).toISOString() : null, false, new Date().toISOString(), new Date().toISOString()],
+        );
+      } catch (createErr) {
+        json(res, 400, { success: false, error: (createErr as Error).message });
         return;
       }
 
       // Store dynamic brief
-      const { error: briefErr } = await memory.getSupabaseClient().from('agent_briefs').upsert({
-        agent_id: agentId,
-        system_prompt: system_prompt ?? '',
-        skills: skills ?? [],
-        tools: agentTools ?? [],
-        updated_at: new Date().toISOString(),
-      });
-      if (briefErr) {
-        console.error(`[server] Failed to store brief for ${agentId}:`, briefErr.message);
+      try {
+        await systemQuery(
+          `INSERT INTO agent_briefs (agent_id, system_prompt, skills, tools, updated_at) VALUES ($1,$2,$3,$4,$5)
+           ON CONFLICT (agent_id) DO UPDATE SET system_prompt=EXCLUDED.system_prompt, skills=EXCLUDED.skills, tools=EXCLUDED.tools, updated_at=EXCLUDED.updated_at`,
+          [agentId, system_prompt ?? '', JSON.stringify(skills ?? []), JSON.stringify(agentTools ?? []), new Date().toISOString()],
+        );
+      } catch (briefErr) {
+        console.error(`[server] Failed to store brief for ${agentId}:`, (briefErr as Error).message);
       }
 
       // Create agent profile with personality — avatar set separately to avoid overwriting
-      const { error: profileErr } = await memory.getSupabaseClient().from('agent_profiles').upsert({
-        agent_id: agentId,
-        personality_summary: `${name} is a focused ${title || 'specialist'} in ${department || 'the company'} who prioritizes clear recommendations, practical execution steps, and concise communication.`,
-        backstory: `Provisioned as a ${title || 'specialist'} to support ${department || 'the team'} with targeted expertise on high-priority initiatives.`,
-        communication_traits: ['clear', 'structured', 'action-oriented'],
-        quirks: ['summarizes key decisions before details'],
-        tone_formality: 0.6,
-        emoji_usage: 0.1,
-        verbosity: 0.45,
-        working_style: 'outcome-driven',
-        updated_at: new Date().toISOString(),
-      });
-      if (profileErr) {
-        console.error(`[server] Failed to store profile for ${agentId}:`, profileErr.message);
+      try {
+        await systemQuery(
+          `INSERT INTO agent_profiles (agent_id, personality_summary, backstory, communication_traits, quirks, tone_formality, emoji_usage, verbosity, working_style, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+           ON CONFLICT (agent_id) DO UPDATE SET personality_summary=EXCLUDED.personality_summary, backstory=EXCLUDED.backstory, communication_traits=EXCLUDED.communication_traits, quirks=EXCLUDED.quirks, tone_formality=EXCLUDED.tone_formality, emoji_usage=EXCLUDED.emoji_usage, verbosity=EXCLUDED.verbosity, working_style=EXCLUDED.working_style, updated_at=EXCLUDED.updated_at`,
+          [agentId, `${name} is a focused ${title || 'specialist'} in ${department || 'the company'} who prioritizes clear recommendations, practical execution steps, and concise communication.`, `Provisioned as a ${title || 'specialist'} to support ${department || 'the team'} with targeted expertise on high-priority initiatives.`, JSON.stringify(['clear', 'structured', 'action-oriented']), JSON.stringify(['summarizes key decisions before details']), 0.6, 0.1, 0.45, 'outcome-driven', new Date().toISOString()],
+        );
+      } catch (profileErr) {
+        console.error(`[server] Failed to store profile for ${agentId}:`, (profileErr as Error).message);
       }
 
       // Set DiceBear avatar only for new profiles (don't overwrite existing PNG avatars)
-      await memory.getSupabaseClient().from('agent_profiles')
-        .update({ avatar_url: avatarUrl })
-        .eq('agent_id', agentId)
-        .is('avatar_url', null);
+      await systemQuery('UPDATE agent_profiles SET avatar_url=$1 WHERE agent_id=$2 AND avatar_url IS NULL', [avatarUrl, agentId]);
 
       // Store schedule if provided
       if (cron_expression) {
-        await memory.getSupabaseClient().from('agent_schedules').insert({
-          agent_id: agentId,
-          cron_expression,
-          task: 'scheduled_run',
-          enabled: true,
-        });
+        await systemQuery('INSERT INTO agent_schedules (agent_id, cron_expression, task, enabled) VALUES ($1,$2,$3,$4)', [agentId, cron_expression, 'scheduled_run', true]);
       }
 
       // Log creation
-      await memory.getSupabaseClient().from('activity_log').insert({
-        agent_id: 'system',
-        action: 'agent.created',
-        detail: `New agent created: ${name} (${agentId})`,
-        created_at: new Date().toISOString(),
-      });
+      await systemQuery('INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4)', ['system', 'agent.created', `New agent created: ${name} (${agentId})`, new Date().toISOString()]);
 
       // Emit agent.spawned event to wake HR for onboarding
       try {
@@ -1143,32 +1017,28 @@ const server = createServer(async (req, res) => {
 
       const { system_prompt, ...agentUpdates } = updates;
 
-      const { data, error: updateErr } = await memory.getSupabaseClient()
-        .from('company_agents')
-        .update({ ...agentUpdates, updated_at: new Date().toISOString() })
-        .eq('id', agentId)
-        .select()
-        .single();
-
-      if (updateErr) {
-        json(res, 400, { success: false, error: updateErr.message });
+      let data;
+      try {
+        const updates = { ...agentUpdates, updated_at: new Date().toISOString() };
+        const keys = Object.keys(updates);
+        const setClause = keys.map((k, i) => `${k}=$${i + 1}`).join(', ');
+        const values = keys.map(k => (updates as Record<string, unknown>)[k]);
+        values.push(agentId);
+        [data] = await systemQuery(`UPDATE company_agents SET ${setClause} WHERE id=$${keys.length + 1} RETURNING *`, values);
+      } catch (updateErr) {
+        json(res, 400, { success: false, error: (updateErr as Error).message });
         return;
       }
 
       if (system_prompt !== undefined) {
-        await memory.getSupabaseClient().from('agent_briefs').upsert({
-          agent_id: agentId,
-          system_prompt,
-          updated_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          `INSERT INTO agent_briefs (agent_id, system_prompt, updated_at) VALUES ($1,$2,$3)
+           ON CONFLICT (agent_id) DO UPDATE SET system_prompt=EXCLUDED.system_prompt, updated_at=EXCLUDED.updated_at`,
+          [agentId, system_prompt, new Date().toISOString()],
+        );
       }
 
-      await memory.getSupabaseClient().from('activity_log').insert({
-        agent_id: 'system',
-        action: 'agent.settings_updated',
-        detail: `Settings updated for ${agentId}: ${Object.keys(updates).join(', ')}`,
-        created_at: new Date().toISOString(),
-      });
+      await systemQuery('INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4)', ['system', 'agent.settings_updated', `Settings updated for ${agentId}: ${Object.keys(updates).join(', ')}`, new Date().toISOString()]);
 
       // Invalidate cached config for this agent
       const cache = getRedisCache();
@@ -1192,10 +1062,7 @@ const server = createServer(async (req, res) => {
     const pauseMatch = url.match(/^\/agents\/([^/]+)\/pause$/);
     if (method === 'POST' && pauseMatch) {
       const agentId = decodeURIComponent(pauseMatch[1]);
-      await memory.getSupabaseClient()
-        .from('company_agents')
-        .update({ status: 'paused', updated_at: new Date().toISOString() })
-        .eq('id', agentId);
+      await systemQuery('UPDATE company_agents SET status=$1, updated_at=$2 WHERE id=$3', ['paused', new Date().toISOString(), agentId]);
       json(res, 200, { success: true });
       return;
     }
@@ -1204,10 +1071,7 @@ const server = createServer(async (req, res) => {
     const resumeMatch = url.match(/^\/agents\/([^/]+)\/resume$/);
     if (method === 'POST' && resumeMatch) {
       const agentId = decodeURIComponent(resumeMatch[1]);
-      await memory.getSupabaseClient()
-        .from('company_agents')
-        .update({ status: 'active', updated_at: new Date().toISOString() })
-        .eq('id', agentId);
+      await systemQuery('UPDATE company_agents SET status=$1, updated_at=$2 WHERE id=$3', ['active', new Date().toISOString(), agentId]);
       json(res, 200, { success: true });
       return;
     }
@@ -1216,14 +1080,8 @@ const server = createServer(async (req, res) => {
     const deleteMatch = url.match(/^\/agents\/([^/]+)$/);
     if (method === 'DELETE' && deleteMatch) {
       const agentId = decodeURIComponent(deleteMatch[1]);
-      await memory.getSupabaseClient()
-        .from('company_agents')
-        .update({ status: 'retired', updated_at: new Date().toISOString() })
-        .eq('id', agentId);
-      await memory.getSupabaseClient()
-        .from('agent_schedules')
-        .update({ enabled: false })
-        .eq('agent_id', agentId);
+      await systemQuery('UPDATE company_agents SET status=$1, updated_at=$2 WHERE id=$3', ['retired', new Date().toISOString(), agentId]);
+      await systemQuery('UPDATE agent_schedules SET enabled=$1 WHERE agent_id=$2', [false, agentId]);
       json(res, 200, { success: true });
       return;
     }
@@ -1331,10 +1189,9 @@ const server = createServer(async (req, res) => {
     const analysisVisualGetMatch = url.match(/^\/analysis\/([^/]+)\/visual$/);
     if (method === 'GET' && analysisVisualGetMatch) {
       const id = decodeURIComponent(analysisVisualGetMatch[1]);
-      const { data } = await memory.getSupabaseClient()
-        .from('analyses').select('visual_image').eq('id', id).single();
-      if (data?.visual_image) {
-        json(res, 200, { image: data.visual_image, mimeType: 'image/png' });
+      const [row] = await systemQuery<{ visual_image: string | null }>('SELECT visual_image FROM analyses WHERE id=$1', [id]);
+      if (row?.visual_image) {
+        json(res, 200, { image: row.visual_image, mimeType: 'image/png' });
       } else {
         json(res, 404, { error: 'No visual saved' });
       }
@@ -1353,8 +1210,7 @@ const server = createServer(async (req, res) => {
 
       // Apply logo watermark and save to DB
       const watermarked = await applyWatermark(imageResponse.imageData);
-      await memory.getSupabaseClient()
-        .from('analyses').update({ visual_image: watermarked }).eq('id', id);
+      await systemQuery('UPDATE analyses SET visual_image=$1 WHERE id=$2', [watermarked, id]);
 
       json(res, 200, { image: watermarked, mimeType: 'image/png' });
       return;
@@ -1632,10 +1488,9 @@ const server = createServer(async (req, res) => {
     const ddVisualGetMatch = url.match(/^\/deep-dive\/([^/]+)\/visual$/);
     if (method === 'GET' && ddVisualGetMatch) {
       const ddId = decodeURIComponent(ddVisualGetMatch[1]);
-      const { data } = await memory.getSupabaseClient()
-        .from('deep_dives').select('visual_image').eq('id', ddId).single();
-      if (data?.visual_image) {
-        json(res, 200, { image: data.visual_image, mimeType: 'image/png' });
+      const [ddRow] = await systemQuery<{ visual_image: string | null }>('SELECT visual_image FROM deep_dives WHERE id=$1', [ddId]);
+      if (ddRow?.visual_image) {
+        json(res, 200, { image: ddRow.visual_image, mimeType: 'image/png' });
       } else {
         json(res, 404, { error: 'No visual saved' });
       }
@@ -1654,8 +1509,7 @@ const server = createServer(async (req, res) => {
 
       // Apply logo watermark and save to DB
       const watermarked = await applyWatermark(imageResponse.imageData);
-      await memory.getSupabaseClient()
-        .from('deep_dives').update({ visual_image: watermarked }).eq('id', ddId);
+      await systemQuery('UPDATE deep_dives SET visual_image=$1 WHERE id=$2', [watermarked, ddId]);
 
       json(res, 200, { image: watermarked, mimeType: 'image/png' });
       return;
@@ -1746,10 +1600,9 @@ const server = createServer(async (req, res) => {
     const strategyLabVisualGetMatch = url.match(/^\/strategy-lab\/([^/]+)\/visual$/);
     if (method === 'GET' && strategyLabVisualGetMatch) {
       const id = decodeURIComponent(strategyLabVisualGetMatch[1]);
-      const { data } = await memory.getSupabaseClient()
-        .from('strategy_analyses').select('visual_image').eq('id', id).single();
-      if (data?.visual_image) {
-        json(res, 200, { image: data.visual_image, mimeType: 'image/png' });
+      const [saRow] = await systemQuery<{ visual_image: string | null }>('SELECT visual_image FROM strategy_analyses WHERE id=$1', [id]);
+      if (saRow?.visual_image) {
+        json(res, 200, { image: saRow.visual_image, mimeType: 'image/png' });
       } else {
         json(res, 404, { error: 'No visual saved' });
       }
@@ -1767,8 +1620,7 @@ const server = createServer(async (req, res) => {
       const imageResponse = await strategyModelClient.generateImageOpenAI(prompt);
 
       const watermarked = await applyWatermark(imageResponse.imageData);
-      await memory.getSupabaseClient()
-        .from('strategy_analyses').update({ visual_image: watermarked }).eq('id', id);
+      await systemQuery('UPDATE strategy_analyses SET visual_image=$1 WHERE id=$2', [watermarked, id]);
 
       json(res, 200, { image: watermarked, mimeType: 'image/png' });
       return;
@@ -1780,20 +1632,16 @@ const server = createServer(async (req, res) => {
     if (method === 'POST' && url === '/messages/send') {
       const body = JSON.parse(await readBody(req));
       const { from_agent, to_agent, message, message_type, priority, thread_id } = body;
-      const { data, error: msgErr } = await memory.getSupabaseClient()
-        .from('agent_messages')
-        .insert({
-          from_agent,
-          to_agent,
-          thread_id: thread_id ?? crypto.randomUUID(),
-          message,
-          message_type: message_type ?? 'info',
-          priority: priority ?? 'normal',
-          status: 'pending',
-        })
-        .select('id, thread_id')
-        .single();
-      if (msgErr) { json(res, 400, { success: false, error: msgErr.message }); return; }
+      let data;
+      try {
+        [data] = await systemQuery<{ id: string; thread_id: string }>(
+          'INSERT INTO agent_messages (from_agent, to_agent, thread_id, message, message_type, priority, status) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, thread_id',
+          [from_agent, to_agent, thread_id ?? crypto.randomUUID(), message, message_type ?? 'info', priority ?? 'normal', 'pending'],
+        );
+      } catch (msgErr) {
+        json(res, 400, { success: false, error: (msgErr as Error).message });
+        return;
+      }
 
       // Reactive wake: wake target agent immediately for urgent messages
       if (priority === 'urgent') {
@@ -1812,24 +1660,15 @@ const server = createServer(async (req, res) => {
     const messagesForAgentMatch = url.match(/^\/messages\/agent\/([^/]+)$/);
     if (method === 'GET' && messagesForAgentMatch) {
       const agentRole = decodeURIComponent(messagesForAgentMatch[1]);
-      const { data } = await memory.getSupabaseClient()
-        .from('agent_messages')
-        .select('*')
-        .or(`from_agent.eq.${agentRole},to_agent.eq.${agentRole}`)
-        .order('created_at', { ascending: false })
-        .limit(50);
-      json(res, 200, data ?? []);
+      const data = await systemQuery('SELECT * FROM agent_messages WHERE from_agent=$1 OR to_agent=$1 ORDER BY created_at DESC LIMIT 50', [agentRole]);
+      json(res, 200, data);
       return;
     }
 
     // Get all recent messages
     if (method === 'GET' && url === '/messages') {
-      const { data } = await memory.getSupabaseClient()
-        .from('agent_messages')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      json(res, 200, data ?? []);
+      const data = await systemQuery('SELECT * FROM agent_messages ORDER BY created_at DESC LIMIT 50', []);
+      json(res, 200, data);
       return;
     }
 
@@ -1909,81 +1748,74 @@ const server = createServer(async (req, res) => {
 
     // List directives (with optional status filter)
     if (method === 'GET' && url.startsWith('/directives')) {
-      const sb = memory.getSupabaseClient();
       const params = new URLSearchParams(url.split('?')[1] || '');
       const status = params.get('status') || 'active';
 
-      let query = sb
-        .from('founder_directives')
-        .select('*, work_assignments(*)')
-        .order('priority', { ascending: true })
-        .order('created_at', { ascending: false });
-
-      if (status !== 'all') query = query.eq('status', status);
-
-      const { data, error } = await query;
-      if (error) { json(res, 500, { error: error.message }); return; }
-      json(res, 200, data);
+      try {
+        const directives = status !== 'all'
+          ? await systemQuery('SELECT * FROM founder_directives WHERE status=$1 ORDER BY priority ASC, created_at DESC', [status])
+          : await systemQuery('SELECT * FROM founder_directives ORDER BY priority ASC, created_at DESC', []);
+        // Attach work_assignments per directive
+        for (const d of directives as Record<string, unknown>[]) {
+          (d as Record<string, unknown>).work_assignments = await systemQuery('SELECT * FROM work_assignments WHERE directive_id=$1', [d.id]);
+        }
+        json(res, 200, directives);
+      } catch (error) {
+        json(res, 500, { error: (error as Error).message });
+      }
       return;
     }
 
     // Create directive
     if (method === 'POST' && url === '/directives') {
-      const sb = memory.getSupabaseClient();
       const body = JSON.parse(await readBody(req));
-      const { data, error } = await sb
-        .from('founder_directives')
-        .insert({
-          title: body.title,
-          description: body.description,
-          priority: body.priority || 'high',
-          category: body.category || 'general',
-          target_agents: body.target_agents || [],
-          due_date: body.due_date || null,
-          created_by: body.created_by || 'kristina',
-        })
-        .select()
-        .single();
-      if (error) { json(res, 500, { error: error.message }); return; }
-      // Invalidate directive/context caches
-      getRedisCache().invalidatePattern('jit:directives:*').catch(() => {});
-      json(res, 201, data);
+      try {
+        const [data] = await systemQuery(
+          'INSERT INTO founder_directives (title, description, priority, category, target_agents, due_date, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+          [body.title, body.description, body.priority || 'high', body.category || 'general', JSON.stringify(body.target_agents || []), body.due_date || null, body.created_by || 'kristina'],
+        );
+        // Invalidate directive/context caches
+        getRedisCache().invalidatePattern('jit:directives:*').catch(() => {});
+        json(res, 201, data);
+      } catch (error) {
+        json(res, 500, { error: (error as Error).message });
+      }
       return;
     }
 
     // Update directive
     const directivePatchMatch = url.match(/^\/directives\/([^/?]+)$/);
     if (method === 'PATCH' && directivePatchMatch) {
-      const sb = memory.getSupabaseClient();
       const id = decodeURIComponent(directivePatchMatch[1]);
       const body = JSON.parse(await readBody(req));
       body.updated_at = new Date().toISOString();
-      const { data, error } = await sb
-        .from('founder_directives')
-        .update(body)
-        .eq('id', id)
-        .select()
-        .single();
-      if (error) { json(res, 500, { error: error.message }); return; }
-      // Invalidate directive/context caches
-      getRedisCache().invalidatePattern('jit:directives:*').catch(() => {});
-      json(res, 200, data);
+      try {
+        const keys = Object.keys(body);
+        const setClause = keys.map((k, i) => `${k}=$${i + 1}`).join(', ');
+        const values = keys.map(k => body[k]);
+        values.push(id);
+        const [data] = await systemQuery(`UPDATE founder_directives SET ${setClause} WHERE id=$${keys.length + 1} RETURNING *`, values);
+        // Invalidate directive/context caches
+        getRedisCache().invalidatePattern('jit:directives:*').catch(() => {});
+        json(res, 200, data);
+      } catch (error) {
+        json(res, 500, { error: (error as Error).message });
+      }
       return;
     }
 
     // Delete directive
     const directiveDeleteMatch = url.match(/^\/directives\/([^/?]+)$/);
     if (method === 'DELETE' && directiveDeleteMatch) {
-      const sb = memory.getSupabaseClient();
       const id = decodeURIComponent(directiveDeleteMatch[1]);
-      const { error } = await sb
-        .from('founder_directives')
-        .delete()
-        .eq('id', id);
-      if (error) { json(res, 500, { error: error.message }); return; }
-      // Invalidate directive/context caches
-      getRedisCache().invalidatePattern('jit:directives:*').catch(() => {});
-      json(res, 200, { success: true });
+      try {
+        await systemQuery('DELETE FROM founder_directives WHERE id=$1', [id]);
+        // Invalidate directive/context caches
+        getRedisCache().invalidatePattern('jit:directives:*').catch(() => {});
+        json(res, 200, { success: true });
+      } catch (error) {
+        json(res, 500, { error: (error as Error).message });
+      }
       return;
     }
 
@@ -2134,7 +1966,7 @@ server.listen(PORT, () => {
   );
 
   // Start dynamic scheduler for DB-defined cron jobs
-  const dynamicScheduler = new DynamicScheduler(memory.getSupabaseClient(), trackedAgentExecutor);
+  const dynamicScheduler = new DynamicScheduler(trackedAgentExecutor);
   dynamicScheduler.start();
 
   // Start data sync scheduler (fires DATA_SYNC_JOBS on their cron schedule)

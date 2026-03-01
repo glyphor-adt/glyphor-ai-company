@@ -28,8 +28,6 @@ export interface HeadOfHRRunParams {
 
 export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
   const memory = new CompanyMemoryStore({
-    supabaseUrl: process.env.SUPABASE_URL!,
-    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company',
     gcpProjectId: process.env.GCP_PROJECT_ID,
   });
@@ -41,7 +39,7 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
   });
   const runner = createRunner(modelClient, 'head-of-hr', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -49,9 +47,9 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
     ...createMemoryTools(memory),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
-    ...createAgentCreationTools(memory.getSupabaseClient()),
+    ...createAgentCreationTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -78,9 +76,7 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
     default:
       initialMessage = params.message || 'Run a quick workforce health check across all active agents.';
   }
-
-  const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'head-of-hr', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 12 });
+  const agentCfg = await loadAgentConfig('head-of-hr', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 12 });
 
   const config: AgentConfig = {
     id: `jasmine-${task}-${today}`,
@@ -106,7 +102,7 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
   const result = await runner.run(
     config, initialMessage, supervisor, toolExecutor,
     (event) => eventBus.emit(event), memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
 
   try { await memory.recordAgentRun('head-of-hr', 0, 0.02); } catch {}

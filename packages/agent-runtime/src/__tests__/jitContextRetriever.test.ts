@@ -5,46 +5,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { JitContextRetriever, type JitContext, type JitContextItem } from '../jitContextRetriever.js';
 
+// Mock @glyphor/shared/db so queries return test data without a real DB
+vi.mock('@glyphor/shared/db', () => ({
+  systemQuery: vi.fn().mockResolvedValue([]),
+}));
+import { systemQuery } from '@glyphor/shared/db';
+
 // ─── Mock helpers ───────────────────────────────────────────────
 
 function mockEmbeddingClient() {
   return {
     embed: vi.fn().mockResolvedValue(new Array(768).fill(0.01)),
   };
-}
-
-function mockSupabase(rpcResults?: Record<string, unknown[]>) {
-  const defaults: Record<string, unknown[]> = {
-    match_memories: [
-      { content: 'Previous analysis showed growth', importance: 0.8, similarity: 0.9 },
-    ],
-    match_kg_nodes: [
-      { name: 'Fuse Platform', description: 'AI productivity tool', similarity: 0.85 },
-    ],
-    match_shared_episodes: [
-      { summary: 'Successfully launched v2', confidence: 0.9, similarity: 0.88, outcome: 'Positive user reception' },
-    ],
-    match_company_knowledge: [
-      { content: 'Company policy on deployments', similarity: 0.82 },
-    ],
-    ...rpcResults,
-  };
-
-  return {
-    rpc: vi.fn().mockImplementation((fnName: string) => {
-      const data = defaults[fnName] ?? [];
-      return Promise.resolve({ data, error: null });
-    }),
-    from: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        textSearch: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue({ data: [
-            { name: 'Deploy procedure', steps: 'Step 1, Step 2', trigger_pattern: 'deploy' },
-          ], error: null }),
-        }),
-      }),
-    }),
-  } as any;
 }
 
 function mockCache() {
@@ -57,20 +29,18 @@ function mockCache() {
 // ─── Tests ──────────────────────────────────────────────────────
 
 describe('JitContextRetriever', () => {
-  let supabase: ReturnType<typeof mockSupabase>;
   let embeddingClient: ReturnType<typeof mockEmbeddingClient>;
   let cache: ReturnType<typeof mockCache>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    supabase = mockSupabase();
     embeddingClient = mockEmbeddingClient();
     cache = mockCache();
   });
 
   describe('retrieve', () => {
     it('embeds the task and queries all stores', async () => {
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'platform health check');
 
       expect(embeddingClient.embed).toHaveBeenCalledWith('cto: platform health check');
@@ -79,7 +49,7 @@ describe('JitContextRetriever', () => {
     });
 
     it('returns items from all knowledge stores', async () => {
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'health check');
 
       expect(result.relevantMemories.length).toBeGreaterThanOrEqual(0);
@@ -88,7 +58,7 @@ describe('JitContextRetriever', () => {
     });
 
     it('sorts items by score descending', async () => {
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'test', 10000);
 
       // All items combined should be score-sorted
@@ -107,7 +77,7 @@ describe('JitContextRetriever', () => {
     });
 
     it('trims to token budget', async () => {
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       // Very small budget — should limit items
       const result = await retriever.retrieve('cto', 'task', 5);
       expect(result.tokenEstimate).toBeLessThanOrEqual(10); // some tolerance
@@ -127,7 +97,7 @@ describe('JitContextRetriever', () => {
       };
       cache.get = vi.fn().mockResolvedValue(cachedCtx);
 
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'health check');
 
       expect(result.fromCache).toBe(true);
@@ -136,7 +106,7 @@ describe('JitContextRetriever', () => {
     });
 
     it('caches fresh retrieval results', async () => {
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       await retriever.retrieve('cto', 'health check');
 
       expect(cache.set).toHaveBeenCalledWith(
@@ -147,7 +117,7 @@ describe('JitContextRetriever', () => {
     });
 
     it('works without cache (undefined)', async () => {
-      const retriever = new JitContextRetriever(supabase, embeddingClient);
+      const retriever = new JitContextRetriever(embeddingClient);
       const result = await retriever.retrieve('cto', 'health check');
       expect(result.fromCache).toBe(false);
       expect(result.tokenEstimate).toBeGreaterThanOrEqual(0);
@@ -157,7 +127,7 @@ describe('JitContextRetriever', () => {
   describe('error handling', () => {
     it('returns empty context when embedding fails', async () => {
       embeddingClient.embed = vi.fn().mockRejectedValue(new Error('Embedding API down'));
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'task');
 
       expect(result.relevantMemories).toHaveLength(0);
@@ -169,17 +139,10 @@ describe('JitContextRetriever', () => {
     });
 
     it('handles individual store failures gracefully', async () => {
-      // Make all RPCs fail
-      supabase.rpc = vi.fn().mockResolvedValue({ data: null, error: { message: 'RPC failed' } });
-      supabase.from = vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          textSearch: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue({ data: null, error: { message: 'Query failed' } }),
-          }),
-        }),
-      });
+      // Make all DB queries fail
+      vi.mocked(systemQuery).mockRejectedValue(new Error('Query failed'));
 
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'task');
 
       // Should not throw — returns empty arrays
@@ -189,18 +152,17 @@ describe('JitContextRetriever', () => {
 
     it('continues when some stores fail and others succeed', async () => {
       let callCount = 0;
-      supabase.rpc = vi.fn().mockImplementation(() => {
+      vi.mocked(systemQuery).mockImplementation(() => {
         callCount++;
         if (callCount === 1) {
-          return Promise.resolve({
-            data: [{ content: 'working memory', importance: 0.8, similarity: 0.9 }],
-            error: null,
-          });
+          return Promise.resolve([
+            { content: 'working memory', importance: 0.8, similarity: 0.9 },
+          ] as any);
         }
         return Promise.reject(new Error('Store unavailable'));
       });
 
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'task');
 
       // Should have at least the memory that succeeded
@@ -210,13 +172,11 @@ describe('JitContextRetriever', () => {
 
   describe('item scoring', () => {
     it('multiplies similarity by importance for memories', async () => {
-      supabase = mockSupabase({
-        match_memories: [
-          { content: 'High importance', importance: 1.0, similarity: 0.95 },
-          { content: 'Low importance', importance: 0.3, similarity: 0.95 },
-        ],
-      });
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+      vi.mocked(systemQuery).mockResolvedValueOnce([
+        { content: 'High importance', importance: 1.0, similarity: 0.95 },
+        { content: 'Low importance', importance: 0.3, similarity: 0.95 },
+      ] as any);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'task', 10000);
 
       if (result.relevantMemories.length >= 2) {
@@ -227,13 +187,15 @@ describe('JitContextRetriever', () => {
     });
 
     it('multiplies similarity by confidence for episodes', async () => {
-      supabase = mockSupabase({
-        match_shared_episodes: [
+      // memories query returns empty, then episodes return data
+      vi.mocked(systemQuery)
+        .mockResolvedValueOnce([] as any) // memories
+        .mockResolvedValueOnce([] as any) // graph nodes
+        .mockResolvedValueOnce([
           { summary: 'Confident', confidence: 1.0, similarity: 0.9, outcome: 'Good' },
           { summary: 'Uncertain', confidence: 0.3, similarity: 0.9, outcome: 'Maybe' },
-        ],
-      });
-      const retriever = new JitContextRetriever(supabase, embeddingClient, cache);
+        ] as any);
+      const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'task', 10000);
 
       if (result.relevantEpisodes.length >= 2) {

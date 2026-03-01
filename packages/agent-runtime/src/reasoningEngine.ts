@@ -7,7 +7,7 @@
  * and optionally seek cross-model agreement.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { ModelClient } from './modelClient.js';
 import type { RedisCache } from './redisCache.js';
 import { CACHE_KEYS, CACHE_TTL } from './redisCache.js';
@@ -85,7 +85,6 @@ function estimateVerificationCost(model: string, inputTokens: number, outputToke
 
 export class ReasoningEngine {
   constructor(
-    private supabase: SupabaseClient,
     private modelClient: ModelClient,
     private config: ReasoningConfig,
     private cache?: RedisCache,
@@ -441,7 +440,6 @@ Provide the revised output directly (no JSON wrapping, no explanation).`;
    * Load reasoning config for an agent from DB (with Redis caching).
    */
   static async loadConfig(
-    supabase: SupabaseClient,
     agentRole: string,
     cache?: RedisCache,
   ): Promise<ReasoningConfig | null> {
@@ -452,11 +450,18 @@ Provide the revised output directly (no JSON wrapping, no explanation).`;
       if (cached) return cached;
     }
 
-    const { data } = await supabase
-      .from('agent_reasoning_config')
-      .select('*')
-      .eq('agent_role', agentRole)
-      .single();
+    const [data] = await systemQuery<{
+      enabled: boolean;
+      pass_types: unknown;
+      min_confidence: number;
+      max_reasoning_budget: number;
+      cross_model_enabled: boolean;
+      value_gate_enabled: boolean;
+      verification_models: string[];
+    }>(
+      'SELECT * FROM agent_reasoning_config WHERE agent_role = $1 LIMIT 1',
+      [agentRole],
+    );
 
     if (!data) return null;
 

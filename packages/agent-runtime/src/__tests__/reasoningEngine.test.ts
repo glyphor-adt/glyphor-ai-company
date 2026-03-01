@@ -5,6 +5,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ReasoningEngine, type ReasoningConfig, type ReasoningResult } from '../reasoningEngine.js';
 
+// Mock @glyphor/shared/db so loadConfig tests work without a real DB
+vi.mock('@glyphor/shared/db', () => ({
+  systemQuery: vi.fn().mockResolvedValue([]),
+}));
+import { systemQuery } from '@glyphor/shared/db';
+
 // ─── Mock helpers ───────────────────────────────────────────────
 
 function mockModelClient(responseOverrides?: Partial<{ text: string }>) {
@@ -17,18 +23,6 @@ function mockModelClient(responseOverrides?: Partial<{ text: string }>) {
         reasoning: 'Looks good',
       }),
       usageMetadata: { inputTokens: 500, outputTokens: 100 },
-    }),
-  } as any;
-}
-
-function mockSupabase() {
-  return {
-    from: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data: null }),
-        }),
-      }),
     }),
   } as any;
 }
@@ -56,13 +50,11 @@ function defaultConfig(overrides?: Partial<ReasoningConfig>): ReasoningConfig {
 // ─── Tests ──────────────────────────────────────────────────────
 
 describe('ReasoningEngine', () => {
-  let supabase: ReturnType<typeof mockSupabase>;
   let model: ReturnType<typeof mockModelClient>;
   let cache: ReturnType<typeof mockCache>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    supabase = mockSupabase();
     model = mockModelClient();
     cache = mockCache();
   });
@@ -76,7 +68,7 @@ describe('ReasoningEngine', () => {
         alternatives: [],
       });
       model = mockModelClient({ text: valueResponse });
-      const engine = new ReasoningEngine(supabase, model, defaultConfig(), cache);
+      const engine = new ReasoningEngine(model, defaultConfig(), cache);
 
       const result = await engine.evaluateValue('cto', 'platform health check', 'System is running');
 
@@ -89,14 +81,14 @@ describe('ReasoningEngine', () => {
       model = mockModelClient({ text: JSON.stringify({
         score: 1.5, reasoning: 'Over', recommendation: 'proceed',
       })});
-      const engine = new ReasoningEngine(supabase, model, defaultConfig(), cache);
+      const engine = new ReasoningEngine(model, defaultConfig(), cache);
       const result = await engine.evaluateValue('cto', 'test', 'ctx');
       expect(result.score).toBe(1.0);
     });
 
     it('returns safe default on model error', async () => {
       model.generate = vi.fn().mockRejectedValue(new Error('API timeout'));
-      const engine = new ReasoningEngine(supabase, model, defaultConfig(), cache);
+      const engine = new ReasoningEngine(model, defaultConfig(), cache);
       const result = await engine.evaluateValue('cto', 'test', 'ctx');
       expect(result.score).toBe(0.7);
       expect(result.recommendation).toBe('proceed');
@@ -105,7 +97,7 @@ describe('ReasoningEngine', () => {
 
     it('handles invalid JSON from model gracefully', async () => {
       model = mockModelClient({ text: 'This is not JSON at all' });
-      const engine = new ReasoningEngine(supabase, model, defaultConfig(), cache);
+      const engine = new ReasoningEngine(model, defaultConfig(), cache);
       const result = await engine.evaluateValue('cfo', 'audit', 'ctx');
       expect(result.score).toBe(0.7); // fallback
       expect(result.recommendation).toBe('proceed');
@@ -114,7 +106,7 @@ describe('ReasoningEngine', () => {
 
   describe('verify', () => {
     it('runs configured pass types and returns results', async () => {
-      const engine = new ReasoningEngine(supabase, model, defaultConfig({
+      const engine = new ReasoningEngine(model, defaultConfig({
         passTypes: ['self_critique', 'goal_alignment'],
       }), cache);
 
@@ -135,7 +127,7 @@ describe('ReasoningEngine', () => {
         suggestions: ['Fix the flaw'],
         reasoning: 'Found problems',
       })});
-      const engine = new ReasoningEngine(supabase, model, defaultConfig({
+      const engine = new ReasoningEngine(model, defaultConfig({
         minConfidence: 0.7,
       }), cache);
 
@@ -167,7 +159,7 @@ describe('ReasoningEngine', () => {
         });
       });
 
-      const engine = new ReasoningEngine(supabase, model, defaultConfig(), cache);
+      const engine = new ReasoningEngine(model, defaultConfig(), cache);
       const result = await engine.verify('cto', 'task', 'bad output', 'ctx');
 
       expect(result.revised).toBe(true);
@@ -175,7 +167,7 @@ describe('ReasoningEngine', () => {
     });
 
     it('stops passes when budget is exhausted', async () => {
-      const engine = new ReasoningEngine(supabase, model, defaultConfig({
+      const engine = new ReasoningEngine(model, defaultConfig({
         passTypes: ['self_critique', 'consistency_check', 'factual_verification'],
         maxReasoningBudget: 0.00001, // extremely small budget
       }), cache);
@@ -187,7 +179,7 @@ describe('ReasoningEngine', () => {
     });
 
     it('returns 1.0 confidence when no passes are configured', async () => {
-      const engine = new ReasoningEngine(supabase, model, defaultConfig({
+      const engine = new ReasoningEngine(model, defaultConfig({
         passTypes: [],
       }), cache);
 
@@ -199,7 +191,7 @@ describe('ReasoningEngine', () => {
 
     it('handles model errors in individual passes gracefully', async () => {
       model.generate = vi.fn().mockRejectedValue(new Error('Model unavailable'));
-      const engine = new ReasoningEngine(supabase, model, defaultConfig(), cache);
+      const engine = new ReasoningEngine(model, defaultConfig(), cache);
 
       const result = await engine.verify('cto', 'task', 'output', 'ctx');
       expect(result.passes).toHaveLength(1);
@@ -210,7 +202,7 @@ describe('ReasoningEngine', () => {
 
   describe('cross-model consensus', () => {
     it('runs verification on multiple models when enabled', async () => {
-      const engine = new ReasoningEngine(supabase, model, defaultConfig({
+      const engine = new ReasoningEngine(model, defaultConfig({
         passTypes: ['cross_model'],
         crossModelEnabled: true,
         verificationModels: ['model-a', 'model-b'],
@@ -223,7 +215,7 @@ describe('ReasoningEngine', () => {
     });
 
     it('caps cross-model at 3 models', async () => {
-      const engine = new ReasoningEngine(supabase, model, defaultConfig({
+      const engine = new ReasoningEngine(model, defaultConfig({
         passTypes: ['cross_model'],
         crossModelEnabled: true,
         verificationModels: ['m1', 'm2', 'm3', 'm4', 'm5'],
@@ -245,17 +237,9 @@ describe('ReasoningEngine', () => {
         value_gate_enabled: false,
         verification_models: ['gpt-5.2-2025-12-11'],
       };
-      const sb = {
-        from: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({ data: dbRow }),
-            }),
-          }),
-        }),
-      } as any;
+      vi.mocked(systemQuery).mockResolvedValueOnce([dbRow] as any);
 
-      const config = await ReasoningEngine.loadConfig(sb, 'cto', cache);
+      const config = await ReasoningEngine.loadConfig('cto', cache);
       expect(config).not.toBeNull();
       expect(config!.enabled).toBe(true);
       expect(config!.passTypes).toEqual(['self_critique', 'goal_alignment']);
@@ -265,7 +249,8 @@ describe('ReasoningEngine', () => {
     });
 
     it('returns null when no config exists', async () => {
-      const config = await ReasoningEngine.loadConfig(supabase, 'unknown-agent', cache);
+      vi.mocked(systemQuery).mockResolvedValueOnce([] as any);
+      const config = await ReasoningEngine.loadConfig('unknown-agent', cache);
       expect(config).toBeNull();
     });
 
@@ -281,33 +266,23 @@ describe('ReasoningEngine', () => {
       };
       cache.get = vi.fn().mockResolvedValue(cachedConfig);
 
-      const config = await ReasoningEngine.loadConfig(supabase, 'cto', cache);
+      const config = await ReasoningEngine.loadConfig('cto', cache);
       expect(config).toEqual(cachedConfig);
-      expect(supabase.from).not.toHaveBeenCalled();
+      expect(systemQuery).not.toHaveBeenCalled();
     });
 
     it('caches DB result in Redis', async () => {
-      const sb = {
-        from: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({
-                data: {
-                  enabled: true,
-                  pass_types: [],
-                  min_confidence: 0.5,
-                  max_reasoning_budget: 0.01,
-                  cross_model_enabled: false,
-                  value_gate_enabled: false,
-                  verification_models: [],
-                },
-              }),
-            }),
-          }),
-        }),
-      } as any;
+      vi.mocked(systemQuery).mockResolvedValueOnce([{
+        enabled: true,
+        pass_types: [],
+        min_confidence: 0.5,
+        max_reasoning_budget: 0.01,
+        cross_model_enabled: false,
+        value_gate_enabled: false,
+        verification_models: [],
+      }] as any);
 
-      await ReasoningEngine.loadConfig(sb, 'cto', cache);
+      await ReasoningEngine.loadConfig('cto', cache);
       expect(cache.set).toHaveBeenCalledWith(
         'reasoning-config:cto',
         expect.objectContaining({ enabled: true }),

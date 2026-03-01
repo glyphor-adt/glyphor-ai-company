@@ -39,8 +39,6 @@ export interface VPResearchRunParams {
 
 export async function runVPResearch(params: VPResearchRunParams = {}) {
   const memory = new CompanyMemoryStore({
-    supabaseUrl: process.env.SUPABASE_URL!,
-    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company',
     gcpProjectId: process.env.GCP_PROJECT_ID,
   });
@@ -51,13 +49,12 @@ export async function runVPResearch(params: VPResearchRunParams = {}) {
   });
   const runner = createRunner(modelClient, 'vp-research', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
-  const supabase = memory.getSupabaseClient();
 
   const tools = [
-    ...createVPResearchTools(supabase),
+    ...createVPResearchTools(),
     ...createMemoryTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
   ];
@@ -133,7 +130,7 @@ Return structured JSON with keys: findings (object), analystBriefs (array of { a
     initialMessage = params.message || 'Run a research status check.';
   }
 
-  const agentCfg = await loadAgentConfig(supabase, 'vp-research', {
+  const agentCfg = await loadAgentConfig('vp-research', {
     model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns,
   });
 
@@ -161,7 +158,7 @@ Return structured JSON with keys: findings (object), analystBriefs (array of { a
   const result = await runner.run(
     config, initialMessage, supervisor, toolExecutor,
     (event) => eventBus.emit(event), memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
   try { await memory.recordAgentRun('vp-research', 0, 0.10); } catch {}
   console.log(`[Sophia] ${result.status} (${result.totalTurns} turns)`);

@@ -39,8 +39,6 @@ export interface CTORunParams {
 
 export async function runCTO(params: CTORunParams = {}) {
   const memory = new CompanyMemoryStore({
-    supabaseUrl: process.env.SUPABASE_URL!,
-    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company',
     gcpProjectId: process.env.GCP_PROJECT_ID,
   });
@@ -52,7 +50,7 @@ export async function runCTO(params: CTORunParams = {}) {
   });
   const runner = createRunner(modelClient, 'cto', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -60,14 +58,14 @@ export async function runCTO(params: CTORunParams = {}) {
     ...createMemoryTools(memory),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createSharePointTools(memory.getSupabaseClient()),
-    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createSharePointTools(),
+    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
-    ...createAgentCreationTools(memory.getSupabaseClient()),
-    ...createToolGrantTools(memory.getSupabaseClient(), 'cto'),
-    ...createToolRegistryTools(memory.getSupabaseClient()),
-    ...createToolRequestTools(memory.getSupabaseClient()),
-    ...createAgentDirectoryTools(memory.getSupabaseClient()),
+    ...createAgentCreationTools(),
+    ...createToolGrantTools('cto'),
+    ...createToolRegistryTools(),
+    ...createToolRequestTools(),
+    ...createAgentDirectoryTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -111,9 +109,7 @@ Steps:
     default:
       initialMessage = params.message || 'Provide a technical status summary of the platform.';
   }
-
-  const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'cto', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 }, task);
+  const agentCfg = await loadAgentConfig('cto', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 }, task);
 
   const config: AgentConfig = {
     id: `cto-${task}-${today}`,
@@ -145,7 +141,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;

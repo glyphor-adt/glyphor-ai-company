@@ -27,8 +27,6 @@ export interface MarketResearchAnalystRunParams {
 
 export async function runMarketResearchAnalyst(params: MarketResearchAnalystRunParams = {}) {
   const memory = new CompanyMemoryStore({
-    supabaseUrl: process.env.SUPABASE_URL!,
-    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company',
     gcpProjectId: process.env.GCP_PROJECT_ID,
   });
@@ -39,13 +37,12 @@ export async function runMarketResearchAnalyst(params: MarketResearchAnalystRunP
   });
   const runner = createRunner(modelClient, 'market-research-analyst', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
-  const supabase = memory.getSupabaseClient();
 
   const tools = [
-    ...createMarketResearchAnalystTools(supabase),
+    ...createMarketResearchAnalystTools(),
     ...createMemoryTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
   ];
@@ -65,7 +62,7 @@ export async function runMarketResearchAnalyst(params: MarketResearchAnalystRunP
     initialMessage = params.message || 'Run a market data research scan.';
   }
 
-  const agentCfg = await loadAgentConfig(supabase, 'market-research-analyst', {
+  const agentCfg = await loadAgentConfig('market-research-analyst', {
     model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns,
   });
 
@@ -93,7 +90,7 @@ export async function runMarketResearchAnalyst(params: MarketResearchAnalystRunP
   const result = await runner.run(
     config, initialMessage, supervisor, toolExecutor,
     (event) => eventBus.emit(event), memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
   try { await memory.recordAgentRun('market-research-analyst', 0, 0.08); } catch {}
   console.log(`[Daniel-MRA] ${result.status} (${result.totalTurns} turns)`);

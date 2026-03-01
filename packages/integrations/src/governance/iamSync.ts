@@ -8,7 +8,7 @@
  * Designed to run as a scheduled task (daily) via the agent scheduler.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 
 interface ServiceAccountMapping {
   email: string;
@@ -42,7 +42,6 @@ interface IAMPolicy {
  * Sync GCP IAM state: fetch actual roles from GCP and compare with desired.
  */
 export async function syncGCPIAMState(
-  supabase: SupabaseClient,
   projectId = 'ai-glyphor-company',
 ): Promise<{ synced: number; drifts: number }> {
   let actualPolicy: IAMPolicy | null = null;
@@ -84,29 +83,32 @@ export async function syncGCPIAMState(
       : null;
 
     // Get desired state from DB
-    const { data: existing } = await supabase
-      .from('platform_iam_state')
-      .select('desired_permissions')
-      .eq('credential_id', sa.email)
-      .single();
+    const existingRows = await systemQuery<{ desired_permissions: unknown }>(
+      'SELECT desired_permissions FROM platform_iam_state WHERE credential_id = $1 LIMIT 1',
+      [sa.email],
+    );
 
-    if (!existing) continue;
+    if (existingRows.length === 0) continue;
+    const existing = existingRows[0];
 
     if (actualRoles) {
       const desiredRoles = ((existing.desired_permissions as { roles?: string[] })?.roles ?? []).sort();
       const inSync = arraysEqual(actualRoles, desiredRoles);
 
-      await supabase.from('platform_iam_state').upsert(
-        {
-          platform: 'gcp',
-          credential_id: sa.email,
-          agent_role: sa.agentRole,
-          permissions: { roles: actualRoles },
-          in_sync: inSync,
-          drift_details: inSync ? null : `Expected: [${desiredRoles.join(', ')}], Actual: [${actualRoles.join(', ')}]`,
-          last_synced: new Date().toISOString(),
-        },
-        { onConflict: 'platform,credential_id' },
+      await systemQuery(
+        `INSERT INTO platform_iam_state (platform, credential_id, agent_role, permissions, in_sync, drift_details, last_synced)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (platform, credential_id) DO UPDATE SET
+           agent_role = $3, permissions = $4, in_sync = $5, drift_details = $6, last_synced = $7`,
+        [
+          'gcp',
+          sa.email,
+          sa.agentRole,
+          JSON.stringify({ roles: actualRoles }),
+          inSync,
+          inSync ? null : `Expected: [${desiredRoles.join(', ')}], Actual: [${actualRoles.join(', ')}]`,
+          new Date().toISOString(),
+        ],
       );
 
       if (inSync) synced++;
@@ -122,12 +124,13 @@ export async function syncGCPIAMState(
 /**
  * Update secret rotation status based on expiry dates.
  */
-export async function syncSecretRotationStatus(supabase: SupabaseClient): Promise<void> {
-  const { data: secrets } = await supabase
-    .from('platform_secret_rotation')
-    .select('*');
+export async function syncSecretRotationStatus(): Promise<void> {
+  const secrets = await systemQuery<{ id: string; expires_at: string | null; status: string }>(
+    'SELECT id, expires_at, status FROM platform_secret_rotation',
+    [],
+  );
 
-  if (!secrets) return;
+  if (!secrets || secrets.length === 0) return;
 
   const now = Date.now();
   for (const secret of secrets) {
@@ -142,10 +145,10 @@ export async function syncSecretRotationStatus(supabase: SupabaseClient): Promis
     else newStatus = 'active';
 
     if (newStatus !== secret.status) {
-      await supabase
-        .from('platform_secret_rotation')
-        .update({ status: newStatus })
-        .eq('id', secret.id);
+      await systemQuery(
+        'UPDATE platform_secret_rotation SET status = $1 WHERE id = $2',
+        [newStatus, secret.id],
+      );
     }
   }
 }
@@ -153,11 +156,11 @@ export async function syncSecretRotationStatus(supabase: SupabaseClient): Promis
 /**
  * Run the full IAM sync: GCP + secret rotation checks.
  */
-export async function runGovernanceSync(supabase: SupabaseClient): Promise<{
+export async function runGovernanceSync(): Promise<{
   gcp: { synced: number; drifts: number };
 }> {
-  const gcp = await syncGCPIAMState(supabase);
-  await syncSecretRotationStatus(supabase);
+  const gcp = await syncGCPIAMState();
+  await syncSecretRotationStatus();
   return { gcp };
 }
 

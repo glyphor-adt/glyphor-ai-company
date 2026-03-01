@@ -16,7 +16,7 @@
  * ROI Analysis, Risk Assessment — each backed by cited, cross-verified evidence.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { ModelClient } from '@glyphor/agent-runtime';
 import { searchWeb, searchNews, batchSearch, searchResultsToContext } from '@glyphor/integrations';
 import type { FrameworkId, WatchlistItem } from './frameworkTypes.js';
@@ -24,35 +24,41 @@ import { FRAMEWORK_CONFIGS, buildFrameworkPrompt, buildConvergencePrompt } from 
 
 /* ── Cross-model verification config ──────── */
 
-const VERIFICATION_MODELS = ['gemini-3-flash-preview', 'gpt-4.1-mini'] as const;
+const VERIFICATION_MODELS = ['gemini-3-pro-preview', 'gpt-5-mini', 'claude-sonnet-4-20250514'] as const;
 const VERIFICATION_CONFIDENCE_THRESHOLD = 0.7;
 
 /**
  * Multi-agent research model assignments — each research area gets a different
- * primary model to ensure diverse perspectives and reduce single-model bias.
- * A second model challenges each area's findings.
+ * primary model across 3 providers (Gemini, OpenAI, Anthropic) to ensure diverse
+ * perspectives and reduce single-model bias. Two challenger models then critique
+ * each area's findings.
  */
 const RESEARCH_MODELS: Record<string, string> = {
-  overview:            'gemini-3-flash-preview',
-  financials:          'gpt-4.1-mini',
-  technology:          'gemini-3-flash-preview',
-  market:              'gpt-4.1-mini',
-  competitive:         'gemini-3-flash-preview',
-  leadership:          'gpt-4.1-mini',
-  customers:           'gemini-3-flash-preview',
-  risks:               'gpt-4.1-mini',
-  company_profile:     'gemini-3-flash-preview',
-  strategic_direction: 'gpt-4.1-mini',
-  segment_analysis:    'gemini-3-flash-preview',
-  ma_activity:         'gpt-4.1-mini',
-  ai_impact:           'gemini-3-flash-preview',
-  talent_assessment:   'gpt-4.1-mini',
-  regulatory_landscape:'gemini-3-flash-preview',
+  overview:            'gemini-3-pro-preview',
+  financials:          'gpt-5-mini',
+  technology:          'claude-sonnet-4-20250514',
+  market:              'gemini-3-pro-preview',
+  competitive:         'gpt-5-mini',
+  leadership:          'claude-sonnet-4-20250514',
+  customers:           'gemini-3-pro-preview',
+  risks:               'gpt-5-mini',
+  company_profile:     'claude-sonnet-4-20250514',
+  strategic_direction: 'gemini-3-pro-preview',
+  segment_analysis:    'gpt-5-mini',
+  ma_activity:         'claude-sonnet-4-20250514',
+  ai_impact:           'gemini-3-pro-preview',
+  talent_assessment:   'gpt-5-mini',
+  regulatory_landscape:'claude-sonnet-4-20250514',
 };
 
-/** The challenger model critiques work done by the primary */
+/** The challenger models that critique work done by the primary (returns both) */
+function getChallengerModels(primary: string): string[] {
+  return VERIFICATION_MODELS.filter(m => m !== primary);
+}
+
+/** Legacy single-challenger for gap-fill re-analysis */
 function getChallengerModel(primary: string): string {
-  return primary === 'gemini-3-flash-preview' ? 'gpt-4.1-mini' : 'gemini-3-flash-preview';
+  return getChallengerModels(primary)[0];
 }
 
 /* ── Types ──────────────────────────────────── */
@@ -460,7 +466,6 @@ function buildResearchAreas(target: string): ResearchArea[] {
 
 export class DeepDiveEngine {
   constructor(
-    private supabase: SupabaseClient,
     private modelClient: ModelClient,
     private model = 'gemini-3-flash-preview',
   ) {}
@@ -484,44 +489,30 @@ export class DeepDiveEngine {
       error: null,
     };
 
-    await this.supabase.from('deep_dives').insert(record);
+    await systemQuery('INSERT INTO deep_dives (id, target, context, status, requested_by, research_areas, sources, report, created_at, completed_at, error) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)', [record.id, record.target, record.context, record.status, record.requested_by, JSON.stringify(record.research_areas), JSON.stringify(record.sources), null, record.created_at, null, null]);
 
     // Run all phases — caller must await `completion` to keep the
     // Cloud Run instance alive for the duration of the research.
     const completion = this.runPhases(id, req, researchAreas).catch((err) => {
       console.error(`[DeepDiveEngine] Fatal error in ${id}:`, err);
-      this.supabase.from('deep_dives').update({
-        status: 'failed',
-        error: err instanceof Error ? err.message : String(err),
-      }).eq('id', id);
+      systemQuery('UPDATE deep_dives SET status=$1, error=$2 WHERE id=$3', ['failed', err instanceof Error ? err.message : String(err), id]);
     });
 
     return { id, completion };
   }
 
   async get(id: string): Promise<DeepDiveRecord | null> {
-    const { data } = await this.supabase
-      .from('deep_dives')
-      .select('*')
-      .eq('id', id)
-      .single();
-    return data as DeepDiveRecord | null;
+    const [row] = await systemQuery<DeepDiveRecord>('SELECT * FROM deep_dives WHERE id = $1', [id]);
+    return row ?? null;
   }
 
   async list(limit = 20): Promise<DeepDiveRecord[]> {
-    const { data } = await this.supabase
-      .from('deep_dives')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    return (data as DeepDiveRecord[]) ?? [];
+    const rows = await systemQuery<DeepDiveRecord>('SELECT * FROM deep_dives ORDER BY created_at DESC LIMIT $1', [limit]);
+    return rows;
   }
 
   async cancel(id: string): Promise<void> {
-    await this.supabase.from('deep_dives').update({
-      status: 'failed',
-      error: 'Cancelled by user.',
-    }).eq('id', id);
+    await systemQuery('UPDATE deep_dives SET status=$1, error=$2 WHERE id=$3', ['failed', 'Cancelled by user.', id]);
   }
 
   /* ── Phase Runner ───────────────────────── */
@@ -638,8 +629,8 @@ export class DeepDiveEngine {
 
     await this.updateAreas(id, areas);
 
-    // ── Phase 2b: CHALLENGE — second model critiques each area (multi-agent) ──
-    const challengeResults = new Map<string, string>();
+    // ── Phase 2b: CHALLENGE — two challenger models critique each area (tri-model) ──
+    const challengeResults = new Map<string, string[]>();
 
     const completedAreas = areas.filter((a) => a.status === 'completed' && a.analysis);
 
@@ -648,42 +639,52 @@ export class DeepDiveEngine {
         const primary = areaAnalyses.get(area.id);
         if (!primary) return;
 
-        const challengerModel = getChallengerModel(primary.model);
+        const challengers = getChallengerModels(primary.model);
+        const challenges: string[] = [];
 
-        const challengePrompt = [
-          `A colleague produced the following research analysis on "${req.target}" (${area.label}).`,
-          `Your job is to critically evaluate it: identify gaps, unsupported claims, missing data,`,
-          `alternative interpretations, and areas that need deeper investigation.`,
-          ``,
-          `== ANALYSIS TO CHALLENGE ==`,
-          primary.analysis,
-          ``,
-          `Respond with:`,
-          `1. STRENGTHS: What's well-supported and accurate`,
-          `2. GAPS: What important data or perspectives are missing`,
-          `3. CHALLENGES: Claims that may be wrong or oversimplified`,
-          `4. ADDITIONAL INSIGHTS: What the analyst missed or should have included`,
-          `5. REVISED CONCLUSIONS: Your refined view incorporating all of the above`,
-          ``,
-          `Be rigorous. Challenge assumptions. Provide alternative data interpretations.`,
-        ].join('\n');
+        await Promise.allSettled(
+          challengers.map(async (challengerModel) => {
+            const challengePrompt = [
+              `A colleague produced the following research analysis on "${req.target}" (${area.label}).`,
+              `Your job is to critically evaluate it: identify gaps, unsupported claims, missing data,`,
+              `alternative interpretations, and areas that need deeper investigation.`,
+              ``,
+              `== ANALYSIS TO CHALLENGE ==`,
+              primary.analysis,
+              ``,
+              `Respond with:`,
+              `1. STRENGTHS: What's well-supported and accurate`,
+              `2. GAPS: What important data or perspectives are missing`,
+              `3. CHALLENGES: Claims that may be wrong or oversimplified`,
+              `4. ADDITIONAL INSIGHTS: What the analyst missed or should have included`,
+              `5. REVISED CONCLUSIONS: Your refined view incorporating all of the above`,
+              ``,
+              `Be rigorous. Challenge assumptions. Provide alternative data interpretations.`,
+            ].join('\n');
 
-        const response = await this.modelClient.generate({
-          model: challengerModel,
-          systemInstruction: 'You are a devil\'s advocate analyst. Rigorously challenge research findings. Identify what\'s missing, wrong, or oversimplified.',
-          contents: [{ role: 'user', content: challengePrompt, timestamp: Date.now() }],
-          temperature: 0.3,
-        });
+            const response = await this.modelClient.generate({
+              model: challengerModel,
+              systemInstruction: 'You are a devil\'s advocate analyst. Rigorously challenge research findings. Identify what\'s missing, wrong, or oversimplified.',
+              contents: [{ role: 'user', content: challengePrompt, timestamp: Date.now() }],
+              temperature: 0.3,
+            });
 
-        challengeResults.set(area.id, response.text ?? '');
+            if (response.text) {
+              challenges.push(`[${challengerModel}]\n${response.text}`);
+            }
+          }),
+        );
+
+        challengeResults.set(area.id, challenges);
       }),
     );
 
     // Merge challenge insights back into area analyses
     for (const area of completedAreas) {
-      const challenge = challengeResults.get(area.id);
-      if (challenge) {
-        area.analysis = `${area.analysis}\n\n--- CROSS-MODEL CHALLENGE (${getChallengerModel(areaAnalyses.get(area.id)?.model ?? this.model)}) ---\n${challenge}`;
+      const challenges = challengeResults.get(area.id);
+      if (challenges?.length) {
+        const challengeSection = challenges.map(c => `--- CROSS-MODEL CHALLENGE ---\n${c}`).join('\n\n');
+        area.analysis = `${area.analysis}\n\n${challengeSection}`;
       }
     }
 
@@ -698,14 +699,11 @@ export class DeepDiveEngine {
       return true;
     });
 
-    await this.supabase.from('deep_dives').update({ sources: dedupedSources }).eq('id', id);
+    await systemQuery('UPDATE deep_dives SET sources=$1 WHERE id=$2', [JSON.stringify(dedupedSources), id]);
 
     // Check that at least some areas completed
     if (completedAreas.length === 0) {
-      await this.supabase.from('deep_dives').update({
-        status: 'failed',
-        error: 'All research areas failed. Check API keys and search availability.',
-      }).eq('id', id);
+      await systemQuery('UPDATE deep_dives SET status=$1, error=$2 WHERE id=$3', ['failed', 'All research areas failed. Check API keys and search availability.', id]);
       return;
     }
 
@@ -778,7 +776,7 @@ export class DeepDiveEngine {
       });
       dedupedSources.length = 0;
       dedupedSources.push(...rededupedSources);
-      await this.supabase.from('deep_dives').update({ sources: dedupedSources, research_areas: areas }).eq('id', id);
+      await systemQuery('UPDATE deep_dives SET sources=$1, research_areas=$2 WHERE id=$3', [JSON.stringify(dedupedSources), JSON.stringify(areas), id]);
     }
 
     // ── Phase 3.5: FRAMEWORK ANALYSIS — apply 6 strategic frameworks ──
@@ -792,20 +790,9 @@ export class DeepDiveEngine {
     // ── Post-Synthesis: Extract monitoring watchlist ──
     await this.extractAndStoreWatchlist(id, report, frameworkOutputs, areas);
 
-    await this.supabase.from('deep_dives').update({
-      status: 'completed',
-      report,
-      sources: dedupedSources,
-      research_areas: areas,
-      completed_at: new Date().toISOString(),
-    }).eq('id', id);
+    await systemQuery('UPDATE deep_dives SET status=$1, report=$2, sources=$3, research_areas=$4, completed_at=$5 WHERE id=$6', ['completed', JSON.stringify(report), JSON.stringify(dedupedSources), JSON.stringify(areas), new Date().toISOString(), id]);
 
-    await this.supabase.from('activity_log').insert({
-      agent_id: 'system',
-      action: 'deep_dive.completed',
-      detail: `Strategic deep dive completed for "${req.target}": ${completedAreas.length}/${areas.length} areas researched, ${dedupedSources.length} sources analyzed, cross-model verified with challenge rounds`,
-      created_at: new Date().toISOString(),
-    });
+    await systemQuery('INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4)', ['system', 'deep_dive.completed', `Strategic deep dive completed for "${req.target}": ${completedAreas.length}/${areas.length} areas researched, ${dedupedSources.length} sources analyzed, cross-model verified with challenge rounds`, new Date().toISOString()]);
   }
 
   /* ── Framework Analysis (Phase 3.5) ────────── */
@@ -848,12 +835,7 @@ export class DeepDiveEngine {
           const parsed = JSON.parse(jsonMatch[0]);
 
           // Store in relational table
-          await this.supabase.from('deep_dive_frameworks').insert({
-            deep_dive_id: id,
-            framework: frameworkId,
-            analysis: parsed,
-            confidence_score: parsed.confidence ?? null,
-          });
+          await systemQuery('INSERT INTO deep_dive_frameworks (deep_dive_id, framework, analysis, confidence_score) VALUES ($1,$2,$3,$4)', [id, frameworkId, JSON.stringify(parsed), parsed.confidence ?? null]);
 
           return { frameworkId, analysis: parsed };
         }
@@ -868,9 +850,7 @@ export class DeepDiveEngine {
     }
 
     // Store aggregated outputs on the deep_dives record
-    await this.supabase.from('deep_dives').update({
-      framework_outputs: frameworkOutputs,
-    }).eq('id', id);
+    await systemQuery('UPDATE deep_dives SET framework_outputs=$1 WHERE id=$2', [JSON.stringify(frameworkOutputs), id]);
 
     // Generate convergence narrative (with consistency check)
     let convergenceNarrative: string | null = null;
@@ -894,9 +874,7 @@ export class DeepDiveEngine {
         convergenceNarrative = parsed.narrative ?? JSON.stringify(parsed);
       }
 
-      await this.supabase.from('deep_dives').update({
-        framework_convergence: convergenceNarrative,
-      }).eq('id', id);
+      await systemQuery('UPDATE deep_dives SET framework_convergence=$1 WHERE id=$2', [convergenceNarrative, id]);
     }
 
     return { frameworkOutputs, convergenceNarrative };
@@ -910,45 +888,66 @@ export class DeepDiveEngine {
   ): Promise<Map<string, { confidence: number; issues: string[]; corrections: string[] }>> {
     const results = new Map<string, { confidence: number; issues: string[]; corrections: string[] }>();
 
-    // Use a different model than the primary to verify each area's analysis
-    const verifyModel = VERIFICATION_MODELS.find(m => m !== this.model) ?? VERIFICATION_MODELS[0];
-
+    // Each area is verified by all models that weren't the primary author
     const verifications = await Promise.allSettled(
       completedAreas.map(async (area) => {
-        const verifyPrompt = [
-          `You are an independent verification analyst. A colleague produced the following research analysis on "${req.target}" (${area.label}).`,
-          `Your job is to identify factual errors, unsupported claims, logical gaps, and biases.`,
-          ``,
-          `== ANALYSIS TO VERIFY ==`,
-          area.analysis ?? '',
-          ``,
-          `Respond ONLY with valid JSON (no markdown fences):`,
-          `{`,
-          `  "confidence": <0.0-1.0 overall quality score>,`,
-          `  "issues": ["<factual error or unsupported claim>", ...],`,
-          `  "corrections": ["<suggested correction or nuance>", ...]`,
-          `}`,
-        ].join('\n');
+        const primaryModel = RESEARCH_MODELS[area.id] ?? this.model;
+        const verifyModels = VERIFICATION_MODELS.filter(m => m !== primaryModel);
+        // If all models are different from primary, use all; otherwise fall back to all
+        const modelsToUse = verifyModels.length > 0 ? verifyModels : [...VERIFICATION_MODELS];
 
-        const response = await this.modelClient.generate({
-          model: verifyModel,
-          systemInstruction: 'You are a JSON-only verification engine. Evaluate research quality rigorously. Always respond with valid JSON.',
-          contents: [{ role: 'user', content: verifyPrompt, timestamp: Date.now() }],
-          temperature: 0.1,
-        });
+        const modelResults = await Promise.allSettled(
+          modelsToUse.map(async (verifyModel) => {
+            const verifyPrompt = [
+              `You are an independent verification analyst. A colleague produced the following research analysis on "${req.target}" (${area.label}).`,
+              `Your job is to identify factual errors, unsupported claims, logical gaps, and biases.`,
+              ``,
+              `== ANALYSIS TO VERIFY ==`,
+              area.analysis ?? '',
+              ``,
+              `Respond ONLY with valid JSON (no markdown fences):`,
+              `{`,
+              `  "confidence": <0.0-1.0 overall quality score>,`,
+              `  "issues": ["<factual error or unsupported claim>", ...],`,
+              `  "corrections": ["<suggested correction or nuance>", ...]`,
+              `}`,
+            ].join('\n');
 
-        const output = response.text ?? '';
-        const jsonMatch = output.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          return {
-            areaId: area.id,
-            confidence: Math.max(0, Math.min(1, parsed.confidence ?? 0.5)),
-            issues: parsed.issues ?? [],
-            corrections: parsed.corrections ?? [],
-          };
-        }
-        return { areaId: area.id, confidence: 0.5, issues: ['Failed to parse verification'], corrections: [] };
+            const response = await this.modelClient.generate({
+              model: verifyModel,
+              systemInstruction: 'You are a JSON-only verification engine. Evaluate research quality rigorously. Always respond with valid JSON.',
+              contents: [{ role: 'user', content: verifyPrompt, timestamp: Date.now() }],
+              temperature: 0.1,
+            });
+
+            const output = response.text ?? '';
+            const jsonMatch = output.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              const parsed = JSON.parse(jsonMatch[0]);
+              return {
+                confidence: Math.max(0, Math.min(1, parsed.confidence ?? 0.5)),
+                issues: parsed.issues ?? [] as string[],
+                corrections: parsed.corrections ?? [] as string[],
+              };
+            }
+            return { confidence: 0.5, issues: ['Failed to parse verification'] as string[], corrections: [] as string[] };
+          }),
+        );
+
+        // Average confidence across verifier models, union issues and corrections
+        const fulfilled = modelResults.filter(r => r.status === 'fulfilled').map(r => (r as PromiseFulfilledResult<{ confidence: number; issues: string[]; corrections: string[] }>).value);
+        const avgConfidence = fulfilled.length > 0
+          ? fulfilled.reduce((sum, r) => sum + r.confidence, 0) / fulfilled.length
+          : 0.5;
+        const allIssues = [...new Set(fulfilled.flatMap(r => r.issues))];
+        const allCorrections = [...new Set(fulfilled.flatMap(r => r.corrections))];
+
+        return {
+          areaId: area.id,
+          confidence: avgConfidence,
+          issues: allIssues,
+          corrections: allCorrections,
+        };
       }),
     );
 
@@ -1208,11 +1207,11 @@ export class DeepDiveEngine {
   /* ── Helpers ────────────────────────────── */
 
   private async updateStatus(id: string, status: DeepDiveStatus): Promise<void> {
-    await this.supabase.from('deep_dives').update({ status }).eq('id', id);
+    await systemQuery('UPDATE deep_dives SET status=$1 WHERE id=$2', [status, id]);
   }
 
   private async updateAreas(id: string, areas: ResearchArea[]): Promise<void> {
-    await this.supabase.from('deep_dives').update({ research_areas: areas }).eq('id', id);
+    await systemQuery('UPDATE deep_dives SET research_areas=$1 WHERE id=$2', [JSON.stringify(areas), id]);
   }
 
   /* ── Framework Consistency Check ─────────── */
@@ -1315,17 +1314,9 @@ Extract 5-15 items. Focus on actionable, monitorable items — not vague concern
       }));
 
       if (items.length > 0) {
-        await this.supabase.from('deep_dive_watchlist').insert(
-          items.map((item) => ({
-            deep_dive_id: id,
-            item: item.item,
-            category: item.category,
-            trigger_signals: item.trigger_signals,
-            current_status: item.current_status,
-            priority: item.priority,
-            created_at: new Date().toISOString(),
-          })),
-        );
+        for (const item of items) {
+          await systemQuery('INSERT INTO deep_dive_watchlist (deep_dive_id, item, category, trigger_signals, current_status, priority, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, item.item, item.category, JSON.stringify(item.trigger_signals), item.current_status, item.priority, new Date().toISOString()]);
+        }
       }
 
       return items;

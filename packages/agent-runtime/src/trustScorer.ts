@@ -5,7 +5,7 @@
  * Degrading agents get auto-demoted. Agents see their own trust score in context.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { RedisCache } from './redisCache.js';
 import type { DecisionTier } from './types.js';
 
@@ -62,7 +62,6 @@ const DELTA_WEIGHTS: Record<TrustDeltaSource, number> = {
 
 export class TrustScorer {
   constructor(
-    private supabase: SupabaseClient,
     private cache: RedisCache | null,
   ) {}
 
@@ -77,13 +76,19 @@ export class TrustScorer {
       if (cached) return cached;
     }
 
-    const { data, error } = await this.supabase
-      .from('agent_trust_scores')
-      .select('*')
-      .eq('agent_role', agentRole)
-      .single();
+    const [data] = await systemQuery<{
+      agent_role: string;
+      trust_score: number;
+      domain_scores: Record<string, number> | null;
+      total_runs: number;
+      suspended: boolean;
+      auto_promotion_eligible: boolean;
+    }>(
+      'SELECT * FROM agent_trust_scores WHERE agent_role = $1 LIMIT 1',
+      [agentRole],
+    );
 
-    if (error || !data) {
+    if (!data) {
       const defaultTrust: TrustScore = {
         agentRole,
         trustScore: 0.5,
@@ -93,11 +98,10 @@ export class TrustScorer {
         autoPromotionEligible: false,
       };
 
-      await this.supabase.from('agent_trust_scores').insert({
-        agent_role: agentRole,
-        trust_score: 0.5,
-        domain_scores: {},
-      });
+      await systemQuery(
+        'INSERT INTO agent_trust_scores (agent_role, trust_score, domain_scores) VALUES ($1, $2, $3)',
+        [agentRole, 0.5, JSON.stringify({})],
+      );
 
       return defaultTrust;
     }
@@ -146,16 +150,10 @@ export class TrustScorer {
     const suspended = newScore < SUSPENSION_THRESHOLD;
     const autoPromotionEligible = newScore >= PROMOTION_THRESHOLD && current.totalRuns >= 20;
 
-    await this.supabase.rpc('update_trust_score', {
-      p_agent_role: agentRole,
-      p_new_score: newScore,
-      p_domain_scores: newDomainScores,
-      p_history_entry: historyEntry,
-      p_max_history: MAX_HISTORY_ENTRIES,
-      p_suspended: suspended,
-      p_auto_promotion: autoPromotionEligible,
-      p_increment_runs: delta.source === 'reasoning_confidence',
-    });
+    await systemQuery(
+      'SELECT * FROM update_trust_score($1, $2, $3, $4, $5, $6, $7, $8)',
+      [agentRole, newScore, JSON.stringify(newDomainScores), JSON.stringify(historyEntry), MAX_HISTORY_ENTRIES, suspended, autoPromotionEligible, delta.source === 'reasoning_confidence'],
+    );
 
     if (this.cache) {
       await this.cache.del(`trust:${agentRole}`);

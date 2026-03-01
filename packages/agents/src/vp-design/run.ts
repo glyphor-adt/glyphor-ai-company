@@ -38,8 +38,6 @@ export interface VPDesignRunParams {
 
 export async function runVPDesign(params: VPDesignRunParams = {}) {
   const memory = new CompanyMemoryStore({
-    supabaseUrl: process.env.SUPABASE_URL!,
-    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company',
     gcpProjectId: process.env.GCP_PROJECT_ID,
   });
@@ -51,7 +49,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
   });
   const runner = createRunner(modelClient, 'vp-design', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -60,11 +58,11 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
     ...createCollectiveIntelligenceTools(memory),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
-    ...createAgentCreationTools(memory.getSupabaseClient()),
-    ...createToolRequestTools(memory.getSupabaseClient()),
-    ...createAgentDirectoryTools(memory.getSupabaseClient()),
+    ...createAgentCreationTools(),
+    ...createToolRequestTools(),
+    ...createAgentDirectoryTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -112,9 +110,7 @@ Steps:
     default:
       initialMessage = params.message || 'Provide a design quality and system status summary.';
   }
-
-  const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'vp-design', { model: 'gemini-3-flash-preview', temperature: 0.4, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('vp-design', { model: 'gemini-3-flash-preview', temperature: 0.4, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `vp-design-${task}-${today}`,
@@ -146,7 +142,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;

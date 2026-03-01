@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { supabase, SCHEDULER_URL } from '../lib/supabase';
+import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import {
   DISPLAY_NAME_MAP,
   AGENT_META,
@@ -70,9 +70,9 @@ export default function AgentSettings() {
     (async () => {
       setLoading(true);
       // Try matching by role first (human-readable slug), then by UUID id
-      let { data } = await supabase.from('company_agents').select('*').eq('role', agentId).single();
+      let data = await apiCall<AgentRow>(`/api/company-agents?role=${agentId}`).catch(() => null);
       if (!data) {
-        ({ data } = await supabase.from('company_agents').select('*').eq('id', agentId).single());
+        data = await apiCall<AgentRow>(`/api/company-agents?id=${agentId}`).catch(() => null);
       }
       if (data) {
         const a = data as unknown as AgentRow;
@@ -96,11 +96,7 @@ export default function AgentSettings() {
         setCodePrompt(codeDefinedPrompt);
 
         // Check for custom DB override
-        const { data: brief } = await (supabase
-          .from('agent_briefs') as any)
-          .select('system_prompt')
-          .eq('agent_id', a.id)
-          .single();
+        const brief = await apiCall<{ system_prompt: string }>(`/api/agent-briefs?agent_id=${a.id}`).catch(() => null);
         if (brief?.system_prompt) {
           setSystemPrompt(brief.system_prompt);
           setSystemPromptSource('db');

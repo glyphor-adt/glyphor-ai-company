@@ -12,6 +12,7 @@ COPY packages/agent-runtime/package.json ./packages/agent-runtime/package.json
 COPY packages/company-memory/package.json ./packages/company-memory/package.json
 COPY packages/agents/package.json ./packages/agents/package.json
 COPY packages/integrations/package.json ./packages/integrations/package.json
+COPY packages/shared/package.json ./packages/shared/package.json
 COPY packages/scheduler/package.json ./packages/scheduler/package.json
 
 RUN npm ci
@@ -31,6 +32,7 @@ COPY packages/agent-runtime/package.json ./packages/agent-runtime/package.json
 COPY packages/company-memory/package.json ./packages/company-memory/package.json
 COPY packages/agents/package.json ./packages/agents/package.json
 COPY packages/integrations/package.json ./packages/integrations/package.json
+COPY packages/shared/package.json ./packages/shared/package.json
 
 RUN npm ci --omit=dev
 
@@ -39,6 +41,7 @@ COPY --from=builder /app/packages/agent-runtime/dist packages/agent-runtime/dist
 COPY --from=builder /app/packages/company-memory/dist packages/company-memory/dist
 COPY --from=builder /app/packages/agents/dist packages/agents/dist
 COPY --from=builder /app/packages/integrations/dist packages/integrations/dist
+COPY --from=builder /app/packages/shared/dist packages/shared/dist
 
 ENV NODE_ENV=production
 

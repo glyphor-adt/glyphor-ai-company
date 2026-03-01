@@ -4,7 +4,7 @@
 
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
 import { httpPost } from '../utils/http.js';
-import { getSupabase } from '../utils/supabase.js';
+import { query } from '../utils/supabase.js';
 
 async function runTest(
   id: string,
@@ -56,25 +56,25 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   // T10.2 — All Specialists Have Briefs
   tests.push(
     await runTest('T10.2', 'All Specialists Have Briefs', async () => {
-      const sb = getSupabase(config);
-      const { data: agents } = await sb
-        .from('company_agents')
-        .select('role')
-        .in('role', [...SPECIALISTS]);
-      const { data: briefs } = await sb
-        .from('agent_briefs')
-        .select('agent_id')
-        .in('agent_id', [...SPECIALISTS]);
-      const { data: profiles } = await sb
-        .from('agent_profiles')
-        .select('agent_id')
-        .in('agent_id', [...SPECIALISTS]);
+      const specialistList = SPECIALISTS.map((_, i) => `$${i + 1}`).join(', ');
+      const agents = await query<{ role: string }>(
+        `SELECT role FROM company_agents WHERE role IN (${specialistList})`,
+        [...SPECIALISTS],
+      );
+      const briefs = await query<{ agent_id: string }>(
+        `SELECT agent_id FROM agent_briefs WHERE agent_id IN (${specialistList})`,
+        [...SPECIALISTS],
+      );
+      const profiles = await query<{ agent_id: string }>(
+        `SELECT agent_id FROM agent_profiles WHERE agent_id IN (${specialistList})`,
+        [...SPECIALISTS],
+      );
 
       const missing: string[] = [];
       for (const role of SPECIALISTS) {
-        if (!agents?.some((a) => a.role === role)) missing.push(`${role} missing from company_agents`);
-        if (!briefs?.some((b) => b.agent_id === role)) missing.push(`${role} missing from agent_briefs`);
-        if (!profiles?.some((p) => p.agent_id === role)) missing.push(`${role} missing from agent_profiles`);
+        if (!agents.some((a) => a.role === role)) missing.push(`${role} missing from company_agents`);
+        if (!briefs.some((b) => b.agent_id === role)) missing.push(`${role} missing from agent_briefs`);
+        if (!profiles.some((p) => p.agent_id === role)) missing.push(`${role} missing from agent_profiles`);
       }
       if (missing.length > 0) throw new Error(missing.join('; '));
       return `All ${SPECIALISTS.length} specialists found in company_agents, agent_briefs, and agent_profiles`;
@@ -84,14 +84,13 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   // T10.3 — Specialists in Authority Gates
   tests.push(
     await runTest('T10.3', 'Specialists in Authority Gates', async () => {
-      const sb = getSupabase(config);
-      const { data: grants } = await sb
-        .from('agent_tool_grants')
-        .select('agent_role')
-        .in('agent_role', [...SPECIALISTS])
-        .eq('is_active', true);
+      const specialistList = SPECIALISTS.map((_, i) => `$${i + 1}`).join(', ');
+      const grants = await query<{ agent_role: string }>(
+        `SELECT agent_role FROM agent_tool_grants WHERE agent_role IN (${specialistList}) AND is_active = true`,
+        [...SPECIALISTS],
+      );
 
-      const withGrants = new Set(grants?.map((g) => g.agent_role));
+      const withGrants = new Set(grants.map((g) => g.agent_role));
       const missing = SPECIALISTS.filter((s) => !withGrants.has(s));
       if (missing.length > 0) {
         throw new Error(`Specialists without active tool grants: ${missing.join(', ')}`);

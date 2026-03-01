@@ -12,8 +12,8 @@ import {
 } from '../components/ui';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { SCHEDULER_URL } from '../lib/supabase';
-import { supabase } from '../lib/supabase';
+import { SCHEDULER_URL } from '../lib/firebase';
+import { apiCall } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
 
 interface AnalysisSummary {
@@ -61,30 +61,25 @@ export default function Dashboard() {
   // Fetch currently running agents
   useEffect(() => {
     const fetchRunning = async () => {
-      const { data: rows } = await supabase
-        .from('agent_runs')
-        .select('id, agent_id, task, started_at')
-        .eq('status', 'running')
-        .order('started_at', { ascending: false });
-      setRunningAgents(() => {
-        const allRunning = (rows as RunningAgent[]) ?? [];
-        // Deduplicate by agent — keep the most recent run per agent
-        const byAgent = new Map<string, RunningAgent>();
-        for (const run of allRunning) {
-          const existing = byAgent.get(run.agent_id);
-          if (!existing || new Date(run.started_at) > new Date(existing.started_at)) {
-            byAgent.set(run.agent_id, run);
+      try {
+        const rows = await apiCall<RunningAgent[]>('/api/agent-runs?status=running');
+        setRunningAgents(() => {
+          const allRunning = rows ?? [];
+          // Deduplicate by agent — keep the most recent run per agent
+          const byAgent = new Map<string, RunningAgent>();
+          for (const run of allRunning) {
+            const existing = byAgent.get(run.agent_id);
+            if (!existing || new Date(run.started_at) > new Date(existing.started_at)) {
+              byAgent.set(run.agent_id, run);
+            }
           }
-        }
-        return Array.from(byAgent.values());
-      });
+          return Array.from(byAgent.values());
+        });
+      } catch {
+        setRunningAgents([]);
+      }
     };
     fetchRunning();
-    const channel = supabase
-      .channel('dashboard_runs_live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_runs' }, () => { fetchRunning(); })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const { user } = useAuth();

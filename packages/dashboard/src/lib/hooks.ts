@@ -1,21 +1,22 @@
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from './supabase';
+import { apiCall } from './firebase';
 import type { Agent, Decision, ActivityEntry, Product, Financial, FounderDirective, Incident, AgentReflection, CompanyPulse, WorkAssignment, DashboardChangeRequest } from './types';
 
 /* ─── Generic fetch helper ─────────────────── */
-function useQuery<T>(table: string, orderCol = 'created_at', ascending = false) {
+function useQuery<T>(table: string, _orderCol = 'created_at', _ascending = false) {
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const { data: rows } = await supabase
-      .from(table)
-      .select('*')
-      .order(orderCol, { ascending });
-    setData((rows as T[]) ?? []);
+    try {
+      const rows = await apiCall<T[]>(`/api/${table}`);
+      setData(rows ?? []);
+    } catch {
+      setData([]);
+    }
     setLoading(false);
-  }, [table, orderCol, ascending]);
+  }, [table]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -29,16 +30,12 @@ export function useAgents() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const { data: rows } = await supabase
-      .from('company_agents')
-      .select('*, agent_profiles(avatar_url)')
-      .order('role', { ascending: true });
-    const agents = (rows ?? []).map((r: Record<string, unknown>) => {
-      const profile = r.agent_profiles as { avatar_url: string | null } | null;
-      const { agent_profiles: _, ...rest } = r;
-      return { ...rest, avatar_url: profile?.avatar_url ?? null } as Agent;
-    });
-    setData(agents);
+    try {
+      const agents = await apiCall<Agent[]>('/api/agents');
+      setData(agents ?? []);
+    } catch {
+      setData([]);
+    }
     setLoading(false);
   }, []);
 
@@ -52,10 +49,10 @@ export function useDecisions() {
   const q = useQuery<Decision>('decisions', 'created_at', false);
 
   const updateDecision = async (id: string, status: 'approved' | 'rejected', resolvedBy: string) => {
-    await (supabase
-      .from('decisions') as ReturnType<typeof supabase.from>)
-      .update({ status, resolved_by: resolvedBy, resolved_at: new Date().toISOString() })
-      .eq('id', id);
+    await apiCall(`/api/decisions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, resolved_by: resolvedBy, resolved_at: new Date().toISOString() }),
+    });
     q.refresh();
   };
 
@@ -69,12 +66,12 @@ export function useActivity(limit = 30) {
 
   useEffect(() => {
     (async () => {
-      const { data: rows } = await supabase
-        .from('activity_log')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(limit);
-      setData((rows as ActivityEntry[]) ?? []);
+      try {
+        const rows = await apiCall<ActivityEntry[]>(`/api/activity?limit=${limit}`);
+        setData(rows ?? []);
+      } catch {
+        setData([]);
+      }
       setLoading(false);
     })();
   }, [limit]);
@@ -95,16 +92,8 @@ export function useFinancials() {
 /* ─── Real-time subscription for activity ── */
 export function useRealtimeActivity(onNew: (entry: ActivityEntry) => void) {
   useEffect(() => {
-    const channel = supabase
-      .channel('activity_realtime')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'activity_log' },
-        (payload) => onNew(payload.new as ActivityEntry),
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    // Real-time subscriptions not available after Firebase migration.
+    // Consider polling or server-sent events as an alternative.
   }, [onNew]);
 }
 
@@ -115,12 +104,12 @@ export function useCompanyPulse() {
 
   useEffect(() => {
     (async () => {
-      const { data: row } = await supabase
-        .from('company_pulse')
-        .select('*')
-        .eq('id', 'current')
-        .single();
-      setData(row as CompanyPulse | null);
+      try {
+        const row = await apiCall<CompanyPulse>('/api/company-pulse');
+        setData(row ?? null);
+      } catch {
+        setData(null);
+      }
       setLoading(false);
     })();
   }, []);
@@ -135,31 +124,10 @@ export function useActiveDirectives() {
 
   useEffect(() => {
     (async () => {
-      const { data: directives } = await supabase
-        .from('founder_directives')
-        .select('*')
-        .in('status', ['active', 'paused'])
-        .order('priority', { ascending: true })
-        .limit(5);
-
-      const items = (directives as FounderDirective[]) ?? [];
-
-      if (items.length > 0) {
-        const ids = items.map((d) => d.id);
-        const { data: assignments } = await supabase
-          .from('work_assignments')
-          .select('*')
-          .in('directive_id', ids);
-
-        const assignmentsByDirective = new Map<string, WorkAssignment[]>();
-        for (const a of (assignments as WorkAssignment[]) ?? []) {
-          const list = assignmentsByDirective.get(a.directive_id) ?? [];
-          list.push(a);
-          assignmentsByDirective.set(a.directive_id, list);
-        }
-
-        setData(items.map((d) => ({ ...d, assignments: assignmentsByDirective.get(d.id) ?? [] })));
-      } else {
+      try {
+        const items = await apiCall<(FounderDirective & { assignments: WorkAssignment[] })[]>('/api/directives/active');
+        setData(items ?? []);
+      } catch {
         setData([]);
       }
       setLoading(false);
@@ -176,13 +144,12 @@ export function useOpenIncidents() {
 
   useEffect(() => {
     (async () => {
-      const { data: rows } = await supabase
-        .from('incidents')
-        .select('*')
-        .eq('status', 'open')
-        .order('created_at', { ascending: false })
-        .limit(5);
-      setData((rows as Incident[]) ?? []);
+      try {
+        const rows = await apiCall<Incident[]>('/api/incidents?status=open&limit=5');
+        setData(rows ?? []);
+      } catch {
+        setData([]);
+      }
       setLoading(false);
     })();
   }, []);
@@ -197,13 +164,12 @@ export function useTopReflections(limit = 4) {
 
   useEffect(() => {
     (async () => {
-      const { data: rows } = await supabase
-        .from('agent_reflections')
-        .select('*')
-        .gte('quality_score', 60)
-        .order('created_at', { ascending: false })
-        .limit(limit);
-      setData((rows as AgentReflection[]) ?? []);
+      try {
+        const rows = await apiCall<AgentReflection[]>(`/api/agent-reflections?min_quality=60&limit=${limit}`);
+        setData(rows ?? []);
+      } catch {
+        setData([]);
+      }
       setLoading(false);
     })();
   }, [limit]);
@@ -218,11 +184,12 @@ export function useChangeRequests() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const { data: rows } = await supabase
-      .from('dashboard_change_requests')
-      .select('*')
-      .order('created_at', { ascending: false });
-    setData((rows as DashboardChangeRequest[]) ?? []);
+    try {
+      const rows = await apiCall<DashboardChangeRequest[]>('/api/dashboard-change-requests');
+      setData(rows ?? []);
+    } catch {
+      setData([]);
+    }
     setLoading(false);
   }, []);
 
@@ -236,7 +203,10 @@ export function useChangeRequests() {
     priority: DashboardChangeRequest['priority'];
     affected_area: string | null;
   }) => {
-    await supabase.from('dashboard_change_requests').insert(req);
+    await apiCall('/api/dashboard-change-requests', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    });
     refresh();
   };
 

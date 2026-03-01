@@ -25,13 +25,12 @@ export interface UiUxDesignerRunParams {
 
 export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
   const memory = new CompanyMemoryStore({
-    supabaseUrl: process.env.SUPABASE_URL!, supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company', gcpProjectId: process.env.GCP_PROJECT_ID,
   });
   const modelClient = new ModelClient({ geminiApiKey: process.env.GOOGLE_AI_API_KEY, openaiApiKey: process.env.OPENAI_API_KEY, anthropicApiKey: process.env.ANTHROPIC_API_KEY });
   const runner = createRunner(modelClient, 'ui-ux-designer', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -39,7 +38,7 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
     ...createMemoryTools(memory),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createAssignmentTools(glyphorEventBus),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -60,9 +59,7 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
     default:
       initialMessage = params.message || 'Assist with design system work as directed.';
   }
-
-  const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'ui-ux-designer', { model: 'gemini-3-flash-preview', temperature: 0.7, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('ui-ux-designer', { model: 'gemini-3-flash-preview', temperature: 0.7, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `leo-${task}-${today}`, role: 'ui-ux-designer',
@@ -72,7 +69,7 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
     conversationHistory: params.conversationHistory,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
-  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));
+  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(glyphorEventBus, memory));
   try { await memory.recordAgentRun('ui-ux-designer', 0, 0.08); } catch {}
   console.log(`[Leo] ${result.status} (${result.totalTurns} turns)`);
   return result;

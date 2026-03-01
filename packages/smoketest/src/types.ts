@@ -22,8 +22,6 @@ export interface SmokeTestConfig {
   schedulerUrl: string;
   dashboardUrl: string;
   voiceGatewayUrl: string;
-  supabaseUrl: string;
-  supabaseKey: string;
   gcpProject: string;
   interactive: boolean;
   selectedLayers: number[] | null; // null = all

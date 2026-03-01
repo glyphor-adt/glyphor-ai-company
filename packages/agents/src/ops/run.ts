@@ -36,8 +36,6 @@ export interface OpsRunParams {
 
 export async function runOps(params: OpsRunParams = {}) {
   const memory = new CompanyMemoryStore({
-    supabaseUrl: process.env.SUPABASE_URL!,
-    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company',
     gcpProjectId: process.env.GCP_PROJECT_ID,
   });
@@ -49,7 +47,7 @@ export async function runOps(params: OpsRunParams = {}) {
   });
   const runner = createRunner(modelClient, 'ops', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -57,8 +55,8 @@ export async function runOps(params: OpsRunParams = {}) {
     ...createMemoryTools(memory),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createSharePointTools(memory.getSupabaseClient()),
-    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createSharePointTools(),
+    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
@@ -212,9 +210,7 @@ Goal: Ensure knowledge routing is efficient, stale information is flagged, and t
     default:
       initialMessage = params.message || 'Provide a current system status summary.';
   }
-
-  const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'ops', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('ops', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `ops-${task}-${today}`,
@@ -246,7 +242,7 @@ Goal: Ensure knowledge routing is efficient, stale information is flagged, and t
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;

@@ -9,7 +9,7 @@
 
 import type { ToolDefinition, ToolResult, CompanyAgentRole } from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 
 /* ── Rate Limits ──────────────────────────── */
 
@@ -57,7 +57,6 @@ const VALID_ROLES: CompanyAgentRole[] = [
 /* ── Factory ──────────────────────────────── */
 
 export function createCommunicationTools(
-  supabase: SupabaseClient,
   glyphorEventBus: GlyphorEventBus,
   schedulerUrl?: string,
 ): ToolDefinition[] {
@@ -113,30 +112,23 @@ export function createCommunicationTools(
 
         const threadId = (params.thread_id as string) || crypto.randomUUID();
 
-        const { data, error } = await supabase.from('agent_messages').insert({
-          from_agent: fromAgent,
-          to_agent: toAgent,
-          thread_id: threadId,
-          message: params.message as string,
-          message_type: (params.message_type as string) ?? 'info',
-          priority: (params.priority as string) ?? 'normal',
-          status: 'pending',
-          context: { run_id: ctx.agentId },
-        }).select('id').single();
+        const messageType = (params.message_type as string) ?? 'info';
+        const priority = (params.priority as string) ?? 'normal';
 
-        if (error) {
-          return { success: false, error: error.message };
-        }
+        const [row] = await systemQuery(
+          'INSERT INTO agent_messages (from_agent, to_agent, thread_id, message, message_type, priority, status, context) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
+          [fromAgent, toAgent, threadId, params.message as string, messageType, priority, 'pending', { run_id: ctx.agentId }],
+        );
 
         // Emit event
         await glyphorEventBus.emit({
           type: 'message.sent',
           source: fromAgent,
           payload: {
-            message_id: data.id,
+            message_id: row.id,
             to_agent: toAgent,
-            message_type: (params.message_type as string) ?? 'info',
-            priority: (params.priority as string) ?? 'normal',
+            message_type: messageType,
+            priority,
             thread_id: threadId,
           },
           priority: (params.priority as string) === 'urgent' ? 'high' : 'normal',
@@ -145,7 +137,7 @@ export function createCommunicationTools(
         return {
           success: true,
           data: {
-            messageId: data.id,
+            messageId: row.id,
             threadId,
             delivered: true,
             note: (params.priority as string) === 'urgent'
@@ -177,21 +169,17 @@ export function createCommunicationTools(
         const includeRead = params.include_read === true;
         const limit = Math.min(50, Math.max(1, (params.limit as number) ?? 10));
 
-        let query = supabase
-          .from('agent_messages')
-          .select('*')
-          .eq('to_agent', ctx.agentRole)
-          .order('created_at', { ascending: false })
-          .limit(limit);
-
+        const conditions = [`to_agent = $1`];
+        const params_q: unknown[] = [ctx.agentRole];
         if (!includeRead) {
-          query = query.eq('status', 'pending');
+          conditions.push(`status = $${params_q.length + 1}`);
+          params_q.push('pending');
         }
 
-        const { data, error } = await query;
-        if (error) {
-          return { success: false, error: error.message };
-        }
+        const data = await systemQuery(
+          `SELECT * FROM agent_messages WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT $${params_q.length + 1}`,
+          [...params_q, limit],
+        );
 
         const messages = (data ?? []).map((m: Record<string, unknown>) => ({
           id: m.id,
@@ -209,10 +197,10 @@ export function createCommunicationTools(
           .filter((m: Record<string, unknown>) => m.status === 'pending')
           .map((m: Record<string, unknown>) => m.id as string);
         if (pendingIds.length > 0) {
-          await supabase
-            .from('agent_messages')
-            .update({ status: 'read' })
-            .in('id', pendingIds);
+          await systemQuery(
+            'UPDATE agent_messages SET status = $1 WHERE id = ANY($2)',
+            ['read', pendingIds],
+          );
         }
 
         return {

@@ -36,8 +36,6 @@ export interface VPSalesRunParams {
 
 export async function runVPSales(params: VPSalesRunParams = {}) {
   const memory = new CompanyMemoryStore({
-    supabaseUrl: process.env.SUPABASE_URL!,
-    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company',
     gcpProjectId: process.env.GCP_PROJECT_ID,
   });
@@ -49,7 +47,7 @@ export async function runVPSales(params: VPSalesRunParams = {}) {
   });
   const runner = createRunner(modelClient, 'vp-sales', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -57,11 +55,11 @@ export async function runVPSales(params: VPSalesRunParams = {}) {
     ...createMemoryTools(memory),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
-    ...createAgentCreationTools(memory.getSupabaseClient()),
-    ...createToolRequestTools(memory.getSupabaseClient()),
-    ...createAgentDirectoryTools(memory.getSupabaseClient()),
+    ...createAgentCreationTools(),
+    ...createToolRequestTools(),
+    ...createAgentDirectoryTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -110,9 +108,7 @@ Steps:
     default:
       initialMessage = params.message || 'Provide a sales analysis and pipeline summary.';
   }
-
-  const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'vp-sales', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('vp-sales', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `vps-${task}-${today}`,
@@ -144,7 +140,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;

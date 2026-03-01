@@ -25,13 +25,12 @@ export interface SocialMediaManagerRunParams {
 
 export async function runSocialMediaManager(params: SocialMediaManagerRunParams = {}) {
   const memory = new CompanyMemoryStore({
-    supabaseUrl: process.env.SUPABASE_URL!, supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company', gcpProjectId: process.env.GCP_PROJECT_ID,
   });
   const modelClient = new ModelClient({ geminiApiKey: process.env.GOOGLE_AI_API_KEY, openaiApiKey: process.env.OPENAI_API_KEY, anthropicApiKey: process.env.ANTHROPIC_API_KEY });
   const runner = createRunner(modelClient, 'social-media-manager', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -39,7 +38,7 @@ export async function runSocialMediaManager(params: SocialMediaManagerRunParams 
     ...createMemoryTools(memory),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createAssignmentTools(glyphorEventBus),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -63,9 +62,7 @@ export async function runSocialMediaManager(params: SocialMediaManagerRunParams 
     default:
       initialMessage = params.message || 'Manage social media as directed.';
   }
-
-  const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'social-media-manager', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('social-media-manager', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `kai-${task}-${today}`, role: 'social-media-manager',
@@ -75,7 +72,7 @@ export async function runSocialMediaManager(params: SocialMediaManagerRunParams 
     conversationHistory: params.conversationHistory,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
-  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(supabase, glyphorEventBus, memory));
+  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(glyphorEventBus, memory));
   try { await memory.recordAgentRun('social-media-manager', 0, 0.03); } catch {}
   console.log(`[Kai] ${result.status} (${result.totalTurns} turns)`);
   return result;

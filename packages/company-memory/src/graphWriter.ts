@@ -6,7 +6,7 @@
  * semantic similarity threshold (0.92) and flexible node references.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { EmbeddingClient } from './embeddingClient.js';
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -50,7 +50,6 @@ export interface GraphWriteResult {
 
 export class KnowledgeGraphWriter {
   constructor(
-    private supabase: SupabaseClient,
     private embedding: EmbeddingClient,
   ) {}
 
@@ -77,30 +76,18 @@ export class KnowledgeGraphWriter {
         `${node.title}. ${node.content}`,
       );
 
-      const { data, error } = await this.supabase
-        .from('kg_nodes')
-        .insert({
-          node_type: node.node_type,
-          title: node.title,
-          content: node.content,
-          created_by: agentId,
-          department: node.department ?? null,
-          importance: node.importance ?? 0.5,
-          tags: node.tags ?? [],
-          embedding: JSON.stringify(emb),
-          source_run_id: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(runId) ? runId : null,
-          source_type: 'reflection',
-          metadata: node.metadata ?? {},
-          occurred_at: node.occurred_at ?? new Date().toISOString(),
-        })
-        .select('id')
-        .single();
-
-      if (error) {
-        console.warn(`[KG Writer] Failed to create node "${node.title}":`, error.message);
+      try {
+        const sourceRunId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(runId) ? runId : null;
+        const [data] = await systemQuery<{ id: string }>(
+          `INSERT INTO kg_nodes (node_type, title, content, created_by, department, importance, tags, embedding, source_run_id, source_type, metadata, occurred_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+          [node.node_type, node.title, node.content, agentId, node.department ?? null, node.importance ?? 0.5, node.tags ?? [], JSON.stringify(emb), sourceRunId, 'reflection', JSON.stringify(node.metadata ?? {}), node.occurred_at ?? new Date().toISOString()],
+        );
+        createdNodes.set(i, data.id);
+      } catch (err) {
+        console.warn(`[KG Writer] Failed to create node "${node.title}":`, (err as Error).message);
         continue;
       }
-      createdNodes.set(i, data!.id);
     }
 
     // 2. Create edges
@@ -112,20 +99,17 @@ export class KnowledgeGraphWriter {
       if (!sourceId || !targetId) continue;
       if (sourceId === targetId) continue; // no self-edges
 
-      const { error } = await this.supabase.from('kg_edges').upsert(
-        {
-          source_id: sourceId,
-          target_id: targetId,
-          edge_type: edge.edge_type,
-          strength: edge.strength ?? 0.7,
-          confidence: edge.confidence ?? 0.7,
-          created_by: agentId,
-          evidence: edge.evidence ?? null,
-        },
-        { onConflict: 'source_id,target_id,edge_type' },
-      );
-
-      if (!error) edgesCreated++;
+      try {
+        await systemQuery(
+          `INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, created_by, evidence)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (source_id, target_id, edge_type) DO UPDATE SET
+             strength = EXCLUDED.strength, confidence = EXCLUDED.confidence,
+             created_by = EXCLUDED.created_by, evidence = EXCLUDED.evidence`,
+          [sourceId, targetId, edge.edge_type, edge.strength ?? 0.7, edge.confidence ?? 0.7, agentId, edge.evidence ?? null],
+        );
+        edgesCreated++;
+      } catch { /* skip failed edges */ }
     }
 
     return { nodesCreated: createdNodes.size, edgesCreated };
@@ -146,29 +130,17 @@ export class KnowledgeGraphWriter {
 
     const emb = await this.embedding.embed(`${node.title}. ${node.content}`);
 
-    const { data, error } = await this.supabase
-      .from('kg_nodes')
-      .insert({
-        node_type: node.node_type,
-        title: node.title,
-        content: node.content,
-        created_by: agentId,
-        department: node.department ?? null,
-        importance: node.importance ?? 0.5,
-        tags: node.tags ?? [],
-        embedding: JSON.stringify(emb),
-        source_type: 'tool',
-        metadata: node.metadata ?? {},
-        occurred_at: node.occurred_at ?? new Date().toISOString(),
-      })
-      .select('id')
-      .single();
-
-    if (error) {
-      console.warn(`[KG Writer] Failed to create node "${node.title}":`, error.message);
+    try {
+      const [data] = await systemQuery<{ id: string }>(
+        `INSERT INTO kg_nodes (node_type, title, content, created_by, department, importance, tags, embedding, source_type, metadata, occurred_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+        [node.node_type, node.title, node.content, agentId, node.department ?? null, node.importance ?? 0.5, node.tags ?? [], JSON.stringify(emb), 'tool', JSON.stringify(node.metadata ?? {}), node.occurred_at ?? new Date().toISOString()],
+      );
+      return data.id;
+    } catch (err) {
+      console.warn(`[KG Writer] Failed to create node "${node.title}":`, (err as Error).message);
       return null;
     }
-    return data!.id;
   }
 
   /**
@@ -184,19 +156,19 @@ export class KnowledgeGraphWriter {
   ): Promise<boolean> {
     if (sourceId === targetId) return false;
 
-    const { error } = await this.supabase.from('kg_edges').upsert(
-      {
-        source_id: sourceId,
-        target_id: targetId,
-        edge_type: edgeType,
-        strength,
-        confidence: 0.7,
-        created_by: agentId,
-        evidence: evidence ?? null,
-      },
-      { onConflict: 'source_id,target_id,edge_type' },
-    );
-    return !error;
+    try {
+      await systemQuery(
+        `INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, created_by, evidence)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (source_id, target_id, edge_type) DO UPDATE SET
+           strength = EXCLUDED.strength, confidence = EXCLUDED.confidence,
+           created_by = EXCLUDED.created_by, evidence = EXCLUDED.evidence`,
+        [sourceId, targetId, edgeType, strength, 0.7, agentId, evidence ?? null],
+      );
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   // ─── Private Helpers ────────────────────────────────────────────
@@ -214,27 +186,19 @@ export class KnowledgeGraphWriter {
     }
 
     if (ref.find_by === 'entity') {
-      const { data } = await this.supabase
-        .from('kg_nodes')
-        .select('id')
-        .eq('node_type', 'entity')
-        .ilike('title', `%${ref.query}%`)
-        .eq('status', 'active')
-        .limit(1)
-        .single();
-      return data?.id ?? null;
+      const rows = await systemQuery<{ id: string }>(
+        'SELECT id FROM kg_nodes WHERE node_type = $1 AND title ILIKE $2 AND status = $3 LIMIT 1',
+        ['entity', `%${ref.query}%`, 'active'],
+      );
+      return rows[0]?.id ?? null;
     }
 
     if (ref.find_by === 'title_contains') {
-      const { data } = await this.supabase
-        .from('kg_nodes')
-        .select('id')
-        .ilike('title', `%${ref.query}%`)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-      return data?.id ?? null;
+      const rows = await systemQuery<{ id: string }>(
+        'SELECT id FROM kg_nodes WHERE title ILIKE $1 AND status = $2 ORDER BY created_at DESC LIMIT 1',
+        [`%${ref.query}%`, 'active'],
+      );
+      return rows[0]?.id ?? null;
     }
 
     return null;
@@ -242,23 +206,19 @@ export class KnowledgeGraphWriter {
 
   private async findDuplicate(content: string): Promise<{ id: string } | null> {
     const emb = await this.embedding.embed(content);
-    const { data } = await this.supabase.rpc('match_kg_nodes', {
-      query_embedding: JSON.stringify(emb),
-      match_threshold: 0.92,
-      match_count: 1,
-    });
-    return data?.[0] ?? null;
+    const data = await systemQuery<{ id: string }>(
+      'SELECT * FROM match_kg_nodes($1, $2, $3)',
+      [JSON.stringify(emb), 0.92, 1],
+    );
+    return data[0] ?? null;
   }
 
   private async validateNode(nodeId: string): Promise<void> {
-    // Increment times_validated atomically
-    const { error } = await this.supabase.rpc('kg_validate_node', { target_node_id: nodeId });
-    if (error) {
+    try {
+      await systemQuery('SELECT * FROM kg_validate_node($1)', [nodeId]);
+    } catch {
       // Fallback: non-atomic update if RPC doesn't exist
-      await this.supabase
-        .from('kg_nodes')
-        .update({ updated_at: new Date().toISOString() })
-        .eq('id', nodeId);
+      await systemQuery('UPDATE kg_nodes SET updated_at = $1 WHERE id = $2', [new Date().toISOString(), nodeId]);
     }
   }
 
@@ -280,22 +240,21 @@ export class KnowledgeGraphWriter {
   }): Promise<boolean> {
     if (params.sourceId === params.targetId) return false;
 
-    const { error } = await this.supabase.from('kg_edges').upsert(
-      {
-        source_id: params.sourceId,
-        target_id: params.targetId,
-        edge_type: 'CAUSAL_INFLUENCES',
-        strength: params.strength ?? 0.7,
-        confidence: params.causalConfidence,
-        created_by: params.agentId,
-        evidence: params.evidence ?? null,
-        causal_confidence: params.causalConfidence,
-        causal_lag: params.causalLag ?? null,
-        causal_mechanism: params.causalMechanism ?? null,
-      },
-      { onConflict: 'source_id,target_id,edge_type' },
-    );
-    return !error;
+    try {
+      await systemQuery(
+        `INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, created_by, evidence, causal_confidence, causal_lag, causal_mechanism)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         ON CONFLICT (source_id, target_id, edge_type) DO UPDATE SET
+           strength = EXCLUDED.strength, confidence = EXCLUDED.confidence,
+           created_by = EXCLUDED.created_by, evidence = EXCLUDED.evidence,
+           causal_confidence = EXCLUDED.causal_confidence, causal_lag = EXCLUDED.causal_lag,
+           causal_mechanism = EXCLUDED.causal_mechanism`,
+        [params.sourceId, params.targetId, 'CAUSAL_INFLUENCES', params.strength ?? 0.7, params.causalConfidence, params.agentId, params.evidence ?? null, params.causalConfidence, params.causalLag ?? null, params.causalMechanism ?? null],
+      );
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -308,19 +267,22 @@ export class KnowledgeGraphWriter {
     newConfidence: number,
     mechanism?: string,
   ): Promise<boolean> {
-    const update: Record<string, unknown> = {
-      causal_confidence: Math.max(0, Math.min(1, newConfidence)),
-      confidence: Math.max(0, Math.min(1, newConfidence)),
-      updated_at: new Date().toISOString(),
-    };
-    if (mechanism) update.causal_mechanism = mechanism;
-
-    const { error } = await this.supabase
-      .from('kg_edges')
-      .update(update)
-      .eq('source_id', sourceId)
-      .eq('target_id', targetId)
-      .eq('edge_type', 'CAUSAL_INFLUENCES');
-    return !error;
+    const clampedConfidence = Math.max(0, Math.min(1, newConfidence));
+    try {
+      if (mechanism) {
+        await systemQuery(
+          'UPDATE kg_edges SET causal_confidence = $1, confidence = $1, updated_at = $2, causal_mechanism = $3 WHERE source_id = $4 AND target_id = $5 AND edge_type = $6',
+          [clampedConfidence, new Date().toISOString(), mechanism, sourceId, targetId, 'CAUSAL_INFLUENCES'],
+        );
+      } else {
+        await systemQuery(
+          'UPDATE kg_edges SET causal_confidence = $1, confidence = $1, updated_at = $2 WHERE source_id = $3 AND target_id = $4 AND edge_type = $5',
+          [clampedConfidence, new Date().toISOString(), sourceId, targetId, 'CAUSAL_INFLUENCES'],
+        );
+      }
+      return true;
+    } catch {
+      return false;
+    }
   }
 }

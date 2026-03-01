@@ -38,8 +38,6 @@ export interface CPORunParams {
 
 export async function runCPO(params: CPORunParams = {}) {
   const memory = new CompanyMemoryStore({
-    supabaseUrl: process.env.SUPABASE_URL!,
-    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company',
     gcpProjectId: process.env.GCP_PROJECT_ID,
   });
@@ -51,7 +49,7 @@ export async function runCPO(params: CPORunParams = {}) {
   });
   const runner = createRunner(modelClient, 'cpo', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -60,12 +58,12 @@ export async function runCPO(params: CPORunParams = {}) {
     ...createCollectiveIntelligenceTools(memory),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createSharePointTools(memory.getSupabaseClient()),
-    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createSharePointTools(),
+    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
-    ...createAgentCreationTools(memory.getSupabaseClient()),
-    ...createToolRequestTools(memory.getSupabaseClient()),
-    ...createAgentDirectoryTools(memory.getSupabaseClient()),
+    ...createAgentCreationTools(),
+    ...createToolRequestTools(),
+    ...createAgentDirectoryTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -114,9 +112,7 @@ Steps:
     default:
       initialMessage = params.message || 'Provide a product strategy summary for both Fuse and Pulse.';
   }
-
-  const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'cpo', { model: 'gemini-3-flash-preview', temperature: 0.4, maxTurns: 10 }, task);
+  const agentCfg = await loadAgentConfig('cpo', { model: 'gemini-3-flash-preview', temperature: 0.4, maxTurns: 10 }, task);
 
   const config: AgentConfig = {
     id: `cpo-${task}-${today}`,
@@ -148,7 +144,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;

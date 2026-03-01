@@ -10,7 +10,6 @@
  * The updated model feeds back into the next run's system prompt.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   CompanyAgentRole,
   AgentWorldModel,
@@ -23,7 +22,6 @@ import type { SharedMemoryLoader } from './sharedMemoryLoader.js';
 
 export class WorldModelUpdater {
   constructor(
-    private supabase: SupabaseClient,
     private sharedMemory: SharedMemoryLoader,
   ) {}
 

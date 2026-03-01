@@ -1,5 +1,5 @@
 /**
- * Kling AI Billing — Query resource pack usage via /account/costs and sync to Supabase
+ * Kling AI Billing — Query resource pack usage via /account/costs and sync to database
  *
  * Kling AI (by Kuaishou) provides video/image generation.
  * Auth: JWT signed with HMAC-SHA256 using Access Key + Secret Key.
@@ -10,7 +10,7 @@
  */
 
 import { SignJWT } from 'jose';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 
 const KLING_API_BASE = 'https://api-singapore.klingai.com';
 
@@ -106,7 +106,6 @@ export async function queryKlingCosts(
  * we estimate USD value from the pack's per-unit cost.
  */
 export async function syncKlingBilling(
-  supabase: SupabaseClient,
   credentials: KlingCredentials,
   product = 'pulse',
   days = 90,
@@ -144,15 +143,18 @@ export async function syncKlingBilling(
   });
 
   // ── 1. Delete stale rows for today and insert fresh ───────────────
-  await supabase
-    .from('api_billing')
-    .delete()
-    .eq('provider', 'kling')
-    .eq('usage->>date', today);
+  await systemQuery(
+    "DELETE FROM api_billing WHERE provider = $1 AND usage->>'date' = $2",
+    ['kling', today],
+  );
 
   if (rows.length > 0) {
-    const { error } = await supabase.from('api_billing').insert(rows);
-    if (error) console.warn('[Kling Billing] api_billing insert error:', error.message);
+    for (const row of rows) {
+      await systemQuery(
+        'INSERT INTO api_billing (provider, service, cost_usd, usage, product, recorded_at) VALUES ($1, $2, $3, $4, $5, $6)',
+        [row.provider, row.service, row.cost_usd, JSON.stringify(row.usage), row.product, row.recorded_at],
+      );
+    }
     console.log(`[Kling Billing] Wrote ${rows.length} resource pack rows to api_billing`);
   }
 
@@ -161,14 +163,10 @@ export async function syncKlingBilling(
   const totalRemaining = packs.reduce((sum, p) => sum + p.remaining_quantity, 0);
   const totalQuantity = packs.reduce((sum, p) => sum + p.total_quantity, 0);
 
-  const { data: existing } = await supabase
-    .from('financials')
-    .select('id')
-    .eq('date', today)
-    .eq('metric', 'api_usage')
-    .eq('product', product)
-    .contains('details', { source: 'kling' })
-    .limit(1);
+  const existing = await systemQuery<{ id: string }>(
+    "SELECT id FROM financials WHERE date = $1 AND metric = $2 AND product = $3 AND details->>'source' = 'kling' LIMIT 1",
+    [today, 'api_usage', product],
+  );
 
   const details = {
     source: 'kling',
@@ -181,19 +179,16 @@ export async function syncKlingBilling(
     })),
   };
 
-  if (existing && existing.length > 0) {
-    await supabase.from('financials').update({
-      value: totalConsumed,
-      details,
-    }).eq('id', existing[0].id);
+  if (existing.length > 0) {
+    await systemQuery(
+      'UPDATE financials SET value = $1, details = $2 WHERE id = $3',
+      [totalConsumed, JSON.stringify(details), existing[0].id],
+    );
   } else {
-    await supabase.from('financials').insert({
-      date: today,
-      product,
-      metric: 'api_usage',
-      value: totalConsumed,
-      details,
-    });
+    await systemQuery(
+      'INSERT INTO financials (date, product, metric, value, details) VALUES ($1, $2, $3, $4, $5)',
+      [today, product, 'api_usage', totalConsumed, JSON.stringify(details)],
+    );
   }
 
   console.log(`[Kling Billing] Packs: ${packs.length}, consumed: ${totalConsumed}/${totalQuantity}, remaining: ${totalRemaining}`);

@@ -7,7 +7,7 @@
  * Called by the heartbeat every cycle to keep requests flowing.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import { createIssueForCopilot, findPRForIssue } from '@glyphor/integrations';
 
 interface ChangeRequest {
@@ -66,9 +66,8 @@ ${req.description}
 - This is a dashboard change request from a Glyphor founder
 - The dashboard is a React + TypeScript + Vite app in \`packages/dashboard/\`
 - Styling uses **Tailwind CSS** with custom design tokens (see \`tailwind.config.js\`)
-- Data layer uses **Supabase** (\`packages/dashboard/src/lib/supabase.ts\`)
+- Data layer uses **@glyphor/shared/db** for PostgreSQL queries
 - Follow existing patterns in nearby files for consistency
-- If a new Supabase table is needed, add a migration in \`supabase/migrations/\`
 
 ---
 *Auto-generated from dashboard change request #${req.id.slice(0, 8)}*`;
@@ -78,15 +77,12 @@ ${req.description}
  * Process new change requests: create GitHub issues assigned to Copilot.
  * Called by the heartbeat manager on each cycle.
  */
-export async function processNewChangeRequests(supabase: SupabaseClient): Promise<number> {
+export async function processNewChangeRequests(): Promise<number> {
   // Fetch submitted requests that haven't been sent to GitHub yet
-  const { data: requests } = await supabase
-    .from('dashboard_change_requests')
-    .select('*')
-    .eq('status', 'submitted')
-    .is('github_issue_number', null)
-    .order('created_at', { ascending: true })
-    .limit(5); // Process max 5 per cycle to avoid rate limits
+  const requests = await systemQuery(
+    'SELECT * FROM dashboard_change_requests WHERE status=$1 AND github_issue_number IS NULL ORDER BY created_at ASC LIMIT $2',
+    ['submitted', 5]
+  ); // Process max 5 per cycle to avoid rate limits
 
   if (!requests?.length) return 0;
 
@@ -95,12 +91,10 @@ export async function processNewChangeRequests(supabase: SupabaseClient): Promis
   for (const req of requests as ChangeRequest[]) {
     try {
       // Claim the row first to prevent duplicate processing on next heartbeat
-      const { data: claimed } = await supabase
-        .from('dashboard_change_requests')
-        .update({ status: 'triaged', updated_at: new Date().toISOString() })
-        .eq('id', req.id)
-        .eq('status', 'submitted')
-        .select('id');
+      const claimed = await systemQuery(
+        'UPDATE dashboard_change_requests SET status=$1, updated_at=$2 WHERE id=$3 AND status=$4 RETURNING id',
+        ['triaged', new Date().toISOString(), req.id, 'submitted']
+      );
 
       if (!claimed?.length) {
         // Another cycle already claimed this row — skip
@@ -120,16 +114,17 @@ export async function processNewChangeRequests(supabase: SupabaseClient): Promis
       const issue = await createIssueForCopilot('company', issueTitle, issueBody, labels);
 
       // Update the change request with issue info
-      await supabase
-        .from('dashboard_change_requests')
-        .update({
-          assigned_to: 'copilot',
-          github_issue_number: issue.number,
-          github_issue_url: issue.url,
-          agent_notes: `GitHub issue #${issue.number} created and assigned to Copilot coding agent. Waiting for Copilot to create a PR.`,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', req.id);
+      await systemQuery(
+        'UPDATE dashboard_change_requests SET assigned_to=$1, github_issue_number=$2, github_issue_url=$3, agent_notes=$4, updated_at=$5 WHERE id=$6',
+        [
+          'copilot',
+          issue.number,
+          issue.url,
+          `GitHub issue #${issue.number} created and assigned to Copilot coding agent. Waiting for Copilot to create a PR.`,
+          new Date().toISOString(),
+          req.id,
+        ]
+      );
 
       console.log(`[ChangeRequests] Created issue #${issue.number} for request "${req.title}" → assigned to Copilot`);
       processed++;
@@ -137,14 +132,15 @@ export async function processNewChangeRequests(supabase: SupabaseClient): Promis
       console.error(`[ChangeRequests] Failed to process request "${req.title}":`, (err as Error).message);
 
       // Revert to submitted so it retries next cycle
-      await supabase
-        .from('dashboard_change_requests')
-        .update({
-          status: 'submitted',
-          agent_notes: `Failed to create GitHub issue: ${(err as Error).message}. Will retry next cycle.`,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', req.id);
+      await systemQuery(
+        'UPDATE dashboard_change_requests SET status=$1, agent_notes=$2, updated_at=$3 WHERE id=$4',
+        [
+          'submitted',
+          `Failed to create GitHub issue: ${(err as Error).message}. Will retry next cycle.`,
+          new Date().toISOString(),
+          req.id,
+        ]
+      );
     }
   }
 
@@ -155,15 +151,12 @@ export async function processNewChangeRequests(supabase: SupabaseClient): Promis
  * Check on in-progress change requests: look for Copilot's PRs.
  * Called by the heartbeat to update status as Copilot works.
  */
-export async function syncChangeRequestProgress(supabase: SupabaseClient): Promise<number> {
+export async function syncChangeRequestProgress(): Promise<number> {
   // Fetch requests that are triaged or in_progress (waiting for Copilot)
-  const { data: requests } = await supabase
-    .from('dashboard_change_requests')
-    .select('*')
-    .in('status', ['triaged', 'in_progress'])
-    .not('github_issue_number', 'is', null)
-    .order('updated_at', { ascending: true })
-    .limit(10);
+  const requests = await systemQuery(
+    'SELECT * FROM dashboard_change_requests WHERE status = ANY($1) AND github_issue_number IS NOT NULL ORDER BY updated_at ASC LIMIT $2',
+    [['triaged', 'in_progress'], 10]
+  );
 
   if (!requests?.length) return 0;
 
@@ -178,20 +171,21 @@ export async function syncChangeRequestProgress(supabase: SupabaseClient): Promi
       if (pr && !req.github_pr_url) {
         // Copilot created a PR — update status
         const newStatus = pr.draft ? 'in_progress' : 'review';
-        await supabase
-          .from('dashboard_change_requests')
-          .update({
-            status: newStatus,
-            github_branch: pr.branch,
-            github_pr_url: pr.url,
-            commit_sha: pr.sha,
-            started_at: req.started_at ?? new Date().toISOString(),
-            agent_notes: pr.draft
+        await systemQuery(
+          'UPDATE dashboard_change_requests SET status=$1, github_branch=$2, github_pr_url=$3, commit_sha=$4, started_at=$5, agent_notes=$6, updated_at=$7 WHERE id=$8',
+          [
+            newStatus,
+            pr.branch,
+            pr.url,
+            pr.sha,
+            req.started_at ?? new Date().toISOString(),
+            pr.draft
               ? `Copilot is working — draft PR #${pr.number} created on branch \`${pr.branch}\`.`
               : `Copilot completed implementation — PR #${pr.number} is ready for review.`,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', req.id);
+            new Date().toISOString(),
+            req.id,
+          ]
+        );
 
         console.log(`[ChangeRequests] PR #${pr.number} found for request "${req.title}" → ${newStatus}`);
         updated++;
@@ -199,30 +193,32 @@ export async function syncChangeRequestProgress(supabase: SupabaseClient): Promi
         // PR already known — check if status changed (draft → ready, or merged)
         if (pr.state === 'closed') {
           // PR was merged or closed
-          await supabase
-            .from('dashboard_change_requests')
-            .update({
-              status: 'deployed',
-              commit_sha: pr.sha,
-              completed_at: new Date().toISOString(),
-              agent_notes: `PR #${pr.number} has been merged. Changes deployed.`,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', req.id);
+          await systemQuery(
+            'UPDATE dashboard_change_requests SET status=$1, commit_sha=$2, completed_at=$3, agent_notes=$4, updated_at=$5 WHERE id=$6',
+            [
+              'deployed',
+              pr.sha,
+              new Date().toISOString(),
+              `PR #${pr.number} has been merged. Changes deployed.`,
+              new Date().toISOString(),
+              req.id,
+            ]
+          );
 
           console.log(`[ChangeRequests] PR #${pr.number} merged for "${req.title}" → deployed`);
           updated++;
         } else if (!pr.draft && req.status === 'in_progress') {
           // Draft → ready for review
-          await supabase
-            .from('dashboard_change_requests')
-            .update({
-              status: 'review',
-              commit_sha: pr.sha,
-              agent_notes: `Copilot completed implementation — PR #${pr.number} is ready for review.`,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', req.id);
+          await systemQuery(
+            'UPDATE dashboard_change_requests SET status=$1, commit_sha=$2, agent_notes=$3, updated_at=$4 WHERE id=$5',
+            [
+              'review',
+              pr.sha,
+              `Copilot completed implementation — PR #${pr.number} is ready for review.`,
+              new Date().toISOString(),
+              req.id,
+            ]
+          );
 
           updated++;
         }

@@ -28,8 +28,6 @@ export interface M365AdminRunParams {
 
 export async function runM365Admin(params: M365AdminRunParams = {}) {
   const memory = new CompanyMemoryStore({
-    supabaseUrl: process.env.SUPABASE_URL!,
-    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company',
     gcpProjectId: process.env.GCP_PROJECT_ID,
   });
@@ -41,7 +39,7 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
   });
   const runner = createRunner(modelClient, 'm365-admin', params.task ?? 'on_demand');
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase: memory.getSupabaseClient() });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
@@ -49,9 +47,9 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
     ...createMemoryTools(memory),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
-    ...createToolGrantTools(memory.getSupabaseClient(), 'm365-admin'),
+    ...createToolGrantTools('m365-admin'),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
@@ -72,9 +70,7 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
     default:
       initialMessage = params.message || 'Review Teams channels and user access for any issues.';
   }
-
-  const supabase = memory.getSupabaseClient();
-  const agentCfg = await loadAgentConfig(supabase, 'm365-admin', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 12 });
+  const agentCfg = await loadAgentConfig('m365-admin', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 12 });
 
   const config: AgentConfig = {
     id: `riley-${task}-${today}`,
@@ -100,7 +96,7 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
   const result = await runner.run(
     config, initialMessage, supervisor, toolExecutor,
     (event) => eventBus.emit(event), memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
 
   try { await memory.recordAgentRun('m365-admin', 0, 0.02); } catch {}

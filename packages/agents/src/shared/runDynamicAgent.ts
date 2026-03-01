@@ -12,6 +12,7 @@ import {
   type ConversationTurn,
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
+import { systemQuery } from '@glyphor/shared/db';
 import { createMemoryTools } from './memoryTools.js';
 import { createRunDeps, loadAgentConfig } from './createRunDeps.js';
 import { createRunner } from './createRunner.js';
@@ -33,20 +34,12 @@ export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<Ag
   const { role, task = 'on_demand', message, conversationHistory } = params;
 
   const memory = new CompanyMemoryStore({
-    supabaseUrl: process.env.SUPABASE_URL!,
-    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company',
     gcpProjectId: process.env.GCP_PROJECT_ID,
   });
 
-  const supabase = memory.getSupabaseClient();
-
   // Load agent record from DB
-  const { data: agentRow } = await supabase
-    .from('company_agents')
-    .select('role, display_name, name, title, department, model, temperature, max_turns, status, is_temporary, expires_at, reports_to')
-    .eq('role', role)
-    .single();
+  const [agentRow] = await systemQuery('SELECT role, display_name, name, title, department, model, temperature, max_turns, status, is_temporary, expires_at, reports_to FROM company_agents WHERE role = $1', [role]);
 
   if (!agentRow) {
     return {
@@ -67,7 +60,7 @@ export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<Ag
   // Check TTL expiration
   if (agentRow.is_temporary && agentRow.expires_at && new Date(agentRow.expires_at) < new Date()) {
     // Auto-retire
-    await supabase.from('company_agents').update({ status: 'retired', updated_at: new Date().toISOString() }).eq('role', role);
+    await systemQuery('UPDATE company_agents SET status = $1, updated_at = $2 WHERE role = $3', ['retired', new Date().toISOString(), role]);
     return {
       output: `Agent "${role}" has expired (TTL reached ${agentRow.expires_at}) and has been retired.`,
       status: 'error',
@@ -76,11 +69,7 @@ export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<Ag
   }
 
   // Load system prompt from agent_briefs
-  const { data: brief } = await supabase
-    .from('agent_briefs')
-    .select('system_prompt, skills, tools')
-    .eq('agent_id', role)
-    .single();
+  const [brief] = await systemQuery('SELECT system_prompt, skills, tools FROM agent_briefs WHERE agent_id = $1', [role]);
 
   const systemPrompt = brief?.system_prompt || `You are ${agentRow.display_name || agentRow.name}, ${agentRow.title}. Department: ${agentRow.department}. Reports to: ${agentRow.reports_to}. Complete tasks thoroughly and report your findings.`;
 
@@ -92,7 +81,7 @@ export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<Ag
 
   const runner = createRunner(modelClient, role as any, task);
   const eventBus = new EventBus();
-  const glyphorEventBus = new GlyphorEventBus({ supabase });
+  const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
 
@@ -101,15 +90,15 @@ export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<Ag
     ...createMemoryTools(memory),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(supabase, glyphorEventBus),
-    ...createCommunicationTools(supabase, glyphorEventBus, process.env.SCHEDULER_URL),
-    ...createResearchTools(supabase),
+    ...createAssignmentTools(glyphorEventBus),
+    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
+    ...createResearchTools(),
     ...createCollectiveIntelligenceTools(memory),
   ];
 
   const toolExecutor = new ToolExecutor(tools);
 
-  const agentCfg = await loadAgentConfig(supabase, role, {
+  const agentCfg = await loadAgentConfig(role, {
     model: agentRow.model || 'gemini-3-flash-preview',
     temperature: agentRow.temperature ?? 0.3,
     maxTurns: agentRow.max_turns ?? 10,
@@ -143,7 +132,7 @@ export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<Ag
     config, initialMessage, supervisor, toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(supabase, glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory),
   );
 
   try { await memory.recordAgentRun(role, 0, 0.02); } catch {}

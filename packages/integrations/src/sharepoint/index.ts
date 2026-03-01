@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import { createHash } from 'node:crypto';
 import { getM365Token } from '../credentials/m365Router.js';
 
@@ -44,7 +44,6 @@ const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
 const SUPPORTED_EXTENSIONS = new Set(['.md', '.txt']);
 
 export async function syncSharePointKnowledge(
-  supabase: SupabaseClient,
   options?: SharePointSyncOptions,
 ): Promise<SharePointSyncResult> {
   const siteId = options?.siteId ?? process.env.SHAREPOINT_SITE_ID;
@@ -67,7 +66,7 @@ export async function syncSharePointKnowledge(
     errors: 0,
   };
 
-  const existingByItem = await loadExistingRows(supabase, siteId, driveId);
+  const existingByItem = await loadExistingRows(siteId, driveId);
   const seen = new Set<string>();
 
   const queue: Array<{ itemId: string | null; path: string | null }> = [{ itemId: null, path: rootFolder }];
@@ -92,7 +91,7 @@ export async function syncSharePointKnowledge(
       const itemPath = folderPath ? `${folderPath}/${item.name}` : item.name;
 
       if (!SUPPORTED_EXTENSIONS.has(extension)) {
-        await upsertIndexRow(supabase, {
+        await upsertIndexRow({
           site_id: siteId,
           drive_id: driveId,
           drive_item_id: item.id,
@@ -114,7 +113,7 @@ export async function syncSharePointKnowledge(
 
       const existing = existingByItem.get(item.id);
       if (existing?.etag && item.eTag && existing.etag === item.eTag) {
-        await touchIndexRow(supabase, item.id);
+        await touchIndexRow(item.id);
         result.skipped += 1;
         continue;
       }
@@ -122,7 +121,7 @@ export async function syncSharePointKnowledge(
       try {
         const text = await downloadTextContent(token, siteId, driveId, item.id);
         if (text.trim().length < 40) {
-          await upsertIndexRow(supabase, {
+          await upsertIndexRow({
             site_id: siteId,
             drive_id: driveId,
             drive_item_id: item.id,
@@ -142,17 +141,17 @@ export async function syncSharePointKnowledge(
           continue;
         }
 
-        const knowledgeId = await saveKnowledgeEntry(supabase, {
+        const knowledgeId = await saveKnowledgeEntry({
           content: buildKnowledgeText(item.name, itemPath, item.webUrl ?? null, text),
           evidence: item.webUrl ?? null,
           tags: ['sharepoint', 'document', extension.replace('.', '')],
         });
 
         if (existing?.knowledge_id && existing.knowledge_id !== knowledgeId) {
-          await markKnowledgeSuperseded(supabase, existing.knowledge_id, knowledgeId);
+          await markKnowledgeSuperseded(existing.knowledge_id, knowledgeId);
         }
 
-        await upsertIndexRow(supabase, {
+        await upsertIndexRow({
           site_id: siteId,
           drive_id: driveId,
           drive_item_id: item.id,
@@ -173,7 +172,7 @@ export async function syncSharePointKnowledge(
         result.updated += 1;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        await upsertIndexRow(supabase, {
+        await upsertIndexRow({
           site_id: siteId,
           drive_id: driveId,
           drive_item_id: item.id,
@@ -194,7 +193,7 @@ export async function syncSharePointKnowledge(
     }
   }
 
-  result.deleted = await markMissingAsDeleted(supabase, siteId, driveId, seen);
+  result.deleted = await markMissingAsDeleted(siteId, driveId, seen);
   return result;
 }
 
@@ -269,103 +268,84 @@ async function downloadTextContent(
 }
 
 async function saveKnowledgeEntry(
-  supabase: SupabaseClient,
   input: { content: string; evidence: string | null; tags: string[] },
 ): Promise<string> {
-  const { data, error } = await supabase
-    .from('company_knowledge')
-    .insert({
-      knowledge_type: 'policy',
-      content: input.content,
-      evidence: input.evidence,
-      discovered_by: 'sharepoint-sync',
-      contributing_agents: ['m365-admin'],
-      discovery_context: 'sharepoint_import',
-      departments_affected: [],
-      agents_who_need_this: [],
-      confidence: 0.85,
-      tags: input.tags,
-      status: 'active',
-    })
-    .select('id')
-    .single();
+  const rows = await systemQuery<{ id: string }>(
+    `INSERT INTO company_knowledge (knowledge_type, content, evidence, discovered_by, contributing_agents, discovery_context, departments_affected, agents_who_need_this, confidence, tags, status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+     RETURNING id`,
+    [
+      'policy',
+      input.content,
+      input.evidence,
+      'sharepoint-sync',
+      JSON.stringify(['m365-admin']),
+      'sharepoint_import',
+      JSON.stringify([]),
+      JSON.stringify([]),
+      0.85,
+      JSON.stringify(input.tags),
+      'active',
+    ],
+  );
 
-  if (error || !data?.id) {
-    throw new Error(`Failed to insert company knowledge row: ${error?.message ?? 'unknown error'}`);
+  if (!rows[0]?.id) {
+    throw new Error('Failed to insert company knowledge row: no id returned');
   }
 
-  return data.id as string;
+  return rows[0].id;
 }
 
 async function markKnowledgeSuperseded(
-  supabase: SupabaseClient,
   previousKnowledgeId: string,
   replacementKnowledgeId: string,
 ): Promise<void> {
-  await supabase
-    .from('company_knowledge')
-    .update({
-      status: 'superseded',
-      superseded_by: replacementKnowledgeId,
-      last_validated_at: new Date().toISOString(),
-    })
-    .eq('id', previousKnowledgeId)
-    .eq('status', 'active');
+  await systemQuery(
+    "UPDATE company_knowledge SET status = $1, superseded_by = $2, last_validated_at = $3 WHERE id = $4 AND status = 'active'",
+    ['superseded', replacementKnowledgeId, new Date().toISOString(), previousKnowledgeId],
+  );
 }
 
 async function loadExistingRows(
-  supabase: SupabaseClient,
   siteId: string,
   driveId: string,
 ): Promise<Map<string, ExistingIndexRow>> {
-  const { data, error } = await supabase
-    .from('sharepoint_document_index')
-    .select('drive_item_id, etag, knowledge_id')
-    .eq('site_id', siteId)
-    .eq('drive_id', driveId)
-    .neq('status', 'deleted');
+  const data = await systemQuery<ExistingIndexRow>(
+    "SELECT drive_item_id, etag, knowledge_id FROM sharepoint_document_index WHERE site_id = $1 AND drive_id = $2 AND status != 'deleted'",
+    [siteId, driveId],
+  );
 
-  if (error) {
-    throw new Error(`Failed to load SharePoint index rows: ${error.message}`);
-  }
-
-  return new Map((data ?? []).map((row) => [row.drive_item_id as string, row as ExistingIndexRow]));
+  return new Map(data.map((row) => [row.drive_item_id, row]));
 }
 
 async function markMissingAsDeleted(
-  supabase: SupabaseClient,
   siteId: string,
   driveId: string,
   seen: Set<string>,
 ): Promise<number> {
-  const { data, error } = await supabase
-    .from('sharepoint_document_index')
-    .select('id, drive_item_id, knowledge_id, status')
-    .eq('site_id', siteId)
-    .eq('drive_id', driveId)
-    .neq('status', 'deleted');
+  const data = await systemQuery<{ id: string; drive_item_id: string; knowledge_id: string | null; status: string }>(
+    "SELECT id, drive_item_id, knowledge_id, status FROM sharepoint_document_index WHERE site_id = $1 AND drive_id = $2 AND status != 'deleted'",
+    [siteId, driveId],
+  );
 
-  if (error || !data?.length) return 0;
+  if (!data.length) return 0;
 
   const now = new Date().toISOString();
   let deleted = 0;
 
   for (const row of data) {
-    const driveItemId = row.drive_item_id as string;
-    if (seen.has(driveItemId)) continue;
+    if (seen.has(row.drive_item_id)) continue;
 
-    await supabase
-      .from('sharepoint_document_index')
-      .update({ status: 'deleted', updated_at: now, last_synced_at: now })
-      .eq('id', row.id as string);
+    await systemQuery(
+      'UPDATE sharepoint_document_index SET status = $1, updated_at = $2, last_synced_at = $3 WHERE id = $4',
+      ['deleted', now, now, row.id],
+    );
 
-    const knowledgeId = row.knowledge_id as string | null;
-    if (knowledgeId) {
-      await supabase
-        .from('company_knowledge')
-        .update({ status: 'deprecated', last_validated_at: now })
-        .eq('id', knowledgeId)
-        .eq('status', 'active');
+    if (row.knowledge_id) {
+      await systemQuery(
+        "UPDATE company_knowledge SET status = $1, last_validated_at = $2 WHERE id = $3 AND status = 'active'",
+        ['deprecated', now, row.knowledge_id],
+      );
     }
 
     deleted += 1;
@@ -374,15 +354,14 @@ async function markMissingAsDeleted(
   return deleted;
 }
 
-async function touchIndexRow(supabase: SupabaseClient, driveItemId: string): Promise<void> {
-  await supabase
-    .from('sharepoint_document_index')
-    .update({ last_synced_at: new Date().toISOString(), status: 'active' })
-    .eq('drive_item_id', driveItemId);
+async function touchIndexRow(driveItemId: string): Promise<void> {
+  await systemQuery(
+    "UPDATE sharepoint_document_index SET last_synced_at = $1, status = 'active' WHERE drive_item_id = $2",
+    [new Date().toISOString(), driveItemId],
+  );
 }
 
 async function upsertIndexRow(
-  supabase: SupabaseClient,
   row: {
     site_id: string;
     drive_id: string;
@@ -401,18 +380,22 @@ async function upsertIndexRow(
     metadata: Record<string, unknown>;
   },
 ): Promise<void> {
-  const payload = {
-    ...row,
-    updated_at: new Date().toISOString(),
-  };
+  const now = new Date().toISOString();
 
-  const { error } = await supabase
-    .from('sharepoint_document_index')
-    .upsert(payload, { onConflict: 'site_id,drive_id,drive_item_id' });
-
-  if (error) {
-    throw new Error(`Failed to upsert SharePoint index row: ${error.message}`);
-  }
+  await systemQuery(
+    `INSERT INTO sharepoint_document_index (site_id, drive_id, drive_item_id, name, path, web_url, etag, mime_type, content_hash, last_modified_at, last_synced_at, status, error_text, knowledge_id, metadata, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+     ON CONFLICT (site_id, drive_id, drive_item_id) DO UPDATE SET
+       name = $4, path = $5, web_url = $6, etag = $7, mime_type = $8, content_hash = $9,
+       last_modified_at = $10, last_synced_at = $11, status = $12, error_text = $13,
+       knowledge_id = $14, metadata = $15, updated_at = $16`,
+    [
+      row.site_id, row.drive_id, row.drive_item_id, row.name, row.path,
+      row.web_url, row.etag, row.mime_type, row.content_hash ?? null,
+      row.last_modified_at, row.last_synced_at, row.status, row.error_text,
+      row.knowledge_id, JSON.stringify(row.metadata), now,
+    ],
+  );
 }
 
 function getExtension(fileName: string): string {
@@ -490,7 +473,6 @@ export interface SharePointDocument {
  * Upload a markdown/text document to SharePoint and sync it to company_knowledge.
  */
 export async function uploadToSharePoint(
-  supabase: SupabaseClient,
   fileName: string,
   content: string,
   options?: SharePointUploadOptions,
@@ -525,13 +507,13 @@ export async function uploadToSharePoint(
   const item = (await response.json()) as GraphDriveItem;
 
   // Also insert into company_knowledge for immediate availability
-  const knowledgeId = await saveKnowledgeEntry(supabase, {
+  const knowledgeId = await saveKnowledgeEntry({
     content: buildKnowledgeText(safeName, remotePath, item.webUrl ?? null, content),
     evidence: item.webUrl ?? null,
     tags: ['sharepoint', 'document', getExtension(safeName).replace('.', '')],
   });
 
-  await upsertIndexRow(supabase, {
+  await upsertIndexRow({
     site_id: siteId,
     drive_id: driveId,
     drive_item_id: item.id,

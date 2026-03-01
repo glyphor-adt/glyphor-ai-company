@@ -13,7 +13,7 @@
  * constitutional compliance rate, verification pass rate.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { TrustScorer } from './trustScorer.js';
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -62,7 +62,6 @@ const DEGRADATION_METRICS = ['reasoning_confidence', 'constitutional_compliance'
 
 export class DriftDetector {
   constructor(
-    private supabase: SupabaseClient,
     private trustScorer?: TrustScorer,
   ) {}
 
@@ -127,13 +126,12 @@ export class DriftDetector {
       Date.now() - RECENT_DAYS * 24 * 60 * 60 * 1000,
     ).toISOString();
 
-    const { data } = await this.supabase
-      .from('agent_runs')
-      .select('agent_id')
-      .gte('created_at', cutoff)
-      .not('agent_id', 'is', null);
+    const data = await systemQuery<{ agent_id: string }>(
+      'SELECT agent_id FROM agent_runs WHERE created_at >= $1 AND agent_id IS NOT NULL',
+      [cutoff],
+    );
 
-    if (!data) return [];
+    if (!data.length) return [];
 
     // Distinct agent IDs
     const seen = new Set<string>();
@@ -152,27 +150,34 @@ export class DriftDetector {
     const recentStart = new Date(now - RECENT_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
     // Fetch baseline runs (30 days, excluding last 7)
-    const { data: baselineRuns } = await this.supabase
-      .from('agent_runs')
-      .select('reasoning_confidence, reasoning_cost_usd, reasoning_passes, tokens_used, created_at')
-      .eq('agent_id', agentId)
-      .gte('created_at', baselineStart)
-      .lt('created_at', recentStart)
-      .limit(500);
+    const baselineRuns = await systemQuery<{
+      reasoning_confidence: number | null;
+      reasoning_cost_usd: number | null;
+      reasoning_passes: number | null;
+      tokens_used: number | null;
+      created_at: string;
+    }>(
+      'SELECT reasoning_confidence, reasoning_cost_usd, reasoning_passes, tokens_used, created_at FROM agent_runs WHERE agent_id = $1 AND created_at >= $2 AND created_at < $3 LIMIT 500',
+      [agentId, baselineStart, recentStart],
+    );
 
-    if (!baselineRuns || baselineRuns.length < MIN_BASELINE_RUNS) {
+    if (baselineRuns.length < MIN_BASELINE_RUNS) {
       return null; // Not enough baseline data
     }
 
     // Fetch recent runs (7 days)
-    const { data: recentRuns } = await this.supabase
-      .from('agent_runs')
-      .select('reasoning_confidence, reasoning_cost_usd, reasoning_passes, tokens_used, created_at')
-      .eq('agent_id', agentId)
-      .gte('created_at', recentStart)
-      .limit(200);
+    const recentRuns = await systemQuery<{
+      reasoning_confidence: number | null;
+      reasoning_cost_usd: number | null;
+      reasoning_passes: number | null;
+      tokens_used: number | null;
+      created_at: string;
+    }>(
+      'SELECT reasoning_confidence, reasoning_cost_usd, reasoning_passes, tokens_used, created_at FROM agent_runs WHERE agent_id = $1 AND created_at >= $2 LIMIT 200',
+      [agentId, recentStart],
+    );
 
-    if (!recentRuns || recentRuns.length < 3) {
+    if (recentRuns.length < 3) {
       return null; // Not enough recent data
     }
 
@@ -191,16 +196,14 @@ export class DriftDetector {
     from: string,
     to: string,
   ): Promise<number | null> {
-    const { data } = await this.supabase
-      .from('constitutional_evaluations')
-      .select('passed')
-      .eq('agent_role', agentId)
-      .gte('created_at', from)
-      .lt('created_at', to);
+    const data = await systemQuery<{ passed: boolean }>(
+      'SELECT passed FROM constitutional_evaluations WHERE agent_role = $1 AND created_at >= $2 AND created_at < $3',
+      [agentId, from, to],
+    );
 
-    if (!data || data.length === 0) return null;
+    if (data.length === 0) return null;
 
-    const passCount = data.filter((e: { passed: boolean }) => e.passed).length;
+    const passCount = data.filter((e) => e.passed).length;
     return passCount / data.length;
   }
 
@@ -280,15 +283,10 @@ export class DriftDetector {
   }
 
   private async saveAlert(alert: DriftAlert): Promise<void> {
-    await this.supabase.from('drift_alerts').insert({
-      agent_id: alert.agentId,
-      metric: alert.metric,
-      baseline_mean: alert.baselineMean,
-      baseline_stddev: alert.baselineStddev,
-      recent_mean: alert.recentMean,
-      deviation_sigma: alert.deviationSigma,
-      severity: alert.severity,
-      auto_adjusted: alert.autoAdjusted,
-    });
+    await systemQuery(
+      `INSERT INTO drift_alerts (agent_id, metric, baseline_mean, baseline_stddev, recent_mean, deviation_sigma, severity, auto_adjusted)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [alert.agentId, alert.metric, alert.baselineMean, alert.baselineStddev, alert.recentMean, alert.deviationSigma, alert.severity, alert.autoAdjusted],
+    );
   }
 }

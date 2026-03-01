@@ -17,7 +17,7 @@
     "@glyphor/agents": "*",
     "@glyphor/company-memory": "*",
     "@glyphor/integrations": "*",
-    "@supabase/supabase-js": "^2.49.0",
+    "@glyphor/shared": "*",
     "openai": "^4.82.0",
     "ws": "^8.18.0"
   },

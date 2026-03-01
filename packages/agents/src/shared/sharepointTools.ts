@@ -7,7 +7,6 @@
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   searchSharePoint,
   readSharePointDocument,
@@ -20,7 +19,7 @@ import {
  * Available to all agents — the SharePoint site is the canonical
  * source of truth for company documents.
  */
-export function createSharePointTools(supabase: SupabaseClient): ToolDefinition[] {
+export function createSharePointTools(): ToolDefinition[] {
   return [
     {
       name: 'search_sharepoint',
@@ -124,7 +123,6 @@ export function createSharePointTools(supabase: SupabaseClient): ToolDefinition[
             : rootFolder;
 
           const result = await uploadToSharePoint(
-            supabase,
             params.file_name as string,
             params.content as string,
             { folder },

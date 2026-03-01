@@ -1,7 +1,7 @@
 /**
- * Company Memory — Supabase Schema Types
+ * Company Memory — Database Schema Types
  *
- * TypeScript types mirroring the Supabase tables from the architecture spec.
+ * TypeScript types mirroring the PostgreSQL tables from the architecture spec.
  * These are the database-level types (with DB column conventions).
  */
 

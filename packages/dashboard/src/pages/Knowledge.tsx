@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { apiCall } from '../lib/firebase';
 import { Card, SectionHeader, Skeleton, timeAgo, PageTabs } from '../components/ui';
 import {
   MdConstruction, MdRocketLaunch, MdCelebration, MdFitnessCenter,
@@ -109,27 +109,27 @@ function KnowledgeBase() {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    const [kbRes, bulRes, pulseRes, nodesRes, edgesRes] = await Promise.all([
-      supabase.from('company_knowledge_base').select('*').eq('is_active', true).order('section'),
-      supabase.from('founder_bulletins').select('*').eq('is_active', true).order('created_at', { ascending: false }),
-      supabase.from('company_pulse').select('*').eq('id', 'current').single(),
-      supabase.from('kg_nodes').select('node_type'),
-      supabase.from('kg_edges').select('id', { count: 'exact', head: true }),
+    const [kbData, bulData, pulseData, nodesData, edgesData] = await Promise.all([
+      apiCall<KBSection[]>('/api/company-knowledge-base?is_active=true'),
+      apiCall<Bulletin[]>('/api/founder-bulletins?is_active=true'),
+      apiCall<Pulse>('/api/company-pulse'),
+      apiCall<{ node_type: string }[]>('/api/kg-nodes?fields=node_type'),
+      apiCall<{ count: number }>('/api/kg-edges?count=true'),
     ]);
 
-    setSections((kbRes.data as KBSection[] | null) ?? []);
-    setBulletins((bulRes.data as Bulletin[] | null) ?? []);
-    setPulse((pulseRes.data as Pulse | null) ?? null);
+    setSections(kbData ?? []);
+    setBulletins(bulData ?? []);
+    setPulse(pulseData ?? null);
 
     // Compute KG stats
-    const nodes = (nodesRes.data ?? []) as { node_type: string }[];
+    const nodes = (nodesData ?? []) as { node_type: string }[];
     const typeCounts: Record<string, number> = {};
     for (const n of nodes) {
       typeCounts[n.node_type] = (typeCounts[n.node_type] ?? 0) + 1;
     }
     setKgStats({
       total_nodes: nodes.length,
-      total_edges: edgesRes.count ?? 0,
+      total_edges: (edgesData as any)?.count ?? 0,
       node_types: typeCounts,
     });
 
@@ -139,15 +139,8 @@ function KnowledgeBase() {
   useEffect(() => { refresh(); }, [refresh]);
 
   // Real-time
-  useEffect(() => {
-    const channel = supabase
-      .channel('knowledge-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'company_knowledge_base' }, () => refresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'founder_bulletins' }, () => refresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'company_pulse' }, () => refresh())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [refresh]);
+  // Real-time not available after Firebase migration
+  useEffect(() => {}, [refresh]);
 
   if (loading) {
     return (
@@ -247,20 +240,23 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
 
   async function handleSave() {
     setSaving(true);
-    const { error } = await (supabase.from('company_pulse') as any).update({
-      mrr: form.mrr,
-      active_users: form.active_users,
-      platform_status: form.platform_status,
-      company_mood: form.company_mood,
-      updated_at: new Date().toISOString(),
-    }).eq('id', 'current');
-    setSaving(false);
-    if (error) {
-      alert(`Save failed: ${error.message}`);
-      return;
+    try {
+      await apiCall('/api/company-pulse/current', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          mrr: form.mrr,
+          active_users: form.active_users,
+          platform_status: form.platform_status,
+          company_mood: form.company_mood,
+          updated_at: new Date().toISOString(),
+        }),
+      });
+      setEditing(false);
+      onRefresh();
+    } catch (err) {
+      alert(`Save failed: ${(err as Error).message}`);
     }
-    setEditing(false);
-    onRefresh();
+    setSaving(false);
   }
 
   if (!pulse) {
@@ -402,7 +398,10 @@ function BulletinSection({ bulletins, onRefresh }: { bulletins: Bulletin[]; onRe
   const [showForm, setShowForm] = useState(false);
 
   async function deactivate(id: string) {
-    await (supabase.from('founder_bulletins') as any).update({ is_active: false }).eq('id', id);
+    await apiCall(`/api/founder-bulletins/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_active: false }),
+    });
     onRefresh();
   }
 
@@ -496,12 +495,15 @@ function NewBulletinModal({ onClose, onCreated }: { onClose: () => void; onCreat
       }
     }
 
-    await (supabase.from('founder_bulletins') as any).insert({
-      created_by: 'kristina',
-      content: content.trim(),
-      audience,
-      priority,
-      expires_at,
+    await apiCall('/api/founder-bulletins', {
+      method: 'POST',
+      body: JSON.stringify({
+        created_by: 'kristina',
+        content: content.trim(),
+        audience,
+        priority,
+        expires_at,
+      }),
     });
 
     setSaving(false);
@@ -600,13 +602,16 @@ function KBEditor({ sections, onRefresh }: { sections: KBSection[]; onRefresh: (
 
   async function handleSave(section: KBSection) {
     setSaving(true);
-    await (supabase.from('company_knowledge_base') as any).update({
-      content: editContent,
-      audience: editAudience,
-      version: section.version + 1,
-      last_edited_by: 'kristina',
-      updated_at: new Date().toISOString(),
-    }).eq('id', section.id);
+    await apiCall(`/api/company-knowledge-base/${section.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        content: editContent,
+        audience: editAudience,
+        version: section.version + 1,
+        last_edited_by: 'kristina',
+        updated_at: new Date().toISOString(),
+      }),
+    });
     setSaving(false);
     setEditingId(null);
     onRefresh();

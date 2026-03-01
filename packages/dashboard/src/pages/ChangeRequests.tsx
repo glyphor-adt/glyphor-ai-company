@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { supabase } from '../lib/supabase';
+import { apiCall } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
 import { Card, Skeleton, timeAgo } from '../components/ui';
 import { DISPLAY_NAME_MAP } from '../lib/types';
@@ -66,24 +66,19 @@ export default function ChangeRequests() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('dashboard_change_requests')
-      .select('*')
-      .order('created_at', { ascending: false });
-    setRequests((data as DashboardChangeRequest[]) ?? []);
+    try {
+      const data = await apiCall<DashboardChangeRequest[]>('/api/dashboard-change-requests');
+      setRequests(data ?? []);
+    } catch {
+      setRequests([]);
+    }
     setLoading(false);
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  // Real-time updates
-  useEffect(() => {
-    const channel = supabase
-      .channel('change-requests-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'dashboard_change_requests' }, () => refresh())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [refresh]);
+  // Real-time not available after Firebase migration
+  useEffect(() => {}, [refresh]);
 
   const filtered = requests.filter(r => {
     if (filter === 'open') return !['deployed', 'rejected'].includes(r.status);
@@ -184,28 +179,28 @@ function RequestCard({ request: r }: { request: DashboardChangeRequest }) {
 
   const handleApprove = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    await supabase
-      .from('dashboard_change_requests')
-      .update({
+    await apiCall(`/api/dashboard-change-requests/${r.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
         status: 'submitted',
         approved_by: user?.email ?? null,
         approved_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      })
-      .eq('id', r.id);
+      }),
+    });
   };
 
   const handleReject = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const reason = prompt('Rejection reason (optional):');
-    await supabase
-      .from('dashboard_change_requests')
-      .update({
+    await apiCall(`/api/dashboard-change-requests/${r.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
         status: 'rejected',
         rejection_reason: reason || 'Rejected by approver',
         updated_at: new Date().toISOString(),
-      })
-      .eq('id', r.id);
+      }),
+    });
   };
 
   return (
@@ -393,14 +388,17 @@ function NewRequestModal({
 
     setSubmitting(true);
     const needsApproval = APPROVAL_REQUIRED_EMAILS.includes(userEmail.toLowerCase()) && requestType !== 'fix';
-    await (supabase.from('dashboard_change_requests') as ReturnType<typeof supabase.from>).insert({
-      submitted_by: userEmail,
-      title: title.trim(),
-      description: description.trim(),
-      request_type: requestType,
-      priority,
-      affected_area: affectedArea || null,
-      ...(needsApproval ? { status: 'pending_approval' } : {}),
+    await apiCall('/api/dashboard-change-requests', {
+      method: 'POST',
+      body: JSON.stringify({
+        submitted_by: userEmail,
+        title: title.trim(),
+        description: description.trim(),
+        request_type: requestType,
+        priority,
+        affected_area: affectedArea || null,
+        ...(needsApproval ? { status: 'pending_approval' } : {}),
+      }),
     });
     setSubmitting(false);
     onSubmitted();

@@ -4,7 +4,7 @@ import Markdown from 'react-markdown';
 import { useAgents } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
-import { supabase, SCHEDULER_URL } from '../lib/supabase';
+import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { useAuth, getEmailAliases } from '../lib/auth';
 import { MdAttachFile, MdImage, MdDescription, MdClose, MdVideoCall, MdCallEnd } from 'react-icons/md';
 import { HiMiniSignal, HiStop, HiMicrophone } from 'react-icons/hi2';
@@ -73,8 +73,7 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-/** Persist a message to Supabase */
-/** Persist a message to Supabase */
+/** Persist a message to the database */
 async function saveMessage(
   agentRole: string,
   role: 'user' | 'agent',
@@ -82,12 +81,15 @@ async function saveMessage(
   userId: string,
   attachments?: Attachment[],
 ) {
-  await supabase.from('chat_messages').insert({
-    agent_role: agentRole,
-    role,
-    content,
-    user_id: userId,
-    attachments: attachments?.length ? attachments.map((a) => ({ name: a.name, type: a.type })) : null,
+  await apiCall('/api/chat-messages', {
+    method: 'POST',
+    body: JSON.stringify({
+      agent_role: agentRole,
+      role,
+      content,
+      user_id: userId,
+      attachments: attachments?.length ? attachments.map((a) => ({ name: a.name, type: a.type })) : null,
+    }),
   });
 }
 
@@ -260,19 +262,14 @@ export default function Chat() {
     async (role: string) => {
       setLoadingHistory(true);
       try {
-        const { data } = await supabase.from('chat_messages')
-          .select('role, content, created_at, attachments')
-          .eq('agent_role', role)
-          .in('user_id', userAliases)
-          .order('created_at', { ascending: true })
-          .limit(100);
+        const data = await apiCall(`/api/chat-messages?agent_role=${role}&user_id=${userAliases.join(',')}&order=created_at.asc&limit=100`);
         if (data?.length) {
           setMessages(
-            data.map((row) => ({
+            data.map((row: Record<string, unknown>) => ({
               role: row.role as 'user' | 'agent',
               content: row.content,
-              timestamp: new Date(row.created_at),
-              attachments: row.attachments?.map((a) => ({ ...a, data: '' })),
+              timestamp: new Date(row.created_at as string),
+              attachments: (row.attachments as any[])?.map((a: Record<string, unknown>) => ({ ...a, data: '' })),
             })),
           );
         } else {
@@ -551,7 +548,7 @@ export default function Chat() {
           {messages.length > 0 && (
             <button
               onClick={async () => {
-                await supabase.from('chat_messages').delete().eq('agent_role', selectedRole).eq('user_id', userEmail);
+                await apiCall(`/api/chat-messages?agent_role=${selectedRole}&user_id=${userEmail}`, { method: 'DELETE' });
                 setMessages([]);
               }}
               className="text-[11px] text-txt-faint hover:text-rose transition-colors"

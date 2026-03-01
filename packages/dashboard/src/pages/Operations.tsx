@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { supabase } from '../lib/supabase';
+import { apiCall } from '../lib/firebase';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import {
   Card,
@@ -63,11 +63,12 @@ function useAgentRuns() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const { data: rows } = await supabase
-      .from('company_agents')
-      .select('id, role, total_runs, total_cost_usd, last_run_at, last_run_duration_ms, performance_score')
-      .order('role', { ascending: true });
-    setData((rows as AgentRow[]) ?? []);
+    try {
+      const rows = await apiCall<AgentRow[]>('/api/company-agents?fields=id,role,total_runs,total_cost_usd,last_run_at,last_run_duration_ms,performance_score');
+      setData(rows ?? []);
+    } catch {
+      setData([]);
+    }
     setLoading(false);
   }, []);
 
@@ -82,12 +83,12 @@ function useReflections(days = 14) {
   useEffect(() => {
     (async () => {
       const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-      const { data: rows } = await supabase
-        .from('agent_reflections')
-        .select('id, agent_role, quality_score, created_at')
-        .gte('created_at', since)
-        .order('created_at', { ascending: true });
-      setData((rows as ReflectionRow[]) ?? []);
+      try {
+        const rows = await apiCall<ReflectionRow[]>(`/api/agent-reflections?since=${since}`);
+        setData(rows ?? []);
+      } catch {
+        setData([]);
+      }
       setLoading(false);
     })();
   }, [days]);
@@ -102,11 +103,12 @@ function useRecentRuns(hours = 48) {
   useEffect(() => {
     (async () => {
       const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
-      const { data: rows } = await supabase
-        .from('agent_runs')
-        .select('agent_id, status, duration_ms, error, started_at')
-        .gte('started_at', since);
-      setData((rows as RecentRunRow[]) ?? []);
+      try {
+        const rows = await apiCall<RecentRunRow[]>(`/api/agent-runs?since=${since}`);
+        setData(rows ?? []);
+      } catch {
+        setData([]);
+      }
       setLoading(false);
     })();
   }, [hours]);
@@ -221,8 +223,12 @@ function useDataSyncs() {
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     (async () => {
-      const { data: rows } = await supabase.from('data_sync_status').select('*');
-      setData((rows as SyncRow[] | null) ?? []);
+      try {
+        const rows = await apiCall<SyncRow[]>('/api/data-sync-status');
+        setData(rows ?? []);
+      } catch {
+        setData([]);
+      }
       setLoading(false);
     })();
   }, []);
@@ -234,8 +240,12 @@ function useIncidents() {
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     (async () => {
-      const { data: rows } = await supabase.from('incidents').select('*').order('created_at', { ascending: false }).limit(20);
-      setData((rows as IncidentRow[] | null) ?? []);
+      try {
+        const rows = await apiCall<IncidentRow[]>('/api/incidents?limit=20');
+        setData(rows ?? []);
+      } catch {
+        setData([]);
+      }
       setLoading(false);
     })();
   }, []);

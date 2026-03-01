@@ -4,7 +4,7 @@ An autonomous AI-first company with 26 AI agents (8 executives, 17 sub-team memb
 
 ## What This Is
 
-Glyphor AI Company replaces traditional org-chart roles with AI agents powered by Gemini. Each agent has a defined scope, tools, schedule, personality, and authority level. Human founders (Kristina as CEO, Andrew as COO) retain strategic control through a tiered decision model. Agents run 24/7 on GCP Cloud Run, share state through Supabase, communicate with founders via Microsoft Teams, and collaborate with each other through DMs and multi-agent meetings.
+Glyphor AI Company replaces traditional org-chart roles with AI agents powered by Gemini. Each agent has a defined scope, tools, schedule, personality, and authority level. Human founders (Kristina as CEO, Andrew as COO) retain strategic control through a tiered decision model. Agents run 24/7 on GCP Cloud Run, share state through Cloud SQL, communicate with founders via Microsoft Teams, and collaborate with each other through DMs and multi-agent meetings.
 
 ## Agent Roster
 
@@ -47,7 +47,7 @@ Cloud Scheduler → Pub/Sub → Event Router → Agent Runtime → Company Memor
                                      (Channels + Bot Framework)
 ```
 
-**Stack**: TypeScript, Turborepo, Gemini API, Supabase, GCS, GCP Cloud Run, Microsoft Teams (Bot Framework + Graph API), Azure Entra ID
+**Stack**: TypeScript, Turborepo, Gemini API, Cloud SQL (PostgreSQL), GCS, GCP Cloud Run, Microsoft Teams (Bot Framework + Graph API), Azure Entra ID
 
 ## Quick Start
 
@@ -70,7 +70,7 @@ node packages/agents/dist/chief-of-staff/run.js
 ```
 packages/
 ├── agent-runtime/     # Core agent loop, multi-provider LLM, event bus
-├── company-memory/    # Supabase + GCS persistence
+├── company-memory/    # Cloud SQL + GCS persistence
 ├── company-knowledge/ # Shared knowledge base + 26 role briefs
 ├── agents/            # 26 agent configs, prompts, tools, runners
 ├── integrations/      # Teams bot, Graph API, Stripe, Mercury, GCP billing

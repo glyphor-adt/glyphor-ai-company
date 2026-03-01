@@ -74,7 +74,7 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
         last_success_at: string | null;
         consecutive_failures: number;
       }
-      const rows = await queryTable<SyncRow>(config, 'data_sync_status');
+      const rows = await queryTable<SyncRow>('data_sync_status');
       if (rows.length === 0) {
         throw new Error('No rows in data_sync_status');
       }

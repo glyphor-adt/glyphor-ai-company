@@ -7,7 +7,7 @@
  * Enables compliance exports and counterfactual contribution analysis.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -37,9 +37,7 @@ export class DecisionChainTracker {
   private pendingLinks: ChainLink[] = [];
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(
-    private supabase: SupabaseClient,
-  ) {}
+  constructor() {}
 
   /** Get the current chain ID (null if no chain started). */
   getChainId(): string | null {
@@ -55,20 +53,17 @@ export class DecisionChainTracker {
     content: string;
     source: string;
   }): Promise<string> {
-    const { data } = await this.supabase
-      .from('decision_chains')
-      .insert({
-        directive_id: params.directiveId,
-        trigger_type: params.triggerType,
-        chain: [{
-          type: 'directive_received',
-          timestamp: new Date().toISOString(),
-          content: params.content,
-          source: params.source,
-        }],
-      })
-      .select('id')
-      .single();
+    const [data] = await systemQuery<{ id: string }>(
+      `INSERT INTO decision_chains (directive_id, trigger_type, chain)
+       VALUES ($1, $2, $3)
+       RETURNING id`,
+      [params.directiveId, params.triggerType, JSON.stringify([{
+        type: 'directive_received',
+        timestamp: new Date().toISOString(),
+        content: params.content,
+        source: params.source,
+      }])],
+    );
 
     this.chainId = data?.id ?? null;
     return this.chainId!;
@@ -114,10 +109,10 @@ export class DecisionChainTracker {
     const linksToFlush = [...this.pendingLinks];
     this.pendingLinks = [];
 
-    await this.supabase.rpc('append_chain_links', {
-      p_chain_id: this.chainId,
-      p_links: linksToFlush,
-    });
+    await systemQuery(
+      'SELECT * FROM append_chain_links($1, $2)',
+      [this.chainId, JSON.stringify(linksToFlush)],
+    );
   }
 
   /**
@@ -141,15 +136,10 @@ export class DecisionChainTracker {
     }
     await this.flush();
 
-    await this.supabase
-      .from('decision_chains')
-      .update({
-        status: params.status,
-        total_cost_usd: params.totalCostUsd,
-        total_duration_ms: params.totalDurationMs,
-        completed_at: new Date().toISOString(),
-      })
-      .eq('id', this.chainId);
+    await systemQuery(
+      'UPDATE decision_chains SET status = $1, total_cost_usd = $2, total_duration_ms = $3, completed_at = $4 WHERE id = $5',
+      [params.status, params.totalCostUsd, params.totalDurationMs, new Date().toISOString(), this.chainId],
+    );
   }
 
   /**
@@ -158,11 +148,10 @@ export class DecisionChainTracker {
   async computeContributions(): Promise<Record<string, number>> {
     if (!this.chainId) return {};
 
-    const { data } = await this.supabase
-      .from('decision_chains')
-      .select('chain, total_cost_usd')
-      .eq('id', this.chainId)
-      .single();
+    const [data] = await systemQuery<{ chain: unknown; total_cost_usd: unknown }>(
+      'SELECT chain, total_cost_usd FROM decision_chains WHERE id = $1 LIMIT 1',
+      [this.chainId],
+    );
 
     if (!data) return {};
 
@@ -196,10 +185,10 @@ export class DecisionChainTracker {
       }
     }
 
-    await this.supabase
-      .from('decision_chains')
-      .update({ contribution_scores: contributions })
-      .eq('id', this.chainId);
+    await systemQuery(
+      'UPDATE decision_chains SET contribution_scores = $1 WHERE id = $2',
+      [JSON.stringify(contributions), this.chainId],
+    );
 
     return contributions;
   }

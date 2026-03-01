@@ -1,14 +1,14 @@
 /**
  * Glyphor Event Bus — Persistent Inter-Agent Communication
  *
- * Persists events to Supabase (queryable history) and optionally
+ * Persists events to PostgreSQL (queryable history) and optionally
  * publishes to GCP Pub/Sub (durability + push delivery).
  *
  * Separate from the in-process EventBus which handles lifecycle events
  * (agent_started, tool_call, etc.) within a single run.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type {
   CompanyAgentRole,
   GlyphorEvent,
@@ -18,23 +18,20 @@ import type {
 import { getSubscribers } from './subscriptions.js';
 
 export interface GlyphorEventBusConfig {
-  supabase: SupabaseClient;
   pubsubPublisher?: {
     publish: (data: Buffer) => Promise<string>;
   };
 }
 
 export class GlyphorEventBus {
-  private readonly supabase: SupabaseClient;
   private readonly publisher?: GlyphorEventBusConfig['pubsubPublisher'];
 
   constructor(config: GlyphorEventBusConfig) {
-    this.supabase = config.supabase;
     this.publisher = config.pubsubPublisher;
   }
 
   /**
-   * Emit a new event: persist to Supabase and optionally publish to Pub/Sub.
+   * Emit a new event: persist to PostgreSQL and optionally publish to Pub/Sub.
    */
   async emit(params: {
     type: GlyphorEventType;
@@ -52,24 +49,13 @@ export class GlyphorEventBus {
       correlationId: params.correlationId,
     };
 
-    // Persist to Supabase
-    const { data, error } = await this.supabase
-      .from('events')
-      .insert({
-        type: event.type,
-        source: event.source,
-        timestamp: event.timestamp,
-        payload: event.payload,
-        priority: event.priority,
-        correlation_id: event.correlationId ?? null,
-      })
-      .select('id')
-      .single();
-
-    if (error) {
-      console.error('[GlyphorEventBus] Failed to persist event:', error.message);
-      throw new Error(`Event persistence failed: ${error.message}`);
-    }
+    // Persist to DB
+    const [data] = await systemQuery<{ id: string }>(
+      `INSERT INTO events (type, source, timestamp, payload, priority, correlation_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id`,
+      [event.type, event.source, event.timestamp, JSON.stringify(event.payload), event.priority, event.correlationId ?? null],
+    );
 
     const fullEvent: GlyphorEvent = { ...event, id: data.id };
 
@@ -98,34 +84,38 @@ export class GlyphorEventBus {
     since?: string;
     limit?: number;
   }): Promise<GlyphorEvent[]> {
-    let query = this.supabase
-      .from('events')
-      .select('*')
-      .order('timestamp', { ascending: false })
-      .limit(options?.limit ?? 50);
+    let query = 'SELECT * FROM events';
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    let paramIdx = 1;
 
     if (options?.types && options.types.length > 0) {
-      query = query.in('type', options.types);
+      conditions.push(`type = ANY($${paramIdx++})`);
+      params.push(options.types);
     }
 
     if (options?.since) {
-      query = query.gte('timestamp', options.since);
+      conditions.push(`timestamp >= $${paramIdx++}`);
+      params.push(options.since);
     }
 
-    const { data, error } = await query;
-
-    if (error) {
-      throw new Error(`Event query failed: ${error.message}`);
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
     }
 
-    return (data ?? []).map((row) => ({
-      id: row.id,
+    query += ` ORDER BY timestamp DESC LIMIT $${paramIdx}`;
+    params.push(options?.limit ?? 50);
+
+    const data = await systemQuery<Record<string, unknown>>(query, params);
+
+    return data.map((row) => ({
+      id: row.id as string,
       type: row.type as GlyphorEventType,
       source: row.source as GlyphorEvent['source'],
-      timestamp: row.timestamp,
-      payload: row.payload ?? {},
+      timestamp: row.timestamp as string,
+      payload: (row.payload ?? {}) as Record<string, unknown>,
       priority: row.priority as EventPriority,
-      correlationId: row.correlation_id ?? undefined,
+      correlationId: (row.correlation_id as string) ?? undefined,
     }));
   }
 
@@ -162,29 +152,25 @@ export class GlyphorEventBus {
    * Mark an event as processed by a specific agent.
    */
   async markProcessed(eventId: string, agentRole: CompanyAgentRole): Promise<void> {
-    await this.supabase.rpc('array_append_unique', {
-      table_name: 'events',
-      row_id: eventId,
-      column_name: 'processed_by',
-      new_value: agentRole,
-    }).then(({ error }) => {
+    try {
+      await systemQuery(
+        'SELECT * FROM array_append_unique($1, $2, $3, $4)',
+        ['events', eventId, 'processed_by', agentRole],
+      );
+    } catch {
       // Fallback if RPC doesn't exist
-      if (error) {
-        return this.supabase
-          .from('events')
-          .select('processed_by')
-          .eq('id', eventId)
-          .single()
-          .then(({ data }) => {
-            const current = (data?.processed_by as string[]) ?? [];
-            if (!current.includes(agentRole)) {
-              return this.supabase
-                .from('events')
-                .update({ processed_by: [...current, agentRole] })
-                .eq('id', eventId);
-            }
-          });
+      const [data] = await systemQuery<{ processed_by: string[] }>(
+        'SELECT processed_by FROM events WHERE id = $1 LIMIT 1',
+        [eventId],
+      );
+
+      const current = data?.processed_by ?? [];
+      if (!current.includes(agentRole)) {
+        await systemQuery(
+          'UPDATE events SET processed_by = $1 WHERE id = $2',
+          [JSON.stringify([...current, agentRole]), eventId],
+        );
       }
-    });
+    }
   }
 }

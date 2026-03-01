@@ -8,7 +8,7 @@
  *   4. Logical Validation — Validate assumptions and reasoning
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { ModelClient } from '@glyphor/agent-runtime';
 
 /* ── Types ──────────────────────────────────── */
@@ -80,7 +80,6 @@ export interface CotRecord {
 
 export class CotEngine {
   constructor(
-    private supabase: SupabaseClient,
     private modelClient: ModelClient,
     private model = 'gemini-3-flash-preview',
   ) {}
@@ -99,35 +98,31 @@ export class CotEngine {
       error: null,
     };
 
-    await this.supabase.from('cot_analyses').insert(record);
+    await systemQuery(
+      'INSERT INTO cot_analyses (id,query,status,requested_by,report,created_at,completed_at,error) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+      [record.id, record.query, record.status, record.requested_by, JSON.stringify(record.report), record.created_at, record.completed_at, record.error],
+    );
 
     this.runPhases(id, query).catch((err) => {
       console.error(`[CotEngine] Fatal error in CoT ${id}:`, err);
-      this.supabase.from('cot_analyses').update({
-        status: 'failed',
-        error: err instanceof Error ? err.message : String(err),
-      }).eq('id', id);
+      systemQuery(
+        'UPDATE cot_analyses SET status=$1, error=$2 WHERE id=$3',
+        ['failed', err instanceof Error ? err.message : String(err), id],
+      );
     });
 
     return id;
   }
 
   async get(id: string): Promise<CotRecord | null> {
-    const { data } = await this.supabase
-      .from('cot_analyses')
-      .select('*')
-      .eq('id', id)
-      .single();
-    return data as CotRecord | null;
+    const rows = await systemQuery('SELECT * FROM cot_analyses WHERE id=$1', [id]);
+    const [row] = rows;
+    return (row as CotRecord) ?? null;
   }
 
   async list(limit = 20): Promise<CotRecord[]> {
-    const { data } = await this.supabase
-      .from('cot_analyses')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    return (data as CotRecord[]) ?? [];
+    const rows = await systemQuery('SELECT * FROM cot_analyses ORDER BY created_at DESC LIMIT $1', [limit]);
+    return (rows as CotRecord[]) ?? [];
   }
 
   /* ── Internal phase runner ──────────────── */
@@ -205,18 +200,15 @@ export class CotEngine {
       validations: (validations.validations as CotValidation[]) ?? [],
     };
 
-    await this.supabase.from('cot_analyses').update({
-      status: 'completed',
-      report,
-      completed_at: new Date().toISOString(),
-    }).eq('id', id);
+    await systemQuery(
+      'UPDATE cot_analyses SET status=$1, report=$2, completed_at=$3 WHERE id=$4',
+      ['completed', JSON.stringify(report), new Date().toISOString(), id],
+    );
 
-    await this.supabase.from('activity_log').insert({
-      agent_id: 'system',
-      action: 'cot.completed',
-      detail: `Chain-of-thought analysis completed: ${query.slice(0, 100)}`,
-      created_at: new Date().toISOString(),
-    });
+    await systemQuery(
+      'INSERT INTO activity_log (agent_id,action,detail,created_at) VALUES ($1,$2,$3,$4)',
+      ['system', 'cot.completed', `Chain-of-thought analysis completed: ${query.slice(0, 100)}`, new Date().toISOString()],
+    );
   }
 
   private async callModel(systemPrompt: string, userPrompt: string): Promise<Record<string, unknown>> {
@@ -236,6 +228,6 @@ export class CotEngine {
   }
 
   private async updateStatus(id: string, status: CotStatus): Promise<void> {
-    await this.supabase.from('cot_analyses').update({ status }).eq('id', id);
+    await systemQuery('UPDATE cot_analyses SET status=$1 WHERE id=$2', [status, id]);
   }
 }

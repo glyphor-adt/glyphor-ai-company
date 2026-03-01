@@ -7,7 +7,7 @@
 
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
 import { pollUntil } from '../utils/http.js';
-import { getSupabase, queryTable } from '../utils/supabase.js';
+import { query, queryTable } from '../utils/supabase.js';
 
 // Module-level state shared across tests
 let directiveId: string | null = null;
@@ -37,62 +37,53 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   // T4.0 — Direct Work Assignment (CTO assign_task)
   tests.push(
     await runTest('T4.0', 'Direct Work Assignment', async () => {
-      const sb = getSupabase(config);
-      
       // Create a work assignment directly (simulating CTO assign_task tool)
-      const { data: assignment, error: assignError } = await sb
-        .from('work_assignments')
-        .insert({
-          assigned_to: 'platform-engineer',
-          assigned_by: 'cto',
-          task_description: 'Smoke test: Verify platform health monitoring is operational',
-          task_type: 'on_demand',
-          expected_output: 'Confirmation that all health checks are passing',
-          priority: 'normal',
-          status: 'pending',
-          directive_id: null, // CTO assignments don't require a directive
-        })
-        .select('id')
-        .single();
+      const rows = await query<{ id: string }>(
+        `INSERT INTO work_assignments (assigned_to, assigned_by, task_description, task_type, expected_output, priority, status, directive_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+        [
+          'platform-engineer',
+          'cto',
+          'Smoke test: Verify platform health monitoring is operational',
+          'on_demand',
+          'Confirmation that all health checks are passing',
+          'normal',
+          'pending',
+          null, // CTO assignments don't require a directive
+        ],
+      );
 
-      if (assignError) {
-        throw new Error(`Failed to create work assignment: ${assignError.message}`);
-      }
-      if (!assignment?.id) {
+      if (!rows[0]?.id) {
         throw new Error('No assignment ID returned');
       }
 
       // Clean up — mark as completed so it doesn't interfere with agent operations
-      await sb
-        .from('work_assignments')
-        .update({ status: 'completed' })
-        .eq('id', assignment.id);
+      await query(
+        `UPDATE work_assignments SET status = 'completed' WHERE id = $1`,
+        [rows[0].id],
+      );
 
-      return `Work assignment created successfully (ID: ${assignment.id})`;
+      return `Work assignment created successfully (ID: ${rows[0].id})`;
     }),
   );
 
   // T4.1 — Create Directive
   tests.push(
     await runTest('T4.1', 'Create Directive', async () => {
-      const sb = getSupabase(config);
-      const { data, error } = await sb
-        .from('founder_directives')
-        .insert({
-          title: 'Smoke Test — Automated ' + new Date().toISOString(),
-          description:
-            'Automated smoke test. Create a brief comparing Glyphor to top 3 competitors.',
-          priority: 'medium',
-          category: 'strategy',
-          status: 'active',
-        })
-        .select('id')
-        .single();
+      const rows = await query<{ id: string }>(
+        `INSERT INTO founder_directives (title, description, priority, category, status) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        [
+          'Smoke Test — Automated ' + new Date().toISOString(),
+          'Automated smoke test. Create a brief comparing Glyphor to top 3 competitors.',
+          'medium',
+          'strategy',
+          'active',
+        ],
+      );
 
-      if (error) throw new Error(`Insert failed: ${error.message}`);
-      if (!data?.id) throw new Error('No directive ID returned');
+      if (!rows[0]?.id) throw new Error('No directive ID returned');
 
-      directiveId = data.id as string;
+      directiveId = rows[0].id;
       directiveCreatedAt = Date.now();
       return `Directive created: ${directiveId}`;
     }),
@@ -115,7 +106,7 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       const fifteenMinAgo = new Date(Date.now() - 15 * 60_000).toISOString();
       const runs = await pollUntil(
         () =>
-          queryTable<{ id: string; task: string }>(config, 'agent_runs', 'id,task', {
+          queryTable<{ id: string; task: string }>('agent_runs', 'id,task', {
             agent_id: 'chief-of-staff',
           }, { order: 'created_at', desc: true, limit: 10 }),
         (rows) =>
@@ -137,7 +128,7 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       const assignments = await queryTable<{
         id: string;
         task_description: string;
-      }>(config, 'work_assignments', 'id,task_description', {
+      }>('work_assignments', 'id,task_description', {
         directive_id: directiveId!,
       });
 
@@ -166,7 +157,6 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       const result = await pollUntil(
         () =>
           queryTable<{ id: string; status: string }>(
-            config,
             'work_assignments',
             'id,status',
             { directive_id: directiveId! },
@@ -193,7 +183,7 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
         status: string;
         sequence_order: number;
         dispatched_at: string | null;
-      }>(config, 'work_assignments', 'id,status,sequence_order,dispatched_at', {
+      }>('work_assignments', 'id,status,sequence_order,dispatched_at', {
         directive_id: directiveId!,
       });
 
@@ -226,7 +216,6 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       const result = await pollUntil(
         () =>
           queryTable<{ status: string; completion_summary: string | null }>(
-            config,
             'founder_directives',
             'status,completion_summary',
             { id: directiveId! },

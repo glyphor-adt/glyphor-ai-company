@@ -51,11 +51,11 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
     }),
   );
 
-  // T0.2 — Supabase Connection
+  // T0.2 — Database Connection
   tests.push(
-    await runTest('T0.2', 'Supabase Connection', async () => {
-      const rows = await queryTable(config, 'company_agents', 'id', undefined, { limit: 1 });
-      return `Supabase reachable — company_agents returned ${rows.length} row(s)`;
+    await runTest('T0.2', 'Database Connection', async () => {
+      const rows = await queryTable('company_agents', 'id', undefined, { limit: 1 });
+      return `Database reachable — company_agents returned ${rows.length} row(s)`;
     }),
   );
 

@@ -4,7 +4,7 @@
  * context for all agent runners.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { GlyphorEventBus, RunDependencies, AgentProfileData, CompanyAgentRole, SkillContext, SkillFeedback } from '@glyphor/agent-runtime';
 import type { ClassifiedRunDependencies } from '@glyphor/agent-runtime';
 import { ORCHESTRATOR_ROLES, getRedisCache, ReasoningEngine, JitContextRetriever, ModelClient, ContextDistiller, RuntimeToolFactory } from '@glyphor/agent-runtime';
@@ -46,7 +46,6 @@ const ROLE_DEPARTMENT: Record<string, string> = {
 };
 
 export function createRunDeps(
-  supabase: SupabaseClient,
   glyphorEventBus: GlyphorEventBus,
   memory: CompanyMemoryStore,
 ): ClassifiedRunDependencies {
@@ -58,12 +57,12 @@ export function createRunDeps(
   if (!graphReader) {
     console.warn('[createRunDeps] Knowledge graph reader unavailable (GOOGLE_AI_API_KEY may be missing from CompanyMemoryStore). L3 semantic memory will be skipped, but world models and episodes still work.');
   }
-  const sharedMemoryLoader = new SharedMemoryLoader(supabase, embeddingClient, graphReader);
-  const worldModelUpdater = new WorldModelUpdater(supabase, sharedMemoryLoader);
+  const sharedMemoryLoader = new SharedMemoryLoader(embeddingClient, graphReader);
+  const worldModelUpdater = new WorldModelUpdater(sharedMemoryLoader);
 
   // Redis cache (singleton) + JIT context retriever
   const cache = getRedisCache();
-  const jitContextRetriever = new JitContextRetriever(supabase, embeddingClient, cache);
+  const jitContextRetriever = new JitContextRetriever(embeddingClient, cache);
 
   // Context distiller — compresses raw JIT results into focused briefings
   const distillerModelClient = new ModelClient({
@@ -74,24 +73,24 @@ export function createRunDeps(
   const contextDistiller = new ContextDistiller(distillerModelClient, cache);
 
   // Runtime tool factory — lets agents define new tools mid-run
-  const runtimeToolFactory = new RuntimeToolFactory(supabase);
+  const runtimeToolFactory = new RuntimeToolFactory();
 
   // Constitutional governor — evaluates outputs against agent principles
-  const constitutionalGovernor = new ConstitutionalGovernor(supabase, distillerModelClient, cache);
+  const constitutionalGovernor = new ConstitutionalGovernor(distillerModelClient, cache);
 
   // Trust scorer — tracks agent trust and adjusts effective authority
-  const trustScorer = new TrustScorer(supabase, cache);
+  const trustScorer = new TrustScorer(cache);
 
   // Reasoning engine factory — creates per-agent reasoning engines
   const reasoningEngineFactory = async (agentRole: string) => {
-    const config = await ReasoningEngine.loadConfig(supabase, agentRole, cache);
+    const config = await ReasoningEngine.loadConfig(agentRole, cache);
     if (!config || !config.enabled) return null;
     const modelClient = new ModelClient({
       geminiApiKey: process.env.GOOGLE_AI_API_KEY,
       openaiApiKey: process.env.OPENAI_API_KEY,
       anthropicApiKey: process.env.ANTHROPIC_API_KEY,
     });
-    return new ReasoningEngine(supabase, modelClient, config, cache);
+    return new ReasoningEngine(modelClient, config, cache);
   };
 
   return {
@@ -106,48 +105,27 @@ export function createRunDeps(
     trustScorer,
 
     agentProfileLoader: async (role: CompanyAgentRole): Promise<AgentProfileData | null> => {
-      const { data } = await supabase
-        .from('agent_profiles')
-        .select('personality_summary, backstory, communication_traits, quirks, tone_formality, emoji_usage, verbosity, voice_sample, signature, voice_examples, anti_patterns, working_voice')
-        .eq('agent_id', role)
-        .single();
-      return data as AgentProfileData | null;
+      const [data] = await systemQuery<AgentProfileData>('SELECT personality_summary, backstory, communication_traits, quirks, tone_formality, emoji_usage, verbosity, voice_sample, signature, voice_examples, anti_patterns, working_voice FROM agent_profiles WHERE agent_id = $1', [role]);
+      return data ?? null;
     },
 
     pendingMessageLoader: async (role: CompanyAgentRole) => {
-      const { data } = await supabase
-        .from('agent_messages')
-        .select('id, from_agent, message, message_type, priority, thread_id, created_at')
-        .eq('to_agent', role)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: true });
+      const data = await systemQuery('SELECT id, from_agent, message, message_type, priority, thread_id, created_at FROM agent_messages WHERE to_agent = $1 AND status = $2 ORDER BY created_at ASC', [role, 'pending']);
 
-      if (data?.length) {
-        await supabase
-          .from('agent_messages')
-          .update({ status: 'read' })
-          .in('id', data.map((m: { id: string }) => m.id));
+      if (data.length) {
+        await systemQuery('UPDATE agent_messages SET status = $1 WHERE id = ANY($2)', ['read', data.map((m: { id: string }) => m.id)]);
       }
-      return data ?? [];
+      return data;
     },
 
     pendingAssignmentLoader: async (role: CompanyAgentRole) => {
-      const { data } = await supabase
-        .from('work_assignments')
-        .select('id, task_description, task_type, expected_output, priority, status, evaluation, directive_id')
-        .eq('assigned_to', role)
-        .in('status', ['pending', 'dispatched', 'needs_revision'])
-        .order('priority', { ascending: true })
-        .order('created_at', { ascending: true });
+      const data = await systemQuery('SELECT id, task_description, task_type, expected_output, priority, status, evaluation, directive_id FROM work_assignments WHERE assigned_to = $1 AND status = ANY($2) ORDER BY priority ASC, created_at ASC', [role, ['pending', 'dispatched', 'needs_revision']]);
 
       if (!data || data.length === 0) return [];
 
       // Fetch directive titles for context
       const directiveIds = [...new Set(data.map((a: { directive_id: string }) => a.directive_id))];
-      const { data: directives } = await supabase
-        .from('founder_directives')
-        .select('id, title')
-        .in('id', directiveIds);
+      const directives = await systemQuery('SELECT id, title FROM founder_directives WHERE id = ANY($1)', [directiveIds]);
 
       const directiveMap = new Map(
         (directives ?? []).map((d: { id: string; title: string }) => [d.id, d.title]),
@@ -166,11 +144,7 @@ export function createRunDeps(
     },
 
     dynamicBriefLoader: async (agentId: string): Promise<string | null> => {
-      const { data } = await supabase
-        .from('agent_briefs')
-        .select('system_prompt')
-        .eq('agent_id', agentId)
-        .single();
+      const [data] = await systemQuery('SELECT system_prompt FROM agent_briefs WHERE agent_id = $1', [agentId]);
       return data?.system_prompt ?? null;
     },
 
@@ -178,11 +152,7 @@ export function createRunDeps(
       // Fall back to DB lookup for dynamic agents not in the static map
       let department = ROLE_DEPARTMENT[role];
       if (!department) {
-        const { data: agentRow } = await supabase
-          .from('company_agents')
-          .select('department')
-          .eq('role', role)
-          .single();
+        const [agentRow] = await systemQuery('SELECT department FROM company_agents WHERE role = $1', [role]);
         department = agentRow?.department ?? undefined;
       }
       const parts: string[] = [];
@@ -229,19 +199,15 @@ export function createRunDeps(
     graphWriter: memory.getGraphWriter() ?? undefined,
 
     knowledgeBaseLoader: async (department?: string): Promise<string> => {
-      // Load active sections from company_knowledge_base, filtered by department audience
-      let query = supabase
-        .from('company_knowledge_base')
-        .select('section, title, content')
-        .eq('is_active', true)
-        .order('section');
-
+      let sql = 'SELECT section, title, content FROM company_knowledge_base WHERE is_active = true';
+      const params: unknown[] = [];
       if (department) {
-        query = query.or(`audience.eq.all,audience.eq.${department}`);
+        params.push('all', department);
+        sql += ` AND (audience = $1 OR audience = $2)`;
       }
-
-      const { data, error } = await query;
-      if (error || !data || data.length === 0) return '';
+      sql += ' ORDER BY section';
+      const data = await systemQuery(sql, params);
+      if (data.length === 0) return '';
 
       return data
         .map((row: { title: string; content: string }) => `## ${row.title}\n\n${row.content}`)
@@ -249,20 +215,15 @@ export function createRunDeps(
     },
 
     bulletinLoader: async (department?: string): Promise<string> => {
-      // Load active, non-expired founder bulletins
-      let query = supabase
-        .from('founder_bulletins')
-        .select('created_by, content, priority, created_at')
-        .eq('is_active', true)
-        .order('priority', { ascending: true })
-        .order('created_at', { ascending: false });
-
+      let sql = 'SELECT created_by, content, priority, created_at, expires_at FROM founder_bulletins WHERE is_active = true';
+      const params: unknown[] = [];
       if (department) {
-        query = query.or(`audience.eq.all,audience.eq.${department}`);
+        params.push('all', department);
+        sql += ` AND (audience = $1 OR audience = $2)`;
       }
-
-      const { data, error } = await query;
-      if (error || !data || data.length === 0) return '';
+      sql += ' ORDER BY priority ASC, created_at DESC';
+      const data = await systemQuery(sql, params);
+      if (data.length === 0) return '';
 
       // Filter out expired bulletins client-side (simpler than complex SQL)
       const now = new Date();
@@ -281,25 +242,17 @@ export function createRunDeps(
 
     skillContextLoader: async (role: CompanyAgentRole, task: string): Promise<SkillContext | null> => {
       // 1. Load all skills assigned to this agent with full skill data
-      const { data: agentSkills } = await supabase
-        .from('agent_skills')
-        .select('proficiency, learned_refinements, failure_modes, skill_id')
-        .eq('agent_role', role);
+      const agentSkills = await systemQuery('SELECT proficiency, learned_refinements, failure_modes, skill_id FROM agent_skills WHERE agent_role = $1', [role]);
 
       if (!agentSkills || agentSkills.length === 0) return null;
 
       const skillIds = agentSkills.map((as: { skill_id: string }) => as.skill_id);
-      const { data: skills } = await supabase
-        .from('skills')
-        .select('id, slug, name, category, description, methodology, tools_granted')
-        .in('id', skillIds);
+      const skills = await systemQuery('SELECT id, slug, name, category, description, methodology, tools_granted FROM skills WHERE id = ANY($1)', [skillIds]);
 
       if (!skills || skills.length === 0) return null;
 
       // 2. Match task against task_skill_map for priority ordering
-      const { data: taskMappings } = await supabase
-        .from('task_skill_map')
-        .select('task_regex, skill_slug, priority');
+      const taskMappings = await systemQuery('SELECT task_regex, skill_slug, priority FROM task_skill_map', []);
 
       const matchedSlugs = new Set<string>();
       if (taskMappings) {
@@ -372,42 +325,21 @@ export function createRunDeps(
 
     partialProgressSaver: async (assignmentId: string, partialOutput: string, agentRole: CompanyAgentRole, abortReason: string): Promise<void> => {
       // Save partial work so the next run can resume
-      await supabase
-        .from('work_assignments')
-        .update({ output: partialOutput, status: 'dispatched' })
-        .eq('id', assignmentId);
+      await systemQuery('UPDATE work_assignments SET output = $1, status = $2 WHERE id = $3', [partialOutput, 'dispatched', assignmentId]);
 
       // Notify chief-of-staff about the abort
-      await supabase
-        .from('agent_messages')
-        .insert({
-          from_agent: agentRole,
-          to_agent: 'chief-of-staff',
-          message: `Assignment ${assignmentId} was aborted (${abortReason}). Partial progress saved. May need re-dispatch or reassignment.`,
-          message_type: 'status_update',
-          priority: 'normal',
-          thread_id: `abort-${assignmentId}`,
-        });
+      await systemQuery('INSERT INTO agent_messages (from_agent, to_agent, message, message_type, priority, thread_id) VALUES ($1, $2, $3, $4, $5, $6)', [agentRole, 'chief-of-staff', `Assignment ${assignmentId} was aborted (${abortReason}). Partial progress saved. May need re-dispatch or reassignment.`, 'status_update', 'normal', `abort-${assignmentId}`]);
     },
 
     skillFeedbackWriter: async (role: CompanyAgentRole, feedback: SkillFeedback[]): Promise<void> => {
       for (const fb of feedback) {
         // Look up the skill by slug
-        const { data: skill } = await supabase
-          .from('skills')
-          .select('id')
-          .eq('slug', fb.skill_slug)
-          .single();
+        const [skill] = await systemQuery('SELECT id FROM skills WHERE slug = $1', [fb.skill_slug]);
 
         if (!skill) continue;
 
         // Load current agent_skill record
-        const { data: agentSkill } = await supabase
-          .from('agent_skills')
-          .select('id, times_used, successes, failures, learned_refinements, failure_modes, proficiency')
-          .eq('agent_role', role)
-          .eq('skill_id', skill.id)
-          .single();
+        const [agentSkill] = await systemQuery('SELECT id, times_used, successes, failures, learned_refinements, failure_modes, proficiency FROM agent_skills WHERE agent_role = $1 AND skill_id = $2', [role, skill.id]);
 
         if (!agentSkill) continue;
 
@@ -436,18 +368,7 @@ export function createRunDeps(
         else if (timesUsed >= 10 && successRate >= 0.8) proficiency = 'expert';
         else if (timesUsed >= 5 && successRate >= 0.7) proficiency = 'competent';
 
-        await supabase
-          .from('agent_skills')
-          .update({
-            times_used: timesUsed,
-            successes,
-            failures,
-            learned_refinements: refinements,
-            failure_modes: failureModes,
-            proficiency,
-            last_used_at: new Date().toISOString(),
-          })
-          .eq('id', agentSkill.id);
+        await systemQuery('UPDATE agent_skills SET times_used = $1, successes = $2, failures = $3, learned_refinements = $4, failure_modes = $5, proficiency = $6, last_used_at = $7 WHERE id = $8', [timesUsed, successes, failures, refinements, failureModes, proficiency, new Date().toISOString(), agentSkill.id]);
       }
     },
 
@@ -507,7 +428,6 @@ export function createRunDeps(
  * When task is provided, applies model routing (e.g. Pro model for exec chat).
  */
 export async function loadAgentConfig(
-  supabase: SupabaseClient,
   role: string,
   defaults: { model: string; temperature: number; maxTurns: number },
   task?: string,
@@ -515,11 +435,7 @@ export async function loadAgentConfig(
   // Lazy import to avoid circular deps
   const { resolveModel } = await import('./createRunner.js');
   try {
-    const { data } = await supabase
-      .from('company_agents')
-      .select('model, temperature, max_turns, thinking_enabled')
-      .eq('role', role)
-      .single();
+    const [data] = await systemQuery('SELECT model, temperature, max_turns, thinking_enabled FROM company_agents WHERE role = $1', [role]);
 
     if (data) {
       const dbModel = data.model || null;

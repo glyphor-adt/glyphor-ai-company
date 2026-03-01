@@ -10,7 +10,7 @@
  * completes, immediately dispatch agents whose dependencies are now met.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
 
 /** Maximum agents to dispatch concurrently within a single wave */
@@ -126,18 +126,12 @@ export function buildWaves(agents: WaveAgent[]): WaveAgent[][] {
  * Check if an agent is already running (has an active agent_runs row).
  * Returns true if the agent should be SKIPPED.
  */
-async function isAgentRunning(
-  supabase: SupabaseClient,
-  agentRole: string,
-): Promise<boolean> {
-  const { data } = await supabase
-    .from('agent_runs')
-    .select('id')
-    .eq('agent_id', agentRole)
-    .eq('status', 'running')
-    .limit(1);
-
-  return (data?.length ?? 0) > 0;
+async function isAgentRunning(agentRole: string): Promise<boolean> {
+  const data = await systemQuery<{ id: string }>(
+    'SELECT id FROM agent_runs WHERE agent_id = $1 AND status = $2 LIMIT 1',
+    [agentRole, 'running'],
+  );
+  return data.length > 0;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -153,7 +147,6 @@ async function isAgentRunning(
 export async function dispatchWaves(
   waves: WaveAgent[][],
   executor: AgentExecutorFn,
-  supabase: SupabaseClient,
 ): Promise<WaveDispatchResult> {
   const result: WaveDispatchResult = {
     totalAgents: waves.reduce((sum, w) => sum + w.length, 0),
@@ -177,7 +170,7 @@ export async function dispatchWaves(
     for (const chunk of chunks) {
       const promises = chunk.map(async (agent) => {
         // Concurrency guard: skip if already running
-        const running = await isAgentRunning(supabase, agent.role);
+        const running = await isAgentRunning(agent.role);
         if (running) {
           console.log(`[ParallelDispatch] Skipping ${agent.role} — already running`);
           result.skipped.push(agent.role);
@@ -221,41 +214,57 @@ export async function dispatchWaves(
  */
 export async function resolveAndDispatchDependents(
   completedAssignmentId: string,
-  supabase: SupabaseClient,
   executor: AgentExecutorFn,
 ): Promise<{ dispatched: string[] }> {
   const dispatched: string[] = [];
 
   // Find assignments that depend on the completed one
-  const { data: dependents } = await supabase
-    .from('work_assignments')
-    .select('id, assigned_to, task_description, title, instructions, depends_on, directive_id, founder_directives(title, priority, description)')
-    .contains('depends_on', [completedAssignmentId])
-    .in('status', ['pending', 'dispatched']);
+  const dependents = await systemQuery<{
+    id: string;
+    assigned_to: string;
+    task_description: string | null;
+    title: string | null;
+    instructions: string | null;
+    depends_on: string[] | null;
+    directive_id: string | null;
+    fd_title: string | null;
+    fd_priority: string | null;
+    fd_description: string | null;
+  }>(
+    `SELECT wa.id, wa.assigned_to, wa.task_description, wa.title, wa.instructions, wa.depends_on, wa.directive_id,
+            fd.title as fd_title, fd.priority as fd_priority, fd.description as fd_description
+     FROM work_assignments wa
+     LEFT JOIN founder_directives fd ON wa.directive_id = fd.id
+     WHERE wa.depends_on @> $1::jsonb AND wa.status = ANY($2)`,
+    [JSON.stringify([completedAssignmentId]), ['pending', 'dispatched']],
+  );
 
-  if (!dependents?.length) return { dispatched };
+  if (!dependents.length) return { dispatched };
 
   for (const dep of dependents) {
     const allDeps: string[] = (dep.depends_on as string[]) ?? [];
 
     // Check if ALL dependencies are now completed
-    const { data: completed } = await supabase
-      .from('work_assignments')
-      .select('id')
-      .in('id', allDeps)
-      .eq('status', 'completed');
+    const completed = await systemQuery<{ id: string }>(
+      'SELECT id FROM work_assignments WHERE id = ANY($1) AND status = $2',
+      [allDeps, 'completed'],
+    );
 
-    if (completed?.length !== allDeps.length) continue;
+    if (completed.length !== allDeps.length) continue;
 
     // All dependencies met — build enriched message with dependency outputs
     let enrichedMessage = (dep.instructions as string) || dep.task_description || '';
 
     for (const depId of allDeps) {
-      const { data: depData } = await supabase
-        .from('work_assignments')
-        .select('assigned_to, title, task_description, agent_output')
-        .eq('id', depId)
-        .single();
+      const [depData] = await systemQuery<{
+        assigned_to: string;
+        title: string | null;
+        task_description: string | null;
+        agent_output: string | null;
+      }>(
+        'SELECT assigned_to, title, task_description, agent_output FROM work_assignments WHERE id = $1',
+        [depId],
+      );
 
       if (depData?.agent_output) {
         const depTitle = depData.title || depData.task_description || depId;
@@ -263,7 +272,9 @@ export async function resolveAndDispatchDependents(
       }
     }
 
-    const fd = dep.founder_directives as { title?: string; priority?: string; description?: string } | null;
+    const fd = (dep.fd_title || dep.fd_priority || dep.fd_description)
+      ? { title: dep.fd_title, priority: dep.fd_priority, description: dep.fd_description }
+      : null;
     let execMessage = `EXECUTE ASSIGNMENT: ${dep.title ?? dep.task_description}\n`;
     if (fd?.title) execMessage += `Directive: ${fd.title}\n`;
     if (fd?.priority) execMessage += `Priority: ${fd.priority}\n\n`;
@@ -279,16 +290,17 @@ export async function resolveAndDispatchDependents(
     const agentRole = dep.assigned_to as CompanyAgentRole;
 
     // Concurrency guard
-    const running = await isAgentRunning(supabase, agentRole);
+    const running = await isAgentRunning(agentRole);
     if (running) {
       console.log(`[ParallelDispatch] Dependency resolved but ${agentRole} already running — skipping`);
       continue;
     }
 
     // Mark as in_progress
-    await supabase.from('work_assignments')
-      .update({ status: 'in_progress', started_at: new Date().toISOString() })
-      .eq('id', dep.id);
+    await systemQuery(
+      'UPDATE work_assignments SET status = $1, started_at = $2 WHERE id = $3',
+      ['in_progress', new Date().toISOString(), dep.id],
+    );
 
     console.log(
       `[ParallelDispatch] Dependency resolved: dispatching ${agentRole} ` +

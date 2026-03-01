@@ -12,7 +12,7 @@
  * All layers are searchable by any agent; no explicit routing needed.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { EmbeddingClient } from './embeddingClient.js';
 import type { KnowledgeGraphReader } from './graphReader.js';
 import type {
@@ -71,7 +71,6 @@ type ContextTier = 'light' | 'task' | 'standard' | 'full';
 
 export class SharedMemoryLoader {
   constructor(
-    private supabase: SupabaseClient,
     private embedding: EmbeddingClient,
     private graphReader: KnowledgeGraphReader | null = null,
   ) {}
@@ -128,30 +127,24 @@ export class SharedMemoryLoader {
   // ─── Layer 1: Working Memory ────────────────────────────────
 
   private async getWorkingMemory(): Promise<SharedMemoryContext['working']> {
-    const [assignmentResult, alertResult, pulseResult] = await Promise.all([
-      this.supabase
-        .from('work_assignments')
-        .select('id', { count: 'exact', head: true })
-        .in('status', ['pending', 'dispatched', 'in_progress']),
-      this.supabase
-        .from('events')
-        .select('payload')
-        .eq('type', 'alert.triggered')
-        .gte('created_at', new Date(Date.now() - 10 * 60 * 1000).toISOString())
-        .order('created_at', { ascending: false })
-        .limit(5),
-      this.supabase
-        .from('company_pulse')
-        .select('*')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .single(),
+    const [countResult, alertResult, pulseResult] = await Promise.all([
+      systemQuery<{ count: string }>(
+        "SELECT COUNT(*) as count FROM work_assignments WHERE status = ANY($1)",
+        [['pending', 'dispatched', 'in_progress']],
+      ),
+      systemQuery<{ payload: any }>(
+        "SELECT payload FROM events WHERE type = $1 AND created_at >= $2 ORDER BY created_at DESC LIMIT 5",
+        ['alert.triggered', new Date(Date.now() - 10 * 60 * 1000).toISOString()],
+      ),
+      systemQuery<any>(
+        'SELECT * FROM company_pulse ORDER BY updated_at DESC LIMIT 1',
+      ),
     ]);
 
     return {
-      activeAssignments: assignmentResult.count ?? 0,
-      alerts: (alertResult.data ?? []).map((e: any) => e.payload?.message ?? 'Alert'),
-      companyPulse: pulseResult.data ?? undefined,
+      activeAssignments: Number(countResult[0]?.count ?? 0),
+      alerts: alertResult.map((e: any) => e.payload?.message ?? 'Alert'),
+      companyPulse: pulseResult[0] ?? undefined,
     };
   }
 
@@ -166,20 +159,17 @@ export class SharedMemoryLoader {
     const queryEmb = await this.embedding.embed(query);
     const cutoff = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000).toISOString();
 
-    const { data, error } = await this.supabase.rpc('match_shared_episodes', {
-      query_embedding: JSON.stringify(queryEmb),
-      match_threshold: 0.6,
-      match_count: limit,
-      filter_domains: domains.length > 0 ? domains : null,
-      since: cutoff,
-    });
+    const data = await systemQuery(
+      'SELECT * FROM match_shared_episodes($1, $2, $3, $4, $5)',
+      [JSON.stringify(queryEmb), 0.6, limit, domains.length > 0 ? domains : null, cutoff],
+    );
 
-    if (error || !data) return [];
+    if (!data.length) return [];
 
     // Increment access counters (fire-and-forget)
     const ids = data.map((e: any) => e.id);
     if (ids.length > 0) {
-      void this.supabase.rpc('increment_episode_access', { episode_ids: ids }).then(() => {});
+      void systemQuery('SELECT * FROM increment_episode_access($1)', [ids]).catch(() => {});
     }
 
     return data.map((row: any) => ({
@@ -220,30 +210,17 @@ export class SharedMemoryLoader {
   }): Promise<string | null> {
     const embedding = await this.embedding.embed(episode.summary);
 
-    const { data, error } = await this.supabase
-      .from('shared_episodes')
-      .insert({
-        author_agent: episode.authorAgent,
-        episode_type: episode.episodeType,
-        summary: episode.summary,
-        detail: episode.detail ?? null,
-        outcome: episode.outcome ?? null,
-        confidence: episode.confidence ?? 0.8,
-        domains: episode.domains,
-        tags: episode.tags ?? [],
-        related_agents: episode.relatedAgents ?? [],
-        directive_id: episode.directiveId ?? null,
-        assignment_id: episode.assignmentId ?? null,
-        embedding: JSON.stringify(embedding),
-      })
-      .select('id')
-      .single();
-
-    if (error) {
-      console.warn('[SharedMemoryLoader] Failed to write episode:', error.message);
+    try {
+      const [data] = await systemQuery<{ id: string }>(
+        `INSERT INTO shared_episodes (author_agent, episode_type, summary, detail, outcome, confidence, domains, tags, related_agents, directive_id, assignment_id, embedding)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+        [episode.authorAgent, episode.episodeType, episode.summary, JSON.stringify(episode.detail ?? null), episode.outcome ?? null, episode.confidence ?? 0.8, episode.domains, episode.tags ?? [], episode.relatedAgents ?? [], episode.directiveId ?? null, episode.assignmentId ?? null, JSON.stringify(embedding)],
+      );
+      return data?.id ?? null;
+    } catch (err) {
+      console.warn('[SharedMemoryLoader] Failed to write episode:', (err as Error).message);
       return null;
     }
-    return data?.id ?? null;
   }
 
   // ─── Layer 3: Semantic Memory (Knowledge Graph) ─────────────
@@ -275,20 +252,19 @@ export class SharedMemoryLoader {
     task: string,
     domains: string[],
   ): Promise<SharedProcedure[]> {
-    let query = this.supabase
-      .from('shared_procedures')
-      .select('*')
-      .eq('status', 'active')
-      .order('times_used', { ascending: false })
-      .limit(5);
+    let sql = "SELECT * FROM shared_procedures WHERE status = 'active'";
+    const params: any[] = [];
 
     if (domains.length > 0) {
-      query = query.in('domain', domains);
+      params.push(domains);
+      sql += ` AND domain = ANY($${params.length})`;
     }
 
-    const { data, error } = await query;
+    sql += ' ORDER BY times_used DESC LIMIT 5';
 
-    if (error || !data) return [];
+    const data = await systemQuery(sql, params);
+
+    if (!data.length) return [];
 
     return data.map((row: any) => ({
       id: row.id,
@@ -327,40 +303,29 @@ export class SharedMemoryLoader {
     discoveredBy: CompanyAgentRole;
     sourceEpisodes?: string[];
   }): Promise<string | null> {
-    const { data, error } = await this.supabase
-      .from('shared_procedures')
-      .insert({
-        slug: procedure.slug,
-        name: procedure.name,
-        domain: procedure.domain,
-        description: procedure.description,
-        steps: procedure.steps,
-        preconditions: procedure.preconditions ?? [],
-        tools_needed: procedure.toolsNeeded ?? [],
-        discovered_by: procedure.discoveredBy,
-        source_episodes: procedure.sourceEpisodes ?? [],
-        status: 'proposed',
-      })
-      .select('id')
-      .single();
-
-    if (error) {
-      console.warn('[SharedMemoryLoader] Failed to propose procedure:', error.message);
+    try {
+      const [data] = await systemQuery<{ id: string }>(
+        `INSERT INTO shared_procedures (slug, name, domain, description, steps, preconditions, tools_needed, discovered_by, source_episodes, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+        [procedure.slug, procedure.name, procedure.domain, procedure.description, JSON.stringify(procedure.steps), procedure.preconditions ?? [], procedure.toolsNeeded ?? [], procedure.discoveredBy, procedure.sourceEpisodes ?? [], 'proposed'],
+      );
+      return data?.id ?? null;
+    } catch (err) {
+      console.warn('[SharedMemoryLoader] Failed to propose procedure:', (err as Error).message);
       return null;
     }
-    return data?.id ?? null;
   }
 
   // ─── Layer 5: World Model ───────────────────────────────────
 
   async getWorldModel(role: CompanyAgentRole): Promise<AgentWorldModel | null> {
-    const { data, error } = await this.supabase
-      .from('agent_world_model')
-      .select('*')
-      .eq('agent_role', role)
-      .single();
+    const rows = await systemQuery<any>(
+      'SELECT * FROM agent_world_model WHERE agent_role = $1',
+      [role],
+    );
 
-    if (error || !data) return null;
+    const data = rows[0];
+    if (!data) return null;
 
     return {
       id: data.id,
@@ -382,27 +347,21 @@ export class SharedMemoryLoader {
   }
 
   async saveWorldModel(role: CompanyAgentRole, model: Partial<AgentWorldModel>): Promise<void> {
-    const { error } = await this.supabase
-      .from('agent_world_model')
-      .upsert({
-        agent_role: role,
-        updated_at: new Date().toISOString(),
-        strengths: model.strengths ?? [],
-        weaknesses: model.weaknesses ?? [],
-        blindspots: model.blindspots ?? [],
-        preferred_approaches: model.preferredApproaches ?? {},
-        failure_patterns: model.failurePatterns ?? [],
-        task_type_scores: model.taskTypeScores ?? {},
-        tool_proficiency: model.toolProficiency ?? {},
-        collaboration_map: model.collaborationMap ?? {},
-        last_predictions: model.lastPredictions ?? [],
-        prediction_accuracy: model.predictionAccuracy ?? 0.5,
-        improvement_goals: model.improvementGoals ?? [],
-        rubric_version: model.rubricVersion ?? 1,
-      }, { onConflict: 'agent_role' });
-
-    if (error) {
-      console.warn('[SharedMemoryLoader] Failed to save world model:', error.message);
+    try {
+      await systemQuery(
+        `INSERT INTO agent_world_model (agent_role, updated_at, strengths, weaknesses, blindspots, preferred_approaches, failure_patterns, task_type_scores, tool_proficiency, collaboration_map, last_predictions, prediction_accuracy, improvement_goals, rubric_version)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+         ON CONFLICT (agent_role) DO UPDATE SET
+           updated_at = EXCLUDED.updated_at, strengths = EXCLUDED.strengths, weaknesses = EXCLUDED.weaknesses,
+           blindspots = EXCLUDED.blindspots, preferred_approaches = EXCLUDED.preferred_approaches,
+           failure_patterns = EXCLUDED.failure_patterns, task_type_scores = EXCLUDED.task_type_scores,
+           tool_proficiency = EXCLUDED.tool_proficiency, collaboration_map = EXCLUDED.collaboration_map,
+           last_predictions = EXCLUDED.last_predictions, prediction_accuracy = EXCLUDED.prediction_accuracy,
+           improvement_goals = EXCLUDED.improvement_goals, rubric_version = EXCLUDED.rubric_version`,
+        [role, new Date().toISOString(), JSON.stringify(model.strengths ?? []), JSON.stringify(model.weaknesses ?? []), JSON.stringify(model.blindspots ?? []), JSON.stringify(model.preferredApproaches ?? {}), JSON.stringify(model.failurePatterns ?? []), JSON.stringify(model.taskTypeScores ?? {}), JSON.stringify(model.toolProficiency ?? {}), JSON.stringify(model.collaborationMap ?? {}), JSON.stringify(model.lastPredictions ?? []), model.predictionAccuracy ?? 0.5, JSON.stringify(model.improvementGoals ?? []), model.rubricVersion ?? 1],
+      );
+    } catch (err) {
+      console.warn('[SharedMemoryLoader] Failed to save world model:', (err as Error).message);
     }
   }
 
@@ -413,32 +372,20 @@ export class SharedMemoryLoader {
     passingScore: number;
     excellenceScore: number;
   } | null> {
-    const { data, error } = await this.supabase
-      .from('role_rubrics')
-      .select('*')
-      .eq('role', role)
-      .eq('task_type', taskType)
-      .order('version', { ascending: false })
-      .limit(1)
-      .single();
+    const rows = await systemQuery<any>(
+      'SELECT * FROM role_rubrics WHERE role = $1 AND task_type = $2 ORDER BY version DESC LIMIT 1',
+      [role, taskType],
+    );
 
-    if (error || !data) {
+    let data = rows[0];
+    if (!data) {
       // Fall back to the default rubric
-      const { data: fallback } = await this.supabase
-        .from('role_rubrics')
-        .select('*')
-        .eq('role', '_default')
-        .eq('task_type', taskType)
-        .order('version', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (!fallback) return null;
-      return {
-        dimensions: fallback.dimensions,
-        passingScore: fallback.passing_score,
-        excellenceScore: fallback.excellence_score,
-      };
+      const fallbackRows = await systemQuery<any>(
+        "SELECT * FROM role_rubrics WHERE role = '_default' AND task_type = $1 ORDER BY version DESC LIMIT 1",
+        [taskType],
+      );
+      data = fallbackRows[0];
+      if (!data) return null;
     }
 
     return {

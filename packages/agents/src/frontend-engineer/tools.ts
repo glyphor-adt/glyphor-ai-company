@@ -4,6 +4,7 @@
  */
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import { systemQuery } from '@glyphor/shared/db';
 import {
   getFileContents, createOrUpdateFile, createBranch, createGitHubPR,
   GLYPHOR_REPOS, type GlyphorRepo,
@@ -123,16 +124,10 @@ export function createFrontendEngineerTools(memory: CompanyMemoryStore): ToolDef
         a11yNotes: { type: 'string', description: 'Accessibility notes (ARIA labels, keyboard nav)' },
       },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        await supabase.from('design_artifacts').insert({
-          type: 'component_implementation',
-          name: params.componentName,
-          content: params.code,
-          variant: params.a11yNotes || null,
-          author: 'frontend-engineer',
-          status: 'review',
-          created_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          'INSERT INTO design_artifacts (type, name, content, variant, author, status, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+          ['component_implementation', params.componentName, params.code, params.a11yNotes || null, 'frontend-engineer', 'review', new Date().toISOString()]
+        );
         return { success: true, message: `Implementation for "${params.componentName}" saved for review.` };
       },
     },
@@ -144,12 +139,16 @@ export function createFrontendEngineerTools(memory: CompanyMemoryStore): ToolDef
         status: { type: 'string', description: 'Filter by status: draft, approved, implemented' },
       },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        let query = supabase.from('design_artifacts').select('*').eq('type', 'component_spec').order('created_at', { ascending: false });
-        if (params.componentName && params.componentName !== 'all') { query = query.ilike('name', `%${params.componentName}%`); }
-        if (params.status) { query = query.eq('status', params.status); }
-        const { data } = await query.limit(20);
-        return { success: true, data: data || [] };
+        const conditions = ['type = $1'];
+        const sqlParams: unknown[] = ['component_spec'];
+        let idx = 2;
+        if (params.componentName && params.componentName !== 'all') { conditions.push(`name ILIKE $${idx++}`); sqlParams.push(`%${params.componentName}%`); }
+        if (params.status) { conditions.push(`status = $${idx++}`); sqlParams.push(params.status); }
+        const data = await systemQuery(
+          `SELECT * FROM design_artifacts WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT $${idx}`,
+          [...sqlParams, 20]
+        );
+        return { success: true, data };
       },
     },
     {
@@ -160,12 +159,16 @@ export function createFrontendEngineerTools(memory: CompanyMemoryStore): ToolDef
         status: { type: 'string', description: 'Filter by status: review, approved, needs_revision' },
       },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        let query = supabase.from('design_artifacts').select('*').eq('type', 'component_implementation').eq('author', 'frontend-engineer').order('created_at', { ascending: false });
-        if (params.componentName && params.componentName !== 'all') { query = query.ilike('name', `%${params.componentName}%`); }
-        if (params.status) { query = query.eq('status', params.status); }
-        const { data } = await query.limit(20);
-        return { success: true, data: data || [] };
+        const conditions = ['type = $1', 'author = $2'];
+        const sqlParams: unknown[] = ['component_implementation', 'frontend-engineer'];
+        let idx = 3;
+        if (params.componentName && params.componentName !== 'all') { conditions.push(`name ILIKE $${idx++}`); sqlParams.push(`%${params.componentName}%`); }
+        if (params.status) { conditions.push(`status = $${idx++}`); sqlParams.push(params.status); }
+        const data = await systemQuery(
+          `SELECT * FROM design_artifacts WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT $${idx}`,
+          [...sqlParams, 20]
+        );
+        return { success: true, data };
       },
     },
     {
@@ -176,14 +179,10 @@ export function createFrontendEngineerTools(memory: CompanyMemoryStore): ToolDef
         details: { type: 'string', description: 'Detailed notes' },
       },
       async execute(params) {
-        const supabase = memory.getSupabaseClient();
-        await supabase.from('agent_activities').insert({
-          agent_role: 'frontend-engineer',
-          activity_type: 'implementation',
-          summary: params.summary,
-          details: params.details || null,
-          created_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          'INSERT INTO agent_activities (agent_role, activity_type, summary, details, created_at) VALUES ($1, $2, $3, $4, $5)',
+          ['frontend-engineer', 'implementation', params.summary, params.details || null, new Date().toISOString()]
+        );
         return { success: true };
       },
     },

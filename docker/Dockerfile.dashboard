@@ -13,8 +13,6 @@ RUN npm ci --workspace=packages/dashboard
 COPY packages/dashboard/ packages/dashboard/
 
 # Build args for config (baked into the static bundle)
-ARG VITE_SUPABASE_URL
-ARG VITE_SUPABASE_ANON_KEY
 ARG VITE_SCHEDULER_URL
 ARG VITE_GOOGLE_CLIENT_ID
 ARG VITE_VOICE_GATEWAY_URL
