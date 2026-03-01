@@ -188,7 +188,7 @@ export class GeminiAdapter implements ProviderAdapter {
         content?: { parts?: Array<{ text?: string; thought?: boolean; functionCall?: { name: string; args: Record<string, unknown> }; thoughtSignature?: string }> };
         finishReason?: string;
       }>;
-      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
+      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number; thoughtsTokenCount?: number; cachedContentTokenCount?: number };
     };
 
     const candidate = r.candidates?.[0];
@@ -215,6 +215,10 @@ export class GeminiAdapter implements ProviderAdapter {
       }));
 
     const usage = r.usageMetadata;
+    const thinkingTokens = usage?.thoughtsTokenCount ?? 0;
+    // candidatesTokenCount includes thinking tokens — subtract to get pure output
+    const rawOutputTokens = usage?.candidatesTokenCount ?? 0;
+    const pureOutputTokens = Math.max(0, rawOutputTokens - thinkingTokens);
 
     return {
       text,
@@ -222,8 +226,10 @@ export class GeminiAdapter implements ProviderAdapter {
       thinkingText,
       usageMetadata: {
         inputTokens: usage?.promptTokenCount ?? 0,
-        outputTokens: usage?.candidatesTokenCount ?? 0,
+        outputTokens: pureOutputTokens,
         totalTokens: usage?.totalTokenCount ?? 0,
+        thinkingTokens: thinkingTokens || undefined,
+        cachedInputTokens: usage?.cachedContentTokenCount || undefined,
       },
       finishReason: this.normalizeFinishReason(candidate.finishReason),
     };

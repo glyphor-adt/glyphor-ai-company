@@ -209,6 +209,10 @@ export class AnthropicAdapter implements ProviderAdapter {
       }
     }
 
+    const cacheCreation = (response.usage as Record<string, unknown> & { cache_creation_input_tokens?: number })?.cache_creation_input_tokens ?? 0;
+    const cacheRead = (response.usage as Record<string, unknown> & { cache_read_input_tokens?: number })?.cache_read_input_tokens ?? 0;
+    const cachedInputTokens = cacheCreation + cacheRead;
+
     return {
       text,
       toolCalls,
@@ -217,6 +221,7 @@ export class AnthropicAdapter implements ProviderAdapter {
         inputTokens: response.usage.input_tokens,
         outputTokens: response.usage.output_tokens,
         totalTokens: response.usage.input_tokens + response.usage.output_tokens,
+        cachedInputTokens: cachedInputTokens || undefined,
       },
       finishReason: this.normalizeFinishReason(response.stop_reason),
     };

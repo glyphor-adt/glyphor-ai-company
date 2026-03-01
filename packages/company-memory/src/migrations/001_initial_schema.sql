@@ -1,5 +1,5 @@
--- Glyphor Company Memory — Supabase Schema Migration
--- Run this in Supabase SQL Editor to set up all tables
+-- Glyphor Company Memory — Cloud SQL Schema Migration
+-- Run this against the Cloud SQL PostgreSQL instance to set up all tables
 
 -- Core company context
 CREATE TABLE IF NOT EXISTS company_profile (

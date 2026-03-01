@@ -41,6 +41,10 @@ export interface UnifiedUsageMetadata {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  /** Thinking/reasoning tokens billed at a different (often lower) rate */
+  thinkingTokens?: number;
+  /** Cached input tokens that receive a provider discount */
+  cachedInputTokens?: number;
 }
 
 export interface UnifiedModelResponse {

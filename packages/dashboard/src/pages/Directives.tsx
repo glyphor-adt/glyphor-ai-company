@@ -112,7 +112,7 @@ export default function Directives() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  // Real-time subscription removed (was Supabase realtime)
+  // Real-time subscription removed (was PostgREST realtime)
   useEffect(() => {}, [refresh]);
 
   const proposed = directives.filter(d => d.status === 'proposed');

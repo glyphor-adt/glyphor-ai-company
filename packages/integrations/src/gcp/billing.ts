@@ -80,7 +80,7 @@ function slugifyService(description: string): string {
  *  - `financials` table: daily aggregate infra_cost (for CFO dashboard)
  *  - `gcp_billing` table: per-service per-day rows (for cost-analyst / devops agents)
  */
-export async function syncBillingToSupabase(
+export async function syncBillingToDB(
   projectId: string,
   billingDataset: string,
   billingTable: string,

@@ -155,7 +155,7 @@ Implemented in `packages/scheduler/src/decisionQueue.ts`.
      → RED:    Go to step 3
 
 3. DecisionQueue.submit(decision)
-     → Write to Supabase `decisions` table (status: 'pending')
+     → Write to `decisions` table (status: 'pending')
      → Build Adaptive Card via formatDecisionCard()
      → Send to #decisions via Graph API (preferred) or webhook (fallback)
      → Record notifiedAt timestamp

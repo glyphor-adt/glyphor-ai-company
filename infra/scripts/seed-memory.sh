@@ -1,81 +1,73 @@
 #!/usr/bin/env bash
-# seed-memory.sh — Initialize Supabase with company baseline data
+# seed-memory.sh — Initialize Cloud SQL with company baseline data
 set -euo pipefail
 
-SUPABASE_URL="${SUPABASE_URL:?Set SUPABASE_URL}"
-SUPABASE_SERVICE_KEY="${SUPABASE_SERVICE_KEY:?Set SUPABASE_SERVICE_KEY}"
+DB_HOST="${DB_HOST:?Set DB_HOST}"
+DB_NAME="${DB_NAME:?Set DB_NAME}"
+DB_USER="${DB_USER:?Set DB_USER}"
+DB_PASSWORD="${DB_PASSWORD:?Set DB_PASSWORD}"
+
+export PGPASSWORD="$DB_PASSWORD"
+PSQL="psql -h $DB_HOST -U $DB_USER -d $DB_NAME -q"
 
 echo "=== Seeding Glyphor company memory ==="
 
 # Insert company profile
-curl -s -X POST "${SUPABASE_URL}/rest/v1/company_profile" \
-  -H "apikey: ${SUPABASE_SERVICE_KEY}" \
-  -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
-  -H "Content-Type: application/json" \
-  -H "Prefer: resolution=merge-duplicates" \
-  -d '{
-    "id": "glyphor-main",
-    "name": "Glyphor AI",
-    "vision": "Build autonomous AI-powered development tools that fundamentally change how software is created",
-    "mission": "Empower developers with AI agents that understand, build, and evolve software systems",
-    "okrs": {
-      "Q1_2025": [
-        {"objective": "Launch Fuse V7 with autonomous agent capabilities", "key_results": ["Ship Fuse V7 GA", "100 beta users", "95% build success rate"]},
-        {"objective": "Establish company operating rhythm", "key_results": ["All 7 AI executives operational", "Daily briefings running", "Decision queue < 24h response"]}
-      ]
-    },
-    "founders": {
-      "kristina": {"role": "CEO", "focus": ["vision", "product", "market", "partnerships"], "timezone": "America/Chicago"},
-      "andrew": {"role": "COO", "focus": ["financials", "operations", "risk", "infrastructure"], "timezone": "America/Chicago"}
-    },
-    "culture_values": ["Ship fast", "Measure everything", "AI-first operations", "Two-person leverage"],
-    "updated_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
-  }'
+$PSQL <<'SQL'
+INSERT INTO company_profile (id, name, vision, mission, okrs, founders, culture_values, updated_at)
+VALUES (
+  'glyphor-main',
+  'Glyphor AI',
+  'Build autonomous AI-powered development tools that fundamentally change how software is created',
+  'Empower developers with AI agents that understand, build, and evolve software systems',
+  '{"Q1_2025": [{"objective": "Launch Fuse V7 with autonomous agent capabilities", "key_results": ["Ship Fuse V7 GA", "100 beta users", "95% build success rate"]}, {"objective": "Establish company operating rhythm", "key_results": ["All 7 AI executives operational", "Daily briefings running", "Decision queue < 24h response"]}]}'::jsonb,
+  '{"kristina": {"role": "CEO", "focus": ["vision", "product", "market", "partnerships"], "timezone": "America/Chicago"}, "andrew": {"role": "COO", "focus": ["financials", "operations", "risk", "infrastructure"], "timezone": "America/Chicago"}}'::jsonb,
+  ARRAY['Ship fast', 'Measure everything', 'AI-first operations', 'Two-person leverage'],
+  NOW()
+)
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  vision = EXCLUDED.vision,
+  mission = EXCLUDED.mission,
+  okrs = EXCLUDED.okrs,
+  founders = EXCLUDED.founders,
+  culture_values = EXCLUDED.culture_values,
+  updated_at = NOW();
+SQL
 
 echo "  ✓ Company profile"
 
 # Insert products
-curl -s -X POST "${SUPABASE_URL}/rest/v1/products" \
-  -H "apikey: ${SUPABASE_SERVICE_KEY}" \
-  -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
-  -H "Content-Type: application/json" \
-  -H "Prefer: resolution=merge-duplicates" \
-  -d '[
-    {
-      "slug": "fuse",
-      "name": "Fuse",
-      "status": "active",
-      "description": "AI-powered autonomous coding agent that understands, builds, and evolves software",
-      "tech_stack": ["TypeScript", "Node.js", "Gemini API", "VS Code Extension"],
-      "metrics": {"mrr": 0, "active_users": 0, "builds_last_7d": 0}
-    },
-    {
-      "slug": "pulse",
-      "name": "Pulse",
-      "status": "concept",
-      "description": "Real-time AI code review and quality monitoring platform",
-      "tech_stack": ["TypeScript", "Node.js"],
-      "metrics": {"mrr": 0, "active_users": 0}
-    }
-  ]'
+$PSQL <<'SQL'
+INSERT INTO products (slug, name, status, description, tech_stack, metrics) VALUES
+  ('fuse', 'Fuse', 'active', 'AI-powered autonomous coding agent that understands, builds, and evolves software', ARRAY['TypeScript', 'Node.js', 'Gemini API', 'VS Code Extension'], '{"mrr": 0, "active_users": 0, "builds_last_7d": 0}'::jsonb),
+  ('pulse', 'Pulse', 'concept', 'Real-time AI code review and quality monitoring platform', ARRAY['TypeScript', 'Node.js'], '{"mrr": 0, "active_users": 0}'::jsonb)
+ON CONFLICT (slug) DO UPDATE SET
+  name = EXCLUDED.name,
+  status = EXCLUDED.status,
+  description = EXCLUDED.description,
+  tech_stack = EXCLUDED.tech_stack,
+  metrics = EXCLUDED.metrics;
+SQL
 
 echo "  ✓ Products"
 
 # Insert agent roster
-curl -s -X POST "${SUPABASE_URL}/rest/v1/company_agents" \
-  -H "apikey: ${SUPABASE_SERVICE_KEY}" \
-  -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
-  -H "Content-Type: application/json" \
-  -H "Prefer: resolution=merge-duplicates" \
-  -d '[
-    {"role": "chief-of-staff", "name": "Sarah Chen", "status": "active", "model": "gemini-3-flash-preview", "schedule": "morning briefings 7:00/7:30 CT + on-demand"},
-    {"role": "cto", "name": "Marcus Reeves", "status": "stub", "model": "gemini-3-flash-preview", "schedule": "every 30 min health check + on-demand"},
-    {"role": "cfo", "name": "Nadia Okafor", "status": "stub", "model": "gemini-3-flash-preview", "schedule": "daily 9:00 CT cost check"},
-    {"role": "cpo", "name": "Elena Vasquez", "status": "stub", "model": "gemini-3-flash-preview", "schedule": "weekly Monday 10:00 CT usage analysis"},
-    {"role": "cmo", "name": "Maya Brooks", "status": "stub", "model": "gemini-3-flash-preview", "schedule": "weekly Monday 9:00 CT content planning"},
-    {"role": "vp-customer-success", "name": "James Turner", "status": "stub", "model": "gemini-3-flash-preview", "schedule": "daily 8:00 CT health scoring"},
-    {"role": "vp-sales", "name": "Rachel Kim", "status": "stub", "model": "gemini-3-flash-preview", "schedule": "Mon/Thu 9:00 CT pipeline review"}
-  ]'
+$PSQL <<'SQL'
+INSERT INTO company_agents (role, name, status, model, schedule) VALUES
+  ('chief-of-staff', 'Sarah Chen', 'active', 'gemini-3-flash-preview', 'morning briefings 7:00/7:30 CT + on-demand'),
+  ('cto', 'Marcus Reeves', 'stub', 'gemini-3-flash-preview', 'every 30 min health check + on-demand'),
+  ('cfo', 'Nadia Okafor', 'stub', 'gemini-3-flash-preview', 'daily 9:00 CT cost check'),
+  ('cpo', 'Elena Vasquez', 'stub', 'gemini-3-flash-preview', 'weekly Monday 10:00 CT usage analysis'),
+  ('cmo', 'Maya Brooks', 'stub', 'gemini-3-flash-preview', 'weekly Monday 9:00 CT content planning'),
+  ('vp-customer-success', 'James Turner', 'stub', 'gemini-3-flash-preview', 'daily 8:00 CT health scoring'),
+  ('vp-sales', 'Rachel Kim', 'stub', 'gemini-3-flash-preview', 'Mon/Thu 9:00 CT pipeline review')
+ON CONFLICT (role) DO UPDATE SET
+  name = EXCLUDED.name,
+  status = EXCLUDED.status,
+  model = EXCLUDED.model,
+  schedule = EXCLUDED.schedule;
+SQL
 
 echo "  ✓ Agent roster"
 echo "=== Seeding complete ==="

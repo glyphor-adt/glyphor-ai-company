@@ -277,6 +277,11 @@ export class OpenAIAdapter implements ProviderAdapter {
       args: JSON.parse(tc.function.arguments || '{}') as Record<string, unknown>,
     }));
 
+    const reasoningTokens = (response.usage as Record<string, unknown> & { completion_tokens_details?: { reasoning_tokens?: number } })
+      ?.completion_tokens_details?.reasoning_tokens ?? 0;
+    const cachedTokens = (response.usage as Record<string, unknown> & { prompt_tokens_details?: { cached_tokens?: number } })
+      ?.prompt_tokens_details?.cached_tokens ?? 0;
+
     return {
       text: choice.message.content,
       toolCalls,
@@ -284,6 +289,8 @@ export class OpenAIAdapter implements ProviderAdapter {
         inputTokens: response.usage?.prompt_tokens ?? 0,
         outputTokens: response.usage?.completion_tokens ?? 0,
         totalTokens: response.usage?.total_tokens ?? 0,
+        thinkingTokens: reasoningTokens || undefined,
+        cachedInputTokens: cachedTokens || undefined,
       },
       finishReason: this.normalizeFinishReason(choice.finish_reason),
     };

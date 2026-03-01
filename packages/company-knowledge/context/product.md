@@ -5,7 +5,7 @@
 ### Fuse — Autonomous Development Platform
 - Users describe what they want → AI agents design, code, deploy complete web apps
 - **Target:** Solo founders, small teams, SMBs, enterprises replacing contractor teams
-- **Stack:** Next.js, TypeScript, Gemini 2.5 Pro/Flash, Supabase, Vercel, Cloud Run
+- **Stack:** Next.js, TypeScript, Gemini 2.5 Pro/Flash, Cloud SQL, Vercel, Cloud Run
 - **Metrics:** 39 paying users, $2,847 MRR, 91% success rate, 4.2 min avg build time
 - **Pricing:** Free (3/mo) → Pro $29/mo → Enterprise $25K-50K/mo
 

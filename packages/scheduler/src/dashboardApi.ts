@@ -1,5 +1,5 @@
 /**
- * Dashboard CRUD API — replaces Supabase PostgREST auto-generated endpoints.
+ * Dashboard CRUD API — replaces auto-generated PostgREST endpoints.
  *
  * Provides /api/{table} routes for the dashboard to read/write data.
  * Only whitelisted tables are accessible. Query parameters follow a

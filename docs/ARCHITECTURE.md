@@ -7,7 +7,7 @@
 Glyphor AI Company is a monorepo containing 9 AI executive agents, 24 sub-team/specialist
 members, and 2 operations agents that autonomously operate Glyphor alongside two human founders
 (Kristina Denney, CEO; Andrew Zwelling, COO). The agents run 24/7 on GCP Cloud Run, share
-state through Supabase, communicate with founders via Microsoft Teams, and are governed by a
+state through Cloud SQL, communicate with founders via Microsoft Teams, and are governed by a
 three-tier authority model (Green / Yellow / Red).
 
 Total headcount: **44** — 2 human founders, 9 AI executives (8 reporting to CoS + 1 CLO
@@ -217,7 +217,7 @@ auditing, lead generation, and executive assistantship.
 ┌───────────────────────────────────┐  ┌──────────────────────────────┐
 │        Company Memory             │  │   External Integrations      │
 │  ┌─────────────────────────────┐  │  │                              │
-│  │ Supabase (PostgreSQL)       │  │  │  Stripe     — MRR, churn    │
+│  │ Cloud SQL (PostgreSQL)      │  │  │  Stripe     — MRR, churn    │
 │  │  ├ company_profile          │  │  │  Mercury    — banking, cash  │
 │  │  ├ products                 │  │  │  GCP        — billing export │
 │  │  ├ company_agents (28 cols) │  │  │  Anthropic  — billing/usage  │
@@ -299,7 +299,7 @@ auditing, lead generation, and executive assistantship.
 │                                           │
 │   Auth: Teams SSO (Entra ID) or Google   │
 │         Sign-In (OAuth 2.0)               │
-│   API: Supabase direct + Scheduler /run   │
+│   API: Cloud SQL direct + Scheduler /run  │
 └──────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────┐
@@ -328,7 +328,7 @@ auditing, lead generation, and executive assistantship.
 │  Modules:                                 │
 │  ├ collector.py  — gather source docs     │
 │  ├ extractor.py  — entity extraction      │
-│  ├ bridge.py     — sync to Supabase       │
+│  ├ bridge.py     — sync to Cloud SQL      │
 │  ├ tune.py       — auto-tune prompts      │
 │  ├ index.py      — run indexing pipeline  │
 │  ├ server.py     — HTTP API               │
@@ -408,7 +408,7 @@ and dashboard entries. They operate under their executive's authority scope and 
 | Name | Role | Agent ID | Model | Responsibilities |
 |------|------|----------|-------|-----------------|
 | **Atlas Vega** | Operations & System Intelligence | `ops` | `gemini-3-flash-preview` | System health checks, data freshness monitoring, cost awareness, morning/evening status reports, event response |
-| **Morgan Blake** | Global Administrator | `global-admin` | `gemini-3-flash-preview` | Cross-platform access provisioning (GCP, Entra ID, M365, GitHub, Vercel, Supabase, Stripe), onboarding/offboarding, access audits, compliance reporting |
+| **Morgan Blake** | Global Administrator | `global-admin` | `gemini-3-flash-preview` | Cross-platform access provisioning (GCP, Entra ID, M365, GitHub, Vercel, Stripe), onboarding/offboarding, access audits, compliance reporting |
 
 > **Note:** Morgan Blake has **Founder Protection** — cannot modify Kristina/Andrew/devops@glyphor.ai access.
 
@@ -539,7 +539,7 @@ glyphor-ai-company/
 │   │       ├── reasoningEngine.ts      # Multi-pass verification & cross-model consensus
 │   │       ├── jitContextRetriever.ts  # Just-In-Time context retrieval (task-aware semantic search)
 │   │       ├── contextDistiller.ts     # Compresses JIT context into task-focused briefings (~$0.001/call)
-│   │       ├── runtimeToolFactory.ts   # Mid-run tool synthesis (HTTP, Supabase query, sandboxed JS)
+│   │       ├── runtimeToolFactory.ts   # Mid-run tool synthesis (HTTP, SQL query, sandboxed JS)
 │   │       ├── redisCache.ts           # Redis cache layer for GCP Memorystore (ioredis)
 │   │       ├── toolRegistry.ts         # Central tool lookup (static + dynamic DB table)
 │   │       ├── config/
@@ -553,7 +553,7 @@ glyphor-ai-company/
 │   │       ├── supervisor.ts           # Per-turn stall detection, turn limits, timeouts
 │   │       ├── toolExecutor.ts         # Tool declaration → execution bridge
 │   │       ├── eventBus.ts             # Internal event system
-│   │       ├── glyphorEventBus.ts      # Inter-agent event bus (Supabase-backed)
+│   │       ├── glyphorEventBus.ts      # Inter-agent event bus (Cloud SQL-backed)
 │   │       ├── eventPermissions.ts     # Per-tier event emission permissions
 │   │       ├── subscriptions.ts        # Agent → event type subscription map
 │   │       ├── reasoning.ts            # Reasoning extraction & stripping
@@ -563,7 +563,7 @@ glyphor-ai-company/
 │   │
 │   ├── company-memory/          # Persistence layer
 │   │   └── src/
-│   │       ├── store.ts               # CompanyMemoryStore (Supabase + GCS)
+│   │       ├── store.ts               # CompanyMemoryStore (Cloud SQL + GCS)
 │   │       ├── embeddingClient.ts     # Gemini embedding-001 vector embeddings (768-dim)
 │   │       ├── collectiveIntelligence.ts # Collective intelligence store (company pulse, knowledge)
 │   │       ├── graphReader.ts         # KnowledgeGraphReader — semantic search, N-hop, causal chains
@@ -796,8 +796,8 @@ glyphor-ai-company/
 │       │   │   ├── VoiceOverlay.tsx      # Live voice session UI with transcript
 │       │   │   ├── FounderBriefing.tsx   # Executive summary panel (pulse, incidents, decisions)
 │       │   │   └── ui.tsx                # Shared primitives
-│       │   ├── lib/                   # Hooks, Supabase client, types, utilities
-│       │   │   ├── supabase.ts           # Supabase client init
+│       │   ├── lib/                   # Hooks, API client, types, utilities
+│       │   │   ├── api.ts                # API client init
 │       │   │   ├── auth.tsx              # Google OAuth provider
 │       │   │   ├── theme.tsx             # Dark/light theme provider
 │       │   │   ├── hooks.ts              # Custom hooks
@@ -820,10 +820,10 @@ glyphor-ai-company/
 │   │
 │   └── graphrag-indexer/        # Knowledge graph indexer (Python)
 │       └── graphrag_indexer/
-│           ├── config.py              # Configuration (Gemini, embeddings, Supabase)
+│           ├── config.py              # Configuration (Gemini, embeddings, Cloud SQL)
 │           ├── collector.py           # Gather source docs (knowledge base + agent outputs)
 │           ├── extractor.py           # Entity extraction (Microsoft GraphRAG + Gemini)
-│           ├── bridge.py              # Sync extracted graph to Supabase kg_nodes/kg_edges
+│           ├── bridge.py              # Sync extracted graph to Cloud SQL kg_nodes/kg_edges
 │           ├── tune.py                # Auto-tune extraction prompts to Glyphor domain
 │           ├── index.py               # Run full indexing pipeline
 │           └── server.py              # HTTP API for on-demand indexing
@@ -865,7 +865,7 @@ glyphor-ai-company/
 │       ├── adi-rose/            # Executive Assistant bot
 │       └── ... (24 more)        # All other agents
 │
-├── supabase/migrations/         # 86 migration files
+├── supabase/migrations/         # 86 SQL migration files (historical)
 ├── .github/workflows/deploy.yml # CI/CD (GitHub Actions → Cloud Run)
 ├── turbo.json                   # Turborepo pipeline config
 ├── tsconfig.base.json           # Shared TS config
@@ -1192,7 +1192,7 @@ no LLM calls until actual work is found.
 │  ┌──────────────────────────────────────────────────────────────────┐  │
 │  │ PHASE 3: DISPATCH — Parallel wave execution                      │  │
 │  │                                                                  │  │
-│  │    dispatchWaves(waves, executor, supabase)                       │  │
+│  │    dispatchWaves(waves, executor, db)                              │  │
 │  │      For each wave (sequential):                                  │  │
 │  │        For each agent in wave (parallel, max 10 concurrent):      │  │
 │  │          ✓ Concurrency guard: skip if agent already running       │  │
@@ -1213,7 +1213,7 @@ Pure DB queries, no LLM call (~$0.005 per check). Only dispatches an agent when
 real work exists:
 
 ```
-executeWorkLoop(agentRole, supabase)
+executeWorkLoop(agentRole, db)
   │
   ├─ ABORT COOLDOWN CHECK
   │    Last run aborted < 30 min ago? → return shouldRun:false
@@ -1948,7 +1948,7 @@ Meeting types: `discussion`, `review`, `planning`, `incident`, `standup`.
 
 #### 3. Communication Tools
 
-Factory function `createCommunicationTools(supabase, glyphorEventBus, schedulerUrl?)` returns
+Factory function `createCommunicationTools(db, glyphorEventBus, schedulerUrl?)` returns
 three `ToolDefinition[]` items available to all agents:
 
 | Tool | Description |
@@ -1959,7 +1959,7 @@ three `ToolDefinition[]` items available to all agents:
 
 ### Assignment Tools
 
-Factory function `createAssignmentTools(supabase, glyphorEventBus)` returns three `ToolDefinition[]`
+Factory function `createAssignmentTools(db, glyphorEventBus)` returns three `ToolDefinition[]`
 items available to all agents, closing the Sarah → agent → Sarah orchestration loop:
 
 | Tool | Description |
@@ -1988,11 +1988,11 @@ via the work loop:
 ### Dynamic Tool Grants
 
 Sarah (Chief of Staff) can dynamically grant or revoke existing tools to any agent at runtime
-via the `agent_tool_grants` Supabase table. This enables just-in-time capability expansion
+via the `agent_tool_grants` database table. This enables just-in-time capability expansion
 without code changes.
 
 **Runtime enforcement** (`toolExecutor.ts`): Before executing any tool call, `ToolExecutor`
-checks `isToolGranted(agentRole, toolName, supabase)`. Grants are cached per-role for 60 seconds
+checks `isToolGranted(agentRole, toolName, db)`. Grants are cached per-role for 60 seconds
 to avoid per-call DB queries. Cache is invalidated immediately on grant/revoke.
 
 **Chief of Staff tools** (`chief-of-staff/tools.ts`):

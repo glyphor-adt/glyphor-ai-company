@@ -49,7 +49,7 @@ function buildIssueBody(req: ChangeRequest): string {
       `> The dashboard code lives in \`packages/dashboard/src/\`. ` +
       `Pages are in \`packages/dashboard/src/pages/\`, components in \`packages/dashboard/src/components/\`, ` +
       `hooks in \`packages/dashboard/src/lib/hooks.ts\`, types in \`packages/dashboard/src/lib/types.ts\`. ` +
-      `The app uses React + TypeScript + Tailwind CSS + Supabase.\n`
+      `The app uses React + TypeScript + Tailwind CSS.\n`
     : '';
 
   return `## ${typeLabel}

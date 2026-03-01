@@ -145,7 +145,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
     {
       name: 'get_infrastructure_costs',
-      description: 'Get infrastructure cost breakdown (Cloud Run, Supabase, API tokens, storage).',
+      description: 'Get infrastructure cost breakdown (Cloud Run, Cloud SQL, API tokens, storage).',
       parameters: {
         days: {
           type: 'number',

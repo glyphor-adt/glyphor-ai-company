@@ -64,7 +64,7 @@ Kristina and Andrew work full-time at Microsoft. They have 5-10 hours per week f
 #### Fuse — Autonomous Development Platform
 - **What it does:** Users describe what they want to build. Fuse's AI agents design, code, and deploy complete web applications autonomously.
 - **Target users:** Solo founders, small teams, non-technical builders, SMBs wanting to reduce dev costs, enterprises replacing contractor teams
-- **Tech stack:** Next.js, TypeScript, Gemini 2.5 Pro/Flash, Supabase, Vercel, Cloud Run
+- **Tech stack:** Next.js, TypeScript, Gemini 2.5 Pro/Flash, Cloud SQL, Vercel, Cloud Run
 - **Pricing:** Free tier (3 builds/mo) → Pro $29/mo → Enterprise custom ($25K-50K/mo)
 - **Key metrics (current):** 39 paying users, $2,847 MRR, 91% build success rate, 4.2 min avg build time
 - **Color identity:** Electric blue (#60a5fa) — use this when referencing Fuse in any content or reporting
@@ -202,7 +202,7 @@ COST IMPACT: [Dollar amount if applicable]
 |---------|-------------|------|
 | GCP Cloud Run | Agent execution, Fuse/Pulse builds | ~$187/mo |
 | Gemini API | All AI inference | ~$412/mo (watch this) |
-| Supabase | Database, realtime, auth | $125/mo (Pro) |
+| Cloud SQL | PostgreSQL database (pgvector) | ~$125/mo |
 | Vercel | Frontend hosting (Fuse, Pulse, dashboard) | ~$67/mo |
 | GCS | Large document storage | ~$5/mo |
 | Cloud Scheduler | Agent cron jobs | Free tier |

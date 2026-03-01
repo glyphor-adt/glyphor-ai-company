@@ -72,7 +72,7 @@ export {
   queryCloudRunMetrics,
   queryAllServices,
   queryBillingExport,
-  syncBillingToSupabase,
+  syncBillingToDB,
   pingService,
   pingServices,
   listCloudBuilds,

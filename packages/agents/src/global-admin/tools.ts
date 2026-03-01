@@ -465,7 +465,7 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
         },
         secret_id: {
           type: 'string',
-          description: 'Secret name (e.g. supabase-url)',
+          description: 'Secret name (e.g. db-password)',
           required: true,
         },
       },

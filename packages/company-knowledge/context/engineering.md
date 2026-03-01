@@ -6,7 +6,7 @@
 |---------|---------|------|
 | GCP Cloud Run | Agent execution, builds | ~$187/mo |
 | Gemini API | All AI inference | ~$412/mo |
-| Supabase | Database, realtime, auth | $125/mo |
+| Cloud SQL | PostgreSQL database (pgvector) | ~$125/mo |
 | Vercel | Frontend hosting | ~$67/mo |
 | GCS | Document storage | ~$5/mo |
 | Cloud Scheduler | Agent cron jobs | Free |
@@ -18,7 +18,7 @@
 
 - **Runtime:** TypeScript, Node.js
 - **AI Models:** Gemini 2.5 Pro/Flash (primary), OpenAI, Anthropic (fallback)
-- **Database:** Supabase (PostgreSQL + pgvector)
+- **Database:** Cloud SQL PostgreSQL (pgvector)
 - **Frontend:** Next.js, Vite, React, TailwindCSS
 - **Hosting:** Vercel (frontend), GCP Cloud Run (agents)
 - **CI/CD:** GitHub Actions, Docker
