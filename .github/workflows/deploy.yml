@@ -51,10 +51,12 @@ jobs:
         run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
 
       - name: Build & push scheduler image
+        env:
+          DOCKER_BUILDKIT: 1
         run: |
           IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/scheduler:${{ github.sha }}"
           IMAGE_LATEST="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/scheduler:latest"
-          docker build -f docker/Dockerfile.scheduler -t "$IMAGE" -t "$IMAGE_LATEST" .
+          docker build --progress=plain -f docker/Dockerfile.scheduler -t "$IMAGE" -t "$IMAGE_LATEST" .
           docker push "$IMAGE"
           docker push "$IMAGE_LATEST"
 
@@ -95,10 +97,12 @@ jobs:
         run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
 
       - name: Build & push dashboard image
+        env:
+          DOCKER_BUILDKIT: 1
         run: |
           IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/dashboard:${{ github.sha }}"
           IMAGE_LATEST="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/dashboard:latest"
-          docker build -f docker/Dockerfile.dashboard \
+          docker build --progress=plain -f docker/Dockerfile.dashboard \
             --build-arg VITE_SUPABASE_URL="${{ secrets.VITE_SUPABASE_URL }}" \
             --build-arg VITE_SUPABASE_ANON_KEY="${{ secrets.VITE_SUPABASE_ANON_KEY }}" \
             --build-arg VITE_SCHEDULER_URL="${{ secrets.VITE_SCHEDULER_URL }}" \
