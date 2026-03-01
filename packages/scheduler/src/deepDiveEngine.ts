@@ -358,7 +358,7 @@ export class DeepDiveEngine {
   ) {}
 
   /** Launch a deep dive. Returns the record ID. */
-  async launch(req: DeepDiveRequest): Promise<string> {
+  async launch(req: DeepDiveRequest): Promise<{ id: string; completion: Promise<void> }> {
     const id = `deepdive-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const researchAreas = buildResearchAreas(req.target);
 
@@ -378,8 +378,9 @@ export class DeepDiveEngine {
 
     await this.supabase.from('deep_dives').insert(record);
 
-    // Run all phases inline
-    this.runPhases(id, req, researchAreas).catch((err) => {
+    // Run all phases — caller must await `completion` to keep the
+    // Cloud Run instance alive for the duration of the research.
+    const completion = this.runPhases(id, req, researchAreas).catch((err) => {
       console.error(`[DeepDiveEngine] Fatal error in ${id}:`, err);
       this.supabase.from('deep_dives').update({
         status: 'failed',
@@ -387,7 +388,7 @@ export class DeepDiveEngine {
       }).eq('id', id);
     });
 
-    return id;
+    return { id, completion };
   }
 
   async get(id: string): Promise<DeepDiveRecord | null> {

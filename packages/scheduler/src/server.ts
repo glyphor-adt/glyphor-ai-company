@@ -1541,12 +1541,22 @@ const server = createServer(async (req, res) => {
       const body = JSON.parse(await readBody(req));
       const { target, context: ddContext, requestedBy } = body;
       if (!target) { json(res, 400, { error: 'target is required' }); return; }
-      const ddId = await deepDiveEngine.launch({
+      const { id: ddId, completion } = await deepDiveEngine.launch({
         target,
         context: ddContext,
         requestedBy: requestedBy ?? 'dashboard',
       });
-      json(res, 200, { success: true, id: ddId });
+      // Send the ID back to the dashboard immediately so it can start polling.
+      // Write the response body but DON'T call res.end() yet — keeping the HTTP
+      // connection open prevents Cloud Run from scaling down the instance while
+      // the deep dive research is running in the background.
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      });
+      res.write(JSON.stringify({ success: true, id: ddId }));
+      await completion;
+      res.end();
       return;
     }
 
