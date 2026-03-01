@@ -39,11 +39,11 @@ jobs:
               "repos/${{ github.repository }}/pulls/$PR/reviews" \
               --jq '[.[] | select(.user.login == "copilot-pull-request-reviewer[bot]")] | last | .state // "NONE"')
 
-            # Check CI status
+            # Check CI status — require at least one check to exist (not vacuously true)
             CI_STATUS=$(gh pr checks "$PR" \
               --repo "${{ github.repository }}" \
               --json state \
-              --jq 'if all(.state == "SUCCESS" or .state == "SKIPPED") then "pass" else "fail" end' 2>/dev/null || echo "fail")
+              --jq 'if length == 0 then "fail" elif all(.state == "SUCCESS" or .state == "SKIPPED") then "pass" else "fail" end' 2>/dev/null || echo "fail")
 
             echo "  Review: $REVIEW_STATE, CI: $CI_STATUS"
 

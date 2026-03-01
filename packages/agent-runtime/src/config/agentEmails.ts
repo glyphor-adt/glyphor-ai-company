@@ -69,6 +69,8 @@ export const AGENT_EMAIL_MAP: Record<CompanyAgentRole, AgentEmailEntry> = {
   'tax-strategy-specialist':       { email: 'mariana@glyphor.ai', displayName: 'Mariana Solis',      title: 'Tax Strategy Specialist' },
   'lead-gen-specialist':           { email: 'derek@glyphor.ai',   displayName: 'Derek Owens',        title: 'Lead Generation Specialist' },
   'marketing-intelligence-analyst': { email: 'zara@glyphor.ai',  displayName: 'Zara Petrov',        title: 'Marketing Intelligence Analyst' },
+  'ai-impact-analyst':             { email: 'riya@glyphor.ai',    displayName: 'Riya Mehta',         title: 'AI Impact Analyst' },
+  'org-analyst':                   { email: 'marcus.c@glyphor.ai', displayName: 'Marcus Chen',       title: 'Organizational & Talent Analyst' },
   'adi-rose':                      { email: 'adi@glyphor.ai',     displayName: 'Adi Rose',           title: 'Executive Assistant to COO' },
 };
 
