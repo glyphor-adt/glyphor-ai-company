@@ -7,10 +7,9 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { WRITE_TOOLS, invalidateGrantCache, isKnownTool } from '@glyphor/agent-runtime';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 
 export function createToolGrantTools(
-  supabase: SupabaseClient,
   grantedBy: string,
 ): ToolDefinition[] {
   return [
@@ -65,23 +64,14 @@ export function createToolGrantTools(
           ? new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString()
           : null;
 
-        const { error } = await supabase
-          .from('agent_tool_grants')
-          .upsert(
-            {
-              agent_role: agentRole,
-              tool_name: toolName,
-              granted_by: grantedBy,
-              reason,
-              directive_id: directiveId ?? null,
-              scope: 'full',
-              is_active: true,
-              expires_at: expiresAt,
-            },
-            { onConflict: 'agent_role,tool_name' },
+        try {
+          await systemQuery(
+            'INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason, directive_id, scope, is_active, expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (agent_role, tool_name) DO UPDATE SET granted_by = EXCLUDED.granted_by, reason = EXCLUDED.reason, directive_id = EXCLUDED.directive_id, scope = EXCLUDED.scope, is_active = EXCLUDED.is_active, expires_at = EXCLUDED.expires_at',
+            [agentRole, toolName, grantedBy, reason, directiveId ?? null, 'full', true, expiresAt],
           );
-
-        if (error) return { success: false, error: error.message };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
 
         invalidateGrantCache(agentRole);
 
@@ -126,17 +116,17 @@ export function createToolGrantTools(
         const agentRole = params.agent_role as string;
         const toolName = params.tool_name as string;
 
-        const { data, error } = await supabase
-          .from('agent_tool_grants')
-          .update({ is_active: false, updated_at: new Date().toISOString() })
-          .eq('agent_role', agentRole)
-          .eq('tool_name', toolName)
-          .eq('is_active', true)
-          .select();
+        let data;
+        try {
+          data = await systemQuery(
+            'UPDATE agent_tool_grants SET is_active = false, updated_at = $1 WHERE agent_role = $2 AND tool_name = $3 AND is_active = true RETURNING *',
+            [new Date().toISOString(), agentRole, toolName],
+          );
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
 
-        if (error) return { success: false, error: error.message };
-
-        if (!data || data.length === 0) {
+        if (data.length === 0) {
           return {
             success: false,
             error: `No active dynamic grant found for ${agentRole}:${toolName}. System-granted (baseline) tools cannot be revoked via this tool.`,

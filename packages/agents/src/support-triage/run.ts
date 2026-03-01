@@ -39,7 +39,7 @@ export async function runSupportTriage(params: SupportTriageRunParams = {}) {
     ...createMemoryTools(memory),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createAssignmentTools(glyphorEventBus),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

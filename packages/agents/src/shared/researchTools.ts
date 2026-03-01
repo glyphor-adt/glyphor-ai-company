@@ -8,14 +8,14 @@
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import { searchWeb, searchNews } from '@glyphor/integrations';
 
 /**
  * Create research-specific tools for analyst agents.
  * These complement the shared graph/memory tools.
  */
-export function createResearchTools(supabase: SupabaseClient): ToolDefinition[] {
+export function createResearchTools(): ToolDefinition[] {
   return [
     {
       name: 'web_search',
@@ -274,11 +274,7 @@ export function createResearchTools(supabase: SupabaseClient): ToolDefinition[] 
             submittedAt: new Date().toISOString(),
           };
 
-          await supabase.rpc('merge_research_packet', {
-            p_analysis_id: analysisId,
-            p_packet_type: packetType,
-            p_packet_data: packet,
-          });
+          await systemQuery('SELECT * FROM merge_research_packet($1, $2, $3)', [analysisId, packetType, JSON.stringify(packet)]);
 
           return {
             success: true,

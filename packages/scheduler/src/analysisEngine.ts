@@ -7,7 +7,7 @@
  *   3. Synthesize — Merge findings into a structured SWOT report
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { ModelClient } from '@glyphor/agent-runtime';
 
 /* ── Types ──────────────────────────────────── */
@@ -85,7 +85,6 @@ const DEPTH_DETAIL: Record<AnalysisDepth, string> = {
 
 export class AnalysisEngine {
   constructor(
-    private supabase: SupabaseClient,
     private modelClient: ModelClient,
     private model = 'gemini-3-flash-preview',
   ) {}
@@ -120,44 +119,38 @@ export class AnalysisEngine {
       error: null,
     };
 
-    await this.supabase.from('analyses').insert(record);
+    await systemQuery('INSERT INTO analyses (id, type, query, depth, status, requested_by, threads, report, created_at, completed_at, error) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)', [record.id, record.type, record.query, record.depth, record.status, record.requested_by, JSON.stringify(record.threads), null, record.created_at, null, null]);
 
     // Run all phases inline — don't fire-and-forget
     this.runPhases(id, req, threads).catch((err) => {
       console.error(`[AnalysisEngine] Fatal error in analysis ${id}:`, err);
-      this.supabase.from('analyses').update({
-        status: 'failed',
-        error: err instanceof Error ? err.message : String(err),
-      }).eq('id', id);
+      systemQuery('UPDATE analyses SET status = $1, error = $2 WHERE id = $3', [
+        'failed',
+        err instanceof Error ? err.message : String(err),
+        id,
+      ]);
     });
 
     return id;
   }
 
   async get(id: string): Promise<AnalysisRecord | null> {
-    const { data } = await this.supabase
-      .from('analyses')
-      .select('*')
-      .eq('id', id)
-      .single();
-    return data as AnalysisRecord | null;
+    const [row] = await systemQuery('SELECT * FROM analyses WHERE id = $1', [id]);
+    return (row as AnalysisRecord) ?? null;
   }
 
   async list(limit = 20): Promise<AnalysisRecord[]> {
-    const { data } = await this.supabase
-      .from('analyses')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    return (data as AnalysisRecord[]) ?? [];
+    const rows = await systemQuery('SELECT * FROM analyses ORDER BY created_at DESC LIMIT $1', [limit]);
+    return (rows as AnalysisRecord[]) ?? [];
   }
 
   /** Cancel a stuck analysis */
   async cancel(id: string): Promise<void> {
-    await this.supabase.from('analyses').update({
-      status: 'failed',
-      error: 'Cancelled — analysis was stuck or manually stopped.',
-    }).eq('id', id);
+    await systemQuery('UPDATE analyses SET status = $1, error = $2 WHERE id = $3', [
+      'failed',
+      'Cancelled — analysis was stuck or manually stopped.',
+      id,
+    ]);
   }
 
   /**
@@ -166,19 +159,19 @@ export class AnalysisEngine {
    */
   async recoverStale(): Promise<number> {
     const cutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    const { data } = await this.supabase
-      .from('analyses')
-      .select('id')
-      .in('status', ['planning', 'executing', 'synthesizing'])
-      .lt('created_at', cutoff);
+    const data = await systemQuery(
+      'SELECT id FROM analyses WHERE status = ANY($1) AND created_at < $2',
+      [['planning', 'executing', 'synthesizing'], cutoff],
+    );
 
     if (!data || data.length === 0) return 0;
 
     for (const row of data) {
-      await this.supabase.from('analyses').update({
-        status: 'failed',
-        error: 'Recovered — analysis was orphaned after container restart.',
-      }).eq('id', (row as { id: string }).id);
+      await systemQuery('UPDATE analyses SET status = $1, error = $2 WHERE id = $3', [
+        'failed',
+        'Recovered — analysis was orphaned after container restart.',
+        (row as { id: string }).id,
+      ]);
     }
     console.log(`[AnalysisEngine] Recovered ${data.length} stale analyses`);
     return data.length;
@@ -234,11 +227,12 @@ export class AnalysisEngine {
     );
 
     // Update the analysis with enhanced report
-    await this.supabase.from('analyses').update({
-      report: enhancedReport,
-      threads: allThreads,
-      depth: 'deep',
-    }).eq('id', id);
+    await systemQuery('UPDATE analyses SET report = $1, threads = $2, depth = $3 WHERE id = $4', [
+      JSON.stringify(enhancedReport),
+      JSON.stringify(allThreads),
+      'deep',
+      id,
+    ]);
   }
 
   /**
@@ -286,11 +280,12 @@ export class AnalysisEngine {
     // If ALL threads failed, mark the whole analysis as failed — don't bother synthesizing
     const completedCount = threads.filter((t) => t.status === 'completed').length;
     if (completedCount === 0) {
-      await this.supabase.from('analyses').update({
-        status: 'failed',
-        threads,
-        error: `All ${threads.length} research threads failed. Check API keys and model availability.`,
-      }).eq('id', id);
+      await systemQuery('UPDATE analyses SET status = $1, threads = $2, error = $3 WHERE id = $4', [
+        'failed',
+        JSON.stringify(threads),
+        `All ${threads.length} research threads failed. Check API keys and model availability.`,
+        id,
+      ]);
       return;
     }
 
@@ -298,19 +293,20 @@ export class AnalysisEngine {
     await this.updateStatus(id, 'synthesizing');
     const report = await this.synthesize(req, threads);
 
-    await this.supabase.from('analyses').update({
-      status: 'completed',
-      report,
-      threads,
-      completed_at: new Date().toISOString(),
-    }).eq('id', id);
+    await systemQuery('UPDATE analyses SET status = $1, report = $2, threads = $3, completed_at = $4 WHERE id = $5', [
+      'completed',
+      JSON.stringify(report),
+      JSON.stringify(threads),
+      new Date().toISOString(),
+      id,
+    ]);
 
-    await this.supabase.from('activity_log').insert({
-      agent_id: 'system',
-      action: 'analysis.completed',
-      detail: `Analysis "${req.type}" completed: ${req.query.slice(0, 100)}`,
-      created_at: new Date().toISOString(),
-    });
+    await systemQuery('INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)', [
+      'system',
+      'analysis.completed',
+      `Analysis "${req.type}" completed: ${req.query.slice(0, 100)}`,
+      new Date().toISOString(),
+    ]);
   }
 
   private async executeThread(thread: ResearchThread): Promise<string> {
@@ -401,11 +397,11 @@ export class AnalysisEngine {
   }
 
   private async updateStatus(id: string, status: AnalysisStatus): Promise<void> {
-    await this.supabase.from('analyses').update({ status }).eq('id', id);
+    await systemQuery('UPDATE analyses SET status = $1 WHERE id = $2', [status, id]);
   }
 
   private async updateThreads(id: string, threads: ResearchThread[]): Promise<void> {
-    await this.supabase.from('analyses').update({ threads }).eq('id', id);
+    await systemQuery('UPDATE analyses SET threads = $1 WHERE id = $2', [JSON.stringify(threads), id]);
   }
 }
 

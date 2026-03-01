@@ -9,7 +9,7 @@
  *   5. Dispatch  — Action items emitted as task.requested events
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
 
 /* ── Types ──────────────────────────────────── */

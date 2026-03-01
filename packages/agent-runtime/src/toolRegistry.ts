@@ -11,7 +11,7 @@
  * tool_registry DB table (loaded on demand).
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 
 /** All known tool names in the system. */
 const KNOWN_TOOLS = new Set([
@@ -349,16 +349,15 @@ const DYNAMIC_CACHE_TTL = 60_000; // 60 seconds
 /**
  * Refresh the dynamic tool cache from the DB.
  */
-export async function refreshDynamicToolCache(supabase: SupabaseClient): Promise<void> {
-  const { data } = await supabase
-    .from('tool_registry')
-    .select('name')
-    .eq('is_active', true);
+export async function refreshDynamicToolCache(): Promise<void> {
+  const data = await systemQuery<{ name: string }>(
+    'SELECT name FROM tool_registry WHERE is_active = true',
+    [],
+  );
 
   _dynamicToolCache.clear();
   if (data) {
-    for (const row of data) _dynamicToolCache.add(row.name);
-  }
+    for (const row of data) _dynamicToolCache.add(row.name);  }
   _dynamicToolCacheExpiry = Date.now() + DYNAMIC_CACHE_TTL;
 }
 
@@ -366,10 +365,10 @@ export async function refreshDynamicToolCache(supabase: SupabaseClient): Promise
  * Check if a tool is known, including DB-registered tools.
  * Refreshes dynamic cache if stale.
  */
-export async function isKnownToolAsync(name: string, supabase: SupabaseClient): Promise<boolean> {
+export async function isKnownToolAsync(name: string): Promise<boolean> {
   if (KNOWN_TOOLS.has(name)) return true;
   if (Date.now() > _dynamicToolCacheExpiry) {
-    await refreshDynamicToolCache(supabase);
+    await refreshDynamicToolCache();
   }
   return _dynamicToolCache.has(name);
 }
@@ -397,14 +396,11 @@ export interface ApiToolConfig {
  */
 export async function loadRegisteredTool(
   name: string,
-  supabase: SupabaseClient,
 ): Promise<RegisteredToolDef | null> {
-  const { data } = await supabase
-    .from('tool_registry')
-    .select('name, description, category, parameters, api_config')
-    .eq('name', name)
-    .eq('is_active', true)
-    .single();
+  const [data] = await systemQuery<RegisteredToolDef>(
+    'SELECT name, description, category, parameters, api_config FROM tool_registry WHERE name = $1 AND is_active = true LIMIT 1',
+    [name],
+  );
 
-  return data as RegisteredToolDef | null;
+  return data ?? null;
 }

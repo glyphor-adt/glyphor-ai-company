@@ -13,11 +13,9 @@
 
 import type { ToolDefinition, ToolResult, ApiToolConfig } from '@glyphor/agent-runtime';
 import { refreshDynamicToolCache } from '@glyphor/agent-runtime';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 
-export function createToolRegistryTools(
-  supabase: SupabaseClient,
-): ToolDefinition[] {
+export function createToolRegistryTools(): ToolDefinition[] {
   return [
     {
       name: 'list_tool_requests',
@@ -41,18 +39,18 @@ export function createToolRegistryTools(
         const status = (params.status as string) ?? 'pending';
         const limit = (params.limit as number) ?? 20;
 
-        const { data, error } = await supabase
-          .from('tool_requests')
-          .select('id, requested_by, tool_name, description, justification, use_case, suggested_category, suggested_api_config, suggested_parameters, status, created_at')
-          .eq('status', status)
-          .order('created_at', { ascending: false })
-          .limit(limit);
-
-        if (error) return { success: false, error: error.message };
-        return {
-          success: true,
-          data: { count: data?.length ?? 0, requests: data },
-        };
+        try {
+          const data = await systemQuery(
+            'SELECT id, requested_by, tool_name, description, justification, use_case, suggested_category, suggested_api_config, suggested_parameters, status, created_at FROM tool_requests WHERE status = $1 ORDER BY created_at DESC LIMIT $2',
+            [status, limit],
+          );
+          return {
+            success: true,
+            data: { count: data.length, requests: data },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
       },
     },
 
@@ -86,36 +84,33 @@ export function createToolRegistryTools(
 
         const newStatus = action === 'approve' ? 'approved' : 'rejected';
 
-        const { data, error } = await supabase
-          .from('tool_requests')
-          .update({
-            status: newStatus,
-            reviewed_by: ctx.agentRole,
-            review_notes: notes,
-          })
-          .eq('id', requestId)
-          .eq('status', 'pending')
-          .select('id, tool_name, requested_by, status')
-          .single();
+        try {
+          const rows = await systemQuery(
+            'UPDATE tool_requests SET status = $1, reviewed_by = $2, review_notes = $3 WHERE id = $4 AND status = $5 RETURNING id, tool_name, requested_by, status',
+            [newStatus, ctx.agentRole, notes, requestId, 'pending'],
+          );
 
-        if (error) return { success: false, error: error.message };
-        if (!data) {
+          if (rows.length === 0) {
+            return {
+              success: false,
+              error: 'Request not found or not in pending status.',
+            };
+          }
+
+          const data = rows[0];
           return {
-            success: false,
-            error: 'Request not found or not in pending status.',
+            success: true,
+            data: {
+              ...data,
+              message:
+                action === 'approve'
+                  ? `Approved. Use register_tool to build and register "${data.tool_name}".`
+                  : `Rejected. ${data.requested_by} will be notified.`,
+            },
           };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
         }
-
-        return {
-          success: true,
-          data: {
-            ...data,
-            message:
-              action === 'approve'
-                ? `Approved. Use register_tool to build and register "${data.tool_name}".`
-                : `Rejected. ${data.requested_by} will be notified.`,
-          },
-        };
       },
     },
 
@@ -180,43 +175,41 @@ export function createToolRegistryTools(
         }
 
         // Insert into tool_registry
-        const { error: insertErr } = await supabase
-          .from('tool_registry')
-          .insert({
-            name: toolName,
-            description: params.description as string,
-            category: params.category as string,
-            parameters: params.parameters_schema,
-            api_config: (params.api_config as ApiToolConfig) ?? null,
-            created_by: ctx.agentRole,
-            approved_by: ctx.agentRole,
-            is_active: true,
-            tags: (params.tags as string[]) ?? [],
-          });
-
-        if (insertErr) {
-          if (insertErr.message.includes('duplicate key')) {
+        try {
+          await systemQuery(
+            'INSERT INTO tool_registry (name, description, category, parameters, api_config, created_by, approved_by, is_active, tags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+            [
+              toolName,
+              params.description as string,
+              params.category as string,
+              params.parameters_schema,
+              (params.api_config as ApiToolConfig) ?? null,
+              ctx.agentRole,
+              ctx.agentRole,
+              true,
+              (params.tags as string[]) ?? [],
+            ],
+          );
+        } catch (insertErr) {
+          if ((insertErr as Error).message.includes('duplicate key')) {
             return {
               success: false,
               error: `Tool "${toolName}" already exists in the registry.`,
             };
           }
-          return { success: false, error: insertErr.message };
+          return { success: false, error: (insertErr as Error).message };
         }
 
         // Refresh dynamic tool cache so isKnownTool sees it immediately
-        await refreshDynamicToolCache(supabase);
+        await refreshDynamicToolCache();
 
         // If fulfilling a request, mark it completed
         const requestId = params.request_id as string | undefined;
         if (requestId) {
-          await supabase
-            .from('tool_requests')
-            .update({
-              status: 'completed',
-              built_by: ctx.agentRole,
-            })
-            .eq('id', requestId);
+          await systemQuery(
+            'UPDATE tool_requests SET status = $1, built_by = $2 WHERE id = $3',
+            ['completed', ctx.agentRole, requestId],
+          );
         }
 
         return {
@@ -255,27 +248,28 @@ export function createToolRegistryTools(
       execute: async (params): Promise<ToolResult> => {
         const toolName = params.tool_name as string;
 
-        const { data, error } = await supabase
-          .from('tool_registry')
-          .update({ is_active: false })
-          .eq('name', toolName)
-          .eq('is_active', true)
-          .select('name');
+        try {
+          const data = await systemQuery(
+            'UPDATE tool_registry SET is_active = false WHERE name = $1 AND is_active = true RETURNING name',
+            [toolName],
+          );
 
-        if (error) return { success: false, error: error.message };
-        if (!data || data.length === 0) {
+          if (data.length === 0) {
+            return {
+              success: false,
+              error: `Tool "${toolName}" not found in dynamic registry or already inactive.`,
+            };
+          }
+
+          await refreshDynamicToolCache();
+
           return {
-            success: false,
-            error: `Tool "${toolName}" not found in dynamic registry or already inactive.`,
+            success: true,
+            data: { deactivated: true, tool_name: toolName },
           };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
         }
-
-        await refreshDynamicToolCache(supabase);
-
-        return {
-          success: true,
-          data: { deactivated: true, tool_name: toolName },
-        };
       },
     },
 
@@ -296,26 +290,32 @@ export function createToolRegistryTools(
         },
       },
       execute: async (params): Promise<ToolResult> => {
-        let query = supabase
-          .from('tool_registry')
-          .select('name, description, category, created_by, is_active, usage_count, last_used_at, tags, created_at')
-          .order('created_at', { ascending: false });
+        try {
+          const conditions: string[] = [];
+          const queryParams: unknown[] = [];
 
-        if (!params.include_inactive) {
-          query = query.eq('is_active', true);
+          if (!params.include_inactive) {
+            conditions.push('is_active = true');
+          }
+
+          if (params.category) {
+            queryParams.push(params.category as string);
+            conditions.push(`category = $${queryParams.length}`);
+          }
+
+          const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+          const data = await systemQuery(
+            `SELECT name, description, category, created_by, is_active, usage_count, last_used_at, tags, created_at FROM tool_registry ${whereClause} ORDER BY created_at DESC LIMIT 50`,
+            queryParams,
+          );
+
+          return {
+            success: true,
+            data: { count: data.length, tools: data },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
         }
-
-        if (params.category) {
-          query = query.eq('category', params.category as string);
-        }
-
-        const { data, error } = await query.limit(50);
-
-        if (error) return { success: false, error: error.message };
-        return {
-          success: true,
-          data: { count: data?.length ?? 0, tools: data },
-        };
       },
     },
   ];

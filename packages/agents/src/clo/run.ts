@@ -58,7 +58,7 @@ export async function runCLO(params: CLORunParams = {}) {
     ...createMemoryTools(memory),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createEventTools(glyphorEventBus),
     ...createAgentCreationTools(memory.getSupabaseClient()),

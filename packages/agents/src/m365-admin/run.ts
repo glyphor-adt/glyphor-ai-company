@@ -49,7 +49,7 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
     ...createMemoryTools(memory),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createToolGrantTools(memory.getSupabaseClient(), 'm365-admin'),
   ];

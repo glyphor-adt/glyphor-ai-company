@@ -5,7 +5,7 @@
  * API docs: https://platform.openai.com/docs/api-reference/organization/costs
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 
 const OPENAI_COSTS_URL = 'https://api.openai.com/v1/organization/costs';
 
@@ -74,7 +74,6 @@ export async function queryOpenAICosts(
  *  - `financials` table: daily aggregate for product attribution
  */
 export async function syncOpenAIBilling(
-  supabase: SupabaseClient,
   adminKey: string,
   product = 'pulse',
   days = 30,
@@ -124,17 +123,20 @@ export async function syncOpenAIBilling(
     // Delete stale rows for the dates we're about to write
     const uniqueDates = [...new Set(rows.map((r) => (r.usage as { date: string }).date))];
     for (const date of uniqueDates) {
-      await supabase
-        .from('api_billing')
-        .delete()
-        .eq('provider', 'openai')
-        .eq('usage->>date', date);
+      await systemQuery(
+        "DELETE FROM api_billing WHERE provider = $1 AND usage->>'date' = $2",
+        ['openai', date],
+      );
     }
 
     for (let i = 0; i < rows.length; i += 100) {
       const batch = rows.slice(i, i + 100);
-      const { error } = await supabase.from('api_billing').insert(batch);
-      if (error) console.warn('[OpenAI Billing] api_billing insert error:', error.message);
+      for (const row of batch) {
+        await systemQuery(
+          'INSERT INTO api_billing (provider, service, cost_usd, usage, product, recorded_at) VALUES ($1, $2, $3, $4, $5, $6)',
+          [row.provider, row.service, row.cost_usd, JSON.stringify(row.usage), row.product, row.recorded_at],
+        );
+      }
     }
     console.log(`[OpenAI Billing] Wrote ${rows.length} per-model rows to api_billing`);
   }
@@ -142,14 +144,10 @@ export async function syncOpenAIBilling(
   // ── 2. Aggregate by date → financials (daily total for product) ───
   let synced = 0;
   for (const [date, totalCost] of dailyTotals) {
-    const { data: existing } = await supabase
-      .from('financials')
-      .select('id')
-      .eq('date', date)
-      .eq('metric', 'api_cost')
-      .eq('product', product)
-      .contains('details', { source: 'openai' })
-      .limit(1);
+    const existing = await systemQuery<{ id: string }>(
+      "SELECT id FROM financials WHERE date = $1 AND metric = $2 AND product = $3 AND details->>'source' = 'openai' LIMIT 1",
+      [date, 'api_cost', product],
+    );
 
     const details = {
       source: 'openai',
@@ -158,16 +156,13 @@ export async function syncOpenAIBilling(
         .map((r) => ({ model: r.service, cost: r.cost_usd })),
     };
 
-    if (existing && existing.length > 0) {
-      await supabase.from('financials').update({ value: totalCost, details }).eq('id', existing[0].id);
+    if (existing.length > 0) {
+      await systemQuery('UPDATE financials SET value = $1, details = $2 WHERE id = $3', [totalCost, JSON.stringify(details), existing[0].id]);
     } else {
-      await supabase.from('financials').insert({
-        date,
-        product,
-        metric: 'api_cost',
-        value: parseFloat(totalCost.toFixed(4)),
-        details,
-      });
+      await systemQuery(
+        'INSERT INTO financials (date, product, metric, value, details) VALUES ($1, $2, $3, $4, $5)',
+        [date, product, 'api_cost', parseFloat(totalCost.toFixed(4)), JSON.stringify(details)],
+      );
     }
     synced++;
   }

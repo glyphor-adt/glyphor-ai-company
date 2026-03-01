@@ -7,11 +7,9 @@
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 
-export function createAgentDirectoryTools(
-  supabase: SupabaseClient,
-): ToolDefinition[] {
+export function createAgentDirectoryTools(): ToolDefinition[] {
   return [
     {
       name: 'get_agent_directory',
@@ -33,25 +31,27 @@ export function createAgentDirectoryTools(
         },
       },
       execute: async (params): Promise<ToolResult> => {
-        let query = supabase
-          .from('company_agents')
-          .select('role, display_name, title, department, status, is_core')
-          .eq('status', 'active')
-          .order('department')
-          .order('is_core', { ascending: false });
-
-        if (params.role) {
-          query = supabase
-            .from('company_agents')
-            .select('role, display_name, title, department, status, is_core')
-            .eq('role', params.role as string)
-            .limit(1);
-        } else if (params.department) {
-          query = query.eq('department', params.department as string);
+        let data;
+        try {
+          if (params.role) {
+            data = await systemQuery(
+              'SELECT role, display_name, title, department, status, is_core FROM company_agents WHERE role = $1 LIMIT 1',
+              [params.role as string],
+            );
+          } else if (params.department) {
+            data = await systemQuery(
+              'SELECT role, display_name, title, department, status, is_core FROM company_agents WHERE status = $1 AND department = $2 ORDER BY department, is_core DESC',
+              ['active', params.department as string],
+            );
+          } else {
+            data = await systemQuery(
+              'SELECT role, display_name, title, department, status, is_core FROM company_agents WHERE status = $1 ORDER BY department, is_core DESC',
+              ['active'],
+            );
+          }
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
         }
-
-        const { data, error } = await query;
-        if (error) return { success: false, error: error.message };
 
         const agents = (data ?? []).map(
           (a: {

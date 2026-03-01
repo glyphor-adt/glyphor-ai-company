@@ -7,7 +7,7 @@
  * Layer 3: Organizational Learning (Process Patterns, Authority Proposals)
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 import type { EmbeddingClient } from './embeddingClient.js';
 
@@ -143,7 +143,6 @@ export interface FounderBulletin {
 
 export class CollectiveIntelligenceStore {
   constructor(
-    private supabase: SupabaseClient,
     private embeddingClient: EmbeddingClient | null = null,
   ) {}
 
@@ -155,17 +154,21 @@ export class CollectiveIntelligenceStore {
    * COMPANY_KNOWLEDGE_BASE.md file reading.
    */
   async loadKnowledgeBase(department?: string): Promise<string> {
-    const { data: sections, error } = await this.supabase
-      .from('company_knowledge_base')
-      .select('title, content')
-      .or(`audience.eq.all${department ? `,audience.eq.${department}` : ''}`)
-      .eq('is_active', true)
-      .order('created_at');
+    let sql = 'SELECT title, content FROM company_knowledge_base WHERE is_active = true AND (audience = $1';
+    const params: any[] = ['all'];
 
-    if (error || !sections?.length) return '';
+    if (department) {
+      params.push(department);
+      sql += ` OR audience = $${params.length}`;
+    }
+    sql += ') ORDER BY created_at';
+
+    const sections = await systemQuery<{ title: string; content: string }>(sql, params);
+
+    if (!sections.length) return '';
 
     return sections
-      .map((s: { title: string; content: string }) => `## ${s.title}\n\n${s.content}`)
+      .map((s) => `## ${s.title}\n\n${s.content}`)
       .join('\n\n---\n\n');
   }
 
@@ -173,13 +176,10 @@ export class CollectiveIntelligenceStore {
    * Get all knowledge base sections (for dashboard editing).
    */
   async getKnowledgeBaseSections(): Promise<KnowledgeBaseSection[]> {
-    const { data, error } = await this.supabase
-      .from('company_knowledge_base')
-      .select('*')
-      .order('created_at');
-
-    if (error) throw new Error(`Knowledge base query failed: ${error.message}`);
-    return (data ?? []) as KnowledgeBaseSection[];
+    const data = await systemQuery<KnowledgeBaseSection>(
+      'SELECT * FROM company_knowledge_base ORDER BY created_at',
+    );
+    return data;
   }
 
   /**
@@ -192,14 +192,20 @@ export class CollectiveIntelligenceStore {
     is_active?: boolean;
     last_edited_by?: string;
   }): Promise<void> {
-    const { error } = await this.supabase
-      .from('company_knowledge_base')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id);
-    if (error) throw new Error(`Knowledge base update failed: ${error.message}`);
+    const fields: string[] = ['updated_at = $2'];
+    const params: any[] = [id, new Date().toISOString()];
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined) {
+        params.push(value);
+        fields.push(`${key} = $${params.length}`);
+      }
+    }
+
+    await systemQuery(
+      `UPDATE company_knowledge_base SET ${fields.join(', ')} WHERE id = $1`,
+      params,
+    );
   }
 
   // ─── FOUNDER BULLETINS ──────────────────────────────────────
@@ -208,16 +214,17 @@ export class CollectiveIntelligenceStore {
    * Load active, non-expired founder bulletins for agent context injection.
    */
   async loadFounderBulletins(department?: string): Promise<string> {
-    let query = this.supabase
-      .from('founder_bulletins')
-      .select('created_by, content, priority, created_at')
-      .or(`audience.eq.all${department ? `,audience.eq.${department}` : ''}`)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(10);
+    let sql = 'SELECT created_by, content, priority, created_at, expires_at FROM founder_bulletins WHERE is_active = true AND (audience = $1';
+    const params: any[] = ['all'];
 
-    const { data, error } = await query;
-    if (error || !data?.length) return '';
+    if (department) {
+      params.push(department);
+      sql += ` OR audience = $${params.length}`;
+    }
+    sql += ') ORDER BY created_at DESC LIMIT 10';
+
+    const data = await systemQuery<any>(sql, params);
+    if (!data.length) return '';
 
     // Filter out expired bulletins client-side (simpler than complex SQL)
     const now = new Date().toISOString();
@@ -237,18 +244,17 @@ export class CollectiveIntelligenceStore {
    * Get all bulletins (for dashboard management).
    */
   async getFounderBulletins(includeInactive = false): Promise<FounderBulletin[]> {
-    let query = this.supabase
-      .from('founder_bulletins')
-      .select('*')
-      .order('created_at', { ascending: false });
+    let sql = 'SELECT * FROM founder_bulletins';
+    const params: any[] = [];
 
     if (!includeInactive) {
-      query = query.eq('is_active', true);
+      params.push(true);
+      sql += ` WHERE is_active = $${params.length}`;
     }
+    sql += ' ORDER BY created_at DESC';
 
-    const { data, error } = await query;
-    if (error) throw new Error(`Bulletins query failed: ${error.message}`);
-    return (data ?? []) as FounderBulletin[];
+    const data = await systemQuery<FounderBulletin>(sql, params);
+    return data;
   }
 
   /**
@@ -261,19 +267,11 @@ export class CollectiveIntelligenceStore {
     priority?: string;
     expires_at?: string | null;
   }): Promise<string> {
-    const { data, error } = await this.supabase
-      .from('founder_bulletins')
-      .insert({
-        created_by: bulletin.created_by,
-        content: bulletin.content,
-        audience: bulletin.audience ?? 'all',
-        priority: bulletin.priority ?? 'normal',
-        expires_at: bulletin.expires_at ?? null,
-      })
-      .select('id')
-      .single();
-
-    if (error || !data) throw new Error(`Bulletin creation failed: ${error?.message}`);
+    const [data] = await systemQuery<{ id: string }>(
+      `INSERT INTO founder_bulletins (created_by, content, audience, priority, expires_at)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+      [bulletin.created_by, bulletin.content, bulletin.audience ?? 'all', bulletin.priority ?? 'normal', bulletin.expires_at ?? null],
+    );
     return data.id;
   }
 
@@ -281,11 +279,10 @@ export class CollectiveIntelligenceStore {
    * Deactivate a bulletin.
    */
   async deactivateBulletin(id: string): Promise<void> {
-    const { error } = await this.supabase
-      .from('founder_bulletins')
-      .update({ is_active: false })
-      .eq('id', id);
-    if (error) throw new Error(`Bulletin deactivation failed: ${error.message}`);
+    await systemQuery(
+      'UPDATE founder_bulletins SET is_active = false WHERE id = $1',
+      [id],
+    );
   }
 
   // ─── LAYER 1: COMPANY PULSE ─────────────────────────────────

@@ -21,7 +21,7 @@ import type {
   SecurityEventType,
 } from './types.js';
 import { AGENT_BUDGETS } from './types.js';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { FormalVerifier } from './formalVerifier.js';
 
 // ─── DB Grant Cache ────────────────────────────────────────────
@@ -41,7 +41,6 @@ const grantCache = new Map<string, GrantCacheEntry>(); // role → cache entry
 export async function isToolGranted(
   agentRole: CompanyAgentRole,
   toolName: string,
-  supabase: SupabaseClient,
 ): Promise<boolean> {
   const now = Date.now();
   const cached = grantCache.get(agentRole);
@@ -51,23 +50,21 @@ export async function isToolGranted(
   }
 
   // Cache miss — fetch from DB
-  const { data, error } = await supabase
-    .from('agent_tool_grants')
-    .select('tool_name')
-    .eq('agent_role', agentRole)
-    .eq('is_active', true)
-    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
+  try {
+    const data = await systemQuery<{ tool_name: string }>(
+      `SELECT tool_name FROM agent_tool_grants WHERE agent_role = $1 AND is_active = true AND (expires_at IS NULL OR expires_at > $2)`,
+      [agentRole, new Date().toISOString()],
+    );
 
-  if (error) {
-    console.warn(`[ToolGrants] Failed to fetch grants for ${agentRole}:`, error.message);
+    const toolNames = new Set(data.map((row) => row.tool_name));
+    grantCache.set(agentRole, { toolNames, fetchedAt: now });
+
+    return toolNames.has(toolName);
+  } catch (err) {
+    console.warn(`[ToolGrants] Failed to fetch grants for ${agentRole}:`, (err as Error).message);
     // On DB error, allow the tool (fail-open for availability)
     return true;
   }
-
-  const toolNames = new Set((data ?? []).map((row: { tool_name: string }) => row.tool_name));
-  grantCache.set(agentRole, { toolNames, fetchedAt: now });
-
-  return toolNames.has(toolName);
 }
 
 /** Invalidate the grant cache for a role (called after grant/revoke). */
@@ -85,7 +82,6 @@ export function invalidateGrantCache(agentRole?: string): void {
  */
 export async function loadGrantedToolNames(
   agentRole: CompanyAgentRole,
-  supabase: SupabaseClient,
 ): Promise<string[]> {
   const now = Date.now();
   const cached = grantCache.get(agentRole);
@@ -94,22 +90,20 @@ export async function loadGrantedToolNames(
     return Array.from(cached.toolNames);
   }
 
-  const { data, error } = await supabase
-    .from('agent_tool_grants')
-    .select('tool_name')
-    .eq('agent_role', agentRole)
-    .eq('is_active', true)
-    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
+  try {
+    const data = await systemQuery<{ tool_name: string }>(
+      `SELECT tool_name FROM agent_tool_grants WHERE agent_role = $1 AND is_active = true AND (expires_at IS NULL OR expires_at > $2)`,
+      [agentRole, new Date().toISOString()],
+    );
 
-  if (error) {
-    console.warn(`[ToolGrants] Failed to load grants for ${agentRole}:`, error.message);
+    const toolNames = new Set(data.map((row) => row.tool_name));
+    grantCache.set(agentRole, { toolNames, fetchedAt: now });
+
+    return Array.from(toolNames);
+  } catch (err) {
+    console.warn(`[ToolGrants] Failed to load grants for ${agentRole}:`, (err as Error).message);
     return [];
   }
-
-  const toolNames = new Set((data ?? []).map((row: { tool_name: string }) => row.tool_name));
-  grantCache.set(agentRole, { toolNames, fetchedAt: now });
-
-  return Array.from(toolNames);
 }
 
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
@@ -159,14 +153,12 @@ export class ToolExecutor {
   private dailyCosts: Map<string, number> = new Map();   // role → cumulative cost today
   private monthlyCosts: Map<string, number> = new Map(); // role → cumulative cost this month
   private enforcementEnabled: boolean;
-  private supabase: SupabaseClient | null;
   private formalVerifier: FormalVerifier | null;
 
-  constructor(tools: ToolDefinition[], dryRun = false, enforcement = true, supabase?: SupabaseClient, formalVerifier?: FormalVerifier) {
+  constructor(tools: ToolDefinition[], dryRun = false, enforcement = true, formalVerifier?: FormalVerifier) {
     this.tools = new Map(tools.map((t) => [t.name, t]));
     this.dryRun = dryRun;
     this.enforcementEnabled = enforcement;
-    this.supabase = supabase ?? null;
     this.formalVerifier = formalVerifier ?? null;
   }
 
@@ -370,9 +362,9 @@ export class ToolExecutor {
           filesWritten: 0,
           memoryKeysWritten: 0,
         };
-      } else if (!roleGrants && this.supabase) {
+      } else if (!roleGrants) {
         // No hardcoded grants — check DB grants
-        const granted = await isToolGranted(role, toolName, this.supabase);
+        const granted = await isToolGranted(role, toolName);
         if (!granted) {
           this.logSecurityEvent(agentId, role, toolName, 'TOOL_NOT_GRANTED');
           return {

@@ -5,7 +5,7 @@
  * spawned by the Analysis and Simulation engines.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 
 export interface SpawnAgentOptions {
@@ -37,7 +37,6 @@ export interface SpawnedAgent {
  * The agent is auto-marked as temporary with an expiration date.
  */
 export async function createTemporaryAgent(
-  supabase: SupabaseClient,
   opts: SpawnAgentOptions,
   glyphorEventBus?: GlyphorEventBus,
 ): Promise<SpawnedAgent> {
@@ -46,78 +45,57 @@ export async function createTemporaryAgent(
   const expiresAt = new Date(Date.now() + ttlDays * 86_400_000).toISOString();
   const avatarUrl = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(opts.name.trim() || 'Agent')}&radius=50&bold=true`;
 
-  const { data: agent, error } = await supabase
-    .from('company_agents')
-    .insert({
-      role: agentId,
-      codename: opts.name,
-      name: opts.name,
-      display_name: opts.name,
-      title: opts.spawnedFor,
-      department: opts.department,
-      reports_to: opts.reportsTo,
-      status: 'active',
-      model: opts.model || 'gemini-3-flash-preview',
-      temperature: opts.temperature ?? 0.4,
-      max_turns: opts.maxTurns ?? 8,
-      budget_per_run: opts.budgetPerRun ?? 0.03,
-      budget_daily: opts.budgetDaily ?? 0.25,
-      budget_monthly: opts.budgetMonthly ?? 5,
-      is_temporary: true,
-      is_core: false,
-      expires_at: expiresAt,
-      spawned_by: opts.spawnedBy,
-      spawned_for: opts.spawnedFor,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .select('id, role, codename, status')
-    .single();
-
-  if (error) throw new Error(`Failed to spawn agent ${agentId}: ${error.message}`);
+  const now = new Date().toISOString();
+  const [agent] = await systemQuery<SpawnedAgent>(
+    `INSERT INTO company_agents (role, codename, name, display_name, title, department, reports_to, status, model, temperature, max_turns, budget_per_run, budget_daily, budget_monthly, is_temporary, is_core, expires_at, spawned_by, spawned_for, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+     RETURNING id, role, codename, status`,
+    [agentId, opts.name, opts.name, opts.name, opts.spawnedFor, opts.department, opts.reportsTo, 'active',
+     opts.model || 'gemini-3-flash-preview', opts.temperature ?? 0.4, opts.maxTurns ?? 8,
+     opts.budgetPerRun ?? 0.03, opts.budgetDaily ?? 0.25, opts.budgetMonthly ?? 5,
+     true, false, expiresAt, opts.spawnedBy, opts.spawnedFor, now, now],
+  );
 
   // Store the dynamic brief (system prompt)
-  const { error: briefErr } = await supabase.from('agent_briefs').upsert({
-    agent_id: agentId,
-    system_prompt: opts.systemPrompt,
-    skills: [],
-    tools: [],
-    updated_at: new Date().toISOString(),
-  });
-  if (briefErr) {
-    console.error(`[agentLifecycle] Failed to store brief for ${agentId}:`, briefErr.message);
+  try {
+    await systemQuery(
+      `INSERT INTO agent_briefs (agent_id, system_prompt, skills, tools, updated_at)
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (agent_id) DO UPDATE SET system_prompt=EXCLUDED.system_prompt, skills=EXCLUDED.skills, tools=EXCLUDED.tools, updated_at=EXCLUDED.updated_at`,
+      [agentId, opts.systemPrompt, JSON.stringify([]), JSON.stringify([]), new Date().toISOString()],
+    );
+  } catch (briefErr) {
+    console.error(`[agentLifecycle] Failed to store brief for ${agentId}:`, (briefErr as Error).message);
   }
 
   // Create agent profile with personality — avatar set separately to avoid overwriting
-  const { error: profileErr } = await supabase.from('agent_profiles').upsert({
-    agent_id: agentId,
-    personality_summary: `${opts.name} is a focused specialist in ${opts.department} who prioritizes clear recommendations, practical execution steps, and concise communication.`,
-    backstory: `Provisioned as a specialist to support ${opts.department} with targeted expertise on high-priority initiatives.`,
-    communication_traits: ['clear', 'structured', 'action-oriented'],
-    quirks: ['summarizes key decisions before details'],
-    tone_formality: 0.6,
-    emoji_usage: 0.1,
-    verbosity: 0.45,
-    working_style: 'outcome-driven',
-    updated_at: new Date().toISOString(),
-  });
-  if (profileErr) {
-    console.error(`[agentLifecycle] Failed to store profile for ${agentId}:`, profileErr.message);
+  try {
+    await systemQuery(
+      `INSERT INTO agent_profiles (agent_id, personality_summary, backstory, communication_traits, quirks, tone_formality, emoji_usage, verbosity, working_style, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       ON CONFLICT (agent_id) DO UPDATE SET personality_summary=EXCLUDED.personality_summary, backstory=EXCLUDED.backstory, communication_traits=EXCLUDED.communication_traits, quirks=EXCLUDED.quirks, tone_formality=EXCLUDED.tone_formality, emoji_usage=EXCLUDED.emoji_usage, verbosity=EXCLUDED.verbosity, working_style=EXCLUDED.working_style, updated_at=EXCLUDED.updated_at`,
+      [agentId,
+       `${opts.name} is a focused specialist in ${opts.department} who prioritizes clear recommendations, practical execution steps, and concise communication.`,
+       `Provisioned as a specialist to support ${opts.department} with targeted expertise on high-priority initiatives.`,
+       JSON.stringify(['clear', 'structured', 'action-oriented']),
+       JSON.stringify(['summarizes key decisions before details']),
+       0.6, 0.1, 0.45, 'outcome-driven', new Date().toISOString()],
+    );
+  } catch (profileErr) {
+    console.error(`[agentLifecycle] Failed to store profile for ${agentId}:`, (profileErr as Error).message);
   }
 
   // Set DiceBear avatar only for new profiles (don't overwrite existing PNG avatars)
-  await supabase.from('agent_profiles')
-    .update({ avatar_url: avatarUrl })
-    .eq('agent_id', agentId)
-    .is('avatar_url', null);
+  await systemQuery(
+    'UPDATE agent_profiles SET avatar_url = $1 WHERE agent_id = $2 AND avatar_url IS NULL',
+    [avatarUrl, agentId],
+  );
 
   // Log the creation
-  await supabase.from('activity_log').insert({
-    agent_id: opts.spawnedBy,
-    action: 'agent.spawned',
-    detail: `Spawned temporary agent "${opts.name}" (${agentId}) for: ${opts.spawnedFor}`,
-    created_at: new Date().toISOString(),
-  });
+  await systemQuery(
+    'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4)',
+    [opts.spawnedBy, 'agent.spawned', `Spawned temporary agent "${opts.name}" (${agentId}) for: ${opts.spawnedFor}`, new Date().toISOString()],
+  );
 
   // Emit agent.spawned event to wake HR for onboarding
   if (glyphorEventBus) {
@@ -148,54 +126,43 @@ export async function createTemporaryAgent(
  * Retire a temporary agent and record the reason.
  */
 export async function retireTemporaryAgent(
-  supabase: SupabaseClient,
   agentId: string,
   reason: string,
 ): Promise<void> {
-  await supabase
-    .from('company_agents')
-    .update({
-      status: 'retired',
-      retired_at: new Date().toISOString(),
-      retirement_reason: reason,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', agentId);
+  const now = new Date().toISOString();
+  await systemQuery(
+    'UPDATE company_agents SET status=$1, retired_at=$2, retirement_reason=$3, updated_at=$4 WHERE id=$5',
+    ['retired', now, reason, now, agentId],
+  );
 
   // Disable any schedules
-  await supabase
-    .from('agent_schedules')
-    .update({ enabled: false })
-    .eq('agent_id', agentId);
+  await systemQuery(
+    'UPDATE agent_schedules SET enabled=$1 WHERE agent_id=$2',
+    [false, agentId],
+  );
 
-  await supabase.from('activity_log').insert({
-    agent_id: 'system',
-    action: 'agent.retired',
-    detail: `Retired temporary agent ${agentId}: ${reason}`,
-    created_at: new Date().toISOString(),
-  });
+  await systemQuery(
+    'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4)',
+    ['system', 'agent.retired', `Retired temporary agent ${agentId}: ${reason}`, now],
+  );
 }
 
 /**
  * Cleanup all expired temporary agents.
  * Called periodically by cron or Atlas health check.
  */
-export async function cleanupExpiredAgents(
-  supabase: SupabaseClient,
-): Promise<{ retired: number }> {
+export async function cleanupExpiredAgents(): Promise<{ retired: number }> {
   const now = new Date().toISOString();
 
-  const { data: expired } = await supabase
-    .from('company_agents')
-    .select('id')
-    .eq('is_temporary', true)
-    .neq('status', 'retired')
-    .lt('expires_at', now);
+  const expired = await systemQuery<{ id: string }>(
+    'SELECT id FROM company_agents WHERE is_temporary = $1 AND status != $2 AND expires_at < $3',
+    [true, 'retired', now],
+  );
 
   if (!expired || expired.length === 0) return { retired: 0 };
 
   for (const agent of expired) {
-    await retireTemporaryAgent(supabase, agent.id, 'TTL expired');
+    await retireTemporaryAgent(agent.id, 'TTL expired');
   }
 
   return { retired: expired.length };

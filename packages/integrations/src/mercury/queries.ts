@@ -9,11 +9,11 @@
  * - vendor_subscription: Monthly cost per vendor (recurring payments)
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import { listAccounts, listTransactions } from './client.js';
 
 /** Sync total cash balance across all Mercury accounts */
-export async function syncCashBalance(supabase: SupabaseClient): Promise<{ totalBalance: number }> {
+export async function syncCashBalance(): Promise<{ totalBalance: number }> {
   const accounts = await listAccounts();
   const date = new Date().toISOString().split('T')[0];
 
@@ -24,7 +24,7 @@ export async function syncCashBalance(supabase: SupabaseClient): Promise<{ total
     }
   }
 
-  await upsertFinancial(supabase, date, null, 'cash_balance', totalBalance, {
+  await upsertFinancial(date, null, 'cash_balance', totalBalance, {
     source: 'mercury',
     accounts: accounts.map((a) => ({ name: a.name, balance: a.currentBalance, status: a.status })),
   });
@@ -35,7 +35,6 @@ export async function syncCashBalance(supabase: SupabaseClient): Promise<{ total
 
 /** Sync daily cash flows (inflows/outflows) for the last N days */
 export async function syncCashFlows(
-  supabase: SupabaseClient,
   days = 30,
 ): Promise<{ synced: number }> {
   const accounts = await listAccounts();
@@ -67,13 +66,13 @@ export async function syncCashFlows(
 
   // Write inflows
   for (const [date, amount] of dailyInflow) {
-    await upsertFinancial(supabase, date, null, 'cash_inflow', amount, { source: 'mercury' });
+    await upsertFinancial(date, null, 'cash_inflow', amount, { source: 'mercury' });
     synced++;
   }
 
   // Write outflows
   for (const [date, amount] of dailyOutflow) {
-    await upsertFinancial(supabase, date, null, 'cash_outflow', amount, { source: 'mercury' });
+    await upsertFinancial(date, null, 'cash_outflow', amount, { source: 'mercury' });
     synced++;
   }
 
@@ -84,7 +83,7 @@ export async function syncCashFlows(
   const dailyBurn = netBurn / days;
 
   if (dailyBurn > 0) {
-    await upsertFinancial(supabase, end, null, 'burn_rate', parseFloat((dailyBurn * 30).toFixed(2)), {
+    await upsertFinancial(end, null, 'burn_rate', parseFloat((dailyBurn * 30).toFixed(2)), {
       source: 'mercury',
       period_days: days,
       total_outflow: totalOutflow,
@@ -103,7 +102,6 @@ export async function syncCashFlows(
  * and identifies recurring vendor payments (2+ occurrences).
  */
 export async function syncSubscriptions(
-  supabase: SupabaseClient,
   days = 90,
 ): Promise<{ vendors: number }> {
   const accounts = await listAccounts();
@@ -145,7 +143,7 @@ export async function syncSubscriptions(
     if (count < 2) continue; // skip one-off payments
     const monthlyAvg = parseFloat((total / months).toFixed(2));
 
-    await upsertFinancial(supabase, today, vendor, 'vendor_subscription', monthlyAvg, {
+    await upsertFinancial(today, vendor, 'vendor_subscription', monthlyAvg, {
       source: 'mercury',
       total_spent: total,
       payment_count: count,
@@ -160,34 +158,41 @@ export async function syncSubscriptions(
 }
 
 /** Run all Mercury sync operations */
-export async function syncAll(supabase: SupabaseClient) {
+export async function syncAll() {
   const [balanceResult, flowResult, subResult] = await Promise.all([
-    syncCashBalance(supabase),
-    syncCashFlows(supabase),
-    syncSubscriptions(supabase),
+    syncCashBalance(),
+    syncCashFlows(),
+    syncSubscriptions(),
   ]);
   return { ...balanceResult, ...flowResult, ...subResult };
 }
 
 async function upsertFinancial(
-  supabase: SupabaseClient,
   date: string,
   product: string | null,
   metric: string,
   value: number,
   details?: Record<string, unknown>,
 ) {
-  let query = supabase.from('financials').select('id').eq('date', date).eq('metric', metric);
+  let existing: { id: string }[];
   if (product) {
-    query = query.eq('product', product);
+    existing = await systemQuery<{ id: string }>(
+      'SELECT id FROM financials WHERE date = $1 AND metric = $2 AND product = $3 LIMIT 1',
+      [date, metric, product],
+    );
   } else {
-    query = query.is('product', null);
+    existing = await systemQuery<{ id: string }>(
+      'SELECT id FROM financials WHERE date = $1 AND metric = $2 AND product IS NULL LIMIT 1',
+      [date, metric],
+    );
   }
-  const { data: existing } = await query.limit(1);
 
-  if (existing && existing.length > 0) {
-    await supabase.from('financials').update({ value, details }).eq('id', existing[0].id);
+  if (existing.length > 0) {
+    await systemQuery('UPDATE financials SET value = $1, details = $2 WHERE id = $3', [value, details ? JSON.stringify(details) : null, existing[0].id]);
   } else {
-    await supabase.from('financials').insert({ date, product, metric, value, details });
+    await systemQuery(
+      'INSERT INTO financials (date, product, metric, value, details) VALUES ($1, $2, $3, $4, $5)',
+      [date, product, metric, value, details ? JSON.stringify(details) : null],
+    );
   }
 }

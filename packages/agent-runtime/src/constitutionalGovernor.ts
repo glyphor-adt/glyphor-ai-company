@@ -8,7 +8,7 @@
  * correlate with higher output quality.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { ModelClient } from './modelClient.js';
 import type { RedisCache } from './redisCache.js';
 
@@ -80,7 +80,6 @@ export class ConstitutionalGovernor {
   private memCache = new Map<string, Constitution>();
 
   constructor(
-    private supabase: SupabaseClient,
     private modelClient: ModelClient,
     private cache: RedisCache | null,
   ) {}
@@ -100,14 +99,12 @@ export class ConstitutionalGovernor {
       }
     }
 
-    const { data, error } = await this.supabase
-      .from('agent_constitutions')
-      .select('agent_role, principles, version')
-      .eq('agent_role', agentRole)
-      .eq('active', true)
-      .single();
+    const [data] = await systemQuery<{ agent_role: string; principles: unknown; version: number }>(
+      'SELECT agent_role, principles, version FROM agent_constitutions WHERE agent_role = $1 AND active = true LIMIT 1',
+      [agentRole],
+    );
 
-    if (error || !data) return null;
+    if (!data) return null;
 
     const constitution: Constitution = {
       agentRole: data.agent_role,
@@ -210,17 +207,11 @@ export class ConstitutionalGovernor {
     preRevisionConfidence?: number,
     postRevisionConfidence?: number,
   ): Promise<void> {
-    await this.supabase.from('constitutional_evaluations').insert({
-      run_id: runId,
-      agent_role: agentRole,
-      constitution_version: constitutionVersion,
-      principle_scores: evaluation.principleScores,
-      overall_adherence: evaluation.overallAdherence,
-      violations: evaluation.violations,
-      revision_triggered: evaluation.revisionRequired,
-      pre_revision_confidence: preRevisionConfidence,
-      post_revision_confidence: postRevisionConfidence,
-    });
+    await systemQuery(
+      `INSERT INTO constitutional_evaluations (run_id, agent_role, constitution_version, principle_scores, overall_adherence, violations, revision_triggered, pre_revision_confidence, post_revision_confidence)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [runId, agentRole, constitutionVersion, JSON.stringify(evaluation.principleScores), evaluation.overallAdherence, JSON.stringify(evaluation.violations), evaluation.revisionRequired, preRevisionConfidence, postRevisionConfidence],
+    );
   }
 
   /**
@@ -235,11 +226,10 @@ export class ConstitutionalGovernor {
     const constitution = await this.getConstitution(agentRole);
     if (!constitution) return;
 
-    const { data: evalData } = await this.supabase
-      .from('constitutional_evaluations')
-      .select('principle_scores')
-      .eq('run_id', runId)
-      .single();
+    const [evalData] = await systemQuery<{ principle_scores: unknown }>(
+      'SELECT principle_scores FROM constitutional_evaluations WHERE run_id = $1 LIMIT 1',
+      [runId],
+    );
 
     if (!evalData) return;
 
@@ -256,11 +246,10 @@ export class ConstitutionalGovernor {
       return { ...principle, effectiveness: Math.max(0.1, Math.min(1.0, newEffectiveness)) };
     });
 
-    await this.supabase
-      .from('agent_constitutions')
-      .update({ principles: updatedPrinciples, updated_at: new Date().toISOString() })
-      .eq('agent_role', agentRole)
-      .eq('active', true);
+    await systemQuery(
+      'UPDATE agent_constitutions SET principles = $1, updated_at = $2 WHERE agent_role = $3 AND active = true',
+      [JSON.stringify(updatedPrinciples), new Date().toISOString(), agentRole],
+    );
 
     if (this.cache) {
       await this.cache.del(`constitution:${agentRole}`);

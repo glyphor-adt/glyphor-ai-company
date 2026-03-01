@@ -6,7 +6,7 @@
  * then fires matching jobs whose cron expression matches the current minute.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
 
 interface DynamicScheduleRow {

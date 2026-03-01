@@ -59,7 +59,7 @@ export async function runCFO(params: CFORunParams = {}) {
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(memory.getSupabaseClient()),
-    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createAgentCreationTools(memory.getSupabaseClient()),
     ...createToolRequestTools(memory.getSupabaseClient()),

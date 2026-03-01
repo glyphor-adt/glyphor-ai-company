@@ -5,7 +5,7 @@
  * and churn rates from Stripe into the Supabase financials table.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import { getStripeClient } from './client.js';
 
 /** Compute normalized monthly amount for a subscription */
@@ -22,7 +22,7 @@ function normalizedMonthlyAmount(sub: { items: { data: Array<{ price?: { unit_am
 }
 
 /** Sync current MRR from Stripe subscriptions into financials + stripe_data tables */
-export async function syncMRR(supabase: SupabaseClient): Promise<{ mrr: number; subscriptions: number }> {
+export async function syncMRR(): Promise<{ mrr: number; subscriptions: number }> {
   const stripe = getStripeClient();
   const date = new Date().toISOString().split('T')[0];
 
@@ -76,7 +76,7 @@ export async function syncMRR(supabase: SupabaseClient): Promise<{ mrr: number; 
       });
 
       if (product) {
-        await upsertFinancial(supabase, date, product, 'mrr', monthlyDollars);
+        await upsertFinancial(date, product, 'mrr', monthlyDollars);
       }
     }
 
@@ -89,8 +89,8 @@ export async function syncMRR(supabase: SupabaseClient): Promise<{ mrr: number; 
   const totalMRRDollars = totalMRR / 100;
 
   // Write totals to financials
-  await upsertFinancial(supabase, date, null, 'mrr', totalMRRDollars);
-  await upsertFinancial(supabase, date, null, 'active_subscriptions', activeCount);
+  await upsertFinancial(date, null, 'mrr', totalMRRDollars);
+  await upsertFinancial(date, null, 'active_subscriptions', activeCount);
 
   // Write MRR snapshot to stripe_data
   stripeRows.push({
@@ -103,8 +103,13 @@ export async function syncMRR(supabase: SupabaseClient): Promise<{ mrr: number; 
   // Upsert per-subscription rows into stripe_data in batches
   if (stripeRows.length > 0) {
     for (let i = 0; i < stripeRows.length; i += 100) {
-      const { error } = await supabase.from('stripe_data').insert(stripeRows.slice(i, i + 100));
-      if (error) console.warn('[Stripe Sync] stripe_data insert partial error:', error.message);
+      const batch = stripeRows.slice(i, i + 100);
+      for (const row of batch) {
+        await systemQuery(
+          'INSERT INTO stripe_data (record_type, customer_id, product, plan, amount_usd, status, cohort_month, properties, recorded_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+          [row.record_type, row.customer_id ?? null, row.product ?? null, row.plan ?? null, row.amount_usd ?? null, row.status ?? null, row.cohort_month ?? null, JSON.stringify(row.properties ?? null), row.recorded_at],
+        );
+      }
     }
     console.log(`[Stripe Sync] Wrote ${stripeRows.length} rows to stripe_data`);
   }
@@ -114,7 +119,7 @@ export async function syncMRR(supabase: SupabaseClient): Promise<{ mrr: number; 
 }
 
 /** Sync churn rate (canceled subscriptions in last 30 days vs active) */
-export async function syncChurnRate(supabase: SupabaseClient): Promise<{ churnRate: number }> {
+export async function syncChurnRate(): Promise<{ churnRate: number }> {
   const stripe = getStripeClient();
   const date = new Date().toISOString().split('T')[0];
   const thirtyDaysAgo = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000);
@@ -146,14 +151,14 @@ export async function syncChurnRate(supabase: SupabaseClient): Promise<{ churnRa
 
   const churnRate = totalActive > 0 ? (canceledCount / totalActive) * 100 : 0;
 
-  await upsertFinancial(supabase, date, null, 'churn_rate', parseFloat(churnRate.toFixed(2)));
+  await upsertFinancial(date, null, 'churn_rate', parseFloat(churnRate.toFixed(2)));
 
   console.log(`[Stripe Sync] Churn rate: ${churnRate.toFixed(2)}% (${canceledCount} canceled / ${totalActive} active)`);
   return { churnRate };
 }
 
 /** Sync recent charges (last 30 days) into stripe_data for revenue analysis */
-export async function syncRecentCharges(supabase: SupabaseClient): Promise<{ charges: number }> {
+export async function syncRecentCharges(): Promise<{ charges: number }> {
   const stripe = getStripeClient();
   const thirtyDaysAgo = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000);
 
@@ -197,8 +202,13 @@ export async function syncRecentCharges(supabase: SupabaseClient): Promise<{ cha
 
   if (rows.length > 0) {
     for (let i = 0; i < rows.length; i += 100) {
-      const { error } = await supabase.from('stripe_data').insert(rows.slice(i, i + 100));
-      if (error) console.warn('[Stripe Sync] charges insert error:', error.message);
+      const batch = rows.slice(i, i + 100);
+      for (const row of batch) {
+        await systemQuery(
+          'INSERT INTO stripe_data (record_type, customer_id, amount_usd, status, cohort_month, properties, recorded_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+          [row.record_type, row.customer_id ?? null, row.amount_usd ?? null, row.status ?? null, row.cohort_month ?? null, JSON.stringify(row.properties ?? null), row.recorded_at],
+        );
+      }
     }
     console.log(`[Stripe Sync] Wrote ${rows.length} charge rows to stripe_data`);
   }
@@ -207,34 +217,40 @@ export async function syncRecentCharges(supabase: SupabaseClient): Promise<{ cha
 }
 
 /** Run all Stripe sync operations */
-export async function syncAll(supabase: SupabaseClient) {
+export async function syncAll() {
   const [mrrResult, churnResult, chargesResult] = await Promise.all([
-    syncMRR(supabase),
-    syncChurnRate(supabase),
-    syncRecentCharges(supabase),
+    syncMRR(),
+    syncChurnRate(),
+    syncRecentCharges(),
   ]);
   return { ...mrrResult, ...churnResult, ...chargesResult };
 }
 
 async function upsertFinancial(
-  supabase: SupabaseClient,
   date: string,
   product: string | null,
   metric: string,
   value: number,
 ) {
-  // Try update first, insert if not exists
-  const query = supabase.from('financials').select('id').eq('date', date).eq('metric', metric);
+  let existing: { id: string }[];
   if (product) {
-    query.eq('product', product);
+    existing = await systemQuery<{ id: string }>(
+      'SELECT id FROM financials WHERE date = $1 AND metric = $2 AND product = $3 LIMIT 1',
+      [date, metric, product],
+    );
   } else {
-    query.is('product', null);
+    existing = await systemQuery<{ id: string }>(
+      'SELECT id FROM financials WHERE date = $1 AND metric = $2 AND product IS NULL LIMIT 1',
+      [date, metric],
+    );
   }
-  const { data: existing } = await query.limit(1);
 
-  if (existing && existing.length > 0) {
-    await supabase.from('financials').update({ value }).eq('id', existing[0].id);
+  if (existing.length > 0) {
+    await systemQuery('UPDATE financials SET value = $1 WHERE id = $2', [value, existing[0].id]);
   } else {
-    await supabase.from('financials').insert({ date, product, metric, value });
+    await systemQuery(
+      'INSERT INTO financials (date, product, metric, value) VALUES ($1, $2, $3, $4)',
+      [date, product, metric, value],
+    );
   }
 }

@@ -61,7 +61,7 @@ export async function runCTO(params: CTORunParams = {}) {
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(memory.getSupabaseClient()),
-    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createAgentCreationTools(memory.getSupabaseClient()),
     ...createToolGrantTools(memory.getSupabaseClient(), 'cto'),

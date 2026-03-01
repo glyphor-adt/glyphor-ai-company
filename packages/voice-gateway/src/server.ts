@@ -17,7 +17,6 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 import { SessionManager } from './sessionManager.js';
 import { DashboardVoiceHandler } from './dashboardHandler.js';
@@ -25,12 +24,6 @@ import { TeamsCallHandler } from './teamsHandler.js';
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 
 const PORT = parseInt(process.env.PORT || '8090', 10);
-
-// ─── Supabase ───────────────────────────────────────────────────
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!,
-);
 
 // ─── OpenAI ─────────────────────────────────────────────────────
 const openai = new OpenAI({
@@ -44,7 +37,7 @@ sessions.onAutoEnd = (session) => {
 };
 
 // ─── Handlers ───────────────────────────────────────────────────
-const dashboardHandler = new DashboardVoiceHandler(openai, sessions, supabase);
+const dashboardHandler = new DashboardVoiceHandler(openai, sessions);
 
 let teamsHandler: TeamsCallHandler | null = null;
 const botAppId = process.env.BOT_APP_ID;
@@ -57,7 +50,6 @@ if (botAppId && botAppSecret && tenantId) {
     { appId: botAppId, appSecret: botAppSecret, tenantId },
     openai,
     sessions,
-    supabase,
     gatewayUrl,
   );
   console.log('[Voice] Teams call handler initialized (Graph Communications API)');

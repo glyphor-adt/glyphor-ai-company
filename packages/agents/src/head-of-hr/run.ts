@@ -49,7 +49,7 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
     ...createMemoryTools(memory),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createAgentCreationTools(memory.getSupabaseClient()),
   ];

@@ -8,7 +8,7 @@
  * Includes cooldown tracking to prevent duplicate wakes.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
 import { WAKE_RULES } from './wakeRules.js';
 import type { WakeRule } from './wakeRules.js';

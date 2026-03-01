@@ -7,7 +7,7 @@
  * and optionally persisted to the database for future runs.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { ToolDefinition, ToolParameter, ToolResult } from './types.js';
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -99,9 +99,7 @@ export class RuntimeToolFactory {
   /** Count of tools created during this run (excludes persisted loads) */
   private runCreatedCount = 0;
 
-  constructor(
-    private supabase: SupabaseClient,
-  ) {}
+  constructor() {}
 
   /**
    * Validate and register a runtime tool definition.
@@ -198,17 +196,11 @@ export class RuntimeToolFactory {
     }
 
     const def = registered.definition;
-    await this.supabase.from('runtime_tools').upsert(
-      {
-        name: def.name,
-        description: def.description,
-        parameters: def.parameters,
-        implementation: def.implementation,
-        created_by: createdBy,
-        is_active: true,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'name' },
+    await systemQuery(
+      `INSERT INTO runtime_tools (name, description, parameters, implementation, created_by, is_active, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description, parameters = EXCLUDED.parameters, implementation = EXCLUDED.implementation, created_by = EXCLUDED.created_by, is_active = EXCLUDED.is_active, updated_at = EXCLUDED.updated_at`,
+      [def.name, def.description, JSON.stringify(def.parameters), JSON.stringify(def.implementation), createdBy, true, new Date().toISOString()],
     );
     registered.persisted = true;
   }
@@ -218,12 +210,16 @@ export class RuntimeToolFactory {
    * Called once at the start of each agent run.
    */
   async loadPersisted(): Promise<number> {
-    const { data, error } = await this.supabase
-      .from('runtime_tools')
-      .select('*')
-      .eq('is_active', true);
-
-    if (error || !data) return 0;
+    const data = await systemQuery<{
+      name: string;
+      description: string;
+      parameters: Record<string, { type: string; description: string; required?: boolean; enum?: string[] }>;
+      implementation: RuntimeToolImpl;
+      uses: number;
+    }>(
+      'SELECT * FROM runtime_tools WHERE is_active = true',
+      [],
+    );
 
     let loaded = 0;
     for (const tool of data) {
@@ -273,11 +269,9 @@ export class RuntimeToolFactory {
     // Update usage counter (fire and forget)
     const uses = (registered.definition.uses ?? 0) + 1;
     registered.definition.uses = uses;
-    Promise.resolve(
-      this.supabase
-        .from('runtime_tools')
-        .update({ uses, last_used_at: new Date().toISOString() })
-        .eq('name', registered.definition.name)
+    systemQuery(
+      'UPDATE runtime_tools SET uses = $1, last_used_at = $2 WHERE name = $3',
+      [uses, new Date().toISOString(), registered.definition.name],
     ).catch(() => {});
 
     return result.slice(0, MAX_RESPONSE_LENGTH);
@@ -324,16 +318,22 @@ export class RuntimeToolFactory {
       throw new Error(`Access to table '${impl.table}' is not allowed`);
     }
 
-    let query = this.supabase.from(impl.table).select(impl.select);
+    const filterEntries = Object.entries(impl.filters);
+    const conditions = filterEntries.map(([column], i) => `${column} = $${i + 1}`);
+    const values = filterEntries.map(([, valueTemplate]) => this.interpolate(valueTemplate, args));
 
-    for (const [column, valueTemplate] of Object.entries(impl.filters)) {
-      const value = this.interpolate(valueTemplate, args);
-      query = query.eq(column, value);
+    let sql = `SELECT ${impl.select} FROM ${impl.table}`;
+    if (conditions.length > 0) {
+      sql += ' WHERE ' + conditions.join(' AND ');
     }
+    sql += ' LIMIT 50';
 
-    const { data, error } = await query.limit(50);
-    if (error) return `Query error: ${error.message}`;
-    return JSON.stringify(data, null, 2);
+    try {
+      const data = await systemQuery(sql, values);
+      return JSON.stringify(data, null, 2);
+    } catch (err: any) {
+      return `Query error: ${err.message}`;
+    }
   }
 
   private async executeCode(

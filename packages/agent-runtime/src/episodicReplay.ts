@@ -15,7 +15,7 @@
  *  6. Update company pulse highlights with any notable findings
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { ModelClient } from './modelClient.js';
 
 /** Minimal embedding client interface for episodic replay. */
@@ -70,7 +70,6 @@ const ANALYSIS_MODEL = 'gemini-2.5-flash';
 
 export class EpisodicReplay {
   constructor(
-    private supabase: SupabaseClient,
     private modelClient: ModelClient,
     private embeddingClient: ReplayEmbeddingClient,
   ) {}
@@ -138,24 +137,18 @@ export class EpisodicReplay {
     ).toISOString();
 
     // Recent episodes from the time window
-    const { data: recent } = await this.supabase
-      .from('shared_episodes')
-      .select('id, created_at, author_agent, episode_type, summary, detail, outcome, confidence, domains, tags, times_accessed, significance_score')
-      .gte('created_at', windowStart)
-      .order('created_at', { ascending: false })
-      .limit(100);
+    const recent = await systemQuery<EpisodeRow>(
+      'SELECT id, created_at, author_agent, episode_type, summary, detail, outcome, confidence, domains, tags, times_accessed, significance_score FROM shared_episodes WHERE created_at >= $1 ORDER BY created_at DESC LIMIT 100',
+      [windowStart],
+    );
 
     // High-significance older episodes for pattern matching
-    const { data: significant } = await this.supabase
-      .from('shared_episodes')
-      .select('id, created_at, author_agent, episode_type, summary, detail, outcome, confidence, domains, tags, times_accessed, significance_score')
-      .lt('created_at', windowStart)
-      .gte('created_at', significantCutoff)
-      .gte('significance_score', SIGNIFICANCE_THRESHOLD)
-      .order('significance_score', { ascending: false })
-      .limit(50);
+    const significant = await systemQuery<EpisodeRow>(
+      'SELECT id, created_at, author_agent, episode_type, summary, detail, outcome, confidence, domains, tags, times_accessed, significance_score FROM shared_episodes WHERE created_at < $1 AND created_at >= $2 AND significance_score >= $3 ORDER BY significance_score DESC LIMIT 50',
+      [windowStart, significantCutoff, SIGNIFICANCE_THRESHOLD],
+    );
 
-    const all = [...(recent ?? []), ...(significant ?? [])];
+    const all = [...recent, ...significant];
 
     // Deduplicate by ID
     const seen = new Set<string>();
@@ -243,10 +236,10 @@ If no clear patterns, return [].`,
       score = Math.max(0, Math.min(1, score));
 
       if (score !== episode.significance_score) {
-        await this.supabase
-          .from('shared_episodes')
-          .update({ significance_score: score })
-          .eq('id', episode.id);
+        await systemQuery(
+          'UPDATE shared_episodes SET significance_score = $1 WHERE id = $2',
+          [score, episode.id],
+        );
         updated++;
       }
     }
@@ -287,19 +280,11 @@ If no clear patterns, return [].`,
     // Compute embedding for similarity matching
     const embedding = await this.embeddingClient.embed(principle);
 
-    await this.supabase.from('proposed_constitutional_amendments').insert({
-      proposed_by: 'episodic-replay',
-      affected_roles: pattern.agents,
-      current_principle_id: null,
-      proposed_text: principle,
-      rationale,
-      supporting_evidence: {
-        pattern: pattern.description,
-        frequency: pattern.frequency,
-        sentiment: pattern.sentiment,
-      },
-      embedding: JSON.stringify(embedding),
-    });
+    await systemQuery(
+      `INSERT INTO proposed_constitutional_amendments (proposed_by, affected_roles, current_principle_id, proposed_text, rationale, supporting_evidence, embedding)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      ['episodic-replay', JSON.stringify(pattern.agents), null, principle, rationale, JSON.stringify({ pattern: pattern.description, frequency: pattern.frequency, sentiment: pattern.sentiment }), JSON.stringify(embedding)],
+    );
   }
 
   private async updatePulseHighlights(patterns: ExtractedPattern[]): Promise<void> {
@@ -315,18 +300,17 @@ If no clear patterns, return [].`,
     if (highlights.length === 0) return;
 
     // Merge with existing pulse highlights (keep last 10)
-    const { data: pulse } = await this.supabase
-      .from('company_pulse')
-      .select('highlights')
-      .limit(1)
-      .single();
+    const [pulse] = await systemQuery<{ highlights: unknown }>(
+      'SELECT highlights FROM company_pulse LIMIT 1',
+      [],
+    );
 
     const existing = Array.isArray(pulse?.highlights) ? pulse.highlights : [];
     const merged = [...highlights, ...existing].slice(0, 10);
 
-    await this.supabase
-      .from('company_pulse')
-      .update({ highlights: merged, updated_at: new Date().toISOString() })
-      .not('id', 'is', null); // Update the single pulse row
+    await systemQuery(
+      'UPDATE company_pulse SET highlights = $1, updated_at = $2 WHERE id IS NOT NULL',
+      [JSON.stringify(merged), new Date().toISOString()],
+    );
   }
 }

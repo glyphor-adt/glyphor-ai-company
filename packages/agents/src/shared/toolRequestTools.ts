@@ -8,11 +8,9 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { isKnownTool } from '@glyphor/agent-runtime';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 
-export function createToolRequestTools(
-  supabase: SupabaseClient,
-): ToolDefinition[] {
+export function createToolRequestTools(): ToolDefinition[] {
   return [
     {
       name: 'request_new_tool',
@@ -91,14 +89,12 @@ export function createToolRequestTools(
         }
 
         // Check for duplicate pending request
-        const { data: existing } = await supabase
-          .from('tool_requests')
-          .select('id, status')
-          .eq('tool_name', toolName)
-          .in('status', ['pending', 'approved', 'building'])
-          .limit(1);
+        const existing = await systemQuery(
+          'SELECT id, status FROM tool_requests WHERE tool_name = $1 AND status = ANY($2) LIMIT 1',
+          [toolName, ['pending', 'approved', 'building']],
+        );
 
-        if (existing && existing.length > 0) {
+        if (existing.length > 0) {
           return {
             success: false,
             error: `A request for tool "${toolName}" already exists (status: ${existing[0].status}, id: ${existing[0].id}). Wait for it to be processed.`,
@@ -106,39 +102,37 @@ export function createToolRequestTools(
         }
 
         // Create the tool request
-        const { data: request, error } = await supabase
-          .from('tool_requests')
-          .insert({
-            requested_by: ctx.agentRole,
-            tool_name: toolName,
+        const [request] = await systemQuery(
+          'INSERT INTO tool_requests (requested_by, tool_name, description, justification, use_case, suggested_category, directive_id, suggested_api_config, suggested_parameters, status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id',
+          [
+            ctx.agentRole,
+            toolName,
             description,
             justification,
-            use_case: useCase,
-            suggested_category: (params.suggested_category as string) ?? null,
-            directive_id: (params.directive_id as string) ?? null,
-            suggested_api_config: params.suggested_api_config ?? null,
-            suggested_parameters: params.suggested_parameters ?? null,
-            status: 'pending',
-          })
-          .select('id')
-          .single();
-
-        if (error) return { success: false, error: error.message };
+            useCase,
+            (params.suggested_category as string) ?? null,
+            (params.directive_id as string) ?? null,
+            params.suggested_api_config ?? null,
+            params.suggested_parameters ?? null,
+            'pending',
+          ],
+        );
 
         // Auto-file a Yellow decision for CTO review
-        const { error: decisionErr } = await supabase
-          .from('decisions')
-          .insert({
-            tier: 'yellow',
-            status: 'pending',
-            title: `New tool request: ${toolName}`,
-            summary: `${ctx.agentRole} is requesting a new tool "${toolName}": ${description}\n\nJustification: ${justification}\n\nUse case: ${useCase}`,
-            proposed_by: ctx.agentRole,
-            reasoning: justification,
-            assigned_to: ['cto'],
-          });
-
-        if (decisionErr) {
+        try {
+          await systemQuery(
+            'INSERT INTO decisions (tier, status, title, summary, proposed_by, reasoning, assigned_to) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+            [
+              'yellow',
+              'pending',
+              `New tool request: ${toolName}`,
+              `${ctx.agentRole} is requesting a new tool "${toolName}": ${description}\n\nJustification: ${justification}\n\nUse case: ${useCase}`,
+              ctx.agentRole,
+              justification,
+              ['cto'],
+            ],
+          );
+        } catch (decisionErr) {
           // Request was created but decision failed — not fatal
           return {
             success: true,
@@ -146,7 +140,7 @@ export function createToolRequestTools(
               request_id: request.id,
               tool_name: toolName,
               status: 'pending',
-              warning: `Tool request created but decision filing failed: ${decisionErr.message}. Alert Marcus (CTO) directly.`,
+              warning: `Tool request created but decision filing failed: ${(decisionErr as Error).message}. Alert Marcus (CTO) directly.`,
             },
           };
         }
@@ -177,27 +171,24 @@ export function createToolRequestTools(
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        if (params.request_id) {
-          const { data, error } = await supabase
-            .from('tool_requests')
-            .select('*')
-            .eq('id', params.request_id as string)
-            .single();
+        try {
+          if (params.request_id) {
+            const [data] = await systemQuery(
+              'SELECT * FROM tool_requests WHERE id = $1',
+              [params.request_id as string],
+            );
+            return { success: true, data };
+          }
 
-          if (error) return { success: false, error: error.message };
-          return { success: true, data };
+          // List all requests by this agent
+          const data = await systemQuery(
+            'SELECT id, tool_name, status, review_notes, created_at FROM tool_requests WHERE requested_by = $1 ORDER BY created_at DESC LIMIT 20',
+            [ctx.agentRole],
+          );
+          return { success: true, data: { requests: data } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
         }
-
-        // List all requests by this agent
-        const { data, error } = await supabase
-          .from('tool_requests')
-          .select('id, tool_name, status, review_notes, created_at')
-          .eq('requested_by', ctx.agentRole)
-          .order('created_at', { ascending: false })
-          .limit(20);
-
-        if (error) return { success: false, error: error.message };
-        return { success: true, data: { requests: data } };
       },
     },
   ];

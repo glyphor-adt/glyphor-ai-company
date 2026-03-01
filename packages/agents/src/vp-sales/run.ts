@@ -57,7 +57,7 @@ export async function runVPSales(params: VPSalesRunParams = {}) {
     ...createMemoryTools(memory),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(memory.getSupabaseClient(), glyphorEventBus),
+    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createAgentCreationTools(memory.getSupabaseClient()),
     ...createToolRequestTools(memory.getSupabaseClient()),

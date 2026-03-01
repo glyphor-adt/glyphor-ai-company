@@ -17,7 +17,7 @@
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { EXECUTIVE_ROLES } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 
 /** Hard limits — cannot be overridden by agents */
 const MAX_ACTIVE_PER_CREATOR = 3;
@@ -41,7 +41,7 @@ function buildDefaultBackstory(title: string, department: string): string {
   return `Provisioned as a specialist ${title} to support ${department} with targeted expertise on high-priority initiatives.`;
 }
 
-export function createAgentCreationTools(supabase: SupabaseClient): ToolDefinition[] {
+export function createAgentCreationTools(): ToolDefinition[] {
   return [
     {
       name: 'create_specialist_agent',
@@ -111,12 +111,10 @@ export function createAgentCreationTools(supabase: SupabaseClient): ToolDefiniti
         }
 
         // ── Guard: check active agent count for this creator ──
-        const { count: activeCount } = await supabase
-          .from('company_agents')
-          .select('*', { count: 'exact', head: true })
-          .eq('created_by', ctx.agentRole)
-          .eq('is_temporary', true)
-          .eq('status', 'active');
+        const [{ count: activeCount }] = await systemQuery<{ count: number }>(
+          'SELECT COUNT(*)::int as count FROM company_agents WHERE created_by = $1 AND is_temporary = true AND status = $2',
+          [ctx.agentRole, 'active']
+        );
 
         if ((activeCount ?? 0) >= MAX_ACTIVE_PER_CREATOR) {
           return {
@@ -132,94 +130,59 @@ export function createAgentCreationTools(supabase: SupabaseClient): ToolDefiniti
         const personalitySummary = buildDefaultPersonalitySummary(name, title, department);
         const backstory = buildDefaultBackstory(title, department);
 
-        const { data: agent, error: createErr } = await supabase
-          .from('company_agents')
-          .insert({
-            role: agentId,
-            display_name: name,
-            name,
-            title,
-            department,
-            reports_to: ctx.agentRole,
-            status: 'active',
-            model,
-            temperature: 0.3,
-            max_turns: MAX_TURNS_CAP,
-            budget_per_run: MAX_BUDGET_PER_RUN,
-            budget_daily: MAX_BUDGET_DAILY,
-            budget_monthly: MAX_BUDGET_MONTHLY,
-            is_temporary: true,
-            is_core: false,
-            created_by: ctx.agentRole,
-            expires_at: expiresAt,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .select()
-          .single();
-
-        if (createErr) {
-          return { success: false, error: `Failed to create agent: ${createErr.message}` };
+        let agent: Record<string, unknown>;
+        try {
+          const rows = await systemQuery(
+            `INSERT INTO company_agents (role, display_name, name, title, department, reports_to, status, model, temperature, max_turns, budget_per_run, budget_daily, budget_monthly, is_temporary, is_core, created_by, expires_at, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) RETURNING *`,
+            [agentId, name, name, title, department, ctx.agentRole, 'active', model, 0.3, MAX_TURNS_CAP, MAX_BUDGET_PER_RUN, MAX_BUDGET_DAILY, MAX_BUDGET_MONTHLY, true, false, ctx.agentRole, expiresAt, new Date().toISOString(), new Date().toISOString()]
+          );
+          agent = rows[0] as Record<string, unknown>;
+        } catch (createErr) {
+          return { success: false, error: `Failed to create agent: ${(createErr as Error).message}` };
         }
 
         // ── Store dynamic brief ──
-        await supabase.from('agent_briefs').upsert({
-          agent_id: agentId,
-          system_prompt: systemPrompt,
-          skills: [],
-          tools: [],
-          updated_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          `INSERT INTO agent_briefs (agent_id, system_prompt, skills, tools, updated_at)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (agent_id) DO UPDATE SET system_prompt = EXCLUDED.system_prompt, skills = EXCLUDED.skills, tools = EXCLUDED.tools, updated_at = EXCLUDED.updated_at`,
+          [agentId, systemPrompt, JSON.stringify([]), JSON.stringify([]), new Date().toISOString()]
+        );
 
         // Ensure each dynamic agent has a profile at creation time.
-        await supabase.from('agent_profiles').upsert({
-          agent_id: agentId,
-          personality_summary: personalitySummary,
-          backstory: backstory,
-          communication_traits: ['clear', 'structured', 'action-oriented'],
-          quirks: ['summarizes key decisions before details'],
-          tone_formality: 0.6,
-          emoji_usage: 0.1,
-          verbosity: 0.45,
-          working_style: 'outcome-driven',
-          updated_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          `INSERT INTO agent_profiles (agent_id, personality_summary, backstory, communication_traits, quirks, tone_formality, emoji_usage, verbosity, working_style, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+           ON CONFLICT (agent_id) DO UPDATE SET personality_summary = EXCLUDED.personality_summary, backstory = EXCLUDED.backstory, communication_traits = EXCLUDED.communication_traits, quirks = EXCLUDED.quirks, tone_formality = EXCLUDED.tone_formality, emoji_usage = EXCLUDED.emoji_usage, verbosity = EXCLUDED.verbosity, working_style = EXCLUDED.working_style, updated_at = EXCLUDED.updated_at`,
+          [agentId, personalitySummary, backstory, JSON.stringify(['clear', 'structured', 'action-oriented']), JSON.stringify(['summarizes key decisions before details']), 0.6, 0.1, 0.45, 'outcome-driven', new Date().toISOString()]
+        );
 
         // Set DiceBear avatar only for new profiles (don't overwrite existing PNG avatars)
-        await supabase.from('agent_profiles')
-          .update({ avatar_url: avatarUrl })
-          .eq('agent_id', agentId)
-          .is('avatar_url', null);
+        await systemQuery(
+          'UPDATE agent_profiles SET avatar_url = $1 WHERE agent_id = $2 AND avatar_url IS NULL',
+          [avatarUrl, agentId]
+        );
 
         // ── Store schedule if provided ──
         if (cronExpression) {
-          await supabase.from('agent_schedules').insert({
-            agent_id: agentId,
-            cron_expression: cronExpression,
-            task: 'scheduled_run',
-            enabled: true,
-          });
+          await systemQuery(
+            'INSERT INTO agent_schedules (agent_id, cron_expression, task, enabled) VALUES ($1, $2, $3, $4)',
+            [agentId, cronExpression, 'scheduled_run', true]
+          );
         }
 
         // ── Log creation as a Yellow-tier decision for founder visibility ──
-        await supabase.from('decisions').insert({
-          proposed_by: ctx.agentRole,
-          tier: 'yellow',
-          title: `New specialist agent: ${name}`,
-          summary: `${ctx.agentRole} created a temporary specialist agent.\n\nJustification: ${justification}\n\nAgent: ${name} (${agentId})\nDepartment: ${department}\nModel: ${model}\nTTL: ${ttlDays} days (expires ${expiresAt})\nBudget: $${MAX_BUDGET_PER_RUN}/run, $${MAX_BUDGET_DAILY}/day, $${MAX_BUDGET_MONTHLY}/month${cronExpression ? `\nSchedule: ${cronExpression}` : '\nSchedule: on-demand only'}`,
-          reasoning: justification,
-          status: 'pending',
-          assigned_to: ['kristina', 'andrew'],
-          created_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          'INSERT INTO decisions (proposed_by, tier, title, summary, reasoning, status, assigned_to, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+          [ctx.agentRole, 'yellow', `New specialist agent: ${name}`, `${ctx.agentRole} created a temporary specialist agent.\n\nJustification: ${justification}\n\nAgent: ${name} (${agentId})\nDepartment: ${department}\nModel: ${model}\nTTL: ${ttlDays} days (expires ${expiresAt})\nBudget: $${MAX_BUDGET_PER_RUN}/run, $${MAX_BUDGET_DAILY}/day, $${MAX_BUDGET_MONTHLY}/month${cronExpression ? `\nSchedule: ${cronExpression}` : '\nSchedule: on-demand only'}`, justification, 'pending', JSON.stringify(['kristina', 'andrew']), new Date().toISOString()]
+        );
 
         // ── Activity log ──
-        await supabase.from('activity_log').insert({
-          agent_role: ctx.agentRole,
-          action: 'agent.created',
-          summary: `Created specialist agent: ${name} (${agentId}) — ${justification}`,
-          created_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          'INSERT INTO activity_log (agent_role, action, summary, created_at) VALUES ($1, $2, $3, $4)',
+          [ctx.agentRole, 'agent.created', `Created specialist agent: ${name} (${agentId}) — ${justification}`, new Date().toISOString()]
+        );
 
         return {
           success: true,
@@ -246,17 +209,12 @@ export function createAgentCreationTools(supabase: SupabaseClient): ToolDefiniti
       description: 'List specialist agents you have created — shows their status, TTL, budget usage, and expiration.',
       parameters: {},
       execute: async (_params, ctx): Promise<ToolResult> => {
-        const { data, error } = await supabase
-          .from('company_agents')
-          .select('role, name, title, department, status, model, created_at, expires_at, budget_per_run, budget_daily, budget_monthly')
-          .eq('created_by', ctx.agentRole)
-          .eq('is_temporary', true)
-          .order('created_at', { ascending: false })
-          .limit(20);
+        const data = await systemQuery<Record<string, unknown>>(
+          'SELECT role, name, title, department, status, model, created_at, expires_at, budget_per_run, budget_daily, budget_monthly FROM company_agents WHERE created_by = $1 AND is_temporary = true ORDER BY created_at DESC LIMIT $2',
+          [ctx.agentRole, 20]
+        );
 
-        if (error) return { success: false, error: error.message };
-
-        const agents = (data ?? []).map((a: Record<string, unknown>) => ({
+        const agents = data.map((a: Record<string, unknown>) => ({
           ...a,
           isExpired: a.expires_at ? new Date(a.expires_at as string) < new Date() : false,
           daysRemaining: a.expires_at
@@ -298,11 +256,11 @@ export function createAgentCreationTools(supabase: SupabaseClient): ToolDefiniti
         const reason = params.reason as string;
 
         // Verify this agent was created by the caller
-        const { data: agent } = await supabase
-          .from('company_agents')
-          .select('role, name, created_by, is_temporary')
-          .eq('role', agentId)
-          .single();
+        const rows = await systemQuery<Record<string, unknown>>(
+          'SELECT role, name, created_by, is_temporary FROM company_agents WHERE role = $1',
+          [agentId]
+        );
+        const agent = rows[0];
 
         if (!agent) {
           return { success: false, error: `Agent '${agentId}' not found.` };
@@ -312,26 +270,26 @@ export function createAgentCreationTools(supabase: SupabaseClient): ToolDefiniti
         }
 
         // Deactivate
-        const { error } = await supabase
-          .from('company_agents')
-          .update({ status: 'retired', updated_at: new Date().toISOString() })
-          .eq('role', agentId);
-
-        if (error) return { success: false, error: error.message };
+        try {
+          await systemQuery(
+            'UPDATE company_agents SET status = $1, updated_at = $2 WHERE role = $3',
+            ['retired', new Date().toISOString(), agentId]
+          );
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
 
         // Disable schedules
-        await supabase
-          .from('agent_schedules')
-          .update({ enabled: false })
-          .eq('agent_id', agentId);
+        await systemQuery(
+          'UPDATE agent_schedules SET enabled = false WHERE agent_id = $1',
+          [agentId]
+        );
 
         // Log
-        await supabase.from('activity_log').insert({
-          agent_role: ctx.agentRole,
-          action: 'agent.retired',
-          summary: `Retired specialist agent: ${agent.name} (${agentId}) — ${reason}`,
-          created_at: new Date().toISOString(),
-        });
+        await systemQuery(
+          'INSERT INTO activity_log (agent_role, action, summary, created_at) VALUES ($1, $2, $3, $4)',
+          [ctx.agentRole, 'agent.retired', `Retired specialist agent: ${agent.name} (${agentId}) — ${reason}`, new Date().toISOString()]
+        );
 
         return {
           success: true,

@@ -13,7 +13,7 @@
  * Only when real work exists does the agent load full context and run.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { CompanyAgentRole } from './types.js';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -69,25 +69,37 @@ export interface WorkLoopResult {
  */
 export async function executeWorkLoop(
   agentRole: CompanyAgentRole,
-  supabase: SupabaseClient,
 ): Promise<WorkLoopResult> {
   // ── P1: URGENT — Assignments needing revision ──────────────
   // Checked FIRST so P1 work always runs regardless of abort cooldown.
-  const { data: revisionAssignments } = await supabase
-    .from('work_assignments')
-    .select('id, task_description, title, instructions, status, evaluation, assigned_to, founder_directives(title, priority, description)')
-    .eq('assigned_to', agentRole)
-    .eq('status', 'needs_revision')
-    .limit(5);
+  const revisionAssignments = await systemQuery<{
+    id: string;
+    task_description: string;
+    title: string | null;
+    instructions: unknown;
+    status: string;
+    evaluation: unknown;
+    assigned_to: string;
+    founder_directives: { title?: string; priority?: string; description?: string } | null;
+  }>(
+    `SELECT wa.id, wa.task_description, wa.title, wa.instructions, wa.status, wa.evaluation, wa.assigned_to,
+            json_build_object('title', fd.title, 'priority', fd.priority, 'description', fd.description) AS founder_directives
+     FROM work_assignments wa
+     LEFT JOIN founder_directives fd ON wa.directive_id = fd.id
+     WHERE wa.assigned_to = $1 AND wa.status = 'needs_revision'
+     LIMIT 5`,
+    [agentRole],
+  );
 
   if (revisionAssignments && revisionAssignments.length > 0) {
     const assignment = revisionAssignments[0];
     const fd = assignment.founder_directives as { title?: string; priority?: string; description?: string } | null;
 
     // Mark as in_progress at dispatch time
-    await supabase.from('work_assignments')
-      .update({ status: 'in_progress', started_at: new Date().toISOString() })
-      .eq('id', assignment.id);
+    await systemQuery(
+      'UPDATE work_assignments SET status = $1, started_at = $2 WHERE id = $3',
+      ['in_progress', new Date().toISOString(), assignment.id],
+    );
 
     let execMessage = `REVISION REQUIRED: ${assignment.title ?? assignment.task_description}\n`;
     if (fd?.title) execMessage += `Directive: ${fd.title}\n`;
@@ -115,12 +127,11 @@ export async function executeWorkLoop(
   }
 
   // Also check for urgent messages (still P1, bypasses cooldown)
-  const { count: urgentMsgCount } = await supabase
-    .from('agent_messages')
-    .select('*', { count: 'exact', head: true })
-    .eq('to_agent', agentRole)
-    .eq('status', 'pending')
-    .eq('priority', 'urgent');
+  const [urgentMsgResult] = await systemQuery<{ count: number }>(
+    `SELECT COUNT(*) as count FROM agent_messages WHERE to_agent = $1 AND status = 'pending' AND priority = 'urgent'`,
+    [agentRole],
+  );
+  const urgentMsgCount = urgentMsgResult?.count ?? 0;
 
   if (urgentMsgCount && urgentMsgCount > 0) {
     return {
@@ -135,15 +146,12 @@ export async function executeWorkLoop(
 
   // ── ABORT COOLDOWN — Exponential backoff, applied after P1 ──
   // 1 consecutive abort → 5 min, 2 → 10 min, 3 → 20 min, 4+ → 30 min (cap)
-  const { data: recentAborts } = await supabase
-    .from('agent_runs')
-    .select('completed_at, status')
-    .eq('agent_id', agentRole)
-    .order('completed_at', { ascending: false })
-    .limit(10);
+  const recentAborts = await systemQuery<{ completed_at: string; status: string }>(
+    'SELECT completed_at, status FROM agent_runs WHERE agent_id = $1 ORDER BY completed_at DESC LIMIT 10',
+    [agentRole],
+  );
 
-  if (recentAborts && recentAborts.length > 0) {
-    // Count consecutive aborts (stop at the first non-aborted run)
+  if (recentAborts && recentAborts.length > 0) {    // Count consecutive aborts (stop at the first non-aborted run)
     let consecutiveAborts = 0;
     for (const run of recentAborts) {
       if (run.status === 'aborted') consecutiveAborts++;
@@ -167,13 +175,25 @@ export async function executeWorkLoop(
   }
 
   // ── P2: ACTIVE WORK — Pending/dispatched/in-progress assignments ──
-  const { data: activeAssignments } = await supabase
-    .from('work_assignments')
-    .select('id, task_description, title, instructions, status, evaluation, assigned_to, founder_directives(title, priority, description)')
-    .eq('assigned_to', agentRole)
-    .in('status', ['pending', 'dispatched', 'in_progress'])
-    .order('created_at', { ascending: true })
-    .limit(5);
+  const activeAssignments = await systemQuery<{
+    id: string;
+    task_description: string;
+    title: string | null;
+    instructions: unknown;
+    status: string;
+    evaluation: unknown;
+    assigned_to: string;
+    founder_directives: { title?: string; priority?: string; description?: string } | null;
+  }>(
+    `SELECT wa.id, wa.task_description, wa.title, wa.instructions, wa.status, wa.evaluation, wa.assigned_to,
+            json_build_object('title', fd.title, 'priority', fd.priority, 'description', fd.description) AS founder_directives
+     FROM work_assignments wa
+     LEFT JOIN founder_directives fd ON wa.directive_id = fd.id
+     WHERE wa.assigned_to = $1 AND wa.status = ANY($2)
+     ORDER BY wa.created_at ASC
+     LIMIT 5`,
+    [agentRole, ['pending', 'dispatched', 'in_progress']],
+  );
 
   if (activeAssignments && activeAssignments.length > 0) {
     // Sort: needs_revision first (handled above), then by directive priority
@@ -191,9 +211,10 @@ export async function executeWorkLoop(
 
     // Mark as in_progress at dispatch time
     if (assignment.status === 'dispatched' || assignment.status === 'pending') {
-      await supabase.from('work_assignments')
-        .update({ status: 'in_progress', started_at: new Date().toISOString() })
-        .eq('id', assignment.id);
+      await systemQuery(
+        'UPDATE work_assignments SET status = $1, started_at = $2 WHERE id = $3',
+        ['in_progress', new Date().toISOString(), assignment.id],
+      );
     }
 
     // Build execution message with full context embedded
@@ -223,11 +244,11 @@ export async function executeWorkLoop(
   }
 
   // ── P3: MESSAGES — Unread messages from colleagues ─────────
-  const { count: pendingMsgCount } = await supabase
-    .from('agent_messages')
-    .select('*', { count: 'exact', head: true })
-    .eq('to_agent', agentRole)
-    .eq('status', 'pending');
+  const [pendingMsgResult] = await systemQuery<{ count: number }>(
+    `SELECT COUNT(*) as count FROM agent_messages WHERE to_agent = $1 AND status = 'pending'`,
+    [agentRole],
+  );
+  const pendingMsgCount = pendingMsgResult?.count ?? 0;
 
   if (pendingMsgCount && pendingMsgCount > 0) {
     return {
@@ -250,7 +271,7 @@ export async function executeWorkLoop(
   // be purely reactive, working only on assigned tasks.
   const cooldownMs = PROACTIVE_COOLDOWNS[agentRole];
   if (cooldownMs != null) {
-    const lastMeaningfulRun = await getLastMeaningfulRunTime(agentRole, supabase);
+    const lastMeaningfulRun = await getLastMeaningfulRunTime(agentRole);
 
     if (Date.now() - lastMeaningfulRun > cooldownMs) {
       return {
@@ -282,17 +303,11 @@ export async function executeWorkLoop(
  */
 async function getLastMeaningfulRunTime(
   agentRole: CompanyAgentRole,
-  supabase: SupabaseClient,
 ): Promise<number> {
-  const { data } = await supabase
-    .from('agent_runs')
-    .select('completed_at')
-    .eq('agent_id', agentRole)
-    .eq('status', 'completed')
-    .gt('turns', 0)
-    .order('completed_at', { ascending: false })
-    .limit(1)
-    .single();
+  const [data] = await systemQuery<{ completed_at: string }>(
+    'SELECT completed_at FROM agent_runs WHERE agent_id = $1 AND status = $2 AND turns > 0 ORDER BY completed_at DESC LIMIT 1',
+    [agentRole, 'completed'],
+  );
 
   if (data?.completed_at) {
     return new Date(data.completed_at).getTime();

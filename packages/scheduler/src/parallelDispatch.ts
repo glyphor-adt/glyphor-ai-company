@@ -10,7 +10,7 @@
  * completes, immediately dispatch agents whose dependencies are now met.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
 
 /** Maximum agents to dispatch concurrently within a single wave */

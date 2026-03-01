@@ -8,7 +8,7 @@
  *   4. Synthesize— Merge into an impact matrix with confidence scores
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { ModelClient } from '@glyphor/agent-runtime';
 
 /* ── Types ──────────────────────────────────── */

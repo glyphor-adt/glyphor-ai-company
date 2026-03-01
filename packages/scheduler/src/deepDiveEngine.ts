@@ -24,35 +24,41 @@ import { FRAMEWORK_CONFIGS, buildFrameworkPrompt, buildConvergencePrompt } from 
 
 /* ── Cross-model verification config ──────── */
 
-const VERIFICATION_MODELS = ['gemini-3-pro-preview', 'gpt-5-mini'] as const;
+const VERIFICATION_MODELS = ['gemini-3-pro-preview', 'gpt-5-mini', 'claude-sonnet-4-20250514'] as const;
 const VERIFICATION_CONFIDENCE_THRESHOLD = 0.7;
 
 /**
  * Multi-agent research model assignments — each research area gets a different
- * primary model to ensure diverse perspectives and reduce single-model bias.
- * A second model challenges each area's findings.
+ * primary model across 3 providers (Gemini, OpenAI, Anthropic) to ensure diverse
+ * perspectives and reduce single-model bias. Two challenger models then critique
+ * each area's findings.
  */
 const RESEARCH_MODELS: Record<string, string> = {
   overview:            'gemini-3-pro-preview',
   financials:          'gpt-5-mini',
-  technology:          'gemini-3-pro-preview',
-  market:              'gpt-5-mini',
-  competitive:         'gemini-3-pro-preview',
-  leadership:          'gpt-5-mini',
+  technology:          'claude-sonnet-4-20250514',
+  market:              'gemini-3-pro-preview',
+  competitive:         'gpt-5-mini',
+  leadership:          'claude-sonnet-4-20250514',
   customers:           'gemini-3-pro-preview',
   risks:               'gpt-5-mini',
-  company_profile:     'gemini-3-pro-preview',
-  strategic_direction: 'gpt-5-mini',
-  segment_analysis:    'gemini-3-pro-preview',
-  ma_activity:         'gpt-5-mini',
+  company_profile:     'claude-sonnet-4-20250514',
+  strategic_direction: 'gemini-3-pro-preview',
+  segment_analysis:    'gpt-5-mini',
+  ma_activity:         'claude-sonnet-4-20250514',
   ai_impact:           'gemini-3-pro-preview',
   talent_assessment:   'gpt-5-mini',
-  regulatory_landscape:'gemini-3-pro-preview',
+  regulatory_landscape:'claude-sonnet-4-20250514',
 };
 
-/** The challenger model critiques work done by the primary */
+/** The challenger models that critique work done by the primary (returns both) */
+function getChallengerModels(primary: string): string[] {
+  return VERIFICATION_MODELS.filter(m => m !== primary);
+}
+
+/** Legacy single-challenger for gap-fill re-analysis */
 function getChallengerModel(primary: string): string {
-  return primary === 'gemini-3-pro-preview' ? 'gpt-5-mini' : 'gemini-3-pro-preview';
+  return getChallengerModels(primary)[0];
 }
 
 /* ── Types ──────────────────────────────────── */

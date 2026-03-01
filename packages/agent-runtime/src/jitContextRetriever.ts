@@ -7,7 +7,7 @@
  * by relevance, and trims to a token budget.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { RedisCache } from './redisCache.js';
 
 /** Minimal interface to avoid circular dependency on @glyphor/company-memory */
@@ -44,7 +44,6 @@ const DEFAULT_MATCH_THRESHOLD = 0.65;
 
 export class JitContextRetriever {
   constructor(
-    private supabase: SupabaseClient,
     private embeddingClient: EmbeddingClient,
     private cache?: RedisCache,
   ) {}
@@ -147,53 +146,58 @@ export class JitContextRetriever {
 
   /** Query agent memories by embedding similarity. */
   private async queryMemories(embeddingStr: string, agentRole: string): Promise<JitContextItem[]> {
-    const { data, error } = await this.supabase.rpc('match_memories', {
-      query_embedding: embeddingStr,
-      match_count: DEFAULT_MATCH_COUNT,
-      match_threshold: DEFAULT_MATCH_THRESHOLD,
-      filter_agent: agentRole,
-    });
+    try {
+      const data = await systemQuery<{ content: string; importance: number; similarity: number }>(
+        'SELECT * FROM match_memories($1, $2, $3, $4)',
+        [embeddingStr, DEFAULT_MATCH_COUNT, DEFAULT_MATCH_THRESHOLD, agentRole],
+      );
 
-    if (error || !data) return [];
-    return (data as { content: string; importance: number; similarity: number }[]).map(row => ({
-      source: 'memory' as const,
-      content: row.content,
-      score: row.similarity * (row.importance ?? 1),
-      metadata: { importance: row.importance },
-    }));
+      return data.map(row => ({
+        source: 'memory' as const,
+        content: row.content,
+        score: row.similarity * (row.importance ?? 1),
+        metadata: { importance: row.importance },
+      }));
+    } catch {
+      return [];
+    }
   }
 
   /** Query knowledge graph nodes by embedding similarity. */
   private async queryGraphNodes(embeddingStr: string): Promise<JitContextItem[]> {
-    const { data, error } = await this.supabase.rpc('match_kg_nodes', {
-      query_embedding: embeddingStr,
-      match_count: DEFAULT_MATCH_COUNT,
-      match_threshold: DEFAULT_MATCH_THRESHOLD,
-    });
+    try {
+      const data = await systemQuery<{ name: string; description: string; similarity: number }>(
+        'SELECT * FROM match_kg_nodes($1, $2, $3)',
+        [embeddingStr, DEFAULT_MATCH_COUNT, DEFAULT_MATCH_THRESHOLD],
+      );
 
-    if (error || !data) return [];
-    return (data as { name: string; description: string; similarity: number }[]).map(row => ({
-      source: 'graph' as const,
-      content: `${row.name}: ${row.description}`,
-      score: row.similarity,
-    }));
+      return data.map(row => ({
+        source: 'graph' as const,
+        content: `${row.name}: ${row.description}`,
+        score: row.similarity,
+      }));
+    } catch {
+      return [];
+    }
   }
 
   /** Query shared episodes by embedding similarity. */
   private async queryEpisodes(embeddingStr: string): Promise<JitContextItem[]> {
-    const { data, error } = await this.supabase.rpc('match_shared_episodes', {
-      query_embedding: embeddingStr,
-      match_count: DEFAULT_MATCH_COUNT,
-      match_threshold: DEFAULT_MATCH_THRESHOLD,
-    });
+    try {
+      const data = await systemQuery<{ summary: string; confidence: number; similarity: number; outcome?: string }>(
+        'SELECT * FROM match_shared_episodes($1, $2, $3)',
+        [embeddingStr, DEFAULT_MATCH_COUNT, DEFAULT_MATCH_THRESHOLD],
+      );
 
-    if (error || !data) return [];
-    return (data as { summary: string; confidence: number; similarity: number; outcome?: string }[]).map(row => ({
-      source: 'episode' as const,
-      content: row.outcome ? `${row.summary} → ${row.outcome}` : row.summary,
-      score: row.similarity * (row.confidence ?? 1),
-      metadata: { confidence: row.confidence },
-    }));
+      return data.map(row => ({
+        source: 'episode' as const,
+        content: row.outcome ? `${row.summary} → ${row.outcome}` : row.summary,
+        score: row.similarity * (row.confidence ?? 1),
+        metadata: { confidence: row.confidence },
+      }));
+    } catch {
+      return [];
+    }
   }
 
   /** Query shared procedures by text similarity (keyword match). */
@@ -202,35 +206,41 @@ export class JitContextRetriever {
     const keywords = task.split(/\s+/).filter(w => w.length > 3).slice(0, 5);
     if (keywords.length === 0) return [];
 
-    const orFilter = keywords.map(k => `title.ilike.%${k}%,description.ilike.%${k}%`).join(',');
-    const { data, error } = await this.supabase
-      .from('shared_procedures')
-      .select('title, description, steps, confidence')
-      .or(orFilter)
-      .limit(DEFAULT_MATCH_COUNT);
+    const conditions = keywords.map((_, i) => `(title ILIKE $${i + 1} OR description ILIKE $${i + 1})`).join(' OR ');
+    const params = keywords.map(k => `%${k}%`);
 
-    if (error || !data) return [];
-    return (data as { title: string; description: string; steps?: string[]; confidence?: number }[]).map(row => ({
-      source: 'procedure' as const,
-      content: `${row.title}: ${row.description}${row.steps ? '\nSteps: ' + row.steps.join(' → ') : ''}`,
-      score: row.confidence ?? 0.7,
-    }));
+    try {
+      const data = await systemQuery<{ title: string; description: string; steps?: string[]; confidence?: number }>(
+        `SELECT title, description, steps, confidence FROM shared_procedures WHERE ${conditions} LIMIT ${DEFAULT_MATCH_COUNT}`,
+        params,
+      );
+
+      return data.map(row => ({
+        source: 'procedure' as const,
+        content: `${row.title}: ${row.description}${row.steps ? '\nSteps: ' + row.steps.join(' → ') : ''}`,
+        score: row.confidence ?? 0.7,
+      }));
+    } catch {
+      return [];
+    }
   }
 
   /** Query company knowledge base by embedding similarity. */
   private async queryKnowledge(embeddingStr: string): Promise<JitContextItem[]> {
-    const { data, error } = await this.supabase.rpc('match_company_knowledge', {
-      query_embedding: embeddingStr,
-      match_count: DEFAULT_MATCH_COUNT,
-      match_threshold: DEFAULT_MATCH_THRESHOLD,
-    });
+    try {
+      const data = await systemQuery<{ title: string; content: string; section: string; similarity: number }>(
+        'SELECT * FROM match_company_knowledge($1, $2, $3)',
+        [embeddingStr, DEFAULT_MATCH_COUNT, DEFAULT_MATCH_THRESHOLD],
+      );
 
-    if (error || !data) return [];
-    return (data as { title: string; content: string; section: string; similarity: number }[]).map(row => ({
-      source: 'knowledge' as const,
-      content: `[${row.section}] ${row.title}: ${row.content}`,
-      score: row.similarity,
-    }));
+      return data.map(row => ({
+        source: 'knowledge' as const,
+        content: `[${row.section}] ${row.title}: ${row.content}`,
+        score: row.similarity,
+      }));
+    } catch {
+      return [];
+    }
   }
 
   /** Invalidate cached context for an agent. */

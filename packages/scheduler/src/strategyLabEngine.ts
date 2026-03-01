@@ -14,7 +14,7 @@
  *   comprehensive: deep + follow-up pass, ~80-120 searches, 30-45 min
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { ModelClient } from '@glyphor/agent-runtime';
 import type { AgentExecutionResult, CompanyAgentRole } from '@glyphor/agent-runtime';
 import type { FrameworkId, FrameworkResult, FrameworkConvergence, WatchlistItem } from './frameworkTypes.js';

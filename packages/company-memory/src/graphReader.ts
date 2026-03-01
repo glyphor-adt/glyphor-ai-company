@@ -8,7 +8,7 @@
  * - Tiered context loading (light / standard / full)
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { EmbeddingClient } from './embeddingClient.js';
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -60,7 +60,6 @@ const NODE_ICONS: Record<string, string> = {
 
 export class KnowledgeGraphReader {
   constructor(
-    private supabase: SupabaseClient,
     private embedding: EmbeddingClient,
   ) {}
 
@@ -82,17 +81,12 @@ export class KnowledgeGraphReader {
 
     const queryEmb = await this.embedding.embed(query);
 
-    const { data: results } = await this.supabase.rpc(
-      'kg_semantic_search_with_context',
-      {
-        query_embedding: JSON.stringify(queryEmb),
-        match_threshold: 0.65,
-        match_count: Math.ceil(limit / 2),
-        expand_hops: expandHops,
-      },
+    const results = await systemQuery<GraphContextNode>(
+      'SELECT * FROM kg_semantic_search_with_context($1, $2, $3, $4)',
+      [JSON.stringify(queryEmb), 0.65, Math.ceil(limit / 2), expandHops],
     );
 
-    if (!results?.length) return { nodes: [], narrative: '' };
+    if (!results.length) return { nodes: [], narrative: '' };
 
     return this.formatGraphContext(results, limit);
   }
@@ -105,12 +99,12 @@ export class KnowledgeGraphReader {
     const node = await this.findNodeByTitle(nodeTitle);
     if (!node) return 'No matching event found in the knowledge graph.';
 
-    const { data: chain } = await this.supabase.rpc('kg_trace_causes', {
-      start_node_id: node.id,
-      max_depth: 5,
-    });
+    const chain = await systemQuery<CausalChainNode>(
+      'SELECT * FROM kg_trace_causes($1, $2)',
+      [node.id, 5],
+    );
 
-    if (!chain?.length) return `No known causes for "${nodeTitle}".`;
+    if (!chain.length) return `No known causes for "${nodeTitle}".`;
 
     return this.formatCausalChain(nodeTitle, chain);
   }
@@ -123,12 +117,12 @@ export class KnowledgeGraphReader {
     const node = await this.findNodeByTitle(nodeTitle);
     if (!node) return 'No matching event found in the knowledge graph.';
 
-    const { data: chain } = await this.supabase.rpc('kg_trace_impact', {
-      start_node_id: node.id,
-      max_depth: 5,
-    });
+    const chain = await systemQuery<CausalChainNode>(
+      'SELECT * FROM kg_trace_impact($1, $2)',
+      [node.id, 5],
+    );
 
-    if (!chain?.length) return `No known impact from "${nodeTitle}".`;
+    if (!chain.length) return `No known impact from "${nodeTitle}".`;
 
     return this.formatImpactChain(nodeTitle, chain);
   }
@@ -137,15 +131,11 @@ export class KnowledgeGraphReader {
    * Search for a single node by title (fuzzy match).
    */
   async findNodeByTitle(title: string): Promise<{ id: string; title: string } | null> {
-    const { data } = await this.supabase
-      .from('kg_nodes')
-      .select('id, title')
-      .ilike('title', `%${title}%`)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-    return data ?? null;
+    const rows = await systemQuery<{ id: string; title: string }>(
+      'SELECT id, title FROM kg_nodes WHERE title ILIKE $1 AND status = $2 ORDER BY created_at DESC LIMIT 1',
+      [`%${title}%`, 'active'],
+    );
+    return rows[0] ?? null;
   }
 
   // ─── Formatting ─────────────────────────────────────────────────
@@ -275,26 +265,23 @@ export class KnowledgeGraphReader {
       if (depth >= maxDepth || visited.has(nodeId)) continue;
       visited.add(nodeId);
 
-      // Query edges based on direction
-      const { data: edges } = await this.supabase
-        .from('kg_edges')
-        .select('source_id, target_id, causal_confidence, causal_mechanism, edge_type')
-        .eq(direction === 'upstream' ? 'target_id' : 'source_id', nodeId)
-        .eq('edge_type', 'CAUSAL_INFLUENCES')
-        .gt('causal_confidence', 0);
-
-      if (!edges) continue;
+      const col = direction === 'upstream' ? 'target_id' : 'source_id';
+      const edges = await systemQuery<{
+        source_id: string; target_id: string;
+        causal_confidence: number; causal_mechanism: string | null; edge_type: string;
+      }>(
+        `SELECT source_id, target_id, causal_confidence, causal_mechanism, edge_type FROM kg_edges WHERE ${col} = $1 AND edge_type = $2 AND causal_confidence > $3`,
+        [nodeId, 'CAUSAL_INFLUENCES', 0],
+      );
 
       for (const edge of edges) {
-        const nextId = (direction === 'upstream' ? edge.source_id : edge.target_id) as string;
+        const nextId = direction === 'upstream' ? edge.source_id : edge.target_id;
         if (visited.has(nextId)) continue;
 
-        // Get node title
-        const { data: nodeData } = await this.supabase
-          .from('kg_nodes')
-          .select('title')
-          .eq('id', nextId)
-          .single();
+        const [nodeData] = await systemQuery<{ title: string }>(
+          'SELECT title FROM kg_nodes WHERE id = $1',
+          [nextId],
+        );
 
         if (nodeData) {
           results.push({

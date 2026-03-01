@@ -11,7 +11,7 @@
  * - Low:    every 3rd cycle (30 min) — sub-team members
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
 import { EXECUTIVE_ROLES, SUB_TEAM_ROLES, getRedisCache, CACHE_KEYS, CACHE_TTL } from '@glyphor/agent-runtime';
 import { executeWorkLoop } from '@glyphor/agent-runtime';

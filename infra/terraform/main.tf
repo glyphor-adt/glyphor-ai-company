@@ -206,6 +206,13 @@ resource "google_secret_manager_secret_iam_member" "runner_access" {
   member    = "serviceAccount:${google_service_account.glyphor.email}"
 }
 
+resource "google_secret_manager_secret_iam_member" "worker_secret_access" {
+  for_each  = toset(local.secrets)
+  secret_id = google_secret_manager_secret.secrets[each.value].secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.worker.email}"
+}
+
 # ─── VPC Connector (required for Memorystore access) ─────────
 resource "google_vpc_access_connector" "glyphor" {
   name          = "glyphor-connector"
@@ -441,6 +448,40 @@ resource "google_cloud_run_v2_service" "scheduler" {
           }
         }
       }
+
+      volume_mounts {
+        name       = "cloudsql"
+        mount_path = "/cloudsql"
+      }
+
+      env {
+        name  = "DB_HOST"
+        value = "/cloudsql/${google_sql_database_instance.glyphor_db.connection_name}"
+      }
+      env {
+        name  = "DB_NAME"
+        value = "glyphor"
+      }
+      env {
+        name  = "DB_USER"
+        value = "glyphor_app"
+      }
+      env {
+        name = "DB_PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.secrets["db-password"].secret_id
+            version = "latest"
+          }
+        }
+      }
+    }
+
+    volumes {
+      name = "cloudsql"
+      cloud_sql_instance {
+        instances = [google_sql_database_instance.glyphor_db.connection_name]
+      }
     }
 
     # Scheduler must be single-instance to prevent duplicate heartbeat processing
@@ -511,6 +552,40 @@ resource "google_cloud_run_v2_service" "chief_of_staff" {
             }
           }
         }
+      }
+
+      volume_mounts {
+        name       = "cloudsql"
+        mount_path = "/cloudsql"
+      }
+
+      env {
+        name  = "DB_HOST"
+        value = "/cloudsql/${google_sql_database_instance.glyphor_db.connection_name}"
+      }
+      env {
+        name  = "DB_NAME"
+        value = "glyphor"
+      }
+      env {
+        name  = "DB_USER"
+        value = "glyphor_app"
+      }
+      env {
+        name = "DB_PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.secrets["db-password"].secret_id
+            version = "latest"
+          }
+        }
+      }
+    }
+
+    volumes {
+      name = "cloudsql"
+      cloud_sql_instance {
+        instances = [google_sql_database_instance.glyphor_db.connection_name]
       }
     }
 
@@ -590,6 +665,40 @@ resource "google_cloud_run_v2_service" "voice_gateway" {
           }
         }
       }
+
+      volume_mounts {
+        name       = "cloudsql"
+        mount_path = "/cloudsql"
+      }
+
+      env {
+        name  = "DB_HOST"
+        value = "/cloudsql/${google_sql_database_instance.glyphor_db.connection_name}"
+      }
+      env {
+        name  = "DB_NAME"
+        value = "glyphor"
+      }
+      env {
+        name  = "DB_USER"
+        value = "glyphor_app"
+      }
+      env {
+        name = "DB_PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.secrets["db-password"].secret_id
+            version = "latest"
+          }
+        }
+      }
+    }
+
+    volumes {
+      name = "cloudsql"
+      cloud_sql_instance {
+        instances = [google_sql_database_instance.glyphor_db.connection_name]
+      }
     }
 
     scaling {
@@ -601,6 +710,116 @@ resource "google_cloud_run_v2_service" "voice_gateway" {
   depends_on = [
     google_project_service.apis["run.googleapis.com"],
     google_secret_manager_secret_iam_member.runner_access,
+  ]
+}
+
+# ─── Cloud Run: Worker ────────────────────────────────────────
+resource "google_cloud_run_v2_service" "worker" {
+  name     = "glyphor-worker"
+  location = var.region
+
+  template {
+    service_account = google_service_account.worker.email
+    timeout         = "300s"
+
+    vpc_access {
+      connector = google_vpc_access_connector.glyphor.id
+      egress    = "PRIVATE_RANGES_ONLY"
+    }
+
+    containers {
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/glyphor/worker:latest"
+
+      ports {
+        container_port = 8080
+      }
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "1Gi"
+        }
+      }
+
+      env {
+        name  = "NODE_ENV"
+        value = "production"
+      }
+
+      env {
+        name  = "REDIS_HOST"
+        value = google_redis_instance.cache.host
+      }
+
+      env {
+        name  = "REDIS_PORT"
+        value = tostring(google_redis_instance.cache.port)
+      }
+
+      env {
+        name  = "REDIS_TLS"
+        value = "false"
+      }
+
+      dynamic "env" {
+        for_each = local.secrets
+        content {
+          name = upper(replace(env.value, "-", "_"))
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.secrets[env.value].secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
+
+      volume_mounts {
+        name       = "cloudsql"
+        mount_path = "/cloudsql"
+      }
+
+      env {
+        name  = "DB_HOST"
+        value = "/cloudsql/${google_sql_database_instance.glyphor_db.connection_name}"
+      }
+      env {
+        name  = "DB_NAME"
+        value = "glyphor"
+      }
+      env {
+        name  = "DB_USER"
+        value = "glyphor_app"
+      }
+      env {
+        name = "DB_PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.secrets["db-password"].secret_id
+            version = "latest"
+          }
+        }
+      }
+    }
+
+    volumes {
+      name = "cloudsql"
+      cloud_sql_instance {
+        instances = [google_sql_database_instance.glyphor_db.connection_name]
+      }
+    }
+
+    scaling {
+      min_instance_count = 1
+      max_instance_count = 100
+    }
+
+    max_instance_request_concurrency = 10
+  }
+
+  depends_on = [
+    google_project_service.apis["run.googleapis.com"],
+    google_secret_manager_secret_iam_member.worker_secret_access,
   ]
 }
 
@@ -841,6 +1060,24 @@ resource "google_cloud_scheduler_job" "sync_mercury" {
   depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
 }
 
+# ─── Cloud Scheduler: Scheduler Tick ─────────────────────────
+resource "google_cloud_scheduler_job" "scheduler_tick" {
+  name      = "scheduler-tick"
+  schedule  = "* * * * *"
+  time_zone = "UTC"
+  region    = var.region
+
+  http_target {
+    uri         = "${google_cloud_run_v2_service.scheduler.uri}/scheduler/tick"
+    http_method = "POST"
+    oidc_token {
+      service_account_email = google_service_account.glyphor.email
+    }
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
 # ─── IAM ──────────────────────────────────────────────────────
 resource "google_cloud_run_v2_service_iam_member" "scheduler_invoker" {
   name     = google_cloud_run_v2_service.scheduler.name
@@ -879,6 +1116,31 @@ resource "google_project_iam_member" "monitoring_viewer" {
 resource "google_project_iam_member" "cloudbuild_viewer" {
   project = var.project_id
   role    = "roles/cloudbuild.builds.viewer"
+  member  = "serviceAccount:${google_service_account.glyphor.email}"
+}
+
+resource "google_project_iam_member" "cloudsql_client" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${google_service_account.glyphor.email}"
+}
+
+resource "google_project_iam_member" "worker_cloudsql_client" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${google_service_account.worker.email}"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "worker_invoker" {
+  name     = google_cloud_run_v2_service.worker.name
+  location = var.region
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.glyphor.email}"
+}
+
+resource "google_project_iam_member" "cloudtasks_enqueuer" {
+  project = var.project_id
+  role    = "roles/cloudtasks.enqueuer"
   member  = "serviceAccount:${google_service_account.glyphor.email}"
 }
 
@@ -1096,4 +1358,16 @@ output "redis_host" {
 
 output "redis_port" {
   value = google_redis_instance.cache.port
+}
+
+output "worker_url" {
+  value = google_cloud_run_v2_service.worker.uri
+}
+
+output "worker_service_account_email" {
+  value = google_service_account.worker.email
+}
+
+output "cloud_sql_connection_name" {
+  value = google_sql_database_instance.glyphor_db.connection_name
 }

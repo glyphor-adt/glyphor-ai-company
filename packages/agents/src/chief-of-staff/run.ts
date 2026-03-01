@@ -159,7 +159,7 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(supabase),
     ...orchestrationTools,
-    ...createAssignmentTools(supabase, glyphorEventBus),
+    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createAgentCreationTools(supabase),
     ...createToolRequestTools(supabase),

@@ -3,7 +3,7 @@
  */
 
 import { BigQuery } from '@google-cloud/bigquery';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { systemQuery } from '@glyphor/shared/db';
 
 let bqClient: BigQuery | null = null;
 
@@ -81,7 +81,6 @@ function slugifyService(description: string): string {
  *  - `gcp_billing` table: per-service per-day rows (for cost-analyst / devops agents)
  */
 export async function syncBillingToSupabase(
-  supabase: SupabaseClient,
   projectId: string,
   billingDataset: string,
   billingTable: string,
@@ -96,11 +95,10 @@ export async function syncBillingToSupabase(
 
     // Delete stale rows for the dates we are about to re-write so re-syncs don't stack duplicates
     for (const date of uniqueDates) {
-      const { error: delErr } = await supabase
-        .from('gcp_billing')
-        .delete()
-        .eq('usage->>date', date);
-      if (delErr) console.warn('[GCP Billing] gcp_billing delete error:', delErr.message);
+      await systemQuery(
+        "DELETE FROM gcp_billing WHERE usage->>'date' = $1",
+        [date],
+      );
     }
 
     const gcpRows = costs.map((row) => ({
@@ -115,8 +113,12 @@ export async function syncBillingToSupabase(
     // Insert in batches of 100
     for (let i = 0; i < gcpRows.length; i += 100) {
       const batch = gcpRows.slice(i, i + 100);
-      const { error } = await supabase.from('gcp_billing').insert(batch);
-      if (error) console.warn('[GCP Billing] gcp_billing insert error:', error.message);
+      for (const row of batch) {
+        await systemQuery(
+          'INSERT INTO gcp_billing (service, cost_usd, project, product, usage, recorded_at) VALUES ($1, $2, $3, $4, $5, $6)',
+          [row.service, row.cost_usd, row.project, row.product, JSON.stringify(row.usage), row.recorded_at],
+        );
+      }
       servicesSynced += batch.length;
     }
     console.log(`[GCP Billing] Wrote ${servicesSynced} per-service rows to gcp_billing`);
@@ -140,28 +142,26 @@ export async function syncBillingToSupabase(
 
   // Helper to upsert a financials row
   async function upsertFinancial(date: string, product: string | null, cost: number, details: Record<string, unknown>) {
-    let query = supabase
-      .from('financials')
-      .select('id')
-      .eq('date', date)
-      .eq('metric', 'infra_cost');
+    let existing: { id: string }[];
     if (product === null) {
-      query = query.is('product', null);
+      existing = await systemQuery<{ id: string }>(
+        'SELECT id FROM financials WHERE date = $1 AND metric = $2 AND product IS NULL LIMIT 1',
+        [date, 'infra_cost'],
+      );
     } else {
-      query = query.eq('product', product);
+      existing = await systemQuery<{ id: string }>(
+        'SELECT id FROM financials WHERE date = $1 AND metric = $2 AND product = $3 LIMIT 1',
+        [date, 'infra_cost', product],
+      );
     }
-    const { data: existing } = await query.limit(1);
 
-    if (existing && existing.length > 0) {
-      await supabase.from('financials').update({ value: parseFloat(cost.toFixed(2)) }).eq('id', existing[0].id);
+    if (existing.length > 0) {
+      await systemQuery('UPDATE financials SET value = $1 WHERE id = $2', [parseFloat(cost.toFixed(2)), existing[0].id]);
     } else {
-      await supabase.from('financials').insert({
-        date,
-        product,
-        metric: 'infra_cost',
-        value: parseFloat(cost.toFixed(2)),
-        details,
-      });
+      await systemQuery(
+        'INSERT INTO financials (date, product, metric, value, details) VALUES ($1, $2, $3, $4, $5)',
+        [date, product, 'infra_cost', parseFloat(cost.toFixed(2)), JSON.stringify(details)],
+      );
     }
     synced++;
   }
