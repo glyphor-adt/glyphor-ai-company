@@ -1,0 +1,100 @@
+# Supabase Migrations
+
+This directory contains PostgreSQL migrations for the Glyphor AI Company database.
+
+## Multi-Tenancy Security Model
+
+The database implements row-level security (RLS) for tenant isolation. See migration `20260302100003_row_level_security.sql` for details.
+
+### Database Users and Roles
+
+1. **`glyphor_system`** (NOLOGIN role)
+   - Group role with RLS bypass policies on all tenant-scoped tables
+   - Cannot log in directly; must be assumed via `SET ROLE`
+
+2. **`glyphor_system_user`** (LOGIN user)
+   - Dedicated user for backend services (scheduler, worker) that need system-wide access
+   - Has `glyphor_system` role granted, allowing RLS bypass via `SET ROLE glyphor_system`
+   - **Use for**: Services that call `systemQuery()` in `@glyphor/shared/db`
+   - **Environment**: Set `DB_USER=glyphor_system_user` for scheduler and worker services
+
+3. **`glyphor_app`** (LOGIN user)
+   - General application user for tenant-scoped operations
+   - Does NOT have `glyphor_system` granted - cannot bypass RLS
+   - **Use for**: Dashboard, API services, any tenant-scoped application
+   - **Environment**: Set `DB_USER=glyphor_app` for dashboard and tenant services
+
+### Setup Instructions
+
+After running the RLS migration, you must set a password for `glyphor_system_user`:
+
+```sql
+ALTER ROLE glyphor_system_user WITH PASSWORD 'your-secure-password';
+```
+
+Store this password in GCP Secret Manager:
+
+```bash
+# Create the secret
+echo -n "your-secure-password" | gcloud secrets create db-system-password \
+  --data-file=- \
+  --project=ai-glyphor-company
+
+# Grant access to the scheduler service account
+gcloud secrets add-iam-policy-binding db-system-password \
+  --member="serviceAccount:glyphor-scheduler@ai-glyphor-company.iam.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor" \
+  --project=ai-glyphor-company
+```
+
+### Deployment Configuration
+
+#### Scheduler Service (needs system access)
+
+```yaml
+env:
+  - DB_HOST: /cloudsql/ai-glyphor-company:us-central1:glyphor-db
+  - DB_NAME: glyphor
+  - DB_USER: glyphor_system_user  # ← Uses system user
+secrets:
+  - DB_PASSWORD: db-system-password:latest
+```
+
+#### Dashboard Service (tenant-scoped)
+
+```yaml
+env:
+  - DB_HOST: /cloudsql/ai-glyphor-company:us-central1:glyphor-db
+  - DB_NAME: glyphor
+  - DB_USER: glyphor_app  # ← Uses regular app user
+secrets:
+  - DB_PASSWORD: db-password:latest
+```
+
+### Why This Matters
+
+This separation ensures:
+
+- **Tenant Isolation**: Regular application code cannot accidentally or maliciously access other tenants' data
+- **Principle of Least Privilege**: Only services that explicitly need cross-tenant access have it
+- **Defense in Depth**: Even if there's SQL injection in dashboard code, it cannot bypass RLS
+- **Audit Trail**: System-wide operations are clearly separated from tenant operations
+
+### Migration Files
+
+Key migrations in order:
+
+1. `20260302100001_tenants.sql` - Core tenant tables
+2. `20260302100002_tenant_isolation.sql` - Add tenant_id columns to existing tables
+3. `20260302100003_row_level_security.sql` - Enable RLS and create security roles
+4. `20260302100004_seed_glyphor_tenant.sql` - Seed default tenant
+
+## Running Migrations
+
+Migrations are applied automatically by Supabase when committed to this directory.
+
+For local development:
+```bash
+supabase db reset  # Reset and rerun all migrations
+supabase db diff   # Check for schema changes
+```
