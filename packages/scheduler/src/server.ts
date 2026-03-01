@@ -42,6 +42,7 @@ import {
 import { WakeRouter } from './wakeRouter.js';
 import { DataSyncScheduler } from './dataSyncScheduler.js';
 import { HeartbeatManager } from './heartbeat.js';
+import { handleDashboardApi } from './dashboardApi.js';
 import {
   runChiefOfStaff, runCTO, runCFO, runCLO, runCPO, runCMO, runVPCS, runVPSales, runVPDesign,
   runPlatformEngineer, runQualityEngineer, runDevOpsEngineer,
@@ -1818,6 +1819,9 @@ const server = createServer(async (req, res) => {
       }
       return;
     }
+
+    // ── Dashboard CRUD API (/api/*) ────────────────────────────────
+    if (await handleDashboardApi(req, res, url, queryString ?? '', method)) return;
 
     json(res, 404, { error: 'Not found' });
   } catch (err) {

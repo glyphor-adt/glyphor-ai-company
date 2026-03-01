@@ -21,7 +21,7 @@ export async function getAuthToken(): Promise<string | null> {
   return user.getIdToken();
 }
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+const API_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_SCHEDULER_URL || '';
 
 export async function apiCall<T = any>(path: string, options: RequestInit = {}): Promise<T> {
   const token = await getAuthToken();
