@@ -74,7 +74,16 @@ options:
 - `RETRY_DELAY` (default: 10 seconds)
 - `EXPONENTIAL_BACKOFF` (default: true)
 
-### 5. Inline Retry Logic Example
+### 5. GitHub Actions Retry Logic
+**Location:** `.github/workflows/deploy.yml`
+
+**What it does:**
+- Inline retry logic in build steps
+- Retries up to 3 times with linear backoff (10s, 20s, 30s)
+- Applies to both scheduler and dashboard builds
+- Logs each attempt for visibility
+
+### 6. Inline Retry Logic Example
 For Cloud Build environments, see `cloudbuild-with-retry.yaml` for a complete example using inline bash retry logic.
 
 ## Common Failure Scenarios
