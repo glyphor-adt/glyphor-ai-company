@@ -303,40 +303,29 @@ export class SharedMemoryLoader {
     discoveredBy: CompanyAgentRole;
     sourceEpisodes?: string[];
   }): Promise<string | null> {
-    const { data, error } = await this.supabase // TODO: remove legacy reference
-      .from('shared_procedures')
-      .insert({
-        slug: procedure.slug,
-        name: procedure.name,
-        domain: procedure.domain,
-        description: procedure.description,
-        steps: procedure.steps,
-        preconditions: procedure.preconditions ?? [],
-        tools_needed: procedure.toolsNeeded ?? [],
-        discovered_by: procedure.discoveredBy,
-        source_episodes: procedure.sourceEpisodes ?? [],
-        status: 'proposed',
-      })
-      .select('id')
-      .single();
-
-    if (error) {
-      console.warn('[SharedMemoryLoader] Failed to propose procedure:', error.message);
+    try {
+      const [data] = await systemQuery<{ id: string }>(
+        `INSERT INTO shared_procedures (slug, name, domain, description, steps, preconditions, tools_needed, discovered_by, source_episodes, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+        [procedure.slug, procedure.name, procedure.domain, procedure.description, JSON.stringify(procedure.steps), procedure.preconditions ?? [], procedure.toolsNeeded ?? [], procedure.discoveredBy, procedure.sourceEpisodes ?? [], 'proposed'],
+      );
+      return data?.id ?? null;
+    } catch (err) {
+      console.warn('[SharedMemoryLoader] Failed to propose procedure:', (err as Error).message);
       return null;
     }
-    return data?.id ?? null;
   }
 
   // ─── Layer 5: World Model ───────────────────────────────────
 
   async getWorldModel(role: CompanyAgentRole): Promise<AgentWorldModel | null> {
-    const { data, error } = await this.supabase
-      .from('agent_world_model')
-      .select('*')
-      .eq('agent_role', role)
-      .single();
+    const rows = await systemQuery<any>(
+      'SELECT * FROM agent_world_model WHERE agent_role = $1',
+      [role],
+    );
 
-    if (error || !data) return null;
+    const data = rows[0];
+    if (!data) return null;
 
     return {
       id: data.id,
@@ -358,27 +347,21 @@ export class SharedMemoryLoader {
   }
 
   async saveWorldModel(role: CompanyAgentRole, model: Partial<AgentWorldModel>): Promise<void> {
-    const { error } = await this.supabase
-      .from('agent_world_model')
-      .upsert({
-        agent_role: role,
-        updated_at: new Date().toISOString(),
-        strengths: model.strengths ?? [],
-        weaknesses: model.weaknesses ?? [],
-        blindspots: model.blindspots ?? [],
-        preferred_approaches: model.preferredApproaches ?? {},
-        failure_patterns: model.failurePatterns ?? [],
-        task_type_scores: model.taskTypeScores ?? {},
-        tool_proficiency: model.toolProficiency ?? {},
-        collaboration_map: model.collaborationMap ?? {},
-        last_predictions: model.lastPredictions ?? [],
-        prediction_accuracy: model.predictionAccuracy ?? 0.5,
-        improvement_goals: model.improvementGoals ?? [],
-        rubric_version: model.rubricVersion ?? 1,
-      }, { onConflict: 'agent_role' });
-
-    if (error) {
-      console.warn('[SharedMemoryLoader] Failed to save world model:', error.message);
+    try {
+      await systemQuery(
+        `INSERT INTO agent_world_model (agent_role, updated_at, strengths, weaknesses, blindspots, preferred_approaches, failure_patterns, task_type_scores, tool_proficiency, collaboration_map, last_predictions, prediction_accuracy, improvement_goals, rubric_version)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+         ON CONFLICT (agent_role) DO UPDATE SET
+           updated_at = EXCLUDED.updated_at, strengths = EXCLUDED.strengths, weaknesses = EXCLUDED.weaknesses,
+           blindspots = EXCLUDED.blindspots, preferred_approaches = EXCLUDED.preferred_approaches,
+           failure_patterns = EXCLUDED.failure_patterns, task_type_scores = EXCLUDED.task_type_scores,
+           tool_proficiency = EXCLUDED.tool_proficiency, collaboration_map = EXCLUDED.collaboration_map,
+           last_predictions = EXCLUDED.last_predictions, prediction_accuracy = EXCLUDED.prediction_accuracy,
+           improvement_goals = EXCLUDED.improvement_goals, rubric_version = EXCLUDED.rubric_version`,
+        [role, new Date().toISOString(), JSON.stringify(model.strengths ?? []), JSON.stringify(model.weaknesses ?? []), JSON.stringify(model.blindspots ?? []), JSON.stringify(model.preferredApproaches ?? {}), JSON.stringify(model.failurePatterns ?? []), JSON.stringify(model.taskTypeScores ?? {}), JSON.stringify(model.toolProficiency ?? {}), JSON.stringify(model.collaborationMap ?? {}), JSON.stringify(model.lastPredictions ?? []), model.predictionAccuracy ?? 0.5, JSON.stringify(model.improvementGoals ?? []), model.rubricVersion ?? 1],
+      );
+    } catch (err) {
+      console.warn('[SharedMemoryLoader] Failed to save world model:', (err as Error).message);
     }
   }
 
@@ -389,32 +372,20 @@ export class SharedMemoryLoader {
     passingScore: number;
     excellenceScore: number;
   } | null> {
-    const { data, error } = await this.supabase
-      .from('role_rubrics')
-      .select('*')
-      .eq('role', role)
-      .eq('task_type', taskType)
-      .order('version', { ascending: false })
-      .limit(1)
-      .single();
+    const rows = await systemQuery<any>(
+      'SELECT * FROM role_rubrics WHERE role = $1 AND task_type = $2 ORDER BY version DESC LIMIT 1',
+      [role, taskType],
+    );
 
-    if (error || !data) {
+    let data = rows[0];
+    if (!data) {
       // Fall back to the default rubric
-      const { data: fallback } = await this.supabase
-        .from('role_rubrics')
-        .select('*')
-        .eq('role', '_default')
-        .eq('task_type', taskType)
-        .order('version', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (!fallback) return null;
-      return {
-        dimensions: fallback.dimensions,
-        passingScore: fallback.passing_score,
-        excellenceScore: fallback.excellence_score,
-      };
+      const fallbackRows = await systemQuery<any>(
+        "SELECT * FROM role_rubrics WHERE role = '_default' AND task_type = $1 ORDER BY version DESC LIMIT 1",
+        [taskType],
+      );
+      data = fallbackRows[0];
+      if (!data) return null;
     }
 
     return {
