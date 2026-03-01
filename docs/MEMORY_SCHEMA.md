@@ -11,7 +11,7 @@ Implemented in `packages/company-memory/src/store.ts` as `CompanyMemoryStore`.
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| Structured data | Supabase (PostgreSQL + pgvector) | Queryable records — profiles, metrics, decisions, activity, semantic search |
+| Structured data | Cloud SQL (PostgreSQL + pgvector) | Queryable records — profiles, metrics, decisions, activity, semantic search |
 | Large documents | Google Cloud Storage | Briefings, reports, specs, analysis documents |
 | Static knowledge | Markdown files on disk | Company knowledge base + agent briefs + dept context (read-only at runtime) |
 
@@ -1338,7 +1338,7 @@ gs://glyphor-company/
 
 ## Static Knowledge (Read-Only)
 
-In addition to Supabase and GCS, agents receive company context via markdown files
+In addition to Cloud SQL and GCS, agents receive company context via markdown files
 at the system prompt level. These are NOT stored in the database — they are read from
 disk at runtime by `CompanyAgentRunner.buildSystemPrompt()`.
 
@@ -1372,7 +1372,7 @@ rebuild and redeploy the scheduler image with `--no-cache`.
 
 ## Namespace Keys
 
-Used by `CompanyMemoryStore` for key-value access patterns on top of Supabase rows.
+Used by `CompanyMemoryStore` for key-value access patterns on top of Cloud SQL rows.
 
 | Prefix | Examples | Table |
 |--------|----------|-------|
@@ -1420,11 +1420,12 @@ interface IMemoryBus {
 
 ---
 
-## Supabase Connection
+## Cloud SQL Connection
 
 | Setting | Value |
 |---------|-------|
-| **URL** | `https://ztucrgzcoaryzuvkcaif.supabase.co` |
-| **Server-side key** | `SUPABASE_SERVICE_KEY` (stored in GCP Secret Manager) |
-| **Client-side key** | `VITE_SUPABASE_ANON_KEY` (baked into dashboard build) |
+| **Host** | `DB_HOST` (stored in GCP Secret Manager) |
+| **Database** | `DB_NAME` (stored in GCP Secret Manager) |
+| **User** | `DB_USER` (stored in GCP Secret Manager) |
+| **Password** | `DB_PASSWORD` (stored in GCP Secret Manager) |
 | **Migrations** | `supabase/migrations/` (33 files) |

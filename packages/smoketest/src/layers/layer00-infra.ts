@@ -5,7 +5,7 @@
 
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
 import { httpGet } from '../utils/http.js';
-import { queryTable } from '../utils/supabase.js';
+import { queryTable } from '../utils/db.js';
 import { isGcloudAvailable, gcloudExec } from '../utils/gcloud.js';
 
 async function runTest(

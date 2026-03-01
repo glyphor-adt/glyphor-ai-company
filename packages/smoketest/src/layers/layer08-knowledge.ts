@@ -6,7 +6,7 @@
 
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
 import { httpPost } from '../utils/http.js';
-import { query } from '../utils/supabase.js';
+import { query } from '../utils/db.js';
 
 async function runTest(
   id: string,

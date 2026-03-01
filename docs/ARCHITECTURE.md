@@ -865,7 +865,7 @@ glyphor-ai-company/
 │       ├── adi-rose/            # Executive Assistant bot
 │       └── ... (24 more)        # All other agents
 │
-├── supabase/migrations/         # 86 SQL migration files (historical)
+├── supabase/migrations/         # 86 SQL migration files (historical, pre-GCP)
 ├── .github/workflows/deploy.yml # CI/CD (GitHub Actions → Cloud Run)
 ├── turbo.json                   # Turborepo pipeline config
 ├── tsconfig.base.json           # Shared TS config
@@ -2209,7 +2209,7 @@ Raw context (memories + graph + episodes + procedures)
 ### Runtime Tool Factory (`runtimeToolFactory.ts`)
 
 Enables agents to synthesize new tools mid-run when no existing tool covers their need.
-Supports three implementation types: HTTP fetch, Supabase query, and sandboxed JavaScript.
+Supports three implementation types: HTTP fetch, Cloud SQL query, and sandboxed JavaScript.
 
 ```
 Agent requests new tool → RuntimeToolFactory.register(definition)
@@ -2278,7 +2278,7 @@ Statuses: `pending` → `submitted` → `in_progress` → `review` → `merged` 
 | `packages/agent-runtime/src/redisCache.ts` | Redis cache layer for GCP Memorystore (TTL management, graceful degradation) |
 | `packages/agent-runtime/src/toolRegistry.ts` | Central tool lookup via static KNOWN_TOOLS + dynamic `tool_registry` DB table |
 | `packages/agent-runtime/src/contextDistiller.ts` | JIT context compression via gemini-3-flash-preview (~$0.001/call), 5-min Redis cache |
-| `packages/agent-runtime/src/runtimeToolFactory.ts` | Mid-run tool synthesis (HTTP/Supabase/sandboxed JS), max 3 per run, 20 persisted |
+| `packages/agent-runtime/src/runtimeToolFactory.ts` | Mid-run tool synthesis (HTTP/Cloud SQL/sandboxed JS), max 3 per run, 20 persisted |
 | `packages/scheduler/src/changeRequestHandler.ts` | Dashboard change request → GitHub issue pipeline, heartbeat-driven (every 10 min) |
 | `packages/scheduler/src/brandTheme.ts` | Centralized design-system constants for PPTX/DOCX/image exports |
 | `packages/scheduler/src/logoAsset.ts` | Logo PNG asset loading for branded report exports |
@@ -2418,7 +2418,7 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 
 ---
 
-## Supabase Database Schema
+## Cloud SQL Database Schema
 
 ### Core Tables
 
@@ -2634,7 +2634,7 @@ Total: **86 migration files**, **86+ tables**, **10 RPC functions**, **1 extensi
 
 | Service | Purpose | Config |
 |---------|---------|--------|
-| Supabase | PostgreSQL, auth, realtime | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` |
+| Cloud SQL | PostgreSQL database | `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` |
 | Google Gemini API | Primary AI inference | `GOOGLE_AI_API_KEY` |
 | OpenAI API | Alternative AI inference + web search + image gen | `OPENAI_API_KEY` |
 | Anthropic API | Alternative AI inference (Claude) | `ANTHROPIC_API_KEY` |
@@ -2693,7 +2693,7 @@ Total: **86 migration files**, **86+ tables**, **10 RPC functions**, **1 extensi
 | Markdown | `react-markdown` for agent chat |
 | Auth | Teams SSO (`@microsoft/teams-js`) in Teams tab; Google Sign-In (OAuth 2.0) in browser |
 | Hosting | nginx:1.27-alpine on Cloud Run |
-| API | Supabase client (direct) + Scheduler `/run` |
+| API | Scheduler `/run` + direct Cloud SQL queries |
 
 ### Pages
 
@@ -2746,7 +2746,7 @@ Total: **86 migration files**, **86+ tables**, **10 RPC functions**, **1 extensi
 
 ### Build Args (baked at Docker build)
 
-`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SCHEDULER_URL`, `VITE_GOOGLE_CLIENT_ID`
+`VITE_SCHEDULER_URL`, `VITE_GOOGLE_CLIENT_ID`
 
 ---
 
@@ -2808,7 +2808,7 @@ Cloud Scheduler → Pub/Sub "glyphor-agent-events"
 ```
 Cloud Scheduler → HTTP POST to scheduler
   → POST /sync/mercury
-  → syncMercuryAll(supabase)
+  → syncMercuryAll()
     → Mercury API: list accounts, get transactions
     → syncCashBalance() → upsert financials table
     → syncCashFlows() → upsert financials table
@@ -2821,7 +2821,7 @@ Cloud Scheduler → HTTP POST to scheduler
 ```
 Agent tool calls create_decision with tier:'yellow'
   → DecisionQueue.submit()
-  → Write to Supabase decisions table
+  → Write to Cloud SQL decisions table
   → formatDecisionCard() → send to #decisions via Graph API (or webhook)
   → Status: 'pending'
   → sendReminders() checks every 4 hours
@@ -2897,7 +2897,7 @@ Dashboard → POST /analysis/run {type:"competitive_landscape", query:"AI market
 | API Keys | GCP Secret Manager → env vars at Cloud Run deploy (`--update-secrets`, merge mode) |
 | Dashboard Auth | Teams SSO (`@microsoft/teams-js` + Entra ID) in Teams tab; Google OAuth 2.0 in browser |
 | Bot Auth | JWT validation via `jose` — JWKS from Bot Framework and Entra ID OpenID endpoints, multi-audience support |
-| Supabase | Service key server-side; anon key client-side with RLS |
+| Cloud SQL | Accessed via `pg` pool server-side with connection params |
 | Teams Auth | MSAL client credentials (app-only) for Graph API; Bot Framework tokens for bot replies |
 | Azure Entra ID | SingleTenant app registrations — 1 main + 10 agent bots, all with client secrets in GCP Secret Manager |
 | CORS | Scheduler allows `*` for dashboard |
@@ -2927,7 +2927,7 @@ npm run dashboard:dev         # Dashboard dev server
 Deployment is handled by GitHub Actions CI/CD (`.github/workflows/deploy.yml`) on push to `main`. Key points:
 - Uses `--update-secrets` (merge mode) — only listed secrets are updated, existing ones preserved
 - Uses `--update-env-vars` (merge mode) — same merge behavior for env vars
-- Current secrets: 25+ total (AI keys, Supabase, Azure/Teams, Bot Framework, Stripe, Mercury)
+- Current secrets: 25+ total (AI keys, Cloud SQL, Azure/Teams, Bot Framework, Stripe, Mercury)
 - Dashboard build args baked at Docker build time (`VITE_*` vars)
 
 #### CI/CD Pipeline
@@ -2951,7 +2951,7 @@ push to main
 | `google-ai-api-key` | Gemini API |
 | `openai-api-key` | OpenAI fallback |
 | `anthropic-api-key` | Anthropic fallback |
-| `supabase-url`, `supabase-service-key` | Database |
+| `db-host`, `db-name`, `db-user`, `db-password` | Cloud SQL Database |
 | `gcs-bucket` | Cloud Storage |
 | `azure-tenant-id`, `azure-client-id`, `azure-client-secret` | Graph API (MSAL) |
 | `teams-team-id` | Teams team |
@@ -2975,8 +2975,6 @@ gcloud run deploy glyphor-scheduler \
 
 # Dashboard (with build args)
 docker build --no-cache -f docker/Dockerfile.dashboard \
-  --build-arg VITE_SUPABASE_URL=... \
-  --build-arg VITE_SUPABASE_ANON_KEY=... \
   --build-arg VITE_SCHEDULER_URL=... \
   --build-arg VITE_GOOGLE_CLIENT_ID=... \
   -t us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/dashboard:latest .

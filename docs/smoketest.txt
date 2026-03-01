@@ -36,10 +36,10 @@ curl -s https://voice-gateway-<hash>-uc.a.run.app/health | jq .
 **Pass:** Scheduler returns JSON with `{ status: "ok" }`. Dashboard returns 200. Voice returns health JSON.
 **Fail:** 503/502 = Cloud Run instance not starting. Check GCP Console → Cloud Run → Logs for startup errors.
 
-### T0.2 — Supabase Connection
+### T0.2 — Database Connection
 
 ```sql
--- Run in Supabase SQL Editor
+-- Run via psql or Cloud SQL console
 SELECT COUNT(*) as table_count FROM information_schema.tables 
 WHERE table_schema = 'public';
 ```

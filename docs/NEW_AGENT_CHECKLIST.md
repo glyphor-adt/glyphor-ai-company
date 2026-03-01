@@ -23,7 +23,7 @@
 | 12 | `dashboard/src/pages/Workforce.tsx` | `TITLE_MAP` + `DEPARTMENTS` (if exec) + grid sort order |
 | 13 | `company-knowledge/briefs/<name>.md` | Agent brief file |
 | 14 | `scripts/generate-avatars.mjs` | Add to `AGENTS` array, then run script |
-| 15 | `supabase/migrations/` | SQL migration: `company_agents` + `agent_profiles` |
+| 15 | `supabase/migrations/` | SQL migration (applied via psql to Cloud SQL): `company_agents` + `agent_profiles` |
 | 16 | **M365 Exchange** | Create shared mailbox `name@glyphor.ai` |
 | 17 | **Build & Deploy** | `npx turbo build --force`, deploy to Cloud Run |
 
@@ -126,12 +126,12 @@ ALL of these are **mandatory**:
 
 ### Phase 5: Database & External Services
 
-#### 14. Create Supabase Migration
+#### 14. Create Database Migration
 **File:** `supabase/migrations/<YYYYMMDD>HHMMSS_<agent>_agent.sql`
 
 - [ ] `INSERT INTO company_agents` (role, display_name, name, title, model, status, reports_to, is_core)
 - [ ] `INSERT INTO agent_profiles` (personality_summary, backstory, communication_traits, quirks, tone_settings, voice_sample, signature, clifton_strengths, voice_examples)
-- [ ] Run: `npx supabase db push`
+- [ ] Run: `psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f supabase/migrations/<migration_file>.sql`
 
 #### 15. Create M365 Shared Mailbox
 **PowerShell (Exchange Online):**
@@ -201,4 +201,4 @@ Budget (monthly): $_______________
 | Forgetting agent brief .md file | Agent runtime loads empty context |
 | Forgetting M365 mailbox | Email send/receive fails silently |
 | Forgetting `EMAIL_ENABLED_AGENTS` | Agent never polls inbox even if mailbox exists |
-| Forgetting Supabase migration | Agent doesn't appear in database queries |
+| Forgetting database migration | Agent doesn't appear in database queries |

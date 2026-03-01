@@ -145,15 +145,15 @@ export const GRAPHRAG_MODEL = 'gemini-2.5-flash';
 // try the next model in the chain. Each chain crosses providers.
 
 export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
-  // Gemini primary → try Anthropic → then OpenAI
-  'gemini-3.1-pro-preview': ['claude-sonnet-4-6', 'gpt-5'],
-  'gemini-3-flash-preview': ['claude-haiku-4-5', 'gpt-5-mini'],
-  'gemini-3-pro-preview':   ['claude-sonnet-4-6', 'gpt-5'],
-  'gemini-2.5-flash':       ['claude-haiku-4-5', 'gpt-5-mini'],
-  'gemini-2.5-flash-lite':  ['gpt-5-nano', 'claude-haiku-4-5'],
-  'gemini-2.5-pro':         ['claude-opus-4-6', 'gpt-5.2'],
+  // Gemini primary → try another Gemini tier first, then cross-provider
+  'gemini-3.1-pro-preview': ['gemini-3-pro-preview', 'claude-sonnet-4-6'],
+  'gemini-3-flash-preview': ['gemini-2.5-flash', 'claude-haiku-4-5'],
+  'gemini-3-pro-preview':   ['gemini-2.5-pro', 'claude-sonnet-4-6'],
+  'gemini-2.5-flash':       ['gemini-3-flash-preview', 'claude-haiku-4-5'],
+  'gemini-2.5-flash-lite':  ['gemini-2.5-flash', 'gpt-5-nano'],
+  'gemini-2.5-pro':         ['gemini-3-pro-preview', 'claude-opus-4-6'],
 
-  // OpenAI primary → try Gemini → then Anthropic
+  // OpenAI primary → try Gemini first (GCP-resident), then Anthropic
   'gpt-5.2':                ['gemini-3.1-pro-preview', 'claude-opus-4-6'],
   'gpt-5.2-pro':            ['gemini-3.1-pro-preview', 'claude-opus-4-6'],
   'gpt-5.1':                ['gemini-3-pro-preview', 'claude-sonnet-4-6'],
@@ -165,7 +165,7 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
   'o3':                     ['gemini-3.1-pro-preview', 'claude-opus-4-6'],
   'o4-mini':                ['gemini-3-flash-preview', 'claude-sonnet-4-6'],
 
-  // Anthropic primary → try Gemini → then OpenAI
+  // Anthropic primary → try Gemini first (GCP-resident), then OpenAI
   'claude-opus-4-6':        ['gemini-3.1-pro-preview', 'gpt-5.2'],
   'claude-sonnet-4-6':      ['gemini-3-flash-preview', 'gpt-5-mini'],
   'claude-haiku-4-5':       ['gemini-2.5-flash', 'gpt-5-nano'],
@@ -203,32 +203,32 @@ export const VERIFIER_MAP: Record<string, string> = {
 };
 
 // ─── Deep dive research models ──────────────────────────────
-// Each research area gets a model from a different provider to ensure
-// diverse perspectives. Areas are distributed round-robin across 3 providers.
+// GCP-first strategy: majority of research areas use Gemini (lower cost on our
+// infra), with select areas using OpenAI/Anthropic for perspective diversity.
 
 export const DEEP_DIVE_MODELS: Record<string, string> = {
   overview:             'gemini-3-pro-preview',
-  financials:           'gpt-5-mini',
+  financials:           'gemini-3-pro-preview',
   technology:           'claude-sonnet-4-6',
   market:               'gemini-3-pro-preview',
-  competitive:          'gpt-5-mini',
-  leadership:           'claude-sonnet-4-6',
+  competitive:          'gemini-3-pro-preview',
+  leadership:           'gpt-5-mini',
   customers:            'gemini-3-pro-preview',
-  risks:                'gpt-5-mini',
-  company_profile:      'claude-sonnet-4-6',
-  strategic_direction:  'gemini-3-pro-preview',
-  segment_analysis:     'gpt-5-mini',
-  ma_activity:          'claude-sonnet-4-6',
+  risks:                'gemini-3-pro-preview',
+  company_profile:      'gemini-3-pro-preview',
+  strategic_direction:  'claude-sonnet-4-6',
+  segment_analysis:     'gemini-3-pro-preview',
+  ma_activity:          'gemini-3-pro-preview',
   ai_impact:            'gemini-3-pro-preview',
   talent_assessment:    'gpt-5-mini',
   regulatory_landscape: 'claude-sonnet-4-6',
 };
 
-/** The three models used for cross-model deep dive verification */
-export const DEEP_DIVE_VERIFICATION_MODELS = ['gemini-3-pro-preview', 'gpt-5-mini', 'claude-sonnet-4-6'] as const;
+/** The three models used for cross-model deep dive verification (Gemini-first) */
+export const DEEP_DIVE_VERIFICATION_MODELS = ['gemini-3-pro-preview', 'gemini-3-flash-preview', 'claude-sonnet-4-6'] as const;
 
-/** The three models used for reasoning engine verification */
-export const REASONING_VERIFICATION_MODELS = ['gemini-3-flash-preview', 'gpt-5-mini', 'claude-sonnet-4-6'] as const;
+/** The three models used for reasoning engine verification (Gemini-first) */
+export const REASONING_VERIFICATION_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'claude-sonnet-4-6'] as const;
 
 // ─── Helper functions ────────────────────────────────────────
 
@@ -308,17 +308,33 @@ export function getVerifierFor(primaryModel: string): string {
 }
 
 /**
- * Estimate the cost of a model call.
+ * Estimate the cost of a model call with full token breakdown.
+ *
+ * - thinkingTokens: billed at thinkingPer1M (or outputPer1M if unset). NOT included in outputTokens.
+ * - cachedInputTokens: billed at inputPer1M × cachedInputDiscount (or full price if unset). Already included in inputTokens.
  */
-export function estimateModelCost(model: string, inputTokens: number, outputTokens: number): number {
+export function estimateModelCost(
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  thinkingTokens = 0,
+  cachedInputTokens = 0,
+): number {
   const def = getModel(model);
-  if (def) {
-    return (inputTokens * def.inputPer1M + outputTokens * def.outputPer1M) / 1_000_000;
-  }
-  // Prefix-based fallback for unknown models
-  const prefix = SUPPORTED_MODELS.find(m => model.startsWith(m.id.split('-').slice(0, 2).join('-')));
-  const pricing = prefix ?? { inputPer1M: 0.10, outputPer1M: 0.40 };
-  return (inputTokens * pricing.inputPer1M + outputTokens * pricing.outputPer1M) / 1_000_000;
+  const pricing = def
+    ?? SUPPORTED_MODELS.find(m => model.startsWith(m.id.split('-').slice(0, 2).join('-')))
+    ?? { inputPer1M: 0.10, outputPer1M: 0.40, thinkingPer1M: undefined, cachedInputDiscount: undefined };
+
+  const thinkingRate = pricing.thinkingPer1M ?? pricing.outputPer1M;
+  const cacheDiscount = pricing.cachedInputDiscount ?? 1.0;
+
+  // Cached tokens are already counted in inputTokens — adjust by giving back the discount portion
+  const uncachedInputTokens = inputTokens - cachedInputTokens;
+  const inputCost = (uncachedInputTokens * pricing.inputPer1M + cachedInputTokens * pricing.inputPer1M * cacheDiscount) / 1_000_000;
+  const outputCost = (outputTokens * pricing.outputPer1M) / 1_000_000;
+  const thinkingCost = (thinkingTokens * thinkingRate) / 1_000_000;
+
+  return inputCost + outputCost + thinkingCost;
 }
 
 /**

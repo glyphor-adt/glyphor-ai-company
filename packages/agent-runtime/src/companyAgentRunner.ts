@@ -58,8 +58,8 @@ const THINKING_CALL_TIMEOUT_MS = 90_000;
 
 /** Approximate per-token pricing (USD) — uses centralized model registry. */
 
-function estimateCost(model: string, inputTokens: number, outputTokens: number): number {
-  return estimateModelCost(model, inputTokens, outputTokens);
+function estimateCost(model: string, inputTokens: number, outputTokens: number, thinkingTokens = 0, cachedInputTokens = 0): number {
+  return estimateModelCost(model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens);
 }
 
 /** Overall supervisor limits for on_demand (chat) — keep well within the
@@ -950,6 +950,8 @@ export class CompanyAgentRunner {
     let lastTextOutput: string | null = null;
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    let totalThinkingTokens = 0;
+    let totalCachedInputTokens = 0;
 
     emitEvent({
       type: 'agent_started',
@@ -1306,7 +1308,7 @@ export class CompanyAgentRunner {
           }
           if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, check.reason ?? 'supervisor_limit', deps);
           return this.buildResult(
-            config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens,
+            config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens,
           );
         }
 
@@ -1406,6 +1408,8 @@ export class CompanyAgentRunner {
           // Accumulate token usage across turns
           totalInputTokens += response.usageMetadata.inputTokens;
           totalOutputTokens += response.usageMetadata.outputTokens;
+          totalThinkingTokens += response.usageMetadata.thinkingTokens ?? 0;
+          totalCachedInputTokens += response.usageMetadata.cachedInputTokens ?? 0;
 
           emitEvent({
             type: 'model_response',
@@ -1421,7 +1425,7 @@ export class CompanyAgentRunner {
             if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, errMsg, deps);
             return this.buildResult(
               config, 'aborted', lastTextOutput, history, supervisor,
-              errMsg, totalInputTokens, totalOutputTokens,
+              errMsg, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens,
             );
           }
           throw error;
@@ -1489,7 +1493,7 @@ export class CompanyAgentRunner {
               if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, progressCheck.reason ?? 'stall_detected', deps);
               return this.buildResult(
                 config, 'aborted', lastTextOutput, history, supervisor,
-                progressCheck.reason, totalInputTokens, totalOutputTokens,
+                progressCheck.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens,
               );
             }
           }
@@ -1576,7 +1580,7 @@ export class CompanyAgentRunner {
         elapsedMs: stats.elapsedMs,
       });
 
-      return this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens);
+      return this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens);
 
     } catch (error) {
       emitEvent({
@@ -1617,6 +1621,8 @@ export class CompanyAgentRunner {
         (error as Error).message,
         totalInputTokens,
         totalOutputTokens,
+        totalThinkingTokens,
+        totalCachedInputTokens,
       );
     }
   }
@@ -1667,6 +1673,8 @@ export class CompanyAgentRunner {
     errorMsg?: string,
     inputTokens = 0,
     outputTokens = 0,
+    thinkingTokens = 0,
+    cachedInputTokens = 0,
   ): AgentExecutionResult {
     const stats = supervisor.stats;
     return {
@@ -1680,7 +1688,7 @@ export class CompanyAgentRunner {
       elapsedMs: stats.elapsedMs,
       inputTokens,
       outputTokens,
-      cost: estimateCost(config.model, inputTokens, outputTokens),
+      cost: estimateCost(config.model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens),
       abortReason: status === 'aborted' ? errorMsg : undefined,
       error: status === 'error' ? errorMsg : undefined,
       reasoning: output ? extractReasoning(output) : undefined,

@@ -277,10 +277,9 @@ export class OpenAIAdapter implements ProviderAdapter {
       args: JSON.parse(tc.function.arguments || '{}') as Record<string, unknown>,
     }));
 
-    const reasoningTokens = (response.usage as Record<string, unknown> & { completion_tokens_details?: { reasoning_tokens?: number } })
-      ?.completion_tokens_details?.reasoning_tokens ?? 0;
-    const cachedTokens = (response.usage as Record<string, unknown> & { prompt_tokens_details?: { cached_tokens?: number } })
-      ?.prompt_tokens_details?.cached_tokens ?? 0;
+    const usageAny = response.usage as unknown as Record<string, Record<string, number> | undefined> | undefined;
+    const reasoningTokens = usageAny?.completion_tokens_details?.reasoning_tokens ?? 0;
+    const cachedTokens = usageAny?.prompt_tokens_details?.cached_tokens ?? 0;
 
     return {
       text: choice.message.content,
