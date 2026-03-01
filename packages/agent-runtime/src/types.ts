@@ -75,6 +75,8 @@ export type CompanyAgentRole =
   | 'tax-strategy-specialist'         // Mariana Solis → reports to CLO
   | 'lead-gen-specialist'             // Derek Owens → reports to CoS
   | 'marketing-intelligence-analyst'  // Zara Petrov → reports to CMO
+  | 'ai-impact-analyst'               // Riya Mehta → reports to VP-Research
+  | 'org-analyst'                     // Marcus Chen → reports to VP-Research
   | 'adi-rose';                       // Adi Rose → Executive Assistant, reports to CoS
 
 export type ContextInjector = (
@@ -425,6 +427,8 @@ export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   'tax-strategy-specialist':       { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
   'lead-gen-specialist':           { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
   'marketing-intelligence-analyst': { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
+  'ai-impact-analyst':              { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
+  'org-analyst':                    { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
   'adi-rose':                      { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
 };
 
