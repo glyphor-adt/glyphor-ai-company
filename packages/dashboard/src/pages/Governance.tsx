@@ -1,10 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
+import { useAuth } from '../lib/auth';
 import { DISPLAY_NAME_MAP } from '../lib/types';
-import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
+import { Card, SectionHeader, Skeleton, timeAgo, PageTabs } from '../components/ui';
 import {
   MdExpandMore, MdChevronRight, MdCheck, MdWarning,
   MdLock, MdVpnKey, MdBarChart, MdClose,
+  MdShield, MdPersonAdd, MdRemoveCircle, MdSearch,
+  MdAdminPanelSettings, MdPending, MdCheckCircle,
 } from 'react-icons/md';
 
 /* ── Types ────────────────────────────────── */
@@ -43,6 +46,38 @@ interface SecretRotation {
 }
 
 type Platform = 'gcp' | 'm365' | 'github' | 'stripe' | 'vercel';
+
+type GovernanceTab = 'platform' | 'admin';
+
+/* ── Admin-only access gate ───────────────── */
+const ADMIN_EMAILS = ['kristina@glyphor.ai', 'devops@glyphor.ai'];
+
+interface ToolGrant {
+  id: string;
+  agent_role: string;
+  tool_name: string;
+  granted_by: string;
+  reason: string | null;
+  scope: string;
+  is_active: boolean;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface PendingApproval {
+  id: string;
+  tier: string;
+  status: string;
+  title: string;
+  summary: string;
+  proposed_by: string;
+  data: Record<string, unknown> | null;
+  created_at: string;
+}
+
+/* ── All agent roles for the grant dropdown ── */
+const AGENT_ROLES = Object.keys(DISPLAY_NAME_MAP).sort();
 
 /* ── Constants ────────────────────────────── */
 
@@ -353,9 +388,456 @@ function ExpiryBadge({ expiresAt, status }: { expiresAt: string | null; status: 
   );
 }
 
+/* ── Admin & Access Panel ─────────────────── */
+
+function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
+  const [grants, setGrants] = useState<ToolGrant[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterRole, setFilterRole] = useState('all');
+  const [filterGrantedBy, setFilterGrantedBy] = useState('all');
+
+  // Grant form
+  const [showGrantForm, setShowGrantForm] = useState(false);
+  const [grantRole, setGrantRole] = useState('');
+  const [grantTool, setGrantTool] = useState('');
+  const [grantReason, setGrantReason] = useState('');
+  const [grantScope, setGrantScope] = useState<'full' | 'read_only'>('full');
+  const [grantExpiry, setGrantExpiry] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadGrants = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [grantsData, approvalsData] = await Promise.all([
+        apiCall<ToolGrant[]>('/api/agent-tool-grants?order=agent_role.asc,tool_name.asc'),
+        apiCall<PendingApproval[]>('/api/decisions?status=pending&order=created_at.desc&limit=20'),
+      ]);
+      setGrants(grantsData ?? []);
+      setPendingApprovals(
+        (approvalsData ?? []).filter((d) =>
+          d.title?.toLowerCase().includes('tool') ||
+          d.title?.toLowerCase().includes('grant') ||
+          d.title?.toLowerCase().includes('admin') ||
+          d.summary?.toLowerCase().includes('tool access')
+        ),
+      );
+    } catch {
+      setGrants([]);
+      setPendingApprovals([]);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadGrants(); }, [loadGrants]);
+
+  const handleGrant = async () => {
+    if (!grantRole || !grantTool || !grantReason) return;
+    setSubmitting(true);
+    try {
+      const body: Record<string, unknown> = {
+        agent_role: grantRole,
+        tool_name: grantTool,
+        granted_by: 'kristina',
+        reason: grantReason,
+        scope: grantScope,
+        is_active: true,
+      };
+      if (grantExpiry) {
+        body.expires_at = new Date(grantExpiry).toISOString();
+      }
+      await apiCall('/api/agent-tool-grants', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      setShowGrantForm(false);
+      setGrantRole('');
+      setGrantTool('');
+      setGrantReason('');
+      setGrantScope('full');
+      setGrantExpiry('');
+      await loadGrants();
+    } catch { /* handled by apiCall */ }
+    setSubmitting(false);
+  };
+
+  const handleRevoke = async (grant: ToolGrant) => {
+    if (!confirm(`Revoke "${grant.tool_name}" from ${DISPLAY_NAME_MAP[grant.agent_role] ?? grant.agent_role}?`)) return;
+    try {
+      await apiCall(`/api/agent-tool-grants/${grant.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: false }),
+      });
+      await loadGrants();
+    } catch { /* handled by apiCall */ }
+  };
+
+  const handleApproval = async (id: string, approve: boolean) => {
+    try {
+      await apiCall(`/api/decisions/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: approve ? 'approved' : 'rejected',
+          resolved_by: 'kristina',
+          resolved_at: new Date().toISOString(),
+        }),
+      });
+      await loadGrants();
+    } catch { /* handled by apiCall */ }
+  };
+
+  // Filtered/searched grants
+  const activeGrants = useMemo(() => grants.filter((g) => g.is_active), [grants]);
+  const grantedByOptions = useMemo(
+    () => [...new Set(activeGrants.map((g) => g.granted_by))].sort(),
+    [activeGrants],
+  );
+  const filteredGrants = useMemo(() => {
+    return activeGrants.filter((g) => {
+      if (filterRole !== 'all' && g.agent_role !== filterRole) return false;
+      if (filterGrantedBy !== 'all' && g.granted_by !== filterGrantedBy) return false;
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        return (
+          g.agent_role.includes(term) ||
+          g.tool_name.includes(term) ||
+          (DISPLAY_NAME_MAP[g.agent_role] ?? '').toLowerCase().includes(term) ||
+          (g.reason ?? '').toLowerCase().includes(term)
+        );
+      }
+      return true;
+    });
+  }, [activeGrants, filterRole, filterGrantedBy, searchTerm]);
+
+  // Group by agent for the matrix view
+  const grantsByAgent = useMemo(() => {
+    const map: Record<string, ToolGrant[]> = {};
+    for (const g of filteredGrants) {
+      (map[g.agent_role] ??= []).push(g);
+    }
+    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
+  }, [filteredGrants]);
+
+  // Stats
+  const totalAgents = new Set(activeGrants.map((g) => g.agent_role)).size;
+  const totalTools = new Set(activeGrants.map((g) => g.tool_name)).size;
+  const expiringGrants = activeGrants.filter((g) => {
+    if (!g.expires_at) return false;
+    const days = (new Date(g.expires_at).getTime() - Date.now()) / (86400 * 1000);
+    return days > 0 && days <= 7;
+  });
+
+  if (loading) {
+    return <div className="space-y-4">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-32 w-full" />)}</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Stats Row */}
+      <div className="grid grid-cols-4 gap-4">
+        {[
+          { label: 'Agents with Grants', value: totalAgents, icon: <MdPersonAdd className="text-prism-sky" /> },
+          { label: 'Active Grants', value: activeGrants.length, icon: <MdShield className="text-prism-teal" /> },
+          { label: 'Unique Tools', value: totalTools, icon: <MdAdminPanelSettings className="text-prism-violet" /> },
+          { label: 'Pending Approvals', value: pendingApprovals.length, icon: <MdPending className="text-prism-elevated" /> },
+        ].map((s) => (
+          <Card key={s.label} className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-prism-card text-lg">{s.icon}</span>
+            <div>
+              <p className="text-2xl font-bold text-txt-primary">{s.value}</p>
+              <p className="text-[12px] text-txt-muted">{s.label}</p>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Expiring Grants Warning */}
+      {expiringGrants.length > 0 && (
+        <Card className="border-prism-elevated/30">
+          <div className="flex items-start gap-3">
+            <MdWarning className="mt-0.5 text-prism-elevated" />
+            <div>
+              <p className="text-[13px] font-medium text-prism-primary">
+                {expiringGrants.length} grant{expiringGrants.length !== 1 ? 's' : ''} expiring within 7 days
+              </p>
+              <div className="mt-2 space-y-1">
+                {expiringGrants.map((g) => (
+                  <p key={g.id} className="text-[12px] text-txt-muted">
+                    <span className="font-medium text-txt-secondary">{DISPLAY_NAME_MAP[g.agent_role] ?? g.agent_role}</span>
+                    {' '}&rarr; <code className="rounded bg-prism-bg2 px-1 text-[11px]">{g.tool_name}</code>
+                    {' '}expires {timeAgo(g.expires_at)}
+                  </p>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Pending Approvals */}
+      {pendingApprovals.length > 0 && isAdmin && (
+        <Card>
+          <SectionHeader title="Pending Tool/Admin Approvals" />
+          <div className="space-y-3">
+            {pendingApprovals.map((d) => (
+              <div
+                key={d.id}
+                className="flex items-start justify-between gap-4 rounded-lg border border-prism-elevated/20 bg-prism-elevated/5 p-3"
+              >
+                <div className="flex-1">
+                  <p className="text-[13px] font-medium text-txt-primary">{d.title}</p>
+                  <p className="mt-0.5 text-[12px] text-txt-muted">{d.summary}</p>
+                  <p className="mt-1 text-[11px] text-txt-muted">
+                    Proposed by <span className="font-medium">{DISPLAY_NAME_MAP[d.proposed_by] ?? d.proposed_by}</span>
+                    {' '}&middot; {timeAgo(d.created_at)}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleApproval(d.id, true)}
+                    className="rounded border border-prism-teal/30 bg-prism-teal/10 px-3 py-1 text-[11px] font-medium text-prism-teal transition-colors hover:bg-prism-teal/20"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => handleApproval(d.id, false)}
+                    className="rounded border border-prism-critical/30 bg-prism-critical/10 px-3 py-1 text-[11px] font-medium text-prism-critical transition-colors hover:bg-prism-critical/20"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Toolbar: Search + Filters + Grant Button */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-txt-muted" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search agents, tools, or reasons…"
+            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-[13px] text-txt-primary placeholder:text-txt-muted focus:border-prism-sky focus:outline-none"
+          />
+        </div>
+        <select
+          value={filterRole}
+          onChange={(e) => setFilterRole(e.target.value)}
+          className="rounded-lg border border-border bg-surface px-3 py-2 text-[12px] text-txt-primary"
+        >
+          <option value="all">All agents</option>
+          {AGENT_ROLES.map((r) => (
+            <option key={r} value={r}>{DISPLAY_NAME_MAP[r] ?? r}</option>
+          ))}
+        </select>
+        <select
+          value={filterGrantedBy}
+          onChange={(e) => setFilterGrantedBy(e.target.value)}
+          className="rounded-lg border border-border bg-surface px-3 py-2 text-[12px] text-txt-primary"
+        >
+          <option value="all">All grantors</option>
+          {grantedByOptions.map((g) => (
+            <option key={g} value={g}>{DISPLAY_NAME_MAP[g] ?? g}</option>
+          ))}
+        </select>
+        {isAdmin && (
+          <button
+            onClick={() => setShowGrantForm(!showGrantForm)}
+            className="flex items-center gap-1.5 rounded-lg bg-prism-sky/15 px-4 py-2 text-[13px] font-medium text-prism-sky transition-colors hover:bg-prism-sky/25"
+          >
+            <MdPersonAdd className="text-[16px]" />
+            Grant Access
+          </button>
+        )}
+      </div>
+
+      {/* Grant Form (Kristina only) */}
+      {showGrantForm && isAdmin && (
+        <Card className="border-prism-sky/30">
+          <SectionHeader title="Grant Tool Access" />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1 block text-[12px] font-medium text-txt-muted">Agent</label>
+              <select
+                value={grantRole}
+                onChange={(e) => setGrantRole(e.target.value)}
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-txt-primary"
+              >
+                <option value="">Select agent…</option>
+                {AGENT_ROLES.map((r) => (
+                  <option key={r} value={r}>{DISPLAY_NAME_MAP[r] ?? r} ({r})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-[12px] font-medium text-txt-muted">Tool Name</label>
+              <input
+                type="text"
+                value={grantTool}
+                onChange={(e) => setGrantTool(e.target.value)}
+                placeholder="e.g. send_email, query_stripe_revenue"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-txt-primary placeholder:text-txt-muted"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="mb-1 block text-[12px] font-medium text-txt-muted">Reason</label>
+              <input
+                type="text"
+                value={grantReason}
+                onChange={(e) => setGrantReason(e.target.value)}
+                placeholder="Why is this grant needed?"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-txt-primary placeholder:text-txt-muted"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[12px] font-medium text-txt-muted">Scope</label>
+              <select
+                value={grantScope}
+                onChange={(e) => setGrantScope(e.target.value as 'full' | 'read_only')}
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-txt-primary"
+              >
+                <option value="full">Full Access</option>
+                <option value="read_only">Read Only</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-[12px] font-medium text-txt-muted">Expires (optional)</label>
+              <input
+                type="datetime-local"
+                value={grantExpiry}
+                onChange={(e) => setGrantExpiry(e.target.value)}
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-txt-primary"
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              onClick={() => setShowGrantForm(false)}
+              className="rounded-lg border border-border px-4 py-1.5 text-[13px] text-txt-muted hover:text-txt-primary"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleGrant}
+              disabled={!grantRole || !grantTool || !grantReason || submitting}
+              className="rounded-lg bg-prism-sky px-4 py-1.5 text-[13px] font-medium text-white disabled:opacity-50"
+            >
+              {submitting ? 'Granting…' : 'Grant'}
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {/* Access Matrix — grouped by agent */}
+      <Card>
+        <SectionHeader
+          title="Agent Access Matrix"
+          subtitle={`${filteredGrants.length} active grant${filteredGrants.length !== 1 ? 's' : ''} across ${grantsByAgent.length} agent${grantsByAgent.length !== 1 ? 's' : ''}`}
+        />
+        {grantsByAgent.length === 0 ? (
+          <p className="py-8 text-center text-[13px] text-txt-muted">No grants match your filters</p>
+        ) : (
+          <div className="space-y-4">
+            {grantsByAgent.map(([role, agentGrants]) => (
+              <div key={role} className="rounded-lg border border-border/50 p-3">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-[14px] font-semibold text-txt-primary">
+                    {DISPLAY_NAME_MAP[role] ?? role}
+                  </span>
+                  <span className="rounded bg-prism-bg2 px-1.5 py-0.5 text-[11px] text-txt-muted">{role}</span>
+                  <span className="ml-auto text-[12px] text-txt-muted">
+                    {agentGrants.length} tool{agentGrants.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {agentGrants.map((g) => (
+                    <span
+                      key={g.id}
+                      className="group relative inline-flex items-center gap-1 rounded-full border border-border/50 bg-prism-card px-2.5 py-1 text-[12px] text-txt-secondary"
+                      title={`Granted by ${DISPLAY_NAME_MAP[g.granted_by] ?? g.granted_by}${g.reason ? ` — ${g.reason}` : ''}${g.scope === 'read_only' ? ' (read only)' : ''}`}
+                    >
+                      {g.scope === 'read_only' && (
+                        <MdSearch className="text-[12px] text-prism-sky" />
+                      )}
+                      {g.tool_name}
+                      {g.expires_at && (
+                        <span className="text-[10px] text-prism-elevated">
+                          &middot; exp {new Date(g.expires_at).toLocaleDateString()}
+                        </span>
+                      )}
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleRevoke(g)}
+                          className="ml-0.5 hidden text-prism-critical transition-colors hover:text-prism-critical/80 group-hover:inline-flex"
+                          title="Revoke"
+                        >
+                          <MdRemoveCircle className="text-[13px]" />
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* Revocation History */}
+      {grants.filter((g) => !g.is_active).length > 0 && (
+        <Card>
+          <SectionHeader
+            title="Revocation History"
+            subtitle="Previously revoked grants"
+          />
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="border-b border-border text-left text-txt-muted">
+                  <th className="pb-2 pr-4 font-medium">Agent</th>
+                  <th className="pb-2 pr-4 font-medium">Tool</th>
+                  <th className="pb-2 pr-4 font-medium">Granted By</th>
+                  <th className="pb-2 pr-4 font-medium">Reason</th>
+                  <th className="pb-2 font-medium">Revoked</th>
+                </tr>
+              </thead>
+              <tbody>
+                {grants
+                  .filter((g) => !g.is_active)
+                  .slice(0, 20)
+                  .map((g) => (
+                    <tr key={g.id} className="border-b border-border/50 opacity-60">
+                      <td className="py-2 pr-4 text-txt-primary">{DISPLAY_NAME_MAP[g.agent_role] ?? g.agent_role}</td>
+                      <td className="py-2 pr-4"><code className="rounded bg-prism-bg2 px-1 text-[12px]">{g.tool_name}</code></td>
+                      <td className="py-2 pr-4 text-txt-muted">{DISPLAY_NAME_MAP[g.granted_by] ?? g.granted_by}</td>
+                      <td className="py-2 pr-4 text-txt-muted text-[12px]">{g.reason ?? '—'}</td>
+                      <td className="py-2 text-[12px] text-txt-muted">{timeAgo(g.updated_at)}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 /* ── Page ─────────────────────────────────── */
 
 export default function Governance() {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<GovernanceTab>('platform');
+  const isAdmin = ADMIN_EMAILS.includes(user?.email?.toLowerCase() ?? '');
+
   const [iamState, setIamState] = useState<IAMState[]>([]);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [secrets, setSecrets] = useState<SecretRotation[]>([]);
@@ -439,20 +921,38 @@ export default function Governance() {
             <MdLock className="text-lg text-prism-critical" />
           </span>
           <div>
-            <h1 className="text-xl font-bold text-txt-primary">Platform Governance</h1>
+            <h1 className="text-xl font-bold text-txt-primary">Governance</h1>
             <p className="text-[13px] text-txt-muted">
-              Platform-level access control, drift detection, and audit trail
+              Access control, tool grants, and platform audit trail
             </p>
           </div>
         </div>
-        <button
-          onClick={runAudit}
-          disabled={auditing}
-          className="rounded-lg border border-prism-border bg-prism-card px-4 py-2 text-[13px] font-medium text-prism-primary shadow-prism transition-colors hover:bg-prism-bg2 disabled:opacity-50"
-        >
-          {auditing ? 'Auditing…' : 'Run Audit Now'}
-        </button>
+        {activeTab === 'platform' && (
+          <button
+            onClick={runAudit}
+            disabled={auditing}
+            className="rounded-lg border border-prism-border bg-prism-card px-4 py-2 text-[13px] font-medium text-prism-primary shadow-prism transition-colors hover:bg-prism-bg2 disabled:opacity-50"
+          >
+            {auditing ? 'Auditing…' : 'Run Audit Now'}
+          </button>
+        )}
       </div>
+
+      {/* Tabs */}
+      <PageTabs<GovernanceTab>
+        tabs={[
+          { key: 'platform', label: 'Platform IAM' },
+          { key: 'admin', label: 'Admin & Access' },
+        ]}
+        active={activeTab}
+        onChange={setActiveTab}
+      />
+
+      {/* Tab Content */}
+      {activeTab === 'admin' ? (
+        <AdminAccessPanel isAdmin={isAdmin} />
+      ) : (
+      <>
 
       {/* Drift Alerts */}
       {(driftItems.length > 0 || expiringSecrets.length > 0) && (
@@ -646,6 +1146,8 @@ export default function Governance() {
           </table>
         </div>
       </Card>
+      </>
+      )}
     </div>
   );
 }

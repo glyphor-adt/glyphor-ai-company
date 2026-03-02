@@ -30,6 +30,7 @@ import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
+import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 
 export interface CoSRunParams {
@@ -158,6 +159,7 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
   const tools = [
     ...cosTools,
     ...createMemoryTools(memory),
+    ...createToolGrantTools('chief-of-staff'),
     ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),

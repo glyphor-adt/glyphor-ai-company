@@ -14,11 +14,13 @@ import { createHeadOfHRTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
 import { createCommunicationTools } from '../shared/communicationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
+import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
+import { createAccessAuditTools } from '../shared/accessAuditTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 
@@ -47,6 +49,7 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
   const tools = [
     ...createHeadOfHRTools(memory),
     ...createMemoryTools(memory),
+    ...createToolGrantTools('head-of-hr'),
     ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
     ...createToolRequestTools(),
     ...createEventTools(glyphorEventBus),
@@ -54,6 +57,7 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createAgentCreationTools(),
+    ...createAccessAuditTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

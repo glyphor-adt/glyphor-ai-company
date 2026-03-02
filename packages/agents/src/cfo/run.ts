@@ -28,6 +28,7 @@ import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
+import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 
 export interface CFORunParams {
@@ -55,6 +56,7 @@ export async function runCFO(params: CFORunParams = {}) {
   const tools = [
     ...createCFOTools(memory),
     ...createMemoryTools(memory),
+    ...createToolGrantTools('cfo'),
     ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),

@@ -29,6 +29,7 @@ import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
+import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 
 export interface CPORunParams {
@@ -56,6 +57,7 @@ export async function runCPO(params: CPORunParams = {}) {
   const tools = [
     ...createCPOTools(memory),
     ...createMemoryTools(memory),
+    ...createToolGrantTools('cpo'),
     ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
     ...createCollectiveIntelligenceTools(memory),
     ...createEventTools(glyphorEventBus),

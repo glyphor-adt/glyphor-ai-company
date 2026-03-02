@@ -13,6 +13,7 @@ import { createVPResearchTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
 import { createCommunicationTools } from '../shared/communicationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
+import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
@@ -58,6 +59,7 @@ export async function runVPResearch(params: VPResearchRunParams = {}) {
   const tools = [
     ...createVPResearchTools(),
     ...createMemoryTools(memory),
+    ...createToolGrantTools('vp-research'),
     ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
     ...createToolRequestTools(),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),

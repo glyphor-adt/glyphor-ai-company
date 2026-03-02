@@ -3,20 +3,30 @@
  *
  * Allows admin agents (Morgan, Riley, Sarah) to dynamically grant/revoke
  * tools for other agents via the agent_tool_grants table.
+ *
+ * Executive agents can propose grants, but all grants from non-admin
+ * grantors file a Yellow decision requiring Kristina's approval.
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { WRITE_TOOLS, invalidateGrantCache, isKnownTool } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
 
+/** Grantors who can directly approve grants without filing a decision */
+const DIRECT_GRANT_ADMINS = new Set(['kristina', 'system']);
+
 export function createToolGrantTools(
   grantedBy: string,
 ): ToolDefinition[] {
+  const canDirectGrant = DIRECT_GRANT_ADMINS.has(grantedBy);
+
   return [
     {
       name: 'grant_tool_access',
       description:
-        'Grant an existing tool to an agent. Read-only tools (get_*, read_*, query_*, check_*, fetch_*) can be granted autonomously. Write tools auto-file a Yellow decision for founder approval. The tool must exist in the system registry.',
+        canDirectGrant
+          ? 'Grant an existing tool to an agent. Read-only tools (get_*, read_*, query_*, check_*, fetch_*) can be granted autonomously. Write tools auto-file a Yellow decision for founder awareness. The tool must exist in the system registry.'
+          : 'Request a tool grant for an agent. All grants require Kristina\'s approval and will create a Yellow decision. The tool must exist in the system registry.',
       parameters: {
         agent_role: {
           type: 'string',
@@ -59,10 +69,53 @@ export function createToolGrantTools(
         }
 
         const isWrite = WRITE_TOOLS.has(toolName);
+        const requiresApproval = !canDirectGrant || isWrite;
 
         const expiresAt = expiresInHours
           ? new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString()
           : null;
+
+        // Non-admin grantors: file a Yellow decision instead of granting directly
+        if (!canDirectGrant) {
+          try {
+            await systemQuery(
+              `INSERT INTO decisions (tier, status, title, summary, proposed_by, reasoning, data, assigned_to)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+              [
+                'yellow',
+                'pending',
+                `Tool Grant: ${toolName} → ${agentRole}`,
+                `${grantedBy} requests granting "${toolName}" to ${agentRole}. Reason: ${reason}`,
+                grantedBy,
+                reason,
+                JSON.stringify({
+                  type: 'tool_grant_request',
+                  agent_role: agentRole,
+                  tool_name: toolName,
+                  scope: 'full',
+                  expires_at: expiresAt,
+                  directive_id: directiveId ?? null,
+                }),
+                ['kristina'],
+              ],
+            );
+          } catch (err) {
+            return { success: false, error: (err as Error).message };
+          }
+
+          return {
+            success: true,
+            data: {
+              granted: false,
+              pending_approval: true,
+              agent_role: agentRole,
+              tool_name: toolName,
+              note: 'Grant request filed as a Yellow decision for Kristina\'s approval. The grant will take effect once approved.',
+            },
+          };
+        }
+
+        // Admin grantors: grant directly
 
         try {
           await systemQuery(
@@ -84,8 +137,8 @@ export function createToolGrantTools(
             is_write_tool: isWrite,
             expires_at: expiresAt,
             note: isWrite
-              ? 'This is a WRITE tool — a Yellow decision should be filed for founder awareness.'
-              : 'Read-only tool granted autonomously.',
+              ? 'This is a WRITE tool — a Yellow decision has been filed for founder awareness.'
+              : 'Tool granted directly by admin.',
           },
         };
       },

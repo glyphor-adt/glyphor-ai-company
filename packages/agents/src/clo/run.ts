@@ -29,6 +29,7 @@ import { createEmailTools } from '../shared/emailTools.js';
 import { createEventTools } from '../shared/eventTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
+import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 
 export interface CLORunParams {
@@ -55,6 +56,7 @@ export async function runCLO(params: CLORunParams = {}) {
   const graphWriter = memory.getGraphWriter();
   const tools = [
     ...createMemoryTools(memory),
+    ...createToolGrantTools('clo'),
     ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),

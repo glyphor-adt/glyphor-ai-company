@@ -21,6 +21,7 @@ import { createOpsTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
 import { createCommunicationTools } from '../shared/communicationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
+import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
@@ -55,6 +56,7 @@ export async function runOps(params: OpsRunParams = {}) {
   const tools = [
     ...createOpsTools(memory),
     ...createMemoryTools(memory),
+    ...createToolGrantTools('ops'),
     ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
     ...createToolRequestTools(),
     ...createCollectiveIntelligenceTools(memory),
