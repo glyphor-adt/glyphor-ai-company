@@ -2,7 +2,7 @@
  * Layer 9 — Strategy & Analysis Engines
  *
  * Validates strategic analysis, T+1 simulation, chain-of-thought reasoning,
- * and deep-dive analysis via the scheduler API.
+ * and strategy lab via the scheduler API.
  */
 
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
@@ -76,22 +76,7 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
     }),
   );
 
-  // T9.4 — Deep Dive
-  tests.push(
-    await runTest('T9.4', 'Deep Dive', async () => {
-      const resp = await httpPost(`${sched}/deep-dive/run`, {
-        target: 'Glyphor competitive positioning',
-        context: 'AI agent platform market 2026',
-      });
-      if (!resp.ok) {
-        throw new Error(`POST /deep-dive/run returned ${resp.status}: ${resp.raw}`);
-      }
-      const id = extractId(resp);
-      return `Deep dive ${id} accepted (status: ${(resp.data as RunResponse)?.status ?? 'started'})`;
-    }),
-  );
-
-  // T9.5 — Strategy Lab
+  // T9.4 — Strategy Lab
   tests.push(
     await runTest('T9.5', 'Strategy Lab', async () => {
       const resp = await httpPost(`${sched}/strategy-lab/run`, {
