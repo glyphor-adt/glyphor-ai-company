@@ -17,7 +17,8 @@
     "dashboard": "powershell -File infra/scripts/open-dashboard.ps1",
     "dashboard:dev": "npm run dev --workspace=packages/dashboard",
     "scheduler:dev": "turbo run build --filter=@glyphor/scheduler && node --env-file=.env packages/scheduler/dist/server.js",
-    "smoketest": "turbo run build --filter=@glyphor/smoketest && node --env-file=.env packages/smoketest/dist/index.js"
+    "smoketest": "turbo run build --filter=@glyphor/smoketest && node --env-file=.env packages/smoketest/dist/index.js",
+    "validate:pricing": "tsx scripts/validate-model-pricing.ts"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

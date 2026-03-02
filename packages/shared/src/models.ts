@@ -53,35 +53,40 @@ export interface ModelDef {
 
 export const SUPPORTED_MODELS: readonly ModelDef[] = [
   // ── Google Gemini ──────────────────────────────────────────
-  // Gemini cached input = 25% of input price (75% off). Thinking tokens billed at output rate.
-  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro',         provider: 'gemini',    tier: 'flagship',  inputPer1M: 1.25,  outputPer1M: 10.0,  thinkingPer1M: 10.0,  cachedInputDiscount: 0.25, selectable: true,  verifier: false },
-  { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash',         provider: 'gemini',    tier: 'standard',  inputPer1M: 0.10,  outputPer1M: 0.40,  thinkingPer1M: 0.40,  cachedInputDiscount: 0.25, selectable: true,  verifier: true  },
-  { id: 'gemini-3-pro-preview',   label: 'Gemini 3 Pro',           provider: 'gemini',    tier: 'flagship',  inputPer1M: 1.25,  outputPer1M: 10.0,  thinkingPer1M: 10.0,  cachedInputDiscount: 0.25, selectable: true,  verifier: true  },
-  { id: 'gemini-2.5-flash',       label: 'Gemini 2.5 Flash',       provider: 'gemini',    tier: 'economy',   inputPer1M: 0.15,  outputPer1M: 0.60,  thinkingPer1M: 0.60,  cachedInputDiscount: 0.25, selectable: true,  verifier: true  },
-  { id: 'gemini-2.5-flash-lite',  label: 'Gemini 2.5 Flash Lite',  provider: 'gemini',    tier: 'economy',   inputPer1M: 0.10,  outputPer1M: 0.40,  cachedInputDiscount: 0.25, selectable: true,  verifier: false },
-  { id: 'gemini-2.5-pro',         label: 'Gemini 2.5 Pro',         provider: 'gemini',    tier: 'flagship',  inputPer1M: 1.25,  outputPer1M: 10.0,  thinkingPer1M: 10.0,  cachedInputDiscount: 0.25, selectable: true,  verifier: false },
+  // Gemini cached input = 10% of input price (90% off). Thinking tokens billed at output rate.
+  // Prices are for prompts ≤200K tokens. >200K prompts cost 2× input and 1.5× output for Pro/Flash models.
+  // Source: https://ai.google.dev/gemini-api/docs/pricing (verified 2026-02-26)
+  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro',         provider: 'gemini',    tier: 'flagship',  inputPer1M: 2.00,  outputPer1M: 12.0,  thinkingPer1M: 12.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
+  { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash',         provider: 'gemini',    tier: 'standard',  inputPer1M: 0.50,  outputPer1M: 3.00,  thinkingPer1M: 3.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
+  { id: 'gemini-3-pro-preview',   label: 'Gemini 3 Pro',           provider: 'gemini',    tier: 'flagship',  inputPer1M: 2.00,  outputPer1M: 12.0,  thinkingPer1M: 12.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
+  { id: 'gemini-2.5-flash',       label: 'Gemini 2.5 Flash',       provider: 'gemini',    tier: 'economy',   inputPer1M: 0.30,  outputPer1M: 2.50,  thinkingPer1M: 2.50,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
+  { id: 'gemini-2.5-flash-lite',  label: 'Gemini 2.5 Flash Lite',  provider: 'gemini',    tier: 'economy',   inputPer1M: 0.10,  outputPer1M: 0.40,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
+  { id: 'gemini-2.5-pro',         label: 'Gemini 2.5 Pro',         provider: 'gemini',    tier: 'flagship',  inputPer1M: 1.25,  outputPer1M: 10.0,  thinkingPer1M: 10.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
 
   // ── OpenAI ─────────────────────────────────────────────────
-  // OpenAI cached input = 50% of input price. Reasoning tokens (o-series) billed at output rate.
-  { id: 'gpt-5.2',                label: 'GPT-5.2',                provider: 'openai',    tier: 'flagship',  inputPer1M: 2.00,  outputPer1M: 8.00,  cachedInputDiscount: 0.50, selectable: true,  verifier: false },
-  { id: 'gpt-5.2-pro',            label: 'GPT-5.2 Pro',            provider: 'openai',    tier: 'flagship',  inputPer1M: 5.00,  outputPer1M: 20.0,  cachedInputDiscount: 0.50, selectable: true,  verifier: false },
-  { id: 'gpt-5.1',                label: 'GPT-5.1',                provider: 'openai',    tier: 'standard',  inputPer1M: 2.00,  outputPer1M: 8.00,  cachedInputDiscount: 0.50, selectable: true,  verifier: false },
-  { id: 'gpt-5',                  label: 'GPT-5',                  provider: 'openai',    tier: 'standard',  inputPer1M: 2.00,  outputPer1M: 8.00,  cachedInputDiscount: 0.50, selectable: true,  verifier: false },
-  { id: 'gpt-5-mini',             label: 'GPT-5 Mini',             provider: 'openai',    tier: 'economy',   inputPer1M: 0.40,  outputPer1M: 1.60,  cachedInputDiscount: 0.50, selectable: true,  verifier: true  },
-  { id: 'gpt-5-nano',             label: 'GPT-5 Nano',             provider: 'openai',    tier: 'economy',   inputPer1M: 0.20,  outputPer1M: 0.80,  cachedInputDiscount: 0.50, selectable: true,  verifier: false },
-  { id: 'gpt-4.1',                label: 'GPT-4.1',                provider: 'openai',    tier: 'economy',   inputPer1M: 2.00,  outputPer1M: 8.00,  cachedInputDiscount: 0.50, selectable: true,  verifier: false },
-  { id: 'gpt-4.1-mini',           label: 'GPT-4.1 Mini',           provider: 'openai',    tier: 'economy',   inputPer1M: 0.40,  outputPer1M: 1.60,  cachedInputDiscount: 0.50, selectable: true,  verifier: false },
-  { id: 'o3',                     label: 'o3',                     provider: 'openai',    tier: 'reasoning', inputPer1M: 10.0,  outputPer1M: 40.0,  thinkingPer1M: 40.0, cachedInputDiscount: 0.50, selectable: true,  verifier: false },
-  { id: 'o4-mini',                label: 'o4-mini',                provider: 'openai',    tier: 'reasoning', inputPer1M: 1.10,  outputPer1M: 4.40,  thinkingPer1M: 4.40, cachedInputDiscount: 0.50, selectable: true,  verifier: false },
+  // GPT-5.x cached input = 10% of input price. GPT-4.1/o-series cached = 25% of input price.
+  // Reasoning tokens (o-series) billed at output rate.
+  // Source: https://developers.openai.com/api/docs/pricing (verified 2026-02-26)
+  { id: 'gpt-5.2',                label: 'GPT-5.2',                provider: 'openai',    tier: 'flagship',  inputPer1M: 1.75,  outputPer1M: 14.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
+  { id: 'gpt-5.2-pro',            label: 'GPT-5.2 Pro',            provider: 'openai',    tier: 'flagship',  inputPer1M: 21.0,  outputPer1M: 168.0, selectable: true,  verifier: false },
+  { id: 'gpt-5.1',                label: 'GPT-5.1',                provider: 'openai',    tier: 'standard',  inputPer1M: 1.25,  outputPer1M: 10.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
+  { id: 'gpt-5',                  label: 'GPT-5',                  provider: 'openai',    tier: 'standard',  inputPer1M: 1.25,  outputPer1M: 10.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
+  { id: 'gpt-5-mini',             label: 'GPT-5 Mini',             provider: 'openai',    tier: 'economy',   inputPer1M: 0.25,  outputPer1M: 2.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
+  { id: 'gpt-5-nano',             label: 'GPT-5 Nano',             provider: 'openai',    tier: 'economy',   inputPer1M: 0.05,  outputPer1M: 0.40,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
+  { id: 'gpt-4.1',                label: 'GPT-4.1',                provider: 'openai',    tier: 'economy',   inputPer1M: 2.00,  outputPer1M: 8.00,  cachedInputDiscount: 0.25, selectable: true,  verifier: false },
+  { id: 'gpt-4.1-mini',           label: 'GPT-4.1 Mini',           provider: 'openai',    tier: 'economy',   inputPer1M: 0.40,  outputPer1M: 1.60,  cachedInputDiscount: 0.25, selectable: true,  verifier: false },
+  { id: 'o3',                     label: 'o3',                     provider: 'openai',    tier: 'reasoning', inputPer1M: 2.00,  outputPer1M: 8.00,  thinkingPer1M: 8.00, cachedInputDiscount: 0.25, selectable: true,  verifier: false },
+  { id: 'o4-mini',                label: 'o4-mini',                provider: 'openai',    tier: 'reasoning', inputPer1M: 1.10,  outputPer1M: 4.40,  thinkingPer1M: 4.40, cachedInputDiscount: 0.25, selectable: true,  verifier: false },
 
   // ── Anthropic ──────────────────────────────────────────────
   // Anthropic cache read = 10% of input price. Cache creation = 125% of input price (amortized, treated as full price).
-  { id: 'claude-opus-4-6',        label: 'Claude Opus 4.6',        provider: 'anthropic', tier: 'flagship',  inputPer1M: 15.0,  outputPer1M: 75.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
+  // Source: https://platform.claude.com/docs/en/docs/about-claude/pricing (verified 2026-02-26)
+  { id: 'claude-opus-4-6',        label: 'Claude Opus 4.6',        provider: 'anthropic', tier: 'flagship',  inputPer1M: 5.00,  outputPer1M: 25.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
   { id: 'claude-sonnet-4-6',      label: 'Claude Sonnet 4.6',      provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
-  { id: 'claude-haiku-4-5',       label: 'Claude Haiku 4.5',       provider: 'anthropic', tier: 'economy',   inputPer1M: 0.80,  outputPer1M: 4.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
+  { id: 'claude-haiku-4-5',       label: 'Claude Haiku 4.5',       provider: 'anthropic', tier: 'economy',   inputPer1M: 1.00,  outputPer1M: 5.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
 
   // ── Specialized (not selectable for general agent assignment) ─
-  { id: 'gemini-embedding-001',       label: 'Gemini Embedding',       provider: 'gemini',    tier: 'specialized', inputPer1M: 0.01, outputPer1M: 0,    selectable: false, verifier: false },
+  { id: 'gemini-embedding-001',       label: 'Gemini Embedding',       provider: 'gemini',    tier: 'specialized', inputPer1M: 0.15, outputPer1M: 0,    selectable: false, verifier: false },
   { id: 'gpt-4o-realtime-preview',    label: 'GPT-4o Realtime',        provider: 'openai',    tier: 'specialized', inputPer1M: 5.00, outputPer1M: 20.0, selectable: false, verifier: false },
   { id: 'gpt-image-1',                label: 'GPT Image',              provider: 'openai',    tier: 'specialized', inputPer1M: 0,    outputPer1M: 0,    selectable: false, verifier: false },
 
