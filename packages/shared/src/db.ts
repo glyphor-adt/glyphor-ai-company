@@ -1,4 +1,8 @@
-import { Pool, PoolClient } from 'pg';
+import { Pool, PoolClient, types } from 'pg';
+
+// PostgreSQL NUMERIC (OID 1700) returns strings by default.
+// Parse as floats so dashboard code can call .toFixed() etc.
+types.setTypeParser(1700, (val: string) => parseFloat(val));
 
 const pool = new Pool(
   process.env.DATABASE_URL
