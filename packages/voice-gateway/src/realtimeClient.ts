@@ -58,8 +58,8 @@ export async function createRealtimeSession(
   });
 
   return {
-    sessionId: response.id,
-    clientSecret: (response as any).client_secret?.value,
+    sessionId: (response as any).id ?? 'realtime-session',
+    clientSecret: response.client_secret.value,
     voice: voiceConfig.voice,
     agentDisplayName: voiceConfig.displayName,
   };
