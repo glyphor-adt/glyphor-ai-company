@@ -211,8 +211,39 @@ INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by) VALUES
   ('global-admin', 'revoke_tool_access', 'system')
 ON CONFLICT (agent_role, tool_name) DO NOTHING;
 
--- Global Admin domain tools — need to read the actual tool names from tools.ts
--- (The Entra tools were orphaned under morgan-blake, now migrated above)
+-- Global Admin domain tools (30 tools from global-admin/tools.ts)
+INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by) VALUES
+  ('global-admin', 'list_project_iam', 'system'),
+  ('global-admin', 'grant_project_role', 'system'),
+  ('global-admin', 'revoke_project_role', 'system'),
+  ('global-admin', 'list_service_accounts', 'system'),
+  ('global-admin', 'create_service_account', 'system'),
+  ('global-admin', 'list_secrets', 'system'),
+  ('global-admin', 'get_secret_iam', 'system'),
+  ('global-admin', 'grant_secret_access', 'system'),
+  ('global-admin', 'revoke_secret_access', 'system'),
+  ('global-admin', 'update_secret_value', 'system'),
+  ('global-admin', 'rotate_app_credential', 'system'),
+  ('global-admin', 'run_access_audit', 'system'),
+  ('global-admin', 'run_onboarding', 'system'),
+  ('global-admin', 'entra_list_users', 'system'),
+  ('global-admin', 'entra_create_user', 'system'),
+  ('global-admin', 'entra_disable_user', 'system'),
+  ('global-admin', 'entra_enable_user', 'system'),
+  ('global-admin', 'entra_list_groups', 'system'),
+  ('global-admin', 'entra_list_group_members', 'system'),
+  ('global-admin', 'entra_add_group_member', 'system'),
+  ('global-admin', 'entra_remove_group_member', 'system'),
+  ('global-admin', 'entra_list_directory_roles', 'system'),
+  ('global-admin', 'entra_assign_directory_role', 'system'),
+  ('global-admin', 'entra_list_app_registrations', 'system'),
+  ('global-admin', 'entra_list_licenses', 'system'),
+  ('global-admin', 'entra_assign_license', 'system'),
+  ('global-admin', 'entra_revoke_license', 'system'),
+  ('global-admin', 'entra_audit_sign_ins', 'system'),
+  ('global-admin', 'write_admin_log', 'system'),
+  ('global-admin', 'check_my_access', 'system')
+ON CONFLICT (agent_role, tool_name) DO NOTHING;
 
 -- ═══════════════════════════════════════════════════════════════════
 -- 7. Industry Research Analyst (Amara Diallo)
