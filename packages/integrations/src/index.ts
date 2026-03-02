@@ -58,6 +58,14 @@ export {
   type CalendarAttendee,
 } from './teams/calendar.js';
 
+// Calendar Webhooks (Graph change notifications for auto-join)
+export {
+  CalendarWebhookManager,
+  type CalendarSubscription,
+  type GraphChangeNotification,
+  type GraphChangePayload,
+} from './teams/calendarWebhook.js';
+
 // Stripe integration
 export {
   getStripeClient,

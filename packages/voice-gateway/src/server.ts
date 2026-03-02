@@ -5,15 +5,18 @@
  * Dashboard (WebRTC) and Teams (Graph) modes.
  *
  * Endpoints:
- *   POST /voice/dashboard        — Create dashboard voice session
- *   POST /voice/dashboard/end    — End dashboard voice session
- *   POST /voice/dashboard/transcript — Record transcript entry
- *   POST /voice/teams/join       — Join agent to Teams meeting
- *   POST /voice/teams/leave      — Remove agent from Teams meeting
- *   POST /voice/teams/callback   — Graph Communications API callbacks
- *   GET  /voice/sessions         — List active voice sessions
- *   GET  /voice/usage            — Get daily usage summary
- *   GET  /health                 — Health check
+ *   POST /voice/dashboard              — Create dashboard voice session
+ *   POST /voice/dashboard/end          — End dashboard voice session
+ *   POST /voice/dashboard/transcript   — Record transcript entry
+ *   POST /voice/teams/join             — Join agent to Teams meeting
+ *   POST /voice/teams/leave            — Remove agent from Teams meeting
+ *   POST /voice/teams/callback         — Graph Communications API callbacks
+ *   GET  /voice/calendar/webhook       — Graph webhook validation handshake
+ *   POST /voice/calendar/webhook       — Graph calendar change notifications
+ *   GET  /voice/calendar/subscriptions — List active calendar webhook subscriptions
+ *   GET  /voice/sessions               — List active voice sessions
+ *   GET  /voice/usage                  — Get daily usage summary
+ *   GET  /health                       — Health check
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
@@ -23,6 +26,8 @@ import { SessionManager } from './sessionManager.js';
 import { DashboardVoiceHandler } from './dashboardHandler.js';
 import { TeamsCallHandler } from './teamsHandler.js';
 import { AcsCallAutomationClient, parseAcsConnectionString } from './acsMediaClient.js';
+import { CalendarWatcher } from './calendarWatcher.js';
+import { CalendarWebhookManager, type GraphChangePayload } from '@glyphor/integrations';
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 
 const PORT = parseInt(process.env.PORT || '8090', 10);
@@ -42,6 +47,8 @@ sessions.onAutoEnd = (session) => {
 const dashboardHandler = new DashboardVoiceHandler(openai, sessions);
 
 let teamsHandler: TeamsCallHandler | null = null;
+let calendarWatcher: CalendarWatcher | null = null;
+let calendarWebhookManager: CalendarWebhookManager | null = null;
 const botAppId = process.env.BOT_APP_ID;
 const botAppSecret = process.env.BOT_APP_SECRET;
 const tenantId = process.env.AZURE_TENANT_ID ?? process.env.BOT_TENANT_ID;
@@ -69,6 +76,34 @@ if (botAppId && botAppSecret && tenantId) {
     acsClient,
   );
   console.log(`[Voice] Teams call handler initialized (${acsClient ? 'ACS + audio bridge' : 'Graph only — no audio'})`);
+
+  // ─── Calendar Watcher — auto-join meetings agents are invited to ──
+  calendarWatcher = new CalendarWatcher(
+    { appId: botAppId, appSecret: botAppSecret, tenantId },
+    teamsHandler,
+  );
+  calendarWatcher.start();
+
+  // ─── Calendar Webhooks — real-time push from Graph ──
+  // Requires HTTPS endpoint reachable by Microsoft Graph.
+  // Falls back gracefully to polling-only if webhook setup fails.
+  const webhookUrl = `${gatewayUrl}/voice/calendar/webhook`;
+  if (gatewayUrl.startsWith('https://')) {
+    calendarWebhookManager = new CalendarWebhookManager(
+      { appId: botAppId, appSecret: botAppSecret, tenantId },
+      webhookUrl,
+    );
+    // Subscribe to all agent calendars asynchronously
+    const agents = calendarWatcher.getWatchedAgents();
+    calendarWebhookManager
+      .subscribeAll(agents)
+      .then(() => calendarWebhookManager!.startAutoRenewal())
+      .catch((err) =>
+        console.warn('[Voice] Calendar webhook subscription failed (polling still active):', err),
+      );
+  } else {
+    console.log('[Voice] Calendar webhooks disabled (requires HTTPS gateway URL). Polling-only mode.');
+  }
 } else {
   console.log('[Voice] Teams call handler disabled (missing BOT_APP_ID, BOT_APP_SECRET, or AZURE_TENANT_ID)');
 }
@@ -277,6 +312,58 @@ const server = createServer(async (req, res) => {
     // ── Usage summary ───────────────────────────────────────
     if (method === 'GET' && url === '/voice/usage') {
       json(res, 200, sessions.getDailyUsage());
+      return;
+    }
+
+    // ── Calendar Webhook: Graph validation handshake ──────────
+    // Graph sends GET with ?validationToken=... when creating a subscription.
+    // We must echo it back as text/plain to prove we own the endpoint.
+    if (method === 'GET' && url.startsWith('/voice/calendar/webhook')) {
+      const parsedUrl = new URL(url, `http://localhost:${PORT}`);
+      const validationToken = parsedUrl.searchParams.get('validationToken');
+      if (validationToken) {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end(validationToken);
+        return;
+      }
+      json(res, 200, { status: 'calendar webhook endpoint active' });
+      return;
+    }
+
+    // ── Calendar Webhook: Graph change notifications ────────
+    if (method === 'POST' && url === '/voice/calendar/webhook') {
+      if (!calendarWebhookManager || !calendarWatcher) {
+        json(res, 200, { ok: true }); // Always 200 to Graph
+        return;
+      }
+
+      const body = JSON.parse(await readBody(req)) as GraphChangePayload;
+
+      // Respond immediately — process async (Graph requires fast 202/200)
+      json(res, 202, { ok: true });
+
+      for (const notification of body.value ?? []) {
+        const email = calendarWebhookManager.processNotification(notification);
+        if (email) {
+          calendarWatcher.checkAgentNow(email).catch((err) => {
+            console.error(`[Voice] Calendar webhook check failed for ${email}:`, err);
+          });
+        }
+      }
+      return;
+    }
+
+    // ── Calendar Webhook: list active subscriptions ─────────
+    if (method === 'GET' && url === '/voice/calendar/subscriptions') {
+      const subs = calendarWebhookManager?.getActiveSubscriptions() ?? [];
+      json(res, 200, {
+        webhooksEnabled: !!calendarWebhookManager,
+        pollingEnabled: !!calendarWatcher,
+        subscriptions: subs.map((s) => ({
+          userEmail: s.userEmail,
+          expirationDateTime: s.expirationDateTime,
+        })),
+      });
       return;
     }
 
