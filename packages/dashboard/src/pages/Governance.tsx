@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
-import { DISPLAY_NAME_MAP, ROLE_DEPARTMENT, ROLE_TIER, ROLE_TITLE } from '../lib/types';
+import { DISPLAY_NAME_MAP, ROLE_DEPARTMENT, ROLE_TIER, ROLE_TITLE, AGENT_BUILT_IN_TOOLS } from '../lib/types';
 import { Card, SectionHeader, Skeleton, timeAgo, PageTabs, AgentAvatar } from '../components/ui';
 import {
   MdExpandMore, MdChevronRight, MdCheck, MdWarning,
@@ -978,10 +978,12 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
             const hasGrant = (grantsByAgent[r] ?? []).some(
               (g) => g.tool_name.includes(term) || (g.reason ?? '').toLowerCase().includes(term),
             );
+            const hasBuiltIn = (AGENT_BUILT_IN_TOOLS[r] ?? []).some((t) => t.toLowerCase().includes(term));
             return (
               r.includes(term) ||
               (DISPLAY_NAME_MAP[r] ?? '').toLowerCase().includes(term) ||
-              hasGrant
+              hasGrant ||
+              hasBuiltIn
             );
           }
           return true;
@@ -991,9 +993,12 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
   }, [filterRole, searchTerm, grantsByAgent]);
 
   // Stats
-  const agentsWithGrants = new Set(activeGrants.map((g) => g.agent_role)).size;
+  const agentsWithTools = new Set([
+    ...activeGrants.map((g) => g.agent_role),
+    ...Object.entries(AGENT_BUILT_IN_TOOLS).filter(([, tools]) => tools.length > 0).map(([r]) => r),
+  ]).size;
   const totalAgents = AGENT_ROLES.length;
-  const totalTools = new Set(activeGrants.map((g) => g.tool_name)).size;
+  const totalBuiltIn = new Set(Object.values(AGENT_BUILT_IN_TOOLS).flat()).size;
   const expiringGrants = activeGrants.filter((g) => {
     if (!g.expires_at) return false;
     const days = (new Date(g.expires_at).getTime() - Date.now()) / (86400 * 1000);
@@ -1009,9 +1014,9 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
       {/* Stats Row */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Agents with Grants', value: `${agentsWithGrants} / ${totalAgents}`, icon: <MdPersonAdd className="text-prism-sky" /> },
+          { label: 'Agents with Tools', value: `${agentsWithTools} / ${totalAgents}`, icon: <MdPersonAdd className="text-prism-sky" /> },
           { label: 'Active Grants', value: activeGrants.length, icon: <MdShield className="text-prism-teal" /> },
-          { label: 'Unique Tools', value: totalTools, icon: <MdAdminPanelSettings className="text-prism-violet" /> },
+          { label: 'Built-in Tools', value: totalBuiltIn, icon: <MdAdminPanelSettings className="text-prism-violet" /> },
           { label: 'Pending Approvals', value: pendingApprovals.length, icon: <MdPending className="text-prism-elevated" /> },
         ].map((s) => (
           <Card key={s.label} className="flex items-center gap-3">
@@ -1251,12 +1256,20 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
               <div className="space-y-4">
                 {roles.map((role) => {
                   const agentGrants = grantsByAgent[role] ?? [];
+                  const builtInTools = AGENT_BUILT_IN_TOOLS[role] ?? [];
                   // Group grants by category
                   const byCategory = new Map<ToolCategory, ToolGrant[]>();
                   for (const g of agentGrants) {
                     const cat = getToolInfo(g.tool_name).category;
                     if (!byCategory.has(cat)) byCategory.set(cat, []);
                     byCategory.get(cat)!.push(g);
+                  }
+                  // Group built-in tools by category
+                  const builtInByCategory = new Map<ToolCategory, string[]>();
+                  for (const t of builtInTools) {
+                    const cat = getToolInfo(t).category;
+                    if (!builtInByCategory.has(cat)) builtInByCategory.set(cat, []);
+                    builtInByCategory.get(cat)!.push(t);
                   }
                   return (
                     <div key={role} className="rounded-lg border border-border/50 p-3">
@@ -1272,15 +1285,53 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
                           )}
                         </div>
                         <span className="ml-auto text-[12px] text-txt-muted">
-                          {agentGrants.length > 0
-                            ? `${agentGrants.length} tool${agentGrants.length !== 1 ? 's' : ''} · ${byCategory.size} categor${byCategory.size !== 1 ? 'ies' : 'y'}`
-                            : 'No tools granted'}
+                          {builtInTools.length > 0
+                            ? `${builtInTools.length} built-in${agentGrants.length > 0 ? ` · ${agentGrants.length} granted` : ''}`
+                            : agentGrants.length > 0
+                              ? `${agentGrants.length} granted`
+                              : 'No tools'}
                         </span>
                       </div>
-                      {agentGrants.length === 0 ? (
-                        <p className="py-2 text-[12px] text-txt-muted italic">No tool access grants configured</p>
+                      {builtInTools.length === 0 && agentGrants.length === 0 ? (
+                        <p className="py-2 text-[12px] text-txt-muted italic">No tool access configured — planned agent</p>
                       ) : (
                       <div className="space-y-2">
+                        {/* Built-in tools */}
+                        {[...builtInByCategory.entries()]
+                          .sort(([a], [b]) => (CATEGORY_LABELS[a] ?? a).localeCompare(CATEGORY_LABELS[b] ?? b))
+                          .map(([cat, tools]) => (
+                          <div key={`builtin-${cat}`}>
+                            <div className="mb-1 flex items-center gap-1.5">
+                              <span className={`text-[11px] font-semibold ${CATEGORY_COLORS[cat]}`}>
+                                {CATEGORY_LABELS[cat]}
+                              </span>
+                              <span className="text-[10px] text-txt-muted">({tools.length})</span>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {tools.map((t) => {
+                                const info = getToolInfo(t);
+                                return (
+                                <span
+                                  key={t}
+                                  className="inline-flex items-center gap-1 rounded-full border border-prism-teal/20 bg-prism-teal/5 px-2.5 py-1 text-[12px] text-txt-secondary"
+                                  title={`${info.description}\nBuilt-in tool (always available)${info.platform ? `\nPlatform: ${info.platform.toUpperCase()}` : ''}`}
+                                >
+                                  {t}
+                                  {info.platform && (
+                                    <span className="rounded bg-prism-bg2 px-1 text-[9px] font-medium text-txt-muted">
+                                      {info.platform.toUpperCase()}
+                                    </span>
+                                  )}
+                                  <span className="rounded bg-prism-teal/15 px-1 text-[9px] font-medium text-prism-teal">
+                                    built-in
+                                  </span>
+                                </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                        {/* DB-granted tools */}
                         {[...byCategory.entries()]
                           .sort(([a], [b]) => (CATEGORY_LABELS[a] ?? a).localeCompare(CATEGORY_LABELS[b] ?? b))
                           .map(([cat, catGrants]) => (

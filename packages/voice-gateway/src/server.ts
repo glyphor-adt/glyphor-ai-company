@@ -169,6 +169,11 @@ const server = createServer(async (req, res) => {
         service: 'voice-gateway',
         activeSessions: sessions.getActiveSessions().length,
         teamsEnabled: !!teamsHandler,
+        calendarAutoJoin: {
+          polling: !!calendarWatcher,
+          webhooks: !!calendarWebhookManager,
+          activeSubscriptions: calendarWebhookManager?.getActiveSubscriptions().length ?? 0,
+        },
       });
       return;
     }
