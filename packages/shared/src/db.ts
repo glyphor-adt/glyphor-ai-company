@@ -1,14 +1,21 @@
 import { Pool, PoolClient } from 'pg';
 
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-});
+const pool = process.env.DATABASE_URL
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
+    })
+  : new Pool({
+      host: process.env.DB_HOST,
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
+    });
 
 export async function tenantQuery<T = any>(
   tenantId: string,
@@ -31,11 +38,16 @@ export async function systemQuery<T = any>(
 ): Promise<T[]> {
   const client = await pool.connect();
   try {
-    await client.query('SET ROLE glyphor_system');
+    // SET ROLE only when using Cloud SQL with glyphor_system role
+    if (!process.env.DATABASE_URL) {
+      await client.query('SET ROLE glyphor_system').catch(() => {});
+    }
     const result = await client.query(sql, params);
     return result.rows as T[];
   } finally {
-    await client.query('RESET ROLE').catch(() => {});
+    if (!process.env.DATABASE_URL) {
+      await client.query('RESET ROLE').catch(() => {});
+    }
     client.release();
   }
 }
@@ -65,7 +77,9 @@ export async function systemTransaction<T>(
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query('SET ROLE glyphor_system');
+    if (!process.env.DATABASE_URL) {
+      await client.query('SET ROLE glyphor_system').catch(() => {});
+    }
     const result = await fn(client);
     await client.query('COMMIT');
     return result;
@@ -73,7 +87,9 @@ export async function systemTransaction<T>(
     await client.query('ROLLBACK');
     throw error;
   } finally {
-    await client.query('RESET ROLE').catch(() => {});
+    if (!process.env.DATABASE_URL) {
+      await client.query('RESET ROLE').catch(() => {});
+    }
     client.release();
   }
 }
