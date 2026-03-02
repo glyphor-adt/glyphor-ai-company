@@ -162,6 +162,51 @@ export default function GroupChat() {
     });
   };
 
+  // ── Org chart department grouping ──
+  const DEPT_ORDER = [
+    'Executive Office', 'Engineering', 'Product', 'Finance', 'Marketing',
+    'Customer Success', 'Sales', 'Design & Frontend', 'Research & Intelligence',
+    'Operations', 'Operations & IT', 'Legal', 'People & Culture',
+  ];
+  const TIER_PRIORITY: Record<string, number> = { Orchestrator: 0, Executive: 1, Specialist: 2, 'Sub-Team': 3 };
+
+  const departments = useMemo(() => {
+    const deptMap = new Map<string, typeof agents>();
+    for (const agent of agents) {
+      const dept = ROLE_DEPARTMENT[agent.role] || 'Other';
+      if (!deptMap.has(dept)) deptMap.set(dept, []);
+      deptMap.get(dept)!.push(agent);
+    }
+    for (const [, list] of deptMap) {
+      list.sort((a, b) => (TIER_PRIORITY[ROLE_TIER[a.role] ?? 'Sub-Team'] ?? 3) - (TIER_PRIORITY[ROLE_TIER[b.role] ?? 'Sub-Team'] ?? 3));
+    }
+    const ordered: [string, typeof agents][] = [];
+    for (const dept of DEPT_ORDER) {
+      if (deptMap.has(dept)) { ordered.push([dept, deptMap.get(dept)!]); deptMap.delete(dept); }
+    }
+    for (const [dept, list] of deptMap) ordered.push([dept, list]);
+    return ordered;
+  }, [agents]);
+
+  const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set(DEPT_ORDER));
+  const toggleDept = (dept: string) => {
+    setExpandedDepts((prev) => { const next = new Set(prev); if (next.has(dept)) next.delete(dept); else next.add(dept); return next; });
+  };
+
+  const filteredDepts = useMemo(() => {
+    if (!agentSearch.trim()) return departments;
+    const q = agentSearch.toLowerCase();
+    return departments
+      .map(([dept, list]) => [dept, list.filter((a) => {
+        const name = (DISPLAY_NAME_MAP[a.role] ?? '').toLowerCase();
+        const title = (ROLE_TITLE[a.role] ?? '').toLowerCase();
+        return name.includes(q) || title.includes(q) || a.role.includes(q);
+      })] as [string, typeof agents])
+      .filter(([, list]) => list.length > 0);
+  }, [departments, agentSearch]);
+
+  const isSearching = agentSearch.trim().length > 0;
+
   // ── File handling ──
   const handleFiles = async (files: FileList | File[]) => {
     const newAttachments: Attachment[] = [];
@@ -309,6 +354,7 @@ export default function GroupChat() {
         agent_role: agentRole,
         role,
         content,
+        conversation_id: conversationId,
         attachments: attachments ? attachments.map((a) => ({ name: a.name, type: a.type })) : null,
       }),
     }).catch(() => {});
@@ -462,16 +508,13 @@ export default function GroupChat() {
   return (
     <div className="flex h-[calc(100vh-6rem)] gap-5">
       {/* ── Member Selector (Left) ────────────── */}
-      <div className="w-56 flex-shrink-0 space-y-1 overflow-y-auto">
-        <p className="mb-3 text-[11px] font-medium uppercase tracking-wider text-txt-muted">
+      <div className="w-60 flex-shrink-0 flex flex-col min-h-0">
+        <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-txt-muted">
           Group Members
-        </p>
-        <p className="mb-3 text-[10px] text-txt-faint">
-          Select agents &amp; founders to include
         </p>
 
         {/* Founders */}
-        <p className="mt-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-txt-faint">
+        <p className="mt-1 mb-1 text-[10px] font-semibold uppercase tracking-wider text-txt-faint">
           Founders
         </p>
         {FOUNDERS.map((founder) => {
@@ -487,12 +530,12 @@ export default function GroupChat() {
               }`}
             >
               <div className="relative">
-                <div
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold text-white"
-                  style={{ backgroundColor: founder.color }}
-                >
-                  {founder.name[0]}
-                </div>
+                <img
+                  src={founder.photo}
+                  alt={founder.name}
+                  className="h-8 w-8 rounded-full object-cover"
+                  style={{ border: `2px solid ${founder.color}40` }}
+                />
                 {active && (
                   <div className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-cyan border border-raised" />
                 )}
@@ -507,43 +550,92 @@ export default function GroupChat() {
           );
         })}
 
-        {/* Agents */}
-        <p className="mt-4 mb-1 text-[10px] font-semibold uppercase tracking-wider text-txt-faint">
-          Agents
-        </p>
-        {agents.map((agent) => {
-          const meta = AGENT_META[agent.role];
-          const active = selectedRoles.has(agent.role);
-          return (
-            <button
-              key={agent.id}
-              onClick={() => toggleAgent(agent.role)}
-              className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors ${
-                active
-                  ? 'bg-cyan/10 border border-cyan/25'
-                  : 'border border-transparent hover:bg-[var(--color-hover-bg)]'
-              }`}
-            >
-              <div className="relative">
-                <img
-                  src={`/avatars/${agent.role}.png`}
-                  alt={agent.role}
-                  className="h-7 w-7 rounded-full object-cover"
-                  style={{ border: `1.5px solid ${meta?.color ?? '#64748b'}40` }}
-                />
-                {active && (
-                  <div className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-cyan border border-raised" />
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className={`text-[12px] font-medium truncate ${active ? 'text-cyan' : 'text-txt-secondary'}`}>
-                  {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
-                </p>
-                <p className="text-[10px] text-txt-faint truncate">{agent.role}</p>
-              </div>
-            </button>
-          );
-        })}
+        {/* Agent search */}
+        <div className="mt-3 mb-2">
+          <div className="flex items-center gap-1.5 rounded-lg border border-border bg-raised px-2 py-1.5">
+            <MdSearch size={14} className="text-txt-faint flex-shrink-0" />
+            <input
+              type="text"
+              value={agentSearch}
+              onChange={(e) => setAgentSearch(e.target.value)}
+              placeholder="Search agents..."
+              className="flex-1 bg-transparent text-[11px] text-txt-secondary placeholder-txt-faint outline-none"
+            />
+          </div>
+        </div>
+
+        {/* Agent org chart */}
+        <div className="flex-1 overflow-y-auto space-y-0.5">
+          {filteredDepts.map(([dept, agentList]) => (
+            <div key={dept}>
+              <button
+                onClick={() => toggleDept(dept)}
+                className="flex w-full items-center gap-1 px-1 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-txt-muted hover:text-txt-secondary transition-colors"
+              >
+                {isSearching || expandedDepts.has(dept) ? <MdExpandMore size={14} /> : <MdChevronRight size={14} />}
+                {dept}
+                <span className="text-txt-faint font-normal ml-0.5">({agentList.length})</span>
+              </button>
+              {(isSearching || expandedDepts.has(dept)) &&
+                agentList.map((agent) => {
+                  const meta = AGENT_META[agent.role];
+                  const active = selectedRoles.has(agent.role);
+                  const tier = ROLE_TIER[agent.role];
+                  const isLead = tier === 'Executive' || tier === 'Orchestrator';
+                  return (
+                    <button
+                      key={agent.id}
+                      onClick={() => toggleAgent(agent.role)}
+                      className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors ${isLead ? '' : 'ml-3'} ${
+                        active
+                          ? 'bg-cyan/10 border border-cyan/25'
+                          : 'border border-transparent hover:bg-[var(--color-hover-bg)]'
+                      }`}
+                    >
+                      <div className="relative flex-shrink-0">
+                        <img
+                          src={`/avatars/${agent.role}.png`}
+                          alt={agent.role}
+                          className={`rounded-full object-cover ${isLead ? 'h-8 w-8' : 'h-6 w-6'}`}
+                          style={{ border: `1.5px solid ${meta?.color ?? '#64748b'}40` }}
+                        />
+                        {active && (
+                          <div className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-cyan border border-raised" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-[11px] font-medium truncate ${active ? 'text-cyan' : 'text-txt-secondary'}`}>
+                          {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
+                        </p>
+                        <p className="text-[9px] text-txt-faint truncate">{ROLE_TITLE[agent.role] ?? agent.role}</p>
+                      </div>
+                      {isLead && (
+                        <span className="text-[8px] font-medium uppercase px-1 py-0.5 rounded-full bg-cyan/10 text-cyan tracking-wider flex-shrink-0">
+                          {tier === 'Orchestrator' ? 'CoS' : 'Lead'}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+            </div>
+          ))}
+          {filteredDepts.length === 0 && (
+            <p className="text-center text-[11px] text-txt-faint py-4">No agents match "{agentSearch}"</p>
+          )}
+        </div>
+
+        {/* New conversation button */}
+        <button
+          onClick={() => {
+            const id = `gc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            localStorage.setItem('glyphor-group-chat-id', id);
+            setMessages([]);
+            historyLoaded.current = false;
+          }}
+          className="mt-2 w-full rounded-lg border border-border bg-raised px-3 py-2 text-[11px] text-txt-muted hover:text-cyan hover:border-cyan/30 transition-colors text-center"
+        >
+          + New Conversation
+        </button>
       </div>
 
       {/* ── Chat Area (Right) ────────────── */}
@@ -561,13 +653,12 @@ export default function GroupChat() {
               .map((id) => {
                 const f = FOUNDERS.find((x) => x.id === id)!;
                 return (
-                  <div
+                  <img
                     key={id}
-                    className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold text-white border-2 border-surface"
-                    style={{ backgroundColor: f.color }}
-                  >
-                    {f.name[0]}
-                  </div>
+                    src={f.photo}
+                    alt={f.name}
+                    className="h-7 w-7 rounded-full object-cover border-2 border-surface"
+                  />
                 );
               })}
             {Array.from(selectedRoles)
