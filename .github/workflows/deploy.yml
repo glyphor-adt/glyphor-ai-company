@@ -13,6 +13,7 @@ env:
   GCP_PROJECT_ID: ai-glyphor-company
   GCP_REGION: us-central1
   AR_REPO: glyphor
+  REGISTRY: us-central1-docker.pkg.dev/ai-glyphor-company/glyphor
 
 jobs:
   # ─── Build & Test ──────────────────────────────────────────
@@ -50,38 +51,24 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
 
+      - uses: docker/setup-buildx-action@v3
+
       - name: Build & push scheduler image
-        env:
-          DOCKER_BUILDKIT: 1
-        run: |
-          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/scheduler:${{ github.sha }}"
-          IMAGE_LATEST="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/scheduler:latest"
-          
-          # Retry logic for transient failures
-          MAX_RETRIES=3
-          for attempt in $(seq 1 $MAX_RETRIES); do
-            echo "Build attempt $attempt/$MAX_RETRIES"
-            if docker build --progress=plain -f docker/Dockerfile.scheduler -t "$IMAGE" -t "$IMAGE_LATEST" .; then
-              echo "Build succeeded on attempt $attempt"
-              docker push "$IMAGE"
-              docker push "$IMAGE_LATEST"
-              exit 0
-            else
-              exit_code=$?
-              echo "Build failed with exit code $exit_code"
-              if [ $attempt -lt $MAX_RETRIES ]; then
-                sleep $((10 * attempt))
-                echo "Retrying..."
-              else
-                exit $exit_code
-              fi
-            fi
-          done
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.scheduler
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/scheduler:${{ github.sha }}
+            ${{ env.REGISTRY }}/scheduler:latest
+          cache-from: type=gha,scope=scheduler
+          cache-to: type=gha,mode=max,scope=scheduler
 
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy glyphor-scheduler \
-            --image="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/scheduler:${{ github.sha }}" \
+            --image="${{ env.REGISTRY }}/scheduler:${{ github.sha }}" \
             --region="${{ env.GCP_REGION }}" \
             --project="${{ env.GCP_PROJECT_ID }}" \
             --platform=managed \
@@ -115,41 +102,27 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
 
+      - uses: docker/setup-buildx-action@v3
+
       - name: Build & push dashboard image
-        env:
-          DOCKER_BUILDKIT: 1
-        run: |
-          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/dashboard:${{ github.sha }}"
-          IMAGE_LATEST="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/dashboard:latest"
-          
-          # Retry logic for transient failures
-          MAX_RETRIES=3
-          for attempt in $(seq 1 $MAX_RETRIES); do
-            echo "Build attempt $attempt/$MAX_RETRIES"
-            if docker build --progress=plain -f docker/Dockerfile.dashboard \
-              --build-arg VITE_SCHEDULER_URL="${{ secrets.VITE_SCHEDULER_URL }}" \
-              --build-arg VITE_GOOGLE_CLIENT_ID="${{ secrets.VITE_GOOGLE_CLIENT_ID }}" \
-              -t "$IMAGE" -t "$IMAGE_LATEST" .; then
-              echo "Build succeeded on attempt $attempt"
-              docker push "$IMAGE"
-              docker push "$IMAGE_LATEST"
-              exit 0
-            else
-              exit_code=$?
-              echo "Build failed with exit code $exit_code"
-              if [ $attempt -lt $MAX_RETRIES ]; then
-                sleep $((10 * attempt))
-                echo "Retrying..."
-              else
-                exit $exit_code
-              fi
-            fi
-          done
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.dashboard
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/dashboard:${{ github.sha }}
+            ${{ env.REGISTRY }}/dashboard:latest
+          build-args: |
+            VITE_SCHEDULER_URL=${{ secrets.VITE_SCHEDULER_URL }}
+            VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+          cache-from: type=gha,scope=dashboard
+          cache-to: type=gha,mode=max,scope=dashboard
 
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy glyphor-dashboard \
-            --image="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/dashboard:${{ github.sha }}" \
+            --image="${{ env.REGISTRY }}/dashboard:${{ github.sha }}" \
             --region="${{ env.GCP_REGION }}" \
             --project="${{ env.GCP_PROJECT_ID }}" \
             --platform=managed \
@@ -181,37 +154,24 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
 
+      - uses: docker/setup-buildx-action@v3
+
       - name: Build & push worker image
-        env:
-          DOCKER_BUILDKIT: 1
-        run: |
-          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/worker:${{ github.sha }}"
-          IMAGE_LATEST="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/worker:latest"
-          
-          MAX_RETRIES=3
-          for attempt in $(seq 1 $MAX_RETRIES); do
-            echo "Build attempt $attempt/$MAX_RETRIES"
-            if docker build --progress=plain -f docker/Dockerfile.worker -t "$IMAGE" -t "$IMAGE_LATEST" .; then
-              echo "Build succeeded on attempt $attempt"
-              docker push "$IMAGE"
-              docker push "$IMAGE_LATEST"
-              exit 0
-            else
-              exit_code=$?
-              echo "Build failed with exit code $exit_code"
-              if [ $attempt -lt $MAX_RETRIES ]; then
-                sleep $((10 * attempt))
-                echo "Retrying..."
-              else
-                exit $exit_code
-              fi
-            fi
-          done
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.worker
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/worker:${{ github.sha }}
+            ${{ env.REGISTRY }}/worker:latest
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,mode=max,scope=worker
 
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy glyphor-worker \
-            --image="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/worker:${{ github.sha }}" \
+            --image="${{ env.REGISTRY }}/worker:${{ github.sha }}" \
             --region="${{ env.GCP_REGION }}" \
             --project="${{ env.GCP_PROJECT_ID }}" \
             --platform=managed \
