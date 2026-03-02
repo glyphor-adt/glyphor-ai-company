@@ -1,8 +1,8 @@
 /**
  * Pulse Creative Studio — MCP Client
  *
- * Calls the Pulse MCP server (Model Context Protocol) at:
- *   https://iyabxcmsncmbtbbdngid.supabase.co/functions/v1/pulse-mcp
+ * Calls the Pulse MCP server (Model Context Protocol).
+ * Configure via PULSE_MCP_ENDPOINT env var.
  *
  * Available MCP tools:
  *   create_storyboard_from_idea — Idea → screenplay → parsed scenes → saved storyboard
@@ -19,8 +19,8 @@
  */
 
 export interface PulseConfig {
-  mcpEndpoint: string;     // https://<project>.supabase.co/functions/v1/pulse-mcp
-  serviceRoleKey: string;  // Pulse project service role key (Bearer token)
+  mcpEndpoint: string;     // Full URL to the Pulse MCP server
+  serviceRoleKey: string;  // Bearer token for auth
 }
 
 // ── MCP tool argument types ──
@@ -115,8 +115,8 @@ export class PulseClient {
   }
 
   static fromEnv(): PulseClient {
-    const supabaseUrl = (process.env.PULSE_SUPABASE_URL ?? 'https://iyabxcmsncmbtbbdngid.supabase.co').replace(/\/$/, '');
-    const mcpEndpoint = `${supabaseUrl}/functions/v1/pulse-mcp`;
+    const mcpEndpoint = process.env.PULSE_MCP_ENDPOINT;
+    if (!mcpEndpoint) throw new Error('PULSE_MCP_ENDPOINT not configured');
     const serviceRoleKey = process.env.PULSE_SERVICE_ROLE_KEY;
     if (!serviceRoleKey) throw new Error('PULSE_SERVICE_ROLE_KEY not configured');
     return new PulseClient({ mcpEndpoint, serviceRoleKey });
