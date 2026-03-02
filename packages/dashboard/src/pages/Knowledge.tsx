@@ -341,7 +341,7 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <MetricCard label="MRR" value={`$${pulse.mrr.toLocaleString()}`} sub={`${pulse.mrr_change_pct >= 0 ? '+' : ''}${pulse.mrr_change_pct}% MoM`} positive={pulse.mrr_change_pct >= 0} />
+            <MetricCard label="MRR" value={`$${(pulse.mrr ?? 0).toLocaleString()}`} sub={`${(pulse.mrr_change_pct ?? 0) >= 0 ? '+' : ''}${pulse.mrr_change_pct ?? 0}% MoM`} positive={(pulse.mrr_change_pct ?? 0) >= 0} />
             <MetricCard label="Active Users" value={String(pulse.active_users)} />
             <div className="rounded-lg border border-border bg-raised px-3 py-2.5">
               <p className="text-[11px] text-txt-muted mb-1">Platform Status</p>
