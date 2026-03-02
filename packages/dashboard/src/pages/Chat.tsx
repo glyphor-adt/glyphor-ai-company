@@ -301,14 +301,16 @@ export default function Chat() {
         const aliasFilter = userAliases.length > 1
           ? `or=(${userAliases.map(a => `user_id.eq.${a}`).join(',')})`
           : `user_id=${encodeURIComponent(userAliases[0])}`;
-        const data = await apiCall(`/api/chat-messages?agent_role=${role}&${aliasFilter}&order=created_at.asc&limit=100`);
+        const data = await apiCall(`/api/chat-messages?agent_role=${role}&${aliasFilter}&order=created_at.desc&limit=200`);
         if (data?.length) {
+          // Reverse so oldest-first for display (we fetched newest-first to get recent messages)
+          const rows = (data as Record<string, unknown>[]).reverse();
           setMessages(
-            data.map((row: Record<string, unknown>) => ({
+            rows.map((row: Record<string, unknown>) => ({
               role: row.role as 'user' | 'agent',
-              content: row.content,
+              content: row.content as string,
               timestamp: new Date(row.created_at as string),
-              attachments: (row.attachments as any[])?.map((a: Record<string, unknown>) => ({ ...a, data: '' })),
+              attachments: (row.attachments as any[])?.map((a: any) => ({ name: a.name, type: a.type, data: '' })),
               agentRole: (row.responding_agent as string) || undefined,
             })),
           );

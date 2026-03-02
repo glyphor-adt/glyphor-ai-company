@@ -101,11 +101,12 @@ export default function GroupChat() {
     const aliases = getEmailAliases(user?.email ?? 'unknown');
     (async () => {
       const data = await apiCall<{ agent_role: string; role: string; content: string; attachments: any; created_at: string }[]>(
-        `/api/chat-messages?user_id=${encodeURIComponent(aliases.join(','))}&limit=200`
+        `/api/chat-messages?user_id=${encodeURIComponent(aliases.join(','))}&order=created_at.desc&limit=200`
       ).catch(() => null);
       if (data && data.length > 0) {
+        const rows = [...data].reverse();
         setMessages(
-          data.map((row: any) => ({
+          rows.map((row: any) => ({
             role: row.role as 'user' | 'agent',
             agentRole: row.role === 'agent' ? row.agent_role : undefined,
             content: row.content,
