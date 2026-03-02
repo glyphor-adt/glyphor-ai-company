@@ -42,20 +42,29 @@ export async function createRealtimeSession(
 
   // Use the OpenAI Realtime sessions REST endpoint
   // POST https://api.openai.com/v1/realtime/sessions
-  const response = await openaiClient.beta.realtime.sessions.create({
-    model: REALTIME_MODEL,
-    modalities: ['text', 'audio'],
-    voice: voiceConfig.voice as any,
-    instructions: systemPrompt,
-    tools: realtimeTools as any,
-    input_audio_transcription: { model: 'whisper-1' },
-    turn_detection: {
-      type: 'server_vad',
-      threshold: 0.5,
-      prefix_padding_ms: 300,
-      silence_duration_ms: 500,
-    },
-  });
+  let response;
+  try {
+    response = await openaiClient.beta.realtime.sessions.create({
+      model: REALTIME_MODEL,
+      modalities: ['text', 'audio'],
+      voice: voiceConfig.voice as any,
+      instructions: systemPrompt,
+      tools: realtimeTools as any,
+      input_audio_transcription: { model: 'whisper-1' },
+      turn_detection: {
+        type: 'server_vad',
+        threshold: 0.5,
+        prefix_padding_ms: 300,
+        silence_duration_ms: 500,
+      },
+    });
+  } catch (err: any) {
+    console.error(`[Voice] OpenAI Realtime session creation failed:`, err?.message);
+    console.error(`[Voice] OpenAI error type:`, err?.constructor?.name);
+    console.error(`[Voice] OpenAI error cause:`, err?.cause?.message ?? err?.cause);
+    console.error(`[Voice] OpenAI error status:`, err?.status);
+    throw err;
+  }
 
   return {
     sessionId: (response as any).id ?? 'realtime-session',

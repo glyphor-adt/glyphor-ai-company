@@ -352,28 +352,54 @@ export class ToolExecutor {
       const agentId = context.agentId;
 
       // 1. Tool grant check — hardcoded grants (if registered) OR DB grants
+      //    IMPORTANT: If a tool is in this.tools (the agent's static tool set),
+      //    it's authorized by code — no DB grant needed. The DB grant table is
+      //    for DYNAMIC/ADDITIONAL tools granted at runtime, not for gating tools
+      //    the agent already has in its own code.
+      const isStaticTool = this.tools.has(toolName);
       const roleGrants = this.toolGrants.get(role);
       if (roleGrants && !roleGrants.has(toolName)) {
         // Hardcoded grants exist and tool is not in them
-        this.logSecurityEvent(agentId, role, toolName, 'TOOL_NOT_GRANTED');
-        return {
-          success: false,
-          error: `${role} does not have access to ${toolName}`,
-          filesWritten: 0,
-          memoryKeysWritten: 0,
-        };
-      } else if (!roleGrants) {
-        // No hardcoded grants — check DB grants
-        const granted = await isToolGranted(role, toolName);
-        if (!granted) {
+        if (!isStaticTool) {
           this.logSecurityEvent(agentId, role, toolName, 'TOOL_NOT_GRANTED');
           return {
             success: false,
-            error: `${role} does not have access to ${toolName}`,
+            error: `You do not have access to "${toolName}". Use the request_tool_access tool to request it, explaining why you need it.`,
             filesWritten: 0,
             memoryKeysWritten: 0,
           };
         }
+      } else if (!roleGrants) {
+        // No hardcoded grants — check DB grants (skip for static tools)
+        if (!isStaticTool) {
+          const granted = await isToolGranted(role, toolName);
+          if (!granted) {
+            this.logSecurityEvent(agentId, role, toolName, 'TOOL_NOT_GRANTED');
+            return {
+              success: false,
+              error: `You do not have access to "${toolName}". Use the request_tool_access tool to request it, explaining why you need it.`,
+              filesWritten: 0,
+              memoryKeysWritten: 0,
+            };
+          }
+        }
+      }
+
+      // Auto-sync: if tool is static but missing from DB grants, insert it
+      // so the DB stays in sync with code (fire-and-forget, non-blocking)
+      if (isStaticTool) {
+        isToolGranted(role, toolName).then(granted => {
+          if (!granted) {
+            systemQuery(
+              `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason)
+               VALUES ($1, $2, 'system', 'auto-synced from static tool array')
+               ON CONFLICT (agent_role, tool_name) DO NOTHING`,
+              [role, toolName],
+            ).then(() => {
+              invalidateGrantCache(role);
+            }).catch(() => {}); // best-effort
+          }
+        }).catch(() => {});
       }
 
       const grant = roleGrants?.get(toolName);

@@ -4,10 +4,13 @@
  * Allows any agent to request a new tool that doesn't exist yet.
  * Requests are stored in the `tool_requests` table and routed through
  * the decision system (Yellow tier) for CTO review and approval.
+ *
+ * Also provides request_tool_access for agents to self-service access
+ * to existing tools they don't currently have.
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
-import { isKnownTool } from '@glyphor/agent-runtime';
+import { isKnownTool, invalidateGrantCache } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
 
 export function createToolRequestTools(): ToolDefinition[] {
@@ -189,6 +192,87 @@ export function createToolRequestTools(): ToolDefinition[] {
         } catch (err) {
           return { success: false, error: (err as Error).message };
         }
+      },
+    },
+
+    {
+      name: 'request_tool_access',
+      description:
+        'Request access to an EXISTING tool you don\'t currently have. Use this when a tool call ' +
+        'fails with "does not have access". Read-only tools (get_*, read_*, query_*, check_*, fetch_*) ' +
+        'are auto-approved immediately. Write tools are auto-approved but logged for founder awareness. ' +
+        'After calling this, retry the original tool call.',
+      parameters: {
+        tool_name: {
+          type: 'string',
+          description: 'Name of the existing tool you need access to.',
+          required: true,
+        },
+        reason: {
+          type: 'string',
+          description: 'Why you need this tool — reference the task or request you\'re working on.',
+          required: true,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const toolName = params.tool_name as string;
+        const reason = params.reason as string;
+        const agentRole = ctx.agentRole;
+
+        if (!isKnownTool(toolName)) {
+          return {
+            success: false,
+            error: `Tool "${toolName}" does not exist in the system. Use request_new_tool to request it be built.`,
+          };
+        }
+
+        // Check if already granted
+        const existing = await systemQuery(
+          `SELECT id FROM agent_tool_grants WHERE agent_role = $1 AND tool_name = $2 AND is_active = true`,
+          [agentRole, toolName],
+        );
+        if (existing.length > 0) {
+          invalidateGrantCache(agentRole);
+          return {
+            success: true,
+            data: {
+              granted: true,
+              tool_name: toolName,
+              message: `You already have access to "${toolName}". Cache refreshed — retry your tool call now.`,
+            },
+          };
+        }
+
+        // Auto-grant: insert the grant row
+        try {
+          await systemQuery(
+            `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (agent_role, tool_name) DO UPDATE SET is_active = true, reason = $4, updated_at = NOW()`,
+            [agentRole, toolName, 'self-service', `Self-requested: ${reason}`],
+          );
+          invalidateGrantCache(agentRole);
+        } catch (err) {
+          return { success: false, error: `Failed to grant access: ${(err as Error).message}` };
+        }
+
+        // Log for founder awareness
+        try {
+          await systemQuery(
+            `INSERT INTO activity_log (agent_role, action, details) VALUES ($1, $2, $3)`,
+            [agentRole, 'self_service_tool_grant', JSON.stringify({ tool_name: toolName, reason })],
+          );
+        } catch {} // best-effort logging
+
+        return {
+          success: true,
+          data: {
+            granted: true,
+            tool_name: toolName,
+            agent_role: agentRole,
+            message: `Access to "${toolName}" granted. You can now use it — retry your original tool call.`,
+          },
+        };
       },
     },
   ];
