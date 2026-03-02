@@ -124,7 +124,10 @@ export default function Chat() {
     ? user.name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
     : '??';
 
-  const [selectedRole, setSelectedRole] = useState(agentId ?? 'chief-of-staff');
+  const [selectedRole, setSelectedRole] = useState(() => {
+    if (agentId) return agentId;
+    try { return localStorage.getItem('glyphor-chat-agent') || 'chief-of-staff'; } catch { return 'chief-of-staff'; }
+  });
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [input, setInput] = useState('');
@@ -255,7 +258,10 @@ export default function Chat() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedRoleRef = useRef(selectedRole);
-  useEffect(() => { selectedRoleRef.current = selectedRole; }, [selectedRole]);
+  useEffect(() => {
+    selectedRoleRef.current = selectedRole;
+    try { localStorage.setItem('glyphor-chat-agent', selectedRole); } catch {}
+  }, [selectedRole]);
 
   const FOUNDERS = [
     { role: 'kristina', name: 'Kristina', email: 'kristina@glyphor.ai' },
@@ -285,6 +291,7 @@ export default function Chat() {
   const loadHistory = useCallback(
     async (role: string) => {
       setLoadingHistory(true);
+      setMessages([]);
       try {
         // Use OR syntax so multi-alias users find messages saved under any alias
         const aliasFilter = userAliases.length > 1
@@ -301,9 +308,8 @@ export default function Chat() {
             })),
           );
         }
-        // Don't clear messages on empty result — keep stale data visible
       } catch {
-        // Keep existing messages on error rather than clearing
+        // Messages already cleared — empty state will show
       }
       setLoadingHistory(false);
     },
@@ -317,7 +323,10 @@ export default function Chat() {
   // Load recent chats index (which agents have conversations)
   const loadRecentChats = useCallback(async () => {
     try {
-      const data = await apiCall(`/api/chat-messages?user_id=${userAliases.join(',')}&order=created_at.desc&limit=300&fields=agent_role,role,content,created_at`);
+      const recentAliasFilter = userAliases.length > 1
+        ? `or=(${userAliases.map(a => `user_id.eq.${a}`).join(',')})`
+        : `user_id=${encodeURIComponent(userAliases[0])}`;
+      const data = await apiCall(`/api/chat-messages?${recentAliasFilter}&order=created_at.desc&limit=300&fields=agent_role,role,content,created_at`);
       if (!data?.length) { setRecentChats([]); return; }
       const map = new Map<string, RecentChat>();
       for (const row of data as Record<string, unknown>[]) {
