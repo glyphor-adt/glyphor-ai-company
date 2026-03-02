@@ -85,14 +85,10 @@ export default function GroupChat() {
   const [dragging, setDragging] = useState(false);
   const [agentSearch, setAgentSearch] = useState('');
 
-  // Stable conversation ID so all participants see the same thread
-  const [conversationId] = useState<string>(() => {
-    const stored = localStorage.getItem('glyphor-group-chat-id');
-    if (stored) return stored;
-    const id = `gc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    localStorage.setItem('glyphor-group-chat-id', id);
-    return id;
-  });
+  // Shared conversation ID — all users default to the same thread
+  const [conversationId, setConversationId] = useState<string>(
+    () => localStorage.getItem('glyphor-group-chat-id') || 'group-chat-default',
+  );
 
   // @mention state
   const [showMentions, setShowMentions] = useState(false);
@@ -104,7 +100,7 @@ export default function GroupChat() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const historyLoaded = useRef(false);
 
-  // ── Load chat history on mount ──
+  // ── Load chat history on mount or conversation change ──
   useEffect(() => {
     if (historyLoaded.current) return;
     historyLoaded.current = true;
@@ -644,6 +640,7 @@ export default function GroupChat() {
           onClick={() => {
             const id = `gc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             localStorage.setItem('glyphor-group-chat-id', id);
+            setConversationId(id);
             setMessages([]);
             historyLoaded.current = false;
           }}
