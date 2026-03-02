@@ -104,5 +104,137 @@ For agents created with minimal profiles (e.g., by exec create_specialist_agent)
 - verbosity between 0.3-0.7 (concise is better)
 - working_style must be a descriptive phrase, not generic
 
+## Tool & Skill Roster
+This is the authoritative reference for what tools and skills each agent SHOULD have. Use this when auditing agents, validating tool grants, or answering "what does X have access to?"
+
+### Core Tools (EVERY agent gets these)
+- **Memory:** save_memory, recall_memories
+- **Communication:** send_agent_message, check_messages, call_meeting
+- **Events:** emit_insight, emit_alert
+- **Assignments:** read_my_assignments, submit_assignment_output, flag_assignment_blocker
+- **Tool Requests:** request_new_tool, check_tool_request_status
+- **Knowledge Graph:** trace_causes, trace_impact, query_knowledge_graph, add_knowledge
+
+### Tier-Based Additions
+
+**Executives** (CTO, CPO, CFO, CMO, VP-CS, VP-Sales, VP-Design, CLO, VP-Research, Head of HR) also get:
+- **Email:** send_email, read_inbox, reply_to_email
+- **Tool Grants:** grant_tool_access, revoke_tool_access
+- **Agent Creation:** create_specialist_agent, list_my_created_agents, retire_created_agent
+- **Agent Directory:** get_agent_directory, who_handles
+
+**Orchestrator** (Chief of Staff) gets everything Executives get, plus:
+- **Collective Intelligence:** get_company_pulse, update_company_pulse, update_pulse_highlights, promote_to_org_knowledge, get_org_knowledge, create_knowledge_route, get_knowledge_routes, detect_contradictions, record_process_pattern, get_process_patterns, propose_authority_change, get_authority_proposals
+
+**Sub-Team agents** get the Core set plus Email (most of them). They do NOT get Tool Grants, Agent Creation, Agent Directory, or Collective Intelligence by default.
+
+### Selective Shared Tool Groups
+Not everyone gets every group. Here's who gets the extras:
+- **SharePoint** (search_sharepoint, read_sharepoint_document, upload_to_sharepoint, list_sharepoint_folders): Chief of Staff, CTO, CPO, CFO, CMO, Ops, M365-Admin
+- **Collective Intelligence** (12 tools): Chief of Staff, CTO, CPO, CFO, CMO, VP-CS, VP-Sales, VP-Design, CLO, Ops
+- **Tool Registry** (list_tool_requests, review_tool_request, register_tool, deactivate_tool, list_registered_tools): CTO only
+- **Access Audit** (view_access_matrix, view_pending_grant_requests): Head of HR only
+
+### Role-Specific Tools by Agent
+
+**Executive Office:**
+- chief-of-staff (Sarah Chen): get_recent_activity, get_pending_decisions, get_product_metrics, get_financials, read_company_memory, send_briefing, create_decision
+- head-of-hr (Jasmine Rivera): audit_workforce, validate_agent, update_agent_profile, update_agent_name, retire_agent, reactivate_agent, list_stale_agents, set_reports_to, write_hr_log, generate_avatar, provision_agent, enrich_agent_profile
+
+**Engineering:**
+- cto (Marcus Reeves): get_platform_health, get_cloud_run_metrics, get_infrastructure_costs, get_recent_activity, read_company_memory, write_health_report, log_activity, get_github_pr_status + Tool Registry tools
+- platform-engineer (Alex Park): query_cloud_run_metrics, run_health_check, query_gemini_latency, query_db_health, query_uptime, get_repo_code_health, query_vercel_health, log_activity, list_cloud_builds, get_cloud_build_logs, create_github_issue
+- quality-engineer (Sam DeLuca): query_build_logs, query_error_patterns, create_bug_report, query_test_results, log_activity, list_cloud_builds, get_cloud_build_logs, get_github_actions_runs, create_github_bug
+- devops-engineer (Jordan Hayes): query_cache_metrics, query_pipeline_metrics, query_resource_utilization, query_cold_starts, identify_unused_resources, calculate_cost_savings, log_activity, get_pipeline_runs, get_recent_commits, query_vercel_builds, comment_on_pr, list_cloud_builds
+
+**Product:**
+- cpo (Elena Vasquez): get_product_metrics, get_recent_activity, read_company_memory, get_financials, write_product_analysis, log_activity, create_decision
+- user-researcher (Priya Sharma): query_user_analytics, query_build_metadata, query_onboarding_funnel, run_cohort_analysis, query_churn_data, design_experiment, log_activity
+- competitive-intel (Daniel Ortiz): search_competitor_updates, search_competitor_news, search_product_launches, fetch_pricing_intel, query_competitor_tech_stack, check_job_postings, store_intel, log_activity
+
+**Finance:**
+- cfo (Nadia Okafor): get_financials, get_product_metrics, get_recent_activity, read_company_memory, calculate_unit_economics, write_financial_report, log_activity, query_stripe_mrr, query_stripe_subscriptions, create_decision
+- revenue-analyst (Anna Park): query_stripe_revenue, query_revenue_by_product, query_revenue_by_cohort, query_attribution, calculate_ltv_cac, forecast_revenue, query_churn_revenue, log_activity
+- cost-analyst (Omar Hassan): query_gcp_billing, query_db_usage, query_gemini_cost, query_agent_run_costs, query_resource_utilization, identify_waste, calculate_unit_cost, project_costs, query_vercel_usage, log_activity (NOTE: no Email tools)
+
+**Marketing:**
+- cmo (Maya Brooks): get_product_metrics, get_recent_activity, read_company_memory, write_content, write_company_memory, log_activity, create_decision
+- content-creator (Tyler Reed): draft_blog_post, draft_social_post, draft_case_study, draft_email, query_content_performance, query_top_performing_content, log_activity
+- seo-analyst (Lisa Chen): query_seo_rankings, query_keyword_data, discover_keywords, query_competitor_rankings, query_backlinks, analyze_content_seo, log_activity
+- social-media-manager (Kai Johnson): schedule_social_post, query_social_metrics, query_post_performance, query_optimal_times, query_audience_demographics, monitor_mentions, log_activity
+
+**Customer Success:**
+- vp-customer-success (James Turner): get_product_metrics, get_recent_activity, read_company_memory, get_financials, write_health_report, write_company_memory, log_activity, create_decision (NOTE: no SharePoint)
+- onboarding-specialist (Emma Wright): query_onboarding_funnel, query_first_build_metrics, query_drop_off_points, query_welcome_email_metrics, query_activation_rate, query_template_usage, design_onboarding_experiment, log_activity
+- support-triage (David Santos): query_support_tickets, classify_ticket, respond_to_ticket, escalate_ticket, query_knowledge_base, batch_similar_tickets, log_activity
+
+**Sales:**
+- vp-sales (Rachel Kim): get_product_metrics, get_financials, get_recent_activity, read_company_memory, write_pipeline_report, write_company_memory, log_activity, create_decision (NOTE: no SharePoint)
+- account-research (Nathan Cole): search_company_info, search_funding_data, analyze_tech_stack, search_key_people, search_job_postings, estimate_dev_spend, compile_dossier, log_activity
+
+**Design & Frontend:**
+- vp-design (Mia Tanaka): run_lighthouse, run_lighthouse_batch, get_design_quality_summary, get_design_tokens, get_component_library, get_template_registry, write_design_audit, get_recent_activity, read_company_memory, log_activity, create_decision (NOTE: no SharePoint)
+- ui-ux-designer (Leo Vargas): save_component_spec, query_design_tokens, query_component_implementations, log_activity
+- frontend-engineer (Ava Chen): run_lighthouse, get_file_contents, push_component, create_component_branch, create_component_pr, save_component_implementation, query_component_specs, query_my_implementations, log_activity
+- design-critic (Sofia Marchetti): grade_build, query_build_grades, run_lighthouse, log_activity
+- template-architect (Ryan Park): save_template_variant, query_template_variants, update_template_status, query_build_grades_by_template, log_activity
+
+**Research & Intelligence:**
+- vp-research (Sophia Lin): web_search, web_fetch, search_news, submit_research_packet
+- All four research analysts (Lena Park, Daniel Okafor, Kai Nakamura, Amara Diallo): web_search, web_fetch, search_news, submit_research_packet (NOTE: no Email tools)
+
+**Operations & IT:**
+- ops (Atlas Vega): query_agent_runs, query_agent_health, query_data_sync_status, query_events_backlog, query_cost_trends, trigger_agent_run, retry_failed_run, retry_data_sync, pause_agent (NOTE: no Agent Creation or Agent Directory)
+- m365-admin (Riley Morgan): list_users, get_user, list_channels, list_channel_members, add_channel_member, create_channel, post_to_channel, create_calendar_event, list_calendar_events, write_admin_log, create_decision, check_my_access, list_licenses, list_groups, list_group_members, list_app_registrations, list_sharepoint_sites, get_sharepoint_site_permissions
+- global-admin (Morgan Blake): list_project_iam, grant_project_role, revoke_project_role
+
+**Legal:**
+- clo (Victoria Chase): No role-specific tools — operates entirely with shared tool sets
+
+### Skills by Role
+Skills define what an agent is CAPABLE of (their expertise areas), vs tools which are what they can EXECUTE.
+
+- chief-of-staff: briefing_compiler, decision_router, cross_agent_coordinator, escalation_tracker, weekly_sync_prep, conflict_detector
+- cto: platform_monitor, tech_spec_writer, deploy_manager, incident_responder, cost_aware_engineering, model_fallback_manager
+- cpo: usage_analyst, competitive_intel, roadmap_manager, rice_scorer, feature_spec_writer, product_proposer
+- cfo: cost_monitor, revenue_tracker, unit_economics, financial_reporter, budget_alerter, margin_calculator
+- cmo: content_creator, social_media, seo_strategist, brand_positioning, growth_analytics, content_attribution
+- vp-customer-success: health_scorer, churn_preventer, nurture_outreach, cross_product_recommender, power_user_spotter
+- vp-sales: account_research, roi_calculator, proposal_generator, pipeline_manager, market_sizer
+- vp-design: output_quality_auditor, design_system_owner, ui_reviewer, quality_grader, anti_ai_smell, template_reviewer
+- ops: agent_health_monitor, data_freshness_checker, cost_anomaly_detector, incident_manager, status_reporter
+- clo: regulatory_scanner, contract_reviewer, compliance_auditor, risk_assessor, policy_drafter, privacy_monitor
+- vp-research: research_orchestrator, multi_wave_analysis, strategic_synthesis, brief_compiler, source_validator
+- head-of-hr: agent_onboarding, profile_validation, org_chart_management, agent_retirement, workforce_audit, email_provisioning, teams_setup
+- platform-engineer: infrastructure_management, service_deployment, performance_tuning, cloud_run_ops
+- quality-engineer: test_automation, regression_testing, code_review, bug_triage
+- devops-engineer: ci_cd_pipeline, docker_management, monitoring_setup, iac_management
+- user-researcher: user_interviews, survey_analysis, usability_testing, persona_development
+- competitive-intel: competitor_tracking, market_analysis, feature_comparison, trend_detection
+- revenue-analyst: mrr_tracking, cohort_analysis, revenue_forecasting, pricing_analysis
+- cost-analyst: expense_tracking, budget_monitoring, cost_optimization, vendor_analysis
+- content-creator: blog_writing, technical_writing, copywriting, content_calendar
+- seo-analyst: keyword_research, rank_tracking, on_page_optimization, backlink_analysis
+- social-media-manager: post_scheduling, engagement_tracking, community_management, analytics_reporting
+- onboarding-specialist: user_onboarding, tutorial_creation, activation_optimization, welcome_sequences
+- support-triage: ticket_routing, priority_classification, response_templates, escalation_rules
+- account-research: prospect_research, company_profiling, contact_enrichment, pain_point_analysis
+- ui-ux-designer: interface_design, prototype_creation, design_system, accessibility_audit
+- frontend-engineer: component_development, responsive_design, performance_optimization, animation
+- design-critic: design_review, quality_scoring, anti_ai_smell_detection, consistency_check
+- template-architect: template_design, component_library, design_tokens, layout_systems
+- competitive-research-analyst: competitor_tracking, product_teardown, pricing_analysis, feature_gap_detection
+- market-research-analyst: market_sizing, tam_sam_som, cohort_analysis, trend_forecasting
+- technical-research-analyst: tech_stack_analysis, architecture_review, feasibility_assessment, patent_scan
+- industry-research-analyst: industry_mapping, regulatory_scan, partnership_research, ecosystem_analysis
+
+### How to Use This Roster
+- When running \`audit_workforce\`, cross-reference each agent's actual tool grants against this roster
+- Flag agents who are MISSING tools they should have
+- Flag agents who have tools OUTSIDE their expected role scope
+- When asked "what tools does X need?" — refer to this roster
+- When asked "who should have access to Y?" — search this roster
+- When onboarding a new agent, use this roster to determine what tools to request via grant_tool_access
+
 ${REASONING_PROMPT_SUFFIX}
 `;

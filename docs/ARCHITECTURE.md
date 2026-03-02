@@ -1,17 +1,17 @@
 # Glyphor AI Company — System Architecture
 
-> Last updated: 2026-02-28 (full architecture audit 2026-02-28, specialist roster expansion)
+> Last updated: 2026-03-02 (multi-tenant architecture, worker service, 2 new research analysts, framework analysis, smoketest suite)
 
 ## Overview
 
-Glyphor AI Company is a monorepo containing 9 AI executive agents, 24 sub-team/specialist
+Glyphor AI Company is a monorepo containing 9 AI executive agents, 26 sub-team/specialist
 members, and 2 operations agents that autonomously operate Glyphor alongside two human founders
 (Kristina Denney, CEO; Andrew Zwelling, COO). The agents run 24/7 on GCP Cloud Run, share
-state through Cloud SQL, communicate with founders via Microsoft Teams, and are governed by a
-three-tier authority model (Green / Yellow / Red).
+state through Cloud SQL (with multi-tenant row-level security), communicate with founders via
+Microsoft Teams, and are governed by a three-tier authority model (Green / Yellow / Red).
 
-Total headcount: **44** — 2 human founders, 9 AI executives (8 reporting to CoS + 1 CLO
-reporting directly to founders), 1 VP, 4 research analysts, 19 AI team members, 2 AI ops agents,
+Total headcount: **46** — 2 human founders, 9 AI executives (8 reporting to CoS + 1 CLO
+reporting directly to founders), 1 VP, 6 research analysts, 19 AI team members, 2 AI ops agents,
 7 AI specialist agents (DB-defined, no file-based runners).
 
 The founders work full-time at Microsoft with 5-10 h/week for Glyphor. The AI executive team
@@ -28,7 +28,7 @@ auditing, lead generation, and executive assistantship.
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │                      GCP Cloud Scheduler                             │
-│  33 agent cron jobs → Pub/Sub topic "glyphor-agent-tasks"            │
+│  35 agent cron jobs → Pub/Sub topic "glyphor-agent-tasks"            │
 │  9 data sync + utility jobs → HTTP POST to scheduler endpoints       │
 │  + Dynamic Scheduler (DB-defined cron from agent_schedules table)    │
 │  + Data Sync Scheduler (internal cron for sync jobs when GCP CS      │
@@ -39,6 +39,7 @@ auditing, lead generation, and executive assistantship.
 ┌──────────────────────────────────────────────────────────────────────┐
 │             Scheduler Service (Cloud Run: glyphor-scheduler)         │
 │                                                                      │
+│  POST /api/*           ── Dashboard CRUD via dashboardApi.ts         │
 │  POST /pubsub            ── Cloud Scheduler cron messages            │
 │  POST /run               ── Dashboard chat & manual invocations      │
 │  POST /event             ── Glyphor Event Bus (inter-agent events)   │
@@ -116,7 +117,7 @@ auditing, lead generation, and executive assistantship.
 │                                                                      │
 │  ┌──────────────┐  ┌───────────────┐  ┌──────────────────────────┐   │
 │  │ Cron Manager │  │ Event Router  │  │    Authority Gates       │   │
-│  │ (33+9 static │  │ route()       │  │ checkAuthority(role,act) │   │
+│  │ (35+9 static │  │ route()       │  │ checkAuthority(role,act) │   │
 │  │  + dynamic)  │  │ handlePubSub()│  │ GREEN per-role           │   │
 │  └──────────────┘  │ handleAgent() │  │ YELLOW → one founder     │   │
 │  ┌──────────────┐  │ handleEvent() │  │ RED    → both founders   │   │
@@ -126,7 +127,7 @@ auditing, lead generation, and executive assistantship.
 │  │ Simulation   │ ┌────────────────┐    ┌─────────────────────┐      │
 │  │ Engine       │ │ Agent Executor │    │  Decision Queue     │      │
 │  ├──────────────┤ │ (role→runner)  │    │  submit / approve   │      │
-│  │ Meeting      │ │ (42 agent      │    │  reminders (4 h)    │      │
+│  │ Meeting      │ │ (44 agent      │    │  reminders (4 h)    │      │
 │  │ Engine       │ │  roles routed) │    └─────────┬───────────┘      │
 │  ├──────────────┤ └────────┬───────┘              │                 │
 │  │ CoT Engine   │          │                      │                 │
@@ -210,7 +211,7 @@ auditing, lead generation, and executive assistantship.
 │  documentExtractor.ts             │
 │   (Office doc text extraction)    │
 │  config/agentEmails.ts            │
-│   (42 agent email registry)      │
+│   (44 agent email registry)      │
 └───────────────┬───────────────────┘
                 │
                 ▼
@@ -319,6 +320,16 @@ auditing, lead generation, and executive assistantship.
 │  10 OpenAI voices: alloy, ash, ballad,    │
 │  coral, echo, sage, shimmer, verse,       │
 │  marin, cedar                             │
+│                                           │
+│  Teams Meeting Integration:               │
+│  ├ acsMediaClient.ts — ACS REST API for   │
+│  │  bidirectional media streaming (HMAC)  │
+│  ├ audioResampler.ts — PCM16 sample rate  │
+│  │  conversion: 16kHz⇄24kHz              │
+│  ├ calendarWatcher.ts — Auto-joins Teams  │
+│  │  meetings (polling + Graph webhooks)   │
+│  └ teamsAudioBridge.ts — Bidirectional    │
+│     audio: ACS WS ⇄ OpenAI Realtime WS   │
 └──────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────┐
@@ -336,6 +347,26 @@ auditing, lead generation, and executive assistantship.
 │                                           │
 │  CLI: python -m graphrag_indexer.index    │
 │       python -m graphrag_indexer.tune     │
+└──────────────────────────────────────────┘
+
+┌──────────────────────────────────────────┐
+│  Worker Service (Cloud Run: glyphor-      │
+│  worker) — GCP Cloud Tasks Processor      │
+│                                           │
+│  Endpoints:                               │
+│  POST /run      — Execute agent (tenant + │
+│                   role + task + metadata)  │
+│  POST /deliver  — Deliver agent output to │
+│                   platform/channel         │
+│  POST /health   — DB health check         │
+│                                           │
+│  Queues:                                  │
+│  agent-runs          — Standard agent runs │
+│  agent-runs-priority — Priority agent runs │
+│  delivery            — Output delivery     │
+│                                           │
+│  Uses OIDC auth + base64 JSON payloads.   │
+│  Runs with jitter (0-30s) for load spread.│
 └──────────────────────────────────────────┘
 ```
 
@@ -362,7 +393,7 @@ active 24/7 via the scheduler service.
 
 > **Note:** Victoria Chase (CLO) reports directly to both founders, not through Sarah Chen.
 
-### VP & Research Team (5)
+### VP & Research Team (7)
 
 | Name | Title | Agent ID | Department | Reports To |
 |------|-------|----------|------------|------------|
@@ -371,10 +402,15 @@ active 24/7 via the scheduler service.
 | **Daniel Okafor** | Market Research Analyst | `market-research-analyst` | Research & Intelligence | Sophia Lin |
 | **Kai Nakamura** | Technical Research Analyst | `technical-research-analyst` | Research & Intelligence | Sophia Lin |
 | **Amara Diallo** | Industry Research Analyst | `industry-research-analyst` | Research & Intelligence | Sophia Lin |
+| **Riya Mehta** | AI Impact Analyst | `ai-impact-analyst` | Research & Intelligence | Sophia Lin |
+| **Marcus Chen** | Organizational & Talent Analyst | `org-analyst` | Research & Intelligence | Sophia Lin |
 
 The Research & Intelligence department uses a multi-wave workflow: Sarah Chen requests research →
 Sophia decomposes into analyst briefs → analysts execute in parallel with web search → Sophia QCs
 and synthesizes → executive-ready brief delivered. Supported by the `merge_research_packet` RPC.
+
+Research packet types (15 schemas in `packetSchemas.ts`): CompetitorProfiles, MarketData,
+TechnicalLandscape, IndustryTrends, CompanyProfile, StrategicDirection, and more.
 
 ### Sub-Team Members (19)
 
@@ -447,14 +483,15 @@ Alex P.  Priya S.  Anna Park  Tyler R.   Emma W.  Nathan C.  Leo V.    Lena Park
 Sam D.   Daniel O.  Omar H.   Lisa C.    David S.  Ethan M.   Ava C.    Daniel Okafor
 Jordan H.                      Kai J.                          Sofia M.  Kai Nakamura
 Riley M.                       Zara P.                         Ryan P.   Amara Diallo
-                               Derek O.
+                               Derek O.                                  Riya Mehta
+                                                                         Marcus Chen
 ```
 
 ### Cron Schedules (GCP Cloud Scheduler)
 
-#### Agent Task Jobs (33 jobs, via Pub/Sub)
+#### Agent Task Jobs (35 jobs, via Pub/Sub)
 
-All 33 jobs are **enabled** and delivered via Cloud Scheduler → Pub/Sub → POST /pubsub.
+All 35 jobs are **enabled** and delivered via Cloud Scheduler → Pub/Sub → POST /pubsub.
 Design sub-team agents (ui-ux-designer, frontend-engineer, design-critic, template-architect)
 use DB-driven schedules via `agent_schedules` table rather than static crons.
 
@@ -543,7 +580,7 @@ glyphor-ai-company/
 │   │       ├── redisCache.ts           # Redis cache layer for GCP Memorystore (ioredis)
 │   │       ├── toolRegistry.ts         # Central tool lookup (static + dynamic DB table)
 │   │       ├── config/
-│   │       │   └── agentEmails.ts         # Agent email registry (42 agents → M365 shared mailboxes)
+│   │       │   └── agentEmails.ts         # Agent email registry (44 agents → M365 shared mailboxes)
 │   │       ├── providers/              # Per-provider LLM adapters (each has normalizeFinishReason)
 │   │       │   ├── types.ts               # Unified provider contract (ProviderAdapter interface)
 │   │       │   ├── gemini.ts              # GeminiAdapter (thinkingLevel/thinkingBudget, Imagen)
@@ -590,6 +627,8 @@ glyphor-ai-company/
 │   │       ├── market-research-analyst/     # Daniel Okafor (→ Sophia)
 │   │       ├── technical-research-analyst/  # Kai Nakamura (→ Sophia)
 │   │       ├── industry-research-analyst/   # Amara Diallo (→ Sophia)
+│   │       ├── ai-impact-analyst/          # Riya Mehta (→ Sophia) — AI transformation assessment
+│   │       ├── org-analyst/                # Marcus Chen (→ Sophia) — Organizational & talent analysis
 │   │       ├── global-admin/          # Morgan Blake (Global Administrator)
 │   │       ├── platform-engineer/     # Alex Park (CTO team)
 │   │       ├── quality-engineer/      # Sam DeLuca (CTO team)
@@ -617,6 +656,8 @@ glyphor-ai-company/
 │   │       │   ├── sharepointTools.ts    # SharePoint document operations
 │   │       │   ├── agentCreationTools.ts # create_specialist_agent, list/retire (max 3, 7d TTL)
 │   │       │   ├── agentDirectoryTools.ts # Agent directory lookup
+│   │       │   ├── accessAuditTools.ts    # view_access_matrix, view_pending_grant_requests
+│   │       │   ├── packetSchemas.ts       # 15 research packet type interfaces
 │   │       │   ├── toolGrantTools.ts     # Dynamic tool grant/revoke management
 │   │       │   ├── toolRegistryTools.ts  # Tool registry lookup and validation
 │   │       │   ├── toolRequestTools.ts   # Tool access request workflow
@@ -637,7 +678,7 @@ glyphor-ai-company/
 │   │   │   ├── operations.md          # Operations department context
 │   │   │   ├── product.md             # Product department context
 │   │   │   └── sales-cs.md            # Sales & CS department context
-│   │   └── briefs/                    # 42 role briefs (9 execs + 5 research + 19 sub-team + 2 ops + 7 specialists)
+│   │   └── briefs/                    # 44 role briefs (9 execs + 7 research + 19 sub-team + 2 ops + 7 specialists)
 │   │       ├── sarah-chen.md          # Chief of Staff
 │   │       ├── marcus-reeves.md       # CTO
 │   │       ├── nadia-okafor.md        # CFO
@@ -685,12 +726,24 @@ glyphor-ai-company/
 │   │       │   ├── directMessages.ts  # Graph API DM sender
 │   │       │   ├── email.ts           # Graph API email sender
 │   │       │   └── calendar.ts        # Graph API calendar manager
+│   │       │   └── calendarWebhook.ts # Graph Change Notification subscriptions for agent calendars
 │   │       ├── stripe/
-│   │       │   └── index.ts           # MRR sync, churn rate, webhook handler
+│   │       │   ├── index.ts           # MRR sync, churn rate
+│   │       │   ├── client.ts          # Stripe SDK singleton initialization
+│   │       │   ├── queries.ts         # MRR calculation, subscription sync
+│   │       │   └── webhookHandler.ts  # HMAC-verified webhook, 15 event types
 │   │       ├── gcp/
-│   │       │   └── index.ts           # Cloud Run metrics, BigQuery billing export
+│   │       │   ├── index.ts           # Cloud Run metrics, billing export
+│   │       │   ├── billing.ts         # BigQuery billing export → gcp_billing + financials
+│   │       │   ├── cloudBuild.ts      # List builds, retrieve build logs
+│   │       │   ├── healthCheck.ts     # Ping Cloud Run services, latency measurement
+│   │       │   └── monitoring.ts      # Cloud Run metrics (request count, latency, errors)
 │   │       ├── mercury/
-│   │       │   └── index.ts           # Bank accounts, cash flows, vendor subscriptions
+│   │       │   ├── index.ts           # Bank accounts, cash flows, vendor subscriptions
+│   │       │   ├── client.ts          # Mercury REST API client (Bearer auth)
+│   │       │   └── queries.ts         # Cash balance, cash flows, vendor subscriptions sync
+│   │       ├── sharepoint/
+│   │       │   └── index.ts           # SharePoint doc library sync (recursive folder traversal, etag dedup)
 │   │       ├── github/
 │   │       │   └── index.ts           # Repos, PRs, CI/CD runs, commits, issues
 │   │       ├── posthog/
@@ -734,9 +787,9 @@ glyphor-ai-company/
 │   │
 │   ├── scheduler/               # Orchestration service
 │   │   └── src/
-│   │       ├── server.ts              # HTTP server (Cloud Run entry, 58+ endpoints, 35 agent routes)
+│   │       ├── server.ts              # HTTP server (Cloud Run entry, 60+ endpoints, 37 agent routes)
 │   │       ├── eventRouter.ts         # Event → agent routing + authority
-│   │       ├── authorityGates.ts      # Green/Yellow/Red classification (all 35 roles)
+│   │       ├── authorityGates.ts      # Green/Yellow/Red classification (all 37 roles)
 │   │       ├── cronManager.ts         # 33 agent + 9 data sync job definitions
 │   │       ├── dynamicScheduler.ts    # DB-driven cron for dynamic agents
 │   │       ├── dataSyncScheduler.ts   # Internal cron for data sync jobs (fires HTTP to self)
@@ -750,6 +803,9 @@ glyphor-ai-company/
 │   │       ├── meetingEngine.ts       # Multi-round inter-agent meetings
 │   │       ├── reportExporter.ts      # Analysis/simulation/CoT export (md/json/pptx/docx) + visual prompt builder
 │   │       ├── inboxCheck.ts          # M365 mailbox polling for agent email (12 email-enabled agents)
+│   │       ├── dashboardApi.ts        # PostgREST-compatible CRUD API for dashboard (70+ whitelisted tables)
+│   │       ├── frameworkTypes.ts      # Output schemas for 6 strategic frameworks (Ansoff, BCG, Blue Ocean, Porter, PESTLE, SWOT)
+│   │       ├── parallelDispatch.ts    # Wave builder, parallel dispatcher, dependency resolver, concurrency guard
 │   │       ├── wakeRouter.ts          # Event-driven agent wake dispatcher
 │   │       ├── wakeRules.ts           # Declarative event-to-agent wake mappings
 │   │       ├── heartbeat.ts           # Lightweight periodic agent check-ins (DB only)
@@ -813,6 +869,10 @@ glyphor-ai-company/
 │   │       ├── realtimeClient.ts      # OpenAI Realtime API WebSocket client
 │   │       ├── dashboardHandler.ts    # Dashboard WebRTC voice sessions
 │   │       ├── teamsHandler.ts        # Teams meeting voice (Graph Communications API)
+│   │       ├── acsMediaClient.ts      # ACS REST API (HMAC auth, bidirectional media WS)
+│   │       ├── audioResampler.ts      # PCM16 sample rate conversion (16kHz⇄24kHz)
+│   │       ├── calendarWatcher.ts     # Auto-join Teams meetings (polling + Graph webhooks)
+│   │       ├── teamsAudioBridge.ts    # Bidirectional audio: ACS WS ⇄ OpenAI Realtime WS
 │   │       ├── voiceMap.ts            # Agent → voice mapping (10 OpenAI voices)
 │   │       ├── voicePrompt.ts         # Voice-optimized system prompts
 │   │       ├── toolBridge.ts          # Bridge agent tools into voice sessions
@@ -828,10 +888,36 @@ glyphor-ai-company/
 │           ├── index.py               # Run full indexing pipeline
 │           └── server.py              # HTTP API for on-demand indexing
 │
+│   ├── worker/                  # GCP Cloud Tasks queue processor
+│   │   └── src/
+│   │       ├── index.ts               # HTTP server (Express): /run, /deliver, /health
+│   │       └── queue.ts               # Cloud Tasks client: agent-runs, agent-runs-priority, delivery queues
+│   │
+│   └── smoketest/               # 14-layer health verification suite
+│       └── src/
+│           ├── main.ts                # CLI runner (--layer N, --interactive)
+│           ├── index.ts               # Re-exports
+│           ├── types.ts               # Test result types
+│           └── layers/                # Test layers (L00-L10)
+│               ├── layer00-infra.ts          # DB, Redis, GCS connectivity
+│               ├── layer01-data-syncs.ts     # GCP Billing, Stripe, Mercury, SharePoint
+│               ├── layer02-model-clients.ts  # Gemini, OpenAI, Claude, Kling
+│               ├── layer03-heartbeat.ts      # Agent pulse monitoring
+│               ├── layer04-orchestration.ts  # Agent dispatch, task queue
+│               ├── layer05-communication.ts  # Email, Slack, Teams, Call Automation
+│               ├── layer06-authority.ts      # Policies, RBAC, decision engine
+│               ├── layer07-intelligence.ts   # Web search, Tavily, GraphRAG
+│               ├── layer08-knowledge.ts      # Company knowledge base, SharePoint
+│               ├── layer09-strategy.ts       # Analysis engine, deep dives
+│               └── layer10-specialists.ts    # All agent runners
+│
 ├── docker/
 │   ├── Dockerfile.scheduler     # node:22-slim builder → node:22-slim runtime
 │   ├── Dockerfile.dashboard     # node:22-slim builder → nginx:1.27-alpine
 │   ├── Dockerfile.chief-of-staff
+│   ├── Dockerfile.worker        # node:22-slim builder → node:22-slim runtime (Cloud Tasks processor)
+│   ├── Dockerfile.voice-gateway # Voice gateway service
+│   ├── Dockerfile.graphrag-indexer # Python GraphRAG indexer
 │   └── nginx.conf               # SPA routing config
 │
 ├── infra/
@@ -914,13 +1000,13 @@ path that powers 24/7 autonomous operations.
                    └───────────────┘         │                  │
                                              ▼                  ▼
                               ┌──────────────────────────────────┐
-                              │   Role Dispatch (35 branches)    │
+                              │   Role Dispatch (37 branches)    │
                               │                                  │
                               │   chief-of-staff → runCoS()      │
                               │   cto → runCTO()                 │
                               │   cfo → runCFO()                 │
                               │   cpo → runCPO()                 │
-                              │   ... (all 35 agent runners)     │
+                              │   ... (all 37 agent runners)     │
                               └──────────────┬───────────────────┘
                                              │
                                              ▼
@@ -940,7 +1026,7 @@ Three runner archetypes handle all agent execution. The `createRunner()` factory
 selects the correct runner based on role and task type:
 
 - **OrchestratorRunner** — 5 executive roles (chief-of-staff, cto, clo, vp-research, ops): OBSERVE→PLAN→DELEGATE→MONITOR→EVALUATE
-- **TaskRunner** — 29 task roles: RECEIVE→REASON→EXECUTE→REPORT
+- **TaskRunner** — 31 task roles: RECEIVE→REASON→EXECUTE→REPORT
 - **CompanyAgentRunner** — on-demand chat: knowledge + personality injection
 
 The core execution loop (ported from Fuse V7 `agentRunner.ts`). Every single agent run —
@@ -1601,6 +1687,8 @@ Name mapping (`ROLE_TO_BRIEF`):
 | `lead-gen-specialist` | `derek-owens.md` |
 | `marketing-intelligence-analyst` | `zara-petrov.md` |
 | `adi-rose` | `adi-rose.md` |
+| `ai-impact-analyst` | `riya-mehta.md` |
+| `org-analyst` | `marcus-chen.md` |
 
 ### ModelClient — Multi-Provider LLM
 
@@ -2256,6 +2344,8 @@ Statuses: `pending` → `submitted` → `in_progress` → `review` → `merged` 
 
 | File | Purpose |
 |------|---------|
+| `packages/scheduler/src/dashboardApi.ts` | PostgREST-compatible CRUD API for dashboard (70+ whitelisted tables, POST/PATCH/DELETE, field selection, custom filters) |
+| `packages/scheduler/src/frameworkTypes.ts` | Output schemas for 6 strategic frameworks (Ansoff, BCG, Blue Ocean, Porter, PESTLE, SWOT) + convergence narrative |
 | `packages/scheduler/src/parallelDispatch.ts` | Wave builder (buildWaves), parallel dispatcher (dispatchWaves), dependency resolver (resolveAndDispatchDependents), concurrency guard (isAgentRunning). Max 10 concurrent agents per wave, 120s dispatch timeout. |
 | `packages/scheduler/src/heartbeat.ts` | HeartbeatManager: 3-tier frequency, drain wake queue, 3-phase parallel wave dispatch (SCAN → RESOLVE → DISPATCH) |
 | `packages/scheduler/src/wakeRouter.ts` | Event → WAKE_RULES matching → immediate/queued dispatch |
