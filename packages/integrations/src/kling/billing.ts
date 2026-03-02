@@ -98,12 +98,125 @@ export async function queryKlingCosts(
 }
 
 /**
+ * Kling resource pack pricing by product category (30-day recurring).
+ * Source: https://klingai.com/global/dev/pricing
+ *
+ * ── Video Generation Packs ──────────────────────────────────────────
+ *  Trial  100 units  |  $9.79   | $0.0979/unit  | 3 concurrent
+ *  Trial 1000 units  | $97.99   | $0.09799/unit | 3 concurrent
+ *  Pkg 1 30000 units | $4,200   | $0.14/unit    | 5 concurrent
+ *  Pkg 2 45000 units | $5,670   | $0.126/unit   | 5 concurrent
+ *  Pkg 3 60000 units | $6,720   | $0.112/unit   | 5 concurrent
+ *
+ * ── Video Unit Deduction (per 1 second of video) ────────────────────
+ *  std × no video × no audio  → 0.6 units/s
+ *  std × no video × with audio → 0.8 units/s
+ *  std × with video × no audio → 0.9 units/s
+ *  pro × no video × no audio  → 0.8 units/s
+ *  pro × no video × with audio → 1.0 units/s
+ *  pro × with video × no audio → 1.2 units/s
+ *
+ * ── Image Generation Packs ──────────────────────────────────────────
+ *  Trial  1000 units   |  $2.39   | $0.00239/unit  | 6 concurrent
+ *  Trial 10000 units   | $24.49   | $0.00245/unit  | 6 concurrent
+ *  Pkg 1   600K units  | $2,100   | $0.0035/unit   | 9 concurrent
+ *  Pkg 2  1200K units  | $3,780   | $0.00315/unit  | 9 concurrent
+ *  Pkg 3  1800K units  | $5,040   | $0.0028/unit   | 9 concurrent
+ *
+ * ── Image Unit Deduction (per image) ────────────────────────────────
+ *  kling-image-o1 (txt2img/img2img/edit)  → 8 units
+ *  kling-v2-1 (txt2img)                   → 4 units
+ *  kling-v2 (txt2img: 4, multi-img: 16, restyle: 8)
+ *  kling-v1-5 (txt2img/subject/face)      → 8 units
+ *  kling-v1 (txt2img/img2img)             → 1 unit
+ *  Image expansion                        → 8 units
+ *  AI Multi-Shot                          → 20 units
+ *
+ * ── Virtual Try-On Packs ────────────────────────────────────────────
+ *  Trial  100 units  |  $4.89   | $0.0489/unit  | 6 concurrent
+ *  Trial  500 units  | $24.49   | $0.0489/unit  | 6 concurrent
+ *  Pkg 1 30000 units | $2,100   | $0.07/unit    | 9 concurrent
+ *
+ * ── Virtual Try-On Unit Deduction ───────────────────────────────────
+ *  kolors-virtual-try-on v1/v1.5 → 1 unit
+ */
+
+type PackCategory = 'video' | 'image' | 'virtual-try-on';
+
+interface PackPricing {
+  price_usd: number;
+  per_unit: number;
+}
+
+/** Known pack pricing keyed by category → total_quantity */
+const KLING_PACK_PRICING: Record<PackCategory, Record<number, PackPricing>> = {
+  video: {
+    100:   { price_usd: 9.79,   per_unit: 9.79   / 100   },   // $0.0979
+    1000:  { price_usd: 97.99,  per_unit: 97.99  / 1000  },   // $0.09799
+    30000: { price_usd: 4200,   per_unit: 4200   / 30000 },   // $0.14
+    45000: { price_usd: 5670,   per_unit: 5670   / 45000 },   // $0.126
+    60000: { price_usd: 6720,   per_unit: 6720   / 60000 },   // $0.112
+  },
+  image: {
+    1000:    { price_usd: 2.39,   per_unit: 2.39    / 1000    },  // $0.00239
+    10000:   { price_usd: 24.49,  per_unit: 24.49   / 10000   },  // $0.00245
+    600000:  { price_usd: 2100,   per_unit: 2100    / 600000  },  // $0.0035
+    1200000: { price_usd: 3780,   per_unit: 3780    / 1200000 },  // $0.00315
+    1800000: { price_usd: 5040,   per_unit: 5040    / 1800000 },  // $0.0028
+  },
+  'virtual-try-on': {
+    100:   { price_usd: 4.89,   per_unit: 4.89   / 100   },  // $0.0489
+    500:   { price_usd: 24.49,  per_unit: 24.49  / 500   },  // $0.0489
+    30000: { price_usd: 2100,   per_unit: 2100   / 30000 },  // $0.07
+    60000: { price_usd: 3780,   per_unit: 3780   / 60000 },  // $0.063
+    90000: { price_usd: 5040,   per_unit: 5040   / 90000 },  // $0.056
+  },
+};
+
+/** Standard (non-pack) per-unit price as fallback, by category */
+const KLING_STANDARD_RATE: Record<PackCategory, number> = {
+  video: 0.14,
+  image: 0.0035,
+  'virtual-try-on': 0.07,
+};
+
+/**
+ * Infer pack category from the resource_pack_name returned by the API.
+ * Names contain keywords like "Video Generation", "Image", "Virtual Try-On".
+ */
+function inferPackCategory(packName: string): PackCategory {
+  const lower = packName.toLowerCase();
+  if (lower.includes('video') || lower.includes('lip') || lower.includes('avatar') || lower.includes('audio')) return 'video';
+  if (lower.includes('try-on') || lower.includes('tryon') || lower.includes('kolors')) return 'virtual-try-on';
+  if (lower.includes('image') || lower.includes('photo') || lower.includes('multi-shot')) return 'image';
+  // Default to video as the most expensive category (conservative estimate)
+  return 'video';
+}
+
+/** Estimate USD cost for consumed units based on pack category and size. */
+function estimatePackCostUsd(packName: string, totalQuantity: number, consumed: number): number {
+  const category = inferPackCategory(packName);
+  const categoryPricing = KLING_PACK_PRICING[category];
+
+  // Exact match on pack size
+  const pricing = categoryPricing[totalQuantity];
+  if (pricing) return Math.round(consumed * pricing.per_unit * 10000) / 10000;
+
+  // Find nearest known pack size in this category
+  const knownSizes = Object.keys(categoryPricing).map(Number);
+  const closest = knownSizes.reduce((a, b) =>
+    Math.abs(b - totalQuantity) < Math.abs(a - totalQuantity) ? b : a,
+  );
+  const fallbackRate = categoryPricing[closest]?.per_unit ?? KLING_STANDARD_RATE[category];
+  return Math.round(consumed * fallbackRate * 10000) / 10000;
+}
+
+/**
  * Sync Kling resource pack usage into:
  *  - `api_billing` table: per-pack rows with usage info
  *  - `financials` table: daily aggregate for product attribution
  *
- * Cost is estimated from consumed quantity. Kling packs are credit-based;
- * we estimate USD value from the pack's per-unit cost.
+ * Cost is estimated from consumed units using known pack pricing.
  */
 export async function syncKlingBilling(
   credentials: KlingCredentials,
@@ -122,10 +235,11 @@ export async function syncKlingBilling(
   // Build rows from resource packs
   const rows = packs.map((pack) => {
     const consumed = pack.total_quantity - pack.remaining_quantity;
+    const costUsd = estimatePackCostUsd(pack.resource_pack_name, pack.total_quantity, consumed);
     return {
       provider: 'kling',
       service: pack.resource_pack_name,
-      cost_usd: 0, // Will be filled in below
+      cost_usd: costUsd,
       usage: {
         date: today,
         pack_id: pack.resource_pack_id,
@@ -162,6 +276,7 @@ export async function syncKlingBilling(
   const totalConsumed = packs.reduce((sum, p) => sum + (p.total_quantity - p.remaining_quantity), 0);
   const totalRemaining = packs.reduce((sum, p) => sum + p.remaining_quantity, 0);
   const totalQuantity = packs.reduce((sum, p) => sum + p.total_quantity, 0);
+  const totalCostUsd = rows.reduce((sum, r) => sum + r.cost_usd, 0);
 
   const existing = await systemQuery<{ id: string }>(
     "SELECT id FROM financials WHERE date = $1 AND metric = $2 AND product = $3 AND details->>'source' = 'kling' LIMIT 1",
@@ -170,27 +285,33 @@ export async function syncKlingBilling(
 
   const details = {
     source: 'kling',
-    packs: packs.map((p) => ({
-      name: p.resource_pack_name,
-      total: p.total_quantity,
-      remaining: p.remaining_quantity,
-      consumed: p.total_quantity - p.remaining_quantity,
-      status: p.status,
-    })),
+    total_cost_usd: totalCostUsd,
+    packs: packs.map((p) => {
+      const consumed = p.total_quantity - p.remaining_quantity;
+      return {
+        name: p.resource_pack_name,
+        category: inferPackCategory(p.resource_pack_name),
+        total: p.total_quantity,
+        remaining: p.remaining_quantity,
+        consumed,
+        cost_usd: estimatePackCostUsd(p.resource_pack_name, p.total_quantity, consumed),
+        status: p.status,
+      };
+    }),
   };
 
   if (existing.length > 0) {
     await systemQuery(
       'UPDATE financials SET value = $1, details = $2 WHERE id = $3',
-      [totalConsumed, JSON.stringify(details), existing[0].id],
+      [totalCostUsd, JSON.stringify(details), existing[0].id],
     );
   } else {
     await systemQuery(
       'INSERT INTO financials (date, product, metric, value, details) VALUES ($1, $2, $3, $4, $5)',
-      [today, product, 'api_usage', totalConsumed, JSON.stringify(details)],
+      [today, product, 'api_usage', totalCostUsd, JSON.stringify(details)],
     );
   }
 
-  console.log(`[Kling Billing] Packs: ${packs.length}, consumed: ${totalConsumed}/${totalQuantity}, remaining: ${totalRemaining}`);
+  console.log(`[Kling Billing] Packs: ${packs.length}, consumed: ${totalConsumed}/${totalQuantity}, remaining: ${totalRemaining}, cost: $${totalCostUsd.toFixed(2)}`);
   return { synced: 1, packs: packs.length };
 }
