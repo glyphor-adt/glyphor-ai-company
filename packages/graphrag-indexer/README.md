@@ -11,6 +11,19 @@ Uses [Microsoft GraphRAG](https://microsoft.github.io/graphrag/) to:
 
 ```bash
 cd packages/graphrag-indexer
+
+# Create virtual environment
+python -m venv .venv
+
+# Activate virtual environment
+# On Linux/macOS:
+source .venv/bin/activate
+# On Windows (PowerShell):
+# .venv\Scripts\Activate.ps1
+# On Windows (Command Prompt):
+# .venv\Scripts\activate.bat
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
