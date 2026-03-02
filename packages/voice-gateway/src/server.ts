@@ -371,11 +371,7 @@ const server = createServer(async (req, res) => {
     json(res, 404, { error: 'Not found' });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    const stack = err instanceof Error ? err.stack : undefined;
-    const cause = (err as any)?.cause;
     console.error(`[Voice] Error handling ${method} ${url}:`, message);
-    if (cause) console.error(`[Voice] Cause:`, cause instanceof Error ? cause.message : String(cause));
-    if (stack) console.error(`[Voice] Stack:`, stack);
     json(res, 500, { error: message });
   }
 });

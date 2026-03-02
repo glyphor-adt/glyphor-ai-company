@@ -50,9 +50,7 @@ export class DashboardVoiceHandler {
     }
 
     // Load the agent's granted tool names to build tool declarations
-    console.log(`[Voice] createSession: loading tool grants for ${agentRole}`);
     const grantedTools = await loadGrantedToolNames(agentRole);
-    console.log(`[Voice] createSession: loaded ${grantedTools.length} granted tools`);
 
     // Build minimal tool declarations for the Realtime session.
     // We use the granted tool names but create lightweight stubs —
@@ -70,25 +68,20 @@ export class DashboardVoiceHandler {
     }));
 
     // Load personality & identity from agent_profiles
-    console.log(`[Voice] createSession: loading agent profile`);
     const profileRows = await systemQuery<{ personality_summary: string | null; backstory: string | null; communication_traits: string[] | null }>(
       'SELECT personality_summary, backstory, communication_traits FROM agent_profiles WHERE agent_id = $1 LIMIT 1',
       [agentRole],
     );
     const profile = profileRows[0] ?? null;
-    console.log(`[Voice] createSession: profile loaded (${profile ? 'found' : 'not found'})`);
 
     // Load role-specific system prompt from agent_briefs
-    console.log(`[Voice] createSession: loading agent brief`);
     const briefRows = await systemQuery<{ system_prompt: string | null }>(
       'SELECT system_prompt FROM agent_briefs WHERE agent_id = $1 LIMIT 1',
       [agentRole],
     );
     const brief = briefRows[0] ?? null;
-    console.log(`[Voice] createSession: brief loaded (${brief ? 'found' : 'not found'})`);
 
     // Create OpenAI Realtime session
-    console.log(`[Voice] createSession: creating OpenAI Realtime session`);
     const result = await createRealtimeSession(this.openai, {
       agentRole,
       tools: toolDefs,
