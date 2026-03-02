@@ -647,6 +647,8 @@ export const ROLE_TIER: Record<string, string> = {
   'lead-gen-specialist': 'Sub-Team',
   'marketing-intelligence-analyst': 'Sub-Team',
   'adi-rose': 'Specialist',
+  'm365-admin': 'Sub-Team',
+  'global-admin': 'Sub-Team',
 };
 
 /* ── Role → office/department ── */
@@ -692,6 +694,8 @@ export const ROLE_DEPARTMENT: Record<string, string> = {
   'lead-gen-specialist': 'Sales',
   'marketing-intelligence-analyst': 'Marketing',
   'adi-rose': 'Executive Office',
+  'm365-admin': 'Operations & IT',
+  'global-admin': 'Operations & IT',
 };
 
 /* ── Role → title ── */

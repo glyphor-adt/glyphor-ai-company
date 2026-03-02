@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
-import { DISPLAY_NAME_MAP } from '../lib/types';
-import { Card, SectionHeader, Skeleton, timeAgo, PageTabs } from '../components/ui';
+import { DISPLAY_NAME_MAP, ROLE_DEPARTMENT, ROLE_TIER, ROLE_TITLE } from '../lib/types';
+import { Card, SectionHeader, Skeleton, timeAgo, PageTabs, AgentAvatar } from '../components/ui';
 import {
   MdExpandMore, MdChevronRight, MdCheck, MdWarning,
   MdLock, MdVpnKey, MdBarChart, MdClose,
@@ -78,6 +78,61 @@ interface PendingApproval {
 
 /* ── All agent roles for the grant dropdown ── */
 const AGENT_ROLES = Object.keys(DISPLAY_NAME_MAP).sort();
+
+/* ── Department ordering for org-grouped views ── */
+const DEPT_ORDER = [
+  'Executive Office',
+  'Engineering',
+  'Product',
+  'Finance',
+  'Marketing',
+  'Customer Success',
+  'Sales',
+  'Design & Frontend',
+  'Research & Intelligence',
+  'Operations',
+  'Operations & IT',
+  'Legal',
+  'People & Culture',
+];
+
+const TIER_PRIORITY: Record<string, number> = {
+  Orchestrator: 0,
+  Executive: 1,
+  Specialist: 2,
+  'Sub-Team': 3,
+};
+
+/** Group all agent roles by department, ordered by DEPT_ORDER */
+function getAgentsByDepartment(): { dept: string; roles: string[] }[] {
+  const deptMap = new Map<string, string[]>();
+  for (const role of AGENT_ROLES) {
+    const dept = ROLE_DEPARTMENT[role] ?? 'Other';
+    if (!deptMap.has(dept)) deptMap.set(dept, []);
+    deptMap.get(dept)!.push(role);
+  }
+  // Sort agents within each dept: execs first, then sub-team
+  for (const [, list] of deptMap) {
+    list.sort((a, b) => {
+      const tierA = TIER_PRIORITY[ROLE_TIER[a] ?? 'Sub-Team'] ?? 3;
+      const tierB = TIER_PRIORITY[ROLE_TIER[b] ?? 'Sub-Team'] ?? 3;
+      if (tierA !== tierB) return tierA - tierB;
+      return (DISPLAY_NAME_MAP[a] ?? a).localeCompare(DISPLAY_NAME_MAP[b] ?? b);
+    });
+  }
+  // Order departments by DEPT_ORDER
+  const ordered: { dept: string; roles: string[] }[] = [];
+  for (const dept of DEPT_ORDER) {
+    if (deptMap.has(dept)) {
+      ordered.push({ dept, roles: deptMap.get(dept)! });
+      deptMap.delete(dept);
+    }
+  }
+  for (const [dept, roles] of deptMap) {
+    ordered.push({ dept, roles });
+  }
+  return ordered;
+}
 
 /* ── Constants ────────────────────────────── */
 
@@ -900,17 +955,44 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
     });
   }, [activeGrants, filterRole, filterGrantedBy, searchTerm]);
 
-  // Group by agent for the matrix view
+  // Group by agent for the matrix view — include ALL agents
   const grantsByAgent = useMemo(() => {
     const map: Record<string, ToolGrant[]> = {};
     for (const g of filteredGrants) {
       (map[g.agent_role] ??= []).push(g);
     }
-    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
+    return map;
   }, [filteredGrants]);
 
+  // Department-grouped view of ALL agents
+  const agentsByDept = useMemo(() => {
+    const allDepts = getAgentsByDepartment();
+    // Apply filters
+    return allDepts
+      .map((group) => ({
+        dept: group.dept,
+        roles: group.roles.filter((r) => {
+          if (filterRole !== 'all' && r !== filterRole) return false;
+          if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            const hasGrant = (grantsByAgent[r] ?? []).some(
+              (g) => g.tool_name.includes(term) || (g.reason ?? '').toLowerCase().includes(term),
+            );
+            return (
+              r.includes(term) ||
+              (DISPLAY_NAME_MAP[r] ?? '').toLowerCase().includes(term) ||
+              hasGrant
+            );
+          }
+          return true;
+        }),
+      }))
+      .filter((group) => group.roles.length > 0);
+  }, [filterRole, searchTerm, grantsByAgent]);
+
   // Stats
-  const totalAgents = new Set(activeGrants.map((g) => g.agent_role)).size;
+  const agentsWithGrants = new Set(activeGrants.map((g) => g.agent_role)).size;
+  const totalAgents = AGENT_ROLES.length;
   const totalTools = new Set(activeGrants.map((g) => g.tool_name)).size;
   const expiringGrants = activeGrants.filter((g) => {
     if (!g.expires_at) return false;
@@ -927,7 +1009,7 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
       {/* Stats Row */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Agents with Grants', value: totalAgents, icon: <MdPersonAdd className="text-prism-sky" /> },
+          { label: 'Agents with Grants', value: `${agentsWithGrants} / ${totalAgents}`, icon: <MdPersonAdd className="text-prism-sky" /> },
           { label: 'Active Grants', value: activeGrants.length, icon: <MdShield className="text-prism-teal" /> },
           { label: 'Unique Tools', value: totalTools, icon: <MdAdminPanelSettings className="text-prism-violet" /> },
           { label: 'Pending Approvals', value: pendingApprovals.length, icon: <MdPending className="text-prism-elevated" /> },
@@ -1021,8 +1103,12 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
           className="rounded-lg border border-border bg-surface px-3 py-2 text-[12px] text-txt-primary"
         >
           <option value="all">All agents</option>
-          {AGENT_ROLES.map((r) => (
-            <option key={r} value={r}>{DISPLAY_NAME_MAP[r] ?? r}</option>
+          {getAgentsByDepartment().map((group) => (
+            <optgroup key={group.dept} label={group.dept}>
+              {group.roles.map((r) => (
+                <option key={r} value={r}>{DISPLAY_NAME_MAP[r] ?? r}</option>
+              ))}
+            </optgroup>
           ))}
         </select>
         <select
@@ -1059,8 +1145,12 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
                 className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-txt-primary"
               >
                 <option value="">Select agent…</option>
-                {AGENT_ROLES.map((r) => (
-                  <option key={r} value={r}>{DISPLAY_NAME_MAP[r] ?? r} ({r})</option>
+                {getAgentsByDepartment().map((group) => (
+                  <optgroup key={group.dept} label={group.dept}>
+                    {group.roles.map((r) => (
+                      <option key={r} value={r}>{DISPLAY_NAME_MAP[r] ?? r} ({r})</option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </div>
@@ -1145,59 +1235,75 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
         </Card>
       )}
 
-      {/* Access Matrix — grouped by agent */}
-      <Card>
-        <SectionHeader
-          title="Agent Access Matrix"
-          subtitle={`${filteredGrants.length} active grant${filteredGrants.length !== 1 ? 's' : ''} across ${grantsByAgent.length} agent${grantsByAgent.length !== 1 ? 's' : ''}`}
-        />
-        {grantsByAgent.length === 0 ? (
-          <p className="py-8 text-center text-[13px] text-txt-muted">No grants match your filters</p>
-        ) : (
-          <div className="space-y-4">
-            {grantsByAgent.map(([role, agentGrants]) => {
-              // Group grants by category
-              const byCategory = new Map<ToolCategory, ToolGrant[]>();
-              for (const g of agentGrants) {
-                const cat = getToolInfo(g.tool_name).category;
-                if (!byCategory.has(cat)) byCategory.set(cat, []);
-                byCategory.get(cat)!.push(g);
-              }
-              return (
-              <div key={role} className="rounded-lg border border-border/50 p-3">
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="text-[14px] font-semibold text-txt-primary">
-                    {DISPLAY_NAME_MAP[role] ?? role}
-                  </span>
-                  <span className="rounded bg-prism-bg2 px-1.5 py-0.5 text-[11px] text-txt-muted">{role}</span>
-                  <span className="ml-auto text-[12px] text-txt-muted">
-                    {agentGrants.length} tool{agentGrants.length !== 1 ? 's' : ''} · {byCategory.size} categor{byCategory.size !== 1 ? 'ies' : 'y'}
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {[...byCategory.entries()]
-                    .sort(([a], [b]) => (CATEGORY_LABELS[a] ?? a).localeCompare(CATEGORY_LABELS[b] ?? b))
-                    .map(([cat, catGrants]) => (
-                    <div key={cat}>
-                      <div className="mb-1 flex items-center gap-1.5">
-                        <span className={`text-[11px] font-semibold ${CATEGORY_COLORS[cat]}`}>
-                          {CATEGORY_LABELS[cat]}
+      {/* Access Matrix — grouped by department */}
+      {agentsByDept.length === 0 ? (
+        <Card>
+          <p className="py-8 text-center text-[13px] text-txt-muted">No agents match your filters</p>
+        </Card>
+      ) : (
+        <div className="space-y-6">
+          {agentsByDept.map(({ dept, roles }) => (
+            <Card key={dept}>
+              <SectionHeader
+                title={dept}
+                subtitle={`${roles.length} agent${roles.length !== 1 ? 's' : ''}`}
+              />
+              <div className="space-y-4">
+                {roles.map((role) => {
+                  const agentGrants = grantsByAgent[role] ?? [];
+                  // Group grants by category
+                  const byCategory = new Map<ToolCategory, ToolGrant[]>();
+                  for (const g of agentGrants) {
+                    const cat = getToolInfo(g.tool_name).category;
+                    if (!byCategory.has(cat)) byCategory.set(cat, []);
+                    byCategory.get(cat)!.push(g);
+                  }
+                  return (
+                    <div key={role} className="rounded-lg border border-border/50 p-3">
+                      <div className="mb-2 flex items-center gap-2">
+                        <AgentAvatar role={role} size={28} />
+                        <div className="min-w-0">
+                          <span className="text-[14px] font-semibold text-txt-primary">
+                            {DISPLAY_NAME_MAP[role] ?? role}
+                          </span>
+                          <span className="ml-2 rounded bg-prism-bg2 px-1.5 py-0.5 text-[11px] text-txt-muted">{role}</span>
+                          {ROLE_TITLE[role] && (
+                            <p className="text-[11px] text-txt-muted">{ROLE_TITLE[role]}</p>
+                          )}
+                        </div>
+                        <span className="ml-auto text-[12px] text-txt-muted">
+                          {agentGrants.length > 0
+                            ? `${agentGrants.length} tool${agentGrants.length !== 1 ? 's' : ''} · ${byCategory.size} categor${byCategory.size !== 1 ? 'ies' : 'y'}`
+                            : 'No tools granted'}
                         </span>
-                        <span className="text-[10px] text-txt-muted">({catGrants.length})</span>
                       </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {catGrants.map((g) => {
-                          const info = getToolInfo(g.tool_name);
-                          return (
-                          <span
-                            key={g.id}
-                            className="group relative inline-flex items-center gap-1 rounded-full border border-border/50 bg-prism-card px-2.5 py-1 text-[12px] text-txt-secondary"
-                            title={`${info.description}\nGranted by ${DISPLAY_NAME_MAP[g.granted_by] ?? g.granted_by}${g.reason ? `\nReason: ${g.reason}` : ''}${g.scope === 'read_only' ? '\nRead Only' : ''}${info.platform ? `\nPlatform: ${info.platform.toUpperCase()}` : ''}`}
-                          >
-                            {g.scope === 'read_only' && (
-                              <MdSearch className="text-[12px] text-prism-sky" />
-                            )}
-                            {g.tool_name}
+                      {agentGrants.length === 0 ? (
+                        <p className="py-2 text-[12px] text-txt-muted italic">No tool access grants configured</p>
+                      ) : (
+                      <div className="space-y-2">
+                        {[...byCategory.entries()]
+                          .sort(([a], [b]) => (CATEGORY_LABELS[a] ?? a).localeCompare(CATEGORY_LABELS[b] ?? b))
+                          .map(([cat, catGrants]) => (
+                          <div key={cat}>
+                            <div className="mb-1 flex items-center gap-1.5">
+                              <span className={`text-[11px] font-semibold ${CATEGORY_COLORS[cat]}`}>
+                                {CATEGORY_LABELS[cat]}
+                              </span>
+                              <span className="text-[10px] text-txt-muted">({catGrants.length})</span>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {catGrants.map((g) => {
+                                const info = getToolInfo(g.tool_name);
+                                return (
+                                <span
+                                  key={g.id}
+                                  className="group relative inline-flex items-center gap-1 rounded-full border border-border/50 bg-prism-card px-2.5 py-1 text-[12px] text-txt-secondary"
+                                  title={`${info.description}\nGranted by ${DISPLAY_NAME_MAP[g.granted_by] ?? g.granted_by}${g.reason ? `\nReason: ${g.reason}` : ''}${g.scope === 'read_only' ? '\nRead Only' : ''}${info.platform ? `\nPlatform: ${info.platform.toUpperCase()}` : ''}`}
+                                >
+                                  {g.scope === 'read_only' && (
+                                    <MdSearch className="text-[12px] text-prism-sky" />
+                                  )}
+                                  {g.tool_name}
                             {info.platform && (
                               <span className="rounded bg-prism-bg2 px-1 text-[9px] font-medium text-txt-muted">
                                 {info.platform.toUpperCase()}
@@ -1217,19 +1323,22 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
                                 <MdRemoveCircle className="text-[13px]" />
                               </button>
                             )}
-                          </span>
-                          );
-                        })}
+                                </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
                       </div>
+                      )}
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
-              );
-            })}
-          </div>
-        )}
-      </Card>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Revocation History */}
       {grants.filter((g) => !g.is_active).length > 0 && (
