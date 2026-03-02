@@ -19,6 +19,7 @@ import { systemQuery } from '@glyphor/shared/db';
 /** Maps URL slug to actual PostgreSQL table name. */
 const TABLE_MAP: Record<string, string> = {
   'company_agents': 'company_agents',
+  'company-agents': 'company_agents',
   'agents': 'company_agents',
   'agent_profiles': 'agent_profiles',
   'agent_briefs': 'agent_briefs',
@@ -33,10 +34,14 @@ const TABLE_MAP: Record<string, string> = {
   'agent_memory': 'agent_memory',
   'agent_meetings': 'agent_meetings',
   'agent_skills': 'agent_skills',
+  'agent-skills': 'agent_skills',
   'agent_world_model': 'agent_world_model',
+  'agent-world-model': 'agent_world_model',
   'agent_messages': 'agent_messages',
   'agent_reasoning_config': 'agent_reasoning_config',
+  'agent-runs': 'agent_runs',
   'role_rubrics': 'role_rubrics',
+  'role-rubrics': 'role_rubrics',
   'chat-messages': 'chat_messages',
   'chat_messages': 'chat_messages',
   'decisions': 'decisions',
@@ -55,6 +60,13 @@ const TABLE_MAP: Record<string, string> = {
   'work-assignments': 'work_assignments',
   'agent-tool-grants': 'agent_tool_grants',
   'data_sync_status': 'data_sync_status',
+  'data-sync-status': 'data_sync_status',
+  'platform-iam-state': 'platform_iam_state',
+  'platform-audit-log': 'platform_audit_log',
+  'platform-secret-rotation': 'platform_secret_rotation',
+  'gcp-billing': 'gcp_billing',
+  'financials': 'financials',
+  'api-billing': 'api_billing',
 };
 
 // ─── Helpers ────────────────────────────────────────────────────
