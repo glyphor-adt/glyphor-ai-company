@@ -152,5 +152,27 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
     }),
   );
 
+  // T11.7 — Dashboard API CRUD
+  tests.push(
+    await runTest('T11.7', 'Dashboard API CRUD', async () => {
+      // Dashboard API is served by the scheduler at /api/*
+      const schedulerUrl = config.schedulerUrl;
+
+      // Test reading from several whitelisted tables
+      const tables = ['company_agents', 'activity_log', 'decisions', 'data_sync_status'];
+      const failed: string[] = [];
+      for (const table of tables) {
+        const res = await httpGet(`${schedulerUrl}/api/${table}?limit=1`);
+        if (!res.ok) {
+          failed.push(`${table}: HTTP ${res.status}`);
+        }
+      }
+      if (failed.length > 0) {
+        throw new Error(`Dashboard API failures: ${failed.join('; ')}`);
+      }
+      return `All ${tables.length} Dashboard API table reads returned HTTP 200`;
+    }),
+  );
+
   return { layer: 11, name: 'Dashboard & API', tests };
 }

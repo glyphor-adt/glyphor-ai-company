@@ -129,5 +129,22 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
     }),
   );
 
+  // T9.5 — Strategy Lab
+  tests.push(
+    await runTest('T9.5', 'Strategy Lab', async () => {
+      const resp = await httpPost(`${sched}/strategy-lab/run`, {
+        query: 'Evaluate Glyphor ADT go-to-market strategy for enterprise segment',
+        depth: 'quick',
+      });
+      if (!resp.ok) {
+        throw new Error(`POST /strategy-lab/run returned ${resp.status}: ${resp.raw}`);
+      }
+
+      const id = extractId(resp);
+      const result = await pollStatus(`${sched}/strategy-lab/${id}`, 30_000, 600_000);
+      return `Strategy lab ${id} completed (status: ${result.status})`;
+    }),
+  );
+
   return { layer: 9, name: 'Strategy & Analysis Engines', tests };
 }

@@ -18,6 +18,7 @@
 #   SCHEDULER_URL=https://glyphor-scheduler-610179349713.us-central1.run.app
 #   DASHBOARD_URL=https://glyphor-dashboard-610179349713.us-central1.run.app
 #   VOICE_GATEWAY_URL=https://voice-gateway-610179349713.us-central1.run.app
+#   WORKER_URL=https://glyphor-worker-610179349713.us-central1.run.app
 #   GCP_PROJECT=ai-glyphor-company
 #
 # For DB-dependent tests (layers 0,1,3-8,10), also set:
@@ -1009,8 +1010,8 @@ After running all tests, fill in:
 
 | Layer | Tests | Pass | Fail | Skip | Block | Notes |
 |-------|-------|------|------|------|-------|-------|
-| 0 — Infrastructure | 5 | | | | | Cloud SQL, Redis, Secrets, Pub/Sub |
-| 1 — Data Syncs | 4 | | | | | Stripe, Mercury, GCP Billing |
+| 0 — Infrastructure | 9 | | | | | Cloud SQL, Redis, Secrets, Pub/Sub, Worker, Cloud Tasks, Storage, Multi-tenancy |
+| 1 — Data Syncs | 6 | | | | | Stripe, Mercury, GCP Billing, OpenAI/Anthropic Billing, SharePoint |
 | 2 — Model Clients | 4 | | | | | Gemini, OpenAI, Anthropic |
 | 3 — Heartbeat/Work Loop | 4 | | | | | |
 | 4 — Orchestration | 8 | | | | | |
@@ -1018,15 +1019,17 @@ After running all tests, fill in:
 | 6 — Authority Gates | 4 | | | | | |
 | 7 — Intelligence Enhancements | 7 | | | | | |
 | 8 — Knowledge Graph | 4 | | | | | |
-| 9 — Strategy Engines | 4 | | | | | 600s+ timeout — run separately |
+| 9 — Strategy Engines | 5 | | | | | 600s+ timeout — run separately |
 | 10 — Specialist Agents | 3 | | | | | |
-| 11 — Dashboard & API | 6 | | | | | 20 pages, security headers |
+| 11 — Dashboard & API | 7 | | | | | 20 pages, security headers, API CRUD |
 | 12 — Voice | 2 | | | | | |
-| **TOTAL** | **60** | | | | | |
+| **TOTAL** | **68** | | | | | |
 
 ### Known Issues
 
-1. **DB-dependent tests require credentials:** 24 tests across layers 0,1,3-8,10 require `DATABASE_URL` or `DB_PASSWORD` in `.env`. Without them, tests will fail with connection errors.
+1. **DB-dependent tests require credentials:** 28 tests across layers 0,1,3-8,10 require `DATABASE_URL` or `DB_PASSWORD` in `.env`. Without them, tests will fail with connection errors.
 2. **Pending migration:** `db/migrations/20260302210000_activity_log_add_agent_id.sql` adds `agent_id` and `detail` columns to `activity_log`. Until applied, T9.1–T9.4 (Strategy Engines) will fail with schema errors.
 3. **Stripe/Mercury sync:** T1.1 and T1.2 require `STRIPE_SECRET_KEY` and `MERCURY_API_TOKEN` configured on the scheduler Cloud Run service.
 4. **Layer 9 timeouts:** Strategic analysis (T9.1) and deep dive (T9.4) can take 600+ seconds. Run layer 9 separately.
+5. **Worker service:** T0.6 requires `WORKER_URL` in `.env`. Set to the Cloud Run worker service URL.
+6. **Cloud Tasks / Storage:** T0.7 and T0.8 require `gcloud` CLI with project access.

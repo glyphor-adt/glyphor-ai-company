@@ -11,6 +11,7 @@
  *   SCHEDULER_URL       — Cloud Run scheduler base URL (required)
  *   DASHBOARD_URL       — Cloud Run dashboard base URL (required)
  *   VOICE_GATEWAY_URL   — Cloud Run voice gateway base URL (required)
+ *   WORKER_URL          — Cloud Run worker base URL (optional, for T0.6)
  *   GCP_PROJECT         — GCP project ID (default: ai-glyphor-company)
  */
 

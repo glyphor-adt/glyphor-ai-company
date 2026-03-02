@@ -5,7 +5,7 @@
 
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
 import { httpGet } from '../utils/http.js';
-import { queryTable } from '../utils/db.js';
+import { queryTable, query } from '../utils/db.js';
 import { isGcloudAvailable, gcloudExec } from '../utils/gcloud.js';
 import { runTest } from '../utils/test.js';
 
@@ -97,6 +97,80 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
         );
       }
       return `Pub/Sub topic glyphor-agent-tasks present (${topics.length} total topics)`;
+    }),
+  );
+
+  // T0.6 — Worker Service Health
+  tests.push(
+    await runTest('T0.6', 'Worker Service Responding', async () => {
+      const workerUrl = process.env.WORKER_URL;
+      if (!workerUrl) {
+        throw new Error('WORKER_URL not set — add to .env');
+      }
+      const res = await httpGet<{ status: string }>(workerUrl.replace(/\/$/, '') + '/health');
+      if (!res.ok) {
+        throw new Error(`Worker /health returned status ${res.status}`);
+      }
+      return `Worker service healthy (HTTP ${res.status})`;
+    }),
+  );
+
+  // T0.7 — Cloud Tasks Queues
+  tests.push(
+    await runTest('T0.7', 'Cloud Tasks Queues', async () => {
+      if (!isGcloudAvailable()) {
+        throw new Error('gcloud CLI not available — install Google Cloud SDK');
+      }
+      const output = gcloudExec(
+        'tasks queues list --location=us-central1 --format="value(name)"',
+        config.gcpProject,
+      );
+      const queues = output.trim().split('\n').filter(Boolean);
+      const expected = ['agent-runs', 'delivery'];
+      const found = expected.filter(q => queues.some(line => line.includes(q)));
+      if (found.length < 2) {
+        throw new Error(
+          `Missing Cloud Tasks queues. Expected: ${expected.join(', ')}. Found: ${queues.join(', ')}`,
+        );
+      }
+      return `${queues.length} Cloud Tasks queue(s) present (${found.join(', ')})`;
+    }),
+  );
+
+  // T0.8 — Cloud Storage Bucket
+  tests.push(
+    await runTest('T0.8', 'Cloud Storage Bucket', async () => {
+      if (!isGcloudAvailable()) {
+        throw new Error('gcloud CLI not available — install Google Cloud SDK');
+      }
+      const output = gcloudExec(
+        'storage buckets list --format="value(name)"',
+        config.gcpProject,
+      );
+      const buckets = output.trim().split('\n').filter(Boolean);
+      const found = buckets.some(b => b.includes('glyphor'));
+      if (!found) {
+        throw new Error(`No glyphor bucket found. Buckets: ${buckets.join(', ')}`);
+      }
+      return `${buckets.length} bucket(s) found (glyphor bucket present)`;
+    }),
+  );
+
+  // T0.9 — Multi-Tenancy Tables
+  tests.push(
+    await runTest('T0.9', 'Multi-Tenancy Tables', async () => {
+      const tenants = await queryTable('tenants', 'id,slug', undefined, { limit: 5 });
+      if (tenants.length === 0) {
+        throw new Error('No rows in tenants table — multi-tenancy migration not applied');
+      }
+      const cols = await query<{ count: number }>(
+        `SELECT COUNT(*)::int AS count FROM information_schema.columns WHERE column_name = 'tenant_id' AND table_schema = 'public'`,
+      );
+      const colCount = cols[0]?.count ?? 0;
+      if (colCount < 10) {
+        throw new Error(`Only ${colCount} tables have tenant_id column — expected 14+`);
+      }
+      return `${tenants.length} tenant(s), ${colCount} tables with tenant_id`;
     }),
   );
 

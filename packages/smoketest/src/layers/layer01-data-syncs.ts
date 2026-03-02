@@ -82,5 +82,46 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
     }),
   );
 
+  // T1.5 — Billing Syncs (OpenAI + Anthropic)
+  tests.push(
+    await runTest('T1.5', 'Billing Syncs', async () => {
+      const endpoints = [
+        { name: 'OpenAI', path: '/sync/openai-billing' },
+        { name: 'Anthropic', path: '/sync/anthropic-billing' },
+      ];
+      const results: string[] = [];
+      for (const ep of endpoints) {
+        const res = await httpPost<{ success: boolean }>(
+          `${config.schedulerUrl}${ep.path}`,
+          {},
+        );
+        if (res.ok && (res.data as Record<string, unknown>)?.success) {
+          results.push(`${ep.name}: OK`);
+        } else {
+          results.push(`${ep.name}: ${res.status}`);
+        }
+      }
+      const allOk = results.every(r => r.includes('OK'));
+      if (!allOk) {
+        throw new Error(`Billing sync issues: ${results.join(', ')}`);
+      }
+      return `All billing syncs healthy: ${results.join(', ')}`;
+    }),
+  );
+
+  // T1.6 — SharePoint Knowledge Sync
+  tests.push(
+    await runTest('T1.6', 'SharePoint Knowledge Sync', async () => {
+      const res = await httpPost<{ success: boolean }>(
+        `${config.schedulerUrl}/sync/sharepoint-knowledge`,
+        {},
+      );
+      if (!res.ok) {
+        throw new Error(`SharePoint sync failed: status=${res.status}, body=${res.raw}`);
+      }
+      return 'SharePoint knowledge sync completed successfully';
+    }),
+  );
+
   return { layer: 1, name: 'Data Syncs', tests };
 }
