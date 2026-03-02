@@ -4,7 +4,7 @@ import { useAgents } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, AGENT_META, ROLE_DEPARTMENT, ROLE_TIER, ROLE_TITLE } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
-import { useAuth, getEmailAliases } from '../lib/auth';
+import { useAuth } from '../lib/auth';
 import { MdAttachFile, MdImage, MdDescription, MdClose, MdSearch, MdExpandMore, MdChevronRight } from 'react-icons/md';
 
 interface Attachment {
@@ -710,17 +710,27 @@ export default function GroupChat() {
                   <AgentAvatar role={msg.agentRole} size={28} />
                 )
               ) : msg.role === 'founder' && msg.founderName ? (
-                <div
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold text-white"
-                  style={{ backgroundColor: FOUNDERS.find((f) => f.name === msg.founderName)?.color ?? '#64748b' }}
-                >
-                  {msg.founderName[0]}
-                </div>
-              ) : msg.role === 'user' ? (
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan/20 text-[11px] font-bold text-cyan">
-                  {userInitials}
-                </div>
-              ) : null}
+                <img
+                  src={FOUNDERS.find((f) => f.name === msg.founderName)?.photo ?? ''}
+                  alt={msg.founderName}
+                  className="h-7 w-7 rounded-full object-cover flex-shrink-0"
+                  style={{ border: `2px solid ${FOUNDERS.find((f) => f.name === msg.founderName)?.color ?? '#64748b'}40` }}
+                />
+              ) : msg.role === 'user' ? (() => {
+                const founder = FOUNDERS.find((f) => f.email === user?.email);
+                return founder ? (
+                  <img
+                    src={founder.photo}
+                    alt={founder.name}
+                    className="h-7 w-7 rounded-full object-cover flex-shrink-0"
+                    style={{ border: `2px solid ${founder.color}40` }}
+                  />
+                ) : (
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan/20 text-[11px] font-bold text-cyan">
+                    {userInitials}
+                  </div>
+                );
+              })() : null}
               <div
                 className={`max-w-[70%] rounded-xl px-4 py-2.5 text-[13px] leading-relaxed ${
                   msg.role === 'user'
