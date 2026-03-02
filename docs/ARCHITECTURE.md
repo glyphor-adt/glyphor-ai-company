@@ -2692,6 +2692,67 @@ Total: **86 migration files**, **86+ tables**, **10 RPC functions**, **1 extensi
 
 ---
 
+## Multi-Tenant Architecture
+
+Added 2026-03-02. The platform now supports multiple tenants with row-level security (RLS)
+in PostgreSQL, enabling future SaaS onboarding.
+
+### Tenant Model
+
+| Field | Value |
+|-------|-------|
+| Tenant 0 (seed) | `00000000-0000-0000-0000-000000000000` (Glyphor, slug: `glyphor`) |
+| Tenant ID type | UUID |
+| Isolation | Row-Level Security (RLS) policies on all tenant-scoped tables |
+
+### Tenant-Scoped Tables
+
+Critical tables now carry a `tenant_id` column (NOT NULL):
+`agent_runs`, `kg_nodes`, `kg_edges`, `founder_directives`, `work_assignments`, `agent_briefs`,
+plus all framework and strategy tables.
+
+All existing records were backfilled with the Glyphor tenant ID. RLS policies enforce
+that queries only see rows matching the current tenant context.
+
+### Worker Service
+
+The worker service (`packages/worker/`) processes agent runs via GCP Cloud Tasks queues.
+Each task includes a `tenant_id` for tenant isolation during execution.
+
+| Queue | Purpose |
+|-------|---------|
+| `agent-runs` | Standard agent run processing |
+| `agent-runs-priority` | Priority agent runs (urgent tasks) |
+| `delivery` | Output delivery to platforms/channels |
+
+Tasks use OIDC authentication and base64-encoded JSON payloads with 0-30s jitter
+for load distribution.
+
+---
+
+## Smoketest Framework
+
+14-layer health verification suite (`packages/smoketest/`) for validating all subsystems.
+
+| Layer | Name | What it Tests |
+|-------|------|---------------|
+| L00 | Infrastructure | DB, Redis, GCS connectivity |
+| L01 | Data Syncs | GCP Billing, Stripe, Mercury, SharePoint |
+| L02 | Model Clients | Gemini, OpenAI, Claude, Kling |
+| L03 | Heartbeat | Agent pulse monitoring |
+| L04 | Orchestration | Agent dispatch, task queue |
+| L05 | Communication | Email, Slack, Teams, Call Automation |
+| L06 | Authority | Policies, RBAC, decision engine |
+| L07 | Intelligence | Web search, Tavily, GraphRAG |
+| L08 | Knowledge | Company knowledge base, SharePoint |
+| L09 | Strategy | Analysis engine, deep dives |
+| L10 | Specialists | All agent runners |
+
+CLI: `--layer N` for specific layers, `--interactive` for step-by-step mode.
+Requires `SCHEDULER_URL`, `DASHBOARD_URL`, `VOICE_GATEWAY_URL` env vars.
+
+---
+
 ## Infrastructure (Production)
 
 ### GCP Project
@@ -2710,6 +2771,8 @@ Total: **86 migration files**, **86+ tables**, **10 RPC functions**, **1 extensi
 | Cloud Run | `glyphor-dashboard` | React dashboard (nginx) |
 | Cloud Run | `glyphor-chief-of-staff` | Dedicated CoS agent service |
 | Cloud Run | `voice-gateway` | Voice agent sessions (WebRTC + Teams) |
+| Cloud Run | `glyphor-worker` | GCP Cloud Tasks queue processor (agent runs + delivery) |
+| Cloud Tasks | `agent-runs`, `agent-runs-priority`, `delivery` | Background agent task queues |
 | Cloud Scheduler | 9 agent + 3 sync jobs | Agent triggers → Pub/Sub; data syncs → HTTP |
 | Pub/Sub | `glyphor-agent-events` | Cron message delivery |
 | Pub/Sub | `glyphor-events` | Inter-agent event bus |
@@ -2719,6 +2782,7 @@ Total: **86 migration files**, **86+ tables**, **10 RPC functions**, **1 extensi
 | BigQuery | `billing_export` dataset | GCP billing export data |
 | Memorystore (Redis) | `glyphor-redis` | Redis cache for JIT context, directives, profiles, reasoning |
 | Azure | Resource group `glyphor-resources` (centralus) | Bot registrations, Entra apps |
+| Azure Communication Services | ACS instance | Teams meeting media streaming (WebSocket, PCM16) |
 
 ### External Services
 
