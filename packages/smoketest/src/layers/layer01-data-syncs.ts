@@ -19,18 +19,11 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
         {},
       );
       if (!res.ok || !res.data?.success) {
-        const body = res.raw ?? '';
-        if (body.includes('environment variable is required')) {
-          return 'SKIP: Stripe not configured on scheduler — STRIPE_SECRET_KEY required';
-        }
         throw new Error(`Stripe sync failed: status=${res.status}, body=${res.raw}`);
       }
       return 'Stripe sync completed successfully';
     }),
   );
-  if (tests[tests.length - 1].message.startsWith('SKIP:')) {
-    tests[tests.length - 1].status = 'skipped';
-  }
 
   // T1.2 — Mercury Sync
   tests.push(
@@ -40,10 +33,6 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
         {},
       );
       if (!res.ok || !res.data?.success) {
-        const body = res.raw ?? '';
-        if (body.includes('environment variable is required')) {
-          return 'SKIP: Mercury not configured on scheduler — MERCURY_API_TOKEN required';
-        }
         throw new Error(`Mercury sync failed: status=${res.status}, body=${res.raw}`);
       }
       return 'Mercury sync completed successfully';

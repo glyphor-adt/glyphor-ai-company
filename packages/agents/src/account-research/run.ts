@@ -54,7 +54,7 @@ export async function runAccountResearch(params: AccountResearchRunParams = {}) 
         : `Research the next prospect in the pipeline. Search company info, analyze tech stack, check for buying signals, and compile a dossier for Rachel.`;
       break;
     case 'batch_enrich':
-      initialMessage = `Batch enrich prospect accounts. Review accounts missing key data (funding, tech stack, contacts). Fill gaps using Apollo, Crunchbase, and Wappalyzer data.`;
+      initialMessage = `Batch enrich prospect accounts. Review accounts missing key data (funding, tech stack, contacts). Fill gaps using web search.`;
       break;
     case 'on_demand':
       initialMessage = params.message || 'Research a prospect account.';

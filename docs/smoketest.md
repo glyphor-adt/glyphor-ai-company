@@ -38,7 +38,7 @@ node dist/index.js --layer 0,2,11     # infrastructure + models + dashboard
 node dist/index.js --layer 0,1,2,3,4,5,6,7,8,10,11,12  # skip slow layer 9
 ```
 
-Tests that require DB credentials will **skip gracefully** (not fail) when `DATABASE_URL` or `DB_PASSWORD` is not configured.
+Tests that require DB credentials will **fail** when `DATABASE_URL` or `DB_PASSWORD` is not configured. Ensure database credentials are set before running.
 
 ---
 
@@ -1026,7 +1026,7 @@ After running all tests, fill in:
 
 ### Known Issues
 
-1. **DB-dependent tests skip without credentials:** 24 tests across layers 0,1,3-8,10 require `DATABASE_URL` or `DB_PASSWORD` in `.env`. Without them, tests skip gracefully (not fail).
-2. **Pending migration:** `db/migrations/20260302210000_activity_log_add_agent_id.sql` adds `agent_id` and `detail` columns to `activity_log`. Until applied, T9.2 (Simulation) and T9.3 (CoT) will fail with schema errors.
-3. **Stripe/Mercury sync:** T1.1 and T1.2 skip if `STRIPE_SECRET_KEY` or `MERCURY_API_TOKEN` are not configured on the scheduler Cloud Run service.
+1. **DB-dependent tests require credentials:** 24 tests across layers 0,1,3-8,10 require `DATABASE_URL` or `DB_PASSWORD` in `.env`. Without them, tests will fail with connection errors.
+2. **Pending migration:** `db/migrations/20260302210000_activity_log_add_agent_id.sql` adds `agent_id` and `detail` columns to `activity_log`. Until applied, T9.1–T9.4 (Strategy Engines) will fail with schema errors.
+3. **Stripe/Mercury sync:** T1.1 and T1.2 require `STRIPE_SECRET_KEY` and `MERCURY_API_TOKEN` configured on the scheduler Cloud Run service.
 4. **Layer 9 timeouts:** Strategic analysis (T9.1) and deep dive (T9.4) can take 600+ seconds. Run layer 9 separately.

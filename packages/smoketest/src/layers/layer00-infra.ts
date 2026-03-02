@@ -68,7 +68,7 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   tests.push(
     await runTest('T0.4', 'GCP Secret Manager', async () => {
       if (!isGcloudAvailable()) {
-        return 'SKIP: gcloud CLI not available';
+        throw new Error('gcloud CLI not available — install Google Cloud SDK');
       }
       const output = gcloudExec(
         'secrets list --format="value(name)"',
@@ -78,16 +78,12 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       return `${lines.length} secret(s) found in Secret Manager`;
     }),
   );
-  // Mark T0.4 as skipped if gcloud unavailable
-  if (tests[tests.length - 1].message.startsWith('SKIP:')) {
-    tests[tests.length - 1].status = 'skipped';
-  }
 
   // T0.5 — Pub/Sub Topic
   tests.push(
     await runTest('T0.5', 'Pub/Sub Topic exists', async () => {
       if (!isGcloudAvailable()) {
-        return 'SKIP: gcloud CLI not available';
+        throw new Error('gcloud CLI not available — install Google Cloud SDK');
       }
       const output = gcloudExec(
         'pubsub topics list --format="value(name)"',
@@ -103,9 +99,6 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       return `Pub/Sub topic glyphor-agent-tasks present (${topics.length} total topics)`;
     }),
   );
-  if (tests[tests.length - 1].message.startsWith('SKIP:')) {
-    tests[tests.length - 1].status = 'skipped';
-  }
 
   return { layer: 0, name: 'Infrastructure Health', tests };
 }

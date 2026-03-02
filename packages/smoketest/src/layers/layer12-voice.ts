@@ -23,25 +23,18 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
     }),
   );
 
-  // T12.2 — Voice Session (requires interactive/browser)
-  const start = Date.now();
-  if (!config.interactive) {
-    tests.push({
-      id: 'T12.2',
-      name: 'Voice Session',
-      status: 'skipped',
-      message: 'Voice session test requires manual browser interaction.',
-      durationMs: Date.now() - start,
-    });
-  } else {
-    tests.push(
-      await runTest('T12.2', 'Voice Session', async () => {
-        // Interactive voice session testing would require WebRTC/browser automation.
-        // Placeholder for future implementation with Puppeteer or similar.
-        throw new Error('Interactive voice session test not yet implemented');
-      }),
-    );
-  }
+  // T12.2 — Voice Session Endpoint
+  tests.push(
+    await runTest('T12.2', 'Voice Session Endpoint', async () => {
+      // Verify the session endpoint exists and responds (without starting a full WebRTC session)
+      const res = await httpGet(`${config.voiceGatewayUrl}/session`);
+      // 400/405 = endpoint exists but needs proper request params; 200 = ready
+      if (res.status === 404) {
+        throw new Error('Voice /session endpoint not found — voice session route not deployed');
+      }
+      return `Voice session endpoint reachable (HTTP ${res.status})`;
+    }),
+  );
 
   return { layer: 12, name: 'Voice Gateway', tests };
 }

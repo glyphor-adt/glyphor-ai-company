@@ -14,7 +14,6 @@ interface RunResponse {
   id?: string;
   runId?: string;
   status?: string;
-  _skip?: string;
   [key: string]: unknown;
 }
 
@@ -23,11 +22,6 @@ function extractId(resp: HttpResponse<unknown>): string {
   const id = body?.id ?? body?.runId;
   if (!id) throw new Error(`No id in response: ${resp.raw}`);
   return id;
-}
-
-/** Detect quota / rate-limit errors in a raw JSON string */
-function isQuotaError(raw: string): boolean {
-  return raw.includes('RESOURCE_EXHAUSTED') || raw.includes('check quota');
 }
 
 /** Detect missing-column schema errors and return actionable message */
@@ -56,7 +50,6 @@ async function pollStatus(
   const body = result.data as RunResponse;
   if (body?.status === 'failed') {
     const raw = JSON.stringify(body);
-    if (isQuotaError(raw)) return { ...body, _skip: 'SKIP: Gemini quota exhausted (RESOURCE_EXHAUSTED)' } as RunResponse;
     const schema = schemaError(raw);
     if (schema) throw new Error(schema);
     throw new Error(`Run failed: ${raw}`);
@@ -77,23 +70,14 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
         depth: 'quick',
       });
       if (!resp.ok) {
-        if (isQuotaError(resp.raw ?? '')) return 'SKIP: Gemini quota exhausted (RESOURCE_EXHAUSTED)';
         throw new Error(`POST /analysis/run returned ${resp.status}: ${resp.raw}`);
       }
 
       const id = extractId(resp);
-      try {
-        const result = await pollStatus(`${sched}/analysis/${id}`, 30_000, 600_000);
-        if (result._skip) return result._skip;
-        return `Analysis ${id} completed (status: ${result.status})`;
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        if (msg.includes('timed out')) return 'SKIP: Analysis timed out — likely quota throttling';
-        throw e;
-      }
+      const result = await pollStatus(`${sched}/analysis/${id}`, 30_000, 600_000);
+      return `Analysis ${id} completed (status: ${result.status})`;
     }),
   );
-  if (tests[tests.length - 1].message.startsWith('SKIP:')) tests[tests.length - 1].status = 'skipped';
 
   // T9.2 — T+1 Simulation
   tests.push(
@@ -103,23 +87,14 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
         perspective: 'neutral',
       });
       if (!resp.ok) {
-        if (isQuotaError(resp.raw ?? '')) return 'SKIP: Gemini quota exhausted (RESOURCE_EXHAUSTED)';
         throw new Error(`POST /simulation/run returned ${resp.status}: ${resp.raw}`);
       }
 
       const id = extractId(resp);
-      try {
-        const result = await pollStatus(`${sched}/simulation/${id}`, 30_000, 600_000);
-        if (result._skip) return result._skip;
-        return `Simulation ${id} completed (status: ${result.status})`;
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        if (msg.includes('timed out')) return 'SKIP: Simulation timed out — likely quota throttling';
-        throw e;
-      }
+      const result = await pollStatus(`${sched}/simulation/${id}`, 30_000, 600_000);
+      return `Simulation ${id} completed (status: ${result.status})`;
     }),
   );
-  if (tests[tests.length - 1].message.startsWith('SKIP:')) tests[tests.length - 1].status = 'skipped';
 
   // T9.3 — Chain of Thought
   tests.push(
@@ -128,23 +103,14 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
         query: 'Should we prioritize enterprise sales or self-serve growth?',
       });
       if (!resp.ok) {
-        if (isQuotaError(resp.raw ?? '')) return 'SKIP: Gemini quota exhausted (RESOURCE_EXHAUSTED)';
         throw new Error(`POST /cot/run returned ${resp.status}: ${resp.raw}`);
       }
 
       const id = extractId(resp);
-      try {
-        const result = await pollStatus(`${sched}/cot/${id}`, 30_000, 300_000);
-        if (result._skip) return result._skip;
-        return `CoT ${id} completed (status: ${result.status})`;
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        if (msg.includes('timed out')) return 'SKIP: CoT timed out — likely quota throttling';
-        throw e;
-      }
+      const result = await pollStatus(`${sched}/cot/${id}`, 30_000, 300_000);
+      return `CoT ${id} completed (status: ${result.status})`;
     }),
   );
-  if (tests[tests.length - 1].message.startsWith('SKIP:')) tests[tests.length - 1].status = 'skipped';
 
   // T9.4 — Deep Dive
   tests.push(
@@ -154,23 +120,14 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
         context: 'AI agent platform market 2026',
       });
       if (!resp.ok) {
-        if (isQuotaError(resp.raw ?? '')) return 'SKIP: Gemini quota exhausted (RESOURCE_EXHAUSTED)';
         throw new Error(`POST /deep-dive/run returned ${resp.status}: ${resp.raw}`);
       }
 
       const id = extractId(resp);
-      try {
-        const result = await pollStatus(`${sched}/deep-dive/${id}`, 30_000, 600_000);
-        if (result._skip) return result._skip;
-        return `Deep dive ${id} completed (status: ${result.status})`;
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        if (msg.includes('timed out')) return 'SKIP: Deep dive timed out — likely quota throttling';
-        throw e;
-      }
+      const result = await pollStatus(`${sched}/deep-dive/${id}`, 30_000, 600_000);
+      return `Deep dive ${id} completed (status: ${result.status})`;
     }),
   );
-  if (tests[tests.length - 1].message.startsWith('SKIP:')) tests[tests.length - 1].status = 'skipped';
 
   return { layer: 9, name: 'Strategy & Analysis Engines', tests };
 }

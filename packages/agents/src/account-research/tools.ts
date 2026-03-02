@@ -5,62 +5,55 @@
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { ToolDefinition } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
+import { searchWeb, searchNews } from '@glyphor/integrations';
 
 export function createAccountResearchTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
     {
       name: 'search_company_info',
-      description: 'Search for company information from Apollo enrichment data.',
+      description: 'Search the web for company information — overview, products, team size, domain, industry.',
       parameters: { company: { type: 'string', description: 'Company name or domain', required: true } },
       async execute(params) {
-        const data = await systemQuery('SELECT * FROM company_research WHERE (name ILIKE $1 OR domain ILIKE $1) ORDER BY updated_at DESC LIMIT 5', [`%${params.company}%`]);
-        return { success: true, data };
+        const results = await searchWeb(`${params.company} company overview products team size`, { num: 8 });
+        return { success: true, data: results };
       },
     },
     {
-      name: 'search_crunchbase',
-      description: 'Search Crunchbase for company funding, leadership, and market data.',
+      name: 'search_funding_data',
+      description: 'Search the web for company funding rounds, investors, revenue estimates, and valuation.',
       parameters: { company: { type: 'string', description: 'Company name', required: true } },
       async execute(params) {
-        const data = await systemQuery('SELECT * FROM company_research WHERE source=$1 AND name ILIKE $2 ORDER BY updated_at DESC LIMIT 1', ['crunchbase', `%${params.company}%`]);
-        return { success: true, data: data[0] ?? null };
+        const results = await searchWeb(`${params.company} funding round investors valuation revenue`, { num: 8 });
+        return { success: true, data: results };
       },
     },
     {
       name: 'analyze_tech_stack',
-      description: 'Look up a company\'s technology stack from Wappalyzer data.',
+      description: 'Search the web for a company\'s technology stack, tools, and infrastructure.',
       parameters: { domain: { type: 'string', description: 'Company domain (e.g. stripe.com)', required: true } },
       async execute(params) {
-        const data = await systemQuery('SELECT * FROM company_research WHERE source=$1 AND domain=$2 ORDER BY updated_at DESC LIMIT 1', ['wappalyzer', params.domain]);
-        return { success: true, data: data[0] ?? null };
+        const results = await searchWeb(`${params.domain} technology stack tools infrastructure built with`, { num: 8 });
+        return { success: true, data: results };
       },
     },
     {
-      name: 'search_linkedin_profiles',
-      description: 'Search Apollo for relevant people at a target company (engineering leads, design directors).',
-      parameters: { company: { type: 'string', description: 'Company name', required: true }, title: { type: 'string', description: 'Job title filter (e.g. "VP Engineering", "Design Director")' }, limit: { type: 'number', description: 'Max results (default 10)' } },
+      name: 'search_key_people',
+      description: 'Search the web for key people at a target company — leadership, engineering leads, design directors.',
+      parameters: { company: { type: 'string', description: 'Company name', required: true }, title: { type: 'string', description: 'Job title filter (e.g. "VP Engineering", "Design Director")' } },
       async execute(params) {
-        const limit = Number(params.limit) || 10;
-        let sql = 'SELECT * FROM contact_research WHERE company ILIKE $1';
-        const values: unknown[] = [`%${params.company}%`];
-        if (params.title) { sql += ` AND title ILIKE $${values.length + 1}`; values.push(`%${params.title}%`); }
-        sql += ` ORDER BY updated_at DESC LIMIT $${values.length + 1}`;
-        values.push(limit);
-        const data = await systemQuery(sql, values);
-        return { success: true, data };
+        const titleQuery = params.title ? ` ${params.title}` : ' leadership team executives';
+        const results = await searchWeb(`${params.company}${titleQuery} linkedin`, { num: 10 });
+        return { success: true, data: results };
       },
     },
     {
       name: 'search_job_postings',
-      description: 'Check cached job postings for hiring signals at a target company.',
+      description: 'Search the web for current job postings at a target company to identify hiring signals.',
       parameters: { company: { type: 'string', description: 'Company name', required: true }, keywords: { type: 'string', description: 'Keywords to filter (e.g. "design system", "frontend")' } },
       async execute(params) {
-        let sql = 'SELECT * FROM company_research WHERE source=$1 AND name ILIKE $2';
-        const values: unknown[] = ['jobs', `%${params.company}%`];
-        if (params.keywords) { sql += ` AND content ILIKE $${values.length + 1}`; values.push(`%${params.keywords}%`); }
-        sql += ' ORDER BY updated_at DESC LIMIT 20';
-        const data = await systemQuery(sql, values);
-        return { success: true, data };
+        const kwQuery = params.keywords ? ` ${params.keywords}` : '';
+        const results = await searchWeb(`${params.company} hiring jobs open positions${kwQuery}`, { num: 10 });
+        return { success: true, data: results };
       },
     },
     {

@@ -97,29 +97,8 @@ export {
 // SendGrid email
 export { SendGridClient } from './sendgrid/index.js';
 
-// Ghost CMS
-export { GhostClient } from './ghost/index.js';
-
-// Buffer social media scheduling
-export { BufferClient } from './buffer/index.js';
-
-// Ahrefs SEO analysis
-export { AhrefsClient } from './ahrefs/index.js';
-
-// Apollo company & people enrichment
-export { ApolloClient } from './apollo/index.js';
-
-// Crunchbase funding & company data
-export { CrunchbaseClient } from './crunchbase/index.js';
-
 // PostHog product analytics
 export { PostHogClient } from './posthog/index.js';
-
-// Intercom support & conversations
-export { IntercomClient } from './intercom/index.js';
-
-// Wappalyzer tech stack detection
-export { WappalyzerClient } from './wappalyzer/index.js';
 
 // Google Search Console
 export { SearchConsoleClient } from './search-console/index.js';

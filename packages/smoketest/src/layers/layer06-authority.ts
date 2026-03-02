@@ -66,24 +66,27 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
     }),
   );
 
-  // T6.3 — Decision Approval Flow (interactive only)
+  // T6.3 — Decision Approval Flow
   tests.push(
     await runTest('T6.3', 'Decision Approval Flow', async () => {
-      if (!config.interactive) {
-        return 'SKIP';
+      // Verify pending decisions exist and can be queried via the API
+      const decisions = await queryTable<{
+        id: string;
+        tier: string;
+        status: string;
+      }>('decisions', 'id,tier,status', { status: 'pending' }, {
+        order: 'created_at',
+        desc: true,
+        limit: 5,
+      });
+
+      if (decisions.length === 0) {
+        throw new Error('No pending decisions found — T6.2 may have failed to create one');
       }
 
-      return 'Decision approval flow requires dashboard UI interaction — verify manually';
+      return `${decisions.length} pending decision(s) ready for approval`;
     }),
   );
-
-  // Patch T6.3 status if skipped
-  const approvalTest = tests[tests.length - 1];
-  if (approvalTest.message === 'SKIP') {
-    approvalTest.status = 'skipped';
-    approvalTest.message =
-      'Skipped — decision approval requires interactive dashboard access';
-  }
 
   // T6.4 — Trust Scores
   tests.push(

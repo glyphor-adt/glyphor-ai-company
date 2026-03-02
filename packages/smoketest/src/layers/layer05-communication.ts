@@ -111,14 +111,6 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   // T5.4 — Teams Channel Post (post_to_teams)
   tests.push(
     await runTest('T5.4', 'Teams Channel Post (post_to_teams)', async () => {
-      // Check if Teams is configured
-      const teamId = process.env.TEAMS_TEAM_ID;
-      const channelId = process.env.TEAMS_CHANNEL_GENERAL_ID || process.env.TEAMS_CHANNEL_ENGINEERING_ID;
-      
-      if (!teamId || !channelId) {
-        return 'SKIP - Teams not configured (TEAMS_TEAM_ID or channel IDs missing)';
-      }
-
       // Trigger CTO to post to Teams via on-demand task
       const resp = await httpPost(`${config.schedulerUrl}/run`, {
         agentRole: 'cto',
@@ -147,7 +139,6 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       );
 
       if (!teamsPost) {
-        // Not a hard failure - CTO might not have used the tool
         return 'CTO task completed (Teams post may be in tool logs)';
       }
 
@@ -155,19 +146,9 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
     }),
   );
 
-  // Patch T5.4 status if skipped
-  const teamsTest = tests[tests.length - 1];
-  if (teamsTest.message?.startsWith('SKIP')) {
-    teamsTest.status = 'skipped';
-  }
-
   // T5.5 — Agent Email
   tests.push(
     await runTest('T5.5', 'Agent Email', async () => {
-      if (!config.interactive) {
-        return 'SKIP';
-      }
-
       const resp = await httpPost(`${config.schedulerUrl}/run`, {
         agentRole: 'cmo',
         task: 'on_demand',
@@ -180,16 +161,9 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
         );
       }
 
-      return 'CMO email task triggered — verify delivery manually';
+      return 'CMO email task completed — verify delivery in inbox';
     }),
   );
-
-  // Patch T5.5 status if skipped
-  const emailTest = tests[tests.length - 1];
-  if (emailTest.message === 'SKIP') {
-    emailTest.status = 'skipped';
-    emailTest.message = 'Skipped — cannot verify email delivery in non-interactive mode';
-  }
 
   return { layer: 5, name: 'Communication', tests };
 }

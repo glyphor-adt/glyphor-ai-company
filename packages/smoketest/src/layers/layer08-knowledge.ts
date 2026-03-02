@@ -68,10 +68,6 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
     await runTest('T8.4', 'GraphRAG Indexer', async () => {
       const resp = await httpPost(`${config.schedulerUrl}/sync/graphrag-index`, {});
       if (!resp.ok) {
-        const body = resp.raw ?? '';
-        if (body.includes('fetch failed') || body.includes('ECONNREFUSED')) {
-          return 'SKIP: GraphRAG indexer endpoint unreachable — check service configuration';
-        }
         throw new Error(`POST /sync/graphrag-index returned ${resp.status}: ${resp.raw}`);
       }
 
@@ -80,9 +76,6 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       return `GraphRAG index response: ${msg}`;
     }),
   );
-  if (tests[tests.length - 1].message.startsWith('SKIP:')) {
-    tests[tests.length - 1].status = 'skipped';
-  }
 
   return { layer: 8, name: 'Knowledge Graph', tests };
 }

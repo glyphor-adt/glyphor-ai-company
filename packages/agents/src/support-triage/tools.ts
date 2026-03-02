@@ -10,7 +10,7 @@ export function createSupportTriageTools(memory: CompanyMemoryStore): ToolDefini
   return [
     {
       name: 'query_support_tickets',
-      description: 'Query recent support tickets/conversations from Intercom.',
+      description: 'Query recent support tickets and conversations.',
       parameters: { status: { type: 'string', description: 'Filter: open, closed, snoozed, all', required: true }, priority: { type: 'string', description: 'Filter by priority: p0, p1, p2, p3' }, limit: { type: 'number', description: 'Max results (default 20)' } },
       async execute(params) {
         const conditions: string[] = [];

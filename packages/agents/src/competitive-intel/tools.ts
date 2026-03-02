@@ -5,66 +5,63 @@
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { ToolDefinition } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
+import { searchWeb, searchNews } from '@glyphor/integrations';
 
 export function createCompetitiveIntelTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
     {
-      name: 'fetch_github_releases',
-      description: 'Fetch recent releases from a public GitHub repository to track competitor product updates.',
-      parameters: { owner: { type: 'string', description: 'GitHub org or user', required: true }, repo: { type: 'string', description: 'Repository name', required: true }, limit: { type: 'number', description: 'Max releases to fetch (default 5)' } },
+      name: 'search_competitor_updates',
+      description: 'Search the web for recent competitor product updates, releases, and announcements.',
+      parameters: { competitor: { type: 'string', description: 'Competitor name or product', required: true }, limit: { type: 'number', description: 'Max results (default 10)' } },
       async execute(params) {
-        const data = await systemQuery('SELECT * FROM competitive_intel WHERE source=$1 AND subject=$2 ORDER BY created_at DESC LIMIT $3', ['github', `${params.owner}/${params.repo}`, Number(params.limit) || 5]);
-        return { success: true, data };
+        const results = await searchWeb(`${params.competitor} product update release announcement`, { num: Number(params.limit) || 10, timeRange: 'month' });
+        return { success: true, data: results };
       },
     },
     {
-      name: 'search_hacker_news',
-      description: 'Search Hacker News for mentions of competitors or relevant topics.',
+      name: 'search_competitor_news',
+      description: 'Search recent news for competitor mentions, funding, launches, and strategic moves.',
       parameters: { query: { type: 'string', description: 'Search query', required: true }, limit: { type: 'number', description: 'Max results (default 10)' } },
       async execute(params) {
-        const data = await systemQuery('SELECT * FROM competitive_intel WHERE source=$1 AND content ILIKE $2 ORDER BY created_at DESC LIMIT $3', ['hackernews', `%${params.query}%`, Number(params.limit) || 10]);
-        return { success: true, data };
+        const results = await searchNews(params.query, { num: Number(params.limit) || 10 });
+        return { success: true, data: results };
       },
     },
     {
-      name: 'search_product_hunt',
-      description: 'Search Product Hunt for competitor launches and trending products.',
-      parameters: { query: { type: 'string', description: 'Search query', required: true }, days: { type: 'number', description: 'Look back N days (default 30)' } },
+      name: 'search_product_launches',
+      description: 'Search Product Hunt, Hacker News, and the web for competitor or category launches.',
+      parameters: { query: { type: 'string', description: 'Search query', required: true } },
       async execute(params) {
-        const since = new Date(Date.now() - (Number(params.days) || 30) * 86400000).toISOString();
-        const data = await systemQuery('SELECT * FROM competitive_intel WHERE source=$1 AND content ILIKE $2 AND created_at >= $3 ORDER BY created_at DESC', ['producthunt', `%${params.query}%`, since]);
-        return { success: true, data };
+        const results = await searchWeb(`${params.query} launch Product Hunt OR "Hacker News" OR announcement`, { num: 10, timeRange: 'month' });
+        return { success: true, data: results };
       },
     },
     {
-      name: 'fetch_pricing_pages',
-      description: 'Retrieve cached competitor pricing page snapshots for comparison.',
+      name: 'fetch_pricing_intel',
+      description: 'Research competitor pricing models, plans, and pricing page details.',
       parameters: { competitor: { type: 'string', description: 'Competitor name', required: true } },
       async execute(params) {
-        const data = await systemQuery('SELECT * FROM competitive_intel WHERE source=$1 AND subject ILIKE $2 ORDER BY created_at DESC LIMIT 1', ['pricing', `%${params.competitor}%`]);
-        return { success: true, data: data[0] ?? null };
+        const results = await searchWeb(`${params.competitor} pricing plans cost per seat enterprise`, { num: 8 });
+        return { success: true, data: results };
       },
     },
     {
       name: 'query_competitor_tech_stack',
-      description: 'Look up a competitor\'s technology stack from cached Wappalyzer data.',
+      description: 'Research a competitor\'s technology stack and infrastructure choices.',
       parameters: { domain: { type: 'string', description: 'Competitor domain (e.g. figma.com)', required: true } },
       async execute(params) {
-        const data = await systemQuery('SELECT * FROM competitive_intel WHERE source=$1 AND subject=$2 ORDER BY created_at DESC LIMIT 1', ['wappalyzer', params.domain]);
-        return { success: true, data: data[0] ?? null };
+        const results = await searchWeb(`${params.domain} technology stack built with infrastructure engineering blog`, { num: 8 });
+        return { success: true, data: results };
       },
     },
     {
       name: 'check_job_postings',
-      description: 'Check cached competitor job postings to infer strategic direction.',
+      description: 'Search for competitor job postings to infer strategic direction and investment areas.',
       parameters: { company: { type: 'string', description: 'Company name', required: true }, keywords: { type: 'string', description: 'Optional filter keywords' } },
       async execute(params) {
-        let sql = 'SELECT * FROM competitive_intel WHERE source=$1 AND subject ILIKE $2';
-        const values: unknown[] = ['jobs', `%${params.company}%`];
-        if (params.keywords) { sql += ` AND content ILIKE $${values.length + 1}`; values.push(`%${params.keywords}%`); }
-        sql += ' ORDER BY created_at DESC LIMIT 20';
-        const data = await systemQuery(sql, values);
-        return { success: true, data };
+        const kwPart = params.keywords ? ` ${params.keywords}` : '';
+        const results = await searchWeb(`${params.company} hiring jobs careers${kwPart}`, { num: 10 });
+        return { success: true, data: results };
       },
     },
     {

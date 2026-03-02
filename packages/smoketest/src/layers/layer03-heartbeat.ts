@@ -106,7 +106,7 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       );
 
       if (abortedRuns.length === 0) {
-        return 'SKIP: No aborted runs found to verify cooldown';
+        return 'No aborted runs in last 4 hours — cooldown not exercised';
       }
 
       // Find the next run for the same agent after the abort
@@ -117,7 +117,7 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       );
 
       if (nextRuns.length === 0) {
-        return 'SKIP: Aborted agent has not run again yet';
+        return `Aborted agent ${sample.agent_id} has not run again yet — cooldown still active`;
       }
 
       const recovery =
@@ -133,13 +133,6 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       return `Abort cooldown OK — ${sample.agent_id} recovered in ${recoveryMin} min`;
     }),
   );
-
-  // Mark skip results
-  for (const t of tests) {
-    if (t.status === 'pass' && t.message.startsWith('SKIP:')) {
-      t.status = 'skipped';
-    }
-  }
 
   return { layer: 3, name: 'Heartbeat & Work Loop', tests };
 }
