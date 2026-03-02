@@ -43,6 +43,11 @@ export interface SharePointSyncResult {
 const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
 const SUPPORTED_EXTENSIONS = new Set(['.md', '.txt']);
 
+/** Encode a Graph API site ID preserving commas (hostname,siteId,webId format). */
+function encodeSiteId(siteId: string): string {
+  return siteId.split(',').map(encodeURIComponent).join(',');
+}
+
 export async function syncSharePointKnowledge(
   options?: SharePointSyncOptions,
 ): Promise<SharePointSyncResult> {
@@ -198,7 +203,7 @@ export async function syncSharePointKnowledge(
 }
 
 async function getDefaultDriveId(token: string, siteId: string): Promise<string> {
-  const response = await fetch(`${GRAPH_BASE}/sites/${encodeURIComponent(siteId)}/drive`, {
+  const response = await fetch(`${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/drive`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
@@ -219,7 +224,7 @@ async function listChildren(
   itemId: string | null,
   rootPath: string | null,
 ): Promise<GraphDriveItem[]> {
-  const encodedSite = encodeURIComponent(siteId);
+  const encodedSite = encodeSiteId(siteId);
   const encodedDrive = encodeURIComponent(driveId);
 
   const select = '$select=id,name,webUrl,eTag,file,folder,parentReference,lastModifiedDateTime';
@@ -254,7 +259,7 @@ async function downloadTextContent(
   driveId: string,
   itemId: string,
 ): Promise<string> {
-  const url = `${GRAPH_BASE}/sites/${encodeURIComponent(siteId)}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}/content`;
+  const url = `${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}/content`;
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -488,7 +493,7 @@ export async function uploadToSharePoint(
   const remotePath = folder ? `${folder}/${safeName}` : safeName;
 
   const encodedPath = remotePath.split('/').map(encodeURIComponent).join('/');
-  const url = `${GRAPH_BASE}/sites/${encodeURIComponent(siteId)}/drives/${encodeURIComponent(driveId)}/root:/${encodedPath}:/content`;
+  const url = `${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/drives/${encodeURIComponent(driveId)}/root:/${encodedPath}:/content`;
 
   const response = await fetch(url, {
     method: 'PUT',
@@ -618,7 +623,7 @@ export async function readSharePointDocument(
 
   // Get item metadata
   const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
-  const metaUrl = `${GRAPH_BASE}/sites/${encodeURIComponent(siteId)}/drives/${encodeURIComponent(driveId)}/root:/${encodedPath}`;
+  const metaUrl = `${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/drives/${encodeURIComponent(driveId)}/root:/${encodedPath}`;
   const metaRes = await fetch(metaUrl, {
     headers: { Authorization: `Bearer ${token}` },
   });
