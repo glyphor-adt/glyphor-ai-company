@@ -1,0 +1,235 @@
+
+▶ Starting Layer 0...
+
+▶ Starting Layer 1...
+
+▶ Starting Layer 2...
+
+Scheduler: https://glyphor-scheduler-610179349713.us-central1.run.app
+
+
+▶ Starting Layer 0...
+
+▶ Starting Layer 1...
+
+▶ Starting Layer 2...
+
+
+▶ Starting Layer 0...
+
+▶ Starting Layer 1...
+
+▶ Starting Layer 2...
+
+
+▶ Starting Layer 1...
+
+▶ Starting Layer 2...
+
+▶ Starting Layer 1...
+
+▶ Starting Layer 2...
+
+
+▶ Starting Layer 2...
+
+▶ Starting Layer 2...
+
+▶ Starting Layer 3...
+
+▶ Starting Layer 3...
+▶ Starting Layer 3...
+
+▶ Starting Layer 4...
+
+▶ Starting Layer 5...
+
+▶ Starting Layer 6...
+
+▶ Starting Layer 7...
+
+▶ Starting Layer 8...
+
+▶ Starting Layer 9...
+
+▶ Starting Layer 10...
+
+▶ Starting Layer 11...
+
+▶ Starting Layer 12...
+
+════════════════════════════════════════════════════════════
+Layer 0 — Infrastructure Health
+════════════════════════════════════════════════════════════
+  ✅ T0.1 Cloud Run Services Responding (3.5s)
+  ❌ T0.2 Database Connection (1.0s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+  ✅ T0.3 Redis Connected (0.1s)
+  ✅ T0.4 GCP Secret Manager (5.0s)
+  ❌ T0.5 Pub/Sub Topic exists (1.8s)
+     └─ glyphor-agent-events topic not found. Topics: projects/ai-glyphor-company/topics/glyphor-agent-tasks   
+  ❌ T0.6 Vercel Environment Variables
+     └─ Missing Vercel env vars: VERCEL_TEAM_FUSE, VERCEL_TEAM_FUSE_PROJECTS, VERCEL_TOKEN — add to Cloud Run or Secret Manager
+
+════════════════════════════════════════════════════════════
+Layer 1 — Data Syncs
+════════════════════════════════════════════════════════════
+  ❌ T1.1 Stripe Sync (0.1s)
+     └─ Stripe sync failed: status=500, body={"success":false,"error":"STRIPE_SECRET_KEY environment variable is required"}
+  ❌ T1.2 Mercury Sync (0.1s)
+     └─ Mercury sync failed: status=500, body={"success":false,"error":"MERCURY_API_TOKEN environment variable is required"}
+  ✅ T1.3 GCP Billing Sync (7.9s)
+  ❌ T1.4 Data Sync Status (0.1s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+
+════════════════════════════════════════════════════════════
+Layer 2 — Model Clients
+════════════════════════════════════════════════════════════
+  ✅ T2.1 Gemini (ops agent) (2.0s)
+  ✅ T2.2 OpenAI (cto agent) (1.6s)
+  ✅ T2.3 Anthropic (clo agent) (1.5s)
+  ✅ T2.4 Multi-Tool Turn (regression) (10.9s)
+
+════════════════════════════════════════════════════════════
+Layer 3 — Heartbeat & Work Loop
+════════════════════════════════════════════════════════════
+  ❌ T3.1 Heartbeat Firing (0.0s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+  ❌ T3.2 Tier Selection (0.0s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+  ❌ T3.3 Proactive Disabled for Sub-Team (0.0s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+  ❌ T3.4 Abort Cooldown (0.0s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+
+════════════════════════════════════════════════════════════
+Layer 4 — Orchestration Loop
+════════════════════════════════════════════════════════════
+  ❌ T4.0 Direct Work Assignment (0.0s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+  ❌ T4.1 Create Directive (0.0s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+  🚫 T4.2 Sarah Detects
+     └─ Skipped — directive creation (T4.1) failed
+  🚫 T4.3 Assignments Created
+     └─ Skipped — directive creation (T4.1) failed
+  🚫 T4.4 Agents Pick Up
+     └─ Skipped — directive creation (T4.1) failed
+  🚫 T4.5 Dependency Resolution
+     └─ Skipped — directive creation (T4.1) failed
+  🚫 T4.6 Evaluation
+     └─ Skipped — directive creation (T4.1) failed
+  🚫 T4.7 Full Loop Timing
+     └─ Skipped — directive creation (T4.1) failed
+
+════════════════════════════════════════════════════════════
+Layer 5 — Communication
+════════════════════════════════════════════════════════════
+  ❌ T5.1 Inter-Agent DMs (9.5s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+  ❌ T5.2 Message Pickup (0.0s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+  ❌ T5.3 Multi-Agent Meeting (0.1s)
+     └─ Scheduler /meetings/call returned 500: {"error":"malformed array literal: \"[\"cto\",\"cfo\",\"cpo\"]\""}
+  ❌ T5.4 Teams Channel Post (post_to_teams) (10.4s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+  ⏭️ T5.5 Agent Email
+
+════════════════════════════════════════════════════════════
+Layer 6 — Authority Gates
+════════════════════════════════════════════════════════════
+  ✅ T6.1 Green Tier (4.5s)
+  ❌ T6.2 Yellow Tier (4.7s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+  ⏭️ T6.3 Decision Approval Flow
+  ❌ T6.4 Trust Scores (0.0s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+
+════════════════════════════════════════════════════════════
+Layer 7 — Intelligence Enhancements
+════════════════════════════════════════════════════════════
+  ❌ T7.1 Constitutional Governance (0.1s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+  ❌ T7.2 Decision Chains (0.0s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+  ❌ T7.3 Formal Verification (0.0s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+  ❌ T7.4 Causal Knowledge Graph (0.2s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+  ❌ T7.5 Episodic Replay (0.0s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+  ❌ T7.6 Drift Detection (0.0s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+  ✅ T7.7 Verifier Agents (10.4s)
+
+════════════════════════════════════════════════════════════
+Layer 8 — Knowledge Graph
+════════════════════════════════════════════════════════════
+  ❌ T8.1 Graph Has Nodes (0.0s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+  ❌ T8.2 Graph Has Edges (0.0s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+  ❌ T8.3 Semantic Search (0.0s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+  ❌ T8.4 GraphRAG Indexer (0.1s)
+     └─ POST /sync/graphrag-index returned 500: {"success":false,"error":"fetch failed"}
+
+════════════════════════════════════════════════════════════
+Layer 9 — Strategy & Analysis Engines
+════════════════════════════════════════════════════════════
+  ❌ T9.1 Strategic Analysis (602.4s)
+     └─ pollUntil timed out after 600000ms
+  ❌ T9.2 T+1 Simulation (30.3s)
+     └─ Run failed: {"id":"sim-1772456570686-bbhd5r","action":"Increase marketing budget by 50%","perspective":"neutral","status":"failed","requested_by":"dashboard","dimensions":[{"area":"Engineering & Technology","impact":"negative","magnitude":-3,"reasoning":"A significant increase in marketing spend typically drives rapid user acquisition that can outpace technical infrastructure scaling, leading to performance bottlenecks. Without a proportional increase in engineering resources, the team may be forced to prioritize reactive scaling and technical debt over long-term R&D and innovation.","confidence":0.85,"perspective":"cto","secondOrderEffects":["Increased infrastructure and operational cloud costs","Acceleration of technical debt to meet marketing-driven feature deadlines","Potential for system instability due to unforecasted traffic spikes"]},{"area":"Financial Impact","impact":"negative","magnitude":-4,"reasoning":"A 50% increase in marketing spend represents a significant immediate rise in operating expenses, which will compress net profit margins and reduce short-term cash flow. The long-term financial success is speculative and depends entirely on the marginal return on ad spend (ROAS) exceeding the increased cost of capital.","confidence":0.85,"perspective":"cfo","secondOrderEffects":["Increased pressure on sales and fulfillment operations to handle higher lead volumes","Potential for rising Customer Acquisition Costs (CAC) as marketing channels reach saturation"]},{"area":"Marketing & Brand","impact":"positive","magnitude":7,"reasoning":"A 50% increase in budget allows for significant scaling of brand awareness campaigns and deeper penetration into competitive markets. While it accelerates growth, the impact is tempered by the risk of diminishing returns and the need for operational capacity to manage the increased spend effectively.","confidence":0.9,"perspective":"cmo","secondOrderEffects":["Potential increase in Customer Acquisition Cost (CAC) due to channel saturation","Operational strain on creative and media-buying teams to deploy capital efficiently","Improved data collection and attribution modeling capabilities from higher volume traffic"]},{"area":"Product & User Experience","impact":"neutral","magnitude":2,"reasoning":"A significant marketing boost accelerates user acquisition and data collection for product refinement, but does not inherently improve the product's functional quality. The impact is neutral because the influx of new users may strain existing infrastructure and support systems if product development does not scale in tandem.","confidence":0.85,"perspective":"cpo","secondOrderEffects":["Increased pressure on infrastructure and backend performance","Potential misalignment between marketing messaging and actual product capabilities"]},{"area":"Sales & Revenue","impact":"positive","magnitude":7,"reasoning":"A 50% increase in marketing spend significantly broadens the top-of-funnel reach, which typically correlates with higher sales volume and revenue growth. However, the net benefit depends on the marginal return on ad spend and the capacity of the sales infrastructure to convert the influx of leads.","confidence":0.85,"perspective":"vp-sales","secondOrderEffects":["Rising Customer Acquisition Costs (CAC) as cheaper channels become saturated","Increased pressure on sales operations and customer support to maintain service levels","Potential competitive response or price wars as market share is aggressively pursued"]},{"area":"Customer Satisfaction","impact":"neutral","magnitude":1,"reasoning":"An increased marketing budget primarily drives customer acquisition and brand awareness rather than directly improving the post-purchase experience. While it can enhance brand prestige, it risks lowering satisfaction if the influx of new customers exceeds the capacity of existing support and fulfillment infrastructure.","confidence":0.85,"perspective":"vp-customer-success","secondOrderEffects":["Increased strain on customer service resources due to higher lead volume","Potential for brand dilution if marketing promises outpace product capabilities"]}],"report":{"votes":[{"vote":"reject","agent":"cto","reasoning":"A significant increase in marketing spend typically drives rapid user acquisition that can outpace technical infrastructure scaling, leading to performance bottlenecks. Without a proportional increase in engineering resources, the team may be forced to prioritize reactive scaling and technical debt over long-term R&D and innovation."},{"vote":"reject","agent":"cfo","reasoning":"A 50% increase in marketing spend represents a significant immediate rise in operating expenses, which will compress net profit margins and reduce short-term cash flow. The long-term financial success is speculative and depends entirely on the marginal return on ad spend (ROAS) exceeding the increased cost of capital."},{"vote":"approve","agent":"cmo","reasoning":"A 50% increase in budget allows for significant scaling of brand awareness campaigns and deeper penetration into competitive markets. While it accelerates growth, the impact is tempered by the risk of diminishing returns and the need for operational capacity to manage the increased spend effectively."},{"vote":"caution","agent":"cpo","reasoning":"A significant marketing boost accelerates user acquisition and data collection for product refinement, but does not inherently improve the product's functional quality. The impact is neutral because the influx of new users may strain existing infrastructure and support systems if product development does not scale in tandem."},{"vote":"approve","agent":"vp-sales","reasoning":"A 50% increase in marketing spend significantly broadens the top-of-funnel reach, which typically correlates with higher sales volume and revenue growth. However, the net benefit depends on the marginal return on ad spend and the capacity of the sales infrastructure to convert the influx of leads."},{"vote":"caution","agent":"vp-customer-success","reasoning":"An increased marketing budget primarily drives customer acquisition and brand awareness rather than directly improving the post-purchase experience. While it can enhance brand prestige, it risks lowering satisfaction if the influx of new customers exceeds the capacity of existing support and fulfillment infrastructure."}],"summary":"The proposed 50% increase in marketing budget presents a high-risk scenario characterized by a severe misalignment between growth objectives and operational capacity. While the CMO and VP of Sales anticipate significant gains in brand awareness and lead generation, the overall simulation score of 1.7/10 indicates that the organization is currently ill-equipped to handle this scale of expansion. The primary conflict lies in the aggressive pursuit of market share at the expense of technical stability and financial health, as the projected influx of users is expected to outpace current infrastructure capabilities.\n\nFrom a technical and financial standpoint, the impact is decidedly negative. The CTO warns of immediate performance bottlenecks and the accumulation of technical debt as engineering resources are diverted from innovation to reactive scaling. Concurrently, the CFO highlights significant margin compression and a reduction in short-term cash flow, noting that the long-term ROI remains speculative. Without a proportional increase in engineering and support resources, the surge in customer acquisition risks degrading the user experience and straining the fulfillment infrastructure, ultimately neutralizing the benefits of the increased spend.\n\nOur strategic recommendation is to proceed with extreme caution and consider a phased implementation rather than a full 50% increase. The current plan lacks the necessary synchronization between marketing spend and operational scaling. To mitigate the identified risks, any budget expansion must be contingent upon hitting specific infrastructure milestones and demonstrating a sustainable return on ad spend. We must prioritize stabilizing the technical foundation and ensuring the customer success team can manage the increased volume before committing to this level of capital expenditure.","dimensions":[{"area":"Engineering & Technology","impact":"negative","magnitude":-3,"reasoning":"A significant increase in marketing spend typically drives rapid user acquisition that can outpace technical infrastructure scaling, leading to performance bottlenecks. Without a proportional increase in engineering resources, the team may be forced to prioritize reactive scaling and technical debt over long-term R&D and innovation.","confidence":0.85,"perspective":"cto","secondOrderEffects":["Increased infrastructure and operational cloud costs","Acceleration of technical debt to meet marketing-driven feature deadlines","Potential for system instability due to unforecasted traffic spikes"]},{"area":"Financial Impact","impact":"negative","magnitude":-4,"reasoning":"A 50% increase in marketing spend represents a significant immediate rise in operating expenses, which will compress net profit margins and reduce short-term cash flow. The long-term financial success is speculative and depends entirely on the marginal return on ad spend (ROAS) exceeding the increased cost of capital.","confidence":0.85,"perspective":"cfo","secondOrderEffects":["Increased pressure on sales and fulfillment operations to handle higher lead volumes","Potential for rising Customer Acquisition Costs (CAC) as marketing channels reach saturation"]},{"area":"Marketing & Brand","impact":"positive","magnitude":7,"reasoning":"A 50% increase in budget allows for significant scaling of brand awareness campaigns and deeper penetration into competitive markets. While it accelerates growth, the impact is tempered by the risk of diminishing returns and the need for operational capacity to manage the increased spend effectively.","confidence":0.9,"perspective":"cmo","secondOrderEffects":["Potential increase in Customer Acquisition Cost (CAC) due to channel saturation","Operational strain on creative and media-buying teams to deploy capital efficiently","Improved data collection and attribution modeling capabilities from higher volume traffic"]},{"area":"Product & User Experience","impact":"neutral","magnitude":2,"reasoning":"A significant marketing boost accelerates user acquisition and data collection for product refinement, but does not inherently improve the product's functional quality. The impact is neutral because the influx of new users may strain existing infrastructure and support systems if product development does not scale in tandem.","confidence":0.85,"perspective":"cpo","secondOrderEffects":["Increased pressure on infrastructure and backend performance","Potential misalignment between marketing messaging and actual product capabilities"]},{"area":"Sales & Revenue","impact":"positive","magnitude":7,"reasoning":"A 50% increase in marketing spend significantly broadens the top-of-funnel reach, which typically correlates with higher sales volume and revenue growth. However, the net benefit depends on the marginal return on ad spend and the capacity of the sales infrastructure to convert the influx of leads.","confidence":0.85,"perspective":"vp-sales","secondOrderEffects":["Rising Customer Acquisition Costs (CAC) as cheaper channels become saturated","Increased pressure on sales operations and customer support to maintain service levels","Potential competitive response or price wars as market share is aggressively pursued"]},{"area":"Customer Satisfaction","impact":"neutral","magnitude":1,"reasoning":"An increased marketing budget primarily drives customer acquisition and brand awareness rather than directly improving the post-purchase experience. While it can enhance brand prestige, it risks lowering satisfaction if the influx of new customers exceeds the capacity of existing support and fulfillment infrastructure.","confidence":0.85,"perspective":"vp-customer-success","secondOrderEffects":["Increased strain on customer service resources due to higher lead volume","Potential for brand dilution if marketing promises outpace product capabilities"]}],"cascadeChain":[{"to":"Marketing & Brand","from":"Engineering & Technology","delay":"weeks","effect":"Acceleration of technical debt to meet marketing-driven feature deadlines"},{"to":"Sales & Revenue","from":"Financial Impact","delay":"weeks","effect":"Increased pressure on sales and fulfillment operations to handle higher lead volumes"},{"to":"Marketing & Brand","from":"Financial Impact","delay":"weeks","effect":"Potential for rising Customer Acquisition Costs (CAC) as marketing channels reach saturation"},{"to":"Customer Satisfaction","from":"Marketing & Brand","delay":"weeks","effect":"Potential increase in Customer Acquisition Cost (CAC) due to channel saturation"},{"to":"Marketing & Brand","from":"Product & User Experience","delay":"weeks","effect":"Potential misalignment between marketing messaging and actual product capabilities"},{"to":"Customer Satisfaction","from":"Sales & Revenue","delay":"weeks","effect":"Rising Customer Acquisition Costs (CAC) as cheaper channels become saturated"},{"to":"Customer Satisfaction","from":"Sales & Revenue","delay":"weeks","effect":"Increased pressure on sales operations and customer support to maintain service levels"},{"to":"Marketing & Brand","from":"Customer Satisfaction","delay":"weeks","effect":"Potential for brand dilution if marketing promises outpace product capabilities"}],"overallScore":1.7,"recommendation":"proceed_with_caution"},"created_at":"2026-03-02T13:02:50.686Z","completed_at":"2026-03-02T13:03:10.047Z","accepted_at":null,"accepted_by":null,"error":"column \"agent_id\" of relation \"activity_log\" does not exist"}
+  ❌ T9.3 Chain of Thought (60.4s)
+     └─ Run failed: {"id":"cot-1772456600991-e2nu3n","query":"Should we prioritize enterprise sales or self-serve growth?","status":"failed","requested_by":"dashboard","report":{"options":[{"cons":["Requires complex data infrastructure","Potential friction between sales and product teams"],"pros":["Maximizes efficiency by using self-serve as a lead magnet","Creates a seamless transition from user adoption to enterprise contracts","Higher LTV through data-driven expansion"],"title":"Product-Led Sales (PLS) Integration","reasoning":"This approach leverages existing momentum in both channels, though it requires significant organizational alignment and technical integration.","feasibilityScore":8},{"cons":["Extremely high operational costs","Risk of brand fragmentation and duplicated efforts"],"pros":["Eliminates internal resource competition","Allows for specialized product focus for different segments"],"title":"Strategic Bifurcation","reasoning":"While it solves focus issues, the capital and management overhead make it risky for most mid-stage organizations.","feasibilityScore":4},{"cons":["Longer sales cycles","Loss of the 'bottom-up' viral growth engine"],"pros":["Predictable high-value revenue streams","Clearer roadmap focused on security and compliance"],"title":"Enterprise-First Pivot","reasoning":"This is the most straightforward path to immediate revenue growth if the product already meets core enterprise needs.","feasibilityScore":9},{"cons":["Lower ACV and higher churn risk","Leaves high-value enterprise revenue on the table"],"pros":["Lower CAC and high scalability","Faster product iteration cycles"],"title":"Self-Serve Optimization","reasoning":"Effective for market capture, but may limit the company's total addressable market in the long term.","feasibilityScore":7}],"summary":"The organization currently faces a critical strategic choice between high-touch enterprise sales and low-touch self-serve growth, as attempting to scale both simultaneously leads to resource dilution and conflicting product requirements. While an enterprise-first pivot offers high contract values and a clear roadmap, it risks losing the viral growth engine and increasing vulnerability to long sales cycles. Conversely, a pure self-serve focus maximizes scalability but may cap the total addressable market and increase churn. \n\nThe recommended path is a Product-Led Sales (PLS) integration, which synthesizes both motions by using self-serve adoption as a lead generation engine for enterprise expansion. This approach balances immediate user friction with long-term administrative needs, though it requires significant investment in data infrastructure and organizational alignment. By focusing on Product Qualified Leads (PQLs), the company can achieve high-efficiency growth that bridges the gap between individual usage and large-scale corporate contracts.","problems":[{"title":"Strategic Resource Dilution","severity":"high","description":"The organization faces a zero-sum allocation of capital and talent, where pursuing both high-touch enterprise sales and low-touch self-serve growth simultaneously prevents achieving excellence in either motion."},{"title":"Product-Market Fit Divergence","severity":"medium","description":"Enterprise requirements for security and administrative control often conflict with the simplicity and friction-less onboarding necessary for successful self-serve adoption."}],"solutions":[{"title":"Product-Led Sales (PLS) Integration","resources":"Cross-functional growth team, data analytics infrastructure, and revised sales compensation models.","timeframe":"6-12 months","description":"Utilize the self-serve motion as a qualified lead generation engine for the enterprise sales team, focusing product development on features that bridge the gap between individual usage and administrative oversight.","feasibility":0.8},{"title":"Strategic Bifurcation","resources":"Significant capital injection, separate executive leadership, and duplicated core operational functions.","timeframe":"12-18 months","description":"Establish two distinct business units with independent roadmaps, P&Ls, and go-to-market teams to prevent resource dilution and allow for divergent product-market fit requirements.","feasibility":0.5},{"title":"Enterprise-First Pivot","resources":"High-touch sales talent, enterprise support staff, and specialized marketing budget.","timeframe":"3-6 months","description":"Deprioritize self-serve growth to focus exclusively on high-contract value accounts, aligning the roadmap entirely with security, compliance, and complex integration needs.","feasibility":0.9},{"title":"Self-Serve Optimization","resources":"Product-led growth (PLG) specialists, automated marketing tools, and self-service documentation.","timeframe":"6-9 months","description":"Aggressively reduce friction and automate onboarding to maximize volume, while sunsetting complex enterprise features that increase CAC and slow down development cycles.","feasibility":0.7}],"rootCauses":[{"cause":"Undefined Ideal Customer Profile (ICP)","evidence":"Internal conflict regarding whether to optimize the roadmap for high-contract value features or user-centric usability.","linkedProblem":"Strategic Resource Dilution"},{"cause":"Incompatible Unit Economics","evidence":"The high Customer Acquisition Cost (CAC) of enterprise sales cannot be sustained by the lower Average Contract Value (ACV) typically generated by self-serve users.","linkedProblem":"Product-Market Fit Divergence"}],"validations":[{"status":"valid","evidence":"Organizational focus and capital are finite; scaling two distinct GTM motions simultaneously typically leads to operational friction and diluted brand positioning in mid-stage companies.","assumption":"Resource allocation between enterprise and self-serve motions is a zero-sum game."},{"status":"valid","evidence":"The friction introduced by administrative controls, SSO, and compliance often slows down the 'time-to-value' metric that is critical for successful self-serve adoption.","assumption":"Enterprise security requirements and self-serve simplicity are inherently contradictory."},{"status":"valid","evidence":"Identifying Product Qualified Leads (PQLs) requires a unified view of product usage data integrated directly into sales CRM workflows to be actionable.","assumption":"Product-Led Sales (PLS) necessitates advanced data infrastructure."},{"status":"questionable","evidence":"While individual contract values are higher, enterprise sales cycles are longer and more susceptible to procurement delays and macroeconomic volatility compared to the steady volume of self-serve.","assumption":"An Enterprise-First pivot provides the most predictable revenue growth."}]},"created_at":"2026-03-02T13:03:20.991Z","completed_at":"2026-03-02T13:04:00.688Z","error":"column \"agent_id\" of relation \"activity_log\" does not exist"}
+  ❌ T9.4 Deep Dive (30.0s)
+     └─ This operation was aborted
+
+════════════════════════════════════════════════════════════
+Layer 10 — Specialist Agents
+════════════════════════════════════════════════════════════
+  ✅ T10.1 Dynamic Runner Works (1.8s)
+  ❌ T10.2 All Specialists Have Briefs (0.1s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+  ❌ T10.3 Specialists in Authority Gates (0.0s)
+     └─ SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+
+════════════════════════════════════════════════════════════
+Layer 11 — Dashboard & API
+════════════════════════════════════════════════════════════
+  ✅ T11.1 Dashboard Loads (0.1s)
+  ✅ T11.2 All Pages Render (0.9s)
+  ✅ T11.3 Security Headers Present (0.0s)
+  ✅ T11.4 SPA Bundle Loads (0.2s)
+  ⏭️ T11.5 Health Check Endpoint (0.0s)
+  ✅ T11.6 Legacy Redirects Resolve (0.3s)
+
+════════════════════════════════════════════════════════════
+Layer 12 — Voice Gateway
+════════════════════════════════════════════════════════════
+  ✅ T12.1 Voice Service Health (0.1s)
+  ⏭️ T12.2 Voice Session
+
+══════════════════════════════════════════════════════════════════════
+RESULTS SUMMARY
+══════════════════════════════════════════════════════════════════════
+| Layer                        | Tests | Pass | Fail | Skip | Block |
+|------------------------------|-------|------|------|------|-------|
+| 0 — Infrastructure Health    |    6  |    3  |    3  |    0  |    0  |
+| 1 — Data Syncs               |    4  |    1  |    3  |    0  |    0  |
+| 2 — Model Clients            |    4  |    4  |    0  |    0  |    0  |
+| 3 — Heartbeat & Work Loop    |    4  |    0  |    4  |    0  |    0  |
+| 4 — Orchestration Loop       |    8  |    0  |    2  |    0  |    6  |
+| 5 — Communication            |    5  |    0  |    4  |    1  |    0  |
+| 6 — Authority Gates          |    4  |    1  |    2  |    1  |    0  |
+| 7 — Intelligence Enhancements |    7  |    1  |    6  |    0  |    0  |
+| 8 — Knowledge Graph          |    4  |    0  |    4  |    0  |    0  |
+| 9 — Strategy & Analysis Engines |    4  |    0  |    4  |    0  |    0  |
+| 10 — Specialist Agents       |    3  |    1  |    2  |    0  |    0  |
+| 11 — Dashboard & API         |    6  |    5  |    0  |    1  |    0  |
+| 12 — Voice Gateway           |    2  |    1  |    0  |    1  |    0  |
+|------------------------------|-------|------|------|------|-------|
+| TOTAL                        |   61  |   17  |   34  |    4  |    6  |
+
+⚠️  34 test(s) FAILED — review details above.
