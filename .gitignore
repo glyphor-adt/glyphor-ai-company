@@ -18,6 +18,12 @@ teams/agents/*/icon-outline.png
 __pycache__/
 *.pyc
 *.pyo
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
 
 # GraphRAG indexer cache & output
 packages/graphrag-indexer/cache/
