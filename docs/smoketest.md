@@ -1,14 +1,44 @@
 # Glyphor Architecture Smoke Test Suite
 
-**Date:** 2026-03-01
+**Date:** 2026-03-02
 **Purpose:** Verify every layer of the architecture works end-to-end
 **Estimated time:** 2-3 hours for full pass
 
-> **Migration Note (2026-03-01):** This document has been updated to reflect the
-> GCP migration from Supabase to Cloud SQL (PostgreSQL), Firebase Auth, Cloud
-> Storage, and Cloud Tasks. SQL snippets now target the Cloud SQL database
-> directly (via `psql` or any PostgreSQL client). The automated smoketest package
-> (`@glyphor/smoketest`) uses `systemQuery` from `@glyphor/shared/db`.
+> **Database:** GCP Cloud SQL (PostgreSQL 15, instance `glyphor-db` in `us-central1`).
+> SQL snippets target Cloud SQL directly via `psql` or any PostgreSQL client.
+> The automated smoketest package (`@glyphor/smoketest`) uses `systemQuery`
+> from `@glyphor/shared/db`.
+
+---
+
+## Running the Automated Smoketest
+
+```bash
+# Prerequisites: set env vars in .env at repo root
+#   SCHEDULER_URL=https://glyphor-scheduler-610179349713.us-central1.run.app
+#   DASHBOARD_URL=https://glyphor-dashboard-610179349713.us-central1.run.app
+#   VOICE_GATEWAY_URL=https://voice-gateway-610179349713.us-central1.run.app
+#   GCP_PROJECT=ai-glyphor-company
+#
+# For DB-dependent tests (layers 0,1,3-8,10), also set:
+#   DATABASE_URL=postgresql://glyphor_system_user:<password>@<host>/glyphor
+#   — OR —
+#   DB_HOST=<Cloud SQL IP or proxy socket>
+#   DB_NAME=glyphor
+#   DB_USER=glyphor_system_user
+#   DB_PASSWORD=<password>
+
+# Build and run all layers
+cd packages/smoketest
+npx tsc && node dist/index.js
+
+# Run specific layers only
+node dist/index.js --layer 0          # just infrastructure
+node dist/index.js --layer 0,2,11     # infrastructure + models + dashboard
+node dist/index.js --layer 0,1,2,3,4,5,6,7,8,10,11,12  # skip slow layer 9
+```
+
+Tests that require DB credentials will **skip gracefully** (not fail) when `DATABASE_URL` or `DB_PASSWORD` is not configured.
 
 ---
 
@@ -113,7 +143,7 @@ gcloud secrets list --project=ai-glyphor-company --format="table(name)" | wc -l
 gcloud pubsub topics list --project=ai-glyphor-company
 ```
 
-**Pass:** `glyphor-agent-events` (or equivalent) topic exists.
+**Pass:** `glyphor-agent-tasks` topic exists.
 **Fail:** Cloud Scheduler cron jobs can't deliver messages. No scheduled agent runs will fire.
 
 ---
@@ -870,6 +900,8 @@ GROUP BY agent_role;
 
 ## Layer 11: Dashboard & API
 
+The automated smoketest (T11.1–T11.6) validates all 20 dashboard pages, security headers, SPA bundle loading, and legacy redirects.
+
 ### T11.1 — Dashboard Loads
 
 Open `https://glyphor-dashboard-<hash>-uc.a.run.app/` in browser.
@@ -877,24 +909,63 @@ Open `https://glyphor-dashboard-<hash>-uc.a.run.app/` in browser.
 **Pass:** Dashboard loads, shows agent overview with 44 headcount. Auth works (Firebase Auth — Google OAuth or Teams SSO).
 **Fail:** Blank page = build error. Check `VITE_FIREBASE_*` and `VITE_API_URL` build args. CORS errors = scheduler URL mismatch. Auth redirect failures = Firebase Auth config mismatch (check `VITE_FIREBASE_AUTH_DOMAIN`).
 
-### T11.2 — Key Pages Render
+### T11.2 — All Pages Render (20 pages)
 
-Navigate to each page and verify it loads data:
+The automated smoketest fetches all 20 routes and verifies HTTP 200:
 
 | Page | URL | What to Check |
 |------|-----|--------------|
+| Home | `/` | Main dashboard |
 | Workforce | `/workforce` | Org chart shows 11 departments, 44 agents |
-| Agent Profile | `/agents/chief-of-staff` | All 7 tabs load (overview, performance, memory, messages, skills, world model, settings) |
-| Approvals | `/approvals` | Shows pending decisions (if any) |
-| Directives | `/directives` | Shows your smoke test directive |
-| Strategy | `/strategy` | Shows analyses and simulations |
-| Financials | `/financials` | Shows Stripe MRR, GCP costs, Mercury balance |
-| Knowledge | `/knowledge` | Knowledge base sections load |
-| Operations | `/operations` | Event log shows recent activity |
-| Comms | `/comms` | Chat tab works, Meetings tab shows meetings |
+| Agent Profile | `/agents/chief-of-staff` | All tabs load |
+| Approvals | `/approvals` | Pending decisions |
+| Directives | `/directives` | Directive list |
+| Strategy | `/strategy` | Analyses and simulations |
+| Financials | `/financials` | Stripe MRR, GCP costs, Mercury balance |
+| Knowledge | `/knowledge` | Knowledge base sections |
+| Operations | `/operations` | Event log |
+| Comms | `/comms` | Chat and meetings tabs |
+| Dev | `/dev` | Dev tools |
+| System | `/system` | System status |
+| Admin | `/admin` | Admin panel |
+| Meetings | `/meetings` | Meeting logs |
+| Reports | `/reports` | Reports |
+| Settings | `/settings` | Settings |
+| Chat | `/chat` | Chat interface |
+| Login | `/login` | Auth page |
+| Profile | `/profile` | User profile |
+| Help | `/help` | Help page |
 
-**Pass:** All pages load with data.
-**Fail:** Individual page failures indicate missing data (check corresponding table) or API endpoint errors (check scheduler logs).
+**Pass:** All pages return 200.
+**Fail:** Individual page failures indicate missing data or API endpoint errors.
+
+### T11.3 — Security Headers Present
+
+The automated smoketest verifies these headers on every response:
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `Cross-Origin-Opener-Policy: same-origin-allow-popups`
+
+**Pass:** All headers present on dashboard responses.
+**Fail:** Check `docker/nginx.conf` — headers must be repeated in each `location` block.
+
+### T11.4 — SPA Bundle Loads
+
+**Pass:** HTML contains `<script` and `<link` tags pointing to hashed assets.
+**Fail:** Vite build failed or assets not served correctly.
+
+### T11.5 — Health Check Endpoint
+
+```bash
+curl -s https://glyphor-dashboard-<hash>-uc.a.run.app/healthz
+```
+
+**Pass:** Returns 200.
+**Fail:** Health check route not configured in nginx. Skips if endpoint returns 404.
+
+### T11.6 — Legacy Redirects
+
+**Pass:** Legacy routes (`/dashboard`, `/home`, `/overview`) redirect to `/` with 200.
 
 ---
 
@@ -922,25 +993,26 @@ Use the dashboard voice button (if available) to start a voice session with an a
 
 After running all tests, fill in:
 
-| Layer | Tests | Pass | Fail | Blocked | Notes |
-|-------|-------|------|------|---------|-------|
-| 0 — Infrastructure | 8 | | | | Includes Cloud SQL, Cloud Tasks, GCS |
-| 1 — Data Syncs | 4 | | | | |
-| 2 — Model Clients | 4 | | | | |
-| 3 — Heartbeat/Work Loop | 4 | | | | |
-| 4 — Orchestration | 7 | | | | |
-| 5 — Communication | 5 | | | | |
-| 6 — Authority Gates | 4 | | | | |
-| 7 — Intelligence Enhancements | 7 | | | | |
-| 8 — Knowledge Graph | 4 | | | | |
-| 9 — Strategy Engines | 4 | | | | |
-| 10 — Specialist Agents | 3 | | | | |
-| 11 — Dashboard | 2 | | | | Firebase Auth |
-| 12 — Voice | 2 | | | | |
-| **TOTAL** | **58** | | | | |
+| Layer | Tests | Pass | Fail | Skip | Block | Notes |
+|-------|-------|------|------|------|-------|-------|
+| 0 — Infrastructure | 6 | | | | | Cloud SQL, Cloud Tasks, GCS, Pub/Sub |
+| 1 — Data Syncs | 4 | | | | | Stripe, Mercury, GCP Billing |
+| 2 — Model Clients | 4 | | | | | Gemini, OpenAI, Anthropic |
+| 3 — Heartbeat/Work Loop | 4 | | | | | |
+| 4 — Orchestration | 8 | | | | | |
+| 5 — Communication | 5 | | | | | DMs, Meetings, Teams, Email |
+| 6 — Authority Gates | 4 | | | | | |
+| 7 — Intelligence Enhancements | 7 | | | | | |
+| 8 — Knowledge Graph | 4 | | | | | |
+| 9 — Strategy Engines | 4 | | | | | 600s+ timeout — run separately |
+| 10 — Specialist Agents | 3 | | | | | |
+| 11 — Dashboard & API | 6 | | | | | 20 pages, security headers |
+| 12 — Voice | 2 | | | | | |
+| **TOTAL** | **61** | | | | | |
 
-### Known Blockers from This Session
+### Known Issues
 
-1. **CRITICAL: OpenAI duplicate tool_call_id bug** — Blocks T2.4, T4.2-T4.7, T9.1-T9.4, and any multi-tool GPT-5.2 execution. **Fix first.**
-2. **Non-critical sync failures:** OpenAI billing (missing admin key), SharePoint (missing site ID), Kling (missing keys), Anthropic billing (invalid key). These don't block agent operations.
-3. **Ops agent marked non-active:** Logs showed `[Heartbeat] Skipping non-active agents: [ops]`. Atlas Vega needs `status='active'` in `company_agents`.
+1. **DB-dependent tests skip without credentials:** 24 tests across layers 0,1,3-8,10 require `DATABASE_URL` or `DB_PASSWORD` in `.env`. Without them, tests skip gracefully (not fail).
+2. **Pending migration:** `db/migrations/20260302210000_activity_log_add_agent_id.sql` adds `agent_id` and `detail` columns to `activity_log`. Until applied, T9.2 (Simulation) and T9.3 (CoT) will fail with schema errors.
+3. **Stripe/Mercury sync:** T1.1 and T1.2 skip if `STRIPE_SECRET_KEY` or `MERCURY_API_TOKEN` are not configured on the scheduler Cloud Run service.
+4. **Layer 9 timeouts:** Strategic analysis (T9.1) and deep dive (T9.4) can take 600+ seconds. Run layer 9 separately.

@@ -72,7 +72,7 @@ gcloud secrets list --project=ai-glyphor-company --format="table(name)" | wc -l
 gcloud pubsub topics list --project=ai-glyphor-company
 ```
 
-**Pass:** `glyphor-agent-events` (or equivalent) topic exists.
+**Pass:** `glyphor-agent-tasks` topic exists.
 **Fail:** Cloud Scheduler cron jobs can't deliver messages. No scheduled agent runs will fire.
 
 ---
