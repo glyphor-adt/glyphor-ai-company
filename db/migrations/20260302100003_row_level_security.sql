@@ -57,6 +57,12 @@ BEGIN
 END
 $$;
 
+-- Grant table/sequence access to glyphor_system so SET ROLE works for queries
+GRANT ALL ON ALL TABLES IN SCHEMA public TO glyphor_system;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO glyphor_system;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO glyphor_system;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO glyphor_system;
+
 -- Enable RLS on new tenant tables
 ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tenant_workspaces ENABLE ROW LEVEL SECURITY;

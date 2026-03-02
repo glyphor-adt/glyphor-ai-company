@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import Markdown from 'react-markdown';
 import { useAgents } from '../lib/hooks';
@@ -6,10 +6,11 @@ import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { useAuth, getEmailAliases } from '../lib/auth';
-import { MdAttachFile, MdImage, MdDescription, MdClose, MdVideoCall, MdCallEnd } from 'react-icons/md';
+import { MdAttachFile, MdImage, MdDescription, MdClose, MdVideoCall, MdCallEnd, MdAdd, MdSearch } from 'react-icons/md';
 import { HiMiniSignal, HiStop, HiMicrophone } from 'react-icons/hi2';
 import { useVoiceChat } from '../lib/useVoiceChat';
 import VoiceOverlay from '../components/VoiceOverlay';
+import OrgChartPicker from '../components/OrgChartPicker';
 
 interface Attachment {
   name: string;
@@ -28,6 +29,27 @@ interface Message {
 /** Strip <reasoning>...</reasoning> envelope from agent output */
 function stripReasoning(text: string): string {
   return text.replace(/<reasoning>[\s\S]*?<\/reasoning>\s*/g, '').trim();
+}
+
+interface RecentChat {
+  agentRole: string;
+  lastMessage: string;
+  lastMessageRole: 'user' | 'agent';
+  lastTime: Date;
+}
+
+function formatRelativeTime(date: Date): string {
+  const now = Date.now();
+  const diff = now - date.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'now';
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return date.toLocaleDateString([], { weekday: 'short' });
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
 const ALLOWED_TYPES = [
@@ -106,9 +128,12 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [input, setInput] = useState('');
-  const [sending, setSending] = useState(false);
+  const [respondingAgents, setRespondingAgents] = useState<Set<string>>(new Set());
   const [pendingFiles, setPendingFiles] = useState<Attachment[]>([]);
   const [dragging, setDragging] = useState(false);
+  const [showOrgChart, setShowOrgChart] = useState(false);
+  const [sidebarSearch, setSidebarSearch] = useState('');
+  const [recentChats, setRecentChats] = useState<RecentChat[]>([]);
 
   // Voice chat
   const voice = useVoiceChat();
@@ -230,7 +255,6 @@ export default function Chat() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedRoleRef = useRef(selectedRole);
-  const [pendingAgent, setPendingAgent] = useState<string | null>(null);
   useEffect(() => { selectedRoleRef.current = selectedRole; }, [selectedRole]);
 
   const FOUNDERS = [
@@ -255,14 +279,18 @@ export default function Chat() {
       )
     : mentionables;
 
-  const userAliases = getEmailAliases(userEmail);
+  const userAliases = useMemo(() => getEmailAliases(userEmail), [userEmail]);
 
   // Load chat history
   const loadHistory = useCallback(
     async (role: string) => {
       setLoadingHistory(true);
       try {
-        const data = await apiCall(`/api/chat-messages?agent_role=${role}&user_id=${userAliases.join(',')}&order=created_at.asc&limit=100`);
+        // Use OR syntax so multi-alias users find messages saved under any alias
+        const aliasFilter = userAliases.length > 1
+          ? `or=(${userAliases.map(a => `user_id.eq.${a}`).join(',')})`
+          : `user_id=${encodeURIComponent(userAliases[0])}`;
+        const data = await apiCall(`/api/chat-messages?agent_role=${role}&${aliasFilter}&order=created_at.asc&limit=100`);
         if (data?.length) {
           setMessages(
             data.map((row: Record<string, unknown>) => ({
@@ -272,11 +300,10 @@ export default function Chat() {
               attachments: (row.attachments as any[])?.map((a: Record<string, unknown>) => ({ ...a, data: '' })),
             })),
           );
-        } else {
-          setMessages([]);
         }
+        // Don't clear messages on empty result — keep stale data visible
       } catch {
-        setMessages([]);
+        // Keep existing messages on error rather than clearing
       }
       setLoadingHistory(false);
     },
@@ -286,6 +313,45 @@ export default function Chat() {
   useEffect(() => { loadHistory(selectedRole); }, [selectedRole, loadHistory]);
   useEffect(() => { if (agentId) setSelectedRole(agentId); }, [agentId]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  // Load recent chats index (which agents have conversations)
+  const loadRecentChats = useCallback(async () => {
+    try {
+      const data = await apiCall(`/api/chat-messages?user_id=${userAliases.join(',')}&order=created_at.desc&limit=300&fields=agent_role,role,content,created_at`);
+      if (!data?.length) { setRecentChats([]); return; }
+      const map = new Map<string, RecentChat>();
+      for (const row of data as Record<string, unknown>[]) {
+        const ar = row.agent_role as string;
+        if (!map.has(ar)) {
+          map.set(ar, {
+            agentRole: ar,
+            lastMessage: ((row.content as string) ?? '').slice(0, 80),
+            lastMessageRole: row.role as 'user' | 'agent',
+            lastTime: new Date(row.created_at as string),
+          });
+        }
+      }
+      setRecentChats(Array.from(map.values()).sort((a, b) => b.lastTime.getTime() - a.lastTime.getTime()));
+    } catch { setRecentChats([]); }
+  }, [userAliases]);
+  useEffect(() => { loadRecentChats(); }, [loadRecentChats]);
+
+  // Sidebar items: recent chats + ensure selected agent always visible
+  const sidebarItems = useMemo(() => {
+    const q = sidebarSearch.toLowerCase();
+    const filtered = q
+      ? recentChats.filter((c) => {
+          const name = (DISPLAY_NAME_MAP[c.agentRole] ?? c.agentRole).toLowerCase();
+          return name.includes(q) || c.agentRole.includes(q);
+        })
+      : recentChats;
+    const hasSelected = filtered.some((c) => c.agentRole === selectedRole);
+    if (hasSelected) return filtered;
+    return [
+      { agentRole: selectedRole, lastMessage: '', lastMessageRole: 'user' as const, lastTime: new Date() },
+      ...filtered,
+    ];
+  }, [recentChats, selectedRole, sidebarSearch]);
 
   const selectedAgent = agents.find((a) => a.role === selectedRole);
   const codename = DISPLAY_NAME_MAP[selectedRole] ?? selectedRole;
@@ -386,7 +452,7 @@ export default function Chat() {
     // Stop dictation if active and strip interim markers
     if (isListening && recognitionRef.current) recognitionRef.current.stop();
     const text = input.replace(/\u200B[\s\S]*/g, '').trim();
-    if ((!text && pendingFiles.length === 0) || sending) return;
+    if ((!text && pendingFiles.length === 0) || respondingAgents.has(selectedRole)) return;
 
     // Capture which agent we're sending to — this won't change even if user switches agents
     const targetRole = selectedRole;
@@ -396,10 +462,13 @@ export default function Chat() {
     setInput('');
     setPendingFiles([]);
     setMessages((prev) => [...prev, userMsg]);
-    setSending(true);
-    setPendingAgent(targetRole);
+    setRespondingAgents((prev) => new Set(prev).add(targetRole));
+    setRecentChats((prev) => {
+      const without = prev.filter((c) => c.agentRole !== targetRole);
+      return [{ agentRole: targetRole, lastMessage: text.slice(0, 80) || 'Sent file(s)', lastMessageRole: 'user' as const, lastTime: new Date() }, ...without];
+    });
 
-    saveMessage(targetRole, 'user', text, userEmail, attachments);
+    saveMessage(targetRole, 'user', text, userEmail, attachments).catch(() => {});
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 180_000);
@@ -443,7 +512,11 @@ export default function Chat() {
       if (selectedRoleRef.current === targetRole) {
         setMessages((prev) => [...prev, { role: 'agent', content, timestamp: new Date() }]);
       }
-      saveMessage(targetRole, 'agent', content, userEmail);
+      saveMessage(targetRole, 'agent', content, userEmail).catch(() => {});
+      setRecentChats((prev) => {
+        const without = prev.filter((c) => c.agentRole !== targetRole);
+        return [{ agentRole: targetRole, lastMessage: content.slice(0, 80), lastMessageRole: 'agent' as const, lastTime: new Date() }, ...without];
+      });
     } catch (err) {
       clearTimeout(timeoutId);
       const targetName = DISPLAY_NAME_MAP[targetRole] ?? targetRole;
@@ -455,46 +528,103 @@ export default function Chat() {
         setMessages((prev) => [...prev, { role: 'agent', content: errContent, timestamp: new Date() }]);
       }
     } finally {
-      setSending(false);
-      setPendingAgent(null);
+      setRespondingAgents((prev) => { const next = new Set(prev); next.delete(targetRole); return next; });
     }
   };
 
   return (
     <div className="flex h-[calc(100vh-6rem)] gap-5">
-      {/* ── Agent List (Left) ────────────── */}
-      <div className="w-64 flex-shrink-0 space-y-1 overflow-y-auto">
-        <p className="mb-3 text-[11px] font-medium uppercase tracking-wider text-txt-muted">
-          Agents
-        </p>
-        {agents.map((agent) => {
-          const meta = AGENT_META[agent.role];
-          const active = agent.role === selectedRole;
-          return (
-            <button
-              key={agent.id}
-              onClick={() => setSelectedRole(agent.role)}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
-                active
-                  ? 'bg-cyan/10 border border-cyan/25'
-                  : 'border border-transparent hover:bg-[var(--color-hover-bg)]'
-              }`}
-            >
-              <img
-                src={`/avatars/${agent.role}.png`}
-                alt={agent.role}
-                className="h-11 w-11 flex-shrink-0 rounded-full object-cover"
-                style={{ border: `2px solid ${meta?.color ?? '#64748b'}60` }}
+      {/* ── Chat Sidebar (Left) ────────────── */}
+      <div className="w-72 flex-shrink-0 flex flex-col border-r border-border overflow-hidden">
+        {/* New Chat + Search */}
+        <div className="p-3 space-y-2">
+          <button
+            onClick={() => setShowOrgChart(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-3 py-2 text-[13px] font-medium text-white hover:opacity-90 transition-opacity"
+          >
+            <MdAdd size={18} />
+            New Chat
+          </button>
+          {recentChats.length > 3 && (
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-raised px-3 py-1.5">
+              <MdSearch size={14} className="text-txt-faint flex-shrink-0" />
+              <input
+                type="text"
+                value={sidebarSearch}
+                onChange={(e) => setSidebarSearch(e.target.value)}
+                placeholder="Search chats..."
+                className="flex-1 bg-transparent text-[12px] text-txt-secondary placeholder-txt-faint outline-none"
               />
-              <div className="min-w-0">
-                <p className={`text-[13px] font-medium truncate ${active ? 'text-cyan' : 'text-txt-secondary'}`}>
-                  {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
-                </p>
-                <p className="text-[11px] text-txt-faint truncate">{agent.role}</p>
-              </div>
-            </button>
-          );
-        })}
+            </div>
+          )}
+        </div>
+
+        {/* Recent Chats */}
+        <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
+          {recentChats.length > 0 && (
+            <p className="px-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-txt-faint">
+              Recent Chats
+            </p>
+          )}
+          {sidebarItems.map((chat) => {
+            const meta = AGENT_META[chat.agentRole];
+            const active = chat.agentRole === selectedRole;
+            const isResponding = respondingAgents.has(chat.agentRole);
+            const name = DISPLAY_NAME_MAP[chat.agentRole] ?? chat.agentRole;
+            return (
+              <button
+                key={chat.agentRole}
+                onClick={() => setSelectedRole(chat.agentRole)}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
+                  active
+                    ? 'bg-cyan/10 border border-cyan/25'
+                    : 'border border-transparent hover:bg-[var(--color-hover-bg)]'
+                }`}
+              >
+                <div className="relative flex-shrink-0">
+                  <img
+                    src={`/avatars/${chat.agentRole}.png`}
+                    alt=""
+                    className="h-10 w-10 rounded-full object-cover"
+                    style={{ border: `2px solid ${meta?.color ?? '#64748b'}50` }}
+                  />
+                  {isResponding && (
+                    <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-surface">
+                      <span className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className={`text-[13px] font-medium truncate ${active ? 'text-cyan' : 'text-txt-secondary'}`}>
+                      {name}
+                    </p>
+                    {chat.lastMessage && (
+                      <span className="text-[10px] text-txt-faint whitespace-nowrap flex-shrink-0">
+                        {formatRelativeTime(chat.lastTime)}
+                      </span>
+                    )}
+                  </div>
+                  {isResponding ? (
+                    <p className="text-[11px] text-cyan italic mt-0.5">Typing...</p>
+                  ) : chat.lastMessage ? (
+                    <p className="text-[11px] text-txt-faint truncate mt-0.5">
+                      {chat.lastMessageRole === 'user' ? 'You: ' : ''}{chat.lastMessage}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-txt-faint italic mt-0.5">New conversation</p>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+          {recentChats.length === 0 && !sidebarSearch && (
+            <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+              <p className="text-[12px] text-txt-muted mb-1">No conversations yet</p>
+              <p className="text-[11px] text-txt-faint">Click <span className="text-cyan font-medium">New Chat</span> to start</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Chat Area (Right) ────────────── */}
@@ -642,7 +772,7 @@ export default function Chat() {
             </div>
           ))}
 
-          {sending && pendingAgent === selectedRole && (
+          {respondingAgents.has(selectedRole) && (
             <div className="flex gap-3">
               <AgentAvatar role={selectedRole} size={28} />
               <div className="rounded-xl bg-raised border border-border px-4 py-3">
@@ -731,7 +861,7 @@ export default function Chat() {
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               placeholder={`Message ${codename}... (@ to mention, Shift+Enter for new line)`}
-              disabled={sending}
+              disabled={respondingAgents.has(selectedRole)}
               rows={1}
               className="flex-1 rounded-lg border border-border bg-raised px-4 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none transition-colors focus:border-cyan/40 disabled:opacity-50 resize-none min-h-[40px] max-h-[120px]"
               onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 120)}px`; }}
@@ -775,7 +905,7 @@ export default function Chat() {
             <button
               type="button"
               onClick={sendMessage}
-              disabled={sending || (!input.trim() && pendingFiles.length === 0)}
+              disabled={respondingAgents.has(selectedRole) || (!input.trim() && pendingFiles.length === 0)}
               className="flex-shrink-0 rounded-lg bg-cyan px-5 py-2.5 text-[13px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
             >
               Send
@@ -844,6 +974,15 @@ export default function Chat() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Org Chart Picker */}
+      {showOrgChart && (
+        <OrgChartPicker
+          agents={agents}
+          onSelect={(role) => { setSelectedRole(role); setShowOrgChart(false); }}
+          onClose={() => setShowOrgChart(false)}
+        />
       )}
     </div>
   );
