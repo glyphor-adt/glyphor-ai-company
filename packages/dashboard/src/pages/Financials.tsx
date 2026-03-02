@@ -632,8 +632,8 @@ export default function Financials() {
                       <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: `rgb(var(--prism-${pct > 80 ? 'critical' : pct > 50 ? 'high' : 'fill-2'}))` }} />
                     </div>
                     <div className="mt-1 flex justify-between text-[10px] text-txt-faint">
-                      <span>{pack.consumed.toLocaleString()} / {pack.total.toLocaleString()} used ({pct.toFixed(0)}%)</span>
-                      <span>{pack.remaining.toLocaleString()} remaining</span>
+                      <span>{(pack.consumed ?? 0).toLocaleString()} / {(pack.total ?? 0).toLocaleString()} used ({pct.toFixed(0)}%)</span>
+                      <span>{(pack.remaining ?? 0).toLocaleString()} remaining</span>
                     </div>
                     <div className="mt-1 flex justify-between text-[10px] text-txt-faint">
                       <span>Active: {pack.effective}</span>
