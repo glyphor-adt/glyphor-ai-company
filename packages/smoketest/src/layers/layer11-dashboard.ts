@@ -8,20 +8,7 @@
 
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
 import { httpGet } from '../utils/http.js';
-
-async function runTest(
-  id: string,
-  name: string,
-  fn: () => Promise<string>,
-): Promise<TestResult> {
-  const start = Date.now();
-  try {
-    const message = await fn();
-    return { id, name, status: 'pass', message, durationMs: Date.now() - start };
-  } catch (err) {
-    return { id, name, status: 'fail', message: (err as Error).message, durationMs: Date.now() - start };
-  }
-}
+import { runTest } from '../utils/test.js';
 
 /** Every routable page in the dashboard SPA. */
 const PAGES = [

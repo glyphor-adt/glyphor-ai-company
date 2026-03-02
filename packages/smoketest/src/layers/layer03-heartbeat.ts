@@ -6,6 +6,7 @@
 
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
 import { queryTable, query } from '../utils/db.js';
+import { runTest } from '../utils/test.js';
 
 interface AgentRun {
   id: string;
@@ -17,20 +18,6 @@ interface AgentRun {
 }
 
 const EXECUTIVE_ROLES = ['chief-of-staff', 'cto', 'cfo', 'cmo', 'clo', 'ops'];
-
-async function runTest(
-  id: string,
-  name: string,
-  fn: () => Promise<string>,
-): Promise<TestResult> {
-  const start = Date.now();
-  try {
-    const message = await fn();
-    return { id, name, status: 'pass', message, durationMs: Date.now() - start };
-  } catch (err) {
-    return { id, name, status: 'fail', message: (err as Error).message, durationMs: Date.now() - start };
-  }
-}
 
 export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   const tests: TestResult[] = [];

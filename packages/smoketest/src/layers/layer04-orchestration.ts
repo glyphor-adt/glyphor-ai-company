@@ -8,24 +8,11 @@
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
 import { pollUntil } from '../utils/http.js';
 import { query, queryTable } from '../utils/db.js';
+import { runTest } from '../utils/test.js';
 
 // Module-level state shared across tests
 let directiveId: string | null = null;
 let directiveCreatedAt: number | null = null;
-
-async function runTest(
-  id: string,
-  name: string,
-  fn: () => Promise<string>,
-): Promise<TestResult> {
-  const start = Date.now();
-  try {
-    const message = await fn();
-    return { id, name, status: 'pass', message, durationMs: Date.now() - start };
-  } catch (err) {
-    return { id, name, status: 'fail', message: (err as Error).message, durationMs: Date.now() - start };
-  }
-}
 
 function blocked(id: string, name: string): TestResult {
   return { id, name, status: 'blocked', message: 'Skipped — directive creation (T4.1) failed', durationMs: 0 };

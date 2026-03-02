@@ -8,20 +8,7 @@
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
 import { httpPost } from '../utils/http.js';
 import { queryTable } from '../utils/db.js';
-
-async function runTest(
-  id: string,
-  name: string,
-  fn: () => Promise<string>,
-): Promise<TestResult> {
-  const start = Date.now();
-  try {
-    const message = await fn();
-    return { id, name, status: 'pass', message, durationMs: Date.now() - start };
-  } catch (err) {
-    return { id, name, status: 'fail', message: (err as Error).message, durationMs: Date.now() - start };
-  }
-}
+import { runTest } from '../utils/test.js';
 
 export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   const tests: TestResult[] = [];

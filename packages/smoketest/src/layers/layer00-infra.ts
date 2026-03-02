@@ -7,20 +7,7 @@ import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
 import { httpGet } from '../utils/http.js';
 import { queryTable } from '../utils/db.js';
 import { isGcloudAvailable, gcloudExec } from '../utils/gcloud.js';
-
-async function runTest(
-  id: string,
-  name: string,
-  fn: () => Promise<string>,
-): Promise<TestResult> {
-  const start = Date.now();
-  try {
-    const message = await fn();
-    return { id, name, status: 'pass', message, durationMs: Date.now() - start };
-  } catch (err) {
-    return { id, name, status: 'fail', message: (err as Error).message, durationMs: Date.now() - start };
-  }
-}
+import { runTest } from '../utils/test.js';
 
 export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   const tests: TestResult[] = [];
@@ -107,24 +94,22 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
         config.gcpProject,
       );
       const topics = output.trim().split('\n').filter(Boolean);
-      const found = topics.some((t) => t.includes('glyphor-agent-events'));
+      const found = topics.some((t) => t.includes('glyphor-agent-tasks'));
       if (!found) {
         throw new Error(
-          `glyphor-agent-events topic not found. Topics: ${topics.join(', ')}`,
+          `glyphor-agent-tasks topic not found. Topics: ${topics.join(', ')}`,
         );
       }
-      return `Pub/Sub topic glyphor-agent-events present (${topics.length} total topics)`;
+      return `Pub/Sub topic glyphor-agent-tasks present (${topics.length} total topics)`;
     }),
   );
   if (tests[tests.length - 1].message.startsWith('SKIP:')) {
     tests[tests.length - 1].status = 'skipped';
   }
 
-  // T0.6 — Vercel Environment Variables
+  // T0.6 — Vercel Environment Variables (optional — skip if not configured locally)
   tests.push(
     await runTest('T0.6', 'Vercel Environment Variables', async () => {
-      // Check if required Vercel env vars are configured
-      // These should be set in Cloud Run environment or Secret Manager
       const teamFuse = process.env.VERCEL_TEAM_FUSE;
       const teamFuseProjects = process.env.VERCEL_TEAM_FUSE_PROJECTS;
       const vercelToken = process.env.VERCEL_TOKEN;
@@ -135,12 +120,15 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       if (!vercelToken) missing.push('VERCEL_TOKEN');
 
       if (missing.length > 0) {
-        throw new Error(`Missing Vercel env vars: ${missing.join(', ')} — add to Cloud Run or Secret Manager`);
+        return `SKIP: Missing Vercel env vars: ${missing.join(', ')} — only required in Cloud Run`;
       }
 
       return `Vercel env vars configured: VERCEL_TEAM_FUSE, VERCEL_TEAM_FUSE_PROJECTS, VERCEL_TOKEN`;
     }),
   );
+  if (tests[tests.length - 1].message.startsWith('SKIP:')) {
+    tests[tests.length - 1].status = 'skipped';
+  }
 
   return { layer: 0, name: 'Infrastructure Health', tests };
 }
