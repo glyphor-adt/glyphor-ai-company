@@ -21,6 +21,7 @@ import type { CompanyAgentRole, ToolDefinition } from '@glyphor/agent-runtime';
 import { SessionManager } from './sessionManager.js';
 import { getAgentVoiceConfig } from './voiceMap.js';
 import { TeamsAudioBridge } from './teamsAudioBridge.js';
+import type { AcsCallAutomationClient } from './acsMediaClient.js';
 import type { TeamsJoinRequest, TeamsJoinResponse, TeamsLeaveRequest, TranscriptEntry } from './types.js';
 
 export interface GraphCallConfig {
@@ -44,17 +45,23 @@ export class TeamsCallHandler {
   private bridges = new Map<string, TeamsAudioBridge>();
   /** Token cache for Graph API */
   private tokenCache: { token: string; expiresAt: number } | null = null;
+  /** Optional ACS Call Automation client for media streaming */
+  private acsClient: AcsCallAutomationClient | null = null;
+  /** Sessions that use ACS (vs Graph-only) for disconnect routing */
+  private acsSessions = new Set<string>();
 
   constructor(
     graphConfig: GraphCallConfig,
     openai: OpenAI,
     sessions: SessionManager,
     gatewayUrl: string,
+    acsClient?: AcsCallAutomationClient,
   ) {
     this.graphConfig = graphConfig;
     this.openai = openai;
     this.sessions = sessions;
     this.gatewayUrl = gatewayUrl;
+    this.acsClient = acsClient ?? null;
   }
 
   /**
@@ -120,6 +127,51 @@ export class TeamsCallHandler {
       meetingUrl,
     });
 
+    // ── ACS path: media streaming with bidirectional audio ──
+    if (this.acsClient) {
+      try {
+        // Pre-create the audio bridge so it's ready when ACS opens the media WebSocket
+        await this.startAudioBridge(session.id);
+
+        // Build the WebSocket URL ACS will connect to for media streaming
+        const wsUrl = this.gatewayUrl
+          .replace(/^http:/, 'ws:')
+          .replace(/^https:/, 'wss:');
+
+        const acsResult = await this.acsClient.connectToTeamsMeeting({
+          meetingLink: meetingUrl,
+          callbackUri: `${this.gatewayUrl}/voice/teams/acs-callback`,
+          mediaTransportUrl: `${wsUrl}/ws/media/${session.id}`,
+          displayName: `${voiceConfig.displayName} (AI)`,
+        });
+
+        session.callConnectionId = acsResult.callConnectionId;
+        this.calls.set(session.id, acsResult.callConnectionId);
+        this.callToSession.set(acsResult.callConnectionId, session.id);
+        this.acsSessions.add(session.id);
+        this.transcripts.set(session.id, []);
+
+        console.log(`[Voice] ${voiceConfig.displayName} joining Teams meeting via ACS: ${acsResult.callConnectionId}`);
+
+        return {
+          sessionId: session.id,
+          callConnectionId: acsResult.callConnectionId,
+          agent: agentRole,
+          displayName: voiceConfig.displayName,
+        };
+      } catch (err) {
+        // Clean up bridge if ACS connect failed
+        const bridge = this.bridges.get(session.id);
+        if (bridge) {
+          bridge.close();
+          this.bridges.delete(session.id);
+        }
+        this.sessions.end(session.id);
+        throw err;
+      }
+    }
+
+    // ── Graph-only path (no media streaming — presence only) ──
     // Join via Microsoft Graph Communications API
     const token = await this.getGraphToken();
     const graphResponse = await fetch('https://graph.microsoft.com/v1.0/communications/calls', {
@@ -191,16 +243,21 @@ export class TeamsCallHandler {
     const callId = this.calls.get(sessionId);
     if (callId) {
       try {
-        const token = await this.getGraphToken();
-        await fetch(`https://graph.microsoft.com/v1.0/communications/calls/${encodeURIComponent(callId)}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        if (this.acsSessions.has(sessionId) && this.acsClient) {
+          await this.acsClient.hangUp(callId);
+        } else {
+          const token = await this.getGraphToken();
+          await fetch(`https://graph.microsoft.com/v1.0/communications/calls/${encodeURIComponent(callId)}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        }
       } catch (err) {
         console.warn(`[Voice] Error hanging up call: ${err}`);
       }
       this.callToSession.delete(callId);
       this.calls.delete(sessionId);
+      this.acsSessions.delete(sessionId);
     }
 
     // Save transcript
@@ -367,5 +424,45 @@ export class TeamsCallHandler {
    */
   getBridge(sessionId: string): TeamsAudioBridge | undefined {
     return this.bridges.get(sessionId);
+  }
+
+  /**
+   * Handle ACS Call Automation CloudEvents callbacks.
+   *
+   * ACS sends events like CallConnected, CallDisconnected,
+   * MediaStreamingStarted, etc. as CloudEvents arrays.
+   */
+  async handleAcsCallback(events: Record<string, unknown>[]): Promise<void> {
+    for (const event of events) {
+      const eventType = event.type as string | undefined;
+      const data = event.data as Record<string, unknown> | undefined;
+      const callConnectionId = data?.callConnectionId as string | undefined;
+
+      console.log(`[Voice] ACS callback: type=${eventType}, callConnectionId=${callConnectionId}`);
+
+      switch (eventType) {
+        case 'Microsoft.Communication.CallConnected':
+          console.log(`[Voice] ACS call connected: ${callConnectionId}`);
+          break;
+
+        case 'Microsoft.Communication.MediaStreamingStarted':
+          console.log(`[Voice] ACS media streaming started for ${callConnectionId}`);
+          break;
+
+        case 'Microsoft.Communication.MediaStreamingStopped':
+          console.log(`[Voice] ACS media streaming stopped for ${callConnectionId}`);
+          break;
+
+        case 'Microsoft.Communication.CallDisconnected': {
+          if (callConnectionId) {
+            const sessionId = this.callToSession.get(callConnectionId);
+            if (sessionId) {
+              await this.leaveMeeting({ sessionId });
+            }
+          }
+          break;
+        }
+      }
+    }
   }
 }

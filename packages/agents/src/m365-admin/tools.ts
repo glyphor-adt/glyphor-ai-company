@@ -461,5 +461,183 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
         };
       },
     },
+
+    // ── M365 ADMIN — LICENSE VISIBILITY ───────────────────────────
+
+    {
+      name: 'list_licenses',
+      description: 'List all M365/Entra license subscriptions and usage counts — shows which licenses are available and how many are consumed.',
+      parameters: {},
+      execute: async (): Promise<ToolResult> => {
+        try {
+          const token = await graphToken('manage_licenses');
+          const res = await fetch('https://graph.microsoft.com/v1.0/subscribedSkus?$select=skuPartNumber,skuId,prepaidUnits,consumedUnits,appliesTo', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!res.ok) return { success: false, error: `Graph API ${res.status}: ${await res.text()}` };
+          const data = await res.json() as { value: Array<{ skuPartNumber: string; skuId: string; prepaidUnits: { enabled: number }; consumedUnits: number; appliesTo: string }> };
+          const licenses = (data.value || []).map(l => ({
+            name: l.skuPartNumber,
+            skuId: l.skuId,
+            total: l.prepaidUnits?.enabled ?? 0,
+            consumed: l.consumedUnits ?? 0,
+            available: (l.prepaidUnits?.enabled ?? 0) - (l.consumedUnits ?? 0),
+            appliesTo: l.appliesTo,
+          }));
+          return { success: true, data: { licenseCount: licenses.length, licenses } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    // ── M365 ADMIN — GROUP VISIBILITY ──────────────────────────────
+
+    {
+      name: 'list_groups',
+      description: 'List all Entra ID / M365 security and distribution groups.',
+      parameters: {
+        filter: {
+          type: 'string',
+          description: 'Optional search string to filter by group name',
+          required: false,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        try {
+          const token = await graphToken('read_directory');
+          const filter = params.filter as string | undefined;
+          const url = filter
+            ? `https://graph.microsoft.com/v1.0/groups?$search="displayName:${filter}"&$select=id,displayName,description,groupTypes,membershipRule&ConsistencyLevel=eventual&$top=50`
+            : `https://graph.microsoft.com/v1.0/groups?$select=id,displayName,description,groupTypes,membershipRule&$top=50&$orderby=displayName`;
+          const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+          if (!res.ok) return { success: false, error: `Graph API ${res.status}: ${await res.text()}` };
+          const data = await res.json() as { value: unknown[] };
+          return { success: true, data: { count: (data.value || []).length, groups: data.value } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'list_group_members',
+      description: 'List members of a specific Entra ID / M365 group.',
+      parameters: {
+        group_id: {
+          type: 'string',
+          description: 'Group ID (GUID from list_groups)',
+          required: true,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        try {
+          const token = await graphToken('read_directory');
+          const groupId = encodeURIComponent(params.group_id as string);
+          const res = await fetch(`https://graph.microsoft.com/v1.0/groups/${groupId}/members?$select=id,displayName,mail,jobTitle`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!res.ok) return { success: false, error: `Graph API ${res.status}: ${await res.text()}` };
+          const data = await res.json() as { value: unknown[] };
+          return { success: true, data: { count: (data.value || []).length, members: data.value } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    // ── M365 ADMIN — APP REGISTRATION VISIBILITY ──────────────────
+
+    {
+      name: 'list_app_registrations',
+      description: 'List Entra ID app registrations with their credential expiry status — essential for monitoring client secret and certificate health.',
+      parameters: {},
+      execute: async (): Promise<ToolResult> => {
+        try {
+          const token = await graphToken('read_directory');
+          const res = await fetch('https://graph.microsoft.com/v1.0/applications?$select=id,displayName,appId,passwordCredentials,keyCredentials&$top=50', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!res.ok) return { success: false, error: `Graph API ${res.status}: ${await res.text()}` };
+          const data = await res.json() as { value: Array<{ id: string; displayName: string; appId: string; passwordCredentials: Array<{ endDateTime: string }>; keyCredentials: Array<{ endDateTime: string }> }> };
+          const apps = (data.value || []).map(app => {
+            const creds = [...(app.passwordCredentials || []), ...(app.keyCredentials || [])];
+            const nearestExpiry = creds.length > 0
+              ? creds.reduce((min, c) => (new Date(c.endDateTime) < new Date(min) ? c.endDateTime : min), creds[0].endDateTime)
+              : null;
+            return {
+              name: app.displayName,
+              appId: app.appId,
+              credentialCount: creds.length,
+              nearestExpiry,
+              expiresInDays: nearestExpiry ? Math.ceil((new Date(nearestExpiry).getTime() - Date.now()) / 86400000) : null,
+            };
+          });
+          return { success: true, data: { count: apps.length, apps } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    // ── M365 ADMIN — SHAREPOINT SITE OVERVIEW ─────────────────────
+
+    {
+      name: 'list_sharepoint_sites',
+      description: 'List SharePoint sites in the M365 tenant — shows site name, URL, and last activity.',
+      parameters: {
+        search: {
+          type: 'string',
+          description: 'Optional search term to filter sites',
+          required: false,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        try {
+          const token = await graphToken('read_sharepoint');
+          const search = params.search as string | undefined;
+          const url = search
+            ? `https://graph.microsoft.com/v1.0/sites?search=${encodeURIComponent(search)}&$select=id,displayName,webUrl,lastModifiedDateTime`
+            : `https://graph.microsoft.com/v1.0/sites?search=*&$select=id,displayName,webUrl,lastModifiedDateTime`;
+          const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+          if (!res.ok) return { success: false, error: `Graph API ${res.status}: ${await res.text()}` };
+          const data = await res.json() as { value: Array<{ displayName: string; webUrl: string; lastModifiedDateTime: string }> };
+          return { success: true, data: { count: (data.value || []).length, sites: data.value } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'get_sharepoint_site_permissions',
+      description: 'Get the permissions and members for a specific SharePoint site.',
+      parameters: {
+        site_id: {
+          type: 'string',
+          description: 'SharePoint site ID (from list_sharepoint_sites)',
+          required: true,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        try {
+          const token = await graphToken('read_sharepoint');
+          const siteId = encodeURIComponent(params.site_id as string);
+          const [permsRes, membersRes] = await Promise.all([
+            fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/permissions`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }),
+            fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/lists?$select=id,displayName,list&$top=20`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }),
+          ]);
+          const permissions = permsRes.ok ? (await permsRes.json() as { value: unknown[] }).value : [];
+          const lists = membersRes.ok ? (await membersRes.json() as { value: unknown[] }).value : [];
+          return { success: true, data: { permissions, lists } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
   ];
 }

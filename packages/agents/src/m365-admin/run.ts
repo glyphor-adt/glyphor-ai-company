@@ -19,6 +19,7 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
+import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 
@@ -54,6 +55,7 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createToolGrantTools('m365-admin'),
+    ...createSharePointTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

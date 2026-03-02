@@ -22,6 +22,7 @@ import OpenAI from 'openai';
 import { SessionManager } from './sessionManager.js';
 import { DashboardVoiceHandler } from './dashboardHandler.js';
 import { TeamsCallHandler } from './teamsHandler.js';
+import { AcsCallAutomationClient, parseAcsConnectionString } from './acsMediaClient.js';
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 
 const PORT = parseInt(process.env.PORT || '8090', 10);
@@ -46,14 +47,28 @@ const botAppSecret = process.env.BOT_APP_SECRET;
 const tenantId = process.env.AZURE_TENANT_ID ?? process.env.BOT_TENANT_ID;
 const gatewayUrl = process.env.VOICE_GATEWAY_URL ?? `http://localhost:${PORT}`;
 
+// ─── ACS Call Automation (optional — enables bidirectional audio) ──
+let acsClient: AcsCallAutomationClient | undefined;
+const acsConnectionString = process.env.ACS_CONNECTION_STRING;
+if (acsConnectionString) {
+  try {
+    const acsConfig = parseAcsConnectionString(acsConnectionString);
+    acsClient = new AcsCallAutomationClient(acsConfig);
+    console.log('[Voice] ACS Call Automation enabled (bidirectional audio)');
+  } catch (err) {
+    console.warn(`[Voice] Invalid ACS_CONNECTION_STRING: ${err}`);
+  }
+}
+
 if (botAppId && botAppSecret && tenantId) {
   teamsHandler = new TeamsCallHandler(
     { appId: botAppId, appSecret: botAppSecret, tenantId },
     openai,
     sessions,
     gatewayUrl,
+    acsClient,
   );
-  console.log('[Voice] Teams call handler initialized (Graph Communications API)');
+  console.log(`[Voice] Teams call handler initialized (${acsClient ? 'ACS + audio bridge' : 'Graph only — no audio'})`);
 } else {
   console.log('[Voice] Teams call handler disabled (missing BOT_APP_ID, BOT_APP_SECRET, or AZURE_TENANT_ID)');
 }
@@ -227,6 +242,21 @@ const server = createServer(async (req, res) => {
 
       const body = JSON.parse(await readBody(req));
       await teamsHandler.handleCallback(body);
+      json(res, 200, { ok: true });
+      return;
+    }
+
+    // ── Teams: ACS Call Automation callback ──────────────────
+    if (method === 'POST' && url === '/voice/teams/acs-callback') {
+      if (!teamsHandler) {
+        json(res, 200, { ok: true });
+        return;
+      }
+
+      const body = JSON.parse(await readBody(req));
+      // ACS sends CloudEvents as an array
+      const events = Array.isArray(body) ? body : [body];
+      await teamsHandler.handleAcsCallback(events);
       json(res, 200, { ok: true });
       return;
     }
