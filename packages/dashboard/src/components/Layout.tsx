@@ -88,6 +88,7 @@ export default function Layout() {
 
       {/* ── Main Content ────────────────────── */}
       <main className="flex-1 overflow-y-auto bg-prism-bg transition-colors duration-200">
+        <div className="h-1 w-full bg-prism-gradient" />
         <div className="page-enter mx-auto max-w-[1400px] px-8 py-8">
           <Outlet />
         </div>

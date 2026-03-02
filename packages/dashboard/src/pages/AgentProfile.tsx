@@ -2009,7 +2009,7 @@ function SettingsTab({
               <button
                 onClick={handleSaveReasoning}
                 disabled={savingReasoning}
-                className="rounded-lg bg-cyan px-6 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40"
+                className="rounded-lg bg-cyan px-6 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
               >
                 {savedReasoning ? 'Saved!' : savingReasoning ? 'Saving…' : 'Save Reasoning Config'}
               </button>
