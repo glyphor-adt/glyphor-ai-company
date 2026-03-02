@@ -97,6 +97,356 @@ const PLATFORM_COLORS: Record<Platform, string> = {
   vercel: '#000000',
 };
 
+/* ── Tool Catalog ─────────────────────────── */
+
+type ToolCategory = 'communication' | 'memory' | 'workflow' | 'platform' | 'github' | 'finance' | 'analytics' | 'content' | 'm365' | 'gcp-iam' | 'design' | 'support' | 'sales' | 'seo' | 'social' | 'operations' | 'research' | 'onboarding';
+
+interface ToolInfo { description: string; category: ToolCategory; platform?: string }
+
+const CATEGORY_LABELS: Record<ToolCategory, string> = {
+  communication: 'Communication',
+  memory: 'Memory & Knowledge',
+  workflow: 'Workflow & Assignments',
+  platform: 'Platform & Infrastructure',
+  github: 'GitHub & Code',
+  finance: 'Finance & Billing',
+  analytics: 'Analytics & Data',
+  content: 'Content & Marketing',
+  m365: 'Microsoft 365 / Teams',
+  'gcp-iam': 'GCP IAM & Secrets',
+  design: 'Design & Quality',
+  support: 'Customer Support',
+  sales: 'Sales & Prospecting',
+  seo: 'SEO & Search',
+  social: 'Social Media',
+  operations: 'Operations & Monitoring',
+  research: 'Research & Intel',
+  onboarding: 'Onboarding & Activation',
+};
+
+const CATEGORY_COLORS: Record<ToolCategory, string> = {
+  communication: 'text-prism-sky',
+  memory: 'text-prism-purple',
+  workflow: 'text-prism-elevated',
+  platform: 'text-[#4285F4]',
+  github: 'text-txt-primary',
+  finance: 'text-prism-teal',
+  analytics: 'text-prism-secondary',
+  content: 'text-prism-pink',
+  m365: 'text-[#0078D4]',
+  'gcp-iam': 'text-[#4285F4]',
+  design: 'text-prism-purple',
+  support: 'text-prism-elevated',
+  sales: 'text-prism-teal',
+  seo: 'text-prism-secondary',
+  social: 'text-prism-pink',
+  operations: 'text-prism-critical',
+  research: 'text-prism-sky',
+  onboarding: 'text-prism-teal',
+};
+
+const TOOL_CATALOG: Record<string, ToolInfo> = {
+  // Communication
+  send_email: { description: 'Send emails via company mail', category: 'communication', platform: 'm365' },
+  read_inbox: { description: 'Read email inbox', category: 'communication', platform: 'm365' },
+  reply_to_email: { description: 'Reply to email thread', category: 'communication', platform: 'm365' },
+  send_dm: { description: 'Send direct message to agent or user', category: 'communication' },
+  send_briefing: { description: 'Send daily briefing to founder', category: 'communication' },
+  send_agent_message: { description: 'Send inter-agent messages', category: 'communication' },
+  check_messages: { description: 'Check incoming agent messages', category: 'communication' },
+  call_meeting: { description: 'Schedule a meeting between agents', category: 'communication' },
+  create_calendar_event: { description: 'Create calendar event', category: 'communication', platform: 'm365' },
+
+  // Memory & Knowledge
+  save_memory: { description: 'Store information in agent memory', category: 'memory' },
+  recall_memories: { description: 'Retrieve stored memories', category: 'memory' },
+  search_memories: { description: 'Search across agent memories', category: 'memory' },
+  contribute_knowledge: { description: 'Add to knowledge base', category: 'memory' },
+  promote_to_org_knowledge: { description: 'Promote knowledge to org-wide', category: 'memory' },
+  get_org_knowledge: { description: 'Query organizational knowledge', category: 'memory' },
+  create_knowledge_route: { description: 'Create knowledge routing rule', category: 'memory' },
+  get_knowledge_routes: { description: 'View knowledge routing config', category: 'memory' },
+  add_knowledge: { description: 'Add to knowledge graph', category: 'memory' },
+  add_graph_node: { description: 'Add node to knowledge graph', category: 'memory' },
+  add_graph_edge: { description: 'Add edge to knowledge graph', category: 'memory' },
+  query_knowledge_graph: { description: 'Query the knowledge graph', category: 'memory' },
+  trace_causes: { description: 'Trace causal chains in graph', category: 'memory' },
+  trace_impact: { description: 'Trace downstream impact in graph', category: 'memory' },
+  read_company_memory: { description: 'Read company-wide memory store', category: 'memory' },
+  write_company_memory: { description: 'Write to company memory', category: 'memory' },
+  detect_contradictions: { description: 'Detect contradictions in knowledge', category: 'memory' },
+  record_process_pattern: { description: 'Record a process pattern', category: 'memory' },
+  get_process_patterns: { description: 'Get recorded process patterns', category: 'memory' },
+
+  // Workflow & Assignments
+  read_my_assignments: { description: 'Read assigned work items', category: 'workflow' },
+  submit_assignment_output: { description: 'Submit completed work output', category: 'workflow' },
+  flag_assignment_blocker: { description: 'Flag a blocker on assignment', category: 'workflow' },
+  create_work_assignments: { description: 'Create work assignments for agents', category: 'workflow' },
+  dispatch_assignment: { description: 'Dispatch assignment to agent', category: 'workflow' },
+  check_assignment_status: { description: 'Check assignment completion status', category: 'workflow' },
+  evaluate_assignment: { description: 'Evaluate assignment output quality', category: 'workflow' },
+  read_founder_directives: { description: 'Read founder directives', category: 'workflow' },
+  update_directive_progress: { description: 'Update directive progress', category: 'workflow' },
+  propose_directive: { description: 'Propose a new directive', category: 'workflow' },
+  create_decision: { description: 'Create decision for approval', category: 'workflow' },
+  get_pending_decisions: { description: 'Get pending decisions queue', category: 'workflow' },
+  check_escalations: { description: 'Check for escalated issues', category: 'workflow' },
+  propose_authority_change: { description: 'Propose authority model change', category: 'workflow' },
+  get_authority_proposals: { description: 'View authority change proposals', category: 'workflow' },
+  log_activity: { description: 'Log agent activity', category: 'workflow' },
+  get_agent_directory: { description: 'Get directory of all agents', category: 'workflow' },
+  who_handles: { description: 'Find which agent handles a topic', category: 'workflow' },
+
+  // Collective Intelligence
+  get_company_pulse: { description: 'Get company health pulse', category: 'workflow' },
+  update_company_pulse: { description: 'Update company pulse metrics', category: 'workflow' },
+  update_pulse_highlights: { description: 'Update pulse highlights', category: 'workflow' },
+  emit_insight: { description: 'Emit an insight to the org', category: 'workflow' },
+  emit_alert: { description: 'Emit an alert to the org', category: 'workflow' },
+
+  // Tool Management
+  grant_tool_access: { description: 'Grant tool access to an agent', category: 'workflow' },
+  revoke_tool_access: { description: 'Revoke agent tool access', category: 'workflow' },
+  request_new_tool: { description: 'Request a new tool be built', category: 'workflow' },
+  check_tool_request_status: { description: 'Check status of tool request', category: 'workflow' },
+  list_tool_requests: { description: 'List all tool requests', category: 'workflow' },
+  review_tool_request: { description: 'Review a tool request', category: 'workflow' },
+  register_tool: { description: 'Register a new tool in registry', category: 'workflow' },
+  deactivate_tool: { description: 'Deactivate a registered tool', category: 'workflow' },
+  list_registered_tools: { description: 'List all registered tools', category: 'workflow' },
+
+  // Platform & Infrastructure
+  get_platform_health: { description: 'Get platform health overview', category: 'platform', platform: 'gcp' },
+  get_cloud_run_metrics: { description: 'Get Cloud Run service metrics', category: 'platform', platform: 'gcp' },
+  get_infrastructure_costs: { description: 'Get infrastructure cost breakdown', category: 'platform', platform: 'gcp' },
+  get_recent_activity: { description: 'Get recent system activity', category: 'platform' },
+  get_product_metrics: { description: 'Get product usage metrics', category: 'platform' },
+  query_cloud_run_metrics: { description: 'Query Cloud Run metrics', category: 'platform', platform: 'gcp' },
+  run_health_check: { description: 'Run platform health check', category: 'platform', platform: 'gcp' },
+  query_gemini_latency: { description: 'Query Gemini API latency', category: 'platform', platform: 'gcp' },
+  query_db_health: { description: 'Query database health', category: 'platform' },
+  query_uptime: { description: 'Query service uptime stats', category: 'platform' },
+  get_repo_code_health: { description: 'Get repository code health', category: 'platform', platform: 'github' },
+  query_vercel_health: { description: 'Query Vercel deployment health', category: 'platform', platform: 'vercel' },
+  trigger_vercel_deploy: { description: 'Trigger Vercel deployment', category: 'platform', platform: 'vercel' },
+  rollback_vercel_deploy: { description: 'Rollback Vercel deployment', category: 'platform', platform: 'vercel' },
+  check_system_health: { description: 'Check overall system health', category: 'platform' },
+  deploy_to_staging: { description: 'Deploy to staging environment', category: 'platform' },
+
+  // GitHub & Code
+  get_github_pr_status: { description: 'Get PR status and reviews', category: 'github', platform: 'github' },
+  get_ci_health: { description: 'Get CI pipeline health', category: 'github', platform: 'github' },
+  get_repo_stats: { description: 'Get repository statistics', category: 'github', platform: 'github' },
+  create_github_issue: { description: 'Create GitHub issue', category: 'github', platform: 'github' },
+  get_file_contents: { description: 'Read file from repo', category: 'github', platform: 'github' },
+  create_or_update_file: { description: 'Create or update repo file', category: 'github', platform: 'github' },
+  create_branch: { description: 'Create Git branch', category: 'github', platform: 'github' },
+  create_github_pr: { description: 'Create pull request', category: 'github', platform: 'github' },
+  merge_github_pr: { description: 'Merge pull request', category: 'github', platform: 'github' },
+  get_pipeline_runs: { description: 'Get CI pipeline runs', category: 'github', platform: 'github' },
+  get_recent_commits: { description: 'Get recent commits', category: 'github', platform: 'github' },
+  comment_on_pr: { description: 'Comment on pull request', category: 'github', platform: 'github' },
+  query_vercel_builds: { description: 'Query Vercel build history', category: 'github', platform: 'vercel' },
+  query_build_logs: { description: 'Query CI build logs', category: 'github', platform: 'github' },
+  query_error_patterns: { description: 'Detect error patterns in builds', category: 'github', platform: 'github' },
+  create_bug_report: { description: 'Create bug report from error', category: 'github', platform: 'github' },
+  query_test_results: { description: 'Query test suite results', category: 'github', platform: 'github' },
+  read_file: { description: 'Read file from filesystem', category: 'github' },
+
+  // Finance & Billing
+  get_financials: { description: 'Get financial overview', category: 'finance', platform: 'stripe' },
+  calculate_unit_economics: { description: 'Calculate unit economics', category: 'finance' },
+  write_financial_report: { description: 'Write financial report', category: 'finance' },
+  query_stripe_mrr: { description: 'Query Stripe MRR metrics', category: 'finance', platform: 'stripe' },
+  query_stripe_subscriptions: { description: 'Query Stripe subscriptions', category: 'finance', platform: 'stripe' },
+  query_stripe_revenue: { description: 'Query Stripe revenue data', category: 'finance', platform: 'stripe' },
+  query_revenue_by_product: { description: 'Revenue breakdown by product', category: 'finance', platform: 'stripe' },
+  query_revenue_by_cohort: { description: 'Revenue breakdown by cohort', category: 'finance', platform: 'stripe' },
+  query_attribution: { description: 'Query revenue attribution', category: 'finance', platform: 'stripe' },
+  calculate_ltv_cac: { description: 'Calculate LTV/CAC ratios', category: 'finance', platform: 'stripe' },
+  forecast_revenue: { description: 'Forecast future revenue', category: 'finance' },
+  query_churn_revenue: { description: 'Query revenue churn', category: 'finance', platform: 'stripe' },
+  query_gcp_billing: { description: 'Query GCP billing data', category: 'finance', platform: 'gcp' },
+  query_db_usage: { description: 'Query database usage costs', category: 'finance', platform: 'gcp' },
+  query_gemini_cost: { description: 'Query Gemini API costs', category: 'finance', platform: 'gcp' },
+  query_agent_run_costs: { description: 'Query agent run costs', category: 'finance', platform: 'gcp' },
+  identify_waste: { description: 'Identify cost waste', category: 'finance' },
+  calculate_unit_cost: { description: 'Calculate per-unit costs', category: 'finance' },
+  project_costs: { description: 'Project future costs', category: 'finance' },
+  query_vercel_usage: { description: 'Query Vercel usage costs', category: 'finance', platform: 'vercel' },
+  query_financials: { description: 'Query financial data', category: 'finance' },
+  query_costs: { description: 'Query cost data', category: 'finance' },
+
+  // Analytics & Data
+  query_user_analytics: { description: 'Query user analytics data', category: 'analytics' },
+  query_build_metadata: { description: 'Query build metadata', category: 'analytics' },
+  query_onboarding_funnel: { description: 'Query onboarding funnel', category: 'analytics' },
+  run_cohort_analysis: { description: 'Run cohort analysis', category: 'analytics' },
+  query_churn_data: { description: 'Query user churn data', category: 'analytics' },
+  design_experiment: { description: 'Design A/B experiment', category: 'analytics' },
+  write_product_analysis: { description: 'Write product analysis report', category: 'analytics' },
+  write_health_report: { description: 'Write health/status report', category: 'analytics' },
+  write_pipeline_report: { description: 'Write pipeline report', category: 'analytics' },
+  query_customers: { description: 'Query customer data', category: 'analytics' },
+
+  // Content & Marketing
+  write_content: { description: 'Write marketing content', category: 'content' },
+  draft_blog_post: { description: 'Draft blog post', category: 'content' },
+  draft_social_post: { description: 'Draft social media post', category: 'content' },
+  draft_case_study: { description: 'Draft case study', category: 'content' },
+  draft_email: { description: 'Draft marketing email', category: 'content' },
+  query_content_performance: { description: 'Query content performance', category: 'content' },
+  query_top_performing_content: { description: 'Find top performing content', category: 'content' },
+
+  // SEO
+  query_seo_rankings: { description: 'Query search rankings', category: 'seo' },
+  query_keyword_data: { description: 'Query keyword data', category: 'seo' },
+  discover_keywords: { description: 'Discover new keywords', category: 'seo' },
+  query_competitor_rankings: { description: 'Query competitor rankings', category: 'seo' },
+  query_backlinks: { description: 'Query backlink profile', category: 'seo' },
+  query_search_console: { description: 'Query Google Search Console', category: 'seo', platform: 'gcp' },
+  analyze_content_seo: { description: 'Analyze content for SEO', category: 'seo' },
+
+  // Social Media
+  schedule_social_post: { description: 'Schedule social media post', category: 'social' },
+  query_social_metrics: { description: 'Query social media metrics', category: 'social' },
+  query_post_performance: { description: 'Query post performance', category: 'social' },
+  query_optimal_times: { description: 'Find optimal posting times', category: 'social' },
+  query_audience_demographics: { description: 'Query audience demographics', category: 'social' },
+  monitor_mentions: { description: 'Monitor brand mentions', category: 'social' },
+
+  // Onboarding
+  query_first_build_metrics: { description: 'Query first-build metrics', category: 'onboarding' },
+  query_drop_off_points: { description: 'Find onboarding drop-off points', category: 'onboarding' },
+  query_welcome_email_metrics: { description: 'Query welcome email metrics', category: 'onboarding' },
+  query_activation_rate: { description: 'Query activation rate', category: 'onboarding' },
+  query_template_usage: { description: 'Query template usage', category: 'onboarding' },
+  design_onboarding_experiment: { description: 'Design onboarding experiment', category: 'onboarding' },
+
+  // Support
+  query_support_tickets: { description: 'Query support tickets', category: 'support' },
+  classify_ticket: { description: 'Classify support ticket', category: 'support' },
+  respond_to_ticket: { description: 'Respond to support ticket', category: 'support' },
+  escalate_ticket: { description: 'Escalate support ticket', category: 'support' },
+  query_knowledge_base: { description: 'Search support knowledge base', category: 'support' },
+  batch_similar_tickets: { description: 'Batch similar tickets together', category: 'support' },
+
+  // Sales & Prospecting
+  search_company_info: { description: 'Search company information', category: 'sales' },
+  search_crunchbase: { description: 'Search Crunchbase data', category: 'sales' },
+  analyze_tech_stack: { description: 'Analyze prospect tech stack', category: 'sales' },
+  search_linkedin_profiles: { description: 'Search LinkedIn profiles', category: 'sales' },
+  search_job_postings: { description: 'Search job postings', category: 'sales' },
+  estimate_dev_spend: { description: 'Estimate dev tool spend', category: 'sales' },
+  compile_dossier: { description: 'Compile prospect dossier', category: 'sales' },
+
+  // Design & Quality
+  run_lighthouse: { description: 'Run Lighthouse audit', category: 'design' },
+  run_lighthouse_batch: { description: 'Run batch Lighthouse audits', category: 'design' },
+  get_design_quality_summary: { description: 'Get design quality summary', category: 'design' },
+  get_design_tokens: { description: 'Get design system tokens', category: 'design' },
+  get_component_library: { description: 'Get component library', category: 'design' },
+  get_template_registry: { description: 'Get template registry', category: 'design' },
+  write_design_audit: { description: 'Write design audit report', category: 'design' },
+
+  // Operations & Monitoring
+  query_agent_runs: { description: 'Query agent run history', category: 'operations' },
+  query_agent_health: { description: 'Query agent health status', category: 'operations' },
+  query_data_sync_status: { description: 'Query data sync status', category: 'operations' },
+  query_events_backlog: { description: 'Query events backlog size', category: 'operations' },
+  query_cost_trends: { description: 'Query cost trends', category: 'operations' },
+  trigger_agent_run: { description: 'Trigger an agent run', category: 'operations' },
+  retry_failed_run: { description: 'Retry a failed agent run', category: 'operations' },
+  retry_data_sync: { description: 'Retry failed data sync', category: 'operations' },
+  pause_agent: { description: 'Pause an agent', category: 'operations' },
+  resume_agent: { description: 'Resume a paused agent', category: 'operations' },
+  create_incident: { description: 'Create incident report', category: 'operations' },
+  resolve_incident: { description: 'Resolve incident', category: 'operations' },
+  post_system_status: { description: 'Post system status update', category: 'operations' },
+  rollup_agent_performance: { description: 'Roll up performance metrics', category: 'operations' },
+  detect_milestones: { description: 'Detect agent milestones', category: 'operations' },
+  update_growth_areas: { description: 'Update agent growth areas', category: 'operations' },
+  query_cache_metrics: { description: 'Query cache hit/miss metrics', category: 'operations' },
+  query_pipeline_metrics: { description: 'Query CI pipeline metrics', category: 'operations' },
+  query_resource_utilization: { description: 'Query resource utilization', category: 'operations' },
+  query_cold_starts: { description: 'Query cold start frequency', category: 'operations' },
+  identify_unused_resources: { description: 'Find unused resources', category: 'operations' },
+  calculate_cost_savings: { description: 'Calculate potential savings', category: 'operations' },
+  query_logs: { description: 'Query application logs', category: 'operations' },
+
+  // M365 / Teams
+  list_users: { description: 'List M365 users', category: 'm365', platform: 'm365' },
+  get_user: { description: 'Get M365 user details', category: 'm365', platform: 'm365' },
+  list_channels: { description: 'List Teams channels', category: 'm365', platform: 'm365' },
+  list_channel_members: { description: 'List channel members', category: 'm365', platform: 'm365' },
+  add_channel_member: { description: 'Add member to Teams channel', category: 'm365', platform: 'm365' },
+  create_channel: { description: 'Create Teams channel', category: 'm365', platform: 'm365' },
+  post_to_channel: { description: 'Post message to Teams channel', category: 'm365', platform: 'm365' },
+  list_calendar_events: { description: 'List calendar events', category: 'm365', platform: 'm365' },
+  write_admin_log: { description: 'Write M365 admin log entry', category: 'm365', platform: 'm365' },
+
+  // GCP IAM & Secrets
+  list_project_iam: { description: 'List GCP IAM bindings', category: 'gcp-iam', platform: 'gcp' },
+  grant_project_role: { description: 'Grant GCP IAM role', category: 'gcp-iam', platform: 'gcp' },
+  revoke_project_role: { description: 'Revoke GCP IAM role', category: 'gcp-iam', platform: 'gcp' },
+  list_service_accounts: { description: 'List GCP service accounts', category: 'gcp-iam', platform: 'gcp' },
+  create_service_account: { description: 'Create GCP service account', category: 'gcp-iam', platform: 'gcp' },
+  list_secrets: { description: 'List Secret Manager secrets', category: 'gcp-iam', platform: 'gcp' },
+  get_secret_iam: { description: 'Get IAM policy on secret', category: 'gcp-iam', platform: 'gcp' },
+  grant_secret_access: { description: 'Grant access to secret', category: 'gcp-iam', platform: 'gcp' },
+  revoke_secret_access: { description: 'Revoke access to secret', category: 'gcp-iam', platform: 'gcp' },
+  run_access_audit: { description: 'Run full access audit', category: 'gcp-iam', platform: 'gcp' },
+  run_onboarding: { description: 'Run agent onboarding flow', category: 'gcp-iam', platform: 'gcp' },
+
+  // Entra ID
+  entra_list_users: { description: 'List Entra ID users', category: 'm365', platform: 'm365' },
+  entra_create_user: { description: 'Create Entra ID user', category: 'm365', platform: 'm365' },
+  entra_disable_user: { description: 'Disable Entra ID user', category: 'm365', platform: 'm365' },
+  entra_list_groups: { description: 'List Entra ID groups', category: 'm365', platform: 'm365' },
+  entra_list_group_members: { description: 'List group members', category: 'm365', platform: 'm365' },
+  entra_add_group_member: { description: 'Add member to group', category: 'm365', platform: 'm365' },
+  entra_remove_group_member: { description: 'Remove member from group', category: 'm365', platform: 'm365' },
+  entra_list_directory_roles: { description: 'List directory roles', category: 'm365', platform: 'm365' },
+  entra_assign_directory_role: { description: 'Assign directory role', category: 'm365', platform: 'm365' },
+  entra_list_app_registrations: { description: 'List app registrations', category: 'm365', platform: 'm365' },
+  entra_list_licenses: { description: 'List available licenses', category: 'm365', platform: 'm365' },
+  entra_assign_license: { description: 'Assign license to user', category: 'm365', platform: 'm365' },
+  entra_revoke_license: { description: 'Revoke license from user', category: 'm365', platform: 'm365' },
+  entra_audit_sign_ins: { description: 'Audit sign-in logs', category: 'm365', platform: 'm365' },
+
+  // Research & Intel
+  fetch_github_releases: { description: 'Fetch competitor releases', category: 'research', platform: 'github' },
+  search_hacker_news: { description: 'Search Hacker News', category: 'research' },
+  search_product_hunt: { description: 'Search Product Hunt', category: 'research' },
+  fetch_pricing_pages: { description: 'Fetch competitor pricing', category: 'research' },
+  query_competitor_tech_stack: { description: 'Analyze competitor tech', category: 'research' },
+  check_job_postings: { description: 'Check competitor job posts', category: 'research' },
+  store_intel: { description: 'Store competitive intel', category: 'research' },
+  web_fetch: { description: 'Fetch web page content', category: 'research' },
+  search_news: { description: 'Search news sources', category: 'research' },
+  submit_research_packet: { description: 'Submit research packet', category: 'research' },
+  web_search: { description: 'Web search query', category: 'research' },
+  file_decision: { description: 'File a decision record', category: 'workflow' },
+};
+
+/** Get tool info with fallback for unknown tools */
+function getToolInfo(toolName: string): ToolInfo {
+  return TOOL_CATALOG[toolName] ?? { description: toolName.replace(/_/g, ' '), category: 'workflow' as ToolCategory };
+}
+
+/** Group tools by category for dropdown */
+function getToolsByCategory(): { category: ToolCategory; label: string; tools: { name: string; description: string }[] }[] {
+  const groups = new Map<ToolCategory, { name: string; description: string }[]>();
+  for (const [name, info] of Object.entries(TOOL_CATALOG)) {
+    if (!groups.has(info.category)) groups.set(info.category, []);
+    groups.get(info.category)!.push({ name, description: info.description });
+  }
+  return [...groups.entries()]
+    .map(([category, tools]) => ({ category, label: CATEGORY_LABELS[category], tools: tools.sort((a, b) => a.name.localeCompare(b.name)) }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
 /* ── Collapsible Section ──────────────────── */
 
 function CollapsibleSection({ title, color, children, defaultOpen = true }: {
@@ -128,6 +478,12 @@ function CollapsibleSection({ title, color, children, defaultOpen = true }: {
 /* ── Platform Tables ──────────────────────── */
 
 function GCPTable({ items }: { items: IAMState[] }) {
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const toggleRow = (id: string) => setExpandedRows((prev) => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-[13px]">
@@ -142,8 +498,10 @@ function GCPTable({ items }: { items: IAMState[] }) {
         <tbody>
           {items.map((item) => {
             const roles = (item.permissions as { roles?: string[] })?.roles ?? [];
+            const isExpanded = expandedRows.has(item.id);
+            const visibleRoles = isExpanded ? roles : roles.slice(0, 3);
             return (
-              <tr key={item.id} className="border-b border-border/50">
+              <tr key={item.id} className="border-b border-border/50 align-top">
                 <td className="py-2.5 pr-4">
                   <code className="rounded bg-prism-bg2 px-1.5 py-0.5 text-[12px]">
                     {item.credential_id.split('@')[0]}
@@ -155,7 +513,36 @@ function GCPTable({ items }: { items: IAMState[] }) {
                     : <span className="text-txt-muted italic">(gated)</span>}
                 </td>
                 <td className="py-2.5 pr-4">
-                  <span className="text-txt-muted">{roles.length} role{roles.length !== 1 ? 's' : ''}</span>
+                  <div className="flex flex-wrap gap-1">
+                    {visibleRoles.map((role) => (
+                      <span
+                        key={role}
+                        className="inline-block rounded-full border border-[#4285F4]/20 bg-[#4285F4]/10 px-2 py-0.5 text-[11px] font-medium text-[#4285F4]"
+                        title={role}
+                      >
+                        {role.replace(/^roles\//, '')}
+                      </span>
+                    ))}
+                    {roles.length > 3 && !isExpanded && (
+                      <button
+                        onClick={() => toggleRow(item.id)}
+                        className="inline-block rounded-full border border-border bg-prism-bg2 px-2 py-0.5 text-[11px] text-txt-muted hover:text-txt-primary"
+                      >
+                        +{roles.length - 3} more
+                      </button>
+                    )}
+                    {isExpanded && roles.length > 3 && (
+                      <button
+                        onClick={() => toggleRow(item.id)}
+                        className="inline-block rounded-full border border-border bg-prism-bg2 px-2 py-0.5 text-[11px] text-txt-muted hover:text-txt-primary"
+                      >
+                        show less
+                      </button>
+                    )}
+                    {roles.length === 0 && (
+                      <span className="text-[11px] text-txt-muted italic">no roles</span>
+                    )}
+                  </div>
                 </td>
                 <td className="py-2.5">
                   <SyncBadge inSync={item.in_sync} />
@@ -678,14 +1065,36 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-[12px] font-medium text-txt-muted">Tool Name</label>
-              <input
-                type="text"
+              <label className="mb-1 block text-[12px] font-medium text-txt-muted">Tool</label>
+              <select
                 value={grantTool}
                 onChange={(e) => setGrantTool(e.target.value)}
-                placeholder="e.g. send_email, query_stripe_revenue"
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-txt-primary placeholder:text-txt-muted"
-              />
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-txt-primary"
+              >
+                <option value="">Select tool…</option>
+                {getToolsByCategory().map((group) => (
+                  <optgroup key={group.category} label={group.label}>
+                    {group.tools.map((t) => (
+                      <option key={t.name} value={t.name}>
+                        {t.name} — {t.description}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              {grantTool && TOOL_CATALOG[grantTool] && (
+                <p className="mt-1 text-[11px] text-txt-muted">
+                  <span className={`font-medium ${CATEGORY_COLORS[TOOL_CATALOG[grantTool].category]}`}>
+                    {CATEGORY_LABELS[TOOL_CATALOG[grantTool].category]}
+                  </span>
+                  {TOOL_CATALOG[grantTool].platform && (
+                    <span className="ml-2 rounded bg-prism-bg2 px-1.5 py-0.5 text-[10px]">
+                      {TOOL_CATALOG[grantTool].platform!.toUpperCase()}
+                    </span>
+                  )}
+                  {' · '}{TOOL_CATALOG[grantTool].description}
+                </p>
+              )}
             </div>
             <div className="col-span-2">
               <label className="mb-1 block text-[12px] font-medium text-txt-muted">Reason</label>
@@ -746,7 +1155,15 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
           <p className="py-8 text-center text-[13px] text-txt-muted">No grants match your filters</p>
         ) : (
           <div className="space-y-4">
-            {grantsByAgent.map(([role, agentGrants]) => (
+            {grantsByAgent.map(([role, agentGrants]) => {
+              // Group grants by category
+              const byCategory = new Map<ToolCategory, ToolGrant[]>();
+              for (const g of agentGrants) {
+                const cat = getToolInfo(g.tool_name).category;
+                if (!byCategory.has(cat)) byCategory.set(cat, []);
+                byCategory.get(cat)!.push(g);
+              }
+              return (
               <div key={role} className="rounded-lg border border-border/50 p-3">
                 <div className="mb-2 flex items-center gap-2">
                   <span className="text-[14px] font-semibold text-txt-primary">
@@ -754,39 +1171,62 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
                   </span>
                   <span className="rounded bg-prism-bg2 px-1.5 py-0.5 text-[11px] text-txt-muted">{role}</span>
                   <span className="ml-auto text-[12px] text-txt-muted">
-                    {agentGrants.length} tool{agentGrants.length !== 1 ? 's' : ''}
+                    {agentGrants.length} tool{agentGrants.length !== 1 ? 's' : ''} · {byCategory.size} categor{byCategory.size !== 1 ? 'ies' : 'y'}
                   </span>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {agentGrants.map((g) => (
-                    <span
-                      key={g.id}
-                      className="group relative inline-flex items-center gap-1 rounded-full border border-border/50 bg-prism-card px-2.5 py-1 text-[12px] text-txt-secondary"
-                      title={`Granted by ${DISPLAY_NAME_MAP[g.granted_by] ?? g.granted_by}${g.reason ? ` — ${g.reason}` : ''}${g.scope === 'read_only' ? ' (read only)' : ''}`}
-                    >
-                      {g.scope === 'read_only' && (
-                        <MdSearch className="text-[12px] text-prism-sky" />
-                      )}
-                      {g.tool_name}
-                      {g.expires_at && (
-                        <span className="text-[10px] text-prism-elevated">
-                          &middot; exp {new Date(g.expires_at).toLocaleDateString()}
+                <div className="space-y-2">
+                  {[...byCategory.entries()]
+                    .sort(([a], [b]) => (CATEGORY_LABELS[a] ?? a).localeCompare(CATEGORY_LABELS[b] ?? b))
+                    .map(([cat, catGrants]) => (
+                    <div key={cat}>
+                      <div className="mb-1 flex items-center gap-1.5">
+                        <span className={`text-[11px] font-semibold ${CATEGORY_COLORS[cat]}`}>
+                          {CATEGORY_LABELS[cat]}
                         </span>
-                      )}
-                      {isAdmin && (
-                        <button
-                          onClick={() => handleRevoke(g)}
-                          className="ml-0.5 hidden text-prism-critical transition-colors hover:text-prism-critical/80 group-hover:inline-flex"
-                          title="Revoke"
-                        >
-                          <MdRemoveCircle className="text-[13px]" />
-                        </button>
-                      )}
-                    </span>
+                        <span className="text-[10px] text-txt-muted">({catGrants.length})</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {catGrants.map((g) => {
+                          const info = getToolInfo(g.tool_name);
+                          return (
+                          <span
+                            key={g.id}
+                            className="group relative inline-flex items-center gap-1 rounded-full border border-border/50 bg-prism-card px-2.5 py-1 text-[12px] text-txt-secondary"
+                            title={`${info.description}\nGranted by ${DISPLAY_NAME_MAP[g.granted_by] ?? g.granted_by}${g.reason ? `\nReason: ${g.reason}` : ''}${g.scope === 'read_only' ? '\nRead Only' : ''}${info.platform ? `\nPlatform: ${info.platform.toUpperCase()}` : ''}`}
+                          >
+                            {g.scope === 'read_only' && (
+                              <MdSearch className="text-[12px] text-prism-sky" />
+                            )}
+                            {g.tool_name}
+                            {info.platform && (
+                              <span className="rounded bg-prism-bg2 px-1 text-[9px] font-medium text-txt-muted">
+                                {info.platform.toUpperCase()}
+                              </span>
+                            )}
+                            {g.expires_at && (
+                              <span className="text-[10px] text-prism-elevated">
+                                &middot; exp {new Date(g.expires_at).toLocaleDateString()}
+                              </span>
+                            )}
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleRevoke(g)}
+                                className="ml-0.5 hidden text-prism-critical transition-colors hover:text-prism-critical/80 group-hover:inline-flex"
+                                title="Revoke"
+                              >
+                                <MdRemoveCircle className="text-[13px]" />
+                              </button>
+                            )}
+                          </span>
+                          );
+                        })}
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Card>
@@ -953,6 +1393,28 @@ export default function Governance() {
         <AdminAccessPanel isAdmin={isAdmin} />
       ) : (
       <>
+
+      {/* IAM Summary Stats */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <Card>
+          <p className="text-[12px] font-medium text-txt-muted">Total Identities</p>
+          <p className="mt-1 text-2xl font-bold text-txt-primary">{iamState.length}</p>
+        </Card>
+        <Card>
+          <p className="text-[12px] font-medium text-txt-muted">Out-of-Sync</p>
+          <p className="mt-1 text-2xl font-bold text-prism-critical">{driftItems.length}</p>
+        </Card>
+        <Card>
+          <p className="text-[12px] font-medium text-txt-muted">Expiring Secrets</p>
+          <p className="mt-1 text-2xl font-bold text-prism-elevated">{expiringSecrets.length}</p>
+        </Card>
+        <Card>
+          <p className="text-[12px] font-medium text-txt-muted">Platforms</p>
+          <p className="mt-1 text-2xl font-bold text-prism-teal">
+            {new Set(iamState.map((s) => s.platform)).size}
+          </p>
+        </Card>
+      </div>
 
       {/* Drift Alerts */}
       {(driftItems.length > 0 || expiringSecrets.length > 0) && (

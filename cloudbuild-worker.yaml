@@ -1,0 +1,8 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'docker/Dockerfile.worker', '-t', 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/worker:latest', '.']
+images:
+  - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/worker:latest'
+options:
+  logging: CLOUD_LOGGING_ONLY
+  logStreamingOption: STREAM_ON

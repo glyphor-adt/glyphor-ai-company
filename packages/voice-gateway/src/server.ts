@@ -17,6 +17,7 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { WebSocketServer } from 'ws';
 import OpenAI from 'openai';
 import { SessionManager } from './sessionManager.js';
 import { DashboardVoiceHandler } from './dashboardHandler.js';
@@ -262,5 +263,50 @@ server.listen(PORT, () => {
   console.log(`[Voice Gateway] Listening on port ${PORT}`);
   console.log(`[Voice Gateway] Dashboard voice: POST /voice/dashboard`);
   console.log(`[Voice Gateway] Teams voice: POST /voice/teams/join`);
+  console.log(`[Voice Gateway] Media stream: ws://.../ws/media/{sessionId}`);
   console.log(`[Voice Gateway] Health: GET /health`);
+});
+
+// ─── WebSocket server for media streams ─────────────────────
+// Media transports (ACS, custom bridges) connect here to pipe
+// bidirectional audio to the OpenAI Realtime bridge.
+// URL: /ws/media/{sessionId}
+
+const wss = new WebSocketServer({ noServer: true });
+
+server.on('upgrade', (req, socket, head) => {
+  const url = req.url ?? '';
+  const match = url.match(/^\/ws\/media\/([a-f0-9-]+)$/i);
+
+  if (!match) {
+    socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+
+  if (!teamsHandler) {
+    socket.write('HTTP/1.1 503 Service Unavailable\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+
+  const sessionId = match[1];
+  const bridge = teamsHandler.getBridge(sessionId);
+
+  if (!bridge) {
+    socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+
+  if (!bridge.isWaitingForMedia) {
+    socket.write('HTTP/1.1 409 Conflict\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    console.log(`[Voice Gateway] Media transport connected for session ${sessionId}`);
+    bridge.attachMediaStream(ws);
+  });
 });

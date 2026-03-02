@@ -59,6 +59,7 @@ const TABLE_MAP: Record<string, string> = {
   'skills': 'agent_skills',
   'work-assignments': 'work_assignments',
   'agent-tool-grants': 'agent_tool_grants',
+  'tool-registry': 'tool_registry',
   'data_sync_status': 'data_sync_status',
   'data-sync-status': 'data_sync_status',
   'platform-iam-state': 'platform_iam_state',

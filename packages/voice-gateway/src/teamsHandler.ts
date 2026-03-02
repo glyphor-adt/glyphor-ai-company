@@ -16,8 +16,11 @@
 
 import OpenAI from 'openai';
 import { systemQuery } from '@glyphor/shared/db';
+import { loadGrantedToolNames } from '@glyphor/agent-runtime';
+import type { CompanyAgentRole, ToolDefinition } from '@glyphor/agent-runtime';
 import { SessionManager } from './sessionManager.js';
 import { getAgentVoiceConfig } from './voiceMap.js';
+import { TeamsAudioBridge } from './teamsAudioBridge.js';
 import type { TeamsJoinRequest, TeamsJoinResponse, TeamsLeaveRequest, TranscriptEntry } from './types.js';
 
 export interface GraphCallConfig {
@@ -33,8 +36,12 @@ export class TeamsCallHandler {
   private gatewayUrl: string;
   /** Map from sessionId → Graph call ID */
   private calls = new Map<string, string>();
+  /** Map from Graph call ID → sessionId (reverse lookup) */
+  private callToSession = new Map<string, string>();
   /** Meeting transcripts */
   private transcripts = new Map<string, TranscriptEntry[]>();
+  /** Active audio bridges per session */
+  private bridges = new Map<string, TeamsAudioBridge>();
   /** Token cache for Graph API */
   private tokenCache: { token: string; expiresAt: number } | null = null;
 
@@ -153,6 +160,7 @@ export class TeamsCallHandler {
     const callData = (await graphResponse.json()) as { id: string; state: string };
     session.callConnectionId = callData.id;
     this.calls.set(session.id, callData.id);
+    this.callToSession.set(callData.id, session.id);
     this.transcripts.set(session.id, []);
 
     console.log(`[Voice] ${voiceConfig.displayName} joined Teams meeting: ${callData.id} (state: ${callData.state})`);
@@ -173,6 +181,13 @@ export class TeamsCallHandler {
     const session = this.sessions.get(sessionId);
     if (!session) return;
 
+    // Close audio bridge
+    const bridge = this.bridges.get(sessionId);
+    if (bridge) {
+      bridge.close();
+      this.bridges.delete(sessionId);
+    }
+
     const callId = this.calls.get(sessionId);
     if (callId) {
       try {
@@ -184,6 +199,7 @@ export class TeamsCallHandler {
       } catch (err) {
         console.warn(`[Voice] Error hanging up call: ${err}`);
       }
+      this.callToSession.delete(callId);
       this.calls.delete(sessionId);
     }
 
@@ -250,15 +266,106 @@ export class TeamsCallHandler {
 
       console.log(`[Voice] Graph callback: changeType=${changeType}, state=${callState}, callId=${callId}`);
 
+      // Handle established calls — start the audio bridge
+      if (callState === 'established' && callId) {
+        const sessionId = this.callToSession.get(callId);
+        if (sessionId) {
+          void this.startAudioBridge(sessionId);
+        }
+      }
+
       // Handle terminated calls — clean up session
       if (callState === 'terminated' && callId) {
-        for (const [sessionId, storedCallId] of this.calls.entries()) {
-          if (storedCallId === callId) {
-            await this.leaveMeeting({ sessionId });
-            break;
-          }
+        const sessionId = this.callToSession.get(callId);
+        if (sessionId) {
+          await this.leaveMeeting({ sessionId });
         }
       }
     }
+  }
+
+  /**
+   * Start the audio bridge for an established call.
+   * Creates an OpenAI Realtime WebSocket session and prepares
+   * for a media transport WebSocket to attach.
+   */
+  private async startAudioBridge(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+
+    // Don't create a duplicate bridge
+    if (this.bridges.has(sessionId)) return;
+
+    try {
+      // Load the agent's granted tool names
+      const grantedTools = await loadGrantedToolNames(session.agentRole);
+      const toolDefs: ToolDefinition[] = grantedTools.map((name) => ({
+        name,
+        description: `Execute the ${name} tool`,
+        parameters: {
+          args: {
+            type: 'string' as const,
+            description: 'JSON-encoded arguments for the tool',
+          },
+        },
+        execute: async () => ({ success: true }),
+      }));
+
+      // Load personality & identity from agent_profiles
+      const profileRows = await systemQuery<{
+        personality_summary: string | null;
+        backstory: string | null;
+        communication_traits: string[] | null;
+      }>(
+        'SELECT personality_summary, backstory, communication_traits FROM agent_profiles WHERE agent_id = $1 LIMIT 1',
+        [session.agentRole],
+      );
+      const profile = profileRows[0] ?? null;
+
+      // Load role-specific system prompt from agent_briefs
+      const briefRows = await systemQuery<{ system_prompt: string | null }>(
+        'SELECT system_prompt FROM agent_briefs WHERE agent_id = $1 LIMIT 1',
+        [session.agentRole],
+      );
+      const brief = briefRows[0] ?? null;
+
+      const bridge = new TeamsAudioBridge({
+        sessionId,
+        agentRole: session.agentRole,
+        openaiApiKey: this.openai.apiKey,
+        tools: toolDefs,
+        promptContext: {
+          personalitySummary: profile?.personality_summary ?? undefined,
+          backstory: profile?.backstory ?? undefined,
+          communicationTraits: profile?.communication_traits ?? undefined,
+          systemPrompt: brief?.system_prompt ?? undefined,
+        },
+        onTranscript: (entry) => this.addTranscript(sessionId, entry.role, entry.text),
+        onClose: () => {
+          this.bridges.delete(sessionId);
+          console.log(`[Voice] Audio bridge closed for session ${sessionId}`);
+        },
+      });
+
+      // Connect to OpenAI Realtime (blocks until WebSocket opens)
+      await bridge.connectRealtime();
+      this.bridges.set(sessionId, bridge);
+      session.realtimeSessionId = sessionId;
+
+      const voiceConfig = getAgentVoiceConfig(session.agentRole);
+      console.log(
+        `[Voice] Audio bridge started for ${voiceConfig.displayName} — ` +
+        `waiting for media stream at /ws/media/${sessionId}`,
+      );
+    } catch (err) {
+      console.error(`[Voice] Failed to start audio bridge for session ${sessionId}:`, err);
+    }
+  }
+
+  /**
+   * Get the audio bridge for a session (used by WebSocket server to attach media).
+   */
+  getBridge(sessionId: string): TeamsAudioBridge | undefined {
+    return this.bridges.get(sessionId);
   }
 }
