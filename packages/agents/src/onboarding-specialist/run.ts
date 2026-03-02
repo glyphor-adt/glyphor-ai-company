@@ -11,6 +11,8 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { ONBOARDING_SPECIALIST_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createOnboardingSpecialistTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createCommunicationTools } from '../shared/communicationTools.js';
+import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createEventTools } from '../shared/eventTools.js';
@@ -36,6 +38,8 @@ export async function runOnboardingSpecialist(params: OnboardingSpecialistRunPar
   const tools = [
     ...createOnboardingSpecialistTools(memory),
     ...createMemoryTools(memory),
+    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
+    ...createToolRequestTools(),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(glyphorEventBus),

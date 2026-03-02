@@ -18,6 +18,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CMO_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCMOTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createCommunicationTools } from '../shared/communicationTools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
@@ -55,6 +56,7 @@ export async function runCMO(params: CMORunParams = {}) {
   const tools = [
     ...createCMOTools(memory),
     ...createMemoryTools(memory),
+    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
     ...createCollectiveIntelligenceTools(memory),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),

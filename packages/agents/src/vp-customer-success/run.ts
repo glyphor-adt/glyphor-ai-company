@@ -18,6 +18,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { VP_CUSTOMER_SUCCESS_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createVPCSTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createCommunicationTools } from '../shared/communicationTools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
@@ -54,6 +55,7 @@ export async function runVPCS(params: VPCSRunParams = {}) {
   const tools = [
     ...createVPCSTools(memory),
     ...createMemoryTools(memory),
+    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
     ...createCollectiveIntelligenceTools(memory),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),

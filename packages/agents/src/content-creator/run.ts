@@ -11,6 +11,8 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CONTENT_CREATOR_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createContentCreatorTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createCommunicationTools } from '../shared/communicationTools.js';
+import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createEventTools } from '../shared/eventTools.js';
@@ -36,6 +38,8 @@ export async function runContentCreator(params: ContentCreatorRunParams = {}) {
   const tools = [
     ...createContentCreatorTools(memory),
     ...createMemoryTools(memory),
+    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
+    ...createToolRequestTools(),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(glyphorEventBus),

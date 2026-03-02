@@ -12,6 +12,8 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GLOBAL_ADMIN_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createGlobalAdminTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createCommunicationTools } from '../shared/communicationTools.js';
+import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
@@ -45,6 +47,8 @@ export async function runGlobalAdmin(params: GlobalAdminRunParams = {}) {
   const tools = [
     ...createGlobalAdminTools(memory),
     ...createMemoryTools(memory),
+    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
+    ...createToolRequestTools(),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(glyphorEventBus),

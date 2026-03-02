@@ -12,6 +12,8 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { HEAD_OF_HR_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createHeadOfHRTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createCommunicationTools } from '../shared/communicationTools.js';
+import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
@@ -45,6 +47,8 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
   const tools = [
     ...createHeadOfHRTools(memory),
     ...createMemoryTools(memory),
+    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
+    ...createToolRequestTools(),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(glyphorEventBus),

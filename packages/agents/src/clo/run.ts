@@ -19,6 +19,7 @@ import {
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CLO_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createCommunicationTools } from '../shared/communicationTools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
@@ -54,6 +55,7 @@ export async function runCLO(params: CLORunParams = {}) {
   const graphWriter = memory.getGraphWriter();
   const tools = [
     ...createMemoryTools(memory),
+    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(glyphorEventBus),

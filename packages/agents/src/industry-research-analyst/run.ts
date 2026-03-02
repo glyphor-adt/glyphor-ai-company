@@ -11,6 +11,8 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { INDUSTRY_RESEARCH_ANALYST_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createIndustryResearchAnalystTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createCommunicationTools } from '../shared/communicationTools.js';
+import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
@@ -44,6 +46,8 @@ export async function runIndustryResearchAnalyst(params: IndustryResearchAnalyst
   const tools = [
     ...createIndustryResearchAnalystTools(),
     ...createMemoryTools(memory),
+    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
+    ...createToolRequestTools(),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
   ];
   const toolExecutor = new ToolExecutor(tools);

@@ -11,6 +11,8 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { SEO_ANALYST_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createSeoAnalystTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createCommunicationTools } from '../shared/communicationTools.js';
+import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createEventTools } from '../shared/eventTools.js';
@@ -36,6 +38,8 @@ export async function runSeoAnalyst(params: SeoAnalystRunParams = {}) {
   const tools = [
     ...createSeoAnalystTools(memory),
     ...createMemoryTools(memory),
+    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
+    ...createToolRequestTools(),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(glyphorEventBus),

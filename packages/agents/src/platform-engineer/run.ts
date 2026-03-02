@@ -18,6 +18,8 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { PLATFORM_ENGINEER_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createPlatformEngineerTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createCommunicationTools } from '../shared/communicationTools.js';
+import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createEventTools } from '../shared/eventTools.js';
@@ -49,6 +51,8 @@ export async function runPlatformEngineer(params: PlatformEngineerRunParams = {}
   const tools = [
     ...createPlatformEngineerTools(memory),
     ...createMemoryTools(memory),
+    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
+    ...createToolRequestTools(),
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(glyphorEventBus),

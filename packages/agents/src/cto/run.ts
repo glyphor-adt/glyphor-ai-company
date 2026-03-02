@@ -18,6 +18,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CTO_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCTOTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createCommunicationTools } from '../shared/communicationTools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
@@ -56,6 +57,7 @@ export async function runCTO(params: CTORunParams = {}) {
   const tools = [
     ...createCTOTools(memory),
     ...createMemoryTools(memory),
+    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),

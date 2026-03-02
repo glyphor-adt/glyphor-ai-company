@@ -20,6 +20,7 @@ import { systemQuery } from '@glyphor/shared/db';
 import { CHIEF_OF_STAFF_SYSTEM_PROMPT, ORCHESTRATION_PROMPT } from './systemPrompt.js';
 import { createChiefOfStaffTools, createOrchestrationTools } from './tools.js';
 import { createMemoryTools } from '../shared/memoryTools.js';
+import { createCommunicationTools } from '../shared/communicationTools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
@@ -157,6 +158,7 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
   const tools = [
     ...cosTools,
     ...createMemoryTools(memory),
+    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),
