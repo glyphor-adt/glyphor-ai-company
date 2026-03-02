@@ -1207,8 +1207,8 @@ export function createOrchestrationTools(
         }
 
         // 3. Log to activity_log
-        await systemQuery('INSERT INTO activity_log (agent_id, action, detail) VALUES ($1, $2, $3)',
-          [ctx.agentRole, 'directive_proposed', `Proposed directive: ${title} (${directiveId})`]);
+        await systemQuery('INSERT INTO activity_log (agent_role, agent_id, action, detail) VALUES ($1, $2, $3, $4)',
+          [ctx.agentRole, ctx.agentRole, 'directive_proposed', `Proposed directive: ${title} (${directiveId})`]);
 
         // 4. Return result
         return {

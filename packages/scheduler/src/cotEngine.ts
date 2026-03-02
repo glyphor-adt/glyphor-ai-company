@@ -206,8 +206,8 @@ export class CotEngine {
     );
 
     await systemQuery(
-      'INSERT INTO activity_log (agent_id,action,detail,created_at) VALUES ($1,$2,$3,$4)',
-      ['system', 'cot.completed', `Chain-of-thought analysis completed: ${query.slice(0, 100)}`, new Date().toISOString()],
+      'INSERT INTO activity_log (agent_role,agent_id,action,detail,created_at) VALUES ($1,$2,$3,$4,$5)',
+      ['system', 'system', 'cot.completed', `Chain-of-thought analysis completed: ${query.slice(0, 100)}`, new Date().toISOString()],
     );
   }
 

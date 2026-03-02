@@ -199,8 +199,8 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         // Log the trigger request — the scheduler server will
         // handle the actual execution via the /run endpoint
         await systemQuery(
-          'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',
-          ['ops', 'agent.triggered', `Atlas triggered ${params.agent_role}: ${params.reason}`, new Date().toISOString()],
+          'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4, $5)',
+          ['ops', 'ops', 'agent.triggered', `Atlas triggered ${params.agent_role}: ${params.reason}`, new Date().toISOString()],
         );
 
         return {
@@ -233,8 +233,8 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
         // Log retry attempt
         await systemQuery(
-          'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',
-          ['ops', 'run.retried', `Atlas retrying run ${params.run_id} for agent ${run.agent_id}`, new Date().toISOString()],
+          'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4, $5)',
+          ['ops', 'ops', 'run.retried', `Atlas retrying run ${params.run_id} for agent ${run.agent_id}`, new Date().toISOString()],
         );
 
         return {
@@ -259,8 +259,8 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         const syncType = params.sync_type as string;
 
         await systemQuery(
-          'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',
-          ['ops', 'sync.retried', `Atlas retrying ${syncType} data sync`, new Date().toISOString()],
+          'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4, $5)',
+          ['ops', 'ops', 'sync.retried', `Atlas retrying ${syncType} data sync`, new Date().toISOString()],
         );
 
         return {

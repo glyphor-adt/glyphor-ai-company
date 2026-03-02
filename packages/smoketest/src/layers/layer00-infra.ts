@@ -100,20 +100,25 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
     }),
   );
 
-  // T0.6 — Worker Service Health
-  tests.push(
-    await runTest('T0.6', 'Worker Service Responding', async () => {
-      const workerUrl = process.env.WORKER_URL;
-      if (!workerUrl) {
-        throw new Error('WORKER_URL not set — add to .env');
-      }
-      const res = await httpGet<{ status: string }>(workerUrl.replace(/\/$/, '') + '/health');
-      if (!res.ok) {
-        throw new Error(`Worker /health returned status ${res.status}`);
-      }
-      return `Worker service healthy (HTTP ${res.status})`;
-    }),
-  );
+  // T0.6 — Worker Service Health (not yet deployed — skip if not configured)
+  const workerUrl = process.env.WORKER_URL;
+  if (!workerUrl) {
+    tests.push({
+      id: 'T0.6', name: 'Worker Service Responding',
+      status: 'skipped', message: 'WORKER_URL not set — worker service not yet deployed',
+      durationMs: 0,
+    });
+  } else {
+    tests.push(
+      await runTest('T0.6', 'Worker Service Responding', async () => {
+        const res = await httpGet<{ status: string }>(workerUrl.replace(/\/$/, '') + '/health');
+        if (!res.ok) {
+          throw new Error(`Worker /health returned status ${res.status}`);
+        }
+        return `Worker service healthy (HTTP ${res.status})`;
+      }),
+    );
+  }
 
   // T0.7 — Cloud Tasks Queues
   tests.push(

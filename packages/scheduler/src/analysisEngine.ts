@@ -301,7 +301,8 @@ export class AnalysisEngine {
       id,
     ]);
 
-    await systemQuery('INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)', [
+    await systemQuery('INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4, $5)', [
+      'system',
       'system',
       'analysis.completed',
       `Analysis "${req.type}" completed: ${req.query.slice(0, 100)}`,

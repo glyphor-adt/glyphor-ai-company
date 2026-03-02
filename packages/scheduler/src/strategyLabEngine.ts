@@ -1346,8 +1346,8 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
 
     // Log activity
     await systemQuery(
-      'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',
-      ['system', 'strategy_analysis.completed', `Strategy Lab v2 analysis completed for "${req.query}" (${depth}): ${Object.keys(qcPackets).length} research packets, ${Object.keys(executiveOutputs).length} executive analyses, ${allSources.length} sources. Confidence: ${overallConfidence}. Gaps filled by Sophia: ${gapsFilled.length}`, new Date().toISOString()],
+      'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4, $5)',
+      ['system', 'system', 'strategy_analysis.completed', `Strategy Lab v2 analysis completed for "${req.query}" (${depth}): ${Object.keys(qcPackets).length} research packets, ${Object.keys(executiveOutputs).length} executive analyses, ${allSources.length} sources. Confidence: ${overallConfidence}. Gaps filled by Sophia: ${gapsFilled.length}`, new Date().toISOString()],
     );
   }
 

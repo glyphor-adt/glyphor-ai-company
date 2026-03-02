@@ -984,7 +984,7 @@ const server = createServer(async (req, res) => {
       }
 
       // Log creation
-      await systemQuery('INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4)', ['system', 'agent.created', `New agent created: ${name} (${agentId})`, new Date().toISOString()]);
+      await systemQuery('INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)', ['system', 'system', 'agent.created', `New agent created: ${name} (${agentId})`, new Date().toISOString()]);
 
       // Emit agent.spawned event to wake HR for onboarding
       try {
@@ -1039,7 +1039,7 @@ const server = createServer(async (req, res) => {
         );
       }
 
-      await systemQuery('INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4)', ['system', 'agent.settings_updated', `Settings updated for ${agentId}: ${Object.keys(updates).join(', ')}`, new Date().toISOString()]);
+      await systemQuery('INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)', ['system', 'system', 'agent.settings_updated', `Settings updated for ${agentId}: ${Object.keys(updates).join(', ')}`, new Date().toISOString()]);
 
       // Invalidate cached config for this agent
       const cache = getRedisCache();

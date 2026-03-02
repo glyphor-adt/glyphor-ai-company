@@ -777,7 +777,7 @@ export class DeepDiveEngine {
 
     await systemQuery('UPDATE deep_dives SET status=$1, report=$2, sources=$3, research_areas=$4, completed_at=$5 WHERE id=$6', ['completed', JSON.stringify(report), JSON.stringify(dedupedSources), JSON.stringify(areas), new Date().toISOString(), id]);
 
-    await systemQuery('INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4)', ['system', 'deep_dive.completed', `Strategic deep dive completed for "${req.target}": ${completedAreas.length}/${areas.length} areas researched, ${dedupedSources.length} sources analyzed, cross-model verified with challenge rounds`, new Date().toISOString()]);
+    await systemQuery('INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)', ['system', 'system', 'deep_dive.completed', `Strategic deep dive completed for "${req.target}": ${completedAreas.length}/${areas.length} areas researched, ${dedupedSources.length} sources analyzed, cross-model verified with challenge rounds`, new Date().toISOString()]);
   }
 
   /* ── Framework Analysis (Phase 3.5) ────────── */
