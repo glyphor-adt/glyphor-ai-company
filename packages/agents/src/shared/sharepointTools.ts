@@ -96,7 +96,7 @@ export function createSharePointTools(): ToolDefinition[] {
       name: 'upload_to_sharepoint',
       description:
         'Upload a new document to the company SharePoint knowledge base. ' +
-        'The document is also automatically synced to the company_knowledge table in Supabase. ' +
+        'The document is also automatically synced to the company_knowledge table in Cloud SQL. ' +
         'Use this to publish briefs, research findings, policies, or analysis reports.',
       parameters: {
         file_name: {
