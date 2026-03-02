@@ -1,21 +1,30 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithEmailAndPassword, signInWithCustomToken, onAuthStateChanged, type User } from 'firebase/auth';
+import { initializeApp, type FirebaseApp } from 'firebase/app';
+import { getAuth, signInWithEmailAndPassword, type Auth } from 'firebase/auth';
 
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: 'ai-glyphor-company.firebaseapp.com',
-  projectId: 'ai-glyphor-company',
-};
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
 
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+if (apiKey && apiKey !== 'your-firebase-api-key-here') {
+  const firebaseConfig = {
+    apiKey,
+    authDomain: 'ai-glyphor-company.firebaseapp.com',
+    projectId: 'ai-glyphor-company',
+  };
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+}
+
+export { auth };
 
 export async function login(email: string, password: string) {
+  if (!auth) throw new Error('Firebase Auth not configured');
   const credential = await signInWithEmailAndPassword(auth, email, password);
   return credential.user.getIdToken();
 }
 
 export async function getAuthToken(): Promise<string | null> {
+  if (!auth) return null;
   const user = auth.currentUser;
   if (!user) return null;
   return user.getIdToken();
