@@ -310,7 +310,7 @@ function OperationsOverview() {
       .map((a) => ({
         name: DISPLAY_NAME_MAP[a.role] ?? a.role,
         role: a.role,
-        cost: parseFloat(a.total_cost_usd?.toFixed(2) ?? '0'),
+        cost: parseFloat(Number(a.total_cost_usd ?? 0).toFixed(2)),
       })),
     [agents],
   );
@@ -653,12 +653,12 @@ function OperationsOverview() {
                 </div>
                 <div className="text-right">
                   <p className="font-mono text-sm text-txt-secondary">{agent.total_runs} runs</p>
-                  <p className="text-[11px] text-txt-faint">${(agent.total_cost_usd ?? 0).toFixed(2)} total</p>
+                  <p className="text-[11px] text-txt-faint">${Number(agent.total_cost_usd ?? 0).toFixed(2)} total</p>
                 </div>
               </div>
               {agent.last_run_duration_ms && (
                 <p className="mt-2 text-[11px] text-txt-faint">
-                  Last run: {(agent.last_run_duration_ms / 1000).toFixed(1)}s
+                  Last run: {(Number(agent.last_run_duration_ms) / 1000).toFixed(1)}s
                 </p>
               )}
             </Card>

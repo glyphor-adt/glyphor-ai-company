@@ -827,12 +827,24 @@ export class StrategyLabEngine {
     return id;
   }
 
+  /** Ensure JSONB array columns are always arrays (may be stored as {} when empty). */
+  private normalizeRecord(row: StrategyAnalysisRecord): StrategyAnalysisRecord {
+    const asArray = (v: unknown): unknown[] => Array.isArray(v) ? v : [];
+    return {
+      ...row,
+      research_progress: asArray(row.research_progress) as ResearchProgress[],
+      executive_progress: asArray(row.executive_progress) as ExecutiveProgress[],
+      gaps_filled: asArray(row.gaps_filled) as string[],
+      remaining_gaps: asArray(row.remaining_gaps) as string[],
+    };
+  }
+
   async get(id: string): Promise<StrategyAnalysisRecord | null> {
     const [row] = await systemQuery<StrategyAnalysisRecord>(
       'SELECT * FROM strategy_analyses WHERE id=$1',
       [id],
     );
-    return row ?? null;
+    return row ? this.normalizeRecord(row) : null;
   }
 
   async list(limit = 20): Promise<StrategyAnalysisRecord[]> {
@@ -840,7 +852,7 @@ export class StrategyLabEngine {
       'SELECT * FROM strategy_analyses ORDER BY created_at DESC LIMIT $1',
       [limit],
     );
-    return rows;
+    return rows.map((r) => this.normalizeRecord(r));
   }
 
   async cancel(id: string): Promise<void> {

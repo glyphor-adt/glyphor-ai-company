@@ -1886,11 +1886,15 @@ function SLv2RecordCard({ record, expanded, onToggle }: { record: SLv2Record; ex
   const r = record;
   const isRunning = !['completed', 'failed'].includes(r.status);
 
+  // Ensure JSONB fields are arrays (may arrive as {} from DB)
+  const researchProgress = Array.isArray(r.research_progress) ? r.research_progress : [];
+  const execProgress = Array.isArray(r.executive_progress) ? r.executive_progress : [];
+
   // Progress counts
-  const researchDone = r.research_progress.filter((p) => p.status === 'completed').length;
-  const researchTotal = r.research_progress.length;
-  const execDone = r.executive_progress.filter((p) => p.status === 'completed').length;
-  const execTotal = r.executive_progress.length;
+  const researchDone = researchProgress.filter((p) => p.status === 'completed').length;
+  const researchTotal = researchProgress.length;
+  const execDone = execProgress.filter((p) => p.status === 'completed').length;
+  const execTotal = execProgress.length;
 
   return (
     <Card>
@@ -1946,6 +1950,10 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
   const statusOrder: SLv2Status[] = ['planning', 'framing', 'decomposing', 'researching', 'quality-check', 'analyzing', 'synthesizing', 'deepening', 'completed'];
   const currentIdx = statusOrder.indexOf(r.status);
 
+  // Ensure JSONB fields are arrays (may arrive as {} from DB)
+  const researchProgress = Array.isArray(r.research_progress) ? r.research_progress : [];
+  const execProgress = Array.isArray(r.executive_progress) ? r.executive_progress : [];
+
   const waves = [
     { label: 'Frame', icon: <MdAutoAwesome className="h-4 w-4" />, active: r.status === 'framing', done: currentIdx > 1 },
     { label: 'Decompose', icon: <MdSearch className="h-4 w-4" />, active: r.status === 'decomposing', done: currentIdx > 2 },
@@ -1997,11 +2005,11 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
       )}
 
       {/* Research analysts */}
-      {r.research_progress.length > 0 && (
+      {researchProgress.length > 0 && (
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Research Team</p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-            {r.research_progress.map((rp) => (
+            {researchProgress.map((rp) => (
               <div key={rp.analystRole} className="rounded-lg border border-border bg-raised px-3 py-2">
                 <div className="flex items-center gap-1.5">
                   <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
@@ -2019,11 +2027,11 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
       )}
 
       {/* Executive analysts */}
-      {r.executive_progress.length > 0 && (
+      {execProgress.length > 0 && (
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Executive Analysis</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {r.executive_progress.map((ep) => (
+            {execProgress.map((ep) => (
               <div key={ep.execRole} className="rounded-lg border border-border bg-raised px-3 py-2">
                 <div className="flex items-center gap-1.5">
                   <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${

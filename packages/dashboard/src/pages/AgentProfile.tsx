@@ -1836,11 +1836,11 @@ function SettingsTab({
               <div className="flex-1 h-2 rounded-full bg-raised overflow-hidden">
                 <div
                   className="h-full rounded-full bg-cyan transition-all"
-                  style={{ width: `${Math.min(100, (agent.total_cost_usd / agent.budget_monthly) * 100)}%` }}
+                  style={{ width: `${Math.min(100, (Number(agent.total_cost_usd) / Number(agent.budget_monthly)) * 100)}%` }}
                 />
               </div>
               <span className="text-sm font-mono text-txt-secondary">
-                ${agent.total_cost_usd.toFixed(2)} / ${agent.budget_monthly.toFixed(2)} ({Math.round((agent.total_cost_usd / agent.budget_monthly) * 100)}%)
+                ${Number(agent.total_cost_usd).toFixed(2)} / ${Number(agent.budget_monthly).toFixed(2)} ({Math.round((Number(agent.total_cost_usd) / Number(agent.budget_monthly)) * 100)}%)
               </span>
             </div>
           </div>

@@ -394,7 +394,7 @@ export default function AgentSettings() {
             <ConfigRow label="Model" value={agent.model ?? 'gemini-3-flash-preview'} mono />
             <ConfigRow label="Score" value={agent.performance_score != null ? `${Math.round(Number(agent.performance_score) * 100)}/100` : '—'} />
             <ConfigRow label="Total Runs" value={String(agent.total_runs ?? 0)} />
-            <ConfigRow label="Total Cost" value={`$${(agent.total_cost_usd ?? 0).toFixed(2)}`} mono />
+            <ConfigRow label="Total Cost" value={`$${Number(agent.total_cost_usd ?? 0).toFixed(2)}`} mono />
             <ConfigRow label="Last Run" value={timeAgo(agent.last_run_at ?? null)} />
             <ConfigRow label="Created" value={new Date(agent.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric' })} />
           </div>

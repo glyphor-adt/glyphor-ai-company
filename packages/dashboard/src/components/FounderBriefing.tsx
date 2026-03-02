@@ -84,7 +84,7 @@ export default function FounderBriefing() {
               {pulse.mrr != null && (
                 <PulseMetric
                   label="MRR"
-                  value={`$${(pulse.mrr / 1000).toFixed(1)}k`}
+                  value={`$${(Number(pulse.mrr) / 1000).toFixed(1)}k`}
                   change={pulse.mrr_change_pct}
                 />
               )}
@@ -295,7 +295,7 @@ function PulseMetric({
           change >= 0 ? 'text-emerald-500' : 'text-red-500'
         }`}>
           {change >= 0 ? <MdTrendingUp className="h-3 w-3" /> : <MdTrendingDown className="h-3 w-3" />}
-          {change >= 0 ? '+' : ''}{change.toFixed(1)}%
+          {change >= 0 ? '+' : ''}{Number(change).toFixed(1)}%
         </span>
       )}
     </div>

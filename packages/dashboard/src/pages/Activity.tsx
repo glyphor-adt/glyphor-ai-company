@@ -397,7 +397,7 @@ export default function Activity() {
                               <span className="text-tier-yellow">Output revised</span>
                             )}
                             {run.reasoning_cost_usd != null && (
-                              <span>Reasoning cost: ${run.reasoning_cost_usd.toFixed(4)}</span>
+                              <span>Reasoning cost: ${Number(run.reasoning_cost_usd).toFixed(4)}</span>
                             )}
                           </div>
                         </div>
