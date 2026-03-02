@@ -347,6 +347,18 @@ ORDER BY minutes_to_recovery DESC;
 
 ## Layer 4: Orchestration Loop (MOST CRITICAL)
 
+### T4.0 — Direct Work Assignment
+
+Tests the CTO's ability to create work assignments directly (without a directive), simulating the `assign_task` tool.
+
+```sql
+INSERT INTO work_assignments (assigned_to, assigned_by, task_description, task_type, expected_output, priority, status, directive_id)
+VALUES ('platform-engineer', 'cto', 'Smoke test: Verify platform health monitoring is operational', 'on_demand', 'Confirmation that all health checks are passing', 'normal', 'pending', NULL);
+```
+
+**Pass:** Assignment row is created successfully with a valid ID. `directive_id` can be NULL for CTO-assigned tasks.
+**Fail:** Schema mismatch — check that `work_assignments` table has all required columns.
+
 ### T4.1 — Create a Directive
 
 Go to Dashboard → Directives → Create New:
@@ -915,26 +927,26 @@ The automated smoketest fetches all 20 routes and verifies HTTP 200:
 
 | Page | URL | What to Check |
 |------|-----|--------------|
-| Home | `/` | Main dashboard |
-| Workforce | `/workforce` | Org chart shows 11 departments, 44 agents |
-| Agent Profile | `/agents/chief-of-staff` | All tabs load |
-| Approvals | `/approvals` | Pending decisions |
+| Dashboard (Home) | `/` | Main dashboard |
 | Directives | `/directives` | Directive list |
-| Strategy | `/strategy` | Analyses and simulations |
+| Workforce | `/workforce` | Org chart shows departments and agents |
+| Agent Builder | `/agents/new` | Create new agent form |
+| Workforce Builder | `/builder` | Workforce builder |
+| Agent Profile | `/agents/chief-of-staff` | All tabs load |
+| Agent Settings | `/agents/chief-of-staff/settings` | Agent config |
+| Approvals | `/approvals` | Pending decisions |
 | Financials | `/financials` | Stripe MRR, GCP costs, Mercury balance |
-| Knowledge | `/knowledge` | Knowledge base sections |
 | Operations | `/operations` | Event log |
+| Strategy | `/strategy` | Analyses and simulations |
+| Knowledge | `/knowledge` | Knowledge base sections |
+| Capabilities | `/capabilities` | Capability registry |
+| Skill Detail | `/skills/research` | Individual skill view |
 | Comms | `/comms` | Chat and meetings tabs |
-| Dev | `/dev` | Dev tools |
-| System | `/system` | System status |
-| Admin | `/admin` | Admin panel |
-| Meetings | `/meetings` | Meeting logs |
-| Reports | `/reports` | Reports |
+| Chat | `/chat/chief-of-staff` | Chat interface with specific agent |
+| Teams Config | `/teams-config` | Teams integration settings |
+| Governance | `/governance` | Governance dashboard |
+| Change Requests | `/change-requests` | Change request list |
 | Settings | `/settings` | Settings |
-| Chat | `/chat` | Chat interface |
-| Login | `/login` | Auth page |
-| Profile | `/profile` | User profile |
-| Help | `/help` | Help page |
 
 **Pass:** All pages return 200.
 **Fail:** Individual page failures indicate missing data or API endpoint errors.
@@ -942,9 +954,10 @@ The automated smoketest fetches all 20 routes and verifies HTTP 200:
 ### T11.3 — Security Headers Present
 
 The automated smoketest verifies these headers on every response:
-- `X-Content-Type-Options: nosniff`
-- `X-Frame-Options: DENY`
+- `Content-Security-Policy: frame-ancestors ...`
 - `Cross-Origin-Opener-Policy: same-origin-allow-popups`
+- `X-Content-Type-Options: nosniff`
+- `Referrer-Policy: strict-origin-when-cross-origin`
 
 **Pass:** All headers present on dashboard responses.
 **Fail:** Check `docker/nginx.conf` — headers must be repeated in each `location` block.
@@ -965,7 +978,8 @@ curl -s https://glyphor-dashboard-<hash>-uc.a.run.app/healthz
 
 ### T11.6 — Legacy Redirects
 
-**Pass:** Legacy routes (`/dashboard`, `/home`, `/overview`) redirect to `/` with 200.
+**Pass:** Legacy routes (`/agents`, `/chat`, `/activity`, `/graph`, `/skills`, `/meetings`, `/world-model`, `/group-chat`) resolve with HTTP 200.
+**Fail:** nginx not configured to serve index.html for these SPA routes.
 
 ---
 
@@ -995,7 +1009,7 @@ After running all tests, fill in:
 
 | Layer | Tests | Pass | Fail | Skip | Block | Notes |
 |-------|-------|------|------|------|-------|-------|
-| 0 — Infrastructure | 6 | | | | | Cloud SQL, Cloud Tasks, GCS, Pub/Sub |
+| 0 — Infrastructure | 5 | | | | | Cloud SQL, Redis, Secrets, Pub/Sub |
 | 1 — Data Syncs | 4 | | | | | Stripe, Mercury, GCP Billing |
 | 2 — Model Clients | 4 | | | | | Gemini, OpenAI, Anthropic |
 | 3 — Heartbeat/Work Loop | 4 | | | | | |
@@ -1008,7 +1022,7 @@ After running all tests, fill in:
 | 10 — Specialist Agents | 3 | | | | | |
 | 11 — Dashboard & API | 6 | | | | | 20 pages, security headers |
 | 12 — Voice | 2 | | | | | |
-| **TOTAL** | **61** | | | | | |
+| **TOTAL** | **60** | | | | | |
 
 ### Known Issues
 

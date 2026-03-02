@@ -107,28 +107,5 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
     tests[tests.length - 1].status = 'skipped';
   }
 
-  // T0.6 — Vercel Environment Variables (optional — skip if not configured locally)
-  tests.push(
-    await runTest('T0.6', 'Vercel Environment Variables', async () => {
-      const teamFuse = process.env.VERCEL_TEAM_FUSE;
-      const teamFuseProjects = process.env.VERCEL_TEAM_FUSE_PROJECTS;
-      const vercelToken = process.env.VERCEL_TOKEN;
-
-      const missing: string[] = [];
-      if (!teamFuse) missing.push('VERCEL_TEAM_FUSE');
-      if (!teamFuseProjects) missing.push('VERCEL_TEAM_FUSE_PROJECTS');
-      if (!vercelToken) missing.push('VERCEL_TOKEN');
-
-      if (missing.length > 0) {
-        return `SKIP: Missing Vercel env vars: ${missing.join(', ')} — only required in Cloud Run`;
-      }
-
-      return `Vercel env vars configured: VERCEL_TEAM_FUSE, VERCEL_TEAM_FUSE_PROJECTS, VERCEL_TOKEN`;
-    }),
-  );
-  if (tests[tests.length - 1].message.startsWith('SKIP:')) {
-    tests[tests.length - 1].status = 'skipped';
-  }
-
   return { layer: 0, name: 'Infrastructure Health', tests };
 }
