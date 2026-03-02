@@ -382,11 +382,26 @@ export default function GroupChat() {
       (id) => FOUNDERS.find((f) => f.id === id)?.name ?? id,
     );
     const members = [...roles.map((r) => DISPLAY_NAME_MAP[r] ?? r), ...founderNames].join(', ');
-    const base = `You are in a live group chat with: ${members}. The founders are also present.`;
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+    const dateStr = now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+    const rules = [
+      `CURRENT TIME: ${timeStr}, ${dateStr}.`,
+      `MODE: Live group chat — NOT a task or report request.`,
+      `Participants: ${members}.`,
+      `RULES:`,
+      `- Read the founder's message carefully and ONLY respond to what they actually said.`,
+      `- Do NOT run tools, generate reports, pull metrics, or give status updates unless explicitly asked.`,
+      `- Do NOT greet with "good morning/afternoon" — use the current time above if referencing time of day.`,
+      `- Keep responses short and conversational like a real Slack chat.`,
+      `- If the message is casual (hey, hello, etc), respond casually in 1-2 sentences max.`,
+    ].join('\n');
+
     if (isFollowUp) {
-      return `${base} Other agents have already responded above. If you have something meaningful to add, build on or respectfully challenge their points. If you agree and have nothing new to contribute, respond with exactly: [NO_REPLY]`;
+      return `${rules}\n- Other agents have already responded above. Only reply if you have something genuinely new to add. If not, respond with exactly: [NO_REPLY]`;
     }
-    return `${base} This is a real-time conversation — respond naturally and directly to what was said. Do NOT give status updates, reports, or summaries unless explicitly asked. Match the tone and intent of the message. If someone says hello, just say hello back. Keep it concise — others will also respond.`;
+    return `${rules}\n- Others will also respond after you and will see what you said.\n\nFounder's message:`;
   };
 
   // ── Send user message → agents respond sequentially ──
