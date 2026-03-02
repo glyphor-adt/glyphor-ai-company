@@ -1,10 +1,14 @@
+import prism from './prism.tailwind.js';
+
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: 'class',
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      ...prism.theme.extend,
       colors: {
+        ...prism.theme.extend.colors,
         // Shell – driven by CSS custom properties
         base: 'var(--color-base)',
         surface: 'var(--color-surface)',
@@ -20,7 +24,7 @@ export default {
         primary: 'rgb(var(--cyan) / <alpha-value>)',
         cyan: 'rgb(var(--cyan) / <alpha-value>)',
         azure: 'rgb(var(--azure) / <alpha-value>)',
-        purple: '#623CEA', // Brand tertiary color (design system)
+        purple: '#623CEA',
         accent: 'rgb(var(--accent) / <alpha-value>)',
         // Agent roles (fixed mid-tones for decorative accents)
         exec: '#7C3AED',
@@ -36,9 +40,16 @@ export default {
         'tier-red': 'rgb(var(--accent) / <alpha-value>)',
       },
       fontFamily: {
+        ...prism.theme.extend.fontFamily,
         sans: ['IBM Plex Sans', 'system-ui', 'sans-serif'],
         mono: ['Space Mono', 'Courier New', 'monospace'],
         serif: ['IBM Plex Sans', 'system-ui', 'sans-serif'],
+      },
+      boxShadow: {
+        ...prism.theme.extend.boxShadow,
+      },
+      backgroundImage: {
+        ...prism.theme.extend.backgroundImage,
       },
       animation: {
         'fade-up': 'fadeUp .4s ease-out both',
