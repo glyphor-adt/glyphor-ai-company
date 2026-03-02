@@ -1,14 +1,15 @@
 /**
- * run-seed.mjs — Execute seed-knowledge.sql via Supabase REST API
+ * run-seed.mjs — Seed company knowledge tables via direct PostgreSQL connection.
  * Usage: node scripts/run-seed.mjs
  *
- * Reads .env for SUPABASE_URL and SUPABASE_SERVICE_KEY,
+ * Reads DATABASE_URL (or DB_HOST/DB_NAME/DB_USER/DB_PASSWORD) from .env,
  * then populates all agent knowledge tables.
  */
 
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import pg from 'pg';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -21,37 +22,49 @@ const env = Object.fromEntries(
     .map(l => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim()]; })
 );
 
-const SUPABASE_URL = env.SUPABASE_URL;
-const SERVICE_KEY  = env.SUPABASE_SERVICE_KEY;
-if (!SUPABASE_URL || !SERVICE_KEY) {
-  console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_KEY in .env');
+const pool = new pg.Pool(
+  env.DATABASE_URL
+    ? { connectionString: env.DATABASE_URL, max: 5 }
+    : {
+        host: env.DB_HOST,
+        database: env.DB_NAME ?? 'glyphor',
+        user: env.DB_USER ?? 'glyphor_system_user',
+        password: env.DB_PASSWORD,
+        max: 5,
+      },
+);
+
+if (!env.DATABASE_URL && !env.DB_PASSWORD) {
+  console.error('Missing DATABASE_URL or DB_HOST/DB_PASSWORD in .env');
   process.exit(1);
 }
 
-const headers = {
-  apikey: SERVICE_KEY,
-  Authorization: `Bearer ${SERVICE_KEY}`,
-  'Content-Type': 'application/json',
-  Prefer: 'return=minimal',
-};
-
-async function rest(method, table, opts = {}) {
-  const url = new URL(`/rest/v1/${table}`, SUPABASE_URL);
-  if (opts.query) for (const [k, v] of Object.entries(opts.query)) url.searchParams.set(k, v);
-  const h = { ...headers };
-  if (opts.prefer) h.Prefer = opts.prefer;
-  const res = await fetch(url.toString(), { method, headers: h, body: opts.body ? JSON.stringify(opts.body) : undefined });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`${method} ${table}: ${res.status} — ${text}`);
-  }
-  if (opts.returning) return res.json();
-  return null;
+/**
+ * Insert rows into a table using a parameterized multi-row INSERT.
+ * Returns inserted rows (with RETURNING *) if returnRows is true.
+ */
+async function insertRows(table, rows, { returnRows = false } = {}) {
+  if (rows.length === 0) return [];
+  const cols = Object.keys(rows[0]);
+  const values = [];
+  const placeholders = rows.map((row, ri) => {
+    const ph = cols.map((c, ci) => {
+      values.push(row[c] ?? null);
+      return `$${ri * cols.length + ci + 1}`;
+    });
+    return `(${ph.join(', ')})`;
+  });
+  const sql = `INSERT INTO ${table} (${cols.join(', ')}) VALUES ${placeholders.join(', ')}${returnRows ? ' RETURNING *' : ''}`;
+  const result = await pool.query(sql, values);
+  return result.rows;
 }
 
-// ── Helper: delete all rows from a table ────────────────────
-async function deleteAll(table) {
-  await rest('DELETE', table, { query: { id: 'not.is.null' } });
+/**
+ * Delete rows from a table with an optional WHERE clause.
+ */
+async function deleteRows(table, where = '') {
+  const sql = `DELETE FROM ${table}${where ? ` WHERE ${where}` : ''}`;
+  await pool.query(sql);
 }
 
 // ── Timestamps ──────────────────────────────────────────────
@@ -524,65 +537,69 @@ const directiveRows = [
 // EXECUTE
 // ════════════════════════════════════════════════════════════
 async function run() {
-  console.log('🔌 Connecting to Supabase…');
+  console.log('🔌 Connecting to Cloud SQL…');
+
+  // Verify connection
+  await pool.query('SELECT 1');
+  console.log('  ✅ Database connected');
 
   // 1. Knowledge base
   console.log('  ✂  Clearing company_knowledge_base…');
-  await rest('DELETE', 'company_knowledge_base', { query: { section: 'not.is.null' } });
-  console.log('  📥 Inserting 14 knowledge sections…');
-  await rest('POST', 'company_knowledge_base', { body: knowledgeRows });
+  await deleteRows('company_knowledge_base');
+  console.log('  📥 Inserting knowledge sections…');
+  await insertRows('company_knowledge_base', knowledgeRows);
   console.log('  ✅ company_knowledge_base done');
 
   // 2. Founder bulletins
   console.log('  ✂  Clearing founder_bulletins…');
-  await rest('DELETE', 'founder_bulletins', { query: { id: 'not.is.null' } });
-  console.log('  📥 Inserting 6 bulletins…');
-  await rest('POST', 'founder_bulletins', { body: bulletinRows });
+  await deleteRows('founder_bulletins');
+  console.log('  📥 Inserting bulletins…');
+  await insertRows('founder_bulletins', bulletinRows);
   console.log('  ✅ founder_bulletins done');
 
-  // 3. Company pulse (upsert)
+  // 3. Company pulse (upsert via DELETE + INSERT)
   console.log('  📥 Upserting company_pulse…');
-  await rest('POST', 'company_pulse', { body: companyPulseRow, prefer: 'resolution=merge-duplicates,return=minimal' });
+  await deleteRows('company_pulse');
+  await insertRows('company_pulse', [companyPulseRow]);
   console.log('  ✅ company_pulse done');
 
   // 4. Knowledge graph nodes
   console.log('  ✂  Clearing kg_nodes (system-created)…');
-  await rest('DELETE', 'kg_nodes', { query: { created_by: 'eq.system' } });
-  console.log('  📥 Inserting 17 kg_nodes…');
-  await rest('POST', 'kg_nodes', { body: kgNodes, prefer: 'return=representation', returning: true })
-    .then(nodes => {
-      // Build title→id map for edges
-      const nodeMap = {};
-      for (const n of nodes) nodeMap[n.title] = n.id;
+  await deleteRows('kg_nodes', "created_by = 'system'");
+  console.log('  📥 Inserting kg_nodes…');
+  const insertedNodes = await insertRows('kg_nodes', kgNodes, { returnRows: true });
 
-      // 5. Knowledge graph edges
-      console.log('  ✂  Clearing kg_edges (system-created)…');
-      return rest('DELETE', 'kg_edges', { query: { created_by: 'eq.system' } }).then(() => {
-        const edges = edgeDefs
-          .filter(e => nodeMap[e.sourceTitle] && nodeMap[e.targetTitle])
-          .map(e => ({
-            source_id: nodeMap[e.sourceTitle],
-            target_id: nodeMap[e.targetTitle],
-            edge_type: e.edge_type,
-            strength: e.strength,
-            confidence: e.confidence,
-            evidence: e.evidence,
-            created_by: 'system',
-          }));
-        console.log(`  📥 Inserting ${edges.length} kg_edges…`);
-        return rest('POST', 'kg_edges', { body: edges });
-      });
-    });
+  // Build title→id map for edges
+  const nodeMap = {};
+  for (const n of insertedNodes) nodeMap[n.title] = n.id;
+
+  // 5. Knowledge graph edges
+  console.log('  ✂  Clearing kg_edges (system-created)…');
+  await deleteRows('kg_edges', "created_by = 'system'");
+  const edges = edgeDefs
+    .filter(e => nodeMap[e.sourceTitle] && nodeMap[e.targetTitle])
+    .map(e => ({
+      source_id: nodeMap[e.sourceTitle],
+      target_id: nodeMap[e.targetTitle],
+      edge_type: e.edge_type,
+      strength: e.strength,
+      confidence: e.confidence,
+      evidence: e.evidence,
+      created_by: 'system',
+    }));
+  console.log(`  📥 Inserting ${edges.length} kg_edges…`);
+  await insertRows('kg_edges', edges);
   console.log('  ✅ kg_nodes + kg_edges done');
 
   // 6. Founder directives
   console.log('  ✂  Clearing founder_directives…');
-  await rest('DELETE', 'founder_directives', { query: { id: 'not.is.null' } });
-  console.log('  📥 Inserting 5 directives…');
-  await rest('POST', 'founder_directives', { body: directiveRows });
+  await deleteRows('founder_directives');
+  console.log('  📥 Inserting directives…');
+  await insertRows('founder_directives', directiveRows);
   console.log('  ✅ founder_directives done');
 
   console.log('\n🎉 All knowledge seeded successfully!');
+  await pool.end();
 }
 
-run().catch(err => { console.error('❌ Seed failed:', err.message); process.exit(1); });
+run().catch(err => { console.error('❌ Seed failed:', err.message); pool.end(); process.exit(1); });

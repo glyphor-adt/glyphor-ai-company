@@ -865,7 +865,7 @@ glyphor-ai-company/
 │       ├── adi-rose/            # Executive Assistant bot
 │       └── ... (24 more)        # All other agents
 │
-├── supabase/migrations/         # 86 SQL migration files (historical, pre-GCP)
+├── db/migrations/               # 86 SQL migration files (historical, pre-GCP)
 ├── .github/workflows/deploy.yml # CI/CD (GitHub Actions → Cloud Run)
 ├── turbo.json                   # Turborepo pipeline config
 ├── tsconfig.base.json           # Shared TS config

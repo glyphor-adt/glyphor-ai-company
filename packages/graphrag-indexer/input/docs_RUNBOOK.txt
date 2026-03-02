@@ -37,7 +37,7 @@ Apply schema via Supabase Dashboard SQL Editor or CLI:
 # Via Supabase CLI (if installed)
 supabase db push
 
-# Or paste contents of supabase/migrations/*.sql
+# Or paste contents of db/migrations/*.sql
 # into Supabase Dashboard > SQL Editor, in order:
 #   20260222025612_new-migration.sql
 #   20260222025852_remote_schema.sql

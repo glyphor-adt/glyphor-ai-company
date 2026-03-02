@@ -1428,4 +1428,4 @@ interface IMemoryBus {
 | **Database** | `DB_NAME` (stored in GCP Secret Manager) |
 | **User** | `DB_USER` (stored in GCP Secret Manager) |
 | **Password** | `DB_PASSWORD` (stored in GCP Secret Manager) |
-| **Migrations** | `supabase/migrations/` (33 files) |
+| **Migrations** | `db/migrations/` (33 files) |

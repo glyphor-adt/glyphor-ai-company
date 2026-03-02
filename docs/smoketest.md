@@ -54,7 +54,7 @@ WHERE table_schema = 'public';
 ```
 
 **Pass:** Returns 90+ tables (includes new `tenants`, `tenant_members` tables from multi-tenancy migration).
-**Fail:** If significantly fewer, migrations are missing. Check `supabase/migrations/` — should be 90+ files. Verify `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` env vars on Cloud Run services.
+**Fail:** If significantly fewer, migrations are missing. Check `db/migrations/` — should be 90+ files. Verify `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` env vars on Cloud Run services.
 
 ### T0.2b — Cloud SQL Multi-Tenancy
 

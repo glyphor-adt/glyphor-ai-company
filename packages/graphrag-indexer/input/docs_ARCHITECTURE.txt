@@ -580,7 +580,7 @@ glyphor-ai-company/
 │       ├── rachel-kim/          # VP Sales bot
 │       └── riley-morgan/        # M365 Admin bot
 │
-├── supabase/migrations/         # 33 migration files
+├── db/migrations/               # 33 migration files
 ├── .github/workflows/deploy.yml # CI/CD (GitHub Actions → Cloud Run)
 ├── turbo.json                   # Turborepo pipeline config
 ├── tsconfig.base.json           # Shared TS config

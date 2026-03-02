@@ -1,6 +1,7 @@
-# Supabase Migrations
+# Database Migrations
 
-This directory contains PostgreSQL migrations for the Glyphor AI Company database.
+This directory contains PostgreSQL migrations for the Glyphor database,
+hosted on **GCP Cloud SQL** (PostgreSQL 15, instance `glyphor-db` in `us-central1`).
 
 ## Multi-Tenancy Security Model
 
@@ -96,10 +97,12 @@ Key migrations in order:
 
 ## Running Migrations
 
-Migrations are applied automatically by Supabase when committed to this directory.
+Migrations are applied manually via `psql` against Cloud SQL:
 
-For local development:
 ```bash
-supabase db reset  # Reset and rerun all migrations
-supabase db diff   # Check for schema changes
+# Connect via Cloud SQL Auth Proxy or direct IP
+psql "host=/cloudsql/ai-glyphor-company:us-central1:glyphor-db dbname=glyphor user=glyphor_system_user"
+
+# Apply a specific migration
+\i db/migrations/20260302100003_row_level_security.sql
 ```

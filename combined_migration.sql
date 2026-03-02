@@ -1,5 +1,5 @@
 -- Combined migration for Cloud SQL
--- Auto-generated from supabase/migrations/
+-- Auto-generated from db/migrations/
 
 -- Enable pgvector extension (public schema on Cloud SQL)
 CREATE EXTENSION IF NOT EXISTS vector;

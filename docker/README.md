@@ -83,8 +83,6 @@ docker build --progress=plain -f docker/Dockerfile.scheduler -t test-scheduler:l
 
 # Test dashboard (with build args)
 docker build --progress=plain -f docker/Dockerfile.dashboard \
-  --build-arg VITE_SUPABASE_URL=test \
-  --build-arg VITE_SUPABASE_ANON_KEY=test \
   --build-arg VITE_SCHEDULER_URL=test \
   --build-arg VITE_GOOGLE_CLIENT_ID=test \
   --build-arg VITE_VOICE_GATEWAY_URL=test \

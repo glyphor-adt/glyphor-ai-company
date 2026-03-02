@@ -38,9 +38,9 @@ Apply schema via psql against the Cloud SQL instance:
 psql -h $DB_HOST -U $DB_USER -d $DB_NAME
 
 # Apply migrations in order:
-\i supabase/migrations/20260222025612_new-migration.sql
-\i supabase/migrations/20260222025852_remote_schema.sql
-\i supabase/migrations/20260222030000_create_tables.sql
+\i db/migrations/20260222025612_new-migration.sql
+\i db/migrations/20260222025852_remote_schema.sql
+\i db/migrations/20260222030000_create_tables.sql
 ```
 
 ### 4. Seed company memory

@@ -1427,4 +1427,4 @@ interface IMemoryBus {
 | **URL** | `https://ztucrgzcoaryzuvkcaif.supabase.co` |
 | **Server-side key** | `SUPABASE_SERVICE_KEY` (stored in GCP Secret Manager) |
 | **Client-side key** | `VITE_SUPABASE_ANON_KEY` (baked into dashboard build) |
-| **Migrations** | `supabase/migrations/` (33 files) |
+| **Migrations** | `db/migrations/` (33 files) |

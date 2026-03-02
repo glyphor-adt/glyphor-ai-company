@@ -23,7 +23,7 @@
 | 12 | `dashboard/src/pages/Workforce.tsx` | `TITLE_MAP` + `DEPARTMENTS` (if exec) + grid sort order |
 | 13 | `company-knowledge/briefs/<name>.md` | Agent brief file |
 | 14 | `scripts/generate-avatars.mjs` | Add to `AGENTS` array, then run script |
-| 15 | `supabase/migrations/` | SQL migration (applied via psql to Cloud SQL): `company_agents` + `agent_profiles` |
+| 15 | `db/migrations/` | SQL migration (applied via psql to Cloud SQL): `company_agents` + `agent_profiles` |
 | 16 | **M365 Exchange** | Create shared mailbox `name@glyphor.ai` |
 | 17 | **Build & Deploy** | `npx turbo build --force`, deploy to Cloud Run |
 
@@ -127,11 +127,11 @@ ALL of these are **mandatory**:
 ### Phase 5: Database & External Services
 
 #### 14. Create Database Migration
-**File:** `supabase/migrations/<YYYYMMDD>HHMMSS_<agent>_agent.sql`
+**File:** `db/migrations/<YYYYMMDD>HHMMSS_<agent>_agent.sql`
 
 - [ ] `INSERT INTO company_agents` (role, display_name, name, title, model, status, reports_to, is_core)
 - [ ] `INSERT INTO agent_profiles` (personality_summary, backstory, communication_traits, quirks, tone_settings, voice_sample, signature, clifton_strengths, voice_examples)
-- [ ] Run: `psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f supabase/migrations/<migration_file>.sql`
+- [ ] Run: `psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f db/migrations/<migration_file>.sql`
 
 #### 15. Create M365 Shared Mailbox
 **PowerShell (Exchange Online):**

@@ -138,7 +138,7 @@ export class MeetingEngine {
         req.title,
         req.purpose,
         req.meetingType ?? 'discussion',
-        JSON.stringify(req.attendees),
+        req.attendees,
         'scheduled',
         rounds,
         JSON.stringify(req.agenda ?? []),

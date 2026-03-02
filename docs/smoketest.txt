@@ -45,7 +45,7 @@ WHERE table_schema = 'public';
 ```
 
 **Pass:** Returns 86+ tables.
-**Fail:** If significantly fewer, migrations are missing. Check `supabase/migrations/` — should be 86 files.
+**Fail:** If significantly fewer, migrations are missing. Check `db/migrations/` — should be 86 files.
 
 ### T0.3 — Redis Connected
 
