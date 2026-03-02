@@ -56,16 +56,16 @@ const AUDIENCES = ['all', 'executives', 'engineering', 'finance', 'product', 'ma
 const PRIORITIES = ['fyi', 'normal', 'important', 'urgent'] as const;
 
 const PRIORITY_STYLE: Record<string, { dot: string; text: string; bg: string; border: string }> = {
-  urgent:    { dot: 'bg-red-500',    text: 'text-red-400',    bg: 'bg-red-500/10',    border: 'border-red-500/30' },
-  important: { dot: 'bg-amber-400',  text: 'text-amber-400',  bg: 'bg-amber-500/10',  border: 'border-amber-500/30' },
-  normal:    { dot: 'bg-blue-400',   text: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/30' },
-  fyi:       { dot: 'bg-slate-400',  text: 'text-slate-400',  bg: 'bg-slate-500/10',  border: 'border-slate-500/30' },
+  urgent:    { dot: 'bg-prism-critical',  text: 'text-prism-critical',  bg: 'bg-prism-critical/10',  border: 'border-prism-critical/30' },
+  important: { dot: 'bg-prism-high',      text: 'text-prism-high',      bg: 'bg-prism-high/10',      border: 'border-prism-high/30' },
+  normal:    { dot: 'bg-prism-fill-3',    text: 'text-prism-sky',       bg: 'bg-prism-fill-3/10',    border: 'border-prism-fill-3/30' },
+  fyi:       { dot: 'bg-prism-moderate',  text: 'text-prism-moderate',  bg: 'bg-prism-moderate/10',  border: 'border-prism-moderate/30' },
 };
 
 const STATUS_STYLE: Record<string, { label: string; color: string; bg: string }> = {
-  healthy:  { label: 'Healthy',  color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
-  degraded: { label: 'Degraded', color: 'text-amber-400',   bg: 'bg-amber-500/15' },
-  outage:   { label: 'Outage',   color: 'text-red-400',     bg: 'bg-red-500/15' },
+  healthy:  { label: 'Healthy',  color: 'text-prism-teal',     bg: 'bg-prism-fill-2/15' },
+  degraded: { label: 'Degraded', color: 'text-prism-elevated',  bg: 'bg-prism-elevated/15' },
+  outage:   { label: 'Outage',   color: 'text-prism-critical',  bg: 'bg-prism-critical/15' },
 };
 
 const MOOD_ICON: Record<string, IconType> = {
@@ -197,10 +197,10 @@ function HealthSummary({
         <h2 className="text-lg font-semibold text-txt-primary">Knowledge Health</h2>
         <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
           healthyCount === layers.length
-            ? 'bg-emerald-500/15 text-emerald-400'
+            ? 'bg-prism-fill-2/15 text-prism-teal'
             : healthyCount >= 3
-            ? 'bg-amber-500/15 text-amber-400'
-            : 'bg-red-500/15 text-red-400'
+            ? 'bg-prism-elevated/15 text-prism-elevated'
+            : 'bg-prism-critical/15 text-prism-critical'
         }`}>
           {healthyCount}/{layers.length} layers active
         </span>
@@ -209,7 +209,7 @@ function HealthSummary({
         {layers.map(l => (
           <div key={l.name} className="rounded-lg border border-border bg-raised px-3 py-2.5">
             <div className="flex items-center gap-2 mb-1">
-              <span className={`h-2 w-2 rounded-full ${l.status ? 'bg-emerald-400' : 'bg-red-400'}`} />
+              <span className={`h-2 w-2 rounded-full ${l.status ? 'bg-prism-fill-2' : 'bg-prism-critical'}`} />
               <span className="text-[12px] font-medium text-txt-primary">{l.name}</span>
             </div>
             <p className="text-[11px] text-txt-muted">{l.detail}</p>
@@ -347,8 +347,8 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
               <p className="text-[11px] text-txt-muted mb-1">Platform Status</p>
               <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-semibold ${st.bg} ${st.color}`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${
-                  pulse.platform_status === 'healthy' ? 'bg-emerald-400' :
-                  pulse.platform_status === 'degraded' ? 'bg-amber-400 animate-pulse' : 'bg-red-400 animate-pulse'
+                  pulse.platform_status === 'healthy' ? 'bg-prism-fill-2' :
+                  pulse.platform_status === 'degraded' ? 'bg-prism-elevated animate-pulse' : 'bg-prism-critical animate-pulse'
                 }`} />
                 {st.label}
               </span>
@@ -366,8 +366,8 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
               {pulse.highlights.map((h, i) => (
                 <div key={i} className="flex items-start gap-2 text-[12px]">
                   <span className={`mt-0.5 h-1.5 w-1.5 rounded-full flex-shrink-0 ${
-                    h.type === 'positive' ? 'bg-emerald-400' :
-                    h.type === 'alert' ? 'bg-red-400' : 'bg-slate-400'
+                    h.type === 'positive' ? 'bg-prism-fill-2' :
+                    h.type === 'alert' ? 'bg-prism-critical' : 'bg-prism-moderate'
                   }`} />
                   <span className="text-txt-secondary">{h.text}</span>
                 </div>
@@ -386,7 +386,7 @@ function MetricCard({ label, value, sub, positive }: { label: string; value: str
       <p className="text-[11px] text-txt-muted mb-1">{label}</p>
       <p className="text-lg font-semibold text-txt-primary">{value}</p>
       {sub && (
-        <p className={`text-[11px] ${positive ? 'text-emerald-400' : 'text-red-400'}`}>{sub}</p>
+        <p className={`text-[11px] ${positive ? 'text-prism-teal' : 'text-prism-critical'}`}>{sub}</p>
       )}
     </div>
   );
@@ -451,7 +451,7 @@ function BulletinSection({ bulletins, onRefresh }: { bulletins: Bulletin[]; onRe
                     </div>
                     <button
                       onClick={() => deactivate(b.id)}
-                      className="text-txt-faint hover:text-red-400 transition-colors flex-shrink-0"
+                      className="text-txt-faint hover:text-prism-critical transition-colors flex-shrink-0"
                       title="Deactivate bulletin"
                     >
                       <MdClose className="text-[14px]" />
@@ -512,7 +512,7 @@ function NewBulletinModal({ onClose, onCreated }: { onClose: () => void; onCreat
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg rounded-xl border border-border bg-white dark:bg-[#111827] shadow-2xl">
+      <div className="w-full max-w-lg rounded-xl border border-prism-border bg-prism-card shadow-prism-lg">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <h2 className="text-lg font-semibold text-txt-primary">New Bulletin</h2>
           <button onClick={onClose} className="text-txt-muted hover:text-txt-primary transition-colors text-lg">×</button>
@@ -700,10 +700,10 @@ function KGSummary({ stats }: { stats: KGStats | null }) {
 
   const typeColors: Record<string, string> = {
     product: 'bg-cyan/20 text-cyan border-cyan/30',
-    concept: 'bg-violet-500/20 text-violet-400 border-violet-500/30',
-    metric: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-    risk: 'bg-red-500/20 text-red-400 border-red-500/30',
-    opportunity: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    concept: 'bg-prism-violet/20 text-prism-violet border-prism-violet/30',
+    metric: 'bg-prism-elevated/20 text-prism-elevated border-prism-elevated/30',
+    risk: 'bg-prism-critical/20 text-prism-critical border-prism-critical/30',
+    opportunity: 'bg-prism-fill-2/20 text-prism-teal border-prism-fill-2/30',
   };
 
   return (
@@ -734,7 +734,7 @@ function KGSummary({ stats }: { stats: KGStats | null }) {
           <span
             key={type}
             className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${
-              typeColors[type] ?? 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+              typeColors[type] ?? 'bg-prism-moderate/20 text-prism-moderate border-prism-moderate/30'
             }`}
           >
             {type} <span className="font-bold">{count}</span>

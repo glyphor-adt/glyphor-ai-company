@@ -277,7 +277,7 @@ export default function WorkforceBuilder() {
           <button onClick={exportJSON} disabled={!nodes.length} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-secondary transition-colors hover:border-cyan hover:text-cyan disabled:opacity-40">
             <span className="flex items-center gap-1"><MdFileDownload /> Export JSON</span>
           </button>
-          <button onClick={deployAll} disabled={deploying || !nodes.length} className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40">
+          <button onClick={deployAll} disabled={deploying || !nodes.length} className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40">
             {deploying ? 'Deploying...' : 'Deploy All'}
           </button>
         </div>
@@ -298,7 +298,7 @@ export default function WorkforceBuilder() {
         {deployMsg && (
           <span className={`rounded-full border px-3 py-1 text-[12px] font-medium ${
             deployMsg.includes('failed') || deployMsg.includes('need')
-              ? 'border-red-500/40 bg-red-500/10 text-red-400'
+              ? 'border-prism-critical/40 bg-prism-critical/10 text-prism-critical'
               : 'border-tier-green/40 bg-tier-green/10 text-tier-green'
           }`}>{deployMsg}</span>
         )}
@@ -404,7 +404,7 @@ export default function WorkforceBuilder() {
                     </div>
                   </div>
                   <span className={`absolute bottom-2 left-4 rounded px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide ${
-                    t?.tier === 'orchestrator' ? 'bg-cyan/10 text-cyan' : 'bg-slate-500/15 text-slate-400'
+                    t?.tier === 'orchestrator' ? 'bg-cyan/10 text-cyan' : 'bg-prism-moderate/15 text-prism-moderate'
                   }`}>{t?.tier ?? 'specialist'}</span>
                 </div>
               );
@@ -424,7 +424,7 @@ export default function WorkforceBuilder() {
           {/* ── Config Panel (right overlay) ── */}
           {selected && (
             <div
-              className="absolute right-0 top-0 h-full w-[310px] overflow-y-auto border-l border-border bg-base/95 backdrop-blur-sm shadow-2xl"
+              className="absolute right-0 top-0 h-full w-[310px] overflow-y-auto border-l border-border bg-base/95 backdrop-blur-sm shadow-prism-lg"
               onClick={e => e.stopPropagation()}
             >
               <div className="space-y-3 px-4 py-4">
@@ -483,7 +483,7 @@ export default function WorkforceBuilder() {
                           <span className="text-txt-faint">{isReporter ? 'Reports to' : 'Manages'}:</span>{' '}
                           {other?.name || ot?.label || '—'}
                         </span>
-                        <button onClick={() => removeEdge(edge.id)} className="text-[11px] text-red-400 hover:text-red-300 transition-colors">×</button>
+                        <button onClick={() => removeEdge(edge.id)} className="text-[11px] text-prism-critical hover:text-prism-critical/80 transition-colors">×</button>
                       </div>
                     );
                   })}
@@ -506,7 +506,7 @@ export default function WorkforceBuilder() {
                 <div className="border-t border-border pt-3">
                   <button
                     onClick={deleteSelected}
-                    className="w-full rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/20 transition-colors"
+                    className="w-full rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-2 text-xs font-medium text-prism-critical hover:bg-prism-critical/20 transition-colors"
                   >
                     Remove Agent
                   </button>

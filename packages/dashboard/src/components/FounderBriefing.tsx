@@ -14,9 +14,9 @@ import { Card, SectionHeader, AgentAvatar, ImpactBadge, Skeleton, timeAgo } from
 
 const PRIORITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 const PRIORITY_COLORS: Record<string, string> = {
-  critical: 'text-red-500',
-  high: 'text-amber-500',
-  medium: 'text-cyan',
+  critical: 'text-prism-critical',
+  high: 'text-prism-elevated',
+  medium: 'text-prism-sky',
   low: 'text-txt-faint',
 };
 
@@ -74,7 +74,7 @@ export default function FounderBriefing() {
               </span>
               {pulse.platform_status && pulse.platform_status !== 'green' && (
                 <span className={`ml-auto text-[11px] font-medium ${
-                  pulse.platform_status === 'red' ? 'text-red-500' : 'text-amber-500'
+                  pulse.platform_status === 'red' ? 'text-prism-critical' : 'text-prism-elevated'
                 }`}>
                   Platform {pulse.platform_status}
                 </span>
@@ -109,8 +109,8 @@ export default function FounderBriefing() {
         {incidents.length > 0 && (
           <div>
             <div className="flex items-center gap-1.5 mb-2">
-              <MdWarning className="h-4 w-4 text-red-500" />
-              <span className="text-[12px] font-semibold text-red-500 uppercase tracking-wider">
+              <MdWarning className="h-4 w-4 text-prism-critical" />
+              <span className="text-[12px] font-semibold text-prism-critical uppercase tracking-wider">
                 Open Incidents
               </span>
             </div>
@@ -118,10 +118,10 @@ export default function FounderBriefing() {
               {incidents.map((inc) => (
                 <div
                   key={inc.id}
-                  className="flex items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2"
+                  className="flex items-center gap-3 rounded-lg border border-prism-critical/20 bg-prism-critical/5 px-3 py-2"
                 >
                   <span className={`text-[11px] font-bold uppercase ${
-                    inc.severity === 'critical' ? 'text-red-500' : 'text-amber-500'
+                    inc.severity === 'critical' ? 'text-prism-critical' : 'text-prism-elevated'
                   }`}>
                     {inc.severity}
                   </span>
@@ -138,7 +138,7 @@ export default function FounderBriefing() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5">
-                <MdFlag className="h-4 w-4 text-amber-500" />
+                <MdFlag className="h-4 w-4 text-prism-elevated" />
                 <span className="text-[12px] font-semibold text-txt-muted uppercase tracking-wider">
                   Decisions Needing Attention
                 </span>
@@ -206,7 +206,7 @@ export default function FounderBriefing() {
                           <div className="h-1.5 flex-1 rounded-full bg-border overflow-hidden">
                             <div
                               className={`h-full rounded-full transition-all ${
-                                pct === 100 ? 'bg-emerald-500' : 'bg-cyan'
+                                pct === 100 ? 'bg-prism-fill-2' : 'bg-cyan'
                               }`}
                               style={{ width: `${pct}%` }}
                             />
@@ -225,7 +225,7 @@ export default function FounderBriefing() {
         {reflections.length > 0 && (
           <div>
             <div className="flex items-center gap-1.5 mb-2">
-              <MdLightbulb className="h-4 w-4 text-amber-400" />
+              <MdLightbulb className="h-4 w-4 text-prism-elevated" />
               <span className="text-[12px] font-semibold text-txt-muted uppercase tracking-wider">
                 Agent Insights
               </span>
@@ -245,7 +245,7 @@ export default function FounderBriefing() {
                       </span>
                       {r.quality_score != null && (
                         <span className={`text-[10px] font-medium ${
-                          r.quality_score >= 80 ? 'text-emerald-500' : 'text-txt-faint'
+                          r.quality_score >= 80 ? 'text-prism-teal' : 'text-txt-faint'
                         }`}>
                           Q{r.quality_score}
                         </span>
@@ -263,7 +263,7 @@ export default function FounderBriefing() {
         {!pulse && incidents.length === 0 && highPriorityDecisions.length === 0 &&
          directives.length === 0 && reflections.length === 0 && (
           <p className="py-8 text-center text-sm text-txt-faint flex items-center justify-center gap-2">
-            <MdCheckCircle className="h-4 w-4 text-emerald-500" />
+            <MdCheckCircle className="h-4 w-4 text-prism-teal" />
             All clear — nothing needs your attention right now
           </p>
         )}
@@ -286,13 +286,13 @@ function PulseMetric({
 }) {
   return (
     <div className="text-center">
-      <p className={`text-lg font-bold font-mono ${alert ? 'text-red-500' : 'text-txt-primary'}`}>
+      <p className={`text-lg font-bold font-mono ${alert ? 'text-prism-critical' : 'text-txt-primary'}`}>
         {value}
       </p>
       <p className="text-[10px] text-txt-faint">{label}</p>
       {change != null && (
         <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${
-          change >= 0 ? 'text-emerald-500' : 'text-red-500'
+          change >= 0 ? 'text-prism-teal' : 'text-prism-critical'
         }`}>
           {change >= 0 ? <MdTrendingUp className="h-3 w-3" /> : <MdTrendingDown className="h-3 w-3" />}
           {change >= 0 ? '+' : ''}{Number(change).toFixed(1)}%

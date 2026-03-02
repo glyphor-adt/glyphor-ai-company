@@ -81,7 +81,7 @@ function statusConfig(status: string) {
     case 'completed':
       return { dot: 'bg-tier-green', label: 'Completed', badge: 'border-tier-green/30 bg-tier-green/10 text-tier-green' };
     case 'failed':
-      return { dot: 'bg-red-400', label: 'Failed', badge: 'border-red-400/30 bg-red-400/10 text-red-400' };
+      return { dot: 'bg-prism-critical', label: 'Failed', badge: 'border-prism-critical/30 bg-prism-critical/10 text-prism-critical' };
     default:
       return { dot: 'bg-txt-faint', label: status, badge: 'border-border bg-raised text-txt-muted' };
   }
@@ -337,7 +337,7 @@ export default function Activity() {
                       run.reasoning_confidence != null
                         ? run.reasoning_confidence >= 0.8 ? 'text-tier-green'
                           : run.reasoning_confidence >= 0.5 ? 'text-tier-yellow'
-                          : 'text-red-400'
+                          : 'text-prism-critical'
                         : 'text-txt-faint'
                     }`}>
                       {run.reasoning_confidence != null
@@ -372,8 +372,8 @@ export default function Activity() {
                       )}
                       {run.error && (
                         <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-wider text-red-400 mb-1">Error</p>
-                          <p className="text-[12px] text-red-300 whitespace-pre-wrap bg-red-400/5 rounded-md border border-red-400/20 px-3 py-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-prism-critical mb-1">Error</p>
+                          <p className="text-[12px] text-prism-critical whitespace-pre-wrap bg-prism-critical/5 rounded-md border border-prism-critical/20 px-3 py-2">
                             {run.error}
                           </p>
                         </div>
@@ -404,13 +404,13 @@ export default function Activity() {
                       )}
                       {(run.thinking_tokens != null && run.thinking_tokens > 0) || (run.cached_input_tokens != null && run.cached_input_tokens > 0) ? (
                         <div className="mt-2 rounded-md border border-emerald/20 bg-emerald/5 px-3 py-2">
-                          <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400 mb-1">Token Breakdown</p>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-prism-teal mb-1">Token Breakdown</p>
                           <div className="flex gap-4 text-[11px] text-txt-secondary">
                             {run.thinking_tokens != null && run.thinking_tokens > 0 && (
                               <span>Thinking: {formatTokens(run.thinking_tokens)}</span>
                             )}
                             {run.cached_input_tokens != null && run.cached_input_tokens > 0 && (
-                              <span className="text-emerald-400">Cached: {formatTokens(run.cached_input_tokens)} ({run.input_tokens ? Math.round((run.cached_input_tokens / run.input_tokens) * 100) : 0}% hit rate)</span>
+                              <span className="text-prism-teal">Cached: {formatTokens(run.cached_input_tokens)} ({run.input_tokens ? Math.round((run.cached_input_tokens / run.input_tokens) * 100) : 0}% hit rate)</span>
                             )}
                           </div>
                         </div>
@@ -455,14 +455,14 @@ function MiniStat({
         highlight
           ? 'border-cyan/20 bg-cyan/5'
           : alert
-          ? 'border-red-400/20 bg-red-400/5'
+          ? 'border-prism-critical/20 bg-prism-critical/5'
           : ''
       }
     >
       <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">{label}</p>
       <p
         className={`mt-1 font-mono text-xl font-bold ${
-          highlight ? 'text-cyan' : alert ? 'text-red-400' : 'text-txt-primary'
+          highlight ? 'text-cyan' : alert ? 'text-prism-critical' : 'text-txt-primary'
         }`}
       >
         {value}

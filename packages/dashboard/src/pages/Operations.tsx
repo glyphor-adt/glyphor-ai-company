@@ -503,10 +503,10 @@ function OperationsOverview() {
                     <span
                       className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
                         inc.severity === 'critical'
-                          ? 'border-red-500/30 bg-red-500/15 text-red-400'
+                          ? 'border-prism-critical/30 bg-prism-critical/15 text-prism-critical'
                           : inc.severity === 'high'
-                          ? 'border-amber-500/30 bg-amber-500/15 text-amber-400'
-                          : 'border-blue-500/30 bg-blue-500/15 text-blue-400'
+                          ? 'border-prism-high/30 bg-prism-high/15 text-prism-high'
+                          : 'border-prism-fill-3/30 bg-prism-fill-3/15 text-prism-sky'
                       }`}
                     >
                       {inc.severity}
@@ -620,7 +620,7 @@ function OperationsOverview() {
                                   ? 'bg-tier-green'
                                   : r.status === 'running'
                                   ? 'bg-blue-400'
-                                  : 'bg-red-400'
+                                  : 'bg-prism-critical'
                               }`}
                             />
                           ))}

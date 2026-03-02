@@ -174,7 +174,7 @@ function TeamsAuthGate({ children }: { children: ReactNode }) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-base">
         <div className="rounded-xl border border-border bg-surface p-8 text-center">
-          <p className="text-sm text-red-400">{error || 'Unable to authenticate via Teams'}</p>
+          <p className="text-sm text-prism-critical">{error || 'Unable to authenticate via Teams'}</p>
         </div>
       </div>
     );
@@ -268,7 +268,7 @@ function GoogleAuthGate({ children }: { children: ReactNode }) {
               />
             </div>
             {error && (
-              <p className="mt-4 text-center text-sm text-red-400">{error}</p>
+              <p className="mt-4 text-center text-sm text-prism-critical">{error}</p>
             )}
           </div>
 

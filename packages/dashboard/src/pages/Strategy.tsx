@@ -669,7 +669,7 @@ const FRAMEWORK_NAMES: Record<string, { label: string; color: string }> = {
   'framework-bcg': { label: 'BCG Matrix', color: 'text-purple-400' },
   'framework-blue-ocean': { label: 'Blue Ocean Strategy', color: 'text-cyan' },
   'framework-porters': { label: "Porter's Five Forces", color: 'text-amber-400' },
-  'framework-pestle': { label: 'PESTLE Analysis', color: 'text-orange-400' },
+  'framework-pestle': { label: 'PESTLE Analysis', color: 'text-prism-high' },
   'framework-swot': { label: 'Enhanced SWOT', color: 'text-red-400' },
 };
 
@@ -871,11 +871,11 @@ function DDRisks({ report }: { report: DeepDiveReport }) {
 }
 
 const WATCHLIST_CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
-  risk: { bg: 'bg-red-400/10 border-red-400/30', text: 'text-red-400' },
+  risk: { bg: 'bg-prism-critical/10 border-prism-critical/30', text: 'text-prism-critical' },
   catalyst: { bg: 'bg-tier-green/10 border-tier-green/30', text: 'text-tier-green' },
   transaction: { bg: 'bg-cyan/10 border-cyan/30', text: 'text-cyan' },
-  leadership: { bg: 'bg-purple-400/10 border-purple-400/30', text: 'text-purple-400' },
-  regulatory: { bg: 'bg-amber-400/10 border-amber-400/30', text: 'text-amber-400' },
+  leadership: { bg: 'bg-prism-violet/10 border-prism-violet/30', text: 'text-prism-violet' },
+  regulatory: { bg: 'bg-prism-elevated/10 border-prism-elevated/30', text: 'text-prism-elevated' },
 };
 
 function DDWatchlist({ items }: { items?: WatchlistItem[] }) {
@@ -1472,10 +1472,10 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
                   <div className="flex items-center gap-2">
                     <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
                       p.severity === 'high'
-                        ? 'border-red-500/30 bg-red-500/15 text-red-400'
+                        ? 'border-prism-critical/30 bg-prism-critical/15 text-prism-critical'
                         : p.severity === 'medium'
-                        ? 'border-amber-500/30 bg-amber-500/15 text-amber-400'
-                        : 'border-blue-500/30 bg-blue-500/15 text-blue-400'
+                        ? 'border-prism-elevated/30 bg-prism-elevated/15 text-prism-elevated'
+                        : 'border-prism-fill-3/30 bg-prism-fill-3/15 text-prism-sky'
                     }`}>
                       {p.severity}
                     </span>

@@ -716,7 +716,7 @@ export default function GroupChat() {
               type="button"
               onClick={sendMessage}
               disabled={sending || (!input.trim() && pendingFiles.length === 0) || selectedRoles.size === 0}
-              className="flex-shrink-0 rounded-lg bg-cyan px-5 py-2.5 text-[13px] font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40"
+              className="flex-shrink-0 rounded-lg bg-cyan px-5 py-2.5 text-[13px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
             >
               Send
             </button>

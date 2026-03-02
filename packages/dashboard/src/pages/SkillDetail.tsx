@@ -50,10 +50,10 @@ const CATEGORY_META: Record<string, { label: string; color: string; icon: ReactN
 };
 
 const PROFICIENCY_COLOR: Record<string, string> = {
-  learning:  'bg-slate-500/15 text-slate-400 border-slate-500/30',
-  competent: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+  learning:  'bg-prism-moderate/15 text-prism-moderate border-prism-moderate/30',
+  competent: 'bg-prism-fill-3/15 text-prism-sky border-prism-fill-3/30',
   expert:    'bg-cyan/15 text-cyan border-cyan/30',
-  master:    'bg-amber-500/15 text-amber-400 border-amber-500/30',
+  master:    'bg-prism-elevated/15 text-prism-elevated border-prism-elevated/30',
 };
 
 function timeAgo(iso: string | null): string {

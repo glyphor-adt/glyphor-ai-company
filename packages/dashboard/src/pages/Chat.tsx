@@ -518,7 +518,7 @@ export default function Chat() {
             teamsSessionId ? (
               <button
                 onClick={leaveTeamsCall}
-                className="flex items-center gap-1.5 rounded-full bg-rose-500/15 px-3 py-1.5 text-[11px] font-medium text-rose-400 hover:bg-rose-500/25 transition-colors"
+                className="flex items-center gap-1.5 rounded-full bg-prism-critical/15 px-3 py-1.5 text-[11px] font-medium text-prism-critical hover:bg-prism-critical/25 transition-colors"
                 title="Remove agent from Teams call"
               >
                 <MdCallEnd size={14} />
@@ -741,7 +741,7 @@ export default function Chat() {
               onClick={toggleDictation}
               className={`flex-shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-full transition-all ${
                 isListening
-                  ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/25 animate-pulse'
+                  ? 'bg-prism-critical text-white shadow-lg shadow-prism-critical/25 animate-pulse'
                   : 'bg-raised border border-border text-txt-muted hover:text-cyan hover:border-cyan/40 hover:bg-cyan/5'
               }`}
               title={isListening ? 'Stop dictation' : 'Dictate (speech to text)'}
@@ -758,9 +758,9 @@ export default function Chat() {
                 disabled={voice.isConnecting}
                 className={`flex-shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-full transition-all ${
                   voice.isActive
-                    ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25 hover:bg-rose-500 hover:shadow-rose-500/25'
+                    ? 'bg-prism-fill-2 text-white shadow-lg shadow-prism-fill-2/25 hover:bg-prism-critical hover:shadow-prism-critical/25'
                     : voice.isConnecting
-                      ? 'bg-amber-500/20 text-amber-400 animate-pulse'
+                      ? 'bg-prism-elevated/20 text-prism-elevated animate-pulse'
                       : 'bg-raised border border-border text-txt-muted hover:text-cyan hover:border-cyan/40 hover:bg-cyan/5'
                 }`}
                 title={voice.isActive ? 'End voice chat' : 'Start voice chat'}
@@ -776,7 +776,7 @@ export default function Chat() {
               type="button"
               onClick={sendMessage}
               disabled={sending || (!input.trim() && pendingFiles.length === 0)}
-              className="flex-shrink-0 rounded-lg bg-cyan px-5 py-2.5 text-[13px] font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40"
+              className="flex-shrink-0 rounded-lg bg-cyan px-5 py-2.5 text-[13px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
             >
               Send
             </button>
@@ -789,7 +789,7 @@ export default function Chat() {
       {/* Teams Call Modal */}
       {showTeamsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowTeamsModal(false)}>
-          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-prism-lg" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-txt-primary flex items-center gap-2">
                 <MdVideoCall size={20} className="text-cyan" />
@@ -825,7 +825,7 @@ export default function Chat() {
               autoFocus
             />
             {teamsError && (
-              <p className="text-[11px] text-rose-400 mb-3">{teamsError}</p>
+              <p className="text-[11px] text-prism-critical mb-3">{teamsError}</p>
             )}
             <div className="flex justify-end gap-2">
               <button

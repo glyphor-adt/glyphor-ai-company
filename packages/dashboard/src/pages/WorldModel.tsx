@@ -99,9 +99,9 @@ const TREND_ICONS: Record<string, string> = {
 };
 
 function scoreColor(score: number): string {
-  if (score >= 4.2) return 'text-green-400';
-  if (score >= 3.0) return 'text-yellow-400';
-  return 'text-red-400';
+  if (score >= 4.2) return 'text-prism-teal';
+  if (score >= 3.0) return 'text-tier-yellow';
+  return 'text-prism-critical';
 }
 
 function progressBar(current: number, target: number): string {
@@ -151,14 +151,14 @@ function AgentWorldCard({ model }: { model: WorldModelRow }) {
       {/* Strengths & Weaknesses */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <h4 className="text-xs font-medium text-green-400 mb-1">Strengths</h4>
+          <h4 className="text-xs font-medium text-prism-teal mb-1">Strengths</h4>
           {model.strengths.length === 0 ? (
             <p className="text-xs text-txt-faint">No strengths recorded yet</p>
           ) : (
             <ul className="space-y-1">
               {model.strengths.slice(0, 3).map((s, i) => (
                 <li key={i} className="text-xs text-txt-secondary">
-                  <span className="text-green-400">✓</span> {s.dimension}
+                  <span className="text-prism-teal">✓</span> {s.dimension}
                   <span className="text-txt-faint ml-1">({(s.confidence * 100).toFixed(0)}%)</span>
                 </li>
               ))}
@@ -166,14 +166,14 @@ function AgentWorldCard({ model }: { model: WorldModelRow }) {
           )}
         </div>
         <div>
-          <h4 className="text-xs font-medium text-amber-400 mb-1">Weaknesses</h4>
+          <h4 className="text-xs font-medium text-prism-elevated mb-1">Weaknesses</h4>
           {model.weaknesses.length === 0 ? (
             <p className="text-xs text-txt-faint">No weaknesses recorded yet</p>
           ) : (
             <ul className="space-y-1">
               {model.weaknesses.slice(0, 3).map((w, i) => (
                 <li key={i} className="text-xs text-txt-secondary">
-                  <span className="text-amber-400">⚠</span> {w.dimension}
+                  <span className="text-prism-elevated">⚠</span> {w.dimension}
                   <span className="text-txt-faint ml-1">({(w.confidence * 100).toFixed(0)}%)</span>
                 </li>
               ))}
@@ -235,7 +235,7 @@ function AgentWorldCard({ model }: { model: WorldModelRow }) {
                   </div>
                   <div className="w-full bg-raised rounded-full h-1.5 mt-1">
                     <div
-                      className="bg-indigo-500 h-1.5 rounded-full"
+                      className="bg-prism-fill-4 h-1.5 rounded-full"
                       style={{ width: progressBar(g.currentScore, g.targetScore) }}
                     />
                   </div>
@@ -248,10 +248,10 @@ function AgentWorldCard({ model }: { model: WorldModelRow }) {
           {/* Failure Patterns */}
           {model.failure_patterns.length > 0 && (
             <div>
-              <h4 className="text-xs font-medium text-red-400 mb-1">Failure Patterns</h4>
+              <h4 className="text-xs font-medium text-prism-critical mb-1">Failure Patterns</h4>
               {model.failure_patterns.map((fp, i) => (
                 <div key={i} className="text-xs text-txt-muted mb-1">
-                  <span className="text-red-400">⚠</span> {fp.pattern}
+                  <span className="text-prism-critical">⚠</span> {fp.pattern}
                   <span className="text-txt-faint ml-1">({fp.occurrences}x, last: {timeAgo(fp.lastSeen)})</span>
                 </div>
               ))}
@@ -261,7 +261,7 @@ function AgentWorldCard({ model }: { model: WorldModelRow }) {
           {/* Blindspots */}
           {model.blindspots.length > 0 && (
             <div>
-              <h4 className="text-xs font-medium text-orange-400 mb-1">Blindspots</h4>
+              <h4 className="text-xs font-medium text-prism-high mb-1">Blindspots</h4>
               {model.blindspots.map((b, i) => (
                 <p key={i} className="text-xs text-txt-muted">
                   • {b.dimension}
@@ -356,11 +356,11 @@ export default function WorldModel() {
           <div className="text-xs text-txt-faint">Avg Prediction Accuracy</div>
         </Card>
         <Card className="p-4 text-center">
-          <div className="text-2xl font-bold text-indigo-400">{totalGoals}</div>
+          <div className="text-2xl font-bold text-prism-fill-4">{totalGoals}</div>
           <div className="text-xs text-txt-faint">Improvement Goals</div>
         </Card>
         <Card className="p-4 text-center">
-          <div className="text-2xl font-bold text-red-400">{totalFailurePatterns}</div>
+          <div className="text-2xl font-bold text-prism-critical">{totalFailurePatterns}</div>
           <div className="text-xs text-txt-faint">Known Failure Patterns</div>
         </Card>
       </div>
