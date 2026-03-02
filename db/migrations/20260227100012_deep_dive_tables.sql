@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS deep_dives (
   error           TEXT,
 
   CONSTRAINT deep_dives_status_check CHECK (
-    status IN ('scoping', 'researching', 'analyzing', 'synthesizing', 'completed', 'failed')
+    status IN ('scoping', 'researching', 'analyzing', 'framework-analysis', 'synthesizing', 'completed', 'failed')
   )
 );
 
