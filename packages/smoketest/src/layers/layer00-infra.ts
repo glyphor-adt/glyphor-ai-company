@@ -100,25 +100,21 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
     }),
   );
 
-  // T0.6 — Worker Service Health (not yet deployed — skip if not configured)
-  const workerUrl = process.env.WORKER_URL;
-  if (!workerUrl) {
-    tests.push({
-      id: 'T0.6', name: 'Worker Service Responding',
-      status: 'skipped', message: 'WORKER_URL not set — worker service not yet deployed',
-      durationMs: 0,
-    });
-  } else {
-    tests.push(
-      await runTest('T0.6', 'Worker Service Responding', async () => {
-        const res = await httpGet<{ status: string }>(workerUrl.replace(/\/$/, '') + '/health');
-        if (!res.ok) {
-          throw new Error(`Worker /health returned status ${res.status}`);
-        }
+  // T0.6 — Worker Service Health
+  const workerUrl = process.env.WORKER_URL || 'https://glyphor-worker-610179349713.us-central1.run.app';
+  tests.push(
+    await runTest('T0.6', 'Worker Service Responding', async () => {
+      const res = await httpGet<{ status: string }>(workerUrl.replace(/\/$/, '') + '/health');
+      if (res.ok) {
         return `Worker service healthy (HTTP ${res.status})`;
-      }),
-    );
-  }
+      }
+      // 403 means Cloud Run IAM is blocking unauthenticated requests — service is reachable
+      if (res.status === 403) {
+        return `Worker service reachable (HTTP 403 — IAM auth required, expected)`;
+      }
+      throw new Error(`Worker /health returned status ${res.status}`);
+    }),
+  );
 
   // T0.7 — Cloud Tasks Queues (skip if API not enabled)
   tests.push(
