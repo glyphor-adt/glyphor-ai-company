@@ -3,20 +3,21 @@ import { apiCall } from './firebase';
 import type { Agent, Decision, ActivityEntry, Product, Financial, FounderDirective, Incident, AgentReflection, CompanyPulse, WorkAssignment, DashboardChangeRequest } from './types';
 
 /* ─── Generic fetch helper ─────────────────── */
-function useQuery<T>(table: string, _orderCol = 'created_at', _ascending = false) {
+function useQuery<T>(table: string, orderCol = 'created_at', ascending = false) {
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const rows = await apiCall<T[]>(`/api/${table}`);
+      const dir = ascending ? 'asc' : 'desc';
+      const rows = await apiCall<T[]>(`/api/${table}?order=${orderCol}.${dir}`);
       setData(rows ?? []);
     } catch {
       setData([]);
     }
     setLoading(false);
-  }, [table]);
+  }, [table, orderCol, ascending]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
