@@ -108,10 +108,9 @@ export default function GroupChat() {
   useEffect(() => {
     if (historyLoaded.current) return;
     historyLoaded.current = true;
-    const aliases = getEmailAliases(user?.email ?? 'unknown');
     (async () => {
-      const data = await apiCall<{ agent_role: string; role: string; content: string; attachments: any; created_at: string }[]>(
-        `/api/chat-messages?user_id=${encodeURIComponent(aliases.join(','))}&order=created_at.desc&limit=200`
+      const data = await apiCall<{ agent_role: string; role: string; content: string; attachments: any; created_at: string; user_id?: string }[]>(
+        `/api/chat-messages?conversation_id=${encodeURIComponent(conversationId)}&order=created_at.desc&limit=200`
       ).catch(() => null);
       if (data && data.length > 0) {
         const rows = [...data].reverse();
@@ -119,6 +118,7 @@ export default function GroupChat() {
           rows.map((row: any) => ({
             role: row.role as 'user' | 'agent',
             agentRole: row.role === 'agent' ? row.agent_role : undefined,
+            founderName: row.role === 'user' ? FOUNDERS.find((f) => f.email === row.user_id)?.name : undefined,
             content: row.content,
             timestamp: new Date(row.created_at),
             attachments: row.attachments ?? undefined,
@@ -126,7 +126,7 @@ export default function GroupChat() {
         );
       }
     })();
-  }, [user?.email]);
+  }, [conversationId]);
 
   const mentionables = [
     ...agents.map((a) => ({ role: a.role, name: DISPLAY_NAME_MAP[a.role] ?? a.role })),
