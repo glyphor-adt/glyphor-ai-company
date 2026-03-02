@@ -28,6 +28,15 @@
 #   DB_NAME=glyphor
 #   DB_USER=glyphor_system_user
 #   DB_PASSWORD=<password>
+#
+# For M365 integration tests (layer 13), also set:
+#   AZURE_TENANT_ID=<Azure tenant ID>
+#   AZURE_CLIENT_ID=<Azure app registration client ID>
+#   AZURE_CLIENT_SECRET=<Azure app registration secret>
+#   TEAMS_TEAM_ID=<Microsoft Teams team ID>
+#   TEAMS_CHANNEL_GENERAL_ID=<channel ID>
+#   TEAMS_CHANNEL_ENGINEERING_ID=<channel ID>
+#   SENDGRID_API_KEY=<SendGrid API key>
 
 # Build and run all layers
 cd packages/smoketest
@@ -1004,6 +1013,66 @@ Use the dashboard voice button (if available) to start a voice session with an a
 
 ---
 
+## Layer 13: Microsoft 365 Integration
+
+### T13.1 — Azure Credentials Configured
+
+Verifies `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, and `AZURE_CLIENT_SECRET` are set.
+
+**Pass:** All three Azure credential env vars present.
+**Fail:** Missing credentials = no Graph API access. Set in GCP Secret Manager and `.env`.
+
+### T13.2 — Teams Channel IDs Configured
+
+Checks `TEAMS_TEAM_ID` and at least 2 of the 5 core channel IDs (general, engineering, decisions, financials, growth).
+
+**Pass:** Team ID and 2+ channel IDs configured.
+**Fail:** Missing channel IDs = agents can't post to Teams channels. Get IDs from Teams Admin → Manage Teams → Channel details.
+
+### T13.3 — Teams Bot Endpoint
+
+Sends a minimal Bot Framework activity to `/api/teams/messages`. Expects any response other than 404.
+
+**Pass:** Endpoint reachable (200/202 = accepted, 401 = JWT validation working).
+**Fail:** 404 = bot endpoint not deployed. Check scheduler server routes.
+
+### T13.4 — Teams Activity in Logs
+
+Checks `activity_log` for recent Teams-related entries (briefings, channel posts).
+
+**Pass:** Teams activity entries found from multiple agents.
+**Fail:** Agents not posting to Teams. Check Azure credentials and channel IDs. Verify `post_to_teams` tool is in agent tool grants.
+
+### T13.5 — Email Activity in Logs
+
+Checks `activity_log` for email-related entries (send_email, read_inbox).
+
+**Pass:** Email activity entries found.
+**Fail:** Email not configured. Check `AZURE_MAIL_CLIENT_ID`/`AZURE_MAIL_CLIENT_SECRET` for Graph API email, or `SENDGRID_API_KEY` for SendGrid.
+
+### T13.6 — M365 Admin Agents
+
+Verifies `m365-admin` and `global-admin` agents exist in `company_agents` with active tool grants.
+
+**Pass:** Both admin agents exist and have tool grants.
+**Fail:** Missing agents = M365 operations unavailable. Seed agent data in `company_agents`, `agent_briefs`, `agent_tool_grants`.
+
+### T13.7 — SharePoint Knowledge Ingested
+
+Checks `company_knowledge` for entries with `discovered_by = 'sharepoint-sync'`.
+
+**Pass:** SharePoint documents ingested into knowledge base.
+**Fail:** SharePoint sync hasn't run or failed. Check `SHAREPOINT_SITE_ID`, `AZURE_FILES_CLIENT_ID`. Run `POST /sync/sharepoint-knowledge`.
+
+### T13.8 — SendGrid Configuration
+
+Checks for SendGrid API keys (main key + scoped per-department keys).
+
+**Pass:** At least 1 SendGrid key configured.
+**Fail:** Email fallback unavailable. Set `SENDGRID_API_KEY` in env.
+
+---
+
 ## Results Summary Template
 
 After running all tests, fill in:
@@ -1023,7 +1092,8 @@ After running all tests, fill in:
 | 10 — Specialist Agents | 3 | | | | | |
 | 11 — Dashboard & API | 7 | | | | | 20 pages, security headers, API CRUD |
 | 12 — Voice | 2 | | | | | |
-| **TOTAL** | **68** | | | | | |
+| 13 — M365 Integration | 8 | | | | | Azure, Teams, Email, SharePoint, SendGrid |
+| **TOTAL** | **76** | | | | | |
 
 ### Known Issues
 
@@ -1033,3 +1103,6 @@ After running all tests, fill in:
 4. **Layer 9 timeouts:** Strategic analysis (T9.1) and deep dive (T9.4) can take 600+ seconds. Run layer 9 separately.
 5. **Worker service:** T0.6 requires `WORKER_URL` in `.env`. Set to the Cloud Run worker service URL.
 6. **Cloud Tasks / Storage:** T0.7 and T0.8 require `gcloud` CLI with project access.
+7. **Azure credentials:** T13.1–T13.3 require `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and Teams channel IDs in `.env`.
+8. **M365 admin agents:** T13.6 requires `m365-admin` and `global-admin` agents seeded in the database with active tool grants.
+9. **SendGrid:** T13.8 requires at least one `SENDGRID_API_KEY*` in `.env`.

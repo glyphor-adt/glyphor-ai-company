@@ -13,6 +13,11 @@
  *   VOICE_GATEWAY_URL   — Cloud Run voice gateway base URL (required)
  *   WORKER_URL          — Cloud Run worker base URL (optional, for T0.6)
  *   GCP_PROJECT         — GCP project ID (default: ai-glyphor-company)
+ *   AZURE_TENANT_ID     — Azure tenant ID (for M365 tests, layer 13)
+ *   AZURE_CLIENT_ID     — Azure app client ID (for M365 tests)
+ *   AZURE_CLIENT_SECRET — Azure app client secret (for M365 tests)
+ *   TEAMS_TEAM_ID       — Microsoft Teams team ID (for M365 tests)
+ *   SENDGRID_API_KEY    — SendGrid API key (for M365 tests)
  */
 
 import { config as loadEnv } from 'dotenv';
@@ -43,10 +48,11 @@ import { run as layer09 } from './layers/layer09-strategy.js';
 import { run as layer10 } from './layers/layer10-specialists.js';
 import { run as layer11 } from './layers/layer11-dashboard.js';
 import { run as layer12 } from './layers/layer12-voice.js';
+import { run as layer13 } from './layers/layer13-m365.js';
 
 const ALL_LAYERS: LayerRunner[] = [
   layer00, layer01, layer02, layer03, layer04, layer05,
-  layer06, layer07, layer08, layer09, layer10, layer11, layer12,
+  layer06, layer07, layer08, layer09, layer10, layer11, layer12, layer13,
 ];
 
 function loadConfig(): SmokeTestConfig {
@@ -58,8 +64,8 @@ function loadConfig(): SmokeTestConfig {
   if (layerIdx !== -1 && args[layerIdx + 1]) {
     selectedLayers = args[layerIdx + 1].split(',').map(Number);
     for (const n of selectedLayers) {
-      if (isNaN(n) || n < 0 || n > 12) {
-        console.error(`Invalid layer number: ${n}. Must be 0-12.`);
+      if (isNaN(n) || n < 0 || n > 13) {
+        console.error(`Invalid layer number: ${n}. Must be 0-13.`);
         process.exit(1);
       }
     }
