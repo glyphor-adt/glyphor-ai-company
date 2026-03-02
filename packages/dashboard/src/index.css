@@ -4,46 +4,46 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Theme Variables ─────────────────────────── */
+/* ─── Theme Variables (derived from Prism) ────── */
 :root {
-  --color-base: #f2f4f8;
-  --color-surface: #ffffff;
-  --color-raised: #f7f8fb;
-  --color-border: #e3e7f0;
-  --color-border-hover: #c8cfdf;
-  --color-txt-primary: #0f1623;
-  --color-txt-secondary: #374151;
-  --color-txt-muted: #6b7280;
-  --color-txt-faint: #9ca3af;
-  --color-hover-bg: rgba(0,0,0,0.04);
-  --color-shimmer: rgba(14, 116, 144, 0.08);
-  --scrollbar-thumb: #dde1ec;
-  --scrollbar-hover: #9ca3af;
-  /* Accent colors – dark shades for white-bg contrast (≥ 5:1) */
-  --cyan: 8 145 178;       /* #0891B2  cyan-600 */
-  --azure: 37 99 235;      /* #2563EB  blue-600 */
-  --accent: 124 58 237;    /* #7C3AED  violet-600 */
+  --color-base: rgb(var(--prism-bg));
+  --color-surface: rgb(var(--prism-card));
+  --color-raised: rgb(var(--prism-card-alt));
+  --color-border: rgb(var(--prism-border));
+  --color-border-hover: #c0c6d6;
+  --color-txt-primary: rgb(var(--prism-primary));
+  --color-txt-secondary: rgb(var(--prism-secondary));
+  --color-txt-muted: rgb(var(--prism-tertiary));
+  --color-txt-faint: rgb(var(--prism-muted));
+  --color-hover-bg: rgb(var(--prism-accent-1) / 0.06);
+  --color-shimmer: rgb(var(--prism-accent-1) / 0.08);
+  --scrollbar-thumb: rgb(var(--prism-border));
+  --scrollbar-hover: rgb(var(--prism-muted));
+  /* Accent colors – from Prism accents */
+  --cyan: var(--prism-accent-1);
+  --azure: var(--prism-accent-3);
+  --accent: var(--prism-accent-5);
 }
 
 .dark {
   color-scheme: dark;
-  --color-base: #0d0f18;
-  --color-surface: #131620;
-  --color-raised: #1a1e2e;
-  --color-border: #242840;
-  --color-border-hover: #313655;
-  --color-txt-primary: #eaedfa;
-  --color-txt-secondary: #8b96b8;
-  --color-txt-muted: #505878;
-  --color-txt-faint: #313558;
-  --color-hover-bg: rgba(255,255,255,0.05);
-  --color-shimmer: rgba(34, 211, 238, 0.08);
-  --scrollbar-thumb: #242840;
-  --scrollbar-hover: #313655;
-  /* Accent colors – bright shades for dark-bg contrast (≥ 6:1) */
-  --cyan: 34 211 238;      /* #22D3EE  cyan-400 */
-  --azure: 96 165 250;     /* #60A5FA  blue-400 */
-  --accent: 167 139 250;   /* #A78BFA  violet-400 */
+  --color-base: rgb(var(--prism-bg));
+  --color-surface: rgb(var(--prism-card));
+  --color-raised: rgb(var(--prism-card-alt));
+  --color-border: rgb(var(--prism-border));
+  --color-border-hover: #383e58;
+  --color-txt-primary: rgb(var(--prism-primary));
+  --color-txt-secondary: rgb(var(--prism-secondary));
+  --color-txt-muted: rgb(var(--prism-tertiary));
+  --color-txt-faint: rgb(var(--prism-muted));
+  --color-hover-bg: rgb(255 255 255 / 0.05);
+  --color-shimmer: rgb(var(--prism-accent-1) / 0.08);
+  --scrollbar-thumb: rgb(var(--prism-border));
+  --scrollbar-hover: rgb(var(--prism-muted));
+  /* Accent colors – bright shades from Prism */
+  --cyan: var(--prism-accent-1);
+  --azure: var(--prism-accent-3);
+  --accent: var(--prism-accent-5);
 }
 
 /* ─── Global ──────────────────────────────────── */
@@ -94,48 +94,44 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
 
 /* ─── Light Mode Card Elevation ──────────────── */
 .glass-card {
-  background: #ffffff;
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.06),
-    0 4px 16px rgba(0, 0, 0, 0.04);
-  border-color: var(--color-border) !important;
+  background: rgb(var(--prism-card));
+  box-shadow: var(--prism-shadow);
+  border-color: rgb(var(--prism-border)) !important;
 }
 .glass-card:hover {
-  box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.08),
-    0 8px 32px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--prism-shadow-lg);
   border-color: var(--color-border-hover) !important;
 }
 
 /* ─── Dark Mode Card Elevation ───────────────── */
 .dark .glass-card {
-  background: rgba(19, 22, 32, 0.97) !important;
+  background: rgb(var(--prism-card) / 0.97) !important;
   backdrop-filter: blur(20px) saturate(1.5);
   -webkit-backdrop-filter: blur(20px) saturate(1.5);
-  border-color: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgb(var(--prism-border) / 0.5) !important;
   box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.07) inset,
-    0 -1px 0 0 rgba(0, 0, 0, 0.35) inset,
-    0 8px 32px rgba(0, 0, 0, 0.5),
-    0 2px 6px rgba(0, 0, 0, 0.3);
+    0 1px 0 0 rgb(255 255 255 / 0.07) inset,
+    0 -1px 0 0 rgb(0 0 0 / 0.35) inset,
+    0 8px 32px rgb(0 0 0 / 0.5),
+    0 2px 6px rgb(0 0 0 / 0.3);
 }
 .dark .glass-card:hover {
-  background: rgba(24, 27, 40, 0.99) !important;
-  border-color: rgba(255, 255, 255, 0.10) !important;
+  background: rgb(var(--prism-card-alt) / 0.99) !important;
+  border-color: rgb(var(--prism-border) / 0.7) !important;
   box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.09) inset,
-    0 -1px 0 0 rgba(0, 0, 0, 0.35) inset,
-    0 12px 40px rgba(0, 0, 0, 0.55),
-    0 3px 8px rgba(0, 0, 0, 0.35);
+    0 1px 0 0 rgb(255 255 255 / 0.09) inset,
+    0 -1px 0 0 rgb(0 0 0 / 0.35) inset,
+    0 12px 40px rgb(0 0 0 / 0.55),
+    0 3px 8px rgb(0 0 0 / 0.35);
 }
 
 /* Inner raised elements inside glass cards */
 .dark .glass-raised {
-  background: rgba(26, 30, 46, 0.85) !important;
+  background: rgb(var(--prism-card-alt) / 0.85) !important;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-color: rgba(255, 255, 255, 0.07) !important;
-  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.05) inset;
+  border-color: rgb(var(--prism-border) / 0.5) !important;
+  box-shadow: 0 1px 0 0 rgb(255 255 255 / 0.05) inset;
 }
 
 /* ─── Glow effect for active agent nodes ──── */

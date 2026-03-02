@@ -14,6 +14,18 @@
  *   GCP_PROJECT         — GCP project ID (default: ai-glyphor-company)
  */
 
+import { config as loadEnv } from 'dotenv';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { existsSync } from 'fs';
+
+// Load .env from repo root (walk up from packages/smoketest/dist/)
+const __dirname = dirname(fileURLToPath(import.meta.url));
+for (let dir = __dirname; dir !== dirname(dir); dir = dirname(dir)) {
+  const candidate = resolve(dir, '.env');
+  if (existsSync(candidate)) { loadEnv({ path: candidate }); break; }
+}
+
 import type { SmokeTestConfig, LayerRunner } from './types.js';
 import { printLayerResults, printSummaryTable } from './utils/report.js';
 

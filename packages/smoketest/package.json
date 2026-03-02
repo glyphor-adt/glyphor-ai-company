@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@glyphor/shared": "*"
+    "@glyphor/shared": "*",
+    "dotenv": "^17.3.1"
   }
 }
