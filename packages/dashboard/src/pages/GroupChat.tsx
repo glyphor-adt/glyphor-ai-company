@@ -382,11 +382,11 @@ export default function GroupChat() {
       (id) => FOUNDERS.find((f) => f.id === id)?.name ?? id,
     );
     const members = [...roles.map((r) => DISPLAY_NAME_MAP[r] ?? r), ...founderNames].join(', ');
-    const base = `You are in a group chat with: ${members}. The founders are also present.`;
+    const base = `You are in a live group chat with: ${members}. The founders are also present.`;
     if (isFollowUp) {
       return `${base} Other agents have already responded above. If you have something meaningful to add, build on or respectfully challenge their points. If you agree and have nothing new to contribute, respond with exactly: [NO_REPLY]`;
     }
-    return `${base} Keep your response concise — others will also respond after you, and they will see what you said.`;
+    return `${base} This is a real-time conversation — respond naturally and directly to what was said. Do NOT give status updates, reports, or summaries unless explicitly asked. Match the tone and intent of the message. If someone says hello, just say hello back. Keep it concise — others will also respond.`;
   };
 
   // ── Send user message → agents respond sequentially ──
