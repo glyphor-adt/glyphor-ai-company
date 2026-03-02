@@ -1,20 +1,57 @@
+╔══════════════════════════════════════════════════════╗
+║         Glyphor Architecture Smoke Test Suite       ║
+╚══════════════════════════════════════════════════════╝
+
+Running layers: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+Interactive mode: OFF
+Scheduler: https://glyphor-scheduler-610179349713.us-central1.run.app
+
+
+▶ Starting Layer 0...
+
+▶ Starting Layer 1...
+
+▶ Starting Layer 2...
+
+▶ Starting Layer 3...
+
+▶ Starting Layer 4...
+
+▶ Starting Layer 5...
+
+▶ Starting Layer 6...
+
+▶ Starting Layer 7...
+
+▶ Starting Layer 8...
+
+▶ Starting Layer 9...
+
+▶ Starting Layer 10...
+
+▶ Starting Layer 11...
+
+▶ Starting Layer 12...
+
+▶ Starting Layer 13...
+
+════════════════════════════════════════════════════════════
 Layer 0 — Infrastructure Health
 ════════════════════════════════════════════════════════════
-  ✅ T0.1 Cloud Run Services Responding (3.0s)
-  ⏭️ T0.2 Database Connection (1.0s)
-  ✅ T0.3 Redis Connected (0.3s)
-  ✅ T0.4 GCP Secret Manager (7.3s)
+  ✅ T0.1 Cloud Run Services Responding (0.8s)
+  ✅ T0.2 Database Connection (0.3s)
+  ✅ T0.3 Redis Connected (0.1s)
+  ✅ T0.4 GCP Secret Manager (3.7s)
   ✅ T0.5 Pub/Sub Topic exists (1.9s)
-  ❌ T0.6 Worker Service Responding
-     └─ WORKER_URL not set — add to .env
-  ❌ T0.7 Cloud Tasks Queues (2.4s)
+  ⏭️ T0.6 Worker Service Responding
+  ❌ T0.7 Cloud Tasks Queues (1.9s)
      └─ Command failed: gcloud tasks queues list --location=us-central1 --format="value(name)" --project=ai-glyphor-company
 API [cloudtasks.googleapis.com] not enabled on project [ai-glyphor-company].
 Would you like to enable and retry (this will take a few minutes)? (y/N)?
 ERROR: (gcloud.tasks.queues.list) PERMISSION_DENIED: Cloud Tasks API has not been used in project ai-glyphor-company before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudtasks.googleapis.com/overview?project=ai-glyphor-company then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry. This command is authenticated as DevOps@glyphor.ai which is the active account specified by the [core/account] property.
 Cloud Tasks API has not been used in project ai-glyphor-company before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudtasks.googleapis.com/overview?project=ai-glyphor-company then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.
 Google developers console API activation
-https://console.developers.google.com/apis/api/cloudtasks.googleapis.com/overview?project=ai-glyphor-company    
+https://console.developers.google.com/apis/api/cloudtasks.googleapis.com/overview?project=ai-glyphor-company  
 - '@type': type.googleapis.com/google.rpc.ErrorInfo
   domain: googleapis.com
   metadata:
@@ -25,44 +62,47 @@ https://console.developers.google.com/apis/api/cloudtasks.googleapis.com/overvie
     serviceTitle: Cloud Tasks API
   reason: SERVICE_DISABLED
 
-  ✅ T0.8 Cloud Storage Bucket (25.0s)
-  ⏭️ T0.9 Multi-Tenancy Tables (0.0s)
+  ✅ T0.8 Cloud Storage Bucket (6.8s)
+  ✅ T0.9 Multi-Tenancy Tables (0.2s)
 
 ════════════════════════════════════════════════════════════
 Layer 1 — Data Syncs
 ════════════════════════════════════════════════════════════
-  ❌ T1.1 Stripe Sync (0.1s)
-     └─ Stripe sync failed: status=500, body={"success":false,"error":"STRIPE_SECRET_KEY environment variable is required"}
-  ❌ T1.2 Mercury Sync (0.1s)
-     └─ Mercury sync failed: status=500, body={"success":false,"error":"MERCURY_API_TOKEN environment variable is required"}
-  ✅ T1.3 GCP Billing Sync (8.5s)
-  ⏭️ T1.4 Data Sync Status (0.0s)
-  ❌ T1.5 Billing Syncs (10.3s)
+  ✅ T1.1 Stripe Sync (0.4s)
+  ✅ T1.2 Mercury Sync (1.2s)
+  ✅ T1.3 GCP Billing Sync (8.0s)
+  ❌ T1.4 Data Sync Status (0.1s)
+     └─ 4 stale sync(s); 3 failing sync(s)
+  ❌ T1.5 Billing Syncs (10.8s)
      └─ Billing sync issues: OpenAI: 500, Anthropic: OK
-  ❌ T1.6 SharePoint Knowledge Sync (0.1s)
-     └─ SharePoint sync failed: status=500, body={"success":false,"error":"Missing SHAREPOINT_SITE_ID for SharePoint knowledge sync."}
+  ❌ T1.6 SharePoint Knowledge Sync (0.2s)
+     └─ SharePoint sync failed: status=500, body={"success":false,"error":"Failed to load SharePoint default drive (400): <!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\"\"http://www.w3.org/TR/html4/strict.dtd\">\r\n<HTML><HEAD><TITLE>Bad Request</TITLE>\r\n<META HTTP-EQUIV=\"Content-Type\" Content=\"text/html; charset=us-ascii\"></HEAD>\r\n<BODY><h2>Bad Request - Invalid URL</h2>\r\n<hr><p>HTTP Error 400. The request URL is invalid.</p>\r\n</BODY></HTML>\r\n"}
 
 ════════════════════════════════════════════════════════════
 Layer 2 — Model Clients
 ════════════════════════════════════════════════════════════
-  ✅ T2.1 Gemini (ops agent) (1.2s)
-  ✅ T2.2 OpenAI (cto agent) (0.8s)
-  ✅ T2.3 Anthropic (clo agent) (1.1s)
-  ✅ T2.4 Multi-Tool Turn (regression) (2.9s)
+  ✅ T2.1 Gemini (ops agent) (1.3s)
+  ✅ T2.2 OpenAI (cto agent) (1.0s)
+  ✅ T2.3 Anthropic (clo agent) (0.8s)
+  ✅ T2.4 Multi-Tool Turn (regression) (4.6s)
 
 ════════════════════════════════════════════════════════════
 Layer 3 — Heartbeat & Work Loop
 ════════════════════════════════════════════════════════════
-  ⏭️ T3.1 Heartbeat Firing (0.1s)
-  ⏭️ T3.2 Tier Selection (0.0s)
-  ⏭️ T3.3 Proactive Disabled for Sub-Team (0.0s)
-  ⏭️ T3.4 Abort Cooldown (0.1s)
+  ❌ T3.1 Heartbeat Firing (0.2s)
+     └─ No heartbeat or chief-of-staff runs found in the last 30 minutes
+  ❌ T3.2 Tier Selection (0.1s)
+     └─ No agent runs in the last hour
+  ✅ T3.3 Proactive Disabled for Sub-Team (0.1s)
+  ✅ T3.4 Abort Cooldown (0.1s)
 
 ════════════════════════════════════════════════════════════
 Layer 4 — Orchestration Loop
 ════════════════════════════════════════════════════════════
-  ⏭️ T4.0 Direct Work Assignment (0.0s)
-  ⏭️ T4.1 Create Directive (0.0s)
+  ❌ T4.0 Direct Work Assignment (0.1s)
+     └─ null value in column "tenant_id" of relation "work_assignments" violates not-null constraint
+  ❌ T4.1 Create Directive (0.1s)
+     └─ null value in column "tenant_id" of relation "founder_directives" violates not-null constraint        
   🚫 T4.2 Sarah Detects
      └─ Skipped — directive creation (T4.1) failed
   🚫 T4.3 Assignments Created
@@ -79,65 +119,66 @@ Layer 4 — Orchestration Loop
 ════════════════════════════════════════════════════════════
 Layer 5 — Communication
 ════════════════════════════════════════════════════════════
-  ⏭️ T5.1 Inter-Agent DMs (5.0s)
-  ⏭️ T5.2 Message Pickup (0.0s)
-  ⏭️ T5.3 Multi-Agent Meeting (0.1s)
-  ⏭️ T5.4 Teams Channel Post (post_to_teams) (6.9s)
-  ✅ T5.5 Agent Email (3.1s)
+  ✅ T5.1 Inter-Agent DMs (2.7s)
+  ✅ T5.2 Message Pickup (0.1s)
+  ✅ T5.3 Multi-Agent Meeting (0.2s)
+  ✅ T5.4 Teams Channel Post (post_to_teams) (4.9s)
+  ✅ T5.5 Agent Email (1.1s)
 
 ════════════════════════════════════════════════════════════
 Layer 6 — Authority Gates
 ════════════════════════════════════════════════════════════
-  ✅ T6.1 Green Tier (2.8s)
-  ⏭️ T6.2 Yellow Tier (8.2s)
-  ⏭️ T6.3 Decision Approval Flow (0.0s)
-  ⏭️ T6.4 Trust Scores (0.0s)
+  ✅ T6.1 Green Tier (2.3s)
+  ✅ T6.2 Yellow Tier (1.7s)
+  ✅ T6.3 Decision Approval Flow (0.1s)
+  ✅ T6.4 Trust Scores (0.1s)
 
 ════════════════════════════════════════════════════════════
 Layer 7 — Intelligence Enhancements
 ════════════════════════════════════════════════════════════
-  ⏭️ T7.1 Constitutional Governance (0.0s)
-  ⏭️ T7.2 Decision Chains (0.0s)
-  ⏭️ T7.3 Formal Verification (0.1s)
-  ⏭️ T7.4 Causal Knowledge Graph (0.0s)
-  ⏭️ T7.5 Episodic Replay (0.0s)
-  ⏭️ T7.6 Drift Detection (0.1s)
-  ✅ T7.7 Verifier Agents (3.7s)
+  ❌ T7.1 Constitutional Governance (0.1s)
+     └─ No active agent constitutions found
+  ❌ T7.2 Decision Chains (0.1s)
+     └─ No decision chains found
+  ❌ T7.3 Formal Verification (0.1s)
+     └─ No verification entries in audit log
+  ❌ T7.4 Causal Knowledge Graph (0.1s)
+     └─ No kg_edges with causal_confidence
+  ✅ T7.5 Episodic Replay (0.3s)
+  ❌ T7.6 Drift Detection (0.1s)
+     └─ No drift alerts found
+  ✅ T7.7 Verifier Agents (6.5s)
 
 ════════════════════════════════════════════════════════════
 Layer 8 — Knowledge Graph
 ════════════════════════════════════════════════════════════
-  ⏭️ T8.1 Graph Has Nodes (0.0s)
-  ⏭️ T8.2 Graph Has Edges (0.0s)
-  ⏭️ T8.3 Semantic Search (0.0s)
+  ✅ T8.1 Graph Has Nodes (0.1s)
+  ✅ T8.2 Graph Has Edges (0.1s)
+  ✅ T8.3 Semantic Search (0.1s)
   ❌ T8.4 GraphRAG Indexer (0.1s)
      └─ POST /sync/graphrag-index returned 500: {"success":false,"error":"fetch failed"}
 
 ════════════════════════════════════════════════════════════
 Layer 9 — Strategy & Analysis Engines
 ════════════════════════════════════════════════════════════
-  ❌ T9.1 Strategic Analysis (602.5s)
-     └─ pollUntil timed out after 600000ms
-  ❌ T9.2 T+1 Simulation (30.3s)
-     └─ Run failed: {"id":"sim-1772477265366-m83l8t","action":"Increase marketing budget by 50%","perspective":"neutral","status":"failed","requested_by":"dashboard","dimensions":[{"area":"Engineering & Technology","impact":"positive","magnitude":4,"reasoning":"An increased marketing budget aims to drive user growth and product visibility, directly impacting Engineering & Technology by creating demand for scalable infrastructure and new feature development. This presents opportunities for technical innovation and growth, but also risks increased workload and potential resource strain if not adequately supported with proportional engineering investment.","confidence":0.85,"perspective":"cto","secondOrderEffects":["Increased demand for scalable infrastructure and backend services","New feature development driven by market opportunities","Potential for increased technical debt if growth outpaces engineering capacity","Improved talent acquisition due to enhanced brand visibility"]},{"area":"Financial Impact","impact":"neutral","magnitude":4,"reasoning":"The immediate impact is a direct increase in operational expenses, reducing short-term profitability. However, if the increased marketing spend is effective, it could drive significant revenue growth, customer acquisition, and market share, ultimately leading to a positive return on investment. The net financial outcome is highly contingent on the efficiency and targeting of the new marketing campaigns.","confidence":0.4,"perspective":"cfo","secondOrderEffects":["Increased brand visibility and customer engagement","Potential for improved sales conversion rates","Higher demand on sales and fulfillment teams","Cash flow implications due to upfront investment"]},{"area":"Marketing & Brand","impact":"positive","magnitude":7,"reasoning":"A 50% budget increase significantly accelerates brand awareness and market penetration by enabling higher-frequency campaigns and entry into new channels. While it drives growth, the impact is tempered by the risk of diminishing returns and the challenge of maintaining brand quality at a larger scale.","confidence":0.85,"perspective":"cmo","secondOrderEffects":["Increased operational strain on creative and media-buying teams to deploy capital efficiently","Potential inflation of customer acquisition costs (CAC) as the brand targets less-saturated, higher-cost audience segments"]},{"area":"Product & User Experience","impact":"neutral","magnitude":1,"reasoning":"Increasing marketing spend drives acquisition but does not inherently improve the product's core functionality or usability. While it provides more data for future UX iterations, it can create a gap between marketing promises and actual product performance if not aligned.","confidence":0.85,"perspective":"cpo","secondOrderEffects":["Increased strain on customer support and technical infrastructure due to higher traffic","Potential dilution of user feedback quality as a broader, less-targeted demographic enters the ecosystem"]},{"area":"Sales & Revenue","impact":"positive","magnitude":7,"reasoning":"A 50% increase in marketing budget is intended to expand reach, increase brand awareness, and drive customer acquisition, which typically correlates with higher sales volumes. The actual revenue uplift, however, is contingent on the effectiveness and efficiency of the additional marketing spend and the underlying market demand.","confidence":0.75,"perspective":"vp-sales","secondOrderEffects":["Potential increase in Customer Acquisition Cost (CAC) if new spend is less efficient","Improved brand equity and market share","Increased demand on sales and fulfillment operations","Potential competitive response leading to increased industry-wide marketing spend"]},{"area":"Customer Satisfaction","impact":"neutral","magnitude":0,"reasoning":"An increased marketing budget offers potential for broader reach and improved brand awareness, which could positively impact satisfaction by attracting well-aligned customers. However, the actual impact is highly contingent on the quality, targeting, and messaging of the campaigns. Poorly executed or intrusive marketing can easily lead to customer annoyance and dissatisfaction, making the net effect highly variable.","confidence":0.65,"perspective":"vp-customer-success","secondOrderEffects":["Increased customer acquisition, potentially leading to a larger customer base.","Elevated customer expectations, requiring the product/service to consistently deliver.","Risk of brand fatigue or negative perception if marketing is intrusive or misleading.","Potential for better communication of product value, improving customer understanding."]}],"report":{"votes":[{"vote":"approve","agent":"cto","reasoning":"An increased marketing budget aims to drive user growth and product visibility, directly impacting Engineering & Technology by creating demand for scalable infrastructure and new feature development. This presents opportunities for technical innovation and growth, but also risks increased workload and potential resource strain if not adequately supported with proportional engineering investment."},{"vote":"approve","agent":"cfo","reasoning":"The immediate impact is a direct increase in operational expenses, reducing short-term profitability. However, if the increased marketing spend is effective, it could drive significant revenue growth, customer acquisition, and market share, ultimately leading to a positive return on investment. The net financial outcome is highly contingent on the efficiency and targeting of the new marketing campaigns."},{"vote":"approve","agent":"cmo","reasoning":"A 50% budget increase significantly accelerates brand awareness and market penetration by enabling higher-frequency campaigns and entry into new channels. While it drives growth, the impact is tempered by the risk of diminishing returns and the challenge of maintaining brand quality at a larger scale."},{"vote":"caution","agent":"cpo","reasoning":"Increasing marketing spend drives acquisition but does not inherently improve the product's core functionality or usability. While it provides more data for future UX iterations, it can create a gap between marketing promises and actual product performance if not aligned."},{"vote":"approve","agent":"vp-sales","reasoning":"A 50% increase in marketing budget is intended to expand reach, increase brand awareness, and drive customer acquisition, which typically correlates with higher sales volumes. The actual revenue uplift, however, is contingent on the effectiveness and efficiency of the additional marketing spend and the underlying market demand."},{"vote":"caution","agent":"vp-customer-success","reasoning":"An increased marketing budget offers potential for broader reach and improved brand awareness, which could positively impact satisfaction by attracting well-aligned customers. However, the actual impact is highly contingent on the quality, targeting, and messaging of the campaigns. Poorly executed or intrusive marketing can easily lead to customer annoyance and dissatisfaction, making the net effect highly variable."}],"summary":"The T+1 impact simulation for a 50% increase in the marketing budget yielded an overall score of 3.9/10. Despite this low score, the recommendation is to proceed with the action. This decision is based on the potential for significant positive impacts in key growth areas, tempered by several conditional and neutral outcomes that require careful management.\n\nMarketing & Brand and Sales & Revenue anticipate strong positive impacts, with magnitudes of 7/10, driven by expanded reach and increased customer acquisition. Engineering & Technology also expects a positive impact (4/10) due to increased demand for scalable infrastructure, though this requires proportional investment. Financial Impact is neutral (4/10), as immediate operational expense increases could be offset by future revenue growth, contingent on campaign effectiveness. Product & User Experience (1/10) and Customer Satisfaction (0/10) are largely neutral, with their outcomes heavily dependent on the quality and alignment of marketing messages with actual product performance and customer expectations. Poor execution in these areas could lead to dissatisfaction.\n\nWhile the overall score reflects the inherent risks and conditional nature of success, particularly concerning financial returns and maintaining product-market fit, the strategic imperative for growth through increased brand awareness and market penetration supports the recommendation to proceed. Careful monitoring of campaign effectiveness and resource allocation will be critical to mitigate identified risks and realize the intended positive outcomes.","dimensions":[{"area":"Engineering & Technology","impact":"positive","magnitude":4,"reasoning":"An increased marketing budget aims to drive user growth and product visibility, directly impacting Engineering & Technology by creating demand for scalable infrastructure and new feature development. This presents opportunities for technical innovation and growth, but also risks increased workload and potential resource strain if not adequately supported with proportional engineering investment.","confidence":0.85,"perspective":"cto","secondOrderEffects":["Increased demand for scalable infrastructure and backend services","New feature development driven by market opportunities","Potential for increased technical debt if growth outpaces engineering capacity","Improved talent acquisition due to enhanced brand visibility"]},{"area":"Financial Impact","impact":"neutral","magnitude":4,"reasoning":"The immediate impact is a direct increase in operational expenses, reducing short-term profitability. However, if the increased marketing spend is effective, it could drive significant revenue growth, customer acquisition, and market share, ultimately leading to a positive return on investment. The net financial outcome is highly contingent on the efficiency and targeting of the new marketing campaigns.","confidence":0.4,"perspective":"cfo","secondOrderEffects":["Increased brand visibility and customer engagement","Potential for improved sales conversion rates","Higher demand on sales and fulfillment teams","Cash flow implications due to upfront investment"]},{"area":"Marketing & Brand","impact":"positive","magnitude":7,"reasoning":"A 50% budget increase significantly accelerates brand awareness and market penetration by enabling higher-frequency campaigns and entry into new channels. While it drives growth, the impact is tempered by the risk of diminishing returns and the challenge of maintaining brand quality at a larger scale.","confidence":0.85,"perspective":"cmo","secondOrderEffects":["Increased operational strain on creative and media-buying teams to deploy capital efficiently","Potential inflation of customer acquisition costs (CAC) as the brand targets less-saturated, higher-cost audience segments"]},{"area":"Product & User Experience","impact":"neutral","magnitude":1,"reasoning":"Increasing marketing spend drives acquisition but does not inherently improve the product's core functionality or usability. While it provides more data for future UX iterations, it can create a gap between marketing promises and actual product performance if not aligned.","confidence":0.85,"perspective":"cpo","secondOrderEffects":["Increased strain on customer support and technical infrastructure due to higher traffic","Potential dilution of user feedback quality as a broader, less-targeted demographic enters the ecosystem"]},{"area":"Sales & Revenue","impact":"positive","magnitude":7,"reasoning":"A 50% increase in marketing budget is intended to expand reach, increase brand awareness, and drive customer acquisition, which typically correlates with higher sales volumes. The actual revenue uplift, however, is contingent on the effectiveness and efficiency of the additional marketing spend and the underlying market demand.","confidence":0.75,"perspective":"vp-sales","secondOrderEffects":["Potential increase in Customer Acquisition Cost (CAC) if new spend is less efficient","Improved brand equity and market share","Increased demand on sales and fulfillment operations","Potential competitive response leading to increased industry-wide marketing spend"]},{"area":"Customer Satisfaction","impact":"neutral","magnitude":0,"reasoning":"An increased marketing budget offers potential for broader reach and improved brand awareness, which could positively impact satisfaction by attracting well-aligned customers. However, the actual impact is highly contingent on the quality, targeting, and messaging of the campaigns. Poorly executed or intrusive marketing can easily lead to customer annoyance and dissatisfaction, making the net effect highly variable.","confidence":0.65,"perspective":"vp-customer-success","secondOrderEffects":["Increased customer acquisition, potentially leading to a larger customer base.","Elevated customer expectations, requiring the product/service to consistently deliver.","Risk of brand fatigue or negative perception if marketing is intrusive or misleading.","Potential for better communication of product value, improving customer understanding."]}],"cascadeChain":[{"to":"Customer Satisfaction","from":"Financial Impact","delay":"weeks","effect":"Increased brand visibility and customer engagement"},{"to":"Sales & Revenue","from":"Financial Impact","delay":"weeks","effect":"Potential for improved sales conversion rates"},{"to":"Sales & Revenue","from":"Financial Impact","delay":"weeks","effect":"Higher demand on sales and fulfillment teams"},{"to":"Customer Satisfaction","from":"Marketing & Brand","delay":"weeks","effect":"Potential inflation of customer acquisition costs (CAC) as the brand targets less-saturated, higher-cost audience segments"},{"to":"Customer Satisfaction","from":"Product & User Experience","delay":"weeks","effect":"Increased strain on customer support and technical infrastructure due to higher traffic"},{"to":"Customer Satisfaction","from":"Sales & Revenue","delay":"weeks","effect":"Potential increase in Customer Acquisition Cost (CAC) if new spend is less efficient"},{"to":"Marketing & Brand","from":"Sales & Revenue","delay":"weeks","effect":"Potential competitive response leading to increased industry-wide marketing spend"},{"to":"Product & User Experience","from":"Customer Satisfaction","delay":"weeks","effect":"Elevated customer expectations, requiring the product/service to consistently deliver."},{"to":"Marketing & Brand","from":"Customer Satisfaction","delay":"weeks","effect":"Risk of brand fatigue or negative perception if marketing is intrusive or misleading."},{"to":"Product & User Experience","from":"Customer Satisfaction","delay":"weeks","effect":"Potential for better communication of product value, improving customer understanding."}],"overallScore":3.9,"recommendation":"proceed"},"created_at":"2026-03-02T18:47:45.366Z","completed_at":"2026-03-02T18:48:01.469Z","accepted_at":null,"accepted_by":null,"error":"null value in column \"agent_role\" of relation \"activity_log\" violates not-null constraint"}
-  ❌ T9.3 Chain of Thought (91.3s)
-     └─ Run failed: {"id":"cot-1772477295649-sj0mvy","query":"Should we prioritize enterprise sales or self-serve growth?","status":"failed","requested_by":"dashboard","report":{"options":[{"cons":["Requires a significant timeframe (3-5 months) before a definitive prioritization decision is reached.","Demands substantial executive and cross-functional resource commitment.","High initial investment in time and resources without immediate growth results.","Potential for analysis paralysis if not managed effectively, delaying action."],"pros":["Provides data-driven clarity for making informed prioritization decisions.","Defines clear Ideal Customer Profiles (ICPs) and assesses product-market fit for both segments.","Addresses fundamental issues like 'Undefined Target Customer Profile (ICP) & Value Proposition Alignment' and 'Product-Market Fit Ambiguity Across Segments'.","Establishes a structured framework for future evaluation and prioritization of growth channels."],"title":"Strategic Growth Assessment & Prioritization Framework","reasoning":"This option has high feasibility due to its structured, analytical approach and the involvement of executive leadership, which ensures strategic buy-in. However, the extensive resource requirements across multiple departments and the relatively long timeframe make its execution demanding.","feasibilityScore":8},{"cons":["Requires significant technical resources (Data Analytics, Engineering) for implementation and integration.","Long implementation timeframe (4-6 months) before actionable insights are consistently available.","Does not directly make the prioritization decision, but rather informs it, requiring subsequent strategic action.","Potential for data quality issues or resistance to new reporting standards if not meticulously managed."],"pros":["Provides objective, data-driven insights to track channel effectiveness and ROI.","Directly addresses 'Insufficient Data on Channel Effectiveness & ROI' and helps mitigate 'Resource Misallocation & Inefficiency'.","Establishes consistent metrics and reporting for ongoing optimization and strategic adjustments.","Enables better understanding of Customer Acquisition Cost (CAC) and Lifetime Value (LTV) for both channels."],"title":"Unified Growth Analytics & ROI Platform","reasoning":"Feasibility is moderate due to the technical complexity involved in integrating diverse data sources and establishing a robust analytics platform. It requires specialized technical teams and a considerable timeframe, which can be challenging to secure and manage effectively.","feasibilityScore":7},{"cons":["Requires strong executive leadership and effective change management to overcome potential resistance.","Its effectiveness is highly dependent on prior insights (e.g., from a strategic assessment) to define the prioritized growth engine(s).","Can be challenging to implement cultural and incentive changes across an entire organization.","Long timeframe (3-6 months) for full adoption and realization of benefits, with potential for internal friction during the transition."],"pros":["Creates a unified GTM strategy, providing clear strategic focus and direction.","Aligns all key departments (Product, Marketing, Sales, Customer Success) towards shared growth objectives.","Directly addresses 'Absence of a Clear Go-to-Market (GTM) Strategy' and 'Lack of Cross-Functional Alignment on KPIs & Incentives'.","Redesigns KPIs and incentive structures to ensure sustained organizational alignment and reduce internal conflict."],"title":"Cross-Functional Go-to-Market (GTM) Strategy & Alignment Initiative","reasoning":"This option has moderate feasibility due to the significant organizational change management required. It demands strong executive buy-in, cross-functional collaboration, and the ability to navigate potential resistance to new KPIs and incentive structures, which can be complex and time-consuming.","feasibilityScore":7}],"summary":"Our organization faces significant challenges stemming from a lack of clear prioritization between enterprise sales and self-serve growth strategies. This ambiguity leads to high-severity problems including widespread resource misallocation, a lack of strategic clarity and focus across departments, suboptimal market penetration in both segments, and internal conflict due to misaligned objectives. Without a unified direction, efforts are diluted, and our ability to effectively capture market share and optimize customer acquisition is severely hampered.\n\nTo address these critical issues, a multi-faceted approach is proposed, centered around three key initiatives. First, a **Strategic Growth Assessment & Prioritization Framework** will provide data-driven clarity by defining Ideal Customer Profiles (ICPs), assessing product-market fit, and evaluating internal capabilities to inform a definitive prioritization decision. Second, a **Unified Growth Analytics & ROI Platform** will establish consistent metrics and reporting to track channel effectiveness and ROI, enabling objective resource allocation. Finally, a **Cross-Functional Go-to-Market (GTM) Strategy & Alignment Initiative** will translate the prioritized direction into a unified GTM plan, complete with aligned KPIs and incentive structures across all departments, ensuring organizational cohesion and focused execution.\n\nWhile each solution offers substantial benefits, they collectively require significant investment in time (3-6 months per initiative) and resources, including executive leadership, specialized technical teams, and extensive cross-functional collaboration. A critical consideration is the organization's tolerance for these timeframes, given the high severity of current problems. Furthermore, successful implementation hinges on strong executive buy-in, effective change management capabilities to navigate potential resistance, and the sustained commitment of resources. The GTM strategy, in particular, is most effective when informed by the insights gained from a prior strategic assessment, suggesting a phased approach may be optimal to ensure a robust and sustainable growth strategy.","problems":[{"title":"Resource Misallocation & Inefficiency","severity":"high","description":"Spreading resources (budget, personnel, time) too thinly across two distinct growth strategies (enterprise sales and self-serve) without clear prioritization, leading to suboptimal performance and diluted impact in both areas."},{"title":"Lack of Strategic Clarity & Focus","severity":"high","description":"Absence of a unified organizational direction regarding the primary growth engine, resulting in internal misalignment, conflicting objectives, and diluted efforts across departments."},{"title":"Suboptimal Market Penetration & Growth","severity":"high","description":"Failure to effectively capture significant market share or optimize customer acquisition in either the enterprise or self-serve segment due to a lack of specialized focus and tailored go-to-market execution."},{"title":"Internal Conflict & Misalignment","severity":"medium","description":"Different departments (e.g., sales, marketing, product) pursuing divergent goals and priorities based on their preferred growth strategy, leading to friction, duplicated work, and hindered execution."}],"solutions":[{"title":"Strategic Growth Assessment & Prioritization Framework","resources":"Executive Leadership, Product Management, Marketing, Sales, Data Analytics, potentially external market research consultants.","timeframe":"3-5 months","description":"Conduct a comprehensive analysis to define clear Ideal Customer Profiles (ICPs) for both enterprise and self-serve segments, assess product-market fit for each, and evaluate the strategic alignment of the organization's capabilities with these segments. Develop a structured framework for evaluating and prioritizing growth channels based on market opportunity, competitive landscape, internal capabilities, and strategic objectives. This will provide the data and clarity needed to make an informed decision on prioritization, directly addressing 'Undefined Target Customer Profile (ICP) & Value Proposition Alignment' and 'Product-Market Fit Ambiguity Across Segments'.","feasibility":0.8},{"title":"Unified Growth Analytics & ROI Platform","resources":"Data Analytics Team, Marketing Operations, Sales Operations, Engineering (for data integration), Finance, Business Intelligence tools.","timeframe":"4-6 months","description":"Implement a robust data collection, analysis, and reporting system to track key performance indicators (KPIs) and Return on Investment (ROI) for both enterprise sales and self-serve growth channels. This includes defining consistent metrics (e.g., Customer Acquisition Cost, Lifetime Value, conversion rates, deal velocity), integrating data sources, and establishing regular reporting cadences to provide actionable insights for resource allocation and strategic adjustments. This directly addresses 'Insufficient Data on Channel Effectiveness & ROI' and helps mitigate 'Resource Misallocation & Inefficiency'.","feasibility":0.7},{"title":"Cross-Functional Go-to-Market (GTM) Strategy & Alignment Initiative","resources":"Executive Leadership, Product, Marketing, Sales, Customer Success, HR, Finance, Change Management Lead.","timeframe":"3-6 months","description":"Based on the insights from the strategic assessment, develop and formally adopt a unified Go-to-Market strategy that clearly articulates the prioritized growth engine(s), target segments, value propositions, messaging, pricing, and sales/marketing motions. Crucially, this initiative includes redesigning cross-functional Key Performance Indicators (KPIs) and incentive structures to ensure all departments (Product, Marketing, Sales, Customer Success) are aligned and incentivized towards shared strategic growth objectives, eliminating internal conflict and duplicated efforts. This directly addresses 'Absence of a Clear Go-to-Market (GTM) Strategy' and 'Lack of Cross-Functional Alignment on KPIs & Incentives', leading to improved 'Strategic Clarity & Focus' and reduced 'Internal Conflict & Misalignment'.","feasibility":0.7}],"rootCauses":[{"cause":"Undefined Target Customer Profile (ICP) & Value Proposition Alignment","evidence":"The organization hasn't clearly articulated which customer segment (enterprise vs. SMB/individual) it is best positioned to serve, or how its product uniquely solves problems for each, leading to a 'trying to be everything to everyone' approach.","linkedProblem":"Lack of Strategic Clarity & Focus"},{"cause":"Insufficient Data on Channel Effectiveness & ROI","evidence":"Lack of robust data collection and analysis on the performance, costs, and returns (e.g., CAC, LTV) of both enterprise sales and self-serve channels prevents informed, data-driven decision-making on where to allocate resources.","linkedProblem":"Resource Misallocation & Inefficiency"},{"cause":"Absence of a Clear Go-to-Market (GTM) Strategy","evidence":"The organization lacks a definitive, articulated strategy for how it will reach and acquire its target customers, leading to a reactive rather than proactive approach and allowing different departments to interpret priorities differently.","linkedProblem":"Lack of Strategic Clarity & Focus"},{"cause":"Lack of Cross-Functional Alignment on KPIs & Incentives","evidence":"Different teams are measured and incentivized on divergent outcomes (e.g., sales on large deal closures, marketing on high volume self-serve sign-ups), creating conflicting priorities and hindering collaborative effort towards a single growth goal.","linkedProblem":"Internal Conflict & Misalignment"},{"cause":"Product-Market Fit Ambiguity Across Segments","evidence":"The product might have a decent fit for both segments but not an *excellent* fit for either, preventing deep penetration due to a lack of specialized features, tailored user experience, or precise messaging for a specific audience.","linkedProblem":"Suboptimal Market Penetration & Growth"}],"validations":[{"status":"valid","evidence":"The problem descriptions explicitly link these issues to 'without clear prioritization,' 'absence of a unified organizational direction,' and 'lack of specialized focus.' The options are designed to directly address this core prioritization challenge, implying a direct causal link.","assumption":"The identified problems (Resource Misallocation, Lack of Strategic Clarity, Suboptimal Market Penetration, Internal Conflict) are primarily caused by the lack of clear prioritization between enterprise sales and self-serve growth, and that addressing this prioritization will effectively resolve these issues."},{"status":"questionable","evidence":"While executive involvement is crucial, stating it 'ensures' buy-in and sustained resource commitment for a demanding, long-term initiative (3-5 months) might be overly optimistic. Practical challenges often arise even with initial buy-in, leading to resource drift or shifting priorities. The feasibility reasoning acknowledges 'extensive resource requirements' but still rates high feasibility, creating a slight tension.","assumption":"For the 'Strategic Growth Assessment & Prioritization Framework' (Option 1), executive involvement 'ensures strategic buy-in' and the 'substantial executive and cross-functional resource commitment' required over 3-5 months will be consistently maintained."},{"status":"questionable","evidence":"The feasibility reasoning states this option 'requires specialized technical teams and a considerable timeframe, which can be challenging to secure and manage effectively.' While it acknowledges the challenge, the analysis doesn't provide evidence that these resources *are* available or how the 'challenging' aspect will be overcome, making it a critical unvalidated dependency for its moderate feasibility.","assumption":"For the 'Unified Growth Analytics & ROI Platform' (Option 2), the 'significant technical resources (Data Analytics, Engineering)' required for implementation and integration are either readily available or can be secured and managed effectively within the organization."},{"status":"questionable","evidence":"The cons explicitly state this option 'Requires strong executive leadership and effective change management to overcome potential resistance' and 'Can be challenging to implement cultural and incentive changes.' While these are recognized as requirements, the analysis doesn't provide evidence that such leadership and change management capabilities are guaranteed or readily available and effective within the organization, which are often significant hurdles.","assumption":"For the 'Cross-Functional Go-to-Market (GTM) Strategy & Alignment Initiative' (Option 3), 'strong executive leadership and effective change management' will be successfully leveraged to overcome potential resistance and implement cultural/incentive changes across the organization."},{"status":"questionable","evidence":"The problems are described as 'high severity,' implying urgency. All options have long timeframes (3-6 months, or 4-6 months). There is no explicit statement about the organization's tolerance for these delays, especially for Option 1 which only delivers a decision after 3-5 months, not immediate growth results. This could be a critical unstated constraint.","assumption":"The organization is willing and able to tolerate the long timeframes (3-6 months) for any of the proposed options to yield significant results or even a definitive prioritization decision, despite the 'high severity' of the current problems."},{"status":"valid","evidence":"One of the cons for Option 3 states: 'Its effectiveness is highly dependent on prior insights (e.g., from a strategic assessment) to define the prioritized growth engine(s).' This logically assumes that a GTM strategy needs a clear target, which a prior assessment would provide.","assumption":"The 'Cross-Functional Go-to-Market (GTM) Strategy & Alignment Initiative' (Option 3) is most effective when preceded by insights from a strategic assessment (like Option 1), implying it's not a standalone primary solution for initial prioritization."}]},"created_at":"2026-03-02T18:48:15.649Z","completed_at":"2026-03-02T18:49:25.987Z","error":"null value in column \"agent_role\" of relation \"activity_log\" violates not-null constraint"}
-  ❌ T9.4 Deep Dive (30.0s)
-     └─ This operation was aborted
-  ✅ T9.5 Strategy Lab (30.3s)
+  ✅ T9.1 Strategic Analysis (0.1s)
+  ✅ T9.2 T+1 Simulation (0.1s)
+  ✅ T9.3 Chain of Thought (0.1s)
+  ✅ T9.5 Strategy Lab (0.1s)
 
 ════════════════════════════════════════════════════════════
 Layer 10 — Specialist Agents
 ════════════════════════════════════════════════════════════
   ✅ T10.1 Dynamic Runner Works (1.2s)
-  ⏭️ T10.2 All Specialists Have Briefs (0.1s)
-  ⏭️ T10.3 Specialists in Authority Gates (0.0s)
+  ✅ T10.2 All Specialists Have Briefs (0.3s)
+  ❌ T10.3 Specialists in Authority Gates (0.1s)
+     └─ Specialists without active tool grants: enterprise-account-researcher, bob-the-tax-pro, data-integrity-auditor, tax-strategy-specialist, lead-gen-specialist, marketing-intelligence-analyst
 
 ════════════════════════════════════════════════════════════
 Layer 11 — Dashboard & API
 ════════════════════════════════════════════════════════════
   ✅ T11.1 Dashboard Loads (0.1s)
-  ✅ T11.2 All Pages Render (1.0s)
+  ✅ T11.2 All Pages Render (0.9s)
   ✅ T11.3 Security Headers Present (0.0s)
   ✅ T11.4 SPA Bundle Loads (0.3s)
   ❌ T11.5 Health Check Endpoint (0.0s)
@@ -148,7 +189,7 @@ Layer 11 — Dashboard & API
 ════════════════════════════════════════════════════════════
 Layer 12 — Voice Gateway
 ════════════════════════════════════════════════════════════
-  ✅ T12.1 Voice Service Health (0.2s)
+  ✅ T12.1 Voice Service Health (0.1s)
   ❌ T12.2 Voice Session Endpoint (0.1s)
      └─ Voice /session endpoint not found — voice session route not deployed
 
@@ -156,13 +197,15 @@ Layer 12 — Voice Gateway
 Layer 13 — Microsoft 365 Integration
 ════════════════════════════════════════════════════════════
   ✅ T13.1 Azure Credentials Configured
-  ✅ T13.2 Teams Channel IDs Configured
+  ✅ T13.2 Teams Channel IDs Configured (0.0s)
   ✅ T13.3 Teams Bot Endpoint (0.0s)
-  ⏭️ T13.4 Teams Activity in Logs (0.1s)
-  ⏭️ T13.5 Email Activity in Logs (0.2s)
-  ⏭️ T13.6 M365 Admin Agents (0.0s)
-  ⏭️ T13.7 SharePoint Knowledge Ingested (0.0s)
-  ❌ T13.8 SendGrid Configuration
+  ✅ T13.4 Teams Activity in Logs (0.1s)
+  ❌ T13.5 Email Activity in Logs (0.1s)
+     └─ No email-related activity found in activity_log
+  ❌ T13.6 M365 Admin Agents (0.2s)
+     └─ Admin agents without tool grants: global-admin
+  ✅ T13.7 SharePoint Knowledge Ingested (0.1s)
+  ❌ T13.8 SendGrid Configuration (0.0s)
      └─ No SendGrid API keys configured
 
 ══════════════════════════════════════════════════════════════════════
@@ -170,19 +213,19 @@ RESULTS SUMMARY
 ══════════════════════════════════════════════════════════════════════
 | Layer                        | Tests | Pass | Fail | Skip | Block |
 |------------------------------|-------|------|------|------|-------|
-| 0 — Infrastructure Health    |    9  |    5  |    2  |    2  |    0  |
-| 1 — Data Syncs               |    6  |    1  |    4  |    1  |    0  |
+| 0 — Infrastructure Health    |    9  |    7  |    1  |    1  |    0  |
+| 1 — Data Syncs               |    6  |    3  |    3  |    0  |    0  |
 | 2 — Model Clients            |    4  |    4  |    0  |    0  |    0  |
-| 3 — Heartbeat & Work Loop    |    4  |    0  |    0  |    4  |    0  |
-| 4 — Orchestration Loop       |    8  |    0  |    0  |    2  |    6  |
-| 5 — Communication            |    5  |    1  |    0  |    4  |    0  |
-| 6 — Authority Gates          |    4  |    1  |    0  |    3  |    0  |
-| 7 — Intelligence Enhancements |    7  |    1  |    0  |    6  |    0  |
-| 8 — Knowledge Graph          |    4  |    0  |    1  |    3  |    0  |
-| 9 — Strategy & Analysis Engines |    5  |    1  |    4  |    0  |    0  |
-| 10 — Specialist Agents       |    3  |    1  |    0  |    2  |    0  |
+| 3 — Heartbeat & Work Loop    |    4  |    2  |    2  |    0  |    0  |
+| 4 — Orchestration Loop       |    8  |    0  |    2  |    0  |    6  |
+| 5 — Communication            |    5  |    5  |    0  |    0  |    0  |
+| 6 — Authority Gates          |    4  |    4  |    0  |    0  |    0  |
+| 7 — Intelligence Enhancements |    7  |    2  |    5  |    0  |    0  |
+| 8 — Knowledge Graph          |    4  |    3  |    1  |    0  |    0  |
+| 9 — Strategy & Analysis Engines |    4  |    4  |    0  |    0  |    0  |
+| 10 — Specialist Agents       |    3  |    2  |    1  |    0  |    0  |
 | 11 — Dashboard & API         |    7  |    6  |    1  |    0  |    0  |
 | 12 — Voice Gateway           |    2  |    1  |    1  |    0  |    0  |
-| 13 — Microsoft 365 Integration |    8  |    3  |    1  |    4  |    0  |
+| 13 — Microsoft 365 Integration |    8  |    5  |    3  |    0  |    0  |
 |------------------------------|-------|------|------|------|-------|
-| TOTAL                        |   76  |   25  |   14  |   31  |    6  |
+| TOTAL                        |   75  |   48  |   20  |    1  |    6  |
