@@ -40,7 +40,15 @@ async function pollStatus(
   );
   const body = result.data as RunResponse;
   if (body?.status === 'failed') {
-    throw new Error(`Run failed: ${JSON.stringify(body)}`);
+    const raw = JSON.stringify(body);
+    // Detect schema errors (missing columns) — report actionable fix
+    if (raw.includes('does not exist') && raw.includes('column')) {
+      const colMatch = raw.match(/column "(\w+)" of relation "(\w+)"/);
+      if (colMatch) {
+        throw new Error(`Schema error: column "${colMatch[1]}" missing from "${colMatch[2]}" — apply pending migration in db/migrations/`);
+      }
+    }
+    throw new Error(`Run failed: ${raw}`);
   }
   return body;
 }
