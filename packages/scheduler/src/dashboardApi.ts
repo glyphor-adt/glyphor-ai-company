@@ -56,7 +56,7 @@ const TABLE_MAP: Record<string, string> = {
   'kg-nodes': 'kg_nodes',
   'kg-edges': 'kg_edges',
   'incidents': 'incidents',
-  'skills': 'agent_skills',
+  'skills': 'skills',
   'work-assignments': 'work_assignments',
   'agent-tool-grants': 'agent_tool_grants',
   'tool-registry': 'tool_registry',
