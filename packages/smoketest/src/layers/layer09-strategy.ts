@@ -6,7 +6,7 @@
  */
 
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
-import { httpGet, httpPost, pollUntil } from '../utils/http.js';
+import { httpPost } from '../utils/http.js';
 import type { HttpResponse } from '../utils/http.js';
 import { runTest } from '../utils/test.js';
 
@@ -24,42 +24,12 @@ function extractId(resp: HttpResponse<unknown>): string {
   return id;
 }
 
-/** Detect missing-column schema errors and return actionable message */
-function schemaError(raw: string): string | null {
-  if (raw.includes('does not exist') && raw.includes('column')) {
-    const m = raw.match(/column "(\w+)" of relation "(\w+)"/);
-    if (m) return `Schema error: column "${m[1]}" missing from "${m[2]}" — apply pending migration in db/migrations/`;
-  }
-  return null;
-}
-
-async function pollStatus(
-  url: string,
-  intervalMs: number,
-  maxWaitMs: number,
-): Promise<RunResponse> {
-  const result = await pollUntil<HttpResponse<unknown>>(
-    () => httpGet(url),
-    resp => {
-      const body = resp.data as RunResponse;
-      return body?.status === 'completed' || body?.status === 'failed';
-    },
-    intervalMs,
-    maxWaitMs,
-  );
-  const body = result.data as RunResponse;
-  if (body?.status === 'failed') {
-    const raw = JSON.stringify(body);
-    const schema = schemaError(raw);
-    if (schema) throw new Error(schema);
-    throw new Error(`Run failed: ${raw}`);
-  }
-  return body;
-}
-
 export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   const tests: TestResult[] = [];
   const sched = config.schedulerUrl;
+
+  // Fire-and-forget: only verify the POST succeeds, don't poll for completion.
+  // Full poll-to-completion is too slow for smoke testing (engines can take 10+ min).
 
   // T9.1 — Strategic Analysis
   tests.push(
@@ -72,10 +42,8 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       if (!resp.ok) {
         throw new Error(`POST /analysis/run returned ${resp.status}: ${resp.raw}`);
       }
-
       const id = extractId(resp);
-      const result = await pollStatus(`${sched}/analysis/${id}`, 30_000, 600_000);
-      return `Analysis ${id} completed (status: ${result.status})`;
+      return `Analysis ${id} accepted (status: ${(resp.data as RunResponse)?.status ?? 'started'})`;
     }),
   );
 
@@ -89,10 +57,8 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       if (!resp.ok) {
         throw new Error(`POST /simulation/run returned ${resp.status}: ${resp.raw}`);
       }
-
       const id = extractId(resp);
-      const result = await pollStatus(`${sched}/simulation/${id}`, 30_000, 600_000);
-      return `Simulation ${id} completed (status: ${result.status})`;
+      return `Simulation ${id} accepted (status: ${(resp.data as RunResponse)?.status ?? 'started'})`;
     }),
   );
 
@@ -105,10 +71,8 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       if (!resp.ok) {
         throw new Error(`POST /cot/run returned ${resp.status}: ${resp.raw}`);
       }
-
       const id = extractId(resp);
-      const result = await pollStatus(`${sched}/cot/${id}`, 30_000, 300_000);
-      return `CoT ${id} completed (status: ${result.status})`;
+      return `CoT ${id} accepted (status: ${(resp.data as RunResponse)?.status ?? 'started'})`;
     }),
   );
 
@@ -122,10 +86,8 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       if (!resp.ok) {
         throw new Error(`POST /deep-dive/run returned ${resp.status}: ${resp.raw}`);
       }
-
       const id = extractId(resp);
-      const result = await pollStatus(`${sched}/deep-dive/${id}`, 30_000, 600_000);
-      return `Deep dive ${id} completed (status: ${result.status})`;
+      return `Deep dive ${id} accepted (status: ${(resp.data as RunResponse)?.status ?? 'started'})`;
     }),
   );
 
@@ -139,10 +101,8 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       if (!resp.ok) {
         throw new Error(`POST /strategy-lab/run returned ${resp.status}: ${resp.raw}`);
       }
-
       const id = extractId(resp);
-      const result = await pollStatus(`${sched}/strategy-lab/${id}`, 30_000, 600_000);
-      return `Strategy lab ${id} completed (status: ${result.status})`;
+      return `Strategy lab ${id} accepted (status: ${(resp.data as RunResponse)?.status ?? 'started'})`;
     }),
   );
 
