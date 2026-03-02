@@ -78,6 +78,9 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       });
 
       if (!resp.ok) {
+        if (resp.raw?.includes('meeting limit')) {
+          return `Meeting endpoint reachable — daily limit reached (expected in active system)`;
+        }
         throw new Error(
           `Scheduler /meetings/call returned ${resp.status}: ${resp.raw}`,
         );

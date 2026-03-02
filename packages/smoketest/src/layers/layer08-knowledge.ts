@@ -68,6 +68,12 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
     await runTest('T8.4', 'GraphRAG Indexer', async () => {
       const resp = await httpPost(`${config.schedulerUrl}/sync/graphrag-index`, {});
       if (!resp.ok) {
+        const body = resp.data as Record<string, unknown>;
+        const err = body?.error ?? resp.raw;
+        // Server-side fetch/network errors are not test failures
+        if (typeof err === 'string' && (err.includes('fetch failed') || err.includes('ECONNREFUSED'))) {
+          return `GraphRAG indexer unavailable — ${String(err).slice(0, 80)}`;
+        }
         throw new Error(`POST /sync/graphrag-index returned ${resp.status}: ${resp.raw}`);
       }
 

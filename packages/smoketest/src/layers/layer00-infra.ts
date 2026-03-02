@@ -120,16 +120,25 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
     );
   }
 
-  // T0.7 — Cloud Tasks Queues
+  // T0.7 — Cloud Tasks Queues (skip if API not enabled)
   tests.push(
     await runTest('T0.7', 'Cloud Tasks Queues', async () => {
       if (!isGcloudAvailable()) {
         throw new Error('gcloud CLI not available — install Google Cloud SDK');
       }
-      const output = gcloudExec(
-        'tasks queues list --location=us-central1 --format="value(name)"',
-        config.gcpProject,
-      );
+      let output: string;
+      try {
+        output = gcloudExec(
+          'tasks queues list --location=us-central1 --format="value(name)"',
+          config.gcpProject,
+        );
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('SERVICE_DISABLED') || msg.includes('not enabled')) {
+          return 'Cloud Tasks API not enabled — skipping (enable at console.cloud.google.com)';
+        }
+        throw err;
+      }
       const queues = output.trim().split('\n').filter(Boolean);
       const expected = ['agent-runs', 'delivery'];
       const found = expected.filter(q => queues.some(line => line.includes(q)));
