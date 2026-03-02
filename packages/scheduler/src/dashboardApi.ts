@@ -138,6 +138,11 @@ function parseQueryParams(
       continue; // join hints — handled separately
     }
 
+    // `since` — shorthand for date range filter on the appropriate column
+    if (key === 'since') {
+      continue; // handled externally per-table
+    }
+
     // Custom filter: min_quality → quality_score >= $N
     if (key === 'min_quality') {
       clauses.push(`quality_score >= $${paramIdx++}`);
@@ -362,11 +367,26 @@ export async function handleDashboardApi(
       }
 
       const { where, values, order, limit, select, countOnly } = parseQueryParams(params);
+
+      // Handle `since` date range filter
+      const sinceVal = params.get('since');
+      let extraWhere = '';
+      if (sinceVal) {
+        const DATE_COL_MAP: Record<string, string> = {
+          financials: 'date', gcp_billing: 'recorded_at', api_billing: 'recorded_at',
+          activity_log: 'created_at', agent_runs: 'started_at', decisions: 'created_at',
+        };
+        const dateCol = DATE_COL_MAP[tableName] ?? 'created_at';
+        const idx = values.length + 1;
+        extraWhere = `${where ? ' AND' : ' WHERE'} ${dateCol} >= $${idx}`;
+        values.push(sinceVal);
+      }
+
       if (countOnly) {
-        const rows = await systemQuery<{ count: number }>(`SELECT COUNT(*)::int AS count FROM ${tableName}${where}`, values);
+        const rows = await systemQuery<{ count: number }>(`SELECT COUNT(*)::int AS count FROM ${tableName}${where}${extraWhere}`, values);
         jsonResponse(res, 200, { count: rows[0]?.count ?? 0 });
       } else {
-        const sql = `SELECT ${select} FROM ${tableName}${where}${order}${limit || ' LIMIT 200'}`;
+        const sql = `SELECT ${select} FROM ${tableName}${where}${extraWhere}${order}${limit || ' LIMIT 200'}`;
         const rows = await systemQuery(sql, values);
         jsonResponse(res, 200, rows);
       }
