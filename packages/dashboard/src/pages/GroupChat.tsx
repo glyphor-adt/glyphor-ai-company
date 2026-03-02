@@ -251,6 +251,89 @@ export default function GroupChat() {
     ...Array.from(selectedFounders).map((id) => FOUNDERS.find((f) => f.id === id)?.name ?? id),
   ];
 
+  // Build a context-aware history array from messages
+  const buildHistory = (msgs: GroupMessage[]) =>
+    msgs.slice(-30).map((m) => ({
+      role: m.role === 'user' ? ('user' as const) : ('agent' as const),
+      content: m.agentRole
+        ? `[${DISPLAY_NAME_MAP[m.agentRole] ?? m.agentRole}]: ${m.content}`
+        : m.founderName
+        ? `[${m.founderName}]: ${m.content}`
+        : m.content,
+    }));
+
+  // Call a single agent and return the response
+  const callAgent = async (
+    agentRole: string,
+    message: string,
+    history: { role: 'user' | 'agent'; content: string }[],
+  ): Promise<{ agentRole: string; content: string }> => {
+    try {
+      const res = await fetch(`${SCHEDULER_URL}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentRole, task: 'on_demand', message, history }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      let content: string;
+      if (data.output) content = stripReasoning(data.output);
+      else if (data.error) content = `I ran into an issue: ${data.error}`;
+      else if (data.status === 'aborted') content = 'My response was cut short — try a simpler question.';
+      else content = `Completed but had nothing to report. (status: ${data.status ?? 'unknown'})`;
+      return { agentRole, content };
+    } catch {
+      return {
+        agentRole,
+        content: `Could not reach ${DISPLAY_NAME_MAP[agentRole] ?? agentRole}. The scheduler may be cold-starting.`,
+      };
+    }
+  };
+
+  // Persist a message to the DB (fire-and-forget)
+  const persistMsg = (userId: string, agentRole: string, role: string, content: string, attachments?: Attachment[]) => {
+    apiCall('/api/chat-messages', {
+      method: 'POST',
+      body: JSON.stringify({
+        user_id: userId,
+        agent_role: agentRole,
+        role,
+        content,
+        attachments: attachments ? attachments.map((a) => ({ name: a.name, type: a.type })) : null,
+      }),
+    }).catch(() => {});
+  };
+
+  // Resolve @mentions → agent roles
+  const parseMentions = (text: string): Set<string> => {
+    const nameToRole = new Map<string, string>();
+    for (const [role, name] of Object.entries(DISPLAY_NAME_MAP)) {
+      nameToRole.set(name.toLowerCase(), role);
+    }
+    const mentionRegex = /@([A-Za-z]+(?: [A-Za-z]+)?)/g;
+    let match: RegExpExecArray | null;
+    const mentioned = new Set<string>();
+    while ((match = mentionRegex.exec(text)) !== null) {
+      const role = nameToRole.get(match[1].toLowerCase());
+      if (role) mentioned.add(role);
+    }
+    return mentioned;
+  };
+
+  // Build group context string
+  const buildGroupContext = (roles: string[], isFollowUp = false) => {
+    const founderNames = Array.from(selectedFounders).map(
+      (id) => FOUNDERS.find((f) => f.id === id)?.name ?? id,
+    );
+    const members = [...roles.map((r) => DISPLAY_NAME_MAP[r] ?? r), ...founderNames].join(', ');
+    const base = `You are in a group chat with: ${members}. The founders are also present.`;
+    if (isFollowUp) {
+      return `${base} Other agents have already responded above. If you have something meaningful to add, build on or respectfully challenge their points. If you agree and have nothing new to contribute, respond with exactly: [NO_REPLY]`;
+    }
+    return `${base} Keep your response concise — others will also respond after you, and they will see what you said.`;
+  };
+
+  // ── Send user message → agents respond sequentially ──
   const sendMessage = async () => {
     const text = input.trim();
     if ((!text && pendingFiles.length === 0) || sending || selectedRoles.size === 0) return;
@@ -262,56 +345,16 @@ export default function GroupChat() {
     setMessages((prev) => [...prev, userMsg]);
     setSending(true);
 
-    // Persist user message
     const userId = user?.email ?? 'unknown';
-    apiCall('/api/chat-messages', {
-      method: 'POST',
-      body: JSON.stringify({
-        user_id: userId,
-        agent_role: 'user',
-        role: 'user',
-        content: text,
-        attachments: attachments ? attachments.map((a) => ({ name: a.name, type: a.type })) : null,
-      }),
-    }).then();
+    persistMsg(userId, 'user', 'user', text, attachments);
 
-    // Parse @mentions and auto-add mentioned agents to recipients
-    const nameToRole = new Map<string, string>();
-    for (const [role, name] of Object.entries(DISPLAY_NAME_MAP)) {
-      nameToRole.set(name.toLowerCase(), role);
-    }
-    const mentionRegex = /@([A-Za-z]+(?: [A-Za-z]+)?)/g;
-    let match: RegExpExecArray | null;
-    const mentionedRoles = new Set<string>();
-    while ((match = mentionRegex.exec(text)) !== null) {
-      const role = nameToRole.get(match[1].toLowerCase());
-      if (role) mentionedRoles.add(role);
-    }
-    // Merge mentioned agents into selected roles for this send
+    // Merge @mentioned agents into selected roles
+    const mentionedRoles = parseMentions(text);
     const effectiveRoles = new Set(selectedRoles);
     for (const role of mentionedRoles) effectiveRoles.add(role);
-
     const roles = Array.from(effectiveRoles);
-    setRespondingAgents(new Set(roles));
 
-    const history = messages.slice(-20).map((m) => ({
-      role: m.role,
-      content: m.agentRole
-        ? `[${DISPLAY_NAME_MAP[m.agentRole] ?? m.agentRole}]: ${m.content}`
-        : m.founderName
-        ? `[${m.founderName}]: ${m.content}`
-        : m.content,
-    }));
-
-    const founderNames = Array.from(selectedFounders).map(
-      (id) => FOUNDERS.find((f) => f.id === id)?.name ?? id,
-    );
-    const groupContext = `You are in a group chat with: ${[
-      ...roles.map((r) => DISPLAY_NAME_MAP[r] ?? r),
-      ...founderNames,
-    ].join(', ')}. The founder is also present. Keep your response concise — others will also respond.`;
-
-    // Build full message with file contents for agents
+    // Build full message with file contents
     let fullMessage = text;
     if (attachments?.length) {
       const parts = attachments.map((a) => {
@@ -328,67 +371,81 @@ export default function GroupChat() {
       fullMessage = `${text}\n\n${parts.join('\n\n')}`;
     }
 
-    // Fire off all agent requests concurrently
-    const promises = roles.map(async (agentRole) => {
-      try {
-        const res = await fetch(`${SCHEDULER_URL}/run`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            agentRole,
-            task: 'on_demand',
-            message: `${groupContext}\n\n${fullMessage}`,
-            history,
-          }),
-        });
+    // Sequential round: each agent sees previous agents' responses
+    const groupContext = buildGroupContext(roles);
+    let runningMessages = [...messages, userMsg];
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-
-        let content: string;
-        if (data.output) content = stripReasoning(data.output);
-        else if (data.error) content = `I ran into an issue: ${data.error}`;
-        else if (data.status === 'aborted') content = 'My response was cut short — try a simpler question.';
-        else content = `Completed but had nothing to report. (status: ${data.status ?? 'unknown'})`;
-
-        return { agentRole, content };
-      } catch {
-        return {
-          agentRole,
-          content: `Could not reach ${DISPLAY_NAME_MAP[agentRole] ?? agentRole}. The scheduler may be cold-starting.`,
-        };
-      } finally {
-        setRespondingAgents((prev) => {
-          const next = new Set(prev);
-          next.delete(agentRole);
-          return next;
-        });
-      }
-    });
-
-    const results = await Promise.allSettled(promises);
-    for (const result of results) {
-      if (result.status === 'fulfilled' && result.value) {
-        const { agentRole, content } = result.value;
-        setMessages((prev) => [
-          ...prev,
-          { role: 'agent', agentRole, content, timestamp: new Date() },
-        ]);
-
-        // Persist agent response
-        apiCall('/api/chat-messages', {
-          method: 'POST',
-          body: JSON.stringify({
-            user_id: userId,
-            agent_role: agentRole,
-            role: 'agent',
-            content,
-            attachments: null,
-          }),
-        }).catch(() => {});
-      }
+    for (const agentRole of roles) {
+      setRespondingAgents(new Set([agentRole]));
+      const history = buildHistory(runningMessages);
+      const result = await callAgent(agentRole, `${groupContext}\n\n${fullMessage}`, history);
+      const agentMsg: GroupMessage = {
+        role: 'agent',
+        agentRole: result.agentRole,
+        content: result.content,
+        timestamp: new Date(),
+      };
+      runningMessages = [...runningMessages, agentMsg];
+      setMessages((prev) => [...prev, agentMsg]);
+      persistMsg(userId, agentRole, 'agent', result.content);
     }
 
+    setRespondingAgents(new Set());
+    setSending(false);
+  };
+
+  // ── Continue Discussion: agents react to each other ──
+  const continueDiscussion = async () => {
+    if (sending || selectedRoles.size === 0) return;
+    setSending(true);
+
+    const userId = user?.email ?? 'unknown';
+    const roles = Array.from(selectedRoles);
+    const groupContext = buildGroupContext(roles, true);
+
+    let runningMessages = [...messages];
+    let anyReplied = false;
+
+    for (const agentRole of roles) {
+      setRespondingAgents(new Set([agentRole]));
+      const history = buildHistory(runningMessages);
+      const result = await callAgent(
+        agentRole,
+        `${groupContext}\n\nContinue the discussion. Review what others have said and add your perspective.`,
+        history,
+      );
+
+      // Skip if agent has nothing to add
+      if (result.content.includes('[NO_REPLY]')) {
+        setRespondingAgents(new Set());
+        continue;
+      }
+
+      anyReplied = true;
+      const agentMsg: GroupMessage = {
+        role: 'agent',
+        agentRole: result.agentRole,
+        content: result.content,
+        timestamp: new Date(),
+      };
+      runningMessages = [...runningMessages, agentMsg];
+      setMessages((prev) => [...prev, agentMsg]);
+      persistMsg(userId, agentRole, 'agent', result.content);
+    }
+
+    if (!anyReplied) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'agent',
+          agentRole: 'system',
+          content: 'All agents are aligned — no further discussion needed.',
+          timestamp: new Date(),
+        },
+      ]);
+    }
+
+    setRespondingAgents(new Set());
     setSending(false);
   };
 
@@ -544,7 +601,13 @@ export default function GroupChat() {
               style={{ animationDelay: `${i * 30}ms` }}
             >
               {msg.role === 'agent' && msg.agentRole ? (
-                <AgentAvatar role={msg.agentRole} size={28} />
+                msg.agentRole === 'system' ? (
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-raised border border-border text-[11px] text-txt-muted">
+                    ✓
+                  </div>
+                ) : (
+                  <AgentAvatar role={msg.agentRole} size={28} />
+                )
               ) : msg.role === 'founder' && msg.founderName ? (
                 <div
                   className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold text-white"
@@ -721,6 +784,17 @@ export default function GroupChat() {
             >
               Send
             </button>
+            {messages.length > 0 && (
+              <button
+                type="button"
+                onClick={continueDiscussion}
+                disabled={sending || selectedRoles.size === 0}
+                title="Let agents continue discussing with each other"
+                className="flex-shrink-0 rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2.5 text-[13px] font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40"
+              >
+                Continue&nbsp;↻
+              </button>
+            )}
           </div>
         </div>
       </Card>

@@ -1172,21 +1172,28 @@ Most agents receive a standard set of shared tools. These are referenced below a
 
 **Skills:** `agent_onboarding`, `profile_validation`, `org_chart_management`, `agent_retirement`, `workforce_audit`, `email_provisioning`, `teams_setup`
 
-**Shared Tools:** Memory, Communication, Email, Events, Assignments, Tool Requests, Tool Grants, Knowledge Graph, Agent Creation
+**Shared Tools:** Memory, Communication, Email, Events, Assignments, Tool Requests, Tool Grants, Knowledge Graph, Agent Creation, Agent Directory, Access Audit
 
 **Agent-Specific Tools:**
 
 | Tool | Description |
 |------|-------------|
-| `view_access_matrix` | View the access matrix |
-| `view_pending_grant_requests` | View pending grant requests |
-| `audit_workforce` | Audit the agent workforce |
-| `validate_agent` | Validate agent profile |
-| `update_agent_profile` | Update agent profile |
+| `audit_workforce` | Scan all agents for incomplete profiles |
+| `validate_agent` | Check specific agent onboarding completeness |
+| `update_agent_profile` | Update/create agent profile (personality, backstory, traits, etc.) |
+| `update_agent_name` | Set display name for an agent |
+| `retire_agent` | Mark agent as retired, disable schedules |
+| `reactivate_agent` | Reactivate a retired/paused agent |
+| `list_stale_agents` | Find agents with no recent runs (14+ days inactive) |
+| `set_reports_to` | Update reports_to field in org chart |
+| `write_hr_log` | Write HR action log entry |
+| `generate_avatar` | Generate professional AI headshot via Imagen |
+| `provision_agent` | Create new permanent agent record |
+| `enrich_agent_profile` | AI-generate rich personality profile |
 
-**Total Built-in Tools:** 29
+**Total Built-in Tools:** 39
 
-> **Note:** Head of HR does not have SharePoint, Collective Intelligence, or Agent Directory tools.
+> **Note:** Head of HR does not have SharePoint or Collective Intelligence tools.
 
 ---
 
@@ -1223,7 +1230,7 @@ Not all agents get all shared tool groups. Key differences:
 | `vp-sales` | SharePoint |
 | `vp-design` | SharePoint |
 | `ops` | Agent Creation, Agent Directory |
-| `head-of-hr` | SharePoint, Collective Intelligence, Agent Directory |
+| `head-of-hr` | SharePoint, Collective Intelligence |
 | All Sub-Team agents | Tool Grants, Collective Intelligence, Agent Creation, Agent Directory (unless noted) |
 
 ### Tier Privileges

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { PageTabs } from '../components/ui';
 import Chat from './Chat';
+import GroupChat from './GroupChat';
 import Meetings from './Meetings';
 
-type Tab = 'chat' | 'meetings';
+type Tab = 'chat' | 'group-chat' | 'meetings';
 
 export default function Comms() {
   const [tab, setTab] = useState<Tab>('chat');
@@ -19,12 +20,13 @@ export default function Comms() {
       <PageTabs
         tabs={[
           { key: 'chat' as Tab, label: 'Chat' },
+          { key: 'group-chat' as Tab, label: 'Group Chat' },
           { key: 'meetings' as Tab, label: 'Meetings' },
         ]}
         active={tab}
         onChange={setTab}
       />
-      {tab === 'meetings' ? <Meetings /> : <Chat />}
+      {tab === 'group-chat' ? <GroupChat /> : tab === 'meetings' ? <Meetings /> : <Chat />}
     </div>
   );
 }

@@ -736,8 +736,10 @@ export const AGENT_BUILT_IN_TOOLS: Record<string, string[]> = {
   clo: [..._mem, ..._comm, ..._email, ..._event, ..._assign, ..._toolReq, ..._toolGrant, ..._graph, ..._ci, ..._agentCreate, ..._agentDir],
   'vp-research': [..._mem, ..._comm, ..._email, ..._event, ..._assign, ..._toolReq, ..._toolGrant, ..._graph,
     'web_search', 'web_fetch', 'search_news', 'submit_research_packet'],
-  'head-of-hr': [..._mem, ..._comm, ..._email, ..._event, ..._assign, ..._toolReq, ..._toolGrant, ..._graph, ..._agentCreate,
-    'view_access_matrix', 'view_pending_grant_requests', 'audit_workforce', 'validate_agent', 'update_agent_profile'],
+  'head-of-hr': [..._mem, ..._comm, ..._email, ..._event, ..._assign, ..._toolReq, ..._toolGrant, ..._graph, ..._agentCreate, ..._agentDir,
+    'view_access_matrix', 'view_pending_grant_requests', 'audit_workforce', 'validate_agent', 'update_agent_profile',
+    'update_agent_name', 'retire_agent', 'reactivate_agent', 'list_stale_agents', 'set_reports_to', 'write_hr_log',
+    'generate_avatar', 'provision_agent', 'enrich_agent_profile'],
   // Sub-team — Engineering
   'platform-engineer': [..._mem, ..._comm, ..._email, ..._event, ..._assign, ..._toolReq, ..._graph,
     'query_cloud_run_metrics', 'run_health_check', 'query_gemini_latency', 'query_db_health', 'query_uptime', 'get_repo_code_health', 'query_vercel_health', 'log_activity', 'list_cloud_builds', 'get_cloud_build_logs', 'create_github_issue'],

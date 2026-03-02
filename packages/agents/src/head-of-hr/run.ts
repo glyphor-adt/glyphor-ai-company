@@ -21,6 +21,7 @@ import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createAccessAuditTools } from '../shared/accessAuditTools.js';
+import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 
@@ -58,6 +59,7 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
     ...createEmailTools(),
     ...createAgentCreationTools(),
     ...createAccessAuditTools(),
+    ...createAgentDirectoryTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
