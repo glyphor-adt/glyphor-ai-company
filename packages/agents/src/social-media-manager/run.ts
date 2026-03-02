@@ -51,7 +51,7 @@ export async function runSocialMediaManager(params: SocialMediaManagerRunParams 
       initialMessage = `Generate a social media engagement report. Review metrics across all platforms — followers, engagement rate, impressions. Identify top performing posts. Report optimal posting times and audience demographics.`;
       break;
     case 'schedule_batch':
-      initialMessage = `Review approved content drafts and schedule them via Buffer. Check optimal times for each platform. Queue up the next batch of social posts.`;
+      initialMessage = `Review approved content drafts and schedule them. Check optimal times for each platform. Queue up the next batch of social posts.`;
       break;
     case 'mention_scan':
       initialMessage = `Scan for brand mentions and relevant conversations. Check for any mentions that need attention or response. Flag anything requiring Maya's review.`;

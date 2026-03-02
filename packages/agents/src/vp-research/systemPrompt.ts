@@ -67,7 +67,7 @@ MARKET RESEARCH (Daniel — market_data, financial_analysis, company_profile, se
   □ Multiple TAM estimates compared (not relying on one source)
   □ Growth rate has a time period and source
   □ Revenue data marked as confirmed vs estimated
-  □ Funding data is current (checked Crunchbase or similar)
+  □ Funding data is current (verified via web search)
   □ Financial analysis includes margins, unit economics, or cash flow where available
   □ Company profile covers business model, org structure, and revenue streams
   □ Segment analysis identifies customer segments and geographic breakdown

@@ -15,7 +15,7 @@ export function createContentCreatorTools(memory: CompanyMemoryStore): ToolDefin
   return [
     {
       name: 'draft_blog_post',
-      description: 'Create a blog post draft. Draft is NOT published — requires CMO approval.',,
+      description: 'Create a blog post draft. Draft is NOT published — requires CMO approval.',
       parameters: { title: { type: 'string', description: 'Blog post title', required: true }, content: { type: 'string', description: 'Full blog post content in HTML or Markdown', required: true }, tags: { type: 'string', description: 'Comma-separated tags' }, metaDescription: { type: 'string', description: 'SEO meta description (max 160 chars)' } },
       async execute(params) {
         await systemQuery('INSERT INTO content_drafts (type, title, content, tags, meta_description, status, author, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)', ['blog_post', params.title, params.content, params.tags || null, params.metaDescription || null, 'draft', 'content-creator', new Date().toISOString()]);

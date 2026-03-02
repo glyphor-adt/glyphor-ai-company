@@ -50,7 +50,7 @@ export async function runAccountResearch(params: AccountResearchRunParams = {}) 
   switch (task) {
     case 'prospect_research':
       initialMessage = params.company
-        ? `Research ${params.company}. Look up company info, Crunchbase data, tech stack, job postings, and key contacts. Estimate dev spend. Compile a comprehensive dossier.`
+        ? `Research ${params.company}. Look up company info, funding data, tech stack, job postings, and key contacts. Estimate dev spend. Compile a comprehensive dossier.`
         : `Research the next prospect in the pipeline. Search company info, analyze tech stack, check for buying signals, and compile a dossier for Rachel.`;
       break;
     case 'batch_enrich':

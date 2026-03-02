@@ -23,7 +23,7 @@ export function createCompetitiveIntelTools(memory: CompanyMemoryStore): ToolDef
       description: 'Search recent news for competitor mentions, funding, launches, and strategic moves.',
       parameters: { query: { type: 'string', description: 'Search query', required: true }, limit: { type: 'number', description: 'Max results (default 10)' } },
       async execute(params) {
-        const results = await searchNews(params.query, { num: Number(params.limit) || 10 });
+        const results = await searchNews(params.query as string, { num: Number(params.limit) || 10 });
         return { success: true, data: results };
       },
     },
