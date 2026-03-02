@@ -12,6 +12,7 @@
 
 import { ProviderFactory, type ProviderFactoryConfig, type GeminiAdapter, type OpenAIAdapter } from './providers/index.js';
 import type { ModelProvider, UnifiedModelRequest, UnifiedModelResponse, ImageResponse } from './providers/types.js';
+import { getFallbackChain } from '@glyphor/shared/models';
 
 // ─── Re-export types for backward compatibility ──────────────
 
@@ -27,6 +28,11 @@ export function detectProvider(model: string): ModelProvider {
   if (model.startsWith('gpt-') || /^o[134](-|$)/.test(model)) return 'openai';
   if (model.startsWith('claude-')) return 'anthropic';
   throw new Error(`Unknown model provider for "${model}". Expected prefix: gemini-, gpt-, o1/o3/o4, or claude-`);
+}
+
+/** Detect quota/rate-limit errors across all providers. */
+function isQuotaError(msg: string): boolean {
+  return /429|rate.?limit|quota|resource.?exhausted|too many requests|capacity|overloaded/i.test(msg);
 }
 
 // ─── ModelClient ─────────────────────────────────────────────
@@ -49,37 +55,69 @@ export class ModelClient {
       throw new Error(`Aborted: ${reason}`);
     }
 
-    const provider = detectProvider(request.model);
-    let adapter: import('./providers/types.js').ProviderAdapter;
-    try {
-      adapter = this.factory.get(provider);
-    } catch (err) {
-      throw new Error(`[${provider}] ${(err as Error).message} (model: ${request.model})`);
-    }
-    const MAX_RETRIES = 2;
+    // Try the requested model first, then fallback chain on quota/rate errors
+    const modelsToTry = [request.model, ...getFallbackChain(request.model)];
 
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    for (let modelIdx = 0; modelIdx < modelsToTry.length; modelIdx++) {
+      const currentModel = modelsToTry[modelIdx];
+      const provider = detectProvider(currentModel);
+      let adapter: import('./providers/types.js').ProviderAdapter;
       try {
-        const apiPromise = adapter.generate(request);
-        return await this.raceAbort(apiPromise, request.signal, request.callTimeoutMs);
-      } catch (err) {
-        const msg = (err as Error).message ?? '';
-        const cause = (err as { cause?: Error }).cause?.message;
-        const detail = cause ? `${msg} (cause: ${cause})` : msg;
-        if (request.signal?.aborted) throw err;
-        if (/40[0-3]|404|422/.test(msg)) {
-          throw new Error(`[${provider}] ${detail} (model: ${request.model})`);
-        }
-        if (attempt < MAX_RETRIES) {
-          const backoffMs = 2000 * (attempt + 1);
-          console.warn(`[ModelClient] Attempt ${attempt + 1} for ${request.model} failed (${detail}), retrying in ${backoffMs}ms…`);
-          await new Promise(r => setTimeout(r, backoffMs));
+        adapter = this.factory.get(provider);
+      } catch {
+        // Provider not configured (no API key) — skip to next fallback
+        if (modelIdx < modelsToTry.length - 1) {
+          console.warn(`[ModelClient] Provider ${provider} not configured, skipping ${currentModel}`);
           continue;
         }
-        throw new Error(`[${provider}] ${detail} (model: ${request.model})`);
+        throw new Error(`[${provider}] No API key configured (model: ${currentModel})`);
+      }
+
+      const MAX_RETRIES = 2;
+
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          const apiPromise = adapter.generate({ ...request, model: currentModel });
+          const response = await this.raceAbort(apiPromise, request.signal, request.callTimeoutMs);
+          if (modelIdx > 0) {
+            console.warn(`[ModelClient] Fallback success: ${request.model} → ${currentModel}`);
+          }
+          return response;
+        } catch (err) {
+          const msg = (err as Error).message ?? '';
+          const cause = (err as { cause?: Error }).cause?.message;
+          const detail = cause ? `${msg} (cause: ${cause})` : msg;
+          if (request.signal?.aborted) throw err;
+
+          // Non-retryable client errors (bad request, auth, not found) — no fallback
+          if (/40[0-2]|403|404|422/.test(msg) && !isQuotaError(msg)) {
+            throw new Error(`[${provider}] ${detail} (model: ${currentModel})`);
+          }
+
+          // Quota/rate-limit error — skip retries on this model, move to fallback
+          if (isQuotaError(msg)) {
+            console.warn(`[ModelClient] Quota/rate-limit on ${currentModel}: ${detail}`);
+            break; // break retry loop → try next model in fallback chain
+          }
+
+          if (attempt < MAX_RETRIES) {
+            const backoffMs = 2000 * (attempt + 1);
+            console.warn(`[ModelClient] Attempt ${attempt + 1} for ${currentModel} failed (${detail}), retrying in ${backoffMs}ms…`);
+            await new Promise(r => setTimeout(r, backoffMs));
+            continue;
+          }
+
+          // Exhausted retries on this model — try fallback if available
+          if (modelIdx < modelsToTry.length - 1) {
+            console.warn(`[ModelClient] ${currentModel} exhausted retries, falling back to ${modelsToTry[modelIdx + 1]}`);
+            break; // break retry loop → try next model
+          }
+
+          throw new Error(`[${provider}] ${detail} (model: ${currentModel})`);
+        }
       }
     }
-    throw new Error('Unexpected: exhausted retries');
+    throw new Error('Unexpected: exhausted all models in fallback chain');
   }
 
   /**
