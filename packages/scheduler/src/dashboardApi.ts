@@ -42,10 +42,10 @@ const TABLE_MAP: Record<string, string> = {
   'decisions': 'decisions',
   'founder-directives': 'founder_directives',
   'directives': 'founder_directives',
-  'founder-bulletins': 'founder_bulletins',
+  'founder-bulletins': 'company_knowledge',
   'dashboard-change-requests': 'dashboard_change_requests',
   'dashboard-users': 'dashboard_users',
-  'company-knowledge-base': 'company_knowledge_base',
+  'company-knowledge-base': 'company_knowledge',
   'company-pulse': 'company_pulse',
   'kg-nodes': 'kg_nodes',
   'kg-edges': 'kg_edges',
@@ -232,7 +232,7 @@ export async function handleDashboardApi(
 
     // GET /api/company-pulse → return latest single row (not array)
     if (tableName === 'company_pulse' && method === 'GET' && !resourceId) {
-      const rows = await systemQuery('SELECT * FROM company_pulse ORDER BY created_at DESC LIMIT 1');
+      const rows = await systemQuery('SELECT * FROM company_pulse ORDER BY updated_at DESC LIMIT 1');
       jsonResponse(res, 200, rows[0] ?? null);
       return true;
     }
@@ -241,7 +241,7 @@ export async function handleDashboardApi(
       if (method === 'POST') {
         const body = JSON.parse(await readBody(req));
         const existing = await systemQuery<{ id: string }>(
-          'SELECT id FROM company_pulse ORDER BY created_at DESC LIMIT 1',
+          'SELECT id FROM company_pulse ORDER BY updated_at DESC LIMIT 1',
         );
         if (existing.length > 0) {
           await systemQuery(
