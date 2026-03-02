@@ -1688,6 +1688,8 @@ export class CompanyAgentRunner {
       elapsedMs: stats.elapsedMs,
       inputTokens,
       outputTokens,
+      thinkingTokens,
+      cachedInputTokens,
       cost: estimateCost(config.model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens),
       abortReason: status === 'aborted' ? errorMsg : undefined,
       error: status === 'error' ? errorMsg : undefined,

@@ -193,6 +193,8 @@ export interface AgentExecutionResult {
   elapsedMs: number;
   inputTokens: number;
   outputTokens: number;
+  thinkingTokens: number;
+  cachedInputTokens: number;
   cost: number;
   abortReason?: string;
   error?: string;

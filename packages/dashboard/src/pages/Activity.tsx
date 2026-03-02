@@ -23,6 +23,8 @@ interface AgentRun {
   cost: number | null;
   input_tokens: number | null;
   output_tokens: number | null;
+  thinking_tokens: number | null;
+  cached_input_tokens: number | null;
   tool_calls: number | null;
   turns: number | null;
   error: string | null;
@@ -400,6 +402,19 @@ export default function Activity() {
                           </div>
                         </div>
                       )}
+                      {(run.thinking_tokens != null && run.thinking_tokens > 0) || (run.cached_input_tokens != null && run.cached_input_tokens > 0) ? (
+                        <div className="mt-2 rounded-md border border-emerald/20 bg-emerald/5 px-3 py-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400 mb-1">Token Breakdown</p>
+                          <div className="flex gap-4 text-[11px] text-txt-secondary">
+                            {run.thinking_tokens != null && run.thinking_tokens > 0 && (
+                              <span>Thinking: {formatTokens(run.thinking_tokens)}</span>
+                            )}
+                            {run.cached_input_tokens != null && run.cached_input_tokens > 0 && (
+                              <span className="text-emerald-400">Cached: {formatTokens(run.cached_input_tokens)} ({run.input_tokens ? Math.round((run.cached_input_tokens / run.input_tokens) * 100) : 0}% hit rate)</span>
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </div>
