@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import Markdown from 'react-markdown';
 import { useAgents } from '../lib/hooks';
-import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
+import { DISPLAY_NAME_MAP, AGENT_META, ROLE_DEPARTMENT, ROLE_TIER, ROLE_TITLE } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { useAuth, getEmailAliases } from '../lib/auth';
-import { MdAttachFile, MdImage, MdDescription, MdClose } from 'react-icons/md';
+import { MdAttachFile, MdImage, MdDescription, MdClose, MdSearch, MdExpandMore, MdChevronRight } from 'react-icons/md';
 
 interface Attachment {
   name: string;
@@ -29,8 +29,8 @@ function stripReasoning(text: string): string {
 }
 
 const FOUNDERS = [
-  { id: 'kristina', name: 'Kristina', email: 'kristina@glyphor.ai', color: '#a78bfa' },
-  { id: 'andrew', name: 'Andrew', email: 'andrew@glyphor.ai', color: '#f59e0b' },
+  { id: 'kristina', name: 'Kristina', email: 'kristina@glyphor.ai', color: '#a78bfa', photo: '/kristina_headshot.jpg' },
+  { id: 'andrew', name: 'Andrew', email: 'andrew@glyphor.ai', color: '#f59e0b', photo: '/andrew_headshot.jpg' },
 ];
 
 const ALLOWED_TYPES = [
@@ -83,6 +83,16 @@ export default function GroupChat() {
   const [respondingAgents, setRespondingAgents] = useState<Set<string>>(new Set());
   const [pendingFiles, setPendingFiles] = useState<Attachment[]>([]);
   const [dragging, setDragging] = useState(false);
+  const [agentSearch, setAgentSearch] = useState('');
+
+  // Stable conversation ID so all participants see the same thread
+  const [conversationId] = useState<string>(() => {
+    const stored = localStorage.getItem('glyphor-group-chat-id');
+    if (stored) return stored;
+    const id = `gc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    localStorage.setItem('glyphor-group-chat-id', id);
+    return id;
+  });
 
   // @mention state
   const [showMentions, setShowMentions] = useState(false);

@@ -28,7 +28,7 @@ auditing, lead generation, and executive assistantship.
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │                      GCP Cloud Scheduler                             │
-│  35 agent cron jobs → Pub/Sub topic "glyphor-agent-tasks"            │
+│  37 agent cron jobs → Pub/Sub topic "glyphor-agent-tasks"            │
 │  9 data sync + utility jobs → HTTP POST to scheduler endpoints       │
 │  + Dynamic Scheduler (DB-defined cron from agent_schedules table)    │
 │  + Data Sync Scheduler (internal cron for sync jobs when GCP CS      │
@@ -127,7 +127,7 @@ auditing, lead generation, and executive assistantship.
 │  │ Simulation   │ ┌────────────────┐    ┌─────────────────────┐      │
 │  │ Engine       │ │ Agent Executor │    │  Decision Queue     │      │
 │  ├──────────────┤ │ (role→runner)  │    │  submit / approve   │      │
-│  │ Meeting      │ │ (44 agent      │    │  reminders (4 h)    │      │
+│  │ Meeting      │ │ (46 agent      │    │  reminders (4 h)    │      │
 │  │ Engine       │ │  roles routed) │    └─────────┬───────────┘      │
 │  ├──────────────┤ └────────┬───────┘              │                 │
 │  │ CoT Engine   │          │                      │                 │
@@ -211,7 +211,7 @@ auditing, lead generation, and executive assistantship.
 │  documentExtractor.ts             │
 │   (Office doc text extraction)    │
 │  config/agentEmails.ts            │
-│   (44 agent email registry)      │
+│   (46 agent email registry)      │
 └───────────────┬───────────────────┘
                 │
                 ▼
@@ -300,7 +300,9 @@ auditing, lead generation, and executive assistantship.
 │                                           │
 │   Auth: Teams SSO (Entra ID) or Google   │
 │         Sign-In (OAuth 2.0)               │
-│   API: Cloud SQL direct + Scheduler /run  │
+│   API: dashboardApi.ts CRUD + Scheduler   │
+│         /run (PostgREST-compatible, 70+   │
+│         whitelisted tables)               │
 └──────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────┐
@@ -580,7 +582,7 @@ glyphor-ai-company/
 │   │       ├── redisCache.ts           # Redis cache layer for GCP Memorystore (ioredis)
 │   │       ├── toolRegistry.ts         # Central tool lookup (static + dynamic DB table)
 │   │       ├── config/
-│   │       │   └── agentEmails.ts         # Agent email registry (44 agents → M365 shared mailboxes)
+│   │       │   └── agentEmails.ts         # Agent email registry (46 agents → M365 shared mailboxes)
 │   │       ├── providers/              # Per-provider LLM adapters (each has normalizeFinishReason)
 │   │       │   ├── types.ts               # Unified provider contract (ProviderAdapter interface)
 │   │       │   ├── gemini.ts              # GeminiAdapter (thinkingLevel/thinkingBudget, Imagen)
@@ -611,7 +613,7 @@ glyphor-ai-company/
 │   │       ├── schema.ts             # Database row types
 │   │       └── migrations/           # Schema migration helpers
 │   │
-│   ├── agents/                  # Agent implementations (9 execs + 5 research + 18 sub-team + 2 ops + 1 HR)
+│   ├── agents/                  # Agent implementations (9 execs + 7 research + 18 sub-team + 2 ops + 1 HR)
 │   │   └── src/
 │   │       ├── chief-of-staff/        # Sarah Chen — run.ts, systemPrompt.ts, tools.ts
 │   │       ├── cto/                   # Marcus Reeves
@@ -678,7 +680,7 @@ glyphor-ai-company/
 │   │   │   ├── operations.md          # Operations department context
 │   │   │   ├── product.md             # Product department context
 │   │   │   └── sales-cs.md            # Sales & CS department context
-│   │   └── briefs/                    # 44 role briefs (9 execs + 7 research + 19 sub-team + 2 ops + 7 specialists)
+│   │   └── briefs/                    # 46 role briefs (9 execs + 7 research + 19 sub-team + 2 ops + 9 specialists)
 │   │       ├── sarah-chen.md          # Chief of Staff
 │   │       ├── marcus-reeves.md       # CTO
 │   │       ├── nadia-okafor.md        # CFO
@@ -711,7 +713,9 @@ glyphor-ai-company/
 │   │       ├── lena-park.md           # Competitive Research Analyst (→ VP Research)
 │   │       ├── daniel-okafor.md       # Market Research Analyst (→ VP Research)
 │   │       ├── kai-nakamura.md        # Technical Research Analyst (→ VP Research)
-│   │       └── amara-diallo.md        # Industry Research Analyst (→ VP Research)
+│   │       ├── amara-diallo.md        # Industry Research Analyst (→ VP Research)
+│   │       ├── riya-mehta.md          # AI Impact Analyst (→ VP Research)
+│   │       └── marcus-chen.md         # Org & Talent Analyst (→ VP Research)
 │   │
 │   ├── integrations/            # External service connectors
 │   │   └── src/
@@ -2095,7 +2099,7 @@ Grant requests for tools not in the registry are rejected with a message to ask 
 
 **Database**: `agent_tool_grants` table with columns `agent_role`, `tool_name`, `granted_by`,
 `reason`, `directive_id`, `scope`, `is_active`, `expires_at`. Unique constraint on
-`(agent_role, tool_name)`. Seeded with baseline grants for all 35 agents.
+`(agent_role, tool_name)`. Seeded with baseline grants for all 37 agents.
 
 ### Pre-Dispatch Validation (Chief of Staff)
 
@@ -2244,6 +2248,27 @@ Strategic deep dive engine with cross-model verified evidence. Four-phase pipeli
 ```
 
 Stored in `deep_dives` table. Supports visual infographic generation (base64 PNG).
+
+### Framework Analysis (`frameworkTypes.ts`)
+
+Strategic analyses and deep dives can now run 6 strategic framework analyses in parallel,
+producing a convergence narrative that synthesizes insights across all frameworks:
+
+| Framework | Output |
+|-----------|--------|
+| **Ansoff Growth Matrix** | Market penetration, development, product dev, diversification strategies |
+| **BCG Growth-Share Matrix** | Portfolio classification (star/cash cow/question mark/dog), capital allocation |
+| **Blue Ocean Strategy** | Value innovation analysis, uncontested market space |
+| **Porter's Five Forces** | Competitive intensity assessment across 5 dimensions |
+| **PESTLE Analysis** | Political, Economic, Social, Technological, Legal, Environmental factors |
+| **Enhanced SWOT** | Strengths, Weaknesses, Opportunities, Threats with action items |
+
+Each framework returns a `confidenceScore` and `duration`. The **Framework Convergence Narrative**
+synthesizes highest-value insights across all 6 frameworks into executive-ready recommendations.
+
+Stored in `deep_dive_frameworks` table; convergence narratives in `deep_dives.framework_convergence`
+and `strategy_analyses.framework_convergence`. Includes a **Watchlist** system (`deep_dive_watchlist`,
+`strategy_analysis_watchlist`) monitoring risk, catalyst, transaction, leadership, and regulatory items.
 
 ### Chain of Thought Engine (`cotEngine.ts`)
 
@@ -2516,7 +2541,7 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 |-------|---------|-------------|
 | `company_profile` | Company metadata (key-value) | key (unique), value (JSONB), updated_by, version |
 | `products` | Product catalog | slug (unique), name, status, roadmap (JSONB), metrics (JSONB) |
-| `company_agents` | Agent registry (28 columns) | role (unique), display_name, name, title, reports_to, model, temperature, max_turns, budget_per_run, budget_daily, budget_monthly, is_core, is_temporary, expires_at, thinking_enabled, last_run_summary, performance_score, total_runs, total_cost_usd |
+| `company_agents` | Agent registry (28 columns) | role (unique), display_name, name, title, reports_to, team, model, temperature, max_turns, budget_per_run, budget_daily, budget_monthly, is_core, is_temporary, expires_at, thinking_enabled, last_run_summary, performance_score, total_runs, total_cost_usd, tenant_id |
 | `decisions` | Approval queue | tier, status, title, summary, proposed_by, reasoning, assigned_to (TEXT[]), resolved_by |
 | `activity_log` | Audit trail | agent_role, action, product, summary, details (JSONB), tier |
 
@@ -2591,7 +2616,10 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 |-------|---------|-------------|
 | `analyses` | Strategic analyses | type (5 types), query, depth, status (6 phases), threads (JSONB), report (JSONB), requested_by, visual_image (TEXT — base64 PNG infographic) |
 | `simulations` | T+1 simulations | action, perspective (optimistic/neutral/pessimistic), status (9 states), dimensions, report, accepted_at, accepted_by |
-| `deep_dives` | Deep dive research | target, context, status (6 phases), research_areas, sources, report, requested_by, visual_image (TEXT — base64 PNG infographic) |
+| `deep_dives` | Deep dive research | target, context, status (6 phases), research_areas, sources, report, requested_by, visual_image, framework_convergence, framework_outputs (JSONB) |
+| `deep_dive_frameworks` | Framework analysis results | deep_dive_id, framework_id (ansoff/bcg/swot/blue_ocean/porters/pestle), analysis (JSONB), confidence_score |
+| `deep_dive_watchlist` | Risk/catalyst/transaction monitors | deep_dive_id, item_type, description, trigger_signals |
+| `strategy_analysis_watchlist` | Strategy analysis monitors | analysis_id, item_type, description, trigger_signals |
 
 ### Collective Intelligence Tables
 
@@ -2682,13 +2710,21 @@ RPCs: `match_kg_nodes`, `kg_trace_causes`, `kg_trace_impact`, `kg_neighborhood`,
 | `company_knowledge_base` | Editable knowledge sections | section (unique), title, content, audience (10 roles), last_edited_by, version, is_active |
 | `founder_bulletins` | Founder announcements | created_by, content, audience, priority (fyi/normal/important/urgent), active_from, expires_at, is_active |
 
+### Tenant & Platform Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `tenants` | Multi-tenant registry | id (UUID PK), slug (unique), name, is_active |
+| `dashboard_change_requests` | Feature/bug request tracking | type, area, priority, description, status, github_issue_url, submitted_by, approved_by |
+| `runtime_tools` | Persisted runtime-synthesized tools | name, implementation_type, definition (JSONB), created_by |
+
 ### Working Memory
 
 Working memory (last-run summary) is stored in the `company_agents` table via the
 `last_run_summary` and `last_run_at` columns — not a separate table. This enables
 continuity between runs without additional migration.
 
-Total: **86 migration files**, **86+ tables**, **10 RPC functions**, **1 extension (pgvector)**.
+Total: **163 migration files**, **90+ tables**, **10 RPC functions**, **1 extension (pgvector)**.
 
 ---
 
@@ -2855,7 +2891,7 @@ Requires `SCHEDULER_URL`, `DASHBOARD_URL`, `VOICE_GATEWAY_URL` env vars.
 |------|-------|----------|
 | Dashboard | `/` | Agent activity overview, key metrics |
 | Directives | `/directives` | Founder directives management — create, assign, track work assignments |
-| Workforce | `/workforce` | Org chart (11 departments) + grid view — 44 total headcount |
+| Workforce | `/workforce` | Org chart (13 departments) + grid view — 46 total headcount |
 | Workforce Builder | `/builder` | Drag-and-drop org chart builder with templates |
 | Agent Profile | `/agents/:agentId` | 7-tab profile: Overview, Performance, Memory, Messages, Skills, World Model, Settings |
 | Agent Builder | `/agents/new` | Create new dynamic agents with name, department, model, budget, cron |
@@ -2891,7 +2927,7 @@ Requires `SCHEDULER_URL`, `DASHBOARD_URL`, `VOICE_GATEWAY_URL` env vars.
 | Customer Success | James Turner (VP CS) | Emma Wright, David Santos |
 | Sales | Rachel Kim (VP Sales) | Nathan Cole, Ethan Morse |
 | Design & Frontend | Mia Tanaka (VP Design) | Leo Vargas, Ava Chen, Sofia Marchetti, Ryan Park |
-| Research & Intelligence | Sophia Lin (VP Research) | Lena Park, Daniel Okafor, Kai Nakamura, Amara Diallo |
+| Research & Intelligence | Sophia Lin (VP Research) | Lena Park, Daniel Okafor, Kai Nakamura, Amara Diallo, Riya Mehta, Marcus Chen |
 | Legal | Victoria Chase (CLO) | Robert Finley, Grace Hwang, Mariana Solis |
 | People & Culture | Jasmine Rivera (Head of HR) | — |
 | Operations | — | Atlas Vega, Morgan Blake |
