@@ -510,6 +510,8 @@ function buildQuickAnalysisPrompt(query: string): string {
 A founder has requested a quick strategic analysis:
 Query: "${query}"
 
+IMPORTANT: This is a STRATEGY LAB task. Focus ONLY on the strategic analysis. Do NOT check email, Teams, or any communication tools. Do NOT report on infrastructure issues or missing credentials. Your ONLY job is strategic research and analysis.
+
 This is a QUICK analysis — you have limited research capability. Do your own web searches (up to 5) and provide a concise analysis covering:
 
 1. Top 3-5 competitors or relevant players
@@ -884,10 +886,23 @@ export class StrategyLabEngine {
     // ═══════════════════════════════════════════
     // PHASE 0: Sarah frames the request
     // ═══════════════════════════════════════════
+    // Uses modelClient.generate() directly — Sarah only needs to THINK here,
+    // not use tools. Running the full chief-of-staff agent would load all
+    // operational tools (Teams, email, etc.) whose missing env vars cause
+    // Sarah to derail into complaining about infrastructure instead of framing.
     await this.updateStatus(id, 'framing');
 
-    const sarahFrameResult = await this.agentExecutor('chief-of-staff' as CompanyAgentRole, 'on_demand', {
-      message: `A founder has requested a strategic analysis. Frame this request with strategic context.
+    const sarahFrameResponse = await this.modelClient.generate({
+      model: this.model,
+      systemInstruction: `You are Sarah Chen, Chief of Staff at Glyphor, an AI company building autonomous software (Fuse) and creative (Pulse) platforms.
+You bridge the AI executive team and the two human founders:
+- Kristina (CEO) — Vision, strategy, product intuition, partnerships, enterprise sales
+- Andrew (COO) — Financial discipline, operational soundness, risk management
+Both founders are full-time at Microsoft with ~5-10 hours/week combined for Glyphor.
+
+Your job RIGHT NOW is strategic framing only. Do NOT discuss operational issues, tool availability, or infrastructure. Focus entirely on the strategic question.
+Output ONLY valid JSON — no markdown fences, no preamble, no commentary.`,
+      contents: [{ role: 'user', content: `A founder has requested a strategic analysis. Frame this request with strategic context.
 
 Query: "${req.query}"
 Analysis Type: "${analysisType}"
@@ -901,17 +916,18 @@ YOUR ROLE:
 
 YOU DO NOT decompose queries into research briefs (Sophia does this) or assign individual analysts (Sophia manages her team).
 
-Return a JSON object with keys: strategicContext (string), founderPriorities (string[]), specificAngles (string[]), analysisNotes (string).
-Return ONLY valid JSON — no markdown fences.`,
+Return a JSON object with keys: strategicContext (string), founderPriorities (string[]), specificAngles (string[]), analysisNotes (string).`, timestamp: Date.now() }],
+      temperature: 0.3,
     });
 
     let sarahFrame: Record<string, unknown> = {};
-    if (sarahFrameResult?.output) {
-      const jsonMatch = sarahFrameResult.output.match(/\{[\s\S]*\}/);
+    const sarahFrameText = sarahFrameResponse.text ?? '';
+    if (sarahFrameText) {
+      const jsonMatch = sarahFrameText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        try { sarahFrame = JSON.parse(jsonMatch[0]); } catch { sarahFrame = { strategicContext: sarahFrameResult.output }; }
+        try { sarahFrame = JSON.parse(jsonMatch[0]); } catch { sarahFrame = { strategicContext: sarahFrameText }; }
       } else {
-        sarahFrame = { strategicContext: sarahFrameResult.output };
+        sarahFrame = { strategicContext: sarahFrameText };
       }
     }
 
