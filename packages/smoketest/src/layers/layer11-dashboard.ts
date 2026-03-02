@@ -9,6 +9,9 @@
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
 import { httpGet } from '../utils/http.js';
 import { runTest } from '../utils/test.js';
+import { execSync } from 'child_process';
+import { existsSync } from 'fs';
+import { resolve } from 'path';
 
 /** Every routable page in the dashboard SPA. */
 const PAGES = [
@@ -174,6 +177,47 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
         throw new Error(`Dashboard API failures: ${failed.join('; ')}`);
       }
       return `All ${tables.length} Dashboard API table reads returned HTTP 200`;
+    }),
+  );
+
+  // T11.8 — TypeScript Typecheck (dashboard)
+  tests.push(
+    await runTest('T11.8', 'Dashboard TypeScript Clean', async () => {
+      // Find the dashboard package root relative to the smoketest
+      const dashboardDir = resolve(import.meta.dirname, '..', '..', '..', 'dashboard');
+      if (!existsSync(resolve(dashboardDir, 'tsconfig.json'))) {
+        return 'Dashboard tsconfig.json not found — skipping typecheck';
+      }
+      try {
+        execSync('npx tsc --noEmit', { cwd: dashboardDir, timeout: 120_000, stdio: 'pipe' });
+        return 'Dashboard TypeScript compiles with zero errors';
+      } catch (err: any) {
+        const output = (err.stdout?.toString() ?? '') + (err.stderr?.toString() ?? '');
+        const errorLines = output.split('\n').filter((l: string) => l.includes('error TS'));
+        const count = errorLines.length;
+        const preview = errorLines.slice(0, 5).join('\n');
+        throw new Error(`${count} TypeScript error(s) found:\n${preview}`);
+      }
+    }),
+  );
+
+  // T11.9 — Scheduler TypeScript Clean
+  tests.push(
+    await runTest('T11.9', 'Scheduler TypeScript Clean', async () => {
+      const schedulerDir = resolve(import.meta.dirname, '..', '..', '..', 'scheduler');
+      if (!existsSync(resolve(schedulerDir, 'tsconfig.json'))) {
+        return 'Scheduler tsconfig.json not found — skipping typecheck';
+      }
+      try {
+        execSync('npx tsc --noEmit', { cwd: schedulerDir, timeout: 120_000, stdio: 'pipe' });
+        return 'Scheduler TypeScript compiles with zero errors';
+      } catch (err: any) {
+        const output = (err.stdout?.toString() ?? '') + (err.stderr?.toString() ?? '');
+        const errorLines = output.split('\n').filter((l: string) => l.includes('error TS'));
+        const count = errorLines.length;
+        const preview = errorLines.slice(0, 5).join('\n');
+        throw new Error(`${count} TypeScript error(s) found:\n${preview}`);
+      }
     }),
   );
 
