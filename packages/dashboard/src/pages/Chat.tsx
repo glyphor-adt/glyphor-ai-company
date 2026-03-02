@@ -24,6 +24,8 @@ interface Message {
   content: string;
   timestamp: Date;
   attachments?: Attachment[];
+  /** Which agent authored this message (for multi-agent @mention threads) */
+  agentRole?: string;
 }
 
 /** Strip <reasoning>...</reasoning> envelope from agent output */
@@ -102,6 +104,7 @@ async function saveMessage(
   content: string,
   userId: string,
   attachments?: Attachment[],
+  respondingAgent?: string,
 ) {
   await apiCall('/api/chat-messages', {
     method: 'POST',
@@ -111,6 +114,7 @@ async function saveMessage(
       content,
       user_id: userId,
       attachments: attachments?.length ? attachments.map((a) => ({ name: a.name, type: a.type })) : null,
+      ...(respondingAgent ? { responding_agent: respondingAgent } : {}),
     }),
   });
 }
@@ -305,6 +309,7 @@ export default function Chat() {
               content: row.content,
               timestamp: new Date(row.created_at as string),
               attachments: (row.attachments as any[])?.map((a: Record<string, unknown>) => ({ ...a, data: '' })),
+              agentRole: (row.responding_agent as string) || undefined,
             })),
           );
         }
@@ -479,64 +484,116 @@ export default function Chat() {
 
     saveMessage(targetRole, 'user', text, userEmail, attachments).catch(() => {});
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 180_000);
+    // Extract @mentioned agent roles from the message
+    const mentionPattern = /@(\w[\w\s]*?)(?=\s|$|@)/g;
+    const mentionedRoles: string[] = [];
+    let match: RegExpExecArray | null;
+    while ((match = mentionPattern.exec(text)) !== null) {
+      const mentionText = match[1].trim();
+      const found = mentionables.find(
+        (m) =>
+          m.name.toLowerCase() === mentionText.toLowerCase() ||
+          m.role.toLowerCase() === mentionText.toLowerCase(),
+      );
+      if (found && !found.isFounder && found.role !== targetRole && !mentionedRoles.includes(found.role)) {
+        mentionedRoles.push(found.role);
+      }
+    }
 
+    // Mark all mentioned agents as responding too
+    if (mentionedRoles.length > 0) {
+      setRespondingAgents((prev) => {
+        const next = new Set(prev);
+        for (const r of mentionedRoles) next.add(r);
+        return next;
+      });
+    }
+
+    /** Helper to invoke a single agent and append its response */
+    const invokeAgent = async (role: string, isMentioned: boolean) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 180_000);
+      const agentName = DISPLAY_NAME_MAP[role] ?? role;
+
+      try {
+        const history = messages.slice(-20).map((m) => ({
+          role: m.role,
+          content: m.agentRole && m.role === 'agent'
+            ? `[${DISPLAY_NAME_MAP[m.agentRole] ?? m.agentRole}]: ${m.content}`
+            : m.content,
+        }));
+
+        const msgText = isMentioned
+          ? `You were @mentioned in a conversation with ${DISPLAY_NAME_MAP[targetRole] ?? targetRole}. The user said: ${text}`
+          : (text || 'Please review the attached file(s).');
+
+        // Send attachments as structured data for native multimodal processing
+        const apiAttachments = (!isMentioned && attachments) ? attachments.map((a) => ({
+          name: a.name,
+          mimeType: a.type,
+          data: a.data,
+        })) : undefined;
+
+        const res = await fetch(`${SCHEDULER_URL}/run`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agentRole: role,
+            task: 'on_demand',
+            message: msgText,
+            history,
+            ...(apiAttachments ? { attachments: apiAttachments } : {}),
+          }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        let content: string;
+        if (data.output) content = stripReasoning(data.output);
+        else if (data.action === 'queued_for_approval') content = `This request was sent to your approval queue for review.`;
+        else if (data.status === 'aborted') content = 'Sorry, I wasn\u2019t able to finish my response. Could you try again?';
+        else if (data.error || data.reason) content = `Something went wrong: ${data.error || data.reason}`;
+        else content = `I completed the task but had nothing to report back.`;
+
+        // Only append to UI if user is still viewing the same agent
+        if (selectedRoleRef.current === targetRole) {
+          setMessages((prev) => [...prev, { role: 'agent', content, timestamp: new Date(), agentRole: isMentioned ? role : undefined }]);
+        }
+        saveMessage(targetRole, 'agent', content, userEmail, undefined, isMentioned ? role : undefined).catch(() => {});
+        if (!isMentioned) {
+          setRecentChats((prev) => {
+            const without = prev.filter((c) => c.agentRole !== targetRole);
+            return [{ agentRole: targetRole, lastMessage: content.slice(0, 80), lastMessageRole: 'agent' as const, lastTime: new Date() }, ...without];
+          });
+        }
+      } catch (err) {
+        clearTimeout(timeoutId);
+        const isTimeout = err instanceof Error && err.name === 'AbortError';
+        const errContent = isTimeout
+          ? `${agentName} timed out. Please try again.`
+          : `Could not reach ${agentName}. Please try again in a moment.`;
+        if (selectedRoleRef.current === targetRole) {
+          setMessages((prev) => [...prev, { role: 'agent', content: errContent, timestamp: new Date(), agentRole: isMentioned ? role : undefined }]);
+        }
+      } finally {
+        setRespondingAgents((prev) => { const next = new Set(prev); next.delete(role); return next; });
+      }
+    };
+
+    // Invoke primary agent, then mentioned agents in parallel
     try {
-      const history = messages.slice(-20).map((m) => ({ role: m.role, content: m.content }));
-
-      // Send attachments as structured data for native multimodal processing
-      const apiAttachments = attachments?.map((a) => ({
-        name: a.name,
-        mimeType: a.type,
-        data: a.data,
-      }));
-
-      const res = await fetch(`${SCHEDULER_URL}/run`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          agentRole: targetRole,
-          task: 'on_demand',
-          message: text || 'Please review the attached file(s).',
-          history,
-          ...(apiAttachments ? { attachments: apiAttachments } : {}),
-        }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-
-      let content: string;
-      if (data.output) content = stripReasoning(data.output);
-      else if (data.action === 'queued_for_approval') content = `This request was sent to your approval queue for review.`;
-      else if (data.status === 'aborted') content = 'Sorry, I wasn\u2019t able to finish my response. Could you try again?';
-      else if (data.error || data.reason) content = `Something went wrong: ${data.error || data.reason}`;
-      else content = `I completed the task but had nothing to report back.`;
-
-      // Only append to UI if user is still viewing the same agent
-      if (selectedRoleRef.current === targetRole) {
-        setMessages((prev) => [...prev, { role: 'agent', content, timestamp: new Date() }]);
+      await invokeAgent(targetRole, false);
+      if (mentionedRoles.length > 0) {
+        await Promise.all(mentionedRoles.map((role) => invokeAgent(role, true)));
       }
-      saveMessage(targetRole, 'agent', content, userEmail).catch(() => {});
-      setRecentChats((prev) => {
-        const without = prev.filter((c) => c.agentRole !== targetRole);
-        return [{ agentRole: targetRole, lastMessage: content.slice(0, 80), lastMessageRole: 'agent' as const, lastTime: new Date() }, ...without];
-      });
-    } catch (err) {
-      clearTimeout(timeoutId);
-      const targetName = DISPLAY_NAME_MAP[targetRole] ?? targetRole;
-      const isTimeout = err instanceof Error && err.name === 'AbortError';
-      const errContent = isTimeout
-        ? `${targetName} timed out. Please try again.`
-        : `Could not reach ${targetName}. Please try again in a moment.`;
-      if (selectedRoleRef.current === targetRole) {
-        setMessages((prev) => [...prev, { role: 'agent', content: errContent, timestamp: new Date() }]);
-      }
+    } catch {
+      // Individual errors handled inside invokeAgent
     } finally {
+      // Ensure primary agent is cleared even if something unexpected happened
       setRespondingAgents((prev) => { const next = new Set(prev); next.delete(targetRole); return next; });
     }
   };
@@ -730,14 +787,18 @@ export default function Chat() {
             </div>
           )}
 
-          {messages.map((msg, i) => (
+          {messages.map((msg, i) => {
+            const msgAgent = msg.agentRole || selectedRole;
+            const msgAgentName = DISPLAY_NAME_MAP[msgAgent] ?? msgAgent;
+            const isMentionedAgent = msg.role === 'agent' && msg.agentRole && msg.agentRole !== selectedRole;
+            return (
             <div
               key={i}
               className={`flex gap-3 animate-fade-up ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
               style={{ animationDelay: `${i * 30}ms` }}
             >
               {msg.role === 'agent' ? (
-                <AgentAvatar role={selectedRole} size={28} />
+                <AgentAvatar role={msgAgent} size={28} />
               ) : userAvatar ? (
                 <img src={userAvatar} alt="" className="h-7 w-7 rounded-full object-cover" />
               ) : (
@@ -769,6 +830,11 @@ export default function Chat() {
                     ))}
                   </div>
                 )}
+                {isMentionedAgent && (
+                  <p className="text-[10px] font-semibold mb-1" style={{ color: AGENT_META[msgAgent]?.color ?? '#06b6d4' }}>
+                    {msgAgentName}
+                  </p>
+                )}
                 {msg.role === 'agent' ? (
                   <div className="prose-chat"><Markdown>{msg.content}</Markdown></div>
                 ) : (
@@ -779,21 +845,26 @@ export default function Chat() {
                 </p>
               </div>
             </div>
-          ))}
+            );
+          })}
 
-          {respondingAgents.has(selectedRole) && (
-            <div className="flex gap-3">
-              <AgentAvatar role={selectedRole} size={28} />
+          {Array.from(respondingAgents).filter((r) => r === selectedRole || !respondingAgents.has(selectedRole) || r !== selectedRole).map((respondingRole) => (
+            <div key={respondingRole} className="flex gap-3">
+              <AgentAvatar role={respondingRole} size={28} />
               <div className="rounded-xl bg-raised border border-border px-4 py-3">
                 <div className="flex items-center gap-1.5">
+                  {respondingRole !== selectedRole && (
+                    <span className="text-[10px] font-semibold mr-1" style={{ color: AGENT_META[respondingRole]?.color ?? '#06b6d4' }}>
+                      {DISPLAY_NAME_MAP[respondingRole] ?? respondingRole}
+                    </span>
+                  )}
                   <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-cyan" style={{ animationDelay: '0ms' }} />
                   <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-cyan" style={{ animationDelay: '200ms' }} />
                   <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-cyan" style={{ animationDelay: '400ms' }} />
                 </div>
-
               </div>
             </div>
-          )}
+          ))}
 
           {dragging && (
             <div className="flex h-24 items-center justify-center rounded-xl border-2 border-dashed border-cyan/40 bg-cyan/5">
