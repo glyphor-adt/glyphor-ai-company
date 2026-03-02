@@ -51,7 +51,7 @@ export function SystemHealth() {
         <span
           className={`inline-block h-2.5 w-2.5 rounded-full ${
             openIncidents.length > 0
-              ? 'bg-red-400'
+              ? 'bg-prism-critical'
               : allHealthy
               ? 'bg-tier-green'
               : 'bg-tier-yellow'
@@ -80,7 +80,7 @@ export function SystemHealth() {
                     ? 'bg-tier-green'
                     : sync.status === 'stale'
                     ? 'bg-tier-yellow'
-                    : 'bg-red-400'
+                    : 'bg-prism-critical'
                 }`}
               />
               <span className="text-[13px] font-medium text-txt-secondary">
@@ -89,7 +89,7 @@ export function SystemHealth() {
             </div>
             <div className="flex items-center gap-3">
               {sync.consecutive_failures > 0 && (
-                <span className="text-[10px] text-red-400">
+                <span className="text-[10px] text-prism-critical">
                   {sync.consecutive_failures} failures
                 </span>
               )}
@@ -110,11 +110,11 @@ export function SystemHealth() {
           {openIncidents.map((inc) => (
             <div
               key={inc.id}
-              className="flex items-center justify-between rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2"
+              className="flex items-center justify-between rounded-lg border border-prism-critical/20 bg-prism-critical/5 px-3 py-2"
             >
               <div className="flex items-center gap-2">
-                <span className="text-[13px] font-medium text-red-400">{inc.title}</span>
-                <span className="rounded-full border border-red-500/30 bg-red-500/15 px-1.5 py-0.5 text-[10px] text-red-400">
+                <span className="text-[13px] font-medium text-prism-critical">{inc.title}</span>
+                <span className="rounded-full border border-prism-critical/30 bg-prism-critical/15 px-1.5 py-0.5 text-[10px] text-prism-critical">
                   {inc.severity}
                 </span>
               </div>

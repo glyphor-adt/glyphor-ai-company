@@ -110,7 +110,7 @@ function GCPTable({ items }: { items: IAMState[] }) {
             return (
               <tr key={item.id} className="border-b border-border/50">
                 <td className="py-2.5 pr-4">
-                  <code className="rounded bg-slate-100 px-1.5 py-0.5 text-[12px] dark:bg-white/8">
+                  <code className="rounded bg-prism-bg2 px-1.5 py-0.5 text-[12px]">
                     {item.credential_id.split('@')[0]}
                   </code>
                 </td>
@@ -165,7 +165,7 @@ function M365Table({ items }: { items: IAMState[] }) {
                 </td>
                 <td className="py-2.5 pr-4">
                   {scopes.map((s) => (
-                    <span key={s} className="mr-1.5 inline-block rounded bg-blue-50 px-1.5 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-500/15 dark:text-blue-400">
+                    <span key={s} className="mr-1.5 inline-block rounded bg-prism-tint-3 px-1.5 py-0.5 text-[11px] font-medium text-prism-sky">
                       {s}
                     </span>
                   ))}
@@ -244,7 +244,7 @@ function StripeTable({ items }: { items: IAMState[] }) {
                 <td className="py-2.5 pr-4 text-txt-muted">{keyAgents[item.credential_id] ?? '—'}</td>
                 <td className="py-2.5">
                   {resources.map((r) => (
-                    <span key={r} className="mr-1.5 inline-block rounded bg-purple-50 px-1.5 py-0.5 text-[11px] font-medium text-purple-700 dark:bg-purple-500/15 dark:text-purple-400">
+                    <span key={r} className="mr-1.5 inline-block rounded bg-prism-tint-5 px-1.5 py-0.5 text-[11px] font-medium text-prism-violet">
                       {r}
                     </span>
                   ))}
@@ -285,7 +285,7 @@ function VercelTable({ items }: { items: IAMState[] }) {
                 <td className="py-2.5 pr-4 text-txt-muted">{tokenAgents[item.credential_id] ?? '—'}</td>
                 <td className="py-2.5">
                   {scopes.map((s) => (
-                    <span key={s} className="mr-1.5 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-white/8 dark:text-slate-400">
+                    <span key={s} className="mr-1.5 inline-block rounded bg-prism-bg2 px-1.5 py-0.5 text-[11px] font-medium text-prism-secondary">
                       {s}
                     </span>
                   ))}
@@ -303,11 +303,11 @@ function VercelTable({ items }: { items: IAMState[] }) {
 
 function SyncBadge({ inSync }: { inSync: boolean }) {
   return inSync ? (
-    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">
+    <span className="inline-flex items-center gap-1 rounded-full bg-prism-tint-2 px-2 py-0.5 text-[11px] font-medium text-prism-teal">
       <MdCheck className="text-[13px]" /> Synced
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
+    <span className="inline-flex items-center gap-1 rounded-full bg-prism-elevated/15 px-2 py-0.5 text-[11px] font-medium text-prism-elevated">
       <MdWarning className="text-[13px]" /> Drift
     </span>
   );
@@ -334,20 +334,20 @@ function ExpiryBadge({ expiresAt, status }: { expiresAt: string | null; status: 
 
   if (status === 'expired' || days <= 0) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:bg-red-500/15 dark:text-red-400">
+      <span className="inline-flex items-center gap-1 rounded-full bg-prism-critical/15 px-2 py-0.5 text-[11px] font-medium text-prism-critical">
         Expired
       </span>
     );
   }
   if (days <= 90) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
+      <span className="inline-flex items-center gap-1 rounded-full bg-prism-elevated/15 px-2 py-0.5 text-[11px] font-medium text-prism-elevated">
         <MdWarning className="text-[13px]" /> {days}d
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">
+    <span className="inline-flex items-center gap-1 rounded-full bg-prism-tint-2 px-2 py-0.5 text-[11px] font-medium text-prism-teal">
       <MdCheck className="text-[13px]" /> {days}d
     </span>
   );
@@ -435,8 +435,8 @@ export default function Governance() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-100 dark:bg-rose-500/15">
-            <MdLock className="text-lg text-rose-600 dark:text-rose-400" />
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-prism-critical/15">
+            <MdLock className="text-lg text-prism-critical" />
           </span>
           <div>
             <h1 className="text-xl font-bold text-txt-primary">Platform Governance</h1>
@@ -448,7 +448,7 @@ export default function Governance() {
         <button
           onClick={runAudit}
           disabled={auditing}
-          className="rounded-lg border border-border bg-white px-4 py-2 text-[13px] font-medium text-txt-primary shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+          className="rounded-lg border border-prism-border bg-prism-card px-4 py-2 text-[13px] font-medium text-prism-primary shadow-prism transition-colors hover:bg-prism-bg2 disabled:opacity-50"
         >
           {auditing ? 'Auditing…' : 'Run Audit Now'}
         </button>
@@ -456,7 +456,7 @@ export default function Governance() {
 
       {/* Drift Alerts */}
       {(driftItems.length > 0 || expiringSecrets.length > 0) && (
-        <Card className="border-amber-200 dark:border-amber-500/30">
+        <Card className="border-prism-elevated/30">
           <SectionHeader
             title={`Drift Alerts — ${driftItems.length + expiringSecrets.length} issue${driftItems.length + expiringSecrets.length !== 1 ? 's' : ''} detected`}
           />
@@ -464,12 +464,12 @@ export default function Governance() {
             {driftItems.map((item) => (
               <div
                 key={item.id}
-                className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-500/20 dark:bg-amber-500/5"
+                className="flex items-start gap-3 rounded-lg border border-prism-elevated/30 bg-prism-elevated/5 p-3"
               >
-                <MdWarning className="mt-0.5 text-amber-500" />
+                <MdWarning className="mt-0.5 text-prism-elevated" />
                 <div className="flex-1">
-                  <p className="text-[13px] font-medium text-txt-primary">
-                    <code className="rounded bg-white/50 px-1 text-[12px] dark:bg-white/10">{item.credential_id}</code>
+                  <p className="text-[13px] font-medium text-prism-primary">
+                    <code className="rounded bg-prism-bg2 px-1 text-[12px]">{item.credential_id}</code>
                     {' '}has unexpected permissions
                   </p>
                   {item.drift_details && (
@@ -477,7 +477,7 @@ export default function Governance() {
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <button className="rounded border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-medium text-amber-700 transition-colors hover:bg-amber-50 dark:bg-white/5 dark:text-amber-400 dark:border-amber-500/30">
+                  <button className="rounded border border-prism-elevated/30 bg-prism-card px-2.5 py-1 text-[11px] font-medium text-prism-elevated transition-colors hover:bg-prism-elevated/10">
                     Details
                   </button>
                 </div>
@@ -486,16 +486,16 @@ export default function Governance() {
             {expiringSecrets.map((secret) => (
               <div
                 key={secret.id}
-                className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-500/20 dark:bg-amber-500/5"
+                className="flex items-start gap-3 rounded-lg border border-prism-elevated/30 bg-prism-elevated/5 p-3"
               >
-                <MdVpnKey className="mt-0.5 text-amber-500" />
+                <MdVpnKey className="mt-0.5 text-prism-elevated" />
                 <div className="flex-1">
-                  <p className="text-[13px] font-medium text-txt-primary">
-                    Secret <code className="rounded bg-white/50 px-1 text-[12px] dark:bg-white/10">{secret.secret_name}</code>
+                  <p className="text-[13px] font-medium text-prism-primary">
+                    Secret <code className="rounded bg-prism-bg2 px-1 text-[12px]">{secret.secret_name}</code>
                     {' '}expires in {daysUntil(secret.expires_at)} days
                   </p>
                 </div>
-                <button className="rounded border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-medium text-amber-700 transition-colors hover:bg-amber-50 dark:bg-white/5 dark:text-amber-400 dark:border-amber-500/30">
+                <button className="rounded border border-prism-elevated/30 bg-prism-card px-2.5 py-1 text-[11px] font-medium text-prism-elevated transition-colors hover:bg-prism-elevated/10">
                   Rotate Now
                 </button>
               </div>
@@ -575,7 +575,7 @@ export default function Governance() {
                       {DISPLAY_NAME_MAP[entry.agent_role] ?? entry.agent_role}
                     </td>
                     <td className="py-2 pr-4">
-                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-white/8 dark:text-slate-400">
+                      <span className="rounded bg-prism-bg2 px-1.5 py-0.5 text-[11px] font-medium text-prism-secondary">
                         {entry.platform.toUpperCase()}
                       </span>
                     </td>
@@ -583,9 +583,9 @@ export default function Governance() {
                     <td className="py-2">
                       {entry.response_code ? (
                         entry.response_code < 400 ? (
-                          <span className="text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1">{entry.response_code} <MdCheck className="text-[14px]" /></span>
+                          <span className="text-prism-teal inline-flex items-center gap-1">{entry.response_code} <MdCheck className="text-[14px]" /></span>
                         ) : (
-                          <span className="text-red-600 dark:text-red-400 inline-flex items-center gap-1">{entry.response_code} <MdClose className="text-[14px]" /></span>
+                          <span className="text-prism-critical inline-flex items-center gap-1">{entry.response_code} <MdClose className="text-[14px]" /></span>
                         )
                       ) : (
                         <span className="text-txt-muted">—</span>
@@ -626,7 +626,7 @@ export default function Governance() {
               {secrets.map((secret) => (
                 <tr key={secret.id} className="border-b border-border/50">
                   <td className="py-2.5 pr-4">
-                    <code className="rounded bg-slate-100 px-1.5 py-0.5 text-[12px] dark:bg-white/8">
+                    <code className="rounded bg-prism-bg2 px-1.5 py-0.5 text-[12px]">
                       {secret.secret_name}
                     </code>
                   </td>

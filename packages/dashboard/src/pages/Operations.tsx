@@ -457,14 +457,14 @@ function OperationsOverview() {
                           ? 'bg-tier-green'
                           : sync.status === 'stale'
                           ? 'bg-tier-yellow'
-                          : 'bg-red-400'
+                          : 'bg-prism-critical'
                       }`}
                     />
                     <span className="text-sm font-medium text-txt-secondary">{sync.id}</span>
                   </div>
                   <div className="flex items-center gap-3 text-right">
                     {sync.consecutive_failures > 0 && (
-                      <span className="text-[10px] text-red-400">{sync.consecutive_failures} failures</span>
+                      <span className="text-[10px] text-prism-critical">{sync.consecutive_failures} failures</span>
                     )}
                     <span className="text-[11px] text-txt-faint">
                       {sync.last_success_at ? timeAgo(sync.last_success_at) : 'never'}
@@ -489,24 +489,24 @@ function OperationsOverview() {
                   key={inc.id}
                   className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
                     inc.status === 'open'
-                      ? 'border-red-500/20 bg-red-500/5'
+                      ? 'border-prism-critical/20 bg-prism-critical/5'
                       : 'border-border bg-raised'
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     <span
                       className={`inline-block h-2 w-2 rounded-full ${
-                        inc.status === 'open' ? 'bg-red-400' : 'bg-tier-green'
+                        inc.status === 'open' ? 'bg-prism-critical' : 'bg-tier-green'
                       }`}
                     />
                     <span className="text-sm font-medium text-txt-secondary">{inc.title}</span>
                     <span
                       className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
                         inc.severity === 'critical'
-                          ? 'border-red-500/30 bg-red-500/15 text-red-400'
+                          ? 'border-prism-critical/30 bg-prism-critical/15 text-prism-critical'
                           : inc.severity === 'high'
-                          ? 'border-amber-500/30 bg-amber-500/15 text-amber-400'
-                          : 'border-blue-500/30 bg-blue-500/15 text-blue-400'
+                          ? 'border-prism-high/30 bg-prism-high/15 text-prism-high'
+                          : 'border-prism-fill-3/30 bg-prism-fill-3/15 text-prism-sky'
                       }`}
                     >
                       {inc.severity}
@@ -552,7 +552,7 @@ function OperationsOverview() {
                         ? 'border-tier-green/25 bg-tier-green/5'
                         : health === 'degraded'
                         ? 'border-tier-yellow/25 bg-tier-yellow/5'
-                        : 'border-red-500/25 bg-red-500/5'
+                        : 'border-prism-critical/25 bg-prism-critical/5'
                     }`}
                   >
                     {/* Header: avatar + name + composite */}
@@ -569,7 +569,7 @@ function OperationsOverview() {
                             ? 'text-tier-green'
                             : health === 'degraded'
                             ? 'text-tier-yellow'
-                            : 'text-red-400'
+                            : 'text-prism-critical'
                         }`}
                       >
                         {Math.round(composite * 100)}
@@ -580,7 +580,7 @@ function OperationsOverview() {
                     <div className="flex items-center justify-between text-[10px]">
                       <span className="text-txt-muted">
                         {successPct != null ? (
-                          <><span className={successPct >= 80 ? 'text-tier-green' : successPct >= 50 ? 'text-tier-yellow' : 'text-red-400'}>&#10003; {successPct}%</span></>
+                          <><span className={successPct >= 80 ? 'text-tier-green' : successPct >= 50 ? 'text-tier-yellow' : 'text-prism-critical'}>&#10003; {successPct}%</span></>
                         ) : (
                           <span className="text-txt-faint">no runs</span>
                         )}
@@ -591,14 +591,14 @@ function OperationsOverview() {
                     {/* Metrics row 2: quality + failures */}
                     <div className="flex items-center justify-between text-[10px]">
                       {h?.qualityScore != null ? (
-                        <span className={`font-medium ${h.qualityScore >= 70 ? 'text-purple-400' : h.qualityScore >= 40 ? 'text-amber-400' : 'text-red-400'}`}>
+                        <span className={`font-medium ${h.qualityScore >= 70 ? 'text-prism-violet' : h.qualityScore >= 40 ? 'text-prism-elevated' : 'text-prism-critical'}`}>
                           &#9733; {Math.round(h.qualityScore)}
                         </span>
                       ) : (
                         <span className="text-txt-faint">&#9733; —</span>
                       )}
                       {(h?.failureCount ?? 0) > 0 ? (
-                        <span className="font-medium text-red-400">
+                        <span className="font-medium text-prism-critical">
                           {h!.failureCount} fail{h!.failureCount > 1 ? 's' : ''}
                         </span>
                       ) : (
@@ -619,8 +619,8 @@ function OperationsOverview() {
                                 r.status === 'completed' || r.status === 'success'
                                   ? 'bg-tier-green'
                                   : r.status === 'running'
-                                  ? 'bg-blue-400'
-                                  : 'bg-red-400'
+                                  ? 'bg-prism-sky'
+                                  : 'bg-prism-critical'
                               }`}
                             />
                           ))}

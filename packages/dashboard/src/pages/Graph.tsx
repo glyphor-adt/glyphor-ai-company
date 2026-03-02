@@ -861,7 +861,7 @@ export default function Graph() {
           />
 
           {/* Graph + Detail Panel */}
-          <div className="relative overflow-hidden rounded-xl border border-border bg-surface dark:bg-white/[0.04] dark:backdrop-blur-xl dark:border-white/[0.08]" style={{ height: '700px' }}>
+          <div className="relative overflow-hidden rounded-xl border border-prism-border bg-prism-card" style={{ height: '700px' }}>
             <GraphCanvas
               nodes={nodes}
               edges={edges}

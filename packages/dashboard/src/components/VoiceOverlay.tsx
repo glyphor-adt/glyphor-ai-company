@@ -37,22 +37,22 @@ export default function VoiceOverlay({
             <img
               src={`/avatars/${agentRole}.png`}
               alt={agentName}
-              className="h-10 w-10 rounded-full object-cover ring-2 ring-emerald-400/60"
+              className="h-10 w-10 rounded-full object-cover ring-2 ring-prism-fill-2/60"
             />
-            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-400 border-2 border-[var(--color-surface)] animate-pulse" />
+            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-prism-fill-2 border-2 border-[var(--color-surface)] animate-pulse" />
           </div>
           <div>
             <p className="text-[13px] font-semibold text-txt-primary">
               Voice Chat with {agentName}
             </p>
-            <p className="text-[11px] text-emerald-400 font-mono">
+            <p className="text-[11px] text-prism-teal font-mono">
               {formatDuration(durationSec)} · Listening…
             </p>
           </div>
         </div>
         <button
           onClick={onStop}
-          className="flex items-center gap-1.5 rounded-lg bg-rose-500/15 border border-rose-500/30 px-3 py-1.5 text-[12px] font-medium text-rose-400 hover:bg-rose-500/25 transition-colors"
+          className="flex items-center gap-1.5 rounded-lg bg-prism-critical/15 border border-prism-critical/30 px-3 py-1.5 text-[12px] font-medium text-prism-critical hover:bg-prism-critical/25 transition-colors"
         >
           End Voice
         </button>
@@ -64,9 +64,9 @@ export default function VoiceOverlay({
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
               <div className="flex justify-center gap-1.5 mb-3">
-                <span className="animate-breathe h-2 w-2 rounded-full bg-emerald-400" style={{ animationDelay: '0ms' }} />
-                <span className="animate-breathe h-2 w-2 rounded-full bg-emerald-400" style={{ animationDelay: '200ms' }} />
-                <span className="animate-breathe h-2 w-2 rounded-full bg-emerald-400" style={{ animationDelay: '400ms' }} />
+                <span className="animate-breathe h-2 w-2 rounded-full bg-prism-fill-2" style={{ animationDelay: '0ms' }} />
+                <span className="animate-breathe h-2 w-2 rounded-full bg-prism-fill-2" style={{ animationDelay: '200ms' }} />
+                <span className="animate-breathe h-2 w-2 rounded-full bg-prism-fill-2" style={{ animationDelay: '400ms' }} />
               </div>
               <p className="text-[12px] text-txt-muted">Start speaking — {agentName} is listening</p>
             </div>
@@ -74,8 +74,8 @@ export default function VoiceOverlay({
         )}
 
         {error && (
-          <div className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-3 py-2">
-            <p className="text-[12px] text-rose-400">{error}</p>
+          <div className="rounded-lg bg-prism-critical/10 border border-prism-critical/20 px-3 py-2">
+            <p className="text-[12px] text-prism-critical">{error}</p>
           </div>
         )}
 
@@ -107,7 +107,7 @@ export default function VoiceOverlay({
             {[...Array(5)].map((_, i) => (
               <span
                 key={i}
-                className="w-1 bg-emerald-400 rounded-full animate-voice-bar"
+                className="w-1 bg-prism-fill-2 rounded-full animate-voice-bar"
                 style={{
                   animationDelay: `${i * 100}ms`,
                   height: '8px',

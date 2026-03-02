@@ -49,10 +49,10 @@ const CATEGORY_META: Record<string, { label: string; color: string; icon: ReactN
 };
 
 const PROFICIENCY_COLOR: Record<string, string> = {
-  learning:  'bg-slate-500/15 text-slate-400',
-  competent: 'bg-blue-500/15 text-blue-400',
+  learning:  'bg-prism-moderate/15 text-prism-moderate',
+  competent: 'bg-prism-fill-3/15 text-prism-sky',
   expert:    'bg-cyan/15 text-cyan',
-  master:    'bg-amber-500/15 text-amber-400',
+  master:    'bg-prism-elevated/15 text-prism-elevated',
 };
 
 export default function Skills() {
@@ -180,7 +180,7 @@ export default function Skills() {
 
         <button
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-cyan px-3 py-1.5 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90"
+          className="flex items-center gap-1.5 rounded-lg bg-cyan px-3 py-1.5 text-sm font-semibold text-white transition-all hover:opacity-90"
         >
           <MdAdd className="h-4 w-4" /> New Skill
         </button>
@@ -331,7 +331,7 @@ function CreateSkillModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="w-full max-w-lg rounded-xl border border-border bg-white dark:bg-[#111827] shadow-2xl"
+        className="w-full max-w-lg rounded-xl border border-prism-border bg-prism-card shadow-prism-lg"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
@@ -370,7 +370,7 @@ function CreateSkillModal({
             <input type="text" value={toolsText} onChange={e => setToolsText(e.target.value)} placeholder="comma-separated, e.g. query_logs, check_system_health" className={INPUT_CLS} />
           </label>
 
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-prism-critical">{error}</p>}
         </div>
 
         <div className="flex items-center justify-end gap-3 border-t border-border px-5 py-4">
@@ -378,7 +378,7 @@ function CreateSkillModal({
           <button
             onClick={handleCreate}
             disabled={saving || !name.trim()}
-            className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40"
+            className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
           >
             {saving ? 'Creating…' : 'Create Skill'}
           </button>

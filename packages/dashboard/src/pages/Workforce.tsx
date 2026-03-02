@@ -321,7 +321,7 @@ function FounderNode({ name, title, initials, color, photo }: { name: string; ti
           <h3 className="text-base font-semibold text-txt-primary leading-tight">{name}</h3>
           <p className="text-xs text-txt-muted leading-tight">{title}</p>
           <span
-            className="mt-1 inline-block rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20">
+            className="mt-1 inline-block rounded-full bg-prism-fill-2/10 px-2 py-0.5 text-[10px] font-medium text-prism-teal border border-prism-fill-2/20">
             Human
           </span>
         </div>

@@ -57,10 +57,10 @@ interface Directive {
 /* ── Constants ─────────────────────────────────── */
 
 const PRIORITY_CONFIG: Record<Priority, { label: string; dot: string; border: string; bg: string; text: string }> = {
-  critical: { label: 'CRITICAL', dot: 'bg-red-500', border: 'border-red-500/30', bg: 'bg-red-500/10', text: 'text-red-400' },
-  high:     { label: 'HIGH',     dot: 'bg-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-500/10', text: 'text-amber-400' },
-  medium:   { label: 'MEDIUM',   dot: 'bg-blue-400', border: 'border-blue-500/30', bg: 'bg-blue-500/10', text: 'text-blue-400' },
-  low:      { label: 'LOW',      dot: 'bg-slate-400', border: 'border-slate-500/30', bg: 'bg-slate-500/10', text: 'text-slate-400' },
+  critical: { label: 'CRITICAL', dot: 'bg-prism-critical', border: 'border-prism-critical/30', bg: 'bg-prism-critical/10', text: 'text-prism-critical' },
+  high:     { label: 'HIGH',     dot: 'bg-prism-high', border: 'border-prism-high/30', bg: 'bg-prism-high/10', text: 'text-prism-high' },
+  medium:   { label: 'MEDIUM',   dot: 'bg-prism-fill-3', border: 'border-prism-fill-3/30', bg: 'bg-prism-fill-3/10', text: 'text-prism-sky' },
+  low:      { label: 'LOW',      dot: 'bg-prism-moderate', border: 'border-prism-moderate/30', bg: 'bg-prism-moderate/10', text: 'text-prism-moderate' },
 };
 
 const CATEGORY_LABELS: Record<Category, string> = {
@@ -82,10 +82,10 @@ const TARGET_AGENTS = [
 /* ── Helpers ───────────────────────────────────── */
 
 function assignmentStatusColor(status: string) {
-  if (status === 'completed') return 'bg-emerald-400';
-  if (status === 'failed' || status === 'blocked') return 'bg-red-400';
-  if (status === 'dispatched' || status === 'in_progress') return 'bg-amber-400 animate-pulse';
-  return 'bg-slate-400';
+  if (status === 'completed') return 'bg-prism-fill-2';
+  if (status === 'failed' || status === 'blocked') return 'bg-prism-critical';
+  if (status === 'dispatched' || status === 'in_progress') return 'bg-prism-elevated animate-pulse';
+  return 'bg-prism-moderate';
 }
 
 function progressPercent(assignments: WorkAssignment[]): number {
@@ -161,12 +161,12 @@ export default function Directives() {
           {proposed.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <span className="h-2 w-2 rounded-full bg-violet-500 animate-pulse" />
-                <span className="text-xs font-semibold uppercase tracking-wider text-violet-400">
+                <span className="h-2 w-2 rounded-full bg-prism-violet animate-pulse" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-prism-violet">
                   PROPOSED
                 </span>
                 <span className="text-[11px] text-txt-faint">({proposed.length})</span>
-                <span className="ml-2 text-[10px] text-violet-400/70">Needs your approval</span>
+                <span className="ml-2 text-[10px] text-prism-violet/70">Needs your approval</span>
               </div>
               <div className="space-y-3">
                 {proposed.map(d => (
@@ -335,12 +335,12 @@ function DirectiveCard({
           <div className="flex items-center gap-2 mb-1">
             <p className="text-sm font-semibold text-txt-primary truncate">{d.title}</p>
             {d.status === 'paused' && (
-              <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+              <span className="rounded-full border border-prism-elevated/30 bg-prism-elevated/15 px-1.5 py-0.5 text-[10px] font-medium text-prism-elevated">
                 paused
               </span>
             )}
             {d.status === 'completed' && (
-              <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
+              <span className="rounded-full border border-prism-fill-2/30 bg-prism-fill-2/15 px-1.5 py-0.5 text-[10px] font-medium text-prism-teal">
                 completed
               </span>
             )}
@@ -362,7 +362,7 @@ function DirectiveCard({
               <div className="h-1.5 flex-1 rounded-full bg-base overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${
-                    pct === 100 ? 'bg-emerald-400' : pct > 0 ? 'bg-cyan' : 'bg-transparent'
+                    pct === 100 ? 'bg-prism-fill-2' : pct > 0 ? 'bg-cyan' : 'bg-transparent'
                   }`}
                   style={{ width: `${pct}%` }}
                 />
@@ -422,7 +422,7 @@ function DirectiveCard({
                       <span className="text-[10px] text-txt-faint">({a.status})</span>
                       {a.quality_score != null && (
                         <span className={`ml-auto text-[10px] font-mono font-semibold ${
-                          a.quality_score >= 70 ? 'text-emerald-400' : a.quality_score >= 40 ? 'text-amber-400' : 'text-red-400'
+                          a.quality_score >= 70 ? 'text-prism-teal' : a.quality_score >= 40 ? 'text-prism-elevated' : 'text-prism-critical'
                         }`}>
                           {a.quality_score}/100
                         </span>
@@ -464,8 +464,8 @@ function DirectiveCard({
 
           {/* Completion Summary */}
           {d.completion_summary && (
-            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
-              <p className="text-[11px] font-medium text-emerald-400 mb-1">Completion Summary</p>
+            <div className="rounded-lg border border-prism-fill-2/20 bg-prism-tint-2 px-3 py-2">
+              <p className="text-[11px] font-medium text-prism-teal mb-1">Completion Summary</p>
               <div className="text-[12px] text-txt-secondary leading-relaxed prose-chat"><Markdown>{d.completion_summary}</Markdown></div>
             </div>
           )}
@@ -477,7 +477,7 @@ function DirectiveCard({
                 <button
                   onClick={handleCancel}
                   disabled={acting}
-                  className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[12px] font-medium text-amber-400 transition-opacity hover:opacity-90 disabled:opacity-40"
+                  className="rounded-lg border border-prism-elevated/30 bg-prism-elevated/10 px-3 py-1.5 text-[12px] font-medium text-prism-elevated transition-opacity hover:opacity-90 disabled:opacity-40"
                 >
                   <MdBlock className="inline-block text-[14px] mr-1" /> Cancel
                 </button>
@@ -486,18 +486,18 @@ function DirectiveCard({
                 <button
                   onClick={() => setConfirmDelete(true)}
                   disabled={acting}
-                  className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[12px] font-medium text-red-400 transition-opacity hover:opacity-90 disabled:opacity-40"
+                  className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-1.5 text-[12px] font-medium text-prism-critical transition-opacity hover:opacity-90 disabled:opacity-40"
                 >
                   <MdDelete className="inline-block text-[14px] mr-1" /> Delete
                 </button>
               )}
               {confirmDelete && (
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-red-400">Delete this directive and all its assignments?</span>
+                  <span className="text-[11px] text-prism-critical">Delete this directive and all its assignments?</span>
                   <button
                     onClick={handleDelete}
                     disabled={acting}
-                    className="rounded-lg bg-red-600 px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                    className="rounded-lg bg-prism-critical px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                   >
                     Confirm
                   </button>
@@ -559,11 +559,11 @@ function ProposedDirectiveCard({
 
   return (
     <>
-      <div className="rounded-xl border-l-4 border-violet-500/60 border border-violet-500/20 bg-violet-500/5 p-4">
+      <div className="rounded-xl border-l-4 border-prism-violet/60 border border-prism-violet/20 bg-prism-tint-5 p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-txt-primary">{d.title}</p>
-            <p className="mt-0.5 text-[11px] text-violet-400">
+              <p className="mt-0.5 text-[11px] text-prism-violet">
               Proposed by Sarah · {timeAgo(d.created_at)}
             </p>
           </div>
@@ -579,8 +579,8 @@ function ProposedDirectiveCard({
 
         {/* Proposal reason — the key context */}
         {d.proposal_reason && (
-          <div className="mt-3 rounded-lg border border-violet-500/15 bg-violet-500/5 px-3 py-2">
-            <p className="text-[10px] font-medium text-violet-400 mb-0.5">Why this is needed</p>
+          <div className="mt-3 rounded-lg border border-prism-violet/15 bg-prism-tint-5 px-3 py-2">
+            <p className="text-[10px] font-medium text-prism-violet mb-0.5">Why this is needed</p>
             <p className="text-[12px] text-txt-secondary leading-relaxed">{d.proposal_reason}</p>
           </div>
         )}
@@ -608,11 +608,11 @@ function ProposedDirectiveCard({
         )}
 
         {/* Action buttons */}
-        <div className="mt-3 flex items-center gap-2 border-t border-violet-500/10 pt-3">
+        <div className="mt-3 flex items-center gap-2 border-t border-prism-violet/10 pt-3">
           <button
             onClick={handleApprove}
             disabled={acting}
-            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="rounded-lg bg-prism-fill-2 px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
           >
                         <MdCheckCircle className="inline-block text-[14px] mr-1" /> Approve
           </button>
@@ -626,7 +626,7 @@ function ProposedDirectiveCard({
           <button
             onClick={handleReject}
             disabled={acting}
-            className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[12px] font-medium text-red-400 transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-1.5 text-[12px] font-medium text-prism-critical transition-opacity hover:opacity-90 disabled:opacity-40"
           >
                         <MdCancel className="inline-block text-[14px] mr-1" /> Reject
           </button>
@@ -698,9 +698,9 @@ function EditApproveModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 pt-[12vh] overflow-y-auto">
-      <div className="w-full max-w-lg rounded-xl border border-border bg-white dark:bg-[#111827] shadow-2xl mb-8">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <h2 className="text-lg font-semibold text-txt-primary">Edit & Approve Directive</h2>
+      <div className="w-full max-w-lg rounded-xl border border-prism-border bg-prism-card shadow-prism-lg mb-8">
+        <div className="flex items-center justify-between border-b border-prism-border px-6 py-4">
+          <h2 className="text-lg font-semibold text-prism-primary">Edit & Approve Directive</h2>
           <button onClick={onClose} className="text-txt-muted hover:text-txt-primary transition-colors text-lg">
             ×
           </button>
@@ -789,8 +789,8 @@ function EditApproveModal({
 
           {/* Show proposal reason as read-only context */}
           {directive.proposal_reason && (
-            <div className="rounded-lg border border-violet-500/15 bg-violet-500/5 px-3 py-2">
-              <p className="text-[10px] font-medium text-violet-400 mb-0.5">Sarah&apos;s reasoning</p>
+            <div className="rounded-lg border border-prism-violet/15 bg-prism-tint-5 px-3 py-2">
+              <p className="text-[10px] font-medium text-prism-violet mb-0.5">Sarah&apos;s reasoning</p>
               <p className="text-[11px] text-txt-muted leading-relaxed">{directive.proposal_reason}</p>
             </div>
           )}
@@ -806,7 +806,7 @@ function EditApproveModal({
           <button
             onClick={handleSave}
             disabled={saving || !title.trim() || !description.trim()}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="rounded-lg bg-prism-fill-2 px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             {saving ? 'Saving…' : 'Approve Directive'}
           </button>
@@ -864,10 +864,10 @@ function NewDirectiveModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 pt-[12vh] overflow-y-auto">
-      <div className="w-full max-w-lg rounded-xl border border-border bg-white dark:bg-[#111827] shadow-2xl mb-8">
+      <div className="w-full max-w-lg rounded-xl border border-prism-border bg-prism-card shadow-prism-lg mb-8">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <h2 className="text-lg font-semibold text-txt-primary">New Directive</h2>
+        <div className="flex items-center justify-between border-b border-prism-border px-6 py-4">
+          <h2 className="text-lg font-semibold text-prism-primary">New Directive</h2>
           <button onClick={onClose} className="text-txt-muted hover:text-txt-primary transition-colors text-lg">
             ×
           </button>

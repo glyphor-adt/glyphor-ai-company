@@ -168,17 +168,17 @@ function MeetingCard({
   onToggle: () => void;
 }) {
   const statusColor: Record<MeetingStatus, string> = {
-    scheduled: 'bg-blue-500/15 text-blue-400',
-    in_progress: 'bg-amber-500/15 text-amber-400',
+    scheduled: 'bg-prism-fill-3/15 text-prism-sky',
+    in_progress: 'bg-prism-elevated/15 text-prism-elevated',
     completed: 'bg-tier-green/15 text-tier-green',
-    cancelled: 'bg-red-500/15 text-red-400',
+    cancelled: 'bg-prism-critical/15 text-prism-critical',
   };
 
   const typeIcon: Record<MeetingType, ReactNode> = {
-    discussion: <MdForum className="inline h-5 w-5 text-blue-400" />,
-    review: <MdAssignment className="inline h-5 w-5 text-purple-400" />,
+    discussion: <MdForum className="inline h-5 w-5 text-prism-sky" />,
+    review: <MdAssignment className="inline h-5 w-5 text-prism-violet" />,
     planning: <MdSquareFoot className="inline h-5 w-5 text-cyan" />,
-    incident: <MdNotificationImportant className="inline h-5 w-5 text-red-400" />,
+    incident: <MdNotificationImportant className="inline h-5 w-5 text-prism-critical" />,
     standup: <MdPerson className="inline h-5 w-5 text-tier-green" />,
   };
 
@@ -189,7 +189,7 @@ function MeetingCard({
         className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-raised/50 transition-colors"
       >
         <div className="flex items-center gap-3">
-          <span className="text-lg">{typeIcon[meeting.meeting_type] ?? <MdForum className="inline h-5 w-5 text-blue-400" />}</span>
+          <span className="text-lg">{typeIcon[meeting.meeting_type] ?? <MdForum className="inline h-5 w-5 text-prism-sky" />}</span>
           <div>
             <p className="text-sm font-medium text-txt-primary">{meeting.title}</p>
             <p className="text-[11px] text-txt-faint">
@@ -318,10 +318,10 @@ function MeetingCard({
 
 function MessageRow({ message }: { message: MessageRecord }) {
   const typeColor: Record<string, string> = {
-    request: 'bg-blue-500/15 text-blue-400',
+    request: 'bg-prism-fill-3/15 text-prism-sky',
     response: 'bg-tier-green/15 text-tier-green',
-    info: 'bg-slate-500/15 text-slate-400',
-    followup: 'bg-purple-500/15 text-purple-400',
+    info: 'bg-prism-moderate/15 text-prism-moderate',
+    followup: 'bg-prism-violet/15 text-prism-violet',
   };
 
   return (
@@ -331,7 +331,7 @@ function MessageRow({ message }: { message: MessageRecord }) {
           {message.message_type}
         </span>
         {message.priority === 'urgent' && (
-          <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[9px] font-bold text-red-400">URGENT</span>
+          <span className="rounded-full bg-prism-critical/15 px-1.5 py-0.5 text-[9px] font-bold text-prism-critical">URGENT</span>
         )}
       </div>
       <div className="flex-1 min-w-0">
@@ -344,7 +344,7 @@ function MessageRow({ message }: { message: MessageRecord }) {
         <div className="mt-0.5 text-sm text-txt-secondary line-clamp-2 prose-chat"><Markdown>{message.message}</Markdown></div>
       </div>
       <span className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${
-        message.status === 'pending' ? 'bg-cyan' : message.status === 'read' ? 'bg-slate-500' : 'bg-tier-green'
+        message.status === 'pending' ? 'bg-cyan' : message.status === 'read' ? 'bg-prism-moderate' : 'bg-tier-green'
       }`} />
     </div>
   );

@@ -148,7 +148,7 @@ export default function Settings() {
             {saving ? 'Adding…' : 'Add'}
           </button>
         </div>
-        {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+        {error && <p className="mt-2 text-xs text-prism-critical">{error}</p>}
       </Card>
 
       {/* Users List */}
@@ -195,7 +195,7 @@ export default function Settings() {
                     {!isSelf && (
                       <button
                         onClick={() => removeUser(u)}
-                        className="rounded-md px-2 py-1 text-xs text-red-400 transition-colors hover:bg-red-400/10"
+                        className="rounded-md px-2 py-1 text-xs text-prism-critical transition-colors hover:bg-prism-critical/10"
                       >
                         Remove
                       </button>

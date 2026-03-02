@@ -14,20 +14,20 @@ type RequestType = DashboardChangeRequest['request_type'];
 type Status = DashboardChangeRequest['status'];
 
 const PRIORITY_CONFIG: Record<Priority, { label: string; dot: string; text: string; bg: string }> = {
-  critical: { label: 'CRITICAL', dot: 'bg-red-500', text: 'text-red-400', bg: 'bg-red-500/10' },
-  high:     { label: 'HIGH',     dot: 'bg-amber-400', text: 'text-amber-400', bg: 'bg-amber-500/10' },
-  medium:   { label: 'MEDIUM',   dot: 'bg-blue-400', text: 'text-blue-400', bg: 'bg-blue-500/10' },
-  low:      { label: 'LOW',      dot: 'bg-slate-400', text: 'text-slate-400', bg: 'bg-slate-500/10' },
+  critical: { label: 'CRITICAL', dot: 'bg-prism-critical', text: 'text-prism-critical', bg: 'bg-prism-critical/10' },
+  high:     { label: 'HIGH',     dot: 'bg-prism-high', text: 'text-prism-high', bg: 'bg-prism-high/10' },
+  medium:   { label: 'MEDIUM',   dot: 'bg-prism-fill-3', text: 'text-prism-sky', bg: 'bg-prism-fill-3/10' },
+  low:      { label: 'LOW',      dot: 'bg-prism-moderate', text: 'text-prism-moderate', bg: 'bg-prism-moderate/10' },
 };
 
 const STATUS_CONFIG: Record<Status, { label: string; color: string; bg: string }> = {
-  pending_approval: { label: 'Pending Approval', color: 'text-orange-400', bg: 'bg-orange-500/10' },
-  submitted:   { label: 'Submitted',   color: 'text-slate-400',   bg: 'bg-slate-500/10' },
-  triaged:     { label: 'Triaged',     color: 'text-violet-400',  bg: 'bg-violet-500/10' },
-  in_progress: { label: 'In Progress', color: 'text-amber-400',   bg: 'bg-amber-500/10' },
-  review:      { label: 'In Review',   color: 'text-cyan-400',    bg: 'bg-cyan-500/10' },
-  deployed:    { label: 'Deployed',    color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-  rejected:    { label: 'Rejected',    color: 'text-red-400',     bg: 'bg-red-500/10' },
+  pending_approval: { label: 'Pending Approval', color: 'text-prism-high',      bg: 'bg-prism-high/10' },
+  submitted:   { label: 'Submitted',   color: 'text-prism-moderate',  bg: 'bg-prism-moderate/10' },
+  triaged:     { label: 'Triaged',     color: 'text-prism-violet',    bg: 'bg-prism-violet/10' },
+  in_progress: { label: 'In Progress', color: 'text-prism-elevated',  bg: 'bg-prism-elevated/10' },
+  review:      { label: 'In Review',   color: 'text-cyan',            bg: 'bg-cyan/10' },
+  deployed:    { label: 'Deployed',    color: 'text-prism-teal',      bg: 'bg-prism-fill-2/10' },
+  rejected:    { label: 'Rejected',    color: 'text-prism-critical',  bg: 'bg-prism-critical/10' },
 };
 
 const TYPE_CONFIG: Record<RequestType, { label: string; icon: typeof MdCode }> = {
@@ -247,14 +247,14 @@ function RequestCard({ request: r }: { request: DashboardChangeRequest }) {
             <>
               <button
                 onClick={handleApprove}
-                className="flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-medium text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                className="flex items-center gap-1 rounded-lg bg-prism-fill-2/10 px-2.5 py-1.5 text-[11px] font-medium text-prism-teal hover:bg-prism-fill-2/20 transition-colors"
               >
                 <MdCheck className="text-sm" />
                 Approve
               </button>
               <button
                 onClick={handleReject}
-                className="flex items-center gap-1 rounded-lg bg-red-500/10 px-2.5 py-1.5 text-[11px] font-medium text-red-400 hover:bg-red-500/20 transition-colors"
+                className="flex items-center gap-1 rounded-lg bg-prism-critical/10 px-2.5 py-1.5 text-[11px] font-medium text-prism-critical hover:bg-prism-critical/20 transition-colors"
               >
                 <MdBlock className="text-sm" />
                 Reject
@@ -267,7 +267,7 @@ function RequestCard({ request: r }: { request: DashboardChangeRequest }) {
               target="_blank"
               rel="noopener noreferrer"
               onClick={e => e.stopPropagation()}
-              className="flex items-center gap-1 rounded-lg bg-raised px-2.5 py-1.5 text-[11px] font-medium text-txt-secondary hover:bg-purple-500/10 hover:text-purple-400 transition-colors"
+              className="flex items-center gap-1 rounded-lg bg-raised px-2.5 py-1.5 text-[11px] font-medium text-txt-secondary hover:bg-prism-violet/10 hover:text-prism-violet transition-colors"
             >
               <MdOpenInNew className="text-sm" />
               Issue
@@ -293,7 +293,7 @@ function RequestCard({ request: r }: { request: DashboardChangeRequest }) {
         <div className="mt-4 border-t border-border pt-4 space-y-3">
           {r.status === 'pending_approval' && (
             <div className="flex items-center gap-2 text-xs">
-              <span className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 px-2.5 py-1 text-[11px] font-medium text-orange-400">
+              <span className="inline-flex items-center gap-1 rounded-full bg-prism-high/10 px-2.5 py-1 text-[11px] font-medium text-prism-high">
                 Awaiting approval from Kristina
               </span>
             </div>
@@ -301,13 +301,13 @@ function RequestCard({ request: r }: { request: DashboardChangeRequest }) {
           {r.approved_by && (
             <div className="flex items-center gap-2 text-xs">
               <span className="text-txt-faint w-20">Approved:</span>
-              <span className="text-emerald-400">{r.approved_by.split('@')[0]}</span>
+              <span className="text-prism-teal">{r.approved_by.split('@')[0]}</span>
               {r.approved_at && <span className="text-txt-faint">— {new Date(r.approved_at).toLocaleString()}</span>}
             </div>
           )}
           {r.assigned_to === 'copilot' && (
             <div className="flex items-center gap-2 text-xs">
-              <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/10 px-2.5 py-1 text-[11px] font-medium text-purple-400">
+              <span className="inline-flex items-center gap-1 rounded-full bg-prism-violet/10 px-2.5 py-1 text-[11px] font-medium text-prism-violet">
                 <svg className="h-3 w-3" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM5.78 8.75a9.64 9.64 0 0 0 1.363 4.177c.255.426.542.832.857 1.215.245-.296.551-.705.857-1.215A9.64 9.64 0 0 0 10.22 8.75Zm4.44-1.5a9.64 9.64 0 0 0-1.363-4.177c-.307-.51-.612-.919-.857-1.215a9.927 9.927 0 0 0-.857 1.215A9.64 9.64 0 0 0 5.78 7.25Z"/></svg>
                 Assigned to GitHub Copilot
               </span>
@@ -342,7 +342,7 @@ function RequestCard({ request: r }: { request: DashboardChangeRequest }) {
           )}
           {r.rejection_reason && (
             <div className="text-xs">
-              <span className="text-red-400">Rejection Reason:</span>
+              <span className="text-prism-critical">Rejection Reason:</span>
               <p className="mt-1 text-txt-secondary">{r.rejection_reason}</p>
             </div>
           )}
@@ -407,7 +407,7 @@ function NewRequestModal({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-2xl"
+        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-prism-lg"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">

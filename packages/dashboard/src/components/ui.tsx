@@ -56,10 +56,10 @@ export function TierBadge({ tier }: { tier: string }) {
 /* ─── Impact Badge ────────────────────────── */
 export function ImpactBadge({ impact }: { impact: string }) {
   const colors: Record<string, string> = {
-    low: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-500/15 dark:text-slate-400 dark:border-slate-500/25',
-    medium: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30',
-    high: 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/30',
-    critical: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30',
+    low: 'bg-prism-moderate/15 text-prism-moderate border-prism-moderate/25',
+    medium: 'bg-prism-elevated/15 text-prism-elevated border-prism-elevated/25',
+    high: 'bg-prism-high/15 text-prism-high border-prism-high/25',
+    critical: 'bg-prism-critical/15 text-prism-critical border-prism-critical/25',
   };
   return (
     <span
@@ -75,7 +75,7 @@ export function ImpactBadge({ impact }: { impact: string }) {
 /* ─── Status Dot ──────────────────────────── */
 export function StatusDot({ status }: { status: string }) {
   const bg =
-    status === 'active' ? 'bg-emerald-500' : status === 'idle' ? 'bg-amber-500' : 'bg-slate-500';
+    status === 'active' ? 'bg-prism-fill-2' : status === 'idle' ? 'bg-prism-elevated' : 'bg-prism-moderate';
   return <span className={`inline-block h-2 w-2 rounded-full ${bg}`} />;
 }
 

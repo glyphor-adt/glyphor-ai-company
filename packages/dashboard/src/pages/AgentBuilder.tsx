@@ -85,7 +85,7 @@ export default function AgentBuilder() {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <div className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-4 py-3 text-sm text-prism-critical">
           {error}
         </div>
       )}
@@ -292,7 +292,7 @@ export default function AgentBuilder() {
         <button
           onClick={handleCreate}
           disabled={creating || !name.trim()}
-          className="rounded-lg bg-cyan px-6 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40"
+          className="rounded-lg bg-cyan px-6 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
         >
           {creating ? 'Creating...' : 'Create Agent'}
         </button>

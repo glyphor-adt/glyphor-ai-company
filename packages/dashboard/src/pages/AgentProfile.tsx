@@ -249,10 +249,10 @@ export default function AgentProfile() {
               <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
                 agent.status === 'active' ? 'bg-tier-green/15 text-tier-green'
                 : agent.status === 'paused' ? 'bg-tier-yellow/15 text-tier-yellow'
-                : 'bg-slate-500/15 text-slate-400'
+                : 'bg-prism-moderate/15 text-prism-moderate'
               }`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${
-                  agent.status === 'active' ? 'bg-tier-green' : agent.status === 'paused' ? 'bg-tier-yellow' : 'bg-slate-500'
+                  agent.status === 'active' ? 'bg-tier-green' : agent.status === 'paused' ? 'bg-tier-yellow' : 'bg-prism-moderate'
                 }`} />
                 {agent.status}
               </span>
@@ -407,10 +407,10 @@ function OverviewTab({
             <span className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
               agent.status === 'active' ? 'bg-tier-green/15 text-tier-green'
               : agent.status === 'paused' ? 'bg-tier-yellow/15 text-tier-yellow'
-              : 'bg-slate-500/15 text-slate-400'
+              : 'bg-prism-moderate/15 text-prism-moderate'
             }`}>
               <span className={`h-1.5 w-1.5 rounded-full ${
-                agent.status === 'active' ? 'bg-tier-green' : agent.status === 'paused' ? 'bg-tier-yellow' : 'bg-slate-500'
+                agent.status === 'active' ? 'bg-tier-green' : agent.status === 'paused' ? 'bg-tier-yellow' : 'bg-prism-moderate'
               }`} />
               {agent.status}
             </span>
@@ -442,7 +442,7 @@ function OverviewTab({
           </h3>
           <div className="flex flex-wrap gap-2">
             {tools.map((t) => (
-              <span key={t} className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-1.5 font-mono text-[12px] text-amber-300 transition-colors hover:bg-amber-500/10">
+              <span key={t} className="rounded-lg border border-prism-elevated/20 bg-prism-elevated/5 px-3 py-1.5 font-mono text-[12px] text-prism-elevated transition-colors hover:bg-prism-elevated/10">
                 {t}
               </span>
             ))}
@@ -707,10 +707,10 @@ function PerformanceTab({ agent }: { agent: AgentRow }) {
   }
 
   const milestoneIcon: Record<string, ReactNode> = {
-    achievement: <MdEmojiEvents className="inline h-4 w-4 text-amber-400" />,
-    incident: <MdLocalFireDepartment className="inline h-4 w-4 text-red-400" />,
-    learning: <MdMenuBook className="inline h-4 w-4 text-blue-400" />,
-    first: <MdCelebration className="inline h-4 w-4 text-purple-400" />,
+    achievement: <MdEmojiEvents className="inline h-4 w-4 text-prism-elevated" />,
+    incident: <MdLocalFireDepartment className="inline h-4 w-4 text-prism-critical" />,
+    learning: <MdMenuBook className="inline h-4 w-4 text-prism-sky" />,
+    first: <MdCelebration className="inline h-4 w-4 text-prism-violet" />,
   };
 
   return (
@@ -798,10 +798,10 @@ function MemoryTab({ agent }: { agent: AgentRow }) {
   if (loading) return <Skeleton className="h-48" />;
 
   const typeColor: Record<string, string> = {
-    fact: 'bg-blue-500/15 text-blue-400',
-    pattern: 'bg-purple-500/15 text-purple-400',
+    fact: 'bg-prism-fill-3/15 text-prism-sky',
+    pattern: 'bg-prism-violet/15 text-prism-violet',
     learning: 'bg-tier-green/15 text-tier-green',
-    observation: 'bg-amber-500/15 text-amber-400',
+    observation: 'bg-prism-elevated/15 text-prism-elevated',
     preference: 'bg-cyan/15 text-cyan',
   };
 
@@ -828,7 +828,7 @@ function MemoryTab({ agent }: { agent: AgentRow }) {
           <ul className="space-y-2">
             {memories.map((m) => (
               <li key={m.id} className="flex items-start gap-3 rounded-lg border border-border/50 px-3 py-2.5">
-                <span className={`mt-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${typeColor[m.memory_type] ?? 'bg-slate-500/15 text-slate-400'}`}>
+                <span className={`mt-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${typeColor[m.memory_type] ?? 'bg-prism-moderate/15 text-prism-moderate'}`}>
                   {m.memory_type}
                 </span>
                 <span className="flex-1 text-sm text-txt-secondary">{m.content}</span>
@@ -896,17 +896,17 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
   const displayName = DISPLAY_NAME_MAP[agent.role] ?? agent.display_name;
 
   const typeColor: Record<string, string> = {
-    request: 'bg-blue-500/15 text-blue-400',
+    request: 'bg-prism-fill-3/15 text-prism-sky',
     response: 'bg-tier-green/15 text-tier-green',
-    info: 'bg-slate-500/15 text-slate-400',
-    followup: 'bg-purple-500/15 text-purple-400',
+    info: 'bg-prism-moderate/15 text-prism-moderate',
+    followup: 'bg-prism-violet/15 text-prism-violet',
   };
 
   const statusIcon: Record<string, ReactNode> = {
-    scheduled: <MdCalendarToday className="inline h-4 w-4 text-blue-400" />,
-    in_progress: <MdHourglassEmpty className="inline h-4 w-4 text-amber-400" />,
+    scheduled: <MdCalendarToday className="inline h-4 w-4 text-prism-sky" />,
+    in_progress: <MdHourglassEmpty className="inline h-4 w-4 text-prism-elevated" />,
     completed: <MdCheckCircle className="inline h-4 w-4 text-tier-green" />,
-    cancelled: <MdCancel className="inline h-4 w-4 text-red-400" />,
+    cancelled: <MdCancel className="inline h-4 w-4 text-prism-critical" />,
   };
 
   return (
@@ -945,7 +945,7 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
                       {m.message_type}
                     </span>
                     {m.priority === 'urgent' && (
-                      <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[9px] font-bold text-red-400">!</span>
+                      <span className="rounded-full bg-prism-critical/15 px-1.5 py-0.5 text-[9px] font-bold text-prism-critical">!</span>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -960,7 +960,7 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
                     <div className="mt-0.5 text-sm text-txt-secondary prose-chat"><Markdown>{m.message}</Markdown></div>
                   </div>
                   <span className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${
-                    m.status === 'pending' ? 'bg-cyan' : m.status === 'read' ? 'bg-slate-500' : 'bg-tier-green'
+                    m.status === 'pending' ? 'bg-cyan' : m.status === 'read' ? 'bg-prism-moderate' : 'bg-tier-green'
                   }`} />
                 </li>
               );
@@ -980,7 +980,7 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
           <ul className="space-y-2">
             {meetings.map((m) => (
               <li key={m.id} className="flex items-start gap-3 rounded-lg border border-border/50 px-3 py-2.5">
-                <span className="mt-0.5">{statusIcon[m.status] ?? <MdCalendarToday className="inline h-4 w-4 text-blue-400" />}</span>
+                <span className="mt-0.5">{statusIcon[m.status] ?? <MdCalendarToday className="inline h-4 w-4 text-prism-sky" />}</span>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-txt-primary">{m.title}</p>
                   <p className="text-[11px] text-txt-faint">
@@ -996,8 +996,8 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
                 </div>
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
                   m.status === 'completed' ? 'bg-tier-green/15 text-tier-green'
-                  : m.status === 'in_progress' ? 'bg-amber-500/15 text-amber-400'
-                  : 'bg-slate-500/15 text-slate-400'
+                  : m.status === 'in_progress' ? 'bg-prism-elevated/15 text-prism-elevated'
+                  : 'bg-prism-moderate/15 text-prism-moderate'
                 }`}>
                   {m.status}
                 </span>
@@ -1029,10 +1029,10 @@ interface AgentSkillRow {
 }
 
 const PROF_COLOR: Record<string, string> = {
-  learning:  'bg-slate-500/15 text-slate-400 border-slate-500/30',
-  competent: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+  learning:  'bg-prism-moderate/15 text-prism-moderate border-prism-moderate/30',
+  competent: 'bg-prism-fill-3/15 text-prism-sky border-prism-fill-3/30',
   expert:    'bg-cyan/15 text-cyan border-cyan/30',
-  master:    'bg-amber-500/15 text-amber-400 border-amber-500/30',
+  master:    'bg-prism-elevated/15 text-prism-elevated border-prism-elevated/30',
 };
 
 const CAT_COLOR: Record<string, string> = {
@@ -1143,7 +1143,7 @@ function SkillsTab({ agent, brief }: { agent: AgentRow; brief: AgentBrief | null
                 <p className="mb-2 text-xs text-txt-muted">Configured tools</p>
                 <div className="flex flex-wrap gap-2">
                   {fallbackTools.map((t) => (
-                    <span key={t} className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-1.5 font-mono text-[12px] text-amber-300">
+                    <span key={t} className="rounded-lg border border-prism-elevated/20 bg-prism-elevated/5 px-3 py-1.5 font-mono text-[12px] text-prism-elevated">
                       {t}
                     </span>
                   ))}
@@ -1224,9 +1224,9 @@ interface RubricRow {
 const TREND_ICONS: Record<string, string> = { improving: '↑', declining: '↓', stable: '→' };
 
 function wmScoreColor(score: number): string {
-  if (score >= 4.2) return 'text-green-400';
-  if (score >= 3.0) return 'text-yellow-400';
-  return 'text-red-400';
+  if (score >= 4.2) return 'text-prism-teal';
+  if (score >= 3.0) return 'text-tier-yellow';
+  return 'text-prism-critical';
 }
 
 function WorldModelTab({ agent }: { agent: AgentRow }) {
@@ -1287,11 +1287,11 @@ function WorldModelTab({ agent }: { agent: AgentRow }) {
         </Card>
         <Card className="p-4 text-center">
           <p className="text-xs text-txt-muted">Strengths</p>
-          <p className="text-2xl font-bold text-green-400">{model.strengths.length}</p>
+          <p className="text-2xl font-bold text-prism-teal">{model.strengths.length}</p>
         </Card>
         <Card className="p-4 text-center">
           <p className="text-xs text-txt-muted">Failure Patterns</p>
-          <p className="text-2xl font-bold text-red-400">{model.failure_patterns.length}</p>
+          <p className="text-2xl font-bold text-prism-critical">{model.failure_patterns.length}</p>
         </Card>
       </div>
 
@@ -1330,14 +1330,14 @@ function WorldModelTab({ agent }: { agent: AgentRow }) {
       {/* Strengths & Weaknesses */}
       <div className="grid grid-cols-2 gap-4">
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-green-400 mb-3">Strengths</h3>
+          <h3 className="text-sm font-semibold text-prism-teal mb-3">Strengths</h3>
           {model.strengths.length === 0 ? (
             <p className="text-xs text-txt-faint">No strengths recorded yet</p>
           ) : (
             <ul className="space-y-2">
               {model.strengths.map((s, i) => (
                 <li key={i} className="text-sm text-txt-secondary">
-                  <span className="text-green-400 mr-1">✓</span> {s.dimension}
+                  <span className="text-prism-teal mr-1">✓</span> {s.dimension}
                   <span className="text-txt-faint text-xs ml-1">({(s.confidence * 100).toFixed(0)}% confidence)</span>
                   {s.evidence && <p className="text-xs text-txt-faint mt-0.5 ml-4">{s.evidence}</p>}
                 </li>
@@ -1346,14 +1346,14 @@ function WorldModelTab({ agent }: { agent: AgentRow }) {
           )}
         </Card>
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-amber-400 mb-3">Weaknesses</h3>
+          <h3 className="text-sm font-semibold text-prism-elevated mb-3">Weaknesses</h3>
           {model.weaknesses.length === 0 ? (
             <p className="text-xs text-txt-faint">No weaknesses recorded yet</p>
           ) : (
             <ul className="space-y-2">
               {model.weaknesses.map((w, i) => (
                 <li key={i} className="text-sm text-txt-secondary">
-                  <span className="text-amber-400 mr-1">⚠</span> {w.dimension}
+                  <span className="text-prism-elevated mr-1">⚠</span> {w.dimension}
                   <span className="text-txt-faint text-xs ml-1">({(w.confidence * 100).toFixed(0)}% confidence)</span>
                   {w.evidence && <p className="text-xs text-txt-faint mt-0.5 ml-4">{w.evidence}</p>}
                 </li>
@@ -1387,7 +1387,7 @@ function WorldModelTab({ agent }: { agent: AgentRow }) {
               </div>
               <div className="w-full bg-raised rounded-full h-2 mt-1">
                 <div
-                  className="bg-indigo-500 h-2 rounded-full transition-all"
+                  className="bg-prism-fill-4 h-2 rounded-full transition-all"
                   style={{ width: `${Math.min(100, Math.round((g.currentScore / g.targetScore) * 100))}%` }}
                 />
               </div>
@@ -1400,11 +1400,11 @@ function WorldModelTab({ agent }: { agent: AgentRow }) {
       {/* Failure Patterns */}
       {model.failure_patterns.length > 0 && (
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-red-400 mb-3">Failure Patterns</h3>
+          <h3 className="text-sm font-semibold text-prism-critical mb-3">Failure Patterns</h3>
           <ul className="space-y-2">
             {model.failure_patterns.map((fp, i) => (
               <li key={i} className="text-sm text-txt-secondary">
-                <span className="text-red-400 mr-1">⚠</span> {fp.pattern}
+                <span className="text-prism-critical mr-1">⚠</span> {fp.pattern}
                 <span className="text-txt-faint text-xs ml-2">({fp.occurrences}x, last: {timeAgo(fp.lastSeen)})</span>
               </li>
             ))}
@@ -1415,7 +1415,7 @@ function WorldModelTab({ agent }: { agent: AgentRow }) {
       {/* Blindspots */}
       {model.blindspots.length > 0 && (
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-orange-400 mb-3">Blindspots</h3>
+          <h3 className="text-sm font-semibold text-prism-high mb-3">Blindspots</h3>
           <ul className="space-y-1">
             {model.blindspots.map((b, i) => (
               <li key={i} className="text-sm text-txt-muted">• {b}</li>
@@ -1716,7 +1716,7 @@ function SettingsTab({
             <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
               promptSource === 'db'
                 ? 'bg-cyan/10 text-cyan'
-                : 'bg-slate-500/15 text-slate-400'
+                : 'bg-prism-moderate/15 text-prism-moderate'
             }`}>
               {promptSource === 'db' ? 'Custom' : 'Defined in code'}
             </span>
@@ -1747,7 +1747,7 @@ function SettingsTab({
                 <button
                   onClick={handleSavePrompt}
                   disabled={savingPrompt}
-                  className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40"
+                  className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
                 >
                   {savedPrompt ? 'Saved!' : savingPrompt ? 'Saving…' : 'Save Prompt'}
                 </button>
@@ -1799,7 +1799,7 @@ function SettingsTab({
               }`}
             >
               <span>{thinkingEnabled ? 'Enabled' : 'Disabled'}</span>
-              <span className={`inline-flex h-5 w-9 items-center rounded-full transition-colors ${thinkingEnabled ? 'bg-cyan' : 'bg-slate-600'}`}>
+              <span className={`inline-flex h-5 w-9 items-center rounded-full transition-colors ${thinkingEnabled ? 'bg-cyan' : 'bg-prism-moderate'}`}>
                 <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${thinkingEnabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
               </span>
             </button>
@@ -1854,7 +1854,7 @@ function SettingsTab({
         )}
 
         <div className="mt-4 flex justify-end">
-          <button onClick={handleSave} disabled={saving} className="rounded-lg bg-cyan px-6 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40">
+          <button onClick={handleSave} disabled={saving} className="rounded-lg bg-cyan px-6 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40">
             {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
@@ -1877,7 +1877,7 @@ function SettingsTab({
             }`}
           >
             <span>{reasoningEnabled ? 'Enabled' : 'Disabled'}</span>
-            <span className={`inline-flex h-5 w-9 items-center rounded-full transition-colors ${reasoningEnabled ? 'bg-cyan' : 'bg-slate-600'}`}>
+            <span className={`inline-flex h-5 w-9 items-center rounded-full transition-colors ${reasoningEnabled ? 'bg-cyan' : 'bg-prism-moderate'}`}>
               <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${reasoningEnabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
             </span>
           </button>
@@ -1953,7 +1953,7 @@ function SettingsTab({
                   }`}
                 >
                   <span>{reasoningCrossModel ? 'Enabled' : 'Disabled'}</span>
-                  <span className={`inline-flex h-5 w-9 items-center rounded-full transition-colors ${reasoningCrossModel ? 'bg-cyan' : 'bg-slate-600'}`}>
+                  <span className={`inline-flex h-5 w-9 items-center rounded-full transition-colors ${reasoningCrossModel ? 'bg-cyan' : 'bg-prism-moderate'}`}>
                     <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${reasoningCrossModel ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
                   </span>
                 </button>
@@ -1971,7 +1971,7 @@ function SettingsTab({
                   }`}
                 >
                   <span>{reasoningValueGate ? 'Enabled' : 'Disabled'}</span>
-                  <span className={`inline-flex h-5 w-9 items-center rounded-full transition-colors ${reasoningValueGate ? 'bg-cyan' : 'bg-slate-600'}`}>
+                  <span className={`inline-flex h-5 w-9 items-center rounded-full transition-colors ${reasoningValueGate ? 'bg-cyan' : 'bg-prism-moderate'}`}>
                     <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${reasoningValueGate ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
                   </span>
                 </button>

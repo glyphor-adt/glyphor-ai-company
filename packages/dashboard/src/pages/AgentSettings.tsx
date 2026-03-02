@@ -243,10 +243,10 @@ export default function AgentSettings() {
                   ? 'bg-tier-green/15 text-tier-green'
                   : agent.status === 'paused'
                   ? 'bg-tier-yellow/15 text-tier-yellow'
-                  : 'bg-slate-500/15 text-slate-400'
+                  : 'bg-prism-moderate/15 text-prism-moderate'
               }`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${
-                  agent.status === 'active' ? 'bg-tier-green' : agent.status === 'paused' ? 'bg-tier-yellow' : 'bg-slate-500'
+                  agent.status === 'active' ? 'bg-tier-green' : agent.status === 'paused' ? 'bg-tier-yellow' : 'bg-prism-moderate'
                 }`} />
                 {agent.status}
               </span>
@@ -294,7 +294,7 @@ export default function AgentSettings() {
                 </button>
               ) : null}
               {!agent.is_core && (
-                <button onClick={handleRetire} className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/20 transition-colors">
+                <button onClick={handleRetire} className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-1.5 text-xs font-medium text-prism-critical hover:bg-prism-critical/20 transition-colors">
                   Retire
                 </button>
               )}
@@ -340,8 +340,8 @@ export default function AgentSettings() {
           </div>
 
           <div className="mt-4 flex items-center justify-end gap-3">
-            {saveError && <span className="text-sm text-red-400">{saveError}</span>}
-            <button onClick={handleSave} disabled={saving} className="rounded-lg bg-cyan px-6 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40">
+            {saveError && <span className="text-sm text-prism-critical">{saveError}</span>}
+            <button onClick={handleSave} disabled={saving} className="rounded-lg bg-cyan px-6 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40">
               {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
@@ -451,7 +451,7 @@ export default function AgentSettings() {
                 <button
                   onClick={handleSavePrompt}
                   disabled={savingPrompt}
-                  className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white dark:text-gray-900 transition-all hover:opacity-90 disabled:opacity-40"
+                  className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
                 >
                   {savedPrompt ? 'Saved!' : savingPrompt ? 'Saving...' : 'Save Prompt'}
                 </button>

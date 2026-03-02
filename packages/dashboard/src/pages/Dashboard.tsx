@@ -90,10 +90,10 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       {/* ── Welcome Banner ─────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl border border-cyan-100 dark:border-cyan/10 bg-gradient-to-r from-white via-cyan-50/40 to-violet-50/30 dark:from-[#0e1120] dark:via-[#101525] dark:to-[#12152a] p-6 flex items-center justify-between shadow-sm dark:shadow-none">
+      <div className="relative overflow-hidden rounded-2xl border border-prism-border bg-prism-card p-6 flex items-center justify-between shadow-prism">
         {/* Decorative blobs */}
-        <div className="pointer-events-none absolute -right-8 -top-8 h-48 w-48 rounded-full bg-cyan/20 blur-3xl dark:bg-cyan/8" />
-        <div className="pointer-events-none absolute right-1/3 -bottom-6 h-32 w-32 rounded-full bg-violet-300/20 blur-3xl dark:bg-accent/8" />
+        <div className="pointer-events-none absolute -right-8 -top-8 h-48 w-48 rounded-full bg-prism-fill-1/20 blur-3xl" />
+        <div className="pointer-events-none absolute right-1/3 -bottom-6 h-32 w-32 rounded-full bg-prism-fill-5/20 blur-3xl" />
         <div className="pointer-events-none absolute left-1/2 top-0 h-px w-1/2 bg-gradient-to-r from-transparent via-cyan/20 to-transparent" />
         <div className="relative z-10">
           <h1 className="text-2xl font-bold text-txt-primary">
@@ -118,9 +118,9 @@ export default function Dashboard() {
           label="Active Agents"
           sub={`${agents.length} total`}
           loading={agentsLoading}
-          lightGradient="from-white to-cyan-50/60 border-cyan-100"
-          iconBg="bg-cyan-100 dark:bg-cyan/10 dark:ring-1 dark:ring-cyan/20"
-          accentClass="border-t-2 border-t-cyan-400 dark:border-t-cyan/50"
+          lightGradient="bg-prism-card border-prism-border"
+          iconBg="bg-prism-tint-1"
+          accentClass="border-t-2 border-prism-fill-1"
         />
         <StatCard
           icon={<AnalysisIcon />}
@@ -128,9 +128,9 @@ export default function Dashboard() {
           label="Total Analyses"
           sub={`${analysisSummary.completed} completed`}
           loading={false}
-          lightGradient="from-white to-violet-50/60 border-violet-100"
-          iconBg="bg-violet-100 dark:bg-accent/10 dark:ring-1 dark:ring-accent/20"
-          accentClass="border-t-2 border-t-violet-400 dark:border-t-accent/50"
+          lightGradient="bg-prism-card border-prism-border"
+          iconBg="bg-prism-tint-5"
+          accentClass="border-t-2 border-prism-fill-5"
         />
         <StatCard
           icon={<ReportIcon />}
@@ -138,9 +138,9 @@ export default function Dashboard() {
           label="Reports Generated"
           sub="strategic reports"
           loading={false}
-          lightGradient="from-white to-emerald-50/60 border-emerald-100"
-          iconBg="bg-emerald-100 dark:bg-emerald-500/10 dark:ring-1 dark:ring-emerald-500/20"
-          accentClass="border-t-2 border-t-emerald-400 dark:border-t-emerald-500/50"
+          lightGradient="bg-prism-card border-prism-border"
+          iconBg="bg-prism-tint-2"
+          accentClass="border-t-2 border-prism-fill-2"
         />
         <StatCard
           icon={<QueueIcon />}
@@ -148,9 +148,9 @@ export default function Dashboard() {
           label="Active Analyses"
           sub={pendingDecisions > 0 ? `${pendingDecisions} decisions pending` : 'all clear'}
           loading={false}
-          lightGradient="from-white to-amber-50/60 border-amber-100"
-          iconBg="bg-amber-100 dark:bg-amber-500/10 dark:ring-1 dark:ring-amber-500/20"
-          accentClass="border-t-2 border-t-amber-400 dark:border-t-amber-500/50"
+          lightGradient="bg-prism-card border-prism-border"
+          iconBg="bg-prism-elevated/15"
+          accentClass="border-t-2 border-prism-elevated"
         />
       </div>
 
@@ -195,16 +195,16 @@ export default function Dashboard() {
           <QuickActionCard
             to="/strategy"
             icon={<MdSearch className="h-6 w-6" />}
-            iconBg="bg-emerald-500/15"
-            iconColor="text-emerald-500"
+            iconBg="bg-prism-fill-2/15"
+            iconColor="text-prism-teal"
             title="Start New Research"
             description="Launch AI-powered analysis and intelligence gathering"
           />
           <QuickActionCard
             to="/strategy"
             icon={<MdDescription className="h-6 w-6" />}
-            iconBg="bg-amber-500/15"
-            iconColor="text-amber-500"
+            iconBg="bg-prism-elevated/15"
+            iconColor="text-prism-elevated"
             title="View Reports"
             description="Access your saved analysis reports and insights"
           />
@@ -228,7 +228,7 @@ export default function Dashboard() {
           <SectionHeader
             title="Decision Queue"
             action={
-              <Link to="/approvals" className="text-xs text-txt-muted hover:text-txt-primary hover:underline dark:text-cyan dark:hover:text-cyan">
+              <Link to="/approvals" className="text-xs text-prism-tertiary hover:text-prism-primary hover:underline">
                 View all
               </Link>
             }
@@ -271,7 +271,7 @@ export default function Dashboard() {
         <SectionHeader
           title="AI Workforce"
           action={
-            <Link to="/workforce" className="text-xs text-txt-muted hover:text-txt-primary hover:underline dark:text-cyan dark:hover:text-cyan">
+            <Link to="/workforce" className="text-xs text-prism-tertiary hover:text-prism-primary hover:underline">
               <span className="flex items-center gap-1">Meet the team <MdArrowForward /></span>
             </Link>
           }
@@ -326,7 +326,7 @@ function StatCard({
   if (loading) return <Skeleton className="h-28" />;
 
   return (
-    <div className={`glass-card rounded-xl border p-5 flex flex-col gap-3 transition-all duration-200 bg-gradient-to-br dark:bg-none ${lightGradient} ${accentClass}`}>
+    <div className={`glass-card rounded-xl border p-5 flex flex-col gap-3 transition-all duration-200 ${lightGradient} ${accentClass}`}>
       <div className="flex items-center justify-between">
         <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${iconBg}`}>
           {icon}
@@ -393,7 +393,7 @@ function AnalysisIcon() {
 
 function ReportIcon() {
   return (
-    <svg className="h-5 w-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    <svg className="h-5 w-5 text-prism-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
     </svg>
   );
@@ -401,7 +401,7 @@ function ReportIcon() {
 
 function QueueIcon() {
   return (
-    <svg className="h-5 w-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    <svg className="h-5 w-5 text-prism-elevated" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
     </svg>
   );
