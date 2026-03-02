@@ -150,29 +150,29 @@ export const GRAPHRAG_MODEL = 'gemini-2.5-flash';
 // try the next model in the chain. Each chain crosses providers.
 
 export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
-  // Gemini primary → try another Gemini tier first, then cross-provider
-  'gemini-3.1-pro-preview': ['gemini-3-pro-preview', 'claude-sonnet-4-6'],
-  'gemini-3-flash-preview': ['gemini-2.5-flash', 'claude-haiku-4-5'],
-  'gemini-3-pro-preview':   ['gemini-2.5-pro', 'claude-sonnet-4-6'],
-  'gemini-2.5-flash':       ['gemini-3-flash-preview', 'claude-haiku-4-5'],
+  // Gemini primary → try another Gemini tier first, then cheapest cross-provider
+  'gemini-3.1-pro-preview': ['gemini-3-pro-preview', 'gpt-5-mini'],
+  'gemini-3-flash-preview': ['gemini-2.5-flash', 'gpt-5-mini'],
+  'gemini-3-pro-preview':   ['gemini-3-flash-preview', 'gpt-5-mini'],
+  'gemini-2.5-flash':       ['gemini-3-flash-preview', 'gpt-5-mini'],
   'gemini-2.5-flash-lite':  ['gemini-2.5-flash', 'gpt-5-nano'],
-  'gemini-2.5-pro':         ['gemini-3-pro-preview', 'claude-opus-4-6'],
+  'gemini-2.5-pro':         ['gemini-3-pro-preview', 'gpt-5-mini'],
 
-  // OpenAI primary → try Gemini first (GCP-resident), then Anthropic
-  'gpt-5.2':                ['gemini-3.1-pro-preview', 'claude-opus-4-6'],
-  'gpt-5.2-pro':            ['gemini-3.1-pro-preview', 'claude-opus-4-6'],
-  'gpt-5.1':                ['gemini-3-pro-preview', 'claude-sonnet-4-6'],
-  'gpt-5':                  ['gemini-3-pro-preview', 'claude-sonnet-4-6'],
-  'gpt-5-mini':             ['gemini-3-flash-preview', 'claude-haiku-4-5'],
+  // OpenAI primary → try Gemini first (GCP-resident, cheapest), then economy cross-provider
+  'gpt-5.2':                ['gemini-3-flash-preview', 'claude-haiku-4-5'],
+  'gpt-5.2-pro':            ['gemini-3-flash-preview', 'claude-haiku-4-5'],
+  'gpt-5.1':                ['gemini-2.5-flash', 'claude-haiku-4-5'],
+  'gpt-5':                  ['gemini-2.5-flash', 'claude-haiku-4-5'],
+  'gpt-5-mini':             ['gemini-2.5-flash', 'claude-haiku-4-5'],
   'gpt-5-nano':             ['gemini-2.5-flash-lite', 'claude-haiku-4-5'],
   'gpt-4.1':                ['gemini-2.5-flash', 'claude-haiku-4-5'],
   'gpt-4.1-mini':           ['gemini-2.5-flash-lite', 'claude-haiku-4-5'],
-  'o3':                     ['gemini-3.1-pro-preview', 'claude-opus-4-6'],
-  'o4-mini':                ['gemini-3-flash-preview', 'claude-sonnet-4-6'],
+  'o3':                     ['gemini-3-flash-preview', 'claude-haiku-4-5'],
+  'o4-mini':                ['gemini-2.5-flash', 'claude-haiku-4-5'],
 
-  // Anthropic primary → try Gemini first (GCP-resident), then OpenAI
-  'claude-opus-4-6':        ['gemini-3.1-pro-preview', 'gpt-5.2'],
-  'claude-sonnet-4-6':      ['gemini-3-flash-preview', 'gpt-5-mini'],
+  // Anthropic primary → try Gemini first (GCP-resident), then cheapest OpenAI
+  'claude-opus-4-6':        ['gemini-3-flash-preview', 'gpt-5-mini'],
+  'claude-sonnet-4-6':      ['gemini-2.5-flash', 'gpt-5-mini'],
   'claude-haiku-4-5':       ['gemini-2.5-flash', 'gpt-5-nano'],
 };
 
@@ -181,30 +181,30 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
 // Always uses a DIFFERENT provider to prevent correlated errors.
 
 export const VERIFIER_MAP: Record<string, string> = {
-  // Gemini primary → Claude verifier
-  'gemini-3.1-pro-preview': 'claude-sonnet-4-6',
-  'gemini-3-flash-preview': 'claude-sonnet-4-6',
-  'gemini-3-pro-preview':   'claude-sonnet-4-6',
-  'gemini-2.5-flash':       'claude-sonnet-4-6',
-  'gemini-2.5-flash-lite':  'claude-haiku-4-5',
-  'gemini-2.5-pro':         'claude-opus-4-6',
+  // Gemini primary → cheapest cross-provider verifier
+  'gemini-3.1-pro-preview': 'gpt-5-mini',
+  'gemini-3-flash-preview': 'gpt-5-mini',
+  'gemini-3-pro-preview':   'gpt-5-mini',
+  'gemini-2.5-flash':       'gpt-5-mini',
+  'gemini-2.5-flash-lite':  'gpt-5-nano',
+  'gemini-2.5-pro':         'gpt-5-mini',
 
-  // OpenAI primary → Gemini verifier
-  'gpt-5.2':                'gemini-3-pro-preview',
-  'gpt-5.2-pro':            'gemini-3.1-pro-preview',
-  'gpt-5.1':                'gemini-3-flash-preview',
-  'gpt-5':                  'gemini-3-flash-preview',
-  'gpt-5-mini':             'gemini-3-flash-preview',
-  'gpt-5-nano':             'gemini-2.5-flash',
+  // OpenAI primary → Gemini verifier (GCP-native, cheap)
+  'gpt-5.2':                'gemini-2.5-flash',
+  'gpt-5.2-pro':            'gemini-3-flash-preview',
+  'gpt-5.1':                'gemini-2.5-flash',
+  'gpt-5':                  'gemini-2.5-flash',
+  'gpt-5-mini':             'gemini-2.5-flash',
+  'gpt-5-nano':             'gemini-2.5-flash-lite',
   'gpt-4.1':                'gemini-2.5-flash',
-  'gpt-4.1-mini':           'gemini-2.5-flash',
-  'o3':                     'gemini-3-pro-preview',
-  'o4-mini':                'gemini-3-flash-preview',
+  'gpt-4.1-mini':           'gemini-2.5-flash-lite',
+  'o3':                     'gemini-2.5-flash',
+  'o4-mini':                'gemini-2.5-flash',
 
-  // Claude primary → Gemini verifier
-  'claude-opus-4-6':        'gemini-3-pro-preview',
-  'claude-sonnet-4-6':      'gemini-3-flash-preview',
-  'claude-haiku-4-5':       'gemini-2.5-flash',
+  // Claude primary → Gemini verifier (GCP-native, cheap)
+  'claude-opus-4-6':        'gemini-2.5-flash',
+  'claude-sonnet-4-6':      'gemini-2.5-flash',
+  'claude-haiku-4-5':       'gemini-2.5-flash-lite',
 };
 
 // ─── Deep dive research models ──────────────────────────────
@@ -212,28 +212,28 @@ export const VERIFIER_MAP: Record<string, string> = {
 // infra), with select areas using OpenAI/Anthropic for perspective diversity.
 
 export const DEEP_DIVE_MODELS: Record<string, string> = {
-  overview:             'gemini-3-pro-preview',
-  financials:           'gemini-3-pro-preview',
-  technology:           'claude-sonnet-4-6',
-  market:               'gemini-3-pro-preview',
-  competitive:          'gemini-3-pro-preview',
-  leadership:           'gpt-5-mini',
-  customers:            'gemini-3-pro-preview',
-  risks:                'gemini-3-pro-preview',
-  company_profile:      'gemini-3-pro-preview',
-  strategic_direction:  'claude-sonnet-4-6',
-  segment_analysis:     'gemini-3-pro-preview',
-  ma_activity:          'gemini-3-pro-preview',
-  ai_impact:            'gemini-3-pro-preview',
-  talent_assessment:    'gpt-5-mini',
-  regulatory_landscape: 'claude-sonnet-4-6',
+  overview:             'gemini-3-flash-preview',  // was gemini-3-pro ($2/$12) → $0.50/$3.00
+  financials:           'gemini-3-flash-preview',  // was gemini-3-pro → $0.50/$3.00
+  technology:           'gemini-3-flash-preview',  // was claude-sonnet ($3/$15) → $0.50/$3.00
+  market:               'gemini-2.5-flash',        // was gemini-3-pro → $0.30/$2.50
+  competitive:          'gemini-3-flash-preview',  // was gemini-3-pro → $0.50/$3.00
+  leadership:           'gemini-2.5-flash',        // was gpt-5-mini ($0.25/$2) → $0.30/$2.50
+  customers:            'gemini-2.5-flash',        // was gemini-3-pro → $0.30/$2.50
+  risks:                'gemini-3-flash-preview',  // was gemini-3-pro → $0.50/$3.00
+  company_profile:      'gemini-2.5-flash',        // was gemini-3-pro → $0.30/$2.50
+  strategic_direction:  'gemini-3-flash-preview',  // was claude-sonnet ($3/$15) → $0.50/$3.00
+  segment_analysis:     'gemini-2.5-flash',        // was gemini-3-pro → $0.30/$2.50
+  ma_activity:          'gemini-2.5-flash',        // was gemini-3-pro → $0.30/$2.50
+  ai_impact:            'gemini-3-flash-preview',  // was gemini-3-pro → $0.50/$3.00
+  talent_assessment:    'gemini-2.5-flash',        // was gpt-5-mini → $0.30/$2.50
+  regulatory_landscape: 'gemini-3-flash-preview',  // was claude-sonnet ($3/$15) → $0.50/$3.00
 };
 
-/** The three models used for cross-model deep dive verification (Gemini-first) */
-export const DEEP_DIVE_VERIFICATION_MODELS = ['gemini-3-pro-preview', 'gemini-3-flash-preview', 'claude-sonnet-4-6'] as const;
+/** The two models used for cross-model deep dive verification (Gemini-first, cost-optimised) */
+export const DEEP_DIVE_VERIFICATION_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash'] as const;
 
-/** The three models used for reasoning engine verification (Gemini-first) */
-export const REASONING_VERIFICATION_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'claude-sonnet-4-6'] as const;
+/** The two models used for reasoning engine verification (Gemini-first, cost-optimised) */
+export const REASONING_VERIFICATION_MODELS = ['gemini-2.5-flash', 'gpt-5-mini'] as const;
 
 // ─── Helper functions ────────────────────────────────────────
 
@@ -304,12 +304,12 @@ export function getVerifierFor(primaryModel: string): string {
   // Direct mapping
   if (VERIFIER_MAP[primaryModel]) return VERIFIER_MAP[primaryModel];
 
-  // Prefix-based fallback — always cross-provider
-  if (primaryModel.startsWith('gemini-')) return 'claude-sonnet-4-6';
-  if (primaryModel.startsWith('gpt-') || /^o[134](-|$)/.test(primaryModel)) return 'gemini-3-flash-preview';
-  if (primaryModel.startsWith('claude-')) return 'gemini-3-flash-preview';
+  // Prefix-based fallback — always cross-provider, cheapest viable
+  if (primaryModel.startsWith('gemini-')) return 'gpt-5-mini';
+  if (primaryModel.startsWith('gpt-') || /^o[134](-|$)/.test(primaryModel)) return 'gemini-2.5-flash';
+  if (primaryModel.startsWith('claude-')) return 'gemini-2.5-flash';
 
-  return 'gemini-3-flash-preview';
+  return 'gemini-2.5-flash';
 }
 
 /**
@@ -358,4 +358,117 @@ export function getProviderLabel(provider: ModelProvider): string {
     case 'openai': return 'OpenAI';
     case 'anthropic': return 'Anthropic';
   }
+}
+
+// ─── Cost Optimizer ─────────────────────────────────────────
+//
+// Maps agent roles to model tiers based on task complexity.
+// Goal: stop using expensive models for routine tasks.
+//
+// Tiers:
+//   economy  → gemini-2.5-flash-lite ($0.10/$0.40)  — structured, repetitive tasks
+//   standard → gemini-2.5-flash      ($0.30/$2.50)  — analysis, creative, department mgmt
+//   pro      → gemini-3-flash-preview ($0.50/$3.00)  — orchestration, strategic, founder-chat
+//
+// GCP-native Gemini models preferred to minimise egress costs.
+
+export type CostTier = 'economy' | 'standard' | 'pro';
+
+/** Preferred model for each cost tier (GCP-first). */
+export const TIER_MODELS: Record<CostTier, string> = {
+  economy:  'gemini-2.5-flash-lite',   // $0.10 / $0.40
+  standard: 'gemini-2.5-flash',        // $0.30 / $2.50
+  pro:      'gemini-3-flash-preview',   // $0.50 / $3.00
+};
+
+/** Model used for on_demand chat with founder-facing executives. */
+export const EXEC_CHAT_MODEL = 'gemini-3-flash-preview'; // was gemini-3-pro-preview ($2/$12)
+
+/** Role → tier mapping. Unlisted roles default to 'standard'. */
+export const ROLE_COST_TIER: Record<string, CostTier> = {
+  // ── Economy: routine, structured, low-complexity ────────────
+  'support-triage':        'economy',
+  'onboarding-specialist': 'economy',
+  'm365-admin':            'economy',
+  'global-admin':          'economy',
+  'data-integrity-auditor':'economy',
+  'seo-analyst':           'economy',
+  'social-media-manager':  'economy',
+  'cost-analyst':          'economy',
+  'revenue-analyst':       'economy',
+  'account-research':      'economy',
+  'adi-rose':              'economy',
+
+  // ── Standard: analysis, creative, department-level ──────────
+  'content-creator':       'standard',
+  'design-critic':         'standard',
+  'ui-ux-designer':        'standard',
+  'frontend-engineer':     'standard',
+  'template-architect':    'standard',
+  'user-researcher':       'standard',
+  'competitive-intel':     'standard',
+  'devops-engineer':       'standard',
+  'platform-engineer':     'standard',
+  'quality-engineer':      'standard',
+  'head-of-hr':            'standard',
+  'vp-customer-success':   'standard',
+  'vp-sales':              'standard',
+  'vp-design':             'standard',
+  'bob-the-tax-pro':       'standard',
+  'tax-strategy-specialist':'standard',
+  'lead-gen-specialist':   'standard',
+  'enterprise-account-researcher': 'standard',
+  'marketing-intelligence-analyst': 'standard',
+  'competitive-research-analyst':   'standard',
+  'market-research-analyst':        'standard',
+  'technical-research-analyst':     'standard',
+  'industry-research-analyst':      'standard',
+  'ai-impact-analyst':     'standard',
+  'org-analyst':           'standard',
+
+  // ── Pro: orchestrators, C-suite, strategic planning ─────────
+  'chief-of-staff':        'pro',
+  'cto':                   'pro',
+  'cfo':                   'pro',
+  'cpo':                   'pro',
+  'cmo':                   'pro',
+  'clo':                   'pro',
+  'vp-research':           'pro',
+  'ops':                   'pro',
+};
+
+/**
+ * Pick the optimal model for a given role and task.
+ *
+ * Priority:
+ *   1. If the DB has an explicitly-set model, respect it (user override).
+ *   2. Otherwise, use the cost tier for the role.
+ *   3. For on_demand chat with pro-tier roles, use EXEC_CHAT_MODEL.
+ *
+ * Returns the model ID string to use.
+ */
+export function optimizeModel(
+  role: string,
+  task: string,
+  dbModel?: string | null,
+): string {
+  // Explicit DB assignment always wins (resolve deprecated names)
+  if (dbModel) return resolveModel(dbModel);
+
+  const tier = ROLE_COST_TIER[role] ?? 'standard';
+
+  // Pro-tier roles get the exec chat model for on_demand (founder-facing conversations)
+  if (task === 'on_demand' && tier === 'pro') {
+    return EXEC_CHAT_MODEL;
+  }
+
+  return TIER_MODELS[tier];
+}
+
+/**
+ * Estimate cost per 1K output tokens for quick comparison. Useful for budget guards.
+ */
+export function costPer1KOutput(modelId: string): number {
+  const def = getModel(modelId);
+  return def ? (def.outputPer1M / 1000) : 0.003;
 }

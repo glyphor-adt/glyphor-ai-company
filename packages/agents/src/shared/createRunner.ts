@@ -14,32 +14,20 @@ import {
   type CompanyAgentRole,
 } from '@glyphor/agent-runtime';
 import type { ModelClient } from '@glyphor/agent-runtime';
-import { resolveModel as resolveDeprecatedModel } from '@glyphor/shared/models';
-
-/** Roles that get the Pro model for founder-facing chat. */
-const PRO_CHAT_ROLES: ReadonlySet<CompanyAgentRole> = new Set([
-  'chief-of-staff', 'cto', 'cfo', 'cpo', 'cmo',
-]);
+import { optimizeModel } from '@glyphor/shared/models';
 
 /**
- * Resolve the model for an agent run.
- * Founder-facing executives get gemini-3-pro-preview for on_demand chat
- * ONLY if they haven't been assigned a specific model in the dashboard.
- * When dbModel is provided (i.e. the agent has a saved model), it is always respected.
+ * Resolve the model for an agent run using the cost optimizer.
+ * Picks the cheapest model appropriate for the role's complexity tier.
+ * Explicit DB assignments (dashboard overrides) always take priority.
  */
 export function resolveModel(
   role: CompanyAgentRole,
   task: string,
-  defaultModel: string,
+  _defaultModel: string,
   dbModel?: string | null,
 ): string {
-  // If the agent has an explicit DB-saved model, resolve any deprecated names first
-  if (dbModel) return resolveDeprecatedModel(dbModel);
-  // Otherwise, upgrade C-suite to pro for on_demand chat
-  if (task === 'on_demand' && PRO_CHAT_ROLES.has(role)) {
-    return 'gemini-3-pro-preview';
-  }
-  return resolveDeprecatedModel(defaultModel);
+  return optimizeModel(role, task, dbModel);
 }
 
 /**

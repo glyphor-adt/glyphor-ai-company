@@ -425,7 +425,7 @@ export function createRunDeps(
 /**
  * Load agent config (model, temperature, max_turns, thinking_enabled) from company_agents table.
  * Falls back to provided defaults if the DB lookup fails or returns null.
- * When task is provided, applies model routing (e.g. Pro model for exec chat).
+ * When task is provided, applies cost-optimised model routing via optimizeModel().
  */
 export async function loadAgentConfig(
   role: string,
@@ -439,9 +439,9 @@ export async function loadAgentConfig(
 
     if (data) {
       const dbModel = data.model || null;
-      const baseModel = dbModel || defaults.model;
       return {
-        model: task ? resolveModel(role as any, task, baseModel, dbModel) : baseModel,
+        // Always route through resolveModel (which calls optimizeModel) — picks cheapest tier for the role
+        model: resolveModel(role as any, task ?? 'scheduled', defaults.model, dbModel),
         temperature: data.temperature ?? defaults.temperature,
         maxTurns: data.max_turns ?? defaults.maxTurns,
         thinkingEnabled: data.thinking_enabled ?? true,
@@ -450,9 +450,8 @@ export async function loadAgentConfig(
   } catch {
     // Fall through to defaults
   }
-  const baseModel = defaults.model;
   return {
-    model: task ? resolveModel(role as any, task, baseModel, null) : baseModel,
+    model: resolveModel(role as any, task ?? 'scheduled', defaults.model, null),
     temperature: defaults.temperature,
     maxTurns: defaults.maxTurns,
     thinkingEnabled: true,

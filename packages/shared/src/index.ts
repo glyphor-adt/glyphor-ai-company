@@ -40,6 +40,9 @@ export {
   DEEP_DIVE_MODELS,
   DEEP_DIVE_VERIFICATION_MODELS,
   REASONING_VERIFICATION_MODELS,
+  TIER_MODELS,
+  EXEC_CHAT_MODEL,
+  ROLE_COST_TIER,
   getModel,
   getSelectableModels,
   getSelectableModelsByProvider,
@@ -51,5 +54,7 @@ export {
   estimateModelCost,
   isDeprecated,
   getProviderLabel,
+  optimizeModel,
+  costPer1KOutput,
 } from './models.js';
-export type { ModelDef, ModelProvider, ModelTier } from './models.js';
+export type { ModelDef, ModelProvider, ModelTier, CostTier } from './models.js';
