@@ -18,6 +18,7 @@ import { createRunner } from '../shared/createRunner.js';
 import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
+import { createEmailTools } from '../shared/emailTools.js';
 
 export interface ContentCreatorRunParams {
   task?: 'blog_draft' | 'social_batch' | 'performance_review' | 'on_demand';
@@ -43,6 +44,7 @@ export async function runContentCreator(params: ContentCreatorRunParams = {}) {
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(glyphorEventBus),
+    ...createEmailTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

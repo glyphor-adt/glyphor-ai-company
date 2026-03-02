@@ -215,12 +215,12 @@ export default function Skills() {
                     {skill.agent_count} agent{skill.agent_count !== 1 ? 's' : ''}
                   </span>
                   <div className="flex gap-1">
-                    {skill.tools_granted.slice(0, 3).map((t) => (
+                    {(skill.tools_granted ?? []).slice(0, 3).map((t) => (
                       <span key={t} className="rounded bg-raised px-1.5 py-0.5 font-mono text-[9px] text-txt-faint">
                         {t}
                       </span>
                     ))}
-                    {skill.tools_granted.length > 3 && (
+                    {(skill.tools_granted ?? []).length > 3 && (
                       <span className="text-[9px] text-txt-faint">+{skill.tools_granted.length - 3}</span>
                     )}
                   </div>

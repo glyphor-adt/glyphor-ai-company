@@ -16,6 +16,8 @@ import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
+import { createEventTools } from '../shared/eventTools.js';
+import { createAssignmentTools } from '../shared/assignmentTools.js';
 
 export interface OrgAnalystRunParams {
   task?: 'research' | 'on_demand';
@@ -49,6 +51,8 @@ export async function runOrgAnalyst(params: OrgAnalystRunParams = {}) {
     ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
     ...createToolRequestTools(),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
+    ...createEventTools(glyphorEventBus),
+    ...createAssignmentTools(glyphorEventBus),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

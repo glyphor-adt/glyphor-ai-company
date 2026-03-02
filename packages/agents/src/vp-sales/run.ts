@@ -29,6 +29,7 @@ import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
+import { createEventTools } from '../shared/eventTools.js';
 
 export interface VPSalesRunParams {
   task?: 'pipeline_review' | 'market_sizing' | 'on_demand';
@@ -64,6 +65,7 @@ export async function runVPSales(params: VPSalesRunParams = {}) {
     ...createAgentCreationTools(),
     ...createToolRequestTools(),
     ...createAgentDirectoryTools(),
+    ...createEventTools(glyphorEventBus),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

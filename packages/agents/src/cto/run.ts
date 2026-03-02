@@ -31,6 +31,7 @@ import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createToolRegistryTools } from '../shared/toolRegistryTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
+import { createEventTools } from '../shared/eventTools.js';
 
 export interface CTORunParams {
   task?: 'platform_health_check' | 'dependency_review' | 'on_demand';
@@ -68,6 +69,7 @@ export async function runCTO(params: CTORunParams = {}) {
     ...createToolRegistryTools(),
     ...createToolRequestTools(),
     ...createAgentDirectoryTools(),
+    ...createEventTools(glyphorEventBus),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

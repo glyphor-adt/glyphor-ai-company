@@ -17,6 +17,9 @@ import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
+import { createEventTools } from '../shared/eventTools.js';
+import { createAssignmentTools } from '../shared/assignmentTools.js';
+import { createEmailTools } from '../shared/emailTools.js';
 
 export interface VPResearchRunParams {
   task?: 'decompose_research' | 'qc_and_package_research' | 'follow_up_research' | 'on_demand';
@@ -63,6 +66,9 @@ export async function runVPResearch(params: VPResearchRunParams = {}) {
     ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
     ...createToolRequestTools(),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
+    ...createEventTools(glyphorEventBus),
+    ...createAssignmentTools(glyphorEventBus),
+    ...createEmailTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

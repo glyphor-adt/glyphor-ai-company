@@ -30,6 +30,7 @@ import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
+import { createEventTools } from '../shared/eventTools.js';
 
 export interface CFORunParams {
   task?: 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand';
@@ -66,6 +67,7 @@ export async function runCFO(params: CFORunParams = {}) {
     ...createAgentCreationTools(),
     ...createToolRequestTools(),
     ...createAgentDirectoryTools(),
+    ...createEventTools(glyphorEventBus),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

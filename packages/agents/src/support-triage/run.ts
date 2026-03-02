@@ -18,6 +18,7 @@ import { createRunner } from '../shared/createRunner.js';
 import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
+import { createEmailTools } from '../shared/emailTools.js';
 
 export interface SupportTriageRunParams {
   task?: 'triage_queue' | 'batch_analysis' | 'on_demand';
@@ -43,6 +44,7 @@ export async function runSupportTriage(params: SupportTriageRunParams = {}) {
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(glyphorEventBus),
+    ...createEmailTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
