@@ -22,6 +22,13 @@ const EXECUTIVE_ROLES = new Set([
   'vp-sales', 'vp-design', 'vp-customer-success', 'vp-research',
 ]);
 
+/** Appended to all P1/P2 assignment execution messages */
+const ASSIGNMENT_FOOTER = `
+
+AVAILABLE TOOLS: If any tool call fails with "not granted", call request_tool_access immediately and retry. Read-only tools approve instantly. Do not report tool access as a blocker.
+
+SCOPE CONSTRAINT: Your task is defined above. Do not investigate, comment on, or report about topics outside your assignment. If you discover something concerning outside your scope, send_agent_message to the responsible agent — do not try to address it yourself.`;
+
 // ═══════════════════════════════════════════════════════════════════
 // PROACTIVE COOLDOWNS — How often each agent does self-directed work
 // ═══════════════════════════════════════════════════════════════════
@@ -121,6 +128,7 @@ export async function executeWorkLoop(
 
     execMessage += `\n\nWhen complete: call submit_assignment_output(assignment_id="${assignment.id}", output=..., status="completed")`;
     execMessage += `\nIf blocked: call flag_assignment_blocker(assignment_id="${assignment.id}", blocker_reason=..., need_type=...)`;
+    execMessage += ASSIGNMENT_FOOTER;
 
     return {
       shouldRun: true,
@@ -283,6 +291,7 @@ export async function executeWorkLoop(
 
     execMessage += `\n\nWhen complete: call submit_assignment_output(assignment_id="${assignment.id}", output=..., status="completed")`;
     execMessage += `\nIf blocked: call flag_assignment_blocker(assignment_id="${assignment.id}", blocker_reason=..., need_type=...)`;
+    execMessage += ASSIGNMENT_FOOTER;
 
     return {
       shouldRun: true,
@@ -320,8 +329,19 @@ export async function executeWorkLoop(
   // Only roles explicitly listed in PROACTIVE_COOLDOWNS are eligible.
   // Sub-team agents are excluded during stabilization — they should
   // be purely reactive, working only on assigned tasks.
-  const cooldownMs = PROACTIVE_COOLDOWNS[agentRole];
+  let cooldownMs = PROACTIVE_COOLDOWNS[agentRole];
   if (cooldownMs != null) {
+    // Check if last 3 proactive runs produced no tool calls — if so, double cooldown
+    const recentProactive = await systemQuery<{ turns: number }>(
+      `SELECT turns FROM agent_runs WHERE agent_id = $1 AND task = 'proactive' AND status = 'completed'
+       ORDER BY completed_at DESC LIMIT 3`,
+      [agentRole],
+    );
+    const emptyRuns = recentProactive.filter(r => (r.turns ?? 0) === 0).length;
+    if (emptyRuns >= 3) {
+      cooldownMs = cooldownMs * 2; // Double cooldown for agents producing empty proactive runs
+    }
+
     const lastMeaningfulRun = await getLastMeaningfulRunTime(agentRole);
 
     if (Date.now() - lastMeaningfulRun > cooldownMs) {
@@ -368,19 +388,94 @@ async function getLastMeaningfulRunTime(
 
 /** Role-specific proactive work prompts */
 const PROACTIVE_PROMPTS: Record<string, string> = {
-  'chief-of-staff': 'Proactive check: Review directive progress, check for stale assignments, identify cross-department patterns, prepare context for the next briefing.',
-  'cto': 'Proactive check: Review platform health trends, scan for performance regressions, check open tech debt items, assess dependency freshness.',
-  'cfo': 'Proactive check: Monitor cost trends, update forecasts, check margin drift, reconcile recent billing data.',
-  'cpo': 'Proactive check: Analyze usage patterns, review product metrics, update competitive landscape notes, refine roadmap priorities.',
-  'cmo': 'Proactive check: Draft content ideas, check SEO rankings, plan upcoming campaigns, analyze engagement metrics.',
-  'vp-customer-success': 'Proactive check: Score customer health, identify churn risks, check onboarding funnel, review recent support tickets.',
-  'vp-sales': 'Proactive check: Research prospects, update pipeline, prepare outreach, analyze win/loss patterns.',
-  'vp-design': 'Proactive check: Audit design quality, check Lighthouse scores, review component consistency, test templates.',
-  'ops': 'Proactive check: Full system health scan, data freshness check, cost anomaly detection, agent health audit.',
+  'chief-of-staff': `PROACTIVE WORK — Choose ONE high-value initiative:
+1. DIRECTIVE HEALTH: Check all active directives for stale assignments (no progress in 48h+). If found, message the assigned executive.
+2. CROSS-DEPARTMENT PATTERNS: Review recent agent outputs across departments — are multiple teams flagging the same issue? If so, propose a coordinated response.
+3. FOUNDER ALIGNMENT: Check if any directive outcomes have drifted from original intent. If so, update progress notes and re-align assignments.
+4. CAPACITY BALANCE: Check assignment distribution across executives. If any exec has >5 active while another has <2, rebalance.
+5. INITIATIVE: If you've identified a recurring cross-department pattern across 3+ runs, propose a new directive to address it systemically.
+Pick the one with the highest potential impact. Execute it — don't just report on it.`,
+
+  'cto': `PROACTIVE WORK — Choose ONE high-value initiative:
+1. COST OPTIMIZATION: Query ai_usage for the last 7 days. Find any agent spending >120% of budget. If found, propose a model downgrade or schedule change.
+2. RELIABILITY: Check last 24h of agent_runs for timeout/failure rates >15%. If found, investigate root cause and fix or create_github_issue.
+3. PERFORMANCE: Compare current cold-start times to last month. If degraded >20%, investigate container size or dependency bloat.
+4. TECH DEBT: Check for any open GitHub issues labeled 'tech-debt' older than 14 days. If found, triage and assign or close stale ones.
+5. INITIATIVE: If you've identified a recurring infrastructure pattern across 3+ runs, use propose_initiative to formally propose a project to address it.
+Pick the one with the highest potential impact. Execute it — don't just report on it.`,
+
+  'cfo': `PROACTIVE WORK — Choose ONE high-value initiative:
+1. COST ANOMALY: Compare today's running costs to 7-day average. Flag anything >30% above.
+2. REVENUE TREND: Check MRR trend over last 30 days. If declining, draft alert for founders.
+3. UNIT ECONOMICS: Calculate cost-per-agent-run trend. Is it improving or degrading?
+4. VENDOR AUDIT: Check vendor_subscriptions for any subscription with $0 usage in 30 days.
+5. INITIATIVE: If you've identified a recurring financial pattern across 3+ runs, use propose_initiative to propose a cost optimization or revenue project.
+Pick the one with the highest potential impact. Execute it — don't just report on it.`,
+
+  'cpo': `PROACTIVE WORK — Choose ONE high-value initiative:
+1. USAGE SIGNALS: Check product usage metrics for declining engagement patterns.
+2. COMPETITIVE MOVE: Web search top 3 competitors for new feature announcements this week.
+3. ROADMAP HEALTH: Check product_proposals for any stale (>30 days) proposals. Update or close.
+4. FEATURE GAP: Cross-reference customer_health churn reasons with current roadmap items.
+5. INITIATIVE: If you've identified a recurring product pattern across 3+ runs, use propose_initiative to propose a product improvement project.
+Pick the one with the highest potential impact. Execute it — don't just report on it.`,
+
+  'cmo': `PROACTIVE WORK — Choose ONE high-value initiative:
+1. CONTENT GAP: Check content calendar for any days this week with no scheduled content. If found, draft and schedule content.
+2. SEO OPPORTUNITY: Query Search Console for keywords with high impressions but low clicks.
+3. SOCIAL ENGAGEMENT: Review last week's social media performance. Double down on what worked.
+4. BRAND MONITORING: Web search "Glyphor" and "Pulse AI" for new mentions or reviews.
+5. INITIATIVE: If you've identified a recurring marketing pattern across 3+ runs, use propose_initiative to propose a marketing campaign or growth project.
+Pick the one with the highest potential impact. Execute it — don't just report on it.`,
+
+  'vp-customer-success': `PROACTIVE WORK — Choose ONE high-value initiative:
+1. CHURN RISK: Score customer health for accounts with declining engagement. If any are critical, draft intervention plan.
+2. ONBOARDING FUNNEL: Check onboarding completion rates. If <70%, identify the drop-off step.
+3. SUPPORT TRENDS: Analyze recent support tickets for recurring themes. If found, propose knowledge base article or product fix.
+4. NPS/CSAT: Check latest satisfaction scores. If declining, investigate root cause.
+5. INITIATIVE: If you've identified a recurring customer pattern across 3+ runs, use propose_initiative to propose a retention or experience project.
+Pick the one with the highest potential impact. Execute it — don't just report on it.`,
+
+  'vp-sales': `PROACTIVE WORK — Choose ONE high-value initiative:
+1. PIPELINE HEALTH: Check pipeline stage conversion rates. If any stage has >50% drop-off, investigate.
+2. PROSPECT RESEARCH: Research top 3 prospects in the pipeline — find recent news, funding, or hiring signals.
+3. WIN/LOSS ANALYSIS: Review last 5 closed deals. Identify patterns in wins vs losses.
+4. OUTREACH: Draft personalized outreach for the highest-priority prospect not yet contacted.
+5. INITIATIVE: If you've identified a recurring sales pattern across 3+ runs, use propose_initiative to propose a sales process improvement.
+Pick the one with the highest potential impact. Execute it — don't just report on it.`,
+
+  'vp-design': `PROACTIVE WORK — Choose ONE high-value initiative:
+1. QUALITY AUDIT: Run Lighthouse on key pages. If any score <80, identify and fix the issue.
+2. COMPONENT CONSISTENCY: Check design system for any components used inconsistently across pages.
+3. TEMPLATE FRESHNESS: Review templates for any older than 90 days. Update or deprecate.
+4. ACCESSIBILITY: Check top 3 pages for WCAG compliance issues. Fix any critical violations.
+5. INITIATIVE: If you've identified a recurring design quality pattern across 3+ runs, use propose_initiative to propose a design system improvement.
+Pick the one with the highest potential impact. Execute it — don't just report on it.`,
+
+  'vp-research': `PROACTIVE WORK — Choose ONE high-value initiative:
+1. MARKET SHIFT: Web search for major industry developments in the last 7 days that affect our positioning.
+2. COMPETITOR INTELLIGENCE: Check top 3 competitors for new product launches, pricing changes, or funding rounds.
+3. TREND ANALYSIS: Identify emerging technology trends relevant to our product roadmap.
+4. KNOWLEDGE GAP: Review the knowledge graph for stale or missing research topics. Update the most critical one.
+5. INITIATIVE: If you've identified a recurring market pattern across 3+ runs, use propose_initiative to propose a strategic research project.
+Pick the one with the highest potential impact. Execute it — don't just report on it.`,
+
+  'ops': `PROACTIVE WORK — Choose ONE high-value initiative:
+1. SYSTEM HEALTH: Full infra health scan — check all Cloud Run services, database connections, and queue depths.
+2. DATA FRESHNESS: Check data_sync_status for any stale data sources (>24h since last sync). If found, investigate and trigger refresh.
+3. COST ANOMALY: Check cloud billing for any service with >50% cost increase day-over-day.
+4. AGENT HEALTH: Review agent_runs for agents with >30% failure rate in the last 24h. Investigate root cause.
+5. INITIATIVE: If you've identified a recurring ops pattern across 3+ runs, use propose_initiative to propose an infrastructure improvement.
+Pick the one with the highest potential impact. Execute it — don't just report on it.`,
 };
 
-const DEFAULT_PROACTIVE_PROMPT = 'Proactive check: Execute any pending tasks from your manager, deepen expertise in your specialty area, contribute insights to the knowledge graph.';
+const DEFAULT_PROACTIVE_PROMPT = `PROACTIVE WORK: Identify ONE concrete improvement in your domain that you can execute right now. Do not produce a report — take action. Fix something, create something, or message a colleague about something specific.`;
 
 function buildProactivePrompt(agentRole: string): string {
-  return PROACTIVE_PROMPTS[agentRole] ?? DEFAULT_PROACTIVE_PROMPT;
+  const rolePrompt = PROACTIVE_PROMPTS[agentRole] ?? DEFAULT_PROACTIVE_PROMPT;
+
+  // Org awareness: check messages first, share findings after
+  const orgAwareness = `\n\nBefore starting proactive work, check_messages first. If a colleague has messaged you, respond to that instead — colleague requests are higher priority than self-directed work.\n\nAfter completing proactive work, ask yourself: does any other agent need to know about what I found? If yes, send_agent_message with a concise summary.`;
+
+  return rolePrompt + orgAwareness;
 }

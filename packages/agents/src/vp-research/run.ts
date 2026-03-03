@@ -21,6 +21,7 @@ import { createEventTools } from '../shared/eventTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createTeamOrchestrationTools } from '../shared/teamOrchestrationTools.js';
 import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js';
+import { createInitiativeTools } from '../shared/initiativeTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 
 export interface VPResearchRunParams {
@@ -72,6 +73,7 @@ export async function runVPResearch(params: VPResearchRunParams = {}) {
     ...createAssignmentTools(glyphorEventBus),
     ...createTeamOrchestrationTools(glyphorEventBus),
     ...createPeerCoordinationTools(glyphorEventBus),
+    ...createInitiativeTools(glyphorEventBus),
     ...createEmailTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);

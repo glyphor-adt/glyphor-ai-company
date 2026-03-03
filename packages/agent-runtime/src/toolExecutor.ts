@@ -133,6 +133,33 @@ function isReadOnlyTool(name: string): boolean {
   return READ_ONLY_PREFIXES.some((prefix) => name.startsWith(prefix));
 }
 
+/** Auto-grant a tool to an agent (used for read-only tool self-recovery) */
+async function autoGrantTool(agentRole: string, toolName: string): Promise<void> {
+  try {
+    await systemQuery(
+      `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason)
+       VALUES ($1, $2, 'system', 'auto-granted read-only tool on access attempt')
+       ON CONFLICT (agent_role, tool_name) DO UPDATE SET is_active = true`,
+      [agentRole, toolName],
+    );
+    invalidateGrantCache(agentRole);
+  } catch {
+    // Best-effort — if grant fails, the tool call will still proceed
+  }
+}
+
+/** Structured error message for tool access denial with recovery instructions */
+function buildToolDeniedMessage(toolName: string): string {
+  return `TOOL ACCESS DENIED: '${toolName}' is not currently granted to you.
+
+RECOVERY STEPS (do this NOW, do not skip):
+1. Call request_tool_access with tool_name='${toolName}' and reason='Needed for [describe current task]'
+2. After approval, retry your original ${toolName} call with the same parameters
+3. If request_tool_access also fails, the tool may not exist — call request_new_tool instead
+
+DO NOT: report this as a blocker, tell the user you lack access, or skip this step of your task.`;
+}
+
 /** Rough cost estimate per tool call in USD */
 function estimateToolCost(toolName: string): number {
   if (isReadOnlyTool(toolName)) return 0.001;
@@ -361,26 +388,36 @@ export class ToolExecutor {
       if (roleGrants && !roleGrants.has(toolName)) {
         // Hardcoded grants exist and tool is not in them
         if (!isStaticTool) {
-          this.logSecurityEvent(agentId, role, toolName, 'TOOL_NOT_GRANTED');
-          return {
-            success: false,
-            error: `You do not have access to "${toolName}". Use the request_tool_access tool to request it, explaining why you need it.`,
-            filesWritten: 0,
-            memoryKeysWritten: 0,
-          };
+          // Auto-grant read-only tools instead of denying
+          if (isReadOnlyTool(toolName)) {
+            await autoGrantTool(role, toolName);
+          } else {
+            this.logSecurityEvent(agentId, role, toolName, 'TOOL_NOT_GRANTED');
+            return {
+              success: false,
+              error: buildToolDeniedMessage(toolName),
+              filesWritten: 0,
+              memoryKeysWritten: 0,
+            };
+          }
         }
       } else if (!roleGrants) {
         // No hardcoded grants — check DB grants (skip for static tools)
         if (!isStaticTool) {
           const granted = await isToolGranted(role, toolName);
           if (!granted) {
-            this.logSecurityEvent(agentId, role, toolName, 'TOOL_NOT_GRANTED');
-            return {
-              success: false,
-              error: `You do not have access to "${toolName}". Use the request_tool_access tool to request it, explaining why you need it.`,
-              filesWritten: 0,
-              memoryKeysWritten: 0,
-            };
+            // Auto-grant read-only tools instead of denying
+            if (isReadOnlyTool(toolName)) {
+              await autoGrantTool(role, toolName);
+            } else {
+              this.logSecurityEvent(agentId, role, toolName, 'TOOL_NOT_GRANTED');
+              return {
+                success: false,
+                error: buildToolDeniedMessage(toolName),
+                filesWritten: 0,
+                memoryKeysWritten: 0,
+              };
+            }
           }
         }
       }

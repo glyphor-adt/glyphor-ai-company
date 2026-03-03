@@ -28,6 +28,7 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createTeamOrchestrationTools } from '../shared/teamOrchestrationTools.js';
 import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js';
+import { createInitiativeTools } from '../shared/initiativeTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
@@ -67,6 +68,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
     ...createAssignmentTools(glyphorEventBus),
     ...createTeamOrchestrationTools(glyphorEventBus),
     ...createPeerCoordinationTools(glyphorEventBus),
+    ...createInitiativeTools(glyphorEventBus),
     ...createEmailTools(),
     ...createAgentCreationTools(),
     ...createToolRequestTools(),

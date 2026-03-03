@@ -25,6 +25,7 @@ import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createTeamOrchestrationTools } from '../shared/teamOrchestrationTools.js';
 import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js';
+import { createInitiativeTools } from '../shared/initiativeTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createEmailTools } from '../shared/emailTools.js';
@@ -67,6 +68,7 @@ export async function runCTO(params: CTORunParams = {}) {
     ...createAssignmentTools(glyphorEventBus),
     ...createTeamOrchestrationTools(glyphorEventBus),
     ...createPeerCoordinationTools(glyphorEventBus),
+    ...createInitiativeTools(glyphorEventBus),
     ...createEmailTools(),
     ...createAgentCreationTools(),
     ...createToolGrantTools('cto'),

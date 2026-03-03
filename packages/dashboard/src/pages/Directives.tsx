@@ -57,6 +57,23 @@ interface Directive {
   source_directive?: { title: string } | null;
 }
 
+interface Initiative {
+  id: string;
+  proposed_by: string;
+  title: string;
+  justification: string;
+  proposed_assignments: Array<{ agent_role: string; task_description: string }>;
+  expected_outcome: string;
+  priority: string;
+  estimated_days: number | null;
+  status: 'pending' | 'approved' | 'deferred' | 'rejected';
+  evaluation_notes: string | null;
+  evaluated_by: string | null;
+  directive_id: string | null;
+  created_at: string;
+  evaluated_at: string | null;
+}
+
 /* ── Constants ─────────────────────────────────── */
 
 const PRIORITY_CONFIG: Record<Priority, { label: string; dot: string; border: string; bg: string; text: string }> = {
@@ -100,16 +117,22 @@ function progressPercent(assignments: WorkAssignment[]): number {
 
 export default function Directives() {
   const [directives, setDirectives] = useState<Directive[]>([]);
+  const [initiatives, setInitiatives] = useState<Initiative[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
   const [showRejected, setShowRejected] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [showInitiatives, setShowInitiatives] = useState(true);
 
   const refresh = useCallback(async () => {
-    const data = await apiCall('/api/founder-directives?include=work_assignments,source_directive');
+    const [data, initData] = await Promise.all([
+      apiCall('/api/founder-directives?include=work_assignments,source_directive'),
+      apiCall('/api/proposed_initiatives').catch(() => []),
+    ]);
 
     setDirectives((data as Directive[] | null) ?? []);
+    setInitiatives((initData as Initiative[] | null) ?? []);
     setLoading(false);
   }, []);
 
@@ -260,6 +283,82 @@ export default function Directives() {
                       onToggle={() => setExpanded(expanded === d.id ? null : d.id)}
                       onAction={refresh}
                     />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Agent-Proposed Initiatives */}
+          {initiatives.length > 0 && (
+            <div>
+              <button
+                onClick={() => setShowInitiatives(!showInitiatives)}
+                className="flex items-center gap-2 text-xs font-semibold text-txt-secondary hover:text-txt-primary transition-colors"
+              >
+                <span className={`text-[10px] transition-transform duration-200 ${showInitiatives ? 'rotate-90' : ''}`}>
+                  <MdChevronRight />
+                </span>
+                AGENT INITIATIVES ({initiatives.filter(i => i.status === 'pending').length} pending, {initiatives.length} total)
+              </button>
+              {showInitiatives && (
+                <div className="mt-3 space-y-3">
+                  {initiatives
+                    .sort((a, b) => (a.status === 'pending' ? -1 : 1) - (b.status === 'pending' ? -1 : 1) || new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                    .map(init => (
+                    <Card key={init.id} className={`border ${init.status === 'pending' ? 'border-prism-violet/30' : 'border-border'}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`h-2 w-2 rounded-full ${
+                              init.status === 'pending' ? 'bg-prism-violet animate-pulse' :
+                              init.status === 'approved' ? 'bg-prism-fill-2' :
+                              init.status === 'deferred' ? 'bg-prism-elevated' :
+                              'bg-prism-critical'
+                            }`} />
+                            <span className="text-sm font-medium text-txt-primary">{init.title}</span>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
+                              PRIORITY_CONFIG[init.priority as Priority]?.bg ?? ''
+                            } ${PRIORITY_CONFIG[init.priority as Priority]?.text ?? 'text-txt-faint'}`}>
+                              {init.priority.toUpperCase()}
+                            </span>
+                            <span className="text-[10px] text-txt-faint uppercase">{init.status}</span>
+                          </div>
+                          <p className="mt-1 text-xs text-txt-muted">
+                            Proposed by <span className="font-medium text-txt-secondary">{DISPLAY_NAME_MAP[init.proposed_by] ?? init.proposed_by}</span>
+                            {' · '}{new Date(init.created_at).toLocaleDateString()}
+                            {init.estimated_days && ` · Est. ${init.estimated_days} days`}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-[11px] text-txt-muted leading-relaxed">{init.justification}</p>
+                      {init.proposed_assignments.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-[10px] font-medium text-txt-faint uppercase mb-1">Proposed Assignments</p>
+                          <div className="space-y-1">
+                            {init.proposed_assignments.map((a, i) => (
+                              <div key={i} className="text-[11px] text-txt-muted">
+                                <span className="font-medium text-txt-secondary">{DISPLAY_NAME_MAP[a.agent_role] ?? a.agent_role}</span>
+                                {' — '}{a.task_description}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {init.expected_outcome && (
+                        <p className="mt-2 text-[10px] text-txt-faint">
+                          <span className="font-medium">Expected outcome:</span> {init.expected_outcome}
+                        </p>
+                      )}
+                      {init.evaluation_notes && (
+                        <div className="mt-2 rounded border border-border bg-raised px-2 py-1.5">
+                          <p className="text-[10px] font-medium text-txt-faint">
+                            Evaluation by {DISPLAY_NAME_MAP[init.evaluated_by ?? ''] ?? init.evaluated_by}:
+                          </p>
+                          <p className="text-[11px] text-txt-muted">{init.evaluation_notes}</p>
+                        </div>
+                      )}
+                    </Card>
                   ))}
                 </div>
               )}

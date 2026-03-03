@@ -68,6 +68,8 @@ const TABLE_MAP: Record<string, string> = {
   'gcp-billing': 'gcp_billing',
   'financials': 'financials',
   'api-billing': 'api_billing',
+  'proposed_initiatives': 'proposed_initiatives',
+  'proposed-initiatives': 'proposed_initiatives',
 };
 
 // ─── Helpers ────────────────────────────────────────────────────
