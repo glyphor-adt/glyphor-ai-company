@@ -1,12 +1,12 @@
 /**
  * Layer 16 – Tool Health Check
  *
- * Validates that shared tools load, have valid schemas, handle errors gracefully,
- * and are properly registered + granted. This catches tools that crash instead of
- * returning clean error results when agents try to use them.
+ * Validates that ALL shared tools load, have valid schemas, handle errors
+ * gracefully, and are properly registered + granted. This catches tools that
+ * crash instead of returning clean error results when agents try to use them.
  *
  * Tests:
- *   T16.1  Factory Instantiation — all 18 Wave 1-5 factories load without throwing
+ *   T16.1  Factory Instantiation — all factories load without throwing
  *   T16.2  Schema Validation — every tool has name, description, parameters, execute
  *   T16.3  Environment Variables — required API credentials are present
  *   T16.4  Database Tables — tables queried by tools exist
@@ -20,6 +20,28 @@ import type { ToolDefinition, ToolContext } from '@glyphor/agent-runtime';
 import { isKnownTool } from '@glyphor/agent-runtime';
 import { runTest } from '../utils/test.js';
 import { query } from '../utils/db.js';
+
+// ── Pre-existing — Design Team ──────────────────────────────────────
+import { createFigmaTools } from '@glyphor/agents/shared/figmaTools';
+import { createScreenshotTools } from '@glyphor/agents/shared/screenshotTools';
+import { createDesignSystemTools } from '@glyphor/agents/shared/designSystemTools';
+import { createAuditTools } from '@glyphor/agents/shared/auditTools';
+import { createAssetTools } from '@glyphor/agents/shared/assetTools';
+import { createScaffoldTools } from '@glyphor/agents/shared/scaffoldTools';
+import { createDeployPreviewTools } from '@glyphor/agents/shared/deployPreviewTools';
+import { createStorybookTools } from '@glyphor/agents/shared/storybookTools';
+import { createFrontendCodeTools } from '@glyphor/agents/shared/frontendCodeTools';
+
+// ── Pre-existing — Infrastructure ───────────────────────────────────
+import { createDiagnosticTools } from '@glyphor/agents/shared/diagnosticTools';
+import { createAccessAuditTools } from '@glyphor/agents/shared/accessAuditTools';
+import { createAgentDirectoryTools } from '@glyphor/agents/shared/agentDirectoryTools';
+import { createAgentCreationTools } from '@glyphor/agents/shared/agentCreationTools';
+import { createToolRegistryTools } from '@glyphor/agents/shared/toolRegistryTools';
+import { createToolRequestTools } from '@glyphor/agents/shared/toolRequestTools';
+import { createEmailTools } from '@glyphor/agents/shared/emailTools';
+import { createSharePointTools } from '@glyphor/agents/shared/sharepointTools';
+import { createResearchTools } from '@glyphor/agents/shared/researchTools';
 
 // ── Wave 1 — Marketing ──────────────────────────────────────────────
 import { createContentTools } from '@glyphor/agents/shared/contentTools';
@@ -60,28 +82,48 @@ interface FactoryEntry {
 }
 
 const FACTORIES: FactoryEntry[] = [
-  // Wave 1
+  // Wave 0 — Pre-existing (Design Team)
+  { name: 'figmaTools', wave: 0, factory: createFigmaTools },
+  { name: 'screenshotTools', wave: 0, factory: createScreenshotTools },
+  { name: 'designSystemTools', wave: 0, factory: createDesignSystemTools },
+  { name: 'auditTools', wave: 0, factory: createAuditTools },
+  { name: 'assetTools', wave: 0, factory: createAssetTools },
+  { name: 'scaffoldTools', wave: 0, factory: createScaffoldTools },
+  { name: 'deployPreviewTools', wave: 0, factory: createDeployPreviewTools },
+  { name: 'storybookTools', wave: 0, factory: createStorybookTools },
+  { name: 'frontendCodeTools', wave: 0, factory: createFrontendCodeTools },
+  // Wave 0 — Pre-existing (Infrastructure)
+  { name: 'diagnosticTools', wave: 0, factory: createDiagnosticTools },
+  { name: 'accessAuditTools', wave: 0, factory: createAccessAuditTools },
+  { name: 'agentDirectoryTools', wave: 0, factory: createAgentDirectoryTools },
+  { name: 'agentCreationTools', wave: 0, factory: createAgentCreationTools },
+  { name: 'toolRegistryTools', wave: 0, factory: createToolRegistryTools },
+  { name: 'toolRequestTools', wave: 0, factory: createToolRequestTools },
+  { name: 'emailTools', wave: 0, factory: createEmailTools },
+  { name: 'sharepointTools', wave: 0, factory: createSharePointTools },
+  { name: 'researchTools', wave: 0, factory: createResearchTools },
+  // Wave 1 — Marketing
   { name: 'contentTools', wave: 1, factory: createContentTools },
   { name: 'seoTools', wave: 1, factory: createSeoTools },
   { name: 'socialMediaTools', wave: 1, factory: createSocialMediaTools },
   { name: 'emailMarketingTools', wave: 1, factory: createEmailMarketingTools },
   { name: 'marketingIntelTools', wave: 1, factory: createMarketingIntelTools },
-  // Wave 2
+  // Wave 2 — Finance
   { name: 'revenueTools', wave: 2, factory: createRevenueTools },
   { name: 'costManagementTools', wave: 2, factory: createCostManagementTools },
   { name: 'cashFlowTools', wave: 2, factory: createCashFlowTools },
-  // Wave 3
+  // Wave 3 — Product + Research
   { name: 'productAnalyticsTools', wave: 3, factory: createProductAnalyticsTools },
   { name: 'userResearchTools', wave: 3, factory: createUserResearchTools },
   { name: 'competitiveIntelTools', wave: 3, factory: createCompetitiveIntelTools },
   { name: 'roadmapTools', wave: 3, factory: createRoadmapTools },
   { name: 'researchRepoTools', wave: 3, factory: createResearchRepoTools },
   { name: 'researchMonitoringTools', wave: 3, factory: createResearchMonitoringTools },
-  // Wave 4
+  // Wave 4 — Governance
   { name: 'legalTools', wave: 4, factory: createLegalTools },
   { name: 'hrTools', wave: 4, factory: createHRTools },
   { name: 'opsExtensionTools', wave: 4, factory: createOpsExtensionTools },
-  // Wave 5
+  // Wave 5 — Engineering
   { name: 'engineeringGapTools', wave: 5, factory: createEngineeringGapTools },
 ];
 
