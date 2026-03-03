@@ -656,5 +656,431 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
         }
       },
     },
+
+    // ── SHAREPOINT ADMIN — SITE MANAGEMENT ────────────────────────
+
+    {
+      name: 'create_sharepoint_site',
+      description:
+        'Create a new SharePoint communication site. Returns the new site ID and URL.',
+      parameters: {
+        display_name: {
+          type: 'string',
+          description: 'Display name for the site (e.g., "Q2 Campaign Hub")',
+          required: true,
+        },
+        description: {
+          type: 'string',
+          description: 'Site description',
+          required: false,
+        },
+        alias: {
+          type: 'string',
+          description: 'URL-safe alias for the site (lowercase, no spaces). Defaults to slugified display name.',
+          required: false,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        try {
+          const token = await graphToken('manage_sharepoint' as M365Operation);
+          const displayName = params.display_name as string;
+          const alias = (params.alias as string) ?? displayName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          const description = (params.description as string) ?? '';
+
+          const res = await fetch('https://graph.microsoft.com/v1.0/sites/root/sites', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              displayName,
+              description,
+              name: alias,
+              // Communication sites use a different API in practice (SharePoint Online REST)
+              // but Graph can create team-connected group sites via groups endpoint
+            }),
+          });
+
+          if (!res.ok) {
+            // Fallback: create via Groups (creates a team site with document library)
+            const groupRes = await fetch('https://graph.microsoft.com/v1.0/groups', {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                displayName,
+                description,
+                mailNickname: alias,
+                groupTypes: ['Unified'],
+                mailEnabled: true,
+                securityEnabled: false,
+                visibility: 'Private',
+              }),
+            });
+            if (!groupRes.ok) {
+              return { success: false, error: `Failed to create site (${groupRes.status}): ${await groupRes.text()}` };
+            }
+            const group = await groupRes.json() as { id: string; displayName: string };
+            // Get the associated SharePoint site
+            const siteRes = await fetch(`https://graph.microsoft.com/v1.0/groups/${encodeURIComponent(group.id)}/sites/root`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            const site = siteRes.ok ? await siteRes.json() as { id: string; webUrl: string } : null;
+            return {
+              success: true,
+              data: {
+                groupId: group.id,
+                siteId: site?.id ?? 'pending (may take a few seconds)',
+                webUrl: site?.webUrl ?? 'pending',
+                displayName,
+              },
+            };
+          }
+
+          const site = await res.json() as { id: string; webUrl: string; displayName: string };
+          return { success: true, data: { siteId: site.id, webUrl: site.webUrl, displayName: site.displayName } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'grant_site_permission',
+      description:
+        'Grant a user or app access to a specific SharePoint site. ' +
+        'Use this to add members, give apps read/write access, or grant owners.',
+      parameters: {
+        site_id: {
+          type: 'string',
+          description: 'SharePoint site ID (from list_sharepoint_sites)',
+          required: true,
+        },
+        role: {
+          type: 'string',
+          description: 'Permission role: "read", "write", or "owner"',
+          required: true,
+        },
+        user_email: {
+          type: 'string',
+          description: 'Email of the user to grant access to (use this OR app_id, not both)',
+          required: false,
+        },
+        app_id: {
+          type: 'string',
+          description: 'App registration client ID to grant access to (use this OR user_email)',
+          required: false,
+        },
+        app_display_name: {
+          type: 'string',
+          description: 'Display name of the app (required if using app_id)',
+          required: false,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        try {
+          const token = await graphToken('manage_sharepoint' as M365Operation);
+          const siteId = encodeURIComponent(params.site_id as string);
+          const role = params.role as string;
+
+          const roleMap: Record<string, string[]> = {
+            read: ['read'],
+            write: ['write'],
+            owner: ['owner'],
+          };
+          if (!roleMap[role]) {
+            return { success: false, error: `Invalid role "${role}". Use "read", "write", or "owner".` };
+          }
+
+          const userEmail = params.user_email as string | undefined;
+          const appId = params.app_id as string | undefined;
+
+          if (!userEmail && !appId) {
+            return { success: false, error: 'Provide either user_email or app_id.' };
+          }
+
+          let body: Record<string, unknown>;
+          if (appId) {
+            body = {
+              roles: roleMap[role],
+              grantedToIdentities: [{
+                application: {
+                  id: appId,
+                  displayName: (params.app_display_name as string) ?? appId,
+                },
+              }],
+            };
+          } else {
+            // Resolve user ID from email
+            const userRes = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(userEmail!)}?$select=id,displayName`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!userRes.ok) return { success: false, error: `User not found: ${userEmail}` };
+            const user = await userRes.json() as { id: string; displayName: string };
+
+            body = {
+              roles: roleMap[role],
+              grantedToIdentitiesV2: [{
+                user: {
+                  id: user.id,
+                  displayName: user.displayName,
+                },
+              }],
+            };
+          }
+
+          const res = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/permissions`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+          });
+
+          if (!res.ok) {
+            return { success: false, error: `Failed to grant permission (${res.status}): ${await res.text()}` };
+          }
+          const result = await res.json();
+          return { success: true, data: { permission: result, granted: role, to: userEmail ?? appId } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'revoke_site_permission',
+      description: 'Remove a specific permission from a SharePoint site.',
+      parameters: {
+        site_id: {
+          type: 'string',
+          description: 'SharePoint site ID',
+          required: true,
+        },
+        permission_id: {
+          type: 'string',
+          description: 'Permission ID to revoke (from get_sharepoint_site_permissions)',
+          required: true,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        try {
+          const token = await graphToken('manage_sharepoint' as M365Operation);
+          const siteId = encodeURIComponent(params.site_id as string);
+          const permId = encodeURIComponent(params.permission_id as string);
+
+          const res = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/permissions/${permId}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (!res.ok) {
+            return { success: false, error: `Failed to revoke permission (${res.status}): ${await res.text()}` };
+          }
+          return { success: true, data: `Permission ${params.permission_id} revoked from site.` };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'create_sharepoint_list',
+      description:
+        'Create a new list or document library on a SharePoint site. ' +
+        'Use "genericList" for a data list or "documentLibrary" for a file library.',
+      parameters: {
+        site_id: {
+          type: 'string',
+          description: 'SharePoint site ID (from list_sharepoint_sites)',
+          required: true,
+        },
+        display_name: {
+          type: 'string',
+          description: 'Display name of the list (e.g., "Project Tasks")',
+          required: true,
+        },
+        template: {
+          type: 'string',
+          description: 'List template: "genericList" (data list) or "documentLibrary" (file storage). Default: genericList.',
+          required: false,
+        },
+        columns: {
+          type: 'array',
+          description: 'Optional array of column definitions: [{name: "Status", type: "text"}, {name: "Priority", type: "choice", choices: ["High","Medium","Low"]}]. Supported types: text, number, boolean, dateTime, choice.',
+          required: false,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        try {
+          const token = await graphToken('manage_sharepoint' as M365Operation);
+          const siteId = encodeURIComponent(params.site_id as string);
+          const displayName = params.display_name as string;
+          const template = (params.template as string) ?? 'genericList';
+
+          // Create the list
+          const res = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/lists`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              displayName,
+              list: { template },
+            }),
+          });
+
+          if (!res.ok) {
+            return { success: false, error: `Failed to create list (${res.status}): ${await res.text()}` };
+          }
+
+          const list = await res.json() as { id: string; displayName: string; webUrl: string };
+
+          // Add custom columns if provided
+          const columns = params.columns as Array<{ name: string; type: string; choices?: string[] }> | undefined;
+          const columnResults: string[] = [];
+
+          if (columns?.length) {
+            for (const col of columns) {
+              const colDef: Record<string, unknown> = {
+                name: col.name,
+                displayName: col.name,
+              };
+
+              switch (col.type) {
+                case 'text': colDef.text = {}; break;
+                case 'number': colDef.number = {}; break;
+                case 'boolean': colDef.boolean = {}; break;
+                case 'dateTime': colDef.dateTime = {}; break;
+                case 'choice': colDef.choice = { choices: col.choices ?? [] }; break;
+                default: colDef.text = {}; break;
+              }
+
+              const colRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${encodeURIComponent(list.id)}/columns`, {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(colDef),
+              });
+
+              columnResults.push(colRes.ok ? `✓ ${col.name}` : `✗ ${col.name} (${colRes.status})`);
+            }
+          }
+
+          return {
+            success: true,
+            data: {
+              listId: list.id,
+              displayName: list.displayName,
+              webUrl: list.webUrl,
+              ...(columnResults.length > 0 && { columns: columnResults }),
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'update_site_settings',
+      description:
+        'Update SharePoint site settings — display name or description.',
+      parameters: {
+        site_id: {
+          type: 'string',
+          description: 'SharePoint site ID (from list_sharepoint_sites)',
+          required: true,
+        },
+        display_name: {
+          type: 'string',
+          description: 'New display name for the site',
+          required: false,
+        },
+        description: {
+          type: 'string',
+          description: 'New description for the site',
+          required: false,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        try {
+          const token = await graphToken('manage_sharepoint' as M365Operation);
+          const siteId = encodeURIComponent(params.site_id as string);
+
+          const updates: Record<string, string> = {};
+          if (params.display_name) updates.displayName = params.display_name as string;
+          if (params.description) updates.description = params.description as string;
+
+          if (Object.keys(updates).length === 0) {
+            return { success: false, error: 'Provide at least one setting to update (display_name or description).' };
+          }
+
+          const res = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}`, {
+            method: 'PATCH',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updates),
+          });
+
+          if (!res.ok) {
+            return { success: false, error: `Failed to update site (${res.status}): ${await res.text()}` };
+          }
+
+          const site = await res.json() as { id: string; displayName: string; description: string; webUrl: string };
+          return {
+            success: true,
+            data: { siteId: site.id, displayName: site.displayName, description: site.description, webUrl: site.webUrl },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'delete_sharepoint_list',
+      description: 'Delete a list or document library from a SharePoint site.',
+      parameters: {
+        site_id: {
+          type: 'string',
+          description: 'SharePoint site ID',
+          required: true,
+        },
+        list_id: {
+          type: 'string',
+          description: 'List ID to delete (from get_sharepoint_site_permissions which shows lists)',
+          required: true,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        try {
+          const token = await graphToken('manage_sharepoint' as M365Operation);
+          const siteId = encodeURIComponent(params.site_id as string);
+          const listId = encodeURIComponent(params.list_id as string);
+
+          const res = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (!res.ok) {
+            return { success: false, error: `Failed to delete list (${res.status}): ${await res.text()}` };
+          }
+          return { success: true, data: `List ${params.list_id} deleted.` };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
   ];
 }

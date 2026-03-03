@@ -235,7 +235,7 @@ describe('ReasoningEngine', () => {
         max_reasoning_budget: 0.03,
         cross_model_enabled: true,
         value_gate_enabled: false,
-        verification_models: ['gpt-5.2-2025-12-11'],
+        verification_models: ['gpt-5-mini'],
       };
       vi.mocked(systemQuery).mockResolvedValueOnce([dbRow] as any);
 
