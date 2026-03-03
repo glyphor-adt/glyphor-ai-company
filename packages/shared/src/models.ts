@@ -87,7 +87,7 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
 
   // ── Specialized (not selectable for general agent assignment) ─
   { id: 'gemini-embedding-001',       label: 'Gemini Embedding',       provider: 'gemini',    tier: 'specialized', inputPer1M: 0.15, outputPer1M: 0,    selectable: false, verifier: false },
-  { id: 'gpt-4o-realtime-preview',    label: 'GPT-4o Realtime',        provider: 'openai',    tier: 'specialized', inputPer1M: 5.00, outputPer1M: 20.0, selectable: false, verifier: false },
+  { id: 'gpt-realtime-2025-08-28',    label: 'GPT Realtime',            provider: 'openai',    tier: 'specialized', inputPer1M: 5.00, outputPer1M: 20.0, selectable: false, verifier: false },
   { id: 'gpt-image-1',                label: 'GPT Image',              provider: 'openai',    tier: 'specialized', inputPer1M: 0,    outputPer1M: 0,    selectable: false, verifier: false },
 
 ] as const;
@@ -134,7 +134,7 @@ export const DEFAULT_AGENT_MODEL = 'gemini-3-flash-preview';
 export const WEB_SEARCH_MODEL = 'gpt-5.2';
 
 /** The model used for realtime voice */
-export const REALTIME_MODEL = 'gpt-4o-realtime-preview';
+export const REALTIME_MODEL = 'gpt-realtime-2025-08-28';
 
 /** The model used for realtime input audio transcription */
 export const TRANSCRIPTION_MODEL = 'gpt-4o-transcribe';

@@ -10,7 +10,7 @@ import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 // AGENT VOICE CONFIG
 // ═══════════════════════════════════════════════════════════════════
 
-/** OpenAI Realtime voice IDs (gpt-4o-realtime-preview voices) */
+/** OpenAI Realtime voice IDs (gpt-realtime-2025-08-28 voices) */
 export type RealtimeVoice =
   | 'alloy' | 'ash' | 'ballad' | 'coral' | 'echo'
   | 'sage' | 'shimmer' | 'verse' | 'marin' | 'cedar';

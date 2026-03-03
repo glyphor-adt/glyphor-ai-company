@@ -107,7 +107,7 @@ const REFERENCE_PRICES: Record<string, ReferencePricing> = {
     source: 'https://developers.openai.com/api/docs/pricing',
     notes: 'Reasoning tokens billed as output tokens.',
   },
-  'gpt-4o-realtime-preview': {
+  'gpt-realtime-2025-08-28': {
     inputPer1M: 5.00, outputPer1M: 20.00,
     source: 'https://developers.openai.com/api/docs/pricing',
     notes: 'Text token pricing. Audio is $40/$80 separately.',

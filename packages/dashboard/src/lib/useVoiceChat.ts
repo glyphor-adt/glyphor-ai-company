@@ -197,7 +197,7 @@ export function useVoiceChat(): UseVoiceChatReturn {
       await pc.setLocalDescription(offer);
 
       // Send offer to OpenAI Realtime with the ephemeral client secret
-      const sdpRes = await fetch('https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview', {
+      const sdpRes = await fetch('https://api.openai.com/v1/realtime?model=gpt-realtime-2025-08-28', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${clientSecret}`,
