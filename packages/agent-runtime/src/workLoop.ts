@@ -16,6 +16,12 @@
 import { systemQuery } from '@glyphor/shared/db';
 import type { CompanyAgentRole } from './types.js';
 
+/** Executive roles that manage teams and evaluate team output */
+const EXECUTIVE_ROLES = new Set([
+  'cto', 'cpo', 'cmo', 'cfo',
+  'vp-sales', 'vp-design', 'vp-customer-success', 'vp-research',
+]);
+
 // ═══════════════════════════════════════════════════════════════════
 // PROACTIVE COOLDOWNS — How often each agent does self-directed work
 // ═══════════════════════════════════════════════════════════════════
@@ -54,7 +60,7 @@ export interface WorkLoopResult {
   /** Why the agent is waking (for logging) */
   reason?: string;
   /** Priority level that triggered the wake */
-  priority?: 1 | 2 | 3 | 4 | 5 | 6;
+  priority?: 1 | 1.5 | 2 | 3 | 4 | 5 | 6;
   /** Message to pass to the agent */
   message?: string;
 }
@@ -142,6 +148,51 @@ export async function executeWorkLoop(
       priority: 1,
       message: `You have ${urgentMsgCount} urgent message(s). Handle them immediately.`,
     };
+  }
+
+  // Also check for team member blockers (P1 for executives)
+  if (EXECUTIVE_ROLES.has(agentRole)) {
+    const [teamBlockerResult] = await systemQuery<{ count: number }>(
+      "SELECT COUNT(*)::int as count FROM work_assignments WHERE assigned_by = $1 AND status = 'blocked'",
+      [agentRole],
+    );
+    const teamBlockerCount = teamBlockerResult?.count ?? 0;
+
+    if (teamBlockerCount > 0) {
+      return {
+        shouldRun: true,
+        contextTier: 'standard',
+        task: 'work_loop',
+        reason: `team_blockers:${teamBlockerCount}`,
+        priority: 1,
+        message: `${teamBlockerCount} team member(s) are blocked on assignments you created. Use check_team_status to review and help unblock them.`,
+      };
+    }
+  }
+
+  // ── P1.5: TEAM EVALUATION — Completed team work needing review (executives only)
+  if (EXECUTIVE_ROLES.has(agentRole)) {
+    const teamCompletedAssignments = await systemQuery<{
+      id: string; assigned_to: string; task_description: string; agent_output: string;
+    }>(
+      "SELECT id, assigned_to, task_description, agent_output FROM work_assignments WHERE assigned_by = $1 AND status = 'completed' AND quality_score IS NULL LIMIT 5",
+      [agentRole],
+    );
+
+    if (teamCompletedAssignments && teamCompletedAssignments.length > 0) {
+      const summaries = teamCompletedAssignments
+        .map(a => `- ${a.assigned_to}: ${(a.task_description ?? '').slice(0, 80)} (ID: ${a.id})`)
+        .join('\n');
+
+      return {
+        shouldRun: true,
+        contextTier: 'standard',
+        task: 'work_loop',
+        reason: `team_evaluation:${teamCompletedAssignments.length}`,
+        priority: 1.5,
+        message: `${teamCompletedAssignments.length} completed team assignment(s) need your review:\n${summaries}\n\nUse review_team_output to evaluate each one — accept, revise, or reassign.`,
+      };
+    }
   }
 
   // ── ABORT COOLDOWN — Exponential backoff, applied after P1 ──

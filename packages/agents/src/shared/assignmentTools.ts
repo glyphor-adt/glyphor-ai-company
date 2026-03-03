@@ -177,7 +177,7 @@ export function createAssignmentTools(
         try {
           // Verify the assignment belongs to this agent
           const [assignment] = await systemQuery(
-            'SELECT id, assigned_to, task_description, directive_id FROM work_assignments WHERE id = $1',
+            'SELECT id, assigned_to, assigned_by, task_description, directive_id FROM work_assignments WHERE id = $1',
             [assignmentId],
           );
 
@@ -187,6 +187,9 @@ export function createAssignmentTools(
           if (assignment.assigned_to !== ctx.agentRole) {
             return { success: false, error: 'This assignment is not assigned to you' };
           }
+
+          // Route notification to whoever assigned this work (default: chief-of-staff)
+          const notifyAgent = (assignment.assigned_by as string) || 'chief-of-staff';
 
           // Build update
           const now = new Date().toISOString();
@@ -223,7 +226,7 @@ export function createAssignmentTools(
             }
           }
 
-          // Notify Sarah
+          // Notify the assigner (executive or Sarah)
           const title = (assignment.task_description as string)?.slice(0, 80) ?? 'Assignment';
           const msgContent = status === 'completed'
             ? `Assignment '${title}' completed. Output submitted for review.`
@@ -232,17 +235,18 @@ export function createAssignmentTools(
           await systemQuery(
             `INSERT INTO agent_messages (from_agent, to_agent, thread_id, message, message_type, priority, status, context)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [ctx.agentRole, 'chief-of-staff', crypto.randomUUID(), msgContent, 'response', 'normal', 'pending',
+            [ctx.agentRole, notifyAgent, crypto.randomUUID(), msgContent, 'response', 'normal', 'pending',
              JSON.stringify({ assignment_id: assignmentId, directive_id: assignment.directive_id })],
           );
 
-          // Emit event
+          // Emit event (include assigned_by for wake rule routing)
           await glyphorEventBus.emit({
             type: 'assignment.submitted',
             source: ctx.agentRole,
             payload: {
               assignment_id: assignmentId,
               directive_id: assignment.directive_id,
+              assigned_by: notifyAgent,
               status,
             },
             priority: 'normal',
@@ -267,7 +271,7 @@ export function createAssignmentTools(
             data: {
               assignment_id: assignmentId,
               status,
-              message: 'Output submitted. Sarah will evaluate.',
+              message: `Output submitted. ${notifyAgent === 'chief-of-staff' ? 'Sarah' : notifyAgent} will evaluate.`,
             },
           };
         } catch (err) {
@@ -307,7 +311,7 @@ export function createAssignmentTools(
         try {
           // Verify the assignment belongs to this agent
           const [assignment] = await systemQuery(
-            'SELECT id, assigned_to, task_description, directive_id FROM work_assignments WHERE id = $1',
+            'SELECT id, assigned_to, assigned_by, task_description, directive_id FROM work_assignments WHERE id = $1',
             [assignmentId],
           );
 
@@ -318,6 +322,9 @@ export function createAssignmentTools(
             return { success: false, error: 'This assignment is not assigned to you' };
           }
 
+          // Route blocker notification to whoever assigned this work
+          const notifyAgent = (assignment.assigned_by as string) || 'chief-of-staff';
+
           const now = new Date().toISOString();
           const title = (assignment.task_description as string)?.slice(0, 80) ?? 'Assignment';
 
@@ -327,25 +334,26 @@ export function createAssignmentTools(
             ['blocked', blockerReason, needType, now, assignmentId],
           );
 
-          // Send urgent message to Sarah
+          // Send urgent message to the assigner
           await systemQuery(
             `INSERT INTO agent_messages (from_agent, to_agent, thread_id, message, message_type, priority, status, context)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [ctx.agentRole, 'chief-of-staff', crypto.randomUUID(),
+            [ctx.agentRole, notifyAgent, crypto.randomUUID(),
              `BLOCKED: Assignment '${title}'\nReason: ${blockerReason}\nNeed: ${needType}`,
              'alert', 'urgent', 'pending',
              JSON.stringify({ assignment_id: assignmentId, directive_id: assignment.directive_id, need_type: needType })],
           );
 
-          // Emit alert event
+          // Emit alert event (include assigned_by for wake rule routing)
           await glyphorEventBus.emit({
-            type: 'alert.triggered',
+            type: 'assignment.blocked',
             source: ctx.agentRole,
             payload: {
               title: `Assignment blocked: ${title}`,
               description: blockerReason,
               assignment_id: assignmentId,
               directive_id: assignment.directive_id,
+              assigned_by: notifyAgent,
               need_type: needType,
             },
             priority: 'high',
@@ -362,7 +370,7 @@ export function createAssignmentTools(
             data: {
               assignment_id: assignmentId,
               status: 'blocked',
-              message: 'Blocker flagged. Sarah will triage.',
+              message: `Blocker flagged. ${notifyAgent === 'chief-of-staff' ? 'Sarah' : notifyAgent} will triage.`,
             },
           };
         } catch (err) {

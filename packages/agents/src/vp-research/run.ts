@@ -19,6 +19,8 @@ import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createEventTools } from '../shared/eventTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
+import { createTeamOrchestrationTools } from '../shared/teamOrchestrationTools.js';
+import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 
 export interface VPResearchRunParams {
@@ -68,6 +70,8 @@ export async function runVPResearch(params: VPResearchRunParams = {}) {
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createEventTools(glyphorEventBus),
     ...createAssignmentTools(glyphorEventBus),
+    ...createTeamOrchestrationTools(glyphorEventBus),
+    ...createPeerCoordinationTools(glyphorEventBus),
     ...createEmailTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);

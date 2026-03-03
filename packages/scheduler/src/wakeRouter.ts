@@ -161,6 +161,7 @@ export class WakeRouter {
         if (w === '$target_agent') return data.target_agent as string ?? [];
         if (w === '$to_agent') return data.to_agent as string ?? [];
         if (w === '$proposed_by') return data.proposed_by as string ?? [];
+        if (w === '$assigned_by') return data.assigned_by as string ?? [];
         if (w === '$action_item_owners') {
           const owners = data.action_item_owners;
           return Array.isArray(owners) ? owners as string[] : [];

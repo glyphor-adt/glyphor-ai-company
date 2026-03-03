@@ -26,6 +26,8 @@ import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
+import { createTeamOrchestrationTools } from '../shared/teamOrchestrationTools.js';
+import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
@@ -64,6 +66,8 @@ export async function runCMO(params: CMORunParams = {}) {
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),
     ...createAssignmentTools(glyphorEventBus),
+    ...createTeamOrchestrationTools(glyphorEventBus),
+    ...createPeerCoordinationTools(glyphorEventBus),
     ...createEmailTools(),
     ...createAgentCreationTools(),
     ...createToolRequestTools(),

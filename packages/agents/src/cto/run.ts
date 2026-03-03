@@ -23,6 +23,8 @@ import { createCollectiveIntelligenceTools } from '../shared/collectiveIntellige
 import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
+import { createTeamOrchestrationTools } from '../shared/teamOrchestrationTools.js';
+import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createEmailTools } from '../shared/emailTools.js';
@@ -63,6 +65,8 @@ export async function runCTO(params: CTORunParams = {}) {
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),
     ...createAssignmentTools(glyphorEventBus),
+    ...createTeamOrchestrationTools(glyphorEventBus),
+    ...createPeerCoordinationTools(glyphorEventBus),
     ...createEmailTools(),
     ...createAgentCreationTools(),
     ...createToolGrantTools('cto'),

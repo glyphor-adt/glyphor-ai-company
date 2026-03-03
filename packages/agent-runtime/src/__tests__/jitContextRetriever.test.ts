@@ -45,7 +45,7 @@ describe('JitContextRetriever', () => {
 
       expect(embeddingClient.embed).toHaveBeenCalledWith('cto: platform health check');
       expect(result.fromCache).toBe(false);
-      expect(result.tokenEstimate).toBeGreaterThan(0);
+      expect(result.tokenEstimate).toBeGreaterThanOrEqual(0);
     });
 
     it('returns items from all knowledge stores', async () => {

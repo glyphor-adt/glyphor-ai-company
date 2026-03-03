@@ -127,14 +127,14 @@ export const WAKE_RULES: WakeRule[] = [
   // ── ASSIGNMENT LIFECYCLE (24/7 Autonomous Ops) ──────────
   {
     event: 'assignment.submitted',
-    wake: ['chief-of-staff'],
+    wake: ['$assigned_by'],
     task: 'orchestrate',
     priority: 'immediate',
     cooldown_min: 5,
   },
   {
     event: 'assignment.blocked',
-    wake: ['chief-of-staff'],
+    wake: ['$assigned_by'],
     task: 'orchestrate',
     priority: 'immediate',
     cooldown_min: 2,
