@@ -21,6 +21,7 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
+import { createEngineeringGapTools } from '../shared/engineeringGapTools.js';
 
 export interface QualityEngineerRunParams {
   task?: 'qa_report' | 'regression_check' | 'on_demand';
@@ -54,6 +55,7 @@ export async function runQualityEngineer(params: QualityEngineerRunParams = {}) 
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createSharePointTools(),
+    ...createEngineeringGapTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

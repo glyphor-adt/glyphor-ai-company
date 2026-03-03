@@ -573,6 +573,19 @@ const KNOWN_TOOLS = new Set([
   'audit_access',
   'rotate_secrets',
   'get_platform_audit_log',
+
+  // ── Engineering gap tools (Wave 5) ──
+  // engineeringGapTools
+  'run_test_suite',
+  'get_code_coverage',
+  'get_quality_metrics',
+  'create_test_plan',
+  'get_container_logs',
+  'scale_service',
+  'get_build_queue',
+  'get_deployment_history',
+  'get_infrastructure_inventory',
+  'get_service_dependencies',
 ]);
 
 /**

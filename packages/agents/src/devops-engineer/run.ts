@@ -21,6 +21,7 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
+import { createEngineeringGapTools } from '../shared/engineeringGapTools.js';
 import { createDiagnosticTools } from '../shared/diagnosticTools.js';
 
 export interface DevOpsEngineerRunParams {
@@ -56,6 +57,7 @@ export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
     ...createEmailTools(),
     ...createSharePointTools(),
     ...createDiagnosticTools(),
+    ...createEngineeringGapTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

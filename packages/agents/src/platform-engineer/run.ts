@@ -27,6 +27,7 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
+import { createEngineeringGapTools } from '../shared/engineeringGapTools.js';
 import { createDiagnosticTools } from '../shared/diagnosticTools.js';
 
 export interface PlatformEngineerRunParams {
@@ -62,6 +63,7 @@ export async function runPlatformEngineer(params: PlatformEngineerRunParams = {}
     ...createEmailTools(),
     ...createSharePointTools(),
     ...createDiagnosticTools(),
+    ...createEngineeringGapTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
