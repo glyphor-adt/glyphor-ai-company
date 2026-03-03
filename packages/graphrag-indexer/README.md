@@ -14,16 +14,27 @@ cd packages/graphrag-indexer
 
 # Create virtual environment
 python -m venv .venv
+```
 
-# Activate virtual environment
-# On Linux/macOS:
+**Activate virtual environment:**
+
+On Linux/macOS:
+```bash
 source .venv/bin/activate
-# On Windows (PowerShell):
-# .venv\Scripts\Activate.ps1
-# On Windows (Command Prompt):
-# .venv\Scripts\activate.bat
+```
 
-# Install dependencies
+On Windows (PowerShell):
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+On Windows (Command Prompt):
+```cmd
+.venv\Scripts\activate.bat
+```
+
+**Install dependencies:**
+```bash
 pip install -r requirements.txt
 ```
 
