@@ -2256,6 +2256,31 @@ visual inspection, design system governance, quality auditing, and external inte
 - `ASSET_SERVICE_URL` — Asset storage API (optional, falls back to GCS path)
 - `OPENAI_API_KEY` — Already configured, used for DALL-E 3 image generation
 
+**All-Department Shared Tools** (Waves 1-5):
+
+| File | Tools | Agents | Purpose |
+|------|-------|--------|---------|
+| `contentTools.ts` | 7 | CMO, Content Creator | Draft lifecycle, publish, content calendar, DALL-E image generation |
+| `seoTools.ts` | 8 | SEO Analyst | Google Search Console, keyword tracking, page audits, indexing, backlinks |
+| `socialMediaTools.ts` | 7 | Social Media Manager | Schedule posts, metrics, audience analytics, trending topics |
+| `emailMarketingTools.ts` | 15 | CMO, Content Creator | Mailchimp campaigns (10) + Mandrill transactional email (5) |
+| `marketingIntelTools.ts` | 9 | CMO | A/B experiments, competitor monitoring, lead pipeline, marketing dashboard |
+| `revenueTools.ts` | 6 | CFO, Revenue Analyst | MRR breakdown, Stripe subscriptions/invoices, churn, forecasts, LTV |
+| `costManagementTools.ts` | 8 | CFO, Cost Analyst | GCP/AI/vendor costs, anomaly detection, burn rate, budgets, unit economics |
+| `cashFlowTools.ts` | 5 | CFO, Revenue Analyst, Cost Analyst | Mercury balance, cash flow, transactions, financial reports, margins |
+| `productAnalyticsTools.ts` | 6 | CPO, User Researcher | Analytics events, usage metrics, funnels, cohorts, feature usage, segmentation |
+| `userResearchTools.ts` | 5 | User Researcher | Surveys, support tickets, user feedback, personas |
+| `competitiveIntelTools.ts` | 7 | CPO, Competitive Intel | Competitor tracking/profiles, feature comparison, pricing, market landscape |
+| `roadmapTools.ts` | 6 | CPO | Roadmap CRUD, RICE scoring, feature flags, feature requests |
+| `researchRepoTools.ts` | 4 | VP Research, all analysts | Persistent research repository with text search, research briefs |
+| `researchMonitoringTools.ts` | 14 | VP Research, all analysts | Monitors, academic papers, OSS tracking, regulatory, AI benchmarks, synthesis |
+| `legalTools.ts` | 19 | CLO | Compliance, contracts, IP portfolio, tax, data privacy/retention |
+| `hrTools.ts` | 8 | Head of HR | Org chart, agent profiles, onboarding, performance reviews, engagement |
+| `opsExtensionTools.ts` | 12 | Ops, Global Admin | Agent health dashboard, event bus, data freshness, access management |
+| `engineeringGapTools.ts` | 10 | Quality/DevOps/Platform | Test suites, code coverage, container logs, scaling, infrastructure inventory |
+
+**Total: 156 new shared tools across 18 files, wired into 25+ agents.**
+
 ### Pre-Dispatch Validation (Chief of Staff)
 
 Sarah's `ORCHESTRATION_PROMPT` includes 4 mandatory checks before dispatching any work assignment
@@ -2841,6 +2866,22 @@ RPCs: `match_kg_nodes`, `kg_trace_causes`, `kg_trace_impact`, `kg_neighborhood`,
 | `contact_research` | Contact enrichment | company, name, title, email, linkedin, source |
 | `account_dossiers` | Account summaries | company, domain, summary, opportunity_estimate, buying_signals, compiled_by |
 | `analytics_events` | Product analytics events | user_id, event_type, channel, plan, template_id, properties (JSONB) |
+
+### Product & Research Tables (Wave 3)
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `roadmap_items` | Feature roadmap | title, product (pulse/fuse), priority, effort, impact, target_quarter, status, rice_score |
+| `research_repository` | Persistent research store | topic, category, content, sources (JSONB), tags, confidence, author |
+| `research_monitors` | Monitoring configs | name, type, query_terms, check_frequency, alert_threshold, last_checked, active |
+
+### Governance Tables (Wave 4)
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `compliance_checklists` | Regulatory compliance | framework (GDPR/CCPA/SOC2/EU_AI_Act), item, status, evidence, last_audit_date |
+| `contracts` | Contract management | type, counterparty, status, key_terms (JSONB), value, start_date, end_date, renewal_date |
+| `ip_portfolio` | IP assets | type (patent/trademark/trade_secret/copyright), title, status, filing_date, inventor |
 
 ### Support Tables
 
