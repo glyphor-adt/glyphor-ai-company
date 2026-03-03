@@ -15,6 +15,7 @@ type Category = 'revenue' | 'product' | 'engineering' | 'marketing' | 'sales' | 
 interface WorkAssignment {
   id: string;
   assigned_to: string;
+  assigned_by: string | null;
   task_description: string;
   task_type: string;
   expected_output: string | null;
@@ -27,6 +28,8 @@ interface WorkAssignment {
   completed_at: string | null;
   need_type: string | null;
   blocker_reason: string | null;
+  assignment_type: string | null;
+  parent_assignment_id: string | null;
   created_at: string;
 }
 
@@ -405,46 +408,83 @@ function DirectiveCard({
             )}
           </div>
 
-          {/* Work Assignments */}
-          {assignments.length > 0 && (
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">
-                Work Assignments
-              </p>
-              <div className="space-y-2">
-                {assignments.map(a => (
-                  <div key={a.id} className="rounded-lg border border-border bg-raised px-3 py-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className={`h-2 w-2 rounded-full ${assignmentStatusColor(a.status)}`} />
-                      <span className="text-[12px] font-medium text-txt-primary">
-                        {DISPLAY_NAME_MAP[a.assigned_to] ?? a.assigned_to}
-                      </span>
-                      <span className="text-[10px] text-txt-faint">({a.status})</span>
-                      {a.quality_score != null && (
-                        <span className={`ml-auto text-[10px] font-mono font-semibold ${
-                          a.quality_score >= 70 ? 'text-prism-teal' : a.quality_score >= 40 ? 'text-prism-elevated' : 'text-prism-critical'
-                        }`}>
-                          {a.quality_score}/100
-                        </span>
+          {/* Work Assignments — Two-Tier Tree View */}
+          {assignments.length > 0 && (() => {
+            // Separate top-level assignments (no parent) from sub-tasks
+            const topLevel = assignments.filter(a => !a.parent_assignment_id);
+            const subTasks = assignments.filter(a => a.parent_assignment_id);
+            const childrenOf = (parentId: string) => subTasks.filter(s => s.parent_assignment_id === parentId);
+
+            const TYPE_BADGE: Record<string, { label: string; cls: string }> = {
+              executive_outcome: { label: 'Exec Outcome', cls: 'bg-purple-500/15 text-purple-400' },
+              team_task: { label: 'Team Task', cls: 'bg-blue-500/15 text-blue-400' },
+              peer_request: { label: 'Peer Request', cls: 'bg-amber-500/15 text-amber-400' },
+              standard: { label: 'Standard', cls: 'bg-neutral-500/15 text-neutral-400' },
+            };
+
+            const renderAssignment = (a: WorkAssignment, indent = false) => (
+              <div key={a.id} className={`rounded-lg border border-border bg-raised px-3 py-2.5 ${indent ? 'ml-6 border-l-2 border-l-border' : ''}`}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`h-2 w-2 rounded-full ${assignmentStatusColor(a.status)}`} />
+                  <span className="text-[12px] font-medium text-txt-primary">
+                    {DISPLAY_NAME_MAP[a.assigned_to] ?? a.assigned_to}
+                  </span>
+                  <span className="text-[10px] text-txt-faint">({a.status})</span>
+                  {a.assignment_type && a.assignment_type !== 'standard' && (
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${TYPE_BADGE[a.assignment_type]?.cls ?? ''}`}>
+                      {TYPE_BADGE[a.assignment_type]?.label ?? a.assignment_type}
+                    </span>
+                  )}
+                  {a.assigned_by && a.assigned_by !== 'chief-of-staff' && (
+                    <span className="text-[9px] text-txt-faint">
+                      via {DISPLAY_NAME_MAP[a.assigned_by] ?? a.assigned_by}
+                    </span>
+                  )}
+                  {a.quality_score != null && (
+                    <span className={`ml-auto text-[10px] font-mono font-semibold ${
+                      a.quality_score >= 70 ? 'text-prism-teal' : a.quality_score >= 40 ? 'text-prism-elevated' : 'text-prism-critical'
+                    }`}>
+                      {a.quality_score}/100
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-[11px] text-txt-muted leading-relaxed">{a.task_description}</p>
+                {a.agent_output && (
+                  <details className="mt-2">
+                    <summary className="text-[10px] font-medium text-cyan cursor-pointer">View Output</summary>
+                    <div className="mt-1 text-[11px] text-txt-muted leading-relaxed prose-chat border-t border-border pt-2">
+                      <Markdown>{a.agent_output}</Markdown>
+                    </div>
+                  </details>
+                )}
+                {a.evaluation && (
+                  <div className="mt-1 text-[10px] text-txt-faint italic prose-chat"><Markdown>{`Evaluation: ${a.evaluation}`}</Markdown></div>
+                )}
+              </div>
+            );
+
+            return (
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">
+                  Work Assignments
+                </p>
+                <div className="space-y-2">
+                  {topLevel.map(a => (
+                    <div key={a.id}>
+                      {renderAssignment(a)}
+                      {childrenOf(a.id).length > 0 && (
+                        <div className="space-y-1.5 mt-1.5">
+                          {childrenOf(a.id).map(child => renderAssignment(child, true))}
+                        </div>
                       )}
                     </div>
-                    <p className="mt-1 text-[11px] text-txt-muted leading-relaxed">{a.task_description}</p>
-                    {a.agent_output && (
-                      <details className="mt-2">
-                        <summary className="text-[10px] font-medium text-cyan cursor-pointer">View Output</summary>
-                        <div className="mt-1 text-[11px] text-txt-muted leading-relaxed prose-chat border-t border-border pt-2">
-                          <Markdown>{a.agent_output}</Markdown>
-                        </div>
-                      </details>
-                    )}
-                    {a.evaluation && (
-                      <div className="mt-1 text-[10px] text-txt-faint italic prose-chat"><Markdown>{`Evaluation: ${a.evaluation}`}</Markdown></div>
-                    )}
-                  </div>
-                ))}
-              </div>
+                  ))}
+                  {/* Orphan sub-tasks (parent not in this directive) */}
+                  {subTasks.filter(s => !topLevel.some(t => t.id === s.parent_assignment_id)).map(a => renderAssignment(a))}
+                </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* Progress Notes */}
           {d.progress_notes?.length > 0 && (

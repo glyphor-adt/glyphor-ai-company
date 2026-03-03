@@ -154,4 +154,13 @@ export const WAKE_RULES: WakeRule[] = [
     task: 'work_loop',
     priority: 'next_heartbeat',
     cooldown_min: 5,
+  },
+
+  // ── EXECUTIVE ESCALATION ────────────────────────────────
+  {
+    event: 'escalation.created',
+    wake: ['chief-of-staff'],
+    task: 'orchestrate',
+    priority: 'immediate',
+    cooldown_min: 5,
   },];

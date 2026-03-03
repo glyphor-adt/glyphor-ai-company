@@ -311,7 +311,9 @@ export type GlyphorEventType =
   | 'meeting.completed'
   | 'assignment.submitted'
   | 'assignment.blocked'
-  | 'assignment.revised';
+  | 'assignment.revised'
+  | 'assignment.created'
+  | 'escalation.created';
 
 export type EventPriority = 'critical' | 'high' | 'normal' | 'low';
 

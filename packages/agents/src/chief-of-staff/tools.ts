@@ -611,7 +611,7 @@ export function createOrchestrationTools(
 
     {
       name: 'create_work_assignments',
-      description: 'Break a founder directive into specific agent work assignments. Creates one or more assignments linked to a directive.',
+      description: 'Break a founder directive into executive-level work assignments. Assign to executives (CTO, CPO, CMO, etc.) who will decompose into team tasks. For direct reports (ops, global-admin, m365-admin), assign directly.',
       parameters: {
         directive_id: {
           type: 'string',
@@ -626,12 +626,13 @@ export function createOrchestrationTools(
             type: 'object',
             description: 'A work assignment',
             properties: {
-              assigned_to: { type: 'string', description: 'Agent role (e.g., cmo, vp-sales, cto)' },
-              task_description: { type: 'string', description: 'Clear, specific task for the agent' },
+              assigned_to: { type: 'string', description: 'Agent role (e.g., cto, cpo, cmo — prefer executives)' },
+              task_description: { type: 'string', description: 'Clear outcome description for the executive' },
               task_type: { type: 'string', description: 'Agent task type (e.g., on_demand, blog_post)' },
-              expected_output: { type: 'string', description: 'What you expect the agent to produce' },
+              expected_output: { type: 'string', description: 'What you expect the executive to deliver' },
               priority: { type: 'string', description: 'Priority level', enum: ['urgent', 'high', 'normal', 'low'] },
               sequence_order: { type: 'number', description: 'Execution order. 0 = immediate.' },
+              assignment_type: { type: 'string', description: 'Type of assignment', enum: ['executive_outcome', 'standard'] },
             },
           },
         },
@@ -643,21 +644,23 @@ export function createOrchestrationTools(
         const rows = assignments.map((a: any, i: number) => ({
           directive_id: directiveId,
           assigned_to: a.assigned_to,
+          assigned_by: 'chief-of-staff',
           task_description: a.task_description,
           task_type: a.task_type || 'on_demand',
           expected_output: a.expected_output,
           priority: a.priority || 'normal',
           sequence_order: a.sequence_order ?? i,
+          assignment_type: a.assignment_type || 'executive_outcome',
           status: 'pending',
         }));
 
-        const columns = '(directive_id, assigned_to, task_description, task_type, expected_output, priority, sequence_order, status)';
+        const columns = '(directive_id, assigned_to, assigned_by, task_description, task_type, expected_output, priority, sequence_order, assignment_type, status)';
         const values: unknown[] = [];
         const placeholders: string[] = [];
         for (const a of rows) {
           const offset = values.length;
-          placeholders.push(`($${offset+1}, $${offset+2}, $${offset+3}, $${offset+4}, $${offset+5}, $${offset+6}, $${offset+7}, $${offset+8})`);
-          values.push(a.directive_id, a.assigned_to, a.task_description, a.task_type, a.expected_output, a.priority, a.sequence_order, a.status);
+          placeholders.push(`($${offset+1}, $${offset+2}, $${offset+3}, $${offset+4}, $${offset+5}, $${offset+6}, $${offset+7}, $${offset+8}, $${offset+9}, $${offset+10})`);
+          values.push(a.directive_id, a.assigned_to, a.assigned_by, a.task_description, a.task_type, a.expected_output, a.priority, a.sequence_order, a.assignment_type, a.status);
         }
         const data = await systemQuery(`INSERT INTO work_assignments ${columns} VALUES ${placeholders.join(', ')} RETURNING *`, values);
 
