@@ -884,7 +884,6 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
           const table = params.table as string;
-          const selectCols = (params.select as string) || '*';
           const limit = Math.min((params.limit as number) || 25, 100);
 
           const ALLOWED_TABLES = [
@@ -897,6 +896,18 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
             return { success: false, error: `Table "${table}" is not in the allowed list.` };
           }
 
+          // Validate select columns — only allow simple identifiers and *
+          const selectCols = (params.select as string) || '*';
+          const IDENTIFIER_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+          if (selectCols !== '*') {
+            const cols = selectCols.split(',').map(c => c.trim());
+            for (const c of cols) {
+              if (!IDENTIFIER_RE.test(c)) {
+                return { success: false, error: `Invalid column name: "${c}". Only simple column names are allowed.` };
+              }
+            }
+          }
+
           const conditions: string[] = [];
           const queryParams: unknown[] = [];
           let paramIndex = 1;
@@ -904,6 +915,9 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
           const filters = params.filters as Record<string, string> | undefined;
           if (filters) {
             for (const [col, val] of Object.entries(filters)) {
+              if (!IDENTIFIER_RE.test(col)) {
+                return { success: false, error: `Invalid filter column: "${col}". Only simple column names are allowed.` };
+              }
               conditions.push(`${col}=$${paramIndex++}`);
               queryParams.push(val);
             }
@@ -915,7 +929,11 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
           }
 
           if (params.order_by) {
-            sql += ` ORDER BY ${params.order_by as string} DESC`;
+            const orderCol = String(params.order_by);
+            if (!IDENTIFIER_RE.test(orderCol)) {
+              return { success: false, error: `Invalid order_by column: "${orderCol}". Only simple column names are allowed.` };
+            }
+            sql += ` ORDER BY ${orderCol} DESC`;
           }
 
           queryParams.push(limit);

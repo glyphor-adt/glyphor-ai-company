@@ -91,11 +91,13 @@ export function createRevenueAnalystTools(memory: CompanyMemoryStore): ToolDefin
       description: 'Log an activity or finding to the agent activity log.',
       parameters: { summary: { type: 'string', description: 'Activity summary', required: true }, details: { type: 'string', description: 'Detailed notes' } },
       async execute(params) {
+        try {
         await systemQuery(
           'INSERT INTO agent_activities (agent_role, activity_type, summary, details, created_at) VALUES ($1, $2, $3, $4, $5)',
           ['revenue-analyst', 'revenue_analysis', params.summary, params.details || null, new Date().toISOString()]
         );
         return { success: true };
+        } catch (err) { return { success: false, error: (err as Error).message }; }
       },
     },
   ];

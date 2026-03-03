@@ -203,18 +203,49 @@ export async function syncSharePointKnowledge(
 }
 
 async function getDefaultDriveId(token: string, siteId: string): Promise<string> {
-  const response = await fetch(`${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/drive`, {
+  // Try the standard comma-separated format first (hostname,siteGuid,webGuid)
+  const primaryUrl = `${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/drive`;
+  const response = await fetch(primaryUrl, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Failed to load SharePoint default drive (${response.status}): ${body}`);
+  if (response.ok) {
+    const data = (await response.json()) as { id: string };
+    if (data.id) return data.id;
   }
 
-  const data = (await response.json()) as { id: string };
-  if (!data.id) throw new Error('SharePoint drive response did not include an id.');
-  return data.id;
+  // Fallback: try as hostname:/sites/path format (e.g. "glyphorai.sharepoint.com/sites/glyphor-knowledge")
+  const cleaned = siteId.replace(/^https?:\/\//, '');
+  if (cleaned.includes('/sites/')) {
+    const [hostname, ...rest] = cleaned.split('/sites/');
+    const sitePath = rest.join('/sites/');
+    const fallbackUrl = `${GRAPH_BASE}/sites/${encodeURIComponent(hostname)}:/sites/${encodeURIComponent(sitePath)}:/drive`;
+    const fallbackRes = await fetch(fallbackUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (fallbackRes.ok) {
+      const data = (await fallbackRes.json()) as { id: string };
+      if (data.id) return data.id;
+    }
+  }
+
+  // Fallback: try as just a site hostname (resolve root site drive)
+  if (!siteId.includes(',') && !siteId.includes('/')) {
+    const rootUrl = `${GRAPH_BASE}/sites/${encodeURIComponent(siteId)}/drive`;
+    const rootRes = await fetch(rootUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (rootRes.ok) {
+      const data = (await rootRes.json()) as { id: string };
+      if (data.id) return data.id;
+    }
+  }
+
+  throw new Error(
+    `Failed to resolve SharePoint drive. SHAREPOINT_SITE_ID="${siteId}" did not resolve. ` +
+    `Expected format: "hostname,siteCollectionGuid,webGuid" (e.g. "contoso.sharepoint.com,guid1,guid2"). ` +
+    `Set SHAREPOINT_DRIVE_ID directly to bypass this lookup.`,
+  );
 }
 
 async function listChildren(
@@ -553,6 +584,8 @@ export async function searchSharePoint(
   const maxResults = options?.maxResults ?? 20;
 
   const searchUrl = `${GRAPH_BASE}/search/query`;
+  // Region is required when using application permissions (client credentials)
+  const region = process.env.SHAREPOINT_REGION ?? 'NAM';
   const response = await fetch(searchUrl, {
     method: 'POST',
     headers: {
@@ -564,6 +597,7 @@ export async function searchSharePoint(
         {
           entityTypes: ['driveItem'],
           query: { queryString: query },
+          region,
           from: 0,
           size: maxResults,
         },

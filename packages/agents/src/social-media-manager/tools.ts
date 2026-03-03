@@ -18,8 +18,10 @@ export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolD
       description: 'Schedule a pre-approved social media post. Only schedule content that has been reviewed.',
       parameters: { platform: { type: 'string', description: 'Platform: twitter, linkedin', required: true }, text: { type: 'string', description: 'Post text', required: true }, scheduledAt: { type: 'string', description: 'ISO 8601 datetime to publish' }, mediaUrl: { type: 'string', description: 'Optional media URL' } },
       async execute(params) {
+        try {
         await systemQuery('INSERT INTO scheduled_posts (profile_id, text, scheduled_at, media_url, status, agent, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)', [params.platform, params.text, params.scheduledAt || null, params.mediaUrl || null, 'queued', 'social-media-manager', new Date().toISOString()]);
         return { success: true, message: 'Post queued for scheduling.' };
+        } catch (err) { return { success: false, error: (err as Error).message }; }
       },
     },
     {
