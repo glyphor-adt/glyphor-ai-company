@@ -213,7 +213,7 @@ export function useVoiceChat(): UseVoiceChatReturn {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionId, role, text }),
-    }).catch(() => { /* best effort */ });
+    }).catch((err) => { console.error('[VoiceChat] Failed to report transcript:', err); });
   }
 
   const stopVoice = useCallback(async () => {
@@ -230,7 +230,7 @@ export function useVoiceChat(): UseVoiceChatReturn {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId: sessionIdRef.current }),
-      }).catch(() => { /* best effort */ });
+      }).catch((err) => { console.error('[VoiceChat] Failed to end session — transcript may not be saved:', err); });
     }
 
     sessionIdRef.current = null;

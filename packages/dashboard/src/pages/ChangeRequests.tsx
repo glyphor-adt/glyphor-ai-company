@@ -45,7 +45,7 @@ const AREA_OPTIONS = [
 
 // Requests from these emails require Kristina's approval before proceeding
 const APPROVAL_REQUIRED_EMAILS = ['andrew@glyphor.ai', 'andrew.zwelling@gmail.com'];
-const APPROVER_EMAIL = 'kristina@glyphor.ai';
+const APPROVER_EMAILS = ['kristina@glyphor.ai', 'devops@glyphor.ai'];
 
 const IT_AGENTS = [
   { role: 'frontend-engineer', label: 'Ava Chen (Frontend Engineer)' },
@@ -174,7 +174,7 @@ function RequestCard({ request: r }: { request: DashboardChangeRequest }) {
   const type = TYPE_CONFIG[r.request_type];
   const TypeIcon = type.icon;
 
-  const isApprover = user?.email?.toLowerCase() === APPROVER_EMAIL;
+  const isApprover = APPROVER_EMAILS.includes(user?.email?.toLowerCase() ?? '');
   const showApprovalActions = r.status === 'pending_approval' && isApprover;
 
   const handleApprove = async (e: React.MouseEvent) => {
