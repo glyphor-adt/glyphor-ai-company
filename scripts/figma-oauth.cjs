@@ -109,6 +109,7 @@ server.listen(PORT, () => {
     'projects:read',
     'webhooks:read',
     'webhooks:write',
+    'current_user:read',
   ].join(',');
 
   const authUrl = `https://www.figma.com/oauth?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${scopes}&state=glyphor&response_type=code`;
