@@ -311,6 +311,217 @@ Stored in `role_rubrics` table. 4 weighted dimensions, scored 1–5. Used by the
 
 ---
 
+## Runtime Protocols
+
+These are injected into the system prompt at runtime based on task type. Marcus gets different protocol stacks depending on whether he's doing scheduled work vs. responding to a chat.
+
+### Chat Reasoning Protocol (on_demand only)
+
+Injected when Marcus is responding to a user message in chat. Slim context (~3KB).
+
+1. **Classify** — Is this casual, data-driven, or action?
+   - Casual (greetings, opinions): respond naturally, no tools needed
+   - Data-driven (metrics, status): MUST call a tool for real data, never answer from memory
+   - Action (do/fix/create): plan steps, then execute
+2. **Plan** — Decide which specific tools are needed before calling any
+3. **Execute** — Call only planned tools, then synthesize answer
+
+Critical rules:
+- For opinions/strategy/explanations — just answer
+- For anything involving current data, real-world state, metrics — MUST use a tool
+- If a tool returns empty/null/error, say so explicitly
+- Never shotgun-blast all tools hoping something sticks
+
+**Tool Self-Recovery:** If a tool call fails with "does not have access," call `request_tool_access` and retry. Never tell the user you lack access.
+
+**Chat Data Honesty:** Strict anti-hallucination rules for chat mode.
+
+### Reasoning Protocol (scheduled tasks only)
+
+Full 7-phase protocol injected for health checks and other scheduled work:
+
+1. **ORIENT** — What's the current situation? What's changed since last run?
+2. **PREFLIGHT CHECK** — Do I have the tools/data I need? Self-serve any missing access.
+3. **PLAN** — Break task into discrete steps with dependencies
+4. **MODEL OUTCOMES (T+1 Scenarios)** — For decisions/recommendations:
+   - Scenario A (Base Case): default action
+   - Scenario B (Alternative): meaningfully different approach
+   - Scenario C (Risk Case): what could go wrong
+   - For each: impact, second-order effects, reversibility, resource cost
+5. **EVALUATE & DECIDE** — Compare scenarios, choose best risk-adjusted outcome, escalate if above authority
+6. **EXECUTE** — Take action with tools, re-assess on failure
+7. **REFLECT** — Did I accomplish objectives? Were my scenario models accurate?
+
+**Complexity Calibration:** Simple status checks skip T+1 modeling (Orient → Plan → Execute → Reflect). Decisions/recommendations use full protocol.
+
+### Always-On Protocol (scheduled tasks only)
+
+Injected for scheduled runs. Defines the priority stack Marcus works through every heartbeat:
+
+1. **[URGENT]** — Assignments with `needs_revision` status or urgent messages
+2. **[ACTIVE]** — Assignments with `pending`/`dispatched`/`in_progress` status
+3. **[MESSAGES]** — Unread messages from colleagues
+4. **[SCHEDULED]** — Normal job (health checks, monitoring)
+5. **[PROACTIVE]** — Look for ways to improve domain (only if nothing else)
+
+Includes dependency/capability self-management — fix missing tools yourself, never tell the user you can't do something.
+
+### System Prompt Assembly Order
+
+For **scheduled tasks** (full context):
+1. Current date/time (US Central Time)
+2. REASONING_PROTOCOL (7 phases + T+1)
+3. WORK_ASSIGNMENTS_PROTOCOL
+4. ALWAYS_ON_PROTOCOL
+5. Skills block (if active)
+6. Role brief (from KB)
+7. CTO_SYSTEM_PROMPT (personality + responsibilities + tools + telemetry rules)
+8. Company knowledge base
+9. Founder bulletins (if any)
+
+For **on_demand chat** (slim, ~3KB):
+1. Timestamp only
+2. CHAT_REASONING_PROTOCOL
+3. CHAT_DATA_HONESTY
+4. CTO_SYSTEM_PROMPT (personality only)
+
+---
+
+## Behavioral Enforcement Systems
+
+These systems actively evaluate, constrain, and shape Marcus's output at runtime.
+
+### Constitutional Governor
+
+Evaluates every output against principles stored in `agent_constitutions` table.
+
+- Uses `gemini-2.0-flash` to score output 0–1 against each principle
+- Weighted adherence computed across all principle scores
+- **If adherence < 0.7:** revision required — guidance sent back to reasoning engine
+- Trust delta applied based on adherence level
+- CTO principles likely in categories: `technical_accuracy`, `risk_management`, `financial_prudence`
+
+### Reasoning Engine
+
+Pre-run and post-run verification:
+
+**Value Gate (pre-run):**
+- Scores 0.0–1.0 whether the task is worth executing
+- 0.0–0.3: Low value, likely redundant → may abort
+- 0.3–0.6: Moderate, could simplify
+- 0.6–1.0: High value, proceed
+
+**Verification Pipeline (post-output):**
+Up to 6 passes, each scored for confidence:
+1. `self_critique` — logical errors, unsupported claims
+2. `consistency_check` — contradictions with context
+3. `factual_verification` — accuracy of claims
+4. `goal_alignment` — alignment with task goals
+5. `cross_model` — independent model assessment
+6. `value_analysis` — practical value + actionability
+
+If confidence < threshold: attempts revision (max 2×). Budget guard stops passes if spending exceeds limit. Overall confidence = geometric mean of all pass confidences.
+
+### Trust Scorer
+
+Rolling trust score 0–1 that directly affects Marcus's effective authority tier.
+
+**Trust delta sources and weights:**
+| Source | Weight | Direction |
+|--------|--------|-----------|
+| reasoning_confidence | +0.02 | Positive |
+| reasoning_verification | +0.02 | Positive |
+| constitutional_adherence | +0.03 | Positive |
+| constitutional_eval | +0.03 | Positive |
+| peer_feedback | +0.02 | Positive |
+| human_override | −0.06 | Negative (founder manually corrected) |
+| formal_failure | −0.09 | Negative (arithmetic/logic failed) |
+| reflection_quality | +0.02 | Positive |
+| drift_detection | −0.04 | Negative (performance drift) |
+
+**Authority promotion/demotion:**
+- YELLOW + trust ≥ 0.85 + 20 runs → GREEN (autonomous)
+- GREEN + trust < 0.4 → YELLOW (needs approval)
+- Trust < 0.2 → automatic suspension
+- RED never promoted
+
+**For CTO:** Trust directly affects whether production deploys (YELLOW authority) can be self-promoted to GREEN.
+
+### Formal Verifier
+
+Deterministic checks with NO AI calls:
+- **Arithmetic verification** — safe recursive descent parser (no `eval()`)
+- **Dependency graph acyclicity** — DFS cycle detection
+- **Budget constraint verification** — proposed + current ≤ limit
+- **Schedule conflict detection** — time/resource overlap checking
+- **Generic invariant assertions** — user-defined logic verification
+
+### Drift Detector
+
+Background process every 6 hours:
+- Computes 30-day baseline stats (mean, stddev) for: reasoning_confidence, cost_per_run, token_usage, constitutional_compliance_rate, verification_pass_rate
+- Computes 7-day recent stats
+- Sigma = (recent_mean − baseline_mean) / baseline_stddev
+- **> 2.0σ** → warning alert
+- **> 2.5σ** → critical alert + auto-adjust trust (delta = −0.05 × (sigma − 2.0))
+
+### Decision Chain Tracker
+
+Full audit trail for every significant action:
+
+`directive_received → assignment → execution → tool_call → verification → constitutional_eval → authority_gate → outcome`
+
+Batches writes to DB (auto-flush every 5s or 10 links). Enables compliance exports and counterfactual analysis. Every production deploy, incident creation, or high-authority action gets traced.
+
+---
+
+## Supervisor Constraints
+
+| Constraint | Value |
+|------------|-------|
+| Max turns | 10 |
+| Max stall turns | 3 (consecutive turns with no files/memory writes) |
+| Timeout | 300,000ms (5 minutes) |
+| Reads as progress | Yes (successful tool reads count) |
+
+If Marcus makes 3 consecutive turns with no progress, the supervisor aborts the run.
+
+---
+
+## Tool Executor Pipeline
+
+Every tool call goes through these gates in order:
+
+1. **Exists** — tool must be registered
+2. **Granted** — checked against `agent_tool_grants` table (60s cache)
+3. **Rate limited** — per-tool hourly limit
+4. **Cost estimated** — READ_ONLY ($0.001), LONG_RUNNING ($0.01), Other ($0.003)
+5. **Budget capped** — per-run, daily, monthly limits checked
+6. **Dry-run mode** — if enabled, mutations intercepted and logged only
+7. **Execute** — actual tool execution
+8. **Logged** — to call log + decision chain
+
+---
+
+## Context Loading (Pre-Run)
+
+Before Marcus starts reasoning, the runtime loads:
+
+1. **Episodic memory** — agent-specific observations, learnings, preferences, facts from `agent_memory`
+2. **World model** — strengths, weaknesses, tool proficiency from `agent_world_model`
+3. **JIT context** — semantic retrieval using task embedding against:
+   - Agent memories
+   - Knowledge graph nodes
+   - Shared episodes
+   - Procedures (keyword-based)
+   - Company knowledge base
+   - Trimmed to ~3000 token budget, cached in Redis
+4. **Agent profile** — personality, voice calibration, anti-patterns from `agent_profiles`
+5. **Constitution** — pre-loaded for sync access during prompt building
+6. **Context distiller** — compresses raw JIT context into a ~200–400 word focused briefing with key facts and warnings (via fast model call, cached 5min)
+
+---
+
 ## Files
 
 | File | Path |

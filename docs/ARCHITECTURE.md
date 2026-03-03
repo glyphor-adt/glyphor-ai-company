@@ -590,6 +590,14 @@ glyphor-ai-company/
 │   │       ├── runtimeToolFactory.ts   # Mid-run tool synthesis (HTTP, SQL query, sandboxed JS)
 │   │       ├── redisCache.ts           # Redis cache layer for GCP Memorystore (ioredis)
 │   │       ├── toolRegistry.ts         # Central tool lookup (static + dynamic DB table)
+│   │       ├── constitutionalGovernor.ts # Constitutional governance framework
+│   │       ├── constitutionDefaults.ts   # Default constitutional rules
+│   │       ├── decisionChainTracker.ts   # Decision chain tracking & audit trail
+│   │       ├── driftDetector.ts          # Agent behavioral drift detection
+│   │       ├── episodicReplay.ts         # Episodic memory replay for learning
+│   │       ├── formalVerifier.ts         # Formal verification of agent outputs
+│   │       ├── trustScorer.ts            # Agent trust scoring system
+│   │       ├── verifierRunner.ts         # Verification pipeline runner
 │   │       ├── config/
 │   │       │   └── agentEmails.ts         # Agent email registry (46 agents → M365 shared mailboxes)
 │   │       ├── providers/              # Per-provider LLM adapters (each has normalizeFinishReason)
@@ -759,24 +767,8 @@ glyphor-ai-company/
 │   │       │   └── index.ts           # SharePoint doc library sync (recursive folder traversal, etag dedup)
 │   │       ├── github/
 │   │       │   └── index.ts           # Repos, PRs, CI/CD runs, commits, issues
-│   │       ├── posthog/
-│   │       │   └── index.ts           # Product analytics, events, funnels
-│   │       ├── intercom/
-│   │       │   └── index.ts           # Support tickets, conversations
-│   │       ├── ghost/
-│   │       │   └── index.ts           # CMS publishing (blog posts)
-│   │       ├── buffer/
-│   │       │   └── index.ts           # Social media scheduling
 │   │       ├── sendgrid/
 │   │       │   └── index.ts           # Transactional email sending
-│   │       ├── apollo/
-│   │       │   └── index.ts           # Company/people enrichment
-│   │       ├── crunchbase/
-│   │       │   └── index.ts           # Funding & company data
-│   │       ├── ahrefs/
-│   │       │   └── index.ts           # SEO analysis & keyword tracking
-│   │       ├── wappalyzer/
-│   │       │   └── index.ts           # Tech stack detection
 │   │       ├── search-console/
 │   │       │   └── index.ts           # Google Search Console data
 │   │       ├── anthropic/
@@ -865,12 +857,16 @@ glyphor-ai-company/
 │       │   │   ├── SystemHealth.tsx      # System health monitor
 │       │   │   ├── VoiceOverlay.tsx      # Live voice session UI with transcript
 │       │   │   ├── FounderBriefing.tsx   # Executive summary panel (pulse, incidents, decisions)
+│       │   │   ├── OrgChartPicker.tsx    # Org chart agent picker (WorkforceBuilder)
 │       │   │   └── ui.tsx                # Shared primitives
 │       │   ├── lib/                   # Hooks, API client, types, utilities
-│       │   │   ├── api.ts                # API client init
+│       │   │   ├── firebase.ts            # Firebase client init & auth
+│       │   │   ├── supabase.ts            # Supabase client (realtime subscriptions)
 │       │   │   ├── auth.tsx              # Google OAuth provider
 │       │   │   ├── theme.tsx             # Dark/light theme provider
 │       │   │   ├── hooks.ts              # Custom hooks
+│       │   │   ├── models.ts             # LLM model definitions & pricing
+│       │   │   ├── useVoiceChat.ts        # Voice chat React hook
 │       │   │   └── types.ts              # Dashboard-specific types
 │       │   ├── App.tsx               # Router & layout (21 routes + 8 legacy redirects)
 │       │   └── index.css             # Tailwind + Glyphor brand theme
