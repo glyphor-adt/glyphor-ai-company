@@ -109,6 +109,7 @@ export type {
   ToolGrant,
   AgentToolGrants,
   ToolCallLog,
+  ActionReceipt,
   SecurityEventType,
   SecurityEvent,
   // Agent classification types

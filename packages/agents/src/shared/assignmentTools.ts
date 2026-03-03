@@ -272,6 +272,7 @@ export function createAssignmentTools(
               assignment_id: assignmentId,
               status,
               message: `Output submitted. ${notifyAgent === 'chief-of-staff' ? 'Sarah' : notifyAgent} will evaluate.`,
+              written: { assignment_id: assignmentId, status, action: 'submit_output' },
             },
           };
         } catch (err) {
@@ -371,6 +372,7 @@ export function createAssignmentTools(
               assignment_id: assignmentId,
               status: 'blocked',
               message: `Blocker flagged. ${notifyAgent === 'chief-of-staff' ? 'Sarah' : notifyAgent} will triage.`,
+              written: { assignment_id: assignmentId, status: 'blocked', action: 'flag_blocker' },
             },
           };
         } catch (err) {

@@ -133,6 +133,18 @@ function isReadOnlyTool(name: string): boolean {
   return READ_ONLY_PREFIXES.some((prefix) => name.startsWith(prefix));
 }
 
+// ─── MUTATION VERIFICATION ─────────────────────────────────────────
+const MUTATION_PREFIXES = ['update_', 'create_', 'delete_', 'set_', 'assign_', 'grant_', 'revoke_', 'dispatch_'];
+
+const isMutation = (toolName: string): boolean =>
+  MUTATION_PREFIXES.some(p => toolName.startsWith(p));
+
+/** Maps mutation tools to their read counterpart for post-write verification. */
+const VERIFICATION_MAP: Record<string, { name: string; paramKey: string }> = {
+  'update_agent_profile': { name: 'get_agent_profile', paramKey: 'agent_role' },
+  'update_company_knowledge': { name: 'get_company_knowledge', paramKey: 'id' },
+};
+
 /** Auto-grant a tool to an agent (used for read-only tool self-recovery) */
 async function autoGrantTool(agentRole: string, toolName: string): Promise<void> {
   try {
@@ -562,6 +574,24 @@ export class ToolExecutor {
         filesWritten: result.filesWritten ?? 0,
         memoryKeysWritten: result.memoryKeysWritten ?? 0,
       };
+
+      // Auto-verify mutations by reading back the written data
+      if (isMutation(toolName) && finalResult.success) {
+        const verifySpec = VERIFICATION_MAP[toolName];
+        if (verifySpec && params[verifySpec.paramKey]) {
+          try {
+            const verifyResult = await this.execute(verifySpec.name, { [verifySpec.paramKey]: params[verifySpec.paramKey] }, context);
+            const verifyData = verifyResult.success
+              ? (typeof verifyResult.data === 'string' ? verifyResult.data : JSON.stringify(verifyResult.data))
+              : `VERIFICATION FAILED: ${verifyResult.error}`;
+            finalResult.data = typeof finalResult.data === 'object' && finalResult.data !== null
+              ? { ...finalResult.data as Record<string, unknown>, _verification: verifyData }
+              : { result: finalResult.data, _verification: verifyData };
+          } catch (verifyErr) {
+            console.warn(`[ToolExecutor] Verification failed for ${toolName}:`, (verifyErr as Error).message);
+          }
+        }
+      }
 
       // Log the tool call
       this.logToolCall(

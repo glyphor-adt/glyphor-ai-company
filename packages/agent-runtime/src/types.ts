@@ -200,6 +200,8 @@ export interface AgentExecutionResult {
   error?: string;
   reasoning?: ReasoningEnvelope;
   conversationHistory: ConversationTurn[];
+  /** Structured action receipts for tool calls made during this run. */
+  actions?: ActionReceipt[];
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -462,6 +464,20 @@ export interface ToolCallLog {
   args: Record<string, unknown>;
   result: ToolResult;
   estimatedCostUsd: number;
+  timestamp: string;
+}
+
+/** A structured receipt for a tool call, included in the agent response for transparency. */
+export interface ActionReceipt {
+  /** Tool name that was called */
+  tool: string;
+  /** Parameters passed to the tool */
+  params: Record<string, unknown>;
+  /** Whether the tool call succeeded or failed */
+  result: 'success' | 'error';
+  /** Summarized output or error message */
+  output: string;
+  /** ISO timestamp of when the tool was called */
   timestamp: string;
 }
 

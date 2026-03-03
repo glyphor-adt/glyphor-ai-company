@@ -32,6 +32,8 @@ export interface RouteResult {
   output?: string | null;
   status?: string;
   error?: string;
+  /** Structured action receipts from the agent run (tool calls + results). */
+  actions?: Array<{ tool: string; params: Record<string, unknown>; result: 'success' | 'error'; output: string; timestamp: string }>;
 }
 
 export type AgentExecutor = (
@@ -79,6 +81,7 @@ export class EventRouter {
           output: result?.output ?? null,
           status: result?.status,
           error: result?.error ?? result?.abortReason,
+          actions: result?.actions,
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

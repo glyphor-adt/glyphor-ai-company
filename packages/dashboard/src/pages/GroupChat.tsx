@@ -14,6 +14,8 @@ interface Attachment {
   previewUrl?: string;
 }
 
+type ActionReceipt = { tool: string; params: Record<string, unknown>; result: 'success' | 'error'; output: string; timestamp: string };
+
 interface GroupMessage {
   role: 'user' | 'agent' | 'founder';
   agentRole?: string;
@@ -21,6 +23,7 @@ interface GroupMessage {
   content: string;
   timestamp: Date;
   attachments?: Attachment[];
+  actions?: ActionReceipt[];
 }
 
 /** Strip <reasoning>...</reasoning> envelope from agent output */
@@ -64,6 +67,37 @@ function fileToBase64(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+function ActionReceipts({ actions }: { actions: ActionReceipt[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const errorCount = actions.filter(a => a.result === 'error').length;
+  const label = `Actions (${actions.length} tool call${actions.length !== 1 ? 's' : ''}${errorCount > 0 ? `, ${errorCount} failed` : ''})`;
+
+  return (
+    <div className="mt-2 text-xs">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="text-muted hover:text-foreground flex items-center gap-1"
+      >
+        <span>{expanded ? '▼' : '▶'}</span>
+        <span>{label}</span>
+      </button>
+      {expanded && (
+        <div className="mt-1 pl-4 border-l border-border space-y-1">
+          {actions.map((action, i) => (
+            <div key={i} className="font-mono">
+              <span className={action.result === 'success' ? 'text-green-500' : 'text-red-500'}>
+                {action.result === 'success' ? '✓' : '✗'}
+              </span>{' '}
+              <span className="text-foreground">{action.tool}</span>
+              <div className="pl-4 text-muted truncate">{action.output}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function GroupChat() {
@@ -319,7 +353,7 @@ export default function GroupChat() {
     agentRole: string,
     message: string,
     history: { role: 'user' | 'agent'; content: string }[],
-  ): Promise<{ agentRole: string; content: string }> => {
+  ): Promise<{ agentRole: string; content: string; actions?: ActionReceipt[] }> => {
     try {
       const res = await fetch(`${SCHEDULER_URL}/run`, {
         method: 'POST',
@@ -333,7 +367,7 @@ export default function GroupChat() {
       else if (data.error) content = `I ran into an issue: ${data.error}`;
       else if (data.status === 'aborted') content = 'My response was cut short — try a simpler question.';
       else content = `Completed but had nothing to report. (status: ${data.status ?? 'unknown'})`;
-      return { agentRole, content };
+      return { agentRole, content, actions: data.actions };
     } catch {
       return {
         agentRole,
@@ -463,6 +497,7 @@ export default function GroupChat() {
         agentRole: result.agentRole,
         content: result.content,
         timestamp: new Date(),
+        actions: result.actions,
       };
       runningMessages = [...runningMessages, agentMsg];
       setMessages((prev) => [...prev, agentMsg]);
@@ -506,6 +541,7 @@ export default function GroupChat() {
         agentRole: result.agentRole,
         content: result.content,
         timestamp: new Date(),
+        actions: result.actions,
       };
       runningMessages = [...runningMessages, agentMsg];
       setMessages((prev) => [...prev, agentMsg]);
@@ -794,6 +830,7 @@ export default function GroupChat() {
                 ) : (
                   <p className="whitespace-pre-wrap">{msg.content}</p>
                 )}
+                {msg.actions && msg.actions.length > 0 && <ActionReceipts actions={msg.actions} />}
                 <p className="mt-1.5 text-[10px] text-txt-faint">
                   {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>

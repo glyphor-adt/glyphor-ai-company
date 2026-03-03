@@ -19,6 +19,8 @@ interface Attachment {
   previewUrl?: string;
 }
 
+type ActionReceipt = { tool: string; params: Record<string, unknown>; result: 'success' | 'error'; output: string; timestamp: string };
+
 interface Message {
   role: 'user' | 'agent';
   content: string;
@@ -26,6 +28,7 @@ interface Message {
   attachments?: Attachment[];
   /** Which agent authored this message (for multi-agent @mention threads) */
   agentRole?: string;
+  actions?: ActionReceipt[];
 }
 
 /** Strip <reasoning>...</reasoning> envelope from agent output */
@@ -127,6 +130,37 @@ async function saveMessage(
       }
     }
   }
+}
+
+function ActionReceipts({ actions }: { actions: ActionReceipt[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const errorCount = actions.filter(a => a.result === 'error').length;
+  const label = `Actions (${actions.length} tool call${actions.length !== 1 ? 's' : ''}${errorCount > 0 ? `, ${errorCount} failed` : ''})`;
+
+  return (
+    <div className="mt-2 text-xs">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="text-muted hover:text-foreground flex items-center gap-1"
+      >
+        <span>{expanded ? '▼' : '▶'}</span>
+        <span>{label}</span>
+      </button>
+      {expanded && (
+        <div className="mt-1 pl-4 border-l border-border space-y-1">
+          {actions.map((action, i) => (
+            <div key={i} className="font-mono">
+              <span className={action.result === 'success' ? 'text-green-500' : 'text-red-500'}>
+                {action.result === 'success' ? '✓' : '✗'}
+              </span>{' '}
+              <span className="text-foreground">{action.tool}</span>
+              <div className="pl-4 text-muted truncate">{action.output}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function Chat() {
@@ -578,7 +612,7 @@ export default function Chat() {
 
         // Only append to UI if user is still viewing the same agent
         if (selectedRoleRef.current === targetRole) {
-          setMessages((prev) => [...prev, { role: 'agent', content, timestamp: new Date(), agentRole: isMentioned ? role : undefined }]);
+          setMessages((prev) => [...prev, { role: 'agent', content, timestamp: new Date(), agentRole: isMentioned ? role : undefined, actions: data.actions }]);
         }
         saveMessage(targetRole, 'agent', content, userEmail, undefined, isMentioned ? role : undefined).catch((err) => {
           console.error('[Chat] Failed to save agent response:', err);
@@ -861,6 +895,7 @@ export default function Chat() {
                 ) : (
                   <p className="whitespace-pre-wrap">{msg.content}</p>
                 )}
+                {msg.actions && msg.actions.length > 0 && <ActionReceipts actions={msg.actions} />}
                 <p className="mt-1.5 text-[10px] text-txt-faint">
                   {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>

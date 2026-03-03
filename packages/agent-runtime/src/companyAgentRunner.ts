@@ -526,6 +526,42 @@ const DATA_GROUNDING_PROTOCOL = `## Data Grounding Rules (apply to ALL tasks)
    - $0 cost → check dataStatus field, may mean data hasn't synced yet
    - Your own previous alerts → your prior assessment, not new information`;
 
+const ACTION_HONESTY_PROTOCOL = `## Action Honesty — Non-Negotiable
+
+When you call a tool that MUTATES data (writes, updates, creates, deletes):
+
+1. BEFORE claiming you did it — actually call the tool. Never say "I've updated X" before you see the tool result confirming it.
+
+2. REPORT THE TOOL RESULT, not what you hoped would happen:
+   - Success: "Done. Updated Adi Rose's reports_to to 'andrew-zwelling'."
+   - Error: "That failed: [exact error]. Let me try differently."
+   - Unexpected: "Something's off: [what happened]. Let me verify."
+
+3. VERIFY mutations when possible. After a write, do a read to confirm.
+   If you don't have turns left to verify, say so:
+   "I've submitted the update but couldn't verify. Please check the dashboard."
+
+4. NEVER claim actions you didn't take. Don't say "I've also done X, Y, Z"
+   for things you plan to do later or things you assume happened.
+
+5. When corrected by a founder, don't apologize with excuses. Just fix it:
+   "Got it — setting reports_to to Andrew Zwelling now." Then do it.
+   Then confirm the result.`;
+
+const INSTRUCTION_ECHO_PROTOCOL = `## Instruction Parsing
+
+When a founder gives a specific instruction:
+1. ECHO the instruction back before acting:
+   User: "adi rose reports to andrew zwelling"
+   You: "Setting Adi Rose's reporting line to Andrew Zwelling."
+   [then call the tool]
+
+2. If ambiguous, ASK before acting. Don't guess.
+
+3. NEVER substitute a different value than what the founder said.
+   If they say "Andrew Zwelling," do not write "Sarah Chen" because
+   it seems more logical. The founder's instruction is the source of truth.`;
+
 const WORK_ASSIGNMENTS_PROTOCOL = `## Work Assignments
 
 You may receive work assignments dispatched by Sarah (Chief of Staff) as part of company directives.
@@ -847,9 +883,12 @@ function buildSystemPrompt(
     if (isOnDemand) {
       parts.push(CHAT_REASONING_PROTOCOL);
       parts.push(CHAT_DATA_HONESTY);
+      parts.push(ACTION_HONESTY_PROTOCOL);
+      parts.push(INSTRUCTION_ECHO_PROTOCOL);
     } else {
       parts.push(REASONING_PROTOCOL);
       parts.push(DATA_GROUNDING_PROTOCOL);
+      parts.push(ACTION_HONESTY_PROTOCOL);
       parts.push(WORK_ASSIGNMENTS_PROTOCOL);
       parts.push(ALWAYS_ON_PROTOCOL);
       parts.push(COLLABORATION_PROTOCOL);
@@ -1012,6 +1051,41 @@ export interface RunDependencies {
   jitContextRetriever?: JitContextRetriever;
   /** Ensures an agent_world_model row exists for this agent (creates baseline if missing). */
   initializeWorldModel?: (role: CompanyAgentRole) => Promise<void>;
+}
+
+/** Regex patterns that match common action claims in agent text. */
+const ACTION_CLAIM_PATTERNS = [
+  /I(?:'ve| have) (?:updated|corrected|set|changed|modified|adjusted)/gi,
+  /I(?:'ve| have) (?:created|added|generated|built|established)/gi,
+  /I(?:'ve| have) (?:deleted|removed|cleared|revoked)/gi,
+  /I(?:'ve| have) (?:assigned|granted|dispatched|sent|submitted)/gi,
+  /I(?:'ve| have) also (?:updated|corrected|set|created|deleted|assigned|fixed)/gi,
+  /I just (?:updated|corrected|set|created|deleted|assigned|fixed)/gi,
+];
+
+function extractActionClaims(text: string): string[] {
+  const claims: string[] = [];
+  for (const pattern of ACTION_CLAIM_PATTERNS) {
+    const matches = text.match(pattern);
+    if (matches) claims.push(...matches);
+  }
+  return claims;
+}
+
+function hasMatchingAction(
+  claims: string[],
+  receipts: Array<{ tool: string; result: 'success' | 'error' }>,
+): string[] {
+  const successfulTools = receipts.filter(r => r.result === 'success').map(r => r.tool);
+  if (successfulTools.length === 0) return claims;
+  // If there are successful tool calls, assume claims may be substantiated
+  // Only flag if there are claims but ZERO successful mutations
+  const hasMutations = successfulTools.some(t =>
+    t.startsWith('update_') || t.startsWith('create_') || t.startsWith('delete_') ||
+    t.startsWith('set_') || t.startsWith('assign_') || t.startsWith('grant_') ||
+    t.startsWith('revoke_') || t.startsWith('dispatch_') || t.startsWith('submit_')
+  );
+  return hasMutations ? [] : claims;
 }
 
 export class CompanyAgentRunner {
@@ -1377,6 +1451,8 @@ export class CompanyAgentRunner {
         }
       }
 
+      const actionReceipts: Array<{ tool: string; params: Record<string, unknown>; result: 'success' | 'error'; output: string; timestamp: string }> = [];
+
       while (true) {
         turnNumber++;
         emitEvent({ type: 'turn_started', agentId: config.id, turnNumber });
@@ -1419,7 +1495,7 @@ export class CompanyAgentRunner {
           }
           if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, check.reason ?? 'supervisor_limit', deps);
           return this.buildResult(
-            config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens,
+            config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts,
           );
         }
 
@@ -1493,10 +1569,35 @@ export class CompanyAgentRunner {
           // Scheduled: full tool access every turn.
           let effectiveTools: ReturnType<typeof toolExecutor.getDeclarations> | undefined = toolExecutor.getDeclarations();
           const elapsedRatio = supervisor.elapsedMs / supervisor.config.timeoutMs;
-          if (isOnDemand && (turnNumber > 6 || elapsedRatio > 0.55)) {
+          const isLastTurn = isOnDemand
+            ? (turnNumber > 6 || elapsedRatio > 0.55)
+            : isTaskTier && turnNumber >= supervisor.config.maxTurns;
+          const isPenultimateTurn = !isLastTurn && (
+            (isOnDemand && (turnNumber === 6 || (elapsedRatio > 0.45 && elapsedRatio <= 0.55))) ||
+            (isTaskTier && turnNumber === supervisor.config.maxTurns - 1)
+          );
+
+          // Penultimate turn: warn agent that next turn is final
+          if (isPenultimateTurn) {
+            history.push({
+              role: 'user',
+              content: 'ATTENTION: You have ONE turn remaining. On your next turn you MUST ' +
+                'produce your final text response. Do NOT claim actions you haven\'t ' +
+                'completed. If work is unfinished, say what you DID and what REMAINS.',
+              timestamp: Date.now(),
+            });
+          }
+
+          // Last turn: strip tools and inject honesty constraint
+          if (isLastTurn) {
             effectiveTools = undefined;
-          } else if (isTaskTier && turnNumber >= supervisor.config.maxTurns) {
-            effectiveTools = undefined;
+            history.push({
+              role: 'user',
+              content: 'FINAL TURN — tools unavailable. Only describe actions that ALREADY ' +
+                'executed successfully in previous turns. If work is incomplete, ' +
+                'state clearly: "I completed X but still need to do Y."',
+              timestamp: Date.now(),
+            });
           }
 
           response = await this.modelClient.generate({
@@ -1536,7 +1637,7 @@ export class CompanyAgentRunner {
             if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, errMsg, deps);
             return this.buildResult(
               config, 'aborted', lastTextOutput, history, supervisor,
-              errMsg, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens,
+              errMsg, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts,
             );
           }
           throw error;
@@ -1589,6 +1690,18 @@ export class CompanyAgentRunner {
               timestamp: Date.now(),
             });
 
+            // Collect action receipt for transparency
+            actionReceipts.push({
+              tool: call.name,
+              params: call.args,
+              result: result.success ? 'success' : 'error',
+              output: (result.success
+                ? (typeof result.data === 'string' ? result.data : JSON.stringify(result.data)).slice(0, 500)
+                : result.error ?? 'Unknown error'
+              ),
+              timestamp: new Date().toISOString(),
+            });
+
             emitEvent({
               type: 'tool_result',
               agentId: config.id,
@@ -1604,7 +1717,7 @@ export class CompanyAgentRunner {
               if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, progressCheck.reason ?? 'stall_detected', deps);
               return this.buildResult(
                 config, 'aborted', lastTextOutput, history, supervisor,
-                progressCheck.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens,
+                progressCheck.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts,
               );
             }
           }
@@ -1645,6 +1758,22 @@ export class CompanyAgentRunner {
         lastTextOutput = toolResults.length > 0
           ? `Completed. Tool results:\n${toolResults.join('\n')}`
           : 'Run completed but produced no text output.';
+      }
+
+      // ─── CLAIM DETECTION: flag unsubstantiated action claims ─────
+      if (lastTextOutput && task === 'on_demand') {
+        const claims = extractActionClaims(lastTextOutput);
+        if (claims.length > 0) {
+          const unsubstantiated = hasMatchingAction(claims, actionReceipts);
+          if (unsubstantiated.length > 0) {
+            console.warn(
+              `[CompanyAgentRunner] Unsubstantiated claims detected for ${config.role}:`,
+              unsubstantiated,
+              'Executed tools:', actionReceipts.map(a => `${a.tool}:${a.result}`),
+            );
+            lastTextOutput += '\n\n⚠️ *Some actions mentioned above may not have completed. Please verify changes on the dashboard.*';
+          }
+        }
       }
 
       const stats = supervisor.stats;
@@ -1691,7 +1820,7 @@ export class CompanyAgentRunner {
         elapsedMs: stats.elapsedMs,
       });
 
-      return this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens);
+      return this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts);
 
     } catch (error) {
       emitEvent({
@@ -1786,6 +1915,7 @@ export class CompanyAgentRunner {
     outputTokens = 0,
     thinkingTokens = 0,
     cachedInputTokens = 0,
+    actions?: Array<{ tool: string; params: Record<string, unknown>; result: 'success' | 'error'; output: string; timestamp: string }>,
   ): AgentExecutionResult {
     const stats = supervisor.stats;
     return {
@@ -1806,6 +1936,7 @@ export class CompanyAgentRunner {
       error: status === 'error' ? errorMsg : undefined,
       reasoning: output ? extractReasoning(output) : undefined,
       conversationHistory: history,
+      actions: actions && actions.length > 0 ? actions : undefined,
     };
   }
 

@@ -240,6 +240,7 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
               role,
               justification,
               grantedAt: new Date().toISOString(),
+              written: { member, role, project: project_id, action: 'grant_role' },
             },
           };
         } catch (err) {
@@ -315,6 +316,7 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
               role,
               justification,
               revokedAt: new Date().toISOString(),
+              written: { member, role, project: project_id, action: 'revoke_role' },
             },
           };
         } catch (err) {

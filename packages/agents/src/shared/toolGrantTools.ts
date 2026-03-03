@@ -139,6 +139,7 @@ export function createToolGrantTools(
             note: isWrite
               ? 'This is a WRITE tool — a Yellow decision has been filed for founder awareness.'
               : 'Tool granted directly by admin.',
+            written: { tool_name: toolName, agent_role: agentRole, action: 'grant' },
           },
         };
       },
@@ -190,7 +191,7 @@ export function createToolGrantTools(
 
         return {
           success: true,
-          data: { revoked: true, agent_role: agentRole, tool_name: toolName },
+          data: { revoked: true, agent_role: agentRole, tool_name: toolName, written: { tool_name: toolName, agent_role: agentRole, action: 'revoke' } },
         };
       },
     },
