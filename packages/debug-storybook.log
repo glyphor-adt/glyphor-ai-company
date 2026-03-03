@@ -1,0 +1,12 @@
+[10:01:37.806] [INFO] [36mInitializing Storybook[39m
+[10:01:38.568] [DEBUG] Getting package.json info for C:/Users/KristinaDenney/source/repos/glyphor-ai-company/package.json...
+[10:01:38.569] [DEBUG] Getting CLI versions from NPM for storybook...
+[10:01:38.569] [DEBUG] Executing command: npm info storybook version
+[10:01:39.514] [INFO] Adding Storybook version 10.2.14 to your project
+[10:01:39.517] [ERROR] Unable to initialize Storybook in this directory.
+
+Storybook couldn't detect a supported framework or configuration for your project. Make sure you're inside a framework project (e.g., React, Vue, Svelte, Angular, Next.js) and that its dependencies are installed.
+
+Tips:
+- Run init in an empty directory or create a new framework app first.
+- If this directory contains unrelated files, try a new directory for Storybook.
