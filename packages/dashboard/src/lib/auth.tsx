@@ -248,7 +248,7 @@ function GoogleAuthGate({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-3">
             <img src="/glyphor-logo.png" alt="Glyphor" className="h-14 w-14 drop-shadow-[0_0_16px_rgba(34,211,238,0.5)]" />
             <div>
-              <h1 className="text-2xl font-bold text-txt-primary">Glyphor</h1>
+              <h1 className="text-2xl font-bold font-agency text-txt-primary">glyphor</h1>
               <p className="text-sm text-txt-muted">Command Center</p>
             </div>
           </div>
