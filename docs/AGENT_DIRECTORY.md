@@ -1,7 +1,7 @@
 # Glyphor AI — Agent Directory
 
 > Complete reference of every agent, their tools, skills, department, and access level.
-> Auto-generated from codebase on 2026-03-02.
+> Auto-generated from codebase on 2026-03-02. Updated 2026-03-03.
 
 ---
 
@@ -9,10 +9,10 @@
 
 | Metric | Count |
 |--------|-------|
-| Total Agents | 42 |
-| Active (code deployed) | 35 |
-| Planned (no runtime yet) | 7 |
-| Departments | 11 |
+| Total Agents | 45 |
+| Active (code deployed) | 37 |
+| Planned (no runtime yet) | 8 |
+| Departments | 14 |
 | Unique Built-in Tools | ~120 |
 
 ---
@@ -28,6 +28,7 @@
 - [Sales](#sales)
 - [Design & Frontend](#design--frontend)
 - [Research & Intelligence](#research--intelligence)
+- [Strategy](#strategy)
 - [Operations & IT](#operations--it)
 - [Legal](#legal)
 - [People & Culture](#people--culture)
@@ -46,7 +47,7 @@ Most agents receive a standard set of shared tools. These are referenced below a
 | **Email** | `send_email`, `read_inbox`, `reply_to_email` |
 | **Events** | `emit_insight`, `emit_alert` |
 | **Assignments** | `read_my_assignments`, `submit_assignment_output`, `flag_assignment_blocker` |
-| **Tool Requests** | `request_new_tool`, `check_tool_request_status` |
+| **Tool Requests** | `request_new_tool`, `check_tool_request_status`, `request_tool_access` |
 | **Tool Grants** | `grant_tool_access`, `revoke_tool_access` |
 | **Knowledge Graph** | `trace_causes`, `trace_impact`, `query_knowledge_graph`, `add_knowledge` |
 | **SharePoint** | `search_sharepoint`, `read_sharepoint_document`, `upload_to_sharepoint`, `list_sharepoint_folders` |
@@ -1027,6 +1028,66 @@ Most agents receive a standard set of shared tools. These are referenced below a
 
 ---
 
+## Strategy
+
+### Riya Mehta — AI Impact Analyst
+
+| Field | Value |
+|-------|-------|
+| **Role ID** | `ai-impact-analyst` |
+| **Title** | AI Impact Analyst |
+| **Tier** | Sub-Team |
+| **Department** | Strategy |
+| **Reports To** | Sophia Lin (VP Research) |
+
+**Mission:** Assess how artificial intelligence is transforming target companies, competitors, and the broader industry — from both opportunity and threat perspectives. Bridge between AI/ML capabilities and business strategy.
+
+**Skills:** `ai_capability_assessment`, `automation_risk_analysis`, `ai_regulatory_landscape`, `competitive_ai_benchmarking`
+
+**Shared Tools:** Memory, Communication, Events, Assignments, Tool Requests, Knowledge Graph
+
+**Agent-Specific Tools:**
+
+| Tool | Description |
+|------|-------------|
+| `web_search` | Web search |
+| `web_fetch` | Fetch web page content |
+| `search_news` | Search news articles |
+| `submit_research_packet` | Submit research packet |
+
+**Total Built-in Tools:** 20
+
+---
+
+### Marcus Chen — Organizational & Talent Analyst
+
+| Field | Value |
+|-------|-------|
+| **Role ID** | `org-analyst` |
+| **Title** | Organizational & Talent Analyst |
+| **Tier** | Sub-Team |
+| **Department** | Strategy |
+| **Reports To** | Sophia Lin (VP Research) |
+
+**Mission:** Research organizational structure, leadership bench strength, talent strategy, and workforce dynamics — providing the human capital lens that strategy needs.
+
+**Skills:** `executive_leadership_assessment`, `org_structure_analysis`, `talent_market_dynamics`, `culture_assessment`
+
+**Shared Tools:** Memory, Communication, Events, Assignments, Tool Requests, Knowledge Graph
+
+**Agent-Specific Tools:**
+
+| Tool | Description |
+|------|-------------|
+| `web_search` | Web search |
+| `web_fetch` | Fetch web page content |
+| `search_news` | Search news articles |
+| `submit_research_packet` | Submit research packet |
+
+**Total Built-in Tools:** 20
+
+---
+
 ## Operations & IT
 
 ### Atlas Vega — Operations & System Intelligence
@@ -1153,6 +1214,22 @@ Most agents receive a standard set of shared tools. These are referenced below a
 **Agent-Specific Tools:** None — CLO operates entirely with shared tools.
 
 **Total Built-in Tools:** 42
+
+---
+
+### Elena Vance — Legal Counsel
+
+| Field | Value |
+|-------|-------|
+| **Role ID** | `elena-vance` |
+| **Title** | Legal Counsel |
+| **Tier** | Sub-Team |
+| **Department** | Legal |
+| **Reports To** | Victoria Chase (CLO) |
+
+**Skills:** *(Not yet defined — pending deployment)*
+
+**Status:** 🟡 Planned — no runtime deployed yet.
 
 ---
 

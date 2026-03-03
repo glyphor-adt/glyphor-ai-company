@@ -2194,7 +2194,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
           // Log the change
           await memory.appendActivity({
             agentRole: ctx.agentRole,
-            action: 'infra_update',
+            action: 'deploy',
             product: 'company',
             summary: `Updated secrets on ${serviceName}: added ${secretKeys.join(', ')}. Reason: ${params.reason}`,
             details: { service: serviceName, secretsAdded: secretKeys, reason: params.reason },

@@ -10,7 +10,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build & Typecheck
+    name: Build, Typecheck & Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,3 +22,4 @@ jobs:
 
       - run: npm ci
       - run: npx turbo build
+      - run: npx turbo test

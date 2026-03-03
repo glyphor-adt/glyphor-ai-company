@@ -404,6 +404,96 @@ export async function mergeGitHubPR(
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// PR REVIEW & QA — Submit formal reviews and quality checks
+// ═══════════════════════════════════════════════════════════════════
+
+export type ReviewEvent = 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT';
+
+/** Submit a formal PR review (approve, request changes, or comment) */
+export async function submitPRReview(
+  repoKey: GlyphorRepo,
+  prNumber: number,
+  event: ReviewEvent,
+  body: string,
+): Promise<{ id: number; state: string; url: string }> {
+  const gh = getGitHubClient();
+  const repoName = GLYPHOR_REPOS[repoKey];
+
+  const { data } = await gh.pulls.createReview({
+    owner: ORG,
+    repo: repoName,
+    pull_number: prNumber,
+    event,
+    body,
+  });
+
+  return {
+    id: data.id,
+    state: data.state,
+    url: data.html_url,
+  };
+}
+
+/** Get the diff/changed files for a PR — used for code review */
+export async function getPRDiff(
+  repoKey: GlyphorRepo,
+  prNumber: number,
+): Promise<{ files: Array<{ filename: string; status: string; additions: number; deletions: number; patch?: string }>; totalChanges: number }> {
+  const gh = getGitHubClient();
+  const repoName = GLYPHOR_REPOS[repoKey];
+
+  const { data } = await gh.pulls.listFiles({
+    owner: ORG,
+    repo: repoName,
+    pull_number: prNumber,
+    per_page: 100,
+  });
+
+  return {
+    files: data.map(f => ({
+      filename: f.filename,
+      status: f.status,
+      additions: f.additions,
+      deletions: f.deletions,
+      patch: f.patch?.slice(0, 3000), // Truncate large diffs
+    })),
+    totalChanges: data.reduce((sum, f) => sum + f.changes, 0),
+  };
+}
+
+/** Create a check run on a commit — lets QA post pass/fail status on PRs */
+export async function createCheckRun(
+  repoKey: GlyphorRepo,
+  headSha: string,
+  name: string,
+  conclusion: 'success' | 'failure' | 'neutral',
+  summary: string,
+  details?: string,
+): Promise<{ id: number; url: string }> {
+  const gh = getGitHubClient();
+  const repoName = GLYPHOR_REPOS[repoKey];
+
+  const { data } = await gh.checks.create({
+    owner: ORG,
+    repo: repoName,
+    head_sha: headSha,
+    name,
+    status: 'completed',
+    conclusion,
+    output: {
+      title: name,
+      summary,
+      text: details,
+    },
+  });
+
+  return {
+    id: data.id,
+    url: data.html_url ?? '',
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // COPILOT CODING AGENT — Create issues assigned to GitHub Copilot
 // ═══════════════════════════════════════════════════════════════════
 

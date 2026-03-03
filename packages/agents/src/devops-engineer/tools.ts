@@ -11,62 +11,146 @@ import {
   GLYPHOR_REPOS, type GlyphorRepo,
   listDeployments, type VercelTeamKey,
   listCloudBuilds, getCloudBuildDetails,
+  queryCloudRunMetrics, queryAllServices,
+  submitPRReview, getPRDiff, type ReviewEvent,
 } from '@glyphor/integrations';
 
 export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefinition[] {
+  const SERVICE_IDS = ['glyphor-scheduler', 'glyphor-worker', 'glyphor-dashboard', 'glyphor-voice-gateway'];
+
   return [
     {
       name: 'query_cache_metrics',
-      description: 'Get cache hit rate, miss rate, and eviction rate.',
+      description: 'Get Cloud Run request/latency metrics to assess caching effectiveness across services.',
       parameters: {
+        service: { type: 'string', description: 'Service: scheduler, worker, dashboard, voice-gateway (default: all)', required: false },
         hours: { type: 'number', description: 'Hours to look back (default: 6)', required: false },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const value = await memory.read('infra.cache.metrics');
-        return { success: true, data: value ?? { note: 'No cache metrics logged yet' } };
+        const projectId = process.env.GCP_PROJECT_ID;
+        if (!projectId) return { success: false, error: 'GCP_PROJECT_ID not configured' };
+        try {
+          const hours = (params.hours as number) || 6;
+          const service = params.service as string | undefined;
+          if (service) {
+            const serviceId = `glyphor-${service}`;
+            const metrics = await queryCloudRunMetrics(projectId, serviceId, hours);
+            return { success: true, data: { service: serviceId, metrics } };
+          }
+          const metrics = await queryAllServices(projectId, SERVICE_IDS, hours);
+          return { success: true, data: { services: metrics } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
       },
     },
     {
       name: 'query_pipeline_metrics',
-      description: 'Get CI/CD build times, deploy times, and rollout duration.',
+      description: 'Get real CI/CD build times, pass rates, and deploy frequency from GitHub Actions and Cloud Build.',
       parameters: {
-        period: { type: 'string', description: 'Period: 24h, 7d, 30d', required: false },
+        period: { type: 'string', description: 'Not used — always queries recent runs', required: false },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const value = await memory.read('infra.pipeline.metrics');
-        return { success: true, data: value ?? { note: 'No pipeline metrics logged yet' } };
+        const projectId = process.env.GCP_PROJECT_ID;
+        const results: Record<string, unknown> = {};
+        // GitHub Actions CI
+        try {
+          const runs = await listWorkflowRuns('company', 20);
+          const completed = runs.filter(r => r.conclusion);
+          const passed = completed.filter(r => r.conclusion === 'success');
+          results.githubActions = {
+            totalRuns: completed.length,
+            passRate: completed.length > 0 ? Math.round((passed.length / completed.length) * 100) : null,
+            recentFailures: completed.filter(r => r.conclusion === 'failure').slice(0, 3),
+          };
+        } catch (err) { results.githubActions = { error: (err as Error).message }; }
+        // Cloud Build
+        if (projectId) {
+          try {
+            const builds = await listCloudBuilds(projectId, 20);
+            const passed = builds.filter(b => b.status === 'SUCCESS');
+            const failed = builds.filter(b => b.status === 'FAILURE');
+            results.cloudBuild = {
+              totalBuilds: builds.length,
+              passRate: builds.length > 0 ? Math.round((passed.length / builds.length) * 100) : null,
+              failedCount: failed.length,
+              recentFailures: failed.slice(0, 3),
+            };
+          } catch (err) { results.cloudBuild = { error: (err as Error).message }; }
+        }
+        return { success: true, data: results };
       },
     },
     {
       name: 'query_resource_utilization',
-      description: 'Get CPU, memory, and instance count vs actual usage for a service.',
+      description: 'Get real CPU, memory, request count, latency, and error rate for a Cloud Run service.',
       parameters: {
-        service: { type: 'string', description: 'Service name', required: true },
+        service: { type: 'string', description: 'Service name: scheduler, worker, dashboard, voice-gateway', required: true, enum: ['scheduler', 'worker', 'dashboard', 'voice-gateway'] },
+        hours: { type: 'number', description: 'Hours to look back (default: 6)', required: false },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const value = await memory.read(`infra.utilization.${params.service}`);
-        return { success: true, data: value ?? { service: params.service, note: 'No utilization data yet' } };
+        const projectId = process.env.GCP_PROJECT_ID;
+        if (!projectId) return { success: false, error: 'GCP_PROJECT_ID not configured' };
+        try {
+          const serviceId = `glyphor-${params.service}`;
+          const hours = (params.hours as number) || 6;
+          const metrics = await queryCloudRunMetrics(projectId, serviceId, hours);
+          return { success: true, data: metrics };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
       },
     },
     {
       name: 'query_cold_starts',
-      description: 'Get cold start frequency and duration for a service.',
+      description: 'Check if a Cloud Run service is scaled to zero (cold start risk) and get instance status.',
       parameters: {
-        service: { type: 'string', description: 'Service name', required: true },
-        hours: { type: 'number', description: 'Hours to look back (default: 6)', required: false },
+        service: { type: 'string', description: 'Service name: scheduler, worker, dashboard, voice-gateway', required: true, enum: ['scheduler', 'worker', 'dashboard', 'voice-gateway'] },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const value = await memory.read(`infra.coldstarts.${params.service}`);
-        return { success: true, data: value ?? { service: params.service, note: 'No cold start data yet' } };
+        const projectId = process.env.GCP_PROJECT_ID;
+        if (!projectId) return { success: false, error: 'GCP_PROJECT_ID not configured' };
+        try {
+          const serviceId = `glyphor-${params.service}`;
+          const metrics = await queryCloudRunMetrics(projectId, serviceId, 1);
+          return {
+            success: true,
+            data: {
+              service: serviceId,
+              instanceCount: metrics.instanceCount,
+              instanceStatus: metrics.instanceStatus,
+              requestCount1h: metrics.requestCount,
+              coldStartRisk: metrics.instanceStatus === 'scaled-to-zero' ? 'HIGH' : metrics.instanceStatus === 'scaling-down' ? 'MEDIUM' : 'LOW',
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
       },
     },
     {
       name: 'identify_unused_resources',
-      description: 'Find zero-usage services, channels, or storage that could be cleaned up.',
+      description: 'Scan all Cloud Run services for zero-traffic or scaled-to-zero services that could be cleaned up.',
       parameters: {},
       execute: async (_params, _ctx): Promise<ToolResult> => {
-        const value = await memory.read('infra.unused_resources');
-        return { success: true, data: value ?? { note: 'No unused resource audit yet' } };
+        const projectId = process.env.GCP_PROJECT_ID;
+        if (!projectId) return { success: false, error: 'GCP_PROJECT_ID not configured' };
+        try {
+          const metrics = await queryAllServices(projectId, SERVICE_IDS, 24);
+          const unused = metrics.filter(m => m.requestCount === 0 && m.instanceStatus === 'scaled-to-zero');
+          const underused = metrics.filter(m => m.requestCount > 0 && m.requestCount < 10);
+          return {
+            success: true,
+            data: {
+              totalServices: metrics.length,
+              unusedServices: unused.map(m => ({ service: m.service, status: m.instanceStatus })),
+              underusedServices: underused.map(m => ({ service: m.service, requests24h: m.requestCount, status: m.instanceStatus })),
+              allServices: metrics.map(m => ({ service: m.service, requests24h: m.requestCount, status: m.instanceStatus, errorRate: m.errorRate })),
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
       },
     },
     {
@@ -438,6 +522,53 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
             params.title as string,
             params.body as string,
           );
+          return { success: true, data: result };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('GITHUB_TOKEN')) return { success: false, error: 'NO_DATA: GITHUB_TOKEN not configured.' };
+          return { success: false, error: msg };
+        }
+      },
+    },
+
+    // ── PR REVIEW ───────────────────────────────────────────────
+
+    {
+      name: 'review_pr',
+      description: 'Submit a formal review on a PR — approve, request changes, or comment. Focus on Dockerfiles, configs, infra changes.',
+      parameters: {
+        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: true, enum: ['company', 'fuse', 'pulse'] },
+        pr_number: { type: 'number', description: 'PR number', required: true },
+        event: { type: 'string', description: 'Review action', required: true, enum: ['APPROVE', 'REQUEST_CHANGES', 'COMMENT'] },
+        body: { type: 'string', description: 'Review comment (markdown)', required: true },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const result = await submitPRReview(
+            params.repo as GlyphorRepo,
+            params.pr_number as number,
+            params.event as ReviewEvent,
+            `**DevOps Review (Jordan Hayes):**\n\n${params.body}`,
+          );
+          return { success: true, data: result };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('GITHUB_TOKEN')) return { success: false, error: 'NO_DATA: GITHUB_TOKEN not configured.' };
+          return { success: false, error: msg };
+        }
+      },
+    },
+
+    {
+      name: 'get_pr_diff',
+      description: 'Get the changed files and diff for a PR — review Dockerfiles, pipeline configs, and infra changes.',
+      parameters: {
+        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: true, enum: ['company', 'fuse', 'pulse'] },
+        pr_number: { type: 'number', description: 'PR number', required: true },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const result = await getPRDiff(params.repo as GlyphorRepo, params.pr_number as number);
           return { success: true, data: result };
         } catch (err) {
           const msg = (err as Error).message;

@@ -1,7 +1,7 @@
 /**
  * Quality Engineer (Sam DeLuca) — Tool Definitions
  *
- * Tools for: test execution, build analysis, bug reporting, CI/CD visibility.
+ * Tools for: build analysis, PR review, bug reporting, CI/CD visibility, check-run posting.
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
@@ -9,35 +9,77 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import {
   listCloudBuilds, getCloudBuildDetails,
   listWorkflowRuns, createIssue, type GlyphorRepo,
+  submitPRReview, getPRDiff, createCheckRun, listOpenPRs,
+  type ReviewEvent,
 } from '@glyphor/integrations';
 
 export function createQualityEngineerTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
     {
       name: 'query_build_logs',
-      description: 'Query build outcomes for QA analysis. Filter by product, status, and limit.',
+      description: 'Query real build outcomes from Cloud Build and GitHub Actions. Returns pass/fail stats and recent failures.',
       parameters: {
-        product: { type: 'string', description: 'Product: fuse or pulse', required: false, enum: ['fuse', 'pulse'] },
-        status: { type: 'string', description: 'Filter by status: success, failure, all', required: false, enum: ['success', 'failure', 'all'] },
-        limit: { type: 'number', description: 'Max results (default: 20)', required: false },
+        source: { type: 'string', description: 'Build system: "cloud_build", "github_actions", or "all"', required: false, enum: ['cloud_build', 'github_actions', 'all'] },
+        limit: { type: 'number', description: 'Max results per source (default: 10)', required: false },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const activity = await memory.getRecentActivity(72);
-        const builds = activity.filter((a) => a.action === 'deploy' || a.action === 'analysis');
-        return { success: true, data: { builds: builds.slice(0, (params.limit as number) || 20) } };
+        const limit = (params.limit as number) || 10;
+        const source = (params.source as string) || 'all';
+        const results: Record<string, unknown> = {};
+
+        if (source === 'cloud_build' || source === 'all') {
+          const projectId = process.env.GCP_PROJECT_ID;
+          if (projectId) {
+            try {
+              const builds = await listCloudBuilds(projectId, limit);
+              const failed = builds.filter(b => b.status === 'FAILURE');
+              results.cloudBuild = { total: builds.length, failed: failed.length, passRate: builds.length > 0 ? Math.round(((builds.length - failed.length) / builds.length) * 100) : null, builds };
+            } catch (err) { results.cloudBuild = { error: (err as Error).message }; }
+          }
+        }
+        if (source === 'github_actions' || source === 'all') {
+          try {
+            const runs = await listWorkflowRuns('company', limit);
+            const failed = runs.filter(r => r.conclusion === 'failure');
+            results.githubActions = { total: runs.length, failed: failed.length, passRate: runs.length > 0 ? Math.round(((runs.length - failed.length) / runs.length) * 100) : null, runs };
+          } catch (err) { results.githubActions = { error: (err as Error).message }; }
+        }
+
+        return { success: true, data: results };
       },
     },
 
     {
       name: 'query_error_patterns',
-      description: 'Query known error classifications and their frequency.',
+      description: 'Analyze recent build failures from Cloud Build and classify error patterns. Returns failure logs for triage.',
       parameters: {
-        product: { type: 'string', description: 'Product slug', required: false, enum: ['fuse', 'pulse'] },
-        period: { type: 'string', description: 'Period: 24h, 7d, 30d', required: false },
+        limit: { type: 'number', description: 'Number of recent failed builds to analyze (default: 5)', required: false },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const value = await memory.read('infra.errors.patterns');
-        return { success: true, data: value ?? { note: 'No error patterns logged yet' } };
+        const projectId = process.env.GCP_PROJECT_ID;
+        if (!projectId) return { success: false, error: 'GCP_PROJECT_ID not configured' };
+        try {
+          const builds = await listCloudBuilds(projectId, 20, 'FAILURE');
+          const toAnalyze = builds.slice(0, (params.limit as number) || 5);
+          const patterns: Array<{ buildId: string; trigger: string; failedAt: string; errorSummary: string }> = [];
+          for (const build of toAnalyze) {
+            try {
+              const details = await getCloudBuildDetails(projectId, build.id);
+              const failedSteps = (details as any).steps?.filter((s: any) => s.status === 'FAILURE') ?? [];
+              patterns.push({
+                buildId: build.id,
+                trigger: build.trigger ?? 'unknown',
+                failedAt: build.finishTime ?? build.startTime ?? '',
+                errorSummary: failedSteps.length > 0
+                  ? failedSteps.map((s: any) => `Step "${s.name}": ${s.exitCode ?? 'failed'}`).join('; ')
+                  : 'See build logs for details',
+              });
+            } catch { patterns.push({ buildId: build.id, trigger: build.trigger ?? 'unknown', failedAt: '', errorSummary: 'Could not fetch details' }); }
+          }
+          return { success: true, data: { totalFailures: builds.length, analyzed: patterns } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
       },
     },
 
@@ -66,13 +108,31 @@ export function createQualityEngineerTools(memory: CompanyMemoryStore): ToolDefi
 
     {
       name: 'query_test_results',
-      description: 'Get test pass/fail details for a test suite.',
+      description: 'Get CI check status for open PRs — shows which PRs have passing/failing checks. Use for QA sign-off assessment.',
       parameters: {
-        suite_id: { type: 'string', description: 'Test suite identifier', required: false },
+        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: false, enum: ['company', 'fuse', 'pulse'] },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const value = await memory.read(`tests.results.${(params.suite_id as string) || 'latest'}`);
-        return { success: true, data: value ?? { note: 'No test results found' } };
+        try {
+          const repo = (params.repo as GlyphorRepo) || 'company';
+          const prs = await listOpenPRs(repo);
+          const summary = prs.map(pr => ({
+            number: pr.number,
+            title: pr.title,
+            author: pr.author,
+            ciStatus: pr.ciStatus ?? 'unknown',
+            reviewStatus: pr.reviewStatus,
+            labels: pr.labels,
+            url: pr.url,
+          }));
+          const passing = summary.filter(p => p.ciStatus === 'success').length;
+          const failing = summary.filter(p => p.ciStatus === 'failure').length;
+          return { success: true, data: { totalOpenPRs: summary.length, passing, failing, prs: summary } };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('GITHUB_TOKEN')) return { success: false, error: 'NO_DATA: GITHUB_TOKEN not configured.' };
+          return { success: false, error: msg };
+        }
       },
     },
 
@@ -178,6 +238,80 @@ export function createQualityEngineerTools(memory: CompanyMemoryStore): ToolDefi
             `[${params.severity}] ${params.title}`,
             params.body as string,
             ['bug', (params.severity as string).toLowerCase()],
+          );
+          return { success: true, data: result };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('GITHUB_TOKEN')) return { success: false, error: 'NO_DATA: GITHUB_TOKEN not configured.' };
+          return { success: false, error: msg };
+        }
+      },
+    },
+
+    // ── PR REVIEW & QA GATES ────────────────────────────────────
+
+    {
+      name: 'review_pr',
+      description: 'Submit a formal code review on a PR — approve, request changes, or comment. Use after reviewing the diff.',
+      parameters: {
+        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: true, enum: ['company', 'fuse', 'pulse'] },
+        pr_number: { type: 'number', description: 'PR number', required: true },
+        event: { type: 'string', description: 'Review action', required: true, enum: ['APPROVE', 'REQUEST_CHANGES', 'COMMENT'] },
+        body: { type: 'string', description: 'Review comment (markdown) — explain why you approve or what needs fixing', required: true },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const result = await submitPRReview(
+            params.repo as GlyphorRepo,
+            params.pr_number as number,
+            params.event as ReviewEvent,
+            `**QA Review (Sam DeLuca):**\n\n${params.body}`,
+          );
+          return { success: true, data: result };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('GITHUB_TOKEN')) return { success: false, error: 'NO_DATA: GITHUB_TOKEN not configured.' };
+          return { success: false, error: msg };
+        }
+      },
+    },
+
+    {
+      name: 'get_pr_diff',
+      description: 'Get the changed files and diff for a PR — use to review code before approving or requesting changes.',
+      parameters: {
+        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: true, enum: ['company', 'fuse', 'pulse'] },
+        pr_number: { type: 'number', description: 'PR number', required: true },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const result = await getPRDiff(params.repo as GlyphorRepo, params.pr_number as number);
+          return { success: true, data: result };
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes('GITHUB_TOKEN')) return { success: false, error: 'NO_DATA: GITHUB_TOKEN not configured.' };
+          return { success: false, error: msg };
+        }
+      },
+    },
+
+    {
+      name: 'post_qa_check',
+      description: 'Post a QA check status on a PR commit — shows as a pass/fail check in the PR. Use to gate merges on QA sign-off.',
+      parameters: {
+        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: true, enum: ['company', 'fuse', 'pulse'] },
+        commit_sha: { type: 'string', description: 'Full commit SHA to post the check on', required: true },
+        conclusion: { type: 'string', description: 'Check result', required: true, enum: ['success', 'failure', 'neutral'] },
+        summary: { type: 'string', description: 'QA summary (markdown)', required: true },
+      },
+      execute: async (params, _ctx): Promise<ToolResult> => {
+        try {
+          const result = await createCheckRun(
+            params.repo as GlyphorRepo,
+            params.commit_sha as string,
+            'QA Sign-off (Sam DeLuca)',
+            params.conclusion as 'success' | 'failure' | 'neutral',
+            params.summary as string,
           );
           return { success: true, data: result };
         } catch (err) {

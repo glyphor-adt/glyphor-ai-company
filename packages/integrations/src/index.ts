@@ -164,6 +164,9 @@ export {
   createIssue,
   listRecentCommits,
   commentOnPR,
+  submitPRReview,
+  getPRDiff,
+  createCheckRun,
   getFileContents,
   createOrUpdateFile,
   createBranch,
@@ -178,6 +181,7 @@ export {
   type WorkflowRun,
   type RepoStats,
   type FileContents,
+  type ReviewEvent,
 } from './github/index.js';
 
 // Vercel — deployment management, health, and usage metrics
