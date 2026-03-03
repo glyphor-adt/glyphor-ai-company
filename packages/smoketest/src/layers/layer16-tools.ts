@@ -127,20 +127,22 @@ const FACTORIES: FactoryEntry[] = [
   { name: 'engineeringGapTools', wave: 5, factory: createEngineeringGapTools },
 ];
 
-/** Required env vars grouped by service. */
-const ENV_REQUIREMENTS: Record<string, string[]> = {
-  // Pre-existing
+/** Required env vars — services that are provisioned and should have keys. */
+const ENV_REQUIRED: Record<string, string[]> = {
   'Figma (design)': ['FIGMA_CLIENT_ID', 'FIGMA_CLIENT_SECRET'],
-  'Screenshot Service': ['SCREENSHOT_SERVICE_URL'],
-  'Storybook': ['STORYBOOK_URL'],
-  'Vercel (deploy previews)': ['VERCEL_DEPLOY_HOOK_URL'],
-  'SendGrid (email)': ['SENDGRID_API_KEY'],
-  // Wave 1-5
   'Stripe (revenue)': ['STRIPE_SECRET_KEY'],
   'Mercury (banking)': ['MERCURY_API_TOKEN'],
   'Mailchimp (email campaigns)': ['GLYPHOR_MAILCHIMP_API'],
   'Mandrill (transactional email)': ['GLYPHOR_MANDRILL_API_KEY'],
   'OpenAI (images + AI)': ['OPENAI_API_KEY'],
+};
+
+/** Optional env vars — services not yet provisioned (informational). */
+const ENV_OPTIONAL: Record<string, string[]> = {
+  'Screenshot Service': ['SCREENSHOT_SERVICE_URL'],
+  'Storybook': ['STORYBOOK_URL'],
+  'Vercel (deploy previews)': ['VERCEL_DEPLOY_HOOK_URL'],
+  'SendGrid (email)': ['SENDGRID_API_KEY'],
   'Google Search Console (SEO)': ['GOOGLE_SEARCH_CONSOLE_CREDENTIALS'],
 };
 
@@ -324,7 +326,7 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
       const missing: string[] = [];
       const present: string[] = [];
 
-      for (const [service, vars] of Object.entries(ENV_REQUIREMENTS)) {
+      for (const [service, vars] of Object.entries(ENV_REQUIRED)) {
         const allPresent = vars.every(v => !!process.env[v]);
         if (allPresent) {
           present.push(service);
@@ -334,13 +336,29 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
         }
       }
 
+      // Check optional services (report but don't fail)
+      const optionalMissing: string[] = [];
+      const optionalPresent: string[] = [];
+      for (const [service, vars] of Object.entries(ENV_OPTIONAL)) {
+        const allPresent = vars.every(v => !!process.env[v]);
+        if (allPresent) {
+          optionalPresent.push(service);
+        } else {
+          optionalMissing.push(service);
+        }
+      }
+
+      const optionalNote = optionalMissing.length > 0
+        ? `\n  Not yet provisioned (optional): ${optionalMissing.join(', ')}`
+        : '';
+
       if (missing.length > 0) {
         throw new Error(
-          `${missing.length}/${Object.keys(ENV_REQUIREMENTS).length} services missing env vars:\n  ${missing.join('\n  ')}` +
-          `\n  Present: ${present.join(', ') || 'none'}`,
+          `${missing.length}/${Object.keys(ENV_REQUIRED).length} required services missing env vars:\n  ${missing.join('\n  ')}` +
+          `\n  Present: ${present.join(', ') || 'none'}` + optionalNote,
         );
       }
-      return `All ${Object.keys(ENV_REQUIREMENTS).length} service credentials present`;
+      return `All ${Object.keys(ENV_REQUIRED).length} required service credentials present` + optionalNote;
     }),
   );
 
