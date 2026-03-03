@@ -585,7 +585,7 @@ export async function searchSharePoint(
 
   const searchUrl = `${GRAPH_BASE}/search/query`;
   // Region is required when using application permissions (client credentials)
-  const region = process.env.SHAREPOINT_REGION ?? 'NAM';
+  const region = (process.env.SHAREPOINT_REGION ?? 'NAM').trim();
   const response = await fetch(searchUrl, {
     method: 'POST',
     headers: {
