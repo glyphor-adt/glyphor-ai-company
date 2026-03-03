@@ -127,7 +127,7 @@ function useFinancialsRaw(days = 30) {
     setLoading(true);
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     try {
-      const rows = await apiCall<FinancialRow[]>(`/api/financials?since=${since}`);
+      const rows = await apiCall<FinancialRow[]>(`/api/financials?since=${since}&order=date.desc&limit=1000`);
       setData(rows ?? []);
     } catch {
       setData([]);
@@ -430,20 +430,29 @@ export default function Financials() {
   }, [raw]);
 
   // Per-product cost breakdown (infra + api)
+  // api_billing providers already tracked in financials.api_cost — only add providers NOT in financials
   const productCostBreakdown = useMemo(() => {
+    const financialsApiProviders = new Set<string>();
+    for (const row of raw) {
+      if (row.metric === 'api_cost' && row.details) {
+        const src = (row.details as Record<string, unknown>)?.source;
+        if (typeof src === 'string') financialsApiProviders.add(src);
+      }
+    }
     const products = new Set<string>();
     for (const row of raw) {
       if ((row.metric === 'infra_cost' || row.metric === 'api_cost') && row.product) {
         products.add(row.product);
       }
     }
-    // Also include api_billing products
-    for (const row of apiBilling) {
+    // Only include api_billing rows from providers NOT already in financials.api_cost
+    const extraApiBilling = apiBilling.filter((r) => !financialsApiProviders.has(r.provider));
+    for (const row of extraApiBilling) {
       if (row.product) products.add(row.product);
     }
     return Array.from(products).map((name) => {
       const f = productFinancials[name] ?? { mrr: 0, costs: 0, apiCosts: 0, users: 0 };
-      const apiBillingCost = apiBilling.filter((r) => r.product === name).reduce((s, r) => s + r.cost_usd, 0);
+      const apiBillingCost = extraApiBilling.filter((r) => r.product === name).reduce((s, r) => s + r.cost_usd, 0);
       return {
         name: PRODUCT_LABELS[name] ?? name,
         infrastructure: f.costs,
