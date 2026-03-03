@@ -1225,11 +1225,33 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
+        const severity = params.severity as string;
+        const title = params.title as string;
+        const description = params.description as string;
+
+        // Guard: Block P0/P1 incidents based on known hallucination patterns
+        const combinedText = `${title} ${description}`;
+        const HALLUCINATION_PATTERNS = [
+          /(?:total|complete|system-wide)\s*(?:blackout|collapse|outage)/i,
+          /(?:comms?|communications?)\s*blackout/i,
+          /100%\s*(?:user|users?)\s*(?:dormancy|lockout)/i,
+          /0%\s*(?:user\s*)?activity/i,
+          /telemetry\s*(?:is\s*)?severed/i,
+          /Phantom\s*(?:Pipeline|Recovery)/i,
+        ];
+        if ((severity === 'P0' || severity === 'P1') && HALLUCINATION_PATTERNS.some(p => p.test(combinedText))) {
+          console.warn(`[IncidentGuard] Blocked likely hallucinated ${severity} from ${ctx.agentRole}: ${title}`);
+          return {
+            success: false,
+            error: `Incident rejected: "${title}" matches known hallucination patterns. P0/P1 incidents require positive evidence of failure (5xx errors, failed health pings), not inferred outages from missing data or scaled-to-zero instances.`,
+          };
+        }
+
         try {
           const incident = {
-            severity: params.severity as string,
-            title: params.title as string,
-            description: params.description as string,
+            severity,
+            title,
+            description,
             affected_services: params.affected_services as string[] || [],
             status: 'open',
             opened_by: ctx.agentRole,
