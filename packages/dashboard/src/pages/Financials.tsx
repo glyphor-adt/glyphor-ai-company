@@ -5,6 +5,53 @@ import {
   SectionHeader,
   Skeleton,
 } from '../components/ui';
+
+// ─── Sync Status Types & Hook ─────────────────────────────────────
+interface SyncStatus {
+  id: string;
+  status: string;
+  last_success_at: string | null;
+  last_failure_at: string | null;
+  last_error: string | null;
+  consecutive_failures: number;
+}
+
+const FINANCIAL_SYNCS = [
+  { id: 'stripe', label: 'Stripe (Revenue)', endpoint: '/sync/stripe' },
+  { id: 'mercury', label: 'Mercury (Banking)', endpoint: '/sync/mercury' },
+  { id: 'gcp-billing', label: 'GCP Billing', endpoint: '/sync/gcp-billing' },
+  { id: 'anthropic-billing', label: 'Anthropic', endpoint: '/sync/anthropic-billing' },
+  { id: 'openai-billing', label: 'OpenAI', endpoint: '/sync/openai-billing' },
+  { id: 'kling-billing', label: 'Kling', endpoint: '/sync/kling-billing' },
+];
+
+function useSyncStatus() {
+  const [statuses, setStatuses] = useState<SyncStatus[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    try {
+      const rows = await apiCall<SyncStatus[]>('/api/data-sync-status');
+      setStatuses(rows ?? []);
+    } catch { setStatuses([]); }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+  return { statuses, loading, refresh };
+}
+
+function timeAgo(iso: string | null): string {
+  if (!iso) return 'never';
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
 import {
   LineChart,
   Line,
@@ -113,9 +160,29 @@ function useApiBilling(days = 30) {
 }
 
 export default function Financials() {
-  const { data: raw, loading } = useFinancialsRaw(30);
+  const { data: raw, loading, refresh: refreshFinancials } = useFinancialsRaw(30);
   const { data: gcpBilling, loading: gcpLoading } = useGcpBilling(90);
   const { data: apiBilling, loading: apiLoading } = useApiBilling(90);
+  const { statuses: syncStatuses, loading: syncLoading, refresh: refreshSyncStatus } = useSyncStatus();
+  const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
+  const [showSyncPanel, setShowSyncPanel] = useState(false);
+
+  const triggerSync = useCallback(async (endpoint: string, id: string) => {
+    setSyncingIds((prev) => new Set(prev).add(id));
+    try {
+      await apiCall(endpoint, { method: 'POST' });
+    } catch { /* sync status will show the error */ }
+    setSyncingIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
+    await Promise.all([refreshSyncStatus(), refreshFinancials()]);
+  }, [refreshSyncStatus, refreshFinancials]);
+
+  const triggerAllSyncs = useCallback(async () => {
+    const ids = FINANCIAL_SYNCS.map((s) => s.id);
+    setSyncingIds(new Set(ids));
+    await Promise.allSettled(FINANCIAL_SYNCS.map((s) => apiCall(s.endpoint, { method: 'POST' })));
+    setSyncingIds(new Set());
+    await Promise.all([refreshSyncStatus(), refreshFinancials()]);
+  }, [refreshSyncStatus, refreshFinancials]);
 
   // Pivot EAV rows into daily snapshots
   const mrrData = useMemo(() => {
@@ -439,10 +506,67 @@ export default function Financials() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-txt-primary">Financials</h1>
-        <p className="mt-1 text-sm text-txt-muted">Revenue, costs, and margin trends</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-txt-primary">Financials</h1>
+          <p className="mt-1 text-sm text-txt-muted">Revenue, costs, and margin trends</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowSyncPanel((v) => !v)}
+            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-txt-secondary hover:bg-surface-hover transition"
+          >
+            {showSyncPanel ? 'Hide' : 'Data Sources'}
+          </button>
+          <button
+            onClick={triggerAllSyncs}
+            disabled={syncingIds.size > 0}
+            className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50 transition"
+          >
+            {syncingIds.size > 0 ? 'Syncing…' : '↻ Refresh All'}
+          </button>
+        </div>
       </div>
+
+      {/* Sync Status Panel */}
+      {showSyncPanel && (
+        <Card>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Data Source Status</p>
+          </div>
+          {syncLoading ? <Skeleton className="h-16" /> : (
+            <div className="grid grid-cols-3 gap-3">
+              {FINANCIAL_SYNCS.map((sync) => {
+                const s = syncStatuses.find((st) => st.id === sync.id);
+                const isOk = s?.status === 'ok';
+                const isFailing = s?.status === 'failing';
+                const isSyncing = syncingIds.has(sync.id);
+                return (
+                  <div key={sync.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <div className={`h-2 w-2 rounded-full flex-shrink-0 ${isOk ? 'bg-green-500' : isFailing ? 'bg-red-500' : 'bg-yellow-500'}`} />
+                        <p className="text-xs font-medium text-txt-primary truncate">{sync.label}</p>
+                      </div>
+                      <p className="text-[10px] text-txt-faint mt-0.5">
+                        {s?.last_success_at ? timeAgo(s.last_success_at) : 'never synced'}
+                        {isFailing && s?.consecutive_failures ? ` · ${s.consecutive_failures} failures` : ''}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => triggerSync(sync.endpoint, sync.id)}
+                      disabled={isSyncing}
+                      className="ml-2 flex-shrink-0 rounded px-2 py-0.5 text-[10px] font-medium text-accent hover:bg-accent/10 disabled:opacity-50 transition"
+                    >
+                      {isSyncing ? '…' : '↻'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-4">
