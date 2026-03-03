@@ -22,6 +22,9 @@ import { createAssignmentTools } from './assignmentTools.js';
 import { createCommunicationTools } from './communicationTools.js';
 import { createResearchTools } from './researchTools.js';
 import { createCollectiveIntelligenceTools } from './collectiveIntelligenceTools.js';
+import { createEmailTools } from './emailTools.js';
+import { createToolRequestTools } from './toolRequestTools.js';
+import { createSharePointTools } from './sharepointTools.js';
 
 export interface DynamicAgentRunParams {
   role: string;
@@ -94,6 +97,9 @@ export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<Ag
     ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
     ...createResearchTools(),
     ...createCollectiveIntelligenceTools(memory),
+    ...createEmailTools(),
+    ...createToolRequestTools(),
+    ...createSharePointTools(),
   ];
 
   const toolExecutor = new ToolExecutor(tools);
