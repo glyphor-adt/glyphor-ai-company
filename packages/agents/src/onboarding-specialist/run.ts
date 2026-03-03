@@ -19,6 +19,7 @@ import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
+import { createSharePointTools } from '../shared/sharepointTools.js';
 
 export interface OnboardingSpecialistRunParams {
   task?: 'funnel_report' | 'drop_off_analysis' | 'on_demand';
@@ -45,6 +46,7 @@ export async function runOnboardingSpecialist(params: OnboardingSpecialistRunPar
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
+    ...createSharePointTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

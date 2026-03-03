@@ -18,6 +18,8 @@ import { createRunner } from '../shared/createRunner.js';
 import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
+import { createEmailTools } from '../shared/emailTools.js';
+import { createSharePointTools } from '../shared/sharepointTools.js';
 
 export interface SeoAnalystRunParams {
   task?: 'ranking_report' | 'keyword_research' | 'competitor_gap' | 'on_demand';
@@ -43,6 +45,8 @@ export async function runSeoAnalyst(params: SeoAnalystRunParams = {}) {
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(glyphorEventBus),
+    ...createEmailTools(),
+    ...createSharePointTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

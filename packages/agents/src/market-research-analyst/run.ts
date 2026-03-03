@@ -18,6 +18,8 @@ import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createEventTools } from '../shared/eventTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
+import { createEmailTools } from '../shared/emailTools.js';
+import { createSharePointTools } from '../shared/sharepointTools.js';
 
 export interface MarketResearchAnalystRunParams {
   task?: 'research' | 'on_demand';
@@ -53,6 +55,8 @@ export async function runMarketResearchAnalyst(params: MarketResearchAnalystRunP
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createEventTools(glyphorEventBus),
     ...createAssignmentTools(glyphorEventBus),
+    ...createEmailTools(),
+    ...createSharePointTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

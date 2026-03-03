@@ -12,7 +12,7 @@ import type { RealtimeVoice, VoiceToolDeclaration } from './types.js';
 import { getAgentVoiceConfig } from './voiceMap.js';
 import { buildVoiceSystemPrompt, type VoicePromptContext } from './voicePrompt.js';
 import { toRealtimeTools } from './toolBridge.js';
-import { REALTIME_MODEL } from '@glyphor/shared/models';
+import { REALTIME_MODEL, TRANSCRIPTION_MODEL } from '@glyphor/shared/models';
 
 export interface RealtimeSessionResult {
   sessionId: string;
@@ -48,7 +48,7 @@ export async function createRealtimeSession(
     voice: voiceConfig.voice as any,
     instructions: systemPrompt,
     tools: realtimeTools as any,
-    input_audio_transcription: { model: 'whisper-1' },
+    input_audio_transcription: { model: TRANSCRIPTION_MODEL },
     turn_detection: {
       type: 'server_vad',
       threshold: 0.5,

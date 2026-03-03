@@ -23,6 +23,7 @@ import { createTeamOrchestrationTools } from '../shared/teamOrchestrationTools.j
 import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js';
 import { createInitiativeTools } from '../shared/initiativeTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
+import { createSharePointTools } from '../shared/sharepointTools.js';
 
 export interface VPResearchRunParams {
   task?: 'decompose_research' | 'qc_and_package_research' | 'follow_up_research' | 'on_demand';
@@ -75,6 +76,7 @@ export async function runVPResearch(params: VPResearchRunParams = {}) {
     ...createPeerCoordinationTools(glyphorEventBus),
     ...createInitiativeTools(glyphorEventBus),
     ...createEmailTools(),
+    ...createSharePointTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

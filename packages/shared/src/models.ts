@@ -136,6 +136,9 @@ export const WEB_SEARCH_MODEL = 'gpt-5.2';
 /** The model used for realtime voice */
 export const REALTIME_MODEL = 'gpt-4o-realtime-preview';
 
+/** The model used for realtime input audio transcription */
+export const TRANSCRIPTION_MODEL = 'gpt-4o-transcribe';
+
 /** The model used for text embeddings */
 export const EMBEDDING_MODEL = 'gemini-embedding-001';
 

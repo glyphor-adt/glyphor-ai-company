@@ -127,8 +127,6 @@ const YELLOW_ACTIONS: Record<string, { assignTo: string[] }> = {
   'publish_competitive_analysis': { assignTo: ['kristina'] },
   'production_deploy': { assignTo: ['andrew'] },
   'send_dm': { assignTo: ['kristina', 'andrew'] },
-  'send_email': { assignTo: ['kristina', 'andrew'] },
-  'reply_to_email': { assignTo: ['kristina', 'andrew'] },
   'create_calendar_event': { assignTo: ['kristina', 'andrew'] },
 };
 

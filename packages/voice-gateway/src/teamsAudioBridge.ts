@@ -17,7 +17,7 @@ import { getAgentVoiceConfig } from './voiceMap.js';
 import { buildVoiceSystemPrompt, type VoicePromptContext } from './voicePrompt.js';
 import { toRealtimeTools, executeVoiceTool } from './toolBridge.js';
 import { resample16to24, resample24to16 } from './audioResampler.js';
-import { REALTIME_MODEL } from '@glyphor/shared/models';
+import { REALTIME_MODEL, TRANSCRIPTION_MODEL } from '@glyphor/shared/models';
 import type { TranscriptEntry, VoiceToolDeclaration } from './types.js';
 
 export interface AudioBridgeOptions {
@@ -102,7 +102,7 @@ export class TeamsAudioBridge {
             tools: this.realtimeTools,
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
-            input_audio_transcription: { model: 'whisper-1' },
+            input_audio_transcription: { model: TRANSCRIPTION_MODEL },
             turn_detection: {
               type: 'server_vad',
               threshold: 0.5,

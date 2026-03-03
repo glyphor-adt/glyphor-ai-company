@@ -23,6 +23,8 @@ import { createScreenshotTools } from '../shared/screenshotTools.js';
 import { createDesignSystemTools } from '../shared/designSystemTools.js';
 import { createAssetTools } from '../shared/assetTools.js';
 import { createFigmaTools } from '../shared/figmaTools.js';
+import { createEmailTools } from '../shared/emailTools.js';
+import { createSharePointTools } from '../shared/sharepointTools.js';
 
 export interface UiUxDesignerRunParams {
   task?: 'component_spec' | 'design_token_review' | 'on_demand';
@@ -53,6 +55,8 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
     ...createDesignSystemTools(),
     ...createAssetTools(),
     ...createFigmaTools(),
+    ...createEmailTools(),
+    ...createSharePointTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

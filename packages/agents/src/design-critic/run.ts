@@ -24,6 +24,8 @@ import { createDesignSystemTools } from '../shared/designSystemTools.js';
 import { createAuditTools } from '../shared/auditTools.js';
 import { createFigmaTools } from '../shared/figmaTools.js';
 import { createStorybookTools } from '../shared/storybookTools.js';
+import { createEmailTools } from '../shared/emailTools.js';
+import { createSharePointTools } from '../shared/sharepointTools.js';
 
 export interface DesignCriticRunParams {
   task?: 'grade_builds' | 'quality_report' | 'on_demand';
@@ -55,6 +57,8 @@ export async function runDesignCritic(params: DesignCriticRunParams = {}) {
     ...createAuditTools(),
     ...createFigmaTools(),
     ...createStorybookTools(),
+    ...createEmailTools(),
+    ...createSharePointTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

@@ -39,14 +39,29 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
         try {
           const token = await graphToken('read_directory');
           const filter = params.filter as string | undefined;
-          const url = filter
-            ? `https://graph.microsoft.com/v1.0/users?$search="displayName:${filter}"&$select=id,displayName,mail,jobTitle,accountEnabled&ConsistencyLevel=eventual`
-            : `https://graph.microsoft.com/v1.0/users?$select=id,displayName,mail,jobTitle,accountEnabled&$top=50&$orderby=displayName`;
 
-          const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+          const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+
+          let url: string;
+          if (filter) {
+            // $search requires ConsistencyLevel header (not query param)
+            headers['ConsistencyLevel'] = 'eventual';
+            url = `https://graph.microsoft.com/v1.0/users?$search="displayName:${filter}"&$select=id,displayName,mail,jobTitle,accountEnabled`;
+          } else {
+            url = `https://graph.microsoft.com/v1.0/users?$select=id,displayName,mail,jobTitle,accountEnabled&$top=50&$orderby=displayName`;
+          }
+
+          const res = await fetch(url, { headers });
           if (!res.ok) return { success: false, error: `Graph API ${res.status}: ${await res.text()}` };
           const data = await res.json() as { value: unknown[] };
-          if (!data.value?.length) return { success: true, data: { count: 0, users: [], note: 'No users found' } };
+          if (!data.value?.length) {
+            return {
+              success: false,
+              error: filter
+                ? `No users matched search "${filter}". Try a different search term or omit filter to list all users.`
+                : 'Graph API returned 0 users. This likely means the app registration lacks User.Read.All permission or admin consent has not been granted.',
+            };
+          }
           return { success: true, data: { count: data.value.length, users: data.value } };
         } catch (err) {
           return { success: false, error: (err as Error).message };
@@ -508,9 +523,11 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
           const token = await graphToken('read_directory');
           const filter = params.filter as string | undefined;
           const url = filter
-            ? `https://graph.microsoft.com/v1.0/groups?$search="displayName:${filter}"&$select=id,displayName,description,groupTypes,membershipRule&ConsistencyLevel=eventual&$top=50`
+            ? `https://graph.microsoft.com/v1.0/groups?$search="displayName:${filter}"&$select=id,displayName,description,groupTypes,membershipRule&$top=50`
             : `https://graph.microsoft.com/v1.0/groups?$select=id,displayName,description,groupTypes,membershipRule&$top=50&$orderby=displayName`;
-          const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+          const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+          if (filter) headers['ConsistencyLevel'] = 'eventual';
+          const res = await fetch(url, { headers });
           if (!res.ok) return { success: false, error: `Graph API ${res.status}: ${await res.text()}` };
           const data = await res.json() as { value: unknown[] };
           return { success: true, data: { count: (data.value || []).length, groups: data.value } };

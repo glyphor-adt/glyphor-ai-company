@@ -46,7 +46,7 @@ async function graphToken(operation: M365Operation = 'read_directory'): Promise<
 }
 
 /** Graph API fetch helper — routes token via M365 credential router. */
-async function graphFetch(path: string, method = 'GET', body?: unknown, operation: M365Operation = 'read_directory'): Promise<Response> {
+async function graphFetch(path: string, method = 'GET', body?: unknown, operation: M365Operation = 'read_directory', extraHeaders?: Record<string, string>): Promise<Response> {
   const token = await graphToken(operation);
   const url = path.startsWith('https://') ? path : `https://graph.microsoft.com/v1.0${path}`;
   return fetch(url, {
@@ -54,6 +54,7 @@ async function graphFetch(path: string, method = 'GET', body?: unknown, operatio
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
+      ...extraHeaders,
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -1033,9 +1034,9 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
         try {
           const filter = params.filter as string | undefined;
           const url = filter
-            ? `/users?$search="displayName:${encodeURIComponent(filter)}"&$select=id,displayName,mail,userPrincipalName,jobTitle,accountEnabled,createdDateTime&$top=50&ConsistencyLevel=eventual`
+            ? `/users?$search="displayName:${encodeURIComponent(filter)}"&$select=id,displayName,mail,userPrincipalName,jobTitle,accountEnabled,createdDateTime&$top=50`
             : `/users?$select=id,displayName,mail,userPrincipalName,jobTitle,accountEnabled,createdDateTime&$top=50&$orderby=displayName`;
-          const res = await graphFetch(url);
+          const res = await graphFetch(url, 'GET', undefined, 'read_directory', filter ? { ConsistencyLevel: 'eventual' } : undefined);
           if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
           const data = await res.json() as { value: unknown[] };
           return { success: true, data: { count: data.value?.length || 0, users: data.value || [] } };
@@ -1175,9 +1176,9 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
         try {
           const filter = params.filter as string | undefined;
           const url = filter
-            ? `/groups?$search="displayName:${encodeURIComponent(filter)}"&$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled,membershipRule&$top=50&ConsistencyLevel=eventual`
+            ? `/groups?$search="displayName:${encodeURIComponent(filter)}"&$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled,membershipRule&$top=50`
             : `/groups?$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled&$top=50&$orderby=displayName`;
-          const res = await graphFetch(url, 'GET', undefined, 'list_groups');
+          const res = await graphFetch(url, 'GET', undefined, 'list_groups', filter ? { ConsistencyLevel: 'eventual' } : undefined);
           if (!res.ok) return { success: false, error: `Graph ${res.status}: ${await res.text()}` };
           const data = await res.json() as { value: unknown[] };
           return { success: true, data: { count: data.value?.length || 0, groups: data.value || [] } };

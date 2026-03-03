@@ -249,6 +249,12 @@ export function useVoiceChat(): UseVoiceChatReturn {
       }
     }
 
+    // Input audio transcription failed
+    if (type === 'conversation.item.input_audio_transcription.failed') {
+      const err = msg.error as Record<string, unknown> | undefined;
+      console.warn('[VoiceChat] Transcription failed:', err?.message ?? err?.code ?? 'unknown');
+    }
+
     // Response audio transcript (what the agent said)
     if (type === 'response.audio_transcript.done') {
       const text = msg.transcript as string;

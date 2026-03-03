@@ -26,6 +26,7 @@ import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
+import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createEventTools } from '../shared/eventTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
@@ -62,6 +63,7 @@ export async function runCLO(params: CLORunParams = {}) {
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
+    ...createSharePointTools(),
     ...createEventTools(glyphorEventBus),
     ...createAgentCreationTools(),
     ...createToolRequestTools(),

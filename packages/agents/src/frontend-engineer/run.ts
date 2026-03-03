@@ -24,6 +24,8 @@ import { createAuditTools } from '../shared/auditTools.js';
 import { createScaffoldTools } from '../shared/scaffoldTools.js';
 import { createDeployPreviewTools } from '../shared/deployPreviewTools.js';
 import { createStorybookTools } from '../shared/storybookTools.js';
+import { createEmailTools } from '../shared/emailTools.js';
+import { createSharePointTools } from '../shared/sharepointTools.js';
 
 export interface FrontendEngineerRunParams {
   task?: 'implement_component' | 'accessibility_audit' | 'on_demand';
@@ -55,6 +57,8 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
     ...createScaffoldTools(),
     ...createDeployPreviewTools(),
     ...createStorybookTools(),
+    ...createEmailTools(),
+    ...createSharePointTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

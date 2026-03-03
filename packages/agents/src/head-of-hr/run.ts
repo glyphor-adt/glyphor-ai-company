@@ -19,6 +19,7 @@ import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
+import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createAccessAuditTools } from '../shared/accessAuditTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
@@ -57,6 +58,7 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
+    ...createSharePointTools(),
     ...createAgentCreationTools(),
     ...createAccessAuditTools(),
     ...createAgentDirectoryTools(),
