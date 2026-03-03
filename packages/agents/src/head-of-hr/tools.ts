@@ -272,8 +272,14 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
 
         if (params.personality_summary) updateData.personality_summary = params.personality_summary;
         if (params.backstory) updateData.backstory = params.backstory;
-        if (params.communication_traits) updateData.communication_traits = params.communication_traits;
-        if (params.quirks) updateData.quirks = params.quirks;
+        if (params.communication_traits) {
+          const arr = params.communication_traits as string[];
+          updateData.communication_traits = Array.isArray(arr) ? arr.map(String) : arr;
+        }
+        if (params.quirks) {
+          const arr = params.quirks as string[];
+          updateData.quirks = Array.isArray(arr) ? arr.map(String) : arr;
+        }
         if (params.tone_formality !== undefined) updateData.tone_formality = params.tone_formality;
         if (params.verbosity !== undefined) updateData.verbosity = params.verbosity;
         if (params.working_style) updateData.working_style = params.working_style;
@@ -743,13 +749,21 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
           const profile = JSON.parse(cleaned) as Record<string, unknown>;
 
           try {
+            // Pass native JS arrays — the pg driver converts them to PostgreSQL array format
+            const traits = Array.isArray(profile.communication_traits)
+              ? profile.communication_traits.map(String)
+              : null;
+            const quirks = Array.isArray(profile.quirks)
+              ? profile.quirks.map(String)
+              : null;
+
             await systemQuery(
               `INSERT INTO agent_profiles (agent_id, personality_summary, backstory, communication_traits, quirks, working_style, tone_formality, verbosity, emoji_usage)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                ON CONFLICT (agent_id) DO UPDATE SET
                  personality_summary = $2, backstory = $3, communication_traits = $4, quirks = $5,
                  working_style = $6, tone_formality = $7, verbosity = $8, emoji_usage = $9`,
-              [role, profile.personality_summary, profile.backstory, JSON.stringify(profile.communication_traits), JSON.stringify(profile.quirks), profile.working_style, profile.tone_formality, profile.verbosity, profile.emoji_usage]
+              [role, profile.personality_summary, profile.backstory, traits, quirks, profile.working_style, profile.tone_formality, profile.verbosity, profile.emoji_usage]
             );
           } catch (err) {
             return { success: false, error: `DB upsert failed: ${(err as Error).message}` };
