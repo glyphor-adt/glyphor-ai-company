@@ -40,12 +40,12 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         }
 
         // Fetch all profiles
-        const profiles = await systemQuery('SELECT agent_role, personality_summary, backstory, avatar_url, communication_traits FROM agent_profiles', []);
-        const profileMap = new Map(profiles.map((p: Record<string, unknown>) => [p.agent_role, p]));
+        const profiles = await systemQuery('SELECT agent_id, personality_summary, backstory, avatar_url, communication_traits FROM agent_profiles', []);
+        const profileMap = new Map(profiles.map((p: Record<string, unknown>) => [p.agent_id, p]));
 
         // Fetch all briefs
-        const briefs = await systemQuery('SELECT agent_role, system_prompt FROM agent_briefs', []);
-        const briefMap = new Map(briefs.map((b: Record<string, unknown>) => [b.agent_role, b]));
+        const briefs = await systemQuery('SELECT agent_id, system_prompt FROM agent_briefs', []);
+        const briefMap = new Map(briefs.map((b: Record<string, unknown>) => [b.agent_id, b]));
 
         const issues: Array<{ role: string; problems: string[] }> = [];
         const validRoles = new Set((agents).map((a: Record<string, unknown>) => a.role));
@@ -124,10 +124,10 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         const agent = agentRows[0] ?? null;
         if (!agent) return { success: false, error: `Agent "${role}" not found in company_agents.` };
 
-        const profileRows = await systemQuery('SELECT * FROM agent_profiles WHERE agent_role = $1', [role]);
+        const profileRows = await systemQuery('SELECT * FROM agent_profiles WHERE agent_id = $1', [role]);
         const profile = profileRows[0] ?? null;
 
-        const briefRows = await systemQuery('SELECT * FROM agent_briefs WHERE agent_role = $1', [role]);
+        const briefRows = await systemQuery('SELECT * FROM agent_briefs WHERE agent_id = $1', [role]);
         const brief = briefRows[0] ?? null;
 
         const checklist: Record<string, { pass: boolean; detail: string }> = {};
@@ -285,11 +285,11 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
 
         try {
           const keys = Object.keys(updateData);
-          const allCols = ['agent_role', ...keys];
+          const allCols = ['agent_id', ...keys];
           const placeholders = allCols.map((_, i) => `$${i + 1}`).join(', ');
           const setClauses = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
           await systemQuery(
-            `INSERT INTO agent_profiles (${allCols.join(', ')}) VALUES (${placeholders}) ON CONFLICT (agent_role) DO UPDATE SET ${setClauses}`,
+            `INSERT INTO agent_profiles (${allCols.join(', ')}) VALUES (${placeholders}) ON CONFLICT (agent_id) DO UPDATE SET ${setClauses}`,
             [role, ...keys.map(k => updateData[k])]
           );
         } catch (err) {
@@ -363,7 +363,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         }
 
         // Disable schedules
-        await systemQuery('UPDATE agent_schedules SET is_active = $1 WHERE agent_role = $2', [false, role]);
+        await systemQuery('UPDATE agent_schedules SET is_active = $1 WHERE agent_id = $2', [false, role]);
 
         // Log activity
         await systemQuery(
@@ -427,9 +427,9 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         }
 
         // Get recent runs
-        const recentRuns = await systemQuery('SELECT agent_role, started_at FROM agent_runs WHERE started_at >= $1', [cutoff]);
+        const recentRuns = await systemQuery('SELECT agent_id, started_at FROM agent_runs WHERE started_at >= $1', [cutoff]);
 
-        const recentRoles = new Set(recentRuns.map((r: Record<string, unknown>) => r.agent_role));
+        const recentRoles = new Set(recentRuns.map((r: Record<string, unknown>) => r.agent_id));
 
         const stale = agents.filter((a: Record<string, unknown>) => !recentRoles.has(a.role));
 
@@ -583,7 +583,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
 
           // Update agent_profiles with the new URL
           await systemQuery(
-            'INSERT INTO agent_profiles (agent_role, avatar_url) VALUES ($1, $2) ON CONFLICT (agent_role) DO UPDATE SET avatar_url = $2',
+            'INSERT INTO agent_profiles (agent_id, avatar_url) VALUES ($1, $2) ON CONFLICT (agent_id) DO UPDATE SET avatar_url = $2',
             [role, avatarUrl]
           );
 
@@ -744,9 +744,9 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
 
           try {
             await systemQuery(
-              `INSERT INTO agent_profiles (agent_role, personality_summary, backstory, communication_traits, quirks, working_style, tone_formality, verbosity, emoji_usage)
+              `INSERT INTO agent_profiles (agent_id, personality_summary, backstory, communication_traits, quirks, working_style, tone_formality, verbosity, emoji_usage)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-               ON CONFLICT (agent_role) DO UPDATE SET
+               ON CONFLICT (agent_id) DO UPDATE SET
                  personality_summary = $2, backstory = $3, communication_traits = $4, quirks = $5,
                  working_style = $6, tone_formality = $7, verbosity = $8, emoji_usage = $9`,
               [role, profile.personality_summary, profile.backstory, JSON.stringify(profile.communication_traits), JSON.stringify(profile.quirks), profile.working_style, profile.tone_formality, profile.verbosity, profile.emoji_usage]
