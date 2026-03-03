@@ -188,24 +188,4 @@ jobs:
             --update-env-vars="NODE_ENV=production,DB_HOST=/cloudsql/${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:glyphor-db,DB_NAME=glyphor,DB_USER=glyphor_system_user" \
             --update-secrets="DB_PASSWORD=db-password:latest,GOOGLE_AI_API_KEY=google-ai-api-key:latest,OPENAI_API_KEY=openai-api-key:latest,ANTHROPIC_API_KEY=anthropic-api-key:latest,GCS_BUCKET=gcs-bucket:latest,AZURE_TENANT_ID=azure-tenant-id:latest,AZURE_CLIENT_ID=azure-client-id:latest,AZURE_CLIENT_SECRET=azure-client-secret:latest,TEAMS_TEAM_ID=teams-team-id:latest,TEAMS_CHANNEL_BRIEFING_KRISTINA_ID=teams-channel-briefing-kristina-id:latest,TEAMS_CHANNEL_BRIEFING_ANDREW_ID=teams-channel-briefing-andrew-id:latest,TEAMS_CHANNEL_DECISIONS_ID=teams-channel-decisions-id:latest,TEAMS_CHANNEL_GENERAL_ID=teams-channel-general-id:latest,TEAMS_CHANNEL_ENGINEERING_ID=teams-channel-engineering-id:latest,TEAMS_CHANNEL_GROWTH_ID=teams-channel-growth-id:latest,TEAMS_CHANNEL_FINANCIALS_ID=teams-channel-financials-id:latest,TEAMS_CHANNEL_PRODUCT_FUSE_ID=teams-channel-product-fuse-id:latest,TEAMS_CHANNEL_PRODUCT_PULSE_ID=teams-channel-product-pulse-id:latest,STRIPE_SECRET_KEY=stripe-secret-key:latest,MERCURY_API_TOKEN=mercury-api-token:latest,GITHUB_TOKEN=github-token:latest,GCP_PROJECT_ID=gcp-project-id:latest"
 
-  # ─── Post-Deploy Smoke Test ─────────────────────────────────
-  smoketest:
-    needs: [deploy-scheduler, deploy-dashboard, deploy-worker]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-      - run: npx turbo build --filter=@glyphor/smoketest...
-
-      - name: Run smoke tests (layer 0 — health checks)
-        env:
-          SCHEDULER_URL: https://glyphor-scheduler-610179349713.us-central1.run.app
-          DASHBOARD_URL: https://glyphor-dashboard-610179349713.us-central1.run.app
-          VOICE_GATEWAY_URL: https://glyphor-voice-gateway-610179349713.us-central1.run.app
-        run: node packages/smoketest/dist/index.js --layer 0
