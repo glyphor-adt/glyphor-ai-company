@@ -201,7 +201,7 @@ jobs:
           cache: npm
 
       - run: npm ci
-      - run: npx turbo build --filter=smoketest...
+      - run: npx turbo build --filter=@glyphor/smoketest...
 
       - name: Run smoke tests (layer 0 — health checks)
         env:

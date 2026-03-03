@@ -1,0 +1,561 @@
+# Cursor Instructions: Autonomous Executive Agent Upgrade
+
+## Problem Statement
+
+Five interconnected failures are preventing agents from operating autonomously:
+
+1. **Missing tools/skills — no self-correction**: Agents hit tool access errors and stop or hallucinate instead of self-granting and retrying
+2. **Hallucination — worrying about wrong things**: Agents fabricate data, misinterpret telemetry, or focus on irrelevant signals instead of grounding in tool results
+3. **Not proactive**: Agents only work when directly told to — they don't identify and pursue high-value work independently
+4. **Can't collaborate**: Agents don't know when to message peers, call meetings, or hand off work — they operate as isolated silos
+5. **Can't create their own work**: Agents wait for Sarah to assign tasks rather than generating their own initiatives, proposals, and improvements
+
+These problems are primarily behavioral (prompt-level), not architectural. The plumbing exists — tool self-recovery, proactive work loops, inter-agent messaging, meetings, assignment tools — but agents don't USE this infrastructure because their prompts don't instruct or model the behavior clearly enough.
+
+---
+
+## Architecture Context
+
+Before making changes, understand the execution flow:
+
+```
+Entry (cron/heartbeat/event/chat)
+  → trackedAgentExecutor
+    → createRunner (Orchestrator | Task | CompanyAgent)
+      → Pre-run data loading (10 parallel loaders)
+        → System prompt assembly (11 layers for full, 3 for task)
+          → Main agentic loop (model call → tool dispatch → repeat)
+            → Post-run reflection + event emission
+```
+
+Key files that control agent behavior:
+- `packages/agent-runtime/src/companyAgentRunner.ts` — core execution loop + prompt assembly
+- `packages/agent-runtime/src/orchestratorRunner.ts` — exec archetype (Sarah, Marcus, Victoria, Sophia, Atlas)
+- `packages/agent-runtime/src/taskRunner.ts` — sub-team archetype
+- `packages/agent-runtime/src/workLoop.ts` — P1-P6 priority stack
+- `packages/agent-runtime/src/supervisor.ts` — stall detection, turn limits
+- `packages/agent-runtime/src/toolExecutor.ts` — tool grant checks, budget caps
+- `packages/agents/src/shared/toolRequestTools.ts` — self-service tool access
+- `packages/agents/src/shared/communicationTools.ts` — DMs, meetings
+- `packages/agents/src/shared/assignmentTools.ts` — read/submit/flag assignments
+- `packages/agents/src/{role}/systemPrompt.ts` — per-agent personality + instructions
+- `packages/agents/src/{role}/tools.ts` — per-agent tool declarations
+- `packages/company-knowledge/briefs/{name}.md` — role briefs
+
+---
+
+## Fix 1: Tool Self-Recovery That Actually Works
+
+### Problem
+Agents encounter "does not have access to tool X" and either (a) tell the user they can't do it, (b) hallucinate a result, or (c) stall and get supervisor-killed. The `ALWAYS_ON_PROTOCOL` and `REASONING_PROTOCOL` already instruct self-recovery, but agents don't follow through consistently.
+
+### Root Cause
+The tool recovery instructions are buried in a large prompt. The error message from `toolExecutor.ts` when a grant check fails isn't actionable enough — it says to use `request_tool_access` but doesn't model the retry pattern.
+
+### Changes
+
+#### 1a. Improve tool denial error message (`toolExecutor.ts`)
+
+**File:** `packages/agent-runtime/src/toolExecutor.ts`
+
+Find the section where grant check failures are returned. The current error message likely says something like:
+```
+"Tool '{toolName}' is not granted to {agentRole}. Use request_tool_access to request access."
+```
+
+Replace with a structured recovery instruction:
+```
+"TOOL ACCESS DENIED: '{toolName}' is not currently granted to you.
+
+RECOVERY STEPS (do this NOW, do not skip):
+1. Call request_tool_access with tool_name='{toolName}' and reason='Needed for [describe current task]'
+2. After approval, retry your original {toolName} call with the same parameters
+3. If request_tool_access also fails, the tool may not exist — call request_new_tool instead
+
+DO NOT: report this as a blocker, tell the user you lack access, or skip this step of your task."
+```
+
+#### 1b. Add retry-on-denial to the agentic loop (`companyAgentRunner.ts` or `toolExecutor.ts`)
+
+**File:** `packages/agent-runtime/src/toolExecutor.ts`
+
+After the grant check fails, instead of immediately returning the error, check if the tool is a read-only tool (prefix `get_`, `read_`, `query_`, `check_`, `fetch_`, `list_`). If so, auto-grant it inline and retry:
+
+```typescript
+// Pseudocode for auto-recovery on read-only tools
+if (!isGranted && isReadOnlyTool(toolName)) {
+  // Auto-grant read-only tools (they're already auto-approved in request_tool_access)
+  await autoGrantTool(agentRole, toolName, db);
+  // Retry execution
+  return await executeToolImpl(toolName, args, agentRole, db);
+}
+```
+
+This eliminates the entire round-trip where the agent has to recognize the error, call `request_tool_access`, then retry — which uses 2-3 turns and often fails due to turn limits.
+
+#### 1c. Strengthen the PREFLIGHT CHECK in reasoning protocol
+
+**File:** `packages/agent-runtime/src/companyAgentRunner.ts`
+
+In the `REASONING_PROTOCOL` injected into scheduled task prompts, find the PREFLIGHT CHECK phase. Currently it says something about checking tools. Make it explicit:
+
+```
+PHASE 2 — PREFLIGHT CHECK (before executing ANY plan):
+Before calling any tool, verify you have access by checking your available tools list.
+If you need a tool you don't have:
+  → Call request_tool_access(tool_name, reason) IMMEDIATELY
+  → Wait for approval (read-only tools approve instantly)
+  → Then proceed with your plan
+If the tool doesn't exist at all:
+  → Call request_new_tool(name, description, implementation_type)
+  → This files a request with Marcus (CTO) — continue with what you CAN do
+  → Do NOT flag_assignment_blocker for missing tools — self-serve first
+
+NEVER skip a task step because you lack a tool. Self-serve access first, then execute.
+```
+
+#### 1d. Add tool availability hint to task-tier assignment instructions
+
+**File:** `packages/agent-runtime/src/workLoop.ts`
+
+When `executeWorkLoop` builds the execution message for P1/P2 work, it already includes assignment instructions and directive context. Add a tools hint:
+
+```typescript
+// In the P1/P2 message builder, after assignment instructions:
+const toolHint = `\n\nAVAILABLE TOOLS: If any tool call fails with "not granted", ` +
+  `call request_tool_access immediately and retry. Read-only tools approve instantly. ` +
+  `Do not report tool access as a blocker.`;
+```
+
+This is critical because task-tier prompts are only ~150 lines and don't include the full REASONING_PROTOCOL.
+
+---
+
+## Fix 2: Anti-Hallucination & Signal Grounding
+
+### Problem
+Agents fabricate metrics, misinterpret telemetry (e.g., treating 304s as errors, treating scaled-to-zero as outages), or focus on irrelevant signals rather than the actual task.
+
+### Root Cause
+Three factors: (a) the data honesty rules exist in chat mode (`CHAT_DATA_HONESTY`) but not in scheduled/task modes, (b) agents don't have grounding rules for when tool results are empty/null/unexpected, (c) task-tier prompts are so minimal that agents hallucinate context they don't have.
+
+### Changes
+
+#### 2a. Add DATA_GROUNDING_PROTOCOL to all execution tiers
+
+**File:** `packages/agent-runtime/src/companyAgentRunner.ts`
+
+Add a new protocol block injected into BOTH standard/full AND task tier prompts (this is short enough for task tier's ~150 line budget):
+
+```
+DATA GROUNDING RULES (apply to ALL tasks):
+
+1. NEVER state a metric, number, status, or fact without a tool call that produced it.
+   Wrong: "The error rate is 2.3%"
+   Right: [call get_cloud_run_metrics] → "The error rate is 2.3% based on the last 24h"
+
+2. If a tool returns null, empty, or error → say "data unavailable" not "everything is fine."
+   Null/empty ≠ zero. Missing data ≠ healthy.
+
+3. If a tool returns unexpected results, DO NOT explain them away.
+   State what the data shows. If it doesn't match expectations, flag that discrepancy.
+
+4. NEVER extrapolate from one data point. If you have yesterday's cost but not today's, 
+   say "yesterday's cost was $X, today's data not yet available" — don't project.
+
+5. Telemetry interpretation:
+   - instanceCount=0 or null → scaled to zero (NORMAL for Cloud Run idle)
+   - 3xx/4xx responses → NOT errors (cache hits, client errors)
+   - 5xx responses → real errors
+   - $0 cost → check dataStatus field, may mean data hasn't synced yet
+   - Your own previous alerts → your prior assessment, not new information
+```
+
+This is 15 lines. It fits in task tier and eliminates the most common hallucination patterns.
+
+#### 2b. Add scope guardrails to task-tier assignments
+
+**File:** `packages/agent-runtime/src/workLoop.ts`
+
+When building the execution message for assignments, add a scope constraint:
+
+```
+SCOPE CONSTRAINT: Your task is defined above. Do not investigate, comment on, 
+or report about topics outside your assignment. If you discover something concerning 
+outside your scope, send_agent_message to the responsible agent — do not try to 
+address it yourself.
+```
+
+This prevents the Marcus problem where he found a Fuse secret issue during a Pulse audit and went off-track.
+
+#### 2c. Strengthen Sarah's CONTEXT EMBEDDING check
+
+**File:** `packages/agents/src/chief-of-staff/systemPrompt.ts`
+
+In the ORCHESTRATION_PROMPT, update CHECK 4 (Context Embedding) to be more aggressive:
+
+```
+CHECK 4 — CONTEXT EMBEDDING (CRITICAL):
+Task-tier agents see ONLY ~150 lines: their personality, the assignment protocol, 
+and cost awareness. They do NOT see:
+  - Company knowledge base
+  - Role briefs
+  - Memories or reflections
+  - Knowledge graph
+  - Founder bulletins
+  - Other agents' outputs (unless you embed them)
+
+Therefore you MUST embed ALL relevant context directly in the assignment instructions.
+Include: specific product names, URLs, expected values, comparison baselines, 
+tool names to use, and acceptance criteria. The agent should be able to complete 
+the task using ONLY the assignment text + their tools. If they'd need to "just know" 
+something, you haven't embedded enough context.
+```
+
+---
+
+## Fix 3: Genuine Proactive Behavior
+
+### Problem
+The P5 (proactive) tier in the work loop exists but agents produce low-value output — checking things that are fine, restating known information, or generating reports nobody asked for.
+
+### Root Cause
+The proactive prompt is too generic. It says "look for ways to improve your domain" which produces aimless exploration. Agents need structured proactive patterns specific to their role.
+
+### Changes
+
+#### 3a. Replace generic proactive prompts with role-specific initiative templates
+
+**File:** `packages/agent-runtime/src/workLoop.ts`
+
+Find where proactive prompts are built (the P5 branch). Currently it's likely a generic "look for improvements in your domain" message. Replace with role-specific structured prompts:
+
+```typescript
+const PROACTIVE_PROMPTS: Record<string, string> = {
+  'cto': `PROACTIVE WORK — Choose ONE high-value initiative:
+    1. COST OPTIMIZATION: Query ai_usage for the last 7 days. Find any agent spending >120% 
+       of budget. If found, propose a model downgrade or schedule change.
+    2. RELIABILITY: Check last 24h of agent_runs for timeout/failure rates >15%. 
+       If found, investigate root cause and fix or create_github_issue.
+    3. PERFORMANCE: Compare current cold-start times to last month. If degraded >20%, 
+       investigate container size or dependency bloat.
+    4. TECH DEBT: Check for any open GitHub issues labeled 'tech-debt' older than 14 days. 
+       If found, triage and assign or close stale ones.
+    Pick the one with the highest potential impact. Execute it — don't just report on it.`,
+
+  'cfo': `PROACTIVE WORK — Choose ONE high-value initiative:
+    1. COST ANOMALY: Compare today's running costs to 7-day average. Flag anything >30% above.
+    2. REVENUE TREND: Check MRR trend over last 30 days. If declining, draft alert for founders.
+    3. UNIT ECONOMICS: Calculate cost-per-agent-run trend. Is it improving or degrading?
+    4. VENDOR AUDIT: Check vendor_subscriptions for any subscription with $0 usage in 30 days.
+    Pick the one with the highest potential impact. Execute it — don't just report on it.`,
+
+  'cpo': `PROACTIVE WORK — Choose ONE high-value initiative:
+    1. USAGE SIGNALS: Check product usage metrics for declining engagement patterns.
+    2. COMPETITIVE MOVE: Web search top 3 competitors for new feature announcements this week.
+    3. ROADMAP HEALTH: Check product_proposals for any stale (>30 days) proposals. Update or close.
+    4. FEATURE GAP: Cross-reference customer_health churn reasons with current roadmap items.
+    Pick the one with the highest potential impact. Execute it — don't just report on it.`,
+
+  'cmo': `PROACTIVE WORK — Choose ONE high-value initiative:
+    1. CONTENT GAP: Check content calendar for any days this week with no scheduled content.
+       If found, draft and schedule content.
+    2. SEO OPPORTUNITY: Query Search Console for keywords with high impressions but low clicks.
+    3. SOCIAL ENGAGEMENT: Review last week's social media performance. Double down on what worked.
+    4. BRAND MONITORING: Web search "Glyphor" and "Pulse AI" for new mentions or reviews.
+    Pick the one with the highest potential impact. Execute it — don't just report on it.`,
+  
+  // Add for remaining executives...
+  'default': `PROACTIVE WORK: Identify ONE concrete improvement in your domain that you can 
+    execute right now. Do not produce a report — take action. Fix something, create something, 
+    or message a colleague about something specific.`
+};
+```
+
+The key change: every proactive prompt ends with "Execute it — don't just report on it." and gives specific, measurable tasks rather than open-ended exploration.
+
+#### 3b. Track proactive value and eliminate low-value proactive runs
+
+**File:** `packages/agent-runtime/src/workLoop.ts`
+
+After a proactive run completes, check if the agent actually DID something (tool calls > 0, or assignment/message created). If the last 3 proactive runs produced no actions, extend the proactive cooldown for that agent:
+
+```typescript
+// After proactive run completes:
+const recentProactiveRuns = await getRecentRuns(agentRole, 'proactive', 3);
+const noActionRuns = recentProactiveRuns.filter(r => r.tool_calls === 0);
+if (noActionRuns.length >= 3) {
+  // Agent is producing empty proactive runs — double their cooldown
+  await extendProactiveCooldown(agentRole, 2x);
+}
+```
+
+This creates evolutionary pressure: agents that waste proactive cycles get throttled.
+
+---
+
+## Fix 4: Inter-Agent Collaboration
+
+### Problem
+Agents operate as silos. When one agent discovers something relevant to another's domain, they don't message them. When a problem requires multiple perspectives, nobody calls a meeting. Agents don't hand off work to each other.
+
+### Root Cause
+Communication tools exist but agents don't have mental models of WHEN to use them. The prompts don't include collaboration heuristics.
+
+### Changes
+
+#### 4a. Add COLLABORATION_PROTOCOL to standard/full tier prompts
+
+**File:** `packages/agent-runtime/src/companyAgentRunner.ts`
+
+Add a new protocol block for standard and full tiers (not task tier — task tier agents are focused executors):
+
+```
+COLLABORATION PROTOCOL:
+
+You are part of a 46-person organization. You are NOT a solo operator.
+
+WHEN TO MESSAGE A COLLEAGUE (send_agent_message):
+- You discover something in their domain (e.g., you find a billing anomaly → message CFO)
+- You need data you can't access (e.g., you need customer churn reasons → message VP CS)
+- You've completed work that affects their area (e.g., you deployed a fix → message CPO)
+- You disagree with a decision that involves them
+
+WHEN TO CALL A MEETING (call_meeting):
+- A decision affects 3+ departments
+- You've identified conflicting information from different agents
+- A founder directive requires cross-functional alignment before execution
+- An incident needs coordinated response from multiple teams
+
+WHEN TO CREATE WORK FOR YOUR TEAM (assign_task):
+- You've identified a task that matches a direct report's specialization
+- You're blocked on higher-priority work and a sub-task can be parallelized
+- A routine check could be delegated so you can focus on strategic work
+
+WHO KNOWS WHAT (reference this before messaging):
+  Sarah Chen (CoS) — cross-functional synthesis, directive status, organizational priorities
+  Marcus Reeves (CTO) — infrastructure, deployments, tool registry, CI/CD, agent health
+  Nadia Okafor (CFO) — costs, revenue, margins, vendor subscriptions, budget
+  Elena Vasquez (CPO) — product usage, roadmap, competitive intel, feature prioritization
+  Maya Brooks (CMO) — content, SEO, social media, brand, growth analytics
+  James Turner (VP CS) — customer health, churn, onboarding, support queue
+  Rachel Kim (VP Sales) — enterprise pipeline, KYC research, proposals
+  Mia Tanaka (VP Design) — design system, UI quality, component library, frontend
+  Sophia Lin (VP Research) — strategic research, market analysis, industry trends
+  Victoria Chase (CLO) — legal compliance, IP protection, contracts, data privacy
+  Atlas Vega (Ops) — system health, data freshness, infrastructure monitoring
+  Morgan Blake (Admin) — access provisioning, platform IAM, onboarding/offboarding
+
+DO NOT: work on a problem for multiple turns that another agent could solve in one message.
+DO NOT: duplicate analysis another agent already produced — ask them for it.
+```
+
+#### 4b. Inject org awareness into proactive cycles
+
+**File:** `packages/agent-runtime/src/workLoop.ts`
+
+In the proactive prompt builder, append a collaboration nudge:
+
+```
+Before starting proactive work, check_messages first. If a colleague has messaged you,
+respond to that instead — colleague requests are higher priority than self-directed work.
+
+After completing proactive work, ask yourself: does any other agent need to know about 
+what I found? If yes, send_agent_message with a concise summary.
+```
+
+#### 4c. Have Sarah model collaboration in assignment instructions
+
+**File:** `packages/agents/src/chief-of-staff/systemPrompt.ts`
+
+When Sarah creates assignments, she should explicitly tell agents who to coordinate with:
+
+```
+When writing assignment instructions, always include:
+- COORDINATION: List which agents the assignee should message if they discover 
+  cross-functional issues (e.g., "If you find cost anomalies, message Nadia immediately")
+- HANDOFF: Specify what to do with outputs that affect other domains 
+  (e.g., "After completing the audit, send findings to Marcus for technical triage")
+```
+
+---
+
+## Fix 5: Self-Directed Work Generation
+
+### Problem
+Agents wait passively for Sarah to create assignments. They don't propose new directives, identify emerging problems before being told, or initiate improvement projects.
+
+### Root Cause
+The `ALWAYS_ON_PROTOCOL` P5 (proactive) tier only produces within-run actions. There's no mechanism for agents to propose new DIRECTIVES or long-running initiatives that would go through the orchestration loop.
+
+### Changes
+
+#### 5a. Add a `propose_initiative` tool for executives
+
+**File:** `packages/agents/src/shared/` (new file: `initiativeTools.ts`)
+
+Create a new shared tool that executives can call during proactive runs:
+
+```typescript
+// Tool: propose_initiative
+// Description: Propose a new initiative to Sarah Chen for evaluation. 
+//   Sarah will determine if it warrants a founder directive or can be 
+//   handled as a standing task. Include: title, business justification 
+//   (why now, what's the cost of inaction), proposed assignments 
+//   (which agents, what tasks), expected outcome, and estimated effort.
+//
+// Parameters:
+//   title: string — initiative name
+//   justification: string — why this matters, what data supports it
+//   proposed_assignments: Array<{agent_role, task_description}> — suggested work breakdown
+//   expected_outcome: string — what success looks like
+//   priority: 'critical' | 'high' | 'medium' | 'low'
+//   estimated_days: number
+//
+// Behavior:
+//   → INSERT into a new `proposed_initiatives` table
+//   → send_agent_message to chief-of-staff with the proposal
+//   → Sarah evaluates and either creates a directive or responds with feedback
+```
+
+#### 5b. Add initiative evaluation to Sarah's orchestration cycle
+
+**File:** `packages/agents/src/chief-of-staff/systemPrompt.ts`
+
+In the ORCHESTRATION_PROMPT, add a new responsibility:
+
+```
+INITIATIVE EVALUATION:
+During each orchestration cycle, after checking active directives and assignments:
+1. Check for proposed_initiatives with status='pending'
+2. For each proposal:
+   - Is the justification data-backed? (not just "we should do X")
+   - Does it align with current company priorities?
+   - Is the proposed agent assignment correct?
+   - Is the effort estimate reasonable?
+3. APPROVE → Create a founder directive (if high priority) or standing work assignments
+4. DEFER → Mark as deferred with reason, propose re-evaluation date
+5. REJECT → Mark as rejected with constructive feedback to proposing agent
+```
+
+#### 5c. Strengthen P5 proactive prompts to include initiative generation
+
+**File:** `packages/agent-runtime/src/workLoop.ts`
+
+Extend the role-specific proactive prompts from Fix 3a to include an initiative option:
+
+```
+5. INITIATIVE: If you've identified a pattern across multiple runs — a recurring problem,
+   an untapped opportunity, or a systemic inefficiency — use propose_initiative to formally 
+   propose a multi-agent project to address it. Include data from your last 3+ runs as 
+   justification.
+```
+
+#### 5d. Create a `proposed_initiatives` table
+
+**File:** `db/migrations/` (new migration)
+
+```sql
+CREATE TABLE proposed_initiatives (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  proposed_by TEXT NOT NULL REFERENCES company_agents(role),
+  title TEXT NOT NULL,
+  justification TEXT NOT NULL,
+  proposed_assignments JSONB NOT NULL DEFAULT '[]',
+  expected_outcome TEXT,
+  priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('critical','high','medium','low')),
+  estimated_days INTEGER,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','deferred','rejected')),
+  evaluation_notes TEXT,
+  evaluated_by TEXT REFERENCES company_agents(role),
+  directive_id UUID REFERENCES founder_directives(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  evaluated_at TIMESTAMPTZ,
+  tenant_id TEXT NOT NULL DEFAULT 'glyphor'
+);
+
+CREATE INDEX idx_proposed_initiatives_status ON proposed_initiatives(status, tenant_id);
+CREATE INDEX idx_proposed_initiatives_proposed_by ON proposed_initiatives(proposed_by, tenant_id);
+```
+
+#### 5e. Add Dashboard page for initiatives
+
+**File:** `packages/dashboard/src/pages/` (extend Directives.tsx or create Initiatives.tsx)
+
+Add a tab or section showing proposed initiatives with status, proposing agent, and evaluation notes. This gives founders visibility into what agents are identifying on their own.
+
+---
+
+## Implementation Priority
+
+These fixes build on each other. Implement in this order:
+
+### Phase 1 — Stop the Bleeding (Day 1-2)
+1. **Fix 2a** — DATA_GROUNDING_PROTOCOL (15 lines, all tiers) — stops hallucination immediately
+2. **Fix 1a** — Better tool denial error message — makes existing self-recovery work
+3. **Fix 1b** — Auto-grant read-only tools on denial — eliminates 80% of tool access loops
+4. **Fix 2b** — Scope guardrails in task-tier — stops agents going off-track
+
+### Phase 2 — Enable Collaboration (Day 3-4)
+5. **Fix 4a** — COLLABORATION_PROTOCOL — gives agents a mental model of teamwork
+6. **Fix 2c** — Strengthen Sarah's context embedding check — prevents downstream failures
+7. **Fix 4c** — Sarah models coordination in assignments — shows agents how to collaborate
+
+### Phase 3 — Drive Proactive Behavior (Day 5-7)
+8. **Fix 3a** — Role-specific proactive prompts — replaces aimless exploration with targeted action
+9. **Fix 3b** — Track proactive value — evolutionary pressure against low-value runs
+10. **Fix 4b** — Org awareness in proactive cycles — collaboration during independent work
+
+### Phase 4 — Self-Directed Work (Day 8-10)
+11. **Fix 5d** — Create proposed_initiatives table
+12. **Fix 5a** — propose_initiative tool
+13. **Fix 5b** — Sarah's initiative evaluation
+14. **Fix 5c** — Initiative generation in proactive prompts
+15. **Fix 5e** — Dashboard visibility
+
+---
+
+## Testing Strategy
+
+After each phase, verify with these checks:
+
+**Phase 1 verification:**
+- Trigger a CTO health check. Does Marcus call tools before stating any metric? (Fix 2a)
+- Revoke a read-only tool from an agent via DB, then trigger their run. Do they auto-recover? (Fix 1b)
+- Create a Pulse audit directive with off-scope bait. Does the agent stay on scope? (Fix 2b)
+
+**Phase 2 verification:**
+- Create a directive that requires cross-functional data. Does Sarah embed context? (Fix 2c)
+- During a CTO health check, does Marcus message Nadia about a cost anomaly? (Fix 4a)
+
+**Phase 3 verification:**
+- Let CTO proactive cycle fire. Does he pick a specific initiative and EXECUTE it? (Fix 3a)
+- After 3 empty proactive runs, does the cooldown extend? (Fix 3b)
+
+**Phase 4 verification:**
+- Does any agent call propose_initiative during proactive work? (Fix 5a)
+- Does Sarah evaluate and act on the proposal? (Fix 5b)
+
+---
+
+## Files Modified Summary
+
+| File | Fixes Applied |
+|------|--------------|
+| `packages/agent-runtime/src/toolExecutor.ts` | 1a (error message), 1b (auto-grant read-only) |
+| `packages/agent-runtime/src/companyAgentRunner.ts` | 1c (preflight check), 2a (data grounding), 4a (collaboration protocol) |
+| `packages/agent-runtime/src/workLoop.ts` | 1d (tool hint), 2b (scope guardrails), 3a (proactive prompts), 3b (value tracking), 4b (org awareness), 5c (initiative generation) |
+| `packages/agents/src/chief-of-staff/systemPrompt.ts` | 2c (context embedding), 4c (coordination modeling), 5b (initiative evaluation) |
+| `packages/agents/src/shared/initiativeTools.ts` | 5a (new file — propose_initiative tool) |
+| `db/migrations/xxx_proposed_initiatives.sql` | 5d (new table) |
+| `packages/dashboard/src/pages/Directives.tsx` | 5e (initiatives UI) |
+
+---
+
+## Key Principle
+
+The architecture is already built for autonomy. The agents have tools for self-recovery, collaboration, proactive work, and work creation. What's missing is the behavioral firmware — the prompt-level instructions that model WHEN and HOW to use these capabilities. Every fix above is fundamentally a prompt improvement backed by small runtime changes to make the happy path automatic.
+
+The single most impactful change: **Fix 1b (auto-grant read-only tools)**. This eliminates the #1 source of stalls and hallucinations — agents spinning on tool access they could trivially have.
+
+The single most transformative change: **Fix 5a-5c (propose_initiative)**. This turns agents from passive executors into active partners who identify problems and propose solutions.
