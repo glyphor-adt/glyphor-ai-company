@@ -433,7 +433,7 @@ export function createTeamOrchestrationTools(
             [
               ctx.agentRole, 'chief-of-staff',
               `**Escalation from ${ctx.agentRole}:** ${params.subject}\n\n${params.context}`,
-              'alert', urgency === 'critical' ? 'urgent' : 'normal', 'pending',
+              'request', urgency === 'critical' ? 'urgent' : 'normal', 'pending',
               JSON.stringify({ assignment_id: params.assignment_id ?? null, escalation: true }),
             ],
           );

@@ -43,16 +43,28 @@ function checkMeetingRate(agent: string): boolean {
 
 /* ── Valid Agent Roles ────────────────────── */
 
-const VALID_ROLES: CompanyAgentRole[] = [
-  'chief-of-staff', 'cto', 'cpo', 'cmo', 'cfo',
-  'vp-customer-success', 'vp-sales', 'vp-design',
-  'platform-engineer', 'quality-engineer', 'devops-engineer',
-  'user-researcher', 'competitive-intel', 'revenue-analyst',
-  'cost-analyst', 'content-creator', 'seo-analyst',
-  'social-media-manager', 'onboarding-specialist', 'support-triage',
-  'account-research', 'ui-ux-designer', 'frontend-engineer',
-  'design-critic', 'template-architect', 'ops',
-];
+// Cache DB-resolved roles for 5 minutes to avoid per-call queries
+let _validRolesCache: { roles: Set<string>; fetchedAt: number } | null = null;
+const ROLE_CACHE_TTL = 5 * 60 * 1000;
+
+async function getValidRoles(): Promise<Set<string>> {
+  const now = Date.now();
+  if (_validRolesCache && now - _validRolesCache.fetchedAt < ROLE_CACHE_TTL) {
+    return _validRolesCache.roles;
+  }
+  try {
+    const rows = await systemQuery<{ role: string }>(
+      "SELECT role FROM company_agents WHERE status = 'active'",
+      [],
+    );
+    const roles = new Set(rows.map((r) => r.role));
+    _validRolesCache = { roles, fetchedAt: now };
+    return roles;
+  } catch {
+    // Fallback: if DB is unreachable, use cached or allow
+    return _validRolesCache?.roles ?? new Set();
+  }
+}
 
 /* ── Factory ──────────────────────────────── */
 
@@ -71,7 +83,6 @@ export function createCommunicationTools(
           type: 'string',
           description: 'The recipient agent role slug',
           required: true,
-          enum: VALID_ROLES as string[],
         },
         message: {
           type: 'string',
@@ -103,8 +114,9 @@ export function createCommunicationTools(
         if (toAgent === fromAgent) {
           return { success: false, error: 'Cannot send a message to yourself' };
         }
-        if (!VALID_ROLES.includes(toAgent as CompanyAgentRole)) {
-          return { success: false, error: `Unknown agent: ${toAgent}` };
+        const validRoles = await getValidRoles();
+        if (validRoles.size > 0 && !validRoles.has(toAgent)) {
+          return { success: false, error: `Unknown agent: ${toAgent}. Agent not found or not active.` };
         }
         if (!checkMessageRate(fromAgent)) {
           return { success: false, error: `Rate limit exceeded (${MESSAGE_RATE_LIMIT}/hr)` };
