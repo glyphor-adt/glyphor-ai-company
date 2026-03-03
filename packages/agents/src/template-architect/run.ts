@@ -26,6 +26,7 @@ import { createFigmaTools } from '../shared/figmaTools.js';
 import { createStorybookTools } from '../shared/storybookTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
+import { createLogoTools } from '../shared/logoTools.js';
 
 export interface TemplateArchitectRunParams {
   task?: 'variant_review' | 'template_quality_audit' | 'on_demand';
@@ -59,6 +60,7 @@ export async function runTemplateArchitect(params: TemplateArchitectRunParams = 
     ...createStorybookTools(),
     ...createEmailTools(),
     ...createSharePointTools(),
+    ...createLogoTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

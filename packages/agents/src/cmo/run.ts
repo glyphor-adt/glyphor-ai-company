@@ -40,6 +40,7 @@ import { createSocialMediaTools } from '../shared/socialMediaTools.js';
 import { createEmailMarketingTools } from '../shared/emailMarketingTools.js';
 import { createMarketingIntelTools } from '../shared/marketingIntelTools.js';
 import { createCanvaTools } from '../shared/canvaTools.js';
+import { createLogoTools } from '../shared/logoTools.js';
 
 export interface CMORunParams {
   task?: 'weekly_content_planning' | 'generate_content' | 'seo_analysis' | 'on_demand';
@@ -86,6 +87,7 @@ export async function runCMO(params: CMORunParams = {}) {
     ...createEmailMarketingTools(),
     ...createMarketingIntelTools(),
     ...createCanvaTools(),
+    ...createLogoTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
