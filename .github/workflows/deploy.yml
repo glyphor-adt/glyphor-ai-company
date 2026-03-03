@@ -16,24 +16,8 @@ env:
   REGISTRY: us-central1-docker.pkg.dev/ai-glyphor-company/glyphor
 
 jobs:
-  # ─── Build & Test ──────────────────────────────────────────
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-      - run: npx turbo build
-      - run: npx turbo test
-
   # ─── Deploy Scheduler ─────────────────────────────────────
   deploy-scheduler:
-    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -84,7 +68,6 @@ jobs:
 
   # ─── Deploy Dashboard ──────────────────────────────────────
   deploy-dashboard:
-    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -136,7 +119,6 @@ jobs:
 
   # ─── Deploy Worker ──────────────────────────────────────────
   deploy-worker:
-    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: read
