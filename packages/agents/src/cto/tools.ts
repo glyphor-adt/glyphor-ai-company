@@ -37,6 +37,7 @@ import {
   GraphTeamsClient,
   buildChannelMap,
   type ChannelTarget,
+  searchWeb,
 } from '@glyphor/integrations';
 
 export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
@@ -1339,7 +1340,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
           type: 'string',
           description: 'Cloud Run service to deploy',
           required: true,
-          enum: ['scheduler', 'dashboard', 'voice-gateway'],
+          enum: ['scheduler', 'worker', 'dashboard', 'voice-gateway'],
         },
         environment: {
           type: 'string',
@@ -1457,7 +1458,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
           type: 'string',
           description: 'Cloud Run service to rollback',
           required: true,
-          enum: ['scheduler', 'dashboard', 'voice-gateway'],
+          enum: ['scheduler', 'worker', 'dashboard', 'voice-gateway'],
         },
         reason: {
           type: 'string',
@@ -2042,6 +2043,155 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
           await graphClient.sendText(target, params.message as string);
 
           return { success: true, data: { channel: channelKey, sent: true } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    // ─── GCP Service Management ──────────────────────────────────
+
+    {
+      name: 'inspect_cloud_run_service',
+      description: 'Inspect a Cloud Run service configuration — see environment variables, secrets, resource limits, scaling, and current revision. Use this to diagnose missing env vars or secrets.',
+      parameters: {
+        service: {
+          type: 'string',
+          description: 'Cloud Run service name (e.g. "scheduler", "worker", "dashboard", "voice-gateway")',
+          required: true,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        const projectId = process.env.GCP_PROJECT_ID;
+        if (!projectId) return { success: false, error: 'GCP_PROJECT_ID not configured' };
+
+        const serviceName = `glyphor-${params.service as string}`;
+        const region = 'us-central1';
+
+        try {
+          const token = await getGCPAccessToken();
+          const url = `https://run.googleapis.com/v2/projects/${projectId}/locations/${region}/services/${serviceName}`;
+          const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+
+          if (!res.ok) return { success: false, error: `Failed to get service: ${res.status} ${await res.text()}` };
+
+          const svc = await res.json() as Record<string, unknown>;
+          const template = (svc as any).template;
+          const container = template?.containers?.[0];
+
+          const envVars: Record<string, string> = {};
+          const secrets: Record<string, string> = {};
+          for (const e of container?.env ?? []) {
+            if (e.valueSource?.secretKeyRef) {
+              secrets[e.name] = `${e.valueSource.secretKeyRef.secret}:${e.valueSource.secretKeyRef.version}`;
+            } else {
+              envVars[e.name] = e.value ?? '(set)';
+            }
+          }
+
+          return {
+            success: true,
+            data: {
+              service: serviceName,
+              revision: template?.revision ?? 'unknown',
+              scaling: {
+                minInstances: template?.scaling?.minInstanceCount,
+                maxInstances: template?.scaling?.maxInstanceCount,
+              },
+              resources: container?.resources?.limits,
+              envVars,
+              secrets,
+              serviceAccount: template?.serviceAccount,
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'update_cloud_run_secrets',
+      description: 'Add or update secret environment variables on a Cloud Run service. Maps GCP Secret Manager secrets to env vars. YELLOW authority — requires a decision for production services.',
+      parameters: {
+        service: {
+          type: 'string',
+          description: 'Cloud Run service name (e.g. "scheduler", "worker", "dashboard")',
+          required: true,
+        },
+        secrets: {
+          type: 'object',
+          description: 'Map of ENV_VAR_NAME to secret-manager-secret-name (e.g. {"STRIPE_SECRET_KEY": "stripe-secret-key"})',
+          required: true,
+        },
+        reason: {
+          type: 'string',
+          description: 'Reason for the change',
+          required: true,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const projectId = process.env.GCP_PROJECT_ID;
+        if (!projectId) return { success: false, error: 'GCP_PROJECT_ID not configured' };
+
+        const serviceName = `glyphor-${params.service as string}`;
+        const region = 'us-central1';
+        const secretsToAdd = params.secrets as Record<string, string>;
+
+        // Require decision for any secret changes
+        const decisionId = await memory.createDecision({
+          tier: 'yellow',
+          status: 'pending',
+          title: `Update secrets on ${serviceName}`,
+          summary: `Add/update ${Object.keys(secretsToAdd).length} secret(s) on ${serviceName}: ${Object.keys(secretsToAdd).join(', ')}. Reason: ${params.reason}`,
+          proposedBy: ctx.agentRole,
+          reasoning: params.reason as string,
+          assignedTo: ['Kristina', 'Andrew'],
+          data: { service: serviceName, secrets: Object.keys(secretsToAdd) },
+        });
+
+        return {
+          success: true,
+          data: {
+            status: 'pending_approval',
+            decisionId,
+            message: `Secret update requires founder approval. Decision ${decisionId} created. Secrets to add: ${Object.keys(secretsToAdd).join(', ')}`,
+          },
+        };
+      },
+    },
+
+    // ─── Web Search ──────────────────────────────────────────────
+
+    {
+      name: 'web_search',
+      description: 'Search the web for technical information — docs, CVEs, changelogs, Stack Overflow, GCP documentation, etc. Use for researching issues, looking up API docs, or investigating errors.',
+      parameters: {
+        query: {
+          type: 'string',
+          description: 'Search query. Be specific — include error messages, service names, version numbers.',
+          required: true,
+        },
+        num_results: {
+          type: 'number',
+          description: 'Number of results (default: 8, max: 15)',
+        },
+        time_range: {
+          type: 'string',
+          description: 'Limit to recent results: "day", "week", "month", "year"',
+          enum: ['day', 'week', 'month', 'year'],
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        try {
+          const query = params.query as string;
+          const num = Math.min((params.num_results as number) || 8, 15);
+          const timeRange = params.time_range as string | undefined;
+          const results = await searchWeb(query, { num, timeRange });
+          return {
+            success: true,
+            data: { query, resultCount: results.length, results },
+          };
         } catch (err) {
           return { success: false, error: (err as Error).message };
         }
