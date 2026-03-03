@@ -403,6 +403,27 @@ const KNOWN_TOOLS = new Set([
   'read_file',
   'deploy_to_staging',
 
+  // ── Pre-existing shared tools (missing from initial registry) ──
+  // diagnosticTools
+  'check_table_schema',
+  'diagnose_column_error',
+  'list_tables',
+  'check_tool_health',
+  // accessAuditTools
+  'view_access_matrix',
+  'view_pending_grant_requests',
+  // agentCreationTools
+  'create_specialist_agent',
+  'list_my_created_agents',
+  'retire_created_agent',
+  // toolRequestTools
+  'request_tool_access',
+  // sharepointTools
+  'search_sharepoint',
+  'read_sharepoint_document',
+  'upload_to_sharepoint',
+  'list_sharepoint_folders',
+
   // ── Marketing shared tools (Wave 1) ──
   // contentTools
   'create_content_draft',

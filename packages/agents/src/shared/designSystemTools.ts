@@ -212,6 +212,9 @@ export function createDesignSystemTools(): ToolDefinition[] {
         },
       },
       async execute(params): Promise<ToolResult> {
+        if (!params.branch) return { success: false, error: 'branch parameter is required' };
+        if (!params.token_path) return { success: false, error: 'token_path parameter is required' };
+        if (!params.new_value) return { success: false, error: 'new_value parameter is required' };
         const tokenPath = params.token_path as string;
         const tokenName = params.token_name as string;
         const newValue = params.new_value as string;

@@ -92,6 +92,7 @@ export function createAgentDirectoryTools(): ToolDefinition[] {
         },
       },
       execute: async (params): Promise<ToolResult> => {
+        if (!params.need) return { success: false, error: 'need parameter is required' };
         const need = (params.need as string).toLowerCase();
 
         // Static routing table — covers the most common cross-agent needs

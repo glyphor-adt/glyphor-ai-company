@@ -365,14 +365,15 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
 
   // ── T16.5 — Execute Safety ─────────────────────────────────────────
   // Group by wave for granular reporting
-  for (const wave of [1, 2, 3, 4, 5]) {
+  for (const wave of [0, 1, 2, 3, 4, 5]) {
     const waveTools = allTools.filter(t => t.wave === wave);
     if (waveTools.length === 0) continue;
 
-    const waveNames = ['', 'Marketing', 'Finance', 'Product+Research', 'Governance', 'Engineering'];
+    const waveNames = ['Pre-existing', 'Marketing', 'Finance', 'Product+Research', 'Governance', 'Engineering'];
+    const waveSuffix = wave === 0 ? '0' : String.fromCharCode(96 + wave);
     tests.push(
       await runTest(
-        `T16.5${String.fromCharCode(96 + wave)}`,
+        `T16.5${waveSuffix}`,
         `Wave ${wave} ${waveNames[wave]} Execute Safety`,
         async () => {
           const threw: string[] = [];

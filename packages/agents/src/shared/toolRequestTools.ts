@@ -69,6 +69,9 @@ export function createToolRequestTools(): ToolDefinition[] {
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
+        if (!params.tool_name) return { success: false, error: 'tool_name parameter is required' };
+        if (!params.description) return { success: false, error: 'description parameter is required' };
+        if (!params.justification) return { success: false, error: 'justification parameter is required' };
         const toolName = params.tool_name as string;
         const description = params.description as string;
         const justification = params.justification as string;

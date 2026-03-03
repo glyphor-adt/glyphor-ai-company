@@ -100,7 +100,7 @@ Steps:
 7. If any large deal FROM VERIFIED DATA needs founder attention, use create_decision
 8. Use log_activity summarising findings
 
-IMPORTANT: Only report on deals and prospects that exist in the data you retrieve. If the pipeline is empty or has no active deals, report that honestly. Do NOT invent companies, ARR figures, or opportunities.`;
+IMPORTANT: Only report on deals and prospects that exist in the data you retrieve. If the pipeline is empty or has no active deals, report that honestly — "no active pipeline" is a valid status. Do NOT invent companies, ARR figures, deal values, or opportunities. If get_product_metrics returns null or memory keys return no data, that means data is not yet populated — NOT that there is a blocker or crisis. Do NOT create decisions (create_decision) based on fabricated or hypothesised deals.`;
       break;
 
     case 'market_sizing':

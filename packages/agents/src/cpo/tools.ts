@@ -23,6 +23,9 @@ export function createCPOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         const metrics = await memory.getProductMetrics(params.product as 'fuse' | 'pulse');
+        if (!metrics) {
+          return { success: true, data: { message: `No product data found for '${params.product}'. The product may not be tracked yet. This is NOT an incident — do not fabricate metrics or crises.` } };
+        }
         return { success: true, data: metrics };
       },
     },

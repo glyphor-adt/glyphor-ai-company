@@ -104,7 +104,9 @@ Steps:
 5. Identify key insights: What's growing? What's declining? What needs attention?
 6. Use write_product_analysis with type "usage" to archive your report
 7. Use log_activity to record this analysis
-8. If you find critical product issues (engagement drops >15%), use create_decision`;
+8. If you find critical product issues (engagement drops >15%), use create_decision
+
+IMPORTANT: If get_product_metrics returns null or empty metrics, that means the data is not yet populated — NOT that there is a crisis. Report "no product data available yet" and skip analysis for that product. Do NOT fabricate incidents, outages, or emergency scenarios from missing data.`;
       break;
 
     case 'competitive_scan':
