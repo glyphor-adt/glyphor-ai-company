@@ -21,6 +21,7 @@ const FOUNDERS = [
 ];
 
 const DEPARTMENTS = [
+  { label: 'Executive Office', role: 'chief-of-staff' },
   { label: 'Engineering', role: 'cto' },
   { label: 'Product', role: 'cpo' },
   { label: 'Finance', role: 'cfo' },

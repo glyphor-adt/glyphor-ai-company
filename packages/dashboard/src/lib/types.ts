@@ -896,4 +896,18 @@ export const SUB_TEAM: SubTeamMember[] = [
   { name: 'Daniel Okafor', title: 'Market Research Analyst',      department: 'Research & Intelligence', reportsTo: 'vp-research', color: '#059669', initials: 'DO', avatar: 'market-research-analyst' },
   { name: 'Kai Nakamura',  title: 'Technical Research Analyst',   department: 'Research & Intelligence', reportsTo: 'vp-research', color: '#059669', initials: 'KN', avatar: 'technical-research-analyst' },
   { name: 'Amara Diallo',  title: 'Industry Research Analyst',    department: 'Research & Intelligence', reportsTo: 'vp-research', color: '#059669', initials: 'AD', avatar: 'industry-research-analyst' },
+  // Executive Office → Sarah Chen (Chief of Staff)
+  { name: 'Adi Rose',      title: 'Executive Assistant to COO',  department: 'Executive Office',        reportsTo: 'chief-of-staff', color: '#7C3AED', initials: 'AR', avatar: 'adi-rose' },
+  // Legal → Victoria Chase (CLO)
+  { name: 'Robert Finley', title: 'CPA & Tax Strategist',         department: 'Legal',                   reportsTo: 'clo', color: '#6D28D9', initials: 'RF', avatar: 'bob-the-tax-pro' },
+  { name: 'Grace Hwang',   title: 'Data Integrity Auditor',       department: 'Operations & IT',         reportsTo: 'ops', color: '#EA580C', initials: 'GH', avatar: 'data-integrity-auditor' },
+  { name: 'Mariana Solis', title: 'Tax Strategy Specialist',      department: 'Legal',                   reportsTo: 'clo', color: '#6D28D9', initials: 'MS', avatar: 'tax-strategy-specialist' },
+  // Sales
+  { name: 'Ethan Morse',   title: 'Enterprise Account Researcher',department: 'Sales',                   reportsTo: 'vp-sales', color: '#1D4ED8', initials: 'EM', avatar: 'enterprise-account-researcher' },
+  { name: 'Derek Owens',   title: 'Lead Gen Specialist',          department: 'Sales',                   reportsTo: 'vp-sales', color: '#1D4ED8', initials: 'DO', avatar: 'lead-gen-specialist' },
+  // Marketing
+  { name: 'Zara Petrov',   title: 'Marketing Intelligence',       department: 'Marketing',               reportsTo: 'cmo', color: '#7C3AED', initials: 'ZP', avatar: 'marketing-intelligence-analyst' },
+  // Research
+  { name: 'Riya Mehta',    title: 'AI Impact Analyst',            department: 'Research & Intelligence', reportsTo: 'vp-research', color: '#059669', initials: 'RM', avatar: 'ai-impact-analyst' },
+  { name: 'Marcus Chen',   title: 'Organizational & Talent Analyst', department: 'Research & Intelligence', reportsTo: 'vp-research', color: '#059669', initials: 'MC', avatar: 'org-analyst' },
 ];
