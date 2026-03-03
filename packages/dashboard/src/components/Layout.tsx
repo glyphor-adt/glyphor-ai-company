@@ -29,8 +29,8 @@ export default function Layout() {
         {/* Brand */}
         <div className="flex items-center gap-3 px-4 py-4">
           <img src="/glyphor-logo.png" alt="Glyphor" className="h-10 w-10 drop-shadow-[0_0_10px_rgba(34,211,238,0.4)]" />
-          <span className="text-lg font-semibold font-prism-display tracking-tight text-prism-primary">
-            Glyphor
+          <span className="text-lg font-prism-display tracking-tight text-prism-primary">
+            glyphor
           </span>
         </div>
 
