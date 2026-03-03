@@ -160,6 +160,7 @@ export function createEmailMarketingTools(): ToolDefinition[] {
         list_id: { type: 'string', description: 'Audience/list ID', required: true },
       },
       execute: async (params): Promise<ToolResult> => {
+        if (!params.list_id) return { success: false, error: 'list_id parameter is required' };
         try {
           const listId = params.list_id as string;
           const data = await mailchimpFetch(`/lists/${listId}/segments`);

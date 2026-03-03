@@ -224,6 +224,7 @@ export function createResearchRepoTools(): ToolDefinition[] {
         },
       },
       async execute(params): Promise<ToolResult> {
+        if (!params.date_range) return { success: false, error: 'date_range parameter is required' };
         const dateRange = params.date_range as string;
         const author = params.author as string | undefined;
         const days = parseInt(dateRange.replace('d', ''), 10);

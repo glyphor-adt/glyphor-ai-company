@@ -224,6 +224,7 @@ export function createSeoTools(): ToolDefinition[] {
         },
       },
       async execute(params): Promise<ToolResult> {
+        if (!params.keywords) return { success: false, error: 'keywords parameter is required' };
         const keywords = (params.keywords as string).split(',').map((k) => k.trim()).filter(Boolean);
         const siteUrl = params.site_url as string;
 

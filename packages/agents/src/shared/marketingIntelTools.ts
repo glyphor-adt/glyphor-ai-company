@@ -175,6 +175,7 @@ export function createMarketingIntelTools(): ToolDefinition[] {
         },
       },
       async execute(params): Promise<ToolResult> {
+        if (!params.competitor_domains) return { success: false, error: 'competitor_domains parameter is required' };
         const domainsRaw = params.competitor_domains as string;
         const domains = domainsRaw.split(',').map((d) => d.trim()).filter(Boolean);
 

@@ -257,6 +257,7 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
         },
       },
       async execute(params): Promise<ToolResult> {
+        if (!params.funnel_steps) return { success: false, error: 'funnel_steps parameter is required' };
         const stepsRaw = params.funnel_steps as string;
         const product = params.product as string;
         const steps = stepsRaw.split(',').map((s) => s.trim()).filter(Boolean);
