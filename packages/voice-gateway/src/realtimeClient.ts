@@ -43,7 +43,7 @@ export async function createRealtimeSession(
   // Use the OpenAI Realtime sessions REST endpoint
   // POST https://api.openai.com/v1/realtime/sessions
   const response = await openaiClient.beta.realtime.sessions.create({
-    model: REALTIME_MODEL,
+    model: REALTIME_MODEL as any,
     modalities: ['text', 'audio'],
     voice: voiceConfig.voice as any,
     instructions: systemPrompt,
