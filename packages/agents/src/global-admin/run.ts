@@ -20,6 +20,7 @@ import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
+import { createOpsExtensionTools } from '../shared/opsExtensionTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 
@@ -56,6 +57,7 @@ export async function runGlobalAdmin(params: GlobalAdminRunParams = {}) {
     ...createEmailTools(),
     ...createSharePointTools(),
     ...createToolGrantTools('global-admin'),
+    ...createOpsExtensionTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

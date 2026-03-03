@@ -31,6 +31,7 @@ import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createEventTools } from '../shared/eventTools.js';
 import { createDiagnosticTools } from '../shared/diagnosticTools.js';
+import { createOpsExtensionTools } from '../shared/opsExtensionTools.js';
 
 export interface OpsRunParams {
   task?: 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'performance_rollup' | 'milestone_detection' | 'growth_update' | 'contradiction_detection' | 'knowledge_hygiene';
@@ -68,6 +69,7 @@ export async function runOps(params: OpsRunParams = {}) {
     ...createEmailTools(),
     ...createEventTools(glyphorEventBus),
     ...createDiagnosticTools(),
+    ...createOpsExtensionTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

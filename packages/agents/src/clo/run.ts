@@ -32,6 +32,7 @@ import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
+import { createLegalTools } from '../shared/legalTools.js';
 
 export interface CLORunParams {
   task?: 'regulatory_scan' | 'contract_review' | 'compliance_check' | 'read_inbox' | 'on_demand';
@@ -68,6 +69,7 @@ export async function runCLO(params: CLORunParams = {}) {
     ...createAgentCreationTools(),
     ...createToolRequestTools(),
     ...createAgentDirectoryTools(),
+    ...createLegalTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
