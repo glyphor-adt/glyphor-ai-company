@@ -27,11 +27,8 @@ export default function Layout() {
       {/* ── Sidebar ─────────────────────────── */}
       <aside className="flex w-[220px] flex-col border-r border-prism-border bg-prism-card transition-colors duration-200">
         {/* Brand */}
-        <div className="flex items-center gap-3 px-4 py-4">
-          <img src="/glyphor-logo.png" alt="Glyphor" className="h-10 w-10 drop-shadow-[0_0_10px_rgba(34,211,238,0.4)]" />
-          <span className="text-lg font-prism-display tracking-tight text-prism-primary">
-            glyphor
-          </span>
+        <div className="flex items-center px-4 py-4">
+          <img src="/glyphor_new.png" alt="glyphor" className="h-8" />
         </div>
 
         {/* Nav links */}
