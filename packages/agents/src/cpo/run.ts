@@ -34,6 +34,9 @@ import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
+import { createProductAnalyticsTools } from '../shared/productAnalyticsTools.js';
+import { createCompetitiveIntelTools as createSharedCompetitiveIntelTools } from '../shared/competitiveIntelTools.js';
+import { createRoadmapTools } from '../shared/roadmapTools.js';
 
 export interface CPORunParams {
   task?: 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand';
@@ -74,6 +77,9 @@ export async function runCPO(params: CPORunParams = {}) {
     ...createAgentCreationTools(),
     ...createToolRequestTools(),
     ...createAgentDirectoryTools(),
+    ...createProductAnalyticsTools(),
+    ...createSharedCompetitiveIntelTools(),
+    ...createRoadmapTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

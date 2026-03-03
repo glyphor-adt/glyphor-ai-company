@@ -479,6 +479,56 @@ const KNOWN_TOOLS = new Set([
   'get_pending_transactions',
   'generate_financial_report',
   'get_margin_analysis',
+
+  // ── Product + Research shared tools (Wave 3) ──
+  // productAnalyticsTools
+  'query_analytics_events',
+  'get_usage_metrics',
+  'get_funnel_analysis',
+  'get_cohort_retention',
+  'get_feature_usage',
+  'segment_users',
+  // userResearchTools
+  'create_survey',
+  'get_survey_results',
+  'analyze_support_tickets',
+  'get_user_feedback',
+  'create_user_persona',
+  // competitiveIntelTools
+  'track_competitor',
+  'get_competitor_profile',
+  'update_competitor_profile',
+  'compare_features',
+  'track_competitor_pricing',
+  'monitor_competitor_launches',
+  'get_market_landscape',
+  // roadmapTools
+  'create_roadmap_item',
+  'score_feature_rice',
+  'get_roadmap',
+  'update_roadmap_item',
+  'get_feature_requests',
+  'manage_feature_flags',
+  // researchRepoTools
+  'save_research',
+  'search_research',
+  'get_research_timeline',
+  'create_research_brief',
+  // researchMonitoringTools
+  'create_monitor',
+  'check_monitors',
+  'get_monitor_history',
+  'track_competitor_product',
+  'search_academic_papers',
+  'track_open_source',
+  'track_industry_events',
+  'track_regulatory_changes',
+  'analyze_ai_adoption',
+  'track_ai_benchmarks',
+  'analyze_org_structure',
+  'compile_research_digest',
+  'identify_research_gaps',
+  'cross_reference_findings',
 ]);
 
 /**

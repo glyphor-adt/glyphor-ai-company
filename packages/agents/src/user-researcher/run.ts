@@ -20,6 +20,8 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
+import { createProductAnalyticsTools } from '../shared/productAnalyticsTools.js';
+import { createUserResearchTools } from '../shared/userResearchTools.js';
 
 export interface UserResearcherRunParams {
   task?: 'cohort_analysis' | 'churn_signals' | 'on_demand';
@@ -47,6 +49,8 @@ export async function runUserResearcher(params: UserResearcherRunParams = {}) {
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createSharePointTools(),
+    ...createProductAnalyticsTools(),
+    ...createUserResearchTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

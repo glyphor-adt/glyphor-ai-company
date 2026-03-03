@@ -20,6 +20,7 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
+import { createCompetitiveIntelTools as createSharedCompetitiveIntelTools } from '../shared/competitiveIntelTools.js';
 
 export interface CompetitiveIntelRunParams {
   task?: 'landscape_scan' | 'deep_dive' | 'on_demand';
@@ -47,6 +48,7 @@ export async function runCompetitiveIntel(params: CompetitiveIntelRunParams = {}
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createSharePointTools(),
+    ...createSharedCompetitiveIntelTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

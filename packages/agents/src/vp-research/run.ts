@@ -24,6 +24,8 @@ import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js'
 import { createInitiativeTools } from '../shared/initiativeTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
+import { createResearchRepoTools } from '../shared/researchRepoTools.js';
+import { createResearchMonitoringTools } from '../shared/researchMonitoringTools.js';
 
 export interface VPResearchRunParams {
   task?: 'decompose_research' | 'qc_and_package_research' | 'follow_up_research' | 'on_demand';
@@ -77,6 +79,8 @@ export async function runVPResearch(params: VPResearchRunParams = {}) {
     ...createInitiativeTools(glyphorEventBus),
     ...createEmailTools(),
     ...createSharePointTools(),
+    ...createResearchRepoTools(),
+    ...createResearchMonitoringTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

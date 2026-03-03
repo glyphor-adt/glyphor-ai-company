@@ -20,6 +20,8 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
+import { createResearchRepoTools } from '../shared/researchRepoTools.js';
+import { createResearchMonitoringTools } from '../shared/researchMonitoringTools.js';
 
 export interface AccountResearchRunParams {
   task?: 'prospect_research' | 'batch_enrich' | 'on_demand';
@@ -48,6 +50,8 @@ export async function runAccountResearch(params: AccountResearchRunParams = {}) 
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createSharePointTools(),
+    ...createResearchRepoTools(),
+    ...createResearchMonitoringTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

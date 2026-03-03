@@ -20,6 +20,8 @@ import { createEventTools } from '../shared/eventTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
+import { createResearchRepoTools } from '../shared/researchRepoTools.js';
+import { createResearchMonitoringTools } from '../shared/researchMonitoringTools.js';
 
 export interface TechnicalResearchAnalystRunParams {
   task?: 'research' | 'on_demand';
@@ -57,6 +59,8 @@ export async function runTechnicalResearchAnalyst(params: TechnicalResearchAnaly
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createSharePointTools(),
+    ...createResearchRepoTools(),
+    ...createResearchMonitoringTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
