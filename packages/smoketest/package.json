@@ -12,6 +12,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@glyphor/agents": "*",
+    "@glyphor/agent-runtime": "*",
     "@glyphor/shared": "*",
     "dotenv": "^17.3.1"
   }
