@@ -79,7 +79,7 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
     default:
       initialMessage = params.message || 'Assist with frontend implementation as directed.';
   }
-  const agentCfg = await loadAgentConfig('frontend-engineer', { model: 'gemini-3-flash-preview', temperature: 0.7, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('frontend-engineer', { temperature: 0.7, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `ava-${task}-${today}`, role: 'frontend-engineer',

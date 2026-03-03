@@ -67,7 +67,7 @@ export async function runCompetitiveIntel(params: CompetitiveIntelRunParams = {}
     default:
       initialMessage = params.message || 'Run a competitive intelligence scan.';
   }
-  const agentCfg = await loadAgentConfig('competitive-intel', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('competitive-intel', { temperature: 0.2, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `daniel-${task}-${today}`, role: 'competitive-intel',

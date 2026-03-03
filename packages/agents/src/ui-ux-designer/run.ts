@@ -77,7 +77,7 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
     default:
       initialMessage = params.message || 'Assist with design system work as directed.';
   }
-  const agentCfg = await loadAgentConfig('ui-ux-designer', { model: 'gemini-3-flash-preview', temperature: 0.7, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('ui-ux-designer', { temperature: 0.7, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `leo-${task}-${today}`, role: 'ui-ux-designer',

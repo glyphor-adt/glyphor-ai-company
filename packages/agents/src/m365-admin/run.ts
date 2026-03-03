@@ -76,7 +76,7 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
     default:
       initialMessage = params.message || 'Review Teams channels and user access for any issues.';
   }
-  const agentCfg = await loadAgentConfig('m365-admin', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 12 });
+  const agentCfg = await loadAgentConfig('m365-admin', { temperature: 0.2, maxTurns: 12 });
 
   const config: AgentConfig = {
     id: `riley-${task}-${today}`,

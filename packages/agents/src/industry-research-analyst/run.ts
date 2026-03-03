@@ -75,7 +75,7 @@ export async function runIndustryResearchAnalyst(params: IndustryResearchAnalyst
   }
 
   const agentCfg = await loadAgentConfig('industry-research-analyst', {
-    model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns,
+    temperature: 0.2, maxTurns,
   });
 
   const config: AgentConfig = {

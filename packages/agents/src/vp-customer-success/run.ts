@@ -119,7 +119,7 @@ Steps:
     default:
       initialMessage = params.message || 'Provide a customer success analysis.';
   }
-  const agentCfg = await loadAgentConfig('vp-customer-success', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('vp-customer-success', { temperature: 0.3, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `vpcs-${task}-${today}`,

@@ -67,7 +67,7 @@ export async function runOnboardingSpecialist(params: OnboardingSpecialistRunPar
     default:
       initialMessage = params.message || 'Analyze the onboarding experience.';
   }
-  const agentCfg = await loadAgentConfig('onboarding-specialist', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('onboarding-specialist', { temperature: 0.2, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `emma-${task}-${today}`, role: 'onboarding-specialist',

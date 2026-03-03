@@ -151,7 +151,7 @@ Return structured JSON with keys: findings (object), analystBriefs (array of { a
   }
 
   const agentCfg = await loadAgentConfig('vp-research', {
-    model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns,
+    temperature: 0.3, maxTurns,
   });
 
   const config: AgentConfig = {

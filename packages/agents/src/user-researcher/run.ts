@@ -67,7 +67,7 @@ export async function runUserResearcher(params: UserResearcherRunParams = {}) {
     default:
       initialMessage = params.message || 'Run a user behavior analysis.';
   }
-  const agentCfg = await loadAgentConfig('user-researcher', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('user-researcher', { temperature: 0.3, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `priya-${task}-${today}`, role: 'user-researcher',

@@ -70,7 +70,7 @@ export async function runSocialMediaManager(params: SocialMediaManagerRunParams 
     default:
       initialMessage = params.message || 'Manage social media as directed.';
   }
-  const agentCfg = await loadAgentConfig('social-media-manager', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('social-media-manager', { temperature: 0.3, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `kai-${task}-${today}`, role: 'social-media-manager',

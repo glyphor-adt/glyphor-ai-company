@@ -79,7 +79,7 @@ export async function runTemplateArchitect(params: TemplateArchitectRunParams = 
     default:
       initialMessage = params.message || 'Assist with template architecture as directed.';
   }
-  const agentCfg = await loadAgentConfig('template-architect', { model: 'gemini-3-flash-preview', temperature: 0.7, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('template-architect', { temperature: 0.7, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `ryan-${task}-${today}`, role: 'template-architect',

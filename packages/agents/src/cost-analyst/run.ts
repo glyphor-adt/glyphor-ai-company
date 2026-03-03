@@ -67,7 +67,7 @@ export async function runCostAnalyst(params: CostAnalystRunParams = {}) {
     default:
       initialMessage = params.message || 'Run a cost analysis.';
   }
-  const agentCfg = await loadAgentConfig('cost-analyst', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('cost-analyst', { temperature: 0.2, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `omar-${task}-${today}`, role: 'cost-analyst',

@@ -133,7 +133,7 @@ Steps:
     default:
       initialMessage = params.message || 'Provide a content and marketing strategy summary.';
   }
-  const agentCfg = await loadAgentConfig('cmo', { model: 'gemini-3-flash-preview', temperature: 0.6, maxTurns: 10 }, task);
+  const agentCfg = await loadAgentConfig('cmo', { temperature: 0.6, maxTurns: 10 }, task);
 
   const config: AgentConfig = {
     id: `cmo-${task}-${today}`,

@@ -70,7 +70,7 @@ export async function runAccountResearch(params: AccountResearchRunParams = {}) 
     default:
       initialMessage = params.message || 'Research a prospect account.';
   }
-  const agentCfg = await loadAgentConfig('account-research', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('account-research', { temperature: 0.2, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `nathan-${task}-${today}`, role: 'account-research',

@@ -67,7 +67,7 @@ export async function runSupportTriage(params: SupportTriageRunParams = {}) {
     default:
       initialMessage = params.message || 'Triage support tickets.';
   }
-  const agentCfg = await loadAgentConfig('support-triage', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('support-triage', { temperature: 0.2, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `david-${task}-${today}`, role: 'support-triage',

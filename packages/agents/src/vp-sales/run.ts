@@ -122,7 +122,7 @@ Steps:
     default:
       initialMessage = params.message || 'Provide a sales analysis and pipeline summary.';
   }
-  const agentCfg = await loadAgentConfig('vp-sales', { model: 'gemini-3-flash-preview', temperature: 0.3, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('vp-sales', { temperature: 0.3, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `vps-${task}-${today}`,

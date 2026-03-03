@@ -82,7 +82,7 @@ export async function runGlobalAdmin(params: GlobalAdminRunParams = {}) {
     default:
       initialMessage = params.message || 'Run a quick access health check across all managed GCP projects.';
   }
-  const agentCfg = await loadAgentConfig('global-admin', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 12 });
+  const agentCfg = await loadAgentConfig('global-admin', { temperature: 0.2, maxTurns: 12 });
 
   const config: AgentConfig = {
     id: `morgan-${task}-${today}`,

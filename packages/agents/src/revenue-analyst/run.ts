@@ -67,7 +67,7 @@ export async function runRevenueAnalyst(params: RevenueAnalystRunParams = {}) {
     default:
       initialMessage = params.message || 'Run a revenue analysis.';
   }
-  const agentCfg = await loadAgentConfig('revenue-analyst', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('revenue-analyst', { temperature: 0.2, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `anna-${task}-${today}`, role: 'revenue-analyst',

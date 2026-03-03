@@ -122,7 +122,7 @@ Steps:
     default:
       initialMessage = params.message || 'Provide a product strategy summary for both Fuse and Pulse.';
   }
-  const agentCfg = await loadAgentConfig('cpo', { model: 'gemini-3-flash-preview', temperature: 0.4, maxTurns: 10 }, task);
+  const agentCfg = await loadAgentConfig('cpo', { temperature: 0.4, maxTurns: 10 }, task);
 
   const config: AgentConfig = {
     id: `cpo-${task}-${today}`,

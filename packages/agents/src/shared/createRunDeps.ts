@@ -424,16 +424,17 @@ export function createRunDeps(
 
 /**
  * Load agent config (model, temperature, max_turns, thinking_enabled) from company_agents table.
- * Falls back to provided defaults if the DB lookup fails or returns null.
+ * Falls back to DEFAULT_AGENT_MODEL if the DB lookup fails or returns null.
  * When task is provided, applies cost-optimised model routing via optimizeModel().
  */
 export async function loadAgentConfig(
   role: string,
-  defaults: { model: string; temperature: number; maxTurns: number },
+  defaults: { temperature: number; maxTurns: number },
   task?: string,
 ): Promise<{ model: string; temperature: number; maxTurns: number; thinkingEnabled: boolean }> {
   // Lazy import to avoid circular deps
   const { resolveModel } = await import('./createRunner.js');
+  const { DEFAULT_AGENT_MODEL } = await import('@glyphor/shared/models');
   try {
     const [data] = await systemQuery('SELECT model, temperature, max_turns, thinking_enabled FROM company_agents WHERE role = $1', [role]);
 
@@ -441,7 +442,7 @@ export async function loadAgentConfig(
       const dbModel = data.model || null;
       return {
         // Always route through resolveModel (which calls optimizeModel) — picks cheapest tier for the role
-        model: resolveModel(role as any, task ?? 'scheduled', defaults.model, dbModel),
+        model: resolveModel(role as any, task ?? 'scheduled', DEFAULT_AGENT_MODEL, dbModel),
         temperature: data.temperature ?? defaults.temperature,
         maxTurns: data.max_turns ?? defaults.maxTurns,
         thinkingEnabled: data.thinking_enabled ?? true,
@@ -451,7 +452,7 @@ export async function loadAgentConfig(
     // Fall through to defaults
   }
   return {
-    model: resolveModel(role as any, task ?? 'scheduled', defaults.model, null),
+    model: resolveModel(role as any, task ?? 'scheduled', DEFAULT_AGENT_MODEL, null),
     temperature: defaults.temperature,
     maxTurns: defaults.maxTurns,
     thinkingEnabled: true,

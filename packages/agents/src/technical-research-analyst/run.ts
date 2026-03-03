@@ -75,7 +75,7 @@ export async function runTechnicalResearchAnalyst(params: TechnicalResearchAnaly
   }
 
   const agentCfg = await loadAgentConfig('technical-research-analyst', {
-    model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns,
+    temperature: 0.2, maxTurns,
   });
 
   const config: AgentConfig = {

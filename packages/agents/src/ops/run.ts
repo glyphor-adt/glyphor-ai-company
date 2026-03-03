@@ -218,7 +218,7 @@ Goal: Ensure knowledge routing is efficient, stale information is flagged, and t
     default:
       initialMessage = params.message || 'Provide a current system status summary.';
   }
-  const agentCfg = await loadAgentConfig('ops', { model: 'gemini-3-flash-preview', temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('ops', { temperature: 0.2, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `ops-${task}-${today}`,
