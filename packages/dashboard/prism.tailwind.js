@@ -52,7 +52,7 @@ const prism = {
         'prism-lg': 'var(--prism-shadow-lg)',
       },
       fontFamily: {
-        'prism-display': ['Agency FB', 'Impact', 'Arial Narrow', 'sans-serif'],
+        'prism-display': ['Agency', 'Impact', 'Arial Narrow', 'sans-serif'],
         'prism-body':    ['Calibri', 'Gill Sans', 'system-ui', 'sans-serif'],
       },
       backgroundImage: {

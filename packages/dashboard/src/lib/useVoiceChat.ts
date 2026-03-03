@@ -75,7 +75,9 @@ export function useVoiceChat(): UseVoiceChatReturn {
       mediaStreamRef.current = null;
     }
     if (audioElRef.current) {
+      audioElRef.current.pause();
       audioElRef.current.srcObject = null;
+      audioElRef.current.remove();
       audioElRef.current = null;
     }
   }
@@ -141,14 +143,20 @@ export function useVoiceChat(): UseVoiceChatReturn {
         }
       };
 
-      // Set up audio playback for agent responses
-      const audioEl = new Audio();
+      // Set up audio playback for agent responses — must be in DOM for autoplay
+      const audioEl = document.createElement('audio');
       audioEl.autoplay = true;
+      audioEl.style.display = 'none';
+      document.body.appendChild(audioEl);
       audioElRef.current = audioEl;
 
       pc.ontrack = (event) => {
-        audioEl.srcObject = event.streams[0];
-        audioEl.play().catch(() => { /* autoplay blocked */ });
+        console.log('[VoiceChat] Received remote track:', event.track.kind);
+        audioEl.srcObject = event.streams[0] ?? new MediaStream([event.track]);
+        audioEl.play().catch((e) => {
+          console.error('[VoiceChat] Audio playback blocked:', e);
+          setError('Audio playback blocked — click anywhere on the page and try again');
+        });
       };
 
       // Add mic track to peer connection
@@ -161,11 +169,27 @@ export function useVoiceChat(): UseVoiceChatReturn {
       const dc = pc.createDataChannel('oai-events');
       dataChannelRef.current = dc;
 
+      dc.onopen = () => console.log('[VoiceChat] Data channel open');
+      dc.onclose = () => console.log('[VoiceChat] Data channel closed');
+      dc.onerror = (e) => console.error('[VoiceChat] Data channel error:', e);
       dc.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
+          if (msg.type) console.log('[VoiceChat] Event:', msg.type);
           handleRealtimeEvent(msg, sessionId);
         } catch { /* ignore parse errors */ }
+      };
+
+      // Also handle server-initiated data channels
+      pc.ondatachannel = (event) => {
+        console.log('[VoiceChat] Server data channel:', event.channel.label);
+        event.channel.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data);
+            if (msg.type) console.log('[VoiceChat] Server event:', msg.type);
+            handleRealtimeEvent(msg, sessionId);
+          } catch { /* ignore parse errors */ }
+        };
       };
 
       // Create and set local SDP offer
@@ -183,11 +207,18 @@ export function useVoiceChat(): UseVoiceChatReturn {
       });
 
       if (!sdpRes.ok) {
-        throw new Error(`OpenAI Realtime SDP exchange failed: ${sdpRes.status}`);
+        const errText = await sdpRes.text().catch(() => '');
+        throw new Error(`OpenAI Realtime SDP exchange failed: ${sdpRes.status} ${errText}`);
       }
 
       const answerSdp = await sdpRes.text();
+      console.log('[VoiceChat] SDP exchange complete, setting remote description');
       await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+
+      // Log transceiver state for diagnostics
+      pc.getTransceivers().forEach((t, i) => {
+        console.log(`[VoiceChat] Transceiver ${i}: kind=${t.mid} dir=${t.direction} currentDir=${t.currentDirection}`);
+      });
 
       // 4. Start duration timer
       const startTime = Date.now();

@@ -1,6 +1,6 @@
 # Glyphor AI Company — System Architecture
 
-> Last updated: 2026-03-02 (multi-tenant architecture, worker service, 2 new research analysts, framework analysis, smoketest suite)
+> Last updated: 2026-03-02 (agent tool self-recovery, chat persistence fixes, GroupChat, dashboard pages)
 
 ## Overview
 
@@ -204,6 +204,10 @@ auditing, lead generation, and executive assistantship.
 │   ├─ agentCreationTools           │
 │   │  (create_specialist_agent,    │
 │   │   list/retire created agents) │
+│   ├─ toolRequestTools             │
+│   │  (request_tool_access,        │
+│   │   request_new_tool,           │
+│   │   check_tool_request_status)  │
 │   └─ researchTools                │
 │      (web_search, web_fetch,      │
 │       submit_research_packet)     │
@@ -273,7 +277,9 @@ auditing, lead generation, and executive assistantship.
 │                                           │
 │   Pages:                                  │
 │   ├ Dashboard.tsx    (agent overview)     │
-│   ├ Chat.tsx         (talk to agents)    │
+│   ├ Chat.tsx         (1:1 agent chat)    │
+│   ├ GroupChat.tsx    (multi-agent chat)   │
+│   ├ Comms.tsx        (Chat+Meetings hub) │
 │   ├ Workforce.tsx    (org chart + roster)│
 │   ├ WorkforceBuilder.tsx (org builder)   │
 │   ├ AgentsList.tsx   (agent roster)      │
@@ -283,6 +289,7 @@ auditing, lead generation, and executive assistantship.
 │   │                   model, settings)   │
 │   ├ AgentBuilder.tsx (create new agents) │
 │   ├ Approvals.tsx    (decision queue)    │
+│   ├ ChangeRequests.tsx (change requests) │
 │   ├ Directives.tsx   (founder tasks)     │
 │   ├ Financials.tsx   (revenue & costs)   │
 │   ├ Governance.tsx   (IAM & secrets)     │
@@ -294,7 +301,9 @@ auditing, lead generation, and executive assistantship.
 │   ├ Graph.tsx        (knowledge graph)   │
 │   ├ Skills.tsx       (skill library)     │
 │   ├ SkillDetail.tsx  (skill detail)      │
+│   ├ Capabilities.tsx (skills+self-models)│
 │   ├ Meetings.tsx     (meetings & DMs)    │
+│   ├ Settings.tsx     (user management)   │
 │   ├ TeamsConfig.tsx  (Teams bot setup)   │
 │   └ WorldModel.tsx   (agent self-models) │
 │                                           │
@@ -823,6 +832,7 @@ glyphor-ai-company/
 │       │   ├── pages/
 │       │   │   ├── Dashboard.tsx      # Agent overview & metrics
 │       │   │   ├── Chat.tsx           # Real-time agent chat (react-markdown)
+│       │   │   ├── GroupChat.tsx      # Multi-agent group chat (conversation_id-based)
 │       │   │   ├── Comms.tsx          # Composite: Chat + Meetings tabs
 │       │   │   ├── Capabilities.tsx   # Composite: Skills + Self-Models (WorldModel) tabs
 │       │   │   ├── Workforce.tsx      # Org chart + grid view (11 departments)
@@ -2087,12 +2097,33 @@ without code changes.
 checks `isToolGranted(agentRole, toolName, db)`. Grants are cached per-role for 60 seconds
 to avoid per-call DB queries. Cache is invalidated immediately on grant/revoke.
 
+**Static tool bypass**: Tools defined in an agent's code (`this.tools` Map) always execute
+regardless of DB grant state. Missing DB grants are auto-synced on first use (fire-and-forget
+INSERT). Non-static tools that fail the grant check return an actionable error message directing
+the agent to use `request_tool_access`.
+
+**Agent self-recovery**: Agents are instructed (via `ALWAYS_ON_PROTOCOL` and `REASONING_PROTOCOL`
+in `companyAgentRunner.ts`) to never tell the user "I don't have access." Instead:
+
+1. On tool access denial → immediately call `request_tool_access` (self-grants)
+2. Retry the original operation
+3. If tool doesn't exist → call `request_new_tool` (files Yellow decision for CTO)
+4. Only use `flag_assignment_blocker` for non-tool blockers (credentials, external systems)
+
 **Chief of Staff tools** (`chief-of-staff/tools.ts`):
 
 | Tool | Description |
 |------|-------------|
 | `grant_tool_access` | Grant an existing tool to an agent. Read-only tools (`get_*`, `read_*`, `query_*`, `check_*`, `fetch_*`) are granted autonomously; write tools auto-file a Yellow decision for founder approval. Supports optional `expires_in_hours` for time-boxed grants. |
 | `revoke_tool_access` | Revoke a dynamically granted tool. Only affects DB-granted tools — an agent's baseline (code-defined) tools cannot be revoked. |
+
+**Self-service tools** (`toolRequestTools.ts` — available to all agents):
+
+| Tool | Description |
+|------|-------------|
+| `request_tool_access` | Self-grant access to an existing tool. Read-only tools auto-approved immediately; write tools auto-approved but logged for founder awareness. |
+| `request_new_tool` | Request a tool that doesn't exist yet. Validates name format, checks for duplicates, auto-files a Yellow decision for CTO review. |
+| `check_tool_request_status` | Query pending/approved tool requests by ID or list all for the agent. |
 
 **Tool Registry** (`toolRegistry.ts`): Central registry of all known tools via `isKnownTool(name)`.
 Grant requests for tools not in the registry are rejected with a message to ask Marcus (CTO) to build it first.
@@ -2608,7 +2639,7 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 |-------|---------|-------------|
 | `agent_messages` | Inter-agent DMs | from_agent, to_agent, thread_id, message, message_type, priority, status, response, responded_at |
 | `agent_meetings` | Multi-agent meetings | called_by, title, purpose, meeting_type, attendees, status, rounds, contributions, transcript, summary, action_items, decisions_made, escalations, total_cost |
-| `chat_messages` | Founder ↔ agent chat | agent_role, role (user/agent), content, created_at |
+| `chat_messages` | Founder ↔ agent chat | agent_role, role (user/agent), content, user_id, created_at, attachments (JSONB), conversation_id, responding_agent; CHECK user_id = LOWER(user_id) |
 
 ### Strategy Tables
 
@@ -2976,6 +3007,22 @@ Dashboard → POST /run {agentRole:"cto", task:"on_demand", message:"How's the p
   → RouteResult { output: "Platform is healthy…" }
   → JSON response → Chat.tsx renders via <Markdown>
 ```
+
+### Chat Persistence
+
+Both `Chat.tsx` (1:1) and `GroupChat.tsx` (multi-agent) persist messages to the `chat_messages`
+table via `POST /api/chat-messages`. Key design points:
+
+- **Retry with backoff**: `saveMessage` retries 2× with exponential backoff (500ms, 1s) before
+  surfacing a red error banner (`saveFailed` state).
+- **User ID normalization**: `user_id` is always lowercased before saving. A `CHECK` constraint
+  enforces `user_id = LOWER(user_id)` at the DB level.
+- **Multi-alias loading**: `loadHistory` uses `getEmailAliases()` to query across all known
+  email addresses for the user (e.g. `andrew@glyphor.ai` + `andrew.zwelling@gmail.com`).
+- **GroupChat scoping**: Messages include `conversation_id` for thread isolation. User messages
+  use `agent_role='group-chat'`; agent responses use the agent's actual role.
+- **@mention tracking**: When an agent responds via @mention in 1:1 chat, the `responding_agent`
+  column captures which agent authored the response.
 
 ### Scheduled Cron Job
 
