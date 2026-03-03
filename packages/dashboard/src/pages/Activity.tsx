@@ -44,7 +44,7 @@ function useAgentRuns(limit = 100) {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const rows = await apiCall<AgentRun[]>(`/api/agent-runs?limit=${limit}`);
+      const rows = await apiCall<AgentRun[]>(`/api/agent-runs?limit=${limit}&order=started_at.desc`);
       setData(rows ?? []);
     } catch {
       setData([]);

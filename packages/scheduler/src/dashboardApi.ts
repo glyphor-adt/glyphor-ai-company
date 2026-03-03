@@ -389,7 +389,16 @@ export async function handleDashboardApi(
         const rows = await systemQuery<{ count: number }>(`SELECT COUNT(*)::int AS count FROM ${tableName}${where}${extraWhere}`, values);
         jsonResponse(res, 200, { count: rows[0]?.count ?? 0 });
       } else {
-        const sql = `SELECT ${select} FROM ${tableName}${where}${extraWhere}${order}${limit || ' LIMIT 200'}`;
+        // Default to newest-first for tables with timestamp columns when no order specified
+        const DEFAULT_ORDER: Record<string, string> = {
+          agent_runs: ' ORDER BY started_at DESC',
+          activity_log: ' ORDER BY created_at DESC',
+          agent_messages: ' ORDER BY created_at DESC',
+          decisions: ' ORDER BY created_at DESC',
+          founder_directives: ' ORDER BY created_at DESC',
+        };
+        const effectiveOrder = order || DEFAULT_ORDER[tableName] || '';
+        const sql = `SELECT ${select} FROM ${tableName}${where}${extraWhere}${effectiveOrder}${limit || ' LIMIT 200'}`;
         const rows = await systemQuery(sql, values);
         jsonResponse(res, 200, rows);
       }
