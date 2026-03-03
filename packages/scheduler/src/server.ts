@@ -267,8 +267,8 @@ const trackedAgentExecutor = async (
 
   // Insert a "running" row in parallel with agent execution to avoid blocking
   const runIdPromise = systemQuery<{ id: string }>(
-    'INSERT INTO agent_runs (agent_id, task, status, input) VALUES ($1,$2,$3,$4) RETURNING id',
-    [agentRole, task, 'running', inputMsg],
+    'INSERT INTO agent_runs (agent_id, task, status, input, tenant_id) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+    [agentRole, task, 'running', inputMsg, '00000000-0000-0000-0000-000000000000'],
   ).then(([row]) => row?.id as string | undefined)
   .catch(() => undefined);
 
