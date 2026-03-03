@@ -115,7 +115,7 @@ export default function GroupChat() {
           rows.map((row: any) => ({
             role: row.role as 'user' | 'agent',
             agentRole: row.role === 'agent' ? row.agent_role : undefined,
-            founderName: row.role === 'user' ? FOUNDERS.find((f) => f.email === row.user_id)?.name : undefined,
+            founderName: row.role === 'user' ? FOUNDERS.find((f) => f.email === (row.user_id ?? '').toLowerCase())?.name : undefined,
             content: row.content,
             timestamp: new Date(row.created_at),
             attachments: row.attachments ?? undefined,
@@ -424,8 +424,8 @@ export default function GroupChat() {
     setMessages((prev) => [...prev, userMsg]);
     setSending(true);
 
-    const userId = user?.email ?? 'unknown';
-    persistMsg(userId, 'user', 'user', text, attachments);
+    const userId = (user?.email ?? 'unknown').toLowerCase();
+    persistMsg(userId, 'group-chat', 'user', text, attachments);
 
     // Merge @mentioned agents into selected roles
     const mentionedRoles = parseMentions(text);
@@ -478,7 +478,7 @@ export default function GroupChat() {
     if (sending || selectedRoles.size === 0) return;
     setSending(true);
 
-    const userId = user?.email ?? 'unknown';
+    const userId = (user?.email ?? 'unknown').toLowerCase();
     const roles = Array.from(selectedRoles);
     const groupContext = buildGroupContext(roles, true);
 

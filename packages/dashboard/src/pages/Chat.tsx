@@ -133,7 +133,7 @@ export default function Chat() {
   const { agentId } = useParams();
   const { data: agents } = useAgents();
   const { user } = useAuth();
-  const userEmail = user?.email ?? 'unknown';
+  const userEmail = (user?.email ?? 'unknown').toLowerCase();
   const userInitials = user?.name
     ? user.name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
     : '??';

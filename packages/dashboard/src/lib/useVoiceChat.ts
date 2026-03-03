@@ -93,7 +93,13 @@ export function useVoiceChat(): UseVoiceChatReturn {
 
     try {
       // 1. Request mic permission
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       mediaStreamRef.current = stream;
 
       // 2. Create voice session via gateway
@@ -112,8 +118,28 @@ export function useVoiceChat(): UseVoiceChatReturn {
       sessionIdRef.current = sessionId;
 
       // 3. Set up WebRTC connection to OpenAI Realtime
-      const pc = new RTCPeerConnection();
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+      });
       peerConnectionRef.current = pc;
+
+      // Monitor connection state for silent failures
+      pc.oniceconnectionstatechange = () => {
+        console.log('[VoiceChat] ICE state:', pc.iceConnectionState);
+        if (pc.iceConnectionState === 'failed') {
+          setError('Voice connection failed — check your network or firewall settings');
+          cleanupWebRTC();
+          setIsActive(false);
+        }
+      };
+      pc.onconnectionstatechange = () => {
+        console.log('[VoiceChat] Connection state:', pc.connectionState);
+        if (pc.connectionState === 'failed') {
+          setError('Voice connection failed');
+          cleanupWebRTC();
+          setIsActive(false);
+        }
+      };
 
       // Set up audio playback for agent responses
       const audioEl = new Audio();
@@ -127,6 +153,7 @@ export function useVoiceChat(): UseVoiceChatReturn {
 
       // Add mic track to peer connection
       stream.getTracks().forEach((track) => {
+        console.log('[VoiceChat] Mic track:', track.kind, 'enabled:', track.enabled, 'muted:', track.muted);
         pc.addTrack(track, stream);
       });
 
@@ -152,7 +179,7 @@ export function useVoiceChat(): UseVoiceChatReturn {
           'Authorization': `Bearer ${clientSecret}`,
           'Content-Type': 'application/sdp',
         },
-        body: offer.sdp,
+        body: pc.localDescription!.sdp,
       });
 
       if (!sdpRes.ok) {
