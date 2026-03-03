@@ -1103,14 +1103,15 @@ Execution loop:
 │  │    │ ① WHO YOU ARE — personality, voice, quirks, examples │ │  │
 │  │    │ ② CONVERSATION MODE — casual vs task routing         │ │  │
 │  │    │ ③ REASONING PROTOCOL — Orient→Plan→Execute→Reflect   │ │  │
-│  │    │ ④ WORK ASSIGNMENTS PROTOCOL — read→work→submit/flag  │ │  │
-│  │    │ ⑤ ALWAYS-ON PROTOCOL — P1-P5 priority stack          │ │  │
-│  │    │ ⑥ SKILLS — methodology, proficiency, refinements     │ │  │
-│  │    │ ⑦ ROLE BRIEF — from briefs/{name}.md or DB           │ │  │
-│  │    │ ⑧ AGENT SYSTEM PROMPT — role-specific instructions   │ │  │
-│  │    │ ⑨ COMPANY KNOWLEDGE BASE — DB or static CORE.md      │ │  │
-│  │    │ ⑩ DEPARTMENT CONTEXT — context/{department}.md        │ │  │
-│  │    │ ⑪ FOUNDER BULLETINS — priority-coded, expiring       │ │  │
+│  │    │ ④ ACTION HONESTY PROTOCOL — verify-before-claim      │ │  │
+│  │    │ ⑤ WORK ASSIGNMENTS PROTOCOL — read→work→submit/flag  │ │  │
+│  │    │ ⑥ ALWAYS-ON PROTOCOL — P1-P5 priority stack          │ │  │
+│  │    │ ⑦ SKILLS — methodology, proficiency, refinements     │ │  │
+│  │    │ ⑧ ROLE BRIEF — from briefs/{name}.md or DB           │ │  │
+│  │    │ ⑨ AGENT SYSTEM PROMPT — role-specific instructions   │ │  │
+│  │    │ ⑩ COMPANY KNOWLEDGE BASE — DB or static CORE.md      │ │  │
+│  │    │ ⑪ DEPARTMENT CONTEXT — context/{department}.md        │ │  │
+│  │    │ ⑫ FOUNDER BULLETINS — priority-coded, expiring       │ │  │
 │  │    └──────────────────────────────────────────────────────┘ │  │
 │  │                                                             │  │
 │  │    Task tier (~150 lines only):                             │  │
@@ -1120,8 +1121,10 @@ Execution loop:
 │  │    │ ③ COST AWARENESS — budget constraints                │ │  │
 │  │    └──────────────────────────────────────────────────────┘ │  │
 │  │                                                             │  │
-│  │    Chat (on_demand) skips: reasoning protocol, work         │  │
-│  │    assignments protocol, always-on protocol                 │  │
+│  │    Chat (on_demand) uses: chat reasoning protocol, chat   │  │
+│  │    data honesty, action honesty protocol, instruction     │  │
+│  │    echo protocol. Skips: full reasoning, work assignments,│  │
+│  │    always-on protocol                                     │  │
 │  └────────────────────────────────────────────────────────────┘  │
 │                              │                                   │
 │                              ▼                                   │
@@ -1157,7 +1160,10 @@ Execution loop:
 │  │   │      work_loop: thinking DISABLED (cost)             │  │  │
 │  │   │      briefing/orchestrate: thinking ENABLED (quality)│  │  │
 │  │   │    Gemini 3: forces temperature 1.0+                 │  │  │
+│  │   │    Penultimate turn: inject warning "ONE turn left"  │  │  │
 │  │   │    Last turn (chat/task): tools STRIPPED → force text │  │  │
+│  │   │      + inject "FINAL TURN" honesty constraint:       │  │  │
+│  │   │        only describe already-executed actions         │  │  │
 │  │   └─────────────────────────────┬───────────────────────┘  │  │
 │  │                                 │                           │  │
 │  │                    ┌────────────┴────────────┐              │  │
@@ -1177,9 +1183,12 @@ Execution loop:
 │  │   │    ├─ scope check         │  │                      │ │  │
 │  │   │    ├─ rate limit check    │  │ Still no text?       │ │  │
 │  │   │    ├─ budget check        │  │ Reconstruct from     │ │  │
-│  │   │    └─ execute + timeout   │  │ last 3 tool results  │ │  │
-│  │   │                           │  └──────────────────────┘ │  │
-│  │   │ Push tool_result turns    │                            │  │
+│  │   │    ├─ execute + timeout   │  │ last 3 tool results  │ │  │
+│  │   │    └─ auto-verify (if     │  │                      │ │  │
+│  │   │       mutation tool)      │  │ Claim detection:     │ │  │
+│  │   │                           │  │ flag unsubstantiated  │ │  │
+│  │   │ Collect action receipts   │  │ action claims (chat)  │ │  │
+│  │   │ Push tool_result turns    │  └──────────────────────┘ │  │
 │  │   │ Supervisor.recordResult() │                            │  │
 │  │   │ → loop back to step 4    │                            │  │
 │  │   └────────────────────────────┘                           │  │
@@ -1221,6 +1230,8 @@ Execution loop:
 │  │    → Emit agent.completed event to GlyphorEventBus          │  │
 │  │    → On error: emit alert.triggered event for Atlas          │  │
 │  │    → Return AgentExecutionResult to caller                   │  │
+│  │      (includes actions: ActionReceipt[] for tool call        │  │
+│  │       transparency — tool name, params, result, output)      │  │
 │  └────────────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -1554,7 +1565,7 @@ before execution:
 │       │                                                          │
 │       ├─ GREEN (allowed=true)                                    │
 │       │    → Execute immediately via agentExecutor               │
-│       │    → Return output to caller                             │
+│       │    → Return output + action receipts to caller           │
 │       │                                                          │
 │       ├─ YELLOW (requiresApproval=true, tier='yellow')           │
 │       │    → DecisionQueue.submit()                              │
@@ -1600,6 +1611,7 @@ trackedAgentExecutor(agentRole, task, payload)
        duration_ms, turns, tool_calls
        input_tokens, output_tokens, cost
        output (text), error (if any)
+       actions (ActionReceipt[] — tool call transparency)
        → Activity dashboard shows in run history
 ```
 
@@ -1613,6 +1625,8 @@ tiers). Task-tier runs use a minimal ~150-line prompt instead — see "Used in T
 | Personality Block | `agent_profiles` table → `buildPersonalityBlock()` | ~20 lines | Yes |
 | Conversation Mode | Hardcoded — casual vs task detection | ~15 lines | No |
 | Reasoning Protocol | Hardcoded — Orient → Plan → Execute → Reflect | ~10 lines | No |
+| Action Honesty Protocol | Hardcoded — verify-before-claim, report tool results, never claim untaken actions | ~20 lines | No |
+| Instruction Echo Protocol | Hardcoded — echo founder instructions back before acting, never substitute values (chat only) | ~10 lines | No |
 | Work Assignments Protocol | Hardcoded — read → work → submit/flag lifecycle | ~15 lines | Yes |
 | Cost Awareness Block | Hardcoded — budget constraints + efficiency rules | ~10 lines | Yes (task only) |
 | Always-On Protocol | Hardcoded — P1-P5 priority stack + proactive work guidelines | ~20 lines | No |
@@ -2127,6 +2141,62 @@ Grant requests for tools not in the registry are rejected with a message to ask 
 **Database**: `agent_tool_grants` table with columns `agent_role`, `tool_name`, `granted_by`,
 `reason`, `directive_id`, `scope`, `is_active`, `expires_at`. Unique constraint on
 `(agent_role, tool_name)`. Seeded with baseline grants for all 37 agents.
+
+### Action Honesty System
+
+Multi-layered defense against agents claiming actions they didn't take or that failed
+silently. Addresses the trust problem where agents narrate intentions as completed actions.
+
+**Layer 1 — Prompt-level protocols** (`companyAgentRunner.ts`):
+
+| Protocol | Tier | Purpose |
+|----------|------|---------|
+| `ACTION_HONESTY_PROTOCOL` | All | 5 rules: call-before-claim, report tool result not hopes, verify mutations, never claim untaken actions, fix without excuses |
+| `INSTRUCTION_ECHO_PROTOCOL` | Chat only | Echo founder instructions back before acting, ask if ambiguous, never substitute different values |
+
+**Layer 2 — Last-turn fabrication prevention** (`companyAgentRunner.ts`):
+
+On-demand and task-tier runs inject honesty constraint messages when approaching turn limits:
+- **Penultimate turn**: Warning injected: "You have ONE turn remaining. Do NOT claim actions you haven't completed."
+- **Last turn**: Tools stripped + constraint injected: "FINAL TURN — only describe actions that ALREADY executed successfully."
+
+**Layer 3 — Structured action receipts** (`companyAgentRunner.ts` → `eventRouter.ts` → `Chat.tsx`):
+
+Every tool call during a run produces an `ActionReceipt` recording the tool name, parameters,
+success/error status, and output summary. Receipts flow through the full stack:
+
+```
+ToolExecutor.execute() → actionReceipts[] → AgentExecutionResult.actions
+  → RouteResult.actions → POST /run response → Chat UI (collapsible tool log)
+```
+
+Chat UI renders receipts as a collapsible "Actions (N tool calls)" section below agent text,
+showing ✓/✗ status per tool call with output summaries.
+
+**Layer 4 — Automatic mutation verification** (`toolExecutor.ts`):
+
+After a mutation tool (`update_*`, `create_*`, `delete_*`, etc.) executes successfully,
+ToolExecutor automatically calls the corresponding read tool to verify the write:
+
+| Mutation Tool | Verification Tool | Param Key |
+|--------------|-------------------|-----------|
+| `update_agent_profile` | `get_agent_profile` | `agent_role` |
+| `update_company_knowledge` | `get_company_knowledge` | `id` |
+
+Verification results are appended as `_verification` to the tool output data. Costs one extra
+tool call per mutation but prevents the entire class of wrong-value writes.
+
+**Layer 5 — Parameter echo** (mutation tool implementations):
+
+Mutation tools return a `written` field echoing what was actually written, exposing parameter
+mismatches immediately. Example: `{ success: true, data: {...}, written: { member, role, action: 'grant_role' } }`.
+
+**Layer 6 — Unsubstantiated claim detection** (`companyAgentRunner.ts`):
+
+Post-loop safety net for chat (on_demand) runs. Regex patterns match action claims in agent
+text ("I've updated", "I've corrected", etc.) and compare against actual tool receipts. If
+claims exist but no successful mutation tools were executed, a disclaimer is appended:
+"⚠️ Some actions mentioned above may not have completed."
 
 ### Pre-Dispatch Validation (Chief of Staff)
 
@@ -2907,7 +2977,7 @@ Requires `SCHEDULER_URL`, `DASHBOARD_URL`, `VOICE_GATEWAY_URL` env vars.
 |--------|-------|
 | Framework | Vite + React 19 + TypeScript |
 | Styling | Tailwind CSS 3.4 + Glyphor brand (dark/light mode) |
-| Markdown | `react-markdown` for agent chat |
+| Markdown | `react-markdown` for agent chat + collapsible action receipts |
 | Auth | Teams SSO (`@microsoft/teams-js`) in Teams tab; Google Sign-In (OAuth 2.0) in browser |
 | Hosting | nginx:1.27-alpine on Cloud Run |
 | API | Scheduler `/run` + direct Cloud SQL queries |
@@ -2931,12 +3001,12 @@ Requires `SCHEDULER_URL`, `DASHBOARD_URL`, `VOICE_GATEWAY_URL` env vars.
 | Strategy | `/strategy` | Strategic analysis engine (5 analysis types) + T+1 simulation engine with impact matrix + AI-generated infographics |
 | Capabilities | `/capabilities` | Composite page: Skills tab (skill library, 10 categories) + Self-Models tab (world model radar charts) |
 | Skill Detail | `/skills/:slug` | Skill detail + agent assignments + proficiency stats |
-| Comms | `/comms` | Composite page: Chat tab (multi-turn agent chat with history) + Meetings tab (timeline, transcripts, action items) |
+| Comms | `/comms` | Composite page: Chat tab (multi-turn agent chat with history + collapsible action receipts) + Meetings tab (timeline, transcripts, action items) |
 | Chat (direct) | `/chat/:agentId` | Direct agent chat (navigates to specific agent conversation) |
 | Settings | `/settings` | User management page |
 | Teams Config | `/teams-config` | Teams bot setup and configuration |
 | Change Requests | `/change-requests` | Submit & track feature/bug change requests → GitHub issues → Copilot |
-| Group Chat | `/group-chat` | Multi-agent group chat with @mentions, file uploads, concurrent responses |
+| Group Chat | `/group-chat` | Multi-agent group chat with @mentions, file uploads, concurrent responses, action receipts |
 
 **Legacy redirects** (backwards compatibility):
 `/agents` → `/workforce`, `/chat` → `/comms`, `/activity` → `/operations`, `/graph` → `/knowledge`,
@@ -3000,8 +3070,8 @@ Dashboard → POST /run {agentRole:"cto", task:"on_demand", message:"How's the p
   → agentExecutor('cto','on_demand',{message:…})
   → runCTO({task:'on_demand', message:…})
   → createRunner('cto','on_demand') → CompanyAgentRunner.run()
-  → RouteResult { output: "Platform is healthy…" }
-  → JSON response → Chat.tsx renders via <Markdown>
+  → RouteResult { output: "Platform is healthy…", actions: [...] }
+  → JSON response → Chat.tsx renders via <Markdown> + collapsible action receipts
 ```
 
 ### Chat Persistence
