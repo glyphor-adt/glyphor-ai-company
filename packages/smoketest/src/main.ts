@@ -19,10 +19,12 @@ import { run as layer10 } from './layers/layer10-specialists.js';
 import { run as layer11 } from './layers/layer11-dashboard.js';
 import { run as layer12 } from './layers/layer12-voice.js';
 import { run as layer13 } from './layers/layer13-m365.js';
+import { run as layer14 } from './layers/layer14-migrations.js';
 
 const ALL_LAYERS: LayerRunner[] = [
   layer00, layer01, layer02, layer03, layer04, layer05,
   layer06, layer07, layer08, layer09, layer10, layer11, layer12, layer13,
+  layer14,
 ];
 
 function loadConfig(): SmokeTestConfig {
@@ -33,8 +35,8 @@ function loadConfig(): SmokeTestConfig {
   if (layerIdx !== -1 && args[layerIdx + 1]) {
     selectedLayers = args[layerIdx + 1].split(',').map(Number);
     for (const n of selectedLayers) {
-      if (isNaN(n) || n < 0 || n > 13) {
-        console.error(`Invalid layer number: ${n}. Must be 0-13.`);
+      if (isNaN(n) || n < 0 || n > 14) {
+        console.error(`Invalid layer number: ${n}. Must be 0-14.`);
         process.exit(1);
       }
     }
