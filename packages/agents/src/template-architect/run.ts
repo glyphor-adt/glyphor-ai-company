@@ -18,6 +18,12 @@ import { createRunner } from '../shared/createRunner.js';
 import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
+import { createFrontendCodeTools } from '../shared/frontendCodeTools.js';
+import { createDesignSystemTools } from '../shared/designSystemTools.js';
+import { createAssetTools } from '../shared/assetTools.js';
+import { createScaffoldTools } from '../shared/scaffoldTools.js';
+import { createFigmaTools } from '../shared/figmaTools.js';
+import { createStorybookTools } from '../shared/storybookTools.js';
 
 export interface TemplateArchitectRunParams {
   task?: 'variant_review' | 'template_quality_audit' | 'on_demand';
@@ -43,6 +49,12 @@ export async function runTemplateArchitect(params: TemplateArchitectRunParams = 
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(glyphorEventBus),
+    ...createFrontendCodeTools(),
+    ...createDesignSystemTools(),
+    ...createAssetTools(),
+    ...createScaffoldTools(),
+    ...createFigmaTools(),
+    ...createStorybookTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

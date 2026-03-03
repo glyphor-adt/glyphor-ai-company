@@ -18,6 +18,11 @@ import { createRunner } from '../shared/createRunner.js';
 import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
+import { createFrontendCodeTools } from '../shared/frontendCodeTools.js';
+import { createScreenshotTools } from '../shared/screenshotTools.js';
+import { createDesignSystemTools } from '../shared/designSystemTools.js';
+import { createAssetTools } from '../shared/assetTools.js';
+import { createFigmaTools } from '../shared/figmaTools.js';
 
 export interface UiUxDesignerRunParams {
   task?: 'component_spec' | 'design_token_review' | 'on_demand';
@@ -43,6 +48,11 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
     ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createAssignmentTools(glyphorEventBus),
+    ...createFrontendCodeTools(),
+    ...createScreenshotTools(),
+    ...createDesignSystemTools(),
+    ...createAssetTools(),
+    ...createFigmaTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

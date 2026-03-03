@@ -34,6 +34,15 @@ import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
+import { createFrontendCodeTools } from '../shared/frontendCodeTools.js';
+import { createScreenshotTools } from '../shared/screenshotTools.js';
+import { createDesignSystemTools } from '../shared/designSystemTools.js';
+import { createAuditTools } from '../shared/auditTools.js';
+import { createAssetTools } from '../shared/assetTools.js';
+import { createScaffoldTools } from '../shared/scaffoldTools.js';
+import { createDeployPreviewTools } from '../shared/deployPreviewTools.js';
+import { createFigmaTools } from '../shared/figmaTools.js';
+import { createStorybookTools } from '../shared/storybookTools.js';
 
 export interface VPDesignRunParams {
   task?: 'design_audit' | 'design_system_review' | 'on_demand';
@@ -73,6 +82,15 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
     ...createAgentCreationTools(),
     ...createToolRequestTools(),
     ...createAgentDirectoryTools(),
+    ...createFrontendCodeTools(),
+    ...createScreenshotTools(),
+    ...createDesignSystemTools(),
+    ...createAuditTools(),
+    ...createAssetTools(),
+    ...createScaffoldTools(),
+    ...createDeployPreviewTools(),
+    ...createFigmaTools(),
+    ...createStorybookTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
