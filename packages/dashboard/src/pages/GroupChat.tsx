@@ -84,6 +84,7 @@ export default function GroupChat() {
   const [pendingFiles, setPendingFiles] = useState<Attachment[]>([]);
   const [dragging, setDragging] = useState(false);
   const [agentSearch, setAgentSearch] = useState('');
+  const [saveFailed, setSaveFailed] = useState(false);
 
   // Shared conversation ID — all users default to the same thread
   const [conversationId, setConversationId] = useState<string>(
@@ -107,7 +108,7 @@ export default function GroupChat() {
     (async () => {
       const data = await apiCall<{ agent_role: string; role: string; content: string; attachments: any; created_at: string; user_id?: string }[]>(
         `/api/chat-messages?conversation_id=${encodeURIComponent(conversationId)}&order=created_at.desc&limit=200`
-      ).catch(() => null);
+      ).catch((err) => { console.error('[GroupChat] Failed to load history:', err); return null; });
       if (data && data.length > 0) {
         const rows = [...data].reverse();
         setMessages(
@@ -341,19 +342,30 @@ export default function GroupChat() {
     }
   };
 
-  // Persist a message to the DB (fire-and-forget)
-  const persistMsg = (userId: string, agentRole: string, role: string, content: string, attachments?: Attachment[]) => {
-    apiCall('/api/chat-messages', {
-      method: 'POST',
-      body: JSON.stringify({
-        user_id: userId,
-        agent_role: agentRole,
-        role,
-        content,
-        conversation_id: conversationId,
-        attachments: attachments ? attachments.map((a) => ({ name: a.name, type: a.type })) : null,
-      }),
-    }).catch(() => {});
+  // Persist a message to the DB with retry
+  const persistMsg = async (userId: string, agentRole: string, role: string, content: string, attachments?: Attachment[]) => {
+    const body = JSON.stringify({
+      user_id: userId,
+      agent_role: agentRole,
+      role,
+      content,
+      conversation_id: conversationId,
+      attachments: attachments ? attachments.map((a) => ({ name: a.name, type: a.type })) : null,
+    });
+    for (let attempt = 0; attempt <= 2; attempt++) {
+      try {
+        await apiCall('/api/chat-messages', { method: 'POST', body });
+        return;
+      } catch (err) {
+        if (attempt < 2) {
+          await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+        } else {
+          console.error('[GroupChat] Failed to save message:', err);
+          setSaveFailed(true);
+          setTimeout(() => setSaveFailed(false), 5000);
+        }
+      }
+    }
   };
 
   // Resolve @mentions → agent roles
@@ -883,6 +895,11 @@ export default function GroupChat() {
               accept={`${ALLOWED_TYPES.join(',')},${ACCEPT_EXTENSIONS}`}
               onChange={(e) => { if (e.target.files?.length) handleFiles(e.target.files); e.target.value = ''; }}
             />
+            {saveFailed && (
+              <div className="absolute -top-8 left-0 right-0 text-center text-[11px] text-prism-critical animate-pulse">
+                Message failed to save — your history may be incomplete
+              </div>
+            )}
             <textarea
               ref={inputRef}
               value={input}

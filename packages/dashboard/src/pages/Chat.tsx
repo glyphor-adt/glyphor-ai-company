@@ -97,7 +97,7 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-/** Persist a message to the database */
+/** Persist a message to the database with retry */
 async function saveMessage(
   agentRole: string,
   role: 'user' | 'agent',
@@ -105,18 +105,28 @@ async function saveMessage(
   userId: string,
   attachments?: Attachment[],
   respondingAgent?: string,
-) {
-  await apiCall('/api/chat-messages', {
-    method: 'POST',
-    body: JSON.stringify({
-      agent_role: agentRole,
-      role,
-      content,
-      user_id: userId,
-      attachments: attachments?.length ? attachments.map((a) => ({ name: a.name, type: a.type })) : null,
-      ...(respondingAgent ? { responding_agent: respondingAgent } : {}),
-    }),
+): Promise<void> {
+  const body = JSON.stringify({
+    agent_role: agentRole,
+    role,
+    content,
+    user_id: userId,
+    attachments: attachments?.length ? attachments.map((a) => ({ name: a.name, type: a.type })) : null,
+    ...(respondingAgent ? { responding_agent: respondingAgent } : {}),
   });
+  const maxRetries = 2;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      await apiCall('/api/chat-messages', { method: 'POST', body });
+      return;
+    } catch (err) {
+      if (attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+      } else {
+        throw err;
+      }
+    }
+  }
 }
 
 export default function Chat() {
@@ -141,6 +151,7 @@ export default function Chat() {
   const [showOrgChart, setShowOrgChart] = useState(false);
   const [sidebarSearch, setSidebarSearch] = useState('');
   const [recentChats, setRecentChats] = useState<RecentChat[]>([]);
+  const [saveFailed, setSaveFailed] = useState(false);
 
   // Voice chat
   const voice = useVoiceChat();
@@ -315,8 +326,8 @@ export default function Chat() {
             })),
           );
         }
-      } catch {
-        // Messages already cleared — empty state will show
+      } catch (err) {
+        console.error('[Chat] Failed to load chat history:', err);
       }
       setLoadingHistory(false);
     },
@@ -484,7 +495,11 @@ export default function Chat() {
       return [{ agentRole: targetRole, lastMessage: text.slice(0, 80) || 'Sent file(s)', lastMessageRole: 'user' as const, lastTime: new Date() }, ...without];
     });
 
-    saveMessage(targetRole, 'user', text, userEmail, attachments).catch(() => {});
+    saveMessage(targetRole, 'user', text, userEmail, attachments).catch((err) => {
+      console.error('[Chat] Failed to save user message:', err);
+      setSaveFailed(true);
+      setTimeout(() => setSaveFailed(false), 5000);
+    });
 
     // Extract @mentioned agent roles from the message
     const mentionPattern = /@(\w[\w\s]*?)(?=\s|$|@)/g;
@@ -565,7 +580,11 @@ export default function Chat() {
         if (selectedRoleRef.current === targetRole) {
           setMessages((prev) => [...prev, { role: 'agent', content, timestamp: new Date(), agentRole: isMentioned ? role : undefined }]);
         }
-        saveMessage(targetRole, 'agent', content, userEmail, undefined, isMentioned ? role : undefined).catch(() => {});
+        saveMessage(targetRole, 'agent', content, userEmail, undefined, isMentioned ? role : undefined).catch((err) => {
+          console.error('[Chat] Failed to save agent response:', err);
+          setSaveFailed(true);
+          setTimeout(() => setSaveFailed(false), 5000);
+        });
         if (!isMentioned) {
           setRecentChats((prev) => {
             const without = prev.filter((c) => c.agentRole !== targetRole);
@@ -936,6 +955,11 @@ export default function Chat() {
               accept={`${ALLOWED_TYPES.join(',')},${ACCEPT_EXTENSIONS}`}
               onChange={(e) => { if (e.target.files?.length) handleFiles(e.target.files); e.target.value = ''; }}
             />
+            {saveFailed && (
+              <div className="absolute -top-8 left-0 right-0 text-center text-[11px] text-prism-critical animate-pulse">
+                Message failed to save — your history may be incomplete
+              </div>
+            )}
             <textarea
               ref={inputRef}
               value={input}

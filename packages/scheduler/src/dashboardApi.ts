@@ -465,6 +465,9 @@ export async function handleDashboardApi(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[DashboardAPI] Error on ${method} /api/${tableSlug}:`, message);
+    if (tableName === 'chat_messages') {
+      console.error(`[DashboardAPI] chat_messages failure details — method: ${method}, table: ${tableName}, query: ${queryString ?? ''}`);
+    }
     jsonResponse(res, 500, { error: message });
     return true;
   }
