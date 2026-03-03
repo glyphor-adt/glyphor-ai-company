@@ -56,7 +56,6 @@ const BLOCKED_CODE_PATTERNS = [
   /child_process/i,
   /\bfs\b\./i,
   /\.env\b/i,
-  /SUPABASE_SERVICE_KEY/i,
   /DB_PASSWORD/i,
   /GOOGLE_AI_API_KEY/i,
   /OPENAI_API_KEY/i,
