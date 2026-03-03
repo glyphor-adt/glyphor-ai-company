@@ -418,9 +418,7 @@ function DirectiveCard({
   async function handleDelete() {
     setActing(true);
     try {
-      // Clean up related rows (no CASCADE on FK)
-      await apiCall(`/api/agent-tool-grants/${d.id}`, { method: 'DELETE' });
-      await apiCall(`/api/work-assignments/${d.id}`, { method: 'DELETE' });
+      // Server-side cascade handles child rows (no CASCADE on FK)
       await apiCall(`/api/founder-directives/${d.id}`, { method: 'DELETE' });
     } catch (err) {
       console.error('Failed to delete directive:', err);

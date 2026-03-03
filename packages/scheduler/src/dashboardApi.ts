@@ -448,6 +448,16 @@ export async function handleDashboardApi(
     // ── DELETE ──────────────────────────────────────────────────
     if (method === 'DELETE') {
       if (resourceId) {
+        // Cascade-delete child rows for founder_directives (FKs have no CASCADE)
+        if (tableName === 'founder_directives') {
+          await systemQuery('DELETE FROM agent_tool_grants WHERE directive_id = $1', [resourceId]);
+          await systemQuery('DELETE FROM work_assignments WHERE directive_id = $1', [resourceId]);
+          await systemQuery('DELETE FROM tool_requests WHERE directive_id = $1', [resourceId]);
+          await systemQuery('DELETE FROM decision_chains WHERE directive_id = $1', [resourceId]);
+          await systemQuery('DELETE FROM handoffs WHERE directive_id = $1', [resourceId]);
+          await systemQuery('DELETE FROM proposed_initiatives WHERE directive_id = $1', [resourceId]);
+          await systemQuery('UPDATE founder_directives SET source_directive_id = NULL WHERE source_directive_id = $1', [resourceId]);
+        }
         await systemQuery(`DELETE FROM ${tableName} WHERE id = $1`, [resourceId]);
         jsonResponse(res, 200, { success: true });
       } else {
