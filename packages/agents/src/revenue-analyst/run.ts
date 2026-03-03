@@ -20,6 +20,8 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
+import { createRevenueTools } from '../shared/revenueTools.js';
+import { createCashFlowTools } from '../shared/cashFlowTools.js';
 
 export interface RevenueAnalystRunParams {
   task?: 'revenue_report' | 'forecast' | 'on_demand';
@@ -47,6 +49,8 @@ export async function runRevenueAnalyst(params: RevenueAnalystRunParams = {}) {
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createSharePointTools(),
+    ...createRevenueTools(),
+    ...createCashFlowTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

@@ -20,6 +20,8 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
+import { createCostManagementTools } from '../shared/costManagementTools.js';
+import { createCashFlowTools } from '../shared/cashFlowTools.js';
 
 export interface CostAnalystRunParams {
   task?: 'cost_report' | 'waste_scan' | 'on_demand';
@@ -47,6 +49,8 @@ export async function runCostAnalyst(params: CostAnalystRunParams = {}) {
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createSharePointTools(),
+    ...createCostManagementTools(),
+    ...createCashFlowTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

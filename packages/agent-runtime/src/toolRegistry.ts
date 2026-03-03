@@ -455,6 +455,30 @@ const KNOWN_TOOLS = new Set([
   'get_lead_pipeline',
   'score_lead',
   'get_marketing_dashboard',
+
+  // ── Finance shared tools (Wave 2) ──
+  // revenueTools
+  'get_mrr_breakdown',
+  'get_subscription_details',
+  'get_churn_analysis',
+  'get_revenue_forecast',
+  'get_stripe_invoices',
+  'get_customer_ltv',
+  // costManagementTools
+  'get_gcp_costs',
+  'get_ai_model_costs',
+  'get_vendor_costs',
+  'get_cost_anomalies',
+  'get_burn_rate',
+  'create_budget',
+  'check_budget_status',
+  'get_unit_economics',
+  // cashFlowTools
+  'get_cash_balance',
+  'get_cash_flow',
+  'get_pending_transactions',
+  'generate_financial_report',
+  'get_margin_analysis',
 ]);
 
 /**
