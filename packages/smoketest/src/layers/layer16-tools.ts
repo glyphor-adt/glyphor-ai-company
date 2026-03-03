@@ -129,11 +129,18 @@ const FACTORIES: FactoryEntry[] = [
 
 /** Required env vars grouped by service. */
 const ENV_REQUIREMENTS: Record<string, string[]> = {
+  // Pre-existing
+  'Figma (design)': ['FIGMA_CLIENT_ID', 'FIGMA_CLIENT_SECRET'],
+  'Screenshot Service': ['SCREENSHOT_SERVICE_URL'],
+  'Storybook': ['STORYBOOK_URL'],
+  'Vercel (deploy previews)': ['VERCEL_DEPLOY_HOOK_URL'],
+  'SendGrid (email)': ['SENDGRID_API_KEY'],
+  // Wave 1-5
   'Stripe (revenue)': ['STRIPE_SECRET_KEY'],
   'Mercury (banking)': ['MERCURY_API_TOKEN'],
   'Mailchimp (email campaigns)': ['GLYPHOR_MAILCHIMP_API'],
   'Mandrill (transactional email)': ['GLYPHOR_MANDRILL_API_KEY'],
-  'OpenAI (content images)': ['OPENAI_API_KEY'],
+  'OpenAI (images + AI)': ['OPENAI_API_KEY'],
   'Google Search Console (SEO)': ['GOOGLE_SEARCH_CONSOLE_CREDENTIALS'],
 };
 
