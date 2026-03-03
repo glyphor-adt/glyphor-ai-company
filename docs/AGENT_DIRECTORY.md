@@ -1286,6 +1286,7 @@ These agents are defined in the directory but do not have runtime code deployed 
 | `enterprise-account-researcher` | Ethan Morse | Enterprise Account Researcher | Sales | `enterprise_org_mapping`, `procurement_cycle_analysis`, `deal_strategy`, `influence_mapping` |
 | `lead-gen-specialist` | Derek Owens | Lead Generation Specialist | Sales | `lead_identification`, `signal_monitoring`, `outreach_strategy`, `pipeline_analytics` |
 | `marketing-intelligence-analyst` | Zara Petrov | Marketing Intelligence Analyst | Marketing | `competitive_campaigns`, `market_trend_analysis`, `channel_benchmarking`, `signal_intelligence` |
+| `elena-vance` | Elena Vance | Legal Counsel | Legal | *(pending)* |
 | `adi-rose` | Adi Rose | AI Digital Identity | Executive Office | `action_item_tracking`, `meeting_prep`, `cross_department_liaison`, `operational_rhythm` |
 
 ---
@@ -1303,6 +1304,8 @@ Not all agents get all shared tool groups. Key differences:
 | `market-research-analyst` | Email |
 | `technical-research-analyst` | Email |
 | `industry-research-analyst` | Email |
+| `ai-impact-analyst` | Email |
+| `org-analyst` | Email |
 | `vp-customer-success` | SharePoint |
 | `vp-sales` | SharePoint |
 | `vp-design` | SharePoint |
@@ -1317,8 +1320,8 @@ Not all agents get all shared tool groups. Key differences:
 | **Orchestrator** | Sarah Chen (Chief of Staff) | Full access to all shared tools + briefing/decision tools |
 | **Executive** | CTO, CPO, CFO, CMO, VP-CS, VP-Sales, VP-Design, CLO, VP-Research, Head of HR | Tool Grants access, most have Collective Intelligence + Agent Creation |
 | **Specialist** | Atlas Vega (Ops), Bob Finley, Grace Hwang, Mariana Solis, Adi Rose | Varies — Ops has full monitoring suite; others are planned |
-| **Sub-Team** | All other agents | No Tool Grants, no Collective Intelligence, no Agent Creation (generally) |
+| **Sub-Team** | All other agents (incl. Riya Mehta, Marcus Chen) | No Tool Grants, no Collective Intelligence, no Agent Creation (generally) |
 
 ---
 
-*Document generated from `packages/dashboard/src/lib/types.ts` — `DISPLAY_NAME_MAP`, `AGENT_BUILT_IN_TOOLS`, `AGENT_SKILLS`, `AGENT_SOUL`, `ROLE_DEPARTMENT`, `ROLE_TIER`, `ROLE_TITLE`, `SUB_TEAM`.*
+*Document generated from `packages/dashboard/src/lib/types.ts` — `DISPLAY_NAME_MAP`, `AGENT_BUILT_IN_TOOLS`, `AGENT_SKILLS`, `AGENT_SOUL`, `ROLE_DEPARTMENT`, `ROLE_TIER`, `ROLE_TITLE`, `SUB_TEAM`. Cross-referenced against `company_agents` DB table and `packages/agents/src/` runtime code.*
