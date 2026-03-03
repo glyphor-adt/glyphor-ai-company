@@ -36,7 +36,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
             agents = await systemQuery('SELECT * FROM company_agents', []);
           }
         } catch (err) {
-          return { success: false, output: `Failed to fetch agents: ${(err as Error).message}` };
+          return { success: false, error: `Failed to fetch agents: ${(err as Error).message}` };
         }
 
         // Fetch all profiles
@@ -93,7 +93,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
 
         return {
           success: true,
-          output: JSON.stringify({
+          data: JSON.stringify({
             totalAgents: total,
             compliant,
             issueCount: issues.length,
@@ -122,7 +122,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
 
         const agentRows = await systemQuery('SELECT * FROM company_agents WHERE role = $1', [role]);
         const agent = agentRows[0] ?? null;
-        if (!agent) return { success: false, output: `Agent "${role}" not found in company_agents.` };
+        if (!agent) return { success: false, error: `Agent "${role}" not found in company_agents.` };
 
         const profileRows = await systemQuery('SELECT * FROM agent_profiles WHERE agent_role = $1', [role]);
         const profile = profileRows[0] ?? null;
@@ -198,7 +198,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
 
         return {
           success: true,
-          output: JSON.stringify({
+          data: JSON.stringify({
             role,
             displayName: agent.display_name || role,
             status: agent.status,
@@ -280,7 +280,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         if (params.emoji_usage) updateData.emoji_usage = params.emoji_usage;
 
         if (Object.keys(updateData).length === 0) {
-          return { success: false, output: 'No fields provided to update.' };
+          return { success: false, error: 'No fields provided to update.' };
         }
 
         try {
@@ -293,9 +293,9 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
             [role, ...keys.map(k => updateData[k])]
           );
         } catch (err) {
-          return { success: false, output: `Failed to update profile: ${(err as Error).message}` };
+          return { success: false, error: `Failed to update profile: ${(err as Error).message}` };
         }
-        return { success: true, output: `Profile for "${role}" updated: ${Object.keys(updateData).join(', ')}` };
+        return { success: true, data: `Profile for "${role}" updated: ${Object.keys(updateData).join(', ')}` };
       },
     },
 
@@ -322,9 +322,9 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         try {
           await systemQuery('UPDATE company_agents SET display_name = $1, name = $1 WHERE role = $2', [displayName, role]);
         } catch (err) {
-          return { success: false, output: `Failed: ${(err as Error).message}` };
+          return { success: false, error: `Failed: ${(err as Error).message}` };
         }
-        return { success: true, output: `Agent "${role}" display_name set to "${displayName}".` };
+        return { success: true, data: `Agent "${role}" display_name set to "${displayName}".` };
       },
     },
 
@@ -352,14 +352,14 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
 
         const PROTECTED = ['chief-of-staff', 'head-of-hr'];
         if (PROTECTED.includes(role)) {
-          return { success: false, output: `Cannot retire "${role}" — protected role.` };
+          return { success: false, error: `Cannot retire "${role}" — protected role.` };
         }
 
         // Update agent status
         try {
           await systemQuery('UPDATE company_agents SET status = $1 WHERE role = $2', ['retired', role]);
         } catch (err) {
-          return { success: false, output: `Failed to retire: ${(err as Error).message}` };
+          return { success: false, error: `Failed to retire: ${(err as Error).message}` };
         }
 
         // Disable schedules
@@ -371,7 +371,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
           ['head-of-hr', 'agent_retired', JSON.stringify({ retired_role: role, reason })]
         );
 
-        return { success: true, output: `Agent "${role}" retired. Reason: ${reason}. Schedules disabled.` };
+        return { success: true, data: `Agent "${role}" retired. Reason: ${reason}. Schedules disabled.` };
       },
     },
 
@@ -392,7 +392,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         try {
           await systemQuery('UPDATE company_agents SET status = $1 WHERE role = $2', ['active', role]);
         } catch (err) {
-          return { success: false, output: `Failed: ${(err as Error).message}` };
+          return { success: false, error: `Failed: ${(err as Error).message}` };
         }
 
         await systemQuery(
@@ -400,7 +400,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
           ['head-of-hr', 'agent_reactivated', JSON.stringify({ reactivated_role: role })]
         );
 
-        return { success: true, output: `Agent "${role}" reactivated.` };
+        return { success: true, data: `Agent "${role}" reactivated.` };
       },
     },
 
@@ -423,7 +423,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         const agents = await systemQuery('SELECT role, display_name, status FROM company_agents WHERE status = $1', ['active']);
 
         if (agents.length === 0) {
-          return { success: true, output: 'No active agents found.' };
+          return { success: true, data: 'No active agents found.' };
         }
 
         // Get recent runs
@@ -435,7 +435,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
 
         return {
           success: true,
-          output: JSON.stringify({
+          data: JSON.stringify({
             threshold: `${days} days`,
             staleCount: stale.length,
             staleAgents: stale.map((a: Record<string, unknown>) => ({
@@ -471,15 +471,15 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         const [managerAgent] = await systemQuery('SELECT role FROM company_agents WHERE role = $1', [manager]);
 
         if (!managerAgent) {
-          return { success: false, output: `Manager "${manager}" not found in company_agents.` };
+          return { success: false, error: `Manager "${manager}" not found in company_agents.` };
         }
 
         try {
           await systemQuery('UPDATE company_agents SET reports_to = $1 WHERE role = $2', [manager, role]);
         } catch (err) {
-          return { success: false, output: `Failed: ${(err as Error).message}` };
+          return { success: false, error: `Failed: ${(err as Error).message}` };
         }
-        return { success: true, output: `Agent "${role}" now reports to "${manager}".` };
+        return { success: true, data: `Agent "${role}" now reports to "${manager}".` };
       },
     },
 
@@ -513,9 +513,9 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
             ['head-of-hr', params.action as string, JSON.stringify(parsedDetails)]
           );
         } catch (err) {
-          return { success: false, output: `Failed to write log: ${(err as Error).message}` };
+          return { success: false, error: `Failed to write log: ${(err as Error).message}` };
         }
-        return { success: true, output: 'HR action logged.' };
+        return { success: true, data: 'HR action logged.' };
       },
     },
 
@@ -542,7 +542,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
 
         const apiKey = process.env.GOOGLE_AI_API_KEY;
         if (!apiKey) {
-          return { success: false, output: 'GOOGLE_AI_API_KEY not set — cannot generate avatar.' };
+          return { success: false, error: 'GOOGLE_AI_API_KEY not set — cannot generate avatar.' };
         }
 
         const { GoogleGenAI } = await import('@google/genai');
@@ -564,7 +564,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
 
           const image = response.generatedImages?.[0];
           if (!image?.image?.imageBytes) {
-            return { success: false, output: `Imagen returned no image for "${name}".` };
+            return { success: false, error: `Imagen returned no image for "${name}".` };
           }
 
           // Upload to GCS
@@ -589,11 +589,11 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
 
           return {
             success: true,
-            output: `Avatar generated for "${name}" (${role}) and uploaded to ${avatarUrl}.`,
+            data: `Avatar generated for "${name}" (${role}) and uploaded to ${avatarUrl}.`,
           };
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : String(err);
-          return { success: false, output: `Avatar generation failed: ${message}` };
+          return { success: false, error: `Avatar generation failed: ${message}` };
         }
       },
     },
@@ -646,19 +646,19 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         const model = (params.model as string) || 'gemini-3-flash-preview';
 
         if (!role || !name || !title || !department || !reportsTo) {
-          return { success: false, output: 'role, name, title, department, and reports_to are all required.' };
+          return { success: false, error: 'role, name, title, department, and reports_to are all required.' };
         }
 
         // Verify manager exists
         const [mgr] = await systemQuery('SELECT role FROM company_agents WHERE role = $1', [reportsTo]);
         if (!mgr) {
-          return { success: false, output: `Manager "${reportsTo}" not found in company_agents.` };
+          return { success: false, error: `Manager "${reportsTo}" not found in company_agents.` };
         }
 
         // Check if agent already exists
         const [existing] = await systemQuery('SELECT role FROM company_agents WHERE role = $1', [role]);
         if (existing) {
-          return { success: false, output: `Agent "${role}" already exists. Use validate_agent to check its profile.` };
+          return { success: false, error: `Agent "${role}" already exists. Use validate_agent to check its profile.` };
         }
 
         try {
@@ -667,7 +667,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
             [role, name, name, title, department, reportsTo, model, 'active', false, false]
           );
         } catch (err) {
-          return { success: false, output: `Failed to provision agent: ${(err as Error).message}` };
+          return { success: false, error: `Failed to provision agent: ${(err as Error).message}` };
         }
 
         // Log the provisioning
@@ -678,7 +678,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
 
         return {
           success: true,
-          output: `Agent "${name}" (${role}) provisioned successfully in ${department}, reporting to ${reportsTo}.\n\nNext steps:\n1. Use enrich_agent_profile to generate personality\n2. Use generate_avatar to create headshot\n3. Use validate_agent to confirm onboarding completeness`,
+          data: `Agent "${name}" (${role}) provisioned successfully in ${department}, reporting to ${reportsTo}.\n\nNext steps:\n1. Use enrich_agent_profile to generate personality\n2. Use generate_avatar to create headshot\n3. Use validate_agent to confirm onboarding completeness`,
         };
       },
     },
@@ -704,7 +704,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
 
         const apiKey = process.env.GOOGLE_AI_API_KEY;
         if (!apiKey) {
-          return { success: false, output: 'GOOGLE_AI_API_KEY not set — cannot enrich profile.' };
+          return { success: false, error: 'GOOGLE_AI_API_KEY not set — cannot enrich profile.' };
         }
 
         const { GoogleGenAI } = await import('@google/genai');
@@ -736,7 +736,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
 
           const text = response.text?.trim();
           if (!text) {
-            return { success: false, output: 'Gemini returned empty response.' };
+            return { success: false, error: 'Gemini returned empty response.' };
           }
 
           const cleaned = text.replace(/^```json\s*/, '').replace(/```\s*$/, '');
@@ -752,16 +752,16 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
               [role, profile.personality_summary, profile.backstory, JSON.stringify(profile.communication_traits), JSON.stringify(profile.quirks), profile.working_style, profile.tone_formality, profile.verbosity, profile.emoji_usage]
             );
           } catch (err) {
-            return { success: false, output: `DB upsert failed: ${(err as Error).message}` };
+            return { success: false, error: `DB upsert failed: ${(err as Error).message}` };
           }
 
           return {
             success: true,
-            output: `Profile enriched for "${agentName}" (${role}):\n${JSON.stringify(profile, null, 2)}`,
+            data: `Profile enriched for "${agentName}" (${role}):\n${JSON.stringify(profile, null, 2)}`,
           };
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : String(err);
-          return { success: false, output: `Profile enrichment failed: ${message}` };
+          return { success: false, error: `Profile enrichment failed: ${message}` };
         }
       },
     },

@@ -1,4 +1,6 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+
+const POLL_INTERVAL = 60_000;
 import { apiCall } from '../lib/firebase';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import {
@@ -72,26 +74,34 @@ function useAgentRuns() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
-  return { data, loading };
+  useEffect(() => {
+    refresh();
+    const id = setInterval(refresh, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, [refresh]);
+  return { data, loading, refresh };
 }
 
 function useReflections(days = 14) {
   const [data, setData] = useState<ReflectionRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-      try {
-        const rows = await apiCall<ReflectionRow[]>(`/api/agent-reflections?since=${since}`);
-        setData(rows ?? []);
-      } catch {
-        setData([]);
-      }
-      setLoading(false);
-    })();
+  const refresh = useCallback(async () => {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    try {
+      const rows = await apiCall<ReflectionRow[]>(`/api/agent-reflections?since=${since}`);
+      setData(rows ?? []);
+    } catch {
+      setData([]);
+    }
+    setLoading(false);
   }, [days]);
+
+  useEffect(() => {
+    refresh();
+    const id = setInterval(refresh, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, [refresh]);
 
   return { data, loading };
 }
@@ -100,18 +110,22 @@ function useRecentRuns(hours = 48) {
   const [data, setData] = useState<RecentRunRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
-      try {
-        const rows = await apiCall<RecentRunRow[]>(`/api/agent-runs?since=${since}`);
-        setData(rows ?? []);
-      } catch {
-        setData([]);
-      }
-      setLoading(false);
-    })();
+  const refresh = useCallback(async () => {
+    const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+    try {
+      const rows = await apiCall<RecentRunRow[]>(`/api/agent-runs?since=${since}`);
+      setData(rows ?? []);
+    } catch {
+      setData([]);
+    }
+    setLoading(false);
   }, [hours]);
+
+  useEffect(() => {
+    refresh();
+    const id = setInterval(refresh, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, [refresh]);
 
   return { data, loading };
 }
@@ -221,34 +235,40 @@ interface IncidentRow {
 function useDataSyncs() {
   const [data, setData] = useState<SyncRow[]>([]);
   const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    (async () => {
-      try {
-        const rows = await apiCall<SyncRow[]>('/api/data-sync-status');
-        setData(rows ?? []);
-      } catch {
-        setData([]);
-      }
-      setLoading(false);
-    })();
+  const refresh = useCallback(async () => {
+    try {
+      const rows = await apiCall<SyncRow[]>('/api/data-sync-status');
+      setData(rows ?? []);
+    } catch {
+      setData([]);
+    }
+    setLoading(false);
   }, []);
+  useEffect(() => {
+    refresh();
+    const id = setInterval(refresh, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, [refresh]);
   return { data, loading };
 }
 
 function useIncidents() {
   const [data, setData] = useState<IncidentRow[]>([]);
   const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    (async () => {
-      try {
-        const rows = await apiCall<IncidentRow[]>('/api/incidents?limit=20');
-        setData(rows ?? []);
-      } catch {
-        setData([]);
-      }
-      setLoading(false);
-    })();
+  const refresh = useCallback(async () => {
+    try {
+      const rows = await apiCall<IncidentRow[]>('/api/incidents?limit=20');
+      setData(rows ?? []);
+    } catch {
+      setData([]);
+    }
+    setLoading(false);
   }, []);
+  useEffect(() => {
+    refresh();
+    const id = setInterval(refresh, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, [refresh]);
   return { data, loading };
 }
 
@@ -277,13 +297,19 @@ export default function Operations() {
 }
 
 function OperationsOverview() {
-  const { data: agents, loading: agentsLoading } = useAgentRuns();
+  const { data: agents, loading: agentsLoading, refresh: refreshAgents } = useAgentRuns();
   const { data: reflections, loading: reflectionsLoading } = useReflections(14);
   const { data: recentRuns, loading: recentRunsLoading } = useRecentRuns(48);
   const { data: syncs, loading: syncsLoading } = useDataSyncs();
   const { data: incidents, loading: incidentsLoading } = useIncidents();
 
   const loading = agentsLoading || reflectionsLoading || recentRunsLoading;
+  const lastRefresh = useRef(new Date());
+
+  const handleRefresh = useCallback(() => {
+    lastRefresh.current = new Date();
+    refreshAgents();
+  }, [refreshAgents]);
 
   const healthMap = useMemo(
     () => computeHealthMap(agents, recentRuns, reflections),
@@ -342,6 +368,18 @@ function OperationsOverview() {
 
   return (
     <div className="space-y-8">
+      {/* Refresh bar */}
+      <div className="flex items-center justify-end gap-3">
+        <span className="text-xs text-txt-faint">Auto-refreshes every 60s</span>
+        <button
+          onClick={handleRefresh}
+          disabled={loading}
+          className="rounded-md border border-border bg-raised px-3 py-1.5 text-xs font-medium text-txt-secondary hover:bg-surface disabled:opacity-50"
+        >
+          {loading ? 'Refreshing…' : 'Refresh now'}
+        </button>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-4 gap-4">
         <SummaryCard label="Total Runs" value={String(totalRuns)} loading={loading} />
