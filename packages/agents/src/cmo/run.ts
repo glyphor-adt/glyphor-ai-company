@@ -34,6 +34,11 @@ import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
+import { createContentTools } from '../shared/contentTools.js';
+import { createSeoTools } from '../shared/seoTools.js';
+import { createSocialMediaTools } from '../shared/socialMediaTools.js';
+import { createEmailMarketingTools } from '../shared/emailMarketingTools.js';
+import { createMarketingIntelTools } from '../shared/marketingIntelTools.js';
 
 export interface CMORunParams {
   task?: 'weekly_content_planning' | 'generate_content' | 'seo_analysis' | 'on_demand';
@@ -74,6 +79,11 @@ export async function runCMO(params: CMORunParams = {}) {
     ...createAgentCreationTools(),
     ...createToolRequestTools(),
     ...createAgentDirectoryTools(),
+    ...createContentTools(),
+    ...createSeoTools(),
+    ...createSocialMediaTools(),
+    ...createEmailMarketingTools(),
+    ...createMarketingIntelTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

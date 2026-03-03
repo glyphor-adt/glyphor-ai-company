@@ -20,6 +20,7 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
+import { createSeoTools } from '../shared/seoTools.js';
 
 export interface SeoAnalystRunParams {
   task?: 'ranking_report' | 'keyword_research' | 'competitor_gap' | 'on_demand';
@@ -47,6 +48,7 @@ export async function runSeoAnalyst(params: SeoAnalystRunParams = {}) {
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createSharePointTools(),
+    ...createSeoTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

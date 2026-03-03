@@ -20,6 +20,7 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
+import { createSocialMediaTools } from '../shared/socialMediaTools.js';
 
 export interface SocialMediaManagerRunParams {
   task?: 'engagement_report' | 'schedule_batch' | 'mention_scan' | 'on_demand';
@@ -47,6 +48,7 @@ export async function runSocialMediaManager(params: SocialMediaManagerRunParams 
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createSharePointTools(),
+    ...createSocialMediaTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

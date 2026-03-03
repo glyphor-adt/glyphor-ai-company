@@ -20,6 +20,8 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
+import { createContentTools } from '../shared/contentTools.js';
+import { createEmailMarketingTools } from '../shared/emailMarketingTools.js';
 
 export interface ContentCreatorRunParams {
   task?: 'blog_draft' | 'social_batch' | 'performance_review' | 'on_demand';
@@ -47,6 +49,8 @@ export async function runContentCreator(params: ContentCreatorRunParams = {}) {
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createSharePointTools(),
+    ...createContentTools(),
+    ...createEmailMarketingTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

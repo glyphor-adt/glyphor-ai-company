@@ -402,6 +402,59 @@ const KNOWN_TOOLS = new Set([
   'query_logs',
   'read_file',
   'deploy_to_staging',
+
+  // ── Marketing shared tools (Wave 1) ──
+  // contentTools
+  'create_content_draft',
+  'update_content_draft',
+  'get_content_drafts',
+  'publish_content',
+  'get_content_metrics',
+  'get_content_calendar',
+  'generate_content_image',
+  // seoTools
+  'get_search_performance',
+  'get_seo_data',
+  'track_keyword_rankings',
+  'analyze_page_seo',
+  'get_indexing_status',
+  'submit_sitemap',
+  'update_seo_data',
+  'get_backlink_profile',
+  // socialMediaTools
+  'get_scheduled_posts',
+  'get_social_metrics',
+  'get_post_performance',
+  'get_social_audience',
+  'reply_to_social',
+  'get_trending_topics',
+  // emailMarketingTools (Mailchimp)
+  'get_mailchimp_lists',
+  'get_mailchimp_members',
+  'get_mailchimp_segments',
+  'create_mailchimp_campaign',
+  'set_campaign_content',
+  'send_test_campaign',
+  'send_campaign',
+  'get_campaign_report',
+  'get_campaign_list',
+  'manage_mailchimp_tags',
+  // emailMarketingTools (Mandrill)
+  'send_transactional_email',
+  'get_mandrill_stats',
+  'search_mandrill_messages',
+  'get_mandrill_templates',
+  'render_mandrill_template',
+  // marketingIntelTools
+  'create_experiment',
+  'get_experiment_results',
+  'monitor_competitor_marketing',
+  'analyze_market_trends',
+  'get_attribution_data',
+  'capture_lead',
+  'get_lead_pipeline',
+  'score_lead',
+  'get_marketing_dashboard',
 ]);
 
 /**
