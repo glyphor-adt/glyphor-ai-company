@@ -691,17 +691,3 @@ That is a real design team doing real work.
 | Storybook deployment | Static site build in CI, deployed to GCS/Vercel/Cloud Run |
 
 ---
-
-## Scaling to Other Teams
-
-Same analysis applies to every department:
-
-Marketing (Maya, Tyler, Lisa, Kai): Tyler needs CMS/blog publishing, Lisa needs Search Console + rank tracking, Kai needs social platform APIs + scheduling, Maya needs campaign analytics + A/B testing.
-
-Product (Elena, Priya, Daniel): Priya needs survey tools + session replay + analytics, Daniel needs competitor monitoring + feature tracking, Elena needs roadmap management + feature flags.
-
-Customer Success (James, Emma, David): Emma needs user lifecycle + email sequences, David needs ticket system + user lookup, James needs health scoring + churn prediction.
-
-Finance (Nadia, Anna, Omar): Better tooled already (Stripe, Mercury, BigQuery) but missing forecasting, budgeting, automated reporting.
-
-The shared toolkit (communication, assignments, memory) is the floor. Every agent needs tools specific to their actual job function.
