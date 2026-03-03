@@ -7,6 +7,16 @@ import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import { systemQuery } from '@glyphor/shared/db';
 
+/** Safely coerce an AI-generated value to a number for DECIMAL columns. */
+function toNumeric(value: unknown, fallback: number): number {
+  if (typeof value === 'number' && isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = parseFloat(value);
+    if (isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
 export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
   return [
@@ -260,10 +270,9 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
           required: false,
         },
         emoji_usage: {
-          type: 'string',
-          description: 'Emoji usage level.',
+          type: 'number',
+          description: 'Emoji usage 0.0-1.0 (0.0 = none, 0.3 = minimal, 0.5 = moderate).',
           required: false,
-          enum: ['none', 'minimal', 'moderate', 'heavy'],
         },
       },
       execute: async (params) => {
@@ -280,10 +289,10 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
           const arr = params.quirks as string[];
           updateData.quirks = Array.isArray(arr) ? arr.map(String) : arr;
         }
-        if (params.tone_formality !== undefined) updateData.tone_formality = params.tone_formality;
-        if (params.verbosity !== undefined) updateData.verbosity = params.verbosity;
+        if (params.tone_formality !== undefined) updateData.tone_formality = toNumeric(params.tone_formality, 0.6);
+        if (params.verbosity !== undefined) updateData.verbosity = toNumeric(params.verbosity, 0.5);
         if (params.working_style) updateData.working_style = params.working_style;
-        if (params.emoji_usage) updateData.emoji_usage = params.emoji_usage;
+        if (params.emoji_usage !== undefined) updateData.emoji_usage = toNumeric(params.emoji_usage, 0.1);
 
         if (Object.keys(updateData).length === 0) {
           return { success: false, error: 'No fields provided to update.' };
@@ -731,7 +740,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
           `- working_style: 1 sentence description\n` +
           `- tone_formality: number 0.0-1.0\n` +
           `- verbosity: number 0.0-1.0\n` +
-          `- emoji_usage: "none" | "minimal" | "moderate"\n\n` +
+          `- emoji_usage: number 0.0-1.0 (0.0 = none, 0.3 = minimal, 0.5 = moderate)\n\n` +
           `Return ONLY the JSON object, no markdown fencing.`;
 
         try {
@@ -763,7 +772,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
                ON CONFLICT (agent_id) DO UPDATE SET
                  personality_summary = $2, backstory = $3, communication_traits = $4, quirks = $5,
                  working_style = $6, tone_formality = $7, verbosity = $8, emoji_usage = $9`,
-              [role, profile.personality_summary, profile.backstory, traits, quirks, profile.working_style, profile.tone_formality, profile.verbosity, profile.emoji_usage]
+              [role, profile.personality_summary, profile.backstory, traits, quirks, profile.working_style, toNumeric(profile.tone_formality, 0.6), toNumeric(profile.verbosity, 0.5), toNumeric(profile.emoji_usage, 0.1)]
             );
           } catch (err) {
             return { success: false, error: `DB upsert failed: ${(err as Error).message}` };
