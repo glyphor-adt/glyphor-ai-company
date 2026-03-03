@@ -44,6 +44,7 @@ import { createScaffoldTools } from '../shared/scaffoldTools.js';
 import { createDeployPreviewTools } from '../shared/deployPreviewTools.js';
 import { createFigmaTools } from '../shared/figmaTools.js';
 import { createStorybookTools } from '../shared/storybookTools.js';
+import { createCanvaTools } from '../shared/canvaTools.js';
 
 export interface VPDesignRunParams {
   task?: 'design_audit' | 'design_system_review' | 'on_demand';
@@ -93,6 +94,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
     ...createDeployPreviewTools(),
     ...createFigmaTools(),
     ...createStorybookTools(),
+    ...createCanvaTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

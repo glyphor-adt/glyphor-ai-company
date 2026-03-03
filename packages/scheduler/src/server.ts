@@ -757,6 +757,47 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // Canva OAuth callback — exchanges authorisation code for tokens
+    if (method === 'GET' && url === '/oauth/canva/callback') {
+      const code = params.get('code');
+      if (!code) {
+        json(res, 400, { error: 'Missing code parameter' });
+        return;
+      }
+      try {
+        const clientId = process.env.CANVA_CLIENT_ID;
+        const clientSecret = process.env.CANVA_CLIENT_SECRET;
+        if (!clientId || !clientSecret) throw new Error('CANVA_CLIENT_ID/SECRET not configured');
+
+        const tokenRes = await fetch('https://api.canva.com/rest/v1/oauth/token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+          },
+          body: new URLSearchParams({
+            grant_type: 'authorization_code',
+            code,
+            redirect_uri: `${process.env.SCHEDULER_URL || 'https://glyphor-scheduler-v55622rp6q-uc.a.run.app'}/oauth/canva/callback`,
+          }),
+        });
+        if (!tokenRes.ok) throw new Error(`Token exchange failed (${tokenRes.status}): ${await tokenRes.text()}`);
+        const tokens = await tokenRes.json() as { refresh_token: string; expires_in: number };
+        // In production the refresh token should be persisted to Secret Manager.
+        console.log('[Canva OAuth] Token exchange succeeded. Refresh token received.');
+        json(res, 200, {
+          success: true,
+          message: 'Canva OAuth authorised. Store the refresh token in CANVA_REFRESH_TOKEN secret.',
+          expiresIn: tokens.expires_in,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[Canva OAuth] Token exchange failed:', message);
+        json(res, 500, { error: `Canva OAuth failed: ${message}` });
+      }
+      return;
+    }
+
     // Pub/Sub push endpoint — ack immediately, execute async to prevent redelivery
     if (method === 'POST' && url === '/pubsub') {
       const body = JSON.parse(await readBody(req));

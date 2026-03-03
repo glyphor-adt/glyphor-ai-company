@@ -1,7 +1,8 @@
 name: Auto-merge PRs
 
 on:
-  check_suite:
+  workflow_run:
+    workflows: ["CI"]
     types: [completed]
   pull_request_review:
     types: [submitted]

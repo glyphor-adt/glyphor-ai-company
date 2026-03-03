@@ -221,4 +221,22 @@ export {
   type PulseAsset,
 } from './pulse/index.js';
 
+// Canva Connect API — design creation, brand templates, autofill, export
+export {
+  createDesign,
+  getDesign,
+  listDesigns,
+  uploadAsset,
+  getAssetUploadJob,
+  listBrandTemplates,
+  getBrandTemplateDataset,
+  createAutofillJob,
+  getAutofillJob,
+  waitForAutofillJob,
+  createExportJob,
+  getExportJob,
+  waitForExportJob,
+  exchangeCanvaCode,
+  clearCanvaTokenCache,
+} from './canva/index.js';
 

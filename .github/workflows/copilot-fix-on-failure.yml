@@ -104,6 +104,15 @@ jobs:
             --body "$ISSUE_BODY" \
             --label "bug,copilot,copilot-fix")
 
+          # Extract issue number and assign to Copilot via API
+          ISSUE_NUM=$(echo "$ISSUE_URL" | grep -oE '[0-9]+$')
+          if [ -n "$ISSUE_NUM" ]; then
+            gh api \
+              --method POST \
+              "repos/${{ github.repository }}/issues/${ISSUE_NUM}/assignees" \
+              -f "assignees[]=Copilot" 2>/dev/null || echo "Note: Could not auto-assign Copilot."
+          fi
+
           echo "Created issue: $ISSUE_URL"
 
   create-fix-issue-check:
@@ -185,7 +194,15 @@ jobs:
             --repo "${{ github.repository }}" \
             --title "fix: ${APP_NAME} check failure on main ($(date +%Y-%m-%d))" \
             --body "$ISSUE_BODY" \
-            --label "bug,copilot,copilot-fix" \
-            --assignee "Copilot")
+            --label "bug,copilot,copilot-fix")
+
+          # Extract issue number and assign to Copilot via API
+          ISSUE_NUM=$(echo "$ISSUE_URL" | grep -oE '[0-9]+$')
+          if [ -n "$ISSUE_NUM" ]; then
+            gh api \
+              --method POST \
+              "repos/${{ github.repository }}/issues/${ISSUE_NUM}/assignees" \
+              -f "assignees[]=Copilot" 2>/dev/null || echo "Note: Could not auto-assign Copilot."
+          fi
 
           echo "Created issue: $ISSUE_URL"
