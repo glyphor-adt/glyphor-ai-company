@@ -21,6 +21,7 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
+import { createDiagnosticTools } from '../shared/diagnosticTools.js';
 
 export interface DevOpsEngineerRunParams {
   task?: 'optimization_scan' | 'pipeline_report' | 'on_demand';
@@ -54,6 +55,7 @@ export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createSharePointTools(),
+    ...createDiagnosticTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

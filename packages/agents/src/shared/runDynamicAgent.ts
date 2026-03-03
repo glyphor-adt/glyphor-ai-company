@@ -99,7 +99,6 @@ export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<Ag
   const toolExecutor = new ToolExecutor(tools);
 
   const agentCfg = await loadAgentConfig(role, {
-    model: agentRow.model || 'gemini-3-flash-preview',
     temperature: agentRow.temperature ?? 0.3,
     maxTurns: agentRow.max_turns ?? 10,
   });

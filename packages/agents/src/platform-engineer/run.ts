@@ -27,6 +27,7 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
+import { createDiagnosticTools } from '../shared/diagnosticTools.js';
 
 export interface PlatformEngineerRunParams {
   task?: 'health_check' | 'metrics_report' | 'on_demand';
@@ -60,6 +61,7 @@ export async function runPlatformEngineer(params: PlatformEngineerRunParams = {}
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createSharePointTools(),
+    ...createDiagnosticTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
