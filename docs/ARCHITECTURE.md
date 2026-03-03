@@ -681,6 +681,16 @@ glyphor-ai-company/
 │   │       │   ├── toolRegistryTools.ts  # Tool registry lookup and validation
 │   │       │   ├── toolRequestTools.ts   # Tool access request workflow
 │   │       │   ├── researchTools.ts      # web_search, web_fetch, submit_research_packet
+│   │       │   ├── frontendCodeTools.ts  # read/write/search frontend code (path-scoped)
+│   │       │   ├── screenshotTools.ts    # screenshot_page, compare, check_responsive
+│   │       │   ├── designSystemTools.ts  # design tokens, components, validation
+│   │       │   ├── auditTools.ts         # Lighthouse, accessibility, AI-smell, brand
+│   │       │   ├── assetTools.ts         # DALL-E image gen, upload, optimize
+│   │       │   ├── scaffoldTools.ts      # component/page scaffolding from templates
+│   │       │   ├── deployPreviewTools.ts # Vercel preview deployments
+│   │       │   ├── figmaAuth.ts          # Figma OAuth token manager
+│   │       │   ├── figmaTools.ts         # 17 Figma REST API tools
+│   │       │   ├── storybookTools.ts     # Storybook visual testing & coverage
 │   │       │   ├── runDynamicAgent.ts    # Runner for DB-defined agents (no file-based runner)
 │   │       │   ├── createRunDeps.ts      # Wire up all run dependencies for any agent
 │   │       │   └── createRunner.ts       # Runner factory: role + task → Orchestrator/Task/CompanyAgent
@@ -2197,6 +2207,54 @@ Post-loop safety net for chat (on_demand) runs. Regex patterns match action clai
 text ("I've updated", "I've corrected", etc.) and compare against actual tool receipts. If
 claims exist but no successful mutation tools were executed, a disclaimer is appended:
 "⚠️ Some actions mentioned above may not have completed."
+
+### Design Team Tooling
+
+Mia's design team (Leo, Ava, Sofia, Ryan) has specialized tools for frontend code access,
+visual inspection, design system governance, quality auditing, and external integrations.
+
+**Shared tool files** (`packages/agents/src/shared/`):
+
+| File | Tools | Purpose |
+|------|-------|---------|
+| `frontendCodeTools.ts` | 7 | Path-scoped read/write/search to frontend dirs only. Write restricted to `feature/design-*` branches. Blocks `agent-runtime/`, `scheduler/`, `infra/`, `.github/`. |
+| `screenshotTools.ts` | 4 | Visual capture via Playwright service (`SCREENSHOT_SERVICE_URL`). Page screenshots, component isolation, visual diff, responsive check at 5 breakpoints. |
+| `designSystemTools.ts` | 7 | Design token management, component inventory, token-vs-implementation validation, color palette with WCAG contrast ratios, typography scale extraction. |
+| `auditTools.ts` | 6 | Lighthouse via PageSpeed Insights, accessibility via axe-core, AI-smell detection, brand compliance, bundle size analysis, CI build error checks. |
+| `assetTools.ts` | 5 | DALL-E 3 image generation (with brand-constrained mode), asset upload to GCS, listing, optimization (WebP/AVIF), favicon set generation. |
+| `scaffoldTools.ts` | 4 | Component/page scaffolding from 7 templates (card, page, layout, widget, form, modal, table) with optional test + Storybook story files. |
+| `deployPreviewTools.ts` | 3 | Vercel preview deployments from design branches, deployment status, listing. |
+| `figmaAuth.ts` | — | OAuth token manager: exchange, cache, auto-refresh. Uses `FIGMA_CLIENT_ID`/`FIGMA_CLIENT_SECRET`. |
+| `figmaTools.ts` | 17 | Full Figma REST API: file content, components, styles, comments, metadata, version history, projects, dev resources, webhooks. |
+| `storybookTools.ts` | 7 | Story listing from `index.json`, individual/batch screenshots, visual regression diffing, baseline management, component coverage analysis. |
+
+**Tool distribution by agent:**
+
+| Agent | Code | Screenshots | Design System | Audits | Assets | Scaffold | Deploy | Figma | Storybook | Total New |
+|-------|------|-------------|---------------|--------|--------|----------|--------|-------|-----------|-----------|
+| Mia (VP Design) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ~60 |
+| Leo (UI/UX) | ✓ | ✓ | ✓ | — | ✓ | — | — | ✓ | — | ~36 |
+| Ava (Frontend) | ✓ | ✓ | — | ✓ | — | ✓ | ✓ | — | ✓ | ~31 |
+| Sofia (Critic) | ✓ | ✓ | ✓ | ✓ | — | — | — | ✓ | ✓ | ~48 |
+| Ryan (Template) | ✓ | — | ✓ | — | ✓ | ✓ | — | ✓ | ✓ | ~40 |
+
+**Authority levels:**
+
+| Action | Level | Who |
+|--------|-------|-----|
+| Read code, screenshots, tokens, audits | GREEN | All design team |
+| Write code on `feature/design-*` branches | GREEN | Ava, Ryan |
+| Create design branches | GREEN | Mia |
+| Generate images, upload assets | GREEN | Leo, Ryan |
+| Create PRs, deploy previews, update design tokens | YELLOW | Mia |
+
+**Infrastructure dependencies:**
+
+- `SCREENSHOT_SERVICE_URL` — Playwright Cloud Function/Cloud Run (screenshots + audits)
+- `STORYBOOK_URL` — Deployed Storybook static site
+- `FIGMA_CLIENT_ID` + `FIGMA_CLIENT_SECRET` — Figma OAuth credentials (Secret Manager)
+- `ASSET_SERVICE_URL` — Asset storage API (optional, falls back to GCS path)
+- `OPENAI_API_KEY` — Already configured, used for DALL-E 3 image generation
 
 ### Pre-Dispatch Validation (Chief of Staff)
 
