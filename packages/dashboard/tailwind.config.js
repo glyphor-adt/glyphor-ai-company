@@ -41,6 +41,7 @@ export default {
       },
       fontFamily: {
         ...prism.theme.extend.fontFamily,
+        agency: ['Agency', 'system-ui', 'sans-serif'],
         sans: ['IBM Plex Sans', 'system-ui', 'sans-serif'],
         mono: ['Space Mono', 'Courier New', 'monospace'],
         serif: ['IBM Plex Sans', 'system-ui', 'sans-serif'],

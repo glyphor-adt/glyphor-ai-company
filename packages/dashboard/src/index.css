@@ -1,5 +1,13 @@
 @import './prism.css';
 
+@font-face {
+  font-family: 'Agency';
+  src: url('/fonts/Agency.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
