@@ -139,7 +139,7 @@ export default function WorkforceBuilder() {
       name: '',
       title: t.defaultTitle,
       department: t.defaultDept,
-      model: 'gemini-3-flash-preview',
+      model: 'gpt-5-mini-2025-08-07',
       systemPrompt: '',
       temperature: 0.3,
       maxTurns: 10,

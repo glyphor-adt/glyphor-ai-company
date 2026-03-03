@@ -946,7 +946,7 @@ const server = createServer(async (req, res) => {
         [agent] = await systemQuery(
           `INSERT INTO company_agents (role, codename, name, display_name, title, department, reports_to, status, model, temperature, max_turns, budget_per_run, budget_daily, budget_monthly, is_temporary, expires_at, is_core, created_at, updated_at)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
-          [agentId, name, name, name, title ?? '', department ?? '', reports_to ?? null, 'active', model || 'gemini-3-flash-preview', temperature ?? 0.3, max_turns ?? 10, budget_per_run ?? 0.05, budget_daily ?? 0.50, budget_monthly ?? 15, is_temporary || false, is_temporary && ttl_days ? new Date(Date.now() + ttl_days * 86400000).toISOString() : null, false, new Date().toISOString(), new Date().toISOString()],
+          [agentId, name, name, name, title ?? '', department ?? '', reports_to ?? null, 'active', model || 'gpt-5-mini-2025-08-07', temperature ?? 0.3, max_turns ?? 10, budget_per_run ?? 0.05, budget_daily ?? 0.50, budget_monthly ?? 15, is_temporary || false, is_temporary && ttl_days ? new Date(Date.now() + ttl_days * 86400000).toISOString() : null, false, new Date().toISOString(), new Date().toISOString()],
         );
       } catch (createErr) {
         json(res, 400, { success: false, error: (createErr as Error).message });

@@ -85,6 +85,11 @@ const REFERENCE_PRICES: Record<string, ReferencePricing> = {
     inputPer1M: 0.25, outputPer1M: 2.00, cachedInputDiscount: 0.10,
     source: 'https://developers.openai.com/api/docs/pricing',
   },
+  'gpt-5-mini-2025-08-07': {
+    inputPer1M: 0.25, outputPer1M: 2.00, cachedInputDiscount: 0.10,
+    source: 'https://developers.openai.com/api/docs/pricing',
+    notes: 'Pinned snapshot of gpt-5-mini.',
+  },
   'gpt-5-nano': {
     inputPer1M: 0.05, outputPer1M: 0.40, cachedInputDiscount: 0.10,
     source: 'https://developers.openai.com/api/docs/pricing',
@@ -112,7 +117,7 @@ const REFERENCE_PRICES: Record<string, ReferencePricing> = {
     source: 'https://developers.openai.com/api/docs/pricing',
     notes: 'Text token pricing. Audio is $40/$80 separately.',
   },
-  'gpt-image-1': {
+  'gpt-image-1.5-2025-12-16': {
     inputPer1M: 0, outputPer1M: 0,
     source: 'https://developers.openai.com/api/docs/pricing',
     notes: 'Image generation priced per image, not per token.',

@@ -76,7 +76,7 @@ export function createAssetTools(): ToolDefinition[] {
               Authorization: `Bearer ${apiKey}`,
             },
             body: JSON.stringify({
-              model: 'dall-e-3',
+              model: 'gpt-image-1.5-2025-12-16',
               prompt: finalPrompt,
               size: dimensions,
               quality: 'standard',

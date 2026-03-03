@@ -28,7 +28,7 @@ export interface DistilledContext {
 
 // ─── Constants ──────────────────────────────────────────────────
 
-const DISTILLATION_MODEL = 'gemini-3-flash-preview';
+const DISTILLATION_MODEL = 'gemini-2.5-flash';
 const DISTILLATION_CACHE_TTL = 300; // 5 min
 
 /** Cost per million tokens for gemini-3-flash-preview */

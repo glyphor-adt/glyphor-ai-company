@@ -81,7 +81,7 @@ export interface CotRecord {
 export class CotEngine {
   constructor(
     private modelClient: ModelClient,
-    private model = 'gemini-3-flash-preview',
+    private model = 'gemini-2.5-flash',
   ) {}
 
   async launch(query: string, requestedBy: string): Promise<string> {

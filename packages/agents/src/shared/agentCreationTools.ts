@@ -82,7 +82,7 @@ export function createAgentCreationTools(): ToolDefinition[] {
         },
         model: {
           type: 'string',
-          description: 'AI model to use (default: gemini-3-flash-preview)',
+          description: 'AI model to use (default: gpt-5-mini-2025-08-07)',
           required: false,
         },
         cron_expression: {

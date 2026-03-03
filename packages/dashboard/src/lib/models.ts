@@ -30,7 +30,7 @@ export const PROVIDER_LABELS: Record<ModelProvider, string> = {
 export const MODELS: ModelOption[] = [
   // ── Google Gemini ──
   { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro',         provider: 'gemini'  },
-  { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash',         provider: 'gemini', default: true },
+  { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash',         provider: 'gemini' },
   { value: 'gemini-3-pro-preview',   label: 'Gemini 3 Pro',           provider: 'gemini'  },
   { value: 'gemini-2.5-flash',       label: 'Gemini 2.5 Flash',       provider: 'gemini'  },
   { value: 'gemini-2.5-flash-lite',  label: 'Gemini 2.5 Flash Lite',  provider: 'gemini'  },
@@ -42,6 +42,7 @@ export const MODELS: ModelOption[] = [
   { value: 'gpt-5.1',     label: 'GPT-5.1',       provider: 'openai' },
   { value: 'gpt-5',       label: 'GPT-5',         provider: 'openai' },
   { value: 'gpt-5-mini',  label: 'GPT-5 Mini',    provider: 'openai' },
+  { value: 'gpt-5-mini-2025-08-07', label: 'GPT-5 Mini (Aug 2025)', provider: 'openai', default: true },
   { value: 'gpt-5-nano',  label: 'GPT-5 Nano',    provider: 'openai' },
   { value: 'gpt-4.1',     label: 'GPT-4.1',       provider: 'openai' },
   { value: 'gpt-4.1-mini',label: 'GPT-4.1 Mini',  provider: 'openai' },
@@ -54,7 +55,7 @@ export const MODELS: ModelOption[] = [
   { value: 'claude-haiku-4-5',  label: 'Claude Haiku 4.5',  provider: 'anthropic' },
 ];
 
-export const DEFAULT_MODEL = MODELS.find(m => m.default)?.value ?? 'gemini-3-flash-preview';
+export const DEFAULT_MODEL = MODELS.find(m => m.default)?.value ?? 'gpt-5-mini-2025-08-07';
 
 /** Group models by provider for optgroup rendering */
 export function getModelsByProvider(): Record<ModelProvider, ModelOption[]> {

@@ -78,7 +78,7 @@ export default function AgentSettings() {
       if (data) {
         const a = data as unknown as AgentRow;
         setAgent(a);
-        setModel(a.model ?? 'gemini-3-flash-preview');
+        setModel(a.model ?? 'gpt-5-mini-2025-08-07');
         setTemperature(a.temperature ?? 0.3);
         setMaxTurns(a.max_turns ?? 10);
         setBudgetPerRun(a.budget_per_run ?? 0.05);

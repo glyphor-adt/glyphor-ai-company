@@ -249,7 +249,6 @@ export function createCommunicationTools(
           items: {
             type: 'string',
             description: 'Agent role slug',
-            enum: VALID_ROLES as string[],
           },
         },
         meeting_type: {
@@ -287,8 +286,9 @@ export function createCommunicationTools(
         }
 
         // Validate all attendees
+        const validRoles = await getValidRoles();
         for (const a of attendees) {
-          if (!VALID_ROLES.includes(a as CompanyAgentRole)) {
+          if (!validRoles.has(a)) {
             return { success: false, error: `Unknown agent: ${a}` };
           }
         }

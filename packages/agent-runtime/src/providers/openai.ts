@@ -91,7 +91,7 @@ export class OpenAIAdapter implements ProviderAdapter {
    * Generate an image using OpenAI gpt-image-1 (text-rich infographics).
    * Uses direct fetch instead of the SDK to avoid connection issues in Cloud Run.
    */
-  async generateImage(prompt: string, model = 'gpt-image-1'): Promise<ImageResponse> {
+  async generateImage(prompt: string, model = 'gpt-image-1.5-2025-12-16'): Promise<ImageResponse> {
     const apiKey = this.client.apiKey;
     if (!apiKey) throw new Error('OpenAI API key is empty');
 

@@ -72,6 +72,7 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   { id: 'gpt-5.1',                label: 'GPT-5.1',                provider: 'openai',    tier: 'standard',  inputPer1M: 1.25,  outputPer1M: 10.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
   { id: 'gpt-5',                  label: 'GPT-5',                  provider: 'openai',    tier: 'standard',  inputPer1M: 1.25,  outputPer1M: 10.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
   { id: 'gpt-5-mini',             label: 'GPT-5 Mini',             provider: 'openai',    tier: 'economy',   inputPer1M: 0.25,  outputPer1M: 2.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
+  { id: 'gpt-5-mini-2025-08-07',   label: 'GPT-5 Mini (Aug 2025)',  provider: 'openai',    tier: 'economy',   inputPer1M: 0.25,  outputPer1M: 2.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
   { id: 'gpt-5-nano',             label: 'GPT-5 Nano',             provider: 'openai',    tier: 'economy',   inputPer1M: 0.05,  outputPer1M: 0.40,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
   { id: 'gpt-4.1',                label: 'GPT-4.1',                provider: 'openai',    tier: 'economy',   inputPer1M: 2.00,  outputPer1M: 8.00,  cachedInputDiscount: 0.25, selectable: true,  verifier: false },
   { id: 'gpt-4.1-mini',           label: 'GPT-4.1 Mini',           provider: 'openai',    tier: 'economy',   inputPer1M: 0.40,  outputPer1M: 1.60,  cachedInputDiscount: 0.25, selectable: true,  verifier: false },
@@ -88,7 +89,7 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   // ── Specialized (not selectable for general agent assignment) ─
   { id: 'gemini-embedding-001',       label: 'Gemini Embedding',       provider: 'gemini',    tier: 'specialized', inputPer1M: 0.15, outputPer1M: 0,    selectable: false, verifier: false },
   { id: 'gpt-realtime-2025-08-28',    label: 'GPT Realtime',            provider: 'openai',    tier: 'specialized', inputPer1M: 5.00, outputPer1M: 20.0, selectable: false, verifier: false },
-  { id: 'gpt-image-1',                label: 'GPT Image',              provider: 'openai',    tier: 'specialized', inputPer1M: 0,    outputPer1M: 0,    selectable: false, verifier: false },
+  { id: 'gpt-image-1.5-2025-12-16',    label: 'GPT Image 1.5',          provider: 'openai',    tier: 'specialized', inputPer1M: 0,    outputPer1M: 0,    selectable: false, verifier: false },
 
 ] as const;
 
@@ -128,10 +129,10 @@ export const DEPRECATED_MODELS: Record<string, string> = {
 // ─── Default models by purpose ───────────────────────────────
 
 /** The default model assigned to new agents */
-export const DEFAULT_AGENT_MODEL = 'gemini-3-flash-preview';
+export const DEFAULT_AGENT_MODEL = 'gpt-5-mini-2025-08-07';
 
 /** The model used for web search (needs OpenAI Responses API) */
-export const WEB_SEARCH_MODEL = 'gpt-5.2';
+export const WEB_SEARCH_MODEL = 'gpt-5-mini-2025-08-07';
 
 /** The model used for realtime voice */
 export const REALTIME_MODEL = 'gpt-realtime-2025-08-28';
@@ -143,7 +144,7 @@ export const TRANSCRIPTION_MODEL = 'gpt-4o-transcribe';
 export const EMBEDDING_MODEL = 'gemini-embedding-001';
 
 /** The model used for image generation */
-export const IMAGE_MODEL = 'gpt-image-1';
+export const IMAGE_MODEL = 'gpt-image-1.5-2025-12-16';
 
 /** The model used for GraphRAG extraction */
 export const GRAPHRAG_MODEL = 'gemini-2.5-flash';
@@ -167,6 +168,7 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
   'gpt-5.1':                ['gemini-2.5-flash', 'claude-haiku-4-5'],
   'gpt-5':                  ['gemini-2.5-flash', 'claude-haiku-4-5'],
   'gpt-5-mini':             ['gemini-2.5-flash', 'claude-haiku-4-5'],
+  'gpt-5-mini-2025-08-07':  ['gemini-2.5-flash', 'claude-haiku-4-5'],
   'gpt-5-nano':             ['gemini-2.5-flash-lite', 'claude-haiku-4-5'],
   'gpt-4.1':                ['gemini-2.5-flash', 'claude-haiku-4-5'],
   'gpt-4.1-mini':           ['gemini-2.5-flash-lite', 'claude-haiku-4-5'],
@@ -198,6 +200,7 @@ export const VERIFIER_MAP: Record<string, string> = {
   'gpt-5.1':                'gemini-2.5-flash',
   'gpt-5':                  'gemini-2.5-flash',
   'gpt-5-mini':             'gemini-2.5-flash',
+  'gpt-5-mini-2025-08-07':  'gemini-2.5-flash',
   'gpt-5-nano':             'gemini-2.5-flash-lite',
   'gpt-4.1':                'gemini-2.5-flash',
   'gpt-4.1-mini':           'gemini-2.5-flash-lite',
@@ -215,25 +218,25 @@ export const VERIFIER_MAP: Record<string, string> = {
 // infra), with select areas using OpenAI/Anthropic for perspective diversity.
 
 export const DEEP_DIVE_MODELS: Record<string, string> = {
-  overview:             'gemini-3-flash-preview',  // was gemini-3-pro ($2/$12) → $0.50/$3.00
-  financials:           'gemini-3-flash-preview',  // was gemini-3-pro → $0.50/$3.00
-  technology:           'gemini-3-flash-preview',  // was claude-sonnet ($3/$15) → $0.50/$3.00
-  market:               'gemini-2.5-flash',        // was gemini-3-pro → $0.30/$2.50
-  competitive:          'gemini-3-flash-preview',  // was gemini-3-pro → $0.50/$3.00
-  leadership:           'gemini-2.5-flash',        // was gpt-5-mini ($0.25/$2) → $0.30/$2.50
-  customers:            'gemini-2.5-flash',        // was gemini-3-pro → $0.30/$2.50
-  risks:                'gemini-3-flash-preview',  // was gemini-3-pro → $0.50/$3.00
-  company_profile:      'gemini-2.5-flash',        // was gemini-3-pro → $0.30/$2.50
-  strategic_direction:  'gemini-3-flash-preview',  // was claude-sonnet ($3/$15) → $0.50/$3.00
-  segment_analysis:     'gemini-2.5-flash',        // was gemini-3-pro → $0.30/$2.50
-  ma_activity:          'gemini-2.5-flash',        // was gemini-3-pro → $0.30/$2.50
-  ai_impact:            'gemini-3-flash-preview',  // was gemini-3-pro → $0.50/$3.00
-  talent_assessment:    'gemini-2.5-flash',        // was gpt-5-mini → $0.30/$2.50
-  regulatory_landscape: 'gemini-3-flash-preview',  // was claude-sonnet ($3/$15) → $0.50/$3.00
+  overview:             'gemini-2.5-flash',
+  financials:           'gemini-2.5-flash',
+  technology:           'gemini-2.5-flash',
+  market:               'gemini-2.5-flash',
+  competitive:          'gemini-2.5-flash',
+  leadership:           'gemini-2.5-flash',
+  customers:            'gemini-2.5-flash',
+  risks:                'gemini-2.5-flash',
+  company_profile:      'gemini-2.5-flash',
+  strategic_direction:  'gemini-2.5-flash',
+  segment_analysis:     'gemini-2.5-flash',
+  ma_activity:          'gemini-2.5-flash',
+  ai_impact:            'gemini-2.5-flash',
+  talent_assessment:    'gemini-2.5-flash',
+  regulatory_landscape: 'gemini-2.5-flash',
 };
 
 /** The two models used for cross-model deep dive verification (Gemini-first, cost-optimised) */
-export const DEEP_DIVE_VERIFICATION_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash'] as const;
+export const DEEP_DIVE_VERIFICATION_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash'] as const;
 
 /** The two models used for reasoning engine verification (Gemini-first, cost-optimised) */
 export const REASONING_VERIFICATION_MODELS = ['gemini-2.5-flash', 'gpt-5-mini'] as const;
