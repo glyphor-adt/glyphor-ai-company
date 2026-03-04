@@ -1130,8 +1130,13 @@ const server = createServer(async (req, res) => {
       const gcsPath = `avatars/${agentRow.role}.${ext}`;
 
       try {
-        const { uploadFile } = await import('@glyphor/shared');
-        const publicUrl = await uploadFile(gcsPath, buffer, contentType);
+        const { Storage } = await import('@google-cloud/storage');
+        const storage = new Storage({ projectId: 'ai-glyphor-company' });
+        const bucket = storage.bucket(process.env.GCS_BUCKET || 'glyphor-company');
+        const file = bucket.file(gcsPath);
+        await file.save(buffer, { contentType, resumable: false });
+        await file.makePublic().catch(() => {});
+        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${gcsPath}`;
 
         // Update the profile
         await systemQuery(
