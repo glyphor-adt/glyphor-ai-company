@@ -276,14 +276,12 @@ async function listChildren(
   let nextUrl: string | null = baseUrl;
 
   while (nextUrl) {
-    console.log('[SharePoint] Fetching URL:', nextUrl);
     const response = await fetch(nextUrl, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!response.ok) {
       const body = await response.text();
-      console.log('[SharePoint] Error response:', response.status, body.substring(0, 300));
       throw new Error(`Failed to list SharePoint children (${response.status}): ${body}`);
     }
 

@@ -43,21 +43,40 @@ class IndexerHandler(BaseHTTPRequestHandler):
                     self._json_response(400, {"error": "source must be docs, assignments, or all"})
                     return
 
+                # Send headers immediately to prevent client-side HeadersTimeoutError.
+                # The pipeline can take 10+ minutes with Gemini API calls.
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Transfer-Encoding", "chunked")
+                self.end_headers()
+                self.wfile.flush()
+
                 result = run_pipeline(source=source)
-                self._json_response(200, {"status": "ok", "result": result})
+                self._write_chunked(json.dumps({"status": "ok", "result": result}))
 
             elif self.path == "/tune":
                 source = body.get("source", "all")
                 limit = body.get("limit", 15)
+
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Transfer-Encoding", "chunked")
+                self.end_headers()
+                self.wfile.flush()
+
                 asyncio.run(run_auto_tune(source=source, limit=limit))
-                self._json_response(200, {"status": "ok", "message": "tuning complete"})
+                self._write_chunked(json.dumps({"status": "ok", "message": "tuning complete"}))
 
             else:
                 self._json_response(404, {"error": "not found"})
 
         except Exception as e:
             traceback.print_exc()
-            self._json_response(500, {"error": str(e)[:500]})
+            # If headers already sent, write error as chunked body
+            try:
+                self._write_chunked(json.dumps({"error": str(e)[:500]}))
+            except Exception:
+                self._json_response(500, {"error": str(e)[:500]})
 
     def _read_body(self) -> dict:
         length = int(self.headers.get("Content-Length", 0))
@@ -76,6 +95,16 @@ class IndexerHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def _write_chunked(self, data: str):
+        """Write data as a single HTTP chunked transfer-encoding chunk + terminator."""
+        encoded = data.encode("utf-8")
+        self.wfile.write(f"{len(encoded):x}\r\n".encode("utf-8"))
+        self.wfile.write(encoded)
+        self.wfile.write(b"\r\n")
+        # Terminating chunk
+        self.wfile.write(b"0\r\n\r\n")
+        self.wfile.flush()
 
     def log_message(self, format, *args):
         print(f"[Server] {args[0]} {args[1]} {args[2]}")

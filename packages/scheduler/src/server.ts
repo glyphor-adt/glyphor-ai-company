@@ -701,26 +701,32 @@ const server = createServer(async (req, res) => {
     // GraphRAG knowledge graph indexing — calls Python indexer service
     if (method === 'POST' && url === '/sync/graphrag-index') {
       try {
-        const indexerUrl = process.env.GRAPHRAG_INDEXER_URL || 'http://localhost:8090';
+        const indexerUrl = (process.env.GRAPHRAG_INDEXER_URL || 'http://localhost:8090').trim();
         const body = JSON.stringify({ source: 'all' });
         const idToken = await getCloudRunIdToken(indexerUrl);
+        console.log(`[GraphRAG] Calling ${indexerUrl}/index (auth: ${!!idToken})`);
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
         const indexRes = await fetch(`${indexerUrl}/index`, {
           method: 'POST',
           headers,
           body,
-          signal: AbortSignal.timeout(600_000), // 10 min timeout
+          signal: AbortSignal.timeout(900_000), // 15 min timeout
         });
-        const result = await indexRes.json() as Record<string, unknown>;
-        if (!indexRes.ok) throw new Error(String(result.error || `Indexer returned ${indexRes.status}`));
+        const text = await indexRes.text();
+        let result: Record<string, unknown>;
+        try { result = JSON.parse(text); } catch { result = { raw: text.slice(0, 500) }; }
+        if (!indexRes.ok && !result.error) throw new Error(`Indexer returned ${indexRes.status}`);
+        if (result.error) throw new Error(String(result.error));
         await systemQuery(
           'INSERT INTO data_sync_status (id, last_success_at, consecutive_failures, status, updated_at) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (id) DO UPDATE SET last_success_at=EXCLUDED.last_success_at, consecutive_failures=EXCLUDED.consecutive_failures, status=EXCLUDED.status, updated_at=EXCLUDED.updated_at',
           ['graphrag-index', new Date().toISOString(), 0, 'ok', new Date().toISOString()],
         );
         json(res, 200, { success: true, ...result });
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const cause = err instanceof Error && err.cause ? ` (cause: ${err.cause})` : '';
+        const message = (err instanceof Error ? err.message : String(err)) + cause;
+        console.error('[GraphRAG] Index sync error:', message);
         const [current] = await systemQuery<{ consecutive_failures: number }>('SELECT consecutive_failures FROM data_sync_status WHERE id=$1', ['graphrag-index']);
         const failures = (current?.consecutive_failures ?? 0) + 1;
         await systemQuery(
@@ -744,10 +750,13 @@ const server = createServer(async (req, res) => {
           method: 'POST',
           headers,
           body,
-          signal: AbortSignal.timeout(300_000), // 5 min timeout
+          signal: AbortSignal.timeout(600_000), // 10 min timeout
         });
-        const result = await tuneRes.json() as Record<string, unknown>;
-        if (!tuneRes.ok) throw new Error(String(result.error || `Indexer returned ${tuneRes.status}`));
+        const text = await tuneRes.text();
+        let result: Record<string, unknown>;
+        try { result = JSON.parse(text); } catch { result = { raw: text.slice(0, 500) }; }
+        if (!tuneRes.ok && !result.error) throw new Error(`Indexer returned ${tuneRes.status}`);
+        if (result.error) throw new Error(String(result.error));
         await systemQuery(
           'INSERT INTO data_sync_status (id, last_success_at, consecutive_failures, status, updated_at) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (id) DO UPDATE SET last_success_at=EXCLUDED.last_success_at, consecutive_failures=EXCLUDED.consecutive_failures, status=EXCLUDED.status, updated_at=EXCLUDED.updated_at',
           ['graphrag-tune', new Date().toISOString(), 0, 'ok', new Date().toISOString()],
