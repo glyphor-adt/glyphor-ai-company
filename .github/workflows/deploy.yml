@@ -76,8 +76,8 @@ jobs:
             --min-instances=1 \
             --max-instances=1 \
             --add-cloudsql-instances="${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:glyphor-db" \
-            --update-env-vars="NODE_ENV=production,DB_HOST=/cloudsql/${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:glyphor-db,DB_NAME=glyphor,DB_USER=glyphor_app" \
-            --update-secrets="DB_PASSWORD=db-password:latest,GOOGLE_AI_API_KEY=google-ai-api-key:latest,OPENAI_API_KEY=openai-api-key:latest,GCS_BUCKET=gcs-bucket:latest,AZURE_TENANT_ID=azure-tenant-id:latest,AZURE_CLIENT_ID=azure-client-id:latest,AZURE_CLIENT_SECRET=azure-client-secret:latest,TEAMS_TEAM_ID=teams-team-id:latest,TEAMS_CHANNEL_BRIEFING_KRISTINA_ID=teams-channel-briefing-kristina-id:latest,TEAMS_CHANNEL_BRIEFING_ANDREW_ID=teams-channel-briefing-andrew-id:latest,TEAMS_CHANNEL_DECISIONS_ID=teams-channel-decisions-id:latest,TEAMS_CHANNEL_GENERAL_ID=teams-channel-general-id:latest,TEAMS_CHANNEL_ENGINEERING_ID=teams-channel-engineering-id:latest,TEAMS_CHANNEL_GROWTH_ID=teams-channel-growth-id:latest,TEAMS_CHANNEL_FINANCIALS_ID=teams-channel-financials-id:latest,TEAMS_CHANNEL_PRODUCT_FUSE_ID=teams-channel-product-fuse-id:latest,TEAMS_CHANNEL_PRODUCT_PULSE_ID=teams-channel-product-pulse-id:latest,BOT_APP_ID=bot-app-id:latest,BOT_APP_SECRET=bot-app-secret:latest,BOT_TENANT_ID=bot-tenant-id:latest,AGENT_BOTS=agent-bots:latest,STRIPE_SECRET_KEY=stripe-secret-key:latest,MERCURY_API_TOKEN=mercury-api-token:latest,SHAREPOINT_SITE_ID=sharepoint-site-id:latest,SHAREPOINT_DRIVE_ID=sharepoint-drive-id:latest,SHAREPOINT_REGION=sharepoint-region:latest,OPENAI_ADMIN_KEY_FUSE=openai-admin-key-fuse:latest,OPENAI_ADMIN_KEY_PULSE=openai-admin-key-pulse:latest,OPENAI_ADMIN_KEY_COMPANY=openai-admin-key-company:latest,KLING_ACCESS_KEY=kling-access-key:latest,KLING_SECRET_KEY=kling-secret-key:latest,CANVA_CLIENT_ID=canva-client-id:latest,CANVA_CLIENT_SECRET=canva-client-secret:latest,CANVA_REFRESH_TOKEN=canva-refresh-token:latest"
+            --update-env-vars="NODE_ENV=production,DB_HOST=/cloudsql/${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:glyphor-db,DB_NAME=glyphor,DB_USER=glyphor_app,GLYPHOR_MCP_ENABLED=true,GLYPHOR_MCP_DATA_URL=https://glyphor-mcp-data-610179349713.us-central1.run.app/mcp,GLYPHOR_MCP_MARKETING_URL=https://glyphor-mcp-marketing-610179349713.us-central1.run.app/mcp,GLYPHOR_MCP_ENGINEERING_URL=https://glyphor-mcp-engineering-610179349713.us-central1.run.app/mcp,GLYPHOR_MCP_DESIGN_URL=https://glyphor-mcp-design-610179349713.us-central1.run.app/mcp,GLYPHOR_MCP_FINANCE_URL=https://glyphor-mcp-finance-610179349713.us-central1.run.app/mcp" \
+            --update-secrets="DB_PASSWORD=db-password:latest,GOOGLE_AI_API_KEY=google-ai-api-key:latest,OPENAI_API_KEY=openai-api-key:latest,GCS_BUCKET=gcs-bucket:latest,AZURE_TENANT_ID=azure-tenant-id:latest,AZURE_CLIENT_ID=azure-client-id:latest,AZURE_CLIENT_SECRET=azure-client-secret:latest,AGENT365_CLIENT_SECRET=agent365-client-secret:latest,AGENT365_CLIENT_ID=agent365-client-id:latest,AGENT365_TENANT_ID=azure-tenant-id:latest,TEAMS_TEAM_ID=teams-team-id:latest,TEAMS_CHANNEL_BRIEFING_KRISTINA_ID=teams-channel-briefing-kristina-id:latest,TEAMS_CHANNEL_BRIEFING_ANDREW_ID=teams-channel-briefing-andrew-id:latest,TEAMS_CHANNEL_DECISIONS_ID=teams-channel-decisions-id:latest,TEAMS_CHANNEL_GENERAL_ID=teams-channel-general-id:latest,TEAMS_CHANNEL_ENGINEERING_ID=teams-channel-engineering-id:latest,TEAMS_CHANNEL_GROWTH_ID=teams-channel-growth-id:latest,TEAMS_CHANNEL_FINANCIALS_ID=teams-channel-financials-id:latest,TEAMS_CHANNEL_PRODUCT_FUSE_ID=teams-channel-product-fuse-id:latest,TEAMS_CHANNEL_PRODUCT_PULSE_ID=teams-channel-product-pulse-id:latest,BOT_APP_ID=bot-app-id:latest,BOT_APP_SECRET=bot-app-secret:latest,BOT_TENANT_ID=bot-tenant-id:latest,AGENT_BOTS=agent-bots:latest,STRIPE_SECRET_KEY=stripe-secret-key:latest,MERCURY_API_TOKEN=mercury-api-token:latest,SHAREPOINT_SITE_ID=sharepoint-site-id:latest,SHAREPOINT_DRIVE_ID=sharepoint-drive-id:latest,SHAREPOINT_REGION=sharepoint-region:latest,OPENAI_ADMIN_KEY_FUSE=openai-admin-key-fuse:latest,OPENAI_ADMIN_KEY_PULSE=openai-admin-key-pulse:latest,OPENAI_ADMIN_KEY_COMPANY=openai-admin-key-company:latest,KLING_ACCESS_KEY=kling-access-key:latest,KLING_SECRET_KEY=kling-secret-key:latest,CANVA_CLIENT_ID=canva-client-id:latest,CANVA_CLIENT_SECRET=canva-client-secret:latest,CANVA_REFRESH_TOKEN=canva-refresh-token:latest"
 
   # ─── Deploy Dashboard ──────────────────────────────────────
   deploy-dashboard:
@@ -232,6 +232,7 @@ jobs:
             --cpu=1 \
             --min-instances=0 \
             --max-instances=3 \
+            --service-account=glyphor-worker@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
             --add-cloudsql-instances="${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:glyphor-db" \
             --update-env-vars="NODE_ENV=production,DB_HOST=/cloudsql/${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:glyphor-db,DB_NAME=glyphor,DB_USER=glyphor_app" \
             --update-secrets="DB_PASSWORD=db-password:latest"
@@ -283,6 +284,7 @@ jobs:
             --cpu=1 \
             --min-instances=0 \
             --max-instances=3 \
+            --service-account=glyphor-worker@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
             --add-cloudsql-instances="${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:glyphor-db" \
             --update-env-vars="NODE_ENV=production,DB_HOST=/cloudsql/${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:glyphor-db,DB_NAME=glyphor,DB_USER=glyphor_app" \
             --update-secrets="DB_PASSWORD=db-password:latest"
@@ -334,6 +336,7 @@ jobs:
             --cpu=1 \
             --min-instances=0 \
             --max-instances=3 \
+            --service-account=glyphor-worker@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
             --add-cloudsql-instances="${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:glyphor-db" \
             --update-env-vars="NODE_ENV=production,DB_HOST=/cloudsql/${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:glyphor-db,DB_NAME=glyphor,DB_USER=glyphor_app" \
             --update-secrets="DB_PASSWORD=db-password:latest,GITHUB_TOKEN=github-token:latest,GCP_PROJECT_ID=gcp-project-id:latest"
@@ -385,6 +388,7 @@ jobs:
             --cpu=1 \
             --min-instances=0 \
             --max-instances=3 \
+            --service-account=glyphor-worker@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
             --add-cloudsql-instances="${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:glyphor-db" \
             --update-env-vars="NODE_ENV=production,DB_HOST=/cloudsql/${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:glyphor-db,DB_NAME=glyphor,DB_USER=glyphor_app" \
             --update-secrets="DB_PASSWORD=db-password:latest,CANVA_CLIENT_ID=canva-client-id:latest,CANVA_CLIENT_SECRET=canva-client-secret:latest,CANVA_REFRESH_TOKEN=canva-refresh-token:latest"
@@ -436,6 +440,7 @@ jobs:
             --cpu=1 \
             --min-instances=0 \
             --max-instances=3 \
+            --service-account=glyphor-worker@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
             --add-cloudsql-instances="${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:glyphor-db" \
             --update-env-vars="NODE_ENV=production,DB_HOST=/cloudsql/${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:glyphor-db,DB_NAME=glyphor,DB_USER=glyphor_app" \
             --update-secrets="DB_PASSWORD=db-password:latest,STRIPE_SECRET_KEY=stripe-secret-key:latest,MERCURY_API_TOKEN=mercury-api-token:latest"
