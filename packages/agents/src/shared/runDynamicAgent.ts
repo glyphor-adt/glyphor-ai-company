@@ -25,6 +25,7 @@ import { createCollectiveIntelligenceTools } from './collectiveIntelligenceTools
 import { createEmailTools } from './emailTools.js';
 import { createToolRequestTools } from './toolRequestTools.js';
 import { createSharePointTools } from './sharepointTools.js';
+import { createAgent365McpTools, closeAgent365Bridge } from './agent365Tools.js';
 
 export interface DynamicAgentRunParams {
   role: string;
@@ -99,6 +100,7 @@ export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<Ag
     ...createEmailTools(),
     ...createToolRequestTools(),
     ...createSharePointTools(),
+    ...await createAgent365McpTools(),
   ];
 
   const toolExecutor = new ToolExecutor(tools);
@@ -140,6 +142,7 @@ export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<Ag
   );
 
   try { await memory.recordAgentRun(role, 0, 0.02); } catch {}
+  try { await closeAgent365Bridge(); } catch {}
   console.log(`[DynamicAgent:${role}] ${result.status} (${result.totalTurns} turns)`);
   return result;
 }

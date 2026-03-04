@@ -33,6 +33,7 @@ import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createEventTools } from '../shared/eventTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface CoSRunParams {
   task?: 'generate_briefing' | 'check_escalations' | 'weekly_review' | 'monthly_retrospective' | 'orchestrate' | 'on_demand';
@@ -171,6 +172,7 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
     ...createToolRequestTools(),
     ...createAgentDirectoryTools(),
     ...createEventTools(glyphorEventBus),
+    ...await createAgent365McpTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

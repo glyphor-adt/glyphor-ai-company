@@ -34,6 +34,7 @@ import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createLegalTools } from '../shared/legalTools.js';
 import { createDocuSignTools } from '../shared/docusignTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface CLORunParams {
   task?: 'regulatory_scan' | 'contract_review' | 'compliance_check' | 'read_inbox' | 'on_demand';
@@ -71,6 +72,7 @@ export async function runCLO(params: CLORunParams = {}) {
     ...createAgentDirectoryTools(),
     ...createLegalTools(),
     ...createDocuSignTools(),
+    ...await createAgent365McpTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

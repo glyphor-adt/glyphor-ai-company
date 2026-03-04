@@ -37,6 +37,7 @@ import { createEventTools } from '../shared/eventTools.js';
 import { createRevenueTools } from '../shared/revenueTools.js';
 import { createCostManagementTools } from '../shared/costManagementTools.js';
 import { createCashFlowTools } from '../shared/cashFlowTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface CFORunParams {
   task?: 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand';
@@ -79,6 +80,7 @@ export async function runCFO(params: CFORunParams = {}) {
     ...createRevenueTools(),
     ...createCostManagementTools(),
     ...createCashFlowTools(),
+    ...await createAgent365McpTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

@@ -32,6 +32,7 @@ import { createEmailTools } from '../shared/emailTools.js';
 import { createEventTools } from '../shared/eventTools.js';
 import { createDiagnosticTools } from '../shared/diagnosticTools.js';
 import { createOpsExtensionTools } from '../shared/opsExtensionTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface OpsRunParams {
   task?: 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'performance_rollup' | 'milestone_detection' | 'growth_update' | 'contradiction_detection' | 'knowledge_hygiene';
@@ -69,6 +70,7 @@ export async function runOps(params: OpsRunParams = {}) {
     ...createEventTools(glyphorEventBus),
     ...createDiagnosticTools(),
     ...createOpsExtensionTools(),
+    ...await createAgent365McpTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

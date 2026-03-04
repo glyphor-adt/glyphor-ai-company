@@ -1,0 +1,12 @@
+{
+  "tenantId": "19ab7456-f160-416d-a503-57298ab192a2",
+  "subscriptionId": "95240402-c2d6-48c6-ba0d-3891ad806375",
+  "clientAppId": "06c728b6-0111-4cb1-a708-d57c51128649",
+  "agentDisplayName": "Glyphor AI",
+  "agentBlueprintDisplayName": "Glyphor AI Agent",
+  "redirectUri": "http://localhost:8400/",
+  "resourceGroup": "glyphor-agent365",
+  "location": "centralus",
+  "appServicePlanName": "glyphor-a365-plan",
+  "webAppName": "glyphor-a365-agent"
+}

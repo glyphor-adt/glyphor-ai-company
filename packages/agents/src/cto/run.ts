@@ -36,6 +36,7 @@ import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createEventTools } from '../shared/eventTools.js';
 import { createDiagnosticTools } from '../shared/diagnosticTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface CTORunParams {
   task?: 'platform_health_check' | 'dependency_review' | 'on_demand';
@@ -77,6 +78,7 @@ export async function runCTO(params: CTORunParams = {}) {
     ...createAgentDirectoryTools(),
     ...createEventTools(glyphorEventBus),
     ...createDiagnosticTools(),
+    ...await createAgent365McpTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

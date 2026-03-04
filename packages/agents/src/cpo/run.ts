@@ -37,6 +37,7 @@ import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createProductAnalyticsTools } from '../shared/productAnalyticsTools.js';
 import { createCompetitiveIntelTools as createSharedCompetitiveIntelTools } from '../shared/competitiveIntelTools.js';
 import { createRoadmapTools } from '../shared/roadmapTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface CPORunParams {
   task?: 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand';
@@ -79,6 +80,7 @@ export async function runCPO(params: CPORunParams = {}) {
     ...createProductAnalyticsTools(),
     ...createSharedCompetitiveIntelTools(),
     ...createRoadmapTools(),
+    ...await createAgent365McpTools(),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

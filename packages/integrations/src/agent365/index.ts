@@ -22,16 +22,19 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { McpToolServerConfigurationService } from '@microsoft/agents-a365-tooling';
 import type { MCPServerConfig, McpClientTool } from '@microsoft/agents-a365-tooling';
 import type { ToolDefinition, ToolParameter, ToolResult, ToolContext } from '@glyphor/agent-runtime';
+import { ConfidentialClientApplication } from '@azure/msal-node';
 
 // ── Types ────────────────────────────────────────────────────────
 
 export interface Agent365Config {
-  /** Agentic app ID from Agent 365 blueprint (Entra app registration) */
-  agenticAppId: string;
-  /** Bearer token for authenticating with Agent 365 tooling gateway */
-  authToken: string;
-  /** Override the MCP platform endpoint (default: production gateway) */
-  mcpPlatformEndpoint?: string;
+  /** Blueprint app client ID */
+  clientId: string;
+  /** Blueprint app client secret */
+  clientSecret: string;
+  /** Entra tenant ID */
+  tenantId: string;
+  /** Agent 365 Tools API audience (default: ea9ffc3e-8a23-4a7d-836d-234d7c7565c1) */
+  audience?: string;
 }
 
 export interface Agent365ToolBridge {
@@ -104,6 +107,35 @@ function convertSchemaProperty(
   return param;
 }
 
+// ── Token Acquisition ────────────────────────────────────────────
+
+let msalApp: ConfidentialClientApplication | null = null;
+
+function getMsalApp(config: Agent365Config): ConfidentialClientApplication {
+  if (!msalApp) {
+    msalApp = new ConfidentialClientApplication({
+      auth: {
+        clientId: config.clientId,
+        clientSecret: config.clientSecret,
+        authority: `https://login.microsoftonline.com/${config.tenantId}`,
+      },
+    });
+  }
+  return msalApp;
+}
+
+async function acquireToken(config: Agent365Config): Promise<string> {
+  const audience = config.audience ?? 'ea9ffc3e-8a23-4a7d-836d-234d7c7565c1';
+  const app = getMsalApp(config);
+  const result = await app.acquireTokenByClientCredential({
+    scopes: [`${audience}/.default`],
+  });
+  if (!result?.accessToken) {
+    throw new Error('MSAL returned no access token for Agent 365 Tools API');
+  }
+  return result.accessToken;
+}
+
 // ── MCP Connection Manager ──────────────────────────────────────
 
 /**
@@ -113,15 +145,19 @@ function convertSchemaProperty(
  */
 async function connectToMcpServer(
   serverConfig: MCPServerConfig,
+  authToken: string,
 ): Promise<{ client: Client; transport: StreamableHTTPClientTransport; tools: McpClientTool[] }> {
   if (!serverConfig.url) {
     throw new Error(`MCP Server URL missing for ${serverConfig.mcpServerName}`);
   }
 
+  const headers: Record<string, string> = {
+    ...serverConfig.headers as Record<string, string>,
+    Authorization: `Bearer ${authToken}`,
+  };
+
   const transport = new StreamableHTTPClientTransport(new URL(serverConfig.url), {
-    requestInit: {
-      headers: serverConfig.headers,
-    },
+    requestInit: { headers },
   });
 
   const client = new Client({
@@ -205,14 +241,17 @@ function mcpToolToToolDefinition(
 export async function createAgent365Tools(
   config: Agent365Config,
 ): Promise<Agent365ToolBridge> {
+  // Acquire a bearer token via MSAL client credentials flow
+  const authToken = await acquireToken(config);
+
   const configService = new McpToolServerConfigurationService();
   const connections: ActiveMcpConnection[] = [];
   const allTools: ToolDefinition[] = [];
 
   // Discover available MCP servers
   const serverConfigs = await configService.listToolServers(
-    config.agenticAppId,
-    config.authToken,
+    config.clientId,
+    authToken,
   );
 
   if (serverConfigs.length === 0) {
@@ -223,7 +262,7 @@ export async function createAgent365Tools(
   // Connect to each server and discover tools
   for (const serverConfig of serverConfigs) {
     try {
-      const { client, transport, tools } = await connectToMcpServer(serverConfig);
+      const { client, transport, tools } = await connectToMcpServer(serverConfig, authToken);
 
       connections.push({
         serverName: serverConfig.mcpServerName,
@@ -253,6 +292,7 @@ export async function createAgent365Tools(
         }
       }
       connections.length = 0;
+      msalApp = null;
     },
   };
 }
@@ -261,22 +301,17 @@ export async function createAgent365Tools(
  * Initialize Agent 365 MCP tools in development mode using ToolingManifest.json.
  * The manifest is read from the project root (or MCP_PLATFORM_ENDPOINT for mock server).
  *
- * This is a convenience wrapper that sets NODE_ENV=development temporarily
- * so the SDK reads from ToolingManifest.json instead of the production gateway.
+ * Still requires MSAL credentials to authenticate with the MCP servers.
  */
-export async function createAgent365ToolsFromManifest(): Promise<Agent365ToolBridge> {
+export async function createAgent365ToolsFromManifest(
+  config: Agent365Config,
+): Promise<Agent365ToolBridge> {
   const originalNodeEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = 'development';
 
   try {
-    // In dev mode, the config service reads ToolingManifest.json directly
-    // and doesn't need agenticAppId or authToken
-    return await createAgent365Tools({
-      agenticAppId: '',
-      authToken: '',
-    });
+    return await createAgent365Tools(config);
   } finally {
-    // Restore original NODE_ENV
     if (originalNodeEnv !== undefined) {
       process.env.NODE_ENV = originalNodeEnv;
     } else {
