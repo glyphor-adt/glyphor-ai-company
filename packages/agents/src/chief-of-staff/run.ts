@@ -172,7 +172,7 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
     ...createToolRequestTools(),
     ...createAgentDirectoryTools(),
     ...createEventTools(glyphorEventBus),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

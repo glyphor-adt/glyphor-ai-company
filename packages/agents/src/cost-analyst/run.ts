@@ -22,6 +22,7 @@ import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createCostManagementTools } from '../shared/costManagementTools.js';
 import { createCashFlowTools } from '../shared/cashFlowTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface CostAnalystRunParams {
   task?: 'cost_report' | 'waste_scan' | 'on_demand';
@@ -51,6 +52,7 @@ export async function runCostAnalyst(params: CostAnalystRunParams = {}) {
     ...createSharePointTools(),
     ...createCostManagementTools(),
     ...createCashFlowTools(),
+    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

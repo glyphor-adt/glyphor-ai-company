@@ -22,6 +22,7 @@ import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createProductAnalyticsTools } from '../shared/productAnalyticsTools.js';
 import { createUserResearchTools } from '../shared/userResearchTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface UserResearcherRunParams {
   task?: 'cohort_analysis' | 'churn_signals' | 'on_demand';
@@ -51,6 +52,7 @@ export async function runUserResearcher(params: UserResearcherRunParams = {}) {
     ...createSharePointTools(),
     ...createProductAnalyticsTools(),
     ...createUserResearchTools(),
+    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

@@ -26,6 +26,7 @@ import { createFigmaTools } from '../shared/figmaTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createLogoTools } from '../shared/logoTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface UiUxDesignerRunParams {
   task?: 'component_spec' | 'design_token_review' | 'on_demand';
@@ -59,6 +60,7 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
     ...createEmailTools(),
     ...createSharePointTools(),
     ...createLogoTools(),
+    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

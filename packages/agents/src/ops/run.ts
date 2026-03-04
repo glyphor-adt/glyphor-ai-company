@@ -70,7 +70,7 @@ export async function runOps(params: OpsRunParams = {}) {
     ...createEventTools(glyphorEventBus),
     ...createDiagnosticTools(),
     ...createOpsExtensionTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

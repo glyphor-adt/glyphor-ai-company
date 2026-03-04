@@ -22,6 +22,7 @@ import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createResearchRepoTools } from '../shared/researchRepoTools.js';
 import { createResearchMonitoringTools } from '../shared/researchMonitoringTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface AIImpactAnalystRunParams {
   task?: 'research' | 'on_demand';
@@ -60,6 +61,7 @@ export async function runAIImpactAnalyst(params: AIImpactAnalystRunParams = {}) 
     ...createSharePointTools(),
     ...createResearchRepoTools(),
     ...createResearchMonitoringTools(),
+    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

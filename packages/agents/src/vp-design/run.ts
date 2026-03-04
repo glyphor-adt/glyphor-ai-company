@@ -46,6 +46,7 @@ import { createFigmaTools } from '../shared/figmaTools.js';
 import { createStorybookTools } from '../shared/storybookTools.js';
 import { createCanvaTools } from '../shared/canvaTools.js';
 import { createLogoTools } from '../shared/logoTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface VPDesignRunParams {
   task?: 'design_audit' | 'design_system_review' | 'on_demand';
@@ -96,6 +97,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
     ...createStorybookTools(),
     ...createCanvaTools(),
     ...createLogoTools(),
+    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

@@ -29,6 +29,7 @@ import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createEngineeringGapTools } from '../shared/engineeringGapTools.js';
 import { createDiagnosticTools } from '../shared/diagnosticTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface PlatformEngineerRunParams {
   task?: 'health_check' | 'metrics_report' | 'on_demand';
@@ -63,6 +64,7 @@ export async function runPlatformEngineer(params: PlatformEngineerRunParams = {}
     ...createSharePointTools(),
     ...createDiagnosticTools(),
     ...createEngineeringGapTools(),
+    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

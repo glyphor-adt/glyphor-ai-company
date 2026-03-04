@@ -20,6 +20,7 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface SupportTriageRunParams {
   task?: 'triage_queue' | 'batch_analysis' | 'on_demand';
@@ -47,6 +48,7 @@ export async function runSupportTriage(params: SupportTriageRunParams = {}) {
     ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createSharePointTools(),
+    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

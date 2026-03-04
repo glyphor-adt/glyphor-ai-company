@@ -100,7 +100,7 @@ export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<Ag
     ...createEmailTools(),
     ...createToolRequestTools(),
     ...createSharePointTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
   ];
 
   const toolExecutor = new ToolExecutor(tools);

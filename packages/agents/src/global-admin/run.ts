@@ -23,6 +23,7 @@ import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createOpsExtensionTools } from '../shared/opsExtensionTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface GlobalAdminRunParams {
   task?: 'access_audit' | 'compliance_report' | 'onboarding' | 'read_inbox' | 'on_demand';
@@ -57,6 +58,7 @@ export async function runGlobalAdmin(params: GlobalAdminRunParams = {}) {
     ...createSharePointTools(),
     ...createToolGrantTools('global-admin'),
     ...createOpsExtensionTools(),
+    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

@@ -21,6 +21,7 @@ import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createSeoTools } from '../shared/seoTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface SeoAnalystRunParams {
   task?: 'ranking_report' | 'keyword_research' | 'competitor_gap' | 'on_demand';
@@ -49,6 +50,7 @@ export async function runSeoAnalyst(params: SeoAnalystRunParams = {}) {
     ...createEmailTools(),
     ...createSharePointTools(),
     ...createSeoTools(),
+    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

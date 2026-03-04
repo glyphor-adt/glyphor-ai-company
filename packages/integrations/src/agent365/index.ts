@@ -240,6 +240,8 @@ function mcpToolToToolDefinition(
  */
 export async function createAgent365Tools(
   config: Agent365Config,
+  /** Optional list of MCP server names to load (e.g. ['mcp_CalendarTools', 'mcp_TeamsServer']). Loads all if omitted. */
+  serverFilter?: string[],
 ): Promise<Agent365ToolBridge> {
   // Acquire a bearer token via MSAL client credentials flow
   const authToken = await acquireToken(config);
@@ -249,7 +251,7 @@ export async function createAgent365Tools(
   const allTools: ToolDefinition[] = [];
 
   // Discover available MCP servers
-  const serverConfigs = await configService.listToolServers(
+  let serverConfigs = await configService.listToolServers(
     config.clientId,
     authToken,
   );
@@ -257,6 +259,12 @@ export async function createAgent365Tools(
   if (serverConfigs.length === 0) {
     console.warn('[Agent365] No MCP servers configured. Run "a365 develop add-mcp-servers" to add servers.');
     return { tools: [], close: async () => {} };
+  }
+
+  // Apply server filter if provided
+  if (serverFilter && serverFilter.length > 0) {
+    const filterSet = new Set(serverFilter);
+    serverConfigs = serverConfigs.filter(s => filterSet.has(s.mcpServerName));
   }
 
   // Connect to each server and discover tools

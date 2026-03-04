@@ -19,12 +19,15 @@ let activeBridge: Agent365ToolBridge | null = null;
  * Connect to Agent 365 MCP servers and return discovered tools as ToolDefinitions.
  * Uses MSAL client credentials flow to auto-acquire and cache tokens.
  *
+ * @param serverFilter Optional list of MCP server names to load (e.g. ['mcp_CalendarTools']).
+ *                     Loads all servers if omitted. Use this to avoid exceeding model tool limits.
+ *
  * Returns an empty array if:
  *   - AGENT365_ENABLED is not 'true'
  *   - Required env vars are missing
  *   - MCP server connection fails (logs error, doesn't crash)
  */
-export async function createAgent365McpTools(): Promise<ToolDefinition[]> {
+export async function createAgent365McpTools(serverFilter?: string[]): Promise<ToolDefinition[]> {
   if (process.env.AGENT365_ENABLED !== 'true') {
     return [];
   }
@@ -43,7 +46,7 @@ export async function createAgent365McpTools(): Promise<ToolDefinition[]> {
       clientId,
       clientSecret,
       tenantId,
-    });
+    }, serverFilter);
 
     activeBridge = bridge;
     console.log(`[Agent365] Initialized ${bridge.tools.length} MCP tools`);

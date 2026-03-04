@@ -26,6 +26,7 @@ import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createHRTools } from '../shared/hrTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface HeadOfHRRunParams {
   task?: 'workforce_audit' | 'onboard_agent' | 'retire_agent' | 'read_inbox' | 'on_demand';
@@ -63,6 +64,7 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
     ...createAccessAuditTools(),
     ...createAgentDirectoryTools(),
     ...createHRTools(),
+    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

@@ -34,6 +34,7 @@ import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createEventTools } from '../shared/eventTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface VPSalesRunParams {
   task?: 'pipeline_review' | 'market_sizing' | 'on_demand';
@@ -73,6 +74,7 @@ export async function runVPSales(params: VPSalesRunParams = {}) {
     ...createToolRequestTools(),
     ...createAgentDirectoryTools(),
     ...createEventTools(glyphorEventBus),
+    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

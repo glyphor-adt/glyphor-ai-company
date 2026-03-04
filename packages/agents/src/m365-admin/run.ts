@@ -22,6 +22,7 @@ import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface M365AdminRunParams {
   task?: 'channel_audit' | 'user_audit' | 'on_demand';
@@ -55,6 +56,7 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
     ...createEmailTools(),
     ...createToolGrantTools('m365-admin'),
     ...createSharePointTools(),
+    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

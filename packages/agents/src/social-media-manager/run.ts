@@ -21,6 +21,7 @@ import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createSocialMediaTools } from '../shared/socialMediaTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface SocialMediaManagerRunParams {
   task?: 'engagement_report' | 'schedule_batch' | 'mention_scan' | 'on_demand';
@@ -49,6 +50,7 @@ export async function runSocialMediaManager(params: SocialMediaManagerRunParams 
     ...createEmailTools(),
     ...createSharePointTools(),
     ...createSocialMediaTools(),
+    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

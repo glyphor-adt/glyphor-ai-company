@@ -27,6 +27,7 @@ import { createStorybookTools } from '../shared/storybookTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createLogoTools } from '../shared/logoTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface TemplateArchitectRunParams {
   task?: 'variant_review' | 'template_quality_audit' | 'on_demand';
@@ -61,6 +62,7 @@ export async function runTemplateArchitect(params: TemplateArchitectRunParams = 
     ...createEmailTools(),
     ...createSharePointTools(),
     ...createLogoTools(),
+    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

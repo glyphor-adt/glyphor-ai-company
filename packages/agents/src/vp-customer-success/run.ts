@@ -34,6 +34,7 @@ import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface VPCSRunParams {
   task?: 'daily_health_scoring' | 'churn_detection' | 'on_demand';
@@ -73,6 +74,7 @@ export async function runVPCS(params: VPCSRunParams = {}) {
     ...createAgentCreationTools(),
     ...createToolRequestTools(),
     ...createAgentDirectoryTools(),
+    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

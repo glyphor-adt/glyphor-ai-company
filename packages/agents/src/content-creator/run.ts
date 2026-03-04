@@ -22,6 +22,7 @@ import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createContentTools } from '../shared/contentTools.js';
 import { createEmailMarketingTools } from '../shared/emailMarketingTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface ContentCreatorRunParams {
   task?: 'blog_draft' | 'social_batch' | 'performance_review' | 'on_demand';
@@ -51,6 +52,7 @@ export async function runContentCreator(params: ContentCreatorRunParams = {}) {
     ...createSharePointTools(),
     ...createContentTools(),
     ...createEmailMarketingTools(),
+    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

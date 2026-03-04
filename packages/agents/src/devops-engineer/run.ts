@@ -23,6 +23,7 @@ import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createEngineeringGapTools } from '../shared/engineeringGapTools.js';
 import { createDiagnosticTools } from '../shared/diagnosticTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 
 export interface DevOpsEngineerRunParams {
   task?: 'optimization_scan' | 'pipeline_report' | 'on_demand';
@@ -57,6 +58,7 @@ export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
     ...createSharePointTools(),
     ...createDiagnosticTools(),
     ...createEngineeringGapTools(),
+    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
