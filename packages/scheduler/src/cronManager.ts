@@ -63,7 +63,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'cto-health-check',
     agentRole: 'cto',
-    schedule: '0 */2 * * *',  // every 2 hours (on the hour)
+    schedule: '0 */6 * * *',  // every 6 hours (was every 2h — reduced for cost)
     timezone: 'UTC',
     task: 'platform_health_check',
     payload: {},
@@ -136,7 +136,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'ops-health-check',
     agentRole: 'ops',
-    schedule: '*/10 * * * *',  // every 10 minutes
+    schedule: '0 */2 * * *',  // every 2 hours (was every 10 min — reduced for cost)
     timezone: 'UTC',
     task: 'health_check',
     payload: {},
@@ -145,7 +145,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'ops-freshness-check',
     agentRole: 'ops',
-    schedule: '*/30 * * * *',  // every 30 minutes
+    schedule: '0 */6 * * *',  // every 6 hours (was every 30 min — reduced for cost)
     timezone: 'UTC',
     task: 'freshness_check',
     payload: {},
@@ -154,7 +154,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'ops-cost-check',
     agentRole: 'ops',
-    schedule: '0 * * * *',  // every hour
+    schedule: '0 */4 * * *',  // every 4 hours (was hourly — reduced for cost)
     timezone: 'UTC',
     task: 'cost_check',
     payload: {},
