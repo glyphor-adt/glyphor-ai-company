@@ -8,6 +8,7 @@ dist
 .env
 *.md
 !packages/company-knowledge/**/*.md
+!docs/**/*.md
 infra
 .turbo
 **/.turbo

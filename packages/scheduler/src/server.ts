@@ -66,6 +66,21 @@ import {
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
 
+/**
+ * Acquire a Google Cloud identity token for service-to-service auth.
+ * Uses the GCE metadata server (available on Cloud Run). Returns null locally.
+ */
+async function getCloudRunIdToken(audience: string): Promise<string | null> {
+  try {
+    const metaUrl = `http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?audience=${audience}`;
+    const res = await fetch(metaUrl, { headers: { 'Metadata-Flavor': 'Google' }, signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return null;
+    return res.text();
+  } catch {
+    return null; // not running on GCE/Cloud Run
+  }
+}
+
 // ─── Logo watermark ─────────────────────────────────────────────
 const LOGO_PATH = path.resolve(import.meta.dirname, '../../dashboard/public/glyphor-logo.png');
 const LOGO_FALLBACK = path.resolve(import.meta.dirname, '../../../public/glyphor-logo.png');
@@ -688,9 +703,12 @@ const server = createServer(async (req, res) => {
       try {
         const indexerUrl = process.env.GRAPHRAG_INDEXER_URL || 'http://localhost:8090';
         const body = JSON.stringify({ source: 'all' });
+        const idToken = await getCloudRunIdToken(indexerUrl);
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
         const indexRes = await fetch(`${indexerUrl}/index`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body,
           signal: AbortSignal.timeout(600_000), // 10 min timeout
         });
@@ -719,9 +737,12 @@ const server = createServer(async (req, res) => {
       try {
         const indexerUrl = process.env.GRAPHRAG_INDEXER_URL || 'http://localhost:8090';
         const body = JSON.stringify({ source: 'docs', limit: 15 });
+        const idToken = await getCloudRunIdToken(indexerUrl);
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
         const tuneRes = await fetch(`${indexerUrl}/tune`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body,
           signal: AbortSignal.timeout(300_000), // 5 min timeout
         });

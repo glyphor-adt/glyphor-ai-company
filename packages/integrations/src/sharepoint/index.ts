@@ -48,19 +48,28 @@ function encodeSiteId(siteId: string): string {
   return siteId.split(',').map(encodeURIComponent).join(',');
 }
 
+/**
+ * Encode a Graph API drive ID for use in URL paths.
+ * Unlike encodeURIComponent, this preserves `!` which is a sub-delimiter
+ * safe in URL paths (RFC 3986) and required by Graph API drive IDs (e.g. `b!xxx`).
+ */
+function encodeDriveId(driveId: string): string {
+  return encodeURIComponent(driveId).replace(/%21/g, '!');
+}
+
 export async function syncSharePointKnowledge(
   options?: SharePointSyncOptions,
 ): Promise<SharePointSyncResult> {
-  const siteId = options?.siteId ?? process.env.SHAREPOINT_SITE_ID;
+  const siteId = (options?.siteId ?? process.env.SHAREPOINT_SITE_ID ?? '').trim();
   if (!siteId) {
     throw new Error('Missing SHAREPOINT_SITE_ID for SharePoint knowledge sync.');
   }
 
-  const rootFolder = options?.rootFolder ?? process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge';
+  const rootFolder = (options?.rootFolder ?? process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge').trim();
   const maxFiles = options?.maxFiles ?? parseInt(process.env.SHAREPOINT_MAX_FILES ?? '300', 10);
 
   const token = await getM365Token('read_sharepoint');
-  const driveId = options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId);
+  const driveId = (options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId)).trim();
 
   const result: SharePointSyncResult = {
     scanned: 0,
@@ -256,7 +265,7 @@ async function listChildren(
   rootPath: string | null,
 ): Promise<GraphDriveItem[]> {
   const encodedSite = encodeSiteId(siteId);
-  const encodedDrive = encodeURIComponent(driveId);
+  const encodedDrive = encodeDriveId(driveId);
 
   const select = '$select=id,name,webUrl,eTag,file,folder,parentReference,lastModifiedDateTime';
   const baseUrl = itemId
@@ -267,12 +276,14 @@ async function listChildren(
   let nextUrl: string | null = baseUrl;
 
   while (nextUrl) {
+    console.log('[SharePoint] Fetching URL:', nextUrl);
     const response = await fetch(nextUrl, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!response.ok) {
       const body = await response.text();
+      console.log('[SharePoint] Error response:', response.status, body.substring(0, 300));
       throw new Error(`Failed to list SharePoint children (${response.status}): ${body}`);
     }
 
@@ -290,7 +301,7 @@ async function downloadTextContent(
   driveId: string,
   itemId: string,
 ): Promise<string> {
-  const url = `${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}/content`;
+  const url = `${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/drives/${encodeDriveId(driveId)}/items/${encodeURIComponent(itemId)}/content`;
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -513,18 +524,18 @@ export async function uploadToSharePoint(
   content: string,
   options?: SharePointUploadOptions,
 ): Promise<{ webUrl: string; knowledgeId: string }> {
-  const siteId = options?.siteId ?? process.env.SHAREPOINT_SITE_ID;
+  const siteId = (options?.siteId ?? process.env.SHAREPOINT_SITE_ID ?? '').trim();
   if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
 
   const token = await getM365Token('write_sharepoint');
-  const driveId = options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId);
+  const driveId = (options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId)).trim();
 
   const folder = options?.folder ?? process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge';
   const safeName = fileName.replace(/[<>:"/\\|?*]/g, '-');
   const remotePath = folder ? `${folder}/${safeName}` : safeName;
 
   const encodedPath = remotePath.split('/').map(encodeURIComponent).join('/');
-  const url = `${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/drives/${encodeURIComponent(driveId)}/root:/${encodedPath}:/content`;
+  const url = `${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/drives/${encodeDriveId(driveId)}/root:/${encodedPath}:/content`;
 
   const response = await fetch(url, {
     method: 'PUT',
@@ -577,7 +588,7 @@ export async function searchSharePoint(
   query: string,
   options?: SharePointSearchOptions,
 ): Promise<SharePointDocument[]> {
-  const siteId = options?.siteId ?? process.env.SHAREPOINT_SITE_ID;
+  const siteId = (options?.siteId ?? process.env.SHAREPOINT_SITE_ID ?? '').trim();
   if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
 
   const token = await getM365Token('search_sharepoint');
@@ -629,12 +640,12 @@ export async function searchSharePoint(
 export async function listSharePointFolders(
   options?: SharePointSearchOptions,
 ): Promise<string[]> {
-  const siteId = options?.siteId ?? process.env.SHAREPOINT_SITE_ID;
+  const siteId = (options?.siteId ?? process.env.SHAREPOINT_SITE_ID ?? '').trim();
   if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
 
   const token = await getM365Token('read_sharepoint');
-  const driveId = options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId);
-  const rootFolder = process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge';
+  const driveId = (options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId)).trim();
+  const rootFolder = (process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge').trim();
 
   const children = await listChildren(token, siteId, driveId, null, rootFolder);
   return children
@@ -649,15 +660,15 @@ export async function readSharePointDocument(
   filePath: string,
   options?: SharePointSearchOptions,
 ): Promise<{ content: string; webUrl: string | null; lastModified: string | null }> {
-  const siteId = options?.siteId ?? process.env.SHAREPOINT_SITE_ID;
+  const siteId = (options?.siteId ?? process.env.SHAREPOINT_SITE_ID ?? '').trim();
   if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
 
   const token = await getM365Token('read_sharepoint');
-  const driveId = options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId);
+  const driveId = (options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId)).trim();
 
   // Get item metadata
   const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
-  const metaUrl = `${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/drives/${encodeURIComponent(driveId)}/root:/${encodedPath}`;
+  const metaUrl = `${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/drives/${encodeDriveId(driveId)}/root:/${encodedPath}`;
   const metaRes = await fetch(metaUrl, {
     headers: { Authorization: `Bearer ${token}` },
   });

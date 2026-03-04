@@ -15,6 +15,7 @@ COPY packages/company-knowledge/ packages/company-knowledge/
 COPY docs/ docs/
 
 ENV PORT=8090
+ENV REPO_ROOT=/app
 
 EXPOSE 8090
 

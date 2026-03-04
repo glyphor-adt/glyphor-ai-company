@@ -10,7 +10,6 @@ teams/*.zip
 teams/agents/*.zip
 __pycache__/
 *.pyc
-packages/graphrag-indexer/
 infra/
 supabase/
 .terraform/

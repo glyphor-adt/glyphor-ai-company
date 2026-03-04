@@ -6,8 +6,9 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load .env from repo root
-_REPO_ROOT = Path(__file__).resolve().parents[3]
+# Load .env from repo root (local dev: parents[3], Docker: REPO_ROOT env var)
+_repo_root_env = os.environ.get("REPO_ROOT")
+_REPO_ROOT = Path(_repo_root_env) if _repo_root_env else Path(__file__).resolve().parents[3]
 load_dotenv(_REPO_ROOT / ".env")
 
 # ─── Cloud SQL (PostgreSQL) ──────────────────────────────────────
