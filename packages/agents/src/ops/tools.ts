@@ -81,7 +81,13 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
         const health = agents.map((agent: Record<string, unknown>) => {
           const agentRuns = runs.filter((r: Record<string, unknown>) => r.agent_id === agent.id || r.agent_id === agent.role);
-          const failures = agentRuns.filter((r: Record<string, unknown>) => r.status === 'failed');
+          const failures = runs.filter((r: Record<string, unknown>) => {
+            if (r.status !== 'failed') return false;
+            // Exclude reaped/stalled runs — these are infrastructure timeouts, not real failures
+            const err = (r.error as string) || '';
+            if (err.includes('reaped') || err.includes('stalled')) return false;
+            return true;
+          });
           return {
             id: agent.id,
             role: agent.role,

@@ -87,11 +87,12 @@ export async function runOps(params: OpsRunParams = {}) {
 
 Steps:
 1. Use query_agent_health to get the health summary for all agents
-2. Check for any agents with failures in the last 24 hours
-3. If any agent has 3+ failures, consider pausing it and creating an incident
-4. If any agent has 1-2 failures, log a warning
+2. Check for any agents with REAL failures (not reaped/stalled timeouts) in the last 24 hours
+3. If any agent has 3+ REAL failures (not timeouts), consider pausing it and creating an incident
+4. If any agent has 1-2 REAL failures, log a warning
 5. Post a brief health status using post_system_status
 
+IMPORTANT: Reaped/stalled runs are infrastructure timeouts, not real failures. Ignore them entirely.
 Focus on actionable findings. Don't just list data — detect problems and take action.`;
       break;
 
@@ -101,9 +102,11 @@ Focus on actionable findings. Don't just list data — detect problems and take 
 Steps:
 1. Use query_data_sync_status to check all sync sources
 2. Flag any source that hasn't synced in over 6 hours as stale
-3. If a source has consecutive failures >= 3, create an incident
+3. If a source has consecutive failures >= 3 AND the failures are real errors (not timeouts), create an incident
 4. If a source is stale but not failing, note the impact on downstream agents
-5. Log your findings`;
+5. Log your findings
+
+NOTE: GraphRAG index and tune syncs have been retired from the cron schedule. Ignore their status.`;
       break;
 
     case 'cost_check':
