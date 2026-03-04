@@ -1069,11 +1069,12 @@ const server = createServer(async (req, res) => {
       try {
         const { Storage } = await import('@google-cloud/storage');
         const storage = new Storage({ projectId: 'ai-glyphor-company' });
-        const bucket = storage.bucket(process.env.GCS_BUCKET || 'glyphor-company');
+        const bucketName = (process.env.GCS_BUCKET || 'glyphor-company').trim();
+        const bucket = storage.bucket(bucketName);
         const file = bucket.file(gcsPath);
         await file.save(buffer, { contentType, resumable: false });
         await file.makePublic().catch(() => {});
-        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${gcsPath}`;
+        const publicUrl = `https://storage.googleapis.com/${bucketName}/${gcsPath}`;
 
         // Upsert the profile (INSERT if no row exists yet)
         await systemQuery(

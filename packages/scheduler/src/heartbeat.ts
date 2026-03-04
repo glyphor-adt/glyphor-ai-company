@@ -6,9 +6,10 @@
  * Only wakes agents that actually have work pending.
  *
  * Agent tiers determine check frequency:
- * - High:   every cycle (10 min)  — chief-of-staff, cto, ops
- * - Medium: every 2nd cycle (20 min) — other executives
+ * - High:   every cycle (10 min)  — chief-of-staff, cto
+ * - Medium: every 2nd cycle (20 min) — other executives (incl. ops)
  * - Low:    every 3rd cycle (30 min) — sub-team members
+ * Note: ops has a 30-min cooldown so it won't be woken more than ~2x/hour.
  */
 
 import { systemQuery } from '@glyphor/shared/db';
@@ -35,7 +36,7 @@ export interface HeartbeatResult {
 }
 
 /** Agents checked every heartbeat cycle (10 min) */
-const HIGH_TIER: CompanyAgentRole[] = ['chief-of-staff', 'cto', 'ops'];
+const HIGH_TIER: CompanyAgentRole[] = ['chief-of-staff', 'cto'];
 
 /** Agents checked every 2nd cycle (20 min) */
 const MEDIUM_TIER: CompanyAgentRole[] = EXECUTIVE_ROLES.filter(
@@ -47,6 +48,9 @@ const LOW_TIER: CompanyAgentRole[] = SUB_TEAM_ROLES as CompanyAgentRole[];
 
 /** Minimum minutes since last run before a heartbeat can wake an agent */
 const MIN_RUN_GAP_MS = 5 * 60 * 1000;
+
+/** Ops has its own cron schedule — give it a longer cooldown to avoid over-waking */
+const OPS_RUN_GAP_MS = 30 * 60 * 1000;
 
 export class HeartbeatManager {
   private executor: AgentExecutorFn;
@@ -95,7 +99,8 @@ export class HeartbeatManager {
     for (const agentRole of agentsToCheck) {
       // Skip if agent ran recently
       const lastRun = lastRuns.get(agentRole);
-      if (lastRun && Date.now() - lastRun.getTime() < MIN_RUN_GAP_MS) continue;
+      const gap = agentRole === 'ops' ? OPS_RUN_GAP_MS : MIN_RUN_GAP_MS;
+      if (lastRun && Date.now() - lastRun.getTime() < gap) continue;
 
       const needs = await this.checkAgentNeeds(agentRole);
       if (needs.shouldWake) {

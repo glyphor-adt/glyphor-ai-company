@@ -81,6 +81,7 @@ export const WAKE_RULES: WakeRule[] = [
     wake: ['cto', 'ops', 'chief-of-staff'],
     task: 'incident_response',
     priority: 'immediate',
+    cooldown_min: 30,
   },
   {
     event: 'alert.triggered',
@@ -106,6 +107,7 @@ export const WAKE_RULES: WakeRule[] = [
     wake: ['cto', 'ops'],
     task: 'incident_response',
     priority: 'immediate',
+    cooldown_min: 30,
   },
 
   // ── MEETING COMPLETION ──────────────────────────────────────
