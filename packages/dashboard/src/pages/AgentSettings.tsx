@@ -77,12 +77,12 @@ export default function AgentSettings() {
     (async () => {
       setLoading(true);
       // Try matching by role first (human-readable slug), then by UUID id
-      let data = await apiCall<AgentRow>(`/api/company-agents?role=${agentId}`).catch(() => null);
-      if (!data) {
-        data = await apiCall<AgentRow>(`/api/company-agents?id=${agentId}`).catch(() => null);
+      let data = await apiCall<AgentRow | AgentRow[]>(`/api/company-agents?role=${agentId}`).catch(() => null);
+      if (!data || (Array.isArray(data) && data.length === 0)) {
+        data = await apiCall<AgentRow | AgentRow[]>(`/api/company-agents?id=${agentId}`).catch(() => null);
       }
       if (data) {
-        const a = data as unknown as AgentRow;
+        const a = Array.isArray(data) ? data[0] : data;
         setAgent(a);
         setModel(a.model ?? 'gpt-5-mini-2025-08-07');
         setTemperature(a.temperature ?? 0.3);
