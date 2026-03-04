@@ -1,12 +1,19 @@
 /**
  * Tool Executor — Manages tool set and dispatches tool calls
  *
- * Enforces per-agent tool grants, scope checking, rate limiting,
- * budget caps, and logs all tool calls + security events.
+ * Enforcement layers (simplified for MCP architecture):
+ *   1. Emergency block check (is_blocked in agent_tool_grants)
+ *   2. Rate limit check (prevents runaway loops)
+ *   3. Budget check (controls LLM cost)
+ *   4. Execute + timeout
  *
- * Dynamic grants: Sarah (Chief of Staff) can temporarily grant existing
- * tools to agents via the agent_tool_grants table. Grants are cached
- * for 60 seconds to avoid per-call DB queries.
+ * Grant check and scope check have been removed — Entra agent identities
+ * and MCP server-side scoping now handle tool access control. Static tools
+ * (in the agent's tool set) are authorized by code. MCP tools are scoped
+ * by the agent's Entra app roles.
+ *
+ * The agent_tool_grants table is retained as an emergency override:
+ * set is_blocked=true to immediately revoke a tool without an Entra update.
  */
 
 import type {
@@ -15,7 +22,6 @@ import type {
   ToolResult,
   GeminiToolDeclaration,
   CompanyAgentRole,
-  ToolGrant,
   ToolCallLog,
   SecurityEvent,
   SecurityEventType,
@@ -23,88 +29,79 @@ import type {
 import { AGENT_BUDGETS } from './types.js';
 import { systemQuery } from '@glyphor/shared/db';
 import type { FormalVerifier } from './formalVerifier.js';
-import { isKnownTool } from './toolRegistry.js';
 
-// ─── DB Grant Cache ────────────────────────────────────────────
-const GRANT_CACHE_TTL_MS = 60_000; // 60 seconds
+// ─── Emergency Block Cache ─────────────────────────────────────
+const BLOCK_CACHE_TTL_MS = 60_000; // 60 seconds
 
-interface GrantCacheEntry {
-  toolNames: Set<string>;
+interface BlockCacheEntry {
+  blockedTools: Set<string>;
   fetchedAt: number;
 }
 
-const grantCache = new Map<string, GrantCacheEntry>(); // role → cache entry
+const blockCache = new Map<string, BlockCacheEntry>(); // role → cache entry
 
 /**
- * Check if a tool is granted to an agent via the DB (agent_tool_grants table).
- * Results are cached for 60s per role to avoid per-call DB queries.
+ * Check if a tool is emergency-blocked for an agent via agent_tool_grants.
+ * This is the fast-path override: set is_blocked=true to instantly revoke
+ * a tool without waiting for an Entra role update.
+ * Results are cached for 60s per role.
  */
-export async function isToolGranted(
+export async function isToolBlocked(
   agentRole: CompanyAgentRole,
   toolName: string,
 ): Promise<boolean> {
   const now = Date.now();
-  const cached = grantCache.get(agentRole);
+  const cached = blockCache.get(agentRole);
 
-  if (cached && now - cached.fetchedAt < GRANT_CACHE_TTL_MS) {
-    return cached.toolNames.has(toolName);
+  if (cached && now - cached.fetchedAt < BLOCK_CACHE_TTL_MS) {
+    return cached.blockedTools.has(toolName);
   }
 
-  // Cache miss — fetch from DB
   try {
     const data = await systemQuery<{ tool_name: string }>(
-      `SELECT tool_name FROM agent_tool_grants WHERE agent_role = $1 AND is_active = true AND (expires_at IS NULL OR expires_at > $2)`,
-      [agentRole, new Date().toISOString()],
+      `SELECT tool_name FROM agent_tool_grants WHERE agent_role = $1 AND is_blocked = true`,
+      [agentRole],
     );
 
-    const toolNames = new Set(data.map((row) => row.tool_name));
-    grantCache.set(agentRole, { toolNames, fetchedAt: now });
+    const blockedTools = new Set(data.map((row) => row.tool_name));
+    blockCache.set(agentRole, { blockedTools, fetchedAt: now });
 
-    return toolNames.has(toolName);
-  } catch (err) {
-    console.warn(`[ToolGrants] Failed to fetch grants for ${agentRole}:`, (err as Error).message);
-    // On DB error, allow the tool (fail-open for availability)
-    return true;
+    return blockedTools.has(toolName);
+  } catch {
+    // On DB error, don't block (fail-open for availability)
+    return false;
   }
 }
 
-/** Invalidate the grant cache for a role (called after grant/revoke). */
-export function invalidateGrantCache(agentRole?: string): void {
+/** Invalidate the block cache for a role (called after block/unblock). */
+export function invalidateBlockCache(agentRole?: string): void {
   if (agentRole) {
-    grantCache.delete(agentRole);
+    blockCache.delete(agentRole);
   } else {
-    grantCache.clear();
+    blockCache.clear();
   }
 }
 
-/**
- * Load all granted tool names for an agent from the DB.
- * Used to check what tools an agent has access to (for system prompt injection).
- */
-export async function loadGrantedToolNames(
+// ── Legacy exports (kept for backward compatibility) ────────────
+
+/** @deprecated Use isToolBlocked instead. Grant checks are now handled by Entra identity. */
+export async function isToolGranted(
   agentRole: CompanyAgentRole,
+  _toolName: string,
+): Promise<boolean> {
+  return true; // All tools are implicitly granted; scoping is via Entra identity
+}
+
+/** @deprecated Grant cache replaced by block cache. */
+export function invalidateGrantCache(agentRole?: string): void {
+  invalidateBlockCache(agentRole);
+}
+
+/** @deprecated Tool grants are now managed by Entra identity. Returns static tool names. */
+export async function loadGrantedToolNames(
+  _agentRole: CompanyAgentRole,
 ): Promise<string[]> {
-  const now = Date.now();
-  const cached = grantCache.get(agentRole);
-
-  if (cached && now - cached.fetchedAt < GRANT_CACHE_TTL_MS) {
-    return Array.from(cached.toolNames);
-  }
-
-  try {
-    const data = await systemQuery<{ tool_name: string }>(
-      `SELECT tool_name FROM agent_tool_grants WHERE agent_role = $1 AND is_active = true AND (expires_at IS NULL OR expires_at > $2)`,
-      [agentRole, new Date().toISOString()],
-    );
-
-    const toolNames = new Set(data.map((row) => row.tool_name));
-    grantCache.set(agentRole, { toolNames, fetchedAt: now });
-
-    return Array.from(toolNames);
-  } catch (err) {
-    console.warn(`[ToolGrants] Failed to load grants for ${agentRole}:`, (err as Error).message);
-    return [];
-  }
+  return []; // Callers should use tool declarations instead
 }
 
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
@@ -146,33 +143,6 @@ const VERIFICATION_MAP: Record<string, { name: string; paramKey: string }> = {
   'update_company_knowledge': { name: 'get_company_knowledge', paramKey: 'id' },
 };
 
-/** Auto-grant a known tool to an agent (self-recovery for static + known tools) */
-async function autoGrantTool(agentRole: string, toolName: string, reason: string): Promise<void> {
-  try {
-    await systemQuery(
-      `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason)
-       VALUES ($1, $2, 'system', $3)
-       ON CONFLICT (agent_role, tool_name) DO UPDATE SET is_active = true`,
-      [agentRole, toolName, reason],
-    );
-    invalidateGrantCache(agentRole);
-  } catch {
-    // Best-effort — if grant fails, the tool call will still proceed
-  }
-}
-
-/** Structured error message for tool access denial with recovery instructions */
-function buildToolDeniedMessage(toolName: string): string {
-  return `TOOL ACCESS DENIED: '${toolName}' is not currently granted to you.
-
-RECOVERY STEPS (do this NOW, do not skip):
-1. Call request_tool_access with tool_name='${toolName}' and reason='Needed for [describe current task]'
-2. After approval, retry your original ${toolName} call with the same parameters
-3. If request_tool_access also fails, the tool may not exist — call request_new_tool instead
-
-DO NOT: report this as a blocker, tell the user you lack access, or skip this step of your task.`;
-}
-
 /** Rough cost estimate per tool call in USD */
 function estimateToolCost(toolName: string): number {
   if (isReadOnlyTool(toolName)) return 0.001;
@@ -185,7 +155,6 @@ export class ToolExecutor {
   private dryRun: boolean;
 
   // Enforcement state
-  private toolGrants: Map<string, Map<string, ToolGrant>> = new Map(); // role → toolName → grant
   private callLog: ToolCallLog[] = [];
   private securityLog: SecurityEvent[] = [];
   private rateCounts: Map<string, number[]> = new Map(); // "role:tool" → timestamps
@@ -200,16 +169,6 @@ export class ToolExecutor {
     this.dryRun = dryRun;
     this.enforcementEnabled = enforcement;
     this.formalVerifier = formalVerifier ?? null;
-  }
-
-  // ─── Tool Grant Registration ──────────────────────────────────
-
-  registerGrants(role: CompanyAgentRole, grants: ToolGrant[]): void {
-    const roleGrants = new Map<string, ToolGrant>();
-    for (const grant of grants) {
-      roleGrants.set(grant.toolName, grant);
-    }
-    this.toolGrants.set(role, roleGrants);
   }
 
   // ─── Cost Tracking ────────────────────────────────────────────
@@ -391,107 +350,30 @@ export class ToolExecutor {
       const role = context.agentRole;
       const agentId = context.agentId;
 
-      // 1. Tool grant check — hardcoded grants (if registered) OR DB grants
-      //    IMPORTANT: If a tool is in this.tools (the agent's static tool set),
-      //    it's authorized by code — no DB grant needed. The DB grant table is
-      //    for DYNAMIC/ADDITIONAL tools granted at runtime, not for gating tools
-      //    the agent already has in its own code.
-      const isStaticTool = this.tools.has(toolName);
-      const roleGrants = this.toolGrants.get(role);
-      if (roleGrants && !roleGrants.has(toolName)) {
-        // Hardcoded grants exist and tool is not in them
-        if (!isStaticTool) {
-          // Auto-grant any known tool (static, KNOWN_TOOLS, or DB-registered)
-          if (isKnownTool(toolName)) {
-            await autoGrantTool(role, toolName, 'auto-granted known tool on access attempt');
-          } else {
-            this.logSecurityEvent(agentId, role, toolName, 'TOOL_NOT_GRANTED');
-            return {
-              success: false,
-              error: buildToolDeniedMessage(toolName),
-              filesWritten: 0,
-              memoryKeysWritten: 0,
-            };
-          }
-        }
-      } else if (!roleGrants) {
-        // No hardcoded grants — check DB grants (skip for static tools)
-        if (!isStaticTool) {
-          const granted = await isToolGranted(role, toolName);
-          if (!granted) {
-            // Auto-grant any known tool (static, KNOWN_TOOLS, or DB-registered)
-            if (isKnownTool(toolName)) {
-              await autoGrantTool(role, toolName, 'auto-granted known tool on access attempt');
-            } else {
-              this.logSecurityEvent(agentId, role, toolName, 'TOOL_NOT_GRANTED');
-              return {
-                success: false,
-                error: buildToolDeniedMessage(toolName),
-                filesWritten: 0,
-                memoryKeysWritten: 0,
-              };
-            }
-          }
-        }
+      // 1. Emergency block check — is_blocked in agent_tool_grants
+      const blocked = await isToolBlocked(role, toolName);
+      if (blocked) {
+        this.logSecurityEvent(agentId, role, toolName, 'TOOL_NOT_GRANTED', { reason: 'emergency_blocked' });
+        return {
+          success: false,
+          error: `${toolName} is currently blocked for ${role}. Contact an admin to unblock.`,
+          filesWritten: 0,
+          memoryKeysWritten: 0,
+        };
       }
 
-      // Auto-sync: if tool is static but missing from DB grants, insert it
-      // so the DB stays in sync with code (fire-and-forget, non-blocking)
-      if (isStaticTool) {
-        isToolGranted(role, toolName).then(granted => {
-          if (!granted) {
-            systemQuery(
-              `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason)
-               VALUES ($1, $2, 'system', 'auto-synced from static tool array')
-               ON CONFLICT (agent_role, tool_name) DO NOTHING`,
-              [role, toolName],
-            ).then(() => {
-              invalidateGrantCache(role);
-            }).catch(() => {}); // best-effort
-          }
-        }).catch(() => {});
+      // 2. Rate limit check (default: 60 calls/hr per tool per agent)
+      if (!this.checkRateLimit(role, toolName, 60)) {
+        this.logSecurityEvent(agentId, role, toolName, 'RATE_LIMITED');
+        return {
+          success: false,
+          error: `${role} rate limited on ${toolName}`,
+          filesWritten: 0,
+          memoryKeysWritten: 0,
+        };
       }
 
-      const grant = roleGrants?.get(toolName);
-
-      // 2. Scope check
-      if (grant?.scope) {
-        for (const [scopeKey, scopeValue] of Object.entries(grant.scope)) {
-          const argValue = params[scopeKey];
-          if (argValue !== undefined && scopeValue !== undefined) {
-            const scopeStr = String(scopeValue);
-            const argStr = String(argValue);
-            // Support wildcard scope patterns (e.g., "test/*")
-            if (scopeStr.includes('*')) {
-              const pattern = new RegExp('^' + scopeStr.replace(/\*/g, '.*') + '$');
-              if (!pattern.test(argStr)) {
-                this.logSecurityEvent(agentId, role, toolName, 'SCOPE_VIOLATION', { scopeKey, expected: scopeStr, actual: argStr });
-                return {
-                  success: false,
-                  error: `${role} called ${toolName} outside scope: ${scopeKey}=${argStr} (allowed: ${scopeStr})`,
-                  filesWritten: 0,
-                  memoryKeysWritten: 0,
-                };
-              }
-            }
-          }
-        }
-      }
-
-      // 3. Rate limit check
-      if (grant?.rateLimit) {
-        if (!this.checkRateLimit(role, toolName, grant.rateLimit)) {
-          this.logSecurityEvent(agentId, role, toolName, 'RATE_LIMITED');
-          return {
-            success: false,
-            error: `${role} rate limited on ${toolName}`,
-            filesWritten: 0,
-            memoryKeysWritten: 0,
-          };
-        }
-      }
-
-      // 4. Budget check
+      // 3. Budget check
       const estimatedCost = estimateToolCost(toolName);
       if (this.wouldExceedBudget(agentId, role, estimatedCost)) {
         this.logSecurityEvent(agentId, role, toolName, 'BUDGET_EXCEEDED');
@@ -508,7 +390,7 @@ export class ToolExecutor {
       this.addDailyCost(role, estimatedCost);
       this.addMonthlyCost(role, estimatedCost);
 
-      // 5. Formal budget verification for write tools
+      // 4. Formal budget verification for write tools
       if (this.formalVerifier && !isReadOnlyTool(toolName)) {
         const budget = AGENT_BUDGETS[role];
         if (budget) {

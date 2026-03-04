@@ -11,7 +11,7 @@ export type { ModelClientConfig, ModelProvider, ImageResponse } from './modelCli
 export { ProviderFactory, GeminiAdapter, OpenAIAdapter, AnthropicAdapter } from './providers/index.js';
 export type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse, UnifiedToolCall, UnifiedUsageMetadata } from './providers/types.js';
 export { AgentSupervisor } from './supervisor.js';
-export { ToolExecutor, isToolGranted, invalidateGrantCache, loadGrantedToolNames } from './toolExecutor.js';
+export { ToolExecutor, isToolBlocked, invalidateBlockCache, isToolGranted, invalidateGrantCache, loadGrantedToolNames } from './toolExecutor.js';
 export { EventBus } from './eventBus.js';
 export { GlyphorEventBus } from './glyphorEventBus.js';
 export type { GlyphorEventBusConfig } from './glyphorEventBus.js';
