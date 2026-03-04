@@ -8,6 +8,7 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { Agent as UndiciAgent } from 'undici';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GlyphorEventBus, ModelClient, promptCache, getRedisCache } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment } from '@glyphor/agent-runtime';
@@ -707,11 +708,14 @@ const server = createServer(async (req, res) => {
         console.log(`[GraphRAG] Calling ${indexerUrl}/index (auth: ${!!idToken})`);
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
+        const longTimeout = new UndiciAgent({ headersTimeout: 900_000, bodyTimeout: 900_000 });
         const indexRes = await fetch(`${indexerUrl}/index`, {
           method: 'POST',
           headers,
           body,
           signal: AbortSignal.timeout(900_000), // 15 min timeout
+          // @ts-expect-error undici dispatcher option
+          dispatcher: longTimeout,
         });
         const text = await indexRes.text();
         let result: Record<string, unknown>;
@@ -746,11 +750,14 @@ const server = createServer(async (req, res) => {
         const idToken = await getCloudRunIdToken(indexerUrl);
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
+        const longTimeout = new UndiciAgent({ headersTimeout: 600_000, bodyTimeout: 600_000 });
         const tuneRes = await fetch(`${indexerUrl}/tune`, {
           method: 'POST',
           headers,
           body,
           signal: AbortSignal.timeout(600_000), // 10 min timeout
+          // @ts-expect-error undici dispatcher option
+          dispatcher: longTimeout,
         });
         const text = await tuneRes.text();
         let result: Record<string, unknown>;
