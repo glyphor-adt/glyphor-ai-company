@@ -32,7 +32,8 @@ export class OpenAIAdapter implements ProviderAdapter {
   async generate(request: UnifiedModelRequest): Promise<UnifiedModelResponse> {
     const messages = this.mapConversation(request);
 
-    const tools = request.tools?.length
+    const MAX_OPENAI_TOOLS = 128;
+    const allTools = request.tools?.length
       ? request.tools.map(t => ({
           type: 'function' as const,
           function: {
@@ -42,6 +43,13 @@ export class OpenAIAdapter implements ProviderAdapter {
           },
         }))
       : undefined;
+
+    if (allTools && allTools.length > MAX_OPENAI_TOOLS) {
+      console.warn(
+        `[OpenAI] ${request.model}: ${allTools.length} tools exceeds ${MAX_OPENAI_TOOLS} limit — truncating to ${MAX_OPENAI_TOOLS}`,
+      );
+    }
+    const tools = allTools?.slice(0, MAX_OPENAI_TOOLS);
 
     // o-series models (o1, o3, o4) don't accept temperature, top_p, or max_tokens
     const isOSeries = /^o[134](-|$)/.test(request.model);

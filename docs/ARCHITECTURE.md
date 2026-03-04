@@ -1,6 +1,6 @@
 # Glyphor AI Company — System Architecture
 
-> Last updated: 2026-03-02 (agent tool self-recovery, chat persistence fixes, GroupChat, dashboard pages)
+> Last updated: 2026-03-04 (Anthropic → Vertex AI migration, Agent 365 MCP integration, avatar upload, claude-sonnet-4-5 added)
 
 ## Overview
 
@@ -286,7 +286,8 @@ auditing, lead generation, and executive assistantship.
 │   ├ AgentProfile.tsx (identity, perf,    │
 │   │                   memory, messages,  │
 │   │                   skills, world      │
-│   │                   model, settings)   │
+│   │                   model, settings,   │
+│   │                   avatar upload)     │
 │   ├ AgentBuilder.tsx (create new agents) │
 │   ├ Approvals.tsx    (decision queue)    │
 │   ├ ChangeRequests.tsx (change requests) │
@@ -604,7 +605,7 @@ glyphor-ai-company/
 │   │       │   ├── types.ts               # Unified provider contract (ProviderAdapter interface)
 │   │       │   ├── gemini.ts              # GeminiAdapter (thinkingLevel/thinkingBudget, Imagen)
 │   │       │   ├── openai.ts              # OpenAIAdapter (o-series reasoning_effort, GPT-5, gpt-image-1)
-│   │       │   ├── anthropic.ts           # AnthropicAdapter (adaptive thinking, unique tool_use IDs)
+│   │       │   ├── anthropic.ts           # AnthropicAdapter (Vertex AI on GCP, adaptive thinking, unique tool_use IDs)
 │   │       │   └── index.ts               # ProviderFactory (lazy singleton per provider)
 │   │       ├── supervisor.ts           # Per-turn stall detection, turn limits, timeouts
 │   │       ├── toolExecutor.ts         # Tool declaration → execution bridge
@@ -691,6 +692,8 @@ glyphor-ai-company/
 │   │       │   ├── figmaAuth.ts          # Figma OAuth token manager
 │   │       │   ├── figmaTools.ts         # 17 Figma REST API tools
 │   │       │   ├── storybookTools.ts     # Storybook visual testing & coverage
+│   │       │   ├── agent365Tools.ts      # Agent 365 MCP tool factory — createAgent365McpTools(serverFilter?)
+│   │       │   │                         #   Gate-checked: returns [] if AGENT365_ENABLED != 'true'
 │   │       │   ├── runDynamicAgent.ts    # Runner for DB-defined agents (no file-based runner)
 │   │       │   ├── createRunDeps.ts      # Wire up all run dependencies for any agent
 │   │       │   └── createRunner.ts       # Runner factory: role + task → Orchestrator/Task/CompanyAgent
@@ -797,6 +800,10 @@ glyphor-ai-company/
 │   │       │   └── m365Router.ts      # M365 credential routing
 │   │       ├── governance/
 │   │       │   └── iamSync.ts         # IAM state synchronization
+│   │       ├── agent365/
+│   │       │   └── index.ts           # Agent 365 MCP bridge — converts Microsoft MCP tool schemas
+│   │       │                        #   to Glyphor ToolDefinition format via @microsoft/agents-a365-tooling
+│   │       │                        #   MSAL client credentials auth, persistent MCP client connections
 │   │       └── pulse/
 │   │           └── index.ts           # Company Pulse data
 │   │
@@ -973,6 +980,9 @@ glyphor-ai-company/
 │
 ├── db/migrations/               # 86 SQL migration files (historical, pre-GCP)
 ├── .github/workflows/deploy.yml # CI/CD (GitHub Actions → Cloud Run)
+├── a365.config.json             # Agent 365 tenant/subscription/app IDs
+├── a365.generated.config.json   # Agent 365 generated blueprint state
+├── ToolingManifest.json         # Agent 365 MCP server registry (5 servers)
 ├── turbo.json                   # Turborepo pipeline config
 ├── tsconfig.base.json           # Shared TS config
 └── package.json                 # npm workspaces root
@@ -1740,11 +1750,11 @@ ModelClient.generate(request)
   → UnifiedModelResponse            // common response shape
 ```
 
-| Provider | Model Prefixes | Auth Env Var | Adapter | Features |
-|----------|---------------|--------------|---------|----------|
-| Google Gemini | `gemini-*` | `GOOGLE_AI_API_KEY` | `GeminiAdapter` | Function calling, thinkingLevel (3.x) / thinkingBudget (2.5), thought signatures, Imagen image gen, normalizeFinishReason (STOP→stop) |
-| OpenAI | `gpt-*`, `/^o[134](-\|$)/` | `OPENAI_API_KEY` | `OpenAIAdapter` | Function calling, reasoning_effort (o-series/GPT-5), max_completion_tokens, gpt-image-1, normalizeFinishReason (stop→stop) |
-| Anthropic | `claude-*` | `ANTHROPIC_API_KEY` | `AnthropicAdapter` | Tool use, extended thinking (adaptive for claude-opus-4, no `effort` field), max_tokens 16384 default, unique tool_use IDs with per-call index, normalizeFinishReason (end_turn→stop) |
+| Provider | Model Prefixes | Auth | Adapter | Features |
+|----------|---------------|------|---------|----------|
+| Google Gemini | `gemini-*` | `GOOGLE_AI_API_KEY` env var | `GeminiAdapter` | Function calling, thinkingLevel (3.x) / thinkingBudget (2.5), thought signatures, Imagen image gen, normalizeFinishReason (STOP→stop) |
+| OpenAI | `gpt-*`, `/^o[134](-\|$)/` | `OPENAI_API_KEY` env var | `OpenAIAdapter` | Function calling, reasoning_effort (o-series/GPT-5), max_completion_tokens, gpt-image-1, normalizeFinishReason (stop→stop) |
+| Anthropic | `claude-*` | **Vertex AI on GCP** — IAM auth via `AnthropicVertex` SDK (`@anthropic-ai/vertex-sdk`). Uses GCP project ID + region (default `us-east5`). No API key needed — authenticates via service account IAM (`roles/aiplatform.user`). | `AnthropicAdapter` | Tool use, extended thinking (adaptive for claude-opus-4, no `effort` field), max_tokens 16384 default, unique tool_use IDs with per-call index, normalizeFinishReason (end_turn→stop) |
 
 All providers normalize `finishReason` to a lowercase `'stop'` | `'length'` | `'tool_calls'` | `'error'`
 contract via `normalizeFinishReason()` so runners can check `=== 'stop'` uniformly.
@@ -1755,7 +1765,7 @@ fallback. Agents can be switched to any supported model via the dashboard Settin
 **Supported models (dashboard dropdowns):**
 - **Gemini:** gemini-3.1-pro-preview, gemini-3-flash-preview, gemini-3-pro-preview, gemini-2.5-flash, gemini-2.5-flash-lite, gemini-2.5-pro
 - **OpenAI:** gpt-5.2, gpt-5.2-pro, gpt-5.1, gpt-5, gpt-5-mini, gpt-5-nano, gpt-4.1, gpt-4.1-mini, o3, o4-mini
-- **Anthropic:** claude-opus-4-20250514, claude-sonnet-4-20250514, claude-haiku-4-5-20250514
+- **Anthropic (via Vertex AI):** claude-opus-4-6, claude-sonnet-4-6, claude-sonnet-4-5, claude-haiku-4-5
 
 #### Image Generation
 
@@ -1801,7 +1811,7 @@ Supports value gating — outputs below a confidence threshold can be blocked or
 
 Verification models:
 - `gpt-5.2-2025-12-11` (OpenAI)
-- `claude-opus-4-6` (Anthropic)
+- `claude-opus-4-6` (Anthropic — via Vertex AI)
 - `gemini-3-flash-preview` (Google — same as primary)
 
 #### JitContextRetriever (`jitContextRetriever.ts`)
@@ -2256,6 +2266,57 @@ visual inspection, design system governance, quality auditing, and external inte
 - `ASSET_SERVICE_URL` — Asset storage API (optional, falls back to GCS path)
 - `OPENAI_API_KEY` — Already configured, used for DALL-E 3 image generation
 
+### Agent 365 — Microsoft M365 MCP Integration
+
+Agent 365 provides MCP (Model Context Protocol) servers that give Glyphor agents native access
+to Microsoft 365 services. A two-tier bridge converts Microsoft's MCP tool schemas into Glyphor's
+`ToolDefinition` format.
+
+**Architecture:**
+
+```
+Agent run.ts → createAgent365McpTools(serverFilter?)
+  → agent365Tools.ts (gate check: AGENT365_ENABLED='true')
+  → integrations/agent365/index.ts (MCP bridge)
+  → @microsoft/agents-a365-tooling SDK
+  → MSAL client credentials auth (Azure Entra)
+  → Microsoft MCP servers (agent365.svc.cloud.microsoft)
+```
+
+**MCP Servers (5 active):**
+
+| Server | Scope | Capabilities |
+|--------|-------|-------------|
+| `mcp_MailTools` | `McpServers.Mail.All` | Send, schedule, search Outlook email |
+| `mcp_CalendarTools` | `McpServers.Calendar.All` | Events, availability, scheduling |
+| `mcp_ODSPRemoteServer` | `McpServers.OneDriveSharepoint.All` | OneDrive/SharePoint file access |
+| `mcp_TeamsServer` | `McpServers.Teams.All` | Teams messaging, channels |
+| `mcp_M365Copilot` | `McpServers.CopilotMCP.All` | M365 Copilot API |
+
+**Agents using Agent 365 tools (~25):**
+- **C-Suite:** chief-of-staff, cto, cfo, cmo, cpo, clo
+- **Ops/Admin:** ops, global-admin, m365-admin
+- **Research:** vp-research, all 5 research analysts, competitive-intel, account-research, cost-analyst, org-analyst
+- **Design:** ui-ux-designer, design-critic, vp-design, template-architect
+- **Other:** vp-sales, content-creator, devops-engineer
+- **Dynamic agents:** All DB-defined agents (via `runDynamicAgent.ts`)
+
+Most agents filter to `['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']`.
+
+**Configuration files (repo root):**
+
+| File | Purpose |
+|------|---------|
+| `a365.config.json` | Static tenant/subscription/app IDs, Azure resource group (`glyphor-agent365`) |
+| `a365.generated.config.json` | Generated blueprint state (blueprint app ID, service principal) |
+| `ToolingManifest.json` | Registry of 5 MCP server URLs + scopes (dev mode) |
+
+**Entra ID apps:**
+- **Client app:** `06c728b6-0111-4cb1-a708-d57c51128649` (Glyphor AI Bot)
+- **Blueprint app:** `5604df3b-a3a3-4c7e-a8c4-e6f9ed04ad6a` (agent auth, SP: `28079457-37d9-483c-b7bb-fe6920083b8e`)
+
+**Dependencies:** `@microsoft/agents-a365-runtime`, `@microsoft/agents-a365-tooling` (`^0.1.0-preview.115`), `@azure/msal-node`
+
 **All-Department Shared Tools** (Waves 1-5):
 
 | File | Tools | Agents | Purpose |
@@ -2703,7 +2764,7 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 
 | Tab | Content |
 |-----|---------|
-| **Overview** | Avatar, personality summary, backstory, communication traits, quirks, Clifton strengths, working style |
+| **Overview** | Avatar (click to upload — saves to GCS `avatars/{agentId}/` via `POST /agents/:id/avatar`, upserts `agent_profiles`), personality summary, backstory, communication traits, quirks, Clifton strengths, working style |
 | **Performance** | Quality score trends (chart), growth areas, peer feedback from other agents |
 | **Memory** | Agent memories (observations, learnings, preferences, facts) + reflections with quality scores |
 | **Messages** | Stats row (received/sent/meetings/pending), DM list with directional arrows, meeting participation list |
@@ -3004,17 +3065,19 @@ Requires `SCHEDULER_URL`, `DASHBOARD_URL`, `VOICE_GATEWAY_URL` env vars.
 | Cloud Run | `glyphor-chief-of-staff` | Dedicated CoS agent service |
 | Cloud Run | `voice-gateway` | Voice agent sessions (WebRTC + Teams) |
 | Cloud Run | `glyphor-worker` | GCP Cloud Tasks queue processor (agent runs + delivery) |
+| Vertex AI | Claude models (`us-east5`) | Anthropic Claude inference via `@anthropic-ai/vertex-sdk` — IAM auth, no API key |
 | Cloud Tasks | `agent-runs`, `agent-runs-priority`, `delivery` | Background agent task queues |
 | Cloud Scheduler | 9 agent + 3 sync jobs | Agent triggers → Pub/Sub; data syncs → HTTP |
 | Pub/Sub | `glyphor-agent-events` | Cron message delivery |
 | Pub/Sub | `glyphor-events` | Inter-agent event bus |
 | Secret Manager | 25+ secrets | API keys, credentials, channel IDs, bot configs |
 | Artifact Registry | `us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/` | Docker images |
-| Cloud Storage | `glyphor-company` bucket | Briefings, reports, specs |
+| Cloud Storage | `glyphor-company` bucket | Briefings, reports, specs, agent avatars |
 | BigQuery | `billing_export` dataset | GCP billing export data |
 | Memorystore (Redis) | `glyphor-redis` | Redis cache for JIT context, directives, profiles, reasoning |
 | Azure | Resource group `glyphor-resources` (centralus) | Bot registrations, Entra apps |
 | Azure Communication Services | ACS instance | Teams meeting media streaming (WebSocket, PCM16) |
+| Agent 365 (Microsoft) | `agent365.svc.cloud.microsoft` | M365 MCP servers — Mail, Calendar, OneDrive/SharePoint, Teams, M365 Copilot |
 
 ### External Services
 
@@ -3023,11 +3086,12 @@ Requires `SCHEDULER_URL`, `DASHBOARD_URL`, `VOICE_GATEWAY_URL` env vars.
 | Cloud SQL | PostgreSQL database | `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` |
 | Google Gemini API | Primary AI inference | `GOOGLE_AI_API_KEY` |
 | OpenAI API | Alternative AI inference + web search + image gen | `OPENAI_API_KEY` |
-| Anthropic API | Alternative AI inference (Claude) | `ANTHROPIC_API_KEY` |
+| Vertex AI (GCP) | Anthropic Claude inference via Vertex AI | GCP IAM auth (service account `glyphor-agent-runner` / `glyphor-worker` with `roles/aiplatform.user`), region `us-east5` |
 | Microsoft Entra ID | Teams auth (MSAL client credentials) | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` |
 | Azure Bot Service | Bot Framework (main + 10 agent bots) | `BOT_APP_ID`, `BOT_APP_SECRET`, `BOT_TENANT_ID`, `AGENT_BOTS` |
 | Stripe | Revenue tracking (MRR, churn, subscriptions) | `STRIPE_SECRET_KEY` |
 | Mercury | Banking (cash balance, cash flows, vendor subs) | `MERCURY_API_TOKEN` |
+| Agent 365 (Microsoft) | M365 MCP servers — agents access Email, Calendar, OneDrive/SharePoint, Teams, M365 Copilot via MCP bridge | `AGENT365_CLIENT_ID`, `AGENT365_CLIENT_SECRET`, `AGENT365_TENANT_ID`, `AGENT365_ENABLED=true` |
 
 ### Cloud Run URLs
 
@@ -3089,7 +3153,7 @@ Requires `SCHEDULER_URL`, `DASHBOARD_URL`, `VOICE_GATEWAY_URL` env vars.
 | Directives | `/directives` | Founder directives management — create, assign, track work assignments |
 | Workforce | `/workforce` | Org chart (13 departments) + grid view — 46 total headcount |
 | Workforce Builder | `/builder` | Drag-and-drop org chart builder with templates |
-| Agent Profile | `/agents/:agentId` | 7-tab profile: Overview, Performance, Memory, Messages, Skills, World Model, Settings |
+| Agent Profile | `/agents/:agentId` | 7-tab profile: Overview (with avatar upload), Performance, Memory, Messages, Skills, World Model, Settings |
 | Agent Builder | `/agents/new` | Create new dynamic agents with name, department, model, budget, cron |
 | Agent Settings | `/agents/:agentId/settings` | Agent configuration & system prompt editing (uses AgentProfile component) |
 | Approvals | `/approvals` | Pending decision queue — approve/reject |
@@ -3352,7 +3416,6 @@ push to main
 |--------|---------|
 | `google-ai-api-key` | Gemini API |
 | `openai-api-key` | OpenAI fallback |
-| `anthropic-api-key` | Anthropic fallback |
 | `db-host`, `db-name`, `db-user`, `db-password` | Cloud SQL Database |
 | `gcs-bucket` | Cloud Storage |
 | `azure-tenant-id`, `azure-client-id`, `azure-client-secret` | Graph API (MSAL) |
@@ -3360,6 +3423,7 @@ push to main
 | `teams-channel-*-id` (9 secrets) | Teams channels |
 | `bot-app-id`, `bot-app-secret`, `bot-tenant-id` | Main bot |
 | `agent-bots` | JSON array of 10 agent bot configs |
+| `agent365-client-secret` | Agent 365 blueprint app (MSAL client credentials) |
 
 ```bash
 # Full deploy (scheduler + chief-of-staff + dashboard)
