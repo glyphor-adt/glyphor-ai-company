@@ -507,41 +507,34 @@ No more guessing.
 
 ## Implementation Priority
 
-### Hour 1 — Logging (see the problem):
+### ✅ DONE — Auto-recovery (Hours 1-2):
 
-1. Add tool inventory logging to agent startup
-   - Log static tools per agent to agent_activities
-   - Log tool count mismatches (static vs declared) on every model call
+1. **Tool inventory logging** — companyAgentRunner.ts
+   - Logs static tool count per agent at startup
+   - Warns if agent has ZERO tools (wiring gap)
+   - Logs declared-vs-static mismatch on Turn 1
 
-2. Add toolExecutor logging
-   - Log every grant check: GRANTED (static), GRANTED (dynamic), DENIED
-   - Log every tool execution: SUCCESS, ERROR with details
-   - Log auto-recovery attempts
+2. **Auto-grant-and-retry in toolExecutor.ts**
+   - When a KNOWN tool is not granted, auto-grant and retry
+   - No longer returns "Not granted" to the model for known tools
+   - Only denies truly unknown tools (not in KNOWN_TOOLS or tool_registry)
+   - Invalidates cache after auto-grant
 
-### Hour 2 — Auto-recovery (fix the most common failure):
+3. **Auto-sync grants from static tools on startup**
+   - On every agent run, bulk-inserts all static tools into agent_tool_grants
+   - Uses INSERT ... ON CONFLICT DO NOTHING (preserves existing grants)
+   - Fire-and-forget (non-blocking, best-effort)
 
-3. Implement auto-grant-and-retry in toolExecutor.ts
-   - When a known tool is not granted, auto-grant and retry
-   - Don't return "Not granted" to the model unless tool genuinely doesn't exist
-   - Invalidate cache after auto-grant
+4. **Auto-sync static tools to agent_tool_grants on execute** (toolExecutor.ts)
+   - When a static tool is executed, checks if DB grant exists
+   - If missing, auto-inserts grant (fire-and-forget)
 
-4. Implement auto-registry sync on startup
-   - All static tools auto-registered in tool_registry
-   - All static tools auto-synced to agent_tool_grants
+### Remaining — Dashboard (Day 2):
 
-### Hour 3 — Verify the pipeline:
-
-5. Run a full tool audit
-   - For every agent: compare static tools vs grants vs registry
-   - Flag mismatches
-   - Fix gaps
-
-### Day 2 — Dashboard:
-
-6. Build tool health dashboard
+5. Tool health dashboard (ToolHealth.tsx)
    - Per-agent tool inventory with status across all gates
    - Recent errors and denials
-   - Pattern detection ("I don't have access" in chat messages)
+   - Pattern detection
 
 ---
 

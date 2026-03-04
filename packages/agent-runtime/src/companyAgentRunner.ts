@@ -1154,6 +1154,26 @@ export class CompanyAgentRunner {
       console.warn(`[ToolInventory] WARNING: ${config.role} has ZERO tools — check run.ts wiring`);
     }
 
+    // ─── AUTO-SYNC GRANTS ──────────────────────────────────────
+    // Bulk-sync static tools to agent_tool_grants (fire-and-forget)
+    if (staticToolNames.length > 0) {
+      (async () => {
+        try {
+          const values = staticToolNames.map((_, i) =>
+            `($1, $${i + 2}, 'system', 'auto-synced from static tool array')`
+          ).join(', ');
+          await systemQuery(
+            `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason)
+             VALUES ${values}
+             ON CONFLICT (agent_role, tool_name) DO NOTHING`,
+            [config.role, ...staticToolNames],
+          );
+        } catch {
+          // Best-effort — DB may not be available in test/dev
+        }
+      })();
+    }
+
     // ─── PARALLEL PRE-RUN DATA LOADING ────────────────────────
     // Tiered loading: light (chat) → task (work_loop) → standard (scheduled) → full (briefing/orchestrate)
     // light:    profile + pending messages + working memory
@@ -1577,6 +1597,14 @@ export class CompanyAgentRunner {
           // task tier: strip tools on last turn to force a text response.
           // Scheduled: full tool access every turn.
           let effectiveTools: ReturnType<typeof toolExecutor.getDeclarations> | undefined = toolExecutor.getDeclarations();
+
+          // ─── TOOL DECLARATION MISMATCH LOG ──────────────────────
+          if (effectiveTools && turnNumber === 1) {
+            const declaredCount = effectiveTools.length;
+            if (declaredCount !== staticToolNames.length) {
+              console.warn(`[ToolInventory] ${config.role} MISMATCH: ${staticToolNames.length} static, ${declaredCount} declared to model`);
+            }
+          }
           const elapsedRatio = supervisor.elapsedMs / supervisor.config.timeoutMs;
           const isLastTurn = isOnDemand
             ? (turnNumber > 6 || elapsedRatio > 0.55)
