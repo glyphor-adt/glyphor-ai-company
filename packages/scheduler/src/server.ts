@@ -1075,15 +1075,12 @@ const server = createServer(async (req, res) => {
         await file.makePublic().catch(() => {});
         const publicUrl = `https://storage.googleapis.com/${bucket.name}/${gcsPath}`;
 
-        // Update the profile
+        // Upsert the profile (INSERT if no row exists yet)
         await systemQuery(
-          `UPDATE agent_profiles SET avatar_url=$1 WHERE agent_id=$2`,
-          [publicUrl, agentRow.role],
-        );
-        // Also try by UUID (some profiles use UUID as agent_id)
-        await systemQuery(
-          `UPDATE agent_profiles SET avatar_url=$1 WHERE agent_id=$2`,
-          [publicUrl, agentId],
+          `INSERT INTO agent_profiles (agent_id, avatar_url, updated_at)
+           VALUES ($1, $2, NOW())
+           ON CONFLICT (agent_id) DO UPDATE SET avatar_url = EXCLUDED.avatar_url, updated_at = NOW()`,
+          [agentRow.role, publicUrl],
         );
 
         json(res, 200, { success: true, avatar_url: publicUrl });
