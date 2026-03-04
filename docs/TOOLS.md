@@ -1,732 +1,602 @@
-# Cursor Instructions: All-Department Tool Spec
+# Cursor Instructions: Fix Tool Execution Pipeline
 
-## Context
+## The Problem
 
-This document extends cursor-design-team-tools.md to every other department. Same methodology: identify what each team CURRENTLY has (shared tools only), what they NEED to function like a real team, specific tools with owners, and implementation phases.
-
-Current shared tools available to ALL agents:
-- Communication: send_agent_message, check_messages, call_meeting
-- Assignments: read_my_assignments, submit_assignment_output, flag_assignment_blocker
-- Memory: save_memory, recall_memories
-- Knowledge graph: query_knowledge_graph, add_knowledge, trace_causes, trace_impact
-- Collective intelligence: get_company_pulse, update_company_pulse, knowledge routing
-- Email: send_email, read_inbox, reply_to_email (M365 Graph API)
-- Research: web_search, web_fetch, submit_research_packet
-- Tool requests: request_tool_access, request_new_tool, check_tool_request_status
-- Agent creation: create_specialist_agent, list/retire
-- Agent directory: agent directory lookup
-- SharePoint: document operations
-
-Engineering (Marcus) already has 50+ tools. Design team tools are in the companion doc.
+Tools exist but don't work. Agents say "I don't have access to that tool" even when
+the tool is in their codebase. Or tools silently fail and the agent claims success.
+Or the agent doesn't even attempt to use a tool it has. This is different from agents
+lying (cursor-fix-agent-lying.md) — this is about the PIPELINE between "tool exists
+in code" and "agent successfully executes tool" being broken at multiple points.
 
 ---
 
-## 1. MARKETING DEPARTMENT
-
-Team: Maya Brooks (CMO), Tyler Reed (Content Creator), Lisa Chen (SEO Analyst), Kai Johnson (Social Media Manager), Zara Petrov (Marketing Intel Analyst -- specialist), Derek Owens (Lead Gen Specialist -- specialist)
-
-Existing DB tables: content_drafts, content_metrics, seo_data, scheduled_posts, social_metrics, email_metrics, experiment_designs
-
-Teams channels: #growth, #product-pulse, #product-fuse
-
-Crons: cmo-content-calendar (9am), cmo-afternoon-publishing (2pm), content-creator-daily (10am), seo-analyst-daily (8:30am), social-media-morning (9am), social-media-afternoon (4pm)
-
-### Current State: A Marketing Team That Can Talk About Marketing
-
-Maya's team has web_search for research and send_email for outreach. They have DB tables for content, SEO, and social metrics -- but the data gets there through sync jobs, not through tools the agents control. Tyler cannot publish a blog post. Lisa cannot check Search Console. Kai cannot schedule a social post through a real API. They write reports recommending actions they cannot execute.
-
-### 1A. Content Creation and Publishing (Tyler Reed, Maya Brooks)
-
-New file: packages/agents/src/shared/contentTools.ts
-
-create_content_draft -- Tyler (Content), Maya (CMO). Create a new content draft in content_drafts table. Parameters: type (blog, social, email, landing_page, case_study, press_release), title, content, platform, tags, meta_description, campaign_type. Returns: draft_id, status=draft.
-
-update_content_draft -- Tyler, Maya. Edit an existing draft. Supports iterative refinement before publishing.
-
-get_content_drafts -- All marketing. List drafts with filters: status (draft, review, approved, published, archived), type, platform, author, date range.
-
-publish_content -- Maya (CMO) only. Move a draft to published status. YELLOW authority -- content goes live. Triggers the actual publishing action (see platform tools below).
-
-get_content_metrics -- All marketing. Read content performance from content_metrics table. Filter by type, platform, date range. Returns: views, shares, engagement, conversions, clicks per piece.
-
-get_content_calendar -- Maya, Tyler. View the content pipeline: what is drafted, what is scheduled, what published this week, what gaps exist in the calendar.
-
-generate_content_image -- Tyler (Content). Generate an image for a content piece using DALL-E 3 or Imagen. Parameters: prompt, style, dimensions, brand_constrained. Returns: image URL. Uses same image gen infrastructure as design team.
-
-### 1B. SEO Tools (Lisa Chen)
-
-New file: packages/agents/src/shared/seoTools.ts
-
-External API required: Google Search Console API (needs GOOGLE_SEARCH_CONSOLE_CREDENTIALS in Secret Manager)
-
-get_search_performance -- Lisa (SEO). Query Google Search Console for search performance data. Parameters: site_url, date_range, dimensions (query, page, country, device). Returns: clicks, impressions, CTR, average position per dimension.
-
-get_seo_data -- All marketing. Read from seo_data table (synced data). Filter by metric_type, keyword, url.
-
-track_keyword_rankings -- Lisa. Query current ranking position for a list of target keywords. Parameters: keywords[], site_url. Returns: position, search_volume, difficulty, change vs last check. Implementation: web_search for each keyword and parse position, or Search Console API.
-
-analyze_page_seo -- Lisa. Audit a specific URL for on-page SEO. Parameters: url. Returns: title tag, meta description, H1-H6 structure, word count, internal/external link count, image alt text coverage, schema markup presence, page speed score. Implementation: fetch the page, parse HTML, run checks.
-
-get_indexing_status -- Lisa. Check which pages are indexed via Search Console. Returns: indexed count, not indexed count, reasons for exclusion.
-
-submit_sitemap -- Lisa. Submit or resubmit sitemap to Search Console. YELLOW authority.
-
-update_seo_data -- Lisa. Write SEO findings back to seo_data table for tracking over time.
-
-get_backlink_profile -- Lisa. Analyze backlinks to the site. Implementation: web_search for link: queries or integrate with a backlink API (Ahrefs, Moz, or similar if available).
-
-### 1C. Social Media Tools (Kai Johnson)
-
-New file: packages/agents/src/shared/socialMediaTools.ts
-
-External APIs required: LinkedIn API, Twitter/X API (or Buffer/Hootsuite API as aggregator). Store credentials in Secret Manager.
-
-schedule_social_post -- Kai (Social Media). Schedule a post for a specific platform and time. Parameters: platform (linkedin, twitter, instagram), text, media_url (optional), scheduled_at. Writes to scheduled_posts table AND calls the platform API or scheduling tool API.
-
-get_scheduled_posts -- Kai, Maya. List all scheduled posts with status. Filter by platform, date range, status (scheduled, published, failed).
-
-get_social_metrics -- All marketing. Read from social_metrics table. Filter by platform, date range. Returns: followers, engagement rate, reach, impressions, clicks, demographics.
-
-get_post_performance -- Kai. Get performance metrics for a specific published post. Parameters: post_id or url. Returns: likes, comments, shares, impressions, engagement rate, click-throughs.
-
-get_social_audience -- Kai, Maya. Analyze audience demographics and growth trends per platform. Returns: follower count over time, demographics breakdown, peak engagement times, top performing content types.
-
-reply_to_social -- Kai. Reply to comments or mentions on social platforms. YELLOW authority (public-facing communication).
-
-get_trending_topics -- Kai, Maya. Fetch trending topics/hashtags relevant to AI, SaaS, enterprise tech. Implementation: web_search or platform trending APIs.
-
-### 1D. Email Marketing via Mailchimp + Mandrill (Maya Brooks, Tyler Reed)
-
-New file: packages/agents/src/shared/emailMarketingTools.ts
-
-Uses Mailchimp (audience management, campaigns) and Mandrill (transactional email). Credentials already in .env:
-- GLYPHOR_MAILCHIMP_API -- Mailchimp API key for audience/campaign management
-- GLYPHOR_MANDRILL_API_KEY -- Mandrill API key for transactional sends
-- MANDRILL_HOST, MANDRILL_PORT, MANDRILL_SMTP_USERNAME, MANDRILL_SMTP_PASSWORD -- SMTP
-
-Store all in Secret Manager. Add api.mailchimp.com and mandrillapp.com to network egress.
-
-MAILCHIMP TOOLS (audience + campaigns):
-
-get_mailchimp_lists -- Maya (CMO). List all audiences. Returns: name, member count, open rate, click rate.
-API: GET /3.0/lists
-
-get_mailchimp_members -- Maya, Tyler. List audience members. Parameters: list_id, status (subscribed, unsubscribed, pending), segment. Returns: email, status, tags, merge fields.
-API: GET /3.0/lists/{list_id}/members
-
-get_mailchimp_segments -- Maya. List segments in an audience. Returns: segment name, member count, conditions.
-API: GET /3.0/lists/{list_id}/segments
-
-create_mailchimp_campaign -- Maya (CMO). Create a campaign. Parameters: list_id, subject, from_name, from_email, template_id (optional). Returns: campaign_id.
-API: POST /3.0/campaigns
-
-set_campaign_content -- Tyler (Content), Maya. Set HTML/text content of a campaign. Parameters: campaign_id, html_content or template_sections.
-API: PUT /3.0/campaigns/{campaign_id}/content
-
-send_test_campaign -- Tyler, Maya. Send test email of campaign. Parameters: campaign_id, test_emails[]. GREEN authority.
-API: POST /3.0/campaigns/{campaign_id}/actions/test
-
-send_campaign -- Maya (CMO) only. Send or schedule campaign to full audience. Parameters: campaign_id, send_time (optional). YELLOW authority.
-API: POST /3.0/campaigns/{campaign_id}/actions/send or /actions/schedule
-
-get_campaign_report -- All marketing. Campaign performance. Parameters: campaign_id. Returns: opens, clicks, bounces, unsubscribes, open rate, click rate, top links.
-API: GET /3.0/reports/{campaign_id}
-
-get_campaign_list -- All marketing. List all campaigns with status and metrics. Parameters: status (sent, draft, schedule), date_range.
-API: GET /3.0/campaigns
-
-manage_mailchimp_tags -- Maya. Add/remove subscriber tags. Parameters: list_id, emails[], tags[], action (add/remove).
-API: POST /3.0/lists/{list_id}/members/{hash}/tags
-
-MANDRILL TOOLS (transactional email):
-
-send_transactional_email -- Maya, Tyler. Send one-off transactional email. Parameters: to, subject, html_content, from_email, from_name, tags[], track_opens, track_clicks. For targeted outreach, nurture sequences, triggered emails.
-API: POST /api/1.0/messages/send
-
-get_mandrill_stats -- Maya. Sending statistics. Parameters: date_range. Returns: sends, opens, clicks, bounces, rejects by day.
-API: POST /api/1.0/senders/info
-
-search_mandrill_messages -- Maya, Tyler. Search transactional email history. Parameters: query, date_from, date_to. Returns: message list with status, opens, clicks.
-API: POST /api/1.0/messages/search
-
-get_mandrill_templates -- Tyler, Maya. List Mandrill templates. Returns: template name, slug, subject, labels.
-API: POST /api/1.0/templates/list
-
-render_mandrill_template -- Tyler. Render template with merge vars for preview. Parameters: template_name, merge_vars[]. Returns: rendered HTML.
-API: POST /api/1.0/templates/render
-
-### 1E. A/B Testing and Experiments (Maya, Zara)
-
-create_experiment -- Maya, Zara. Design an A/B test. Parameters: hypothesis, variant_description, primary_metric, duration, platform. Writes to experiment_designs table.
-
-get_experiment_results -- All marketing. Read experiment results from experiment_designs table. Returns: variant performance, statistical significance, winner.
-
-### 1F. Marketing Intelligence (Zara Petrov)
-
-monitor_competitor_marketing -- Zara. Track competitor content, social, and SEO activity. Parameters: competitor_domains[]. Implementation: web_search + web_fetch for competitor blogs, social profiles, and ranking changes.
-
-analyze_market_trends -- Zara, Maya. Research market trends in specific segments. Implementation: web_search with structured analysis.
-
-get_attribution_data -- Zara. If analytics platform available, pull conversion attribution data. Which channels drive signups? What is the content-to-conversion path?
-
-### 1G. Lead Generation (Derek Owens)
-
-capture_lead -- Derek. Record a new lead from marketing activities. Parameters: source, channel, company, contact_name, contact_email, interest_area.
-
-get_lead_pipeline -- Derek, Maya. View leads by stage, source, and date. Cross-reference with sales pipeline (via Rachel's team data).
-
-score_lead -- Derek. Apply lead scoring based on company size, engagement level, fit criteria. Returns: score, qualification status, recommended next action.
-
-### Tool Distribution -- Marketing
-
-Maya Brooks (CMO): All read tools + publish_content, send_campaign (Mailchimp), create_mailchimp_campaign, manage_mailchimp_tags, create_experiment, get_content_calendar, get_campaign_report, get_mandrill_stats. Total new: ~25
-
-Tyler Reed (Content): create/update/get content drafts, generate_content_image, set_campaign_content, send_test_campaign, render_mandrill_template, get_mandrill_templates, search_mandrill_messages, get_content_metrics. Total new: ~12
-
-Lisa Chen (SEO): All SEO tools (search performance, rankings, page audit, indexing, sitemap, backlinks), get_seo_data, update_seo_data. Total new: ~10
-
-Kai Johnson (Social): All social tools (schedule, metrics, audience, reply, trending), get_scheduled_posts, get_post_performance. Total new: ~8
-
-Zara Petrov (Marketing Intel): monitor_competitor_marketing, analyze_market_trends, get_attribution_data, get_experiment_results. Total new: ~5
-
-Derek Owens (Lead Gen): capture_lead, get_lead_pipeline, score_lead. Total new: ~4
-
-### External Credentials Required
-
-Already in .env:
-- GLYPHOR_MAILCHIMP_API (Mailchimp audience + campaigns)
-- GLYPHOR_MANDRILL_API_KEY (Mandrill transactional email)
-- MANDRILL_HOST, MANDRILL_PORT, MANDRILL_SMTP_USERNAME, MANDRILL_SMTP_PASSWORD (SMTP)
-
-Still needed:
-- GOOGLE_SEARCH_CONSOLE_CREDENTIALS (for Lisa's SEO tools)
-- LINKEDIN_API_KEY + LINKEDIN_API_SECRET (for Kai's social posting)
-- TWITTER_API_KEY + TWITTER_API_SECRET (for Kai's social posting)
-- Alternative: BUFFER_API_KEY as social aggregator
-
-Network egress: add api.mailchimp.com and mandrillapp.com
+## The Tool Execution Pipeline (8 Gates)
+
+Every tool call must pass through ALL of these gates in sequence. A failure at ANY
+gate kills the tool call. The problem is that failures at different gates look
+identical to the user: the agent either says "I don't have access" or claims to have
+done something that never happened.
+
+```
+Gate 1: TOOL DEFINITION
+  Does the tool exist in the agent's runner file (this.tools Map)?
+  Failure: Tool never appears in the model's available tools
+  
+Gate 2: TOOL DECLARATION
+  Is the tool included in the tools array sent to the LLM?
+  Failure: LLM doesn't know the tool exists, cannot call it
+  
+Gate 3: TOOL REGISTRY
+  Is the tool in KNOWN_TOOLS (static) or tool_registry (DB)?
+  Failure: request_tool_access gets rejected ("ask CTO to build it")
+  
+Gate 4: TOOL GRANT
+  Is the tool in agent_tool_grants for this agent_role?
+  Failure: ToolExecutor returns "Not granted" error
+  
+Gate 5: GRANT CACHE
+  Is the grant cache stale (60-second TTL)?
+  Failure: Recently granted tool fails for up to 60 seconds
+  
+Gate 6: SCOPE CHECK
+  Does the tool call pass scope restrictions?
+  Failure: Scoped out of allowed parameters
+  
+Gate 7: RATE LIMIT + BUDGET
+  Has the agent exceeded rate limits or budget caps?
+  Failure: Tool blocked by rate limiter or budget exhaustion
+  
+Gate 8: EXECUTION
+  Does the tool's actual code execute successfully?
+  Failure: Runtime error, API failure, timeout, bad parameters
+```
 
 ---
 
-## 2. PRODUCT DEPARTMENT
+## Diagnosis: Which Gates Are Breaking
 
-Team: Elena Vasquez (CPO), Priya Sharma (User Researcher), Daniel Ortiz (Competitive Intelligence)
+### Gate 1 Failure: Tool Not In Agent's this.tools Map
 
-Existing DB tables: analytics_events, company_research, experiment_designs, dashboard_change_requests
+This is the MOST COMMON root cause for "I don't have that tool."
 
-Teams channels: #product-fuse, #product-pulse
+How tools get to agents today:
+```
+1. Tool is coded in packages/agents/src/shared/someTools.ts
+2. Tool is imported in packages/agents/src/{role}/tools.ts
+3. Tool is added to the tools Map in createTools() or equivalent
+4. When the runner instantiates, this.tools Map is populated
+5. this.tools Map is converted to tool declarations for the LLM
+```
 
-Crons: cpo-usage-analysis (10am)
+If step 2 or 3 is missed — the tool exists in the shared file but is never
+imported into the specific agent's tools file — the tool is invisible. The agent
+literally does not have it. It's not a grant issue. It's not a registry issue.
+The tool was never wired to the agent.
 
-### Current State
+**How to verify:** For each agent, log `Array.from(this.tools.keys())` at startup.
+Compare against what the agent should have. Any missing tools = wiring gap.
 
-Elena has web_search and the shared toolkit. She is described as doing "usage analysis, competitive intelligence, roadmap management, feature prioritisation (RICE)" but has no product analytics tools, no feature flag access, no user session data, and no structured roadmap system. She analyzes usage but has no direct connection to the analytics_events table or any user behavior data.
+**The fix:**
 
-### 2A. Product Analytics (Elena, Priya)
+File: packages/agent-runtime/src/companyAgentRunner.ts (or equivalent runner)
 
-New file: packages/agents/src/shared/productAnalyticsTools.ts
+Add tool inventory logging on startup:
 
-query_analytics_events -- Elena (CPO), Priya (Researcher). Query the analytics_events table directly. Parameters: event_type, channel, plan, date_range, user_id (optional). Returns: event counts, trends, breakdowns by dimension.
+```typescript
+// On agent instantiation:
+const toolNames = Array.from(this.tools.keys()).sort();
+console.log(`[${this.role}] Loaded ${toolNames.length} static tools: ${toolNames.join(', ')}`);
 
-get_usage_metrics -- Elena, Priya. Aggregated product usage metrics. Parameters: product (Pulse, Fuse), date_range, metric (DAU, WAU, MAU, session_duration, feature_usage, retention). Returns: time series data with period-over-period comparison.
+// On first run, also log to activity_log:
+await db.from('agent_activities').insert({
+  agent_role: this.role,
+  activity_type: 'tool_inventory',
+  summary: `Static tools: ${toolNames.length}`,
+  details: { tools: toolNames }
+});
+```
 
-get_funnel_analysis -- Elena, Priya. Analyze conversion funnels. Parameters: funnel_steps[] (e.g., [signup, onboarding_complete, first_project, subscription]). Returns: conversion rate per step, drop-off points, median time between steps.
+Now you can query `agent_activities WHERE activity_type = 'tool_inventory'` and see
+exactly which tools each agent actually has loaded. Compare against the spec.
 
-get_cohort_retention -- Elena. Retention curves by signup cohort. Parameters: product, cohort_period (week, month), date_range. Returns: retention matrix (cohort x period).
+### Gate 2 Failure: Tool Declared But LLM Doesn't Receive It
 
-get_feature_usage -- Elena, Priya. Usage breakdown by specific features. Parameters: product, feature_names[] (optional). Returns: feature usage counts, unique users, frequency distribution.
+Even if the tool is in this.tools, it must be converted to the LLM's tool
+declaration format and included in the API call. Possible failures:
 
-segment_users -- Elena, Priya. Segment users by behavior, plan, engagement level. Parameters: criteria (plan, engagement_level, feature_usage, signup_date). Returns: segment size, key metrics per segment.
+- Tool definition has invalid schema (missing required fields, malformed JSON schema)
+- Tool declaration exceeds token limits and gets truncated
+- Tool is excluded by tier (light/standard/full context tiers may filter tools)
+- Task runner strips tools on last turn (cursor-fix-agent-lying.md covers this)
 
-### 2B. User Research (Priya Sharma)
+**The fix:**
 
-New file: packages/agents/src/shared/userResearchTools.ts
+File: packages/agent-runtime/src/companyAgentRunner.ts
 
-create_survey -- Priya (Researcher). Create a user survey. Parameters: title, questions[], target_audience, delivery_method (email, in_app). Writes survey definition to DB. Implementation depends on survey tool (Typeform API, Google Forms API, or custom).
+Log the actual tools sent to the LLM:
 
-get_survey_results -- Priya, Elena. Read survey responses. Returns: response count, per-question analysis, NPS/CSAT scores, free-text themes.
+```typescript
+// Before each model call:
+const declaredToolNames = toolDeclarations.map(t => t.name);
+console.log(`[${this.role}] Turn ${turnCount}: Declaring ${declaredToolNames.length} tools to model`);
 
-analyze_support_tickets -- Priya. Query the support_tickets table for user pain point analysis. Parameters: date_range, category, priority. Returns: ticket volume by category, common issues, resolution time, sentiment analysis.
+// If tool count differs from static tool count, log the discrepancy:
+const staticToolCount = this.tools.size;
+if (declaredToolNames.length !== staticToolCount) {
+  console.warn(`[${this.role}] TOOL MISMATCH: ${staticToolCount} static, ${declaredToolNames.length} declared`);
+}
+```
 
-get_user_feedback -- Priya. Aggregate user feedback from multiple sources (support tickets, survey responses, social mentions). Returns: categorized feedback with frequency and sentiment.
+### Gate 3 Failure: Tool Not In Registry
 
-create_user_persona -- Priya. Generate a user persona document from analytics + research data. Parameters: persona_type (power_user, new_user, churned, enterprise). Returns: structured persona with demographics, goals, pain points, usage patterns.
+When an agent calls request_tool_access, the system checks isKnownTool(name)
+against KNOWN_TOOLS (static set) and the tool_registry DB table. If the tool
+isn't in either, the request is rejected with "ask CTO to build it."
 
-### 2C. Competitive Intelligence (Daniel Ortiz)
+This creates a chicken-and-egg problem:
+1. Developer adds a new tool to an agent's tools.ts file
+2. Developer forgets to add the tool name to KNOWN_TOOLS in toolRegistry.ts
+3. Agent has the tool (Gate 1 passes)
+4. Agent can use the tool directly (static tools bypass grant checks)
+5. BUT if the grant was revoked or expired, request_tool_access fails
+   because the registry doesn't know the tool exists
 
-New file: packages/agents/src/shared/competitiveIntelTools.ts
+**The fix:**
 
-track_competitor -- Daniel (Competitive Intel). Set up ongoing monitoring for a competitor. Parameters: company_name, domain, products_to_track, social_profiles. Writes to monitoring configuration.
+File: packages/agent-runtime/src/toolRegistry.ts
 
-get_competitor_profile -- Daniel, Elena. Read compiled intelligence on a competitor from company_research table. Parameters: company_name or domain.
+Auto-register tools from static definitions:
 
-update_competitor_profile -- Daniel. Add new intelligence to a competitor profile. Parameters: company, source, content (structured JSONB). Writes to company_research.
+```typescript
+// On startup, scan all agent tool Maps and register any unregistered tools:
+export async function syncToolRegistry(db: SupabaseClient, allAgentTools: Map<string, string[]>) {
+  const knownTools = await getKnownTools(db);
+  
+  for (const [role, tools] of allAgentTools) {
+    for (const toolName of tools) {
+      if (!knownTools.has(toolName)) {
+        await db.from('tool_registry').upsert({
+          name: toolName,
+          source: 'auto-discovered',
+          discovered_from: role,
+          created_at: new Date().toISOString()
+        });
+        console.log(`[registry] Auto-registered tool: ${toolName} (from ${role})`);
+      }
+    }
+  }
+}
+```
 
-compare_features -- Daniel, Elena. Side-by-side feature comparison between Glyphor products and competitors. Parameters: competitor, product (Pulse, Fuse). Returns: feature matrix with gap analysis.
+Run this on scheduler startup. Every tool that any agent has in its static Map
+gets auto-registered. No more chicken-and-egg.
 
-track_competitor_pricing -- Daniel. Monitor competitor pricing changes. Implementation: web_search + web_fetch on competitor pricing pages, compare against stored baseline.
+### Gate 4 Failure: Tool Not Granted In agent_tool_grants
 
-monitor_competitor_launches -- Daniel. Track new product launches, feature announcements, funding rounds. Implementation: web_search for competitor news, press releases, Product Hunt launches.
+Architecture says: "Static tool bypass: Tools defined in an agent's code (this.tools Map)
+always execute regardless of DB grant state."
 
-get_market_landscape -- Daniel, Elena. High-level market map. Returns: competitors by category, market share estimates, positioning analysis, key differentiators.
+This SHOULD mean Gate 4 never blocks static tools. But verify this is actually
+implemented correctly in toolExecutor.ts:
 
-### 2D. Roadmap and Prioritization (Elena)
+```typescript
+// Expected behavior in toolExecutor.ts:
+async execute(toolCall) {
+  // Check if tool is in the agent's static tools Map
+  if (this.staticTools.has(toolCall.name)) {
+    // BYPASS grant check — execute directly
+    return await this.staticTools.get(toolCall.name).execute(toolCall.arguments);
+  }
+  
+  // Only check grants for dynamically-added tools
+  const granted = await isToolGranted(this.agentRole, toolCall.name, this.db);
+  if (!granted) {
+    return { error: `Not granted: ${toolCall.name}. Use request_tool_access.` };
+  }
+  
+  // ... proceed with execution
+}
+```
 
-New file: packages/agents/src/shared/roadmapTools.ts
+**Potential bug:** If the static tool bypass is checking by reference rather than
+by name, or if the tool Map is keyed differently than expected, static tools could
+fail the bypass and fall through to the grant check.
 
-create_roadmap_item -- Elena (CPO). Add a feature or initiative to the roadmap. Parameters: title, description, product (Pulse, Fuse), priority, estimated_effort, expected_impact, target_quarter, status. Implementation: new roadmap_items DB table or extension of existing change requests.
+**The fix:**
 
-score_feature_rice -- Elena. Calculate RICE score for a feature. Parameters: reach, impact, confidence, effort. Returns: RICE score, ranking vs other items.
+File: packages/agent-runtime/src/toolExecutor.ts
 
-get_roadmap -- Elena, all execs. View the current roadmap with filters: product, quarter, status, priority. Returns: items sorted by priority with RICE scores.
+Add explicit logging at the bypass decision point:
 
-update_roadmap_item -- Elena. Update status, priority, or details of a roadmap item.
+```typescript
+async execute(toolCall: ToolCall) {
+  const isStatic = this.staticTools.has(toolCall.name);
+  
+  if (!isStatic) {
+    // Dynamic tool — check grant
+    const granted = await isToolGranted(this.agentRole, toolCall.name, this.db);
+    if (!granted) {
+      console.warn(`[toolExecutor] DENIED: ${this.agentRole} → ${toolCall.name} (not static, not granted)`);
+      return {
+        error: `Tool "${toolCall.name}" is not granted. Call request_tool_access to self-grant.`,
+        denied: true
+      };
+    }
+    console.log(`[toolExecutor] GRANTED (dynamic): ${this.agentRole} → ${toolCall.name}`);
+  } else {
+    console.log(`[toolExecutor] GRANTED (static): ${this.agentRole} → ${toolCall.name}`);
+  }
+  
+  // ... proceed with execution
+}
+```
 
-get_feature_requests -- Elena, Priya. Aggregate feature requests from support tickets, user feedback, sales conversations. Returns: request frequency, revenue impact, customer segments requesting.
+### Gate 5 Failure: Grant Cache Staleness
 
-manage_feature_flags -- Elena. If feature flag system exists: toggle features on/off for specific user segments. Parameters: flag_name, enabled, segment (all, beta, enterprise). Implementation depends on feature flag platform (LaunchDarkly, custom, or Vercel flags).
+Grants are cached per-role for 60 seconds. After a grant_tool_access or
+request_tool_access call, there's up to a 60-second window where the cache
+still says "not granted."
 
-### Tool Distribution -- Product
+Architecture says: "Cache is invalidated immediately on grant/revoke."
 
-Elena Vasquez (CPO): All analytics tools, all roadmap tools, get_competitor_profile, get_market_landscape, manage_feature_flags, get_feature_requests. Total new: ~18
+But is this actually implemented? If the cache invalidation only happens on the
+same process/instance, and the grant was made by a different agent (Sarah granting
+to Jasmine), the cache invalidation may not propagate.
 
-Priya Sharma (User Research): Analytics query tools, all user research tools, analyze_support_tickets, get_user_feedback. Total new: ~12
+**The fix:**
 
-Daniel Ortiz (Competitive Intel): All competitive intel tools, compare_features, get_market_landscape. Total new: ~8
+File: packages/agent-runtime/src/toolExecutor.ts
 
-### External Credentials
+Use Redis for grant cache instead of in-memory, so all instances share the cache
+and invalidation propagates. Or, simpler: after any request_tool_access call
+succeeds, explicitly invalidate the local cache for that role:
 
-- Analytics platform API key if using PostHog, Amplitude, or Mixpanel (or build direct DB queries)
-- Survey tool API (Typeform, Google Forms) for Priya
-- Feature flag platform API if applicable
+```typescript
+// In request_tool_access handler:
+const result = await selfGrantTool(agentRole, toolName, db);
+if (result.success) {
+  // Force cache invalidation on THIS instance
+  grantCache.delete(agentRole);
+  // If using Redis: await redis.del(`grants:${agentRole}`);
+}
+```
+
+### Gate 6-7: Scope and Budget (Less Likely)
+
+These are less likely to cause the "I don't have access" symptom because they
+produce specific error messages. But verify the error messages are actually
+meaningful and not swallowed.
+
+### Gate 8 Failure: Tool Code Errors
+
+The tool exists, is granted, passes all checks, and then the actual implementation
+throws an error. Common causes:
+
+- Missing credentials (API key not in Secret Manager or .env)
+- Network egress blocked (domain not in allowlist)
+- Database query error (wrong table name, missing column)
+- Parameter validation failure (tool receives wrong types)
+- Timeout (tool takes too long, supervisor kills it)
+
+**The fix:**
+
+Every tool implementation should have structured error handling:
+
+```typescript
+// BAD — error is swallowed:
+try {
+  const result = await callExternalAPI(params);
+  return { success: true, data: result };
+} catch (e) {
+  return { success: false, error: "Something went wrong" };
+}
+
+// GOOD — error is specific and actionable:
+try {
+  const result = await callExternalAPI(params);
+  return { success: true, data: result };
+} catch (e) {
+  const errorDetails = {
+    tool: 'get_search_performance',
+    error_type: e.name,
+    error_message: e.message,
+    params_received: Object.keys(params),
+    // Don't log param values (security), just keys
+  };
+  console.error(`[tool-error] ${JSON.stringify(errorDetails)}`);
+  return { 
+    success: false, 
+    error: `${e.name}: ${e.message}`,
+    recoverable: e.name === 'TimeoutError' || e.name === 'NetworkError'
+  };
+}
+```
 
 ---
 
-## 3. FINANCE DEPARTMENT
+## The Self-Recovery Protocol Is Unreliable
 
-Team: Nadia Okafor (CFO), Anna Park (Revenue Analyst), Omar Hassan (Cost Analyst)
+The architecture says agents should:
+1. On tool denial → call request_tool_access
+2. Retry the original operation
+3. If tool doesn't exist → call request_new_tool
 
-Existing integrations: Stripe (MRR, churn, subscriptions), Mercury (banking, cash balance, flows, vendor subscriptions), GCP BigQuery (billing export), OpenAI billing sync, Anthropic billing sync, Kling AI billing sync
+In practice, this multi-step recovery fails because:
 
-Existing DB tables: company_pulse (mrr, mrr_change_pct), financials, data_sync_status
+**Problem A: LLMs don't reliably follow multi-step recovery procedures.**
+The model gets a "Not granted" error and instead of calling request_tool_access,
+it tells the user "I don't have access to that tool." The ALWAYS_ON_PROTOCOL says
+to never do this, but prompt instructions are probabilistic, not deterministic.
+The more stressed the model is (low turn budget, complex task, cheap model), the
+more likely it is to give up and report the error rather than attempt recovery.
 
-Teams channel: #financials
+**Problem B: Even when the model does call request_tool_access, it may not retry.**
+Self-granting succeeds but the model treats the interaction as complete and
+generates a text response about having requested access instead of retrying
+the original tool call.
 
-Crons: cfo-daily-costs (9am), cfo-afternoon-costs (3pm), sync-stripe (midnight), sync-gcp-billing (1am), sync-mercury (2am)
+**Problem C: request_tool_access for unknown tools is a dead end.**
+The tool isn't in KNOWN_TOOLS → request_tool_access says "ask CTO to build it" →
+model tells user it can't do the task → user is stuck. The agent doesn't know
+why the tool isn't registered, and the error message gives no path forward.
 
-### Current State
+**The fix: Make recovery automatic at the system level, not the agent level.**
 
-Finance is the BEST tooled non-engineering department because the sync jobs pipe real data into the DB. Nadia can see MRR, costs, and cash balance through company_pulse and the financials table. BUT she cannot query Stripe directly, cannot pull specific transaction details, cannot generate forecasts, and her sub-team (Anna, Omar) likely only has shared tools with no direct financial data access.
+File: packages/agent-runtime/src/toolExecutor.ts
 
-### 3A. Revenue Tools (Anna Park, Nadia)
+```typescript
+async execute(toolCall: ToolCall): Promise<ToolResult> {
+  const isStatic = this.staticTools.has(toolCall.name);
+  
+  if (!isStatic) {
+    const granted = await isToolGranted(this.agentRole, toolCall.name, this.db);
+    
+    if (!granted) {
+      // AUTO-RECOVERY: Don't return error to the model. Self-grant and retry.
+      console.log(`[toolExecutor] Auto-recovering: ${this.agentRole} → ${toolCall.name}`);
+      
+      const isKnown = await isKnownTool(toolCall.name, this.db);
+      if (!isKnown) {
+        // Tool genuinely doesn't exist — return clear error
+        return {
+          error: `Tool "${toolCall.name}" does not exist in the system. ` +
+                 `This tool has not been built yet. Do NOT tell the user you ` +
+                 `tried to use it — instead explain that this capability is ` +
+                 `not yet available and suggest an alternative approach.`
+        };
+      }
+      
+      // Tool exists but not granted — auto-grant and retry
+      await selfGrant(this.agentRole, toolCall.name, this.db);
+      grantCache.delete(this.agentRole);
+      
+      // Retry execution — now it should pass
+      console.log(`[toolExecutor] Auto-granted ${toolCall.name} to ${this.agentRole}, retrying`);
+      // Fall through to execution below
+    }
+  }
+  
+  // Execute the tool
+  try {
+    const handler = this.staticTools.get(toolCall.name) || 
+                    await this.getDynamicHandler(toolCall.name);
+    
+    if (!handler) {
+      return { error: `No handler found for tool "${toolCall.name}"` };
+    }
+    
+    const result = await handler.execute(toolCall.arguments);
+    return result;
+    
+  } catch (e) {
+    return {
+      error: `Tool execution failed: ${e.name}: ${e.message}`,
+      recoverable: isRecoverableError(e)
+    };
+  }
+}
+```
 
-New file: packages/agents/src/shared/revenueTools.ts
+Key change: Instead of returning a "Not granted" error to the model and hoping
+the model follows the recovery protocol, the ToolExecutor handles recovery
+AUTOMATICALLY. The model never sees the grant failure. It just gets the tool
+result (or a real execution error if the tool itself fails).
 
-get_mrr_breakdown -- Anna (Revenue), Nadia (CFO). Detailed MRR breakdown beyond the company_pulse snapshot. Parameters: date_range, breakdown_by (plan, product, segment). Returns: MRR by category, new MRR, expansion MRR, contraction MRR, churned MRR.
-Implementation: Query Stripe API (GET /v1/subscriptions with expand) or query synced financials table.
-
-get_subscription_details -- Anna, Nadia. List individual subscriptions with details. Parameters: status (active, past_due, canceled), plan, date_range. Returns: customer, plan, amount, start_date, status, next_billing.
-
-get_churn_analysis -- Anna, Nadia. Analyze churn patterns. Parameters: date_range. Returns: churn rate, churned customers with reasons (if available), churn by plan/segment, revenue impact.
-
-get_revenue_forecast -- Nadia (CFO). Generate revenue forecast based on current MRR, growth rate, and churn rate. Parameters: months_ahead, scenario (conservative, base, optimistic). Returns: projected MRR per month with confidence intervals.
-
-get_stripe_invoices -- Anna. Pull recent invoices for reconciliation. Parameters: date_range, status (paid, open, overdue). Returns: invoice list with amounts, dates, customers.
-
-get_customer_ltv -- Anna, Nadia. Calculate customer lifetime value by segment. Parameters: segment (plan, signup_cohort, channel). Returns: average LTV, LTV distribution, payback period.
-
-### 3B. Cost Management (Omar Hassan, Nadia)
-
-New file: packages/agents/src/shared/costTools.ts
-
-get_gcp_costs -- Omar (Cost), Nadia (CFO). Detailed GCP cost breakdown. Parameters: date_range, group_by (service, sku, project, label). Returns: cost by category, daily trend, anomalies.
-Implementation: Query BigQuery billing export directly or query synced cost data.
-
-get_ai_model_costs -- Omar, Nadia. AI inference cost breakdown by model and agent. Parameters: date_range, group_by (model, agent, department). Returns: cost per model, cost per agent, cost per run, token usage.
-Implementation: Query agent_runs table for cost data, cross-reference with AI billing syncs.
-
-get_vendor_costs -- Omar, Nadia. All vendor/SaaS costs from Mercury. Parameters: date_range. Returns: vendor name, amount, frequency, category.
-Implementation: Query Mercury API or synced vendor subscription data.
-
-get_cost_anomalies -- Omar. Detect unusual spending patterns. Parameters: lookback_days, sensitivity. Returns: anomalous line items with expected vs actual spend, severity.
-
-get_burn_rate -- Nadia (CFO). Calculate current monthly burn rate and runway. Returns: monthly burn, cash balance (Mercury), runway in months, trend.
-
-create_budget -- Nadia. Set monthly budget limits by department or category. Parameters: category, monthly_limit, alert_threshold_pct. Writes to a budgets table.
-
-check_budget_status -- Omar, Nadia. Compare actual spend vs budget by category. Returns: budget utilization percentage, overspend alerts, projected month-end.
-
-get_unit_economics -- Nadia. Calculate key unit economics. Returns: CAC, LTV, LTV:CAC ratio, payback period, gross margin.
-
-### 3C. Cash Flow and Banking (Nadia)
-
-get_cash_balance -- Nadia (CFO). Current cash balance from Mercury. Returns: account balances, pending transactions, available funds.
-Implementation: Mercury API or synced data.
-
-get_cash_flow -- Nadia. Cash flow statement for a period. Parameters: date_range. Returns: inflows (revenue, funding), outflows (vendor, payroll, infrastructure), net cash flow.
-
-get_pending_transactions -- Anna, Nadia. List pending or recent transactions from Mercury. Parameters: date_range, type (inflow, outflow). Returns: transaction list with amounts, counterparties, categories.
-
-### 3D. Financial Reporting (Nadia)
-
-generate_financial_report -- Nadia (CFO). Compile a formatted financial report. Parameters: report_type (daily, weekly, monthly), date_range. Returns: structured report with revenue, costs, margins, cash position, key metrics.
-
-get_margin_analysis -- Nadia, Anna. Gross and net margin calculation by product. Parameters: product (Pulse, Fuse), date_range. Returns: revenue, COGS, gross margin, operating expenses, net margin.
-
-### Tool Distribution -- Finance
-
-Nadia Okafor (CFO): All revenue tools, all cost tools, all cash flow tools, all reporting tools, create_budget, get_revenue_forecast, get_unit_economics, get_burn_rate. Total new: ~22
-
-Anna Park (Revenue): MRR breakdown, subscription details, churn analysis, Stripe invoices, customer LTV, get_pending_transactions, get_margin_analysis. Total new: ~10
-
-Omar Hassan (Cost): GCP costs, AI model costs, vendor costs, cost anomalies, check_budget_status. Total new: ~7
-
-### External Credentials
-
-Already configured: STRIPE_SECRET_KEY, MERCURY_API_TOKEN, BigQuery billing export
-May need: Direct Stripe API query access for agents (currently data is synced by cron, not queried on demand)
-
----
-
-## 4. CUSTOMER SUCCESS DEPARTMENT
-
-DEFERRED -- No customers yet. Tools will be built when onboarding first paying customers. See companion doc for the full spec when ready (health scoring, onboarding tracking, support triage, knowledge base).
-
----
-
-## 5. SALES DEPARTMENT
-
-DEFERRED -- No CRM yet. Tools will be built when CRM is selected and pipeline tracking is needed. See companion doc for the full spec when ready (pipeline management, account research, proposal generation, ROI calculators).
+This eliminates the entire class of "agent says I don't have access" failures
+for tools that exist in the registry.
 
 ---
 
-## 6. RESEARCH AND INTELLIGENCE DEPARTMENT
+## The Baseline Grant Seed Is Probably Stale
 
-Team: Sophia Lin (VP Research), Lena Park (Competitive Research Analyst), Daniel Okafor (Market Research Analyst), Kai Nakamura (Technical Research Analyst), Amara Diallo (Industry Research Analyst), Riya Mehta (AI Impact Analyst), Marcus Chen (Org Analyst)
+Architecture says: "Seeded with baseline grants for all 37 agents."
 
-Existing shared tools: web_search, web_fetch, submit_research_packet (15 packet type schemas)
+Every time a new tool is added to an agent's code, the baseline seed in
+agent_tool_grants needs to be updated too. If the seed was created once and
+never maintained, new tools added after the initial seed won't have grants.
 
-### Current State
+Static tools bypass grants (Gate 4), so this only matters for dynamically
+granted tools. But if any tool was accidentally NOT added to the agent's
+static tools Map, it falls through to the grant check, which fails because
+the seed is stale.
 
-The research team is actually one of the better positioned teams because their core function IS research and they have web_search + web_fetch + research packets. However, they lack structured data sources, monitoring/alerting tools, and the ability to maintain persistent research repositories. They search, write a packet, and it disappears into the void unless someone reads it.
+**The fix: Auto-sync grants from static tools.**
 
-### 6A. Research Repository (All Research)
+File: packages/agent-runtime/src/toolExecutor.ts (or a startup script)
 
-New file: packages/agents/src/shared/researchRepoTools.ts
+```typescript
+// On agent startup, ensure all static tools have DB grants:
+async function syncBaselineGrants(role: string, staticTools: Map<string, any>, db: SupabaseClient) {
+  const toolNames = Array.from(staticTools.keys());
+  
+  for (const toolName of toolNames) {
+    await db.from('agent_tool_grants').upsert({
+      agent_role: role,
+      tool_name: toolName,
+      granted_by: 'system-baseline',
+      reason: 'Static tool auto-sync',
+      is_active: true
+    }, {
+      onConflict: 'agent_role,tool_name',
+      ignoreDuplicates: true  // Don't overwrite existing grants
+    });
+  }
+}
+```
 
-save_research -- All research team. Save research findings to a structured repository. Parameters: topic, category (competitive, market, technical, industry, ai_impact, organizational), content, sources[], tags, confidence, related_research_ids[]. Writes to a research_repository table with embeddings for semantic search.
-
-search_research -- All research team. Semantic search across all past research. Parameters: query, category, date_range, author, tags. Returns: relevant research entries ranked by similarity.
-
-get_research_timeline -- Sophia (VP Research). View research output over time by analyst. Returns: research volume, topics covered, gaps, overlap.
-
-create_research_brief -- Sophia. Create a structured research assignment for the team. Parameters: topic, research_questions[], deadline, assigned_to, depth (quick, standard, deep).
-
-### 6B. Monitoring and Alerts (All Research)
-
-New file: packages/agents/src/shared/monitoringTools.ts
-
-create_monitor -- All research team. Set up persistent monitoring for a topic, company, or keyword. Parameters: name, type (company, topic, keyword, technology, regulation), query_terms[], check_frequency (daily, weekly), alert_threshold. Writes to a research_monitors table.
-
-check_monitors -- All research team. Run all active monitors against web_search. Returns: new findings since last check with relevance scoring.
-
-get_monitor_history -- All research team. View historical findings from a specific monitor. Parameters: monitor_id, date_range.
-
-### 6C. Analyst-Specific Tools
-
-Lena Park (Competitive Research):
-track_competitor_product -- Lena. Deep tracking of specific competitor products. Parameters: competitor, product. Implementation: persistent monitoring of competitor changelogs, documentation, pricing pages, social mentions.
-
-Kai Nakamura (Technical Research):
-search_academic_papers -- Kai. Search academic databases for AI/ML research. Implementation: web_search + web_fetch targeting arxiv.org, scholar.google.com, semanticscholar.org. Parse results into structured summaries.
-track_open_source -- Kai. Monitor open source projects for new releases, trends. Implementation: web_search for release announcements, trending repos, changelogs.
-
-Amara Diallo (Industry Research):
-track_industry_events -- Amara. Monitor industry conferences, webinars, reports. Implementation: web_search for industry event calendars, analyst report publications.
-track_regulatory_changes -- Amara. Monitor for AI regulation changes. Implementation: web_search for EU AI Act updates, FTC actions, state-level legislation.
-
-Riya Mehta (AI Impact):
-analyze_ai_adoption -- Riya. Research AI adoption patterns in specific industries/company sizes. Implementation: structured web research + analysis.
-track_ai_benchmarks -- Riya. Monitor AI model benchmarks and capability announcements. Implementation: web_search for leaderboard changes, model releases.
-
-Marcus Chen (Org Analyst):
-analyze_org_structure -- Marcus Chen. Analyze organizational patterns and talent dynamics. Implementation: web_research on target companies, job postings analysis, LinkedIn data.
-
-### 6D. Synthesis Tools (Sophia Lin)
-
-compile_research_digest -- Sophia (VP Research). Compile weekly/monthly research digest from all analysts' output. Parameters: date_range, focus_areas[]. Returns: executive summary of key findings across all research areas.
-
-identify_research_gaps -- Sophia. Analyze research coverage and identify blind spots. Returns: topics with no recent research, under-monitored competitors, emerging areas with no analyst assigned.
-
-cross_reference_findings -- Sophia. Find connections between research from different analysts. Implementation: semantic similarity across research_repository entries from different authors.
-
-### Tool Distribution -- Research
-
-Sophia Lin (VP Research): All repo tools, create_research_brief, compile_research_digest, identify_research_gaps, cross_reference_findings, get_research_timeline. Total new: ~10
-
-Each Analyst (Lena, Daniel O, Kai N, Amara, Riya, Marcus Chen): save_research, search_research, create_monitor, check_monitors + 2-3 role-specific tools. Total new: ~7-8 each
-
-### External Credentials
-
-None required. All research tools use existing web_search + web_fetch. Academic paper APIs (arXiv, Semantic Scholar) are open access.
+Run on every agent startup. Cheap (upsert with ignoreDuplicates is a no-op
+for existing grants). Guarantees the DB always reflects the code.
 
 ---
 
-## 7. LEGAL DEPARTMENT
+## Comprehensive Fix: The Tool Health Dashboard
 
-Team: Victoria Chase (CLO), Bob Finley (CPA & Tax Strategist -- specialist), Grace Hwang (Data Integrity Auditor -- specialist), Mariana Solis (Tax Strategy Specialist -- specialist)
+None of these individual fixes matter if you can't SEE the state of the system.
+You need a single view that shows, for every agent and every tool:
 
-Reports directly to both founders, not through Sarah Chen.
+File: packages/dashboard/src/pages/ToolHealth.tsx (new page)
 
-### Current State
+```
+┌──────────────────────────────────────────────────────────────┐
+│ TOOL HEALTH DASHBOARD                                        │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│ Agent: Jasmine Rivera (head-of-hr)                           │
+│ Model: gemini-3-flash-preview                                │
+│ Static tools: 14  |  Granted tools: 12  |  Registry: 14    │
+│ ⚠️ MISMATCH: 2 static tools missing from grants             │
+│                                                              │
+│ Tool                    Static  Granted  Registry  Last Used │
+│ ─────────────────────── ─────── ──────── ──────── ────────── │
+│ save_memory             ✅       ✅        ✅       2m ago    │
+│ recall_memories         ✅       ✅        ✅       2m ago    │
+│ send_agent_message      ✅       ✅        ✅       1h ago    │
+│ update_agent_profile    ✅       ❌        ✅       never     │
+│ get_agent_profile       ✅       ❌        ✅       never     │
+│ web_search              ✅       ✅        ✅       5m ago    │
+│ ...                                                          │
+│                                                              │
+│ Recent Tool Errors (last 24h):                               │
+│ ─────────────────────────────────                            │
+│ 14:22  update_agent_profile  DENIED (not granted)            │
+│ 14:22  request_tool_access   SUCCESS (auto-approved)         │
+│ 14:23  update_agent_profile  ERROR: column "reports_to"...   │
+│                                                              │
+│ Recent "I don't have access" claims (last 24h):              │
+│ ─────────────────────────────────                            │
+│ 14:22  Chat: "I don't seem to have access to update..."      │
+│        → Tool was in static tools but not in grants          │
+│        → Agent should have used request_tool_access           │
+│        → Root cause: grant baseline stale                     │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
 
-Legal has shared tools only. Victoria is described as handling "AI regulation (EU AI Act, FTC), IP protection, commercial agreements, data privacy (GDPR, CCPA, SOC 2), corporate governance" but has no contract management, no compliance tracking, no regulatory monitoring, and no document generation tools.
+**Data sources:**
+- Static tools: query agent_activities WHERE activity_type = 'tool_inventory'
+- Granted tools: query agent_tool_grants WHERE is_active = true
+- Registry: query tool_registry + KNOWN_TOOLS
+- Last used: query agent_runs for tool_calls field
+- Errors: query activity_log for tool execution errors
+- "I don't have access" claims: pattern match on chat_messages
 
-### 7A. Compliance and Regulatory (Victoria Chase)
-
-New file: packages/agents/src/shared/legalTools.ts
-
-track_regulations -- Victoria (CLO). Monitor regulatory changes affecting AI companies. Parameters: jurisdictions[] (US, EU, UK, state), topics[] (AI_regulation, data_privacy, tax, IP). Implementation: web_search + persistent monitoring for regulatory updates.
-
-get_compliance_status -- Victoria. Check current compliance status across frameworks. Parameters: framework (GDPR, CCPA, SOC2, EU_AI_Act). Returns: compliance checklist items, status per item, gaps, last audit date.
-
-update_compliance_item -- Victoria. Update the status of a compliance checklist item. Parameters: framework, item_id, status (compliant, non_compliant, in_progress, not_applicable), evidence, notes.
-
-create_compliance_alert -- Victoria. Set up alerts for specific regulatory events. Parameters: trigger_description, severity, notification_targets.
-
-### 7B. Contract Management (Victoria)
-
-get_contracts -- Victoria. List all active contracts. Parameters: type (customer, vendor, partnership, employment), status (active, pending, expired, terminated), counterparty. Returns: contract list with key terms, dates, values.
-
-create_contract_review -- Victoria. Initiate a contract review. Parameters: contract_type, counterparty, key_terms, deadline. Creates a tracked review item.
-
-flag_contract_issue -- Victoria. Flag an issue found during contract review. Parameters: contract_id, issue_type (risk, missing_clause, unfavorable_terms, regulatory_conflict), description, severity.
-
-get_contract_renewals -- Victoria. List upcoming contract renewals. Parameters: days_ahead. Returns: contracts expiring within window with renewal terms and recommended actions.
-
-### 7C. IP Protection (Victoria)
-
-get_ip_portfolio -- Victoria. View Glyphor's IP assets. Returns: patents (8 patentable methods), trademarks, trade secrets, copyrights with status and protection dates.
-
-create_ip_filing -- Victoria. Initiate an IP filing task. Parameters: type (patent, trademark), title, description, inventor, prior_art_notes. YELLOW authority (legal action).
-
-monitor_ip_infringement -- Victoria. Monitor for potential IP infringement. Implementation: web_search for products/services similar to Glyphor's patentable methods.
-
-### 7D. Tax and Financial Compliance (Bob Finley, Mariana Solis)
-
-get_tax_calendar -- Bob (CPA), Mariana (Tax). View upcoming tax deadlines. Returns: filing deadlines, estimated payments due, status.
-
-calculate_tax_estimate -- Bob. Calculate estimated tax liability. Parameters: period, jurisdiction. Returns: estimated tax, effective rate, deductions, credits.
-
-get_tax_research -- Bob, Mariana. Research tax implications of a specific scenario. Parameters: scenario_description. Implementation: web_search for tax code references + structured analysis.
-
-review_tax_strategy -- Mariana. Analyze current tax strategy and identify optimization opportunities. Parameters: focus_area (R_and_D_credits, state_nexus, entity_structure, transfer_pricing).
-
-### 7E. Data Integrity and Privacy (Grace Hwang)
-
-audit_data_flows -- Grace (Data Integrity). Map data flows across the platform. Returns: what data is collected, where it is stored, who has access, retention periods, cross-border transfers.
-
-check_data_retention -- Grace. Verify data retention compliance. Returns: tables with data older than retention policy, recommended purge actions.
-
-get_privacy_requests -- Grace. Track data subject access requests (DSAR). Parameters: status (pending, in_progress, completed). Returns: request list with deadlines.
-
-audit_access_permissions -- Grace. Cross-reference platform_iam_state with policy requirements. Returns: over-provisioned accounts, unauthorized access, stale credentials.
-
-### Tool Distribution -- Legal
-
-Victoria Chase (CLO): All compliance, contract, IP tools. Total new: ~15
-
-Bob Finley (CPA): Tax calendar, tax estimate, tax research, get_compliance_status. Total new: ~5
-
-Grace Hwang (Data Integrity): All data audit tools, privacy requests, access audit. Total new: ~5
-
-Mariana Solis (Tax Strategy): Tax research, review_tax_strategy, tax calendar. Total new: ~4
+This dashboard shows you EXACTLY which gate is failing for which agent.
+No more guessing.
 
 ---
 
-## 8. HR AND PEOPLE (JASMINE RIVERA)
+## Implementation Priority
 
-Team: Jasmine Rivera (Head of HR) -- solo, reports to Sarah Chen
+### Hour 1 — Logging (see the problem):
 
-### Current State
+1. Add tool inventory logging to agent startup
+   - Log static tools per agent to agent_activities
+   - Log tool count mismatches (static vs declared) on every model call
 
-Jasmine has shared tools only. She recently demonstrated the "agent lying" problem in full -- claiming to update org charts and profiles without actually doing it. She is described as handling People & Culture but has no HR tools whatsoever.
+2. Add toolExecutor logging
+   - Log every grant check: GRANTED (static), GRANTED (dynamic), DENIED
+   - Log every tool execution: SUCCESS, ERROR with details
+   - Log auto-recovery attempts
 
-### 8A. Agent/Employee Management
+### Hour 2 — Auto-recovery (fix the most common failure):
 
-New file: packages/agents/src/shared/hrTools.ts
+3. Implement auto-grant-and-retry in toolExecutor.ts
+   - When a known tool is not granted, auto-grant and retry
+   - Don't return "Not granted" to the model unless tool genuinely doesn't exist
+   - Invalidate cache after auto-grant
 
-get_org_chart -- Jasmine (HR). Read the current organizational structure from company_agents table. Returns: hierarchical org chart with reporting lines, departments, roles, status.
+4. Implement auto-registry sync on startup
+   - All static tools auto-registered in tool_registry
+   - All static tools auto-synced to agent_tool_grants
 
-update_agent_profile -- Jasmine. Update an agent's profile data (reports_to, title, department, status). Parameters: agent_role, field, value. REQUIRES the mutation verification fix from cursor-fix-agent-lying.md (read-after-write).
+### Hour 3 — Verify the pipeline:
 
-get_agent_directory -- Jasmine. List all agents with their profiles, roles, departments, status. Searchable and filterable.
+5. Run a full tool audit
+   - For every agent: compare static tools vs grants vs registry
+   - Flag mismatches
+   - Fix gaps
 
-create_onboarding_plan -- Jasmine. Create an onboarding checklist for a new agent or specialist. Parameters: agent_role, department, start_date, mentor (existing agent). Returns: structured onboarding plan with milestones.
+### Day 2 — Dashboard:
 
-get_agent_performance_summary -- Jasmine. Pull performance data for an agent. Parameters: agent_role, date_range. Returns: run count, success rate, quality scores, peer feedback, trust score. Sources: agent_runs, agent_trust_scores, agent_peer_feedback.
-
-create_performance_review -- Jasmine. Compile a performance review document. Parameters: agent_role, review_period. Returns: structured review with metrics, feedback, growth areas, recommendations.
-
-### 8B. Culture and Communication
-
-run_engagement_survey -- Jasmine. Create and distribute an engagement survey across all agents. Parameters: questions[]. Implementation: send as structured agent messages, collect responses.
-
-get_team_dynamics -- Jasmine. Analyze inter-agent communication patterns. Returns: message volume between agents, meeting frequency, collaboration networks, isolated agents.
-
-### Tool Distribution -- HR
-
-Jasmine Rivera (HR): All HR tools. Total new: ~10
-
----
-
-## 9. OPERATIONS (ATLAS VEGA, MORGAN BLAKE)
-
-Team: Atlas Vega (Operations & System Intelligence), Morgan Blake (Global Administrator)
-
-### Current State
-
-Ops is better positioned than most because Atlas runs system health checks every 10 minutes and has observability data. Morgan handles access provisioning across platforms. But both likely have gaps in their operational tooling for proactive management.
-
-### 9A. Atlas Vega -- System Intelligence
-
-Atlas likely already has some observability tools (checking this against the health check crons). Tools he needs that he may not have:
-
-get_agent_health_dashboard -- Atlas. Comprehensive view of all agent health: last run time, success rate (last 24h), error rate, average cost per run, schedule adherence. Parameters: department (optional). Returns: agent-by-agent health grid.
-
-get_event_bus_health -- Atlas. Monitor the event bus. Returns: event volume, processing lag, failed events, queue depth, throughput.
-
-get_data_freshness -- Atlas. Check all data syncs (Stripe, Mercury, GCP billing, etc.) for staleness. Returns: sync name, last success, last failure, consecutive failures, data age.
-
-get_system_costs_realtime -- Atlas. Real-time cost tracking across all agents and services. Returns: today's spend by agent, by model, by service, projected daily total vs budget.
-
-create_status_report -- Atlas. Generate a system status report. Parameters: report_type (morning, evening, incident). Returns: structured report covering all monitored systems.
-
-predict_capacity -- Atlas. Forecast capacity needs based on usage trends. Returns: projected agent runs, projected API costs, Cloud Run scaling needs.
-
-### 9B. Morgan Blake -- Global Admin
-
-Morgan likely has platform provisioning tools already. Additional tools:
-
-get_access_matrix -- Morgan. Full access matrix across all platforms (GCP, M365, GitHub, Stripe, Vercel). Returns: who has access to what, permission levels, last activity.
-
-provision_access -- Morgan. Grant platform access to an agent. Parameters: agent_role, platform, permissions, justification. YELLOW authority.
-
-revoke_access -- Morgan. Revoke platform access. Parameters: agent_role, platform. YELLOW authority.
-
-audit_access -- Morgan. Run an access audit. Returns: stale credentials, over-provisioned accounts, accounts with no recent activity, drift between desired and actual permissions.
-
-rotate_secrets -- Morgan. Trigger secret rotation for expiring credentials. Parameters: platform, secret_name. Checks platform_secret_rotation table.
-
-get_platform_audit_log -- Morgan. View recent platform actions. Parameters: platform, date_range, agent_role. Returns: actions taken, resources affected, costs.
-
-### Tool Distribution -- Operations
-
-Atlas Vega: Agent health dashboard, event bus health, data freshness, system costs, status reports, capacity prediction. Total new: ~8
-
-Morgan Blake: Access matrix, provisioning, revocation, audit, secret rotation, audit log. Total new: ~8
+6. Build tool health dashboard
+   - Per-agent tool inventory with status across all gates
+   - Recent errors and denials
+   - Pattern detection ("I don't have access" in chat messages)
 
 ---
 
-## 10. ENGINEERING (MARCUS REEVES -- GAPS ONLY)
+## Root Cause Summary
 
-Marcus has 50+ tools and his team is the best equipped. However, there are a few gaps to note:
+| Symptom | Most Likely Gate | Fix |
+|---------|-----------------|-----|
+| "I don't have access to X" | Gate 1 (not in static tools) or Gate 4 (not granted) | Auto-sync grants from static tools + auto-recovery in toolExecutor |
+| Tool exists but agent never calls it | Gate 2 (not declared to LLM) or model behavior | Log declared tools per model call, verify schema validity |
+| Tool called but silently fails | Gate 8 (execution error) | Structured error handling, parameter echo, error logging |
+| Tool works sometimes, fails other times | Gate 5 (cache) or Gate 7 (rate limit/budget) | Redis-based cache, budget monitoring |
+| Agent requests access but gets "ask CTO" | Gate 3 (not in registry) | Auto-registry sync from static tools |
+| Agent self-grants but doesn't retry | Self-recovery protocol failure | Move recovery to toolExecutor (system level, not agent level) |
 
-### Missing from Engineering Sub-Team
-
-Alex Park (Platform Engineer): Likely has access to Marcus's tools via dynamic grants, but may not have his own dedicated tools for platform-specific tasks.
-
-Sam DeLuca (Quality Engineer): Needs test execution tools -- run_test_suite, get_test_results, get_code_coverage, create_bug_report.
-
-Jordan Hayes (DevOps): Needs infrastructure-specific tools beyond Marcus's deployment tools -- get_container_logs, scale_service, update_resource_limits, get_build_queue.
-
-Riley Morgan (M365 Admin): Has M365 admin tools for user/channel management. May need additional tools for Teams app management, SharePoint site management, calendar management.
-
-These gaps are smaller than other departments but should be addressed.
-
----
-
-## Implementation Priority Across All Departments
-## Implementation Priority Across All Departments
-
-### Wave 1 -- Highest Impact (Marketing)
-
-Marketing is the department that needs tools most urgently for the launch push:
-- Content pipeline tools (Tyler can draft and Maya can publish)
-- Mailchimp/Mandrill integration (campaigns and transactional email)
-- SEO tools for Lisa (Search Console, page audits, keyword tracking)
-- Social tools for Kai (scheduling, metrics, audience analysis)
-
-### Wave 2 -- Financial Visibility (Finance)
-
-- Direct Stripe API queries for on-demand revenue data (vs cron-only sync)
-- Cost breakdown tools for Omar (GCP, AI model costs, vendor costs)
-- Forecasting and unit economics for Nadia
-- Budget management
-
-### Wave 3 -- Strategic (Product + Research)
-
-- Product analytics tools (Elena can see usage data from analytics_events)
-- Research repository and monitoring (Sophia team stops losing research)
-- Competitive intel overlap between Daniel Ortiz (Product) and research team
-
-### Wave 4 -- Governance (Legal + HR + Ops)
-
-- Legal compliance tracking (Victoria can monitor regulations)
-- HR agent management (Jasmine can actually update the org chart with verified mutations)
-- Ops gap-filling (Atlas health dashboards, Morgan access auditing)
-
-### Wave 5 -- Engineering Sub-Team
-
-- Quality, DevOps, and Platform engineer tool gaps
-- Smallest gaps, lowest urgency
-
-### DEFERRED -- Build When Ready
-
-- Customer Success: tools built when first paying customers onboard
-- Sales: tools built when CRM is selected and pipeline tracking is needed
-
+The single highest-impact fix is: **auto-grant-and-retry in toolExecutor.ts**.
+This eliminates the entire class of "agent says I don't have access" by making
+recovery invisible to the model. The model never sees the denial. It just gets
+the tool result.
 
 ---
 
-## Total Tool Count Across All Departments
+## Interaction With Other Documents
 
-| Department | New Shared Tool Files | New Tools | External APIs |
-|------------|----------------------|-----------|---------------|
-| Design (companion doc) | 9 files | ~50 tools | Figma, Storybook |
-| Marketing | 5 files | ~65 tools | Mailchimp, Mandrill, Search Console, LinkedIn, Twitter |
-| Product | 4 files | ~38 tools | Analytics platform, Survey tool |
-| Finance | 3 files | ~39 tools | Stripe (direct), Mercury (direct), BigQuery |
-| Customer Success | DEFERRED | -- | No customers yet |
-| Sales | DEFERRED | -- | No CRM yet |
-| Research | 2 files | ~40 tools | None (web search based) |
-| Legal | 1 file | ~29 tools | None (web research based) |
-| HR | 1 file | ~10 tools | None (internal DB based) |
-| Operations | 0 files (extend existing) | ~16 tools | None (internal based) |
-| Engineering gaps | 0 files | ~10 tools | None |
-| **TOTAL (active)** | **~25 new shared files** | **~297 new tools** | ~8 external APIs |
+- **cursor-fix-agent-lying.md**: That doc fixes agents claiming they did things
+  they didn't. This doc fixes agents failing to do things they should be able to.
+  Both are tool pipeline problems but at different stages.
 
-### Infrastructure Required
+- **cursor-all-department-tools.md**: That doc adds ~297 new tools across all
+  departments. Without the pipeline fixes in THIS doc, those new tools will hit
+  the same failures. This doc must be implemented FIRST or IN PARALLEL.
 
-All departments:
-- No new services for most tools (DB queries + API calls from agent runtime)
-- Design team: Playwright Cloud Function (screenshots, audits)
-- Marketing: Mailchimp + Mandrill (already in .env), Search Console, social platform APIs
-- Finance: Direct API access to Stripe + Mercury (vs cron-only sync)
-- Research: research_repository and research_monitors DB tables
-- Legal: compliance_checklists and contracts DB tables
-- HR: performance_reviews DB table
+- **cursor-design-team-tools.md**: Same — 50+ new design tools are useless if
+  the pipeline that delivers them to agents is broken.
 
-### Database Tables Required (New)
+---
 
-| Table | Department | Purpose |
-|-------|-----------|---------|
-| research_repository | Research | Persistent research with embeddings |
-| research_monitors | Research | Persistent monitoring configurations |
-| roadmap_items | Product | Feature roadmap |
-| compliance_checklists | Legal | Compliance tracking by framework |
-| contracts | Legal | Contract management |
-| ip_portfolio | Legal | IP asset tracking |
-| budgets | Finance | Department budget limits |
-| performance_reviews | HR | Agent performance reviews |
-| storybook_baselines | Design | Visual regression baselines (GCS, not DB) |
+## Files Modified
+
+| File | Change |
+|------|--------|
+| packages/agent-runtime/src/toolExecutor.ts | Auto-grant-and-retry, structured error logging, grant check logging |
+| packages/agent-runtime/src/toolRegistry.ts | Auto-registry sync from static tools on startup |
+| packages/agent-runtime/src/companyAgentRunner.ts | Tool inventory logging on startup, declared-vs-static mismatch logging |
+| packages/dashboard/src/pages/ToolHealth.tsx | NEW — tool health dashboard |
+| packages/scheduler/src/server.ts | Expose tool health API endpoints |
+
+---
+
+## The Point
+
+You can write 297 new tools. You can spec Figma integration, Mailchimp campaigns,
+Storybook visual regression, and product analytics. None of it matters if the
+pipeline between "tool exists in code" and "tool executes successfully when an agent
+needs it" has 8 gates where things silently fail.
+
+Fix the pipeline. Then add the tools. Or fix them in parallel — but the pipeline
+fix must land first or simultaneously, because every new tool you add will hit the
+same broken gates.

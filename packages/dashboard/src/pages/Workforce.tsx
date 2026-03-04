@@ -177,7 +177,8 @@ export default function Workforce() {
           <div className="grid grid-cols-2 gap-6 md:grid-cols-3 xl:grid-cols-5">
             {DEPARTMENTS.map((dept) => {
               const agent = agentMap.get(dept.role);
-              const members = agents.filter((m) => m.reports_to === dept.role && m.role !== dept.role);
+              const deptHeadRoles = new Set(DEPARTMENTS.map((d) => d.role));
+              const members = agents.filter((m) => m.reports_to === dept.role && m.role !== dept.role && !deptHeadRoles.has(m.role));
               return (
                 <div key={dept.label} className="flex flex-col items-center gap-2">
                   <span className="text-[10px] font-medium uppercase tracking-widest text-txt-faint">

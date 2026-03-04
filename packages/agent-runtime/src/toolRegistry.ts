@@ -192,6 +192,19 @@ const KNOWN_TOOLS = new Set([
   'get_figma_dev_resources',
   'create_figma_dev_resource',
   'manage_figma_webhooks',
+  // canvaTools
+  'create_canva_design',
+  'get_canva_design',
+  'search_canva_designs',
+  'list_canva_brand_templates',
+  'get_canva_template_fields',
+  'generate_canva_design',
+  'export_canva_design',
+  'upload_canva_asset',
+  // logoTools
+  'create_logo_variation',
+  'restyle_logo',
+  'create_social_avatar',
   // storybookTools
   'storybook_list_stories',
   'storybook_screenshot',
