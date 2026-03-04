@@ -34,6 +34,64 @@
       "url": "https://agent365.svc.cloud.microsoft/agents/servers/mcp_M365Copilot",
       "scope": "McpServers.CopilotMCP.All",
       "audience": "ea9ffc3e-8a23-4a7d-836d-234d7c7565c1"
+    },
+    {
+      "mcpServerName": "mcp_GlyphorData",
+      "mcpServerUniqueName": "mcp_GlyphorData",
+      "url": "https://glyphor-mcp-data-610179349713.us-central1.run.app/mcp",
+      "scopes": [
+        "Glyphor.Marketing.Read",
+        "Glyphor.Finance.Read",
+        "Glyphor.Product.Read",
+        "Glyphor.Support.Read",
+        "Glyphor.Research.Read",
+        "Glyphor.Engineering.Read",
+        "Glyphor.Ops.Read",
+        "Glyphor.Admin.Read"
+      ]
+    },
+    {
+      "mcpServerName": "mcp_GlyphorMarketing",
+      "mcpServerUniqueName": "mcp_GlyphorMarketing",
+      "url": "https://glyphor-mcp-marketing-610179349713.us-central1.run.app/mcp",
+      "scopes": [
+        "Glyphor.Marketing.Content.Write",
+        "Glyphor.Marketing.Publish",
+        "Glyphor.Marketing.SEO.Read",
+        "Glyphor.Marketing.Social.Write"
+      ]
+    },
+    {
+      "mcpServerName": "mcp_GlyphorEngineering",
+      "mcpServerUniqueName": "mcp_GlyphorEngineering",
+      "url": "https://glyphor-mcp-engineering-610179349713.us-central1.run.app/mcp",
+      "scopes": [
+        "Glyphor.Code.Read",
+        "Glyphor.Code.Write",
+        "Glyphor.Deploy.Preview",
+        "Glyphor.Deploy.Production"
+      ]
+    },
+    {
+      "mcpServerName": "mcp_GlyphorDesign",
+      "mcpServerUniqueName": "mcp_GlyphorDesign",
+      "url": "https://glyphor-mcp-design-610179349713.us-central1.run.app/mcp",
+      "scopes": [
+        "Glyphor.Design.Read",
+        "Glyphor.Design.Write",
+        "Glyphor.Figma.Read",
+        "Glyphor.Figma.Write"
+      ]
+    },
+    {
+      "mcpServerName": "mcp_GlyphorFinance",
+      "mcpServerUniqueName": "mcp_GlyphorFinance",
+      "url": "https://glyphor-mcp-finance-610179349713.us-central1.run.app/mcp",
+      "scopes": [
+        "Glyphor.Finance.Revenue.Read",
+        "Glyphor.Finance.Cost.Read",
+        "Glyphor.Finance.Banking.Read"
+      ]
     }
   ]
 }
