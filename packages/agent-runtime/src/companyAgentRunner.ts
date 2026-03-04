@@ -27,6 +27,7 @@ import type {
   IMemoryBus,
 } from './types.js';
 import { estimateModelCost } from '@glyphor/shared/models';
+import { systemQuery } from '@glyphor/shared/db';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -1144,6 +1145,14 @@ export class CompanyAgentRunner {
       role: config.role,
       model: config.model,
     });
+
+    // ─── TOOL INVENTORY LOG ──────────────────────────────────────
+    // Log static tools per agent on startup for pipeline diagnostics
+    const staticToolNames = toolExecutor.getToolNames();
+    console.log(`[ToolInventory] ${config.role} (${config.id}): ${staticToolNames.length} tools loaded`);
+    if (staticToolNames.length === 0) {
+      console.warn(`[ToolInventory] WARNING: ${config.role} has ZERO tools — check run.ts wiring`);
+    }
 
     // ─── PARALLEL PRE-RUN DATA LOADING ────────────────────────
     // Tiered loading: light (chat) → task (work_loop) → standard (scheduled) → full (briefing/orchestrate)

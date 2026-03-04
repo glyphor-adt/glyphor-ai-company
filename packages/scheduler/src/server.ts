@@ -1091,6 +1091,67 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // Upload / update agent avatar
+    const avatarMatch = url.match(/^\/agents\/([^/]+)\/avatar$/);
+    if (method === 'POST' && avatarMatch) {
+      const agentId = decodeURIComponent(avatarMatch[1]);
+      const body = JSON.parse(await readBody(req));
+      const { image } = body as { image?: string };
+
+      if (!image || typeof image !== 'string') {
+        json(res, 400, { success: false, error: 'Missing "image" field (base64 data-URI)' });
+        return;
+      }
+
+      // Parse data URI: data:image/png;base64,... or data:image/jpeg;base64,...
+      const dataUriMatch = image.match(/^data:image\/(png|jpeg|webp);base64,(.+)$/);
+      if (!dataUriMatch) {
+        json(res, 400, { success: false, error: 'Invalid image format. Expected data:image/(png|jpeg|webp);base64,...' });
+        return;
+      }
+
+      const ext = dataUriMatch[1] === 'jpeg' ? 'jpg' : dataUriMatch[1];
+      const buffer = Buffer.from(dataUriMatch[2], 'base64');
+
+      // Reject files > 2 MB
+      if (buffer.length > 2 * 1024 * 1024) {
+        json(res, 400, { success: false, error: 'Image too large (max 2 MB)' });
+        return;
+      }
+
+      // Look up the agent role for the filename
+      const [agentRow] = await systemQuery('SELECT role FROM company_agents WHERE id=$1', [agentId]);
+      if (!agentRow) {
+        json(res, 404, { success: false, error: 'Agent not found' });
+        return;
+      }
+
+      const contentType = `image/${dataUriMatch[1]}`;
+      const gcsPath = `avatars/${agentRow.role}.${ext}`;
+
+      try {
+        const { uploadFile } = await import('@glyphor/shared');
+        const publicUrl = await uploadFile(gcsPath, buffer, contentType);
+
+        // Update the profile
+        await systemQuery(
+          `UPDATE agent_profiles SET avatar_url=$1 WHERE agent_id=$2`,
+          [publicUrl, agentRow.role],
+        );
+        // Also try by UUID (some profiles use UUID as agent_id)
+        await systemQuery(
+          `UPDATE agent_profiles SET avatar_url=$1 WHERE agent_id=$2`,
+          [publicUrl, agentId],
+        );
+
+        json(res, 200, { success: true, avatar_url: publicUrl });
+      } catch (uploadErr) {
+        console.error('[server] Avatar upload failed:', uploadErr);
+        json(res, 500, { success: false, error: 'Failed to upload avatar' });
+      }
+      return;
+    }
+
     // Get code-defined system prompt for an agent
     const promptMatch = url.match(/^\/agents\/([^/]+)\/system-prompt$/);
     if (method === 'GET' && promptMatch) {

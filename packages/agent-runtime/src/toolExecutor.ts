@@ -23,6 +23,7 @@ import type {
 import { AGENT_BUDGETS } from './types.js';
 import { systemQuery } from '@glyphor/shared/db';
 import type { FormalVerifier } from './formalVerifier.js';
+import { isKnownTool } from './toolRegistry.js';
 
 // ─── DB Grant Cache ────────────────────────────────────────────
 const GRANT_CACHE_TTL_MS = 60_000; // 60 seconds
@@ -145,14 +146,14 @@ const VERIFICATION_MAP: Record<string, { name: string; paramKey: string }> = {
   'update_company_knowledge': { name: 'get_company_knowledge', paramKey: 'id' },
 };
 
-/** Auto-grant a tool to an agent (used for read-only tool self-recovery) */
-async function autoGrantTool(agentRole: string, toolName: string): Promise<void> {
+/** Auto-grant a known tool to an agent (self-recovery for static + known tools) */
+async function autoGrantTool(agentRole: string, toolName: string, reason: string): Promise<void> {
   try {
     await systemQuery(
       `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason)
-       VALUES ($1, $2, 'system', 'auto-granted read-only tool on access attempt')
+       VALUES ($1, $2, 'system', $3)
        ON CONFLICT (agent_role, tool_name) DO UPDATE SET is_active = true`,
-      [agentRole, toolName],
+      [agentRole, toolName, reason],
     );
     invalidateGrantCache(agentRole);
   } catch {
@@ -400,9 +401,9 @@ export class ToolExecutor {
       if (roleGrants && !roleGrants.has(toolName)) {
         // Hardcoded grants exist and tool is not in them
         if (!isStaticTool) {
-          // Auto-grant read-only tools instead of denying
-          if (isReadOnlyTool(toolName)) {
-            await autoGrantTool(role, toolName);
+          // Auto-grant any known tool (static, KNOWN_TOOLS, or DB-registered)
+          if (isKnownTool(toolName)) {
+            await autoGrantTool(role, toolName, 'auto-granted known tool on access attempt');
           } else {
             this.logSecurityEvent(agentId, role, toolName, 'TOOL_NOT_GRANTED');
             return {
@@ -418,9 +419,9 @@ export class ToolExecutor {
         if (!isStaticTool) {
           const granted = await isToolGranted(role, toolName);
           if (!granted) {
-            // Auto-grant read-only tools instead of denying
-            if (isReadOnlyTool(toolName)) {
-              await autoGrantTool(role, toolName);
+            // Auto-grant any known tool (static, KNOWN_TOOLS, or DB-registered)
+            if (isKnownTool(toolName)) {
+              await autoGrantTool(role, toolName, 'auto-granted known tool on access attempt');
             } else {
               this.logSecurityEvent(agentId, role, toolName, 'TOOL_NOT_GRANTED');
               return {

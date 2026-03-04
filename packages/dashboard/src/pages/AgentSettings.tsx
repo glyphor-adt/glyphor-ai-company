@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { getModelsByProvider, PROVIDER_LABELS } from '../lib/models';
@@ -58,6 +58,12 @@ export default function AgentSettings() {
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
 
+  // Avatar state
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
   // System prompt state
   const [systemPrompt, setSystemPrompt] = useState('');
   const [codePrompt, setCodePrompt] = useState('');
@@ -84,6 +90,13 @@ export default function AgentSettings() {
         setBudgetPerRun(a.budget_per_run ?? 0.05);
         setBudgetDaily(a.budget_daily ?? 0.5);
         setBudgetMonthly(a.budget_monthly ?? 15);
+
+        // Load the agent's profile (for avatar_url)
+        try {
+          const profiles = await apiCall<{ avatar_url?: string | null }[]>(`/api/agent_profiles?agent_id=${a.role}`);
+          const profile = Array.isArray(profiles) ? profiles[0] : profiles;
+          if (profile?.avatar_url) setAvatarUrl(profile.avatar_url);
+        } catch { /* profile not found */ }
 
         // Always load the code-defined prompt first (for reset-to-default)
         let codeDefinedPrompt = '';
@@ -170,6 +183,46 @@ export default function AgentSettings() {
     }
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !agent) return;
+    if (!file.type.match(/^image\/(png|jpeg|webp)$/)) {
+      setAvatarError('Only PNG, JPEG, or WebP images allowed');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setAvatarError('Image must be under 2 MB');
+      return;
+    }
+    setUploadingAvatar(true);
+    setAvatarError('');
+    try {
+      const reader = new FileReader();
+      const dataUri = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/avatar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUri }),
+      });
+      const result = await resp.json();
+      if (!resp.ok || !result.success) {
+        setAvatarError(result.error || 'Upload failed');
+        return;
+      }
+      setAvatarUrl(result.avatar_url);
+    } catch (err) {
+      setAvatarError(`Upload error: ${(err as Error).message}`);
+    } finally {
+      setUploadingAvatar(false);
+      // Reset input so the same file can be selected again
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
+  };
+
   const handlePause = async () => {
     if (!agent) return;
     await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/pause`, { method: 'POST' });
@@ -232,7 +285,29 @@ export default function AgentSettings() {
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <AgentAvatar role={agent.role} size={64} glow={agent.status === 'active'} />
+          <div className="group relative">
+            <AgentAvatar role={agent.role} size={64} glow={agent.status === 'active'} avatarUrl={avatarUrl} />
+            <button
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={uploadingAvatar}
+              className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100"
+              title="Change profile image"
+            >
+              {uploadingAvatar ? (
+                <svg className="h-5 w-5 animate-spin text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeDasharray="31.4 31.4" strokeLinecap="round" /></svg>
+              ) : (
+                <svg className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor"><path d="M4 5a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4zm6 7a2 2 0 100-4 2 2 0 000 4z" /></svg>
+              )}
+            </button>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={handleAvatarUpload}
+              className="hidden"
+            />
+          </div>
+          {avatarError && <span className="text-xs text-prism-critical">{avatarError}</span>}
           <div>
             <h1 className="text-2xl font-bold text-txt-primary">{displayName}</h1>
             <p className="text-sm text-txt-muted">{titleText}</p>
