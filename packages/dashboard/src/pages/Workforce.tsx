@@ -21,7 +21,6 @@ const FOUNDERS = [
 ];
 
 const DEPARTMENTS = [
-  { label: 'Executive Office', role: 'chief-of-staff' },
   { label: 'Engineering', role: 'cto' },
   { label: 'Product', role: 'cpo' },
   { label: 'Finance', role: 'cfo' },
@@ -151,10 +150,29 @@ export default function Workforce() {
             </div>
           </div>
 
-          {/* Chief of Staff */}
+          {/* Chief of Staff + direct reports */}
           <div className="flex justify-center">
-            <div className="w-48">
-              {cos ? <AgentNode agent={cos} /> : <Skeleton className="h-24 w-full" />}
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-48">
+                {cos ? <AgentNode agent={cos} /> : <Skeleton className="h-24 w-full" />}
+              </div>
+              {(() => {
+                const deptHeadRoles = new Set(DEPARTMENTS.map((d) => d.role));
+                const cosDirects = agents.filter(
+                  (m) => m.reports_to === 'chief-of-staff' && m.role !== 'chief-of-staff' && !deptHeadRoles.has(m.role),
+                );
+                if (cosDirects.length === 0) return null;
+                return (
+                  <>
+                    <div className="h-4 w-px bg-border" />
+                    <div className="flex flex-col gap-1.5">
+                      {cosDirects.map((m) => (
+                        <SubTeamNode key={m.id} member={m} />
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
 
