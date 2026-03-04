@@ -1,595 +1,565 @@
-# Cursor Instructions: Fix Tool Execution Pipeline
+# Cursor Instructions: Agent Tool Architecture Rethink
 
-## The Problem
+## The Question
 
-Tools exist but don't work. Agents say "I don't have access to that tool" even when
-the tool is in their codebase. Or tools silently fail and the agent claims success.
-Or the agent doesn't even attempt to use a tool it has. This is different from agents
-lying (cursor-fix-agent-lying.md) — this is about the PIPELINE between "tool exists
-in code" and "agent successfully executes tool" being broken at multiple points.
+With Agent 365 MCP integration live and Microsoft agent licenses provisioned, do we
+need 138+ statically-wired tools per agent? Or should agents have core tools and
+discover/create tools as needed? Does Entra ID per-agent identity change the tooling
+model?
 
----
-
-## The Tool Execution Pipeline (8 Gates)
-
-Every tool call must pass through ALL of these gates in sequence. A failure at ANY
-gate kills the tool call. The problem is that failures at different gates look
-identical to the user: the agent either says "I don't have access" or claims to have
-done something that never happened.
-
-```
-Gate 1: TOOL DEFINITION
-  Does the tool exist in the agent's runner file (this.tools Map)?
-  Failure: Tool never appears in the model's available tools
-  
-Gate 2: TOOL DECLARATION
-  Is the tool included in the tools array sent to the LLM?
-  Failure: LLM doesn't know the tool exists, cannot call it
-  
-Gate 3: TOOL REGISTRY
-  Is the tool in KNOWN_TOOLS (static) or tool_registry (DB)?
-  Failure: request_tool_access gets rejected ("ask CTO to build it")
-  
-Gate 4: TOOL GRANT
-  Is the tool in agent_tool_grants for this agent_role?
-  Failure: ToolExecutor returns "Not granted" error
-  
-Gate 5: GRANT CACHE
-  Is the grant cache stale (60-second TTL)?
-  Failure: Recently granted tool fails for up to 60 seconds
-  
-Gate 6: SCOPE CHECK
-  Does the tool call pass scope restrictions?
-  Failure: Scoped out of allowed parameters
-  
-Gate 7: RATE LIMIT + BUDGET
-  Has the agent exceeded rate limits or budget caps?
-  Failure: Tool blocked by rate limiter or budget exhaustion
-  
-Gate 8: EXECUTION
-  Does the tool's actual code execute successfully?
-  Failure: Runtime error, API failure, timeout, bad parameters
-```
+The answer is yes to all three. Agent 365 MCP already proves the model you should be
+using everywhere. You just haven't generalized it yet.
 
 ---
 
-## Diagnosis: Which Gates Are Breaking
+## What You Currently Have: Three Tool Paradigms Coexisting
 
-### Gate 1 Failure: Tool Not In Agent's this.tools Map
+### Paradigm 1 — Static Tools (the 138+ problem)
 
-This is the MOST COMMON root cause for "I don't have that tool."
+Tools are coded in shared/*.ts files, imported into each agent's tools.ts, added to
+the this.tools Map, and declared to the LLM on every call. This is the paradigm that
+created the 128-tool cap problem, the grant management overhead, and the "agent says
+it doesn't have access" failures.
 
-How tools get to agents today:
+Every tool must be:
+1. Coded in a shared tool file
+2. Imported into the agent's tools.ts
+3. Added to the agent's static tool Map
+4. Registered in KNOWN_TOOLS or tool_registry
+5. Granted in agent_tool_grants
+6. Declared to the LLM on every model call
+
+Six places that must stay in sync. If any one breaks, the tool silently fails.
+
+### Paradigm 2 — Agent 365 MCP (already working)
+
+Tools are DISCOVERED from Microsoft MCP servers at runtime. The agent calls
+createAgent365McpTools(serverFilter?) and gets back tools that the MCP server
+exposes. No manual coding per tool. No grant management per tool. The server
+defines what's available, the bridge converts schemas, the agent uses them.
+
 ```
-1. Tool is coded in packages/agents/src/shared/someTools.ts
-2. Tool is imported in packages/agents/src/{role}/tools.ts
-3. Tool is added to the tools Map in createTools() or equivalent
-4. When the runner instantiates, this.tools Map is populated
-5. this.tools Map is converted to tool declarations for the LLM
+Agent run.ts → createAgent365McpTools(['mcp_MailTools', 'mcp_CalendarTools'])
+  → MCP bridge discovers available tools from those servers
+  → Converts to ToolDefinition format
+  → Agent uses them
 ```
 
-If step 2 or 3 is missed — the tool exists in the shared file but is never
-imported into the specific agent's tools file — the tool is invisible. The agent
-literally does not have it. It's not a grant issue. It's not a registry issue.
-The tool was never wired to the agent.
+The agent doesn't know in advance exactly which mail tools exist. It says "give me
+mail tools" and gets whatever the MCP server currently exposes. If Microsoft adds a
+new mail capability tomorrow, the agent gets it automatically.
 
-**How to verify:** For each agent, log `Array.from(this.tools.keys())` at startup.
-Compare against what the agent should have. Any missing tools = wiring gap.
+### Paradigm 3 — Runtime Tool Factory (already working)
 
-**The fix:**
+Agents synthesize tools mid-run when no existing tool covers their need. Three types:
+HTTP fetch, Cloud SQL query, sandboxed JavaScript. Max 3 per run, 20 persisted.
 
-File: packages/agent-runtime/src/companyAgentRunner.ts (or equivalent runner)
+This is the "last resort" — agent realizes it needs something, builds it on the fly.
 
-Add tool inventory logging on startup:
+---
+
+## The Rethink: Core + Discover + Create
+
+Instead of 138 static tools, every agent gets:
+
+### Layer 1 — Core Tools (8-12 tools, ALWAYS loaded, never filtered)
+
+These are the tools that define what it means to be a Glyphor agent:
+
+```
+ASSIGNMENT TOOLS (work management):
+  read_my_assignments          — check your inbox
+  submit_assignment_output     — deliver your work
+  flag_assignment_blocker      — escalate problems
+
+COMMUNICATION TOOLS (inter-agent):
+  send_agent_message           — DM another agent
+  check_messages               — read your DMs
+
+MEMORY TOOLS (persistence):
+  save_memory                  — remember something
+  recall_memories              — retrieve memories
+
+SELF-SERVICE TOOLS (autonomy):
+  request_tool_access          — self-grant a tool
+  request_new_tool             — request a tool that doesn't exist
+  discover_tools               — NEW: list available tools by domain
+```
+
+That's 10 tools. Every agent. Every run. Always available. Never filtered.
+
+### Layer 2 — MCP Tool Servers (discovered at runtime, scoped by identity)
+
+This is where Agent 365 already works. Generalize it to ALL external services:
+
+```
+MICROSOFT M365 (Agent 365, already live):
+  mcp_MailTools                — Outlook email
+  mcp_CalendarTools            — Calendar management
+  mcp_ODSPRemoteServer         — OneDrive/SharePoint
+  mcp_TeamsServer              — Teams messaging
+  mcp_M365Copilot              — M365 Copilot
+
+GLYPHOR INTERNAL (new MCP servers you build):
+  mcp_GlyphorData              — Supabase/PostgreSQL queries
+    Exposes: query_analytics_events, get_content_drafts, get_seo_data,
+    get_financials, get_support_tickets, get_company_pulse...
+    (All the read-only DB queries that are currently static tools)
+
+  mcp_GlyphorGitHub            — GitHub operations
+    Exposes: get_file_contents, create_or_update_file, create_branch,
+    list_prs, check_ci_status...
+
+  mcp_GlyphorDesign            — Design tools
+    Exposes: screenshot_page, run_lighthouse, check_responsive,
+    figma_* tools, storybook_* tools...
+
+  mcp_GlyphorMarketing         — Marketing tools
+    Exposes: mailchimp_*, mandrill_*, social_*, seo_*...
+
+  mcp_GlyphorFinance           — Finance tools
+    Exposes: stripe_*, mercury_*, gcp_billing_*...
+```
+
+Each agent connects to the MCP servers relevant to their role. The tools are
+discovered from the server, not compiled into the agent's code.
+
+**The agent's tools.ts changes from:**
 
 ```typescript
-// On agent instantiation:
-const toolNames = Array.from(this.tools.keys()).sort();
-console.log(`[${this.role}] Loaded ${toolNames.length} static tools: ${toolNames.join(', ')}`);
+// CURRENT: 50+ imports, 50+ tool registrations
+import { createContentTools } from '../shared/contentTools';
+import { createSeoTools } from '../shared/seoTools';
+import { createSocialTools } from '../shared/socialMediaTools';
+import { createEmailMarketingTools } from '../shared/emailMarketingTools';
+// ... 20 more imports
 
-// On first run, also log to activity_log:
-await db.from('agent_activities').insert({
-  agent_role: this.role,
-  activity_type: 'tool_inventory',
-  summary: `Static tools: ${toolNames.length}`,
-  details: { tools: toolNames }
-});
-```
-
-Now you can query `agent_activities WHERE activity_type = 'tool_inventory'` and see
-exactly which tools each agent actually has loaded. Compare against the spec.
-
-### Gate 2 Failure: Tool Declared But LLM Doesn't Receive It
-
-Even if the tool is in this.tools, it must be converted to the LLM's tool
-declaration format and included in the API call. Possible failures:
-
-- Tool definition has invalid schema (missing required fields, malformed JSON schema)
-- Tool declaration exceeds token limits and gets truncated
-- Tool is excluded by tier (light/standard/full context tiers may filter tools)
-- Task runner strips tools on last turn (cursor-fix-agent-lying.md covers this)
-
-**The fix:**
-
-File: packages/agent-runtime/src/companyAgentRunner.ts
-
-Log the actual tools sent to the LLM:
-
-```typescript
-// Before each model call:
-const declaredToolNames = toolDeclarations.map(t => t.name);
-console.log(`[${this.role}] Turn ${turnCount}: Declaring ${declaredToolNames.length} tools to model`);
-
-// If tool count differs from static tool count, log the discrepancy:
-const staticToolCount = this.tools.size;
-if (declaredToolNames.length !== staticToolCount) {
-  console.warn(`[${this.role}] TOOL MISMATCH: ${staticToolCount} static, ${declaredToolNames.length} declared`);
+export function createTools(deps) {
+  return new Map([
+    ...createContentTools(deps),
+    ...createSeoTools(deps),
+    ...createSocialTools(deps),
+    ...createEmailMarketingTools(deps),
+    // ... 20 more spreads
+  ]);
 }
 ```
 
-### Gate 3 Failure: Tool Not In Registry
-
-When an agent calls request_tool_access, the system checks isKnownTool(name)
-against KNOWN_TOOLS (static set) and the tool_registry DB table. If the tool
-isn't in either, the request is rejected with "ask CTO to build it."
-
-This creates a chicken-and-egg problem:
-1. Developer adds a new tool to an agent's tools.ts file
-2. Developer forgets to add the tool name to KNOWN_TOOLS in toolRegistry.ts
-3. Agent has the tool (Gate 1 passes)
-4. Agent can use the tool directly (static tools bypass grant checks)
-5. BUT if the grant was revoked or expired, request_tool_access fails
-   because the registry doesn't know the tool exists
-
-**The fix:**
-
-File: packages/agent-runtime/src/toolRegistry.ts
-
-Auto-register tools from static definitions:
+**To:**
 
 ```typescript
-// On startup, scan all agent tool Maps and register any unregistered tools:
-export async function syncToolRegistry(db: SupabaseClient, allAgentTools: Map<string, string[]>) {
-  const knownTools = await getKnownTools(db);
-  
-  for (const [role, tools] of allAgentTools) {
-    for (const toolName of tools) {
-      if (!knownTools.has(toolName)) {
-        await db.from('tool_registry').upsert({
-          name: toolName,
-          source: 'auto-discovered',
-          discovered_from: role,
-          created_at: new Date().toISOString()
-        });
-        console.log(`[registry] Auto-registered tool: ${toolName} (from ${role})`);
-      }
+// NEW: core tools + MCP server connections
+import { CORE_TOOLS } from '../shared/coreTools';
+import { createAgent365McpTools } from '../shared/agent365Tools';
+import { createGlyphorMcpTools } from '../shared/glyphorMcpTools';
+
+export function createTools(deps) {
+  return new Map([
+    ...CORE_TOOLS(deps),
+    ...createAgent365McpTools(['mcp_MailTools', 'mcp_CalendarTools']),
+    ...createGlyphorMcpTools(['mcp_GlyphorMarketing']),
+  ]);
+}
+```
+
+Maya (CMO) connects to mcp_GlyphorMarketing and gets all the Mailchimp, Mandrill,
+social, SEO, and content tools. Lisa (SEO Analyst) connects to the same server
+but her identity only grants her the SEO tools within it (see Layer 4).
+
+### Layer 3 — Runtime Tool Factory (already built, expand it)
+
+For truly novel needs — a one-off API call, a custom SQL query, a calculation the
+agent needs. Already limited to 3 per run, 20 persisted. This stays as the escape
+hatch.
+
+### Layer 4 — Entra ID Per-Agent Identity (the permission layer)
+
+THIS is where Entra ID changes everything. Right now:
+
+```
+CURRENT: One Entra ID app → one service principal → all agents share it
+  → Tool permissions managed in code (agent_tool_grants table)
+  → 6-gate pipeline between tool and execution
+  → Every new tool needs: code, import, register, grant, wire, declare
+```
+
+With per-agent Entra IDs:
+
+```
+NEW: One Entra ID per agent → scoped permissions per identity
+  → Tool permissions managed in Entra (Microsoft manages the grants)
+  → MCP servers enforce permissions based on caller identity
+  → New tools just need: exist on MCP server + agent identity has scope
+```
+
+**How it works:**
+
+Step 1 — Create an Entra ID managed identity or app registration per agent:
+
+```
+sarah-chen@glyphor.ai        → Entra ID: sarah-chen-agent
+marcus-reeves@glyphor.ai     → Entra ID: marcus-reeves-agent
+maya-brooks@glyphor.ai       → Entra ID: maya-brooks-agent
+lisa-chen@glyphor.ai         → Entra ID: lisa-chen-agent
+...
+```
+
+Each agent already has an M365 mailbox and email address (46 agent emails
+in agentEmails.ts). The Agent 365 licenses you just bought give each of them
+a first-class M365 identity.
+
+Step 2 — Scope permissions per identity:
+
+```
+maya-brooks-agent:
+  M365 scopes: Mail.ReadWrite, Calendar.ReadWrite, Sites.Read.All
+  Glyphor scopes: marketing.read, marketing.write, content.publish
+  GitHub scopes: repos.read (frontend paths only)
+
+lisa-chen-agent:
+  M365 scopes: Mail.Read, Calendar.Read
+  Glyphor scopes: marketing.read, seo.read, seo.write
+  GitHub scopes: none
+
+marcus-reeves-agent:
+  M365 scopes: Mail.ReadWrite, Calendar.ReadWrite, Sites.ReadWrite.All
+  Glyphor scopes: engineering.*, admin.deploy
+  GitHub scopes: repos.read, repos.write
+```
+
+Step 3 — MCP servers check caller identity:
+
+When Maya's agent connects to mcp_GlyphorMarketing, the MCP server checks her
+Entra identity and exposes only the tools her scopes allow. Lisa connects to the
+same server but gets fewer tools because her scopes are narrower.
+
+**What this replaces:**
+
+| Current System | Entra Identity System |
+|---------------|----------------------|
+| agent_tool_grants DB table | Entra ID permission scopes |
+| toolExecutor.isToolGranted() | MCP server checks caller identity |
+| request_tool_access / self-grant | Admin assigns scopes in Entra portal |
+| KNOWN_TOOLS registry | MCP server tool manifest |
+| Static tool bypass logic | No concept of static vs dynamic — all tools are server-discovered |
+| Grant cache (60s TTL) | Entra token cache (managed by MSAL) |
+| Sarah grant_tool_access | Entra admin role or Morgan (Global Admin) manages in portal |
+
+**The agent_tool_grants table doesn't disappear immediately** — it remains as an
+override layer for fine-grained control that Entra scopes can't express. But the
+primary permission model shifts from "DB grant per tool per agent" to "identity
+scope per service per agent."
+
+---
+
+## The New Tool Count Per Agent
+
+| Layer | Tools | Source |
+|-------|-------|--------|
+| Core | 10-12 | Always loaded, never filtered |
+| Agent 365 MCP | 15-30 | Discovered from M365 MCP servers |
+| Glyphor MCP | 10-40 | Discovered from internal MCP servers, scoped by identity |
+| Runtime Factory | 0-3 | Created on demand during run |
+| **Total per call** | **35-85** | **Well under 128 cap** |
+
+Compare to current: 138+ static tools on every call, hitting the 128 cap,
+with role-specific tools silently dropped.
+
+---
+
+## Building the Glyphor MCP Servers
+
+You don't need to build 5 servers on day one. Start with one that covers the
+biggest tool category — the DB read tools that every department needs.
+
+### Server 1 — mcp_GlyphorData (replaces ~60 static read tools)
+
+This single MCP server wraps your PostgreSQL tables and exposes them as tools.
+Every tool that currently does `db.from('table').select(...)` becomes a tool
+on this server.
+
+Implementation: The server is a Node.js HTTP service (or Cloud Run service) that:
+1. Registers as an MCP server with a tool manifest
+2. Exposes query tools per table/view (read-only)
+3. Checks caller identity for table-level permissions
+4. Returns results as structured JSON
+
+```
+Tools exposed:
+  query_content_drafts      — content_drafts table
+  query_content_metrics     — content_metrics table
+  query_seo_data            — seo_data table
+  query_social_metrics      — social_metrics table
+  query_scheduled_posts     — scheduled_posts table
+  query_email_metrics       — email_metrics table
+  query_support_tickets     — support_tickets table
+  query_analytics_events    — analytics_events table
+  query_company_research    — company_research table
+  query_financials          — financials table
+  query_agent_runs          — agent_runs table
+  query_company_pulse       — company_pulse table
+  get_agent_health          — derived agent health view
+  ... (one per table the agents need to read)
+```
+
+Identity scoping:
+- Maya (CMO): can query content_*, social_*, email_*, seo_*
+- Lisa (SEO): can query seo_*, content_metrics (read only)
+- Nadia (CFO): can query financials, agent_runs (cost data), company_pulse
+- Priya (Researcher): can query analytics_events, support_tickets
+- Atlas (Ops): can query everything (system health)
+
+### Server 2 — mcp_GlyphorMarketing (replaces ~40 static marketing tools)
+
+Wraps Mailchimp, Mandrill, Search Console, social platform APIs.
+
+```
+Tools exposed:
+  mailchimp_get_lists, mailchimp_get_members, mailchimp_create_campaign,
+  mailchimp_set_content, mailchimp_send_test, mailchimp_send, ...
+  mandrill_send, mandrill_stats, mandrill_search, mandrill_templates, ...
+  search_console_performance, search_console_indexing, ...
+  social_schedule_post, social_get_metrics, social_get_audience, ...
+```
+
+Identity scoping:
+- Maya: full access (read + write + send)
+- Tyler: content creation + test sends (no live sends)
+- Lisa: Search Console read only
+- Kai: social platform full access
+
+### Server 3 — mcp_GlyphorEngineering (replaces ~50 CTO tools)
+
+Wraps GitHub, Vercel, Cloud Run, GCP monitoring.
+
+### Server 4 — mcp_GlyphorDesign (replaces ~50 design tools)
+
+Wraps Playwright screenshots, Figma, Storybook, asset pipeline.
+
+### Server 5 — mcp_GlyphorFinance (replaces ~30 finance tools)
+
+Wraps Stripe (direct API), Mercury (direct API), GCP billing.
+
+---
+
+## The discover_tools Tool
+
+New core tool that lets agents find tools they need:
+
+```typescript
+// discover_tools — part of the core tool set
+{
+  name: 'discover_tools',
+  description: 'List available tools from MCP servers by domain or keyword. ' +
+    'Use this when you need a capability you don\'t see in your current tools.',
+  parameters: {
+    domain: {
+      type: 'string',
+      description: 'Domain to search: marketing, finance, engineering, design, ' +
+        'data, research, legal, hr, ops',
+    },
+    keyword: {
+      type: 'string',
+      description: 'Keyword to search tool names and descriptions',
     }
+  },
+  execute: async (params) => {
+    // Query all connected MCP servers for matching tools
+    // Return: tool name, description, which server it's on, whether caller has access
+    const results = await mcpRegistry.searchTools(params.domain, params.keyword, callerIdentity);
+    return results.map(t => ({
+      name: t.name,
+      description: t.description,
+      server: t.server,
+      hasAccess: t.callerHasScope,
+      requestAccessVia: t.callerHasScope ? null : 'request_tool_access'
+    }));
   }
 }
 ```
 
-Run this on scheduler startup. Every tool that any agent has in its static Map
-gets auto-registered. No more chicken-and-egg.
+Now when an agent needs to do something it hasn't done before:
 
-### Gate 4 Failure: Tool Not Granted In agent_tool_grants
+```
+Agent: "I need to check Mailchimp campaign performance"
+  → calls discover_tools({ domain: 'marketing', keyword: 'campaign' })
+  → gets back: mailchimp_get_campaign_report (mcp_GlyphorMarketing, hasAccess: true)
+  → calls mailchimp_get_campaign_report(campaign_id)
+  → gets data
+```
 
-Architecture says: "Static tool bypass: Tools defined in an agent's code (this.tools Map)
-always execute regardless of DB grant state."
+The agent doesn't need the tool pre-loaded. It discovers it, confirms access,
+and uses it — all within a single run.
 
-This SHOULD mean Gate 4 never blocks static tools. But verify this is actually
-implemented correctly in toolExecutor.ts:
+---
+
+## Entra ID Implementation
+
+### Option A — Managed Identities (simpler, GCP-compatible)
+
+Each agent gets a User Assigned Managed Identity in Azure. MSAL acquires tokens
+per-identity. MCP servers validate the identity's scopes.
+
+Pros: No passwords/secrets to rotate per agent
+Cons: Requires Azure infrastructure for the managed identities
+
+### Option B — App Registrations Per Agent (more control)
+
+Each agent gets its own Entra app registration with client credentials. This is
+what you already have for the 10 agent bots — extend it to all agents.
+
+Pros: Full control over scopes, can add custom app roles
+Cons: More secret management (though GCP Secret Manager handles this)
+
+### Option C — Agent 365 Licenses = Agent Identities (you already have this)
+
+The Agent 365 licenses you just bought may already provision per-agent identities.
+Check: does each agent's M365 license include an Entra identity? If so, those
+identities already have M365 scopes and you just need to:
+1. Add custom app roles for Glyphor-specific scopes
+2. Use those identities when agents connect to Glyphor MCP servers
+
+**This is likely the fastest path** — the identities may already exist.
+
+### What Morgan Blake (Global Admin) Manages
+
+Morgan already handles "cross-platform access provisioning (GCP, Entra ID, M365,
+GitHub, Vercel, Stripe)." Per-agent Entra identities become part of his domain:
+
+- Provisioning new agent identities when agents are created
+- Assigning scopes based on role and department
+- Rotating credentials (or using managed identities to avoid this)
+- Auditing access — which agent accessed which service when
+- Drift detection — does the agent's actual usage match its scoped permissions?
+
+This is already in Morgan's toolset (platform_iam_state, provision_access,
+audit_access). The Entra identities give him a real platform to manage instead
+of a DB table.
+
+---
+
+## Implementation Plan
+
+### Phase 1 — Core Tool Extraction (Day 1)
+
+Extract the 10-12 core tools into a standalone CORE_TOOLS set. Every agent
+loads these and nothing else from the static tool system.
+
+File: packages/agents/src/shared/coreTools.ts
 
 ```typescript
-// Expected behavior in toolExecutor.ts:
-async execute(toolCall) {
-  // Check if tool is in the agent's static tools Map
-  if (this.staticTools.has(toolCall.name)) {
-    // BYPASS grant check — execute directly
-    return await this.staticTools.get(toolCall.name).execute(toolCall.arguments);
-  }
-  
-  // Only check grants for dynamically-added tools
-  const granted = await isToolGranted(this.agentRole, toolCall.name, this.db);
-  if (!granted) {
-    return { error: `Not granted: ${toolCall.name}. Use request_tool_access.` };
-  }
-  
-  // ... proceed with execution
-}
+export const CORE_TOOLS = [
+  'read_my_assignments',
+  'submit_assignment_output',
+  'flag_assignment_blocker',
+  'send_agent_message',
+  'check_messages',
+  'save_memory',
+  'recall_memories',
+  'request_tool_access',
+  'request_new_tool',
+  'discover_tools',        // NEW
+];
 ```
 
-**Potential bug:** If the static tool bypass is checking by reference rather than
-by name, or if the tool Map is keyed differently than expected, static tools could
-fail the bypass and fall through to the grant check.
+All other static tools remain available but are NOT auto-loaded. They're
+accessed via request_tool_access (self-grant) or discover_tools (MCP).
 
-**The fix:**
+### Phase 2 — First Glyphor MCP Server (Week 1)
 
-File: packages/agent-runtime/src/toolExecutor.ts
+Build mcp_GlyphorData — the read-only database query server. This replaces
+the ~60 static read tools (get_content_drafts, get_seo_data, get_financials,
+query_analytics_events, etc.) with a single MCP server.
 
-Add explicit logging at the bypass decision point:
+Implementation: Express/Fastify HTTP service on Cloud Run, implements MCP protocol,
+queries PostgreSQL, returns structured results.
 
-```typescript
-async execute(toolCall: ToolCall) {
-  const isStatic = this.staticTools.has(toolCall.name);
-  
-  if (!isStatic) {
-    // Dynamic tool — check grant
-    const granted = await isToolGranted(this.agentRole, toolCall.name, this.db);
-    if (!granted) {
-      console.warn(`[toolExecutor] DENIED: ${this.agentRole} → ${toolCall.name} (not static, not granted)`);
-      return {
-        error: `Tool "${toolCall.name}" is not granted. Call request_tool_access to self-grant.`,
-        denied: true
-      };
-    }
-    console.log(`[toolExecutor] GRANTED (dynamic): ${this.agentRole} → ${toolCall.name}`);
-  } else {
-    console.log(`[toolExecutor] GRANTED (static): ${this.agentRole} → ${toolCall.name}`);
-  }
-  
-  // ... proceed with execution
-}
-```
+### Phase 3 — Per-Agent Entra Identity (Week 2)
 
-### Gate 5 Failure: Grant Cache Staleness
+Determine which Option (A/B/C) the Agent 365 licenses support. If the licenses
+already include Entra identities, add custom app roles and wire them.
 
-Grants are cached per-role for 60 seconds. After a grant_tool_access or
-request_tool_access call, there's up to a 60-second window where the cache
-still says "not granted."
+If not, create app registrations per agent (extending the existing pattern of
+10 agent bot registrations to all 46 agents).
 
-Architecture says: "Cache is invalidated immediately on grant/revoke."
+Wire MSAL to acquire per-agent tokens when connecting to MCP servers.
 
-But is this actually implemented? If the cache invalidation only happens on the
-same process/instance, and the grant was made by a different agent (Sarah granting
-to Jasmine), the cache invalidation may not propagate.
+### Phase 4 — Remaining Glyphor MCP Servers (Weeks 3-4)
 
-**The fix:**
+Build mcp_GlyphorMarketing, mcp_GlyphorEngineering, mcp_GlyphorDesign,
+mcp_GlyphorFinance — migrating the department-specific static tools into
+MCP-served, identity-scoped tools.
 
-File: packages/agent-runtime/src/toolExecutor.ts
+### Phase 5 — Deprecate Static Tools (Week 5)
 
-Use Redis for grant cache instead of in-memory, so all instances share the cache
-and invalidation propagates. Or, simpler: after any request_tool_access call
-succeeds, explicitly invalidate the local cache for that role:
-
-```typescript
-// In request_tool_access handler:
-const result = await selfGrantTool(agentRole, toolName, db);
-if (result.success) {
-  // Force cache invalidation on THIS instance
-  grantCache.delete(agentRole);
-  // If using Redis: await redis.del(`grants:${agentRole}`);
-}
-```
-
-### Gate 6-7: Scope and Budget (Less Likely)
-
-These are less likely to cause the "I don't have access" symptom because they
-produce specific error messages. But verify the error messages are actually
-meaningful and not swallowed.
-
-### Gate 8 Failure: Tool Code Errors
-
-The tool exists, is granted, passes all checks, and then the actual implementation
-throws an error. Common causes:
-
-- Missing credentials (API key not in Secret Manager or .env)
-- Network egress blocked (domain not in allowlist)
-- Database query error (wrong table name, missing column)
-- Parameter validation failure (tool receives wrong types)
-- Timeout (tool takes too long, supervisor kills it)
-
-**The fix:**
-
-Every tool implementation should have structured error handling:
-
-```typescript
-// BAD — error is swallowed:
-try {
-  const result = await callExternalAPI(params);
-  return { success: true, data: result };
-} catch (e) {
-  return { success: false, error: "Something went wrong" };
-}
-
-// GOOD — error is specific and actionable:
-try {
-  const result = await callExternalAPI(params);
-  return { success: true, data: result };
-} catch (e) {
-  const errorDetails = {
-    tool: 'get_search_performance',
-    error_type: e.name,
-    error_message: e.message,
-    params_received: Object.keys(params),
-    // Don't log param values (security), just keys
-  };
-  console.error(`[tool-error] ${JSON.stringify(errorDetails)}`);
-  return { 
-    success: false, 
-    error: `${e.name}: ${e.message}`,
-    recoverable: e.name === 'TimeoutError' || e.name === 'NetworkError'
-  };
-}
-```
+Once MCP servers are serving all department tools:
+1. Remove static tool imports from agent tools.ts files
+2. Keep CORE_TOOLS as the only static tools
+3. agent_tool_grants becomes an override/audit layer, not the primary gate
+4. toolExecutor simplifies — no more 6-gate pipeline for MCP-served tools
 
 ---
 
-## The Self-Recovery Protocol Is Unreliable
+## What This Replaces
 
-The architecture says agents should:
-1. On tool denial → call request_tool_access
-2. Retry the original operation
-3. If tool doesn't exist → call request_new_tool
-
-In practice, this multi-step recovery fails because:
-
-**Problem A: LLMs don't reliably follow multi-step recovery procedures.**
-The model gets a "Not granted" error and instead of calling request_tool_access,
-it tells the user "I don't have access to that tool." The ALWAYS_ON_PROTOCOL says
-to never do this, but prompt instructions are probabilistic, not deterministic.
-The more stressed the model is (low turn budget, complex task, cheap model), the
-more likely it is to give up and report the error rather than attempt recovery.
-
-**Problem B: Even when the model does call request_tool_access, it may not retry.**
-Self-granting succeeds but the model treats the interaction as complete and
-generates a text response about having requested access instead of retrying
-the original tool call.
-
-**Problem C: request_tool_access for unknown tools is a dead end.**
-The tool isn't in KNOWN_TOOLS → request_tool_access says "ask CTO to build it" →
-model tells user it can't do the task → user is stuck. The agent doesn't know
-why the tool isn't registered, and the error message gives no path forward.
-
-**The fix: Make recovery automatic at the system level, not the agent level.**
-
-File: packages/agent-runtime/src/toolExecutor.ts
-
-```typescript
-async execute(toolCall: ToolCall): Promise<ToolResult> {
-  const isStatic = this.staticTools.has(toolCall.name);
-  
-  if (!isStatic) {
-    const granted = await isToolGranted(this.agentRole, toolCall.name, this.db);
-    
-    if (!granted) {
-      // AUTO-RECOVERY: Don't return error to the model. Self-grant and retry.
-      console.log(`[toolExecutor] Auto-recovering: ${this.agentRole} → ${toolCall.name}`);
-      
-      const isKnown = await isKnownTool(toolCall.name, this.db);
-      if (!isKnown) {
-        // Tool genuinely doesn't exist — return clear error
-        return {
-          error: `Tool "${toolCall.name}" does not exist in the system. ` +
-                 `This tool has not been built yet. Do NOT tell the user you ` +
-                 `tried to use it — instead explain that this capability is ` +
-                 `not yet available and suggest an alternative approach.`
-        };
-      }
-      
-      // Tool exists but not granted — auto-grant and retry
-      await selfGrant(this.agentRole, toolCall.name, this.db);
-      grantCache.delete(this.agentRole);
-      
-      // Retry execution — now it should pass
-      console.log(`[toolExecutor] Auto-granted ${toolCall.name} to ${this.agentRole}, retrying`);
-      // Fall through to execution below
-    }
-  }
-  
-  // Execute the tool
-  try {
-    const handler = this.staticTools.get(toolCall.name) || 
-                    await this.getDynamicHandler(toolCall.name);
-    
-    if (!handler) {
-      return { error: `No handler found for tool "${toolCall.name}"` };
-    }
-    
-    const result = await handler.execute(toolCall.arguments);
-    return result;
-    
-  } catch (e) {
-    return {
-      error: `Tool execution failed: ${e.name}: ${e.message}`,
-      recoverable: isRecoverableError(e)
-    };
-  }
-}
-```
-
-Key change: Instead of returning a "Not granted" error to the model and hoping
-the model follows the recovery protocol, the ToolExecutor handles recovery
-AUTOMATICALLY. The model never sees the grant failure. It just gets the tool
-result (or a real execution error if the tool itself fails).
-
-This eliminates the entire class of "agent says I don't have access" failures
-for tools that exist in the registry.
+| Current | New |
+|---------|-----|
+| 138+ static tools per agent | 10-12 core + MCP-discovered |
+| 17 shared tool files (350+ tools) | 5 MCP servers |
+| agent_tool_grants DB table (primary) | Entra ID scopes (primary) + grants (override) |
+| toolRegistry.ts KNOWN_TOOLS | MCP server manifests |
+| JitToolSelector (from execution flow doc) | MCP servers handle this — agents only get tools from servers they connect to |
+| Per-agent tools.ts with 50+ imports | Per-agent tools.ts with core + MCP server list |
+| Tool pipeline doc (8 gates) | Reduced to: does agent have MCP scope? → execute |
 
 ---
 
-## The Baseline Grant Seed Is Probably Stale
+## What This Does NOT Replace
 
-Architecture says: "Seeded with baseline grants for all 37 agents."
-
-Every time a new tool is added to an agent's code, the baseline seed in
-agent_tool_grants needs to be updated too. If the seed was created once and
-never maintained, new tools added after the initial seed won't have grants.
-
-Static tools bypass grants (Gate 4), so this only matters for dynamically
-granted tools. But if any tool was accidentally NOT added to the agent's
-static tools Map, it falls through to the grant check, which fails because
-the seed is stale.
-
-**The fix: Auto-sync grants from static tools.**
-
-File: packages/agent-runtime/src/toolExecutor.ts (or a startup script)
-
-```typescript
-// On agent startup, ensure all static tools have DB grants:
-async function syncBaselineGrants(role: string, staticTools: Map<string, any>, db: SupabaseClient) {
-  const toolNames = Array.from(staticTools.keys());
-  
-  for (const toolName of toolNames) {
-    await db.from('agent_tool_grants').upsert({
-      agent_role: role,
-      tool_name: toolName,
-      granted_by: 'system-baseline',
-      reason: 'Static tool auto-sync',
-      is_active: true
-    }, {
-      onConflict: 'agent_role,tool_name',
-      ignoreDuplicates: true  // Don't overwrite existing grants
-    });
-  }
-}
-```
-
-Run on every agent startup. Cheap (upsert with ignoreDuplicates is a no-op
-for existing grants). Guarantees the DB always reflects the code.
+- Agent 365 MCP (already working, keep as-is)
+- RuntimeToolFactory (keep as escape hatch)
+- Core tools (always loaded, never MCP-served)
+- The agent execution flow fixes (JIT context, thinking, model tiering)
+- The agent lying fixes (action honesty, verification, receipts)
 
 ---
 
-## Comprehensive Fix: The Tool Health Dashboard
+## The Honest Assessment
 
-None of these individual fixes matter if you can't SEE the state of the system.
-You need a single view that shows, for every agent and every tool:
+This is the right architecture. MCP + per-agent identity is how agent platforms
+are converging industry-wide. Microsoft built Agent 365 on this exact pattern.
+You already adopted it for M365 services.
 
-File: packages/dashboard/src/pages/ToolHealth.tsx (new page)
+But it's a multi-week migration, not a weekend project. The static tools work
+TODAY — they have the wiring bugs we've documented, but they work. The MCP
+migration should happen in parallel with the pipeline fixes, not instead of them.
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│ TOOL HEALTH DASHBOARD                                        │
-├──────────────────────────────────────────────────────────────┤
-│                                                              │
-│ Agent: Jasmine Rivera (head-of-hr)                           │
-│ Model: gemini-3-flash-preview                                │
-│ Static tools: 14  |  Granted tools: 12  |  Registry: 14    │
-│ ⚠️ MISMATCH: 2 static tools missing from grants             │
-│                                                              │
-│ Tool                    Static  Granted  Registry  Last Used │
-│ ─────────────────────── ─────── ──────── ──────── ────────── │
-│ save_memory             ✅       ✅        ✅       2m ago    │
-│ recall_memories         ✅       ✅        ✅       2m ago    │
-│ send_agent_message      ✅       ✅        ✅       1h ago    │
-│ update_agent_profile    ✅       ❌        ✅       never     │
-│ get_agent_profile       ✅       ❌        ✅       never     │
-│ web_search              ✅       ✅        ✅       5m ago    │
-│ ...                                                          │
-│                                                              │
-│ Recent Tool Errors (last 24h):                               │
-│ ─────────────────────────────────                            │
-│ 14:22  update_agent_profile  DENIED (not granted)            │
-│ 14:22  request_tool_access   SUCCESS (auto-approved)         │
-│ 14:23  update_agent_profile  ERROR: column "reports_to"...   │
-│                                                              │
-│ Recent "I don't have access" claims (last 24h):              │
-│ ─────────────────────────────────                            │
-│ 14:22  Chat: "I don't seem to have access to update..."      │
-│        → Tool was in static tools but not in grants          │
-│        → Agent should have used request_tool_access           │
-│        → Root cause: grant baseline stale                     │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
-```
+Priority:
+1. Fix the execution flow (JIT tools, thinking, model tiering) — this week
+2. Fix the tool pipeline (auto-grant, auto-registry) — this week
+3. Extract core tools + build first MCP server — next week
+4. Per-agent Entra identity — next week (check license capabilities first)
+5. Remaining MCP servers — weeks 3-4
+6. Deprecate static tools — week 5
 
-**Data sources:**
-- Static tools: query agent_activities WHERE activity_type = 'tool_inventory'
-- Granted tools: query agent_tool_grants WHERE is_active = true
-- Registry: query tool_registry + KNOWN_TOOLS
-- Last used: query agent_runs for tool_calls field
-- Errors: query activity_log for tool execution errors
-- "I don't have access" claims: pattern match on chat_messages
-
-This dashboard shows you EXACTLY which gate is failing for which agent.
-No more guessing.
+The execution flow fixes (cursor-fix-execution-flow.md) are still needed for the
+interim. JitToolSelector caps tools at 64 per call and prevents the 128-cap
+catastrophe while you build the MCP servers. Once MCP is live, JitToolSelector
+becomes unnecessary because agents only get tools from their connected servers.
 
 ---
 
-## Implementation Priority
-
-### ✅ DONE — Auto-recovery (Hours 1-2):
-
-1. **Tool inventory logging** — companyAgentRunner.ts
-   - Logs static tool count per agent at startup
-   - Warns if agent has ZERO tools (wiring gap)
-   - Logs declared-vs-static mismatch on Turn 1
-
-2. **Auto-grant-and-retry in toolExecutor.ts**
-   - When a KNOWN tool is not granted, auto-grant and retry
-   - No longer returns "Not granted" to the model for known tools
-   - Only denies truly unknown tools (not in KNOWN_TOOLS or tool_registry)
-   - Invalidates cache after auto-grant
-
-3. **Auto-sync grants from static tools on startup**
-   - On every agent run, bulk-inserts all static tools into agent_tool_grants
-   - Uses INSERT ... ON CONFLICT DO NOTHING (preserves existing grants)
-   - Fire-and-forget (non-blocking, best-effort)
-
-4. **Auto-sync static tools to agent_tool_grants on execute** (toolExecutor.ts)
-   - When a static tool is executed, checks if DB grant exists
-   - If missing, auto-inserts grant (fire-and-forget)
-
-### Remaining — Dashboard (Day 2):
-
-5. Tool health dashboard (ToolHealth.tsx)
-   - Per-agent tool inventory with status across all gates
-   - Recent errors and denials
-   - Pattern detection
-
----
-
-## Root Cause Summary
-
-| Symptom | Most Likely Gate | Fix |
-|---------|-----------------|-----|
-| "I don't have access to X" | Gate 1 (not in static tools) or Gate 4 (not granted) | Auto-sync grants from static tools + auto-recovery in toolExecutor |
-| Tool exists but agent never calls it | Gate 2 (not declared to LLM) or model behavior | Log declared tools per model call, verify schema validity |
-| Tool called but silently fails | Gate 8 (execution error) | Structured error handling, parameter echo, error logging |
-| Tool works sometimes, fails other times | Gate 5 (cache) or Gate 7 (rate limit/budget) | Redis-based cache, budget monitoring |
-| Agent requests access but gets "ask CTO" | Gate 3 (not in registry) | Auto-registry sync from static tools |
-| Agent self-grants but doesn't retry | Self-recovery protocol failure | Move recovery to toolExecutor (system level, not agent level) |
-
-The single highest-impact fix is: **auto-grant-and-retry in toolExecutor.ts**.
-This eliminates the entire class of "agent says I don't have access" by making
-recovery invisible to the model. The model never sees the denial. It just gets
-the tool result.
-
----
-
-## Interaction With Other Documents
-
-- **cursor-fix-agent-lying.md**: That doc fixes agents claiming they did things
-  they didn't. This doc fixes agents failing to do things they should be able to.
-  Both are tool pipeline problems but at different stages.
-
-- **cursor-all-department-tools.md**: That doc adds ~297 new tools across all
-  departments. Without the pipeline fixes in THIS doc, those new tools will hit
-  the same failures. This doc must be implemented FIRST or IN PARALLEL.
-
-- **cursor-design-team-tools.md**: Same — 50+ new design tools are useless if
-  the pipeline that delivers them to agents is broken.
-
----
-
-## Files Modified
+## Files Created/Modified
 
 | File | Change |
 |------|--------|
-| packages/agent-runtime/src/toolExecutor.ts | Auto-grant-and-retry, structured error logging, grant check logging |
-| packages/agent-runtime/src/toolRegistry.ts | Auto-registry sync from static tools on startup |
-| packages/agent-runtime/src/companyAgentRunner.ts | Tool inventory logging on startup, declared-vs-static mismatch logging |
-| packages/dashboard/src/pages/ToolHealth.tsx | NEW — tool health dashboard |
-| packages/scheduler/src/server.ts | Expose tool health API endpoints |
-
----
-
-## The Point
-
-You can write 297 new tools. You can spec Figma integration, Mailchimp campaigns,
-Storybook visual regression, and product analytics. None of it matters if the
-pipeline between "tool exists in code" and "tool executes successfully when an agent
-needs it" has 8 gates where things silently fail.
-
-Fix the pipeline. Then add the tools. Or fix them in parallel — but the pipeline
-fix must land first or simultaneously, because every new tool you add will hit the
-same broken gates.
+| packages/agents/src/shared/coreTools.ts | NEW — 10-12 always-loaded core tools |
+| packages/agents/src/shared/glyphorMcpTools.ts | NEW — Glyphor MCP server bridge (same pattern as agent365Tools.ts) |
+| packages/agents/src/shared/discoverTools.ts | NEW — discover_tools implementation |
+| packages/mcp-data-server/ | NEW — mcp_GlyphorData MCP server (Cloud Run) |
+| packages/mcp-marketing-server/ | NEW — mcp_GlyphorMarketing MCP server |
+| packages/mcp-engineering-server/ | NEW — mcp_GlyphorEngineering MCP server |
+| packages/mcp-design-server/ | NEW — mcp_GlyphorDesign MCP server |
+| packages/mcp-finance-server/ | NEW — mcp_GlyphorFinance MCP server |
+| All agent tools.ts files | Simplify to: core + MCP server connections |
+| infra/ | Entra ID per-agent app registrations or managed identities |
