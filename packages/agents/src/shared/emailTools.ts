@@ -57,10 +57,20 @@ function formatEmailHtml(body: string, agent: AgentEmailEntry): string {
 /* ── Factory ──────────────────────────────── */
 
 export function createEmailTools(): ToolDefinition[] {
-  // Initialize Graph email client — will be null if Azure credentials aren't set
+  // Initialize Graph email client using the dedicated AZURE_MAIL app registration,
+  // which has Mail.Send + Mail.ReadWrite scoped permissions.
+  // Falls back to the main AZURE_CLIENT_ID if AZURE_MAIL_ vars aren't set.
   let emailClient: GraphEmailClient | null = null;
   try {
-    const graphClient = GraphTeamsClient.fromEnv();
+    const tenantId = process.env.AZURE_TENANT_ID;
+    const mailClientId = process.env.AZURE_MAIL_CLIENT_ID ?? process.env.AZURE_CLIENT_ID;
+    const mailClientSecret = process.env.AZURE_MAIL_CLIENT_SECRET ?? process.env.AZURE_CLIENT_SECRET;
+
+    if (!tenantId || !mailClientId || !mailClientSecret) {
+      throw new Error('Missing mail credentials');
+    }
+
+    const graphClient = new GraphTeamsClient({ tenantId, clientId: mailClientId, clientSecret: mailClientSecret });
     emailClient = GraphEmailClient.fromEnv(graphClient);
   } catch {
     // Graph API not configured — tools will return helpful error
