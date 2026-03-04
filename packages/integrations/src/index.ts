@@ -221,6 +221,20 @@ export {
   type PulseAsset,
 } from './pulse/index.js';
 
+// DocuSign eSignature — envelope creation, signing, status tracking
+export {
+  DocuSignClient,
+  type DocuSignConfig,
+  type Signer as DocuSignSigner,
+  type SignerTabs,
+  type TabPosition,
+  type EnvelopeDocument,
+  type CreateEnvelopeOptions,
+  type EnvelopeStatus,
+  type RecipientStatus,
+  type EnvelopeSummary,
+} from './docusign/index.js';
+
 // Canva Connect API — design creation, brand templates, autofill, export
 export {
   createDesign,
