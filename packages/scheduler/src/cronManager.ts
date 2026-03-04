@@ -404,7 +404,7 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     schedule: '0 10 * * *',    // 10:00 UTC = 4:00 AM CT, daily
     timezone: 'UTC',
     endpoint: '/sync/sharepoint-knowledge',
-    enabled: true,
+    enabled: false,  // disabled — SharePoint site URL not configured (never succeeded)
   },
   // Heartbeat — lightweight agent check-ins (no Gemini calls, DB only)
   {
@@ -420,7 +420,7 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     schedule: '0 4 * * 0',     // 4:00 UTC Sunday = 10:00 PM CT Saturday
     timezone: 'UTC',
     endpoint: '/sync/graphrag-index',
-    enabled: true,
+    enabled: false,  // disabled — GraphRAG indexer service not deployed (never succeeded)
   },
   // GraphRAG prompt auto-tune — monthly
   {
@@ -428,7 +428,7 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     schedule: '0 3 1 * *',     // 3:00 UTC 1st of month
     timezone: 'UTC',
     endpoint: '/sync/graphrag-tune',
-    enabled: true,
+    enabled: false,  // disabled — GraphRAG indexer service not deployed (never succeeded)
   },
 ];
 
