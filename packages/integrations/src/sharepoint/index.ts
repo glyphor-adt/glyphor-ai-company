@@ -293,6 +293,52 @@ async function listChildren(
   return items;
 }
 
+/**
+ * Download Office documents (docx, pptx, xlsx) as readable text via Graph API PDF conversion.
+ * Falls back to HTML conversion if PDF is unavailable.
+ */
+async function downloadOfficeAsText(
+  token: string,
+  siteId: string,
+  driveId: string,
+  itemId: string,
+  fileName: string,
+): Promise<string> {
+  // Graph API can convert Office docs to HTML for text extraction
+  const htmlUrl = `${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/drives/${encodeDriveId(driveId)}/items/${encodeURIComponent(itemId)}/content?format=html`;
+  const htmlRes = await fetch(htmlUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+    redirect: 'follow',
+  });
+
+  if (htmlRes.ok) {
+    const html = await htmlRes.text();
+    // Strip HTML tags to get plain text
+    return html
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<\/div>/gi, '\n')
+      .replace(/<\/tr>/gi, '\n')
+      .replace(/<\/li>/gi, '\n')
+      .replace(/<td[^>]*>/gi, '\t')
+      .replace(/<li[^>]*>/gi, '- ')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  // Fallback: return a message that the doc exists but can't be converted
+  throw new Error(`Cannot read ${fileName} — Graph API HTML conversion returned ${htmlRes.status}. The document exists but its content cannot be extracted.`);
+}
+
 async function downloadTextContent(
   token: string,
   siteId: string,
@@ -622,14 +668,29 @@ export async function searchSharePoint(
   const data: any = await response.json();
   const hits = data.value?.[0]?.hitsContainers?.[0]?.hits ?? [];
 
-  return hits.map((hit: { resource: GraphDriveItem & { size?: number } }) => ({
-    id: hit.resource.id,
-    name: hit.resource.name,
-    path: normalizeParentPath(hit.resource.parentReference?.path) + '/' + hit.resource.name,
-    webUrl: hit.resource.webUrl ?? null,
-    lastModified: hit.resource.lastModifiedDateTime ?? null,
-    size: hit.resource.size,
-  }));
+  const rootFolder = (process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge').trim();
+
+  return hits.map((hit: { resource: GraphDriveItem & { size?: number } }) => {
+    // Build the full path from the Graph parentReference
+    const parentPath = normalizeParentPath(hit.resource.parentReference?.path);
+    const fullPath = parentPath ? parentPath + '/' + hit.resource.name : hit.resource.name;
+
+    // Strip the rootFolder prefix so the path is relative to the knowledge root —
+    // this matches what read_sharepoint_document expects.
+    let relativePath = fullPath;
+    if (relativePath.startsWith(rootFolder + '/')) {
+      relativePath = relativePath.slice(rootFolder.length + 1);
+    }
+
+    return {
+      id: hit.resource.id,
+      name: hit.resource.name,
+      path: relativePath,
+      webUrl: hit.resource.webUrl ?? null,
+      lastModified: hit.resource.lastModifiedDateTime ?? null,
+      size: hit.resource.size,
+    };
+  });
 }
 
 /**
@@ -677,12 +738,95 @@ export async function readSharePointDocument(
 
   const meta = (await metaRes.json()) as GraphDriveItem;
 
-  // Download content
-  const content = await downloadTextContent(token, siteId, driveId, meta.id);
+  // Download content — use conversion for Office formats, raw text for md/txt
+  const ext = getExtension(meta.name).toLowerCase();
+  const OFFICE_EXTENSIONS = new Set(['.docx', '.doc', '.pptx', '.ppt', '.xlsx', '.xls']);
+  let content: string;
+
+  if (OFFICE_EXTENSIONS.has(ext)) {
+    content = await downloadOfficeAsText(token, siteId, driveId, meta.id, meta.name);
+  } else {
+    content = await downloadTextContent(token, siteId, driveId, meta.id);
+  }
 
   return {
     content,
     webUrl: meta.webUrl ?? null,
     lastModified: meta.lastModifiedDateTime ?? null,
+  };
+}
+
+/**
+ * Create a SharePoint site page with HTML content.
+ * Uses the Graph API beta endpoint for site pages.
+ */
+export async function createSharePointPage(
+  title: string,
+  htmlContent: string,
+  options?: { siteId?: string; description?: string; promotionKind?: 'page' | 'newsPost' },
+): Promise<{ id: string; webUrl: string }> {
+  const siteId = (options?.siteId ?? process.env.SHAREPOINT_SITE_ID ?? '').trim();
+  if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
+
+  const token = await getM365Token('write_sharepoint');
+  const promotionKind = options?.promotionKind ?? 'page';
+
+  // Create the page
+  const createUrl = `${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/pages`;
+  const createRes = await fetch(createUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      '@odata.type': '#microsoft.graph.sitePage',
+      name: `${title.replace(/[<>:"/\\|?*]/g, '-').replace(/\s+/g, '-')}.aspx`,
+      title,
+      pageLayout: 'article',
+      promotionKind,
+      ...(options?.description ? { description: options.description } : {}),
+      canvasLayout: {
+        horizontalSections: [
+          {
+            layout: 'fullWidth',
+            columns: [
+              {
+                width: 12,
+                webparts: [
+                  {
+                    '@odata.type': '#microsoft.graph.textWebPart',
+                    innerHtml: htmlContent,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    }),
+  });
+
+  if (!createRes.ok) {
+    const errText = await createRes.text();
+    throw new Error(`Failed to create SharePoint page (${createRes.status}): ${errText}`);
+  }
+
+  const page = (await createRes.json()) as { id: string; webUrl?: string };
+
+  // Publish the page so it's visible
+  const publishUrl = `${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/pages/${encodeURIComponent(page.id)}/microsoft.graph.sitePage/publish`;
+  const publishRes = await fetch(publishUrl, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!publishRes.ok) {
+    console.warn(`[SharePoint] Page created but publish failed (${publishRes.status})`);
+  }
+
+  return {
+    id: page.id,
+    webUrl: page.webUrl ?? '',
   };
 }

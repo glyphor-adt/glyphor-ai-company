@@ -2,8 +2,8 @@
  * SharePoint Tools — Shared tools for knowledge management
  *
  * Provides search_sharepoint, read_sharepoint_document, upload_to_sharepoint,
- * and list_sharepoint_folders tools. These allow agents to interact with
- * the company knowledge SharePoint site directly.
+ * list_sharepoint_folders, and create_sharepoint_page tools. These allow agents
+ * to interact with the company knowledge SharePoint site directly.
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
@@ -12,6 +12,7 @@ import {
   readSharePointDocument,
   uploadToSharePoint,
   listSharePointFolders,
+  createSharePointPage,
 } from '@glyphor/integrations';
 
 /**
@@ -64,11 +65,12 @@ export function createSharePointTools(): ToolDefinition[] {
       name: 'read_sharepoint_document',
       description:
         'Read the full content of a document from SharePoint. ' +
-        'Provide the file path relative to the knowledge root (e.g., "Strategy/CORE.md").',
+        'Supports .md, .txt, .docx, .doc, .pptx, .xlsx files. ' +
+        'Provide the file path as returned by search_sharepoint (e.g., "Strategy/CORE.md").',
       parameters: {
         path: {
           type: 'string',
-          description: 'File path within the knowledge root (e.g., "Strategy/CORE.md", "Products/Pulse/roadmap.md")',
+          description: 'File path as returned by search_sharepoint (e.g., "Strategy/CORE.md", "Products/Pulse/roadmap.md")',
           required: true,
         },
       },
@@ -157,6 +159,58 @@ export function createSharePointTools(): ToolDefinition[] {
             data: folders.length > 0
               ? `Folders: ${folders.join(', ')}`
               : 'No folders found in knowledge root.',
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'create_sharepoint_page',
+      description:
+        'Create a new page on the company SharePoint site. ' +
+        'The page is published immediately. Content should be HTML. ' +
+        'Use this for announcements, reports, wiki pages, or news posts.',
+      parameters: {
+        title: {
+          type: 'string',
+          description: 'Page title (e.g., "Q1 Growth Strategy", "Engineering Standards")',
+          required: true,
+        },
+        content: {
+          type: 'string',
+          description: 'Page body in HTML (e.g., "<h2>Overview</h2><p>Key findings...</p>")',
+          required: true,
+        },
+        type: {
+          type: 'string',
+          description: 'Page type: "page" for standard page, "newsPost" for news article (default: "page")',
+          required: false,
+        },
+        description: {
+          type: 'string',
+          description: 'Short description for the page (optional)',
+          required: false,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        try {
+          const result = await createSharePointPage(
+            params.title as string,
+            params.content as string,
+            {
+              promotionKind: (params.type as 'page' | 'newsPost') ?? 'page',
+              description: params.description as string | undefined,
+            },
+          );
+          return {
+            success: true,
+            data: {
+              pageId: result.id,
+              webUrl: result.webUrl,
+              message: `SharePoint page "${params.title}" created and published.`,
+            },
           };
         } catch (err) {
           return { success: false, error: (err as Error).message };
