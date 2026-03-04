@@ -1,0 +1,30 @@
+# ─── Stage 1: Build ───────────────────────────────────────────
+FROM node:22-slim AS builder
+
+WORKDIR /app
+
+COPY package.json package-lock.json turbo.json tsconfig.base.json ./
+COPY packages/mcp-design-server/package.json ./packages/mcp-design-server/package.json
+
+RUN npm ci
+
+COPY packages/mcp-design-server/ packages/mcp-design-server/
+
+RUN npx turbo build --filter=@glyphor/mcp-design-server
+
+# ─── Stage 2: Runtime ────────────────────────────────────────
+FROM node:22-slim AS runtime
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY packages/mcp-design-server/package.json ./packages/mcp-design-server/package.json
+
+RUN npm ci --omit=dev
+
+COPY --from=builder /app/packages/mcp-design-server/dist packages/mcp-design-server/dist
+
+ENV NODE_ENV=production
+EXPOSE 8080
+
+CMD ["node", "packages/mcp-design-server/dist/index.js"]
