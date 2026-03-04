@@ -1,6 +1,6 @@
 # Glyphor AI Company — System Architecture
 
-> Last updated: 2026-03-04 (Anthropic → Vertex AI migration, Agent 365 MCP integration, avatar upload, claude-sonnet-4-5 added)
+> Last updated: 2026-03-04 (MCP architecture Week 1 — core tools, MCP data server, Glyphor MCP bridge, tool pipeline fixes, Figma OAuth)
 
 ## Overview
 
@@ -182,6 +182,13 @@ auditing, lead generation, and executive assistantship.
 │  └─────────────────────────────┘  │  └──────────────────────────────┘
 │                                   │
 │  Shared agent tools:              │
+│   ├─ coreTools (11 always-loaded  │
+│   │  tools: assignments, comms,   │
+│   │  memory, tool-requests, events│
+│   │  — extracted via coreTools.ts)│
+│   ├─ glyphorMcpTools (bridge to   │
+│   │  Glyphor MCP data/action      │
+│   │  servers via JSON-RPC 2.0)    │
 │   ├─ memoryTools (save/recall)    │
 │   ├─ eventTools (emit events)     │
 │   ├─ communicationTools           │
@@ -608,7 +615,7 @@ glyphor-ai-company/
 │   │       │   ├── anthropic.ts           # AnthropicAdapter (Vertex AI on GCP, adaptive thinking, unique tool_use IDs)
 │   │       │   └── index.ts               # ProviderFactory (lazy singleton per provider)
 │   │       ├── supervisor.ts           # Per-turn stall detection, turn limits, timeouts
-│   │       ├── toolExecutor.ts         # Tool declaration → execution bridge
+│   │       ├── toolExecutor.ts         # Tool declaration → execution bridge (auto-grant known tools, auto-sync grants on startup)
 │   │       ├── eventBus.ts             # Internal event system
 │   │       ├── glyphorEventBus.ts      # Inter-agent event bus (Cloud SQL-backed)
 │   │       ├── eventPermissions.ts     # Per-tier event emission permissions
@@ -689,11 +696,15 @@ glyphor-ai-company/
 │   │       │   ├── assetTools.ts         # DALL-E image gen, upload, optimize
 │   │       │   ├── scaffoldTools.ts      # component/page scaffolding from templates
 │   │       │   ├── deployPreviewTools.ts # Vercel preview deployments
-│   │       │   ├── figmaAuth.ts          # Figma OAuth token manager
-│   │       │   ├── figmaTools.ts         # 17 Figma REST API tools
+│   │       │   ├── figmaAuth.ts          # Figma OAuth token manager (auto-refreshing via FIGMA_REFRESH_TOKEN)
+│   │       │   ├── figmaTools.ts         # 17 Figma REST API tools (file-level; team-level requires paid plan)
 │   │       │   ├── storybookTools.ts     # Storybook visual testing & coverage
 │   │       │   ├── agent365Tools.ts      # Agent 365 MCP tool factory — createAgent365McpTools(serverFilter?)
 │   │       │   │                         #   Gate-checked: returns [] if AGENT365_ENABLED != 'true'
+│   │       │   ├── coreTools.ts          # 11 always-loaded core tools (assignments, comms, memory, events, tool-requests)
+│   │       │   │                         #   createCoreTools(deps) — extracts from existing factories, exports CORE_TOOL_NAMES
+│   │       │   ├── glyphorMcpTools.ts    # Bridge to Glyphor MCP servers (data, marketing, engineering, design, finance)
+│   │       │   │                         #   createGlyphorMcpTools(agentRole?, serverFilter?) — JSON-RPC 2.0, gate: GLYPHOR_MCP_ENABLED
 │   │       │   ├── runDynamicAgent.ts    # Runner for DB-defined agents (no file-based runner)
 │   │       │   ├── createRunDeps.ts      # Wire up all run dependencies for any agent
 │   │       │   └── createRunner.ts       # Runner factory: role + task → Orchestrator/Task/CompanyAgent
@@ -905,6 +916,16 @@ glyphor-ai-company/
 │   │       ├── toolBridge.ts          # Bridge agent tools into voice sessions
 │   │       └── types.ts              # VoiceSession, AgentVoiceConfig, RealtimeVoice
 │   │
+│   ├── mcp-data-server/         # Glyphor MCP Data Server (Cloud Run service)
+│   │   └── src/
+│   │       ├── index.ts               # HTTP server (:8080), POST /mcp (JSON-RPC 2.0), GET /health
+│   │       ├── tools.ts               # 12 parameterized read-only SQL query tools (content, SEO, finance,
+│   │       │                          #   analytics, support, research, agents, operations)
+│   │       └── scopes.ts              # SCOPE_TABLE_MAP — Entra scopes → allowed database tables
+│   │   ├── Dockerfile                 # Multi-stage node:22-slim build
+│   │   ├── package.json               # @modelcontextprotocol/sdk + pg deps
+│   │   └── tsconfig.json              # Extends tsconfig.base.json
+│   │
 │   └── graphrag-indexer/        # Knowledge graph indexer (Python)
 │       └── graphrag_indexer/
 │           ├── config.py              # Configuration (Gemini, embeddings, Cloud SQL)
@@ -978,11 +999,14 @@ glyphor-ai-company/
 │       ├── adi-rose/            # Executive Assistant bot
 │       └── ... (24 more)        # All other agents
 │
-├── db/migrations/               # 86 SQL migration files (historical, pre-GCP)
+├── db/migrations/               # 92 SQL migration files (historical, pre-GCP + 6 new tool tables)
 ├── .github/workflows/deploy.yml # CI/CD (GitHub Actions → Cloud Run)
+├── scripts/
+│   ├── figma-oauth.cjs          # One-time Figma OAuth flow (local callback on :3847)
+│   └── run-seed.mjs             # Database seeding script
 ├── a365.config.json             # Agent 365 tenant/subscription/app IDs
 ├── a365.generated.config.json   # Agent 365 generated blueprint state
-├── ToolingManifest.json         # Agent 365 MCP server registry (5 servers)
+├── ToolingManifest.json         # MCP server registry (5 Microsoft + 5 Glyphor = 10 servers)
 ├── turbo.json                   # Turborepo pipeline config
 ├── tsconfig.base.json           # Shared TS config
 └── package.json                 # npm workspaces root
@@ -1843,6 +1867,12 @@ skill system and dynamic grant system verify tool availability without importing
 tool module. Grant requests for unknown tools are rejected with a message to ask the CTO
 to build it first.
 
+**Auto-grant pipeline**: When an agent calls any tool in the `KNOWN_TOOLS` set that it hasn't
+been granted, `toolExecutor.ts` auto-grants and retries — the model never sees "Not granted"
+for known tools. At agent startup, `companyAgentRunner.ts` bulk-inserts all static tools into
+`agent_tool_grants` (fire-and-forget `INSERT ON CONFLICT DO NOTHING`). Startup also logs a
+tool inventory (static count, DB count, total) and warns on declared-vs-static mismatches.
+
 ### Intelligence Engine Enhancements
 
 Added 2026-02-28. Eight cross-cutting modules that strengthen agent governance,
@@ -2125,7 +2155,10 @@ without code changes.
 
 **Runtime enforcement** (`toolExecutor.ts`): Before executing any tool call, `ToolExecutor`
 checks `isToolGranted(agentRole, toolName, db)`. Grants are cached per-role for 60 seconds
-to avoid per-call DB queries. Cache is invalidated immediately on grant/revoke.
+to avoid per-call DB queries. Cache is invalidated immediately on grant/revoke. **Auto-grant:**
+When any tool in the `KNOWN_TOOLS` set is called but not granted, `toolExecutor` auto-grants
+it and retries — the model never sees "Not granted" for known tools (was previously read-only
+only, now covers all known tools).
 
 **Static tool bypass**: Tools defined in an agent's code (`this.tools` Map) always execute
 regardless of DB grant state. Missing DB grants are auto-synced on first use (fire-and-forget
@@ -2309,13 +2342,63 @@ Most agents filter to `['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot
 |------|---------|
 | `a365.config.json` | Static tenant/subscription/app IDs, Azure resource group (`glyphor-agent365`) |
 | `a365.generated.config.json` | Generated blueprint state (blueprint app ID, service principal) |
-| `ToolingManifest.json` | Registry of 5 MCP server URLs + scopes (dev mode) |
+| `ToolingManifest.json` | Registry of 10 MCP server URLs + scopes (5 Microsoft + 5 Glyphor) |
 
 **Entra ID apps:**
 - **Client app:** `06c728b6-0111-4cb1-a708-d57c51128649` (Glyphor AI Bot)
 - **Blueprint app:** `5604df3b-a3a3-4c7e-a8c4-e6f9ed04ad6a` (agent auth, SP: `28079457-37d9-483c-b7bb-fe6920083b8e`)
 
 **Dependencies:** `@microsoft/agents-a365-runtime`, `@microsoft/agents-a365-tooling` (`^0.1.0-preview.115`), `@azure/msal-node`
+
+### Glyphor MCP Architecture — Internal MCP Servers
+
+Glyphor is migrating its tool architecture toward a multi-server MCP model (see `docs/MCP.md`).
+Internal MCP servers replace direct DB queries and external API calls with a standardized
+JSON-RPC 2.0 protocol, enabling per-agent scoping via Entra app roles.
+
+**Architecture:**
+
+```
+Agent run.ts → createGlyphorMcpTools(agentRole?, serverFilter?)
+  → glyphorMcpTools.ts (gate check: GLYPHOR_MCP_ENABLED='true')
+  → JSON-RPC 2.0 POST to Glyphor MCP server(s)
+  → MCP server (e.g., mcp-data-server) validates scope + executes
+```
+
+**Glyphor MCP Servers (5 registered, 1 deployed):**
+
+| Server | Cloud Run Service | Status | Tools | Purpose |
+|--------|------------------|--------|-------|---------|
+| `glyphor_data` | `mcp-data-server` | ✅ Built | 12 | Read-only SQL queries (content, SEO, finance, analytics, support, research, agents, ops) |
+| `glyphor_marketing` | `mcp-marketing-server` | 🔲 Planned | — | Mailchimp, Mandrill, Search Console, social APIs |
+| `glyphor_engineering` | `mcp-engineering-server` | 🔲 Planned | — | GitHub, Vercel, Cloud Run, CI/CD |
+| `glyphor_design` | `mcp-design-server` | 🔲 Planned | — | Playwright screenshots, Figma, Storybook |
+| `glyphor_finance` | `mcp-finance-server` | 🔲 Planned | — | Stripe, Mercury, BigQuery billing |
+
+**MCP Data Server (`packages/mcp-data-server/`):**
+- HTTP server on `:8080`, handles `POST /mcp` (JSON-RPC 2.0) and `GET /health`
+- 12 parameterized read-only SQL query tools across 8 domains
+- Scope-based table access control via `SCOPE_TABLE_MAP` (Entra scopes → allowed tables)
+- PostgreSQL connection via `pg` Pool
+- Multi-stage Docker build (`node:22-slim`)
+
+**Core Tools (`packages/agents/src/shared/coreTools.ts`):**
+- 11 always-loaded tools extracted from existing factories: `read_my_assignments`,
+  `submit_assignment_output`, `flag_assignment_blocker`, `send_agent_message`,
+  `check_my_messages`, `call_meeting`, `save_memory`, `recall_memories`,
+  `emit_event`, `request_tool_access`, `request_new_tool`
+- `createCoreTools(deps)` returns filtered output from 5 existing factory functions
+- `CORE_TOOL_NAMES` Set exported for validation
+
+**Bridge (`packages/agents/src/shared/glyphorMcpTools.ts`):**
+- Discovers available tools via JSON-RPC `tools/list` on each MCP server
+- Converts MCP tool schemas → Glyphor `ToolDefinition` format
+- Routes `execute()` calls via JSON-RPC `tools/call`
+- Server URLs from env: `GLYPHOR_MCP_DATA_URL`, `GLYPHOR_MCP_MARKETING_URL`, etc.
+- Gracefully skips unreachable servers (logs warning, continues)
+
+**Migration status:** Week 1 complete (core tools, data server, bridge). Weeks 2-5 remaining
+(Entra identities, action servers, agent migration, toolExecutor simplification).
 
 **All-Department Shared Tools** (Waves 1-5):
 
@@ -2625,8 +2708,8 @@ Statuses: `pending` → `submitted` → `in_progress` → `review` → `merged` 
 | `packages/agent-runtime/src/workLoop.ts` | P1-P6 priority stack, proactive cooldowns, abort cooldowns |
 | `packages/scheduler/src/eventRouter.ts` | Event source routing (scheduler/manual/agent/event/webhook) |
 | `packages/agent-runtime/src/supervisor.ts` | Per-turn stall detection, turn/timeout enforcement, abort controller |
-| `packages/agent-runtime/src/toolExecutor.ts` | 5-layer enforcement: grants, scope, rate limit, budget, timeout |
-| `packages/agent-runtime/src/companyAgentRunner.ts` | On-demand chat runner: context → model → tools → reflect |
+| `packages/agent-runtime/src/toolExecutor.ts` | 5-layer enforcement: grants (auto-grant known tools), scope, rate limit, budget, timeout |
+| `packages/agent-runtime/src/companyAgentRunner.ts` | On-demand chat runner: context → model → tools → reflect. Tool inventory logging + auto-sync grants on startup |
 | `packages/agent-runtime/src/orchestratorRunner.ts` | Orchestrator archetype: OBSERVE→PLAN→DELEGATE→MONITOR→EVALUATE |
 | `packages/agent-runtime/src/taskRunner.ts` | Task archetype: RECEIVE→REASON→EXECUTE→REPORT |
 | `packages/agent-runtime/src/reasoningEngine.ts` | Multi-pass verification & cross-model consensus engine |
@@ -3065,6 +3148,7 @@ Requires `SCHEDULER_URL`, `DASHBOARD_URL`, `VOICE_GATEWAY_URL` env vars.
 | Cloud Run | `glyphor-chief-of-staff` | Dedicated CoS agent service |
 | Cloud Run | `voice-gateway` | Voice agent sessions (WebRTC + Teams) |
 | Cloud Run | `glyphor-worker` | GCP Cloud Tasks queue processor (agent runs + delivery) |
+| Cloud Run | `mcp-data-server` | Glyphor MCP Data Server — 12 read-only SQL query tools (planned deployment) |
 | Vertex AI | Claude models (`us-east5`) | Anthropic Claude inference via `@anthropic-ai/vertex-sdk` — IAM auth, no API key |
 | Cloud Tasks | `agent-runs`, `agent-runs-priority`, `delivery` | Background agent task queues |
 | Cloud Scheduler | 9 agent + 3 sync jobs | Agent triggers → Pub/Sub; data syncs → HTTP |
@@ -3092,6 +3176,7 @@ Requires `SCHEDULER_URL`, `DASHBOARD_URL`, `VOICE_GATEWAY_URL` env vars.
 | Stripe | Revenue tracking (MRR, churn, subscriptions) | `STRIPE_SECRET_KEY` |
 | Mercury | Banking (cash balance, cash flows, vendor subs) | `MERCURY_API_TOKEN` |
 | Agent 365 (Microsoft) | M365 MCP servers — agents access Email, Calendar, OneDrive/SharePoint, Teams, M365 Copilot via MCP bridge | `AGENT365_CLIENT_ID`, `AGENT365_CLIENT_SECRET`, `AGENT365_TENANT_ID`, `AGENT365_ENABLED=true` |
+| Figma | Design file access (file-level tools: file content, metadata, comments, variables) | `FIGMA_CLIENT_ID`, `FIGMA_CLIENT_SECRET`, `FIGMA_REFRESH_TOKEN` (OAuth 2.0, auto-refreshing access token) |
 
 ### Cloud Run URLs
 
@@ -3424,6 +3509,9 @@ push to main
 | `bot-app-id`, `bot-app-secret`, `bot-tenant-id` | Main bot |
 | `agent-bots` | JSON array of 10 agent bot configs |
 | `agent365-client-secret` | Agent 365 blueprint app (MSAL client credentials) |
+| `figma-client-id` | Figma OAuth app client ID |
+| `figma-client-secret` | Figma OAuth app client secret |
+| `figma-refresh-token` | Figma OAuth refresh token (stable, auto-refreshes access token) |
 
 ```bash
 # Full deploy (scheduler + chief-of-staff + dashboard)
