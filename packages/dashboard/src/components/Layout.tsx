@@ -28,7 +28,7 @@ export default function Layout() {
       <aside className="flex w-[220px] flex-col border-r border-prism-border bg-prism-card transition-colors duration-200">
         {/* Brand */}
         <div className="px-4 py-4">
-          <img src="/glyphor_new.png" alt="glyphor" className="h-8" />
+          <img src="/Glyphor_new.png" alt="glyphor" className="h-8" />
         </div>
 
         {/* Nav links */}
