@@ -585,6 +585,13 @@ const KNOWN_TOOLS = new Set([
   'check_data_retention',
   'get_privacy_requests',
   'audit_access_permissions',
+  // docusignTools
+  'create_signing_envelope',
+  'send_template_envelope',
+  'check_envelope_status',
+  'list_envelopes',
+  'void_envelope',
+  'resend_envelope',
   // hrTools
   'get_org_chart',
   'update_agent_profile',
