@@ -159,6 +159,7 @@ async function main() {
 
   // 2. Process each agent
   const identityMap = {};
+  const secretsMap = {};
   const agents = Object.entries(AGENTS);
   let created = 0, updated = 0, failed = 0;
 
@@ -237,6 +238,37 @@ async function main() {
 
     console.log(`${assigned}/${roleValues.length} roles`);
 
+    // Ensure client credential exists for client_credentials flow
+    let clientSecret = null;
+    const existingCreds = az(`ad app credential list --id ${appId} --query "length(@)" -o json`);
+    if (existingCreds && existingCreds > 0) {
+      process.stdout.write('cred exists');
+    } else {
+      // Generate a new password credential via Graph API
+      const credBody = JSON.stringify({
+        passwordCredential: {
+          displayName: 'MCP Client Credentials',
+          endDateTime: '2028-01-01T00:00:00Z'
+        }
+      }).replace(/"/g, '\\"');
+
+      const credResult = azRaw(
+        `rest --method POST --url "https://graph.microsoft.com/v1.0/applications/${objectId}/addPassword" --body "${credBody}" --headers "Content-Type=application/json" -o json`
+      );
+
+      if (credResult) {
+        try {
+          const parsed = JSON.parse(credResult);
+          clientSecret = parsed.secretText;
+          process.stdout.write('cred created');
+        } catch {
+          process.stdout.write('cred FAILED');
+        }
+      }
+    }
+
+    console.log('');
+
     identityMap[role] = {
       appId,
       objectId,
@@ -244,16 +276,30 @@ async function main() {
       displayName,
       roles: roleValues,
     };
+    if (clientSecret) {
+      secretsMap[role] = clientSecret;
+    }
   }
 
   console.log(`\n=== Summary ===`);
   console.log(`Created: ${created}, Updated: ${updated}, Failed: ${failed}`);
-  console.log(`Total: ${Object.keys(identityMap).length} agent identities\n`);
+  console.log(`Total: ${Object.keys(identityMap).length} agent identities`);
+  console.log(`New secrets generated: ${Object.keys(secretsMap).length}\n`);
 
-  // 3. Write identity map
+  // 3. Write identity map (safe to commit — no secrets)
   const outputPath = path.join(__dirname, '..', 'packages', 'agent-runtime', 'src', 'config', 'agentIdentities.json');
   fs.writeFileSync(outputPath, JSON.stringify(identityMap, null, 2));
   console.log(`Identity map written to: ${outputPath}`);
+
+  // 4. Write secrets map (DO NOT COMMIT — upload to GCP Secret Manager)
+  if (Object.keys(secretsMap).length > 0) {
+    const secretsPath = path.join(__dirname, '..', '.agent-secrets.json');
+    fs.writeFileSync(secretsPath, JSON.stringify(secretsMap, null, 2));
+    console.log(`\n⚠️  Agent secrets written to: ${secretsPath}`);
+    console.log('   Upload to GCP Secret Manager as "agent365-client-secrets":');
+    console.log(`   gcloud secrets create agent365-client-secrets --data-file=${secretsPath}`);
+    console.log('   Then delete the local file: rm .agent-secrets.json');
+  }
 }
 
 main().catch(err => {
