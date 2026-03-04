@@ -255,3 +255,11 @@ export {
   clearCanvaTokenCache,
 } from './canva/index.js';
 
+// Agent 365 MCP Bridge — Microsoft Agent 365 governed MCP tool servers
+export {
+  createAgent365Tools,
+  createAgent365ToolsFromManifest,
+  type Agent365Config,
+  type Agent365ToolBridge,
+} from './agent365/index.js';
+

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Markdown from 'react-markdown';
 import {
@@ -152,6 +152,39 @@ export default function AgentProfile() {
   const [brief, setBrief] = useState<AgentBrief | null>(null);
   const [directReports, setDirectReports] = useState<AgentRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !agent) return;
+    if (!file.type.match(/^image\/(png|jpeg|webp)$/)) { setAvatarError('Only PNG, JPEG, or WebP'); return; }
+    if (file.size > 2 * 1024 * 1024) { setAvatarError('Image must be under 2 MB'); return; }
+    setUploadingAvatar(true);
+    setAvatarError('');
+    try {
+      const reader = new FileReader();
+      const dataUri = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/avatar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUri }),
+      });
+      const result = await resp.json();
+      if (!resp.ok || !result.success) { setAvatarError(result.error || 'Upload failed'); return; }
+      setProfile(prev => prev ? { ...prev, avatar_url: result.avatar_url } : { agent_id: agent.role, avatar_url: result.avatar_url } as AgentProfile);
+    } catch (err) {
+      setAvatarError(`Upload error: ${(err as Error).message}`);
+    } finally {
+      setUploadingAvatar(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
+  }, [agent]);
 
   useEffect(() => {
     if (!agentId) return;
@@ -236,7 +269,23 @@ export default function AgentProfile() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <AgentAvatar role={agent.role} size={64} glow={agent.status === 'active'} avatarUrl={profile?.avatar_url} />
+          <div className="group relative">
+            <AgentAvatar role={agent.role} size={64} glow={agent.status === 'active'} avatarUrl={profile?.avatar_url} />
+            <button
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={uploadingAvatar}
+              className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100"
+              title="Change profile image"
+            >
+              {uploadingAvatar ? (
+                <svg className="h-5 w-5 animate-spin text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeDasharray="31.4 31.4" strokeLinecap="round" /></svg>
+              ) : (
+                <svg className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor"><path d="M4 5a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4zm6 7a2 2 0 100-4 2 2 0 000 4z" /></svg>
+              )}
+            </button>
+            <input ref={avatarInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handleAvatarUpload} className="hidden" />
+          </div>
+          {avatarError && <span className="text-xs text-prism-critical">{avatarError}</span>}
           <div>
             <h1 className="text-2xl font-bold text-txt-primary">{displayName}</h1>
             <p className="text-sm text-txt-muted">{titleText}</p>
