@@ -13,8 +13,9 @@
     "lint": "echo 'no linter configured yet'"
   },
   "dependencies": {
-    "@glyphor/shared": "*",
     "@anthropic-ai/sdk": "^0.39.0",
+    "@anthropic-ai/vertex-sdk": "^0.14.4",
+    "@glyphor/shared": "*",
     "@google/genai": "^1.34.0",
     "ioredis": "^5.10.0",
     "officeparser": "^6.0.4",

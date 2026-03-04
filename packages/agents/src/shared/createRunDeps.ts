@@ -68,7 +68,6 @@ export function createRunDeps(
   const distillerModelClient = new ModelClient({
     geminiApiKey: process.env.GOOGLE_AI_API_KEY,
     openaiApiKey: process.env.OPENAI_API_KEY,
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
   });
   const contextDistiller = new ContextDistiller(distillerModelClient, cache);
 
@@ -88,7 +87,6 @@ export function createRunDeps(
     const modelClient = new ModelClient({
       geminiApiKey: process.env.GOOGLE_AI_API_KEY,
       openaiApiKey: process.env.OPENAI_API_KEY,
-      anthropicApiKey: process.env.ANTHROPIC_API_KEY,
     });
     return new ReasoningEngine(modelClient, config, cache);
   };

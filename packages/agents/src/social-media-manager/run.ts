@@ -32,7 +32,7 @@ export async function runSocialMediaManager(params: SocialMediaManagerRunParams 
   const memory = new CompanyMemoryStore({
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company', gcpProjectId: process.env.GCP_PROJECT_ID,
   });
-  const modelClient = new ModelClient({ geminiApiKey: process.env.GOOGLE_AI_API_KEY, openaiApiKey: process.env.OPENAI_API_KEY, anthropicApiKey: process.env.ANTHROPIC_API_KEY });
+  const modelClient = new ModelClient({ geminiApiKey: process.env.GOOGLE_AI_API_KEY, openaiApiKey: process.env.OPENAI_API_KEY });
   const runner = createRunner(modelClient, 'social-media-manager', params.task ?? 'on_demand');
   const eventBus = new EventBus();
   const glyphorEventBus = new GlyphorEventBus({});

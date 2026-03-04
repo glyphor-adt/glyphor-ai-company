@@ -57,7 +57,6 @@ export async function runCMO(params: CMORunParams = {}) {
   const modelClient = new ModelClient({
     geminiApiKey: process.env.GOOGLE_AI_API_KEY,
     openaiApiKey: process.env.OPENAI_API_KEY,
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
   });
   const runner = createRunner(modelClient, 'cmo', params.task ?? 'on_demand');
   const eventBus = new EventBus();

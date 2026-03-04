@@ -20,7 +20,10 @@ import { AnthropicAdapter } from './anthropic.js';
 export interface ProviderFactoryConfig {
   geminiApiKey?: string;
   openaiApiKey?: string;
-  anthropicApiKey?: string;
+  /** GCP project ID for Vertex AI (Claude via Vertex). Falls back to GCP_PROJECT_ID env var. */
+  vertexProjectId?: string;
+  /** GCP region for Vertex AI Claude. Defaults to us-east5. */
+  vertexRegion?: string;
 }
 
 export class ProviderFactory {
@@ -51,8 +54,9 @@ export class ProviderFactory {
         return new OpenAIAdapter(this.config.openaiApiKey);
       }
       case 'anthropic': {
-        if (!this.config.anthropicApiKey) throw new Error('Anthropic API key not configured — set ANTHROPIC_API_KEY environment variable');
-        return new AnthropicAdapter(this.config.anthropicApiKey);
+        const projectId = this.config.vertexProjectId ?? process.env.GCP_PROJECT_ID;
+        if (!projectId) throw new Error('GCP project ID not configured — set GCP_PROJECT_ID environment variable or pass vertexProjectId');
+        return new AnthropicAdapter(projectId, this.config.vertexRegion);
       }
     }
   }

@@ -53,7 +53,6 @@ export async function runCFO(params: CFORunParams = {}) {
   const modelClient = new ModelClient({
     geminiApiKey: process.env.GOOGLE_AI_API_KEY,
     openaiApiKey: process.env.OPENAI_API_KEY,
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
   });
   const runner = createRunner(modelClient, 'cfo', params.task ?? 'on_demand');
   const eventBus = new EventBus();

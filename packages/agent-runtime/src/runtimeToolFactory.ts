@@ -59,7 +59,6 @@ const BLOCKED_CODE_PATTERNS = [
   /DB_PASSWORD/i,
   /GOOGLE_AI_API_KEY/i,
   /OPENAI_API_KEY/i,
-  /ANTHROPIC_API_KEY/i,
   /exec\s*\(/i,
   /spawn\s*\(/i,
   /globalThis/i,

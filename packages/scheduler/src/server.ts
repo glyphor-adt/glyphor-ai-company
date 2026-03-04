@@ -8,7 +8,6 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { Agent as UndiciAgent } from 'undici';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GlyphorEventBus, ModelClient, promptCache, getRedisCache } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment } from '@glyphor/agent-runtime';
@@ -66,21 +65,6 @@ import {
 } from '@glyphor/agents';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
-
-/**
- * Acquire a Google Cloud identity token for service-to-service auth.
- * Uses the GCE metadata server (available on Cloud Run). Returns null locally.
- */
-async function getCloudRunIdToken(audience: string): Promise<string | null> {
-  try {
-    const metaUrl = `http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?audience=${audience}`;
-    const res = await fetch(metaUrl, { headers: { 'Metadata-Flavor': 'Google' }, signal: AbortSignal.timeout(3000) });
-    if (!res.ok) return null;
-    return res.text();
-  } catch {
-    return null; // not running on GCE/Cloud Run
-  }
-}
 
 // ─── Logo watermark ─────────────────────────────────────────────
 const LOGO_PATH = path.resolve(import.meta.dirname, '../../dashboard/public/glyphor-logo.png');
@@ -335,7 +319,6 @@ const heartbeatManager = new HeartbeatManager(trackedAgentExecutor, wakeRouter);
 const strategyModelClient = new ModelClient({
   geminiApiKey: process.env.GOOGLE_AI_API_KEY,
   openaiApiKey: process.env.OPENAI_API_KEY,
-  anthropicApiKey: process.env.ANTHROPIC_API_KEY,
 });
 const analysisEngine = new AnalysisEngine(strategyModelClient);
 const simulationEngine = new SimulationEngine(strategyModelClient);
@@ -693,89 +676,6 @@ const server = createServer(async (req, res) => {
         await systemQuery(
           'INSERT INTO data_sync_status (id, last_failure_at, last_error, consecutive_failures, status, updated_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO UPDATE SET last_failure_at=EXCLUDED.last_failure_at, last_error=EXCLUDED.last_error, consecutive_failures=EXCLUDED.consecutive_failures, status=EXCLUDED.status, updated_at=EXCLUDED.updated_at',
           ['sharepoint-knowledge', new Date().toISOString(), message, failures, failures >= 3 ? 'failing' : 'stale', new Date().toISOString()],
-        );
-        json(res, 500, { success: false, error: message });
-      }
-      return;
-    }
-
-    // GraphRAG knowledge graph indexing — calls Python indexer service
-    if (method === 'POST' && url === '/sync/graphrag-index') {
-      try {
-        const indexerUrl = (process.env.GRAPHRAG_INDEXER_URL || 'http://localhost:8090').trim();
-        const body = JSON.stringify({ source: 'all' });
-        const idToken = await getCloudRunIdToken(indexerUrl);
-        console.log(`[GraphRAG] Calling ${indexerUrl}/index (auth: ${!!idToken})`);
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
-        const longTimeout = new UndiciAgent({ headersTimeout: 900_000, bodyTimeout: 900_000 });
-        const indexRes = await fetch(`${indexerUrl}/index`, {
-          method: 'POST',
-          headers,
-          body,
-          signal: AbortSignal.timeout(900_000), // 15 min timeout
-          // @ts-expect-error undici dispatcher option
-          dispatcher: longTimeout,
-        });
-        const text = await indexRes.text();
-        let result: Record<string, unknown>;
-        try { result = JSON.parse(text); } catch { result = { raw: text.slice(0, 500) }; }
-        if (!indexRes.ok && !result.error) throw new Error(`Indexer returned ${indexRes.status}`);
-        if (result.error) throw new Error(String(result.error));
-        await systemQuery(
-          'INSERT INTO data_sync_status (id, last_success_at, consecutive_failures, status, updated_at) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (id) DO UPDATE SET last_success_at=EXCLUDED.last_success_at, consecutive_failures=EXCLUDED.consecutive_failures, status=EXCLUDED.status, updated_at=EXCLUDED.updated_at',
-          ['graphrag-index', new Date().toISOString(), 0, 'ok', new Date().toISOString()],
-        );
-        json(res, 200, { success: true, ...result });
-      } catch (err) {
-        const cause = err instanceof Error && err.cause ? ` (cause: ${err.cause})` : '';
-        const message = (err instanceof Error ? err.message : String(err)) + cause;
-        console.error('[GraphRAG] Index sync error:', message);
-        const [current] = await systemQuery<{ consecutive_failures: number }>('SELECT consecutive_failures FROM data_sync_status WHERE id=$1', ['graphrag-index']);
-        const failures = (current?.consecutive_failures ?? 0) + 1;
-        await systemQuery(
-          'INSERT INTO data_sync_status (id, last_failure_at, last_error, consecutive_failures, status, updated_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO UPDATE SET last_failure_at=EXCLUDED.last_failure_at, last_error=EXCLUDED.last_error, consecutive_failures=EXCLUDED.consecutive_failures, status=EXCLUDED.status, updated_at=EXCLUDED.updated_at',
-          ['graphrag-index', new Date().toISOString(), message, failures, failures >= 3 ? 'failing' : 'stale', new Date().toISOString()],
-        );
-        json(res, 500, { success: false, error: message });
-      }
-      return;
-    }
-
-    // GraphRAG prompt auto-tune — calls Python indexer service
-    if (method === 'POST' && url === '/sync/graphrag-tune') {
-      try {
-        const indexerUrl = process.env.GRAPHRAG_INDEXER_URL || 'http://localhost:8090';
-        const body = JSON.stringify({ source: 'docs', limit: 15 });
-        const idToken = await getCloudRunIdToken(indexerUrl);
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
-        const longTimeout = new UndiciAgent({ headersTimeout: 600_000, bodyTimeout: 600_000 });
-        const tuneRes = await fetch(`${indexerUrl}/tune`, {
-          method: 'POST',
-          headers,
-          body,
-          signal: AbortSignal.timeout(600_000), // 10 min timeout
-          // @ts-expect-error undici dispatcher option
-          dispatcher: longTimeout,
-        });
-        const text = await tuneRes.text();
-        let result: Record<string, unknown>;
-        try { result = JSON.parse(text); } catch { result = { raw: text.slice(0, 500) }; }
-        if (!tuneRes.ok && !result.error) throw new Error(`Indexer returned ${tuneRes.status}`);
-        if (result.error) throw new Error(String(result.error));
-        await systemQuery(
-          'INSERT INTO data_sync_status (id, last_success_at, consecutive_failures, status, updated_at) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (id) DO UPDATE SET last_success_at=EXCLUDED.last_success_at, consecutive_failures=EXCLUDED.consecutive_failures, status=EXCLUDED.status, updated_at=EXCLUDED.updated_at',
-          ['graphrag-tune', new Date().toISOString(), 0, 'ok', new Date().toISOString()],
-        );
-        json(res, 200, { success: true, ...result });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        const [current] = await systemQuery<{ consecutive_failures: number }>('SELECT consecutive_failures FROM data_sync_status WHERE id=$1', ['graphrag-tune']);
-        const failures = (current?.consecutive_failures ?? 0) + 1;
-        await systemQuery(
-          'INSERT INTO data_sync_status (id, last_failure_at, last_error, consecutive_failures, status, updated_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO UPDATE SET last_failure_at=EXCLUDED.last_failure_at, last_error=EXCLUDED.last_error, consecutive_failures=EXCLUDED.consecutive_failures, status=EXCLUDED.status, updated_at=EXCLUDED.updated_at',
-          ['graphrag-tune', new Date().toISOString(), message, failures, failures >= 3 ? 'failing' : 'stale', new Date().toISOString()],
         );
         json(res, 500, { success: false, error: message });
       }

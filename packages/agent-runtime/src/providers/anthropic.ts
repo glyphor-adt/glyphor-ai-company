@@ -1,31 +1,24 @@
 /**
  * Anthropic Provider Adapter — Maps Anthropic API to unified types.
  *
+ * Uses Vertex AI on GCP to access Claude models (no direct Anthropic API key needed).
  * Supports Claude 3.5+, Claude Sonnet 4, Haiku 4, and Opus 4 with
  * extended thinking (manual or adaptive depending on model).
  */
 
+import { AnthropicVertex } from '@anthropic-ai/vertex-sdk';
 import Anthropic from '@anthropic-ai/sdk';
 import type { ConversationTurn } from '../types.js';
 import type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse } from './types.js';
 
 export class AnthropicAdapter implements ProviderAdapter {
   readonly provider = 'anthropic' as const;
-  private client: Anthropic;
+  private client: AnthropicVertex;
 
-  constructor(apiKey: string) {
-    this.client = new Anthropic({
-      apiKey,
-      maxRetries: 0,      // We handle retries in ModelClient
-      timeout: 120_000,   // 2 minute timeout per request
-      fetch: async (url: string | URL | Request, init?: RequestInit) => {
-        // Force fresh TCP connections in Cloud Run (no connection pool reuse)
-        const resp = await globalThis.fetch(url, {
-          ...init,
-          keepalive: false,
-        });
-        return resp;
-      },
+  constructor(projectId: string, region = 'us-east5') {
+    this.client = new AnthropicVertex({
+      projectId,
+      region,
     });
   }
 
