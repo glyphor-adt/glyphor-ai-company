@@ -11,13 +11,8 @@ import {
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { HEAD_OF_HR_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createHeadOfHRTools } from './tools.js';
-import { createMemoryTools } from '../shared/memoryTools.js';
-import { createCommunicationTools } from '../shared/communicationTools.js';
-import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
-import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
-import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
@@ -27,6 +22,8 @@ import { createHRTools } from '../shared/hrTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
+import { createCoreTools } from '../shared/coreTools.js';
+import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface HeadOfHRRunParams {
   task?: 'workforce_audit' | 'onboard_agent' | 'retire_agent' | 'read_inbox' | 'on_demand';
@@ -51,13 +48,9 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
   const graphWriter = memory.getGraphWriter();
   const tools = [
     ...createHeadOfHRTools(memory),
-    ...createMemoryTools(memory),
+    ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...createToolGrantTools('head-of-hr'),
-    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
-    ...createToolRequestTools(),
-    ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createSharePointTools(),
     ...createAgentCreationTools(),
@@ -65,6 +58,7 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
     ...createAgentDirectoryTools(),
     ...createHRTools(),
     ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createGlyphorMcpTools('head-of-hr'),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

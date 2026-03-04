@@ -17,12 +17,9 @@ import {
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CTO_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCTOTools } from './tools.js';
-import { createMemoryTools } from '../shared/memoryTools.js';
-import { createCommunicationTools } from '../shared/communicationTools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
-import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createTeamOrchestrationTools } from '../shared/teamOrchestrationTools.js';
 import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js';
 import { createInitiativeTools } from '../shared/initiativeTools.js';
@@ -32,11 +29,11 @@ import { createEmailTools } from '../shared/emailTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createToolRegistryTools } from '../shared/toolRegistryTools.js';
-import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
-import { createEventTools } from '../shared/eventTools.js';
 import { createDiagnosticTools } from '../shared/diagnosticTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
+import { createCoreTools } from '../shared/coreTools.js';
+import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface CTORunParams {
   task?: 'platform_health_check' | 'dependency_review' | 'on_demand';
@@ -61,12 +58,10 @@ export async function runCTO(params: CTORunParams = {}) {
   const graphWriter = memory.getGraphWriter();
   const tools = [
     ...createCTOTools(memory),
-    ...createMemoryTools(memory),
-    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
+    ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),
-    ...createAssignmentTools(glyphorEventBus),
     ...createTeamOrchestrationTools(glyphorEventBus),
     ...createPeerCoordinationTools(glyphorEventBus),
     ...createInitiativeTools(glyphorEventBus),
@@ -74,11 +69,10 @@ export async function runCTO(params: CTORunParams = {}) {
     ...createAgentCreationTools(),
     ...createToolGrantTools('cto'),
     ...createToolRegistryTools(),
-    ...createToolRequestTools(),
     ...createAgentDirectoryTools(),
-    ...createEventTools(glyphorEventBus),
     ...createDiagnosticTools(),
     ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createGlyphorMcpTools('cto'),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

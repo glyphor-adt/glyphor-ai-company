@@ -10,14 +10,9 @@ import {
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { FRONTEND_ENGINEER_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createFrontendEngineerTools } from './tools.js';
-import { createMemoryTools } from '../shared/memoryTools.js';
-import { createCommunicationTools } from '../shared/communicationTools.js';
-import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
-import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
-import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createFrontendCodeTools } from '../shared/frontendCodeTools.js';
 import { createScreenshotTools } from '../shared/screenshotTools.js';
 import { createAuditTools } from '../shared/auditTools.js';
@@ -27,6 +22,8 @@ import { createStorybookTools } from '../shared/storybookTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
+import { createCoreTools } from '../shared/coreTools.js';
+import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface FrontendEngineerRunParams {
   task?: 'implement_component' | 'accessibility_audit' | 'on_demand';
@@ -46,12 +43,8 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
   const graphWriter = memory.getGraphWriter();
   const tools = [
     ...createFrontendEngineerTools(memory),
-    ...createMemoryTools(memory),
-    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
-    ...createToolRequestTools(),
-    ...createEventTools(glyphorEventBus),
+    ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(glyphorEventBus),
     ...createFrontendCodeTools(),
     ...createScreenshotTools(),
     ...createAuditTools(),
@@ -61,6 +54,7 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
     ...createEmailTools(),
     ...createSharePointTools(),
     ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createGlyphorMcpTools('frontend-engineer'),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

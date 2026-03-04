@@ -19,21 +19,18 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { systemQuery } from '@glyphor/shared/db';
 import { CHIEF_OF_STAFF_SYSTEM_PROMPT, ORCHESTRATION_PROMPT } from './systemPrompt.js';
 import { createChiefOfStaffTools, createOrchestrationTools } from './tools.js';
-import { createMemoryTools } from '../shared/memoryTools.js';
-import { createCommunicationTools } from '../shared/communicationTools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
-import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
-import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
-import { createEventTools } from '../shared/eventTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
+import { createCoreTools } from '../shared/coreTools.js';
+import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface CoSRunParams {
   task?: 'generate_briefing' | 'check_escalations' | 'weekly_review' | 'monthly_retrospective' | 'orchestrate' | 'on_demand';
@@ -159,20 +156,17 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
   const orchestrationTools = createOrchestrationTools(schedulerUrl, glyphorEventBus, cosTools, graphReader);
   const tools = [
     ...cosTools,
-    ...createMemoryTools(memory),
     ...createToolGrantTools('chief-of-staff'),
-    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
+    ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),
     ...orchestrationTools,
-    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createAgentCreationTools(),
-    ...createToolRequestTools(),
     ...createAgentDirectoryTools(),
-    ...createEventTools(glyphorEventBus),
     ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createGlyphorMcpTools('chief-of-staff'),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

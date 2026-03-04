@@ -11,18 +11,15 @@ import {
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { M365_ADMIN_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createM365AdminTools } from './tools.js';
-import { createMemoryTools } from '../shared/memoryTools.js';
-import { createCommunicationTools } from '../shared/communicationTools.js';
-import { createToolRequestTools } from '../shared/toolRequestTools.js';
-import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
-import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
+import { createCoreTools } from '../shared/coreTools.js';
+import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface M365AdminRunParams {
   task?: 'channel_audit' | 'user_audit' | 'on_demand';
@@ -47,16 +44,13 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
   const graphWriter = memory.getGraphWriter();
   const tools = [
     ...createM365AdminTools(memory),
-    ...createMemoryTools(memory),
-    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
-    ...createToolRequestTools(),
-    ...createEventTools(glyphorEventBus),
+    ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createToolGrantTools('m365-admin'),
     ...createSharePointTools(),
     ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createGlyphorMcpTools('m365-admin'),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

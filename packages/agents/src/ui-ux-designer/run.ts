@@ -10,14 +10,9 @@ import {
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { UI_UX_DESIGNER_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createUiUxDesignerTools } from './tools.js';
-import { createMemoryTools } from '../shared/memoryTools.js';
-import { createCommunicationTools } from '../shared/communicationTools.js';
-import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
-import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
-import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createFrontendCodeTools } from '../shared/frontendCodeTools.js';
 import { createScreenshotTools } from '../shared/screenshotTools.js';
 import { createDesignSystemTools } from '../shared/designSystemTools.js';
@@ -27,6 +22,8 @@ import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createLogoTools } from '../shared/logoTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
+import { createCoreTools } from '../shared/coreTools.js';
+import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface UiUxDesignerRunParams {
   task?: 'component_spec' | 'design_token_review' | 'on_demand';
@@ -46,12 +43,8 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
   const graphWriter = memory.getGraphWriter();
   const tools = [
     ...createUiUxDesignerTools(memory),
-    ...createMemoryTools(memory),
-    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
-    ...createToolRequestTools(),
-    ...createEventTools(glyphorEventBus),
+    ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(glyphorEventBus),
     ...createFrontendCodeTools(),
     ...createScreenshotTools(),
     ...createDesignSystemTools(),
@@ -61,6 +54,7 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
     ...createSharePointTools(),
     ...createLogoTools(),
     ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createGlyphorMcpTools('ui-ux-designer'),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

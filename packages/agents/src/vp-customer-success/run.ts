@@ -17,24 +17,21 @@ import {
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { VP_CUSTOMER_SUCCESS_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createVPCSTools } from './tools.js';
-import { createMemoryTools } from '../shared/memoryTools.js';
-import { createCommunicationTools } from '../shared/communicationTools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
-import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
-import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createTeamOrchestrationTools } from '../shared/teamOrchestrationTools.js';
 import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js';
 import { createInitiativeTools } from '../shared/initiativeTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
-import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
+import { createCoreTools } from '../shared/coreTools.js';
+import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface VPCSRunParams {
   task?: 'daily_health_scoring' | 'churn_detection' | 'on_demand';
@@ -59,22 +56,19 @@ export async function runVPCS(params: VPCSRunParams = {}) {
   const graphWriter = memory.getGraphWriter();
   const tools = [
     ...createVPCSTools(memory),
-    ...createMemoryTools(memory),
+    ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...createToolGrantTools('vp-customer-success'),
-    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
     ...createCollectiveIntelligenceTools(memory),
-    ...createEventTools(glyphorEventBus),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(glyphorEventBus),
     ...createTeamOrchestrationTools(glyphorEventBus),
     ...createPeerCoordinationTools(glyphorEventBus),
     ...createInitiativeTools(glyphorEventBus),
     ...createEmailTools(),
     ...createSharePointTools(),
     ...createAgentCreationTools(),
-    ...createToolRequestTools(),
     ...createAgentDirectoryTools(),
     ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createGlyphorMcpTools('vp-customer-success'),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

@@ -18,21 +18,18 @@ import {
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { OPS_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createOpsTools } from './tools.js';
-import { createMemoryTools } from '../shared/memoryTools.js';
-import { createCommunicationTools } from '../shared/communicationTools.js';
-import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
-import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
-import { createEventTools } from '../shared/eventTools.js';
 import { createDiagnosticTools } from '../shared/diagnosticTools.js';
 import { createOpsExtensionTools } from '../shared/opsExtensionTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
+import { createCoreTools } from '../shared/coreTools.js';
+import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface OpsRunParams {
   task?: 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'performance_rollup' | 'milestone_detection' | 'growth_update' | 'contradiction_detection' | 'knowledge_hygiene';
@@ -58,19 +55,16 @@ export async function runOps(params: OpsRunParams = {}) {
   const graphWriter = memory.getGraphWriter();
   const tools = [
     ...createOpsTools(memory),
-    ...createMemoryTools(memory),
+    ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...createToolGrantTools('ops'),
-    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
-    ...createToolRequestTools(),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),
-    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
-    ...createEventTools(glyphorEventBus),
     ...createDiagnosticTools(),
     ...createOpsExtensionTools(),
     ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createGlyphorMcpTools('ops'),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

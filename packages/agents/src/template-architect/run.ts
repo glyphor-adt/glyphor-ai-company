@@ -10,14 +10,9 @@ import {
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { TEMPLATE_ARCHITECT_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createTemplateArchitectTools } from './tools.js';
-import { createMemoryTools } from '../shared/memoryTools.js';
-import { createCommunicationTools } from '../shared/communicationTools.js';
-import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
-import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
-import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createFrontendCodeTools } from '../shared/frontendCodeTools.js';
 import { createDesignSystemTools } from '../shared/designSystemTools.js';
 import { createAssetTools } from '../shared/assetTools.js';
@@ -28,6 +23,8 @@ import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createLogoTools } from '../shared/logoTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
+import { createCoreTools } from '../shared/coreTools.js';
+import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface TemplateArchitectRunParams {
   task?: 'variant_review' | 'template_quality_audit' | 'on_demand';
@@ -47,12 +44,8 @@ export async function runTemplateArchitect(params: TemplateArchitectRunParams = 
   const graphWriter = memory.getGraphWriter();
   const tools = [
     ...createTemplateArchitectTools(memory),
-    ...createMemoryTools(memory),
-    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
-    ...createToolRequestTools(),
-    ...createEventTools(glyphorEventBus),
+    ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(glyphorEventBus),
     ...createFrontendCodeTools(),
     ...createDesignSystemTools(),
     ...createAssetTools(),
@@ -63,6 +56,7 @@ export async function runTemplateArchitect(params: TemplateArchitectRunParams = 
     ...createSharePointTools(),
     ...createLogoTools(),
     ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createGlyphorMcpTools('template-architect'),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

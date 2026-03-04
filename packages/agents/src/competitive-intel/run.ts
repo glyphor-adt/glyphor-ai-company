@@ -10,18 +10,15 @@ import {
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { COMPETITIVE_INTEL_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCompetitiveIntelTools } from './tools.js';
-import { createMemoryTools } from '../shared/memoryTools.js';
-import { createCommunicationTools } from '../shared/communicationTools.js';
-import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
-import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
-import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createCompetitiveIntelTools as createSharedCompetitiveIntelTools } from '../shared/competitiveIntelTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
+import { createCoreTools } from '../shared/coreTools.js';
+import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface CompetitiveIntelRunParams {
   task?: 'landscape_scan' | 'deep_dive' | 'on_demand';
@@ -41,16 +38,13 @@ export async function runCompetitiveIntel(params: CompetitiveIntelRunParams = {}
   const graphWriter = memory.getGraphWriter();
   const tools = [
     ...createCompetitiveIntelTools(memory),
-    ...createMemoryTools(memory),
-    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
-    ...createToolRequestTools(),
-    ...createEventTools(glyphorEventBus),
+    ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createSharePointTools(),
     ...createSharedCompetitiveIntelTools(),
     ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createGlyphorMcpTools('competitive-intel'),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

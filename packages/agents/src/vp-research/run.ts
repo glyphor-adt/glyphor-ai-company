@@ -10,15 +10,10 @@ import {
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { VP_RESEARCH_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createVPResearchTools } from './tools.js';
-import { createMemoryTools } from '../shared/memoryTools.js';
-import { createCommunicationTools } from '../shared/communicationTools.js';
-import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
-import { createEventTools } from '../shared/eventTools.js';
-import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createTeamOrchestrationTools } from '../shared/teamOrchestrationTools.js';
 import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js';
 import { createInitiativeTools } from '../shared/initiativeTools.js';
@@ -27,6 +22,8 @@ import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createResearchRepoTools } from '../shared/researchRepoTools.js';
 import { createResearchMonitoringTools } from '../shared/researchMonitoringTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
+import { createCoreTools } from '../shared/coreTools.js';
+import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface VPResearchRunParams {
   task?: 'decompose_research' | 'qc_and_package_research' | 'follow_up_research' | 'on_demand';
@@ -67,13 +64,9 @@ export async function runVPResearch(params: VPResearchRunParams = {}) {
 
   const tools = [
     ...createVPResearchTools(),
-    ...createMemoryTools(memory),
+    ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...createToolGrantTools('vp-research'),
-    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
-    ...createToolRequestTools(),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createEventTools(glyphorEventBus),
-    ...createAssignmentTools(glyphorEventBus),
     ...createTeamOrchestrationTools(glyphorEventBus),
     ...createPeerCoordinationTools(glyphorEventBus),
     ...createInitiativeTools(glyphorEventBus),
@@ -82,6 +75,7 @@ export async function runVPResearch(params: VPResearchRunParams = {}) {
     ...createResearchRepoTools(),
     ...createResearchMonitoringTools(),
     ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createGlyphorMcpTools('vp-research'),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

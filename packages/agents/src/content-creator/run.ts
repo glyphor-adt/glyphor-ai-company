@@ -10,19 +10,16 @@ import {
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CONTENT_CREATOR_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createContentCreatorTools } from './tools.js';
-import { createMemoryTools } from '../shared/memoryTools.js';
-import { createCommunicationTools } from '../shared/communicationTools.js';
-import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
-import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
-import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createContentTools } from '../shared/contentTools.js';
 import { createEmailMarketingTools } from '../shared/emailMarketingTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
+import { createCoreTools } from '../shared/coreTools.js';
+import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface ContentCreatorRunParams {
   task?: 'blog_draft' | 'social_batch' | 'performance_review' | 'on_demand';
@@ -42,17 +39,14 @@ export async function runContentCreator(params: ContentCreatorRunParams = {}) {
   const graphWriter = memory.getGraphWriter();
   const tools = [
     ...createContentCreatorTools(memory),
-    ...createMemoryTools(memory),
-    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
-    ...createToolRequestTools(),
-    ...createEventTools(glyphorEventBus),
+    ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createSharePointTools(),
     ...createContentTools(),
     ...createEmailMarketingTools(),
     ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createGlyphorMcpTools('content-creator'),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

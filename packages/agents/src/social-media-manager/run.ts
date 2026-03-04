@@ -10,18 +10,15 @@ import {
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { SOCIAL_MEDIA_MANAGER_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createSocialMediaManagerTools } from './tools.js';
-import { createMemoryTools } from '../shared/memoryTools.js';
-import { createCommunicationTools } from '../shared/communicationTools.js';
-import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
-import { createEventTools } from '../shared/eventTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
-import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createSocialMediaTools } from '../shared/socialMediaTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
+import { createCoreTools } from '../shared/coreTools.js';
+import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface SocialMediaManagerRunParams {
   task?: 'engagement_report' | 'schedule_batch' | 'mention_scan' | 'on_demand';
@@ -41,16 +38,13 @@ export async function runSocialMediaManager(params: SocialMediaManagerRunParams 
   const graphWriter = memory.getGraphWriter();
   const tools = [
     ...createSocialMediaManagerTools(memory),
-    ...createMemoryTools(memory),
-    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
-    ...createToolRequestTools(),
-    ...createEventTools(glyphorEventBus),
+    ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createSharePointTools(),
     ...createSocialMediaTools(),
     ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createGlyphorMcpTools('social-media-manager'),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

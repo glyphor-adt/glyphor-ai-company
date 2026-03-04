@@ -18,23 +18,20 @@ import {
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CLO_SYSTEM_PROMPT } from './systemPrompt.js';
-import { createMemoryTools } from '../shared/memoryTools.js';
-import { createCommunicationTools } from '../shared/communicationTools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
-import { createAssignmentTools } from '../shared/assignmentTools.js';
 import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
-import { createEventTools } from '../shared/eventTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
-import { createToolRequestTools } from '../shared/toolRequestTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createLegalTools } from '../shared/legalTools.js';
 import { createDocuSignTools } from '../shared/docusignTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
+import { createCoreTools } from '../shared/coreTools.js';
+import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface CLORunParams {
   task?: 'regulatory_scan' | 'contract_review' | 'compliance_check' | 'read_inbox' | 'on_demand';
@@ -58,21 +55,18 @@ export async function runCLO(params: CLORunParams = {}) {
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const tools = [
-    ...createMemoryTools(memory),
     ...createToolGrantTools('clo'),
-    ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
+    ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createAssignmentTools(glyphorEventBus),
     ...createEmailTools(),
     ...createSharePointTools(),
-    ...createEventTools(glyphorEventBus),
     ...createAgentCreationTools(),
-    ...createToolRequestTools(),
     ...createAgentDirectoryTools(),
     ...createLegalTools(),
     ...createDocuSignTools(),
     ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createGlyphorMcpTools('clo'),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
