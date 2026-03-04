@@ -761,7 +761,7 @@ export default function Chat() {
           <div className="flex-1">
             <h2 className="text-[15px] font-semibold text-txt-primary">{codename}</h2>
             <p className="text-[11px] text-txt-muted">
-              {selectedAgent?.role ?? selectedRole} · {selectedAgent?.model ?? 'unknown model'}
+              {selectedAgent?.role ?? selectedRole}
             </p>
           </div>
           {/* Teams call button */}

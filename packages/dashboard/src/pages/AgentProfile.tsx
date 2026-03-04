@@ -257,7 +257,8 @@ export default function AgentProfile() {
                 {agent.status}
               </span>
               <span className="text-[11px] text-txt-faint">·</span>
-              <span className="font-mono text-[11px] text-txt-muted">{agent.model ?? 'gemini-3-flash-preview'}</span>
+              <span className="text-[11px] text-txt-faint">·</span>
+              <span className="font-mono text-[11px] text-txt-muted">{agent.status}</span>
             </div>
           </div>
         </div>
@@ -393,10 +394,6 @@ function OverviewTab({
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Thinking Level</p>
             <p className="mt-1 text-sm text-txt-secondary">{thinkingLevel}</p>
-          </div>
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Model</p>
-            <p className="mt-1 font-mono text-sm text-txt-secondary">{agent.model ?? 'gemini-3-flash-preview'}</p>
           </div>
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Created</p>

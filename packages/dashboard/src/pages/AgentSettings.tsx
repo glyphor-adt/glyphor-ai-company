@@ -325,9 +325,6 @@ export default function AgentSettings() {
                 }`} />
                 {agent.status}
               </span>
-              {/* Model badge */}
-              <span className="text-[11px] text-txt-faint">·</span>
-              <span className="font-mono text-[11px] text-txt-muted">{agent.model ?? 'gemini-3-flash-preview'}</span>
             </div>
           </div>
         </div>

@@ -84,6 +84,7 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   // Source: https://platform.claude.com/docs/en/docs/about-claude/pricing (verified 2026-02-26)
   { id: 'claude-opus-4-6',        label: 'Claude Opus 4.6',        provider: 'anthropic', tier: 'flagship',  inputPer1M: 5.00,  outputPer1M: 25.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
   { id: 'claude-sonnet-4-6',      label: 'Claude Sonnet 4.6',      provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
+  { id: 'claude-sonnet-4-5',      label: 'Claude Sonnet 4.5',      provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
   { id: 'claude-haiku-4-5',       label: 'Claude Haiku 4.5',       provider: 'anthropic', tier: 'economy',   inputPer1M: 1.00,  outputPer1M: 5.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
 
   // ── Specialized (not selectable for general agent assignment) ─
@@ -178,6 +179,7 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
   // Anthropic primary → try Gemini first (GCP-resident), then cheapest OpenAI
   'claude-opus-4-6':        ['gemini-3-flash-preview', 'gpt-5-mini'],
   'claude-sonnet-4-6':      ['gemini-2.5-flash', 'gpt-5-mini'],
+  'claude-sonnet-4-5':      ['gemini-2.5-flash', 'gpt-5-mini'],
   'claude-haiku-4-5':       ['gemini-2.5-flash', 'gpt-5-nano'],
 };
 
@@ -210,6 +212,7 @@ export const VERIFIER_MAP: Record<string, string> = {
   // Claude primary → Gemini verifier (GCP-native, cheap)
   'claude-opus-4-6':        'gemini-2.5-flash',
   'claude-sonnet-4-6':      'gemini-2.5-flash',
+  'claude-sonnet-4-5':      'gemini-2.5-flash',
   'claude-haiku-4-5':       'gemini-2.5-flash-lite',
 };
 

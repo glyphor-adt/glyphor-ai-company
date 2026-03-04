@@ -75,8 +75,6 @@ export default function AgentsList() {
                           </p>
                           <div className="mt-1 flex items-center gap-2 text-[11px] text-txt-faint">
                             <span>{ROLE_DEPARTMENT[agent.role] ?? agent.department ?? ''}</span>
-                            <span>·</span>
-                            <span className="font-mono text-txt-muted">{agent.model}</span>
                           </div>
                         </div>
                       </div>

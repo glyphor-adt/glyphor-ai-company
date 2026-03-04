@@ -269,7 +269,7 @@ export default function Workforce() {
                         </div>
                         <p className="text-[12px] text-txt-muted">{TITLE_MAP[agent.role] ?? agent.title ?? agent.role}</p>
                         <p className="mt-0.5 text-[11px] text-txt-faint">
-                          AI Agent · <span className="font-mono text-txt-muted">{agent.model}</span>
+                          AI Agent
                         </p>
                         <div className="mt-3 flex items-center gap-4">
                           <span className="font-mono text-sm text-txt-secondary">
