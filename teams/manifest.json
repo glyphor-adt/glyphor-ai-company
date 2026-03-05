@@ -96,7 +96,7 @@
   "validDomains": [
     "glyphor-dashboard-610179349713.us-central1.run.app",
     "glyphor-scheduler-610179349713.us-central1.run.app",
-    "glyphor-voice-gateway-610179349713.us-central1.run.app",
+    "glyphor-voice-gateway-610179349713.us-central1.run.app"
   ],
   "webApplicationInfo": {
     "id": "a4c1145a-fff5-4528-8841-ad1193ba277d",
