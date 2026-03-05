@@ -85,51 +85,29 @@ Log ''
 
 $m365Granted = 0; $m365Existed = 0; $m365Failed = 0
 
+# Set grant expiry to 10 years from now
+$expiryTime = (Get-Date).AddYears(10).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+
 foreach ($agentKey in $agentKeys) {
     $agentId = $created.$agentKey.id
     $agentName = $created.$agentKey.name
 
-    # Check for existing grant
-    $existingGrants = GBeta -Method GET -Path "/servicePrincipals/$agentId/oauth2PermissionGrants?`$filter=resourceId eq '$M365AgentToolsSpId'"
-    $hasGrant = $false
-    if ($existingGrants -and $existingGrants.value -and $existingGrants.value.Count -gt 0) {
-        $existing = $existingGrants.value[0]
-        $existingScopes = $existing.scope
-        if ($existingScopes -and ($existingScopes.Trim() -eq $RequiredM365Scopes.Trim())) {
-            $m365Existed++
-            $hasGrant = $true
-        } else {
-            # Update existing grant with correct scopes
-            $patchResult = GBeta -Method PATCH -Path "/oauth2PermissionGrants/$($existing.id)" -Body @{ scope = $RequiredM365Scopes }
-            if ($patchResult -ne $null -or $patchResult -is [hashtable]) {
-                Log "  $agentName — UPDATED scopes (was: '$existingScopes')"
-                $m365Granted++
-            } else {
-                Log "  $agentName — FAILED to update scopes"
-                $m365Failed++
-            }
-            $hasGrant = $true
-        }
+    $body = @{
+        clientId    = $agentId
+        consentType = 'AllPrincipals'
+        resourceId  = $M365AgentToolsSpId
+        scope       = $RequiredM365Scopes
+        expiryTime  = $expiryTime
     }
-
-    if (-not $hasGrant) {
-        $body = @{
-            clientId    = $agentId
-            consentType = 'AllPrincipals'
-            resourceId  = $M365AgentToolsSpId
-            scope       = $RequiredM365Scopes
-        }
-        $result = GBeta -Method POST -Path '/oauth2PermissionGrants' -Body $body
-        if ($result -and $result._conflict) {
-            $m365Existed++
-            Log "  $agentName — already exists"
-        } elseif ($result) {
-            $m365Granted++
-            Log "  $agentName — GRANTED"
-        } else {
-            $m365Failed++
-            Log "  $agentName — FAILED"
-        }
+    $result = GBeta -Method POST -Path '/oauth2PermissionGrants' -Body $body
+    if ($result -and $result._conflict) {
+        $m365Existed++
+    } elseif ($result) {
+        $m365Granted++
+        Log "  $agentName — GRANTED"
+    } else {
+        $m365Failed++
+        Log "  $agentName — FAILED"
     }
     Start-Sleep -Milliseconds 150
 }

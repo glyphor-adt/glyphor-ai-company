@@ -1,0 +1,8 @@
+Marcus licenses: 1
+  sku=304b93a3-b1f1-427f-aa02-da21e7c7d675
+Tenant SKUs:
+  FLOW_FREE (f30db892-07e9-47e9-837c-80727f46fd3d) consumed=2/10000
+  Power_Virtual_Agents (75564b9c-51e8-431c-b8fe-d472d5a545c8) consumed=0/0
+  MICROSOFT_AGENT_365_TIER_3 (304b93a3-b1f1-427f-aa02-da21e7c7d675) consumed=34/50
+  O365_BUSINESS_PREMIUM (f245ecc8-75af-4f8e-b61f-27d8114de5f3) consumed=1/1
+  MICROSOFT_365_BUSINESS_PREMIUM_AND_COPILOT_FOR_WORK (30d939fe-9a04-42b2-a8d2-ffd2dd4f1122) consumed=2/2

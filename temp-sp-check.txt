@@ -1,3 +1,0 @@
-Glyphor SPs: 0
-Blueprint SPs: 1
-  ID=525e859f-29d9-4fa2-80a9-debc2a2576bb Type=Application

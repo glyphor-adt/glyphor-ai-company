@@ -1308,7 +1308,7 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 | 13 | `send_agent_message` |
 | 14 | `check_messages` |
 
-**Total: 14 tools**
+**Total: 14 code-based tools** | 🔌 MCP: Data (12) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1332,7 +1332,7 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 | 14 | `send_agent_message` |
 | 15 | `check_messages` |
 
-**Total: 15 tools**
+**Total: 15 code-based tools** | 🔌 MCP: Data (12) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1356,7 +1356,7 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 | 14 | `send_agent_message` |
 | 15 | `check_messages` |
 
-**Total: 15 tools**
+**Total: 15 code-based tools** | 🔌 MCP: Data (12), Finance (7) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1381,7 +1381,7 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 | 15 | `send_agent_message` |
 | 16 | `check_messages` |
 
-**Total: 16 tools**
+**Total: 16 code-based tools** | 🔌 MCP: Data (12), Finance (7) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1406,7 +1406,7 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 | 13 | `send_agent_message` |
 | 14 | `check_messages` |
 
-**Total: 14 tools**
+**Total: 14 code-based tools** | 🔌 MCP: Data (12), Marketing (7) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1430,7 +1430,7 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 | 14 | `send_agent_message` |
 | 15 | `check_messages` |
 
-**Total: 15 tools**
+**Total: 15 code-based tools** | 🔌 MCP: Data (12), Marketing (7) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1453,7 +1453,7 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 | 13 | `send_agent_message` |
 | 14 | `check_messages` |
 
-**Total: 14 tools**
+**Total: 14 code-based tools** | 🔌 MCP: Data (12), Marketing (7) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1479,7 +1479,7 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 | 14 | `send_agent_message` |
 | 15 | `check_messages` |
 
-**Total: 15 tools**
+**Total: 15 code-based tools** | 🔌 MCP: Data (12) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1502,7 +1502,7 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 | 13 | `send_agent_message` |
 | 14 | `check_messages` |
 
-**Total: 14 tools**
+**Total: 14 code-based tools** | 🔌 MCP: Data (12) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1528,7 +1528,7 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 | 14 | `send_agent_message` |
 | 15 | `check_messages` |
 
-**Total: 15 tools**
+**Total: 15 code-based tools** | 🔌 MCP: Data (12) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1558,7 +1558,7 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 | 20 | `send_agent_message` |
 | 21 | `check_messages` |
 
-**Total: 21 tools**
+**Total: 21 code-based tools** | 🔌 MCP: Data (12) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1618,7 +1618,7 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 | 50 | `submit_assignment_output` |
 | 51 | `flag_assignment_blocker` |
 
-**Total: 51 tools**
+**Total: 51 code-based tools** | 🔌 MCP: Data (12) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1669,7 +1669,7 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 | 39 | `submit_assignment_output` |
 | 40 | `flag_assignment_blocker` |
 
-**Total: 40 tools**
+**Total: 40 code-based tools** | 🔌 MCP: Data (12) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1693,6 +1693,8 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 | 31–36 | Shared communication, graph, event, assignment tools |
 
 **Total: ~36 tools**
+
+🔌 MCP: Data (12), Design (5) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1719,6 +1721,8 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 
 **Total: ~39 tools**
 
+🔌 MCP: Data (12), Engineering (5), Design (5) | ☁️ M365: Calendar, Teams, Copilot
+
 ---
 
 #### Sofia Marchetti — Design Critic (`design-critic`)
@@ -1740,6 +1744,8 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 | 42–47 | Shared communication, graph, event, assignment tools |
 
 **Total: ~47 tools**
+
+🔌 MCP: Data (12), Design (5) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1764,6 +1770,8 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 
 **Total: ~51 tools**
 
+🔌 MCP: Data (12), Engineering (5), Design (5) | ☁️ M365: Calendar, Teams, Copilot
+
 ---
 
 ### Strategy Lab Research Analysts
@@ -1775,6 +1783,8 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 
 **Total: 19 tools**
 
+🔌 MCP: Data (12) | ☁️ M365: Calendar, Teams, Copilot
+
 ---
 
 #### Lena Park — Competitive Research Analyst (`competitive-research-analyst`)
@@ -1783,6 +1793,8 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 |-------|------|
 
 **Total: 19 tools**
+
+🔌 MCP: Data (12) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1793,6 +1805,8 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 
 **Total: 19 tools**
 
+🔌 MCP: Data (12) | ☁️ M365: Calendar, Teams, Copilot
+
 ---
 
 #### Daniel Okafor — Market Research Analyst (`market-research-analyst`)
@@ -1801,6 +1815,8 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 |-------|------|
 
 **Total: 19 tools**
+
+🔌 MCP: Data (12) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1811,6 +1827,8 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 
 **Total: 19 tools**
 
+🔌 MCP: Data (12) | ☁️ M365: Calendar, Teams, Copilot
+
 ---
 
 #### Kai Nakamura — Technical Research Analyst (`technical-research-analyst`)
@@ -1819,6 +1837,8 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 |-------|------|
 
 **Total: 19 tools**
+
+🔌 MCP: Data (12) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1831,6 +1851,8 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 
 **Total: 19 tools**
 
+🔌 MCP: Data (12), Finance (7) | ☁️ M365: Calendar, Teams, Copilot
+
 ---
 
 #### Grace Hwang — Data Integrity Auditor (`data-integrity-auditor`)
@@ -1839,6 +1861,8 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 |-------|------|
 
 **Total: 19 tools**
+
+🔌 MCP: Data (12) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1849,6 +1873,8 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 
 **Total: 19 tools**
 
+🔌 MCP: Data (12) | ☁️ M365: Calendar, Teams, Copilot
+
 ---
 
 #### Mariana Solis — Tax Strategy Specialist (`tax-strategy-specialist`)
@@ -1857,6 +1883,8 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 |-------|------|
 
 **Total: 19 tools**
+
+🔌 MCP: Data (12), Finance (7) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1869,6 +1897,8 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 
 **Total: 21 tools**
 
+🔌 MCP: Data (12) | ☁️ M365: Calendar, Teams, Copilot
+
 ---
 
 #### Derek Owens — Lead Gen Specialist (`lead-gen-specialist`)
@@ -1877,6 +1907,8 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 |-------|------|
 
 **Total: 21 tools**
+
+🔌 MCP: Data (12) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
@@ -1887,6 +1919,8 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 
 **Total: 21 tools**
 
+🔌 MCP: Data (12) | ☁️ M365: Calendar, Teams, Copilot
+
 ---
 
 #### Adi Rose (`adi-rose`)
@@ -1895,6 +1929,8 @@ Code-based tools are listed in each agent's tool table below. MCP-served tools a
 |-------|------|
 
 **Total: 20 tools**
+
+🔌 MCP: Data (12) | ☁️ M365: Calendar, Teams, Copilot
 
 ---
 
