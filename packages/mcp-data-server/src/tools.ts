@@ -55,7 +55,7 @@ export const tools: ToolDefinition[] = [
       const limit = clampLimit(params.limit);
       values.push(limit);
       const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-      const { rows } = await pool.query(`SELECT * FROM content_metrics ${where} ORDER BY measured_at DESC LIMIT $${values.length}`, values);
+      const { rows } = await pool.query(`SELECT * FROM content_metrics ${where} ORDER BY recorded_at DESC LIMIT $${values.length}`, values);
       return rows;
     },
   },
@@ -78,7 +78,7 @@ export const tools: ToolDefinition[] = [
       const limit = clampLimit(params.limit);
       values.push(limit);
       const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-      const { rows } = await pool.query(`SELECT * FROM seo_data ${where} ORDER BY created_at DESC LIMIT $${values.length}`, values);
+      const { rows } = await pool.query(`SELECT * FROM seo_data ${where} ORDER BY recorded_at DESC LIMIT $${values.length}`, values);
       return rows;
     },
   },
@@ -101,7 +101,7 @@ export const tools: ToolDefinition[] = [
       const limit = clampLimit(params.limit);
       values.push(limit);
       const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-      const { rows } = await pool.query(`SELECT * FROM financials ${where} ORDER BY recorded_at DESC LIMIT $${values.length}`, values);
+      const { rows } = await pool.query(`SELECT * FROM financials ${where} ORDER BY created_at DESC LIMIT $${values.length}`, values);
       return rows;
     },
   },
@@ -113,7 +113,7 @@ export const tools: ToolDefinition[] = [
       properties: {},
     },
     async handler(pool) {
-      const { rows } = await pool.query(`SELECT * FROM company_pulse ORDER BY created_at DESC LIMIT 1`);
+      const { rows } = await pool.query(`SELECT * FROM company_pulse ORDER BY updated_at DESC LIMIT 1`);
       return rows;
     },
   },
@@ -186,7 +186,7 @@ export const tools: ToolDefinition[] = [
       const limit = clampLimit(params.limit);
       values.push(limit);
       const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-      const { rows } = await pool.query(`SELECT * FROM company_research ${where} ORDER BY created_at DESC LIMIT $${values.length}`, values);
+      const { rows } = await pool.query(`SELECT * FROM company_research ${where} ORDER BY updated_at DESC LIMIT $${values.length}`, values);
       return rows;
     },
   },
@@ -271,7 +271,7 @@ export const tools: ToolDefinition[] = [
       properties: {},
     },
     async handler(pool) {
-      const { rows } = await pool.query(`SELECT * FROM data_sync_status ORDER BY last_sync_at DESC`);
+      const { rows } = await pool.query(`SELECT * FROM data_sync_status ORDER BY updated_at DESC`);
       return rows;
     },
   },
