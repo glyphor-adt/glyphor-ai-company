@@ -231,7 +231,8 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
             continue;
           }
 
-          const tools = resp.result as McpTool[];
+          const result = resp.result as { tools?: McpTool[] } | McpTool[];
+          const tools = Array.isArray(result) ? result : result?.tools;
           if (!Array.isArray(tools) || tools.length === 0) {
             failures.push(`${server.name}: returned empty or non-array tools`);
             continue;
