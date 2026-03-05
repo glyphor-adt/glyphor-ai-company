@@ -1,0 +1,105 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.3.0",
+  "id": "0d2c6770-cd9e-4f78-a78d-46725494e391",
+  "developer": {
+    "name": "Glyphor",
+    "websiteUrl": "https://glyphor.com",
+    "privacyUrl": "https://glyphor.com/privacy",
+    "termsOfUseUrl": "https://glyphor.com/terms"
+  },
+  "name": {
+    "short": "Glyphor AI",
+    "full": "Glyphor AI Company Dashboard"
+  },
+  "description": {
+    "short": "Your AI executive team — chat, monitor, and manage 26 autonomous agents.",
+    "full": "Glyphor AI Company brings your entire autonomous AI executive team into Microsoft Teams. View dashboards, chat with agents 1:1 or in group conversations, approve decisions, monitor financials, and track operations — all without leaving Teams."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#00E0FF",
+  "staticTabs": [
+    {
+      "entityId": "dashboard",
+      "name": "Dashboard",
+      "contentUrl": "https://glyphor-dashboard-610179349713.us-central1.run.app?teamsTab=true",
+      "websiteUrl": "https://glyphor-dashboard-610179349713.us-central1.run.app",
+      "scopes": ["personal"]
+    },
+    {
+      "entityId": "chat",
+      "name": "Agent Chat",
+      "contentUrl": "https://glyphor-dashboard-610179349713.us-central1.run.app/chat?teamsTab=true",
+      "websiteUrl": "https://glyphor-dashboard-610179349713.us-central1.run.app/chat",
+      "scopes": ["personal"]
+    },
+    {
+      "entityId": "group-chat",
+      "name": "Group Chat",
+      "contentUrl": "https://glyphor-dashboard-610179349713.us-central1.run.app/group-chat?teamsTab=true",
+      "websiteUrl": "https://glyphor-dashboard-610179349713.us-central1.run.app/group-chat",
+      "scopes": ["personal"]
+    },
+    {
+      "entityId": "approvals",
+      "name": "Approvals",
+      "contentUrl": "https://glyphor-dashboard-610179349713.us-central1.run.app/approvals?teamsTab=true",
+      "websiteUrl": "https://glyphor-dashboard-610179349713.us-central1.run.app/approvals",
+      "scopes": ["personal"]
+    }
+  ],
+  "configurableTabs": [
+    {
+      "configurationUrl": "https://glyphor-dashboard-610179349713.us-central1.run.app/teams-config?teamsTab=true",
+      "canUpdateConfiguration": true,
+      "scopes": ["team", "groupChat"],
+      "supportedSharePointHosts": []
+    }
+  ],
+  "bots": [
+    {
+      "botId": "a4c1145a-fff5-4528-8841-ad1193ba277d",
+      "scopes": ["personal", "team", "groupChat"],
+      "supportsFiles": false,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": ["personal", "team"],
+          "commands": [
+            {
+              "title": "ask",
+              "description": "Ask any agent a question. Usage: ask [agent] [question]"
+            },
+            {
+              "title": "briefing",
+              "description": "Get the latest daily briefing from Sarah Chen"
+            },
+            {
+              "title": "status",
+              "description": "Get a system health check from Atlas Vega"
+            },
+            {
+              "title": "agents",
+              "description": "List all available agents and their current status"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "devicePermissions": ["media"],
+  "validDomains": [
+    "glyphor-dashboard-610179349713.us-central1.run.app",
+    "glyphor-scheduler-610179349713.us-central1.run.app",
+    "glyphor-voice-gateway-610179349713.us-central1.run.app",
+  ],
+  "webApplicationInfo": {
+    "id": "a4c1145a-fff5-4528-8841-ad1193ba277d",
+    "resource": "api://glyphor-dashboard-610179349713.us-central1.run.app/a4c1145a-fff5-4528-8841-ad1193ba277d"
+  }
+}
