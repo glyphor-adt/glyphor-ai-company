@@ -113,12 +113,19 @@ function extractColumnNames(body: string): string[] {
   const SKIP = new Set([
     'primary', 'unique', 'check', 'constraint', 'foreign', 'exclude',
     'create', 'index', 'grant', 'alter', 'references', 'on', 'if',
+    'default', 'not', 'null', 'true', 'false', 'array',
   ]);
   for (const line of body.split('\n')) {
     const trimmed = line.trim().replace(/--.*$/, '');
     if (!trimmed) continue;
-    const tok = trimmed.split(/\s+/)[0].replace(/[^a-z0-9_]/gi, '').toLowerCase();
-    if (tok && !SKIP.has(tok) && /^[a-z]/.test(tok)) {
+    // Skip lines that start with quotes/parens (CHECK/DEFAULT values)
+    if (/^['"`(\)]/.test(trimmed)) continue;
+    // Split at word boundaries first to separate e.g. "UNIQUE(col" into "UNIQUE" and "col"
+    const firstWord = trimmed.split(/[\s(,]+/)[0].toLowerCase();
+    if (!firstWord || SKIP.has(firstWord) || !/^[a-z_]/.test(firstWord)) continue;
+    // Must look like an identifier (only alphanumeric + underscore)
+    const tok = firstWord.replace(/[^a-z0-9_]/g, '');
+    if (tok && tok.length > 1) {
       cols.push(tok);
     }
   }
