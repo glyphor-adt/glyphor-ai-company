@@ -32,10 +32,13 @@ $JasmineUpn = 'jasmine@glyphor.ai'
 function Log { param([string]$m); Write-Host "$(Get-Date -Format 'HH:mm:ss') $m" }
 
 # ─── Connect ──────────────────────────────────────────────────────
+Log 'Connecting to Microsoft Graph...'
+Disconnect-MgGraph -ErrorAction SilentlyContinue
+Connect-MgGraph -Scopes 'RoleManagement.ReadWrite.Directory','User.Read.All' `
+    -TenantId $TenantId -NoWelcome -ContextScope Process
 $ctx = Get-MgContext
-if (-not $ctx -or $ctx.TenantId -ne $TenantId) {
-    Log 'Not connected. Please run first:'
-    Log '  Connect-MgGraph -Scopes "RoleManagement.ReadWrite.Directory","User.Read.All" -TenantId "19ab7456-f160-416d-a503-57298ab192a2" -NoWelcome'
+if (-not $ctx) {
+    Write-Error 'Failed to connect to Microsoft Graph.'
     exit 1
 }
 Log "Connected as $($ctx.Account)"
@@ -51,6 +54,7 @@ Log "  ID: $jasmineId  ($($jasmine.displayName))"
 $rolesToAssign = @(
     @{ templateId = 'fe930be7-5e62-47db-91af-98c3a49a38b1'; name = 'User Administrator' }
     @{ templateId = '4d6ac14f-3453-41d0-bead-e2824e8a4319'; name = 'License Administrator' }
+    @{ templateId = 'fdd7a751-b60b-444a-984c-02652fe8fa1c'; name = 'Groups Administrator' }
 )
 
 # ─── Get existing role assignments ────────────────────────────────

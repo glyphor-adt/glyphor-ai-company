@@ -143,7 +143,8 @@ export class BotTokenValidator {
   private readonly tenantId: string;
 
   constructor(appId: string, tenantId: string) {
-    this.validAudiences = [appId];
+    // SingleTenant bots receive tokens with audience 'api://botid-{appId}' from Bot Framework
+    this.validAudiences = [appId, `api://botid-${appId}`];
     this.tenantId = tenantId;
   }
 
@@ -345,7 +346,14 @@ export class TeamsBotHandler {
       await this.tokenValidator.validate(token);
       return true;
     } catch (err) {
-      console.error('[TeamsBot] Token validation failed:', (err as Error).message);
+      // Decode token claims for debugging (without verification)
+      try {
+        const [, payloadB64] = token.split('.');
+        const claims = JSON.parse(Buffer.from(payloadB64, 'base64url').toString());
+        console.error(`[TeamsBot] Token validation failed: ${(err as Error).message} | aud=${claims.aud} iss=${claims.iss}`);
+      } catch {
+        console.error('[TeamsBot] Token validation failed:', (err as Error).message);
+      }
       return false;
     }
   }
