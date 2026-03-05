@@ -137,6 +137,25 @@ const MUTATION_PREFIXES = ['update_', 'create_', 'delete_', 'set_', 'assign_', '
 const isMutation = (toolName: string): boolean =>
   MUTATION_PREFIXES.some(p => toolName.startsWith(p));
 
+// ─── DATA-EVIDENCE GATE ────────────────────────────────────────
+// Tools that MUST have prior data-sourcing tool calls with substantive
+// data before they can execute.  Prevents agents from fabricating
+// decisions or reports based on hallucinated data.
+const DATA_EVIDENCE_REQUIRED = new Set([
+  'create_decision',
+  'write_pipeline_report',
+]);
+
+/** Tools considered valid data sources for the evidence gate. */
+const DATA_SOURCE_TOOLS = new Set([
+  'get_product_metrics',
+  'get_financials',
+  'get_recent_activity',
+  'read_company_memory',
+  'query_stripe_mrr',
+  'query_stripe_subscriptions',
+]);
+
 /** Maps mutation tools to their read counterpart for post-write verification. */
 const VERIFICATION_MAP: Record<string, { name: string; paramKey: string }> = {
   'update_agent_profile': { name: 'get_agent_profile', paramKey: 'agent_role' },
@@ -409,6 +428,53 @@ export class ToolExecutor {
             };
           }
         }
+      }
+    }
+
+    // ─── 5. Data-evidence gate ─────────────────────────────────────
+    // Tools in DATA_EVIDENCE_REQUIRED (e.g. create_decision, write_pipeline_report)
+    // must be preceded by at least one successful data-sourcing tool call that
+    // returned substantive (non-null, non-empty) data.  This prevents agents from
+    // fabricating decisions or reports when no real data exists.
+    if (DATA_EVIDENCE_REQUIRED.has(toolName)) {
+      const agentDataCalls = this.callLog.filter(
+        log => DATA_SOURCE_TOOLS.has(log.toolName) && log.agentId === context.agentId,
+      );
+
+      if (agentDataCalls.length === 0) {
+        this.logSecurityEvent(context.agentId, context.agentRole, toolName, 'DATA_EVIDENCE_MISSING', {
+          reason: 'No data-reading tools called before ' + toolName,
+        });
+        return {
+          success: false,
+          error: `${toolName} rejected: you must call at least one data-reading tool (${[...DATA_SOURCE_TOOLS].join(', ')}) before creating a decision or report. Decisions must be backed by verified data. If no data is available, report that status honestly instead.`,
+          filesWritten: 0,
+          memoryKeysWritten: 0,
+        };
+      }
+
+      // Check if all data tool calls returned empty/null/"no data" responses
+      const hasSubstantiveData = agentDataCalls.some(log => {
+        if (!log.result.success) return false;
+        const data = log.result.data;
+        if (data == null) return false;
+        if (typeof data === 'object' && data !== null && 'message' in (data as Record<string, unknown>)) {
+          const msg = String((data as Record<string, unknown>).message).toLowerCase();
+          if (msg.includes('no') && (msg.includes('data') || msg.includes('found'))) return false;
+        }
+        return true;
+      });
+
+      if (!hasSubstantiveData) {
+        this.logSecurityEvent(context.agentId, context.agentRole, toolName, 'DATA_EVIDENCE_MISSING', {
+          reason: 'All data tools returned empty/null — no substantive data to base decision on',
+        });
+        return {
+          success: false,
+          error: `${toolName} rejected: all data-reading tools returned empty or null data this run. There is no verified data to base this on. Report "no active pipeline" or "data not yet populated" instead of fabricating content.`,
+          filesWritten: 0,
+          memoryKeysWritten: 0,
+        };
       }
     }
 

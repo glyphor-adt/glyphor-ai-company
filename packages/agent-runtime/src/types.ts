@@ -486,7 +486,8 @@ export type SecurityEventType =
   | 'SCOPE_VIOLATION'
   | 'RATE_LIMITED'
   | 'BUDGET_EXCEEDED'
-  | 'EVENT_NOT_PERMITTED';
+  | 'EVENT_NOT_PERMITTED'
+  | 'DATA_EVIDENCE_MISSING';
 
 export interface SecurityEvent {
   agentId: string;
