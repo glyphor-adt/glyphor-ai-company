@@ -19,8 +19,11 @@ export class GeminiAdapter implements ProviderAdapter {
 
   async generate(request: UnifiedModelRequest): Promise<UnifiedModelResponse> {
     const geminiContents = this.mapConversation(request.contents);
+    // Deep-clone tools: the @google/genai SDK mutates functionDeclaration objects
+    // in-place (uppercasing type fields via processJsonSchema). Without cloning,
+    // the shared tool references get corrupted for cross-provider fallbacks.
     const geminiTools = request.tools?.length
-      ? [{ functionDeclarations: request.tools }]
+      ? [{ functionDeclarations: structuredClone(request.tools) }]
       : undefined;
 
     // Build thinking config based on model family

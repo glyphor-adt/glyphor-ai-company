@@ -9,6 +9,31 @@ import OpenAI from 'openai';
 import type { ConversationTurn } from '../types.js';
 import type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse, ImageResponse } from './types.js';
 
+/**
+ * Recursively lowercase all `type` fields in a JSON Schema object.
+ * Guards against the @google/genai SDK mutating types to uppercase
+ * (e.g. STRING → string) which OpenAI rejects.
+ */
+function normalizeSchemaTypes(schema: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(schema)) {
+    if (key === 'type' && typeof value === 'string') {
+      result[key] = value.toLowerCase();
+    } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+      result[key] = normalizeSchemaTypes(value as Record<string, unknown>);
+    } else if (Array.isArray(value)) {
+      result[key] = value.map(item =>
+        item && typeof item === 'object' && !Array.isArray(item)
+          ? normalizeSchemaTypes(item as Record<string, unknown>)
+          : item,
+      );
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
 export class OpenAIAdapter implements ProviderAdapter {
   readonly provider = 'openai' as const;
   private client: OpenAI;
@@ -39,7 +64,9 @@ export class OpenAIAdapter implements ProviderAdapter {
           function: {
             name: t.name,
             description: t.description,
-            parameters: t.parameters,
+            // Normalize types to lowercase — the Gemini SDK may have mutated
+            // them to uppercase (STRING, OBJECT) which OpenAI rejects.
+            parameters: normalizeSchemaTypes(t.parameters),
           },
         }))
       : undefined;

@@ -95,6 +95,10 @@ const AGENTS = [
 
   // ── Executive Support ──
   { role: 'adi-rose', name: 'Adi Rose', desc: 'woman, late 20s, dark hair in a neat side braid, warm professional expression, blouse, small gold hoop earrings' },
+
+  // ── Strategy ──
+  { role: 'ai-impact-analyst', name: 'Riya Mehta', desc: 'South Asian woman, early 30s, long dark hair with center part, thoughtful analytical expression, delicate gold chain necklace, structured blazer' },
+  { role: 'org-analyst', name: 'Marcus Chen', desc: 'Chinese American man, early 30s, neatly styled short dark hair, perceptive calm expression, thin-framed glasses, crisp collared shirt, professional composed look' },
 ];
 
 function buildPrompt(agent) {
