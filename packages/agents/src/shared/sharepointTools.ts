@@ -76,10 +76,7 @@ export function createSharePointTools(): ToolDefinition[] {
       },
       execute: async (params): Promise<ToolResult> => {
         try {
-          const rootFolder = process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge';
-          const fullPath = `${rootFolder}/${params.path as string}`;
-
-          const doc = await readSharePointDocument(fullPath);
+          const doc = await readSharePointDocument(params.path as string);
           return {
             success: true,
             data: {

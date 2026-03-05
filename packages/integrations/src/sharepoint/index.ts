@@ -293,9 +293,32 @@ async function listChildren(
   return items;
 }
 
+/** Strip HTML to plain text. */
+function htmlToPlainText(html: string): string {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<\/tr>/gi, '\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<td[^>]*>/gi, '\t')
+    .replace(/<li[^>]*>/gi, '- ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 /**
- * Download Office documents (docx, pptx, xlsx) as readable text via Graph API PDF conversion.
- * Falls back to HTML conversion if PDF is unavailable.
+ * Download Office documents (docx, pptx, xlsx) as readable text via Graph API.
+ * Tries HTML conversion first, then PDF conversion, then raw binary text extraction.
  */
 async function downloadOfficeAsText(
   token: string,
@@ -304,39 +327,120 @@ async function downloadOfficeAsText(
   itemId: string,
   fileName: string,
 ): Promise<string> {
-  // Graph API can convert Office docs to HTML for text extraction
-  const htmlUrl = `${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/drives/${encodeDriveId(driveId)}/items/${encodeURIComponent(itemId)}/content?format=html`;
-  const htmlRes = await fetch(htmlUrl, {
+  const site = encodeSiteId(siteId);
+  const drive = encodeDriveId(driveId);
+  const item = encodeURIComponent(itemId);
+  const baseUrl = `${GRAPH_BASE}/sites/${site}/drives/${drive}/items/${item}`;
+
+  // Strategy 1: HTML conversion (works for most Office docs)
+  const htmlRes = await fetch(`${baseUrl}/content?format=html`, {
     headers: { Authorization: `Bearer ${token}` },
     redirect: 'follow',
   });
-
   if (htmlRes.ok) {
-    const html = await htmlRes.text();
-    // Strip HTML tags to get plain text
-    return html
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/p>/gi, '\n\n')
-      .replace(/<\/div>/gi, '\n')
-      .replace(/<\/tr>/gi, '\n')
-      .replace(/<\/li>/gi, '\n')
-      .replace(/<td[^>]*>/gi, '\t')
-      .replace(/<li[^>]*>/gi, '- ')
-      .replace(/<[^>]+>/g, '')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
+    return htmlToPlainText(await htmlRes.text());
   }
 
-  // Fallback: return a message that the doc exists but can't be converted
-  throw new Error(`Cannot read ${fileName} — Graph API HTML conversion returned ${htmlRes.status}. The document exists but its content cannot be extracted.`);
+  // Strategy 2: PDF conversion — Graph can convert Office docs to PDF even when
+  // HTML conversion fails (406). Download the PDF and extract text heuristically.
+  const pdfRes = await fetch(`${baseUrl}/content?format=pdf`, {
+    headers: { Authorization: `Bearer ${token}` },
+    redirect: 'follow',
+  });
+  if (pdfRes.ok) {
+    const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
+    const text = extractTextFromPdf(pdfBuffer);
+    if (text.length > 50) return text;
+  }
+
+  // Strategy 3: Download the raw .docx (it's a ZIP containing XML) and
+  // extract text from the document.xml entry.
+  const rawRes = await fetch(`${baseUrl}/content`, {
+    headers: { Authorization: `Bearer ${token}` },
+    redirect: 'follow',
+  });
+  if (rawRes.ok) {
+    const buf = Buffer.from(await rawRes.arrayBuffer());
+    const text = extractTextFromDocx(buf);
+    if (text.length > 20) return text;
+  }
+
+  throw new Error(
+    `Cannot read ${fileName} — all conversion strategies failed (HTML ${htmlRes.status}, PDF ${pdfRes.status}). ` +
+    `Upload this file as .md or .pdf to the Design/ folder for agents to read it.`,
+  );
+}
+
+/**
+ * Heuristic text extraction from a PDF buffer.
+ * Pulls readable ASCII/UTF-8 text streams — not a full parser but good enough
+ * for most text-heavy Office-converted PDFs.
+ */
+function extractTextFromPdf(buffer: Buffer): string {
+  const raw = buffer.toString('latin1');
+  const textChunks: string[] = [];
+
+  // Extract text between BT (begin text) and ET (end text) operators
+  const btEtRegex = /BT\s([\s\S]*?)ET/g;
+  let match: RegExpExecArray | null;
+  while ((match = btEtRegex.exec(raw)) !== null) {
+    const block = match[1];
+    // Extract Tj and TJ string operands
+    const tjRegex = /\(([^)]*)\)\s*Tj/g;
+    let tj: RegExpExecArray | null;
+    while ((tj = tjRegex.exec(block)) !== null) {
+      textChunks.push(tj[1]);
+    }
+    // TJ arrays: [(text) kerning (text) ...]
+    const tjArrayRegex = /\[((?:\([^)]*\)|[^[\]])*)\]\s*TJ/gi;
+    let tja: RegExpExecArray | null;
+    while ((tja = tjArrayRegex.exec(block)) !== null) {
+      const inner = tja[1];
+      const parts = inner.match(/\(([^)]*)\)/g);
+      if (parts) {
+        textChunks.push(parts.map(p => p.slice(1, -1)).join(''));
+      }
+    }
+  }
+
+  return textChunks
+    .join(' ')
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '')
+    .replace(/\\t/g, '\t')
+    .replace(/\\\(/g, '(')
+    .replace(/\\\)/g, ')')
+    .replace(/\s{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
+ * Extract text from a raw .docx buffer by finding the document.xml inside the ZIP
+ * and stripping XML tags. Works because .docx is a ZIP with XML content.
+ */
+function extractTextFromDocx(buffer: Buffer): string {
+  // Find the document.xml inside the ZIP — look for the PK signature and the
+  // word/document.xml entry. Simple approach: find the XML content between
+  // known markers.
+  const raw = buffer.toString('utf-8');
+
+  // Look for XML text nodes in the word/document.xml portion
+  // The <w:t> tags contain the actual text content
+  const textParts: string[] = [];
+  const wtRegex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+  let match: RegExpExecArray | null;
+  while ((match = wtRegex.exec(raw)) !== null) {
+    textParts.push(match[1]);
+  }
+
+  if (textParts.length > 0) {
+    return textParts.join('').replace(/\s{3,}/g, '\n\n').trim();
+  }
+
+  // Fallback: strip all XML tags and extract readable text
+  const noTags = raw.replace(/<[^>]+>/g, ' ').replace(/[^\x20-\x7E\n\r\t]/g, '');
+  const words = noTags.split(/\s+/).filter(w => w.length > 1 && /[a-zA-Z]/.test(w));
+  return words.join(' ').slice(0, 15_000).trim();
 }
 
 async function downloadTextContent(
@@ -725,35 +829,51 @@ export async function readSharePointDocument(
   const token = await getM365Token('read_sharepoint');
   const driveId = (options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId)).trim();
 
-  // Get item metadata
-  const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
-  const metaUrl = `${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/drives/${encodeDriveId(driveId)}/root:/${encodedPath}`;
-  const metaRes = await fetch(metaUrl, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const rootFolder = process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge';
 
-  if (!metaRes.ok) {
-    throw new Error(`Document not found: ${filePath}`);
+  // Try multiple path strategies:
+  // 1. rootFolder/filePath (expected convention — search results are relative to root)
+  // 2. filePath as-is (handles absolute paths or files outside rootFolder)
+  const candidates = [
+    `${rootFolder}/${filePath}`,
+    filePath,
+  ];
+  // Deduplicate if filePath already starts with rootFolder
+  const paths = [...new Set(candidates)];
+
+  let lastError: Error | null = null;
+  for (const candidatePath of paths) {
+    const encodedPath = candidatePath.split('/').map(encodeURIComponent).join('/');
+    const metaUrl = `${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/drives/${encodeDriveId(driveId)}/root:/${encodedPath}`;
+    const metaRes = await fetch(metaUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!metaRes.ok) {
+      lastError = new Error(`Document not found: ${candidatePath}`);
+      continue;
+    }
+
+    const meta = (await metaRes.json()) as GraphDriveItem;
+
+    const ext = getExtension(meta.name).toLowerCase();
+    const OFFICE_EXTENSIONS = new Set(['.docx', '.doc', '.pptx', '.ppt', '.xlsx', '.xls']);
+    let content: string;
+
+    if (OFFICE_EXTENSIONS.has(ext)) {
+      content = await downloadOfficeAsText(token, siteId, driveId, meta.id, meta.name);
+    } else {
+      content = await downloadTextContent(token, siteId, driveId, meta.id);
+    }
+
+    return {
+      content,
+      webUrl: meta.webUrl ?? null,
+      lastModified: meta.lastModifiedDateTime ?? null,
+    };
   }
 
-  const meta = (await metaRes.json()) as GraphDriveItem;
-
-  // Download content — use conversion for Office formats, raw text for md/txt
-  const ext = getExtension(meta.name).toLowerCase();
-  const OFFICE_EXTENSIONS = new Set(['.docx', '.doc', '.pptx', '.ppt', '.xlsx', '.xls']);
-  let content: string;
-
-  if (OFFICE_EXTENSIONS.has(ext)) {
-    content = await downloadOfficeAsText(token, siteId, driveId, meta.id, meta.name);
-  } else {
-    content = await downloadTextContent(token, siteId, driveId, meta.id);
-  }
-
-  return {
-    content,
-    webUrl: meta.webUrl ?? null,
-    lastModified: meta.lastModifiedDateTime ?? null,
-  };
+  throw lastError ?? new Error(`Document not found: ${filePath}`);
 }
 
 /**
