@@ -49,8 +49,8 @@ export function createContentCreatorTools(memory: CompanyMemoryStore): ToolDefin
     },
     {
       name: 'draft_email',
-      description: 'Draft an email campaign for review.',
-      parameters: { subject: { type: 'string', description: 'Email subject line', required: true }, body: { type: 'string', description: 'Email body content (HTML)', required: true }, campaign: { type: 'string', description: 'Campaign type: onboarding, feature_launch, re_engagement, newsletter' } },
+      description: 'Draft an email campaign for review. Write the body in plain professional prose or clean HTML — NEVER use markdown formatting.',
+      parameters: { subject: { type: 'string', description: 'Email subject line', required: true }, body: { type: 'string', description: 'Email body content in plain prose or HTML. Do NOT use markdown syntax.', required: true }, campaign: { type: 'string', description: 'Campaign type: onboarding, feature_launch, re_engagement, newsletter' } },
       async execute(params) {
         try {
         await systemQuery('INSERT INTO content_drafts (type, title, content, campaign_type, status, author, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)', ['email', params.subject, params.body, params.campaign || 'general', 'draft', 'content-creator', new Date().toISOString()]);

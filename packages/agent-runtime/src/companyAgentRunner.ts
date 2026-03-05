@@ -549,6 +549,24 @@ When you call a tool that MUTATES data (writes, updates, creates, deletes):
    "Got it — setting reports_to to Andrew Zwelling now." Then do it.
    Then confirm the result.`;
 
+const EXTERNAL_COMMUNICATION_PROTOCOL = `## External Communication Formatting — Non-Negotiable
+
+When composing ANY external communication (emails, customer messages, letters, proposals,
+or any content that will be seen by someone outside the agent system), you MUST:
+
+1. NEVER use markdown formatting. No **, ##, \`, ~~, [](), bullet markers (- or *), or numbered list syntax.
+2. Write in plain professional prose exactly as a human would compose a business email.
+3. Use natural paragraphs, not bullet lists, for email body content.
+4. For emphasis, use word choice and sentence structure — not bold/italic markers.
+5. If you need to list items, write them as a sentence ("Key items include X, Y, and Z")
+   or use line breaks with plain text — never markdown list markers.
+
+This applies to: send_email, reply_to_email, send_transactional_email, draft_email,
+set_campaign_content, and any other tool that produces outgoing communications.
+
+Recipients see raw markdown syntax as broken formatting — asterisks, hashes, and brackets
+make emails look unprofessional and machine-generated.`;
+
 const INSTRUCTION_ECHO_PROTOCOL = `## Instruction Parsing
 
 When a founder gives a specific instruction:
@@ -885,11 +903,13 @@ function buildSystemPrompt(
       parts.push(CHAT_REASONING_PROTOCOL);
       parts.push(CHAT_DATA_HONESTY);
       parts.push(ACTION_HONESTY_PROTOCOL);
+      parts.push(EXTERNAL_COMMUNICATION_PROTOCOL);
       parts.push(INSTRUCTION_ECHO_PROTOCOL);
     } else {
       parts.push(REASONING_PROTOCOL);
       parts.push(DATA_GROUNDING_PROTOCOL);
       parts.push(ACTION_HONESTY_PROTOCOL);
+      parts.push(EXTERNAL_COMMUNICATION_PROTOCOL);
       parts.push(WORK_ASSIGNMENTS_PROTOCOL);
       parts.push(ALWAYS_ON_PROTOCOL);
       parts.push(COLLABORATION_PROTOCOL);

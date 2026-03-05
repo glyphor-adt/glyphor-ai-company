@@ -227,7 +227,7 @@ export function createEmailMarketingTools(): ToolDefinition[] {
       description: 'Set the HTML content for a Mailchimp campaign.',
       parameters: {
         campaign_id: { type: 'string', description: 'Campaign ID', required: true },
-        html_content: { type: 'string', description: 'HTML content for the email body', required: true },
+        html_content: { type: 'string', description: 'HTML content for the email body. Do NOT use markdown syntax — use proper HTML only.', required: true },
       },
       execute: async (params): Promise<ToolResult> => {
         try {
@@ -448,12 +448,12 @@ export function createEmailMarketingTools(): ToolDefinition[] {
     // ── send_transactional_email ───────────────────────────────────────
     {
       name: 'send_transactional_email',
-      description: 'Send a one-off transactional email via Mandrill.',
+      description: 'Send a one-off transactional email via Mandrill. NEVER use markdown formatting in the email body — write in plain professional prose or clean HTML.',
       parameters: {
         to_email: { type: 'string', description: 'Recipient email address', required: true },
         to_name: { type: 'string', description: 'Recipient display name', required: false },
         subject: { type: 'string', description: 'Email subject line', required: true },
-        html_content: { type: 'string', description: 'HTML body of the email', required: true },
+        html_content: { type: 'string', description: 'HTML body of the email. Do NOT use markdown syntax — use proper HTML or plain professional prose.', required: true },
         from_email: { type: 'string', description: 'Sender email address', required: false },
         from_name: { type: 'string', description: 'Sender display name', required: false },
         tags: { type: 'string', description: 'Comma-separated tags for tracking', required: false },

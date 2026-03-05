@@ -32,15 +32,53 @@ const FOUNDER_CC = Object.values(FOUNDER_EMAILS);
  * with a consistent signature block.  Agents write the message text;
  * this function adds the structure, styling, and sign-off automatically.
  */
+/**
+ * Strip markdown syntax from email body content.
+ * Agents must never send markdown-formatted emails — recipients see raw
+ * asterisks, hashes, and brackets which look unprofessional.
+ */
+function stripMarkdown(text: string): string {
+  return text
+    // Headers: ## Heading → Heading
+    .replace(/^#{1,6}\s+/gm, '')
+    // Bold: **text** or __text__ → text
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    // Italic: *text* or _text_ → text
+    .replace(/(?<![\w*])\*([^*]+)\*(?![\w*])/g, '$1')
+    .replace(/(?<![\w_])_([^_]+)_(?![\w_])/g, '$1')
+    // Strikethrough: ~~text~~ → text
+    .replace(/~~(.+?)~~/g, '$1')
+    // Inline code: `code` → code
+    .replace(/`([^`]+)`/g, '$1')
+    // Code fences: ```...``` → content only
+    .replace(/```[\s\S]*?```/g, (match) => match.replace(/```\w*\n?/g, '').trim())
+    // Links: [text](url) → text (url)
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
+    // Images: ![alt](url) → (remove entirely)
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '')
+    // Unordered list markers: - item or * item → item
+    .replace(/^[\s]*[-*+]\s+/gm, '')
+    // Ordered list markers: 1. item → item
+    .replace(/^[\s]*\d+\.\s+/gm, '')
+    // Blockquotes: > text → text
+    .replace(/^>\s?/gm, '')
+    // Horizontal rules: --- or *** → (empty line)
+    .replace(/^[-*_]{3,}$/gm, '');
+}
+
 function formatEmailHtml(body: string, agent: AgentEmailEntry): string {
   // If the agent already included full HTML structure, don't double-wrap
   if (body.trim().toLowerCase().startsWith('<!doctype') || body.trim().toLowerCase().startsWith('<html')) {
     return body;
   }
 
+  // Strip any markdown syntax — emails must be plain professional text
+  const cleanBody = stripMarkdown(body);
+
   // Convert plain-text line breaks to <br> if the body has no HTML tags
-  const hasHtml = /<[a-z][\s\S]*>/i.test(body);
-  const formattedBody = hasHtml ? body : body.replace(/\n/g, '<br>');
+  const hasHtml = /<[a-z][\s\S]*>/i.test(cleanBody);
+  const formattedBody = hasHtml ? cleanBody : cleanBody.replace(/\n/g, '<br>');
 
   return `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; color: #1a1a1a; line-height: 1.6;">
   ${formattedBody}
@@ -81,7 +119,7 @@ export function createEmailTools(): ToolDefinition[] {
     {
       name: 'send_email',
       description:
-        'Send an email from YOUR mailbox (e.g. sarah@glyphor.ai). Always YELLOW — requires founder approval before sending. Write the message body only — your signature is added automatically. Format the body like a real email: greeting, concise content, professional sign-off (e.g. Best regards, Thanks).',
+        'Send an email from YOUR mailbox (e.g. sarah@glyphor.ai). Always YELLOW — requires founder approval before sending. Write the message body only — your signature is added automatically. Format the body like a real email: greeting, concise content, professional sign-off (e.g. Best regards, Thanks). NEVER use markdown formatting (no **, ##, `, ~~, bullet markers, or []() links) — write in plain professional prose exactly as a human would compose an email.',
       parameters: {
         to: {
           type: 'array',
@@ -96,7 +134,7 @@ export function createEmailTools(): ToolDefinition[] {
         },
         body: {
           type: 'string',
-          description: 'Email body (HTML supported)',
+          description: 'Email body in plain professional prose. Do NOT use markdown formatting — no **, ##, `, or []() syntax. Write like a human composing a normal email.',
           required: true,
         },
         cc: {
@@ -205,7 +243,7 @@ export function createEmailTools(): ToolDefinition[] {
     {
       name: 'reply_to_email',
       description:
-        'Reply to an email in YOUR inbox. Always YELLOW — requires founder approval. Use the message ID from read_inbox results. Write the reply body only — your signature is added automatically. Format like a real email reply: address the sender, respond to their points, professional sign-off.',
+        'Reply to an email in YOUR inbox. Always YELLOW — requires founder approval. Use the message ID from read_inbox results. Write the reply body only — your signature is added automatically. Format like a real email reply: address the sender, respond to their points, professional sign-off. NEVER use markdown formatting — write in plain professional prose.',
       parameters: {
         message_id: {
           type: 'string',
@@ -214,7 +252,7 @@ export function createEmailTools(): ToolDefinition[] {
         },
         body: {
           type: 'string',
-          description: 'Reply body (HTML supported)',
+          description: 'Reply body in plain professional prose. Do NOT use markdown formatting.',
           required: true,
         },
         reply_all: {
