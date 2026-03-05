@@ -12,7 +12,6 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GLOBAL_ADMIN_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createGlobalAdminTools } from './tools.js';
 import { createGraphTools } from '../shared/graphTools.js';
-import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createOpsExtensionTools } from '../shared/opsExtensionTools.js';

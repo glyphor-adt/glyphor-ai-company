@@ -20,7 +20,6 @@ import { createPlatformEngineerTools } from './tools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
-import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createEngineeringGapTools } from '../shared/engineeringGapTools.js';
 import { createDiagnosticTools } from '../shared/diagnosticTools.js';
@@ -53,7 +52,6 @@ export async function runPlatformEngineer(params: PlatformEngineerRunParams = {}
     ...createPlatformEngineerTools(memory),
     ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createEmailTools(),
     ...createSharePointTools(),
     ...createDiagnosticTools(),
     ...createEngineeringGapTools(),

@@ -13,7 +13,6 @@ import { HEAD_OF_HR_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createHeadOfHRTools } from './tools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createGraphTools } from '../shared/graphTools.js';
-import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createAccessAuditTools } from '../shared/accessAuditTools.js';

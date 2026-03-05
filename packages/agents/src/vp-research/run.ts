@@ -17,7 +17,6 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createTeamOrchestrationTools } from '../shared/teamOrchestrationTools.js';
 import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js';
 import { createInitiativeTools } from '../shared/initiativeTools.js';
-import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createResearchRepoTools } from '../shared/researchRepoTools.js';
 import { createResearchMonitoringTools } from '../shared/researchMonitoringTools.js';

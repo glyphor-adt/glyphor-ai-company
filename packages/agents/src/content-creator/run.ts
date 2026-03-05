@@ -13,7 +13,6 @@ import { createContentCreatorTools } from './tools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
-import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createContentTools } from '../shared/contentTools.js';
 import { createEmailMarketingTools } from '../shared/emailMarketingTools.js';
@@ -41,7 +40,6 @@ export async function runContentCreator(params: ContentCreatorRunParams = {}) {
     ...createContentCreatorTools(memory),
     ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createEmailTools(),
     ...createSharePointTools(),
     ...createContentTools(),
     ...createEmailMarketingTools(),

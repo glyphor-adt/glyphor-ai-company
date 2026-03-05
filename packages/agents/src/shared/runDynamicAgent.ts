@@ -22,7 +22,6 @@ import { createAssignmentTools } from './assignmentTools.js';
 import { createCommunicationTools } from './communicationTools.js';
 import { createResearchTools } from './researchTools.js';
 import { createCollectiveIntelligenceTools } from './collectiveIntelligenceTools.js';
-import { createEmailTools } from './emailTools.js';
 import { createToolRequestTools } from './toolRequestTools.js';
 import { createSharePointTools } from './sharepointTools.js';
 import { createAgent365McpTools, closeAgent365Bridge } from './agent365Tools.js';
@@ -97,7 +96,6 @@ export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<Ag
     ...createCommunicationTools(glyphorEventBus, process.env.SCHEDULER_URL),
     ...createResearchTools(),
     ...createCollectiveIntelligenceTools(memory),
-    ...createEmailTools(),
     ...createToolRequestTools(),
     ...createSharePointTools(),
     ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),

@@ -12,7 +12,6 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { M365_ADMIN_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createM365AdminTools } from './tools.js';
 import { createGraphTools } from '../shared/graphTools.js';
-import { createEmailTools } from '../shared/emailTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';

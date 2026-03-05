@@ -14,7 +14,6 @@ import { createQualityEngineerTools } from './tools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
-import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createEngineeringGapTools } from '../shared/engineeringGapTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
@@ -46,7 +45,6 @@ export async function runQualityEngineer(params: QualityEngineerRunParams = {}) 
     ...createQualityEngineerTools(memory),
     ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createEmailTools(),
     ...createSharePointTools(),
     ...createEngineeringGapTools(),
     ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),

@@ -24,7 +24,6 @@ import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
-import { createEmailTools } from '../shared/emailTools.js';
 import { createDiagnosticTools } from '../shared/diagnosticTools.js';
 import { createOpsExtensionTools } from '../shared/opsExtensionTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';

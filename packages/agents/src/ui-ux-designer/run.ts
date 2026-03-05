@@ -18,7 +18,6 @@ import { createScreenshotTools } from '../shared/screenshotTools.js';
 import { createDesignSystemTools } from '../shared/designSystemTools.js';
 import { createAssetTools } from '../shared/assetTools.js';
 import { createFigmaTools } from '../shared/figmaTools.js';
-import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createLogoTools } from '../shared/logoTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
@@ -50,7 +49,6 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
     ...createDesignSystemTools(),
     ...createAssetTools(),
     ...createFigmaTools(),
-    ...createEmailTools(),
     ...createSharePointTools(),
     ...createLogoTools(),
     ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),

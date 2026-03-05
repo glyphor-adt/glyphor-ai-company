@@ -25,7 +25,6 @@ import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js'
 import { createInitiativeTools } from '../shared/initiativeTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
-import { createEmailTools } from '../shared/emailTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createToolRegistryTools } from '../shared/toolRegistryTools.js';

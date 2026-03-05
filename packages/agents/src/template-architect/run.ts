@@ -19,7 +19,6 @@ import { createAssetTools } from '../shared/assetTools.js';
 import { createScaffoldTools } from '../shared/scaffoldTools.js';
 import { createFigmaTools } from '../shared/figmaTools.js';
 import { createStorybookTools } from '../shared/storybookTools.js';
-import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createLogoTools } from '../shared/logoTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
@@ -52,7 +51,6 @@ export async function runTemplateArchitect(params: TemplateArchitectRunParams = 
     ...createScaffoldTools(),
     ...createFigmaTools(),
     ...createStorybookTools(),
-    ...createEmailTools(),
     ...createSharePointTools(),
     ...createLogoTools(),
     ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),

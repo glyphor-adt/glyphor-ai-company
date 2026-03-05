@@ -91,6 +91,7 @@ const GLYPHOR_MCP_SERVERS: Record<string, string> = {
   'mcp_GlyphorEngineering': process.env.GLYPHOR_MCP_ENGINEERING_URL ?? '',
   'mcp_GlyphorDesign': process.env.GLYPHOR_MCP_DESIGN_URL ?? '',
   'mcp_GlyphorFinance': process.env.GLYPHOR_MCP_FINANCE_URL ?? '',
+  'mcp_GlyphorEmail': process.env.GLYPHOR_MCP_EMAIL_URL ?? '',
 };
 
 // ── Schema Conversion ───────────────────────────────────────────
@@ -104,6 +105,7 @@ function convertMcpTool(
   mcpTool: Record<string, unknown>,
   serverUrl: string,
   authToken: string | null,
+  agentRole?: string,
 ): ToolDefinition {
   const inputSchema = (mcpTool.inputSchema as Record<string, unknown>) ?? {};
   const props = (inputSchema.properties as Record<string, Record<string, unknown>>) ?? {};
@@ -129,6 +131,7 @@ function convertMcpTool(
       try {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+        if (agentRole) headers['X-Agent-Role'] = agentRole;
 
         const response = await fetch(serverUrl, {
           method: 'POST',
@@ -199,6 +202,7 @@ export async function createGlyphorMcpTools(
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+      if (agentRole) headers['X-Agent-Role'] = agentRole;
 
       const response = await fetch(serverUrl, {
         method: 'POST',
@@ -214,7 +218,7 @@ export async function createGlyphorMcpTools(
 
       const tools = (result.result as Record<string, unknown>[] | undefined) ?? [];
       for (const mcpTool of tools) {
-        allTools.push(convertMcpTool(mcpTool, serverUrl, authToken));
+        allTools.push(convertMcpTool(mcpTool, serverUrl, authToken, agentRole));
       }
 
       console.log(`[GlyphorMCP] ${serverName}: ${tools.length} tools (agent=${agentRole ?? 'anon'})`);

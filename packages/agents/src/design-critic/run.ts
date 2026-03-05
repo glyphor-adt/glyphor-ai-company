@@ -19,7 +19,6 @@ import { createDesignSystemTools } from '../shared/designSystemTools.js';
 import { createAuditTools } from '../shared/auditTools.js';
 import { createFigmaTools } from '../shared/figmaTools.js';
 import { createStorybookTools } from '../shared/storybookTools.js';
-import { createEmailTools } from '../shared/emailTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
@@ -51,7 +50,6 @@ export async function runDesignCritic(params: DesignCriticRunParams = {}) {
     ...createAuditTools(),
     ...createFigmaTools(),
     ...createStorybookTools(),
-    ...createEmailTools(),
     ...createSharePointTools(),
     ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
     ...await createGlyphorMcpTools('design-critic'),
