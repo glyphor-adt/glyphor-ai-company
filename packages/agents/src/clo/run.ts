@@ -59,13 +59,12 @@ export async function runCLO(params: CLORunParams = {}) {
     ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createEmailTools(),
     ...createSharePointTools(),
     ...createAgentCreationTools(),
     ...createAgentDirectoryTools(),
     ...createLegalTools(),
     ...createDocuSignTools(),
-    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
     ...await createGlyphorMcpTools('clo'),
   ];
   const toolExecutor = new ToolExecutor(tools);

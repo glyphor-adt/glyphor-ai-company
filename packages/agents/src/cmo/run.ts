@@ -71,7 +71,6 @@ export async function runCMO(params: CMORunParams = {}) {
     ...createTeamOrchestrationTools(glyphorEventBus),
     ...createPeerCoordinationTools(glyphorEventBus),
     ...createInitiativeTools(glyphorEventBus),
-    ...createEmailTools(),
     ...createAgentCreationTools(),
     ...createAgentDirectoryTools(),
     ...createContentTools(),
@@ -81,7 +80,7 @@ export async function runCMO(params: CMORunParams = {}) {
     ...createMarketingIntelTools(),
     ...createCanvaTools(),
     ...createLogoTools(),
-    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
     ...await createGlyphorMcpTools('cmo'),
   ];
   const toolExecutor = new ToolExecutor(tools);

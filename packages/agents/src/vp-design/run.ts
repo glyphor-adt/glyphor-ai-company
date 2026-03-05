@@ -75,7 +75,6 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
     ...createTeamOrchestrationTools(glyphorEventBus),
     ...createPeerCoordinationTools(glyphorEventBus),
     ...createInitiativeTools(glyphorEventBus),
-    ...createEmailTools(),
     ...createSharePointTools(),
     ...createAgentCreationTools(),
     ...createAgentDirectoryTools(),
@@ -90,7 +89,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
     ...createStorybookTools(),
     ...createCanvaTools(),
     ...createLogoTools(),
-    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
     ...await createGlyphorMcpTools('vp-design'),
   ];
   const toolExecutor = new ToolExecutor(tools);

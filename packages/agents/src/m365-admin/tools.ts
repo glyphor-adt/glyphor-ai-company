@@ -240,17 +240,10 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
           // Prefer Bot Framework proactive post (rich, proper bot identity)
           const bot = TeamsBotHandler.fromEnv(() => Promise.resolve(undefined));
           if (bot) {
-            // Find Riley's app ID in AGENT_BOTS
-            let rileyAppId: string | undefined;
-            if (process.env.AGENT_BOTS) {
-              const bots = JSON.parse(process.env.AGENT_BOTS) as Array<{ role: string; appId: string }>;
-              rileyAppId = bots.find((b) => b.role === 'm365-admin')?.appId;
-            }
             await bot.sendProactiveToChannel(
               TEAM_ID,
               params.channel_id as string,
               params.message as string,
-              rileyAppId,
             );
             return { success: true, data: { posted: true, channelId: params.channel_id, method: 'bot-framework' } };
           }

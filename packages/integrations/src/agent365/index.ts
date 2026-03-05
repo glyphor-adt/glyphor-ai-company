@@ -50,6 +50,48 @@ interface ActiveMcpConnection {
   transport: StreamableHTTPClientTransport;
 }
 
+// ── Email Sanitization ───────────────────────────────────────────
+
+/** Field names in MCP Mail tool arguments that may contain email body content. */
+const MAIL_BODY_FIELDS = new Set(['body', 'content', 'html_content', 'htmlContent', 'Body', 'Content']);
+
+/**
+ * Strip markdown syntax from a string.
+ * Agents must never send markdown-formatted emails — recipients see raw
+ * asterisks, hashes, and brackets which look unprofessional.
+ */
+function stripMarkdownFromText(text: string): string {
+  return text
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/(?<![\w*])\*([^*]+)\*(?![\w*])/g, '$1')
+    .replace(/(?<![\w_])_([^_]+)_(?![\w_])/g, '$1')
+    .replace(/~~(.+?)~~/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/```[\s\S]*?```/g, (match) => match.replace(/```\w*\n?/g, '').trim())
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '')
+    .replace(/^[\s]*[-*+]\s+/gm, '')
+    .replace(/^[\s]*\d+\.\s+/gm, '')
+    .replace(/^>\s?/gm, '')
+    .replace(/^[-*_]{3,}$/gm, '');
+}
+
+/**
+ * Sanitize MCP Mail tool arguments — strip markdown from email body fields.
+ * Returns a new params object (does not mutate the original).
+ */
+function sanitizeMailToolParams(params: Record<string, unknown>): Record<string, unknown> {
+  const sanitized = { ...params };
+  for (const [key, value] of Object.entries(sanitized)) {
+    if (MAIL_BODY_FIELDS.has(key) && typeof value === 'string') {
+      sanitized[key] = stripMarkdownFromText(value);
+    }
+  }
+  return sanitized;
+}
+
 // ── Schema Conversion ────────────────────────────────────────────
 
 /**
@@ -193,9 +235,14 @@ function mcpToolToToolDefinition(
     parameters: params,
     execute: async (callParams: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> => {
       try {
+        // Strip markdown from email body fields for Mail tools
+        const sanitizedParams = serverName === 'mcp_MailTools'
+          ? sanitizeMailToolParams(callParams)
+          : callParams;
+
         const result = await mcpClient.callTool({
           name: mcpTool.name,
-          arguments: callParams,
+          arguments: sanitizedParams,
         });
 
         // MCP results have .content (array of content blocks) and .isError

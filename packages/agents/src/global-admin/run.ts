@@ -47,11 +47,10 @@ export async function runGlobalAdmin(params: GlobalAdminRunParams = {}) {
     ...createGlobalAdminTools(memory),
     ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createEmailTools(),
     ...createSharePointTools(),
     ...createToolGrantTools('global-admin'),
     ...createOpsExtensionTools(),
-    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
     ...await createGlyphorMcpTools('global-admin'),
   ];
   const toolExecutor = new ToolExecutor(tools);

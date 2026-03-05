@@ -65,13 +65,12 @@ export async function runCTO(params: CTORunParams = {}) {
     ...createTeamOrchestrationTools(glyphorEventBus),
     ...createPeerCoordinationTools(glyphorEventBus),
     ...createInitiativeTools(glyphorEventBus),
-    ...createEmailTools(),
     ...createAgentCreationTools(),
     ...createToolGrantTools('cto'),
     ...createToolRegistryTools(),
     ...createAgentDirectoryTools(),
     ...createDiagnosticTools(),
-    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
     ...await createGlyphorMcpTools('cto'),
   ];
   const toolExecutor = new ToolExecutor(tools);

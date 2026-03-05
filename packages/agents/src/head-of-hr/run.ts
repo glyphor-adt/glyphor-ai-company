@@ -51,13 +51,12 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
     ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...createToolGrantTools('head-of-hr'),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createEmailTools(),
     ...createSharePointTools(),
     ...createAgentCreationTools(),
     ...createAccessAuditTools(),
     ...createAgentDirectoryTools(),
     ...createHRTools(),
-    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
     ...await createGlyphorMcpTools('head-of-hr'),
   ];
   const toolExecutor = new ToolExecutor(tools);

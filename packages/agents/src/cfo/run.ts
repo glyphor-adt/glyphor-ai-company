@@ -67,13 +67,12 @@ export async function runCFO(params: CFORunParams = {}) {
     ...createTeamOrchestrationTools(glyphorEventBus),
     ...createPeerCoordinationTools(glyphorEventBus),
     ...createInitiativeTools(glyphorEventBus),
-    ...createEmailTools(),
     ...createAgentCreationTools(),
     ...createAgentDirectoryTools(),
     ...createRevenueTools(),
     ...createCostManagementTools(),
     ...createCashFlowTools(),
-    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
     ...await createGlyphorMcpTools('cfo'),
   ];
   const toolExecutor = new ToolExecutor(tools);

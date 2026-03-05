@@ -46,10 +46,9 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
     ...createM365AdminTools(memory),
     ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createEmailTools(),
     ...createToolGrantTools('m365-admin'),
     ...createSharePointTools(),
-    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
     ...await createGlyphorMcpTools('m365-admin'),
   ];
   const toolExecutor = new ToolExecutor(tools);

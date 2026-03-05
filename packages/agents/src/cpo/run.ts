@@ -67,13 +67,12 @@ export async function runCPO(params: CPORunParams = {}) {
     ...createTeamOrchestrationTools(glyphorEventBus),
     ...createPeerCoordinationTools(glyphorEventBus),
     ...createInitiativeTools(glyphorEventBus),
-    ...createEmailTools(),
     ...createAgentCreationTools(),
     ...createAgentDirectoryTools(),
     ...createProductAnalyticsTools(),
     ...createSharedCompetitiveIntelTools(),
     ...createRoadmapTools(),
-    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
     ...await createGlyphorMcpTools('cpo'),
   ];
   const toolExecutor = new ToolExecutor(tools);

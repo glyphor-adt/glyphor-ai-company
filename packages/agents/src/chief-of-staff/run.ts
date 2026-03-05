@@ -162,10 +162,9 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),
     ...orchestrationTools,
-    ...createEmailTools(),
     ...createAgentCreationTools(),
     ...createAgentDirectoryTools(),
-    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
     ...await createGlyphorMcpTools('chief-of-staff'),
   ];
   const toolExecutor = new ToolExecutor(tools);
