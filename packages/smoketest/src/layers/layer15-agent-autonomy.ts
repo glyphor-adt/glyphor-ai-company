@@ -9,8 +9,9 @@
  * - Initiative proposal pipeline (DB table, API endpoint, dashboard)
  */
 
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
+import { readFileSync, existsSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
 import { query, queryTable } from '../utils/db.js';
 import { httpGet } from '../utils/http.js';
@@ -18,8 +19,21 @@ import { runTest } from '../utils/test.js';
 
 // ─── Source file readers ────────────────────────────────────────────
 
+/** Walk up from this file to find the monorepo root (contains turbo.json). */
+function findMonorepoRoot(): string {
+  const __filename = fileURLToPath(import.meta.url);
+  let dir = dirname(__filename);
+  while (dir !== dirname(dir)) {
+    if (existsSync(resolve(dir, 'turbo.json'))) return dir;
+    dir = dirname(dir);
+  }
+  return process.cwd(); // fallback
+}
+
+const REPO_ROOT = findMonorepoRoot();
+
 function readSource(relPath: string): string {
-  const full = resolve(process.cwd(), relPath);
+  const full = resolve(REPO_ROOT, relPath);
   return readFileSync(full, 'utf8');
 }
 

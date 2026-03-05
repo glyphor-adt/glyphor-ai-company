@@ -4,11 +4,25 @@
  * database, and flags anything that looks like a missed migration.
  */
 
-import { readFileSync, readdirSync } from 'fs';
-import { join, resolve } from 'path';
+import { readFileSync, readdirSync, existsSync } from 'fs';
+import { join, resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
 import { query } from '../utils/db.js';
 import { runTest } from '../utils/test.js';
+
+/** Walk up from this file to find the monorepo root (contains turbo.json). */
+function findMonorepoRoot(): string {
+  const __filename = fileURLToPath(import.meta.url);
+  let dir = dirname(__filename);
+  while (dir !== dirname(dir)) {
+    if (existsSync(resolve(dir, 'turbo.json'))) return dir;
+    dir = dirname(dir);
+  }
+  return process.cwd(); // fallback
+}
+
+const REPO_ROOT = findMonorepoRoot();
 
 // ─── Parse migration SQL files ──────────────────────────────────────
 
@@ -22,7 +36,7 @@ interface MigrationSchema {
 
 function parseMigrations(): MigrationSchema {
   const migrationsDir = resolve(
-    process.cwd(),
+    REPO_ROOT,
     process.env.MIGRATIONS_DIR || 'db/migrations',
   );
 
