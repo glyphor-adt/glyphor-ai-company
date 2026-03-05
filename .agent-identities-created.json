@@ -1,0 +1,178 @@
+{
+  "quality-engineer": {
+    "name": "Sam DeLuca (Quality Eng)",
+    "id": "cfb2db61-d040-4a2c-8f99-c71f07167fac"
+  },
+  "data-integrity-auditor": {
+    "name": "Grace Hwang (Data Audit)",
+    "id": "3ecb0671-b1a9-459b-ba6e-3a7680d76749"
+  },
+  "account-research": {
+    "name": "Nathan Cole (Account Research)",
+    "id": "2c46e6db-5296-4ba8-9265-ca2806769040"
+  },
+  "vp-customer-success": {
+    "name": "James Turner (VP CS)",
+    "id": "7d222283-c4c3-449d-abb6-3ba3f9179efb"
+  },
+  "cpo": {
+    "name": "Elena Vasquez (CPO)",
+    "id": "c56631c6-65ff-42fd-ab1e-c32624c3b47e"
+  },
+  "ai-impact-analyst": {
+    "name": "Riya Mehta (AI Impact)",
+    "id": "673855a3-1032-492d-9a49-9b564a31d3ee"
+  },
+  "vp-research": {
+    "name": "Sophia Lin (VP Research)",
+    "id": "fe8379cf-70c1-4897-b9e0-4d7dd7990c87"
+  },
+  "global-admin": {
+    "name": "Morgan Blake (Global Admin)",
+    "id": "c77e6d78-7e4f-4020-926d-424dcf74ba8f"
+  },
+  "vp-sales": {
+    "name": "Rachel Kim (VP Sales)",
+    "id": "b84917d5-44c9-473d-bf6a-5f6d0845b7e7"
+  },
+  "cto": {
+    "name": "Marcus Reeves (CTO)",
+    "id": "0d4b0680-36ae-488e-91cc-29d349a80192"
+  },
+  "chief-of-staff": {
+    "name": "Sarah Chen (CoS)",
+    "id": "83fc2283-a1b9-4b71-bdb9-04a91bee6596"
+  },
+  "design-critic": {
+    "name": "Sofia Marchetti (Design Critic)",
+    "id": "10705a18-f6df-4bec-947c-d76f222c2a05"
+  },
+  "competitive-research-analyst": {
+    "name": "Lena Park (Comp Research)",
+    "id": "024d13af-f2e0-454e-8551-b53631c31fc7"
+  },
+  "onboarding-specialist": {
+    "name": "Emma Wright (Onboarding)",
+    "id": "b95d776a-19c5-46a3-afcb-c0899da531e2"
+  },
+  "frontend-engineer": {
+    "name": "Ava Chen (Frontend)",
+    "id": "8232b4e4-1aa6-4ddd-9172-4b3c5565e432"
+  },
+  "industry-research-analyst": {
+    "name": "Amara Diallo (Industry Research)",
+    "id": "a1b84f92-491e-449e-b21d-12368d6b5968"
+  },
+  "clo": {
+    "name": "Victoria Chase (CLO)",
+    "id": "d6baf6b8-b60e-423a-b30f-0f7382828107"
+  },
+  "social-media-manager": {
+    "name": "Kai Johnson (Social)",
+    "id": "1a582429-ab83-42da-b34e-fe43f9c0bffb"
+  },
+  "seo-analyst": {
+    "name": "Lisa Chen (SEO)",
+    "id": "4989f327-1fc8-4f90-a56a-3fa8e4a1d3b5"
+  },
+  "m365-admin": {
+    "name": "Riley Morgan (M365)",
+    "id": "ec79451c-4c23-4148-a177-a31ad9192642"
+  },
+  "lead-gen-specialist": {
+    "name": "Derek Owens (Lead Gen)",
+    "id": "36818357-1854-435e-b203-94151b4a8a30"
+  },
+  "vp-design": {
+    "name": "Mia Tanaka (VP Design)",
+    "id": "385f20d0-ea15-4323-9ef0-769c15c67065"
+  },
+  "market-research-analyst": {
+    "name": "Daniel Okafor (Market Research)",
+    "id": "13e67cdd-9715-4a10-a8bb-8585644a829f"
+  },
+  "cost-analyst": {
+    "name": "Omar Hassan (Cost)",
+    "id": "6a7fad64-7634-4492-935d-525a1cee076e"
+  },
+  "marketing-intelligence-analyst": {
+    "name": "Zara Petrov (Marketing Intel)",
+    "id": "f0fe9459-2685-446d-812f-1b0bd6b09239"
+  },
+  "tax-strategy-specialist": {
+    "name": "Mariana Solis (Tax Strategy)",
+    "id": "c96f3821-c7cd-4654-9968-3c4b1a1a501f"
+  },
+  "bob-the-tax-pro": {
+    "name": "Bob Finley (Tax)",
+    "id": "6b591c9a-cf6a-4979-8835-a92cd43ab85d"
+  },
+  "ops": {
+    "name": "Atlas Vega (Ops)",
+    "id": "20ad3545-c2a7-4448-857a-09ec83a2838c"
+  },
+  "org-analyst": {
+    "name": "Marcus Chen (Org Analyst)",
+    "id": "915bfec2-5277-4c75-ab52-9e62699a63a1"
+  },
+  "head-of-hr": {
+    "name": "Jasmine Rivera (HR)",
+    "id": "66c2b0e9-5a8c-4065-ad56-dadfe0d0bad5"
+  },
+  "technical-research-analyst": {
+    "name": "Kai Nakamura (Tech Research)",
+    "id": "58365116-ae46-490c-af29-38638a51ab8e"
+  },
+  "cfo": {
+    "name": "Nadia Okafor (CFO)",
+    "id": "fd7c6ca8-c438-483e-8cce-b7dad91a994f"
+  },
+  "ui-ux-designer": {
+    "name": "Leo Vargas (UI/UX)",
+    "id": "61683830-321d-47b0-89f2-404d94e56929"
+  },
+  "cmo": {
+    "name": "Maya Brooks (CMO)",
+    "id": "d176b833-b68a-4674-b712-7b7d90ad3978"
+  },
+  "platform-engineer": {
+    "name": "Alex Park (Platform Eng)",
+    "id": "5c2d9386-ff1f-4682-b778-ca407dece273"
+  },
+  "user-researcher": {
+    "name": "Priya Sharma (User Research)",
+    "id": "7021ad63-c158-43b1-b2b3-e413b453a0c7"
+  },
+  "devops-engineer": {
+    "name": "Jordan Hayes (DevOps)",
+    "id": "63aa1813-eff8-4ed3-8b72-f5aa61471406"
+  },
+  "template-architect": {
+    "name": "Ryan Park (Template Arch)",
+    "id": "3d012799-cc13-4c42-a6f0-4771aa2a96b0"
+  },
+  "content-creator": {
+    "name": "Tyler Reed (Content)",
+    "id": "6366c2ec-3a41-46c6-8a94-bc9367c0fabf"
+  },
+  "revenue-analyst": {
+    "name": "Anna Park (Revenue)",
+    "id": "c3a2d2d4-9360-4311-90dc-607d64f3e9d3"
+  },
+  "adi-rose": {
+    "name": "Adi Rose (Exec Assistant)",
+    "id": "f8674dd8-d530-48a2-9863-041e7c4d17d0"
+  },
+  "enterprise-account-researcher": {
+    "name": "Ethan Morse (Enterprise)",
+    "id": "535fed90-6eef-456c-af13-bb2fabac98c4"
+  },
+  "competitive-intel": {
+    "name": "Daniel Ortiz (Competitive Intel)",
+    "id": "91802f6b-e2e3-458d-87e3-e6580de9b8e3"
+  },
+  "support-triage": {
+    "name": "David Santos (Support)",
+    "id": "330b2c3f-3c87-4fd2-babf-8fc3970f3794"
+  }
+}

@@ -40,3 +40,8 @@ packages/graphrag-indexer/logs/
 # OS
 .DS_Store
 Thumbs.db
+
+# Agent ID secrets & logs
+.agent-id-blueprint-secret.json
+.agent-id-setup.log
+.agent-id-token-cache.json
