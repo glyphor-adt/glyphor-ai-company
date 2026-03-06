@@ -1,5 +1,6 @@
 import { systemQuery } from '@glyphor/shared/db';
 import { createHash } from 'node:crypto';
+import { inflateRawSync } from 'node:zlib';
 import { getM365Token } from '../credentials/m365Router.js';
 
 interface GraphDriveItem {
@@ -415,32 +416,96 @@ function extractTextFromPdf(buffer: Buffer): string {
 }
 
 /**
- * Extract text from a raw .docx buffer by finding the document.xml inside the ZIP
- * and stripping XML tags. Works because .docx is a ZIP with XML content.
+ * Extract text from a raw .docx buffer by parsing the ZIP to find word/document.xml
+ * and extracting text from <w:t> tags.
  */
 function extractTextFromDocx(buffer: Buffer): string {
-  // Find the document.xml inside the ZIP — look for the PK signature and the
-  // word/document.xml entry. Simple approach: find the XML content between
-  // known markers.
-  const raw = buffer.toString('utf-8');
+  // Parse the ZIP central directory to find word/document.xml
+  const xml = extractFileFromZip(buffer, 'word/document.xml');
+  if (!xml) {
+    // Fallback: try reading the buffer as utf-8 and strip XML tags
+    const raw = buffer.toString('utf-8');
+    const noTags = raw.replace(/<[^>]+>/g, ' ').replace(/[^\x20-\x7E\n\r\t]/g, '');
+    const words = noTags.split(/\s+/).filter(w => w.length > 1 && /[a-zA-Z]/.test(w));
+    return words.join(' ').slice(0, 15_000).trim();
+  }
 
-  // Look for XML text nodes in the word/document.xml portion
-  // The <w:t> tags contain the actual text content
   const textParts: string[] = [];
+  const xmlStr = xml.toString('utf-8');
+
+  // Extract text from <w:t> and <w:t xml:space="preserve"> tags
   const wtRegex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
   let match: RegExpExecArray | null;
-  while ((match = wtRegex.exec(raw)) !== null) {
+  while ((match = wtRegex.exec(xmlStr)) !== null) {
     textParts.push(match[1]);
   }
 
-  if (textParts.length > 0) {
-    return textParts.join('').replace(/\s{3,}/g, '\n\n').trim();
+  // Detect paragraph breaks from </w:p> to add newlines
+  const paragraphs: string[] = [];
+  const parRegex = /<w:p[\s>][\s\S]*?<\/w:p>/g;
+  let parMatch: RegExpExecArray | null;
+  while ((parMatch = parRegex.exec(xmlStr)) !== null) {
+    const parText: string[] = [];
+    const innerWt = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+    let wt: RegExpExecArray | null;
+    while ((wt = innerWt.exec(parMatch[0])) !== null) {
+      parText.push(wt[1]);
+    }
+    if (parText.length > 0) {
+      paragraphs.push(parText.join(''));
+    }
   }
 
-  // Fallback: strip all XML tags and extract readable text
-  const noTags = raw.replace(/<[^>]+>/g, ' ').replace(/[^\x20-\x7E\n\r\t]/g, '');
-  const words = noTags.split(/\s+/).filter(w => w.length > 1 && /[a-zA-Z]/.test(w));
-  return words.join(' ').slice(0, 15_000).trim();
+  const result = paragraphs.length > 0
+    ? paragraphs.join('\n')
+    : textParts.join('');
+
+  return result.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/**
+ * Extract a file entry from a ZIP buffer by parsing local file headers.
+ * Uses Node.js built-in zlib for DEFLATE decompression.
+ */
+function extractFileFromZip(zipBuffer: Buffer, targetPath: string): Buffer | null {
+  let offset = 0;
+  const LOCAL_FILE_HEADER_SIG = 0x04034b50;
+
+  while (offset + 30 <= zipBuffer.length) {
+    const sig = zipBuffer.readUInt32LE(offset);
+    if (sig !== LOCAL_FILE_HEADER_SIG) break;
+
+    const compressionMethod = zipBuffer.readUInt16LE(offset + 8);
+    const compressedSize = zipBuffer.readUInt32LE(offset + 18);
+    const uncompressedSize = zipBuffer.readUInt32LE(offset + 22);
+    const fileNameLen = zipBuffer.readUInt16LE(offset + 26);
+    const extraFieldLen = zipBuffer.readUInt16LE(offset + 28);
+
+    const fileNameStart = offset + 30;
+    const fileName = zipBuffer.toString('utf-8', fileNameStart, fileNameStart + fileNameLen);
+    const dataStart = fileNameStart + fileNameLen + extraFieldLen;
+
+    if (fileName === targetPath && compressedSize > 0) {
+      const compressedData = zipBuffer.subarray(dataStart, dataStart + compressedSize);
+
+      if (compressionMethod === 0) {
+        // Stored (no compression)
+        return compressedData;
+      } else if (compressionMethod === 8) {
+        // DEFLATE
+        try {
+          return inflateRawSync(compressedData);
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    }
+
+    offset = dataStart + compressedSize;
+  }
+
+  return null;
 }
 
 async function downloadTextContent(
@@ -814,6 +879,34 @@ export async function listSharePointFolders(
   return children
     .filter((item) => item.folder)
     .map((item) => item.name);
+}
+
+/**
+ * List files in a SharePoint folder (or the root if no folder specified).
+ * Returns file names with their paths, sizes, and last modified dates.
+ */
+export async function listSharePointFiles(
+  folder?: string,
+  options?: SharePointSearchOptions,
+): Promise<Array<{ name: string; path: string; webUrl: string | null; lastModified: string | null }>> {
+  const siteId = (options?.siteId ?? process.env.SHAREPOINT_SITE_ID ?? '').trim();
+  if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
+
+  const token = await getM365Token('read_sharepoint');
+  const driveId = (options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId)).trim();
+  const rootFolder = (process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge').trim();
+
+  const targetFolder = folder ? `${rootFolder}/${folder}` : rootFolder;
+  const children = await listChildren(token, siteId, driveId, null, targetFolder);
+
+  return children
+    .filter((item) => item.file)
+    .map((item) => ({
+      name: item.name,
+      path: folder ? `${folder}/${item.name}` : item.name,
+      webUrl: item.webUrl ?? null,
+      lastModified: item.lastModifiedDateTime ?? null,
+    }));
 }
 
 /**

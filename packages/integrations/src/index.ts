@@ -138,6 +138,7 @@ export {
   uploadToSharePoint,
   searchSharePoint,
   listSharePointFolders,
+  listSharePointFiles,
   readSharePointDocument,
   createSharePointPage,
   type SharePointSyncOptions,

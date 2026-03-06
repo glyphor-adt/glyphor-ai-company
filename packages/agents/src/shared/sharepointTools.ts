@@ -12,6 +12,7 @@ import {
   readSharePointDocument,
   uploadToSharePoint,
   listSharePointFolders,
+  listSharePointFiles,
   createSharePointPage,
 } from '@glyphor/integrations';
 
@@ -157,6 +158,38 @@ export function createSharePointTools(): ToolDefinition[] {
               ? `Folders: ${folders.join(', ')}`
               : 'No folders found in knowledge root.',
           };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'list_sharepoint_files',
+      description:
+        'List the files in a specific folder of the company SharePoint knowledge base. ' +
+        'If no folder is specified, lists files in the root. Use this to discover documents ' +
+        'before reading them.',
+      parameters: {
+        folder: {
+          type: 'string',
+          description: 'Folder path to list files from (e.g., "Design", "Operations", "Strategy"). Omit to list root-level files.',
+          required: false,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        try {
+          const files = await listSharePointFiles(params.folder as string | undefined);
+
+          if (files.length === 0) {
+            return { success: true, data: 'No files found in this folder.' };
+          }
+
+          const formatted = files.map((f: { name: string; path: string; webUrl: string | null; lastModified: string | null }, i: number) =>
+            `${i + 1}. **${f.name}**\n   Path: ${f.path}\n   URL: ${f.webUrl ?? 'N/A'}\n   Modified: ${f.lastModified ?? 'Unknown'}`,
+          ).join('\n\n');
+
+          return { success: true, data: { count: files.length, files: formatted } };
         } catch (err) {
           return { success: false, error: (err as Error).message };
         }
