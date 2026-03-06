@@ -149,7 +149,26 @@ export function createSharePointTools(): ToolDefinition[] {
             memoryKeysWritten: 1,
           };
         } catch (err) {
-          return { success: false, error: (err as Error).message };
+          const message = (err as Error).message;
+          // If the upload to SharePoint succeeded but the DB sync failed,
+          // suggest creating a SharePoint page as an alternative.
+          const isDbError = message.includes('malformed') || message.includes('column') || message.includes('constraint');
+          return {
+            success: false,
+            error: message,
+            data: isDbError
+              ? {
+                  hint: 'The file may have uploaded to SharePoint but the database sync failed. '
+                    + 'Try create_sharepoint_page as an alternative — it bypasses the knowledge index. '
+                    + 'If the error persists, message Marcus (CTO) with the exact error for a fix.',
+                  fallbackTool: 'create_sharepoint_page',
+                }
+              : {
+                  hint: 'If this is a permissions error, try creating a SharePoint page instead (create_sharepoint_page), '
+                    + 'which uses a different API path. Or try a different folder.',
+                  fallbackTool: 'create_sharepoint_page',
+                },
+          };
         }
       },
     },

@@ -24,6 +24,7 @@ import { AGENT_EMAIL_MAP, type AgentEmailEntry } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 import type { GraphTeamsClient } from './graphClient.js';
 import type { TeamsBotHandler } from './bot.js';
+import { formatTeamsMessage, markdownToTeamsHtml } from './messageFormatter.js';
 
 // ─── TYPES ──────────────────────────────────────────────────────
 
@@ -255,8 +256,13 @@ export class GraphChatHandler {
     // and label the message with the agent's name.
     if (this.teamsBot && senderId) {
       try {
-        const labeledResponse = `**${displayName}:**\n\n${responseText}`;
-        await this.teamsBot.sendProactiveToUser(senderId, labeledResponse);
+        const formatted = formatTeamsMessage(displayName, responseText);
+
+        if (formatted.kind === 'card' && formatted.card) {
+          await this.teamsBot.sendProactiveCardToUser(senderId, formatted.card as unknown as Record<string, unknown>);
+        } else {
+          await this.teamsBot.sendProactiveToUser(senderId, formatted.text!);
+        }
       } catch (botErr) {
         console.error(`[GraphChat] Bot proactive reply failed: ${(botErr as Error).message}`);
       }
@@ -369,7 +375,7 @@ export class GraphChatHandler {
     const body = {
       body: {
         contentType: 'html',
-        content: this.markdownToHtml(content),
+        content: markdownToTeamsHtml(content),
       },
     };
 
@@ -386,17 +392,6 @@ export class GraphChatHandler {
       const text = await res.text();
       console.error(`[GraphChat] Failed to reply in chat: ${res.status} ${text.substring(0, 200)}`);
     }
-  }
-
-  /**
-   * Basic markdown → HTML conversion for Teams messages.
-   */
-  private markdownToHtml(md: string): string {
-    return md
-      .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
-      .replace(/\*(.+?)\*/g, '<i>$1</i>')
-      .replace(/`(.+?)`/g, '<code>$1</code>')
-      .replace(/\n/g, '<br/>');
   }
 
   /**

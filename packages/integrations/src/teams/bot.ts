@@ -17,6 +17,7 @@
 
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import type { IncomingMessage } from 'node:http';
+import { formatTeamsMessage } from './messageFormatter.js';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -58,8 +59,12 @@ export interface TeamsActivity {
 
 export interface BotResponse {
   type: 'message';
-  text: string;
+  text?: string;
   textFormat?: 'plain' | 'markdown';
+  attachments?: Array<{
+    contentType: string;
+    content: unknown;
+  }>;
 }
 
 export type AgentRunner = (
@@ -959,8 +964,6 @@ export class TeamsBotHandler {
     // Download file attachments from Teams (if any)
     const fileAttachments = await this.downloadTeamsAttachments(activity);
 
-    let responseText: string;
-
     try {
       const result = await this.agentRunner(agentRole, 'on_demand', {
         message: contextualMessage,
@@ -970,22 +973,44 @@ export class TeamsBotHandler {
 
       if (result?.output) {
         const clean = result.output.replace(/<reasoning>[\s\S]*?<\/reasoning>\s*/g, '').trim();
-        responseText = `**${displayName}:**\n\n${clean}`;
+        const formatted = formatTeamsMessage(displayName, clean);
+
+        if (formatted.kind === 'card' && formatted.card) {
+          await this.replyToActivity(activity.serviceUrl, activity.conversation.id, activity.id, {
+            type: 'message',
+            attachments: [{
+              contentType: 'application/vnd.microsoft.card.adaptive',
+              content: formatted.card,
+            }],
+          }, botAppId);
+        } else {
+          await this.replyToActivity(activity.serviceUrl, activity.conversation.id, activity.id, {
+            type: 'message',
+            text: formatted.text ?? `**${displayName}:**\n\n${clean}`,
+            textFormat: 'markdown',
+          }, botAppId);
+        }
       } else if (result?.error) {
-        responseText = `**${displayName}** encountered an error: ${result.error}`;
+        await this.replyToActivity(activity.serviceUrl, activity.conversation.id, activity.id, {
+          type: 'message',
+          text: `**${displayName}** encountered an error: ${result.error}`,
+          textFormat: 'markdown',
+        }, botAppId);
       } else {
-        responseText = `**${displayName}** completed the task but had nothing to report.`;
+        await this.replyToActivity(activity.serviceUrl, activity.conversation.id, activity.id, {
+          type: 'message',
+          text: `**${displayName}** completed the task but had nothing to report.`,
+          textFormat: 'markdown',
+        }, botAppId);
       }
     } catch (err) {
       const errMessage = err instanceof Error ? err.message : String(err);
       const displayName = AGENT_DISPLAY[agentRole] ?? agentRole;
-      responseText = `Sorry, I couldn't reach **${displayName}**: ${errMessage}`;
+      await this.replyToActivity(activity.serviceUrl, activity.conversation.id, activity.id, {
+        type: 'message',
+        text: `Sorry, I couldn't reach **${displayName}**: ${errMessage}`,
+        textFormat: 'markdown',
+      }, botAppId);
     }
-
-    await this.replyToActivity(activity.serviceUrl, activity.conversation.id, activity.id, {
-      type: 'message',
-      text: responseText,
-      textFormat: 'markdown',
-    }, botAppId);
   }
 }

@@ -50,6 +50,13 @@ export {
   type ChatMessage,
 } from './teams/graphChatHandler.js';
 
+// Teams Message Formatter
+export {
+  formatTeamsMessage,
+  markdownToTeamsHtml,
+  type FormattedTeamsMessage,
+} from './teams/messageFormatter.js';
+
 // Chat Subscription Manager (Graph change notifications)
 export {
   ChatSubscriptionManager,
