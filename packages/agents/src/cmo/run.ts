@@ -31,7 +31,6 @@ import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createContentTools } from '../shared/contentTools.js';
 import { createSeoTools } from '../shared/seoTools.js';
 import { createSocialMediaTools } from '../shared/socialMediaTools.js';
-import { createEmailMarketingTools } from '../shared/emailMarketingTools.js';
 import { createMarketingIntelTools } from '../shared/marketingIntelTools.js';
 import { createCanvaTools } from '../shared/canvaTools.js';
 import { createLogoTools } from '../shared/logoTools.js';
@@ -75,7 +74,6 @@ export async function runCMO(params: CMORunParams = {}) {
     ...createContentTools(),
     ...createSeoTools(),
     ...createSocialMediaTools(),
-    ...createEmailMarketingTools(),
     ...createMarketingIntelTools(),
     ...createCanvaTools(),
     ...createLogoTools(),

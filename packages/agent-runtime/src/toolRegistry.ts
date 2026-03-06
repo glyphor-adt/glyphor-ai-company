@@ -601,6 +601,13 @@ const KNOWN_TOOLS = new Set([
   'create_performance_review',
   'run_engagement_survey',
   'get_team_dynamics',
+  // entraHRTools
+  'entra_get_user_profile',
+  'entra_update_user_profile',
+  'entra_upload_user_photo',
+  'entra_set_manager',
+  'entra_hr_assign_license',
+  'entra_audit_profiles',
   // opsExtensionTools
   'get_agent_health_dashboard',
   'get_event_bus_health',

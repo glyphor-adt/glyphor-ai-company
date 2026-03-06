@@ -18,7 +18,7 @@ function clampLimit(raw: unknown, defaultVal = 50, max = 200): number {
 export const tools: ToolDefinition[] = [
   // ── Regulatory Tracking ──────────────────────────────────
   {
-    name: 'query_regulations',
+    name: 'track_regulations',
     description: 'Track regulatory changes and compliance requirements from the activity log. Filters by jurisdiction and topic.',
     inputSchema: {
       type: 'object',
@@ -54,7 +54,7 @@ export const tools: ToolDefinition[] = [
 
   // ── Compliance ───────────────────────────────────────────
   {
-    name: 'query_compliance_status',
+    name: 'get_compliance_status',
     description: 'Get compliance checklist items, optionally filtered by framework (SOC2, GDPR, HIPAA, CCPA, ISO27001).',
     inputSchema: {
       type: 'object',
@@ -83,7 +83,7 @@ export const tools: ToolDefinition[] = [
 
   // ── Contracts ────────────────────────────────────────────
   {
-    name: 'query_contracts',
+    name: 'get_contracts',
     description: 'Query contracts, optionally filtered by type, status, or counterparty.',
     inputSchema: {
       type: 'object',
@@ -113,7 +113,7 @@ export const tools: ToolDefinition[] = [
 
   // ── Contract Renewals ────────────────────────────────────
   {
-    name: 'query_contract_renewals',
+    name: 'get_contract_renewals',
     description: 'Get contracts expiring within a given number of days.',
     inputSchema: {
       type: 'object',
@@ -137,7 +137,7 @@ export const tools: ToolDefinition[] = [
 
   // ── IP Portfolio ─────────────────────────────────────────
   {
-    name: 'query_ip_portfolio',
+    name: 'get_ip_portfolio',
     description: 'Query intellectual property portfolio, optionally filtered by IP type.',
     inputSchema: {
       type: 'object',
@@ -163,7 +163,7 @@ export const tools: ToolDefinition[] = [
 
   // ── IP Infringement Monitor ──────────────────────────────
   {
-    name: 'query_ip_infringement_risks',
+    name: 'monitor_ip_infringement',
     description: 'Check for potential IP infringement risks based on portfolio monitoring status.',
     inputSchema: {
       type: 'object',
@@ -185,7 +185,7 @@ export const tools: ToolDefinition[] = [
 
   // ── Tax Calendar ─────────────────────────────────────────
   {
-    name: 'query_tax_calendar',
+    name: 'get_tax_calendar',
     description: 'Get upcoming tax deadlines and filings from the activity log.',
     inputSchema: {
       type: 'object',
@@ -207,7 +207,7 @@ export const tools: ToolDefinition[] = [
 
   // ── Tax Estimates ────────────────────────────────────────
   {
-    name: 'query_tax_estimates',
+    name: 'calculate_tax_estimate',
     description: 'Get financial data for tax estimation by period and jurisdiction.',
     inputSchema: {
       type: 'object',
@@ -235,7 +235,7 @@ export const tools: ToolDefinition[] = [
 
   // ── Data Flow Audit ──────────────────────────────────────
   {
-    name: 'query_data_flows',
+    name: 'audit_data_flows',
     description: 'Audit data flows logged in the activity log for privacy and compliance review.',
     inputSchema: {
       type: 'object',
@@ -257,7 +257,7 @@ export const tools: ToolDefinition[] = [
 
   // ── Data Retention ───────────────────────────────────────
   {
-    name: 'query_data_retention',
+    name: 'check_data_retention',
     description: 'Check data retention compliance status across activity log and compliance checklists.',
     inputSchema: {
       type: 'object',
@@ -279,7 +279,7 @@ export const tools: ToolDefinition[] = [
 
   // ── Privacy Requests ─────────────────────────────────────
   {
-    name: 'query_privacy_requests',
+    name: 'get_privacy_requests',
     description: 'Get data subject access requests (DSARs) and privacy-related activity.',
     inputSchema: {
       type: 'object',
@@ -308,7 +308,7 @@ export const tools: ToolDefinition[] = [
 
   // ── Access Permissions Audit ─────────────────────────────
   {
-    name: 'query_access_permissions',
+    name: 'audit_access_permissions',
     description: 'Audit IAM access permissions and platform access state.',
     inputSchema: {
       type: 'object',
