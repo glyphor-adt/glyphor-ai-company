@@ -36,6 +36,7 @@ export {
   TeamsBotHandler,
   BotTokenValidator,
   extractBearerToken,
+  type AgentBotConfig,
   type BotConfig,
   type TeamsActivity,
   type BotResponse,

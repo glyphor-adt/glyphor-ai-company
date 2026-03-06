@@ -1,6 +1,6 @@
 # Glyphor AI Company — System Architecture
 
-> Last updated: 2026-03-04 (MCP architecture Week 1 — core tools, MCP data server, Glyphor MCP bridge, tool pipeline fixes, Figma OAuth)
+> Last updated: 2026-03-11 (MCP migration complete — 9 Glyphor MCP servers, dynamic tool executor, SharePoint .docx fix, HR/Legal/Email/Email-Marketing tools migrated to MCP)
 
 ## Overview
 
@@ -187,8 +187,11 @@ auditing, lead generation, and executive assistantship.
 │   │  memory, tool-requests, events│
 │   │  — extracted via coreTools.ts)│
 │   ├─ glyphorMcpTools (bridge to   │
-│   │  Glyphor MCP data/action      │
-│   │  servers via JSON-RPC 2.0)    │
+│   │  9 Glyphor MCP servers via    │
+│   │  JSON-RPC 2.0 — ~81 tools)   │
+│   ├─ dynamicToolExecutor (runtime │
+│   │  executor for DB-registered   │
+│   │  tools via tool_registry)     │
 │   ├─ memoryTools (save/recall)    │
 │   ├─ eventTools (emit events)     │
 │   ├─ communicationTools           │
@@ -205,9 +208,10 @@ auditing, lead generation, and executive assistantship.
 │   ├─ collectiveIntelligenceTools  │
 │   │  (pulse, knowledge routing,   │
 │   │   patterns, contradictions)   │
-│   ├─ emailTools                   │
-│   │  (send_email, read_inbox,     │
-│   │   reply_to_email)             │
+│   ├─ emailTools (via MCP:         │
+│   │  send_email, read_inbox,      │
+│   │   reply_to_email —            │
+│   │   plain-text enforced)        │
 │   ├─ agentCreationTools           │
 │   │  (create_specialist_agent,    │
 │   │   list/retire created agents) │
@@ -598,6 +602,7 @@ glyphor-ai-company/
 │   │       ├── runtimeToolFactory.ts   # Mid-run tool synthesis (HTTP, SQL query, sandboxed JS)
 │   │       ├── redisCache.ts           # Redis cache layer for GCP Memorystore (ioredis)
 │   │       ├── toolRegistry.ts         # Central tool lookup (static + dynamic DB table)
+│   │       ├── dynamicToolExecutor.ts  # Dynamic tool executor — runs tools from tool_registry DB at runtime (API call support)
 │   │       ├── constitutionalGovernor.ts # Constitutional governance framework
 │   │       ├── constitutionDefaults.ts   # Default constitutional rules
 │   │       ├── decisionChainTracker.ts   # Decision chain tracking & audit trail
@@ -679,8 +684,8 @@ glyphor-ai-company/
 │   │       │   ├── assignmentTools.ts    # read/submit/flag assignments + dependency resolution
 │   │       │   ├── graphTools.ts         # query_knowledge_graph, add_knowledge, trace_causes/impact
 │   │       │   ├── collectiveIntelligenceTools.ts # pulse, knowledge routes, patterns, contradictions
-│   │       │   ├── emailTools.ts         # send_email, read_inbox, reply_to_email (M365 Graph API)
-│   │       │   ├── sharepointTools.ts    # SharePoint document operations
+│   │       │   ├── emailTools.ts         # **Deprecated** — email tools now served via mcp-email-server (send_email, read_inbox, reply_to_email)
+│   │       │   ├── sharepointTools.ts    # SharePoint document operations + list_sharepoint_files
 │   │       │   ├── agentCreationTools.ts # create_specialist_agent, list/retire (max 3, 7d TTL)
 │   │       │   ├── agentDirectoryTools.ts # Agent directory lookup
 │   │       │   ├── accessAuditTools.ts    # view_access_matrix, view_pending_grant_requests
@@ -703,7 +708,7 @@ glyphor-ai-company/
 │   │       │   │                         #   Gate-checked: returns [] if AGENT365_ENABLED != 'true'
 │   │       │   ├── coreTools.ts          # 11 always-loaded core tools (assignments, comms, memory, events, tool-requests)
 │   │       │   │                         #   createCoreTools(deps) — extracts from existing factories, exports CORE_TOOL_NAMES
-│   │       │   ├── glyphorMcpTools.ts    # Bridge to Glyphor MCP servers (data, marketing, engineering, design, finance)
+│   │       │   ├── glyphorMcpTools.ts    # Bridge to 9 Glyphor MCP servers (data, marketing, engineering, design, finance, email, legal, HR, email-marketing)
 │   │       │   │                         #   createGlyphorMcpTools(agentRole?, serverFilter?) — JSON-RPC 2.0, gate: GLYPHOR_MCP_ENABLED
 │   │       │   ├── runDynamicAgent.ts    # Runner for DB-defined agents (no file-based runner)
 │   │       │   ├── createRunDeps.ts      # Wire up all run dependencies for any agent
@@ -789,6 +794,8 @@ glyphor-ai-company/
 │   │       │   └── queries.ts         # Cash balance, cash flows, vendor subscriptions sync
 │   │       ├── sharepoint/
 │   │       │   └── index.ts           # SharePoint doc library sync (recursive folder traversal, etag dedup)
+│   │       │                        #   extractTextFromDocx: proper ZIP parser (inflateRawSync) for .docx binary extraction
+│   │       │                        #   listSharePointFiles: browse SharePoint document libraries via Graph API
 │   │       ├── github/
 │   │       │   └── index.ts           # Repos, PRs, CI/CD runs, commits, issues
 │   │       ├── sendgrid/
@@ -926,6 +933,16 @@ glyphor-ai-company/
 │   │   ├── package.json               # @modelcontextprotocol/sdk + pg deps
 │   │   └── tsconfig.json              # Extends tsconfig.base.json
 │   │
+│   ├── mcp-marketing-server/    # Glyphor MCP Marketing Server — 7 tools (social, Search Console, analytics)
+│   ├── mcp-engineering-server/  # Glyphor MCP Engineering Server — 5 tools (GitHub, Vercel, Cloud Run)
+│   ├── mcp-design-server/       # Glyphor MCP Design Server — 5 tools (Playwright, Figma, Storybook)
+│   ├── mcp-finance-server/      # Glyphor MCP Finance Server — 7 tools (Stripe, Mercury, BigQuery)
+│   ├── mcp-email-server/        # Glyphor MCP Email Server — 3 tools (send_email, read_inbox, reply_to_email)
+│   │                            #   Plain-text enforced: stripMarkdown() safety net in formatEmailHtml()
+│   ├── mcp-legal-server/        # Glyphor MCP Legal Server — 19 tools (12 reads + 7 writes: compliance, contracts, IP, tax)
+│   ├── mcp-hr-server/           # Glyphor MCP HR Server — 8 tools (5 reads + 3 writes: profiles, onboarding, engagement)
+│   ├── mcp-email-marketing-server/ # Glyphor MCP Email Marketing Server — 15 tools (Mailchimp 10 + Mandrill 5)
+│   │
 │   └── graphrag-indexer/        # Knowledge graph indexer (Python)
 │       └── graphrag_indexer/
 │           ├── config.py              # Configuration (Gemini, embeddings, Cloud SQL)
@@ -1002,11 +1019,18 @@ glyphor-ai-company/
 ├── db/migrations/               # 92 SQL migration files (historical, pre-GCP + 6 new tool tables)
 ├── .github/workflows/deploy.yml # CI/CD (GitHub Actions → Cloud Run)
 ├── scripts/
-│   ├── figma-oauth.cjs          # One-time Figma OAuth flow (local callback on :3847)
-│   └── run-seed.mjs             # Database seeding script
+│   ├── create-agent-blueprint.ps1    # Creates Entra AgentIdentityBlueprint + BlueprintPrincipal
+│   ├── create-agent-identities.ps1   # Creates 44 AgentIdentity SPs under blueprint
+│   ├── create-agent-users-phase2.ps1 # Creates agent user accounts (mailboxes)
+│   ├── assign-agent-permissions.ps1  # Assigns M365 MCP oauth2 grants + Glyphor app roles
+│   ├── recover-agent-users.ps1       # Recreates deleted agent user accounts
+│   ├── fix-licenses.ps1              # Sets usageLocation + assigns Agent 365 license
+│   ├── agent-identity-real-ids.json  # Maps agent role → Agent Identity SP ID (44 agents)
+│   ├── figma-oauth.cjs               # One-time Figma OAuth flow (local callback on :3847)
+│   └── run-seed.mjs                  # Database seeding script
 ├── a365.config.json             # Agent 365 tenant/subscription/app IDs
 ├── a365.generated.config.json   # Agent 365 generated blueprint state
-├── ToolingManifest.json         # MCP server registry (5 Microsoft + 5 Glyphor = 10 servers)
+├── ToolingManifest.json         # MCP server registry (5 Microsoft + 9 Glyphor = 14 servers)
 ├── turbo.json                   # Turborepo pipeline config
 ├── tsconfig.base.json           # Shared TS config
 └── package.json                 # npm workspaces root
@@ -1873,6 +1897,51 @@ for known tools. At agent startup, `companyAgentRunner.ts` bulk-inserts all stat
 `agent_tool_grants` (fire-and-forget `INSERT ON CONFLICT DO NOTHING`). Startup also logs a
 tool inventory (static count, DB count, total) and warns on declared-vs-static mismatches.
 
+#### Dynamic Tool Executor (`dynamicToolExecutor.ts`)
+
+Enables tools registered via `request_new_tool` → CTO approval → `register_tool` to be
+**actually executable at runtime** without code deploys. Closes the self-service tool creation
+loop: agents can request new tools, the CTO can register them in the `tool_registry` DB table
+with API configuration, and the dynamic executor runs them on demand.
+
+**Tool execution pipeline** (`toolExecutor.ts`):
+
+```
+ToolExecutor.execute(toolName, params)
+  │
+  ├─ 1. Static tool map (code-defined tools from run.ts + core + MCP)
+  │     → Found? Execute directly
+  │
+  ├─ 2. runtime_ prefix tools (runtimeToolFactory.ts)
+  │     → Match? Execute synthesized tool
+  │
+  ├─ 3. Dynamic registry fallback (dynamicToolExecutor.ts)
+  │     → isKnownToolAsync(toolName)? Load from tool_registry DB
+  │     → type='api' → executeApiTool (templated HTTP call)
+  │     → type!='api' → return metadata-only error (no executor for type)
+  │
+  └─ 4. "Unknown tool" error
+```
+
+**API tool execution** (`executeApiTool`):
+- URL template interpolation with URL-encoding: `https://api.example.com/v1/{resource_id}`
+- Header templates with auth modes: `bearer_env` (env var → `Authorization: Bearer`),
+  `header_env` (env var → custom header), `none`
+- Body template interpolation (string or nested object)
+- Response extraction via dot-path: `data.results` → navigates nested JSON
+- Timeout: 30 seconds per call
+
+**LLM tool declarations** (`loadDynamicToolDeclarations`):
+- On turn 1, `companyAgentRunner.ts` calls `loadDynamicToolDeclarations(staticToolNames)`
+- Loads all active entries from `tool_registry` DB as `GeminiToolDeclaration[]`
+- Excludes tools already in the static set (prevents duplicates)
+- Merges into `effectiveTools` sent to the LLM so it can discover and call dynamic tools
+- 60-second cache to avoid per-run DB queries
+
+**Database**: `tool_registry` table with columns `name`, `description`, `type` (api/sql/custom),
+`config` (JSONB — url_template, method, headers, body_template, auth, response_path),
+`parameters` (JSONB — tool parameter schema), `is_active`.
+
 ### Intelligence Engine Enhancements
 
 Added 2026-02-28. Eight cross-cutting modules that strengthen agent governance,
@@ -2342,13 +2411,90 @@ Most agents filter to `['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot
 |------|---------|
 | `a365.config.json` | Static tenant/subscription/app IDs, Azure resource group (`glyphor-agent365`) |
 | `a365.generated.config.json` | Generated blueprint state (blueprint app ID, service principal) |
-| `ToolingManifest.json` | Registry of 10 MCP server URLs + scopes (5 Microsoft + 5 Glyphor) |
+| `ToolingManifest.json` | Registry of 14 MCP server URLs + scopes (5 Microsoft + 9 Glyphor) |
 
 **Entra ID apps:**
 - **Client app:** `06c728b6-0111-4cb1-a708-d57c51128649` (Glyphor AI Bot)
-- **Blueprint app:** `5604df3b-a3a3-4c7e-a8c4-e6f9ed04ad6a` (agent auth, SP: `28079457-37d9-483c-b7bb-fe6920083b8e`)
+- **True Agent Identity Blueprint:** `b47da287-6b05-4be3-9807-3f49047fbbb8` (AgentIdentityBlueprint, SP: `525e859f-29d9-4fa2-80a9-debc2a2576bb`)
+- **Glyphor app (MCP auth):** `5604df3b-a3a3-4c7e-a8c4-e6f9ed04ad6a` (MSAL client credentials for MCP SSE, SP: `28079457-37d9-483c-b7bb-fe6920083b8e`)
 
 **Dependencies:** `@microsoft/agents-a365-runtime`, `@microsoft/agents-a365-tooling` (`^0.1.0-preview.115`), `@azure/msal-node`
+
+### Entra Agent Identity Architecture
+
+Every Glyphor agent has a first-class **Microsoft Entra Agent Identity** — not a regular
+service principal or user account, but a purpose-built identity type
+(`@odata.type: #microsoft.graph.agentIdentity`, `servicePrincipalType: ServiceIdentity`).
+This gives agents their own M365 presence (mailbox, calendar, Teams) backed by proper
+identity governance.
+
+**Three-layer identity model:**
+
+```
+┌────────────────────────────────────────────────────┐
+│  Agent Identity Blueprint (App Registration)       │
+│  @odata.type: AgentIdentityBlueprint               │
+│  App ID: b47da287-6b05-4be3-9807-3f49047fbbb8      │
+│  SP: 525e859f-29d9-4fa2-80a9-debc2a2576bb          │
+│  Sponsor: kristina@glyphor.ai                      │
+├────────────────────────────────────────────────────┤
+│  44 Agent Identity SPs (ServiceIdentity)           │
+│  @odata.type: #microsoft.graph.agentIdentity       │
+│  Created via POST /beta/servicePrincipals/         │
+│    Microsoft.Graph.AgentIdentity                   │
+│  Each points to blueprint via                      │
+│    agentIdentityBlueprintId                        │
+│  IDs: scripts/agent-identity-real-ids.json         │
+├────────────────────────────────────────────────────┤
+│  37+ Agent User Accounts (Member users)            │
+│  e.g. sarah@glyphor.ai, marcus@glyphor.ai          │
+│  Licensed: MICROSOFT_AGENT_365_TIER_3              │
+│  Mailbox type: SharedMailbox (most) or             │
+│    UserMailbox (7 agents with full license)         │
+└────────────────────────────────────────────────────┘
+```
+
+**Permission model:**
+
+| Target | Method | Details |
+|--------|--------|---------|
+| M365 MCP servers (Calendar, Teams, Copilot) | `oauth2PermissionGrants` (admin consent) | Delegated permissions on M365 Agent Tools API (`ea9ffc3e-...`). `consentType: AllPrincipals`, requires `expiryTime`. |
+| Glyphor app roles (per-agent scopes) | `appRoleAssignments` | 22 app roles on Glyphor app SP (`5604df3b-...`). 80 assignments across 44 agents. |
+
+**Key distinction:** Agent Identity SPs hold the permissions (oauth2 grants + app roles).
+User accounts hold the mailbox and license. Deleting a user account does NOT affect the
+agent identity SP or its permissions.
+
+**M365 MCP scopes assigned to all agents:**
+- `McpServers.Calendar.All` — Calendar access
+- `McpServers.Teams.All` — Teams messaging
+- `McpServers.CopilotMCP.All` — M365 Copilot API
+
+**Critical lessons learned:**
+- Regular SPs (`servicePrincipalType: Application`) are NOT valid agent identities
+- `agentIdentityBlueprintId` on user objects is **read-only** — cannot be set via Graph API
+- Agent APIs reject tokens with `Directory.AccessAsUser.All` (Azure CLI tokens) — must use `Connect-MgGraph` or MSAL with specific scopes
+- Blueprint creation requires authenticating AS the blueprint app (client credentials); delegated auth gives 403
+
+**Provisioning scripts (`scripts/`):**
+
+| Script | Purpose |
+|--------|---------|
+| `create-agent-blueprint.ps1` | Creates the true `AgentIdentityBlueprint` app, adds credentials, creates `BlueprintPrincipal` SP |
+| `create-agent-identities.ps1` | Authenticates as Blueprint, creates 44 `AgentIdentity` SPs via `/beta/servicePrincipals/Microsoft.Graph.AgentIdentity` |
+| `create-agent-users-phase2.ps1` | Creates agent user accounts with proper job titles/departments |
+| `assign-agent-permissions.ps1` | Assigns M365 oauth2 grants + Glyphor app roles to all agent identity SPs |
+| `assign-permissions-to-linked-sps.ps1` | Assigns permissions to linked service principals |
+| `recover-agent-users.ps1` | Recreates deleted agent user accounts (without blueprint — read-only field) |
+| `fix-licenses.ps1` | Sets `usageLocation=US` and assigns Agent 365 Tier 3 license to agent users |
+
+**Config/data files:**
+
+| File | Purpose |
+|------|---------|
+| `scripts/agent-identity-real-ids.json` | Maps agent role → Agent Identity SP ID (44 entries) |
+| `.agent-identities-created.json` | Full creation results (name + ID per agent) |
+| `.agent-id-blueprint-secret.json` | Blueprint app credential (keyId, secretText) — **gitignored** |
 
 ### Glyphor MCP Architecture — Internal MCP Servers
 
@@ -2365,15 +2511,21 @@ Agent run.ts → createGlyphorMcpTools(agentRole?, serverFilter?)
   → MCP server (e.g., mcp-data-server) validates scope + executes
 ```
 
-**Glyphor MCP Servers (5 registered, 1 deployed):**
+**Glyphor MCP Servers (9 built):**
 
 | Server | Cloud Run Service | Status | Tools | Purpose |
 |--------|------------------|--------|-------|---------|
 | `glyphor_data` | `mcp-data-server` | ✅ Built | 12 | Read-only SQL queries (content, SEO, finance, analytics, support, research, agents, ops) |
-| `glyphor_marketing` | `mcp-marketing-server` | 🔲 Planned | — | Mailchimp, Mandrill, Search Console, social APIs |
-| `glyphor_engineering` | `mcp-engineering-server` | 🔲 Planned | — | GitHub, Vercel, Cloud Run, CI/CD |
-| `glyphor_design` | `mcp-design-server` | 🔲 Planned | — | Playwright screenshots, Figma, Storybook |
-| `glyphor_finance` | `mcp-finance-server` | 🔲 Planned | — | Stripe, Mercury, BigQuery billing |
+| `glyphor_marketing` | `mcp-marketing-server` | ✅ Built | 7 | Social media, Search Console, web analytics |
+| `glyphor_engineering` | `mcp-engineering-server` | ✅ Built | 5 | GitHub, Vercel, Cloud Run, CI/CD |
+| `glyphor_design` | `mcp-design-server` | ✅ Built | 5 | Playwright screenshots, Figma, Storybook |
+| `glyphor_finance` | `mcp-finance-server` | ✅ Built | 7 | Stripe, Mercury, BigQuery billing |
+| `glyphor_email` | `mcp-email-server` | ✅ Built | 3 | send_email, read_inbox, reply_to_email (M365 Graph API, plain-text enforced) |
+| `glyphor_legal` | `mcp-legal-server` | ✅ Built | 19 | Compliance, contracts, IP portfolio, tax, data privacy/retention (12 reads + 7 writes) |
+| `glyphor_hr` | `mcp-hr-server` | ✅ Built | 8 | Org chart, agent profiles, onboarding, performance reviews, engagement (5 reads + 3 writes) |
+| `glyphor_email_marketing` | `mcp-email-marketing-server` | ✅ Built | 15 | Mailchimp campaigns (10) + Mandrill transactional email (5) |
+
+**Total: ~81 MCP tools across 9 servers.**
 
 **MCP Data Server (`packages/mcp-data-server/`):**
 - HTTP server on `:8080`, handles `POST /mcp` (JSON-RPC 2.0) and `GET /health`
@@ -2397,8 +2549,10 @@ Agent run.ts → createGlyphorMcpTools(agentRole?, serverFilter?)
 - Server URLs from env: `GLYPHOR_MCP_DATA_URL`, `GLYPHOR_MCP_MARKETING_URL`, etc.
 - Gracefully skips unreachable servers (logs warning, continues)
 
-**Migration status:** Week 1 complete (core tools, data server, bridge). Weeks 2-5 remaining
-(Entra identities, action servers, agent migration, toolExecutor simplification).
+**Migration status:** Complete — all 9 MCP servers built, bridge wired, HR/Legal/Email/Email-Marketing
+tools fully migrated from inline to MCP. Inline stubs (`hrTools.ts`, `legalTools.ts`) return empty
+arrays. Email tools served exclusively via `mcp-email-server` with plain-text enforcement
+(no markdown in external communications).
 
 **All-Department Shared Tools** (Waves 1-5):
 
@@ -2407,7 +2561,7 @@ Agent run.ts → createGlyphorMcpTools(agentRole?, serverFilter?)
 | `contentTools.ts` | 7 | CMO, Content Creator | Draft lifecycle, publish, content calendar, DALL-E image generation |
 | `seoTools.ts` | 8 | SEO Analyst | Google Search Console, keyword tracking, page audits, indexing, backlinks |
 | `socialMediaTools.ts` | 7 | Social Media Manager | Schedule posts, metrics, audience analytics, trending topics |
-| `emailMarketingTools.ts` | 15 | CMO, Content Creator | Mailchimp campaigns (10) + Mandrill transactional email (5) |
+| `emailMarketingTools.ts` | 0 | — | **Deprecated** — all 15 tools migrated to `mcp-email-marketing-server` |
 | `marketingIntelTools.ts` | 9 | CMO | A/B experiments, competitor monitoring, lead pipeline, marketing dashboard |
 | `revenueTools.ts` | 6 | CFO, Revenue Analyst | MRR breakdown, Stripe subscriptions/invoices, churn, forecasts, LTV |
 | `costManagementTools.ts` | 8 | CFO, Cost Analyst | GCP/AI/vendor costs, anomaly detection, burn rate, budgets, unit economics |
@@ -2418,12 +2572,12 @@ Agent run.ts → createGlyphorMcpTools(agentRole?, serverFilter?)
 | `roadmapTools.ts` | 6 | CPO | Roadmap CRUD, RICE scoring, feature flags, feature requests |
 | `researchRepoTools.ts` | 4 | VP Research, all analysts | Persistent research repository with text search, research briefs |
 | `researchMonitoringTools.ts` | 14 | VP Research, all analysts | Monitors, academic papers, OSS tracking, regulatory, AI benchmarks, synthesis |
-| `legalTools.ts` | 19 | CLO | Compliance, contracts, IP portfolio, tax, data privacy/retention |
-| `hrTools.ts` | 8 | Head of HR | Org chart, agent profiles, onboarding, performance reviews, engagement |
+| `legalTools.ts` | 0 | — | **Deprecated stub** — returns []. All 19 tools migrated to `mcp-legal-server` |
+| `hrTools.ts` | 0 | — | **Deprecated stub** — returns []. All 8 tools migrated to `mcp-hr-server` |
 | `opsExtensionTools.ts` | 12 | Ops, Global Admin | Agent health dashboard, event bus, data freshness, access management |
 | `engineeringGapTools.ts` | 10 | Quality/DevOps/Platform | Test suites, code coverage, container logs, scaling, infrastructure inventory |
 
-**Total: 156 new shared tools across 18 files, wired into 25+ agents.**
+**Total: 114 remaining inline shared tools across 18 files (42 tools migrated to MCP servers), wired into 25+ agents.**
 
 ### Pre-Dispatch Validation (Chief of Staff)
 
@@ -2716,6 +2870,7 @@ Statuses: `pending` → `submitted` → `in_progress` → `review` → `merged` 
 | `packages/agent-runtime/src/jitContextRetriever.ts` | Just-In-Time context retrieval (task-aware semantic retrieval) |
 | `packages/agent-runtime/src/redisCache.ts` | Redis cache layer for GCP Memorystore (TTL management, graceful degradation) |
 | `packages/agent-runtime/src/toolRegistry.ts` | Central tool lookup via static KNOWN_TOOLS + dynamic `tool_registry` DB table |
+| `packages/agent-runtime/src/dynamicToolExecutor.ts` | Dynamic tool executor — runs DB-registered tools at runtime (API call support, 60s declaration cache) |
 | `packages/agent-runtime/src/contextDistiller.ts` | JIT context compression via gemini-3-flash-preview (~$0.001/call), 5-min Redis cache |
 | `packages/agent-runtime/src/runtimeToolFactory.ts` | Mid-run tool synthesis (HTTP/Cloud SQL/sandboxed JS), max 3 per run, 20 persisted |
 | `packages/scheduler/src/changeRequestHandler.ts` | Dashboard change request → GitHub issue pipeline, heartbeat-driven (every 10 min) |
@@ -2916,6 +3071,7 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 | `metrics_cache` | Cached metrics | service, metric, value, labels (JSONB), timestamp |
 | `cot_analyses` | Chain-of-thought analyses | id, query, status, requested_by, report (JSONB), completed_at, error |
 | `agent_tool_grants` | Dynamic tool grants | agent_role + tool_name (unique), granted_by, reason, directive_id, scope, is_active, expires_at |
+| `tool_registry` | Dynamic tool definitions (runtime-executable) | name (unique), description, type (api/sql/custom), config (JSONB: url_template, method, headers, body_template, auth, response_path), parameters (JSONB), is_active |
 
 ### World Model Tables
 
@@ -3148,7 +3304,15 @@ Requires `SCHEDULER_URL`, `DASHBOARD_URL`, `VOICE_GATEWAY_URL` env vars.
 | Cloud Run | `glyphor-chief-of-staff` | Dedicated CoS agent service |
 | Cloud Run | `voice-gateway` | Voice agent sessions (WebRTC + Teams) |
 | Cloud Run | `glyphor-worker` | GCP Cloud Tasks queue processor (agent runs + delivery) |
-| Cloud Run | `mcp-data-server` | Glyphor MCP Data Server — 12 read-only SQL query tools (planned deployment) |
+| Cloud Run | `mcp-data-server` | Glyphor MCP Data Server — 12 read-only SQL query tools |
+| Cloud Run | `mcp-marketing-server` | Glyphor MCP Marketing Server — 7 tools |
+| Cloud Run | `mcp-engineering-server` | Glyphor MCP Engineering Server — 5 tools |
+| Cloud Run | `mcp-design-server` | Glyphor MCP Design Server — 5 tools |
+| Cloud Run | `mcp-finance-server` | Glyphor MCP Finance Server — 7 tools |
+| Cloud Run | `mcp-email-server` | Glyphor MCP Email Server — 3 tools (plain-text enforced) |
+| Cloud Run | `mcp-legal-server` | Glyphor MCP Legal Server — 19 tools (12 reads + 7 writes) |
+| Cloud Run | `mcp-hr-server` | Glyphor MCP HR Server — 8 tools (5 reads + 3 writes) |
+| Cloud Run | `mcp-email-marketing-server` | Glyphor MCP Email Marketing Server — 15 tools |
 | Vertex AI | Claude models (`us-east5`) | Anthropic Claude inference via `@anthropic-ai/vertex-sdk` — IAM auth, no API key |
 | Cloud Tasks | `agent-runs`, `agent-runs-priority`, `delivery` | Background agent task queues |
 | Cloud Scheduler | 9 agent + 3 sync jobs | Agent triggers → Pub/Sub; data syncs → HTTP |
