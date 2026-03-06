@@ -87,7 +87,18 @@ export function createSharePointTools(): ToolDefinition[] {
             },
           };
         } catch (err) {
-          return { success: false, error: (err as Error).message };
+          const pathUsed = params.path as string;
+          return {
+            success: false,
+            error: (err as Error).message,
+            data: {
+              hint: 'If the path looks like just a filename, search_sharepoint may have returned an incomplete path. '
+                + 'Try listing the folder with list_sharepoint_files to find the correct subfolder, '
+                + 'then retry with the full relative path (e.g., "Operations/Operating Models/file.docx").',
+              pathProvided: pathUsed,
+              suggestion: pathUsed.includes('/') ? undefined : 'This looks like a filename without a folder path. Try searching again or listing folders.',
+            },
+          };
         }
       },
     },

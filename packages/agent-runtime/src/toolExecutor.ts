@@ -567,6 +567,11 @@ export class ToolExecutor {
         estimateToolCost(toolName),
       );
 
+      // Track repeated tool failures for auto-escalation
+      if (!finalResult.success) {
+        trackToolFailure(context.agentRole, toolName, finalResult.error ?? 'unknown error');
+      }
+
       return finalResult;
     } catch (error) {
       const failResult: ToolResult = {
@@ -585,7 +590,61 @@ export class ToolExecutor {
         estimateToolCost(toolName),
       );
 
+      trackToolFailure(context.agentRole, toolName, (error as Error).message);
+
       return failResult;
     }
+  }
+}
+
+// ─── Tool Failure Tracking & Auto-Escalation ──────────────────────
+// When the same tool fails repeatedly (across any agent), log a
+// diagnostic alert so CTO/ops can investigate the tool implementation.
+
+interface ToolFailureRecord {
+  agentRole: string;
+  error: string;
+  timestamp: number;
+}
+
+const toolFailureLog = new Map<string, ToolFailureRecord[]>();
+const FAILURE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const FAILURE_ESCALATION_THRESHOLD = 3;    // 3 failures in the window
+const escalatedTools = new Set<string>();  // prevent duplicate escalations per process
+
+function trackToolFailure(agentRole: string, toolName: string, error: string): void {
+  const now = Date.now();
+  const records = toolFailureLog.get(toolName) ?? [];
+
+  // Prune old entries
+  const recent = records.filter(r => now - r.timestamp < FAILURE_WINDOW_MS);
+  recent.push({ agentRole, error, timestamp: now });
+  toolFailureLog.set(toolName, recent);
+
+  // Check if we should escalate
+  if (recent.length >= FAILURE_ESCALATION_THRESHOLD && !escalatedTools.has(toolName)) {
+    escalatedTools.add(toolName);
+    const uniqueAgents = [...new Set(recent.map(r => r.agentRole))];
+    const uniqueErrors = [...new Set(recent.map(r => r.error.slice(0, 120)))];
+
+    // Fire-and-forget: log to activity_log for CTO visibility
+    systemQuery(
+      `INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        'system',
+        'tool-failure-tracker',
+        'tool_repeated_failure',
+        JSON.stringify({
+          tool: toolName,
+          failureCount: recent.length,
+          affectedAgents: uniqueAgents,
+          sampleErrors: uniqueErrors.slice(0, 3),
+          window: '1h',
+          recommendation: `Tool "${toolName}" has failed ${recent.length} times in the last hour across agents [${uniqueAgents.join(', ')}]. This likely indicates a code bug, not an agent error. CTO should investigate the tool implementation.`,
+        }),
+        new Date().toISOString(),
+      ],
+    ).catch(err => console.warn(`[ToolFailureTracker] Failed to log escalation:`, (err as Error).message));
   }
 }
