@@ -17,12 +17,13 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 export async function httpGet<T = unknown>(
   url: string,
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  headers?: Record<string, string>,
 ): Promise<HttpResponse<T>> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const resp = await fetch(url, { signal: controller.signal });
+    const resp = await fetch(url, { signal: controller.signal, headers });
     const raw = await resp.text();
     let data: T;
     try {
