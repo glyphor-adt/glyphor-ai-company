@@ -2,7 +2,7 @@
   "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
   "manifestVersion": "1.17",
   "version": "1.1.0",
-  "id": "ac724b3e-2021-4285-be7a-7dab0bd3594e",
+  "id": "36e97b19-46ad-48ac-9f03-f6cb26e65599",
   "developer": {
     "name": "Glyphor",
     "websiteUrl": "https://glyphor.com",
@@ -24,13 +24,19 @@
   "accentColor": "#0369A1",
   "bots": [
     {
-      "botId": "ac724b3e-2021-4285-be7a-7dab0bd3594e",
-      "scopes": ["personal", "team"],
+      "botId": "36e97b19-46ad-48ac-9f03-f6cb26e65599",
+      "scopes": [
+        "personal",
+        "team"
+      ],
       "supportsFiles": false,
       "isNotificationOnly": false
     }
   ],
-  "permissions": ["identity", "messageTeamMembers"],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
   "validDomains": [
     "glyphor-scheduler-610179349713.us-central1.run.app"
   ]

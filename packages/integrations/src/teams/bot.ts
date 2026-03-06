@@ -71,45 +71,99 @@ export type AgentRunner = (
 // ─── Agent Name Resolution ──────────────────────────────────────
 
 const AGENT_ALIASES: Record<string, string> = {
+  // C-Suite & Chiefs
   'sarah': 'chief-of-staff', 'sarah chen': 'chief-of-staff', 'cos': 'chief-of-staff', 'chief of staff': 'chief-of-staff',
   'marcus': 'cto', 'marcus reeves': 'cto',
   'elena': 'cpo', 'elena vasquez': 'cpo',
   'nadia': 'cfo', 'nadia okafor': 'cfo',
   'maya': 'cmo', 'maya brooks': 'cmo',
+  'victoria': 'clo', 'victoria chase': 'clo', 'chief legal': 'clo',
+  // VPs
   'james': 'vp-customer-success', 'james turner': 'vp-customer-success',
   'rachel': 'vp-sales', 'rachel kim': 'vp-sales',
   'mia': 'vp-design', 'mia tanaka': 'vp-design',
-  'atlas': 'ops', 'atlas vega': 'ops',
+  'sophia': 'vp-research', 'sophia lin': 'vp-research',
+  // Engineering
   'alex': 'platform-engineer', 'alex park': 'platform-engineer',
   'sam': 'quality-engineer', 'sam deluca': 'quality-engineer',
   'jordan': 'devops-engineer', 'jordan hayes': 'devops-engineer',
+  'ava': 'frontend-engineer', 'ava chen': 'frontend-engineer',
+  // Design
+  'leo': 'ui-ux-designer', 'leo vargas': 'ui-ux-designer',
+  'sofia': 'design-critic', 'sofia marchetti': 'design-critic',
+  'ryan': 'template-architect', 'ryan park': 'template-architect',
+  // Research
   'priya': 'user-researcher', 'priya sharma': 'user-researcher',
-  'daniel': 'competitive-intel', 'daniel ortiz': 'competitive-intel',
+  'daniel ortiz': 'competitive-intel',
+  'daniel okafor': 'market-research-analyst',
   'anna': 'revenue-analyst', 'anna park': 'revenue-analyst',
-  'omar': 'cost-analyst', 'omar hassan': 'cost-analyst',
+  'lena': 'competitive-research-analyst', 'lena park': 'competitive-research-analyst',
+  'kai nakamura': 'technical-research-analyst',
+  'amara': 'industry-research-analyst', 'amara diallo': 'industry-research-analyst',
+  // Marketing
   'tyler': 'content-creator', 'tyler reed': 'content-creator',
   'lisa': 'seo-analyst', 'lisa chen': 'seo-analyst',
-  'kai': 'social-media-manager', 'kai johnson': 'social-media-manager',
+  'kai johnson': 'social-media-manager',
+  'zara': 'marketing-intelligence-analyst', 'zara petrov': 'marketing-intelligence-analyst',
+  // Finance
+  'omar': 'cost-analyst', 'omar hassan': 'cost-analyst',
+  'bob': 'bob-the-tax-pro', 'bob finley': 'bob-the-tax-pro',
+  'mariana': 'tax-strategy-specialist', 'mariana solis': 'tax-strategy-specialist',
+  // Customer Success
   'emma': 'onboarding-specialist', 'emma wright': 'onboarding-specialist',
   'david': 'support-triage', 'david santos': 'support-triage',
   'nathan': 'account-research', 'nathan cole': 'account-research',
+  'ethan': 'enterprise-account-researcher', 'ethan morse': 'enterprise-account-researcher',
+  // Sales
+  'derek': 'lead-gen-specialist', 'derek owens': 'lead-gen-specialist',
+  // Legal & Compliance
+  'grace': 'data-integrity-auditor', 'grace hwang': 'data-integrity-auditor',
+  // People & Culture
+  'jasmine': 'head-of-hr', 'jasmine rivera': 'head-of-hr', 'hr': 'head-of-hr',
+  // Ops & IT
+  'atlas': 'ops', 'atlas vega': 'ops',
   'riley': 'm365-admin', 'riley morgan': 'm365-admin', 'm365': 'm365-admin', 'it': 'm365-admin',
   'morgan': 'global-admin', 'morgan blake': 'global-admin', 'global admin': 'global-admin',
+  // Executive Assistant
+  'adi': 'adi-rose', 'adi rose': 'adi-rose',
 };
 
 const AGENT_DISPLAY: Record<string, string> = {
+  // C-Suite & Chiefs
   'chief-of-staff': 'Sarah Chen', cto: 'Marcus Reeves', cpo: 'Elena Vasquez',
-  cfo: 'Nadia Okafor', cmo: 'Maya Brooks', 'vp-customer-success': 'James Turner',
-  'vp-sales': 'Rachel Kim', 'vp-design': 'Mia Tanaka', ops: 'Atlas Vega',
+  cfo: 'Nadia Okafor', cmo: 'Maya Brooks', clo: 'Victoria Chase',
+  // VPs
+  'vp-customer-success': 'James Turner', 'vp-sales': 'Rachel Kim',
+  'vp-design': 'Mia Tanaka', 'vp-research': 'Sophia Lin',
+  // Engineering
   'platform-engineer': 'Alex Park', 'quality-engineer': 'Sam DeLuca',
-  'devops-engineer': 'Jordan Hayes', 'user-researcher': 'Priya Sharma',
-  'competitive-intel': 'Daniel Ortiz', 'revenue-analyst': 'Anna Park',
-  'cost-analyst': 'Omar Hassan', 'content-creator': 'Tyler Reed',
-  'seo-analyst': 'Lisa Chen', 'social-media-manager': 'Kai Johnson',
+  'devops-engineer': 'Jordan Hayes', 'frontend-engineer': 'Ava Chen',
+  // Design
+  'ui-ux-designer': 'Leo Vargas', 'design-critic': 'Sofia Marchetti',
+  'template-architect': 'Ryan Park',
+  // Research
+  'user-researcher': 'Priya Sharma', 'competitive-intel': 'Daniel Ortiz',
+  'market-research-analyst': 'Daniel Okafor', 'competitive-research-analyst': 'Lena Park',
+  'technical-research-analyst': 'Kai Nakamura', 'industry-research-analyst': 'Amara Diallo',
+  // Marketing
+  'content-creator': 'Tyler Reed', 'seo-analyst': 'Lisa Chen',
+  'social-media-manager': 'Kai Johnson', 'marketing-intelligence-analyst': 'Zara Petrov',
+  // Finance
+  'revenue-analyst': 'Anna Park', 'cost-analyst': 'Omar Hassan',
+  'bob-the-tax-pro': 'Bob Finley', 'tax-strategy-specialist': 'Mariana Solis',
+  // Customer Success
   'onboarding-specialist': 'Emma Wright', 'support-triage': 'David Santos',
-  'account-research': 'Nathan Cole',
-  'm365-admin': 'Riley Morgan',
-  'global-admin': 'Morgan Blake',
+  'account-research': 'Nathan Cole', 'enterprise-account-researcher': 'Ethan Morse',
+  // Sales
+  'lead-gen-specialist': 'Derek Owens',
+  // Legal & Compliance
+  'data-integrity-auditor': 'Grace Hwang',
+  // People & Culture
+  'head-of-hr': 'Jasmine Rivera',
+  // Ops & IT
+  ops: 'Atlas Vega', 'm365-admin': 'Riley Morgan', 'global-admin': 'Morgan Blake',
+  // Executive Assistant
+  'adi-rose': 'Adi Rose',
 };
 
 function resolveAgent(input: string): string | null {
