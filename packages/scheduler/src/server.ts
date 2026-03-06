@@ -371,6 +371,7 @@ const chatSubscriptionManager = graphChatClient
 
 // Initialize Graph chat subscriptions (async, non-blocking)
 if (graphChatHandler && chatSubscriptionManager) {
+  if (teamsBot) graphChatHandler.setTeamsBot(teamsBot);
   (async () => {
     try {
       await graphChatHandler.resolveAgentUserIds();

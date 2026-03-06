@@ -95,6 +95,11 @@ export class ChatSubscriptionManager {
 
       if (!res.ok) {
         const text = await res.text();
+        // If we hit the 1-subscription limit, try to adopt the existing one
+        if (res.status === 403 && text.includes('limit')) {
+          console.warn('[ChatSub] Subscription limit hit — attempting to adopt existing');
+          return this.adoptExistingSubscription(token);
+        }
         console.error(
           `[ChatSub] Failed to create subscription: ${res.status} ${text.substring(0, 500)}`,
         );
@@ -137,6 +142,34 @@ export class ChatSubscriptionManager {
     }
 
     this.subscription = null;
+  }
+
+  /**
+   * Find and adopt an existing /chats/getAllMessages subscription.
+   * Called when creation fails due to the 1-subscription-per-app limit.
+   */
+  private async adoptExistingSubscription(token: string): Promise<ChatSubscription | null> {
+    try {
+      const res = await fetch('https://graph.microsoft.com/v1.0/subscriptions', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        console.error(`[ChatSub] Failed to list subscriptions: ${res.status}`);
+        return null;
+      }
+      const data = (await res.json()) as { value: ChatSubscription[] };
+      const chatSub = data.value.find((s) => s.resource === '/chats/getAllMessages');
+      if (chatSub) {
+        this.subscription = chatSub;
+        console.log(`[ChatSub] Adopted existing subscription: ${chatSub.id} → expires ${chatSub.expirationDateTime}`);
+        return chatSub;
+      }
+      console.warn('[ChatSub] No existing /chats/getAllMessages subscription found');
+      return null;
+    } catch (err) {
+      console.error(`[ChatSub] Error listing subscriptions: ${(err as Error).message}`);
+      return null;
+    }
   }
 
   /**

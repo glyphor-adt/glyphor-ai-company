@@ -842,6 +842,54 @@ export class TeamsBotHandler {
   }
 
   /**
+   * Send a proactive 1:1 DM as a specific agent bot (by role).
+   * Uses the agent bot's own credentials so the message appears from that agent.
+   */
+  async sendProactiveAsAgent(
+    agentRole: string,
+    userAadObjectId: string,
+    message: string,
+    serviceUrl = 'https://smba.trafficmanager.net/amer/',
+  ): Promise<void> {
+    // Find the agent bot by role
+    let agentBot: (AgentBotConfig & { appSecret: string }) | undefined;
+    for (const ab of this.agentBots.values()) {
+      if (ab.role === agentRole) {
+        agentBot = ab;
+        break;
+      }
+    }
+    if (!agentBot) {
+      throw new Error(`[TeamsBot] No agent bot registered for role: ${agentRole}`);
+    }
+
+    const token = await this.getBotToken(agentBot.appId);
+
+    const createUrl = `${serviceUrl}v3/conversations`;
+    const createBody = {
+      bot: { id: `28:${agentBot.appId}`, name: agentBot.name },
+      members: [{ id: `29:${userAadObjectId}` }],
+      tenantId: this.config.tenantId,
+      activity: {
+        type: 'message',
+        text: message,
+        textFormat: 'markdown',
+      },
+    };
+
+    const createRes = await fetch(createUrl, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(createBody),
+    });
+
+    if (!createRes.ok) {
+      const errText = await createRes.text();
+      throw new Error(`[TeamsBot] Proactive DM as ${agentRole} failed (${createRes.status}): ${errText}`);
+    }
+  }
+
+  /**
    * Handle an incoming Bot Framework activity.
    * If the recipient is an individual agent bot, route directly to that agent.
    * Otherwise, use command parsing (ask, briefing, status, etc.).

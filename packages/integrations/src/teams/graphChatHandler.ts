@@ -23,6 +23,7 @@
 import { AGENT_EMAIL_MAP, type AgentEmailEntry } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 import type { GraphTeamsClient } from './graphClient.js';
+import type { TeamsBotHandler } from './bot.js';
 
 // ─── TYPES ──────────────────────────────────────────────────────
 
@@ -100,6 +101,7 @@ const DEDUP_CLEANUP_INTERVAL = 60 * 1000;
 
 export class GraphChatHandler {
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
+  private teamsBot: TeamsBotHandler | null = null;
 
   constructor(
     private readonly graphClient: GraphTeamsClient,
@@ -117,6 +119,11 @@ export class GraphChatHandler {
   /** Expected client state for subscription validation */
   static get CLIENT_STATE(): string {
     return CLIENT_STATE;
+  }
+
+  /** Set the Teams bot handler for proactive reply delivery */
+  setTeamsBot(bot: TeamsBotHandler): void {
+    this.teamsBot = bot;
   }
 
   /**
@@ -243,8 +250,19 @@ export class GraphChatHandler {
       responseText = `Sorry, I'm having trouble right now: ${errMessage}`;
     }
 
-    // Reply in the chat as the agent user (via app permission)
-    await this.replyInChat(token, chatId, responseText);
+    // Reply via Bot Framework proactive messaging (as the agent's bot identity)
+    if (this.teamsBot) {
+      try {
+        await this.teamsBot.sendProactiveAsAgent(agentRole, senderId!, responseText);
+      } catch (botErr) {
+        console.error(`[GraphChat] Bot proactive reply failed: ${(botErr as Error).message}`);
+        // Fallback: try Graph API (may fail with app-only permissions)
+        await this.replyInChat(token, chatId, responseText);
+      }
+    } else {
+      // No bot handler — fall back to Graph API
+      await this.replyInChat(token, chatId, responseText);
+    }
   }
 
   /**
