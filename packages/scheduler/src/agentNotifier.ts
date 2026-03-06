@@ -22,12 +22,13 @@
  *   </notify>
  */
 
-import type { TeamsBotHandler } from '@glyphor/integrations';
 import {
   formatNotificationCard,
+  buildChannelMap,
+  type TeamsBotHandler,
   type NotificationType,
   type NotificationCardData,
-  buildChannelMap,
+  type ChannelMap,
 } from '@glyphor/integrations';
 
 // Agent role → display name
@@ -92,7 +93,7 @@ export function parseNotifications(output: string): ParsedNotification[] {
 export class AgentNotifier {
   private readonly botHandler: TeamsBotHandler;
   private readonly founderIds: Record<string, string>;
-  private readonly channels: ReturnType<typeof buildChannelMap>;
+  private readonly channels: Partial<ChannelMap>;
 
   constructor(botHandler: TeamsBotHandler) {
     this.botHandler = botHandler;
@@ -129,7 +130,7 @@ export class AgentNotifier {
         };
 
         const card = formatNotificationCard(cardData);
-        const cardContent = card.attachments[0].content as Record<string, unknown>;
+        const cardContent = card.attachments[0].content as unknown as Record<string, unknown>;
 
         // Determine recipients
         const targets: string[] = notif.to === 'both'
@@ -171,8 +172,8 @@ export class AgentNotifier {
     cardContent: Record<string, unknown>,
   ): Promise<void> {
     // Try the agent's department channel first, then fall back to general
-    const channelKey = this.getDepartmentChannel(agentRole);
-    const channel = this.channels[channelKey] ?? this.channels.general;
+    const channelKey = this.getDepartmentChannel(agentRole) as keyof ChannelMap;
+    const channel = this.channels[channelKey] ?? this.channels['general' as keyof ChannelMap];
     if (!channel) return;
 
     await this.botHandler.sendProactiveCardToChannel(
