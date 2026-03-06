@@ -250,18 +250,18 @@ export class GraphChatHandler {
       responseText = `Sorry, I'm having trouble right now: ${errMessage}`;
     }
 
-    // Reply via Bot Framework proactive messaging (as the agent's bot identity)
-    if (this.teamsBot) {
+    // Reply via Bot Framework proactive DM (main Glyphor Bot, which is installed)
+    // Individual agent bots aren't published as Teams apps, so we use the main bot
+    // and label the message with the agent's name.
+    if (this.teamsBot && senderId) {
       try {
-        await this.teamsBot.sendProactiveAsAgent(agentRole, senderId!, responseText);
+        const labeledResponse = `**${displayName}:**\n\n${responseText}`;
+        await this.teamsBot.sendProactiveToUser(senderId, labeledResponse);
       } catch (botErr) {
         console.error(`[GraphChat] Bot proactive reply failed: ${(botErr as Error).message}`);
-        // Fallback: try Graph API (may fail with app-only permissions)
-        await this.replyInChat(token, chatId, responseText);
       }
     } else {
-      // No bot handler — fall back to Graph API
-      await this.replyInChat(token, chatId, responseText);
+      console.warn(`[GraphChat] Cannot reply — no bot handler or missing sender ID`);
     }
   }
 
