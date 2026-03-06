@@ -13,7 +13,7 @@
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
 import { runTest } from '../utils/test.js';
 import { query } from '../utils/db.js';
-import { httpGet } from '../utils/http.js';
+import { httpGet, httpPost } from '../utils/http.js';
 import { isGcloudAvailable, gcloudExec } from '../utils/gcloud.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -394,12 +394,17 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
         } catch { /* try without auth */ }
       }
 
-      const res = await httpGet(dataServerUrl, 8000, fetchHeaders);
-      // /mcp accepts POST JSON-RPC; a GET returns 405 which confirms the service is up
-      if (res.status !== 405 && !res.ok) {
+      // POST a JSON-RPC 2.0 'initialize' request — the /mcp route only accepts POST
+      const rpcBody = { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} };
+      const res = await httpPost(dataServerUrl, rpcBody, 8000, fetchHeaders);
+      if (!res.ok) {
         throw new Error(`MCP endpoint responded HTTP ${res.status} — verify JSON-RPC 2.0 routing`);
       }
-      return 'MCP bridge enabled and data server reachable';
+      const body = res.data as Record<string, unknown>;
+      if (body.error) {
+        throw new Error(`MCP JSON-RPC error: ${JSON.stringify(body.error)}`);
+      }
+      return 'MCP bridge enabled and data server reachable (initialize OK)';
     }),
   );
 

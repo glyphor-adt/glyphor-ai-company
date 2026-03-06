@@ -44,6 +44,7 @@ export async function httpPost<T = unknown>(
   url: string,
   body: unknown,
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  headers?: Record<string, string>,
 ): Promise<HttpResponse<T>> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -51,7 +52,7 @@ export async function httpPost<T = unknown>(
   try {
     const resp = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify(body),
       signal: controller.signal,
     });
