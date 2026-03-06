@@ -64,8 +64,6 @@ import { createResearchRepoTools } from '@glyphor/agents/shared/researchRepoTool
 import { createResearchMonitoringTools } from '@glyphor/agents/shared/researchMonitoringTools';
 
 // ── Wave 4 — Governance ─────────────────────────────────────────────
-import { createLegalTools } from '@glyphor/agents/shared/legalTools';
-import { createHRTools } from '@glyphor/agents/shared/hrTools';
 import { createOpsExtensionTools } from '@glyphor/agents/shared/opsExtensionTools';
 
 // ── Wave 5 — Engineering ────────────────────────────────────────────
@@ -120,8 +118,6 @@ const FACTORIES: FactoryEntry[] = [
   { name: 'researchRepoTools', wave: 3, factory: createResearchRepoTools },
   { name: 'researchMonitoringTools', wave: 3, factory: createResearchMonitoringTools },
   // Wave 4 — Governance
-  { name: 'legalTools', wave: 4, factory: createLegalTools },
-  { name: 'hrTools', wave: 4, factory: createHRTools },
   { name: 'opsExtensionTools', wave: 4, factory: createOpsExtensionTools },
   // Wave 5 — Engineering
   { name: 'engineeringGapTools', wave: 5, factory: createEngineeringGapTools },

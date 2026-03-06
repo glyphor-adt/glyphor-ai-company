@@ -6,9 +6,12 @@ export {
   formatBriefingCard,
   formatDecisionCard,
   formatAlertCard,
+  formatNotificationCard,
   type BriefingCardData,
   type DecisionCardData,
   type AlertCardData,
+  type NotificationCardData,
+  type NotificationType,
 } from './teams/adaptiveCards.js';
 
 // Graph API Teams client (primary integration)

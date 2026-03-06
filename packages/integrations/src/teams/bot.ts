@@ -545,6 +545,91 @@ export class TeamsBotHandler {
   }
 
   /**
+   * Send a proactive 1:1 DM to a user via Bot Framework REST API.
+   *
+   * Creates a personal conversation with the user and sends a message.
+   * The bot must be installed in the user's personal scope for this to work.
+   *
+   * @param userAadObjectId - The user's Entra ID (AAD Object ID)
+   * @param message - The message text (plain text or markdown)
+   * @param serviceUrl - Bot Framework service URL (default: North America)
+   */
+  async sendProactiveToUser(
+    userAadObjectId: string,
+    message: string,
+    serviceUrl = 'https://smba.trafficmanager.net/amer/',
+  ): Promise<void> {
+    const token = await this.getBotToken();
+    const appId = this.config.appId;
+
+    const createUrl = `${serviceUrl}v3/conversations`;
+    const createBody = {
+      bot: { id: `28:${appId}`, name: 'Glyphor Bot' },
+      members: [{ id: `29:${userAadObjectId}` }],
+      tenantId: this.config.tenantId,
+      activity: {
+        type: 'message',
+        text: message,
+        textFormat: 'markdown',
+      },
+    };
+
+    const createRes = await fetch(createUrl, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(createBody),
+    });
+
+    if (!createRes.ok) {
+      const errText = await createRes.text();
+      throw new Error(`[TeamsBot] Proactive DM failed (${createRes.status}): ${errText}`);
+    }
+  }
+
+  /**
+   * Send a proactive Adaptive Card as a 1:1 DM to a user.
+   *
+   * @param userAadObjectId - The user's Entra ID (AAD Object ID)
+   * @param cardContent - The Adaptive Card JSON object
+   * @param serviceUrl - Bot Framework service URL (default: North America)
+   */
+  async sendProactiveCardToUser(
+    userAadObjectId: string,
+    cardContent: Record<string, unknown>,
+    serviceUrl = 'https://smba.trafficmanager.net/amer/',
+  ): Promise<void> {
+    const token = await this.getBotToken();
+    const appId = this.config.appId;
+
+    const createUrl = `${serviceUrl}v3/conversations`;
+    const createBody = {
+      bot: { id: `28:${appId}`, name: 'Glyphor Bot' },
+      members: [{ id: `29:${userAadObjectId}` }],
+      tenantId: this.config.tenantId,
+      activity: {
+        type: 'message',
+        attachments: [
+          {
+            contentType: 'application/vnd.microsoft.card.adaptive',
+            content: cardContent,
+          },
+        ],
+      },
+    };
+
+    const createRes = await fetch(createUrl, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(createBody),
+    });
+
+    if (!createRes.ok) {
+      const errText = await createRes.text();
+      throw new Error(`[TeamsBot] Proactive card DM failed (${createRes.status}): ${errText}`);
+    }
+  }
+
+  /**
    * Send a proactive message to a Teams channel without being @mentioned.
    *
    * Uses the Bot Framework REST API to create/resume a conversation in a channel.

@@ -42,6 +42,7 @@ import {
 import { WakeRouter } from './wakeRouter.js';
 import { DataSyncScheduler } from './dataSyncScheduler.js';
 import { HeartbeatManager } from './heartbeat.js';
+import { AgentNotifier } from './agentNotifier.js';
 import { handleDashboardApi } from './dashboardApi.js';
 import {
   runChiefOfStaff, runCTO, runCFO, runCLO, runCPO, runCMO, runVPCS, runVPSales, runVPDesign,
@@ -295,6 +296,13 @@ const trackedAgentExecutor = async (
       );
     }
 
+    // Process notification intents from agent output (fire-and-forget)
+    if (result?.output && agentNotifier) {
+      agentNotifier.processAgentOutput(agentRole, result.output)
+        .then(n => { if (n > 0) console.log(`[AgentNotifier] ${agentRole} sent ${n} notification(s)`); })
+        .catch(err => console.error(`[AgentNotifier] Error processing ${agentRole}:`, err));
+    }
+
     return result;
   } catch (err) {
     const runId = await runIdPromise;
@@ -334,6 +342,9 @@ const teamsBot = TeamsBotHandler.fromEnv(
     return result ?? undefined;
   },
 );
+
+// Agent Notifier — delivers proactive DMs/cards when agents emit <notify> blocks
+const agentNotifier = teamsBot ? new AgentNotifier(teamsBot) : null;
 
 // Wire the bot handler into the decision queue for Teams channel notifications
 decisionQueue.setBotHandler(teamsBot);

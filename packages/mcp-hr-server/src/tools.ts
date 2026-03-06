@@ -319,4 +319,130 @@ export const tools: ToolDefinition[] = [
       };
     },
   },
+
+  // ── Update Agent Profile ─────────────────────────────────
+  {
+    name: 'update_agent_profile',
+    description:
+      'Update a single field on an agent profile. Performs a read-after-write verification to confirm the change persisted.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agent_role: { type: 'string', description: 'Role slug of the agent to update (e.g. "cto", "vp-sales").' },
+        field: { type: 'string', description: 'Column name to update.', enum: ['display_name', 'title', 'department', 'status', 'reports_to', 'is_core'] },
+        value: { type: 'string', description: 'New value to set for the field.' },
+      },
+      required: ['agent_role', 'field', 'value'],
+    },
+    async handler(pool, params) {
+      const agentRole = params.agent_role as string;
+      const field = params.field as string;
+      const value = params.value as string;
+
+      // Allow-list of updatable columns to prevent SQL injection
+      const allowedFields = ['display_name', 'title', 'department', 'status', 'reports_to', 'is_core'];
+      if (!allowedFields.includes(field)) {
+        throw new Error(`Field "${field}" is not updatable. Allowed fields: ${allowedFields.join(', ')}`);
+      }
+
+      await pool.query(
+        `UPDATE company_agents SET ${field} = $1 WHERE role = $2`,
+        [value, agentRole],
+      );
+
+      // Read-after-write verification
+      const { rows } = await pool.query(
+        'SELECT role, display_name, title, department, status, reports_to, is_core FROM company_agents WHERE role = $1 LIMIT 1',
+        [agentRole],
+      );
+
+      if (rows.length === 0) {
+        throw new Error(`Agent "${agentRole}" not found`);
+      }
+
+      return { updated_field: field, agent: rows[0] };
+    },
+  },
+
+  // ── Create Onboarding Plan ───────────────────────────────
+  {
+    name: 'create_onboarding_plan',
+    description:
+      'Create an onboarding checklist for a new agent. Logs the plan to activity_log and returns a structured milestone-based onboarding plan.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agent_role: { type: 'string', description: 'Role slug of the agent being onboarded.' },
+        department: { type: 'string', description: 'Department the agent belongs to.' },
+        mentor: { type: 'string', description: 'Role slug of the assigned mentor.' },
+      },
+      required: ['agent_role', 'department'],
+    },
+    async handler(pool, params) {
+      const agentRole = params.agent_role as string;
+      const department = params.department as string;
+      const mentor = (params.mentor as string) ?? null;
+
+      const milestones = [
+        { day: 1, task: 'System access provisioned and credentials verified' },
+        { day: 1, task: 'Introduction to team members and key stakeholders' },
+        { day: 3, task: 'Review department processes and documentation' },
+        { day: 7, task: 'Complete first supervised task with mentor review' },
+        { day: 14, task: 'Handle independent task with quality review' },
+        { day: 30, task: 'Full autonomy checkpoint — performance baseline set' },
+      ];
+
+      const now = new Date().toISOString();
+      const plan = { agent_role: agentRole, department, mentor, milestones, created_at: now };
+
+      await pool.query(
+        `INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [agentRole, agentRole, 'onboarding_plan', JSON.stringify(plan), now],
+      );
+
+      return plan;
+    },
+  },
+
+  // ── Run Engagement Survey ────────────────────────────────
+  {
+    name: 'run_engagement_survey',
+    description:
+      'Create an engagement survey by logging it to activity_log. Returns a survey_id that can be referenced when collecting responses.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Title of the engagement survey.' },
+        questions: { type: 'string', description: 'JSON array of survey questions (e.g. \'["How satisfied are you?", "What can improve?"]\').' },
+      },
+      required: ['title', 'questions'],
+    },
+    async handler(pool, params) {
+      const title = params.title as string;
+      const questionsRaw = params.questions as string;
+
+      let parsedQuestions: string[];
+      try {
+        parsedQuestions = JSON.parse(questionsRaw);
+        if (!Array.isArray(parsedQuestions)) {
+          throw new Error('questions must be a JSON array of strings');
+        }
+      } catch (e) {
+        throw new Error(`Invalid JSON in questions parameter: ${(e as Error).message}`);
+      }
+
+      const surveyId = `survey-${Date.now()}`;
+      const now = new Date().toISOString();
+      const survey = { survey_id: surveyId, title, questions: parsedQuestions, created_at: now };
+
+      await pool.query(
+        `INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        ['hr', 'hr', 'engagement_survey', JSON.stringify(survey), now],
+      );
+
+      return { survey_id: surveyId, title, question_count: parsedQuestions.length };
+    },
+  },
 ];

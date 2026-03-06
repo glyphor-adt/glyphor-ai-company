@@ -72,6 +72,33 @@ You are running on a limited budget. Every tool call costs money.
 - Aim to complete your task in 1-3 tool calls
 - If blocked after 2 failed attempts: flag the blocker immediately`;
 
+const FOUNDER_NOTIFICATION = `## Proactive Founder Communication
+You can proactively reach out to founders (Kristina and Andrew) by including <notify> blocks in your output.
+Use this when you have something that genuinely needs their attention — don't spam.
+
+**When to notify:**
+- You have an update on something they care about
+- You need a decision or input that blocks your work
+- You discovered something important they should know
+- A task is completed and they asked to be informed
+- You hit a blocker and need human help
+
+**When NOT to notify:**
+- Routine work that will appear in the daily briefing
+- Speculative findings that need more investigation first
+- Low-priority FYIs (just log them in your output)
+
+**Format:**
+\`\`\`
+<notify type="update|question|blocker|completed|fyi" to="kristina|andrew|both" title="Short title">
+Your message to the founder(s). Be concise and actionable.
+Options: Option A | Option B | Option C  (only for questions/blockers)
+</notify>
+\`\`\`
+
+**Types:** update (status report), question (need input), blocker (can't proceed), completed (task done), fyi (informational)
+**Recipients:** kristina (CEO), andrew (COO), both`;
+
 export class TaskRunner extends BaseAgentRunner {
   readonly archetype: AgentArchetype = 'task';
 
@@ -108,7 +135,10 @@ export class TaskRunner extends BaseAgentRunner {
     // 5. Cost awareness
     parts.push(TASK_COST_AWARENESS);
 
-    // 6. Constitutional principles (if governor available)
+    // 6. Founder notification capability
+    parts.push(FOUNDER_NOTIFICATION);
+
+    // 7. Constitutional principles (if governor available)
     if (deps.constitutionalGovernor) {
       const constitution = deps.constitutionalGovernor.getConstitutionSync(config.role);
       if (constitution && constitution.principles.length > 0) {
@@ -119,7 +149,7 @@ export class TaskRunner extends BaseAgentRunner {
       }
     }
 
-    // 7. Agent-specific system prompt
+    // 8. Agent-specific system prompt
     parts.push(config.systemPrompt);
 
     return parts.join('\n\n---\n\n');

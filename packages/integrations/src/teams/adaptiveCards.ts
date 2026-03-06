@@ -296,6 +296,98 @@ export function formatAlertCard(data: AlertCardData): TeamsWebhookPayload {
   };
 }
 
+// ─── AGENT NOTIFICATION CARD ────────────────────────────────────
+
+export type NotificationType = 'update' | 'question' | 'blocker' | 'completed' | 'fyi';
+
+export interface NotificationCardData {
+  type: NotificationType;
+  agent: string;
+  agentRole: string;
+  title: string;
+  message: string;
+  /** Optional action options for questions/blockers */
+  options?: string[];
+}
+
+const NOTIFICATION_ICONS: Record<NotificationType, string> = {
+  update: '📋',
+  question: '❓',
+  blocker: '🚫',
+  completed: '✅',
+  fyi: 'ℹ️',
+};
+
+const NOTIFICATION_COLORS: Record<NotificationType, string> = {
+  update: 'accent',
+  question: 'warning',
+  blocker: 'attention',
+  completed: 'good',
+  fyi: 'default',
+};
+
+export function formatNotificationCard(data: NotificationCardData): TeamsWebhookPayload {
+  const icon = NOTIFICATION_ICONS[data.type];
+  const color = NOTIFICATION_COLORS[data.type];
+
+  const body: AdaptiveCardElement[] = [
+    {
+      type: 'TextBlock',
+      text: `${icon} ${data.title}`,
+      size: 'medium',
+      weight: 'bolder',
+      color,
+      wrap: true,
+    },
+    {
+      type: 'TextBlock',
+      text: data.message,
+      wrap: true,
+    },
+    {
+      type: 'FactSet',
+      facts: [
+        { title: 'From', value: data.agent },
+        { title: 'Type', value: capitalize(data.type) },
+        { title: 'Time', value: new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }) },
+      ],
+    },
+  ];
+
+  if (data.options?.length) {
+    body.push({
+      type: 'TextBlock',
+      text: '**Options:**',
+      wrap: true,
+    } as AdaptiveCardElement);
+    for (const opt of data.options) {
+      body.push({
+        type: 'TextBlock',
+        text: `• ${opt}`,
+        wrap: true,
+      } as AdaptiveCardElement);
+    }
+  }
+
+  const card: AdaptiveCard = {
+    $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+    type: 'AdaptiveCard',
+    version: '1.5',
+    body,
+  };
+
+  return {
+    type: 'message',
+    attachments: [
+      {
+        contentType: 'application/vnd.microsoft.card.adaptive',
+        contentUrl: null,
+        content: card,
+      },
+    ],
+  };
+}
+
 // ─── UTILS ──────────────────────────────────────────────────────
 
 function capitalize(s: string): string {

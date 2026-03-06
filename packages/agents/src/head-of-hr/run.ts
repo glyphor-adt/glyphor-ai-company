@@ -17,7 +17,6 @@ import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createAccessAuditTools } from '../shared/accessAuditTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
-import { createHRTools } from '../shared/hrTools.js';
 import { createEntraHRTools } from '../shared/entraHRTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
@@ -55,7 +54,6 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
     ...createAgentCreationTools(),
     ...createAccessAuditTools(),
     ...createAgentDirectoryTools(),
-    ...createHRTools(),
     ...createEntraHRTools(),
     ...await createAgent365McpTools(['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
     ...await createGlyphorMcpTools('head-of-hr'),
