@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { ModelClient } from './modelClient.js';
 import { ToolExecutor } from './toolExecutor.js';
+import { loadDynamicToolDeclarations } from './dynamicToolExecutor.js';
 import { AgentSupervisor } from './supervisor.js';
 import { extractReasoning, REASONING_PROMPT_SUFFIX } from './reasoning.js';
 import { isOfficeDocument, extractDocumentText } from './documentExtractor.js';
@@ -1618,10 +1619,27 @@ export class CompanyAgentRunner {
           // Scheduled: full tool access every turn.
           let effectiveTools: ReturnType<typeof toolExecutor.getDeclarations> | undefined = toolExecutor.getDeclarations();
 
+          // ─── MERGE DYNAMIC TOOL DECLARATIONS ────────────────────
+          // Load tools registered at runtime via register_tool so the
+          // LLM can discover and call them without a code deploy.
+          if (effectiveTools && turnNumber === 1) {
+            try {
+              const staticNames = new Set(staticToolNames);
+              const dynamicDecls = await loadDynamicToolDeclarations(staticNames);
+              if (dynamicDecls.length > 0) {
+                effectiveTools = [...effectiveTools, ...dynamicDecls];
+                console.log(`[ToolInventory] ${config.role}: +${dynamicDecls.length} dynamic tools from tool_registry`);
+              }
+            } catch {
+              // Non-fatal — agent runs with static tools only
+            }
+          }
+
           // ─── TOOL DECLARATION MISMATCH LOG ──────────────────────
           if (effectiveTools && turnNumber === 1) {
             const declaredCount = effectiveTools.length;
-            if (declaredCount !== staticToolNames.length) {
+            const dynamicCount = declaredCount - staticToolNames.length;
+            if (dynamicCount < 0) {
               console.warn(`[ToolInventory] ${config.role} MISMATCH: ${staticToolNames.length} static, ${declaredCount} declared to model`);
             }
           }

@@ -29,6 +29,7 @@ import type {
 import { AGENT_BUDGETS } from './types.js';
 import { systemQuery } from '@glyphor/shared/db';
 import type { FormalVerifier } from './formalVerifier.js';
+import { executeDynamicTool } from './dynamicToolExecutor.js';
 
 // ─── Emergency Block Cache ─────────────────────────────────────
 const BLOCK_CACHE_TTL_MS = 60_000; // 60 seconds
@@ -357,6 +358,20 @@ export class ToolExecutor {
           return { success: false, error: `Runtime tool error: ${err.message}` };
         }
       }
+
+      // ─── Dynamic tool registry fallback ──────────────────
+      // Check if this tool was registered at runtime via register_tool.
+      // If it has an api_config, execute the HTTP call dynamically.
+      try {
+        const dynamicResult = await executeDynamicTool(toolName, params);
+        if (dynamicResult) {
+          this.logToolCall(context.agentId, context.agentRole, toolName, params, dynamicResult, estimateToolCost(toolName));
+          return dynamicResult;
+        }
+      } catch (dynErr) {
+        console.warn(`[ToolExecutor] Dynamic tool lookup failed for ${toolName}:`, (dynErr as Error).message);
+      }
+
       return { success: false, error: `Unknown tool: ${toolName}`, filesWritten: 0, memoryKeysWritten: 0 };
     }
 

@@ -26,6 +26,7 @@ export {
   loadRegisteredTool,
 } from './toolRegistry.js';
 export type { RegisteredToolDef, ApiToolConfig } from './toolRegistry.js';
+export { executeDynamicTool, loadDynamicToolDeclarations } from './dynamicToolExecutor.js';
 export { checkEventPermission, createEventSecurityLog } from './eventPermissions.js';
 export type { EventPermissionCheck } from './eventPermissions.js';
 export { executeWorkLoop, PROACTIVE_COOLDOWNS } from './workLoop.js';
