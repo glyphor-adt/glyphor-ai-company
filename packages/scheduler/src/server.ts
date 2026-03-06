@@ -11,7 +11,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GlyphorEventBus, ModelClient, promptCache, getRedisCache } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment } from '@glyphor/agent-runtime';
-import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, TeamsBotHandler, extractBearerToken, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager } from '@glyphor/integrations';
+import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, TeamsBotHandler, extractBearerToken, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
 import { systemQuery } from '@glyphor/shared/db';
 import { EventRouter } from './eventRouter.js';
@@ -352,20 +352,19 @@ decisionQueue.setBotHandler(teamsBot);
 // ─── Graph Chat Handler (1:1 DMs to agent Entra accounts) ──────
 
 const GRAPH_CHAT_WEBHOOK_PATH = '/api/graph/chat-webhook';
-const graphChatConfig = process.env.AZURE_TENANT_ID && process.env.AZURE_CLIENT_ID && process.env.AZURE_CLIENT_SECRET
-  ? { appId: process.env.AZURE_CLIENT_ID, appSecret: process.env.AZURE_CLIENT_SECRET, tenantId: process.env.AZURE_TENANT_ID }
-  : null;
+let graphChatClient: GraphTeamsClient | null = null;
+try { graphChatClient = GraphTeamsClient.fromEnv(); } catch { /* Graph not configured */ }
 
-const graphChatHandler = graphChatConfig
-  ? new GraphChatHandler(graphChatConfig, async (agentRole, task, payload) => {
+const graphChatHandler = graphChatClient
+  ? new GraphChatHandler(graphChatClient, async (agentRole, task, payload) => {
       const result = await trackedAgentExecutor(agentRole as CompanyAgentRole, task, payload);
       return result ?? undefined;
     })
   : null;
 
-const chatSubscriptionManager = graphChatConfig
+const chatSubscriptionManager = graphChatClient
   ? new ChatSubscriptionManager(
-      graphChatConfig,
+      graphChatClient,
       `${process.env.PUBLIC_URL ?? process.env.SERVICE_URL ?? ''}${GRAPH_CHAT_WEBHOOK_PATH}`,
     )
   : null;

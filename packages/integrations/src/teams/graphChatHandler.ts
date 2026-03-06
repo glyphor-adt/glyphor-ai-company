@@ -22,6 +22,7 @@
 
 import { AGENT_EMAIL_MAP, type AgentEmailEntry } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
+import type { GraphTeamsClient } from './graphClient.js';
 
 // ─── TYPES ──────────────────────────────────────────────────────
 
@@ -71,7 +72,7 @@ export type AgentRunner = (
   agentRole: string,
   task: string,
   payload: { message: string },
-) => Promise<{ output?: string; error?: string } | undefined>;
+) => Promise<{ output?: string | null; error?: string | null } | undefined>;
 
 // ─── REVERSE LOOKUP ─────────────────────────────────────────────
 
@@ -98,15 +99,10 @@ const DEDUP_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const DEDUP_CLEANUP_INTERVAL = 60 * 1000;
 
 export class GraphChatHandler {
-  private tokenCache: { token: string; expiresAt: number } | null = null;
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
-    private readonly config: {
-      appId: string;
-      appSecret: string;
-      tenantId: string;
-    },
+    private readonly graphClient: GraphTeamsClient,
     private readonly agentRunner: AgentRunner,
   ) {
     // Periodic cleanup of dedup cache
@@ -128,7 +124,7 @@ export class GraphChatHandler {
    * Called once at startup so we can quickly detect agent-sent messages.
    */
   async resolveAgentUserIds(): Promise<void> {
-    const token = await this.getGraphToken();
+    const token = await this.graphClient.getAccessToken();
 
     for (const email of EMAIL_TO_ROLE.keys()) {
       try {
@@ -192,7 +188,7 @@ export class GraphChatHandler {
     if (processedMessages.has(dedupKey)) return;
     processedMessages.set(dedupKey, Date.now());
 
-    const token = await this.getGraphToken();
+    const token = await this.graphClient.getAccessToken();
 
     // Fetch the actual message
     const message = await this.fetchMessage(token, chatId, messageId);
@@ -401,46 +397,6 @@ export class GraphChatHandler {
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
       .trim();
-  }
-
-  // ─── Token management ──────────────────────────────────────
-
-  private async getGraphToken(): Promise<string> {
-    const now = Date.now();
-    if (this.tokenCache && this.tokenCache.expiresAt > now + 60_000) {
-      return this.tokenCache.token;
-    }
-
-    const body = new URLSearchParams({
-      grant_type: 'client_credentials',
-      client_id: this.config.appId,
-      client_secret: this.config.appSecret,
-      scope: 'https://graph.microsoft.com/.default',
-    });
-
-    const res = await fetch(
-      `https://login.microsoftonline.com/${encodeURIComponent(this.config.tenantId)}/oauth2/v2.0/token`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body.toString(),
-      },
-    );
-
-    if (!res.ok) {
-      const errBody = await res.text().catch(() => '');
-      throw new Error(`Graph token failed: ${res.status} ${errBody}`);
-    }
-
-    const data = (await res.json()) as {
-      access_token: string;
-      expires_in: number;
-    };
-    this.tokenCache = {
-      token: data.access_token,
-      expiresAt: now + data.expires_in * 1000,
-    };
-    return data.access_token;
   }
 
   /**

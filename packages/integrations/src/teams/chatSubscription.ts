@@ -16,6 +16,7 @@
  */
 
 import { GraphChatHandler } from './graphChatHandler.js';
+import type { GraphTeamsClient } from './graphClient.js';
 
 // ─── TYPES ──────────────────────────────────────────────────────
 
@@ -43,16 +44,11 @@ const RENEWAL_BUFFER_MS = 10 * 60 * 1000;
 const RENEWAL_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
 export class ChatSubscriptionManager {
-  private tokenCache: { token: string; expiresAt: number } | null = null;
   private subscription: ChatSubscription | null = null;
   private renewalTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
-    private readonly config: {
-      appId: string;
-      appSecret: string;
-      tenantId: string;
-    },
+    private readonly graphClient: GraphTeamsClient,
     /** Full HTTPS URL where Graph will POST change notifications */
     private readonly notificationUrl: string,
   ) {}
@@ -73,7 +69,7 @@ export class ChatSubscriptionManager {
       await this.unsubscribe();
     }
 
-    const token = await this.getGraphToken();
+    const token = await this.graphClient.getAccessToken();
     const expirationDateTime = new Date(
       Date.now() + SUBSCRIPTION_LIFETIME_MS,
     ).toISOString();
@@ -127,7 +123,7 @@ export class ChatSubscriptionManager {
     if (!this.subscription) return;
 
     try {
-      const token = await this.getGraphToken();
+      const token = await this.graphClient.getAccessToken();
       await fetch(
         `https://graph.microsoft.com/v1.0/subscriptions/${encodeURIComponent(this.subscription.id)}`,
         {
@@ -158,7 +154,7 @@ export class ChatSubscriptionManager {
       return true; // Still valid
     }
 
-    const token = await this.getGraphToken();
+    const token = await this.graphClient.getAccessToken();
     const newExpiration = new Date(
       Date.now() + SUBSCRIPTION_LIFETIME_MS,
     ).toISOString();
@@ -241,43 +237,4 @@ export class ChatSubscriptionManager {
     };
   }
 
-  // ─── Token management ──────────────────────────────────────
-
-  private async getGraphToken(): Promise<string> {
-    const now = Date.now();
-    if (this.tokenCache && this.tokenCache.expiresAt > now + 60_000) {
-      return this.tokenCache.token;
-    }
-
-    const body = new URLSearchParams({
-      grant_type: 'client_credentials',
-      client_id: this.config.appId,
-      client_secret: this.config.appSecret,
-      scope: 'https://graph.microsoft.com/.default',
-    });
-
-    const res = await fetch(
-      `https://login.microsoftonline.com/${encodeURIComponent(this.config.tenantId)}/oauth2/v2.0/token`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body.toString(),
-      },
-    );
-
-    if (!res.ok) {
-      const errBody = await res.text().catch(() => '');
-      throw new Error(`Graph token failed: ${res.status} ${errBody}`);
-    }
-
-    const data = (await res.json()) as {
-      access_token: string;
-      expires_in: number;
-    };
-    this.tokenCache = {
-      token: data.access_token,
-      expiresAt: now + data.expires_in * 1000,
-    };
-    return data.access_token;
-  }
 }
