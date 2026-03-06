@@ -35,16 +35,16 @@ const SHARED_BASELINE = [
 /**
  * All 9 Glyphor MCP servers with their Cloud Run health endpoints.
  */
-const GLYPHOR_MCP_SERVERS: Array<{ name: string; envVar: string; healthPath: string; toolCount: number }> = [
-  { name: 'mcp-data-server',             envVar: 'GLYPHOR_MCP_DATA_URL',              healthPath: '/health', toolCount: 12 },
-  { name: 'mcp-marketing-server',        envVar: 'GLYPHOR_MCP_MARKETING_URL',         healthPath: '/health', toolCount: 7  },
-  { name: 'mcp-engineering-server',      envVar: 'GLYPHOR_MCP_ENGINEERING_URL',        healthPath: '/health', toolCount: 5  },
-  { name: 'mcp-design-server',           envVar: 'GLYPHOR_MCP_DESIGN_URL',            healthPath: '/health', toolCount: 5  },
-  { name: 'mcp-finance-server',          envVar: 'GLYPHOR_MCP_FINANCE_URL',           healthPath: '/health', toolCount: 7  },
-  { name: 'mcp-email-server',            envVar: 'GLYPHOR_MCP_EMAIL_URL',             healthPath: '/health', toolCount: 3  },
-  { name: 'mcp-legal-server',            envVar: 'GLYPHOR_MCP_LEGAL_URL',             healthPath: '/health', toolCount: 19 },
-  { name: 'mcp-hr-server',              envVar: 'GLYPHOR_MCP_HR_URL',                healthPath: '/health', toolCount: 8  },
-  { name: 'mcp-email-marketing-server',  envVar: 'GLYPHOR_MCP_EMAIL_MARKETING_URL',   healthPath: '/health', toolCount: 15 },
+const GLYPHOR_MCP_SERVERS: Array<{ name: string; serviceName: string; envVar: string; healthPath: string; toolCount: number; deployed: boolean }> = [
+  { name: 'mcp-data',             serviceName: 'glyphor-mcp-data',             envVar: 'GLYPHOR_MCP_DATA_URL',              healthPath: '/health', toolCount: 12, deployed: true  },
+  { name: 'mcp-marketing',        serviceName: 'glyphor-mcp-marketing',        envVar: 'GLYPHOR_MCP_MARKETING_URL',         healthPath: '/health', toolCount: 7,  deployed: true  },
+  { name: 'mcp-engineering',      serviceName: 'glyphor-mcp-engineering',      envVar: 'GLYPHOR_MCP_ENGINEERING_URL',        healthPath: '/health', toolCount: 5,  deployed: true  },
+  { name: 'mcp-design',           serviceName: 'glyphor-mcp-design',           envVar: 'GLYPHOR_MCP_DESIGN_URL',            healthPath: '/health', toolCount: 5,  deployed: true  },
+  { name: 'mcp-finance',          serviceName: 'glyphor-mcp-finance',          envVar: 'GLYPHOR_MCP_FINANCE_URL',           healthPath: '/health', toolCount: 7,  deployed: true  },
+  { name: 'mcp-email',            serviceName: 'glyphor-mcp-email',            envVar: 'GLYPHOR_MCP_EMAIL_URL',             healthPath: '/health', toolCount: 3,  deployed: false },
+  { name: 'mcp-legal',            serviceName: 'glyphor-mcp-legal',            envVar: 'GLYPHOR_MCP_LEGAL_URL',             healthPath: '/health', toolCount: 19, deployed: false },
+  { name: 'mcp-hr',               serviceName: 'glyphor-mcp-hr',               envVar: 'GLYPHOR_MCP_HR_URL',                healthPath: '/health', toolCount: 8,  deployed: false },
+  { name: 'mcp-email-marketing',  serviceName: 'glyphor-mcp-email-marketing',  envVar: 'GLYPHOR_MCP_EMAIL_MARKETING_URL',   healthPath: '/health', toolCount: 15, deployed: false },
 ];
 
 /**
@@ -333,10 +333,14 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
 
       const failures: string[] = [];
       const healthy: string[] = [];
+      const skipped: string[] = [];
 
       for (const server of GLYPHOR_MCP_SERVERS) {
-        // Always build the health URL from the service name — env vars point to /mcp endpoints
-        const serviceUrl = `https://${server.name}-610179349713.us-central1.run.app${server.healthPath}`;
+        if (!server.deployed) {
+          skipped.push(server.name);
+          continue;
+        }
+        const serviceUrl = `https://${server.serviceName}-610179349713.us-central1.run.app${server.healthPath}`;
 
         try {
           const headers: Record<string, string> = {};
@@ -363,7 +367,8 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
           `${failures.length}/${GLYPHOR_MCP_SERVERS.length} MCP servers unhealthy:\n  ${failures.join('\n  ')}`,
         );
       }
-      return `All ${healthy.length} MCP servers healthy`;
+      const skippedNote = skipped.length > 0 ? ` | ${skipped.length} not yet deployed (${skipped.join(', ')})` : '';
+      return `${healthy.length}/${GLYPHOR_MCP_SERVERS.length} deployed MCP servers healthy${skippedNote}`;
     }),
   );
 
@@ -377,7 +382,7 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
         );
       }
       const dataServerUrl = process.env.GLYPHOR_MCP_DATA_URL
-        ?? 'https://mcp-data-server-610179349713.us-central1.run.app/mcp';
+        ?? 'https://glyphor-mcp-data-610179349713.us-central1.run.app/mcp';
 
       // Get identity token for IAM-protected Cloud Run service
       const hasGcloud = await isGcloudAvailable();

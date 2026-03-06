@@ -10,7 +10,7 @@ BEGIN;
 --    company_agents but have no entries in agent_tool_grants.
 -- ────────────────────────────────────────────────────────────────────────────
 
-INSERT INTO agent_tool_grants (agent_role, tool_name, source, is_active)
+INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, is_active)
 SELECT role, tool, 'migration', true
 FROM (
   VALUES
