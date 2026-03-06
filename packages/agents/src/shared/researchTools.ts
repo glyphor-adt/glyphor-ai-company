@@ -40,6 +40,9 @@ export function createResearchTools(): ToolDefinition[] {
       },
       async execute(params): Promise<ToolResult> {
         const query = params.query as string;
+        if (!query) {
+          return { success: false, error: 'Missing required parameter: query' };
+        }
         const num = Math.min((params.num_results as number) || 10, 20);
         const timeRange = params.time_range as string | undefined;
 

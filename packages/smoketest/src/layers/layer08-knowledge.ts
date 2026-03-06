@@ -5,7 +5,6 @@
  */
 
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
-import { httpPost } from '../utils/http.js';
 import { query } from '../utils/db.js';
 import { runTest } from '../utils/test.js';
 
@@ -66,20 +65,18 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   // T8.4 — GraphRAG Indexer
   tests.push(
     await runTest('T8.4', 'GraphRAG Indexer', async () => {
-      const resp = await httpPost(`${config.schedulerUrl}/sync/graphrag-index`, {});
-      if (!resp.ok) {
-        const body = resp.data as Record<string, unknown>;
-        const err = body?.error ?? resp.raw;
-        // Server-side fetch/network errors are not test failures
-        if (typeof err === 'string' && (err.includes('fetch failed') || err.includes('ECONNREFUSED'))) {
-          return `GraphRAG indexer unavailable — ${String(err).slice(0, 80)}`;
-        }
-        throw new Error(`POST /sync/graphrag-index returned ${resp.status}: ${resp.raw}`);
+      const rows = await query<{ status: string; last_success_at: string | null; last_failure_at: string | null; consecutive_failures: number }>(
+        `SELECT status, last_success_at, last_failure_at, consecutive_failures FROM data_sync_status WHERE id = 'graphrag-index'`,
+      );
+      if (!rows.length) throw new Error('No data_sync_status row for graphrag-index — indexer has never run');
+
+      const row = rows[0];
+      if (row.status === 'failing') {
+        throw new Error(`GraphRAG indexer status is "failing" (${row.consecutive_failures} consecutive failures)`);
       }
 
-      const body = resp.data as Record<string, unknown>;
-      const msg = body?.message ?? body?.status ?? resp.raw;
-      return `GraphRAG index response: ${msg}`;
+      const lastRun = row.last_success_at ?? row.last_failure_at ?? 'never';
+      return `GraphRAG indexer status: ${row.status}, last run: ${lastRun}`;
     }),
   );
 

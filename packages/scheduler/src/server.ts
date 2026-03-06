@@ -11,7 +11,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GlyphorEventBus, ModelClient, promptCache, getRedisCache } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment } from '@glyphor/agent-runtime';
-import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, TeamsBotHandler, extractBearerToken, runGovernanceSync } from '@glyphor/integrations';
+import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, TeamsBotHandler, extractBearerToken, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
 import { systemQuery } from '@glyphor/shared/db';
 import { EventRouter } from './eventRouter.js';
@@ -349,6 +349,41 @@ const agentNotifier = teamsBot ? new AgentNotifier(teamsBot) : null;
 // Wire the bot handler into the decision queue for Teams channel notifications
 decisionQueue.setBotHandler(teamsBot);
 
+// ─── Graph Chat Handler (1:1 DMs to agent Entra accounts) ──────
+
+const GRAPH_CHAT_WEBHOOK_PATH = '/api/graph/chat-webhook';
+const graphChatConfig = process.env.AZURE_TENANT_ID && process.env.AZURE_CLIENT_ID && process.env.AZURE_CLIENT_SECRET
+  ? { appId: process.env.AZURE_CLIENT_ID, appSecret: process.env.AZURE_CLIENT_SECRET, tenantId: process.env.AZURE_TENANT_ID }
+  : null;
+
+const graphChatHandler = graphChatConfig
+  ? new GraphChatHandler(graphChatConfig, async (agentRole, task, payload) => {
+      const result = await trackedAgentExecutor(agentRole as CompanyAgentRole, task, payload);
+      return result ?? undefined;
+    })
+  : null;
+
+const chatSubscriptionManager = graphChatConfig
+  ? new ChatSubscriptionManager(
+      graphChatConfig,
+      `${process.env.PUBLIC_URL ?? process.env.SERVICE_URL ?? ''}${GRAPH_CHAT_WEBHOOK_PATH}`,
+    )
+  : null;
+
+// Initialize Graph chat subscriptions (async, non-blocking)
+if (graphChatHandler && chatSubscriptionManager) {
+  (async () => {
+    try {
+      await graphChatHandler.resolveAgentUserIds();
+      const sub = await chatSubscriptionManager.subscribe();
+      if (sub) chatSubscriptionManager.startAutoRenewal();
+      else console.warn('[GraphChat] Initial subscription failed — will retry on next renewal cycle');
+    } catch (err) {
+      console.error('[GraphChat] Startup error:', (err as Error).message);
+    }
+  })();
+}
+
 // ─── Glyphor Event Bus ──────────────────────────────────────────
 
 const glyphorEventBus = new GlyphorEventBus({});
@@ -412,6 +447,7 @@ const server = createServer(async (req, res) => {
           connected: redisPing.status === 'fulfilled' ? redisPing.value : false,
           ...(redisStats.status === 'fulfilled' ? redisStats.value : {}),
         },
+        graphChat: chatSubscriptionManager?.getStatus() ?? { active: false, reason: 'not configured' },
       });
       return;
     }
@@ -859,6 +895,34 @@ const server = createServer(async (req, res) => {
       // like "Rachel Kim" instead of role slugs like "vp-sales").
 
       return;
+    }
+
+    // Graph Chat webhook — receives change notifications for /chats/getAllMessages
+    if (url === GRAPH_CHAT_WEBHOOK_PATH) {
+      // Graph sends GET with validationToken query param during subscription creation
+      if (method === 'GET' || method === 'POST') {
+        const validationToken = params.get('validationToken');
+        if (validationToken) {
+          res.writeHead(200, { 'Content-Type': 'text/plain' });
+          res.end(validationToken);
+          return;
+        }
+      }
+
+      if (method === 'POST') {
+        if (!graphChatHandler) {
+          json(res, 503, { error: 'Graph Chat not configured' });
+          return;
+        }
+
+        const body = JSON.parse(await readBody(req));
+        // Respond 202 immediately — Graph requires fast response
+        json(res, 202, { status: 'accepted' });
+        graphChatHandler.handleNotifications(body).catch((err) => {
+          console.error('[GraphChat] Error handling notifications:', (err as Error).message);
+        });
+        return;
+      }
     }
 
     // Direct task invocation
@@ -2034,6 +2098,10 @@ server.listen(PORT, () => {
 // ─── Graceful shutdown ──────────────────────────────────────────
 process.on('SIGTERM', async () => {
   console.log('[Scheduler] SIGTERM received, shutting down gracefully...');
+  try {
+    chatSubscriptionManager?.stopAutoRenewal();
+    graphChatHandler?.destroy();
+  } catch { /* best-effort */ }
   try {
     const cache = getRedisCache();
     await cache.disconnect();

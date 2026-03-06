@@ -42,6 +42,20 @@ export {
   type BotResponse,
 } from './teams/bot.js';
 
+// Graph Chat Handler (1:1 DMs to agent user accounts)
+export {
+  GraphChatHandler,
+  type ChatChangeNotification,
+  type ChatChangePayload,
+  type ChatMessage,
+} from './teams/graphChatHandler.js';
+
+// Chat Subscription Manager (Graph change notifications)
+export {
+  ChatSubscriptionManager,
+  type ChatSubscription,
+} from './teams/chatSubscription.js';
+
 // Email (Graph API sendMail / readInbox / reply)
 export {
   GraphEmailClient,
