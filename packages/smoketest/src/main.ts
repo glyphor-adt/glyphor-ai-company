@@ -23,11 +23,12 @@ import { run as layer14 } from './layers/layer14-migrations.js';
 import { run as layer15 } from './layers/layer15-agent-autonomy.js';
 import { run as layer16 } from './layers/layer16-tools.js';
 import { run as layer17 } from './layers/layer17-mcp-servers.js';
+import { run as layer18 } from './layers/layer18-tool-access.js';
 
 const ALL_LAYERS: LayerRunner[] = [
   layer00, layer01, layer02, layer03, layer04, layer05,
   layer06, layer07, layer08, layer09, layer10, layer11, layer12, layer13,
-  layer14, layer15, layer16, layer17,
+  layer14, layer15, layer16, layer17, layer18,
 ];
 
 function loadConfig(): SmokeTestConfig {
@@ -38,8 +39,8 @@ function loadConfig(): SmokeTestConfig {
   if (layerIdx !== -1 && args[layerIdx + 1]) {
     selectedLayers = args[layerIdx + 1].split(',').map(Number);
     for (const n of selectedLayers) {
-      if (isNaN(n) || n < 0 || n > 17) {
-        console.error(`Invalid layer number: ${n}. Must be 0-17.`);
+      if (isNaN(n) || n < 0 || n > 18) {
+        console.error(`Invalid layer number: ${n}. Must be 0-18.`);
         process.exit(1);
       }
     }
