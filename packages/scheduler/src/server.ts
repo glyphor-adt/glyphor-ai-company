@@ -1203,7 +1203,7 @@ const server = createServer(async (req, res) => {
 
       if (hard) {
         // Look up agent email for Entra deletion
-        const [agentRow] = await systemQuery('SELECT role, display_name FROM company_agents WHERE id=$1 OR role=$1', [agentId]);
+        const [agentRow] = await systemQuery('SELECT role, display_name FROM company_agents WHERE id::text=$1 OR role=$1', [agentId]);
         const agentRole = agentRow?.role ?? agentId;
         const agentEmail = `${agentRole.replace(/-/g, '.')}@glyphor.ai`;
 
@@ -1214,7 +1214,7 @@ const server = createServer(async (req, res) => {
         await systemQuery('DELETE FROM agent_reasoning_config WHERE agent_role=$1', [agentRole]);
         await systemQuery('DELETE FROM agent_tool_grants WHERE agent_role=$1', [agentRole]);
         await systemQuery('DELETE FROM activity_log WHERE agent_role=$1', [agentRole]);
-        await systemQuery('DELETE FROM company_agents WHERE id=$1 OR role=$1', [agentId]);
+        await systemQuery('DELETE FROM company_agents WHERE id::text=$1 OR role=$1', [agentId]);
 
         // Remove from Entra (best-effort)
         try {
