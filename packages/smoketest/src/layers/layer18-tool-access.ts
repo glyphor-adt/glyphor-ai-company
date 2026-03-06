@@ -335,8 +335,8 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
       const healthy: string[] = [];
 
       for (const server of GLYPHOR_MCP_SERVERS) {
-        const serviceUrl = process.env[server.envVar]
-          ?? `https://${server.name}-610179349713.us-central1.run.app${server.healthPath}`;
+        // Always build the health URL from the service name — env vars point to /mcp endpoints
+        const serviceUrl = `https://${server.name}-610179349713.us-central1.run.app${server.healthPath}`;
 
         try {
           const headers: Record<string, string> = {};

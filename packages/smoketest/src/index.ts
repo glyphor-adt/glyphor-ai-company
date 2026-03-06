@@ -18,6 +18,11 @@
  *   AZURE_CLIENT_SECRET — Azure app client secret (for M365 tests)
  *   TEAMS_TEAM_ID       — Microsoft Teams team ID (for M365 tests)
  *   SENDGRID_API_KEY    — SendGrid API key (for M365 tests)
+ *   GLYPHOR_MCP_ENABLED — Set to 'true' to enable MCP bridge tests (layer 18)
+ *   AGENT365_ENABLED    — Set to 'true' to enable Agent 365 bridge tests (layer 18)
+ *   AGENT365_CLIENT_ID  — Agent 365 app client ID (layer 18)
+ *   AGENT365_CLIENT_SECRET — Agent 365 app client secret (layer 18)
+ *   AGENT365_TENANT_ID  — Agent 365 tenant ID (layer 18)
  */
 
 import { config as loadEnv } from 'dotenv';
