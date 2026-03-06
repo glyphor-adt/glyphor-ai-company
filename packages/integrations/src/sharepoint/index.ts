@@ -691,6 +691,28 @@ function normalizeParentPath(path: string | undefined): string {
   return relative.replace(/^\/+/, '').replace(/\/+$/, '');
 }
 
+/**
+ * Extract the parent folder path from a SharePoint webUrl when parentReference.path
+ * is unavailable (common in Search API responses). Looks for the rootFolder segment
+ * in the URL, then returns everything from rootFolder forward (excluding the filename).
+ */
+function extractParentPathFromWebUrl(webUrl: string, rootFolder: string): string {
+  try {
+    // webUrl looks like:
+    // https://tenant.sharepoint.com/sites/sitename/Shared Documents/Company-Agent-Knowledge/Operations/file.docx
+    const decoded = decodeURIComponent(new URL(webUrl).pathname);
+    const rootIdx = decoded.indexOf('/' + rootFolder + '/');
+    if (rootIdx === -1) return '';
+    // Get everything after the leading / up to (but not including) the filename
+    const afterSlash = decoded.slice(rootIdx + 1); // "Company-Agent-Knowledge/Operations/file.docx"
+    const lastSlash = afterSlash.lastIndexOf('/');
+    if (lastSlash === -1) return '';
+    return afterSlash.slice(0, lastSlash); // "Company-Agent-Knowledge/Operations"
+  } catch {
+    return '';
+  }
+}
+
 function buildKnowledgeText(
   fileName: string,
   path: string,
@@ -841,7 +863,13 @@ export async function searchSharePoint(
 
   return hits.map((hit: { resource: GraphDriveItem & { size?: number } }) => {
     // Build the full path from the Graph parentReference
-    const parentPath = normalizeParentPath(hit.resource.parentReference?.path);
+    let parentPath = normalizeParentPath(hit.resource.parentReference?.path);
+
+    // The Search API often omits parentReference.path — extract from webUrl instead
+    if (!parentPath && hit.resource.webUrl) {
+      parentPath = extractParentPathFromWebUrl(hit.resource.webUrl, rootFolder);
+    }
+
     const fullPath = parentPath ? parentPath + '/' + hit.resource.name : hit.resource.name;
 
     // Strip the rootFolder prefix so the path is relative to the knowledge root —
@@ -910,6 +938,32 @@ export async function listSharePointFiles(
 }
 
 /**
+ * Given a resolved driveItem, download and return its text content.
+ */
+async function readDriveItem(
+  token: string,
+  siteId: string,
+  driveId: string,
+  meta: GraphDriveItem,
+): Promise<{ content: string; webUrl: string | null; lastModified: string | null }> {
+  const ext = getExtension(meta.name).toLowerCase();
+  const OFFICE_EXTENSIONS = new Set(['.docx', '.doc', '.pptx', '.ppt', '.xlsx', '.xls']);
+  let content: string;
+
+  if (OFFICE_EXTENSIONS.has(ext)) {
+    content = await downloadOfficeAsText(token, siteId, driveId, meta.id, meta.name);
+  } else {
+    content = await downloadTextContent(token, siteId, driveId, meta.id);
+  }
+
+  return {
+    content,
+    webUrl: meta.webUrl ?? null,
+    lastModified: meta.lastModifiedDateTime ?? null,
+  };
+}
+
+/**
  * Read a specific document from SharePoint by path.
  */
 export async function readSharePointDocument(
@@ -948,22 +1002,30 @@ export async function readSharePointDocument(
     }
 
     const meta = (await metaRes.json()) as GraphDriveItem;
+    return readDriveItem(token, siteId, driveId, meta);
+  }
 
-    const ext = getExtension(meta.name).toLowerCase();
-    const OFFICE_EXTENSIONS = new Set(['.docx', '.doc', '.pptx', '.ppt', '.xlsx', '.xls']);
-    let content: string;
-
-    if (OFFICE_EXTENSIONS.has(ext)) {
-      content = await downloadOfficeAsText(token, siteId, driveId, meta.id, meta.name);
-    } else {
-      content = await downloadTextContent(token, siteId, driveId, meta.id);
+  // Fallback: if path-based lookup failed, search for the file by name and read by item ID.
+  // This handles Search API results where parentReference.path was missing and the returned
+  // path was incomplete.
+  const fileName = filePath.split('/').pop() ?? filePath;
+  try {
+    const searchResults = await searchSharePoint(fileName, { siteId, driveId, maxResults: 5 });
+    const match = searchResults.find(
+      (r: SharePointDocument) => r.name === fileName || r.name.toLowerCase() === fileName.toLowerCase(),
+    );
+    if (match?.id) {
+      const itemUrl = `${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/drives/${encodeDriveId(driveId)}/items/${encodeURIComponent(match.id)}`;
+      const itemRes = await fetch(itemUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (itemRes.ok) {
+        const meta = (await itemRes.json()) as GraphDriveItem;
+        return readDriveItem(token, siteId, driveId, meta);
+      }
     }
-
-    return {
-      content,
-      webUrl: meta.webUrl ?? null,
-      lastModified: meta.lastModifiedDateTime ?? null,
-    };
+  } catch {
+    // Search fallback failed — fall through to original error
   }
 
   throw lastError ?? new Error(`Document not found: ${filePath}`);
