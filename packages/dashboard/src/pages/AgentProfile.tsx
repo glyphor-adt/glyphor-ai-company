@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import Markdown from 'react-markdown';
 import {
   MdEmojiEvents, MdLocalFireDepartment, MdMenuBook, MdCelebration,
@@ -1511,6 +1511,7 @@ function SettingsTab({
   profile: AgentProfile | null;
   onUpdate: (updater: (prev: AgentRow | null) => AgentRow | null) => void;
 }) {
+  const navigate = useNavigate();
   const [model, setModel] = useState(agent.model ?? 'gemini-3-flash-preview');
   const [temperature, setTemperature] = useState(agent.temperature ?? 0.3);
   const [maxTurns, setMaxTurns] = useState(agent.max_turns ?? 10);
@@ -1523,6 +1524,9 @@ function SettingsTab({
   const [systemPrompt, setSystemPrompt] = useState('');
   const [codePrompt, setCodePrompt] = useState('');
   const [promptSource, setPromptSource] = useState<'code' | 'db'>('code');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [savingPrompt, setSavingPrompt] = useState(false);
   const [savedPrompt, setSavedPrompt] = useState(false);
   const [promptExpanded, setPromptExpanded] = useState(false);
@@ -2079,6 +2083,60 @@ function SettingsTab({
               </details>
             ))}
           </div>
+        </Card>
+      )}
+
+      {/* Danger Zone */}
+      {!agent.is_core && (
+        <Card>
+          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-tier-red">Danger Zone</h3>
+          {!showDeleteConfirm ? (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="rounded-lg border border-tier-red/30 bg-tier-red/10 px-4 py-2 text-sm font-medium text-tier-red hover:bg-tier-red/20 transition-colors"
+            >
+              Delete Agent
+            </button>
+          ) : (
+            <div className="space-y-3 rounded-lg border border-tier-red/30 bg-tier-red/5 p-4">
+              <p className="text-sm text-txt-secondary">
+                This will <strong className="text-tier-red">permanently delete</strong> {agent.display_name || agent.role} from the database, org chart, and Entra ID. This cannot be undone.
+              </p>
+              <label className="block text-sm text-txt-faint">
+                Type <strong className="text-txt-secondary">{agent.role}</strong> to confirm:
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder={agent.role}
+                className="w-full rounded-lg border border-tier-red/30 bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-tier-red/60"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    setDeleting(true);
+                    try {
+                      const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}?hard=true`, { method: 'DELETE' });
+                      if (resp.ok) navigate('/agents');
+                    } finally {
+                      setDeleting(false);
+                    }
+                  }}
+                  disabled={deleteConfirmText !== agent.role || deleting}
+                  className="rounded-lg bg-tier-red px-5 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+                >
+                  {deleting ? 'Deleting…' : 'Permanently Delete'}
+                </button>
+                <button
+                  onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); }}
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-secondary hover:text-txt-primary transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </Card>
       )}
     </div>

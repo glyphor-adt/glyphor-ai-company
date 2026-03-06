@@ -170,6 +170,11 @@ export default function OrgChartPicker({ agents, onSelect, onClose }: Props) {
                         alt=""
                         className={`rounded-full object-cover flex-shrink-0 ${isLead ? 'h-9 w-9' : 'h-7 w-7'}`}
                         style={{ border: `2px solid ${meta?.color ?? '#64748b'}40` }}
+                        onError={(e) => {
+                          const img = e.currentTarget;
+                          const fallback = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(DISPLAY_NAME_MAP[agent.role] ?? agent.role)}&radius=50&bold=true`;
+                          if (img.src !== fallback) { img.src = fallback; img.onerror = null; }
+                        }}
                       />
                       <div className="min-w-0 flex-1">
                         <p

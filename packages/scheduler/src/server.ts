@@ -11,7 +11,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GlyphorEventBus, ModelClient, promptCache, getRedisCache } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment } from '@glyphor/agent-runtime';
-import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, TeamsBotHandler, extractBearerToken, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient } from '@glyphor/integrations';
+import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, TeamsBotHandler, extractBearerToken, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
 import { systemQuery } from '@glyphor/shared/db';
 import { EventRouter } from './eventRouter.js';
@@ -1194,13 +1194,52 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // Retire (soft-delete) agent
+    // Delete agent — soft-delete (retire) by default, hard-delete with ?hard=true
     const deleteMatch = url.match(/^\/agents\/([^/]+)$/);
     if (method === 'DELETE' && deleteMatch) {
       const agentId = decodeURIComponent(deleteMatch[1]);
-      await systemQuery('UPDATE company_agents SET status=$1, updated_at=$2 WHERE id=$3', ['retired', new Date().toISOString(), agentId]);
-      await systemQuery('UPDATE agent_schedules SET enabled=$1 WHERE agent_id=$2', [false, agentId]);
-      json(res, 200, { success: true });
+      const parsedUrl = new URL(req.url!, `http://${req.headers.host}`);
+      const hard = parsedUrl.searchParams.get('hard') === 'true';
+
+      if (hard) {
+        // Look up agent email for Entra deletion
+        const [agentRow] = await systemQuery('SELECT role, display_name FROM company_agents WHERE id=$1 OR role=$1', [agentId]);
+        const agentRole = agentRow?.role ?? agentId;
+        const agentEmail = `${agentRole.replace(/-/g, '.')}@glyphor.ai`;
+
+        // Hard delete from all DB tables
+        await systemQuery('DELETE FROM agent_schedules WHERE agent_id=$1', [agentRole]);
+        await systemQuery('DELETE FROM agent_briefs WHERE agent_id=$1', [agentRole]);
+        await systemQuery('DELETE FROM agent_profiles WHERE agent_id=$1', [agentRole]);
+        await systemQuery('DELETE FROM agent_reasoning_config WHERE agent_role=$1', [agentRole]);
+        await systemQuery('DELETE FROM agent_tool_grants WHERE agent_role=$1', [agentRole]);
+        await systemQuery('DELETE FROM activity_log WHERE agent_role=$1', [agentRole]);
+        await systemQuery('DELETE FROM company_agents WHERE id=$1 OR role=$1', [agentId]);
+
+        // Remove from Entra (best-effort)
+        try {
+          const token = await getM365Token('write_directory');
+          const graphRes = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(agentEmail)}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (graphRes.ok || graphRes.status === 404) {
+            console.log(`[server] Entra user ${agentEmail} deleted (${graphRes.status})`);
+          } else {
+            console.warn(`[server] Entra user ${agentEmail} delete failed: ${graphRes.status}`);
+          }
+        } catch (entraErr) {
+          console.warn(`[server] Entra cleanup failed for ${agentEmail}:`, entraErr);
+        }
+
+        await systemQuery('INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)', ['system', 'system', 'agent.deleted', `Agent hard-deleted: ${agentRow?.display_name ?? agentId} (${agentRole})`, new Date().toISOString()]);
+        json(res, 200, { success: true, deleted: true });
+      } else {
+        // Soft-delete (retire)
+        await systemQuery('UPDATE company_agents SET status=$1, updated_at=$2 WHERE id=$3', ['retired', new Date().toISOString(), agentId]);
+        await systemQuery('UPDATE agent_schedules SET enabled=$1 WHERE agent_id=$2', [false, agentId]);
+        json(res, 200, { success: true });
+      }
       return;
     }
 
