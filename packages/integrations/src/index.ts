@@ -299,3 +299,5 @@ export {
   type Agent365ToolBridge,
 } from './agent365/index.js';
 
+export { A365TeamsChatClient } from './agent365/teamsChatClient.js';
+

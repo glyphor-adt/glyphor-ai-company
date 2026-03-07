@@ -11,7 +11,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GlyphorEventBus, ModelClient, promptCache, getRedisCache, WorkflowOrchestrator } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment, WorkflowStatus } from '@glyphor/agent-runtime';
-import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, TeamsBotHandler, extractBearerToken, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, loadConversationRefs } from '@glyphor/integrations';
+import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, TeamsBotHandler, extractBearerToken, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, loadConversationRefs, A365TeamsChatClient } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
 import { systemQuery } from '@glyphor/shared/db';
 import { EventRouter } from './eventRouter.js';
@@ -381,6 +381,11 @@ const chatSubscriptionManager = graphChatClient
 // Initialize Graph chat subscriptions (async, non-blocking)
 if (graphChatHandler && chatSubscriptionManager) {
   if (teamsBot) graphChatHandler.setTeamsBot(teamsBot);
+
+  // Wire Agent 365 Teams MCP client for chat replies (delegated permissions)
+  const a365TeamsClient = A365TeamsChatClient.fromEnv();
+  if (a365TeamsClient) graphChatHandler.setA365TeamsClient(a365TeamsClient);
+
   (async () => {
     try {
       const refCount = await loadConversationRefs();
