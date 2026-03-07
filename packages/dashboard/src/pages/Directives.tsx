@@ -638,6 +638,84 @@ function DirectiveCard({
             );
           })()}
 
+          {/* Plan Verification */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">
+                Plan Verification
+              </p>
+              {verification && (() => {
+                const vc = VERDICT_CONFIG[verification.verdict] ?? VERDICT_CONFIG.WARN;
+                return (
+                  <span className={`rounded-full border ${vc.border} ${vc.bg} px-1.5 py-0.5 text-[10px] font-medium ${vc.text}`}>
+                    {vc.label}
+                  </span>
+                );
+              })()}
+              <button
+                onClick={handleReVerify}
+                disabled={verifying}
+                className="ml-auto rounded-md border border-border bg-raised px-2 py-1 text-[10px] font-medium text-txt-secondary hover:bg-surface disabled:opacity-50 flex items-center gap-1"
+              >
+                <MdRefresh className={`text-[12px] ${verifying ? 'animate-spin' : ''}`} />
+                {verifying ? 'Verifying…' : 'Re-verify'}
+              </button>
+            </div>
+
+            {verification ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-3 text-[11px] text-txt-faint">
+                  <span>Score: <span className="font-mono font-medium text-txt-secondary">{(verification.overall_score * 100).toFixed(0)}%</span></span>
+                  <span>Assignments: <span className="font-medium text-txt-secondary">{verification.assignment_count}</span></span>
+                  {verification.llm_verified && <span className="text-prism-violet">LLM verified</span>}
+                  <span>{timeAgo(verification.created_at)}</span>
+                </div>
+
+                {/* Expandable checks */}
+                <button
+                  onClick={() => setShowChecks(!showChecks)}
+                  className="flex items-center gap-1 text-[11px] text-cyan hover:underline"
+                >
+                  <MdExpandMore className={`text-[14px] transition-transform ${showChecks ? 'rotate-0' : '-rotate-90'}`} />
+                  {showChecks ? 'Hide checks' : 'Show checks'}
+                </button>
+
+                {showChecks && (
+                  <div className="space-y-1.5">
+                    {Object.entries(verification.checks).map(([name, check]) => (
+                      <div key={name} className="rounded-lg border border-border bg-raised px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`h-2 w-2 rounded-full ${check.passed ? 'bg-tier-green' : 'bg-prism-critical'}`} />
+                          <span className="text-[11px] font-medium text-txt-secondary">{name.replace(/_/g, ' ')}</span>
+                        </div>
+                        {check.issues.length > 0 && (
+                          <ul className="mt-1 ml-4 list-disc space-y-0.5">
+                            {check.issues.map((issue: string, i: number) => (
+                              <li key={i} className="text-[10px] text-txt-muted">{issue}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+
+                    {verification.suggestions.length > 0 && (
+                      <div className="rounded-lg border border-prism-elevated/20 bg-prism-elevated/5 px-3 py-2">
+                        <p className="text-[10px] font-medium text-prism-elevated mb-1">Suggestions</p>
+                        <ul className="list-disc ml-4 space-y-0.5">
+                          {verification.suggestions.map((s, i) => (
+                            <li key={i} className="text-[10px] text-txt-muted">{s}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-[11px] text-txt-faint">No verification recorded yet. Click Re-verify to run checks.</p>
+            )}
+          </div>
+
           {/* Progress Notes */}
           {d.progress_notes?.length > 0 && (
             <div>

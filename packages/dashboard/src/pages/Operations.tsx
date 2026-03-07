@@ -272,6 +272,37 @@ function useIncidents() {
   return { data, loading };
 }
 
+interface PlanVerificationRow {
+  id: string;
+  directive_id: string;
+  verdict: string;
+  overall_score: number;
+  suggestions: string[];
+  assignment_count: number;
+  created_at: string;
+}
+
+function usePlanVerifications(days = 30) {
+  const [data, setData] = useState<PlanVerificationRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const refresh = useCallback(async () => {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    try {
+      const rows = await apiCall<PlanVerificationRow[]>(`/api/plan-verifications?since=${since}&order=created_at.desc&limit=200`);
+      setData(rows ?? []);
+    } catch {
+      setData([]);
+    }
+    setLoading(false);
+  }, [days]);
+  useEffect(() => {
+    refresh();
+    const id = setInterval(refresh, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, [refresh]);
+  return { data, loading };
+}
+
 type Tab = 'overview' | 'history';
 
 export default function Operations() {
@@ -302,6 +333,7 @@ function OperationsOverview() {
   const { data: recentRuns, loading: recentRunsLoading } = useRecentRuns(48);
   const { data: syncs, loading: syncsLoading } = useDataSyncs();
   const { data: incidents, loading: incidentsLoading } = useIncidents();
+  const { data: planVerifications, loading: pvLoading } = usePlanVerifications(30);
 
   const loading = agentsLoading || reflectionsLoading || recentRunsLoading;
   const lastRefresh = useRef(new Date());
@@ -387,6 +419,9 @@ function OperationsOverview() {
         <SummaryCard label="Avg Score" value={`${avgScore}/100`} loading={loading} />
         <SummaryCard label="Active Agents" value={`${agents.length}`} loading={loading} />
       </div>
+
+      {/* Plan Quality Card */}
+      <PlanQualityCard verifications={planVerifications} loading={pvLoading} />
 
       <div className="grid grid-cols-2 gap-6">
         {/* Runs per Agent */}
@@ -704,6 +739,82 @@ function OperationsOverview() {
         </div>
       </div>
     </div>
+  );
+}
+
+function PlanQualityCard({ verifications, loading }: { verifications: PlanVerificationRow[]; loading: boolean }) {
+  if (loading) return <Skeleton className="h-32" />;
+  if (verifications.length === 0) {
+    return (
+      <Card>
+        <SectionHeader title="Plan Quality (30 days)" />
+        <p className="py-4 text-center text-sm text-txt-faint">No plan verifications recorded yet</p>
+      </Card>
+    );
+  }
+
+  const total = verifications.length;
+  const approved = verifications.filter(v => v.verdict === 'APPROVE').length;
+  const warned = verifications.filter(v => v.verdict === 'WARN').length;
+  const revised = verifications.filter(v => v.verdict === 'REVISE').length;
+  const approvalRate = total > 0 ? Math.round((approved / total) * 100) : 0;
+  const avgAssignments = total > 0
+    ? (verifications.reduce((s, v) => s + (v.assignment_count ?? 0), 0) / total).toFixed(1)
+    : '0';
+
+  // Most common failure reasons (from suggestions)
+  const reasonCounts = new Map<string, number>();
+  for (const v of verifications) {
+    for (const s of (v.suggestions ?? [])) {
+      const key = s.length > 60 ? s.slice(0, 60) + '…' : s;
+      reasonCounts.set(key, (reasonCounts.get(key) ?? 0) + 1);
+    }
+  }
+  const topReasons = [...reasonCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+
+  return (
+    <Card>
+      <SectionHeader title="Plan Quality (30 days)" />
+      <div className="grid grid-cols-4 gap-4 mt-3">
+        <div>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">Approval Rate</p>
+          <p className={`font-mono text-xl font-semibold ${approvalRate >= 80 ? 'text-tier-green' : approvalRate >= 50 ? 'text-prism-elevated' : 'text-prism-critical'}`}>
+            {approvalRate}%
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">Total Checks</p>
+          <p className="font-mono text-xl font-semibold text-txt-primary">{total}</p>
+        </div>
+        <div>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">Verdicts</p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-[11px] text-tier-green font-medium">{approved} ✓</span>
+            <span className="text-[11px] text-prism-elevated font-medium">{warned} ⚠</span>
+            <span className="text-[11px] text-prism-critical font-medium">{revised} ✗</span>
+          </div>
+        </div>
+        <div>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">Avg Assignments</p>
+          <p className="font-mono text-xl font-semibold text-txt-primary">{avgAssignments}</p>
+        </div>
+      </div>
+      {topReasons.length > 0 && (
+        <div className="mt-3 border-t border-border pt-3">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted mb-1">Top Failure Reasons</p>
+          <div className="space-y-1">
+            {topReasons.map(([reason, count], i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="text-[10px] font-mono text-prism-elevated">{count}×</span>
+                <span className="text-[11px] text-txt-muted truncate">{reason}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
 

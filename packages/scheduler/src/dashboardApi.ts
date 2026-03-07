@@ -406,6 +406,7 @@ export async function handleDashboardApi(
           agent_messages: ' ORDER BY created_at DESC',
           decisions: ' ORDER BY created_at DESC',
           founder_directives: ' ORDER BY created_at DESC',
+          plan_verifications: ' ORDER BY created_at DESC',
         };
         const effectiveOrder = order || DEFAULT_ORDER[tableName] || '';
         const sql = `SELECT ${select} FROM ${tableName}${where}${extraWhere}${effectiveOrder}${limit || ' LIMIT 200'}`;
