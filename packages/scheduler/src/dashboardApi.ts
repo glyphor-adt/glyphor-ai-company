@@ -70,6 +70,14 @@ const TABLE_MAP: Record<string, string> = {
   'api-billing': 'api_billing',
   'proposed_initiatives': 'proposed_initiatives',
   'proposed-initiatives': 'proposed_initiatives',
+  'task_run_outcomes': 'task_run_outcomes',
+  'task-run-outcomes': 'task_run_outcomes',
+  'memory_lifecycle': 'memory_lifecycle',
+  'memory-lifecycle': 'memory_lifecycle',
+  'memory_archive': 'memory_archive',
+  'memory-archive': 'memory_archive',
+  'policy_versions': 'policy_versions',
+  'policy-versions': 'policy_versions',
 };
 
 // ─── Helpers ────────────────────────────────────────────────────
