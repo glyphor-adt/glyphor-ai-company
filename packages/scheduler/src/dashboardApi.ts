@@ -84,6 +84,11 @@ const TABLE_MAP: Record<string, string> = {
   'tool-reputation': 'tool_reputation',
   'constitutional_gate_events': 'constitutional_gate_events',
   'constitutional-gate-events': 'constitutional_gate_events',
+  'executive_orchestration_config': 'executive_orchestration_config',
+  'executive-orchestration-config': 'executive_orchestration_config',
+  'workflows': 'workflows',
+  'workflow_steps': 'workflow_steps',
+  'workflow-steps': 'workflow_steps',
 };
 
 // ─── Helpers ────────────────────────────────────────────────────

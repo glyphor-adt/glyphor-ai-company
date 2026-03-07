@@ -142,6 +142,18 @@ export type {
   StructuredReflection,
   OrchestratorGrade,
 } from './types.js';
+// Workflow types
+export type {
+  WorkflowType,
+  WorkflowStatus,
+  StepType,
+  StepStatus,
+  WorkflowDefinition,
+  StepDefinition,
+  StepResult,
+  WorkflowState,
+} from './workflowTypes.js';
+export { WorkflowOrchestrator } from './workflowOrchestrator.js';
 export {
   AGENT_EMAIL_MAP,
   FOUNDER_EMAILS,

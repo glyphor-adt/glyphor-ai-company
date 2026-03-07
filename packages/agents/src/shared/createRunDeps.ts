@@ -374,6 +374,19 @@ export function createRunDeps(
     // ─── World model initialization (for CompanyAgentRunner compat) ───
     initializeWorldModel: (role: CompanyAgentRole) => worldModelUpdater.initializeForAgent(role),
 
+    // ─── Executive orchestration config (directive decomposition authority) ───
+    orchestrationConfigLoader: async (role: CompanyAgentRole) => {
+      try {
+        const [row] = await systemQuery(
+          'SELECT executive_role, can_decompose, can_evaluate, can_create_sub_directives, allowed_assignees, max_assignments_per_directive, requires_plan_verification, is_canary FROM executive_orchestration_config WHERE executive_role = $1 AND can_decompose = true',
+          [role],
+        );
+        return row ?? null;
+      } catch {
+        return null;
+      }
+    },
+
     // ─── Shared memory + world model (for classified runners) ───
     sharedMemoryLoader: {
       loadForAgent: (role: CompanyAgentRole, currentTask: string) =>

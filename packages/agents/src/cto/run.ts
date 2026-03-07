@@ -33,6 +33,7 @@ import { createDiagnosticTools } from '../shared/diagnosticTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
+import { systemQuery } from '@glyphor/shared/db';
 
 export interface CTORunParams {
   task?: 'platform_health_check' | 'dependency_review' | 'on_demand';
@@ -55,6 +56,19 @@ export async function runCTO(params: CTORunParams = {}) {
   const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
+
+  // Load executive orchestration config for CTO (canary: directive decomposition)
+  let orchConfig: import('../shared/executiveOrchestrationTools.js').ExecutiveOrchestrationConfig | null = null;
+  try {
+    const [row] = await systemQuery(
+      'SELECT executive_role, can_decompose, can_evaluate, can_create_sub_directives, allowed_assignees, max_assignments_per_directive, requires_plan_verification, is_canary FROM executive_orchestration_config WHERE executive_role = $1 AND can_decompose = true',
+      ['cto'],
+    );
+    orchConfig = row ?? null;
+  } catch {
+    // DB table may not exist yet — safe to skip
+  }
+
   const tools = [
     ...createCTOTools(memory),
     ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
@@ -72,6 +86,13 @@ export async function runCTO(params: CTORunParams = {}) {
     ...await createAgent365McpTools(['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
     ...await createGlyphorMcpTools('cto'),
   ];
+
+  // Conditionally add executive orchestration tools when decomposition is enabled
+  if (orchConfig?.can_decompose) {
+    const { createExecutiveOrchestrationTools } = await import('../shared/executiveOrchestrationTools.js');
+    tools.push(...createExecutiveOrchestrationTools('cto', orchConfig, { glyphorEventBus }));
+  }
+
   const toolExecutor = new ToolExecutor(tools);
 
   eventBus.on('*', (event) => {

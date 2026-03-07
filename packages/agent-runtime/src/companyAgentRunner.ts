@@ -759,6 +759,45 @@ You are an EXECUTIVE with team management authority. You own your domain end-to-
 - Send back with specific feedback if quality is insufficient
 - Your consolidated output to Sarah should synthesize team work, not just forward it`;
 
+/** Build a dynamic orchestration protocol section from DB-driven config. */
+function buildDynamicExecutiveOrchestrationProtocol(
+  role: string,
+  config: { can_decompose: boolean; can_evaluate: boolean; allowed_assignees: string[]; max_assignments_per_directive: number },
+): string {
+  return `
+## EXECUTIVE ORCHESTRATION PROTOCOL — DYNAMIC
+
+You have been delegated a directive by Sarah (Chief of Staff). As the domain expert
+for this work, you are responsible for decomposing it into assignments for your team.
+
+YOUR TEAM (you can ONLY assign work to these agents):
+${config.allowed_assignees.map(a => `- ${a}`).join('\n')}
+
+DECOMPOSITION RULES:
+1. Each assignment must be atomic — one clear task with one clear deliverable.
+2. Each assignment must contain ALL context the agent needs. Your team members run
+   with minimal ~150-line system prompts and no access to the knowledge base.
+   Embed the "why", the data, the constraints, and the expected format.
+3. Check tool requirements — use check_team_status to verify agents have the tools
+   they need.
+4. Set dependencies correctly — if Assignment B needs output from Assignment A,
+   specify depends_on so they execute in the right order.
+5. Max ${config.max_assignments_per_directive} assignments per directive.
+
+${config.can_evaluate ? `EVALUATION RULES:
+- Review each completed assignment for domain quality, not just completeness.
+- Accept first-time if the work is genuinely good. Don't revise for style preferences.
+- When revising, give specific, actionable feedback.
+- After all assignments complete, synthesize a department deliverable for Sarah.
+` : `EVALUATION: Sarah will evaluate your team's outputs. Focus on decomposition quality.`}
+
+NEVER:
+- Assign work to agents outside your team
+- Modify another department's assignments or outputs
+- Skip the synthesis step — Sarah needs a coherent deliverable, not raw fragments
+`;
+}
+
 function buildPersonalityBlock(profile: AgentProfileData): string {
   const parts: string[] = ['## WHO YOU ARE\n'];
 
@@ -839,6 +878,8 @@ function buildSystemPrompt(
   dbKnowledgeBase?: string | null,
   bulletinContext?: string | null,
   isOnDemand = false,
+  orchestrationConfig?: { can_decompose: boolean; can_evaluate: boolean; allowed_assignees: string[]; max_assignments_per_directive: number } | null,
+  hasDelegatedDirective = false,
 ): string {
   try {
     const knowledgeDir = join(__dirname, '../../company-knowledge');
@@ -944,6 +985,10 @@ function buildSystemPrompt(
       parts.push(COLLABORATION_PROTOCOL);
       if (EXECUTIVE_ROLES.has(role)) {
         parts.push(EXECUTIVE_ORCHESTRATION_PROTOCOL);
+      }
+      // Inject dynamic orchestration protocol when a delegated directive is in context
+      if (orchestrationConfig?.can_decompose && hasDelegatedDirective) {
+        parts.push(buildDynamicExecutiveOrchestrationProtocol(role, orchestrationConfig));
       }
     }
 
@@ -1097,6 +1142,8 @@ export interface RunDependencies {
   pendingAssignmentLoader?: (role: CompanyAgentRole) => Promise<{ id: string; task_description: string; task_type: string; expected_output: string | null; priority: string; status: string; evaluation: string | null; directive_title: string | null }[]>;
   /** Saves partial progress when a task-tier run is aborted mid-execution. */
   partialProgressSaver?: (assignmentId: string, partialOutput: string, agentRole: CompanyAgentRole, abortReason: string) => Promise<void>;
+  /** Loader for executive orchestration config (directive decomposition authority). */
+  orchestrationConfigLoader?: (role: CompanyAgentRole) => Promise<{ executive_role: string; can_decompose: boolean; can_evaluate: boolean; can_create_sub_directives: boolean; allowed_assignees: string[]; max_assignments_per_directive: number; requires_plan_verification: boolean; is_canary: boolean } | null>;
   /** JIT context retriever for task-aware semantic retrieval. */
   jitContextRetriever?: JitContextRetriever;
   /** Factory to create a ReasoningEngine for the current agent. */
@@ -1237,6 +1284,8 @@ export class CompanyAgentRunner {
     let dbKnowledgeBase: string | null = null;
     let bulletinContext: string | null = null;
     let jitContext: JitContext | null = null;
+    let orchestrationConfig: { executive_role: string; can_decompose: boolean; can_evaluate: boolean; can_create_sub_directives: boolean; allowed_assignees: string[]; max_assignments_per_directive: number; requires_plan_verification: boolean; is_canary: boolean } | null = null;
+    let hasDelegatedDirective = false;
 
     {
       const task = extractTask(config.id);
@@ -1363,6 +1412,14 @@ export class CompanyAgentRunner {
           })
         : Promise.resolve(null);
 
+      // Executive orchestration config — only for executive roles, non-light tiers
+      const orchConfigPromise = (tier !== 'light' && EXECUTIVE_ROLES.has(config.role) && deps?.orchestrationConfigLoader)
+        ? deps.orchestrationConfigLoader(config.role).catch(err => {
+            console.warn(`[CompanyAgentRunner] Orchestration config load failed for ${config.role}:`, (err as Error).message);
+            return null;
+          })
+        : Promise.resolve(null);
+
       // World model initialization — ensures agent_world_model row exists. Fire-and-forget.
       if (deps?.initializeWorldModel) {
         deps.initializeWorldModel(config.role).catch(err => {
@@ -1370,7 +1427,7 @@ export class CompanyAgentRunner {
         });
       }
 
-      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult, workingMemory, skillResult, kbResult, bulletinResult, pendingAssignments, jitResult] = await Promise.all([
+      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult, workingMemory, skillResult, kbResult, bulletinResult, pendingAssignments, jitResult, orchConfigResult] = await Promise.all([
         memoryPromise,
         briefPromise,
         messagesPromise,
@@ -1382,6 +1439,7 @@ export class CompanyAgentRunner {
         bulletinPromise,
         assignmentPromise,
         jitPromise,
+        orchConfigPromise,
       ]);
 
       // Inject memory context
@@ -1425,6 +1483,8 @@ export class CompanyAgentRunner {
           content: assignContext,
           timestamp: Date.now(),
         });
+        // Detect delegated directive context — any assignment linked to a directive
+        hasDelegatedDirective = pendingAssignments.some(a => !!a.directive_title);
       }
 
       // Inject CI context
@@ -1470,6 +1530,9 @@ export class CompanyAgentRunner {
 
       // Capture JIT result for downstream use (verification pipeline)
       jitContext = jitResult;
+
+      // Set executive orchestration config (only used when delegated directive is in context)
+      orchestrationConfig = orchConfigResult;
 
       // Inject JIT context
       if (jitResult && jitResult.tokenEstimate > 0) {
@@ -1624,7 +1687,7 @@ export class CompanyAgentRunner {
           // Select system prompt based on context tier
           const systemPrompt = isTaskTier
             ? buildTaskTierSystemPrompt(agentProfile)
-            : buildSystemPrompt(config.role, config.systemPrompt, dynamicBrief, agentProfile, skillContext, dbKnowledgeBase, bulletinContext, isOnDemand);
+            : buildSystemPrompt(config.role, config.systemPrompt, dynamicBrief, agentProfile, skillContext, dbKnowledgeBase, bulletinContext, isOnDemand, orchestrationConfig, hasDelegatedDirective);
           let effectiveThinking = config.thinkingEnabled;
           if (isTaskTier) {
             effectiveThinking = false;
