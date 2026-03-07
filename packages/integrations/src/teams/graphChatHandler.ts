@@ -20,7 +20,7 @@
  *   https://learn.microsoft.com/en-us/graph/api/chat-post-messages
  */
 
-import { AGENT_EMAIL_MAP, type AgentEmailEntry } from '@glyphor/agent-runtime';
+import { AGENT_EMAIL_MAP, FOUNDER_EMAILS, type AgentEmailEntry } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 import type { GraphTeamsClient } from './graphClient.js';
 import type { TeamsBotHandler } from './bot.js';
@@ -223,6 +223,31 @@ export class GraphChatHandler {
     const messageText = this.extractText(message);
     if (!messageText) return;
 
+    // Resolve sender email from Graph to identify founders
+    let senderEmail: string | undefined;
+    if (senderId) {
+      try {
+        const userRes = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(senderId)}?$select=mail,userPrincipalName`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (userRes.ok) {
+          const userData = await userRes.json() as { mail?: string; userPrincipalName?: string };
+          senderEmail = (userData.mail ?? userData.userPrincipalName ?? '').toLowerCase();
+        }
+      } catch {
+        // Best-effort — fall back to display name only
+      }
+    }
+
+    // Build structured identity preamble
+    const founderEntries = Object.entries(FOUNDER_EMAILS);
+    const founderMatch = senderEmail ? founderEntries.find(([, email]) => email.toLowerCase() === senderEmail) : undefined;
+    const identity = founderMatch
+      ? `[You are speaking with ${founderMatch[0].charAt(0).toUpperCase() + founderMatch[0].slice(1)} (${senderEmail}), Co-Founder of Glyphor. Treat this as a direct conversation with your founder.]`
+      : senderEmail
+        ? `[You are speaking with ${senderName} (${senderEmail}) via Teams DM.]`
+        : `[You are speaking with ${senderName} via Teams DM.]`;
+
     const displayName = EMAIL_TO_NAME.get(
       AGENT_EMAIL_MAP[agentRole]?.email?.toLowerCase() ?? '',
     ) ?? agentRole;
@@ -235,7 +260,7 @@ export class GraphChatHandler {
     let responseText: string;
     try {
       const result = await this.agentRunner(agentRole, 'on_demand', {
-        message: `[Message from ${senderName}]: ${messageText}`,
+        message: `${identity}\n${messageText}`,
       });
 
       if (result?.output) {

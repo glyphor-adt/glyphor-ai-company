@@ -593,6 +593,8 @@ export default function Chat() {
             task: 'on_demand',
             message: msgText,
             history,
+            userName: user?.name,
+            userEmail,
             ...(apiAttachments ? { attachments: apiAttachments } : {}),
           }),
           signal: controller.signal,

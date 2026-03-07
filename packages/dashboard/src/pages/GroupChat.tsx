@@ -358,7 +358,7 @@ export default function GroupChat() {
       const res = await fetch(`${SCHEDULER_URL}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentRole, task: 'on_demand', message, history }),
+        body: JSON.stringify({ agentRole, task: 'on_demand', message, history, userName: user?.name, userEmail: (user?.email ?? '').toLowerCase() }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();

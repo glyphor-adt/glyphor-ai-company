@@ -354,6 +354,18 @@ export class HeartbeatManager {
     } catch (err) {
       console.warn('[Heartbeat] Failed to reap stale runs:', (err as Error).message);
     }
+
+    // Deactivate expired tool grants
+    try {
+      const expired = await systemQuery<{id: string}>(
+        'UPDATE agent_tool_grants SET is_active = false WHERE is_active = true AND expires_at IS NOT NULL AND expires_at < NOW() RETURNING id',
+      );
+      if (expired && expired.length > 0) {
+        console.log(`[Heartbeat] Deactivated ${expired.length} expired tool grants`);
+      }
+    } catch (err) {
+      console.warn('[Heartbeat] Failed to deactivate expired grants:', (err as Error).message);
+    }
   }
 
   /**

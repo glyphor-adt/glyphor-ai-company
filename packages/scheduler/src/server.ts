@@ -934,6 +934,18 @@ const server = createServer(async (req, res) => {
       let message = body.message as string | undefined;
       const rawHistory = body.history as { role: string; content: string }[] | undefined;
 
+      // Inject user identity so agents know who they're talking to
+      const userName = body.userName as string | undefined;
+      const userEmail = body.userEmail as string | undefined;
+      if (message && userEmail) {
+        const FOUNDERS: Record<string, string> = { 'kristina@glyphor.ai': 'Kristina', 'andrew@glyphor.ai': 'Andrew' };
+        const founderName = FOUNDERS[userEmail.toLowerCase()];
+        const identity = founderName
+          ? `[You are speaking with ${founderName} (${userEmail}), Co-Founder of Glyphor. Treat this as a direct conversation with your founder.]`
+          : `[You are speaking with ${userName ?? 'a user'} (${userEmail}).]`;
+        message = `${identity}\n${message}`;
+      }
+
       // Accept file attachments for multimodal input (images, PDFs, documents)
       const rawAttachments = body.attachments as { name: string; mimeType: string; data: string }[] | undefined;
       const attachments = rawAttachments?.length

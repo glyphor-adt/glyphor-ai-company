@@ -46,6 +46,14 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   // T5.2 — Message Pickup
   tests.push(
     await runTest('T5.2', 'Message Pickup', async () => {
+      // Trigger the CTO to run — this causes pendingMessageLoader to read
+      // any pending DMs rather than passively waiting for a heartbeat cycle.
+      await httpPost(`${config.schedulerUrl}/run`, {
+        agentRole: 'cto',
+        task: 'on_demand',
+        message: 'Check your inbox and process any pending messages.',
+      });
+
       const result = await pollUntil(
         () =>
           queryTable<{ id: string; status: string }>(
@@ -57,7 +65,7 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
         (rows) =>
           rows.some((r) => r.status === 'read' || r.status === 'responded'),
         15_000,
-        5 * 60_000,
+        3 * 60_000,
       );
 
       const picked = result.find(
