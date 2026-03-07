@@ -436,6 +436,8 @@ const KNOWN_TOOLS = new Set([
   'read_sharepoint_document',
   'upload_to_sharepoint',
   'list_sharepoint_folders',
+  'list_sharepoint_files',
+  'create_sharepoint_page',
 
   // ── Marketing shared tools (Wave 1) ──
   // contentTools

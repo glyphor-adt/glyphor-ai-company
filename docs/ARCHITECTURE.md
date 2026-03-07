@@ -1,11 +1,11 @@
 # Glyphor AI Company — System Architecture
 
-> Last updated: 2026-03-11 (MCP migration complete — 9 Glyphor MCP servers, dynamic tool executor, SharePoint .docx fix, HR/Legal/Email/Email-Marketing tools migrated to MCP)
+> Last updated: 2026-03-14 (World model self-assessment, default-ON thinking for chat, SharePoint search/upload fixes, model tiering documentation)
 
 ## Overview
 
-Glyphor AI Company is a monorepo containing 9 AI executive agents, 26 sub-team/specialist
-members, and 2 operations agents that autonomously operate Glyphor alongside two human founders
+Glyphor AI Company is a monorepo containing 44 AI agents (9 executives, 7 research,
+19 sub-team, 2 operations, 7 specialists) that autonomously operate Glyphor alongside two human founders
 (Kristina Denney, CEO; Andrew Zwelling, COO). The agents run 24/7 on GCP Cloud Run, share
 state through Cloud SQL (with multi-tenant row-level security), communicate with founders via
 Microsoft Teams, and are governed by a three-tier authority model (Green / Yellow / Red).
@@ -127,7 +127,7 @@ auditing, lead generation, and executive assistantship.
 │  │ Simulation   │ ┌────────────────┐    ┌─────────────────────┐      │
 │  │ Engine       │ │ Agent Executor │    │  Decision Queue     │      │
 │  ├──────────────┤ │ (role→runner)  │    │  submit / approve   │      │
-│  │ Meeting      │ │ (46 agent      │    │  reminders (4 h)    │      │
+│  │ Meeting      │ │ (44 agent      │    │  reminders (4 h)    │      │
 │  │ Engine       │ │  roles routed) │    └─────────┬───────────┘      │
 │  ├──────────────┤ └────────┬───────┘              │                 │
 │  │ CoT Engine   │          │                      │                 │
@@ -226,7 +226,7 @@ auditing, lead generation, and executive assistantship.
 │  documentExtractor.ts             │
 │   (Office doc text extraction)    │
 │  config/agentEmails.ts            │
-│   (46 agent email registry)      │
+│   (44 agent email registry)      │
 └───────────────┬───────────────────┘
                 │
                 ▼
@@ -400,19 +400,20 @@ auditing, lead generation, and executive assistantship.
 ### AI Executives (9)
 
 All 9 executives have full agent runners (`run.ts`, `systemPrompt.ts`, `tools.ts`) and are
-active 24/7 via the scheduler service.
+active 24/7 via the scheduler service. Models are assigned by `optimizeModel()` — see
+[ModelClient](#modelclient--multi-provider-llm) for the full tiered model system.
 
-| Name | Role | Agent ID | Model | Responsibilities |
+| Name | Role | Agent ID | Model (Tier) | Responsibilities |
 |------|------|----------|-------|-----------------|
-| **Sarah Chen** | Chief of Staff | `chief-of-staff` | `gemini-3-flash-preview` | Morning briefings, decision routing, cross-agent synthesis, escalation tracking, EOD summaries, pre-dispatch validation |
-| **Marcus Reeves** | CTO | `cto` | `gemini-3-flash-preview` | Platform health, deployment management, model fallbacks, incident response, dependency review |
-| **Nadia Okafor** | CFO | `cfo` | `gemini-3-flash-preview` | Daily cost monitoring, revenue tracking, margin analysis, unit economics, budget alerts |
-| **Elena Vasquez** | CPO | `cpo` | `gemini-3-flash-preview` | Usage analysis, competitive intelligence, roadmap management, feature prioritisation (RICE) |
-| **Maya Brooks** | CMO | `cmo` | `gemini-3-flash-preview` | Content generation, social media, SEO strategy, brand positioning, growth analytics |
-| **James Turner** | VP Customer Success | `vp-customer-success` | `gemini-3-flash-preview` | Health scoring, churn prevention, nurture outreach, cross-product recommendations |
-| **Rachel Kim** | VP Sales | `vp-sales` | `gemini-3-flash-preview` | KYC research, ROI calculators, enterprise proposals, pipeline management, market sizing |
-| **Mia Tanaka** | VP Design & Frontend | `vp-design` | `gemini-3-flash-preview` | Design system governance, component quality audits, template variety, AI-smell detection |
-| **Victoria Chase** | Chief Legal Officer | `clo` | `gemini-3-flash-preview` | AI regulation (EU AI Act, FTC), IP protection, commercial agreements, data privacy (GDPR, CCPA, SOC 2), corporate governance |
+| **Sarah Chen** | Chief of Staff | `chief-of-staff` | `gemini-3-flash-preview` (Pro) | Morning briefings, decision routing, cross-agent synthesis, escalation tracking, EOD summaries, pre-dispatch validation |
+| **Marcus Reeves** | CTO | `cto` | `gemini-3-flash-preview` (Pro) | Platform health, deployment management, model fallbacks, incident response, dependency review |
+| **Nadia Okafor** | CFO | `cfo` | `gemini-3-flash-preview` (Pro) | Daily cost monitoring, revenue tracking, margin analysis, unit economics, budget alerts |
+| **Elena Vasquez** | CPO | `cpo` | `gemini-3-flash-preview` (Pro) | Usage analysis, competitive intelligence, roadmap management, feature prioritisation (RICE) |
+| **Maya Brooks** | CMO | `cmo` | `gemini-3-flash-preview` (Pro) | Content generation, social media, SEO strategy, brand positioning, growth analytics |
+| **James Turner** | VP Customer Success | `vp-customer-success` | `gemini-2.5-flash` (Standard) | Health scoring, churn prevention, nurture outreach, cross-product recommendations |
+| **Rachel Kim** | VP Sales | `vp-sales` | `gemini-2.5-flash` (Standard) | KYC research, ROI calculators, enterprise proposals, pipeline management, market sizing |
+| **Mia Tanaka** | VP Design & Frontend | `vp-design` | `gemini-2.5-flash` (Standard) | Design system governance, component quality audits, template variety, AI-smell detection |
+| **Victoria Chase** | Chief Legal Officer | `clo` | `gemini-3-flash-preview` (Pro) | AI regulation (EU AI Act, FTC), IP protection, commercial agreements, data privacy (GDPR, CCPA, SOC 2), corporate governance |
 
 > **Note:** Victoria Chase (CLO) reports directly to both founders, not through Sarah Chen.
 
@@ -464,10 +465,10 @@ and dashboard entries. They operate under their executive's authority scope and 
 
 ### Operations Agents (2)
 
-| Name | Role | Agent ID | Model | Responsibilities |
+| Name | Role | Agent ID | Model (Tier) | Responsibilities |
 |------|------|----------|-------|-----------------|
-| **Atlas Vega** | Operations & System Intelligence | `ops` | `gemini-3-flash-preview` | System health checks, data freshness monitoring, cost awareness, morning/evening status reports, event response |
-| **Morgan Blake** | Global Administrator | `global-admin` | `gemini-3-flash-preview` | Cross-platform access provisioning (GCP, Entra ID, M365, GitHub, Vercel, Stripe), onboarding/offboarding, access audits, compliance reporting |
+| **Atlas Vega** | Operations & System Intelligence | `ops` | `gemini-3-flash-preview` (Pro) | System health checks, data freshness monitoring, cost awareness, morning/evening status reports, event response |
+| **Morgan Blake** | Global Administrator | `global-admin` | `gemini-2.5-flash-lite` (Economy) | Cross-platform access provisioning (GCP, Entra ID, M365, GitHub, Vercel, Stripe), onboarding/offboarding, access audits, compliance reporting |
 
 > **Note:** Morgan Blake has **Founder Protection** — cannot modify Kristina/Andrew/devops@glyphor.ai access.
 
@@ -612,7 +613,7 @@ glyphor-ai-company/
 │   │       ├── trustScorer.ts            # Agent trust scoring system
 │   │       ├── verifierRunner.ts         # Verification pipeline runner
 │   │       ├── config/
-│   │       │   └── agentEmails.ts         # Agent email registry (46 agents → M365 shared mailboxes)
+│   │       │   └── agentEmails.ts         # Agent email registry (44 agents → M365 shared mailboxes)
 │   │       ├── providers/              # Per-provider LLM adapters (each has normalizeFinishReason)
 │   │       │   ├── types.ts               # Unified provider contract (ProviderAdapter interface)
 │   │       │   ├── gemini.ts              # GeminiAdapter (thinkingLevel/thinkingBudget, Imagen)
@@ -726,7 +727,7 @@ glyphor-ai-company/
 │   │   │   ├── operations.md          # Operations department context
 │   │   │   ├── product.md             # Product department context
 │   │   │   └── sales-cs.md            # Sales & CS department context
-│   │   └── briefs/                    # 46 role briefs (9 execs + 7 research + 19 sub-team + 2 ops + 9 specialists)
+│   │   └── briefs/                    # 42 role briefs (9 execs + 7 research + 19 sub-team + 2 ops + 5 specialists)
 │   │       ├── sarah-chen.md          # Chief of Staff
 │   │       ├── marcus-reeves.md       # CTO
 │   │       ├── nadia-okafor.md        # CFO
@@ -827,9 +828,9 @@ glyphor-ai-company/
 │   │
 │   ├── scheduler/               # Orchestration service
 │   │   └── src/
-│   │       ├── server.ts              # HTTP server (Cloud Run entry, 60+ endpoints, 37 agent routes)
+│   │       ├── server.ts              # HTTP server (Cloud Run entry, 60+ endpoints, 44 agent routes)
 │   │       ├── eventRouter.ts         # Event → agent routing + authority
-│   │       ├── authorityGates.ts      # Green/Yellow/Red classification (all 37 roles)
+│   │       ├── authorityGates.ts      # Green/Yellow/Red classification (all 44 roles)
 │   │       ├── cronManager.ts         # 33 agent + 9 data sync job definitions
 │   │       ├── dynamicScheduler.ts    # DB-driven cron for dynamic agents
 │   │       ├── dataSyncScheduler.ts   # Internal cron for data sync jobs (fires HTTP to self)
@@ -1201,14 +1202,14 @@ Execution loop:
 │  │                                                             │  │
 │  │   ┌─────────────────────────────────────────────────────┐  │  │
 │  │   │ 4. SUPERVISOR CHECK (per-turn stall detection)      │  │  │
-│  │   │    ✓ turnCount ≤ maxTurns (6 chat, 6 task, 10 std)  │  │  │
+│  │   │    ✓ turnCount ≤ maxTurns (12 chat, 20 task)          │  │  │
 │  │   │    ✓ stallCount < 3 (turns with zero progress)       │  │  │
 │  │   │      Stall evaluation: checkBeforeModelCall() at     │  │  │
 │  │   │      start of each new turn — if previous turn had   │  │  │
 │  │   │      no progress (turnHadProgress=false), stallCount │  │  │
 │  │   │      increments. Multiple failed tool calls in one   │  │  │
 │  │   │      turn count as ONE stall, not per-call.          │  │  │
-│  │   │    ✓ elapsed < timeout (105s chat, 120s task, std)   │  │  │
+│  │   │    ✓ elapsed < timeout (150s chat, 180s task)        │  │  │
 │  │   │    ✗ Any fail → abort (task tier: savePartialProgress)│ │  │
 │  │   └─────────────────────────────┬───────────────────────┘  │  │
 │  │                                 │                           │  │
@@ -1224,7 +1225,8 @@ Execution loop:
 │  │   │    ModelClient → ProviderFactory → ProviderAdapter   │  │  │
 │  │   │    Provider auto-detected: gemini-* / gpt-* / claude-│ │  │
 │  │   │    Thinking overrides per task:                       │  │  │
-│  │   │      on_demand: thinking DISABLED (speed)            │  │  │
+│  │   │      on_demand: thinking DEFAULT-ON (disabled only   │  │  │
+│  │   │        for trivial messages <10 chars or greetings)  │  │  │
 │  │   │      work_loop: thinking DISABLED (cost)             │  │  │
 │  │   │      briefing/orchestrate: thinking ENABLED (quality)│  │  │
 │  │   │    Gemini 3: forces temperature 1.0+                 │  │  │
@@ -1300,6 +1302,23 @@ Execution loop:
 │  │    → Return AgentExecutionResult to caller                   │  │
 │  │      (includes actions: ActionReceipt[] for tool call        │  │
 │  │       transparency — tool name, params, result, output)      │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                              │                                   │
+│                              ▼                                   │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │ 11. POST-RUN: WORLD MODEL SELF-ASSESSMENT                 │  │
+│  │    (orchestrator + task runs only, not on_demand)           │  │
+│  │                                                             │  │
+│  │  Auto-updates agent_world_model without waiting for CoS     │  │
+│  │  grading. Calculates self-score from run outcome:           │  │
+│  │    → Baseline: 4.0 for completed runs                       │  │
+│  │    → Penalty: −0.5 if >10 turns used (inefficient)          │  │
+│  │    → Bonus: +0.5 if ≤3 turns with no errors (efficient)    │  │
+│  │    → Clamped to [1.0, 5.0]                                  │  │
+│  │  Records: turnCount, hadErrors, efficiency metrics           │  │
+│  │  Calls worldModelUpdater.updateFromGrade()                  │  │
+│  │  Ensures world model data populates continuously in the     │  │
+│  │  dashboard (Capabilities > Self-Models tab)                 │  │
 │  └────────────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -1731,7 +1750,7 @@ The `BaseAgentRunner.run()` method accepts optional dependencies (via `Classifie
 | `graphContextLoader` | Load knowledge graph neighborhood for context |
 | `partialProgressSaver` | Save partial output when a task-tier run is aborted (updates `work_assignments`, notifies chief-of-staff) |
 | `sharedMemoryLoader` | 5-layer shared memory (Working, Episodic, Semantic, Procedural, WorldModel) — cross-agent context via `shared_episodes` and `shared_procedures` tables |
-| `worldModelUpdater` | REFLECT→LEARN→IMPROVE loop — evolves per-agent self-models in `agent_world_model` after graded evaluations |
+| `worldModelUpdater` | REFLECT→LEARN→IMPROVE loop — evolves per-agent self-models in `agent_world_model` after graded evaluations. **Also auto-updates after every orchestrator/task run** via self-assessment (baseline 4.0, ±0.5 for efficiency/errors, clamped [1.0, 5.0]) to ensure continuous world model population without waiting for CoS grading. |
 
 Name mapping (`ROLE_TO_BRIEF`):
 
@@ -1807,8 +1826,18 @@ ModelClient.generate(request)
 All providers normalize `finishReason` to a lowercase `'stop'` | `'length'` | `'tool_calls'` | `'error'`
 contract via `normalizeFinishReason()` so runners can check `=== 'stop'` uniformly.
 
-All agents currently use **`gemini-3-flash-preview`**. Multi-provider support is built in for
-fallback. Agents can be switched to any supported model via the dashboard Settings tab.
+Agents use a **tiered model system** managed by `optimizeModel(role, task, dbModel?)` in
+`@glyphor/shared/models.ts`. Default model: `gpt-5-mini-2025-08-07`. Cost tiers:
+
+| Tier | Model | $/1K Input / $/1K Output | Roles |
+|------|-------|--------------------------|-------|
+| **Economy** | `gemini-2.5-flash-lite` | $0.10 / $0.40 | support-triage, onboarding-specialist, m365-admin, global-admin, seo-analyst, cost-analyst |
+| **Standard** | `gemini-2.5-flash` | $0.30 / $2.50 | content-creator, ui-ux-designer, frontend-engineer, user-researcher, vp-customer-success, vp-sales, vp-design |
+| **Pro** | `gemini-3-flash-preview` | $0.50 / $3.00 | chief-of-staff, cto, cfo, cpo, cmo, clo, vp-research, ops |
+| **Exec Chat** | `gemini-3-flash-preview` | $0.50 / $3.00 | All pro roles during on-demand chat |
+
+Agents can be switched to any supported model via the dashboard Settings tab.
+Multi-provider support is built in for fallback.
 
 **Supported models (dashboard dropdowns):**
 - **Gemini:** gemini-3.1-pro-preview, gemini-3-flash-preview, gemini-3-pro-preview, gemini-2.5-flash, gemini-2.5-flash-lite, gemini-2.5-pro
@@ -2892,8 +2921,8 @@ Statuses: `pending` → `submitted` → `in_progress` → `review` → `merged` 
 
 | Constraint | Value |
 |-----------|-------|
-| Max turns | 6 |
-| Timeout | 120 s |
+| Max turns | 20 |
+| Timeout | 180 s |
 | Per-call timeout | 60 s |
 | System prompt | ~150 lines (personality + assignment protocol + cost awareness) |
 | Thinking | Disabled |

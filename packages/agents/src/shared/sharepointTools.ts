@@ -87,7 +87,7 @@ export function createSharePointTools(): ToolDefinition[] {
             },
           };
         } catch (err) {
-          const pathUsed = params.path as string;
+          const pathUsed = (params.path as string) ?? '';
           return {
             success: false,
             error: (err as Error).message,
