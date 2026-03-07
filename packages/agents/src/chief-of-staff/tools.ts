@@ -404,7 +404,7 @@ export function createChiefOfStaffTools(
         }
 
         const recipient = params.recipient as 'kristina' | 'andrew';
-        await dmClient.sendText(recipient, params.message as string, 'Sarah Chen');
+        await dmClient.sendText(recipient, params.message as string, 'Sarah Chen', 'sarah.chen@glyphor.ai');
 
         await memory.appendActivity({
           agentRole: ctx.agentRole,

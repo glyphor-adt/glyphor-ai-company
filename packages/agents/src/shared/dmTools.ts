@@ -97,14 +97,14 @@ export function createDmTools(): ToolDefinition[] {
           };
         }
 
-        // Resolve sender display name from ctx.agentRole
+        // Resolve sender display name and email from ctx.agentRole
         const role = ctx?.agentRole as CompanyAgentRole | undefined;
-        const senderName = role
-          ? (AGENT_EMAIL_MAP[role]?.displayName ?? role)
-          : 'Glyphor Agent';
+        const agentEntry = role ? AGENT_EMAIL_MAP[role] : undefined;
+        const senderName = agentEntry?.displayName ?? role ?? 'Glyphor Agent';
+        const senderEmail = agentEntry?.email;
 
         try {
-          await dmClient.sendToEmail(email, params.message as string, senderName);
+          await dmClient.sendToEmail(email, params.message as string, senderName, senderEmail);
           return { success: true, data: { sent: true, recipient: recipientStr, email } };
         } catch (err) {
           return {

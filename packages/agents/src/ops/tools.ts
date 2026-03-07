@@ -786,7 +786,7 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         }
 
         const recipient = params.recipient as 'kristina' | 'andrew';
-        await dmClient.sendText(recipient, params.message as string, 'Atlas Vega');
+        await dmClient.sendText(recipient, params.message as string, 'Atlas Vega', 'atlas.vega@glyphor.ai');
 
         await systemQuery(
           'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',

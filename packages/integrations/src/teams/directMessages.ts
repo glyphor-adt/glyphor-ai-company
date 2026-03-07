@@ -74,13 +74,14 @@ export class TeamsDirectMessageClient {
     founder: 'kristina' | 'andrew',
     message: string,
     agentName?: string,
+    senderEmail?: string,
   ): Promise<void> {
     const contact = this.founderDir[founder];
     if (!contact) {
       throw new Error(`Founder "${founder}" not configured. Set TEAMS_USER_${founder.toUpperCase()}_ID.`);
     }
 
-    const chatId = await this.getOrCreateChat(contact.userId);
+    const chatId = await this.getOrCreateChat(contact.userId, senderEmail);
     const content = agentName ? `**${agentName}:** ${message}` : message;
 
     await this.postMessage(chatId, { contentType: 'text', content });
@@ -93,13 +94,14 @@ export class TeamsDirectMessageClient {
     founder: 'kristina' | 'andrew',
     card: AdaptiveCard,
     agentName?: string,
+    senderEmail?: string,
   ): Promise<void> {
     const contact = this.founderDir[founder];
     if (!contact) {
       throw new Error(`Founder "${founder}" not configured. Set TEAMS_USER_${founder.toUpperCase()}_ID.`);
     }
 
-    const chatId = await this.getOrCreateChat(contact.userId);
+    const chatId = await this.getOrCreateChat(contact.userId, senderEmail);
 
     const body: Record<string, unknown> = {
       body: {
@@ -128,11 +130,12 @@ export class TeamsDirectMessageClient {
     email: string,
     message: string,
     agentName?: string,
+    senderEmail?: string,
   ): Promise<void> {
     // Check founder directory first (avoids Graph lookup)
     for (const contact of Object.values(this.founderDir)) {
       if (contact.email.toLowerCase() === email.toLowerCase()) {
-        const chatId = await this.getOrCreateChat(contact.userId);
+        const chatId = await this.getOrCreateChat(contact.userId, senderEmail);
         const content = agentName ? `**${agentName}:** ${message}` : message;
         await this.postMessage(chatId, { contentType: 'text', content });
         return;
@@ -140,7 +143,7 @@ export class TeamsDirectMessageClient {
     }
 
     const userId = await this.resolveUserIdByEmail(email);
-    const chatId = await this.getOrCreateChat(userId);
+    const chatId = await this.getOrCreateChat(userId, senderEmail);
     const content = agentName ? `**${agentName}:** ${message}` : message;
     await this.postMessage(chatId, { contentType: 'text', content });
   }
@@ -173,13 +176,39 @@ export class TeamsDirectMessageClient {
    * Get or create a 1:1 chat between the app and a user.
    * Caches chat IDs to avoid repeated lookups.
    */
-  private async getOrCreateChat(userId: string): Promise<string> {
-    const cached = this.chatCache.get(userId);
+  private async getOrCreateChat(recipientUserId: string, senderEmail?: string): Promise<string> {
+    const cacheKey = senderEmail ? `${senderEmail}:${recipientUserId}` : recipientUserId;
+    const cached = this.chatCache.get(cacheKey);
     if (cached) return cached;
 
     const token = await (this.graphClient as unknown as { getToken(): Promise<string> }).getToken();
 
-    // Install the app in user's personal scope + create 1:1 chat
+    // Resolve sender's Entra Object ID from email
+    let senderUserId: string | undefined;
+    if (senderEmail) {
+      try {
+        senderUserId = await this.resolveUserIdByEmail(senderEmail);
+      } catch {
+        console.warn(`[DM] Could not resolve sender email ${senderEmail} — will try without`);
+      }
+    }
+
+    // Graph API requires exactly 2 members for a oneOnOne chat
+    const members: Record<string, unknown>[] = [
+      {
+        '@odata.type': '#microsoft.graph.aadUserConversationMember',
+        roles: ['owner'],
+        'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${encodeURIComponent(recipientUserId)}')`,
+      },
+    ];
+    if (senderUserId) {
+      members.push({
+        '@odata.type': '#microsoft.graph.aadUserConversationMember',
+        roles: ['owner'],
+        'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${encodeURIComponent(senderUserId)}')`,
+      });
+    }
+
     const response = await fetch('https://graph.microsoft.com/v1.0/chats', {
       method: 'POST',
       headers: {
@@ -188,13 +217,7 @@ export class TeamsDirectMessageClient {
       },
       body: JSON.stringify({
         chatType: 'oneOnOne',
-        members: [
-          {
-            '@odata.type': '#microsoft.graph.aadUserConversationMember',
-            roles: ['owner'],
-            'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${encodeURIComponent(userId)}')`,
-          },
-        ],
+        members,
       }),
     });
 
@@ -204,7 +227,7 @@ export class TeamsDirectMessageClient {
     }
 
     const data = (await response.json()) as { id: string };
-    this.chatCache.set(userId, data.id);
+    this.chatCache.set(cacheKey, data.id);
     return data.id;
   }
 
