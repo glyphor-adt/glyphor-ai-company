@@ -51,6 +51,7 @@ import { evaluateBatch } from './batchOutcomeEvaluator.js';
 import { collectProposals } from './policyProposalCollector.js';
 import { evaluateDraftPolicies } from './policyReplayEvaluator.js';
 import { manageCanaries } from './policyCanaryManager.js';
+import { expireTools } from './toolExpirationManager.js';
 import {
   runChiefOfStaff, runCTO, runCFO, runCLO, runCPO, runCMO, runVPCS, runVPSales, runVPDesign,
   runPlatformEngineer, runQualityEngineer, runDevOpsEngineer,
@@ -930,6 +931,46 @@ const server = createServer(async (req, res) => {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error('[PolicyCanaryManager] Endpoint error:', message);
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // Tool expiration endpoint — daily expiration of stale/unreliable dynamic tools (Cloud Scheduler: 0 6 * * *)
+    if (method === 'POST' && url === '/tools/expire') {
+      try {
+        const report = await expireTools(glyphorEventBus);
+        json(res, 200, { success: true, ...report });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[ToolExpirationManager] Endpoint error:', message);
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // Tool re-enable endpoint — manually restore an expired tool
+    if (method === 'POST' && url === '/tools/re-enable') {
+      try {
+        const body = await new Promise<string>((resolve, reject) => {
+          const chunks: Buffer[] = [];
+          req.on('data', (c: Buffer) => chunks.push(c));
+          req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+          req.on('error', reject);
+        });
+        const { tool_name } = JSON.parse(body);
+        if (!tool_name) { json(res, 400, { error: 'tool_name required' }); return; }
+        await systemQuery(
+          `UPDATE tool_reputation SET is_active = true, expired_at = NULL, expiration_reason = NULL, updated_at = NOW() WHERE tool_name = $1`,
+          [tool_name],
+        );
+        await systemQuery(
+          `UPDATE tool_registry SET is_active = true, updated_at = NOW() WHERE name = $1`,
+          [tool_name],
+        );
+        json(res, 200, { success: true, tool_name });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
         json(res, 500, { success: false, error: message });
       }
       return;

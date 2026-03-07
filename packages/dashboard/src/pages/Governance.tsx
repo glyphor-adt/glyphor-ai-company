@@ -47,7 +47,7 @@ interface SecretRotation {
 
 type Platform = 'gcp' | 'm365' | 'github' | 'stripe' | 'vercel';
 
-type GovernanceTab = 'platform' | 'admin';
+type GovernanceTab = 'platform' | 'admin' | 'tool-health';
 
 /* ── Admin-only access gate ───────────────── */
 const ADMIN_EMAILS = ['kristina@glyphor.ai', 'devops@glyphor.ai'];
@@ -1431,6 +1431,171 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
   );
 }
 
+/* ── Tool Health Panel ───────────────────── */
+
+interface ToolRepRow {
+  tool_name: string;
+  tool_source: string;
+  total_calls: number;
+  success_rate: number | null;
+  reliability_score: number | null;
+  timeout_calls: number;
+  downstream_defect_count: number;
+  is_active: boolean;
+  expired_at: string | null;
+  expiration_reason: string | null;
+  last_used_at: string | null;
+}
+
+function ToolHealthPanel() {
+  const [tools, setTools] = useState<ToolRepRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [restoring, setRestoring] = useState<string | null>(null);
+
+  const loadTools = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await apiCall<ToolRepRow[]>('/api/tool-reputation?order=reliability_score.asc.nullslast&limit=100');
+      setTools(data ?? []);
+    } catch {
+      setTools([]);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadTools(); }, [loadTools]);
+
+  const handleReEnable = useCallback(async (toolName: string) => {
+    setRestoring(toolName);
+    try {
+      await fetch(`${SCHEDULER_URL}/tools/re-enable`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tool_name: toolName }),
+      });
+      await loadTools();
+    } catch { /* ignore */ }
+    setRestoring(null);
+  }, [loadTools]);
+
+  if (loading) {
+    return <div className="space-y-4">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-32 w-full" />)}</div>;
+  }
+
+  const activeTools = tools.filter(t => t.is_active);
+  const recentlyExpired = tools.filter(t => !t.is_active && t.expired_at
+    && (Date.now() - new Date(t.expired_at).getTime()) < 7 * 24 * 60 * 60 * 1000);
+  const lowestReliability = activeTools
+    .filter(t => t.reliability_score != null)
+    .sort((a, b) => (a.reliability_score ?? 0) - (b.reliability_score ?? 0))
+    .slice(0, 5);
+
+  const bySource = (src: string) => activeTools.filter(t => t.tool_source === src).length;
+
+  return (
+    <div className="space-y-6">
+      {/* Stats Row */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <Card>
+          <p className="text-[12px] font-medium text-txt-muted">Static Tools</p>
+          <p className="mt-1 text-2xl font-bold text-txt-primary">{bySource('static')}</p>
+        </Card>
+        <Card>
+          <p className="text-[12px] font-medium text-txt-muted">Runtime Tools</p>
+          <p className="mt-1 text-2xl font-bold text-prism-teal">{bySource('runtime')}</p>
+        </Card>
+        <Card>
+          <p className="text-[12px] font-medium text-txt-muted">Dynamic Registry</p>
+          <p className="mt-1 text-2xl font-bold text-prism-sky">{bySource('dynamic_registry')}</p>
+        </Card>
+        <Card>
+          <p className="text-[12px] font-medium text-txt-muted">Recently Expired</p>
+          <p className="mt-1 text-2xl font-bold text-prism-critical">{recentlyExpired.length}</p>
+        </Card>
+      </div>
+
+      {/* Recently Expired Tools */}
+      {recentlyExpired.length > 0 && (
+        <Card className="border-prism-elevated/30">
+          <SectionHeader title={`Recently Expired Tools — ${recentlyExpired.length}`} />
+          <div className="space-y-3">
+            {recentlyExpired.map((tool) => (
+              <div
+                key={tool.tool_name}
+                className="flex items-center justify-between rounded-lg border border-prism-elevated/30 bg-prism-elevated/5 p-3"
+              >
+                <div className="flex items-start gap-3">
+                  <MdWarning className="mt-0.5 text-prism-elevated" />
+                  <div>
+                    <p className="text-[13px] font-medium text-prism-primary">
+                      <code className="rounded bg-prism-bg2 px-1 text-[12px]">{tool.tool_name}</code>
+                      {' '}({tool.tool_source})
+                    </p>
+                    <p className="mt-0.5 text-[12px] text-txt-muted">
+                      Reason: <span className="font-medium text-prism-elevated">{tool.expiration_reason ?? 'unknown'}</span>
+                      {tool.expired_at && <> · Expired {timeAgo(tool.expired_at)}</>}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleReEnable(tool.tool_name)}
+                  disabled={restoring === tool.tool_name}
+                  className="rounded border border-prism-teal/30 bg-prism-card px-2.5 py-1 text-[11px] font-medium text-prism-teal transition-colors hover:bg-prism-teal/10 disabled:opacity-50"
+                >
+                  {restoring === tool.tool_name ? 'Restoring…' : 'Re-enable'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Lowest Reliability Tools */}
+      {lowestReliability.length > 0 && (
+        <Card>
+          <SectionHeader title="Lowest Reliability Tools (Bottom 5)" />
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="border-b border-border/50 text-left text-[11px] font-semibold uppercase tracking-wider text-txt-muted">
+                  <th className="py-2 pr-4">Tool</th>
+                  <th className="py-2 pr-4">Source</th>
+                  <th className="py-2 pr-4">Reliability</th>
+                  <th className="py-2 pr-4">Success Rate</th>
+                  <th className="py-2 pr-4">Calls</th>
+                  <th className="py-2 pr-4">Timeouts</th>
+                  <th className="py-2">Defects</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lowestReliability.map((tool) => (
+                  <tr key={tool.tool_name} className="border-b border-border/50">
+                    <td className="py-2.5 pr-4">
+                      <code className="rounded bg-prism-bg2 px-1.5 py-0.5 text-[12px]">{tool.tool_name}</code>
+                    </td>
+                    <td className="py-2.5 pr-4 text-txt-muted">{tool.tool_source}</td>
+                    <td className="py-2.5 pr-4">
+                      <span className={`font-medium ${(tool.reliability_score ?? 0) < 0.5 ? 'text-prism-critical' : (tool.reliability_score ?? 0) < 0.7 ? 'text-prism-elevated' : 'text-prism-teal'}`}>
+                        {tool.reliability_score != null ? (tool.reliability_score * 100).toFixed(0) + '%' : '—'}
+                      </span>
+                    </td>
+                    <td className="py-2.5 pr-4 text-txt-muted">
+                      {tool.success_rate != null ? (tool.success_rate * 100).toFixed(0) + '%' : '—'}
+                    </td>
+                    <td className="py-2.5 pr-4 text-txt-muted">{tool.total_calls}</td>
+                    <td className="py-2.5 pr-4 text-txt-muted">{tool.timeout_calls}</td>
+                    <td className="py-2.5 text-txt-muted">{tool.downstream_defect_count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 /* ── Page ─────────────────────────────────── */
 
 export default function Governance() {
@@ -1543,13 +1708,16 @@ export default function Governance() {
         tabs={[
           { key: 'platform', label: 'Platform IAM' },
           { key: 'admin', label: 'Admin & Access' },
+          { key: 'tool-health', label: 'Tool Health' },
         ]}
         active={activeTab}
         onChange={setActiveTab}
       />
 
       {/* Tab Content */}
-      {activeTab === 'admin' ? (
+      {activeTab === 'tool-health' ? (
+        <ToolHealthPanel />
+      ) : activeTab === 'admin' ? (
         <AdminAccessPanel isAdmin={isAdmin} />
       ) : (
       <>

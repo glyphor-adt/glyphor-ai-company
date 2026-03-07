@@ -63,6 +63,8 @@ export type { DriftAlert, DriftDetectionResult } from './driftDetector.js';
 // Learning Governor — Task Outcome Harvester
 export { harvestTaskOutcome, markOutcomeRevised, markOutcomeAccepted } from './taskOutcomeHarvester.js';
 export type { TaskRunOutcome, HarvestRunMeta } from './taskOutcomeHarvester.js';
+export { recordToolCall, detectToolSource, incrementDownstreamDefects } from './toolReputationTracker.js';
+export type { ToolSource } from './toolReputationTracker.js';
 export {
   AGENT_BUDGETS,
   EXECUTIVE_ROLES,

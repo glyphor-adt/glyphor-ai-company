@@ -58,3 +58,7 @@ export {
   manageCanaries,
   type CanaryReport,
 } from './policyCanaryManager.js';
+export {
+  expireTools,
+  type ExpirationReport,
+} from './toolExpirationManager.js';

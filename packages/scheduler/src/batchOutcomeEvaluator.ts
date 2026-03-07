@@ -9,6 +9,7 @@
 
 import { systemQuery } from '@glyphor/shared/db';
 import { getRedisCache, TrustScorer } from '@glyphor/agent-runtime';
+import { incrementDownstreamDefects } from '@glyphor/agent-runtime';
 import { WorldModelUpdater, SharedMemoryLoader, EmbeddingClient } from '@glyphor/company-memory';
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -91,6 +92,27 @@ export async function evaluateBatch(): Promise<BatchEvalResult> {
     }
 
     console.log('[BatchOutcomeEvaluator] Complete:', JSON.stringify(result));
+
+    // Track downstream defects in tool_reputation for revised outcomes
+    try {
+      const revisedOutcomes = outcomes.filter(o => o.was_revised === true);
+      if (revisedOutcomes.length > 0) {
+        const revisedIds = revisedOutcomes.map(o => o.id);
+        const toolCallRows = await systemQuery<{ tool_name: string }>(
+          `SELECT DISTINCT unnest(tool_names_used) AS tool_name
+           FROM task_run_outcomes
+           WHERE id = ANY($1::uuid[]) AND tool_names_used IS NOT NULL`,
+          [revisedIds],
+        );
+        const toolNames = toolCallRows.map(r => r.tool_name);
+        if (toolNames.length > 0) {
+          await incrementDownstreamDefects(toolNames);
+          console.log(`[BatchOutcomeEvaluator] Incremented downstream defects for ${toolNames.length} tools from ${revisedIds.length} revised runs`);
+        }
+      }
+    } catch (err) {
+      console.warn('[BatchOutcomeEvaluator] Downstream defect tracking failed:', (err as Error).message);
+    }
 
     // Update world models and trust scores for each agent that had outcomes evaluated
     try {

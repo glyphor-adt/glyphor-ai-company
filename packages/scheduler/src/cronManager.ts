@@ -462,6 +462,14 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/memory/archive',
     enabled: true,
   },
+  // Tool expiration check — daily expiration of stale/unreliable dynamic tools
+  {
+    id: 'tool-expiration-check',
+    schedule: '0 6 * * *',     // 6:00 UTC daily
+    timezone: 'UTC',
+    endpoint: '/tools/expire',
+    enabled: true,
+  },
 ];
 
 /**
