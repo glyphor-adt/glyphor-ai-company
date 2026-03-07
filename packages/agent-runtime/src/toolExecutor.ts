@@ -524,6 +524,8 @@ export class ToolExecutor {
     }
 
     const timeoutMs = LONG_RUNNING_TOOLS.has(toolName) ? LONG_TOOL_TIMEOUT_MS : DEFAULT_TOOL_TIMEOUT_MS;
+    const toolSource = detectToolSource(toolName);
+    const execStart = Date.now();
 
     try {
       const toolPromise = tool.execute(params, context);
