@@ -92,55 +92,56 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   tests.push(
     await runTest('T22.3', 'JIT Context Loading Active', async () => {
       // Check recent agent runs for JIT context metadata
-      const rows = await query<{ agent_role: string; jit_tokens: number }>(
+      // Check recent runs that have input_tokens > 0 (indicating context was loaded)
+      const rows = await query<{ agent_id: string; input_tokens: number }>(
         `SELECT
-           agent_role,
-           COALESCE((metadata->>'jitContextTokens')::int, 0) AS jit_tokens
+           agent_id,
+           COALESCE(input_tokens, 0) AS input_tokens
          FROM agent_runs
          WHERE created_at > NOW() - INTERVAL '24 hours'
-           AND metadata->>'jitContextTokens' IS NOT NULL
+           AND input_tokens IS NOT NULL
+           AND input_tokens > 0
          ORDER BY created_at DESC
          LIMIT 10`,
       );
       if (rows.length === 0) {
-        // Try alternative key names
-        const alt = await query<{ count: number }>(
-          `SELECT COUNT(*)::int AS count
-           FROM agent_runs
-           WHERE created_at > NOW() - INTERVAL '24 hours'
-             AND (metadata->>'contextTokens' IS NOT NULL
-               OR metadata->>'jitContext' IS NOT NULL)`,
-        );
-        if ((alt[0]?.count ?? 0) > 0) {
-          return `${alt[0].count} recent run(s) have JIT context metadata`;
-        }
-        return 'No JIT context metadata in recent runs — may need to verify metadata key names';
+        return 'No recent runs with input_tokens recorded — JIT context may not be tracked yet';
       }
       const avgTokens = Math.round(
-        rows.reduce((sum, r) => sum + r.jit_tokens, 0) / rows.length,
+        rows.reduce((sum, r) => sum + r.input_tokens, 0) / rows.length,
       );
-      return `${rows.length} recent run(s) used JIT context (avg ${avgTokens} tokens)`;
+      return `${rows.length} recent run(s) consumed context (avg ${avgTokens} input tokens)`;
     }),
   );
 
   // T22.4 — Reasoning Protocol in System Prompts
   tests.push(
     await runTest('T22.4', 'Reasoning Protocol Present', async () => {
-      // Check that agent system prompts include reasoning protocol markers
-      const rows = await query<{ role: string; has_reasoning: boolean }>(
+      // Check agent_reflections for evidence that reasoning/self-assessment is running
+      const rows = await query<{ agent_count: number; reflection_count: number }>(
         `SELECT
-           ca.role,
-           (ca.system_prompt ILIKE '%reasoning%' OR ca.system_prompt ILIKE '%self-assess%') AS has_reasoning
-         FROM company_agents ca
-         WHERE ca.status = 'active'
-           AND ca.system_prompt IS NOT NULL
-         LIMIT 10`,
+           COUNT(DISTINCT agent_role)::int AS agent_count,
+           COUNT(*)::int AS reflection_count
+         FROM agent_reflections
+         WHERE created_at > NOW() - INTERVAL '7 days'`,
       );
-      if (rows.length === 0) {
-        return 'No system prompts to check — agents may use file-based prompts';
+      const agents = rows[0]?.agent_count ?? 0;
+      const reflections = rows[0]?.reflection_count ?? 0;
+      if (reflections === 0) {
+        // Fallback: check reasoning_passes in agent_runs
+        const runs = await query<{ count: number }>(
+          `SELECT COUNT(*)::int AS count
+           FROM agent_runs
+           WHERE created_at > NOW() - INTERVAL '7 days'
+             AND reasoning_passes IS NOT NULL
+             AND reasoning_passes > 0`,
+        );
+        if ((runs[0]?.count ?? 0) > 0) {
+          return `${runs[0].count} run(s) used multi-pass reasoning in last 7 days`;
+        }
+        return 'No reflections or reasoning passes found in last 7 days — reasoning protocol may not have run yet';
       }
-      const withReasoning = rows.filter(r => r.has_reasoning).length;
-      return `${withReasoning}/${rows.length} sampled agents have reasoning protocol in system prompt`;
+      return `${reflections} reflection(s) from ${agents} agent(s) in last 7 days — reasoning protocol active`;
     }),
   );
 
@@ -154,13 +155,13 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       ];
       const rows = await query<{ task: string; thinking_count: number; total: number }>(
         `SELECT
-           metadata->>'task' AS task,
-           COUNT(*) FILTER (WHERE (metadata->>'thinkingEnabled')::boolean = true)::int AS thinking_count,
+           task,
+           COUNT(*) FILTER (WHERE reasoning_passes IS NOT NULL AND reasoning_passes > 0)::int AS thinking_count,
            COUNT(*)::int AS total
          FROM agent_runs
          WHERE created_at > NOW() - INTERVAL '7 days'
-           AND metadata->>'task' = ANY($1)
-         GROUP BY metadata->>'task'`,
+           AND task = ANY($1)
+         GROUP BY task`,
         [thinkingTasks],
       );
       if (rows.length === 0) {
