@@ -176,8 +176,30 @@ export class OpenAIAdapter implements ProviderAdapter {
       ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
     };
 
-    const response = await this.client.chat.completions.create(createParams) as OpenAI.Chat.Completions.ChatCompletion;
+    const response = await this.callWithAzureFallback(createParams) as OpenAI.Chat.Completions.ChatCompletion;
     return this.mapResponse(response);
+  }
+
+  /**
+   * Call chat.completions.create with fallback from Azure to direct OpenAI
+   * when the Azure deployment doesn't exist (models not yet deployed on Azure).
+   */
+  private async callWithAzureFallback(
+    params: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
+  ): Promise<OpenAI.Chat.Completions.ChatCompletion> {
+    try {
+      return await this.client.chat.completions.create(params) as OpenAI.Chat.Completions.ChatCompletion;
+    } catch (err) {
+      const msg = (err as Error).message ?? '';
+      const isDeploymentMissing = this.isAzure && this.directApiKey &&
+        (msg.includes('DeploymentNotFound') || msg.includes('deployment for this resource does not exist'));
+      if (!isDeploymentMissing) throw err;
+      console.warn(`[OpenAI] Azure deployment not found for ${params.model} — falling back to direct OpenAI`);
+      if (!this.directClient) {
+        this.directClient = new OpenAI({ apiKey: this.directApiKey, maxRetries: 0, timeout: 120_000 });
+      }
+      return await this.directClient.chat.completions.create(params) as OpenAI.Chat.Completions.ChatCompletion;
+    }
   }
 
   /**
