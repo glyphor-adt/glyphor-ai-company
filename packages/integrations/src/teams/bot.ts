@@ -18,7 +18,7 @@
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import type { IncomingMessage } from 'node:http';
 import { formatTeamsMessage } from './messageFormatter.js';
-import { setConversationRef, getConversationRef } from './conversationStore.js';
+import { setConversationRef, getConversationRef, loadConversationRefs } from './conversationStore.js';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -395,6 +395,8 @@ export class TeamsBotHandler {
   private readonly agentBots: Map<string, AgentBotConfig & { appSecret: string }>;
   /** Per-bot token cache for replying as the correct bot identity. */
   private readonly agentTokenCache = new Map<string, { token: string; expiresAt: number }>();
+  /** Cached Graph API token for proactive app installation. */
+  private _graphTokenCache: { token: string; expiresAt: number } | null = null;
   /** Maps Entra Object ID → founder display name for authenticated identity resolution. */
   private readonly entraIdLookup: Map<string, string>;
 
@@ -663,6 +665,105 @@ export class TeamsBotHandler {
   }
 
   /**
+   * Ensure the Glyphor AI Teams app is installed for a user so we get a conversationUpdate
+   * with a usable conversation reference. Uses Microsoft Graph API.
+   */
+  private async ensureTeamsAppInstalled(userAadObjectId: string): Promise<void> {
+    const teamsAppExternalId = process.env.TEAMS_APP_ID ?? '0d2c6770-cd9e-4f78-a78d-46725494e391';
+    try {
+      const graphToken = await this.getGraphToken();
+
+      // Look up the internal Teams app ID from the catalog
+      const catalogRes = await fetch(
+        `https://graph.microsoft.com/v1.0/appCatalogs/teamsApps?$filter=externalId eq '${encodeURIComponent(teamsAppExternalId)}'`,
+        { headers: { Authorization: `Bearer ${graphToken}` } },
+      );
+      if (!catalogRes.ok) {
+        console.warn(`[TeamsBot] Graph catalog lookup failed (${catalogRes.status})`);
+        return;
+      }
+      const catalogData = (await catalogRes.json()) as { value: Array<{ id: string }> };
+      const internalAppId = catalogData.value?.[0]?.id;
+      if (!internalAppId) {
+        console.warn(`[TeamsBot] Teams app not found in catalog (externalId=${teamsAppExternalId})`);
+        return;
+      }
+
+      // Check if already installed
+      const checkRes = await fetch(
+        `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(userAadObjectId)}/teamwork/installedApps?$expand=teamsApp&$filter=teamsApp/id eq '${encodeURIComponent(internalAppId)}'`,
+        { headers: { Authorization: `Bearer ${graphToken}` } },
+      );
+      if (checkRes.ok) {
+        const checkData = (await checkRes.json()) as { value: unknown[] };
+        if (checkData.value?.length > 0) {
+          // Already installed — conversationUpdate may have been missed; give it a moment
+          await new Promise((r) => setTimeout(r, 1000));
+          return;
+        }
+      }
+
+      // Install the app for the user
+      const installRes = await fetch(
+        `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(userAadObjectId)}/teamwork/installedApps`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${graphToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            'teamsApp@odata.bind': `https://graph.microsoft.com/v1.0/appCatalogs/teamsApps/${encodeURIComponent(internalAppId)}`,
+          }),
+        },
+      );
+      if (!installRes.ok) {
+        const errText = await installRes.text();
+        console.warn(`[TeamsBot] Graph app install failed (${installRes.status}): ${errText}`);
+        return;
+      }
+      console.log(`[TeamsBot] Installed Teams app for user ${userAadObjectId}, waiting for conversationUpdate…`);
+
+      // Wait for the conversationUpdate webhook to fire and store the reference
+      await new Promise((r) => setTimeout(r, 3000));
+    } catch (err) {
+      console.warn(`[TeamsBot] ensureTeamsAppInstalled error:`, (err as Error).message);
+    }
+  }
+
+  /**
+   * Acquire a Microsoft Graph token using the bot's own Entra credentials.
+   */
+  private async getGraphToken(): Promise<string> {
+    const now = Date.now();
+    if (this._graphTokenCache && this._graphTokenCache.expiresAt > now + 60_000) {
+      return this._graphTokenCache.token;
+    }
+
+    const body = new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: this.config.appId,
+      client_secret: this.config.appSecret,
+      scope: 'https://graph.microsoft.com/.default',
+    });
+
+    const res = await fetch(
+      `https://login.microsoftonline.com/${encodeURIComponent(this.config.tenantId)}/oauth2/v2.0/token`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+      },
+    );
+
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      throw new Error(`Failed to get Graph token: ${res.status} ${errBody}`);
+    }
+
+    const data = (await res.json()) as { access_token: string; expires_in: number };
+    this._graphTokenCache = { token: data.access_token, expiresAt: now + data.expires_in * 1000 };
+    return data.access_token;
+  }
+
+  /**
    * Send a proactive 1:1 DM to a user via Bot Framework REST API.
    *
    * Creates a personal conversation with the user and sends a message.
@@ -680,8 +781,13 @@ export class TeamsBotHandler {
     const token = await this.getBotToken();
 
     // Check for a stored conversation reference (from a previous interaction).
-    // This is required for multi-tenant bots where user IDs are pairwise-encrypted.
-    const ref = getConversationRef(userAadObjectId);
+    let ref = getConversationRef(userAadObjectId);
+    if (!ref) {
+      // Try proactive app installation via Graph API to trigger conversationUpdate
+      await this.ensureTeamsAppInstalled(userAadObjectId);
+      ref = getConversationRef(userAadObjectId);
+    }
+
     if (ref) {
       const url = `${ref.serviceUrl}v3/conversations/${encodeURIComponent(ref.conversationId)}/activities`;
       const res = await fetch(url, {
@@ -738,7 +844,12 @@ export class TeamsBotHandler {
     const token = await this.getBotToken();
 
     // Check for a stored conversation reference first
-    const ref = getConversationRef(userAadObjectId);
+    let ref = getConversationRef(userAadObjectId);
+    if (!ref) {
+      await this.ensureTeamsAppInstalled(userAadObjectId);
+      ref = getConversationRef(userAadObjectId);
+    }
+
     if (ref) {
       const url = `${ref.serviceUrl}v3/conversations/${encodeURIComponent(ref.conversationId)}/activities`;
       const res = await fetch(url, {
@@ -941,6 +1052,32 @@ export class TeamsBotHandler {
    */
   async handleActivity(activity: TeamsActivity): Promise<void> {
     if (activity.type === 'conversationUpdate') {
+      // Store conversation reference for any added members.
+      // This fires when the Teams app is installed for a user.
+      const membersAdded = (activity as unknown as Record<string, unknown>).membersAdded as
+        Array<{ id: string; aadObjectId?: string }> | undefined;
+      if (membersAdded) {
+        for (const member of membersAdded) {
+          if (member.aadObjectId && member.id !== activity.recipient?.id) {
+            setConversationRef(member.aadObjectId, {
+              serviceUrl: activity.serviceUrl,
+              conversationId: activity.conversation.id,
+              userId: member.id,
+              botId: activity.recipient?.id ?? '',
+            });
+            console.log(`[TeamsBot] Stored ref from conversationUpdate for ${member.aadObjectId}`);
+          }
+        }
+      }
+      // Also capture from the activity sender if available
+      if (activity.from?.aadObjectId && activity.conversation?.id) {
+        setConversationRef(activity.from.aadObjectId, {
+          serviceUrl: activity.serviceUrl,
+          conversationId: activity.conversation.id,
+          userId: activity.from.id,
+          botId: activity.recipient?.id ?? '',
+        });
+      }
       console.log('[TeamsBot] Conversation update');
       return;
     }

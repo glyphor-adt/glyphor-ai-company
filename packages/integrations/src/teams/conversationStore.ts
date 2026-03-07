@@ -4,10 +4,11 @@
  * Stores conversation references from incoming Bot Framework activities so
  * proactive messages can reuse the correct user IDs and service URLs.
  *
- * Multi-tenant bots encrypt user IDs as "pairwise IDs," which means we can't
- * construct user IDs from AAD Object IDs alone. Instead, we capture the actual
- * user ID (from.id) from incoming activities and reuse it for proactive DMs.
+ * References are persisted in PostgreSQL (conversation_references table) so
+ * they survive Cloud Run restarts. The in-memory Map acts as a fast cache.
  */
+
+import { systemQuery } from '@glyphor/shared';
 
 export interface ConversationReference {
   /** Bot Framework service URL from the incoming activity */
@@ -21,19 +22,60 @@ export interface ConversationReference {
 }
 
 /**
- * Module-level singleton store.
- * Maps userAadObjectId → ConversationReference.
- *
- * This allows both TeamsBotHandler and BotDmSender to share conversation
- * references without tight coupling.
+ * In-memory cache. Populated from DB on startup.
  */
 const store = new Map<string, ConversationReference>();
+let loaded = false;
+
+/**
+ * Load all conversation references from the database into the in-memory cache.
+ * Called once at startup.
+ */
+export async function loadConversationRefs(): Promise<number> {
+  try {
+    const rows = await systemQuery<{
+      user_aad_id: string;
+      service_url: string;
+      conversation_id: string;
+      user_id: string;
+      bot_id: string;
+    }>('SELECT user_aad_id, service_url, conversation_id, user_id, bot_id FROM conversation_references');
+    for (const row of rows) {
+      store.set(row.user_aad_id, {
+        serviceUrl: row.service_url,
+        conversationId: row.conversation_id,
+        userId: row.user_id,
+        botId: row.bot_id,
+      });
+    }
+    loaded = true;
+    return rows.length;
+  } catch {
+    // Table may not exist yet — will be created by migration
+    loaded = true;
+    return 0;
+  }
+}
 
 export function setConversationRef(
   userAadObjectId: string,
   ref: ConversationReference,
 ): void {
   store.set(userAadObjectId, ref);
+  // Persist to DB asynchronously (fire-and-forget)
+  systemQuery(
+    `INSERT INTO conversation_references (user_aad_id, service_url, conversation_id, user_id, bot_id, updated_at)
+     VALUES ($1, $2, $3, $4, $5, now())
+     ON CONFLICT (user_aad_id) DO UPDATE SET
+       service_url = EXCLUDED.service_url,
+       conversation_id = EXCLUDED.conversation_id,
+       user_id = EXCLUDED.user_id,
+       bot_id = EXCLUDED.bot_id,
+       updated_at = now()`,
+    [userAadObjectId, ref.serviceUrl, ref.conversationId, ref.userId, ref.botId],
+  ).catch((err: unknown) => {
+    console.warn('[ConvStore] DB persist failed:', (err as Error).message);
+  });
 }
 
 export function getConversationRef(
@@ -44,4 +86,8 @@ export function getConversationRef(
 
 export function getAllConversationRefs(): ReadonlyMap<string, ConversationReference> {
   return store;
+}
+
+export function isLoaded(): boolean {
+  return loaded;
 }

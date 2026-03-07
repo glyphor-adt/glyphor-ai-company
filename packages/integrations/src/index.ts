@@ -38,6 +38,7 @@ export { BotDmSender } from './teams/botDmSender.js';
 export {
   setConversationRef,
   getConversationRef,
+  loadConversationRefs,
   type ConversationReference,
 } from './teams/conversationStore.js';
 
