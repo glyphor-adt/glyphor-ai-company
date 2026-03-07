@@ -673,7 +673,10 @@ export function createOrchestrationTools(
         // Uses dynamic import to avoid circular dependency (scheduler → agents).
         let verification: { verdict: string; suggestions: string[] } | null = null;
         try {
-          const scheduler = await import('@glyphor/scheduler');
+          // Dynamic import to avoid circular dep (scheduler → agents).
+          // Use variable to prevent tsc from resolving the module at compile time.
+          const modName = '@glyphor/scheduler';
+          const scheduler = await (Function('m', 'return import(m)')(modName)) as any;
           const [directive] = await systemQuery(
             'SELECT id, title, description, priority, target_agents FROM founder_directives WHERE id = $1',
             [directiveId],

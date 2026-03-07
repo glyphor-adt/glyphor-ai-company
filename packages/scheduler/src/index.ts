@@ -46,3 +46,15 @@ export {
   evaluateBatch,
   type BatchEvalResult,
 } from './batchOutcomeEvaluator.js';
+export {
+  collectProposals,
+  type CollectionReport,
+} from './policyProposalCollector.js';
+export {
+  evaluateDraftPolicies,
+  type EvalReport,
+} from './policyReplayEvaluator.js';
+export {
+  manageCanaries,
+  type CanaryReport,
+} from './policyCanaryManager.js';
