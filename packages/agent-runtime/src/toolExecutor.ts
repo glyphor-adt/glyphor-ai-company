@@ -589,6 +589,11 @@ export class ToolExecutor {
         trackToolFailure(context.agentRole, toolName, finalResult.error ?? 'unknown error');
       }
 
+      // Tool reputation tracking (fire-and-forget)
+      const execLatency = Date.now() - execStart;
+      recordToolCall(toolName, toolSource, finalResult.success, false, execLatency)
+        .catch(err => console.warn('[ToolReputation] tracking failed:', err));
+
       return finalResult;
     } catch (error) {
       const failResult: ToolResult = {
