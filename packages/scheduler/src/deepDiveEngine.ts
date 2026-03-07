@@ -18,6 +18,7 @@
 
 import { systemQuery } from '@glyphor/shared/db';
 import type { ModelClient } from '@glyphor/agent-runtime';
+import { WorkflowOrchestrator } from '@glyphor/agent-runtime';
 import { searchWeb, searchNews, batchSearch, searchResultsToContext } from '@glyphor/integrations';
 import type { FrameworkId, WatchlistItem } from './frameworkTypes.js';
 import { FRAMEWORK_CONFIGS, buildFrameworkPrompt, buildConvergencePrompt } from './strategyLabEngine.js';
@@ -498,6 +499,37 @@ export class DeepDiveEngine {
 
   async cancel(id: string): Promise<void> {
     await systemQuery('UPDATE deep_dives SET status=$1, error=$2 WHERE id=$3', ['failed', 'Cancelled by user.', id]);
+  }
+
+  /**
+   * Launch a deep dive via workflow orchestration for deep/complex analyses.
+   * Used when research areas > 3, indicating a long-running multi-phase operation.
+   * Returns a workflow_id instead of running phases inline.
+   */
+  async launchWorkflow(req: DeepDiveRequest): Promise<{ workflow_id: string; status: string }> {
+    const researchAreas = buildResearchAreas(req.target);
+
+    try {
+      const workflowOrchestrator = new WorkflowOrchestrator();
+      const selectAnalyst = (area: ResearchArea): string => area.perspective || 'vp-research';
+
+      const workflowId = await workflowOrchestrator.startWorkflow({
+        type: 'deep_dive',
+        initiator_role: 'chief-of-staff',
+        initial_context: { target: req.target, context: req.context, requestedBy: req.requestedBy, researchAreas: researchAreas.map(a => a.label) },
+        steps: [
+          { step_type: 'agent_run', step_config: { agent_role: 'vp-research', task: 'scope', message: `Scope deep dive: ${req.target}`, timeout_ms: 300000 } },
+          { step_type: 'parallel_agents', step_config: { agents: researchAreas.map(area => ({ role: selectAnalyst(area), task: 'research', message: `Research: ${area.label}` })), max_concurrent: 5 } },
+          { step_type: 'agent_run', step_config: { agent_role: 'vp-research', task: 'synthesize', message: 'Synthesize research findings', timeout_ms: 300000 } },
+          { step_type: 'evaluate', step_config: { criteria: 'evidence_coverage, actionability, confidence' } },
+        ],
+      });
+
+      return { workflow_id: workflowId, status: 'workflow_started' };
+    } catch (err) {
+      console.error(`[DeepDiveEngine] Workflow launch failed:`, (err as Error).message);
+      throw err;
+    }
   }
 
   /* ── Phase Runner ───────────────────────── */

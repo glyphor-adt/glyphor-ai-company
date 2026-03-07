@@ -15,7 +15,7 @@
 import { systemQuery } from '@glyphor/shared/db';
 import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
 import { EXECUTIVE_ROLES, SUB_TEAM_ROLES, getRedisCache, CACHE_KEYS, CACHE_TTL } from '@glyphor/agent-runtime';
-import { executeWorkLoop } from '@glyphor/agent-runtime';
+import { executeWorkLoop, WorkflowOrchestrator } from '@glyphor/agent-runtime';
 import type { WakeRouter } from './wakeRouter.js';
 import { buildWaves, dispatchWaves } from './parallelDispatch.js';
 import type { WaveAgent } from './parallelDispatch.js';
@@ -210,6 +210,17 @@ export class HeartbeatManager {
 
     // ── Phase 3: DISPATCH — parallel wave execution ──
     const dispatchResult = await dispatchWaves(waves, this.executor);
+
+    // ── Phase 4: CHECK WAITING WORKFLOWS ──
+    try {
+      const workflowOrchestrator = new WorkflowOrchestrator();
+      const resumed = await workflowOrchestrator.checkWaitingWorkflows();
+      if (resumed > 0) {
+        console.log(`[Heartbeat] Resumed ${resumed} waiting workflow(s)`);
+      }
+    } catch (err) {
+      console.warn('[Heartbeat] Workflow check failed:', (err as Error).message);
+    }
 
     const wokenAgents = dispatchResult.dispatched.map(role => {
       const agent = wakeList.find(a => a.role === role);

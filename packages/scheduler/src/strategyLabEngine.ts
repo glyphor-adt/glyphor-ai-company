@@ -17,6 +17,7 @@
 import { systemQuery } from '@glyphor/shared/db';
 import type { ModelClient } from '@glyphor/agent-runtime';
 import type { AgentExecutionResult, CompanyAgentRole } from '@glyphor/agent-runtime';
+import { WorkflowOrchestrator } from '@glyphor/agent-runtime';
 import type { FrameworkId, FrameworkResult, FrameworkConvergence, WatchlistItem } from './frameworkTypes.js';
 
 /* ── Types ──────────────────────────────────── */
@@ -862,6 +863,42 @@ export class StrategyLabEngine {
       'UPDATE strategy_analyses SET status=$1, error=$2 WHERE id=$3',
       ['failed', 'Cancelled by user.', id],
     );
+  }
+
+  /**
+   * Launch a strategy analysis via workflow orchestration for deep/comprehensive analyses.
+   * Used when depth is 'deep' or 'comprehensive' with multiple waves.
+   * Returns a workflow_id instead of running the pipeline inline.
+   */
+  async launchWorkflow(req: StrategyAnalysisRequest): Promise<{ workflow_id: string; status: string }> {
+    const depth = req.depth || 'standard';
+    const analysisType = req.analysisType || 'competitive_landscape';
+
+    try {
+      const workflowOrchestrator = new WorkflowOrchestrator();
+
+      const depthCfg = getDepthConfig(depth);
+      const analystRoles = Object.keys(RESEARCH_ANALYST_ROLES).slice(0, depthCfg.maxAnalysts);
+
+      const workflowId = await workflowOrchestrator.startWorkflow({
+        type: 'strategy_lab',
+        initiator_role: 'chief-of-staff',
+        initial_context: { query: req.query, depth, analysisType, requestedBy: req.requestedBy },
+        steps: [
+          { step_type: 'agent_run', step_config: { agent_role: 'chief-of-staff', task: 'frame', message: `Frame strategy analysis: ${req.query}`, timeout_ms: 120000 } },
+          { step_type: 'agent_run', step_config: { agent_role: 'vp-research', task: 'decompose', message: `Decompose research for: ${req.query}`, timeout_ms: 180000 } },
+          { step_type: 'parallel_agents', step_config: { agents: analystRoles.map(role => ({ role, task: 'research', message: `Research for strategy analysis: ${req.query}` })), max_concurrent: depthCfg.maxAnalysts } },
+          { step_type: 'agent_run', step_config: { agent_role: 'vp-research', task: 'quality_check', message: 'Quality check research results', timeout_ms: 180000 } },
+          { step_type: 'agent_run', step_config: { agent_role: 'chief-of-staff', task: 'synthesize', message: 'Synthesize strategy analysis', timeout_ms: 300000 } },
+          { step_type: 'evaluate', step_config: { criteria: 'strategic_coherence, evidence_quality, actionability' } },
+        ],
+      });
+
+      return { workflow_id: workflowId, status: 'workflow_started' };
+    } catch (err) {
+      console.error(`[StrategyLab] Workflow launch failed:`, (err as Error).message);
+      throw err;
+    }
   }
 
   /* ── Pipeline Runner ────────────────────── */

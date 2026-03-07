@@ -9,8 +9,8 @@
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { GlyphorEventBus, ModelClient, promptCache, getRedisCache } from '@glyphor/agent-runtime';
-import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment } from '@glyphor/agent-runtime';
+import { GlyphorEventBus, ModelClient, promptCache, getRedisCache, WorkflowOrchestrator } from '@glyphor/agent-runtime';
+import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment, WorkflowStatus } from '@glyphor/agent-runtime';
 import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, TeamsBotHandler, extractBearerToken, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
 import { systemQuery } from '@glyphor/shared/db';
@@ -2108,6 +2108,108 @@ const server = createServer(async (req, res) => {
         // Invalidate directive/context caches
         getRedisCache().invalidatePattern('jit:directives:*').catch(() => {});
         json(res, 200, { success: true });
+      } catch (error) {
+        json(res, 500, { error: (error as Error).message });
+      }
+      return;
+    }
+
+    // ── Workflow Orchestrator endpoints ──────────────────────────────
+
+    // List workflows (filterable by status, type)
+    if (method === 'GET' && url === '/workflows') {
+      try {
+        const status = params.get('status') as WorkflowStatus | null;
+        const type = params.get('type');
+        let query = 'SELECT id, type, status, initiator_role, directive_id, current_step_index, created_at, completed_at FROM workflows';
+        const conditions: string[] = [];
+        const values: unknown[] = [];
+        if (status) { conditions.push(`status=$${conditions.length + 1}`); values.push(status); }
+        if (type) { conditions.push(`type=$${conditions.length + 1}`); values.push(type); }
+        if (conditions.length) query += ' WHERE ' + conditions.join(' AND ');
+        query += ' ORDER BY created_at DESC LIMIT 50';
+        const rows = await systemQuery(query, values);
+        json(res, 200, rows);
+      } catch (error) {
+        json(res, 500, { error: (error as Error).message });
+      }
+      return;
+    }
+
+    // Get workflow state + steps
+    const workflowGetMatch = url.match(/^\/workflows\/([^/?]+)$/);
+    if (method === 'GET' && workflowGetMatch) {
+      const wfId = decodeURIComponent(workflowGetMatch[1]);
+      try {
+        const wo = new WorkflowOrchestrator();
+        const state = await wo.getWorkflowState(wfId);
+        json(res, 200, state);
+      } catch (error) {
+        const msg = (error as Error).message;
+        if (msg.includes('not found')) { json(res, 404, { error: msg }); }
+        else { json(res, 500, { error: msg }); }
+      }
+      return;
+    }
+
+    // Cancel a running workflow
+    const workflowCancelMatch = url.match(/^\/workflows\/([^/?]+)\/cancel$/);
+    if (method === 'POST' && workflowCancelMatch) {
+      const wfId = decodeURIComponent(workflowCancelMatch[1]);
+      try {
+        const body = JSON.parse(await readBody(req).catch(() => '{}'));
+        const wo = new WorkflowOrchestrator();
+        await wo.cancelWorkflow(wfId, body.reason ?? 'Cancelled via API');
+        json(res, 200, { success: true });
+      } catch (error) {
+        json(res, 500, { error: (error as Error).message });
+      }
+      return;
+    }
+
+    // Retry a failed workflow from last failed step
+    const workflowRetryMatch = url.match(/^\/workflows\/([^/?]+)\/retry$/);
+    if (method === 'POST' && workflowRetryMatch) {
+      const wfId = decodeURIComponent(workflowRetryMatch[1]);
+      try {
+        const wo = new WorkflowOrchestrator();
+        const state = await wo.getWorkflowState(wfId);
+        if (state.status !== 'failed') {
+          json(res, 400, { error: `Workflow is ${state.status}, not failed` });
+          return;
+        }
+        const failedStep = state.steps.find(s => s.status === 'failed');
+        if (!failedStep) {
+          json(res, 400, { error: 'No failed step found to retry' });
+          return;
+        }
+        // Reset workflow to running and retry from the failed step
+        await systemQuery(
+          `UPDATE workflows SET status = 'running', completed_at = NULL WHERE id = $1`,
+          [wfId],
+        );
+        await systemQuery(
+          `UPDATE workflow_steps SET status = 'pending', error = NULL, completed_at = NULL WHERE workflow_id = $1 AND step_index = $2`,
+          [wfId, failedStep.index],
+        );
+        // Re-advance from the step before the failed one
+        if (failedStep.index > 0) {
+          const prevStep = state.steps[failedStep.index - 1];
+          await wo.advanceWorkflow(wfId, failedStep.index - 1, { output: prevStep.output ?? {} });
+        } else {
+          // Failed on step 0 — dispatch step 0 again via a fresh start-like reset
+          const [stepRow] = await systemQuery<{ step_type: string; step_config: Record<string, unknown> }>(
+            `SELECT step_type, step_config FROM workflow_steps WHERE workflow_id = $1 AND step_index = 0`,
+            [wfId],
+          );
+          if (stepRow) {
+            await systemQuery(
+              `UPDATE workflow_steps SET status = 'running', started_at = NOW() WHERE workflow_id = $1 AND step_index = 0`,
+              [wfId],
+            );
+          }
+        }
+        json(res, 200, { success: true, retrying_step: failedStep.index });
       } catch (error) {
         json(res, 500, { error: (error as Error).message });
       }
