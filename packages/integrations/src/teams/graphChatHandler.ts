@@ -251,23 +251,29 @@ export class GraphChatHandler {
       responseText = `Sorry, I'm having trouble right now: ${errMessage}`;
     }
 
-    // Reply via Bot Framework proactive DM (main Glyphor Bot, which is installed)
-    // Individual agent bots aren't published as Teams apps, so we use the main bot
-    // and label the message with the agent's name.
-    if (this.teamsBot && senderId) {
-      try {
-        const formatted = formatTeamsMessage(displayName, responseText);
-
-        if (formatted.kind === 'card' && formatted.card) {
-          await this.teamsBot.sendProactiveCardToUser(senderId, formatted.card as unknown as Record<string, unknown>);
-        } else {
-          await this.teamsBot.sendProactiveToUser(senderId, formatted.text!);
+    // Reply in the SAME 1:1 chat thread via Graph API.
+    // This keeps the conversation in the chat the user started with the agent's
+    // Entra account, rather than sending a separate bot DM.
+    // Re-fetch token since agent execution may have taken minutes.
+    const replyToken = await this.graphClient.getAccessToken();
+    try {
+      const prefixed = `**${displayName}:** ${responseText}`;
+      await this.replyInChat(replyToken, chatId, prefixed);
+    } catch (graphErr) {
+      console.warn(`[GraphChat] Graph reply failed, falling back to bot: ${(graphErr as Error).message}`);
+      // Fallback: send via Bot Framework proactive DM
+      if (this.teamsBot && senderId) {
+        try {
+          const formatted = formatTeamsMessage(displayName, responseText);
+          if (formatted.kind === 'card' && formatted.card) {
+            await this.teamsBot.sendProactiveCardToUser(senderId, formatted.card as unknown as Record<string, unknown>);
+          } else {
+            await this.teamsBot.sendProactiveToUser(senderId, formatted.text!);
+          }
+        } catch (botErr) {
+          console.error(`[GraphChat] Bot fallback also failed: ${(botErr as Error).message}`);
         }
-      } catch (botErr) {
-        console.error(`[GraphChat] Bot proactive reply failed: ${(botErr as Error).message}`);
       }
-    } else {
-      console.warn(`[GraphChat] Cannot reply — no bot handler or missing sender ID`);
     }
   }
 

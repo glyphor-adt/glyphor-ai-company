@@ -64,6 +64,7 @@ const KNOWN_TOOLS = new Set([
   'create_decision',
   'check_escalations',
   'send_dm',
+  'send_teams_dm',
   'send_email',
   'read_inbox',
   'reply_to_email',

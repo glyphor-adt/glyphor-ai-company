@@ -1,15 +1,10 @@
 /**
  * Teams Direct Messages — 1:1 chat via Microsoft Graph API
  *
- * Sends DMs to specific users (founders) as the Glyphor app.
+ * Sends DMs to any user (by email or founder key) as the Glyphor app.
  * Uses the same MSAL client credentials flow as channel messages.
  *
- * Required Entra ID permission (Application): Chat.ReadWrite
- *
- * Governance:
- *   GREEN — Sarah (chief-of-staff) and Atlas (ops) only
- *   YELLOW — other executives (requires founder approval)
- *   BLOCKED — sub-team agents (escalate through manager)
+ * Required Entra ID permission (Application): Chat.ReadWrite.All
  */
 
 import type { GraphTeamsClient } from './graphClient.js';
@@ -56,6 +51,7 @@ export function buildFounderDirectory(): Record<string, FounderContact> {
 
 export class TeamsDirectMessageClient {
   private readonly chatCache = new Map<string, string>(); // userId → chatId
+  private readonly emailCache = new Map<string, string>(); // email → userId
 
   constructor(
     private readonly graphClient: GraphTeamsClient,
@@ -63,11 +59,11 @@ export class TeamsDirectMessageClient {
   ) {}
 
   /**
-   * Create from environment. Returns null if Graph API or founder IDs aren't configured.
+   * Create from environment. Returns null if Graph API isn't configured.
+   * Note: founder IDs are optional — the client can still DM by email.
    */
   static fromEnv(graphClient: GraphTeamsClient): TeamsDirectMessageClient | null {
     const dir = buildFounderDirectory();
-    if (Object.keys(dir).length === 0) return null;
     return new TeamsDirectMessageClient(graphClient, dir);
   }
 
@@ -122,6 +118,55 @@ export class TeamsDirectMessageClient {
     };
 
     await this.postRaw(chatId, body);
+  }
+
+  /**
+   * Send a DM to any user by email address.
+   * Resolves the email to an Entra Object ID, then creates/finds the chat.
+   */
+  async sendToEmail(
+    email: string,
+    message: string,
+    agentName?: string,
+  ): Promise<void> {
+    // Check founder directory first (avoids Graph lookup)
+    for (const contact of Object.values(this.founderDir)) {
+      if (contact.email.toLowerCase() === email.toLowerCase()) {
+        const chatId = await this.getOrCreateChat(contact.userId);
+        const content = agentName ? `**${agentName}:** ${message}` : message;
+        await this.postMessage(chatId, { contentType: 'text', content });
+        return;
+      }
+    }
+
+    const userId = await this.resolveUserIdByEmail(email);
+    const chatId = await this.getOrCreateChat(userId);
+    const content = agentName ? `**${agentName}:** ${message}` : message;
+    await this.postMessage(chatId, { contentType: 'text', content });
+  }
+
+  /**
+   * Resolve an email address to an Entra Object ID via Graph API.
+   */
+  private async resolveUserIdByEmail(email: string): Promise<string> {
+    const key = email.toLowerCase();
+    const cached = this.emailCache.get(key);
+    if (cached) return cached;
+
+    const token = await (this.graphClient as unknown as { getToken(): Promise<string> }).getToken();
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(email)}?$select=id`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Failed to resolve user "${email}" (${res.status}): ${text}`);
+    }
+
+    const data = (await res.json()) as { id: string };
+    this.emailCache.set(key, data.id);
+    return data.id;
   }
 
   /**
