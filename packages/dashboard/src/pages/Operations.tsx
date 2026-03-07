@@ -500,7 +500,7 @@ function useConsolidationActivity(days = 30) {
   return { data, loading };
 }
 
-type Tab = 'overview' | 'history';
+type Tab = 'overview' | 'history' | 'delegation';
 
 export default function Operations() {
   const [tab, setTab] = useState<Tab>('overview');
@@ -515,11 +515,12 @@ export default function Operations() {
         tabs={[
           { key: 'overview' as Tab, label: 'Overview' },
           { key: 'history' as Tab, label: 'Run History' },
+          { key: 'delegation' as Tab, label: 'Delegation' },
         ]}
         active={tab}
         onChange={setTab}
       />
-      {tab === 'history' ? <Activity /> : <OperationsOverview />}
+      {tab === 'history' ? <Activity /> : tab === 'delegation' ? <DelegationOverview /> : <OperationsOverview />}
     </div>
   );
 }
@@ -1495,6 +1496,332 @@ function EmptyChart({ message }: { message: string }) {
   return (
     <div className="flex h-64 items-center justify-center">
       <p className="text-sm text-txt-faint">{message}</p>
+    </div>
+  );
+}
+
+// ─── Delegation Monitoring ──────────────────────────────────────
+
+interface DelegationPerfRow {
+  created_by: string;
+  orchestrator_type: string;
+  orchestrator_role: string;
+  total_assignments: number;
+  completed: number;
+  revised: number;
+  blocked: number;
+  avg_quality: number | null;
+  avg_turns: number | null;
+  avg_elapsed_ms: number | null;
+  avg_cost: number | null;
+  revision_rate: number | null;
+  first_time_accept_rate: number | null;
+  failure_rate: number | null;
+}
+
+interface ExecOrchConfig {
+  id: string;
+  executive_role: string;
+  can_decompose: boolean;
+  can_evaluate: boolean;
+  can_create_sub_directives: boolean;
+  is_canary: boolean;
+  canary_directive_count: number;
+  max_assignments_per_directive: number;
+  requires_plan_verification: boolean;
+  allowed_assignees: string[];
+}
+
+interface DelegationActivityRow {
+  id: string;
+  title: string;
+  delegated_to: string;
+  delegation_type: string | null;
+  status: string;
+  priority: string;
+  created_at: string;
+}
+
+function useDelegationPerformance() {
+  const [data, setData] = useState<DelegationPerfRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const refresh = useCallback(async () => {
+    try {
+      const rows = await apiCall<DelegationPerfRow[]>('/api/delegation-performance');
+      setData(rows ?? []);
+    } catch {
+      setData([]);
+    }
+    setLoading(false);
+  }, []);
+  useEffect(() => {
+    refresh();
+    const id = setInterval(refresh, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, [refresh]);
+  return { data, loading, refresh };
+}
+
+function useExecOrchConfig() {
+  const [data, setData] = useState<ExecOrchConfig[]>([]);
+  const [loading, setLoading] = useState(true);
+  const refresh = useCallback(async () => {
+    try {
+      const rows = await apiCall<ExecOrchConfig[]>('/api/executive-orchestration-config');
+      setData(rows ?? []);
+    } catch {
+      setData([]);
+    }
+    setLoading(false);
+  }, []);
+  useEffect(() => {
+    refresh();
+    const id = setInterval(refresh, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, [refresh]);
+  return { data, loading };
+}
+
+function useDelegationActivity(limit = 20) {
+  const [data, setData] = useState<DelegationActivityRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const refresh = useCallback(async () => {
+    try {
+      const rows = await apiCall<DelegationActivityRow[]>(
+        `/api/founder-directives?fields=id,title,delegated_to,delegation_type,status,priority,created_at&order=created_at.desc&limit=${limit}`,
+      );
+      setData((rows ?? []).filter(r => r.delegated_to));
+    } catch {
+      setData([]);
+    }
+    setLoading(false);
+  }, [limit]);
+  useEffect(() => {
+    refresh();
+    const id = setInterval(refresh, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, [refresh]);
+  return { data, loading };
+}
+
+function DelegationOverview() {
+  const { data: perfData, loading: perfLoading, refresh: refreshPerf } = useDelegationPerformance();
+  const { data: orchConfigs, loading: configLoading } = useExecOrchConfig();
+  const { data: activity, loading: activityLoading } = useDelegationActivity();
+
+  const sarahRow = perfData.find(r => r.orchestrator_type === 'sarah');
+  const execRows = perfData.filter(r => r.orchestrator_type === 'executive');
+  const execAgg: DelegationPerfRow | null = execRows.length > 0 ? {
+    created_by: 'executives',
+    orchestrator_type: 'executive',
+    orchestrator_role: 'executives',
+    total_assignments: execRows.reduce((s, r) => s + r.total_assignments, 0),
+    completed: execRows.reduce((s, r) => s + r.completed, 0),
+    revised: execRows.reduce((s, r) => s + r.revised, 0),
+    blocked: execRows.reduce((s, r) => s + r.blocked, 0),
+    avg_quality: execRows.filter(r => r.avg_quality != null).length > 0
+      ? execRows.reduce((s, r) => s + (r.avg_quality ?? 0), 0) / execRows.filter(r => r.avg_quality != null).length
+      : null,
+    avg_turns: execRows.filter(r => r.avg_turns != null).length > 0
+      ? execRows.reduce((s, r) => s + (r.avg_turns ?? 0), 0) / execRows.filter(r => r.avg_turns != null).length
+      : null,
+    avg_elapsed_ms: null,
+    avg_cost: execRows.filter(r => r.avg_cost != null).length > 0
+      ? execRows.reduce((s, r) => s + (r.avg_cost ?? 0), 0) / execRows.filter(r => r.avg_cost != null).length
+      : null,
+    revision_rate: execRows.filter(r => r.revision_rate != null).length > 0
+      ? execRows.reduce((s, r) => s + (r.revision_rate ?? 0), 0) / execRows.filter(r => r.revision_rate != null).length
+      : null,
+    first_time_accept_rate: execRows.filter(r => r.first_time_accept_rate != null).length > 0
+      ? execRows.reduce((s, r) => s + (r.first_time_accept_rate ?? 0), 0) / execRows.filter(r => r.first_time_accept_rate != null).length
+      : null,
+    failure_rate: execRows.filter(r => r.failure_rate != null).length > 0
+      ? execRows.reduce((s, r) => s + (r.failure_rate ?? 0), 0) / execRows.filter(r => r.failure_rate != null).length
+      : null,
+  } : null;
+
+  const fmtPct = (v: number | null | undefined) => v != null ? `${(v * 100).toFixed(1)}%` : '—';
+  const fmtScore = (v: number | null | undefined) => v != null ? v.toFixed(1) : '—';
+  const fmtCost = (v: number | null | undefined) => v != null ? `$${v.toFixed(3)}` : '—';
+
+  function comparisonColor(sarahVal: number | null | undefined, execVal: number | null | undefined, higherIsBetter: boolean) {
+    if (sarahVal == null || execVal == null) return '';
+    if (higherIsBetter) return execVal > sarahVal ? 'text-tier-green' : execVal < sarahVal ? 'text-prism-critical' : '';
+    return execVal < sarahVal ? 'text-tier-green' : execVal > sarahVal ? 'text-prism-critical' : '';
+  }
+
+  const PRIORITY_DOT: Record<string, string> = {
+    critical: 'bg-prism-critical',
+    high: 'bg-prism-high',
+    medium: 'bg-prism-fill-3',
+    low: 'bg-prism-moderate',
+  };
+
+  return (
+    <div className="space-y-8">
+      {/* Refresh */}
+      <div className="flex items-center justify-end gap-3">
+        <span className="text-xs text-txt-faint">30-day rolling window</span>
+        <button
+          onClick={refreshPerf}
+          disabled={perfLoading}
+          className="rounded-md border border-border bg-raised px-3 py-1.5 text-xs font-medium text-txt-secondary hover:bg-surface disabled:opacity-50"
+        >
+          {perfLoading ? 'Refreshing…' : 'Refresh now'}
+        </button>
+      </div>
+
+      {/* Canary Comparison Card */}
+      <Card>
+        <SectionHeader title="Canary Comparison — Sarah vs Executive Orchestration" />
+        {perfLoading ? (
+          <Skeleton className="h-48" />
+        ) : !sarahRow && !execAgg ? (
+          <p className="py-8 text-center text-sm text-txt-faint">No delegation performance data yet</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-[11px] uppercase tracking-wider text-txt-muted">
+                  <th className="pb-2 text-left font-medium">Metric</th>
+                  <th className="pb-2 text-right font-medium">Sarah</th>
+                  <th className="pb-2 text-right font-medium">Executive</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                <tr>
+                  <td className="py-2 text-txt-secondary">First-time accept rate</td>
+                  <td className="py-2 text-right font-mono text-txt-primary">{fmtPct(sarahRow?.first_time_accept_rate)}</td>
+                  <td className={`py-2 text-right font-mono ${comparisonColor(sarahRow?.first_time_accept_rate, execAgg?.first_time_accept_rate, true)}`}>
+                    {fmtPct(execAgg?.first_time_accept_rate)}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2 text-txt-secondary">Revision rate</td>
+                  <td className="py-2 text-right font-mono text-txt-primary">{fmtPct(sarahRow?.revision_rate)}</td>
+                  <td className={`py-2 text-right font-mono ${comparisonColor(sarahRow?.revision_rate, execAgg?.revision_rate, false)}`}>
+                    {fmtPct(execAgg?.revision_rate)}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2 text-txt-secondary">Failure rate</td>
+                  <td className="py-2 text-right font-mono text-txt-primary">{fmtPct(sarahRow?.failure_rate)}</td>
+                  <td className={`py-2 text-right font-mono ${comparisonColor(sarahRow?.failure_rate, execAgg?.failure_rate, false)}`}>
+                    {fmtPct(execAgg?.failure_rate)}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2 text-txt-secondary">Avg quality score</td>
+                  <td className="py-2 text-right font-mono text-txt-primary">{fmtScore(sarahRow?.avg_quality)}</td>
+                  <td className={`py-2 text-right font-mono ${comparisonColor(sarahRow?.avg_quality, execAgg?.avg_quality, true)}`}>
+                    {fmtScore(execAgg?.avg_quality)}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2 text-txt-secondary">Avg cost per assignment</td>
+                  <td className="py-2 text-right font-mono text-txt-primary">{fmtCost(sarahRow?.avg_cost)}</td>
+                  <td className={`py-2 text-right font-mono ${comparisonColor(sarahRow?.avg_cost, execAgg?.avg_cost, false)}`}>
+                    {fmtCost(execAgg?.avg_cost)}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2 text-txt-secondary">Total assignments</td>
+                  <td className="py-2 text-right font-mono text-txt-primary">{sarahRow?.total_assignments ?? '—'}</td>
+                  <td className="py-2 text-right font-mono text-txt-primary">{execAgg?.total_assignments ?? '—'}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {/* Executive Orchestration Config */}
+      <Card>
+        <SectionHeader title="Executive Orchestration Config" />
+        {configLoading ? (
+          <Skeleton className="h-32" />
+        ) : orchConfigs.length === 0 ? (
+          <p className="py-8 text-center text-sm text-txt-faint">No executive orchestration configs found</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-[11px] uppercase tracking-wider text-txt-muted">
+                  <th className="pb-2 text-left font-medium">Executive</th>
+                  <th className="pb-2 text-center font-medium">Decompose</th>
+                  <th className="pb-2 text-center font-medium">Evaluate</th>
+                  <th className="pb-2 text-center font-medium">Sub-directives</th>
+                  <th className="pb-2 text-center font-medium">Canary</th>
+                  <th className="pb-2 text-right font-medium">Directives</th>
+                  <th className="pb-2 text-left font-medium">Assignees</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {orchConfigs.map(cfg => (
+                  <tr key={cfg.id}>
+                    <td className="py-2 font-medium text-txt-primary">
+                      {DISPLAY_NAME_MAP[cfg.executive_role] ?? cfg.executive_role}
+                    </td>
+                    <td className="py-2 text-center">
+                      {cfg.can_decompose ? <span className="text-tier-green">✓</span> : <span className="text-txt-faint">—</span>}
+                    </td>
+                    <td className="py-2 text-center">
+                      {cfg.can_evaluate ? <span className="text-tier-green">✓</span> : <span className="text-txt-faint">—</span>}
+                    </td>
+                    <td className="py-2 text-center">
+                      {cfg.can_create_sub_directives ? <span className="text-tier-green">✓</span> : <span className="text-txt-faint">—</span>}
+                    </td>
+                    <td className="py-2 text-center">
+                      {cfg.is_canary ? (
+                        <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+                          canary
+                        </span>
+                      ) : <span className="text-txt-faint">—</span>}
+                    </td>
+                    <td className="py-2 text-right font-mono text-txt-secondary">{cfg.canary_directive_count}</td>
+                    <td className="py-2 text-[11px] text-txt-muted">
+                      {cfg.allowed_assignees.map(r => DISPLAY_NAME_MAP[r] ?? r).join(', ')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {/* Delegation Activity Feed */}
+      <Card>
+        <SectionHeader title="Recent Delegation Activity" />
+        {activityLoading ? (
+          <Skeleton className="h-48" />
+        ) : activity.length === 0 ? (
+          <p className="py-8 text-center text-sm text-txt-faint">No delegated directives found</p>
+        ) : (
+          <div className="space-y-2">
+            {activity.map(d => (
+              <div key={d.id} className="flex items-center gap-3 rounded-lg border border-border bg-raised px-3 py-2.5">
+                <span className={`h-2 w-2 rounded-full ${PRIORITY_DOT[d.priority] ?? 'bg-prism-moderate'}`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-txt-primary truncate">{d.title}</p>
+                  <p className="text-[11px] text-txt-muted">
+                    Delegated to <span className="text-purple-400 font-medium">{DISPLAY_NAME_MAP[d.delegated_to] ?? d.delegated_to}</span>
+                    {d.delegation_type && <span className="ml-2 text-txt-faint">· {d.delegation_type}</span>}
+                  </p>
+                </div>
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                  d.status === 'completed' ? 'bg-prism-fill-2/15 text-prism-teal border border-prism-fill-2/30' :
+                  d.status === 'active' ? 'bg-cyan/15 text-cyan border border-cyan/30' :
+                  'bg-neutral-500/15 text-neutral-400 border border-neutral-500/30'
+                }`}>
+                  {d.status}
+                </span>
+                <span className="text-[11px] text-txt-faint whitespace-nowrap">{timeAgo(d.created_at)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

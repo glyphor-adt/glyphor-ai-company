@@ -89,6 +89,8 @@ const TABLE_MAP: Record<string, string> = {
   'workflows': 'workflows',
   'workflow_steps': 'workflow_steps',
   'workflow-steps': 'workflow_steps',
+  'delegation_performance': 'delegation_performance',
+  'delegation-performance': 'delegation_performance',
 };
 
 // ─── Helpers ────────────────────────────────────────────────────

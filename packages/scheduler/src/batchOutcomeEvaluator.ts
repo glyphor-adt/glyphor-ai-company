@@ -93,6 +93,13 @@ export async function evaluateBatch(): Promise<BatchEvalResult> {
 
     console.log('[BatchOutcomeEvaluator] Complete:', JSON.stringify(result));
 
+    // Refresh delegation performance materialized view
+    try {
+      await systemQuery('SELECT refresh_delegation_metrics()');
+    } catch (err) {
+      console.warn('[BatchOutcomeEvaluator] Failed to refresh delegation metrics:', (err as Error).message);
+    }
+
     // Track downstream defects in tool_reputation for revised outcomes
     try {
       const revisedOutcomes = outcomes.filter(o => o.was_revised === true);

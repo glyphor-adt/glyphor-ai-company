@@ -80,6 +80,8 @@ interface Directive {
   proposed_by: string | null;
   proposal_reason: string | null;
   source_directive_id: string | null;
+  delegated_to: string | null;
+  delegation_type: string | null;
   approved_by: string | null;
   approved_at: string | null;
   created_at: string;
@@ -499,6 +501,21 @@ function DirectiveCard({
                 completed
               </span>
             )}
+            {d.delegated_to && (
+              <span className="rounded-full border border-purple-500/30 bg-purple-500/15 px-1.5 py-0.5 text-[10px] font-medium text-purple-400">
+                Delegated to {DISPLAY_NAME_MAP[d.delegated_to] ?? d.delegated_to}
+              </span>
+            )}
+            {!d.delegated_to && d.delegation_type === 'cross-domain' && (
+              <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+                Cross-domain
+              </span>
+            )}
+            {!d.delegated_to && !d.delegation_type && d.status === 'active' && (
+              <span className="rounded-full border border-sky-500/30 bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-medium text-sky-400">
+                Self-orchestrated
+              </span>
+            )}
           </div>
 
           {/* Assignment summary */}
@@ -557,6 +574,9 @@ function DirectiveCard({
                   {d.target_agents.map(r => DISPLAY_NAME_MAP[r] ?? r).join(', ')}
                 </span>
               </span>
+            )}
+            {d.delegated_to && (
+              <span>Delegated to: <span className="text-purple-400 font-medium">{DISPLAY_NAME_MAP[d.delegated_to] ?? d.delegated_to}</span></span>
             )}
           </div>
 
