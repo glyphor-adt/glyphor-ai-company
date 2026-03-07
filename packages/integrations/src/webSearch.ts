@@ -71,12 +71,12 @@ const SEARCH_MODEL = WEB_SEARCH_MODEL;
 
 /**
  * Build the Responses API URL and auth headers.
- * Uses Azure OpenAI when AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY are set,
+ * Uses Azure Foundry when AZURE_FOUNDRY_ENDPOINT + AZURE_FOUNDRY_API are set,
  * otherwise falls back to direct OpenAI with OPENAI_API_KEY.
  */
 function getResponsesEndpoint(): { url: string; headers: Record<string, string> } | null {
-  const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
-  const azureApiKey = process.env.AZURE_OPENAI_API_KEY;
+  const azureEndpoint = process.env.AZURE_FOUNDRY_ENDPOINT;
+  const azureApiKey = process.env.AZURE_FOUNDRY_API;
   if (azureEndpoint && azureApiKey) {
     return {
       url: `${azureEndpoint}/openai/responses?api-version=2025-04-01-preview`,

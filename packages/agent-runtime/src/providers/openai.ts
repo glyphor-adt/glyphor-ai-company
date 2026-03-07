@@ -64,6 +64,8 @@ export class OpenAIAdapter implements ProviderAdapter {
   private azureApiVersion?: string;
   /** Direct OpenAI API key — kept for fallback on features not available on Azure. */
   private directApiKey?: string;
+  /** Direct OpenAI client — created lazily for fallback when Azure deployment doesn't exist. */
+  private directClient?: OpenAI;
 
   constructor(config: OpenAIAdapterConfig | string) {
     // Backwards-compatible: plain string = direct OpenAI API key

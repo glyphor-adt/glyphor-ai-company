@@ -20,12 +20,12 @@ import { AnthropicAdapter } from './anthropic.js';
 export interface ProviderFactoryConfig {
   geminiApiKey?: string;
   openaiApiKey?: string;
-  /** Azure OpenAI endpoint, e.g. https://my-resource.openai.azure.com */
-  azureOpenaiEndpoint?: string;
-  /** Azure OpenAI API key. When set with azureOpenaiEndpoint, routes OpenAI calls through Azure. */
-  azureOpenaiApiKey?: string;
-  /** Azure OpenAI API version (default: 2025-04-01-preview) */
-  azureOpenaiApiVersion?: string;
+  /** Azure Foundry endpoint, e.g. https://my-resource.openai.azure.com */
+  azureFoundryEndpoint?: string;
+  /** Azure Foundry API key. When set with azureFoundryEndpoint, routes OpenAI calls through Azure. */
+  azureFoundryApi?: string;
+  /** Azure Foundry API version (default: 2025-04-01-preview) */
+  azureFoundryApiVersion?: string;
   /** GCP project ID for Vertex AI (Claude via Vertex). Falls back to GCP_PROJECT_ID env var. */
   vertexProjectId?: string;
   /** GCP region for Vertex AI Claude. Defaults to us-east5. */
@@ -57,17 +57,17 @@ export class ProviderFactory {
       }
       case 'openai': {
         // Auto-detect Azure OpenAI from config or environment
-        const azureEndpoint = this.config.azureOpenaiEndpoint ?? process.env.AZURE_OPENAI_ENDPOINT;
-        const azureApiKey = this.config.azureOpenaiApiKey ?? process.env.AZURE_OPENAI_API_KEY;
+        const azureEndpoint = this.config.azureFoundryEndpoint ?? process.env.AZURE_FOUNDRY_ENDPOINT;
+        const azureApiKey = this.config.azureFoundryApi ?? process.env.AZURE_FOUNDRY_API;
         const hasAzure = !!(azureEndpoint && azureApiKey);
         if (!hasAzure && !this.config.openaiApiKey) {
-          throw new Error('OpenAI not configured — set AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY for Azure, or OPENAI_API_KEY for direct');
+          throw new Error('OpenAI not configured — set AZURE_FOUNDRY_ENDPOINT + AZURE_FOUNDRY_API for Azure, or OPENAI_API_KEY for direct');
         }
         return new OpenAIAdapter({
           apiKey: this.config.openaiApiKey,
           azureEndpoint,
           azureApiKey,
-          azureApiVersion: this.config.azureOpenaiApiVersion,
+          azureApiVersion: this.config.azureFoundryApiVersion,
         });
       }
       case 'anthropic': {

@@ -1,0 +1,283 @@
+[
+  {
+    "etag": "\"f4dcfb75-af85-4d4e-9f6e-9d9d37064999\"",
+    "id": "/subscriptions/95240402-c2d6-48c6-ba0d-3891ad806375/resourceGroups/glyphor-openai/providers/Microsoft.CognitiveServices/accounts/glyphor-openai/deployments/gpt-4.1",
+    "name": "gpt-4.1",
+    "properties": {
+      "callRateLimit": null,
+      "capabilities": {
+        "_H_azureml-throttling-key": "oai-aadd6d53d57c45d0b2cd19e8cd12a112",
+        "agentsV2": "true",
+        "area": "US",
+        "assistants": "true",
+        "chatCompletion": "true",
+        "responses": "true"
+      },
+      "capacitySettings": null,
+      "currentCapacity": 50,
+      "dynamicThrottlingEnabled": null,
+      "model": {
+        "callRateLimit": null,
+        "format": "OpenAI",
+        "name": "gpt-4.1",
+        "publisher": null,
+        "source": null,
+        "sourceAccount": null,
+        "version": "2025-04-14"
+      },
+      "parentDeploymentName": null,
+      "provisioningState": "Succeeded",
+      "raiPolicyName": "Microsoft.DefaultV2",
+      "rateLimits": [
+        {
+          "count": 50.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "request",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        },
+        {
+          "count": 50000.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "token",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        }
+      ],
+      "scaleSettings": null,
+      "spilloverDeploymentName": null,
+      "versionUpgradeOption": "OnceNewDefaultVersionAvailable"
+    },
+    "resourceGroup": "glyphor-openai",
+    "sku": {
+      "capacity": 50,
+      "family": null,
+      "name": "Standard",
+      "size": null,
+      "tier": null
+    },
+    "systemData": {
+      "createdAt": "2026-03-07T21:49:22.564099+00:00",
+      "createdBy": "kristina@glyphor.ai",
+      "createdByType": "User",
+      "lastModifiedAt": "2026-03-07T21:49:22.564099+00:00",
+      "lastModifiedBy": "kristina@glyphor.ai",
+      "lastModifiedByType": "User"
+    },
+    "tags": null,
+    "type": "Microsoft.CognitiveServices/accounts/deployments"
+  },
+  {
+    "etag": "\"b49719af-d6b8-4c05-9962-665d3a27c6c0\"",
+    "id": "/subscriptions/95240402-c2d6-48c6-ba0d-3891ad806375/resourceGroups/glyphor-openai/providers/Microsoft.CognitiveServices/accounts/glyphor-openai/deployments/gpt-4.1-mini",
+    "name": "gpt-4.1-mini",
+    "properties": {
+      "callRateLimit": null,
+      "capabilities": {
+        "_H_azureml-throttling-key": "oai-b5ae306493ed4c168195061289374402",
+        "agentsV2": "true",
+        "area": "US",
+        "assistants": "true",
+        "chatCompletion": "true",
+        "responses": "true"
+      },
+      "capacitySettings": null,
+      "currentCapacity": 200,
+      "dynamicThrottlingEnabled": null,
+      "model": {
+        "callRateLimit": null,
+        "format": "OpenAI",
+        "name": "gpt-4.1-mini",
+        "publisher": null,
+        "source": null,
+        "sourceAccount": null,
+        "version": "2025-04-14"
+      },
+      "parentDeploymentName": null,
+      "provisioningState": "Succeeded",
+      "raiPolicyName": "Microsoft.DefaultV2",
+      "rateLimits": [
+        {
+          "count": 200.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "request",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        },
+        {
+          "count": 200000.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "token",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        }
+      ],
+      "scaleSettings": null,
+      "spilloverDeploymentName": null,
+      "versionUpgradeOption": "OnceNewDefaultVersionAvailable"
+    },
+    "resourceGroup": "glyphor-openai",
+    "sku": {
+      "capacity": 200,
+      "family": null,
+      "name": "Standard",
+      "size": null,
+      "tier": null
+    },
+    "systemData": {
+      "createdAt": "2026-03-07T21:49:30.482551+00:00",
+      "createdBy": "kristina@glyphor.ai",
+      "createdByType": "User",
+      "lastModifiedAt": "2026-03-07T21:49:30.482551+00:00",
+      "lastModifiedBy": "kristina@glyphor.ai",
+      "lastModifiedByType": "User"
+    },
+    "tags": null,
+    "type": "Microsoft.CognitiveServices/accounts/deployments"
+  },
+  {
+    "etag": "\"9ada3f1b-b25d-4b41-987b-c4715a30e835\"",
+    "id": "/subscriptions/95240402-c2d6-48c6-ba0d-3891ad806375/resourceGroups/glyphor-openai/providers/Microsoft.CognitiveServices/accounts/glyphor-openai/deployments/o4-mini",
+    "name": "o4-mini",
+    "properties": {
+      "callRateLimit": null,
+      "capabilities": {
+        "_H_azureml-throttling-key": "oai-de58b2db805141feb21381e60e800ee6",
+        "agentsV2": "true",
+        "area": "US",
+        "assistants": "false",
+        "chatCompletion": "true",
+        "responses": "true"
+      },
+      "capacitySettings": null,
+      "currentCapacity": 200,
+      "dynamicThrottlingEnabled": null,
+      "model": {
+        "callRateLimit": null,
+        "format": "OpenAI",
+        "name": "o4-mini",
+        "publisher": null,
+        "source": null,
+        "sourceAccount": null,
+        "version": "2025-04-16"
+      },
+      "parentDeploymentName": null,
+      "provisioningState": "Succeeded",
+      "raiPolicyName": "Microsoft.DefaultV2",
+      "rateLimits": [
+        {
+          "count": 200.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "request",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        },
+        {
+          "count": 200000.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "token",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        }
+      ],
+      "scaleSettings": null,
+      "spilloverDeploymentName": null,
+      "versionUpgradeOption": "OnceNewDefaultVersionAvailable"
+    },
+    "resourceGroup": "glyphor-openai",
+    "sku": {
+      "capacity": 200,
+      "family": null,
+      "name": "Standard",
+      "size": null,
+      "tier": null
+    },
+    "systemData": {
+      "createdAt": "2026-03-07T21:49:40.963798+00:00",
+      "createdBy": "kristina@glyphor.ai",
+      "createdByType": "User",
+      "lastModifiedAt": "2026-03-07T21:49:40.963798+00:00",
+      "lastModifiedBy": "kristina@glyphor.ai",
+      "lastModifiedByType": "User"
+    },
+    "tags": null,
+    "type": "Microsoft.CognitiveServices/accounts/deployments"
+  },
+  {
+    "etag": "\"12ed0308-d024-42f7-9749-221e741824d3\"",
+    "id": "/subscriptions/95240402-c2d6-48c6-ba0d-3891ad806375/resourceGroups/glyphor-openai/providers/Microsoft.CognitiveServices/accounts/glyphor-openai/deployments/gpt-4o-transcribe",
+    "name": "gpt-4o-transcribe",
+    "properties": {
+      "callRateLimit": null,
+      "capabilities": {
+        "audio": "true",
+        "audioTranscriptions": "true",
+        "chatCompletion": "false",
+        "completion": "false",
+        "maxContextToken": "128000",
+        "maxOutputToken": "16384",
+        "realtime": "true"
+      },
+      "capacitySettings": null,
+      "currentCapacity": 100,
+      "dynamicThrottlingEnabled": null,
+      "model": {
+        "callRateLimit": null,
+        "format": "OpenAI",
+        "name": "gpt-4o-transcribe",
+        "publisher": null,
+        "source": null,
+        "sourceAccount": null,
+        "version": "2025-03-20"
+      },
+      "parentDeploymentName": null,
+      "provisioningState": "Succeeded",
+      "raiPolicyName": "Microsoft.DefaultV2",
+      "rateLimits": [
+        {
+          "count": 10000.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "request",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        },
+        {
+          "count": 100000.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "token",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        }
+      ],
+      "scaleSettings": null,
+      "spilloverDeploymentName": null,
+      "versionUpgradeOption": "OnceNewDefaultVersionAvailable"
+    },
+    "resourceGroup": "glyphor-openai",
+    "sku": {
+      "capacity": 100,
+      "family": null,
+      "name": "GlobalStandard",
+      "size": null,
+      "tier": null
+    },
+    "systemData": {
+      "createdAt": "2026-03-07T21:49:48.421148+00:00",
+      "createdBy": "kristina@glyphor.ai",
+      "createdByType": "User",
+      "lastModifiedAt": "2026-03-07T21:49:48.421148+00:00",
+      "lastModifiedBy": "kristina@glyphor.ai",
+      "lastModifiedByType": "User"
+    },
+    "tags": null,
+    "type": "Microsoft.CognitiveServices/accounts/deployments"
+  }
+]
