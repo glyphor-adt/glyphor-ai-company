@@ -1011,7 +1011,7 @@ const server = createServer(async (req, res) => {
         await systemQuery(
           `INSERT INTO agent_briefs (agent_id, system_prompt, skills, tools, updated_at) VALUES ($1,$2,$3,$4,$5)
            ON CONFLICT (agent_id) DO UPDATE SET system_prompt=EXCLUDED.system_prompt, skills=EXCLUDED.skills, tools=EXCLUDED.tools, updated_at=EXCLUDED.updated_at`,
-          [agentId, system_prompt ?? '', JSON.stringify(skills ?? []), JSON.stringify(agentTools ?? []), new Date().toISOString()],
+          [agentId, system_prompt ?? '', skills ?? [], agentTools ?? [], new Date().toISOString()],
         );
       } catch (briefErr) {
         console.error(`[server] Failed to store brief for ${agentId}:`, (briefErr as Error).message);
@@ -1022,7 +1022,7 @@ const server = createServer(async (req, res) => {
         await systemQuery(
           `INSERT INTO agent_profiles (agent_id, personality_summary, backstory, communication_traits, quirks, tone_formality, emoji_usage, verbosity, working_style, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
            ON CONFLICT (agent_id) DO UPDATE SET personality_summary=EXCLUDED.personality_summary, backstory=EXCLUDED.backstory, communication_traits=EXCLUDED.communication_traits, quirks=EXCLUDED.quirks, tone_formality=EXCLUDED.tone_formality, emoji_usage=EXCLUDED.emoji_usage, verbosity=EXCLUDED.verbosity, working_style=EXCLUDED.working_style, updated_at=EXCLUDED.updated_at`,
-          [agentId, `${name} is a focused ${title || 'specialist'} in ${department || 'the company'} who prioritizes clear recommendations, practical execution steps, and concise communication.`, `Provisioned as a ${title || 'specialist'} to support ${department || 'the team'} with targeted expertise on high-priority initiatives.`, JSON.stringify(['clear', 'structured', 'action-oriented']), JSON.stringify(['summarizes key decisions before details']), 0.6, 0.1, 0.45, 'outcome-driven', new Date().toISOString()],
+          [agentId, `${name} is a focused ${title || 'specialist'} in ${department || 'the company'} who prioritizes clear recommendations, practical execution steps, and concise communication.`, `Provisioned as a ${title || 'specialist'} to support ${department || 'the team'} with targeted expertise on high-priority initiatives.`, ['clear', 'structured', 'action-oriented'], ['summarizes key decisions before details'], 0.6, 0.1, 0.45, 'outcome-driven', new Date().toISOString()],
         );
       } catch (profileErr) {
         console.error(`[server] Failed to store profile for ${agentId}:`, (profileErr as Error).message);

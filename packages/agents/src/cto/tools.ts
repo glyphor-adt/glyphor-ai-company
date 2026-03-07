@@ -1012,7 +1012,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
           const data = await systemQuery(
-            'SELECT * FROM agent_runs WHERE agent_role=$1 ORDER BY created_at DESC LIMIT $2',
+            'SELECT * FROM agent_runs WHERE agent_id=$1 ORDER BY created_at DESC LIMIT $2',
             [params.agent_role as string, (params.limit as number) || 10],
           );
 

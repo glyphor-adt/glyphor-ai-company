@@ -366,7 +366,7 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
             params.severity as string,
             params.title as string,
             params.description as string,
-            JSON.stringify((params.affected_agents as string[]) ?? []),
+            (params.affected_agents as string[]) ?? [],
             'open',
             'atlas',
             new Date().toISOString(),

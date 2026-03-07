@@ -63,7 +63,7 @@ export async function createTemporaryAgent(
       `INSERT INTO agent_briefs (agent_id, system_prompt, skills, tools, updated_at)
        VALUES ($1,$2,$3,$4,$5)
        ON CONFLICT (agent_id) DO UPDATE SET system_prompt=EXCLUDED.system_prompt, skills=EXCLUDED.skills, tools=EXCLUDED.tools, updated_at=EXCLUDED.updated_at`,
-      [agentId, opts.systemPrompt, JSON.stringify([]), JSON.stringify([]), new Date().toISOString()],
+      [agentId, opts.systemPrompt, [], [], new Date().toISOString()],
     );
   } catch (briefErr) {
     console.error(`[agentLifecycle] Failed to store brief for ${agentId}:`, (briefErr as Error).message);
@@ -78,8 +78,8 @@ export async function createTemporaryAgent(
       [agentId,
        `${opts.name} is a focused specialist in ${opts.department} who prioritizes clear recommendations, practical execution steps, and concise communication.`,
        `Provisioned as a specialist to support ${opts.department} with targeted expertise on high-priority initiatives.`,
-       JSON.stringify(['clear', 'structured', 'action-oriented']),
-       JSON.stringify(['summarizes key decisions before details']),
+       ['clear', 'structured', 'action-oriented'],
+       ['summarizes key decisions before details'],
        0.6, 0.1, 0.45, 'outcome-driven', new Date().toISOString()],
     );
   } catch (profileErr) {

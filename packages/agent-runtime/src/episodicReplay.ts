@@ -277,13 +277,10 @@ If no clear patterns, return [].`,
       // Use defaults
     }
 
-    // Compute embedding for similarity matching
-    const embedding = await this.embeddingClient.embed(principle);
-
     await systemQuery(
-      `INSERT INTO proposed_constitutional_amendments (proposed_by, affected_roles, current_principle_id, proposed_text, rationale, supporting_evidence, embedding)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      ['episodic-replay', JSON.stringify(pattern.agents), null, principle, rationale, JSON.stringify({ pattern: pattern.description, frequency: pattern.frequency, sentiment: pattern.sentiment }), JSON.stringify(embedding)],
+      `INSERT INTO proposed_constitutional_amendments (agent_role, action, principle_text, rationale, source)
+       VALUES ($1, $2, $3, $4, $5)`,
+      ['episodic-replay', 'add', principle, rationale, 'episodic_replay'],
     );
   }
 
