@@ -44,11 +44,14 @@ export class BotDmSender {
       return this.tokenCache.token;
     }
 
+    // SingleTenant bots must use {appId}/.default to avoid pairwise ID encryption.
+    // Multi-tenant scope (https://api.botframework.com/.default) causes the Bot
+    // Framework service to expect pairwise-encrypted user IDs, which fails.
     const body = new URLSearchParams({
       grant_type: 'client_credentials',
       client_id: this.botAppId,
       client_secret: this.botAppSecret,
-      scope: 'https://api.botframework.com/.default',
+      scope: `${this.botAppId}/.default`,
     });
 
     const res = await fetch(
@@ -141,6 +144,7 @@ export class BotDmSender {
       bot: { id: `28:${this.botAppId}`, name: 'Glyphor Bot' },
       members: [{ id: `29:${userAadObjectId}` }],
       tenantId: this.tenantId,
+      channelData: { tenant: { id: this.tenantId } },
       activity: {
         type: 'message',
         text: message,

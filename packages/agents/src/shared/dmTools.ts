@@ -1,14 +1,14 @@
 /**
  * DM Tools — Shared Teams direct message tools for all agents
  *
- * Provides send_teams_dm tool. Primary path uses Agent 365 MCP (mcp_TeamsServer)
- * with delegated permissions to post chat messages. Falls back to Bot Framework
- * proactive messaging if A365 is not configured.
+ * Provides send_teams_dm tool. Primary path uses Bot Framework proactive
+ * messaging (SingleTenant, {appId}/.default scope). Falls back to Agent 365
+ * MCP (mcp_TeamsServer) if Bot Framework not configured.
  *
- * Flow (A365 MCP path):
+ * Flow (Bot Framework path):
  *   1. Resolve recipient email → Entra Object ID (Graph API, app-only)
- *   2. Create/get a 1:1 chat between sender agent + recipient (Graph API, app-only)
- *   3. Post message in that chat via A365 MCP mcp_graph_chat_postMessage (delegated)
+ *   2. Acquire SingleTenant bot token with {appId}/.default scope
+ *   3. Create conversation + send message via Bot Framework REST API
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
@@ -201,7 +201,20 @@ export function createDmTools(): ToolDefinition[] {
         const senderName = agentEntry?.displayName ?? role ?? 'Glyphor Agent';
         const senderEmail = agentEntry?.email;
 
-        // ── Primary path: A365 MCP (delegated permissions) ────────
+        // ── Primary path: Bot Framework proactive messaging ──────
+        // Bot Framework is the correct approach for proactive DMs —
+        // it supports app-level credentials for initiating conversations.
+        if (dmSender) {
+          try {
+            await dmSender.sendToEmail(email, params.message as string, senderName);
+            return { success: true, data: { sent: true, recipient: recipientStr, email, via: 'bot-framework' } };
+          } catch (err) {
+            console.error('[send_teams_dm] Bot Framework path failed, trying A365 MCP:', (err as Error).message);
+          }
+        }
+
+        // ── Fallback: A365 MCP (delegated permissions) ───────────
+        // Works for posting in chats where the agent blueprint has access.
         if (a365Client && graphClient) {
           try {
             const recipientUserId = await resolveUserIdByEmail(graphClient, email);
@@ -215,16 +228,6 @@ export function createDmTools(): ToolDefinition[] {
 
             return { success: true, data: { sent: true, recipient: recipientStr, email, via: 'a365-mcp' } };
           } catch (err) {
-            console.error('[send_teams_dm] A365 MCP path failed, trying fallback:', (err as Error).message);
-          }
-        }
-
-        // ── Fallback: Bot Framework proactive messaging ───────────
-        if (dmSender) {
-          try {
-            await dmSender.sendToEmail(email, params.message as string, senderName);
-            return { success: true, data: { sent: true, recipient: recipientStr, email, via: 'bot-framework' } };
-          } catch (err) {
             return {
               success: false,
               error: `Failed to send DM: ${(err as Error).message}`,
@@ -234,7 +237,7 @@ export function createDmTools(): ToolDefinition[] {
 
         return {
           success: false,
-          error: 'Teams DM sender not configured. Ensure AGENT365_ENABLED=true with A365 credentials, or BOT_APP_ID/BOT_APP_SECRET/BOT_TENANT_ID.',
+          error: 'Teams DM sender not configured. Set BOT_APP_ID/BOT_APP_SECRET/BOT_TENANT_ID for Bot Framework, or AGENT365_ENABLED=true for A365 MCP.',
         };
       },
     },
