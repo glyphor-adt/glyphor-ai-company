@@ -65,7 +65,7 @@ export async function runVPCS(params: VPCSRunParams = {}) {
     ...createSharePointTools(),
     ...createAgentCreationTools(),
     ...createAgentDirectoryTools(),
-    ...await createAgent365McpTools(['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(),
     ...await createGlyphorMcpTools('vp-customer-success'),
   ];
   const toolExecutor = new ToolExecutor(tools);

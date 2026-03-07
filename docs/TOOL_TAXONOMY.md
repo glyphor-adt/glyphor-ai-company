@@ -2116,17 +2116,18 @@ agent's code-based tools. They are NOT in the grant tables.
 
 ### M365 MCP Servers — Per-Agent Connection
 
-All 37 coded agents currently connect to the **same 3 M365 MCP servers**:
+All 37 coded agents connect to the standard set of **6 M365 MCP servers** via `STANDARD_M365_SERVERS`:
 
 | M365 Server | Connected | Tool Capabilities |
 |-------------|-----------|-------------------|
+| `mcp_MailTools` | ✅ All agents | Send/search/schedule Outlook email |
 | `mcp_CalendarTools` | ✅ All agents | Create/read/update calendar events, free/busy lookup, scheduling |
+| `mcp_ODSPRemoteServer` | ✅ All agents | OneDrive/SharePoint file management |
 | `mcp_TeamsServer` | ✅ All agents | Send messages, manage channels, meeting operations |
 | `mcp_M365Copilot` | ✅ All agents | Summarization, reasoning, web search via M365 Copilot |
-| `mcp_MailTools` | ❌ None yet | Send/search/schedule Outlook email (planned for C-Suite + Ops) |
-| `mcp_ODSPRemoteServer` | ❌ None yet | OneDrive/SharePoint file management (planned for Ops) |
+| `mcp_WordServer` | ✅ All agents | Create/read Word documents, comment management |
 
-> Source: `packages/agents/src/*/run.ts` → `createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot'])`
+> Source: `packages/agents/src/shared/agent365Tools.ts` → `STANDARD_M365_SERVERS`
 
 ### Glyphor MCP Servers — Per-Agent Access by Entra Scopes
 

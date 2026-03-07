@@ -47,7 +47,7 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createToolGrantTools('m365-admin'),
     ...createSharePointTools(),
-    ...await createAgent365McpTools(['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(),
     ...await createGlyphorMcpTools('m365-admin'),
   ];
   const toolExecutor = new ToolExecutor(tools);

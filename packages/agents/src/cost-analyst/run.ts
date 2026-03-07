@@ -43,7 +43,7 @@ export async function runCostAnalyst(params: CostAnalystRunParams = {}) {
     ...createSharePointTools(),
     ...createCostManagementTools(),
     ...createCashFlowTools(),
-    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(),
     ...await createGlyphorMcpTools('cost-analyst'),
   ];
   const toolExecutor = new ToolExecutor(tools);

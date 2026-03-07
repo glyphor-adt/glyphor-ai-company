@@ -53,7 +53,7 @@ export async function runTemplateArchitect(params: TemplateArchitectRunParams = 
     ...createStorybookTools(),
     ...createSharePointTools(),
     ...createLogoTools(),
-    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(),
     ...await createGlyphorMcpTools('template-architect'),
   ];
   const toolExecutor = new ToolExecutor(tools);

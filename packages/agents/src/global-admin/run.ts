@@ -49,7 +49,7 @@ export async function runGlobalAdmin(params: GlobalAdminRunParams = {}) {
     ...createSharePointTools(),
     ...createToolGrantTools('global-admin'),
     ...createOpsExtensionTools(),
-    ...await createAgent365McpTools(['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(),
     ...await createGlyphorMcpTools('global-admin'),
   ];
   const toolExecutor = new ToolExecutor(tools);

@@ -2414,7 +2414,7 @@ Agent run.ts → createAgent365McpTools(serverFilter?)
   → Microsoft MCP servers (agent365.svc.cloud.microsoft)
 ```
 
-**MCP Servers (5 active):**
+**MCP Servers (6 active):**
 
 | Server | Scope | Capabilities |
 |--------|-------|-------------|
@@ -2423,6 +2423,7 @@ Agent run.ts → createAgent365McpTools(serverFilter?)
 | `mcp_ODSPRemoteServer` | `McpServers.OneDriveSharepoint.All` | OneDrive/SharePoint file access |
 | `mcp_TeamsServer` | `McpServers.Teams.All` | Teams messaging, channels |
 | `mcp_M365Copilot` | `McpServers.CopilotMCP.All` | M365 Copilot API |
+| `mcp_WordServer` | `McpServers.Word.All` | Word document create/read, comments |
 
 **Agents using Agent 365 tools (~25):**
 - **C-Suite:** chief-of-staff, cto, cfo, cmo, cpo, clo

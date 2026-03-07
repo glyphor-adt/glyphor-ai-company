@@ -49,7 +49,7 @@ export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
     ...createSharePointTools(),
     ...createDiagnosticTools(),
     ...createEngineeringGapTools(),
-    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(),
     ...await createGlyphorMcpTools('devops-engineer'),
   ];
   const toolExecutor = new ToolExecutor(tools);

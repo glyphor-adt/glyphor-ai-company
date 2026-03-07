@@ -72,7 +72,7 @@ export async function runVPResearch(params: VPResearchRunParams = {}) {
     ...createSharePointTools(),
     ...createResearchRepoTools(),
     ...createResearchMonitoringTools(),
-    ...await createAgent365McpTools(['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(),
     ...await createGlyphorMcpTools('vp-research'),
   ];
   const toolExecutor = new ToolExecutor(tools);

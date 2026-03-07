@@ -13,6 +13,8 @@
  *   T16.5  Execute Safety — each tool returns ToolResult (not throws) on empty params
  *   T16.6  Registry Coverage — every tool name exists in KNOWN_TOOLS
  *   T16.7  Grant Coverage — agents have grants for their wired tools
+ *   T16.8  Core Tool Wiring — createCoreTools() returns ALL 15 expected tools
+ *   T16.9  Agent 365 MCP Wiring — STANDARD_M365_SERVERS covers all 6 Microsoft MCP servers + env vars set
  */
 
 import type { SmokeTestConfig, TestResult, LayerResult } from '../types.js';
@@ -20,6 +22,10 @@ import type { ToolDefinition, ToolContext } from '@glyphor/agent-runtime';
 import { isKnownTool } from '@glyphor/agent-runtime';
 import { runTest } from '../utils/test.js';
 import { query } from '../utils/db.js';
+import { createCoreTools, CORE_TOOL_NAMES } from '@glyphor/agents/shared/coreTools';
+import { STANDARD_M365_SERVERS } from '@glyphor/agents/shared/agent365Tools';
+import type { GlyphorEventBus } from '@glyphor/agent-runtime';
+import type { CompanyMemoryStore } from '@glyphor/company-memory';
 
 // ── Pre-existing — Design Team ──────────────────────────────────────
 import { createFigmaTools } from '@glyphor/agents/shared/figmaTools';
@@ -476,6 +482,73 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
 
       const totalChecked = Object.values(AGENT_TOOL_WIRING).reduce((s, t) => s + t.length, 0);
       return `${totalChecked} agent→tool grants verified across ${Object.keys(AGENT_TOOL_WIRING).length} agents`;
+    }),
+  );
+
+  // ── T16.8 — Core Tool Wiring ──────────────────────────────────
+  tests.push(
+    await runTest('T16.8', 'Core Tool Wiring (all 15 tools)', async () => {
+      const mockDeps = {
+        glyphorEventBus: {} as GlyphorEventBus,
+        memory: {} as CompanyMemoryStore,
+        schedulerUrl: 'http://localhost:8080',
+      };
+
+      const coreTools = createCoreTools(mockDeps);
+      const coreToolNames = new Set(coreTools.map(t => t.name));
+      const expected = [...CORE_TOOL_NAMES];
+      const missing = expected.filter(name => !coreToolNames.has(name));
+      const extra = coreTools.filter(t => !CORE_TOOL_NAMES.has(t.name)).map(t => t.name);
+
+      const issues: string[] = [];
+      if (missing.length > 0) {
+        issues.push(`Missing from createCoreTools output: ${missing.join(', ')}`);
+      }
+      if (extra.length > 0) {
+        issues.push(`Unexpected tools in output: ${extra.join(', ')}`);
+      }
+
+      if (issues.length > 0) {
+        throw new Error(
+          `Core tool wiring broken — ${missing.length} missing, ${extra.length} extra:\n  ${issues.join('\n  ')}`,
+        );
+      }
+
+      return `${coreTools.length}/${expected.length} core tools verified: ${expected.join(', ')}`;
+    }),
+  );
+
+  // ── T16.9 — Agent 365 MCP Wiring ─────────────────────────────
+  tests.push(
+    await runTest('T16.9', 'Agent 365 MCP Wiring (6 servers + env vars)', async () => {
+      const EXPECTED_SERVERS = [
+        'mcp_MailTools',
+        'mcp_CalendarTools',
+        'mcp_ODSPRemoteServer',
+        'mcp_TeamsServer',
+        'mcp_M365Copilot',
+        'mcp_WordServer',
+      ];
+
+      // Verify STANDARD_M365_SERVERS has all expected servers
+      const standardSet = new Set<string>(STANDARD_M365_SERVERS);
+      const missingServers = EXPECTED_SERVERS.filter(s => !standardSet.has(s));
+      if (missingServers.length > 0) {
+        throw new Error(`STANDARD_M365_SERVERS missing: ${missingServers.join(', ')}`);
+      }
+
+      // Verify env vars are set (in production)
+      const requiredVars = ['AGENT365_ENABLED', 'AGENT365_CLIENT_ID', 'AGENT365_CLIENT_SECRET', 'AGENT365_TENANT_ID'];
+      const missingVars = requiredVars.filter(v => !process.env[v]);
+      if (missingVars.length > 0) {
+        throw new Error(`Agent 365 env vars missing: ${missingVars.join(', ')}`);
+      }
+
+      if (process.env.AGENT365_ENABLED !== 'true') {
+        throw new Error(`AGENT365_ENABLED is '${process.env.AGENT365_ENABLED}' — must be 'true'`);
+      }
+
+      return `${STANDARD_M365_SERVERS.length} MCP servers configured, ${requiredVars.length} env vars verified`;
     }),
   );
 

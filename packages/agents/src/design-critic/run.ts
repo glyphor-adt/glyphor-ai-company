@@ -51,7 +51,7 @@ export async function runDesignCritic(params: DesignCriticRunParams = {}) {
     ...createFigmaTools(),
     ...createStorybookTools(),
     ...createSharePointTools(),
-    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(),
     ...await createGlyphorMcpTools('design-critic'),
   ];
   const toolExecutor = new ToolExecutor(tools);

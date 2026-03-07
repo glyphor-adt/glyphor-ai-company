@@ -41,7 +41,7 @@ export async function runCompetitiveIntel(params: CompetitiveIntelRunParams = {}
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),
     ...createSharedCompetitiveIntelTools(),
-    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(),
     ...await createGlyphorMcpTools('competitive-intel'),
   ];
   const toolExecutor = new ToolExecutor(tools);

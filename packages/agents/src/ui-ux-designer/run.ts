@@ -51,7 +51,7 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
     ...createFigmaTools(),
     ...createSharePointTools(),
     ...createLogoTools(),
-    ...await createAgent365McpTools(['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(),
     ...await createGlyphorMcpTools('ui-ux-designer'),
   ];
   const toolExecutor = new ToolExecutor(tools);

@@ -83,7 +83,7 @@ export async function runCTO(params: CTORunParams = {}) {
     ...createToolRegistryTools(),
     ...createAgentDirectoryTools(),
     ...createDiagnosticTools(),
-    ...await createAgent365McpTools(['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']),
+    ...await createAgent365McpTools(),
     ...await createGlyphorMcpTools('cto'),
   ];
 
