@@ -16,6 +16,7 @@ import { extractReasoning, REASONING_PROMPT_SUFFIX } from './reasoning.js';
 import { isOfficeDocument, extractDocumentText } from './documentExtractor.js';
 import type { GlyphorEventBus } from './glyphorEventBus.js';
 import type { JitContextRetriever, JitContext } from './jitContextRetriever.js';
+import type { ReasoningEngine, ReasoningResult } from './reasoningEngine.js';
 import type {
   AgentConfig,
   AgentEvent,
@@ -94,22 +95,20 @@ const SCHEDULED_CALL_TIMEOUT_MS = 90_000;
 type ContextTier = 'light' | 'task' | 'standard' | 'full';
 
 // ─── DYNAMIC THINKING CLASSIFIER ──────────────────────────────
-// Heuristic classifier for on_demand (chat) messages. Returns true when
-// the question is complex enough to benefit from extended thinking.
+// Default: thinking ON for on_demand chat. Agents should reason through
+// every request unless it's a trivially simple greeting/ack. The cost
+// of reasoning on a simple message is negligible compared to the
+// cost of giving a shallow answer on a complex one.
 
-const THINKING_TRIGGERS = /\b(analy[sz]e|compar[ei]|evaluat|strateg|prioriti[sz]|trade.?off|pros?.and?.cons|debug|refactor|architect|design|optimi[sz]|root.cause|correlat|recommend|assess|scenario|simulat|forecast|plan|roadmap|review|audit|break.?down|deep.dive|think.through|step.by.step|explain.why|explain.how|what.should|how.would|in.depth|comprehensive|thorough)\b/i;
-const COMPLEX_INDICATORS = /\?.*\?|\band\b.*\band\b|\bvs\.?\b|\bversus\b|\bbetween\b.*\band\b/i;
+const TRIVIAL_PATTERNS = /^(hi|hey|hello|thanks|thank you|ok|okay|sure|yes|no|got it|cool|nice|bye|good morning|good night|gm|gn|\p{Extended_Pictographic}+)\s*[.!?]?$/iu;
 
 function needsThinking(message: string): boolean {
-  // Short messages (< 15 chars) are almost always simple greetings/commands
-  if (message.length < 15) return false;
-  // Check for analytical / complex question patterns
-  if (THINKING_TRIGGERS.test(message)) return true;
-  // Multiple questions or comparison patterns
-  if (COMPLEX_INDICATORS.test(message)) return true;
-  // Long messages with question marks tend to be complex
-  if (message.length > 200 && message.includes('?')) return true;
-  return false;
+  // Very short messages (< 10 chars) are almost always greetings/acks
+  if (message.length < 10) return false;
+  // Known trivial patterns — skip thinking for simple acks/greetings
+  if (TRIVIAL_PATTERNS.test(message.trim())) return false;
+  // Everything else benefits from reasoning
+  return true;
 }
 
 const FULL_CONTEXT_TASKS = new Set([
@@ -1100,6 +1099,8 @@ export interface RunDependencies {
   partialProgressSaver?: (assignmentId: string, partialOutput: string, agentRole: CompanyAgentRole, abortReason: string) => Promise<void>;
   /** JIT context retriever for task-aware semantic retrieval. */
   jitContextRetriever?: JitContextRetriever;
+  /** Factory to create a ReasoningEngine for the current agent. */
+  reasoningEngineFactory?: (agentRole: string) => Promise<ReasoningEngine | null>;
   /** Ensures an agent_world_model row exists for this agent (creates baseline if missing). */
   initializeWorldModel?: (role: CompanyAgentRole) => Promise<void>;
 }
@@ -1235,6 +1236,7 @@ export class CompanyAgentRunner {
     let skillContext: SkillContext | null = null;
     let dbKnowledgeBase: string | null = null;
     let bulletinContext: string | null = null;
+    let jitContext: JitContext | null = null;
 
     {
       const task = extractTask(config.id);
@@ -1465,6 +1467,9 @@ export class CompanyAgentRunner {
       // Set DB-driven knowledge base and bulletins
       dbKnowledgeBase = kbResult;
       bulletinContext = bulletinResult;
+
+      // Capture JIT result for downstream use (verification pipeline)
+      jitContext = jitResult;
 
       // Inject JIT context
       if (jitResult && jitResult.tokenEstimate > 0) {
@@ -1877,6 +1882,43 @@ export class CompanyAgentRunner {
             );
             lastTextOutput += '\n\n⚠️ *Some actions mentioned above may not have completed. Please verify changes on the dashboard.*';
           }
+        }
+      }
+
+      // ─── VERIFICATION PIPELINE (reasoning engine) ──────────────
+      // Post-loop quality gate: if this agent has a reasoning engine config,
+      // run verification passes (self-critique, consistency, factual checks).
+      // Skip for on_demand chat to keep response times fast — only verify
+      // scheduled/significant tasks where accuracy matters more than speed.
+      let reasoningResult: ReasoningResult | null = null;
+      if (deps?.reasoningEngineFactory && lastTextOutput && task !== 'on_demand') {
+        try {
+          const reasoningEngine = await deps.reasoningEngineFactory(config.role);
+          if (reasoningEngine) {
+            const contextForVerification = jitContext
+              ? jitContext.relevantKnowledge.map((k: { content: string }) => k.content).join('\n').slice(0, 2000)
+              : '';
+            reasoningResult = await reasoningEngine.verify(
+              config.role,
+              initialMessage,
+              lastTextOutput,
+              contextForVerification,
+            );
+
+            if (reasoningResult.revised && reasoningResult.revisedOutput) {
+              lastTextOutput = reasoningResult.revisedOutput;
+            }
+
+            console.log(
+              `[CompanyAgentRunner] Reasoning for ${config.role}: ` +
+              `${reasoningResult.passes.length} passes, ` +
+              `confidence=${reasoningResult.overallConfidence.toFixed(2)}, ` +
+              `revised=${reasoningResult.revised}, ` +
+              `cost=$${reasoningResult.totalCostUsd.toFixed(4)}`,
+            );
+          }
+        } catch (err) {
+          console.warn(`[CompanyAgentRunner] Verification failed for ${config.id}:`, (err as Error).message);
         }
       }
 

@@ -493,6 +493,33 @@ export abstract class BaseAgentRunner {
         console.warn(`[${this.archetype}Runner] postRun failed for ${config.id}:`, (err as Error).message);
       }
 
+      // ─── Self-assessment world model update ───────────────────
+      // After every completed run, auto-update the agent's world model
+      // with a basic self-score derived from run outcome. This ensures
+      // world models populate continuously, not just when CoS grades.
+      if (safeDeps.worldModelUpdater && safeDeps.sharedMemoryLoader) {
+        try {
+          const taskType = config.id.replace(/-\d{4}-\d{2}-\d{2}$/, '').split('-').pop() ?? 'general';
+          const turnsUsed = supervisor.stats.turnCount;
+          const hadErrors = supervisor.isAborted;
+          // Self-score: 4.0 baseline for completed runs, penalize for errors/excessive turns
+          let selfScore = hadErrors ? 2.0 : 4.0;
+          if (turnsUsed > 10) selfScore -= 0.5; // penalty for many turns
+          if (turnsUsed <= 3 && !hadErrors) selfScore += 0.5; // bonus for efficiency
+          selfScore = Math.max(1, Math.min(5, selfScore));
+
+          await safeDeps.worldModelUpdater.updateFromGrade({
+            agentRole: config.role,
+            taskType,
+            overallScore: selfScore,
+            dimensionScores: { task_completion: selfScore, efficiency: turnsUsed <= 5 ? 4.5 : 3.0 },
+            evaluatorFeedback: `Self-assessed: ${turnsUsed} turns, status=${hadErrors ? 'aborted' : 'completed'}`,
+          });
+        } catch (err) {
+          console.warn(`[${this.archetype}Runner] Self-assessment world model update failed for ${config.id}:`, (err as Error).message);
+        }
+      }
+
       // ─── Emit completion ──────────────────────────────────────
       if (safeDeps.glyphorEventBus) {
         try {
