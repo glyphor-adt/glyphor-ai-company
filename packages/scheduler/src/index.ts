@@ -62,3 +62,8 @@ export {
   expireTools,
   type ExpirationReport,
 } from './toolExpirationManager.js';
+export {
+  evaluateCanary,
+  type CanaryEvaluation,
+  type MetricSet,
+} from './canaryEvaluator.js';

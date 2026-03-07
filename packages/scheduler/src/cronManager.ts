@@ -454,6 +454,14 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/policy/canary-check',
     enabled: true,
   },
+  // Canary evaluation — weekly executive orchestration rollout check
+  {
+    id: 'canary-evaluation',
+    schedule: '0 8 * * 1',     // Monday 8:00 AM UTC — weekly canary eval
+    timezone: 'UTC',
+    endpoint: '/canary/evaluate',
+    enabled: true,
+  },
   // Memory archival — weekly TTL-based archival of expired raw traces
   {
     id: 'memory-archival',

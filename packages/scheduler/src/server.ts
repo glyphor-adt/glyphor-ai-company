@@ -52,6 +52,7 @@ import { collectProposals } from './policyProposalCollector.js';
 import { evaluateDraftPolicies } from './policyReplayEvaluator.js';
 import { manageCanaries } from './policyCanaryManager.js';
 import { expireTools } from './toolExpirationManager.js';
+import { evaluateCanary } from './canaryEvaluator.js';
 import {
   runChiefOfStaff, runCTO, runCFO, runCLO, runCPO, runCMO, runVPCS, runVPSales, runVPDesign,
   runPlatformEngineer, runQualityEngineer, runDevOpsEngineer,
@@ -931,6 +932,19 @@ const server = createServer(async (req, res) => {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error('[PolicyCanaryManager] Endpoint error:', message);
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // Canary evaluation endpoint — weekly executive orchestration rollout check (Cloud Scheduler: 0 8 * * 1)
+    if (method === 'POST' && url === '/canary/evaluate') {
+      try {
+        const report = await evaluateCanary(glyphorEventBus);
+        json(res, 200, { success: true, ...report });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[CanaryEvaluator] Endpoint error:', message);
         json(res, 500, { success: false, error: message });
       }
       return;
