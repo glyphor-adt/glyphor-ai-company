@@ -322,6 +322,7 @@ export type GlyphorEventType =
   | 'assignment.revised'
   | 'assignment.created'
   | 'escalation.created'
+  | 'directive.delegated'
   | 'learning.proposal_signal';
 
 export type EventPriority = 'critical' | 'high' | 'normal' | 'low';

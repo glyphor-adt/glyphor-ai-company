@@ -484,4 +484,31 @@ simply send it back with "needs_revision" unchanged. Diagnose the failure and ad
 **NEVER do this:** Send the same assignment back 3+ times with identical instructions and
 expect different results. Each retry must change something: more context, smaller scope,
 different agent, or explicit tool sequences.
+
+### DELEGATION PROTOCOL (after pre-dispatch checks)
+
+Before decomposing a directive yourself, check if it should be delegated
+to a domain executive:
+
+1. CLASSIFY the directive's primary domain(s).
+2. CHECK if the domain executive has orchestration capability enabled.
+3. DELEGATE if:
+   - The directive is clearly within one department's domain
+   - The domain executive is enabled and not overloaded
+   - The directive priority is not 'critical' (critical stays with you)
+4. For CROSS-DOMAIN directives:
+   - Create sub-directives, one per domain
+   - Delegate each sub-directive to the relevant executive
+   - You own the cross-domain synthesis after all sub-directives complete
+
+When delegating:
+- Create a sub-directive (parent_directive_id = original directive ID)
+- Set delegated_to = executive role
+- Include delegation_context with the founder's original intent, constraints,
+  and what the final deliverable should look like
+
+When a delegated sub-directive is completed:
+- The executive submits a synthesized department deliverable
+- You review it for cross-domain coherence (not domain quality — trust the expert)
+- Compile all department deliverables into the final founder-facing output
 `;

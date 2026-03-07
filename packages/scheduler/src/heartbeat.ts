@@ -307,6 +307,43 @@ export class HeartbeatManager {
       }
     }
 
+    // Check 1.6: Executive directive detection — wake executives with delegated directives
+    // For each executive with can_decompose=true, check for active delegated directives
+    // that have no work assignments yet (need decomposition).
+    try {
+      const execConfigs = await systemQuery<{executive_role: string}>(
+        'SELECT executive_role FROM executive_orchestration_config WHERE can_decompose = true',
+      );
+
+      for (const cfg of execConfigs) {
+        if (cfg.executive_role !== agentRole) continue;
+
+        const undecomposed = await systemQuery<{id: string; title: string}>(
+          `SELECT fd.id, fd.title FROM founder_directives fd
+           WHERE fd.delegated_to = $1 AND fd.status = 'active'
+             AND NOT EXISTS (SELECT 1 FROM work_assignments wa WHERE wa.directive_id = fd.id)`,
+          [agentRole],
+        );
+
+        if (undecomposed.length > 0) {
+          console.log(
+            `[Heartbeat] Executive ${agentRole}: ${undecomposed.length} delegated directive(s) need decomposition: ` +
+            undecomposed.map(d => `"${d.title}"`).join(', '),
+          );
+          return {
+            shouldWake: true,
+            reason: `delegated_directives:${undecomposed.length}`,
+            context: {
+              task: 'orchestrate',
+              message: `You have ${undecomposed.length} delegated directive(s) from Sarah that need decomposition: ${undecomposed.map(d => `"${d.title}"`).join(', ')}. Decompose into work assignments for your team.`,
+            },
+          };
+        }
+      }
+    } catch (err) {
+      console.warn(`[Heartbeat] Executive directive check failed for ${agentRole}:`, (err as Error).message);
+    }
+
     // Check 2: Universal work loop (P1-P5 priority stack)
     try {
       const workResult = await executeWorkLoop(agentRole);

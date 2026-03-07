@@ -1315,5 +1315,158 @@ export function createOrchestrationTools(
         };
       },
     },
+
+    // ─── DELEGATE DIRECTIVE ───────────────────────────────────
+
+    {
+      name: 'delegate_directive',
+      description: 'Delegate a directive to a domain executive for decomposition. Critical-priority directives cannot be delegated. On failure, falls back to self-orchestration.',
+      parameters: {
+        original_directive_id: {
+          type: 'string',
+          description: 'UUID of the founder directive to delegate',
+          required: true,
+        },
+        delegated_to: {
+          type: 'string',
+          description: 'Executive agent role (e.g., cto, cmo, cpo)',
+          required: true,
+        },
+        delegation_type: {
+          type: 'string',
+          description: 'Delegation scope',
+          required: true,
+          enum: ['full', 'decompose_only'],
+        },
+        scope: {
+          type: 'string',
+          description: 'What the executive is responsible for delivering',
+          required: true,
+        },
+        context: {
+          type: 'string',
+          description: 'Instructions, constraints, and original intent for the executive',
+          required: true,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        try {
+          const originalDirectiveId = params.original_directive_id as string;
+          const delegatedTo = params.delegated_to as string;
+          const delegationType = params.delegation_type as string;
+          const scope = params.scope as string;
+          const delegationContext = params.context as string;
+
+          // 1. Fetch the original directive
+          const [original] = await systemQuery(
+            'SELECT id, title, priority, status FROM founder_directives WHERE id = $1',
+            [originalDirectiveId],
+          ) as any[];
+
+          if (!original) {
+            return { success: false, error: `Directive ${originalDirectiveId} not found` };
+          }
+
+          // Critical directives must NOT be delegated
+          if (original.priority === 'critical') {
+            return {
+              success: false,
+              error: 'Critical-priority directives cannot be delegated — Sarah must orchestrate directly.',
+            };
+          }
+
+          // 2. Verify executive has orchestration capability
+          const [config] = await systemQuery(
+            'SELECT * FROM executive_orchestration_config WHERE executive_role = $1 AND can_decompose = true',
+            [delegatedTo],
+          ) as any[];
+
+          if (!config) {
+            return {
+              success: false,
+              error: `Executive ${delegatedTo} is not enabled for decomposition (no config or can_decompose=false). Fall back to self-orchestration.`,
+            };
+          }
+
+          // 3. Create sub-directive
+          const subTitle = `[${delegatedTo.toUpperCase()}] ${original.title}`;
+          const [subDirective] = await systemQuery(
+            `INSERT INTO founder_directives
+              (title, description, priority, status, parent_directive_id, delegated_to, delegation_type, delegated_at, delegation_context, created_by)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9)
+            RETURNING id`,
+            [subTitle, scope, original.priority, 'active', originalDirectiveId, delegatedTo, delegationType, delegationContext, 'chief-of-staff'],
+          ) as any[];
+
+          const subDirectiveId = subDirective.id;
+
+          // 4. Increment canary_directive_count if canary
+          if (config.is_canary) {
+            await systemQuery(
+              'UPDATE executive_orchestration_config SET canary_directive_count = canary_directive_count + 1, updated_at = NOW() WHERE executive_role = $1',
+              [delegatedTo],
+            );
+          }
+
+          // 5. Send message to executive via agent_messages
+          await systemQuery(
+            'INSERT INTO agent_messages (from_agent, to_agent, message, message_type, priority, status) VALUES ($1, $2, $3, $4, $5, $6)',
+            [
+              'chief-of-staff',
+              delegatedTo,
+              `**Delegated Directive from Sarah (Chief of Staff)**\n\n` +
+              `**Original Directive:** ${original.title}\n` +
+              `**Delegation Type:** ${delegationType}\n` +
+              `**Priority:** ${original.priority}\n\n` +
+              `**Your Scope:**\n${scope}\n\n` +
+              `**Context & Constraints:**\n${delegationContext}\n\n` +
+              `Decompose this into work assignments for your team. ` +
+              (delegationType === 'full'
+                ? 'You own decomposition AND evaluation for this directive.'
+                : 'You own decomposition only — Sarah will evaluate outputs.'),
+              'request',
+              original.priority === 'high' ? 'urgent' : 'normal',
+              'pending',
+            ],
+          );
+
+          // 6. Emit directive.delegated event to wake the executive
+          if (glyphorEventBus) {
+            await glyphorEventBus.emit({
+              type: 'directive.delegated',
+              source: 'chief-of-staff',
+              payload: {
+                sub_directive_id: subDirectiveId,
+                original_directive_id: originalDirectiveId,
+                delegated_to: delegatedTo,
+                delegation_type: delegationType,
+              },
+              priority: 'high',
+            });
+          }
+
+          // 7. Log activity
+          await systemQuery(
+            'INSERT INTO activity_log (agent_role, agent_id, action, detail) VALUES ($1, $2, $3, $4)',
+            [ctx.agentRole, ctx.agentRole, 'directive_delegated', `Delegated "${original.title}" to ${delegatedTo} (sub: ${subDirectiveId}, type: ${delegationType})`],
+          );
+
+          return {
+            success: true,
+            data: {
+              sub_directive_id: subDirectiveId,
+              delegated_to: delegatedTo,
+              delegation_type: delegationType,
+            },
+          };
+        } catch (err) {
+          console.warn('[CoS] Delegation failed, fall back to self-orchestration:', (err as Error).message);
+          return {
+            success: false,
+            error: `Delegation failed: ${(err as Error).message}. Fall back to self-orchestration for this directive.`,
+          };
+        }
+      },
+    },
   ];
 }

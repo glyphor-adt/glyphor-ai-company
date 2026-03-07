@@ -165,4 +165,14 @@ export const WAKE_RULES: WakeRule[] = [
     task: 'orchestrate',
     priority: 'immediate',
     cooldown_min: 5,
-  },];
+  },
+
+  // ── DIRECTIVE DELEGATION ─────────────────────────────────
+  {
+    event: 'directive.delegated',
+    wake: ['$delegated_to'],
+    task: 'orchestrate',
+    priority: 'immediate',
+    cooldown_min: 5,
+  },
+];
