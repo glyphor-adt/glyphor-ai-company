@@ -11,17 +11,18 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { systemQuery } from '@glyphor/shared/db';
 import {
   GraphTeamsClient,
-  TeamsDirectMessageClient,
+  BotDmSender,
 } from '@glyphor/integrations';
 
 export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
-  // Initialize DM client for direct founder alerts
-  let dmClient: TeamsDirectMessageClient | null = null;
+  // Initialize DM sender (Bot Framework proactive messaging —
+  // Graph API app-only tokens cannot post chat messages)
+  let dmClient: BotDmSender | null = null;
   try {
     const graphClient = GraphTeamsClient.fromEnv();
-    dmClient = TeamsDirectMessageClient.fromEnv(graphClient);
+    dmClient = BotDmSender.fromEnv(graphClient);
   } catch {
-    // Graph API not configured — DM tool will return error
+    // Bot Framework not configured — DM tool will return error
   }
 
   return [
@@ -786,7 +787,7 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         }
 
         const recipient = params.recipient as 'kristina' | 'andrew';
-        await dmClient.sendText(recipient, params.message as string, 'Atlas Vega', 'atlas.vega@glyphor.ai');
+        await dmClient.sendText(recipient, params.message as string, 'Atlas Vega');
 
         await systemQuery(
           'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',

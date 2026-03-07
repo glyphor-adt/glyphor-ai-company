@@ -17,7 +17,7 @@ import {
   formatBriefingCard,
   GraphTeamsClient,
   buildChannelMap,
-  TeamsDirectMessageClient,
+  BotDmSender,
   GraphCalendarClient,
   buildFounderDirectory,
   TeamsBotHandler,
@@ -41,13 +41,13 @@ export function createChiefOfStaffTools(
   // channel messaging, so we use the Bot Framework REST API instead.
   const botHandler = TeamsBotHandler.fromEnv(async () => {});
 
-  // Initialize DM and calendar clients (these use Graph API with
-  // different permissions that work correctly)
+  // Initialize DM sender (uses Bot Framework proactive messaging —
+  // Graph API app-only tokens cannot post chat messages)
   // Email is now handled by shared/emailTools.ts (per-agent mailboxes)
-  let dmClient: TeamsDirectMessageClient | null = null;
+  let dmClient: BotDmSender | null = null;
   let calendarClient: GraphCalendarClient | null = null;
   if (graphClient) {
-    dmClient = TeamsDirectMessageClient.fromEnv(graphClient);
+    dmClient = BotDmSender.fromEnv(graphClient);
     calendarClient = GraphCalendarClient.fromEnv(graphClient);
   }
   const founderDir = buildFounderDirectory();
@@ -404,7 +404,7 @@ export function createChiefOfStaffTools(
         }
 
         const recipient = params.recipient as 'kristina' | 'andrew';
-        await dmClient.sendText(recipient, params.message as string, 'Sarah Chen', 'sarah.chen@glyphor.ai');
+        await dmClient.sendText(recipient, params.message as string, 'Sarah Chen');
 
         await memory.appendActivity({
           agentRole: ctx.agentRole,

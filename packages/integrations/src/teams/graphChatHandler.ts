@@ -421,7 +421,7 @@ export class GraphChatHandler {
 
     if (!res.ok) {
       const text = await res.text();
-      console.error(`[GraphChat] Failed to reply in chat: ${res.status} ${text.substring(0, 200)}`);
+      throw new Error(`Graph reply failed (${res.status}): ${text.substring(0, 200)}`);
     }
   }
 

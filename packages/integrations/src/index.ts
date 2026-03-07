@@ -31,6 +31,9 @@ export {
   type FounderContact,
 } from './teams/directMessages.js';
 
+// Bot Framework DM Sender (proactive 1:1 DMs)
+export { BotDmSender } from './teams/botDmSender.js';
+
 // Teams Bot (Bot Framework integration)
 export {
   TeamsBotHandler,

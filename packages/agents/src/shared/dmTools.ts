@@ -1,15 +1,18 @@
 /**
  * DM Tools — Shared Teams direct message tools for all agents
  *
- * Provides send_teams_dm tool. Uses Graph API (Chat.ReadWrite.All)
+ * Provides send_teams_dm tool. Uses Bot Framework proactive messaging
  * to send 1:1 DMs to any user by email address, founder key, or agent role.
+ *
+ * Note: Graph API app-only tokens cannot post chat messages (restricted to
+ * import-only). Bot Framework proactive messaging is the correct approach.
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { AGENT_EMAIL_MAP, type CompanyAgentRole } from '@glyphor/agent-runtime';
 import {
   GraphTeamsClient,
-  TeamsDirectMessageClient,
+  BotDmSender,
 } from '@glyphor/integrations';
 
 /** Founder keys → email addresses */
@@ -49,12 +52,12 @@ function resolveRecipientEmail(recipient: string): string | null {
  * from `ctx.agentRole`, so no constructor-time role is needed.
  */
 export function createDmTools(): ToolDefinition[] {
-  let dmClient: TeamsDirectMessageClient | null = null;
+  let dmSender: BotDmSender | null = null;
   try {
     const graphClient = GraphTeamsClient.fromEnv();
-    dmClient = TeamsDirectMessageClient.fromEnv(graphClient);
+    dmSender = BotDmSender.fromEnv(graphClient);
   } catch {
-    // Graph API not configured — tool will return an error
+    // Bot Framework not configured — tool will return an error
   }
 
   return [
@@ -81,10 +84,10 @@ export function createDmTools(): ToolDefinition[] {
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        if (!dmClient) {
+        if (!dmSender) {
           return {
             success: false,
-            error: 'Teams DM client not configured. Ensure AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID are set.',
+            error: 'Teams DM sender not configured. Ensure BOT_APP_ID, BOT_APP_SECRET, and BOT_TENANT_ID are set.',
           };
         }
 
@@ -97,14 +100,13 @@ export function createDmTools(): ToolDefinition[] {
           };
         }
 
-        // Resolve sender display name and email from ctx.agentRole
+        // Resolve sender display name from ctx.agentRole
         const role = ctx?.agentRole as CompanyAgentRole | undefined;
         const agentEntry = role ? AGENT_EMAIL_MAP[role] : undefined;
         const senderName = agentEntry?.displayName ?? role ?? 'Glyphor Agent';
-        const senderEmail = agentEntry?.email;
 
         try {
-          await dmClient.sendToEmail(email, params.message as string, senderName, senderEmail);
+          await dmSender.sendToEmail(email, params.message as string, senderName);
           return { success: true, data: { sent: true, recipient: recipientStr, email } };
         } catch (err) {
           return {
