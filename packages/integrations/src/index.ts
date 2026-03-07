@@ -34,6 +34,13 @@ export {
 // Bot Framework DM Sender (proactive 1:1 DMs)
 export { BotDmSender } from './teams/botDmSender.js';
 
+// Conversation Reference Store (shared proactive messaging state)
+export {
+  setConversationRef,
+  getConversationRef,
+  type ConversationReference,
+} from './teams/conversationStore.js';
+
 // Teams Bot (Bot Framework integration)
 export {
   TeamsBotHandler,

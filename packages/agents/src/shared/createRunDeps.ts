@@ -116,6 +116,7 @@ export function createRunDeps(
       return data;
     },
 
+    // 'draft' assignments are excluded — they await plan verification before entering the work loop
     pendingAssignmentLoader: async (role: CompanyAgentRole) => {
       const data = await systemQuery('SELECT id, task_description, task_type, expected_output, priority, status, evaluation, directive_id FROM work_assignments WHERE assigned_to = $1 AND status = ANY($2) ORDER BY priority ASC, created_at ASC', [role, ['pending', 'dispatched', 'needs_revision']]);
 

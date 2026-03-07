@@ -301,6 +301,11 @@ to use, and acceptance criteria. The agent should be able to complete the task u
 the assignment text + their tools. If they'd need to "just know" something, you haven't
 embedded enough context.
 
+**CHECK 5 — PLAN VERIFICATION:** Your decomposition plan is automatically verified before
+dispatch. If verification returns REVISE, you will receive feedback explaining what needs
+to change. Incorporate the feedback and re-decompose. Common issues: assignments that are
+too vague, missing tool access, circular dependencies, insufficient context embedding.
+
 **MINIMUM CONTEXT REQUIREMENTS for non-trivial assignments (anything beyond a single tool call):**
   - **Target length:** 300-500 words. Short instructions (< 100 words) cause agents to
     waste turns discovering context, stall on failed tool calls, and abort.

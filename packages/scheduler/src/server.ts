@@ -44,6 +44,10 @@ import { DataSyncScheduler } from './dataSyncScheduler.js';
 import { HeartbeatManager } from './heartbeat.js';
 import { AgentNotifier } from './agentNotifier.js';
 import { handleDashboardApi } from './dashboardApi.js';
+import { verifyPlan } from './planVerifier.js';
+import { consolidateMemory } from './memoryConsolidator.js';
+import { archiveExpiredMemory } from './memoryArchiver.js';
+import { evaluateBatch } from './batchOutcomeEvaluator.js';
 import {
   runChiefOfStaff, runCTO, runCFO, runCLO, runCPO, runCMO, runVPCS, runVPSales, runVPDesign,
   runPlatformEngineer, runQualityEngineer, runDevOpsEngineer,
@@ -847,6 +851,45 @@ const server = createServer(async (req, res) => {
     if (method === 'POST' && url === '/heartbeat') {
       const result = await heartbeatManager.runHeartbeat();
       json(res, 200, result);
+      return;
+    }
+
+    // Memory consolidation endpoint — daily raw→distilled promotion (Cloud Scheduler: 0 3 * * *)
+    if (method === 'POST' && url === '/memory/consolidate') {
+      try {
+        const report = await consolidateMemory();
+        json(res, 200, { success: true, ...report });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[MemoryConsolidator] Endpoint error:', message);
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // Batch outcome evaluator endpoint — twice-daily quality scoring (Cloud Scheduler: 0 2,14 * * *)
+    if (method === 'POST' && url === '/batch-eval/run') {
+      try {
+        const result = await evaluateBatch();
+        json(res, 200, { success: true, ...result });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[BatchOutcomeEvaluator] Endpoint error:', message);
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // Memory archival endpoint — weekly TTL-based archival (Cloud Scheduler: 0 4 * * 0)
+    if (method === 'POST' && url === '/memory/archive') {
+      try {
+        const report = await archiveExpiredMemory();
+        json(res, 200, { success: true, ...report });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[MemoryArchiver] Endpoint error:', message);
+        json(res, 500, { success: false, error: message });
+      }
       return;
     }
 
@@ -1982,6 +2025,45 @@ const server = createServer(async (req, res) => {
         // Invalidate directive/context caches
         getRedisCache().invalidatePattern('jit:directives:*').catch(() => {});
         json(res, 200, { success: true });
+      } catch (error) {
+        json(res, 500, { error: (error as Error).message });
+      }
+      return;
+    }
+
+    // ── Plan re-verify endpoint ───────────────────────────────────
+    const planVerifyMatch = url.match(/^\/plan-verify\/([^/?]+)$/);
+    if (method === 'POST' && planVerifyMatch) {
+      const directiveId = decodeURIComponent(planVerifyMatch[1]);
+      try {
+        const [directive] = await systemQuery<Record<string, unknown>>(
+          'SELECT id, title, description, priority, target_agents FROM founder_directives WHERE id=$1',
+          [directiveId],
+        );
+        if (!directive) { json(res, 404, { error: 'Directive not found' }); return; }
+
+        const assignments = await systemQuery<Record<string, unknown>>(
+          'SELECT assigned_to, task_description, expected_output, sequence_order FROM work_assignments WHERE directive_id=$1 ORDER BY sequence_order',
+          [directiveId],
+        );
+
+        const result = await verifyPlan({
+          directive: {
+            id: directive.id as string,
+            title: directive.title as string,
+            description: directive.description as string,
+            priority: directive.priority as string,
+            target_agents: directive.target_agents as string[] | undefined,
+          },
+          proposed_assignments: assignments.map((a, i) => ({
+            assigned_to: a.assigned_to as string,
+            task_description: a.task_description as string,
+            expected_output: (a.expected_output as string) ?? '',
+            sequence_order: (a.sequence_order as number) ?? i,
+          })),
+        }, { skipLlm: true });
+
+        json(res, 200, result);
       } catch (error) {
         json(res, 500, { error: (error as Error).message });
       }

@@ -37,6 +37,8 @@ import type { RuntimeToolFactory } from './runtimeToolFactory.js';
 import type { ConstitutionalGovernor } from './constitutionalGovernor.js';
 import type { TrustScorer } from './trustScorer.js';
 import type { DecisionChainTracker } from './decisionChainTracker.js';
+import { harvestTaskOutcome } from './taskOutcomeHarvester.js';
+import type { ActionReceipt } from './types.js';
 
 // ─── Cost estimation (uses centralized model registry) ───────────────
 
@@ -176,6 +178,7 @@ export abstract class BaseAgentRunner {
     let totalOutputTokens = 0;
     let totalThinkingTokens = 0;
     let totalCachedInputTokens = 0;
+    const actionReceipts: ActionReceipt[] = [];
 
     emitEvent({ type: 'agent_started', agentId: config.id, role: config.role, model: config.model });
 
@@ -380,6 +383,14 @@ export abstract class BaseAgentRunner {
             history.push({ role: 'tool_result', content: resultContent, toolName: call.name, toolResult: result, timestamp: Date.now() });
             emitEvent({ type: 'tool_result', agentId: config.id, turnNumber, toolName: call.name, success: result.success, filesWritten: result.filesWritten ?? 0, memoryKeysWritten: result.memoryKeysWritten ?? 0 });
 
+            actionReceipts.push({
+              tool: call.name,
+              params: call.args,
+              result: result.success ? 'success' : 'error',
+              output: (resultContent ?? '').slice(0, 500),
+              timestamp: new Date().toISOString(),
+            });
+
             const progressCheck = supervisor.recordToolResult(call.name, result);
             if (!progressCheck.ok) {
               return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, progressCheck.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens);
@@ -554,6 +565,7 @@ export abstract class BaseAgentRunner {
       });
 
       const result = this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens);
+      result.actions = actionReceipts;
       if (reasoningResult) {
         (result as any).reasoningMeta = {
           passes: reasoningResult.passes.length,
@@ -569,10 +581,23 @@ export abstract class BaseAgentRunner {
           costUsd: valueAssessment.costUsd,
         };
       }
+
+      // Fire-and-forget: harvest task outcome for Learning Governor
+      void harvestTaskOutcome(result, {
+        runId: config.id,
+        agentRole: config.role,
+      }).catch(() => {});
+
       return result;
     } catch (error) {
       emitEvent({ type: 'agent_error', agentId: config.id, error: (error as Error).message, turnNumber: supervisor.stats.turnCount });
-      return this.buildResult(config, supervisor.isAborted ? 'aborted' : 'error', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens);
+      const errResult = this.buildResult(config, supervisor.isAborted ? 'aborted' : 'error', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens);
+      errResult.actions = actionReceipts;
+      void harvestTaskOutcome(errResult, {
+        runId: config.id,
+        agentRole: config.role,
+      }).catch(() => {});
+      return errResult;
     }
   }
 

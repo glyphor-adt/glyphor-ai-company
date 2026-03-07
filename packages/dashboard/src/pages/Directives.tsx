@@ -4,7 +4,38 @@ import { apiCall } from '../lib/firebase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { useAuth } from '../lib/auth';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
-import { MdCheckCircle, MdEdit, MdCancel, MdChevronRight, MdDelete, MdBlock } from 'react-icons/md';
+import { MdCheckCircle, MdEdit, MdCancel, MdChevronRight, MdDelete, MdBlock, MdVerifiedUser, MdWarning, MdRefresh, MdExpandMore } from 'react-icons/md';
+
+/* ── Plan Verification Types ───────────────── */
+
+interface PlanVerificationCheck {
+  passed: boolean;
+  issues: string[];
+}
+
+interface PlanVerification {
+  id: string;
+  directive_id: string;
+  verdict: 'APPROVE' | 'WARN' | 'REVISE';
+  overall_score: number;
+  checks: {
+    atomicity: PlanVerificationCheck;
+    tool_coverage: PlanVerificationCheck;
+    dependency_validity: PlanVerificationCheck;
+    context_sufficiency: PlanVerificationCheck;
+    workload_balance: PlanVerificationCheck;
+  };
+  suggestions: string[];
+  assignment_count: number;
+  llm_verified: boolean;
+  created_at: string;
+}
+
+const VERDICT_CONFIG: Record<string, { label: string; dot: string; border: string; bg: string; text: string }> = {
+  APPROVE: { label: 'APPROVED', dot: 'bg-tier-green', border: 'border-tier-green/30', bg: 'bg-tier-green/15', text: 'text-tier-green' },
+  WARN:    { label: 'WARNING',  dot: 'bg-prism-elevated', border: 'border-prism-elevated/30', bg: 'bg-prism-elevated/15', text: 'text-prism-elevated' },
+  REVISE:  { label: 'REVISE',   dot: 'bg-prism-critical', border: 'border-prism-critical/30', bg: 'bg-prism-critical/15', text: 'text-prism-critical' },
+};
 
 /* ── Types ─────────────────────────────────────── */
 
@@ -400,6 +431,30 @@ function DirectiveCard({
   const cfg = PRIORITY_CONFIG[d.priority];
   const [acting, setActing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [verification, setVerification] = useState<PlanVerification | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [showChecks, setShowChecks] = useState(false);
+
+  // Fetch latest verification when expanded
+  useEffect(() => {
+    if (!isExpanded) return;
+    apiCall<PlanVerification[]>(`/api/plan-verifications?directive_id=${d.id}&order=created_at.desc&limit=1`)
+      .then(rows => setVerification(rows?.[0] ?? null))
+      .catch(() => {});
+  }, [isExpanded, d.id]);
+
+  async function handleReVerify() {
+    setVerifying(true);
+    try {
+      const result = await apiCall<PlanVerification>(`/plan-verify/${d.id}`, { method: 'POST' });
+      // Re-fetch the persisted row to get full record with id/created_at
+      const rows = await apiCall<PlanVerification[]>(`/api/plan-verifications?directive_id=${d.id}&order=created_at.desc&limit=1`);
+      setVerification(rows?.[0] ?? { ...result, id: '', directive_id: d.id, assignment_count: 0, llm_verified: false, created_at: new Date().toISOString() } as PlanVerification);
+    } catch (err) {
+      console.error('Re-verify failed:', err);
+    }
+    setVerifying(false);
+  }
 
   const canCancel = d.status === 'active' || d.status === 'paused';
   const canDelete = d.status !== 'completed';

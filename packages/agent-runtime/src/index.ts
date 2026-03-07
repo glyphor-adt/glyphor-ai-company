@@ -58,6 +58,9 @@ export { EpisodicReplay } from './episodicReplay.js';
 export type { ReplayResult } from './episodicReplay.js';
 export { DriftDetector } from './driftDetector.js';
 export type { DriftAlert, DriftDetectionResult } from './driftDetector.js';
+// Learning Governor — Task Outcome Harvester
+export { harvestTaskOutcome, markOutcomeRevised, markOutcomeAccepted } from './taskOutcomeHarvester.js';
+export type { TaskRunOutcome, HarvestRunMeta } from './taskOutcomeHarvester.js';
 export {
   AGENT_BUDGETS,
   EXECUTIVE_ROLES,

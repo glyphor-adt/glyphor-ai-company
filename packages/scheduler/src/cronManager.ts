@@ -414,6 +414,30 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/heartbeat',
     enabled: true,
   },
+  // Memory consolidation — daily raw→distilled memory promotion
+  {
+    id: 'memory-consolidation',
+    schedule: '0 3 * * *',     // 3:00 UTC daily
+    timezone: 'UTC',
+    endpoint: '/memory/consolidate',
+    enabled: true,
+  },
+  // Batch outcome evaluator — twice-daily quality scoring of task run outcomes
+  {
+    id: 'batch-outcome-eval',
+    schedule: '0 2,14 * * *',  // 2:00 AM & 2:00 PM UTC
+    timezone: 'UTC',
+    endpoint: '/batch-eval/run',
+    enabled: true,
+  },
+  // Memory archival — weekly TTL-based archival of expired raw traces
+  {
+    id: 'memory-archival',
+    schedule: '0 4 * * 0',     // Sunday 4:00 UTC weekly
+    timezone: 'UTC',
+    endpoint: '/memory/archive',
+    enabled: true,
+  },
 ];
 
 /**

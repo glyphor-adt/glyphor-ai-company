@@ -29,3 +29,20 @@ export {
   HeartbeatManager,
   type HeartbeatResult,
 } from './heartbeat.js';
+export {
+  verifyPlan,
+  type PlanVerificationRequest,
+  type PlanVerificationResult,
+} from './planVerifier.js';
+export {
+  consolidateMemory,
+  type ConsolidationReport,
+} from './memoryConsolidator.js';
+export {
+  archiveExpiredMemory,
+  type ArchivalReport,
+} from './memoryArchiver.js';
+export {
+  evaluateBatch,
+  type BatchEvalResult,
+} from './batchOutcomeEvaluator.js';

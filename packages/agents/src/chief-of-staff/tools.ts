@@ -9,6 +9,7 @@ import type { ToolDefinition, ToolContext, ToolResult, BriefingData, CompanyAgen
 import { WRITE_TOOLS, invalidateGrantCache } from '@glyphor/agent-runtime';
 import { isKnownTool } from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
+import { markOutcomeRevised, markOutcomeAccepted } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
 import { CompanyMemoryStore, SharedMemoryLoader, WorldModelUpdater, EmbeddingClient } from '@glyphor/company-memory';
 import type { KnowledgeGraphReader } from '@glyphor/company-memory';
@@ -595,6 +596,7 @@ export function createOrchestrationTools(
             assignment_summary: {
               total: wa.length,
               completed: wa.filter((a: any) => a.status === 'completed').length,
+              draft: wa.filter((a: any) => a.status === 'draft').length,
               pending: wa.filter((a: any) => a.status === 'pending').length,
               in_progress: wa.filter((a: any) =>
                 ['dispatched', 'in_progress'].includes(a.status)
@@ -641,6 +643,7 @@ export function createOrchestrationTools(
         const assignments = params.assignments as any[];
         const directiveId = params.directive_id as string;
 
+        // Insert as 'draft' initially; plan verification promotes to 'pending'
         const rows = assignments.map((a: any, i: number) => ({
           directive_id: directiveId,
           assigned_to: a.assigned_to,
@@ -651,7 +654,7 @@ export function createOrchestrationTools(
           priority: a.priority || 'normal',
           sequence_order: a.sequence_order ?? i,
           assignment_type: a.assignment_type || 'executive_outcome',
-          status: 'pending',
+          status: 'draft',
         }));
 
         const columns = '(directive_id, assigned_to, assigned_by, task_description, task_type, expected_output, priority, sequence_order, assignment_type, status)';
@@ -663,8 +666,84 @@ export function createOrchestrationTools(
           values.push(a.directive_id, a.assigned_to, a.assigned_by, a.task_description, a.task_type, a.expected_output, a.priority, a.sequence_order, a.assignment_type, a.status);
         }
         const data = await systemQuery(`INSERT INTO work_assignments ${columns} VALUES ${placeholders.join(', ')} RETURNING *`, values);
+        const createdIds = (data as any[]).map((r: any) => r.id);
 
-        return { success: true, data: { created: (data as any[]).length, assignments: data } };
+        // ── Plan Verification ──
+        // Verify the decomposition plan before promoting assignments to 'pending'.
+        // Uses dynamic import to avoid circular dependency (scheduler → agents).
+        let verification: { verdict: string; suggestions: string[] } | null = null;
+        try {
+          const scheduler = await import('@glyphor/scheduler');
+          const [directive] = await systemQuery(
+            'SELECT id, title, description, priority, target_agents FROM founder_directives WHERE id = $1',
+            [directiveId],
+          ) as any[];
+
+          if (directive && typeof scheduler.verifyPlan === 'function') {
+            const result = await scheduler.verifyPlan({
+              directive: {
+                id: directive.id,
+                title: directive.title,
+                description: directive.description ?? '',
+                priority: directive.priority ?? 'normal',
+                target_agents: directive.target_agents,
+              },
+              proposed_assignments: assignments.map((a: any, i: number) => ({
+                assigned_to: a.assigned_to,
+                task_description: a.task_description,
+                expected_output: a.expected_output || '',
+                depends_on: a.depends_on,
+                sequence_order: a.sequence_order ?? i,
+              })),
+            });
+            verification = result;
+
+            if (result.verdict === 'REVISE') {
+              // Leave as 'draft' — inject feedback for re-decomposition
+              const feedback = result.suggestions?.join('; ') || 'Plan needs revision';
+              await systemQuery(
+                "INSERT INTO activity_log (agent_role, activity_type, description) VALUES ($1, $2, $3)",
+                ['chief-of-staff', 'plan_verification', `REVISE: ${feedback}`],
+              );
+            } else {
+              // APPROVE or WARN → promote to 'pending'
+              await systemQuery(
+                "UPDATE work_assignments SET status = 'pending' WHERE id = ANY($1)",
+                [createdIds],
+              );
+              if (result.verdict === 'WARN' && result.suggestions?.length) {
+                await systemQuery(
+                  "INSERT INTO activity_log (agent_role, activity_type, description) VALUES ($1, $2, $3)",
+                  ['chief-of-staff', 'plan_verification', `WARN: ${result.suggestions.join('; ')}`],
+                );
+              }
+            }
+          } else {
+            // Directive not found or verifier unavailable — promote to pending
+            await systemQuery(
+              "UPDATE work_assignments SET status = 'pending' WHERE id = ANY($1)",
+              [createdIds],
+            );
+          }
+        } catch (verifyErr) {
+          // Verification failure must never break the orchestration flow
+          console.warn('[CoS] Plan verification skipped:', (verifyErr as Error).message);
+          await systemQuery(
+            "UPDATE work_assignments SET status = 'pending' WHERE id = ANY($1)",
+            [createdIds],
+          );
+        }
+
+        const finalData = await systemQuery('SELECT * FROM work_assignments WHERE id = ANY($1)', [createdIds]);
+
+        return {
+          success: true,
+          data: {
+            created: (finalData as any[]).length,
+            assignments: finalData,
+            ...(verification ? { verification: { verdict: verification.verdict, suggestions: verification.suggestions } } : {}),
+          },
+        };
       },
     },
 
@@ -854,6 +933,17 @@ export function createOrchestrationTools(
               priority: 'high',
             });
           }
+        }
+
+        // ── Task outcome downstream signals (Learning Governor) ─
+        try {
+          if (nextAction === 'accept') {
+            await markOutcomeAccepted(assignmentId);
+          } else if (nextAction === 'iterate') {
+            await markOutcomeRevised(assignmentId);
+          }
+        } catch (err) {
+          console.warn(`[evaluate_assignment] Outcome signal failed for ${assignmentId}:`, (err as Error).message);
         }
 
         // ── World Model Update ──────────────────────────────────

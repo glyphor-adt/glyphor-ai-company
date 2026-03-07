@@ -78,6 +78,8 @@ const TABLE_MAP: Record<string, string> = {
   'memory-archive': 'memory_archive',
   'policy_versions': 'policy_versions',
   'policy-versions': 'policy_versions',
+  'plan_verifications': 'plan_verifications',
+  'plan-verifications': 'plan_verifications',
 };
 
 // ─── Helpers ────────────────────────────────────────────────────
@@ -473,6 +475,7 @@ export async function handleDashboardApi(
           await systemQuery('DELETE FROM decision_chains WHERE directive_id = $1', [resourceId]);
           await systemQuery('DELETE FROM handoffs WHERE directive_id = $1', [resourceId]);
           await systemQuery('DELETE FROM proposed_initiatives WHERE directive_id = $1', [resourceId]);
+          await systemQuery('DELETE FROM plan_verifications WHERE directive_id = $1', [resourceId]);
           await systemQuery('UPDATE founder_directives SET source_directive_id = NULL WHERE source_directive_id = $1', [resourceId]);
         }
         await systemQuery(`DELETE FROM ${tableName} WHERE id = $1`, [resourceId]);

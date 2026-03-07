@@ -320,6 +320,8 @@ export async function verifyPlan(
   request: PlanVerificationRequest,
   options?: { modelClient?: ModelClient; skipLlm?: boolean },
 ): Promise<PlanVerificationResult> {
+  const t0 = Date.now();
+
   // 1. Deterministic pre-checks (always run)
   const [depResult, toolResult, workloadResult] = await Promise.all([
     Promise.resolve(checkDependencyValidity(request.proposed_assignments)),
@@ -374,5 +376,47 @@ export async function verifyPlan(
     verdict = 'APPROVE';
   }
 
-  return { verdict, overall_score, checks, suggestions };
+  const result = { verdict, overall_score, checks, suggestions };
+
+  // 4. Persist result (best-effort, never blocks)
+  persistVerification(request.directive.id, result, {
+    assignmentCount: request.proposed_assignments.length,
+    llmVerified: !!needsLlm,
+    durationMs: Date.now() - t0,
+  }).catch(() => {});
+
+  return result;
+}
+
+// ─── Persistence ────────────────────────────────────────────────
+
+/**
+ * Persist a plan verification result to the plan_verifications table.
+ * Best-effort — never throws; failures are logged silently.
+ */
+export async function persistVerification(
+  directiveId: string,
+  result: PlanVerificationResult,
+  meta: { assignmentCount: number; llmVerified: boolean; costUsd?: number; durationMs?: number },
+): Promise<void> {
+  try {
+    await systemQuery(
+      `INSERT INTO plan_verifications
+         (directive_id, verdict, overall_score, checks, suggestions, assignment_count, llm_verified, cost_usd, duration_ms)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        directiveId,
+        result.verdict,
+        result.overall_score,
+        JSON.stringify(result.checks),
+        result.suggestions,
+        meta.assignmentCount,
+        meta.llmVerified,
+        meta.costUsd ?? 0,
+        meta.durationMs ?? null,
+      ],
+    );
+  } catch (err) {
+    console.error('[PlanVerifier] Failed to persist verification:', (err as Error).message);
+  }
 }

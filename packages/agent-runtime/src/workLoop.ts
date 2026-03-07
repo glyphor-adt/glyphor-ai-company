@@ -234,6 +234,8 @@ export async function executeWorkLoop(
   }
 
   // ── P2: ACTIVE WORK — Pending/dispatched/in-progress assignments ──
+  // Note: 'draft' status is intentionally excluded — drafts await plan verification
+  // before being promoted to 'pending' and entering the work loop.
   const activeAssignments = await systemQuery<{
     id: string;
     task_description: string;

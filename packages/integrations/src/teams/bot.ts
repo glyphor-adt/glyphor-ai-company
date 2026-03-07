@@ -18,6 +18,7 @@
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import type { IncomingMessage } from 'node:http';
 import { formatTeamsMessage } from './messageFormatter.js';
+import { setConversationRef, getConversationRef } from './conversationStore.js';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -677,8 +678,27 @@ export class TeamsBotHandler {
     serviceUrl = 'https://smba.trafficmanager.net/amer/',
   ): Promise<void> {
     const token = await this.getBotToken();
-    const appId = this.config.appId;
 
+    // Check for a stored conversation reference (from a previous interaction).
+    // This is required for multi-tenant bots where user IDs are pairwise-encrypted.
+    const ref = getConversationRef(userAadObjectId);
+    if (ref) {
+      const url = `${ref.serviceUrl}v3/conversations/${encodeURIComponent(ref.conversationId)}/activities`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'message', text: message, textFormat: 'markdown' }),
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`[TeamsBot] Proactive DM failed (${res.status}): ${errText}`);
+      }
+      return;
+    }
+
+    // No stored reference — fall back to creating a new conversation.
+    // This only works for single-tenant bots or users where the bot is installed.
+    const appId = this.config.appId;
     const createUrl = `${serviceUrl}v3/conversations`;
     const createBody = {
       bot: { id: `28:${appId}`, name: 'Glyphor Bot' },
@@ -716,8 +736,28 @@ export class TeamsBotHandler {
     serviceUrl = 'https://smba.trafficmanager.net/amer/',
   ): Promise<void> {
     const token = await this.getBotToken();
-    const appId = this.config.appId;
 
+    // Check for a stored conversation reference first
+    const ref = getConversationRef(userAadObjectId);
+    if (ref) {
+      const url = `${ref.serviceUrl}v3/conversations/${encodeURIComponent(ref.conversationId)}/activities`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'message',
+          attachments: [{ contentType: 'application/vnd.microsoft.card.adaptive', content: cardContent }],
+        }),
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`[TeamsBot] Proactive card DM failed (${res.status}): ${errText}`);
+      }
+      return;
+    }
+
+    // Fall back to creating a new conversation
+    const appId = this.config.appId;
     const createUrl = `${serviceUrl}v3/conversations`;
     const createBody = {
       bot: { id: `28:${appId}`, name: 'Glyphor Bot' },
@@ -908,6 +948,17 @@ export class TeamsBotHandler {
     if (activity.type !== 'message') {
       console.log(`[TeamsBot] Ignoring activity type: ${activity.type}`);
       return;
+    }
+
+    // Store conversation reference for proactive messaging later.
+    // This captures the correct pairwise user ID and service URL.
+    if (activity.from?.aadObjectId && activity.conversation?.id) {
+      setConversationRef(activity.from.aadObjectId, {
+        serviceUrl: activity.serviceUrl,
+        conversationId: activity.conversation.id,
+        userId: activity.from.id,
+        botId: activity.recipient?.id ?? '',
+      });
     }
 
     // Check if this message was sent to an individual agent bot.
