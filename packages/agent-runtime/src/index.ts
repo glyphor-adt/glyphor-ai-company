@@ -45,6 +45,8 @@ export type { RuntimeToolDefinition, RuntimeToolImpl } from './runtimeToolFactor
 // Patentable Engine Enhancements
 export { ConstitutionalGovernor } from './constitutionalGovernor.js';
 export type { ConstitutionalPrinciple, ConstitutionalEvaluation, Constitution } from './constitutionalGovernor.js';
+export { preCheckTool, HIGH_STAKES_TOOLS } from './constitutionalPreCheck.js';
+export type { ConstitutionalPreCheckResult, ConstitutionalPreCheckViolation } from './constitutionalPreCheck.js';
 export { DEFAULT_CONSTITUTIONS, getDefaultConstitution } from './constitutionDefaults.js';
 export { TrustScorer } from './trustScorer.js';
 export type { TrustScore, TrustDelta, TrustDeltaSource } from './trustScorer.js';

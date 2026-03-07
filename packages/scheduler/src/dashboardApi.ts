@@ -80,6 +80,8 @@ const TABLE_MAP: Record<string, string> = {
   'policy-versions': 'policy_versions',
   'plan_verifications': 'plan_verifications',
   'plan-verifications': 'plan_verifications',
+  'tool_reputation': 'tool_reputation',
+  'tool-reputation': 'tool_reputation',
 };
 
 // ─── Helpers ────────────────────────────────────────────────────

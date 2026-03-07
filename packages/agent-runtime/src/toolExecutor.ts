@@ -30,6 +30,7 @@ import { AGENT_BUDGETS } from './types.js';
 import { systemQuery } from '@glyphor/shared/db';
 import type { FormalVerifier } from './formalVerifier.js';
 import { executeDynamicTool } from './dynamicToolExecutor.js';
+import { recordToolCall, detectToolSource } from './toolReputationTracker.js';
 
 // ─── Emergency Block Cache ─────────────────────────────────────
 const BLOCK_CACHE_TTL_MS = 60_000; // 60 seconds
@@ -351,10 +352,17 @@ export class ToolExecutor {
       // Tools created mid-run via RuntimeToolFactory are prefixed
       // with 'runtime_' and executed through the factory.
       if (toolName.startsWith('runtime_') && context.runtimeToolFactory) {
+        const rtStart = Date.now();
         try {
           const result = await context.runtimeToolFactory.execute(toolName, params as Record<string, any>);
+          recordToolCall(toolName, 'runtime', true, false, Date.now() - rtStart)
+            .catch(err => console.warn('[ToolReputation] tracking failed:', err));
           return { success: true, data: result };
         } catch (err: any) {
+          const rtLatency = Date.now() - rtStart;
+          const rtTimedOut = err.message?.includes('timeout') || rtLatency >= 60_000;
+          recordToolCall(toolName, 'runtime', false, rtTimedOut, rtLatency)
+            .catch(e => console.warn('[ToolReputation] tracking failed:', e));
           return { success: false, error: `Runtime tool error: ${err.message}` };
         }
       }

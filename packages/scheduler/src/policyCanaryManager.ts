@@ -19,6 +19,7 @@
 
 import { systemQuery } from '@glyphor/shared/db';
 import { getRedisCache, GlyphorEventBus } from '@glyphor/agent-runtime';
+import type { GlyphorEventType } from '@glyphor/agent-runtime';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -514,16 +515,19 @@ async function logActivity(action: string, detail: string): Promise<void> {
 
 async function emitCanaryEvent(
   eventBus: GlyphorEventBus | undefined,
-  type: string,
+  action: string,
   canary: CanaryPolicy,
   reason: string,
 ): Promise<void> {
   if (!eventBus) return;
+  // Map canary actions to valid GlyphorEventType values
+  const eventType = (action.includes('reverted') ? 'alert.triggered' : 'insight.detected') as GlyphorEventType;
   try {
     await eventBus.emit({
-      type,
+      type: eventType,
       source: 'system',
       payload: {
+        action,
         policy_id: canary.id,
         policy_type: canary.policy_type,
         agent_role: canary.agent_role,
@@ -531,6 +535,6 @@ async function emitCanaryEvent(
       },
     });
   } catch (err) {
-    console.warn(`${LOG_PREFIX} Event emission failed for ${type}:`, (err as Error).message);
+    console.warn(`${LOG_PREFIX} Event emission failed for ${action}:`, (err as Error).message);
   }
 }
