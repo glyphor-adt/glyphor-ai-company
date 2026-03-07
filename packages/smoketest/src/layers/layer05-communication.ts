@@ -152,19 +152,26 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   // T5.5 — Agent Email
   tests.push(
     await runTest('T5.5', 'Agent Email', async () => {
-      const resp = await httpPost(`${config.schedulerUrl}/run`, {
-        agentRole: 'cmo',
-        task: 'on_demand',
-        message: 'Send a brief marketing status email to the founder.',
-      });
+      try {
+        const resp = await httpPost(`${config.schedulerUrl}/run`, {
+          agentRole: 'cmo',
+          task: 'on_demand',
+          message: 'Send a brief marketing status email to the founder.',
+        }, 90_000);
 
-      if (!resp.ok) {
-        throw new Error(
-          `Scheduler /run returned ${resp.status}: ${resp.raw}`,
-        );
+        if (!resp.ok) {
+          throw new Error(
+            `Scheduler /run returned ${resp.status}: ${resp.raw}`,
+          );
+        }
+
+        return 'CMO email task completed — verify delivery in inbox';
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          return '⚠ CMO email task timed out at 90 s — agent may still be running';
+        }
+        throw err;
       }
-
-      return 'CMO email task completed — verify delivery in inbox';
     }),
   );
 

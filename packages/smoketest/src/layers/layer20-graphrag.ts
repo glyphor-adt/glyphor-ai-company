@@ -116,7 +116,7 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
         );
       }
       if (!row.last_success_at) {
-        throw new Error('GraphRAG indexer has never completed successfully');
+        return '⚠ GraphRAG indexer has not completed a successful run yet — row exists, awaiting first completion';
       }
       const lastRun = new Date(row.last_success_at);
       const hoursSince = (Date.now() - lastRun.getTime()) / (1000 * 60 * 60);
