@@ -315,7 +315,8 @@ export type GlyphorEventType =
   | 'assignment.blocked'
   | 'assignment.revised'
   | 'assignment.created'
-  | 'escalation.created';
+  | 'escalation.created'
+  | 'learning.proposal_signal';
 
 export type EventPriority = 'critical' | 'high' | 'normal' | 'low';
 
@@ -537,6 +538,7 @@ export const SUB_TEAM_ALLOWED_EVENTS: GlyphorEventType[] = [
 /** Events that only the system / founders can emit */
 export const FORBIDDEN_AGENT_EVENTS: GlyphorEventType[] = [
   'decision.resolved',
+  'learning.proposal_signal',
 ];
 
 // ═══════════════════════════════════════════════════════════════════
@@ -812,6 +814,9 @@ export interface StructuredReflection {
   wouldChange: string;
   newKnowledge: string;
   blockedBy: string | null;
+  promptSuggestions?: string[];
+  knowledgeGaps?: string[];
+  qualityScore?: number;
 }
 
 export interface OrchestratorGrade {

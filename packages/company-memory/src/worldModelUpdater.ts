@@ -18,6 +18,7 @@ import type {
   WorldModelDimension,
   ImprovementGoal,
 } from '@glyphor/agent-runtime';
+import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
 import type { SharedMemoryLoader } from './sharedMemoryLoader.js';
 
@@ -36,6 +37,7 @@ export interface BatchOutcomeAggregates {
 export class WorldModelUpdater {
   constructor(
     private sharedMemory: SharedMemoryLoader,
+    private glyphorEventBus?: GlyphorEventBus,
   ) {}
 
   /**
@@ -118,6 +120,25 @@ export class WorldModelUpdater {
     }
 
     await this.sharedMemory.saveWorldModel(agentRole, model);
+
+    // Emit learning signal for the policy proposal pipeline
+    if (this.glyphorEventBus && ((reflection.promptSuggestions?.length ?? 0) > 0 || (reflection.knowledgeGaps?.length ?? 0) > 0)) {
+      try {
+        await this.glyphorEventBus!.emit({
+          type: 'learning.proposal_signal',
+          source: 'system',
+          payload: {
+            prompt_suggestions: reflection.promptSuggestions ?? [],
+            knowledge_gaps: reflection.knowledgeGaps ?? [],
+            run_id: reflection.runId,
+            quality_score: reflection.qualityScore ?? reflection.predictedScore,
+            agent_role: agentRole,
+          },
+        });
+      } catch (err) {
+        console.warn('[WorldModelUpdater] Failed to emit learning.proposal_signal:', (err as Error).message);
+      }
+    }
   }
 
   /**

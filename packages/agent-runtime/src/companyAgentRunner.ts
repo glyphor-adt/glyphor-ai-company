@@ -2114,7 +2114,7 @@ Reflect on this run and respond with a JSON object (no markdown fencing):
   "qualityScore": <0-100>,
   "whatWentWell": ["..."],
   "whatCouldImprove": ["..."],
-  "promptSuggestions": ["suggestions for how your instructions could be improved"],
+  "promptSuggestions": ["suggestions for how your instructions could be improved — for each, include a category: 'wording' (phrasing change), 'instruction' (add/remove a rule), 'context' (add/remove context source), 'tool' (add/remove tool access)"],
   "knowledgeGaps": ["things you didn't know but needed"],
   "memories": [
     { "type": "observation|learning|preference|fact", "content": "...", "importance": 0.0-1.0 }
