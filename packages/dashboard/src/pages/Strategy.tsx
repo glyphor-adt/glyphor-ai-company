@@ -190,12 +190,13 @@ interface DeepDiveRecord {
   framework_outputs?: Record<string, unknown>;
   framework_convergence?: string | null;
   watchlist?: WatchlistItem[];
+  workflow_id?: string;
   created_at: string;
   completed_at: string | null;
   error: string | null;
 }
 
-type DeepDiveTab = 'current-state' | 'overview' | 'market' | 'competitive' | 'frameworks' | 'recommendations' | 'roadmap' | 'roi' | 'risks' | 'watchlist' | 'sources' | 'verification';
+type DeepDiveTab = 'current-state'| 'overview' | 'market' | 'competitive' | 'frameworks' | 'recommendations' | 'roadmap' | 'roi' | 'risks' | 'watchlist' | 'sources' | 'verification';
 
 const DD_STATUS_LABELS: Record<DeepDiveStatus, string> = {
   scoping: 'Scoping research plan…',
@@ -212,6 +213,88 @@ function ddStatusColor(status: DeepDiveStatus) {
   if (status === 'completed') return 'bg-tier-green';
   if (status === 'failed' || status === 'cancelled') return 'bg-prism-critical';
   return 'bg-cyan animate-pulse';
+}
+
+/* ── Workflow Step Progress (shared by deep dives + strategy lab) ─ */
+
+interface WfStepData {
+  id: string;
+  type: string;
+  agents: string[];
+  status: 'completed' | 'running' | 'waiting' | 'pending' | 'failed' | 'skipped';
+  started_at: string | null;
+  completed_at: string | null;
+  duration_ms: number | null;
+  cost_usd: number | null;
+}
+
+interface WfDetail {
+  id: string;
+  status: string;
+  current_step: number;
+  total_steps: number;
+  steps: WfStepData[];
+}
+
+function wfStepIcon(status: string): ReactNode {
+  if (status === 'completed') return <span className="text-tier-green font-medium">✓</span>;
+  if (status === 'running') return <span className="text-cyan animate-pulse font-medium">⟳</span>;
+  if (status === 'waiting') return <span className="text-prism-elevated">⏳</span>;
+  if (status === 'failed') return <span className="text-prism-critical font-medium">✗</span>;
+  if (status === 'skipped') return <span className="text-txt-faint">⏭</span>;
+  return <span className="text-txt-faint">–</span>;
+}
+
+function wfFormatMs(ms: number) {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${(ms / 60_000).toFixed(1)}m`;
+}
+
+function WorkflowStepProgress({ workflowId }: { workflowId: string }) {
+  const [wf, setWf] = useState<WfDetail | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const data = await api<WfDetail>(`/workflows/${workflowId}`);
+      setWf(data);
+    } catch { /* ignore */ }
+  }, [workflowId]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  useEffect(() => {
+    if (!wf || ['completed', 'failed', 'cancelled'].includes(wf.status)) return;
+    const interval = setInterval(refresh, 5000);
+    return () => clearInterval(interval);
+  }, [wf, refresh]);
+
+  if (!wf) return null;
+
+  return (
+    <div className="rounded-lg bg-raised/60 p-4 space-y-2">
+      <div className="flex items-center gap-2 text-sm text-txt-muted mb-2">
+        <span className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
+        Step {wf.current_step}/{wf.total_steps}
+      </div>
+      {wf.steps.map((step, i) => (
+        <div key={step.id} className="flex items-center gap-3 text-[12px]">
+          <span className="w-5 text-center shrink-0">{wfStepIcon(step.status)}</span>
+          <span className="w-5 text-txt-faint font-mono">{i + 1}</span>
+          <span className="flex-1 text-txt-secondary font-medium">{step.type}</span>
+          {step.agents.length > 0 && (
+            <span className="text-txt-faint">{step.agents.join(', ')}</span>
+          )}
+          {step.duration_ms != null && (
+            <span className="text-txt-faint font-mono">{wfFormatMs(step.duration_ms)}</span>
+          )}
+          {step.cost_usd != null && step.cost_usd > 0 && (
+            <span className="text-txt-faint font-mono">${step.cost_usd.toFixed(3)}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function DeepDivesPanel() {
@@ -344,13 +427,17 @@ function DeepDiveCard({ record, expanded, onToggle }: { record: DeepDiveRecord; 
       {expanded && record.report && <DeepDiveDetail record={record} report={record.report} />}
       {expanded && !record.report && record.status !== 'completed' && (
         <div className="px-5 pb-4">
-          <div className="rounded-lg bg-raised/60 p-4">
-            <div className="flex items-center gap-2 text-sm text-txt-muted">
-              <span className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
-              {DD_STATUS_LABELS[record.status]}
+          {record.workflow_id ? (
+            <WorkflowStepProgress workflowId={record.workflow_id} />
+          ) : (
+            <div className="rounded-lg bg-raised/60 p-4">
+              <div className="flex items-center gap-2 text-sm text-txt-muted">
+                <span className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
+                {DD_STATUS_LABELS[record.status]}
+              </div>
+              {record.error && <p className="mt-2 text-sm text-prism-critical">{record.error}</p>}
             </div>
-            {record.error && <p className="mt-2 text-sm text-prism-critical">{record.error}</p>}
-          </div>
+          )}
         </div>
       )}
     </Card>
@@ -1726,6 +1813,7 @@ interface SLv2Record {
   framework_outputs?: Record<string, unknown>;
   framework_convergence?: string | null;
   watchlist?: WatchlistItem[];
+  workflow_id?: string;
   created_at: string;
   completed_at: string | null;
   error: string | null;
@@ -1927,6 +2015,9 @@ function SLv2RecordCard({ record, expanded, onToggle }: { record: SLv2Record; ex
 
       {expanded && (
         <div className="mt-4 space-y-5 border-t border-border pt-4">
+          {/* Workflow Step Progress */}
+          {r.workflow_id && isRunning && <WorkflowStepProgress workflowId={r.workflow_id} />}
+
           {/* Wave Progress */}
           <SLv2WaveProgress record={r} />
 

@@ -27,6 +27,15 @@ import {
 } from 'recharts';
 import Activity from './Activity';
 
+async function schedulerApi<T>(path: string, opts?: RequestInit): Promise<T> {
+  const res = await fetch(`${SCHEDULER_URL}${path}`, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', ...opts?.headers },
+  });
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+}
+
 interface AgentRow {
   id: string;
   role: string;
@@ -305,6 +314,76 @@ function usePlanVerifications(days = 30) {
   return { data, loading };
 }
 
+// ─── Workflow monitoring ────────────────────────────────────────
+
+interface WorkflowStep {
+  id: string;
+  type: string;
+  agents: string[];
+  status: 'completed' | 'running' | 'waiting' | 'pending' | 'failed' | 'skipped';
+  started_at: string | null;
+  completed_at: string | null;
+  duration_ms: number | null;
+  cost_usd: number | null;
+  error: string | null;
+}
+
+interface WorkflowRecord {
+  id: string;
+  type: string;
+  initiator: string;
+  directive_title: string | null;
+  status: 'running' | 'completed' | 'failed' | 'waiting' | 'cancelled';
+  steps: WorkflowStep[];
+  current_step: number;
+  total_steps: number;
+  waiting_for: string | null;
+  started_at: string;
+  completed_at: string | null;
+  total_cost_usd: number;
+  error: string | null;
+}
+
+interface WorkflowMetrics {
+  total_started: number;
+  total_completed: number;
+  total_failed: number;
+  avg_completion_time_ms: number;
+  by_type: { type: string; count: number; avg_time_ms: number; avg_cost: number }[];
+}
+
+const WORKFLOW_POLL = 10_000;
+
+function useWorkflows() {
+  const [workflows, setWorkflows] = useState<WorkflowRecord[]>([]);
+  const [metrics, setMetrics] = useState<WorkflowMetrics | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    try {
+      const [wfs, m] = await Promise.all([
+        schedulerApi<WorkflowRecord[]>('/workflows'),
+        schedulerApi<WorkflowMetrics>('/workflows/metrics?days=30'),
+      ]);
+      setWorkflows(wfs ?? []);
+      setMetrics(m ?? null);
+    } catch {
+      setWorkflows([]);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  useEffect(() => {
+    const hasActive = workflows.some(w => w.status === 'running' || w.status === 'waiting');
+    const interval = setInterval(refresh, hasActive ? WORKFLOW_POLL : POLL_INTERVAL);
+    return () => clearInterval(interval);
+  }, [workflows, refresh]);
+
+  return { workflows, metrics, loading, refresh };
+}
+
 // ─── Memory Health hooks ────────────────────────────────────────
 
 interface MemoryLifecycleRow {
@@ -455,6 +534,7 @@ function OperationsOverview() {
   const { data: layerCounts, loading: layersLoading, refresh: refreshLayers } = useMemoryLayerCounts();
   const { data: tableCounts, loading: tableCountsLoading } = useMemoryTableCounts();
   const { data: consolidationActivity, loading: consolidationLoading } = useConsolidationActivity(30);
+  const { workflows, metrics: wfMetrics, loading: wfLoading, refresh: refreshWorkflows } = useWorkflows();
 
   const loading = agentsLoading || reflectionsLoading || recentRunsLoading;
   const lastRefresh = useRef(new Date());
@@ -543,6 +623,14 @@ function OperationsOverview() {
 
       {/* Plan Quality Card */}
       <PlanQualityCard verifications={planVerifications} loading={pvLoading} />
+
+      {/* Active Workflows */}
+      <ActiveWorkflowsSection
+        workflows={workflows}
+        metrics={wfMetrics}
+        loading={wfLoading}
+        onRefresh={refreshWorkflows}
+      />
 
       <div className="grid grid-cols-2 gap-6">
         {/* Runs per Agent */}
@@ -871,6 +959,253 @@ function OperationsOverview() {
         </div>
       </div>
     </div>
+  );
+}
+
+function workflowStatusColor(status: string) {
+  if (status === 'completed') return 'bg-tier-green';
+  if (status === 'failed' || status === 'cancelled') return 'bg-prism-critical';
+  if (status === 'waiting') return 'bg-prism-elevated animate-pulse';
+  return 'bg-cyan animate-pulse';
+}
+
+function workflowStatusBadge(status: string) {
+  if (status === 'completed') return 'border-tier-green/30 bg-tier-green/15 text-tier-green';
+  if (status === 'failed' || status === 'cancelled') return 'border-prism-critical/30 bg-prism-critical/15 text-prism-critical';
+  if (status === 'waiting') return 'border-prism-elevated/30 bg-prism-elevated/15 text-prism-elevated';
+  return 'border-cyan/30 bg-cyan/15 text-cyan';
+}
+
+function stepStatusIcon(status: string) {
+  if (status === 'completed') return <span className="text-tier-green font-medium">✓</span>;
+  if (status === 'running') return <span className="text-cyan animate-pulse font-medium">⟳</span>;
+  if (status === 'waiting') return <span className="text-prism-elevated">⏳</span>;
+  if (status === 'failed') return <span className="text-prism-critical font-medium">✗</span>;
+  if (status === 'skipped') return <span className="text-txt-faint">⏭</span>;
+  return <span className="text-txt-faint">–</span>;
+}
+
+function formatMs(ms: number) {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  if (ms < 3_600_000) return `${(ms / 60_000).toFixed(1)}m`;
+  return `${(ms / 3_600_000).toFixed(1)}h`;
+}
+
+function elapsedSince(iso: string) {
+  return formatMs(Date.now() - new Date(iso).getTime());
+}
+
+function ActiveWorkflowsSection({
+  workflows,
+  metrics,
+  loading,
+  onRefresh,
+}: {
+  workflows: WorkflowRecord[];
+  metrics: WorkflowMetrics | null;
+  loading: boolean;
+  onRefresh: () => void;
+}) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  const waitingWorkflows = workflows.filter(w => w.status === 'waiting');
+  const activeWorkflows = workflows.filter(w => w.status === 'running' || w.status === 'waiting');
+  const recentWorkflows = workflows.slice(0, 20);
+
+  const cancelWorkflow = async (id: string) => {
+    setActionLoading(`cancel-${id}`);
+    try {
+      await fetch(`${SCHEDULER_URL}/workflows/${id}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      onRefresh();
+    } catch { /* ignore */ }
+    setActionLoading(null);
+  };
+
+  const retryWorkflow = async (id: string) => {
+    setActionLoading(`retry-${id}`);
+    try {
+      await fetch(`${SCHEDULER_URL}/workflows/${id}/retry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      onRefresh();
+    } catch { /* ignore */ }
+    setActionLoading(null);
+  };
+
+  return (
+    <>
+      <SectionHeader title="Active Workflows" subtitle="Real-time workflow monitoring · polls every 10s for active workflows" />
+
+      {/* Waiting workflows highlight */}
+      {waitingWorkflows.length > 0 && (
+        <div className="space-y-2">
+          {waitingWorkflows.map(w => (
+            <div
+              key={w.id}
+              className="flex items-center justify-between rounded-lg border border-prism-elevated/30 bg-prism-elevated/10 px-4 py-3"
+            >
+              <div className="flex items-center gap-3">
+                <span className="h-2.5 w-2.5 rounded-full bg-prism-elevated animate-pulse" />
+                <div>
+                  <p className="text-sm font-medium text-txt-primary">
+                    {w.directive_title ?? w.type}
+                  </p>
+                  <p className="text-[11px] text-prism-elevated">
+                    Waiting for: {w.waiting_for ?? 'Human approval'} · {elapsedSince(w.started_at)}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => cancelWorkflow(w.id)}
+                disabled={actionLoading !== null}
+                className="rounded-md border border-prism-critical/30 bg-prism-critical/10 px-3 py-1 text-xs font-medium text-prism-critical hover:bg-prism-critical/20 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Workflow Metrics (30 days) */}
+      {metrics && (
+        <div className="grid grid-cols-4 gap-4">
+          <SummaryCard label="Started (30d)" value={String(metrics.total_started)} loading={loading} />
+          <SummaryCard label="Completed" value={String(metrics.total_completed)} loading={loading} />
+          <SummaryCard label="Failed" value={String(metrics.total_failed)} loading={loading} />
+          <SummaryCard label="Avg Time" value={formatMs(metrics.avg_completion_time_ms)} loading={loading} />
+        </div>
+      )}
+
+      {/* Cost by workflow type */}
+      {metrics && metrics.by_type.length > 0 && (
+        <Card>
+          <SectionHeader title="Workflow Metrics by Type (30 days)" />
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-border text-[11px] font-medium uppercase tracking-wider text-txt-muted">
+                  <th className="py-2 pr-4">Type</th>
+                  <th className="py-2 pr-4">Count</th>
+                  <th className="py-2 pr-4">Avg Time</th>
+                  <th className="py-2">Avg Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {metrics.by_type.map(t => (
+                  <tr key={t.type} className="border-b border-border/50">
+                    <td className="py-2 pr-4 font-medium text-txt-secondary">{t.type}</td>
+                    <td className="py-2 pr-4 font-mono text-txt-primary">{t.count}</td>
+                    <td className="py-2 pr-4 text-txt-muted">{formatMs(t.avg_time_ms)}</td>
+                    <td className="py-2 font-mono text-txt-muted">${t.avg_cost.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Workflows table */}
+      <Card>
+        <SectionHeader title={`Workflows${activeWorkflows.length > 0 ? ` (${activeWorkflows.length} active)` : ''}`} />
+        {loading ? (
+          <Skeleton className="h-40" />
+        ) : recentWorkflows.length === 0 ? (
+          <p className="py-4 text-center text-sm text-txt-faint">No workflows recorded</p>
+        ) : (
+          <div className="space-y-1">
+            {recentWorkflows.map(w => (
+              <div key={w.id}>
+                <button
+                  onClick={() => setExpanded(expanded === w.id ? null : w.id)}
+                  className="w-full text-left rounded-lg border border-border bg-raised px-4 py-2.5 hover:bg-surface transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className={`h-2 w-2 rounded-full shrink-0 ${workflowStatusColor(w.status)}`} />
+                      <span className="text-sm font-medium text-txt-secondary truncate">{w.type}</span>
+                      <span className="text-[11px] text-txt-faint truncate">{w.initiator}</span>
+                      {w.directive_title && (
+                        <span className="text-[11px] text-txt-muted truncate hidden md:inline">{w.directive_title}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-[11px] font-mono text-txt-muted">{w.current_step}/{w.total_steps}</span>
+                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${workflowStatusBadge(w.status)}`}>
+                        {w.status}
+                      </span>
+                      <span className="text-[10px] text-txt-faint">{elapsedSince(w.started_at)}</span>
+                    </div>
+                  </div>
+                </button>
+
+                {expanded === w.id && (
+                  <div className="ml-4 mt-1 mb-2 rounded-lg border border-border/50 bg-surface px-4 py-3 space-y-2">
+                    {/* Step progress */}
+                    {w.steps.map((step, i) => (
+                      <div key={step.id} className="flex items-center gap-3 text-[12px]">
+                        <span className="w-5 text-center shrink-0">{stepStatusIcon(step.status)}</span>
+                        <span className="w-5 text-txt-faint font-mono">{i + 1}</span>
+                        <span className="flex-1 text-txt-secondary font-medium">{step.type}</span>
+                        {step.agents.length > 0 && (
+                          <span className="text-txt-faint truncate max-w-[120px]">{step.agents.join(', ')}</span>
+                        )}
+                        {step.duration_ms != null && (
+                          <span className="text-txt-faint font-mono">{formatMs(step.duration_ms)}</span>
+                        )}
+                        {step.cost_usd != null && step.cost_usd > 0 && (
+                          <span className="text-txt-faint font-mono">${step.cost_usd.toFixed(3)}</span>
+                        )}
+                        {step.error && (
+                          <span className="text-prism-critical truncate max-w-[200px]" title={step.error}>
+                            {step.error}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* Controls */}
+                    {(w.status === 'running' || w.status === 'waiting') && (
+                      <div className="flex gap-2 pt-2 border-t border-border/50">
+                        <button
+                          onClick={() => cancelWorkflow(w.id)}
+                          disabled={actionLoading !== null}
+                          className="rounded-md border border-prism-critical/30 bg-prism-critical/10 px-3 py-1 text-xs font-medium text-prism-critical hover:bg-prism-critical/20 disabled:opacity-50"
+                        >
+                          {actionLoading === `cancel-${w.id}` ? 'Cancelling…' : 'Cancel'}
+                        </button>
+                      </div>
+                    )}
+                    {w.status === 'failed' && (
+                      <div className="flex gap-2 pt-2 border-t border-border/50">
+                        <button
+                          onClick={() => retryWorkflow(w.id)}
+                          disabled={actionLoading !== null}
+                          className="rounded-md border border-cyan/30 bg-cyan/10 px-3 py-1 text-xs font-medium text-cyan hover:bg-cyan/20 disabled:opacity-50"
+                        >
+                          {actionLoading === `retry-${w.id}` ? 'Retrying…' : 'Retry'}
+                        </button>
+                      </div>
+                    )}
+
+                    {w.total_cost_usd > 0 && (
+                      <p className="text-[11px] text-txt-faint pt-1">Total cost: ${w.total_cost_usd.toFixed(3)}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </>
   );
 }
 
