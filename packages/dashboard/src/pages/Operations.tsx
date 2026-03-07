@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 
 const POLL_INTERVAL = 60_000;
-import { apiCall } from '../lib/firebase';
+import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import {
   Card,
@@ -16,6 +16,8 @@ import {
   Bar,
   LineChart,
   Line,
+  PieChart,
+  Pie,
   XAxis,
   YAxis,
   Tooltip,
@@ -303,6 +305,122 @@ function usePlanVerifications(days = 30) {
   return { data, loading };
 }
 
+// ─── Memory Health hooks ────────────────────────────────────────
+
+interface MemoryLifecycleRow {
+  id: string;
+  source_table: string;
+  source_id: string;
+  current_layer: string;
+  promoted_at: string | null;
+  created_at: string;
+}
+
+interface MemoryTableCount {
+  table: string;
+  count: number;
+}
+
+const MEMORY_TABLES = ['memory_lifecycle', 'memory_archive', 'agent_memory', 'agent_reflections'] as const;
+const LAYER_COLORS: Record<string, string> = {
+  raw: '#64748b',
+  distilled: '#7C3AED',
+  operative: '#0EA5E9',
+  archived: '#F59E0B',
+};
+
+function useMemoryLayerCounts() {
+  const [data, setData] = useState<{ layer: string; count: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const refresh = useCallback(async () => {
+    try {
+      const rows = await apiCall<MemoryLifecycleRow[]>('/api/memory_lifecycle?limit=5000');
+      const counts = new Map<string, number>();
+      for (const r of (rows ?? [])) {
+        counts.set(r.current_layer, (counts.get(r.current_layer) ?? 0) + 1);
+      }
+      setData(
+        ['raw', 'distilled', 'operative', 'archived'].map(layer => ({
+          layer,
+          count: counts.get(layer) ?? 0,
+        })),
+      );
+    } catch {
+      setData([]);
+    }
+    setLoading(false);
+  }, []);
+  useEffect(() => {
+    refresh();
+    const id = setInterval(refresh, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, [refresh]);
+  return { data, loading, refresh };
+}
+
+function useMemoryTableCounts() {
+  const [data, setData] = useState<MemoryTableCount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const refresh = useCallback(async () => {
+    try {
+      const results = await Promise.all(
+        MEMORY_TABLES.map(async (table) => {
+          try {
+            const res = await apiCall<{ count: number }>(`/api/${table}?count=true`);
+            return { table, count: res?.count ?? 0 };
+          } catch {
+            return { table, count: 0 };
+          }
+        }),
+      );
+      setData(results);
+    } catch {
+      setData([]);
+    }
+    setLoading(false);
+  }, []);
+  useEffect(() => {
+    refresh();
+    const id = setInterval(refresh, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, [refresh]);
+  return { data, loading };
+}
+
+function useConsolidationActivity(days = 30) {
+  const [data, setData] = useState<{ date: string; promoted: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const refresh = useCallback(async () => {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    try {
+      const rows = await apiCall<MemoryLifecycleRow[]>(
+        `/api/memory_lifecycle?promoted_at=gte.${since}&limit=5000`,
+      );
+      const byDate = new Map<string, number>();
+      for (const r of (rows ?? [])) {
+        if (r.promoted_at) {
+          const date = r.promoted_at.split('T')[0];
+          byDate.set(date, (byDate.get(date) ?? 0) + 1);
+        }
+      }
+      setData(
+        Array.from(byDate.entries())
+          .map(([date, promoted]) => ({ date: formatDate(date), promoted }))
+          .sort((a, b) => a.date.localeCompare(b.date)),
+      );
+    } catch {
+      setData([]);
+    }
+    setLoading(false);
+  }, [days]);
+  useEffect(() => {
+    refresh();
+    const id = setInterval(refresh, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, [refresh]);
+  return { data, loading };
+}
+
 type Tab = 'overview' | 'history';
 
 export default function Operations() {
@@ -334,6 +452,9 @@ function OperationsOverview() {
   const { data: syncs, loading: syncsLoading } = useDataSyncs();
   const { data: incidents, loading: incidentsLoading } = useIncidents();
   const { data: planVerifications, loading: pvLoading } = usePlanVerifications(30);
+  const { data: layerCounts, loading: layersLoading, refresh: refreshLayers } = useMemoryLayerCounts();
+  const { data: tableCounts, loading: tableCountsLoading } = useMemoryTableCounts();
+  const { data: consolidationActivity, loading: consolidationLoading } = useConsolidationActivity(30);
 
   const loading = agentsLoading || reflectionsLoading || recentRunsLoading;
   const lastRefresh = useRef(new Date());
@@ -706,6 +827,17 @@ function OperationsOverview() {
         )}
       </Card>
 
+      {/* Memory Health */}
+      <MemoryHealthSection
+        layerCounts={layerCounts}
+        layersLoading={layersLoading}
+        tableCounts={tableCounts}
+        tableCountsLoading={tableCountsLoading}
+        consolidationActivity={consolidationActivity}
+        consolidationLoading={consolidationLoading}
+        onRefresh={refreshLayers}
+      />
+
       {/* Agent Detail Cards */}
       <div>
         <SectionHeader title="Agent Details" />
@@ -739,6 +871,202 @@ function OperationsOverview() {
         </div>
       </div>
     </div>
+  );
+}
+
+function MemoryHealthSection({
+  layerCounts,
+  layersLoading,
+  tableCounts,
+  tableCountsLoading,
+  consolidationActivity,
+  consolidationLoading,
+  onRefresh,
+}: {
+  layerCounts: { layer: string; count: number }[];
+  layersLoading: boolean;
+  tableCounts: { table: string; count: number }[];
+  tableCountsLoading: boolean;
+  consolidationActivity: { date: string; promoted: number }[];
+  consolidationLoading: boolean;
+  onRefresh: () => void;
+}) {
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [actionResult, setActionResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const totalTracked = layerCounts.reduce((s, l) => s + l.count, 0);
+  const rawCount = layerCounts.find(l => l.layer === 'raw')?.count ?? 0;
+  const hasLayerData = layerCounts.some(l => l.count > 0);
+
+  const runAction = async (action: 'consolidate' | 'archive') => {
+    setActionLoading(action);
+    setActionResult(null);
+    try {
+      const res = await fetch(`${SCHEDULER_URL}/memory/${action}`, { method: 'POST' });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      const data = await res.json();
+      setActionResult({ type: 'success', message: data.success ? `${action} completed` : `${action} finished with warnings` });
+      onRefresh();
+    } catch (err) {
+      setActionResult({ type: 'error', message: err instanceof Error ? err.message : String(err) });
+    }
+    setActionLoading(null);
+  };
+
+  return (
+    <>
+      <SectionHeader title="Memory Health" />
+
+      {/* Summary stats row */}
+      <div className="grid grid-cols-4 gap-4">
+        <Card>
+          <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Total Tracked</p>
+          <p className="mt-1 font-mono text-2xl font-semibold text-txt-primary">
+            {layersLoading ? '…' : totalTracked}
+          </p>
+        </Card>
+        <Card>
+          <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Raw Traces</p>
+          <p className="mt-1 font-mono text-2xl font-semibold text-txt-primary">
+            {layersLoading ? '…' : rawCount}
+          </p>
+        </Card>
+        <Card>
+          <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Promoted (30d)</p>
+          <p className="mt-1 font-mono text-2xl font-semibold text-txt-primary">
+            {consolidationLoading ? '…' : consolidationActivity.reduce((s, d) => s + d.promoted, 0)}
+          </p>
+        </Card>
+        <Card>
+          <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Archived</p>
+          <p className="mt-1 font-mono text-2xl font-semibold text-txt-primary">
+            {layersLoading ? '…' : (layerCounts.find(l => l.layer === 'archived')?.count ?? 0)}
+          </p>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-2 gap-6">
+        {/* Layer Distribution */}
+        <Card>
+          <SectionHeader title="Layer Distribution" />
+          {layersLoading ? (
+            <Skeleton className="h-48" />
+          ) : !hasLayerData ? (
+            <EmptyChart message="No memory lifecycle data yet" />
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <PieChart>
+                <Pie
+                  data={layerCounts.filter(l => l.count > 0)}
+                  dataKey="count"
+                  nameKey="layer"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  innerRadius={45}
+                  paddingAngle={2}
+                  label={({ layer, count }: { layer: string; count: number }) =>
+                    `${layer} (${count})`
+                  }
+                >
+                  {layerCounts.filter(l => l.count > 0).map((entry) => (
+                    <Cell key={entry.layer} fill={LAYER_COLORS[entry.layer] ?? '#64748b'} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
+                  formatter={(value: number) => [value, 'Records']}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+
+        {/* Consolidation Activity */}
+        <Card>
+          <SectionHeader title="Consolidation Activity (30 days)" />
+          {consolidationLoading ? (
+            <Skeleton className="h-48" />
+          ) : consolidationActivity.length === 0 ? (
+            <EmptyChart message="No promotions recorded yet" />
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={consolidationActivity} margin={{ top: 5, right: 20, left: 5, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }}
+                  interval={Math.max(0, Math.floor(consolidationActivity.length / 8) - 1)}
+                />
+                <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} width={40} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
+                  labelStyle={{ color: 'var(--color-txt-secondary)' }}
+                  formatter={(value: number) => [value, 'Promoted']}
+                />
+                <Bar dataKey="promoted" fill="#7C3AED" radius={[4, 4, 0, 0]} maxBarSize={24} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-2 gap-6">
+        {/* Storage Metrics */}
+        <Card>
+          <SectionHeader title="Storage Metrics" />
+          {tableCountsLoading ? (
+            <Skeleton className="h-32" />
+          ) : tableCounts.length === 0 ? (
+            <p className="py-4 text-center text-sm text-txt-faint">No data available</p>
+          ) : (
+            <div className="space-y-2">
+              {tableCounts.map((t) => (
+                <div
+                  key={t.table}
+                  className="flex items-center justify-between rounded-lg border border-border bg-raised px-3 py-2.5"
+                >
+                  <span className="text-sm font-medium text-txt-secondary">{t.table}</span>
+                  <span className="font-mono text-sm text-txt-primary">{t.count.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Manual Controls */}
+        <Card>
+          <SectionHeader title="Manual Controls" />
+          <div className="space-y-3">
+            <button
+              onClick={() => runAction('consolidate')}
+              disabled={actionLoading !== null}
+              className="w-full rounded-md border border-border bg-raised px-4 py-2.5 text-sm font-medium text-txt-secondary hover:bg-surface disabled:opacity-50"
+            >
+              {actionLoading === 'consolidate' ? 'Running Consolidation…' : 'Run Consolidation Now'}
+            </button>
+            <button
+              onClick={() => runAction('archive')}
+              disabled={actionLoading !== null}
+              className="w-full rounded-md border border-border bg-raised px-4 py-2.5 text-sm font-medium text-txt-secondary hover:bg-surface disabled:opacity-50"
+            >
+              {actionLoading === 'archive' ? 'Running Archival…' : 'Run Archival Now'}
+            </button>
+            {actionResult && (
+              <div
+                className={`rounded-md px-3 py-2 text-sm ${
+                  actionResult.type === 'success'
+                    ? 'border border-tier-green/25 bg-tier-green/5 text-tier-green'
+                    : 'border border-prism-critical/25 bg-prism-critical/5 text-prism-critical'
+                }`}
+              >
+                {actionResult.message}
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+    </>
   );
 }
 
