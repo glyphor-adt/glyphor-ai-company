@@ -21,7 +21,7 @@
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { WebSocketServer } from 'ws';
-import OpenAI from 'openai';
+import OpenAI, { AzureOpenAI } from 'openai';
 import { SessionManager } from './sessionManager.js';
 import { DashboardVoiceHandler } from './dashboardHandler.js';
 import { TeamsCallHandler } from './teamsHandler.js';
@@ -33,9 +33,12 @@ import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 const PORT = parseInt(process.env.PORT || '8090', 10);
 
 // ─── OpenAI ─────────────────────────────────────────────────────
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Use Azure OpenAI when configured, otherwise direct OpenAI
+const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
+const azureApiKey = process.env.AZURE_OPENAI_API_KEY;
+const openai: OpenAI = (azureEndpoint && azureApiKey)
+  ? new AzureOpenAI({ endpoint: azureEndpoint, apiKey: azureApiKey, apiVersion: '2025-04-01-preview' })
+  : new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // ─── Session Manager ────────────────────────────────────────────
 const sessions = new SessionManager();

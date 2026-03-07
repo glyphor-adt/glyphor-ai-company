@@ -20,6 +20,12 @@ import { AnthropicAdapter } from './anthropic.js';
 export interface ProviderFactoryConfig {
   geminiApiKey?: string;
   openaiApiKey?: string;
+  /** Azure OpenAI endpoint, e.g. https://my-resource.openai.azure.com */
+  azureOpenaiEndpoint?: string;
+  /** Azure OpenAI API key. When set with azureOpenaiEndpoint, routes OpenAI calls through Azure. */
+  azureOpenaiApiKey?: string;
+  /** Azure OpenAI API version (default: 2025-04-01-preview) */
+  azureOpenaiApiVersion?: string;
   /** GCP project ID for Vertex AI (Claude via Vertex). Falls back to GCP_PROJECT_ID env var. */
   vertexProjectId?: string;
   /** GCP region for Vertex AI Claude. Defaults to us-east5. */
@@ -50,8 +56,19 @@ export class ProviderFactory {
         return new GeminiAdapter(this.config.geminiApiKey);
       }
       case 'openai': {
-        if (!this.config.openaiApiKey) throw new Error('OpenAI API key not configured — set OPENAI_API_KEY environment variable');
-        return new OpenAIAdapter(this.config.openaiApiKey);
+        // Auto-detect Azure OpenAI from config or environment
+        const azureEndpoint = this.config.azureOpenaiEndpoint ?? process.env.AZURE_OPENAI_ENDPOINT;
+        const azureApiKey = this.config.azureOpenaiApiKey ?? process.env.AZURE_OPENAI_API_KEY;
+        const hasAzure = !!(azureEndpoint && azureApiKey);
+        if (!hasAzure && !this.config.openaiApiKey) {
+          throw new Error('OpenAI not configured — set AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY for Azure, or OPENAI_API_KEY for direct');
+        }
+        return new OpenAIAdapter({
+          apiKey: this.config.openaiApiKey,
+          azureEndpoint,
+          azureApiKey,
+          azureApiVersion: this.config.azureOpenaiApiVersion,
+        });
       }
       case 'anthropic': {
         const projectId = this.config.vertexProjectId ?? process.env.GCP_PROJECT_ID;

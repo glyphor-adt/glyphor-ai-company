@@ -75,13 +75,29 @@ export class TeamsAudioBridge {
     if (this.closed) throw new Error('Bridge is closed');
 
     return new Promise<void>((resolve, reject) => {
-      const url = `wss://api.openai.com/v1/realtime?model=${encodeURIComponent(REALTIME_MODEL)}`;
-      const ws = new WebSocket(url, {
-        headers: {
+      // Use Azure OpenAI Realtime when configured, otherwise direct OpenAI
+      const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
+      const azureApiKey = process.env.AZURE_OPENAI_API_KEY;
+      let url: string;
+      let headers: Record<string, string>;
+
+      if (azureEndpoint && azureApiKey) {
+        // Azure OpenAI Realtime — wss://{resource}.openai.azure.com/openai/realtime?api-version=...&deployment=...
+        const azureHost = azureEndpoint.replace(/^https?:\/\//, '');
+        url = `wss://${azureHost}/openai/realtime?api-version=2025-04-01-preview&deployment=${encodeURIComponent(REALTIME_MODEL)}`;
+        headers = {
+          'api-key': azureApiKey,
+          'OpenAI-Beta': 'realtime=v1',
+        };
+      } else {
+        url = `wss://api.openai.com/v1/realtime?model=${encodeURIComponent(REALTIME_MODEL)}`;
+        headers = {
           Authorization: `Bearer ${this.openaiApiKey}`,
           'OpenAI-Beta': 'realtime=v1',
-        },
-      });
+        };
+      }
+
+      const ws = new WebSocket(url, { headers });
 
       const connectTimeout = setTimeout(() => {
         ws.terminate();

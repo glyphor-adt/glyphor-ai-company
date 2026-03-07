@@ -3,11 +3,28 @@
  *
  * Supports GPT-4o, o-series (o1/o3/o4), and GPT-5 family with
  * reasoning_effort control.
+ *
+ * Supports both direct OpenAI and Azure OpenAI:
+ *   - Direct: pass { apiKey }
+ *   - Azure:  pass { azureEndpoint, azureApiKey } — uses AzureOpenAI SDK
+ *     which routes through your Azure subscription (pay-as-you-go billing).
  */
 
-import OpenAI from 'openai';
+import OpenAI, { AzureOpenAI } from 'openai';
 import type { ConversationTurn } from '../types.js';
 import type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse, ImageResponse } from './types.js';
+
+/** Configuration for OpenAI adapter — either direct or Azure-backed. */
+export interface OpenAIAdapterConfig {
+  /** Direct OpenAI API key (api.openai.com). Used as fallback for features not on Azure. */
+  apiKey?: string;
+  /** Azure OpenAI endpoint, e.g. https://my-resource.openai.azure.com */
+  azureEndpoint?: string;
+  /** Azure OpenAI API key */
+  azureApiKey?: string;
+  /** Azure OpenAI API version (default: 2025-04-01-preview) */
+  azureApiVersion?: string;
+}
 
 /**
  * Recursively lowercase all `type` fields in a JSON Schema object.
@@ -34,24 +51,63 @@ function normalizeSchemaTypes(schema: Record<string, unknown>): Record<string, u
   return result;
 }
 
+const AZURE_API_VERSION = '2025-04-01-preview';
+
 export class OpenAIAdapter implements ProviderAdapter {
   readonly provider = 'openai' as const;
   private client: OpenAI;
+  /** True when routing through Azure OpenAI (billing on Azure subscription). */
+  readonly isAzure: boolean;
+  /** Azure endpoint URL (only set when isAzure=true). */
+  private azureEndpoint?: string;
+  /** Azure API version (only set when isAzure=true). */
+  private azureApiVersion?: string;
+  /** Direct OpenAI API key — kept for fallback on features not available on Azure. */
+  private directApiKey?: string;
 
-  constructor(apiKey: string) {
-    this.client = new OpenAI({
-      apiKey,
-      maxRetries: 0,      // We handle retries in ModelClient
-      timeout: 120_000,   // 2 minute timeout per request
-      fetch: async (url: string | URL | Request, init?: RequestInit) => {
-        // Force fresh TCP connections in Cloud Run (no connection pool reuse)
-        const resp = await globalThis.fetch(url, {
-          ...init,
-          keepalive: false,
-        });
-        return resp;
-      },
-    });
+  constructor(config: OpenAIAdapterConfig | string) {
+    // Backwards-compatible: plain string = direct OpenAI API key
+    if (typeof config === 'string') {
+      config = { apiKey: config };
+    }
+
+    const customFetch = async (url: string | URL | Request, init?: RequestInit) => {
+      // Force fresh TCP connections in Cloud Run (no connection pool reuse)
+      const resp = await globalThis.fetch(url, {
+        ...init,
+        keepalive: false,
+      });
+      return resp;
+    };
+
+    if (config.azureEndpoint && config.azureApiKey) {
+      // ── Azure OpenAI ──
+      this.isAzure = true;
+      this.azureEndpoint = config.azureEndpoint;
+      this.azureApiVersion = config.azureApiVersion ?? AZURE_API_VERSION;
+      this.directApiKey = config.apiKey; // keep for fallback
+      this.client = new AzureOpenAI({
+        endpoint: config.azureEndpoint,
+        apiKey: config.azureApiKey,
+        apiVersion: this.azureApiVersion,
+        maxRetries: 0,
+        timeout: 120_000,
+        fetch: customFetch,
+      });
+      console.log(`[OpenAI] Using Azure OpenAI at ${config.azureEndpoint} (api-version=${this.azureApiVersion})`);
+    } else if (config.apiKey) {
+      // ── Direct OpenAI ──
+      this.isAzure = false;
+      this.directApiKey = config.apiKey;
+      this.client = new OpenAI({
+        apiKey: config.apiKey,
+        maxRetries: 0,
+        timeout: 120_000,
+        fetch: customFetch,
+      });
+    } else {
+      throw new Error('OpenAI adapter requires either apiKey or azureEndpoint + azureApiKey');
+    }
   }
 
   async generate(request: UnifiedModelRequest): Promise<UnifiedModelResponse> {
@@ -125,11 +181,9 @@ export class OpenAIAdapter implements ProviderAdapter {
   /**
    * Generate an image using OpenAI gpt-image-1 (text-rich infographics).
    * Uses direct fetch instead of the SDK to avoid connection issues in Cloud Run.
+   * Routes through Azure OpenAI when configured; falls back to direct OpenAI.
    */
   async generateImage(prompt: string, model = 'gpt-image-1.5-2025-12-16'): Promise<ImageResponse> {
-    const apiKey = this.client.apiKey;
-    if (!apiKey) throw new Error('OpenAI API key is empty');
-
     const body = JSON.stringify({
       model,
       prompt,
@@ -138,12 +192,30 @@ export class OpenAIAdapter implements ProviderAdapter {
       quality: 'high',
     });
 
-    const resp = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: {
+    let url: string;
+    let headers: Record<string, string>;
+
+    if (this.isAzure && this.azureEndpoint) {
+      // Azure OpenAI image generation endpoint
+      // Deployment name = model name (standard convention)
+      url = `${this.azureEndpoint}/openai/deployments/${encodeURIComponent(model)}/images/generations?api-version=${this.azureApiVersion}`;
+      headers = {
+        'Content-Type': 'application/json',
+        'api-key': this.client.apiKey,
+      };
+    } else {
+      const apiKey = this.directApiKey ?? this.client.apiKey;
+      if (!apiKey) throw new Error('OpenAI API key is empty');
+      url = 'https://api.openai.com/v1/images/generations';
+      headers = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
-      },
+      };
+    }
+
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers,
       body,
     });
 

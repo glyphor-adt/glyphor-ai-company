@@ -70,24 +70,52 @@ import { WEB_SEARCH_MODEL } from '@glyphor/shared/models';
 const SEARCH_MODEL = WEB_SEARCH_MODEL;
 
 /**
+ * Build the Responses API URL and auth headers.
+ * Uses Azure OpenAI when AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY are set,
+ * otherwise falls back to direct OpenAI with OPENAI_API_KEY.
+ */
+function getResponsesEndpoint(): { url: string; headers: Record<string, string> } | null {
+  const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
+  const azureApiKey = process.env.AZURE_OPENAI_API_KEY;
+  if (azureEndpoint && azureApiKey) {
+    return {
+      url: `${azureEndpoint}/openai/responses?api-version=2025-04-01-preview`,
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': azureApiKey,
+      },
+    };
+  }
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (apiKey) {
+    return {
+      url: OPENAI_RESPONSES_URL,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    };
+  }
+  return null;
+}
+
+/**
  * Call OpenAI Responses API with web_search_preview to get grounded search results.
+ * Routes through Azure OpenAI when configured.
  */
 async function openaiWebSearch(
   prompt: string,
   searchContextSize: 'low' | 'medium' | 'high' = 'medium',
 ): Promise<{ text: string; annotations: Array<{ url: string; title: string }> }> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    console.warn('[WebSearch] No OPENAI_API_KEY configured — returning empty results');
+  const endpoint = getResponsesEndpoint();
+  if (!endpoint) {
+    console.warn('[WebSearch] No OpenAI or Azure OpenAI API key configured — returning empty results');
     return { text: '', annotations: [] };
   }
 
-  const res = await fetch(OPENAI_RESPONSES_URL, {
+  const res = await fetch(endpoint.url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
+    headers: endpoint.headers,
     body: JSON.stringify({
       model: SEARCH_MODEL,
       tools: [{ type: 'web_search_preview', search_context_size: searchContextSize }],

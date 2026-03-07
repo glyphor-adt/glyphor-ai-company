@@ -136,7 +136,15 @@ const ENV_REQUIRED: Record<string, string[]> = {
   'Mercury (banking)': ['MERCURY_API_TOKEN'],
   'Mailchimp (email campaigns)': ['GLYPHOR_MAILCHIMP_API'],
   'Mandrill (transactional email)': ['GLYPHOR_MANDRILL_API_KEY'],
-  'OpenAI (images + AI)': ['OPENAI_API_KEY'],
+  'OpenAI (images + AI)': ['OPENAI_API_KEY'],  // or AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY
+};
+
+/**
+ * OpenAI can be configured directly (OPENAI_API_KEY) or via Azure
+ * (AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY). Either is acceptable.
+ */
+const AZURE_OPENAI_ALTERNATIVE: Record<string, string[]> = {
+  'OpenAI (images + AI)': ['AZURE_OPENAI_ENDPOINT', 'AZURE_OPENAI_API_KEY'],
 };
 
 /** Optional env vars — services not yet provisioned (informational). */
@@ -330,11 +338,14 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
 
       for (const [service, vars] of Object.entries(ENV_REQUIRED)) {
         const allPresent = vars.every(v => !!process.env[v]);
-        if (allPresent) {
-          present.push(service);
+        // Check Azure OpenAI alternative (e.g., service can be satisfied by Azure config)
+        const altVars = AZURE_OPENAI_ALTERNATIVE[service];
+        const altPresent = altVars ? altVars.every(v => !!process.env[v]) : false;
+        if (allPresent || altPresent) {
+          present.push(altPresent && !allPresent ? `${service} (via Azure)` : service);
         } else {
           const missingVars = vars.filter(v => !process.env[v]);
-          missing.push(`${service}: ${missingVars.join(', ')}`);
+          missing.push(`${service}: ${missingVars.join(', ')}${altVars ? ' (or ' + altVars.join(' + ') + ')' : ''}`);
         }
       }
 
