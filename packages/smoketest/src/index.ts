@@ -11,7 +11,8 @@
  *   SCHEDULER_URL       — Cloud Run scheduler base URL (required)
  *   DASHBOARD_URL       — Cloud Run dashboard base URL (required)
  *   VOICE_GATEWAY_URL   — Cloud Run voice gateway base URL (required)
- *   WORKER_URL          — Cloud Run worker base URL (optional, for T0.6)
+ *   WORKER_URL          — Cloud Run worker base URL (optional, for L0/L19)
+ *   GRAPHRAG_URL        — GraphRAG indexer base URL (optional, for L20)
  *   GCP_PROJECT         — GCP project ID (default: ai-glyphor-company)
  *   AZURE_TENANT_ID     — Azure tenant ID (for M365 tests, layer 13)
  *   AZURE_CLIENT_ID     — Azure app client ID (for M365 tests)
@@ -23,6 +24,11 @@
  *   AGENT365_CLIENT_ID  — Agent 365 app client ID (layer 18)
  *   AGENT365_CLIENT_SECRET — Agent 365 app client secret (layer 18)
  *   AGENT365_TENANT_ID  — Agent 365 tenant ID (layer 18)
+ *   GLYPHOR_MCP_DATA_URL       — MCP data server URL (layer 17)
+ *   GLYPHOR_MCP_FINANCE_URL    — MCP finance server URL (layer 17)
+ *   GLYPHOR_MCP_MARKETING_URL  — MCP marketing server URL (layer 17)
+ *   GLYPHOR_MCP_ENGINEERING_URL — MCP engineering server URL (layer 17)
+ *   GLYPHOR_MCP_DESIGN_URL     — MCP design server URL (layer 17)
  */
 
 import { config as loadEnv } from 'dotenv';

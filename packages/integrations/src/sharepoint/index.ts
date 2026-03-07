@@ -2,6 +2,7 @@ import { systemQuery } from '@glyphor/shared/db';
 import { createHash } from 'node:crypto';
 import { inflateRawSync } from 'node:zlib';
 import { getM365Token } from '../credentials/m365Router.js';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
 
 interface GraphDriveItem {
   id: string;
@@ -663,6 +664,108 @@ function getExtension(fileName: string): string {
   return i >= 0 ? fileName.slice(i).toLowerCase() : '';
 }
 
+/**
+ * Convert markdown/plain-text content to a proper .docx buffer.
+ * Handles headings (# / ## / ###), bold (**), italic (*), bullet lists (- / *),
+ * and numbered lists (1.). Produces valid Office Open XML that Word can open.
+ */
+async function markdownToDocx(markdown: string): Promise<Buffer> {
+  const lines = markdown.split('\n');
+  const children: Paragraph[] = [];
+
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+
+    // Blank line → empty paragraph
+    if (!line.trim()) {
+      children.push(new Paragraph({}));
+      continue;
+    }
+
+    // Headings
+    const headingMatch = line.match(/^(#{1,3})\s+(.*)/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      const headingLevel = level === 1 ? HeadingLevel.HEADING_1
+        : level === 2 ? HeadingLevel.HEADING_2
+        : HeadingLevel.HEADING_3;
+      children.push(new Paragraph({
+        heading: headingLevel,
+        children: parseInlineFormatting(headingMatch[2]),
+      }));
+      continue;
+    }
+
+    // Bullet list (- or *)
+    const bulletMatch = line.match(/^\s*[-*]\s+(.*)/);
+    if (bulletMatch) {
+      children.push(new Paragraph({
+        bullet: { level: 0 },
+        children: parseInlineFormatting(bulletMatch[1]),
+      }));
+      continue;
+    }
+
+    // Numbered list
+    const numberedMatch = line.match(/^\s*\d+[.)]\s+(.*)/);
+    if (numberedMatch) {
+      children.push(new Paragraph({
+        numbering: { reference: 'default-numbering', level: 0 },
+        children: parseInlineFormatting(numberedMatch[1]),
+      }));
+      continue;
+    }
+
+    // Regular paragraph
+    children.push(new Paragraph({
+      children: parseInlineFormatting(line),
+    }));
+  }
+
+  const doc = new Document({
+    numbering: {
+      config: [{
+        reference: 'default-numbering',
+        levels: [{
+          level: 0,
+          format: 'decimal' as any,
+          text: '%1.',
+          alignment: 'start' as any,
+        }],
+      }],
+    },
+    sections: [{
+      children,
+    }],
+  });
+
+  return Buffer.from(await Packer.toBuffer(doc));
+}
+
+/** Parse bold (**text**) and italic (*text*) inline formatting into TextRun array. */
+function parseInlineFormatting(text: string): TextRun[] {
+  const runs: TextRun[] = [];
+  // Match **bold**, *italic*, or plain text segments
+  const pattern = /(\*\*(.+?)\*\*|\*(.+?)\*|([^*]+))/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text)) !== null) {
+    if (match[2]) {
+      // Bold
+      runs.push(new TextRun({ text: match[2], bold: true }));
+    } else if (match[3]) {
+      // Italic
+      runs.push(new TextRun({ text: match[3], italics: true }));
+    } else if (match[4]) {
+      // Plain text
+      runs.push(new TextRun({ text: match[4] }));
+    }
+  }
+  if (runs.length === 0) {
+    runs.push(new TextRun({ text }));
+  }
+  return runs;
+}
+
 function buildRootChildrenUrl(
   encodedSite: string,
   encodedDrive: string,
@@ -772,13 +875,27 @@ export async function uploadToSharePoint(
   const encodedPath = remotePath.split('/').map(encodeURIComponent).join('/');
   const url = `${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/drives/${encodeDriveId(driveId)}/root:/${encodedPath}:/content`;
 
+  // If filename is .docx, generate a proper Office Open XML document
+  // instead of uploading raw text (which corrupts the file).
+  const isDocx = safeName.toLowerCase().endsWith('.docx');
+  let uploadBody: Buffer | string;
+  let contentType: string;
+
+  if (isDocx) {
+    uploadBody = await markdownToDocx(content);
+    contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  } else {
+    uploadBody = content;
+    contentType = 'text/plain';
+  }
+
   const response = await fetch(url, {
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'text/plain',
+      'Content-Type': contentType,
     },
-    body: content,
+    body: uploadBody,
   });
 
   if (!response.ok) {
@@ -1067,7 +1184,7 @@ export async function createSharePointPage(
             layout: 'fullWidth',
             columns: [
               {
-                width: 12,
+                width: 0,
                 webparts: [
                   {
                     '@odata.type': '#microsoft.graph.textWebPart',
