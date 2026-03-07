@@ -14,6 +14,7 @@ import type { ModelClient } from './modelClient.js';
 import type { RedisCache } from './redisCache.js';
 import type { Constitution } from './constitutionalGovernor.js';
 import { AGENT_EMAIL_MAP, FOUNDER_EMAILS } from './config/agentEmails.js';
+import { systemQuery } from '@glyphor/shared/db';
 
 // ─── Constants ──────────────────────────────────────────────────
 
@@ -376,7 +377,7 @@ export async function preCheckTool(
   toolName: string,
   toolParams: Record<string, unknown>,
   constitution: Constitution,
-  options?: { redisCache?: RedisCache | null; modelClient?: ModelClient | null },
+  options?: { redisCache?: RedisCache | null; modelClient?: ModelClient | null; runId?: string },
 ): Promise<ConstitutionalPreCheckResult> {
   const start = Date.now();
 
@@ -398,6 +399,7 @@ export async function preCheckTool(
 
   const allViolations = [...deterministicViolations, ...llmViolations];
   const hasBlock = allViolations.some(v => v.severity === 'block');
+  const durationMs = Date.now() - start;
 
   // Log warnings
   const warnings = allViolations.filter(v => v.severity === 'warning');
@@ -408,9 +410,46 @@ export async function preCheckTool(
     );
   }
 
+  // Fire-and-forget: record gate events for audit trail & trust scoring
+  const result = hasBlock ? 'blocked' : allViolations.length > 0 ? 'warned' : 'passed';
+  try {
+    // Record deterministic phase
+    systemQuery(
+      `INSERT INTO constitutional_gate_events (run_id, agent_role, tool_name, check_phase, result, violations, cost_usd, duration_ms)
+       VALUES ($1, $2, $3, 'deterministic', $4, $5, 0, $6)`,
+      [
+        options?.runId ?? null,
+        agentRole,
+        toolName,
+        deterministicViolations.length > 0 ? (deterministicViolations.some(v => v.severity === 'block') ? 'blocked' : 'warned') : 'passed',
+        JSON.stringify(deterministicViolations.length > 0 ? deterministicViolations : null),
+        durationMs,
+      ],
+    ).catch(err => console.warn('[ConstitutionalPreCheck] Failed to log deterministic gate event:', (err as Error).message));
+
+    // Record LLM phase if it ran
+    if (llmViolations.length > 0 || (options?.modelClient && EXTERNAL_COMMUNICATION_TOOLS.has(toolName))) {
+      systemQuery(
+        `INSERT INTO constitutional_gate_events (run_id, agent_role, tool_name, check_phase, result, violations, cost_usd, duration_ms)
+         VALUES ($1, $2, $3, 'principle_llm', $4, $5, $6, $7)`,
+        [
+          options?.runId ?? null,
+          agentRole,
+          toolName,
+          llmViolations.length > 0 ? (llmViolations.some(v => v.severity === 'block') ? 'blocked' : 'warned') : 'passed',
+          JSON.stringify(llmViolations.length > 0 ? llmViolations : null),
+          0,
+          durationMs,
+        ],
+      ).catch(err => console.warn('[ConstitutionalPreCheck] Failed to log LLM gate event:', (err as Error).message));
+    }
+  } catch (err) {
+    console.warn('[ConstitutionalPreCheck] Failed to log gate events:', (err as Error).message);
+  }
+
   return {
     allowed: !hasBlock,
     violations: allViolations,
-    check_duration_ms: Date.now() - start,
+    check_duration_ms: durationMs,
   };
 }

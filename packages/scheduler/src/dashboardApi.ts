@@ -82,6 +82,8 @@ const TABLE_MAP: Record<string, string> = {
   'plan-verifications': 'plan_verifications',
   'tool_reputation': 'tool_reputation',
   'tool-reputation': 'tool_reputation',
+  'constitutional_gate_events': 'constitutional_gate_events',
+  'constitutional-gate-events': 'constitutional_gate_events',
 };
 
 // ─── Helpers ────────────────────────────────────────────────────

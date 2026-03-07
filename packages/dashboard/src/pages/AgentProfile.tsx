@@ -5,6 +5,7 @@ import {
   MdEmojiEvents, MdLocalFireDepartment, MdMenuBook, MdCelebration,
   MdPushPin, MdCalendarToday, MdHourglassEmpty, MdCheckCircle,
   MdCancel, MdCheck, MdWarning, MdArrowForward, MdPsychology,
+  MdSecurity,
 } from 'react-icons/md';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
@@ -816,12 +817,162 @@ function PerformanceTab({ agent }: { agent: AgentRow }) {
         </Card>
       </div>
 
+      {/* Constitutional Gates */}
+      <ConstitutionalGatesCard agentRole={agent.role} />
+
       {/* Peer Feedback */}
       <Card>
         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-txt-primary">Peer Feedback</h3>
         <PeerFeedback data={feedback} />
       </Card>
     </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CONSTITUTIONAL GATES CARD
+   ════════════════════════════════════════════════════════════════ */
+
+interface GateEvent {
+  id: string;
+  agent_role: string;
+  tool_name: string;
+  check_phase: string;
+  result: string;
+  violations: { principle_category?: string }[] | null;
+  created_at: string;
+}
+
+function ConstitutionalGatesCard({ agentRole }: { agentRole: string }) {
+  const [events, setEvents] = useState<GateEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const since = new Date(Date.now() - 30 * 86400000).toISOString();
+    apiCall(
+      '/api/constitutional_gate_events?agent_role=' + encodeURIComponent(agentRole) +
+      '&created_at=gte.' + encodeURIComponent(since) +
+      '&order=created_at.desc&limit=200',
+    )
+      .then(data => setEvents((data ?? []) as GateEvent[]))
+      .catch(() => setEvents([]))
+      .finally(() => setLoading(false));
+  }, [agentRole]);
+
+  if (loading) return <Skeleton className="h-32" />;
+  if (events.length === 0) {
+    return (
+      <Card>
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-txt-primary flex items-center gap-2">
+          <MdSecurity className="h-4 w-4" /> Constitutional Gates
+        </h3>
+        <p className="text-sm text-txt-faint">No constitutional gate events in the last 30 days</p>
+      </Card>
+    );
+  }
+
+  const total = events.length;
+  const passed = events.filter(e => e.result === 'passed').length;
+  const warned = events.filter(e => e.result === 'warned').length;
+  const blocked = events.filter(e => e.result === 'blocked').length;
+  const passRate = total > 0 ? ((passed / total) * 100).toFixed(1) : '—';
+  const blockRate = total > 0 ? ((blocked / total) * 100).toFixed(1) : '—';
+
+  // Most common violation categories
+  const catCounts: Record<string, number> = {};
+  for (const e of events) {
+    if (e.violations && Array.isArray(e.violations)) {
+      for (const v of e.violations) {
+        const cat = v.principle_category ?? 'unknown';
+        catCounts[cat] = (catCounts[cat] ?? 0) + 1;
+      }
+    }
+  }
+  const topCategories = Object.entries(catCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  // Blocks per week trend
+  const weekMap: Record<string, number> = {};
+  for (const e of events) {
+    if (e.result === 'blocked') {
+      const d = new Date(e.created_at);
+      const weekStart = new Date(d);
+      weekStart.setDate(d.getDate() - d.getDay());
+      const key = weekStart.toISOString().split('T')[0];
+      weekMap[key] = (weekMap[key] ?? 0) + 1;
+    }
+  }
+  const weekTrend = Object.entries(weekMap)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([week, count]) => ({ week: new Date(week).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), blocks: count }));
+
+  return (
+    <Card>
+      <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-txt-primary flex items-center gap-2">
+        <MdSecurity className="h-4 w-4" /> Constitutional Gates
+      </h3>
+
+      {/* Summary stats */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-5 mb-4">
+        <div className="text-center">
+          <p className="text-lg font-bold text-txt-primary">{total}</p>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-txt-faint">Total Checks</p>
+        </div>
+        <div className="text-center">
+          <p className="text-lg font-bold text-tier-green">{passed}</p>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-txt-faint">Passed</p>
+        </div>
+        <div className="text-center">
+          <p className="text-lg font-bold text-prism-elevated">{warned}</p>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-txt-faint">Warned</p>
+        </div>
+        <div className="text-center">
+          <p className="text-lg font-bold text-prism-critical">{blocked}</p>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-txt-faint">Blocked</p>
+        </div>
+        <div className="text-center">
+          <p className="text-lg font-bold text-txt-primary">{passRate}%</p>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-txt-faint">Pass Rate</p>
+        </div>
+      </div>
+
+      {/* Two-column: violation categories + block trend */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Top violation categories */}
+        {topCategories.length > 0 && (
+          <div>
+            <h4 className="text-xs font-semibold text-txt-secondary mb-2">Top Violation Categories</h4>
+            <ul className="space-y-1.5">
+              {topCategories.map(([cat, count]) => (
+                <li key={cat} className="flex items-center justify-between text-sm">
+                  <span className="text-txt-secondary">{cat.replace(/_/g, ' ')}</span>
+                  <span className="rounded-full bg-prism-moderate/15 px-2 py-0.5 text-[10px] font-semibold text-prism-moderate">
+                    {count}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Blocks per week trend */}
+        {weekTrend.length > 1 && (
+          <div>
+            <h4 className="text-xs font-semibold text-txt-secondary mb-2">Blocks per Week</h4>
+            <ResponsiveContainer width="100%" height={120}>
+              <BarChart data={weekTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis dataKey="week" tick={{ fontSize: 10 }} stroke="var(--color-txt-faint)" />
+                <YAxis allowDecimals={false} tick={{ fontSize: 10 }} stroke="var(--color-txt-faint)" />
+                <Tooltip />
+                <Bar dataKey="blocks" fill="var(--color-prism-critical, #ef4444)" radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }
 

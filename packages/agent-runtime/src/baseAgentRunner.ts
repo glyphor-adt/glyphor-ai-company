@@ -400,6 +400,11 @@ export abstract class BaseAgentRunner {
               constitutional_check: result.constitutional_check,
             });
 
+            // Apply trust penalty for constitutional gate blocks
+            if (result.constitutional_check?.blocked && safeDeps.trustScorer) {
+              void safeDeps.trustScorer.applyConstitutionalBlockDelta(config.role, call.name);
+            }
+
             const progressCheck = supervisor.recordToolResult(call.name, result);
             if (!progressCheck.ok) {
               return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, progressCheck.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens);

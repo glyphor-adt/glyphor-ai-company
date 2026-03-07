@@ -25,6 +25,7 @@ export type TrustDeltaSource =
   | 'reasoning_verification'
   | 'constitutional_adherence'
   | 'constitutional_eval'
+  | 'constitutional_gate_block'
   | 'peer_feedback'
   | 'human_override'
   | 'formal_failure'
@@ -52,6 +53,7 @@ const DELTA_WEIGHTS: Record<TrustDeltaSource, number> = {
   reasoning_verification: 0.02,
   constitutional_adherence: 0.03,
   constitutional_eval: 0.03,
+  constitutional_gate_block: 1.5,
   peer_feedback: 0.02,
   human_override: -0.06,
   formal_failure: -0.09,
@@ -198,6 +200,26 @@ export class TrustScorer {
       });
     } catch (err) {
       console.warn('[TrustScorer] applyBatchOutcomeDelta failed for', agentRole, (err as Error).message);
+      return null;
+    }
+  }
+
+  /**
+   * Apply a fixed penalty when a constitutional gate blocks a tool call.
+   * -0.15 raw delta × 1.5 weight = -0.225 effective trust reduction.
+   */
+  async applyConstitutionalBlockDelta(
+    agentRole: string,
+    toolName: string,
+  ): Promise<TrustScore | null> {
+    try {
+      return await this.applyDelta(agentRole, {
+        source: 'constitutional_gate_block',
+        delta: -0.15,
+        reason: `Constitutional gate blocked tool call: ${toolName}`,
+      });
+    } catch (err) {
+      console.warn('[TrustScorer] applyConstitutionalBlockDelta failed for', agentRole, (err as Error).message);
       return null;
     }
   }
