@@ -19,7 +19,7 @@ interface Attachment {
   previewUrl?: string;
 }
 
-type ActionReceipt = { tool: string; params: Record<string, unknown>; result: 'success' | 'error'; output: string; timestamp: string };
+type ActionReceipt = { tool: string; params: Record<string, unknown>; result: 'success' | 'error'; output: string; timestamp: string; constitutional_check?: { checked: boolean; violations: number; blocked: boolean } };
 
 interface Message {
   role: 'user' | 'agent';
@@ -154,6 +154,11 @@ function ActionReceipts({ actions }: { actions: ActionReceipt[] }) {
                 {action.result === 'success' ? '✓' : '✗'}
               </span>{' '}
               <span className="text-foreground">{action.tool}</span>
+              {action.constitutional_check?.blocked && (
+                <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-500/20 text-red-400">
+                  Blocked by principles
+                </span>
+              )}
               <div className="pl-4 text-muted truncate">{action.output}</div>
             </div>
           ))}

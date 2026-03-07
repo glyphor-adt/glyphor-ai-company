@@ -30,6 +30,10 @@ import { AGENT_BUDGETS } from './types.js';
 import { systemQuery } from '@glyphor/shared/db';
 import type { FormalVerifier } from './formalVerifier.js';
 import { executeDynamicTool } from './dynamicToolExecutor.js';
+import { HIGH_STAKES_TOOLS, preCheckTool } from './constitutionalPreCheck.js';
+import type { ConstitutionalGovernor } from './constitutionalGovernor.js';
+import type { ModelClient } from './modelClient.js';
+import type { RedisCache } from './redisCache.js';
 import { recordToolCall, detectToolSource } from './toolReputationTracker.js';
 
 // ─── Emergency Block Cache ─────────────────────────────────────
@@ -184,12 +188,26 @@ export class ToolExecutor {
   private monthlyCosts: Map<string, number> = new Map(); // role → cumulative cost this month
   private enforcementEnabled: boolean;
   private formalVerifier: FormalVerifier | null;
+  private constitutionalGovernor: ConstitutionalGovernor | null = null;
+  private modelClient: ModelClient | null = null;
+  private redisCache: RedisCache | null = null;
 
   constructor(tools: ToolDefinition[], dryRun = false, enforcement = true, formalVerifier?: FormalVerifier) {
     this.tools = new Map(tools.map((t) => [t.name, t]));
     this.dryRun = dryRun;
     this.enforcementEnabled = enforcement;
     this.formalVerifier = formalVerifier ?? null;
+  }
+
+  /** Attach constitutional pre-check dependencies. Call once after construction. */
+  setConstitutionalDeps(deps: {
+    constitutionalGovernor?: ConstitutionalGovernor;
+    modelClient?: ModelClient;
+    redisCache?: RedisCache;
+  }): void {
+    this.constitutionalGovernor = deps.constitutionalGovernor ?? null;
+    this.modelClient = deps.modelClient ?? null;
+    this.redisCache = deps.redisCache ?? null;
   }
 
   // ─── Cost Tracking ────────────────────────────────────────────
@@ -461,7 +479,57 @@ export class ToolExecutor {
       }
     }
 
-    // ─── 5. Data-evidence gate ─────────────────────────────────────
+    // ─── 5. Constitutional pre-check for high-stakes tools ────────
+    // Wrapped in try/catch — pre-check failures must never prevent execution.
+    let constitutionalCheckMeta: { checked: boolean; violations: number; blocked: boolean } | undefined;
+    if (HIGH_STAKES_TOOLS.has(toolName)) {
+      try {
+        const governor = this.constitutionalGovernor;
+        if (governor) {
+          const constitution = await governor.getConstitution(context.agentRole);
+          if (constitution) {
+            const preCheck = await preCheckTool(
+              context.agentRole,
+              toolName,
+              params,
+              constitution,
+              { redisCache: this.redisCache, modelClient: this.modelClient },
+            );
+
+            constitutionalCheckMeta = {
+              checked: true,
+              violations: preCheck.violations.length,
+              blocked: !preCheck.allowed,
+            };
+
+            if (!preCheck.allowed) {
+              this.logSecurityEvent(context.agentId, context.agentRole, toolName, 'CONSTITUTIONAL_BLOCK', {
+                violations: preCheck.violations,
+                duration_ms: preCheck.check_duration_ms,
+              });
+              return {
+                success: false,
+                error: `Constitutional pre-check blocked this action. Violations:\n${
+                  preCheck.violations.map(v => `- [${v.severity}] ${v.principle_category}: ${v.description}`).join('\n')
+                }\nRevise your approach to comply with your governing principles.`,
+                filesWritten: 0,
+                memoryKeysWritten: 0,
+                constitutional_check: constitutionalCheckMeta,
+              };
+            }
+
+            if (preCheck.violations.length > 0) {
+              console.warn(`Constitutional warnings for ${context.agentRole}/${toolName}:`, preCheck.violations);
+            }
+          }
+        }
+      } catch (preCheckErr) {
+        // Pre-check failure is non-blocking — log and proceed
+        console.warn(`[ToolExecutor] Constitutional pre-check error for ${toolName}, proceeding:`, (preCheckErr as Error).message);
+      }
+    }
+
+    // ─── 6. Data-evidence gate ─────────────────────────────────────
     // Tools in DATA_EVIDENCE_REQUIRED (e.g. create_decision, write_pipeline_report)
     // must be preceded by at least one successful data-sourcing tool call that
     // returned substantive (non-null, non-empty) data.  This prevents agents from
@@ -554,6 +622,7 @@ export class ToolExecutor {
         error: result.error,
         filesWritten: result.filesWritten ?? 0,
         memoryKeysWritten: result.memoryKeysWritten ?? 0,
+        constitutional_check: constitutionalCheckMeta,
       };
 
       // Auto-verify mutations by reading back the written data

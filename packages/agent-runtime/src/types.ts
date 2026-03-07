@@ -121,6 +121,12 @@ export interface ToolResult {
   error?: string;
   filesWritten?: number;
   memoryKeysWritten?: number;
+  /** Constitutional pre-check metadata (present for high-stakes tools). */
+  constitutional_check?: {
+    checked: boolean;
+    violations: number;
+    blocked: boolean;
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -480,6 +486,12 @@ export interface ActionReceipt {
   output: string;
   /** ISO timestamp of when the tool was called */
   timestamp: string;
+  /** Constitutional pre-check metadata (present for high-stakes tools). */
+  constitutional_check?: {
+    checked: boolean;
+    violations: number;
+    blocked: boolean;
+  };
 }
 
 export type SecurityEventType =
@@ -488,7 +500,8 @@ export type SecurityEventType =
   | 'RATE_LIMITED'
   | 'BUDGET_EXCEEDED'
   | 'EVENT_NOT_PERMITTED'
-  | 'DATA_EVIDENCE_MISSING';
+  | 'DATA_EVIDENCE_MISSING'
+  | 'CONSTITUTIONAL_BLOCK';
 
 export interface SecurityEvent {
   agentId: string;

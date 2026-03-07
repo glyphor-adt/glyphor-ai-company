@@ -146,6 +146,14 @@ export abstract class BaseAgentRunner {
   ): Promise<AgentExecutionResult> {
     const safeDeps = deps ?? {};
 
+    // ─── Wire constitutional pre-check deps into tool executor ──
+    if (safeDeps.constitutionalGovernor) {
+      toolExecutor.setConstitutionalDeps({
+        constitutionalGovernor: safeDeps.constitutionalGovernor,
+        modelClient: this.modelClient,
+        redisCache: safeDeps.cache,
+      });
+    }
     // ─── Pre-process attachments ────────────────────────────────
     let initialAttachments: ConversationAttachment[] | undefined;
     const cleanHistory = (config.conversationHistory ?? []).filter((t) => {
@@ -389,6 +397,7 @@ export abstract class BaseAgentRunner {
               result: result.success ? 'success' : 'error',
               output: (resultContent ?? '').slice(0, 500),
               timestamp: new Date().toISOString(),
+              constitutional_check: result.constitutional_check,
             });
 
             const progressCheck = supervisor.recordToolResult(call.name, result);
