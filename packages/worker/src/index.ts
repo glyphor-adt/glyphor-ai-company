@@ -1,12 +1,19 @@
 import express from 'express';
 import { systemQuery } from '@glyphor/shared/db';
 import { checkDbHealth } from '@glyphor/shared/db';
-import { WorkflowOrchestrator } from '@glyphor/agent-runtime';
 
 const app = express();
 app.use(express.json());
 
-const workflowOrchestrator = new WorkflowOrchestrator();
+// Lazy-load WorkflowOrchestrator to avoid pulling the full agent-runtime barrel at startup
+let _orchestrator: any;
+async function getWorkflowOrchestrator() {
+  if (!_orchestrator) {
+    const { WorkflowOrchestrator } = await import('@glyphor/agent-runtime');
+    _orchestrator = new WorkflowOrchestrator();
+  }
+  return _orchestrator;
+}
 
 app.get('/health', async (_req, res) => {
   const dbHealthy = await checkDbHealth();
@@ -22,13 +29,15 @@ app.post('/run', async (req, res) => {
     if (req.body.workflow_id && req.body.step_index !== undefined) {
       try {
         const result = await executeWorkflowStep(req.body);
-        await workflowOrchestrator.advanceWorkflow(
+        const orchestrator = await getWorkflowOrchestrator();
+        await orchestrator.advanceWorkflow(
           req.body.workflow_id,
           req.body.step_index,
           result,
         );
       } catch (error: any) {
-        await workflowOrchestrator.handleStepFailure(
+        const orchestrator = await getWorkflowOrchestrator();
+        await orchestrator.handleStepFailure(
           req.body.workflow_id,
           req.body.step_index,
           error.message,
@@ -130,7 +139,8 @@ app.post('/workflow/step-complete', async (req, res) => {
     return res.status(400).json({ error: 'workflow_id, step_index, and sub_index are required' });
   }
   try {
-    await workflowOrchestrator.recordParallelSubCompletion(
+    const orchestrator = await getWorkflowOrchestrator();
+    await orchestrator.recordParallelSubCompletion(
       workflow_id,
       step_index,
       sub_index,
