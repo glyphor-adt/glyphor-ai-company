@@ -614,6 +614,12 @@ export class ToolExecutor {
 
       trackToolFailure(context.agentRole, toolName, (error as Error).message);
 
+      // Tool reputation tracking (fire-and-forget)
+      const execLatency = Date.now() - execStart;
+      const timedOut = (error as Error).message?.includes('timed out') || execLatency >= 60_000;
+      recordToolCall(toolName, toolSource, false, timedOut, execLatency)
+        .catch(err => console.warn('[ToolReputation] tracking failed:', err));
+
       return failResult;
     }
   }
