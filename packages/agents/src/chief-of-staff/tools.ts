@@ -1178,8 +1178,10 @@ export function createOrchestrationTools(
         const notify = (params.notify as string) || 'kristina';
 
         // 1. Insert the proposed directive
+        // Pass targetAgents as a native JS array — node-postgres serialises string[] → TEXT[] automatically.
+        // JSON.stringify would produce '["a","b"]' which PG rejects as a malformed array literal.
         const columns: string[] = ['title', 'description', 'priority', 'category', 'target_agents', 'status', 'proposed_by', 'created_by', 'proposal_reason'];
-        const insertValues: unknown[] = [title, description, priority, category, JSON.stringify(targetAgents), 'proposed', 'chief-of-staff', notify, proposalReason];
+        const insertValues: unknown[] = [title, description, priority, category, targetAgents, 'proposed', 'chief-of-staff', notify, proposalReason];
         if (sourceDirectiveId) { columns.push('source_directive_id'); insertValues.push(sourceDirectiveId); }
         if (dueDate) { columns.push('due_date'); insertValues.push(dueDate); }
         const placeholders = insertValues.map((_, i) => `$${i + 1}`).join(', ');
