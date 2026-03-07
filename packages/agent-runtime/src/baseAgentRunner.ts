@@ -508,6 +508,8 @@ export abstract class BaseAgentRunner {
       // After every completed run, auto-update the agent's world model
       // with a basic self-score derived from run outcome. This ensures
       // world models populate continuously, not just when CoS grades.
+      // For task-tier agents, batch outcomes are the primary quality signal,
+      // so self-assessment is down-weighted to 0.3x (vs 1.0x for orchestrators).
       if (safeDeps.worldModelUpdater && safeDeps.sharedMemoryLoader) {
         try {
           const taskType = config.id.replace(/-\d{4}-\d{2}-\d{2}$/, '').split('-').pop() ?? 'general';
@@ -519,12 +521,17 @@ export abstract class BaseAgentRunner {
           if (turnsUsed <= 3 && !hadErrors) selfScore += 0.5; // bonus for efficiency
           selfScore = Math.max(1, Math.min(5, selfScore));
 
+          // Task-tier agents: reduce self-assessment influence (batch outcomes are primary)
+          const selfAssessmentWeight = this.archetype === 'task' ? 0.3 : 1.0;
+          const baseline = 3.0;
+          const weightedScore = baseline + (selfScore - baseline) * selfAssessmentWeight;
+
           await safeDeps.worldModelUpdater.updateFromGrade({
             agentRole: config.role,
             taskType,
-            overallScore: selfScore,
-            dimensionScores: { task_completion: selfScore, efficiency: turnsUsed <= 5 ? 4.5 : 3.0 },
-            evaluatorFeedback: `Self-assessed: ${turnsUsed} turns, status=${hadErrors ? 'aborted' : 'completed'}`,
+            overallScore: weightedScore,
+            dimensionScores: { task_completion: weightedScore, efficiency: turnsUsed <= 5 ? 4.5 : 3.0 },
+            evaluatorFeedback: `Self-assessed: ${turnsUsed} turns, status=${hadErrors ? 'aborted' : 'completed'} (weight=${selfAssessmentWeight})`,
           });
         } catch (err) {
           console.warn(`[${this.archetype}Runner] Self-assessment world model update failed for ${config.id}:`, (err as Error).message);

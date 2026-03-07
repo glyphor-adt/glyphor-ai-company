@@ -18,7 +18,20 @@ import type {
   WorldModelDimension,
   ImprovementGoal,
 } from '@glyphor/agent-runtime';
+import { systemQuery } from '@glyphor/shared/db';
 import type { SharedMemoryLoader } from './sharedMemoryLoader.js';
+
+// ─── Batch Outcome Types ────────────────────────────────────────
+
+export interface BatchOutcomeAggregates {
+  avgBatchQualityScore: number;
+  firstTimeAcceptRate: number;
+  revisionRate: number;
+  blockerRate: number;
+  abortRate: number;
+  avgEfficiency: number;
+  totalEvaluated: number;
+}
 
 export class WorldModelUpdater {
   constructor(
@@ -105,6 +118,105 @@ export class WorldModelUpdater {
     }
 
     await this.sharedMemory.saveWorldModel(agentRole, model);
+  }
+
+  /**
+   * Update an agent's world model from batch-evaluated task outcomes.
+   * Called after the batch evaluator scores a set of outcomes.
+   */
+  async updateFromBatchOutcomes(agentRole: CompanyAgentRole): Promise<BatchOutcomeAggregates | null> {
+    try {
+      const aggregates = await computeBatchAggregates(agentRole);
+      if (!aggregates || aggregates.totalEvaluated === 0) return null;
+
+      const existing = await this.sharedMemory.getWorldModel(agentRole);
+      const model: Partial<AgentWorldModel> = {
+        agentRole,
+        strengths: existing?.strengths ?? [],
+        weaknesses: existing?.weaknesses ?? [],
+        failurePatterns: existing?.failurePatterns ?? [],
+        taskTypeScores: existing?.taskTypeScores ?? {},
+        lastPredictions: existing?.lastPredictions ?? [],
+        predictionAccuracy: existing?.predictionAccuracy ?? 0.5,
+        improvementGoals: existing?.improvementGoals ?? [],
+        preferredApproaches: existing?.preferredApproaches ?? {},
+        rubricVersion: existing?.rubricVersion ?? 1,
+      };
+
+      // Merge batch aggregates into task_type_scores under a synthetic "batch_outcomes" key
+      const batchScoreEntry = model.taskTypeScores!['batch_outcomes'] ?? {
+        avgScore: 0, count: 0, trend: 'stable' as const,
+      };
+      batchScoreEntry.avgScore = rollingAverage(
+        batchScoreEntry.avgScore, aggregates.avgBatchQualityScore, batchScoreEntry.count,
+      );
+      batchScoreEntry.count = aggregates.totalEvaluated;
+      batchScoreEntry.trend = computeTrend(batchScoreEntry.avgScore, batchScoreEntry.count);
+      model.taskTypeScores!['batch_outcomes'] = batchScoreEntry;
+
+      // Store detailed aggregates as additional keys in task_type_scores
+      model.taskTypeScores!['batch_first_time_accept'] = {
+        avgScore: aggregates.firstTimeAcceptRate * 5, count: aggregates.totalEvaluated, trend: 'stable',
+      };
+      model.taskTypeScores!['batch_efficiency'] = {
+        avgScore: Math.max(1, Math.min(5, 5 - (aggregates.avgEfficiency / 5))),
+        count: aggregates.totalEvaluated, trend: 'stable',
+      };
+
+      // Update strengths based on batch patterns
+      if (aggregates.firstTimeAcceptRate > 0.8) {
+        addOrReinforce(model.strengths!, 'first_time_acceptance',
+          `${(aggregates.firstTimeAcceptRate * 100).toFixed(0)}% of submissions accepted without revision`);
+      }
+      if (aggregates.avgBatchQualityScore >= 4.0) {
+        addOrReinforce(model.strengths!, 'batch_quality',
+          `Avg batch quality score: ${aggregates.avgBatchQualityScore.toFixed(1)}/5.0`);
+      }
+
+      // Update weaknesses based on batch patterns
+      if (aggregates.revisionRate > 0.4) {
+        addOrReinforce(model.weaknesses!, 'high_revision_rate',
+          `${(aggregates.revisionRate * 100).toFixed(0)}% of submissions required revision`);
+      }
+      if (aggregates.avgBatchQualityScore < 3.0) {
+        addOrReinforce(model.weaknesses!, 'low_batch_quality',
+          `Avg batch quality score: ${aggregates.avgBatchQualityScore.toFixed(1)}/5.0`);
+      }
+
+      // Update failure patterns based on batch patterns
+      if (aggregates.abortRate > 0.2) {
+        const existing = model.failurePatterns!.find(fp => fp.pattern === 'high_abort_rate');
+        if (existing) {
+          existing.occurrences++;
+          existing.lastSeen = new Date().toISOString();
+        } else {
+          model.failurePatterns!.push({
+            pattern: 'high_abort_rate',
+            occurrences: 1,
+            lastSeen: new Date().toISOString(),
+          });
+        }
+      }
+      if (aggregates.blockerRate > 0.3) {
+        const existing = model.failurePatterns!.find(fp => fp.pattern === 'frequent_blockers');
+        if (existing) {
+          existing.occurrences++;
+          existing.lastSeen = new Date().toISOString();
+        } else {
+          model.failurePatterns!.push({
+            pattern: 'frequent_blockers',
+            occurrences: 1,
+            lastSeen: new Date().toISOString(),
+          });
+        }
+      }
+
+      await this.sharedMemory.saveWorldModel(agentRole, model);
+      return aggregates;
+    } catch (err) {
+      console.warn('[WorldModelUpdater] updateFromBatchOutcomes failed for', agentRole, (err as Error).message);
+      return null;
+    }
   }
 
   /**
@@ -199,4 +311,68 @@ function generateGoals(
   }
 
   return goals;
+}
+
+// ─── Batch Outcome Aggregation ────────────────────────────────
+
+interface OutcomeRow {
+  batch_quality_score: number;
+  final_status: string;
+  turn_count: number;
+  was_accepted: boolean | null;
+  was_revised: boolean | null;
+  revision_count: number | null;
+  created_at: string;
+}
+
+async function computeBatchAggregates(agentRole: string): Promise<BatchOutcomeAggregates | null> {
+  const rows = await systemQuery<OutcomeRow>(
+    `SELECT batch_quality_score, final_status, turn_count,
+            was_accepted, was_revised, revision_count, created_at
+     FROM task_run_outcomes
+     WHERE agent_role = $1
+       AND batch_evaluated_at IS NOT NULL
+       AND created_at > NOW() - INTERVAL '30 days'`,
+    [agentRole],
+  );
+
+  if (rows.length === 0) return null;
+
+  const now = Date.now();
+  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+  let weightedScoreSum = 0;
+  let weightSum = 0;
+  let firstTimeAccepts = 0;
+  let revisions = 0;
+  let blockers = 0;
+  let aborts = 0;
+  let acceptedTurnSum = 0;
+  let acceptedCount = 0;
+
+  for (const r of rows) {
+    // Weighted avg: 7d scores weighted 2x vs 8-30d
+    const age = now - new Date(r.created_at).getTime();
+    const weight = age < sevenDaysMs ? 2 : 1;
+    weightedScoreSum += Number(r.batch_quality_score) * weight;
+    weightSum += weight;
+
+    if (r.was_accepted === true && (r.revision_count ?? 0) === 0) firstTimeAccepts++;
+    if (r.was_revised === true || (r.revision_count ?? 0) > 0) revisions++;
+    if (r.final_status === 'flagged_blocker') blockers++;
+    if (r.final_status === 'aborted' || r.final_status === 'failed') aborts++;
+    if (r.was_accepted === true) {
+      acceptedTurnSum += r.turn_count;
+      acceptedCount++;
+    }
+  }
+
+  return {
+    avgBatchQualityScore: weightSum > 0 ? weightedScoreSum / weightSum : 0,
+    firstTimeAcceptRate: rows.length > 0 ? firstTimeAccepts / rows.length : 0,
+    revisionRate: rows.length > 0 ? revisions / rows.length : 0,
+    blockerRate: rows.length > 0 ? blockers / rows.length : 0,
+    abortRate: rows.length > 0 ? aborts / rows.length : 0,
+    avgEfficiency: acceptedCount > 0 ? acceptedTurnSum / acceptedCount : 0,
+    totalEvaluated: rows.length,
+  };
 }

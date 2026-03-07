@@ -8,7 +8,8 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
-import { getRedisCache } from '@glyphor/agent-runtime';
+import { getRedisCache, TrustScorer } from '@glyphor/agent-runtime';
+import { WorldModelUpdater, SharedMemoryLoader, EmbeddingClient } from '@glyphor/company-memory';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -19,6 +20,7 @@ export interface BatchEvalResult {
 
 interface TaskRunOutcome {
   id: string;
+  agent_role: string;
   final_status: string;
   turn_count: number;
   tool_failure_count: number;
@@ -54,7 +56,7 @@ export async function evaluateBatch(): Promise<BatchEvalResult> {
   try {
     // Fetch unevaluated outcomes older than the cooldown window
     const outcomes = await systemQuery<TaskRunOutcome>(
-      `SELECT id, final_status, turn_count, tool_failure_count, had_partial_save,
+      `SELECT id, agent_role, final_status, turn_count, tool_failure_count, had_partial_save,
               cost_usd, was_revised, revision_count, was_accepted,
               downstream_agent_succeeded
        FROM task_run_outcomes
@@ -89,6 +91,28 @@ export async function evaluateBatch(): Promise<BatchEvalResult> {
     }
 
     console.log('[BatchOutcomeEvaluator] Complete:', JSON.stringify(result));
+
+    // Update world models and trust scores for each agent that had outcomes evaluated
+    try {
+      const agentRoles = [...new Set(outcomes.map(o => o.agent_role))];
+      const embeddingClient = new EmbeddingClient(process.env.GOOGLE_AI_API_KEY!);
+      const sharedMemory = new SharedMemoryLoader(embeddingClient, null);
+      const worldModelUpdater = new WorldModelUpdater(sharedMemory);
+      const trustScorer = new TrustScorer(cache);
+
+      for (const role of agentRoles) {
+        try {
+          const aggregates = await worldModelUpdater.updateFromBatchOutcomes(role as any);
+          if (aggregates) {
+            await trustScorer.applyBatchOutcomeDelta(role, aggregates.avgBatchQualityScore);
+          }
+        } catch (err) {
+          console.warn('[BatchOutcomeEvaluator] World model update failed for', role, (err as Error).message);
+        }
+      }
+    } catch (err) {
+      console.warn('[BatchOutcomeEvaluator] World model batch update failed:', (err as Error).message);
+    }
   } finally {
     await cache.del(LOCK_KEY);
   }

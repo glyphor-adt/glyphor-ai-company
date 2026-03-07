@@ -29,7 +29,8 @@ export type TrustDeltaSource =
   | 'human_override'
   | 'formal_failure'
   | 'reflection_quality'
-  | 'drift_detection';
+  | 'drift_detection'
+  | 'task_outcome_quality';
 
 export interface TrustDelta {
   source: TrustDeltaSource;
@@ -56,6 +57,7 @@ const DELTA_WEIGHTS: Record<TrustDeltaSource, number> = {
   formal_failure: -0.09,
   reflection_quality: 0.02,
   drift_detection: -0.04,
+  task_outcome_quality: 1.0,
 };
 
 // ─── Class ──────────────────────────────────────────────────────
@@ -167,6 +169,37 @@ export class TrustScorer {
       suspended,
       autoPromotionEligible,
     };
+  }
+
+  /**
+   * Compute and apply a trust delta from batch outcome quality scores.
+   * Positive signal when avgBatchQualityScore >= 4.0, negative when <= 2.0,
+   * neutral zone between 2.0 and 4.0.
+   */
+  async applyBatchOutcomeDelta(
+    agentRole: string,
+    avgBatchQualityScore: number,
+  ): Promise<TrustScore | null> {
+    try {
+      let delta: number;
+      if (avgBatchQualityScore >= 4.0) {
+        delta = (avgBatchQualityScore - 3.0) / 5.0;
+      } else if (avgBatchQualityScore <= 2.0) {
+        delta = -((3.0 - avgBatchQualityScore) / 5.0);
+      } else {
+        // Neutral zone — no trust change
+        return null;
+      }
+
+      return await this.applyDelta(agentRole, {
+        source: 'task_outcome_quality',
+        delta,
+        reason: `Batch outcome quality: ${avgBatchQualityScore.toFixed(1)}/5.0`,
+      });
+    } catch (err) {
+      console.warn('[TrustScorer] applyBatchOutcomeDelta failed for', agentRole, (err as Error).message);
+      return null;
+    }
   }
 
   /**

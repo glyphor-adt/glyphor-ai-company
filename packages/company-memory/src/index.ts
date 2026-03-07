@@ -29,6 +29,7 @@ export {
 } from './graphReader.js';
 export { SharedMemoryLoader } from './sharedMemoryLoader.js';
 export { WorldModelUpdater } from './worldModelUpdater.js';
+export type { BatchOutcomeAggregates } from './worldModelUpdater.js';
 export type {
   DbCompanyProfile,
   DbProduct,

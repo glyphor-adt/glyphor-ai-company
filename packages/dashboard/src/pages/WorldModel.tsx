@@ -115,12 +115,14 @@ function AgentWorldCard({ model }: { model: WorldModelRow }) {
   const [expanded, setExpanded] = useState(false);
   const displayName = DISPLAY_NAME_MAP[model.agent_role] ?? model.agent_role;
 
-  // Prepare radar chart data from task_type_scores
-  const radarData = Object.entries(model.task_type_scores).map(([type, score]) => ({
-    taskType: type.replace(/_/g, ' '),
-    score: score.avgScore,
-    fullMark: 5,
-  }));
+  // Prepare radar chart data from task_type_scores (exclude batch_ synthetic keys)
+  const radarData = Object.entries(model.task_type_scores)
+    .filter(([type]) => !type.startsWith('batch_'))
+    .map(([type, score]) => ({
+      taskType: type.replace(/_/g, ' '),
+      score: score.avgScore,
+      fullMark: 5,
+    }));
 
   // Prepare bar chart data from improvement goals
   const goalData = model.improvement_goals.map(g => ({
@@ -187,7 +189,9 @@ function AgentWorldCard({ model }: { model: WorldModelRow }) {
         <div>
           <h4 className="text-xs font-medium text-txt-muted mb-2">Task Performance</h4>
           <div className="grid grid-cols-2 gap-2">
-            {Object.entries(model.task_type_scores).map(([type, score]) => (
+            {Object.entries(model.task_type_scores)
+              .filter(([type]) => !type.startsWith('batch_'))
+              .map(([type, score]) => (
               <div key={type} className="flex items-center justify-between text-xs">
                 <span className="text-txt-muted truncate">{type.replace(/_/g, ' ')}</span>
                 <span className={`font-mono ${scoreColor(score.avgScore)}`}>
@@ -195,6 +199,43 @@ function AgentWorldCard({ model }: { model: WorldModelRow }) {
                 </span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Batch Outcome Metrics */}
+      {model.task_type_scores['batch_outcomes'] && (
+        <div>
+          <h4 className="text-xs font-medium text-txt-muted mb-2">Batch Outcome Quality</h4>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-txt-muted">Avg Quality</span>
+              <span className={`font-mono font-semibold ${scoreColor(model.task_type_scores['batch_outcomes'].avgScore)}`}>
+                {model.task_type_scores['batch_outcomes'].avgScore.toFixed(1)}/5.0
+              </span>
+            </div>
+            {model.task_type_scores['batch_first_time_accept'] && (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-txt-muted">1st-Time Accept</span>
+                <span className={`font-mono ${scoreColor(model.task_type_scores['batch_first_time_accept'].avgScore)}`}>
+                  {(model.task_type_scores['batch_first_time_accept'].avgScore * 20).toFixed(0)}%
+                </span>
+              </div>
+            )}
+            {model.task_type_scores['batch_efficiency'] && (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-txt-muted">Efficiency</span>
+                <span className={`font-mono ${scoreColor(model.task_type_scores['batch_efficiency'].avgScore)}`}>
+                  {model.task_type_scores['batch_efficiency'].avgScore.toFixed(1)}/5.0
+                </span>
+              </div>
+            )}
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-txt-muted">Evaluated</span>
+              <span className="font-mono text-txt-secondary">
+                {model.task_type_scores['batch_outcomes'].count}
+              </span>
+            </div>
           </div>
         </div>
       )}
