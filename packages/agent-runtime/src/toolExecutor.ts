@@ -370,13 +370,20 @@ export class ToolExecutor {
       // ─── Dynamic tool registry fallback ──────────────────
       // Check if this tool was registered at runtime via register_tool.
       // If it has an api_config, execute the HTTP call dynamically.
+      const dynStart = Date.now();
       try {
         const dynamicResult = await executeDynamicTool(toolName, params);
         if (dynamicResult) {
+          const dynLatency = Date.now() - dynStart;
           this.logToolCall(context.agentId, context.agentRole, toolName, params, dynamicResult, estimateToolCost(toolName));
+          recordToolCall(toolName, 'dynamic_registry', dynamicResult.success, false, dynLatency)
+            .catch(err => console.warn('[ToolReputation] tracking failed:', err));
           return dynamicResult;
         }
       } catch (dynErr) {
+        const dynLatency = Date.now() - dynStart;
+        recordToolCall(toolName, 'dynamic_registry', false, false, dynLatency)
+          .catch(err => console.warn('[ToolReputation] tracking failed:', err));
         console.warn(`[ToolExecutor] Dynamic tool lookup failed for ${toolName}:`, (dynErr as Error).message);
       }
 
