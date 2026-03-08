@@ -13,7 +13,7 @@ export type QueryTier = 'SIMPLE' | 'STANDARD' | 'DEEP';
 export const TRIANGULATION_MODELS = {
   primary: 'claude-opus-4-6',
   validator1: 'gemini-3.1-pro-preview',
-  validator2: 'gpt-5.2',
+  validator2: 'gpt-5.4',
   judge: 'claude-sonnet-4-6',
   router: 'gemini-3-flash-preview',
 } as const;

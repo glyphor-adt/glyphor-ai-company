@@ -167,6 +167,7 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
   'gemini-2.5-pro':         ['gemini-3-pro-preview', 'gpt-5-mini'],
 
   // OpenAI primary → try Gemini first (GCP-resident, cheapest), then economy cross-provider
+  'gpt-5.4':                ['gemini-3-flash-preview', 'claude-haiku-4-5'],
   'gpt-5.2':                ['gemini-3-flash-preview', 'claude-haiku-4-5'],
   'gpt-5.2-pro':            ['gemini-3-flash-preview', 'claude-haiku-4-5'],
   'gpt-5.1':                ['gemini-2.5-flash', 'claude-haiku-4-5'],
@@ -200,6 +201,7 @@ export const VERIFIER_MAP: Record<string, string> = {
   'gemini-2.5-pro':         'gpt-5-mini',
 
   // OpenAI primary → Gemini verifier (GCP-native, cheap)
+  'gpt-5.4':                'gemini-2.5-flash',
   'gpt-5.2':                'gemini-2.5-flash',
   'gpt-5.2-pro':            'gemini-3-flash-preview',
   'gpt-5.1':                'gemini-2.5-flash',

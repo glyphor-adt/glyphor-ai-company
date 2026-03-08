@@ -64,6 +64,10 @@ const REFERENCE_PRICES: Record<string, ReferencePricing> = {
   },
 
   // ── OpenAI ──
+  'gpt-5.4': {
+    inputPer1M: 2.50, outputPer1M: 15.00, cachedInputDiscount: 0.10,
+    source: 'https://developers.openai.com/api/docs/pricing',
+  },
   'gpt-5.2': {
     inputPer1M: 1.75, outputPer1M: 14.00, cachedInputDiscount: 0.10,
     source: 'https://developers.openai.com/api/docs/pricing',
