@@ -670,20 +670,25 @@ export class TeamsBotHandler {
    */
   private async ensureTeamsAppInstalled(userAadObjectId: string): Promise<void> {
     const teamsAppExternalId = process.env.TEAMS_APP_ID ?? '0d2c6770-cd9e-4f78-a78d-46725494e391';
+    const configuredInternalAppId = process.env.TEAMS_APP_INTERNAL_ID;
     try {
       const graphToken = await this.getGraphToken();
 
-      // Look up the internal Teams app ID from the catalog
-      const catalogRes = await fetch(
-        `https://graph.microsoft.com/v1.0/appCatalogs/teamsApps?$filter=externalId eq '${encodeURIComponent(teamsAppExternalId)}'`,
-        { headers: { Authorization: `Bearer ${graphToken}` } },
-      );
-      if (!catalogRes.ok) {
-        console.warn(`[TeamsBot] Graph catalog lookup failed (${catalogRes.status})`);
-        return;
+      let internalAppId = configuredInternalAppId;
+      if (!internalAppId) {
+        // Look up the internal Teams app ID from the catalog
+        const catalogRes = await fetch(
+          `https://graph.microsoft.com/v1.0/appCatalogs/teamsApps?$filter=externalId eq '${encodeURIComponent(teamsAppExternalId)}'`,
+          { headers: { Authorization: `Bearer ${graphToken}` } },
+        );
+        if (!catalogRes.ok) {
+          console.warn(`[TeamsBot] Graph catalog lookup failed (${catalogRes.status})`);
+          return;
+        }
+        const catalogData = (await catalogRes.json()) as { value: Array<{ id: string }> };
+        internalAppId = catalogData.value?.[0]?.id;
       }
-      const catalogData = (await catalogRes.json()) as { value: Array<{ id: string }> };
-      const internalAppId = catalogData.value?.[0]?.id;
+
       if (!internalAppId) {
         console.warn(`[TeamsBot] Teams app not found in catalog (externalId=${teamsAppExternalId})`);
         return;
@@ -808,7 +813,7 @@ export class TeamsBotHandler {
     const createUrl = `${serviceUrl}v3/conversations`;
     const createBody = {
       bot: { id: `28:${appId}`, name: 'Glyphor Bot' },
-      members: [{ id: `29:${userAadObjectId}` }],
+      members: [{ id: userAadObjectId, aadObjectId: userAadObjectId }],
       tenantId: this.config.tenantId,
       activity: {
         type: 'message',
@@ -872,7 +877,7 @@ export class TeamsBotHandler {
     const createUrl = `${serviceUrl}v3/conversations`;
     const createBody = {
       bot: { id: `28:${appId}`, name: 'Glyphor Bot' },
-      members: [{ id: `29:${userAadObjectId}` }],
+      members: [{ id: userAadObjectId, aadObjectId: userAadObjectId }],
       tenantId: this.config.tenantId,
       activity: {
         type: 'message',
@@ -1024,7 +1029,7 @@ export class TeamsBotHandler {
     const createUrl = `${serviceUrl}v3/conversations`;
     const createBody = {
       bot: { id: `28:${agentBot.appId}`, name: agentBot.name },
-      members: [{ id: `29:${userAadObjectId}` }],
+      members: [{ id: userAadObjectId, aadObjectId: userAadObjectId }],
       tenantId: this.config.tenantId,
       activity: {
         type: 'message',

@@ -15,7 +15,7 @@
   appRoleAssignments.
 
   Each agent identity gets:
-  1. An oauth2PermissionGrant for M365 MCP scopes (Calendar, Teams, CopilotMCP)
+  1. An oauth2PermissionGrant for the full M365 MCP scope catalog
   2. Glyphor Blueprint app roles (per-agent, from agentIdentities.json) via
      appRoleAssignments on the Glyphor app SP (5604df3b-...)
 
@@ -34,7 +34,17 @@ $CreatedFile = Join-Path $root '.agent-identities-created.json'
 $AgentConfigFile = Join-Path $root 'packages' 'agent-runtime' 'src' 'config' 'agentIdentities.json'
 
 # M365 MCP scopes every agent needs (space-delimited for oauth2PermissionGrant)
-$RequiredM365Scopes = 'McpServers.Calendar.All McpServers.Teams.All McpServers.CopilotMCP.All'
+$RequiredM365Scopes = @(
+    'McpServers.Mail.All',
+    'McpServers.Calendar.All',
+    'McpServers.OneDriveSharepoint.All',
+    'McpServers.Teams.All',
+    'McpServers.CopilotMCP.All',
+    'McpServers.Word.All',
+    'McpServers.UserProfile.All',
+    'McpServers.SharePointLists.All',
+    'McpServers.AdminCenter.All'
+) -join ' '
 
 function Log { param([string]$m); Write-Host "$(Get-Date -Format 'HH:mm:ss') $m" }
 

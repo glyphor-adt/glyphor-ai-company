@@ -43,6 +43,27 @@
       "audience": "ea9ffc3e-8a23-4a7d-836d-234d7c7565c1"
     },
     {
+      "mcpServerName": "mcp_UserProfile",
+      "mcpServerUniqueName": "mcp_UserProfile",
+      "url": "https://agent365.svc.cloud.microsoft/agents/servers/mcp_UserProfile",
+      "scope": "McpServers.UserProfile.All",
+      "audience": "ea9ffc3e-8a23-4a7d-836d-234d7c7565c1"
+    },
+    {
+      "mcpServerName": "mcp_SharePointLists",
+      "mcpServerUniqueName": "mcp_SharePointLists",
+      "url": "https://agent365.svc.cloud.microsoft/agents/servers/mcp_SharePointLists",
+      "scope": "McpServers.SharePointLists.All",
+      "audience": "ea9ffc3e-8a23-4a7d-836d-234d7c7565c1"
+    },
+    {
+      "mcpServerName": "mcp_AdminCenter",
+      "mcpServerUniqueName": "mcp_AdminCenter",
+      "url": "https://agent365.svc.cloud.microsoft/agents/servers/mcp_AdminCenter",
+      "scope": "McpServers.AdminCenter.All",
+      "audience": "ea9ffc3e-8a23-4a7d-836d-234d7c7565c1"
+    },
+    {
       "mcpServerName": "mcp_GlyphorData",
       "mcpServerUniqueName": "mcp_GlyphorData",
       "url": "https://glyphor-mcp-data-610179349713.us-central1.run.app/mcp",

@@ -15,7 +15,7 @@ import { createAgent365Tools as initAgent365Bridge } from '@glyphor/integrations
 
 // ── Standard M365 MCP Servers ────────────────────────────────────
 
-/** All Microsoft Agent 365 MCP servers that Glyphor agents connect to. */
+/** Core Microsoft Agent 365 MCP servers currently covered by existing smoke checks. */
 export const STANDARD_M365_SERVERS = [
   'mcp_MailTools',
   'mcp_CalendarTools',
@@ -25,20 +25,13 @@ export const STANDARD_M365_SERVERS = [
   'mcp_WordServer',
 ] as const;
 
-/** Standard servers plus Microsoft 365 user profile tools for org-aware roles. */
-export const PROFILE_AWARE_M365_SERVERS = [
+/** Full supported Microsoft Agent 365 MCP server catalog. */
+export const ALL_M365_SERVERS = [
   ...STANDARD_M365_SERVERS,
-  'mcp_MeServer',
+  'mcp_UserProfile',
+  'mcp_SharePointLists',
+  'mcp_AdminCenter',
 ] as const;
-
-const ORG_PROFILE_AGENT_ROLES = new Set([
-  'chief-of-staff',
-  'global-admin',
-  'm365-admin',
-  'head-of-hr',
-  'org-analyst',
-  'onboarding-specialist',
-]);
 
 // ── Singleton Bridge ─────────────────────────────────────────────
 
@@ -96,14 +89,6 @@ function resolveAgent365Credentials(agentRole?: string): {
   };
 }
 
-function resolveDefaultServerFilter(agentRole?: string): string[] {
-  if (agentRole && ORG_PROFILE_AGENT_ROLES.has(agentRole)) {
-    return [...PROFILE_AWARE_M365_SERVERS];
-  }
-
-  return [...STANDARD_M365_SERVERS];
-}
-
 // ── Public Factory ───────────────────────────────────────────────
 
 /**
@@ -111,7 +96,7 @@ function resolveDefaultServerFilter(agentRole?: string): string[] {
  * Uses MSAL client credentials flow to auto-acquire and cache tokens.
  *
  * @param serverFilter Optional list of MCP server names to load.
- *                     Defaults to STANDARD_M365_SERVERS, with mcp_MeServer added for org-aware roles.
+ *                     Defaults to ALL_M365_SERVERS so the full supported catalog is available.
  *
  * Returns an empty array if:
  *   - AGENT365_ENABLED is not 'true'
@@ -124,7 +109,9 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
   }
 
   const agentRole = typeof agentRoleOrServerFilter === 'string' ? agentRoleOrServerFilter : undefined;
-  const serverFilter = Array.isArray(agentRoleOrServerFilter) ? agentRoleOrServerFilter : maybeServerFilter;
+  const serverFilter = Array.isArray(agentRoleOrServerFilter)
+    ? agentRoleOrServerFilter
+    : (maybeServerFilter ?? [...ALL_M365_SERVERS]);
   const credentials = resolveAgent365Credentials(agentRole);
 
   if (!credentials) {
@@ -137,7 +124,7 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
       clientId: credentials.clientId,
       clientSecret: credentials.clientSecret,
       tenantId: credentials.tenantId,
-    }, serverFilter ?? resolveDefaultServerFilter(agentRole));
+    }, serverFilter);
 
     activeBridge = bridge;
     console.log(`[Agent365] Initialized ${bridge.tools.length} MCP tools`);

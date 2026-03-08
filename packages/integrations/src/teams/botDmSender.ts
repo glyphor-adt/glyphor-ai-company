@@ -114,21 +114,26 @@ export class BotDmSender {
    */
   private async ensureTeamsAppInstalled(userAadObjectId: string): Promise<void> {
     const teamsAppExternalId = process.env.TEAMS_APP_ID ?? '0d2c6770-cd9e-4f78-a78d-46725494e391';
+    const configuredInternalAppId = process.env.TEAMS_APP_INTERNAL_ID;
 
     try {
       const token = await this.graphClient.getAccessToken();
 
-      const catalogRes = await fetch(
-        `https://graph.microsoft.com/v1.0/appCatalogs/teamsApps?$filter=externalId eq '${encodeURIComponent(teamsAppExternalId)}'`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      if (!catalogRes.ok) {
-        console.warn(`[BotDmSender] Graph catalog lookup failed (${catalogRes.status})`);
-        return;
+      let internalAppId = configuredInternalAppId;
+      if (!internalAppId) {
+        const catalogRes = await fetch(
+          `https://graph.microsoft.com/v1.0/appCatalogs/teamsApps?$filter=externalId eq '${encodeURIComponent(teamsAppExternalId)}'`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (!catalogRes.ok) {
+          console.warn(`[BotDmSender] Graph catalog lookup failed (${catalogRes.status})`);
+          return;
+        }
+
+        const catalogData = (await catalogRes.json()) as { value: Array<{ id: string }> };
+        internalAppId = catalogData.value?.[0]?.id;
       }
 
-      const catalogData = (await catalogRes.json()) as { value: Array<{ id: string }> };
-      const internalAppId = catalogData.value?.[0]?.id;
       if (!internalAppId) {
         console.warn(`[BotDmSender] Teams app not found in catalog (externalId=${teamsAppExternalId})`);
         return;
@@ -192,7 +197,7 @@ export class BotDmSender {
     const createUrl = `${this.serviceUrl}v3/conversations`;
     const createBody = {
       bot: { id: `28:${this.botAppId}`, name: 'Glyphor Bot' },
-      members: [{ aadObjectId: userAadObjectId }],
+      members: [{ id: userAadObjectId, aadObjectId: userAadObjectId }],
       channelData: { tenant: { id: this.tenantId } },
     };
 
