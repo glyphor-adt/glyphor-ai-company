@@ -145,7 +145,7 @@ export class ModelClient {
   // ─── Shared helpers ──────────────────────────────────────
 
   private async raceAbort<T>(promise: Promise<T>, signal?: AbortSignal, callTimeoutMs?: number): Promise<T> {
-    const PER_CALL_TIMEOUT_MS = callTimeoutMs ?? 180_000;
+    const PER_CALL_TIMEOUT_MS = callTimeoutMs ?? 300_000;
     const timeoutSignal = AbortSignal.timeout(PER_CALL_TIMEOUT_MS);
 
     const signals = signal

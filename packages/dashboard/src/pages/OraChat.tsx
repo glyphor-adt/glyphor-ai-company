@@ -708,7 +708,7 @@ export default function OraChat() {
     let sessionId = activeSessionId;
     if (!sessionId) {
       try {
-        const created = await apiCall<OraSession[]>('/api/ora-sessions', {
+        const created = await apiCall<OraSession>('/api/ora-sessions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -716,10 +716,10 @@ export default function OraChat() {
             title: text.length > 80 ? text.slice(0, 80) + '...' : text,
           }),
         });
-        if (created?.[0]) {
-          sessionId = created[0].id;
+        if (created?.id) {
+          sessionId = created.id;
           setActiveSessionId(sessionId);
-          setSessions((prev) => [created[0], ...prev]);
+          setSessions((prev) => [created, ...prev.filter((session) => session.id !== created.id)]);
         }
       } catch {
         // Session creation failed — proceed without session
@@ -952,7 +952,7 @@ export default function OraChat() {
     });
   }, []);
   return (
-    <div className="-mx-8 -mb-8 -mt-8 flex" style={{ height: 'calc(100vh - 1rem - 4px)' }}>
+    <div className="flex h-full">
       {/* Session Sidebar */}
       {sidebarOpen && (
         <div className="flex w-72 flex-shrink-0 flex-col border-r border-prism-border bg-prism-bg">

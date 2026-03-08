@@ -650,31 +650,174 @@ function AccessGrantManager({
         )}
 
         <div className="mt-4 space-y-4">
-          {grouped.length === 0 ? (
-            <p className="text-[13px] text-txt-muted">No active grants found.</p>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Matching Grants</p>
+              <p className="mt-3 text-3xl font-semibold text-prism-sky">{filteredInventory.length}</p>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Agents</p>
+              <p className="mt-3 text-3xl font-semibold text-prism-teal">{filteredSummary.agents}</p>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Tools</p>
+              <p className="mt-3 text-3xl font-semibold text-txt-primary">{filteredSummary.tools}</p>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Departments</p>
+              <p className="mt-3 text-3xl font-semibold text-prism-elevated">{filteredSummary.departments}</p>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Urgent / Inactive</p>
+              <p className="mt-3 text-3xl font-semibold text-prism-high">{filteredSummary.expiringSoon + filteredSummary.inactiveOrExpired}</p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 rounded-xl border border-border/70 bg-prism-card/60 p-4 xl:grid-cols-[1.7fr,repeat(4,minmax(0,1fr)),auto]">
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search agent, tool, department, reason, scope, or grantor"
+              className="rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-txt-primary placeholder:text-txt-muted"
+            />
+            <select
+              value={departmentFilter}
+              onChange={(event) => setDepartmentFilter(event.target.value)}
+              className="rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-txt-primary"
+            >
+              <option value="all">All departments</option>
+              {departmentOptions.map((department) => (
+                <option key={department} value={department}>{department}</option>
+              ))}
+            </select>
+            <select
+              value={agentFilter}
+              onChange={(event) => setAgentFilter(event.target.value)}
+              className="rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-txt-primary"
+            >
+              <option value="all">All agents</option>
+              {agentOptions.map(([role, displayName]) => (
+                <option key={role} value={role}>{displayName}</option>
+              ))}
+            </select>
+            <select
+              value={toolFilter}
+              onChange={(event) => setToolFilter(event.target.value)}
+              className="rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-txt-primary"
+            >
+              <option value="all">All tools</option>
+              {toolOptions.map((tool) => (
+                <option key={tool} value={tool}>{toHumanWords(tool)}</option>
+              ))}
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className="rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-txt-primary"
+            >
+              <option value="all">All statuses</option>
+              <option value="active">Healthy active</option>
+              <option value="expiring-soon">Expiring ≤7 days</option>
+              <option value="expires-this-month">Expiring ≤30 days</option>
+              <option value="no-expiry">No expiry</option>
+              <option value="expired">Expired</option>
+              <option value="inactive">Inactive</option>
+            </select>
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="rounded-lg border border-border bg-surface px-4 py-2 text-[13px] font-medium text-txt-secondary transition-colors hover:border-border-hover hover:text-txt-primary"
+            >
+              Reset
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-[12px] text-txt-muted">
+            <span>{filteredInventory.length} of {inventory.length} grants shown</span>
+            {search.trim() && (
+              <span className="rounded-full border border-border/70 bg-prism-card px-2 py-0.5 text-[11px] text-txt-secondary">
+                Search: {search.trim()}
+              </span>
+            )}
+            {statusFilter !== 'all' && (
+              <span className="rounded-full border border-border/70 bg-prism-card px-2 py-0.5 text-[11px] text-txt-secondary">
+                {getGrantInventoryLabel(statusFilter as GrantInventoryStatus)}
+              </span>
+            )}
+          </div>
+
+          {filteredInventory.length === 0 ? (
+            <EmptyState
+              title="No grants match the current filters"
+              description="Try broadening the search or clearing one of the facet filters to see more agent-tool assignments."
+              action={(
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="w-fit rounded-lg border border-border bg-surface px-3 py-1.5 text-[12px] font-medium text-txt-secondary transition-colors hover:border-border-hover hover:text-txt-primary"
+                >
+                  Clear filters
+                </button>
+              )}
+            />
           ) : (
-            grouped.map((group) => (
-              <div key={group.dept}>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">{group.dept}</p>
-                <div className="mt-3 space-y-2">
-                  {group.grants.map((grant) => {
-                    const expiry = daysUntil(grant.expires_at);
-                    const tone = expiry != null && expiry <= 7
-                      ? 'border-prism-elevated/30 bg-prism-elevated/10'
-                      : 'border-border/70 bg-surface';
+            <div className="overflow-x-auto rounded-xl border border-border/70 bg-prism-card/50">
+              <table className="w-full min-w-[1180px] text-left text-[12px]">
+                <thead>
+                  <tr className="border-b border-border/70 text-txt-muted">
+                    <th className="px-4 py-3 font-medium">Agent</th>
+                    <th className="px-4 py-3 font-medium">Department</th>
+                    <th className="px-4 py-3 font-medium">Tool</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Reason / Scope</th>
+                    <th className="px-4 py-3 font-medium">Grant metadata</th>
+                    <th className="px-4 py-3 font-medium">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredInventory.map((grant) => {
+                    const severity = getGrantInventorySeverity(grant.inventoryStatus);
+                    const tone = grant.inventoryStatus === 'expired'
+                      ? 'bg-prism-critical/6'
+                      : grant.inventoryStatus === 'expiring-soon'
+                        ? 'bg-prism-high/6'
+                        : grant.inventoryStatus === 'expires-this-month'
+                          ? 'bg-prism-elevated/6'
+                          : '';
                     return (
-                      <div key={grant.id} className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2 ${tone}`}>
-                        <div>
-                          <p className="text-[13px] font-medium text-txt-primary">{getDisplayName(grant.agent_role)}</p>
-                          <p className="mt-1 text-[11px] text-txt-muted">{toHumanWords(grant.tool_name)} · granted by {grant.granted_by}</p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {expiry != null && (
-                            <span className="rounded-full border border-border/70 bg-prism-card px-2 py-0.5 text-[11px] text-txt-muted">
-                              {expiry < 0 ? 'Expired' : `Expires in ${expiry}d`}
-                            </span>
-                          )}
-                          {isAdmin && (
+                      <tr key={grant.id} className={`border-b border-border/50 align-top ${tone}`}>
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-txt-primary">{grant.displayName}</p>
+                          <p className="mt-1 text-[11px] text-txt-muted">{grant.agent_role}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-txt-secondary">{grant.department}</p>
+                          <p className="mt-1 text-[11px] text-txt-muted">{grant.roleTitle}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-txt-primary">{toHumanWords(grant.tool_name)}</p>
+                          <p className="mt-1 text-[11px] text-txt-muted">{grant.tool_name}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <SeverityBadge severity={severity} />
+                            {grant.expiresInDays != null && (
+                              <span className="rounded-full border border-border/70 bg-surface px-2 py-0.5 text-[11px] text-txt-muted">
+                                {grant.expiresInDays < 0 ? `Expired ${Math.abs(grant.expiresInDays)}d ago` : `Expires in ${grant.expiresInDays}d`}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-txt-secondary">
+                          <p>{grant.reason?.trim() || '—'}</p>
+                          <p className="mt-1 text-[11px] text-txt-muted">Scope: {grant.scope || '—'}</p>
+                        </td>
+                        <td className="px-4 py-3 text-txt-secondary">
+                          <p>Granted by {grant.granted_by}</p>
+                          <p className="mt-1 text-[11px] text-txt-muted">Created {formatDateTime(grant.created_at)} · Updated {formatDateTime(grant.updated_at)}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          {isAdmin && grant.is_active ? (
                             <button
                               type="button"
                               onClick={() => onRevoke(grant)}
@@ -682,15 +825,66 @@ function AccessGrantManager({
                             >
                               Revoke
                             </button>
+                          ) : (
+                            <span className="text-txt-muted">—</span>
                           )}
-                        </div>
-                      </div>
+                        </td>
+                      </tr>
                     );
                   })}
-                </div>
-              </div>
-            ))
+                </tbody>
+              </table>
+            </div>
           )}
+
+          <CollapsibleCard
+            title="Department Snapshot"
+            subtitle="Keep the grouped view for quick browsing while the searchable inventory above answers who has what."
+          >
+            {filteredGrouped.length === 0 ? (
+              <p className="text-[13px] text-txt-muted">No active grants remain after the current filters.</p>
+            ) : (
+              <div className="space-y-4">
+                {filteredGrouped.map((group) => (
+                  <div key={group.dept}>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">{group.dept}</p>
+                    <div className="mt-3 space-y-2">
+                      {group.grants.map((grant) => {
+                        const tone = grant.inventoryStatus === 'expiring-soon' || grant.inventoryStatus === 'expires-this-month'
+                          ? 'border-prism-elevated/30 bg-prism-elevated/10'
+                          : 'border-border/70 bg-surface';
+                        return (
+                          <div key={grant.id} className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2 ${tone}`}>
+                            <div>
+                              <p className="text-[13px] font-medium text-txt-primary">{grant.displayName}</p>
+                              <p className="mt-1 text-[11px] text-txt-muted">{toHumanWords(grant.tool_name)} · granted by {grant.granted_by}</p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <SeverityBadge severity={getGrantInventorySeverity(grant.inventoryStatus)} />
+                              {grant.expiresInDays != null && (
+                                <span className="rounded-full border border-border/70 bg-prism-card px-2 py-0.5 text-[11px] text-txt-muted">
+                                  {grant.expiresInDays < 0 ? 'Expired' : `Expires in ${grant.expiresInDays}d`}
+                                </span>
+                              )}
+                              {isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => onRevoke(grant)}
+                                  className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-1.5 text-[12px] font-medium text-prism-critical transition-colors hover:bg-prism-critical/20"
+                                >
+                                  Revoke
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CollapsibleCard>
         </div>
       </Card>
     </div>

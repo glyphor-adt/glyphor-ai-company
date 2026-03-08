@@ -33,10 +33,10 @@ export const DEFAULT_TRIANGULATION_MODEL_SELECTION: TriangulationModelSelection 
 // ─── Timeouts ───────────────────────────────────────────────────
 
 export const TRIANGULATION_TIMEOUTS = {
-  standard: 30_000,
-  deep: 90_000,
-  judge: 30_000,
-  router: 5_000,
+  standard: 300_000,
+  deep: 300_000,
+  judge: 300_000,
+  router: 10_000,
 } as const;
 
 // ─── Scoring Types ──────────────────────────────────────────────

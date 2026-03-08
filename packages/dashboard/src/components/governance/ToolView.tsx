@@ -49,10 +49,12 @@ function ToolHealthOverview({
   activeTools,
   recentExpired,
   telemetryGaps,
+  onOpenSurface,
 }: {
   activeTools: EnrichedTool[];
   recentExpired: ToolReputation[];
   telemetryGaps: Array<{ toolName: string; activeGrantCount: number }>;
+  onOpenSurface: (surface: GovernanceSurface) => void;
 }) {
   const avgReliability = average(
     activeTools
@@ -76,6 +78,15 @@ function ToolHealthOverview({
       <SectionHeader
         title="Tool Health Overview"
         subtitle="Restored tool-focused telemetry for reliability, freshness, and expiration events without undoing the new governance layout."
+        action={(
+          <button
+            type="button"
+            onClick={() => onOpenSurface('access-control')}
+            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-[12px] font-medium text-txt-secondary transition-colors hover:border-border-hover hover:text-txt-primary"
+          >
+            Search grant inventory
+          </button>
+        )}
       />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
         {cards.map((card) => (
@@ -378,6 +389,7 @@ export default function ToolView({
         activeTools={activeTools}
         recentExpired={recentExpired}
         telemetryGaps={telemetryGaps.map(({ toolName, activeGrantCount }) => ({ toolName, activeGrantCount }))}
+        onOpenSurface={onOpenSurface}
       />
       <div className="grid gap-6 xl:grid-cols-[1.15fr,0.85fr]">
         <ToolReputationBoard items={activeTools} onOpenSurface={onOpenSurface} />

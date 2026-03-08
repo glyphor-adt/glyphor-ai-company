@@ -24,6 +24,8 @@ const NAV = [
 export default function Layout() {
   const { theme, toggle } = useTheme();
   const { user, logout } = useAuth();
+  const location = useLocation();
+  const isFullBleed = location.pathname === '/ora';
   return (
     <div className="flex h-screen overflow-hidden bg-base">
       {/* ── Sidebar ─────────────────────────── */}
@@ -86,11 +88,17 @@ export default function Layout() {
       </aside>
 
       {/* ── Main Content ────────────────────── */}
-      <main className="flex-1 overflow-y-auto bg-prism-bg transition-colors duration-200">
-        <div className="h-1 w-full bg-prism-gradient" />
-        <div className="page-enter mx-auto max-w-[1400px] px-8 py-8">
-          <Outlet />
-        </div>
+      <main className={`flex-1 bg-prism-bg transition-colors duration-200 ${isFullBleed ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'}`}>
+        <div className="h-1 w-full flex-shrink-0 bg-prism-gradient" />
+        {isFullBleed ? (
+          <div className="page-enter min-h-0 flex-1">
+            <Outlet />
+          </div>
+        ) : (
+          <div className="page-enter mx-auto max-w-[1400px] px-8 py-8">
+            <Outlet />
+          </div>
+        )}
       </main>
     </div>
   );
