@@ -22,9 +22,9 @@
     ]
   },
   "cfo": {
-    "appId": "270686c1-c67d-45dd-be10-d2b8ef773604",
-    "objectId": "ec650ad8-cd03-48b1-af96-4d63cf3362d2",
-    "spId": "c25ac5e2-c10a-4beb-8d86-523fc791b46e",
+    "appId": "00ee286c-3eff-42ae-8581-5970f6939f31",
+    "objectId": "0e397626-f999-47bd-8844-783c4b9cf61d",
+    "spId": "59ef769d-f156-45d6-a0a7-dee49b199a48",
     "displayName": "Glyphor Agent - Nadia Okafor (CFO)",
     "roles": [
       "Glyphor.Finance.Revenue.Read",
@@ -195,9 +195,9 @@
     ]
   },
   "social-media-manager": {
-    "appId": "c00fb54d-4560-45ad-8a41-90151d2bd043",
-    "objectId": "6fc3da38-1f6f-4158-898b-db88092c3a42",
-    "spId": "c2e78790-18ab-4bc9-966a-e091860c2717",
+    "appId": "31152f6d-09c7-4ba9-895e-995c226042e6",
+    "objectId": "7f4ba9ae-8721-4e7b-978b-43bc108b92bb",
+    "spId": "5135c3ce-ee01-444c-a6b6-5b35fb148a21",
     "displayName": "Glyphor Agent - Kai Johnson (Social)",
     "roles": [
       "Glyphor.Marketing.Read",
