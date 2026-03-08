@@ -151,23 +151,22 @@ async function getGrantUsageRows() {
        atg.expires_at,
        ca.department,
        ats.trust_score,
-       COUNT(*) FILTER (
-         WHERE ar.started_at >= NOW() - INTERVAL '30 days'
-           AND (
-             COALESCE(ar.input, '') ILIKE '%' || atg.tool_name || '%'
-             OR COALESCE(ar.output, '') ILIKE '%' || atg.tool_name || '%'
-           )
-       )::int AS uses_last_30d,
-       MAX(ar.started_at) FILTER (
-         WHERE COALESCE(ar.input, '') ILIKE '%' || atg.tool_name || '%'
-            OR COALESCE(ar.output, '') ILIKE '%' || atg.tool_name || '%'
-       ) AS last_used_at
+       COALESCE(run_stats.completed_runs_last_30d, 0)::int AS uses_last_30d,
+       run_stats.last_completed_run_at AS last_used_at
      FROM agent_tool_grants atg
      LEFT JOIN company_agents ca ON ca.role = atg.agent_role
      LEFT JOIN agent_trust_scores ats ON ats.agent_role = atg.agent_role
-     LEFT JOIN agent_runs ar ON ar.agent_id = atg.agent_role
-     WHERE atg.is_active = true
-     GROUP BY atg.agent_role, atg.tool_name, atg.reason, atg.scope, atg.created_at, atg.expires_at, ca.department, ats.trust_score`,
+     LEFT JOIN LATERAL (
+       SELECT
+         COUNT(*) FILTER (
+           WHERE ar.status = 'completed'
+             AND ar.started_at >= NOW() - INTERVAL '30 days'
+         ) AS completed_runs_last_30d,
+         MAX(ar.started_at) FILTER (WHERE ar.status = 'completed') AS last_completed_run_at
+       FROM agent_runs ar
+       WHERE ar.agent_id = atg.agent_role
+     ) run_stats ON true
+     WHERE atg.is_active = true`,
   );
 }
 
@@ -288,7 +287,7 @@ async function getAccessIssues(): Promise<GovernanceAccessIssue[]> {
       : (staleDays > 90 || expiresSoon ? 'medium' : 'low');
     const descriptionParts = [
       trustScore < 0.5 ? `Agent trust score is ${round(trustScore)}.` : null,
-      staleDays > 90 ? `No clear usage signal for ${staleDays} days.` : null,
+      staleDays > 90 ? `Agent has no recent completed runs for ${staleDays} days.` : null,
       expiresSoon && row.expires_at ? `Grant expires on ${row.expires_at}.` : null,
     ].filter(Boolean);
 
@@ -581,7 +580,7 @@ async function getActionQueue(): Promise<GovernanceAction[]> {
       title: `${row.agent_role} grant ${row.tool_name} is risky`,
       description: trustScore < 0.5
         ? `Granted tool access is paired with a low trust score (${round(trustScore)}).`
-        : `Grant shows ${staleDays} day(s) since the last clear usage signal.`,
+        : `Agent has been inactive for ${staleDays} day(s), so this grant should be reviewed.`,
       agent_role: row.agent_role,
       impact: expiresSoon ? 'Review before the grant expires.' : 'Review access scope and revoke if unnecessary.',
       created_at: toIsoString(row.expires_at ?? row.created_at),
