@@ -33,9 +33,11 @@ function getToolSeverity(tool: ToolReputation): Severity {
   const reliability = tool.reliability_score ?? null;
   const timeoutRate = tool.total_calls > 0 ? tool.timeout_calls / tool.total_calls : 0;
   const staleDays = daysSince(tool.last_used_at);
+  const missingScoresWithUsage = tool.total_calls > 0 && reliability == null && successRate == null;
 
   if (reliability != null && reliability < 0.5) return 'critical';
   if (successRate != null && successRate < 0.65) return 'critical';
+  if (missingScoresWithUsage) return 'medium';
   if (timeoutRate >= 0.3) return 'high';
   if (tool.downstream_defect_count >= 3) return 'high';
   if (staleDays != null && staleDays > 7) return 'medium';
@@ -315,7 +317,7 @@ export default function ToolView({
           good: 6,
         };
         return severityRank[left.severity] - severityRank[right.severity]
-          || (left.reliability_score ?? 1) - (right.reliability_score ?? 1)
+          || (left.reliability_score ?? left.success_rate ?? -1) - (right.reliability_score ?? right.success_rate ?? -1)
           || (right.total_calls - left.total_calls);
       });
   }, [activeGrantCounts, toolReputation]);
