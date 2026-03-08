@@ -25,6 +25,8 @@ export async function triangulate(
     redisCache?: RedisCache;
   },
 ): Promise<TriangulationResult> {
+  const startedAt = Date.now();
+
   // 1. Classify the query to determine tier
   const tier = await classifyQuery(message, deps.modelClient, {
     forceDeep: options.enableDeepThinking,
@@ -71,6 +73,7 @@ export async function triangulate(
         status: 'success',
       }], null),
       latencyMs: { claude: Date.now() - start },
+      durationMs: Date.now() - startedAt,
     };
   }
 
@@ -120,5 +123,6 @@ export async function triangulate(
     allResponses,
     cost,
     latencyMs,
+    durationMs: Date.now() - startedAt,
   };
 }

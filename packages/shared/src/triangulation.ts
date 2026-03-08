@@ -59,4 +59,5 @@ export interface TriangulationResult {
   allResponses: Record<string, string>;
   cost: { perProvider: Record<string, number>; total: number };
   latencyMs: Record<string, number>;
+  durationMs: number;
 }

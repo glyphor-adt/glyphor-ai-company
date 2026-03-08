@@ -35,6 +35,8 @@ interface TriangulationResult {
   divergences: Divergence[];
   allResponses: Record<string, string>;
   cost: { perProvider: Record<string, number>; total: number };
+  latencyMs: Record<string, number>;
+  durationMs?: number;
 }
 
 /* ── Types ─────────────────────────────────────────── */
@@ -85,12 +87,20 @@ function confidenceStroke(c: number) {
   return '#f87171';
 }
 
+function formatDuration(ms?: number) {
+  if (typeof ms !== 'number' || Number.isNaN(ms)) return null;
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 10_000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${Math.round(ms / 1000)}s`;
+}
+
 /* ── Triangulation Panel ──────────────────────────── */
 
 function TriangulationPanel({ tri }: { tri: TriangulationResult }) {
   const [expanded, setExpanded] = useState(false);
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
   const [showRecommended, setShowRecommended] = useState(false);
+  const durationLabel = formatDuration(tri.durationMs);
 
   const circumference = 2 * Math.PI * 18;
   const offset = circumference - (tri.confidence / 100) * circumference;
@@ -122,6 +132,11 @@ function TriangulationPanel({ tri }: { tri: TriangulationResult }) {
           <span className="ml-2 rounded-full bg-prism-bg2 px-2 py-0.5 text-[11px] text-prism-tertiary">
             ${tri.cost.total.toFixed(2)}
           </span>
+          {durationLabel && (
+            <span className="ml-2 rounded-full bg-prism-bg2 px-2 py-0.5 text-[11px] text-prism-tertiary">
+              {tri.tier.toLowerCase()} in {durationLabel}
+            </span>
+          )}
         </div>
         <svg
           className={`h-4 w-4 text-prism-tertiary transition-transform ${expanded ? 'rotate-180' : ''}`}
@@ -222,6 +237,7 @@ export default function OraChat() {
   const [input, setInput] = useState('');
   const [phase, setPhase] = useState<StreamPhase>('idle');
   const [validatedProviders, setValidatedProviders] = useState<string[]>([]);
+  const [activeRequestFeatures, setActiveRequestFeatures] = useState<Features | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [features, setFeatures] = useState<Features>({
     deepThinking: false,
@@ -340,6 +356,7 @@ export default function OraChat() {
     setAttachments([]);
     setPhase('streaming');
     setValidatedProviders([]);
+    setActiveRequestFeatures(features);
 
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -402,6 +419,7 @@ export default function OraChat() {
                 break;
               case 'result':
                 setPhase('complete');
+                setActiveRequestFeatures(null);
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantId
@@ -423,6 +441,7 @@ export default function OraChat() {
                   ),
                 );
                 setPhase('complete');
+                setActiveRequestFeatures(null);
                 break;
             }
           } catch {
@@ -433,6 +452,7 @@ export default function OraChat() {
 
       // If we never got a result event, mark complete
       setPhase((p) => (p === 'complete' ? p : 'complete'));
+      setActiveRequestFeatures(null);
     } catch (err) {
       setMessages((prev) =>
         prev.map((m) =>
@@ -442,6 +462,7 @@ export default function OraChat() {
         ),
       );
       setPhase('complete');
+      setActiveRequestFeatures(null);
     }
   }, [input, attachments, features, conversationId, userEmail, phase]);
 
@@ -461,6 +482,24 @@ export default function OraChat() {
   }, []);
 
   const isLoading = phase === 'streaming' || phase === 'validating' || phase === 'evaluating';
+  const activeAssistantId = isLoading ? [...messages].reverse().find((m) => m.role === 'assistant')?.id ?? null : null;
+  const completedDurationLabel = (triangulation?: TriangulationResult) => formatDuration(triangulation?.durationMs);
+  const thinkingTitle =
+    phase === 'evaluating'
+      ? 'Selecting the strongest answer...'
+      : phase === 'validating'
+        ? 'Comparing model responses...'
+        : activeRequestFeatures?.deepThinking
+          ? 'Thinking deeply...'
+          : 'Thinking...';
+  const thinkingDetail =
+    phase === 'evaluating'
+      ? 'Ora is judging the responses and choosing the best one.'
+      : phase === 'validating'
+        ? `Received ${validatedProviders.length} ${validatedProviders.length === 1 ? 'response' : 'responses'} so far.${validatedProviders.length > 0 ? ' Checking agreement across providers now.' : ''}`
+        : activeRequestFeatures?.deepThinking
+          ? 'Running Claude, Gemini, and GPT-5 in parallel before comparing them.'
+          : 'Preparing Ora response.';
 
   return (
     <div className="flex h-[calc(100vh-5rem)] flex-col">
@@ -507,8 +546,38 @@ export default function OraChat() {
                 {/* Content */}
                 {msg.role === 'user' ? (
                   <p className="whitespace-pre-wrap">{msg.content}</p>
+                ) : isLoading && msg.id === activeAssistantId && !msg.content ? (
+                  <div className="flex items-start gap-3">
+                    <svg className="mt-0.5 h-4 w-4 animate-spin text-cyan-400" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-20" />
+                      <path d="M12 2a10 10 0 019.95 9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                    </svg>
+                    <div className="min-w-0">
+                      <p className="font-medium text-prism-primary">{thinkingTitle}</p>
+                      <p className="mt-1 text-[12px] text-prism-tertiary">{thinkingDetail}</p>
+                      {validatedProviders.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {validatedProviders.map((provider) => (
+                            <span
+                              key={provider}
+                              className="rounded-full border border-green-500/25 bg-green-500/10 px-2 py-0.5 text-[11px] text-green-400"
+                            >
+                              {provider} ready
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 ) : msg.content ? (
-                  <div className="prose-chat"><Markdown>{msg.content}</Markdown></div>
+                  <>
+                    <div className="prose-chat"><Markdown>{msg.content}</Markdown></div>
+                    {msg.metadata?.triangulation && msg.metadata.tier !== 'SIMPLE' && completedDurationLabel(msg.metadata.triangulation) && (
+                      <div className="mt-2 text-[11px] text-prism-tertiary">
+                        {msg.metadata.triangulation.tier.toLowerCase()} triangulation completed in {completedDurationLabel(msg.metadata.triangulation)} using Claude, Gemini, and GPT-5.
+                      </div>
+                    )}
+                  </>
                 ) : null}
 
                 {/* Triangulation panel */}
@@ -519,40 +588,6 @@ export default function OraChat() {
             </div>
           ))}
 
-          {/* Streaming indicators */}
-          {phase === 'streaming' && (
-            <div className="flex justify-start">
-              <div className="flex items-center gap-1.5 rounded-xl bg-prism-bg2 px-4 py-2.5 border border-prism-border">
-                <span className="animate-pulse h-1.5 w-1.5 rounded-full bg-cyan-400" style={{ animationDelay: '0ms' }} />
-                <span className="animate-pulse h-1.5 w-1.5 rounded-full bg-cyan-400" style={{ animationDelay: '150ms' }} />
-                <span className="animate-pulse h-1.5 w-1.5 rounded-full bg-cyan-400" style={{ animationDelay: '300ms' }} />
-              </div>
-            </div>
-          )}
-
-          {phase === 'validating' && (
-            <div className="flex justify-start">
-              <div className="flex items-center gap-2 rounded-xl bg-prism-bg2 px-4 py-2.5 border border-prism-border text-[12px] text-prism-tertiary">
-                {validatedProviders.map((p) => (
-                  <span key={p} className="text-green-400">✓ {p}</span>
-                ))}
-                <span className="animate-pulse">Validating...</span>
-              </div>
-            </div>
-          )}
-
-          {phase === 'evaluating' && (
-            <div className="flex justify-start">
-              <div className="flex items-center gap-2 rounded-xl bg-prism-bg2 px-4 py-2.5 border border-prism-border text-[12px] text-prism-tertiary">
-                <svg className="h-4 w-4 animate-spin text-cyan-400" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
-                  <path d="M12 2a10 10 0 019.95 9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-                </svg>
-                Triangulating responses...
-              </div>
-            </div>
-          )}
-
           <div ref={scrollRef} />
         </div>
       </div>
@@ -561,11 +596,12 @@ export default function OraChat() {
       <div className="mt-3 flex items-center gap-2 flex-wrap">
         <button
           onClick={() => toggleFeature('deepThinking')}
+          disabled={isLoading}
           className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors border ${
             features.deepThinking
               ? 'bg-red-500/10 text-red-400 border-red-500/30'
               : 'bg-prism-bg2 text-prism-tertiary border-prism-border hover:text-prism-primary'
-          }`}
+          } ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
         >
           <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
             <circle cx="8" cy="6" r="4" />
@@ -577,11 +613,12 @@ export default function OraChat() {
 
         <button
           onClick={() => toggleFeature('webSearch')}
+          disabled={isLoading}
           className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors border ${
             features.webSearch
               ? 'bg-cyan/10 text-cyan border-cyan/30'
               : 'bg-prism-bg2 text-prism-tertiary border-prism-border hover:text-prism-primary'
-          }`}
+          } ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
         >
           <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
             <circle cx="7" cy="7" r="4.5" />
@@ -592,11 +629,12 @@ export default function OraChat() {
 
         <button
           onClick={() => toggleFeature('knowledgeBase')}
+          disabled={isLoading}
           className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors border ${
             features.knowledgeBase
               ? 'bg-green-500/10 text-green-400 border-green-500/30'
               : 'bg-prism-bg2 text-prism-tertiary border-prism-border hover:text-prism-primary'
-          }`}
+          } ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
         >
           <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
             <rect x="2" y="3" width="12" height="10" rx="1.5" />
@@ -607,7 +645,8 @@ export default function OraChat() {
 
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium bg-prism-bg2 text-prism-tertiary border border-prism-border hover:text-prism-primary transition-colors"
+          disabled={isLoading}
+          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium bg-prism-bg2 text-prism-tertiary border border-prism-border hover:text-prism-primary transition-colors ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
         >
           <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
             <path d="M14 8.5c0 3-2.5 5-5 5s-5-2-5-5 2.5-5 5-5a3.5 3.5 0 013.5 3.5c0 1.5-1 2.5-2.5 2.5s-2-1-2-2V5" />

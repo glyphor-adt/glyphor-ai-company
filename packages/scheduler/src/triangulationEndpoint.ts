@@ -97,11 +97,6 @@ export async function handleTriangulatedChat(
     // Send tier event
     sendSSE(res, { type: 'tier', tier: result.tier });
 
-    // Send the full response as a single chunk
-    if (result.selectedResponse) {
-      sendSSE(res, { type: 'chunk', text: result.selectedResponse });
-    }
-
     // Send provider_complete events
     for (const provider of Object.keys(result.allResponses)) {
       sendSSE(res, { type: 'provider_complete', provider });
