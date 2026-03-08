@@ -233,7 +233,8 @@ export class KnowledgeGraphWriter {
     sourceId: string;
     targetId: string;
     causalConfidence: number;
-    causalLag?: string;
+    edgeType?: 'caused' | 'contributed_to' | 'resulted_in' | 'affects';
+    causalLagDays?: number;
     causalMechanism?: string;
     strength?: number;
     evidence?: string;
@@ -242,14 +243,14 @@ export class KnowledgeGraphWriter {
 
     try {
       await systemQuery(
-        `INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, created_by, evidence, causal_confidence, causal_lag, causal_mechanism)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        `INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, created_by, evidence, causal_confidence, causal_lag_days, causal_mechanism, last_validated)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          ON CONFLICT (source_id, target_id, edge_type) DO UPDATE SET
            strength = EXCLUDED.strength, confidence = EXCLUDED.confidence,
            created_by = EXCLUDED.created_by, evidence = EXCLUDED.evidence,
-           causal_confidence = EXCLUDED.causal_confidence, causal_lag = EXCLUDED.causal_lag,
-           causal_mechanism = EXCLUDED.causal_mechanism`,
-        [params.sourceId, params.targetId, 'CAUSAL_INFLUENCES', params.strength ?? 0.7, params.causalConfidence, params.agentId, params.evidence ?? null, params.causalConfidence, params.causalLag ?? null, params.causalMechanism ?? null],
+           causal_confidence = EXCLUDED.causal_confidence, causal_lag_days = EXCLUDED.causal_lag_days,
+           causal_mechanism = EXCLUDED.causal_mechanism, last_validated = EXCLUDED.last_validated`,
+        [params.sourceId, params.targetId, params.edgeType ?? 'caused', params.strength ?? 0.7, params.causalConfidence, params.agentId, params.evidence ?? null, params.causalConfidence, params.causalLagDays ?? null, params.causalMechanism ?? null, new Date().toISOString()],
       );
       return true;
     } catch {
@@ -266,18 +267,19 @@ export class KnowledgeGraphWriter {
     targetId: string,
     newConfidence: number,
     mechanism?: string,
+    edgeType: 'caused' | 'contributed_to' | 'resulted_in' | 'affects' = 'caused',
   ): Promise<boolean> {
     const clampedConfidence = Math.max(0, Math.min(1, newConfidence));
     try {
       if (mechanism) {
         await systemQuery(
-          'UPDATE kg_edges SET causal_confidence = $1, confidence = $1, updated_at = $2, causal_mechanism = $3 WHERE source_id = $4 AND target_id = $5 AND edge_type = $6',
-          [clampedConfidence, new Date().toISOString(), mechanism, sourceId, targetId, 'CAUSAL_INFLUENCES'],
+          'UPDATE kg_edges SET causal_confidence = $1, confidence = $1, last_validated = $2, causal_mechanism = $3 WHERE source_id = $4 AND target_id = $5 AND edge_type = $6',
+          [clampedConfidence, new Date().toISOString(), mechanism, sourceId, targetId, edgeType],
         );
       } else {
         await systemQuery(
-          'UPDATE kg_edges SET causal_confidence = $1, confidence = $1, updated_at = $2 WHERE source_id = $3 AND target_id = $4 AND edge_type = $5',
-          [clampedConfidence, new Date().toISOString(), sourceId, targetId, 'CAUSAL_INFLUENCES'],
+          'UPDATE kg_edges SET causal_confidence = $1, confidence = $1, last_validated = $2 WHERE source_id = $3 AND target_id = $4 AND edge_type = $5',
+          [clampedConfidence, new Date().toISOString(), sourceId, targetId, edgeType],
         );
       }
       return true;

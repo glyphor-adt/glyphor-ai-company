@@ -14,7 +14,8 @@ interface KgNode {
   id: string;
   node_type: string;
   title: string;
-  summary: string | null;
+  content: string | null;
+  summary?: string | null;
   department: string | null;
   tags: string[];
   confidence: number;
@@ -172,7 +173,8 @@ function GraphCanvas({
     if (filterNodeTypes.size > 0 && !filterNodeTypes.has(n.node_type as NodeType)) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      return n.title.toLowerCase().includes(q) || n.summary?.toLowerCase().includes(q) || n.tags.some((t) => t.toLowerCase().includes(q));
+      const details = n.content ?? n.summary;
+      return n.title.toLowerCase().includes(q) || details?.toLowerCase().includes(q) || n.tags.some((t) => t.toLowerCase().includes(q));
     }
     return true;
   }), [nodes, filterNodeTypes, searchQuery]);
@@ -555,6 +557,7 @@ function NodeDetail({
   const nodeMap = new Map(allNodes.map((n) => [n.id, n]));
   const Icon = NODE_ICONS[node.node_type as NodeType] ?? MdDescription;
   const color = NODE_COLORS[node.node_type as NodeType] ?? '#6B7280';
+  const details = node.content ?? node.summary;
 
   // Connected edges
   const outgoing = edges.filter((e) => e.source_id === node.id);
@@ -582,11 +585,11 @@ function NodeDetail({
           </button>
         </div>
 
-        {/* Summary */}
-        {node.summary && (
+        {/* Content */}
+        {details && (
           <div>
-            <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-1">Summary</p>
-            <p className="text-[12px] text-txt-secondary leading-relaxed">{node.summary}</p>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-1">Content</p>
+            <p className="text-[12px] text-txt-secondary leading-relaxed">{details}</p>
           </div>
         )}
 
@@ -852,7 +855,8 @@ export default function Graph() {
               if (filterNodeTypes.size > 0 && !filterNodeTypes.has(n.node_type as NodeType)) return false;
               if (searchQuery) {
                 const q = searchQuery.toLowerCase();
-                return n.title.toLowerCase().includes(q) || n.summary?.toLowerCase().includes(q) || n.tags.some((t) => t.toLowerCase().includes(q));
+                const details = n.content ?? n.summary;
+                return n.title.toLowerCase().includes(q) || details?.toLowerCase().includes(q) || n.tags.some((t) => t.toLowerCase().includes(q));
               }
               return true;
             })}

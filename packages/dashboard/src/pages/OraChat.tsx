@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Markdown from 'react-markdown';
+import { Orbit } from 'lucide-react';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { useAuth, getEmailAliases } from '../lib/auth';
 
@@ -466,11 +467,7 @@ export default function OraChat() {
       {/* Header */}
       <div className="mb-4 flex items-center gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-500/10">
-          <svg className="h-5 w-5 text-cyan-400" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-            <path d="M8 2L3 13h10L8 2z" />
-            <path d="M5 9l3-7 3 7" opacity="0.5" />
-            <path d="M6.5 6l1.5-4 1.5 4" opacity="0.3" />
-          </svg>
+          <Orbit className="h-5 w-5 text-cyan-400" strokeWidth={1.8} />
         </div>
         <div>
           <h1 className="text-lg font-semibold text-prism-primary">Ora</h1>
@@ -582,7 +579,7 @@ export default function OraChat() {
           onClick={() => toggleFeature('webSearch')}
           className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors border ${
             features.webSearch
-              ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
+              ? 'bg-cyan/10 text-cyan border-cyan/30'
               : 'bg-prism-bg2 text-prism-tertiary border-prism-border hover:text-prism-primary'
           }`}
         >

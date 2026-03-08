@@ -205,7 +205,7 @@ export class KnowledgeGraphReader {
   // ─── Causal Impact Analysis (Enhancement 5) ──────────────────
 
   /**
-   * Multi-hop causal traversal: find all causal edges (CAUSAL_INFLUENCES)
+  * Multi-hop causal traversal: find all edges with causal confidence metadata
    * reachable from a node, both upstream (causes) and downstream (effects).
    * Returns a structured report with confidence scores.
    */
@@ -270,8 +270,10 @@ export class KnowledgeGraphReader {
         source_id: string; target_id: string;
         causal_confidence: number; causal_mechanism: string | null; edge_type: string;
       }>(
-        `SELECT source_id, target_id, causal_confidence, causal_mechanism, edge_type FROM kg_edges WHERE ${col} = $1 AND edge_type = $2 AND causal_confidence > $3`,
-        [nodeId, 'CAUSAL_INFLUENCES', 0],
+        `SELECT source_id, target_id, causal_confidence, causal_mechanism, edge_type
+         FROM kg_edges
+         WHERE ${col} = $1 AND causal_confidence > $2 AND valid_until IS NULL`,
+        [nodeId, 0],
       );
 
       for (const edge of edges) {
