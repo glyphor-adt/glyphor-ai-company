@@ -223,7 +223,6 @@ export async function resolveAndDispatchDependents(
     id: string;
     assigned_to: string;
     task_description: string | null;
-    title: string | null;
     instructions: string | null;
     depends_on: string[] | null;
     directive_id: string | null;
@@ -231,7 +230,7 @@ export async function resolveAndDispatchDependents(
     fd_priority: string | null;
     fd_description: string | null;
   }>(
-    `SELECT wa.id, wa.assigned_to, wa.task_description, wa.title, wa.instructions, wa.depends_on, wa.directive_id,
+    `SELECT wa.id, wa.assigned_to, wa.task_description, wa.expected_output AS instructions, wa.depends_on, wa.directive_id,
             fd.title as fd_title, fd.priority as fd_priority, fd.description as fd_description
      FROM work_assignments wa
      LEFT JOIN founder_directives fd ON wa.directive_id = fd.id
@@ -258,16 +257,15 @@ export async function resolveAndDispatchDependents(
     for (const depId of allDeps) {
       const [depData] = await systemQuery<{
         assigned_to: string;
-        title: string | null;
         task_description: string | null;
         agent_output: string | null;
       }>(
-        'SELECT assigned_to, title, task_description, agent_output FROM work_assignments WHERE id = $1',
+        'SELECT assigned_to, task_description, agent_output FROM work_assignments WHERE id = $1',
         [depId],
       );
 
       if (depData?.agent_output) {
-        const depTitle = depData.title || depData.task_description || depId;
+        const depTitle = depData.task_description || depId;
         enrichedMessage += `\n\nDATA FROM ${depData.assigned_to} (${depTitle}):\n${depData.agent_output}`;
       }
     }
@@ -275,7 +273,7 @@ export async function resolveAndDispatchDependents(
     const fd = (dep.fd_title || dep.fd_priority || dep.fd_description)
       ? { title: dep.fd_title, priority: dep.fd_priority, description: dep.fd_description }
       : null;
-    let execMessage = `EXECUTE ASSIGNMENT: ${dep.title ?? dep.task_description}\n`;
+    let execMessage = `EXECUTE ASSIGNMENT: ${dep.task_description}\n`;
     if (fd?.title) execMessage += `Directive: ${fd.title}\n`;
     if (fd?.priority) execMessage += `Priority: ${fd.priority}\n\n`;
     execMessage += enrichedMessage;
@@ -304,7 +302,7 @@ export async function resolveAndDispatchDependents(
 
     console.log(
       `[ParallelDispatch] Dependency resolved: dispatching ${agentRole} ` +
-      `(${dep.title ?? dep.task_description}) — triggered by completion of ${completedAssignmentId}`,
+      `(${dep.task_description}) — triggered by completion of ${completedAssignmentId}`,
     );
 
     try {

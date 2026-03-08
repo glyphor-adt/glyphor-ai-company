@@ -1100,12 +1100,12 @@ export default function OraChat() {
           </div>
         )}
 
-        <div className="mx-auto max-w-3xl space-y-6">
+        <div className="mx-auto space-y-6">
           {messages.map((msg) => (
             <div key={msg.id} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : ''}`}>
               <div
                 className={msg.role === 'user'
-                  ? 'max-w-[42rem] rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-[13px] leading-relaxed text-prism-secondary'
+                  ? 'max-w-[70%] rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-[13px] leading-relaxed text-prism-secondary'
                   : 'w-full rounded-[28px] border border-prism-border bg-prism-bg2/90 px-8 py-6 text-base leading-[1.75] text-prism-secondary shadow-[0_16px_44px_rgba(0,0,0,0.18)]'}
               >
                 {msg.role === 'assistant' ? (
@@ -1213,7 +1213,7 @@ export default function OraChat() {
 
       {/* Attachment preview */}
       {attachments.length > 0 && (
-        <div className="mx-auto mt-2 flex w-full max-w-3xl flex-wrap gap-2 px-4">
+        <div className="mx-auto mt-2 flex w-full flex-wrap gap-2 px-4">
           {attachments.map((a, i) => (
             <div key={i} className="flex items-center gap-1.5 rounded-lg bg-prism-bg2 px-2.5 py-1.5 text-[12px] text-prism-secondary border border-prism-border">
               {a.previewUrl ? (
@@ -1229,7 +1229,7 @@ export default function OraChat() {
       )}
 
       {/* Input area */}
-      <div className="relative mx-auto mb-4 mt-2 w-full max-w-3xl rounded-[30px] border border-prism-border bg-prism-card px-4 py-3 shadow-prism-lg" ref={menuRef}>
+      <div className="relative mx-auto mb-4 mt-2 w-full rounded-[30px] border border-prism-border bg-prism-card px-4 py-3 shadow-prism-lg" ref={menuRef}>
         {menuOpen && (
           <div className="absolute bottom-full left-0 z-20 mb-2 flex items-start gap-2">
             <div className="w-80 rounded-[24px] border border-prism-border bg-prism-card p-3 shadow-prism-lg">

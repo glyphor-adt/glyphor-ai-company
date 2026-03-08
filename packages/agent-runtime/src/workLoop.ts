@@ -88,14 +88,13 @@ export async function executeWorkLoop(
   const revisionAssignments = await systemQuery<{
     id: string;
     task_description: string;
-    title: string | null;
     instructions: unknown;
     status: string;
     evaluation: unknown;
     assigned_to: string;
     founder_directives: { title?: string; priority?: string; description?: string } | null;
   }>(
-    `SELECT wa.id, wa.task_description, wa.title, wa.instructions, wa.status, wa.evaluation, wa.assigned_to,
+    `SELECT wa.id, wa.task_description, wa.expected_output AS instructions, wa.status, wa.evaluation, wa.assigned_to,
             json_build_object('title', fd.title, 'priority', fd.priority, 'description', fd.description) AS founder_directives
      FROM work_assignments wa
      LEFT JOIN founder_directives fd ON wa.directive_id = fd.id
@@ -114,7 +113,7 @@ export async function executeWorkLoop(
       ['in_progress', new Date().toISOString(), assignment.id],
     );
 
-    let execMessage = `REVISION REQUIRED: ${assignment.title ?? assignment.task_description}\n`;
+    let execMessage = `REVISION REQUIRED: ${assignment.task_description}\n`;
     if (fd?.title) execMessage += `Directive: ${fd.title}\n`;
     if (fd?.priority) execMessage += `Priority: ${fd.priority}\n\n`;
     execMessage += (assignment.instructions as string) || assignment.task_description;
@@ -239,14 +238,13 @@ export async function executeWorkLoop(
   const activeAssignments = await systemQuery<{
     id: string;
     task_description: string;
-    title: string | null;
     instructions: unknown;
     status: string;
     evaluation: unknown;
     assigned_to: string;
     founder_directives: { title?: string; priority?: string; description?: string } | null;
   }>(
-    `SELECT wa.id, wa.task_description, wa.title, wa.instructions, wa.status, wa.evaluation, wa.assigned_to,
+    `SELECT wa.id, wa.task_description, wa.expected_output AS instructions, wa.status, wa.evaluation, wa.assigned_to,
             json_build_object('title', fd.title, 'priority', fd.priority, 'description', fd.description) AS founder_directives
      FROM work_assignments wa
      LEFT JOIN founder_directives fd ON wa.directive_id = fd.id
@@ -279,7 +277,7 @@ export async function executeWorkLoop(
     }
 
     // Build execution message with full context embedded
-    let execMessage = `EXECUTE ASSIGNMENT: ${assignment.title ?? assignment.task_description}\n`;
+    let execMessage = `EXECUTE ASSIGNMENT: ${assignment.task_description}\n`;
     if (fd?.title) execMessage += `Directive: ${fd.title}\n`;
     if (fd?.priority) execMessage += `Priority: ${fd.priority}\n\n`;
     execMessage += (assignment.instructions as string) || assignment.task_description;
