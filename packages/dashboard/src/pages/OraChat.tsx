@@ -150,6 +150,24 @@ function triangulationModelSummary(models?: TriangulationResult['models']) {
   return [models.claude, models.gemini, models.openai].map(getModelLabel).join(', ');
 }
 
+/* Map raw DB metadata to the frontend Message['metadata'] shape.
+   DB stores flat objects; the UI expects { triangulation, singleModel, tier }. */
+function normalizeMetadata(raw: unknown): Message['metadata'] | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const r = raw as Record<string, unknown>;
+  // Already in canonical frontend format
+  if (r.triangulation || r.singleModel) return r as Message['metadata'];
+  // Single-model format: { mode: 'single-model', modelRun: {...} }
+  if (r.mode === 'single-model' && r.modelRun) {
+    return { singleModel: r.modelRun as SingleModelResult };
+  }
+  // Triangulated format: flat { scores, reasoning, selectedProvider, ... }
+  if (r.scores || r.selectedProvider || r.reasoning) {
+    return { triangulation: r as unknown as TriangulationResult, tier: (r.tier as QueryTier) ?? undefined };
+  }
+  return r as Message['metadata'];
+}
+
 function oraPreferencesStorageKey(userEmail: string) {
   return `ora-preferences:${userEmail}`;
 }
@@ -543,7 +561,7 @@ export default function OraChat() {
               content: m.content,
               timestamp: new Date(m.created_at),
               attachments: m.attachments,
-              metadata: m.metadata,
+              metadata: normalizeMetadata(m.metadata),
             })),
           );
         } else {

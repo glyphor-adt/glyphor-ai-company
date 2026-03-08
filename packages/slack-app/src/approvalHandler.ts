@@ -104,7 +104,8 @@ export async function handleApprovalAction(
   const match = /^(approve|reject)_([0-9a-f-]{36})$/i.exec(actionId);
   if (!match) return { ok: false };
 
-  const [, verb, approvalId] = match as [string, string, string];
+  const verb = match[1] as string;
+  const approvalId = match[2] as string;
   const newStatus = verb === 'approve' ? 'approved' : 'rejected';
 
   const rows = await systemQuery<DbSlackApproval>(
