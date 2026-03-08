@@ -61,6 +61,7 @@ export {
 export type { ModelDef, ModelProvider, ModelTier, CostTier } from './models.js';
 
 export {
+  DEFAULT_TRIANGULATION_MODEL_SELECTION,
   TRIANGULATION_MODELS,
   TRIANGULATION_TIMEOUTS,
 } from './triangulation.js';
@@ -68,5 +69,6 @@ export type {
   QueryTier,
   ProviderScores,
   Divergence,
+  TriangulationModelSelection,
   TriangulationResult,
 } from './triangulation.js';

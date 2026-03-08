@@ -1,6 +1,7 @@
 import { ModelClient } from '../modelClient.js';
-import { TRIANGULATION_MODELS, TRIANGULATION_TIMEOUTS } from '@glyphor/shared';
+import { DEFAULT_TRIANGULATION_MODEL_SELECTION, TRIANGULATION_MODELS, TRIANGULATION_TIMEOUTS } from '@glyphor/shared';
 import type { ProviderScores, Divergence } from '@glyphor/shared';
+import type { TriangulationModelSelection } from '@glyphor/shared';
 import type { ProviderResponse } from './fanOut.js';
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -85,6 +86,7 @@ export async function runJudge(
   query: string,
   responses: ProviderResponse[],
   modelClient: ModelClient,
+  modelSelection: TriangulationModelSelection = DEFAULT_TRIANGULATION_MODEL_SELECTION,
 ): Promise<JudgeResult> {
   const successful = responses.filter((r) => r.status === 'success');
 
@@ -111,13 +113,13 @@ export async function runJudge(
   const userPrompt = `## User Query
 ${query}
 
-## Response A (Claude Opus 4.6)
+## Response A (${modelSelection.claude})
 ${textFor('claude')}
 
-## Response B (Gemini 3.1 Pro)
+## Response B (${modelSelection.gemini})
 ${textFor('gemini')}
 
-## Response C (GPT-5.4)
+## Response C (${modelSelection.openai})
 ${textFor('openai')}
 
 Evaluate now.`;

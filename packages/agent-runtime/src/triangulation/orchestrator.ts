@@ -3,8 +3,9 @@ import { fanOut, type ProviderResponse } from './fanOut.js';
 import { runJudge } from './judge.js';
 import { calculateCost } from './costCalculator.js';
 import { buildTriangulationContext } from './ragContext.js';
-import { TRIANGULATION_MODELS } from '@glyphor/shared';
+import { DEFAULT_TRIANGULATION_MODEL_SELECTION, TRIANGULATION_MODELS } from '@glyphor/shared';
 import type { TriangulationResult, QueryTier } from '@glyphor/shared';
+import type { TriangulationModelSelection } from '@glyphor/shared';
 import type { ModelClient } from '../modelClient.js';
 import type { EmbeddingClient } from '../jitContextRetriever.js';
 import type { RedisCache } from '../redisCache.js';
@@ -18,6 +19,7 @@ export async function triangulate(
     enableInternalSearch?: boolean;
     attachments?: Array<{ name: string; mimeType: string; base64: string }>;
     maxOutputTokens?: number;
+    triangulationModels?: Partial<TriangulationModelSelection>;
   },
   deps: {
     modelClient: ModelClient;
@@ -26,6 +28,10 @@ export async function triangulate(
   },
 ): Promise<TriangulationResult> {
   const startedAt = Date.now();
+  const modelSelection: TriangulationModelSelection = {
+    ...DEFAULT_TRIANGULATION_MODEL_SELECTION,
+    ...options.triangulationModels,
+  };
 
   // 1. Classify the query to determine tier
   const tier = await classifyQuery(message, deps.modelClient, {
@@ -60,6 +66,7 @@ export async function triangulate(
     return {
       tier: 'SIMPLE',
       selectedProvider: 'claude',
+      models: modelSelection,
       selectedResponse: result.text ?? '',
       confidence: 75,
       consensusLevel: 'n/a',
@@ -82,6 +89,7 @@ export async function triangulate(
     enableWebSearch: options.enableWebSearch,
     attachments: options.attachments,
     maxOutputTokens: options.maxOutputTokens,
+    modelSelection,
   });
 
   // 5. Check if any responses succeeded
@@ -91,7 +99,7 @@ export async function triangulate(
   }
 
   // 6. Run judge
-  const judgeResult = await runJudge(message, responses, deps.modelClient);
+  const judgeResult = await runJudge(message, responses, deps.modelClient, modelSelection);
 
   // 7. Build allResponses map
   const allResponses: Record<string, string> = {};
@@ -114,6 +122,7 @@ export async function triangulate(
   return {
     tier,
     selectedProvider: judgeResult.selected,
+    models: modelSelection,
     selectedResponse: allResponses[judgeResult.selected] ?? successful[0].text,
     confidence: judgeResult.confidence,
     consensusLevel: judgeResult.consensusLevel,

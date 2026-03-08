@@ -18,6 +18,18 @@ export const TRIANGULATION_MODELS = {
   router: 'gemini-3-flash-preview',
 } as const;
 
+export interface TriangulationModelSelection {
+  claude: string;
+  gemini: string;
+  openai: string;
+}
+
+export const DEFAULT_TRIANGULATION_MODEL_SELECTION: TriangulationModelSelection = {
+  claude: TRIANGULATION_MODELS.primary,
+  gemini: TRIANGULATION_MODELS.validator1,
+  openai: TRIANGULATION_MODELS.validator2,
+};
+
 // ─── Timeouts ───────────────────────────────────────────────────
 
 export const TRIANGULATION_TIMEOUTS = {
@@ -50,6 +62,7 @@ export interface Divergence {
 export interface TriangulationResult {
   tier: QueryTier;
   selectedProvider: 'claude' | 'gemini' | 'openai';
+  models: TriangulationModelSelection;
   selectedResponse: string;
   confidence: number;
   consensusLevel: 'high' | 'moderate' | 'low' | 'n/a';

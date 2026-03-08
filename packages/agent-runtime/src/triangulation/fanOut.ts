@@ -1,6 +1,7 @@
 import { ModelClient } from '../modelClient.js';
-import { TRIANGULATION_MODELS, TRIANGULATION_TIMEOUTS } from '@glyphor/shared';
+import { DEFAULT_TRIANGULATION_MODEL_SELECTION, TRIANGULATION_TIMEOUTS } from '@glyphor/shared';
 import type { QueryTier } from '@glyphor/shared';
+import type { TriangulationModelSelection } from '@glyphor/shared';
 import type { ConversationAttachment } from '../types.js';
 
 export interface ProviderResponse {
@@ -16,6 +17,7 @@ interface FanOutOptions {
   enableWebSearch?: boolean;
   attachments?: Array<{ name: string; mimeType: string; base64: string }>;
   maxOutputTokens?: number;
+  modelSelection?: TriangulationModelSelection;
 }
 
 /** Map caller attachments (base64 field) to ConversationAttachment (data field). */
@@ -25,12 +27,6 @@ function toConversationAttachments(
   if (!attachments?.length) return undefined;
   return attachments.map(({ name, mimeType, base64 }) => ({ name, mimeType, data: base64 }));
 }
-
-const MODEL_TO_PROVIDER: Record<string, ProviderResponse['provider']> = {
-  [TRIANGULATION_MODELS.primary]: 'claude',
-  [TRIANGULATION_MODELS.validator1]: 'gemini',
-  [TRIANGULATION_MODELS.validator2]: 'openai',
-};
 
 export async function fanOut(
   message: string,
@@ -44,11 +40,12 @@ export async function fanOut(
       ? TRIANGULATION_TIMEOUTS.deep
       : TRIANGULATION_TIMEOUTS.standard;
 
-  const models = [
-    TRIANGULATION_MODELS.primary,
-    TRIANGULATION_MODELS.validator1,
-    TRIANGULATION_MODELS.validator2,
-  ] as const;
+  const modelSelection = options?.modelSelection ?? DEFAULT_TRIANGULATION_MODEL_SELECTION;
+  const models: Array<{ provider: ProviderResponse['provider']; model: string }> = [
+    { provider: 'claude', model: modelSelection.claude },
+    { provider: 'gemini', model: modelSelection.gemini },
+    { provider: 'openai', model: modelSelection.openai },
+  ];
 
   const contents = [
     {
@@ -59,13 +56,13 @@ export async function fanOut(
     },
   ];
 
-  const calls = models.map((model) => {
+  const calls = models.map(({ provider, model }) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
     const start = performance.now();
 
     const maxTokens =
-      model === TRIANGULATION_MODELS.validator1
+      provider === 'gemini'
         ? Math.min(options?.maxOutputTokens ?? 16384, 64000)
         : (options?.maxOutputTokens ?? 16384);
 
@@ -82,7 +79,7 @@ export async function fanOut(
       .then((result) => {
         clearTimeout(timer);
         return {
-          provider: MODEL_TO_PROVIDER[model],
+          provider,
           text: result.text ?? '',
           latencyMs: Math.round(performance.now() - start),
           tokenUsage: {
@@ -96,7 +93,7 @@ export async function fanOut(
       .catch((reason: Error) => {
         clearTimeout(timer);
         return {
-          provider: MODEL_TO_PROVIDER[model],
+          provider,
           text: '',
           latencyMs: Math.round(performance.now() - start),
           tokenUsage: { input: 0, output: 0, thinking: 0 },

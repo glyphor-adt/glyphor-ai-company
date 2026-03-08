@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Markdown from 'react-markdown';
 import { Orbit } from 'lucide-react';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
-import { getModelsByProvider, PROVIDER_LABELS } from '../lib/models';
+import { getModelLabel, getModelsByProvider, PROVIDER_LABELS } from '../lib/models';
 import { useAuth, getEmailAliases } from '../lib/auth';
 
 /* ── Triangulation types (mirrored from @glyphor/shared) ───── */
@@ -28,6 +28,11 @@ interface Divergence {
 interface TriangulationResult {
   tier: QueryTier;
   selectedProvider: 'claude' | 'gemini' | 'openai';
+  models: {
+    claude: string;
+    gemini: string;
+    openai: string;
+  };
   selectedResponse: string;
   confidence: number;
   consensusLevel: 'high' | 'moderate' | 'low' | 'n/a';
@@ -111,6 +116,11 @@ function formatDuration(ms?: number) {
   if (ms < 1000) return `${ms}ms`;
   if (ms < 10_000) return `${(ms / 1000).toFixed(1)}s`;
   return `${Math.round(ms / 1000)}s`;
+}
+
+function triangulationModelSummary(models?: TriangulationResult['models']) {
+  if (!models) return 'Claude, Gemini, and GPT-5';
+  return [models.claude, models.gemini, models.openai].map(getModelLabel).join(', ');
 }
 
 /* ── Triangulation Panel ──────────────────────────── */
@@ -246,6 +256,11 @@ export default function OraChat() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [mode, setMode] = useState<OraMode>('triangulated');
   const [selectedModel, setSelectedModel] = useState('gpt-5.4');
+  const [triangulationModels, setTriangulationModels] = useState({
+    claude: 'claude-opus-4-6',
+    gemini: 'gemini-3.1-pro-preview',
+    openai: 'gpt-5.4',
+  });
   const [selectedGithubRepos, setSelectedGithubRepos] = useState<string[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [features, setFeatures] = useState<Features>({
@@ -397,6 +412,7 @@ export default function OraChat() {
           message: text,
           mode,
           selectedModel: mode === 'single-model' ? selectedModel : undefined,
+          triangulationModels: mode === 'triangulated' ? triangulationModels : undefined,
           githubRepos: selectedGithubRepos.length ? selectedGithubRepos : undefined,
           features,
           attachments: attachments.map((a) => ({ name: a.name, type: a.type, data: a.data })),
@@ -519,7 +535,7 @@ export default function OraChat() {
       setActiveRequestMode(null);
       setActiveRequestModel(null);
     }
-  }, [input, attachments, features, conversationId, userEmail, phase, mode, selectedModel, selectedGithubRepos]);
+  }, [input, attachments, features, conversationId, userEmail, phase, mode, selectedModel, selectedGithubRepos, triangulationModels]);
 
   // Key handler
   const handleKeyDown = useCallback(
@@ -646,7 +662,7 @@ export default function OraChat() {
                     <div className="prose-chat"><Markdown>{msg.content}</Markdown></div>
                     {msg.metadata?.triangulation && msg.metadata.tier !== 'SIMPLE' && completedDurationLabel(msg.metadata.triangulation) && (
                       <div className="mt-2 text-[11px] text-prism-tertiary">
-                        {msg.metadata.triangulation.tier.toLowerCase()} triangulation completed in {completedDurationLabel(msg.metadata.triangulation)} using Claude, Gemini, and GPT-5.
+                        {msg.metadata.triangulation.tier.toLowerCase()} triangulation completed in {completedDurationLabel(msg.metadata.triangulation)} using {triangulationModelSummary(msg.metadata.triangulation.models)}.
                       </div>
                     )}
                     {msg.metadata?.singleModel && completedSingleModelDurationLabel(msg.metadata.singleModel) && (
@@ -703,7 +719,8 @@ export default function OraChat() {
         <div className="mb-2 flex items-center justify-between text-[11px] text-prism-tertiary">
           <div className="flex items-center gap-2">
             <span>{mode === 'triangulated' ? 'Triangulated' : 'Single-model'}</span>
-            {mode === 'single-model' && <span>{selectedModel}</span>}
+            {mode === 'single-model' && <span>{getModelLabel(selectedModel)}</span>}
+            {mode === 'triangulated' && <span>{triangulationModelSummary(triangulationModels)}</span>}
           </div>
           <div className="flex items-center gap-2">
             {features.deepThinking && <span>Deep reasoning</span>}
@@ -746,6 +763,56 @@ export default function OraChat() {
                       </optgroup>
                     ))}
                   </select>
+                </div>
+              )}
+
+              {mode === 'triangulated' && (
+                <div>
+                  <div className="mb-1 text-[11px] uppercase tracking-wider text-prism-tertiary">Triangulation Models</div>
+                  <div className="space-y-2 rounded-lg border border-prism-border bg-prism-bg2 p-2.5">
+                    <div>
+                      <div className="mb-1 text-[11px] text-prism-tertiary">Anthropic slot</div>
+                      <select
+                        value={triangulationModels.claude}
+                        onChange={(e) => setTriangulationModels((prev) => ({ ...prev, claude: e.target.value }))}
+                        disabled={isLoading}
+                        className="w-full rounded-lg border border-prism-border bg-prism-card px-3 py-2 text-[12px] text-prism-primary outline-none focus:border-cyan-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {modelGroups.anthropic.map((modelOption) => (
+                          <option key={modelOption.value} value={modelOption.value}>{modelOption.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <div className="mb-1 text-[11px] text-prism-tertiary">Gemini slot</div>
+                      <select
+                        value={triangulationModels.gemini}
+                        onChange={(e) => setTriangulationModels((prev) => ({ ...prev, gemini: e.target.value }))}
+                        disabled={isLoading}
+                        className="w-full rounded-lg border border-prism-border bg-prism-card px-3 py-2 text-[12px] text-prism-primary outline-none focus:border-cyan-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {modelGroups.gemini.map((modelOption) => (
+                          <option key={modelOption.value} value={modelOption.value}>{modelOption.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <div className="mb-1 text-[11px] text-prism-tertiary">OpenAI slot</div>
+                      <select
+                        value={triangulationModels.openai}
+                        onChange={(e) => setTriangulationModels((prev) => ({ ...prev, openai: e.target.value }))}
+                        disabled={isLoading}
+                        className="w-full rounded-lg border border-prism-border bg-prism-card px-3 py-2 text-[12px] text-prism-primary outline-none focus:border-cyan-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {modelGroups.openai.map((modelOption) => (
+                          <option key={modelOption.value} value={modelOption.value}>{modelOption.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="text-[11px] text-prism-tertiary">
+                      Router stays on Gemini 3 Flash. Judge stays on Claude Sonnet 4.6.
+                    </div>
+                  </div>
                 </div>
               )}
 

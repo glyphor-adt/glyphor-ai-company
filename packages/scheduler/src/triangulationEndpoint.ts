@@ -4,6 +4,7 @@ import { buildTriangulationContext, triangulate } from '@glyphor/agent-runtime';
 import type { ModelClient } from '@glyphor/agent-runtime';
 import type { RedisCache } from '@glyphor/agent-runtime';
 import { detectProvider, estimateModelCost, resolveModel } from '@glyphor/shared';
+import type { TriangulationModelSelection } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 import { buildGitHubRepoContext, searchWeb, searchResultsToContext } from '@glyphor/integrations';
 import mammoth from 'mammoth';
@@ -65,7 +66,7 @@ export async function handleTriangulatedChat(
 
   try {
     const body = JSON.parse(await readBody(req));
-    const { message, features = {}, attachments = [], conversationId, userId, mode = 'triangulated', selectedModel, githubRepos = [] } = body as {
+    const { message, features = {}, attachments = [], conversationId, userId, mode = 'triangulated', selectedModel, githubRepos = [], triangulationModels } = body as {
       message: string;
       features?: Record<string, boolean>;
       attachments?: Array<Record<string, string>>;
@@ -74,6 +75,7 @@ export async function handleTriangulatedChat(
       mode?: OraMode;
       selectedModel?: string;
       githubRepos?: string[];
+      triangulationModels?: Partial<TriangulationModelSelection>;
     };
     const convId = conversationId || randomUUID();
     const normalizedAttachments = await Promise.all(attachments.map(async (a: Record<string, string>) => {
@@ -206,6 +208,13 @@ export async function handleTriangulatedChat(
         enableDeepThinking: features.deepThinking ?? false,
         enableInternalSearch: features.knowledgeBase ?? features.internalSearch ?? true,
         attachments: normalizedAttachments,
+        triangulationModels: triangulationModels
+          ? {
+              claude: triangulationModels.claude ? resolveModel(triangulationModels.claude) : undefined,
+              gemini: triangulationModels.gemini ? resolveModel(triangulationModels.gemini) : undefined,
+              openai: triangulationModels.openai ? resolveModel(triangulationModels.openai) : undefined,
+            }
+          : undefined,
       },
       deps,
     );

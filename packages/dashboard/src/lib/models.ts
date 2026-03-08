@@ -68,6 +68,10 @@ export function getModelsByProvider(): Record<ModelProvider, ModelOption[]> {
   };
 }
 
+export function getModelLabel(value: string): string {
+  return MODELS.find((model) => model.value === value)?.label ?? value;
+}
+
 /** Verification models available for reasoning engine config */
 export const VERIFICATION_MODELS = ['gemini-3-flash-preview', 'gpt-5-mini', 'claude-sonnet-4-6'] as const;
 
