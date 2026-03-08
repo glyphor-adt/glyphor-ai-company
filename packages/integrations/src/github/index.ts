@@ -11,6 +11,7 @@
 import { Octokit } from '@octokit/rest';
 
 const ORG = 'glyphor-adt';
+const REPO_CONTEXT_CHAR_LIMIT = 12000;
 
 /** The repos Marcus's team actively monitors */
 export const GLYPHOR_REPOS = {
@@ -20,6 +21,30 @@ export const GLYPHOR_REPOS = {
 } as const;
 
 export type GlyphorRepo = keyof typeof GLYPHOR_REPOS;
+
+function truncate(text: string, maxChars: number): string {
+  return text.length <= maxChars ? text : `${text.slice(0, maxChars)}\n...[truncated]`;
+}
+
+function normalizeRepoName(repo: string): string | null {
+  if ((repo as GlyphorRepo) in GLYPHOR_REPOS) {
+    return GLYPHOR_REPOS[repo as GlyphorRepo];
+  }
+
+  return Object.values(GLYPHOR_REPOS).includes(repo as (typeof GLYPHOR_REPOS)[GlyphorRepo]) ? repo : null;
+}
+
+function buildSearchTerms(query: string): string[] {
+  return Array.from(
+    new Set(
+      query
+        .toLowerCase()
+        .split(/[^a-z0-9._/-]+/i)
+        .map((part) => part.trim())
+        .filter((part) => part.length >= 3),
+    ),
+  ).slice(0, 6);
+}
 
 let client: Octokit | null = null;
 
@@ -265,6 +290,11 @@ export interface FileContents {
   path: string;
 }
 
+export interface GitHubRepoContextResult {
+  repos: string[];
+  context: string;
+}
+
 /** Read a file from a GitHub repo. Returns null if file doesn't exist (404). */
 export async function getFileContents(
   repoName: string,
@@ -294,6 +324,79 @@ export async function getFileContents(
     if ((err as any).status === 404) return null;
     throw err;
   }
+}
+
+export async function buildGitHubRepoContext(
+  repos: string[],
+  query: string,
+): Promise<GitHubRepoContextResult> {
+  const gh = getGitHubClient();
+  const repoNames = Array.from(new Set(repos.map(normalizeRepoName).filter((repo): repo is string => Boolean(repo))));
+
+  if (repoNames.length === 0) {
+    return { repos: [], context: '' };
+  }
+
+  const searchTerms = buildSearchTerms(query);
+  const sections: string[] = [];
+  let totalChars = 0;
+
+  for (const repoName of repoNames) {
+    if (totalChars >= REPO_CONTEXT_CHAR_LIMIT) break;
+
+    const lines: string[] = [`### Repository: ${repoName}`];
+
+    try {
+      const { data: repo } = await gh.repos.get({ owner: ORG, repo: repoName });
+      lines.push(`Description: ${repo.description ?? 'n/a'}`);
+      lines.push(`Default branch: ${repo.default_branch}`);
+      if (repo.pushed_at) lines.push(`Last push: ${repo.pushed_at}`);
+    } catch {
+      lines.push('Repository metadata unavailable.');
+    }
+
+    const fallbackFiles = ['README.md', 'package.json', 'docs/README.md', 'docs/ARCHITECTURE.md'];
+    const includedPaths = new Set<string>();
+
+    if (searchTerms.length > 0) {
+      try {
+        const { data } = await gh.search.code({
+          q: `${searchTerms.join(' ')} repo:${ORG}/${repoName}`,
+          per_page: 4,
+        });
+
+        for (const item of data.items) {
+          if (includedPaths.has(item.path)) continue;
+          const file = await getFileContents(repoName, item.path);
+          if (!file?.content) continue;
+          includedPaths.add(item.path);
+          lines.push(`\n[Search match] ${file.path}`);
+          lines.push(truncate(file.content, 1800));
+          if (lines.join('\n').length >= REPO_CONTEXT_CHAR_LIMIT) break;
+        }
+      } catch {
+        lines.push('Code search unavailable; falling back to repo summary files.');
+      }
+    }
+
+    for (const path of fallbackFiles) {
+      if (includedPaths.has(path)) continue;
+      const file = await getFileContents(repoName, path);
+      if (!file?.content) continue;
+      includedPaths.add(path);
+      lines.push(`\n[Reference file] ${file.path}`);
+      lines.push(truncate(file.content, path.endsWith('package.json') ? 1200 : 1800));
+      if (lines.join('\n').length >= REPO_CONTEXT_CHAR_LIMIT) break;
+    }
+
+    const section = lines.join('\n');
+    if (!section.trim()) continue;
+    sections.push(section);
+    totalChars += section.length;
+  }
+
+  const context = truncate(sections.join('\n\n'), REPO_CONTEXT_CHAR_LIMIT);
+  return { repos: repoNames, context };
 }
 
 /** Create or update a file on a branch. Automatically detects create vs update. */

@@ -75,6 +75,12 @@ interface Message {
 type StreamPhase = 'idle' | 'streaming' | 'validating' | 'evaluating' | 'complete';
 type OraMode = 'triangulated' | 'single-model';
 
+const GITHUB_REPO_OPTIONS = [
+  { value: 'company', label: 'glyphor-ai-company' },
+  { value: 'fuse', label: 'glyphor-ai-spark-c03e7e1a' },
+  { value: 'pulse', label: 'glyphor-ally-ai' },
+] as const;
+
 interface Features {
   deepThinking: boolean;
   webSearch: boolean;
@@ -240,6 +246,8 @@ export default function OraChat() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [mode, setMode] = useState<OraMode>('triangulated');
   const [selectedModel, setSelectedModel] = useState('gpt-5.4');
+  const [selectedGithubRepos, setSelectedGithubRepos] = useState<string[]>([]);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [features, setFeatures] = useState<Features>({
     deepThinking: false,
     webSearch: false,
@@ -250,12 +258,26 @@ export default function OraChat() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const conversationId = useMemo(() => `ora-${userEmail}`, [userEmail]);
 
   // Auto-scroll on new messages
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, phase]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [menuOpen]);
 
   // Auto-resize textarea
   const resizeTextarea = useCallback(() => {
@@ -356,6 +378,7 @@ export default function OraChat() {
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
     setInput('');
     setAttachments([]);
+    setMenuOpen(false);
     setPhase('streaming');
     setValidatedProviders([]);
     setActiveRequestFeatures(features);
@@ -374,6 +397,7 @@ export default function OraChat() {
           message: text,
           mode,
           selectedModel: mode === 'single-model' ? selectedModel : undefined,
+          githubRepos: selectedGithubRepos.length ? selectedGithubRepos : undefined,
           features,
           attachments: attachments.map((a) => ({ name: a.name, type: a.type, data: a.data })),
           conversationId,
@@ -495,7 +519,7 @@ export default function OraChat() {
       setActiveRequestMode(null);
       setActiveRequestModel(null);
     }
-  }, [input, attachments, features, conversationId, userEmail, phase, mode, selectedModel]);
+  }, [input, attachments, features, conversationId, userEmail, phase, mode, selectedModel, selectedGithubRepos]);
 
   // Key handler
   const handleKeyDown = useCallback(
@@ -538,6 +562,16 @@ export default function OraChat() {
           : activeRequestFeatures?.deepThinking
             ? 'Running Claude, Gemini, and GPT-5 in parallel before comparing them.'
             : 'Preparing Ora response.';
+  const githubEnabled = selectedGithubRepos.length > 0;
+  const toggleGithubRepo = useCallback((repo: string) => {
+    setSelectedGithubRepos((prev) => prev.includes(repo) ? prev.filter((item) => item !== repo) : [...prev, repo]);
+  }, []);
+  const activeMenuCount =
+    (mode === 'single-model' ? 1 : 0)
+    + (features.deepThinking ? 1 : 0)
+    + (features.webSearch ? 1 : 0)
+    + (features.knowledgeBase ? 1 : 0)
+    + selectedGithubRepos.length;
 
   return (
     <div className="flex h-[calc(100vh-5rem)] flex-col">
@@ -635,94 +669,17 @@ export default function OraChat() {
         </div>
       </div>
 
-      {/* Feature toggle bar */}
-      <div className="mt-3 flex items-center gap-2 flex-wrap">
-        <button
-          onClick={() => setMode((prev) => (prev === 'triangulated' ? 'single-model' : 'triangulated'))}
-          disabled={isLoading}
-          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors border ${
-            mode === 'triangulated'
-              ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
-              : 'bg-prism-bg2 text-prism-tertiary border-prism-border hover:text-prism-primary'
-          } ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
-        >
-          <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-            <path d="M3 4h3v3H3zM10 4h3v3h-3zM6 9h4v3H6z" />
-            <path d="M6 5.5h4M8 7v2" />
-          </svg>
-          Triangulation
-        </button>
-
-        <button
-          onClick={() => toggleFeature('deepThinking')}
-          disabled={isLoading}
-          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors border ${
-            features.deepThinking
-              ? 'bg-red-500/10 text-red-400 border-red-500/30'
-              : 'bg-prism-bg2 text-prism-tertiary border-prism-border hover:text-prism-primary'
-          } ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
-        >
-          <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-            <circle cx="8" cy="6" r="4" />
-            <path d="M6 10c0 2 1 3 2 4 1-1 2-2 2-4" />
-            <path d="M5 6h6" opacity="0.5" />
-          </svg>
-          Deep Reasoning
-        </button>
-
-        <button
-          onClick={() => toggleFeature('webSearch')}
-          disabled={isLoading}
-          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors border ${
-            features.webSearch
-              ? 'bg-cyan/10 text-cyan border-cyan/30'
-              : 'bg-prism-bg2 text-prism-tertiary border-prism-border hover:text-prism-primary'
-          } ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
-        >
-          <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-            <circle cx="7" cy="7" r="4.5" />
-            <path d="M10.5 10.5L14 14" />
-          </svg>
-          Web Search
-        </button>
-
-        <button
-          onClick={() => toggleFeature('knowledgeBase')}
-          disabled={isLoading}
-          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors border ${
-            features.knowledgeBase
-              ? 'bg-green-500/10 text-green-400 border-green-500/30'
-              : 'bg-prism-bg2 text-prism-tertiary border-prism-border hover:text-prism-primary'
-          } ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
-        >
-          <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-            <rect x="2" y="3" width="12" height="10" rx="1.5" />
-            <path d="M5 6h6M5 9h4" />
-          </svg>
-          Knowledge Base
-        </button>
-
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isLoading}
-          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium bg-prism-bg2 text-prism-tertiary border border-prism-border hover:text-prism-primary transition-colors ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
-        >
-          <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-            <path d="M14 8.5c0 3-2.5 5-5 5s-5-2-5-5 2.5-5 5-5a3.5 3.5 0 013.5 3.5c0 1.5-1 2.5-2.5 2.5s-2-1-2-2V5" />
-          </svg>
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          accept="image/*,.pdf,.txt,.csv,.docx"
-          multiple
-          onChange={(e) => {
-            if (e.target.files?.length) addFiles(e.target.files);
-            e.target.value = '';
-          }}
-        />
-      </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        accept="image/*,.pdf,.txt,.csv,.docx"
+        multiple
+        onChange={(e) => {
+          if (e.target.files?.length) addFiles(e.target.files);
+          e.target.value = '';
+        }}
+      />
 
       {/* Attachment preview */}
       {attachments.length > 0 && (
@@ -742,28 +699,131 @@ export default function OraChat() {
       )}
 
       {/* Input area */}
-      <div className="mt-2 rounded-xl border border-prism-border bg-prism-card p-3">
-        {mode === 'single-model' && (
-          <div className="mb-2 flex items-center gap-2">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-prism-tertiary">Model</span>
-            <select
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-              disabled={isLoading}
-              className="min-w-[220px] rounded-lg border border-prism-border bg-prism-bg2 px-3 py-1.5 text-[12px] text-prism-secondary outline-none focus:border-cyan-500/40 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {(['openai', 'anthropic', 'gemini'] as const).map((provider) => (
-                <optgroup key={provider} label={PROVIDER_LABELS[provider]}>
-                  {modelGroups[provider].map((modelOption) => (
-                    <option key={modelOption.value} value={modelOption.value}>{modelOption.label}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+      <div className="relative mt-2 rounded-xl border border-prism-border bg-prism-card p-3" ref={menuRef}>
+        <div className="mb-2 flex items-center justify-between text-[11px] text-prism-tertiary">
+          <div className="flex items-center gap-2">
+            <span>{mode === 'triangulated' ? 'Triangulated' : 'Single-model'}</span>
+            {mode === 'single-model' && <span>{selectedModel}</span>}
+          </div>
+          <div className="flex items-center gap-2">
+            {features.deepThinking && <span>Deep reasoning</span>}
+            {features.webSearch && <span>Web</span>}
+            {features.knowledgeBase && <span>KB</span>}
+            {githubEnabled && <span>{selectedGithubRepos.length} GitHub</span>}
+          </div>
+        </div>
+
+        {menuOpen && (
+          <div className="absolute bottom-full left-0 z-20 mb-2 w-[340px] rounded-xl border border-prism-border bg-prism-card p-3 shadow-prism-lg">
+            <div className="space-y-3 text-[12px] text-prism-secondary">
+              <div>
+                <div className="mb-1 text-[11px] uppercase tracking-wider text-prism-tertiary">Mode</div>
+                <select
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value as OraMode)}
+                  disabled={isLoading}
+                  className="w-full rounded-lg border border-prism-border bg-prism-bg2 px-3 py-2 text-[12px] text-prism-primary outline-none focus:border-cyan-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="triangulated">Triangulated</option>
+                  <option value="single-model">Single-model</option>
+                </select>
+              </div>
+
+              {mode === 'single-model' && (
+                <div>
+                  <div className="mb-1 text-[11px] uppercase tracking-wider text-prism-tertiary">Model</div>
+                  <select
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    disabled={isLoading}
+                    className="w-full rounded-lg border border-prism-border bg-prism-bg2 px-3 py-2 text-[12px] text-prism-primary outline-none focus:border-cyan-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {(['openai', 'anthropic', 'gemini'] as const).map((provider) => (
+                      <optgroup key={provider} label={PROVIDER_LABELS[provider]}>
+                        {modelGroups[provider].map((modelOption) => (
+                          <option key={modelOption.value} value={modelOption.value}>{modelOption.label}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <div className="mb-1 text-[11px] uppercase tracking-wider text-prism-tertiary">Sources</div>
+                <div className="space-y-2 rounded-lg border border-prism-border bg-prism-bg2 p-2.5">
+                  <label className="flex items-center justify-between gap-3 cursor-pointer">
+                    <span>Deep Reasoning</span>
+                    <input type="checkbox" checked={features.deepThinking} onChange={() => toggleFeature('deepThinking')} disabled={isLoading} className="h-4 w-4 accent-cyan-400" />
+                  </label>
+                  <label className="flex items-center justify-between gap-3 cursor-pointer">
+                    <span>Web Search</span>
+                    <input type="checkbox" checked={features.webSearch} onChange={() => toggleFeature('webSearch')} disabled={isLoading} className="h-4 w-4 accent-cyan-400" />
+                  </label>
+                  <label className="flex items-center justify-between gap-3 cursor-pointer">
+                    <span>Knowledge Base</span>
+                    <input type="checkbox" checked={features.knowledgeBase} onChange={() => toggleFeature('knowledgeBase')} disabled={isLoading} className="h-4 w-4 accent-cyan-400" />
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-1 text-[11px] uppercase tracking-wider text-prism-tertiary">GitHub</div>
+                <div className="rounded-lg border border-prism-border bg-prism-bg2 p-2.5">
+                  <div className="mb-2 text-[11px] text-prism-tertiary">Expose only the repos selected here.</div>
+                  <div className="space-y-2">
+                    {GITHUB_REPO_OPTIONS.map((repo) => (
+                      <label key={repo.value} className="flex items-center justify-between gap-3 cursor-pointer">
+                        <span className="truncate">{repo.label}</span>
+                        <input
+                          type="checkbox"
+                          checked={selectedGithubRepos.includes(repo.value)}
+                          onChange={() => toggleGithubRepo(repo.value)}
+                          disabled={isLoading}
+                          className="h-4 w-4 accent-cyan-400"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-1 text-[11px] uppercase tracking-wider text-prism-tertiary">Files</div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    fileInputRef.current?.click();
+                  }}
+                  disabled={isLoading}
+                  className="w-full rounded-lg border border-prism-border bg-prism-bg2 px-3 py-2 text-left text-[12px] text-prism-primary transition-colors hover:border-cyan-500/30 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Add files
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
         <div className="flex items-end gap-2">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((prev) => !prev)}
+            disabled={isLoading}
+            className={`relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-prism-border bg-prism-bg2 text-prism-secondary transition-colors hover:border-cyan-500/30 hover:text-cyan-300 ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
+            aria-label="Open Ora options"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M8 3v10M3 8h10" strokeLinecap="round" />
+            </svg>
+            {activeMenuCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-cyan-500 px-1 text-[10px] font-semibold text-white">
+                {activeMenuCount}
+              </span>
+            )}
+          </button>
+
           <textarea
             ref={textareaRef}
             value={input}
@@ -773,7 +833,7 @@ export default function OraChat() {
             }}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            placeholder={mode === 'triangulated' ? 'Ask Ora...' : `Ask ${selectedModel}...`}
+            placeholder="Ask Ora..."
             rows={1}
             className="flex-1 resize-none bg-transparent text-[13px] text-prism-primary placeholder:text-prism-tertiary outline-none"
             style={{ maxHeight: 160 }}

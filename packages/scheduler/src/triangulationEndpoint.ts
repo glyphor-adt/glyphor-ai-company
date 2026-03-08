@@ -5,7 +5,7 @@ import type { ModelClient } from '@glyphor/agent-runtime';
 import type { RedisCache } from '@glyphor/agent-runtime';
 import { detectProvider, estimateModelCost, resolveModel } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
-import { searchWeb, searchResultsToContext } from '@glyphor/integrations';
+import { buildGitHubRepoContext, searchWeb, searchResultsToContext } from '@glyphor/integrations';
 import mammoth from 'mammoth';
 
 function sendSSE(res: ServerResponse, event: Record<string, unknown>) {
@@ -65,7 +65,7 @@ export async function handleTriangulatedChat(
 
   try {
     const body = JSON.parse(await readBody(req));
-    const { message, features = {}, attachments = [], conversationId, userId, mode = 'triangulated', selectedModel } = body as {
+    const { message, features = {}, attachments = [], conversationId, userId, mode = 'triangulated', selectedModel, githubRepos = [] } = body as {
       message: string;
       features?: Record<string, boolean>;
       attachments?: Array<Record<string, string>>;
@@ -73,6 +73,7 @@ export async function handleTriangulatedChat(
       userId?: string;
       mode?: OraMode;
       selectedModel?: string;
+      githubRepos?: string[];
     };
     const convId = conversationId || randomUUID();
     const normalizedAttachments = await Promise.all(attachments.map(async (a: Record<string, string>) => {
@@ -101,6 +102,17 @@ export async function handleTriangulatedChat(
         }
       } catch (err) {
         console.warn('[triangulatedChat] Web search failed, continuing without:', err);
+      }
+    }
+
+    if (Array.isArray(githubRepos) && githubRepos.length > 0) {
+      try {
+        const githubContext = await buildGitHubRepoContext(githubRepos, message);
+        if (githubContext.context) {
+          systemPrompt += `\n\n## GitHub Repository Context\nSelected repositories: ${githubContext.repos.join(', ')}\n${githubContext.context}\nUse only this repository context when making claims about code or repository state.`;
+        }
+      } catch (err) {
+        console.warn('[triangulatedChat] GitHub repo context failed, continuing without:', err);
       }
     }
 

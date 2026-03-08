@@ -195,6 +195,7 @@ export {
 // GitHub — repo access for Marcus (CTO) and engineering team
 export {
   getGitHubClient,
+  buildGitHubRepoContext,
   listOpenPRs,
   listWorkflowRuns,
   getRepoStats,
@@ -217,6 +218,7 @@ export {
   type PullRequest,
   type WorkflowRun,
   type RepoStats,
+  type GitHubRepoContextResult,
   type FileContents,
   type ReviewEvent,
 } from './github/index.js';

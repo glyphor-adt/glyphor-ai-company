@@ -830,6 +830,190 @@ function ExpiryBadge({ expiresAt, status }: { expiresAt: string | null; status: 
   );
 }
 
+/* ── Collapsible Agent Access Row ─────────── */
+
+function AgentAccessRow({
+  role,
+  agentGrants,
+  isAdmin,
+  onRevoke,
+}: {
+  role: string;
+  agentGrants: ToolGrant[];
+  isAdmin: boolean;
+  onRevoke: (g: ToolGrant) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const builtInTools = AGENT_BUILT_IN_TOOLS[role] ?? [];
+
+  // Group grants by category
+  const byCategory = new Map<ToolCategory, ToolGrant[]>();
+  for (const g of agentGrants) {
+    const cat = getToolInfo(g.tool_name).category;
+    if (!byCategory.has(cat)) byCategory.set(cat, []);
+    byCategory.get(cat)!.push(g);
+  }
+  // Group built-in tools by category
+  const builtInByCategory = new Map<ToolCategory, string[]>();
+  for (const t of builtInTools) {
+    const cat = getToolInfo(t).category;
+    if (!builtInByCategory.has(cat)) builtInByCategory.set(cat, []);
+    builtInByCategory.get(cat)!.push(t);
+  }
+
+  // Merge all category names for the summary badges
+  const allCategories = new Set<ToolCategory>();
+  for (const cat of builtInByCategory.keys()) allCategories.add(cat);
+  for (const cat of byCategory.keys()) allCategories.add(cat);
+  const sortedCats = [...allCategories].sort((a, b) =>
+    (CATEGORY_LABELS[a] ?? a).localeCompare(CATEGORY_LABELS[b] ?? b),
+  );
+
+  return (
+    <div className="rounded-lg border border-border/50">
+      {/* Clickable header row */}
+      <button
+        type="button"
+        onClick={() => setExpanded((e) => !e)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-prism-bg2/50"
+      >
+        {expanded ? (
+          <MdExpandMore className="shrink-0 text-[18px] text-txt-muted" />
+        ) : (
+          <MdChevronRight className="shrink-0 text-[18px] text-txt-muted" />
+        )}
+        <AgentAvatar role={role} size={24} />
+        <div className="min-w-0">
+          <span className="text-[13px] font-semibold text-txt-primary">
+            {DISPLAY_NAME_MAP[role] ?? role}
+          </span>
+          <span className="ml-2 rounded bg-prism-bg2 px-1.5 py-0.5 text-[10px] text-txt-muted">
+            {role}
+          </span>
+        </div>
+        {/* Compact category count badges */}
+        <div className="ml-auto flex flex-wrap justify-end gap-1">
+          {sortedCats.map((cat) => {
+            const count = (builtInByCategory.get(cat)?.length ?? 0) + (byCategory.get(cat)?.length ?? 0);
+            return (
+              <span
+                key={cat}
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${CATEGORY_COLORS[cat]} opacity-80`}
+              >
+                {CATEGORY_LABELS[cat]} ({count})
+              </span>
+            );
+          })}
+          {sortedCats.length === 0 && (
+            <span className="text-[11px] italic text-txt-muted">No tools</span>
+          )}
+        </div>
+      </button>
+
+      {/* Expanded detail */}
+      {expanded && (
+        <div className="border-t border-border/30 px-3 pb-3 pt-2">
+          {builtInTools.length === 0 && agentGrants.length === 0 ? (
+            <p className="py-2 text-[12px] italic text-txt-muted">
+              No tool access configured — planned agent
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {/* Built-in tools */}
+              {[...builtInByCategory.entries()]
+                .sort(([a], [b]) => (CATEGORY_LABELS[a] ?? a).localeCompare(CATEGORY_LABELS[b] ?? b))
+                .map(([cat, tools]) => (
+                  <div key={`builtin-${cat}`}>
+                    <div className="mb-1 flex items-center gap-1.5">
+                      <span className={`text-[11px] font-semibold ${CATEGORY_COLORS[cat]}`}>
+                        {CATEGORY_LABELS[cat]}
+                      </span>
+                      <span className="text-[10px] text-txt-muted">({tools.length})</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {tools.map((t) => {
+                        const info = getToolInfo(t);
+                        return (
+                          <span
+                            key={t}
+                            className="inline-flex items-center gap-1 rounded-full border border-prism-teal/20 bg-prism-teal/5 px-2.5 py-1 text-[12px] text-txt-secondary"
+                            title={`${info.description}\nBuilt-in tool (always available)${info.platform ? `\nPlatform: ${info.platform.toUpperCase()}` : ''}`}
+                          >
+                            {t}
+                            {info.platform && (
+                              <span className="rounded bg-prism-bg2 px-1 text-[9px] font-medium text-txt-muted">
+                                {info.platform.toUpperCase()}
+                              </span>
+                            )}
+                            <span className="rounded bg-prism-teal/15 px-1 text-[9px] font-medium text-prism-teal">
+                              built-in
+                            </span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              {/* DB-granted tools */}
+              {[...byCategory.entries()]
+                .sort(([a], [b]) => (CATEGORY_LABELS[a] ?? a).localeCompare(CATEGORY_LABELS[b] ?? b))
+                .map(([cat, catGrants]) => (
+                  <div key={cat}>
+                    <div className="mb-1 flex items-center gap-1.5">
+                      <span className={`text-[11px] font-semibold ${CATEGORY_COLORS[cat]}`}>
+                        {CATEGORY_LABELS[cat]}
+                      </span>
+                      <span className="text-[10px] text-txt-muted">({catGrants.length})</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {catGrants.map((g) => {
+                        const info = getToolInfo(g.tool_name);
+                        return (
+                          <span
+                            key={g.id}
+                            className="group relative inline-flex items-center gap-1 rounded-full border border-border/50 bg-prism-card px-2.5 py-1 text-[12px] text-txt-secondary"
+                            title={`${info.description}\nGranted by ${DISPLAY_NAME_MAP[g.granted_by] ?? g.granted_by}${g.reason ? `\nReason: ${g.reason}` : ''}${g.scope === 'read_only' ? '\nRead Only' : ''}${info.platform ? `\nPlatform: ${info.platform.toUpperCase()}` : ''}`}
+                          >
+                            {g.scope === 'read_only' && (
+                              <MdSearch className="text-[12px] text-prism-sky" />
+                            )}
+                            {g.tool_name}
+                            {info.platform && (
+                              <span className="rounded bg-prism-bg2 px-1 text-[9px] font-medium text-txt-muted">
+                                {info.platform.toUpperCase()}
+                              </span>
+                            )}
+                            {g.expires_at && (
+                              <span className="text-[10px] text-prism-elevated">
+                                &middot; exp {new Date(g.expires_at).toLocaleDateString()}
+                              </span>
+                            )}
+                            {isAdmin && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRevoke(g);
+                                }}
+                                className="ml-0.5 hidden text-prism-critical transition-colors hover:text-prism-critical/80 group-hover:inline-flex"
+                                title="Revoke"
+                              >
+                                <MdRemoveCircle className="text-[13px]" />
+                              </button>
+                            )}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Admin & Access Panel ─────────────────── */
 
 function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
@@ -1253,138 +1437,16 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
                 title={dept}
                 subtitle={`${roles.length} agent${roles.length !== 1 ? 's' : ''}`}
               />
-              <div className="space-y-4">
-                {roles.map((role) => {
-                  const agentGrants = grantsByAgent[role] ?? [];
-                  const builtInTools = AGENT_BUILT_IN_TOOLS[role] ?? [];
-                  // Group grants by category
-                  const byCategory = new Map<ToolCategory, ToolGrant[]>();
-                  for (const g of agentGrants) {
-                    const cat = getToolInfo(g.tool_name).category;
-                    if (!byCategory.has(cat)) byCategory.set(cat, []);
-                    byCategory.get(cat)!.push(g);
-                  }
-                  // Group built-in tools by category
-                  const builtInByCategory = new Map<ToolCategory, string[]>();
-                  for (const t of builtInTools) {
-                    const cat = getToolInfo(t).category;
-                    if (!builtInByCategory.has(cat)) builtInByCategory.set(cat, []);
-                    builtInByCategory.get(cat)!.push(t);
-                  }
-                  return (
-                    <div key={role} className="rounded-lg border border-border/50 p-3">
-                      <div className="mb-2 flex items-center gap-2">
-                        <AgentAvatar role={role} size={28} />
-                        <div className="min-w-0">
-                          <span className="text-[14px] font-semibold text-txt-primary">
-                            {DISPLAY_NAME_MAP[role] ?? role}
-                          </span>
-                          <span className="ml-2 rounded bg-prism-bg2 px-1.5 py-0.5 text-[11px] text-txt-muted">{role}</span>
-                          {ROLE_TITLE[role] && (
-                            <p className="text-[11px] text-txt-muted">{ROLE_TITLE[role]}</p>
-                          )}
-                        </div>
-                        <span className="ml-auto text-[12px] text-txt-muted">
-                          {builtInTools.length > 0
-                            ? `${builtInTools.length} built-in${agentGrants.length > 0 ? ` · ${agentGrants.length} granted` : ''}`
-                            : agentGrants.length > 0
-                              ? `${agentGrants.length} granted`
-                              : 'No tools'}
-                        </span>
-                      </div>
-                      {builtInTools.length === 0 && agentGrants.length === 0 ? (
-                        <p className="py-2 text-[12px] text-txt-muted italic">No tool access configured — planned agent</p>
-                      ) : (
-                      <div className="space-y-2">
-                        {/* Built-in tools */}
-                        {[...builtInByCategory.entries()]
-                          .sort(([a], [b]) => (CATEGORY_LABELS[a] ?? a).localeCompare(CATEGORY_LABELS[b] ?? b))
-                          .map(([cat, tools]) => (
-                          <div key={`builtin-${cat}`}>
-                            <div className="mb-1 flex items-center gap-1.5">
-                              <span className={`text-[11px] font-semibold ${CATEGORY_COLORS[cat]}`}>
-                                {CATEGORY_LABELS[cat]}
-                              </span>
-                              <span className="text-[10px] text-txt-muted">({tools.length})</span>
-                            </div>
-                            <div className="flex flex-wrap gap-1.5">
-                              {tools.map((t) => {
-                                const info = getToolInfo(t);
-                                return (
-                                <span
-                                  key={t}
-                                  className="inline-flex items-center gap-1 rounded-full border border-prism-teal/20 bg-prism-teal/5 px-2.5 py-1 text-[12px] text-txt-secondary"
-                                  title={`${info.description}\nBuilt-in tool (always available)${info.platform ? `\nPlatform: ${info.platform.toUpperCase()}` : ''}`}
-                                >
-                                  {t}
-                                  {info.platform && (
-                                    <span className="rounded bg-prism-bg2 px-1 text-[9px] font-medium text-txt-muted">
-                                      {info.platform.toUpperCase()}
-                                    </span>
-                                  )}
-                                  <span className="rounded bg-prism-teal/15 px-1 text-[9px] font-medium text-prism-teal">
-                                    built-in
-                                  </span>
-                                </span>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ))}
-                        {/* DB-granted tools */}
-                        {[...byCategory.entries()]
-                          .sort(([a], [b]) => (CATEGORY_LABELS[a] ?? a).localeCompare(CATEGORY_LABELS[b] ?? b))
-                          .map(([cat, catGrants]) => (
-                          <div key={cat}>
-                            <div className="mb-1 flex items-center gap-1.5">
-                              <span className={`text-[11px] font-semibold ${CATEGORY_COLORS[cat]}`}>
-                                {CATEGORY_LABELS[cat]}
-                              </span>
-                              <span className="text-[10px] text-txt-muted">({catGrants.length})</span>
-                            </div>
-                            <div className="flex flex-wrap gap-1.5">
-                              {catGrants.map((g) => {
-                                const info = getToolInfo(g.tool_name);
-                                return (
-                                <span
-                                  key={g.id}
-                                  className="group relative inline-flex items-center gap-1 rounded-full border border-border/50 bg-prism-card px-2.5 py-1 text-[12px] text-txt-secondary"
-                                  title={`${info.description}\nGranted by ${DISPLAY_NAME_MAP[g.granted_by] ?? g.granted_by}${g.reason ? `\nReason: ${g.reason}` : ''}${g.scope === 'read_only' ? '\nRead Only' : ''}${info.platform ? `\nPlatform: ${info.platform.toUpperCase()}` : ''}`}
-                                >
-                                  {g.scope === 'read_only' && (
-                                    <MdSearch className="text-[12px] text-prism-sky" />
-                                  )}
-                                  {g.tool_name}
-                            {info.platform && (
-                              <span className="rounded bg-prism-bg2 px-1 text-[9px] font-medium text-txt-muted">
-                                {info.platform.toUpperCase()}
-                              </span>
-                            )}
-                            {g.expires_at && (
-                              <span className="text-[10px] text-prism-elevated">
-                                &middot; exp {new Date(g.expires_at).toLocaleDateString()}
-                              </span>
-                            )}
-                            {isAdmin && (
-                              <button
-                                onClick={() => handleRevoke(g)}
-                                className="ml-0.5 hidden text-prism-critical transition-colors hover:text-prism-critical/80 group-hover:inline-flex"
-                                title="Revoke"
-                              >
-                                <MdRemoveCircle className="text-[13px]" />
-                              </button>
-                            )}
-                                </span>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="space-y-1">
+                {roles.map((role) => (
+                  <AgentAccessRow
+                    key={role}
+                    role={role}
+                    agentGrants={grantsByAgent[role] ?? []}
+                    isAdmin={isAdmin}
+                    onRevoke={handleRevoke}
+                  />
+                ))}
               </div>
             </Card>
           ))}
