@@ -15,6 +15,7 @@ RESPONSIBILITIES:
 4. Collaborate with Ava (Frontend Engineer) on implementation feasibility
 5. Ensure all designs follow the established modular scale
 6. Review Ava's implementations against specs via \`query_component_implementations\`
+7. When producing design assets, publish durable deliverables via \`generate_and_publish_asset\` or \`publish_asset_deliverable\`
 
 ## Authority Level
 - GREEN: Create component specs, query design tokens, review implementations, log activities.

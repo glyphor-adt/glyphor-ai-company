@@ -831,12 +831,95 @@ function hashText(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
+function hashBuffer(value: Buffer): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+async function resolveUploadTarget(
+  fileName: string,
+  options?: SharePointUploadOptions,
+): Promise<{
+  siteId: string;
+  driveId: string;
+  remotePath: string;
+  safeName: string;
+  token: string;
+}> {
+  const siteId = (options?.siteId ?? process.env.SHAREPOINT_SITE_ID ?? '').trim();
+  if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
+
+  const token = await getM365Token('write_sharepoint');
+  const driveId = (options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId)).trim();
+
+  const folder = options?.folder ?? process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge';
+  const safeName = fileName.replace(/[<>:"/\\|?*]/g, '-');
+  const remotePath = folder ? `${folder}/${safeName}` : safeName;
+
+  return {
+    siteId,
+    driveId,
+    remotePath,
+    safeName,
+    token,
+  };
+}
+
+async function putSharePointFile(
+  target: {
+    siteId: string;
+    driveId: string;
+    remotePath: string;
+    safeName: string;
+    token: string;
+  },
+  uploadBody: Buffer | string,
+  contentType: string,
+): Promise<GraphDriveItem> {
+  const encodedPath = target.remotePath.split('/').map(encodeURIComponent).join('/');
+  const url = `${GRAPH_BASE}/sites/${encodeSiteId(target.siteId)}/drives/${encodeDriveId(target.driveId)}/root:/${encodedPath}:/content`;
+
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${target.token}`,
+      'Content-Type': contentType,
+    },
+    body: uploadBody,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to upload to SharePoint (${response.status}): ${text}`);
+  }
+
+  return (await response.json()) as GraphDriveItem;
+}
+
+function buildBinaryKnowledgeText(
+  fileName: string,
+  path: string,
+  webUrl: string | null,
+  summary?: string,
+): string {
+  const sourceLine = webUrl ? `Source: ${webUrl}` : `Path: ${path}`;
+  const details = summary?.trim() || 'Binary asset uploaded to SharePoint for durable delivery and downstream reference.';
+  return `# SharePoint Asset: ${fileName}\n\n${sourceLine}\n\n${details}`;
+}
+
 /* ─── Upload & Search ─────────────────────────────────────────── */
 
 export interface SharePointUploadOptions {
   siteId?: string;
   driveId?: string;
   folder?: string;
+}
+
+export interface SharePointBinaryUploadOptions extends SharePointUploadOptions {
+  contentType?: string;
+  summary?: string;
+  evidence?: string | null;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
 }
 
 export interface SharePointSearchOptions {
@@ -862,22 +945,11 @@ export async function uploadToSharePoint(
   content: string,
   options?: SharePointUploadOptions,
 ): Promise<{ webUrl: string; knowledgeId: string }> {
-  const siteId = (options?.siteId ?? process.env.SHAREPOINT_SITE_ID ?? '').trim();
-  if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
-
-  const token = await getM365Token('write_sharepoint');
-  const driveId = (options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId)).trim();
-
-  const folder = options?.folder ?? process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge';
-  const safeName = fileName.replace(/[<>:"/\\|?*]/g, '-');
-  const remotePath = folder ? `${folder}/${safeName}` : safeName;
-
-  const encodedPath = remotePath.split('/').map(encodeURIComponent).join('/');
-  const url = `${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/drives/${encodeDriveId(driveId)}/root:/${encodedPath}:/content`;
+  const target = await resolveUploadTarget(fileName, options);
 
   // If filename is .docx, generate a proper Office Open XML document
   // instead of uploading raw text (which corrupts the file).
-  const isDocx = safeName.toLowerCase().endsWith('.docx');
+  const isDocx = target.safeName.toLowerCase().endsWith('.docx');
   let uploadBody: Buffer | string;
   let contentType: string;
 
@@ -889,35 +961,21 @@ export async function uploadToSharePoint(
     contentType = 'text/plain';
   }
 
-  const response = await fetch(url, {
-    method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': contentType,
-    },
-    body: uploadBody,
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Failed to upload to SharePoint (${response.status}): ${text}`);
-  }
-
-  const item = (await response.json()) as GraphDriveItem;
+  const item = await putSharePointFile(target, uploadBody, contentType);
 
   // Also insert into company_knowledge for immediate availability
   const knowledgeId = await saveKnowledgeEntry({
-    content: buildKnowledgeText(safeName, remotePath, item.webUrl ?? null, content),
+    content: buildKnowledgeText(target.safeName, target.remotePath, item.webUrl ?? null, content),
     evidence: item.webUrl ?? null,
-    tags: ['sharepoint', 'document', getExtension(safeName).replace('.', '')],
+    tags: ['sharepoint', 'document', getExtension(target.safeName).replace('.', '')],
   });
 
   await upsertIndexRow({
-    site_id: siteId,
-    drive_id: driveId,
+    site_id: target.siteId,
+    drive_id: target.driveId,
     drive_item_id: item.id,
-    name: safeName,
-    path: remotePath,
+    name: target.safeName,
+    path: target.remotePath,
     web_url: item.webUrl ?? null,
     etag: item.eTag ?? null,
     mime_type: item.file?.mimeType ?? null,
@@ -927,10 +985,62 @@ export async function uploadToSharePoint(
     status: 'active',
     error_text: null,
     knowledge_id: knowledgeId,
-    metadata: { extension: getExtension(safeName), uploadedBy: 'agent' },
+    metadata: { extension: getExtension(target.safeName), uploadedBy: 'agent' },
   });
 
   return { webUrl: item.webUrl ?? '', knowledgeId };
+}
+
+export async function uploadBinaryToSharePoint(
+  fileName: string,
+  content: Buffer,
+  options?: SharePointBinaryUploadOptions,
+): Promise<{ webUrl: string; knowledgeId: string; path: string }> {
+  const target = await resolveUploadTarget(fileName, options);
+  const contentType = options?.contentType?.trim() || 'application/octet-stream';
+  const item = await putSharePointFile(target, content, contentType);
+
+  const knowledgeId = await saveKnowledgeEntry({
+    content: buildBinaryKnowledgeText(
+      target.safeName,
+      target.remotePath,
+      item.webUrl ?? null,
+      options?.summary,
+    ),
+    evidence: options?.evidence ?? item.webUrl ?? null,
+    tags: options?.tags?.length
+      ? options.tags
+      : ['sharepoint', 'asset', getExtension(target.safeName).replace('.', '') || 'bin'],
+  });
+
+  await upsertIndexRow({
+    site_id: target.siteId,
+    drive_id: target.driveId,
+    drive_item_id: item.id,
+    name: target.safeName,
+    path: target.remotePath,
+    web_url: item.webUrl ?? null,
+    etag: item.eTag ?? null,
+    mime_type: item.file?.mimeType ?? contentType,
+    content_hash: hashBuffer(content),
+    last_modified_at: item.lastModifiedDateTime ?? null,
+    last_synced_at: new Date().toISOString(),
+    status: 'active',
+    error_text: null,
+    knowledge_id: knowledgeId,
+    metadata: {
+      extension: getExtension(target.safeName),
+      uploadedBy: 'agent',
+      kind: 'binary',
+      ...(options?.metadata ?? {}),
+    },
+  });
+
+  return {
+    webUrl: item.webUrl ?? '',
+    knowledgeId,
+    path: target.remotePath,
+  };
 }
 
 /**

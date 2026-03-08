@@ -25,6 +25,8 @@ import { createCollectiveIntelligenceTools } from './collectiveIntelligenceTools
 import { createToolRequestTools } from './toolRequestTools.js';
 import { createSharePointTools } from './sharepointTools.js';
 import { createAgent365McpTools, closeAgent365Bridge } from './agent365Tools.js';
+import { createAssetTools } from './assetTools.js';
+import { createDeliverableTools } from './deliverableTools.js';
 
 export interface DynamicAgentRunParams {
   role: string;
@@ -98,6 +100,8 @@ export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<Ag
     ...createCollectiveIntelligenceTools(memory),
     ...createToolRequestTools(),
     ...createSharePointTools(),
+    ...createAssetTools(glyphorEventBus),
+    ...createDeliverableTools(glyphorEventBus),
     ...await createAgent365McpTools(role),
   ];
 

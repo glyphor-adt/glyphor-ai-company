@@ -113,6 +113,94 @@ async function applyWatermark(imageB64: string): Promise<string> {
   return result.toString('base64');
 }
 
+function buildChiefOfStaffReactiveMessage(
+  task: string,
+  payload: Record<string, unknown>,
+): string | undefined {
+  const providedMessage =
+    typeof payload.message === 'string' && payload.message.trim().length > 0
+      ? payload.message.trim()
+      : undefined;
+
+  if (task !== 'orchestrate') return providedMessage;
+
+  const wakeReason =
+    typeof payload.wake_reason === 'string' && payload.wake_reason.trim().length > 0
+      ? payload.wake_reason.trim()
+      : undefined;
+  const eventData =
+    payload.event_data && typeof payload.event_data === 'object'
+      ? (payload.event_data as Record<string, unknown>)
+      : undefined;
+
+  if (!wakeReason && !eventData) return providedMessage;
+
+  const lines: string[] = [];
+  if (providedMessage) lines.push(providedMessage);
+  if (wakeReason) lines.push(`Reactive wake reason: ${wakeReason}`);
+
+  const scalarFields: Array<[string, string]> = [
+    ['initiative_id', 'Initiative ID'],
+    ['directive_id', 'Directive ID'],
+    ['directive_title', 'Directive'],
+    ['deliverable_id', 'Deliverable ID'],
+    ['assignment_id', 'Assignment ID'],
+    ['completion_summary', 'Completion summary'],
+    ['published_deliverable_count', 'Published deliverables'],
+    ['handoff_required', 'Handoff required'],
+  ];
+
+  for (const [key, label] of scalarFields) {
+    const value = eventData?.[key];
+    if (
+      typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'boolean'
+    ) {
+      lines.push(`${label}: ${String(value)}`);
+    }
+  }
+
+  const publishedDeliverables = Array.isArray(eventData?.published_deliverables)
+    ? (eventData?.published_deliverables as Array<Record<string, unknown>>)
+    : [];
+  if (publishedDeliverables.length > 0) {
+    lines.push(
+      'Published deliverables:\n' +
+        publishedDeliverables
+          .map((item) => {
+            const title = typeof item.title === 'string' ? item.title : 'Untitled deliverable';
+            const type = typeof item.type === 'string' ? item.type : 'unknown';
+            const reference =
+              typeof item.reference === 'string' && item.reference.trim().length > 0
+                ? item.reference.trim()
+                : 'No reference recorded';
+            return `- ${title} (${type}): ${reference}`;
+          })
+          .join('\n'),
+    );
+  }
+
+  const downstreamDirectives = Array.isArray(eventData?.downstream_directives)
+    ? (eventData?.downstream_directives as Array<Record<string, unknown>>)
+    : [];
+  if (downstreamDirectives.length > 0) {
+    lines.push(
+      'Downstream directives:\n' +
+        downstreamDirectives
+          .map((item) => {
+            const title = typeof item.title === 'string' ? item.title : 'Untitled directive';
+            const status = typeof item.status === 'string' ? item.status : 'unknown';
+            const id = typeof item.id === 'string' ? ` [${item.id}]` : '';
+            return `- ${title}${id} — ${status}`;
+          })
+          .join('\n'),
+    );
+  }
+
+  return lines.join('\n');
+}
+
 // ─── Bootstrap ──────────────────────────────────────────────────
 
 const memory = new CompanyMemoryStore({
@@ -163,10 +251,11 @@ const agentExecutor = async (
       orchestrate: 'orchestrate',
       strategic_planning: 'strategic_planning',
     };
+    const mappedTask = taskMap[task] ?? 'on_demand';
     return runChiefOfStaff({
-      task: taskMap[task] ?? 'on_demand',
+      task: mappedTask,
       recipient: payload.founder as 'kristina' | 'andrew' | undefined,
-      message,
+      message: buildChiefOfStaffReactiveMessage(mappedTask, payload),
       conversationHistory,
     });
   } else if (agentRole === 'cto') {

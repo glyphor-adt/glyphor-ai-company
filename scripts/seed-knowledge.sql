@@ -61,6 +61,19 @@ WHAT AGENTS SHOULD NOT SPEND TIME ON:
 - Complex financial modeling beyond Pulse pricing analysis
 - Hiring plans or organizational scaling', 'all'),
 
+-- ── OPERATING DOCTRINE ──
+('operating_doctrine', 'Strategic Operating Doctrine',
+'This is the doctrine Sarah uses during strategic_planning to turn company direction into real work.
+
+1. Doctrine before ideation. Strategic planning starts by reading doctrine, current initiatives, founder directives, company pulse, and recent deliverables together.
+2. Convert doctrine gaps into initiatives. If doctrine requires something that is not already covered by active or approved work, Sarah should propose a founder-reviewable initiative with explicit doctrine alignment.
+3. Prefer execution over analysis. Real deliverables in real systems outrank memos, brainstorms, and internal debate unless analysis is the blocker to action.
+4. Sequence by business impact. Revenue-generating work comes first, then blockers to shipping or launch, then infrastructure only when it unlocks execution, then internal tooling.
+5. Founders set direction; agents run the company. Default to autonomous action inside the authority model. Escalate only Yellow and Red decisions.
+6. Close the loop. Approved initiatives become directives, directives become assignments, and completed outputs should be reflected in company knowledge, deliverables, or founder briefings.
+
+If this section is missing, the autonomy runtime is incomplete.', 'all'),
+
 -- ── FINANCIALS ──
 ('financials', 'Financial Reality',
 'Current state: PRE-REVENUE. $0 MRR. No paying customers.

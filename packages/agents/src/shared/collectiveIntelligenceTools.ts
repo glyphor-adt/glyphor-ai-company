@@ -9,6 +9,25 @@
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 
+export const REQUIRED_COMPANY_DOCTRINE_SECTIONS = [
+  'mission',
+  'current_priorities',
+  'authority_model',
+  'operating_doctrine',
+] as const;
+
+function getMissingDoctrineSections(
+  sections: Array<{ section: string; is_active: boolean }>,
+): string[] {
+  const activeSections = new Set(
+    sections
+      .filter((section) => section.is_active)
+      .map((section) => section.section),
+  );
+
+  return REQUIRED_COMPANY_DOCTRINE_SECTIONS.filter((section) => !activeSections.has(section));
+}
+
 export function createCollectiveIntelligenceTools(
   memory: CompanyMemoryStore,
 ): ToolDefinition[] {
@@ -185,6 +204,23 @@ export function createCollectiveIntelligenceTools(
         const audience = params.audience as string | undefined;
         const sectionFilter = (params.section_filter as string | undefined)?.trim().toLowerCase();
         const sections = await ci.getKnowledgeBaseSections();
+        const missingRequiredSections = getMissingDoctrineSections(sections);
+
+        if (sections.every((section) => !section.is_active)) {
+          return {
+            success: false,
+            error:
+              'Company doctrine is empty at runtime: no active sections were found in company_knowledge_base. Apply the knowledge-base seed before running strategic planning.',
+          };
+        }
+
+        if (!sectionFilter && missingRequiredSections.length > 0) {
+          return {
+            success: false,
+            error:
+              `Company doctrine is incomplete at runtime: missing required sections (${missingRequiredSections.join(', ')}). Apply the autonomy doctrine seed migration before running strategic planning.`,
+          };
+        }
 
         const filtered = sections.filter((section) => {
           if (!section.is_active) return false;
@@ -202,6 +238,8 @@ export function createCollectiveIntelligenceTools(
           success: true,
           data: {
             sections: filtered,
+            required_sections: [...REQUIRED_COMPANY_DOCTRINE_SECTIONS],
+            missing_required_sections: missingRequiredSections,
             doctrine_markdown: filtered
               .map((section) => `## ${section.title}\n\n${section.content}`)
               .join('\n\n---\n\n'),

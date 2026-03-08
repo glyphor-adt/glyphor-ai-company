@@ -1,0 +1,20 @@
+{
+  "name": "@glyphor/slack-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc && node --env-file=../../.env dist/server.js",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'no linter configured yet'"
+  },
+  "dependencies": {
+    "@glyphor/shared": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}

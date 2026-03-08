@@ -3,25 +3,60 @@
  * Reports to Maya Brooks (CMO). Social media scheduling and analytics.
  */
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
-import type { ToolDefinition } from '@glyphor/agent-runtime';
+import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
 import { PulseClient } from '@glyphor/integrations';
+import { createSocialMediaTools } from '../shared/socialMediaTools.js';
 
 function getPulseClient(): PulseClient | null {
   try { return PulseClient.fromEnv(); } catch { return null; }
 }
 
 export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolDefinition[] {
+  const sharedScheduleTool = createSocialMediaTools().find((tool) => tool.name === 'schedule_social_post');
+
   return [
     {
       name: 'schedule_social_post',
       description: 'Schedule a pre-approved social media post. Only schedule content that has been reviewed.',
-      parameters: { platform: { type: 'string', description: 'Platform: twitter, linkedin', required: true }, text: { type: 'string', description: 'Post text', required: true }, scheduledAt: { type: 'string', description: 'ISO 8601 datetime to publish' }, mediaUrl: { type: 'string', description: 'Optional media URL' } },
-      async execute(params) {
-        try {
-        await systemQuery('INSERT INTO scheduled_posts (profile_id, text, scheduled_at, media_url, status, agent, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)', [params.platform, params.text, params.scheduledAt || null, params.mediaUrl || null, 'queued', 'social-media-manager', new Date().toISOString()]);
-        return { success: true, message: 'Post queued for scheduling.' };
-        } catch (err) { return { success: false, error: (err as Error).message }; }
+      parameters: {
+        draft_id: { type: 'string', description: 'Optional approved content draft UUID' },
+        platform: { type: 'string', description: 'Platform: twitter, linkedin, instagram' },
+        text: { type: 'string', description: 'Post text' },
+        scheduledAt: { type: 'string', description: 'ISO 8601 datetime to publish', required: true },
+        mediaUrl: { type: 'string', description: 'Optional media URL' },
+        profileId: { type: 'string', description: 'Optional Buffer/social profile identifier' },
+        approvedBy: { type: 'string', description: 'Optional approver override' },
+        decisionId: { type: 'string', description: 'Optional linked approval decision UUID' },
+        initiativeId: { type: 'string', description: 'Optional initiative UUID' },
+        directiveId: { type: 'string', description: 'Optional directive UUID' },
+        assignmentId: { type: 'string', description: 'Optional assignment UUID' },
+        metadata: { type: 'object', description: 'Optional structured publish metadata' },
+        maxRetries: { type: 'number', description: 'Optional maximum publish retries' },
+      },
+      async execute(params, ctx): Promise<ToolResult> {
+        if (!sharedScheduleTool) {
+          return { success: false, error: 'Shared schedule_social_post tool is unavailable.' };
+        }
+
+        return sharedScheduleTool.execute(
+          {
+            draft_id: params.draft_id,
+            platform: params.platform,
+            text: params.text,
+            scheduled_at: params.scheduledAt,
+            media_url: params.mediaUrl,
+            profile_id: params.profileId,
+            approved_by: params.approvedBy,
+            decision_id: params.decisionId,
+            initiative_id: params.initiativeId,
+            directive_id: params.directiveId,
+            assignment_id: params.assignmentId,
+            metadata: params.metadata,
+            max_retries: params.maxRetries,
+          },
+          ctx,
+        );
       },
     },
     {

@@ -169,6 +169,7 @@ export { syncGCPIAMState, syncSecretRotationStatus, runGovernanceSync } from './
 export {
   syncSharePointKnowledge,
   uploadToSharePoint,
+  uploadBinaryToSharePoint,
   searchSharePoint,
   listSharePointFolders,
   listSharePointFiles,
@@ -177,6 +178,7 @@ export {
   type SharePointSyncOptions,
   type SharePointSyncResult,
   type SharePointUploadOptions,
+  type SharePointBinaryUploadOptions,
   type SharePointSearchOptions,
   type SharePointDocument,
 } from './sharepoint/index.js';

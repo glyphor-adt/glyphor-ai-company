@@ -47,7 +47,7 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
     ...createFrontendCodeTools(),
     ...createScreenshotTools(),
     ...createDesignSystemTools(),
-    ...createAssetTools(),
+    ...createAssetTools(glyphorEventBus),
     ...createFigmaTools(),
     ...createSharePointTools(),
     ...createLogoTools(),

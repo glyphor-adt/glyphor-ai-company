@@ -40,7 +40,7 @@ export async function runSocialMediaManager(params: SocialMediaManagerRunParams 
     ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),
-    ...createSocialMediaTools(),
+    ...createSocialMediaTools(glyphorEventBus),
     ...await createAgent365McpTools('social-media-manager'),
     ...await createGlyphorMcpTools('social-media-manager'),
   ];

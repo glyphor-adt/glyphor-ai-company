@@ -81,7 +81,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
     ...createScreenshotTools(),
     ...createDesignSystemTools(),
     ...createAuditTools(),
-    ...createAssetTools(),
+    ...createAssetTools(glyphorEventBus),
     ...createScaffoldTools(),
     ...createDeployPreviewTools(),
     ...createFigmaTools(),

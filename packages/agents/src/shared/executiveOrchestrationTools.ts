@@ -598,7 +598,7 @@ export function createExecutiveOrchestrationTools(
         try {
           // Verify directive is delegated to this executive
           const [directive] = await systemQuery(
-            'SELECT id, title, delegated_to, status FROM founder_directives WHERE id = $1',
+            'SELECT id, title, delegated_to, status, initiative_id FROM founder_directives WHERE id = $1',
             [directiveId],
           );
 
@@ -657,6 +657,17 @@ export function createExecutiveOrchestrationTools(
             completed_count: completedAssignments.length,
             incomplete_count: incompleteCount?.count ?? 0,
           });
+          const deliverableMetadata = {
+            synthesized: true,
+            source: 'executive_team_synthesis',
+            completed_assignment_count: completedAssignments.length,
+            incomplete_assignment_count: incompleteCount?.count ?? 0,
+            team_outputs: outputSummary.map((item) => ({
+              assigned_to: item.assigned_to,
+              task: item.task,
+              quality_score: item.quality_score,
+            })),
+          };
 
           // If there's an executive assignment from Sarah, submit output to it
           if (executiveAssignment) {
@@ -664,8 +675,64 @@ export function createExecutiveOrchestrationTools(
               'UPDATE work_assignments SET agent_output = $1, status = $2, updated_at = $3, completed_at = $3 WHERE id = $4',
               [synthesizedOutput, 'completed', now, executiveAssignment.id],
             );
+          }
 
-            // Notify Sarah
+          const deliverableAssignmentId = (executiveAssignment as { id?: string } | undefined)?.id ?? null;
+          const [existingDeliverable] = await systemQuery<{ id: string }>(
+            `SELECT id
+             FROM deliverables
+             WHERE directive_id = $1
+               AND assignment_id IS NOT DISTINCT FROM $2
+               AND producing_agent = $3
+               AND status = 'published'
+               AND COALESCE(metadata->>'source', '') = $4
+             ORDER BY created_at DESC
+             LIMIT 1`,
+            [directiveId, deliverableAssignmentId, agentRole, 'executive_team_synthesis'],
+          );
+
+          let deliverableId: string;
+          if (existingDeliverable) {
+            const [updatedDeliverable] = await systemQuery<{ id: string }>(
+              `UPDATE deliverables
+               SET initiative_id = $1,
+                   title = $2,
+                   type = 'document',
+                   content = $3,
+                   storage_url = NULL,
+                   status = 'published',
+                   metadata = $4::jsonb
+               WHERE id = $5
+               RETURNING id`,
+              [
+                (directive as any).initiative_id ?? null,
+                `Directive deliverable: ${directive.title as string}`,
+                synthesizedOutput,
+                JSON.stringify(deliverableMetadata),
+                existingDeliverable.id,
+              ],
+            );
+            deliverableId = updatedDeliverable.id;
+          } else {
+            const [createdDeliverable] = await systemQuery<{ id: string }>(
+              `INSERT INTO deliverables
+                 (initiative_id, directive_id, assignment_id, title, type, content, producing_agent, status, metadata)
+               VALUES ($1, $2, $3, $4, 'document', $5, $6, 'published', $7::jsonb)
+               RETURNING id`,
+              [
+                (directive as any).initiative_id ?? null,
+                directiveId,
+                deliverableAssignmentId,
+                `Directive deliverable: ${directive.title as string}`,
+                synthesizedOutput,
+                agentRole,
+                JSON.stringify(deliverableMetadata),
+              ],
+            );
+            deliverableId = createdDeliverable.id;
+          }
+
+          if (executiveAssignment) {
             await systemQuery(
               `INSERT INTO agent_messages (from_agent, to_agent, thread_id, message, message_type, priority, status, context)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
@@ -673,7 +740,12 @@ export function createExecutiveOrchestrationTools(
                 agentRole, 'chief-of-staff', crypto.randomUUID(),
                 `Directive '${(directive.title as string)?.slice(0, 80)}' — synthesized deliverable ready for review.`,
                 'response', 'normal', 'pending',
-                JSON.stringify({ directive_id: directiveId, assignment_id: executiveAssignment.id }),
+                JSON.stringify({
+                  directive_id: directiveId,
+                  initiative_id: (directive as any).initiative_id ?? null,
+                  assignment_id: executiveAssignment.id,
+                  deliverable_id: deliverableId,
+                }),
               ],
             );
           }
@@ -692,13 +764,27 @@ export function createExecutiveOrchestrationTools(
               },
               priority: 'normal',
             });
+            await glyphorEventBus.emit({
+              type: 'deliverable.published',
+              source: agentRole,
+              payload: {
+                deliverable_id: deliverableId,
+                initiative_id: (directive as any).initiative_id ?? null,
+                directive_id: directiveId,
+                assignment_id: deliverableAssignmentId,
+                title: `Directive deliverable: ${directive.title as string}`,
+                type: 'document',
+                synthesized: true,
+              },
+              priority: 'high',
+            });
           }
 
           // Log activity
           await systemQuery(
             'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4, $5)',
             [agentRole, agentRole, 'executive.deliverable_synthesized',
-             `Synthesized ${completedAssignments.length} outputs for directive ${directiveId}`, now],
+             `Synthesized ${completedAssignments.length} outputs for directive ${directiveId} into deliverable ${deliverableId}`, now],
           );
 
           return {
@@ -706,6 +792,7 @@ export function createExecutiveOrchestrationTools(
             data: {
               directive_id: directiveId,
               status: 'synthesized',
+              deliverable_id: deliverableId,
               output_summary: {
                 completed_assignments: completedAssignments.length,
                 incomplete_assignments: incompleteCount?.count ?? 0,

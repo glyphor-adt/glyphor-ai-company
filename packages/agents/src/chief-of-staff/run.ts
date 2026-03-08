@@ -23,7 +23,10 @@ import {
   STRATEGIC_PLANNING_PROMPT,
 } from './systemPrompt.js';
 import { createChiefOfStaffTools, createOrchestrationTools } from './tools.js';
-import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
+import {
+  REQUIRED_COMPANY_DOCTRINE_SECTIONS,
+  createCollectiveIntelligenceTools,
+} from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
@@ -286,11 +289,34 @@ Goal: Drive organizational learning — identify what worked, what didn't, and h
 Be decisive. Assign real work. Move things forward.
 
 ${lifecycleContext}`;
+      if (params.message?.trim()) {
+        initialMessage += `\n\n## REACTIVE EVENT CONTEXT\n${params.message.trim()}`;
+      }
       break;
     }
 
-    case 'strategic_planning':
-      initialMessage = `Run the weekly strategic planning cycle for ${today}.
+    case 'strategic_planning': {
+        const loadedSections = await systemQuery<{ section: string }>(
+          `SELECT section
+             FROM company_knowledge_base
+            WHERE is_active = true
+              AND section = ANY($1::text[])`,
+          [REQUIRED_COMPANY_DOCTRINE_SECTIONS],
+        );
+        if (loadedSections.length === 0) {
+          throw new Error('Chief of Staff strategic planning cannot start because company doctrine returned no sections.');
+        }
+
+        const missingSections = REQUIRED_COMPANY_DOCTRINE_SECTIONS.filter(
+          (section) => !loadedSections.some((loadedSection) => loadedSection.section === section),
+        );
+        if (missingSections.length > 0) {
+          throw new Error(
+            `Chief of Staff strategic planning cannot start because required doctrine sections are missing: ${missingSections.join(', ')}.`,
+          );
+        }
+
+        initialMessage = `Run the weekly strategic planning cycle for ${today}.
 
 Steps:
 1. Use read_company_doctrine to load the current doctrine and operating principles
@@ -307,7 +333,8 @@ Constraints:
 - Prefer a short, sequenced set of initiatives over broad brainstorming
 - Revenue-generating work outranks infrastructure unless infrastructure blocks execution
 - Include initial directive drafts whenever you can make them specific and actionable`;
-      break;
+        break;
+    }
 
     case 'on_demand':
       initialMessage = params.message || 'Provide a status summary of the company.';

@@ -452,7 +452,7 @@ const companyPulseRow = {
   mrr: 0,
   mrr_change_pct: 0,
   active_users: 2,
-  platform_status: 'degraded',
+  platform_status: 'operational',
   company_mood: 'building',
   highlights: [
     'Pulse ~80-90% built, targeting Product Hunt launch (PRIORITY ONE)',

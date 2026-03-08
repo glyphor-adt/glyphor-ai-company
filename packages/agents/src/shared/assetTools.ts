@@ -2,18 +2,33 @@
  * Asset Tools — Visual asset generation and management
  *
  * Tools:
- *   generate_image       — Generate images via DALL-E 3
- *   upload_asset         — Upload to asset storage (GCS)
- *   list_assets          — List visual assets by category
- *   optimize_image       — Compress/optimize for web
- *   generate_favicon_set — Generate complete favicon/icon set
+ *   generate_image              — Generate images via DALL-E 3
+ *   generate_and_publish_asset  — Generate + store + sync + publish a design asset deliverable
+ *   publish_asset_deliverable   — Store + sync + publish an existing asset as a durable deliverable
+ *   upload_asset                — Upload to asset storage (GCS)
+ *   list_assets                 — List visual assets by category
+ *   optimize_image              — Compress/optimize for web
+ *   generate_favicon_set        — Generate complete favicon/icon set
  */
 
-import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import type { GlyphorEventBus, ToolDefinition, ToolResult, ToolContext } from '@glyphor/agent-runtime';
+import { uploadToSharePoint } from '@glyphor/integrations';
+import { createDeliverableTools } from './deliverableTools.js';
 
 const PRISM_STYLE_AUGMENT =
   'Use the Glyphor Prism brand palette: deep indigo (#1E1B4B), electric violet (#7C3AED), ' +
   'soft lavender (#C4B5FD), crisp white (#FFFFFF). Clean, modern, geometric style with subtle gradients.';
+
+const VALID_ASSET_CATEGORIES = [
+  'icon',
+  'illustration',
+  'hero',
+  'thumbnail',
+  'avatar',
+  'brand',
+] as const;
+
+type AssetCategory = (typeof VALID_ASSET_CATEGORIES)[number];
 
 function getAssetServiceUrl(): string {
   const url = process.env.ASSET_SERVICE_URL;
@@ -27,7 +42,329 @@ function getScreenshotServiceUrl(): string {
   return url;
 }
 
-export function createAssetTools(): ToolDefinition[] {
+function normalizeMetadata(value: unknown): Record<string, unknown> {
+  if (!value) return {};
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? parsed as Record<string, unknown>
+        : {};
+    } catch {
+      return {};
+    }
+  }
+
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function sanitizeFilename(value: string): string {
+  return value.replace(/[<>:"/\\|?*]/g, '-').trim();
+}
+
+function getFileExtension(filename: string): string {
+  const dot = filename.lastIndexOf('.');
+  return dot >= 0 ? filename.slice(dot).toLowerCase() : '';
+}
+
+function resolveSharePointFolder(category: AssetCategory, folder?: string): string {
+  const rootFolder = (process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge')
+    .trim()
+    .replace(/[\\/]+$/, '');
+
+  const normalized = folder?.trim().replace(/^[/\\]+|[/\\]+$/g, '');
+  if (!normalized) {
+    return `${rootFolder}/Deliverables/Design Assets/${category}`;
+  }
+
+  if (normalized === rootFolder || normalized.startsWith(`${rootFolder}/`)) {
+    return normalized;
+  }
+
+  return `${rootFolder}/${normalized}`;
+}
+
+function resolveSharePointReferenceFileName(filename: string, override?: string): string {
+  const baseName = sanitizeFilename(override?.trim() || filename);
+  const extension = getFileExtension(baseName);
+  if (extension === '.md' || extension === '.txt' || extension === '.docx') {
+    return baseName;
+  }
+
+  const withoutExtension = extension ? baseName.slice(0, -extension.length) : baseName;
+  return `${withoutExtension}.md`;
+}
+
+function deriveDeliverableTitle(filename: string, category: AssetCategory, override?: string): string {
+  if (override?.trim()) return override.trim();
+
+  const withoutExtension = filename.replace(/\.[^.]+$/, '');
+  return `${withoutExtension.replace(/[-_]+/g, ' ')} (${category})`;
+}
+
+function buildDeliverableSummary(input: {
+  title: string;
+  filename: string;
+  category: AssetCategory;
+  altText: string;
+  storagePath: string;
+  sharePointUrl: string;
+}): string {
+  return [
+    `Published design asset deliverable: ${input.title}`,
+    `File: ${input.filename}`,
+    `Category: ${input.category}`,
+    `Alt text: ${input.altText}`,
+    `SharePoint: ${input.sharePointUrl}`,
+    `Storage: ${input.storagePath}`,
+  ].join('\n');
+}
+
+async function generateImageInternal(params: {
+  prompt: string;
+  style?: string;
+  dimensions?: string;
+  brand_constrained?: boolean;
+}): Promise<ToolResult> {
+  try {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return { success: false, error: 'OPENAI_API_KEY not configured' };
+    }
+
+    const style = params.style || 'illustration';
+    const dimensions = params.dimensions || '1024x1024';
+    const brandConstrained = params.brand_constrained ?? false;
+
+    let finalPrompt = `${params.prompt} (style: ${style})`;
+    if (brandConstrained) {
+      finalPrompt = `${finalPrompt}. ${PRISM_STYLE_AUGMENT}`;
+    }
+
+    const res = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-image-1.5-2025-12-16',
+        prompt: finalPrompt,
+        size: dimensions,
+        quality: 'standard',
+        n: 1,
+      }),
+      signal: AbortSignal.timeout(60_000),
+    });
+
+    if (!res.ok) {
+      return { success: false, error: `DALL-E API returned ${res.status}: ${await res.text()}` };
+    }
+
+    const data = await res.json() as Record<string, unknown>;
+    const images = data.data as Array<Record<string, unknown>> | undefined;
+    const image = images?.[0];
+    return {
+      success: true,
+      data: {
+        url: image?.url,
+        revised_prompt: image?.revised_prompt,
+        dimensions,
+        style,
+        brand_constrained: brandConstrained,
+      },
+    };
+  } catch (err) {
+    return { success: false, error: `generate_image failed: ${(err as Error).message}` };
+  }
+}
+
+async function uploadAssetInternal(params: {
+  image_url: string;
+  filename: string;
+  category: AssetCategory;
+  alt_text: string;
+}): Promise<ToolResult> {
+  try {
+    const serviceUrl = getAssetServiceUrl();
+
+    const res = await fetch(`${serviceUrl}/upload`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        image_url: params.image_url,
+        filename: params.filename,
+        category: params.category,
+        alt_text: params.alt_text,
+      }),
+      signal: AbortSignal.timeout(60_000),
+    });
+
+    if (!res.ok) {
+      return { success: false, error: `Asset upload returned ${res.status}: ${await res.text()}` };
+    }
+
+    const data = await res.json() as Record<string, unknown>;
+    return {
+      success: true,
+      data: {
+        path: data.path ?? `gs://glyphor-company/assets/${params.category}/${params.filename}`,
+        filename: params.filename,
+        category: params.category,
+        alt_text: params.alt_text,
+      },
+    };
+  } catch (err) {
+    return { success: false, error: `upload_asset failed: ${(err as Error).message}` };
+  }
+}
+
+function classifyImageSource(imageUrl: string): 'remote_url' | 'data_url' | 'base64' {
+  if (/^https?:\/\//i.test(imageUrl)) return 'remote_url';
+  if (/^data:/i.test(imageUrl)) return 'data_url';
+  return 'base64';
+}
+
+async function publishAssetDeliverableInternal(
+  params: {
+    image_url: string;
+    filename: string;
+    category: AssetCategory;
+    alt_text: string;
+    title?: string;
+    initiative_id?: string;
+    directive_id?: string;
+    assignment_id?: string;
+    metadata?: unknown;
+    sharepoint_folder?: string;
+    sharepoint_file_name?: string;
+    content?: string;
+  },
+  ctx: ToolContext,
+  glyphorEventBus?: GlyphorEventBus,
+): Promise<ToolResult> {
+  const storageResult = await uploadAssetInternal({
+    image_url: params.image_url,
+    filename: params.filename,
+    category: params.category,
+    alt_text: params.alt_text,
+  });
+
+  if (!storageResult.success) {
+    return storageResult;
+  }
+
+  try {
+    const sourceKind = classifyImageSource(params.image_url);
+    const sharePointFileName = resolveSharePointReferenceFileName(params.filename, params.sharepoint_file_name);
+    const sharePointFolder = resolveSharePointFolder(params.category, params.sharepoint_folder);
+    const title = deriveDeliverableTitle(params.filename, params.category, params.title);
+    const storagePath = (storageResult.data as { path: string }).path;
+    const referenceContent = params.content || [
+      `# Design Asset Deliverable: ${title}`,
+      '',
+      `- Asset file: ${params.filename}`,
+      `- Asset category: ${params.category}`,
+      `- Alt text: ${params.alt_text}`,
+      `- Durable storage path: ${storagePath}`,
+      `- Producing agent: ${ctx.agentRole}`,
+      `- Source kind: ${sourceKind}`,
+      '',
+      'This SharePoint document is the durable reference for the published design asset deliverable.',
+    ].join('\n');
+
+    const sharePointResult = await uploadToSharePoint(
+      sharePointFileName,
+      referenceContent,
+      { folder: sharePointFolder },
+    );
+    const durableReference = sharePointResult.webUrl || `sharepoint://${sharePointFolder}/${sharePointFileName}`;
+
+    const publishTool = createDeliverableTools(glyphorEventBus)
+      .find((tool) => tool.name === 'publish_deliverable');
+
+    if (!publishTool) {
+      return { success: false, error: 'publish_deliverable tool is unavailable in this runtime.' };
+    }
+
+    const sharePointSummary = params.content || buildDeliverableSummary({
+      title,
+      filename: sharePointFileName,
+      category: params.category,
+      altText: params.alt_text,
+      storagePath,
+      sharePointUrl: durableReference,
+    });
+
+    const metadata = {
+      ...normalizeMetadata(params.metadata),
+      asset_filename: params.filename,
+      asset_category: params.category,
+      asset_storage_url: storagePath,
+      sharepoint_file_name: sharePointFileName,
+      sharepoint_folder: sharePointFolder,
+      sharepoint_path: `${sharePointFolder}/${sharePointFileName}`,
+      sharepoint_web_url: sharePointResult.webUrl,
+      sharepoint_reference: durableReference,
+      sharepoint_knowledge_id: sharePointResult.knowledgeId,
+      alt_text: params.alt_text,
+      uploaded_by: ctx.agentRole,
+      source_kind: sourceKind,
+    };
+
+    const publishResult = await publishTool.execute(
+      {
+        title,
+        type: 'design_asset',
+        content: sharePointSummary,
+        storage_url: durableReference,
+        initiative_id: params.initiative_id,
+        directive_id: params.directive_id,
+        assignment_id: params.assignment_id,
+        metadata,
+      },
+      ctx,
+    );
+
+    if (!publishResult.success) {
+      return {
+        success: false,
+        error: publishResult.error ?? 'Failed to publish deliverable record.',
+        data: {
+          storage_path: storagePath,
+          sharepoint_url: durableReference,
+          sharepoint_path: `${sharePointFolder}/${sharePointFileName}`,
+          sharepoint_knowledge_id: sharePointResult.knowledgeId,
+        },
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        ...(publishResult.data as Record<string, unknown>),
+        title,
+        filename: params.filename,
+        category: params.category,
+        storage_path: storagePath,
+        sharepoint_url: durableReference,
+        sharepoint_web_url: sharePointResult.webUrl,
+        sharepoint_path: `${sharePointFolder}/${sharePointFileName}`,
+        sharepoint_knowledge_id: sharePointResult.knowledgeId,
+      },
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: `publish_asset_deliverable failed: ${(err as Error).message}`,
+      data: storageResult.data,
+    };
+  }
+}
+
+export function createAssetTools(glyphorEventBus?: GlyphorEventBus): ToolDefinition[] {
   return [
     // ── generate_image ─────────────────────────────────────────────────
     {
@@ -53,59 +390,235 @@ export function createAssetTools(): ToolDefinition[] {
           required: false,
         },
       },
-      execute: async (params): Promise<ToolResult> => {
-        try {
-          const apiKey = process.env.OPENAI_API_KEY;
-          if (!apiKey) {
-            return { success: false, error: 'OPENAI_API_KEY not configured' };
-          }
+      execute: async (params): Promise<ToolResult> => generateImageInternal({
+        prompt: params.prompt as string,
+        style: params.style as string | undefined,
+        dimensions: params.dimensions as string | undefined,
+        brand_constrained: params.brand_constrained as boolean | undefined,
+      }),
+    },
 
-          const style = (params.style as string) || 'illustration';
-          const dimensions = (params.dimensions as string) || '1024x1024';
-          const brandConstrained = params.brand_constrained ?? false;
+    // ── generate_and_publish_asset ────────────────────────────────────
+    {
+      name: 'generate_and_publish_asset',
+      description:
+        'Generate an image, store it in asset storage, upload it to SharePoint, and publish it as a design_asset deliverable.',
+      parameters: {
+        prompt: { type: 'string', description: 'Image generation prompt', required: true },
+        filename: { type: 'string', description: 'Target filename for the generated asset', required: true },
+        category: {
+          type: 'string',
+          description: 'Asset category',
+          required: true,
+          enum: [...VALID_ASSET_CATEGORIES],
+        },
+        alt_text: { type: 'string', description: 'Alt text for accessibility', required: true },
+        style: {
+          type: 'string',
+          description: 'Visual style for the generated image',
+          required: false,
+          enum: ['illustration', 'photo', 'icon', 'abstract'],
+        },
+        dimensions: {
+          type: 'string',
+          description: 'Image dimensions',
+          required: false,
+          enum: ['1024x1024', '1792x1024', '1024x1792'],
+        },
+        brand_constrained: {
+          type: 'boolean',
+          description: 'When true, augments prompt with Prism palette and brand style info',
+          required: false,
+        },
+        title: {
+          type: 'string',
+          description: 'Optional published deliverable title',
+          required: false,
+        },
+        initiative_id: {
+          type: 'string',
+          description: 'Initiative UUID the asset supports',
+          required: false,
+        },
+        directive_id: {
+          type: 'string',
+          description: 'Founder directive UUID the asset supports',
+          required: false,
+        },
+        assignment_id: {
+          type: 'string',
+          description: 'Work assignment UUID this asset fulfills',
+          required: false,
+        },
+        metadata: {
+          type: 'object',
+          description: 'Optional JSON metadata for the deliverable record',
+          required: false,
+        },
+        sharepoint_folder: {
+          type: 'string',
+          description: 'Optional SharePoint folder under the knowledge root for the asset file',
+          required: false,
+        },
+        sharepoint_file_name: {
+          type: 'string',
+          description: 'Optional SharePoint filename override',
+          required: false,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const generationResult = await generateImageInternal({
+          prompt: params.prompt as string,
+          style: params.style as string | undefined,
+          dimensions: params.dimensions as string | undefined,
+          brand_constrained: params.brand_constrained as boolean | undefined,
+        });
 
-          let finalPrompt = `${params.prompt as string} (style: ${style})`;
-          if (brandConstrained) {
-            finalPrompt = `${finalPrompt}. ${PRISM_STYLE_AUGMENT}`;
-          }
+        if (!generationResult.success) return generationResult;
 
-          const res = await fetch('https://api.openai.com/v1/images/generations', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-              model: 'gpt-image-1.5-2025-12-16',
-              prompt: finalPrompt,
-              size: dimensions,
-              quality: 'standard',
-              n: 1,
-            }),
-            signal: AbortSignal.timeout(60_000),
-          });
+        const generated = generationResult.data as {
+          url?: string;
+          revised_prompt?: string;
+          dimensions: string;
+          style: string;
+          brand_constrained: boolean;
+        };
 
-          if (!res.ok) {
-            return { success: false, error: `DALL-E API returned ${res.status}: ${await res.text()}` };
-          }
-
-          const data = await res.json() as Record<string, unknown>;
-          const images = data.data as Array<Record<string, unknown>> | undefined;
-          const image = images?.[0];
+        if (!generated.url) {
           return {
-            success: true,
+            success: false,
+            error: 'generate_image did not return a downloadable URL for publication.',
+            data: generationResult.data,
+          };
+        }
+
+        const publishResult = await publishAssetDeliverableInternal(
+          {
+            image_url: generated.url,
+            filename: params.filename as string,
+            category: params.category as AssetCategory,
+            alt_text: params.alt_text as string,
+            title: params.title as string | undefined,
+            initiative_id: params.initiative_id as string | undefined,
+            directive_id: params.directive_id as string | undefined,
+            assignment_id: params.assignment_id as string | undefined,
+            sharepoint_folder: params.sharepoint_folder as string | undefined,
+            sharepoint_file_name: params.sharepoint_file_name as string | undefined,
+            metadata: {
+              ...normalizeMetadata(params.metadata),
+              generation_prompt: params.prompt,
+              revised_prompt: generated.revised_prompt,
+              generated_dimensions: generated.dimensions,
+              generated_style: generated.style,
+              brand_constrained: generated.brand_constrained,
+            },
+          },
+          ctx,
+          glyphorEventBus,
+        );
+
+        if (!publishResult.success) {
+          return {
+            ...publishResult,
             data: {
-              url: image?.url,
-              revised_prompt: image?.revised_prompt,
-              dimensions,
-              style,
-              brand_constrained: brandConstrained,
+              ...(publishResult.data as Record<string, unknown> | undefined),
+              generated_image_url: generated.url,
+              revised_prompt: generated.revised_prompt,
             },
           };
-        } catch (err) {
-          return { success: false, error: `generate_image failed: ${(err as Error).message}` };
         }
+
+        return {
+          success: true,
+          data: {
+            ...(publishResult.data as Record<string, unknown>),
+            generated_image_url: generated.url,
+            revised_prompt: generated.revised_prompt,
+            generated_dimensions: generated.dimensions,
+            generated_style: generated.style,
+          },
+        };
       },
+    },
+
+    // ── publish_asset_deliverable ─────────────────────────────────────
+    {
+      name: 'publish_asset_deliverable',
+      description:
+        'Upload an existing image to asset storage, sync it to SharePoint, and publish it as a durable design_asset deliverable.',
+      parameters: {
+        image_url: {
+          type: 'string',
+          description: 'URL to download from or base64-encoded image data',
+          required: true,
+        },
+        filename: { type: 'string', description: 'Target filename for the asset', required: true },
+        category: {
+          type: 'string',
+          description: 'Asset category',
+          required: true,
+          enum: [...VALID_ASSET_CATEGORIES],
+        },
+        alt_text: { type: 'string', description: 'Alt text for accessibility', required: true },
+        title: {
+          type: 'string',
+          description: 'Optional published deliverable title',
+          required: false,
+        },
+        initiative_id: {
+          type: 'string',
+          description: 'Initiative UUID the asset supports',
+          required: false,
+        },
+        directive_id: {
+          type: 'string',
+          description: 'Founder directive UUID the asset supports',
+          required: false,
+        },
+        assignment_id: {
+          type: 'string',
+          description: 'Work assignment UUID this asset fulfills',
+          required: false,
+        },
+        metadata: {
+          type: 'object',
+          description: 'Optional JSON metadata for the deliverable record',
+          required: false,
+        },
+        sharepoint_folder: {
+          type: 'string',
+          description: 'Optional SharePoint folder under the knowledge root for the asset file',
+          required: false,
+        },
+        sharepoint_file_name: {
+          type: 'string',
+          description: 'Optional SharePoint filename override',
+          required: false,
+        },
+        content: {
+          type: 'string',
+          description: 'Optional human-readable deliverable summary',
+          required: false,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => publishAssetDeliverableInternal(
+        {
+          image_url: params.image_url as string,
+          filename: params.filename as string,
+          category: params.category as AssetCategory,
+          alt_text: params.alt_text as string,
+          title: params.title as string | undefined,
+          initiative_id: params.initiative_id as string | undefined,
+          directive_id: params.directive_id as string | undefined,
+          assignment_id: params.assignment_id as string | undefined,
+          metadata: params.metadata,
+          sharepoint_folder: params.sharepoint_folder as string | undefined,
+          sharepoint_file_name: params.sharepoint_file_name as string | undefined,
+          content: params.content as string | undefined,
+        },
+        ctx,
+        glyphorEventBus,
+      ),
     },
 
     // ── upload_asset ───────────────────────────────────────────────────
@@ -123,46 +636,16 @@ export function createAssetTools(): ToolDefinition[] {
           type: 'string',
           description: 'Asset category',
           required: true,
-          enum: ['icon', 'illustration', 'hero', 'thumbnail', 'avatar', 'brand'],
+          enum: [...VALID_ASSET_CATEGORIES],
         },
         alt_text: { type: 'string', description: 'Alt text for accessibility', required: true },
       },
-      execute: async (params): Promise<ToolResult> => {
-        try {
-          const category = params.category as string;
-          const filename = params.filename as string;
-          const serviceUrl = getAssetServiceUrl();
-
-          const res = await fetch(`${serviceUrl}/upload`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              image_url: params.image_url,
-              filename,
-              category,
-              alt_text: params.alt_text,
-            }),
-            signal: AbortSignal.timeout(60_000),
-          });
-
-          if (!res.ok) {
-            return { success: false, error: `Asset upload returned ${res.status}: ${await res.text()}` };
-          }
-
-          const data = await res.json() as Record<string, unknown>;
-          return {
-            success: true,
-            data: {
-              path: data.path ?? `gs://glyphor-company/assets/${category}/${filename}`,
-              filename,
-              category,
-              alt_text: params.alt_text,
-            },
-          };
-        } catch (err) {
-          return { success: false, error: `upload_asset failed: ${(err as Error).message}` };
-        }
-      },
+      execute: async (params): Promise<ToolResult> => uploadAssetInternal({
+        image_url: params.image_url as string,
+        filename: params.filename as string,
+        category: params.category as AssetCategory,
+        alt_text: params.alt_text as string,
+      }),
     },
 
     // ── list_assets ────────────────────────────────────────────────────
@@ -174,7 +657,7 @@ export function createAssetTools(): ToolDefinition[] {
           type: 'string',
           description: 'Filter by asset category',
           required: false,
-          enum: ['icon', 'illustration', 'hero', 'thumbnail', 'avatar', 'brand'],
+          enum: [...VALID_ASSET_CATEGORIES],
         },
         search: { type: 'string', description: 'Search assets by name', required: false },
       },

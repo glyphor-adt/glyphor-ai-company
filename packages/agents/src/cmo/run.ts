@@ -73,7 +73,7 @@ export async function runCMO(params: CMORunParams = {}) {
     ...createAgentDirectoryTools(),
     ...createContentTools(),
     ...createSeoTools(),
-    ...createSocialMediaTools(),
+    ...createSocialMediaTools(glyphorEventBus),
     ...createMarketingIntelTools(),
     ...createCanvaTools(),
     ...createLogoTools(),

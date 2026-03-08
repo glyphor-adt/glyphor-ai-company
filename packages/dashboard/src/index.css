@@ -216,7 +216,7 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
 .ora-response-markdown h1,
 .ora-response-markdown h2,
 .ora-response-markdown h3 {
-  text-align: center;
+  text-align: left;
 }
 
 .ora-response-markdown hr,

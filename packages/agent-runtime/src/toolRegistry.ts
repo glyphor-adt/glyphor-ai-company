@@ -170,6 +170,8 @@ const KNOWN_TOOLS = new Set([
   'check_build_errors',
   // assetTools
   'generate_image',
+  'generate_and_publish_asset',
+  'publish_asset_deliverable',
   'upload_asset',
   'list_assets',
   'optimize_image',
@@ -453,6 +455,9 @@ const KNOWN_TOOLS = new Set([
   'create_content_draft',
   'update_content_draft',
   'get_content_drafts',
+  'submit_content_for_review',
+  'approve_content_draft',
+  'reject_content_draft',
   'publish_content',
   'get_content_metrics',
   'get_content_calendar',

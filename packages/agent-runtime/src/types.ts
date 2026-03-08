@@ -586,6 +586,9 @@ export const WRITE_TOOLS: ReadonlySet<string> = new Set([
   'escalate_ticket',
   'post_to_channel',
   'schedule_social_post',
+  'submit_content_for_review',
+  'approve_content_draft',
+  'reject_content_draft',
   // Data mutation
   'write_health_report',
   'write_financial_report',
@@ -623,6 +626,9 @@ export const WRITE_TOOLS: ReadonlySet<string> = new Set([
   'propose_directive',
   'propose_initiative',
   'activate_initiative',
+  'upload_asset',
+  'generate_and_publish_asset',
+  'publish_asset_deliverable',
   'publish_deliverable',
 ]);
 

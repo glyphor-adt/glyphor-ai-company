@@ -207,12 +207,12 @@ ON CONFLICT DO NOTHING;
 INSERT INTO company_pulse (id, mrr, mrr_change_pct, active_users, platform_status, company_mood, highlights, updated_at)
 VALUES (
   'current',
-  3247,
-  12.0,
-  47,
-  'degraded',
+  0,
+  0,
+  2,
+  'operational',
   'building',
-  '[{"agent": "system", "type": "alert", "text": "Telemetry blackout under investigation (P0)"},{"agent": "system", "type": "positive", "text": "27 agents configured with roles and authority"},{"agent": "system", "type": "positive", "text": "Platform deployed on GCP Cloud Run"},{"agent": "system", "type": "neutral", "text": "Enterprise pipeline: 3 prospects, $127K potential ARR"}]'::jsonb,
+  '[{"agent": "system", "type": "positive", "text": "27 agents configured with roles and authority"},{"agent": "system", "type": "positive", "text": "Platform deployed on GCP Cloud Run"},{"agent": "system", "type": "neutral", "text": "Pre-revenue: Pulse and Fuse in development"}]'::jsonb,
   NOW()
 )
 ON CONFLICT (id) DO UPDATE SET

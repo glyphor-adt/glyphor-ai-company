@@ -2077,6 +2077,31 @@ export function createOrchestrationTools(
             (params.completion_summary as string | undefined) ??
             (params.progress_note as string | undefined) ??
             null;
+          const publishedDeliverables = await systemQuery<any>(
+            `SELECT id, title, type, content, storage_url, producing_agent, created_at
+             FROM deliverables
+             WHERE directive_id = $1
+               AND status = 'published'
+             ORDER BY created_at DESC
+             LIMIT 10`,
+            [directiveId],
+          );
+          const downstreamDirectives = await systemQuery<any>(
+            `SELECT id, title, status
+             FROM founder_directives
+             WHERE initiative_id = $1
+               AND source_directive_id = $2
+             ORDER BY created_at ASC`,
+            [initiativeId, directiveId],
+          );
+          const deliverableSummaries = publishedDeliverables.map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            type: item.type,
+            producing_agent: item.producing_agent,
+            reference: item.storage_url || truncateDeliverableReference(item.content),
+          }));
+          const handoffRequired = downstreamDirectives.some((item: any) => item.status !== 'completed');
 
           await systemQuery(
             'INSERT INTO activity_log (agent_role, action, product, summary, details) VALUES ($1, $2, $3, $4, $5::jsonb)',
@@ -2089,6 +2114,10 @@ export function createOrchestrationTools(
                 initiative_id: initiativeId,
                 directive_id: directiveId,
                 directive_title: directive.title,
+                published_deliverable_count: deliverableSummaries.length,
+                published_deliverables: deliverableSummaries,
+                downstream_directives: downstreamDirectives,
+                handoff_required: handoffRequired,
               }),
             ],
           );
@@ -2102,6 +2131,10 @@ export function createOrchestrationTools(
                 directive_id: directiveId,
                 directive_title: directive.title,
                 completion_summary: completionSummary,
+                published_deliverable_count: deliverableSummaries.length,
+                published_deliverables: deliverableSummaries,
+                downstream_directives: downstreamDirectives,
+                handoff_required: handoffRequired,
               },
               priority: 'high',
             });
@@ -2159,10 +2192,16 @@ export function createOrchestrationTools(
               `UPDATE initiatives
                SET progress_summary = $2,
                    updated_at = NOW()
-               WHERE id = $1`,
+                WHERE id = $1`,
               [
                 initiativeId,
-                `${completedCount}/${totalCount} directives complete. Latest completion: ${directive.title as string}.`,
+                `${completedCount}/${totalCount} directives complete. Latest completion: ${directive.title as string}.` +
+                  (handoffRequired
+                    ? ` Downstream handoff ready for ${downstreamDirectives
+                        .filter((item: any) => item.status !== 'completed')
+                        .map((item: any) => `"${item.title}"`)
+                        .join(', ')}.`
+                    : ''),
               ],
             );
           }

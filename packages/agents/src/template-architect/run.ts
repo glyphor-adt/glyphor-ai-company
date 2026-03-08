@@ -47,7 +47,7 @@ export async function runTemplateArchitect(params: TemplateArchitectRunParams = 
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createFrontendCodeTools(),
     ...createDesignSystemTools(),
-    ...createAssetTools(),
+    ...createAssetTools(glyphorEventBus),
     ...createScaffoldTools(),
     ...createFigmaTools(),
     ...createStorybookTools(),
