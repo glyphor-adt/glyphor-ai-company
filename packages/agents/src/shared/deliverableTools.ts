@@ -17,6 +17,17 @@ const VALID_DELIVERABLE_TYPES = [
 
 type DeliverableType = (typeof VALID_DELIVERABLE_TYPES)[number];
 
+function isMissingDeliverablesRelation(error: unknown): boolean {
+  return error instanceof Error && /relation\s+"deliverables"\s+does not exist/i.test(error.message);
+}
+
+function deliverablesMigrationError(): ToolResult {
+  return {
+    success: false,
+    error: 'Deliverables schema is missing in this environment. Apply migration 20260308002000_core_initiatives_schema.sql before using deliverable tools.',
+  };
+}
+
 function normalizeMetadata(value: unknown): Record<string, unknown> {
   if (!value) return {};
   if (typeof value === 'string') {
@@ -131,23 +142,29 @@ export function createDeliverableTools(
         }
 
         const metadata = normalizeMetadata(params.metadata);
-        const [deliverable] = await systemQuery<{ id: string; created_at: string }>(
-          `INSERT INTO deliverables
-             (initiative_id, directive_id, assignment_id, title, type, content, storage_url, producing_agent, status, metadata)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'published', $9::jsonb)
-            RETURNING id, created_at`,
-          [
-            initiativeId,
-            directiveId,
-            assignmentId,
-            params.title,
-            type,
-            (params.content as string | undefined) ?? null,
-            (params.storage_url as string | undefined) ?? null,
-            ctx.agentRole,
-            JSON.stringify(metadata),
-          ],
-        );
+        let deliverable: { id: string; created_at: string } | undefined;
+        try {
+          [deliverable] = await systemQuery<{ id: string; created_at: string }>(
+            `INSERT INTO deliverables
+               (initiative_id, directive_id, assignment_id, title, type, content, storage_url, producing_agent, status, metadata)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'published', $9::jsonb)
+              RETURNING id, created_at`,
+            [
+              initiativeId,
+              directiveId,
+              assignmentId,
+              params.title,
+              type,
+              (params.content as string | undefined) ?? null,
+              (params.storage_url as string | undefined) ?? null,
+              ctx.agentRole,
+              JSON.stringify(metadata),
+            ],
+          );
+        } catch (error) {
+          if (isMissingDeliverablesRelation(error)) return deliverablesMigrationError();
+          throw error;
+        }
 
         if (!deliverable) {
           return {
@@ -271,25 +288,36 @@ export function createDeliverableTools(
           ORDER BY created_at DESC
           LIMIT $${queryParams.length}`;
 
-        const deliverables = await systemQuery(sql, queryParams);
+        let deliverables: unknown[];
+        try {
+          deliverables = await systemQuery(sql, queryParams);
+        } catch (error) {
+          if (isMissingDeliverablesRelation(error)) return deliverablesMigrationError();
+          throw error;
+        }
         const publishedIds = (deliverables as Array<{ id: string; status: string }>)
           .filter((row) => row.status === 'published')
           .map((row) => row.id);
 
         if (publishedIds.length > 0) {
-          await systemQuery(
-            `UPDATE deliverables
-             SET consumed_by = (
-               SELECT ARRAY(
-                 SELECT DISTINCT consumer
-                 FROM unnest(
-                   COALESCE(consumed_by, ARRAY[]::text[]) || ARRAY[$1]::text[]
-                 ) AS consumer
+          try {
+            await systemQuery(
+              `UPDATE deliverables
+               SET consumed_by = (
+                 SELECT ARRAY(
+                   SELECT DISTINCT consumer
+                   FROM unnest(
+                     COALESCE(consumed_by, ARRAY[]::text[]) || ARRAY[$1]::text[]
+                   ) AS consumer
+                 )
                )
-             )
-             WHERE id = ANY($2)`,
-            [ctx.agentRole, publishedIds],
-          );
+               WHERE id = ANY($2)`,
+              [ctx.agentRole, publishedIds],
+            );
+          } catch (error) {
+            if (isMissingDeliverablesRelation(error)) return deliverablesMigrationError();
+            throw error;
+          }
         }
 
         return { success: true, data: deliverables };

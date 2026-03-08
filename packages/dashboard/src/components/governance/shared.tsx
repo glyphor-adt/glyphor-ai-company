@@ -3,7 +3,7 @@ import { MdChevronRight, MdExpandMore } from 'react-icons/md';
 import { Card } from '../ui';
 import { DISPLAY_NAME_MAP, ROLE_DEPARTMENT, ROLE_TIER, ROLE_TITLE } from '../../lib/types';
 
-export type GovernanceSurface = 'command-center' | 'access-control' | 'policy-lab';
+export type GovernanceSurface = 'command-center' | 'tool-view' | 'access-control' | 'policy-lab';
 export type Platform = 'gcp' | 'm365' | 'github' | 'stripe' | 'vercel';
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info' | 'good' | 'warning';
 
@@ -135,6 +135,28 @@ export interface ToolGrant {
   scope: string;
   is_active: boolean;
   expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ToolReputation {
+  id: string;
+  tool_name: string;
+  tool_source: string;
+  total_calls: number;
+  successful_calls: number;
+  failed_calls: number;
+  timeout_calls: number;
+  avg_latency_ms: number | null;
+  downstream_defect_count: number;
+  contradiction_count: number;
+  last_used_at: string | null;
+  last_failed_at: string | null;
+  success_rate: number | null;
+  reliability_score: number | null;
+  is_active: boolean;
+  expired_at: string | null;
+  expiration_reason: string | null;
   created_at: string;
   updated_at: string;
 }

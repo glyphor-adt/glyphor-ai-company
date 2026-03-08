@@ -130,6 +130,7 @@ export function createExecutiveOrchestrationTools(
               depends_on: {
                 type: 'array',
                 description: 'IDs of assignments this depends on (optional)',
+                items: { type: 'string', description: 'Assignment ID' },
               },
               sequence_order: {
                 type: 'number',

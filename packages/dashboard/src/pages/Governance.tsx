@@ -4,6 +4,7 @@ import { Card, PageTabs, SectionHeader, Skeleton } from '../components/ui';
 import CommandCenter from '../components/governance/CommandCenter';
 import AccessControl from '../components/governance/AccessControl';
 import PolicyLab from '../components/governance/PolicyLab';
+import ToolView from '../components/governance/ToolView';
 import {
   ADMIN_EMAILS,
   AccessPostureResponse,
@@ -20,6 +21,7 @@ import {
   RiskSummaryItem,
   SecretRotation,
   ToolGrant,
+  ToolReputation,
   TrustMapEntry,
   getDisplayName,
   normalizeSeverity,
@@ -41,6 +43,7 @@ interface GovernanceData {
   iamState: IAMState[];
   secrets: SecretRotation[];
   grants: ToolGrant[];
+  toolReputation: ToolReputation[];
   pendingApprovals: PendingApproval[];
   policyImpact: PolicyImpactItem[];
   complianceHeatmap: ComplianceHeatmapCell[];
@@ -58,6 +61,7 @@ const INITIAL_DATA: GovernanceData = {
   iamState: [],
   secrets: [],
   grants: [],
+  toolReputation: [],
   pendingApprovals: [],
   policyImpact: [],
   complianceHeatmap: [],
@@ -406,6 +410,30 @@ function normalizeGrants(raw: unknown): ToolGrant[] {
   }));
 }
 
+function normalizeToolReputation(raw: unknown): ToolReputation[] {
+  return getRecordList(raw).map((item, index) => ({
+    id: asString(getValue(item, ['id'])) ?? `tool-reputation-${index}`,
+    tool_name: asString(getValue(item, ['tool_name'])) ?? 'unknown_tool',
+    tool_source: asString(getValue(item, ['tool_source', 'source'])) ?? 'unknown',
+    total_calls: asNumber(getValue(item, ['total_calls'])) ?? 0,
+    successful_calls: asNumber(getValue(item, ['successful_calls'])) ?? 0,
+    failed_calls: asNumber(getValue(item, ['failed_calls'])) ?? 0,
+    timeout_calls: asNumber(getValue(item, ['timeout_calls'])) ?? 0,
+    avg_latency_ms: asNumber(getValue(item, ['avg_latency_ms'])),
+    downstream_defect_count: asNumber(getValue(item, ['downstream_defect_count', 'defect_count'])) ?? 0,
+    contradiction_count: asNumber(getValue(item, ['contradiction_count'])) ?? 0,
+    last_used_at: asString(getValue(item, ['last_used_at'])),
+    last_failed_at: asString(getValue(item, ['last_failed_at'])),
+    success_rate: asNumber(getValue(item, ['success_rate'])),
+    reliability_score: asNumber(getValue(item, ['reliability_score'])),
+    is_active: asBoolean(getValue(item, ['is_active'])) ?? true,
+    expired_at: asString(getValue(item, ['expired_at'])),
+    expiration_reason: asString(getValue(item, ['expiration_reason'])),
+    created_at: asString(getValue(item, ['created_at'])) ?? new Date(0).toISOString(),
+    updated_at: asString(getValue(item, ['updated_at'])) ?? new Date(0).toISOString(),
+  }));
+}
+
 function normalizePendingApprovals(raw: unknown): PendingApproval[] {
   return getRecordList(raw).map((item, index) => ({
     id: asString(getValue(item, ['id'])) ?? `approval-${index}`,
@@ -496,6 +524,7 @@ export default function Governance() {
         iamStateRaw,
         secretsRaw,
         grantsRaw,
+        toolReputationRaw,
         approvalsRaw,
         policyImpactRaw,
         complianceRaw,
@@ -511,6 +540,7 @@ export default function Governance() {
         apiCallWithTimeout('/api/platform-iam-state').catch(() => null),
         apiCallWithTimeout('/api/platform-secret-rotation').catch(() => null),
         apiCallWithTimeout('/api/agent-tool-grants?order=agent_role.asc,tool_name.asc').catch(() => null),
+        apiCallWithTimeout('/api/tool-reputation?order=updated_at.desc&limit=200').catch(() => null),
         apiCallWithTimeout('/api/decisions?status=pending&order=created_at.desc&limit=20').catch(() => null),
         fetchWithFallback(['/api/governance/policy-impact']).catch(() => null),
         fetchWithFallback(['/api/governance/compliance-heatmap']).catch(() => null),
@@ -528,6 +558,7 @@ export default function Governance() {
         iamState: normalizeIamState(iamStateRaw),
         secrets: normalizeSecrets(secretsRaw),
         grants: normalizeGrants(grantsRaw),
+        toolReputation: normalizeToolReputation(toolReputationRaw),
         pendingApprovals: normalizePendingApprovals(approvalsRaw),
         policyImpact: normalizePolicyImpact(policyImpactRaw),
         complianceHeatmap: normalizeComplianceHeatmap(complianceRaw),
@@ -611,7 +642,7 @@ export default function Governance() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <SectionHeader title="Governance Control Plane" subtitle="Loading command center, access posture, and policy lab surfaces…" />
+        <SectionHeader title="Governance Control Plane" subtitle="Loading command center, tool view, access posture, and policy lab surfaces…" />
         {[1, 2, 3].map((index) => <Skeleton key={index} className="h-48 w-full" />)}
       </div>
     );
@@ -623,16 +654,16 @@ export default function Governance() {
         <div>
           <SectionHeader
             title="Governance Control Plane"
-            subtitle="Executive Command Center, Access Control, and Policy Lab surfaces aligned to the overhaul architecture."
+            subtitle="Executive Command Center, restored Tool View, Access Control, and Policy Lab surfaces aligned to the overhaul architecture."
           />
           <Card className="max-w-3xl border-prism-sky/20 bg-prism-sky/5">
             <p className="text-[13px] text-txt-secondary">
-              Operational telemetry and tool-health monitoring have been removed from governance.
+              Tool-health visibility has been restored inside Governance via Tool View.
               {' '}
               <Link to="/operations" className="font-medium text-prism-sky hover:underline">
                 Open Operations
               </Link>
-              {' '}for audit logs, reliability, and scheduler health.
+              {' '}for audit logs, reliability traces, and scheduler health.
             </p>
           </Card>
         </div>
@@ -649,6 +680,7 @@ export default function Governance() {
       <PageTabs<GovernanceSurface>
         tabs={[
           { key: 'command-center', label: 'Command Center' },
+          { key: 'tool-view', label: 'Tool View' },
           { key: 'access-control', label: 'Access Control' },
           { key: 'policy-lab', label: 'Policy Lab' },
         ]}
@@ -667,6 +699,17 @@ export default function Governance() {
           onResolveDecision={handleResolveApproval}
           busyDecisionId={busyDecisionId}
         />
+      )}
+
+      {activeTab === 'tool-view' && (
+        <div id="tool-view">
+          <ToolView
+            loading={false}
+            toolReputation={data.toolReputation}
+            grants={data.grants}
+            onOpenSurface={setActiveTab}
+          />
+        </div>
       )}
 
       {activeTab === 'access-control' && (
