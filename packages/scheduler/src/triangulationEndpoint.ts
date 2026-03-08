@@ -4,6 +4,7 @@ import { triangulate } from '@glyphor/agent-runtime';
 import type { ModelClient } from '@glyphor/agent-runtime';
 import type { RedisCache } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
+import { searchWeb, searchResultsToContext } from '@glyphor/integrations';
 
 function sendSSE(res: ServerResponse, event: Record<string, unknown>) {
   res.write(`data: ${JSON.stringify(event)}\n\n`);
@@ -44,10 +45,24 @@ export async function handleTriangulatedChat(
     const { message, features = {}, attachments = [], conversationId, userId } = body;
     const convId = conversationId || randomUUID();
 
+    // Run web search if enabled and inject results into system prompt
+    let systemPrompt = INTELLIGENCE_SYSTEM_PROMPT;
+    if (features.webSearch) {
+      try {
+        const searchResults = await searchWeb(message, { num: 8 });
+        if (searchResults.length > 0) {
+          const ctx = searchResultsToContext([{ query: message, results: searchResults }]);
+          systemPrompt += `\n\n## Web Search Results\n${ctx}\nUse these sources to ground your response. Cite URLs when referencing specific information.`;
+        }
+      } catch (err) {
+        console.warn('[triangulatedChat] Web search failed, continuing without:', err);
+      }
+    }
+
     const result = await triangulate(
       message,
       {
-        systemPrompt: INTELLIGENCE_SYSTEM_PROMPT,
+        systemPrompt,
         enableWebSearch: features.webSearch ?? false,
         enableDeepThinking: features.deepThinking ?? false,
         enableInternalSearch: features.knowledgeBase ?? features.internalSearch ?? true,
