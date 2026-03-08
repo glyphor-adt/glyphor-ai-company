@@ -949,7 +949,7 @@ export default function OraChat() {
                   </div>
                 ) : msg.content ? (
                   <>
-                    <div className="prose-chat"><Markdown>{msg.content}</Markdown></div>
+                    <div className={`prose-chat ${msg.role === 'assistant' ? 'ora-response-markdown' : ''}`}><Markdown>{msg.content}</Markdown></div>
                     {msg.role === 'assistant' && msg.metadata?.triangulation?.reasoning && (
                       <ReasoningPanel reasoning={msg.metadata.triangulation.reasoning} />
                     )}

@@ -46,7 +46,9 @@ COPY --from=builder /app/packages/integrations/dist packages/integrations/dist
 COPY --from=builder /app/packages/shared/dist packages/shared/dist
 COPY --from=builder /app/packages/scheduler/dist packages/scheduler/dist
 
-# Copy runtime config (agentIdentities.json used by glyphorMcpTools.ts)
+# Copy runtime config. The compiled agent-runtime helper resolves
+# agentIdentities.json from dist/config at runtime.
+COPY --from=builder /app/packages/agent-runtime/src/config/ packages/agent-runtime/dist/config/
 COPY packages/agent-runtime/src/config/ packages/agent-runtime/src/config/
 
 # Copy company knowledge files (read at runtime by agent runner)
