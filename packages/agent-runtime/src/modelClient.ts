@@ -95,8 +95,17 @@ export class ModelClient {
           const detail = cause ? `${msg} (cause: ${cause})` : msg;
           if (request.signal?.aborted) throw err;
 
-          // Non-retryable client errors (bad request, auth, not found) — no fallback
-          if (/40[0-2]|403|404|422/.test(msg) && !isQuotaError(msg)) {
+          // Auth errors (401/403) — non-retryable, affects all models in provider
+          if (/40[12]|403/.test(msg) && !isQuotaError(msg)) {
+            throw new Error(`[${provider}] ${detail} (model: ${currentModel})`);
+          }
+
+          // Model-level errors (400/404/422) — skip to next fallback model
+          if (/400|404|422/.test(msg) && !isQuotaError(msg)) {
+            if (modelIdx < modelsToTry.length - 1) {
+              console.warn(`[ModelClient] ${currentModel} returned ${msg.match(/40[04]|422/)?.[0] ?? 'client error'}, trying fallback ${modelsToTry[modelIdx + 1]}`);
+              break; // break retry loop → try next model
+            }
             throw new Error(`[${provider}] ${detail} (model: ${currentModel})`);
           }
 

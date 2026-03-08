@@ -108,6 +108,10 @@ export async function triangulate(
 
   // 5. Check if any responses succeeded
   const successful = responses.filter(r => r.status === 'success');
+  const failed = responses.filter(r => r.status === 'error');
+  for (const f of failed) {
+    console.warn(`[triangulate] Provider "${f.provider}" failed: ${f.error}`);
+  }
   if (successful.length === 0) {
     throw new Error('All providers failed during triangulation');
   }

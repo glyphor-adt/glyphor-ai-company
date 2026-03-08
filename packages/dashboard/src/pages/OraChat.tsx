@@ -273,6 +273,9 @@ function TriangulationPanel({ tri }: { tri: TriangulationResult }) {
           {Object.entries(tri.scores).map(([provider, scores]) => {
             if (!scores) return null;
             const isSelected = provider === tri.selectedProvider;
+            const providerError = tri.allResponses?.[provider]?.startsWith('[ERROR:')
+              ? tri.allResponses[provider].slice(8, -1)
+              : null;
             return (
               <div key={provider}>
                 <button
@@ -280,22 +283,33 @@ function TriangulationPanel({ tri }: { tri: TriangulationResult }) {
                   className="flex w-full items-center gap-2 text-left"
                 >
                   {isSelected && <span className="text-cyan-400">★</span>}
-                  <span className={`text-[12px] font-medium capitalize ${isSelected ? 'text-cyan-400' : 'text-prism-secondary'}`}>
+                  <span className={`text-[12px] font-medium capitalize ${isSelected ? 'text-cyan-400' : providerError ? 'text-red-400' : 'text-prism-secondary'}`}>
                     {provider}
                   </span>
-                  <div className="flex-1">
-                    <div className="h-2 rounded-full bg-prism-bg2">
-                      <div
-                        className={`h-2 rounded-full ${isSelected ? 'bg-cyan-400' : 'bg-prism-tertiary'}`}
-                        style={{ width: `${scores.total}%` }}
-                      />
-                    </div>
-                  </div>
-                  <span className="text-[11px] text-prism-tertiary">{scores.total}</span>
+                  {providerError ? (
+                    <span className="flex-1 text-[11px] text-red-400/70 truncate">unavailable</span>
+                  ) : (
+                    <>
+                      <div className="flex-1">
+                        <div className="h-2 rounded-full bg-prism-bg2">
+                          <div
+                            className={`h-2 rounded-full ${isSelected ? 'bg-cyan-400' : 'bg-prism-tertiary'}`}
+                            style={{ width: `${scores.total}%` }}
+                          />
+                        </div>
+                      </div>
+                      <span className="text-[11px] text-prism-tertiary">{scores.total}</span>
+                    </>
+                  )}
                 </button>
 
-                {/* Dimension scores */}
-                {expandedProvider === provider && (
+                {/* Error details or dimension scores */}
+                {expandedProvider === provider && providerError && (
+                  <div className="ml-6 mt-2 rounded-lg bg-red-900/20 border border-red-500/30 p-2">
+                    <p className="text-[11px] text-red-400">{providerError}</p>
+                  </div>
+                )}
+                {expandedProvider === provider && !providerError && (
                   <div className="ml-6 mt-2 grid grid-cols-5 gap-2">
                     {(['accuracy', 'completeness', 'reasoning', 'relevance', 'actionability'] as const).map((dim) => (
                       <div key={dim} className="text-center">
@@ -442,6 +456,7 @@ export default function OraChat() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+  const sendingRef = useRef(false);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -544,6 +559,8 @@ export default function OraChat() {
       setMessages([]);
       return;
     }
+    // Skip DB reload if we're in the middle of sending — messages are already in state
+    if (sendingRef.current) return;
     (async () => {
       try {
         const data = await apiCall<Array<{
@@ -726,6 +743,7 @@ export default function OraChat() {
     let sessionId = activeSessionId;
     if (!sessionId) {
       try {
+        sendingRef.current = true;
         const created = await apiCall<OraSession>('/api/ora-sessions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -900,6 +918,7 @@ export default function OraChat() {
       setActiveRequestFeatures(null);
       setActiveRequestMode(null);
       setActiveRequestModel(null);
+      sendingRef.current = false;
     } catch (err) {
       setMessages((prev) =>
         prev.map((m) =>
@@ -912,6 +931,7 @@ export default function OraChat() {
       setActiveRequestFeatures(null);
       setActiveRequestMode(null);
       setActiveRequestModel(null);
+      sendingRef.current = false;
     }
   }, [input, attachments, features, activeSessionId, userEmail, phase, mode, selectedModel, selectedGithubRepos, triangulationModels, messages]);
 
