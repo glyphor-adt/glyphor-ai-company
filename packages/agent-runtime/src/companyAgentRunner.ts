@@ -2097,7 +2097,7 @@ export class CompanyAgentRunner {
     const assignmentId = match[1];
     const toolResults = history
       .filter(t => t.role === 'tool_result')
-      .map(t => `[${t.toolName}] ${t.content.slice(0, 500)}`)
+      .map(t => `[${t.toolName}] ${(t.content ?? '').slice(0, 500)}`)
       .slice(-5);
 
     const partialOutput = [
@@ -2168,7 +2168,7 @@ export class CompanyAgentRunner {
     const reflectPrompt = `You just completed a task. Here is your final output:
 
 ---
-${output.slice(0, 3000)}
+${(output ?? '').slice(0, 3000)}
 ---
 
 Reflect on this run and respond with a JSON object (no markdown fencing):
@@ -2337,7 +2337,7 @@ For peerFeedback: If during this task you interacted with or observed the work o
 }
 
 function estimateTokens(history: ConversationTurn[]): number {
-  const totalChars = history.reduce((sum, t) => sum + t.content.length, 0);
+  const totalChars = history.reduce((sum, t) => sum + (t.content ?? '').length, 0);
   return Math.ceil(totalChars / 4);
 }
 

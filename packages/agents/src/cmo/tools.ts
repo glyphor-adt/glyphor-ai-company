@@ -13,6 +13,8 @@ function getPulseClient(): PulseClient | null {
   try { return PulseClient.fromEnv(); } catch { return null; }
 }
 
+const PULSE_UNAVAILABLE_MSG = 'Pulse is not yet deployed — the product is still in development. Video and image generation tools will be available once Pulse launches. Report this as a blocker to Sarah (Chief of Staff) so it can be tracked.';
+
 export function createCMOTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
     {
@@ -222,7 +224,7 @@ export function createCMOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params, ctx): Promise<ToolResult> => {
         const pulse = getPulseClient();
-        if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
+        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
         const image = await pulse.generateConceptImage({
           prompt: params.prompt as string,
           aspect_ratio: params.aspect_ratio as '1:1' | '16:9' | '9:16' | '4:3',
@@ -242,7 +244,7 @@ export function createCMOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params, ctx): Promise<ToolResult> => {
         const pulse = getPulseClient();
-        if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
+        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
         const storyboard = await pulse.createStoryboardFromIdea({
           idea: params.idea as string,
           title: params.title as string,
@@ -263,7 +265,7 @@ export function createCMOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params, ctx): Promise<ToolResult> => {
         const pulse = getPulseClient();
-        if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
+        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
         const video = await pulse.generateVideo({
           prompt: params.prompt as string,
           model: params.model as 'veo-3.1' | 'kling',
@@ -284,7 +286,7 @@ export function createCMOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params): Promise<ToolResult> => {
         const pulse = getPulseClient();
-        if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
+        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
         const enhanced = await pulse.enhancePrompt({
           prompt: params.prompt as string,
           medium: params.medium as 'image' | 'video',
@@ -301,7 +303,7 @@ export function createCMOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params): Promise<ToolResult> => {
         const pulse = getPulseClient();
-        if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
+        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
         const storyboards = await pulse.listStoryboards({ limit: params.limit as number });
         return { success: true, data: storyboards };
       },
@@ -315,7 +317,7 @@ export function createCMOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params): Promise<ToolResult> => {
         const pulse = getPulseClient();
-        if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
+        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
         const status = await pulse.pollVideoStatus({ video_id: params.video_id as string });
         return { success: true, data: status };
       },

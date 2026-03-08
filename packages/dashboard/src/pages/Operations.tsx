@@ -615,7 +615,7 @@ function OperationsOverview() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <SummaryCard label="Total Runs" value={String(totalRuns)} loading={loading} />
         <SummaryCard label="Total AI Spend" value={`$${totalCost.toFixed(2)}`} loading={loading} />
         <SummaryCard label="Avg Score" value={`${avgScore}/100`} loading={loading} />
@@ -1076,7 +1076,7 @@ function ActiveWorkflowsSection({
 
       {/* Workflow Metrics (30 days) */}
       {metrics && (
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           <SummaryCard label="Started (30d)" value={String(metrics.total_started)} loading={loading} />
           <SummaryCard label="Completed" value={String(metrics.total_completed)} loading={loading} />
           <SummaryCard label="Failed" value={String(metrics.total_failed)} loading={loading} />
@@ -1254,7 +1254,7 @@ function MemoryHealthSection({
       <SectionHeader title="Memory Health" />
 
       {/* Summary stats row */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <Card>
           <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Total Tracked</p>
           <p className="mt-1 font-mono text-2xl font-semibold text-txt-primary">

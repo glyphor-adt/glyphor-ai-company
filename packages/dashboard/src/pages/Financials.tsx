@@ -544,7 +544,7 @@ export default function Financials() {
             <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Data Source Status</p>
           </div>
           {syncLoading ? <Skeleton className="h-16" /> : (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {FINANCIAL_SYNCS.map((sync) => {
                 const s = syncStatuses.find((st) => st.id === sync.id);
                 const isOk = s?.status === 'ok';
@@ -578,14 +578,14 @@ export default function Financials() {
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
         <SummaryCard label="Monthly Revenue (Stripe)" value={`$${fmt(latestMRR)}`} loading={loading} sub={productMRR.map((p) => `${p.name}: $${fmt(p.mrr)}`).join(', ') || 'No product data'} />
         <SummaryCard label={`${currentMonthLabel} Costs (GCP)`} value={`$${fmt(gcpTotalCost)}`} loading={gcpLoading} />
         <SummaryCard label="Gross Margin" value={`${latestMargin.toFixed(1)}%`} loading={loading} />
       </div>
 
       {/* Banking Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
         <SummaryCard label="Cash Balance (Mercury)" value={`$${fmt(latestBalance)}`} loading={loading} />
         <SummaryCard label="Monthly Burn Rate" value={latestBurnRate > 0 ? `$${fmt(latestBurnRate)}` : '—'} loading={loading} />
         <SummaryCard label="Runway" value={runwayMonths > 0 ? `${runwayMonths.toFixed(1)} mo` : '—'} loading={loading} sub={runwayMonths > 0 ? `at current burn rate` : 'Awaiting burn data'} />
@@ -600,7 +600,7 @@ export default function Financials() {
       </div>
 
       {/* Per-product summary cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
         {PRODUCTS.map((p) => {
           const f = productFinancials[p] ?? { mrr: 0, costs: 0, apiCosts: 0, users: 0 };
           const totalCost = f.costs + f.apiCosts;

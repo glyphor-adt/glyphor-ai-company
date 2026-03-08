@@ -12,6 +12,8 @@ function getPulseClient(): PulseClient | null {
   try { return PulseClient.fromEnv(); } catch { return null; }
 }
 
+const PULSE_UNAVAILABLE_MSG = 'Pulse is not yet deployed — the product is still in development. Video and image generation tools will be available once Pulse launches. Report this as a blocker to Sarah (Chief of Staff) so it can be tracked.';
+
 export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolDefinition[] {
   const sharedScheduleTool = createSocialMediaTools().find((tool) => tool.name === 'schedule_social_post');
 
@@ -137,7 +139,7 @@ export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolD
       },
       async execute(params) {
         const pulse = getPulseClient();
-        if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
+        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
         const ratioMap: Record<string, '1:1' | '16:9' | '9:16'> = { twitter: '16:9', linkedin: '16:9', instagram: '1:1', tiktok: '9:16' };
         const image = await pulse.generateConceptImage({
           prompt: params.prompt as string,
@@ -158,7 +160,7 @@ export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolD
       },
       async execute(params) {
         const pulse = getPulseClient();
-        if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
+        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
         const verticalPlatforms = ['tiktok', 'instagram'];
         const video = await pulse.generateVideo({
           prompt: params.prompt as string,
@@ -177,7 +179,7 @@ export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolD
       },
       async execute(params) {
         const pulse = getPulseClient();
-        if (!pulse) return { success: false, error: 'Pulse not configured (PULSE_SERVICE_ROLE_KEY missing)' };
+        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
         const status = await pulse.pollVideoStatus({ video_id: params.video_id as string });
         return { success: true, data: status };
       },

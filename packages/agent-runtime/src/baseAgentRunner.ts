@@ -563,7 +563,7 @@ export abstract class BaseAgentRunner {
               archetype: this.archetype,
               totalTurns: supervisor.stats.turnCount,
               elapsedMs: supervisor.stats.elapsedMs,
-              summary: lastTextOutput.slice(0, 500),
+              summary: (lastTextOutput ?? '').slice(0, 500),
               ...(reasoningResult ? {
                 reasoning_passes: reasoningResult.passes.length,
                 reasoning_confidence: reasoningResult.overallConfidence,

@@ -534,7 +534,7 @@ function DDCurrentState({ report }: { report: DeepDiveReport }) {
       </div>
 
       {(fs.revenue || fs.funding) && (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             { label: 'Revenue', val: fs.revenue },
             { label: 'Growth', val: fs.revenueGrowth },
@@ -632,7 +632,7 @@ function DDOverview({ report }: { report: DeepDiveReport }) {
 function DDMarket({ report }: { report: DeepDiveReport }) {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           { label: 'TAM', ...report.marketAnalysis.tam },
           { label: 'SAM', ...report.marketAnalysis.sam },

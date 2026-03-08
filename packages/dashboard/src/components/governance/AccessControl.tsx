@@ -369,6 +369,7 @@ interface GrantInventoryItem extends ToolGrant {
   roleTitle: string;
   expiresInDays: number | null;
   inventoryStatus: GrantInventoryStatus;
+  capabilityLabels: string[];
   searchText: string;
 }
 
@@ -429,6 +430,42 @@ function matchesInventorySearch(searchText: string, query: string): boolean {
     .every((token) => searchText.includes(token));
 }
 
+function getGrantCapabilityLabels(grant: ToolGrant): string[] {
+  const searchable = normalizeInventorySearchValue([
+    grant.tool_name,
+    grant.scope,
+    grant.reason,
+  ].filter(Boolean).join(' '));
+
+  const labels = new Set<string>();
+
+  const addLabels = (condition: boolean, values: string[]) => {
+    if (!condition) return;
+    for (const value of values) labels.add(value);
+  };
+
+  addLabels(/teams/.test(searchable), ['teams access', 'm365 collaboration']);
+  addLabels(/mail|email|inbox|outlook/.test(searchable), ['email access', 'communications']);
+  addLabels(/calendar|meeting|schedule/.test(searchable), ['calendar access', 'scheduling']);
+  addLabels(/sharepoint|odsp|onedrive|document library|list/.test(searchable), ['sharepoint access', 'document access']);
+  addLabels(/word|docx|document/.test(searchable), ['word access', 'document authoring']);
+  addLabels(/copilot/.test(searchable), ['copilot access', 'm365 ai']);
+  addLabels(/userprofile|profile|org chart|manager|direct report/.test(searchable), ['directory access', 'org data']);
+  addLabels(/admincenter|admin center|tenant admin/.test(searchable), ['admin center access', 'tenant administration']);
+  addLabels(/github|repo|pull request|ci\/cd|deployment|vercel|cloud run/.test(searchable), ['engineering access']);
+  addLabels(/figma|storybook|design|screenshot|asset|frontend/.test(searchable), ['design access']);
+  addLabels(/stripe|mercury|billing|finance/.test(searchable), ['finance access']);
+  addLabels(/slack/.test(searchable), ['slack access', 'customer messaging']);
+  addLabels(/governance|iam|secret|grant|policy/.test(searchable), ['governance access']);
+  addLabels(/research|search|seo|analytics/.test(searchable), ['research access']);
+  addLabels(/legal|contract|compliance|privacy/.test(searchable), ['legal access']);
+  addLabels(/hr|people|engagement|performance|onboarding/.test(searchable), ['hr access']);
+
+  if (labels.size === 0) labels.add('general access');
+
+  return [...labels].sort((left, right) => left.localeCompare(right));
+}
+
 function AccessGrantManager({
   grants,
   pendingApprovals,
@@ -457,6 +494,7 @@ function AccessGrantManager({
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [agentFilter, setAgentFilter] = useState('all');
   const [toolFilter, setToolFilter] = useState('all');
+  const [capabilityFilter, setCapabilityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
 
   const departmentByRole = useMemo(() => {
@@ -472,6 +510,7 @@ function AccessGrantManager({
         const department = departmentByRole.get(grant.agent_role) ?? 'Other';
         const expiresInDays = daysUntil(grant.expires_at);
         const inventoryStatus = getGrantInventoryStatus(grant);
+        const capabilityLabels = getGrantCapabilityLabels(grant);
         return {
           ...grant,
           displayName,
@@ -479,6 +518,7 @@ function AccessGrantManager({
           department,
           expiresInDays,
           inventoryStatus,
+          capabilityLabels,
           searchText: buildInventorySearchText([
             grant.agent_role,
             displayName,
@@ -491,6 +531,7 @@ function AccessGrantManager({
             grant.scope,
             inventoryStatus,
             getGrantInventoryLabel(inventoryStatus),
+            capabilityLabels.join(' '),
           ]),
         };
       })
@@ -521,6 +562,10 @@ function AccessGrantManager({
     () => [...new Set(inventory.map((grant) => grant.tool_name))].sort((left, right) => left.localeCompare(right)),
     [inventory],
   );
+  const capabilityOptions = useMemo(
+    () => [...new Set(inventory.flatMap((grant) => grant.capabilityLabels))].sort((left, right) => left.localeCompare(right)),
+    [inventory],
+  );
 
   const filteredInventory = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -528,11 +573,12 @@ function AccessGrantManager({
       if (departmentFilter !== 'all' && grant.department !== departmentFilter) return false;
       if (agentFilter !== 'all' && grant.agent_role !== agentFilter) return false;
       if (toolFilter !== 'all' && grant.tool_name !== toolFilter) return false;
+      if (capabilityFilter !== 'all' && !grant.capabilityLabels.includes(capabilityFilter)) return false;
       if (statusFilter !== 'all' && grant.inventoryStatus !== statusFilter) return false;
       if (normalizedSearch && !matchesInventorySearch(grant.searchText, normalizedSearch)) return false;
       return true;
     });
-  }, [agentFilter, departmentFilter, inventory, search, statusFilter, toolFilter]);
+  }, [agentFilter, capabilityFilter, departmentFilter, inventory, search, statusFilter, toolFilter]);
 
   const filteredSummary = useMemo(() => {
     return {
@@ -561,11 +607,31 @@ function AccessGrantManager({
       .filter((group) => group.grants.length > 0);
   }, [filteredInventory]);
 
+  const filteredByAgent = useMemo(() => {
+    const grouped = new Map<string, GrantInventoryItem[]>();
+    for (const grant of filteredInventory) {
+      const current = grouped.get(grant.agent_role) ?? [];
+      current.push(grant);
+      grouped.set(grant.agent_role, current);
+    }
+
+    return [...grouped.entries()]
+      .map(([agentRole, items]) => ({
+        agentRole,
+        displayName: items[0]?.displayName ?? getDisplayName(agentRole),
+        roleTitle: items[0]?.roleTitle ?? getRoleTitle(agentRole),
+        department: items[0]?.department ?? departmentByRole.get(agentRole) ?? 'Other',
+        items: [...items].sort((left, right) => left.tool_name.localeCompare(right.tool_name)),
+      }))
+      .sort((left, right) => left.displayName.localeCompare(right.displayName));
+  }, [departmentByRole, filteredInventory]);
+
   const resetFilters = () => {
     setSearch('');
     setDepartmentFilter('all');
     setAgentFilter('all');
     setToolFilter('all');
+    setCapabilityFilter('all');
     setStatusFilter('all');
   };
 
@@ -703,7 +769,7 @@ function AccessGrantManager({
             </div>
           </div>
 
-          <div className="grid gap-3 rounded-xl border border-border/70 bg-prism-card/60 p-4 xl:grid-cols-[1.7fr,repeat(4,minmax(0,1fr)),auto]">
+          <div className="grid gap-3 rounded-xl border border-border/70 bg-prism-card/60 p-4 xl:grid-cols-[1.7fr,repeat(5,minmax(0,1fr)),auto]">
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -741,6 +807,16 @@ function AccessGrantManager({
               ))}
             </select>
             <select
+              value={capabilityFilter}
+              onChange={(event) => setCapabilityFilter(event.target.value)}
+              className="rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-txt-primary"
+            >
+              <option value="all">All capability families</option>
+              {capabilityOptions.map((capability) => (
+                <option key={capability} value={capability}>{toHumanWords(capability)}</option>
+              ))}
+            </select>
+            <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
               className="rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-txt-primary"
@@ -772,6 +848,11 @@ function AccessGrantManager({
             {statusFilter !== 'all' && (
               <span className="rounded-full border border-border/70 bg-prism-card px-2 py-0.5 text-[11px] text-txt-secondary">
                 {getGrantInventoryLabel(statusFilter as GrantInventoryStatus)}
+              </span>
+            )}
+            {capabilityFilter !== 'all' && (
+              <span className="rounded-full border border-border/70 bg-prism-card px-2 py-0.5 text-[11px] text-txt-secondary">
+                Capability: {toHumanWords(capabilityFilter)}
               </span>
             )}
           </div>
@@ -827,6 +908,16 @@ function AccessGrantManager({
                         <td className="px-4 py-3">
                           <p className="font-medium text-txt-primary">{toHumanWords(grant.tool_name)}</p>
                           <p className="mt-1 text-[11px] text-txt-muted">{grant.tool_name}</p>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {grant.capabilityLabels.map((label) => (
+                              <span
+                                key={`${grant.id}-${label}`}
+                                className="rounded-full border border-border/70 bg-surface px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-txt-muted"
+                              >
+                                {label}
+                              </span>
+                            ))}
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap items-center gap-2">
@@ -866,6 +957,42 @@ function AccessGrantManager({
               </table>
             </div>
           )}
+
+          <CollapsibleCard
+            title="Agent Assignment View"
+            subtitle="Use this when you want everything assigned to one agent, or to compare capability coverage across agents."
+            defaultOpen={agentFilter !== 'all' || filteredByAgent.length <= 3}
+          >
+            {filteredByAgent.length === 0 ? (
+              <p className="text-[13px] text-txt-muted">No agent assignments remain after the current filters.</p>
+            ) : (
+              <div className="grid gap-4 xl:grid-cols-2">
+                {filteredByAgent.map((agent) => (
+                  <div key={agent.agentRole} className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-txt-primary">{agent.displayName}</p>
+                        <p className="mt-1 text-[12px] text-txt-muted">{agent.agentRole} · {agent.roleTitle}</p>
+                        <p className="mt-1 text-[12px] text-txt-secondary">{agent.department}</p>
+                      </div>
+                      <div className="rounded-full border border-border/70 bg-surface px-3 py-1 text-[11px] font-medium text-txt-secondary">
+                        {agent.items.length} assignment{agent.items.length === 1 ? '' : 's'}
+                      </div>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {agent.items.map((grant) => (
+                        <div key={grant.id} className="rounded-lg border border-border/70 bg-surface px-3 py-2">
+                          <p className="text-[12px] font-medium text-txt-primary">{toHumanWords(grant.tool_name)}</p>
+                          <p className="mt-1 text-[11px] text-txt-muted">{grant.tool_name}</p>
+                          <p className="mt-1 text-[11px] text-txt-secondary">{grant.scope || 'full scope'}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CollapsibleCard>
 
           <CollapsibleCard
             title="Department Snapshot"

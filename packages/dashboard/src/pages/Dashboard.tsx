@@ -111,7 +111,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Stats Row ──────────────────────── */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <StatCard
           icon={<AgentIcon />}
           value={agentsLoading ? '…' : `${activeAgents}`}
@@ -191,7 +191,7 @@ export default function Dashboard() {
       {/* ── Quick Actions ─────────────────── */}
       <div>
         <SectionHeader title="Quick Actions" />
-        <div className="grid grid-cols-3 gap-4 mt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mt-1">
           <QuickActionCard
             to="/strategy"
             icon={<MdSearch className="h-6 w-6" />}
@@ -219,7 +219,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* ── Founder Briefing ──────────── */}
         <FounderBriefing />
 
@@ -277,13 +277,13 @@ export default function Dashboard() {
           }
         />
         {agentsLoading ? (
-          <div className="grid grid-cols-6 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-20" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-6 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
             {agents.slice(0, 12).map((agent) => (
               <Link
                 key={agent.id}

@@ -152,6 +152,17 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
   animation: fadeUp .35s ease-out both;
 }
 
+/* ─── Mobile safe area (iOS notch / home indicator) ── */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@supports (padding: max(0px)) {
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 4px);
+  }
+}
+
 /* ─── Chat markdown rendering (Claude-matched) ── */
 .prose-chat {
   font-size: 16px;
