@@ -858,10 +858,6 @@ export default function OraChat() {
       return [GITHUB_REPO_OPTIONS[0].value];
     });
   }, []);
-  const currentModelSummary = mode === 'single-model'
-    ? getModelLabel(selectedModel)
-    : `${getModelLabel(triangulationModels.claude)}, ${getModelLabel(triangulationModels.gemini)}, ${getModelLabel(triangulationModels.openai)}`;
-
   return (
     <div className="flex h-[calc(100vh-5rem)] flex-col">
       {/* Header */}
@@ -1199,7 +1195,7 @@ export default function OraChat() {
           }}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          placeholder="Reply..."
+          placeholder="Ask Ora"
           rows={1}
           className="w-full resize-none bg-transparent text-[15px] text-prism-primary placeholder:text-prism-tertiary outline-none"
           style={{ maxHeight: 160 }}
@@ -1220,11 +1216,6 @@ export default function OraChat() {
           </div>
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <div className="hidden rounded-full border border-prism-border bg-prism-bg2 px-3 py-2 text-[12px] text-prism-tertiary md:flex md:items-center md:gap-2">
-              <span>{formatComposerMode(mode)}</span>
-              <span className="text-prism-border">•</span>
-              <span className="truncate max-w-[14rem]">{mode === 'single-model' ? getModelLabel(selectedModel) : currentModelSummary}</span>
-            </div>
             <button
               type="button"
               onClick={toggleDictation}

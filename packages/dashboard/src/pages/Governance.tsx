@@ -165,6 +165,21 @@ interface AccessSurfaceOption {
   description: string;
 }
 
+function toHumanWords(value: string): string {
+  return value
+    .split('_')
+    .filter(Boolean)
+    .map((part) => {
+      const upper = part.toUpperCase();
+      if (['mcp', 'gcp', 'm365', 'iam', 'seo', 'ci', 'pr', 'hr', 'ip'].includes(part)) return upper;
+      if (['github', 'sharepoint', 'mailchimp', 'mandrill', 'figma', 'stripe', 'vercel', 'teams'].includes(part)) {
+        return part.charAt(0).toUpperCase() + part.slice(1);
+      }
+      return part.charAt(0).toUpperCase() + part.slice(1);
+    })
+    .join(' ');
+}
+
 const CATEGORY_LABELS: Record<ToolCategory, string> = {
   communication: 'Communication',
   memory: 'Memory & Knowledge',
@@ -494,7 +509,164 @@ const TOOL_CATALOG: Record<string, ToolInfo> = {
 
 /** Get tool info with fallback for unknown tools */
 function getToolInfo(toolName: string): ToolInfo {
-  return TOOL_CATALOG[toolName] ?? { description: toolName.replace(/_/g, ' '), category: 'workflow' as ToolCategory };
+  const existing = TOOL_CATALOG[toolName];
+  if (existing) return existing;
+
+  const name = toolName.toLowerCase();
+
+  if (name.includes('sharepoint')) {
+    return { description: toHumanWords(toolName), category: 'm365', platform: 'm365' };
+  }
+  if (
+    name.includes('mailchimp')
+    || name.includes('mandrill')
+    || name.includes('campaign')
+    || name.includes('transactional_email')
+  ) {
+    return { description: toHumanWords(toolName), category: 'content', platform: 'email-marketing' };
+  }
+  if (
+    name.startsWith('entra_')
+    || name.includes('teams')
+    || name.includes('channel')
+    || name.includes('calendar')
+    || name === 'list_users'
+    || name === 'get_user'
+  ) {
+    return { description: toHumanWords(toolName), category: 'm365', platform: 'm365' };
+  }
+  if (name.includes('github') || name.includes('_pr') || name.includes('repo') || name.includes('commit') || name.includes('branch')) {
+    return { description: toHumanWords(toolName), category: 'github', platform: 'github' };
+  }
+  if (name.includes('vercel')) {
+    return { description: toHumanWords(toolName), category: name.includes('usage') ? 'finance' : 'platform', platform: 'vercel' };
+  }
+  if (name.includes('stripe')) {
+    return { description: toHumanWords(toolName), category: 'finance', platform: 'stripe' };
+  }
+  if (
+    name.includes('gcp')
+    || name.includes('cloud_run')
+    || name.includes('gemini')
+    || name.includes('service_account')
+    || name.includes('secret')
+    || name.includes('project_iam')
+  ) {
+    return {
+      description: toHumanWords(toolName),
+      category: name.includes('iam') || name.includes('secret') || name.includes('service_account') ? 'gcp-iam' : 'platform',
+      platform: 'gcp',
+    };
+  }
+  if (name.includes('memory') || name.includes('knowledge') || name.includes('graph')) {
+    return { description: toHumanWords(toolName), category: 'memory' };
+  }
+  if (
+    name.includes('contract')
+    || name.includes('compliance')
+    || name.includes('privacy')
+    || name.includes('retention')
+    || name.includes('regulation')
+    || name.includes('tax')
+    || name.includes('ip_')
+    || name.includes('access_permissions')
+  ) {
+    return { description: toHumanWords(toolName), category: 'workflow', platform: 'legal' };
+  }
+  if (
+    name.includes('org_chart')
+    || name.includes('agent_directory')
+    || name.includes('performance_review')
+    || name.includes('team_dynamics')
+    || name.includes('engagement_survey')
+    || name.includes('onboarding_plan')
+    || name.includes('agent_profile')
+  ) {
+    return { description: toHumanWords(toolName), category: 'workflow', platform: 'hr' };
+  }
+  if (
+    name.includes('design')
+    || name.includes('figma')
+    || name.includes('component')
+    || name.includes('template')
+    || name.includes('storyboard')
+    || name.includes('image')
+    || name.includes('video')
+    || name.includes('lighthouse')
+    || name.includes('review')
+  ) {
+    return { description: toHumanWords(toolName), category: 'design', platform: name.includes('figma') ? 'figma' : undefined };
+  }
+  if (name.includes('support') || name.includes('ticket')) {
+    return { description: toHumanWords(toolName), category: 'support' };
+  }
+  if (
+    name.includes('company_info')
+    || name.includes('funding')
+    || name.includes('dossier')
+    || name.includes('linkedin')
+    || name.includes('prospect')
+    || name.includes('lead')
+  ) {
+    return { description: toHumanWords(toolName), category: 'sales' };
+  }
+  if (name.includes('seo') || name.includes('keyword') || name.includes('backlink') || name.includes('rank')) {
+    return { description: toHumanWords(toolName), category: 'seo' };
+  }
+  if (name.includes('social') || name.includes('audience') || name.includes('mentions') || name.includes('scheduled_posts')) {
+    return { description: toHumanWords(toolName), category: 'social' };
+  }
+  if (
+    name.includes('research')
+    || name.includes('competitor')
+    || name.includes('search_')
+    || name.includes('web_search')
+    || name.includes('web_fetch')
+    || name.includes('pricing')
+    || name.includes('job_postings')
+    || name.includes('intel')
+    || name.includes('news')
+  ) {
+    return { description: toHumanWords(toolName), category: 'research' };
+  }
+  if (
+    name.includes('revenue')
+    || name.includes('billing')
+    || name.includes('financial')
+    || name.includes('cost')
+    || name.includes('subscription')
+    || name.includes('mrr')
+    || name.includes('ltv')
+    || name.includes('cac')
+  ) {
+    return { description: toHumanWords(toolName), category: 'finance' };
+  }
+  if (
+    name.includes('analytics')
+    || name.includes('metrics')
+    || name.includes('performance')
+    || name.includes('content_drafts')
+    || name.includes('content_metrics')
+    || name.includes('funnel')
+    || name.includes('activation')
+    || name.includes('cohort')
+  ) {
+    return { description: toHumanWords(toolName), category: 'analytics' };
+  }
+  if (
+    name.includes('agent_run')
+    || name.includes('incident')
+    || name.includes('sync')
+    || name.includes('backlog')
+    || name.includes('milestone')
+    || name.includes('health')
+    || name.includes('status')
+    || name.includes('logs')
+  ) {
+    return { description: toHumanWords(toolName), category: 'operations' };
+  }
+
+  return { description: toHumanWords(toolName), category: 'workflow' };
 }
 
 function getHumanToolLabel(toolName: string): string {
@@ -528,10 +700,7 @@ function getHumanToolLabel(toolName: string): string {
 
   if (explicitLabels[toolName]) return explicitLabels[toolName];
 
-  return toolName
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
+  return toHumanWords(toolName);
 }
 
 const ACCESS_SURFACES: AccessSurfaceOption[] = [
@@ -556,7 +725,12 @@ function matchesAccessSurface(toolName: string, surface: AccessSurfaceKey): bool
 
   switch (surface) {
     case 'email':
-      return ['send_email', 'send_emergency_email', 'read_inbox', 'reply_to_email'].includes(name);
+      return ['send_email', 'send_emergency_email', 'read_inbox', 'reply_to_email'].includes(name)
+        || name.includes('mailchimp')
+        || name.includes('mandrill')
+        || name.includes('campaign')
+        || name.includes('transactional_email')
+        || (name.includes('email') && !name.includes('welcome_email_metrics'));
     case 'sharepoint':
       return name.includes('sharepoint');
     case 'teams':
@@ -591,14 +765,22 @@ function getAccessSurfaceLabel(surface: AccessSurfaceKey): string {
 }
 
 /** Group tools by category for dropdown */
-function getToolsByCategory(): { category: ToolCategory; label: string; tools: { name: string; description: string }[] }[] {
+function getToolsByCategory(toolNames?: Iterable<string>): { category: ToolCategory; label: string; tools: { name: string; description: string }[] }[] {
   const groups = new Map<ToolCategory, { name: string; description: string }[]>();
-  for (const [name, info] of Object.entries(TOOL_CATALOG)) {
+  const sourceNames = toolNames ? [...toolNames] : Object.keys(TOOL_CATALOG);
+  for (const name of sourceNames) {
+    const info = getToolInfo(name);
     if (!groups.has(info.category)) groups.set(info.category, []);
     groups.get(info.category)!.push({ name, description: info.description });
   }
   return [...groups.entries()]
-    .map(([category, tools]) => ({ category, label: CATEGORY_LABELS[category], tools: tools.sort((a, b) => a.name.localeCompare(b.name)) }))
+    .map(([category, tools]) => ({
+      category,
+      label: CATEGORY_LABELS[category],
+      tools: tools
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .filter((tool, index, all) => index === all.findIndex((candidate) => candidate.name === tool.name)),
+    }))
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 
@@ -1232,6 +1414,12 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
     () => [...new Set(activeGrants.map((g) => g.granted_by))].sort(),
     [activeGrants],
   );
+  const toolGroups = useMemo(() => {
+    const toolNames = new Set<string>(Object.keys(TOOL_CATALOG));
+    Object.values(AGENT_BUILT_IN_TOOLS).forEach((tools) => tools.forEach((tool) => toolNames.add(tool)));
+    activeGrants.forEach((grant) => toolNames.add(grant.tool_name));
+    return getToolsByCategory(toolNames);
+  }, [activeGrants]);
   const filteredGrants = useMemo(() => {
     return activeGrants.filter((g) => {
       if (!matchesAccessSurface(g.tool_name, accessSurface)) return false;
@@ -1535,29 +1723,32 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
                 className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-txt-primary"
               >
                 <option value="">Select tool…</option>
-                {getToolsByCategory().map((group) => (
+                {toolGroups.map((group) => (
                   <optgroup key={group.category} label={group.label}>
                     {group.tools.map((t) => (
                       <option key={t.name} value={t.name}>
-                        {t.name} — {t.description}
+                        {getHumanToolLabel(t.name)} ({t.name}) - {t.description}
                       </option>
                     ))}
                   </optgroup>
                 ))}
               </select>
-              {grantTool && TOOL_CATALOG[grantTool] && (
+              {grantTool && (() => {
+                const info = getToolInfo(grantTool);
+                return (
                 <p className="mt-1 text-[11px] text-txt-muted">
-                  <span className={`font-medium ${CATEGORY_COLORS[TOOL_CATALOG[grantTool].category]}`}>
-                    {CATEGORY_LABELS[TOOL_CATALOG[grantTool].category]}
+                  <span className={`font-medium ${CATEGORY_COLORS[info.category]}`}>
+                    {CATEGORY_LABELS[info.category]}
                   </span>
-                  {TOOL_CATALOG[grantTool].platform && (
+                  {info.platform && (
                     <span className="ml-2 rounded bg-prism-bg2 px-1.5 py-0.5 text-[10px]">
-                      {TOOL_CATALOG[grantTool].platform!.toUpperCase()}
+                      {info.platform.toUpperCase()}
                     </span>
                   )}
-                  {' · '}{TOOL_CATALOG[grantTool].description}
+                  {' · '}{info.description}
                 </p>
-              )}
+                );
+              })()}
             </div>
             <div className="col-span-2">
               <label className="mb-1 block text-[12px] font-medium text-txt-muted">Reason</label>
