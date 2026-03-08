@@ -6,7 +6,7 @@ import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { useAuth, getEmailAliases } from '../lib/auth';
-import { MdAttachFile, MdImage, MdDescription, MdClose, MdVideoCall, MdCallEnd, MdAdd, MdSearch } from 'react-icons/md';
+import { MdAttachFile, MdImage, MdDescription, MdClose, MdVideoCall, MdCallEnd, MdAdd, MdSearch, MdLanguage, MdCheck, MdScreenshotMonitor } from 'react-icons/md';
 import { HiMiniSignal, HiStop, HiMicrophone } from 'react-icons/hi2';
 import { useVoiceChat } from '../lib/useVoiceChat';
 import VoiceOverlay from '../components/VoiceOverlay';
@@ -188,6 +188,8 @@ export default function Chat() {
   const [pendingFiles, setPendingFiles] = useState<Attachment[]>([]);
   const [dragging, setDragging] = useState(false);
   const [showOrgChart, setShowOrgChart] = useState(false);
+  const [showPlusMenu, setShowPlusMenu] = useState(false);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [sidebarSearch, setSidebarSearch] = useState('');
   const [recentChats, setRecentChats] = useState<RecentChat[]>([]);
   const [saveFailed, setSaveFailed] = useState(false);
@@ -311,6 +313,20 @@ export default function Chat() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const plusMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close plus menu on outside click
+  useEffect(() => {
+    if (!showPlusMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (plusMenuRef.current && !plusMenuRef.current.contains(e.target as Node)) {
+        setShowPlusMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showPlusMenu]);
+
   const selectedRoleRef = useRef(selectedRole);
   useEffect(() => {
     selectedRoleRef.current = selectedRole;
@@ -601,6 +617,7 @@ export default function Chat() {
             userName: user?.name,
             userEmail,
             ...(apiAttachments ? { attachments: apiAttachments } : {}),
+            ...(webSearchEnabled ? { webSearch: true } : {}),
           }),
           signal: controller.signal,
         });
@@ -981,14 +998,54 @@ export default function Chat() {
           )}
 
           <div className="flex gap-2 items-end">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex-shrink-0 rounded-lg border border-border bg-raised px-2.5 py-2.5 text-txt-muted hover:text-cyan transition-colors"
-              title="Attach file"
-            >
-              <MdAttachFile className="text-[16px]" />
-            </button>
+            {/* Claude-style + menu */}
+            <div ref={plusMenuRef} className="relative flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowPlusMenu((v) => !v)}
+                className={`flex items-center justify-center w-[40px] h-[40px] rounded-full border transition-colors ${
+                  showPlusMenu
+                    ? 'border-cyan/40 bg-cyan/10 text-cyan'
+                    : 'border-border bg-raised text-txt-muted hover:text-cyan hover:border-cyan/40'
+                }`}
+                title="Options"
+              >
+                <MdAdd className={`text-[20px] transition-transform ${showPlusMenu ? 'rotate-45' : ''}`} />
+              </button>
+
+              {showPlusMenu && (
+                <div className="absolute bottom-full left-0 mb-2 w-56 rounded-xl border border-border bg-surface shadow-lg z-20 py-1.5 animate-fade-up">
+                  <button
+                    type="button"
+                    onClick={() => { fileInputRef.current?.click(); setShowPlusMenu(false); }}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-txt-secondary hover:bg-[var(--color-hover-bg)] transition-colors"
+                  >
+                    <MdAttachFile className="text-[18px] text-txt-muted" />
+                    Attach files
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowPlusMenu(false); /* paste screenshot placeholder */ }}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-txt-secondary hover:bg-[var(--color-hover-bg)] transition-colors"
+                  >
+                    <MdScreenshotMonitor className="text-[18px] text-txt-muted" />
+                    Paste screenshot
+                  </button>
+
+                  <div className="my-1.5 border-t border-border/50" />
+
+                  <button
+                    type="button"
+                    onClick={() => setWebSearchEnabled((v) => !v)}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-txt-secondary hover:bg-[var(--color-hover-bg)] transition-colors"
+                  >
+                    <MdLanguage className={`text-[18px] ${webSearchEnabled ? 'text-cyan' : 'text-txt-muted'}`} />
+                    <span className={webSearchEnabled ? 'text-cyan' : ''}>Web search</span>
+                    {webSearchEnabled && <MdCheck className="ml-auto text-[18px] text-cyan" />}
+                  </button>
+                </div>
+              )}
+            </div>
             <input
               ref={fileInputRef}
               type="file"

@@ -185,8 +185,8 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'platform-eng-daily',
     agentRole: 'platform-engineer',
-    schedule: '30 12 * * *',  // 6:30 AM CT — infrastructure review
-    timezone: 'America/Chicago',
+    schedule: '0 */2 * * *',  // every 2 hours — infrastructure health check
+    timezone: 'UTC',
     task: 'health_check',
     payload: {},
     enabled: true,

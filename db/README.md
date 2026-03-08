@@ -106,3 +106,42 @@ psql "host=/cloudsql/ai-glyphor-company:us-central1:glyphor-db dbname=glyphor us
 # Apply a specific migration
 \i db/migrations/20260302100003_row_level_security.sql
 ```
+
+## Migration Ledger And Drift Checks
+
+The repo now includes a lightweight migration ledger to reduce future schema drift.
+
+Ledger table:
+- `schema_migrations`
+- stores migration file name, checksum, applied timestamp, DB user, and source
+
+Recommended workflow:
+
+```bash
+# One-time after reconciling a live database with the repo
+npm run db:reconcile-ledger
+
+# Apply a future migration and record it in the ledger
+npm run db:apply-migration -- 20260308001000_schema_migration_ledger.sql
+
+# Check for drift between db/migrations and the live ledger
+npm run db:drift-check
+```
+
+Connection settings for the scripts use standard env vars:
+- `DB_HOST`
+- `DB_PORT`
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+- or `DATABASE_URL`
+
+For local Cloud SQL Proxy usage, a typical pattern is:
+
+```bash
+DB_HOST=localhost
+DB_PORT=15432
+DB_NAME=glyphor
+DB_USER=glyphor_app
+DB_PASSWORD=<from GCP Secret Manager>
+```

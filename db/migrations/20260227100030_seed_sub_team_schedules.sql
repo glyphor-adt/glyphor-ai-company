@@ -5,7 +5,7 @@
 INSERT INTO agent_schedules (agent_id, cron_expression, task, enabled, payload)
 VALUES
   -- Engineering sub-team (reports to CTO)
-  ('platform-engineer', '30 12 * * *', 'health_check', true, '{}'),
+  ('platform-engineer', '0 */2 * * *', 'health_check', true, '{}'),
   ('quality-engineer',  '0 13 * * *',  'qa_report',    true, '{}'),
   ('devops-engineer',   '0 12 * * *',  'pipeline_report', true, '{}'),
 
@@ -40,10 +40,10 @@ VALUES
   ('m365-admin', '0 12 * * 1', 'channel_audit', true, '{}'),
   ('m365-admin', '0 13 * * 1', 'user_audit',    true, '{}'),
 
-  -- Ops (Atlas Vega) — high-frequency
-  ('ops', '*/10 * * * *', 'health_check',    true, '{}'),
-  ('ops', '*/30 * * * *', 'freshness_check', true, '{}'),
-  ('ops', '0 * * * *',    'cost_check',      true, '{}'),
+  -- Ops (Atlas Vega) — reduced frequency for cost
+  ('ops', '0 */2 * * *',  'health_check',    true, '{}'),
+  ('ops', '0 */6 * * *',  'freshness_check', true, '{}'),
+  ('ops', '0 */4 * * *',  'cost_check',      true, '{}'),
   ('ops', '0 11 * * *',   'morning_status',  true, '{}'),
   ('ops', '0 22 * * *',   'evening_status',  true, '{}'),
 
