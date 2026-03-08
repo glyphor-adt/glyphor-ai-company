@@ -2,7 +2,39 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Markdown from 'react-markdown';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { useAuth, getEmailAliases } from '../lib/auth';
-import type { TriangulationResult, ProviderScores, QueryTier } from '@glyphor/shared';
+
+/* ── Triangulation types (mirrored from @glyphor/shared) ───── */
+
+type QueryTier = 'SIMPLE' | 'STANDARD' | 'DEEP';
+
+interface ProviderScores {
+  accuracy: number;
+  completeness: number;
+  reasoning: number;
+  relevance: number;
+  actionability: number;
+  total: number;
+}
+
+interface Divergence {
+  claim: string;
+  providersAgree: string[];
+  providerDisagrees: string[];
+  likelyCorrect: string;
+}
+
+interface TriangulationResult {
+  tier: QueryTier;
+  selectedProvider: 'claude' | 'gemini' | 'openai';
+  selectedResponse: string;
+  confidence: number;
+  consensusLevel: 'high' | 'moderate' | 'low' | 'n/a';
+  reasoning: string;
+  scores: Record<string, ProviderScores | null>;
+  divergences: Divergence[];
+  allResponses: Record<string, string>;
+  cost: { perProvider: Record<string, number>; total: number };
+}
 
 /* ── Types ─────────────────────────────────────────── */
 
