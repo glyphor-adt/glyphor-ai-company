@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Markdown from 'react-markdown';
-import { Orbit } from 'lucide-react';
+import { Orbit, Plus, Globe, Brain, Database, Github, Paperclip, Copy, Check, ChevronDown, Mic, MicOff, Image as ImageIcon } from 'lucide-react';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { getModelLabel, getModelsByProvider, PROVIDER_LABELS } from '../lib/models';
 import { useAuth, getEmailAliases } from '../lib/auth';
@@ -80,6 +80,18 @@ interface Message {
 type StreamPhase = 'idle' | 'streaming' | 'validating' | 'evaluating' | 'complete';
 type OraMode = 'triangulated' | 'single-model';
 
+interface OraPreferences {
+  mode: OraMode;
+  selectedModel: string;
+  triangulationModels: {
+    claude: string;
+    gemini: string;
+    openai: string;
+  };
+  selectedGithubRepos: string[];
+  features: Features;
+}
+
 const GITHUB_REPO_OPTIONS = [
   { value: 'company', label: 'glyphor-ai-company' },
   { value: 'fuse', label: 'glyphor-ai-spark-c03e7e1a' },
@@ -121,6 +133,18 @@ function formatDuration(ms?: number) {
 function triangulationModelSummary(models?: TriangulationResult['models']) {
   if (!models) return 'Claude, Gemini, and GPT-5';
   return [models.claude, models.gemini, models.openai].map(getModelLabel).join(', ');
+}
+
+function oraPreferencesStorageKey(userEmail: string) {
+  return `ora-preferences:${userEmail}`;
+}
+
+function formatComposerMode(mode: OraMode) {
+  return mode === 'triangulated' ? 'Triangulated' : 'Single model';
+}
+
+function formatThinkingMode(features: Features) {
+  return features.deepThinking ? 'Reasoning' : 'Standard';
 }
 
 /* ── Triangulation Panel ──────────────────────────── */
@@ -239,6 +263,32 @@ function TriangulationPanel({ tri }: { tri: TriangulationResult }) {
   );
 }
 
+function ReasoningPanel({ reasoning }: { reasoning: string }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="mt-4 rounded-2xl border border-prism-border bg-prism-bg2/60">
+      <button
+        type="button"
+        onClick={() => setExpanded((value) => !value)}
+        className="flex w-full items-center gap-2 px-4 py-3 text-left"
+      >
+        <Brain className="h-4 w-4 text-cyan-400" />
+        <span className="text-[12px] font-medium text-prism-primary">Reasoning</span>
+        <span className="text-[11px] text-prism-tertiary">{expanded ? 'Hide' : 'Show'}</span>
+        <ChevronDown className={`ml-auto h-4 w-4 text-prism-tertiary transition-transform ${expanded ? 'rotate-180' : ''}`} />
+      </button>
+      {expanded && (
+        <div className="border-t border-prism-border px-4 py-4">
+          <div className="prose-chat text-[12px] text-prism-tertiary">
+            <Markdown>{reasoning}</Markdown>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Main Component ───────────────────────────────── */
 
 export default function OraChat() {
@@ -263,6 +313,9 @@ export default function OraChat() {
   });
   const [selectedGithubRepos, setSelectedGithubRepos] = useState<string[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [hasLoadedPreferences, setHasLoadedPreferences] = useState(false);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState(false);
   const [features, setFeatures] = useState<Features>({
     deepThinking: false,
     webSearch: false,
@@ -274,6 +327,7 @@ export default function OraChat() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
   const conversationId = useMemo(() => `ora-${userEmail}`, [userEmail]);
 
   // Auto-scroll on new messages
@@ -293,6 +347,51 @@ export default function OraChat() {
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, [menuOpen]);
+
+  const copyMessage = useCallback(async (messageId: string, content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedMessageId(messageId);
+      window.setTimeout(() => {
+        setCopiedMessageId((current) => (current === messageId ? null : current));
+      }, 1500);
+    } catch {
+      // Ignore clipboard failures
+    }
+  }, []);
+
+  const toggleDictation = useCallback(() => {
+    const SpeechRecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor) return;
+
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      return;
+    }
+
+    const recognition = new SpeechRecognitionCtor();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+    recognition.onresult = (event: any) => {
+      let transcript = '';
+      for (let index = 0; index < event.results.length; index++) {
+        transcript += event.results[index][0]?.transcript ?? '';
+      }
+      setInput(transcript.trimStart());
+      window.setTimeout(() => {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.style.height = 'auto';
+        el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+      }, 0);
+    };
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => setIsListening(false);
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  }, [isListening]);
 
   // Auto-resize textarea
   const resizeTextarea = useCallback(() => {
@@ -334,6 +433,62 @@ export default function OraChat() {
     })();
   }, [userAliases]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || !userEmail) return;
+
+    try {
+      const raw = window.localStorage.getItem(oraPreferencesStorageKey(userEmail));
+      if (!raw) {
+        setHasLoadedPreferences(true);
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as Partial<OraPreferences>;
+
+      if (parsed.mode === 'triangulated' || parsed.mode === 'single-model') {
+        setMode(parsed.mode);
+      }
+      if (typeof parsed.selectedModel === 'string') {
+        setSelectedModel(parsed.selectedModel);
+      }
+      if (parsed.triangulationModels) {
+        setTriangulationModels((prev) => ({
+          claude: typeof parsed.triangulationModels?.claude === 'string' ? parsed.triangulationModels.claude : prev.claude,
+          gemini: typeof parsed.triangulationModels?.gemini === 'string' ? parsed.triangulationModels.gemini : prev.gemini,
+          openai: typeof parsed.triangulationModels?.openai === 'string' ? parsed.triangulationModels.openai : prev.openai,
+        }));
+      }
+      if (Array.isArray(parsed.selectedGithubRepos)) {
+        setSelectedGithubRepos(parsed.selectedGithubRepos.filter((value): value is string => typeof value === 'string'));
+      }
+      if (parsed.features) {
+        setFeatures((prev) => ({
+          deepThinking: typeof parsed.features?.deepThinking === 'boolean' ? parsed.features.deepThinking : prev.deepThinking,
+          webSearch: typeof parsed.features?.webSearch === 'boolean' ? parsed.features.webSearch : prev.webSearch,
+          knowledgeBase: typeof parsed.features?.knowledgeBase === 'boolean' ? parsed.features.knowledgeBase : prev.knowledgeBase,
+        }));
+      }
+    } catch {
+      // Ignore malformed local preferences
+    } finally {
+      setHasLoadedPreferences(true);
+    }
+  }, [userEmail]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !userEmail || !hasLoadedPreferences) return;
+
+    const preferences: OraPreferences = {
+      mode,
+      selectedModel,
+      triangulationModels,
+      selectedGithubRepos,
+      features,
+    };
+
+    window.localStorage.setItem(oraPreferencesStorageKey(userEmail), JSON.stringify(preferences));
+  }, [userEmail, hasLoadedPreferences, mode, selectedModel, triangulationModels, selectedGithubRepos, features]);
+
   // File handling
   const addFiles = useCallback((files: FileList | File[]) => {
     Array.from(files).forEach((file) => {
@@ -348,6 +503,26 @@ export default function OraChat() {
       reader.readAsDataURL(file);
     });
   }, []);
+
+  const pasteClipboardImage = useCallback(async () => {
+    try {
+      if (!navigator.clipboard?.read) {
+        textareaRef.current?.focus();
+        return;
+      }
+      const items = await navigator.clipboard.read();
+      const files: File[] = [];
+      for (const item of items) {
+        const imageType = item.types.find((type) => type.startsWith('image/'));
+        if (!imageType) continue;
+        const blob = await item.getType(imageType);
+        files.push(new File([blob], `clipboard-${Date.now()}.png`, { type: imageType }));
+      }
+      if (files.length > 0) addFiles(files);
+    } catch {
+      // Ignore clipboard failures
+    }
+  }, [addFiles]);
 
   const removeAttachment = useCallback((idx: number) => {
     setAttachments((prev) => {
@@ -610,16 +785,37 @@ export default function OraChat() {
           </div>
         )}
 
-        <div className="space-y-4">
+        <div className="space-y-6">
           {messages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div key={msg.id} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-center'}`}>
               <div
-                className={`max-w-[75%] rounded-xl px-4 py-2.5 text-[13px] leading-relaxed ${
-                  msg.role === 'user'
-                    ? 'bg-cyan-500/10 text-prism-secondary border border-cyan-500/20'
-                    : 'bg-prism-bg2 text-prism-secondary border border-prism-border'
-                }`}
+                className={msg.role === 'user'
+                  ? 'max-w-[42rem] rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-[13px] leading-relaxed text-prism-secondary'
+                  : 'w-full max-w-3xl rounded-[28px] border border-prism-border bg-prism-bg2/90 px-6 py-5 text-[14px] leading-7 text-prism-secondary shadow-[0_16px_44px_rgba(0,0,0,0.18)]'}
               >
+                {msg.role === 'assistant' ? (
+                  <div className="mb-4 flex items-center gap-3 border-b border-prism-border pb-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/10">
+                      <Orbit className="h-4 w-4 text-cyan-400" strokeWidth={1.8} />
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-semibold text-prism-primary">Ora</p>
+                      <p className="text-[11px] text-prism-tertiary">
+                        {msg.metadata?.singleModel
+                          ? `${getModelLabel(msg.metadata.singleModel.model)} · ${msg.metadata.singleModel.thinkingEnabled ? 'Reasoning' : 'Standard'}`
+                          : `${formatComposerMode(mode)} · ${formatThinkingMode(features)}`}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => copyMessage(msg.id, msg.content)}
+                      className="ml-auto inline-flex items-center gap-1 rounded-full border border-prism-border bg-prism-card px-3 py-1.5 text-[11px] text-prism-tertiary transition-colors hover:border-cyan-500/30 hover:text-cyan-300"
+                    >
+                      {copiedMessageId === msg.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copiedMessageId === msg.id ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+                ) : null}
                 {/* Attachments */}
                 {msg.attachments?.length ? (
                   <div className="mb-2 flex flex-wrap gap-1">
@@ -660,6 +856,9 @@ export default function OraChat() {
                 ) : msg.content ? (
                   <>
                     <div className="prose-chat"><Markdown>{msg.content}</Markdown></div>
+                    {msg.role === 'assistant' && msg.metadata?.triangulation?.reasoning && (
+                      <ReasoningPanel reasoning={msg.metadata.triangulation.reasoning} />
+                    )}
                     {msg.metadata?.triangulation && msg.metadata.tier !== 'SIMPLE' && completedDurationLabel(msg.metadata.triangulation) && (
                       <div className="mt-2 text-[11px] text-prism-tertiary">
                         {msg.metadata.triangulation.tier.toLowerCase()} triangulation completed in {completedDurationLabel(msg.metadata.triangulation)} using {triangulationModelSummary(msg.metadata.triangulation.models)}.
@@ -715,206 +914,187 @@ export default function OraChat() {
       )}
 
       {/* Input area */}
-      <div className="relative mt-2 rounded-xl border border-prism-border bg-prism-card p-3" ref={menuRef}>
-        <div className="mb-2 flex items-center justify-between text-[11px] text-prism-tertiary">
-          <div className="flex items-center gap-2">
-            <span>{mode === 'triangulated' ? 'Triangulated' : 'Single-model'}</span>
-            {mode === 'single-model' && <span>{getModelLabel(selectedModel)}</span>}
-            {mode === 'triangulated' && <span>{triangulationModelSummary(triangulationModels)}</span>}
-          </div>
-          <div className="flex items-center gap-2">
-            {features.deepThinking && <span>Deep reasoning</span>}
-            {features.webSearch && <span>Web</span>}
-            {features.knowledgeBase && <span>KB</span>}
-            {githubEnabled && <span>{selectedGithubRepos.length} GitHub</span>}
-          </div>
-        </div>
-
+      <div className="relative mt-2 rounded-[30px] border border-prism-border bg-prism-card px-4 py-3 shadow-prism-lg" ref={menuRef}>
         {menuOpen && (
-          <div className="absolute bottom-full left-0 z-20 mb-2 w-[340px] rounded-xl border border-prism-border bg-prism-card p-3 shadow-prism-lg">
-            <div className="space-y-3 text-[12px] text-prism-secondary">
-              <div>
-                <div className="mb-1 text-[11px] uppercase tracking-wider text-prism-tertiary">Mode</div>
-                <select
-                  value={mode}
-                  onChange={(e) => setMode(e.target.value as OraMode)}
-                  disabled={isLoading}
-                  className="w-full rounded-lg border border-prism-border bg-prism-bg2 px-3 py-2 text-[12px] text-prism-primary outline-none focus:border-cyan-500/40 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="triangulated">Triangulated</option>
-                  <option value="single-model">Single-model</option>
-                </select>
-              </div>
-
-              {mode === 'single-model' && (
-                <div>
-                  <div className="mb-1 text-[11px] uppercase tracking-wider text-prism-tertiary">Model</div>
-                  <select
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                    disabled={isLoading}
-                    className="w-full rounded-lg border border-prism-border bg-prism-bg2 px-3 py-2 text-[12px] text-prism-primary outline-none focus:border-cyan-500/40 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {(['openai', 'anthropic', 'gemini'] as const).map((provider) => (
-                      <optgroup key={provider} label={PROVIDER_LABELS[provider]}>
-                        {modelGroups[provider].map((modelOption) => (
-                          <option key={modelOption.value} value={modelOption.value}>{modelOption.label}</option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {mode === 'triangulated' && (
-                <div>
-                  <div className="mb-1 text-[11px] uppercase tracking-wider text-prism-tertiary">Triangulation Models</div>
-                  <div className="space-y-2 rounded-lg border border-prism-border bg-prism-bg2 p-2.5">
-                    <div>
-                      <div className="mb-1 text-[11px] text-prism-tertiary">Anthropic slot</div>
-                      <select
-                        value={triangulationModels.claude}
-                        onChange={(e) => setTriangulationModels((prev) => ({ ...prev, claude: e.target.value }))}
-                        disabled={isLoading}
-                        className="w-full rounded-lg border border-prism-border bg-prism-card px-3 py-2 text-[12px] text-prism-primary outline-none focus:border-cyan-500/40 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {modelGroups.anthropic.map((modelOption) => (
-                          <option key={modelOption.value} value={modelOption.value}>{modelOption.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <div className="mb-1 text-[11px] text-prism-tertiary">Gemini slot</div>
-                      <select
-                        value={triangulationModels.gemini}
-                        onChange={(e) => setTriangulationModels((prev) => ({ ...prev, gemini: e.target.value }))}
-                        disabled={isLoading}
-                        className="w-full rounded-lg border border-prism-border bg-prism-card px-3 py-2 text-[12px] text-prism-primary outline-none focus:border-cyan-500/40 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {modelGroups.gemini.map((modelOption) => (
-                          <option key={modelOption.value} value={modelOption.value}>{modelOption.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <div className="mb-1 text-[11px] text-prism-tertiary">OpenAI slot</div>
-                      <select
-                        value={triangulationModels.openai}
-                        onChange={(e) => setTriangulationModels((prev) => ({ ...prev, openai: e.target.value }))}
-                        disabled={isLoading}
-                        className="w-full rounded-lg border border-prism-border bg-prism-card px-3 py-2 text-[12px] text-prism-primary outline-none focus:border-cyan-500/40 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {modelGroups.openai.map((modelOption) => (
-                          <option key={modelOption.value} value={modelOption.value}>{modelOption.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="text-[11px] text-prism-tertiary">
-                      Router stays on Gemini 3 Flash. Judge stays on Claude Sonnet 4.6.
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <div className="mb-1 text-[11px] uppercase tracking-wider text-prism-tertiary">Sources</div>
-                <div className="space-y-2 rounded-lg border border-prism-border bg-prism-bg2 p-2.5">
-                  <label className="flex items-center justify-between gap-3 cursor-pointer">
-                    <span>Deep Reasoning</span>
-                    <input type="checkbox" checked={features.deepThinking} onChange={() => toggleFeature('deepThinking')} disabled={isLoading} className="h-4 w-4 accent-cyan-400" />
-                  </label>
-                  <label className="flex items-center justify-between gap-3 cursor-pointer">
-                    <span>Web Search</span>
-                    <input type="checkbox" checked={features.webSearch} onChange={() => toggleFeature('webSearch')} disabled={isLoading} className="h-4 w-4 accent-cyan-400" />
-                  </label>
-                  <label className="flex items-center justify-between gap-3 cursor-pointer">
-                    <span>Knowledge Base</span>
-                    <input type="checkbox" checked={features.knowledgeBase} onChange={() => toggleFeature('knowledgeBase')} disabled={isLoading} className="h-4 w-4 accent-cyan-400" />
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <div className="mb-1 text-[11px] uppercase tracking-wider text-prism-tertiary">GitHub</div>
-                <div className="rounded-lg border border-prism-border bg-prism-bg2 p-2.5">
-                  <div className="mb-2 text-[11px] text-prism-tertiary">Expose only the repos selected here.</div>
-                  <div className="space-y-2">
-                    {GITHUB_REPO_OPTIONS.map((repo) => (
-                      <label key={repo.value} className="flex items-center justify-between gap-3 cursor-pointer">
-                        <span className="truncate">{repo.label}</span>
-                        <input
-                          type="checkbox"
-                          checked={selectedGithubRepos.includes(repo.value)}
-                          onChange={() => toggleGithubRepo(repo.value)}
-                          disabled={isLoading}
-                          className="h-4 w-4 accent-cyan-400"
-                        />
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <div className="mb-1 text-[11px] uppercase tracking-wider text-prism-tertiary">Files</div>
+          <div className="absolute bottom-full left-0 z-20 mb-2 w-72 rounded-2xl border border-prism-border bg-prism-card py-2 shadow-prism-lg">
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                fileInputRef.current?.click();
+              }}
+              disabled={isLoading}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] text-prism-primary transition-colors hover:bg-prism-bg2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Paperclip className="h-4 w-4 text-prism-tertiary" />
+              Add files or photos
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                void pasteClipboardImage();
+              }}
+              disabled={isLoading}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] text-prism-primary transition-colors hover:bg-prism-bg2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ImageIcon className="h-4 w-4 text-prism-tertiary" />
+              Paste screenshot
+            </button>
+            <div className="my-1 border-t border-prism-border" />
+            <button
+              type="button"
+              onClick={() => toggleFeature('webSearch')}
+              disabled={isLoading}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] text-prism-primary transition-colors hover:bg-prism-bg2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Globe className={`h-4 w-4 ${features.webSearch ? 'text-cyan-400' : 'text-prism-tertiary'}`} />
+              <span className={features.webSearch ? 'text-cyan-300' : ''}>Web search</span>
+              {features.webSearch && <Check className="ml-auto h-4 w-4 text-cyan-400" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleFeature('deepThinking')}
+              disabled={isLoading}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] text-prism-primary transition-colors hover:bg-prism-bg2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Brain className={`h-4 w-4 ${features.deepThinking ? 'text-cyan-400' : 'text-prism-tertiary'}`} />
+              <span className={features.deepThinking ? 'text-cyan-300' : ''}>Reasoning</span>
+              {features.deepThinking && <Check className="ml-auto h-4 w-4 text-cyan-400" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleFeature('knowledgeBase')}
+              disabled={isLoading}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] text-prism-primary transition-colors hover:bg-prism-bg2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Database className={`h-4 w-4 ${features.knowledgeBase ? 'text-cyan-400' : 'text-prism-tertiary'}`} />
+              <span className={features.knowledgeBase ? 'text-cyan-300' : ''}>Knowledge base</span>
+              {features.knowledgeBase && <Check className="ml-auto h-4 w-4 text-cyan-400" />}
+            </button>
+            <div className="my-1 border-t border-prism-border" />
+            <div className="px-4 py-2 text-[11px] uppercase tracking-wider text-prism-tertiary">GitHub</div>
+            {GITHUB_REPO_OPTIONS.map((repo) => {
+              const selected = selectedGithubRepos.includes(repo.value);
+              return (
                 <button
+                  key={repo.value}
                   type="button"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    fileInputRef.current?.click();
-                  }}
+                  onClick={() => toggleGithubRepo(repo.value)}
                   disabled={isLoading}
-                  className="w-full rounded-lg border border-prism-border bg-prism-bg2 px-3 py-2 text-left text-[12px] text-prism-primary transition-colors hover:border-cyan-500/30 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] text-prism-primary transition-colors hover:bg-prism-bg2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Add files
+                  <Github className={`h-4 w-4 ${selected ? 'text-cyan-400' : 'text-prism-tertiary'}`} />
+                  <span className={selected ? 'text-cyan-300' : ''}>{repo.label}</span>
+                  {selected && <Check className="ml-auto h-4 w-4 text-cyan-400" />}
                 </button>
-              </div>
-            </div>
+              );
+            })}
           </div>
         )}
 
-        <div className="flex items-end gap-2">
-          <button
-            type="button"
-            onClick={() => setMenuOpen((prev) => !prev)}
-            disabled={isLoading}
-            className={`relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-prism-border bg-prism-bg2 text-prism-secondary transition-colors hover:border-cyan-500/30 hover:text-cyan-300 ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
-            aria-label="Open Ora options"
-          >
-            <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M8 3v10M3 8h10" strokeLinecap="round" />
-            </svg>
-            {activeMenuCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-cyan-500 px-1 text-[10px] font-semibold text-white">
-                {activeMenuCount}
+        <textarea
+          ref={textareaRef}
+          value={input}
+          onChange={(e) => {
+            setInput(e.target.value);
+            resizeTextarea();
+          }}
+          onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
+          placeholder="Reply..."
+          rows={1}
+          className="w-full resize-none bg-transparent text-[15px] text-prism-primary placeholder:text-prism-tertiary outline-none"
+          style={{ maxHeight: 160 }}
+          disabled={isLoading}
+        />
+
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMenuOpen((prev) => !prev)}
+              disabled={isLoading}
+              className={`relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-prism-border bg-prism-bg2 text-prism-secondary transition-colors hover:border-cyan-500/30 hover:text-cyan-300 ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
+              aria-label="Open Ora options"
+            >
+              <Plus className={`h-4 w-4 transition-transform ${menuOpen ? 'rotate-45' : ''}`} />
+              {activeMenuCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-cyan-500 px-1 text-[10px] font-semibold text-white">
+                  {activeMenuCount}
+                </span>
+              )}
+            </button>
+
+            {features.webSearch && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-[11px] font-medium text-cyan-300">
+                <Globe className="h-3.5 w-3.5" />
+                Web search
               </span>
             )}
-          </button>
+          </div>
 
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              resizeTextarea();
-            }}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            placeholder="Ask Ora..."
-            rows={1}
-            className="flex-1 resize-none bg-transparent text-[13px] text-prism-primary placeholder:text-prism-tertiary outline-none"
-            style={{ maxHeight: 160 }}
-            disabled={isLoading}
-          />
-        <button
-          onClick={send}
-          disabled={isLoading || (!input.trim() && attachments.length === 0)}
-          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-cyan-500 text-white transition-colors hover:bg-cyan-600 disabled:opacity-40 disabled:hover:bg-cyan-500"
-        >
-          <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M1 1l14 7-14 7V9l10-1-10-1z" />
-          </svg>
-        </button>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 rounded-full border border-prism-border bg-prism-bg2 px-3 py-2 text-[12px] text-prism-tertiary">
+              <span>Model</span>
+              <select
+                value={mode === 'single-model' ? selectedModel : 'triangulated'}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'triangulated') {
+                    setMode('triangulated');
+                  } else {
+                    setMode('single-model');
+                    setSelectedModel(value);
+                  }
+                }}
+                disabled={isLoading}
+                className="bg-transparent text-prism-primary outline-none"
+              >
+                <option value="triangulated">Triangulated</option>
+                {(['openai', 'anthropic', 'gemini'] as const).map((provider) => (
+                  <optgroup key={provider} label={PROVIDER_LABELS[provider]}>
+                    {modelGroups[provider].map((modelOption) => (
+                      <option key={modelOption.value} value={modelOption.value}>{modelOption.label}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+
+            <label className="flex items-center gap-2 rounded-full border border-prism-border bg-prism-bg2 px-3 py-2 text-[12px] text-prism-tertiary">
+              <span>Type</span>
+              <select
+                value={features.deepThinking ? 'reasoning' : 'standard'}
+                onChange={(e) => setFeatures((prev) => ({ ...prev, deepThinking: e.target.value === 'reasoning' }))}
+                disabled={isLoading}
+                className="bg-transparent text-prism-primary outline-none"
+              >
+                <option value="standard">Standard</option>
+                <option value="reasoning">Reasoning</option>
+              </select>
+            </label>
+
+            <button
+              type="button"
+              onClick={toggleDictation}
+              disabled={isLoading}
+              className={`flex h-10 w-10 items-center justify-center rounded-full border border-prism-border bg-prism-bg2 text-prism-secondary transition-colors hover:border-cyan-500/30 hover:text-cyan-300 ${isListening ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300' : ''} ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
+              title={isListening ? 'Stop dictation' : 'Dictate'}
+            >
+              {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            </button>
+
+            <button
+              onClick={send}
+              disabled={isLoading || (!input.trim() && attachments.length === 0)}
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-cyan-500 text-white transition-colors hover:bg-cyan-600 disabled:opacity-40 disabled:hover:bg-cyan-500"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M1 1l14 7-14 7V9l10-1-10-1z" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
