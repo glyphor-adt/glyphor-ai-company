@@ -210,25 +210,19 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
 }
 
 .ora-response-markdown {
-  text-align: center;
-}
-
-.ora-response-markdown p,
-.ora-response-markdown h1,
-.ora-response-markdown h2,
-.ora-response-markdown h3,
-.ora-response-markdown hr {
-  text-align: center;
-}
-
-.ora-response-markdown ul,
-.ora-response-markdown ol {
-  display: inline-block;
-  text-align: left;
+  max-width: 42rem;
   margin-left: auto;
   margin-right: auto;
+  text-align: left;
 }
 
+.ora-response-markdown h1,
+.ora-response-markdown h2,
+.ora-response-markdown h3 {
+  text-align: center;
+}
+
+.ora-response-markdown hr,
 .ora-response-markdown pre {
   text-align: left;
 }
