@@ -29,6 +29,10 @@
     "./models": {
       "types": "./dist/models.d.ts",
       "default": "./dist/models.js"
+    },
+    "./governance": {
+      "types": "./dist/governance.d.ts",
+      "default": "./dist/governance.js"
     }
   },
   "scripts": {

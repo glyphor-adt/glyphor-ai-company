@@ -44,14 +44,13 @@ export class BotDmSender {
       return this.tokenCache.token;
     }
 
-    // SingleTenant bots must use {appId}/.default to avoid pairwise ID encryption.
-    // Multi-tenant scope (https://api.botframework.com/.default) causes the Bot
-    // Framework service to expect pairwise-encrypted user IDs, which fails.
+    // Proactive messaging calls target the Bot Framework service itself, so the
+    // token audience must be the Bot Framework resource.
     const body = new URLSearchParams({
       grant_type: 'client_credentials',
       client_id: this.botAppId,
       client_secret: this.botAppSecret,
-      scope: `${this.botAppId}/.default`,
+      scope: 'https://api.botframework.com/.default',
     });
 
     const res = await fetch(
@@ -110,6 +109,67 @@ export class BotDmSender {
   }
 
   /**
+   * Ensure the Teams app is installed for the target user so Teams sends a
+   * conversationUpdate activity and we capture the correct pairwise user ID.
+   */
+  private async ensureTeamsAppInstalled(userAadObjectId: string): Promise<void> {
+    const teamsAppExternalId = process.env.TEAMS_APP_ID ?? '0d2c6770-cd9e-4f78-a78d-46725494e391';
+
+    try {
+      const token = await this.graphClient.getAccessToken();
+
+      const catalogRes = await fetch(
+        `https://graph.microsoft.com/v1.0/appCatalogs/teamsApps?$filter=externalId eq '${encodeURIComponent(teamsAppExternalId)}'`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!catalogRes.ok) {
+        console.warn(`[BotDmSender] Graph catalog lookup failed (${catalogRes.status})`);
+        return;
+      }
+
+      const catalogData = (await catalogRes.json()) as { value: Array<{ id: string }> };
+      const internalAppId = catalogData.value?.[0]?.id;
+      if (!internalAppId) {
+        console.warn(`[BotDmSender] Teams app not found in catalog (externalId=${teamsAppExternalId})`);
+        return;
+      }
+
+      const checkRes = await fetch(
+        `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(userAadObjectId)}/teamwork/installedApps?$expand=teamsApp&$filter=teamsApp/id eq '${encodeURIComponent(internalAppId)}'`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (checkRes.ok) {
+        const checkData = (await checkRes.json()) as { value: unknown[] };
+        if (checkData.value?.length > 0) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          return;
+        }
+      }
+
+      const installRes = await fetch(
+        `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(userAadObjectId)}/teamwork/installedApps`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            'teamsApp@odata.bind': `https://graph.microsoft.com/v1.0/appCatalogs/teamsApps/${encodeURIComponent(internalAppId)}`,
+          }),
+        },
+      );
+      if (!installRes.ok) {
+        const errText = await installRes.text();
+        console.warn(`[BotDmSender] Graph app install failed (${installRes.status}): ${errText}`);
+        return;
+      }
+
+      console.log(`[BotDmSender] Installed Teams app for user ${userAadObjectId}, waiting for conversationUpdate...`);
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    } catch (err) {
+      console.warn('[BotDmSender] ensureTeamsAppInstalled error:', (err as Error).message);
+    }
+  }
+
+  /**
    * Send a proactive DM to a user by their Entra Object ID.
    * Uses stored conversation reference if available (required for multi-tenant bots).
    */
@@ -119,7 +179,12 @@ export class BotDmSender {
     // Check for a stored conversation reference (from a previous bot interaction).
     // Multi-tenant bots use pairwise-encrypted user IDs, so we can't construct
     // the user ID from the AAD Object ID alone.
-    const ref = getConversationRef(userAadObjectId);
+    let ref = getConversationRef(userAadObjectId);
+    if (!ref) {
+      await this.ensureTeamsAppInstalled(userAadObjectId);
+      ref = getConversationRef(userAadObjectId);
+    }
+
     if (ref) {
       const url = `${ref.serviceUrl}v3/conversations/${encodeURIComponent(ref.conversationId)}/activities`;
       const res = await fetch(url, {

@@ -7,7 +7,7 @@
  *
  * Flow (Bot Framework path):
  *   1. Resolve recipient email → Entra Object ID (Graph API, app-only)
- *   2. Acquire SingleTenant bot token with {appId}/.default scope
+ *   2. Acquire Bot Framework token with https://api.botframework.com/.default
  *   3. Create conversation + send message via Bot Framework REST API
  */
 

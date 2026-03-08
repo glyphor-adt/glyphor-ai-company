@@ -859,33 +859,22 @@ export default function OraChat() {
     });
   }, []);
   return (
-    <div className="flex h-[calc(100vh-5rem)] flex-col">
-      {/* Header */}
-      <div className="mb-4 flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-500/10">
-          <Orbit className="h-5 w-5 text-cyan-400" strokeWidth={1.8} />
-        </div>
-        <div>
-          <h1 className="text-lg font-semibold text-prism-primary">Ora</h1>
-          <p className="text-[12px] text-prism-tertiary">Multi-model triangulated responses</p>
-        </div>
-      </div>
-
+    <div className="flex h-[calc(100vh-5rem)] flex-col items-center">
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto rounded-xl border border-prism-border bg-prism-card p-4">
+      <div className="flex-1 w-full overflow-y-auto px-4 py-6">
         {messages.length === 0 && (
           <div className="flex h-full items-center justify-center">
             <p className="text-[13px] text-prism-tertiary">Start a conversation with Ora.</p>
           </div>
         )}
 
-        <div className="space-y-6">
+        <div className="mx-auto max-w-3xl space-y-6">
           {messages.map((msg) => (
-            <div key={msg.id} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-center'}`}>
+            <div key={msg.id} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : ''}`}>
               <div
                 className={msg.role === 'user'
                   ? 'max-w-[42rem] rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-[13px] leading-relaxed text-prism-secondary'
-                  : 'w-full max-w-3xl rounded-[28px] border border-prism-border bg-prism-bg2/90 px-6 py-5 text-[14px] leading-7 text-prism-secondary shadow-[0_16px_44px_rgba(0,0,0,0.18)]'}
+                  : 'w-full rounded-[28px] border border-prism-border bg-prism-bg2/90 px-6 py-5 text-[14px] leading-7 text-prism-secondary shadow-[0_16px_44px_rgba(0,0,0,0.18)]'}
               >
                 {msg.role === 'assistant' ? (
                   <div className="mb-4 flex items-center gap-3 border-b border-prism-border pb-3">
@@ -992,7 +981,7 @@ export default function OraChat() {
 
       {/* Attachment preview */}
       {attachments.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-2 flex w-full max-w-3xl flex-wrap gap-2">
           {attachments.map((a, i) => (
             <div key={i} className="flex items-center gap-1.5 rounded-lg bg-prism-bg2 px-2.5 py-1.5 text-[12px] text-prism-secondary border border-prism-border">
               {a.previewUrl ? (
@@ -1008,7 +997,7 @@ export default function OraChat() {
       )}
 
       {/* Input area */}
-      <div className="relative mt-2 rounded-[30px] border border-prism-border bg-prism-card px-4 py-3 shadow-prism-lg" ref={menuRef}>
+      <div className="relative mt-2 w-full max-w-3xl rounded-[30px] border border-prism-border bg-prism-card px-4 py-3 shadow-prism-lg" ref={menuRef}>
         {menuOpen && (
           <div className="absolute bottom-full left-0 z-20 mb-2 flex items-start gap-2">
             <div className="w-80 rounded-[24px] border border-prism-border bg-prism-card p-3 shadow-prism-lg">
