@@ -20,6 +20,7 @@ import Comms from './pages/Comms';
 import Settings from './pages/Settings';
 import ChangeRequests from './pages/ChangeRequests';
 import PolicyVersions from './pages/PolicyVersions';
+import IntelligenceChat from './pages/IntelligenceChat';
 
 export default function App() {
   return (
@@ -44,6 +45,7 @@ export default function App() {
         <Route path="teams-config" element={<TeamsConfig />} />
         <Route path="governance" element={<Governance />} />
         <Route path="policy" element={<PolicyVersions />} />
+        <Route path="intelligence" element={<IntelligenceChat />} />
         <Route path="change-requests" element={<ChangeRequests />} />
         <Route path="settings" element={<Settings />} />
         {/* Legacy redirects */}

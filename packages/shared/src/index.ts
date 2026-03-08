@@ -59,3 +59,14 @@ export {
   costPer1KOutput,
 } from './models.js';
 export type { ModelDef, ModelProvider, ModelTier, CostTier } from './models.js';
+
+export {
+  TRIANGULATION_MODELS,
+  TRIANGULATION_TIMEOUTS,
+} from './triangulation.js';
+export type {
+  QueryTier,
+  ProviderScores,
+  Divergence,
+  TriangulationResult,
+} from './triangulation.js';

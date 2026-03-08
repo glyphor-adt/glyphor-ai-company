@@ -488,7 +488,10 @@ export async function handleDashboardApi(
           await systemQuery('DELETE FROM handoffs WHERE directive_id = $1', [resourceId]);
           await systemQuery('DELETE FROM proposed_initiatives WHERE directive_id = $1', [resourceId]);
           await systemQuery('DELETE FROM plan_verifications WHERE directive_id = $1', [resourceId]);
+          await systemQuery('DELETE FROM task_run_outcomes WHERE directive_id = $1', [resourceId]);
+          await systemQuery('DELETE FROM workflows WHERE directive_id = $1', [resourceId]);
           await systemQuery('UPDATE founder_directives SET source_directive_id = NULL WHERE source_directive_id = $1', [resourceId]);
+          await systemQuery('UPDATE founder_directives SET parent_directive_id = NULL WHERE parent_directive_id = $1', [resourceId]);
         }
         await systemQuery(`DELETE FROM ${tableName} WHERE id = $1`, [resourceId]);
         jsonResponse(res, 200, { success: true });

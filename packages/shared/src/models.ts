@@ -67,6 +67,7 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   // GPT-5.x cached input = 10% of input price. GPT-4.1/o-series cached = 25% of input price.
   // Reasoning tokens (o-series) billed at output rate.
   // Source: https://developers.openai.com/api/docs/pricing (verified 2026-02-26)
+  { id: 'gpt-5.4',                label: 'GPT-5.4',                provider: 'openai',    tier: 'flagship',  inputPer1M: 2.50,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
   { id: 'gpt-5.2',                label: 'GPT-5.2',                provider: 'openai',    tier: 'flagship',  inputPer1M: 1.75,  outputPer1M: 14.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
   { id: 'gpt-5.2-pro',            label: 'GPT-5.2 Pro',            provider: 'openai',    tier: 'flagship',  inputPer1M: 21.0,  outputPer1M: 168.0, selectable: true,  verifier: false },
   { id: 'gpt-5.1',                label: 'GPT-5.1',                provider: 'openai',    tier: 'standard',  inputPer1M: 1.25,  outputPer1M: 10.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
@@ -82,7 +83,9 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   // ── Anthropic ──────────────────────────────────────────────
   // Anthropic cache read = 10% of input price. Cache creation = 125% of input price (amortized, treated as full price).
   // Source: https://platform.claude.com/docs/en/docs/about-claude/pricing (verified 2026-02-26)
+  { id: 'claude-opus-4-6-20260205',  label: 'Claude Opus 4.6 (Feb 2026)',  provider: 'anthropic', tier: 'flagship',  inputPer1M: 5.00,  outputPer1M: 25.0,  cachedInputDiscount: 0.10, selectable: false, verifier: false },
   { id: 'claude-opus-4-6',        label: 'Claude Opus 4.6',        provider: 'anthropic', tier: 'flagship',  inputPer1M: 5.00,  outputPer1M: 25.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
+  { id: 'claude-sonnet-4-6-20260217', label: 'Claude Sonnet 4.6 (Feb 2026)', provider: 'anthropic', tier: 'standard', inputPer1M: 3.00, outputPer1M: 15.0, cachedInputDiscount: 0.10, selectable: false, verifier: true },
   { id: 'claude-sonnet-4-6',      label: 'Claude Sonnet 4.6',      provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
   { id: 'claude-sonnet-4-5',      label: 'Claude Sonnet 4.5',      provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
   { id: 'claude-haiku-4-5',       label: 'Claude Haiku 4.5',       provider: 'anthropic', tier: 'economy',   inputPer1M: 1.00,  outputPer1M: 5.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },

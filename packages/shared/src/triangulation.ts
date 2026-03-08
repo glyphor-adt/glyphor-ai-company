@@ -1,0 +1,62 @@
+/**
+ * Triangulated Chat — Shared types and constants
+ *
+ * Used by agent-runtime (engine) and dashboard (UI) packages.
+ */
+
+// ─── Query Tier ─────────────────────────────────────────────────
+
+export type QueryTier = 'SIMPLE' | 'STANDARD' | 'DEEP';
+
+// ─── Model Config ───────────────────────────────────────────────
+
+export const TRIANGULATION_MODELS = {
+  primary: 'claude-opus-4-6-20260205',
+  validator1: 'gemini-3.1-pro-preview',
+  validator2: 'gpt-5.4',
+  judge: 'claude-sonnet-4-6-20260217',
+  router: 'gemini-3-flash-preview',
+} as const;
+
+// ─── Timeouts ───────────────────────────────────────────────────
+
+export const TRIANGULATION_TIMEOUTS = {
+  standard: 30_000,
+  deep: 90_000,
+  judge: 30_000,
+  router: 5_000,
+} as const;
+
+// ─── Scoring Types ──────────────────────────────────────────────
+
+export interface ProviderScores {
+  accuracy: number;
+  completeness: number;
+  reasoning: number;
+  relevance: number;
+  actionability: number;
+  total: number;
+}
+
+export interface Divergence {
+  claim: string;
+  providersAgree: string[];
+  providerDisagrees: string[];
+  likelyCorrect: string;
+}
+
+// ─── Result ─────────────────────────────────────────────────────
+
+export interface TriangulationResult {
+  tier: QueryTier;
+  selectedProvider: 'claude' | 'gemini' | 'openai';
+  selectedResponse: string;
+  confidence: number;
+  consensusLevel: 'high' | 'moderate' | 'low' | 'n/a';
+  reasoning: string;
+  scores: Record<string, ProviderScores | null>;
+  divergences: Divergence[];
+  allResponses: Record<string, string>;
+  cost: { perProvider: Record<string, number>; total: number };
+  latencyMs: Record<string, number>;
+}

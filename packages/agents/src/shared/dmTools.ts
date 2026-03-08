@@ -22,7 +22,17 @@ import {
 /** Founder keys → email addresses */
 const FOUNDER_DIR: Record<string, string> = {
   kristina: 'kristina@glyphor.ai',
+  'kristina denney': 'kristina@glyphor.ai',
   andrew: 'andrew@glyphor.ai',
+  'andrew zwelling': 'andrew@glyphor.ai',
+};
+
+/**
+ * Email aliases that exist outside Entra (e.g. Google Workspace) but should
+ * resolve to the corresponding Entra UPN for Graph API lookups.
+ */
+const EMAIL_ALIASES: Record<string, string> = {
+  'devops@glyphor.ai': 'kristina@glyphor.ai',
 };
 
 /** Cache for email → Entra Object ID lookups */
@@ -51,8 +61,8 @@ function resolveRecipientEmail(recipient: string): string | null {
     if (entry.displayName.toLowerCase() === lower) return entry.email;
   }
 
-  // Raw email
-  if (recipient.includes('@')) return recipient;
+  // Raw email — resolve through alias map first
+  if (recipient.includes('@')) return EMAIL_ALIASES[recipient.toLowerCase()] ?? recipient;
 
   return null;
 }
@@ -64,19 +74,21 @@ async function resolveUserIdByEmail(
   graphClient: GraphTeamsClient,
   email: string,
 ): Promise<string> {
-  const key = email.toLowerCase();
+  // Translate non-Entra aliases before Graph lookup
+  const resolved = EMAIL_ALIASES[email.toLowerCase()] ?? email;
+  const key = resolved.toLowerCase();
   const cached = userIdCache.get(key);
   if (cached) return cached;
 
   const token = await graphClient.getAccessToken();
   const res = await fetch(
-    `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(email)}?$select=id`,
+    `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(resolved)}?$select=id`,
     { headers: { Authorization: `Bearer ${token}` } },
   );
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Failed to resolve user "${email}" (${res.status}): ${text}`);
+    throw new Error(`Failed to resolve user "${resolved}" (${res.status}): ${text}`);
   }
 
   const data = (await res.json()) as { id: string };

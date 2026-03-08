@@ -53,6 +53,7 @@ import { evaluateDraftPolicies } from './policyReplayEvaluator.js';
 import { manageCanaries } from './policyCanaryManager.js';
 import { expireTools } from './toolExpirationManager.js';
 import { evaluateCanary } from './canaryEvaluator.js';
+import { handleTriangulatedChat } from './triangulationEndpoint.js';
 import {
   runChiefOfStaff, runCTO, runCFO, runCLO, runCPO, runCMO, runVPCS, runVPSales, runVPDesign,
   runPlatformEngineer, runQualityEngineer, runDevOpsEngineer,
@@ -2125,6 +2126,18 @@ const server = createServer(async (req, res) => {
     if (method === 'DELETE' && directiveDeleteMatch) {
       const id = decodeURIComponent(directiveDeleteMatch[1]);
       try {
+        // Cascade-delete child rows (FKs have no CASCADE)
+        await systemQuery('DELETE FROM agent_tool_grants WHERE directive_id = $1', [id]);
+        await systemQuery('DELETE FROM work_assignments WHERE directive_id = $1', [id]);
+        await systemQuery('DELETE FROM tool_requests WHERE directive_id = $1', [id]);
+        await systemQuery('DELETE FROM decision_chains WHERE directive_id = $1', [id]);
+        await systemQuery('DELETE FROM handoffs WHERE directive_id = $1', [id]);
+        await systemQuery('DELETE FROM proposed_initiatives WHERE directive_id = $1', [id]);
+        await systemQuery('DELETE FROM plan_verifications WHERE directive_id = $1', [id]);
+        await systemQuery('DELETE FROM task_run_outcomes WHERE directive_id = $1', [id]);
+        await systemQuery('DELETE FROM workflows WHERE directive_id = $1', [id]);
+        await systemQuery('UPDATE founder_directives SET source_directive_id = NULL WHERE source_directive_id = $1', [id]);
+        await systemQuery('UPDATE founder_directives SET parent_directive_id = NULL WHERE parent_directive_id = $1', [id]);
         await systemQuery('DELETE FROM founder_directives WHERE id=$1', [id]);
         // Invalidate directive/context caches
         getRedisCache().invalidatePattern('jit:directives:*').catch(() => {});
@@ -2273,6 +2286,16 @@ const server = createServer(async (req, res) => {
       } catch (error) {
         json(res, 500, { error: (error as Error).message });
       }
+      return;
+    }
+
+    // ─── Triangulated Chat ─────────────────────────────────────────
+    if (method === 'POST' && url === '/chat/triangulate') {
+      await handleTriangulatedChat(req, res, {
+        modelClient: strategyModelClient,
+        embeddingClient: { embed: async (_text: string) => [] as number[] },
+        redisCache: getRedisCache(),
+      });
       return;
     }
 
