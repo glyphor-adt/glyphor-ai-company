@@ -84,14 +84,14 @@ export async function handleTriangulatedChat(
     await systemQuery(
       `INSERT INTO chat_messages (agent_role, role, content, user_id, conversation_id, created_at)
        VALUES ($1, $2, $3, $4, $5, NOW())`,
-      ['intelligence', 'user', message, userId ?? null, convId],
+      ['ora', 'user', message, userId ?? null, convId],
     );
 
     // Save agent response with metadata
     await systemQuery(
       `INSERT INTO chat_messages (agent_role, role, content, user_id, conversation_id, metadata, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-      ['intelligence', 'agent', result.selectedResponse, userId ?? null, convId, JSON.stringify(result)],
+      ['ora', 'agent', result.selectedResponse, userId ?? null, convId, JSON.stringify(result)],
     );
 
     // Log to agent_runs
@@ -99,8 +99,8 @@ export async function handleTriangulatedChat(
       `INSERT INTO agent_runs (agent_role, task, status, cost_usd, duration_ms, tokens_used, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
       [
-        'intelligence',
-        'triangulated_chat',
+        'ora',
+        'ora_chat',
         'completed',
         result.cost.total,
         Math.max(...Object.values(result.latencyMs), 0),
