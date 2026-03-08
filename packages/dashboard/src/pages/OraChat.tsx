@@ -620,7 +620,7 @@ export default function OraChat() {
           ref={fileInputRef}
           type="file"
           className="hidden"
-          accept="image/*,.pdf,.txt,.csv,.docx,.xlsx"
+          accept="image/*,.pdf,.txt,.csv,.docx"
           multiple
           onChange={(e) => {
             if (e.target.files?.length) addFiles(e.target.files);

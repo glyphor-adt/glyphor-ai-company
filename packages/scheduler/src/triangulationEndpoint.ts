@@ -5,9 +5,19 @@ import type { ModelClient } from '@glyphor/agent-runtime';
 import type { RedisCache } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
 import { searchWeb, searchResultsToContext } from '@glyphor/integrations';
+import mammoth from 'mammoth';
 
 function sendSSE(res: ServerResponse, event: Record<string, unknown>) {
   res.write(`data: ${JSON.stringify(event)}\n\n`);
+}
+
+/** Convert a .docx base64 attachment to a plain-text attachment the models can read. */
+async function extractDocxText(
+  att: { name: string; mimeType: string; base64: string },
+): Promise<{ name: string; mimeType: string; base64: string }> {
+  const buf = Buffer.from(att.base64, 'base64');
+  const { value: text } = await mammoth.extractRawText({ buffer: buf });
+  return { name: att.name, mimeType: 'text/plain', base64: Buffer.from(text, 'utf-8').toString('base64') };
 }
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -66,10 +76,19 @@ export async function handleTriangulatedChat(
         enableWebSearch: features.webSearch ?? false,
         enableDeepThinking: features.deepThinking ?? false,
         enableInternalSearch: features.knowledgeBase ?? features.internalSearch ?? true,
-        attachments: attachments.map((a: Record<string, string>) => ({
-          name: a.name,
-          mimeType: a.mimeType ?? a.type ?? 'application/octet-stream',
-          base64: a.base64 ?? a.data ?? '',
+        attachments: await Promise.all(attachments.map(async (a: Record<string, string>) => {
+          const mapped = {
+            name: a.name,
+            mimeType: a.mimeType ?? a.type ?? 'application/octet-stream',
+            base64: a.base64 ?? a.data ?? '',
+          };
+          if (mapped.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            || mapped.name?.endsWith('.docx')) {
+            try { return await extractDocxText(mapped); } catch (e) {
+              console.warn('[triangulatedChat] Failed to extract .docx text:', e);
+            }
+          }
+          return mapped;
         })),
       },
       deps,
