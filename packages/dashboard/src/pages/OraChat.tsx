@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Markdown from 'react-markdown';
 import { Orbit } from 'lucide-react';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
+import { getModelsByProvider, PROVIDER_LABELS } from '../lib/models';
 import { useAuth, getEmailAliases } from '../lib/auth';
 
 /* ── Triangulation types (mirrored from @glyphor/shared) ───── */
@@ -39,6 +40,16 @@ interface TriangulationResult {
   durationMs?: number;
 }
 
+interface SingleModelResult {
+  mode: 'single-model';
+  model: string;
+  provider: 'gemini' | 'openai' | 'anthropic';
+  durationMs: number;
+  thinkingEnabled: boolean;
+  webSearch: boolean;
+  knowledgeBase: boolean;
+}
+
 /* ── Types ─────────────────────────────────────────── */
 
 interface Attachment {
@@ -57,10 +68,12 @@ interface Message {
   metadata?: {
     tier?: QueryTier;
     triangulation?: TriangulationResult;
+    singleModel?: SingleModelResult;
   };
 }
 
 type StreamPhase = 'idle' | 'streaming' | 'validating' | 'evaluating' | 'complete';
+type OraMode = 'triangulated' | 'single-model';
 
 interface Features {
   deepThinking: boolean;
@@ -222,12 +235,17 @@ export default function OraChat() {
   const [phase, setPhase] = useState<StreamPhase>('idle');
   const [validatedProviders, setValidatedProviders] = useState<string[]>([]);
   const [activeRequestFeatures, setActiveRequestFeatures] = useState<Features | null>(null);
+  const [activeRequestMode, setActiveRequestMode] = useState<OraMode | null>(null);
+  const [activeRequestModel, setActiveRequestModel] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [mode, setMode] = useState<OraMode>('triangulated');
+  const [selectedModel, setSelectedModel] = useState('gpt-5.4');
   const [features, setFeatures] = useState<Features>({
     deepThinking: false,
     webSearch: false,
     knowledgeBase: true,
   });
+  const modelGroups = useMemo(() => getModelsByProvider(), []);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -341,6 +359,8 @@ export default function OraChat() {
     setPhase('streaming');
     setValidatedProviders([]);
     setActiveRequestFeatures(features);
+    setActiveRequestMode(mode);
+    setActiveRequestModel(mode === 'single-model' ? selectedModel : null);
 
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -352,6 +372,8 @@ export default function OraChat() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
+          mode,
+          selectedModel: mode === 'single-model' ? selectedModel : undefined,
           features,
           attachments: attachments.map((a) => ({ name: a.name, type: a.type, data: a.data })),
           conversationId,
@@ -401,9 +423,28 @@ export default function OraChat() {
               case 'judge_start':
                 setPhase('evaluating');
                 break;
+              case 'single_result':
+                setPhase('complete');
+                setActiveRequestFeatures(null);
+                setActiveRequestMode(null);
+                setActiveRequestModel(null);
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? {
+                          ...m,
+                          content: event.data?.responseText ?? m.content,
+                          metadata: { ...m.metadata, singleModel: event.data?.modelRun },
+                        }
+                      : m,
+                  ),
+                );
+                break;
               case 'result':
                 setPhase('complete');
                 setActiveRequestFeatures(null);
+                setActiveRequestMode(null);
+                setActiveRequestModel(null);
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantId
@@ -426,6 +467,8 @@ export default function OraChat() {
                 );
                 setPhase('complete');
                 setActiveRequestFeatures(null);
+                setActiveRequestMode(null);
+                setActiveRequestModel(null);
                 break;
             }
           } catch {
@@ -437,6 +480,8 @@ export default function OraChat() {
       // If we never got a result event, mark complete
       setPhase((p) => (p === 'complete' ? p : 'complete'));
       setActiveRequestFeatures(null);
+      setActiveRequestMode(null);
+      setActiveRequestModel(null);
     } catch (err) {
       setMessages((prev) =>
         prev.map((m) =>
@@ -447,8 +492,10 @@ export default function OraChat() {
       );
       setPhase('complete');
       setActiveRequestFeatures(null);
+      setActiveRequestMode(null);
+      setActiveRequestModel(null);
     }
-  }, [input, attachments, features, conversationId, userEmail, phase]);
+  }, [input, attachments, features, conversationId, userEmail, phase, mode, selectedModel]);
 
   // Key handler
   const handleKeyDown = useCallback(
@@ -468,22 +515,29 @@ export default function OraChat() {
   const isLoading = phase === 'streaming' || phase === 'validating' || phase === 'evaluating';
   const activeAssistantId = isLoading ? [...messages].reverse().find((m) => m.role === 'assistant')?.id ?? null : null;
   const completedDurationLabel = (triangulation?: TriangulationResult) => formatDuration(triangulation?.durationMs);
+  const completedSingleModelDurationLabel = (singleModel?: SingleModelResult) => formatDuration(singleModel?.durationMs);
   const thinkingTitle =
     phase === 'evaluating'
       ? 'Selecting the strongest answer...'
       : phase === 'validating'
         ? 'Comparing model responses...'
-        : activeRequestFeatures?.deepThinking
-          ? 'Thinking deeply...'
-          : 'Thinking...';
+        : activeRequestMode === 'single-model'
+          ? activeRequestFeatures?.deepThinking
+            ? `Deep reasoning with ${activeRequestModel ?? 'selected model'}...`
+            : `Running ${activeRequestModel ?? 'selected model'}...`
+          : activeRequestFeatures?.deepThinking
+            ? 'Thinking deeply...'
+            : 'Thinking...';
   const thinkingDetail =
     phase === 'evaluating'
       ? 'Ora is judging the responses and choosing the best one.'
       : phase === 'validating'
         ? `Received ${validatedProviders.length} ${validatedProviders.length === 1 ? 'response' : 'responses'} so far.${validatedProviders.length > 0 ? ' Checking agreement across providers now.' : ''}`
-        : activeRequestFeatures?.deepThinking
-          ? 'Running Claude, Gemini, and GPT-5 in parallel before comparing them.'
-          : 'Preparing Ora response.';
+        : activeRequestMode === 'single-model'
+          ? 'Using the selected model directly without triangulation.'
+          : activeRequestFeatures?.deepThinking
+            ? 'Running Claude, Gemini, and GPT-5 in parallel before comparing them.'
+            : 'Preparing Ora response.';
 
   return (
     <div className="flex h-[calc(100vh-5rem)] flex-col">
@@ -561,6 +615,11 @@ export default function OraChat() {
                         {msg.metadata.triangulation.tier.toLowerCase()} triangulation completed in {completedDurationLabel(msg.metadata.triangulation)} using Claude, Gemini, and GPT-5.
                       </div>
                     )}
+                    {msg.metadata?.singleModel && completedSingleModelDurationLabel(msg.metadata.singleModel) && (
+                      <div className="mt-2 text-[11px] text-prism-tertiary">
+                        Single-model response from {msg.metadata.singleModel.model} in {completedSingleModelDurationLabel(msg.metadata.singleModel)}.
+                      </div>
+                    )}
                   </>
                 ) : null}
 
@@ -579,6 +638,22 @@ export default function OraChat() {
       {/* Feature toggle bar */}
       <div className="mt-3 flex items-center gap-2 flex-wrap">
         <button
+          onClick={() => setMode((prev) => (prev === 'triangulated' ? 'single-model' : 'triangulated'))}
+          disabled={isLoading}
+          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors border ${
+            mode === 'triangulated'
+              ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
+              : 'bg-prism-bg2 text-prism-tertiary border-prism-border hover:text-prism-primary'
+          } ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
+        >
+          <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+            <path d="M3 4h3v3H3zM10 4h3v3h-3zM6 9h4v3H6z" />
+            <path d="M6 5.5h4M8 7v2" />
+          </svg>
+          Triangulation
+        </button>
+
+        <button
           onClick={() => toggleFeature('deepThinking')}
           disabled={isLoading}
           className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors border ${
@@ -592,7 +667,7 @@ export default function OraChat() {
             <path d="M6 10c0 2 1 3 2 4 1-1 2-2 2-4" />
             <path d="M5 6h6" opacity="0.5" />
           </svg>
-          Deep Thinking
+          Deep Reasoning
         </button>
 
         <button
@@ -667,22 +742,43 @@ export default function OraChat() {
       )}
 
       {/* Input area */}
-      <div className="mt-2 flex items-end gap-2 rounded-xl border border-prism-border bg-prism-card p-3">
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => {
-            setInput(e.target.value);
-            resizeTextarea();
-          }}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          placeholder="Ask Ora..."
-          rows={1}
-          className="flex-1 resize-none bg-transparent text-[13px] text-prism-primary placeholder:text-prism-tertiary outline-none"
-          style={{ maxHeight: 160 }}
-          disabled={isLoading}
-        />
+      <div className="mt-2 rounded-xl border border-prism-border bg-prism-card p-3">
+        {mode === 'single-model' && (
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-prism-tertiary">Model</span>
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              disabled={isLoading}
+              className="min-w-[220px] rounded-lg border border-prism-border bg-prism-bg2 px-3 py-1.5 text-[12px] text-prism-secondary outline-none focus:border-cyan-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {(['openai', 'anthropic', 'gemini'] as const).map((provider) => (
+                <optgroup key={provider} label={PROVIDER_LABELS[provider]}>
+                  {modelGroups[provider].map((modelOption) => (
+                    <option key={modelOption.value} value={modelOption.value}>{modelOption.label}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div className="flex items-end gap-2">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              resizeTextarea();
+            }}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            placeholder={mode === 'triangulated' ? 'Ask Ora...' : `Ask ${selectedModel}...`}
+            rows={1}
+            className="flex-1 resize-none bg-transparent text-[13px] text-prism-primary placeholder:text-prism-tertiary outline-none"
+            style={{ maxHeight: 160 }}
+            disabled={isLoading}
+          />
         <button
           onClick={send}
           disabled={isLoading || (!input.trim() && attachments.length === 0)}
@@ -692,6 +788,7 @@ export default function OraChat() {
             <path d="M1 1l14 7-14 7V9l10-1-10-1z" />
           </svg>
         </button>
+        </div>
       </div>
     </div>
   );

@@ -1,8 +1,9 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { triangulate } from '@glyphor/agent-runtime';
+import { buildTriangulationContext, triangulate } from '@glyphor/agent-runtime';
 import type { ModelClient } from '@glyphor/agent-runtime';
 import type { RedisCache } from '@glyphor/agent-runtime';
+import { detectProvider, estimateModelCost, resolveModel } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 import { searchWeb, searchResultsToContext } from '@glyphor/integrations';
 import mammoth from 'mammoth';
@@ -34,6 +35,18 @@ You have access to internal company knowledge, financial data, competitive intel
 and strategic analysis. Provide accurate, well-sourced responses. When using internal
 knowledge, cite sources by number. Be direct and actionable.`;
 
+type OraMode = 'triangulated' | 'single-model';
+
+interface SingleModelRun {
+  mode: 'single-model';
+  model: string;
+  provider: 'gemini' | 'openai' | 'anthropic';
+  durationMs: number;
+  thinkingEnabled: boolean;
+  webSearch: boolean;
+  knowledgeBase: boolean;
+}
+
 export async function handleTriangulatedChat(
   req: IncomingMessage,
   res: ServerResponse,
@@ -52,8 +65,30 @@ export async function handleTriangulatedChat(
 
   try {
     const body = JSON.parse(await readBody(req));
-    const { message, features = {}, attachments = [], conversationId, userId } = body;
+    const { message, features = {}, attachments = [], conversationId, userId, mode = 'triangulated', selectedModel } = body as {
+      message: string;
+      features?: Record<string, boolean>;
+      attachments?: Array<Record<string, string>>;
+      conversationId?: string;
+      userId?: string;
+      mode?: OraMode;
+      selectedModel?: string;
+    };
     const convId = conversationId || randomUUID();
+    const normalizedAttachments = await Promise.all(attachments.map(async (a: Record<string, string>) => {
+      const mapped = {
+        name: a.name,
+        mimeType: a.mimeType ?? a.type ?? 'application/octet-stream',
+        base64: a.base64 ?? a.data ?? '',
+      };
+      if (mapped.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        || mapped.name?.endsWith('.docx')) {
+        try { return await extractDocxText(mapped); } catch (e) {
+          console.warn('[triangulatedChat] Failed to extract .docx text:', e);
+        }
+      }
+      return mapped;
+    }));
 
     // Run web search if enabled and inject results into system prompt
     let systemPrompt = INTELLIGENCE_SYSTEM_PROMPT;
@@ -69,6 +104,88 @@ export async function handleTriangulatedChat(
       }
     }
 
+    if (mode === 'single-model') {
+      const model = resolveModel(selectedModel ?? 'gpt-5.4');
+      let fullSystemPrompt = systemPrompt;
+
+      if (features.knowledgeBase ?? features.internalSearch ?? true) {
+        const ctx = await buildTriangulationContext(
+          message,
+          deps.embeddingClient,
+          deps.modelClient,
+          deps.redisCache,
+        );
+        if (ctx.contextBlock) {
+          fullSystemPrompt = `${systemPrompt}\n\n${ctx.contextBlock}`;
+        }
+      }
+
+      const startedAt = Date.now();
+      const response = await deps.modelClient.generate({
+        model,
+        systemInstruction: fullSystemPrompt,
+        contents: [{
+          role: 'user' as const,
+          content: message,
+          timestamp: Date.now(),
+          attachments: normalizedAttachments.map((att) => ({ name: att.name, mimeType: att.mimeType, data: att.base64 })),
+        }],
+        maxTokens: 8192,
+        thinkingEnabled: features.deepThinking ?? false,
+      });
+
+      const modelRun: SingleModelRun = {
+        mode: 'single-model',
+        model,
+        provider: detectProvider(model),
+        durationMs: Date.now() - startedAt,
+        thinkingEnabled: features.deepThinking ?? false,
+        webSearch: features.webSearch ?? false,
+        knowledgeBase: features.knowledgeBase ?? features.internalSearch ?? true,
+      };
+
+      sendSSE(res, {
+        type: 'single_result',
+        data: {
+          responseText: response.text ?? '',
+          modelRun,
+        },
+      });
+
+      await systemQuery(
+        `INSERT INTO chat_messages (agent_role, role, content, user_id, conversation_id, created_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())`,
+        ['ora', 'user', message, userId ?? null, convId],
+      );
+
+      await systemQuery(
+        `INSERT INTO chat_messages (agent_role, role, content, user_id, conversation_id, metadata, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+        ['ora', 'agent', response.text ?? '', userId ?? null, convId, JSON.stringify({ mode: 'single-model', modelRun })],
+      );
+
+      await systemQuery(
+        `INSERT INTO agent_runs (agent_role, task, status, cost_usd, duration_ms, tokens_used, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+        [
+          'ora',
+          'ora_chat',
+          'completed',
+          estimateModelCost(
+            model,
+            response.usageMetadata.inputTokens,
+            response.usageMetadata.outputTokens,
+            response.usageMetadata.thinkingTokens ?? 0,
+            response.usageMetadata.cachedInputTokens ?? 0,
+          ),
+          modelRun.durationMs,
+          response.usageMetadata.totalTokens,
+        ],
+      );
+
+      return;
+    }
+
     const result = await triangulate(
       message,
       {
@@ -76,20 +193,7 @@ export async function handleTriangulatedChat(
         enableWebSearch: features.webSearch ?? false,
         enableDeepThinking: features.deepThinking ?? false,
         enableInternalSearch: features.knowledgeBase ?? features.internalSearch ?? true,
-        attachments: await Promise.all(attachments.map(async (a: Record<string, string>) => {
-          const mapped = {
-            name: a.name,
-            mimeType: a.mimeType ?? a.type ?? 'application/octet-stream',
-            base64: a.base64 ?? a.data ?? '',
-          };
-          if (mapped.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-            || mapped.name?.endsWith('.docx')) {
-            try { return await extractDocxText(mapped); } catch (e) {
-              console.warn('[triangulatedChat] Failed to extract .docx text:', e);
-            }
-          }
-          return mapped;
-        })),
+        attachments: normalizedAttachments,
       },
       deps,
     );

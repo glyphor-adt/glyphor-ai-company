@@ -37,6 +37,7 @@ export const MODELS: ModelOption[] = [
   { value: 'gemini-2.5-pro',         label: 'Gemini 2.5 Pro',         provider: 'gemini'  },
 
   // ── OpenAI ──
+  { value: 'gpt-5.4',     label: 'GPT-5.4',       provider: 'openai' },
   { value: 'gpt-5.2',     label: 'GPT-5.2',       provider: 'openai' },
   { value: 'gpt-5.2-pro', label: 'GPT-5.2 Pro',   provider: 'openai' },
   { value: 'gpt-5.1',     label: 'GPT-5.1',       provider: 'openai' },
