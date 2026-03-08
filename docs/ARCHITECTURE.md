@@ -187,8 +187,8 @@ auditing, lead generation, and executive assistantship.
 │   │  memory, tool-requests, events│
 │   │  — extracted via coreTools.ts)│
 │   ├─ glyphorMcpTools (bridge to   │
-│   │  9 Glyphor MCP servers via    │
-│   │  JSON-RPC 2.0 — ~81 tools)   │
+│   │  10 Glyphor MCP servers via   │
+│   │  JSON-RPC 2.0 — ~87 tools)   │
 │   ├─ dynamicToolExecutor (runtime │
 │   │  executor for DB-registered   │
 │   │  tools via tool_registry)     │
@@ -684,7 +684,7 @@ glyphor-ai-company/
 │   │       │   ├── communicationTools.ts # send_agent_message, check_messages, call_meeting
 │   │       │   ├── assignmentTools.ts    # read/submit/flag assignments + dependency resolution
 │   │       │   ├── graphTools.ts         # query_knowledge_graph, add_knowledge, trace_causes/impact
-│   │       │   ├── collectiveIntelligenceTools.ts # pulse, knowledge routes, patterns, contradictions
+│   │       │   ├── collectiveIntelligenceTools.ts # pulse, knowledge routes, patterns, contradictions, doctrine reads
 │   │       │   ├── emailTools.ts         # **Deprecated** — email tools now served via mcp-email-server (send_email, read_inbox, reply_to_email)
 │   │       │   ├── sharepointTools.ts    # SharePoint document operations + list_sharepoint_files
 │   │       │   ├── agentCreationTools.ts # create_specialist_agent, list/retire (max 3, 7d TTL)
@@ -695,21 +695,23 @@ glyphor-ai-company/
 │   │       │   ├── toolRegistryTools.ts  # Tool registry lookup and validation
 │   │       │   ├── toolRequestTools.ts   # Tool access request workflow
 │   │       │   ├── researchTools.ts      # web_search, web_fetch, submit_research_packet
+│   │       │   ├── contentTools.ts       # content review / approval workflow + publish controls
 │   │       │   ├── frontendCodeTools.ts  # read/write/search frontend code (path-scoped)
 │   │       │   ├── screenshotTools.ts    # screenshot_page, compare, check_responsive
 │   │       │   ├── designSystemTools.ts  # design tokens, components, validation
 │   │       │   ├── auditTools.ts         # Lighthouse, accessibility, AI-smell, brand
-│   │       │   ├── assetTools.ts         # DALL-E image gen, upload, optimize
+│   │       │   ├── assetTools.ts         # DALL-E image gen, storage, SharePoint sync, durable deliverable publish
+│   │       │   ├── deliverableTools.ts   # publish_deliverable, get_deliverables, deliverable events
 │   │       │   ├── scaffoldTools.ts      # component/page scaffolding from templates
 │   │       │   ├── deployPreviewTools.ts # Vercel preview deployments
 │   │       │   ├── figmaAuth.ts          # Figma OAuth token manager (auto-refreshing via FIGMA_REFRESH_TOKEN)
 │   │       │   ├── figmaTools.ts         # 17 Figma REST API tools (file-level; team-level requires paid plan)
 │   │       │   ├── storybookTools.ts     # Storybook visual testing & coverage
 │   │       │   ├── agent365Tools.ts      # Agent 365 MCP tool factory — createAgent365McpTools(serverFilter?)
-│   │       │   │                         #   Gate-checked: returns [] if AGENT365_ENABLED != 'true'
+│   │       │   │                         #   Defaults to the full 9-server catalog; returns [] if AGENT365_ENABLED != 'true'
 │   │       │   ├── coreTools.ts          # 11 always-loaded core tools (assignments, comms, memory, events, tool-requests)
 │   │       │   │                         #   createCoreTools(deps) — extracts from existing factories, exports CORE_TOOL_NAMES
-│   │       │   ├── glyphorMcpTools.ts    # Bridge to 9 Glyphor MCP servers (data, marketing, engineering, design, finance, email, legal, HR, email-marketing)
+│   │       │   ├── glyphorMcpTools.ts    # Bridge to 10 Glyphor MCP servers (data, marketing, engineering, design, finance, email, legal, HR, email-marketing, slack)
 │   │       │   │                         #   createGlyphorMcpTools(agentRole?, serverFilter?) — JSON-RPC 2.0, gate: GLYPHOR_MCP_ENABLED
 │   │       │   ├── runDynamicAgent.ts    # Runner for DB-defined agents (no file-based runner)
 │   │       │   ├── createRunDeps.ts      # Wire up all run dependencies for any agent
@@ -717,7 +719,7 @@ glyphor-ai-company/
 │   │       └── index.ts              # Re-exports all runners
 │   │
 │   ├── company-knowledge/       # Shared context (read at runtime)
-│   │   ├── COMPANY_KNOWLEDGE_BASE.md  # ~400 lines: founders, products, metrics, rules
+│   │   ├── COMPANY_KNOWLEDGE_BASE.md  # Founders, products, metrics, rules, and operating doctrine
 │   │   ├── CORE.md                    # Core company identity & values
 │   │   ├── context/                   # Department-specific context (7 files)
 │   │   │   ├── design.md              # Design department context
@@ -845,6 +847,7 @@ glyphor-ai-company/
 │   │       ├── reportExporter.ts      # Analysis/simulation/CoT export (md/json/pptx/docx) + visual prompt builder
 │   │       ├── inboxCheck.ts          # M365 mailbox polling for agent email (12 email-enabled agents)
 │   │       ├── dashboardApi.ts        # PostgREST-compatible CRUD API for dashboard (70+ whitelisted tables)
+│   │       ├── governanceApi.ts       # Purpose-built governance control-plane endpoints
 │   │       ├── frameworkTypes.ts      # Output schemas for 6 strategic frameworks (Ansoff, BCG, Blue Ocean, Porter, PESTLE, SWOT)
 │   │       ├── parallelDispatch.ts    # Wave builder, parallel dispatcher, dependency resolver, concurrency guard
 │   │       ├── wakeRouter.ts          # Event-driven agent wake dispatcher
@@ -873,7 +876,7 @@ glyphor-ai-company/
 │       │   │   ├── Approvals.tsx      # Decision approval queue
 │       │   │   ├── Directives.tsx     # Founder directives management
 │       │   │   ├── Financials.tsx     # Revenue, costs, GCP billing, vendor subscriptions
-│       │   │   ├── Governance.tsx     # Platform governance, IAM state, secret rotation
+│       │   │   ├── Governance.tsx     # Command Center + Tool View + Access Control + Policy Lab
 │       │   │   ├── Knowledge.tsx      # Knowledge base management, bulletins & knowledge graph
 │       │   │   ├── Operations.tsx     # System operations, events & activity log
 │       │   │   ├── Strategy.tsx       # Strategic analysis & T+1 simulations & CoT planning & AI infographics
@@ -907,6 +910,19 @@ glyphor-ai-company/
 │       │   ├── App.tsx               # Router & layout (21 routes + 8 legacy redirects)
 │       │   └── index.css             # Tailwind + Glyphor brand theme
 │       └── package.json
+│
+│   ├── slack-app/               # Customer-facing Slack ingress + OAuth + approvals UI callbacks
+│   │   └── src/
+│   │       ├── server.ts              # HTTP server: /slack/events, /slack/interactions, /slack/oauth, /health
+│   │       ├── eventHandler.ts        # Persist inbound customer content and invoke routing
+│   │       ├── router.ts              # Tenant rule matching + heuristic routing
+│   │       ├── approvalHandler.ts     # Persist approval requests and handle approve/reject actions
+│   │       └── slackClient.ts         # Slack Web API helpers
+│
+│   ├── mcp-slack-server/        # MCP bridge for Slack routing / approval operations
+│   │   └── src/
+│   │       ├── index.ts               # MCP JSON-RPC server entrypoint
+│   │       └── tools.ts               # list_approvals, approve/reject, routing stats, content routing
 │
 │   ├── voice-gateway/           # Voice agent gateway (Cloud Run service)
 │   │   └── src/
@@ -2397,6 +2413,46 @@ visual inspection, design system governance, quality auditing, and external inte
 - `ASSET_SERVICE_URL` — Asset storage API (optional, falls back to GCS path)
 - `OPENAI_API_KEY` — Already configured, used for DALL-E 3 image generation
 
+### Autonomous Company Runtime
+
+The autonomy backbone is now implemented as a doctrine-driven execution loop rather than
+just ad hoc agent prompting.
+
+**Core loop:**
+
+```
+company_knowledge_base (required doctrine sections)
+  → chief-of-staff strategic_planning
+  → initiatives
+  → founder_directives (source = founder / agent_proposed / initiative_derived)
+  → work_assignments
+  → deliverables
+  → deliverable.published / initiative.directive_completed events
+  → wake router
+  → chief-of-staff orchestration for downstream handoff
+```
+
+**Current runtime behavior:**
+
+- `read_company_doctrine` now expects the required doctrine sections
+  (`mission`, `current_priorities`, `authority_model`, `operating_doctrine`) and fails fast when
+  the runtime seed is incomplete.
+- `strategic_planning` performs a preflight doctrine check before Sarah begins weekly planning.
+- `initiatives` and `deliverables` are first-class tenant-scoped tables with RLS.
+- Directive completion now includes published deliverable summaries and downstream-directive
+  context so orchestration can continue with embedded artifacts.
+- Publishing a deliverable emits `deliverable.published`, and the scheduler wakes Chief of Staff
+  to continue the execution loop.
+- Design agents can generate and publish durable assets via
+  `generate_and_publish_asset` / `publish_asset_deliverable`, storing SharePoint/GCS references
+  in the resulting deliverable metadata.
+- Social publishing is now approval-gated:
+  `submit_content_for_review` → `approve_content_draft` / `reject_content_draft` →
+  `schedule_social_post`, with durable publish references and audit records.
+- Customer-facing Slack now has a repo-side foundation: `packages/slack-app` handles ingress,
+  OAuth, routing, and approval actions; `packages/mcp-slack-server` exposes routing/approval
+  operations to agents over MCP.
+
 ### Agent 365 — Microsoft M365 MCP Integration
 
 Agent 365 provides MCP (Model Context Protocol) servers that give Glyphor agents native access
@@ -2452,9 +2508,11 @@ while runtime defaults now expose the full 9-server `ALL_M365_SERVERS` catalog.
 
 **Tenant rollout status:**
 
-- `scripts/assign-agent-permissions.ps1` now builds the full 9-scope Agent 365 `oauth2PermissionGrant` payload.
-- An operator still has to run that script against the live tenant with Graph admin consent.
-- Until that external rollout happens, repo-side manifest/runtime cleanup is complete, but existing agent identities may still hit 403s on newly opened servers.
+- `scripts/assign-agent-permissions.ps1` now reconciles the full 9-scope Agent 365
+  `oauth2PermissionGrant` payload against existing grants.
+- The rollout has been executed in the live tenant: 44 agent identities were updated to the
+  full M365 MCP scope catalog.
+- Glyphor app-role assignments were already in place (`0 new, 80 existed` during rollout).
 
 **Overlap guidance:**
 
@@ -2500,8 +2558,8 @@ identity governance.
 
 | Target | Method | Details |
 |--------|--------|---------|
-| M365 MCP servers (full 9-server Agent 365 catalog) | `oauth2PermissionGrants` (admin consent) | Delegated permissions on M365 Agent Tools API (`ea9ffc3e-...`). `consentType: AllPrincipals`, requires `expiryTime`. The repo script now prepares the full 9-scope grant, but an operator still must run it in the tenant. |
-| Glyphor app roles (per-agent scopes) | `appRoleAssignments` | 22 app roles on Glyphor app SP (`5604df3b-...`). 80 assignments across 44 agents. |
+| M365 MCP servers (full 9-server Agent 365 catalog) | `oauth2PermissionGrants` (admin consent) | Delegated permissions on M365 Agent Tools API (`ea9ffc3e-...`). `consentType: AllPrincipals`, requires `expiryTime`. The rollout has already been executed for all 44 agent identities, and the repo script now reconciles future scope drift. |
+| Glyphor app roles (per-agent scopes) | `appRoleAssignments` | 22 app roles on Glyphor app SP (`5604df3b-...`). 80 assignments across 44 agents; rollout confirmed the existing grants were already intact. |
 
 **Key distinction:** Agent Identity SPs hold the permissions (oauth2 grants + app roles).
 User accounts hold the mailbox and license. Deleting a user account does NOT affect the
@@ -2518,7 +2576,9 @@ agent identity SP or its permissions.
 - `McpServers.SharePointLists.All` — SharePoint list CRUD/query
 - `McpServers.AdminCenter.All` — Admin Center operations
 
-**Operational note:** the repo-side script is ready, but an operator still needs to execute the grant rollout against the live tenant before existing agent identities receive the expanded access.
+**Operational note:** repo-side defaults and tenant grants are now aligned; remaining failures in
+production would indicate credential drift, missing app secrets, or service-specific runtime
+configuration rather than missing Agent 365 consent.
 
 **Critical lessons learned:**
 - Regular SPs (`servicePrincipalType: Application`) are NOT valid agent identities
@@ -2561,7 +2621,7 @@ Agent run.ts → createGlyphorMcpTools(agentRole?, serverFilter?)
   → MCP server (e.g., mcp-data-server) validates scope + executes
 ```
 
-**Glyphor MCP Servers (9 built):**
+**Glyphor MCP Servers (10 built in repo):**
 
 | Server | Cloud Run Service | Status | Tools | Purpose |
 |--------|------------------|--------|-------|---------|
@@ -2574,8 +2634,9 @@ Agent run.ts → createGlyphorMcpTools(agentRole?, serverFilter?)
 | `glyphor_legal` | `mcp-legal-server` | ✅ Built | 19 | Compliance, contracts, IP portfolio, tax, data privacy/retention (12 reads + 7 writes) |
 | `glyphor_hr` | `mcp-hr-server` | ✅ Built | 8 | Org chart, agent profiles, onboarding, performance reviews, engagement (5 reads + 3 writes) |
 | `glyphor_email_marketing` | `mcp-email-marketing-server` | ✅ Built | 15 | Mailchimp campaigns (10) + Mandrill transactional email (5) |
+| `glyphor_slack` | `mcp-slack-server` | ✅ Built (deployment/manifest pending) | 6 | Customer Slack routing, approvals, queue review, routing stats |
 
-**Total: ~81 MCP tools across 9 servers.**
+**Total: ~87 MCP tools across 10 servers.**
 
 **MCP Data Server (`packages/mcp-data-server/`):**
 - HTTP server on `:8080`, handles `POST /mcp` (JSON-RPC 2.0) and `GET /health`
@@ -3200,13 +3261,14 @@ RPCs: `match_kg_nodes`, `kg_trace_causes`, `kg_trace_impact`, `kg_neighborhood`,
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `content_drafts` | Content pipeline | type, title, content, platform, tags, meta_description, media_url, campaign_type, status, author |
+| `content_drafts` | Content pipeline + review state | type, title, content, platform, tags, meta_description, media_url, campaign_type, status, author, review_requested_at, approved_at, rejected_at, initiative_id |
 | `content_metrics` | Content performance | content_type, title, url, platform, views, shares, engagement, conversions, clicks |
 | `seo_data` | SEO intelligence | metric_type, keyword, url, position, search_volume, difficulty, clicks, impressions, ctr |
-| `scheduled_posts` | Social media queue | profile_id, text, platform, scheduled_at, media_url, status, buffer_id, agent |
+| `scheduled_posts` | Approved social queue + durable publish refs | profile_id, text, platform, scheduled_at, media_url, status, buffer_id, agent, api_status, deliverable_id, platform_post_url |
 | `social_metrics` | Social performance | metric_type, platform, followers, engagement, reach, impressions, clicks, demographics (JSONB) |
 | `email_metrics` | Email campaign tracking | campaign_type, template_name, subject, sends, opens, clicks, unsubscribes, bounces, open_rate, click_rate |
 | `experiment_designs` | A/B test designs | agent, hypothesis, variant_description, primary_metric, duration, status, results (JSONB) |
+| `social_publish_audit_log` | Social publish audit trail | draft_id, scheduled_post_id, deliverable_id, action, actor, status, details (JSONB) |
 
 ### Sales & Research Tables
 
@@ -3224,6 +3286,13 @@ RPCs: `match_kg_nodes`, `kg_trace_causes`, `kg_trace_impact`, `kg_neighborhood`,
 | `roadmap_items` | Feature roadmap | title, product (pulse/fuse), priority, effort, impact, target_quarter, status, rice_score |
 | `research_repository` | Persistent research store | topic, category, content, sources (JSONB), tags, confidence, author |
 | `research_monitors` | Monitoring configs | name, type, query_terms, check_frequency, alert_threshold, last_checked, active |
+
+### Autonomy Runtime Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `initiatives` | Doctrine-aligned execution plans | proposed_initiative_id, title, doctrine_alignment, owner_role, status, priority, dependencies, success_criteria, progress_summary, tenant_id |
+| `deliverables` | Durable outputs tied to initiatives, directives, or assignments | initiative_id, directive_id, assignment_id, title, type, storage_url, producing_agent, status, metadata (JSONB), consumed_by, tenant_id |
 
 ### Governance Tables (Wave 4)
 
@@ -3253,7 +3322,7 @@ RPCs: `match_kg_nodes`, `kg_trace_causes`, `kg_trace_impact`, `kg_neighborhood`,
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `company_knowledge_base` | Editable knowledge sections | section (unique), title, content, audience (10 roles), last_edited_by, version, is_active |
+| `company_knowledge_base` | Editable knowledge sections + operating doctrine | section (unique), title, content, audience (10 roles), last_edited_by, version, is_active |
 | `founder_bulletins` | Founder announcements | created_by, content, audience, priority (fyi/normal/important/urgent), active_from, expires_at, is_active |
 
 ### Tenant & Platform Tables
@@ -3264,13 +3333,23 @@ RPCs: `match_kg_nodes`, `kg_trace_causes`, `kg_trace_impact`, `kg_neighborhood`,
 | `dashboard_change_requests` | Feature/bug request tracking | type, area, priority, description, status, github_issue_url, submitted_by, approved_by |
 | `runtime_tools` | Persisted runtime-synthesized tools | name, implementation_type, definition (JSONB), created_by |
 
+### Customer Slack Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `customer_tenants` | Installed Slack workspaces mapped to tenant accounts | tenant_id, slack_team_id, slack_team_name, bot_user_id, default_channel, scopes, status, settings (JSONB) |
+| `customer_knowledge` | Tenant-scoped customer knowledge surfaced in Slack | tenant_id, section, title, content, content_type, audience, tags, is_active, version |
+| `customer_content` | Inbound or agent-generated customer Slack artifacts | tenant_id, customer_tenant_id, kind, title, body, slack_channel_id, slack_message_ts, slack_file_id, status, metadata (JSONB) |
+| `slack_approvals` | Approval queue for Slack-routed content needing review | tenant_id, customer_tenant_id, content_id, destination, payload (JSONB), status, decision_by, expires_at |
+| `slack_routing_rules` | Tenant-configurable Slack routing rules | tenant_id, pattern, destination, intent_label, requires_approval, priority, is_active |
+
 ### Working Memory
 
 Working memory (last-run summary) is stored in the `company_agents` table via the
 `last_run_summary` and `last_run_at` columns — not a separate table. This enables
 continuity between runs without additional migration.
 
-Total: **163 migration files**, **90+ tables**, **10 RPC functions**, **1 extension (pgvector)**.
+Total: **138 migration files**, **90+ tables**, **10 RPC functions**, **1 extension (pgvector)**.
 
 ---
 
@@ -3291,7 +3370,7 @@ in PostgreSQL, enabling future SaaS onboarding.
 
 Critical tables now carry a `tenant_id` column (NOT NULL):
 `agent_runs`, `kg_nodes`, `kg_edges`, `founder_directives`, `work_assignments`, `agent_briefs`,
-plus all framework and strategy tables.
+`initiatives`, `deliverables`, customer Slack tables, plus all framework and strategy tables.
 
 All existing records were backfilled with the Glyphor tenant ID. RLS policies enforce
 that queries only see rows matching the current tenant context.
@@ -3457,7 +3536,7 @@ Requires `SCHEDULER_URL`, `DASHBOARD_URL`, `VOICE_GATEWAY_URL` env vars.
 | Agent Settings | `/agents/:agentId/settings` | Agent configuration & system prompt editing (uses AgentProfile component) |
 | Approvals | `/approvals` | Pending decision queue — approve/reject |
 | Financials | `/financials` | Revenue (Stripe MRR), costs (GCP billing), cash (Mercury), vendor subscriptions |
-| Governance | `/governance` | Platform IAM state, secret rotation status, audit log |
+| Governance | `/governance` | Governance control plane: Command Center, restored Tool View, searchable Access Control grant inventory, and Policy Lab |
 | Knowledge | `/knowledge` | Company knowledge base sections, founder bulletins, knowledge graph (absorbed from old /graph) |
 | Operations | `/operations` | System operations, autonomous events, activity log (absorbed from old /activity) |
 | Strategy | `/strategy` | Strategic analysis engine (5 analysis types) + T+1 simulation engine with impact matrix + AI-generated infographics |
