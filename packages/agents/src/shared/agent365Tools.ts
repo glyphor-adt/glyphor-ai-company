@@ -25,6 +25,21 @@ export const STANDARD_M365_SERVERS = [
   'mcp_WordServer',
 ] as const;
 
+/** Standard servers plus Microsoft 365 user profile tools for org-aware roles. */
+export const PROFILE_AWARE_M365_SERVERS = [
+  ...STANDARD_M365_SERVERS,
+  'mcp_MeServer',
+] as const;
+
+const ORG_PROFILE_AGENT_ROLES = new Set([
+  'chief-of-staff',
+  'global-admin',
+  'm365-admin',
+  'head-of-hr',
+  'org-analyst',
+  'onboarding-specialist',
+]);
+
 // ── Singleton Bridge ─────────────────────────────────────────────
 
 let activeBridge: Agent365ToolBridge | null = null;
@@ -81,6 +96,14 @@ function resolveAgent365Credentials(agentRole?: string): {
   };
 }
 
+function resolveDefaultServerFilter(agentRole?: string): string[] {
+  if (agentRole && ORG_PROFILE_AGENT_ROLES.has(agentRole)) {
+    return [...PROFILE_AWARE_M365_SERVERS];
+  }
+
+  return [...STANDARD_M365_SERVERS];
+}
+
 // ── Public Factory ───────────────────────────────────────────────
 
 /**
@@ -88,7 +111,7 @@ function resolveAgent365Credentials(agentRole?: string): {
  * Uses MSAL client credentials flow to auto-acquire and cache tokens.
  *
  * @param serverFilter Optional list of MCP server names to load.
- *                     Defaults to STANDARD_M365_SERVERS (all 6 Microsoft servers).
+ *                     Defaults to STANDARD_M365_SERVERS, with mcp_MeServer added for org-aware roles.
  *
  * Returns an empty array if:
  *   - AGENT365_ENABLED is not 'true'
@@ -114,7 +137,7 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
       clientId: credentials.clientId,
       clientSecret: credentials.clientSecret,
       tenantId: credentials.tenantId,
-    }, serverFilter ?? [...STANDARD_M365_SERVERS]);
+    }, serverFilter ?? resolveDefaultServerFilter(agentRole));
 
     activeBridge = bridge;
     console.log(`[Agent365] Initialized ${bridge.tools.length} MCP tools`);
