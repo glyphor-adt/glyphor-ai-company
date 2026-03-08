@@ -71,7 +71,7 @@ export async function runCPO(params: CPORunParams = {}) {
     ...createProductAnalyticsTools(),
     ...createSharedCompetitiveIntelTools(),
     ...createRoadmapTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('cpo'),
     ...await createGlyphorMcpTools('cpo'),
   ];
   const toolExecutor = new ToolExecutor(tools);

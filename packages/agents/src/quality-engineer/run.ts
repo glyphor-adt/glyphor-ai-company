@@ -47,7 +47,7 @@ export async function runQualityEngineer(params: QualityEngineerRunParams = {}) 
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),
     ...createEngineeringGapTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('quality-engineer'),
     ...await createGlyphorMcpTools('quality-engineer'),
   ];
   const toolExecutor = new ToolExecutor(tools);

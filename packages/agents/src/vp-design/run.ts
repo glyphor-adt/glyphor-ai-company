@@ -88,7 +88,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
     ...createStorybookTools(),
     ...createCanvaTools(),
     ...createLogoTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('vp-design'),
     ...await createGlyphorMcpTools('vp-design'),
   ];
   const toolExecutor = new ToolExecutor(tools);

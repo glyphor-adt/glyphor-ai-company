@@ -51,7 +51,7 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
     ...createDeployPreviewTools(),
     ...createStorybookTools(),
     ...createSharePointTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('frontend-engineer'),
     ...await createGlyphorMcpTools('frontend-engineer'),
   ];
   const toolExecutor = new ToolExecutor(tools);

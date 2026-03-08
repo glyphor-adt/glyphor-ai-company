@@ -41,7 +41,7 @@ export async function runSeoAnalyst(params: SeoAnalystRunParams = {}) {
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),
     ...createSeoTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('seo-analyst'),
     ...await createGlyphorMcpTools('seo-analyst'),
   ];
   const toolExecutor = new ToolExecutor(tools);

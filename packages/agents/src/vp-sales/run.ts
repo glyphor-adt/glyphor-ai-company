@@ -65,7 +65,7 @@ export async function runVPSales(params: VPSalesRunParams = {}) {
     ...createSharePointTools(),
     ...createAgentCreationTools(),
     ...createAgentDirectoryTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('vp-sales'),
     ...await createGlyphorMcpTools('vp-sales'),
   ];
   const toolExecutor = new ToolExecutor(tools);

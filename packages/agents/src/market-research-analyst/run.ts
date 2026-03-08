@@ -52,7 +52,7 @@ export async function runMarketResearchAnalyst(params: MarketResearchAnalystRunP
     ...createSharePointTools(),
     ...createResearchRepoTools(),
     ...createResearchMonitoringTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('market-research-analyst'),
     ...await createGlyphorMcpTools('market-research-analyst'),
   ];
   const toolExecutor = new ToolExecutor(tools);

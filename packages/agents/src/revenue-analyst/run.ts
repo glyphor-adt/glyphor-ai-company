@@ -43,7 +43,7 @@ export async function runRevenueAnalyst(params: RevenueAnalystRunParams = {}) {
     ...createSharePointTools(),
     ...createRevenueTools(),
     ...createCashFlowTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('revenue-analyst'),
     ...await createGlyphorMcpTools('revenue-analyst'),
   ];
   const toolExecutor = new ToolExecutor(tools);

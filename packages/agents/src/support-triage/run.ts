@@ -39,7 +39,7 @@ export async function runSupportTriage(params: SupportTriageRunParams = {}) {
     ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('support-triage'),
     ...await createGlyphorMcpTools('support-triage'),
   ];
   const toolExecutor = new ToolExecutor(tools);

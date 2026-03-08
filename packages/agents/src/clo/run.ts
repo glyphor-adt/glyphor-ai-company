@@ -61,7 +61,7 @@ export async function runCLO(params: CLORunParams = {}) {
     ...createAgentCreationTools(),
     ...createAgentDirectoryTools(),
     ...createDocuSignTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('clo'),
     ...await createGlyphorMcpTools('clo'),
   ];
   const toolExecutor = new ToolExecutor(tools);

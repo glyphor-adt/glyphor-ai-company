@@ -135,7 +135,7 @@ export function createDeliverableTools(
           `INSERT INTO deliverables
              (initiative_id, directive_id, assignment_id, title, type, content, storage_url, producing_agent, status, metadata)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'published', $9::jsonb)
-           RETURNING id, created_at`,
+            RETURNING id, created_at`,
           [
             initiativeId,
             directiveId,
@@ -148,6 +148,13 @@ export function createDeliverableTools(
             JSON.stringify(metadata),
           ],
         );
+
+        if (!deliverable) {
+          return {
+            success: false,
+            error: 'Failed to insert deliverable or read it back after insert.',
+          };
+        }
 
         await systemQuery(
           'INSERT INTO activity_log (agent_role, action, product, summary, details) VALUES ($1, $2, $3, $4, $5::jsonb)',

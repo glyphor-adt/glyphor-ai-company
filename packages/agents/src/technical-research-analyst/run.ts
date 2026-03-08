@@ -52,7 +52,7 @@ export async function runTechnicalResearchAnalyst(params: TechnicalResearchAnaly
     ...createSharePointTools(),
     ...createResearchRepoTools(),
     ...createResearchMonitoringTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('technical-research-analyst'),
     ...await createGlyphorMcpTools('technical-research-analyst'),
   ];
   const toolExecutor = new ToolExecutor(tools);

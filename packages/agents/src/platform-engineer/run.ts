@@ -55,7 +55,7 @@ export async function runPlatformEngineer(params: PlatformEngineerRunParams = {}
     ...createSharePointTools(),
     ...createDiagnosticTools(),
     ...createEngineeringGapTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('platform-engineer'),
     ...await createGlyphorMcpTools('platform-engineer'),
   ];
   const toolExecutor = new ToolExecutor(tools);

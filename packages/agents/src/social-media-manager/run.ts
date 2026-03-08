@@ -41,7 +41,7 @@ export async function runSocialMediaManager(params: SocialMediaManagerRunParams 
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),
     ...createSocialMediaTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('social-media-manager'),
     ...await createGlyphorMcpTools('social-media-manager'),
   ];
   const toolExecutor = new ToolExecutor(tools);

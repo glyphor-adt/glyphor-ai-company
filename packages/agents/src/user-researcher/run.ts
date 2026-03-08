@@ -43,7 +43,7 @@ export async function runUserResearcher(params: UserResearcherRunParams = {}) {
     ...createSharePointTools(),
     ...createProductAnalyticsTools(),
     ...createUserResearchTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('user-researcher'),
     ...await createGlyphorMcpTools('user-researcher'),
   ];
   const toolExecutor = new ToolExecutor(tools);

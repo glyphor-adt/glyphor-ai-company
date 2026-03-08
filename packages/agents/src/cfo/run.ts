@@ -71,7 +71,7 @@ export async function runCFO(params: CFORunParams = {}) {
     ...createRevenueTools(),
     ...createCostManagementTools(),
     ...createCashFlowTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('cfo'),
     ...await createGlyphorMcpTools('cfo'),
   ];
   const toolExecutor = new ToolExecutor(tools);

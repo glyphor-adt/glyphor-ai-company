@@ -39,7 +39,7 @@ export async function runOnboardingSpecialist(params: OnboardingSpecialistRunPar
     ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('onboarding-specialist'),
     ...await createGlyphorMcpTools('onboarding-specialist'),
   ];
   const toolExecutor = new ToolExecutor(tools);

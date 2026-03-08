@@ -41,7 +41,7 @@ export async function runContentCreator(params: ContentCreatorRunParams = {}) {
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),
     ...createContentTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('content-creator'),
     ...await createGlyphorMcpTools('content-creator'),
   ];
   const toolExecutor = new ToolExecutor(tools);

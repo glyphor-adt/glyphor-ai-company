@@ -360,7 +360,7 @@ When a directive completes and produces deliverables:
 4. Explicitly tell the assignee to use those deliverables as the source of truth and to
    avoid recreating work that already exists
 
-Your job is not just to notice handoffs. Your job is to operationalize them automatically.`;
+Your job is not just to notice handoffs. Your job is to operationalize them automatically.
 
 ### Initiative Evaluation
 

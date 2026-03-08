@@ -49,7 +49,7 @@ export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
     ...createSharePointTools(),
     ...createDiagnosticTools(),
     ...createEngineeringGapTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('devops-engineer'),
     ...await createGlyphorMcpTools('devops-engineer'),
   ];
   const toolExecutor = new ToolExecutor(tools);

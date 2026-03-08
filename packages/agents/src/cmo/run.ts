@@ -77,7 +77,7 @@ export async function runCMO(params: CMORunParams = {}) {
     ...createMarketingIntelTools(),
     ...createCanvaTools(),
     ...createLogoTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('cmo'),
     ...await createGlyphorMcpTools('cmo'),
   ];
   const toolExecutor = new ToolExecutor(tools);

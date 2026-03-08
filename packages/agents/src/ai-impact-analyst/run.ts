@@ -52,7 +52,7 @@ export async function runAIImpactAnalyst(params: AIImpactAnalystRunParams = {}) 
     ...createSharePointTools(),
     ...createResearchRepoTools(),
     ...createResearchMonitoringTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('ai-impact-analyst'),
     ...await createGlyphorMcpTools('ai-impact-analyst'),
   ];
   const toolExecutor = new ToolExecutor(tools);

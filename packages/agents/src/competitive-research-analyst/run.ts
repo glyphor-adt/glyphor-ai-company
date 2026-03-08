@@ -52,7 +52,7 @@ export async function runCompetitiveResearchAnalyst(params: CompetitiveResearchA
     ...createSharePointTools(),
     ...createResearchRepoTools(),
     ...createResearchMonitoringTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('competitive-research-analyst'),
     ...await createGlyphorMcpTools('competitive-research-analyst'),
   ];
   const toolExecutor = new ToolExecutor(tools);

@@ -52,7 +52,7 @@ export async function runOrgAnalyst(params: OrgAnalystRunParams = {}) {
     ...createSharePointTools(),
     ...createResearchRepoTools(),
     ...createResearchMonitoringTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('org-analyst'),
     ...await createGlyphorMcpTools('org-analyst'),
   ];
   const toolExecutor = new ToolExecutor(tools);

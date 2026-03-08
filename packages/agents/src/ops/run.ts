@@ -61,7 +61,7 @@ export async function runOps(params: OpsRunParams = {}) {
     ...createSharePointTools(),
     ...createDiagnosticTools(),
     ...createOpsExtensionTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('ops'),
     ...await createGlyphorMcpTools('ops'),
   ];
   const toolExecutor = new ToolExecutor(tools);

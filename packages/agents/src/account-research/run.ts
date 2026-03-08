@@ -44,7 +44,7 @@ export async function runAccountResearch(params: AccountResearchRunParams = {}) 
     ...createSharePointTools(),
     ...createResearchRepoTools(),
     ...createResearchMonitoringTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('account-research'),
     ...await createGlyphorMcpTools('account-research'),
   ];
   const toolExecutor = new ToolExecutor(tools);

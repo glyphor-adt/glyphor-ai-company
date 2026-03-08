@@ -55,7 +55,7 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
     ...createAccessAuditTools(),
     ...createAgentDirectoryTools(),
     ...createEntraHRTools(),
-    ...await createAgent365McpTools(),
+    ...await createAgent365McpTools('head-of-hr'),
     ...await createGlyphorMcpTools('head-of-hr'),
   ];
   const toolExecutor = new ToolExecutor(tools);
