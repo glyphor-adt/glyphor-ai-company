@@ -12,7 +12,7 @@ export async function buildTriangulationContext(
 ): Promise<{ contextBlock: string; totalTokens: number }> {
   try {
     const retriever = new JitContextRetriever(embeddingClient, cache);
-    const jitContext = await retriever.retrieve('intelligence', query, 4000);
+    const jitContext = await retriever.retrieve('ora', query, 4000);
 
     if (jitContext.tokenEstimate === 0) {
       return { contextBlock: '', totalTokens: 0 };
@@ -21,7 +21,7 @@ export async function buildTriangulationContext(
     // If context is large, distill it
     if (jitContext.tokenEstimate > 4000) {
       const distiller = new ContextDistiller(modelClient, cache ?? null);
-      const distilled = await distiller.distill('intelligence', query, query, jitContext);
+      const distilled = await distiller.distill('ora', query, query, jitContext);
       const block = formatContextBlock(distilled.briefing, distilled.keyFacts);
       return { contextBlock: block, totalTokens: distilled.tokenEstimate };
     }

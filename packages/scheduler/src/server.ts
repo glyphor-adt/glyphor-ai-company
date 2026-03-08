@@ -2279,7 +2279,7 @@ const server = createServer(async (req, res) => {
     }
 
     // ─── Triangulated Chat ─────────────────────────────────────────
-    if (method === 'POST' && url === '/chat/triangulate') {
+    if (method === 'POST' && (url === '/ora/chat' || url === '/chat/triangulate')) {
       await handleTriangulatedChat(req, res, {
         modelClient: strategyModelClient,
         embeddingClient: { embed: async (_text: string) => [] as number[] },

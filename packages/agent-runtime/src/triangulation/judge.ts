@@ -117,7 +117,7 @@ ${textFor('claude')}
 ## Response B (Gemini 3.1 Pro)
 ${textFor('gemini')}
 
-## Response C (GPT-5.4)
+## Response C (GPT-5.2)
 ${textFor('openai')}
 
 Evaluate now.`;

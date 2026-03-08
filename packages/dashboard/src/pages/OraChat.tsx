@@ -212,7 +212,7 @@ function TriangulationPanel({ tri }: { tri: TriangulationResult }) {
 
 /* ── Main Component ───────────────────────────────── */
 
-export default function IntelligenceChat() {
+export default function OraChat() {
   const { user } = useAuth();
   const userEmail = (user?.email ?? 'unknown').toLowerCase();
   const userAliases = useMemo(() => getEmailAliases(userEmail), [userEmail]);
@@ -231,7 +231,7 @@ export default function IntelligenceChat() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const conversationId = useMemo(() => `intelligence-${userEmail}`, [userEmail]);
+  const conversationId = useMemo(() => `ora-${userEmail}`, [userEmail]);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -259,7 +259,7 @@ export default function IntelligenceChat() {
           created_at: string;
           metadata?: Message['metadata'];
           attachments?: Attachment[];
-        }>>(`/api/chat-messages?agent_role=eq.intelligence&${aliasFilter}&order=created_at.asc&limit=200`);
+        }>>(`/api/chat-messages?agent_role=eq.ora&${aliasFilter}&order=created_at.asc&limit=200`);
         if (data?.length) {
           setMessages(
             data.map((m) => ({
@@ -345,7 +345,7 @@ export default function IntelligenceChat() {
     }
 
     try {
-      const response = await fetch(`${SCHEDULER_URL}/chat/triangulate`, {
+      const response = await fetch(`${SCHEDULER_URL}/ora/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -388,7 +388,7 @@ export default function IntelligenceChat() {
               case 'chunk':
                 setMessages((prev) =>
                   prev.map((m) =>
-                    m.id === assistantId ? { ...m, content: m.content + event.content } : m,
+                    m.id === assistantId ? { ...m, content: m.content + (event.text ?? '') } : m,
                   ),
                 );
                 break;
@@ -406,8 +406,8 @@ export default function IntelligenceChat() {
                     m.id === assistantId
                       ? {
                           ...m,
-                          content: event.triangulation.selectedResponse ?? m.content,
-                          metadata: { ...m.metadata, triangulation: event.triangulation },
+                          content: event.data?.selectedResponse ?? m.content,
+                          metadata: { ...m.metadata, triangulation: event.data },
                         }
                       : m,
                   ),
@@ -436,7 +436,7 @@ export default function IntelligenceChat() {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantId
-            ? { ...m, content: 'Failed to connect to Intelligence service. Please try again.' }
+            ? { ...m, content: 'Failed to connect to Ora. Please try again.' }
             : m,
         ),
       );
@@ -473,7 +473,7 @@ export default function IntelligenceChat() {
           </svg>
         </div>
         <div>
-          <h1 className="text-lg font-semibold text-prism-primary">Intelligence</h1>
+          <h1 className="text-lg font-semibold text-prism-primary">Ora</h1>
           <p className="text-[12px] text-prism-tertiary">Multi-model triangulated responses</p>
         </div>
       </div>
@@ -482,7 +482,7 @@ export default function IntelligenceChat() {
       <div className="flex-1 overflow-y-auto rounded-xl border border-prism-border bg-prism-card p-4">
         {messages.length === 0 && (
           <div className="flex h-full items-center justify-center">
-            <p className="text-[13px] text-prism-tertiary">Start a conversation with the Intelligence engine.</p>
+            <p className="text-[13px] text-prism-tertiary">Start a conversation with Ora.</p>
           </div>
         )}
 
@@ -657,7 +657,7 @@ export default function IntelligenceChat() {
           }}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          placeholder="Ask Intelligence anything..."
+          placeholder="Ask Ora..."
           rows={1}
           className="flex-1 resize-none bg-transparent text-[13px] text-prism-primary placeholder:text-prism-tertiary outline-none"
           style={{ maxHeight: 160 }}

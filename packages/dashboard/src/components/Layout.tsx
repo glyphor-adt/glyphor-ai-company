@@ -7,7 +7,7 @@ const NAV = [
   { to: '/directives', label: 'Directives', icon: DirectivesIcon },
   { to: '/workforce', label: 'Workforce', icon: UsersIcon },
   { to: '/comms', label: 'Comms', icon: ChatIcon },
-  { to: '/intelligence', label: 'Intelligence', icon: IntelligenceIcon },
+  { to: '/ora', label: 'Ora', icon: OraIcon },
   { to: '/approvals', label: 'Approvals', icon: CheckIcon },
   { to: '/financials', label: 'Financials', icon: ChartIcon },
   { to: '/operations', label: 'Operations', icon: GearIcon },
@@ -318,7 +318,7 @@ function PolicyIcon({ className }: { className?: string }) {
   );
 }
 
-function IntelligenceIcon({ className }: { className?: string }) {
+function OraIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
       <path d="M8 2L3 13h10L8 2z" />

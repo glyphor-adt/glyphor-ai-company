@@ -50,8 +50,12 @@ export async function handleTriangulatedChat(
         systemPrompt: INTELLIGENCE_SYSTEM_PROMPT,
         enableWebSearch: features.webSearch ?? false,
         enableDeepThinking: features.deepThinking ?? false,
-        enableInternalSearch: features.internalSearch ?? true,
-        attachments,
+        enableInternalSearch: features.knowledgeBase ?? features.internalSearch ?? true,
+        attachments: attachments.map((a: Record<string, string>) => ({
+          name: a.name,
+          mimeType: a.mimeType ?? a.type ?? 'application/octet-stream',
+          base64: a.base64 ?? a.data ?? '',
+        })),
       },
       deps,
     );
