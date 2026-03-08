@@ -398,6 +398,37 @@ function getGrantInventoryLabel(status: GrantInventoryStatus) {
   return toHumanWords(status);
 }
 
+function normalizeInventorySearchValue(value: string | null | undefined): string {
+  if (!value) return '';
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_./:-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function buildInventorySearchText(values: Array<string | null | undefined>): string {
+  const segments = values.flatMap((value) => {
+    const normalized = normalizeInventorySearchValue(value);
+    if (!normalized) return [];
+    const compact = normalized.replace(/\s+/g, '');
+    return compact === normalized ? [normalized] : [normalized, compact];
+  });
+
+  return segments.join(' ');
+}
+
+function matchesInventorySearch(searchText: string, query: string): boolean {
+  const normalizedQuery = normalizeInventorySearchValue(query);
+  if (!normalizedQuery) return true;
+
+  return normalizedQuery
+    .split(' ')
+    .filter(Boolean)
+    .every((token) => searchText.includes(token));
+}
+
 function AccessGrantManager({
   grants,
   pendingApprovals,
@@ -448,20 +479,19 @@ function AccessGrantManager({
           department,
           expiresInDays,
           inventoryStatus,
-          searchText: [
+          searchText: buildInventorySearchText([
             grant.agent_role,
             displayName,
             roleTitle,
             department,
             grant.tool_name,
+            toHumanWords(grant.tool_name),
             grant.granted_by,
             grant.reason,
             grant.scope,
             inventoryStatus,
-          ]
-            .filter(Boolean)
-            .join(' ')
-            .toLowerCase(),
+            getGrantInventoryLabel(inventoryStatus),
+          ]),
         };
       })
       .sort((left, right) => {
@@ -499,7 +529,7 @@ function AccessGrantManager({
       if (agentFilter !== 'all' && grant.agent_role !== agentFilter) return false;
       if (toolFilter !== 'all' && grant.tool_name !== toolFilter) return false;
       if (statusFilter !== 'all' && grant.inventoryStatus !== statusFilter) return false;
-      if (normalizedSearch && !grant.searchText.includes(normalizedSearch)) return false;
+      if (normalizedSearch && !matchesInventorySearch(grant.searchText, normalizedSearch)) return false;
       return true;
     });
   }, [agentFilter, departmentFilter, inventory, search, statusFilter, toolFilter]);

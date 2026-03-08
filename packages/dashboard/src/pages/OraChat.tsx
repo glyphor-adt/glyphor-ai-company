@@ -1086,7 +1086,7 @@ export default function OraChat() {
               <div
                 className={msg.role === 'user'
                   ? 'max-w-[42rem] rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-[13px] leading-relaxed text-prism-secondary'
-                  : 'w-full rounded-[28px] border border-prism-border bg-prism-bg2/90 px-6 py-5 text-[14px] leading-7 text-prism-secondary shadow-[0_16px_44px_rgba(0,0,0,0.18)]'}
+                  : 'w-full rounded-[28px] border border-prism-border bg-prism-bg2/90 px-8 py-6 text-base leading-[1.75] text-prism-secondary shadow-[0_16px_44px_rgba(0,0,0,0.18)]'}
               >
                 {msg.role === 'assistant' ? (
                   <div className="mb-4 flex items-center gap-3 border-b border-prism-border pb-3">

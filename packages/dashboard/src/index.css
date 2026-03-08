@@ -152,122 +152,117 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
   animation: fadeUp .35s ease-out both;
 }
 
-/* ─── Chat markdown rendering ────────────── */
+/* ─── Chat markdown rendering (Claude-matched) ── */
 .prose-chat {
-  font-size: 14px;
-  line-height: 1.7;
+  font-size: 16px;
+  line-height: 1.75;
   color: var(--color-txt-secondary);
+  text-align: left;
 }
 .prose-chat h1 {
-  font-size: 20px;
+  font-size: 1.5em;
   font-weight: 700;
   color: var(--color-txt-primary);
-  margin: 1em 0 0.4em;
+  margin: 1.25em 0 0.5em;
   line-height: 1.3;
+  letter-spacing: -0.01em;
 }
 .prose-chat h2 {
-  font-size: 17px;
+  font-size: 1.35em;
   font-weight: 700;
   color: var(--color-txt-primary);
-  margin: 1em 0 0.35em;
-  line-height: 1.35;
+  margin: 1.5em 0 0.5em;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
 }
 .prose-chat h3 {
-  font-size: 15px;
+  font-size: 1.15em;
   font-weight: 600;
   color: var(--color-txt-primary);
-  margin: 0.85em 0 0.3em;
-  line-height: 1.4;
+  margin: 1.25em 0 0.4em;
+  line-height: 1.35;
 }
 .prose-chat h4, .prose-chat h5, .prose-chat h6 {
-  font-size: 14px;
+  font-size: 1em;
   font-weight: 600;
   color: var(--color-txt-primary);
-  margin: 0.75em 0 0.25em;
+  margin: 1em 0 0.3em;
 }
 .prose-chat h1:first-child, .prose-chat h2:first-child, .prose-chat h3:first-child {
   margin-top: 0;
 }
 .prose-chat p {
-  margin: 0.5em 0;
+  margin: 0.75em 0;
 }
 .prose-chat ul, .prose-chat ol {
-  margin: 0.5em 0;
-  padding-left: 1.5em;
+  margin: 0.75em 0;
+  padding-left: 1.75em;
 }
 .prose-chat li {
+  margin: 0.35em 0;
+}
+.prose-chat li > p {
   margin: 0.25em 0;
 }
 .prose-chat strong {
   color: var(--color-txt-primary);
-  font-weight: 600;
+  font-weight: 700;
 }
 .prose-chat code {
   background: rgb(var(--cyan) / 0.10);
   color: rgb(var(--cyan));
   padding: 0.15em 0.4em;
-  border-radius: 4px;
-  font-size: 13px;
-  font-family: 'IBM Plex Mono', monospace;
+  border-radius: 5px;
+  font-size: 0.875em;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
 }
 .prose-chat pre {
-  background: rgba(0,0,0,0.35);
-  border-radius: 8px;
-  padding: 1em;
+  background: rgba(0,0,0,0.4);
+  border-radius: 10px;
+  padding: 1em 1.25em;
   overflow-x: auto;
-  margin: 0.75em 0;
+  margin: 1em 0;
 }
 .prose-chat pre code {
   background: none;
   color: inherit;
   padding: 0;
-  font-size: 13px;
+  font-size: 0.875em;
 }
 .prose-chat a {
   color: rgb(var(--cyan));
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: 3px;
 }
 .prose-chat hr {
-  border-color: var(--color-border);
-  margin: 1em 0;
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1.5em 0;
 }
 .prose-chat table {
   width: 100%;
   border-collapse: collapse;
-  margin: 0.75em 0;
-  font-size: 13px;
+  margin: 1em 0;
+  font-size: 0.9375em;
 }
 .prose-chat th {
   text-align: left;
   font-weight: 600;
   color: var(--color-txt-primary);
-  padding: 0.5em 0.75em;
-  border-bottom: 1px solid var(--color-border);
+  padding: 0.6em 1em;
+  border-bottom: 2px solid var(--color-border);
 }
 .prose-chat td {
-  padding: 0.4em 0.75em;
-  border-bottom: 1px solid rgb(var(--prism-border) / 0.3);
+  padding: 0.5em 1em;
+  border-bottom: 1px solid rgb(var(--prism-border) / 0.25);
   vertical-align: top;
+}
+.prose-chat tr:last-child td {
+  border-bottom: none;
 }
 .prose-chat blockquote {
   border-left: 3px solid rgb(var(--cyan) / 0.4);
-  padding-left: 1em;
-  margin: 0.75em 0;
+  padding-left: 1.25em;
+  margin: 1em 0;
   color: var(--color-txt-secondary);
-}
-
-.ora-response-markdown {
-  text-align: left;
-}
-
-.ora-response-markdown h1,
-.ora-response-markdown h2,
-.ora-response-markdown h3 {
-  text-align: left;
-}
-
-.ora-response-markdown hr,
-.ora-response-markdown pre {
-  text-align: left;
 }
