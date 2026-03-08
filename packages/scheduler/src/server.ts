@@ -153,13 +153,14 @@ const agentExecutor = async (
   }
 
   if (agentRole === 'chief-of-staff') {
-    const taskMap: Record<string, 'generate_briefing' | 'check_escalations' | 'weekly_review' | 'monthly_retrospective' | 'orchestrate' | 'on_demand'> = {
+    const taskMap: Record<string, 'generate_briefing' | 'check_escalations' | 'weekly_review' | 'monthly_retrospective' | 'orchestrate' | 'strategic_planning' | 'on_demand'> = {
       morning_briefing: 'generate_briefing',
       check_escalations: 'check_escalations',
       eod_summary: 'generate_briefing',
       weekly_review: 'weekly_review',
       monthly_retrospective: 'monthly_retrospective',
       orchestrate: 'orchestrate',
+      strategic_planning: 'strategic_planning',
     };
     return runChiefOfStaff({
       task: taskMap[task] ?? 'on_demand',

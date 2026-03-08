@@ -175,4 +175,11 @@ export const WAKE_RULES: WakeRule[] = [
     priority: 'immediate',
     cooldown_min: 5,
   },
+  {
+    event: 'initiative.directive_completed',
+    wake: ['chief-of-staff'],
+    task: 'orchestrate',
+    priority: 'immediate',
+    cooldown_min: 2,
+  },
 ];

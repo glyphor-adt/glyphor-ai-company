@@ -51,6 +51,7 @@ export {
   resolveModel,
   detectProvider,
   getFallbackChain,
+  getProviderLocalFallbackChain,
   getVerifierFor,
   estimateModelCost,
   isDeprecated,

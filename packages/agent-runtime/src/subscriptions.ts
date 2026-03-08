@@ -25,6 +25,11 @@ export const SUBSCRIPTIONS: Record<CompanyAgentRole, GlyphorEventType[]> = {
     'message.sent',
     'meeting.called',
     'meeting.completed',
+    'initiative.proposed',
+    'initiative.activated',
+    'initiative.completed',
+    'initiative.directive_completed',
+    'deliverable.published',
   ],
   'cto': [
     'alert.triggered',

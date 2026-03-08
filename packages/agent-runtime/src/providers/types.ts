@@ -25,6 +25,7 @@ export interface UnifiedModelRequest {
   maxTokens?: number;
   thinkingEnabled?: boolean;
   reasoningLevel?: ReasoningLevel;
+  fallbackScope?: 'cross-provider' | 'same-provider' | 'none';
   signal?: AbortSignal;
   /** Per-call timeout override in ms. Defaults to 180_000. */
   callTimeoutMs?: number;

@@ -323,6 +323,11 @@ export type GlyphorEventType =
   | 'assignment.created'
   | 'escalation.created'
   | 'directive.delegated'
+  | 'initiative.proposed'
+  | 'initiative.activated'
+  | 'initiative.completed'
+  | 'initiative.directive_completed'
+  | 'deliverable.published'
   | 'learning.proposal_signal';
 
 export type EventPriority = 'critical' | 'high' | 'normal' | 'low';
@@ -574,6 +579,7 @@ export const WRITE_TOOLS: ReadonlySet<string> = new Set([
   'resume_agent',
   // Communication (external-facing)
   'send_email',
+  'send_teams_dm',
   'send_dm',
   'send_briefing',
   'respond_to_ticket',
@@ -615,6 +621,9 @@ export const WRITE_TOOLS: ReadonlySet<string> = new Set([
   'revoke_tool_access',
   // Directive proposals
   'propose_directive',
+  'propose_initiative',
+  'activate_initiative',
+  'publish_deliverable',
 ]);
 
 // ═══════════════════════════════════════════════════════════════════

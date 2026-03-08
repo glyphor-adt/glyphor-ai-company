@@ -1,9 +1,9 @@
 /**
  * DM Tools — Shared Teams direct message tools for all agents
  *
- * Provides send_teams_dm tool. Primary path uses Bot Framework proactive
- * messaging (SingleTenant, {appId}/.default scope). Falls back to Agent 365
- * MCP (mcp_TeamsServer) if Bot Framework not configured.
+ * Provides send_teams_dm and read_teams_dm. Primary send path uses Bot
+ * Framework proactive messaging. Teams MCP is used for chat creation and
+ * DM history reads where available.
  *
  * Flow (Bot Framework path):
  *   1. Resolve recipient email → Entra Object ID (Graph API, app-only)
@@ -37,9 +37,6 @@ const EMAIL_ALIASES: Record<string, string> = {
 
 /** Cache for email → Entra Object ID lookups */
 const userIdCache = new Map<string, string>();
-
-/** Cache for (sender+recipient) → chatId */
-const chatIdCache = new Map<string, string>();
 
 /**
  * Resolve a recipient string to an email address.
@@ -96,53 +93,37 @@ async function resolveUserIdByEmail(
   return data.id;
 }
 
-/**
- * Create or get a 1:1 chat between two users via Graph API (app-only token).
- * Graph API returns the existing chat if one already exists (idempotent for oneOnOne).
- */
-async function getOrCreateOneOnOneChat(
-  graphClient: GraphTeamsClient,
-  recipientUserId: string,
-  senderUserId?: string,
-): Promise<string> {
-  const cacheKey = senderUserId ? `${senderUserId}:${recipientUserId}` : recipientUserId;
-  const cached = chatIdCache.get(cacheKey);
-  if (cached) return cached;
+function htmlToText(value: string): string {
+  return value
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .trim();
+}
 
-  const token = await graphClient.getAccessToken();
+function extractMessageSender(message: Record<string, unknown>): string {
+  const from = message.from;
+  if (!from || typeof from !== 'object') return 'Unknown sender';
 
-  const members: Record<string, unknown>[] = [
-    {
-      '@odata.type': '#microsoft.graph.aadUserConversationMember',
-      roles: ['owner'],
-      'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${recipientUserId}')`,
-    },
-  ];
-  if (senderUserId) {
-    members.push({
-      '@odata.type': '#microsoft.graph.aadUserConversationMember',
-      roles: ['owner'],
-      'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${senderUserId}')`,
-    });
-  }
+  const user = (from as { user?: { displayName?: unknown } }).user;
+  if (user && typeof user.displayName === 'string' && user.displayName) return user.displayName;
 
-  const res = await fetch('https://graph.microsoft.com/v1.0/chats', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ chatType: 'oneOnOne', members }),
-  });
+  const application = (from as { application?: { displayName?: unknown } }).application;
+  if (application && typeof application.displayName === 'string' && application.displayName) return application.displayName;
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed to create 1:1 chat (${res.status}): ${text}`);
-  }
+  return 'Unknown sender';
+}
 
-  const data = (await res.json()) as { id: string };
-  chatIdCache.set(cacheKey, data.id);
-  return data.id;
+function extractMessageText(message: Record<string, unknown>): string {
+  const body = message.body;
+  if (!body || typeof body !== 'object') return '';
+  const content = (body as { content?: unknown }).content;
+  if (typeof content !== 'string') return '';
+  return htmlToText(content);
 }
 
 /**
@@ -233,7 +214,7 @@ export function createDmTools(): ToolDefinition[] {
             const senderUserId = senderEmail
               ? await resolveUserIdByEmail(graphClient, senderEmail).catch(() => undefined)
               : undefined;
-            const chatId = await getOrCreateOneOnOneChat(graphClient, recipientUserId, senderUserId);
+            const chatId = await a365Client.createOrGetOneOnOneChat(recipientUserId, senderUserId);
 
             const content = senderName ? `<b>${senderName}:</b> ${params.message as string}` : (params.message as string);
             await a365Client.postChatMessage(chatId, content);
@@ -251,6 +232,82 @@ export function createDmTools(): ToolDefinition[] {
           success: false,
           error: 'Teams DM sender not configured. Set BOT_APP_ID/BOT_APP_SECRET/BOT_TENANT_ID for Bot Framework, or AGENT365_ENABLED=true for A365 MCP.',
         };
+      },
+    },
+    {
+      name: 'read_teams_dm',
+      description:
+        'Read recent messages from a Teams 1:1 chat with a person. ' +
+        'Accepts a founder name, agent role slug, display name, or email address.',
+      parameters: {
+        recipient: {
+          type: 'string',
+          description:
+            'Who to inspect DMs with — founder name (kristina/andrew), agent role, display name, or email',
+          required: true,
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of recent messages to return (default: 10, max: 25)',
+          required: false,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        if (!a365Client || !graphClient) {
+          return {
+            success: false,
+            error: 'Teams DM reading requires AGENT365_ENABLED=true and Graph user resolution to be configured.',
+          };
+        }
+
+        const recipientStr = params.recipient as string;
+        const email = resolveRecipientEmail(recipientStr);
+        if (!email) {
+          return {
+            success: false,
+            error: `Could not resolve recipient "${recipientStr}". Use a founder name, agent role, display name, or email address.`,
+          };
+        }
+
+        const role = ctx?.agentRole as CompanyAgentRole | undefined;
+        const senderEmail = role ? AGENT_EMAIL_MAP[role]?.email : undefined;
+
+        try {
+          const recipientUserId = await resolveUserIdByEmail(graphClient, email);
+          const senderUserId = senderEmail
+            ? await resolveUserIdByEmail(graphClient, senderEmail).catch(() => undefined)
+            : undefined;
+          const chatId = await a365Client.createOrGetOneOnOneChat(recipientUserId, senderUserId);
+
+          const requestedLimit = typeof params.limit === 'number' ? params.limit : Number(params.limit ?? 10);
+          const limit = Number.isFinite(requestedLimit)
+            ? Math.min(Math.max(Math.trunc(requestedLimit), 1), 25)
+            : 10;
+
+          const messages = await a365Client.listChatMessages(chatId, limit);
+          const orderedMessages = [...messages].reverse().map((message) => ({
+            id: typeof message.id === 'string' ? message.id : undefined,
+            createdAt: typeof message.createdDateTime === 'string' ? message.createdDateTime : undefined,
+            sender: extractMessageSender(message),
+            text: extractMessageText(message),
+          }));
+
+          return {
+            success: true,
+            data: {
+              recipient: recipientStr,
+              email,
+              chatId,
+              messageCount: orderedMessages.length,
+              messages: orderedMessages,
+            },
+          };
+        } catch (err) {
+          return {
+            success: false,
+            error: `Failed to read Teams DM: ${(err as Error).message}`,
+          };
+        }
       },
     },
   ];

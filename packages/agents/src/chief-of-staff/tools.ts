@@ -23,6 +23,213 @@ import {
   buildFounderDirectory,
   TeamsBotHandler,
 } from '@glyphor/integrations';
+import {
+  parseInitiativeProposalPayload,
+  type InitiativeDirectiveDraft,
+} from '../shared/initiativeTools.js';
+
+const INITIATIVE_OWNER_CATEGORY: Record<string, string> = {
+  cto: 'engineering',
+  cpo: 'product',
+  cmo: 'marketing',
+  cfo: 'revenue',
+  'vp-sales': 'sales',
+  'vp-customer-success': 'customer_success',
+  ops: 'operations',
+  'vp-design': 'general',
+  'vp-research': 'general',
+};
+
+function inferInitiativeCategory(ownerRole: string | null | undefined): string {
+  if (!ownerRole) return 'general';
+  return INITIATIVE_OWNER_CATEGORY[ownerRole] ?? 'general';
+}
+
+function normalizeTextArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizeDirectiveDraftArray(value: unknown): InitiativeDirectiveDraft[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is InitiativeDirectiveDraft => !!item && typeof item === 'object')
+    .map((item) => ({
+      title: String(item.title ?? '').trim(),
+      description: String(item.description ?? '').trim(),
+      category: typeof item.category === 'string' ? item.category.trim() : undefined,
+      target_agents: normalizeTextArray(item.target_agents),
+      depends_on_directive:
+        typeof item.depends_on_directive === 'number' ? item.depends_on_directive : undefined,
+    }))
+    .filter((item) => item.title && item.description);
+}
+
+function parseDecisionData(value: unknown): Record<string, unknown> {
+  if (!value) return {};
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? parsed as Record<string, unknown>
+        : {};
+    } catch {
+      return {};
+    }
+  }
+
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+const DIRECTIVE_PRIORITY_RANK: Record<string, number> = {
+  critical: 0,
+  urgent: 0,
+  high: 1,
+  medium: 2,
+  normal: 2,
+  low: 3,
+};
+
+function getDirectivePriorityRank(priority: string | null | undefined): number {
+  if (!priority) return 99;
+  return DIRECTIVE_PRIORITY_RANK[priority] ?? 99;
+}
+
+function truncateDeliverableReference(value: string | null | undefined, limit: number = 240): string {
+  if (!value) return '';
+  const trimmed = value.replace(/\s+/g, ' ').trim();
+  if (trimmed.length <= limit) return trimmed;
+  return `${trimmed.slice(0, limit)}…`;
+}
+
+function appendContextBlock(base: string | null | undefined, block: string | null): string {
+  const normalizedBase = (base ?? '').trim();
+  if (!block) return normalizedBase;
+  return normalizedBase ? `${normalizedBase}\n\n${block}` : block;
+}
+
+interface DirectiveInitiativeContext {
+  directive: any;
+  initiative: any | null;
+  prerequisite: any | null;
+  completedDirectives: any[];
+  deliverables: any[];
+  deliverableContext: string | null;
+  readyForAssignments: boolean;
+  blockedReason?: string;
+}
+
+async function loadDirectiveInitiativeContext(
+  directiveId: string,
+): Promise<DirectiveInitiativeContext | null> {
+  const [directive] = await systemQuery<any>(
+    `SELECT fd.id, fd.title, fd.description, fd.status, fd.priority, fd.initiative_id, fd.source_directive_id,
+            fd.source, fd.target_agents, i.title AS initiative_title, i.owner_role AS initiative_owner_role,
+            i.status AS initiative_status, i.priority AS initiative_priority
+     FROM founder_directives fd
+     LEFT JOIN initiatives i ON i.id = fd.initiative_id
+     WHERE fd.id = $1`,
+    [directiveId],
+  );
+
+  if (!directive) return null;
+
+  let prerequisite: any | null = null;
+  if (directive.source_directive_id) {
+    [prerequisite] = await systemQuery<any>(
+      'SELECT id, title, status, completion_summary FROM founder_directives WHERE id = $1',
+      [directive.source_directive_id],
+    );
+  }
+
+  const readyForAssignments = !prerequisite || prerequisite.status === 'completed';
+  const blockedReason =
+    !readyForAssignments && prerequisite
+      ? `Directive "${directive.title}" is waiting on prerequisite "${prerequisite.title}" (${prerequisite.id}) to complete.`
+      : undefined;
+
+  if (!directive.initiative_id) {
+    return {
+      directive,
+      initiative: directive.initiative_id
+        ? {
+            id: directive.initiative_id,
+            title: directive.initiative_title,
+            owner_role: directive.initiative_owner_role,
+            status: directive.initiative_status,
+            priority: directive.initiative_priority,
+          }
+        : null,
+      prerequisite,
+      completedDirectives: [],
+      deliverables: [],
+      deliverableContext: null,
+      readyForAssignments,
+      blockedReason,
+    };
+  }
+
+  const completedDirectives = await systemQuery<any>(
+    `SELECT id, title, status, completion_summary, created_at
+     FROM founder_directives
+     WHERE initiative_id = $1
+       AND id <> $2
+       AND status = 'completed'
+     ORDER BY created_at ASC`,
+    [directive.initiative_id, directiveId],
+  );
+
+  const completedDirectiveIds = completedDirectives.map((item: any) => item.id);
+  const deliverables = completedDirectiveIds.length > 0
+    ? await systemQuery<any>(
+        `SELECT d.id, d.title, d.type, d.content, d.storage_url, d.producing_agent, d.directive_id,
+                d.created_at, fd.title AS directive_title
+         FROM deliverables d
+         LEFT JOIN founder_directives fd ON fd.id = d.directive_id
+         WHERE d.initiative_id = $1
+           AND d.status = 'published'
+           AND (d.directive_id = ANY($2) OR d.directive_id IS NULL)
+         ORDER BY
+           CASE WHEN d.directive_id = $3 THEN 0 ELSE 1 END,
+           d.created_at DESC
+         LIMIT 12`,
+        [directive.initiative_id, completedDirectiveIds, directive.source_directive_id ?? null],
+      )
+    : [];
+
+  const deliverableContext = deliverables.length > 0
+    ? [
+        'AVAILABLE DELIVERABLES FROM PRIOR WORK:',
+        ...deliverables.map((item: any) => {
+          const reference = item.storage_url || truncateDeliverableReference(item.content);
+          return `- ${item.title} (${item.type}, by ${item.producing_agent}${item.directive_title ? `, from "${item.directive_title}"` : ''}): ${reference || 'No inline reference recorded.'}`;
+        }),
+        'Use these deliverables as inputs. Do not recreate work that already exists.',
+      ].join('\n')
+    : null;
+
+  return {
+    directive,
+    initiative: {
+      id: directive.initiative_id,
+      title: directive.initiative_title,
+      owner_role: directive.initiative_owner_role,
+      status: directive.initiative_status,
+      priority: directive.initiative_priority,
+    },
+    prerequisite,
+    completedDirectives,
+    deliverables,
+    deliverableContext,
+    readyForAssignments,
+    blockedReason,
+  };
+}
 
 export function createChiefOfStaffTools(
   memory: CompanyMemoryStore,
@@ -83,6 +290,683 @@ export function createChiefOfStaffTools(
           memory.getDecisions({ tier: 'red', status: 'pending' }),
         ]);
         return { success: true, data: { yellow, red } };
+      },
+    },
+
+    {
+      name: 'read_proposed_initiatives',
+      description: 'Read initiative proposals submitted by executives so you can evaluate, defer, reject, or elevate them into founder approval.',
+      parameters: {
+        status_filter: {
+          type: 'string',
+          description: 'Filter proposal status',
+          required: false,
+          enum: ['pending', 'approved', 'deferred', 'rejected', 'all'],
+        },
+        proposed_by: {
+          type: 'string',
+          description: 'Optional agent role filter',
+          required: false,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        const statusFilter = (params.status_filter as string | undefined) ?? 'pending';
+        const proposedBy = params.proposed_by as string | undefined;
+        const queryParams: unknown[] = [];
+        const conditions: string[] = [];
+
+        if (statusFilter !== 'all') {
+          queryParams.push(statusFilter);
+          conditions.push(`pi.status = $${queryParams.length}`);
+        }
+
+        if (proposedBy) {
+          queryParams.push(proposedBy);
+          conditions.push(`pi.proposed_by = $${queryParams.length}`);
+        }
+
+        const rows = await systemQuery(
+          `SELECT
+             pi.*,
+             i.id AS initiative_id,
+             i.status AS initiative_status,
+             i.owner_role AS initiative_owner_role
+           FROM proposed_initiatives pi
+           LEFT JOIN initiatives i ON i.proposed_initiative_id = pi.id
+           ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
+           ORDER BY pi.created_at DESC`,
+          queryParams,
+        );
+
+        const proposals = (rows as any[]).map((row) => {
+          let parsed;
+          try {
+            parsed = parseInitiativeProposalPayload(row.proposed_assignments);
+          } catch {
+            parsed = { assignments: [] };
+          }
+
+          return {
+            id: row.id,
+            title: row.title,
+            justification: row.justification,
+            expected_outcome: row.expected_outcome,
+            priority: row.priority,
+            estimated_days: row.estimated_days,
+            status: row.status,
+            proposed_by: row.proposed_by,
+            evaluation_notes: row.evaluation_notes,
+            evaluated_by: row.evaluated_by,
+            evaluated_at: row.evaluated_at,
+            created_at: row.created_at,
+            assignments: parsed.assignments,
+            initiative_context: parsed.initiative_context ?? null,
+            linked_initiative: row.initiative_id
+              ? {
+                  id: row.initiative_id,
+                  status: row.initiative_status,
+                  owner_role: row.initiative_owner_role,
+                }
+              : null,
+          };
+        });
+
+        return { success: true, data: proposals };
+      },
+    },
+
+    {
+      name: 'propose_initiative',
+      description: 'Create a founder-facing initiative proposal, store it in initiatives, and route approval through the existing decision queue.',
+      parameters: {
+        title: {
+          type: 'string',
+          description: 'Initiative title. If source_proposal_id is provided, defaults to that proposal title.',
+          required: false,
+        },
+        description: {
+          type: 'string',
+          description: 'Detailed initiative description',
+          required: false,
+        },
+        doctrine_alignment: {
+          type: 'string',
+          description: 'Doctrine principle or operating objective this initiative supports',
+          required: false,
+        },
+        owner_role: {
+          type: 'string',
+          description: 'Executive role accountable for the initiative',
+          required: false,
+        },
+        priority: {
+          type: 'string',
+          description: 'Priority level',
+          required: false,
+          enum: ['critical', 'high', 'medium', 'low'],
+        },
+        dependencies: {
+          type: 'array',
+          description: 'Dependency initiative IDs',
+          required: false,
+          items: { type: 'string', description: 'Initiative UUID' },
+        },
+        target_date: {
+          type: 'string',
+          description: 'Optional ISO target date',
+          required: false,
+        },
+        success_criteria: {
+          type: 'array',
+          description: 'Measurable outcomes for approval and later evaluation',
+          required: false,
+          items: { type: 'string', description: 'Success criterion' },
+        },
+        reasoning: {
+          type: 'string',
+          description: 'Why this initiative should be approved now',
+          required: true,
+        },
+        source_proposal_id: {
+          type: 'string',
+          description: 'Optional executive proposal UUID to elevate into founder approval',
+          required: false,
+        },
+        initial_directives: {
+          type: 'array',
+          description: 'Optional draft directives to activate once founders approve the initiative',
+          required: false,
+          items: {
+            type: 'object',
+            description: 'Draft founder directive to create after approval',
+            properties: {
+              title: { type: 'string', description: 'Directive title' },
+              description: { type: 'string', description: 'Directive description' },
+              category: { type: 'string', description: 'Directive category' },
+              target_agents: {
+                type: 'array',
+                description: 'Target agent roles for the directive',
+                items: { type: 'string', description: 'Agent role' },
+              },
+              depends_on_directive: {
+                type: 'number',
+                description: 'Optional dependency on another draft directive index',
+              },
+            },
+          },
+        },
+        assigned_to: {
+          type: 'array',
+          description: 'Founders who should approve this initiative. Defaults to ["kristina"].',
+          required: false,
+          items: { type: 'string', description: 'Founder name' },
+        },
+        approval_tier: {
+          type: 'string',
+          description: 'Decision tier for approval',
+          required: false,
+          enum: ['yellow', 'red'],
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const sourceProposalId = params.source_proposal_id as string | undefined;
+        let sourceProposal: any | null = null;
+        let sourcePayload: ReturnType<typeof parseInitiativeProposalPayload> = {
+          assignments: [],
+          initiative_context: undefined,
+        };
+
+        if (sourceProposalId) {
+          const [proposal] = await systemQuery('SELECT * FROM proposed_initiatives WHERE id = $1', [sourceProposalId]);
+          if (!proposal) {
+            return { success: false, error: `Proposal ${sourceProposalId} not found.` };
+          }
+          sourceProposal = proposal;
+          try {
+            sourcePayload = parseInitiativeProposalPayload(proposal.proposed_assignments);
+          } catch {
+            sourcePayload = { assignments: [], initiative_context: undefined };
+          }
+        }
+
+        const title =
+          (params.title as string | undefined)?.trim() ||
+          (sourceProposal?.title as string | undefined)?.trim();
+        const description =
+          (params.description as string | undefined)?.trim() ||
+          sourcePayload.initiative_context?.description ||
+          (sourceProposal?.justification as string | undefined)?.trim();
+        const doctrineAlignment =
+          (params.doctrine_alignment as string | undefined)?.trim() ||
+          sourcePayload.initiative_context?.doctrine_alignment;
+        const ownerRole =
+          (params.owner_role as string | undefined)?.trim() ||
+          sourcePayload.initiative_context?.owner_role ||
+          (sourceProposal?.proposed_by as string | undefined)?.trim();
+        const priority =
+          ((params.priority as string | undefined) ||
+            (sourceProposal?.priority as string | undefined) ||
+            'medium').trim();
+        const targetDate =
+          (params.target_date as string | undefined)?.trim() ||
+          sourcePayload.initiative_context?.target_date ||
+          null;
+        const successCriteria = normalizeTextArray(
+          (params.success_criteria as string[] | undefined) ??
+            sourcePayload.initiative_context?.success_criteria,
+        );
+        const dependencies = normalizeTextArray(
+          (params.dependencies as string[] | undefined) ??
+            sourcePayload.initiative_context?.dependencies,
+        );
+        const initialDirectives = normalizeDirectiveDraftArray(
+          (params.initial_directives as InitiativeDirectiveDraft[] | undefined) ??
+            sourcePayload.initiative_context?.initial_directives,
+        );
+        const assignedTo = normalizeTextArray(params.assigned_to as string[] | undefined);
+        const finalAssignedTo = assignedTo.length ? assignedTo : ['kristina'];
+        const approvalTier =
+          ((params.approval_tier as string | undefined) ||
+            (finalAssignedTo.length > 1 ? 'red' : 'yellow')) as 'yellow' | 'red';
+
+        if (!title || !description || !doctrineAlignment || !ownerRole) {
+          return {
+            success: false,
+            error: 'title, description, doctrine_alignment, and owner_role are required to create a founder-facing initiative proposal.',
+          };
+        }
+
+        const [initiative] = await systemQuery<{ id: string }>(
+          `INSERT INTO initiatives
+             (proposed_initiative_id, title, description, doctrine_alignment, owner_role, status, priority, dependencies, target_date, success_criteria, created_by)
+           VALUES ($1, $2, $3, $4, $5, 'proposed', $6, $7::uuid[], $8, $9::text[], $10)
+           RETURNING id`,
+          [
+            sourceProposalId ?? null,
+            title,
+            description,
+            doctrineAlignment,
+            ownerRole,
+            priority,
+            dependencies,
+            targetDate,
+            successCriteria,
+            ctx.agentRole,
+          ],
+        );
+
+        const decisionSummary = [
+          description,
+          `Doctrine alignment: ${doctrineAlignment}`,
+          `Owner: ${ownerRole}`,
+          `Priority: ${priority}`,
+          successCriteria.length ? `Success criteria: ${successCriteria.join('; ')}` : null,
+          dependencies.length ? `Dependencies: ${dependencies.join(', ')}` : null,
+          initialDirectives.length ? `Planned directives: ${initialDirectives.map((item) => item.title).join('; ')}` : null,
+        ]
+          .filter(Boolean)
+          .join('\n');
+
+        const decisionId = await memory.createDecision({
+          tier: approvalTier,
+          status: 'pending',
+          title: `Approve initiative: ${title}`,
+          summary: decisionSummary,
+          proposedBy: ctx.agentRole,
+          reasoning: params.reasoning as string,
+          assignedTo: finalAssignedTo,
+          data: {
+            decision_type: 'initiative_approval',
+            initiative_id: initiative.id,
+            source_proposal_id: sourceProposalId ?? null,
+            initial_directives: initialDirectives,
+          },
+        });
+
+        const { formatDecisionCard } = await import('@glyphor/integrations');
+        const card = formatDecisionCard({
+          id: decisionId,
+          tier: approvalTier,
+          title: `Approve initiative: ${title}`,
+          summary: decisionSummary,
+          proposedBy: ctx.agentRole,
+          reasoning: params.reasoning as string,
+          assignedTo: finalAssignedTo,
+        });
+
+        const decisionsChannel = channels.decisions;
+        if (botHandler && decisionsChannel) {
+          await botHandler.sendProactiveCardToChannel(
+            decisionsChannel.teamId,
+            decisionsChannel.channelId,
+            card.attachments[0].content as unknown as Record<string, unknown>,
+          );
+        } else {
+          const webhookUrl = process.env.TEAMS_WEBHOOK_DECISIONS;
+          if (webhookUrl) {
+            await sendTeamsWebhook(webhookUrl, card);
+          }
+        }
+
+        if (sourceProposalId) {
+          await systemQuery(
+            `UPDATE proposed_initiatives
+             SET status = 'approved',
+                 evaluation_notes = $2,
+                 evaluated_by = $3,
+                 evaluated_at = NOW()
+             WHERE id = $1`,
+            [sourceProposalId, params.reasoning as string, ctx.agentRole],
+          );
+        }
+
+        await systemQuery(
+          'INSERT INTO activity_log (agent_role, action, product, summary, details) VALUES ($1, $2, $3, $4, $5::jsonb)',
+          [
+            ctx.agentRole,
+            'initiative.proposed',
+            'company',
+            `Proposed initiative for approval: ${title}`,
+            JSON.stringify({
+              initiative_id: initiative.id,
+              decision_id: decisionId,
+              source_proposal_id: sourceProposalId ?? null,
+            }),
+          ],
+        );
+
+        return {
+          success: true,
+          data: {
+            initiative_id: initiative.id,
+            decision_id: decisionId,
+            status: 'proposed',
+          },
+          memoryKeysWritten: 1,
+        };
+      },
+    },
+
+    {
+      name: 'read_initiatives',
+      description: 'Read initiatives with approval, directive, and deliverable summaries so you can sequence company work.',
+      parameters: {
+        status_filter: {
+          type: 'string',
+          description: 'Optional status filter',
+          required: false,
+          enum: ['proposed', 'approved', 'active', 'completed', 'rejected', 'all'],
+        },
+        owner_role: {
+          type: 'string',
+          description: 'Optional owner role filter',
+          required: false,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        const statusFilter = (params.status_filter as string | undefined) ?? 'all';
+        const ownerRole = params.owner_role as string | undefined;
+        const queryParams: unknown[] = [];
+        const conditions: string[] = [];
+
+        if (statusFilter !== 'all') {
+          queryParams.push(statusFilter);
+          conditions.push(`i.status = $${queryParams.length}`);
+        }
+        if (ownerRole) {
+          queryParams.push(ownerRole);
+          conditions.push(`i.owner_role = $${queryParams.length}`);
+        }
+
+        const rows = await systemQuery(
+          `SELECT
+             i.*,
+             COUNT(DISTINCT fd.id)::int AS directive_count,
+             COUNT(DISTINCT CASE WHEN fd.status = 'completed' THEN fd.id END)::int AS completed_directive_count,
+             COUNT(DISTINCT d.id)::int AS deliverable_count,
+             MAX(dec.status) FILTER (WHERE dec.data->>'initiative_id' = i.id::text) AS latest_decision_status
+           FROM initiatives i
+           LEFT JOIN founder_directives fd ON fd.initiative_id = i.id
+           LEFT JOIN deliverables d ON d.initiative_id = i.id
+           LEFT JOIN decisions dec ON dec.data->>'initiative_id' = i.id::text
+           ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
+            GROUP BY i.id
+            ORDER BY
+              CASE i.priority
+                WHEN 'critical' THEN 1
+                WHEN 'high' THEN 2
+               WHEN 'medium' THEN 3
+               ELSE 4
+             END,
+              i.created_at DESC`,
+          queryParams,
+        );
+
+        const dependencyIds = Array.from(
+          new Set(
+            (rows as any[])
+              .flatMap((row) => Array.isArray(row.dependencies) ? row.dependencies : [])
+              .filter(Boolean),
+          ),
+        );
+
+        const dependencyRows = dependencyIds.length > 0
+          ? await systemQuery<any>(
+              'SELECT id, title, status FROM initiatives WHERE id = ANY($1)',
+              [dependencyIds],
+            )
+          : [];
+        const dependencyMap = new Map<string, any>(
+          dependencyRows.map((row: any) => [row.id, row]),
+        );
+
+        const enriched = (rows as any[]).map((row: any) => {
+          const dependencyDetails = (Array.isArray(row.dependencies) ? row.dependencies : [])
+            .map((id: string) => dependencyMap.get(id))
+            .filter(Boolean);
+          const blockedBy = dependencyDetails.filter((item: any) => item.status !== 'completed');
+          return {
+            ...row,
+            dependency_details: dependencyDetails,
+            blocked_by_initiatives: blockedBy,
+            ready_for_activation: blockedBy.length === 0,
+          };
+        });
+
+        return { success: true, data: enriched };
+      },
+    },
+
+    {
+      name: 'activate_initiative',
+      description: 'Activate an approved initiative by creating its founder directives and marking the initiative active.',
+      parameters: {
+        initiative_id: {
+          type: 'string',
+          description: 'Initiative UUID to activate',
+          required: true,
+        },
+        directive_title: {
+          type: 'string',
+          description: 'Optional title override when creating a single directive',
+          required: false,
+        },
+        directive_description: {
+          type: 'string',
+          description: 'Optional description override when creating a single directive',
+          required: false,
+        },
+        category: {
+          type: 'string',
+          description: 'Optional directive category override',
+          required: false,
+          enum: ['engineering', 'product', 'marketing', 'sales', 'revenue', 'customer_success', 'operations', 'general', 'design'],
+        },
+        target_agents: {
+          type: 'array',
+          description: 'Optional target agent roles override',
+          required: false,
+          items: { type: 'string', description: 'Agent role' },
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const initiativeId = params.initiative_id as string;
+        const [initiative] = await systemQuery<any>(
+          'SELECT * FROM initiatives WHERE id = $1',
+          [initiativeId],
+        );
+
+        if (!initiative) {
+          return { success: false, error: `Initiative ${initiativeId} not found.` };
+        }
+
+        const dependencyIds = Array.isArray(initiative.dependencies)
+          ? (initiative.dependencies as string[]).filter(Boolean)
+          : [];
+        if (dependencyIds.length > 0) {
+          const dependencyRows = await systemQuery<any>(
+            'SELECT id, title, status FROM initiatives WHERE id = ANY($1)',
+            [dependencyIds],
+          );
+          const incompleteDependencies = dependencyRows.filter((row: any) => row.status !== 'completed');
+          if (incompleteDependencies.length > 0) {
+            return {
+              success: false,
+              error: `Initiative ${initiativeId} is waiting on dependencies: ${incompleteDependencies.map((row: any) => `${row.title} (${row.status})`).join(', ')}`,
+            };
+          }
+        }
+
+        const approvedDecisionRows = await systemQuery<any>(
+          `SELECT *
+           FROM decisions
+           WHERE status = 'approved'
+             AND data->>'initiative_id' = $1
+           ORDER BY resolved_at DESC NULLS LAST, created_at DESC`,
+          [initiativeId],
+        );
+        const approvedDecision = approvedDecisionRows[0] ?? null;
+        const approvedDecisionData = approvedDecision ? parseDecisionData(approvedDecision.data) : {};
+
+        if (!['approved', 'active'].includes(initiative.status)) {
+          if (!approvedDecision) {
+            return {
+              success: false,
+              error: `Initiative ${initiativeId} is not approved yet. Approve it through the decision flow or dashboard first.`,
+            };
+          }
+
+          await systemQuery(
+            `UPDATE initiatives
+             SET status = 'approved',
+                 approved_by = COALESCE(approved_by, $2),
+                 approved_at = COALESCE(approved_at, $3),
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [
+              initiativeId,
+              (approvedDecision.resolved_by as string | null) ?? 'founder',
+              (approvedDecision.resolved_at as string | null) ?? new Date().toISOString(),
+            ],
+          );
+
+          initiative.status = 'approved';
+          initiative.approved_by = initiative.approved_by ?? approvedDecision.resolved_by ?? 'founder';
+          initiative.approved_at = initiative.approved_at ?? approvedDecision.resolved_at ?? new Date().toISOString();
+        }
+
+        const existingDirectives = await systemQuery<any>(
+          `SELECT id, title, status
+           FROM founder_directives
+           WHERE initiative_id = $1
+           ORDER BY created_at ASC`,
+          [initiativeId],
+        );
+
+        if (existingDirectives.length > 0) {
+          if (initiative.status !== 'active') {
+            await systemQuery(
+              `UPDATE initiatives
+               SET status = 'active',
+                   progress_summary = COALESCE(progress_summary, $2),
+                   updated_at = NOW()
+               WHERE id = $1`,
+              [initiativeId, `Activated with ${existingDirectives.length} linked directive(s).`],
+            );
+          }
+
+          return {
+            success: true,
+            data: {
+              initiative_id: initiativeId,
+              already_active: true,
+              directives: existingDirectives,
+            },
+          };
+        }
+
+        const draftDirectives = normalizeDirectiveDraftArray(
+          approvedDecisionData.initial_directives as InitiativeDirectiveDraft[] | undefined,
+        );
+        const defaultTargetAgents = normalizeTextArray(
+          (params.target_agents as string[] | undefined) ?? [initiative.owner_role],
+        );
+        const directiveInputs = draftDirectives.length
+          ? draftDirectives
+          : [
+              {
+                title: ((params.directive_title as string | undefined)?.trim() || initiative.title) as string,
+                description:
+                  ((params.directive_description as string | undefined)?.trim() || initiative.description) as string,
+                category:
+                  ((params.category as string | undefined)?.trim() ||
+                    inferInitiativeCategory(initiative.owner_role)) as string,
+                target_agents: defaultTargetAgents,
+              },
+            ];
+
+        const created: Array<{ id: string; title: string; source_directive_id: string | null }> = [];
+        for (const [index, draft] of directiveInputs.entries()) {
+          const dependencyDirective =
+            typeof draft.depends_on_directive === 'number' &&
+            draft.depends_on_directive >= 0 &&
+            draft.depends_on_directive < created.length
+              ? created[draft.depends_on_directive]
+              : null;
+
+          const targetAgents = draft.target_agents?.length ? draft.target_agents : defaultTargetAgents;
+          const directiveDescription = dependencyDirective
+            ? `${draft.description}\n\nDependency: Execute after directive "${dependencyDirective.title}" (${dependencyDirective.id}) completes.`
+            : draft.description;
+
+          const [directive] = await systemQuery<{ id: string }>(
+            `INSERT INTO founder_directives
+               (created_by, title, description, priority, category, target_agents, status, due_date, initiative_id, source, source_directive_id)
+             VALUES ($1, $2, $3, $4, $5, $6, 'active', $7, $8, 'initiative_derived', $9)
+             RETURNING id`,
+            [
+              initiative.approved_by ?? ctx.agentRole,
+              draft.title,
+              directiveDescription,
+              initiative.priority,
+              draft.category ?? inferInitiativeCategory(initiative.owner_role),
+              targetAgents,
+              initiative.target_date ?? null,
+              initiativeId,
+              dependencyDirective?.id ?? null,
+            ],
+          );
+
+          created.push({
+            id: directive.id,
+            title: draft.title,
+            source_directive_id: dependencyDirective?.id ?? null,
+          });
+        }
+
+        await systemQuery(
+          `UPDATE initiatives
+           SET status = 'active',
+               progress_summary = $2,
+               updated_at = NOW()
+           WHERE id = $1`,
+          [initiativeId, `Activated with ${created.length} directive(s).`],
+        );
+
+        await systemQuery(
+          'INSERT INTO activity_log (agent_role, action, product, summary, details) VALUES ($1, $2, $3, $4, $5::jsonb)',
+          [
+            ctx.agentRole,
+            'initiative.activated',
+            'company',
+            `Activated initiative: ${initiative.title as string}`,
+            JSON.stringify({
+              initiative_id: initiativeId,
+              directive_ids: created.map((item) => item.id),
+            }),
+          ],
+        );
+
+        if (glyphorEventBus) {
+          await glyphorEventBus.emit({
+            type: 'initiative.activated',
+            source: ctx.agentRole,
+            payload: {
+              initiative_id: initiativeId,
+              directive_ids: created.map((item) => item.id),
+            },
+            priority: 'high',
+          });
+        }
+
+        return {
+          success: true,
+          data: {
+            initiative_id: initiativeId,
+            directives_created: created.length,
+            directives: created,
+          },
+        };
       },
     },
 
@@ -549,10 +1433,16 @@ export function createOrchestrationTools(
           required: false,
           enum: ['kristina', 'andrew', 'all'],
         },
+        initiative_id: {
+          type: 'string',
+          description: 'Optional initiative UUID to inspect a specific initiative chain',
+          required: false,
+        },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         const status = (params.status as string) || 'active';
         const createdBy = (params.created_by as string) || 'all';
+        const initiativeId = params.initiative_id as string | undefined;
 
         // 1. Get directives
         let sql = 'SELECT * FROM founder_directives';
@@ -560,6 +1450,7 @@ export function createOrchestrationTools(
         const queryParams: unknown[] = [];
         if (status !== 'all') { queryParams.push(status); conditions.push(`status = $${queryParams.length}`); }
         if (createdBy !== 'all') { queryParams.push(createdBy); conditions.push(`created_by = $${queryParams.length}`); }
+        if (initiativeId) { queryParams.push(initiativeId); conditions.push(`initiative_id = $${queryParams.length}`); }
         if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
         sql += ' ORDER BY priority ASC, created_at DESC';
         const directives = await systemQuery(sql, queryParams);
@@ -578,20 +1469,78 @@ export function createOrchestrationTools(
           assignmentsByDirective.set(a.directive_id, list);
         }
 
+        const initiativeIds = Array.from(
+          new Set((directives as any[]).map((d: any) => d.initiative_id).filter(Boolean)),
+        );
+        const initiativeDirectiveRows = initiativeIds.length > 0
+          ? await systemQuery<any>(
+              `SELECT fd.id, fd.initiative_id, fd.title, fd.status, fd.source_directive_id, fd.created_at,
+                      i.title AS initiative_title
+               FROM founder_directives fd
+               LEFT JOIN initiatives i ON i.id = fd.initiative_id
+               WHERE fd.initiative_id = ANY($1)
+               ORDER BY fd.created_at ASC`,
+              [initiativeIds],
+            )
+          : [];
+        const initiativeDirectiveMap = new Map<string, Map<string, any>>();
+        for (const row of initiativeDirectiveRows) {
+          const byInitiative = initiativeDirectiveMap.get(row.initiative_id) ?? new Map<string, any>();
+          byInitiative.set(row.id, row);
+          initiativeDirectiveMap.set(row.initiative_id, byInitiative);
+        }
+        const depthCache = new Map<string, number>();
+        const getSequenceDepth = (directiveId: string, chain: Map<string, any>, seen: Set<string> = new Set()): number => {
+          const cacheKey = `${directiveId}`;
+          if (depthCache.has(cacheKey)) return depthCache.get(cacheKey)!;
+          const current = chain.get(directiveId);
+          if (!current?.source_directive_id || !chain.has(current.source_directive_id) || seen.has(directiveId)) {
+            depthCache.set(cacheKey, 0);
+            return 0;
+          }
+          seen.add(directiveId);
+          const depth = getSequenceDepth(current.source_directive_id, chain, seen) + 1;
+          depthCache.set(cacheKey, depth);
+          return depth;
+        };
+
         // 4. Build formatted result
         const formatted = (directives as any[]).map((d: any) => {
           const wa = assignmentsByDirective.get(d.id) || [];
+          const initiativeChain = d.initiative_id ? initiativeDirectiveMap.get(d.initiative_id) : null;
+          const prerequisite = d.source_directive_id && initiativeChain
+            ? initiativeChain.get(d.source_directive_id) ?? null
+            : null;
+          const totalInInitiative = initiativeChain?.size ?? 0;
+          const completedInInitiative = initiativeChain
+            ? Array.from(initiativeChain.values()).filter((item: any) => item.status === 'completed').length
+            : 0;
           return {
             id: d.id,
             title: d.title,
             description: d.description,
+            initiative_id: d.initiative_id,
             priority: d.priority,
             category: d.category,
+            source: d.source,
             status: d.status,
             created_by: d.created_by,
+            created_at: d.created_at,
             due_date: d.due_date,
             target_agents: d.target_agents,
             progress_notes: d.progress_notes,
+            ready_for_orchestration: !prerequisite || prerequisite.status === 'completed',
+            initiative_sequence: d.initiative_id
+              ? {
+                  initiative_title: initiativeChain?.get(d.id)?.initiative_title ?? null,
+                  prerequisite_directive_id: d.source_directive_id ?? null,
+                  prerequisite_title: prerequisite?.title ?? null,
+                  prerequisite_status: prerequisite?.status ?? null,
+                  sequence_depth: initiativeChain ? getSequenceDepth(d.id, initiativeChain) : 0,
+                  completed_directives: completedInInitiative,
+                  total_directives: totalInInitiative,
+                }
+              : null,
             assignments: wa,
             assignment_summary: {
               total: wa.length,
@@ -604,6 +1553,14 @@ export function createOrchestrationTools(
             },
           };
         });
+
+        formatted.sort((a: any, b: any) =>
+          getDirectivePriorityRank(a.priority) - getDirectivePriorityRank(b.priority) ||
+          Number(Boolean(b.ready_for_orchestration)) - Number(Boolean(a.ready_for_orchestration)) ||
+          ((a.initiative_sequence?.sequence_depth as number | undefined) ?? 0) -
+            ((b.initiative_sequence?.sequence_depth as number | undefined) ?? 0) ||
+          String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')),
+        );
 
         return { success: true, data: formatted };
       },
@@ -634,6 +1591,11 @@ export function createOrchestrationTools(
               expected_output: { type: 'string', description: 'What you expect the executive to deliver' },
               priority: { type: 'string', description: 'Priority level', enum: ['urgent', 'high', 'normal', 'low'] },
               sequence_order: { type: 'number', description: 'Execution order. 0 = immediate.' },
+              depends_on: {
+                type: 'array',
+                description: 'Optional upstream assignment IDs that must complete first',
+                items: { type: 'string', description: 'Assignment UUID' },
+              },
               assignment_type: { type: 'string', description: 'Type of assignment', enum: ['executive_outcome', 'standard'] },
             },
           },
@@ -642,28 +1604,55 @@ export function createOrchestrationTools(
       execute: async (params, _ctx): Promise<ToolResult> => {
         const assignments = params.assignments as any[];
         const directiveId = params.directive_id as string;
+        const directiveContext = await loadDirectiveInitiativeContext(directiveId);
+
+        if (!directiveContext) {
+          return { success: false, error: `Directive ${directiveId} not found.` };
+        }
+
+        if (!directiveContext.readyForAssignments) {
+          return {
+            success: false,
+            error: directiveContext.blockedReason ?? `Directive ${directiveId} is not ready for downstream work yet.`,
+          };
+        }
+
+        const initiativeContextBlock = directiveContext.deliverableContext
+          ? appendContextBlock(
+              directiveContext.prerequisite
+                ? `INITIATIVE CONTEXT: This directive is part of "${directiveContext.initiative?.title ?? directiveContext.directive.initiative_title}". Upstream directive "${directiveContext.prerequisite.title}" is complete.`
+                : `INITIATIVE CONTEXT: This directive is part of "${directiveContext.initiative?.title ?? directiveContext.directive.initiative_title}".`,
+              directiveContext.deliverableContext,
+            )
+          : null;
 
         // Insert as 'draft' initially; plan verification promotes to 'pending'
         const rows = assignments.map((a: any, i: number) => ({
           directive_id: directiveId,
           assigned_to: a.assigned_to,
           assigned_by: 'chief-of-staff',
-          task_description: a.task_description,
+          task_description: appendContextBlock(a.task_description, initiativeContextBlock),
           task_type: a.task_type || 'on_demand',
-          expected_output: a.expected_output,
+          expected_output: appendContextBlock(
+            a.expected_output,
+            initiativeContextBlock
+              ? 'In your final output, cite which upstream deliverables you used and how they informed the work.'
+              : null,
+          ),
           priority: a.priority || 'normal',
+          depends_on: Array.isArray(a.depends_on) && a.depends_on.length > 0 ? a.depends_on : null,
           sequence_order: a.sequence_order ?? i,
           assignment_type: a.assignment_type || 'executive_outcome',
           status: 'draft',
         }));
 
-        const columns = '(directive_id, assigned_to, assigned_by, task_description, task_type, expected_output, priority, sequence_order, assignment_type, status)';
+        const columns = '(directive_id, assigned_to, assigned_by, task_description, task_type, expected_output, priority, depends_on, sequence_order, assignment_type, status)';
         const values: unknown[] = [];
         const placeholders: string[] = [];
         for (const a of rows) {
           const offset = values.length;
-          placeholders.push(`($${offset+1}, $${offset+2}, $${offset+3}, $${offset+4}, $${offset+5}, $${offset+6}, $${offset+7}, $${offset+8}, $${offset+9}, $${offset+10})`);
-          values.push(a.directive_id, a.assigned_to, a.assigned_by, a.task_description, a.task_type, a.expected_output, a.priority, a.sequence_order, a.assignment_type, a.status);
+          placeholders.push(`($${offset+1}, $${offset+2}, $${offset+3}, $${offset+4}, $${offset+5}, $${offset+6}, $${offset+7}, $${offset+8}, $${offset+9}, $${offset+10}, $${offset+11})`);
+          values.push(a.directive_id, a.assigned_to, a.assigned_by, a.task_description, a.task_type, a.expected_output, a.priority, a.depends_on, a.sequence_order, a.assignment_type, a.status);
         }
         const data = await systemQuery(`INSERT INTO work_assignments ${columns} VALUES ${placeholders.join(', ')} RETURNING *`, values);
         const createdIds = (data as any[]).map((r: any) => r.id);
@@ -1046,14 +2035,22 @@ export function createOrchestrationTools(
           required: false,
         },
       },
-      execute: async (params, _ctx): Promise<ToolResult> => {
+      execute: async (params, ctx): Promise<ToolResult> => {
         const directiveId = params.directive_id as string;
 
         // Get current directive to append to progress_notes
         const [directive] = await systemQuery(
-          'SELECT progress_notes FROM founder_directives WHERE id = $1', [directiveId]) as any[];
+          'SELECT id, title, status, initiative_id, progress_notes FROM founder_directives WHERE id = $1',
+          [directiveId],
+        ) as any[];
+
+        if (!directive) {
+          return { success: false, error: `Directive ${directiveId} not found.` };
+        }
 
         const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+        const transitionedToCompleted =
+          params.new_status === 'completed' && directive.status !== 'completed';
 
         if (params.progress_note) {
           const timestamp = new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' });
@@ -1073,6 +2070,103 @@ export function createOrchestrationTools(
         }
         updateParams.push(directiveId);
         await systemQuery(`UPDATE founder_directives SET ${setClauses.join(', ')} WHERE id = $${updateParams.length}`, updateParams);
+
+        if (transitionedToCompleted && directive.initiative_id) {
+          const initiativeId = directive.initiative_id as string;
+          const completionSummary =
+            (params.completion_summary as string | undefined) ??
+            (params.progress_note as string | undefined) ??
+            null;
+
+          await systemQuery(
+            'INSERT INTO activity_log (agent_role, action, product, summary, details) VALUES ($1, $2, $3, $4, $5::jsonb)',
+            [
+              ctx.agentRole,
+              'initiative.directive_completed',
+              'company',
+              `Directive completed inside initiative: ${directive.title as string}`,
+              JSON.stringify({
+                initiative_id: initiativeId,
+                directive_id: directiveId,
+                directive_title: directive.title,
+              }),
+            ],
+          );
+
+          if (glyphorEventBus) {
+            await glyphorEventBus.emit({
+              type: 'initiative.directive_completed',
+              source: ctx.agentRole,
+              payload: {
+                initiative_id: initiativeId,
+                directive_id: directiveId,
+                directive_title: directive.title,
+                completion_summary: completionSummary,
+              },
+              priority: 'high',
+            });
+          }
+
+          const initiativeDirectives = await systemQuery<any>(
+            'SELECT id, title, status FROM founder_directives WHERE initiative_id = $1 ORDER BY created_at ASC',
+            [initiativeId],
+          );
+          const completedCount = initiativeDirectives.filter((item: any) => item.status === 'completed').length;
+          const totalCount = initiativeDirectives.length;
+
+          if (totalCount > 0 && completedCount === totalCount) {
+            const progressSummary =
+              completionSummary
+                ? `Initiative complete. Final directive "${directive.title as string}" closed with summary: ${completionSummary}`
+                : `Initiative complete. Final directive "${directive.title as string}" is done.`;
+            await systemQuery(
+              `UPDATE initiatives
+               SET status = 'completed',
+                   progress_summary = $2,
+                   updated_at = NOW()
+               WHERE id = $1`,
+              [initiativeId, progressSummary],
+            );
+
+            await systemQuery(
+              'INSERT INTO activity_log (agent_role, action, product, summary, details) VALUES ($1, $2, $3, $4, $5::jsonb)',
+              [
+                ctx.agentRole,
+                'initiative.completed',
+                'company',
+                `Initiative completed after directive "${directive.title as string}"`,
+                JSON.stringify({
+                  initiative_id: initiativeId,
+                  directive_ids: initiativeDirectives.map((item: any) => item.id),
+                }),
+              ],
+            );
+
+            if (glyphorEventBus) {
+              await glyphorEventBus.emit({
+                type: 'initiative.completed',
+                source: ctx.agentRole,
+                payload: {
+                  initiative_id: initiativeId,
+                  directive_ids: initiativeDirectives.map((item: any) => item.id),
+                  completion_summary: progressSummary,
+                },
+                priority: 'high',
+              });
+            }
+          } else {
+            await systemQuery(
+              `UPDATE initiatives
+               SET progress_summary = $2,
+                   updated_at = NOW()
+               WHERE id = $1`,
+              [
+                initiativeId,
+                `${completedCount}/${totalCount} directives complete. Latest completion: ${directive.title as string}.`,
+              ],
+            );
+          }
+        }
 
         return { success: true, data: { updated: true } };
       },

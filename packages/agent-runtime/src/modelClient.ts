@@ -12,7 +12,7 @@
 
 import { ProviderFactory, type ProviderFactoryConfig, type GeminiAdapter, type OpenAIAdapter } from './providers/index.js';
 import type { ModelProvider, UnifiedModelRequest, UnifiedModelResponse, ImageResponse } from './providers/types.js';
-import { getFallbackChain } from '@glyphor/shared/models';
+import { getFallbackChain, getProviderLocalFallbackChain } from '@glyphor/shared/models';
 
 // ─── Re-export types for backward compatibility ──────────────
 
@@ -56,7 +56,13 @@ export class ModelClient {
     }
 
     // Try the requested model first, then fallback chain on quota/rate errors
-    const modelsToTry = [request.model, ...getFallbackChain(request.model)];
+    const fallbackScope = request.fallbackScope ?? 'cross-provider';
+    const fallbackChain = fallbackScope === 'none'
+      ? []
+      : fallbackScope === 'same-provider'
+        ? getProviderLocalFallbackChain(request.model)
+        : getFallbackChain(request.model);
+    const modelsToTry = [request.model, ...fallbackChain];
 
     for (let modelIdx = 0; modelIdx < modelsToTry.length; modelIdx++) {
       const currentModel = modelsToTry[modelIdx];

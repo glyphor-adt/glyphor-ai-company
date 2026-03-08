@@ -59,6 +59,15 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     payload: {},
     enabled: true,
   },
+  {
+    id: 'cos-strategic-planning',
+    agentRole: 'chief-of-staff',
+    schedule: '0 22 * * 0',  // Sunday 10:00 PM UTC — weekly doctrine-backed planning cycle
+    timezone: 'UTC',
+    task: 'strategic_planning',
+    payload: {},
+    enabled: true,
+  },
   // Phase 2+ jobs (disabled until agents are fully implemented)
   {
     id: 'cto-health-check',

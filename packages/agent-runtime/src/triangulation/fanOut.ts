@@ -76,6 +76,7 @@ export async function fanOut(
         maxTokens,
         thinkingEnabled: tier === 'DEEP',
         reasoningLevel: options?.reasoningLevel,
+        fallbackScope: 'same-provider',
         signal: controller.signal,
         callTimeoutMs: timeout,
       })

@@ -70,6 +70,8 @@ const TABLE_MAP: Record<string, string> = {
   'api-billing': 'api_billing',
   'proposed_initiatives': 'proposed_initiatives',
   'proposed-initiatives': 'proposed_initiatives',
+  'initiatives': 'initiatives',
+  'deliverables': 'deliverables',
   'task_run_outcomes': 'task_run_outcomes',
   'task-run-outcomes': 'task_run_outcomes',
   'memory_lifecycle': 'memory_lifecycle',
@@ -100,6 +102,7 @@ const TABLE_MAP: Record<string, string> = {
 export async function cascadeDeleteDirective(id: string): Promise<void> {
   const stmts: string[] = [
     'DELETE FROM agent_tool_grants WHERE directive_id = $1',
+    'DELETE FROM deliverables WHERE directive_id = $1 OR assignment_id IN (SELECT id FROM work_assignments WHERE directive_id = $1)',
     'DELETE FROM work_assignments WHERE directive_id = $1',
     'DELETE FROM tool_requests WHERE directive_id = $1',
     'DELETE FROM decision_chains WHERE directive_id = $1',

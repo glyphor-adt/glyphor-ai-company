@@ -17,7 +17,11 @@ import {
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { systemQuery } from '@glyphor/shared/db';
-import { CHIEF_OF_STAFF_SYSTEM_PROMPT, ORCHESTRATION_PROMPT } from './systemPrompt.js';
+import {
+  CHIEF_OF_STAFF_SYSTEM_PROMPT,
+  ORCHESTRATION_PROMPT,
+  STRATEGIC_PLANNING_PROMPT,
+} from './systemPrompt.js';
 import { createChiefOfStaffTools, createOrchestrationTools } from './tools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
@@ -32,7 +36,14 @@ import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface CoSRunParams {
-  task?: 'generate_briefing' | 'check_escalations' | 'weekly_review' | 'monthly_retrospective' | 'orchestrate' | 'on_demand';
+  task?:
+    | 'generate_briefing'
+    | 'check_escalations'
+    | 'weekly_review'
+    | 'monthly_retrospective'
+    | 'orchestrate'
+    | 'strategic_planning'
+    | 'on_demand';
   recipient?: 'kristina' | 'andrew';
   message?: string;
   conversationHistory?: ConversationTurn[];
@@ -261,20 +272,42 @@ Goal: Drive organizational learning — identify what worked, what didn't, and h
       const lifecycleContext = await gatherDirectiveLifecycleContext();
       initialMessage = `Run your orchestration cycle:
 
-1. Read all active founder directives
-2. Check the status of any existing work assignments
-3. For new directives without assignments: plan and create work assignments
-4. For directives with pending assignments: dispatch them to agents
-5. For directives with completed assignments: evaluate the outputs
-6. Update progress notes on all active directives
-7. Report any blockers or issues that need founder attention
-8. Run directive lifecycle checks (completion synthesis, stuck decisions, stuck blockers)
+1. Use read_initiatives first so you understand active initiative sequencing and dependency state
+2. Read active founder directives, using initiative_id filters when you need to inspect a specific initiative chain
+3. For initiative-derived directives, only move downstream work forward when prerequisite directives are completed
+4. For new directives without assignments: plan and create work assignments
+5. When prior initiative work produced deliverables, embed those deliverables into downstream assignment instructions
+6. For directives with pending assignments: dispatch them to agents
+7. For directives with completed assignments: evaluate the outputs
+8. Update progress notes on all active directives and complete initiatives when their directive chain is done
+9. Report any blockers or issues that need founder attention
+10. Run directive lifecycle checks (completion synthesis, stuck decisions, stuck blockers)
 
 Be decisive. Assign real work. Move things forward.
 
 ${lifecycleContext}`;
       break;
     }
+
+    case 'strategic_planning':
+      initialMessage = `Run the weekly strategic planning cycle for ${today}.
+
+Steps:
+1. Use read_company_doctrine to load the current doctrine and operating principles
+2. Use read_initiatives to review proposed, approved, active, and completed initiatives
+3. Use read_founder_directives to inspect active directives and execution progress
+4. Use get_company_pulse to ground decisions in current company state
+5. Use get_deliverables to review recent published artifacts tied to strategic work
+6. Identify doctrine gaps that are not already covered by active or approved work
+7. Propose at most 5 high-value initiatives using propose_initiative
+8. If you notice an important recurring strategic pattern, promote it with promote_to_org_knowledge
+
+Constraints:
+- Do not duplicate active or approved initiatives
+- Prefer a short, sequenced set of initiatives over broad brainstorming
+- Revenue-generating work outranks infrastructure unless infrastructure blocks execution
+- Include initial directive drafts whenever you can make them specific and actionable`;
+      break;
 
     case 'on_demand':
       initialMessage = params.message || 'Provide a status summary of the company.';
@@ -286,9 +319,12 @@ ${lifecycleContext}`;
 
   const agentCfg = await loadAgentConfig('chief-of-staff', { temperature: 0.3, maxTurns: 10 }, task);
 
-  const systemPrompt = task === 'orchestrate'
-    ? CHIEF_OF_STAFF_SYSTEM_PROMPT + ORCHESTRATION_PROMPT
-    : CHIEF_OF_STAFF_SYSTEM_PROMPT;
+  const systemPrompt =
+    task === 'orchestrate'
+      ? CHIEF_OF_STAFF_SYSTEM_PROMPT + ORCHESTRATION_PROMPT
+      : task === 'strategic_planning'
+        ? CHIEF_OF_STAFF_SYSTEM_PROMPT + STRATEGIC_PLANNING_PROMPT
+        : CHIEF_OF_STAFF_SYSTEM_PROMPT;
 
   const config: AgentConfig = {
     id: `cos-${task}-${today}`,
@@ -296,8 +332,8 @@ ${lifecycleContext}`;
     systemPrompt,
     model: agentCfg.model,
     tools,
-    maxTurns: task === 'orchestrate' ? 15 : agentCfg.maxTurns,
-    maxStallTurns: task === 'orchestrate' ? 10 : 3,
+    maxTurns: task === 'orchestrate' || task === 'strategic_planning' ? 15 : agentCfg.maxTurns,
+    maxStallTurns: task === 'orchestrate' || task === 'strategic_planning' ? 10 : 3,
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,

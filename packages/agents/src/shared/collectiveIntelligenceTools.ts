@@ -165,6 +165,51 @@ export function createCollectiveIntelligenceTools(
       },
     },
 
+    {
+      name: 'read_company_doctrine',
+      description: 'Read active doctrine/knowledge-base sections that define company strategy, priorities, and operating principles.',
+      parameters: {
+        audience: {
+          type: 'string',
+          description: 'Optional audience filter for doctrine sections',
+          required: false,
+          enum: ['all', 'executives', 'engineering', 'finance', 'product', 'marketing', 'sales', 'customer_success', 'design', 'operations'],
+        },
+        section_filter: {
+          type: 'string',
+          description: 'Optional keyword filter matching section slug, title, or content',
+          required: false,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        const audience = params.audience as string | undefined;
+        const sectionFilter = (params.section_filter as string | undefined)?.trim().toLowerCase();
+        const sections = await ci.getKnowledgeBaseSections();
+
+        const filtered = sections.filter((section) => {
+          if (!section.is_active) return false;
+          if (audience && section.audience !== 'all' && section.audience !== audience) return false;
+          if (!sectionFilter) return true;
+
+          return (
+            section.section.toLowerCase().includes(sectionFilter) ||
+            section.title.toLowerCase().includes(sectionFilter) ||
+            section.content.toLowerCase().includes(sectionFilter)
+          );
+        });
+
+        return {
+          success: true,
+          data: {
+            sections: filtered,
+            doctrine_markdown: filtered
+              .map((section) => `## ${section.title}\n\n${section.content}`)
+              .join('\n\n---\n\n'),
+          },
+        };
+      },
+    },
+
     // ─── KNOWLEDGE ROUTING (Layer 2) ────────────────────────────
 
     {

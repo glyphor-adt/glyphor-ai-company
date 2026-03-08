@@ -193,6 +193,33 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
   'claude-haiku-4-5':       ['gemini-2.5-flash', 'gpt-5-nano'],
 };
 
+// ─── Provider-local fallback chains ─────────────────────────
+// Used when a workflow needs to preserve provider identity, such as
+// triangulation slots where the OpenAI/Gemini/Claude lanes must remain stable.
+
+export const PROVIDER_LOCAL_FALLBACK_CHAINS: Record<string, readonly string[]> = {
+  // Gemini
+  'gemini-3.1-pro-preview': ['gemini-3-pro-preview', 'gemini-2.5-pro', 'gemini-2.5-flash'],
+  'gemini-3-pro-preview':   ['gemini-2.5-pro', 'gemini-2.5-flash'],
+  'gemini-3-flash-preview': ['gemini-2.5-flash', 'gemini-2.5-flash-lite'],
+  'gemini-2.5-pro':         ['gemini-2.5-flash', 'gemini-2.5-flash-lite'],
+  'gemini-2.5-flash':       ['gemini-2.5-flash-lite'],
+
+  // OpenAI
+  'gpt-5.4':                ['gpt-5.2', 'gpt-5.1', 'gpt-5-mini-2025-08-07'],
+  'gpt-5.2-pro':            ['gpt-5.2', 'gpt-5.1', 'gpt-5-mini-2025-08-07'],
+  'gpt-5.2':                ['gpt-5.1', 'gpt-5-mini-2025-08-07'],
+  'gpt-5.1':                ['gpt-5-mini-2025-08-07', 'gpt-4.1-mini'],
+  'gpt-5':                  ['gpt-5-mini-2025-08-07', 'gpt-4.1-mini'],
+  'o3':                     ['gpt-5.1', 'gpt-5-mini-2025-08-07'],
+  'o4-mini':                ['gpt-5-mini-2025-08-07', 'gpt-4.1-mini'],
+
+  // Anthropic
+  'claude-opus-4-6':        ['claude-sonnet-4-6', 'claude-sonnet-4-5', 'claude-haiku-4-5'],
+  'claude-sonnet-4-6':      ['claude-sonnet-4-5', 'claude-haiku-4-5'],
+  'claude-sonnet-4-5':      ['claude-haiku-4-5'],
+};
+
 // ─── Cross-model verifier mapping ────────────────────────────
 // Maps a primary model to its cross-provider verifier.
 // Always uses a DIFFERENT provider to prevent correlated errors.
@@ -315,6 +342,13 @@ export function detectProvider(model: string): ModelProvider {
  */
 export function getFallbackChain(model: string): readonly string[] {
   return FALLBACK_CHAINS[model] ?? [];
+}
+
+/**
+ * Get a fallback chain that stays within the same provider family.
+ */
+export function getProviderLocalFallbackChain(model: string): readonly string[] {
+  return PROVIDER_LOCAL_FALLBACK_CHAINS[model] ?? [];
 }
 
 /**

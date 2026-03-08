@@ -68,6 +68,10 @@ function shouldRetryWithoutFlex(message: string): boolean {
     || (/service[_\s-]?tier/i.test(message) && /invalid|unsupported|unknown|not available/i.test(message));
 }
 
+function shouldUseDirectOpenAI(model: string): boolean {
+  return model === 'gpt-5.4';
+}
+
 export class OpenAIAdapter implements ProviderAdapter {
   readonly provider = 'openai' as const;
   private client: OpenAI;
@@ -215,6 +219,13 @@ export class OpenAIAdapter implements ProviderAdapter {
   private async callWithAzureFallback(
     params: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
   ): Promise<OpenAI.Chat.Completions.ChatCompletion> {
+    if (shouldUseDirectOpenAI(params.model) && this.directApiKey) {
+      if (!this.directClient) {
+        this.directClient = this.createDirectClient(this.directApiKey);
+      }
+      return this.callDirectWithTierFallback(this.directClient, params);
+    }
+
     if (!this.isAzure) {
       return this.callDirectWithTierFallback(this.client, params);
     }

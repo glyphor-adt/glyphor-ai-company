@@ -1,9 +1,9 @@
 /**
- * Agent 365 Teams Chat Client — Direct MCP bridge for posting chat messages
+ * Agent 365 Teams Chat Client — Direct MCP bridge for Teams chat operations
  *
- * Uses the mcp_TeamsServer MCP server (mcp_graph_chat_postMessage tool) to
- * post messages into Teams chats via delegated permissions. This bypasses the
- * Graph API restriction that blocks app-only tokens from posting chat messages.
+ * Uses the mcp_TeamsServer MCP server to create chats, list chat messages,
+ * and post messages via delegated permissions. This keeps Teams DM chat
+ * operations on the documented Microsoft Agent 365 MCP surface.
  *
  * The Agent 365 MCP server authenticated under the agent blueprint's service
  * principal acts with the delegated oauth2PermissionGrants (McpServers.Teams.All)
@@ -25,6 +25,7 @@ export class A365TeamsChatClient {
   private transport: StreamableHTTPClientTransport | null = null;
   private msalApp: ConfidentialClientApplication;
   private audience: string;
+  private readonly chatCache = new Map<string, string>();
 
   constructor(
     private readonly clientId: string,
@@ -57,6 +58,171 @@ export class A365TeamsChatClient {
 
     instance = new A365TeamsChatClient(clientId, clientSecret, tenantId);
     return instance;
+  }
+
+  private parseContent(content: unknown): unknown {
+    if (!Array.isArray(content)) return content;
+
+    if (content.length === 1 && typeof content[0] === 'object' && content[0] !== null && 'text' in content[0]) {
+      const text = String((content[0] as { text?: string }).text ?? '').trim();
+      if (!text) return text;
+      try {
+        return JSON.parse(text);
+      } catch {
+        return text;
+      }
+    }
+
+    return content.map((item) => {
+      if (typeof item === 'object' && item !== null && 'text' in item) {
+        const text = String((item as { text?: string }).text ?? '');
+        try {
+          return JSON.parse(text);
+        } catch {
+          return text;
+        }
+      }
+      return item;
+    });
+  }
+
+  private extractCollection<T>(data: unknown): T[] {
+    if (Array.isArray(data)) return data as T[];
+    if (data && typeof data === 'object' && Array.isArray((data as { value?: unknown[] }).value)) {
+      return (data as { value: T[] }).value;
+    }
+    return [];
+  }
+
+  private async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+    const client = await this.ensureConnected();
+    const result = await client.callTool({ name, arguments: args });
+
+    if (result.isError) {
+      const errorText = Array.isArray(result.content)
+        ? (result.content as Array<{ text?: string }>).map((c) => c.text ?? '').join('\n')
+        : String(result.content);
+      throw new Error(`[A365Teams] ${name} failed: ${errorText}`);
+    }
+
+    return this.parseContent(result.content);
+  }
+
+  private extractChatId(data: unknown): string | null {
+    if (typeof data === 'string') {
+      const trimmed = data.trim();
+      return trimmed || null;
+    }
+    if (data && typeof data === 'object') {
+      const directId = (data as { id?: unknown }).id;
+      if (typeof directId === 'string' && directId) return directId;
+    }
+    return null;
+  }
+
+  private extractMemberUserId(member: unknown): string | null {
+    if (!member || typeof member !== 'object') return null;
+
+    const directUserId = (member as { userId?: unknown }).userId;
+    if (typeof directUserId === 'string' && directUserId) return directUserId;
+
+    const user = (member as { user?: { id?: unknown } }).user;
+    if (user && typeof user.id === 'string' && user.id) return user.id;
+
+    const bind = (member as { ['user@odata.bind']?: unknown })['user@odata.bind'];
+    if (typeof bind === 'string') {
+      const match = bind.match(/users\('([^']+)'\)/i);
+      if (match?.[1]) return match[1];
+    }
+
+    return null;
+  }
+
+  private async findOneOnOneChatByMembers(memberUserIds: string[]): Promise<string | null> {
+    const targetIds = new Set(memberUserIds.filter(Boolean));
+    const chats = this.extractCollection<Record<string, unknown>>(
+      await this.callTool('mcp_graph_chat_listChats', { '$top': 100, '$orderby': 'lastUpdatedDateTime desc' }),
+    );
+
+    for (const chat of chats) {
+      if (chat.chatType !== 'oneOnOne') continue;
+      const chatId = this.extractChatId(chat);
+      if (!chatId) continue;
+
+      const members = await this.listChatMembers(chatId).catch(() => []);
+      const memberIds = new Set(members.map((member) => this.extractMemberUserId(member)).filter(Boolean));
+      if (memberIds.size !== targetIds.size) continue;
+
+      let matches = true;
+      for (const id of targetIds) {
+        if (!memberIds.has(id)) {
+          matches = false;
+          break;
+        }
+      }
+      if (matches) return chatId;
+    }
+
+    return null;
+  }
+
+  async createOrGetOneOnOneChat(recipientUserId: string, senderUserId?: string): Promise<string> {
+    const cacheKey = senderUserId ? `${senderUserId}:${recipientUserId}` : recipientUserId;
+    const cached = this.chatCache.get(cacheKey);
+    if (cached) return cached;
+
+    const members: Record<string, unknown>[] = [
+      {
+        '@odata.type': '#microsoft.graph.aadUserConversationMember',
+        roles: ['owner'],
+        'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${recipientUserId}')`,
+      },
+    ];
+
+    if (senderUserId) {
+      members.push({
+        '@odata.type': '#microsoft.graph.aadUserConversationMember',
+        roles: ['owner'],
+        'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${senderUserId}')`,
+      });
+    }
+
+    try {
+      const data = await this.callTool('mcp_graph_chat_createChat', {
+        chatType: 'oneOnOne',
+        members,
+      });
+      const chatId = this.extractChatId(data);
+      if (!chatId) throw new Error('Chat create succeeded but no chat id was returned');
+      this.chatCache.set(cacheKey, chatId);
+      return chatId;
+    } catch (err) {
+      const message = (err as Error).message;
+      if (!/409|already exists|conflict/i.test(message)) throw err;
+
+      const existingChatId = await this.findOneOnOneChatByMembers(
+        [recipientUserId, senderUserId].filter((value): value is string => Boolean(value)),
+      );
+      if (!existingChatId) throw err;
+      this.chatCache.set(cacheKey, existingChatId);
+      return existingChatId;
+    }
+  }
+
+  async listChatMembers(chatId: string): Promise<Array<Record<string, unknown>>> {
+    return this.extractCollection<Record<string, unknown>>(
+      await this.callTool('mcp_graph_chat_listChatMembers', { 'chat-id': chatId }),
+    );
+  }
+
+  async listChatMessages(chatId: string, top = 10): Promise<Array<Record<string, unknown>>> {
+    return this.extractCollection<Record<string, unknown>>(
+      await this.callTool('mcp_graph_chat_listChatMessages', {
+        'chat-id': chatId,
+        '$top': top,
+        '$orderby': 'createdDateTime desc',
+      }),
+    );
   }
 
   /** Acquire MSAL token for the Agent 365 Tools API */
@@ -111,25 +277,13 @@ export class A365TeamsChatClient {
    * Uses mcp_graph_chat_postMessage (POST /v1.0/chats/{chat-id}/messages).
    */
   async postChatMessage(chatId: string, content: string): Promise<void> {
-    const client = await this.ensureConnected();
-
-    const result = await client.callTool({
-      name: 'mcp_graph_chat_postMessage',
-      arguments: {
-        'chat-id': chatId,
-        body: {
-          contentType: 'html',
-          content,
-        },
+    await this.callTool('mcp_graph_chat_postMessage', {
+      'chat-id': chatId,
+      body: {
+        contentType: 'html',
+        content,
       },
     });
-
-    if (result.isError) {
-      const errorText = Array.isArray(result.content)
-        ? (result.content as Array<{ text?: string }>).map((c) => c.text ?? '').join('\n')
-        : String(result.content);
-      throw new Error(`[A365Teams] postChatMessage failed: ${errorText}`);
-    }
   }
 
   /** Disconnect the MCP client */
