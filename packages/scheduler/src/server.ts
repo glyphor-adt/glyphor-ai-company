@@ -2126,19 +2126,8 @@ const server = createServer(async (req, res) => {
     if (method === 'DELETE' && directiveDeleteMatch) {
       const id = decodeURIComponent(directiveDeleteMatch[1]);
       try {
-        // Cascade-delete child rows (FKs have no CASCADE)
-        await systemQuery('DELETE FROM agent_tool_grants WHERE directive_id = $1', [id]);
-        await systemQuery('DELETE FROM work_assignments WHERE directive_id = $1', [id]);
-        await systemQuery('DELETE FROM tool_requests WHERE directive_id = $1', [id]);
-        await systemQuery('DELETE FROM decision_chains WHERE directive_id = $1', [id]);
-        await systemQuery('DELETE FROM handoffs WHERE directive_id = $1', [id]);
-        await systemQuery('DELETE FROM proposed_initiatives WHERE directive_id = $1', [id]);
-        await systemQuery('DELETE FROM plan_verifications WHERE directive_id = $1', [id]);
-        await systemQuery('DELETE FROM task_run_outcomes WHERE directive_id = $1', [id]);
-        await systemQuery('DELETE FROM workflows WHERE directive_id = $1', [id]);
-        await systemQuery('UPDATE founder_directives SET source_directive_id = NULL WHERE source_directive_id = $1', [id]);
-        await systemQuery('UPDATE founder_directives SET parent_directive_id = NULL WHERE parent_directive_id = $1', [id]);
-        await systemQuery('DELETE FROM founder_directives WHERE id=$1', [id]);
+        const { cascadeDeleteDirective: cascadeDel } = await import('./dashboardApi.js');
+        await cascadeDel(id);
         // Invalidate directive/context caches
         getRedisCache().invalidatePattern('jit:directives:*').catch(() => {});
         json(res, 200, { success: true });

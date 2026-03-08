@@ -95,6 +95,28 @@ const TABLE_MAP: Record<string, string> = {
 
 // ─── Helpers ────────────────────────────────────────────────────
 
+/** Cascade-delete all child rows for a founder_directive. Each step is
+ *  wrapped in try/catch so missing tables don't block deletion. */
+export async function cascadeDeleteDirective(id: string): Promise<void> {
+  const stmts: string[] = [
+    'DELETE FROM agent_tool_grants WHERE directive_id = $1',
+    'DELETE FROM work_assignments WHERE directive_id = $1',
+    'DELETE FROM tool_requests WHERE directive_id = $1',
+    'DELETE FROM decision_chains WHERE directive_id = $1',
+    'DELETE FROM handoffs WHERE directive_id = $1',
+    'DELETE FROM proposed_initiatives WHERE directive_id = $1',
+    'DELETE FROM plan_verifications WHERE directive_id = $1',
+    'DELETE FROM task_run_outcomes WHERE directive_id = $1',
+    'DELETE FROM workflows WHERE directive_id = $1',
+    'UPDATE founder_directives SET source_directive_id = NULL WHERE source_directive_id = $1',
+    'UPDATE founder_directives SET parent_directive_id = NULL WHERE parent_directive_id = $1',
+  ];
+  for (const sql of stmts) {
+    try { await systemQuery(sql, [id]); } catch { /* table may not exist yet */ }
+  }
+  await systemQuery('DELETE FROM founder_directives WHERE id = $1', [id]);
+}
+
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -478,22 +500,27 @@ export async function handleDashboardApi(
 
     // ── DELETE ──────────────────────────────────────────────────
     if (method === 'DELETE') {
-      if (resourceId) {
-        // Cascade-delete child rows for founder_directives (FKs have no CASCADE)
-        if (tableName === 'founder_directives') {
-          await systemQuery('DELETE FROM agent_tool_grants WHERE directive_id = $1', [resourceId]);
-          await systemQuery('DELETE FROM work_assignments WHERE directive_id = $1', [resourceId]);
-          await systemQuery('DELETE FROM tool_requests WHERE directive_id = $1', [resourceId]);
-          await systemQuery('DELETE FROM decision_chains WHERE directive_id = $1', [resourceId]);
-          await systemQuery('DELETE FROM handoffs WHERE directive_id = $1', [resourceId]);
-          await systemQuery('DELETE FROM proposed_initiatives WHERE directive_id = $1', [resourceId]);
-          await systemQuery('DELETE FROM plan_verifications WHERE directive_id = $1', [resourceId]);
-          await systemQuery('DELETE FROM task_run_outcomes WHERE directive_id = $1', [resourceId]);
-          await systemQuery('DELETE FROM workflows WHERE directive_id = $1', [resourceId]);
-          await systemQuery('UPDATE founder_directives SET source_directive_id = NULL WHERE source_directive_id = $1', [resourceId]);
-          await systemQuery('UPDATE founder_directives SET parent_directive_id = NULL WHERE parent_directive_id = $1', [resourceId]);
+      // Bulk delete: DELETE /api/founder-directives/bulk  body: { ids: [...] }
+      if (tableName === 'founder_directives' && resourceId === 'bulk') {
+        const body = JSON.parse(await readBody(req));
+        const ids: string[] = body.ids;
+        if (!Array.isArray(ids) || ids.length === 0) {
+          jsonResponse(res, 400, { error: 'ids array required' });
+          return true;
         }
-        await systemQuery(`DELETE FROM ${tableName} WHERE id = $1`, [resourceId]);
+        for (const id of ids) {
+          await cascadeDeleteDirective(id);
+        }
+        jsonResponse(res, 200, { success: true, deleted: ids.length });
+        return true;
+      }
+
+      if (resourceId) {
+        if (tableName === 'founder_directives') {
+          await cascadeDeleteDirective(resourceId);
+        } else {
+          await systemQuery(`DELETE FROM ${tableName} WHERE id = $1`, [resourceId]);
+        }
         jsonResponse(res, 200, { success: true });
       } else {
         const { where, values } = parseQueryParams(params);

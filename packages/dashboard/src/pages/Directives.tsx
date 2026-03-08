@@ -157,6 +157,9 @@ export default function Directives() {
   const [showRejected, setShowRejected] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showInitiatives, setShowInitiatives] = useState(true);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 
   const refresh = useCallback(async () => {
     const [data, initData] = await Promise.all([
@@ -173,6 +176,41 @@ export default function Directives() {
 
   // Real-time subscription removed (was PostgREST realtime)
   useEffect(() => {}, [refresh]);
+
+  function toggleSelect(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAll(ids: string[]) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      const allSelected = ids.every(id => next.has(id));
+      if (allSelected) { ids.forEach(id => next.delete(id)); }
+      else { ids.forEach(id => next.add(id)); }
+      return next;
+    });
+  }
+
+  async function handleBulkDelete() {
+    if (selected.size === 0) return;
+    setBulkDeleting(true);
+    try {
+      await apiCall('/api/founder-directives/bulk', {
+        method: 'DELETE',
+        body: JSON.stringify({ ids: [...selected] }),
+      });
+      setSelected(new Set());
+      setConfirmBulkDelete(false);
+      await refresh();
+    } catch (err) {
+      console.error('Bulk delete failed:', err);
+    }
+    setBulkDeleting(false);
+  }
 
   const proposed = directives.filter(d => d.status === 'proposed');
   const active = directives.filter(d => d.status === 'active' || d.status === 'paused');
@@ -194,13 +232,59 @@ export default function Directives() {
             Strategic priorities driving agent work across the company
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="rounded-lg bg-cyan px-4 py-2 text-sm font-medium text-black transition-opacity hover:opacity-90"
-        >
-          + New Directive
-        </button>
+        <div className="flex items-center gap-2">
+          {directives.length > 0 && (
+            <button
+              onClick={() => selected.size > 0 ? setSelected(new Set()) : selectAll(directives.map(d => d.id))}
+              className="rounded-lg border border-border bg-raised px-3 py-2 text-sm font-medium text-txt-secondary transition-colors hover:text-txt-primary"
+            >
+              {selected.size > 0 ? 'Deselect All' : 'Select All'}
+            </button>
+          )}
+          <button
+            onClick={() => setShowForm(true)}
+            className="rounded-lg bg-cyan px-4 py-2 text-sm font-medium text-black transition-opacity hover:opacity-90"
+          >
+            + New Directive
+          </button>
+        </div>
       </div>
+
+      {/* Bulk Delete Bar */}
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-4 py-2.5">
+          <span className="text-sm font-medium text-prism-critical">
+            {selected.size} directive{selected.size > 1 ? 's' : ''} selected
+          </span>
+          {!confirmBulkDelete ? (
+            <button
+              onClick={() => setConfirmBulkDelete(true)}
+              disabled={bulkDeleting}
+              className="ml-auto rounded-lg border border-prism-critical/30 bg-prism-critical/20 px-3 py-1.5 text-[12px] font-medium text-prism-critical transition-opacity hover:opacity-90 disabled:opacity-40"
+            >
+              <MdDelete className="inline-block text-[14px] mr-1" /> Delete Selected
+            </button>
+          ) : (
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-[12px] text-prism-critical">Delete {selected.size} directive{selected.size > 1 ? 's' : ''} and all assignments?</span>
+              <button
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+                className="rounded-lg bg-prism-critical px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+              >
+                {bulkDeleting ? 'Deleting…' : 'Confirm'}
+              </button>
+              <button
+                onClick={() => setConfirmBulkDelete(false)}
+                disabled={bulkDeleting}
+                className="rounded-lg border border-border bg-raised px-3 py-1.5 text-[12px] font-medium text-txt-secondary transition-colors hover:text-txt-primary disabled:opacity-40"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-4">
@@ -233,6 +317,8 @@ export default function Directives() {
                     key={d.id}
                     directive={d}
                     onAction={refresh}
+                    isSelected={selected.has(d.id)}
+                    onToggleSelect={() => toggleSelect(d.id)}
                   />
                 ))}
               </div>
@@ -259,6 +345,8 @@ export default function Directives() {
                       isExpanded={expanded === d.id}
                       onToggle={() => setExpanded(expanded === d.id ? null : d.id)}
                       onAction={refresh}
+                      isSelected={selected.has(d.id)}
+                      onToggleSelect={() => toggleSelect(d.id)}
                     />
                   ))}
                 </div>
@@ -287,6 +375,8 @@ export default function Directives() {
                       isExpanded={expanded === d.id}
                       onToggle={() => setExpanded(expanded === d.id ? null : d.id)}
                       onAction={refresh}
+                      isSelected={selected.has(d.id)}
+                      onToggleSelect={() => toggleSelect(d.id)}
                     />
                   ))}
                 </div>
@@ -315,6 +405,8 @@ export default function Directives() {
                       isExpanded={expanded === d.id}
                       onToggle={() => setExpanded(expanded === d.id ? null : d.id)}
                       onAction={refresh}
+                      isSelected={selected.has(d.id)}
+                      onToggleSelect={() => toggleSelect(d.id)}
                     />
                   ))}
                 </div>
@@ -418,11 +510,15 @@ function DirectiveCard({
   isExpanded,
   onToggle,
   onAction,
+  isSelected,
+  onToggleSelect,
 }: {
   directive: Directive;
   isExpanded: boolean;
   onToggle: () => void;
   onAction: () => void;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const assignments = d.work_assignments ?? [];
   const pct = progressPercent(assignments);
@@ -487,6 +583,15 @@ function DirectiveCard({
 
   return (
     <Card>
+      <div className="flex items-start gap-2">
+        {onToggleSelect && (
+          <input
+            type="checkbox"
+            checked={!!isSelected}
+            onChange={onToggleSelect}
+            className="mt-1.5 h-4 w-4 shrink-0 rounded border-border accent-cyan cursor-pointer"
+          />
+        )}
       <button onClick={onToggle} className="flex w-full items-start justify-between text-left gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -553,6 +658,7 @@ function DirectiveCard({
 
         <span className="text-[11px] text-txt-faint whitespace-nowrap">{timeAgo(d.created_at)}</span>
       </button>
+      </div>
 
       {/* Expanded Detail */}
       {isExpanded && (
@@ -813,9 +919,13 @@ function DirectiveCard({
 function ProposedDirectiveCard({
   directive: d,
   onAction,
+  isSelected,
+  onToggleSelect,
 }: {
   directive: Directive;
   onAction: () => void;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const { user } = useAuth();
   const [acting, setActing] = useState(false);
@@ -851,6 +961,14 @@ function ProposedDirectiveCard({
     <>
       <div className="rounded-xl border-l-4 border-prism-violet/60 border border-prism-violet/20 bg-prism-tint-5 p-4">
         <div className="flex items-start justify-between gap-4">
+          {onToggleSelect && (
+            <input
+              type="checkbox"
+              checked={!!isSelected}
+              onChange={onToggleSelect}
+              className="mt-1 h-4 w-4 shrink-0 rounded border-border accent-cyan cursor-pointer"
+            />
+          )}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-txt-primary">{d.title}</p>
               <p className="mt-0.5 text-[11px] text-prism-violet">
