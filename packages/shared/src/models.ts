@@ -18,6 +18,12 @@
 // ─── Provider type ───────────────────────────────────────────
 
 export type ModelProvider = 'gemini' | 'openai' | 'anthropic';
+export type ReasoningLevel = 'none' | 'standard' | 'deep';
+
+export interface ReasoningSupport {
+  levels: ReasoningLevel[];
+  defaultLevel: ReasoningLevel;
+}
 
 // ─── Model tiers ─────────────────────────────────────────────
 
@@ -372,6 +378,40 @@ export function getProviderLabel(provider: ModelProvider): string {
     case 'openai': return 'OpenAI';
     case 'anthropic': return 'Anthropic';
   }
+}
+
+/**
+ * Returns the supported reasoning levels for a model.
+ * These reflect provider/model-family limitations rather than generic UI choices.
+ */
+export function getReasoningSupport(modelId: string): ReasoningSupport {
+  const model = resolveModel(modelId);
+
+  if (/^gpt-5\.[12]/.test(model)) {
+    return { levels: ['none', 'standard'], defaultLevel: 'standard' };
+  }
+
+  if (model.startsWith('gpt-5') || /^o[134](-|$)/.test(model)) {
+    return { levels: ['standard', 'deep'], defaultLevel: 'standard' };
+  }
+
+  if (model.startsWith('gemini-')) {
+    return { levels: ['none', 'deep'], defaultLevel: 'deep' };
+  }
+
+  if (model.startsWith('claude-')) {
+    return { levels: ['none', 'deep'], defaultLevel: 'deep' };
+  }
+
+  return { levels: ['none', 'standard'], defaultLevel: 'standard' };
+}
+
+export function normalizeReasoningLevel(modelId: string, requested?: ReasoningLevel): ReasoningLevel {
+  const support = getReasoningSupport(modelId);
+  if (requested && support.levels.includes(requested)) {
+    return requested;
+  }
+  return support.defaultLevel;
 }
 
 // ─── Cost Optimizer ─────────────────────────────────────────

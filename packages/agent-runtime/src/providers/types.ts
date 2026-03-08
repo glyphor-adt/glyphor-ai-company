@@ -10,6 +10,7 @@ import type { ConversationTurn, GeminiToolDeclaration } from '../types.js';
 // ─── Provider Identification ─────────────────────────────────
 
 export type ModelProvider = 'gemini' | 'openai' | 'anthropic';
+export type ReasoningLevel = 'none' | 'standard' | 'deep';
 
 // ─── Unified Request ─────────────────────────────────────────
 
@@ -23,6 +24,7 @@ export interface UnifiedModelRequest {
   topK?: number;
   maxTokens?: number;
   thinkingEnabled?: boolean;
+  reasoningLevel?: ReasoningLevel;
   signal?: AbortSignal;
   /** Per-call timeout override in ms. Defaults to 180_000. */
   callTimeoutMs?: number;

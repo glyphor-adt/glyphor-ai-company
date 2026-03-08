@@ -164,13 +164,21 @@ export class OpenAIAdapter implements ProviderAdapter {
     const supportsNoneReasoning = /^gpt-5\.[12]/.test(request.model);
 
     let reasoningEffort: string | undefined;
+    const requestedReasoningLevel = request.reasoningLevel;
     if (isGpt5Family) {
       const thinkingEnabled = request.thinkingEnabled ?? false;
+      const reasoningLevel = requestedReasoningLevel ?? (supportsNoneReasoning
+        ? (thinkingEnabled ? 'standard' : 'none')
+        : (thinkingEnabled ? 'deep' : 'standard'));
       if (supportsNoneReasoning) {
-        reasoningEffort = thinkingEnabled ? 'medium' : 'none';
+        reasoningEffort = reasoningLevel === 'none' ? 'none' : reasoningLevel === 'deep' ? 'high' : 'medium';
       } else {
-        reasoningEffort = thinkingEnabled ? 'high' : 'medium';
+        reasoningEffort = reasoningLevel === 'deep' ? 'high' : 'medium';
       }
+    } else if (isOSeries) {
+      const thinkingEnabled = request.thinkingEnabled ?? false;
+      const reasoningLevel = requestedReasoningLevel ?? (thinkingEnabled ? 'deep' : 'standard');
+      reasoningEffort = reasoningLevel === 'deep' ? 'high' : 'medium';
     }
 
     const forbidTempTopP = isOSeries || (isGpt5Family && reasoningEffort !== 'none');

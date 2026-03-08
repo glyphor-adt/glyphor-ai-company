@@ -55,10 +55,12 @@ export {
   estimateModelCost,
   isDeprecated,
   getProviderLabel,
+  getReasoningSupport,
+  normalizeReasoningLevel,
   optimizeModel,
   costPer1KOutput,
 } from './models.js';
-export type { ModelDef, ModelProvider, ModelTier, CostTier } from './models.js';
+export type { ModelDef, ModelProvider, ModelTier, CostTier, ReasoningLevel, ReasoningSupport } from './models.js';
 
 export {
   DEFAULT_TRIANGULATION_MODEL_SELECTION,

@@ -9,6 +9,12 @@
  */
 
 export type ModelProvider = 'gemini' | 'openai' | 'anthropic';
+export type ReasoningLevel = 'none' | 'standard' | 'deep';
+
+export interface ReasoningSupport {
+  levels: ReasoningLevel[];
+  defaultLevel: ReasoningLevel;
+}
 
 export interface ModelOption {
   value: string;
@@ -70,6 +76,34 @@ export function getModelsByProvider(): Record<ModelProvider, ModelOption[]> {
 
 export function getModelLabel(value: string): string {
   return MODELS.find((model) => model.value === value)?.label ?? value;
+}
+
+export function getReasoningSupport(modelValue: string): ReasoningSupport {
+  if (/^gpt-5\.[12]/.test(modelValue)) {
+    return { levels: ['none', 'standard'], defaultLevel: 'standard' };
+  }
+
+  if (modelValue.startsWith('gpt-5') || /^o[134](-|$)/.test(modelValue)) {
+    return { levels: ['standard', 'deep'], defaultLevel: 'standard' };
+  }
+
+  if (modelValue.startsWith('gemini-')) {
+    return { levels: ['none', 'deep'], defaultLevel: 'deep' };
+  }
+
+  if (modelValue.startsWith('claude-')) {
+    return { levels: ['none', 'deep'], defaultLevel: 'deep' };
+  }
+
+  return { levels: ['none', 'standard'], defaultLevel: 'standard' };
+}
+
+export function normalizeReasoningLevel(modelValue: string, requested?: ReasoningLevel): ReasoningLevel {
+  const support = getReasoningSupport(modelValue);
+  if (requested && support.levels.includes(requested)) {
+    return requested;
+  }
+  return support.defaultLevel;
 }
 
 /** Verification models available for reasoning engine config */

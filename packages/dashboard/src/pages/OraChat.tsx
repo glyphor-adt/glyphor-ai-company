@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Markdown from 'react-markdown';
-import { Orbit, Plus, Globe, Brain, Database, Github, Paperclip, Copy, Check, ChevronDown, Mic, MicOff, Image as ImageIcon } from 'lucide-react';
+import { Orbit, Plus, Globe, Brain, Database, Paperclip, Copy, Check, ChevronDown, ChevronRight, Mic, MicOff } from 'lucide-react';
+import { FaGithub } from 'react-icons/fa';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
-import { getModelLabel, getModelsByProvider, PROVIDER_LABELS } from '../lib/models';
+import { getModelLabel, getModelsByProvider, PROVIDER_LABELS, getReasoningSupport, normalizeReasoningLevel, type ReasoningLevel } from '../lib/models';
 import { useAuth, getEmailAliases } from '../lib/auth';
 
 /* ── Triangulation types (mirrored from @glyphor/shared) ───── */
@@ -43,6 +44,7 @@ interface TriangulationResult {
   cost: { perProvider: Record<string, number>; total: number };
   latencyMs: Record<string, number>;
   durationMs?: number;
+  reasoningLevel?: ReasoningLevel;
 }
 
 interface SingleModelResult {
@@ -51,6 +53,7 @@ interface SingleModelResult {
   provider: 'gemini' | 'openai' | 'anthropic';
   durationMs: number;
   thinkingEnabled: boolean;
+  reasoningLevel: ReasoningLevel;
   webSearch: boolean;
   knowledgeBase: boolean;
 }
@@ -99,10 +102,12 @@ const GITHUB_REPO_OPTIONS = [
 ] as const;
 
 interface Features {
-  deepThinking: boolean;
+  reasoningLevel: ReasoningLevel;
   webSearch: boolean;
   knowledgeBase: boolean;
 }
+
+type MenuFlyout = 'model' | 'type' | null;
 
 /* ── Helpers ───────────────────────────────────────── */
 
@@ -143,8 +148,46 @@ function formatComposerMode(mode: OraMode) {
   return mode === 'triangulated' ? 'Triangulated' : 'Single model';
 }
 
-function formatThinkingMode(features: Features) {
-  return features.deepThinking ? 'Reasoning' : 'Standard';
+function formatThinkingMode(reasoningLevel: ReasoningLevel) {
+  switch (reasoningLevel) {
+    case 'deep':
+      return 'Deep reasoning';
+    case 'standard':
+      return 'Reasoning';
+    default:
+      return 'Standard';
+  }
+}
+
+function getReasoningSubtitle(reasoningLevel: ReasoningLevel) {
+  switch (reasoningLevel) {
+    case 'deep':
+      return 'Use the highest available thinking depth';
+    case 'standard':
+      return 'Use the model\'s regular reasoning mode';
+    default:
+      return 'Respond without extra thinking where supported';
+  }
+}
+
+function getSharedReasoningLevels(models: string[]): { levels: ReasoningLevel[]; defaultLevel: ReasoningLevel } {
+  const sharedLevels = models.reduce<ReasoningLevel[] | null>((current, model) => {
+    const levels = getReasoningSupport(model).levels;
+    if (!current) return [...levels];
+    return current.filter((level) => levels.includes(level));
+  }, null) ?? ['standard'];
+
+  if (sharedLevels.length === 0) {
+    return { levels: ['standard'] as ReasoningLevel[], defaultLevel: 'standard' as ReasoningLevel };
+  }
+
+  const preferredDefault: ReasoningLevel = sharedLevels.includes('deep')
+    ? 'deep'
+    : sharedLevels.includes('standard')
+      ? 'standard'
+      : 'none';
+
+  return { levels: sharedLevels, defaultLevel: preferredDefault };
 }
 
 /* ── Triangulation Panel ──────────────────────────── */
@@ -296,6 +339,7 @@ function MenuAction({
   active = false,
   onClick,
   disabled = false,
+  trailing,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -303,6 +347,7 @@ function MenuAction({
   active?: boolean;
   onClick: () => void;
   disabled?: boolean;
+  trailing?: React.ReactNode;
 }) {
   return (
     <button
@@ -318,7 +363,7 @@ function MenuAction({
         <div className={`text-[13px] ${active ? 'text-cyan-300' : 'text-prism-primary'}`}>{title}</div>
         {subtitle ? <div className="text-[11px] text-prism-tertiary">{subtitle}</div> : null}
       </div>
-      {active ? <Check className="h-4 w-4 text-cyan-400" /> : null}
+      {trailing ?? (active ? <Check className="h-4 w-4 text-cyan-400" /> : null)}
     </button>
   );
 }
@@ -347,11 +392,12 @@ export default function OraChat() {
   });
   const [selectedGithubRepos, setSelectedGithubRepos] = useState<string[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuFlyout, setMenuFlyout] = useState<MenuFlyout>(null);
   const [hasLoadedPreferences, setHasLoadedPreferences] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [features, setFeatures] = useState<Features>({
-    deepThinking: false,
+    reasoningLevel: 'deep',
     webSearch: false,
     knowledgeBase: true,
   });
@@ -380,6 +426,12 @@ export default function OraChat() {
 
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) {
+      setMenuFlyout(null);
+    }
   }, [menuOpen]);
 
   const copyMessage = useCallback(async (messageId: string, content: string) => {
@@ -497,7 +549,11 @@ export default function OraChat() {
       }
       if (parsed.features) {
         setFeatures((prev) => ({
-          deepThinking: typeof parsed.features?.deepThinking === 'boolean' ? parsed.features.deepThinking : prev.deepThinking,
+          reasoningLevel: typeof (parsed.features as { reasoningLevel?: unknown }).reasoningLevel === 'string'
+            ? normalizeReasoningLevel(selectedModel, (parsed.features as { reasoningLevel?: ReasoningLevel }).reasoningLevel)
+            : typeof (parsed.features as { deepThinking?: unknown }).deepThinking === 'boolean'
+              ? ((parsed.features as { deepThinking?: boolean }).deepThinking ? 'deep' : prev.reasoningLevel)
+              : prev.reasoningLevel,
           webSearch: typeof parsed.features?.webSearch === 'boolean' ? parsed.features.webSearch : prev.webSearch,
           knowledgeBase: typeof parsed.features?.knowledgeBase === 'boolean' ? parsed.features.knowledgeBase : prev.knowledgeBase,
         }));
@@ -523,6 +579,27 @@ export default function OraChat() {
     window.localStorage.setItem(oraPreferencesStorageKey(userEmail), JSON.stringify(preferences));
   }, [userEmail, hasLoadedPreferences, mode, selectedModel, triangulationModels, selectedGithubRepos, features]);
 
+  const activeReasoningSupport = useMemo(() => {
+    if (mode === 'single-model') {
+      return getReasoningSupport(selectedModel);
+    }
+    return getSharedReasoningLevels([
+      triangulationModels.claude,
+      triangulationModels.gemini,
+      triangulationModels.openai,
+    ]);
+  }, [mode, selectedModel, triangulationModels]);
+
+  useEffect(() => {
+    setFeatures((prev) => {
+      const normalizedLevel = activeReasoningSupport.levels.includes(prev.reasoningLevel)
+        ? prev.reasoningLevel
+        : activeReasoningSupport.defaultLevel;
+      if (normalizedLevel === prev.reasoningLevel) return prev;
+      return { ...prev, reasoningLevel: normalizedLevel };
+    });
+  }, [activeReasoningSupport]);
+
   // File handling
   const addFiles = useCallback((files: FileList | File[]) => {
     Array.from(files).forEach((file) => {
@@ -537,26 +614,6 @@ export default function OraChat() {
       reader.readAsDataURL(file);
     });
   }, []);
-
-  const pasteClipboardImage = useCallback(async () => {
-    try {
-      if (!navigator.clipboard?.read) {
-        textareaRef.current?.focus();
-        return;
-      }
-      const items = await navigator.clipboard.read();
-      const files: File[] = [];
-      for (const item of items) {
-        const imageType = item.types.find((type) => type.startsWith('image/'));
-        if (!imageType) continue;
-        const blob = await item.getType(imageType);
-        files.push(new File([blob], `clipboard-${Date.now()}.png`, { type: imageType }));
-      }
-      if (files.length > 0) addFiles(files);
-    } catch {
-      // Ignore clipboard failures
-    }
-  }, [addFiles]);
 
   const removeAttachment = useCallback((idx: number) => {
     setAttachments((prev) => {
@@ -603,6 +660,7 @@ export default function OraChat() {
     setInput('');
     setAttachments([]);
     setMenuOpen(false);
+    setMenuFlyout(null);
     setPhase('streaming');
     setValidatedProviders([]);
     setActiveRequestFeatures(features);
@@ -757,7 +815,7 @@ export default function OraChat() {
     [send],
   );
 
-  const toggleFeature = useCallback((key: keyof Features) => {
+  const toggleFeature = useCallback((key: 'webSearch' | 'knowledgeBase') => {
     setFeatures((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
@@ -771,12 +829,16 @@ export default function OraChat() {
       : phase === 'validating'
         ? 'Comparing model responses...'
         : activeRequestMode === 'single-model'
-          ? activeRequestFeatures?.deepThinking
+          ? activeRequestFeatures?.reasoningLevel === 'deep'
             ? `Deep reasoning with ${activeRequestModel ?? 'selected model'}...`
-            : `Running ${activeRequestModel ?? 'selected model'}...`
-          : activeRequestFeatures?.deepThinking
+            : activeRequestFeatures?.reasoningLevel === 'standard'
+              ? `Reasoning with ${activeRequestModel ?? 'selected model'}...`
+              : `Running ${activeRequestModel ?? 'selected model'}...`
+          : activeRequestFeatures?.reasoningLevel === 'deep'
             ? 'Thinking deeply...'
-            : 'Thinking...';
+            : activeRequestFeatures?.reasoningLevel === 'standard'
+              ? 'Reasoning across selected models...'
+              : 'Thinking...';
   const thinkingDetail =
     phase === 'evaluating'
       ? 'Ora is judging the responses and choosing the best one.'
@@ -784,9 +846,11 @@ export default function OraChat() {
         ? `Received ${validatedProviders.length} ${validatedProviders.length === 1 ? 'response' : 'responses'} so far.${validatedProviders.length > 0 ? ' Checking agreement across providers now.' : ''}`
         : activeRequestMode === 'single-model'
           ? 'Using the selected model directly without triangulation.'
-          : activeRequestFeatures?.deepThinking
-            ? 'Running Claude, Gemini, and GPT-5 in parallel before comparing them.'
-            : 'Preparing Ora response.';
+          : activeRequestFeatures?.reasoningLevel === 'deep'
+            ? 'Running the selected triangulation models with the highest available thinking depth.'
+            : activeRequestFeatures?.reasoningLevel === 'standard'
+              ? 'Running the selected triangulation models with standard reasoning.'
+              : 'Preparing Ora response.';
   const githubEnabled = selectedGithubRepos.length > 0;
   const toggleGithubAccess = useCallback(() => {
     setSelectedGithubRepos((prev) => {
@@ -794,6 +858,9 @@ export default function OraChat() {
       return [GITHUB_REPO_OPTIONS[0].value];
     });
   }, []);
+  const currentModelSummary = mode === 'single-model'
+    ? getModelLabel(selectedModel)
+    : `${getModelLabel(triangulationModels.claude)}, ${getModelLabel(triangulationModels.gemini)}, ${getModelLabel(triangulationModels.openai)}`;
 
   return (
     <div className="flex h-[calc(100vh-5rem)] flex-col">
@@ -833,8 +900,8 @@ export default function OraChat() {
                       <p className="text-[13px] font-semibold text-prism-primary">Ora</p>
                       <p className="text-[11px] text-prism-tertiary">
                         {msg.metadata?.singleModel
-                          ? `${getModelLabel(msg.metadata.singleModel.model)} · ${msg.metadata.singleModel.thinkingEnabled ? 'Reasoning' : 'Standard'}`
-                          : `${formatComposerMode(mode)} · ${formatThinkingMode(features)}`}
+                          ? `${getModelLabel(msg.metadata.singleModel.model)} · ${formatThinkingMode(msg.metadata.singleModel.reasoningLevel)}`
+                          : `${formatComposerMode(mode)} · ${formatThinkingMode(msg.metadata?.triangulation?.reasoningLevel ?? features.reasoningLevel)}`}
                       </p>
                     </div>
                     <button
@@ -947,62 +1014,179 @@ export default function OraChat() {
       {/* Input area */}
       <div className="relative mt-2 rounded-[30px] border border-prism-border bg-prism-card px-4 py-3 shadow-prism-lg" ref={menuRef}>
         {menuOpen && (
-          <div className="absolute bottom-full left-0 z-20 mb-2 w-80 rounded-[24px] border border-prism-border bg-prism-card p-3 shadow-prism-lg">
-            <MenuAction
-              icon={<Paperclip className="h-4 w-4" />}
-              title="Add files or photos"
-              subtitle="Attach images, PDFs, docs, or CSVs"
-              onClick={() => {
-                setMenuOpen(false);
-                fileInputRef.current?.click();
-              }}
-              disabled={isLoading}
-            />
-            <MenuAction
-              icon={<ImageIcon className="h-4 w-4" />}
-              title="Paste screenshot"
-              subtitle="Grab an image directly from your clipboard"
-              onClick={() => {
-                setMenuOpen(false);
-                void pasteClipboardImage();
-              }}
-              disabled={isLoading}
-            />
+          <div className="absolute bottom-full left-0 z-20 mb-2 flex items-start gap-2">
+            <div className="w-80 rounded-[24px] border border-prism-border bg-prism-card p-3 shadow-prism-lg">
+              <MenuAction
+                icon={<Paperclip className="h-4 w-4" />}
+                title="Add files or photos"
+                subtitle="Attach images, PDFs, docs, or CSVs"
+                onClick={() => {
+                  setMenuOpen(false);
+                  fileInputRef.current?.click();
+                }}
+                disabled={isLoading}
+              />
+              <MenuAction
+                icon={<Orbit className="h-4 w-4" />}
+                title="Model"
+                subtitle={mode === 'single-model' ? getModelLabel(selectedModel) : 'Triangulated'}
+                onClick={() => setMenuFlyout('model')}
+                disabled={isLoading}
+                trailing={<ChevronRight className="h-4 w-4 text-prism-tertiary" />}
+              />
+              <MenuAction
+                icon={<Brain className="h-4 w-4" />}
+                title="Type"
+                subtitle={formatThinkingMode(features.reasoningLevel)}
+                onClick={() => setMenuFlyout('type')}
+                disabled={isLoading}
+                trailing={<ChevronRight className="h-4 w-4 text-prism-tertiary" />}
+              />
 
-            <div className="my-2 border-t border-prism-border" />
+              <div className="my-2 border-t border-prism-border" />
 
-            <MenuAction
-              icon={<Database className="h-4 w-4" />}
-              title="Company knowledge"
-              subtitle="Search internal memory and knowledge sources"
-              active={features.knowledgeBase}
-              onClick={() => toggleFeature('knowledgeBase')}
-              disabled={isLoading}
-            />
-            <MenuAction
-              icon={<Brain className="h-4 w-4" />}
-              title="Deep research"
-              subtitle="Use longer reasoning before responding"
-              active={features.deepThinking}
-              onClick={() => toggleFeature('deepThinking')}
-              disabled={isLoading}
-            />
-            <MenuAction
-              icon={<Globe className="h-4 w-4" />}
-              title="Web search"
-              subtitle="Pull live information from the web"
-              active={features.webSearch}
-              onClick={() => toggleFeature('webSearch')}
-              disabled={isLoading}
-            />
-            <MenuAction
-              icon={<Github className="h-4 w-4" />}
-              title="GitHub context"
-              subtitle={githubEnabled ? `${selectedGithubRepos.length} repo${selectedGithubRepos.length === 1 ? '' : 's'} enabled` : 'Use repository context'}
-              active={githubEnabled}
-              onClick={toggleGithubAccess}
-              disabled={isLoading}
-            />
+              <MenuAction
+                icon={<Database className="h-4 w-4" />}
+                title="Company knowledge"
+                subtitle="Search internal memory and knowledge sources"
+                active={features.knowledgeBase}
+                onClick={() => toggleFeature('knowledgeBase')}
+                disabled={isLoading}
+              />
+              <MenuAction
+                icon={<Globe className="h-4 w-4" />}
+                title="Web search"
+                subtitle="Pull live information from the web"
+                active={features.webSearch}
+                onClick={() => toggleFeature('webSearch')}
+                disabled={isLoading}
+              />
+              <MenuAction
+                icon={<FaGithub className="h-4 w-4" />}
+                title="GitHub context"
+                subtitle={githubEnabled ? `${selectedGithubRepos.length} repo${selectedGithubRepos.length === 1 ? '' : 's'} enabled` : 'Use repository context'}
+                active={githubEnabled}
+                onClick={toggleGithubAccess}
+                disabled={isLoading}
+              />
+            </div>
+
+            {menuFlyout === 'model' && (
+              <div className="w-96 rounded-[24px] border border-prism-border bg-prism-card p-3 shadow-prism-lg">
+                <div className="mb-2 px-3 py-2">
+                  <div className="text-[12px] font-medium text-prism-primary">Model</div>
+                  <div className="text-[11px] text-prism-tertiary">Pick a single model or configure the triangulated trio.</div>
+                </div>
+
+                <div className="mb-3 grid grid-cols-2 gap-2 px-3">
+                  <button
+                    type="button"
+                    onClick={() => setMode('triangulated')}
+                    className={`rounded-xl border px-3 py-2 text-[12px] transition-colors ${mode === 'triangulated' ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300' : 'border-prism-border bg-prism-bg2 text-prism-secondary hover:border-cyan-500/20'}`}
+                  >
+                    Triangulated
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode('single-model')}
+                    className={`rounded-xl border px-3 py-2 text-[12px] transition-colors ${mode === 'single-model' ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300' : 'border-prism-border bg-prism-bg2 text-prism-secondary hover:border-cyan-500/20'}`}
+                  >
+                    Single model
+                  </button>
+                </div>
+
+                {mode === 'single-model' ? (
+                  <div className="max-h-80 space-y-3 overflow-y-auto px-3 pb-1">
+                    {(['openai', 'anthropic', 'gemini'] as const).map((provider) => (
+                      <div key={provider}>
+                        <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.12em] text-prism-tertiary">
+                          {PROVIDER_LABELS[provider]}
+                        </div>
+                        <div className="space-y-1.5">
+                          {modelGroups[provider].map((modelOption) => (
+                            <button
+                              key={modelOption.value}
+                              type="button"
+                              onClick={() => setSelectedModel(modelOption.value)}
+                              className={`flex w-full items-center rounded-xl px-3 py-2 text-left text-[12px] transition-colors ${selectedModel === modelOption.value ? 'bg-cyan-500/10 text-cyan-300' : 'text-prism-secondary hover:bg-prism-bg2'}`}
+                            >
+                              <span>{modelOption.label}</span>
+                              {selectedModel === modelOption.value ? <Check className="ml-auto h-4 w-4 text-cyan-400" /> : null}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-3 px-3 pb-1">
+                    <div className="rounded-2xl border border-prism-border bg-prism-bg2/60 p-3">
+                      <div className="mb-2 text-[11px] text-prism-tertiary">Claude</div>
+                      <select
+                        value={triangulationModels.claude}
+                        onChange={(e) => setTriangulationModels((prev) => ({ ...prev, claude: e.target.value }))}
+                        className="w-full rounded-xl border border-prism-border bg-prism-card px-3 py-2 text-[12px] text-prism-primary outline-none"
+                      >
+                        {modelGroups.anthropic.map((modelOption) => (
+                          <option key={modelOption.value} value={modelOption.value}>{modelOption.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="rounded-2xl border border-prism-border bg-prism-bg2/60 p-3">
+                      <div className="mb-2 text-[11px] text-prism-tertiary">Gemini</div>
+                      <select
+                        value={triangulationModels.gemini}
+                        onChange={(e) => setTriangulationModels((prev) => ({ ...prev, gemini: e.target.value }))}
+                        className="w-full rounded-xl border border-prism-border bg-prism-card px-3 py-2 text-[12px] text-prism-primary outline-none"
+                      >
+                        {modelGroups.gemini.map((modelOption) => (
+                          <option key={modelOption.value} value={modelOption.value}>{modelOption.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="rounded-2xl border border-prism-border bg-prism-bg2/60 p-3">
+                      <div className="mb-2 text-[11px] text-prism-tertiary">OpenAI</div>
+                      <select
+                        value={triangulationModels.openai}
+                        onChange={(e) => setTriangulationModels((prev) => ({ ...prev, openai: e.target.value }))}
+                        className="w-full rounded-xl border border-prism-border bg-prism-card px-3 py-2 text-[12px] text-prism-primary outline-none"
+                      >
+                        {modelGroups.openai.map((modelOption) => (
+                          <option key={modelOption.value} value={modelOption.value}>{modelOption.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {menuFlyout === 'type' && (
+              <div className="w-80 rounded-[24px] border border-prism-border bg-prism-card p-3 shadow-prism-lg">
+                <div className="mb-2 px-3 py-2">
+                  <div className="text-[12px] font-medium text-prism-primary">Type</div>
+                  <div className="text-[11px] text-prism-tertiary">
+                    {mode === 'single-model' ? `Available for ${getModelLabel(selectedModel)}` : 'Shared across the selected triangulation models'}
+                  </div>
+                </div>
+                <div className="space-y-1 px-3 pb-1">
+                  {activeReasoningSupport.levels.map((level) => (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => setFeatures((prev) => ({ ...prev, reasoningLevel: level }))}
+                      className={`flex w-full items-center rounded-xl px-3 py-3 text-left transition-colors ${features.reasoningLevel === level ? 'bg-cyan-500/10 text-cyan-300' : 'text-prism-secondary hover:bg-prism-bg2'}`}
+                    >
+                      <div>
+                        <div className="text-[13px]">{formatThinkingMode(level)}</div>
+                        <div className="text-[11px] text-prism-tertiary">{getReasoningSubtitle(level)}</div>
+                      </div>
+                      {features.reasoningLevel === level ? <Check className="ml-auto h-4 w-4 text-cyan-400" /> : null}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1036,46 +1220,11 @@ export default function OraChat() {
           </div>
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-2 rounded-full border border-prism-border bg-prism-bg2 px-3 py-2 text-[12px] text-prism-tertiary transition-colors hover:border-cyan-500/20">
-              <select
-                value={mode === 'single-model' ? selectedModel : 'triangulated'}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value === 'triangulated') {
-                    setMode('triangulated');
-                  } else {
-                    setMode('single-model');
-                    setSelectedModel(value);
-                  }
-                }}
-                disabled={isLoading}
-                className="bg-transparent text-prism-primary outline-none"
-              >
-                <option value="triangulated">Triangulated</option>
-                {(['openai', 'anthropic', 'gemini'] as const).map((provider) => (
-                  <optgroup key={provider} label={PROVIDER_LABELS[provider]}>
-                    {modelGroups[provider].map((modelOption) => (
-                      <option key={modelOption.value} value={modelOption.value}>{modelOption.label}</option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-              <ChevronDown className="h-3.5 w-3.5 text-prism-tertiary" />
-            </label>
-
-            <label className="flex items-center gap-2 rounded-full border border-prism-border bg-prism-bg2 px-3 py-2 text-[12px] text-prism-tertiary transition-colors hover:border-cyan-500/20">
-              <select
-                value={features.deepThinking ? 'reasoning' : 'standard'}
-                onChange={(e) => setFeatures((prev) => ({ ...prev, deepThinking: e.target.value === 'reasoning' }))}
-                disabled={isLoading}
-                className="bg-transparent text-prism-primary outline-none"
-              >
-                <option value="standard">Standard</option>
-                <option value="reasoning">Reasoning</option>
-              </select>
-              <ChevronDown className="h-3.5 w-3.5 text-prism-tertiary" />
-            </label>
-
+            <div className="hidden rounded-full border border-prism-border bg-prism-bg2 px-3 py-2 text-[12px] text-prism-tertiary md:flex md:items-center md:gap-2">
+              <span>{formatComposerMode(mode)}</span>
+              <span className="text-prism-border">•</span>
+              <span className="truncate max-w-[14rem]">{mode === 'single-model' ? getModelLabel(selectedModel) : currentModelSummary}</span>
+            </div>
             <button
               type="button"
               onClick={toggleDictation}

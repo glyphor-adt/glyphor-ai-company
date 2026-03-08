@@ -3,8 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { buildTriangulationContext, triangulate } from '@glyphor/agent-runtime';
 import type { ModelClient } from '@glyphor/agent-runtime';
 import type { RedisCache } from '@glyphor/agent-runtime';
-import { detectProvider, estimateModelCost, resolveModel } from '@glyphor/shared';
+import { detectProvider, estimateModelCost, normalizeReasoningLevel, resolveModel } from '@glyphor/shared';
 import type { TriangulationModelSelection } from '@glyphor/shared';
+import type { ReasoningLevel } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 import { buildGitHubRepoContext, searchWeb, searchResultsToContext } from '@glyphor/integrations';
 import mammoth from 'mammoth';
@@ -44,6 +45,7 @@ interface SingleModelRun {
   provider: 'gemini' | 'openai' | 'anthropic';
   durationMs: number;
   thinkingEnabled: boolean;
+  reasoningLevel: ReasoningLevel;
   webSearch: boolean;
   knowledgeBase: boolean;
 }
@@ -68,7 +70,7 @@ export async function handleTriangulatedChat(
     const body = JSON.parse(await readBody(req));
     const { message, features = {}, attachments = [], conversationId, userId, mode = 'triangulated', selectedModel, githubRepos = [], triangulationModels } = body as {
       message: string;
-      features?: Record<string, boolean>;
+      features?: Record<string, boolean | string>;
       attachments?: Array<Record<string, string>>;
       conversationId?: string;
       userId?: string;
@@ -78,6 +80,13 @@ export async function handleTriangulatedChat(
       triangulationModels?: Partial<TriangulationModelSelection>;
     };
     const convId = conversationId || randomUUID();
+    const requestedReasoningLevel = typeof features.reasoningLevel === 'string'
+      ? features.reasoningLevel as ReasoningLevel
+      : (features.deepThinking ? 'deep' : undefined);
+    const webSearchEnabled = features.webSearch === true;
+    const knowledgeBaseEnabled = features.knowledgeBase === false
+      ? false
+      : (features.internalSearch === false ? false : true);
     const normalizedAttachments = await Promise.all(attachments.map(async (a: Record<string, string>) => {
       const mapped = {
         name: a.name,
@@ -120,6 +129,7 @@ export async function handleTriangulatedChat(
 
     if (mode === 'single-model') {
       const model = resolveModel(selectedModel ?? 'gpt-5.4');
+      const reasoningLevel = normalizeReasoningLevel(model, requestedReasoningLevel);
       let fullSystemPrompt = systemPrompt;
 
       if (features.knowledgeBase ?? features.internalSearch ?? true) {
@@ -145,7 +155,8 @@ export async function handleTriangulatedChat(
           attachments: normalizedAttachments.map((att) => ({ name: att.name, mimeType: att.mimeType, data: att.base64 })),
         }],
         maxTokens: 8192,
-        thinkingEnabled: features.deepThinking ?? false,
+        thinkingEnabled: reasoningLevel !== 'none',
+        reasoningLevel,
       });
 
       const modelRun: SingleModelRun = {
@@ -153,9 +164,10 @@ export async function handleTriangulatedChat(
         model,
         provider: detectProvider(model),
         durationMs: Date.now() - startedAt,
-        thinkingEnabled: features.deepThinking ?? false,
-        webSearch: features.webSearch ?? false,
-        knowledgeBase: features.knowledgeBase ?? features.internalSearch ?? true,
+        thinkingEnabled: reasoningLevel !== 'none',
+        reasoningLevel,
+        webSearch: webSearchEnabled,
+        knowledgeBase: knowledgeBaseEnabled,
       };
 
       sendSSE(res, {
@@ -204,10 +216,11 @@ export async function handleTriangulatedChat(
       message,
       {
         systemPrompt,
-        enableWebSearch: features.webSearch ?? false,
-        enableDeepThinking: features.deepThinking ?? false,
-        enableInternalSearch: features.knowledgeBase ?? features.internalSearch ?? true,
+        enableWebSearch: webSearchEnabled,
+        enableDeepThinking: requestedReasoningLevel === 'deep',
+        enableInternalSearch: knowledgeBaseEnabled,
         attachments: normalizedAttachments,
+        reasoningLevel: requestedReasoningLevel,
         triangulationModels: triangulationModels
           ? {
               claude: triangulationModels.claude ? resolveModel(triangulationModels.claude) : undefined,
@@ -231,7 +244,7 @@ export async function handleTriangulatedChat(
     if (result.tier !== 'SIMPLE') {
       sendSSE(res, { type: 'judge_start' });
     }
-    sendSSE(res, { type: 'result', data: result });
+    sendSSE(res, { type: 'result', data: { ...result, reasoningLevel: requestedReasoningLevel ?? 'standard' } });
 
     // ─── Persist messages ─────────────────────────────────────────
     // Save user message
@@ -245,7 +258,7 @@ export async function handleTriangulatedChat(
     await systemQuery(
       `INSERT INTO chat_messages (agent_role, role, content, user_id, conversation_id, metadata, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-      ['ora', 'agent', result.selectedResponse, userId ?? null, convId, JSON.stringify(result)],
+      ['ora', 'agent', result.selectedResponse, userId ?? null, convId, JSON.stringify({ ...result, reasoningLevel: requestedReasoningLevel ?? 'standard' })],
     );
 
     // Log to agent_runs

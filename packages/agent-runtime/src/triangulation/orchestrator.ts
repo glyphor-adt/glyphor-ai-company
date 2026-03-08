@@ -9,6 +9,7 @@ import type { TriangulationModelSelection } from '@glyphor/shared';
 import type { ModelClient } from '../modelClient.js';
 import type { EmbeddingClient } from '../jitContextRetriever.js';
 import type { RedisCache } from '../redisCache.js';
+import type { ReasoningLevel } from '../providers/types.js';
 
 export async function triangulate(
   message: string,
@@ -20,6 +21,7 @@ export async function triangulate(
     attachments?: Array<{ name: string; mimeType: string; base64: string }>;
     maxOutputTokens?: number;
     triangulationModels?: Partial<TriangulationModelSelection>;
+    reasoningLevel?: ReasoningLevel;
   },
   deps: {
     modelClient: ModelClient;
@@ -58,10 +60,12 @@ export async function triangulate(
   if (tier === 'SIMPLE') {
     const start = Date.now();
     const result = await deps.modelClient.generate({
-      model: TRIANGULATION_MODELS.primary,
+      model: modelSelection.claude,
       systemInstruction: fullSystemPrompt,
       contents: [{ role: 'user' as const, content: message, timestamp: Date.now() }],
       maxTokens: options.maxOutputTokens ?? 8192,
+      thinkingEnabled: options.reasoningLevel === 'deep',
+      reasoningLevel: options.reasoningLevel,
     });
     return {
       tier: 'SIMPLE',
@@ -90,6 +94,7 @@ export async function triangulate(
     attachments: options.attachments,
     maxOutputTokens: options.maxOutputTokens,
     modelSelection,
+    reasoningLevel: options.reasoningLevel,
   });
 
   // 5. Check if any responses succeeded

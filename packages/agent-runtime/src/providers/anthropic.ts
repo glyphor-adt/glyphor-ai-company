@@ -39,9 +39,10 @@ export class AnthropicAdapter implements ProviderAdapter {
 
     // Extended thinking config
     const thinkingEnabled = request.thinkingEnabled ?? false;
+    const reasoningLevel = request.reasoningLevel ?? (thinkingEnabled ? 'deep' : 'none');
     const supportsThinking = /claude-(3-[5-9]|[4-9]|sonnet-4|haiku-4|opus-4)/.test(request.model);
-    const useThinking = thinkingEnabled && supportsThinking;
-    const thinkingBudget = 8192;
+    const useThinking = reasoningLevel !== 'none' && supportsThinking;
+    const thinkingBudget = reasoningLevel === 'deep' ? 8192 : 4096;
     // claude-opus-4 uses adaptive thinking (no effort field); others use manual budget
     const isOpus4 = /claude-opus-4/.test(request.model);
     const thinkingParam = useThinking

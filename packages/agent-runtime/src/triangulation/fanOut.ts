@@ -2,6 +2,7 @@ import { ModelClient } from '../modelClient.js';
 import { DEFAULT_TRIANGULATION_MODEL_SELECTION, TRIANGULATION_TIMEOUTS } from '@glyphor/shared';
 import type { QueryTier } from '@glyphor/shared';
 import type { TriangulationModelSelection } from '@glyphor/shared';
+import type { ReasoningLevel } from '../providers/types.js';
 import type { ConversationAttachment } from '../types.js';
 
 export interface ProviderResponse {
@@ -18,6 +19,7 @@ interface FanOutOptions {
   attachments?: Array<{ name: string; mimeType: string; base64: string }>;
   maxOutputTokens?: number;
   modelSelection?: TriangulationModelSelection;
+  reasoningLevel?: ReasoningLevel;
 }
 
 /** Map caller attachments (base64 field) to ConversationAttachment (data field). */
@@ -73,6 +75,7 @@ export async function fanOut(
         contents,
         maxTokens,
         thinkingEnabled: tier === 'DEEP',
+        reasoningLevel: options?.reasoningLevel,
         signal: controller.signal,
         callTimeoutMs: timeout,
       })

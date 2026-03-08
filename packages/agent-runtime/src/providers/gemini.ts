@@ -28,17 +28,18 @@ export class GeminiAdapter implements ProviderAdapter {
 
     // Build thinking config based on model family
     const thinkingEnabled = request.thinkingEnabled ?? true;
+    const reasoningLevel = request.reasoningLevel ?? (thinkingEnabled ? 'deep' : 'none');
     let thinkingConfig: Record<string, unknown> | undefined;
     if (request.model.startsWith('gemini-3')) {
       // Gemini 3.x: always set thinkingConfig — omitting it defaults to MINIMAL which is unsupported
       thinkingConfig = {
-        includeThoughts: thinkingEnabled,
-        thinkingLevel: thinkingEnabled ? 'high' : 'low',
+        includeThoughts: reasoningLevel !== 'none',
+        thinkingLevel: reasoningLevel === 'deep' ? 'high' : 'low',
       };
     } else if (request.model.startsWith('gemini-2.5')) {
       thinkingConfig = {
-        includeThoughts: true,
-        thinkingBudget: thinkingEnabled ? -1 : 0,
+        includeThoughts: reasoningLevel !== 'none',
+        thinkingBudget: reasoningLevel === 'deep' ? -1 : reasoningLevel === 'standard' ? 2048 : 0,
       };
     }
 
