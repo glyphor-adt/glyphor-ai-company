@@ -99,7 +99,6 @@ function formatDuration(ms?: number) {
 function TriangulationPanel({ tri }: { tri: TriangulationResult }) {
   const [expanded, setExpanded] = useState(false);
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
-  const [showRecommended, setShowRecommended] = useState(false);
   const durationLabel = formatDuration(tri.durationMs);
 
   const circumference = 2 * Math.PI * 18;
@@ -129,9 +128,6 @@ function TriangulationPanel({ tri }: { tri: TriangulationResult }) {
         </svg>
         <div className="min-w-0 flex-1">
           <span className="text-[13px] font-medium text-prism-primary capitalize">{tri.consensusLevel} consensus</span>
-          <span className="ml-2 rounded-full bg-prism-bg2 px-2 py-0.5 text-[11px] text-prism-tertiary">
-            ${tri.cost.total.toFixed(2)}
-          </span>
           {durationLabel && (
             <span className="ml-2 rounded-full bg-prism-bg2 px-2 py-0.5 text-[11px] text-prism-tertiary">
               {tri.tier.toLowerCase()} in {durationLabel}
@@ -204,22 +200,10 @@ function TriangulationPanel({ tri }: { tri: TriangulationResult }) {
             </div>
           )}
 
-          {/* View recommended response toggle */}
-          {tri.selectedProvider !== 'claude' && (
-            <div>
-              <button
-                onClick={() => setShowRecommended(!showRecommended)}
-                className="text-[12px] text-cyan-400 hover:underline"
-              >
-                {showRecommended ? 'Hide' : 'View'} recommended response ({tri.selectedProvider})
-              </button>
-              {showRecommended && (
-                <div className="mt-2 rounded-lg bg-prism-bg2 p-3 text-[13px] text-prism-secondary">
-                  <div className="prose-chat"><Markdown>{tri.selectedResponse}</Markdown></div>
-                </div>
-              )}
-            </div>
-          )}
+          <div className="rounded-lg bg-prism-bg2 p-3 text-[12px] text-prism-tertiary">
+            The response shown above is the final answer Ora selected after comparing Claude, Gemini, and GPT-5.
+            <span className="ml-1 text-prism-secondary">Selected winner: {tri.selectedProvider}.</span>
+          </div>
         </div>
       )}
     </div>
