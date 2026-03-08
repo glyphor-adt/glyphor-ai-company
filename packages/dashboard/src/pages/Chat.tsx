@@ -6,7 +6,7 @@ import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { useAuth, getEmailAliases } from '../lib/auth';
-import { MdAttachFile, MdImage, MdDescription, MdClose, MdVideoCall, MdCallEnd, MdAdd, MdSearch, MdLanguage, MdCheck, MdScreenshotMonitor, MdContentCopy, MdAutoAwesome, MdExpandMore } from 'react-icons/md';
+import { MdAttachFile, MdImage, MdDescription, MdClose, MdVideoCall, MdCallEnd, MdAdd, MdSearch } from 'react-icons/md';
 import { HiMiniSignal, HiStop, HiMicrophone } from 'react-icons/hi2';
 import { useVoiceChat } from '../lib/useVoiceChat';
 import VoiceOverlay from '../components/VoiceOverlay';
@@ -31,11 +31,9 @@ interface Message {
   actions?: ActionReceipt[];
 }
 
-function parseAgentOutput(text: string): { answer: string; reasoning: string | null } {
-  const match = text.match(/<reasoning>([\s\S]*?)<\/reasoning>/i);
-  const reasoning = match?.[1]?.trim() || null;
-  const answer = text.replace(/<reasoning>[\s\S]*?<\/reasoning>\s*/gi, '').trim();
-  return { answer, reasoning };
+/** Strip <reasoning>...</reasoning> envelope from agent output */
+function stripReasoning(text: string): string {
+  return text.replace(/<reasoning>[\s\S]*?<\/reasoning>\s*/g, '').trim();
 }
 
 interface RecentChat {
@@ -170,32 +168,6 @@ function ActionReceipts({ actions }: { actions: ActionReceipt[] }) {
   );
 }
 
-function ReasoningPanel({ reasoning }: { reasoning: string }) {
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <div className="mt-4 rounded-2xl border border-border/70 bg-black/10">
-      <button
-        type="button"
-        onClick={() => setExpanded((value) => !value)}
-        className="flex w-full items-center gap-2 px-4 py-3 text-left text-[12px] text-txt-muted transition-colors hover:bg-white/[0.03]"
-      >
-        <MdAutoAwesome className="text-[15px] text-prism-elevated" />
-        <span className="font-medium text-txt-secondary">Reasoning</span>
-        <span className="text-txt-faint">{expanded ? 'Hide' : 'Show'}</span>
-        <MdExpandMore className={`ml-auto text-[18px] transition-transform ${expanded ? 'rotate-180' : ''}`} />
-      </button>
-      {expanded && (
-        <div className="border-t border-border/60 px-4 py-4">
-          <div className="prose-chat text-[12px] text-txt-muted opacity-90">
-            <Markdown>{reasoning}</Markdown>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function Chat() {
   const { agentId } = useParams();
   const { data: agents } = useAgents();
@@ -216,11 +188,6 @@ export default function Chat() {
   const [pendingFiles, setPendingFiles] = useState<Attachment[]>([]);
   const [dragging, setDragging] = useState(false);
   const [showOrgChart, setShowOrgChart] = useState(false);
-  const [showPlusMenu, setShowPlusMenu] = useState(false);
-  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
-  const [modelPreference, setModelPreference] = useState<'auto' | 'fast' | 'deep'>('auto');
-  const [responseMode, setResponseMode] = useState<'standard' | 'reasoning' | 'extended'>('reasoning');
-  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [sidebarSearch, setSidebarSearch] = useState('');
   const [recentChats, setRecentChats] = useState<RecentChat[]>([]);
   const [saveFailed, setSaveFailed] = useState(false);
@@ -344,29 +311,6 @@ export default function Chat() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const plusMenuRef = useRef<HTMLDivElement>(null);
-
-  const copyMessage = useCallback(async (messageId: string, content: string) => {
-    try {
-      await navigator.clipboard.writeText(content);
-      setCopiedMessageId(messageId);
-      window.setTimeout(() => setCopiedMessageId((current) => (current === messageId ? null : current)), 1500);
-    } catch (err) {
-      console.error('[Chat] Failed to copy message:', err);
-    }
-  }, []);
-
-  // Close plus menu on outside click
-  useEffect(() => {
-    if (!showPlusMenu) return;
-    const handler = (e: MouseEvent) => {
-      if (plusMenuRef.current && !plusMenuRef.current.contains(e.target as Node)) {
-        setShowPlusMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showPlusMenu]);
 
   const selectedRoleRef = useRef(selectedRole);
   useEffect(() => {
@@ -445,11 +389,10 @@ export default function Chat() {
       const map = new Map<string, RecentChat>();
       for (const row of data as Record<string, unknown>[]) {
         const ar = row.agent_role as string;
-        const preview = parseAgentOutput((row.content as string) ?? '').answer || ((row.content as string) ?? '');
         if (!map.has(ar)) {
           map.set(ar, {
             agentRole: ar,
-            lastMessage: preview.slice(0, 80),
+            lastMessage: ((row.content as string) ?? '').slice(0, 80),
             lastMessageRole: row.role as 'user' | 'agent',
             lastTime: new Date(row.created_at as string),
           });
@@ -503,31 +446,6 @@ export default function Chat() {
     }
     setPendingFiles((prev) => [...prev, ...newAttachments]);
   };
-
-  const pasteClipboardImage = useCallback(async () => {
-    try {
-      if (!navigator.clipboard?.read) {
-        inputRef.current?.focus();
-        return;
-      }
-      const items = await navigator.clipboard.read();
-      const files: File[] = [];
-      for (const item of items) {
-        const imageType = item.types.find((type) => type.startsWith('image/'));
-        if (!imageType) continue;
-        const blob = await item.getType(imageType);
-        files.push(new File([blob], `clipboard-${Date.now()}.png`, { type: imageType }));
-      }
-      if (files.length > 0) {
-        await handleFiles(files);
-      } else {
-        inputRef.current?.focus();
-      }
-    } catch (err) {
-      console.error('[Chat] Failed to read clipboard image:', err);
-      inputRef.current?.focus();
-    }
-  }, [handleFiles]);
 
   const removeFile = (idx: number) => {
     setPendingFiles((prev) => {
@@ -684,9 +602,6 @@ export default function Chat() {
             userName: user?.name,
             userEmail,
             ...(apiAttachments ? { attachments: apiAttachments } : {}),
-            ...(webSearchEnabled ? { webSearch: true } : {}),
-            modelPreference,
-            responseMode,
           }),
           signal: controller.signal,
         });
@@ -697,13 +612,11 @@ export default function Chat() {
         const data = await res.json();
 
         let content: string;
-        if (data.output) content = data.output;
+        if (data.output) content = stripReasoning(data.output);
         else if (data.action === 'queued_for_approval') content = `This request was sent to your approval queue for review.`;
         else if (data.status === 'aborted') content = 'Sorry, I wasn\u2019t able to finish my response. Could you try again?';
         else if (data.error || data.reason) content = `Something went wrong: ${data.error || data.reason}`;
         else content = `I completed the task but had nothing to report back.`;
-
-        const preview = parseAgentOutput(content).answer || content;
 
         // Only append to UI if user is still viewing the same agent
         if (selectedRoleRef.current === targetRole) {
@@ -717,7 +630,7 @@ export default function Chat() {
         if (!isMentioned) {
           setRecentChats((prev) => {
             const without = prev.filter((c) => c.agentRole !== targetRole);
-            return [{ agentRole: targetRole, lastMessage: preview.slice(0, 80), lastMessageRole: 'agent' as const, lastTime: new Date() }, ...without];
+            return [{ agentRole: targetRole, lastMessage: content.slice(0, 80), lastMessageRole: 'agent' as const, lastTime: new Date() }, ...without];
           });
         }
       } catch (err) {
@@ -941,52 +854,31 @@ export default function Chat() {
             const msgAgent = msg.agentRole || selectedRole;
             const msgAgentName = DISPLAY_NAME_MAP[msgAgent] ?? msgAgent;
             const isMentionedAgent = msg.role === 'agent' && msg.agentRole && msg.agentRole !== selectedRole;
-            const parsed = msg.role === 'agent' ? parseAgentOutput(msg.content) : null;
-            const messageId = `${msg.role}-${msg.timestamp.getTime()}-${i}`;
             return (
             <div
               key={i}
-              className={`w-full animate-fade-up ${msg.role === 'user' ? 'flex justify-end' : 'flex justify-center'}`}
+              className={`flex gap-3 animate-fade-up ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
               style={{ animationDelay: `${i * 30}ms` }}
             >
+              {msg.role === 'agent' ? (
+                <AgentAvatar role={msgAgent} size={28} />
+              ) : userAvatar ? (
+                <img src={userAvatar} alt="" className="h-7 w-7 rounded-full object-cover" />
+              ) : (
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan/20 text-[11px] font-bold text-cyan">
+                  {userInitials}
+                </div>
+              )}
               <div
-                className={msg.role === 'user'
-                  ? 'max-w-[42rem] rounded-2xl border border-cyan/20 bg-cyan/10 px-4 py-3 text-[13px] leading-relaxed text-txt-secondary'
-                  : 'w-full max-w-3xl rounded-[28px] border border-border/80 bg-raised/80 px-6 py-5 text-[14px] leading-7 text-txt-secondary shadow-[0_12px_40px_rgba(0,0,0,0.16)]'}
+                className={`max-w-[70%] rounded-xl px-4 py-2.5 text-[13px] leading-relaxed ${
+                  msg.role === 'user'
+                    ? 'bg-cyan/10 text-txt-secondary border border-cyan/20'
+                    : 'bg-raised text-txt-secondary border border-border'
+                }`}
               >
-                {msg.role === 'agent' ? (
-                  <div className="mb-4 flex items-center gap-3 border-b border-border/60 pb-3">
-                    <AgentAvatar role={msgAgent} size={30} />
-                    <div className="min-w-0">
-                      <p className="text-[13px] font-semibold text-txt-primary">{msgAgentName}</p>
-                      <p className="text-[11px] text-txt-faint">
-                        {isMentionedAgent ? `${msgAgent} joined this thread` : `${modelPreference === 'deep' ? 'Deep' : modelPreference === 'fast' ? 'Fast' : 'Auto'} model · ${responseMode === 'extended' ? 'Extended reasoning' : responseMode === 'reasoning' ? 'Reasoning' : 'Standard'}`}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => copyMessage(messageId, parsed?.answer || msg.content)}
-                      className="ml-auto inline-flex items-center gap-1 rounded-full border border-border/70 bg-black/10 px-3 py-1.5 text-[11px] text-txt-muted transition-colors hover:border-cyan/30 hover:text-cyan"
-                      title="Copy response"
-                    >
-                      {copiedMessageId === messageId ? <MdCheck className="text-[14px]" /> : <MdContentCopy className="text-[14px]" />}
-                      {copiedMessageId === messageId ? 'Copied' : 'Copy'}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="mb-3 flex items-center justify-end gap-2 text-[11px] text-txt-faint">
-                    <span>You</span>
-                    {userAvatar ? (
-                      <img src={userAvatar} alt="" className="h-7 w-7 rounded-full object-cover" />
-                    ) : (
-                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan/20 text-[11px] font-bold text-cyan">
-                        {userInitials}
-                      </div>
-                    )}
-                  </div>
-                )}
+                {/* Attachment chips */}
                 {msg.attachments && msg.attachments.length > 0 && (
-                  <div className="mb-3 flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 mb-2">
                     {msg.attachments.map((att, j) => (
                       <div key={j} className="flex items-center gap-1.5 rounded-md bg-base/50 border border-border px-2 py-1">
                         {att.previewUrl ? (
@@ -1007,15 +899,12 @@ export default function Chat() {
                   </p>
                 )}
                 {msg.role === 'agent' ? (
-                  <>
-                    <div className="prose-chat"><Markdown>{parsed?.answer || msg.content}</Markdown></div>
-                    {parsed?.reasoning && <ReasoningPanel reasoning={parsed.reasoning} />}
-                  </>
+                  <div className="prose-chat"><Markdown>{msg.content}</Markdown></div>
                 ) : (
                   <p className="whitespace-pre-wrap">{msg.content}</p>
                 )}
                 {msg.actions && msg.actions.length > 0 && <ActionReceipts actions={msg.actions} />}
-                <p className="mt-4 text-[10px] text-txt-faint">
+                <p className="mt-1.5 text-[10px] text-txt-faint">
                   {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
@@ -1092,9 +981,25 @@ export default function Chat() {
             </div>
           )}
 
-          <div className="rounded-[30px] border border-border/80 bg-[rgba(32,31,29,0.88)] px-4 py-3 shadow-[0_18px_55px_rgba(0,0,0,0.22)] backdrop-blur-sm">
+          <div className="flex gap-2 items-end">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-shrink-0 rounded-lg border border-border bg-raised px-2.5 py-2.5 text-txt-muted hover:text-cyan transition-colors"
+              title="Attach file"
+            >
+              <MdAttachFile className="text-[16px]" />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              accept={`${ALLOWED_TYPES.join(',')},${ACCEPT_EXTENSIONS}`}
+              onChange={(e) => { if (e.target.files?.length) handleFiles(e.target.files); e.target.value = ''; }}
+            />
             {saveFailed && (
-              <div className="mb-2 text-center text-[11px] text-prism-critical animate-pulse">
+              <div className="absolute -top-8 left-0 right-0 text-center text-[11px] text-prism-critical animate-pulse">
                 Message failed to save — your history may be incomplete
               </div>
             )}
@@ -1104,116 +1009,12 @@ export default function Chat() {
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              placeholder={`Reply to ${codename}...`}
+              placeholder={`Message ${codename}... (@ to mention, Shift+Enter for new line)`}
               disabled={respondingAgents.has(selectedRole)}
               rows={1}
-              className="min-h-[54px] max-h-[180px] w-full resize-none bg-transparent px-1 py-2 text-[15px] leading-7 text-txt-secondary placeholder:text-[#b8b1a8]/70 outline-none disabled:opacity-50"
-              onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 180)}px`; }}
+              className="flex-1 rounded-lg border border-border bg-raised px-4 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none transition-colors focus:border-cyan/40 disabled:opacity-50 resize-none min-h-[40px] max-h-[120px]"
+              onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 120)}px`; }}
             />
-
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-            {/* Claude-style + menu */}
-            <div ref={plusMenuRef} className="relative flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowPlusMenu((v) => !v)}
-                className={`flex items-center justify-center w-[40px] h-[40px] rounded-full border transition-colors ${
-                  showPlusMenu
-                    ? 'border-cyan/40 bg-cyan/10 text-cyan'
-                    : 'border-border bg-raised text-txt-muted hover:text-cyan hover:border-cyan/40'
-                }`}
-                title="Options"
-              >
-                <MdAdd className={`text-[20px] transition-transform ${showPlusMenu ? 'rotate-45' : ''}`} />
-              </button>
-
-              {showPlusMenu && (
-                <div className="absolute bottom-full left-0 mb-2 w-56 rounded-xl border border-border bg-surface shadow-lg z-20 py-1.5 animate-fade-up">
-                  <button
-                    type="button"
-                    onClick={() => { fileInputRef.current?.click(); setShowPlusMenu(false); }}
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-txt-secondary hover:bg-[var(--color-hover-bg)] transition-colors"
-                  >
-                    <MdAttachFile className="text-[18px] text-txt-muted" />
-                    Attach files
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { void pasteClipboardImage(); setShowPlusMenu(false); }}
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-txt-secondary hover:bg-[var(--color-hover-bg)] transition-colors"
-                  >
-                    <MdScreenshotMonitor className="text-[18px] text-txt-muted" />
-                    Paste screenshot
-                  </button>
-
-                  <div className="my-1.5 border-t border-border/50" />
-
-                  <button
-                    type="button"
-                    onClick={() => setWebSearchEnabled((v) => !v)}
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-txt-secondary hover:bg-[var(--color-hover-bg)] transition-colors"
-                  >
-                    <MdLanguage className={`text-[18px] ${webSearchEnabled ? 'text-cyan' : 'text-txt-muted'}`} />
-                    <span className={webSearchEnabled ? 'text-cyan' : ''}>Web search</span>
-                    {webSearchEnabled && <MdCheck className="ml-auto text-[18px] text-cyan" />}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setResponseMode((current) => (current === 'reasoning' ? 'standard' : 'reasoning'));
-                      setShowPlusMenu(false);
-                    }}
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-[13px] text-txt-secondary transition-colors hover:bg-[var(--color-hover-bg)]"
-                  >
-                    <MdAutoAwesome className={`text-[18px] ${responseMode !== 'standard' ? 'text-cyan' : 'text-txt-muted'}`} />
-                    <span className={responseMode !== 'standard' ? 'text-cyan' : ''}>Reasoning</span>
-                    {responseMode !== 'standard' && <MdCheck className="ml-auto text-[18px] text-cyan" />}
-                  </button>
-                </div>
-              )}
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              accept={`${ALLOWED_TYPES.join(',')},${ACCEPT_EXTENSIONS}`}
-              onChange={(e) => { if (e.target.files?.length) handleFiles(e.target.files); e.target.value = ''; }}
-            />
-                {webSearchEnabled && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-cyan/20 bg-cyan/10 px-3 py-1.5 text-[11px] font-medium text-cyan">
-                    <MdLanguage className="text-[14px]" />
-                    Web search
-                  </span>
-                )}
-              </div>
-
-              <div className="ml-auto flex flex-wrap items-center gap-2">
-                <label className="flex items-center gap-2 rounded-full border border-border/70 bg-black/10 px-3 py-2 text-[12px] text-txt-muted">
-                  <span>Model</span>
-                  <select
-                    value={modelPreference}
-                    onChange={(e) => setModelPreference(e.target.value as 'auto' | 'fast' | 'deep')}
-                    className="bg-transparent text-txt-secondary outline-none"
-                  >
-                    <option value="auto">Auto</option>
-                    <option value="fast">Fast</option>
-                    <option value="deep">Deep</option>
-                  </select>
-                </label>
-                <label className="flex items-center gap-2 rounded-full border border-border/70 bg-black/10 px-3 py-2 text-[12px] text-txt-muted">
-                  <span>Type</span>
-                  <select
-                    value={responseMode}
-                    onChange={(e) => setResponseMode(e.target.value as 'standard' | 'reasoning' | 'extended')}
-                    className="bg-transparent text-txt-secondary outline-none"
-                  >
-                    <option value="standard">Standard</option>
-                    <option value="reasoning">Reasoning</option>
-                    <option value="extended">Extended</option>
-                  </select>
-                </label>
             <button
               type="button"
               onClick={toggleDictation}
@@ -1258,8 +1059,6 @@ export default function Chat() {
             >
               Send
             </button>
-              </div>
-            </div>
           </div>
         </div>
         </>

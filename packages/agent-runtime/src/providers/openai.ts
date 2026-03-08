@@ -52,10 +52,26 @@ function normalizeSchemaTypes(schema: Record<string, unknown>): Record<string, u
 }
 
 const AZURE_API_VERSION = '2025-04-01-preview';
+const DIRECT_OPENAI_TIMEOUT_MS = 120_000;
+
+function getPreferredDirectOpenAIServiceTier(): 'flex' | undefined {
+  const configured = process.env.OPENAI_SERVICE_TIER?.trim().toLowerCase();
+  if (!configured || configured === 'flex') return 'flex';
+  if (['auto', 'default', 'standard', 'off', 'disabled'].includes(configured)) {
+    return undefined;
+  }
+  return 'flex';
+}
+
+function shouldRetryWithoutFlex(message: string): boolean {
+  return /resource unavailable|insufficient resources/i.test(message)
+    || (/service[_\s-]?tier/i.test(message) && /invalid|unsupported|unknown|not available/i.test(message));
+}
 
 export class OpenAIAdapter implements ProviderAdapter {
   readonly provider = 'openai' as const;
   private client: OpenAI;
+  private readonly customFetch: (url: string | URL | Request, init?: RequestInit) => Promise<Response>;
   /** True when routing through Azure OpenAI (billing on Azure subscription). */
   readonly isAzure: boolean;
   /** Azure endpoint URL (only set when isAzure=true). */
@@ -73,7 +89,7 @@ export class OpenAIAdapter implements ProviderAdapter {
       config = { apiKey: config };
     }
 
-    const customFetch = async (url: string | URL | Request, init?: RequestInit) => {
+    this.customFetch = async (url: string | URL | Request, init?: RequestInit) => {
       // Force fresh TCP connections in Cloud Run (no connection pool reuse)
       const resp = await globalThis.fetch(url, {
         ...init,
@@ -93,23 +109,27 @@ export class OpenAIAdapter implements ProviderAdapter {
         apiKey: config.azureApiKey,
         apiVersion: this.azureApiVersion,
         maxRetries: 0,
-        timeout: 120_000,
-        fetch: customFetch,
+        timeout: DIRECT_OPENAI_TIMEOUT_MS,
+        fetch: this.customFetch,
       });
       console.log(`[OpenAI] Using Azure OpenAI at ${config.azureEndpoint} (api-version=${this.azureApiVersion})`);
     } else if (config.apiKey) {
       // ── Direct OpenAI ──
       this.isAzure = false;
       this.directApiKey = config.apiKey;
-      this.client = new OpenAI({
-        apiKey: config.apiKey,
-        maxRetries: 0,
-        timeout: 120_000,
-        fetch: customFetch,
-      });
+      this.client = this.createDirectClient(config.apiKey);
     } else {
       throw new Error('OpenAI adapter requires either apiKey or azureEndpoint + azureApiKey');
     }
+  }
+
+  private createDirectClient(apiKey: string): OpenAI {
+    return new OpenAI({
+      apiKey,
+      maxRetries: 0,
+      timeout: DIRECT_OPENAI_TIMEOUT_MS,
+      fetch: this.customFetch,
+    });
   }
 
   async generate(request: UnifiedModelRequest): Promise<UnifiedModelResponse> {
@@ -187,6 +207,10 @@ export class OpenAIAdapter implements ProviderAdapter {
   private async callWithAzureFallback(
     params: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
   ): Promise<OpenAI.Chat.Completions.ChatCompletion> {
+    if (!this.isAzure) {
+      return this.callDirectWithTierFallback(this.client, params);
+    }
+
     try {
       return await this.client.chat.completions.create(params) as OpenAI.Chat.Completions.ChatCompletion;
     } catch (err) {
@@ -195,10 +219,37 @@ export class OpenAIAdapter implements ProviderAdapter {
         (msg.includes('DeploymentNotFound') || msg.includes('deployment for this resource does not exist'));
       if (!isDeploymentMissing) throw err;
       console.warn(`[OpenAI] Azure deployment not found for ${params.model} — falling back to direct OpenAI`);
+      const directApiKey = this.directApiKey;
+      if (!directApiKey) throw err;
       if (!this.directClient) {
-        this.directClient = new OpenAI({ apiKey: this.directApiKey, maxRetries: 0, timeout: 120_000 });
+        this.directClient = this.createDirectClient(directApiKey);
       }
-      return await this.directClient.chat.completions.create(params) as OpenAI.Chat.Completions.ChatCompletion;
+      return this.callDirectWithTierFallback(this.directClient, params);
+    }
+  }
+
+  private async callDirectWithTierFallback(
+    client: OpenAI,
+    params: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
+  ): Promise<OpenAI.Chat.Completions.ChatCompletion> {
+    const preferredTier = getPreferredDirectOpenAIServiceTier();
+    const preferredParams = preferredTier
+      ? { ...params, service_tier: preferredTier }
+      : params;
+
+    try {
+      return await client.chat.completions.create(preferredParams as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming) as OpenAI.Chat.Completions.ChatCompletion;
+    } catch (err) {
+      const message = (err as Error).message ?? '';
+      if (!preferredTier || !shouldRetryWithoutFlex(message)) {
+        throw err;
+      }
+
+      console.warn(`[OpenAI] Flex unavailable for ${params.model} — retrying with standard tier`);
+      return await client.chat.completions.create({
+        ...params,
+        service_tier: 'auto',
+      } as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming) as OpenAI.Chat.Completions.ChatCompletion;
     }
   }
 

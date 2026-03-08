@@ -2,9 +2,9 @@
  * Web Search Integration
  *
  * Provides real web search capability for agent research threads.
- * Uses OpenAI's Responses API with web_search_preview tool (GPT-5.2)
- * to perform grounded web searches. No external search API key needed —
- * uses the existing OPENAI_API_KEY.
+ * Uses OpenAI's Responses API with the shared web-search model to perform
+ * grounded web searches. Direct OpenAI calls prefer flex processing for cost,
+ * with automatic fallback to the standard tier when flex is unavailable.
  *
  * Environment variables:
  *   OPENAI_API_KEY — OpenAI API key (already configured in Cloud Run)
@@ -69,6 +69,20 @@ const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
 import { WEB_SEARCH_MODEL } from '@glyphor/shared/models';
 const SEARCH_MODEL = WEB_SEARCH_MODEL;
 
+function getPreferredDirectOpenAIServiceTier(): 'flex' | undefined {
+  const configured = process.env.OPENAI_SERVICE_TIER?.trim().toLowerCase();
+  if (!configured || configured === 'flex') return 'flex';
+  if (['auto', 'default', 'standard', 'off', 'disabled'].includes(configured)) {
+    return undefined;
+  }
+  return 'flex';
+}
+
+function shouldRetryWithoutFlex(status: number, body: string): boolean {
+  return (status === 429 && /resource unavailable|insufficient resources/i.test(body))
+    || (/service[_\s-]?tier/i.test(body) && /invalid|unsupported|unknown|not available/i.test(body));
+}
+
 /**
  * Build the Responses API URL and auth headers.
  * Uses Azure Foundry when AZURE_FOUNDRY_ENDPOINT + AZURE_FOUNDRY_API are set,
@@ -113,15 +127,38 @@ async function openaiWebSearch(
     return { text: '', annotations: [] };
   }
 
-  const res = await fetch(endpoint.url, {
+  const isDirectOpenAI = 'Authorization' in endpoint.headers;
+  const preferredTier = isDirectOpenAI ? getPreferredDirectOpenAIServiceTier() : undefined;
+  const requestBody = {
+    model: SEARCH_MODEL,
+    tools: [{ type: 'web_search_preview', search_context_size: searchContextSize }],
+    input: prompt,
+  };
+
+  let res = await fetch(endpoint.url, {
     method: 'POST',
     headers: endpoint.headers,
-    body: JSON.stringify({
-      model: SEARCH_MODEL,
-      tools: [{ type: 'web_search_preview', search_context_size: searchContextSize }],
-      input: prompt,
-    }),
+    body: JSON.stringify(
+      preferredTier
+        ? { ...requestBody, service_tier: preferredTier }
+        : requestBody,
+    ),
   });
+
+  if (!res.ok && preferredTier) {
+    const errText = await res.text().catch(() => 'unknown');
+    if (shouldRetryWithoutFlex(res.status, errText)) {
+      console.warn(`[WebSearch] Flex unavailable for ${SEARCH_MODEL} — retrying with standard tier`);
+      res = await fetch(endpoint.url, {
+        method: 'POST',
+        headers: endpoint.headers,
+        body: JSON.stringify({ ...requestBody, service_tier: 'auto' }),
+      });
+    } else {
+      console.error(`[WebSearch] OpenAI Responses API error: ${res.status} ${errText}`);
+      return { text: '', annotations: [] };
+    }
+  }
 
   if (!res.ok) {
     const errText = await res.text().catch(() => 'unknown');
@@ -202,7 +239,7 @@ function parseSearchResults(
 
 /**
  * Execute a web search and return structured results.
- * Uses OpenAI GPT-5.2 with web_search_preview for grounded results.
+ * Uses the shared OpenAI web-search model with grounded results.
  */
 export async function searchWeb(
   query: string,
@@ -222,7 +259,7 @@ export async function searchWeb(
 
 /**
  * Search for recent news articles.
- * Uses OpenAI GPT-5.2 with web_search_preview, prompting for news specifically.
+ * Uses the shared OpenAI web-search model, prompting for news specifically.
  */
 export async function searchNews(
   query: string,
