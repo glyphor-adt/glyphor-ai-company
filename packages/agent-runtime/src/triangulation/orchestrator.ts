@@ -22,6 +22,7 @@ export async function triangulate(
     maxOutputTokens?: number;
     triangulationModels?: Partial<TriangulationModelSelection>;
     reasoningLevel?: ReasoningLevel;
+    history?: Array<{ role: 'user' | 'assistant'; content: string; timestamp: number }>;
   },
   deps: {
     modelClient: ModelClient;
@@ -62,7 +63,14 @@ export async function triangulate(
     const result = await deps.modelClient.generate({
       model: modelSelection.claude,
       systemInstruction: fullSystemPrompt,
-      contents: [{ role: 'user' as const, content: message, timestamp: Date.now() }],
+      contents: [
+        ...(options.history ?? []).map((h) => ({
+          role: h.role === 'assistant' ? 'assistant' as const : 'user' as const,
+          content: h.content,
+          timestamp: h.timestamp,
+        })),
+        { role: 'user' as const, content: message, timestamp: Date.now() },
+      ],
       maxTokens: options.maxOutputTokens ?? 8192,
       thinkingEnabled: options.reasoningLevel === 'deep',
       reasoningLevel: options.reasoningLevel,
@@ -95,6 +103,7 @@ export async function triangulate(
     maxOutputTokens: options.maxOutputTokens,
     modelSelection,
     reasoningLevel: options.reasoningLevel,
+    history: options.history,
   });
 
   // 5. Check if any responses succeeded

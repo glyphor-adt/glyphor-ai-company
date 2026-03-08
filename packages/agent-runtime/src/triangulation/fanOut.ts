@@ -20,6 +20,7 @@ interface FanOutOptions {
   maxOutputTokens?: number;
   modelSelection?: TriangulationModelSelection;
   reasoningLevel?: ReasoningLevel;
+  history?: Array<{ role: 'user' | 'assistant'; content: string; timestamp: number }>;
 }
 
 /** Map caller attachments (base64 field) to ConversationAttachment (data field). */
@@ -50,6 +51,11 @@ export async function fanOut(
   ];
 
   const contents = [
+    ...(options?.history ?? []).map((h) => ({
+      role: h.role === 'assistant' ? 'assistant' as const : 'user' as const,
+      content: h.content,
+      timestamp: h.timestamp,
+    })),
     {
       role: 'user' as const,
       content: message,

@@ -48,6 +48,16 @@ $RequiredM365Scopes = @(
 
 function Log { param([string]$m); Write-Host "$(Get-Date -Format 'HH:mm:ss') $m" }
 
+function Normalize-ScopeString {
+    param([string]$ScopeString)
+
+    if ([string]::IsNullOrWhiteSpace($ScopeString)) {
+        return ''
+    }
+
+    return (($ScopeString -split '\s+' | Where-Object { $_ } | Sort-Object -Unique) -join ' ')
+}
+
 # ─── Connect to Graph ─────────────────────────────────────────────
 Log 'Connecting to Microsoft Graph...'
 Import-Module Microsoft.Graph.Authentication -ErrorAction Stop
@@ -64,7 +74,11 @@ function GBeta {
     param([string]$Method, [string]$Path, [hashtable]$Body)
     $p = @{ Method = $Method; Uri = "https://graph.microsoft.com/beta$Path"; Headers = @{ 'OData-Version' = '4.0' } }
     if ($Body) { $p.Body = ($Body | ConvertTo-Json -Depth 10); $p.ContentType = 'application/json' }
-    try { Invoke-MgGraphRequest @p }
+    try {
+        $result = Invoke-MgGraphRequest @p
+        if ($null -eq $result) { return @{ _success = $true } }
+        return $result
+    }
     catch {
         $sc = 0; if ($_.Exception.Response) { $sc = [int]$_.Exception.Response.StatusCode }
         $ed = ''
@@ -93,37 +107,66 @@ Log "  Resource SP: $M365AgentToolsSpId"
 Log "  Scopes: $RequiredM365Scopes"
 Log ''
 
-$m365Granted = 0; $m365Existed = 0; $m365Failed = 0
+$m365Granted = 0; $m365Updated = 0; $m365Existed = 0; $m365Failed = 0
 
 # Set grant expiry to 10 years from now
 $expiryTime = (Get-Date).AddYears(10).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+$minimumAcceptableExpiryTime = (Get-Date).AddYears(9).ToUniversalTime()
+$normalizedRequiredM365Scopes = Normalize-ScopeString $RequiredM365Scopes
 
 foreach ($agentKey in $agentKeys) {
     $agentId = $created.$agentKey.id
     $agentName = $created.$agentKey.name
 
-    $body = @{
-        clientId    = $agentId
-        consentType = 'AllPrincipals'
-        resourceId  = $M365AgentToolsSpId
-        scope       = $RequiredM365Scopes
-        expiryTime  = $expiryTime
-    }
-    $result = GBeta -Method POST -Path '/oauth2PermissionGrants' -Body $body
-    if ($result -and $result._conflict) {
-        $m365Existed++
-    } elseif ($result) {
-        $m365Granted++
-        Log "  $agentName — GRANTED"
+    $existingGrantResponse = GBeta -Method GET -Path "/servicePrincipals/$agentId/oauth2PermissionGrants" -Body $null
+    $existingGrant = @($existingGrantResponse.value | Where-Object { $_.resourceId -eq $M365AgentToolsSpId }) | Select-Object -First 1
+
+    if ($existingGrant) {
+        $normalizedExistingScopes = Normalize-ScopeString $existingGrant.scope
+        $existingExpiryTime = $null
+        if ($existingGrant.expiryTime) {
+            try { $existingExpiryTime = [DateTimeOffset]::Parse($existingGrant.expiryTime) } catch {}
+        }
+        $grantNeedsUpdate = $normalizedExistingScopes -ne $normalizedRequiredM365Scopes -or -not $existingExpiryTime -or $existingExpiryTime.UtcDateTime -lt $minimumAcceptableExpiryTime
+
+        if ($grantNeedsUpdate) {
+            $patchResult = GBeta -Method PATCH -Path "/oauth2PermissionGrants/$($existingGrant.id)" -Body @{
+                scope      = $RequiredM365Scopes
+                expiryTime = $expiryTime
+            }
+
+            if ($patchResult -ne $null) {
+                $m365Updated++
+                Log "  $agentName — UPDATED"
+            } else {
+                $m365Failed++
+                Log "  $agentName — FAILED UPDATE"
+            }
+        } else {
+            $m365Existed++
+        }
     } else {
-        $m365Failed++
-        Log "  $agentName — FAILED"
+        $body = @{
+            clientId    = $agentId
+            consentType = 'AllPrincipals'
+            resourceId  = $M365AgentToolsSpId
+            scope       = $RequiredM365Scopes
+            expiryTime  = $expiryTime
+        }
+        $result = GBeta -Method POST -Path '/oauth2PermissionGrants' -Body $body
+        if ($result) {
+            $m365Granted++
+            Log "  $agentName — GRANTED"
+        } else {
+            $m365Failed++
+            Log "  $agentName — FAILED"
+        }
     }
     Start-Sleep -Milliseconds 150
 }
 
 Log ''
-Log "M365 oauth2PermissionGrants: $m365Granted new, $m365Existed existed, $m365Failed failed"
+Log "M365 oauth2PermissionGrants: $m365Granted new, $m365Updated updated, $m365Existed already current, $m365Failed failed"
 
 # ═══════════════════════════════════════════════════════════════════
 # Step 2: Glyphor App Roles — appRoleAssignments
@@ -206,7 +249,7 @@ Log ''
 Log '═══════════════════════════════════════════════'
 Log '  Permission Assignment Complete'
 Log "  Agents processed: $($agentKeys.Count)"
-Log "  M365 MCP (oauth2Grants): $m365Granted new, $m365Existed existed, $m365Failed failed"
+Log "  M365 MCP (oauth2Grants): $m365Granted new, $m365Updated updated, $m365Existed already current, $m365Failed failed"
 if ($gSpId -and $gRoles.Count -gt 0) {
     Log "  Glyphor (appRoles):      $gAssigned new, $gExisted existed, $gFailed failed"
 }

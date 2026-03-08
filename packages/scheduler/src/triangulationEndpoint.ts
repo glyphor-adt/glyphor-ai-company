@@ -68,7 +68,7 @@ export async function handleTriangulatedChat(
 
   try {
     const body = JSON.parse(await readBody(req));
-    const { message, features = {}, attachments = [], conversationId, userId, mode = 'triangulated', selectedModel, githubRepos = [], triangulationModels } = body as {
+    const { message, features = {}, attachments = [], conversationId, userId, mode = 'triangulated', selectedModel, githubRepos = [], triangulationModels, sessionId, history = [] } = body as {
       message: string;
       features?: Record<string, boolean | string>;
       attachments?: Array<Record<string, string>>;
@@ -78,8 +78,19 @@ export async function handleTriangulatedChat(
       selectedModel?: string;
       githubRepos?: string[];
       triangulationModels?: Partial<TriangulationModelSelection>;
+      sessionId?: string;
+      history?: Array<{ role: 'user' | 'assistant'; content: string }>;
     };
     const convId = conversationId || randomUUID();
+    const effectiveSessionId = sessionId || null;
+
+    // Build conversation history turns for multi-turn context
+    const historyTurns = history.map((h) => ({
+      role: h.role === 'assistant' ? 'assistant' as const : 'user' as const,
+      content: h.content,
+      timestamp: Date.now(),
+    }));
+
     const requestedReasoningLevel = typeof features.reasoningLevel === 'string'
       ? features.reasoningLevel as ReasoningLevel
       : (features.deepThinking ? 'deep' : undefined);
@@ -148,12 +159,15 @@ export async function handleTriangulatedChat(
       const response = await deps.modelClient.generate({
         model,
         systemInstruction: fullSystemPrompt,
-        contents: [{
-          role: 'user' as const,
-          content: message,
-          timestamp: Date.now(),
-          attachments: normalizedAttachments.map((att) => ({ name: att.name, mimeType: att.mimeType, data: att.base64 })),
-        }],
+        contents: [
+          ...historyTurns,
+          {
+            role: 'user' as const,
+            content: message,
+            timestamp: Date.now(),
+            attachments: normalizedAttachments.map((att) => ({ name: att.name, mimeType: att.mimeType, data: att.base64 })),
+          },
+        ],
         maxTokens: 8192,
         thinkingEnabled: reasoningLevel !== 'none',
         reasoningLevel,
@@ -179,15 +193,15 @@ export async function handleTriangulatedChat(
       });
 
       await systemQuery(
-        `INSERT INTO chat_messages (agent_role, role, content, user_id, conversation_id, created_at)
-         VALUES ($1, $2, $3, $4, $5, NOW())`,
-        ['ora', 'user', message, userId ?? null, convId],
+        `INSERT INTO chat_messages (agent_role, role, content, user_id, conversation_id, session_id, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+        ['ora', 'user', message, userId ?? null, convId, effectiveSessionId],
       );
 
       await systemQuery(
-        `INSERT INTO chat_messages (agent_role, role, content, user_id, conversation_id, metadata, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-        ['ora', 'agent', response.text ?? '', userId ?? null, convId, JSON.stringify({ mode: 'single-model', modelRun })],
+        `INSERT INTO chat_messages (agent_role, role, content, user_id, conversation_id, session_id, metadata, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+        ['ora', 'agent', response.text ?? '', userId ?? null, convId, effectiveSessionId, JSON.stringify({ mode: 'single-model', modelRun })],
       );
 
       await systemQuery(
@@ -221,6 +235,7 @@ export async function handleTriangulatedChat(
         enableInternalSearch: knowledgeBaseEnabled,
         attachments: normalizedAttachments,
         reasoningLevel: requestedReasoningLevel,
+        history: historyTurns,
         triangulationModels: triangulationModels
           ? {
               claude: triangulationModels.claude ? resolveModel(triangulationModels.claude) : undefined,
@@ -249,16 +264,16 @@ export async function handleTriangulatedChat(
     // ─── Persist messages ─────────────────────────────────────────
     // Save user message
     await systemQuery(
-      `INSERT INTO chat_messages (agent_role, role, content, user_id, conversation_id, created_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())`,
-      ['ora', 'user', message, userId ?? null, convId],
+      `INSERT INTO chat_messages (agent_role, role, content, user_id, conversation_id, session_id, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+      ['ora', 'user', message, userId ?? null, convId, effectiveSessionId],
     );
 
     // Save agent response with metadata
     await systemQuery(
-      `INSERT INTO chat_messages (agent_role, role, content, user_id, conversation_id, metadata, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-      ['ora', 'agent', result.selectedResponse, userId ?? null, convId, JSON.stringify({ ...result, reasoningLevel: requestedReasoningLevel ?? 'standard' })],
+      `INSERT INTO chat_messages (agent_role, role, content, user_id, conversation_id, session_id, metadata, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+      ['ora', 'agent', result.selectedResponse, userId ?? null, convId, effectiveSessionId, JSON.stringify({ ...result, reasoningLevel: requestedReasoningLevel ?? 'standard' })],
     );
 
     // Log to agent_runs

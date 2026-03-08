@@ -17,6 +17,18 @@ export class BotDmSender {
   private tokenCache: { token: string; expiresAt: number } | null = null;
   private readonly emailCache = new Map<string, string>(); // email → AAD Object ID
 
+  private buildProactiveMember(userAadObjectId: string): { id: string; aadObjectId: string } {
+    const normalizedUserAadObjectId = userAadObjectId.trim();
+    if (!normalizedUserAadObjectId) {
+      throw new Error('Cannot create proactive conversation: target user AAD object ID is empty');
+    }
+
+    return {
+      id: `29:${normalizedUserAadObjectId}`,
+      aadObjectId: normalizedUserAadObjectId,
+    };
+  }
+
   constructor(
     private readonly botAppId: string,
     private readonly botAppSecret: string,
@@ -193,12 +205,18 @@ export class BotDmSender {
   }
 
   private async createConversationReference(userAadObjectId: string): Promise<ConversationReference> {
+    const normalizedUserAadObjectId = userAadObjectId.trim();
+    if (!normalizedUserAadObjectId) {
+      throw new Error('Cannot create proactive conversation: target user AAD object ID is empty');
+    }
+
     const token = await this.getBotToken();
     const createUrl = `${this.serviceUrl}v3/conversations`;
     const createBody = {
       bot: { id: `28:${this.botAppId}`, name: 'Glyphor Bot' },
-      members: [{ id: userAadObjectId, aadObjectId: userAadObjectId }],
+      members: [this.buildProactiveMember(normalizedUserAadObjectId)],
       channelData: { tenant: { id: this.tenantId } },
+      isGroup: false,
     };
 
     const res = await fetch(createUrl, {
@@ -213,7 +231,7 @@ export class BotDmSender {
     if (res.status === 403) {
       const errText = await res.text();
       throw new Error(
-        `Bot not installed in personal scope for user ${userAadObjectId} (${res.status}): ${errText}`,
+        `Bot not installed in personal scope for user ${normalizedUserAadObjectId} (${res.status}): ${errText}`,
       );
     }
 
@@ -226,10 +244,10 @@ export class BotDmSender {
     const ref: ConversationReference = {
       serviceUrl: this.serviceUrl,
       conversationId: data.id,
-      userId: userAadObjectId,
+      userId: normalizedUserAadObjectId,
       botId: `28:${this.botAppId}`,
     };
-    setConversationRef(userAadObjectId, ref);
+    setConversationRef(normalizedUserAadObjectId, ref);
     return ref;
   }
 
@@ -238,17 +256,22 @@ export class BotDmSender {
    * Uses stored conversation reference if available (required for multi-tenant bots).
    */
   async sendToUser(userAadObjectId: string, message: string): Promise<void> {
+    const normalizedUserAadObjectId = userAadObjectId.trim();
+    if (!normalizedUserAadObjectId) {
+      throw new Error('Cannot send proactive Teams DM: target user AAD object ID is empty');
+    }
+
     // Check for a stored conversation reference (from a previous bot interaction).
     // Multi-tenant bots use pairwise-encrypted user IDs, so we can't construct
     // the user ID from the AAD Object ID alone.
-    let ref = getConversationRef(userAadObjectId);
+    let ref = getConversationRef(normalizedUserAadObjectId);
     if (!ref) {
-      await this.ensureTeamsAppInstalled(userAadObjectId);
-      ref = getConversationRef(userAadObjectId);
+      await this.ensureTeamsAppInstalled(normalizedUserAadObjectId);
+      ref = getConversationRef(normalizedUserAadObjectId);
     }
 
     if (!ref) {
-      ref = await this.createConversationReference(userAadObjectId);
+      ref = await this.createConversationReference(normalizedUserAadObjectId);
     }
 
     await this.postActivity(ref.conversationId, ref.serviceUrl, message);

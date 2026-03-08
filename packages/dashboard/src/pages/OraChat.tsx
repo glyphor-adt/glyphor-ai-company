@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Markdown from 'react-markdown';
-import { Orbit, Plus, Globe, Brain, Database, Paperclip, Copy, Check, ChevronDown, ChevronRight, Mic, MicOff } from 'lucide-react';
+import { Orbit, Plus, Globe, Brain, Database, Paperclip, Copy, Check, ChevronDown, ChevronRight, Mic, MicOff, MessageSquarePlus, PanelLeftClose, PanelLeft, Search, Trash2 } from 'lucide-react';
 import { FaGithub } from 'react-icons/fa';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { getModelLabel, getModelsByProvider, PROVIDER_LABELS, getReasoningSupport, normalizeReasoningLevel, type ReasoningLevel } from '../lib/models';
@@ -108,6 +108,16 @@ interface Features {
 }
 
 type MenuFlyout = 'model' | 'type' | null;
+
+/* ── Session types ────────────────────────────────── */
+
+interface OraSession {
+  id: string;
+  user_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
 
 /* ── Helpers ───────────────────────────────────────── */
 
@@ -403,12 +413,17 @@ export default function OraChat() {
   });
   const modelGroups = useMemo(() => getModelsByProvider(), []);
 
+  // Session state
+  const [sessions, setSessions] = useState<OraSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sessionSearch, setSessionSearch] = useState('');
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
-  const conversationId = useMemo(() => `ora-${userEmail}`, [userEmail]);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -487,20 +502,39 @@ export default function OraChat() {
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, []);
 
-  // Load history on mount
+  // Load sessions list on mount
   useEffect(() => {
     (async () => {
       try {
         const aliasFilter = userAliases.length > 1
           ? `or=(${userAliases.map(a => `user_id.eq.${a}`).join(',')})`
-          : `user_id=${encodeURIComponent(userAliases[0])}`;
+          : `user_id=eq.${encodeURIComponent(userAliases[0])}`;
+        const data = await apiCall<OraSession[]>(`/api/ora-sessions?${aliasFilter}&order=updated_at.desc&limit=100`);
+        if (data?.length) {
+          setSessions(data);
+          setActiveSessionId(data[0].id);
+        }
+      } catch {
+        // Session load failed silently
+      }
+    })();
+  }, [userAliases]);
+
+  // Load messages when active session changes
+  useEffect(() => {
+    if (!activeSessionId) {
+      setMessages([]);
+      return;
+    }
+    (async () => {
+      try {
         const data = await apiCall<Array<{
           role: string;
           content: string;
           created_at: string;
           metadata?: Message['metadata'];
           attachments?: Attachment[];
-        }>>(`/api/chat-messages?agent_role=eq.ora&${aliasFilter}&order=created_at.asc&limit=200`);
+        }>>(`/api/chat-messages?agent_role=eq.ora&session_id=eq.${activeSessionId}&order=created_at.asc&limit=200`);
         if (data?.length) {
           setMessages(
             data.map((m) => ({
@@ -512,12 +546,14 @@ export default function OraChat() {
               metadata: m.metadata,
             })),
           );
+        } else {
+          setMessages([]);
         }
       } catch {
-        // History load failed silently
+        setMessages([]);
       }
     })();
-  }, [userAliases]);
+  }, [activeSessionId]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !userEmail) return;
@@ -635,11 +671,66 @@ export default function OraChat() {
     [addFiles],
   );
 
+  // Session management
+  const startNewSession = useCallback(() => {
+    setActiveSessionId(null);
+    setMessages([]);
+    setInput('');
+    setPhase('idle');
+    textareaRef.current?.focus();
+  }, []);
+
+  const deleteSession = useCallback(async (sessionId: string) => {
+    try {
+      await apiCall(`/api/ora-sessions?id=eq.${sessionId}`, { method: 'DELETE' });
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      if (activeSessionId === sessionId) {
+        startNewSession();
+      }
+    } catch {
+      // Session deletion failed silently
+    }
+  }, [activeSessionId, startNewSession]);
+
+  const filteredSessions = useMemo(() => {
+    if (!sessionSearch.trim()) return sessions;
+    const q = sessionSearch.toLowerCase();
+    return sessions.filter((s) => s.title.toLowerCase().includes(q));
+  }, [sessions, sessionSearch]);
+
   // Send message with SSE streaming
   const send = useCallback(async () => {
     const text = input.trim();
     if (!text && attachments.length === 0) return;
     if (phase !== 'idle' && phase !== 'complete') return;
+
+    // Create a new session if none is active
+    let sessionId = activeSessionId;
+    if (!sessionId) {
+      try {
+        const created = await apiCall<OraSession[]>('/api/ora-sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: userEmail,
+            title: text.length > 80 ? text.slice(0, 80) + '...' : text,
+          }),
+        });
+        if (created?.[0]) {
+          sessionId = created[0].id;
+          setActiveSessionId(sessionId);
+          setSessions((prev) => [created[0], ...prev]);
+        }
+      } catch {
+        // Session creation failed — proceed without session
+      }
+    }
+
+    // Build conversation history from current messages (last 40 turns for context budget)
+    const recentHistory = messages
+      .filter((m) => m.content)
+      .slice(-40)
+      .map((m) => ({ role: m.role === 'user' ? 'user' as const : 'assistant' as const, content: m.content }));
 
     const userMsg: Message = {
       id: nextId(),
@@ -683,8 +774,10 @@ export default function OraChat() {
           githubRepos: selectedGithubRepos.length ? selectedGithubRepos : undefined,
           features,
           attachments: attachments.map((a) => ({ name: a.name, type: a.type, data: a.data })),
-          conversationId,
+          conversationId: sessionId ? `ora-session-${sessionId}` : `ora-${userEmail}`,
+          sessionId,
           userId: userEmail,
+          history: recentHistory,
         }),
       });
 
@@ -802,7 +895,7 @@ export default function OraChat() {
       setActiveRequestMode(null);
       setActiveRequestModel(null);
     }
-  }, [input, attachments, features, conversationId, userEmail, phase, mode, selectedModel, selectedGithubRepos, triangulationModels]);
+  }, [input, attachments, features, activeSessionId, userEmail, phase, mode, selectedModel, selectedGithubRepos, triangulationModels, messages]);
 
   // Key handler
   const handleKeyDown = useCallback(
@@ -859,9 +952,110 @@ export default function OraChat() {
     });
   }, []);
   return (
-    <div className="flex h-[calc(100vh-5rem)] flex-col items-center">
+    <div className="-mx-8 -mb-8 -mt-8 flex" style={{ height: 'calc(100vh - 1rem - 4px)' }}>
+      {/* Session Sidebar */}
+      {sidebarOpen && (
+        <div className="flex w-72 flex-shrink-0 flex-col border-r border-prism-border bg-prism-bg">
+          <div className="flex items-center gap-2 border-b border-prism-border px-3 py-3">
+            <button
+              type="button"
+              onClick={startNewSession}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-prism-border bg-prism-card px-3 py-2 text-[13px] text-prism-primary transition-colors hover:border-cyan-500/30 hover:text-cyan-300"
+            >
+              <MessageSquarePlus className="h-4 w-4" />
+              New chat
+            </button>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-prism-tertiary transition-colors hover:bg-prism-bg2 hover:text-prism-primary"
+              title="Close sidebar"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Search */}
+          <div className="border-b border-prism-border px-3 py-2">
+            <div className="flex items-center gap-2 rounded-lg border border-prism-border bg-prism-card px-2.5 py-1.5">
+              <Search className="h-3.5 w-3.5 text-prism-tertiary" />
+              <input
+                type="text"
+                placeholder="Search chats..."
+                value={sessionSearch}
+                onChange={(e) => setSessionSearch(e.target.value)}
+                className="w-full bg-transparent text-[12px] text-prism-primary placeholder:text-prism-tertiary outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Session list */}
+          <div className="flex-1 overflow-y-auto py-1">
+            {filteredSessions.length === 0 && (
+              <p className="px-3 py-4 text-center text-[12px] text-prism-tertiary">
+                {sessions.length === 0 ? 'No conversations yet' : 'No matches'}
+              </p>
+            )}
+            {filteredSessions.map((session) => (
+              <div
+                key={session.id}
+                className={`group flex items-center gap-1 px-3 py-2.5 cursor-pointer transition-colors ${
+                  activeSessionId === session.id
+                    ? 'bg-cyan-500/10 border-r-2 border-cyan-400'
+                    : 'hover:bg-prism-bg2'
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setActiveSessionId(session.id)}
+                  className="min-w-0 flex-1 text-left"
+                >
+                  <p className={`truncate text-[13px] ${activeSessionId === session.id ? 'text-cyan-300 font-medium' : 'text-prism-primary'}`}>
+                    {session.title}
+                  </p>
+                  <p className="text-[11px] text-prism-tertiary">
+                    {new Date(session.updated_at).toLocaleDateString()}
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); deleteSession(session.id); }}
+                  className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-prism-tertiary opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-400"
+                  title="Delete conversation"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Main chat area */}
+      <div className="flex flex-1 flex-col">
+        {/* Top bar with sidebar toggle */}
+        {!sidebarOpen && (
+          <div className="flex items-center gap-2 border-b border-prism-border px-3 py-2">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-prism-tertiary transition-colors hover:bg-prism-bg2 hover:text-prism-primary"
+              title="Open sidebar"
+            >
+              <PanelLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={startNewSession}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-prism-tertiary transition-colors hover:bg-prism-bg2 hover:text-cyan-300"
+              title="New chat"
+            >
+              <MessageSquarePlus className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       {/* Messages */}
-      <div className="flex-1 w-full overflow-y-auto px-4 py-6">
+      <div className="flex-1 overflow-y-auto px-4 py-6">
         {messages.length === 0 && (
           <div className="flex h-full items-center justify-center">
             <p className="text-[13px] text-prism-tertiary">Start a conversation with Ora.</p>
@@ -981,7 +1175,7 @@ export default function OraChat() {
 
       {/* Attachment preview */}
       {attachments.length > 0 && (
-        <div className="mt-2 flex w-full max-w-3xl flex-wrap gap-2">
+        <div className="mx-auto mt-2 flex w-full max-w-3xl flex-wrap gap-2 px-4">
           {attachments.map((a, i) => (
             <div key={i} className="flex items-center gap-1.5 rounded-lg bg-prism-bg2 px-2.5 py-1.5 text-[12px] text-prism-secondary border border-prism-border">
               {a.previewUrl ? (
@@ -997,7 +1191,7 @@ export default function OraChat() {
       )}
 
       {/* Input area */}
-      <div className="relative mt-2 w-full max-w-3xl rounded-[30px] border border-prism-border bg-prism-card px-4 py-3 shadow-prism-lg" ref={menuRef}>
+      <div className="relative mx-auto mb-4 mt-2 w-full max-w-3xl rounded-[30px] border border-prism-border bg-prism-card px-4 py-3 shadow-prism-lg" ref={menuRef}>
         {menuOpen && (
           <div className="absolute bottom-full left-0 z-20 mb-2 flex items-start gap-2">
             <div className="w-80 rounded-[24px] border border-prism-border bg-prism-card p-3 shadow-prism-lg">

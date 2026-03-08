@@ -93,6 +93,8 @@ const TABLE_MAP: Record<string, string> = {
   'workflow-steps': 'workflow_steps',
   'delegation_performance': 'delegation_performance',
   'delegation-performance': 'delegation_performance',
+  'ora_sessions': 'ora_sessions',
+  'ora-sessions': 'ora_sessions',
 };
 
 // ─── Helpers ────────────────────────────────────────────────────

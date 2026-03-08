@@ -1031,7 +1031,7 @@ glyphor-ai-company/
 │   └── run-seed.mjs                  # Database seeding script
 ├── a365.config.json             # Agent 365 tenant/subscription/app IDs
 ├── a365.generated.config.json   # Agent 365 generated blueprint state
-├── ToolingManifest.json         # MCP server registry (5 Microsoft + 9 Glyphor = 14 servers)
+├── ToolingManifest.json         # MCP server registry (9 Microsoft + 5 checked-in Glyphor = 14 servers)
 ├── turbo.json                   # Turborepo pipeline config
 ├── tsconfig.base.json           # Shared TS config
 └── package.json                 # npm workspaces root
@@ -2406,34 +2406,39 @@ to Microsoft 365 services. A two-tier bridge converts Microsoft's MCP tool schem
 **Architecture:**
 
 ```
-Agent run.ts → createAgent365McpTools(serverFilter?)
+Agent run.ts / runDynamicAgent.ts → createAgent365McpTools(role)
   → agent365Tools.ts (gate check: AGENT365_ENABLED='true')
+  → resolveAgent365Credentials(role)
   → integrations/agent365/index.ts (MCP bridge)
   → @microsoft/agents-a365-tooling SDK
   → MSAL client credentials auth (Azure Entra)
   → Microsoft MCP servers (agent365.svc.cloud.microsoft)
 ```
 
-**MCP Servers (6 active):**
+**Supported server catalog (9 total):**
 
-| Server | Scope | Capabilities |
-|--------|-------|-------------|
-| `mcp_MailTools` | `McpServers.Mail.All` | Send, schedule, search Outlook email |
-| `mcp_CalendarTools` | `McpServers.Calendar.All` | Events, availability, scheduling |
-| `mcp_ODSPRemoteServer` | `McpServers.OneDriveSharepoint.All` | OneDrive/SharePoint file access |
-| `mcp_TeamsServer` | `McpServers.Teams.All` | Teams messaging, channels |
-| `mcp_M365Copilot` | `McpServers.CopilotMCP.All` | M365 Copilot API |
-| `mcp_WordServer` | `McpServers.Word.All` | Word document create/read, comments |
+| Server | Scope | Status in code | Notes |
+|--------|-------|----------------|-------|
+| `mcp_MailTools` | `McpServers.Mail.All` | Included in `STANDARD_M365_SERVERS` + `ALL_M365_SERVERS` | Outlook mail workflows |
+| `mcp_CalendarTools` | `McpServers.Calendar.All` | Included in `STANDARD_M365_SERVERS` + `ALL_M365_SERVERS` | Events, availability, scheduling |
+| `mcp_ODSPRemoteServer` | `McpServers.OneDriveSharepoint.All` | Included in `STANDARD_M365_SERVERS` + `ALL_M365_SERVERS` | OneDrive / SharePoint file access |
+| `mcp_TeamsServer` | `McpServers.Teams.All` | Included in `STANDARD_M365_SERVERS` + `ALL_M365_SERVERS` | Teams messaging, channels, membership |
+| `mcp_M365Copilot` | `McpServers.CopilotMCP.All` | Included in `STANDARD_M365_SERVERS` + `ALL_M365_SERVERS` | Microsoft 365 Copilot API |
+| `mcp_WordServer` | `McpServers.Word.All` | Included in `STANDARD_M365_SERVERS` + `ALL_M365_SERVERS` | Word document create/read/comment |
+| `mcp_UserProfile` | `McpServers.UserProfile.All` | Included in `ALL_M365_SERVERS` | Org hierarchy, manager/direct-report lookup |
+| `mcp_SharePointLists` | `McpServers.SharePointLists.All` | Included in `ALL_M365_SERVERS` | SharePoint list CRUD/query |
+| `mcp_AdminCenter` | `McpServers.AdminCenter.All` | Included in `ALL_M365_SERVERS` | Admin-center level tenant operations |
 
-**Agents using Agent 365 tools (~25):**
-- **C-Suite:** chief-of-staff, cto, cfo, cmo, cpo, clo
-- **Ops/Admin:** ops, global-admin, m365-admin
-- **Research:** vp-research, all 5 research analysts, competitive-intel, account-research, cost-analyst, org-analyst
-- **Design:** ui-ux-designer, design-critic, vp-design, template-architect
-- **Other:** vp-sales, content-creator, devops-engineer
-- **Dynamic agents:** All DB-defined agents (via `runDynamicAgent.ts`)
+`STANDARD_M365_SERVERS` remains the 6-server subset currently called out by the smoke-check comments,
+while runtime defaults now expose the full 9-server `ALL_M365_SERVERS` catalog.
 
-Most agents filter to `['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot']`.
+**Runtime defaults:**
+
+- `createAgent365McpTools()` defaults to `ALL_M365_SERVERS` whenever callers do not pass an explicit filter.
+- Every checked-in file-based runner calls `createAgent365McpTools('<role>')`, and `runDynamicAgent.ts` does the same for DB-defined specialist agents.
+- No checked-in runner currently passes a narrowed Agent 365 server filter.
+- Agent 365 remains runtime-gated: if `AGENT365_ENABLED` is not `'true'`, or the required credentials are missing, the factory returns no tools instead of failing the run.
+- Credential resolution prefers per-agent overrides (`AGENT365_<ROLE>_CLIENT_ID`, `AGENT365_<ROLE>_CLIENT_SECRET`, `AGENT365_<ROLE>_TENANT_ID`) and otherwise falls back to shared `AGENT365_CLIENT_ID`, `AGENT365_CLIENT_SECRET`, and `AGENT365_TENANT_ID`.
 
 **Configuration files (repo root):**
 
@@ -2441,14 +2446,21 @@ Most agents filter to `['mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_M365Copilot
 |------|---------|
 | `a365.config.json` | Static tenant/subscription/app IDs, Azure resource group (`glyphor-agent365`) |
 | `a365.generated.config.json` | Generated blueprint state (blueprint app ID, service principal) |
-| `ToolingManifest.json` | Registry of 14 MCP server URLs + scopes (5 Microsoft + 9 Glyphor) |
+| `ToolingManifest.json` | Current checked-in MCP registry: 14 entries = 9 Microsoft Agent 365 servers + 5 Glyphor MCP servers |
 
-**Entra ID apps:**
-- **Client app:** `06c728b6-0111-4cb1-a708-d57c51128649` (Glyphor AI Bot)
-- **True Agent Identity Blueprint:** `b47da287-6b05-4be3-9807-3f49047fbbb8` (AgentIdentityBlueprint, SP: `525e859f-29d9-4fa2-80a9-debc2a2576bb`)
-- **Glyphor app (MCP auth):** `5604df3b-a3a3-4c7e-a8c4-e6f9ed04ad6a` (MSAL client credentials for MCP SSE, SP: `28079457-37d9-483c-b7bb-fe6920083b8e`)
+`glyphorMcpTools.ts` can also load four additional env-configured Glyphor MCP servers (`Email`, `Legal`, `HR`, `EmailMarketing`), but those are not currently checked into `ToolingManifest.json`.
 
-**Dependencies:** `@microsoft/agents-a365-runtime`, `@microsoft/agents-a365-tooling` (`^0.1.0-preview.115`), `@azure/msal-node`
+**Tenant rollout status:**
+
+- `scripts/assign-agent-permissions.ps1` now builds the full 9-scope Agent 365 `oauth2PermissionGrant` payload.
+- An operator still has to run that script against the live tenant with Graph admin consent.
+- Until that external rollout happens, repo-side manifest/runtime cleanup is complete, but existing agent identities may still hit 403s on newly opened servers.
+
+**Overlap guidance:**
+
+- **Email:** keep Glyphor's native mailbox tools as the primary workflow path; use Agent 365 Mail for broader Microsoft-hosted mailbox operations.
+- **SharePoint / OneDrive:** keep the native SharePoint integration as the primary knowledge-site path; use Agent 365 ODSP + SharePoint Lists for broader M365 file/list operations.
+- **Teams:** keep Bot Framework / Adaptive Card flows as the primary founder-notification path; use Agent 365 Teams for plain-text Teams chat/channel/member operations and fallback scenarios.
 
 ### Entra Agent Identity Architecture
 
@@ -2488,17 +2500,25 @@ identity governance.
 
 | Target | Method | Details |
 |--------|--------|---------|
-| M365 MCP servers (Calendar, Teams, Copilot) | `oauth2PermissionGrants` (admin consent) | Delegated permissions on M365 Agent Tools API (`ea9ffc3e-...`). `consentType: AllPrincipals`, requires `expiryTime`. |
+| M365 MCP servers (full 9-server Agent 365 catalog) | `oauth2PermissionGrants` (admin consent) | Delegated permissions on M365 Agent Tools API (`ea9ffc3e-...`). `consentType: AllPrincipals`, requires `expiryTime`. The repo script now prepares the full 9-scope grant, but an operator still must run it in the tenant. |
 | Glyphor app roles (per-agent scopes) | `appRoleAssignments` | 22 app roles on Glyphor app SP (`5604df3b-...`). 80 assignments across 44 agents. |
 
 **Key distinction:** Agent Identity SPs hold the permissions (oauth2 grants + app roles).
 User accounts hold the mailbox and license. Deleting a user account does NOT affect the
 agent identity SP or its permissions.
 
-**M365 MCP scopes assigned to all agents:**
+**M365 MCP scope catalog encoded in the rollout script:**
+- `McpServers.Mail.All` — Outlook mail operations
 - `McpServers.Calendar.All` — Calendar access
+- `McpServers.OneDriveSharepoint.All` — OneDrive / SharePoint file operations
 - `McpServers.Teams.All` — Teams messaging
 - `McpServers.CopilotMCP.All` — M365 Copilot API
+- `McpServers.Word.All` — Word document operations
+- `McpServers.UserProfile.All` — user/org profile lookups
+- `McpServers.SharePointLists.All` — SharePoint list CRUD/query
+- `McpServers.AdminCenter.All` — Admin Center operations
+
+**Operational note:** the repo-side script is ready, but an operator still needs to execute the grant rollout against the live tenant before existing agent identities receive the expanded access.
 
 **Critical lessons learned:**
 - Regular SPs (`servicePrincipalType: Application`) are NOT valid agent identities
@@ -3355,7 +3375,7 @@ Requires `SCHEDULER_URL`, `DASHBOARD_URL`, `VOICE_GATEWAY_URL` env vars.
 | Memorystore (Redis) | `glyphor-redis` | Redis cache for JIT context, directives, profiles, reasoning |
 | Azure | Resource group `glyphor-resources` (centralus) | Bot registrations, Entra apps |
 | Azure Communication Services | ACS instance | Teams meeting media streaming (WebSocket, PCM16) |
-| Agent 365 (Microsoft) | `agent365.svc.cloud.microsoft` | M365 MCP servers — Mail, Calendar, OneDrive/SharePoint, Teams, M365 Copilot |
+| Agent 365 (Microsoft) | `agent365.svc.cloud.microsoft` | M365 MCP servers — Mail, Calendar, OneDrive/SharePoint, Teams, M365 Copilot, Word, UserProfile, SharePoint Lists, Admin Center |
 
 ### External Services
 
@@ -3369,7 +3389,7 @@ Requires `SCHEDULER_URL`, `DASHBOARD_URL`, `VOICE_GATEWAY_URL` env vars.
 | Azure Bot Service | Bot Framework (main + 10 agent bots) | `BOT_APP_ID`, `BOT_APP_SECRET`, `BOT_TENANT_ID`, `AGENT_BOTS` |
 | Stripe | Revenue tracking (MRR, churn, subscriptions) | `STRIPE_SECRET_KEY` |
 | Mercury | Banking (cash balance, cash flows, vendor subs) | `MERCURY_API_TOKEN` |
-| Agent 365 (Microsoft) | M365 MCP servers — agents access Email, Calendar, OneDrive/SharePoint, Teams, M365 Copilot via MCP bridge | `AGENT365_CLIENT_ID`, `AGENT365_CLIENT_SECRET`, `AGENT365_TENANT_ID`, `AGENT365_ENABLED=true` |
+| Agent 365 (Microsoft) | M365 MCP servers — agents access the 9-server Agent 365 catalog via MCP bridge (runtime defaults load the full catalog) | `AGENT365_CLIENT_ID`, `AGENT365_CLIENT_SECRET`, `AGENT365_TENANT_ID`, `AGENT365_ENABLED=true` |
 | Figma | Design file access (file-level tools: file content, metadata, comments, variables) | `FIGMA_CLIENT_ID`, `FIGMA_CLIENT_SECRET`, `FIGMA_REFRESH_TOKEN` (OAuth 2.0, auto-refreshing access token) |
 
 ### Cloud Run URLs

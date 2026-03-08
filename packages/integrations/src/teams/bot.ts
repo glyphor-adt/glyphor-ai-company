@@ -400,6 +400,18 @@ export class TeamsBotHandler {
   /** Maps Entra Object ID → founder display name for authenticated identity resolution. */
   private readonly entraIdLookup: Map<string, string>;
 
+  private buildProactiveMember(userAadObjectId: string): { id: string; aadObjectId: string } {
+    const normalizedUserAadObjectId = userAadObjectId.trim();
+    if (!normalizedUserAadObjectId) {
+      throw new Error('[TeamsBot] Cannot create proactive conversation: target user AAD object ID is empty');
+    }
+
+    return {
+      id: `29:${normalizedUserAadObjectId}`,
+      aadObjectId: normalizedUserAadObjectId,
+    };
+  }
+
   constructor(config: BotConfig, agentRunner: AgentRunner, agentBots?: AgentBotConfig[]) {
     this.config = config;
     this.agentRunner = agentRunner;
@@ -783,14 +795,19 @@ export class TeamsBotHandler {
     message: string,
     serviceUrl = 'https://smba.trafficmanager.net/amer/',
   ): Promise<void> {
+    const normalizedUserAadObjectId = userAadObjectId.trim();
+    if (!normalizedUserAadObjectId) {
+      throw new Error('[TeamsBot] Cannot send proactive DM: target user AAD object ID is empty');
+    }
+
     const token = await this.getBotToken();
 
     // Check for a stored conversation reference (from a previous interaction).
-    let ref = getConversationRef(userAadObjectId);
+    let ref = getConversationRef(normalizedUserAadObjectId);
     if (!ref) {
       // Try proactive app installation via Graph API to trigger conversationUpdate
-      await this.ensureTeamsAppInstalled(userAadObjectId);
-      ref = getConversationRef(userAadObjectId);
+      await this.ensureTeamsAppInstalled(normalizedUserAadObjectId);
+      ref = getConversationRef(normalizedUserAadObjectId);
     }
 
     if (ref) {
@@ -813,8 +830,9 @@ export class TeamsBotHandler {
     const createUrl = `${serviceUrl}v3/conversations`;
     const createBody = {
       bot: { id: `28:${appId}`, name: 'Glyphor Bot' },
-      members: [{ id: userAadObjectId, aadObjectId: userAadObjectId }],
-      tenantId: this.config.tenantId,
+      members: [this.buildProactiveMember(normalizedUserAadObjectId)],
+      channelData: { tenant: { id: this.config.tenantId } },
+      isGroup: false,
       activity: {
         type: 'message',
         text: message,
@@ -846,13 +864,18 @@ export class TeamsBotHandler {
     cardContent: Record<string, unknown>,
     serviceUrl = 'https://smba.trafficmanager.net/amer/',
   ): Promise<void> {
+    const normalizedUserAadObjectId = userAadObjectId.trim();
+    if (!normalizedUserAadObjectId) {
+      throw new Error('[TeamsBot] Cannot send proactive card DM: target user AAD object ID is empty');
+    }
+
     const token = await this.getBotToken();
 
     // Check for a stored conversation reference first
-    let ref = getConversationRef(userAadObjectId);
+    let ref = getConversationRef(normalizedUserAadObjectId);
     if (!ref) {
-      await this.ensureTeamsAppInstalled(userAadObjectId);
-      ref = getConversationRef(userAadObjectId);
+      await this.ensureTeamsAppInstalled(normalizedUserAadObjectId);
+      ref = getConversationRef(normalizedUserAadObjectId);
     }
 
     if (ref) {
@@ -877,8 +900,9 @@ export class TeamsBotHandler {
     const createUrl = `${serviceUrl}v3/conversations`;
     const createBody = {
       bot: { id: `28:${appId}`, name: 'Glyphor Bot' },
-      members: [{ id: userAadObjectId, aadObjectId: userAadObjectId }],
-      tenantId: this.config.tenantId,
+      members: [this.buildProactiveMember(normalizedUserAadObjectId)],
+      channelData: { tenant: { id: this.config.tenantId } },
+      isGroup: false,
       activity: {
         type: 'message',
         attachments: [
@@ -1012,6 +1036,11 @@ export class TeamsBotHandler {
     message: string,
     serviceUrl = 'https://smba.trafficmanager.net/amer/',
   ): Promise<void> {
+    const normalizedUserAadObjectId = userAadObjectId.trim();
+    if (!normalizedUserAadObjectId) {
+      throw new Error('[TeamsBot] Cannot send proactive DM as agent: target user AAD object ID is empty');
+    }
+
     // Find the agent bot by role
     let agentBot: (AgentBotConfig & { appSecret: string }) | undefined;
     for (const ab of this.agentBots.values()) {
@@ -1029,8 +1058,9 @@ export class TeamsBotHandler {
     const createUrl = `${serviceUrl}v3/conversations`;
     const createBody = {
       bot: { id: `28:${agentBot.appId}`, name: agentBot.name },
-      members: [{ id: userAadObjectId, aadObjectId: userAadObjectId }],
-      tenantId: this.config.tenantId,
+      members: [this.buildProactiveMember(normalizedUserAadObjectId)],
+      channelData: { tenant: { id: this.config.tenantId } },
+      isGroup: false,
       activity: {
         type: 'message',
         text: message,

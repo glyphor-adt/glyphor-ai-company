@@ -2111,12 +2111,12 @@ Code-based tools (Section 2) are stored in `agent_tool_grants` and compiled into
 MCP tools are **dynamically discovered** at startup from MCP servers and **add to** the
 agent's code-based tools. They are NOT in the grant tables.
 
-- **M365 MCP Servers**: Access controlled by the `createAgent365McpTools(serverFilter)` call in each agent's `run.ts`
+- **M365 MCP Servers**: Access controlled by the `createAgent365McpTools(agentRole, serverFilter?)` call in each agent's `run.ts`
 - **Glyphor MCP Servers**: Access controlled by Entra identity app role scopes — the server only exposes tools to agents whose identity has matching scopes
 
 ### M365 MCP Servers — Per-Agent Connection
 
-All 37 coded agents connect to the standard set of **6 M365 MCP servers** via `STANDARD_M365_SERVERS`:
+All 37 coded agents now initialize Agent 365 without a narrowed filter, so runtime defaults expose the full **9-server** `ALL_M365_SERVERS` catalog. `STANDARD_M365_SERVERS` remains the legacy 6-server subset used by smoke-check assertions and documentation about the original baseline:
 
 | M365 Server | Connected | Tool Capabilities |
 |-------------|-----------|-------------------|
@@ -2126,8 +2126,11 @@ All 37 coded agents connect to the standard set of **6 M365 MCP servers** via `S
 | `mcp_TeamsServer` | ✅ All agents | Send messages, manage channels, meeting operations |
 | `mcp_M365Copilot` | ✅ All agents | Summarization, reasoning, web search via M365 Copilot |
 | `mcp_WordServer` | ✅ All agents | Create/read Word documents, comment management |
+| `mcp_UserProfile` | ✅ All agents | Org graph, managers, direct reports, user lookup |
+| `mcp_SharePointLists` | ✅ All agents | SharePoint list CRUD and querying |
+| `mcp_AdminCenter` | ✅ All agents | Admin-center tenant operations |
 
-> Source: `packages/agents/src/shared/agent365Tools.ts` → `STANDARD_M365_SERVERS`
+> Source: `packages/agents/src/shared/agent365Tools.ts` → `ALL_M365_SERVERS`, with `STANDARD_M365_SERVERS` retained as the 6-server subset.
 
 ### Glyphor MCP Servers — Per-Agent Access by Entra Scopes
 
