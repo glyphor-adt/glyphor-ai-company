@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useTheme } from '../lib/theme';
 import { useAuth } from '../lib/auth';
+import { Orbit } from 'lucide-react';
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: GridIcon },
@@ -319,11 +320,5 @@ function PolicyIcon({ className }: { className?: string }) {
 }
 
 function OraIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-      <path d="M8 2L3 13h10L8 2z" />
-      <path d="M5 9l3-7 3 7" opacity="0.5" />
-      <path d="M6.5 6l1.5-4 1.5 4" opacity="0.3" />
-    </svg>
-  );
+  return <Orbit className={className} size={16} />;
 }
