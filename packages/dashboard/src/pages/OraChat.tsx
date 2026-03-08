@@ -1421,6 +1421,7 @@ export default function OraChat() {
           </div>
         </div>
       </div>
+      </div>
     </div>
   );
 }
