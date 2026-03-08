@@ -20,6 +20,7 @@ import {
   getAgentsByDepartment,
   getDisplayName,
   getPlatformLabel,
+  getRoleTitle,
   normalizeSeverity,
   toHumanWords,
 } from './shared';
@@ -360,6 +361,43 @@ function SecretLifecycleTimeline({ items }: { items: SecretRotation[] }) {
   );
 }
 
+type GrantInventoryStatus = 'active' | 'expiring-soon' | 'expires-this-month' | 'expired' | 'inactive' | 'no-expiry';
+
+interface GrantInventoryItem extends ToolGrant {
+  department: string;
+  displayName: string;
+  roleTitle: string;
+  expiresInDays: number | null;
+  inventoryStatus: GrantInventoryStatus;
+  searchText: string;
+}
+
+function getGrantInventoryStatus(grant: ToolGrant): GrantInventoryStatus {
+  if (!grant.is_active) return 'inactive';
+  const expiresInDays = daysUntil(grant.expires_at);
+  if (expiresInDays == null) return 'no-expiry';
+  if (expiresInDays < 0) return 'expired';
+  if (expiresInDays <= 7) return 'expiring-soon';
+  if (expiresInDays <= 30) return 'expires-this-month';
+  return 'active';
+}
+
+function getGrantInventorySeverity(status: GrantInventoryStatus) {
+  if (status === 'expired') return 'critical';
+  if (status === 'expiring-soon') return 'high';
+  if (status === 'expires-this-month') return 'medium';
+  if (status === 'active') return 'good';
+  if (status === 'no-expiry') return 'info';
+  return 'warning';
+}
+
+function getGrantInventoryLabel(status: GrantInventoryStatus) {
+  if (status === 'expiring-soon') return 'Expiring ≤7d';
+  if (status === 'expires-this-month') return 'Expiring ≤30d';
+  if (status === 'no-expiry') return 'No expiry';
+  return toHumanWords(status);
+}
+
 function AccessGrantManager({
   grants,
   pendingApprovals,
@@ -384,19 +422,122 @@ function AccessGrantManager({
   const [reason, setReason] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [search, setSearch] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [agentFilter, setAgentFilter] = useState('all');
+  const [toolFilter, setToolFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
 
-  const activeGrants = useMemo(
-    () => grants.filter((grant) => grant.is_active).sort((left, right) => left.agent_role.localeCompare(right.agent_role) || left.tool_name.localeCompare(right.tool_name)),
-    [grants],
+  const departmentByRole = useMemo(() => {
+    const entries = getAgentsByDepartment().flatMap((group) => group.roles.map((role) => [role, group.dept] as const));
+    return new Map(entries);
+  }, []);
+
+  const inventory = useMemo<GrantInventoryItem[]>(() => {
+    return [...grants]
+      .map((grant) => {
+        const displayName = getDisplayName(grant.agent_role);
+        const roleTitle = getRoleTitle(grant.agent_role);
+        const department = departmentByRole.get(grant.agent_role) ?? 'Other';
+        const expiresInDays = daysUntil(grant.expires_at);
+        const inventoryStatus = getGrantInventoryStatus(grant);
+        return {
+          ...grant,
+          displayName,
+          roleTitle,
+          department,
+          expiresInDays,
+          inventoryStatus,
+          searchText: [
+            grant.agent_role,
+            displayName,
+            roleTitle,
+            department,
+            grant.tool_name,
+            grant.granted_by,
+            grant.reason,
+            grant.scope,
+            inventoryStatus,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase(),
+        };
+      })
+      .sort((left, right) => {
+        const statusPriority: Record<GrantInventoryStatus, number> = {
+          expired: 0,
+          'expiring-soon': 1,
+          'expires-this-month': 2,
+          active: 3,
+          'no-expiry': 4,
+          inactive: 5,
+        };
+        return statusPriority[left.inventoryStatus] - statusPriority[right.inventoryStatus]
+          || left.displayName.localeCompare(right.displayName)
+          || left.tool_name.localeCompare(right.tool_name);
+      });
+  }, [departmentByRole, grants]);
+
+  const departmentOptions = useMemo(
+    () => [...new Set(inventory.map((grant) => grant.department))].sort((left, right) => left.localeCompare(right)),
+    [inventory],
+  );
+  const agentOptions = useMemo(
+    () => [...new Map(inventory.map((grant) => [grant.agent_role, grant.displayName])).entries()].sort((left, right) => left[1].localeCompare(right[1])),
+    [inventory],
+  );
+  const toolOptions = useMemo(
+    () => [...new Set(inventory.map((grant) => grant.tool_name))].sort((left, right) => left.localeCompare(right)),
+    [inventory],
   );
 
-  const grouped = useMemo(() => {
-    const byDept = getAgentsByDepartment().map((group) => ({
-      dept: group.dept,
-      grants: activeGrants.filter((grant) => group.roles.includes(grant.agent_role)),
-    }));
-    return byDept.filter((group) => group.grants.length > 0);
-  }, [activeGrants]);
+  const filteredInventory = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+    return inventory.filter((grant) => {
+      if (departmentFilter !== 'all' && grant.department !== departmentFilter) return false;
+      if (agentFilter !== 'all' && grant.agent_role !== agentFilter) return false;
+      if (toolFilter !== 'all' && grant.tool_name !== toolFilter) return false;
+      if (statusFilter !== 'all' && grant.inventoryStatus !== statusFilter) return false;
+      if (normalizedSearch && !grant.searchText.includes(normalizedSearch)) return false;
+      return true;
+    });
+  }, [agentFilter, departmentFilter, inventory, search, statusFilter, toolFilter]);
+
+  const filteredSummary = useMemo(() => {
+    return {
+      agents: new Set(filteredInventory.map((grant) => grant.agent_role)).size,
+      tools: new Set(filteredInventory.map((grant) => grant.tool_name)).size,
+      departments: new Set(filteredInventory.map((grant) => grant.department)).size,
+      expiringSoon: filteredInventory.filter((grant) => grant.inventoryStatus === 'expiring-soon').length,
+      inactiveOrExpired: filteredInventory.filter((grant) => grant.inventoryStatus === 'inactive' || grant.inventoryStatus === 'expired').length,
+    };
+  }, [filteredInventory]);
+
+  const filteredGrouped = useMemo(() => {
+    const activeByDept = new Map<string, GrantInventoryItem[]>();
+    for (const grant of filteredInventory) {
+      if (!grant.is_active) continue;
+      const current = activeByDept.get(grant.department) ?? [];
+      current.push(grant);
+      activeByDept.set(grant.department, current);
+    }
+
+    return getAgentsByDepartment()
+      .map((group) => ({
+        dept: group.dept,
+        grants: (activeByDept.get(group.dept) ?? []).sort((left, right) => left.displayName.localeCompare(right.displayName) || left.tool_name.localeCompare(right.tool_name)),
+      }))
+      .filter((group) => group.grants.length > 0);
+  }, [filteredInventory]);
+
+  const resetFilters = () => {
+    setSearch('');
+    setDepartmentFilter('all');
+    setAgentFilter('all');
+    setToolFilter('all');
+    setStatusFilter('all');
+  };
 
   const handleSubmit = async () => {
     if (!toolName.trim()) return;

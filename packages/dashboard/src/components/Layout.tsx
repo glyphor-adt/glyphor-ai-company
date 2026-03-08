@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useTheme } from '../lib/theme';
 import { useAuth } from '../lib/auth';
 import { Orbit } from 'lucide-react';
