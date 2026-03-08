@@ -370,6 +370,8 @@ interface GrantInventoryItem extends ToolGrant {
   expiresInDays: number | null;
   inventoryStatus: GrantInventoryStatus;
   capabilityLabels: string[];
+  agentSearchText: string;
+  toolSearchText: string;
   searchText: string;
 }
 
@@ -491,6 +493,8 @@ function AccessGrantManager({
   const [expiresAt, setExpiresAt] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
+  const [agentSearch, setAgentSearch] = useState('');
+  const [toolSearch, setToolSearch] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [agentFilter, setAgentFilter] = useState('all');
   const [toolFilter, setToolFilter] = useState('all');
@@ -519,6 +523,18 @@ function AccessGrantManager({
           expiresInDays,
           inventoryStatus,
           capabilityLabels,
+          agentSearchText: buildInventorySearchText([
+            grant.agent_role,
+            displayName,
+            roleTitle,
+            department,
+          ]),
+          toolSearchText: buildInventorySearchText([
+            grant.tool_name,
+            toHumanWords(grant.tool_name),
+            grant.scope,
+            capabilityLabels.join(' '),
+          ]),
           searchText: buildInventorySearchText([
             grant.agent_role,
             displayName,
@@ -569,16 +585,20 @@ function AccessGrantManager({
 
   const filteredInventory = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
+    const normalizedAgentSearch = agentSearch.trim().toLowerCase();
+    const normalizedToolSearch = toolSearch.trim().toLowerCase();
     return inventory.filter((grant) => {
       if (departmentFilter !== 'all' && grant.department !== departmentFilter) return false;
       if (agentFilter !== 'all' && grant.agent_role !== agentFilter) return false;
       if (toolFilter !== 'all' && grant.tool_name !== toolFilter) return false;
       if (capabilityFilter !== 'all' && !grant.capabilityLabels.includes(capabilityFilter)) return false;
       if (statusFilter !== 'all' && grant.inventoryStatus !== statusFilter) return false;
+      if (normalizedAgentSearch && !matchesInventorySearch(grant.agentSearchText, normalizedAgentSearch)) return false;
+      if (normalizedToolSearch && !matchesInventorySearch(grant.toolSearchText, normalizedToolSearch)) return false;
       if (normalizedSearch && !matchesInventorySearch(grant.searchText, normalizedSearch)) return false;
       return true;
     });
-  }, [agentFilter, capabilityFilter, departmentFilter, inventory, search, statusFilter, toolFilter]);
+  }, [agentFilter, agentSearch, capabilityFilter, departmentFilter, inventory, search, statusFilter, toolFilter, toolSearch]);
 
   const filteredSummary = useMemo(() => {
     return {
@@ -628,6 +648,8 @@ function AccessGrantManager({
 
   const resetFilters = () => {
     setSearch('');
+    setAgentSearch('');
+    setToolSearch('');
     setDepartmentFilter('all');
     setAgentFilter('all');
     setToolFilter('all');
@@ -769,11 +791,30 @@ function AccessGrantManager({
             </div>
           </div>
 
-          <div className="grid gap-3 rounded-xl border border-border/70 bg-prism-card/60 p-4 xl:grid-cols-[1.7fr,repeat(5,minmax(0,1fr)),auto]">
+          <div className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+            <div className="mb-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Grant search</p>
+              <p className="mt-1 text-[13px] text-txt-secondary">Search directly by agent, by tool or capability family, or use the filters for narrower access questions.</p>
+            </div>
+            <div className="grid gap-3 xl:grid-cols-[1.25fr,1.25fr,1.7fr,repeat(5,minmax(0,1fr)),auto]">
+              <input
+                list="grant-agent-search-options"
+                value={agentSearch}
+                onChange={(event) => setAgentSearch(event.target.value)}
+                placeholder="Search by agent name or role"
+                className="rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-txt-primary placeholder:text-txt-muted"
+              />
+              <input
+                list="grant-tool-search-options"
+                value={toolSearch}
+                onChange={(event) => setToolSearch(event.target.value)}
+                placeholder="Search by tool or capability, e.g. Teams access"
+                className="rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-txt-primary placeholder:text-txt-muted"
+              />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search agent, tool, department, reason, scope, or grantor"
+              placeholder="Search department, reason, scope, or grantor"
               className="rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-txt-primary placeholder:text-txt-muted"
             />
             <select
@@ -836,10 +877,34 @@ function AccessGrantManager({
             >
               Reset
             </button>
+            </div>
+            <datalist id="grant-agent-search-options">
+              {agentOptions.map(([role, displayName]) => (
+                <option key={`${role}-agent-search`} value={displayName}>{role}</option>
+              ))}
+            </datalist>
+            <datalist id="grant-tool-search-options">
+              {toolOptions.map((tool) => (
+                <option key={`${tool}-tool-search`} value={toHumanWords(tool)}>{tool}</option>
+              ))}
+              {capabilityOptions.map((capability) => (
+                <option key={`${capability}-capability-search`} value={toHumanWords(capability)}>{capability}</option>
+              ))}
+            </datalist>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-[12px] text-txt-muted">
             <span>{filteredInventory.length} of {inventory.length} grants shown</span>
+            {agentSearch.trim() && (
+              <span className="rounded-full border border-border/70 bg-prism-card px-2 py-0.5 text-[11px] text-txt-secondary">
+                Agent: {agentSearch.trim()}
+              </span>
+            )}
+            {toolSearch.trim() && (
+              <span className="rounded-full border border-border/70 bg-prism-card px-2 py-0.5 text-[11px] text-txt-secondary">
+                Tool: {toolSearch.trim()}
+              </span>
+            )}
             {search.trim() && (
               <span className="rounded-full border border-border/70 bg-prism-card px-2 py-0.5 text-[11px] text-txt-secondary">
                 Search: {search.trim()}
