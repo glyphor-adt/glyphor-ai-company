@@ -289,6 +289,40 @@ function ReasoningPanel({ reasoning }: { reasoning: string }) {
   );
 }
 
+function MenuAction({
+  icon,
+  title,
+  subtitle,
+  active = false,
+  onClick,
+  disabled = false,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  active?: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-prism-bg2 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${active ? 'bg-cyan-500/12 text-cyan-300' : 'bg-prism-bg2 text-prism-tertiary'}`}>
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className={`text-[13px] ${active ? 'text-cyan-300' : 'text-prism-primary'}`}>{title}</div>
+        {subtitle ? <div className="text-[11px] text-prism-tertiary">{subtitle}</div> : null}
+      </div>
+      {active ? <Check className="h-4 w-4 text-cyan-400" /> : null}
+    </button>
+  );
+}
+
 /* ── Main Component ───────────────────────────────── */
 
 export default function OraChat() {
@@ -754,15 +788,12 @@ export default function OraChat() {
             ? 'Running Claude, Gemini, and GPT-5 in parallel before comparing them.'
             : 'Preparing Ora response.';
   const githubEnabled = selectedGithubRepos.length > 0;
-  const toggleGithubRepo = useCallback((repo: string) => {
-    setSelectedGithubRepos((prev) => prev.includes(repo) ? prev.filter((item) => item !== repo) : [...prev, repo]);
+  const toggleGithubAccess = useCallback(() => {
+    setSelectedGithubRepos((prev) => {
+      if (prev.length > 0) return [];
+      return [GITHUB_REPO_OPTIONS[0].value];
+    });
   }, []);
-  const activeMenuCount =
-    (mode === 'single-model' ? 1 : 0)
-    + (features.deepThinking ? 1 : 0)
-    + (features.webSearch ? 1 : 0)
-    + (features.knowledgeBase ? 1 : 0)
-    + selectedGithubRepos.length;
 
   return (
     <div className="flex h-[calc(100vh-5rem)] flex-col">
@@ -916,80 +947,62 @@ export default function OraChat() {
       {/* Input area */}
       <div className="relative mt-2 rounded-[30px] border border-prism-border bg-prism-card px-4 py-3 shadow-prism-lg" ref={menuRef}>
         {menuOpen && (
-          <div className="absolute bottom-full left-0 z-20 mb-2 w-72 rounded-2xl border border-prism-border bg-prism-card py-2 shadow-prism-lg">
-            <button
-              type="button"
+          <div className="absolute bottom-full left-0 z-20 mb-2 w-80 rounded-[24px] border border-prism-border bg-prism-card p-3 shadow-prism-lg">
+            <MenuAction
+              icon={<Paperclip className="h-4 w-4" />}
+              title="Add files or photos"
+              subtitle="Attach images, PDFs, docs, or CSVs"
               onClick={() => {
                 setMenuOpen(false);
                 fileInputRef.current?.click();
               }}
               disabled={isLoading}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] text-prism-primary transition-colors hover:bg-prism-bg2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Paperclip className="h-4 w-4 text-prism-tertiary" />
-              Add files or photos
-            </button>
-            <button
-              type="button"
+            />
+            <MenuAction
+              icon={<ImageIcon className="h-4 w-4" />}
+              title="Paste screenshot"
+              subtitle="Grab an image directly from your clipboard"
               onClick={() => {
                 setMenuOpen(false);
                 void pasteClipboardImage();
               }}
               disabled={isLoading}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] text-prism-primary transition-colors hover:bg-prism-bg2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <ImageIcon className="h-4 w-4 text-prism-tertiary" />
-              Paste screenshot
-            </button>
-            <div className="my-1 border-t border-prism-border" />
-            <button
-              type="button"
-              onClick={() => toggleFeature('webSearch')}
-              disabled={isLoading}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] text-prism-primary transition-colors hover:bg-prism-bg2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Globe className={`h-4 w-4 ${features.webSearch ? 'text-cyan-400' : 'text-prism-tertiary'}`} />
-              <span className={features.webSearch ? 'text-cyan-300' : ''}>Web search</span>
-              {features.webSearch && <Check className="ml-auto h-4 w-4 text-cyan-400" />}
-            </button>
-            <button
-              type="button"
-              onClick={() => toggleFeature('deepThinking')}
-              disabled={isLoading}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] text-prism-primary transition-colors hover:bg-prism-bg2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Brain className={`h-4 w-4 ${features.deepThinking ? 'text-cyan-400' : 'text-prism-tertiary'}`} />
-              <span className={features.deepThinking ? 'text-cyan-300' : ''}>Reasoning</span>
-              {features.deepThinking && <Check className="ml-auto h-4 w-4 text-cyan-400" />}
-            </button>
-            <button
-              type="button"
+            />
+
+            <div className="my-2 border-t border-prism-border" />
+
+            <MenuAction
+              icon={<Database className="h-4 w-4" />}
+              title="Company knowledge"
+              subtitle="Search internal memory and knowledge sources"
+              active={features.knowledgeBase}
               onClick={() => toggleFeature('knowledgeBase')}
               disabled={isLoading}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] text-prism-primary transition-colors hover:bg-prism-bg2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Database className={`h-4 w-4 ${features.knowledgeBase ? 'text-cyan-400' : 'text-prism-tertiary'}`} />
-              <span className={features.knowledgeBase ? 'text-cyan-300' : ''}>Knowledge base</span>
-              {features.knowledgeBase && <Check className="ml-auto h-4 w-4 text-cyan-400" />}
-            </button>
-            <div className="my-1 border-t border-prism-border" />
-            <div className="px-4 py-2 text-[11px] uppercase tracking-wider text-prism-tertiary">GitHub</div>
-            {GITHUB_REPO_OPTIONS.map((repo) => {
-              const selected = selectedGithubRepos.includes(repo.value);
-              return (
-                <button
-                  key={repo.value}
-                  type="button"
-                  onClick={() => toggleGithubRepo(repo.value)}
-                  disabled={isLoading}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] text-prism-primary transition-colors hover:bg-prism-bg2 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Github className={`h-4 w-4 ${selected ? 'text-cyan-400' : 'text-prism-tertiary'}`} />
-                  <span className={selected ? 'text-cyan-300' : ''}>{repo.label}</span>
-                  {selected && <Check className="ml-auto h-4 w-4 text-cyan-400" />}
-                </button>
-              );
-            })}
+            />
+            <MenuAction
+              icon={<Brain className="h-4 w-4" />}
+              title="Deep research"
+              subtitle="Use longer reasoning before responding"
+              active={features.deepThinking}
+              onClick={() => toggleFeature('deepThinking')}
+              disabled={isLoading}
+            />
+            <MenuAction
+              icon={<Globe className="h-4 w-4" />}
+              title="Web search"
+              subtitle="Pull live information from the web"
+              active={features.webSearch}
+              onClick={() => toggleFeature('webSearch')}
+              disabled={isLoading}
+            />
+            <MenuAction
+              icon={<Github className="h-4 w-4" />}
+              title="GitHub context"
+              subtitle={githubEnabled ? `${selectedGithubRepos.length} repo${selectedGithubRepos.length === 1 ? '' : 's'} enabled` : 'Use repository context'}
+              active={githubEnabled}
+              onClick={toggleGithubAccess}
+              disabled={isLoading}
+            />
           </div>
         )}
 
@@ -1019,24 +1032,11 @@ export default function OraChat() {
               aria-label="Open Ora options"
             >
               <Plus className={`h-4 w-4 transition-transform ${menuOpen ? 'rotate-45' : ''}`} />
-              {activeMenuCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-cyan-500 px-1 text-[10px] font-semibold text-white">
-                  {activeMenuCount}
-                </span>
-              )}
             </button>
-
-            {features.webSearch && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-[11px] font-medium text-cyan-300">
-                <Globe className="h-3.5 w-3.5" />
-                Web search
-              </span>
-            )}
           </div>
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-2 rounded-full border border-prism-border bg-prism-bg2 px-3 py-2 text-[12px] text-prism-tertiary">
-              <span>Model</span>
+            <label className="flex items-center gap-2 rounded-full border border-prism-border bg-prism-bg2 px-3 py-2 text-[12px] text-prism-tertiary transition-colors hover:border-cyan-500/20">
               <select
                 value={mode === 'single-model' ? selectedModel : 'triangulated'}
                 onChange={(e) => {
@@ -1060,10 +1060,10 @@ export default function OraChat() {
                   </optgroup>
                 ))}
               </select>
+              <ChevronDown className="h-3.5 w-3.5 text-prism-tertiary" />
             </label>
 
-            <label className="flex items-center gap-2 rounded-full border border-prism-border bg-prism-bg2 px-3 py-2 text-[12px] text-prism-tertiary">
-              <span>Type</span>
+            <label className="flex items-center gap-2 rounded-full border border-prism-border bg-prism-bg2 px-3 py-2 text-[12px] text-prism-tertiary transition-colors hover:border-cyan-500/20">
               <select
                 value={features.deepThinking ? 'reasoning' : 'standard'}
                 onChange={(e) => setFeatures((prev) => ({ ...prev, deepThinking: e.target.value === 'reasoning' }))}
@@ -1073,6 +1073,7 @@ export default function OraChat() {
                 <option value="standard">Standard</option>
                 <option value="reasoning">Reasoning</option>
               </select>
+              <ChevronDown className="h-3.5 w-3.5 text-prism-tertiary" />
             </label>
 
             <button

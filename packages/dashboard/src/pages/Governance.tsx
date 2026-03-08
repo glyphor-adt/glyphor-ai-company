@@ -155,8 +155,15 @@ const PLATFORM_COLORS: Record<Platform, string> = {
 /* ── Tool Catalog ─────────────────────────── */
 
 type ToolCategory = 'communication' | 'memory' | 'workflow' | 'platform' | 'github' | 'finance' | 'analytics' | 'content' | 'm365' | 'gcp-iam' | 'design' | 'support' | 'sales' | 'seo' | 'social' | 'operations' | 'research' | 'onboarding';
+type AccessSurfaceKey = 'all' | 'email' | 'sharepoint' | 'teams' | 'calendar' | 'github' | 'vercel' | 'stripe' | 'gcp' | 'knowledge' | 'workflow';
 
 interface ToolInfo { description: string; category: ToolCategory; platform?: string }
+
+interface AccessSurfaceOption {
+  key: AccessSurfaceKey;
+  label: string;
+  description: string;
+}
 
 const CATEGORY_LABELS: Record<ToolCategory, string> = {
   communication: 'Communication',
@@ -488,6 +495,99 @@ const TOOL_CATALOG: Record<string, ToolInfo> = {
 /** Get tool info with fallback for unknown tools */
 function getToolInfo(toolName: string): ToolInfo {
   return TOOL_CATALOG[toolName] ?? { description: toolName.replace(/_/g, ' '), category: 'workflow' as ToolCategory };
+}
+
+function getHumanToolLabel(toolName: string): string {
+  const explicitLabels: Record<string, string> = {
+    send_email: 'Send Email',
+    send_emergency_email: 'Send Emergency Email',
+    read_inbox: 'Read Inbox',
+    reply_to_email: 'Reply to Email',
+    create_calendar_event: 'Create Calendar Event',
+    list_calendar_events: 'List Calendar Events',
+    read_sharepoint: 'Read SharePoint',
+    write_sharepoint: 'Write SharePoint',
+    manage_sharepoint: 'Manage SharePoint',
+    search_sharepoint: 'Search SharePoint',
+    post_to_channel: 'Post to Teams Channel',
+    list_channels: 'List Teams Channels',
+    list_channel_members: 'List Channel Members',
+    add_channel_member: 'Add Channel Member',
+    create_channel: 'Create Teams Channel',
+    get_github_pr_status: 'Read PR Status',
+    get_ci_health: 'Read CI Health',
+    get_repo_stats: 'Read Repo Stats',
+    create_github_issue: 'Create GitHub Issue',
+    create_github_pr: 'Create Pull Request',
+    merge_github_pr: 'Merge Pull Request',
+    query_vercel_health: 'Read Vercel Health',
+    query_vercel_builds: 'Read Vercel Builds',
+    trigger_vercel_deploy: 'Trigger Vercel Deploy',
+    rollback_vercel_deploy: 'Rollback Vercel Deploy',
+  };
+
+  if (explicitLabels[toolName]) return explicitLabels[toolName];
+
+  return toolName
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+const ACCESS_SURFACES: AccessSurfaceOption[] = [
+  { key: 'all', label: 'All access', description: 'Show every built-in and granted tool.' },
+  { key: 'email', label: 'Email', description: 'Mailbox read/send/reply access.' },
+  { key: 'sharepoint', label: 'SharePoint', description: 'SharePoint read, search, write, or admin access.' },
+  { key: 'teams', label: 'Teams', description: 'Teams channels, users, and messaging access.' },
+  { key: 'calendar', label: 'Calendar', description: 'Calendar read/create access.' },
+  { key: 'github', label: 'GitHub', description: 'GitHub repositories, PRs, CI, and code access.' },
+  { key: 'vercel', label: 'Vercel', description: 'Vercel deployments, builds, and health access.' },
+  { key: 'stripe', label: 'Stripe', description: 'Stripe revenue and subscription access.' },
+  { key: 'gcp', label: 'GCP', description: 'GCP platform, IAM, metrics, and secret access.' },
+  { key: 'knowledge', label: 'Knowledge', description: 'Company memory, knowledge, and graph access.' },
+  { key: 'workflow', label: 'Workflow/Admin', description: 'Assignments, approvals, grants, and admin controls.' },
+];
+
+function matchesAccessSurface(toolName: string, surface: AccessSurfaceKey): boolean {
+  if (surface === 'all') return true;
+
+  const info = getToolInfo(toolName);
+  const name = toolName.toLowerCase();
+
+  switch (surface) {
+    case 'email':
+      return ['send_email', 'send_emergency_email', 'read_inbox', 'reply_to_email'].includes(name);
+    case 'sharepoint':
+      return name.includes('sharepoint');
+    case 'teams':
+      return info.category === 'm365' && (
+        name.includes('channel')
+        || name.includes('teams')
+        || name.includes('list_users')
+        || name.includes('get_user')
+        || name.includes('post_to_channel')
+        || name.includes('write_admin_log')
+        || name.startsWith('entra_')
+      );
+    case 'calendar':
+      return ['create_calendar_event', 'list_calendar_events'].includes(name);
+    case 'github':
+      return info.platform === 'github' || info.category === 'github';
+    case 'vercel':
+      return info.platform === 'vercel' || name.includes('vercel');
+    case 'stripe':
+      return info.platform === 'stripe' || name.includes('stripe');
+    case 'gcp':
+      return info.platform === 'gcp' || info.category === 'gcp-iam' || name.includes('gcp_') || name.startsWith('query_gcp');
+    case 'knowledge':
+      return info.category === 'memory' || name.includes('knowledge') || name.includes('memory') || name.includes('graph');
+    case 'workflow':
+      return info.category === 'workflow';
+  }
+}
+
+function getAccessSurfaceLabel(surface: AccessSurfaceKey): string {
+  return ACCESS_SURFACES.find((option) => option.key === surface)?.label ?? 'All access';
 }
 
 /** Group tools by category for dropdown */
@@ -836,19 +936,28 @@ function AgentAccessRow({
   role,
   agentGrants,
   isAdmin,
+  accessSurface,
   onRevoke,
 }: {
   role: string;
   agentGrants: ToolGrant[];
   isAdmin: boolean;
+  accessSurface: AccessSurfaceKey;
   onRevoke: (g: ToolGrant) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const builtInTools = AGENT_BUILT_IN_TOOLS[role] ?? [];
+  const builtInTools = useMemo(
+    () => (AGENT_BUILT_IN_TOOLS[role] ?? []).filter((tool) => matchesAccessSurface(tool, accessSurface)),
+    [role, accessSurface],
+  );
+  const visibleGrants = useMemo(
+    () => agentGrants.filter((grant) => matchesAccessSurface(grant.tool_name, accessSurface)),
+    [agentGrants, accessSurface],
+  );
 
   // Group grants by category
   const byCategory = new Map<ToolCategory, ToolGrant[]>();
-  for (const g of agentGrants) {
+  for (const g of visibleGrants) {
     const cat = getToolInfo(g.tool_name).category;
     if (!byCategory.has(cat)) byCategory.set(cat, []);
     byCategory.get(cat)!.push(g);
@@ -937,9 +1046,9 @@ function AgentAccessRow({
                           <span
                             key={t}
                             className="inline-flex items-center gap-1 rounded-full border border-prism-teal/20 bg-prism-teal/5 px-2.5 py-1 text-[12px] text-txt-secondary"
-                            title={`${info.description}\nBuilt-in tool (always available)${info.platform ? `\nPlatform: ${info.platform.toUpperCase()}` : ''}`}
+                            title={`${getHumanToolLabel(t)}\nRaw tool: ${t}\n${info.description}\nBuilt-in tool (always available)${info.platform ? `\nPlatform: ${info.platform.toUpperCase()}` : ''}`}
                           >
-                            {t}
+                            {getHumanToolLabel(t)}
                             {info.platform && (
                               <span className="rounded bg-prism-bg2 px-1 text-[9px] font-medium text-txt-muted">
                                 {info.platform.toUpperCase()}
@@ -972,12 +1081,12 @@ function AgentAccessRow({
                           <span
                             key={g.id}
                             className="group relative inline-flex items-center gap-1 rounded-full border border-border/50 bg-prism-card px-2.5 py-1 text-[12px] text-txt-secondary"
-                            title={`${info.description}\nGranted by ${DISPLAY_NAME_MAP[g.granted_by] ?? g.granted_by}${g.reason ? `\nReason: ${g.reason}` : ''}${g.scope === 'read_only' ? '\nRead Only' : ''}${info.platform ? `\nPlatform: ${info.platform.toUpperCase()}` : ''}`}
+                            title={`${getHumanToolLabel(g.tool_name)}\nRaw tool: ${g.tool_name}\n${info.description}\nGranted by ${DISPLAY_NAME_MAP[g.granted_by] ?? g.granted_by}${g.reason ? `\nReason: ${g.reason}` : ''}${g.scope === 'read_only' ? '\nRead Only' : ''}${info.platform ? `\nPlatform: ${info.platform.toUpperCase()}` : ''}`}
                           >
                             {g.scope === 'read_only' && (
                               <MdSearch className="text-[12px] text-prism-sky" />
                             )}
-                            {g.tool_name}
+                            {getHumanToolLabel(g.tool_name)}
                             {info.platform && (
                               <span className="rounded bg-prism-bg2 px-1 text-[9px] font-medium text-txt-muted">
                                 {info.platform.toUpperCase()}
@@ -1023,6 +1132,7 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [filterGrantedBy, setFilterGrantedBy] = useState('all');
+  const [accessSurface, setAccessSurface] = useState<AccessSurfaceKey>('all');
 
   // Grant form
   const [showGrantForm, setShowGrantForm] = useState(false);
@@ -1124,6 +1234,7 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
   );
   const filteredGrants = useMemo(() => {
     return activeGrants.filter((g) => {
+      if (!matchesAccessSurface(g.tool_name, accessSurface)) return false;
       if (filterRole !== 'all' && g.agent_role !== filterRole) return false;
       if (filterGrantedBy !== 'all' && g.granted_by !== filterGrantedBy) return false;
       if (searchTerm) {
@@ -1162,7 +1273,9 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
             const hasGrant = (grantsByAgent[r] ?? []).some(
               (g) => g.tool_name.includes(term) || (g.reason ?? '').toLowerCase().includes(term),
             );
-            const hasBuiltIn = (AGENT_BUILT_IN_TOOLS[r] ?? []).some((t) => t.toLowerCase().includes(term));
+            const hasBuiltIn = (AGENT_BUILT_IN_TOOLS[r] ?? [])
+              .filter((t) => matchesAccessSurface(t, accessSurface))
+              .some((t) => t.toLowerCase().includes(term));
             return (
               r.includes(term) ||
               (DISPLAY_NAME_MAP[r] ?? '').toLowerCase().includes(term) ||
@@ -1170,11 +1283,31 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
               hasBuiltIn
             );
           }
+          if (accessSurface !== 'all') {
+            const hasGrant = (grantsByAgent[r] ?? []).length > 0;
+            const hasBuiltIn = (AGENT_BUILT_IN_TOOLS[r] ?? []).some((tool) => matchesAccessSurface(tool, accessSurface));
+            return hasGrant || hasBuiltIn;
+          }
           return true;
         }),
       }))
       .filter((group) => group.roles.length > 0);
-  }, [filterRole, searchTerm, grantsByAgent]);
+  }, [filterRole, searchTerm, grantsByAgent, accessSurface]);
+
+  const accessSummary = useMemo(() => {
+    if (accessSurface === 'all') return [] as Array<{ role: string; tools: string[] }>;
+
+    return AGENT_ROLES
+      .map((role) => {
+        const matchedBuiltIn = (AGENT_BUILT_IN_TOOLS[role] ?? []).filter((tool) => matchesAccessSurface(tool, accessSurface));
+        const matchedGranted = activeGrants
+          .filter((grant) => grant.agent_role === role && matchesAccessSurface(grant.tool_name, accessSurface))
+          .map((grant) => grant.tool_name);
+        const tools = [...new Set([...matchedBuiltIn, ...matchedGranted])].sort();
+        return { role, tools };
+      })
+      .filter((entry) => entry.tools.length > 0);
+  }, [accessSurface, activeGrants]);
 
   // Stats
   const agentsWithTools = new Set([
@@ -1287,6 +1420,15 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
           />
         </div>
         <select
+          value={accessSurface}
+          onChange={(e) => setAccessSurface(e.target.value as AccessSurfaceKey)}
+          className="rounded-lg border border-border bg-surface px-3 py-2 text-[12px] text-txt-primary"
+        >
+          {ACCESS_SURFACES.map((surface) => (
+            <option key={surface.key} value={surface.key}>{surface.label}</option>
+          ))}
+        </select>
+        <select
           value={filterRole}
           onChange={(e) => setFilterRole(e.target.value)}
           className="rounded-lg border border-border bg-surface px-3 py-2 text-[12px] text-txt-primary"
@@ -1320,6 +1462,48 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
           </button>
         )}
       </div>
+
+      {accessSurface !== 'all' && (
+        <Card>
+          <SectionHeader
+            title={`${getAccessSurfaceLabel(accessSurface)} Access Summary`}
+            subtitle={ACCESS_SURFACES.find((surface) => surface.key === accessSurface)?.description}
+          />
+          {accessSummary.length === 0 ? (
+            <p className="text-[13px] text-txt-muted">No agents currently have matching access.</p>
+          ) : (
+            <div className="space-y-2">
+              {accessSummary.map(({ role, tools }) => (
+                <div key={role} className="flex items-start gap-3 rounded-lg border border-border/50 px-3 py-2">
+                  <div className="min-w-[180px]">
+                    <p className="text-[13px] font-semibold text-txt-primary">{DISPLAY_NAME_MAP[role] ?? role}</p>
+                    <p className="text-[11px] text-txt-muted">{role}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {tools.map((tool) => {
+                      const info = getToolInfo(tool);
+                      return (
+                        <span
+                          key={`${role}-${tool}`}
+                          className="inline-flex items-center gap-1 rounded-full border border-border/50 bg-prism-card px-2.5 py-1 text-[12px] text-txt-secondary"
+                          title={`${getHumanToolLabel(tool)}\nRaw tool: ${tool}\n${info.description}`}
+                        >
+                          {getHumanToolLabel(tool)}
+                          {info.platform && (
+                            <span className="rounded bg-prism-bg2 px-1 text-[9px] font-medium text-txt-muted">
+                              {info.platform.toUpperCase()}
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Grant Form (Kristina only) */}
       {showGrantForm && isAdmin && (
@@ -1444,6 +1628,7 @@ function AdminAccessPanel({ isAdmin }: { isAdmin: boolean }) {
                     role={role}
                     agentGrants={grantsByAgent[role] ?? []}
                     isAdmin={isAdmin}
+                    accessSurface={accessSurface}
                     onRevoke={handleRevoke}
                   />
                 ))}
