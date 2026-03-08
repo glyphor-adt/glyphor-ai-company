@@ -7,7 +7,7 @@ import {
   MdExpandMore, MdChevronRight, MdCheck, MdWarning,
   MdLock, MdVpnKey, MdBarChart, MdClose,
   MdShield, MdPersonAdd, MdRemoveCircle, MdSearch,
-  MdAdminPanelSettings, MdPending, MdCheckCircle,
+  MdAdminPanelSettings, MdPending, MdCheckCircle, MdPlayArrow,
 } from 'react-icons/md';
 
 /* ── Types ────────────────────────────────── */
@@ -45,9 +45,22 @@ interface SecretRotation {
   status: string;
 }
 
+interface PolicyVersion {
+  id: string;
+  policy_type: string;
+  agent_role: string | null;
+  version: number;
+  status: 'draft' | 'candidate' | 'canary' | 'active' | 'archived' | 'rolled_back' | 'superseded';
+  eval_score: number | null;
+  source: string | null;
+  rollback_reason: string | null;
+  promoted_at: string | null;
+  created_at: string;
+}
+
 type Platform = 'gcp' | 'm365' | 'github' | 'stripe' | 'vercel';
 
-type GovernanceTab = 'platform' | 'admin' | 'tool-health';
+type GovernanceTab = 'overview' | 'platform' | 'admin' | 'tool-health' | 'policy';
 
 /* ── Admin-only access gate ───────────────── */
 const ADMIN_EMAILS = ['kristina@glyphor.ai', 'devops@glyphor.ai'];
@@ -2051,18 +2064,469 @@ function ToolHealthPanel() {
   );
 }
 
+const POLICY_STATUS_COLORS: Record<PolicyVersion['status'], { text: string; bg: string }> = {
+  draft: { text: 'text-prism-tertiary', bg: 'bg-prism-bg2' },
+  candidate: { text: 'text-prism-violet', bg: 'bg-prism-violet/10' },
+  canary: { text: 'text-prism-elevated', bg: 'bg-prism-elevated/10' },
+  active: { text: 'text-prism-teal', bg: 'bg-prism-tint-2' },
+  archived: { text: 'text-prism-tertiary', bg: 'bg-prism-bg2' },
+  rolled_back: { text: 'text-prism-critical', bg: 'bg-prism-critical/10' },
+  superseded: { text: 'text-prism-secondary', bg: 'bg-prism-bg2' },
+};
+
+function PolicyStatusBadge({ status }: { status: PolicyVersion['status'] }) {
+  const cfg = POLICY_STATUS_COLORS[status];
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${cfg.text} ${cfg.bg}`}>
+      {status.replace('_', ' ')}
+    </span>
+  );
+}
+
+function GovernanceOverviewPanel({
+  iamState,
+  driftItems,
+  expiringSecrets,
+  failures,
+  policyVersions,
+}: {
+  iamState: IAMState[];
+  driftItems: IAMState[];
+  expiringSecrets: SecretRotation[];
+  failures: AuditEntry[];
+  policyVersions: PolicyVersion[];
+}) {
+  const activePolicies = policyVersions.filter((policy) => policy.status === 'active');
+  const canaryPolicies = policyVersions.filter((policy) => policy.status === 'canary');
+  const candidatePolicies = policyVersions.filter((policy) => policy.status === 'candidate');
+  const recentRollbacks = [...policyVersions]
+    .filter((policy) => policy.status === 'rolled_back')
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 5);
+  const recentFailures = [...failures]
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .slice(0, 8);
+  const alertCount = driftItems.length + expiringSecrets.length + recentRollbacks.length + recentFailures.length;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-5">
+        <Card>
+          <p className="text-[12px] font-medium text-txt-muted">Open Alerts</p>
+          <p className="mt-1 text-2xl font-bold text-prism-critical">{alertCount}</p>
+        </Card>
+        <Card>
+          <p className="text-[12px] font-medium text-txt-muted">IAM Identities</p>
+          <p className="mt-1 text-2xl font-bold text-txt-primary">{iamState.length}</p>
+        </Card>
+        <Card>
+          <p className="text-[12px] font-medium text-txt-muted">Active Policies</p>
+          <p className="mt-1 text-2xl font-bold text-prism-teal">{activePolicies.length}</p>
+        </Card>
+        <Card>
+          <p className="text-[12px] font-medium text-txt-muted">Canaries</p>
+          <p className="mt-1 text-2xl font-bold text-prism-elevated">{canaryPolicies.length}</p>
+        </Card>
+        <Card>
+          <p className="text-[12px] font-medium text-txt-muted">Candidates</p>
+          <p className="mt-1 text-2xl font-bold text-prism-violet">{candidatePolicies.length}</p>
+        </Card>
+      </div>
+
+      <Card>
+        <SectionHeader
+          title="Governance Alerts"
+          subtitle="Live risks across IAM drift, secret rotation, platform failures, and policy regressions"
+        />
+        <div className="space-y-3">
+          {driftItems.slice(0, 4).map((item) => (
+            <div key={item.id} className="flex items-start gap-3 rounded-lg border border-prism-elevated/30 bg-prism-elevated/5 p-3">
+              <MdWarning className="mt-0.5 text-prism-elevated" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-prism-primary">IAM drift on {item.credential_id}</p>
+                <p className="mt-1 text-[12px] text-txt-muted">{item.drift_details ?? 'Permissions are out of sync with desired state.'}</p>
+              </div>
+              <span className="text-[11px] text-txt-faint">{timeAgo(item.last_synced)}</span>
+            </div>
+          ))}
+          {expiringSecrets.slice(0, 3).map((secret) => (
+            <div key={secret.id} className="flex items-start gap-3 rounded-lg border border-prism-elevated/30 bg-prism-elevated/5 p-3">
+              <MdVpnKey className="mt-0.5 text-prism-elevated" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-prism-primary">Secret rotation due for {secret.secret_name}</p>
+                <p className="mt-1 text-[12px] text-txt-muted">Expires in {daysUntil(secret.expires_at)} days on {secret.platform.toUpperCase()}.</p>
+              </div>
+            </div>
+          ))}
+          {recentRollbacks.map((policy) => (
+            <div key={policy.id} className="flex items-start gap-3 rounded-lg border border-prism-critical/20 bg-prism-critical/5 p-3">
+              <MdClose className="mt-0.5 text-prism-critical" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-prism-primary">Rolled back {policy.policy_type} policy for {policy.agent_role ?? 'system'}</p>
+                <p className="mt-1 text-[12px] text-txt-muted">{policy.rollback_reason ?? 'Policy canary regressed or timed out.'}</p>
+              </div>
+              <span className="text-[11px] text-txt-faint">{timeAgo(policy.created_at)}</span>
+            </div>
+          ))}
+          {recentFailures.map((entry) => (
+            <div key={entry.id} className="flex items-start gap-3 rounded-lg border border-prism-critical/20 bg-prism-critical/5 p-3">
+              <MdBarChart className="mt-0.5 text-prism-critical" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-prism-primary">{entry.platform.toUpperCase()} failure from {DISPLAY_NAME_MAP[entry.agent_role] ?? entry.agent_role}</p>
+                <p className="mt-1 text-[12px] text-txt-muted">{entry.action} · {entry.response_summary ?? 'No response summary recorded'} · HTTP {entry.response_code ?? '—'}</p>
+              </div>
+              <span className="text-[11px] text-txt-faint">{timeAgo(entry.timestamp)}</span>
+            </div>
+          ))}
+          {alertCount === 0 && (
+            <p className="py-6 text-center text-[13px] text-txt-muted">No active governance or observability alerts.</p>
+          )}
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.25fr_1fr]">
+        <Card>
+          <SectionHeader title="Policy Lifecycle Snapshot" subtitle="Current distribution across the policy pipeline" />
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {(['draft', 'candidate', 'canary', 'active'] as const).map((status) => {
+              const count = policyVersions.filter((policy) => policy.status === status).length;
+              return (
+                <div key={status} className="rounded-xl border border-border bg-raised p-4">
+                  <p className="text-[12px] font-medium capitalize text-txt-muted">{status}</p>
+                  <p className="mt-1 text-2xl font-bold text-txt-primary">{count}</p>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        <Card>
+          <SectionHeader title="Canary Watch" subtitle="Policies currently proving themselves in production" />
+          <div className="space-y-3">
+            {canaryPolicies.length === 0 ? (
+              <p className="py-6 text-center text-[13px] text-txt-muted">No policies currently in canary.</p>
+            ) : canaryPolicies.slice(0, 5).map((policy) => (
+              <div key={policy.id} className="rounded-lg border border-border bg-raised p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[13px] font-medium text-txt-primary">{policy.policy_type}</p>
+                    <p className="mt-0.5 text-[12px] text-txt-muted">{policy.agent_role ?? 'system'} · v{policy.version}</p>
+                  </div>
+                  <PolicyStatusBadge status={policy.status} />
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[12px] text-txt-muted">
+                  <span>{policy.promoted_at ? `In canary ${timeAgo(policy.promoted_at)}` : `Created ${timeAgo(policy.created_at)}`}</span>
+                  <span>{policy.eval_score != null ? `${(policy.eval_score * 100).toFixed(0)}% eval` : 'No eval score'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+type PolicyLifecycleTab = 'active' | 'canary' | 'pipeline' | 'history' | 'controls';
+
+function PolicyLifecyclePanel({
+  versions,
+  collecting,
+  evaluating,
+  collectResult,
+  evalResult,
+  onCollect,
+  onEvaluate,
+  onRefresh,
+}: {
+  versions: PolicyVersion[];
+  collecting: boolean;
+  evaluating: boolean;
+  collectResult: string | null;
+  evalResult: string | null;
+  onCollect: () => void;
+  onEvaluate: () => void;
+  onRefresh: () => void;
+}) {
+  const [tab, setTab] = useState<PolicyLifecycleTab>('active');
+  const [historyType, setHistoryType] = useState('');
+  const [historyStatus, setHistoryStatus] = useState('');
+  const [historyPage, setHistoryPage] = useState(0);
+  const pageSize = 20;
+
+  const activePolicies = useMemo(() => versions.filter((v) => v.status === 'active'), [versions]);
+  const canaryPolicies = useMemo(() => versions.filter((v) => v.status === 'canary'), [versions]);
+  const pipelineCounts = useMemo(() => {
+    const counts: Record<'draft' | 'candidate' | 'canary' | 'active', PolicyVersion[]> = {
+      draft: [], candidate: [], canary: [], active: [],
+    };
+    for (const version of versions) {
+      if (version.status in counts) counts[version.status as keyof typeof counts].push(version);
+    }
+    return counts;
+  }, [versions]);
+  const policyTypes = useMemo(() => [...new Set(versions.map((v) => v.policy_type))].sort(), [versions]);
+  const historyFiltered = useMemo(() => {
+    let list = [...versions].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    if (historyType) list = list.filter((version) => version.policy_type === historyType);
+    if (historyStatus) list = list.filter((version) => version.status === historyStatus);
+    return list;
+  }, [versions, historyType, historyStatus]);
+  const historyTotalPages = Math.max(1, Math.ceil(historyFiltered.length / pageSize));
+  const historyRows = historyFiltered.slice(historyPage * pageSize, (historyPage + 1) * pageSize);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <SectionHeader title="Policy Lifecycle" subtitle="Collected proposals, evaluations, canaries, and active operating rules" />
+        <button
+          onClick={onRefresh}
+          className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-medium text-txt-muted transition-colors hover:bg-raised hover:text-txt-primary"
+        >
+          Refresh
+        </button>
+      </div>
+
+      <PageTabs<PolicyLifecycleTab>
+        tabs={[
+          { key: 'active', label: `Active (${activePolicies.length})` },
+          { key: 'canary', label: `Canary (${canaryPolicies.length})` },
+          { key: 'pipeline', label: 'Pipeline' },
+          { key: 'history', label: `History (${versions.length})` },
+          { key: 'controls', label: 'Controls' },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+
+      {tab === 'active' && (
+        <Card>
+          {activePolicies.length === 0 ? (
+            <p className="py-8 text-center text-sm text-txt-muted">No active policies found.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr className="border-b border-border text-left text-txt-muted">
+                    <th className="pb-2 pr-4 font-medium">Type</th>
+                    <th className="pb-2 pr-4 font-medium">Agent</th>
+                    <th className="pb-2 pr-4 font-medium">Version</th>
+                    <th className="pb-2 pr-4 font-medium">Promoted</th>
+                    <th className="pb-2 font-medium">Eval Score</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {activePolicies.map((policy) => (
+                    <tr key={policy.id} className="text-txt-secondary">
+                      <td className="py-2 pr-4 font-medium text-txt-primary">{policy.policy_type}</td>
+                      <td className="py-2 pr-4">{policy.agent_role ?? 'system'}</td>
+                      <td className="py-2 pr-4">v{policy.version}</td>
+                      <td className="py-2 pr-4">{policy.promoted_at ? timeAgo(policy.promoted_at) : '—'}</td>
+                      <td className="py-2">{policy.eval_score != null ? `${(policy.eval_score * 100).toFixed(0)}%` : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {tab === 'canary' && (
+        <div className="space-y-4">
+          {canaryPolicies.length === 0 ? (
+            <Card><p className="text-sm text-txt-muted">No policies currently in canary.</p></Card>
+          ) : canaryPolicies.map((policy) => (
+            <Card key={policy.id} className="border-l-4 border-l-prism-elevated">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <MdWarning className="h-4 w-4 text-prism-elevated" />
+                    <span className="text-sm font-semibold text-txt-primary">{policy.policy_type}</span>
+                    <PolicyStatusBadge status={policy.status} />
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-x-8 gap-y-1 text-[13px] text-txt-muted">
+                    <span>Agent: <span className="text-txt-secondary">{policy.agent_role ?? 'system'}</span></span>
+                    <span>Version: <span className="text-txt-secondary">v{policy.version}</span></span>
+                    <span>In canary: <span className="text-txt-secondary">{policy.promoted_at ? timeAgo(policy.promoted_at) : timeAgo(policy.created_at)}</span></span>
+                    <span>Eval score: <span className="text-txt-secondary">{policy.eval_score != null ? `${(policy.eval_score * 100).toFixed(0)}%` : '—'}</span></span>
+                  </div>
+                </div>
+                <div className="flex min-w-[120px] flex-col items-end gap-1">
+                  <span className="text-[11px] text-txt-muted">Canary progress</span>
+                  <div className="h-2 w-24 overflow-hidden rounded-full bg-prism-bg2">
+                    <div className="h-full rounded-full bg-prism-elevated" style={{ width: policy.eval_score != null ? `${Math.min(policy.eval_score * 100, 100)}%` : '0%' }} />
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {tab === 'pipeline' && (
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
+          {(['draft', 'candidate', 'canary', 'active'] as const).map((stage) => (
+            <Card key={stage}>
+              <div className="mb-3 flex items-center justify-between">
+                <span className={`text-sm font-semibold capitalize ${POLICY_STATUS_COLORS[stage].text}`}>{stage}</span>
+                <span className="rounded-full bg-prism-bg2 px-2 py-0.5 text-[11px] font-bold text-txt-muted">{pipelineCounts[stage].length}</span>
+              </div>
+              <div className="space-y-2">
+                {pipelineCounts[stage].length === 0 ? (
+                  <p className="text-[12px] italic text-txt-muted">No entries</p>
+                ) : pipelineCounts[stage].slice(0, 5).map((policy) => (
+                  <div key={policy.id} className="rounded-lg border border-border bg-raised p-2">
+                    <p className="truncate text-[12px] font-medium text-txt-primary">{policy.policy_type}</p>
+                    <p className="text-[11px] text-txt-muted">{policy.agent_role ?? 'system'} · v{policy.version}</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {tab === 'history' && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <MdSearch className="h-4 w-4 text-txt-muted" />
+            <select
+              value={historyType}
+              onChange={(event) => { setHistoryType(event.target.value); setHistoryPage(0); }}
+              className="rounded-lg border border-border bg-surface px-3 py-1.5 text-[13px] text-txt-secondary outline-none"
+            >
+              <option value="">All types</option>
+              {policyTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+            </select>
+            <select
+              value={historyStatus}
+              onChange={(event) => { setHistoryStatus(event.target.value); setHistoryPage(0); }}
+              className="rounded-lg border border-border bg-surface px-3 py-1.5 text-[13px] text-txt-secondary outline-none"
+            >
+              <option value="">All statuses</option>
+              {Object.keys(POLICY_STATUS_COLORS).map((status) => <option key={status} value={status}>{status.replace('_', ' ')}</option>)}
+            </select>
+          </div>
+          <Card>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr className="border-b border-border text-left text-txt-muted">
+                    <th className="pb-2 pr-4 font-medium">Type</th>
+                    <th className="pb-2 pr-4 font-medium">Agent</th>
+                    <th className="pb-2 pr-4 font-medium">Version</th>
+                    <th className="pb-2 pr-4 font-medium">Status</th>
+                    <th className="pb-2 pr-4 font-medium">Eval</th>
+                    <th className="pb-2 pr-4 font-medium">Source</th>
+                    <th className="pb-2 pr-4 font-medium">Created</th>
+                    <th className="pb-2 font-medium">Rollback</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {historyRows.length === 0 ? (
+                    <tr><td colSpan={8} className="py-4 text-center text-txt-muted">No policy versions found.</td></tr>
+                  ) : historyRows.map((policy) => (
+                    <tr key={policy.id} className="text-txt-secondary">
+                      <td className="py-2 pr-4 font-medium text-txt-primary">{policy.policy_type}</td>
+                      <td className="py-2 pr-4">{policy.agent_role ?? 'system'}</td>
+                      <td className="py-2 pr-4">v{policy.version}</td>
+                      <td className="py-2 pr-4"><PolicyStatusBadge status={policy.status} /></td>
+                      <td className="py-2 pr-4">{policy.eval_score != null ? `${(policy.eval_score * 100).toFixed(0)}%` : '—'}</td>
+                      <td className="py-2 pr-4">{policy.source ?? '—'}</td>
+                      <td className="py-2 pr-4">{timeAgo(policy.created_at)}</td>
+                      <td className="py-2 text-[12px]">{policy.rollback_reason ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {historyTotalPages > 1 && (
+              <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
+                <span className="text-[12px] text-txt-muted">Page {historyPage + 1} of {historyTotalPages}</span>
+                <div className="flex gap-2">
+                  <button
+                    disabled={historyPage === 0}
+                    onClick={() => setHistoryPage(historyPage - 1)}
+                    className="rounded border border-border px-3 py-1 text-[12px] text-txt-muted transition-colors hover:bg-raised disabled:opacity-40"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    disabled={historyPage >= historyTotalPages - 1}
+                    onClick={() => setHistoryPage(historyPage + 1)}
+                    className="rounded border border-border px-3 py-1 text-[12px] text-txt-muted transition-colors hover:bg-raised disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {tab === 'controls' && (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Card>
+            <h3 className="mb-2 text-sm font-semibold text-txt-primary">Collect Proposals</h3>
+            <p className="mb-4 text-[12px] text-txt-muted">Trigger the learning governor to collect new policy proposals from reflections, failures, and procedures.</p>
+            <button
+              onClick={onCollect}
+              disabled={collecting}
+              className="flex items-center gap-2 rounded-lg bg-cyan/15 px-4 py-2 text-[13px] font-medium text-cyan transition-colors hover:bg-cyan/25 disabled:opacity-50"
+            >
+              <MdPlayArrow className="h-4 w-4" />
+              {collecting ? 'Collecting…' : 'Collect Proposals Now'}
+            </button>
+            {collectResult && (
+              <div className={`mt-3 flex items-center gap-1.5 text-[12px] ${collectResult === 'success' ? 'text-prism-teal' : 'text-prism-critical'}`}>
+                {collectResult === 'success' ? <MdCheck className="h-4 w-4" /> : <MdWarning className="h-4 w-4" />}
+                {collectResult === 'success' ? 'Proposals collected successfully.' : 'Failed to collect proposals.'}
+              </div>
+            )}
+          </Card>
+          <Card>
+            <h3 className="mb-2 text-sm font-semibold text-txt-primary">Run Evaluation</h3>
+            <p className="mb-4 text-[12px] text-txt-muted">Evaluate draft policies against baseline behavior and promote strong candidates.</p>
+            <button
+              onClick={onEvaluate}
+              disabled={evaluating}
+              className="flex items-center gap-2 rounded-lg bg-cyan/15 px-4 py-2 text-[13px] font-medium text-cyan transition-colors hover:bg-cyan/25 disabled:opacity-50"
+            >
+              <MdBarChart className="h-4 w-4" />
+              {evaluating ? 'Evaluating…' : 'Run Evaluation'}
+            </button>
+            {evalResult && (
+              <div className={`mt-3 flex items-center gap-1.5 text-[12px] ${evalResult === 'success' ? 'text-prism-teal' : 'text-prism-critical'}`}>
+                {evalResult === 'success' ? <MdCheck className="h-4 w-4" /> : <MdWarning className="h-4 w-4" />}
+                {evalResult === 'success' ? 'Evaluation completed successfully.' : 'Failed to run evaluation.'}
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Page ─────────────────────────────────── */
 
 export default function Governance() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<GovernanceTab>('platform');
+  const [activeTab, setActiveTab] = useState<GovernanceTab>('overview');
   const isAdmin = ADMIN_EMAILS.includes(user?.email?.toLowerCase() ?? '');
 
   const [iamState, setIamState] = useState<IAMState[]>([]);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [secrets, setSecrets] = useState<SecretRotation[]>([]);
+  const [policyVersions, setPolicyVersions] = useState<PolicyVersion[]>([]);
   const [loading, setLoading] = useState(true);
   const [auditing, setAuditing] = useState(false);
+  const [collectingPolicy, setCollectingPolicy] = useState(false);
+  const [evaluatingPolicy, setEvaluatingPolicy] = useState(false);
+  const [collectResult, setCollectResult] = useState<string | null>(null);
+  const [evalResult, setEvalResult] = useState<string | null>(null);
 
   // Audit log filters
   const [filterPlatform, setFilterPlatform] = useState<string>('all');
@@ -2071,18 +2535,21 @@ export default function Governance() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [iamData, auditData, secretsData] = await Promise.all([
+      const [iamData, auditData, secretsData, policyData] = await Promise.all([
         apiCall<IAMState[]>('/api/platform-iam-state'),
         apiCall<AuditEntry[]>('/api/platform-audit-log?limit=50'),
         apiCall<SecretRotation[]>('/api/platform-secret-rotation'),
+        apiCall<PolicyVersion[]>('/api/policy_versions?limit=200'),
       ]);
       setIamState(iamData ?? []);
       setAuditLog(auditData ?? []);
       setSecrets(secretsData ?? []);
+      setPolicyVersions(policyData ?? []);
     } catch {
       setIamState([]);
       setAuditLog([]);
       setSecrets([]);
+      setPolicyVersions([]);
     }
     setLoading(false);
   }, []);
@@ -2095,6 +2562,32 @@ export default function Governance() {
     } catch { /* ignore — reload will show latest */ }
     await loadData();
     setAuditing(false);
+  }, [loadData]);
+
+  const collectPolicies = useCallback(async () => {
+    setCollectingPolicy(true);
+    setCollectResult(null);
+    try {
+      await fetch(`${SCHEDULER_URL}/policy/collect`, { method: 'POST' });
+      setCollectResult('success');
+    } catch {
+      setCollectResult('error');
+    }
+    await loadData();
+    setCollectingPolicy(false);
+  }, [loadData]);
+
+  const evaluatePolicies = useCallback(async () => {
+    setEvaluatingPolicy(true);
+    setEvalResult(null);
+    try {
+      await fetch(`${SCHEDULER_URL}/policy/evaluate`, { method: 'POST' });
+      setEvalResult('success');
+    } catch {
+      setEvalResult('error');
+    }
+    await loadData();
+    setEvaluatingPolicy(false);
   }, [loadData]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -2143,7 +2636,7 @@ export default function Governance() {
           <div>
             <h1 className="text-xl font-bold text-txt-primary">Governance</h1>
             <p className="text-[13px] text-txt-muted">
-              Access control, tool grants, and platform audit trail
+              Governance controls, policy lifecycle, and live observability
             </p>
           </div>
         </div>
@@ -2161,19 +2654,40 @@ export default function Governance() {
       {/* Tabs */}
       <PageTabs<GovernanceTab>
         tabs={[
+          { key: 'overview', label: 'Overview' },
           { key: 'platform', label: 'Platform IAM' },
           { key: 'admin', label: 'Admin & Access' },
           { key: 'tool-health', label: 'Tool Health' },
+          { key: 'policy', label: 'Policy' },
         ]}
         active={activeTab}
         onChange={setActiveTab}
       />
 
       {/* Tab Content */}
-      {activeTab === 'tool-health' ? (
+      {activeTab === 'overview' ? (
+        <GovernanceOverviewPanel
+          iamState={iamState}
+          driftItems={driftItems}
+          expiringSecrets={expiringSecrets}
+          failures={failures}
+          policyVersions={policyVersions}
+        />
+      ) : activeTab === 'tool-health' ? (
         <ToolHealthPanel />
       ) : activeTab === 'admin' ? (
         <AdminAccessPanel isAdmin={isAdmin} />
+      ) : activeTab === 'policy' ? (
+        <PolicyLifecyclePanel
+          versions={policyVersions}
+          collecting={collectingPolicy}
+          evaluating={evaluatingPolicy}
+          collectResult={collectResult}
+          evalResult={evalResult}
+          onCollect={collectPolicies}
+          onEvaluate={evaluatePolicies}
+          onRefresh={loadData}
+        />
       ) : (
       <>
 

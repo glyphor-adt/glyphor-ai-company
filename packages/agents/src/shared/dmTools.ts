@@ -132,7 +132,6 @@ function extractMessageText(message: Record<string, unknown>): string {
  */
 export function createDmTools(): ToolDefinition[] {
   let graphClient: GraphTeamsClient | null = null;
-  let a365Client: A365TeamsChatClient | null = null;
   let dmSender: BotDmSender | null = null;
 
   try {
@@ -142,17 +141,19 @@ export function createDmTools(): ToolDefinition[] {
   }
 
   try {
-    a365Client = A365TeamsChatClient.fromEnv();
-  } catch {
-    // A365 not configured
-  }
-
-  try {
     if (graphClient) {
       dmSender = BotDmSender.fromEnv(graphClient);
     }
   } catch {
     // Bot Framework not configured
+  }
+
+  function getA365Client(role?: CompanyAgentRole): A365TeamsChatClient | null {
+    try {
+      return A365TeamsChatClient.fromEnv(role);
+    } catch {
+      return null;
+    }
   }
 
   return [
@@ -193,6 +194,7 @@ export function createDmTools(): ToolDefinition[] {
         const agentEntry = role ? AGENT_EMAIL_MAP[role] : undefined;
         const senderName = agentEntry?.displayName ?? role ?? 'Glyphor Agent';
         const senderEmail = agentEntry?.email;
+        const a365Client = getA365Client(role);
 
         // ── Primary path: Bot Framework proactive messaging ──────
         // Bot Framework is the correct approach for proactive DMs —
@@ -253,7 +255,7 @@ export function createDmTools(): ToolDefinition[] {
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        if (!a365Client || !graphClient) {
+        if (!graphClient) {
           return {
             success: false,
             error: 'Teams DM reading requires AGENT365_ENABLED=true and Graph user resolution to be configured.',
@@ -270,6 +272,14 @@ export function createDmTools(): ToolDefinition[] {
         }
 
         const role = ctx?.agentRole as CompanyAgentRole | undefined;
+        const a365Client = getA365Client(role);
+        if (!a365Client) {
+          return {
+            success: false,
+            error: 'Teams DM reading requires Agent 365 credentials for the current agent role.',
+          };
+        }
+
         const senderEmail = role ? AGENT_EMAIL_MAP[role]?.email : undefined;
 
         try {

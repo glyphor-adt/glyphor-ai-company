@@ -23,6 +23,8 @@ import { McpToolServerConfigurationService } from '@microsoft/agents-a365-toolin
 import type { MCPServerConfig, McpClientTool } from '@microsoft/agents-a365-tooling';
 import type { ToolDefinition, ToolParameter, ToolResult, ToolContext } from '@glyphor/agent-runtime';
 import { ConfidentialClientApplication } from '@azure/msal-node';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -178,6 +180,56 @@ async function acquireToken(config: Agent365Config): Promise<string> {
   return result.accessToken;
 }
 
+async function discoverServerConfigs(
+  configService: McpToolServerConfigurationService,
+  clientId: string,
+  authToken: string,
+): Promise<MCPServerConfig[]> {
+  try {
+    return await configService.listToolServers(clientId, authToken);
+  } catch (err) {
+    const message = (err as Error).message;
+    console.warn(`[Agent365] Tooling gateway discovery failed, falling back to ToolingManifest.json: ${message}`);
+    return loadServerConfigsFromManifest();
+  }
+}
+
+function loadServerConfigsFromManifest(): MCPServerConfig[] {
+  let manifestPath = path.join(process.cwd(), 'ToolingManifest.json');
+  if (!existsSync(manifestPath)) {
+    manifestPath = path.join(path.dirname(process.argv[1] || ''), 'ToolingManifest.json');
+  }
+  if (!existsSync(manifestPath)) {
+    console.warn(`[Agent365] ToolingManifest.json not found at ${manifestPath}`);
+    return [];
+  }
+
+  try {
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      mcpServers?: Array<Record<string, unknown>>;
+    };
+    const serverConfigs: MCPServerConfig[] = [];
+    for (const server of manifest.mcpServers ?? []) {
+      const mcpServerName = typeof server.mcpServerName === 'string'
+        ? server.mcpServerName
+        : typeof server.mcpServerUniqueName === 'string'
+          ? server.mcpServerUniqueName
+          : null;
+      const url = typeof server.url === 'string' ? server.url : null;
+      if (!mcpServerName || !url) continue;
+      serverConfigs.push({
+        mcpServerName,
+        url,
+        headers: typeof server.headers === 'object' ? server.headers as Record<string, string> : undefined,
+      });
+    }
+    return serverConfigs;
+  } catch (err) {
+    console.warn(`[Agent365] Failed to read ToolingManifest.json: ${(err as Error).message}`);
+    return [];
+  }
+}
+
 // ── MCP Connection Manager ──────────────────────────────────────
 
 /**
@@ -298,10 +350,7 @@ export async function createAgent365Tools(
   const allTools: ToolDefinition[] = [];
 
   // Discover available MCP servers
-  let serverConfigs = await configService.listToolServers(
-    config.clientId,
-    authToken,
-  );
+  let serverConfigs = await discoverServerConfigs(configService, config.clientId, authToken);
 
   if (serverConfigs.length === 0) {
     console.warn('[Agent365] No MCP servers configured. Run "a365 develop add-mcp-servers" to add servers.');

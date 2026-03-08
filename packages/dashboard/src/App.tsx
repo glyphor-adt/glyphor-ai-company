@@ -19,7 +19,6 @@ import Capabilities from './pages/Capabilities';
 import Comms from './pages/Comms';
 import Settings from './pages/Settings';
 import ChangeRequests from './pages/ChangeRequests';
-import PolicyVersions from './pages/PolicyVersions';
 import OraChat from './pages/OraChat';
 
 export default function App() {
@@ -44,7 +43,7 @@ export default function App() {
         <Route path="chat/:agentId" element={<Chat />} />
         <Route path="teams-config" element={<TeamsConfig />} />
         <Route path="governance" element={<Governance />} />
-        <Route path="policy" element={<PolicyVersions />} />
+        <Route path="policy" element={<Navigate to="/governance" replace />} />
         <Route path="ora" element={<OraChat />} />
         <Route path="change-requests" element={<ChangeRequests />} />
         <Route path="settings" element={<Settings />} />

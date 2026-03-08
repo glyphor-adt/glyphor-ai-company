@@ -15,10 +15,117 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { McpToolServerConfigurationService } from '@microsoft/agents-a365-tooling';
 import type { MCPServerConfig } from '@microsoft/agents-a365-tooling';
 import { ConfidentialClientApplication } from '@azure/msal-node';
+import { getAgentIdentityAppId } from '@glyphor/agent-runtime';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 
 // ── Singleton ────────────────────────────────────────────────────
 
-let instance: A365TeamsChatClient | null = null;
+const instances = new Map<string, A365TeamsChatClient>();
+
+function normalizeRoleKey(role: string): string {
+  return role
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toUpperCase();
+}
+
+function resolveAgent365Credentials(agentRole?: string): {
+  clientId: string;
+  clientSecret: string;
+  tenantId: string;
+} | null {
+  const sharedClientId = process.env.AGENT365_CLIENT_ID;
+  const sharedClientSecret = process.env.AGENT365_CLIENT_SECRET;
+  const sharedTenantId = process.env.AGENT365_TENANT_ID;
+
+  if (!agentRole) {
+    if (!sharedClientId || !sharedClientSecret || !sharedTenantId) return null;
+    return {
+      clientId: sharedClientId,
+      clientSecret: sharedClientSecret,
+      tenantId: sharedTenantId,
+    };
+  }
+
+  const roleKey = normalizeRoleKey(agentRole);
+  const envClientId = process.env[`AGENT365_${roleKey}_CLIENT_ID`];
+  const envClientSecret = process.env[`AGENT365_${roleKey}_CLIENT_SECRET`];
+  const envTenantId = process.env[`AGENT365_${roleKey}_TENANT_ID`] ?? sharedTenantId;
+  const configuredAppId = getAgentIdentityAppId(agentRole);
+  const roleClientId = envClientId ?? configuredAppId;
+
+  if (roleClientId && envClientSecret && envTenantId) {
+    return {
+      clientId: roleClientId,
+      clientSecret: envClientSecret,
+      tenantId: envTenantId,
+    };
+  }
+
+  if (roleClientId && !envClientSecret) {
+    console.warn(`[A365Teams] Per-agent app id found for ${agentRole} but AGENT365_${roleKey}_CLIENT_SECRET is missing. Falling back to shared Agent 365 credentials.`);
+  }
+
+  if (!sharedClientId || !sharedClientSecret || !sharedTenantId) return null;
+  return {
+    clientId: sharedClientId,
+    clientSecret: sharedClientSecret,
+    tenantId: sharedTenantId,
+  };
+}
+
+async function discoverTeamsServer(
+  configService: McpToolServerConfigurationService,
+  clientId: string,
+  authToken: string,
+): Promise<MCPServerConfig | undefined> {
+  try {
+    const allServers = await configService.listToolServers(clientId, authToken);
+    return allServers.find((server) => server.mcpServerName === 'mcp_TeamsServer');
+  } catch (err) {
+    const message = (err as Error).message;
+    console.warn(`[A365Teams] Tooling gateway discovery failed, falling back to ToolingManifest.json: ${message}`);
+    const manifestServers = loadServerConfigsFromManifest();
+    return manifestServers.find((server) => server.mcpServerName === 'mcp_TeamsServer');
+  }
+}
+
+function loadServerConfigsFromManifest(): MCPServerConfig[] {
+  let manifestPath = path.join(process.cwd(), 'ToolingManifest.json');
+  if (!existsSync(manifestPath)) {
+    manifestPath = path.join(path.dirname(process.argv[1] || ''), 'ToolingManifest.json');
+  }
+  if (!existsSync(manifestPath)) {
+    console.warn(`[A365Teams] ToolingManifest.json not found at ${manifestPath}`);
+    return [];
+  }
+
+  try {
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      mcpServers?: Array<Record<string, unknown>>;
+    };
+    const serverConfigs: MCPServerConfig[] = [];
+    for (const server of manifest.mcpServers ?? []) {
+      const mcpServerName = typeof server.mcpServerName === 'string'
+        ? server.mcpServerName
+        : typeof server.mcpServerUniqueName === 'string'
+          ? server.mcpServerUniqueName
+          : null;
+      const url = typeof server.url === 'string' ? server.url : null;
+      if (!mcpServerName || !url) continue;
+      serverConfigs.push({
+        mcpServerName,
+        url,
+        headers: typeof server.headers === 'object' ? server.headers as Record<string, string> : undefined,
+      });
+    }
+    return serverConfigs;
+  } catch (err) {
+    console.warn(`[A365Teams] Failed to read ToolingManifest.json: ${(err as Error).message}`);
+    return [];
+  }
+}
 
 export class A365TeamsChatClient {
   private mcpClient: Client | null = null;
@@ -47,16 +154,22 @@ export class A365TeamsChatClient {
    * Create / get a singleton instance from env vars.
    * Returns null if AGENT365_ENABLED is not 'true' or credentials are missing.
    */
-  static fromEnv(): A365TeamsChatClient | null {
-    if (instance) return instance;
+  static fromEnv(agentRole?: string): A365TeamsChatClient | null {
     if (process.env.AGENT365_ENABLED !== 'true') return null;
 
-    const clientId = process.env.AGENT365_CLIENT_ID;
-    const clientSecret = process.env.AGENT365_CLIENT_SECRET;
-    const tenantId = process.env.AGENT365_TENANT_ID;
-    if (!clientId || !clientSecret || !tenantId) return null;
+    const instanceKey = agentRole ?? '__shared__';
+    const existing = instances.get(instanceKey);
+    if (existing) return existing;
 
-    instance = new A365TeamsChatClient(clientId, clientSecret, tenantId);
+    const credentials = resolveAgent365Credentials(agentRole);
+    if (!credentials) return null;
+
+    const instance = new A365TeamsChatClient(
+      credentials.clientId,
+      credentials.clientSecret,
+      credentials.tenantId,
+    );
+    instances.set(instanceKey, instance);
     return instance;
   }
 
@@ -244,10 +357,7 @@ export class A365TeamsChatClient {
 
     // Discover the mcp_TeamsServer config
     const configService = new McpToolServerConfigurationService();
-    const allServers = await configService.listToolServers(this.clientId, authToken);
-    const teamsServer = allServers.find(
-      (s: MCPServerConfig) => s.mcpServerName === 'mcp_TeamsServer',
-    );
+    const teamsServer = await discoverTeamsServer(configService, this.clientId, authToken);
 
     if (!teamsServer?.url) {
       throw new Error('[A365Teams] mcp_TeamsServer not found in server configuration');
@@ -293,6 +403,8 @@ export class A365TeamsChatClient {
       this.mcpClient = null;
       this.transport = null;
     }
-    instance = null;
+    for (const [key, value] of instances.entries()) {
+      if (value === this) instances.delete(key);
+    }
   }
 }
