@@ -144,6 +144,8 @@ function getActions(raw: unknown, type: string): string[] {
 
   if (labels.length) return labels;
 
+  if (/^decision$|authority/i.test(type)) return ['Approve', 'Reject', 'View History'];
+  if (/canary/i.test(type)) return ['Review Policy'];
   if (/trust/i.test(type)) return ['Review Agent', 'Investigate'];
   if (/secret/i.test(type)) return ['View Rotation Plan'];
   if (/grant|access|iam/i.test(type)) return ['Review Access'];
@@ -195,16 +197,21 @@ function normalizeRiskSummary(raw: unknown): RiskSummaryItem[] {
 function normalizeActionQueue(raw: unknown): GovernanceAction[] {
   return getRecordList(raw).map((item, index) => {
     const type = asString(getValue(item, ['type', 'action_type', 'kind'])) ?? `action-${index}`;
-    const decisionId = asString(getValue(item, ['decision_id', 'source_id']));
+    const metadata = isRecord(item.metadata) ? item.metadata : null;
+    const decisionId = asString(getValue(item, ['decision_id', 'source_id'])) ?? (metadata ? asString(getValue(metadata, ['decision_id', 'source_id'])) : null);
+    const derivedId =
+      asString(getValue(item, ['id', 'source_id']))
+      ?? (metadata ? asString(getValue(metadata, ['decision_id', 'drift_alert_id', 'authority_proposal_id', 'policy_id'])) : null)
+      ?? `${type}-${index}`;
     return {
-      id: asString(getValue(item, ['id', 'source_id'])) ?? `${type}-${index}`,
+      id: derivedId,
       type,
       title: asString(getValue(item, ['title', 'headline', 'label'])) ?? toHumanWords(type),
       summary: asString(getValue(item, ['summary', 'description', 'impact', 'detail', 'rationale'])) ?? 'Awaiting additional governance context.',
       severity: normalizeSeverity(asString(getValue(item, ['severity', 'tier', 'status']))),
       createdAt: asString(getValue(item, ['created_at', 'timestamp', 'detected_at', 'updated_at'])),
       agentRole: asString(getValue(item, ['agent_role', 'role', 'subject_role'])),
-      platform: asString(getValue(item, ['platform'])),
+      platform: asString(getValue(item, ['platform'])) ?? (metadata ? asString(getValue(metadata, ['platform'])) : null),
       decisionId: decisionId,
       actionButtons: getActions(item, type),
     };
@@ -250,6 +257,7 @@ function normalizeAccessPosture(raw: unknown): AccessPostureResponse | null {
   if (!record) return null;
 
   const breakdownSource = getRecordList(record.breakdown);
+  const breakdownRecord = isRecord(record.breakdown) ? record.breakdown : null;
   const breakdown = breakdownSource.length
     ? breakdownSource.map((item, index) => ({
       key: asString(getValue(item, ['key', 'slug', 'id'])) ?? `breakdown-${index}`,
@@ -261,32 +269,55 @@ function normalizeAccessPosture(raw: unknown): AccessPostureResponse | null {
       ['secret_health_rate', 'Secret Health'],
       ['grant_freshness_rate', 'Grant Freshness'],
       ['least_privilege_score', 'Least Privilege'],
-    ].flatMap(([key, label]) => record[key] == null ? [] : [{
+    ].flatMap(([key, label]) => (breakdownRecord?.[key] ?? record[key]) == null ? [] : [{
       key,
       label,
-      score: asNumber(record[key]) ?? 0,
+      score: asNumber(breakdownRecord?.[key] ?? record[key]) ?? 0,
     }]);
+
+  const issues = getRecordList(record.issues);
+  const summary = asString(getValue(record, ['summary', 'description']))
+    ?? (issues.length
+      ? `${issues.length} access issue${issues.length === 1 ? '' : 's'} require review across IAM, secrets, and grants.`
+      : 'Composite health across IAM sync, secret hygiene, grant freshness, and least-privilege fit.');
 
   return {
     score: asNumber(getValue(record, ['score', 'posture_score', 'value'])),
-    trend: asNumber(getValue(record, ['trend', 'trend_pct', 'delta'])),
-    summary: asString(getValue(record, ['summary', 'description'])),
+    trend: asNumber(getValue(record, ['trend', 'trend_pct', 'delta', 'trend_vs_7d'])),
+    summary,
     breakdown,
   };
 }
 
 function normalizeLeastPrivilege(raw: unknown): LeastPrivilegeGrant[] {
-  return getRecordList(raw).map((item, index) => {
+  return getRecordList(raw).flatMap((item, index) => {
     const agentRole = asString(getValue(item, ['agent_role', 'role'])) ?? 'unknown';
-    return {
-      id: asString(getValue(item, ['id'])) ?? `${agentRole}-${index}`,
-      department: asString(getValue(item, ['department'])) ?? ROLE_DEPARTMENT[agentRole] ?? 'Other',
-      agentRole,
-      toolName: asString(getValue(item, ['tool_name', 'tool'])) ?? 'unknown_tool',
-      usesLast30d: asNumber(getValue(item, ['uses_last_30d', 'usage_count', 'uses'])) ?? 0,
-      daysSinceUse: asNumber(getValue(item, ['days_since_use', 'days_since_last_use'])),
-      recommendation: asString(getValue(item, ['recommendation', 'recommended_action'])),
-    };
+    const department = asString(getValue(item, ['department'])) ?? ROLE_DEPARTMENT[agentRole] ?? 'Other';
+    const grants = Array.isArray(item.grants)
+      ? item.grants.filter(isRecord)
+      : [item];
+
+    return grants.map((grant, grantIndex) => {
+      const toolName = asString(getValue(grant, ['tool_name', 'tool'])) ?? 'unknown_tool';
+      const severity = asString(getValue(grant, ['severity']));
+      const recommendation =
+        asString(getValue(grant, ['recommendation', 'recommended_action']))
+        ?? (severity === 'high'
+          ? 'Revoke or require explicit approval'
+          : severity === 'medium'
+            ? 'Review scope and expiration'
+            : 'Monitor usage');
+
+      return {
+        id: asString(getValue(grant, ['id'])) ?? `${agentRole}-${toolName}-${index}-${grantIndex}`,
+        department,
+        agentRole,
+        toolName,
+        usesLast30d: asNumber(getValue(grant, ['uses_last_30d', 'usage_count', 'uses'])) ?? 0,
+        daysSinceUse: asNumber(getValue(grant, ['days_since_use', 'days_since_last_use'])),
+        recommendation,
+      };
+    });
   });
 }
 
@@ -323,14 +354,14 @@ function normalizeComplianceHeatmap(raw: unknown): ComplianceHeatmapCell[] {
 
 function normalizeAmendments(raw: unknown): AmendmentProposal[] {
   return getRecordList(raw).map((item, index) => ({
-    id: asString(getValue(item, ['id'])) ?? `amendment-${index}`,
-    agentRole: asString(getValue(item, ['agent_role', 'role'])) ?? 'unknown',
-    action: asString(getValue(item, ['action'])) ?? 'modify',
-    principleText: asString(getValue(item, ['principle_text', 'title', 'summary'])) ?? 'Proposed constitutional amendment',
+    id: asString(getValue(item, ['id', 'amendment_id'])) ?? `amendment-${index}`,
+    agentRole: asString(getValue(item, ['agent_role', 'role', 'proposed_by'])) ?? 'unknown',
+    action: asString(getValue(item, ['action'])) ?? (isRecord(item.metadata) ? asString(getValue(item.metadata, ['action'])) : null) ?? 'modify',
+    principleText: asString(getValue(item, ['proposed_change', 'principle_text', 'principle_name', 'title', 'summary'])) ?? 'Proposed constitutional amendment',
     rationale: asString(getValue(item, ['rationale', 'reason'])),
     status: asString(getValue(item, ['status'])) ?? 'proposed',
-    createdAt: asString(getValue(item, ['created_at'])),
-    failedEvalCount: asNumber(getValue(item, ['failed_eval_count', 'failed_evals'])),
+    createdAt: asString(getValue(item, ['created_at', 'proposed_at'])),
+    failedEvalCount: asNumber(getValue(item, ['failed_eval_count', 'failed_evals', 'failed_evals_count'])),
   }));
 }
 

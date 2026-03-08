@@ -73,8 +73,8 @@ function RiskSummaryStrip({ items }: { items: RiskSummaryItem[] }) {
   if (!items.length) {
     return (
       <EmptyState
-        title="Risk summary waiting on the new contract"
-        description="The Command Center is wired to /api/governance/risk-summary and will light up as soon as the scheduler endpoints land."
+        title="No governance risk indicators returned"
+        description="The command center is connected to /api/governance/risk-summary; this view stays empty until the scheduler returns current risk data."
       />
     );
   }
@@ -268,8 +268,8 @@ function SystemTrustMap({ entries }: { entries: TrustMapEntry[] }) {
   if (!entries.length) {
     return (
       <EmptyState
-        title="Trust map pending"
-        description="This surface is ready for /api/governance/trust-map. Once the endpoint arrives, each department row will become an executive trust heatmap."
+        title="No trust-map entries returned"
+        description="This surface reads /api/governance/trust-map and will populate once the scheduler returns current agent trust scores."
       />
     );
   }

@@ -54,7 +54,7 @@ function PolicyEffectivenessDash({
   const rollbackRate = recentPolicies.length
     ? recentPolicies.filter((policy) => policy.status === 'rolled_back').length / recentPolicies.length
     : null;
-  const pendingAmendments = amendments.filter((amendment) => amendment.status === 'proposed');
+  const pendingAmendments = amendments.filter((amendment) => amendment.status === 'proposed' || amendment.status === 'pending');
 
   const cards = [
     { label: 'Active Policies', value: activePolicies.length.toString(), tone: 'text-prism-teal' },

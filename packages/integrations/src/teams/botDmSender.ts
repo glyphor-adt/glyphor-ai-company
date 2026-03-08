@@ -11,7 +11,7 @@
 
 import type { GraphTeamsClient } from './graphClient.js';
 import { buildFounderDirectory, type FounderContact } from './directMessages.js';
-import { getConversationRef } from './conversationStore.js';
+import { getConversationRef, setConversationRef, type ConversationReference } from './conversationStore.js';
 
 export class BotDmSender {
   private tokenCache: { token: string; expiresAt: number } | null = null;
@@ -23,7 +23,7 @@ export class BotDmSender {
     private readonly tenantId: string,
     private readonly graphClient: GraphTeamsClient,
     private readonly founderDir: Record<string, FounderContact> = {},
-    private readonly serviceUrl = 'https://smba.trafficmanager.net/amer/',
+    private readonly serviceUrl = 'https://smba.trafficmanager.net/teams/',
   ) {}
 
   static fromEnv(graphClient: GraphTeamsClient): BotDmSender | null {
@@ -169,52 +169,31 @@ export class BotDmSender {
     }
   }
 
-  /**
-   * Send a proactive DM to a user by their Entra Object ID.
-   * Uses stored conversation reference if available (required for multi-tenant bots).
-   */
-  async sendToUser(userAadObjectId: string, message: string): Promise<void> {
+  private async postActivity(conversationId: string, serviceUrl: string, message: string): Promise<void> {
     const token = await this.getBotToken();
+    const url = `${serviceUrl}v3/conversations/${encodeURIComponent(conversationId)}/activities`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ type: 'message', text: message, textFormat: 'markdown' }),
+    });
 
-    // Check for a stored conversation reference (from a previous bot interaction).
-    // Multi-tenant bots use pairwise-encrypted user IDs, so we can't construct
-    // the user ID from the AAD Object ID alone.
-    let ref = getConversationRef(userAadObjectId);
-    if (!ref) {
-      await this.ensureTeamsAppInstalled(userAadObjectId);
-      ref = getConversationRef(userAadObjectId);
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Bot proactive DM failed (${res.status}): ${errText}`);
     }
+  }
 
-    if (ref) {
-      const url = `${ref.serviceUrl}v3/conversations/${encodeURIComponent(ref.conversationId)}/activities`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ type: 'message', text: message, textFormat: 'markdown' }),
-      });
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`Bot proactive DM failed (${res.status}): ${errText}`);
-      }
-      return;
-    }
-
-    // No stored reference — fall back to creating a new conversation.
+  private async createConversationReference(userAadObjectId: string): Promise<ConversationReference> {
+    const token = await this.getBotToken();
     const createUrl = `${this.serviceUrl}v3/conversations`;
-
     const createBody = {
       bot: { id: `28:${this.botAppId}`, name: 'Glyphor Bot' },
-      members: [{ id: `29:${userAadObjectId}` }],
-      tenantId: this.tenantId,
+      members: [{ aadObjectId: userAadObjectId }],
       channelData: { tenant: { id: this.tenantId } },
-      activity: {
-        type: 'message',
-        text: message,
-        textFormat: 'markdown',
-      },
     };
 
     const res = await fetch(createUrl, {
@@ -226,10 +205,48 @@ export class BotDmSender {
       body: JSON.stringify(createBody),
     });
 
+    if (res.status === 403) {
+      const errText = await res.text();
+      throw new Error(
+        `Bot not installed in personal scope for user ${userAadObjectId} (${res.status}): ${errText}`,
+      );
+    }
+
     if (!res.ok) {
       const errText = await res.text();
-      throw new Error(`Bot proactive DM failed (${res.status}): ${errText}`);
+      throw new Error(`Failed to create proactive conversation (${res.status}): ${errText}`);
     }
+
+    const data = (await res.json()) as { id: string };
+    const ref: ConversationReference = {
+      serviceUrl: this.serviceUrl,
+      conversationId: data.id,
+      userId: userAadObjectId,
+      botId: `28:${this.botAppId}`,
+    };
+    setConversationRef(userAadObjectId, ref);
+    return ref;
+  }
+
+  /**
+   * Send a proactive DM to a user by their Entra Object ID.
+   * Uses stored conversation reference if available (required for multi-tenant bots).
+   */
+  async sendToUser(userAadObjectId: string, message: string): Promise<void> {
+    // Check for a stored conversation reference (from a previous bot interaction).
+    // Multi-tenant bots use pairwise-encrypted user IDs, so we can't construct
+    // the user ID from the AAD Object ID alone.
+    let ref = getConversationRef(userAadObjectId);
+    if (!ref) {
+      await this.ensureTeamsAppInstalled(userAadObjectId);
+      ref = getConversationRef(userAadObjectId);
+    }
+
+    if (!ref) {
+      ref = await this.createConversationReference(userAadObjectId);
+    }
+
+    await this.postActivity(ref.conversationId, ref.serviceUrl, message);
   }
 
   /**
