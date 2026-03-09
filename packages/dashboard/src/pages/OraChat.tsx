@@ -1082,7 +1082,7 @@ export default function OraChat() {
       )}
 
       {/* Main chat area */}
-      <Card className="flex flex-1 flex-col min-h-0">
+      <Card className="flex flex-1 flex-col min-h-0 transition-all">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-border pb-4">
           {!sidebarOpen && (
@@ -1117,7 +1117,7 @@ export default function OraChat() {
         </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto py-4 px-4 space-y-4 min-h-0">
+      <div className="flex-1 overflow-y-auto py-4 space-y-4 min-h-0">
         {messages.length === 0 && (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
@@ -1134,7 +1134,7 @@ export default function OraChat() {
         {messages.map((msg) => (
           <div
             key={msg.id}
-            className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
+            className={`flex gap-3 animate-fade-up ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
           >
             {/* Avatar */}
             {msg.role === 'assistant' ? (
@@ -1195,7 +1195,7 @@ export default function OraChat() {
                 </div>
               ) : msg.content ? (
                 <>
-                  <div className={`prose-chat ${msg.role === 'assistant' ? 'ora-response-markdown' : ''}`}><Markdown>{msg.content}</Markdown></div>
+                  <div className="prose-chat"><Markdown>{msg.content}</Markdown></div>
                   {msg.role === 'assistant' && msg.metadata?.triangulation?.reasoning && (
                     <ReasoningPanel reasoning={msg.metadata.triangulation.reasoning} />
                   )}
@@ -1262,7 +1262,7 @@ export default function OraChat() {
 
       {/* Pending files */}
       {attachments.length > 0 && (
-        <div className="flex flex-wrap gap-2 border-t border-border px-4 pt-2">
+        <div className="flex flex-wrap gap-2 border-t border-border px-1 pt-2">
           {attachments.map((a, i) => (
             <div key={i} className="flex items-center gap-1.5 rounded-lg bg-raised border border-border px-2.5 py-1.5">
               {a.previewUrl ? (
@@ -1278,7 +1278,7 @@ export default function OraChat() {
       )}
 
       {/* Input */}
-      <div className="border-t border-border pt-3 px-4 pb-3 relative" ref={menuRef}>
+      <div className="border-t border-border pt-3 relative" ref={menuRef}>
         {/* Menu flyout (opens above) */}
         {menuOpen && (
           <div className="absolute bottom-full left-4 z-20 mb-2 flex items-start gap-2">
