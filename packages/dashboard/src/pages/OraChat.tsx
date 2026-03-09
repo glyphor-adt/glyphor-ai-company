@@ -1120,7 +1120,7 @@ export default function OraChat() {
             )}
             {/* Bubble */}
             <div
-              className={`max-w-[70%] rounded-xl px-4 py-2.5 text-[13px] leading-relaxed ${
+              className={`max-w-[85%] rounded-xl px-4 py-2.5 text-[13px] leading-relaxed ${
                 msg.role === 'user'
                   ? 'bg-cyan/10 text-txt-secondary border border-cyan/20'
                   : 'bg-raised text-txt-secondary border border-border'
