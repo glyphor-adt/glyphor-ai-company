@@ -1027,30 +1027,28 @@ export default function Chat() {
             >
               <HiMicrophone size={18} />
             </button>
-            {voice.isAvailable && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (voice.isActive) voice.stopVoice();
-                  else voice.startVoice(selectedRole, userEmail);
-                }}
-                disabled={voice.isConnecting}
-                className={`flex-shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-full transition-all ${
-                  voice.isActive
-                    ? 'bg-prism-fill-2 text-white shadow-lg shadow-prism-fill-2/25 hover:bg-prism-critical hover:shadow-prism-critical/25'
-                    : voice.isConnecting
-                      ? 'bg-prism-elevated/20 text-prism-elevated animate-pulse'
-                      : 'bg-raised border border-border text-txt-muted hover:text-cyan hover:border-cyan/40 hover:bg-cyan/5'
-                }`}
-                title={voice.isActive ? 'End voice chat' : 'Start voice chat'}
-              >
-                {voice.isActive ? (
-                  <HiStop size={18} />
-                ) : (
-                  <HiMiniSignal size={18} />
-                )}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (voice.isActive) voice.stopVoice();
+                else voice.startVoice(selectedRole, userEmail);
+              }}
+              disabled={voice.isConnecting}
+              className={`flex-shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-full transition-all ${
+                voice.isActive
+                  ? 'bg-prism-fill-2 text-white shadow-lg shadow-prism-fill-2/25 hover:bg-prism-critical hover:shadow-prism-critical/25'
+                  : voice.isConnecting
+                    ? 'bg-prism-elevated/20 text-prism-elevated animate-pulse'
+                    : 'bg-raised border border-border text-txt-muted hover:text-cyan hover:border-cyan/40 hover:bg-cyan/5'
+              }`}
+              title={voice.isActive ? 'End voice chat' : 'Start voice chat'}
+            >
+              {voice.isActive ? (
+                <HiStop size={18} />
+              ) : (
+                <HiMiniSignal size={18} />
+              )}
+            </button>
             <button
               type="button"
               onClick={sendMessage}
