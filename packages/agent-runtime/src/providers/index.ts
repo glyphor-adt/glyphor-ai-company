@@ -57,8 +57,9 @@ export class ProviderFactory {
       }
       case 'openai': {
         // Auto-detect Azure OpenAI from config or environment
-        const azureEndpoint = this.config.azureFoundryEndpoint ?? process.env.AZURE_FOUNDRY_ENDPOINT;
-        const azureApiKey = this.config.azureFoundryApi ?? process.env.AZURE_FOUNDRY_API;
+        // .trim() so whitespace-only secret values are treated as "not configured"
+        const azureEndpoint = (this.config.azureFoundryEndpoint ?? process.env.AZURE_FOUNDRY_ENDPOINT)?.trim() || undefined;
+        const azureApiKey = (this.config.azureFoundryApi ?? process.env.AZURE_FOUNDRY_API)?.trim() || undefined;
         const hasAzure = !!(azureEndpoint && azureApiKey);
         if (!hasAzure && !this.config.openaiApiKey) {
           throw new Error('OpenAI not configured — set AZURE_FOUNDRY_ENDPOINT + AZURE_FOUNDRY_API for Azure, or OPENAI_API_KEY for direct');

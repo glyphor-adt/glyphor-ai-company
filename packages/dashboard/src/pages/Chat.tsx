@@ -184,7 +184,7 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [input, setInput] = useState('');
-  const [respondingAgents, setRespondingAgents] = useState<Set<string>>(new Set());
+  const [respondingAgents, setRespondingAgents] = useState<Map<string, string>>(new Map());
   const [pendingFiles, setPendingFiles] = useState<Attachment[]>([]);
   const [dragging, setDragging] = useState(false);
   const [showOrgChart, setShowOrgChart] = useState(false);
@@ -529,7 +529,7 @@ export default function Chat() {
     setInput('');
     setPendingFiles([]);
     setMessages((prev) => [...prev, userMsg]);
-    setRespondingAgents((prev) => new Set(prev).add(targetRole));
+    setRespondingAgents((prev) => new Map(prev).set(targetRole, targetRole));
     setRecentChats((prev) => {
       const without = prev.filter((c) => c.agentRole !== targetRole);
       return [{ agentRole: targetRole, lastMessage: text.slice(0, 80) || 'Sent file(s)', lastMessageRole: 'user' as const, lastTime: new Date() }, ...without];
@@ -560,8 +560,8 @@ export default function Chat() {
     // Mark all mentioned agents as responding too
     if (mentionedRoles.length > 0) {
       setRespondingAgents((prev) => {
-        const next = new Set(prev);
-        for (const r of mentionedRoles) next.add(r);
+        const next = new Map(prev);
+        for (const r of mentionedRoles) next.set(r, targetRole);
         return next;
       });
     }
@@ -643,7 +643,7 @@ export default function Chat() {
           setMessages((prev) => [...prev, { role: 'agent', content: errContent, timestamp: new Date(), agentRole: isMentioned ? role : undefined }]);
         }
       } finally {
-        setRespondingAgents((prev) => { const next = new Set(prev); next.delete(role); return next; });
+        setRespondingAgents((prev) => { const next = new Map(prev); next.delete(role); return next; });
       }
     };
 
@@ -657,7 +657,7 @@ export default function Chat() {
       // Individual errors handled inside invokeAgent
     } finally {
       // Ensure primary agent is cleared even if something unexpected happened
-      setRespondingAgents((prev) => { const next = new Set(prev); next.delete(targetRole); return next; });
+      setRespondingAgents((prev) => { const next = new Map(prev); next.delete(targetRole); return next; });
     }
   };
 
@@ -912,7 +912,7 @@ export default function Chat() {
             );
           })}
 
-          {Array.from(respondingAgents).filter((r) => r === selectedRole || !respondingAgents.has(selectedRole) || r !== selectedRole).map((respondingRole) => (
+          {Array.from(respondingAgents.entries()).filter(([_, targetChat]) => targetChat === selectedRole).map(([respondingRole]) => (
             <div key={respondingRole} className="flex gap-3">
               <AgentAvatar role={respondingRole} size={28} />
               <div className="rounded-xl bg-raised border border-border px-4 py-3">

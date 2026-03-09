@@ -6,77 +6,54 @@
  *   GLYPHOR_MCP_DATA_URL, GLYPHOR_MCP_MARKETING_URL, GLYPHOR_MCP_ENGINEERING_URL,
  *   GLYPHOR_MCP_DESIGN_URL, GLYPHOR_MCP_FINANCE_URL
  *
- * Per-agent auth: Each agent has an Entra app registration with assigned app roles.
- * The bridge acquires a token per agent identity and passes it to MCP servers.
- * Agent identity mapping is in config/agentIdentities.json + config/agentEntraRoles.ts.
+ * Auth: Uses GCP identity tokens for Cloud Run service-to-service authentication.
+ * On GCP, tokens are fetched from the metadata server. Locally, uses ADC.
+ * Agent role is passed via X-Agent-Role header for tool-level authorization.
  */
 
 import type { ToolDefinition, ToolParameter, ToolResult, ToolContext } from '@glyphor/agent-runtime';
 
-// ── Agent Identity Lookup ───────────────────────────────────────
+// ── GCP Identity Token (Cloud Run service-to-service auth) ───────
 
-let agentIdentities: Record<string, { appId: string; spId: string }> | null = null;
-
-function loadAgentIdentities(): Record<string, { appId: string; spId: string }> {
-  if (agentIdentities) return agentIdentities;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    agentIdentities = require('../../agent-runtime/src/config/agentIdentities.json');
-    return agentIdentities!;
-  } catch {
-    agentIdentities = {};
-    return {};
-  }
-}
-
-// ── Per-Agent Token Acquisition ─────────────────────────────────
-
-const tokenCache: Map<string, { token: string; expiresAt: number }> = new Map();
+const gcpIdTokenCache: Map<string, { token: string; expiresAt: number }> = new Map();
 
 /**
- * Acquire an access token for the given agent's Entra identity.
- * Uses client credentials flow with the agent's own app registration.
- *
- * The token includes the agent's assigned app roles as claims,
- * which the MCP server uses for scope-based tool filtering.
+ * Acquire a GCP identity token for Cloud Run service-to-service auth.
+ * Uses the metadata server on GCP, or google-auth-library locally.
+ * The audience must be the base URL of the target Cloud Run service.
  */
-async function getAgentToken(agentRole: string, audience: string): Promise<string | null> {
-  const cacheKey = `${agentRole}:${audience}`;
-  const cached = tokenCache.get(cacheKey);
+async function getGcpIdentityToken(audience: string): Promise<string | null> {
+  const cached = gcpIdTokenCache.get(audience);
   if (cached && cached.expiresAt > Date.now()) return cached.token;
 
-  const identities = loadAgentIdentities();
-  const identity = identities[agentRole];
-  if (!identity?.appId) return null;
-
-  const tenantId = process.env.AGENT365_TENANT_ID ?? process.env.AZURE_TENANT_ID;
-  const clientSecret = process.env.AGENT365_CLIENT_SECRET;
-  if (!tenantId || !clientSecret) return null;
+  // Extract base URL (audience) from the full /mcp URL
+  const baseUrl = audience.replace(/\/mcp$/, '');
 
   try {
-    const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
-    const body = new URLSearchParams({
-      grant_type: 'client_credentials',
-      client_id: identity.appId,
-      client_secret: clientSecret,
-      scope: `${audience}/.default`,
+    // On GCP: use metadata server for identity token
+    const metadataUrl = `http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?audience=${encodeURIComponent(baseUrl)}`;
+    const metaResp = await fetch(metadataUrl, {
+      headers: { 'Metadata-Flavor': 'Google' },
     });
+    if (metaResp.ok) {
+      const token = await metaResp.text();
+      // Identity tokens from metadata server are valid for ~1 hour; cache with 5-min margin
+      gcpIdTokenCache.set(audience, { token, expiresAt: Date.now() + 55 * 60 * 1000 });
+      return token;
+    }
+  } catch {
+    // Not on GCP — fall through to ADC
+  }
 
-    const resp = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body.toString(),
-    });
-
-    if (!resp.ok) return null;
-
-    const data = (await resp.json()) as { access_token: string; expires_in: number };
-    const token = data.access_token;
-    // Cache with 5-minute safety margin
-    tokenCache.set(cacheKey, {
-      token,
-      expiresAt: Date.now() + (data.expires_in - 300) * 1000,
-    });
+  try {
+    const { GoogleAuth } = await import('google-auth-library');
+    const auth = new GoogleAuth();
+    const client = await auth.getIdTokenClient(baseUrl);
+    const headers = await client.getRequestHeaders();
+    const token = headers['Authorization']?.replace('Bearer ', '') ?? null;
+    if (token) {
+      gcpIdTokenCache.set(audience, { token, expiresAt: Date.now() + 55 * 60 * 1000 });
+    }
     return token;
   } catch {
     return null;
@@ -102,12 +79,11 @@ const GLYPHOR_MCP_SERVERS: Record<string, string> = {
 /**
  * Convert a single MCP tool schema into a Glyphor ToolDefinition,
  * routing execute() calls via HTTP JSON-RPC to the MCP server.
- * Includes per-agent auth token in requests when available.
+ * Uses GCP identity tokens for Cloud Run auth and passes agent role header.
  */
 function convertMcpTool(
   mcpTool: Record<string, unknown>,
   serverUrl: string,
-  authToken: string | null,
   agentRole?: string,
 ): ToolDefinition {
   const inputSchema = (mcpTool.inputSchema as Record<string, unknown>) ?? {};
@@ -133,8 +109,11 @@ function convertMcpTool(
     execute: async (params: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> => {
       try {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
         if (agentRole) headers['X-Agent-Role'] = agentRole;
+
+        // Acquire GCP identity token for Cloud Run auth
+        const gcpToken = await getGcpIdentityToken(serverUrl);
+        if (gcpToken) headers['Authorization'] = `Bearer ${gcpToken}`;
 
         const response = await fetch(serverUrl, {
           method: 'POST',
@@ -146,6 +125,15 @@ function convertMcpTool(
             params: { name: toolName, arguments: params },
           }),
         });
+
+        const contentType = response.headers.get('content-type') ?? '';
+        if (!contentType.includes('application/json')) {
+          return {
+            success: false,
+            error: `MCP server returned ${response.status} with non-JSON response (${contentType}). Service may require authentication or be unavailable.`,
+          };
+        }
+
         const result = (await response.json()) as Record<string, unknown>;
 
         if (result.error) {
@@ -168,8 +156,7 @@ function convertMcpTool(
 /**
  * Connect to Glyphor MCP servers and return discovered tools as ToolDefinitions.
  *
- * @param agentRole  Agent role for per-agent Entra identity auth. When provided,
- *                   acquires an access token scoped to the agent's app roles.
+ * @param agentRole  Agent role identifier, passed as X-Agent-Role header.
  * @param serverFilter Optional list of MCP server names to load (e.g. ['mcp_GlyphorData']).
  *                     Loads all configured servers if omitted.
  *
@@ -193,10 +180,6 @@ export async function createGlyphorMcpTools(
     entries = entries.filter(([name]) => filterSet.has(name));
   }
 
-  // Acquire per-agent auth token (shared across all Glyphor MCP servers)
-  const blueprintAudience = process.env.GLYPHOR_MCP_AUDIENCE ?? '5604df3b-a3a3-4c7e-a8c4-e6f9ed04ad6a';
-  const authToken = agentRole ? await getAgentToken(agentRole, blueprintAudience) : null;
-
   const allTools: ToolDefinition[] = [];
 
   for (const [serverName, serverUrl] of entries) {
@@ -204,14 +187,24 @@ export async function createGlyphorMcpTools(
 
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
       if (agentRole) headers['X-Agent-Role'] = agentRole;
+
+      // Acquire GCP identity token for Cloud Run service-to-service auth
+      const gcpToken = await getGcpIdentityToken(serverUrl);
+      if (gcpToken) headers['Authorization'] = `Bearer ${gcpToken}`;
 
       const response = await fetch(serverUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify({ jsonrpc: '2.0', method: 'tools/list', id: 1 }),
       });
+
+      const contentType = response.headers.get('content-type') ?? '';
+      if (!contentType.includes('application/json')) {
+        console.warn(`[GlyphorMCP] ${serverName} returned ${response.status} non-JSON (${contentType}). Auth issue or service down.`);
+        continue;
+      }
+
       const result = (await response.json()) as Record<string, unknown>;
 
       if (result.error) {
@@ -221,7 +214,7 @@ export async function createGlyphorMcpTools(
 
       const tools = (result.result as Record<string, unknown>[] | undefined) ?? [];
       for (const mcpTool of tools) {
-        allTools.push(convertMcpTool(mcpTool, serverUrl, authToken, agentRole));
+        allTools.push(convertMcpTool(mcpTool, serverUrl, agentRole));
       }
 
       console.log(`[GlyphorMCP] ${serverName}: ${tools.length} tools (agent=${agentRole ?? 'anon'})`);

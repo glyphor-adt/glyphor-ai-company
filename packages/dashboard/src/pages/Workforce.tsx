@@ -132,7 +132,7 @@ export default function Workforce() {
         /* ── Org Chart View ──────────────── */
         <div className="space-y-0">
           {/* Founders row */}
-          <div className="flex justify-center gap-8">
+          <div className="flex justify-center gap-6">
             {FOUNDERS.map((f) => (
               <FounderNode key={f.name} name={f.name} title={f.title} initials={f.initials} color={f.color} photo={f.photo} />
             ))}
@@ -140,19 +140,19 @@ export default function Workforce() {
 
           {/* Connector: founders → CoS */}
           <div className="flex justify-center">
-            <div className="relative h-10 w-[260px]">
-              <div className="absolute left-1/4 top-0 h-4 w-px bg-border" />
-              <div className="absolute right-1/4 top-0 h-4 w-px bg-border" />
-              <div className="absolute left-1/4 top-4 h-px bg-border" style={{ width: '50%' }} />
-              <div className="absolute left-1/2 top-4 h-6 w-px bg-border" />
+            <div className="relative h-8 w-[220px]">
+              <div className="absolute left-1/4 top-0 h-3 w-px bg-border" />
+              <div className="absolute right-1/4 top-0 h-3 w-px bg-border" />
+              <div className="absolute left-1/4 top-3 h-px bg-border" style={{ width: '50%' }} />
+              <div className="absolute left-1/2 top-3 h-5 w-px bg-border" />
             </div>
           </div>
 
-          {/* Chief of Staff + direct reports */}
+          {/* Chief of Staff */}
           <div className="flex justify-center">
             <div className="flex flex-col items-center gap-2">
-              <div className="w-48">
-                {cos ? <AgentNode agent={cos} /> : <Skeleton className="h-24 w-full" />}
+              <div className="w-44">
+                {cos ? <AgentNode agent={cos} compact /> : <Skeleton className="h-20 w-full" />}
               </div>
               {(() => {
                 const deptHeadRoles = new Set(DEPARTMENTS.map((d) => d.role));
@@ -162,7 +162,7 @@ export default function Workforce() {
                 if (cosDirects.length === 0) return null;
                 return (
                   <>
-                    <div className="h-4 w-px bg-border" />
+                    <div className="h-3 w-px bg-border" />
                     <div className="flex flex-col gap-1.5">
                       {cosDirects.map((m) => (
                         <SubTeamNode key={m.id} member={m} />
@@ -176,36 +176,24 @@ export default function Workforce() {
 
           {/* Connector: CoS → departments */}
           <div className="flex justify-center">
-            <div className="relative h-10 w-full max-w-6xl">
-              <div className="absolute left-1/2 top-0 h-4 w-px bg-border" />
-              <div className="absolute top-4 h-px bg-border" style={{ left: '10%', width: '80%' }} />
-              {Array.from({ length: Math.min(DEPARTMENTS.length, 5) }).map((_, i) => (
-                <div
-                  key={i}
-                  className="absolute top-4 h-6 w-px bg-border"
-                  style={{ left: `${10 + i * 20}%` }}
-                />
-              ))}
-            </div>
+            <div className="h-5 w-px bg-border" />
           </div>
+          <div className="mx-auto h-px bg-border" style={{ width: '90%' }} />
 
           {/* Department columns with heads + sub-teams */}
-          <div className="grid grid-cols-2 gap-6 md:grid-cols-3 xl:grid-cols-5">
+          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             {DEPARTMENTS.map((dept) => {
               const agent = agentMap.get(dept.role);
               const deptHeadRoles = new Set(DEPARTMENTS.map((d) => d.role));
               const members = agents.filter((m) => m.reports_to === dept.role && m.role !== dept.role && !deptHeadRoles.has(m.role));
               return (
-                <div key={dept.label} className="flex flex-col items-center gap-2">
+                <div key={dept.label} className="flex flex-col items-center gap-1.5">
+                  <div className="h-3 w-px bg-border" />
                   <span className="text-[10px] font-medium uppercase tracking-widest text-txt-faint">
                     {dept.label}
                   </span>
                   {agent ? <AgentNode agent={agent} compact /> : <Skeleton className="h-20 w-full" />}
-                  {/* Sub-team connector */}
-                  {members.length > 0 && (
-                    <div className="h-4 w-px bg-border" />
-                  )}
-                  {/* Sub-team members */}
+                  {members.length > 0 && <div className="h-3 w-px bg-border" />}
                   <div className="flex w-full flex-col gap-1.5">
                     {members.map((m) => (
                       <SubTeamNode key={m.id} member={m} />
@@ -250,7 +238,7 @@ export default function Workforce() {
             {agents
               .filter((a) => a.role in TITLE_MAP)
               .sort((a, b) => {
-                const order = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales', 'vp-design', 'ops', 'clo', 'vp-research', 'competitive-research-analyst', 'market-research-analyst', 'technical-research-analyst', 'industry-research-analyst', 'm365-admin', 'global-admin'];
+                const order = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-sales', 'vp-design', 'ops', 'clo', 'vp-research', 'competitive-research-analyst', 'market-research-analyst', 'technical-research-analyst', 'industry-research-analyst', 'm365-admin', 'global-admin'];
                 return (order.indexOf(a.role) === -1 ? 99 : order.indexOf(a.role)) - (order.indexOf(b.role) === -1 ? 99 : order.indexOf(b.role));
               })
               .map((agent) => {
@@ -327,19 +315,19 @@ export default function Workforce() {
 /* ─── Founder Node (org chart) ────────────── */
 function FounderNode({ name, title, initials, color, photo }: { name: string; title: string; initials: string; color: string; photo: string }) {
   return (
-    <Card className="w-64 min-h-[13rem] text-center p-5">
-      <div className="flex flex-col items-center justify-center gap-3 h-full">
+    <Card className="w-48 text-center p-3">
+      <div className="flex flex-col items-center gap-2">
         <img
           src={photo}
           alt={name}
           className="rounded-full object-cover shrink-0"
-          style={{ width: 88, height: 88, border: `2px solid ${color}50` }}
+          style={{ width: 56, height: 56, border: `2px solid ${color}40` }}
         />
         <div>
-          <h3 className="text-base font-semibold text-txt-primary leading-tight">{name}</h3>
-          <p className="text-xs text-txt-muted leading-tight">{title}</p>
+          <h3 className="text-sm font-semibold text-txt-primary leading-tight">{name}</h3>
+          <p className="text-[11px] text-txt-muted leading-tight">{title}</p>
           <span
-            className="mt-1 inline-block rounded-full bg-prism-fill-2/10 px-2 py-0.5 text-[10px] font-medium text-prism-teal border border-prism-fill-2/20">
+            className="mt-0.5 inline-block rounded-full bg-prism-fill-2/10 px-2 py-0.5 text-[10px] font-medium text-prism-teal border border-prism-fill-2/20">
             Human
           </span>
         </div>
@@ -353,11 +341,11 @@ function AgentNode({ agent, compact = false }: { agent: Agent; compact?: boolean
   const meta = AGENT_META[agent.role];
   return (
     <Link to={`/agents/${agent.role}`} className="block transition-transform hover:scale-[1.02]">
-      <Card className={`${compact ? 'p-4' : 'p-5'} w-full h-[12rem] text-center`}>
-        <div className="flex flex-col items-center justify-center gap-2 h-full">
-          <AgentAvatar role={agent.role} size={compact ? 48 : 64} glow={agent.status === 'active'} avatarUrl={agent.avatar_url} />
+      <Card className={`${compact ? 'p-3' : 'p-4'} w-full text-center`}>
+        <div className="flex flex-col items-center gap-1.5">
+          <AgentAvatar role={agent.role} size={compact ? 40 : 52} glow={agent.status === 'active'} avatarUrl={agent.avatar_url} />
           <div className="min-w-0 w-full">
-            <div className="flex items-center justify-center gap-1.5">
+            <div className="flex items-center justify-center gap-1">
               <h3 className="font-semibold text-txt-primary leading-tight text-xs">
                 {DISPLAY_NAME_MAP[agent.role] ?? agent.display_name ?? agent.name ?? agent.role}
               </h3>
@@ -366,13 +354,13 @@ function AgentNode({ agent, compact = false }: { agent: Agent; compact?: boolean
             <p className="text-[10px] text-txt-muted leading-tight">
               {TITLE_MAP[agent.role] ?? agent.title ?? agent.role}
             </p>
-            <div className="mt-2 flex items-center justify-center gap-2 text-xs">
+            <div className="mt-1 flex items-center justify-center gap-2 text-[10px]">
               <span className="font-mono text-txt-faint">
                 {agent.performance_score != null ? `${Math.round(Number(agent.performance_score) * 100)}/100` : '—'}
               </span>
             </div>
             {!compact && (
-              <p className="mt-1 text-xs text-txt-faint">Last run: {timeAgo(agent.last_run_at)}</p>
+              <p className="mt-0.5 text-[10px] text-txt-faint">Last run: {timeAgo(agent.last_run_at)}</p>
             )}
           </div>
         </div>

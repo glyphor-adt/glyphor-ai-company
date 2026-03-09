@@ -34,8 +34,8 @@ const PORT = parseInt(process.env.PORT || '8090', 10);
 
 // ─── OpenAI ─────────────────────────────────────────────────────
 // Use Azure OpenAI when configured, otherwise direct OpenAI
-const azureEndpoint = process.env.AZURE_FOUNDRY_ENDPOINT;
-const azureApiKey = process.env.AZURE_FOUNDRY_API;
+const azureEndpoint = process.env.AZURE_FOUNDRY_ENDPOINT?.trim() || undefined;
+const azureApiKey = process.env.AZURE_FOUNDRY_API?.trim() || undefined;
 const openai: OpenAI = (azureEndpoint && azureApiKey)
   ? new AzureOpenAI({ endpoint: azureEndpoint, apiKey: azureApiKey, apiVersion: '2025-04-01-preview' })
   : new OpenAI({ apiKey: process.env.OPENAI_API_KEY });

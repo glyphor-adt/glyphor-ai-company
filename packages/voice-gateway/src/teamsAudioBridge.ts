@@ -76,8 +76,8 @@ export class TeamsAudioBridge {
 
     return new Promise<void>((resolve, reject) => {
       // Use Azure OpenAI Realtime when configured, otherwise direct OpenAI
-      const azureEndpoint = process.env.AZURE_FOUNDRY_ENDPOINT;
-      const azureApiKey = process.env.AZURE_FOUNDRY_API;
+      const azureEndpoint = process.env.AZURE_FOUNDRY_ENDPOINT?.trim() || undefined;
+      const azureApiKey = process.env.AZURE_FOUNDRY_API?.trim() || undefined;
       let url: string;
       let headers: Record<string, string>;
 

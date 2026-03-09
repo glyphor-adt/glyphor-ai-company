@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS agent_schedules (
 );
 
 -- Add columns to company_agents if not present
-ALTER TABLE company_agents ADD COLUMN IF NOT EXISTS model TEXT DEFAULT 'gemini-3-flash-preview';
+ALTER TABLE company_agents ADD COLUMN IF NOT EXISTS model TEXT DEFAULT 'gpt-5-mini-2025-08-07';
 ALTER TABLE company_agents ADD COLUMN IF NOT EXISTS temperature DECIMAL(3,2) DEFAULT 0.3;
 ALTER TABLE company_agents ADD COLUMN IF NOT EXISTS max_turns INT DEFAULT 10;
 ALTER TABLE company_agents ADD COLUMN IF NOT EXISTS budget_per_run DECIMAL(10,4) DEFAULT 0.05;

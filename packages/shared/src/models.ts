@@ -454,23 +454,23 @@ export function normalizeReasoningLevel(modelId: string, requested?: ReasoningLe
 // Goal: stop using expensive models for routine tasks.
 //
 // Tiers:
-//   economy  → gemini-2.5-flash-lite ($0.10/$0.40)  — structured, repetitive tasks
-//   standard → gemini-2.5-flash      ($0.30/$2.50)  — analysis, creative, department mgmt
-//   pro      → gemini-3-flash-preview ($0.50/$3.00)  — orchestration, strategic, founder-chat
+//   economy  → gpt-5-mini-2025-08-07 ($0.25/$2.00)  — structured, repetitive tasks
+//   standard → gpt-5-mini-2025-08-07 ($0.25/$2.00)  — analysis, creative, department mgmt
+//   pro      → gpt-5-mini-2025-08-07 ($0.25/$2.00)  — orchestration, strategic, founder-chat
 //
-// GCP-native Gemini models preferred to minimise egress costs.
+// OpenAI models — using our OpenAI API key.
 
 export type CostTier = 'economy' | 'standard' | 'pro';
 
-/** Preferred model for each cost tier (GCP-first). */
+/** Preferred model for each cost tier. */
 export const TIER_MODELS: Record<CostTier, string> = {
-  economy:  'gemini-2.5-flash-lite',   // $0.10 / $0.40
-  standard: 'gemini-2.5-flash',        // $0.30 / $2.50
-  pro:      'gemini-3-flash-preview',   // $0.50 / $3.00
+  economy:  'gpt-5-mini-2025-08-07',   // $0.25 / $2.00
+  standard: 'gpt-5-mini-2025-08-07',   // $0.25 / $2.00
+  pro:      'gpt-5-mini-2025-08-07',   // $0.25 / $2.00
 };
 
 /** Model used for on_demand chat with founder-facing executives. */
-export const EXEC_CHAT_MODEL = 'gemini-3-flash-preview'; // was gemini-3-pro-preview ($2/$12)
+export const EXEC_CHAT_MODEL = 'gpt-5-mini-2025-08-07';
 
 /** Role → tier mapping. Unlisted roles default to 'standard'. */
 export const ROLE_COST_TIER: Record<string, CostTier> = {
