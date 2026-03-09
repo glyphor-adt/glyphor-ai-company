@@ -1082,7 +1082,7 @@ export default function OraChat() {
       )}
 
       {/* Main chat area */}
-      <Card className="flex flex-1 flex-col min-h-0 max-w-4xl transition-all">
+      <Card className="flex flex-1 flex-col min-h-0 transition-all">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-border pb-4">
           {!sidebarOpen && (

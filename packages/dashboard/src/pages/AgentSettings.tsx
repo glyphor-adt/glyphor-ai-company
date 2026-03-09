@@ -235,7 +235,7 @@ export default function AgentSettings() {
     setAgent((prev) => prev ? { ...prev, status: 'active' } : prev);
   };
 
-  const handleRetire = async () => {
+  const handleDelete = async () => {
     if (!agent) return;
     await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}`, { method: 'DELETE' });
     navigate('/agents');
@@ -365,8 +365,8 @@ export default function AgentSettings() {
                   Resume
                 </button>
               ) : null}
-              <button onClick={handleRetire} className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-1.5 text-xs font-medium text-prism-critical hover:bg-prism-critical/20 transition-colors">
-                Retire
+              <button onClick={handleDelete} className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-1.5 text-xs font-medium text-prism-critical hover:bg-prism-critical/20 transition-colors">
+                Delete
               </button>
             </div>
           </div>
