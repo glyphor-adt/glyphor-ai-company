@@ -71,9 +71,20 @@ import { createResearchMonitoringTools } from '@glyphor/agents/shared/researchMo
 
 // ── Wave 4 — Governance ─────────────────────────────────────────────
 import { createOpsExtensionTools } from '@glyphor/agents/shared/opsExtensionTools';
+import { createLegalTools } from '@glyphor/agents/shared/legalTools';
+import { createDocuSignTools } from '@glyphor/agents/shared/docusignTools';
+import { createHRTools } from '@glyphor/agents/shared/hrTools';
+import { createEntraHRTools } from '@glyphor/agents/shared/entraHRTools';
 
 // ── Wave 5 — Engineering ────────────────────────────────────────────
 import { createEngineeringGapTools } from '@glyphor/agents/shared/engineeringGapTools';
+
+// ── Wave 6 — Remaining shared tool sets ─────────────────────────────
+import { createCanvaTools } from '@glyphor/agents/shared/canvaTools';
+import { createDmTools } from '@glyphor/agents/shared/dmTools';
+import { createLogoTools } from '@glyphor/agents/shared/logoTools';
+import { createDeliverableTools } from '@glyphor/agents/shared/deliverableTools';
+import { createInitiativeTools } from '@glyphor/agents/shared/initiativeTools';
 
 // ═════════════════════════════════════════════════════════════════════
 // Helpers
@@ -125,8 +136,18 @@ const FACTORIES: FactoryEntry[] = [
   { name: 'researchMonitoringTools', wave: 3, factory: createResearchMonitoringTools },
   // Wave 4 — Governance
   { name: 'opsExtensionTools', wave: 4, factory: createOpsExtensionTools },
+  { name: 'legalTools', wave: 4, factory: createLegalTools },
+  { name: 'docusignTools', wave: 4, factory: createDocuSignTools },
+  { name: 'hrTools', wave: 4, factory: createHRTools },
+  { name: 'entraHRTools', wave: 4, factory: createEntraHRTools },
   // Wave 5 — Engineering
   { name: 'engineeringGapTools', wave: 5, factory: createEngineeringGapTools },
+  // Wave 6 — Remaining shared tool sets
+  { name: 'canvaTools', wave: 6, factory: createCanvaTools },
+  { name: 'dmTools', wave: 6, factory: createDmTools },
+  { name: 'logoTools', wave: 6, factory: createLogoTools },
+  { name: 'deliverableTools', wave: 6, factory: createDeliverableTools },
+  { name: 'initiativeTools', wave: 6, factory: createInitiativeTools },
 ];
 
 /** Required env vars — services that are provisioned and should have keys. */
@@ -396,11 +417,11 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
 
   // ── T16.5 — Execute Safety ─────────────────────────────────────────
   // Group by wave for granular reporting
-  for (const wave of [0, 1, 2, 3, 4, 5]) {
+  for (const wave of [0, 1, 2, 3, 4, 5, 6]) {
     const waveTools = allTools.filter(t => t.wave === wave);
     if (waveTools.length === 0) continue;
 
-    const waveNames = ['Pre-existing', 'Marketing', 'Finance', 'Product+Research', 'Governance', 'Engineering'];
+    const waveNames = ['Pre-existing', 'Marketing', 'Finance', 'Product+Research', 'Governance', 'Engineering', 'Remaining'];
     const waveSuffix = wave === 0 ? '0' : String.fromCharCode(96 + wave);
     tests.push(
       await runTest(
