@@ -391,7 +391,7 @@ Evaluate now.`;
     );
   }
 
-  const parsedResult = JudgeSchema.safeParse(JSON.parseSafe?.(resultText) ?? safeJsonParse(resultText));
+  const parsedResult = JudgeSchema.safeParse(safeJsonParse(resultText));
   if (!parsedResult.success) {
     const heuristic = chooseHeuristicWinner(successful, query);
     return buildFallbackResult(
