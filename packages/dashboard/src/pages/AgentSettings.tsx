@@ -347,6 +347,9 @@ export default function AgentSettings() {
           >
             {editMode ? 'Close Settings' : 'Edit Settings'}
           </button>
+          <button onClick={handleDelete} className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-4 py-2 text-sm font-medium text-prism-critical hover:bg-prism-critical/20 transition-colors">
+            Delete
+          </button>
         </div>
       </div>
 

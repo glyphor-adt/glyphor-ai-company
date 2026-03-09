@@ -2238,8 +2238,7 @@ function SettingsTab({
       )}
 
       {/* Danger Zone */}
-      {!agent.is_core && (
-        <Card>
+      <Card>
           <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-tier-red">Danger Zone</h3>
           {!showDeleteConfirm ? (
             <button
@@ -2289,7 +2288,6 @@ function SettingsTab({
             </div>
           )}
         </Card>
-      )}
     </div>
   );
 }
