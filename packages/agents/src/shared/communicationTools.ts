@@ -13,7 +13,7 @@ import { systemQuery } from '@glyphor/shared/db';
 
 /* ── Rate Limits ──────────────────────────── */
 
-const MESSAGE_RATE_LIMIT = 5;         // Per agent per hour
+const MESSAGE_RATE_LIMIT = 50;        // Per agent per hour
 const MEETING_RATE_PER_AGENT = 2;     // Per agent per day
 const MESSAGE_RATE_WINDOW_MS = 60 * 60 * 1000;
 
