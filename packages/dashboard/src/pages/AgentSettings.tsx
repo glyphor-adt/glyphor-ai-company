@@ -236,7 +236,7 @@ export default function AgentSettings() {
   };
 
   const handleRetire = async () => {
-    if (!agent || agent.is_core) return;
+    if (!agent) return;
     await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}`, { method: 'DELETE' });
     navigate('/agents');
   };
@@ -365,11 +365,9 @@ export default function AgentSettings() {
                   Resume
                 </button>
               ) : null}
-              {!agent.is_core && (
-                <button onClick={handleRetire} className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-1.5 text-xs font-medium text-prism-critical hover:bg-prism-critical/20 transition-colors">
-                  Retire
-                </button>
-              )}
+              <button onClick={handleRetire} className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-1.5 text-xs font-medium text-prism-critical hover:bg-prism-critical/20 transition-colors">
+                Retire
+              </button>
             </div>
           </div>
 
