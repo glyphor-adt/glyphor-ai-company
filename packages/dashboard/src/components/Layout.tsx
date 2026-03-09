@@ -54,7 +54,7 @@ export default function Layout() {
         )}
         {/* Brand */}
         <div className="relative z-10 px-4 py-4">
-          <img src="/glyphor_new.png" alt="glyphor" className="h-8" />
+          <BrandLockup theme={theme} />
         </div>
 
         {/* Nav links */}
@@ -126,7 +126,7 @@ export default function Layout() {
             )}
             {/* Brand */}
             <div className="relative z-10 flex items-center justify-between px-4 py-4">
-              <img src="/glyphor_new.png" alt="glyphor" className="h-8" />
+              <BrandLockup theme={theme} />
               <button onClick={() => setDrawerOpen(false)} className="p-1 text-prism-tertiary">
                 <CloseIcon className="h-5 w-5" />
               </button>
@@ -225,6 +225,17 @@ export default function Layout() {
           More
         </button>
       </nav>
+    </div>
+  );
+}
+
+function BrandLockup({ theme }: { theme: 'dark' | 'light' }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <img src="/icons/icon-192x192.png" alt="Glyphor icon" className="h-9 w-9 object-contain" />
+      <span className={`font-agency text-[1.65rem] lowercase leading-none ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
+        glyphor
+      </span>
     </div>
   );
 }
