@@ -412,10 +412,21 @@ function MenuAction({
 
 /* ── Main Component ───────────────────────────────── */
 
+const FOUNDERS = [
+  { role: 'kristina', name: 'Kristina', email: 'kristina@glyphor.ai' },
+  { role: 'andrew', name: 'Andrew', email: 'andrew@glyphor.ai' },
+];
+
 export default function OraChat() {
   const { user } = useAuth();
   const userEmail = (user?.email ?? 'unknown').toLowerCase();
   const userAliases = useMemo(() => getEmailAliases(userEmail), [userEmail]);
+  const userInitials = user?.name
+    ? user.name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
+    : '??';
+  const userAvatar = FOUNDERS.find((f) => f.email === userEmail)
+    ? `/${FOUNDERS.find((f) => f.email === userEmail)!.role}_headshot.jpg`
+    : undefined;
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -1093,110 +1104,135 @@ export default function OraChat() {
           </div>
         )}
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      <div className="flex-1 overflow-y-auto py-4 px-4 space-y-4 min-h-0">
         {messages.length === 0 && (
           <div className="flex h-full items-center justify-center">
-            <p className="text-[13px] text-prism-tertiary">Start a conversation with Ora.</p>
+            <div className="text-center">
+              <p className="text-sm text-txt-muted">
+                Start a conversation with <span className="text-cyan">Ora</span>
+              </p>
+              <p className="mt-1 text-[11px] text-txt-faint">
+                Drag &amp; drop, paste, or use <Paperclip className="inline-block h-3.5 w-3.5" /> to attach files
+              </p>
+            </div>
           </div>
         )}
 
-        <div className="mx-auto max-w-4xl space-y-6">
-          {messages.map((msg) => (
-            <div key={msg.id} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : ''}`}>
-              <div
-                className={msg.role === 'user'
-                  ? 'max-w-[70%] rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-[13px] leading-relaxed text-prism-secondary'
-                  : 'w-full rounded-[28px] border border-prism-border bg-prism-bg2/90 px-8 py-6 text-base leading-[1.75] text-prism-secondary shadow-[0_16px_44px_rgba(0,0,0,0.18)]'}
-              >
-                {msg.role === 'assistant' ? (
-                  <div className="mb-4 flex items-center gap-3 border-b border-prism-border pb-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/10">
-                      <Orbit className="h-4 w-4 text-cyan-400" strokeWidth={1.8} />
-                    </div>
-                    <div>
-                      <p className="text-[13px] font-semibold text-prism-primary">Ora</p>
-                      <p className="text-[11px] text-prism-tertiary">
-                        {msg.metadata?.singleModel
-                          ? `${getModelLabel(msg.metadata.singleModel.model)} · ${formatThinkingMode(msg.metadata.singleModel.reasoningLevel)}`
-                          : `${formatComposerMode(mode)} · ${formatThinkingMode(msg.metadata?.triangulation?.reasoningLevel ?? features.reasoningLevel)}`}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => copyMessage(msg.id, msg.content)}
-                      className="ml-auto inline-flex items-center gap-1 rounded-full border border-prism-border bg-prism-card px-3 py-1.5 text-[11px] text-prism-tertiary transition-colors hover:border-cyan-500/30 hover:text-cyan-300"
-                    >
-                      {copiedMessageId === msg.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                      {copiedMessageId === msg.id ? 'Copied' : 'Copy'}
-                    </button>
-                  </div>
-                ) : null}
-                {/* Attachments */}
-                {msg.attachments?.length ? (
-                  <div className="mb-2 flex flex-wrap gap-1">
-                    {msg.attachments.map((a, i) => (
-                      <span key={i} className="inline-flex items-center gap-1 rounded bg-prism-bg2 px-2 py-0.5 text-[11px] text-prism-tertiary">
-                        📎 {a.name}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-
-                {/* Content */}
-                {msg.role === 'user' ? (
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
-                ) : isLoading && msg.id === activeAssistantId && !msg.content ? (
-                  <div className="flex items-start gap-3">
-                    <svg className="mt-0.5 h-4 w-4 animate-spin text-cyan-400" viewBox="0 0 24 24" fill="none">
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-20" />
-                      <path d="M12 2a10 10 0 019.95 9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-                    </svg>
-                    <div className="min-w-0">
-                      <p className="font-medium text-prism-primary">{thinkingTitle}</p>
-                      <p className="mt-1 text-[12px] text-prism-tertiary">{thinkingDetail}</p>
-                      {validatedProviders.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {validatedProviders.map((provider) => (
-                            <span
-                              key={provider}
-                              className="rounded-full border border-green-500/25 bg-green-500/10 px-2 py-0.5 text-[11px] text-green-400"
-                            >
-                              {provider} ready
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : msg.content ? (
-                  <>
-                    <div className={`prose-chat ${msg.role === 'assistant' ? 'ora-response-markdown' : ''}`}><Markdown>{msg.content}</Markdown></div>
-                    {msg.role === 'assistant' && msg.metadata?.triangulation?.reasoning && (
-                      <ReasoningPanel reasoning={msg.metadata.triangulation.reasoning} />
-                    )}
-                    {msg.metadata?.triangulation && msg.metadata.tier !== 'SIMPLE' && completedDurationLabel(msg.metadata.triangulation) && (
-                      <div className="mt-2 text-[11px] text-prism-tertiary">
-                        {msg.metadata.triangulation.tier.toLowerCase()} triangulation completed in {completedDurationLabel(msg.metadata.triangulation)} using {triangulationModelSummary(msg.metadata.triangulation.models)}.
-                      </div>
-                    )}
-                    {msg.metadata?.singleModel && completedSingleModelDurationLabel(msg.metadata.singleModel) && (
-                      <div className="mt-2 text-[11px] text-prism-tertiary">
-                        Single-model response from {msg.metadata.singleModel.model} in {completedSingleModelDurationLabel(msg.metadata.singleModel)}.
-                      </div>
-                    )}
-                  </>
-                ) : null}
-
-                {/* Triangulation panel */}
-                {msg.role === 'assistant' && msg.metadata?.triangulation && msg.metadata.tier !== 'SIMPLE' && (
-                  <TriangulationPanel tri={msg.metadata.triangulation} />
-                )}
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
+          >
+            {/* Avatar */}
+            {msg.role === 'assistant' ? (
+              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-cyan/20">
+                <Orbit className="h-3.5 w-3.5 text-cyan" strokeWidth={1.8} />
               </div>
-            </div>
-          ))}
+            ) : userAvatar ? (
+              <img src={userAvatar} alt="" className="h-7 w-7 rounded-full object-cover flex-shrink-0" />
+            ) : (
+              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-cyan/20 text-[11px] font-bold text-cyan">
+                {userInitials}
+              </div>
+            )}
+            {/* Bubble */}
+            <div
+              className={`max-w-[70%] rounded-xl px-4 py-2.5 text-[13px] leading-relaxed ${
+                msg.role === 'user'
+                  ? 'bg-cyan/10 text-txt-secondary border border-cyan/20'
+                  : 'bg-raised text-txt-secondary border border-border'
+              }`}
+            >
+              {/* Attachments */}
+              {msg.attachments?.length ? (
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {msg.attachments.map((a, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 rounded-md bg-base/50 border border-border px-2 py-1 text-[11px] text-txt-muted">
+                      📎 {a.name}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
 
-          <div ref={scrollRef} />
-        </div>
+              {/* Content */}
+              {msg.role === 'user' ? (
+                <p className="whitespace-pre-wrap">{msg.content}</p>
+              ) : isLoading && msg.id === activeAssistantId && !msg.content ? (
+                <div className="flex items-start gap-3">
+                  <svg className="mt-0.5 h-4 w-4 animate-spin text-cyan" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-20" />
+                    <path d="M12 2a10 10 0 019.95 9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                  <div className="min-w-0">
+                    <p className="font-medium text-txt-primary">{thinkingTitle}</p>
+                    <p className="mt-1 text-[12px] text-txt-faint">{thinkingDetail}</p>
+                    {validatedProviders.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {validatedProviders.map((provider) => (
+                          <span
+                            key={provider}
+                            className="rounded-full border border-green-500/25 bg-green-500/10 px-2 py-0.5 text-[11px] text-green-400"
+                          >
+                            {provider} ready
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : msg.content ? (
+                <>
+                  <div className={`prose-chat ${msg.role === 'assistant' ? 'ora-response-markdown' : ''}`}><Markdown>{msg.content}</Markdown></div>
+                  {msg.role === 'assistant' && msg.metadata?.triangulation?.reasoning && (
+                    <ReasoningPanel reasoning={msg.metadata.triangulation.reasoning} />
+                  )}
+                  {msg.metadata?.triangulation && msg.metadata.tier !== 'SIMPLE' && completedDurationLabel(msg.metadata.triangulation) && (
+                    <div className="mt-2 text-[11px] text-txt-faint">
+                      {msg.metadata.triangulation.tier.toLowerCase()} triangulation completed in {completedDurationLabel(msg.metadata.triangulation)} using {triangulationModelSummary(msg.metadata.triangulation.models)}.
+                    </div>
+                  )}
+                  {msg.metadata?.singleModel && completedSingleModelDurationLabel(msg.metadata.singleModel) && (
+                    <div className="mt-2 text-[11px] text-txt-faint">
+                      Single-model response from {msg.metadata.singleModel.model} in {completedSingleModelDurationLabel(msg.metadata.singleModel)}.
+                    </div>
+                  )}
+                </>
+              ) : null}
+
+              {/* Copy button for assistant messages */}
+              {msg.role === 'assistant' && msg.content && (
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => copyMessage(msg.id, msg.content)}
+                    className="inline-flex items-center gap-1 text-[10px] text-txt-faint hover:text-cyan transition-colors"
+                  >
+                    {copiedMessageId === msg.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                    {copiedMessageId === msg.id ? 'Copied' : 'Copy'}
+                  </button>
+                  <span className="text-[10px] text-txt-faint">
+                    {msg.metadata?.singleModel
+                      ? getModelLabel(msg.metadata.singleModel.model)
+                      : msg.metadata?.triangulation
+                        ? `${msg.metadata.triangulation.selectedProvider}`
+                        : ''}
+                  </span>
+                </div>
+              )}
+
+              {/* Triangulation panel */}
+              {msg.role === 'assistant' && msg.metadata?.triangulation && msg.metadata.tier !== 'SIMPLE' && (
+                <TriangulationPanel tri={msg.metadata.triangulation} />
+              )}
+
+              <p className="mt-1.5 text-[10px] text-txt-faint">
+                {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+          </div>
+        ))}
+
+        <div ref={scrollRef} />
       </div>
 
       <input
@@ -1211,27 +1247,28 @@ export default function OraChat() {
         }}
       />
 
-      {/* Attachment preview */}
+      {/* Pending files */}
       {attachments.length > 0 && (
-        <div className="mx-auto mt-2 flex w-full max-w-4xl flex-wrap gap-2 px-4">
+        <div className="flex flex-wrap gap-2 border-t border-border px-4 pt-2">
           {attachments.map((a, i) => (
-            <div key={i} className="flex items-center gap-1.5 rounded-lg bg-prism-bg2 px-2.5 py-1.5 text-[12px] text-prism-secondary border border-prism-border">
+            <div key={i} className="flex items-center gap-1.5 rounded-lg bg-raised border border-border px-2.5 py-1.5">
               {a.previewUrl ? (
-                <img src={a.previewUrl} alt="" className="h-6 w-6 rounded object-cover" />
+                <img src={a.previewUrl} alt={a.name} className="h-8 w-8 rounded object-cover" />
               ) : (
                 <span>📎</span>
               )}
-              <span className="max-w-[120px] truncate">{a.name}</span>
-              <button onClick={() => removeAttachment(i)} className="text-prism-tertiary hover:text-red-400 ml-1">✕</button>
+              <span className="text-[11px] text-txt-secondary truncate max-w-[100px]">{a.name}</span>
+              <button onClick={() => removeAttachment(i)} className="ml-1 text-txt-faint hover:text-rose transition-colors">✕</button>
             </div>
           ))}
         </div>
       )}
 
-      {/* Input area */}
-      <div className="relative mx-auto mb-4 mt-2 w-full max-w-4xl rounded-[30px] border border-prism-border bg-prism-card px-4 py-3 shadow-prism-lg" ref={menuRef}>
+      {/* Input */}
+      <div className="border-t border-border pt-3 px-4 pb-3 relative" ref={menuRef}>
+        {/* Menu flyout (opens above) */}
         {menuOpen && (
-          <div className="absolute bottom-full left-0 z-20 mb-2 flex items-start gap-2">
+          <div className="absolute bottom-full left-4 z-20 mb-2 flex items-start gap-2">
             <div className="w-80 rounded-[24px] border border-prism-border bg-prism-card p-3 shadow-prism-lg">
               <MenuAction
                 icon={<Paperclip className="h-4 w-4" />}
@@ -1407,56 +1444,55 @@ export default function OraChat() {
           </div>
         )}
 
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => {
-            setInput(e.target.value);
-            resizeTextarea();
-          }}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          placeholder="Ask Ora"
-          rows={1}
-          className="w-full resize-none bg-transparent text-[15px] text-prism-primary placeholder:text-prism-tertiary outline-none"
-          style={{ maxHeight: 160 }}
-          disabled={isLoading}
-        />
+        <div className="flex gap-2 items-end">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((prev) => !prev)}
+            disabled={isLoading}
+            className={`flex-shrink-0 rounded-lg border border-border bg-raised px-2.5 py-2.5 text-txt-muted hover:text-cyan transition-colors ${isLoading ? 'opacity-50' : ''}`}
+            aria-label="Open Ora options"
+          >
+            <Plus className={`h-4 w-4 transition-transform ${menuOpen ? 'rotate-45' : ''}`} />
+          </button>
 
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setMenuOpen((prev) => !prev)}
-              disabled={isLoading}
-              className={`relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-prism-border bg-prism-bg2 text-prism-secondary transition-colors hover:border-cyan-500/30 hover:text-cyan-300 ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
-              aria-label="Open Ora options"
-            >
-              <Plus className={`h-4 w-4 transition-transform ${menuOpen ? 'rotate-45' : ''}`} />
-            </button>
-          </div>
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              resizeTextarea();
+            }}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            placeholder="Ask Ora... (Shift+Enter for new line)"
+            rows={1}
+            className="flex-1 rounded-lg border border-border bg-raised px-4 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none transition-colors focus:border-cyan/40 disabled:opacity-50 resize-none min-h-[40px] max-h-[120px]"
+            onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 120)}px`; }}
+            disabled={isLoading}
+          />
 
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={toggleDictation}
-              disabled={isLoading}
-              className={`flex h-10 w-10 items-center justify-center rounded-full border border-prism-border bg-prism-bg2 text-prism-secondary transition-colors hover:border-cyan-500/30 hover:text-cyan-300 ${isListening ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300' : ''} ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
-              title={isListening ? 'Stop dictation' : 'Dictate'}
-            >
-              {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-            </button>
+          <button
+            type="button"
+            onClick={toggleDictation}
+            disabled={isLoading}
+            className={`flex-shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-full transition-all ${
+              isListening
+                ? 'bg-prism-critical text-white shadow-lg shadow-prism-critical/25 animate-pulse'
+                : 'bg-raised border border-border text-txt-muted hover:text-cyan hover:border-cyan/40 hover:bg-cyan/5'
+            } ${isLoading ? 'opacity-50' : ''}`}
+            title={isListening ? 'Stop dictation' : 'Dictate'}
+          >
+            {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+          </button>
 
-            <button
-              onClick={send}
-              disabled={isLoading || (!input.trim() && attachments.length === 0)}
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-cyan-500 text-white transition-colors hover:bg-cyan-600 disabled:opacity-40 disabled:hover:bg-cyan-500"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M1 1l14 7-14 7V9l10-1-10-1z" />
-              </svg>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={send}
+            disabled={isLoading || (!input.trim() && attachments.length === 0)}
+            className="flex-shrink-0 rounded-lg bg-cyan px-5 py-2.5 text-[13px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+          >
+            Send
+          </button>
         </div>
       </div>
       </div>
