@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Markdown from 'react-markdown';
 import { Orbit, Plus, Globe, Brain, Database, Paperclip, Copy, Check, ChevronDown, ChevronRight, Mic, MicOff, MessageSquarePlus, PanelLeftClose, PanelLeft, Search, Trash2 } from 'lucide-react';
 import { FaGithub } from 'react-icons/fa';
+import { Card } from '../components/ui';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { getModelLabel, getModelsByProvider, PROVIDER_LABELS, getReasoningSupport, normalizeReasoningLevel, type ReasoningLevel } from '../lib/models';
 import { useAuth, getEmailAliases } from '../lib/auth';
@@ -1001,7 +1002,7 @@ export default function OraChat() {
     });
   }, []);
   return (
-    <div className="flex h-full">
+    <div className="flex h-[calc(100vh-6rem)] gap-5">
       {/* Session Sidebar */}
       {sidebarOpen && (
         <div className="flex w-72 flex-shrink-0 flex-col border-r border-prism-border bg-prism-bg">
@@ -1081,28 +1082,40 @@ export default function OraChat() {
       )}
 
       {/* Main chat area */}
-      <div className="flex flex-1 flex-col">
-        {/* Top bar with sidebar toggle */}
-        {!sidebarOpen && (
-          <div className="flex items-center gap-2 border-b border-prism-border px-3 py-2">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-prism-tertiary transition-colors hover:bg-prism-bg2 hover:text-prism-primary"
-              title="Open sidebar"
-            >
-              <PanelLeft className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={startNewSession}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-prism-tertiary transition-colors hover:bg-prism-bg2 hover:text-cyan-300"
-              title="New chat"
-            >
-              <MessageSquarePlus className="h-4 w-4" />
-            </button>
+      <Card className="flex flex-1 flex-col min-h-0">
+        {/* Header */}
+        <div className="flex items-center gap-3 border-b border-border pb-4">
+          {!sidebarOpen && (
+            <>
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(true)}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-txt-faint transition-colors hover:bg-[var(--color-hover-bg)] hover:text-txt-primary"
+                title="Open sidebar"
+              >
+                <PanelLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={startNewSession}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-txt-faint transition-colors hover:bg-[var(--color-hover-bg)] hover:text-cyan"
+                title="New chat"
+              >
+                <MessageSquarePlus className="h-4 w-4" />
+              </button>
+            </>
+          )}
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-cyan/20">
+            <Orbit className="h-4 w-4 text-cyan" strokeWidth={1.8} />
           </div>
-        )}
+          <div className="flex-1">
+            <h2 className="text-[15px] font-semibold text-txt-primary">Ora</h2>
+            <p className="text-[11px] text-txt-muted">
+              {mode === 'single-model' ? getModelLabel(selectedModel) : 'Triangulated'} · {formatThinkingMode(features.reasoningLevel)}
+            </p>
+          </div>
+        </div>
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto py-4 px-4 space-y-4 min-h-0">
         {messages.length === 0 && (
@@ -1495,7 +1508,7 @@ export default function OraChat() {
           </button>
         </div>
       </div>
-      </div>
+      </Card>
     </div>
   );
 }

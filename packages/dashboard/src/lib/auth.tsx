@@ -265,6 +265,9 @@ function GoogleAuthGate({ children }: { children: ReactNode }) {
                 size="large"
                 shape="pill"
                 text="signin_with"
+                useOneTap={false}
+                auto_select={false}
+                login_hint="devops@glyphor.ai"
               />
             </div>
             {error && (
