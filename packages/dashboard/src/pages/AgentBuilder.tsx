@@ -6,7 +6,7 @@ import { MODELS, DEFAULT_MODEL } from '../lib/models';
 
 const DEPARTMENTS = [
   'Engineering', 'Product', 'Finance', 'Marketing',
-  'Customer Success', 'Sales', 'Design & Frontend', 'Operations',
+  'Sales', 'Design & Frontend', 'Operations',
 ];
 
 export default function AgentBuilder() {

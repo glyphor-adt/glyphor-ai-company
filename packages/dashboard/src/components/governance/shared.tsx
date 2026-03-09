@@ -201,7 +201,6 @@ const DEPT_ORDER = [
   'Product',
   'Finance',
   'Marketing',
-  'Customer Success',
   'Sales',
   'Design & Frontend',
   'Research & Intelligence',

@@ -196,7 +196,7 @@ export default function GroupChat() {
   // ── Org chart department grouping ──
   const DEPT_ORDER = [
     'Executive Office', 'Engineering', 'Product', 'Finance', 'Marketing',
-    'Customer Success', 'Sales', 'Design & Frontend', 'Research & Intelligence',
+    'Sales', 'Design & Frontend', 'Research & Intelligence',
     'Operations', 'Operations & IT', 'Legal', 'People & Culture',
   ];
   const TIER_PRIORITY: Record<string, number> = { Orchestrator: 0, Executive: 1, Specialist: 2, 'Sub-Team': 3 };

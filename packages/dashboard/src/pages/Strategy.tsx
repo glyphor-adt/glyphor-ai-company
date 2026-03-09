@@ -1138,7 +1138,7 @@ function SimulationsPanel() {
       <Card>
         <SectionHeader title="Launch T+1 Simulation" />
         <p className="mt-1 mb-3 text-[12px] text-txt-muted">
-          Describe a proposed action and the AI executive team will simulate its cascading impact across Revenue, Engineering, Product, Marketing, Customer Success, and Finance.
+          Describe a proposed action and the AI executive team will simulate its cascading impact across Revenue, Engineering, Product, Marketing, and Finance.
         </p>
         <div className="grid grid-cols-[1fr_auto_auto] gap-3 items-end">
           <div>

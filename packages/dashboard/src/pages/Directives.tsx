@@ -118,7 +118,7 @@ const PRIORITY_CONFIG: Record<Priority, { label: string; dot: string; border: st
 
 const CATEGORY_LABELS: Record<Category, string> = {
   revenue: 'Revenue', product: 'Product', engineering: 'Engineering',
-  marketing: 'Marketing', sales: 'Sales', customer_success: 'Customer Success',
+  marketing: 'Marketing', sales: 'Sales',
   operations: 'Operations', general: 'General', strategy: 'Strategy', design: 'Design',
 };
 
@@ -127,7 +127,6 @@ const TARGET_AGENTS = [
   { role: 'cfo', label: 'Nadia (CFO)' },
   { role: 'cpo', label: 'Elena (CPO)' },
   { role: 'cmo', label: 'Maya (CMO)' },
-  { role: 'vp-customer-success', label: 'James (VP CS)' },
   { role: 'vp-sales', label: 'Rachel (VP Sales)' },
   { role: 'vp-design', label: 'Mia (VP Design)' },
 ];

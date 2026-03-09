@@ -41,7 +41,6 @@ const CATEGORY_META: Record<string, { label: string; color: string; icon: ReactN
   engineering:        { label: 'Engineering',       color: '#2563EB', icon: <MdSettings className="inline h-4 w-4" /> },
   marketing:          { label: 'Marketing',         color: '#7C3AED', icon: <MdCampaign className="inline h-4 w-4" /> },
   product:            { label: 'Product',           color: '#0891B2', icon: <MdExplore className="inline h-4 w-4" /> },
-  'customer-success': { label: 'Customer Success',  color: '#0E7490', icon: <MdHandshake className="inline h-4 w-4" /> },
   sales:              { label: 'Sales',             color: '#1D4ED8', icon: <MdTrackChanges className="inline h-4 w-4" /> },
   design:             { label: 'Design',            color: '#DB2777', icon: <MdPalette className="inline h-4 w-4" /> },
   leadership:         { label: 'Leadership',        color: '#7C3AED', icon: <MdStars className="inline h-4 w-4" /> },

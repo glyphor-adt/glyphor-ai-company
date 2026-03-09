@@ -22,7 +22,7 @@ export default function AgentsList() {
           {agents
             .sort((a, b) => {
               const order = [
-                'chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales', 'vp-design', 'vp-research', 'clo', 'ops',
+                'chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-sales', 'vp-design', 'vp-research', 'clo', 'ops',
                 // Engineering
                 'platform-engineer', 'quality-engineer', 'devops-engineer',
                 // Product
@@ -31,8 +31,6 @@ export default function AgentsList() {
                 'revenue-analyst', 'cost-analyst',
                 // Marketing
                 'content-creator', 'seo-analyst', 'social-media-manager',
-                // Customer Success
-                'onboarding-specialist', 'support-triage',
                 // Sales
                 'account-research',
                 // Design

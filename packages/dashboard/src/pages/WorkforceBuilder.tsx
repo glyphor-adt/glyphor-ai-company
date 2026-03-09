@@ -32,7 +32,7 @@ const TEMPLATES: Template[] = [
   { id: 'designer',       label: 'Designer',       tier: 'specialist',   color: '#DB2777', icon: MdBrush,          defaultTitle: 'Designer',       defaultDept: 'Design' },
   { id: 'researcher',     label: 'Researcher',     tier: 'specialist',   color: '#0891B2', icon: MdBiotech,        defaultTitle: 'Researcher',     defaultDept: '' },
   { id: 'marketer',       label: 'Marketer',       tier: 'specialist',   color: '#7C3AED', icon: MdCampaign,       defaultTitle: 'Marketer',       defaultDept: 'Marketing' },
-  { id: 'support',        label: 'Support',        tier: 'specialist',   color: '#0E7490', icon: MdHeadsetMic,     defaultTitle: 'Support Agent',  defaultDept: 'Customer Success' },
+  { id: 'support',        label: 'Support',        tier: 'specialist',   color: '#0E7490', icon: MdHeadsetMic,     defaultTitle: 'Support Agent',  defaultDept: 'Operations' },
   { id: 'specialist',     label: 'Specialist',     tier: 'specialist',   color: '#64748B', icon: MdStar,           defaultTitle: 'Specialist',     defaultDept: '' },
 ];
 
