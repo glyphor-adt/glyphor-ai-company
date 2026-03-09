@@ -1002,10 +1002,29 @@ export default function OraChat() {
     });
   }, []);
   return (
-    <div className="flex h-[calc(100vh-6rem)] gap-5">
-      {/* Session Sidebar */}
+    <div className="flex h-[calc(100vh-10rem)] md:h-[calc(100vh-6rem)] gap-2 md:gap-5">
+      {/* Session Sidebar — mobile overlay */}
       {sidebarOpen && (
-      <div className="flex w-72 flex-shrink-0 flex-col border-r border-prism-border bg-prism-bg">
+        <div className="fixed inset-0 z-50 md:hidden" onClick={() => setSidebarOpen(false)}>
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="relative z-10 flex h-full w-72 flex-col border-r border-prism-border bg-prism-bg overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <OraSessionSidebar
+              sessions={filteredSessions}
+              sessionsCount={sessions.length}
+              activeSessionId={activeSessionId}
+              sessionSearch={sessionSearch}
+              setSessionSearch={setSessionSearch}
+              setActiveSessionId={(id) => { setActiveSessionId(id); setSidebarOpen(false); }}
+              startNewSession={() => { startNewSession(); setSidebarOpen(false); }}
+              deleteSession={deleteSession}
+              onClose={() => setSidebarOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+      {/* Session Sidebar — desktop */}
+      {sidebarOpen && (
+      <div className="hidden md:flex w-72 flex-shrink-0 flex-col border-r border-prism-border bg-prism-bg">
           <div className="flex items-center gap-2 border-b border-prism-border px-3 py-3">
             <button
               type="button"
@@ -1082,9 +1101,9 @@ export default function OraChat() {
       )}
 
       {/* Main chat area */}
-      <Card className="flex flex-1 flex-col min-h-0 transition-all">
+      <Card className="flex flex-1 flex-col min-h-0 min-w-0 transition-all">
         {/* Header */}
-        <div className="flex items-center gap-3 border-b border-border pb-4">
+        <div className="flex items-center gap-2 md:gap-3 border-b border-border pb-3 md:pb-4">
           {!sidebarOpen && (
             <button
               type="button"
@@ -1142,8 +1161,8 @@ export default function OraChat() {
             <div
               className={`${
                 msg.role === 'user'
-                  ? 'max-w-[85%] rounded-xl px-4 py-2.5 text-[13px] leading-relaxed bg-cyan/10 text-txt-secondary border border-cyan/20'
-                  : 'max-w-[720px] text-[14px] leading-[1.7] text-txt-secondary'
+                  ? 'max-w-[85%] rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-[13px] leading-relaxed bg-cyan/10 text-txt-secondary border border-cyan/20'
+                  : 'max-w-full md:max-w-[720px] text-[14px] leading-[1.7] text-txt-secondary'
               }`}
             >
               {/* Attachments */}
@@ -1271,8 +1290,8 @@ export default function OraChat() {
       <div className="border-t border-border pt-3 relative" ref={menuRef}>
         {/* Menu flyout (opens above) */}
         {menuOpen && (
-          <div className="absolute bottom-full left-4 z-20 mb-2 flex items-start gap-2">
-            <div className="w-80 rounded-[24px] border border-prism-border bg-prism-card p-3 shadow-prism-lg">
+          <div className="absolute bottom-full left-0 md:left-4 z-20 mb-2 flex flex-col md:flex-row items-start gap-2 max-w-[calc(100vw-2rem)] md:max-w-none">
+            <div className="w-[min(320px,calc(100vw-2rem))] rounded-[24px] border border-prism-border bg-prism-card p-3 shadow-prism-lg">
               <MenuAction
                 icon={<Paperclip className="h-4 w-4" />}
                 title="Add files or photos"
@@ -1329,7 +1348,7 @@ export default function OraChat() {
             </div>
 
             {menuFlyout === 'model' && (
-              <div className="w-96 rounded-[24px] border border-prism-border bg-prism-card p-3 shadow-prism-lg">
+              <div className="w-[min(384px,calc(100vw-2rem))] rounded-[24px] border border-prism-border bg-prism-card p-3 shadow-prism-lg">
                 <div className="mb-2 px-3 py-2">
                   <div className="text-[12px] font-medium text-prism-primary">Model</div>
                   <div className="text-[11px] text-prism-tertiary">Pick a single model or configure the triangulated trio.</div>
@@ -1419,7 +1438,7 @@ export default function OraChat() {
             )}
 
             {menuFlyout === 'type' && (
-              <div className="w-80 rounded-[24px] border border-prism-border bg-prism-card p-3 shadow-prism-lg">
+              <div className="w-[min(320px,calc(100vw-2rem))] rounded-[24px] border border-prism-border bg-prism-card p-3 shadow-prism-lg">
                 <div className="mb-2 px-3 py-2">
                   <div className="text-[12px] font-medium text-prism-primary">Type</div>
                   <div className="text-[11px] text-prism-tertiary">
@@ -1492,7 +1511,7 @@ export default function OraChat() {
             type="button"
             onClick={send}
             disabled={isLoading || (!input.trim() && attachments.length === 0)}
-            className="flex-shrink-0 rounded-lg bg-cyan px-5 py-2.5 text-[13px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+            className="flex-shrink-0 rounded-lg bg-cyan px-3 py-2 md:px-5 md:py-2.5 text-[13px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
           >
             Send
           </button>

@@ -168,6 +168,118 @@ function ActionReceipts({ actions }: { actions: ActionReceipt[] }) {
   );
 }
 
+/* ── Sidebar content (shared between mobile overlay & desktop) ── */
+function SidebarContent({
+  recentChats,
+  sidebarItems,
+  selectedRole,
+  respondingAgents,
+  sidebarSearch,
+  setSidebarSearch,
+  setSelectedRole,
+  setShowOrgChart,
+}: {
+  recentChats: RecentChat[];
+  sidebarItems: RecentChat[];
+  selectedRole: string;
+  respondingAgents: Map<string, string>;
+  sidebarSearch: string;
+  setSidebarSearch: (v: string) => void;
+  setSelectedRole: (role: string) => void;
+  setShowOrgChart: (v: boolean) => void;
+}) {
+  return (
+    <>
+      <div className="p-3 space-y-2">
+        <button
+          onClick={() => setShowOrgChart(true)}
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-3 py-2 text-[13px] font-medium text-white hover:opacity-90 transition-opacity"
+        >
+          <MdAdd size={18} />
+          New Chat
+        </button>
+        {recentChats.length > 3 && (
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-raised px-3 py-1.5">
+            <MdSearch size={14} className="text-txt-faint flex-shrink-0" />
+            <input
+              type="text"
+              value={sidebarSearch}
+              onChange={(e) => setSidebarSearch(e.target.value)}
+              placeholder="Search chats..."
+              className="flex-1 bg-transparent text-[12px] text-txt-secondary placeholder-txt-faint outline-none"
+            />
+          </div>
+        )}
+      </div>
+      <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
+        {recentChats.length > 0 && (
+          <p className="px-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-txt-faint">
+            Recent Chats
+          </p>
+        )}
+        {sidebarItems.map((chat) => {
+          const meta = AGENT_META[chat.agentRole];
+          const active = chat.agentRole === selectedRole;
+          const isResponding = respondingAgents.has(chat.agentRole);
+          const name = DISPLAY_NAME_MAP[chat.agentRole] ?? chat.agentRole;
+          return (
+            <button
+              key={chat.agentRole}
+              onClick={() => setSelectedRole(chat.agentRole)}
+              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
+                active
+                  ? 'bg-cyan/10 border border-cyan/25'
+                  : 'border border-transparent hover:bg-[var(--color-hover-bg)]'
+              }`}
+            >
+              <div className="relative flex-shrink-0">
+                <img
+                  src={`/avatars/${chat.agentRole}.png`}
+                  alt=""
+                  className="h-10 w-10 rounded-full object-cover"
+                  style={{ border: `2px solid ${meta?.color ?? '#64748b'}50` }}
+                />
+                {isResponding && (
+                  <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-surface">
+                    <span className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className={`text-[13px] font-medium truncate ${active ? 'text-cyan' : 'text-txt-secondary'}`}>
+                    {name}
+                  </p>
+                  {chat.lastMessage && (
+                    <span className="text-[10px] text-txt-faint whitespace-nowrap flex-shrink-0">
+                      {formatRelativeTime(chat.lastTime)}
+                    </span>
+                  )}
+                </div>
+                {isResponding ? (
+                  <p className="text-[11px] text-cyan italic mt-0.5">Typing...</p>
+                ) : chat.lastMessage ? (
+                  <p className="text-[11px] text-txt-faint truncate mt-0.5">
+                    {chat.lastMessageRole === 'user' ? 'You: ' : ''}{chat.lastMessage}
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-txt-faint italic mt-0.5">New conversation</p>
+                )}
+              </div>
+            </button>
+          );
+        })}
+        {recentChats.length === 0 && !sidebarSearch && (
+          <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+            <p className="text-[12px] text-txt-muted mb-1">No conversations yet</p>
+            <p className="text-[11px] text-txt-faint">Click <span className="text-cyan font-medium">New Chat</span> to start</p>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
 export default function Chat() {
   const { agentId } = useParams();
   const { data: agents } = useAgents();
@@ -661,110 +773,58 @@ export default function Chat() {
     }
   };
 
-  return (
-    <div className="flex h-[calc(100vh-6rem)] gap-5">
-      {/* ── Chat Sidebar (Left) ────────────── */}
-      <div className="w-72 flex-shrink-0 flex flex-col border-r border-border overflow-hidden">
-        {/* New Chat + Search */}
-        <div className="p-3 space-y-2">
-          <button
-            onClick={() => setShowOrgChart(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-3 py-2 text-[13px] font-medium text-white hover:opacity-90 transition-opacity"
-          >
-            <MdAdd size={18} />
-            New Chat
-          </button>
-          {recentChats.length > 3 && (
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-raised px-3 py-1.5">
-              <MdSearch size={14} className="text-txt-faint flex-shrink-0" />
-              <input
-                type="text"
-                value={sidebarSearch}
-                onChange={(e) => setSidebarSearch(e.target.value)}
-                placeholder="Search chats..."
-                className="flex-1 bg-transparent text-[12px] text-txt-secondary placeholder-txt-faint outline-none"
-              />
-            </div>
-          )}
-        </div>
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-        {/* Recent Chats */}
-        <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
-          {recentChats.length > 0 && (
-            <p className="px-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-txt-faint">
-              Recent Chats
-            </p>
-          )}
-          {sidebarItems.map((chat) => {
-            const meta = AGENT_META[chat.agentRole];
-            const active = chat.agentRole === selectedRole;
-            const isResponding = respondingAgents.has(chat.agentRole);
-            const name = DISPLAY_NAME_MAP[chat.agentRole] ?? chat.agentRole;
-            return (
-              <button
-                key={chat.agentRole}
-                onClick={() => setSelectedRole(chat.agentRole)}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
-                  active
-                    ? 'bg-cyan/10 border border-cyan/25'
-                    : 'border border-transparent hover:bg-[var(--color-hover-bg)]'
-                }`}
-              >
-                <div className="relative flex-shrink-0">
-                  <img
-                    src={`/avatars/${chat.agentRole}.png`}
-                    alt=""
-                    className="h-10 w-10 rounded-full object-cover"
-                    style={{ border: `2px solid ${meta?.color ?? '#64748b'}50` }}
-                  />
-                  {isResponding && (
-                    <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-surface">
-                      <span className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
-                    </span>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className={`text-[13px] font-medium truncate ${active ? 'text-cyan' : 'text-txt-secondary'}`}>
-                      {name}
-                    </p>
-                    {chat.lastMessage && (
-                      <span className="text-[10px] text-txt-faint whitespace-nowrap flex-shrink-0">
-                        {formatRelativeTime(chat.lastTime)}
-                      </span>
-                    )}
-                  </div>
-                  {isResponding ? (
-                    <p className="text-[11px] text-cyan italic mt-0.5">Typing...</p>
-                  ) : chat.lastMessage ? (
-                    <p className="text-[11px] text-txt-faint truncate mt-0.5">
-                      {chat.lastMessageRole === 'user' ? 'You: ' : ''}{chat.lastMessage}
-                    </p>
-                  ) : (
-                    <p className="text-[11px] text-txt-faint italic mt-0.5">New conversation</p>
-                  )}
-                </div>
-              </button>
-            );
-          })}
-          {recentChats.length === 0 && !sidebarSearch && (
-            <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
-              <p className="text-[12px] text-txt-muted mb-1">No conversations yet</p>
-              <p className="text-[11px] text-txt-faint">Click <span className="text-cyan font-medium">New Chat</span> to start</p>
-            </div>
-          )}
+  return (
+    <div className="flex h-[calc(100vh-10rem)] md:h-[calc(100vh-6rem)] gap-2 md:gap-5">
+      {/* ── Mobile sidebar overlay ────────────── */}
+      {mobileSidebarOpen && (
+        <div className="fixed inset-0 z-50 md:hidden" onClick={() => setMobileSidebarOpen(false)}>
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="relative z-10 flex h-full w-72 flex-col border-r border-border bg-surface overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <SidebarContent
+              recentChats={recentChats}
+              sidebarItems={sidebarItems}
+              selectedRole={selectedRole}
+              respondingAgents={respondingAgents}
+              sidebarSearch={sidebarSearch}
+              setSidebarSearch={setSidebarSearch}
+              setSelectedRole={(role) => { setSelectedRole(role); setMobileSidebarOpen(false); }}
+              setShowOrgChart={(v) => { setShowOrgChart(v); setMobileSidebarOpen(false); }}
+            />
+          </div>
         </div>
+      )}
+      {/* ── Chat Sidebar (Left) — desktop only ────── */}
+      <div className="hidden md:flex w-72 flex-shrink-0 flex-col border-r border-border overflow-hidden">
+        <SidebarContent
+          recentChats={recentChats}
+          sidebarItems={sidebarItems}
+          selectedRole={selectedRole}
+          respondingAgents={respondingAgents}
+          sidebarSearch={sidebarSearch}
+          setSidebarSearch={setSidebarSearch}
+          setSelectedRole={setSelectedRole}
+          setShowOrgChart={setShowOrgChart}
+        />
       </div>
 
       {/* ── Chat Area (Right) ────────────── */}
       <Card
-        className={`flex flex-1 flex-col min-h-0 transition-all ${dragging ? 'ring-2 ring-cyan/40' : ''}`}
+        className={`flex flex-1 flex-col min-h-0 min-w-0 transition-all ${dragging ? 'ring-2 ring-cyan/40' : ''}`}
         onDragOver={(e: React.DragEvent) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={(e: React.DragEvent) => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); }}
       >
         {/* Header */}
-        <div className="flex items-center gap-3 border-b border-border pb-4">
+        <div className="flex items-center gap-2 md:gap-3 border-b border-border pb-3 md:pb-4">
+          <button
+            type="button"
+            onClick={() => setMobileSidebarOpen(true)}
+            className="flex md:hidden h-8 w-8 items-center justify-center rounded-lg text-txt-muted hover:bg-raised transition-colors"
+          >
+            <MdSearch size={18} />
+          </button>
           <AgentAvatar role={selectedRole} size={36} glow />
           <div className="flex-1">
             <h2 className="text-[15px] font-semibold text-txt-primary">{codename}</h2>
@@ -870,7 +930,7 @@ export default function Chat() {
                 </div>
               )}
               <div
-                className={`max-w-[70%] rounded-xl px-4 py-2.5 text-[13px] leading-relaxed ${
+                className={`max-w-[85%] md:max-w-[70%] rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-[13px] leading-relaxed ${
                   msg.role === 'user'
                     ? 'bg-cyan/10 text-txt-secondary border border-cyan/20'
                     : 'bg-raised text-txt-secondary border border-border'
@@ -981,11 +1041,11 @@ export default function Chat() {
             </div>
           )}
 
-          <div className="flex gap-2 items-end">
+          <div className="flex gap-1.5 md:gap-2 items-end">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex-shrink-0 rounded-lg border border-border bg-raised px-2.5 py-2.5 text-txt-muted hover:text-cyan transition-colors"
+              className="flex-shrink-0 rounded-lg border border-border bg-raised px-2 py-2 md:px-2.5 md:py-2.5 text-txt-muted hover:text-cyan transition-colors"
               title="Attach file"
             >
               <MdAttachFile className="text-[16px]" />
@@ -1018,7 +1078,7 @@ export default function Chat() {
             <button
               type="button"
               onClick={toggleDictation}
-              className={`flex-shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-full transition-all ${
+              className={`flex-shrink-0 w-[36px] h-[36px] md:w-[40px] md:h-[40px] hidden md:flex items-center justify-center rounded-full transition-all ${
                 isListening
                   ? 'bg-prism-critical text-white shadow-lg shadow-prism-critical/25 animate-pulse'
                   : 'bg-raised border border-border text-txt-muted hover:text-cyan hover:border-cyan/40 hover:bg-cyan/5'
@@ -1034,7 +1094,7 @@ export default function Chat() {
                 else voice.startVoice(selectedRole, userEmail);
               }}
               disabled={voice.isConnecting}
-              className={`flex-shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-full transition-all ${
+              className={`flex-shrink-0 w-[36px] h-[36px] md:w-[40px] md:h-[40px] hidden md:flex items-center justify-center rounded-full transition-all ${
                 voice.isActive
                   ? 'bg-prism-fill-2 text-white shadow-lg shadow-prism-fill-2/25 hover:bg-prism-critical hover:shadow-prism-critical/25'
                   : voice.isConnecting
@@ -1053,7 +1113,7 @@ export default function Chat() {
               type="button"
               onClick={sendMessage}
               disabled={respondingAgents.has(selectedRole) || (!input.trim() && pendingFiles.length === 0)}
-              className="flex-shrink-0 rounded-lg bg-cyan px-5 py-2.5 text-[13px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+              className="flex-shrink-0 rounded-lg bg-cyan px-3 py-2 md:px-5 md:py-2.5 text-[13px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
             >
               Send
             </button>
