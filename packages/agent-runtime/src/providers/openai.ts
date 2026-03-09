@@ -164,8 +164,8 @@ export class OpenAIAdapter implements ProviderAdapter {
     const isOSeries = /^o[134](-|$)/.test(request.model);
     // GPT-5 family: gpt-5, gpt-5.1, gpt-5.2, gpt-5-mini, gpt-5-nano, etc.
     const isGpt5Family = request.model.startsWith('gpt-5');
-    // GPT-5.2/5.1 support 'none' reasoning (allows temperature)
-    const supportsNoneReasoning = /^gpt-5\.[12]/.test(request.model);
+    // All GPT-5 family models support 'none' reasoning (disables reasoning, allows temperature)
+    const supportsNoneReasoning = isGpt5Family;
 
     let reasoningEffort: string | undefined;
     const requestedReasoningLevel = request.reasoningLevel;
@@ -185,9 +185,18 @@ export class OpenAIAdapter implements ProviderAdapter {
       reasoningEffort = reasoningLevel === 'deep' ? 'high' : 'medium';
     }
 
+    // ── Responses API for reasoning calls (enables reasoning summaries) ──
+    const hasResponsesApi = typeof (this.client as any).responses?.create === 'function';
+    if (reasoningEffort && reasoningEffort !== 'none' && hasResponsesApi) {
+      return this.generateViaResponses(request, reasoningEffort, tools);
+    }
+
+    // ── Chat Completions path (non-reasoning / reasoning=none / SDK fallback) ──
     const forbidTempTopP = isOSeries || (isGpt5Family && reasoningEffort !== 'none');
     const useMaxCompletionTokens = isOSeries || isGpt5Family;
-    const resolvedMaxTokens = request.maxTokens ?? (useMaxCompletionTokens ? 16384 : undefined);
+    const resolvedMaxTokens = request.maxTokens ?? (useMaxCompletionTokens
+      ? (reasoningEffort && reasoningEffort !== 'none' ? 32768 : 16384)
+      : undefined);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const createParams: any = {
@@ -272,6 +281,269 @@ export class OpenAIAdapter implements ProviderAdapter {
     }
   }
 
+  // ─── Responses API (reasoning summaries) ────────────────────
+
+  /**
+   * Generate using the OpenAI Responses API — enables reasoning summaries.
+   * Used for GPT-5 and o-series when reasoning is active.
+   */
+  private async generateViaResponses(
+    request: UnifiedModelRequest,
+    reasoningEffort: string,
+    tools?: Array<{ type: 'function'; function: { name: string; description: string; parameters: Record<string, unknown> } }>,
+  ): Promise<UnifiedModelResponse> {
+    const input = this.mapConversationForResponses(request);
+
+    // Responses API uses flat tool format (not nested under .function)
+    const responsesTools = tools?.map(t => ({
+      type: 'function' as const,
+      name: t.function.name,
+      description: t.function.description,
+      parameters: t.function.parameters,
+    }));
+
+    const maxOutputTokens = request.maxTokens ?? 32768;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const createParams: any = {
+      model: request.model,
+      instructions: request.systemInstruction,
+      input,
+      reasoning: {
+        effort: reasoningEffort,
+        summary: 'auto',
+      },
+      ...(responsesTools?.length ? { tools: responsesTools } : {}),
+      max_output_tokens: maxOutputTokens,
+    };
+
+    const response = await this.callResponsesWithFallback(createParams);
+    return this.mapResponsesApiResponse(response);
+  }
+
+  /**
+   * Call responses.create with Azure → direct OpenAI fallback.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async callResponsesWithFallback(params: any): Promise<any> {
+    if (shouldUseDirectOpenAI(params.model) && this.directApiKey) {
+      if (!this.directClient) {
+        this.directClient = this.createDirectClient(this.directApiKey);
+      }
+      return this.callResponsesWithTierFallback(this.directClient, params);
+    }
+
+    if (!this.isAzure) {
+      return this.callResponsesWithTierFallback(this.client, params);
+    }
+
+    // Azure path — try Azure, fall back to direct OpenAI if not available
+    try {
+      return await (this.client as any).responses.create(params);
+    } catch (err) {
+      const msg = (err as Error).message ?? '';
+      const shouldFallback = this.directApiKey &&
+        (msg.includes('DeploymentNotFound') || msg.includes('deployment for this resource does not exist') ||
+         msg.includes('not supported') || msg.includes('not found'));
+      if (!shouldFallback) throw err;
+      console.warn(`[OpenAI] Azure Responses API not available for ${params.model} — falling back to direct OpenAI`);
+      if (!this.directClient) {
+        this.directClient = this.createDirectClient(this.directApiKey!);
+      }
+      return this.callResponsesWithTierFallback(this.directClient, params);
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async callResponsesWithTierFallback(client: OpenAI, params: any): Promise<any> {
+    const preferredTier = getPreferredDirectOpenAIServiceTier();
+    const preferredParams = preferredTier
+      ? { ...params, service_tier: preferredTier }
+      : params;
+
+    try {
+      return await (client as any).responses.create(preferredParams);
+    } catch (err) {
+      const message = (err as Error).message ?? '';
+      if (!preferredTier || !shouldRetryWithoutFlex(message)) throw err;
+      console.warn(`[OpenAI] Flex unavailable for Responses API ${params.model} — retrying with standard tier`);
+      return await (client as any).responses.create({ ...params, service_tier: 'auto' });
+    }
+  }
+
+  /**
+   * Map conversation history to Responses API input format.
+   * System prompt goes in `instructions` (not in input). Assistant messages
+   * use output-item format. Tool calls map to function_call / function_call_output.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private mapConversationForResponses(request: UnifiedModelRequest): any[] {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const input: any[] = [];
+    const turns = request.contents;
+    let i = 0;
+    let toolCallCounter = 0;
+    let lastCallIds: string[] = [];
+
+    while (i < turns.length) {
+      const turn = turns[i];
+      switch (turn.role) {
+        case 'user': {
+          if (turn.attachments?.length) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const parts: any[] = [];
+            if (turn.content) parts.push({ type: 'input_text', text: turn.content });
+            for (const att of turn.attachments) {
+              if (att.mimeType.startsWith('image/')) {
+                parts.push({ type: 'input_image', image_url: `data:${att.mimeType};base64,${att.data}` });
+              } else if (att.mimeType === 'application/pdf') {
+                parts.push({ type: 'input_file', file_data: `data:${att.mimeType};base64,${att.data}` });
+              } else {
+                const decoded = Buffer.from(att.data, 'base64').toString('utf-8');
+                const content = decoded.length > 50000 ? decoded.slice(0, 50000) + '\n...(truncated)' : decoded;
+                parts.push({ type: 'input_text', text: `[File: ${att.name}]\n\`\`\`\n${content}\n\`\`\`` });
+              }
+            }
+            input.push({ role: 'user', content: parts });
+          } else {
+            input.push({ role: 'user', content: turn.content });
+          }
+          i++;
+          break;
+        }
+        case 'assistant':
+          // Responses API requires output-item format for assistant messages
+          input.push({
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'output_text', text: turn.content }],
+          });
+          i++;
+          break;
+        case 'tool_call': {
+          lastCallIds = [];
+          while (i < turns.length && turns[i].role === 'tool_call') {
+            const tc = turns[i];
+            const callId = `call_${toolCallCounter}_${(tc.toolName ?? '').slice(0, 20)}`.slice(0, 40);
+            toolCallCounter++;
+            lastCallIds.push(callId);
+            input.push({
+              type: 'function_call',
+              id: `fc_${toolCallCounter}`,
+              call_id: callId,
+              name: tc.toolName!,
+              arguments: JSON.stringify(tc.toolParams ?? {}),
+            });
+            i++;
+          }
+          break;
+        }
+        case 'tool_result': {
+          let resultIndex = 0;
+          while (i < turns.length && turns[i].role === 'tool_result') {
+            const tr = turns[i];
+            const callId = resultIndex < lastCallIds.length
+              ? lastCallIds[resultIndex]
+              : `call_fallback_${resultIndex}_${(tr.toolName ?? '').slice(0, 15)}`.slice(0, 40);
+            input.push({
+              type: 'function_call_output',
+              call_id: callId,
+              output: tr.content,
+            });
+            resultIndex++;
+            i++;
+          }
+          break;
+        }
+        default:
+          i++;
+      }
+    }
+
+    // Merge consecutive user messages
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const merged: any[] = [];
+    for (const item of input) {
+      const prev = merged[merged.length - 1];
+      if (prev?.role === 'user' && item.role === 'user') {
+        const prevParts = Array.isArray(prev.content)
+          ? prev.content
+          : [{ type: 'input_text', text: prev.content as string }];
+        const curParts = Array.isArray(item.content)
+          ? item.content
+          : [{ type: 'input_text', text: item.content as string }];
+        prev.content = [...prevParts, ...curParts];
+      } else {
+        merged.push(item);
+      }
+    }
+
+    return merged;
+  }
+
+  /**
+   * Map Responses API response to unified format.
+   * Extracts text, tool calls, and reasoning summaries.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private mapResponsesApiResponse(response: any): UnifiedModelResponse {
+    let text: string | null = null;
+    const toolCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
+    let thinkingText: string | undefined;
+
+    for (const item of (response.output ?? [])) {
+      if (item.type === 'message') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const textParts = (item.content ?? [])
+          .filter((c: any) => c.type === 'output_text')
+          .map((c: any) => c.text);
+        if (textParts.length > 0) {
+          text = (text ?? '') + textParts.join('');
+        }
+      } else if (item.type === 'function_call') {
+        toolCalls.push({
+          name: item.name,
+          args: JSON.parse(item.arguments || '{}') as Record<string, unknown>,
+        });
+      } else if (item.type === 'reasoning') {
+        // Extract reasoning summary (the model's chain-of-thought summary)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const summaryParts = (item.summary ?? [])
+          .filter((s: any) => s.type === 'summary_text')
+          .map((s: any) => s.text);
+        if (summaryParts.length > 0) {
+          thinkingText = (thinkingText ?? '') + summaryParts.join('\n');
+        }
+      }
+    }
+
+    const usage = response.usage ?? {};
+    const reasoningTokens = usage.output_tokens_details?.reasoning_tokens ?? 0;
+    const cachedTokens = usage.input_tokens_details?.cached_tokens ?? 0;
+
+    // Determine finish reason from response status
+    let finishReason = 'stop';
+    if (response.status === 'incomplete') {
+      finishReason = response.incomplete_details?.reason === 'max_output_tokens' ? 'length' : 'stop';
+    } else if (toolCalls.length > 0) {
+      finishReason = 'tool_use';
+    }
+
+    return {
+      text,
+      toolCalls,
+      thinkingText,
+      usageMetadata: {
+        inputTokens: usage.input_tokens ?? 0,
+        outputTokens: usage.output_tokens ?? 0,
+        totalTokens: (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0),
+        thinkingTokens: reasoningTokens || undefined,
+        cachedInputTokens: cachedTokens || undefined,
+      },
+      finishReason,
+    };
+  }
+
   /**
    * Generate an image using OpenAI gpt-image-1 (text-rich infographics).
    * Uses direct fetch instead of the SDK to avoid connection issues in Cloud Run.
@@ -339,8 +611,10 @@ export class OpenAIAdapter implements ProviderAdapter {
   private mapConversation(
     request: UnifiedModelRequest,
   ): Array<OpenAI.Chat.Completions.ChatCompletionMessageParam> {
+    // Use 'developer' role for GPT-5 and o-series (OpenAI requirement for reasoning models)
+    const systemRole = (request.model.startsWith('gpt-5') || /^o[134](-|$)/.test(request.model)) ? 'developer' : 'system';
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-      { role: 'system', content: request.systemInstruction },
+      { role: systemRole as 'system', content: request.systemInstruction },
     ];
 
     const turns = request.contents;

@@ -133,7 +133,7 @@ export class SharedMemoryLoader {
         [['pending', 'dispatched', 'in_progress']],
       ),
       systemQuery<{ payload: any }>(
-        "SELECT payload FROM events WHERE type = $1 AND created_at >= $2 ORDER BY created_at DESC LIMIT 5",
+        "SELECT payload FROM events WHERE type = $1 AND timestamp >= $2 ORDER BY timestamp DESC LIMIT 5",
         ['alert.triggered', new Date(Date.now() - 10 * 60 * 1000).toISOString()],
       ),
       systemQuery<any>(
