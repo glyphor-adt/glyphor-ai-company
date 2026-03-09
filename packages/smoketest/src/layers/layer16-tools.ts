@@ -86,6 +86,17 @@ import { createLogoTools } from '@glyphor/agents/shared/logoTools';
 import { createDeliverableTools } from '@glyphor/agents/shared/deliverableTools';
 import { createInitiativeTools } from '@glyphor/agents/shared/initiativeTools';
 
+// ── Wave 7 — Dependency-requiring factories (stubbed deps) ──────────
+import { createAssignmentTools } from '@glyphor/agents/shared/assignmentTools';
+import { createCollectiveIntelligenceTools } from '@glyphor/agents/shared/collectiveIntelligenceTools';
+import { createCommunicationTools } from '@glyphor/agents/shared/communicationTools';
+import { createEventTools } from '@glyphor/agents/shared/eventTools';
+import { createMemoryTools } from '@glyphor/agents/shared/memoryTools';
+import { createAllPulseTools } from '@glyphor/agents/shared/pulseTools';
+import { createPeerCoordinationTools } from '@glyphor/agents/shared/peerCoordinationTools';
+import { createTeamOrchestrationTools } from '@glyphor/agents/shared/teamOrchestrationTools';
+import { createToolGrantTools } from '@glyphor/agents/shared/toolGrantTools';
+
 // ═════════════════════════════════════════════════════════════════════
 // Helpers
 // ═════════════════════════════════════════════════════════════════════
@@ -148,6 +159,16 @@ const FACTORIES: FactoryEntry[] = [
   { name: 'logoTools', wave: 6, factory: createLogoTools },
   { name: 'deliverableTools', wave: 6, factory: createDeliverableTools },
   { name: 'initiativeTools', wave: 6, factory: createInitiativeTools },
+  // Wave 7 — Dependency-requiring (stubbed deps for instantiation check)
+  { name: 'assignmentTools', wave: 7, factory: () => createAssignmentTools({} as GlyphorEventBus) },
+  { name: 'collectiveIntelligenceTools', wave: 7, factory: () => createCollectiveIntelligenceTools({} as CompanyMemoryStore) },
+  { name: 'communicationTools', wave: 7, factory: () => createCommunicationTools({} as GlyphorEventBus) },
+  { name: 'eventTools', wave: 7, factory: () => createEventTools({} as GlyphorEventBus) },
+  { name: 'memoryTools', wave: 7, factory: () => createMemoryTools({} as CompanyMemoryStore) },
+  { name: 'pulseTools', wave: 7, factory: () => createAllPulseTools({} as CompanyMemoryStore) },
+  { name: 'peerCoordinationTools', wave: 7, factory: () => createPeerCoordinationTools({} as GlyphorEventBus) },
+  { name: 'teamOrchestrationTools', wave: 7, factory: () => createTeamOrchestrationTools({} as GlyphorEventBus) },
+  { name: 'toolGrantTools', wave: 7, factory: () => createToolGrantTools('smoketest') },
 ];
 
 /** Required env vars — services that are provisioned and should have keys. */
@@ -417,11 +438,11 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
 
   // ── T16.5 — Execute Safety ─────────────────────────────────────────
   // Group by wave for granular reporting
-  for (const wave of [0, 1, 2, 3, 4, 5, 6]) {
+  for (const wave of [0, 1, 2, 3, 4, 5, 6, 7]) {
     const waveTools = allTools.filter(t => t.wave === wave);
     if (waveTools.length === 0) continue;
 
-    const waveNames = ['Pre-existing', 'Marketing', 'Finance', 'Product+Research', 'Governance', 'Engineering', 'Remaining'];
+    const waveNames = ['Pre-existing', 'Marketing', 'Finance', 'Product+Research', 'Governance', 'Engineering', 'Remaining', 'Dep-Stubbed'];
     const waveSuffix = wave === 0 ? '0' : String.fromCharCode(96 + wave);
     tests.push(
       await runTest(
