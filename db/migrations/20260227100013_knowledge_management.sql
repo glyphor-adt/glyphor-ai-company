@@ -60,19 +60,19 @@ INSERT INTO company_knowledge_base (section, title, content, audience) VALUES
  'all'),
 
 ('products', 'Products',
- E'**Fuse** — Autonomous Development Platform\nUsers describe what they want to build. Fuse''s AI agents design, code, and deploy complete web applications autonomously.\nTarget: Solo founders, small teams, non-technical builders, SMBs, enterprises replacing contractor teams\nTech stack: Next.js, TypeScript, Gemini 2.5 Pro/Flash, Supabase, Vercel, Cloud Run\nPricing: Free tier (3 builds/mo) → Pro $29/mo → Enterprise custom ($25K-50K/mo)\nColor identity: Electric blue (#60a5fa)\n\n**Pulse** — Autonomous Creative Platform\nAI agents create brand identities, marketing assets, social content, and design systems autonomously.\nTarget: Startups needing brand identity, marketing teams wanting to scale creative output\nStatus: Beta\nColor identity: Warm pink (#f472b6)',
+ E'**Fuse** — Autonomous Development Platform\nUsers describe what they want to build. Fuse''s AI agents design, code, and deploy complete web applications autonomously.\nTarget: Solo founders, small teams, non-technical builders, SMBs, enterprises replacing contractor teams\nTech stack: Next.js, TypeScript, Gemini 2.5 Pro/Flash, Cloud SQL, Vercel, Cloud Run\nPricing: Free tier (3 builds/mo) → Pro $29/mo → Enterprise custom ($25K-50K/mo)\nStatus: Pre-launch. $0 MRR. 0 paying users.\nColor identity: Electric blue (#60a5fa)\n\n**Pulse** — Autonomous Creative Platform\nAI agents create brand identities, marketing assets, social content, and design systems autonomously.\nTarget: Startups needing brand identity, marketing teams wanting to scale creative output\nStatus: Pre-launch beta. $0 MRR. 0 paying users.\nColor identity: Warm pink (#f472b6)',
  'all'),
 
 ('current_priorities', 'Current Priorities',
- E'1. Activate the AI agent workforce — all 27 agents running autonomously on schedules\n2. Fix telemetry blackout (P0) — platform reporting $0 costs and 0% build success\n3. Launch Fuse content marketing — blog posts, social, SEO\n4. Enterprise prospect research — identify first 5 target customers\n5. Establish data pipelines — Stripe, Mercury, GCP billing syncs running reliably',
+ E'1. Complete platform build — Fuse and Pulse ready for public launch\n2. Content marketing and SEO foundation — blog posts, social, brand positioning\n3. Enterprise prospect research — identify first target customers\n4. Agent workforce fully operational — all 42 agents running on schedules\n5. Launch prep — pricing validation, onboarding flow, legal compliance',
  'all'),
 
 ('metrics', 'Current Metrics',
- E'MRR: $3,247 (+12% MoM)\nPaying users: 47 (Fuse: 39, Pulse: 8)\nBuild success rate: Fuse 91%, Pulse 89%\nInfrastructure cost MTD: $847\nGross margin: 62.3%\nActive agents: 27 (8 executives, 18 sub-team, 1 ops)\nSEO: ''ai website builder'' #11\nEnterprise pipeline: 3 prospects, $127K potential ARR',
+ E'COMPANY STAGE: PRE-REVENUE, PRE-LAUNCH (as of March 2026)\nMRR: $0 (expected — pre-launch)\nPaying users: 0 (expected — pre-launch)\nBuild success rate: N/A (pre-launch)\nInfrastructure cost MTD: ~$850/mo\nGross margin: N/A (pre-revenue)\nActive agents: 42 (8 executives, 33 sub-team, 1 ops)\nSEO: TBD\nEnterprise pipeline: Research phase',
  'all'),
 
 ('team_structure', 'Team Structure',
- E'CEO: Kristina Denney — strategy, sales, external\nCOO: Andrew Zwelling — operations, finance, infrastructure\n\nExecutive Team: Sarah (CoS), Marcus (CTO), Nadia (CFO), Elena (CPO), Maya (CMO), James (VP CS), Rachel (VP Sales), Mia (VP Design)\n\nEach executive manages 2-3 sub-team specialists. Atlas handles operations and system intelligence.\n\nThe Operating Model: Kristina and Andrew work full-time at Microsoft with 5-10 hours/week for Glyphor. Everything else is run by the AI executive team. Default to autonomous action. Batch communications. Decisions should arrive pre-analyzed.',
+ E'CEO: Kristina Denney — strategy, sales, external\nCOO: Andrew Zwelling — operations, finance, infrastructure\n\nExecutive Team: Sarah (CoS), Marcus (CTO), Nadia (CFO), Elena (CPO), Maya (CMO), James (VP CS), Rachel (VP Sales), Mia (VP Design)\n\nEach executive manages 2-5 sub-team specialists. Atlas handles operations and system intelligence.\n\nThe Operating Model: Kristina and Andrew work full-time at Microsoft with 5-10 hours/week for Glyphor. Everything else is run by the AI executive team. Default to autonomous action. Batch communications. Decisions should arrive pre-analyzed.',
  'all'),
 
 ('culture', 'Culture & Communication',
@@ -88,7 +88,7 @@ INSERT INTO company_knowledge_base (section, title, content, audience) VALUES
  'all'),
 
 ('infrastructure', 'Infrastructure',
- E'| Service | Purpose | Cost |\n|---------|---------|------|\n| GCP Cloud Run | Agent execution, builds | ~$187/mo |\n| Gemini API | All AI inference | ~$412/mo |\n| Supabase | Database, realtime, auth | $125/mo |\n| Vercel | Frontend hosting | ~$67/mo |\n| GCS | Document storage | ~$5/mo |\n| Cloud Scheduler | Agent cron jobs | Free tier |\n| Pub/Sub | Event routing | Free tier |\n| **Total** | | **~$850/mo** |\n\nCost rules: Gemini API is biggest variable cost. Any service spike >20% WoW → Nadia flags to Andrew. Infrastructure scaling >$200/mo is Yellow. New service >$100/mo is Yellow.',
+ E'| Service | Purpose | Cost |\n|---------|---------|------|\n| GCP Cloud Run | Agent execution, builds | ~$187/mo |\n| Gemini API | All AI inference | ~$412/mo |\n| Cloud SQL | PostgreSQL database (pgvector) | ~$125/mo |\n| Vercel | Frontend hosting | ~$67/mo |\n| GCS | Document storage | ~$5/mo |\n| Cloud Scheduler | Agent cron jobs | Free tier |\n| Pub/Sub | Event routing | Free tier |\n| **Total** | | **~$850/mo** |\n\nCost rules: Gemini API is biggest variable cost. Any service spike >20% WoW → Nadia flags to Andrew. Infrastructure scaling >$200/mo is Yellow. New service >$100/mo is Yellow.',
  'all'),
 
 ('pricing', 'Pricing Strategy',
@@ -102,14 +102,14 @@ ON CONFLICT (section) DO NOTHING;
 -- Products
 INSERT INTO kg_nodes (node_type, title, content, department, importance, tags, created_by, confidence)
 VALUES
-('product', 'Fuse', 'AI-powered autonomous development platform. Users describe what they want to build, and Fuse''s AI agents design, code, and deploy complete web applications autonomously. Current: 39 paying users, $2,847 MRR, 91% build success rate.', 'product', 1.0, ARRAY['fuse', 'product', 'core', 'development'], 'system', 1.0),
-('product', 'Pulse', 'Autonomous creative platform. AI agents create brand identities, marketing assets, social content, and design systems. Status: Beta, 8 paying users, $400 MRR.', 'product', 0.9, ARRAY['pulse', 'product', 'core', 'creative'], 'system', 1.0)
+('product', 'Fuse', 'AI-powered autonomous development platform. Users describe what they want to build, and Fuse''s AI agents design, code, and deploy complete web applications autonomously. Status: Pre-launch. $0 MRR. 0 paying users.', 'product', 1.0, ARRAY['fuse', 'product', 'core', 'development'], 'system', 1.0),
+('product', 'Pulse', 'Autonomous creative platform. AI agents create brand identities, marketing assets, social content, and design systems. Status: Pre-launch beta. $0 MRR. 0 paying users.', 'product', 0.9, ARRAY['pulse', 'product', 'core', 'creative'], 'system', 1.0)
 ON CONFLICT DO NOTHING;
 
 -- Architecture & Concepts
 INSERT INTO kg_nodes (node_type, title, content, department, importance, tags, created_by, confidence)
 VALUES
-('concept', 'Multi-Agent Orchestration', 'Core architecture: 27 AI agents with distinct roles, skills, and authority levels coordinated by scheduler, event bus, and inter-agent messaging. 8 executives, 18 sub-team specialists, 1 ops agent (Atlas).', 'engineering', 0.9, ARRAY['architecture', 'agents', 'orchestration', 'core'], 'system', 1.0),
+('concept', 'Multi-Agent Orchestration', 'Core architecture: 42 AI agents with distinct roles, skills, and authority levels coordinated by scheduler, event bus, and inter-agent messaging. 8 executives, 33 sub-team specialists, 1 ops agent (Atlas).', 'engineering', 0.9, ARRAY['architecture', 'agents', 'orchestration', 'core'], 'system', 1.0),
 ('concept', 'Authority Model', 'Three-tier governance: Green (autonomous), Yellow (one founder), Red (both founders). Enforced at runtime. Sub-team = GREEN only. Executives = GREEN + can file YELLOW/RED.', 'operations', 1.0, ARRAY['governance', 'authority', 'security', 'core'], 'system', 1.0),
 ('concept', 'Target Market', 'Fortune 2000 companies with 500+ engineers. Key verticals: manufacturing, financial services, technology. Pain point: developer velocity at scale. Also: solo founders, SMBs, non-technical builders.', 'sales', 0.8, ARRAY['market', 'enterprise', 'target', 'ICP'], 'system', 0.9)
 ON CONFLICT DO NOTHING;
@@ -126,20 +126,20 @@ ON CONFLICT DO NOTHING;
 INSERT INTO kg_nodes (node_type, title, content, department, importance, tags, created_by, confidence)
 VALUES
 ('concept', 'GCP Infrastructure', 'Platform runs on Google Cloud: Cloud Run (agents), Pub/Sub (events), Cloud Scheduler (cron), Cloud Storage (reports), Secret Manager (credentials). Region: us-central1.', 'engineering', 0.8, ARRAY['infrastructure', 'gcp', 'cloud-run'], 'system', 1.0),
-('metric', 'Infrastructure Cost', 'Current spend ~$850/mo. Gemini API is largest line item (~$412/mo). Cloud Run ~$187/mo. Supabase ~$125/mo. Vercel ~$67/mo. Gross margin: 62.3%.', 'finance', 0.7, ARRAY['cost', 'infrastructure', 'budget', 'monthly'], 'system', 0.9)
+('metric', 'Infrastructure Cost', 'Current spend ~$850/mo. Gemini API is largest line item (~$412/mo). Cloud Run ~$187/mo. Cloud SQL ~$125/mo. Vercel ~$67/mo. Pre-revenue — no gross margin to calculate yet.', 'finance', 0.7, ARRAY['cost', 'infrastructure', 'budget', 'monthly'], 'system', 0.9)
 ON CONFLICT DO NOTHING;
 
 -- Risks
 INSERT INTO kg_nodes (node_type, title, content, department, importance, tags, created_by, confidence)
 VALUES
-('risk', 'Telemetry Blackout', 'Platform reporting $0 costs, 0% build success rate, Teams integration failing HTTP 400. Suspected credential or Pub/Sub configuration issue. P0 priority — cannot monitor or optimize what we cannot see.', 'engineering', 1.0, ARRAY['incident', 'telemetry', 'p0', 'critical'], 'system', 1.0),
-('risk', 'Pre-Revenue Risk', 'Company is pre-revenue at scale with ~$850/mo burn. MRR at $3,247 but need to reach sustainable revenue. First enterprise customer within 3-6 months to validate market.', 'finance', 0.8, ARRAY['revenue', 'runway', 'risk'], 'system', 0.9)
+('risk', 'Platform Readiness', 'Fuse and Pulse are in pre-launch development. Platform must be fully operational before public launch — build pipeline, auth, billing, and monitoring all need to be validated.', 'engineering', 1.0, ARRAY['launch', 'readiness', 'platform', 'pre-launch'], 'system', 1.0),
+('risk', 'Pre-Revenue Risk', 'Company is pre-revenue with ~$850/mo infrastructure burn. $0 MRR — this is expected for a pre-launch company. First enterprise customer needed to validate market and begin revenue.', 'finance', 0.8, ARRAY['revenue', 'runway', 'risk'], 'system', 0.9)
 ON CONFLICT DO NOTHING;
 
 -- Opportunities
 INSERT INTO kg_nodes (node_type, title, content, department, importance, tags, created_by, confidence)
 VALUES
-('opportunity', 'Enterprise Pipeline', 'Three active prospects with $127K potential ARR. Enterprise motion leverages founders'' Microsoft relationships and Fortune 500 advisory experience.', 'sales', 0.9, ARRAY['enterprise', 'pipeline', 'revenue'], 'system', 0.8)
+('opportunity', 'Enterprise Pipeline', 'Enterprise motion leverages founders'' Microsoft relationships and Fortune 500 advisory experience. Research phase — identifying target prospects.', 'sales', 0.9, ARRAY['enterprise', 'pipeline', 'revenue'], 'system', 0.8)
 ON CONFLICT DO NOTHING;
 
 -- ─── 5. SEED KNOWLEDGE GRAPH EDGES ───────────────────────────────
@@ -155,7 +155,7 @@ ON CONFLICT DO NOTHING;
 
 -- Multi-Agent → GCP Infrastructure (depends_on)
 INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence, created_by)
-SELECT s.id, t.id, 'depends_on', 0.95, 1.0, 'All 27 agents run on GCP Cloud Run infrastructure', 'system'
+SELECT s.id, t.id, 'enables', 0.9, 1.0, 'All 42 agents run on GCP Cloud Run infrastructure', 'system'
 FROM kg_nodes s, kg_nodes t
 WHERE s.title = 'Multi-Agent Orchestration' AND s.node_type = 'concept'
   AND t.title = 'GCP Infrastructure' AND t.node_type = 'concept'
@@ -163,9 +163,9 @@ ON CONFLICT DO NOTHING;
 
 -- Telemetry Blackout → Infrastructure Cost (causes)
 INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence, created_by)
-SELECT s.id, t.id, 'causes', 1.0, 1.0, 'Cannot monitor or optimize costs without working telemetry', 'system'
+SELECT s.id, t.id, 'causes', 1.0, 1.0, 'Cannot launch products without platform readiness', 'system'
 FROM kg_nodes s, kg_nodes t
-WHERE s.title = 'Telemetry Blackout' AND s.node_type = 'risk'
+WHERE s.title = 'Platform Readiness' AND s.node_type = 'risk'
   AND t.title = 'Infrastructure Cost' AND t.node_type = 'metric'
 ON CONFLICT DO NOTHING;
 
@@ -209,10 +209,10 @@ VALUES (
   'current',
   0,
   0,
-  2,
-  'operational',
+  0,
+  'green',
   'building',
-  '[{"agent": "system", "type": "positive", "text": "27 agents configured with roles and authority"},{"agent": "system", "type": "positive", "text": "Platform deployed on GCP Cloud Run"},{"agent": "system", "type": "neutral", "text": "Pre-revenue: Pulse and Fuse in development"}]'::jsonb,
+  '[{"agent": "system", "type": "positive", "text": "42 agents configured with roles and authority"},{"agent": "system", "type": "positive", "text": "Platform deployed on GCP Cloud Run"},{"agent": "system", "type": "neutral", "text": "Pre-revenue: Fuse and Pulse in pre-launch development"}]'::jsonb,
   NOW()
 )
 ON CONFLICT (id) DO UPDATE SET

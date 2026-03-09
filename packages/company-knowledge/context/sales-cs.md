@@ -1,18 +1,22 @@
 # Sales & Customer Success Context
 
+## Company Stage
+
+Glyphor is PRE-REVENUE and PRE-LAUNCH as of March 2026. $0 MRR, 0 paying users, 0 customers. This is expected.
+
 ## Enterprise Pipeline
 
-- 3 prospects, $127K potential ARR (as of Feb 21, 2026)
+- Research phase — identifying target prospects
 - Enterprise deals >$25K → Red (both founders)
 - Customer outreach for enterprise upsell → Yellow (Kristina)
 
 ## Customer Metrics
 
-- Paying users: 47 (Fuse: 39, Pulse: 8)
-- Churn rate — tracked monthly
-- LTV/CAC — lifetime value vs acquisition cost
-- ARPU — average revenue per user
-- Expansion revenue — upgrades, cross-product
+- Paying users: 0 (pre-launch)
+- Churn rate — N/A (pre-launch)
+- LTV/CAC — N/A (pre-launch)
+- ARPU — N/A (pre-launch)
+- Expansion revenue — N/A (pre-launch)
 
 ## Communication Channel
 
@@ -26,6 +30,6 @@
 
 ## Q1 2026 Goals
 
-- $5K MRR
-- 100 active Fuse users
-- 1 enterprise pilot
+- Complete platform build and launch prep
+- Begin enterprise prospect research
+- 1 enterprise pilot conversation

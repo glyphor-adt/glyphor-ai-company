@@ -2,17 +2,21 @@
 
 ## Product Portfolio
 
+### Company Stage
+
+Glyphor is PRE-REVENUE and PRE-LAUNCH as of March 2026. $0 MRR, 0 paying users. This is expected.
+
 ### Fuse — Autonomous Development Platform
 - Users describe what they want → AI agents design, code, deploy complete web apps
 - **Target:** Solo founders, small teams, SMBs, enterprises replacing contractor teams
 - **Stack:** Next.js, TypeScript, Gemini 2.5 Pro/Flash, Cloud SQL, Vercel, Cloud Run
-- **Metrics:** 39 paying users, $2,847 MRR, 91% success rate, 4.2 min avg build time
+- **Status:** Pre-launch. $0 MRR. 0 paying users.
 - **Pricing:** Free (3/mo) → Pro $29/mo → Enterprise $25K-50K/mo
 
 ### Pulse — Autonomous Creative Platform
 - AI creates brand identities, marketing assets, social content, design systems
 - **Target:** Startups needing brand identity, marketing teams, agencies
-- **Status:** Beta. 8 users. $400 MRR.
+- **Status:** Pre-launch beta. $0 MRR. 0 paying users.
 - Same core runtime as Fuse plus image generation
 
 ### Future Portfolio

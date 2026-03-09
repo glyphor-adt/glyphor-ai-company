@@ -20,7 +20,7 @@
 
 ## Key UX Metrics
 
-- User activation rate — signups → first build
-- Build success rate (Fuse: 91%, Pulse: 89%)
-- Average build time (Fuse: 4.2 min)
-- Feature adoption — what drives retention
+- User activation rate — signups → first build (pre-launch, no data yet)
+- Build success rate — target >90% (pre-launch, no data yet)
+- Average build time — target <4 min (pre-launch, no data yet)
+- Feature adoption — what drives retention (pre-launch, no data yet)

@@ -33,6 +33,6 @@
 
 ## Q1 2026 Goals (marketing-relevant)
 
-- 100 active Fuse users
-- Pulse public launch
-- 1 enterprise pilot
+- Content marketing and SEO foundation
+- Fuse and Pulse launch prep
+- Brand positioning and thought leadership

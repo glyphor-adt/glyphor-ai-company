@@ -9,12 +9,14 @@
 - **Runway** — months of operation at current burn
 - **LTV/CAC** — lifetime value vs acquisition cost
 
-## Current State (as of Feb 24, 2026)
+## Current State (as of March 9, 2026)
 
-- MRR: $0 (telemetry pipeline down — restoring)
-- Paying users: 2
-- Infrastructure cost MTD: TBD (billing sync in progress)
-- Gross margin: N/A
+Glyphor is PRE-REVENUE and PRE-LAUNCH. $0 MRR, 0 paying users, 0 customers. This is expected.
+
+- MRR: $0 (pre-launch — expected)
+- Paying users: 0
+- Infrastructure cost MTD: ~$850/mo
+- Gross margin: N/A (pre-revenue)
 
 ## Cost Rules
 
