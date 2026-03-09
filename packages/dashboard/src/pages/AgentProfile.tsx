@@ -317,6 +317,33 @@ export default function AgentProfile() {
           <Link to={`/chat/${agent.role}`} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-secondary transition-colors hover:border-cyan hover:text-cyan">
             Chat
           </Link>
+          {agent.status === 'active' ? (
+            <button
+              onClick={async () => {
+                await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/pause`, { method: 'POST' });
+                setAgent((prev) => prev ? { ...prev, status: 'paused' } : prev);
+              }}
+              className="rounded-lg border border-tier-yellow/30 bg-tier-yellow/10 px-4 py-2 text-sm font-medium text-tier-yellow hover:bg-tier-yellow/20 transition-colors"
+            >
+              Pause
+            </button>
+          ) : agent.status === 'paused' ? (
+            <button
+              onClick={async () => {
+                await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/resume`, { method: 'POST' });
+                setAgent((prev) => prev ? { ...prev, status: 'active' } : prev);
+              }}
+              className="rounded-lg border border-tier-green/30 bg-tier-green/10 px-4 py-2 text-sm font-medium text-tier-green hover:bg-tier-green/20 transition-colors"
+            >
+              Resume
+            </button>
+          ) : null}
+          <button
+            onClick={() => setTab('settings')}
+            className="rounded-lg border border-tier-red/30 bg-tier-red/10 px-4 py-2 text-sm font-medium text-tier-red hover:bg-tier-red/20 transition-colors"
+          >
+            Delete
+          </button>
         </div>
       </div>
 
