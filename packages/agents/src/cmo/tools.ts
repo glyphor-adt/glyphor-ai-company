@@ -7,13 +7,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { PulseClient } from '@glyphor/integrations';
-
-function getPulseClient(): PulseClient | null {
-  try { return PulseClient.fromEnv(); } catch { return null; }
-}
-
-const PULSE_UNAVAILABLE_MSG = 'Pulse is not yet deployed — the product is still in development. Video and image generation tools will be available once Pulse launches. Report this as a blocker to Sarah (Chief of Staff) so it can be tracked.';
+import { createAllPulseTools } from '../shared/pulseTools.js';
 
 export function createCMOTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -213,114 +207,6 @@ export function createCMOTools(memory: CompanyMemoryStore): ToolDefinition[] {
     },
 
     // ── Pulse Creative Studio tools (MCP) ──
-
-    {
-      name: 'pulse_generate_concept_image',
-      description: 'Generate a standalone image using Pulse (our own product). Use for blog hero images, social graphics, Product Hunt screenshots, ad creatives, thumbnails. Always use Pulse for visual content — we dogfood our own product.',
-      parameters: {
-        prompt: { type: 'string', description: 'Detailed image prompt describing the desired visual', required: true },
-        aspect_ratio: { type: 'string', description: 'Aspect ratio: 1:1 (social), 16:9 (blog/PH), 9:16 (stories), 4:3', enum: ['1:1', '16:9', '9:16', '4:3'] },
-        style: { type: 'string', description: 'Visual style hint to include in the prompt' },
-      },
-      execute: async (params, ctx): Promise<ToolResult> => {
-        const pulse = getPulseClient();
-        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
-        const image = await pulse.generateConceptImage({
-          prompt: params.prompt as string,
-          aspect_ratio: params.aspect_ratio as '1:1' | '16:9' | '9:16' | '4:3',
-          style: params.style as string,
-        });
-        await memory.appendActivity({ agentRole: ctx.agentRole, action: 'content', product: 'pulse', summary: `Generated concept image via Pulse: ${(params.prompt as string).slice(0, 80)}`, createdAt: new Date().toISOString() });
-        return { success: true, data: { imageId: image.id, url: image.url } };
-      },
-    },
-
-    {
-      name: 'pulse_create_storyboard',
-      description: 'Create a multi-scene storyboard in Pulse from a creative idea. Pulse generates a screenplay, parses scenes, and saves the storyboard. Use for Product Hunt demos, product walkthroughs, ad sequences.',
-      parameters: {
-        idea: { type: 'string', description: 'Creative idea or concept to turn into a storyboard', required: true },
-        title: { type: 'string', description: 'Optional storyboard title' },
-      },
-      execute: async (params, ctx): Promise<ToolResult> => {
-        const pulse = getPulseClient();
-        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
-        const storyboard = await pulse.createStoryboardFromIdea({
-          idea: params.idea as string,
-          title: params.title as string,
-        });
-        await memory.appendActivity({ agentRole: ctx.agentRole, action: 'content', product: 'pulse', summary: `Created storyboard via Pulse: ${storyboard.title}`, createdAt: new Date().toISOString() });
-        return { success: true, data: { storyboardId: storyboard.id, title: storyboard.title, sceneCount: storyboard.scenes.length } };
-      },
-    },
-
-    {
-      name: 'pulse_generate_video',
-      description: 'Generate a video clip using Pulse. Use for product demos, social video content, explainer clips. Models: veo-3.1, kling.',
-      parameters: {
-        prompt: { type: 'string', description: 'Video prompt describing the desired content', required: true },
-        model: { type: 'string', description: 'Video model', enum: ['veo-3.1', 'kling'] },
-        aspect_ratio: { type: 'string', description: 'Aspect ratio', enum: ['16:9', '9:16', '1:1'] },
-        source_image_url: { type: 'string', description: 'Image URL for image-to-video generation' },
-      },
-      execute: async (params, ctx): Promise<ToolResult> => {
-        const pulse = getPulseClient();
-        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
-        const video = await pulse.generateVideo({
-          prompt: params.prompt as string,
-          model: params.model as 'veo-3.1' | 'kling',
-          aspect_ratio: params.aspect_ratio as '16:9' | '9:16' | '1:1',
-          source_image_url: params.source_image_url as string,
-        });
-        await memory.appendActivity({ agentRole: ctx.agentRole, action: 'content', product: 'pulse', summary: `Generated video via Pulse: ${(params.prompt as string).slice(0, 80)}`, createdAt: new Date().toISOString() });
-        return { success: true, data: { videoId: video.id, status: video.status, url: video.url } };
-      },
-    },
-
-    {
-      name: 'pulse_enhance_prompt',
-      description: 'Enhance a rough prompt into a production-ready prompt using Pulse AI. Use before generating images or video for better results.',
-      parameters: {
-        prompt: { type: 'string', description: 'Rough prompt to enhance', required: true },
-        medium: { type: 'string', description: 'Target medium: image or video', enum: ['image', 'video'] },
-      },
-      execute: async (params): Promise<ToolResult> => {
-        const pulse = getPulseClient();
-        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
-        const enhanced = await pulse.enhancePrompt({
-          prompt: params.prompt as string,
-          medium: params.medium as 'image' | 'video',
-        });
-        return { success: true, data: { enhancedPrompt: enhanced } };
-      },
-    },
-
-    {
-      name: 'pulse_list_storyboards',
-      description: 'List existing Pulse storyboards to review previously created content.',
-      parameters: {
-        limit: { type: 'number', description: 'Max results (default 20)' },
-      },
-      execute: async (params): Promise<ToolResult> => {
-        const pulse = getPulseClient();
-        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
-        const storyboards = await pulse.listStoryboards({ limit: params.limit as number });
-        return { success: true, data: storyboards };
-      },
-    },
-
-    {
-      name: 'pulse_poll_video_status',
-      description: 'Check the generation status of a Pulse video. Video generation is async — poll until completed.',
-      parameters: {
-        video_id: { type: 'string', description: 'Video ID to check', required: true },
-      },
-      execute: async (params): Promise<ToolResult> => {
-        const pulse = getPulseClient();
-        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
-        const status = await pulse.pollVideoStatus({ video_id: params.video_id as string });
-        return { success: true, data: status };
-      },
-    },
+    ...createAllPulseTools(memory),
   ];
 }

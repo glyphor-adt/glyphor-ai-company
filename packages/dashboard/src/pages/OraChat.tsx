@@ -1117,7 +1117,8 @@ export default function OraChat() {
         </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto py-4 space-y-4 min-h-0">
+      <div className="flex-1 overflow-y-auto py-4 min-h-0">
+      <div className="mx-auto max-w-3xl space-y-4">
         {messages.length === 0 && (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
@@ -1247,6 +1248,7 @@ export default function OraChat() {
 
         <div ref={scrollRef} />
       </div>
+      </div>
 
       <input
         ref={fileInputRef}
@@ -1279,6 +1281,7 @@ export default function OraChat() {
 
       {/* Input */}
       <div className="border-t border-border pt-3 relative" ref={menuRef}>
+      <div className="mx-auto max-w-3xl">
         {/* Menu flyout (opens above) */}
         {menuOpen && (
           <div className="absolute bottom-full left-4 z-20 mb-2 flex items-start gap-2">
@@ -1507,6 +1510,7 @@ export default function OraChat() {
             Send
           </button>
         </div>
+      </div>
       </div>
       </Card>
     </div>

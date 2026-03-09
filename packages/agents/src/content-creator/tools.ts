@@ -4,14 +4,8 @@
  */
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { ToolDefinition } from '@glyphor/agent-runtime';
-import { PulseClient } from '@glyphor/integrations';
 import { systemQuery } from '@glyphor/shared/db';
-
-function getPulseClient(): PulseClient | null {
-  try { return PulseClient.fromEnv(); } catch { return null; }
-}
-
-const PULSE_UNAVAILABLE_MSG = 'Pulse is not yet deployed — the product is still in development. Video and image generation tools will be available once Pulse launches. Report this as a blocker to Sarah (Chief of Staff) so it can be tracked.';
+import { createAllPulseTools } from '../shared/pulseTools.js';
 
 export function createContentCreatorTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -101,62 +95,6 @@ export function createContentCreatorTools(memory: CompanyMemoryStore): ToolDefin
     },
 
     // ── Pulse Creative Studio tools (MCP) ──
-
-    {
-      name: 'pulse_generate_hero_image',
-      description: 'Generate a hero image for blog posts or case studies using Pulse. Always generate a hero image when drafting blog content.',
-      parameters: {
-        prompt: { type: 'string', description: 'Detailed image prompt for the hero image', required: true },
-        aspect_ratio: { type: 'string', description: 'Aspect ratio: 16:9 (blog), 1:1 (social), 4:3', enum: ['16:9', '1:1', '4:3'] },
-        style: { type: 'string', description: 'Visual style hint to include in the prompt' },
-      },
-      async execute(params) {
-        const pulse = getPulseClient();
-        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
-        const image = await pulse.generateConceptImage({
-          prompt: params.prompt as string,
-          aspect_ratio: (params.aspect_ratio as '16:9' | '1:1' | '4:3') ?? '16:9',
-          style: params.style as string,
-        });
-        return { success: true, data: { url: image.url, imageId: image.id }, message: `Hero image generated: ${image.url}` };
-      },
-    },
-
-    {
-      name: 'pulse_generate_social_graphic',
-      description: 'Generate a social media graphic to accompany a social post draft. Always pair social post drafts with Pulse-generated visuals.',
-      parameters: {
-        prompt: { type: 'string', description: 'Image prompt for the social graphic', required: true },
-        platform: { type: 'string', description: 'Target platform (affects aspect ratio)', required: true, enum: ['twitter', 'linkedin', 'instagram', 'tiktok'] },
-      },
-      async execute(params) {
-        const pulse = getPulseClient();
-        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
-        const ratioMap: Record<string, '1:1' | '16:9' | '9:16'> = { twitter: '16:9', linkedin: '16:9', instagram: '1:1', tiktok: '9:16' };
-        const image = await pulse.generateConceptImage({
-          prompt: params.prompt as string,
-          aspect_ratio: ratioMap[params.platform as string] || '1:1',
-        });
-        return { success: true, data: { url: image.url, imageId: image.id, platform: params.platform }, message: `Social graphic generated: ${image.url}` };
-      },
-    },
-
-    {
-      name: 'pulse_enhance_prompt',
-      description: 'Enhance a rough image or video prompt into a production-ready prompt using Pulse AI. Use before generating visuals for better quality.',
-      parameters: {
-        prompt: { type: 'string', description: 'Rough prompt to enhance', required: true },
-        medium: { type: 'string', description: 'Target medium: image or video', enum: ['image', 'video'] },
-      },
-      async execute(params) {
-        const pulse = getPulseClient();
-        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
-        const enhanced = await pulse.enhancePrompt({
-          prompt: params.prompt as string,
-          medium: params.medium as 'image' | 'video',
-        });
-        return { success: true, data: { enhancedPrompt: enhanced } };
-      },
-    },
+    ...createAllPulseTools(memory),
   ];
 }

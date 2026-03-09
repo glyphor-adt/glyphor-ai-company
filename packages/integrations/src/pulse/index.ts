@@ -33,11 +33,12 @@ export interface CreateStoryboardArgs {
 export interface GenerateSceneImagesArgs {
   storyboard_id: string;
   model?: 'imagen-4' | 'gemini-3-pro';
+  reference_image_url?: string;
 }
 
 export interface GenerateVideoArgs {
   prompt: string;
-  model?: 'veo-3.1' | 'kling';
+  model?: 'veo-3.1' | 'veo-3.0' | 'kling-2.1';
   aspect_ratio?: '16:9' | '9:16' | '1:1';
   source_image_url?: string;
 }
@@ -65,6 +66,7 @@ export interface GetStoryboardArgs {
 export interface ListVideosArgs {
   limit?: number;
   offset?: number;
+  status?: 'pending' | 'processing' | 'completed' | 'failed';
 }
 
 export interface PollVideoStatusArgs {
@@ -150,6 +152,18 @@ export class PulseClient {
   private parseResult<T>(result: McpToolResult): T {
     const text = result.content.map((c) => c.text).join('');
     return JSON.parse(text) as T;
+  }
+
+  /** Generic MCP tool call with JSON result parsing — use for tools without a typed method */
+  async callAndParse<T = unknown>(toolName: string, args: Record<string, unknown> = {}): Promise<T> {
+    const result = await this.callTool(toolName, args);
+    return this.parseResult<T>(result);
+  }
+
+  /** Generic MCP tool call returning raw text content */
+  async callAndGetText(toolName: string, args: Record<string, unknown> = {}): Promise<string> {
+    const result = await this.callTool(toolName, args);
+    return result.content.map((c) => c.text).join('');
   }
 
   // ── High-level convenience methods ──
