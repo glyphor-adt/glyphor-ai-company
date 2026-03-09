@@ -11,10 +11,11 @@ import {
   timeAgo,
 } from '../components/ui';
 import { Link } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { SCHEDULER_URL } from '../lib/firebase';
 import { apiCall } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
+import { useTheme } from '../lib/theme';
 
 interface AnalysisSummary {
   total: number;
@@ -32,6 +33,7 @@ interface RunningAgent {
 export default function Dashboard() {
   const { data: agents, loading: agentsLoading } = useAgents();
   const { data: decisions, loading: decisionsLoading } = useDecisions();
+  const { theme } = useTheme();
 
   const { data: products } = useProducts();
   const [analysisSummary, setAnalysisSummary] = useState<AnalysisSummary>({ total: 0, completed: 0, active: 0 });
@@ -86,27 +88,29 @@ export default function Dashboard() {
   const firstName = user?.name?.split(' ')[0] ?? 'there';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const isDark = theme === 'dark';
 
   return (
-    <div className="space-y-8">
+    <div className="dashboard-home space-y-8">
       {/* ── Welcome Banner ─────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl border border-prism-border bg-prism-card p-6 flex items-center justify-between shadow-prism">
-        {/* Decorative blobs */}
-        <div className="pointer-events-none absolute -right-8 -top-8 h-48 w-48 rounded-full bg-prism-fill-1/20 blur-3xl" />
-        <div className="pointer-events-none absolute right-1/3 -bottom-6 h-32 w-32 rounded-full bg-prism-fill-5/20 blur-3xl" />
-        <div className="pointer-events-none absolute left-1/2 top-0 h-px w-1/2 bg-gradient-to-r from-transparent via-cyan/20 to-transparent" />
-        <div className="relative z-10">
-          <h1 className="text-2xl font-bold text-txt-primary">
-            {greeting}, {firstName}
-          </h1>
-          <p className="mt-1 text-sm text-txt-muted">
-            Welcome back to Glyphor AI. Ready to discover new insights?
-          </p>
-          <p className="mt-2 text-[12px] text-txt-faint">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-            {' · '}
-            {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-          </p>
+      <div className={`banner banner-spectral banner-spectral--${theme} rounded-2xl border border-prism-border`}>
+        <div className={`banner-spectral-edge banner-spectral-edge--${theme}`} />
+        <div className={`banner-wash banner-wash--${theme}`} />
+        {isDark && <div className="banner-grid-overlay" />}
+        <div className="relative z-10 flex items-center justify-between p-6">
+          <div>
+            <h1 className="text-2xl font-bold text-txt-primary">
+              {greeting}, {firstName}
+            </h1>
+            <p className="mt-1 text-sm text-txt-muted">
+              Welcome back to Glyphor AI. Ready to discover new insights?
+            </p>
+            <p className="mt-2 text-[12px] text-txt-faint">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+              {' · '}
+              {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -118,9 +122,9 @@ export default function Dashboard() {
           label="Active Agents"
           sub={`${agents.length} total`}
           loading={agentsLoading}
-          lightGradient="bg-prism-card border-prism-border"
           iconBg="bg-prism-tint-1"
-          accentClass="border-t-2 border-prism-fill-1"
+          accentColor={isDark ? '#00E0FF' : '#0891B2'}
+          accentSoft={isDark ? 'rgba(0, 224, 255, 0.33)' : 'rgba(8, 145, 178, 0.24)'}
         />
         <StatCard
           icon={<AnalysisIcon />}
@@ -128,9 +132,9 @@ export default function Dashboard() {
           label="Total Analyses"
           sub={`${analysisSummary.completed} completed`}
           loading={false}
-          lightGradient="bg-prism-card border-prism-border"
           iconBg="bg-prism-tint-5"
-          accentClass="border-t-2 border-prism-fill-5"
+          accentColor={isDark ? '#7DD3FC' : '#0284C7'}
+          accentSoft={isDark ? 'rgba(125, 211, 252, 0.33)' : 'rgba(2, 132, 199, 0.24)'}
         />
         <StatCard
           icon={<ReportIcon />}
@@ -138,9 +142,9 @@ export default function Dashboard() {
           label="Reports Generated"
           sub="strategic reports"
           loading={false}
-          lightGradient="bg-prism-card border-prism-border"
           iconBg="bg-prism-tint-2"
-          accentClass="border-t-2 border-prism-fill-2"
+          accentColor={isDark ? '#6366F1' : '#4338CA'}
+          accentSoft={isDark ? 'rgba(99, 102, 241, 0.3)' : 'rgba(67, 56, 202, 0.24)'}
         />
         <StatCard
           icon={<QueueIcon />}
@@ -148,16 +152,16 @@ export default function Dashboard() {
           label="Active Analyses"
           sub={pendingDecisions > 0 ? `${pendingDecisions} decisions pending` : 'all clear'}
           loading={false}
-          lightGradient="bg-prism-card border-prism-border"
           iconBg="bg-prism-elevated/15"
-          accentClass="border-t-2 border-prism-elevated"
+          accentColor={isDark ? '#FBBF24' : '#D97706'}
+          accentSoft={isDark ? 'rgba(251, 191, 36, 0.3)' : 'rgba(217, 119, 6, 0.24)'}
         />
       </div>
 
       {/* ── Running Now Banner ─────────────── */}
       {runningAgents.length > 0 && (
         <Link to="/activity" className="block">
-          <div className="flex items-center gap-4 rounded-xl border border-cyan/20 bg-gradient-to-r from-cyan/5 to-transparent px-5 py-3 transition-all hover:border-cyan/30 hover:shadow-md">
+          <div className={`agent-bar flex items-center gap-4 rounded-xl border px-5 py-3 transition-all hover:-translate-y-0.5 hover:shadow-md ${isDark ? 'agent-bar--dark' : 'agent-bar--light'}`}>
             <div className="flex items-center gap-1.5">
               <span className="relative flex h-2.5 w-2.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan opacity-75" />
@@ -169,7 +173,7 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center gap-3 overflow-hidden">
               {runningAgents.slice(0, 5).map((run) => (
-                <div key={run.id} className="flex items-center gap-2 rounded-lg bg-surface/50 px-2.5 py-1">
+                <div key={run.id} className="glass-raised flex items-center gap-2 rounded-lg border border-border/50 px-2.5 py-1">
                   <AgentAvatar role={run.agent_id} size={20} />
                   <span className="text-[11px] text-txt-secondary truncate max-w-[120px]">
                     {DISPLAY_NAME_MAP[run.agent_id] ?? run.agent_id}
@@ -224,7 +228,7 @@ export default function Dashboard() {
         <FounderBriefing />
 
         {/* ── Decision Queue ─────────────── */}
-        <Card>
+        <Card className="queue">
           <SectionHeader
             title="Decision Queue"
             action={
@@ -311,8 +315,8 @@ function StatCard({
   sub,
   loading,
   iconBg = '',
-  accentClass = '',
-  lightGradient = '',
+  accentColor,
+  accentSoft,
 }: {
   icon: React.ReactNode;
   value: string;
@@ -320,13 +324,21 @@ function StatCard({
   sub: string;
   loading: boolean;
   iconBg?: string;
-  accentClass?: string;
-  lightGradient?: string;
+  accentColor: string;
+  accentSoft: string;
 }) {
   if (loading) return <Skeleton className="h-28" />;
 
+  const accentStyle: CSSProperties & Record<'--stat-accent' | '--stat-accent-soft', string> = {
+    '--stat-accent': accentColor,
+    '--stat-accent-soft': accentSoft,
+  };
+
   return (
-    <div className={`glass-card rounded-xl border p-5 flex flex-col gap-3 transition-all duration-200 ${lightGradient} ${accentClass}`}>
+    <div
+      className="stat-card stat-card-accent glass-card flex flex-col gap-3 rounded-xl border p-5 transition-all duration-200"
+      style={accentStyle}
+    >
       <div className="flex items-center justify-between">
         <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${iconBg}`}>
           {icon}
@@ -360,7 +372,7 @@ function QuickActionCard({
   return (
     <Link
       to={to}
-      className="group glass-card flex flex-col gap-4 rounded-xl border border-border bg-surface p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-border-hover"
+      className="quick-action group glass-card flex flex-col gap-4 rounded-xl border border-border bg-surface p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-border-hover"
     >
       <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${iconBg} ${iconColor} transition-transform duration-200 group-hover:scale-110`}>
         {icon}

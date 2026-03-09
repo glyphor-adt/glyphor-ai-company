@@ -42,16 +42,23 @@ export default function Layout() {
   useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-base">
+    <div className="dashboard-shell flex h-screen overflow-hidden bg-base">
       {/* ── Desktop Sidebar ─────────────────── */}
-      <aside className="hidden md:flex w-[220px] flex-col border-r border-prism-border bg-prism-card transition-colors duration-200">
+      <aside className={`dashboard-sidebar hidden w-[220px] flex-col border-r border-prism-border transition-colors duration-200 md:flex ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}>
+        {theme === 'dark' && (
+          <>
+            <div className="sidebar-spectral-edge" aria-hidden="true" />
+            <div className="sidebar-glow-tl" aria-hidden="true" />
+            <div className="sidebar-glow-br" aria-hidden="true" />
+          </>
+        )}
         {/* Brand */}
-        <div className="px-4 py-4">
+        <div className="relative z-10 px-4 py-4">
           <img src="/glyphor_new.png" alt="glyphor" className="h-8" />
         </div>
 
         {/* Nav links */}
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3">
+        <nav className="relative z-10 flex-1 space-y-0.5 overflow-y-auto px-3">
           {NAV.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
@@ -60,7 +67,7 @@ export default function Layout() {
               className={({ isActive }) =>
                 `flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
                   isActive
-                    ? 'bg-prism-bg2 text-prism-primary font-semibold'
+                    ? `nav-item-active ${theme === 'dark' ? 'nav-item-active--dark' : 'nav-item-active--light'} text-prism-primary font-semibold`
                     : 'text-prism-tertiary hover:bg-prism-bg2 hover:text-prism-primary'
                 }`
               }
@@ -71,7 +78,7 @@ export default function Layout() {
           ))}
         </nav>
         {/* Theme Toggle */}
-        <div className="px-4 py-2">
+        <div className="relative z-10 px-4 py-2">
           <button
             onClick={toggle}
             className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-prism-tertiary transition-colors hover:bg-prism-bg2 hover:text-prism-primary"
@@ -85,7 +92,7 @@ export default function Layout() {
           </button>
         </div>
         {/* Footer */}
-        <div className="border-t border-prism-border px-4 py-4">
+        <div className="relative z-10 border-t border-prism-border px-4 py-4">
           <div className="flex items-center gap-2.5">
             {user?.picture ? (
               <img src={user.picture} alt="" className="h-7 w-7 rounded-full" referrerPolicy="no-referrer" />
@@ -107,18 +114,25 @@ export default function Layout() {
         <div className="fixed inset-0 z-50 md:hidden" onClick={() => setDrawerOpen(false)}>
           <div className="absolute inset-0 bg-black/50" />
           <aside
-            className="absolute left-0 top-0 bottom-0 w-[280px] flex flex-col bg-prism-card border-r border-prism-border shadow-xl"
+            className={`dashboard-sidebar absolute bottom-0 left-0 top-0 flex w-[280px] flex-col border-r border-prism-border shadow-xl ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}
             onClick={(e) => e.stopPropagation()}
           >
+            {theme === 'dark' && (
+              <>
+                <div className="sidebar-spectral-edge" aria-hidden="true" />
+                <div className="sidebar-glow-tl" aria-hidden="true" />
+                <div className="sidebar-glow-br" aria-hidden="true" />
+              </>
+            )}
             {/* Brand */}
-            <div className="flex items-center justify-between px-4 py-4">
+            <div className="relative z-10 flex items-center justify-between px-4 py-4">
               <img src="/glyphor_new.png" alt="glyphor" className="h-8" />
               <button onClick={() => setDrawerOpen(false)} className="p-1 text-prism-tertiary">
                 <CloseIcon className="h-5 w-5" />
               </button>
             </div>
             {/* Full nav */}
-            <nav className="flex-1 space-y-0.5 overflow-y-auto px-3">
+            <nav className="relative z-10 flex-1 space-y-0.5 overflow-y-auto px-3">
               {NAV.map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}
@@ -127,7 +141,7 @@ export default function Layout() {
                   className={({ isActive }) =>
                     `flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium transition-colors ${
                       isActive
-                        ? 'bg-prism-bg2 text-prism-primary font-semibold'
+                        ? `nav-item-active ${theme === 'dark' ? 'nav-item-active--dark' : 'nav-item-active--light'} text-prism-primary font-semibold`
                         : 'text-prism-tertiary hover:bg-prism-bg2 hover:text-prism-primary'
                     }`
                   }
@@ -138,7 +152,7 @@ export default function Layout() {
               ))}
             </nav>
             {/* Theme + User */}
-            <div className="border-t border-prism-border px-4 py-3">
+            <div className="relative z-10 border-t border-prism-border px-4 py-3">
               <button
                 onClick={toggle}
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium text-prism-tertiary"
@@ -147,7 +161,7 @@ export default function Layout() {
                 {theme === 'dark' ? 'Light mode' : 'Dark mode'}
               </button>
             </div>
-            <div className="border-t border-prism-border px-4 py-4">
+            <div className="relative z-10 border-t border-prism-border px-4 py-4">
               <div className="flex items-center gap-2.5">
                 {user?.picture ? (
                   <img src={user.picture} alt="" className="h-8 w-8 rounded-full" referrerPolicy="no-referrer" />
@@ -167,17 +181,23 @@ export default function Layout() {
       )}
 
       {/* ── Main Content ────────────────────── */}
-      <main className={`flex-1 bg-prism-bg transition-colors duration-200 ${isFullBleed ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'} pb-16 md:pb-0`}>
-        <div className="h-1 w-full flex-shrink-0 bg-prism-gradient" />
-        {isFullBleed ? (
-          <div className="page-enter min-h-0 flex-1 px-4 py-4 md:px-8 md:py-8">
-            <Outlet />
-          </div>
-        ) : (
-          <div className="page-enter mx-auto max-w-[1400px] px-4 py-4 md:px-8 md:py-8">
-            <Outlet />
-          </div>
-        )}
+      <main className={`dashboard-main flex-1 transition-colors duration-200 ${isFullBleed ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'} pb-16 md:pb-0`}>
+        <div className={`spectral-mesh spectral-mesh-${theme}`} aria-hidden="true">
+          <div className={`spectral-mesh-purple spectral-mesh-purple--${theme}`} />
+          <div className="spectral-mesh-noise" />
+        </div>
+        <div className="dashboard-content">
+          <div className="h-1 w-full flex-shrink-0 bg-prism-gradient" />
+          {isFullBleed ? (
+            <div className="page-enter min-h-0 flex-1 px-4 py-4 md:px-8 md:py-8">
+              <Outlet />
+            </div>
+          ) : (
+            <div className="page-enter mx-auto max-w-[1400px] px-4 py-4 md:px-8 md:py-8">
+              <Outlet />
+            </div>
+          )}
+        </div>
       </main>
 
       {/* ── Mobile Bottom Tab Bar ───────────── */}

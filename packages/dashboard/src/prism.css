@@ -5,10 +5,10 @@
 
 :root {
   /* ── Backgrounds ──────────────────────────── */
-  --prism-bg:       245 246 250;   /* #f5f6fa – page */
-  --prism-bg2:      235 237 244;   /* #ebedf4 – section */
+  --prism-bg:       246 248 250;   /* #f6f8fa – Prism Solar page */
+  --prism-bg2:      238 242 247;   /* light shell section */
   --prism-card:     255 255 255;   /* #ffffff – card */
-  --prism-card-alt: 248 249 252;   /* #f8f9fc – alternating */
+  --prism-card-alt: 250 251 253;   /* soft alternate */
 
   /* ── Text ─────────────────────────────────── */
   --prism-primary:   20  24  40;   /* #141828 */
@@ -17,7 +17,7 @@
   --prism-muted:    160 168 190;   /* #a0a8be */
 
   /* ── Border ───────────────────────────────── */
-  --prism-border:   220 224 235;   /* #dce0eb */
+  --prism-border:   223 228 236;   /* softened light border */
 
   /* ── Accents (text-safe — darkened for white bg) ─ */
   --prism-accent-1:   6 130 162;   /* #0682a2  Cyan */
@@ -59,10 +59,10 @@
 
 .dark {
   /* ── Backgrounds ──────────────────────────── */
-  --prism-bg:        12  14  24;   /* #0c0e18 */
-  --prism-bg2:       20  24  40;   /* #141828 */
-  --prism-card:      24  28  48;   /* #181c30 */
-  --prism-card-alt:  30  34  56;   /* #1e2238 */
+  --prism-bg:         1   2   4;   /* #010204 – Prism Midnight page */
+  --prism-bg2:        8  11  20;   /* deep shell section */
+  --prism-card:      10  14  26;   /* midnight card */
+  --prism-card-alt:  16  21  36;   /* raised midnight card */
 
   /* ── Text ─────────────────────────────────── */
   --prism-primary:  234 237 250;   /* #eaedfa */
@@ -71,7 +71,7 @@
   --prism-muted:     65  75 100;   /* #414b64 */
 
   /* ── Border ───────────────────────────────── */
-  --prism-border:    40  46  70;   /* #282e46 */
+  --prism-border:    29  37  58;   /* cooler midnight border */
 
   /* ── Accents (text-safe — bright for dark bg) */
   --prism-accent-1:  34 211 238;   /* #22d3ee  Cyan */
