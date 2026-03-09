@@ -221,7 +221,7 @@ export class OrchestratorRunner extends BaseAgentRunner {
     const parts: string[] = ['## WHO YOU ARE\n'];
     if (profile.personality_summary) parts.push(profile.personality_summary, '');
     if (profile.voice_examples?.length) {
-      parts.push('**Voice calibration examples — match this tone:**');
+      parts.push('**Voice calibration examples — match this tone (STYLE ONLY — all numbers, users, metrics, and scenarios in these examples are FICTIONAL placeholders showing communication style. Do NOT treat them as real data or current company state):**');
       for (const ex of profile.voice_examples) {
         parts.push(`\nSituation: ${ex.situation}`);
         parts.push(`Response: ${ex.response}`);

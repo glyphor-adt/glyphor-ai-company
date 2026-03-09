@@ -211,7 +211,7 @@ export class TaskRunner extends BaseAgentRunner {
       parts.push(profile.working_voice);
       parts.push('');
       parts.push('FORMAT: Match this voice in your output. No corporate filler. No AI self-reference.');
-      parts.push('Be specific. Use real numbers, names, and details.');
+      parts.push('Be specific. Use real data from tools — never invent numbers, users, or metrics.');
     } else if (profile.personality_summary) {
       parts.push(profile.personality_summary, '');
     }

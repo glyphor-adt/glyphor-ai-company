@@ -809,7 +809,7 @@ function buildPersonalityBlock(profile: AgentProfileData): string {
 
   // 2. Voice calibration examples (few-shot)
   if (profile.voice_examples?.length) {
-    parts.push('**Voice calibration examples — match this tone:**');
+    parts.push('**Voice calibration examples — match this tone (STYLE ONLY — all numbers, users, metrics, and scenarios in these examples are FICTIONAL placeholders showing communication style. Do NOT treat them as real data or current company state):**');
     for (const ex of profile.voice_examples) {
       parts.push(`\nSituation: ${ex.situation}`);
       parts.push(`Response: ${ex.response}`);
