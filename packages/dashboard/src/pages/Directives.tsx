@@ -41,7 +41,7 @@ const VERDICT_CONFIG: Record<string, { label: string; dot: string; border: strin
 
 type Priority = 'critical' | 'high' | 'medium' | 'low';
 type DirectiveStatus = 'proposed' | 'active' | 'paused' | 'completed' | 'cancelled' | 'rejected';
-type Category = 'revenue' | 'product' | 'engineering' | 'marketing' | 'sales' | 'customer_success' | 'operations' | 'general' | 'strategy' | 'design';
+type Category = 'revenue' | 'product' | 'engineering' | 'marketing' | 'sales' | 'operations' | 'general' | 'strategy' | 'design';
 
 interface WorkAssignment {
   id: string;
