@@ -80,7 +80,7 @@ const ON_DEMAND_THINKING_SUPERVISOR_TIMEOUT_MS = 170_000;
  *  so 10 is too tight — raised to 20 for headroom. */
 const TASK_TIER_MAX_TURNS = 20;
 const TASK_TIER_TIMEOUT_MS = 180_000;
-const TASK_TIER_CALL_TIMEOUT_MS = 60_000;
+const TASK_TIER_CALL_TIMEOUT_MS = 90_000;
 
 /** Scheduled tasks with thinking enabled get generous limits. */
 const SCHEDULED_THINKING_TIMEOUT_MS = 600_000;

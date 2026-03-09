@@ -390,17 +390,49 @@ export class HeartbeatManager {
     const STALE_THRESHOLD_MS = 5 * 60 * 1000;
     const cutoff = new Date(Date.now() - STALE_THRESHOLD_MS).toISOString();
     try {
-      const data = await systemQuery<{id: string; agent_id: string}>(
-        'UPDATE agent_runs SET status=$1, completed_at=$2, error=$3 WHERE status=$4 AND created_at < $5 RETURNING id, agent_id',
+      const data = await systemQuery<{id: string; agent_id: string; task: string}>(
+        'UPDATE agent_runs SET status=$1, completed_at=$2, error=$3 WHERE status=$4 AND created_at < $5 RETURNING id, agent_id, task',
         ['failed', new Date().toISOString(), 'reaped: stuck in running state for >5 minutes', 'running', cutoff],
       );
 
       if (data && data.length > 0) {
         const agents = data.map((r: { agent_id: string }) => r.agent_id);
         console.log(`[Heartbeat] Reaped ${data.length} stale running rows: [${agents.join(', ')}]`);
+
+        // Auto-retry reaped scheduled tasks (briefings, summaries, etc.)
+        // These are one-shot cron tasks that won't naturally re-fire until the next day.
+        const RETRYABLE_TASKS = new Set(['morning_briefing', 'eod_summary', 'orchestrate']);
+        for (const run of data) {
+          if (RETRYABLE_TASKS.has(run.task)) {
+            console.log(`[Heartbeat] Auto-retrying reaped scheduled task: ${run.agent_id}/${run.task}`);
+            try {
+              // Re-dispatch via the executor (non-blocking — will run in next wave)
+              void this.executor(run.agent_id as CompanyAgentRole, run.task, {
+                retry: true,
+                original_run_id: run.id,
+              });
+            } catch (retryErr) {
+              console.warn(`[Heartbeat] Failed to retry ${run.agent_id}/${run.task}:`, (retryErr as Error).message);
+            }
+          }
+        }
       }
     } catch (err) {
       console.warn('[Heartbeat] Failed to reap stale runs:', (err as Error).message);
+    }
+
+    // Auto-cancel assignments stuck in dispatched/pending for >7 days
+    try {
+      const staleAssignments = await systemQuery<{id: string; assigned_to: string}>(
+        `UPDATE work_assignments SET status = 'cancelled', evaluation = 'Auto-cancelled: stale (>7 days in dispatched/pending without progress)'
+         WHERE status IN ('dispatched', 'pending') AND created_at < NOW() - INTERVAL '7 days'
+         RETURNING id, assigned_to`,
+      );
+      if (staleAssignments && staleAssignments.length > 0) {
+        console.log(`[Heartbeat] Auto-cancelled ${staleAssignments.length} stale assignments: [${staleAssignments.map(a => a.assigned_to).join(', ')}]`);
+      }
+    } catch (err) {
+      console.warn('[Heartbeat] Failed to cancel stale assignments:', (err as Error).message);
     }
 
     // Deactivate expired tool grants

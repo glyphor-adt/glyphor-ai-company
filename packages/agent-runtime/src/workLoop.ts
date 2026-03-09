@@ -331,6 +331,25 @@ export async function executeWorkLoop(
   // be purely reactive, working only on assigned tasks.
   let cooldownMs = PROACTIVE_COOLDOWNS[agentRole];
   if (cooldownMs != null) {
+    // Guard: if last 3+ consecutive runs were proactive aborts, disable proactive
+    // entirely until a non-proactive successful run breaks the cycle.
+    const recentForProactiveGuard = await systemQuery<{ task: string; status: string }>(
+      `SELECT task, status FROM agent_runs WHERE agent_id = $1 ORDER BY completed_at DESC LIMIT 5`,
+      [agentRole],
+    );
+    let consecutiveProactiveAborts = 0;
+    for (const run of recentForProactiveGuard) {
+      if (run.task === 'proactive' && run.status === 'aborted') consecutiveProactiveAborts++;
+      else break;
+    }
+    if (consecutiveProactiveAborts >= 3) {
+      return {
+        shouldRun: false,
+        reason: `proactive_disabled:${consecutiveProactiveAborts}_consecutive_aborts`,
+        priority: 6,
+      };
+    }
+
     // Check if last 3 proactive runs produced no tool calls — if so, double cooldown
     const recentProactive = await systemQuery<{ turns: number }>(
       `SELECT turns FROM agent_runs WHERE agent_id = $1 AND task = 'proactive' AND status = 'completed'

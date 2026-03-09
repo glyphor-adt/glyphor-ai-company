@@ -1046,16 +1046,23 @@ resource "google_cloud_scheduler_job" "sync_mercury" {
   depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
 }
 
-# ─── Cloud Scheduler: Scheduler Tick ─────────────────────────
-resource "google_cloud_scheduler_job" "scheduler_tick" {
-  name      = "scheduler-tick"
-  schedule  = "* * * * *"
-  time_zone = "UTC"
-  region    = var.region
+# ─── Cloud Scheduler: Heartbeat ──────────────────────────────
+# Fires every 10 minutes to run lightweight agent check-ins (DB only, no LLM calls).
+# Dispatches work_loop tasks for agents with pending assignments or wake-queue entries.
+resource "google_cloud_scheduler_job" "heartbeat" {
+  name             = "glyphor-heartbeat"
+  schedule         = "*/10 * * * *"
+  time_zone        = "UTC"
+  region           = var.region
+  attempt_deadline = "120s"
 
   http_target {
-    uri         = "${google_cloud_run_v2_service.scheduler.uri}/scheduler/tick"
+    uri         = "${google_cloud_run_v2_service.scheduler.uri}/heartbeat"
     http_method = "POST"
+    body        = base64encode("{}")
+    headers = {
+      "Content-Type" = "application/json"
+    }
     oidc_token {
       service_account_email = google_service_account.glyphor.email
     }
