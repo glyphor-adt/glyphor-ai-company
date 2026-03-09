@@ -56,7 +56,7 @@ const PASS_THRESHOLD = 0.6;
 const REJECT_THRESHOLD = 0.3;
 const DRAFT_MAX_AGE_DAYS = 14;
 const LLM_BUDGET_PER_CYCLE = 5;
-const VERIFIER_MODEL = 'gemini-2.0-flash';
+const VERIFIER_MODEL = 'gpt-5-mini-2025-08-07';
 
 // Model selection auto-promote thresholds
 const MODEL_SEL_MIN_RUNS = 20;

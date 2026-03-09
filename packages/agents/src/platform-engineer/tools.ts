@@ -71,7 +71,7 @@ export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDef
       parameters: {
         model: {
           type: 'string',
-          description: 'Model to check (default: gemini-3-flash-preview)',
+          description: 'Model to check (default: gpt-5-mini-2025-08-07)',
           required: false,
         },
         hours: {
@@ -81,7 +81,7 @@ export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDef
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const model = (params.model as string) || 'gemini-3-flash-preview';
+        const model = (params.model as string) || 'gpt-5-mini-2025-08-07';
         // Read from memory where agent runs are logged
         const activity = await memory.getRecentActivity((params.hours as number) || 1);
         const aiCalls = activity.filter((a) => a.action === 'analysis' || a.action === 'deploy');

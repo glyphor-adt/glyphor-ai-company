@@ -453,7 +453,7 @@ function buildResearchAreas(target: string): ResearchArea[] {
 export class DeepDiveEngine {
   constructor(
     private modelClient: ModelClient,
-    private model = 'gemini-2.5-flash',
+    private model = 'gpt-5-mini-2025-08-07',
   ) {}
 
   /** Launch a deep dive. Returns the record ID. */

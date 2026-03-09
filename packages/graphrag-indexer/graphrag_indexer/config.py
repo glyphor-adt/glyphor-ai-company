@@ -19,7 +19,7 @@ DB_PASSWORD = os.environ.get("DB_PASSWORD", "")
 
 # ─── LLM ─────────────────────────────────────────────────────────
 GEMINI_API_KEY = os.environ["GOOGLE_AI_API_KEY"]
-LLM_MODEL = "gemini-2.5-flash"
+LLM_MODEL = "gpt-5-mini-2025-08-07"
 EMBEDDING_MODEL = "gemini-embedding-001"
 EMBEDDING_DIMENSIONS = 768
 

@@ -157,7 +157,7 @@ export const EMBEDDING_MODEL = 'gemini-embedding-001';
 export const IMAGE_MODEL = 'gpt-image-1.5-2025-12-16';
 
 /** The model used for GraphRAG extraction */
-export const GRAPHRAG_MODEL = 'gemini-2.5-flash';
+export const GRAPHRAG_MODEL = 'gpt-5-mini-2025-08-07';
 
 // ─── Fallback chains ────────────────────────────────────────
 // When a model fails with a non-retryable error (e.g., rate limit, outage),

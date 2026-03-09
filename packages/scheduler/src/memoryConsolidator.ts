@@ -68,7 +68,7 @@ const ABORT_RATE_THRESHOLD = 0.3;
 const PROCEDURE_SUCCESS_THRESHOLD = 0.8;
 const PROCEDURE_USAGE_THRESHOLD = 5;
 const BATCH_SIZE = 20;
-const DISTILL_MODEL = 'gemini-2.5-flash';
+const DISTILL_MODEL = 'gpt-5-mini-2025-08-07';
 
 // ─── Main Entry Point ───────────────────────────────────────────
 

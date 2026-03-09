@@ -19,7 +19,7 @@ import { systemQuery } from '@glyphor/shared/db';
 // ─── Constants ──────────────────────────────────────────────────
 
 /** Economy-tier model for LLM-based principle checks. */
-const PRE_CHECK_MODEL = 'gemini-2.5-flash-lite';
+const PRE_CHECK_MODEL = 'gpt-5-mini-2025-08-07';
 
 /** Cache TTL for LLM-based pre-check results (5 minutes). */
 const PRE_CHECK_CACHE_TTL = 300;

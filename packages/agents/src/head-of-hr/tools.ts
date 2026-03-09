@@ -199,9 +199,9 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
           : { pass: false, detail: 'MISSING — not in org chart' };
 
         // 6. Model
-        checklist['model'] = agent.model === 'gemini-3-flash-preview'
+        checklist['model'] = agent.model === 'gpt-5-mini-2025-08-07'
           ? { pass: true, detail: agent.model }
-          : { pass: false, detail: `${agent.model ?? 'NOT SET'} (should be gemini-3-flash-preview)` };
+          : { pass: false, detail: `${agent.model ?? 'NOT SET'} (should be gpt-5-mini-2025-08-07)` };
 
         const passed = Object.values(checklist).filter((c) => c.pass).length;
         const total = Object.values(checklist).length;
@@ -648,7 +648,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         },
         model: {
           type: 'string',
-          description: 'AI model to use (default: gemini-3-flash-preview).',
+          description: 'AI model to use (default: gpt-5-mini-2025-08-07).',
           required: false,
         },
       },
@@ -658,7 +658,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         const title = params.title as string;
         const department = params.department as string;
         const reportsTo = params.reports_to as string;
-        const model = (params.model as string) || 'gemini-3-flash-preview';
+        const model = (params.model as string) || 'gpt-5-mini-2025-08-07';
 
         if (!role || !name || !title || !department || !reportsTo) {
           return { success: false, error: 'role, name, title, department, and reports_to are all required.' };
@@ -745,7 +745,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
 
         try {
           const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gpt-5-mini-2025-08-07',
             contents: genPrompt,
           });
 

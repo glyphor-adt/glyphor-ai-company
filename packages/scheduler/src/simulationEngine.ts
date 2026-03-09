@@ -86,7 +86,7 @@ const SIMULATION_AGENTS: Array<{ role: string; area: string }> = [
 export class SimulationEngine {
   constructor(
     private modelClient: ModelClient,
-    private model = 'gemini-2.5-flash',
+    private model = 'gpt-5-mini-2025-08-07',
   ) {}
 
   async launch(req: SimulationRequest): Promise<string> {

@@ -106,7 +106,7 @@ export function createAgentCreationTools(): ToolDefinition[] {
         const systemPrompt = params.system_prompt as string;
         const justification = params.justification as string;
         const ttlDays = Math.min((params.ttl_days as number) || DEFAULT_TTL_DAYS, MAX_TTL_DAYS);
-        const model = (params.model as string) || 'gemini-3-flash-preview';
+        const model = (params.model as string) || 'gpt-5-mini-2025-08-07';
         const cronExpression = params.cron_expression as string | undefined;
 
         if (!name || !systemPrompt || !justification) {

@@ -761,7 +761,7 @@ export class StrategyLabEngine {
   constructor(
     private modelClient: ModelClient,
     private agentExecutor: (role: CompanyAgentRole, task: string, payload: Record<string, unknown>) => Promise<AgentExecutionResult | void>,
-    private model = 'gemini-2.5-flash',
+    private model = 'gpt-5-mini-2025-08-07',
   ) {}
 
   /** Launch a strategy analysis. Returns the record ID. */
