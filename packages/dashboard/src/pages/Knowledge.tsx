@@ -288,7 +288,7 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
 
       {editing ? (
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-[11px] font-medium text-txt-muted mb-1 block">MRR ($)</label>
               <input
@@ -530,7 +530,7 @@ function NewBulletinModal({ onClose, onCreated }: { onClose: () => void; onCreat
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="text-[11px] font-medium text-txt-muted mb-1 block">Priority</label>
               <select

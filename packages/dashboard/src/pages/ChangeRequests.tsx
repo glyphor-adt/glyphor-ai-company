@@ -445,7 +445,7 @@ function NewRequestModal({
           </div>
 
           {/* Type + Priority row */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-txt-secondary mb-1">Type</label>
               <select

@@ -246,7 +246,7 @@ export default function AgentSettings() {
       <div className="space-y-6">
         <Skeleton className="h-8 w-32" />
         <Skeleton className="h-24 w-full" />
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <Skeleton className="h-64" />
           <Skeleton className="h-64" />
         </div>
@@ -373,7 +373,7 @@ export default function AgentSettings() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <label className="space-y-1">
               <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Model</span>
               <select value={model} onChange={(e) => setModel(e.target.value)} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40">
@@ -396,7 +396,7 @@ export default function AgentSettings() {
             </label>
           </div>
 
-          <div className="mt-4 grid grid-cols-3 gap-4">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <label className="space-y-1">
               <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Per Run ($)</span>
               <input type="number" step="0.01" min="0" value={budgetPerRun} onChange={(e) => setBudgetPerRun(parseFloat(e.target.value))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40" />

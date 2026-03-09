@@ -139,7 +139,7 @@ export default function Activity() {
   return (
     <div className="space-y-6">
       {/* ── Summary Stats ──────────────────── */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
         <MiniStat label="Total Runs" value={String(stats.total)} loading={loading} />
         <MiniStat
           label="Running Now"
@@ -238,9 +238,9 @@ export default function Activity() {
         ) : filtered.length === 0 ? (
           <p className="py-12 text-center text-sm text-txt-faint">No runs found</p>
         ) : (
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-border overflow-x-auto">
             {/* Header */}
-            <div className="grid grid-cols-[2fr_1.5fr_100px_90px_80px_80px_70px_60px_70px_90px] gap-2 bg-raised px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-txt-muted">
+            <div className="grid grid-cols-[2fr_1.5fr_100px_90px_80px_80px_70px_60px_70px_90px] gap-2 bg-raised px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-txt-muted min-w-[900px]">
               <span>Agent</span>
               <span>Task</span>
               <span>Status</span>
@@ -262,7 +262,7 @@ export default function Activity() {
                 <div key={run.id}>
                   <div
                     onClick={() => hasDetail && setExpandedId(isExpanded ? null : run.id)}
-                    className={`grid grid-cols-[2fr_1.5fr_100px_90px_80px_80px_70px_60px_70px_90px] gap-2 items-center px-4 py-2.5 transition-colors hover:bg-raised/50 ${
+                    className={`grid grid-cols-[2fr_1.5fr_100px_90px_80px_80px_70px_60px_70px_90px] gap-2 items-center px-4 py-2.5 transition-colors hover:bg-raised/50 min-w-[900px] ${
                       run.status === 'running' ? 'bg-cyan/[0.03]' : ''
                     } ${hasDetail ? 'cursor-pointer' : ''}`}
                   >

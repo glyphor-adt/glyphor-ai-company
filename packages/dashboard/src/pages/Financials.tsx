@@ -631,7 +631,7 @@ export default function Financials() {
         })}
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Product MRR Comparison */}
         <Card>
           <SectionHeader title="Revenue by Product" />
@@ -704,7 +704,7 @@ export default function Financials() {
       </div>
 
       {/* API Billing by Provider + Kling Packs */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <SectionHeader title="API Costs by Provider" />
           {apiLoading ? (
@@ -830,7 +830,7 @@ export default function Financials() {
         )}
       </Card>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* MRR Trend */}
         <Card>
           <SectionHeader title="MRR Trend" />
@@ -882,7 +882,7 @@ export default function Financials() {
       </div>
 
       {/* GCP Billing Breakdown */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Per-Product Cost (Pie) */}
         <Card>
           <SectionHeader title={`GCP Cost by Product (${currentMonthLabel})`} />

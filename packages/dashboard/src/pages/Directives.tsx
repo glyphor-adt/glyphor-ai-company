@@ -1132,7 +1132,7 @@ function EditApproveModal({
               className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none resize-none"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-[11px] font-medium text-txt-muted mb-2 block">Priority</label>
               <div className="flex flex-wrap gap-2">
@@ -1307,7 +1307,7 @@ function NewDirectiveModal({
           </div>
 
           {/* Priority + Category row */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-[11px] font-medium text-txt-muted mb-2 block">Priority</label>
               <div className="flex flex-wrap gap-2">

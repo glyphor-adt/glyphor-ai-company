@@ -93,7 +93,7 @@ export default function AgentBuilder() {
       {/* Identity */}
       <Card>
         <SectionHeader title="Identity" />
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label className="space-y-1">
             <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Name *</span>
             <input
@@ -143,7 +143,7 @@ export default function AgentBuilder() {
       {/* Model Configuration */}
       <Card>
         <SectionHeader title="Model Configuration" />
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <label className="space-y-1">
             <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Model</span>
             <select
@@ -185,7 +185,7 @@ export default function AgentBuilder() {
       {/* Budget */}
       <Card>
         <SectionHeader title="Budget Limits" />
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <label className="space-y-1">
             <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Per Run ($)</span>
             <input

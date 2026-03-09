@@ -633,7 +633,7 @@ function OperationsOverview() {
         onRefresh={refreshWorkflows}
       />
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Runs per Agent */}
         <Card>
           <SectionHeader title="Runs per Agent" />
@@ -719,7 +719,7 @@ function OperationsOverview() {
       </Card>
 
       {/* Data Sync Status + Incident Log */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <SectionHeader title="Data Sync Status" />
           {syncsLoading ? (
@@ -930,7 +930,7 @@ function OperationsOverview() {
       {/* Agent Detail Cards */}
       <div>
         <SectionHeader title="Agent Details" />
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {agents.sort((a, b) => {
             const ai = ROLE_ORDER.indexOf(a.role);
             const bi = ROLE_ORDER.indexOf(b.role);

@@ -105,7 +105,7 @@ export default function Meetings() {
   return (
     <div className="space-y-6">
       {/* Stats bar */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
         {[
           { label: 'Total Meetings', value: meetings.length },
           { label: 'Completed', value: completedMeetings.length },
