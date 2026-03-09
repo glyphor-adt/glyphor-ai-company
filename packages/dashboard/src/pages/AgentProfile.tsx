@@ -155,6 +155,10 @@ export default function AgentProfile() {
   const [loading, setLoading] = useState(true);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState('');
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleteText, setDeleteText] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const navigate = useNavigate();
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const handleAvatarUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -339,13 +343,55 @@ export default function AgentProfile() {
             </button>
           ) : null}
           <button
-            onClick={() => setTab('settings')}
+            onClick={() => setShowDelete(true)}
             className="rounded-lg border border-tier-red/30 bg-tier-red/10 px-4 py-2 text-sm font-medium text-tier-red hover:bg-tier-red/20 transition-colors"
           >
             Delete
           </button>
         </div>
       </div>
+
+      {/* Delete confirmation */}
+      {showDelete && (
+        <div className="rounded-lg border border-tier-red/30 bg-tier-red/5 p-4 space-y-3">
+          <p className="text-sm text-txt-secondary">
+            This will <strong className="text-tier-red">permanently delete</strong> {agent.display_name || agent.role}. This cannot be undone.
+          </p>
+          <label className="block text-sm text-txt-faint">
+            Type <strong className="text-txt-secondary">{agent.role}</strong> to confirm:
+          </label>
+          <input
+            type="text"
+            value={deleteText}
+            onChange={(e) => setDeleteText(e.target.value)}
+            placeholder={agent.role}
+            className="w-full max-w-xs rounded-lg border border-tier-red/30 bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-tier-red/60"
+          />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                setDeleting(true);
+                try {
+                  const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}?hard=true`, { method: 'DELETE' });
+                  if (resp.ok) navigate('/agents');
+                } finally {
+                  setDeleting(false);
+                }
+              }}
+              disabled={deleteText !== agent.role || deleting}
+              className="rounded-lg bg-tier-red px-5 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+            >
+              {deleting ? 'Deleting…' : 'Permanently Delete'}
+            </button>
+            <button
+              onClick={() => { setShowDelete(false); setDeleteText(''); }}
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-secondary hover:text-txt-primary transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Tab bar */}
       <div className="flex gap-0 border-b border-border">
