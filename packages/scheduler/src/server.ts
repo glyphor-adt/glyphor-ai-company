@@ -428,6 +428,7 @@ const heartbeatManager = new HeartbeatManager(trackedAgentExecutor, wakeRouter);
 const strategyModelClient = new ModelClient({
   geminiApiKey: process.env.GOOGLE_AI_API_KEY,
   openaiApiKey: process.env.OPENAI_API_KEY,
+  vertexProjectId: process.env.GCP_PROJECT_ID || 'ai-glyphor-company',
 });
 const analysisEngine = new AnalysisEngine(strategyModelClient);
 const simulationEngine = new SimulationEngine(strategyModelClient);
