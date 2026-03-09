@@ -1004,6 +1004,7 @@ export default function OraChat() {
   return (
     <div className="flex h-[calc(100vh-6rem)] gap-5">
       {/* Session Sidebar */}
+      {sidebarOpen && (
       <div className="flex w-72 flex-shrink-0 flex-col border-r border-prism-border bg-prism-bg">
           <div className="flex items-center gap-2 border-b border-prism-border px-3 py-3">
             <button
@@ -1013,6 +1014,14 @@ export default function OraChat() {
             >
               <MessageSquarePlus className="h-4 w-4" />
               New chat
+            </button>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-prism-tertiary hover:bg-prism-bg2 hover:text-prism-primary transition-colors"
+              title="Hide sidebar"
+            >
+              <PanelLeftClose className="h-4 w-4" />
             </button>
           </div>
 
@@ -1070,11 +1079,22 @@ export default function OraChat() {
             ))}
           </div>
         </div>
+      )}
 
       {/* Main chat area */}
-      <Card className="flex flex-1 flex-col min-h-0 transition-all">
+      <Card className="flex flex-1 flex-col min-h-0 max-w-4xl transition-all">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-border pb-4">
+          {!sidebarOpen && (
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-prism-tertiary hover:bg-prism-bg2 hover:text-prism-primary transition-colors"
+              title="Show sidebar"
+            >
+              <PanelLeft className="h-4 w-4" />
+            </button>
+          )}
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-cyan/20">
             <Orbit className="h-4 w-4 text-cyan" strokeWidth={1.8} />
           </div>
