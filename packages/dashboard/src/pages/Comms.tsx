@@ -10,10 +10,10 @@ export default function Comms() {
   const [tab, setTab] = useState<Tab>('chat');
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 md:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-txt-primary">Comms</h1>
-        <p className="mt-1 text-sm text-txt-muted">
+        <h1 className="text-xl md:text-2xl font-bold text-txt-primary">Comms</h1>
+        <p className="mt-1 text-xs md:text-sm text-txt-muted">
           Agent chat and meeting records
         </p>
       </div>

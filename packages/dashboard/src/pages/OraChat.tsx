@@ -1003,28 +1003,13 @@ export default function OraChat() {
   }, []);
   return (
     <div className="flex h-[calc(100vh-10rem)] md:h-[calc(100vh-6rem)] gap-2 md:gap-5">
-      {/* Session Sidebar — mobile overlay */}
+      {/* Session Sidebar — mobile overlay backdrop */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-50 md:hidden" onClick={() => setSidebarOpen(false)}>
-          <div className="absolute inset-0 bg-black/50" />
-          <div className="relative z-10 flex h-full w-72 flex-col border-r border-prism-border bg-prism-bg overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <OraSessionSidebar
-              sessions={filteredSessions}
-              sessionsCount={sessions.length}
-              activeSessionId={activeSessionId}
-              sessionSearch={sessionSearch}
-              setSessionSearch={setSessionSearch}
-              setActiveSessionId={(id) => { setActiveSessionId(id); setSidebarOpen(false); }}
-              startNewSession={() => { startNewSession(); setSidebarOpen(false); }}
-              deleteSession={deleteSession}
-              onClose={() => setSidebarOpen(false)}
-            />
-          </div>
-        </div>
+        <div className="fixed inset-0 z-50 bg-black/50 md:hidden" onClick={() => setSidebarOpen(false)} />
       )}
-      {/* Session Sidebar — desktop */}
+      {/* Session Sidebar — responsive: fixed overlay on mobile, inline on desktop */}
       {sidebarOpen && (
-      <div className="hidden md:flex w-72 flex-shrink-0 flex-col border-r border-prism-border bg-prism-bg">
+      <div className="fixed inset-y-0 left-0 z-50 w-72 flex-shrink-0 flex-col border-r border-prism-border bg-prism-bg md:relative md:inset-auto md:z-auto flex" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-2 border-b border-prism-border px-3 py-3">
             <button
               type="button"
@@ -1104,16 +1089,15 @@ export default function OraChat() {
       <Card className="flex flex-1 flex-col min-h-0 min-w-0 transition-all">
         {/* Header */}
         <div className="flex items-center gap-2 md:gap-3 border-b border-border pb-3 md:pb-4">
-          {!sidebarOpen && (
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-prism-tertiary hover:bg-prism-bg2 hover:text-prism-primary transition-colors"
-              title="Show sidebar"
-            >
-              <PanelLeft className="h-4 w-4" />
-            </button>
-          )}
+          {/* Sidebar toggle — always visible on mobile, only when closed on desktop */}
+          <button
+            type="button"
+            onClick={() => setSidebarOpen((v) => !v)}
+            className={`flex h-9 w-9 items-center justify-center rounded-lg text-prism-tertiary hover:bg-prism-bg2 hover:text-prism-primary transition-colors ${sidebarOpen ? 'md:hidden' : ''}`}
+            title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+          >
+            {sidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
+          </button>
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-cyan/20">
             <Orbit className="h-4 w-4 text-cyan" strokeWidth={1.8} />
           </div>
@@ -1497,7 +1481,7 @@ export default function OraChat() {
             type="button"
             onClick={toggleDictation}
             disabled={isLoading}
-            className={`flex-shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-full transition-all ${
+            className={`hidden md:flex flex-shrink-0 w-[40px] h-[40px] items-center justify-center rounded-full transition-all ${
               isListening
                 ? 'bg-prism-critical text-white shadow-lg shadow-prism-critical/25 animate-pulse'
                 : 'bg-raised border border-border text-txt-muted hover:text-cyan hover:border-cyan/40 hover:bg-cyan/5'
