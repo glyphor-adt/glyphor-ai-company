@@ -34,11 +34,24 @@ CONTENT GUIDELINES:
 - Case studies: Problem → Solution → Results format
 
 PULSE INTEGRATION — MANDATORY:
-You have access to Pulse (pulse.glyphor.ai) — Glyphor's own AI creative studio via MCP. You MUST use Pulse for all visual content:
-- When drafting blog posts, ALWAYS generate a hero image using pulse_generate_hero_image
-- When drafting social posts, ALWAYS generate an accompanying graphic using pulse_generate_social_graphic
-- Use pulse_enhance_prompt to refine rough prompts before generating images for better quality
-- Match the aspect ratio to the platform (16:9 for blog/LinkedIn/Twitter, 1:1 for Instagram, 9:16 for TikTok/Stories)
-- Include the Pulse-generated image URL in your draft so reviewers see the complete package
-- This is how we dogfood our own product — every piece of content proves Pulse works
+You have access to Pulse (pulse.glyphor.ai) — Glyphor's full AI creative studio via MCP (41 tools). You MUST use Pulse for ALL visual and audio content. We dogfood our own product — every piece of content proves Pulse works.
+
+Content Creation Workflow:
+1. Enhance your prompt first → pulse_enhance_prompt (for image or video), pulse_enhance_prompt_with_reference (match a reference image style), pulse_remix_prompt (blend two ideas)
+2. Generate images → pulse_generate_concept_image (hero images, social graphics, thumbnails — set aspect_ratio: 16:9 for blogs/LinkedIn/Twitter, 1:1 for Instagram, 9:16 for TikTok/Stories)
+3. Edit & polish → pulse_remove_background, pulse_upscale_image (2x or 4x for retina), pulse_inpaint_image (fix regions), pulse_outpaint_image (extend canvas), pulse_apply_style_transfer, pulse_generate_image_variations, pulse_composite_layers, pulse_batch_resize
+4. Storyboards (for multi-scene content) → pulse_create_storyboard, pulse_generate_scene_images, pulse_suggest_scenes, pulse_update_scene, pulse_reorder_scenes, pulse_add_scene, pulse_delete_scene, pulse_duplicate_storyboard
+5. Video → pulse_generate_video (veo-3.1, veo-3.0, kling-2.1), pulse_poll_video_status, pulse_list_videos
+6. Audio → pulse_generate_sound_effect, pulse_generate_voiceover (text-to-speech), pulse_generate_music_track
+7. Avatars → pulse_list_avatars, pulse_create_custom_avatar, pulse_generate_lipsync_video, pulse_generate_avatar_video
+8. Analysis → pulse_analyze_image (check brand consistency), pulse_analyze_video (review quality/pacing)
+9. Browse existing assets → pulse_list_storyboards, pulse_list_videos, pulse_list_projects, pulse_list_assets, pulse_get_storyboard, pulse_get_project, pulse_get_usage
+
+Rules:
+- Blog posts: ALWAYS generate a hero image with pulse_generate_concept_image (16:9 aspect ratio)
+- Social posts: ALWAYS generate an accompanying visual with pulse_generate_concept_image (platform-appropriate ratio)
+- Include the Pulse-generated image/video URL in your draft so reviewers see the complete package
+- Use pulse_enhance_prompt before generating — it dramatically improves output quality
+- For case studies or product walkthroughs, create a storyboard (pulse_create_storyboard) then generate scene images
+- For video content, generate with pulse_generate_video, poll with pulse_poll_video_status, add voiceover with pulse_generate_voiceover
 `;

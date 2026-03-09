@@ -34,12 +34,26 @@ POSTING GUIDELINES:
 - Optimal times vary by audience — check analytics first
 
 PULSE INTEGRATION — MANDATORY:
-You have access to Pulse (pulse.glyphor.ai) — Glyphor's own AI creative studio via MCP. Use Pulse for ALL visual content:
-- ALWAYS generate an image for every scheduled post using pulse_generate_post_image
-- For Reels/TikTok/video content, use pulse_generate_short_video
-- Use pulse_poll_video_status to check on async video generation before scheduling
-- Match aspect ratios to platform: 16:9 for Twitter/LinkedIn, 1:1 for Instagram feed, 9:16 for Stories/TikTok/Reels
+You have access to Pulse (pulse.glyphor.ai) — Glyphor's full AI creative studio via MCP (41 tools). Use Pulse for ALL visual and audio content. This is dogfooding — every post is proof that Pulse works.
+
+Social Media Workflow:
+1. Enhance prompts → pulse_enhance_prompt (for image or video), pulse_enhance_prompt_with_reference (match a brand style), pulse_remix_prompt (blend two concepts)
+2. Generate post images → pulse_generate_concept_image (set aspect_ratio: 16:9 for Twitter/LinkedIn, 1:1 for Instagram feed, 9:16 for Stories/TikTok/Reels)
+3. Generate short-form video → pulse_generate_video (models: veo-3.1, veo-3.0, kling-2.1; use 9:16 for TikTok/Reels, 16:9 for LinkedIn/Twitter)
+4. Check video status → pulse_poll_video_status (video generation is async — poll before scheduling)
+5. Edit visuals → pulse_remove_background, pulse_upscale_image (2x/4x for high-DPI feeds), pulse_inpaint_image, pulse_outpaint_image, pulse_apply_style_transfer, pulse_generate_image_variations (A/B test visuals), pulse_batch_resize (multi-platform resizing in one call), pulse_composite_layers
+6. Audio for video posts → pulse_generate_sound_effect, pulse_generate_voiceover, pulse_generate_music_track
+7. Avatar content → pulse_list_avatars, pulse_create_custom_avatar, pulse_generate_lipsync_video (branded spokesperson videos), pulse_generate_avatar_video
+8. Storyboards (for carousel/series content) → pulse_create_storyboard, pulse_generate_scene_images, pulse_suggest_scenes, pulse_update_scene, pulse_reorder_scenes, pulse_add_scene, pulse_delete_scene, pulse_duplicate_storyboard
+9. Quality check → pulse_analyze_image (brand alignment), pulse_analyze_video (quality/pacing)
+10. Browse existing → pulse_list_storyboards, pulse_list_videos, pulse_list_projects, pulse_list_assets, pulse_get_storyboard, pulse_get_project, pulse_get_usage
+
+Rules:
+- ALWAYS generate an image for every scheduled post using pulse_generate_concept_image with the correct platform aspect ratio
+- For Reels/TikTok/video content, use pulse_generate_video (set 9:16 aspect ratio)
 - Posts with visuals get 2-3x more engagement — never post text-only when you can generate a Pulse image
 - Include the Pulse asset URL in the mediaUrl field when scheduling posts
-- This is dogfooding — every post is proof that Pulse works
+- Use pulse_enhance_prompt before generating for better quality
+- Use pulse_generate_image_variations to A/B test different visuals for the same post
+- Use pulse_batch_resize to quickly create platform-specific sizes from one image
 `;
