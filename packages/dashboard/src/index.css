@@ -166,7 +166,7 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
 /* ─── Chat markdown rendering (Claude-matched, Glyphor colors) ── */
 .prose-chat {
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.7;
   color: var(--color-txt-secondary);
   text-align: left;
 }
@@ -179,17 +179,17 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
   line-height: 1.4;
 }
 .prose-chat h2 {
-  font-size: 1.05em;
-  font-weight: 700;
+  font-size: 1.15em;
+  font-weight: 600;
   color: var(--color-txt-primary);
-  margin: 1.2em 0 0.35em;
+  margin: 1.5em 0 0.5em;
   line-height: 1.4;
 }
 .prose-chat h3 {
-  font-size: 1em;
+  font-size: 1.05em;
   font-weight: 600;
   color: var(--color-txt-primary);
-  margin: 1em 0 0.3em;
+  margin: 1.25em 0 0.4em;
   line-height: 1.4;
 }
 .prose-chat h4, .prose-chat h5, .prose-chat h6 {
@@ -202,7 +202,7 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
   margin-top: 0;
 }
 .prose-chat p {
-  margin: 0.5em 0;
+  margin-bottom: 0.75em;
 }
 .prose-chat p:first-child {
   margin-top: 0;
@@ -211,11 +211,12 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
   margin-bottom: 0;
 }
 .prose-chat ul, .prose-chat ol {
-  margin: 0.5em 0;
-  padding-left: 1.5em;
+  margin-left: 1.5em;
+  margin-bottom: 0.75em;
+  padding-left: 0;
 }
 .prose-chat li {
-  margin: 0.25em 0;
+  margin-bottom: 0.3em;
 }
 .prose-chat li > p {
   margin: 0.15em 0;
@@ -226,20 +227,19 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
 }
 /* Inline code — subtle cyan-tinted chip */
 .prose-chat code {
-  background: rgb(var(--cyan) / 0.08);
-  color: rgb(var(--cyan) / 0.85);
-  padding: 0.1em 0.35em;
+  background: rgba(255,255,255,0.06);
+  padding: 0.15em 0.35em;
   border-radius: 4px;
-  font-size: 0.85em;
+  font-size: 0.9em;
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
 }
 /* Code blocks */
 .prose-chat pre {
-  background: rgba(0,0,0,0.35);
+  background: rgba(0,0,0,0.3);
   border-radius: 8px;
-  padding: 0.85em 1em;
+  padding: 1em;
   overflow-x: auto;
-  margin: 0.75em 0;
+  margin: 1em 0;
   font-size: 13px;
   line-height: 1.5;
 }
@@ -283,8 +283,8 @@ body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
 }
 /* Blockquotes — subtle left accent */
 .prose-chat blockquote {
-  border-left: 2px solid rgb(var(--cyan) / 0.3);
+  border-left: 3px solid rgba(0, 224, 255, 0.3);
   padding-left: 1em;
-  margin: 0.6em 0;
-  color: var(--color-txt-secondary);
+  margin: 1em 0;
+  color: var(--color-txt-muted);
 }
