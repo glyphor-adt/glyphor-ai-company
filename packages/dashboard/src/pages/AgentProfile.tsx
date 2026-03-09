@@ -373,7 +373,14 @@ export default function AgentProfile() {
                 setDeleting(true);
                 try {
                   const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}?hard=true`, { method: 'DELETE' });
-                  if (resp.ok) navigate('/agents');
+                  if (resp.ok) {
+                    navigate('/agents');
+                  } else {
+                    const body = await resp.text();
+                    alert(`Delete failed (${resp.status}): ${body}`);
+                  }
+                } catch (err: unknown) {
+                  alert(`Delete failed: ${err instanceof Error ? err.message : String(err)}`);
                 } finally {
                   setDeleting(false);
                 }
@@ -2341,7 +2348,14 @@ function SettingsTab({
                     setDeleting(true);
                     try {
                       const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}?hard=true`, { method: 'DELETE' });
-                      if (resp.ok) navigate('/agents');
+                      if (resp.ok) {
+                        navigate('/agents');
+                      } else {
+                        const body = await resp.text();
+                        alert(`Delete failed (${resp.status}): ${body}`);
+                      }
+                    } catch (err: unknown) {
+                      alert(`Delete failed: ${err instanceof Error ? err.message : String(err)}`);
                     } finally {
                       setDeleting(false);
                     }

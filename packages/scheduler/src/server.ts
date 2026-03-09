@@ -1459,9 +1459,10 @@ const server = createServer(async (req, res) => {
         const agentRole = agentRow?.role ?? agentId;
         const agentEmail = `${agentRole.replace(/-/g, '.')}@glyphor.ai`;
 
-        // Hard delete from all DB tables
+        // Hard delete from all DB tables (must clear FK-referencing tables first)
         await systemQuery('DELETE FROM agent_schedules WHERE agent_id=$1', [agentRole]);
         await systemQuery('DELETE FROM agent_briefs WHERE agent_id=$1', [agentRole]);
+        await systemQuery('DELETE FROM agent_skills WHERE agent_role=$1', [agentRole]);
         await systemQuery('DELETE FROM agent_profiles WHERE agent_id=$1', [agentRole]);
         await systemQuery('DELETE FROM agent_reasoning_config WHERE agent_role=$1', [agentRole]);
         await systemQuery('DELETE FROM agent_tool_grants WHERE agent_role=$1', [agentRole]);
