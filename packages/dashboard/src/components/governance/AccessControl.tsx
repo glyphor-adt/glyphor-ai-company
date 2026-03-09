@@ -37,6 +37,8 @@ interface AccessControlProps {
   isAdmin: boolean;
   currentUserEmail: string | null;
   busyDecisionId?: string | null;
+  initialAgentSearch?: string;
+  initialToolSearch?: string;
   onGrant: (input: { agentRole: string; toolName: string; reason: string; expiresAt: string | null }) => Promise<void>;
   onRevoke: (grant: ToolGrant) => Promise<void>;
   onResolveApproval: (id: string, approve: boolean) => Promise<void>;
