@@ -30,191 +30,8 @@ import {
 import { useAuth } from '../lib/auth';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { ROLE_DEPARTMENT } from '../lib/types';
-import { MdSearch, MdClose } from 'react-icons/md';
 
 type UnknownRecord = Record<string, unknown>;
-
-/* ── Governance Search ─────────────────────────────────────── */
-
-interface SearchResult {
-  type: 'agent' | 'tool';
-  key: string;
-  label: string;
-  subtitle: string;
-  grants: ToolGrant[];
-}
-
-function normalizeSearch(value: string): string {
-  return value
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/[_./:-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-}
-
-function GovernanceSearch({
-  grants,
-  onNavigate,
-}: {
-  grants: ToolGrant[];
-  onNavigate: (surface: GovernanceSurface, search?: { agent?: string; tool?: string }) => void;
-}) {
-  const [query, setQuery] = useState('');
-  const [focused, setFocused] = useState(false);
-
-  const results = useMemo<SearchResult[]>(() => {
-    const q = normalizeSearch(query);
-    if (!q) return [];
-
-    const activeGrants = grants.filter((g) => g.is_active);
-
-    // Group by agent
-    const byAgent = new Map<string, ToolGrant[]>();
-    for (const g of activeGrants) {
-      const list = byAgent.get(g.agent_role) ?? [];
-      list.push(g);
-      byAgent.set(g.agent_role, list);
-    }
-
-    // Group by tool
-    const byTool = new Map<string, ToolGrant[]>();
-    for (const g of activeGrants) {
-      const list = byTool.get(g.tool_name) ?? [];
-      list.push(g);
-      byTool.set(g.tool_name, list);
-    }
-
-    const matches: SearchResult[] = [];
-
-    // Agent matches
-    for (const [role, agentGrants] of byAgent) {
-      const searchable = normalizeSearch(
-        [role, getDisplayName(role), ROLE_DEPARTMENT[role] ?? ''].join(' '),
-      );
-      if (q.split(' ').every((token) => searchable.includes(token))) {
-        matches.push({
-          type: 'agent',
-          key: `agent:${role}`,
-          label: getDisplayName(role),
-          subtitle: `${ROLE_DEPARTMENT[role] ?? 'Unknown'} · ${agentGrants.length} tool${agentGrants.length === 1 ? '' : 's'}`,
-          grants: agentGrants,
-        });
-      }
-    }
-
-    // Tool matches
-    for (const [tool, toolGrants] of byTool) {
-      const searchable = normalizeSearch(
-        [tool, toHumanWords(tool)].join(' '),
-      );
-      if (q.split(' ').every((token) => searchable.includes(token))) {
-        matches.push({
-          type: 'tool',
-          key: `tool:${tool}`,
-          label: toHumanWords(tool),
-          subtitle: `${toolGrants.length} agent${toolGrants.length === 1 ? '' : 's'} · ${tool}`,
-          grants: toolGrants,
-        });
-      }
-    }
-
-    // Sort: agents first, then tools, alphabetically within
-    return matches.sort((a, b) => {
-      if (a.type !== b.type) return a.type === 'agent' ? -1 : 1;
-      return a.label.localeCompare(b.label);
-    });
-  }, [grants, query]);
-
-  const showResults = focused && query.trim().length > 0;
-
-  return (
-    <Card className="relative">
-      <div className="flex items-center gap-3">
-        <MdSearch className="h-5 w-5 shrink-0 text-txt-muted" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setTimeout(() => setFocused(false), 200)}
-          placeholder='Search agents or tools — e.g. "Marcus", "send_teams_message", "finance"'
-          className="flex-1 bg-transparent text-sm text-txt-primary placeholder:text-txt-muted outline-none"
-        />
-        {query && (
-          <button type="button" onClick={() => setQuery('')} className="text-txt-muted hover:text-txt-primary">
-            <MdClose className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-
-      {showResults && (
-        <div className="mt-4 space-y-3">
-          {results.length === 0 ? (
-            <p className="text-[13px] text-txt-muted">No agents or tools match "{query.trim()}"</p>
-          ) : (
-            <>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">
-                {results.length} result{results.length === 1 ? '' : 's'}
-              </p>
-              {results.slice(0, 12).map((result) => (
-                <div
-                  key={result.key}
-                  className="rounded-xl border border-border/70 bg-prism-card/60 p-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-                          result.type === 'agent'
-                            ? 'border-prism-sky/30 bg-prism-sky/10 text-prism-sky'
-                            : 'border-prism-teal/30 bg-prism-teal/10 text-prism-teal'
-                        }`}>
-                          {result.type}
-                        </span>
-                        <p className="text-sm font-semibold text-txt-primary">{result.label}</p>
-                      </div>
-                      <p className="mt-1 text-[12px] text-txt-muted">{result.subtitle}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        onNavigate(
-                          'access-control',
-                          result.type === 'agent' ? { agent: getDisplayName(result.grants[0]?.agent_role) } : { tool: toHumanWords(result.grants[0]?.tool_name) },
-                        );
-                        setQuery('');
-                      }}
-                      className="rounded-lg border border-border bg-surface px-3 py-1.5 text-[12px] font-medium text-txt-secondary transition-colors hover:border-border-hover hover:text-txt-primary"
-                    >
-                      View in Access Control
-                    </button>
-                  </div>
-
-                  {/* Inline assignment list */}
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {result.grants.map((g) => (
-                      <div
-                        key={g.id}
-                        className="rounded-lg border border-border/60 bg-surface px-2.5 py-1.5 text-[11px]"
-                      >
-                        {result.type === 'agent' ? (
-                          <span className="text-txt-primary">{toHumanWords(g.tool_name)}</span>
-                        ) : (
-                          <span className="text-txt-primary">{getDisplayName(g.agent_role)}</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
-        </div>
-      )}
-    </Card>
-  );
-}
 
 interface GovernanceData {
   riskSummary: RiskSummaryItem[];
@@ -686,8 +503,6 @@ export default function Governance() {
   const [collectResult, setCollectResult] = useState<string | null>(null);
   const [evalResult, setEvalResult] = useState<string | null>(null);
   const [busyDecisionId, setBusyDecisionId] = useState<string | null>(null);
-  const [searchAgentHint, setSearchAgentHint] = useState('');
-  const [searchToolHint, setSearchToolHint] = useState('');
 
   const isAdmin = user?.email ? ADMIN_EMAILS.includes(user.email.toLowerCase()) : false;
 
@@ -862,15 +677,6 @@ export default function Governance() {
         </button>
       </div>
 
-      <GovernanceSearch
-        grants={data.grants}
-        onNavigate={(surface, search) => {
-          setSearchAgentHint(search?.agent ?? '');
-          setSearchToolHint(search?.tool ?? '');
-          setActiveTab(surface);
-        }}
-      />
-
       <PageTabs<GovernanceSurface>
         tabs={[
           { key: 'command-center', label: 'Command Center' },
@@ -879,11 +685,7 @@ export default function Governance() {
           { key: 'policy-lab', label: 'Policy Lab' },
         ]}
         active={activeTab}
-        onChange={(tab) => {
-          setActiveTab(tab);
-          setSearchAgentHint('');
-          setSearchToolHint('');
-        }}
+        onChange={setActiveTab}
       />
 
       {activeTab === 'command-center' && (
@@ -924,8 +726,6 @@ export default function Governance() {
             isAdmin={isAdmin}
             currentUserEmail={user?.email ?? null}
             busyDecisionId={busyDecisionId}
-            initialAgentSearch={searchAgentHint}
-            initialToolSearch={searchToolHint}
             onGrant={handleGrant}
             onRevoke={handleRevoke}
             onResolveApproval={handleResolveApproval}
