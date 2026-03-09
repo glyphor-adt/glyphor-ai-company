@@ -1868,7 +1868,7 @@ export class CompanyAgentRunner {
               params: call.args,
               result: result.success ? 'success' : 'error',
               output: (result.success
-                ? (typeof result.data === 'string' ? result.data : JSON.stringify(result.data)).slice(0, 500)
+                ? (typeof result.data === 'string' ? result.data : (JSON.stringify(result.data) ?? 'ok')).slice(0, 500)
                 : result.error ?? 'Unknown error'
               ),
               timestamp: new Date().toISOString(),

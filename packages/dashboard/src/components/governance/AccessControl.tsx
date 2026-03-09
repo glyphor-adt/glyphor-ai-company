@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, SectionHeader, Skeleton } from '../ui';
 import {
   AccessPostureResponse,
@@ -479,6 +479,8 @@ function AccessGrantManager({
   onGrant,
   onRevoke,
   onResolveApproval,
+  initialAgentSearch,
+  initialToolSearch,
 }: {
   grants: ToolGrant[];
   pendingApprovals: PendingApproval[];
@@ -488,6 +490,8 @@ function AccessGrantManager({
   onGrant: (input: { agentRole: string; toolName: string; reason: string; expiresAt: string | null }) => Promise<void>;
   onRevoke: (grant: ToolGrant) => Promise<void>;
   onResolveApproval: (id: string, approve: boolean) => Promise<void>;
+  initialAgentSearch?: string;
+  initialToolSearch?: string;
 }) {
   const [agentRole, setAgentRole] = useState(AGENT_ROLES[0] ?? 'chief-of-staff');
   const [toolName, setToolName] = useState('');
@@ -495,8 +499,11 @@ function AccessGrantManager({
   const [expiresAt, setExpiresAt] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
-  const [agentSearch, setAgentSearch] = useState('');
-  const [toolSearch, setToolSearch] = useState('');
+  const [agentSearch, setAgentSearch] = useState(initialAgentSearch ?? '');
+  const [toolSearch, setToolSearch] = useState(initialToolSearch ?? '');
+
+  useEffect(() => { if (initialAgentSearch) setAgentSearch(initialAgentSearch); }, [initialAgentSearch]);
+  useEffect(() => { if (initialToolSearch) setToolSearch(initialToolSearch); }, [initialToolSearch]);
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [agentFilter, setAgentFilter] = useState('all');
   const [toolFilter, setToolFilter] = useState('all');
@@ -1130,6 +1137,8 @@ export default function AccessControl({
   onGrant,
   onRevoke,
   onResolveApproval,
+  initialAgentSearch,
+  initialToolSearch,
 }: AccessControlProps) {
   const accessIssues = useMemo(() => actionQueue.filter(isAccessIssue), [actionQueue]);
 
@@ -1164,6 +1173,8 @@ export default function AccessControl({
         onGrant={onGrant}
         onRevoke={onRevoke}
         onResolveApproval={onResolveApproval}
+        initialAgentSearch={initialAgentSearch}
+        initialToolSearch={initialToolSearch}
       />
     </div>
   );
