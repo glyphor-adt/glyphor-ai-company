@@ -52,7 +52,7 @@ function normalizeSchemaTypes(schema: Record<string, unknown>): Record<string, u
 }
 
 const AZURE_API_VERSION = '2025-04-01-preview';
-const DIRECT_OPENAI_TIMEOUT_MS = 120_000;
+const DIRECT_OPENAI_TIMEOUT_MS = 300_000;
 
 function getPreferredDirectOpenAIServiceTier(): 'flex' | undefined {
   const configured = process.env.OPENAI_SERVICE_TIER?.trim().toLowerCase();

@@ -346,7 +346,7 @@ export abstract class BaseAgentRunner {
             topK: config.topK,
             thinkingEnabled: config.thinkingEnabled,
             signal: supervisor.signal,
-            callTimeoutMs: 90_000,
+            callTimeoutMs: 300_000,
           });
 
           totalInputTokens += response.usageMetadata.inputTokens;

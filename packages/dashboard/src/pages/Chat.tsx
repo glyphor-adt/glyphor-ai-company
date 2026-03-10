@@ -681,7 +681,7 @@ export default function Chat() {
     /** Helper to invoke a single agent and append its response */
     const invokeAgent = async (role: string, isMentioned: boolean) => {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 180_000);
+      const timeoutId = setTimeout(() => controller.abort(), 600_000);
       const agentName = DISPLAY_NAME_MAP[role] ?? role;
 
       try {

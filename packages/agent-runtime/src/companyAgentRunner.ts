@@ -53,11 +53,11 @@ const THINKING_ENABLED_TASKS = new Set([
   'weekly_content_planning',
 ]);
 
-/** 30 s per-model-call timeout for non-thinking chat calls.
- *  Thinking calls get 90 s since Gemini 3 w/ thinking can take 30–50 s.
- *  The supervisor timeout provides an overall ceiling. */
-const ON_DEMAND_CALL_TIMEOUT_MS = 30_000;
-const THINKING_CALL_TIMEOUT_MS = 90_000;
+/** 5 min per-model-call timeout for all calls.
+ *  GPT-5-mini with 128+ tools can take > 90 s — let API calls
+ *  run to completion rather than timing out prematurely. */
+const ON_DEMAND_CALL_TIMEOUT_MS = 300_000;
+const THINKING_CALL_TIMEOUT_MS = 300_000;
 
 /** Approximate per-token pricing (USD) — uses centralized model registry. */
 
@@ -72,19 +72,19 @@ function estimateCost(model: string, inputTokens: number, outputTokens: number, 
  *  When thinking is dynamically enabled, use a higher supervisor timeout.
  */
 const ON_DEMAND_MAX_TURNS = 12;
-const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = 150_000;
-const ON_DEMAND_THINKING_SUPERVISOR_TIMEOUT_MS = 170_000;
+const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = 600_000;
+const ON_DEMAND_THINKING_SUPERVISOR_TIMEOUT_MS = 600_000;
 
 /** Task tier (work_loop) — narrow executor with tight limits.
  *  Research/account agents need multi-step tool calls (each = 2 turns),
  *  so 10 is too tight — raised to 20 for headroom. */
 const TASK_TIER_MAX_TURNS = 20;
-const TASK_TIER_TIMEOUT_MS = 180_000;
-const TASK_TIER_CALL_TIMEOUT_MS = 90_000;
+const TASK_TIER_TIMEOUT_MS = 600_000;
+const TASK_TIER_CALL_TIMEOUT_MS = 300_000;
 
 /** Scheduled tasks with thinking enabled get generous limits. */
-const SCHEDULED_THINKING_TIMEOUT_MS = 600_000;
-const SCHEDULED_CALL_TIMEOUT_MS = 90_000;
+const SCHEDULED_THINKING_TIMEOUT_MS = 900_000;
+const SCHEDULED_CALL_TIMEOUT_MS = 300_000;
 
 // ─── TIERED CONTEXT LOADING ───────────────────────────────────
 // light  → on_demand/chat: profile + pending messages + working memory only
