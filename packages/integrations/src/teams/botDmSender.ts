@@ -40,9 +40,9 @@ export class BotDmSender {
   ) {}
 
   static fromEnv(graphClient: GraphTeamsClient): BotDmSender | null {
-    const appId = process.env.BOT_APP_ID;
-    const appSecret = process.env.BOT_APP_SECRET;
-    const tenantId = process.env.BOT_TENANT_ID;
+    const appId = process.env.BOT_APP_ID?.trim();
+    const appSecret = process.env.BOT_APP_SECRET?.trim();
+    const tenantId = process.env.BOT_TENANT_ID?.trim();
     if (!appId || !appSecret || !tenantId) return null;
 
     const dir = buildFounderDirectory();

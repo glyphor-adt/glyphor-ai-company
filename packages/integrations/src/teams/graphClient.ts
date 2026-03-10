@@ -63,9 +63,9 @@ export class GraphTeamsClient {
    * Create a GraphTeamsClient from environment variables.
    */
   static fromEnv(): GraphTeamsClient {
-    const tenantId = process.env.AZURE_TENANT_ID;
-    const clientId = process.env.AZURE_CLIENT_ID;
-    const clientSecret = process.env.AZURE_CLIENT_SECRET;
+    const tenantId = process.env.AZURE_TENANT_ID?.trim();
+    const clientId = process.env.AZURE_CLIENT_ID?.trim();
+    const clientSecret = process.env.AZURE_CLIENT_SECRET?.trim();
 
     if (!tenantId || !clientId || !clientSecret) {
       throw new Error(
@@ -244,7 +244,7 @@ export interface ChannelMap {
  * Falls back gracefully — missing channels are omitted.
  */
 export function buildChannelMap(): Partial<ChannelMap> {
-  const teamId = process.env.TEAMS_TEAM_ID;
+  const teamId = process.env.TEAMS_TEAM_ID?.trim();
   if (!teamId) return {};
 
   const channelEnvMap: Record<keyof ChannelMap, string> = {
@@ -261,7 +261,7 @@ export function buildChannelMap(): Partial<ChannelMap> {
 
   const map: Partial<ChannelMap> = {};
   for (const [key, envVar] of Object.entries(channelEnvMap)) {
-    const channelId = process.env[envVar];
+    const channelId = process.env[envVar]?.trim();
     if (channelId) {
       map[key as keyof ChannelMap] = { teamId, channelId };
     }
