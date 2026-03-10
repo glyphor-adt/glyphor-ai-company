@@ -8,14 +8,16 @@ export interface HistoryCompressionConfig {
 }
 
 export const DEFAULT_HISTORY_COMPRESSION: HistoryCompressionConfig = {
-  maxHistoryTokens: 15_000,
-  keepRecentTurns: 3,
-  toolResultMaxTokens: 500,
+  maxHistoryTokens: 8_000,
+  keepRecentTurns: 2,
+  toolResultMaxTokens: 400,
   summarizeToolResults: true,
 };
 
 function estimateTokens(history: ConversationTurn[]): number {
-  return Math.ceil(history.reduce((total, turn) => total + turn.content.length, 0) / 4);
+  // Divide by 3 instead of 4 — closer to real tokenizer output for
+  // mixed code/prose/JSON typical of agent conversations.
+  return Math.ceil(history.reduce((total, turn) => total + turn.content.length, 0) / 3);
 }
 
 function clip(text: string, maxLength: number): string {
@@ -80,13 +82,16 @@ function truncateOlderToolResults(
   turns: ConversationTurn[],
   maxTokens: number,
 ): ConversationTurn[] {
+  // Truncate ALL tool results — even recent ones — to cap per-turn size.
+  // The most recent tool_result gets 2x budget so the agent can still
+  // reference its last action's output in detail.
+  const lastToolIdx = turns.reduce((acc, t, i) => (t.role === 'tool_result' ? i : acc), -1);
   return turns.map((turn, index) => {
     if (turn.role !== 'tool_result') return turn;
-    const isRecentTail = index >= turns.length - 4;
-    if (isRecentTail) return turn;
+    const limit = index === lastToolIdx ? maxTokens * 2 : maxTokens;
     return {
       ...turn,
-      content: clip(turn.content.replace(/\s+/g, ' ').trim(), maxTokens),
+      content: clip(turn.content.replace(/\s+/g, ' ').trim(), limit),
     };
   });
 }

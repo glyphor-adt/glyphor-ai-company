@@ -439,18 +439,31 @@ export class HeartbeatManager {
       console.warn('[Heartbeat] Failed to reap stale runs:', (err as Error).message);
     }
 
-    // Auto-cancel assignments stuck in dispatched/pending for >7 days
+    // Auto-fail assignments stuck in dispatched for >48h or pending for >24h.
+    // Also auto-block in_progress assignments stale for >6h (supplements
+    // the 2h check in workLoop which only fires when the agent is dispatched).
     try {
-      const staleAssignments = await systemQuery<{id: string; assigned_to: string}>(
-        `UPDATE work_assignments SET status = 'cancelled', evaluation = 'Auto-cancelled: stale (>7 days in dispatched/pending without progress)'
-         WHERE status IN ('dispatched', 'pending') AND created_at < NOW() - INTERVAL '7 days'
+      const failedDispatched = await systemQuery<{id: string; assigned_to: string}>(
+        `UPDATE work_assignments SET status = 'failed', evaluation = 'Auto-failed: dispatched > 48 hours without execution'
+         WHERE status = 'dispatched' AND created_at < NOW() - INTERVAL '48 hours'
          RETURNING id, assigned_to`,
       );
-      if (staleAssignments && staleAssignments.length > 0) {
-        console.log(`[Heartbeat] Auto-cancelled ${staleAssignments.length} stale assignments: [${staleAssignments.map(a => a.assigned_to).join(', ')}]`);
+      const failedPending = await systemQuery<{id: string; assigned_to: string}>(
+        `UPDATE work_assignments SET status = 'failed', evaluation = 'Auto-failed: pending > 24 hours without dispatch'
+         WHERE status = 'pending' AND created_at < NOW() - INTERVAL '24 hours'
+         RETURNING id, assigned_to`,
+      );
+      const blockedStale = await systemQuery<{id: string; assigned_to: string}>(
+        `UPDATE work_assignments SET status = 'blocked', blocker_reason = 'Auto-escalated: in_progress > 6 hours without update'
+         WHERE status = 'in_progress' AND updated_at < NOW() - INTERVAL '6 hours'
+         RETURNING id, assigned_to`,
+      );
+      const totalCleaned = (failedDispatched?.length ?? 0) + (failedPending?.length ?? 0) + (blockedStale?.length ?? 0);
+      if (totalCleaned > 0) {
+        console.log(`[Heartbeat] Assignment cleanup: ${failedDispatched?.length ?? 0} dispatched→failed, ${failedPending?.length ?? 0} pending→failed, ${blockedStale?.length ?? 0} in_progress→blocked`);
       }
     } catch (err) {
-      console.warn('[Heartbeat] Failed to cancel stale assignments:', (err as Error).message);
+      console.warn('[Heartbeat] Failed to clean stale assignments:', (err as Error).message);
     }
 
     // Deactivate expired tool grants

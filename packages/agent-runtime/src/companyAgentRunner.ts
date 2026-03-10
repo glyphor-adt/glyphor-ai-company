@@ -30,6 +30,9 @@ import type {
 } from './types.js';
 import { estimateModelCost } from '@glyphor/shared/models';
 import { systemQuery } from '@glyphor/shared/db';
+import { extractTaskFromConfigId } from './taskIdentity.js';
+import { compressHistory, DEFAULT_HISTORY_COMPRESSION } from './historyManager.js';
+import { filterToolDeclarations, getToolSubset } from './toolSubsets.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -175,14 +178,7 @@ export const promptCache = new PromptCache();
 
 /** Extract the task segment from a run ID like "cto-on_demand-2026-02-24". */
 function extractTask(configId: string): string {
-  // Strip trailing ISO date (YYYY-MM-DD) which contains hyphens that
-  // would confuse a naive split — e.g. "cto-on_demand-2026-02-24"
-  const withoutDate = configId.replace(/-\d{4}-\d{2}-\d{2}$/, '');
-  const lastDash = withoutDate.lastIndexOf('-');
-  if (lastDash > 0) {
-    return withoutDate.substring(lastDash + 1);
-  }
-  return withoutDate;
+  return extractTaskFromConfigId(configId);
 }
 
 const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
@@ -1427,7 +1423,15 @@ export class CompanyAgentRunner {
         });
       }
 
-      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult, workingMemory, skillResult, kbResult, bulletinResult, pendingAssignments, jitResult, orchConfigResult] = await Promise.all([
+      // Wrap all pre-run loading with a 60s timeout so a single
+      // hung loader (DB, MCP, Graph API) can't leave the run stuck
+      // in "running" state until the reaper kills it.
+      const PRE_RUN_TIMEOUT_MS = 60_000;
+      const preRunDeadline = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('pre-run data loading timed out after 60s')), PRE_RUN_TIMEOUT_MS),
+      );
+
+      const allLoaders = Promise.all([
         memoryPromise,
         briefPromise,
         messagesPromise,
@@ -1441,6 +1445,8 @@ export class CompanyAgentRunner {
         jitPromise,
         orchConfigPromise,
       ]);
+
+      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult, workingMemory, skillResult, kbResult, bulletinResult, pendingAssignments, jitResult, orchConfigResult] = await Promise.race([allLoaders, preRunDeadline]);
 
       // Inject memory context
       if (memoryResult) {
@@ -1588,9 +1594,10 @@ export class CompanyAgentRunner {
         } else if (isTaskTier) {
           supervisor.config.maxTurns = Math.min(supervisor.config.maxTurns, TASK_TIER_MAX_TURNS);
           supervisor.config.timeoutMs = Math.min(supervisor.config.timeoutMs, TASK_TIER_TIMEOUT_MS);
-          // Task-tier agents survive transient API errors (rate limits, token expiry).
-          // Stalls only trigger on *failed* tool calls (reads count as progress),
-          // so 3 was too aggressive for agents hitting intermittent outages.
+          // Task-tier agents must produce write-side progress (files, memory)
+          // to avoid burning tokens on repeated failing reads. Reads alone
+          // don't count — only mutations reset the stall counter.
+          supervisor.config.readsAsProgress = false;
           supervisor.config.maxStallTurns = Math.max(supervisor.config.maxStallTurns, 5);
         } else if (usesThinking) {
           // Thinking-enabled scheduled tasks: ensure at least 10 min
@@ -1619,10 +1626,11 @@ export class CompanyAgentRunner {
               try {
                 const synthPrompt = 'You ran out of time. Using ONLY the tool results already in the conversation, give a clear, concise answer to the user. Do NOT apologize about running out of time. Just answer naturally.';
                 history.push({ role: 'user', content: synthPrompt, timestamp: Date.now() });
+                const compressedSynthHistory = compressHistory(history, DEFAULT_HISTORY_COMPRESSION);
                 const synthResponse = await this.modelClient.generate({
                   model: config.model,
                   systemInstruction: '',
-                  contents: history,
+                  contents: compressedSynthHistory,
                   tools: undefined,
                   temperature: config.temperature,
                   thinkingEnabled: false,
@@ -1772,10 +1780,22 @@ export class CompanyAgentRunner {
             });
           }
 
+          if (effectiveTools) {
+            effectiveTools = filterToolDeclarations(effectiveTools, getToolSubset(config.role, task));
+          }
+
+          const compressedHistory = compressHistory(history, DEFAULT_HISTORY_COMPRESSION);
+
+          if (turnNumber === 1 || turnNumber % 3 === 0) {
+            const rawEst = Math.ceil(history.reduce((t, h) => t + h.content.length, 0) / 3);
+            const compEst = Math.ceil(compressedHistory.reduce((t, h) => t + h.content.length, 0) / 3);
+            console.log(`[HistoryCompression] ${config.role} turn=${turnNumber}: raw=${history.length} items (~${rawEst} tok) → compressed=${compressedHistory.length} items (~${compEst} tok), tools=${effectiveTools?.length ?? 0}`);
+          }
+
           response = await this.modelClient.generate({
             model: config.model,
             systemInstruction: systemPrompt,
-            contents: history,
+            contents: compressedHistory,
             tools: effectiveTools,
             temperature: effectiveTemp,
             topP: config.topP,
