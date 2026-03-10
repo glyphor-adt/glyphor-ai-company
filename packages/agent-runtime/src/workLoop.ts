@@ -37,20 +37,21 @@ SCOPE CONSTRAINT: Your task is defined above. Do not investigate, comment on, or
  *  Only roles explicitly listed here are eligible for proactive (P5) work.
  *  Sub-team agents are intentionally excluded during stabilization. */
 export const PROACTIVE_COOLDOWNS: Record<string, number> = {
-  // Always Hot — 1 hour
-  'chief-of-staff': 60 * 60 * 1000,
-  'ops':            60 * 60 * 1000,
+  // Always Hot — 30 min
+  'chief-of-staff': 30 * 60 * 1000,
+  'ops':            30 * 60 * 1000,
 
-  // High Frequency — 2 hours
-  'cto': 2 * 60 * 60 * 1000,
-  'cfo': 2 * 60 * 60 * 1000,
+  // High Frequency — 1 hour
+  'cto': 60 * 60 * 1000,
+  'cfo': 60 * 60 * 1000,
 
-  // Medium — 4 hours
-  'cpo':                 4 * 60 * 60 * 1000,
-  'cmo':                 4 * 60 * 60 * 1000,
-  'vp-customer-success': 4 * 60 * 60 * 1000,
-  'vp-sales':            4 * 60 * 60 * 1000,
-  'vp-design':           4 * 60 * 60 * 1000,
+  // Medium — 2 hours
+  'cpo':                 2 * 60 * 60 * 1000,
+  'cmo':                 2 * 60 * 60 * 1000,
+  'vp-customer-success': 2 * 60 * 60 * 1000,
+  'vp-sales':            2 * 60 * 60 * 1000,
+  'vp-design':           2 * 60 * 60 * 1000,
+  'vp-research':         2 * 60 * 60 * 1000,
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -204,28 +205,33 @@ export async function executeWorkLoop(
 
   // ── ABORT COOLDOWN — Exponential backoff, applied after P1 ──
   // 1 consecutive abort → 5 min, 2 → 10 min, 3 → 20 min, 4+ → 30 min (cap)
-  const recentAborts = await systemQuery<{ completed_at: string; status: string }>(
-    'SELECT completed_at, status FROM agent_runs WHERE agent_id = $1 ORDER BY completed_at DESC LIMIT 10',
+  const recentAborts = await systemQuery<{ completed_at: string; status: string; error: string | null }>(
+    'SELECT completed_at, status, error FROM agent_runs WHERE agent_id = $1 ORDER BY completed_at DESC LIMIT 10',
     [agentRole],
   );
 
   if (recentAborts && recentAborts.length > 0) {    // Count consecutive aborts (stop at the first non-aborted run)
     let consecutiveAborts = 0;
+    let lastAbortReason: AbortReason | null = null;
     for (const run of recentAborts) {
-      if (run.status === 'aborted') consecutiveAborts++;
-      else break;
+      if (run.status !== 'aborted') break;
+      const abortReason = classifyAbortReason(run.error);
+      if (lastAbortReason == null) {
+        lastAbortReason = abortReason;
+      }
+      if (abortReason !== lastAbortReason) break;
+      consecutiveAborts++;
     }
 
     if (consecutiveAborts > 0) {
       const lastAbortedAt = new Date(recentAborts[0].completed_at).getTime();
-      // Exponential backoff: 5min * 2^(n-1), capped at 30 min
-      const cooldownMs = Math.min(5 * 60 * 1000 * Math.pow(2, consecutiveAborts - 1), 30 * 60 * 1000);
+      const cooldownMs = getAbortCooldownMs(lastAbortReason ?? 'error', consecutiveAborts);
       const elapsed = Date.now() - lastAbortedAt;
 
       if (elapsed < cooldownMs) {
         return {
           shouldRun: false,
-          reason: `abort_cooldown:${Math.round((cooldownMs - elapsed) / 60_000)}min_remaining(${consecutiveAborts}_consecutive)`,
+          reason: `abort_cooldown:${lastAbortReason ?? 'error'}:${Math.round((cooldownMs - elapsed) / 60_000)}min_remaining(${consecutiveAborts}_consecutive)`,
           priority: 6,
         };
       }
@@ -240,14 +246,19 @@ export async function executeWorkLoop(
     task_description: string;
     instructions: unknown;
     status: string;
+    priority: string;
     evaluation: unknown;
     assigned_to: string;
+    assigned_by: string | null;
+    updated_at: string | null;
+    assignment_type: string | null;
     founder_directives: { title?: string; priority?: string; description?: string } | null;
   }>(
     `SELECT wa.id, wa.task_description, wa.expected_output AS instructions, wa.status, wa.evaluation, wa.assigned_to,
+            wa.priority, wa.assigned_by, wa.updated_at, wa.assignment_type,
             json_build_object('title', fd.title, 'priority', fd.priority, 'description', fd.description) AS founder_directives
-     FROM work_assignments wa
-     LEFT JOIN founder_directives fd ON wa.directive_id = fd.id
+      FROM work_assignments wa
+      LEFT JOIN founder_directives fd ON wa.directive_id = fd.id
      WHERE wa.assigned_to = $1 AND wa.status = ANY($2)
      ORDER BY wa.created_at ASC
      LIMIT 5`,
@@ -255,52 +266,118 @@ export async function executeWorkLoop(
   );
 
   if (activeAssignments && activeAssignments.length > 0) {
+    const staleAssignmentThresholdMs = 2 * 60 * 60 * 1000;
+    const actionableAssignments: typeof activeAssignments = [];
+
+    for (const assignment of activeAssignments) {
+      const isStaleInProgress = assignment.status === 'in_progress'
+        && assignment.updated_at != null
+        && (Date.now() - new Date(assignment.updated_at).getTime()) > staleAssignmentThresholdMs;
+
+      if (!isStaleInProgress) {
+        actionableAssignments.push(assignment);
+        continue;
+      }
+
+      await systemQuery(
+        `UPDATE work_assignments
+         SET status = $1,
+             blocker_reason = $2,
+             updated_at = NOW()
+         WHERE id = $3`,
+        ['blocked', 'Auto-escalated: in_progress for > 2 hours without update', assignment.id],
+      );
+
+      if (assignment.assigned_by && assignment.assigned_by !== assignment.assigned_to) {
+        await systemQuery(
+          `INSERT INTO agent_messages (from_agent, to_agent, message, message_type, priority, status)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            'ops',
+            assignment.assigned_by,
+            `Auto-escalation: assignment ${assignment.id} for ${assignment.assigned_to} was marked blocked after more than 2 hours without progress.\n\nTask: ${assignment.task_description}`,
+            'followup',
+            'urgent',
+            'pending',
+          ],
+        );
+      }
+    }
+
+    const standardAssignments = actionableAssignments.filter(
+      (assignment) => assignment.assignment_type !== 'peer_request',
+    );
+    const peerAssignments = actionableAssignments.filter(
+      (assignment) => assignment.assignment_type === 'peer_request',
+    );
+
     // Sort: needs_revision first (handled above), then by directive priority
-    const priorityOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
-    const sorted = [...activeAssignments].sort((a, b) => {
+    const priorityOrder: Record<string, number> = { critical: 0, urgent: 0, high: 1, medium: 2, normal: 2, low: 3 };
+    const sortAssignments = (assignments: typeof activeAssignments) => [...assignments].sort((a, b) => {
       const fd_a = a.founder_directives as { priority?: string } | null;
       const fd_b = b.founder_directives as { priority?: string } | null;
-      const ap = priorityOrder[fd_a?.priority ?? 'medium'] ?? 3;
-      const bp = priorityOrder[fd_b?.priority ?? 'medium'] ?? 3;
+      const ap = priorityOrder[(fd_a?.priority ?? a.priority ?? 'medium').toLowerCase()] ?? 3;
+      const bp = priorityOrder[(fd_b?.priority ?? b.priority ?? 'medium').toLowerCase()] ?? 3;
       return ap - bp;
     });
 
-    const assignment = sorted[0];
-    const fd = assignment.founder_directives as { title?: string; priority?: string; description?: string } | null;
+    if (standardAssignments.length > 0) {
+      const assignment = sortAssignments(standardAssignments)[0];
+      const fd = assignment.founder_directives as { title?: string; priority?: string; description?: string } | null;
 
-    // Mark as in_progress at dispatch time
-    if (assignment.status === 'dispatched' || assignment.status === 'pending') {
-      await systemQuery(
-        'UPDATE work_assignments SET status = $1, dispatched_at = $2 WHERE id = $3',
-        ['in_progress', new Date().toISOString(), assignment.id],
-      );
+      // Mark as in_progress at dispatch time
+      if (assignment.status === 'dispatched' || assignment.status === 'pending') {
+        await systemQuery(
+          'UPDATE work_assignments SET status = $1, dispatched_at = $2, updated_at = NOW() WHERE id = $3',
+          ['in_progress', new Date().toISOString(), assignment.id],
+        );
+      }
+
+      // Build execution message with full context embedded
+      let execMessage = `EXECUTE ASSIGNMENT: ${assignment.task_description}\n`;
+      if (fd?.title) execMessage += `Directive: ${fd.title}\n`;
+      if (fd?.priority) execMessage += `Priority: ${fd.priority}\n\n`;
+      execMessage += (assignment.instructions as string) || assignment.task_description;
+
+      if (assignment.status === 'needs_revision' && assignment.evaluation) {
+        execMessage += `\n\nFEEDBACK (address these issues):\n`;
+        execMessage += typeof assignment.evaluation === 'string'
+          ? assignment.evaluation
+          : JSON.stringify(assignment.evaluation);
+      }
+
+      execMessage += `\n\nWhen complete: call submit_assignment_output(assignment_id="${assignment.id}", output=..., status="completed")`;
+      execMessage += `\nIf blocked: call flag_assignment_blocker(assignment_id="${assignment.id}", blocker_reason=..., need_type=...)`;
+      execMessage += ASSIGNMENT_FOOTER;
+
+      return {
+        shouldRun: true,
+        contextTier: 'task',
+        task: 'work_loop',
+        reason: `active_assignments:${standardAssignments.length}`,
+        priority: 2,
+        message: execMessage,
+      };
     }
 
-    // Build execution message with full context embedded
-    let execMessage = `EXECUTE ASSIGNMENT: ${assignment.task_description}\n`;
-    if (fd?.title) execMessage += `Directive: ${fd.title}\n`;
-    if (fd?.priority) execMessage += `Priority: ${fd.priority}\n\n`;
-    execMessage += (assignment.instructions as string) || assignment.task_description;
+    if (peerAssignments.length > 0) {
+      const assignment = sortAssignments(peerAssignments)[0];
+      if (assignment.status === 'dispatched' || assignment.status === 'pending') {
+        await systemQuery(
+          'UPDATE work_assignments SET status = $1, dispatched_at = $2, updated_at = NOW() WHERE id = $3',
+          ['in_progress', new Date().toISOString(), assignment.id],
+        );
+      }
 
-    if (assignment.status === 'needs_revision' && assignment.evaluation) {
-      execMessage += `\n\nFEEDBACK (address these issues):\n`;
-      execMessage += typeof assignment.evaluation === 'string'
-        ? assignment.evaluation
-        : JSON.stringify(assignment.evaluation);
+      return {
+        shouldRun: true,
+        contextTier: 'standard',
+        task: 'work_loop',
+        reason: `peer_requests:${peerAssignments.length}`,
+        priority: 3,
+        message: `PEER WORK REQUEST from ${assignment.assigned_by ?? 'a colleague'} (priority: ${assignment.priority}):\n${assignment.task_description}\n\nExpected deliverable:\n${(assignment.instructions as string) || 'Provide the requested output.'}\n\nWhen complete: call submit_assignment_output(assignment_id="${assignment.id}", output=..., status="completed").`,
+      };
     }
-
-    execMessage += `\n\nWhen complete: call submit_assignment_output(assignment_id="${assignment.id}", output=..., status="completed")`;
-    execMessage += `\nIf blocked: call flag_assignment_blocker(assignment_id="${assignment.id}", blocker_reason=..., need_type=...)`;
-    execMessage += ASSIGNMENT_FOOTER;
-
-    return {
-      shouldRun: true,
-      contextTier: 'task',
-      task: 'work_loop',
-      reason: `active_assignments:${activeAssignments.length}`,
-      priority: 2,
-      message: execMessage,
-    };
   }
 
   // ── P3: MESSAGES — Unread messages from colleagues ─────────
@@ -329,7 +406,7 @@ export async function executeWorkLoop(
   // Only roles explicitly listed in PROACTIVE_COOLDOWNS are eligible.
   // Sub-team agents are excluded during stabilization — they should
   // be purely reactive, working only on assigned tasks.
-  let cooldownMs = PROACTIVE_COOLDOWNS[agentRole];
+  let cooldownMs = getProactiveCooldown(agentRole);
   if (cooldownMs != null) {
     // Guard: if last 3+ consecutive runs were proactive aborts, disable proactive
     // entirely until a non-proactive successful run breaks the cycle.
@@ -361,8 +438,12 @@ export async function executeWorkLoop(
       cooldownMs = cooldownMs * 2; // Double cooldown for agents producing empty proactive runs
     }
 
-    const lastMeaningfulRun = await getLastMeaningfulRunTime(agentRole);
+    const objectiveWork = await checkStandingObjectives(agentRole);
+    if (objectiveWork) {
+      return objectiveWork;
+    }
 
+    const lastMeaningfulRun = await getLastMeaningfulRunTime(agentRole);
     if (Date.now() - lastMeaningfulRun > cooldownMs) {
       return {
         shouldRun: true,
@@ -403,6 +484,94 @@ async function getLastMeaningfulRunTime(
     return new Date(data.completed_at).getTime();
   }
   return 0;
+}
+
+type AbortReason = 'max_turns_exceeded' | 'timeout' | 'stall_detected' | 'error';
+
+const ABORT_COOLDOWN_MAP: Record<AbortReason, number> = {
+  max_turns_exceeded: 5 * 60 * 1000,
+  timeout: 10 * 60 * 1000,
+  stall_detected: 15 * 60 * 1000,
+  error: 30 * 60 * 1000,
+};
+
+function classifyAbortReason(error: string | null): AbortReason {
+  if (!error) return 'error';
+  const normalized = error.toLowerCase();
+  if (normalized.includes('max_turns_exceeded')) return 'max_turns_exceeded';
+  if (normalized.includes('deadline_exceeded') || normalized.includes('timed out') || normalized.includes('timeout')) {
+    return 'timeout';
+  }
+  if (normalized.includes('stall')) return 'stall_detected';
+  return 'error';
+}
+
+function getAbortCooldownMs(reason: AbortReason, consecutiveAborts: number): number {
+  const baseCooldown = ABORT_COOLDOWN_MAP[reason] ?? ABORT_COOLDOWN_MAP.error;
+  return Math.min(baseCooldown * Math.pow(2, Math.max(0, consecutiveAborts - 1)), 60 * 60 * 1000);
+}
+
+function getProactiveCooldown(agentRole: CompanyAgentRole): number | undefined {
+  return PROACTIVE_COOLDOWNS[agentRole];
+}
+
+async function checkStandingObjectives(agentRole: CompanyAgentRole): Promise<WorkLoopResult | null> {
+  try {
+    const [objective] = await systemQuery<{
+      id: string;
+      objective: string;
+      success_metric: string;
+      priority: string;
+    }>(
+      `SELECT id, objective, success_metric, priority
+       FROM standing_objectives
+       WHERE agent_role = $1
+         AND active = true
+         AND (last_checked_at IS NULL OR last_checked_at < NOW() - check_frequency)
+       ORDER BY
+         CASE priority
+           WHEN 'critical' THEN 0
+           WHEN 'high' THEN 1
+           WHEN 'medium' THEN 2
+           WHEN 'low' THEN 3
+           ELSE 4
+         END,
+         last_checked_at ASC NULLS FIRST
+       LIMIT 1`,
+      [agentRole],
+    );
+
+    if (!objective) {
+      return null;
+    }
+
+    await systemQuery(
+      'UPDATE standing_objectives SET last_checked_at = NOW(), updated_at = NOW() WHERE id = $1',
+      [objective.id],
+    );
+
+    return {
+      shouldRun: true,
+      contextTier: 'standard',
+      task: 'proactive',
+      reason: `standing_objective:${objective.id}`,
+      priority: 5,
+      message: [
+        `STANDING OBJECTIVE: ${objective.objective}`,
+        `SUCCESS METRIC: ${objective.success_metric}`,
+        `PRIORITY: ${objective.priority}`,
+        '',
+        'Instructions:',
+        '1. Check the current state of this metric using your available tools.',
+        '2. If the metric is not met, take concrete action to improve it.',
+        '3. If the metric is met, briefly confirm status with supporting evidence.',
+        '4. Save a memory summarizing what you found and any action you took.',
+        '5. If you are blocked, send_agent_message to your manager with the blocker and next step needed.',
+      ].join('\n'),
+    };
+  } catch {
+    return null;
+  }
 }
 
 /** Role-specific proactive work prompts */

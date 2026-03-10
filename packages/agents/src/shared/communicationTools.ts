@@ -160,6 +160,108 @@ export function createCommunicationTools(
       },
     },
 
+    /* ── create_peer_work_request ─────────── */
+    {
+      name: 'create_peer_work_request',
+      description:
+        'Create a lower-priority peer work request for another agent. This creates a formal peer_request assignment and a companion message so the recipient can pick it up in their work loop.',
+      parameters: {
+        to_agent: {
+          type: 'string',
+          description: 'The recipient agent role slug',
+          required: true,
+        },
+        request: {
+          type: 'string',
+          description: 'The work you need the other agent to complete',
+          required: true,
+        },
+        expected_deliverable: {
+          type: 'string',
+          description: 'What successful completion should produce',
+          required: true,
+        },
+        priority: {
+          type: 'string',
+          description: 'Priority for the peer request',
+          required: false,
+          enum: ['low', 'normal', 'high', 'urgent'],
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const toAgent = params.to_agent as string;
+        if (toAgent === ctx.agentRole) {
+          return { success: false, error: 'Cannot create a peer work request for yourself' };
+        }
+
+        const validRoles = await getValidRoles();
+        if (validRoles.size > 0 && !validRoles.has(toAgent)) {
+          return { success: false, error: `Unknown agent: ${toAgent}. Agent not found or not active.` };
+        }
+
+        const priority = (params.priority as string) ?? 'normal';
+        const [assignment] = await systemQuery<{ id: string }>(
+          `INSERT INTO work_assignments (
+             assigned_to,
+             assigned_by,
+             task_description,
+             task_type,
+             expected_output,
+             priority,
+             status,
+             assignment_type
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           RETURNING id`,
+          [
+            toAgent,
+            ctx.agentRole,
+            params.request as string,
+            'peer_request',
+            params.expected_deliverable as string,
+            priority,
+            'pending',
+            'peer_request',
+          ],
+        );
+
+        await systemQuery(
+          'INSERT INTO agent_messages (from_agent, to_agent, thread_id, message, message_type, priority, status, context) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+          [
+            ctx.agentRole,
+            toAgent,
+            crypto.randomUUID(),
+            `Peer work request from ${ctx.agentRole}\n\nRequest:\n${params.request}\n\nExpected deliverable:\n${params.expected_deliverable}\n\nAssignment ID: ${assignment.id}`,
+            'request',
+            priority === 'urgent' ? 'urgent' : 'normal',
+            'pending',
+            { assignment_id: assignment.id, request_type: 'peer_work' },
+          ],
+        );
+
+        await glyphorEventBus.emit({
+          type: 'assignment.created',
+          source: ctx.agentRole,
+          payload: {
+            assignment_id: assignment.id,
+            assigned_to: toAgent,
+            assigned_by: ctx.agentRole,
+            assignment_type: 'peer_request',
+            priority,
+          },
+          priority: priority === 'urgent' ? 'high' : 'normal',
+        });
+
+        return {
+          success: true,
+          data: {
+            assignmentId: assignment.id,
+            requestedFrom: toAgent,
+            priority,
+          },
+        };
+      },
+    },
+
     /* ── check_messages ──────────────────── */
     {
       name: 'check_messages',

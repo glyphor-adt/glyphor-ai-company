@@ -278,16 +278,33 @@ export class HeartbeatManager {
         const newDirectives = [...directiveMap.values()].filter(d => !d.hasAssignments);
 
         if (newDirectives.length > 0) {
-          // Idempotency guard: skip if Sarah already ran orchestrate in the last 15 min
           const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-          const recentRun = await systemQuery<{id: string}>(
-            'SELECT id FROM agent_runs WHERE agent_id=$1 AND task LIKE $2 AND started_at >= $3 LIMIT 1',
+          const [recentRun] = await systemQuery<{status: string; error: string | null; started_at: string}>(
+            `SELECT status, error, started_at
+             FROM agent_runs
+             WHERE agent_id = $1
+               AND task LIKE $2
+               AND started_at >= $3
+             ORDER BY started_at DESC
+             LIMIT 1`,
             ['chief-of-staff', 'orchestrate%', fifteenMinAgo],
           );
 
-          if (recentRun.length > 0) {
-            console.log('[Heartbeat] CoS: Skipping directive wake — orchestrate ran within 15 min');
-          } else {
+          if (recentRun && (recentRun.status === 'failed' || recentRun.status === 'aborted')) {
+            const directive = newDirectives[0];
+            console.log(`[Heartbeat] CoS: retrying directive decomposition for "${directive.title}" with reduced scope`);
+            return {
+              shouldWake: true,
+              reason: 'new_directives_retry:1',
+              context: {
+                task: 'orchestrate',
+                contextTier: 'standard',
+                message: `SINGLE DIRECTIVE FOCUS: Process ONLY directive "${directive.title}" (${directive.id}). Decompose it into concrete assignments, dispatch the work, and do not process other directives this run unless this directive is fully handled.`,
+              },
+            };
+          }
+
+          if (!recentRun) {
             console.log(
               `[Heartbeat] CoS: ${newDirectives.length} new directive(s) detected: ` +
               newDirectives.map((d: any) => `"${d.title}"`).join(', '),
@@ -301,6 +318,8 @@ export class HeartbeatManager {
               },
             };
           }
+
+          console.log('[Heartbeat] CoS: Skipping directive wake — orchestrate already ran recently');
         }
       } catch (err) {
         console.warn('[Heartbeat] CoS directive check failed:', (err as Error).message);
@@ -381,18 +400,17 @@ export class HeartbeatManager {
   }
 
   /**
-   * Mark agent_runs stuck in "running" for >5 minutes as "failed".
-   * Prevents stale rows from permanently blocking future dispatches.
-   * Threshold lowered from 10 min: task-tier max timeout is 180s (3 min),
-   * so a run still "running" after 5 min is certainly dead.
+   * Mark agent_runs stuck in "running" for >10 minutes as "failed".
+   * Prevents stale rows from permanently blocking future dispatches while
+   * still giving long-running retries enough time to complete.
    */
   private async reapStaleRuns(): Promise<void> {
-    const STALE_THRESHOLD_MS = 5 * 60 * 1000;
+    const STALE_THRESHOLD_MS = 10 * 60 * 1000;
     const cutoff = new Date(Date.now() - STALE_THRESHOLD_MS).toISOString();
     try {
       const data = await systemQuery<{id: string; agent_id: string; task: string}>(
         'UPDATE agent_runs SET status=$1, completed_at=$2, error=$3 WHERE status=$4 AND created_at < $5 RETURNING id, agent_id, task',
-        ['failed', new Date().toISOString(), 'reaped: stuck in running state for >5 minutes', 'running', cutoff],
+        ['failed', new Date().toISOString(), 'reaped: stuck in running state for >10 minutes', 'running', cutoff],
       );
 
       if (data && data.length > 0) {
@@ -401,7 +419,7 @@ export class HeartbeatManager {
 
         // Auto-retry reaped scheduled tasks (briefings, summaries, etc.)
         // These are one-shot cron tasks that won't naturally re-fire until the next day.
-        const RETRYABLE_TASKS = new Set(['morning_briefing', 'eod_summary', 'orchestrate']);
+          const RETRYABLE_TASKS = new Set(['morning_briefing', 'eod_summary', 'orchestrate', 'strategic_planning']);
         for (const run of data) {
           if (RETRYABLE_TASKS.has(run.task)) {
             console.log(`[Heartbeat] Auto-retrying reaped scheduled task: ${run.agent_id}/${run.task}`);

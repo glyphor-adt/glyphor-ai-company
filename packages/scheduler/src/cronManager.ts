@@ -68,6 +68,15 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     payload: {},
     enabled: true,
   },
+  {
+    id: 'cos-initiative-proposal',
+    agentRole: 'chief-of-staff',
+    schedule: '0 13 * * 1',  // Monday 8:00 AM CT — initiative proposal cycle
+    timezone: 'America/Chicago',
+    task: 'strategic_planning',
+    payload: { focus: 'initiative_proposals' },
+    enabled: true,
+  },
   // Phase 2+ jobs (disabled until agents are fully implemented)
   {
     id: 'cto-health-check',

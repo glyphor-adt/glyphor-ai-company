@@ -39,6 +39,9 @@ import type { TrustScorer } from './trustScorer.js';
 import type { DecisionChainTracker } from './decisionChainTracker.js';
 import { harvestTaskOutcome } from './taskOutcomeHarvester.js';
 import type { ActionReceipt } from './types.js';
+import { extractTaskFromConfigId } from './taskIdentity.js';
+import { compressHistory, DEFAULT_HISTORY_COMPRESSION } from './historyManager.js';
+import { filterToolDeclarations, getToolSubset } from './toolSubsets.js';
 
 // ─── Cost estimation (uses centralized model registry) ───────────────
 
@@ -191,7 +194,7 @@ export abstract class BaseAgentRunner {
     emitEvent({ type: 'agent_started', agentId: config.id, role: config.role, model: config.model });
 
     // ─── Load shared memory + JIT context in parallel ───────────
-    const taskForContext = config.id.replace(/-\d{4}-\d{2}-\d{2}$/, '').split('-').pop() ?? 'general';
+    const taskForContext = extractTaskFromConfigId(config.id);
 
     let sharedMemory: SharedMemoryContext | null = null;
     let jitContext: JitContext | null = null;
@@ -325,10 +328,16 @@ export abstract class BaseAgentRunner {
         // ── Model call ──────────────────────────────────────────
         let response: Awaited<ReturnType<ModelClient['generate']>>;
         try {
-          emitEvent({ type: 'model_request', agentId: config.id, turnNumber, tokenEstimate: estimateTokens(history) });
+          const taskName = extractTaskFromConfigId(config.id);
+          const compressedHistory = compressHistory(history, DEFAULT_HISTORY_COMPRESSION);
+          emitEvent({ type: 'model_request', agentId: config.id, turnNumber, tokenEstimate: estimateTokens(compressedHistory) });
 
           // Strip tools on last turn to force text response
           let effectiveTools: ReturnType<typeof toolExecutor.getDeclarations> | undefined = toolExecutor.getDeclarations();
+          const allowedToolNames = getToolSubset(config.role, taskName);
+          if (effectiveTools) {
+            effectiveTools = filterToolDeclarations(effectiveTools, allowedToolNames);
+          }
           if (turnNumber >= supervisor.config.maxTurns) effectiveTools = undefined;
 
           let effectiveTemp = config.temperature;
@@ -339,7 +348,7 @@ export abstract class BaseAgentRunner {
           response = await this.modelClient.generate({
             model: config.model,
             systemInstruction: systemPrompt,
-            contents: history,
+            contents: compressedHistory,
             tools: effectiveTools,
             temperature: effectiveTemp,
             topP: config.topP,

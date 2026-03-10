@@ -31,6 +31,10 @@ export { checkEventPermission, createEventSecurityLog } from './eventPermissions
 export type { EventPermissionCheck } from './eventPermissions.js';
 export { executeWorkLoop, PROACTIVE_COOLDOWNS } from './workLoop.js';
 export type { WorkLoopResult } from './workLoop.js';
+export { extractTaskFromConfigId } from './taskIdentity.js';
+export { compressHistory, DEFAULT_HISTORY_COMPRESSION } from './historyManager.js';
+export type { HistoryCompressionConfig } from './historyManager.js';
+export { TOOL_SUBSETS, getToolSubset, filterToolDeclarations } from './toolSubsets.js';
 // Reasoning Engine + JIT Context + Redis Cache
 export { ReasoningEngine } from './reasoningEngine.js';
 export type { ReasoningConfig, ReasoningResult, ReasoningPassResult, ValueScore, PassType } from './reasoningEngine.js';
