@@ -132,15 +132,170 @@ export function createAllPulseTools(memory: CompanyMemoryStore): ToolDefinition[
 
     {
       name: 'pulse_generate_promo_scenes',
-      description: 'Generate promotional video scenes from a brand analysis or product description.',
+      description: 'Generate promotional video scenes from a hero image and/or campaign brief. Supports image-to-scenes via hero_image_url + base64 conversion on the server. Returns scene angles with prompts, shot types, and camera movements.',
       parameters: {
-        prompt: { type: 'string', description: 'Brand analysis or product description to generate promo scenes from', required: true },
+        hero_image_url: { type: 'string', description: 'URL of the hero/product image to generate scenes from' },
+        campaign_brief: { type: 'string', description: 'Campaign brief or brand description for scene direction' },
+        tone: { type: 'string', description: 'Visual tone: luxury | bold | playful | cinematic | minimal (default cinematic)' },
+        preservation_mode: { type: 'string', description: 'inpainting | preserve-likeness | creative-freedom (default preserve-likeness)' },
+        aspect_ratio: { type: 'string', description: '16:9 | 9:16 | 1:1 (default 16:9)' },
         title: { type: 'string', description: 'Optional title for the promo' },
       },
       async execute(params): Promise<ToolResult> {
         const pulse = getPulseClient();
         if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
-        const result = await pulse.callAndParse('generate_promo_scenes', { prompt: params.prompt, title: params.title });
+        const result = await pulse.callAndParse('generate_promo_scenes', {
+          hero_image_url: params.hero_image_url,
+          campaign_brief: params.campaign_brief,
+          tone: params.tone || 'cinematic',
+          preservation_mode: params.preservation_mode || 'preserve-likeness',
+          aspect_ratio: params.aspect_ratio || '16:9',
+          title: params.title,
+        });
+        return { success: true, data: result };
+      },
+    },
+
+    {
+      name: 'pulse_create_hero_promo',
+      description: 'End-to-end Hero Promo pipeline: takes a hero image URL + campaign brief, generates cinematic promo scenes, creates a storyboard, and optionally generates scene images. Returns storyboard ID.',
+      parameters: {
+        hero_image_url: { type: 'string', description: 'URL of the hero/product image', required: true },
+        campaign_brief: { type: 'string', description: "Creative direction (e.g. 'Luxury perfume ad in a Parisian penthouse at dusk')", required: true },
+        title: { type: 'string', description: 'Storyboard title (auto-generated if omitted)' },
+        tone: { type: 'string', description: 'Visual tone: luxury | bold | playful | cinematic | minimal (default cinematic)' },
+        preservation_mode: { type: 'string', description: 'inpainting | preserve-likeness | creative-freedom (default preserve-likeness)' },
+        aspect_ratio: { type: 'string', description: '16:9 | 9:16 | 1:1 (default 16:9)' },
+        generate_images: { type: 'boolean', description: 'Whether to also generate scene images immediately (default false)' },
+      },
+      async execute(params, ctx): Promise<ToolResult> {
+        const pulse = getPulseClient();
+        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
+        const result = await pulse.callAndParse('create_hero_promo', {
+          hero_image_url: params.hero_image_url,
+          campaign_brief: params.campaign_brief,
+          title: params.title,
+          tone: params.tone,
+          preservation_mode: params.preservation_mode,
+          aspect_ratio: params.aspect_ratio,
+          generate_images: params.generate_images,
+        });
+        await memory.appendActivity({ agentRole: ctx.agentRole, action: 'content', product: 'pulse', summary: `Created hero promo storyboard: ${(params.campaign_brief as string).slice(0, 60)}`, createdAt: new Date().toISOString() });
+        return { success: true, data: result };
+      },
+    },
+
+    {
+      name: 'pulse_create_multi_angle',
+      description: 'Create a multi-angle storyboard from a single reference image. Generates diverse camera angles and framings of the same subject. Returns storyboard ID.',
+      parameters: {
+        image_url: { type: 'string', description: 'URL of the reference/subject image', required: true },
+        title: { type: 'string', description: 'Storyboard title (auto-generated if omitted)' },
+        tone: { type: 'string', description: 'Visual tone: luxury | bold | playful | cinematic | minimal (default cinematic)' },
+        preservation_mode: { type: 'string', description: 'inpainting | preserve-likeness | creative-freedom (default preserve-likeness)' },
+        aspect_ratio: { type: 'string', description: '16:9 | 9:16 | 1:1 (default 16:9)' },
+        generate_images: { type: 'boolean', description: 'Whether to also generate scene images immediately (default false)' },
+      },
+      async execute(params, ctx): Promise<ToolResult> {
+        const pulse = getPulseClient();
+        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
+        const result = await pulse.callAndParse('create_multi_angle', {
+          image_url: params.image_url,
+          title: params.title,
+          tone: params.tone,
+          preservation_mode: params.preservation_mode,
+          aspect_ratio: params.aspect_ratio,
+          generate_images: params.generate_images,
+        });
+        await memory.appendActivity({ agentRole: ctx.agentRole, action: 'content', product: 'pulse', summary: `Created multi-angle storyboard from image`, createdAt: new Date().toISOString() });
+        return { success: true, data: result };
+      },
+    },
+
+    {
+      name: 'pulse_create_product_showcase',
+      description: 'Create a product showcase storyboard from product image + brand brief. Optimized for e-commerce with progressive storytelling beats (Hook → Approach → Interaction → Immersion → CTA). Defaults to 9:16 for social and luxury tone.',
+      parameters: {
+        product_image_url: { type: 'string', description: 'URL of the primary product image', required: true },
+        brand_brief: { type: 'string', description: 'Product description, USPs, or brand story', required: true },
+        title: { type: 'string', description: 'Storyboard title' },
+        tone: { type: 'string', description: 'Visual tone: luxury | bold | playful | cinematic | minimal (default luxury)' },
+        aspect_ratio: { type: 'string', description: '16:9 | 9:16 | 1:1 (default 9:16 for social)' },
+        generate_images: { type: 'boolean', description: 'Whether to also generate scene images immediately (default false)' },
+      },
+      async execute(params, ctx): Promise<ToolResult> {
+        const pulse = getPulseClient();
+        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
+        const result = await pulse.callAndParse('create_product_showcase', {
+          product_image_url: params.product_image_url,
+          brand_brief: params.brand_brief,
+          title: params.title,
+          tone: params.tone,
+          aspect_ratio: params.aspect_ratio,
+          generate_images: params.generate_images,
+        });
+        await memory.appendActivity({ agentRole: ctx.agentRole, action: 'content', product: 'pulse', summary: `Created product showcase: ${(params.brand_brief as string).slice(0, 60)}`, createdAt: new Date().toISOString() });
+        return { success: true, data: result };
+      },
+    },
+
+    {
+      name: 'pulse_create_narrative_storyboard',
+      description: 'Create a narrative animation storyboard from a script or idea. Generates a screenplay, parses it into scenes, creates the storyboard. Best for story-driven content, explainers, and character-led narratives.',
+      parameters: {
+        script_or_idea: { type: 'string', description: 'Full screenplay text or a raw creative idea/brief', required: true },
+        title: { type: 'string', description: 'Storyboard title' },
+        aspect_ratio: { type: 'string', description: '16:9 | 9:16 | 1:1 (default 16:9)' },
+        reference_image_url: { type: 'string', description: 'Optional reference image URL for character/subject anchoring' },
+        generate_images: { type: 'boolean', description: 'Whether to also generate scene images immediately (default false)' },
+      },
+      async execute(params, ctx): Promise<ToolResult> {
+        const pulse = getPulseClient();
+        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
+        const result = await pulse.callAndParse('create_narrative_storyboard', {
+          script_or_idea: params.script_or_idea,
+          title: params.title,
+          aspect_ratio: params.aspect_ratio,
+          reference_image_url: params.reference_image_url,
+          generate_images: params.generate_images,
+        });
+        await memory.appendActivity({ agentRole: ctx.agentRole, action: 'content', product: 'pulse', summary: `Created narrative storyboard: ${(params.script_or_idea as string).slice(0, 60)}`, createdAt: new Date().toISOString() });
+        return { success: true, data: result };
+      },
+    },
+
+    {
+      name: 'pulse_create_ad_storyboard',
+      description: 'Create an ad storyboard optimized for paid media (Instagram, TikTok, YouTube pre-roll). Takes a product image, target platform, ad objective, and CTA. Generates platform-optimized scenes with proper aspect ratios and attention-grabbing hooks.',
+      parameters: {
+        product_image_url: { type: 'string', description: 'URL of the product/hero image', required: true },
+        platform: { type: 'string', description: 'Target ad platform: instagram | tiktok | youtube | facebook | linkedin (default instagram)', required: true },
+        ad_objective: { type: 'string', description: 'Ad goal: awareness | consideration | conversion (default awareness)' },
+        cta_text: { type: 'string', description: 'Call-to-action text (e.g. "Shop Now", "Learn More")' },
+        brand_brief: { type: 'string', description: 'Product/brand description and USPs', required: true },
+        title: { type: 'string', description: 'Storyboard title' },
+        tone: { type: 'string', description: 'Visual tone: luxury | bold | playful | cinematic | minimal (default bold)' },
+        generate_images: { type: 'boolean', description: 'Whether to also generate scene images immediately (default false)' },
+      },
+      async execute(params, ctx): Promise<ToolResult> {
+        const pulse = getPulseClient();
+        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
+        // Map platform to optimal aspect ratio
+        const platformRatios: Record<string, string> = { instagram: '1:1', tiktok: '9:16', youtube: '16:9', facebook: '1:1', linkedin: '16:9' };
+        const platform = (params.platform as string) || 'instagram';
+        const aspectRatio = platformRatios[platform] || '1:1';
+        const result = await pulse.callAndParse('create_ad_storyboard', {
+          product_image_url: params.product_image_url,
+          platform,
+          ad_objective: params.ad_objective || 'awareness',
+          cta_text: params.cta_text,
+          brand_brief: params.brand_brief,
+          title: params.title,
+          tone: params.tone || 'bold',
+          aspect_ratio: aspectRatio,
+          generate_images: params.generate_images,
+        });
+        await memory.appendActivity({ agentRole: ctx.agentRole, action: 'content', product: 'pulse', summary: `Created ${platform} ad storyboard: ${(params.brand_brief as string).slice(0, 50)}`, createdAt: new Date().toISOString() });
         return { success: true, data: result };
       },
     },
@@ -238,6 +393,29 @@ export function createAllPulseTools(memory: CompanyMemoryStore): ToolDefinition[
         const pulse = getPulseClient();
         if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
         const result = await pulse.callAndParse('remix_video', { video_id: params.video_id, prompt: params.prompt });
+        return { success: true, data: result };
+      },
+    },
+
+    {
+      name: 'pulse_batch_generate_videos',
+      description: 'Batch-generate video clips for all scenes in a storyboard. Each scene becomes a video clip using the scene image as the source frame. Returns an array of video IDs with statuses. Poll individual videos with pulse_poll_video_status.',
+      parameters: {
+        storyboard_id: { type: 'string', description: 'Storyboard ID to generate videos for', required: true },
+        model: { type: 'string', description: 'Video model: veo-3.1 | veo-3.0 | kling-2.1 (default veo-3.1)' },
+        duration: { type: 'number', description: 'Clip duration in seconds (default 5)' },
+        with_audio: { type: 'boolean', description: 'Whether to include generated audio/voiceover per scene (default false)' },
+      },
+      async execute(params, ctx): Promise<ToolResult> {
+        const pulse = getPulseClient();
+        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
+        const result = await pulse.callAndParse('batch_generate_videos', {
+          storyboard_id: params.storyboard_id,
+          model: params.model || 'veo-3.1',
+          duration: params.duration || 5,
+          with_audio: params.with_audio || false,
+        });
+        await memory.appendActivity({ agentRole: ctx.agentRole, action: 'content', product: 'pulse', summary: `Batch generated videos for storyboard ${params.storyboard_id}`, createdAt: new Date().toISOString() });
         return { success: true, data: result };
       },
     },

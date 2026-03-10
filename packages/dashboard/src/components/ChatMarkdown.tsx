@@ -16,9 +16,13 @@ const MEDIA_HOSTS = ['media.glyphor.ai', 'imagedelivery.net', 'cloudflareimages.
 const VIDEO_EXT_RE = /\.(mp4|webm|mov)(\?.*)?$/i;
 
 /** Turn bare media-host URLs into markdown image syntax so react-markdown renders them */
-const BARE_MEDIA_URL_RE = /(?<![(\[])(https?:\/\/(?:media\.glyphor\.ai|imagedelivery\.net|cloudflareimages\.com)[^\s)>\]]+)/gi;
+const BARE_MEDIA_URL_RE = /(?<![(\[!])(https?:\/\/(?:media\.glyphor\.ai|imagedelivery\.net|cloudflareimages\.com)[^\s)>\]]+)/gi;
 function preProcessContent(text: string): string {
-  return text.replace(BARE_MEDIA_URL_RE, (url) => `![Generated image](${url})`);
+  return text.replace(BARE_MEDIA_URL_RE, (raw) => {
+    // Strip trailing sentence punctuation that isn't part of the URL
+    const url = raw.replace(/[.,;:!?]+$/, '');
+    return `![Generated image](${url})`;
+  });
 }
 
 function isImageUrl(href: string): boolean {
