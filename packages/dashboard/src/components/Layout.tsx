@@ -181,7 +181,7 @@ export default function Layout() {
       )}
 
       {/* ── Main Content ────────────────────── */}
-      <main className={`dashboard-main flex-1 transition-colors duration-200 ${isFullBleed ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'} pb-16 md:pb-0`}>
+      <main className={`dashboard-main flex-1 transition-colors duration-200 ${isFullBleed ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'} pb-16 md:pb-0 safe-top`}>
         <div className={`spectral-mesh spectral-mesh-${theme}`} aria-hidden="true">
           <div className={`spectral-mesh-purple spectral-mesh-purple--${theme}`} />
           <div className="spectral-mesh-noise" />

@@ -247,7 +247,7 @@ export function createDiagnosticTools(): ToolDefinition[] {
 
           // Also check agent_runs for errors
           const runs = await systemQuery(
-            `SELECT status, error_message, started_at, finished_at
+            `SELECT status, error, started_at, completed_at
              FROM agent_runs
              WHERE agent_id = $1
                AND started_at > NOW() - INTERVAL '1 hour' * $2
@@ -270,7 +270,7 @@ export function createDiagnosticTools(): ToolDefinition[] {
               failedRuns: failedRuns.length,
               recentErrors: failedRuns.map((r: Record<string, unknown>) => ({
                 status: r.status,
-                error: r.error_message,
+                error: r.error,
                 at: r.started_at,
               })),
               recentActivity: logs.slice(0, 10).map((l: Record<string, unknown>) => ({
