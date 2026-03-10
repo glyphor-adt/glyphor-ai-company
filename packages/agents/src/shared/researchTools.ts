@@ -184,6 +184,7 @@ export function createResearchTools(): ToolDefinition[] {
       },
       async execute(params): Promise<ToolResult> {
         const query = params.query as string;
+        if (!query) return { success: false, error: 'Missing required parameter: query' };
         const num = Math.min((params.num_results as number) || 10, 20);
 
         try {
@@ -263,6 +264,9 @@ export function createResearchTools(): ToolDefinition[] {
       async execute(params): Promise<ToolResult> {
         const analysisId = params.analysis_id as string;
         const packetType = params.packet_type as string;
+        if (!analysisId || !packetType) {
+          return { success: false, error: 'Missing required parameters: analysis_id, packet_type' };
+        }
 
         try {
           // Atomically merge the new packet into the JSONB column to avoid

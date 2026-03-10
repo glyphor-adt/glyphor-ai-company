@@ -296,7 +296,7 @@ export async function resolveAndDispatchDependents(
 
     // Mark as in_progress
     await systemQuery(
-      'UPDATE work_assignments SET status = $1, started_at = $2 WHERE id = $3',
+      'UPDATE work_assignments SET status = $1, dispatched_at = $2 WHERE id = $3',
       ['in_progress', new Date().toISOString(), dep.id],
     );
 

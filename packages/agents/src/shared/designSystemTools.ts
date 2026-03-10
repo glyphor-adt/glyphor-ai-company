@@ -300,6 +300,9 @@ export function createDesignSystemTools(): ToolDefinition[] {
       },
       async execute(params): Promise<ToolResult> {
         const repo = repoName(params.repo as string);
+        if (!process.env.GITHUB_TOKEN && !process.env.GLYPHOR_GITHUB_TOKEN) {
+          return { success: false, error: 'GitHub token not configured — cannot validate tokens vs implementation' };
+        }
 
         try {
           // 1. Gather defined tokens
@@ -524,6 +527,9 @@ export function createDesignSystemTools(): ToolDefinition[] {
       async execute(params): Promise<ToolResult> {
         const repo = repoName(params.repo as string);
         const directory = (params.directory as string) || 'packages/dashboard/src/components';
+        if (!process.env.GITHUB_TOKEN && !process.env.GLYPHOR_GITHUB_TOKEN) {
+          return { success: false, error: 'GitHub token not configured — cannot list components' };
+        }
         const gh = getGitHubClient();
         const org = 'glyphor-adt';
 
@@ -593,7 +599,11 @@ export function createDesignSystemTools(): ToolDefinition[] {
       },
       async execute(params): Promise<ToolResult> {
         const componentName = params.component_name as string;
+        if (!componentName) return { success: false, error: 'Missing required parameter: component_name' };
         const repo = repoName(params.repo as string);
+        if (!process.env.GITHUB_TOKEN && !process.env.GLYPHOR_GITHUB_TOKEN) {
+          return { success: false, error: 'GitHub token not configured — cannot get component usage' };
+        }
         const gh = getGitHubClient();
         const org = 'glyphor-adt';
 

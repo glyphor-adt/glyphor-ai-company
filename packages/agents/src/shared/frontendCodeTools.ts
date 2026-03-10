@@ -115,6 +115,7 @@ export function createFrontendCodeTools(): ToolDefinition[] {
       async execute(params): Promise<ToolResult> {
         try {
           const query = params.query as string;
+          if (!query) return { success: false, error: 'Missing required parameter: query' };
           const repo = (params.repo as GlyphorRepo) || 'company';
           const repoName = GLYPHOR_REPOS[repo];
           if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company, fuse, pulse` };
@@ -303,6 +304,9 @@ export function createFrontendCodeTools(): ToolDefinition[] {
       },
       async execute(params): Promise<ToolResult> {
         try {
+          if (!params.branch || !params.title || !params.body) {
+            return { success: false, error: 'Missing required parameters: branch, title, body' };
+          }
           const repo = (params.repo as GlyphorRepo) || 'company';
           const repoName = GLYPHOR_REPOS[repo];
           if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company, fuse, pulse` };

@@ -45,3 +45,6 @@ Thumbs.db
 .agent-id-blueprint-secret.json
 .agent-id-setup.log
 .agent-id-token-cache.json
+
+*storybook.log
+storybook-static

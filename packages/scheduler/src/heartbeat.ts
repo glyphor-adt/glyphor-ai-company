@@ -281,8 +281,8 @@ export class HeartbeatManager {
           // Idempotency guard: skip if Sarah already ran orchestrate in the last 15 min
           const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
           const recentRun = await systemQuery<{id: string}>(
-            'SELECT id FROM agent_runs WHERE agent_id=$1 AND run_id LIKE $2 AND started_at >= $3 LIMIT 1',
-            ['chief-of-staff', 'cos-orchestrate-%', fifteenMinAgo],
+            'SELECT id FROM agent_runs WHERE agent_id=$1 AND task LIKE $2 AND started_at >= $3 LIMIT 1',
+            ['chief-of-staff', 'orchestrate%', fifteenMinAgo],
           );
 
           if (recentRun.length > 0) {

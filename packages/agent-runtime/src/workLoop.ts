@@ -109,7 +109,7 @@ export async function executeWorkLoop(
 
     // Mark as in_progress at dispatch time
     await systemQuery(
-      'UPDATE work_assignments SET status = $1, started_at = $2 WHERE id = $3',
+      'UPDATE work_assignments SET status = $1, dispatched_at = $2 WHERE id = $3',
       ['in_progress', new Date().toISOString(), assignment.id],
     );
 
@@ -271,7 +271,7 @@ export async function executeWorkLoop(
     // Mark as in_progress at dispatch time
     if (assignment.status === 'dispatched' || assignment.status === 'pending') {
       await systemQuery(
-        'UPDATE work_assignments SET status = $1, started_at = $2 WHERE id = $3',
+        'UPDATE work_assignments SET status = $1, dispatched_at = $2 WHERE id = $3',
         ['in_progress', new Date().toISOString(), assignment.id],
       );
     }
