@@ -8,11 +8,18 @@
  */
 
 import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
 
 const IMAGE_URL_RE = /\.(png|jpe?g|gif|webp|svg|avif|bmp)(\?.*)?$/i;
 const MEDIA_HOSTS = ['media.glyphor.ai', 'imagedelivery.net', 'cloudflareimages.com'];
 const VIDEO_EXT_RE = /\.(mp4|webm|mov)(\?.*)?$/i;
+
+/** Turn bare media-host URLs into markdown image syntax so react-markdown renders them */
+const BARE_MEDIA_URL_RE = /(?<![(\[])(https?:\/\/(?:media\.glyphor\.ai|imagedelivery\.net|cloudflareimages\.com)[^\s)>\]]+)/gi;
+function preProcessContent(text: string): string {
+  return text.replace(BARE_MEDIA_URL_RE, (url) => `![Generated image](${url})`);
+}
 
 function isImageUrl(href: string): boolean {
   try {
@@ -97,7 +104,7 @@ const components: Components = {
 export default function ChatMarkdown({ children }: { children: string }) {
   return (
     <div className="prose-chat">
-      <Markdown components={components}>{children}</Markdown>
+      <Markdown remarkPlugins={[remarkGfm]} components={components}>{preProcessContent(children)}</Markdown>
     </div>
   );
 }
