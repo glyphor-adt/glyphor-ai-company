@@ -32,7 +32,6 @@ $McpScopes = @(
     'ea9ffc3e-8a23-4a7d-836d-234d7c7565c1/McpServers.SharePointLists.All'
     'ea9ffc3e-8a23-4a7d-836d-234d7c7565c1/McpServers.Word.All'
     'ea9ffc3e-8a23-4a7d-836d-234d7c7565c1/McpServers.CopilotMCP.All'
-    'ea9ffc3e-8a23-4a7d-836d-234d7c7565c1/McpServers.AdminCenter.All'
     'ea9ffc3e-8a23-4a7d-836d-234d7c7565c1/McpServersMetadata.Read.All'
     'offline_access'
 )

@@ -31,7 +31,6 @@ export const ALL_M365_SERVERS = [
   ...STANDARD_M365_SERVERS,
   'mcp_UserProfile',
   'mcp_SharePointLists',
-  'mcp_AdminCenter',
 ] as const;
 
 // ── Singleton Bridge ─────────────────────────────────────────────
