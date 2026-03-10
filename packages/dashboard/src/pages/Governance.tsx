@@ -538,7 +538,7 @@ export default function Governance() {
         fetchWithFallback(['/api/governance/least-privilege', '/api/governance/least-privilege-analysis']).catch(() => null),
         apiCallWithTimeout('/api/platform-iam-state').catch(() => null),
         apiCallWithTimeout('/api/platform-secret-rotation').catch(() => null),
-        apiCallWithTimeout('/api/agent-tool-grants?order=agent_role.asc,tool_name.asc').catch(() => null),
+        apiCallWithTimeout('/api/agent-tool-grants?order=agent_role.asc,tool_name.asc&limit=5000').catch(() => null),
         apiCallWithTimeout('/api/tool-reputation?order=updated_at.desc&limit=200').catch(() => null),
         apiCallWithTimeout('/api/decisions?status=pending&order=created_at.desc&limit=20').catch(() => null),
         fetchWithFallback(['/api/governance/policy-impact']).catch(() => null),
