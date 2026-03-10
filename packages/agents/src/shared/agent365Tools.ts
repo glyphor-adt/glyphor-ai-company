@@ -120,10 +120,14 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
   }
 
   try {
+    // Close any previous bridge to avoid connection leaks and stale MSAL tokens
+    await closeAgent365Bridge();
+
     const bridge = await initAgent365Bridge({
       clientId: credentials.clientId,
       clientSecret: credentials.clientSecret,
       tenantId: credentials.tenantId,
+      agenticAppId: process.env.AGENT365_BLUEPRINT_ID,
     }, serverFilter);
 
     activeBridge = bridge;

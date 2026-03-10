@@ -29,14 +29,16 @@ import path from 'node:path';
 // ── Types ────────────────────────────────────────────────────────
 
 export interface Agent365Config {
-  /** Blueprint app client ID */
+  /** Entra app client ID (for MSAL authentication) */
   clientId: string;
-  /** Blueprint app client secret */
+  /** Entra app client secret */
   clientSecret: string;
   /** Entra tenant ID */
   tenantId: string;
   /** Agent 365 Tools API audience (default: ea9ffc3e-8a23-4a7d-836d-234d7c7565c1) */
   audience?: string;
+  /** Agent Identity Blueprint ID for gateway discovery (defaults to clientId if not set) */
+  agenticAppId?: string;
 }
 
 export interface Agent365ToolBridge {
@@ -349,8 +351,9 @@ export async function createAgent365Tools(
   const connections: ActiveMcpConnection[] = [];
   const allTools: ToolDefinition[] = [];
 
-  // Discover available MCP servers
-  let serverConfigs = await discoverServerConfigs(configService, config.clientId, authToken);
+  // Discover available MCP servers (use agenticAppId for gateway, falls back to clientId)
+  const agenticAppId = config.agenticAppId ?? config.clientId;
+  let serverConfigs = await discoverServerConfigs(configService, agenticAppId, authToken);
 
   if (serverConfigs.length === 0) {
     console.warn('[Agent365] No MCP servers configured. Run "a365 develop add-mcp-servers" to add servers.');

@@ -119,7 +119,7 @@ export function createEmailTools(): ToolDefinition[] {
     {
       name: 'send_email',
       description:
-        'Send an email from YOUR mailbox (e.g. sarah@glyphor.ai). Always YELLOW — requires founder approval before sending. Write the message body only — your signature is added automatically. Format the body like a real email: greeting, concise content, professional sign-off (e.g. Best regards, Thanks). NEVER use markdown formatting (no **, ##, `, ~~, bullet markers, or []() links) — write in plain professional prose exactly as a human would compose an email.',
+        'Send an email from YOUR mailbox (e.g. sarah@glyphor.ai). GREEN — agents can send emails autonomously. Write the message body only — your signature is added automatically. Format the body like a real email: greeting, concise content, professional sign-off (e.g. Best regards, Thanks). NEVER use markdown formatting (no **, ##, `, ~~, bullet markers, or []() links) — write in plain professional prose exactly as a human would compose an email.',
       parameters: {
         to: {
           type: 'array',
@@ -243,7 +243,7 @@ export function createEmailTools(): ToolDefinition[] {
     {
       name: 'reply_to_email',
       description:
-        'Reply to an email in YOUR inbox. Always YELLOW — requires founder approval. Use the message ID from read_inbox results. Write the reply body only — your signature is added automatically. Format like a real email reply: address the sender, respond to their points, professional sign-off. NEVER use markdown formatting — write in plain professional prose.',
+        'Reply to an email in YOUR inbox. GREEN — agents can reply to emails autonomously. Use the message ID from read_inbox results. Write the reply body only — your signature is added automatically. Format like a real email reply: address the sender, respond to their points, professional sign-off. NEVER use markdown formatting — write in plain professional prose.',
       parameters: {
         message_id: {
           type: 'string',

@@ -748,6 +748,22 @@ export function createAllPulseTools(memory: CompanyMemoryStore): ToolDefinition[
       },
     },
 
+    {
+      name: 'pulse_kling_multi_shot',
+      description: 'Generate multiple angle images from a single product/subject image using Kling AI Multi-Shot API. Submits the request, polls until completion, extracts all 3 generated angle images, and re-uploads them to R2 for persistent storage. Returns persistent R2 URLs for each angle. Include the images in your reply using markdown ![angle](url).',
+      parameters: {
+        image_url: { type: 'string', description: 'URL of the source product/subject image', required: true },
+        prompt: { type: 'string', description: 'Description of the subject and desired angles/variations' },
+      },
+      async execute(params, ctx): Promise<ToolResult> {
+        const pulse = getPulseClient();
+        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
+        const result = await pulse.callAndParse('kling_multi_shot', { image_url: params.image_url, prompt: params.prompt });
+        await memory.appendActivity({ agentRole: ctx.agentRole, action: 'content', product: 'pulse', summary: `Generated multi-shot angles via Kling Multi-Shot`, createdAt: new Date().toISOString() });
+        return { success: true, data: result };
+      },
+    },
+
     // ── Analysis ──
 
     {
