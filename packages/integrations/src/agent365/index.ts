@@ -242,6 +242,7 @@ function loadServerConfigsFromManifest(): MCPServerConfig[] {
 async function connectToMcpServer(
   serverConfig: MCPServerConfig,
   authToken: string,
+  agenticAppId?: string,
 ): Promise<{ client: Client; transport: StreamableHTTPClientTransport; tools: McpClientTool[] }> {
   if (!serverConfig.url) {
     throw new Error(`MCP Server URL missing for ${serverConfig.mcpServerName}`);
@@ -251,6 +252,11 @@ async function connectToMcpServer(
     ...serverConfig.headers as Record<string, string>,
     Authorization: `Bearer ${authToken}`,
   };
+  // x-ms-agentid tells the MCP server which blueprint is making the request
+  // so it can look up the blueprint's configured inheritable permissions
+  if (agenticAppId) {
+    headers['x-ms-agentid'] = agenticAppId;
+  }
 
   const transport = new StreamableHTTPClientTransport(new URL(serverConfig.url), {
     requestInit: { headers },
@@ -369,7 +375,7 @@ export async function createAgent365Tools(
   // Connect to each server and discover tools
   for (const serverConfig of serverConfigs) {
     try {
-      const { client, transport, tools } = await connectToMcpServer(serverConfig, authToken);
+      const { client, transport, tools } = await connectToMcpServer(serverConfig, authToken, agenticAppId);
 
       connections.push({
         serverName: serverConfig.mcpServerName,

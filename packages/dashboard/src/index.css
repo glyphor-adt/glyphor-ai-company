@@ -497,6 +497,10 @@ body {
 .dashboard-home .queue { animation: fadeUp 0.5s ease 0.56s both; }
 
 /* ─── Mobile safe area (iOS notch / home indicator) ── */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+}
 .safe-top {
   padding-top: env(safe-area-inset-top, 0px);
 }
