@@ -2,7 +2,8 @@
  * Agent 365 MCP Tools — Async factory for Microsoft Agent 365 MCP servers
  *
  * Enable with env var: AGENT365_ENABLED=true
- * Required env vars: AGENT365_CLIENT_ID, AGENT365_CLIENT_SECRET, AGENT365_TENANT_ID
+ * Required env vars: AGENT365_CLIENT_ID, AGENT365_TENANT_ID, AGENT365_REFRESH_TOKEN
+ * Optional: AGENT365_CLIENT_SECRET, AGENT365_BLUEPRINT_ID
  * Optional per-agent overrides:
  *   AGENT365_<ROLE>_CLIENT_ID
  *   AGENT365_<ROLE>_CLIENT_SECRET
@@ -50,11 +51,11 @@ function resolveAgent365Credentials(agentRole?: string): {
   tenantId: string;
 } | null {
   const sharedClientId = process.env.AGENT365_CLIENT_ID;
-  const sharedClientSecret = process.env.AGENT365_CLIENT_SECRET;
+  const sharedClientSecret = process.env.AGENT365_CLIENT_SECRET ?? '';
   const sharedTenantId = process.env.AGENT365_TENANT_ID;
 
   if (!agentRole) {
-    if (!sharedClientId || !sharedClientSecret || !sharedTenantId) return null;
+    if (!sharedClientId || !sharedTenantId) return null;
     return {
       clientId: sharedClientId,
       clientSecret: sharedClientSecret,
@@ -81,7 +82,7 @@ function resolveAgent365Credentials(agentRole?: string): {
     console.warn(`[Agent365] Per-agent app id found for ${agentRole} but AGENT365_${roleKey}_CLIENT_SECRET is missing. Falling back to shared Agent 365 credentials.`);
   }
 
-  if (!sharedClientId || !sharedClientSecret || !sharedTenantId) return null;
+  if (!sharedClientId || !sharedTenantId) return null;
   return {
     clientId: sharedClientId,
     clientSecret: sharedClientSecret,
@@ -93,7 +94,7 @@ function resolveAgent365Credentials(agentRole?: string): {
 
 /**
  * Connect to Agent 365 MCP servers and return discovered tools as ToolDefinitions.
- * Uses MSAL client credentials flow to auto-acquire and cache tokens.
+ * Uses refresh token flow to silently acquire delegated access tokens.
  *
  * @param serverFilter Optional list of MCP server names to load.
  *                     Defaults to ALL_M365_SERVERS so the full supported catalog is available.
@@ -115,7 +116,12 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
   const credentials = resolveAgent365Credentials(agentRole);
 
   if (!credentials) {
-    console.warn('[Agent365] AGENT365_ENABLED=true but AGENT365_CLIENT_ID, AGENT365_CLIENT_SECRET, or AGENT365_TENANT_ID missing. Skipping.');
+    console.warn('[Agent365] AGENT365_ENABLED=true but AGENT365_CLIENT_ID or AGENT365_TENANT_ID missing. Skipping.');
+    return [];
+  }
+
+  if (!process.env.AGENT365_REFRESH_TOKEN) {
+    console.warn('[Agent365] AGENT365_REFRESH_TOKEN not set. Run scripts/acquire-agent365-token.ps1 to obtain one. Skipping.');
     return [];
   }
 
@@ -128,6 +134,7 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
       clientSecret: credentials.clientSecret,
       tenantId: credentials.tenantId,
       agenticAppId: process.env.AGENT365_BLUEPRINT_ID,
+      refreshToken: process.env.AGENT365_REFRESH_TOKEN,
     }, serverFilter);
 
     activeBridge = bridge;

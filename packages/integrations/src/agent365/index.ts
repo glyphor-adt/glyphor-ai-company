@@ -11,8 +11,9 @@
  *   4. Route tool execute() calls back through the MCP client
  *
  * Authentication:
- *   - Uses MSAL client credentials flow to get tokens scoped to each MCP server's audience
- *   - Each agent authenticates via its Entra app identity (agentic auth) or shared app (OBO)
+ *   - Uses refresh_token grant to get delegated tokens scoped to each MCP server's audience
+ *   - Agent 365 MCP requires idtyp=user tokens with scp claims (client credentials are blocked)
+ *   - Refresh token stored as AGENT365_REFRESH_TOKEN env var (obtained once via interactive auth)
  *
  * @see https://learn.microsoft.com/en-us/microsoft-agent-365/developer/tooling
  */
@@ -22,16 +23,15 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { McpToolServerConfigurationService } from '@microsoft/agents-a365-tooling';
 import type { MCPServerConfig, McpClientTool } from '@microsoft/agents-a365-tooling';
 import type { ToolDefinition, ToolParameter, ToolResult, ToolContext } from '@glyphor/agent-runtime';
-import { ConfidentialClientApplication } from '@azure/msal-node';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 // ── Types ────────────────────────────────────────────────────────
 
 export interface Agent365Config {
-  /** Entra app client ID (for MSAL authentication) */
+  /** Public client app ID used for delegated auth (Glyphor AI Bot app) */
   clientId: string;
-  /** Entra app client secret */
+  /** Entra app client secret (used only for client credentials fallback) */
   clientSecret: string;
   /** Entra tenant ID */
   tenantId: string;
@@ -39,6 +39,8 @@ export interface Agent365Config {
   audience?: string;
   /** Agent Identity Blueprint ID for gateway discovery (defaults to clientId if not set) */
   agenticAppId?: string;
+  /** Refresh token for delegated auth — silently renews access tokens without user interaction */
+  refreshToken?: string;
 }
 
 export interface Agent365ToolBridge {
@@ -155,31 +157,75 @@ function convertSchemaProperty(
 
 // ── Token Acquisition ────────────────────────────────────────────
 
-let msalApp: ConfidentialClientApplication | null = null;
+/** Cached access token to avoid re-acquiring on every tool call within a single run */
+let cachedAccessToken: string | null = null;
+let cachedTokenExpiry = 0;
 
-function getMsalApp(config: Agent365Config): ConfidentialClientApplication {
-  if (!msalApp) {
-    msalApp = new ConfidentialClientApplication({
-      auth: {
-        clientId: config.clientId,
-        clientSecret: config.clientSecret,
-        authority: `https://login.microsoftonline.com/${config.tenantId}`,
-      },
-    });
-  }
-  return msalApp;
-}
-
+/**
+ * Acquire a delegated access token for the Agent 365 Tools API.
+ *
+ * Uses the OAuth 2.0 refresh_token grant to silently obtain a new access token
+ * without user interaction. The refresh token itself is renewed on each use,
+ * so it stays valid indefinitely as long as agents run regularly.
+ *
+ * This produces `idtyp=user` tokens with `scp` claim containing MCP scopes,
+ * which is what Agent 365 MCP servers require. Client credentials (app tokens)
+ * are explicitly blocked by Entra for agentic apps (AADSTS82001).
+ */
 async function acquireToken(config: Agent365Config): Promise<string> {
-  const audience = config.audience ?? 'ea9ffc3e-8a23-4a7d-836d-234d7c7565c1';
-  const app = getMsalApp(config);
-  const result = await app.acquireTokenByClientCredential({
-    scopes: [`${audience}/.default`],
-  });
-  if (!result?.accessToken) {
-    throw new Error('MSAL returned no access token for Agent 365 Tools API');
+  // Return cached token if still valid (with 5 min buffer)
+  if (cachedAccessToken && Date.now() < cachedTokenExpiry - 300_000) {
+    return cachedAccessToken;
   }
-  return result.accessToken;
+
+  if (!config.refreshToken) {
+    throw new Error(
+      '[Agent365] No refresh token configured. ' +
+      'Agent 365 MCP requires delegated (user) tokens — client credentials are blocked for agentic apps. ' +
+      'Run the token acquisition script to obtain a refresh token and store it as AGENT365_REFRESH_TOKEN in GCP secrets.'
+    );
+  }
+
+  const audience = config.audience ?? 'ea9ffc3e-8a23-4a7d-836d-234d7c7565c1';
+  const tokenUrl = `https://login.microsoftonline.com/${config.tenantId}/oauth2/v2.0/token`;
+
+  const body = new URLSearchParams({
+    grant_type: 'refresh_token',
+    client_id: config.clientId,
+    refresh_token: config.refreshToken,
+    scope: `${audience}/.default offline_access`,
+  });
+
+  const response = await fetch(tokenUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`[Agent365] Token refresh failed (${response.status}): ${errorBody}`);
+  }
+
+  const tokenResponse = await response.json() as {
+    access_token: string;
+    refresh_token?: string;
+    expires_in: number;
+  };
+
+  if (!tokenResponse.access_token) {
+    throw new Error('[Agent365] Token refresh returned no access token');
+  }
+
+  cachedAccessToken = tokenResponse.access_token;
+  cachedTokenExpiry = Date.now() + tokenResponse.expires_in * 1000;
+
+  // Log the new refresh token if it changed (for rotation monitoring)
+  if (tokenResponse.refresh_token && tokenResponse.refresh_token !== config.refreshToken) {
+    console.log('[Agent365] Refresh token was rotated — update AGENT365_REFRESH_TOKEN secret if needed');
+  }
+
+  return cachedAccessToken;
 }
 
 async function discoverServerConfigs(
@@ -350,7 +396,7 @@ export async function createAgent365Tools(
   /** Optional list of MCP server names to load (e.g. ['mcp_CalendarTools', 'mcp_TeamsServer']). Loads all if omitted. */
   serverFilter?: string[],
 ): Promise<Agent365ToolBridge> {
-  // Acquire a bearer token via MSAL client credentials flow
+  // Acquire a delegated bearer token via refresh token flow
   const authToken = await acquireToken(config);
 
   const configService = new McpToolServerConfigurationService();
@@ -405,7 +451,8 @@ export async function createAgent365Tools(
         }
       }
       connections.length = 0;
-      msalApp = null;
+      cachedAccessToken = null;
+      cachedTokenExpiry = 0;
     },
   };
 }
@@ -414,7 +461,7 @@ export async function createAgent365Tools(
  * Initialize Agent 365 MCP tools in development mode using ToolingManifest.json.
  * The manifest is read from the project root (or MCP_PLATFORM_ENDPOINT for mock server).
  *
- * Still requires MSAL credentials to authenticate with the MCP servers.
+ * Still requires a refresh token to authenticate with the MCP servers.
  */
 export async function createAgent365ToolsFromManifest(
   config: Agent365Config,
