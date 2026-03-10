@@ -12,6 +12,7 @@
 import type { GraphTeamsClient } from './graphClient.js';
 import { buildFounderDirectory, type FounderContact } from './directMessages.js';
 import { getConversationRef, setConversationRef, type ConversationReference } from './conversationStore.js';
+import type { AdaptiveCard } from './webhooks.js';
 
 export class BotDmSender {
   private tokenCache: { token: string; expiresAt: number } | null = null;
@@ -306,5 +307,71 @@ export class BotDmSender {
     const userId = await this.resolveUserIdByEmail(email);
     const content = agentName ? `**${agentName}:** ${message}` : message;
     await this.sendToUser(userId, content);
+  }
+
+  /**
+   * Post an Adaptive Card activity to a conversation.
+   */
+  private async postCardActivity(conversationId: string, serviceUrl: string, card: AdaptiveCard, summary?: string): Promise<void> {
+    const token = await this.getBotToken();
+    const url = `${serviceUrl}v3/conversations/${encodeURIComponent(conversationId)}/activities`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        type: 'message',
+        summary: summary ?? 'Adaptive Card',
+        attachments: [{
+          contentType: 'application/vnd.microsoft.card.adaptive',
+          content: card,
+        }],
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Bot proactive card DM failed (${res.status}): ${errText}`);
+    }
+  }
+
+  /**
+   * Send an Adaptive Card DM to a user by their Entra Object ID.
+   */
+  async sendCardToUser(userAadObjectId: string, card: AdaptiveCard, summary?: string): Promise<void> {
+    const normalizedUserAadObjectId = userAadObjectId.trim();
+    if (!normalizedUserAadObjectId) {
+      throw new Error('Cannot send proactive card DM: target user AAD object ID is empty');
+    }
+
+    let ref = getConversationRef(normalizedUserAadObjectId);
+    if (!ref) {
+      await this.ensureTeamsAppInstalled(normalizedUserAadObjectId);
+      ref = getConversationRef(normalizedUserAadObjectId);
+    }
+    if (!ref) {
+      ref = await this.createConversationReference(normalizedUserAadObjectId);
+    }
+
+    await this.postCardActivity(ref.conversationId, ref.serviceUrl, card, summary);
+  }
+
+  /**
+   * Send an Adaptive Card DM to a founder by key (kristina/andrew).
+   */
+  async sendCard(
+    founder: 'kristina' | 'andrew',
+    card: AdaptiveCard,
+    agentName?: string,
+  ): Promise<void> {
+    const contact = this.founderDir[founder];
+    if (!contact) {
+      throw new Error(
+        `Founder "${founder}" not configured. Set TEAMS_USER_${founder.toUpperCase()}_ID.`,
+      );
+    }
+    await this.sendCardToUser(contact.userId, card, agentName ? `${agentName} shared a card` : undefined);
   }
 }

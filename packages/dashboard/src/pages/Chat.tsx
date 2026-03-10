@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import Markdown from 'react-markdown';
 import { useAgents } from '../lib/hooks';
+import ChatMarkdown from '../components/ChatMarkdown';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
@@ -959,7 +959,7 @@ export default function Chat() {
                   </p>
                 )}
                 {msg.role === 'agent' ? (
-                  <div className="prose-chat"><Markdown>{msg.content}</Markdown></div>
+                  <ChatMarkdown>{msg.content}</ChatMarkdown>
                 ) : (
                   <p className="whitespace-pre-wrap">{msg.content}</p>
                 )}

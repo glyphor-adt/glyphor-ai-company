@@ -68,7 +68,7 @@ export function createAllPulseTools(memory: CompanyMemoryStore): ToolDefinition[
 
     {
       name: 'pulse_generate_scene_images',
-      description: 'Batch-generate images for all scenes in a storyboard using Imagen 4 / Gemini. Supports reference image for character continuity.',
+      description: 'Batch-generate images for all scenes in a storyboard using Imagen 4 / Gemini. Supports reference image for character continuity. Include generated images in your reply using markdown ![scene](url) so the user can see them.',
       parameters: {
         storyboard_id: { type: 'string', description: 'Storyboard ID to generate scene images for', required: true },
         model: { type: 'string', description: 'Image model', enum: ['imagen-4', 'gemini-3-pro'] },
@@ -83,7 +83,7 @@ export function createAllPulseTools(memory: CompanyMemoryStore): ToolDefinition[
           reference_image_url: params.reference_image_url as string,
         });
         await memory.appendActivity({ agentRole: ctx.agentRole, action: 'content', product: 'pulse', summary: `Generated ${images.length} scene images for storyboard ${params.storyboard_id}`, createdAt: new Date().toISOString() });
-        return { success: true, data: images.map(i => ({ imageId: i.id, url: i.url })) };
+        return { success: true, data: images.map(i => ({ imageId: i.id, url: i.url, display_hint: `![Scene image](${i.url})` })) };
       },
     },
 
@@ -163,7 +163,7 @@ export function createAllPulseTools(memory: CompanyMemoryStore): ToolDefinition[
 
     {
       name: 'pulse_generate_video',
-      description: 'Generate a single video clip from a prompt and optional source image. Supports Veo 3.1, Veo 3.0, Kling 2.1.',
+      description: 'Generate a single video clip from a prompt and optional source image. Supports Veo 3.1, Veo 3.0, Kling 2.1. Include the video URL in your reply so the user can see it.',
       parameters: {
         prompt: { type: 'string', description: 'Video prompt describing the desired content', required: true },
         model: { type: 'string', description: 'Video model', enum: ['veo-3.1', 'veo-3.0', 'kling-2.1'] },
@@ -180,7 +180,7 @@ export function createAllPulseTools(memory: CompanyMemoryStore): ToolDefinition[
           source_image_url: params.source_image_url as string,
         });
         await memory.appendActivity({ agentRole: ctx.agentRole, action: 'content', product: 'pulse', summary: `Generated video via Pulse: ${(params.prompt as string).slice(0, 80)}`, createdAt: new Date().toISOString() });
-        return { success: true, data: { videoId: video.id, status: video.status, url: video.url } };
+        return { success: true, data: { videoId: video.id, status: video.status, url: video.url, display_hint: video.url ? `[Watch video](${video.url})` : undefined } };
       },
     },
 
@@ -294,7 +294,7 @@ export function createAllPulseTools(memory: CompanyMemoryStore): ToolDefinition[
 
     {
       name: 'pulse_generate_concept_image',
-      description: 'Generate a standalone concept image using Imagen 4. Use for thumbnails, social media graphics, blog hero images, standalone visuals. Always use Pulse for visual content — we dogfood our own product.',
+      description: 'Generate a standalone concept image using Imagen 4. Use for thumbnails, social media graphics, blog hero images, standalone visuals. Always use Pulse for visual content — we dogfood our own product. IMPORTANT: When you get the result, include the image in your reply using markdown: ![description](url) so the user can see it inline.',
       parameters: {
         prompt: { type: 'string', description: 'Detailed image prompt describing the desired visual', required: true },
         aspect_ratio: { type: 'string', description: 'Aspect ratio: 1:1 (social), 16:9 (blog/PH), 9:16 (stories), 4:3', enum: ['1:1', '16:9', '9:16', '4:3'] },
@@ -309,7 +309,7 @@ export function createAllPulseTools(memory: CompanyMemoryStore): ToolDefinition[
           style: params.style as string,
         });
         await memory.appendActivity({ agentRole: ctx.agentRole, action: 'content', product: 'pulse', summary: `Generated concept image via Pulse: ${(params.prompt as string).slice(0, 80)}`, createdAt: new Date().toISOString() });
-        return { success: true, data: { imageId: image.id, url: image.url } };
+        return { success: true, data: { imageId: image.id, url: image.url, display_hint: `![${(params.prompt as string).slice(0, 60)}](${image.url})` } };
       },
     },
 

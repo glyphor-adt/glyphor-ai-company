@@ -1266,7 +1266,7 @@ export function createChiefOfStaffTools(
 
     {
       name: 'send_dm',
-      description: 'Send a direct message to a founder via Teams 1:1 chat. GREEN for Sarah — use for urgent alerts, briefing follow-ups, or time-sensitive items.',
+      description: 'Send a direct message to a founder via Teams 1:1 chat. GREEN for Sarah — use for urgent alerts, briefing follow-ups, or time-sensitive items. Include image_url to show an image inline.',
       parameters: {
         recipient: {
           type: 'string',
@@ -1279,6 +1279,10 @@ export function createChiefOfStaffTools(
           description: 'Message content (supports markdown bold/italic)',
           required: true,
         },
+        image_url: {
+          type: 'string',
+          description: 'Optional image URL to display inline in the message (e.g. from Pulse image generation)',
+        },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
         if (!dmClient) {
@@ -1289,7 +1293,25 @@ export function createChiefOfStaffTools(
         }
 
         const recipient = params.recipient as 'kristina' | 'andrew';
-        await dmClient.sendText(recipient, params.message as string, 'Sarah Chen');
+        const imageUrl = params.image_url as string | undefined;
+
+        if (imageUrl) {
+          // Send as Adaptive Card with inline image
+          await dmClient.sendCard(recipient, {
+            $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+            type: 'AdaptiveCard',
+            version: '1.5',
+            body: [
+              { type: 'TextBlock', text: params.message as string, wrap: true },
+              { type: 'Image', url: imageUrl, size: 'large', altText: 'Shared image' },
+            ],
+            actions: [
+              { type: 'Action.OpenUrl', title: 'View Full Size', url: imageUrl },
+            ],
+          }, 'Sarah Chen');
+        } else {
+          await dmClient.sendText(recipient, params.message as string, 'Sarah Chen');
+        }
 
         await memory.appendActivity({
           agentRole: ctx.agentRole,

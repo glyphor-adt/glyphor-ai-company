@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import Markdown from 'react-markdown';
 import { useAgents } from '../lib/hooks';
+import ChatMarkdown from '../components/ChatMarkdown';
 import { DISPLAY_NAME_MAP, AGENT_META, ROLE_DEPARTMENT, ROLE_TIER, ROLE_TITLE } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
@@ -826,7 +826,7 @@ export default function GroupChat() {
                   </div>
                 )}
                 {msg.role === 'agent' || msg.role === 'founder' ? (
-                  <div className="prose-chat"><Markdown>{msg.content}</Markdown></div>
+                  <ChatMarkdown>{msg.content}</ChatMarkdown>
                 ) : (
                   <p className="whitespace-pre-wrap">{msg.content}</p>
                 )}

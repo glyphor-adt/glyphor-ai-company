@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Markdown from 'react-markdown';
+import ChatMarkdown from '../components/ChatMarkdown';
 import { Orbit, Plus, Globe, Brain, Database, Paperclip, Copy, Check, ChevronDown, ChevronRight, Mic, MicOff, MessageSquarePlus, PanelLeftClose, PanelLeft, Search, Trash2 } from 'lucide-react';
 import { FaGithub } from 'react-icons/fa';
 import { Card } from '../components/ui';
@@ -1188,7 +1189,7 @@ export default function OraChat() {
                 </div>
               ) : msg.content ? (
                 <>
-                  <div className="prose-chat"><Markdown>{msg.content}</Markdown></div>
+                  <ChatMarkdown>{msg.content}</ChatMarkdown>
                   {msg.role === 'assistant' && msg.metadata?.triangulation?.reasoning && (
                     <ReasoningPanel reasoning={msg.metadata.triangulation.reasoning} />
                   )}

@@ -46,6 +46,7 @@ export interface AdaptiveCard {
 
 export type AdaptiveCardElement =
   | { type: 'TextBlock'; text: string; size?: string; weight?: string; color?: string; wrap?: boolean; spacing?: string; separator?: boolean }
+  | { type: 'Image'; url: string; size?: string; altText?: string; horizontalAlignment?: string; spacing?: string }
   | { type: 'ColumnSet'; columns: Array<{ type: 'Column'; width: string; items: AdaptiveCardElement[] }> }
   | { type: 'FactSet'; facts: Array<{ title: string; value: string }> }
   | { type: 'Container'; items: AdaptiveCardElement[]; style?: string; bleed?: boolean; separator?: boolean };
