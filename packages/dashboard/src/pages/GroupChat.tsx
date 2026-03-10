@@ -100,7 +100,7 @@ function ActionReceipts({ actions }: { actions: ActionReceipt[] }) {
   );
 }
 
-export default function GroupChat() {
+export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
   const { data: agents } = useAgents();
   const { user } = useAuth();
   const userInitials = user?.name
@@ -565,7 +565,7 @@ export default function GroupChat() {
   };
 
   return (
-    <div className="flex h-[calc(100dvh-10rem)] md:h-[calc(100vh-6rem)] gap-5">
+    <div className={`flex ${embedded ? 'h-full' : 'h-[calc(100dvh-10rem)] md:h-[calc(100vh-6rem)]'} gap-5`}>
       {/* ── Member Selector (Left) ────────────── */}
       <div className="w-60 flex-shrink-0 flex flex-col min-h-0">
         <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-txt-muted">

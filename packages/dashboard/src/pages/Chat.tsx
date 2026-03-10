@@ -280,7 +280,7 @@ function SidebarContent({
   );
 }
 
-export default function Chat() {
+export default function Chat({ embedded }: { embedded?: boolean } = {}) {
   const { agentId } = useParams();
   const { data: agents } = useAgents();
   const { user } = useAuth();
@@ -776,7 +776,7 @@ export default function Chat() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
-    <div className="flex h-[calc(100dvh-10rem)] md:h-[calc(100vh-6rem)] gap-2 md:gap-5">
+    <div className={`flex ${embedded ? 'h-full' : 'h-[calc(100dvh-10rem)] md:h-[calc(100vh-6rem)]'} gap-2 md:gap-5`}>
       {/* ── Mobile sidebar overlay ────────────── */}
       {mobileSidebarOpen && (
         <div className="fixed inset-0 z-50 md:hidden" onClick={() => setMobileSidebarOpen(false)}>
