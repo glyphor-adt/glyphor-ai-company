@@ -13,9 +13,12 @@ import {
   formatDateTime,
   formatPercent,
   getDisplayName,
+  getRoleTitle,
   toHumanWords,
 } from './shared';
-import { ROLE_DEPARTMENT } from '../../lib/types';
+import { DISPLAY_NAME_MAP, ROLE_DEPARTMENT, ROLE_TITLE } from '../../lib/types';
+
+type HealthFilter = null | 'high-risk' | 'stale' | 'telemetry-gap';
 
 interface ToolViewProps {
   loading: boolean;
@@ -50,14 +53,14 @@ function getToolSeverity(tool: ToolReputation): Severity {
 
 function ToolHealthOverview({
   activeTools,
-  recentExpired,
   telemetryGaps,
-  onOpenSurface,
+  activeFilter,
+  onFilter,
 }: {
   activeTools: EnrichedTool[];
-  recentExpired: ToolReputation[];
   telemetryGaps: Array<{ toolName: string; activeGrantCount: number }>;
-  onOpenSurface: (surface: GovernanceSurface) => void;
+  activeFilter: HealthFilter;
+  onFilter: (filter: HealthFilter) => void;
 }) {
   const avgReliability = average(
     activeTools
@@ -67,37 +70,54 @@ function ToolHealthOverview({
   const highRiskCount = activeTools.filter((tool) => tool.severity === 'critical' || tool.severity === 'high').length;
   const staleCount = activeTools.filter((tool) => (daysSince(tool.last_used_at) ?? 0) > 7).length;
 
-  const cards = [
+  const cards: { label: string; value: string; tone: string; filter?: HealthFilter }[] = [
     { label: 'Active Tools', value: activeTools.length.toString(), tone: 'text-prism-sky' },
     { label: 'Avg Reliability', value: formatPercent(avgReliability, 0), tone: 'text-prism-teal' },
-    { label: 'High-Risk Tools', value: highRiskCount.toString(), tone: 'text-prism-critical' },
-    { label: 'Stale Active Tools', value: staleCount.toString(), tone: 'text-prism-elevated' },
-    { label: 'Expired in 30d', value: recentExpired.length.toString(), tone: 'text-prism-high' },
-    { label: 'Awaiting Telemetry', value: telemetryGaps.length.toString(), tone: 'text-prism-sky' },
+    { label: 'High-Risk Tools', value: highRiskCount.toString(), tone: 'text-prism-critical', filter: 'high-risk' },
+    { label: 'Stale Active Tools', value: staleCount.toString(), tone: 'text-prism-elevated', filter: 'stale' },
+    { label: 'Awaiting Telemetry', value: telemetryGaps.length.toString(), tone: 'text-prism-sky', filter: 'telemetry-gap' },
   ];
 
   return (
     <Card>
       <SectionHeader
         title="Tool Health Overview"
-        subtitle="Restored tool-focused telemetry for reliability, freshness, and expiration events without undoing the new governance layout."
-        action={(
+        subtitle="Reliability, freshness, and risk status across all active tools."
+        action={activeFilter ? (
           <button
             type="button"
-            onClick={() => onOpenSurface('access-control')}
-            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-[12px] font-medium text-txt-secondary transition-colors hover:border-border-hover hover:text-txt-primary"
+            onClick={() => onFilter(null)}
+            className="flex items-center gap-1.5 rounded-lg border border-cyan/30 bg-cyan/10 px-3 py-1.5 text-[12px] font-medium text-cyan transition-colors hover:bg-cyan/20"
           >
-            Search grant inventory
+            <MdClose className="h-3.5 w-3.5" />
+            Clear filter
           </button>
-        )}
+        ) : undefined}
       />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-        {cards.map((card) => (
-          <div key={card.label} className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">{card.label}</p>
-            <p className={`mt-3 text-3xl font-semibold ${card.tone}`}>{card.value}</p>
-          </div>
-        ))}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        {cards.map((card) => {
+          const isClickable = card.filter != null;
+          const isActive = activeFilter === card.filter;
+          return (
+            <button
+              key={card.label}
+              type="button"
+              disabled={!isClickable}
+              onClick={() => isClickable && onFilter(isActive ? null : card.filter!)}
+              className={`rounded-xl border p-4 text-left transition-colors ${
+                isActive
+                  ? 'border-cyan/40 bg-cyan/8 ring-1 ring-cyan/20'
+                  : 'border-border/70 bg-prism-card/60'
+              } ${isClickable ? 'cursor-pointer hover:border-border-hover' : 'cursor-default'}`}
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">{card.label}</p>
+              <p className={`mt-3 text-3xl font-semibold ${card.tone}`}>{card.value}</p>
+              {isClickable && (
+                <p className="mt-2 text-[10px] text-txt-muted">{isActive ? 'Showing filtered' : 'Click to filter'}</p>
+              )}
+            </button>
+          );
+        })}
       </div>
     </Card>
   );
@@ -105,11 +125,22 @@ function ToolHealthOverview({
 
 function ToolReputationBoard({
   items,
+  activeFilter,
   onOpenSurface,
 }: {
   items: EnrichedTool[];
+  activeFilter: HealthFilter;
   onOpenSurface: (surface: GovernanceSurface) => void;
 }) {
+  const filtered = useMemo(() => {
+    if (!activeFilter) return items;
+    if (activeFilter === 'high-risk') return items.filter((t) => t.severity === 'critical' || t.severity === 'high');
+    if (activeFilter === 'stale') return items.filter((t) => (daysSince(t.last_used_at) ?? 0) > 7);
+    return items;
+  }, [items, activeFilter]);
+
+  const filterLabel = activeFilter === 'high-risk' ? 'High-Risk' : activeFilter === 'stale' ? 'Stale' : null;
+
   if (!items.length) {
     return (
       <EmptyState
@@ -122,7 +153,7 @@ function ToolReputationBoard({
   return (
     <Card>
       <SectionHeader
-        title="Tool Reputation Board"
+        title={filterLabel ? `Tool Reputation Board — ${filterLabel} (${filtered.length})` : 'Tool Reputation Board'}
         subtitle="Worst-first view of active tools, combining runtime health with current governance grants."
       />
       <div className="overflow-x-auto">
@@ -140,7 +171,7 @@ function ToolReputationBoard({
             </tr>
           </thead>
           <tbody>
-            {items.map((tool) => {
+            {filtered.map((tool) => {
               const staleDays = daysSince(tool.last_used_at);
               const tone = tool.severity === 'critical'
                 ? 'bg-prism-critical/6'
@@ -196,64 +227,6 @@ function ToolReputationBoard({
           </tbody>
         </table>
       </div>
-    </Card>
-  );
-}
-
-function RecentlyExpiredTools({
-  items,
-  grantCounts,
-  onOpenSurface,
-}: {
-  items: ToolReputation[];
-  grantCounts: Map<string, number>;
-  onOpenSurface: (surface: GovernanceSurface) => void;
-}) {
-  return (
-    <Card>
-      <SectionHeader
-        title="Recently Expired Tools"
-        subtitle="Most recent tool expirations from the scheduler, so founders can see what aged out and why."
-      />
-      {!items.length ? (
-        <p className="text-[13px] text-txt-muted">No tools have expired in the last 30 days.</p>
-      ) : (
-        <div className="space-y-3">
-          {items.map((tool) => {
-            const activeGrantCount = grantCounts.get(tool.tool_name) ?? 0;
-            return (
-              <div key={tool.id} className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <SeverityBadge severity="warning" />
-                      <p className="text-sm font-semibold text-txt-primary">{toHumanWords(tool.tool_name)}</p>
-                    </div>
-                    <p className="mt-2 text-[13px] text-txt-secondary">
-                      {tool.expiration_reason ? `Expired for ${tool.expiration_reason.replace(/_/g, ' ')}.` : 'Marked inactive by the scheduler.'}
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-txt-muted">
-                      <span>{tool.tool_source}</span>
-                      <span>Expired {formatDateTime(tool.expired_at ?? tool.updated_at)}</span>
-                      <span>Last used {formatDateTime(tool.last_used_at)}</span>
-                      <span>Reliability {formatPercent(tool.reliability_score, 0)}</span>
-                    </div>
-                  </div>
-                  {activeGrantCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => onOpenSurface('access-control')}
-                      className="rounded-lg border border-prism-elevated/30 bg-prism-elevated/10 px-3 py-1.5 text-[12px] font-medium text-prism-elevated transition-colors hover:bg-prism-elevated/20"
-                    >
-                      {activeGrantCount} active grant{activeGrantCount === 1 ? '' : 's'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
     </Card>
   );
 }
@@ -342,19 +315,38 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
     }
 
     const matches: SearchResult[] = [];
+    const matchedAgents = new Set<string>();
 
-    // Agent matches
+    // Agent matches from grants
     for (const [role, agentGrants] of byAgent) {
       const searchable = normalizeSearch(
-        [role, getDisplayName(role), ROLE_DEPARTMENT[role] ?? ''].join(' '),
+        [role, getDisplayName(role), ROLE_DEPARTMENT[role] ?? '', ROLE_TITLE[role] ?? ''].join(' '),
+      );
+      if (q.split(' ').every((token) => searchable.includes(token))) {
+        matchedAgents.add(role);
+        matches.push({
+          type: 'agent',
+          key: `agent:${role}`,
+          label: getDisplayName(role),
+          subtitle: `${ROLE_TITLE[role] ?? ROLE_DEPARTMENT[role] ?? 'Unknown'} · ${agentGrants.length} tool${agentGrants.length === 1 ? '' : 's'}`,
+          grants: agentGrants,
+        });
+      }
+    }
+
+    // All agents (even without grants) so search always finds people
+    for (const [role, displayName] of Object.entries(DISPLAY_NAME_MAP)) {
+      if (matchedAgents.has(role)) continue;
+      const searchable = normalizeSearch(
+        [role, displayName, ROLE_DEPARTMENT[role] ?? '', ROLE_TITLE[role] ?? ''].join(' '),
       );
       if (q.split(' ').every((token) => searchable.includes(token))) {
         matches.push({
           type: 'agent',
           key: `agent:${role}`,
-          label: getDisplayName(role),
-          subtitle: `${ROLE_DEPARTMENT[role] ?? 'Unknown'} · ${agentGrants.length} tool${agentGrants.length === 1 ? '' : 's'}`,
-          grants: agentGrants,
+          label: displayName,
+          subtitle: `${ROLE_TITLE[role] ?? ROLE_DEPARTMENT[role] ?? 'Unknown'} · No tool grants`,
+          grants: [],
         });
       }
     }
@@ -501,17 +493,7 @@ export default function ToolView({
       });
   }, [activeGrantCounts, toolReputation]);
 
-  const recentExpired = useMemo(() => {
-    const cutoff = Date.now() - 30 * 86_400_000;
-    return toolReputation
-      .filter((tool) => {
-        if (tool.is_active) return false;
-        const eventAt = tool.expired_at ?? tool.updated_at;
-        return new Date(eventAt).getTime() >= cutoff;
-      })
-      .sort((left, right) => new Date(right.expired_at ?? right.updated_at).getTime() - new Date(left.expired_at ?? left.updated_at).getTime())
-      .slice(0, 12);
-  }, [toolReputation]);
+  const [healthFilter, setHealthFilter] = useState<HealthFilter>(null);
 
   const telemetryGaps = useMemo(() => {
     const knownTools = new Set(toolReputation.map((tool) => tool.tool_name));
@@ -556,14 +538,11 @@ export default function ToolView({
       <ToolAssignmentSearch grants={grants} />
       <ToolHealthOverview
         activeTools={activeTools}
-        recentExpired={recentExpired}
         telemetryGaps={telemetryGaps.map(({ toolName, activeGrantCount }) => ({ toolName, activeGrantCount }))}
-        onOpenSurface={onOpenSurface}
+        activeFilter={healthFilter}
+        onFilter={setHealthFilter}
       />
-      <div className="grid gap-6 xl:grid-cols-[1.15fr,0.85fr]">
-        <ToolReputationBoard items={activeTools} onOpenSurface={onOpenSurface} />
-        <RecentlyExpiredTools items={recentExpired} grantCounts={activeGrantCounts} onOpenSurface={onOpenSurface} />
-      </div>
+      <ToolReputationBoard items={activeTools} activeFilter={healthFilter} onOpenSurface={onOpenSurface} />
       <TelemetryGaps items={telemetryGaps} onOpenSurface={onOpenSurface} />
     </div>
   );

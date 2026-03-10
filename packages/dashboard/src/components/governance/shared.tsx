@@ -3,7 +3,7 @@ import { MdChevronRight, MdExpandMore } from 'react-icons/md';
 import { Card } from '../ui';
 import { DISPLAY_NAME_MAP, ROLE_DEPARTMENT, ROLE_TIER, ROLE_TITLE } from '../../lib/types';
 
-export type GovernanceSurface = 'command-center' | 'tool-view' | 'access-control' | 'policy-lab';
+export type GovernanceSurface = 'tool-view' | 'access-control' | 'policy-lab';
 export type Platform = 'gcp' | 'm365' | 'github' | 'stripe' | 'vercel';
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info' | 'good' | 'warning';
 

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, PageTabs, SectionHeader, Skeleton } from '../components/ui';
-import CommandCenter from '../components/governance/CommandCenter';
 import AccessControl from '../components/governance/AccessControl';
 import PolicyLab from '../components/governance/PolicyLab';
 import ToolView from '../components/governance/ToolView';
@@ -494,7 +493,7 @@ async function apiCallWithTimeout<T = unknown>(path: string, options: RequestIni
 
 export default function Governance() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<GovernanceSurface>('command-center');
+  const [activeTab, setActiveTab] = useState<GovernanceSurface>('tool-view');
   const [data, setData] = useState<GovernanceData>(INITIAL_DATA);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -654,7 +653,7 @@ export default function Governance() {
         <div>
           <SectionHeader
             title="Governance Control Plane"
-            subtitle="Executive Command Center, restored Tool View, Access Control, and Policy Lab surfaces aligned to the overhaul architecture."
+            subtitle="Tool View, Access Control, and Policy Lab surfaces for managing agent tools, grants, and policies."
           />
           <Card className="max-w-3xl border-prism-sky/20 bg-prism-sky/5">
             <p className="text-[13px] text-txt-secondary">
@@ -679,7 +678,6 @@ export default function Governance() {
 
       <PageTabs<GovernanceSurface>
         tabs={[
-          { key: 'command-center', label: 'Command Center' },
           { key: 'tool-view', label: 'Tool View' },
           { key: 'access-control', label: 'Access Control' },
           { key: 'policy-lab', label: 'Policy Lab' },
@@ -687,19 +685,6 @@ export default function Governance() {
         active={activeTab}
         onChange={setActiveTab}
       />
-
-      {activeTab === 'command-center' && (
-        <CommandCenter
-          loading={false}
-          riskSummary={data.riskSummary}
-          actionQueue={data.actionQueue}
-          changeLog={data.changeLog}
-          trustMap={data.trustMap}
-          onOpenSurface={setActiveTab}
-          onResolveDecision={handleResolveApproval}
-          busyDecisionId={busyDecisionId}
-        />
-      )}
 
       {activeTab === 'tool-view' && (
         <div id="tool-view">
