@@ -220,12 +220,50 @@ async function acquireToken(config: Agent365Config): Promise<string> {
   cachedAccessToken = tokenResponse.access_token;
   cachedTokenExpiry = Date.now() + tokenResponse.expires_in * 1000;
 
-  // Log the new refresh token if it changed (for rotation monitoring)
+  // Persist rotated refresh token to GCP Secret Manager so it survives restarts
   if (tokenResponse.refresh_token && tokenResponse.refresh_token !== config.refreshToken) {
-    console.log('[Agent365] Refresh token was rotated — update AGENT365_REFRESH_TOKEN secret if needed');
+    console.log('[Agent365] Refresh token was rotated — saving to GCP Secret Manager');
+    saveRotatedRefreshToken(tokenResponse.refresh_token).catch((err) =>
+      console.error('[Agent365] Failed to save rotated refresh token:', (err as Error).message)
+    );
+    // Update in-memory config so subsequent calls within this process use the new token
+    config.refreshToken = tokenResponse.refresh_token;
   }
 
   return cachedAccessToken;
+}
+
+/**
+ * Save a rotated refresh token back to GCP Secret Manager.
+ * Uses the metadata server for auth (works on Cloud Run without a service account key).
+ */
+async function saveRotatedRefreshToken(newToken: string): Promise<void> {
+  const project = process.env.GCP_PROJECT ?? process.env.GOOGLE_CLOUD_PROJECT ?? 'ai-glyphor-company';
+  const secretName = 'agent365-refresh-token';
+
+  // Get access token from metadata server
+  const metaResp = await fetch(
+    'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token',
+    { headers: { 'Metadata-Flavor': 'Google' } }
+  );
+  if (!metaResp.ok) throw new Error(`Metadata server returned ${metaResp.status}`);
+  const { access_token: gcpToken } = await metaResp.json() as { access_token: string };
+
+  // Add new secret version via REST API
+  const payload = Buffer.from(newToken).toString('base64');
+  const addResp = await fetch(
+    `https://secretmanager.googleapis.com/v1/projects/${project}/secrets/${secretName}:addVersion`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${gcpToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payload: { data: payload } }),
+    }
+  );
+  if (!addResp.ok) {
+    const body = await addResp.text();
+    throw new Error(`Secret Manager returned ${addResp.status}: ${body}`);
+  }
+  console.log('[Agent365] Rotated refresh token saved to GCP Secret Manager');
 }
 
 async function discoverServerConfigs(
