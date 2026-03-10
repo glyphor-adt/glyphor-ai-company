@@ -764,6 +764,20 @@ export function createAllPulseTools(memory: CompanyMemoryStore): ToolDefinition[
       },
     },
 
+    {
+      name: 'pulse_poll_multi_shot',
+      description: 'Poll the status of a Kling Multi-Shot task. When complete, extracts all generated angle images and uploads them to R2 for persistent storage. Returns task status and persistent R2 URLs when finished. Include the images in your reply using markdown ![angle](url).',
+      parameters: {
+        task_id: { type: 'string', description: 'The task ID returned from pulse_kling_multi_shot', required: true },
+      },
+      async execute(params): Promise<ToolResult> {
+        const pulse = getPulseClient();
+        if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
+        const result = await pulse.callAndParse('poll_multi_shot', { task_id: params.task_id });
+        return { success: true, data: result };
+      },
+    },
+
     // ── Analysis ──
 
     {
