@@ -14,12 +14,16 @@ import type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse } from 
 export class AnthropicAdapter implements ProviderAdapter {
   readonly provider = 'anthropic' as const;
   private client: AnthropicVertex;
+  private directClient: Anthropic | null;
 
-  constructor(projectId: string, region = 'us-east5') {
+  constructor(projectId: string, region = 'us-east5', anthropicApiKey?: string) {
     this.client = new AnthropicVertex({
       projectId,
       region,
     });
+    this.directClient = anthropicApiKey
+      ? new Anthropic({ apiKey: anthropicApiKey })
+      : null;
   }
 
   async generate(request: UnifiedModelRequest): Promise<UnifiedModelResponse> {
@@ -57,7 +61,7 @@ export class AnthropicAdapter implements ProviderAdapter {
       ? Math.max(request.maxTokens ?? 16384, thinkingBudget + 4096)
       : (request.maxTokens ?? 16384);
 
-    const response = await this.client.messages.create({
+    const createParams = {
       model: request.model,
       system: request.systemInstruction,
       messages,
@@ -66,9 +70,24 @@ export class AnthropicAdapter implements ProviderAdapter {
       temperature: useThinking ? 1 : (request.temperature ?? 0.7),
       ...(request.topP !== undefined ? { top_p: request.topP } : {}),
       ...thinkingParam,
-    } as Parameters<typeof this.client.messages.create>[0]);
+    } as Parameters<typeof this.client.messages.create>[0];
 
-    return this.mapResponse(response as Anthropic.Message);
+    let response: Anthropic.Message;
+    try {
+      response = await this.client.messages.create(createParams) as Anthropic.Message;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const isQuota = /429|rate.?limit|quota|resource.?exhausted|too many requests/i.test(msg);
+      if (isQuota && this.directClient) {
+        console.log(`[AnthropicAdapter] Vertex quota hit for ${request.model}, falling back to direct API`);
+        // Vertex SDK bundles its own @anthropic-ai/sdk types; cast via unknown to bridge the mismatch
+        response = await this.directClient.messages.create(createParams as unknown as Parameters<typeof this.directClient.messages.create>[0]) as Anthropic.Message;
+      } else {
+        throw err;
+      }
+    }
+
+    return this.mapResponse(response);
   }
 
   private mapConversation(turns: ConversationTurn[]): Anthropic.MessageParam[] {

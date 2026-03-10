@@ -429,6 +429,7 @@ const strategyModelClient = new ModelClient({
   geminiApiKey: process.env.GOOGLE_AI_API_KEY,
   openaiApiKey: process.env.OPENAI_API_KEY,
   vertexProjectId: process.env.GCP_PROJECT_ID || 'ai-glyphor-company',
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY,
 });
 const analysisEngine = new AnalysisEngine(strategyModelClient);
 const simulationEngine = new SimulationEngine(strategyModelClient);

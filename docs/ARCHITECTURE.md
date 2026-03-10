@@ -1,6 +1,6 @@
 # Glyphor AI Company — System Architecture
 
-> Last updated: 2026-03-14 (World model self-assessment, default-ON thinking for chat, SharePoint search/upload fixes, model tiering documentation)
+> Last updated: 2026-03-10 (Model switch to gpt-5-mini-2025-08-07 as default for all agents, Agent365 auth migrated to refresh_token grant with auto-rotation to GCP Secret Manager, 573 KNOWN_TOOLS in toolRegistry, Copilot assignee bug fix in change request pipeline, phantom tool grant audit — 0 phantoms across 33 agents)
 
 ## Overview
 
@@ -400,20 +400,20 @@ auditing, lead generation, and executive assistantship.
 ### AI Executives (9)
 
 All 9 executives have full agent runners (`run.ts`, `systemPrompt.ts`, `tools.ts`) and are
-active 24/7 via the scheduler service. Models are assigned by `optimizeModel()` — see
-[ModelClient](#modelclient--multi-provider-llm) for the full tiered model system.
+active 24/7 via the scheduler service. All agents default to `gpt-5-mini-2025-08-07` — see
+[ModelClient](#modelclient--multi-provider-llm) for supported models and fallback chains.
 
-| Name | Role | Agent ID | Model (Tier) | Responsibilities |
-|------|------|----------|-------|-----------------|
-| **Sarah Chen** | Chief of Staff | `chief-of-staff` | `gemini-3-flash-preview` (Pro) | Morning briefings, decision routing, cross-agent synthesis, escalation tracking, EOD summaries, pre-dispatch validation |
-| **Marcus Reeves** | CTO | `cto` | `gemini-3-flash-preview` (Pro) | Platform health, deployment management, model fallbacks, incident response, dependency review |
-| **Nadia Okafor** | CFO | `cfo` | `gemini-3-flash-preview` (Pro) | Daily cost monitoring, revenue tracking, margin analysis, unit economics, budget alerts |
-| **Elena Vasquez** | CPO | `cpo` | `gemini-3-flash-preview` (Pro) | Usage analysis, competitive intelligence, roadmap management, feature prioritisation (RICE) |
-| **Maya Brooks** | CMO | `cmo` | `gemini-3-flash-preview` (Pro) | Content generation, social media, SEO strategy, brand positioning, growth analytics |
-| **James Turner** | VP Customer Success | `vp-customer-success` | `gemini-2.5-flash` (Standard) | Health scoring, churn prevention, nurture outreach, cross-product recommendations |
-| **Rachel Kim** | VP Sales | `vp-sales` | `gemini-2.5-flash` (Standard) | KYC research, ROI calculators, enterprise proposals, pipeline management, market sizing |
-| **Mia Tanaka** | VP Design & Frontend | `vp-design` | `gemini-2.5-flash` (Standard) | Design system governance, component quality audits, template variety, AI-smell detection |
-| **Victoria Chase** | Chief Legal Officer | `clo` | `gemini-3-flash-preview` (Pro) | AI regulation (EU AI Act, FTC), IP protection, commercial agreements, data privacy (GDPR, CCPA, SOC 2), corporate governance |
+| Name | Role | Agent ID | Model | Responsibilities |
+|------|------|----------|-------|------------------|
+| **Sarah Chen** | Chief of Staff | `chief-of-staff` | `gpt-5-mini-2025-08-07` | Morning briefings, decision routing, cross-agent synthesis, escalation tracking, EOD summaries, pre-dispatch validation |
+| **Marcus Reeves** | CTO | `cto` | `gpt-5-mini-2025-08-07` | Platform health, deployment management, model fallbacks, incident response, dependency review |
+| **Nadia Okafor** | CFO | `cfo` | `gpt-5-mini-2025-08-07` | Daily cost monitoring, revenue tracking, margin analysis, unit economics, budget alerts |
+| **Elena Vasquez** | CPO | `cpo` | `gpt-5-mini-2025-08-07` | Usage analysis, competitive intelligence, roadmap management, feature prioritisation (RICE) |
+| **Maya Brooks** | CMO | `cmo` | `gpt-5-mini-2025-08-07` | Content generation, social media, SEO strategy, brand positioning, growth analytics |
+| **James Turner** | VP Customer Success | `vp-customer-success` | `gpt-5-mini-2025-08-07` | Health scoring, churn prevention, nurture outreach, cross-product recommendations |
+| **Rachel Kim** | VP Sales | `vp-sales` | `gpt-5-mini-2025-08-07` | KYC research, ROI calculators, enterprise proposals, pipeline management, market sizing |
+| **Mia Tanaka** | VP Design & Frontend | `vp-design` | `gpt-5-mini-2025-08-07` | Design system governance, component quality audits, template variety, AI-smell detection |
+| **Victoria Chase** | Chief Legal Officer | `clo` | `gpt-5-mini-2025-08-07` | AI regulation (EU AI Act, FTC), IP protection, commercial agreements, data privacy (GDPR, CCPA, SOC 2), corporate governance |
 
 > **Note:** Victoria Chase (CLO) reports directly to both founders, not through Sarah Chen.
 
@@ -465,10 +465,10 @@ and dashboard entries. They operate under their executive's authority scope and 
 
 ### Operations Agents (2)
 
-| Name | Role | Agent ID | Model (Tier) | Responsibilities |
-|------|------|----------|-------|-----------------|
-| **Atlas Vega** | Operations & System Intelligence | `ops` | `gemini-3-flash-preview` (Pro) | System health checks, data freshness monitoring, cost awareness, morning/evening status reports, event response |
-| **Morgan Blake** | Global Administrator | `global-admin` | `gemini-2.5-flash-lite` (Economy) | Cross-platform access provisioning (GCP, Entra ID, M365, GitHub, Vercel, Stripe), onboarding/offboarding, access audits, compliance reporting |
+| Name | Role | Agent ID | Model | Responsibilities |
+|------|------|----------|-------|------------------|
+| **Atlas Vega** | Operations & System Intelligence | `ops` | `gpt-5-mini-2025-08-07` | System health checks, data freshness monitoring, cost awareness, morning/evening status reports, event response |
+| **Morgan Blake** | Global Administrator | `global-admin` | `gpt-5-mini-2025-08-07` | Cross-platform access provisioning (GCP, Entra ID, M365, GitHub, Vercel, Stripe), onboarding/offboarding, access audits, compliance reporting |
 
 > **Note:** Morgan Blake has **Founder Protection** — cannot modify Kristina/Andrew/devops@glyphor.ai access.
 
@@ -824,7 +824,8 @@ glyphor-ai-company/
 │   │       ├── agent365/
 │   │       │   └── index.ts           # Agent 365 MCP bridge — converts Microsoft MCP tool schemas
 │   │       │                        #   to Glyphor ToolDefinition format via @microsoft/agents-a365-tooling
-│   │       │                        #   MSAL client credentials auth, persistent MCP client connections
+│   │       │                        #   Refresh token grant (delegated user tokens), auto-rotation
+│   │       │                        #   to GCP Secret Manager via metadata server REST API
 │   │       └── pulse/
 │   │           └── index.ts           # Company Pulse data
 │   │
@@ -1842,15 +1843,19 @@ ModelClient.generate(request)
 All providers normalize `finishReason` to a lowercase `'stop'` | `'length'` | `'tool_calls'` | `'error'`
 contract via `normalizeFinishReason()` so runners can check `=== 'stop'` uniformly.
 
-Agents use a **tiered model system** managed by `optimizeModel(role, task, dbModel?)` in
-`@glyphor/shared/models.ts`. Default model: `gpt-5-mini-2025-08-07`. Cost tiers:
+Agents use `optimizeModel(role, task, dbModel?)` in `@glyphor/shared/models.ts`.
+Default model for all agents: **`gpt-5-mini-2025-08-07`** ($0.25/1M input, $2.00/1M output).
+The tiered model system still exists in code for per-role overrides, but the default model
+applies universally unless overridden via the dashboard Settings tab per agent.
 
-| Tier | Model | $/1K Input / $/1K Output | Roles |
+Legacy cost tiers (available for per-agent override):
+
+| Tier | Model | $/1M Input / $/1M Output | Notes |
 |------|-------|--------------------------|-------|
-| **Economy** | `gemini-2.5-flash-lite` | $0.10 / $0.40 | support-triage, onboarding-specialist, m365-admin, global-admin, seo-analyst, cost-analyst |
-| **Standard** | `gemini-2.5-flash` | $0.30 / $2.50 | content-creator, ui-ux-designer, frontend-engineer, user-researcher, vp-customer-success, vp-sales, vp-design |
-| **Pro** | `gemini-3-flash-preview` | $0.50 / $3.00 | chief-of-staff, cto, cfo, cpo, cmo, clo, vp-research, ops |
-| **Exec Chat** | `gemini-3-flash-preview` | $0.50 / $3.00 | All pro roles during on-demand chat |
+| **Economy** | `gpt-5-mini-2025-08-07` | $0.25 / $2.00 | Default for all agents |
+| **Standard** | `gemini-2.5-flash` | $0.30 / $2.50 | Available as override |
+| **Pro** | `gemini-3-flash-preview` | $0.50 / $3.00 | Available as override |
+| **Exec Chat** | `gemini-3-flash-preview` | $0.50 / $3.00 | Available as override |
 
 Agents can be switched to any supported model via the dashboard Settings tab.
 Multi-provider support is built in for fallback.
@@ -1905,7 +1910,7 @@ Supports value gating — outputs below a confidence threshold can be blocked or
 Verification models:
 - `gpt-5.2-2025-12-11` (OpenAI)
 - `claude-opus-4-6` (Anthropic — via Vertex AI)
-- `gemini-3-flash-preview` (Google — same as primary)
+- `gemini-3-flash-preview` (Google)
 
 #### JitContextRetriever (`jitContextRetriever.ts`)
 
@@ -2302,12 +2307,13 @@ in `companyAgentRunner.ts`) to never tell the user "I don't have access." Instea
 | `request_new_tool` | Request a tool that doesn't exist yet. Validates name format, checks for duplicates, auto-files a Yellow decision for CTO review. |
 | `check_tool_request_status` | Query pending/approved tool requests by ID or list all for the agent. |
 
-**Tool Registry** (`toolRegistry.ts`): Central registry of all known tools via `isKnownTool(name)`.
+**Tool Registry** (`toolRegistry.ts`): Central registry of **573 known tools** via `isKnownTool(name)`.
 Grant requests for tools not in the registry are rejected with a message to ask Marcus (CTO) to build it first.
+Includes 49 `pulse_*` tools for the Pulse product agent integration.
 
 **Database**: `agent_tool_grants` table with columns `agent_role`, `tool_name`, `granted_by`,
 `reason`, `directive_id`, `scope`, `is_active`, `expires_at`. Unique constraint on
-`(agent_role, tool_name)`. Seeded with baseline grants for all 37 agents.
+`(agent_role, tool_name)`. 1,695 active grants across 33 agents (audited 2026-03-10, 0 phantom grants).
 
 ### Action Honesty System
 
@@ -2467,7 +2473,8 @@ Agent run.ts / runDynamicAgent.ts → createAgent365McpTools(role)
   → resolveAgent365Credentials(role)
   → integrations/agent365/index.ts (MCP bridge)
   → @microsoft/agents-a365-tooling SDK
-  → MSAL client credentials auth (Azure Entra)
+  → OAuth 2.0 refresh_token grant (delegated user tokens)
+  → Auto-rotation: rotated tokens saved to GCP Secret Manager
   → Microsoft MCP servers (agent365.svc.cloud.microsoft)
 ```
 
@@ -2494,7 +2501,7 @@ while runtime defaults now expose the full 9-server `ALL_M365_SERVERS` catalog.
 - Every checked-in file-based runner calls `createAgent365McpTools('<role>')`, and `runDynamicAgent.ts` does the same for DB-defined specialist agents.
 - No checked-in runner currently passes a narrowed Agent 365 server filter.
 - Agent 365 remains runtime-gated: if `AGENT365_ENABLED` is not `'true'`, or the required credentials are missing, the factory returns no tools instead of failing the run.
-- Credential resolution prefers per-agent overrides (`AGENT365_<ROLE>_CLIENT_ID`, `AGENT365_<ROLE>_CLIENT_SECRET`, `AGENT365_<ROLE>_TENANT_ID`) and otherwise falls back to shared `AGENT365_CLIENT_ID`, `AGENT365_CLIENT_SECRET`, and `AGENT365_TENANT_ID`.
+- Credential resolution uses `AGENT365_REFRESH_TOKEN` env var (obtained once via interactive device code auth, stored in GCP Secret Manager secret `agent365-refresh-token`). The bridge acquires delegated user tokens via OAuth 2.0 `refresh_token` grant and automatically saves rotated refresh tokens back to GCP Secret Manager via the metadata server REST API.
 
 **Configuration files (repo root):**
 
@@ -2597,6 +2604,7 @@ configuration rather than missing Agent 365 consent.
 | `assign-permissions-to-linked-sps.ps1` | Assigns permissions to linked service principals |
 | `recover-agent-users.ps1` | Recreates deleted agent user accounts (without blueprint — read-only field) |
 | `fix-licenses.ps1` | Sets `usageLocation=US` and assigns Agent 365 Tier 3 license to agent users |
+| `acquire-agent365-token.ps1` | Interactive device code auth to obtain refresh token for Agent365 MCP bridge. Uses public client `06c728b6-0111-4cb1-a708-d57c51128649`, stores token in GCP Secret Manager `agent365-refresh-token`, auto-wires `AGENT365_REFRESH_TOKEN` env var to both Cloud Run services |
 
 **Config/data files:**
 
@@ -2892,18 +2900,18 @@ then checks cron expressions every 60 seconds.
 
 JIT context compression layer that runs before each agent turn. Takes raw context data
 (memories, knowledge graph nodes, past episodes, procedures, organizational knowledge)
-and compresses it into a focused briefing via `gemini-3-flash-preview`.
+and compresses it into a focused briefing via `gpt-5-mini-2025-08-07`.
 
 ```
 Raw context (memories + graph + episodes + procedures)
   → ContextDistiller.distill(role, task, jitContext)
-  → gemini-3-flash-preview (compression)
+  → gpt-5-mini-2025-08-07 (compression)
   → DistilledContext { briefing, keyFacts, relevantHistory, costUsd, durationMs }
 ```
 
 | Constant | Value |
 |----------|-------|
-| Model | `gemini-3-flash-preview` |
+| Model | `gpt-5-mini-2025-08-07` |
 | Cache TTL | 300s (5 min) via Redis |
 | Typical cost | ~$0.001 per call |
 | Cache key | `distilled:{role}:{md5(context)}` |
@@ -2980,9 +2988,9 @@ Statuses: `pending` → `submitted` → `in_progress` → `review` → `merged` 
 | `packages/agent-runtime/src/reasoningEngine.ts` | Multi-pass verification & cross-model consensus engine |
 | `packages/agent-runtime/src/jitContextRetriever.ts` | Just-In-Time context retrieval (task-aware semantic retrieval) |
 | `packages/agent-runtime/src/redisCache.ts` | Redis cache layer for GCP Memorystore (TTL management, graceful degradation) |
-| `packages/agent-runtime/src/toolRegistry.ts` | Central tool lookup via static KNOWN_TOOLS + dynamic `tool_registry` DB table |
+| `packages/agent-runtime/src/toolRegistry.ts` | Central tool lookup via static KNOWN_TOOLS (573 tools) + dynamic `tool_registry` DB table |
 | `packages/agent-runtime/src/dynamicToolExecutor.ts` | Dynamic tool executor — runs DB-registered tools at runtime (API call support, 60s declaration cache) |
-| `packages/agent-runtime/src/contextDistiller.ts` | JIT context compression via gemini-3-flash-preview (~$0.001/call), 5-min Redis cache |
+| `packages/agent-runtime/src/contextDistiller.ts` | JIT context compression via gpt-5-mini-2025-08-07 (~$0.001/call), 5-min Redis cache |
 | `packages/agent-runtime/src/runtimeToolFactory.ts` | Mid-run tool synthesis (HTTP/Cloud SQL/sandboxed JS), max 3 per run, 20 persisted |
 | `packages/scheduler/src/changeRequestHandler.ts` | Dashboard change request → GitHub issue pipeline, heartbeat-driven (every 10 min) |
 | `packages/scheduler/src/brandTheme.ts` | Centralized design-system constants for PPTX/DOCX/image exports |
@@ -3461,14 +3469,14 @@ Requires `SCHEDULER_URL`, `DASHBOARD_URL`, `VOICE_GATEWAY_URL` env vars.
 | Service | Purpose | Config |
 |---------|---------|--------|
 | Cloud SQL | PostgreSQL database | `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` |
-| Google Gemini API | Primary AI inference | `GOOGLE_AI_API_KEY` |
-| OpenAI API | Alternative AI inference + web search + image gen | `OPENAI_API_KEY` |
+| Google Gemini API | Embedding model (`gemini-embedding-001`) + fallback inference | `GOOGLE_AI_API_KEY` |
+| OpenAI API | Primary AI inference (`gpt-5-mini-2025-08-07`) + web search + image gen | `OPENAI_API_KEY` |
 | Vertex AI (GCP) | Anthropic Claude inference via Vertex AI | GCP IAM auth (service account `glyphor-agent-runner` / `glyphor-worker` with `roles/aiplatform.user`), region `us-east5` |
 | Microsoft Entra ID | Teams auth (MSAL client credentials) | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` |
 | Azure Bot Service | Bot Framework (main + 10 agent bots) | `BOT_APP_ID`, `BOT_APP_SECRET`, `BOT_TENANT_ID`, `AGENT_BOTS` |
 | Stripe | Revenue tracking (MRR, churn, subscriptions) | `STRIPE_SECRET_KEY` |
 | Mercury | Banking (cash balance, cash flows, vendor subs) | `MERCURY_API_TOKEN` |
-| Agent 365 (Microsoft) | M365 MCP servers — agents access the 9-server Agent 365 catalog via MCP bridge (runtime defaults load the full catalog) | `AGENT365_CLIENT_ID`, `AGENT365_CLIENT_SECRET`, `AGENT365_TENANT_ID`, `AGENT365_ENABLED=true` |
+| Agent 365 (Microsoft) | M365 MCP servers — agents access the 9-server Agent 365 catalog via MCP bridge (refresh_token grant with auto-rotation to GCP Secret Manager) | `AGENT365_REFRESH_TOKEN` (from GCP Secret Manager `agent365-refresh-token`), `AGENT365_TENANT_ID`, `AGENT365_ENABLED=true` |
 | Figma | Design file access (file-level tools: file content, metadata, comments, variables) | `FIGMA_CLIENT_ID`, `FIGMA_CLIENT_SECRET`, `FIGMA_REFRESH_TOKEN` (OAuth 2.0, auto-refreshing access token) |
 
 ### Cloud Run URLs
@@ -3801,7 +3809,7 @@ push to main
 | `teams-channel-*-id` (9 secrets) | Teams channels |
 | `bot-app-id`, `bot-app-secret`, `bot-tenant-id` | Main bot |
 | `agent-bots` | JSON array of 10 agent bot configs |
-| `agent365-client-secret` | Agent 365 blueprint app (MSAL client credentials) |
+| `agent365-refresh-token` | Agent 365 refresh token (delegated user auth, auto-rotated by bridge) |
 | `figma-client-id` | Figma OAuth app client ID |
 | `figma-client-secret` | Figma OAuth app client secret |
 | `figma-refresh-token` | Figma OAuth refresh token (stable, auto-refreshes access token) |

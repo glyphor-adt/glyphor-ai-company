@@ -30,6 +30,8 @@ export interface ProviderFactoryConfig {
   vertexProjectId?: string;
   /** GCP region for Vertex AI Claude. Defaults to us-east5. */
   vertexRegion?: string;
+  /** Direct Anthropic API key — used as fallback when Vertex AI quota is exhausted. */
+  anthropicApiKey?: string;
 }
 
 export class ProviderFactory {
@@ -74,7 +76,7 @@ export class ProviderFactory {
       case 'anthropic': {
         const projectId = this.config.vertexProjectId ?? process.env.GCP_PROJECT_ID;
         if (!projectId) throw new Error('GCP project ID not configured — set GCP_PROJECT_ID environment variable or pass vertexProjectId');
-        return new AnthropicAdapter(projectId, this.config.vertexRegion);
+        return new AnthropicAdapter(projectId, this.config.vertexRegion, this.config.anthropicApiKey);
       }
     }
   }
