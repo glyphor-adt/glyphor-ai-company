@@ -95,9 +95,6 @@ export default function Dashboard() {
           <Card accent="0,224,255" glow className="banner">
             <div className="flex items-center justify-between gap-6">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan/80">
-                  Dark Glass Command Center
-                </p>
                 <h1 className="mt-3 text-2xl font-bold text-txt-primary md:text-[2rem]">
                   {greeting}, {firstName}
                 </h1>

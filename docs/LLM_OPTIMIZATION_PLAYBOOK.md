@@ -6,6 +6,13 @@
 > **Model:** Default `gpt-5-mini-2025-08-07` until Issue 6 flips routing on.
 > **Test after each issue:** Deploy to staging, run 10 agent cycles, verify no regressions in `agent_runs`.
 
+> **Repository alignment notes (verified against current codebase):**
+> - Use the repo's timestamped migration convention under `db/migrations`, not numbered files like `139_add_routing_columns.sql`.
+> - `packages/agent-runtime/src/routing/` and `packages/agent-runtime/src/schemas/` do not exist yet; Issues 2-7 create new structure.
+> - Several provider items below are now **delta tasks**, not from-scratch work: OpenAI already supports `gpt-5.4`, `gpt-5-nano`, `reasoning_effort`, and a Responses API path; Anthropic already has extended thinking support; Gemini already distinguishes 2.5 vs 3.x thinking behavior.
+> - `trackedAgentExecutor` currently lives in `packages/scheduler/src/server.ts`, and `agent_runs` updates must be wired there.
+> - Dashboard model options are mirrored in `packages/dashboard/src/lib/models.ts`, but the canonical registry is `packages/shared/src/models.ts`; keep them in sync or derive one from the other.
+
 ---
 
 ## Issue 1 of 17: Database Migration — Add Routing Observability Columns
@@ -15,10 +22,10 @@
 
 ### Step 1: Create migration file
 
-Create `db/migrations/139_add_routing_columns.sql`:
+Create a new timestamped migration such as `db/migrations/20260311130000_add_agent_run_routing_columns.sql`:
 
 ```sql
--- Migration 139: Add routing observability columns to agent_runs
+-- Add routing observability columns to agent_runs
 -- These columns track which model routing rule matched, what capabilities
 -- were inferred, and which model was selected for each agent run.
 -- No backfill needed — new runs will populate these going forward.
@@ -45,11 +52,15 @@ COMMENT ON COLUMN agent_runs.routing_capabilities IS 'Capability tags inferred f
 COMMENT ON COLUMN agent_runs.routing_model IS 'Model ID selected by the router (e.g., gpt-5.4, claude-sonnet-4-6, gpt-5-nano)';
 ```
 
-### Step 2: Run the migration
+### Step 2: Update runtime writes and run the migration
 
 ```bash
-# Connect to Cloud SQL and run:
-psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f db/migrations/139_add_routing_columns.sql
+# First make sure every `agent_runs` INSERT/UPDATE path still works when the
+# new columns are null. In the current repo the main scheduler write path is
+# `packages/scheduler/src/server.ts` (`trackedAgentExecutor`).
+#
+# Then connect to Cloud SQL and run:
+psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f db/migrations/20260311130000_add_agent_run_routing_columns.sql
 ```
 
 ### Acceptance criteria
@@ -109,6 +120,13 @@ export type Capability =
 ```
 
 ### Step 2: Create `packages/agent-runtime/src/routing/toolCapabilityMap.ts`
+
+Before writing the map, diff the sample below against the repo's real tool names in:
+- `packages/agent-runtime/src/toolRegistry.ts`
+- shared tool factories under `packages/agents/src/shared/*Tools.ts`
+- MCP-derived tool names already surfaced in the dashboard/runtime
+
+The sample map is illustrative, not canonical. Do **not** blindly paste tool names that do not exist in this repository.
 
 ```typescript
 import type { Capability } from './capabilities';
@@ -933,7 +951,9 @@ export function routeModel(ctx: RoutingContext): ModelConfig {
 **Files:** 1 new
 **Depends on:** Issue 1
 
-### Step 1: Create `packages/agent-runtime/src/cronPreCheck.ts`
+### Step 1: Create `packages/agent-runtime/src/routing/preChecks.ts`
+
+The current runtime already contains `packages/agent-runtime/src/constitutionalPreCheck.ts` for high-stakes tool gating. Keep deterministic routing pre-checks separate from that file, but compose with it rather than duplicating its responsibilities.
 
 ```typescript
 import type { Pool } from 'pg';
@@ -1477,10 +1497,12 @@ export const EVALUATION_SCHEMA = {
 **Files:** `packages/agent-runtime/src/providers/openai.ts`
 
 **Instructions:**
-1. Add `gpt-5.4` and `gpt-5-nano` to `detectProvider()` model prefix matching
-2. Read `request.metadata?.modelConfig?.reasoningEffort` and add to Chat Completions request body as `reasoning_effort` parameter
-3. Read `request.metadata?.modelConfig?.verbosity` and add structured outputs support
-4. For now, keep ALL calls on Chat Completions (Responses API migration is Issue 12)
+1. Treat this as a **delta pass**, not a greenfield implementation: `packages/agent-runtime/src/providers/openai.ts` already recognizes GPT-5-family models, sends `reasoning_effort`, and has a Responses API path.
+2. Audit the remaining gaps against current behavior:
+   - propagate any missing `request.metadata?.modelConfig` fields intentionally rather than introducing parallel config plumbing
+   - add structured output support where the current adapter still lacks it
+   - verify `gpt-5.4` direct-OpenAI routing and Azure fallback still behave correctly
+3. Do **not** remove the existing Responses API path; Issue 12 should extend/specialize it rather than reintroduce it.
 
 **Acceptance:** reasoning_effort appears in OpenAI API calls. Verify via API response `usage.output_tokens_details.reasoning_tokens` — should be lower for `low`/`minimal` efforts.
 
@@ -1491,12 +1513,14 @@ export const EVALUATION_SCHEMA = {
 **Files:** `packages/agent-runtime/src/providers/anthropic.ts`
 
 **Instructions:**
-1. Add `output_config: { effort: modelConfig.claudeEffort }` when claudeEffort is set
-2. Add `thinking: { type: 'adaptive' }` when claudeThinking is 'adaptive'
-3. Add `citations: { enabled: true }` when enableCitations is true
-4. Add `compaction: 'auto'` when enableCompaction is true (replaces broken historyManager compression)
-5. Add `output_config: { format: { type: 'json_schema', schema: ... } }` for structured outputs
-6. Add explicit `cache_control: { type: 'ephemeral' }` breakpoints on system prompt content blocks
+1. Treat this as a **delta pass**: `packages/agent-runtime/src/providers/anthropic.ts` already supports extended thinking and adaptive thinking for Opus 4.
+2. Focus on the remaining gaps only:
+   - citations
+   - compaction
+   - structured outputs
+   - any model-config plumbing that is still missing from the current request type
+3. Verify any Anthropic SDK/Vertex fields before implementation; the names in this draft were not yet validated against the checked-in adapter.
+4. If prompt-cache breakpoints are added, coordinate them with the current `buildSystemPrompt()` composition in `companyAgentRunner.ts`.
 
 **Acceptance:** Claude calls include effort parameter. Citations appear in responses for legal/research tasks.
 
@@ -1507,12 +1531,13 @@ export const EVALUATION_SCHEMA = {
 **Files:** `packages/agent-runtime/src/providers/gemini.ts`
 
 **Instructions:**
-1. Distinguish `gemini-3*` models (use `thinkingLevel: LOW|HIGH`) from `gemini-2.5*` (use `thinkingBudget`)
-2. When `enableGoogleSearch`, push `{ googleSearch: {} }` into tools
-3. When `enableCodeExecution`, push `{ codeExecution: {} }` into tools
-4. Add `gemini-3.1-pro-preview`, `gemini-3-flash-preview`, `gemini-3.1-flash-lite-preview` to model detection
-5. Remove `gemini-3-pro-preview` (deprecated March 9)
-6. Add `response_mime_type: 'application/json'` + `response_schema` for structured outputs
+1. Treat this as a **delta pass**: `packages/agent-runtime/src/providers/gemini.ts` already distinguishes `gemini-3*` (`thinkingLevel`) from `gemini-2.5*` (`thinkingBudget`).
+2. Focus on the missing features:
+   - optional Google Search tool wiring
+   - optional code execution wiring
+   - structured output support
+   - any model-registry cleanup needed across both `packages/shared/src/models.ts` and `packages/dashboard/src/lib/models.ts`
+3. Validate model deprecations against the shared registry before removing them; the repo still currently lists `gemini-3-pro-preview`.
 
 **Acceptance:** Research agents calling Gemini get `googleSearch` tool. Finance agents get `codeExecution` tool.
 
@@ -1524,11 +1549,11 @@ export const EVALUATION_SCHEMA = {
 
 **Instructions:**
 1. Uncomment the model application lines from Issue 6
-2. When `modelConfig.model === '__deterministic__'`, check `PRE_CHECK_REGISTRY[this.task]` — if exists, run it. If `shouldCallLLM === false`, return early with the reason. If true, fall back to `gpt-5-mini` with `reasoningEffort: 'low'` and inject `preCheck.context` into the message
+2. When `modelConfig.model === '__deterministic__'`, use the deterministic pre-check registry introduced in Issue 5. If `shouldCallLLM === false`, return early with the reason. If true, fall back to `gpt-5-mini-2025-08-07` with low reasoning and inject `preCheck.context` into the message
 3. Apply `modelConfig.model` as `this.model`
 4. Pass full `modelConfig` to model calls via metadata
 
-**Acceptance:** `agent_runs.routing_model` matches the ACTUAL model used (not observation). Deterministic skips show `status = 'skipped_precheck'`. Different models appear for different task types.
+**Acceptance:** `agent_runs.routing_model` matches the ACTUAL model used (not observation). Deterministic skips show `status = 'skipped_precheck'`. Different models appear for different task types. Update the scheduler's `trackedAgentExecutor` persistence path as needed so `skipped_precheck` and routing metadata are actually recorded.
 
 ---
 
@@ -1537,12 +1562,14 @@ export const EVALUATION_SCHEMA = {
 **Files:** `packages/agent-runtime/src/providers/openai.ts`
 
 **Instructions:**
-1. Add `generateViaResponses()` method alongside existing `generate()` (Chat Completions)
-2. Route: if model starts with `gpt-5.4`, use Responses API. Otherwise Chat Completions.
-3. Responses API supports: `reasoning.effort`, `text.verbosity`, `tools: [{ type: 'apply_patch' }]`, `tools: [{ type: 'tool_search' }]`, `tools: [{ type: 'code_interpreter' }]`, `tool_choice.allowed_tools`
-4. Handle `apply_patch_call` responses — route to patch harness (Issue 14)
-5. Handle `previous_response_id` for multi-turn Responses API flows
-6. Update OpenAI SDK to latest version supporting Responses API
+1. Treat this as a continuation of the existing Responses API support already present in `packages/agent-runtime/src/providers/openai.ts`.
+2. Specialize the path for GPT-5.4 where needed instead of creating a second competing implementation.
+3. Add the missing Responses-only features that are still absent:
+   - verbosity
+   - allowed tool constraints / tool-search style routing
+   - apply-patch tool flow
+   - multi-turn `previous_response_id` handling
+4. Only update the OpenAI SDK if the currently checked-in version lacks the required API surface.
 
 **Acceptance:** GPT-5.4 calls use Responses API. Tool Search reduces input tokens by ~47%. Apply Patch tool appears for code_generation tasks.
 
@@ -1550,13 +1577,14 @@ export const EVALUATION_SCHEMA = {
 
 ### Issue 13: MCP Server Filtering in Tool Loading
 
-**Files:** `packages/agents/src/shared/agent365Tools.ts`, `packages/agents/src/shared/glyphorMcpTools.ts`, `packages/agent-runtime/src/companyAgentRunner.ts`
+**Files:** `packages/agents/src/shared/agent365Tools.ts`, `packages/agents/src/shared/glyphorMcpTools.ts`, `packages/agents/src/shared/runDynamicAgent.ts`, `packages/agent-runtime/src/companyAgentRunner.ts`
 
 **Instructions:**
 1. Modify `createAgent365McpTools(agentRole?, serverFilter?)` — change default from `ALL_M365_SERVERS` to requiring explicit server list. If no list passed, return empty array.
 2. Modify `createGlyphorMcpTools(agentRole?, serverFilter?)` — same change.
 3. In `companyAgentRunner.ts`, after routing, pass `modelConfig.a365McpServers` to `createAgent365McpTools()` and `modelConfig.glyphorMcpServers` to `createGlyphorMcpTools()`.
-4. For gpt-5.4 calls, optionally build `modelConfig.nativeMcpServers` for native MCP (Responses API) and skip the bridge entirely.
+4. Update `runDynamicAgent.ts` too; it currently calls `createAgent365McpTools(role)` and would otherwise bypass the new filtering behavior.
+5. For gpt-5.4 calls, optionally build `modelConfig.nativeMcpServers` for native MCP (Responses API) and skip the bridge entirely.
 
 **Acceptance:** Research analysts no longer load 60+ A365 tools. Tool count per agent drops 40-60%. Input tokens per call decrease measurably.
 
@@ -1567,10 +1595,11 @@ export const EVALUATION_SCHEMA = {
 **Files:** `packages/agents/src/shared/patchHarness.ts`, `packages/agents/src/shared/v4aDiff.ts`
 
 **Instructions:**
-1. Implement V4A diff parser that can apply diffs to file content
-2. Implement `applyPatchToGitHub()` that reads current file from GitHub, applies diff, commits only changed content
-3. Wire into `toolExecutor.ts` — when gpt-5.4 emits `apply_patch_call`, route to patch harness instead of normal tool execution
-4. Return success/failure status back to Responses API for iteration
+1. `packages/agents/src/shared/patchHarness.ts` and `packages/agents/src/shared/v4aDiff.ts` do not exist yet; this issue creates them.
+2. Implement V4A diff parsing only after confirming the exact response payload shape emitted by the OpenAI Responses tool call you adopt in Issue 12.
+3. Implement `applyPatchToGitHub()` (or equivalent repository patch execution) against the repo's current GitHub tooling layer rather than assuming an existing helper.
+4. Wire into `toolExecutor.ts` — when GPT-5.4 emits an apply-patch tool call, route to the harness instead of normal tool execution.
+5. Return success/failure status back to Responses API for iteration.
 
 **Acceptance:** CTO and design team code edits use diffs instead of full file rewrites. Output tokens per code edit drop 60-80%.
 
@@ -1581,10 +1610,12 @@ export const EVALUATION_SCHEMA = {
 **Files:** `packages/agent-runtime/src/companyAgentRunner.ts`, `packages/agent-runtime/src/toolExecutor.ts`, `packages/agent-runtime/src/routing/inferCapabilities.ts`
 
 **Instructions:**
-1. Wire `formalVerifier.verifyBudgetConstraint()` into `toolExecutor.ts` before financial mutation tools
-2. Wire trust score into `RoutingContext` — fetch from `trustScorer.getTrustScore(role)` before routing
-3. Wire constitutional evaluation on executive runs — after agentic loop, before reflection
-4. If constitutional compliance < 0.6, apply negative trust delta
+1. Skip the budget-verifier step from the original draft: `formalVerifier.verifyBudgetConstraint()` is already wired in `packages/agent-runtime/src/toolExecutor.ts` before write tools.
+2. Focus on the remaining deltas:
+   - trust score in routing context
+   - constitutional evaluation on executive runs
+   - trust adjustment from compliance outcomes
+3. Reuse existing `trustScorer`, `constitutionalGovernor`, and related runtime modules instead of introducing parallel helpers.
 
 **Acceptance:** Financial mutations blocked when budget exceeded. Low-trust agents get higher reasoning effort. Constitutional evaluations logged for executives.
 
@@ -1595,8 +1626,9 @@ export const EVALUATION_SCHEMA = {
 **Files:** `packages/agent-runtime/src/companyAgentRunner.ts`
 
 **Instructions:**
-1. Reorder `buildSystemPrompt()` blocks: static content first (Company KB, protocols), per-department second, per-role third, per-agent last, dynamic content (bulletins) at the end
-2. This maximizes prefix cache hits across all 3 providers (OpenAI auto-cache 75%, Anthropic explicit 90%, Gemini implicit 90%)
+1. This is an intentional behavior change: the current `buildSystemPrompt()` in `packages/agent-runtime/src/companyAgentRunner.ts` is explicitly personality-first, not cache-first.
+2. Reorder prompt blocks only if you are willing to change that runtime behavior and revalidate output quality for chat agents.
+3. Keep founder bulletins and other genuinely dynamic content at the end if you proceed.
 
 **Acceptance:** Cache hit rates increase. Verify via OpenAI response `usage.prompt_tokens_details.cached_tokens` and Anthropic response headers.
 
@@ -1604,13 +1636,14 @@ export const EVALUATION_SCHEMA = {
 
 ### Issue 17: Dashboard Model Dropdown Update
 
-**Files:** `packages/dashboard/src/lib/models.ts`
+**Files:** `packages/shared/src/models.ts`, `packages/dashboard/src/lib/models.ts`, `packages/dashboard/src/pages/Activity.tsx`
 
 **Instructions:**
-1. Add: `gpt-5.4`, `gpt-5.4-pro`, `gpt-5-nano`, `gemini-3.1-pro-preview`, `gemini-3.1-flash-lite-preview`
-2. Remove: `gemini-3-pro-preview` (deprecated March 9, 2026)
-3. Update pricing data for all new models
-4. Add routing info display to Activity page (read from `agent_runs.routing_rule`, `routing_model`, `routing_capabilities`)
+1. Treat this as a delta pass: `packages/dashboard/src/lib/models.ts` already includes `gpt-5.4`, `gpt-5-nano`, and `gemini-3.1-pro-preview`.
+2. Update the shared registry first (`packages/shared/src/models.ts`), then mirror or derive the dashboard list from it.
+3. Add any genuinely missing models such as `gpt-5.4-pro` / `gemini-3.1-flash-lite-preview` only if they are also supported in the shared registry and provider/runtime layers.
+4. Remove deprecated models only after updating all shared fallbacks/verifier mappings that still reference them; the repo currently still references `gemini-3-pro-preview`.
+5. Add routing info display to `packages/dashboard/src/pages/Activity.tsx` (not just the model list file) using `agent_runs.routing_rule`, `routing_model`, and `routing_capabilities`.
 
 **Acceptance:** New models appear in agent Settings dropdowns. Deprecated models removed. Activity page shows routing data.
 

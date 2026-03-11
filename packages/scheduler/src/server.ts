@@ -446,17 +446,17 @@ const teamsBot = TeamsBotHandler.fromEnv(
   },
 );
 
-// Agent Notifier — delivers proactive DMs/cards when agents emit <notify> blocks
-const agentNotifier = teamsBot ? new AgentNotifier(teamsBot) : null;
-
-// Wire the bot handler into the decision queue for Teams channel notifications
-decisionQueue.setBotHandler(teamsBot);
-
 // ─── Graph Chat Handler (1:1 DMs to agent Entra accounts) ──────
 
 const GRAPH_CHAT_WEBHOOK_PATH = '/api/graph/chat-webhook';
 let graphChatClient: GraphTeamsClient | null = null;
 try { graphChatClient = GraphTeamsClient.fromEnv(); } catch { /* Graph not configured */ }
+
+// Agent Notifier — delivers proactive DMs/cards when agents emit <notify> blocks
+const agentNotifier = new AgentNotifier(graphChatClient);
+
+// Wire the Graph client into the decision queue for Teams channel notifications
+decisionQueue.setGraphClient(graphChatClient);
 
 const graphChatHandler = graphChatClient
   ? new GraphChatHandler(graphChatClient, async (agentRole, task, payload) => {

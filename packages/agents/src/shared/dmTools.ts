@@ -1,21 +1,19 @@
 /**
  * DM Tools — Shared Teams direct message tools for all agents
  *
- * Provides send_teams_dm and read_teams_dm. Primary send path uses Bot
- * Framework proactive messaging. Teams MCP is used for chat creation and
- * DM history reads where available.
+ * Provides send_teams_dm and read_teams_dm. Uses Agent 365 MCP
+ * (mcp_TeamsServer) for creating chats and sending/reading messages.
  *
- * Flow (Bot Framework path):
- *   1. Resolve recipient email → Entra Object ID (Graph API, app-only)
- *   2. Acquire Bot Framework token with https://api.botframework.com/.default
- *   3. Create conversation + send message via Bot Framework REST API
+ * Flow (A365 MCP path):
+ *   1. Resolve recipient to email/UPN
+ *   2. Create or get 1:1 chat via CreateChat MCP tool
+ *   3. Post message via PostMessage MCP tool
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { AGENT_EMAIL_MAP, type CompanyAgentRole } from '@glyphor/agent-runtime';
 import {
   GraphTeamsClient,
-  BotDmSender,
   A365TeamsChatClient,
 } from '@glyphor/integrations';
 
@@ -132,20 +130,11 @@ function extractMessageText(message: Record<string, unknown>): string {
  */
 export function createDmTools(): ToolDefinition[] {
   let graphClient: GraphTeamsClient | null = null;
-  let dmSender: BotDmSender | null = null;
 
   try {
     graphClient = GraphTeamsClient.fromEnv();
   } catch {
     // Graph client not configured
-  }
-
-  try {
-    if (graphClient) {
-      dmSender = BotDmSender.fromEnv(graphClient);
-    }
-  } catch {
-    // Bot Framework not configured
   }
 
   function getA365Client(role?: CompanyAgentRole): A365TeamsChatClient | null {
@@ -196,20 +185,7 @@ export function createDmTools(): ToolDefinition[] {
         const senderEmail = agentEntry?.email;
         const a365Client = getA365Client(role);
 
-        // ── Primary path: Bot Framework proactive messaging ──────
-        // Bot Framework is the correct approach for proactive DMs —
-        // it supports app-level credentials for initiating conversations.
-        if (dmSender) {
-          try {
-            await dmSender.sendToEmail(email, params.message as string, senderName);
-            return { success: true, data: { sent: true, recipient: recipientStr, email, via: 'bot-framework' } };
-          } catch (err) {
-            console.error('[send_teams_dm] Bot Framework path failed, trying A365 MCP:', (err as Error).message);
-          }
-        }
-
-        // ── Fallback: A365 MCP (delegated permissions) ───────────
-        // Works for posting in chats where the agent blueprint has access.
+        // ── A365 MCP (delegated permissions via mcp_TeamsServer) ─────
         // CreateChat accepts UPNs (emails) directly, no Graph userId lookup needed.
         if (a365Client) {
           try {
@@ -230,7 +206,7 @@ export function createDmTools(): ToolDefinition[] {
 
         return {
           success: false,
-          error: 'Teams DM sender not configured. Set BOT_APP_ID/BOT_APP_SECRET/BOT_TENANT_ID for Bot Framework, or AGENT365_ENABLED=true for A365 MCP.',
+          error: 'Teams DM sender not configured. Set AGENT365_ENABLED=true with valid Agent 365 credentials.',
         };
       },
     },

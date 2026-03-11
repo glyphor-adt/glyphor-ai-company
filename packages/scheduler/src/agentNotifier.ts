@@ -25,10 +25,12 @@
 import {
   formatNotificationCard,
   buildChannelMap,
-  type TeamsBotHandler,
+  A365TeamsChatClient,
+  type GraphTeamsClient,
   type NotificationType,
   type NotificationCardData,
   type ChannelMap,
+  type AdaptiveCard,
 } from '@glyphor/integrations';
 
 // Agent role → display name
@@ -91,15 +93,17 @@ export function parseNotifications(output: string): ParsedNotification[] {
 }
 
 export class AgentNotifier {
-  private readonly botHandler: TeamsBotHandler;
-  private readonly founderIds: Record<string, string>;
+  private readonly graphClient: GraphTeamsClient | null;
+  private readonly a365Client: A365TeamsChatClient | null;
+  private readonly founderUpns: Record<string, string>;
   private readonly channels: Partial<ChannelMap>;
 
-  constructor(botHandler: TeamsBotHandler) {
-    this.botHandler = botHandler;
-    this.founderIds = {
-      kristina: process.env.TEAMS_USER_KRISTINA_ID ?? '',
-      andrew: process.env.TEAMS_USER_ANDREW_ID ?? '',
+  constructor(graphClient: GraphTeamsClient | null, a365Client?: A365TeamsChatClient | null) {
+    this.graphClient = graphClient;
+    this.a365Client = a365Client ?? A365TeamsChatClient.fromEnv();
+    this.founderUpns = {
+      kristina: process.env.TEAMS_USER_KRISTINA_EMAIL ?? 'kristina@glyphor.ai',
+      andrew: process.env.TEAMS_USER_ANDREW_EMAIL ?? 'andrew@glyphor.ai',
     };
     this.channels = buildChannelMap();
   }
@@ -138,23 +142,25 @@ export class AgentNotifier {
           : [notif.to];
 
         for (const target of targets) {
-          const userId = this.founderIds[target];
-          if (!userId) {
-            console.warn(`[AgentNotifier] No Entra ID configured for ${target}, falling back to channel`);
-            await this.sendToFallbackChannel(agentRole, cardContent);
-            continue;
+          const upn = this.founderUpns[target];
+
+          // Try A365 MCP DM first (plain text — Adaptive Cards not supported)
+          if (this.a365Client && upn) {
+            try {
+              const chatId = await this.a365Client.createOrGetOneOnOneChat(upn);
+              const textMessage = this.formatNotificationText(agentName, notif);
+              await this.a365Client.postChatMessage(chatId, textMessage);
+              console.log(`[AgentNotifier] ${agentName} → DM to ${target}: ${notif.title}`);
+              sent++;
+              continue;
+            } catch (err) {
+              console.warn(`[AgentNotifier] A365 DM to ${target} failed, falling back to channel:`, (err as Error).message);
+            }
           }
 
-          try {
-            await this.botHandler.sendProactiveCardToUser(userId, cardContent);
-            console.log(`[AgentNotifier] ${agentName} → DM to ${target}: ${notif.title}`);
-            sent++;
-          } catch (err) {
-            // DM failed — fall back to channel post
-            console.warn(`[AgentNotifier] DM to ${target} failed, posting to channel:`, (err as Error).message);
-            await this.sendToFallbackChannel(agentRole, cardContent);
-            sent++;
-          }
+          // Fall back to channel post (Adaptive Card via Graph API)
+          await this.sendToFallbackChannel(agentRole, cardContent);
+          sent++;
         }
       } catch (err) {
         console.error(`[AgentNotifier] Failed to process notification from ${agentName}:`, (err as Error).message);
@@ -165,22 +171,39 @@ export class AgentNotifier {
   }
 
   /**
-   * Send a notification card to the general channel as a fallback.
+   * Send a notification card to the agent's department channel as a fallback.
    */
   private async sendToFallbackChannel(
     agentRole: string,
     cardContent: Record<string, unknown>,
   ): Promise<void> {
+    if (!this.graphClient) return;
+
     // Try the agent's department channel first, then fall back to general
     const channelKey = this.getDepartmentChannel(agentRole) as keyof ChannelMap;
     const channel = this.channels[channelKey] ?? this.channels['general' as keyof ChannelMap];
     if (!channel) return;
 
-    await this.botHandler.sendProactiveCardToChannel(
-      channel.teamId,
-      channel.channelId,
-      cardContent,
+    await this.graphClient.sendCard(
+      { teamId: channel.teamId, channelId: channel.channelId },
+      cardContent as unknown as AdaptiveCard,
     ).catch((err: unknown) => console.error('[AgentNotifier] Channel fallback failed:', err));
+  }
+
+  /**
+   * Format a notification as plain text for A365 MCP DMs (no Adaptive Card support).
+   */
+  private formatNotificationText(agentName: string, notif: ParsedNotification): string {
+    const lines: string[] = [
+      `[${notif.type.toUpperCase()}] ${notif.title}`,
+      `From: ${agentName}`,
+      '',
+      notif.message,
+    ];
+    if (notif.options?.length) {
+      lines.push('', 'Options: ' + notif.options.join(' | '));
+    }
+    return lines.join('\n');
   }
 
   /**

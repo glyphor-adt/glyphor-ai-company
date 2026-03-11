@@ -229,12 +229,30 @@ export class A365TeamsChatClient {
 
   private extractChatId(data: unknown): string | null {
     if (typeof data === 'string') {
+      // Might be a raw chat ID string like "19:..."
       const trimmed = data.trim();
       return trimmed || null;
     }
     if (data && typeof data === 'object') {
-      const directId = (data as { id?: unknown }).id;
-      if (typeof directId === 'string' && directId) return directId;
+      const obj = data as Record<string, unknown>;
+      // Direct .id property
+      if (typeof obj.id === 'string' && obj.id) return obj.id;
+      // Nested .chat.id (Graph API response shape)
+      if (obj.chat && typeof obj.chat === 'object') {
+        const chatId = (obj.chat as Record<string, unknown>).id;
+        if (typeof chatId === 'string' && chatId) return chatId;
+      }
+      // chatId property
+      if (typeof obj.chatId === 'string' && obj.chatId) return obj.chatId;
+      // value[0].id (collection response)
+      if (Array.isArray(obj.value) && obj.value.length > 0) {
+        const firstId = (obj.value[0] as Record<string, unknown>)?.id;
+        if (typeof firstId === 'string' && firstId) return firstId;
+      }
+      // Look for any string property that looks like a Teams chat ID (19:...)
+      for (const val of Object.values(obj)) {
+        if (typeof val === 'string' && val.startsWith('19:')) return val;
+      }
     }
     return null;
   }
@@ -316,8 +334,9 @@ export class A365TeamsChatClient {
         chatType: 'oneOnOne',
         members_upns: upns,
       });
+      console.log(`[A365Teams] CreateChat response (type=${typeof data}):`, JSON.stringify(data).slice(0, 500));
       const chatId = this.extractChatId(data);
-      if (!chatId) throw new Error('Chat create succeeded but no chat id was returned');
+      if (!chatId) throw new Error(`Chat create succeeded but no chat id was returned. Response: ${JSON.stringify(data).slice(0, 300)}`);
       this.chatCache.set(cacheKey, chatId);
       return chatId;
     } catch (err) {

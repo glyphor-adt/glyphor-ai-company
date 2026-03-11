@@ -10,20 +10,14 @@ import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { systemQuery } from '@glyphor/shared/db';
 import {
-  GraphTeamsClient,
-  BotDmSender,
+  A365TeamsChatClient,
+  buildFounderDirectory,
 } from '@glyphor/integrations';
 
 export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
-  // Initialize DM sender (Bot Framework proactive messaging —
-  // Graph API app-only tokens cannot post chat messages)
-  let dmClient: BotDmSender | null = null;
-  try {
-    const graphClient = GraphTeamsClient.fromEnv();
-    dmClient = BotDmSender.fromEnv(graphClient);
-  } catch {
-    // Bot Framework not configured — DM tool will return error
-  }
+  // Initialize A365 MCP client for DMs
+  const a365Client = A365TeamsChatClient.fromEnv('ops');
+  const founderDir = buildFounderDirectory();
 
   return [
     // ─── QUERY TOOLS ────────────────────────────────────────────
@@ -783,33 +777,26 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         },
       },
       execute: async (params): Promise<ToolResult> => {
-        if (!dmClient) {
+        if (!a365Client) {
           return {
             success: false,
-            error: 'DM client not configured. Set TEAMS_USER_KRISTINA_ID and/or TEAMS_USER_ANDREW_ID.',
+            error: 'A365 MCP client not configured. Set AGENT365_ENABLED=true and Agent 365 credentials.',
           };
         }
 
         const recipient = params.recipient as 'kristina' | 'andrew';
+        const recipientContact = founderDir[recipient];
+        const recipientUpn = recipientContact?.email
+          ?? (recipient === 'kristina' ? 'kristina@glyphor.ai' : 'andrew@glyphor.ai');
         const imageUrl = params.image_url as string | undefined;
 
+        const chatId = await a365Client.createOrGetOneOnOneChat(recipientUpn);
+
+        let messageText = params.message as string;
         if (imageUrl) {
-          // Send as Adaptive Card with inline image
-          await dmClient.sendCard(recipient, {
-            $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
-            type: 'AdaptiveCard',
-            version: '1.5',
-            body: [
-              { type: 'TextBlock', text: params.message as string, wrap: true },
-              { type: 'Image', url: imageUrl, size: 'large', altText: 'Shared image' },
-            ],
-            actions: [
-              { type: 'Action.OpenUrl', title: 'View Full Size', url: imageUrl },
-            ],
-          }, 'Atlas Vega');
-        } else {
-          await dmClient.sendText(recipient, params.message as string, 'Atlas Vega');
+          messageText += `\n\n📷 Image: ${imageUrl}`;
         }
+        await a365Client.postChatMessage(chatId, messageText, 'ops');
 
         await systemQuery(
           'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',

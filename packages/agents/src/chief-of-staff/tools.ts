@@ -18,10 +18,10 @@ import {
   formatBriefingCard,
   GraphTeamsClient,
   buildChannelMap,
-  BotDmSender,
   GraphCalendarClient,
   buildFounderDirectory,
-  TeamsBotHandler,
+  A365TeamsChatClient,
+  type AdaptiveCard,
 } from '@glyphor/integrations';
 import {
   parseInitiativeProposalPayload,
@@ -244,18 +244,11 @@ export function createChiefOfStaffTools(
   }
   const channels = buildChannelMap();
 
-  // Initialize Bot Framework handler for channel messages (proactive cards)
-  // Graph API's Teamwork.Migrate.All permission only allows imports, not regular
-  // channel messaging, so we use the Bot Framework REST API instead.
-  const botHandler = TeamsBotHandler.fromEnv(async () => {});
+  // Initialize A365 MCP client for DMs (Agent 365 is the primary DM path)
+  const a365Client = A365TeamsChatClient.fromEnv('chief-of-staff');
 
-  // Initialize DM sender (uses Bot Framework proactive messaging —
-  // Graph API app-only tokens cannot post chat messages)
-  // Email is now handled by shared/emailTools.ts (per-agent mailboxes)
-  let dmClient: BotDmSender | null = null;
   let calendarClient: GraphCalendarClient | null = null;
   if (graphClient) {
-    dmClient = BotDmSender.fromEnv(graphClient);
     calendarClient = GraphCalendarClient.fromEnv(graphClient);
   }
   const founderDir = buildFounderDirectory();
@@ -595,11 +588,10 @@ export function createChiefOfStaffTools(
         });
 
         const decisionsChannel = channels.decisions;
-        if (botHandler && decisionsChannel) {
-          await botHandler.sendProactiveCardToChannel(
-            decisionsChannel.teamId,
-            decisionsChannel.channelId,
-            card.attachments[0].content as unknown as Record<string, unknown>,
+        if (graphClient && decisionsChannel) {
+          await graphClient.sendCard(
+            { teamId: decisionsChannel.teamId, channelId: decisionsChannel.channelId },
+            card.attachments[0].content as unknown as AdaptiveCard,
           );
         } else {
           const webhookUrl = process.env.TEAMS_WEBHOOK_DECISIONS;
@@ -1073,12 +1065,15 @@ export function createChiefOfStaffTools(
           date: new Date().toISOString().split('T')[0],
         });
 
-        // Send via Bot Framework (preferred) or webhook fallback
+        // Send via Graph API (preferred) or webhook fallback
         const channelKey = recipient === 'kristina' ? 'briefingKristina' : 'briefingAndrew';
         const channel = channels[channelKey];
 
-        if (botHandler && channel) {
-          await botHandler.sendProactiveCardToChannel(channel.teamId, channel.channelId, card.attachments[0].content as unknown as Record<string, unknown>);
+        if (graphClient && channel) {
+          await graphClient.sendCard(
+            { teamId: channel.teamId, channelId: channel.channelId },
+            card.attachments[0].content as unknown as AdaptiveCard,
+          );
         } else {
           // Fallback to webhook
           const webhookUrl = recipient === 'kristina'
@@ -1160,9 +1155,9 @@ export function createChiefOfStaffTools(
           assignedTo: params.assigned_to as string[],
         });
 
-        // Send to Teams #Decisions channel via Bot Framework
+        // Send to Teams #Decisions channel via Graph API
         const decisionsChannel = channels.decisions;
-        if (botHandler && decisionsChannel) {
+        if (graphClient && decisionsChannel) {
           const { formatDecisionCard } = await import('@glyphor/integrations');
           const card = formatDecisionCard({
             id,
@@ -1173,7 +1168,10 @@ export function createChiefOfStaffTools(
             reasoning: params.reasoning as string,
             assignedTo: params.assigned_to as string[],
           });
-          await botHandler.sendProactiveCardToChannel(decisionsChannel.teamId, decisionsChannel.channelId, card.attachments[0].content as unknown as Record<string, unknown>);
+          await graphClient.sendCard(
+            { teamId: decisionsChannel.teamId, channelId: decisionsChannel.channelId },
+            card.attachments[0].content as unknown as AdaptiveCard,
+          );
         } else {
           // Fallback to webhook
           const webhookUrl = process.env.TEAMS_WEBHOOK_DECISIONS;
@@ -1285,33 +1283,27 @@ export function createChiefOfStaffTools(
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        if (!dmClient) {
+        if (!a365Client) {
           return {
             success: false,
-            error: 'DM client not configured. Set TEAMS_USER_KRISTINA_ID and/or TEAMS_USER_ANDREW_ID.',
+            error: 'A365 MCP client not configured. Set AGENT365_ENABLED=true and Agent 365 credentials.',
           };
         }
 
         const recipient = params.recipient as 'kristina' | 'andrew';
+        const recipientContact = founderDir[recipient];
+        const recipientUpn = recipientContact?.email
+          ?? (recipient === 'kristina' ? 'kristina@glyphor.ai' : 'andrew@glyphor.ai');
         const imageUrl = params.image_url as string | undefined;
 
+        const chatId = await a365Client.createOrGetOneOnOneChat(recipientUpn);
+
+        // A365 MCP PostMessage supports plain text only — format message with image link if needed
+        let messageText = params.message as string;
         if (imageUrl) {
-          // Send as Adaptive Card with inline image
-          await dmClient.sendCard(recipient, {
-            $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
-            type: 'AdaptiveCard',
-            version: '1.5',
-            body: [
-              { type: 'TextBlock', text: params.message as string, wrap: true },
-              { type: 'Image', url: imageUrl, size: 'large', altText: 'Shared image' },
-            ],
-            actions: [
-              { type: 'Action.OpenUrl', title: 'View Full Size', url: imageUrl },
-            ],
-          }, 'Sarah Chen');
-        } else {
-          await dmClient.sendText(recipient, params.message as string, 'Sarah Chen');
+          messageText += `\n\n📷 Image: ${imageUrl}`;
         }
+        await a365Client.postChatMessage(chatId, messageText, 'chief-of-staff');
 
         await memory.appendActivity({
           agentRole: ctx.agentRole,

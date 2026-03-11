@@ -10,7 +10,8 @@ import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import {
   sendTeamsWebhook,
   formatDecisionCard,
-  TeamsBotHandler,
+  type GraphTeamsClient,
+  type AdaptiveCard,
   buildChannelMap,
 } from '@glyphor/integrations';
 
@@ -24,25 +25,25 @@ export interface PendingDecision extends CompanyDecision {
 export class DecisionQueue {
   private readonly memory: CompanyMemoryStore;
   private readonly founderWebhooks: Record<string, string>;
-  private botHandler: TeamsBotHandler | null;
+  private graphClient: GraphTeamsClient | null;
   private readonly channels: ReturnType<typeof buildChannelMap>;
 
   constructor(
     memory: CompanyMemoryStore,
     founderWebhooks: Record<string, string>,
-    botHandler?: TeamsBotHandler | null,
+    graphClient?: GraphTeamsClient | null,
   ) {
     this.memory = memory;
     this.founderWebhooks = founderWebhooks;
     this.channels = buildChannelMap();
-    this.botHandler = botHandler ?? null;
+    this.graphClient = graphClient ?? null;
   }
   /**
-   * Set the bot handler for sending Teams channel messages.
-   * Used when the bot handler must be initialized after the queue.
+   * Set the Graph client for sending Teams channel messages.
+   * Used when the Graph client must be initialized after the queue.
    */
-  setBotHandler(handler: TeamsBotHandler | null): void {
-    this.botHandler = handler;
+  setGraphClient(client: GraphTeamsClient | null): void {
+    this.graphClient = client;
   }
   /**
    * Submit a new decision for founder approval.
@@ -65,11 +66,13 @@ export class DecisionQueue {
       assignedTo: decision.assignedTo,
     });
 
-    // Send via Bot Framework (preferred) or webhook fallback
+    // Send via Graph API (preferred) or webhook fallback
     const decisionsChannel = this.channels.decisions;
-    if (this.botHandler && decisionsChannel) {
-      await this.botHandler.sendProactiveCardToChannel(decisionsChannel.teamId, decisionsChannel.channelId, card.attachments[0].content as unknown as Record<string, unknown>)
-        .catch((err: unknown) => console.error('Failed to send decision via Bot Framework:', err));
+    if (this.graphClient && decisionsChannel) {
+      await this.graphClient.sendCard(
+        { teamId: decisionsChannel.teamId, channelId: decisionsChannel.channelId },
+        card.attachments[0].content as unknown as AdaptiveCard,
+      ).catch((err: unknown) => console.error('Failed to send decision via Graph API:', err));
     } else {
       const notifications = targets
         .filter((founder: string) => this.founderWebhooks[founder])
@@ -211,11 +214,13 @@ export class DecisionQueue {
           assignedTo: decision.assignedTo,
         });
 
-        // Send via Bot Framework (preferred) or webhook fallback
+        // Send via Graph API (preferred) or webhook fallback
         const decisionsChannel = this.channels.decisions;
-        if (this.botHandler && decisionsChannel) {
-          await this.botHandler.sendProactiveCardToChannel(decisionsChannel.teamId, decisionsChannel.channelId, card.attachments[0].content as unknown as Record<string, unknown>)
-            .catch((err: unknown) => console.error('Failed to send reminder via Bot Framework:', err));
+        if (this.graphClient && decisionsChannel) {
+          await this.graphClient.sendCard(
+            { teamId: decisionsChannel.teamId, channelId: decisionsChannel.channelId },
+            card.attachments[0].content as unknown as AdaptiveCard,
+          ).catch((err: unknown) => console.error('Failed to send reminder via Graph API:', err));
         } else {
           for (const founder of targets) {
             const webhook = this.founderWebhooks[founder];

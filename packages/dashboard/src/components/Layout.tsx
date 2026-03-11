@@ -45,7 +45,7 @@ export default function Layout() {
   return (
     <div className="dashboard-shell flex h-screen overflow-hidden bg-base">
       {/* ── Desktop Sidebar ─────────────────── */}
-      <aside className={`dashboard-sidebar hidden w-[68px] flex-col border-r border-prism-border transition-colors duration-200 md:flex ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}>
+      <aside className={`dashboard-sidebar hidden w-[280px] flex-col border-r border-prism-border transition-colors duration-200 md:flex ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}>
         {theme === 'dark' && (
           <>
             <div className="sidebar-spectral-edge" aria-hidden="true" />
@@ -54,61 +54,58 @@ export default function Layout() {
           </>
         )}
         {/* Brand */}
-        <div className="relative z-10 flex justify-center px-3 py-5">
-          <BrandLockup theme={theme} compact />
+        <div className="relative z-10 flex items-center justify-between px-4 py-4">
+          <BrandLockup theme={theme} />
         </div>
 
         {/* Nav links */}
-        <nav className="relative z-10 flex-1 space-y-2 overflow-y-auto px-2">
+        <nav className="relative z-10 flex-1 space-y-0.5 overflow-y-auto px-3">
           {NAV.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               end={to === '/'}
-              title={label}
-              aria-label={label}
               className={({ isActive }) =>
-                `mx-auto flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
+                `flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium transition-colors ${
                   isActive
-                    ? `nav-item-active ${theme === 'dark' ? 'nav-item-active--dark' : 'nav-item-active--light'} text-prism-primary`
+                    ? `nav-item-active ${theme === 'dark' ? 'nav-item-active--dark' : 'nav-item-active--light'} text-prism-primary font-semibold`
                     : 'text-prism-tertiary hover:bg-prism-bg2 hover:text-prism-primary'
                 }`
               }
             >
-              <Icon className="h-4 w-4 flex-shrink-0" />
-              <span className="sr-only">{label}</span>
+              <Icon className="h-5 w-5 flex-shrink-0" />
+              {label}
             </NavLink>
           ))}
         </nav>
         {/* Theme Toggle */}
-        <div className="relative z-10 flex justify-center px-2 py-3">
+        <div className="relative z-10 border-t border-prism-border px-4 py-3">
           <button
             onClick={toggle}
-            title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-            aria-label={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-prism-tertiary transition-colors hover:bg-prism-bg2 hover:text-prism-primary"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium text-prism-tertiary transition-colors hover:bg-prism-bg2 hover:text-prism-primary"
           >
             {theme === 'dark' ? (
-              <SunIcon className="h-4 w-4" />
+              <SunIcon className="h-5 w-5" />
             ) : (
-              <MoonIcon className="h-4 w-4" />
+              <MoonIcon className="h-5 w-5" />
             )}
-            <span className="sr-only">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+            {theme === 'dark' ? 'Light mode' : 'Dark mode'}
           </button>
         </div>
         {/* Footer */}
-        <div className="relative z-10 border-t border-prism-border px-2 py-4">
-          <div className="flex flex-col items-center gap-2.5">
+        <div className="relative z-10 border-t border-prism-border px-4 py-4">
+          <div className="flex items-center gap-2.5">
             {user?.picture ? (
-              <img src={user.picture} alt="" className="h-[34px] w-[34px] rounded-full object-cover" referrerPolicy="no-referrer" />
+              <img src={user.picture} alt="" className="h-8 w-8 rounded-full object-cover" referrerPolicy="no-referrer" />
             ) : (
-              <div className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-prism-bg2 text-[11px] font-bold text-prism-primary">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-prism-bg2 text-[12px] font-bold text-prism-primary">
                 {(user?.name ?? 'U')[0]}
               </div>
             )}
-            <button onClick={logout} className="text-[11px] text-prism-tertiary hover:text-prism-primary transition-colors [writing-mode:vertical-rl] rotate-180" title="Sign out">
-              Sign out
-            </button>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-medium text-prism-primary">{user?.name ?? 'User'}</p>
+              <button onClick={logout} className="text-[12px] text-prism-tertiary transition-colors hover:text-prism-primary">Sign out</button>
+            </div>
           </div>
         </div>
       </aside>
