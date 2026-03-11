@@ -16,7 +16,7 @@ import {
   getRoleTitle,
   toHumanWords,
 } from './shared';
-import { DISPLAY_NAME_MAP, ROLE_DEPARTMENT, ROLE_TITLE } from '../../lib/types';
+import { DISPLAY_NAME_MAP, ROLE_DEPARTMENT, ROLE_TITLE, AGENT_BUILT_IN_TOOLS } from '../../lib/types';
 import { getToolPlatform, getToolPlatformMeta, PLATFORM_META, type ToolPlatform } from '../../lib/toolPlatform';
 
 type HealthFilter = null | 'high-risk' | 'stale' | 'telemetry-gap';
@@ -282,13 +282,23 @@ function TelemetryGaps({
 
 /* ── Tool Assignment Search ──────────────────────────────── */
 
-interface SearchResult {
-  type: 'agent' | 'tool';
+interface AgentSearchResult {
+  type: 'agent';
   key: string;
   label: string;
   subtitle: string;
-  grants: ToolGrant[];
+  tools: string[];
 }
+
+interface ToolSearchResult {
+  type: 'tool';
+  key: string;
+  label: string;
+  subtitle: string;
+  agents: string[];
+}
+
+type SearchResult = AgentSearchResult | ToolSearchResult;
 
 function normalizeSearch(value: string): string {
   return value
@@ -307,84 +317,57 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
     const q = normalizeSearch(query);
     if (!q) return [];
 
-    const activeGrants = grants.filter((g) => g.is_active);
-
-    // Group by agent
-    const byAgent = new Map<string, ToolGrant[]>();
-    for (const g of activeGrants) {
-      const list = byAgent.get(g.agent_role) ?? [];
-      list.push(g);
-      byAgent.set(g.agent_role, list);
-    }
-
-    // Group by tool
-    const byTool = new Map<string, ToolGrant[]>();
-    for (const g of activeGrants) {
-      const list = byTool.get(g.tool_name) ?? [];
-      list.push(g);
-      byTool.set(g.tool_name, list);
-    }
-
     const matches: SearchResult[] = [];
-    const matchedAgents = new Set<string>();
 
-    // Agent matches from grants
-    for (const [role, agentGrants] of byAgent) {
-      const searchable = normalizeSearch(
-        [role, getDisplayName(role), ROLE_DEPARTMENT[role] ?? '', ROLE_TITLE[role] ?? ''].join(' '),
-      );
-      if (q.split(' ').every((token) => searchable.includes(token))) {
-        matchedAgents.add(role);
-        matches.push({
-          type: 'agent',
-          key: `agent:${role}`,
-          label: getDisplayName(role),
-          subtitle: `${ROLE_TITLE[role] ?? ROLE_DEPARTMENT[role] ?? 'Unknown'} · ${agentGrants.length} tool${agentGrants.length === 1 ? '' : 's'}`,
-          grants: agentGrants,
-        });
-      }
-    }
-
-    // All agents (even without grants) so search always finds people
+    // ── Agent matches — use AGENT_BUILT_IN_TOOLS as the canonical tool list ──
     for (const [role, displayName] of Object.entries(DISPLAY_NAME_MAP)) {
-      if (matchedAgents.has(role)) continue;
       const searchable = normalizeSearch(
         [role, displayName, ROLE_DEPARTMENT[role] ?? '', ROLE_TITLE[role] ?? ''].join(' '),
       );
-      if (q.split(' ').every((token) => searchable.includes(token))) {
-        matches.push({
-          type: 'agent',
-          key: `agent:${role}`,
-          label: displayName,
-          subtitle: `${ROLE_TITLE[role] ?? ROLE_DEPARTMENT[role] ?? 'Unknown'} · No tool grants`,
-          grants: [],
-        });
+      if (!q.split(' ').every((token) => searchable.includes(token))) continue;
+
+      const tools = AGENT_BUILT_IN_TOOLS[role] ?? [];
+      matches.push({
+        type: 'agent',
+        key: `agent:${role}`,
+        label: displayName,
+        subtitle: `${ROLE_TITLE[role] ?? ROLE_DEPARTMENT[role] ?? 'Unknown'} · ${tools.length} tool${tools.length === 1 ? '' : 's'}`,
+        tools,
+      });
+    }
+
+    // ── Tool matches — build from AGENT_BUILT_IN_TOOLS ──
+    const toolToAgents = new Map<string, string[]>();
+    for (const [role, tools] of Object.entries(AGENT_BUILT_IN_TOOLS)) {
+      for (const tool of tools) {
+        const list = toolToAgents.get(tool) ?? [];
+        list.push(role);
+        toolToAgents.set(tool, list);
       }
     }
 
-    // Tool matches
-    for (const [tool, toolGrants] of byTool) {
+    for (const [tool, agents] of toolToAgents) {
       const platform = getToolPlatform(tool);
       const pm = PLATFORM_META[platform];
       const searchable = normalizeSearch(
         [tool, toHumanWords(tool), pm.label].join(' '),
       );
-      if (q.split(' ').every((token) => searchable.includes(token))) {
-        matches.push({
-          type: 'tool',
-          key: `tool:${tool}`,
-          label: toHumanWords(tool),
-          subtitle: `${pm.label} · ${toolGrants.length} agent${toolGrants.length === 1 ? '' : 's'} · ${tool}`,
-          grants: toolGrants,
-        });
-      }
+      if (!q.split(' ').every((token) => searchable.includes(token))) continue;
+
+      matches.push({
+        type: 'tool',
+        key: `tool:${tool}`,
+        label: toHumanWords(tool),
+        subtitle: `${pm.label} · ${agents.length} agent${agents.length === 1 ? '' : 's'}`,
+        agents,
+      });
     }
 
     return matches.sort((a, b) => {
       if (a.type !== b.type) return a.type === 'agent' ? -1 : 1;
       return a.label.localeCompare(b.label);
     });
-  }, [grants, query]);
+  }, [query]);
 
   const showResults = focused && query.trim().length > 0;
 
@@ -401,7 +384,7 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => setTimeout(() => setFocused(false), 200)}
-          placeholder='Search agents or tools — e.g. "Marcus", "send_teams_message", "finance"'
+          placeholder='Search agents or tools — e.g. "Marcus", "send_email", "finance"'
           className="flex-1 bg-transparent text-sm text-txt-primary placeholder:text-txt-muted outline-none"
         />
         {query && (
@@ -414,86 +397,87 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
       {showResults && (
         <div className="mt-4 space-y-3">
           {results.length === 0 ? (
-            <p className="text-[13px] text-txt-muted">No agents or tools match "{query.trim()}"</p>
+            <p className="text-[13px] text-txt-muted">No agents or tools match &quot;{query.trim()}&quot;</p>
           ) : (
             <>
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">
                 {results.length} result{results.length === 1 ? '' : 's'}
               </p>
               {results.slice(0, 12).map((result) => {
-                // For agent results, group tools by platform
-                const groupedByPlatform = result.type === 'agent' && result.grants.length > 0
-                  ? result.grants.reduce<Map<ToolPlatform, ToolGrant[]>>((acc, g) => {
-                      const p = getToolPlatform(g.tool_name);
-                      const list = acc.get(p) ?? [];
-                      list.push(g);
-                      acc.set(p, list);
-                      return acc;
-                    }, new Map())
-                  : null;
+                if (result.type === 'agent') {
+                  // Group tools by platform
+                  const byPlatform = new Map<ToolPlatform, string[]>();
+                  for (const t of result.tools) {
+                    const p = getToolPlatform(t);
+                    const list = byPlatform.get(p) ?? [];
+                    list.push(t);
+                    byPlatform.set(p, list);
+                  }
 
-                return (
-                  <div
-                    key={result.key}
-                    className="rounded-xl border border-border/70 bg-prism-card/60 p-4"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          {result.type === 'agent' ? (
-                            <span className="rounded-full border border-prism-sky/30 bg-prism-sky/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-prism-sky">
-                              agent
-                            </span>
-                          ) : (() => {
-                            const pm = getToolPlatformMeta(result.grants[0]?.tool_name ?? '');
-                            return (
-                              <span className={`rounded-full border ${pm.borderColor} ${pm.bgColor} px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${pm.color}`}>
-                                {pm.label}
-                              </span>
-                            );
-                          })()}
-                          <p className="text-sm font-semibold text-txt-primary">{result.label}</p>
-                        </div>
-                        <p className="mt-1 text-[12px] text-txt-muted">{result.subtitle}</p>
+                  return (
+                    <div key={result.key} className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full border border-prism-sky/30 bg-prism-sky/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-prism-sky">
+                          agent
+                        </span>
+                        <p className="text-sm font-semibold text-txt-primary">{result.label}</p>
                       </div>
-                    </div>
+                      <p className="mt-1 text-[12px] text-txt-muted">{result.subtitle}</p>
 
-                    {/* Inline assignment list */}
-                    {result.type === 'agent' && groupedByPlatform ? (
-                      <div className="mt-3 space-y-2.5">
-                        {[...groupedByPlatform.entries()]
-                          .sort(([a], [b]) => a.localeCompare(b))
-                          .map(([platform, platformGrants]) => {
-                            const pm = PLATFORM_META[platform];
-                            return (
-                              <div key={platform}>
-                                <p className={`mb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] ${pm.color}`}>{pm.label}</p>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {platformGrants.map((g) => (
-                                    <span
-                                      key={g.id}
-                                      className={`rounded-lg border ${pm.borderColor} ${pm.bgColor} px-2 py-1 text-[11px] ${pm.color}`}
-                                    >
-                                      {toHumanWords(g.tool_name)}
-                                    </span>
-                                  ))}
+                      {result.tools.length > 0 && (
+                        <div className="mt-3 space-y-2.5">
+                          {[...byPlatform.entries()]
+                            .sort(([a], [b]) => a.localeCompare(b))
+                            .map(([platform, tools]) => {
+                              const pm = PLATFORM_META[platform];
+                              return (
+                                <div key={platform}>
+                                  <p className={`mb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] ${pm.color}`}>
+                                    {pm.label} ({tools.length})
+                                  </p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {tools.map((t) => (
+                                      <span
+                                        key={t}
+                                        className={`rounded-lg border ${pm.borderColor} ${pm.bgColor} px-2 py-1 text-[11px] ${pm.color}`}
+                                      >
+                                        {toHumanWords(t)}
+                                      </span>
+                                    ))}
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          })}
-                      </div>
-                    ) : (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {result.grants.map((g) => (
-                          <div
-                            key={g.id}
-                            className="rounded-lg border border-border/60 bg-surface px-2.5 py-1.5 text-[11px]"
-                          >
-                            <span className="text-txt-primary">{getDisplayName(g.agent_role)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                              );
+                            })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                // Tool result — show agents who have it
+                const pm = getToolPlatformMeta(result.agents[0] ? result.key.replace('tool:', '') : '');
+                const toolName = result.key.replace('tool:', '');
+                const toolPm = getToolPlatformMeta(toolName);
+                return (
+                  <div key={result.key} className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+                    <div className="flex items-center gap-2">
+                      <span className={`rounded-full border ${toolPm.borderColor} ${toolPm.bgColor} px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${toolPm.color}`}>
+                        {toolPm.label}
+                      </span>
+                      <p className="text-sm font-semibold text-txt-primary">{result.label}</p>
+                    </div>
+                    <p className="mt-1 text-[12px] text-txt-muted">{result.subtitle}</p>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {result.agents.map((role) => (
+                        <div
+                          key={role}
+                          className="rounded-lg border border-border/60 bg-surface px-2.5 py-1.5 text-[11px]"
+                        >
+                          <span className="text-txt-primary">{getDisplayName(role)}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 );
               })}
