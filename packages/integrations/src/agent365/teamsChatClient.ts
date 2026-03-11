@@ -260,7 +260,7 @@ export class A365TeamsChatClient {
   private async findOneOnOneChatByMembers(memberUserIds: string[]): Promise<string | null> {
     const targetIds = new Set(memberUserIds.filter(Boolean));
     const chats = this.extractCollection<Record<string, unknown>>(
-      await this.callTool('mcp_graph_chat_listChats', { '$top': 100, '$orderby': 'lastUpdatedDateTime desc' }),
+      await this.callTool('ListChats', { '$top': 100, '$orderby': 'lastUpdatedDateTime desc' }),
     );
 
     for (const chat of chats) {
@@ -307,7 +307,7 @@ export class A365TeamsChatClient {
     }
 
     try {
-      const data = await this.callTool('mcp_graph_chat_createChat', {
+      const data = await this.callTool('CreateChat', {
         chatType: 'oneOnOne',
         members,
       });
@@ -330,13 +330,13 @@ export class A365TeamsChatClient {
 
   async listChatMembers(chatId: string): Promise<Array<Record<string, unknown>>> {
     return this.extractCollection<Record<string, unknown>>(
-      await this.callTool('mcp_graph_chat_listChatMembers', { 'chat-id': chatId }),
+      await this.callTool('ListChatMembers', { 'chat-id': chatId }),
     );
   }
 
   async listChatMessages(chatId: string, top = 10): Promise<Array<Record<string, unknown>>> {
     return this.extractCollection<Record<string, unknown>>(
-      await this.callTool('mcp_graph_chat_listChatMessages', {
+      await this.callTool('ListChatMessages', {
         'chat-id': chatId,
         '$top': top,
         '$orderby': 'createdDateTime desc',
@@ -419,10 +419,10 @@ export class A365TeamsChatClient {
 
   /**
    * Post a message in a Teams chat using the Agent 365 MCP server.
-   * Uses mcp_graph_chat_postMessage (POST /v1.0/chats/{chat-id}/messages).
+   * Uses PostMessage (POST /v1.0/chats/{chat-id}/messages).
    */
   async postChatMessage(chatId: string, content: string, agentRole?: string): Promise<void> {
-    await this.callTool('mcp_graph_chat_postMessage', {
+    await this.callTool('PostMessage', {
       'chat-id': chatId,
       body: {
         contentType: 'html',
