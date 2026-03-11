@@ -379,11 +379,28 @@ export function createEntraHRTools(): ToolDefinition[] {
       description:
         'Audit all glyphor.ai Entra users for missing profile data: display names, job titles, ' +
         'departments, profile photos, and manager assignments. Returns a list of issues to fix.',
-      parameters: {},
-      execute: async (): Promise<ToolResult> => {
+      parameters: {
+        limit: {
+          type: 'number',
+          description: 'Maximum users to audit (default 10, max 100)',
+          required: false,
+        },
+        deep_checks: {
+          type: 'boolean',
+          description: 'When true, also verify photo and manager for each user (slower)',
+          required: false,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
         try {
+          const requestedLimit = typeof params.limit === 'number' ? params.limit : Number(params.limit ?? 10);
+          const limit = Number.isFinite(requestedLimit)
+            ? Math.min(Math.max(Math.trunc(requestedLimit), 1), 100)
+            : 10;
+          const deepChecks = params.deep_checks === true;
+
           const res = await graphFetch(
-            `/users?$filter=endsWith(userPrincipalName,'glyphor.ai')&$select=id,displayName,givenName,surname,jobTitle,department,userPrincipalName,accountEnabled&$top=100&$count=true`,
+            `/users?$filter=endsWith(userPrincipalName,'glyphor.ai')&$select=id,displayName,givenName,surname,jobTitle,department,userPrincipalName,accountEnabled&$top=${limit}&$count=true`,
             'GET',
             undefined,
             'read_directory',
@@ -405,23 +422,24 @@ export function createEntraHRTools(): ToolDefinition[] {
             if (!user.jobTitle) problems.push('missing jobTitle');
             if (!user.department) problems.push('missing department');
 
-            // Check photo
-            const photoRes = await graphFetch(
-              `/users/${encodeURIComponent(upn)}/photo`,
-              'GET',
-              undefined,
-              'get_user_profile',
-            );
-            if (!photoRes.ok) problems.push('no profile photo');
+            if (deepChecks) {
+              // Deep checks are optional because they issue two additional Graph calls per user.
+              const photoRes = await graphFetch(
+                `/users/${encodeURIComponent(upn)}/photo`,
+                'GET',
+                undefined,
+                'get_user_profile',
+              );
+              if (!photoRes.ok) problems.push('no profile photo');
 
-            // Check manager
-            const mgrRes = await graphFetch(
-              `/users/${encodeURIComponent(upn)}/manager?$select=displayName`,
-              'GET',
-              undefined,
-              'get_user_profile',
-            );
-            if (!mgrRes.ok) problems.push('no manager set (org chart)');
+              const mgrRes = await graphFetch(
+                `/users/${encodeURIComponent(upn)}/manager?$select=displayName`,
+                'GET',
+                undefined,
+                'get_user_profile',
+              );
+              if (!mgrRes.ok) problems.push('no manager set (org chart)');
+            }
 
             if (problems.length > 0) {
               issues.push({ email: upn, problems });
@@ -434,6 +452,7 @@ export function createEntraHRTools(): ToolDefinition[] {
               totalUsers: users.length,
               usersWithIssues: issues.length,
               compliant: users.length - issues.length,
+              deepChecks,
               complianceRate: users.length > 0
                 ? `${Math.round(((users.length - issues.length) / users.length) * 100)}%`
                 : 'N/A',

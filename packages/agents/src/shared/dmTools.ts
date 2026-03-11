@@ -42,6 +42,7 @@ const userIdCache = new Map<string, string>();
  * display name (e.g. 'Marcus Reeves'), or a raw email.
  */
 function resolveRecipientEmail(recipient: string): string | null {
+  if (typeof recipient !== 'string' || recipient.trim().length === 0) return null;
   const lower = recipient.toLowerCase().trim();
 
   // Founder key
@@ -169,7 +170,10 @@ export function createDmTools(): ToolDefinition[] {
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        const recipientStr = params.recipient as string;
+        const recipientStr = typeof params.recipient === 'string' ? params.recipient : '';
+        if (!recipientStr.trim()) {
+          return { success: false, error: 'recipient is required' };
+        }
         const email = resolveRecipientEmail(recipientStr);
         if (!email) {
           return {
@@ -229,7 +233,10 @@ export function createDmTools(): ToolDefinition[] {
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        const recipientStr = params.recipient as string;
+        const recipientStr = typeof params.recipient === 'string' ? params.recipient : '';
+        if (!recipientStr.trim()) {
+          return { success: false, error: 'recipient is required' };
+        }
         const email = resolveRecipientEmail(recipientStr);
         if (!email) {
           return {

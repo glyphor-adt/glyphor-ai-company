@@ -375,7 +375,13 @@ export function createCommunicationTools(
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        const attendees = params.attendees as string[];
+        const attendees = Array.isArray(params.attendees)
+          ? (params.attendees.filter((a): a is string => typeof a === 'string'))
+          : [];
+
+        if (attendees.length === 0) {
+          return { success: false, error: 'attendees is required and must include at least 2 agents' };
+        }
 
         if (attendees.length > 5) {
           return { success: false, error: 'Max 5 attendees per meeting' };

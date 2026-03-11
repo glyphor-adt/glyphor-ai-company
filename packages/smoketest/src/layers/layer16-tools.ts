@@ -106,6 +106,25 @@ interface FactoryEntry {
   factory: () => ToolDefinition[];
 }
 
+const MOCK_COLLECTIVE_INTELLIGENCE = {
+  getPulse: async () => ({}),
+  updatePulse: async (_updates: Record<string, unknown>) => {},
+  saveCompanyKnowledge: async (_input: Record<string, unknown>) => 'ci-knowledge-1',
+  getCompanyKnowledge: async (_opts?: Record<string, unknown>) => [],
+  getKnowledgeBaseSections: async () => [],
+  createRoute: async (_route: Record<string, unknown>) => 'ci-route-1',
+  getActiveRoutes: async () => [],
+  detectContradictions: async () => [],
+  saveProcessPattern: async (_pattern: Record<string, unknown>) => 'ci-pattern-1',
+  getProcessPatterns: async (_opts?: Record<string, unknown>) => [],
+  saveAuthorityProposal: async (_proposal: Record<string, unknown>) => 'ci-proposal-1',
+  getAuthorityProposals: async (_status?: string) => [],
+};
+
+const MOCK_COMPANY_MEMORY = {
+  getCollectiveIntelligence: () => MOCK_COLLECTIVE_INTELLIGENCE,
+} as unknown as CompanyMemoryStore;
+
 const FACTORIES: FactoryEntry[] = [
   // Wave 0 — Pre-existing (Design Team)
   { name: 'figmaTools', wave: 0, factory: createFigmaTools },
@@ -159,7 +178,7 @@ const FACTORIES: FactoryEntry[] = [
   { name: 'initiativeTools', wave: 6, factory: createInitiativeTools },
   // Wave 7 — Dependency-requiring (stubbed deps for instantiation check)
   { name: 'assignmentTools', wave: 7, factory: () => createAssignmentTools({} as GlyphorEventBus) },
-  { name: 'collectiveIntelligenceTools', wave: 7, factory: () => createCollectiveIntelligenceTools({} as CompanyMemoryStore) },
+  { name: 'collectiveIntelligenceTools', wave: 7, factory: () => createCollectiveIntelligenceTools(MOCK_COMPANY_MEMORY) },
   { name: 'communicationTools', wave: 7, factory: () => createCommunicationTools({} as GlyphorEventBus) },
   { name: 'eventTools', wave: 7, factory: () => createEventTools({} as GlyphorEventBus) },
   { name: 'memoryTools', wave: 7, factory: () => createMemoryTools({} as CompanyMemoryStore) },

@@ -63,7 +63,14 @@ export function createMemoryTools(memory: CompanyMemoryStore): ToolDefinition[] 
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        const content = params.content as string;
+        if (!memory || typeof memory.saveMemory !== 'function') {
+          return { success: false, error: 'Memory store is not configured' };
+        }
+
+        const content = typeof params.content === 'string' ? params.content : '';
+        if (!content.trim()) {
+          return { success: false, error: 'content is required' };
+        }
 
         // Block catastrophic narrative memories that create feedback loops
         if (isToxicMemory(content)) {
@@ -103,6 +110,9 @@ export function createMemoryTools(memory: CompanyMemoryStore): ToolDefinition[] 
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
+        if (!memory || typeof memory.getMemories !== 'function') {
+          return { success: false, error: 'Memory store is not configured' };
+        }
         const memories = await memory.getMemories(ctx.agentRole, {
           limit: (params.limit as number) ?? 10,
           memoryType: params.memory_type as MemoryType | undefined,

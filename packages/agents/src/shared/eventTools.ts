@@ -44,6 +44,9 @@ export function createEventTools(glyphorEventBus: GlyphorEventBus): ToolDefiniti
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
+        if (!glyphorEventBus || typeof glyphorEventBus.emit !== 'function') {
+          return { success: false, error: 'Event bus is not configured' };
+        }
         const event = await glyphorEventBus.emit({
           type: 'insight.detected',
           source: ctx.agentRole,
@@ -85,6 +88,9 @@ export function createEventTools(glyphorEventBus: GlyphorEventBus): ToolDefiniti
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
+        if (!glyphorEventBus || typeof glyphorEventBus.emit !== 'function') {
+          return { success: false, error: 'Event bus is not configured' };
+        }
         const event = await glyphorEventBus.emit({
           type: 'alert.triggered',
           source: ctx.agentRole,

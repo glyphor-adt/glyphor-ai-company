@@ -696,6 +696,16 @@ const KNOWN_TOOLS = new Set([
   'pulse_list_concept_images',
   'pulse_list_brand_kits',
   'pulse_create_share_link',
+
+  // ── Peer/team orchestration aliases (Wave 7) ──
+  'create_peer_work_request',
+  'request_peer_work',
+  'create_handoff',
+  'peer_data_request',
+  'assign_team_task',
+  'review_team_output',
+  'check_team_status',
+  'escalate_to_sarah',
 ]);
 
 /**

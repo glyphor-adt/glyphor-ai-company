@@ -57,7 +57,10 @@ export function createCollectiveIntelligenceTools(
         },
       },
       execute: async (params): Promise<ToolResult> => {
-        const updates = params.updates as Record<string, unknown>;
+        const updates = params.updates as Record<string, unknown> | undefined;
+        if (!updates || typeof updates !== 'object' || Array.isArray(updates) || Object.keys(updates).length === 0) {
+          return { success: false, error: 'updates is required and must be a non-empty object' };
+        }
         await ci.updatePulse(updates);
         return { success: true, data: { updated: Object.keys(updates) } };
       },
@@ -83,7 +86,14 @@ export function createCollectiveIntelligenceTools(
         },
       },
       execute: async (params): Promise<ToolResult> => {
-        const highlights = (params.highlights as Array<{ agent: string; type: string; text: string }>).map(h => ({
+        const inputHighlights = Array.isArray(params.highlights)
+          ? (params.highlights as Array<{ agent: string; type: string; text: string }>)
+          : [];
+        if (inputHighlights.length === 0) {
+          return { success: false, error: 'highlights is required and must be a non-empty array' };
+        }
+
+        const highlights = inputHighlights.map(h => ({
           agent: h.agent,
           type: h.type as 'positive' | 'alert' | 'neutral',
           text: h.text,
