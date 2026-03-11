@@ -11,7 +11,7 @@
  *   AGENT365_<ROLE>_TENANT_ID
  */
 
-import { getAgentIdentityAppId, getAgentBlueprintSpId, type ToolDefinition } from '@glyphor/agent-runtime';
+import { type ToolDefinition } from '@glyphor/agent-runtime';
 import type { Agent365ToolBridge } from '@glyphor/integrations';
 import { createAgent365Tools as initAgent365Bridge } from '@glyphor/integrations';
 
@@ -38,56 +38,20 @@ export const ALL_M365_SERVERS = [
 
 let activeBridge: Agent365ToolBridge | null = null;
 
-function normalizeRoleKey(role: string): string {
-  return role
-    .replace(/[^a-zA-Z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .toUpperCase();
-}
-
-function resolveAgent365Credentials(agentRole?: string): {
+function resolveAgent365Credentials(_agentRole?: string): {
   clientId: string;
   clientSecret: string;
   tenantId: string;
 } | null {
-  const sharedClientId = process.env.AGENT365_CLIENT_ID;
-  const sharedClientSecret = process.env.AGENT365_CLIENT_SECRET ?? '';
-  const sharedTenantId = process.env.AGENT365_TENANT_ID;
+  // Always use shared credentials — per-agent Entra apps are regular directory
+  // users, not agentic users created by Teams agent installation, so the 3-step
+  // MsalTokenProvider flow fails when per-agent client IDs are used.
+  const clientId = process.env.AGENT365_CLIENT_ID;
+  const clientSecret = process.env.AGENT365_CLIENT_SECRET ?? '';
+  const tenantId = process.env.AGENT365_TENANT_ID;
 
-  if (!agentRole) {
-    if (!sharedClientId || !sharedTenantId) return null;
-    return {
-      clientId: sharedClientId,
-      clientSecret: sharedClientSecret,
-      tenantId: sharedTenantId,
-    };
-  }
-
-  const roleKey = normalizeRoleKey(agentRole);
-  const envClientId = process.env[`AGENT365_${roleKey}_CLIENT_ID`];
-  const envClientSecret = process.env[`AGENT365_${roleKey}_CLIENT_SECRET`];
-  const envTenantId = process.env[`AGENT365_${roleKey}_TENANT_ID`] ?? sharedTenantId;
-  const configuredAppId = getAgentIdentityAppId(agentRole);
-  const roleClientId = envClientId ?? configuredAppId;
-
-  if (roleClientId && envClientSecret && envTenantId) {
-    return {
-      clientId: roleClientId,
-      clientSecret: envClientSecret,
-      tenantId: envTenantId,
-    };
-  }
-
-  if (roleClientId && !envClientSecret) {
-    console.warn(`[Agent365] Per-agent app id found for ${agentRole} but AGENT365_${roleKey}_CLIENT_SECRET is missing. Falling back to shared Agent 365 credentials.`);
-  }
-
-  if (!sharedClientId || !sharedTenantId) return null;
-  return {
-    clientId: sharedClientId,
-    clientSecret: sharedClientSecret,
-    tenantId: sharedTenantId,
-  };
+  if (!clientId || !tenantId) return null;
+  return { clientId, clientSecret, tenantId };
 }
 
 // ── Public Factory ───────────────────────────────────────────────
