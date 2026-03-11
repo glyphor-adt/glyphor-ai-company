@@ -227,15 +227,15 @@ export function PageTabs<T extends string>({
   onChange: (key: T) => void;
 }) {
   return (
-    <div className="flex gap-1 rounded-lg bg-raised p-1 w-fit border border-border">
+    <div className="glass-tabs flex gap-1 rounded-lg p-1 w-fit border border-border">
       {tabs.map((t) => (
         <button
           key={t.key}
           onClick={() => onChange(t.key)}
-          className={`rounded-md px-4 py-1.5 text-[13px] font-medium transition-colors ${
+          className={`rounded-md px-4 py-1.5 text-[13px] font-medium transition-all ${
             active === t.key
-              ? 'bg-cyan/15 text-cyan'
-              : 'text-txt-muted hover:text-txt-secondary'
+              ? 'bg-cyan/15 text-cyan backdrop-blur-sm'
+              : 'text-txt-muted hover:text-txt-secondary hover:bg-white/5'
           }`}
         >
           {t.label}
