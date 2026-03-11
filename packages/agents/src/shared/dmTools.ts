@@ -210,13 +210,10 @@ export function createDmTools(): ToolDefinition[] {
 
         // ── Fallback: A365 MCP (delegated permissions) ───────────
         // Works for posting in chats where the agent blueprint has access.
-        if (a365Client && graphClient) {
+        // CreateChat accepts UPNs (emails) directly, no Graph userId lookup needed.
+        if (a365Client) {
           try {
-            const recipientUserId = await resolveUserIdByEmail(graphClient, email);
-            const senderUserId = senderEmail
-              ? await resolveUserIdByEmail(graphClient, senderEmail).catch(() => undefined)
-              : undefined;
-            const chatId = await a365Client.createOrGetOneOnOneChat(recipientUserId, senderUserId);
+            const chatId = await a365Client.createOrGetOneOnOneChat(email, senderEmail);
 
             const content = senderName ? `<b>${senderName}:</b> ${params.message as string}` : (params.message as string);
             await a365Client.postChatMessage(chatId, content, role);
@@ -256,13 +253,6 @@ export function createDmTools(): ToolDefinition[] {
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        if (!graphClient) {
-          return {
-            success: false,
-            error: 'Teams DM reading requires AGENT365_ENABLED=true and Graph user resolution to be configured.',
-          };
-        }
-
         const recipientStr = params.recipient as string;
         const email = resolveRecipientEmail(recipientStr);
         if (!email) {
@@ -284,11 +274,7 @@ export function createDmTools(): ToolDefinition[] {
         const senderEmail = role ? AGENT_EMAIL_MAP[role]?.email : undefined;
 
         try {
-          const recipientUserId = await resolveUserIdByEmail(graphClient, email);
-          const senderUserId = senderEmail
-            ? await resolveUserIdByEmail(graphClient, senderEmail).catch(() => undefined)
-            : undefined;
-          const chatId = await a365Client.createOrGetOneOnOneChat(recipientUserId, senderUserId);
+          const chatId = await a365Client.createOrGetOneOnOneChat(email, senderEmail);
 
           const requestedLimit = typeof params.limit === 'number' ? params.limit : Number(params.limit ?? 10);
           const limit = Number.isFinite(requestedLimit)

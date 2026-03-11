@@ -257,10 +257,10 @@ export class A365TeamsChatClient {
     return null;
   }
 
-  private async findOneOnOneChatByMembers(memberUserIds: string[]): Promise<string | null> {
-    const targetIds = new Set(memberUserIds.filter(Boolean));
+  private async findOneOnOneChatByUpns(upns: string[]): Promise<string | null> {
+    const targetUpns = new Set(upns.map(u => u.toLowerCase()).filter(Boolean));
     const chats = this.extractCollection<Record<string, unknown>>(
-      await this.callTool('ListChats', { '$top': 100, '$orderby': 'lastUpdatedDateTime desc' }),
+      await this.callTool('ListChats', { userUpns: upns, top: 50 }),
     );
 
     for (const chat of chats) {
@@ -269,15 +269,17 @@ export class A365TeamsChatClient {
       if (!chatId) continue;
 
       const members = await this.listChatMembers(chatId).catch(() => []);
-      const memberIds = new Set(members.map((member) => this.extractMemberUserId(member)).filter(Boolean));
-      if (memberIds.size !== targetIds.size) continue;
+      const memberUpns = new Set(members.map((m) => {
+        const email = (m as { email?: string }).email;
+        if (typeof email === 'string' && email) return email.toLowerCase();
+        const userId = this.extractMemberUserId(m);
+        return userId?.toLowerCase() ?? null;
+      }).filter(Boolean) as string[]);
 
+      if (memberUpns.size !== targetUpns.size) continue;
       let matches = true;
-      for (const id of targetIds) {
-        if (!memberIds.has(id)) {
-          matches = false;
-          break;
-        }
+      for (const upn of targetUpns) {
+        if (!memberUpns.has(upn)) { matches = false; break; }
       }
       if (matches) return chatId;
     }
@@ -285,31 +287,26 @@ export class A365TeamsChatClient {
     return null;
   }
 
-  async createOrGetOneOnOneChat(recipientUserId: string, senderUserId?: string): Promise<string> {
-    const cacheKey = senderUserId ? `${senderUserId}:${recipientUserId}` : recipientUserId;
+  /**
+   * Create or find an existing 1:1 chat using UPNs (email addresses).
+   * The MCP CreateChat tool accepts members_upns as an array of UPN strings.
+   * For oneOnOne chats, exactly 2 UPNs are required.
+   */
+  async createOrGetOneOnOneChat(recipientUpn: string, senderUpn?: string): Promise<string> {
+    const cacheKey = senderUpn ? `${senderUpn}:${recipientUpn}` : recipientUpn;
     const cached = this.chatCache.get(cacheKey);
     if (cached) return cached;
 
-    const members: Record<string, unknown>[] = [
-      {
-        '@odata.type': '#microsoft.graph.aadUserConversationMember',
-        roles: ['owner'],
-        'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${recipientUserId}')`,
-      },
-    ];
-
-    if (senderUserId) {
-      members.push({
-        '@odata.type': '#microsoft.graph.aadUserConversationMember',
-        roles: ['owner'],
-        'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${senderUserId}')`,
-      });
+    if (!senderUpn) {
+      throw new Error('[A365Teams] senderUpn is required for CreateChat — oneOnOne chats require exactly 2 members');
     }
+
+    const upns = [senderUpn, recipientUpn];
 
     try {
       const data = await this.callTool('CreateChat', {
         chatType: 'oneOnOne',
-        members,
+        members_upns: upns,
       });
       const chatId = this.extractChatId(data);
       if (!chatId) throw new Error('Chat create succeeded but no chat id was returned');
@@ -319,9 +316,7 @@ export class A365TeamsChatClient {
       const message = (err as Error).message;
       if (!/409|already exists|conflict/i.test(message)) throw err;
 
-      const existingChatId = await this.findOneOnOneChatByMembers(
-        [recipientUserId, senderUserId].filter((value): value is string => Boolean(value)),
-      );
+      const existingChatId = await this.findOneOnOneChatByUpns(upns);
       if (!existingChatId) throw err;
       this.chatCache.set(cacheKey, existingChatId);
       return existingChatId;
@@ -330,16 +325,15 @@ export class A365TeamsChatClient {
 
   async listChatMembers(chatId: string): Promise<Array<Record<string, unknown>>> {
     return this.extractCollection<Record<string, unknown>>(
-      await this.callTool('ListChatMembers', { 'chat-id': chatId }),
+      await this.callTool('ListChatMembers', { chatId }),
     );
   }
 
   async listChatMessages(chatId: string, top = 10): Promise<Array<Record<string, unknown>>> {
     return this.extractCollection<Record<string, unknown>>(
       await this.callTool('ListChatMessages', {
-        'chat-id': chatId,
-        '$top': top,
-        '$orderby': 'createdDateTime desc',
+        chatId,
+        top,
       }),
     );
   }
@@ -422,12 +416,21 @@ export class A365TeamsChatClient {
    * Uses PostMessage (POST /v1.0/chats/{chat-id}/messages).
    */
   async postChatMessage(chatId: string, content: string, agentRole?: string): Promise<void> {
+    // Strip HTML tags — the MCP PostMessage tool only supports contentType 'text'
+    const plainContent = content
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .trim();
+
     await this.callTool('PostMessage', {
-      'chat-id': chatId,
-      body: {
-        contentType: 'html',
-        content,
-      },
+      chatId,
+      content: plainContent,
+      contentType: 'text',
     }, agentRole);
   }
 
