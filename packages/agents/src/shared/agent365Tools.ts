@@ -99,7 +99,7 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
     console.log(`[Agent365] Using per-agent identity for ${agentRole}: instanceId=${agentAppInstanceId.slice(0, 8)}…`);
   }
 
-  const MCP_INIT_TIMEOUT_MS = 15_000;
+  const MCP_INIT_TIMEOUT_MS = 30_000;
 
   try {
     // Close any previous bridge to avoid connection leaks and stale MSAL tokens
