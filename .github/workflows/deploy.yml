@@ -28,9 +28,98 @@ jobs:
       - run: npm ci
       - run: npx turbo build
 
+  # ─── Detect which services need deploying ──────────────────
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      scheduler: ${{ steps.filter.outputs.scheduler }}
+      dashboard: ${{ steps.filter.outputs.dashboard }}
+      worker: ${{ steps.filter.outputs.worker }}
+      mcp-data: ${{ steps.filter.outputs.mcp-data }}
+      mcp-marketing: ${{ steps.filter.outputs.mcp-marketing }}
+      mcp-engineering: ${{ steps.filter.outputs.mcp-engineering }}
+      mcp-design: ${{ steps.filter.outputs.mcp-design }}
+      mcp-finance: ${{ steps.filter.outputs.mcp-finance }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            scheduler:
+              - 'package.json'
+              - 'package-lock.json'
+              - 'turbo.json'
+              - 'tsconfig.base.json'
+              - 'docker/Dockerfile.scheduler'
+              - 'packages/scheduler/**'
+              - 'packages/agent-runtime/**'
+              - 'packages/agents/**'
+              - 'packages/company-memory/**'
+              - 'packages/company-knowledge/**'
+              - 'packages/integrations/**'
+              - 'packages/shared/**'
+              - 'ToolingManifest.json'
+            dashboard:
+              - 'package.json'
+              - 'package-lock.json'
+              - 'packages/dashboard/**'
+              - 'docker/Dockerfile.dashboard'
+              - 'docker/nginx.conf'
+            worker:
+              - 'package.json'
+              - 'package-lock.json'
+              - 'turbo.json'
+              - 'tsconfig.base.json'
+              - 'docker/Dockerfile.worker'
+              - 'packages/worker/**'
+              - 'packages/shared/**'
+              - 'packages/agent-runtime/**'
+              - 'packages/agents/**'
+              - 'packages/company-memory/**'
+              - 'packages/integrations/**'
+            mcp-data:
+              - 'package.json'
+              - 'package-lock.json'
+              - 'turbo.json'
+              - 'tsconfig.base.json'
+              - 'docker/Dockerfile.mcp-data-server'
+              - 'packages/mcp-data-server/**'
+            mcp-marketing:
+              - 'package.json'
+              - 'package-lock.json'
+              - 'turbo.json'
+              - 'tsconfig.base.json'
+              - 'docker/Dockerfile.mcp-marketing-server'
+              - 'packages/mcp-marketing-server/**'
+            mcp-engineering:
+              - 'package.json'
+              - 'package-lock.json'
+              - 'turbo.json'
+              - 'tsconfig.base.json'
+              - 'docker/Dockerfile.mcp-engineering-server'
+              - 'packages/mcp-engineering-server/**'
+            mcp-design:
+              - 'package.json'
+              - 'package-lock.json'
+              - 'turbo.json'
+              - 'tsconfig.base.json'
+              - 'docker/Dockerfile.mcp-design-server'
+              - 'packages/mcp-design-server/**'
+            mcp-finance:
+              - 'package.json'
+              - 'package-lock.json'
+              - 'turbo.json'
+              - 'tsconfig.base.json'
+              - 'docker/Dockerfile.mcp-finance-server'
+              - 'packages/mcp-finance-server/**'
+
   # ─── Deploy Scheduler ─────────────────────────────────────
   deploy-scheduler:
-    needs: typecheck
+    needs: [typecheck, changes]
+    if: needs.changes.outputs.scheduler == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -81,7 +170,8 @@ jobs:
 
   # ─── Deploy Dashboard ──────────────────────────────────────
   deploy-dashboard:
-    needs: typecheck
+    needs: [typecheck, changes]
+    if: needs.changes.outputs.dashboard == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -133,7 +223,8 @@ jobs:
 
   # ─── Deploy Worker ──────────────────────────────────────────
   deploy-worker:
-    needs: typecheck
+    needs: [typecheck, changes]
+    if: needs.changes.outputs.worker == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -187,7 +278,8 @@ jobs:
 
   # ─── Deploy MCP Data Server ─────────────────────────────────
   deploy-mcp-data:
-    needs: typecheck
+    needs: [typecheck, changes]
+    if: needs.changes.outputs.mcp-data == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -239,7 +331,8 @@ jobs:
 
   # ─── Deploy MCP Marketing Server ───────────────────────────
   deploy-mcp-marketing:
-    needs: typecheck
+    needs: [typecheck, changes]
+    if: needs.changes.outputs.mcp-marketing == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -291,7 +384,8 @@ jobs:
 
   # ─── Deploy MCP Engineering Server ─────────────────────────
   deploy-mcp-engineering:
-    needs: typecheck
+    needs: [typecheck, changes]
+    if: needs.changes.outputs.mcp-engineering == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -343,7 +437,8 @@ jobs:
 
   # ─── Deploy MCP Design Server ──────────────────────────────
   deploy-mcp-design:
-    needs: typecheck
+    needs: [typecheck, changes]
+    if: needs.changes.outputs.mcp-design == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -395,7 +490,8 @@ jobs:
 
   # ─── Deploy MCP Finance Server ─────────────────────────────
   deploy-mcp-finance:
-    needs: typecheck
+    needs: [typecheck, changes]
+    if: needs.changes.outputs.mcp-finance == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
