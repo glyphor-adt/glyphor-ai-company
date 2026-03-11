@@ -215,7 +215,7 @@ export function createDmTools(): ToolDefinition[] {
           try {
             const chatId = await a365Client.createOrGetOneOnOneChat(email, senderEmail);
 
-            const content = senderName ? `<b>${senderName}:</b> ${params.message as string}` : (params.message as string);
+            const content = senderName ? `${senderName}: ${params.message as string}` : (params.message as string);
             await a365Client.postChatMessage(chatId, content, role);
 
             return { success: true, data: { sent: true, recipient: recipientStr, email, via: 'a365-mcp' } };
