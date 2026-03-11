@@ -1104,8 +1104,8 @@ function EditApproveModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 pt-[12vh] overflow-y-auto">
-      <div className="w-full max-w-lg rounded-xl border border-prism-border bg-prism-card shadow-prism-lg mb-8">
+    <div className="modal-shell items-start overflow-y-auto pt-[12vh]" onClick={onClose}>
+      <div className="modal-panel mb-8 max-w-lg" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-prism-border px-6 py-4">
           <h2 className="text-lg font-semibold text-prism-primary">Edit & Approve Directive</h2>
           <button onClick={onClose} className="text-txt-muted hover:text-txt-primary transition-colors text-lg">
@@ -1270,8 +1270,8 @@ function NewDirectiveModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 pt-[12vh] overflow-y-auto">
-      <div className="w-full max-w-lg rounded-xl border border-prism-border bg-prism-card shadow-prism-lg mb-8">
+    <div className="modal-shell items-start overflow-y-auto pt-[12vh]" onClick={onClose}>
+      <div className="modal-panel mb-8 max-w-lg" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-prism-border px-6 py-4">
           <h2 className="text-lg font-semibold text-prism-primary">New Directive</h2>

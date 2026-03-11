@@ -328,9 +328,9 @@ function CreateSkillModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+    <div className="modal-shell" onClick={onClose}>
       <div
-        className="w-full max-w-lg rounded-xl border border-prism-border bg-prism-card shadow-prism-lg"
+        className="modal-panel max-w-lg"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-4">

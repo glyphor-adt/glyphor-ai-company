@@ -511,8 +511,8 @@ function NewBulletinModal({ onClose, onCreated }: { onClose: () => void; onCreat
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg rounded-xl border border-prism-border bg-prism-card shadow-prism-lg">
+    <div className="modal-shell" onClick={onClose}>
+      <div className="modal-panel max-w-lg" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <h2 className="text-lg font-semibold text-txt-primary">New Bulletin</h2>
           <button onClick={onClose} className="text-txt-muted hover:text-txt-primary transition-colors text-lg">×</button>

@@ -1020,7 +1020,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
         <div className="border-t border-border pt-3 relative">
           {/* @mention dropdown */}
           {showMentions && filteredMentions.length > 0 && (
-            <div className="absolute bottom-full left-0 mb-1 w-64 rounded-lg border border-border bg-surface shadow-lg z-10 max-h-48 overflow-y-auto">
+            <div className="dropdown-panel absolute bottom-full left-0 z-10 mb-1 max-h-48 w-64 overflow-y-auto rounded-lg border border-border bg-surface">
               {filteredMentions.map((m, i) => (
                 <button
                   key={m.role}
@@ -1125,8 +1125,8 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
 
       {/* Teams Call Modal */}
       {showTeamsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowTeamsModal(false)}>
-          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-prism-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-shell" onClick={() => setShowTeamsModal(false)}>
+          <div className="modal-panel max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-txt-primary flex items-center gap-2">
                 <MdVideoCall size={20} className="text-cyan" />

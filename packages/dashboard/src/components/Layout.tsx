@@ -3,6 +3,7 @@ import { useTheme } from '../lib/theme';
 import { useAuth } from '../lib/auth';
 import { Orbit } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import CanvasGlow from './CanvasGlow';
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: GridIcon },
@@ -44,7 +45,7 @@ export default function Layout() {
   return (
     <div className="dashboard-shell flex h-screen overflow-hidden bg-base">
       {/* ── Desktop Sidebar ─────────────────── */}
-      <aside className={`dashboard-sidebar hidden w-[220px] flex-col border-r border-prism-border transition-colors duration-200 md:flex ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}>
+      <aside className={`dashboard-sidebar hidden w-[68px] flex-col border-r border-prism-border transition-colors duration-200 md:flex ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}>
         {theme === 'dark' && (
           <>
             <div className="sidebar-spectral-edge" aria-hidden="true" />
@@ -53,58 +54,61 @@ export default function Layout() {
           </>
         )}
         {/* Brand */}
-        <div className="relative z-10 px-4 py-4">
-          <BrandLockup theme={theme} />
+        <div className="relative z-10 flex justify-center px-3 py-5">
+          <BrandLockup theme={theme} compact />
         </div>
 
         {/* Nav links */}
-        <nav className="relative z-10 flex-1 space-y-0.5 overflow-y-auto px-3">
+        <nav className="relative z-10 flex-1 space-y-2 overflow-y-auto px-2">
           {NAV.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               end={to === '/'}
+              title={label}
+              aria-label={label}
               className={({ isActive }) =>
-                `flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
+                `mx-auto flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
                   isActive
-                    ? `nav-item-active ${theme === 'dark' ? 'nav-item-active--dark' : 'nav-item-active--light'} text-prism-primary font-semibold`
+                    ? `nav-item-active ${theme === 'dark' ? 'nav-item-active--dark' : 'nav-item-active--light'} text-prism-primary`
                     : 'text-prism-tertiary hover:bg-prism-bg2 hover:text-prism-primary'
                 }`
               }
             >
               <Icon className="h-4 w-4 flex-shrink-0" />
-              {label}
+              <span className="sr-only">{label}</span>
             </NavLink>
           ))}
         </nav>
         {/* Theme Toggle */}
-        <div className="relative z-10 px-4 py-2">
+        <div className="relative z-10 flex justify-center px-2 py-3">
           <button
             onClick={toggle}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-prism-tertiary transition-colors hover:bg-prism-bg2 hover:text-prism-primary"
+            title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            aria-label={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-prism-tertiary transition-colors hover:bg-prism-bg2 hover:text-prism-primary"
           >
             {theme === 'dark' ? (
               <SunIcon className="h-4 w-4" />
             ) : (
               <MoonIcon className="h-4 w-4" />
             )}
-            {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            <span className="sr-only">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
           </button>
         </div>
         {/* Footer */}
-        <div className="relative z-10 border-t border-prism-border px-4 py-4">
-          <div className="flex items-center gap-2.5">
+        <div className="relative z-10 border-t border-prism-border px-2 py-4">
+          <div className="flex flex-col items-center gap-2.5">
             {user?.picture ? (
-              <img src={user.picture} alt="" className="h-7 w-7 rounded-full" referrerPolicy="no-referrer" />
+              <img src={user.picture} alt="" className="h-[34px] w-[34px] rounded-full object-cover" referrerPolicy="no-referrer" />
             ) : (
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-prism-bg2 text-[11px] font-bold text-prism-primary">
+              <div className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-prism-bg2 text-[11px] font-bold text-prism-primary">
                 {(user?.name ?? 'U')[0]}
               </div>
             )}
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[12px] font-medium text-prism-primary">{user?.name ?? 'User'}</p>
-              <button onClick={logout} className="text-[11px] text-prism-tertiary hover:text-prism-primary transition-colors">Sign out</button>
-            </div>
+            <button onClick={logout} className="text-[11px] text-prism-tertiary hover:text-prism-primary transition-colors [writing-mode:vertical-rl] rotate-180" title="Sign out">
+              Sign out
+            </button>
           </div>
         </div>
       </aside>
@@ -182,10 +186,7 @@ export default function Layout() {
 
       {/* ── Main Content ────────────────────── */}
       <main className={`dashboard-main flex-1 transition-colors duration-200 ${isFullBleed ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'} pb-16 md:pb-0 safe-top`}>
-        <div className={`spectral-mesh spectral-mesh-${theme}`} aria-hidden="true">
-          <div className={`spectral-mesh-purple spectral-mesh-purple--${theme}`} />
-          <div className="spectral-mesh-noise" />
-        </div>
+        {theme === 'dark' && <CanvasGlow />}
         <div className="dashboard-content">
           <div className="h-1 w-full flex-shrink-0 bg-prism-gradient" />
           {isFullBleed ? (
@@ -229,13 +230,17 @@ export default function Layout() {
   );
 }
 
-function BrandLockup({ theme }: { theme: 'dark' | 'light' }) {
+function BrandLockup({ theme, compact = false }: { theme: 'dark' | 'light'; compact?: boolean }) {
   return (
-    <div className="flex items-center gap-2.5">
-      <img src="/icons/icon-192x192.png" alt="Glyphor icon" className="h-9 w-9 object-contain" />
-      <span className={`font-agency text-[1.65rem] lowercase leading-none ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
-        glyphor
-      </span>
+    <div className={`flex items-center ${compact ? 'justify-center' : 'gap-2.5'}`}>
+      <div className={`brand-badge ${compact ? 'brand-badge--compact' : ''}`}>
+        <img src="/icons/icon-192x192.png" alt="Glyphor icon" className="h-9 w-9 object-contain" />
+      </div>
+      {!compact && (
+        <span className={`font-agency text-[1.65rem] lowercase leading-none ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
+          glyphor
+        </span>
+      )}
     </div>
   );
 }

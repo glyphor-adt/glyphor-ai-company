@@ -1,9 +1,9 @@
-import { MdCheckCircle, MdSearch, MdDescription, MdQueue, MdChat, MdGroup, MdArrowForward } from 'react-icons/md';
-import { useAgents, useDecisions, useProducts } from '../lib/hooks';
-import FounderBriefing from '../components/FounderBriefing';
+import { MdCheckCircle, MdSearch, MdDescription, MdQueue, MdChat, MdArrowForward, MdWarning } from 'react-icons/md';
+import { useAgents, useDecisions, useOpenIncidents, useProducts } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, TIER_TO_IMPACT } from '../lib/types';
 import {
   Card,
+  InnerCard,
   SectionHeader,
   AgentAvatar,
   ImpactBadge,
@@ -11,11 +11,10 @@ import {
   timeAgo,
 } from '../components/ui';
 import { Link } from 'react-router-dom';
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState } from 'react';
 import { SCHEDULER_URL } from '../lib/firebase';
 import { apiCall } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
-import { useTheme } from '../lib/theme';
 
 interface AnalysisSummary {
   total: number;
@@ -33,8 +32,7 @@ interface RunningAgent {
 export default function Dashboard() {
   const { data: agents, loading: agentsLoading } = useAgents();
   const { data: decisions, loading: decisionsLoading } = useDecisions();
-  const { theme } = useTheme();
-
+  const { data: incidents, loading: incidentsLoading } = useOpenIncidents();
   const { data: products } = useProducts();
   const [analysisSummary, setAnalysisSummary] = useState<AnalysisSummary>({ total: 0, completed: 0, active: 0 });
   const [runningAgents, setRunningAgents] = useState<RunningAgent[]>([]);
@@ -88,147 +86,257 @@ export default function Dashboard() {
   const firstName = user?.name?.split(' ')[0] ?? 'there';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  const isDark = theme === 'dark';
+  const productCount = products.length;
 
   return (
-    <div className="dashboard-home space-y-8">
-      {/* ── Welcome Banner ─────────────────── */}
-      <div className={`banner banner-spectral banner-spectral--${theme} rounded-2xl border border-prism-border`}>
-        <div className={`banner-spectral-edge banner-spectral-edge--${theme}`} />
-        <div className={`banner-wash banner-wash--${theme}`} />
-        {isDark && <div className="banner-grid-overlay" />}
-        <div className="relative z-10 flex items-center justify-between p-6">
-          <div>
-            <h1 className="text-2xl font-bold text-txt-primary">
-              {greeting}, {firstName}
-            </h1>
-            <p className="mt-1 text-sm text-txt-muted">
-              Welcome back to Glyphor AI. Ready to discover new insights?
-            </p>
-            <p className="mt-2 text-[12px] text-txt-faint">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-              {' · '}
-              {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Stats Row ──────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-        <StatCard
-          icon={<AgentIcon />}
-          value={agentsLoading ? '…' : `${activeAgents}`}
-          label="Active Agents"
-          sub={`${agents.length} total`}
-          loading={agentsLoading}
-          iconBg="bg-prism-tint-1"
-          accentColor={isDark ? '#00E0FF' : '#0891B2'}
-          accentSoft={isDark ? 'rgba(0, 224, 255, 0.33)' : 'rgba(8, 145, 178, 0.24)'}
-        />
-        <StatCard
-          icon={<AnalysisIcon />}
-          value={String(analysisSummary.total)}
-          label="Total Analyses"
-          sub={`${analysisSummary.completed} completed`}
-          loading={false}
-          iconBg="bg-prism-tint-5"
-          accentColor={isDark ? '#7DD3FC' : '#0284C7'}
-          accentSoft={isDark ? 'rgba(125, 211, 252, 0.33)' : 'rgba(2, 132, 199, 0.24)'}
-        />
-        <StatCard
-          icon={<ReportIcon />}
-          value={String(analysisSummary.completed)}
-          label="Reports Generated"
-          sub="strategic reports"
-          loading={false}
-          iconBg="bg-prism-tint-2"
-          accentColor={isDark ? '#6366F1' : '#4338CA'}
-          accentSoft={isDark ? 'rgba(99, 102, 241, 0.3)' : 'rgba(67, 56, 202, 0.24)'}
-        />
-        <StatCard
-          icon={<QueueIcon />}
-          value={String(analysisSummary.active)}
-          label="Active Analyses"
-          sub={pendingDecisions > 0 ? `${pendingDecisions} decisions pending` : 'all clear'}
-          loading={false}
-          iconBg="bg-prism-elevated/15"
-          accentColor={isDark ? '#FBBF24' : '#D97706'}
-          accentSoft={isDark ? 'rgba(251, 191, 36, 0.3)' : 'rgba(217, 119, 6, 0.24)'}
-        />
-      </div>
-
-      {/* ── Running Now Banner ─────────────── */}
-      {runningAgents.length > 0 && (
-        <Link to="/activity" className="block">
-          <div className={`agent-bar flex items-center gap-4 rounded-xl border px-5 py-3 transition-all hover:-translate-y-0.5 hover:shadow-md ${isDark ? 'agent-bar--dark' : 'agent-bar--light'}`}>
-            <div className="flex items-center gap-1.5">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan opacity-75" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-cyan" />
-              </span>
-              <span className="text-[13px] font-semibold text-cyan">
-                {runningAgents.length} agent{runningAgents.length > 1 ? 's' : ''} working
-              </span>
+    <div className="dashboard-home">
+      <div className="dashboard-home-grid">
+        <div className="dashboard-home-main space-y-4">
+          <Card accent="0,224,255" glow className="banner">
+            <div className="flex items-center justify-between gap-6">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan/80">
+                  Dark Glass Command Center
+                </p>
+                <h1 className="mt-3 text-2xl font-bold text-txt-primary md:text-[2rem]">
+                  {greeting}, {firstName}
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm text-txt-secondary">
+                  Welcome back to Glyphor AI. Ready to discover new insights?
+                </p>
+                <p className="mt-3 text-[12px] text-txt-faint">
+                  {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                  {' · '}
+                  {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                </p>
+              </div>
             </div>
-            <div className="flex items-center gap-3 overflow-hidden">
-              {runningAgents.slice(0, 5).map((run) => (
-                <div key={run.id} className="glass-raised flex items-center gap-2 rounded-lg border border-border/50 px-2.5 py-1">
-                  <AgentAvatar role={run.agent_id} size={20} />
-                  <span className="text-[11px] text-txt-secondary truncate max-w-[120px]">
-                    {DISPLAY_NAME_MAP[run.agent_id] ?? run.agent_id}
-                  </span>
-                  <span className="text-[10px] text-txt-faint truncate max-w-[100px]">
-                    {run.task ?? ''}
-                  </span>
+          </Card>
+
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <StatCard
+              icon={<AgentIcon />}
+              value={agentsLoading ? '…' : `${activeAgents}`}
+              label="Active Agents"
+              sub={`${agents.length} total`}
+              loading={agentsLoading}
+              iconBg="rgba(0, 224, 255, 0.1)"
+              iconColor="#00E0FF"
+              accent="0,224,255"
+            />
+            <StatCard
+              icon={<AnalysisIcon />}
+              value={String(analysisSummary.total)}
+              label="Total Analyses"
+              sub={`${analysisSummary.completed} completed`}
+              loading={false}
+              iconBg="rgba(0, 163, 255, 0.1)"
+              iconColor="#00A3FF"
+              accent="0,163,255"
+            />
+            <StatCard
+              icon={<ReportIcon />}
+              value={String(analysisSummary.completed)}
+              label="Reports Generated"
+              sub="strategic reports"
+              loading={false}
+              iconBg="rgba(17, 113, 237, 0.12)"
+              iconColor="#1171ED"
+              accent="17,113,237"
+            />
+            <StatCard
+              icon={<QueueIcon />}
+              value={String(analysisSummary.active)}
+              label="Active Analyses"
+              sub={pendingDecisions > 0 ? `${pendingDecisions} decisions pending` : 'all clear'}
+              loading={false}
+              iconBg="rgba(110, 119, 223, 0.12)"
+              iconColor="#6E77DF"
+              accent="110,119,223"
+            />
+          </div>
+
+          {runningAgents.length > 0 && (
+            <Link to="/activity" className="block">
+              <Card accent="52,211,153" className="agent-bar" interactive>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1.5">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#34D399] opacity-75" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#34D399]" />
+                    </span>
+                    <span className="text-[13px] font-semibold text-[#34D399]">
+                      {runningAgents.length} agent{runningAgents.length > 1 ? 's' : ''} working
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    {runningAgents.slice(0, 5).map((run) => (
+                      <InnerCard key={run.id} accent="52,211,153" className="flex items-center gap-2 px-2.5 py-1.5">
+                        <AgentAvatar role={run.agent_id} size={20} />
+                        <span className="max-w-[120px] truncate text-[11px] text-txt-secondary">
+                          {DISPLAY_NAME_MAP[run.agent_id] ?? run.agent_id}
+                        </span>
+                        <span className="max-w-[100px] truncate text-[10px] text-txt-faint">
+                          {run.task ?? ''}
+                        </span>
+                      </InnerCard>
+                    ))}
+                    {runningAgents.length > 5 && (
+                      <span className="text-[11px] text-txt-faint">+{runningAgents.length - 5} more</span>
+                    )}
+                  </div>
+                  <span className="ml-auto flex items-center gap-1 text-[11px] text-txt-faint">View activity <MdArrowForward /></span>
                 </div>
-              ))}
-              {runningAgents.length > 5 && (
-                <span className="text-[11px] text-txt-faint">+{runningAgents.length - 5} more</span>
-              )}
+              </Card>
+            </Link>
+          )}
+
+          <div>
+            <SectionHeader title="Quick Actions" />
+            <div className="mt-1 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <QuickActionCard
+                to="/strategy"
+                icon={<MdSearch className="h-6 w-6" />}
+                iconBg="rgba(0, 224, 255, 0.1)"
+                iconColor="#00E0FF"
+                accent="0,224,255"
+                title="Start New Research"
+                description="Launch AI-powered analysis and intelligence gathering"
+              />
+              <QuickActionCard
+                to="/strategy"
+                icon={<MdDescription className="h-6 w-6" />}
+                iconBg="rgba(0, 163, 255, 0.1)"
+                iconColor="#00A3FF"
+                accent="0,163,255"
+                title="View Reports"
+                description="Access your saved analysis reports and insights"
+              />
+              <QuickActionCard
+                to="/chat"
+                icon={<MdChat className="h-6 w-6" />}
+                iconBg="rgba(52, 211, 153, 0.12)"
+                iconColor="#34D399"
+                accent="52,211,153"
+                title="Chat with Agents"
+                description="Talk to your AI executive team directly"
+              />
             </div>
-            <span className="ml-auto flex items-center gap-1 text-[11px] text-txt-faint">View activity <MdArrowForward /></span>
           </div>
-        </Link>
-      )}
 
-      {/* ── Quick Actions ─────────────────── */}
-      <div>
-        <SectionHeader title="Quick Actions" />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mt-1">
-          <QuickActionCard
-            to="/strategy"
-            icon={<MdSearch className="h-6 w-6" />}
-            iconBg="bg-prism-fill-2/15"
-            iconColor="text-prism-teal"
-            title="Start New Research"
-            description="Launch AI-powered analysis and intelligence gathering"
-          />
-          <QuickActionCard
-            to="/strategy"
-            icon={<MdDescription className="h-6 w-6" />}
-            iconBg="bg-prism-elevated/15"
-            iconColor="text-prism-elevated"
-            title="View Reports"
-            description="Access your saved analysis reports and insights"
-          />
-          <QuickActionCard
-            to="/chat"
-            icon={<MdChat className="h-6 w-6" />}
-            iconBg="bg-cyan/15"
-            iconColor="text-cyan"
-            title="Chat with Agents"
-            description="Talk to your AI executive team directly"
-          />
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <MetricCard
+              label="Pending Decisions"
+              value={String(pendingDecisions)}
+              hint="Awaiting founder review"
+              accent="17,113,237"
+            />
+            <MetricCard
+              label="Open Incidents"
+              value={String(incidents.length)}
+              hint={incidentsLoading ? 'Checking now' : (incidents[0]?.severity ?? 'stable')}
+              accent="239,68,68"
+            />
+            <MetricCard
+              label="Products Online"
+              value={String(productCount)}
+              hint="Tracked in cockpit"
+              accent="0,163,255"
+            />
+            <MetricCard
+              label="Agents Running"
+              value={String(runningAgents.length)}
+              hint="Live workload"
+              accent="52,211,153"
+            />
+          </div>
+
+          <Card accent="0,163,255">
+            <SectionHeader
+              title="AI Workforce"
+              action={
+                <Link to="/workforce" className="text-xs text-prism-tertiary hover:text-prism-primary hover:underline">
+                  <span className="flex items-center gap-1">Meet the team <MdArrowForward /></span>
+                </Link>
+              }
+            />
+            {agentsLoading ? (
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-20" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+                {agents.slice(0, 12).map((agent) => (
+                  <Link
+                    key={agent.id}
+                    to={`/chat/${agent.role}`}
+                    className="group block"
+                  >
+                    <InnerCard accent="0,163,255" className="flex flex-col items-center gap-2 px-3 py-3 transition-transform duration-200 group-hover:-translate-y-0.5">
+                      <AgentAvatar role={agent.role} size={40} glow={agent.status === 'active'} avatarUrl={agent.avatar_url} />
+                      <p className="text-center text-[11px] font-medium leading-tight text-txt-muted transition-colors group-hover:text-txt-primary">
+                        {DISPLAY_NAME_MAP[agent.role] ?? agent.display_name ?? agent.role}
+                      </p>
+                    </InnerCard>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </Card>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-        {/* ── Founder Briefing ──────────── */}
-        <FounderBriefing />
+        <div className="dashboard-home-side space-y-4">
+          <Card accent="239,68,68">
+            <SectionHeader
+              title="Open Incidents"
+              action={
+                <Link to="/operations" className="text-xs text-prism-tertiary hover:text-prism-primary hover:underline">
+                  View all
+                </Link>
+              }
+            />
+            {incidentsLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-16" />
+                ))}
+              </div>
+            ) : incidents.length === 0 ? (
+              <p className="py-8 text-center text-sm text-txt-faint">
+                All clear <MdCheckCircle className="inline h-4 w-4 text-tier-green" />
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {incidents.map((incident) => (
+                  <InnerCard
+                    key={incident.id}
+                    accent="239,68,68"
+                    className="flex items-start gap-3"
+                  >
+                    <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(239,68,68,0.12)] text-[#EF4444]">
+                      <MdWarning className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#EF4444]">
+                          {incident.severity}
+                        </span>
+                        <span className="text-[10px] text-txt-faint">{timeAgo(incident.created_at)}</span>
+                      </div>
+                      <p className="mt-1 text-[13px] font-medium text-txt-primary line-clamp-1">{incident.title}</p>
+                      {incident.description && (
+                        <p className="mt-1 text-[11px] text-txt-muted line-clamp-2">{incident.description}</p>
+                      )}
+                    </div>
+                  </InnerCard>
+                ))}
+              </div>
+            )}
+          </Card>
 
-        {/* ── Decision Queue ─────────────── */}
-        <Card className="queue">
+          <Card accent="17,113,237" className="queue">
           <SectionHeader
             title="Decision Queue"
             action={
@@ -253,9 +361,10 @@ export default function Dashboard() {
                 .filter((d) => d.status === 'pending')
                 .slice(0, 5)
                 .map((d) => (
-                  <div
+                  <InnerCard
                     key={d.id}
-                    className="flex items-start gap-3 rounded-lg border border-border bg-raised px-3 py-2.5"
+                    accent="17,113,237"
+                    className="flex items-start gap-3"
                   >
                     <AgentAvatar role={d.proposed_by} size={24} />
                     <div className="min-w-0 flex-1">
@@ -263,47 +372,34 @@ export default function Dashboard() {
                       <p className="text-[11px] text-txt-faint line-clamp-1">{d.summary}</p>
                     </div>
                     <ImpactBadge impact={TIER_TO_IMPACT[d.tier] ?? d.tier} />
-                  </div>
+                  </InnerCard>
                 ))}
             </div>
           )}
-        </Card>
+          </Card>
+        </div>
       </div>
-
-      {/* ── AI Workforce Preview ───────────── */}
-      <Card>
-        <SectionHeader
-          title="AI Workforce"
-          action={
-            <Link to="/workforce" className="text-xs text-prism-tertiary hover:text-prism-primary hover:underline">
-              <span className="flex items-center gap-1">Meet the team <MdArrowForward /></span>
-            </Link>
-          }
-        />
-        {agentsLoading ? (
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-20" />
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-            {agents.slice(0, 12).map((agent) => (
-              <Link
-                key={agent.id}
-                to={`/chat/${agent.role}`}
-                className="group flex flex-col items-center gap-2 rounded-xl border border-border bg-raised p-3 transition-all hover:border-border-hover hover:shadow-md"
-              >
-                <AgentAvatar role={agent.role} size={40} glow={agent.status === 'active'} avatarUrl={agent.avatar_url} />
-                <p className="text-[11px] font-medium text-txt-muted group-hover:text-txt-primary text-center leading-tight transition-colors">
-                  {DISPLAY_NAME_MAP[agent.role] ?? agent.display_name ?? agent.role}
-                </p>
-              </Link>
-            ))}
-          </div>
-        )}
-      </Card>
     </div>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  hint,
+  accent,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+  accent: string;
+}) {
+  return (
+    <Card accent={accent} className="min-h-[124px]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-txt-faint">{label}</p>
+      <p className="mt-4 font-mono text-3xl font-bold tracking-tight text-txt-primary">{value}</p>
+      <p className="mt-2 text-[12px] text-txt-muted">{hint}</p>
+    </Card>
   );
 }
 
@@ -314,33 +410,25 @@ function StatCard({
   label,
   sub,
   loading,
-  iconBg = '',
-  accentColor,
-  accentSoft,
+  iconBg,
+  iconColor,
+  accent,
 }: {
   icon: React.ReactNode;
   value: string;
   label: string;
   sub: string;
   loading: boolean;
-  iconBg?: string;
-  accentColor: string;
-  accentSoft: string;
+  iconBg: string;
+  iconColor: string;
+  accent: string;
 }) {
   if (loading) return <Skeleton className="h-28" />;
 
-  const accentStyle: CSSProperties & Record<'--stat-accent' | '--stat-accent-soft', string> = {
-    '--stat-accent': accentColor,
-    '--stat-accent-soft': accentSoft,
-  };
-
   return (
-    <div
-      className="stat-card stat-card-accent glass-card flex flex-col gap-3 rounded-xl border p-5 transition-all duration-200"
-      style={accentStyle}
-    >
+    <Card accent={accent} className="stat-card stat-card-accent flex flex-col gap-3" glow={accent === '0,224,255'}>
       <div className="flex items-center justify-between">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${iconBg}`}>
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: iconBg, color: iconColor }}>
           {icon}
         </div>
       </div>
@@ -349,7 +437,7 @@ function StatCard({
         <p className="text-[12px] font-semibold text-txt-muted mt-0.5">{label}</p>
         <p className="text-[11px] text-txt-faint mt-0.5">{sub}</p>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -359,6 +447,7 @@ function QuickActionCard({
   icon,
   iconBg,
   iconColor,
+  accent,
   title,
   description,
 }: {
@@ -366,21 +455,24 @@ function QuickActionCard({
   icon: React.ReactNode;
   iconBg: string;
   iconColor: string;
+  accent: string;
   title: string;
   description: string;
 }) {
   return (
     <Link
       to={to}
-      className="quick-action group glass-card flex flex-col gap-4 rounded-xl border border-border bg-surface p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-border-hover"
+      className="quick-action block"
     >
-      <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${iconBg} ${iconColor} transition-transform duration-200 group-hover:scale-110`}>
-        {icon}
-      </div>
-      <div>
-        <p className="text-[14px] font-bold text-txt-primary group-hover:text-cyan transition-colors">{title}</p>
-        <p className="mt-1 text-[12px] text-txt-muted leading-relaxed">{description}</p>
-      </div>
+      <Card accent={accent} interactive className="flex h-full flex-col gap-4">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-110" style={{ background: iconBg, color: iconColor }}>
+          {icon}
+        </div>
+        <div>
+          <p className="text-[14px] font-bold text-txt-primary group-hover:text-cyan transition-colors">{title}</p>
+          <p className="mt-1 text-[12px] text-txt-muted leading-relaxed">{description}</p>
+        </div>
+      </Card>
     </Link>
   );
 }

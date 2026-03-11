@@ -886,7 +886,7 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
         <div className="border-t border-border pt-3 relative">
           {/* @mention dropdown */}
           {showMentions && filteredMentions.length > 0 && (
-            <div className="absolute bottom-full left-0 mb-1 w-64 rounded-lg border border-border bg-surface shadow-lg z-10 max-h-48 overflow-y-auto">
+            <div className="dropdown-panel absolute bottom-full left-0 z-10 mb-1 max-h-48 w-64 overflow-y-auto rounded-lg border border-border bg-surface">
               {filteredMentions.map((m, i) => {
                 const isFounder = FOUNDERS.some((f) => f.id === m.role);
                 return (

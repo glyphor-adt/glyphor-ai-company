@@ -1,5 +1,16 @@
 import { AGENT_META } from '../lib/types';
 
+function buildCardStyle(
+  accent: string | undefined,
+  style: React.CSSProperties | undefined,
+): React.CSSProperties | undefined {
+  if (!accent) return style;
+  return {
+    ...style,
+    ['--card-accent-rgb' as string]: accent,
+  } as React.CSSProperties;
+}
+
 /* ─── Agent Avatar ────────────────────────── */
 export function AgentAvatar({
   role,
@@ -114,14 +125,54 @@ export function Sparkline({
 export function Card({
   children,
   className = '',
+  accent,
+  glow = false,
+  interactive = false,
+  style,
   ...rest
 }: {
   children: React.ReactNode;
   className?: string;
+  accent?: string;
+  glow?: boolean;
+  interactive?: boolean;
+  style?: React.CSSProperties;
 } & React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`glass-card rounded-xl border border-border bg-surface p-5 transition-all duration-200 hover:border-border-hover ${className}`} {...rest}>
-      {children}
+    <div
+      className={`glass-card rounded-[18px] border border-border bg-surface p-5 transition-all duration-200 ${interactive ? 'glass-card--interactive' : ''} ${glow ? 'glass-card--glow' : ''} ${className}`}
+      style={buildCardStyle(accent, style)}
+      {...rest}
+    >
+      {glow && <span className="glass-card__glow" aria-hidden="true" />}
+      <div className="glass-card__content">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function InnerCard({
+  children,
+  className = '',
+  accent,
+  style,
+  ...rest
+}: {
+  children: React.ReactNode;
+  className?: string;
+  accent?: string;
+  style?: React.CSSProperties;
+} & React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={`glass-raised glass-inner-card rounded-xl border border-border bg-raised px-4 py-3 ${className}`}
+      style={buildCardStyle(accent, style)}
+      {...rest}
+    >
+      <div className="glass-card__content">
+        {children}
+      </div>
     </div>
   );
 }
