@@ -120,8 +120,9 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
     return [];
   }
 
-  // Resolve per-agent identity (blueprintSpId = agentAppInstanceId, entraUserId = agenticUserId)
-  const agentAppInstanceId = (agentRole ? getAgentBlueprintSpId(agentRole) : null) ?? process.env.AGENT365_APP_INSTANCE_ID;
+  // Use the shared agent app instance ID for all agents — this is the verified
+  // Teams-installed instance. Only the agenticUserId varies per agent.
+  const agentAppInstanceId = process.env.AGENT365_APP_INSTANCE_ID;
   const agenticUserId = (agentRole ? getAgentEntraUserId(agentRole) : null) ?? process.env.AGENT365_AGENTIC_USER_ID;
 
   if (!agentAppInstanceId || !agenticUserId) {

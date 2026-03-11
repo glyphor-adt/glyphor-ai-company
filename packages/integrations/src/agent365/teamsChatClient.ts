@@ -351,8 +351,9 @@ export class A365TeamsChatClient {
    */
   private async getToken(agentRole?: string): Promise<string> {
     const role = agentRole ?? this.defaultAgentRole;
-    const agentAppInstanceId = (role ? getAgentBlueprintSpId(role) : null)
-      ?? process.env.AGENT365_APP_INSTANCE_ID;
+    // Use the shared agent app instance ID for all agents — this is the verified
+    // Teams-installed instance. Only the agenticUserId varies per agent.
+    const agentAppInstanceId = process.env.AGENT365_APP_INSTANCE_ID;
     const agenticUserId = (role ? getAgentEntraUserId(role) : null)
       ?? process.env.AGENT365_AGENTIC_USER_ID;
 
