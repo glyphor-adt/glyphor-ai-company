@@ -193,7 +193,7 @@ function SidebarContent({
       <div className="p-3 space-y-2">
         <button
           onClick={() => setShowOrgChart(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan px-3 py-2 text-[13px] font-medium text-white hover:opacity-90 transition-opacity"
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-cyan bg-transparent px-3 py-2 text-[13px] font-medium text-cyan hover:bg-cyan/10 transition-colors"
         >
           <MdAdd size={18} />
           New Chat
@@ -932,7 +932,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               <div
                 className={`max-w-[85%] md:max-w-[70%] rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-[13px] leading-relaxed ${
                   msg.role === 'user'
-                    ? 'bg-cyan/10 text-txt-secondary border border-cyan/20'
+                    ? 'bg-cyan/15 text-txt-primary border border-cyan/30'
                     : 'bg-raised text-txt-secondary border border-border'
                 }`}
               >
@@ -1113,7 +1113,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               type="button"
               onClick={sendMessage}
               disabled={respondingAgents.has(selectedRole) || (!input.trim() && pendingFiles.length === 0)}
-              className="flex-shrink-0 rounded-lg bg-cyan px-3 py-2 md:px-5 md:py-2.5 text-[13px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+              className="flex-shrink-0 rounded-lg border border-cyan bg-transparent px-3 py-2 md:px-5 md:py-2.5 text-[13px] font-semibold text-cyan transition-all hover:bg-cyan/10 disabled:opacity-40"
             >
               Send
             </button>
@@ -1174,7 +1174,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               <button
                 onClick={() => joinTeamsCall()}
                 disabled={teamsJoining || !teamsMeetingUrl.trim()}
-                className="rounded-lg bg-cyan px-4 py-2 text-[12px] font-medium text-white hover:bg-cyan/80 disabled:opacity-40 transition-colors"
+                className="rounded-lg border border-cyan bg-transparent px-4 py-2 text-[12px] font-medium text-cyan hover:bg-cyan/10 disabled:opacity-40 transition-colors"
               >
                 {teamsJoining ? 'Joining…' : 'Join Call'}
               </button>
