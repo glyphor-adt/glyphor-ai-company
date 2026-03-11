@@ -135,13 +135,17 @@ export class A365TeamsChatClient {
   private audience: string;
   private readonly chatCache = new Map<string, string>();
 
+  private readonly defaultAgentRole?: string;
+
   constructor(
     private readonly clientId: string,
     private readonly clientSecret: string,
     private readonly tenantId: string,
     audience?: string,
+    agentRole?: string,
   ) {
     this.audience = audience ?? 'ea9ffc3e-8a23-4a7d-836d-234d7c7565c1';
+    this.defaultAgentRole = agentRole;
     const authConfig: AuthConfiguration = {
       clientId,
       clientSecret,
@@ -168,6 +172,8 @@ export class A365TeamsChatClient {
       credentials.clientId,
       credentials.clientSecret,
       credentials.tenantId,
+      undefined,
+      agentRole,
     );
     instances.set(instanceKey, instance);
     return instance;
@@ -344,14 +350,15 @@ export class A365TeamsChatClient {
    * to authenticate as the specific agent user.
    */
   private async getToken(agentRole?: string): Promise<string> {
-    const agentAppInstanceId = (agentRole ? getAgentBlueprintSpId(agentRole) : null)
+    const role = agentRole ?? this.defaultAgentRole;
+    const agentAppInstanceId = (role ? getAgentBlueprintSpId(role) : null)
       ?? process.env.AGENT365_APP_INSTANCE_ID;
-    const agenticUserId = (agentRole ? getAgentEntraUserId(agentRole) : null)
+    const agenticUserId = (role ? getAgentEntraUserId(role) : null)
       ?? process.env.AGENT365_AGENTIC_USER_ID;
 
     if (!agentAppInstanceId || !agenticUserId) {
       throw new Error(
-        `[A365Teams] No identity for agent ${agentRole ?? 'unknown'}. ` +
+        `[A365Teams] No identity for agent ${role ?? 'unknown'}. ` +
         'Set blueprintSpId/entraUserId in agentIdentities.json or AGENT365_APP_INSTANCE_ID/AGENT365_AGENTIC_USER_ID env vars.'
       );
     }
@@ -371,14 +378,16 @@ export class A365TeamsChatClient {
    */
   private lastAgentRole: string | undefined;
   private async ensureConnected(agentRole?: string): Promise<Client> {
+    const role = agentRole ?? this.defaultAgentRole;
+
     // Reconnect if agent role changed (different identity = different auth token)
-    if (this.mcpClient && agentRole !== this.lastAgentRole) {
+    if (this.mcpClient && role !== this.lastAgentRole) {
       await this.close();
     }
     if (this.mcpClient) return this.mcpClient;
 
-    const authToken = await this.getToken(agentRole);
-    this.lastAgentRole = agentRole;
+    const authToken = await this.getToken(role);
+    this.lastAgentRole = role;
 
     // Discover the mcp_TeamsServer config
     const configService = new McpToolServerConfigurationService();
@@ -403,7 +412,7 @@ export class A365TeamsChatClient {
     });
 
     await this.mcpClient.connect(this.transport);
-    console.log(`[A365Teams] Connected to mcp_TeamsServer as ${agentRole ?? 'shared'}`);
+    console.log(`[A365Teams] Connected to mcp_TeamsServer as ${role ?? 'shared'}`);
     return this.mcpClient;
   }
 

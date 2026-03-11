@@ -219,10 +219,11 @@ export function createDmTools(): ToolDefinition[] {
             const chatId = await a365Client.createOrGetOneOnOneChat(recipientUserId, senderUserId);
 
             const content = senderName ? `<b>${senderName}:</b> ${params.message as string}` : (params.message as string);
-            await a365Client.postChatMessage(chatId, content);
+            await a365Client.postChatMessage(chatId, content, role);
 
             return { success: true, data: { sent: true, recipient: recipientStr, email, via: 'a365-mcp' } };
           } catch (err) {
+            console.error('[send_teams_dm] A365 MCP path failed:', (err as Error).message);
             return {
               success: false,
               error: `Failed to send DM: ${(err as Error).message}`,
