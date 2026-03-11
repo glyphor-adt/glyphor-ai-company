@@ -11,7 +11,7 @@
  *   AGENT365_<ROLE>_TENANT_ID
  */
 
-import { getAgentIdentityAppId, type ToolDefinition } from '@glyphor/agent-runtime';
+import { getAgentIdentityAppId, getAgentBlueprintSpId, getAgentEntraUserId, type ToolDefinition } from '@glyphor/agent-runtime';
 import type { Agent365ToolBridge } from '@glyphor/integrations';
 import { createAgent365Tools as initAgent365Bridge } from '@glyphor/integrations';
 
@@ -120,9 +120,17 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
     return [];
   }
 
-  if (!process.env.AGENT365_APP_INSTANCE_ID || !process.env.AGENT365_AGENTIC_USER_ID) {
-    console.warn('[Agent365] AGENT365_APP_INSTANCE_ID or AGENT365_AGENTIC_USER_ID not set. Install the agent in Teams first. Skipping.');
+  // Resolve per-agent identity (blueprintSpId = agentAppInstanceId, entraUserId = agenticUserId)
+  const agentAppInstanceId = (agentRole ? getAgentBlueprintSpId(agentRole) : null) ?? process.env.AGENT365_APP_INSTANCE_ID;
+  const agenticUserId = (agentRole ? getAgentEntraUserId(agentRole) : null) ?? process.env.AGENT365_AGENTIC_USER_ID;
+
+  if (!agentAppInstanceId || !agenticUserId) {
+    console.warn(`[Agent365] No identity found for agent ${agentRole ?? 'unknown'}. Set blueprintSpId/entraUserId in agentIdentities.json or AGENT365_APP_INSTANCE_ID/AGENT365_AGENTIC_USER_ID env vars. Skipping.`);
     return [];
+  }
+
+  if (agentRole) {
+    console.log(`[Agent365] Using per-agent identity for ${agentRole}: instanceId=${agentAppInstanceId.slice(0, 8)}…`);
   }
 
   const MCP_INIT_TIMEOUT_MS = 15_000;
@@ -136,8 +144,8 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
       clientSecret: credentials.clientSecret,
       tenantId: credentials.tenantId,
       agenticAppId: process.env.AGENT365_BLUEPRINT_ID,
-      agentAppInstanceId: process.env.AGENT365_APP_INSTANCE_ID,
-      agenticUserId: process.env.AGENT365_AGENTIC_USER_ID,
+      agentAppInstanceId,
+      agenticUserId,
     }, serverFilter);
 
     // Timeout guard: if MCP init hangs beyond 15s, fall back to core tools only
