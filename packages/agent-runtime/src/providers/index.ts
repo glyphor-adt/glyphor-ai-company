@@ -68,7 +68,7 @@ export class ProviderFactory {
         return new GeminiAdapter({ apiKey: this.config.geminiApiKey });
       }
       case 'openai': {
-        const openaiApiKey = this.config.openaiApiKey ?? process.env.OPENAI_API_KEY;
+        const openaiApiKey = (this.config.openaiApiKey ?? process.env.OPENAI_API_KEY)?.trim();
         // Azure OpenAI — only use if explicitly configured (not auto-detected from env)
         const azureEndpoint = this.config.azureFoundryEndpoint?.trim() || undefined;
         const azureApiKey = this.config.azureFoundryApi?.trim() || undefined;
@@ -84,7 +84,7 @@ export class ProviderFactory {
         });
       }
       case 'anthropic': {
-        const anthropicApiKey = this.config.anthropicApiKey ?? process.env.ANTHROPIC_API_KEY;
+        const anthropicApiKey = (this.config.anthropicApiKey ?? process.env.ANTHROPIC_API_KEY)?.trim();
         if (!anthropicApiKey) throw new Error('Anthropic not configured — set ANTHROPIC_API_KEY environment variable');
         const anthropicProjectId = this.config.vertexProjectId ?? process.env.GCP_PROJECT_ID;
         return new AnthropicAdapter(anthropicProjectId ?? '', this.config.vertexRegion, anthropicApiKey);

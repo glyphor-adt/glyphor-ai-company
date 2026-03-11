@@ -327,20 +327,23 @@ input:focus, textarea:focus, select:focus {
 /* ─── Gradient Stat Cards (reference design) ── */
 .stat-card-gradient {
   position: relative;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.5),
-    0 2px 8px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 12px 0 -4px rgba(0, 0, 0, 0.35),
+    0 12px 24px rgba(0, 0, 0, 0.4),
+    0 2px 6px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .stat-card-gradient:hover {
   transform: translateY(-2px);
   box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.6),
-    0 4px 12px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    0 14px 0 -4px rgba(0, 0, 0, 0.35),
+    0 16px 32px rgba(0, 0, 0, 0.5),
+    0 4px 10px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .stat-card-gradient-shine {
@@ -348,8 +351,8 @@ input:focus, textarea:focus, select:focus {
   top: 0;
   left: 0;
   right: 0;
-  height: 60%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.03) 50%, transparent 100%);
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 100%);
   pointer-events: none;
   z-index: 1;
   border-radius: inherit;
@@ -362,31 +365,30 @@ input:focus, textarea:focus, select:focus {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.35);
   color: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-/* Blue gradient — Pending Decisions */
+/* Cyan — Pending Decisions  (prism accent-1: #22d3ee) */
 .stat-gradient-blue {
-  background: linear-gradient(135deg, #4a7dd4 0%, #2d5aaa 30%, #1a3570 65%, #111d3a 100%);
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.25) 0%, rgba(34, 211, 238, 0.08) 40%, #16181e 70%, #13151a 100%);
 }
 
-/* Amber/red gradient — Open Incidents */
+/* Teal/Amber — Open Incidents  (prism accent-2: #2dd4bf) */
 .stat-gradient-amber {
-  background: linear-gradient(135deg, #d4884a 0%, #aa6c2d 30%, #704525 65%, #3a2511 100%);
+  background: linear-gradient(135deg, rgba(45, 212, 191, 0.28) 0%, rgba(45, 212, 191, 0.08) 40%, #16181e 70%, #13151a 100%);
 }
 
-/* Teal gradient — Products Online */
+/* Sky — Products Online  (prism accent-3: #60a5fa) */
 .stat-gradient-teal {
-  background: linear-gradient(135deg, #32b5a0 0%, #1d8f7a 30%, #145c52 65%, #0a2e2a 100%);
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.25) 0%, rgba(96, 165, 250, 0.08) 40%, #16181e 70%, #13151a 100%);
 }
 
-/* Green gradient — Agents Running */
+/* Indigo — Agents Running  (prism accent-4 / violet: #a78bfa) */
 .stat-gradient-green {
-  background: linear-gradient(135deg, #4ac488 0%, #2d9a62 30%, #1a6940 65%, #0f3a24 100%);
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.25) 0%, rgba(167, 139, 250, 0.08) 40%, #16181e 70%, #13151a 100%);
 }
 
 /* Quick action card hover lift */

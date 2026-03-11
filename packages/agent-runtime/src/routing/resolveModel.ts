@@ -26,6 +26,10 @@ export function resolveModelConfig(
     capabilities,
   };
 
+  const shouldUsePremiumCodeModel =
+    selected.has('code_generation') &&
+    (selected.has('needs_apply_patch') || selected.has('needs_tool_search'));
+
   if (deterministicTask && selected.has('deterministic_possible')) {
     decision = {
       model: '__deterministic__',
@@ -34,7 +38,7 @@ export function resolveModelConfig(
       reasoningEffort: 'minimal',
       verbosity: 'low',
     };
-  } else if (selected.has('code_generation')) {
+  } else if (shouldUsePremiumCodeModel) {
     decision = {
       model: 'gpt-5.4',
       routingRule: selected.has('needs_apply_patch') ? 'standard_code_gen' : 'code_generation',
@@ -42,6 +46,15 @@ export function resolveModelConfig(
       reasoningEffort: selected.has('high_complexity') ? 'high' : 'medium',
       verbosity: 'medium',
       enableApplyPatch: selected.has('needs_apply_patch'),
+      enableToolSearch: selected.has('many_tools'),
+    };
+  } else if (selected.has('code_generation')) {
+    decision = {
+      model: DEFAULT_MODEL,
+      routingRule: 'code_read_only',
+      capabilities,
+      reasoningEffort: selected.has('high_complexity') ? 'medium' : 'low',
+      verbosity: 'medium',
       enableToolSearch: selected.has('many_tools'),
     };
   } else if (selected.has('financial_computation')) {

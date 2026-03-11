@@ -320,6 +320,9 @@ export class OpenAIAdapter implements ProviderAdapter {
       parameters: t.function.parameters,
     }));
     const modelConfig = request.metadata?.modelConfig;
+    const toolSearchTool = modelConfig?.enableToolSearch
+      ? [{ type: 'tool_search' as const }]
+      : [];
     const patchTool = modelConfig?.enableApplyPatch
       ? [{
           type: 'function' as const,
@@ -383,7 +386,9 @@ export class OpenAIAdapter implements ProviderAdapter {
         effort: reasoningEffort,
         summary: 'auto',
       },
-      ...((responsesTools?.length || patchTool.length) ? { tools: [...(responsesTools ?? []), ...patchTool] } : {}),
+      ...((responsesTools?.length || patchTool.length || toolSearchTool.length)
+        ? { tools: [...(responsesTools ?? []), ...toolSearchTool, ...patchTool] }
+        : {}),
       max_output_tokens: maxOutputTokens,
       ...(request.metadata?.previousResponseId ? { previous_response_id: request.metadata.previousResponseId } : {}),
       ...(modelConfig?.verbosity ? { text: { verbosity: modelConfig.verbosity } } : {}),

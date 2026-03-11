@@ -906,11 +906,13 @@ export default function OraChat() {
                   ),
                 );
                 break;
-              case 'error':
+              case 'error': {
+                const rawErr = event.message ?? 'Something went wrong.';
+                const safeErr = rawErr.replace(/sk-ant-[a-zA-Z0-9_-]+|sk-[a-zA-Z0-9_-]{20,}|AIza[a-zA-Z0-9_-]+/g, '[REDACTED]');
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantId
-                      ? { ...m, content: m.content || `Error: ${event.message ?? 'Something went wrong.'}` }
+                      ? { ...m, content: m.content || `Error: ${safeErr}` }
                       : m,
                   ),
                 );
@@ -919,6 +921,7 @@ export default function OraChat() {
                 setActiveRequestMode(null);
                 setActiveRequestModel(null);
                 break;
+              }
             }
           } catch {
             // Ignore malformed events

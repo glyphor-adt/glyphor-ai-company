@@ -727,7 +727,11 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
         if (data.output) content = stripReasoning(data.output);
         else if (data.action === 'queued_for_approval') content = `This request was sent to your approval queue for review.`;
         else if (data.status === 'aborted') content = 'Sorry, I wasn\u2019t able to finish my response. Could you try again?';
-        else if (data.error || data.reason) content = `Something went wrong: ${data.error || data.reason}`;
+        else if (data.error || data.reason) {
+          const raw = data.error || data.reason;
+          // Never show API keys in the UI
+          content = `Something went wrong: ${(raw as string).replace(/sk-ant-[a-zA-Z0-9_-]+|sk-[a-zA-Z0-9_-]{20,}|AIza[a-zA-Z0-9_-]+/g, '[REDACTED]')}`;
+        }
         else content = `I completed the task but had nothing to report back.`;
 
         // Only append to UI if user is still viewing the same agent

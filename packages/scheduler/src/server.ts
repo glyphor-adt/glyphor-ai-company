@@ -380,6 +380,39 @@ async function ensureAgentRunsRoutingSchema(): Promise<void> {
   await ensureAgentRunsRoutingSchemaPromise;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function reconcileReflectionRunIds(agentRunId: string, runnerRunId: string): Promise<void> {
+  if (!UUID_RE.test(agentRunId) || !runnerRunId || runnerRunId === agentRunId) return;
+
+  const maxAttempts = 6;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const [row] = await systemQuery<{ updated: number }>(
+        `WITH patched AS (
+           UPDATE agent_reflections
+           SET run_id = $1
+           WHERE run_id = $2
+             AND created_at > NOW() - INTERVAL '2 hours'
+           RETURNING 1
+         )
+         SELECT COUNT(*)::int AS updated FROM patched`,
+        [agentRunId, runnerRunId],
+      );
+      const updated = row?.updated ?? 0;
+      if (updated > 0) {
+        console.log(`[Scheduler] Linked ${updated} reflection(s) to run UUID ${agentRunId}`);
+        return;
+      }
+    } catch (err) {
+      console.warn('[Scheduler] Reflection run_id reconciliation failed:', (err as Error).message);
+      return;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 3000));
+  }
+}
+
 const trackedAgentExecutor = async (
   agentRole: CompanyAgentRole,
   task: string,
@@ -459,6 +492,10 @@ const trackedAgentExecutor = async (
             runId,
           ],
         );
+      }
+
+      if (result?.agentId) {
+        void reconcileReflectionRunIds(runId, result.agentId);
       }
     }
 

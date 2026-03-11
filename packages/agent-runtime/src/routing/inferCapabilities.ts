@@ -26,6 +26,53 @@ function normalizeToolName(rawToolName: string): string {
   return parts[parts.length - 1] ?? rawToolName;
 }
 
+function inferCapabilitiesFromToolName(toolName: string): Capability[] {
+  const normalized = toolName.toLowerCase();
+  const inferred = new Set<Capability>();
+
+  if (/\b(legal|contract|compliance|regulation|policy)\b/.test(normalized)) {
+    inferred.add('legal_reasoning');
+    inferred.add('needs_citations');
+  }
+  if (/\b(financial|finance|revenue|budget|forecast|cost|margin|ltv|churn)\b/.test(normalized)) {
+    inferred.add('financial_computation');
+    inferred.add('needs_code_execution');
+  }
+  if (/\b(research|search|monitor|intel|analysis)\b/.test(normalized)) {
+    inferred.add('web_research');
+    inferred.add('needs_citations');
+  }
+  if (/\b(content|copy|campaign|social|draft|blog|seo)\b/.test(normalized)) {
+    inferred.add('creative_writing');
+  }
+  if (/\b(screenshot|visual|figma|audit|design)\b/.test(normalized)) {
+    inferred.add('visual_analysis');
+  }
+  if (/\b(assign|dispatch|delegate|orchestr|handoff|brief|review|evaluate)\b/.test(normalized)) {
+    inferred.add('orchestration');
+    inferred.add('nuanced_evaluation');
+  }
+
+  const writeLike = /\b(create|update|write|deploy|patch|merge|commit|publish)\b/.test(normalized);
+  const readLike = /\b(get|list|read|fetch|query|check|inspect|describe|status|health)\b/.test(normalized);
+
+  if (writeLike) {
+    if (inferred.has('creative_writing') || /\b(content|copy|campaign|social|blog|seo)\b/.test(normalized)) {
+      inferred.add('creative_writing');
+    } else {
+      inferred.add('code_generation');
+      inferred.add('needs_apply_patch');
+    }
+  }
+
+  if (readLike && !writeLike) {
+    inferred.add('structured_extraction');
+    inferred.add('simple_tool_calling');
+  }
+
+  return Array.from(inferred);
+}
+
 const EXECUTIVE_ROLES = new Set<string>([
   'chief-of-staff',
   'cto',
@@ -54,7 +101,8 @@ export function inferCapabilities(context: RoutingContext): Capability[] {
 
   for (const rawToolName of context.toolNames) {
     const toolName = normalizeToolName(rawToolName);
-    for (const capability of TOOL_CAPABILITY_MAP[toolName] ?? []) {
+    const mappedCapabilities = TOOL_CAPABILITY_MAP[toolName] ?? inferCapabilitiesFromToolName(toolName);
+    for (const capability of mappedCapabilities) {
       capabilities.add(capability);
     }
   }

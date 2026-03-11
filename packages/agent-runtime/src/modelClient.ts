@@ -92,7 +92,9 @@ export class ModelClient {
         } catch (err) {
           const msg = (err as Error).message ?? '';
           const cause = (err as { cause?: Error }).cause?.message;
-          const detail = cause ? `${msg} (cause: ${cause})` : msg;
+          const rawDetail = cause ? `${msg} (cause: ${cause})` : msg;
+          // Strip any API keys or tokens from error messages to prevent leaking secrets
+          const detail = rawDetail.replace(/sk-ant-[a-zA-Z0-9_-]+|sk-[a-zA-Z0-9_-]{20,}|AIza[a-zA-Z0-9_-]+/g, '[REDACTED]');
           if (request.signal?.aborted) throw err;
 
           // Auth errors (401/403) — non-retryable, affects all models in provider
