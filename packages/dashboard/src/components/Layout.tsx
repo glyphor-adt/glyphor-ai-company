@@ -45,7 +45,7 @@ export default function Layout() {
   return (
     <div className="dashboard-shell flex h-screen overflow-hidden bg-base">
       {/* ── Desktop Sidebar ─────────────────── */}
-      <aside className={`dashboard-sidebar hidden w-[280px] flex-col border-r border-prism-border transition-colors duration-200 md:flex ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}>
+      <aside className={`dashboard-sidebar hidden w-[280px] flex-col transition-colors duration-200 md:flex ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}>
         {theme === 'dark' && (
           <>
             <div className="sidebar-spectral-edge" aria-hidden="true" />
@@ -79,7 +79,7 @@ export default function Layout() {
           ))}
         </nav>
         {/* Theme Toggle */}
-        <div className="relative z-10 border-t border-prism-border px-4 py-3">
+        <div className="relative z-10 px-4 py-3">
           <button
             onClick={toggle}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium text-prism-tertiary transition-colors hover:bg-prism-bg2 hover:text-prism-primary"
@@ -93,7 +93,7 @@ export default function Layout() {
           </button>
         </div>
         {/* Footer */}
-        <div className="relative z-10 border-t border-prism-border px-4 py-4">
+        <div className="relative z-10 px-4 py-4">
           <div className="flex items-center gap-2.5">
             {user?.picture ? (
               <img src={user.picture} alt="" className="h-8 w-8 rounded-full object-cover" referrerPolicy="no-referrer" />
@@ -115,7 +115,7 @@ export default function Layout() {
         <div className="fixed inset-0 z-50 md:hidden" onClick={() => setDrawerOpen(false)}>
           <div className="absolute inset-0 bg-black/50" />
           <aside
-            className={`dashboard-sidebar absolute bottom-0 left-0 top-0 flex w-[280px] flex-col border-r border-prism-border shadow-xl ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}
+            className={`dashboard-sidebar absolute bottom-0 left-0 top-0 flex w-[280px] flex-col shadow-xl ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}
             onClick={(e) => e.stopPropagation()}
           >
             {theme === 'dark' && (
@@ -153,7 +153,7 @@ export default function Layout() {
               ))}
             </nav>
             {/* Theme + User */}
-            <div className="relative z-10 border-t border-prism-border px-4 py-3">
+            <div className="relative z-10 px-4 py-3">
               <button
                 onClick={toggle}
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium text-prism-tertiary"
@@ -162,7 +162,7 @@ export default function Layout() {
                 {theme === 'dark' ? 'Light mode' : 'Dark mode'}
               </button>
             </div>
-            <div className="relative z-10 border-t border-prism-border px-4 py-4">
+            <div className="relative z-10 px-4 py-4">
               <div className="flex items-center gap-2.5">
                 {user?.picture ? (
                   <img src={user.picture} alt="" className="h-8 w-8 rounded-full" referrerPolicy="no-referrer" />

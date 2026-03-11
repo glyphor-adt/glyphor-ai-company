@@ -18,6 +18,7 @@
 
 import type {
   ToolDefinition,
+  ToolParameter,
   ToolContext,
   ToolResult,
   GeminiToolDeclaration,
@@ -156,6 +157,34 @@ function getVirtualTool(name: string): ToolDefinition | null {
       patch: params.patch as string | import('./v4aDiff.js').V4APatchDocument,
     }, context),
   };
+}
+
+function toJsonSchema(param: ToolParameter): Record<string, unknown> {
+  const schema: Record<string, unknown> = {
+    type: param.type,
+    description: param.description,
+  };
+
+  if (param.enum) schema.enum = param.enum;
+
+  if (param.type === 'array') {
+    schema.items = param.items ? toJsonSchema(param.items) : { type: 'string' };
+  } else if (param.items) {
+    schema.items = toJsonSchema(param.items);
+  }
+
+  if (param.properties) {
+    const properties = Object.fromEntries(
+      Object.entries(param.properties).map(([key, value]) => [key, toJsonSchema(value)]),
+    );
+    const required = Object.entries(param.properties)
+      .filter(([, value]) => value.required)
+      .map(([key]) => key);
+    schema.properties = properties;
+    if (required.length > 0) schema.required = required;
+  }
+
+  return schema;
 }
 
 // ─── MUTATION VERIFICATION ─────────────────────────────────────────
@@ -357,19 +386,7 @@ export class ToolExecutor {
       const params: GeminiToolDeclaration['parameters'] = {
         type: 'object',
         properties: Object.fromEntries(
-          Object.entries(t.parameters).map(([k, v]) => [
-            k,
-            {
-              type: v.type,
-              description: v.description,
-              ...(v.enum ? { enum: v.enum } : {}),
-              // Gemini API requires items for array types — default to string if missing
-              ...(v.type === 'array'
-                ? { items: v.items ?? { type: 'string' } }
-                : v.items ? { items: v.items } : {}),
-              ...(v.properties ? { properties: v.properties } : {}),
-            },
-          ]),
+          Object.entries(t.parameters).map(([k, v]) => [k, toJsonSchema(v)]),
         ),
       };
 

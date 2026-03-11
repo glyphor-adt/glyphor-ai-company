@@ -1,4 +1,4 @@
-import { MdCheckCircle, MdSearch, MdDescription, MdQueue, MdChat, MdArrowForward, MdWarning } from 'react-icons/md';
+import { MdCheckCircle, MdSearch, MdDescription, MdChat, MdArrowForward, MdWarning } from 'react-icons/md';
 import { useAgents, useDecisions, useOpenIncidents, useProducts } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, TIER_TO_IMPACT } from '../lib/types';
 import {
@@ -12,15 +12,8 @@ import {
 } from '../components/ui';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { SCHEDULER_URL } from '../lib/firebase';
 import { apiCall } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
-
-interface AnalysisSummary {
-  total: number;
-  completed: number;
-  active: number;
-}
 
 interface RunningAgent {
   id: string;
@@ -34,29 +27,9 @@ export default function Dashboard() {
   const { data: decisions, loading: decisionsLoading } = useDecisions();
   const { data: incidents, loading: incidentsLoading } = useOpenIncidents();
   const { data: products } = useProducts();
-  const [analysisSummary, setAnalysisSummary] = useState<AnalysisSummary>({ total: 0, completed: 0, active: 0 });
   const [runningAgents, setRunningAgents] = useState<RunningAgent[]>([]);
 
-  const activeAgents = agents.filter((a) => a.status === 'active').length;
   const pendingDecisions = decisions.filter((d) => d.status === 'pending').length;
-
-  // Fetch analysis counts (from Strategy Lab v2)
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`${SCHEDULER_URL}/strategy-lab`);
-        if (res.ok) {
-          const data = await res.json();
-          const analyses = Array.isArray(data) ? data : [];
-          setAnalysisSummary({
-            total: analyses.length,
-            completed: analyses.filter((a: { status: string }) => a.status === 'completed').length,
-            active: analyses.filter((a: { status: string }) => !['completed', 'failed'].includes(a.status)).length,
-          });
-        }
-      } catch { /* ignore */ }
-    })();
-  }, []);
 
   // Fetch currently running agents
   useEffect(() => {
@@ -111,45 +84,29 @@ export default function Dashboard() {
           </Card>
 
           <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <StatCard
-              icon={<AgentIcon />}
-              value={agentsLoading ? '…' : `${activeAgents}`}
-              label="Active Agents"
-              sub={`${agents.length} total`}
-              loading={agentsLoading}
-              iconBg="rgba(0, 224, 255, 0.1)"
-              iconColor="#00E0FF"
-              accent="0,224,255"
-            />
-            <StatCard
-              icon={<AnalysisIcon />}
-              value={String(analysisSummary.total)}
-              label="Total Analyses"
-              sub={`${analysisSummary.completed} completed`}
-              loading={false}
-              iconBg="rgba(0, 163, 255, 0.1)"
-              iconColor="#00A3FF"
-              accent="0,163,255"
-            />
-            <StatCard
-              icon={<ReportIcon />}
-              value={String(analysisSummary.completed)}
-              label="Reports Generated"
-              sub="strategic reports"
-              loading={false}
-              iconBg="rgba(17, 113, 237, 0.12)"
-              iconColor="#1171ED"
+            <MetricCard
+              label="Pending Decisions"
+              value={String(pendingDecisions)}
+              hint="Awaiting founder review"
               accent="17,113,237"
             />
-            <StatCard
-              icon={<QueueIcon />}
-              value={String(analysisSummary.active)}
-              label="Active Analyses"
-              sub={pendingDecisions > 0 ? `${pendingDecisions} decisions pending` : 'all clear'}
-              loading={false}
-              iconBg="rgba(110, 119, 223, 0.12)"
-              iconColor="#6E77DF"
-              accent="110,119,223"
+            <MetricCard
+              label="Open Incidents"
+              value={String(incidents.length)}
+              hint={incidentsLoading ? 'Checking now' : (incidents[0]?.severity ?? 'stable')}
+              accent="239,68,68"
+            />
+            <MetricCard
+              label="Products Online"
+              value={String(productCount)}
+              hint="Tracked in cockpit"
+              accent="0,163,255"
+            />
+            <MetricCard
+              label="Agents Running"
+              value={String(runningAgents.length)}
+              hint="Live workload"
+              accent="52,211,153"
             />
           </div>
 
@@ -221,34 +178,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <MetricCard
-              label="Pending Decisions"
-              value={String(pendingDecisions)}
-              hint="Awaiting founder review"
-              accent="17,113,237"
-            />
-            <MetricCard
-              label="Open Incidents"
-              value={String(incidents.length)}
-              hint={incidentsLoading ? 'Checking now' : (incidents[0]?.severity ?? 'stable')}
-              accent="239,68,68"
-            />
-            <MetricCard
-              label="Products Online"
-              value={String(productCount)}
-              hint="Tracked in cockpit"
-              accent="0,163,255"
-            />
-            <MetricCard
-              label="Agents Running"
-              value={String(runningAgents.length)}
-              hint="Live workload"
-              accent="52,211,153"
-            />
-          </div>
-
-          <Card accent="0,163,255">
+          <Card>
             <SectionHeader
               title="AI Workforce"
               action={
@@ -271,7 +201,7 @@ export default function Dashboard() {
                     to={`/chat/${agent.role}`}
                     className="group block"
                   >
-                    <InnerCard accent="0,163,255" className="flex flex-col items-center gap-2 px-3 py-3 transition-transform duration-200 group-hover:-translate-y-0.5">
+                    <InnerCard className="flex flex-col items-center gap-2 px-3 py-3 transition-transform duration-200 group-hover:-translate-y-0.5">
                       <AgentAvatar role={agent.role} size={40} glow={agent.status === 'active'} avatarUrl={agent.avatar_url} />
                       <p className="text-center text-[11px] font-medium leading-tight text-txt-muted transition-colors group-hover:text-txt-primary">
                         {DISPLAY_NAME_MAP[agent.role] ?? agent.display_name ?? agent.role}
@@ -400,44 +330,6 @@ function MetricCard({
   );
 }
 
-/* ── Stat Card ─────────────────────────────── */
-function StatCard({
-  icon,
-  value,
-  label,
-  sub,
-  loading,
-  iconBg,
-  iconColor,
-  accent,
-}: {
-  icon: React.ReactNode;
-  value: string;
-  label: string;
-  sub: string;
-  loading: boolean;
-  iconBg: string;
-  iconColor: string;
-  accent: string;
-}) {
-  if (loading) return <Skeleton className="h-28" />;
-
-  return (
-    <Card accent={accent} className="stat-card stat-card-accent flex flex-col gap-3" glow={accent === '0,224,255'}>
-      <div className="flex items-center justify-between">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: iconBg, color: iconColor }}>
-          {icon}
-        </div>
-      </div>
-      <div>
-        <p className="font-mono text-3xl font-bold tracking-tight text-txt-primary">{value}</p>
-        <p className="text-[12px] font-semibold text-txt-muted mt-0.5">{label}</p>
-        <p className="text-[11px] text-txt-faint mt-0.5">{sub}</p>
-      </div>
-    </Card>
-  );
-}
-
 /* ── Quick Action Card ─────────────────────── */
 function QuickActionCard({
   to,
@@ -474,36 +366,4 @@ function QuickActionCard({
   );
 }
 
-/* ── Inline SVG Icons for stat cards ───────── */
 
-function AgentIcon() {
-  return (
-    <svg className="h-5 w-5 text-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.118a7.5 7.5 0 0115 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.5-1.632z" />
-    </svg>
-  );
-}
-
-function AnalysisIcon() {
-  return (
-    <svg className="h-5 w-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5" />
-    </svg>
-  );
-}
-
-function ReportIcon() {
-  return (
-    <svg className="h-5 w-5 text-prism-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-    </svg>
-  );
-}
-
-function QueueIcon() {
-  return (
-    <svg className="h-5 w-5 text-prism-elevated" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
-    </svg>
-  );
-}
