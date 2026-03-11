@@ -48,3 +48,7 @@ Thumbs.db
 
 *storybook.log
 storybook-static
+
+# Agent bot credential exports (contain client secrets)
+_agent_bots_current.json
+_agent_bots_clean.json
