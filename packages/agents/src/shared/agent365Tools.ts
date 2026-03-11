@@ -2,8 +2,9 @@
  * Agent 365 MCP Tools — Async factory for Microsoft Agent 365 MCP servers
  *
  * Enable with env var: AGENT365_ENABLED=true
- * Required env vars: AGENT365_CLIENT_ID, AGENT365_TENANT_ID, AGENT365_REFRESH_TOKEN
- * Optional: AGENT365_CLIENT_SECRET, AGENT365_BLUEPRINT_ID
+ * Required env vars: AGENT365_CLIENT_ID, AGENT365_TENANT_ID, AGENT365_CLIENT_SECRET
+ * Required env vars: AGENT365_APP_INSTANCE_ID, AGENT365_AGENTIC_USER_ID
+ * Optional: AGENT365_BLUEPRINT_ID
  * Optional per-agent overrides:
  *   AGENT365_<ROLE>_CLIENT_ID
  *   AGENT365_<ROLE>_CLIENT_SECRET
@@ -93,7 +94,7 @@ function resolveAgent365Credentials(agentRole?: string): {
 
 /**
  * Connect to Agent 365 MCP servers and return discovered tools as ToolDefinitions.
- * Uses refresh token flow to silently acquire delegated access tokens.
+ * Uses Agent Identity Authentication (client-credentials-only, no refresh token).
  *
  * @param serverFilter Optional list of MCP server names to load.
  *                     Defaults to ALL_M365_SERVERS so the full supported catalog is available.
@@ -119,28 +120,39 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
     return [];
   }
 
-  if (!process.env.AGENT365_REFRESH_TOKEN) {
-    console.warn('[Agent365] AGENT365_REFRESH_TOKEN not set. Run scripts/acquire-agent365-token.ps1 to obtain one. Skipping.');
+  if (!process.env.AGENT365_APP_INSTANCE_ID || !process.env.AGENT365_AGENTIC_USER_ID) {
+    console.warn('[Agent365] AGENT365_APP_INSTANCE_ID or AGENT365_AGENTIC_USER_ID not set. Install the agent in Teams first. Skipping.');
     return [];
   }
+
+  const MCP_INIT_TIMEOUT_MS = 15_000;
 
   try {
     // Close any previous bridge to avoid connection leaks and stale MSAL tokens
     await closeAgent365Bridge();
 
-    const bridge = await initAgent365Bridge({
+    const bridgePromise = initAgent365Bridge({
       clientId: credentials.clientId,
       clientSecret: credentials.clientSecret,
       tenantId: credentials.tenantId,
       agenticAppId: process.env.AGENT365_BLUEPRINT_ID,
-      refreshToken: process.env.AGENT365_REFRESH_TOKEN,
+      agentAppInstanceId: process.env.AGENT365_APP_INSTANCE_ID,
+      agenticUserId: process.env.AGENT365_AGENTIC_USER_ID,
     }, serverFilter);
+
+    // Timeout guard: if MCP init hangs beyond 15s, fall back to core tools only
+    const bridge = await Promise.race([
+      bridgePromise,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Agent365 MCP init timed out after ${MCP_INIT_TIMEOUT_MS}ms`)), MCP_INIT_TIMEOUT_MS),
+      ),
+    ]);
 
     activeBridge = bridge;
     console.log(`[Agent365] Initialized ${bridge.tools.length} MCP tools`);
     return bridge.tools;
   } catch (err) {
-    console.error('[Agent365] Failed to initialize MCP bridge:', (err as Error).message);
+    console.error('[Agent365] Failed to initialize MCP bridge (falling back to core tools):', (err as Error).message);
     return [];
   }
 }

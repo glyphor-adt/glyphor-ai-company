@@ -180,46 +180,58 @@ export async function createGlyphorMcpTools(
     entries = entries.filter(([name]) => filterSet.has(name));
   }
 
+  const MCP_PER_SERVER_TIMEOUT_MS = 10_000;
   const allTools: ToolDefinition[] = [];
 
   for (const [serverName, serverUrl] of entries) {
     if (!serverUrl) continue;
 
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (agentRole) headers['X-Agent-Role'] = agentRole;
+      const serverInit = async (): Promise<void> => {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (agentRole) headers['X-Agent-Role'] = agentRole;
 
-      // Acquire GCP identity token for Cloud Run service-to-service auth
-      const gcpToken = await getGcpIdentityToken(serverUrl);
-      if (gcpToken) headers['Authorization'] = `Bearer ${gcpToken}`;
+        // Acquire GCP identity token for Cloud Run service-to-service auth
+        const gcpToken = await getGcpIdentityToken(serverUrl);
+        if (gcpToken) headers['Authorization'] = `Bearer ${gcpToken}`;
 
-      const response = await fetch(serverUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ jsonrpc: '2.0', method: 'tools/list', id: 1 }),
-      });
+        const response = await fetch(serverUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ jsonrpc: '2.0', method: 'tools/list', id: 1 }),
+          signal: AbortSignal.timeout(MCP_PER_SERVER_TIMEOUT_MS),
+        });
 
-      const contentType = response.headers.get('content-type') ?? '';
-      if (!contentType.includes('application/json')) {
-        console.warn(`[GlyphorMCP] ${serverName} returned ${response.status} non-JSON (${contentType}). Auth issue or service down.`);
-        continue;
-      }
+        const contentType = response.headers.get('content-type') ?? '';
+        if (!contentType.includes('application/json')) {
+          console.warn(`[GlyphorMCP] ${serverName} returned ${response.status} non-JSON (${contentType}). Auth issue or service down.`);
+          return;
+        }
 
-      const result = (await response.json()) as Record<string, unknown>;
+        const result = (await response.json()) as Record<string, unknown>;
 
-      if (result.error) {
-        console.warn(`[GlyphorMCP] ${serverName} returned error:`, result.error);
-        continue;
-      }
+        if (result.error) {
+          console.warn(`[GlyphorMCP] ${serverName} returned error:`, result.error);
+          return;
+        }
 
-      const tools = (result.result as Record<string, unknown>[] | undefined) ?? [];
-      for (const mcpTool of tools) {
-        allTools.push(convertMcpTool(mcpTool, serverUrl, agentRole));
-      }
+        const tools = (result.result as Record<string, unknown>[] | undefined) ?? [];
+        for (const mcpTool of tools) {
+          allTools.push(convertMcpTool(mcpTool, serverUrl, agentRole));
+        }
 
-      console.log(`[GlyphorMCP] ${serverName}: ${tools.length} tools (agent=${agentRole ?? 'anon'})`);
+        console.log(`[GlyphorMCP] ${serverName}: ${tools.length} tools (agent=${agentRole ?? 'anon'})`);
+      };
+
+      // Timeout guard: skip this server if init takes too long
+      await Promise.race([
+        serverInit(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`timed out after ${MCP_PER_SERVER_TIMEOUT_MS}ms`)), MCP_PER_SERVER_TIMEOUT_MS),
+        ),
+      ]);
     } catch (err) {
-      console.warn(`[GlyphorMCP] Failed to connect to ${serverName}:`, (err as Error).message);
+      console.warn(`[GlyphorMCP] Failed to connect to ${serverName} (skipping):`, (err as Error).message);
     }
   }
 

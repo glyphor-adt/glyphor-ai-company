@@ -1,9 +1,9 @@
 {
   "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/vdevPreview/MicrosoftTeams.schema.json",
-  "id": "5604df3b-a3a3-4c7e-a8c4-e6f9ed04ad6a",
+  "id": "b47da287-6b05-4be3-9807-3f49047fbbb8",
   "name": {
-    "short": "Glyphor AI Agent",
-    "full": "Glyphor AI Agent"
+    "short": "Glyphor Agent Blueprint",
+    "full": "Glyphor Agent Blueprint"
   },
   "description": {
     "short": "Glyphor AI autonomous company agents.",
