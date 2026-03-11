@@ -1,0 +1,33 @@
+{
+  "name": "CreateChat",
+  "title": "CreateChat",
+  "description": "Create a new chat. For one-on-one chats, provide 2 user IDs. For group chats, provide a topic and 2 or more user IDs.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "chatType": {
+        "type": "string",
+        "description": "Type of the chat to be created i.e oneOnOne or group."
+      },
+      "members_upns": {
+        "type": "array",
+        "description": "String array of real, verified user UPN email strings. Never guess or fabricate UPNs and never use values like 'me', 'me@*', placeholders, or example domains. Must include the signed-in user's UPN if it is known; if the signed-in user's UPN is not available, do NOT include it and do NOT invent a value. Omitting the signed-in user when their UPN is unknown is preferred over including a fabricated value. If any other user's UPN is unknown, you MUST first call listUsers to retrieve it. Only call this tool with real, known UPNs. Must contain at least 2 entries in all cases and exactly 2 entries for one-on-one chats. Never pass an empty array or a comma-separated string.",
+        "items": {
+          "type": "string"
+        }
+      },
+      "topic": {
+        "type": "string",
+        "description": "The title of the chat. The chat title can be provided only if the chat is of group type."
+      },
+      "contenttype": {
+        "type": "string",
+        "description": "MIME type of the upload"
+      }
+    },
+    "required": [
+      "chatType",
+      "members_upns"
+    ]
+  }
+}

@@ -288,20 +288,28 @@ export class A365TeamsChatClient {
   }
 
   /**
-   * Create or find an existing 1:1 chat using UPNs (email addresses).
-   * The MCP CreateChat tool accepts members_upns as an array of UPN strings.
-   * For oneOnOne chats, exactly 2 UPNs are required.
+   * Create or find an existing 1:1 chat with the recipient.
+   * The MCP CreateChat tool requires the signed-in agentic user to be one of
+   * the 2 members in oneOnOne chats. We always use the agentic user's UPN
+   * (AGENT365_AGENTIC_USER_UPN) as one member and the recipient as the other.
+   * The senderUpn parameter is kept for cache-key differentiation but is NOT
+   * used as a chat member.
    */
   async createOrGetOneOnOneChat(recipientUpn: string, senderUpn?: string): Promise<string> {
-    const cacheKey = senderUpn ? `${senderUpn}:${recipientUpn}` : recipientUpn;
+    const cacheKey = recipientUpn.toLowerCase();
     const cached = this.chatCache.get(cacheKey);
     if (cached) return cached;
 
-    if (!senderUpn) {
-      throw new Error('[A365Teams] senderUpn is required for CreateChat — oneOnOne chats require exactly 2 members');
+    const agenticUserUpn = process.env.AGENT365_AGENTIC_USER_UPN;
+    if (!agenticUserUpn) {
+      throw new Error('[A365Teams] AGENT365_AGENTIC_USER_UPN env var is required for CreateChat — oneOnOne chats require the signed-in user as a member');
     }
 
-    const upns = [senderUpn, recipientUpn];
+    // If the recipient IS the agentic user, use the sender instead (can't DM yourself)
+    const actualRecipient = recipientUpn.toLowerCase() === agenticUserUpn.toLowerCase() && senderUpn
+      ? senderUpn
+      : recipientUpn;
+    const upns = [agenticUserUpn, actualRecipient];
 
     try {
       const data = await this.callTool('CreateChat', {
