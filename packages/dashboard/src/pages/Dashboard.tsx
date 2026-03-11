@@ -1,4 +1,4 @@
-import { MdCheckCircle, MdSearch, MdDescription, MdChat, MdArrowForward, MdWarning } from 'react-icons/md';
+import { MdCheckCircle, MdSearch, MdDescription, MdChat, MdArrowForward, MdWarning, MdGavel, MdReportProblem, MdWidgets, MdSmartToy } from 'react-icons/md';
 import { useAgents, useDecisions, useOpenIncidents, useProducts } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, TIER_TO_IMPACT } from '../lib/types';
 import {
@@ -88,25 +88,29 @@ export default function Dashboard() {
               label="Pending Decisions"
               value={String(pendingDecisions)}
               hint="Awaiting founder review"
-              accent="17,113,237"
+              gradient="stat-gradient-blue"
+              icon={<MdGavel className="h-5 w-5" />}
             />
             <MetricCard
               label="Open Incidents"
               value={String(incidents.length)}
               hint={incidentsLoading ? 'Checking now' : (incidents[0]?.severity ?? 'stable')}
-              accent="239,68,68"
+              gradient="stat-gradient-amber"
+              icon={<MdReportProblem className="h-5 w-5" />}
             />
             <MetricCard
               label="Products Online"
               value={String(productCount)}
               hint="Tracked in cockpit"
-              accent="0,163,255"
+              gradient="stat-gradient-teal"
+              icon={<MdWidgets className="h-5 w-5" />}
             />
             <MetricCard
               label="Agents Running"
               value={String(runningAgents.length)}
               hint="Live workload"
-              accent="52,211,153"
+              gradient="stat-gradient-green"
+              icon={<MdSmartToy className="h-5 w-5" />}
             />
           </div>
 
@@ -314,20 +318,27 @@ function MetricCard({
   label,
   value,
   hint,
-  accent,
+  gradient,
+  icon,
 }: {
   label: string;
   value: string;
   hint: string;
-  accent: string;
+  gradient: string;
+  icon: React.ReactNode;
 }) {
   return (
-    <Card accent={accent} className="stat-card relative min-h-[124px] overflow-hidden">
-      <div className="stat-card-shine" aria-hidden="true" />
-      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-txt-faint">{label}</p>
-      <p className="mt-4 font-mono text-3xl font-bold tracking-tight text-txt-primary">{value}</p>
-      <p className="mt-2 text-[12px] text-txt-muted">{hint}</p>
-    </Card>
+    <div className={`stat-card-gradient ${gradient} relative min-h-[140px] overflow-hidden rounded-[20px] p-5`}>
+      <div className="stat-card-gradient-shine" aria-hidden="true" />
+      <div className="flex items-start justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/60">{label}</p>
+        <div className="stat-card-icon-badge">
+          {icon}
+        </div>
+      </div>
+      <p className="mt-4 font-mono text-[2rem] font-bold tracking-tight text-white">{value}</p>
+      <p className="mt-1 text-[12px] text-white/50">{hint}</p>
+    </div>
   );
 }
 
@@ -354,13 +365,13 @@ function QuickActionCard({
       to={to}
       className="quick-action block"
     >
-      <Card accent={accent} interactive className="flex h-full flex-col gap-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl shadow-lg transition-transform duration-200 group-hover:scale-110" style={{ background: iconBg, color: iconColor, boxShadow: `0 4px 16px ${iconBg}` }}>
+      <Card accent={accent} interactive className="quick-action-card flex h-full flex-col gap-4">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl shadow-lg transition-transform duration-200 group-hover:scale-110" style={{ background: `linear-gradient(135deg, ${iconBg}, ${iconColor}22)`, color: iconColor, boxShadow: `0 6px 24px ${iconBg}` }}>
           {icon}
         </div>
         <div>
-          <p className="text-[14px] font-bold text-txt-primary group-hover:text-cyan transition-colors">{title}</p>
-          <p className="mt-1 text-[12px] text-txt-muted leading-relaxed">{description}</p>
+          <p className="text-[15px] font-bold text-txt-primary group-hover:text-cyan transition-colors">{title}</p>
+          <p className="mt-1.5 text-[12px] text-txt-muted leading-relaxed">{description}</p>
         </div>
       </Card>
     </Link>

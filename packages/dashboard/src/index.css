@@ -325,6 +325,65 @@ input:focus, textarea:focus, select:focus {
   background: linear-gradient(160deg, rgba(28, 32, 42, 0.95) 0%, rgba(16, 18, 24, 0.98) 100%) !important;
 }
 
+/* ─── Gradient Stat Cards (reference design) ── */
+.stat-card-gradient {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.stat-card-gradient-shine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 55%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.stat-card-icon-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Blue gradient — Pending Decisions */
+.stat-gradient-blue {
+  background: linear-gradient(145deg, #1a3a6b 0%, #0f2042 40%, #0a1628 100%);
+}
+
+/* Amber/red gradient — Open Incidents */
+.stat-gradient-amber {
+  background: linear-gradient(145deg, #6b3a1a 0%, #42200f 40%, #28160a 100%);
+}
+
+/* Teal gradient — Products Online */
+.stat-gradient-teal {
+  background: linear-gradient(145deg, #0f4f4f 0%, #0a3535 40%, #051e1e 100%);
+}
+
+/* Green gradient — Agents Running */
+.stat-gradient-green {
+  background: linear-gradient(145deg, #1a5c3a 0%, #0f3822 40%, #082214 100%);
+}
+
+/* Quick action card hover lift */
+.quick-action-card {
+  min-height: 160px;
+}
+
 .agent-bar {
   position: relative;
   overflow: hidden;
