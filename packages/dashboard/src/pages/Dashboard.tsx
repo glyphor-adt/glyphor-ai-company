@@ -64,24 +64,22 @@ export default function Dashboard() {
   return (
     <div className="dashboard-home">
       <div className="dashboard-home-grid">
-        <div className="dashboard-home-main space-y-4">
-          <Card accent="0,224,255" glow className="banner">
-            <div className="flex items-center justify-between gap-6">
-              <div>
-                <h1 className="mt-3 text-2xl font-bold text-txt-primary md:text-[2rem]">
-                  {greeting}, {firstName}
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm text-txt-secondary">
-                  Welcome back to Glyphor AI. Ready to discover new insights?
-                </p>
-                <p className="mt-3 text-[12px] text-txt-faint">
-                  {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-                  {' · '}
-                  {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                </p>
-              </div>
+        <div className="dashboard-home-main space-y-5">
+          <div className="banner-wrapper">
+            <div className="banner-inner rounded-[24px] p-7">
+              <h1 className="text-[1.75rem] font-bold text-white md:text-[2.25rem] leading-tight">
+                {greeting}, {firstName}
+              </h1>
+              <p className="mt-3 max-w-2xl text-[15px] text-white/60">
+                Welcome back to Glyphor AI. Ready to discover new insights?
+              </p>
+              <p className="mt-4 text-[13px] text-white/35 font-medium">
+                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                {' · '}
+                {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+              </p>
             </div>
-          </Card>
+          </div>
 
           <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
             <MetricCard
@@ -150,12 +148,12 @@ export default function Dashboard() {
           )}
 
           <div>
-            <SectionHeader title="Quick Actions" />
-            <div className="mt-1 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <h2 className="text-lg font-bold text-txt-primary mb-3">Quick Actions</h2>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <QuickActionCard
                 to="/strategy"
-                icon={<MdSearch className="h-6 w-6" />}
-                iconBg="rgba(0, 224, 255, 0.15)"
+                icon={<MdSearch className="h-7 w-7" />}
+                iconBg="rgba(0, 224, 255, 0.2)"
                 iconColor="#00E0FF"
                 accent="0,224,255"
                 title="Start New Research"
@@ -163,8 +161,8 @@ export default function Dashboard() {
               />
               <QuickActionCard
                 to="/strategy"
-                icon={<MdDescription className="h-6 w-6" />}
-                iconBg="rgba(0, 163, 255, 0.15)"
+                icon={<MdDescription className="h-7 w-7" />}
+                iconBg="rgba(0, 163, 255, 0.2)"
                 iconColor="#00A3FF"
                 accent="0,163,255"
                 title="View Reports"
@@ -172,8 +170,8 @@ export default function Dashboard() {
               />
               <QuickActionCard
                 to="/chat"
-                icon={<MdChat className="h-6 w-6" />}
-                iconBg="rgba(52, 211, 153, 0.15)"
+                icon={<MdChat className="h-7 w-7" />}
+                iconBg="rgba(52, 211, 153, 0.2)"
                 iconColor="#34D399"
                 accent="52,211,153"
                 title="Chat with Agents"
@@ -182,43 +180,41 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <Card>
-            <SectionHeader
-              title="AI Workforce"
-              action={
-                <Link to="/workforce" className="text-xs text-prism-tertiary hover:text-prism-primary hover:underline">
-                  <span className="flex items-center gap-1">Meet the team <MdArrowForward /></span>
-                </Link>
-              }
-            />
+          <div className="workforce-section rounded-[24px] border border-white/[0.06] p-6">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-txt-primary">AI Workforce</h2>
+              <Link to="/workforce" className="text-[13px] text-txt-faint hover:text-txt-secondary transition-colors">
+                <span className="flex items-center gap-1">Meet the team <MdArrowForward /></span>
+              </Link>
+            </div>
             {agentsLoading ? (
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+              <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-6">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <Skeleton key={i} className="h-20" />
+                  <Skeleton key={i} className="h-24" />
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+              <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-6">
                 {agents.slice(0, 12).map((agent) => (
                   <Link
                     key={agent.id}
                     to={`/chat/${agent.role}`}
                     className="group block"
                   >
-                    <InnerCard className="flex flex-col items-center gap-2 px-3 py-3 transition-transform duration-200 group-hover:-translate-y-0.5">
-                      <AgentAvatar role={agent.role} size={40} glow={agent.status === 'active'} avatarUrl={agent.avatar_url} />
-                      <p className="text-center text-[11px] font-medium leading-tight text-txt-muted transition-colors group-hover:text-txt-primary">
+                    <div className="workforce-avatar-card flex flex-col items-center gap-2.5 rounded-[18px] px-3 py-4 transition-all duration-200 group-hover:-translate-y-1">
+                      <AgentAvatar role={agent.role} size={48} glow={agent.status === 'active'} avatarUrl={agent.avatar_url} />
+                      <p className="text-center text-[11px] font-medium leading-tight text-white/50 transition-colors group-hover:text-white/80">
                         {DISPLAY_NAME_MAP[agent.role] ?? agent.display_name ?? agent.role}
                       </p>
-                    </InnerCard>
+                    </div>
                   </Link>
                 ))}
               </div>
             )}
-          </Card>
+          </div>
         </div>
 
-        <div className="dashboard-home-side space-y-4">
+        <div className="dashboard-home-side space-y-5">
           <Card accent="239,68,68">
             <SectionHeader
               title="Open Incidents"
@@ -246,7 +242,7 @@ export default function Dashboard() {
                     accent="239,68,68"
                     className="flex items-start gap-3"
                   >
-                    <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(239,68,68,0.12)] text-[#EF4444]">
+                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[rgba(239,68,68,0.15)] text-[#EF4444]">
                       <MdWarning className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -328,16 +324,16 @@ function MetricCard({
   icon: React.ReactNode;
 }) {
   return (
-    <div className={`stat-card-gradient ${gradient} relative min-h-[140px] overflow-hidden rounded-[20px] p-5`}>
+    <div className={`stat-card-gradient ${gradient} relative min-h-[150px] overflow-hidden rounded-[24px] p-5`}>
       <div className="stat-card-gradient-shine" aria-hidden="true" />
-      <div className="flex items-start justify-between">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/60">{label}</p>
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-white/70">{label}</p>
         <div className="stat-card-icon-badge">
           {icon}
         </div>
       </div>
-      <p className="mt-4 font-mono text-[2rem] font-bold tracking-tight text-white">{value}</p>
-      <p className="mt-1 text-[12px] text-white/50">{hint}</p>
+      <p className="mt-5 font-mono text-[2.25rem] font-extrabold tracking-tight text-white drop-shadow-sm">{value}</p>
+      <p className="mt-1.5 text-[12px] font-medium text-white/50">{hint}</p>
     </div>
   );
 }
@@ -365,13 +361,13 @@ function QuickActionCard({
       to={to}
       className="quick-action block"
     >
-      <Card accent={accent} interactive className="quick-action-card flex h-full flex-col gap-4">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl shadow-lg transition-transform duration-200 group-hover:scale-110" style={{ background: `linear-gradient(135deg, ${iconBg}, ${iconColor}22)`, color: iconColor, boxShadow: `0 6px 24px ${iconBg}` }}>
+      <Card accent={accent} interactive className="quick-action-card flex h-full flex-col gap-5">
+        <div className="quick-action-icon flex h-[52px] w-[52px] items-center justify-center rounded-[16px]" style={{ background: iconColor, color: '#000', boxShadow: `0 8px 24px ${iconColor}44` }}>
           {icon}
         </div>
         <div>
-          <p className="text-[15px] font-bold text-txt-primary group-hover:text-cyan transition-colors">{title}</p>
-          <p className="mt-1.5 text-[12px] text-txt-muted leading-relaxed">{description}</p>
+          <p className="text-[15px] font-bold text-txt-primary">{title}</p>
+          <p className="mt-1.5 text-[13px] text-txt-muted leading-relaxed">{description}</p>
         </div>
       </Card>
     </Link>

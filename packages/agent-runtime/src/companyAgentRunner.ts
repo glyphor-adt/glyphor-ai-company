@@ -2312,11 +2312,21 @@ For peerFeedback: If during this task you interacted with or observed the work o
     ];
 
     const response = await this.modelClient.generate({
-      model: config.model,
+      model: 'gpt-5-nano',
       systemInstruction: systemPrompt,
       contents: reflectHistory,
       tools: [],
       temperature: 0.3,
+      thinkingEnabled: false,
+      metadata: {
+        modelConfig: {
+          model: 'gpt-5-nano',
+          routingRule: 'reflection_subcall',
+          capabilities: ['batch_eligible', 'structured_extraction'],
+          reasoningEffort: 'low',
+          verbosity: 'low',
+        },
+      },
     });
 
     if (!response.text) return;

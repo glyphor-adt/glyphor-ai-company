@@ -11,6 +11,14 @@ export function resolveModelConfig(
   const capabilities = (context.capabilities as string[] | undefined) ?? inferCapabilities(context);
   const selected = new Set(capabilities);
   const currentModel = context.currentModel ?? DEFAULT_MODEL;
+  const deterministicTask = new Set([
+    'health_check',
+    'freshness_check',
+    'cost_check',
+    'daily_cost_check',
+    'triage_queue',
+    'platform_health_check',
+  ]).has(context.task);
 
   let decision: RoutingDecision = {
     model: currentModel,
@@ -18,7 +26,15 @@ export function resolveModelConfig(
     capabilities,
   };
 
-  if (selected.has('code_generation')) {
+  if (deterministicTask && selected.has('deterministic_possible')) {
+    decision = {
+      model: '__deterministic__',
+      routingRule: 'deterministic_skip',
+      capabilities,
+      reasoningEffort: 'minimal',
+      verbosity: 'low',
+    };
+  } else if (selected.has('code_generation')) {
     decision = {
       model: 'gpt-5.4',
       routingRule: selected.has('needs_apply_patch') ? 'standard_code_gen' : 'code_generation',
@@ -36,14 +52,33 @@ export function resolveModelConfig(
       reasoningEffort: selected.has('high_complexity') ? 'high' : 'medium',
       enableCodeExecution: true,
     };
-  } else if (selected.has('legal_reasoning') || selected.has('web_research')) {
+  } else if (selected.has('legal_reasoning')) {
     decision = {
-      model: selected.has('high_complexity') ? 'claude-sonnet-4-6' : 'gemini-3.1-pro-preview',
-      routingRule: selected.has('legal_reasoning') ? 'grounded_legal_research' : 'grounded_research',
+      model: 'claude-sonnet-4-6',
+      routingRule: 'grounded_legal_research',
       capabilities,
       reasoningEffort: selected.has('high_complexity') ? 'high' : 'medium',
       claudeEffort: selected.has('high_complexity') ? 'high' : 'medium',
       claudeThinking: selected.has('high_complexity') ? 'adaptive' : 'manual',
+      enableCitations: true,
+      enableCompaction: true,
+    };
+  } else if (selected.has('creative_writing') || selected.has('nuanced_evaluation')) {
+    decision = {
+      model: 'claude-sonnet-4-6',
+      routingRule: selected.has('creative_writing') ? 'creative_writing' : 'nuanced_evaluation',
+      capabilities,
+      reasoningEffort: selected.has('high_complexity') ? 'high' : 'medium',
+      claudeEffort: selected.has('high_complexity') ? 'high' : 'medium',
+      claudeThinking: selected.has('high_complexity') ? 'adaptive' : 'manual',
+      enableCompaction: true,
+    };
+  } else if (selected.has('web_research')) {
+    decision = {
+      model: 'gemini-3.1-pro-preview',
+      routingRule: 'grounded_research',
+      capabilities,
+      reasoningEffort: selected.has('high_complexity') ? 'high' : 'medium',
       enableCitations: true,
       enableCompaction: true,
       enableGoogleSearch: selected.has('web_research'),

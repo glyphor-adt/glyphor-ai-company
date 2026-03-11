@@ -11,6 +11,21 @@ export interface RoutingContext {
   trustScore?: number | null;
 }
 
+const DETERMINISTIC_TASKS = new Set<string>([
+  'health_check',
+  'freshness_check',
+  'cost_check',
+  'daily_cost_check',
+  'triage_queue',
+  'platform_health_check',
+]);
+
+function normalizeToolName(rawToolName: string): string {
+  if (!rawToolName.includes(':')) return rawToolName;
+  const parts = rawToolName.split(':').filter(Boolean);
+  return parts[parts.length - 1] ?? rawToolName;
+}
+
 const EXECUTIVE_ROLES = new Set<string>([
   'chief-of-staff',
   'cto',
@@ -37,7 +52,8 @@ export function inferCapabilities(context: RoutingContext): Capability[] {
   const capabilities = new Set<Capability>();
   const taskAndMessage = `${context.task}\n${context.message}`.trim();
 
-  for (const toolName of context.toolNames) {
+  for (const rawToolName of context.toolNames) {
+    const toolName = normalizeToolName(rawToolName);
     for (const capability of TOOL_CAPABILITY_MAP[toolName] ?? []) {
       capabilities.add(capability);
     }
@@ -103,6 +119,11 @@ export function inferCapabilities(context: RoutingContext): Capability[] {
 
   if ((context.trustScore ?? 0.5) < 0.45) {
     capabilities.add('high_complexity');
+  }
+
+  if (DETERMINISTIC_TASKS.has(context.task)) {
+    capabilities.add('deterministic_possible');
+    capabilities.add('batch_eligible');
   }
 
   return Array.from(capabilities);
