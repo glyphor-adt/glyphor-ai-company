@@ -4,7 +4,7 @@
 
 ---
 
-## PART 1: All Agent Identities (45 roles)
+## PART 1: All Agent Identities (44 roles)
 
 ### Executive Team
 
@@ -162,7 +162,7 @@
 | `mcp_GlyphorHR` | `GLYPHOR_MCP_HR_URL` | HR operations |
 | `mcp_GlyphorEmailMarketing` | `GLYPHOR_MCP_EMAIL_MARKETING_URL` | Email marketing (Mailchimp/Mandrill) |
 
-### Shared Tool Factories (66 factory files)
+### Shared Tool Factories (54 factory files)
 
 #### Organization & Orchestration
 
@@ -175,6 +175,11 @@
 | `executiveOrchestrationTools.ts` | `createExecutiveOrchestrationTools` | `create_team_assignments`, `evaluate_team_output`, `check_team_status`, `synthesize_team_deliverable` |
 | `agentCreationTools.ts` | `createAgentCreationTools` | `create_specialist_agent`, `list_my_created_agents`, `retire_created_agent` |
 | `agentDirectoryTools.ts` | `createAgentDirectoryTools` | `get_agent_directory`, `who_handles` |
+| `assignmentTools.ts` | `createAssignmentTools` | `read_my_assignments`, `submit_assignment_output`, `flag_assignment_blocker` |
+| `communicationTools.ts` | `createCommunicationTools` | `send_agent_message`, `check_messages`, `call_meeting`, `create_peer_work_request` |
+| `deliverableTools.ts` | `createDeliverableTools` | `publish_deliverable`, `get_deliverables` |
+| `dmTools.ts` | `createDmTools` | `send_teams_dm`, `read_teams_dm` |
+| `eventTools.ts` | `createEventTools` | `emit_insight`, `emit_alert` |
 | `toolGrantTools.ts` | `createToolGrantTools` | `grant_tool_access`, `revoke_tool_access` |
 | `toolRegistryTools.ts` | `createToolRegistryTools` | `list_tool_requests`, `review_tool_request`, `register_tool`, `deactivate_tool`, `list_registered_tools` |
 | `toolRequestTools.ts` | `createToolRequestTools` | `request_new_tool`, `check_tool_request_status`, `request_tool_access` |
@@ -185,6 +190,7 @@
 | Factory File | Function | Tools |
 |-------------|----------|-------|
 | `graphTools.ts` | `createGraphTools` | `trace_causes`, `trace_impact`, `query_knowledge_graph`, `add_knowledge` |
+| `memoryTools.ts` | `createMemoryTools` | `save_memory`, `recall_memories` |
 | `sharepointTools.ts` | `createSharePointTools` | `upload_to_sharepoint` |
 
 #### Design & Frontend
@@ -212,6 +218,7 @@
 | `socialMediaTools.ts` | `createSocialMediaTools` | `schedule_social_post`, `get_scheduled_posts`, `get_social_metrics`, `get_post_performance`, `get_social_audience`, `reply_to_social`, `get_trending_topics` |
 | `marketingIntelTools.ts` | `createMarketingIntelTools` | `create_experiment`, `get_experiment_results`, `monitor_competitor_marketing`, `analyze_market_trends`, `get_attribution_data`, `capture_lead`, `get_lead_pipeline`, `score_lead`, `get_marketing_dashboard` |
 | `emailMarketingTools.ts` | `createEmailMarketingTools` | `get_mailchimp_lists`, `get_mailchimp_members`, `get_mailchimp_segments`, `create_mailchimp_campaign`, `set_campaign_content`, `send_test_campaign`, `send_campaign`, `get_campaign_report`, `get_campaign_list`, `manage_mailchimp_tags`, `send_transactional_email`, `get_mandrill_stats`, `search_mandrill_messages`, `get_mandrill_templates`, `render_mandrill_template` |
+| `emailTools.ts` | `createEmailTools` | `send_email`, `read_inbox`, `reply_to_email` |
 | `competitiveIntelTools.ts` | `createCompetitiveIntelTools` | `track_competitor`, `get_competitor_profile`, `update_competitor_profile`, `compare_features`, `track_competitor_pricing`, `monitor_competitor_launches`, `get_market_landscape` |
 
 #### Finance
@@ -252,6 +259,8 @@
 |-------------|----------|-------|
 | `docusignTools.ts` | `createDocuSignTools` | `create_signing_envelope`, `send_template_envelope`, `check_envelope_status`, `list_envelopes`, `void_envelope`, `resend_envelope` |
 | `entraHRTools.ts` | `createEntraHRTools` | `entra_get_user_profile`, `entra_update_user_profile`, `entra_upload_user_photo`, `entra_set_manager`, `entra_hr_assign_license`, `entra_audit_profiles` |
+| `hrTools.ts` | `createHRTools` | Deprecated local factory; HR tools now live on the MCP HR server |
+| `legalTools.ts` | `createLegalTools` | Deprecated local factory; legal tools now live on the MCP legal server |
 
 #### Pulse (Video/Media Product)
 
@@ -284,7 +293,7 @@
 |----------|-----------|
 | Core | Core, Graph, SP, A365, GMCP |
 | Orchestration | CI, AgentCreate, ToolGrant, AgentDir |
-| Role-Specific | `createChiefOfStaffTools` (24 tools), `createOrchestrationTools` |
+| Role-Specific | `createChiefOfStaffTools` (25 tools), `createOrchestrationTools` |
 | A365 Filter | Full (ALL_M365_SERVERS) |
 | GMCP Filter | Full (all servers) |
 
@@ -293,7 +302,7 @@
 |----------|-----------|
 | Core | Core, Graph, SP, A365, GMCP |
 | Orchestration | CI, TeamOrch, PeerCoord, Initiative, AgentCreate, ToolGrant, ToolRegistry, AgentDir |
-| Role-Specific | `createCTOTools` (42 tools), `createDiagnosticTools` (4 tools) |
+| Role-Specific | `createCTOTools` (43 tools), `createDiagnosticTools` (4 tools) |
 | Conditional | `createExecutiveOrchestrationTools` (when DB config enables canary decomposition) |
 | A365 Filter | Full |
 | GMCP Filter | Full |
@@ -501,8 +510,8 @@
 #### 28. `ui-ux-designer` — Leo Vargas
 | Category | Factories |
 |----------|-----------|
-| Core | Core, Graph, A365, GMCP |
-| Role-Specific | `createUiUxDesignerTools` (4), `createFrontendCodeTools` (7), `createScreenshotTools` (4), `createDesignSystemTools` (7), `createAssetTools` (7), `createFigmaTools` (17), `createSharePointTools` (1), `createLogoTools` (3) |
+| Core | Core, Graph, SP, A365, GMCP |
+| Role-Specific | `createUiUxDesignerTools` (4), `createFrontendCodeTools` (7), `createScreenshotTools` (4), `createDesignSystemTools` (7), `createAssetTools` (7), `createFigmaTools` (17), `createLogoTools` (3) |
 
 #### 29. `frontend-engineer` — Ava Chen
 | Category | Factories |
