@@ -442,13 +442,8 @@ const KNOWN_TOOLS = new Set([
   'retire_created_agent',
   // toolRequestTools
   'request_tool_access',
-  // sharepointTools
-  'search_sharepoint',
-  'read_sharepoint_document',
+  // sharepointTools (search/read/list/page moved to Agent365 mcp_ODSPRemoteServer)
   'upload_to_sharepoint',
-  'list_sharepoint_folders',
-  'list_sharepoint_files',
-  'create_sharepoint_page',
 
   // ── Marketing shared tools (Wave 1) ──
   // contentTools

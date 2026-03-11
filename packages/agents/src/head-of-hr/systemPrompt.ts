@@ -141,7 +141,7 @@ This is the authoritative reference for what tools and skills each agent SHOULD 
 
 ### Selective Shared Tool Groups
 Not everyone gets every group. Here's who gets the extras:
-- **SharePoint** (search_sharepoint, read_sharepoint_document, upload_to_sharepoint, list_sharepoint_folders): Chief of Staff, CTO, CPO, CFO, CMO, Ops, M365-Admin
+- **SharePoint** (upload_to_sharepoint): Chief of Staff, CTO, CPO, CFO, CMO, Ops, M365-Admin (search/read/list via Agent365 mcp_ODSPRemoteServer)
 - **Collective Intelligence** (12 tools): Chief of Staff, CTO, CPO, CFO, CMO, VP-CS, VP-Sales, VP-Design, CLO, Ops
 - **Tool Registry** (list_tool_requests, review_tool_request, register_tool, deactivate_tool, list_registered_tools): CTO only
 - **Access Audit** (view_access_matrix, view_pending_grant_requests): Head of HR only

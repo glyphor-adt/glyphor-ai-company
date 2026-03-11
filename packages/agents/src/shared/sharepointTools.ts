@@ -75,14 +75,12 @@ export function createSharePointTools(): ToolDefinition[] {
             data: isDbError
               ? {
                   hint: 'The file may have uploaded to SharePoint but the database sync failed. '
-                    + 'Try create_sharepoint_page as an alternative — it bypasses the knowledge index. '
+                    + 'Try using Agent365 mcp_ODSPRemoteServer tools to upload directly — they bypass the knowledge index. '
                     + 'If the error persists, message Marcus (CTO) with the exact error for a fix.',
-                  fallbackTool: 'create_sharepoint_page',
                 }
               : {
-                  hint: 'If this is a permissions error, try creating a SharePoint page instead (create_sharepoint_page), '
+                  hint: 'If this is a permissions error, try using Agent365 mcp_ODSPRemoteServer tools to upload directly, '
                     + 'which uses a different API path. Or try a different folder.',
-                  fallbackTool: 'create_sharepoint_page',
                 },
           };
         }
