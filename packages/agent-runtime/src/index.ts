@@ -35,6 +35,10 @@ export { extractTaskFromConfigId } from './taskIdentity.js';
 export { compressHistory, DEFAULT_HISTORY_COMPRESSION } from './historyManager.js';
 export type { HistoryCompressionConfig } from './historyManager.js';
 export { TOOL_SUBSETS, getToolSubset, filterToolDeclarations } from './toolSubsets.js';
+export { applyPatchToGitHub } from './patchHarness.js';
+export type { ApplyPatchCallParams } from './patchHarness.js';
+export { parseV4APatch, applyV4APatch } from './v4aDiff.js';
+export type { V4APatchDocument, V4AFilePatch, V4APatchOperation, V4APatchOperationType } from './v4aDiff.js';
 // Reasoning Engine + JIT Context + Redis Cache
 export { ReasoningEngine } from './reasoningEngine.js';
 export type { ReasoningConfig, ReasoningResult, ReasoningPassResult, ValueScore, PassType } from './reasoningEngine.js';

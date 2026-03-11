@@ -319,9 +319,60 @@ export class OpenAIAdapter implements ProviderAdapter {
       description: t.function.description,
       parameters: t.function.parameters,
     }));
+    const modelConfig = request.metadata?.modelConfig;
+    const patchTool = modelConfig?.enableApplyPatch
+      ? [{
+          type: 'function' as const,
+          name: 'apply_patch_call',
+          description: 'Apply a V4A diff patch to existing GitHub repository files on a feature/agent-* branch. Prefer this over full-file rewrites for code edits.',
+          parameters: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              repo: { type: 'string', description: 'Repository name, such as glyphor-ai-company.' },
+              branch: { type: 'string', description: 'Target feature branch. Must start with feature/agent-.' },
+              commit_message: { type: 'string', description: 'Commit message describing the patch.' },
+              patch: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                  version: { type: 'string', enum: ['v4a-diff-v1'] },
+                  files: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      additionalProperties: false,
+                      properties: {
+                        path: { type: 'string' },
+                        operations: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                              type: { type: 'string', enum: ['replace', 'insert_after', 'insert_before', 'delete', 'replace_entire'] },
+                              oldText: { type: 'string' },
+                              newText: { type: 'string' },
+                              anchor: { type: 'string' },
+                              occurrence: { type: 'number' },
+                            },
+                            required: ['type'],
+                          },
+                        },
+                      },
+                      required: ['path', 'operations'],
+                    },
+                  },
+                },
+                required: ['version', 'files'],
+              },
+            },
+            required: ['repo', 'branch', 'commit_message', 'patch'],
+          },
+        }]
+      : [];
 
     const maxOutputTokens = request.maxTokens ?? 32768;
-    const modelConfig = request.metadata?.modelConfig;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const createParams: any = {
@@ -332,7 +383,7 @@ export class OpenAIAdapter implements ProviderAdapter {
         effort: reasoningEffort,
         summary: 'auto',
       },
-      ...(responsesTools?.length ? { tools: responsesTools } : {}),
+      ...((responsesTools?.length || patchTool.length) ? { tools: [...(responsesTools ?? []), ...patchTool] } : {}),
       max_output_tokens: maxOutputTokens,
       ...(request.metadata?.previousResponseId ? { previous_response_id: request.metadata.previousResponseId } : {}),
       ...(modelConfig?.verbosity ? { text: { verbosity: modelConfig.verbosity } } : {}),

@@ -35,6 +35,7 @@ import type { ConstitutionalGovernor } from './constitutionalGovernor.js';
 import type { ModelClient } from './modelClient.js';
 import type { RedisCache } from './redisCache.js';
 import { recordToolCall, detectToolSource } from './toolReputationTracker.js';
+import { applyPatchToGitHub } from './patchHarness.js';
 
 // ─── Emergency Block Cache ─────────────────────────────────────
 const BLOCK_CACHE_TTL_MS = 60_000; // 60 seconds
@@ -135,6 +136,26 @@ const READ_ONLY_PREFIXES = ['get_', 'read_', 'calculate_', 'recall_', 'query_', 
 
 function isReadOnlyTool(name: string): boolean {
   return READ_ONLY_PREFIXES.some((prefix) => name.startsWith(prefix));
+}
+
+function getVirtualTool(name: string): ToolDefinition | null {
+  if (name !== 'apply_patch_call') return null;
+  return {
+    name,
+    description: 'Apply a structured V4A patch to one or more GitHub files on a feature branch.',
+    parameters: {
+      repo: { type: 'string', description: 'GitHub repo name', required: true },
+      branch: { type: 'string', description: 'Feature branch name', required: true },
+      commit_message: { type: 'string', description: 'Commit message', required: true },
+      patch: { type: 'object', description: 'V4A patch document', required: true },
+    },
+    execute: async (params, context) => applyPatchToGitHub({
+      repo: params.repo as string,
+      branch: params.branch as string,
+      commit_message: params.commit_message as string,
+      patch: params.patch as string | import('./v4aDiff.js').V4APatchDocument,
+    }, context),
+  };
 }
 
 // ─── MUTATION VERIFICATION ─────────────────────────────────────────
@@ -364,7 +385,7 @@ export class ToolExecutor {
     params: Record<string, unknown>,
     context: ToolContext,
   ): Promise<ToolResult> {
-    const tool = this.tools.get(toolName);
+    const tool = this.tools.get(toolName) ?? getVirtualTool(toolName);
     if (!tool) {
       // ─── Runtime tool routing ──────────────────────────────
       // Tools created mid-run via RuntimeToolFactory are prefixed

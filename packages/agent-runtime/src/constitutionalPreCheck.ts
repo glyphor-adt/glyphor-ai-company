@@ -29,6 +29,7 @@ export const HIGH_STAKES_TOOLS = new Set([
   'send_email',
   'reply_to_email',
   'create_or_update_file',
+  'apply_patch_call',
   'create_branch',
   'register_tool',
   'create_specialist_agent',
