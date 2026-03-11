@@ -9,12 +9,36 @@ import { GoogleGenAI } from '@google/genai';
 import type { ConversationTurn } from '../types.js';
 import type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse, ImageResponse } from './types.js';
 
+export interface GeminiAdapterConfig {
+  /** Google AI Studio API key (direct access). */
+  apiKey?: string;
+  /** GCP project ID for Vertex AI. When set, Vertex AI is preferred over apiKey. */
+  vertexProjectId?: string;
+  /** GCP region for Vertex AI Gemini. Defaults to us-central1. */
+  vertexLocation?: string;
+}
+
 export class GeminiAdapter implements ProviderAdapter {
   readonly provider = 'gemini' as const;
   private client: GoogleGenAI;
 
-  constructor(apiKey: string) {
-    this.client = new GoogleGenAI({ apiKey });
+  constructor(config: string | GeminiAdapterConfig) {
+    if (typeof config === 'string') {
+      // Backward-compatible: plain string = API key
+      this.client = new GoogleGenAI({ apiKey: config });
+      return;
+    }
+    if (config.vertexProjectId) {
+      this.client = new GoogleGenAI({
+        vertexai: true,
+        project: config.vertexProjectId,
+        location: config.vertexLocation ?? 'us-central1',
+      });
+    } else if (config.apiKey) {
+      this.client = new GoogleGenAI({ apiKey: config.apiKey });
+    } else {
+      throw new Error('GeminiAdapter requires either vertexProjectId or apiKey');
+    }
   }
 
   async generate(request: UnifiedModelRequest): Promise<UnifiedModelResponse> {

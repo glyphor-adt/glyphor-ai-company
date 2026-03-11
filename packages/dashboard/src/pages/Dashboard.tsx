@@ -151,7 +151,7 @@ export default function Dashboard() {
               <QuickActionCard
                 to="/strategy"
                 icon={<MdSearch className="h-6 w-6" />}
-                iconBg="rgba(0, 224, 255, 0.1)"
+                iconBg="rgba(0, 224, 255, 0.15)"
                 iconColor="#00E0FF"
                 accent="0,224,255"
                 title="Start New Research"
@@ -160,7 +160,7 @@ export default function Dashboard() {
               <QuickActionCard
                 to="/strategy"
                 icon={<MdDescription className="h-6 w-6" />}
-                iconBg="rgba(0, 163, 255, 0.1)"
+                iconBg="rgba(0, 163, 255, 0.15)"
                 iconColor="#00A3FF"
                 accent="0,163,255"
                 title="View Reports"
@@ -169,7 +169,7 @@ export default function Dashboard() {
               <QuickActionCard
                 to="/chat"
                 icon={<MdChat className="h-6 w-6" />}
-                iconBg="rgba(52, 211, 153, 0.12)"
+                iconBg="rgba(52, 211, 153, 0.15)"
                 iconColor="#34D399"
                 accent="52,211,153"
                 title="Chat with Agents"
@@ -322,7 +322,8 @@ function MetricCard({
   accent: string;
 }) {
   return (
-    <Card accent={accent} className="min-h-[124px]">
+    <Card accent={accent} className="stat-card relative min-h-[124px] overflow-hidden">
+      <div className="stat-card-shine" aria-hidden="true" />
       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-txt-faint">{label}</p>
       <p className="mt-4 font-mono text-3xl font-bold tracking-tight text-txt-primary">{value}</p>
       <p className="mt-2 text-[12px] text-txt-muted">{hint}</p>
@@ -354,7 +355,7 @@ function QuickActionCard({
       className="quick-action block"
     >
       <Card accent={accent} interactive className="flex h-full flex-col gap-4">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-110" style={{ background: iconBg, color: iconColor }}>
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl shadow-lg transition-transform duration-200 group-hover:scale-110" style={{ background: iconBg, color: iconColor, boxShadow: `0 4px 16px ${iconBg}` }}>
           {icon}
         </div>
         <div>

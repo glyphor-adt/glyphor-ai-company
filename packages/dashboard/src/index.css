@@ -35,17 +35,17 @@
 
 .dark {
   color-scheme: dark;
-  --color-base: #111217;
-  --color-surface: #1A1C22;
-  --color-raised: #15171C;
-  --color-border: rgba(255, 255, 255, 0.06);
-  --color-border-hover: rgba(255, 255, 255, 0.12);
+  --color-base: #0B0C10;
+  --color-surface: rgba(22, 24, 30, 0.85);
+  --color-raised: rgba(16, 18, 24, 0.9);
+  --color-border: rgba(255, 255, 255, 0.07);
+  --color-border-hover: rgba(255, 255, 255, 0.14);
   --color-txt-primary: #ECEEF4;
-  --color-txt-secondary: rgba(255, 255, 255, 0.5);
-  --color-txt-muted: rgba(255, 255, 255, 0.5);
+  --color-txt-secondary: rgba(255, 255, 255, 0.6);
+  --color-txt-muted: rgba(255, 255, 255, 0.45);
   --color-txt-faint: rgba(255, 255, 255, 0.28);
-  --color-hover-bg: rgba(255, 255, 255, 0.05);
-  --color-shimmer: rgb(var(--prism-accent-1) / 0.08);
+  --color-hover-bg: rgba(255, 255, 255, 0.06);
+  --color-shimmer: rgb(var(--prism-accent-1) / 0.1);
   --scrollbar-thumb: rgba(255, 255, 255, 0.12);
   --scrollbar-hover: rgba(255, 255, 255, 0.2);
   /* Accent colors – bright shades from Prism */
@@ -60,6 +60,11 @@ body {
   font-family: 'IBM Plex Sans', system-ui, sans-serif;
   background: var(--color-base);
   color: var(--color-txt-secondary);
+}
+
+.dark body,
+.dark #root {
+  background: #0B0C10;
 }
 
 #root {
@@ -89,13 +94,17 @@ body {
 }
 
 .dashboard-sidebar--dark {
-  background: rgb(20, 22, 28);
+  background: rgba(12, 14, 18, 0.95);
 }
 
 .dashboard-main {
   position: relative;
   isolation: isolate;
   background: var(--color-base);
+}
+
+.dark .dashboard-main {
+  background: linear-gradient(180deg, #0B0C10 0%, #0E0F14 40%, #0B0C10 100%);
 }
 
 .dashboard-content {
@@ -124,20 +133,20 @@ body {
   position: absolute;
   right: 0;
   bottom: 0;
-  width: 120px;
-  height: 200px;
+  width: 160px;
+  height: 260px;
   pointer-events: none;
-  background: radial-gradient(ellipse at bottom right, rgba(17, 113, 237, 0.08), transparent 72%);
+  background: radial-gradient(ellipse at bottom right, rgba(17, 113, 237, 0.12), transparent 72%);
 }
 
 .sidebar-glow-tl {
   position: absolute;
   top: 0;
   left: 0;
-  width: 100px;
-  height: 150px;
+  width: 140px;
+  height: 200px;
   pointer-events: none;
-  background: radial-gradient(ellipse at top left, rgba(0, 224, 255, 0.08), transparent 72%);
+  background: radial-gradient(ellipse at top left, rgba(0, 224, 255, 0.12), transparent 72%);
 }
 
 .nav-item-active {
@@ -259,16 +268,21 @@ input:focus, textarea:focus, select:focus {
 
 /* ─── Dark Mode Card ─────────────────────────── */
 .dark .glass-card {
-  background: rgb(26, 28, 34) !important;
-  border-color: rgba(255, 255, 255, 0.06) !important;
+  background: linear-gradient(145deg, rgba(26, 28, 36, 0.92) 0%, rgba(18, 20, 26, 0.95) 100%) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
   box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.25),
-    0 0 0 1px rgba(255, 255, 255, 0.02);
+    0 4px 24px rgba(0, 0, 0, 0.4),
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 .dark .glass-card:hover {
-  background: rgb(30, 32, 38) !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  background: linear-gradient(145deg, rgba(30, 33, 42, 0.95) 0%, rgba(22, 24, 32, 0.95) 100%) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
 }
 
 /* Inner raised elements inside cards */
@@ -281,13 +295,34 @@ input:focus, textarea:focus, select:focus {
 }
 
 .dark .glass-raised {
-  background: rgb(21, 23, 28) !important;
-  border-color: rgba(255, 255, 255, 0.05) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  background: linear-gradient(145deg, rgba(20, 22, 28, 0.9) 0%, rgba(14, 16, 22, 0.95) 100%) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .stat-card-accent {
   position: relative;
+}
+
+/* Stat card glossy highlight */
+.dark .stat-card .stat-card-shine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.dark .stat-card {
+  background: linear-gradient(160deg, rgba(28, 32, 42, 0.95) 0%, rgba(16, 18, 24, 0.98) 100%) !important;
 }
 
 .agent-bar {
@@ -306,9 +341,9 @@ input:focus, textarea:focus, select:focus {
 }
 
 .agent-bar--dark {
-  background: transparent;
-  border-color: rgba(255,255,255,0.06) !important;
-  box-shadow: none;
+  background: linear-gradient(90deg, rgba(52, 211, 153, 0.04) 0%, transparent 60%) !important;
+  border-color: rgba(255,255,255,0.07) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .agent-bar--light {
@@ -345,8 +380,9 @@ input:focus, textarea:focus, select:focus {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent 10%, rgba(255,255,255,0.05) 50%, transparent 90%);
+  background: linear-gradient(90deg, transparent 5%, rgba(255,255,255,0.1) 30%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.1) 70%, transparent 95%);
   pointer-events: none;
+  z-index: 2;
 }
 
 .glass-card::after,
@@ -356,14 +392,15 @@ input:focus, textarea:focus, select:focus {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 60%;
-  background: linear-gradient(to top, rgba(var(--card-accent-rgb, 0,224,255), 0.08) 0%, rgba(var(--card-accent-rgb, 0,224,255), 0.02) 40%, transparent 100%);
+  height: 70%;
+  background: linear-gradient(to top, rgba(var(--card-accent-rgb, 0,224,255), 0.12) 0%, rgba(var(--card-accent-rgb, 0,224,255), 0.04) 35%, transparent 100%);
   pointer-events: none;
+  border-radius: inherit;
 }
 
 .glass-inner-card::after {
-  height: 50%;
-  background: linear-gradient(to top, rgba(var(--card-accent-rgb, 0,224,255), 0.06) 0%, rgba(var(--card-accent-rgb, 0,224,255), 0.015) 40%, transparent 100%);
+  height: 55%;
+  background: linear-gradient(to top, rgba(var(--card-accent-rgb, 0,224,255), 0.09) 0%, rgba(var(--card-accent-rgb, 0,224,255), 0.025) 35%, transparent 100%);
 }
 
 .glass-card__content {
@@ -373,14 +410,14 @@ input:focus, textarea:focus, select:focus {
 
 .glass-card__glow {
   position: absolute;
-  bottom: -20px;
+  bottom: -30px;
   left: 50%;
-  width: 120px;
-  height: 60px;
+  width: 180px;
+  height: 80px;
   transform: translateX(-50%);
   border-radius: 999px;
-  background: rgba(var(--card-accent-rgb, 0,224,255), 0.15);
-  filter: blur(25px);
+  background: rgba(var(--card-accent-rgb, 0,224,255), 0.2);
+  filter: blur(35px);
   pointer-events: none;
 }
 

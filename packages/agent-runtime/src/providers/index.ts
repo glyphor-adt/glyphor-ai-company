@@ -8,17 +8,21 @@
  */
 
 export { type ModelProvider, type UnifiedModelRequest, type UnifiedModelResponse, type UnifiedToolCall, type UnifiedUsageMetadata, type ImageResponse, type ProviderAdapter } from './types.js';
-export { GeminiAdapter } from './gemini.js';
+export { GeminiAdapter, type GeminiAdapterConfig } from './gemini.js';
 export { OpenAIAdapter } from './openai.js';
 export { AnthropicAdapter } from './anthropic.js';
 
 import type { ModelProvider, ProviderAdapter } from './types.js';
-import { GeminiAdapter } from './gemini.js';
+import { GeminiAdapter, type GeminiAdapterConfig } from './gemini.js';
 import { OpenAIAdapter } from './openai.js';
 import { AnthropicAdapter } from './anthropic.js';
 
 export interface ProviderFactoryConfig {
   geminiApiKey?: string;
+  /** GCP project ID — used for Vertex AI (Gemini + Claude). Preferred over geminiApiKey when set. */
+  vertexProjectId?: string;
+  /** GCP region for Vertex AI Gemini. Defaults to us-central1. */
+  vertexLocation?: string;
   openaiApiKey?: string;
   /** Azure Foundry endpoint, e.g. https://my-resource.openai.azure.com */
   azureFoundryEndpoint?: string;
@@ -26,8 +30,6 @@ export interface ProviderFactoryConfig {
   azureFoundryApi?: string;
   /** Azure Foundry API version (default: 2025-04-01-preview) */
   azureFoundryApiVersion?: string;
-  /** GCP project ID for Vertex AI (Claude via Vertex). Falls back to GCP_PROJECT_ID env var. */
-  vertexProjectId?: string;
   /** GCP region for Vertex AI Claude. Defaults to us-east5. */
   vertexRegion?: string;
   /** Direct Anthropic API key — used as fallback when Vertex AI quota is exhausted. */
@@ -54,8 +56,16 @@ export class ProviderFactory {
   private create(provider: ModelProvider): ProviderAdapter {
     switch (provider) {
       case 'gemini': {
-        if (!this.config.geminiApiKey) throw new Error('Gemini API key not configured — set GOOGLE_AI_API_KEY environment variable');
-        return new GeminiAdapter(this.config.geminiApiKey);
+        // Prefer Vertex AI (uses service account credentials) over direct API key
+        const geminiProjectId = this.config.vertexProjectId ?? process.env.GCP_PROJECT_ID;
+        if (geminiProjectId) {
+          return new GeminiAdapter({
+            vertexProjectId: geminiProjectId,
+            vertexLocation: this.config.vertexLocation ?? process.env.VERTEX_LOCATION ?? 'us-central1',
+          });
+        }
+        if (!this.config.geminiApiKey) throw new Error('Gemini not configured — set GCP_PROJECT_ID for Vertex AI or GOOGLE_AI_API_KEY for direct');
+        return new GeminiAdapter({ apiKey: this.config.geminiApiKey });
       }
       case 'openai': {
         // Auto-detect Azure OpenAI from config or environment
@@ -74,9 +84,9 @@ export class ProviderFactory {
         });
       }
       case 'anthropic': {
-        const projectId = this.config.vertexProjectId ?? process.env.GCP_PROJECT_ID;
-        if (!projectId) throw new Error('GCP project ID not configured — set GCP_PROJECT_ID environment variable or pass vertexProjectId');
-        return new AnthropicAdapter(projectId, this.config.vertexRegion, this.config.anthropicApiKey);
+        const anthropicProjectId = this.config.vertexProjectId ?? process.env.GCP_PROJECT_ID;
+        if (!anthropicProjectId) throw new Error('GCP project ID not configured — set GCP_PROJECT_ID environment variable or pass vertexProjectId');
+        return new AnthropicAdapter(anthropicProjectId, this.config.vertexRegion, this.config.anthropicApiKey);
       }
     }
   }

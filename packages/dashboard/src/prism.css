@@ -59,10 +59,10 @@
 
 .dark {
   /* ── Backgrounds ──────────────────────────── */
-  --prism-bg:        17  18  23;   /* #111217 – Dark Glass canvas */
-  --prism-bg2:       20  22  28;   /* rgba sidebar foundation */
-  --prism-card:      26  28  34;   /* #1A1C22 – solid card */
-  --prism-card-alt:  21  23  28;   /* #15171C – nested surface */
+  --prism-bg:        11  12  16;   /* #0B0C10 – Deep dark canvas */
+  --prism-bg2:       14  16  20;   /* deeper sidebar foundation */
+  --prism-card:      22  24  32;   /* #16182a – glassmorphic card */
+  --prism-card-alt:  16  18  24;   /* #10121a – nested surface */
 
   /* ── Text ─────────────────────────────────── */
   --prism-primary:  236 238 244;   /* #ECEEF4 */
