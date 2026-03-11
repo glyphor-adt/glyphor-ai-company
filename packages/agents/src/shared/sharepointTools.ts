@@ -1,108 +1,21 @@
 /**
- * SharePoint Tools — Shared tools for knowledge management
+ * SharePoint Tools — Upload with Cloud SQL knowledge sync
  *
- * Provides search_sharepoint, read_sharepoint_document, upload_to_sharepoint,
- * list_sharepoint_folders, and create_sharepoint_page tools. These allow agents
- * to interact with the company knowledge SharePoint site directly.
+ * Only upload_to_sharepoint is kept as a custom tool because it syncs
+ * uploaded documents to the Cloud SQL company_knowledge table.
+ * All other SharePoint operations (search, read, list, create page)
+ * are handled by Agent365 mcp_ODSPRemoteServer.
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
-import {
-  searchSharePoint,
-  readSharePointDocument,
-  uploadToSharePoint,
-  listSharePointFolders,
-  listSharePointFiles,
-  createSharePointPage,
-} from '@glyphor/integrations';
+import { uploadToSharePoint } from '@glyphor/integrations';
 
 /**
- * Create SharePoint knowledge tools for agents.
- * Available to all agents — the SharePoint site is the canonical
- * source of truth for company documents.
+ * Create SharePoint upload tool for agents.
+ * Search, read, list, and page creation are covered by Agent365 mcp_ODSPRemoteServer.
  */
 export function createSharePointTools(): ToolDefinition[] {
   return [
-    {
-      name: 'search_sharepoint',
-      description:
-        'Search the company SharePoint knowledge base for documents. ' +
-        'Returns matching files with their paths and URLs. Use this to find ' +
-        'policies, briefs, strategy docs, meeting notes, and other company knowledge.',
-      parameters: {
-        query: {
-          type: 'string',
-          description: 'Search keywords (e.g., "pricing strategy", "Q1 roadmap", "brand guidelines")',
-          required: true,
-        },
-        max_results: {
-          type: 'number',
-          description: 'Maximum results to return (default: 10)',
-          required: false,
-        },
-      },
-      execute: async (params): Promise<ToolResult> => {
-        try {
-          const results = await searchSharePoint(params.query as string, {
-            maxResults: (params.max_results as number) ?? 10,
-          });
-
-          if (results.length === 0) {
-            return { success: true, data: 'No documents found matching that query.' };
-          }
-
-          const formatted = results.map((doc: { name: string; path: string; webUrl: string | null; lastModified: string | null }, i: number) =>
-            `${i + 1}. **${doc.name}**\n   Path: ${doc.path}\n   URL: ${doc.webUrl ?? 'N/A'}\n   Modified: ${doc.lastModified ?? 'Unknown'}`,
-          ).join('\n\n');
-
-          return { success: true, data: { count: results.length, documents: formatted } };
-        } catch (err) {
-          return { success: false, error: (err as Error).message };
-        }
-      },
-    },
-
-    {
-      name: 'read_sharepoint_document',
-      description:
-        'Read the full content of a document from SharePoint. ' +
-        'Supports .md, .txt, .docx, .doc, .pptx, .xlsx files. ' +
-        'Provide the file path as returned by search_sharepoint (e.g., "Strategy/CORE.md").',
-      parameters: {
-        path: {
-          type: 'string',
-          description: 'File path as returned by search_sharepoint (e.g., "Strategy/CORE.md", "Products/Pulse/roadmap.md")',
-          required: true,
-        },
-      },
-      execute: async (params): Promise<ToolResult> => {
-        try {
-          const doc = await readSharePointDocument(params.path as string);
-          return {
-            success: true,
-            data: {
-              content: doc.content,
-              webUrl: doc.webUrl,
-              lastModified: doc.lastModified,
-            },
-          };
-        } catch (err) {
-          const pathUsed = (params.path as string) ?? '';
-          return {
-            success: false,
-            error: (err as Error).message,
-            data: {
-              hint: 'If the path looks like just a filename, search_sharepoint may have returned an incomplete path. '
-                + 'Try listing the folder with list_sharepoint_files to find the correct subfolder, '
-                + 'then retry with the full relative path (e.g., "Operations/Operating Models/file.docx").',
-              pathProvided: pathUsed,
-              suggestion: pathUsed.includes('/') ? undefined : 'This looks like a filename without a folder path. Try searching again or listing folders.',
-            },
-          };
-        }
-      },
-    },
-
     {
       name: 'upload_to_sharepoint',
       description:
@@ -172,111 +85,6 @@ export function createSharePointTools(): ToolDefinition[] {
                   fallbackTool: 'create_sharepoint_page',
                 },
           };
-        }
-      },
-    },
-
-    {
-      name: 'list_sharepoint_folders',
-      description:
-        'List the top-level folders in the company SharePoint knowledge base. ' +
-        'Use this to understand the document structure before reading or uploading.',
-      parameters: {},
-      execute: async (): Promise<ToolResult> => {
-        try {
-          const folders = await listSharePointFolders();
-          return {
-            success: true,
-            data: folders.length > 0
-              ? `Folders: ${folders.join(', ')}`
-              : 'No folders found in knowledge root.',
-          };
-        } catch (err) {
-          return { success: false, error: (err as Error).message };
-        }
-      },
-    },
-
-    {
-      name: 'list_sharepoint_files',
-      description:
-        'List the files in a specific folder of the company SharePoint knowledge base. ' +
-        'If no folder is specified, lists files in the root. Use this to discover documents ' +
-        'before reading them.',
-      parameters: {
-        folder: {
-          type: 'string',
-          description: 'Folder path to list files from (e.g., "Design", "Operations", "Strategy"). Omit to list root-level files.',
-          required: false,
-        },
-      },
-      execute: async (params): Promise<ToolResult> => {
-        try {
-          const files = await listSharePointFiles(params.folder as string | undefined);
-
-          if (files.length === 0) {
-            return { success: true, data: 'No files found in this folder.' };
-          }
-
-          const formatted = files.map((f: { name: string; path: string; webUrl: string | null; lastModified: string | null }, i: number) =>
-            `${i + 1}. **${f.name}**\n   Path: ${f.path}\n   URL: ${f.webUrl ?? 'N/A'}\n   Modified: ${f.lastModified ?? 'Unknown'}`,
-          ).join('\n\n');
-
-          return { success: true, data: { count: files.length, files: formatted } };
-        } catch (err) {
-          return { success: false, error: (err as Error).message };
-        }
-      },
-    },
-
-    {
-      name: 'create_sharepoint_page',
-      description:
-        'Create a new page on the company SharePoint site. ' +
-        'The page is published immediately. Content should be HTML. ' +
-        'Use this for announcements, reports, wiki pages, or news posts.',
-      parameters: {
-        title: {
-          type: 'string',
-          description: 'Page title (e.g., "Q1 Growth Strategy", "Engineering Standards")',
-          required: true,
-        },
-        content: {
-          type: 'string',
-          description: 'Page body in HTML (e.g., "<h2>Overview</h2><p>Key findings...</p>")',
-          required: true,
-        },
-        type: {
-          type: 'string',
-          description: 'Page type: "page" for standard page, "newsPost" for news article (default: "page")',
-          required: false,
-        },
-        description: {
-          type: 'string',
-          description: 'Short description for the page (optional)',
-          required: false,
-        },
-      },
-      execute: async (params): Promise<ToolResult> => {
-        try {
-          const result = await createSharePointPage(
-            params.title as string,
-            params.content as string,
-            {
-              promotionKind: (params.type as 'page' | 'newsPost') ?? 'page',
-              description: params.description as string | undefined,
-            },
-          );
-          return {
-            success: true,
-            data: {
-              pageId: result.id,
-              webUrl: result.webUrl,
-              message: `SharePoint page "${params.title}" created and published.`,
-            },
-          };
-        } catch (err) {
-          return { success: false, error: (err as Error).message };
         }
       },
     },

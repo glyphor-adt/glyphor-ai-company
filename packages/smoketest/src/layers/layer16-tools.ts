@@ -124,7 +124,7 @@ const FACTORIES: FactoryEntry[] = [
   { name: 'agentCreationTools', wave: 0, factory: createAgentCreationTools },
   { name: 'toolRegistryTools', wave: 0, factory: createToolRegistryTools },
   { name: 'toolRequestTools', wave: 0, factory: createToolRequestTools },
-  { name: 'sharepointTools', wave: 0, factory: createSharePointTools },
+  { name: 'sharepointTools', wave: 0, factory: createSharePointTools },  // now returns only upload_to_sharepoint
   { name: 'researchTools', wave: 0, factory: createResearchTools },
   // Wave 1 — Marketing
   { name: 'contentTools', wave: 1, factory: createContentTools },

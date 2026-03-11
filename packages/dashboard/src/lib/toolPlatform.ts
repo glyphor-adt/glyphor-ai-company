@@ -89,9 +89,8 @@ const TOOL_PLATFORM_MAP: Record<string, ToolPlatform> = {
   view_access_matrix: 'governance', view_pending_grant_requests: 'governance',
   audit_workforce: 'governance', validate_agent: 'governance',
 
-  // M365 / SharePoint (built-in wrappers, not Agent 365 MCP)
-  search_sharepoint: 'm365', read_sharepoint_document: 'm365', upload_to_sharepoint: 'm365',
-  list_sharepoint_folders: 'm365', list_sharepoint_files: 'm365', create_sharepoint_page: 'm365',
+  // M365 / SharePoint (upload_to_sharepoint has DB sync; rest via Agent365 mcp_ODSPRemoteServer)
+  upload_to_sharepoint: 'm365',
   list_users: 'm365', get_user: 'm365',
   list_channels: 'm365', list_channel_members: 'm365', add_channel_member: 'm365', create_channel: 'm365', post_to_channel: 'm365',
   create_calendar_event: 'm365', list_calendar_events: 'm365',
