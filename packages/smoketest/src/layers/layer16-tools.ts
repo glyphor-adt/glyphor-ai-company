@@ -45,7 +45,6 @@ import { createAgentDirectoryTools } from '@glyphor/agents/shared/agentDirectory
 import { createAgentCreationTools } from '@glyphor/agents/shared/agentCreationTools';
 import { createToolRegistryTools } from '@glyphor/agents/shared/toolRegistryTools';
 import { createToolRequestTools } from '@glyphor/agents/shared/toolRequestTools';
-import { createEmailTools } from '@glyphor/agents/shared/emailTools';
 import { createSharePointTools } from '@glyphor/agents/shared/sharepointTools';
 import { createResearchTools } from '@glyphor/agents/shared/researchTools';
 
@@ -125,7 +124,6 @@ const FACTORIES: FactoryEntry[] = [
   { name: 'agentCreationTools', wave: 0, factory: createAgentCreationTools },
   { name: 'toolRegistryTools', wave: 0, factory: createToolRegistryTools },
   { name: 'toolRequestTools', wave: 0, factory: createToolRequestTools },
-  { name: 'emailTools', wave: 0, factory: createEmailTools },
   { name: 'sharepointTools', wave: 0, factory: createSharePointTools },
   { name: 'researchTools', wave: 0, factory: createResearchTools },
   // Wave 1 — Marketing

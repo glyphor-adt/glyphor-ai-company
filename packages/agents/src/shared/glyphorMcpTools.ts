@@ -68,7 +68,6 @@ const GLYPHOR_MCP_SERVERS: Record<string, string> = {
   'mcp_GlyphorEngineering': process.env.GLYPHOR_MCP_ENGINEERING_URL ?? '',
   'mcp_GlyphorDesign': process.env.GLYPHOR_MCP_DESIGN_URL ?? '',
   'mcp_GlyphorFinance': process.env.GLYPHOR_MCP_FINANCE_URL ?? '',
-  'mcp_GlyphorEmail': process.env.GLYPHOR_MCP_EMAIL_URL ?? '',
   'mcp_GlyphorLegal': process.env.GLYPHOR_MCP_LEGAL_URL ?? '',
   'mcp_GlyphorHR': process.env.GLYPHOR_MCP_HR_URL ?? '',
   'mcp_GlyphorEmailMarketing': process.env.GLYPHOR_MCP_EMAIL_MARKETING_URL ?? '',

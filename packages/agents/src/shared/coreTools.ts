@@ -7,8 +7,7 @@
  *   save_memory, recall_memories,
  *   request_tool_access, request_new_tool,
  *   emit_insight, emit_alert,
- *   send_teams_dm, read_teams_dm,
- *   send_email, read_inbox, reply_to_email
+ *   send_teams_dm, read_teams_dm
  */
 
 import type { ToolDefinition } from '@glyphor/agent-runtime';
@@ -21,7 +20,6 @@ import { createMemoryTools } from './memoryTools.js';
 import { createToolRequestTools } from './toolRequestTools.js';
 import { createEventTools } from './eventTools.js';
 import { createDmTools } from './dmTools.js';
-import { createEmailTools } from './emailTools.js';
 import { createDeliverableTools } from './deliverableTools.js';
 
 export const CORE_TOOL_NAMES: Set<string> = new Set([
@@ -44,10 +42,6 @@ export const CORE_TOOL_NAMES: Set<string> = new Set([
   // Teams DM
   'send_teams_dm',
   'read_teams_dm',
-  // Email (per-agent M365 shared mailboxes)
-  'send_email',
-  'read_inbox',
-  'reply_to_email',
   // Shared artifacts
   'publish_deliverable',
   'get_deliverables',
@@ -67,7 +61,6 @@ export function createCoreTools(deps: CoreToolDeps): ToolDefinition[] {
     ...createToolRequestTools(),
     ...createEventTools(deps.glyphorEventBus),
     ...createDmTools(),
-    ...createEmailTools(),
     ...createDeliverableTools(deps.glyphorEventBus),
   ];
 

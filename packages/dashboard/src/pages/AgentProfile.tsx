@@ -22,6 +22,7 @@ import {
   ROLE_DEPARTMENT,
   ROLE_TITLE,
 } from '../lib/types';
+import { getToolPlatformMeta } from '../lib/toolPlatform';
 import { Card, AgentAvatar, Skeleton, timeAgo } from '../components/ui';
 import { QualityChart } from '../components/QualityChart';
 import { GrowthAreas } from '../components/GrowthAreas';
@@ -568,11 +569,15 @@ function OverviewTab({
             Tools ({tools.length})
           </h3>
           <div className="flex flex-wrap gap-2">
-            {tools.map((t) => (
-              <span key={t} className="rounded-lg border border-prism-elevated/20 bg-prism-elevated/5 px-3 py-1.5 font-mono text-[12px] text-prism-elevated transition-colors hover:bg-prism-elevated/10">
-                {t}
-              </span>
-            ))}
+            {tools.map((t) => {
+              const pm = getToolPlatformMeta(t);
+              return (
+                <span key={t} className={`inline-flex items-center gap-1.5 rounded-lg border ${pm.borderColor} ${pm.bgColor} px-3 py-1.5 font-mono text-[12px] ${pm.color} transition-colors hover:opacity-80`}>
+                  <span className="rounded bg-black/20 px-1 py-px text-[9px] font-semibold uppercase tracking-wider opacity-70">{pm.label}</span>
+                  {t}
+                </span>
+              );
+            })}
           </div>
         </Card>
       )}
@@ -1419,11 +1424,15 @@ function SkillsTab({ agent, brief }: { agent: AgentRow; brief: AgentBrief | null
               <div>
                 <p className="mb-2 text-xs text-txt-muted">Configured tools</p>
                 <div className="flex flex-wrap gap-2">
-                  {fallbackTools.map((t) => (
-                    <span key={t} className="rounded-lg border border-prism-elevated/20 bg-prism-elevated/5 px-3 py-1.5 font-mono text-[12px] text-prism-elevated">
-                      {t}
-                    </span>
-                  ))}
+                  {fallbackTools.map((t) => {
+                    const pm = getToolPlatformMeta(t);
+                    return (
+                      <span key={t} className={`inline-flex items-center gap-1.5 rounded-lg border ${pm.borderColor} ${pm.bgColor} px-3 py-1.5 font-mono text-[12px] ${pm.color}`}>
+                        <span className="rounded bg-black/20 px-1 py-px text-[9px] font-semibold uppercase tracking-wider opacity-70">{pm.label}</span>
+                        {t}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             )}
