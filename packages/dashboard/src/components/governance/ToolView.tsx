@@ -17,6 +17,7 @@ import {
   toHumanWords,
 } from './shared';
 import { DISPLAY_NAME_MAP, ROLE_DEPARTMENT, ROLE_TITLE } from '../../lib/types';
+import { getToolPlatform, getToolPlatformMeta, PLATFORM_META, type ToolPlatform } from '../../lib/toolPlatform';
 
 type HealthFilter = null | 'high-risk' | 'stale' | 'telemetry-gap';
 
@@ -184,7 +185,17 @@ function ToolReputationBoard({
                 <tr key={tool.id} className={`border-b border-border/50 align-top ${tone}`}>
                   <td className="py-3 pr-3">
                     <p className="font-medium text-txt-primary">{toHumanWords(tool.tool_name)}</p>
-                    <p className="mt-1 text-[11px] text-txt-muted">{tool.tool_name} · {tool.tool_source}</p>
+                    <p className="mt-1 flex items-center gap-1.5 text-[11px] text-txt-muted">
+                      {(() => {
+                        const pm = getToolPlatformMeta(tool.tool_name);
+                        return (
+                          <span className={`rounded border ${pm.borderColor} ${pm.bgColor} px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider ${pm.color}`}>
+                            {pm.label}
+                          </span>
+                        );
+                      })()}
+                      <span>{tool.tool_name}</span>
+                    </p>
                   </td>
                   <td className="py-3 pr-3">
                     <div className="flex flex-wrap items-center gap-2">
@@ -353,15 +364,17 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
 
     // Tool matches
     for (const [tool, toolGrants] of byTool) {
+      const platform = getToolPlatform(tool);
+      const pm = PLATFORM_META[platform];
       const searchable = normalizeSearch(
-        [tool, toHumanWords(tool)].join(' '),
+        [tool, toHumanWords(tool), pm.label].join(' '),
       );
       if (q.split(' ').every((token) => searchable.includes(token))) {
         matches.push({
           type: 'tool',
           key: `tool:${tool}`,
           label: toHumanWords(tool),
-          subtitle: `${toolGrants.length} agent${toolGrants.length === 1 ? '' : 's'} · ${tool}`,
+          subtitle: `${pm.label} · ${toolGrants.length} agent${toolGrants.length === 1 ? '' : 's'} · ${tool}`,
           grants: toolGrants,
         });
       }
@@ -407,44 +420,83 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">
                 {results.length} result{results.length === 1 ? '' : 's'}
               </p>
-              {results.slice(0, 12).map((result) => (
-                <div
-                  key={result.key}
-                  className="rounded-xl border border-border/70 bg-prism-card/60 p-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-                          result.type === 'agent'
-                            ? 'border-prism-sky/30 bg-prism-sky/10 text-prism-sky'
-                            : 'border-prism-teal/30 bg-prism-teal/10 text-prism-teal'
-                        }`}>
-                          {result.type}
-                        </span>
-                        <p className="text-sm font-semibold text-txt-primary">{result.label}</p>
-                      </div>
-                      <p className="mt-1 text-[12px] text-txt-muted">{result.subtitle}</p>
-                    </div>
-                  </div>
+              {results.slice(0, 12).map((result) => {
+                // For agent results, group tools by platform
+                const groupedByPlatform = result.type === 'agent' && result.grants.length > 0
+                  ? result.grants.reduce<Map<ToolPlatform, ToolGrant[]>>((acc, g) => {
+                      const p = getToolPlatform(g.tool_name);
+                      const list = acc.get(p) ?? [];
+                      list.push(g);
+                      acc.set(p, list);
+                      return acc;
+                    }, new Map())
+                  : null;
 
-                  {/* Inline assignment list */}
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {result.grants.map((g) => (
-                      <div
-                        key={g.id}
-                        className="rounded-lg border border-border/60 bg-surface px-2.5 py-1.5 text-[11px]"
-                      >
-                        {result.type === 'agent' ? (
-                          <span className="text-txt-primary">{toHumanWords(g.tool_name)}</span>
-                        ) : (
-                          <span className="text-txt-primary">{getDisplayName(g.agent_role)}</span>
-                        )}
+                return (
+                  <div
+                    key={result.key}
+                    className="rounded-xl border border-border/70 bg-prism-card/60 p-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          {result.type === 'agent' ? (
+                            <span className="rounded-full border border-prism-sky/30 bg-prism-sky/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-prism-sky">
+                              agent
+                            </span>
+                          ) : (() => {
+                            const pm = getToolPlatformMeta(result.grants[0]?.tool_name ?? '');
+                            return (
+                              <span className={`rounded-full border ${pm.borderColor} ${pm.bgColor} px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${pm.color}`}>
+                                {pm.label}
+                              </span>
+                            );
+                          })()}
+                          <p className="text-sm font-semibold text-txt-primary">{result.label}</p>
+                        </div>
+                        <p className="mt-1 text-[12px] text-txt-muted">{result.subtitle}</p>
                       </div>
-                    ))}
+                    </div>
+
+                    {/* Inline assignment list */}
+                    {result.type === 'agent' && groupedByPlatform ? (
+                      <div className="mt-3 space-y-2.5">
+                        {[...groupedByPlatform.entries()]
+                          .sort(([a], [b]) => a.localeCompare(b))
+                          .map(([platform, platformGrants]) => {
+                            const pm = PLATFORM_META[platform];
+                            return (
+                              <div key={platform}>
+                                <p className={`mb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] ${pm.color}`}>{pm.label}</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {platformGrants.map((g) => (
+                                    <span
+                                      key={g.id}
+                                      className={`rounded-lg border ${pm.borderColor} ${pm.bgColor} px-2 py-1 text-[11px] ${pm.color}`}
+                                    >
+                                      {toHumanWords(g.tool_name)}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    ) : (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {result.grants.map((g) => (
+                          <div
+                            key={g.id}
+                            className="rounded-lg border border-border/60 bg-surface px-2.5 py-1.5 text-[11px]"
+                          >
+                            <span className="text-txt-primary">{getDisplayName(g.agent_role)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </>
           )}
         </div>

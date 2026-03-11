@@ -385,12 +385,31 @@ const trackedAgentExecutor = async (
       : null;
 
     if (runId) {
-      const runStatus = result?.status === 'completed' ? 'completed' : (result?.status === 'error' ? 'failed' : (result?.status ?? 'completed'));
+      const runStatus = result?.status === 'completed'
+        ? 'completed'
+        : (result?.status === 'error' ? 'failed' : (result?.status ?? 'completed'));
       const reasoningMeta = (result as any)?.reasoningMeta;
+      const updateParamsBase = [
+        runStatus,
+        new Date().toISOString(),
+        durationMs,
+        result?.totalTurns ?? null,
+        toolCalls,
+        result?.inputTokens ?? null,
+        result?.outputTokens ?? null,
+        result?.cost ?? null,
+        result?.output ?? null,
+        result?.error ?? result?.abortReason ?? null,
+        result?.thinkingTokens ?? null,
+        result?.cachedInputTokens ?? null,
+        result?.routingRule ?? null,
+        result?.routingCapabilities ?? null,
+        result?.routingModel ?? null,
+      ];
       await systemQuery(
-        `UPDATE agent_runs SET status=$1, completed_at=$2, duration_ms=$3, turns=$4, tool_calls=$5, input_tokens=$6, output_tokens=$7, cost=$8, output=$9, error=$10, thinking_tokens=$11, cached_input_tokens=$12${reasoningMeta ? ', reasoning_passes=$13, reasoning_confidence=$14, reasoning_revised=$15, reasoning_cost_usd=$16' : ''} WHERE id=$${reasoningMeta ? 17 : 13}`,
+        `UPDATE agent_runs SET status=$1, completed_at=$2, duration_ms=$3, turns=$4, tool_calls=$5, input_tokens=$6, output_tokens=$7, cost=$8, output=$9, error=$10, thinking_tokens=$11, cached_input_tokens=$12, routing_rule=$13, routing_capabilities=$14, routing_model=$15${reasoningMeta ? ', reasoning_passes=$16, reasoning_confidence=$17, reasoning_revised=$18, reasoning_cost_usd=$19' : ''} WHERE id=$${reasoningMeta ? 20 : 16}`,
         [
-          runStatus, new Date().toISOString(), durationMs, result?.totalTurns ?? null, toolCalls, result?.inputTokens ?? null, result?.outputTokens ?? null, result?.cost ?? null, result?.output ?? null, result?.error ?? result?.abortReason ?? null, result?.thinkingTokens ?? null, result?.cachedInputTokens ?? null,
+          ...updateParamsBase,
           ...(reasoningMeta ? [reasoningMeta.passes, reasoningMeta.confidence, reasoningMeta.revised, reasoningMeta.costUsd] : []),
           runId,
         ],

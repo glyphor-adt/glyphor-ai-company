@@ -138,6 +138,7 @@ export class OpenAIAdapter implements ProviderAdapter {
 
   async generate(request: UnifiedModelRequest): Promise<UnifiedModelResponse> {
     const messages = this.mapConversation(request);
+    const modelConfig = request.metadata?.modelConfig;
 
     const MAX_OPENAI_TOOLS = 128;
     const allTools = request.tools?.length
@@ -184,6 +185,13 @@ export class OpenAIAdapter implements ProviderAdapter {
       const reasoningLevel = requestedReasoningLevel ?? (thinkingEnabled ? 'deep' : 'standard');
       reasoningEffort = reasoningLevel === 'deep' ? 'high' : 'medium';
     }
+    if (modelConfig?.reasoningEffort) {
+      reasoningEffort = modelConfig.reasoningEffort === 'minimal'
+        ? 'none'
+        : modelConfig.reasoningEffort === 'low'
+          ? 'low'
+          : modelConfig.reasoningEffort;
+    }
 
     // ── Responses API for reasoning calls (enables reasoning summaries) ──
     const hasResponsesApi = typeof (this.client as any).responses?.create === 'function';
@@ -215,6 +223,16 @@ export class OpenAIAdapter implements ProviderAdapter {
             ...(request.topP !== undefined ? { top_p: request.topP } : {}),
           }),
       ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
+      ...(modelConfig?.structuredOutput ? {
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: modelConfig.structuredOutput.name,
+            schema: normalizeSchemaTypes(modelConfig.structuredOutput.schema),
+            strict: modelConfig.structuredOutput.strict ?? true,
+          },
+        },
+      } : {}),
     };
 
     const response = await this.callWithAzureFallback(createParams) as OpenAI.Chat.Completions.ChatCompletion;
@@ -303,6 +321,7 @@ export class OpenAIAdapter implements ProviderAdapter {
     }));
 
     const maxOutputTokens = request.maxTokens ?? 32768;
+    const modelConfig = request.metadata?.modelConfig;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const createParams: any = {
@@ -315,6 +334,19 @@ export class OpenAIAdapter implements ProviderAdapter {
       },
       ...(responsesTools?.length ? { tools: responsesTools } : {}),
       max_output_tokens: maxOutputTokens,
+      ...(request.metadata?.previousResponseId ? { previous_response_id: request.metadata.previousResponseId } : {}),
+      ...(modelConfig?.verbosity ? { text: { verbosity: modelConfig.verbosity } } : {}),
+      ...(modelConfig?.structuredOutput ? {
+        text: {
+          ...(modelConfig.verbosity ? { verbosity: modelConfig.verbosity } : {}),
+          format: {
+            type: 'json_schema',
+            name: modelConfig.structuredOutput.name,
+            schema: normalizeSchemaTypes(modelConfig.structuredOutput.schema),
+            strict: modelConfig.structuredOutput.strict ?? true,
+          },
+        },
+      } : {}),
     };
 
     const response = await this.callResponsesWithFallback(createParams);
@@ -541,6 +573,7 @@ export class OpenAIAdapter implements ProviderAdapter {
         cachedInputTokens: cachedTokens || undefined,
       },
       finishReason,
+      responseId: response.id,
     };
   }
 
@@ -767,6 +800,7 @@ export class OpenAIAdapter implements ProviderAdapter {
         cachedInputTokens: cachedTokens || undefined,
       },
       finishReason: this.normalizeFinishReason(choice.finish_reason),
+      responseId: response.id,
     };
   }
 }

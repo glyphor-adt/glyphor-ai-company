@@ -31,28 +31,6 @@ export {
   type FounderContact,
 } from './teams/directMessages.js';
 
-// Bot Framework DM Sender (proactive 1:1 DMs)
-export { BotDmSender } from './teams/botDmSender.js';
-
-// Conversation Reference Store (shared proactive messaging state)
-export {
-  setConversationRef,
-  getConversationRef,
-  loadConversationRefs,
-  type ConversationReference,
-} from './teams/conversationStore.js';
-
-// Teams Bot (Bot Framework integration)
-export {
-  TeamsBotHandler,
-  BotTokenValidator,
-  extractBearerToken,
-  type AgentBotConfig,
-  type BotConfig,
-  type TeamsActivity,
-  type BotResponse,
-} from './teams/bot.js';
-
 // Graph Chat Handler (1:1 DMs to agent user accounts)
 export {
   GraphChatHandler,

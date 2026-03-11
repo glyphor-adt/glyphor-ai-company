@@ -28,6 +28,7 @@ export class AnthropicAdapter implements ProviderAdapter {
 
   async generate(request: UnifiedModelRequest): Promise<UnifiedModelResponse> {
     const messages = this.mapConversation(request.contents);
+    const modelConfig = request.metadata?.modelConfig;
 
     const tools = request.tools?.length
       ? request.tools.map(t => ({
@@ -45,12 +46,17 @@ export class AnthropicAdapter implements ProviderAdapter {
     const thinkingEnabled = request.thinkingEnabled ?? false;
     const reasoningLevel = request.reasoningLevel ?? (thinkingEnabled ? 'deep' : 'none');
     const supportsThinking = /claude-(3-[5-9]|[4-9]|sonnet-4|haiku-4|opus-4)/.test(request.model);
-    const useThinking = reasoningLevel !== 'none' && supportsThinking;
-    const thinkingBudget = reasoningLevel === 'deep' ? 8192 : 4096;
+    const configuredEffort = modelConfig?.claudeEffort ?? modelConfig?.reasoningEffort;
+    const useThinking = (configuredEffort ? configuredEffort !== 'low' : reasoningLevel !== 'none') && supportsThinking;
+    const thinkingBudget = configuredEffort === 'high' || reasoningLevel === 'deep'
+      ? 8192
+      : configuredEffort === 'medium'
+        ? 4096
+        : 2048;
     // claude-opus-4 uses adaptive thinking (no effort field); others use manual budget
     const isOpus4 = /claude-opus-4/.test(request.model);
     const thinkingParam = useThinking
-      ? { thinking: isOpus4
+      ? { thinking: (modelConfig?.claudeThinking === 'adaptive' || isOpus4)
           ? { type: 'adaptive' as const }
           : { type: 'enabled' as const, budget_tokens: thinkingBudget }
         }
@@ -61,9 +67,18 @@ export class AnthropicAdapter implements ProviderAdapter {
       ? Math.max(request.maxTokens ?? 16384, thinkingBudget + 4096)
       : (request.maxTokens ?? 16384);
 
+    const systemInstruction = [
+      request.systemInstruction,
+      modelConfig?.enableCitations ? 'When you reference retrieved evidence, include concise inline citations to the source material.' : null,
+      modelConfig?.enableCompaction ? 'Favor compact, high-signal answers and avoid repeating context verbatim.' : null,
+      modelConfig?.structuredOutput
+        ? `Return valid JSON matching this schema exactly: ${JSON.stringify(modelConfig.structuredOutput.schema)}`
+        : null,
+    ].filter(Boolean).join('\n\n');
+
     const createParams = {
       model: request.model,
-      system: request.systemInstruction,
+      system: systemInstruction,
       messages,
       ...(tools ? { tools } : {}),
       max_tokens: maxTokens,

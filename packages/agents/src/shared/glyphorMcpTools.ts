@@ -73,6 +73,29 @@ const GLYPHOR_MCP_SERVERS: Record<string, string> = {
   'mcp_GlyphorEmailMarketing': process.env.GLYPHOR_MCP_EMAIL_MARKETING_URL ?? '',
 };
 
+function getDefaultGlyphorServers(agentRole?: string): string[] {
+  if (!agentRole) return Object.keys(GLYPHOR_MCP_SERVERS);
+  if (['cto', 'platform-engineer', 'quality-engineer', 'devops-engineer', 'frontend-engineer'].includes(agentRole)) {
+    return ['mcp_GlyphorEngineering', 'mcp_GlyphorData'];
+  }
+  if (['cmo', 'content-creator', 'seo-analyst', 'social-media-manager'].includes(agentRole)) {
+    return ['mcp_GlyphorMarketing', 'mcp_GlyphorEmailMarketing', 'mcp_GlyphorData'];
+  }
+  if (['cfo', 'cost-analyst', 'revenue-analyst', 'ai-impact-analyst'].includes(agentRole)) {
+    return ['mcp_GlyphorFinance', 'mcp_GlyphorData'];
+  }
+  if (['clo'].includes(agentRole)) {
+    return ['mcp_GlyphorLegal', 'mcp_GlyphorData'];
+  }
+  if (['head-of-hr', 'onboarding-specialist'].includes(agentRole)) {
+    return ['mcp_GlyphorHR', 'mcp_GlyphorData'];
+  }
+  if (['vp-design', 'ui-ux-designer', 'design-critic', 'template-architect'].includes(agentRole)) {
+    return ['mcp_GlyphorDesign', 'mcp_GlyphorData'];
+  }
+  return Object.keys(GLYPHOR_MCP_SERVERS);
+}
+
 // ── Schema Conversion ───────────────────────────────────────────
 
 /**
@@ -174,8 +197,11 @@ export async function createGlyphorMcpTools(
 
   // Determine which servers to contact
   let entries = Object.entries(GLYPHOR_MCP_SERVERS);
-  if (serverFilter && serverFilter.length > 0) {
-    const filterSet = new Set(serverFilter);
+  const effectiveFilter = serverFilter && serverFilter.length > 0
+    ? serverFilter
+    : getDefaultGlyphorServers(agentRole);
+  if (effectiveFilter.length > 0) {
+    const filterSet = new Set(effectiveFilter);
     entries = entries.filter(([name]) => filterSet.has(name));
   }
 

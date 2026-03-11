@@ -34,6 +34,27 @@ export const ALL_M365_SERVERS = [
   'mcp_SharePointLists',
 ] as const;
 
+const EXECUTIVE_M365_ROLES = new Set([
+  'chief-of-staff', 'cto', 'cfo', 'clo', 'cpo', 'cmo', 'vp-sales', 'vp-design',
+  'vp-customer-success', 'vp-research', 'ops', 'global-admin', 'm365-admin',
+]);
+
+function getDefaultAgent365Servers(agentRole?: string): readonly string[] {
+  if (!agentRole) return ALL_M365_SERVERS;
+  if (EXECUTIVE_M365_ROLES.has(agentRole)) return ALL_M365_SERVERS;
+
+  if (['content-creator', 'seo-analyst', 'social-media-manager', 'ui-ux-designer', 'template-architect'].includes(agentRole)) {
+    return ['mcp_MailTools', 'mcp_CalendarTools', 'mcp_ODSPRemoteServer', 'mcp_TeamsServer', 'mcp_WordServer'];
+  }
+  if (['head-of-hr', 'onboarding-specialist', 'support-triage', 'account-research'].includes(agentRole)) {
+    return ['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_UserProfile', 'mcp_ODSPRemoteServer'];
+  }
+  if (['cfo', 'cost-analyst', 'revenue-analyst', 'ai-impact-analyst'].includes(agentRole)) {
+    return ['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_ODSPRemoteServer', 'mcp_SharePointLists'];
+  }
+  return STANDARD_M365_SERVERS;
+}
+
 // ── Singleton Bridge ─────────────────────────────────────────────
 
 let activeBridge: Agent365ToolBridge | null = null;
@@ -76,7 +97,7 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
   const agentRole = typeof agentRoleOrServerFilter === 'string' ? agentRoleOrServerFilter : undefined;
   const serverFilter = Array.isArray(agentRoleOrServerFilter)
     ? agentRoleOrServerFilter
-    : (maybeServerFilter ?? [...ALL_M365_SERVERS]);
+    : (maybeServerFilter ?? [...getDefaultAgent365Servers(agentRole)]);
   const credentials = resolveAgent365Credentials(agentRole);
 
   if (!credentials) {

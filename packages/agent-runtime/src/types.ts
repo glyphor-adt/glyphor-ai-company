@@ -191,7 +191,7 @@ export type AgentEvent =
 export interface AgentExecutionResult {
   agentId: string;
   role: string;
-  status: 'completed' | 'aborted' | 'error';
+  status: 'completed' | 'aborted' | 'error' | 'skipped_precheck';
   output: string | null;
   totalTurns: number;
   totalFilesWritten: number;
@@ -208,6 +208,9 @@ export interface AgentExecutionResult {
   conversationHistory: ConversationTurn[];
   /** Structured action receipts for tool calls made during this run. */
   actions?: ActionReceipt[];
+  routingRule?: string;
+  routingCapabilities?: string[];
+  routingModel?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════

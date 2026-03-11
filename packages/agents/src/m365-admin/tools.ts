@@ -7,7 +7,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { GraphTeamsClient, GraphCalendarClient, TeamsBotHandler, getM365Token, type M365Operation } from '@glyphor/integrations';
+import { GraphTeamsClient, GraphCalendarClient, getM365Token, type M365Operation } from '@glyphor/integrations';
 
 function getTeamsClient(): GraphTeamsClient {
   return GraphTeamsClient.fromEnv();
@@ -237,18 +237,7 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          // Prefer Bot Framework proactive post (rich, proper bot identity)
-          const bot = TeamsBotHandler.fromEnv(() => Promise.resolve(undefined));
-          if (bot) {
-            await bot.sendProactiveToChannel(
-              TEAM_ID,
-              params.channel_id as string,
-              params.message as string,
-            );
-            return { success: true, data: { posted: true, channelId: params.channel_id, method: 'bot-framework' } };
-          }
-
-          // Fallback: use Graph API sendText (Teamwork.Migrate.All)
+          // Use Graph API to post to channel (ChannelMessage.Send permission)
           const teamsClient = getTeamsClient();
           await teamsClient.sendText(
             { teamId: TEAM_ID, channelId: params.channel_id as string },

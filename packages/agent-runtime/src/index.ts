@@ -9,7 +9,7 @@ export { ModelClient, detectProvider } from './modelClient.js';
 export type { ModelClientConfig, ModelProvider, ImageResponse } from './modelClient.js';
 // Provider adapters
 export { ProviderFactory, GeminiAdapter, OpenAIAdapter, AnthropicAdapter } from './providers/index.js';
-export type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse, UnifiedToolCall, UnifiedUsageMetadata } from './providers/types.js';
+export type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse, UnifiedToolCall, UnifiedUsageMetadata, StructuredOutputSpec, ModelRoutingMetadata, UnifiedRequestMetadata } from './providers/types.js';
 export { AgentSupervisor } from './supervisor.js';
 export { ToolExecutor, isToolBlocked, invalidateBlockCache, isToolGranted, invalidateGrantCache, loadGrantedToolNames } from './toolExecutor.js';
 export { EventBus } from './eventBus.js';
@@ -64,6 +64,13 @@ export { EpisodicReplay } from './episodicReplay.js';
 export type { ReplayResult } from './episodicReplay.js';
 export { DriftDetector } from './driftDetector.js';
 export type { DriftAlert, DriftDetectionResult } from './driftDetector.js';
+// LLM routing
+export { inferCapabilities, resolveModelConfig, PRE_CHECK_REGISTRY, runDeterministicPreCheck, TOOL_CAPABILITY_MAP, HIGH_COMPLEXITY_CAPABILITIES } from './routing/index.js';
+export type { Capability, RoutingContext, RoutingDecision, DeterministicPreCheckContext, DeterministicPreCheckResult, DeterministicPreCheck } from './routing/index.js';
+// Structured output schemas
+export { REFLECTION_SCHEMA } from './schemas/reflectionSchema.js';
+export { ASSIGNMENT_OUTPUT_SCHEMA } from './schemas/assignmentOutputSchema.js';
+export { EVALUATION_SCHEMA } from './schemas/evaluationSchema.js';
 // Learning Governor — Task Outcome Harvester
 export { harvestTaskOutcome, markOutcomeRevised, markOutcomeAccepted } from './taskOutcomeHarvester.js';
 export type { TaskRunOutcome, HarvestRunMeta } from './taskOutcomeHarvester.js';

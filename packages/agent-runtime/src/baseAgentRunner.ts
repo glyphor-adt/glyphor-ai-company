@@ -42,6 +42,8 @@ import type { ActionReceipt } from './types.js';
 import { extractTaskFromConfigId } from './taskIdentity.js';
 import { compressHistory, DEFAULT_HISTORY_COMPRESSION } from './historyManager.js';
 import { filterToolDeclarations, getToolSubset } from './toolSubsets.js';
+import { inferCapabilities, resolveModelConfig, runDeterministicPreCheck } from './routing/index.js';
+import type { RoutingDecision } from './routing/index.js';
 
 // ─── Cost estimation (uses centralized model registry) ───────────────
 
@@ -191,10 +193,68 @@ export abstract class BaseAgentRunner {
     let totalCachedInputTokens = 0;
     const actionReceipts: ActionReceipt[] = [];
 
-    emitEvent({ type: 'agent_started', agentId: config.id, role: config.role, model: config.model });
-
     // ─── Load shared memory + JIT context in parallel ───────────
     const taskForContext = extractTaskFromConfigId(config.id);
+    const initialToolNames = toolExecutor.getToolNames();
+    let trustScore: number | null = null;
+    if (safeDeps.trustScorer) {
+      try {
+        trustScore = (await safeDeps.trustScorer.getTrust(config.role)).trustScore;
+      } catch (err) {
+        console.warn(`[${this.archetype}Runner] Trust load failed for ${config.role}:`, (err as Error).message);
+      }
+    }
+    const routedModel = resolveModelConfig({
+      role: config.role,
+      task: taskForContext,
+      message: initialMessage,
+      toolNames: initialToolNames,
+      trustScore,
+      currentModel: config.model,
+    });
+    routedModel.capabilities = inferCapabilities({
+      role: config.role,
+      task: taskForContext,
+      message: initialMessage,
+      toolNames: initialToolNames,
+      trustScore,
+    });
+
+    emitEvent({
+      type: 'agent_started',
+      agentId: config.id,
+      role: config.role,
+      model: routedModel.model === '__deterministic__' ? config.model : routedModel.model,
+    });
+
+    if (routedModel.model === '__deterministic__') {
+      const preCheck = await runDeterministicPreCheck({
+        role: config.role,
+        task: taskForContext,
+        message: initialMessage,
+        history,
+      });
+      if (!preCheck.shouldCallLLM) {
+        return this.buildResult(
+          config,
+          'skipped_precheck',
+          preCheck.reason,
+          history,
+          supervisor,
+          preCheck.reason,
+          totalInputTokens,
+          totalOutputTokens,
+          totalThinkingTokens,
+          totalCachedInputTokens,
+          routedModel,
+        );
+      }
+      if (preCheck.context) {
+        history.push({ role: 'user', content: preCheck.context, timestamp: Date.now() });
+      }
+      routedModel.model = 'gpt-5-mini-2025-08-07';
+      routedModel.reasoningEffort = 'low';
+    }
 
     let sharedMemory: SharedMemoryContext | null = null;
     let jitContext: JitContext | null = null;
@@ -283,7 +343,7 @@ export abstract class BaseAgentRunner {
 
         if (valueAssessment.recommendation === 'abort') {
           console.log(`[${this.archetype}Runner] Value gate aborted run for ${config.role}: ${valueAssessment.reasoning}`);
-          return this.buildResult(config, 'aborted', `Value gate: ${valueAssessment.reasoning}`, history, supervisor, 'value_gate_abort', totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens);
+          return this.buildResult(config, 'aborted', `Value gate: ${valueAssessment.reasoning}`, history, supervisor, 'value_gate_abort', totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, routedModel);
         }
       } catch (err) {
         console.warn(`[${this.archetype}Runner] Value gate failed for ${config.role}:`, (err as Error).message);
@@ -304,6 +364,7 @@ export abstract class BaseAgentRunner {
 
     try {
       let turnNumber = 0;
+      let previousResponseId: string | undefined;
 
       while (true) {
         turnNumber++;
@@ -312,7 +373,7 @@ export abstract class BaseAgentRunner {
         // ── Supervisor check ────────────────────────────────────
         const check = supervisor.checkBeforeModelCall();
         if (!check.ok) {
-          return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens);
+          return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, routedModel);
         }
 
         // ── Context injector ────────────────────────────────────
@@ -328,35 +389,49 @@ export abstract class BaseAgentRunner {
         // ── Model call ──────────────────────────────────────────
         let response: Awaited<ReturnType<ModelClient['generate']>>;
         try {
-          const taskName = extractTaskFromConfigId(config.id);
           const compressedHistory = compressHistory(history, DEFAULT_HISTORY_COMPRESSION);
           emitEvent({ type: 'model_request', agentId: config.id, turnNumber, tokenEstimate: estimateTokens(compressedHistory) });
 
           // Strip tools on last turn to force text response
           let effectiveTools: ReturnType<typeof toolExecutor.getDeclarations> | undefined = toolExecutor.getDeclarations();
-          const allowedToolNames = getToolSubset(config.role, taskName);
+          const allowedToolNames = getToolSubset(config.role, taskForContext);
           if (effectiveTools) {
             effectiveTools = filterToolDeclarations(effectiveTools, allowedToolNames);
           }
           if (turnNumber >= supervisor.config.maxTurns) effectiveTools = undefined;
 
           let effectiveTemp = config.temperature;
-          if (config.model.startsWith('gemini-3') && (effectiveTemp === undefined || effectiveTemp < 1.0)) {
+          if (routedModel.model.startsWith('gemini-3') && (effectiveTemp === undefined || effectiveTemp < 1.0)) {
             effectiveTemp = 1.0;
           }
 
+          const reasoningLevel = routedModel.reasoningEffort === 'high'
+            ? 'deep'
+            : routedModel.reasoningEffort === 'minimal'
+              ? 'none'
+              : 'standard';
+          const effectiveThinkingEnabled = routedModel.reasoningEffort === 'minimal'
+            ? false
+            : config.thinkingEnabled;
+
           response = await this.modelClient.generate({
-            model: config.model,
+            model: routedModel.model,
             systemInstruction: systemPrompt,
             contents: compressedHistory,
             tools: effectiveTools,
             temperature: effectiveTemp,
             topP: config.topP,
             topK: config.topK,
-            thinkingEnabled: config.thinkingEnabled,
+            thinkingEnabled: effectiveThinkingEnabled,
+            reasoningLevel,
             signal: supervisor.signal,
             callTimeoutMs: 300_000,
+            metadata: {
+              previousResponseId,
+              modelConfig: routedModel,
+            },
           });
+          previousResponseId = response.responseId;
 
           totalInputTokens += response.usageMetadata.inputTokens;
           totalOutputTokens += response.usageMetadata.outputTokens;
@@ -365,7 +440,7 @@ export abstract class BaseAgentRunner {
           emitEvent({ type: 'model_response', agentId: config.id, turnNumber, hasToolCalls: response.toolCalls.length > 0, thinkingText: response.thinkingText });
         } catch (error) {
           if (supervisor.isAborted) {
-            return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens);
+            return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, routedModel);
           }
           throw error;
         }
@@ -416,7 +491,7 @@ export abstract class BaseAgentRunner {
 
             const progressCheck = supervisor.recordToolResult(call.name, result);
             if (!progressCheck.ok) {
-              return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, progressCheck.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens);
+              return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, progressCheck.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, routedModel);
             }
           }
           continue;
@@ -505,7 +580,7 @@ export abstract class BaseAgentRunner {
 
             // Apply trust delta based on constitutional compliance
             if (safeDeps.trustScorer) {
-              const delta = !constResult.revisionRequired ? 0.01 : -0.03;
+              const delta = constResult.overallAdherence < 0.6 ? -0.08 : (!constResult.revisionRequired ? 0.01 : -0.03);
               void safeDeps.trustScorer.applyDelta(config.role, { delta, source: 'constitutional_eval', reason: 'Constitutional compliance result' });
             }
           }
@@ -594,7 +669,7 @@ export abstract class BaseAgentRunner {
         elapsedMs: supervisor.stats.elapsedMs,
       });
 
-      const result = this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens);
+      const result = this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, routedModel);
       result.actions = actionReceipts;
       if (reasoningResult) {
         (result as any).reasoningMeta = {
@@ -621,7 +696,7 @@ export abstract class BaseAgentRunner {
       return result;
     } catch (error) {
       emitEvent({ type: 'agent_error', agentId: config.id, error: (error as Error).message, turnNumber: supervisor.stats.turnCount });
-      const errResult = this.buildResult(config, supervisor.isAborted ? 'aborted' : 'error', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens);
+      const errResult = this.buildResult(config, supervisor.isAborted ? 'aborted' : 'error', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, routedModel);
       errResult.actions = actionReceipts;
       void harvestTaskOutcome(errResult, {
         runId: config.id,
@@ -642,6 +717,7 @@ export abstract class BaseAgentRunner {
     outputTokens = 0,
     thinkingTokens = 0,
     cachedInputTokens = 0,
+    routing?: Pick<RoutingDecision, 'routingRule' | 'capabilities' | 'model'>,
   ): AgentExecutionResult {
     const stats = supervisor.stats;
     return {
@@ -657,11 +733,14 @@ export abstract class BaseAgentRunner {
       outputTokens,
       thinkingTokens,
       cachedInputTokens,
-      cost: estimateCost(config.model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens),
+      cost: estimateCost(routing?.model ?? config.model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens),
       abortReason: status === 'aborted' ? errorMsg : undefined,
-      error: status === 'error' ? errorMsg : undefined,
+      error: status === 'error' || status === 'skipped_precheck' ? errorMsg : undefined,
       reasoning: output ? extractReasoning(output) : undefined,
       conversationHistory: history,
+      routingRule: routing?.routingRule,
+      routingCapabilities: routing?.capabilities,
+      routingModel: routing?.model,
     };
   }
 }

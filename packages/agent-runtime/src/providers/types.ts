@@ -11,6 +11,39 @@ import type { ConversationTurn, GeminiToolDeclaration } from '../types.js';
 
 export type ModelProvider = 'gemini' | 'openai' | 'anthropic';
 export type ReasoningLevel = 'none' | 'standard' | 'deep';
+export type ModelReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
+export type ModelVerbosity = 'low' | 'medium' | 'high';
+
+export interface StructuredOutputSpec {
+  name: string;
+  schema: Record<string, unknown>;
+  strict?: boolean;
+}
+
+export interface ModelRoutingMetadata {
+  model: string;
+  routingRule: string;
+  capabilities: string[];
+  reasoningEffort?: ModelReasoningEffort;
+  verbosity?: ModelVerbosity;
+  claudeEffort?: 'low' | 'medium' | 'high' | 'adaptive';
+  claudeThinking?: 'manual' | 'adaptive';
+  enableCitations?: boolean;
+  enableCompaction?: boolean;
+  enableGoogleSearch?: boolean;
+  enableCodeExecution?: boolean;
+  enableToolSearch?: boolean;
+  enableApplyPatch?: boolean;
+  a365McpServers?: string[];
+  glyphorMcpServers?: string[];
+  nativeMcpServers?: string[];
+  structuredOutput?: StructuredOutputSpec;
+}
+
+export interface UnifiedRequestMetadata {
+  previousResponseId?: string;
+  modelConfig?: ModelRoutingMetadata;
+}
 
 // ─── Unified Request ─────────────────────────────────────────
 
@@ -29,6 +62,7 @@ export interface UnifiedModelRequest {
   signal?: AbortSignal;
   /** Per-call timeout override in ms. Defaults to 180_000. */
   callTimeoutMs?: number;
+  metadata?: UnifiedRequestMetadata;
 }
 
 // ─── Unified Response ────────────────────────────────────────
@@ -56,6 +90,7 @@ export interface UnifiedModelResponse {
   thinkingText?: string;
   usageMetadata: UnifiedUsageMetadata;
   finishReason: string;
+  responseId?: string;
 }
 
 // ─── Image Response ──────────────────────────────────────────

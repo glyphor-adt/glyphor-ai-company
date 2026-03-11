@@ -3473,7 +3473,6 @@ Requires `SCHEDULER_URL`, `DASHBOARD_URL`, `VOICE_GATEWAY_URL` env vars.
 | OpenAI API | Primary AI inference (`gpt-5-mini-2025-08-07`) + web search + image gen | `OPENAI_API_KEY` |
 | Vertex AI (GCP) | Anthropic Claude inference via Vertex AI | GCP IAM auth (service account `glyphor-agent-runner` / `glyphor-worker` with `roles/aiplatform.user`), region `us-east5` |
 | Microsoft Entra ID | Teams auth (MSAL client credentials) | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` |
-| Azure Bot Service | Bot Framework (main + 10 agent bots) | `BOT_APP_ID`, `BOT_APP_SECRET`, `BOT_TENANT_ID`, `AGENT_BOTS` |
 | Stripe | Revenue tracking (MRR, churn, subscriptions) | `STRIPE_SECRET_KEY` |
 | Mercury | Banking (cash balance, cash flows, vendor subs) | `MERCURY_API_TOKEN` |
 | Agent 365 (Microsoft) | M365 MCP servers — agents access the 9-server Agent 365 catalog via MCP bridge (refresh_token grant with auto-rotation to GCP Secret Manager) | `AGENT365_REFRESH_TOKEN` (from GCP Secret Manager `agent365-refresh-token`), `AGENT365_TENANT_ID`, `AGENT365_ENABLED=true` |

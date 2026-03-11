@@ -19,6 +19,7 @@ export class GeminiAdapter implements ProviderAdapter {
 
   async generate(request: UnifiedModelRequest): Promise<UnifiedModelResponse> {
     const geminiContents = this.mapConversation(request.contents);
+    const modelConfig = request.metadata?.modelConfig;
     // Deep-clone tools: the @google/genai SDK mutates functionDeclaration objects
     // in-place (uppercasing type fields via processJsonSchema). Without cloning,
     // the shared tool references get corrupted for cross-provider fallbacks.
@@ -34,26 +35,42 @@ export class GeminiAdapter implements ProviderAdapter {
       // Gemini 3.x: always set thinkingConfig — omitting it defaults to MINIMAL which is unsupported
       thinkingConfig = {
         includeThoughts: reasoningLevel !== 'none',
-        thinkingLevel: reasoningLevel === 'deep' ? 'high' : 'low',
+        thinkingLevel: modelConfig?.reasoningEffort === 'high' || reasoningLevel === 'deep' ? 'high' : 'low',
       };
     } else if (request.model.startsWith('gemini-2.5')) {
       thinkingConfig = {
         includeThoughts: reasoningLevel !== 'none',
-        thinkingBudget: reasoningLevel === 'deep' ? -1 : reasoningLevel === 'standard' ? 2048 : 0,
+        thinkingBudget: modelConfig?.reasoningEffort === 'high' || reasoningLevel === 'deep'
+          ? -1
+          : reasoningLevel === 'standard'
+            ? 2048
+            : 0,
       };
     }
+
+    const systemInstruction = [
+      request.systemInstruction,
+      modelConfig?.enableGoogleSearch ? 'Use grounded web search when current external information is required.' : null,
+      modelConfig?.enableCodeExecution ? 'Use code execution for calculations or data transformations when it improves accuracy.' : null,
+      modelConfig?.structuredOutput
+        ? `Return valid JSON matching this schema exactly: ${JSON.stringify(modelConfig.structuredOutput.schema)}`
+        : null,
+    ].filter(Boolean).join('\n\n');
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const response = await this.client.models.generateContent({
       model: request.model,
       contents: geminiContents as any,
       config: {
-        systemInstruction: request.systemInstruction,
+        systemInstruction,
         temperature: request.temperature ?? 0.7,
         ...(request.topP !== undefined ? { topP: request.topP } : {}),
         ...(request.topK !== undefined ? { topK: request.topK } : {}),
         ...(geminiTools ? { tools: geminiTools as any } : {}),
         ...(thinkingConfig ? { thinkingConfig } : {}),
+        ...(modelConfig?.structuredOutput ? { responseMimeType: 'application/json' } : {}),
+        ...(modelConfig?.enableGoogleSearch ? { googleSearch: {} } : {}),
+        ...(modelConfig?.enableCodeExecution ? { codeExecution: {} } : {}),
       },
     });
 

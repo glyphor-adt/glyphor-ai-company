@@ -30,6 +30,9 @@ interface AgentRun {
   error: string | null;
   output: string | null;
   input: string | null;
+  routing_rule: string | null;
+  routing_capabilities: string[] | null;
+  routing_model: string | null;
   reasoning_passes: number | null;
   reasoning_confidence: number | null;
   reasoning_revised: boolean | null;
@@ -74,6 +77,11 @@ function formatTokens(n: number | null): string {
   return `${(n / 1000).toFixed(1)}k`;
 }
 
+function formatCapabilities(capabilities: string[] | null): string {
+  if (!capabilities || capabilities.length === 0) return '—';
+  return capabilities.join(', ');
+}
+
 function statusConfig(status: string) {
   switch (status) {
     case 'running':
@@ -82,6 +90,8 @@ function statusConfig(status: string) {
       return { dot: 'bg-tier-green', label: 'Completed', badge: 'border-tier-green/30 bg-tier-green/10 text-tier-green' };
     case 'failed':
       return { dot: 'bg-prism-critical', label: 'Failed', badge: 'border-prism-critical/30 bg-prism-critical/10 text-prism-critical' };
+    case 'skipped_precheck':
+      return { dot: 'bg-tier-yellow', label: 'Skipped', badge: 'border-tier-yellow/30 bg-tier-yellow/10 text-tier-yellow' };
     default:
       return { dot: 'bg-txt-faint', label: status, badge: 'border-border bg-raised text-txt-muted' };
   }
@@ -415,6 +425,16 @@ export default function Activity() {
                           </div>
                         </div>
                       ) : null}
+                      {(run.routing_rule || run.routing_model || (run.routing_capabilities && run.routing_capabilities.length > 0)) && (
+                        <div className="mt-2 rounded-md border border-fuchsia-400/20 bg-fuchsia-500/5 px-3 py-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-fuchsia-300 mb-1">Routing</p>
+                          <div className="grid gap-2 text-[11px] text-txt-secondary md:grid-cols-3">
+                            <span><span className="text-txt-faint">Rule:</span> {run.routing_rule ?? '—'}</span>
+                            <span><span className="text-txt-faint">Model:</span> {run.routing_model ?? '—'}</span>
+                            <span className="md:col-span-3"><span className="text-txt-faint">Capabilities:</span> {formatCapabilities(run.routing_capabilities)}</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

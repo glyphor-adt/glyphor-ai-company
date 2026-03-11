@@ -33,6 +33,9 @@ import { systemQuery } from '@glyphor/shared/db';
 import { extractTaskFromConfigId } from './taskIdentity.js';
 import { compressHistory, DEFAULT_HISTORY_COMPRESSION } from './historyManager.js';
 import { filterToolDeclarations, getToolSubset } from './toolSubsets.js';
+import { inferCapabilities, resolveModelConfig, runDeterministicPreCheck } from './routing/index.js';
+import type { RoutingDecision } from './routing/index.js';
+import type { TrustScorer } from './trustScorer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -1146,6 +1149,8 @@ export interface RunDependencies {
   reasoningEngineFactory?: (agentRole: string) => Promise<ReasoningEngine | null>;
   /** Ensures an agent_world_model row exists for this agent (creates baseline if missing). */
   initializeWorldModel?: (role: CompanyAgentRole) => Promise<void>;
+  /** Optional trust scorer used for routing and post-run trust adjustments. */
+  trustScorer?: TrustScorer;
 }
 
 /** Regex patterns that match common action claims in agent text. */
@@ -1232,13 +1237,6 @@ export class CompanyAgentRunner {
     let totalOutputTokens = 0;
     let totalThinkingTokens = 0;
     let totalCachedInputTokens = 0;
-
-    emitEvent({
-      type: 'agent_started',
-      agentId: config.id,
-      role: config.role,
-      model: config.model,
-    });
 
     // ─── TOOL INVENTORY LOG ──────────────────────────────────────
     // Log static tools per agent on startup for pipeline diagnostics
@@ -1567,9 +1565,70 @@ export class CompanyAgentRunner {
 
     const task = extractTask(config.id);
     const isTaskTier = task === 'work_loop' || task === 'proactive';
+    let trustScore: number | null = null;
+    if (deps?.trustScorer) {
+      try {
+        trustScore = (await deps.trustScorer.getTrust(config.role)).trustScore;
+      } catch (err) {
+        console.warn(`[CompanyAgentRunner] Trust load failed for ${config.role}:`, (err as Error).message);
+      }
+    }
+    const routedModel = resolveModelConfig({
+      role: config.role,
+      task,
+      message: initialMessage,
+      toolNames: staticToolNames,
+      trustScore,
+      currentModel: config.model,
+    });
+    routedModel.capabilities = inferCapabilities({
+      role: config.role,
+      task,
+      message: initialMessage,
+      toolNames: staticToolNames,
+      trustScore,
+    });
+
+    emitEvent({
+      type: 'agent_started',
+      agentId: config.id,
+      role: config.role,
+      model: routedModel.model === '__deterministic__' ? config.model : routedModel.model,
+    });
+
+    if (routedModel.model === '__deterministic__') {
+      const preCheck = await runDeterministicPreCheck({
+        role: config.role,
+        task,
+        message: initialMessage,
+        history,
+      });
+      if (!preCheck.shouldCallLLM) {
+        return this.buildResult(
+          config,
+          'skipped_precheck',
+          preCheck.reason,
+          history,
+          supervisor,
+          preCheck.reason,
+          totalInputTokens,
+          totalOutputTokens,
+          totalThinkingTokens,
+          totalCachedInputTokens,
+          undefined,
+          routedModel,
+        );
+      }
+      if (preCheck.context) {
+        history.push({ role: 'user', content: preCheck.context, timestamp: Date.now() });
+      }
+      routedModel.model = 'gpt-5-mini-2025-08-07';
+      routedModel.reasoningEffort = 'low';
+    }
 
     try {
       let turnNumber = 0;
+      let previousResponseId: string | undefined;
 
       // ─── ON-DEMAND / TASK TIER SPEED GUARD ─────────────────────
       // Chat (on_demand) must finish within the dashboard's 180 s abort.
@@ -1628,19 +1687,24 @@ export class CompanyAgentRunner {
                 history.push({ role: 'user', content: synthPrompt, timestamp: Date.now() });
                 const compressedSynthHistory = compressHistory(history, DEFAULT_HISTORY_COMPRESSION);
                 const synthResponse = await this.modelClient.generate({
-                  model: config.model,
+                  model: routedModel.model,
                   systemInstruction: '',
                   contents: compressedSynthHistory,
                   tools: undefined,
                   temperature: config.temperature,
                   thinkingEnabled: false,
                   callTimeoutMs: 30_000,
+                  metadata: {
+                    previousResponseId,
+                    modelConfig: routedModel,
+                  },
                 });
                 if (synthResponse.text) {
                   lastTextOutput = synthResponse.text;
                   totalInputTokens += synthResponse.usageMetadata.inputTokens;
                   totalOutputTokens += synthResponse.usageMetadata.outputTokens;
                 }
+                previousResponseId = synthResponse.responseId;
               } catch {
                 // Synthesis call failed — fall back to truncated data
                 const truncated = toolData.map(d => d.length > 500 ? d.substring(0, 500) + '...' : d);
@@ -1650,7 +1714,7 @@ export class CompanyAgentRunner {
           }
           if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, check.reason ?? 'supervisor_limit', deps);
           return this.buildResult(
-            config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts,
+            config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, routedModel,
           );
         }
 
@@ -1696,7 +1760,7 @@ export class CompanyAgentRunner {
           const systemPrompt = isTaskTier
             ? buildTaskTierSystemPrompt(agentProfile)
             : buildSystemPrompt(config.role, config.systemPrompt, dynamicBrief, agentProfile, skillContext, dbKnowledgeBase, bulletinContext, isOnDemand, orchestrationConfig, hasDelegatedDirective);
-          let effectiveThinking = config.thinkingEnabled;
+          let effectiveThinking = routedModel.reasoningEffort === 'minimal' ? false : config.thinkingEnabled;
           if (isTaskTier) {
             effectiveThinking = false;
           } else if (task === 'on_demand') {
@@ -1711,7 +1775,7 @@ export class CompanyAgentRunner {
           // Gemini 3 strongly recommends temperature 1.0 — lower values cause
           // robotic/looping output per Google's docs.
           let effectiveTemp = config.temperature;
-          if (config.model.startsWith('gemini-3') && (effectiveTemp === undefined || effectiveTemp < 1.0)) {
+          if (routedModel.model.startsWith('gemini-3') && (effectiveTemp === undefined || effectiveTemp < 1.0)) {
             effectiveTemp = 1.0;
           }
 
@@ -1793,7 +1857,7 @@ export class CompanyAgentRunner {
           }
 
           response = await this.modelClient.generate({
-            model: config.model,
+            model: routedModel.model,
             systemInstruction: systemPrompt,
             contents: compressedHistory,
             tools: effectiveTools,
@@ -1801,13 +1865,23 @@ export class CompanyAgentRunner {
             topP: config.topP,
             topK: config.topK,
             thinkingEnabled: effectiveThinking,
+            reasoningLevel: routedModel.reasoningEffort === 'high'
+              ? 'deep'
+              : routedModel.reasoningEffort === 'minimal'
+                ? 'none'
+                : 'standard',
             signal: supervisor.signal,
             callTimeoutMs: isOnDemand
               ? (effectiveThinking ? THINKING_CALL_TIMEOUT_MS : ON_DEMAND_CALL_TIMEOUT_MS)
               : isTaskTier
                 ? TASK_TIER_CALL_TIMEOUT_MS
                 : (effectiveThinking ? THINKING_CALL_TIMEOUT_MS : SCHEDULED_CALL_TIMEOUT_MS),
+            metadata: {
+              previousResponseId,
+              modelConfig: routedModel,
+            },
           });
+          previousResponseId = response.responseId;
 
           // Accumulate token usage across turns
           totalInputTokens += response.usageMetadata.inputTokens;
@@ -1824,12 +1898,12 @@ export class CompanyAgentRunner {
           });
         } catch (error) {
           const errMsg = (error as Error).message ?? String(error);
-          console.error(`[CompanyAgentRunner] Model call failed for ${config.id} (model=${config.model}, turn=${turnNumber}): ${errMsg}`);
+          console.error(`[CompanyAgentRunner] Model call failed for ${config.id} (model=${routedModel.model}, turn=${turnNumber}): ${errMsg}`);
           if (supervisor.isAborted) {
             if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, errMsg, deps);
             return this.buildResult(
               config, 'aborted', lastTextOutput, history, supervisor,
-              errMsg, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts,
+              errMsg, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, routedModel,
             );
           }
           throw error;
@@ -1909,7 +1983,7 @@ export class CompanyAgentRunner {
               if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, progressCheck.reason ?? 'stall_detected', deps);
               return this.buildResult(
                 config, 'aborted', lastTextOutput, history, supervisor,
-                progressCheck.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts,
+                progressCheck.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, routedModel,
               );
             }
           }
@@ -2049,7 +2123,7 @@ export class CompanyAgentRunner {
         elapsedMs: stats.elapsedMs,
       });
 
-      return this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts);
+      return this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, routedModel);
 
     } catch (error) {
       emitEvent({
@@ -2092,6 +2166,8 @@ export class CompanyAgentRunner {
         totalOutputTokens,
         totalThinkingTokens,
         totalCachedInputTokens,
+        undefined,
+        routedModel,
       );
     }
   }
@@ -2145,6 +2221,7 @@ export class CompanyAgentRunner {
     thinkingTokens = 0,
     cachedInputTokens = 0,
     actions?: Array<{ tool: string; params: Record<string, unknown>; result: 'success' | 'error'; output: string; timestamp: string }>,
+    routing?: Pick<RoutingDecision, 'routingRule' | 'capabilities' | 'model'>,
   ): AgentExecutionResult {
     const stats = supervisor.stats;
     return {
@@ -2160,12 +2237,15 @@ export class CompanyAgentRunner {
       outputTokens,
       thinkingTokens,
       cachedInputTokens,
-      cost: estimateCost(config.model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens),
+      cost: estimateCost(routing?.model ?? config.model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens),
       abortReason: status === 'aborted' ? errorMsg : undefined,
-      error: status === 'error' ? errorMsg : undefined,
+      error: status === 'error' || status === 'skipped_precheck' ? errorMsg : undefined,
       reasoning: output ? extractReasoning(output) : undefined,
       conversationHistory: history,
       actions: actions && actions.length > 0 ? actions : undefined,
+      routingRule: routing?.routingRule,
+      routingCapabilities: routing?.capabilities,
+      routingModel: routing?.model,
     };
   }
 
