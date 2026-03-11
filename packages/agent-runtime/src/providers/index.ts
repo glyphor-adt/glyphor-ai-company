@@ -68,25 +68,26 @@ export class ProviderFactory {
         return new GeminiAdapter({ apiKey: this.config.geminiApiKey });
       }
       case 'openai': {
-        // Auto-detect Azure OpenAI from config or environment
-        // .trim() so whitespace-only secret values are treated as "not configured"
-        const azureEndpoint = (this.config.azureFoundryEndpoint ?? process.env.AZURE_FOUNDRY_ENDPOINT)?.trim() || undefined;
-        const azureApiKey = (this.config.azureFoundryApi ?? process.env.AZURE_FOUNDRY_API)?.trim() || undefined;
+        const openaiApiKey = this.config.openaiApiKey ?? process.env.OPENAI_API_KEY;
+        // Azure OpenAI — only use if explicitly configured (not auto-detected from env)
+        const azureEndpoint = this.config.azureFoundryEndpoint?.trim() || undefined;
+        const azureApiKey = this.config.azureFoundryApi?.trim() || undefined;
         const hasAzure = !!(azureEndpoint && azureApiKey);
-        if (!hasAzure && !this.config.openaiApiKey) {
-          throw new Error('OpenAI not configured — set AZURE_FOUNDRY_ENDPOINT + AZURE_FOUNDRY_API for Azure, or OPENAI_API_KEY for direct');
+        if (!hasAzure && !openaiApiKey) {
+          throw new Error('OpenAI not configured — set OPENAI_API_KEY for direct, or pass azureFoundryEndpoint + azureFoundryApi for Azure');
         }
         return new OpenAIAdapter({
-          apiKey: this.config.openaiApiKey,
+          apiKey: openaiApiKey,
           azureEndpoint,
           azureApiKey,
           azureApiVersion: this.config.azureFoundryApiVersion,
         });
       }
       case 'anthropic': {
+        const anthropicApiKey = this.config.anthropicApiKey ?? process.env.ANTHROPIC_API_KEY;
+        if (!anthropicApiKey) throw new Error('Anthropic not configured — set ANTHROPIC_API_KEY environment variable');
         const anthropicProjectId = this.config.vertexProjectId ?? process.env.GCP_PROJECT_ID;
-        if (!anthropicProjectId) throw new Error('GCP project ID not configured — set GCP_PROJECT_ID environment variable or pass vertexProjectId');
-        return new AnthropicAdapter(anthropicProjectId, this.config.vertexRegion, this.config.anthropicApiKey);
+        return new AnthropicAdapter(anthropicProjectId ?? '', this.config.vertexRegion, anthropicApiKey);
       }
     }
   }

@@ -2,6 +2,9 @@ import type { CompanyAgentRole, GeminiToolDeclaration } from './types.js';
 
 type ToolSubsetMap = Partial<Record<CompanyAgentRole, Record<string, string[] | null>>>;
 
+/** Hard limit — OpenAI enforces 128 max, and large tool lists waste tokens. */
+const MAX_TOOLS = 128;
+
 const WORK_COMPLETION_TOOLS = [
   'save_memory',
   'recall_memories',
@@ -22,15 +25,10 @@ export const TOOL_SUBSETS: ToolSubsetMap = {
     weekly_content_planning: withWorkTools(
       'web_search',
       'web_fetch',
-      'mcp:marketing:schedule_social_post',
-      'mcp:marketing:get_analytics',
     ),
     generate_content: withWorkTools(
       'web_search',
       'web_fetch',
-      'mcp:marketing:schedule_social_post',
-      'mcp:marketing:get_analytics',
-      'mcp:marketing:get_search_console_data',
     ),
     proactive: null,
   },
@@ -134,16 +132,33 @@ export const TOOL_SUBSETS: ToolSubsetMap = {
 
 export function getToolSubset(role: CompanyAgentRole, task: string): Set<string> | null {
   const roleMap = TOOL_SUBSETS[role];
-  if (!roleMap) return null;
-  const subset = roleMap[task];
-  if (subset == null) return subset ?? null;
-  return new Set(subset);
+  if (roleMap) {
+    const subset = roleMap[task];
+    if (subset != null) return new Set(subset);
+    // null entry means "send nothing" for that task
+    if (subset === null) return subset;
+  }
+  // No explicit subset defined — return null (apply hard cap only)
+  return null;
 }
 
+/**
+ * Filter tool declarations to the allowed subset, then enforce the MAX_TOOLS cap.
+ * Static tools are registered before MCP tools in agent run.ts, so truncating
+ * from the end preserves core tools and drops excess MCP server tools.
+ */
 export function filterToolDeclarations(
   declarations: GeminiToolDeclaration[],
   allowedNames: Set<string> | null,
 ): GeminiToolDeclaration[] {
-  if (allowedNames == null) return declarations;
-  return declarations.filter((declaration) => allowedNames.has(declaration.name));
+  let result = allowedNames == null
+    ? declarations
+    : declarations.filter((d) => allowedNames.has(d.name));
+
+  if (result.length > MAX_TOOLS) {
+    console.warn(`[ToolSubsets] Capping tools from ${result.length} to ${MAX_TOOLS}`);
+    result = result.slice(0, MAX_TOOLS);
+  }
+
+  return result;
 }

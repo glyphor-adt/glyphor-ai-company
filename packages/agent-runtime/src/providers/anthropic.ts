@@ -1,7 +1,7 @@
 /**
  * Anthropic Provider Adapter — Maps Anthropic API to unified types.
  *
- * Uses Vertex AI on GCP to access Claude models (no direct Anthropic API key needed).
+ * Uses the direct Anthropic API as primary, with Vertex AI on GCP as fallback.
  * Supports Claude 3.5+, Claude Sonnet 4, Haiku 4, and Opus 4 with
  * extended thinking (manual or adaptive depending on model).
  */
@@ -13,16 +13,16 @@ import type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse } from 
 
 export class AnthropicAdapter implements ProviderAdapter {
   readonly provider = 'anthropic' as const;
-  private client: AnthropicVertex;
-  private directClient: Anthropic | null;
+  private client: Anthropic;
+  private vertexClient: AnthropicVertex | null;
 
   constructor(projectId: string, region = 'us-east5', anthropicApiKey?: string) {
-    this.client = new AnthropicVertex({
-      projectId,
-      region,
-    });
-    this.directClient = anthropicApiKey
-      ? new Anthropic({ apiKey: anthropicApiKey })
+    if (!anthropicApiKey) {
+      throw new Error('ANTHROPIC_API_KEY is required — set it in your environment');
+    }
+    this.client = new Anthropic({ apiKey: anthropicApiKey });
+    this.vertexClient = projectId
+      ? new AnthropicVertex({ projectId, region })
       : null;
   }
 
@@ -89,14 +89,13 @@ export class AnthropicAdapter implements ProviderAdapter {
 
     let response: Anthropic.Message;
     try {
-      response = await this.client.messages.create(createParams) as Anthropic.Message;
+      response = await this.client.messages.create(createParams as unknown as Parameters<typeof this.client.messages.create>[0]) as Anthropic.Message;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       const isQuota = /429|rate.?limit|quota|resource.?exhausted|too many requests/i.test(msg);
-      if (isQuota && this.directClient) {
-        console.log(`[AnthropicAdapter] Vertex quota hit for ${request.model}, falling back to direct API`);
-        // Vertex SDK bundles its own @anthropic-ai/sdk types; cast via unknown to bridge the mismatch
-        response = await this.directClient.messages.create(createParams as unknown as Parameters<typeof this.directClient.messages.create>[0]) as Anthropic.Message;
+      if (isQuota && this.vertexClient) {
+        console.log(`[AnthropicAdapter] Direct API quota hit for ${request.model}, falling back to Vertex AI`);
+        response = await this.vertexClient.messages.create(createParams) as Anthropic.Message;
       } else {
         throw err;
       }

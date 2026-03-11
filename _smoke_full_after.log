@@ -1,0 +1,28 @@
+
+> glyphor-company@0.1.0 smoketest
+> turbo run build --filter=@glyphor/smoketest && node --env-file=.env packages/smoketest/dist/index.js
+
+ΓÇó turbo 2.8.10
+ΓÇó Packages in scope: @glyphor/smoketest
+ΓÇó Running build in 1 packages
+ΓÇó Remote caching disabled
+@glyphor/shared:build: cache hit, replaying logs e47cf630a37f6d4e
+@glyphor/shared:build: 
+@glyphor/shared:build: > @glyphor/shared@0.1.0 build
+@glyphor/shared:build: > tsc
+@glyphor/shared:build: 
+@glyphor/agent-runtime:build: cache miss, executing 0749db695599828e
+@glyphor/agent-runtime:build: 
+@glyphor/agent-runtime:build: > @glyphor/agent-runtime@0.1.0 build
+@glyphor/agent-runtime:build: > tsc
+@glyphor/agent-runtime:build: 
+@glyphor/integrations:build: cache miss, executing 78058a7009965d9d
+@glyphor/company-memory:build: cache miss, executing 7268a34b7fcdfe14
+@glyphor/company-memory:build: 
+@glyphor/company-memory:build: > @glyphor/company-memory@0.1.0 build
+@glyphor/company-memory:build: > tsc
+@glyphor/company-memory:build: 
+@glyphor/integrations:build: 
+@glyphor/integrations:build: > @glyphor/integrations@0.1.0 build
+@glyphor/integrations:build: > tsc
+@glyphor/integrations:build: 
