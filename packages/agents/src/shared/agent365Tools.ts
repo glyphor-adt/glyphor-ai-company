@@ -11,7 +11,7 @@
  *   AGENT365_<ROLE>_TENANT_ID
  */
 
-import { getAgentIdentityAppId, getAgentBlueprintSpId, getAgentEntraUserId, type ToolDefinition } from '@glyphor/agent-runtime';
+import { getAgentIdentityAppId, getAgentBlueprintSpId, type ToolDefinition } from '@glyphor/agent-runtime';
 import type { Agent365ToolBridge } from '@glyphor/integrations';
 import { createAgent365Tools as initAgent365Bridge } from '@glyphor/integrations';
 
@@ -120,10 +120,11 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
     return [];
   }
 
-  // Use the shared agent app instance ID for all agents — this is the verified
-  // Teams-installed instance. Only the agenticUserId varies per agent.
+  // Use the shared agent app instance ID and agentic user ID for all agents.
+  // The per-agent Entra users are regular directory users, NOT agentic users
+  // created by the Teams agent installation — they fail the 3-step token exchange.
   const agentAppInstanceId = process.env.AGENT365_APP_INSTANCE_ID;
-  const agenticUserId = (agentRole ? getAgentEntraUserId(agentRole) : null) ?? process.env.AGENT365_AGENTIC_USER_ID;
+  const agenticUserId = process.env.AGENT365_AGENTIC_USER_ID;
 
   if (!agentAppInstanceId || !agenticUserId) {
     console.warn(`[Agent365] No identity found for agent ${agentRole ?? 'unknown'}. Set blueprintSpId/entraUserId in agentIdentities.json or AGENT365_APP_INSTANCE_ID/AGENT365_AGENTIC_USER_ID env vars. Skipping.`);
