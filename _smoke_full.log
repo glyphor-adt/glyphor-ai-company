@@ -1,0 +1,57 @@
+
+> glyphor-company@0.1.0 smoketest
+> turbo run build --filter=@glyphor/smoketest && node --env-file=.env packages/smoketest/dist/index.js
+
+ΓÇó turbo 2.8.10
+ΓÇó Packages in scope: @glyphor/smoketest
+ΓÇó Running build in 1 packages
+ΓÇó Remote caching disabled
+@glyphor/shared:build: cache hit, replaying logs e47cf630a37f6d4e
+@glyphor/shared:build: 
+@glyphor/shared:build: > @glyphor/shared@0.1.0 build
+@glyphor/shared:build: > tsc
+@glyphor/shared:build: 
+@glyphor/agent-runtime:build: cache hit, replaying logs dacbe3311a3ad833
+@glyphor/agent-runtime:build: 
+@glyphor/agent-runtime:build: > @glyphor/agent-runtime@0.1.0 build
+@glyphor/agent-runtime:build: > tsc
+@glyphor/agent-runtime:build: 
+@glyphor/company-memory:build: cache hit, replaying logs f5db1ecfec8e50ee
+@glyphor/company-memory:build: 
+@glyphor/company-memory:build: > @glyphor/company-memory@0.1.0 build
+@glyphor/company-memory:build: > tsc
+@glyphor/company-memory:build: 
+@glyphor/integrations:build: cache hit, replaying logs 72ca564dd98d62db
+@glyphor/integrations:build: 
+@glyphor/integrations:build: > @glyphor/integrations@0.1.0 build
+@glyphor/integrations:build: > tsc
+@glyphor/integrations:build: 
+@glyphor/agents:build: cache hit, replaying logs 949d9bdd6fbc45ce
+@glyphor/agents:build: 
+@glyphor/agents:build: > @glyphor/agents@0.1.0 build
+@glyphor/agents:build: > tsc
+@glyphor/agents:build: 
+@glyphor/smoketest:build: cache hit, replaying logs d08ba77b55b2202f
+@glyphor/smoketest:build: 
+@glyphor/smoketest:build: > @glyphor/smoketest@0.1.0 build
+@glyphor/smoketest:build: > tsc
+@glyphor/smoketest:build: 
+
+ Tasks:    6 successful, 6 total
+Cached:    6 cached, 6 total
+  Time:    790ms >>> FULL TURBO
+
+[dotenv@17.3.1] injecting env (0) from .env -- tip: ≡ƒñû agentic secret storage: https://dotenvx.com/as2
+[Vercel] VERCEL_TEAM_FUSE / VERCEL_TEAM_FUSE_PROJECTS not configured ΓÇö Vercel integration disabled
+ΓòöΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòù
+Γòæ         Glyphor Architecture Smoke Test Suite       Γòæ
+ΓòÜΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓò¥
+
+Running layers: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24
+Interactive mode: OFF
+Scheduler: https://glyphor-scheduler-610179349713.us-central1.run.app
+
+
+Γû╢ Starting Layer 0...
+
+Γû╢ Starting Layer 1...

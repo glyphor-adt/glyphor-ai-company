@@ -85,15 +85,11 @@ body {
 }
 
 .dashboard-sidebar--light {
-  background: rgba(255, 255, 255, 0.45);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: #f6f8fa;
 }
 
 .dashboard-sidebar--dark {
-  background: rgba(20, 22, 28, 0.5);
-  backdrop-filter: blur(12px) saturate(1.1);
-  -webkit-backdrop-filter: blur(12px) saturate(1.1);
+  background: rgb(20, 22, 28);
 }
 
 .dashboard-main {
@@ -218,32 +214,23 @@ body {
   animation: shimmer 1.8s linear infinite;
 }
 
-/* ─── Glass Button ───────────────────────────── */
+/* ─── Buttons ────────────────────────────────── */
 button, a[role="button"], .glass-btn {
   transition: all 0.2s ease;
 }
 
-.dark button:not([class*="bg-"]):not(.glass-card__content button) {
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-}
-
-/* Tab bar / segmented control glass */
+/* Tab bar / segmented control */
 .dark .glass-tabs {
-  background: rgba(21, 23, 28, 0.4);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgb(21, 23, 28);
   border-color: rgba(255, 255, 255, 0.06);
 }
 
 .glass-tabs {
-  background: rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 0, 0, 0.08);
 }
 
-/* ─── Glass Input Fields ─────────────────────── */
+/* ─── Input Fields ───────────────────────────── */
 input, textarea, select {
   transition: all 0.2s ease;
 }
@@ -253,59 +240,50 @@ input:focus, textarea:focus, select:focus {
   box-shadow: 0 0 0 3px rgba(0, 224, 255, 0.08);
 }
 
-/* ─── Light Mode Card Elevation ──────────────── */
+/* ─── Light Mode Card ────────────────────────── */
 .glass-card {
   position: relative;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-color: rgba(255, 255, 255, 0.35) !important;
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.06) !important;
   box-shadow:
     0 1px 2px rgba(15, 23, 42, 0.04),
-    0 12px 30px rgba(15, 23, 42, 0.06);
+    0 4px 16px rgba(15, 23, 42, 0.06);
 }
 .glass-card:hover {
-  background: rgba(255, 255, 255, 0.65);
   box-shadow:
-    0 2px 6px rgba(15, 23, 42, 0.04),
-    0 18px 38px rgba(15, 23, 42, 0.09);
-  border-color: rgba(191, 219, 254, 0.85) !important;
+    0 2px 6px rgba(15, 23, 42, 0.06),
+    0 12px 32px rgba(15, 23, 42, 0.09);
+  border-color: rgba(0, 0, 0, 0.1) !important;
 }
 
-/* ─── Dark Mode Card Elevation ───────────────── */
+/* ─── Dark Mode Card ─────────────────────────── */
 .dark .glass-card {
-  background: rgba(26, 28, 34, 0.5) !important;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-color: rgba(255, 255, 255, 0.08) !important;
+  background: rgb(26, 28, 34) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
   box-shadow:
-    0 16px 48px rgba(0, 0, 0, 0.3),
+    0 2px 8px rgba(0, 0, 0, 0.25),
     0 0 0 1px rgba(255, 255, 255, 0.02);
 }
 .dark .glass-card:hover {
-  background: rgba(26, 28, 34, 0.65) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
-  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.34);
+  background: rgb(30, 32, 38) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 
-/* Inner raised elements inside glass cards */
+/* Inner raised elements inside cards */
 .glass-raised {
-  background: rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-color: rgba(255, 255, 255, 0.3) !important;
+  background: #f8f9fb;
+  border-color: rgba(0, 0, 0, 0.05) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    0 6px 18px rgba(15, 23, 42, 0.05);
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 2px 8px rgba(15, 23, 42, 0.04);
 }
 
 .dark .glass-raised {
-  background: rgba(21, 23, 28, 0.45) !important;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-color: rgba(255, 255, 255, 0.06) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  background: rgb(21, 23, 28) !important;
+  border-color: rgba(255, 255, 255, 0.05) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
 .stat-card-accent {
@@ -367,7 +345,7 @@ input:focus, textarea:focus, select:focus {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent 10%, rgba(255,255,255,0.08) 50%, transparent 90%);
+  background: linear-gradient(90deg, transparent 10%, rgba(255,255,255,0.05) 50%, transparent 90%);
   pointer-events: none;
 }
 
@@ -433,9 +411,7 @@ input:focus, textarea:focus, select:focus {
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  background: rgba(0,0,0,0.45);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(0,0,0,0.55);
 }
 
 .modal-panel {
@@ -443,11 +419,9 @@ input:focus, textarea:focus, select:focus {
   width: 100%;
   max-width: 42rem;
   border-radius: 22px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(26, 28, 34, 0.7);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 1px rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgb(26, 28, 34);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
   overflow: hidden;
 }
 
@@ -474,19 +448,15 @@ input:focus, textarea:focus, select:focus {
 
 .dropdown-panel {
   border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(30, 32, 40, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgb(30, 32, 40);
   box-shadow: 0 16px 48px rgba(0,0,0,0.5);
 }
 
 .dark input,
 .dark textarea,
 .dark select {
-  background: rgba(21, 23, 28, 0.5);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgb(21, 23, 28);
   border-color: rgba(255,255,255,0.08);
 }
 
