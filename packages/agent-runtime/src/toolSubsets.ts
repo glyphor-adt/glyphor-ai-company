@@ -1,4 +1,4 @@
-import type { CompanyAgentRole, GeminiToolDeclaration } from './types.js';
+import type { CompanyAgentRole, ToolDeclaration } from './types.js';
 
 type ToolSubsetMap = Partial<Record<CompanyAgentRole, Record<string, string[] | null>>>;
 
@@ -148,9 +148,9 @@ export function getToolSubset(role: CompanyAgentRole, task: string): Set<string>
  * from the end preserves core tools and drops excess MCP server tools.
  */
 export function filterToolDeclarations(
-  declarations: GeminiToolDeclaration[],
+  declarations: ToolDeclaration[],
   allowedNames: Set<string> | null,
-): GeminiToolDeclaration[] {
+): ToolDeclaration[] {
   let result = allowedNames == null
     ? declarations
     : declarations.filter((d) => allowedNames.has(d.name));

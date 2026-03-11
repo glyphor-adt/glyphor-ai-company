@@ -214,10 +214,10 @@ export interface AgentExecutionResult {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// GEMINI API TYPES
+// TOOL DECLARATION (provider-agnostic)
 // ═══════════════════════════════════════════════════════════════════
 
-export interface GeminiToolDeclaration {
+export interface ToolDeclaration {
   name: string;
   description: string;
   parameters: {
@@ -226,6 +226,9 @@ export interface GeminiToolDeclaration {
     required?: string[];
   };
 }
+
+/** @deprecated Use ToolDeclaration instead. */
+export type GeminiToolDeclaration = ToolDeclaration;
 
 // ═══════════════════════════════════════════════════════════════════
 // SUPERVISOR CONFIG

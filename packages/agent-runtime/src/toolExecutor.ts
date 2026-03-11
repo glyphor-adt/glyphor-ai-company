@@ -21,7 +21,7 @@ import type {
   ToolParameter,
   ToolContext,
   ToolResult,
-  GeminiToolDeclaration,
+  ToolDeclaration,
   CompanyAgentRole,
   ToolCallLog,
   SecurityEvent,
@@ -377,13 +377,13 @@ export class ToolExecutor {
     return Array.from(this.tools.keys());
   }
 
-  getDeclarations(): GeminiToolDeclaration[] {
-    return Array.from(this.tools.values()).map((t): GeminiToolDeclaration => {
+  getDeclarations(): ToolDeclaration[] {
+    return Array.from(this.tools.values()).map((t): ToolDeclaration => {
       const required = Object.entries(t.parameters)
         .filter(([, v]) => v.required)
         .map(([k]) => k);
 
-      const params: GeminiToolDeclaration['parameters'] = {
+      const params: ToolDeclaration['parameters'] = {
         type: 'object',
         properties: Object.fromEntries(
           Object.entries(t.parameters).map(([k, v]) => [k, toJsonSchema(v)]),

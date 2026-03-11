@@ -1,0 +1,692 @@
+{
+  "startedAt": "2026-03-11T23:14:57.814Z",
+  "finishedAt": "2026-03-11T23:14:59.198Z",
+  "durationMs": 1384,
+  "connectionHost": "postgresql://glyphor_system_user:lGHMxoC8zpmngKUaYv9cOTwJ@136.111.200.6:5432/glyphor",
+  "totals": {
+    "pass": 9,
+    "fail": 8,
+    "error": 19,
+    "all": 36
+  },
+  "results": [
+    {
+      "id": "1.1",
+      "name": "Routing Columns Exist",
+      "status": "PASS",
+      "summary": "columns_found=3",
+      "rowCount": 3
+    },
+    {
+      "id": "1.2",
+      "name": "Routing Data Logged (1h)",
+      "status": "FAIL",
+      "summary": "total=125, with=123, without=2",
+      "rowCount": 1
+    },
+    {
+      "id": "1.3",
+      "name": "Routing Rule Distribution (4h)",
+      "status": "PASS",
+      "summary": "rows=7, default_pct=0.0%",
+      "rowCount": 7
+    },
+    {
+      "id": "1.4.a",
+      "name": "Capability Inference Sample (4h)",
+      "status": "ERROR",
+      "summary": "column \"agent_role\" does not exist",
+      "rowCount": 0
+    },
+    {
+      "id": "1.4.b",
+      "name": "frontend-engineer has code_generation",
+      "status": "ERROR",
+      "summary": "column \"agent_role\" does not exist",
+      "rowCount": 0
+    },
+    {
+      "id": "1.4.c",
+      "name": "research analysts have web_research",
+      "status": "ERROR",
+      "summary": "column \"agent_role\" does not exist",
+      "rowCount": 0
+    },
+    {
+      "id": "1.4.d",
+      "name": "cfo has financial_computation",
+      "status": "ERROR",
+      "summary": "column \"agent_role\" does not exist",
+      "rowCount": 0
+    },
+    {
+      "id": "1.4.e",
+      "name": "content-creator has creative_writing",
+      "status": "ERROR",
+      "summary": "column \"agent_role\" does not exist",
+      "rowCount": 0
+    },
+    {
+      "id": "1.4.f",
+      "name": "chief-of-staff orchestrate has orchestration",
+      "status": "ERROR",
+      "summary": "column \"agent_role\" does not exist",
+      "rowCount": 0
+    },
+    {
+      "id": "1.4.g",
+      "name": "ops prechecks route deterministic",
+      "status": "ERROR",
+      "summary": "column \"agent_role\" does not exist",
+      "rowCount": 0
+    },
+    {
+      "id": "1.5",
+      "name": "Observation model/capability snapshot",
+      "status": "ERROR",
+      "summary": "column \"agent_role\" does not exist",
+      "rowCount": 0
+    },
+    {
+      "id": "1.6",
+      "name": "No perf regression (before/after)",
+      "status": "FAIL",
+      "summary": "before=165615ms, after=117835ms, delta=-28.9%",
+      "rowCount": 2
+    },
+    {
+      "id": "2.1",
+      "name": "Models changing (6h)",
+      "status": "PASS",
+      "summary": "distinct_models=4",
+      "rowCount": 5
+    },
+    {
+      "id": "2.2",
+      "name": "Deterministic skip rates",
+      "status": "FAIL",
+      "summary": "tasks=4, any_skip_gt_0=false",
+      "rowCount": 4
+    },
+    {
+      "id": "2.3.a",
+      "name": "Code generation uses gpt-5.4",
+      "status": "ERROR",
+      "summary": "column \"agent_role\" does not exist",
+      "rowCount": 0
+    },
+    {
+      "id": "2.3.b",
+      "name": "Code quality before/after",
+      "status": "PASS",
+      "summary": "agents=2, avg_delta=2.65",
+      "rowCount": 2
+    },
+    {
+      "id": "2.4",
+      "name": "Claude usage role check",
+      "status": "ERROR",
+      "summary": "column \"agent_role\" does not exist",
+      "rowCount": 0
+    },
+    {
+      "id": "2.5",
+      "name": "Gemini usage role check",
+      "status": "ERROR",
+      "summary": "column \"agent_role\" does not exist",
+      "rowCount": 0
+    },
+    {
+      "id": "2.6",
+      "name": "Nano for reflection/kg/eval",
+      "status": "FAIL",
+      "summary": "rows=0, nano_runs=0",
+      "rowCount": 0
+    },
+    {
+      "id": "2.7",
+      "name": "Revision cycle reduction",
+      "status": "PASS",
+      "summary": "before=0, after=0",
+      "rowCount": 2
+    },
+    {
+      "id": "2.8.a",
+      "name": "Daily cost trend (7d)",
+      "status": "FAIL",
+      "summary": "latest_day_cost=18.22",
+      "rowCount": 8
+    },
+    {
+      "id": "2.8.b",
+      "name": "24h cost by model",
+      "status": "PASS",
+      "summary": "models=5",
+      "rowCount": 5
+    },
+    {
+      "id": "3.1",
+      "name": "Apply patch reduces output tokens",
+      "status": "FAIL",
+      "summary": "before=0, after=717, drop=0.0%",
+      "rowCount": 1
+    },
+    {
+      "id": "3.2",
+      "name": "Tool search reduces input tokens",
+      "status": "FAIL",
+      "summary": "before=0, after=27237, drop=0.0%",
+      "rowCount": 1
+    },
+    {
+      "id": "3.3",
+      "name": "MCP filtering token reduction",
+      "status": "ERROR",
+      "summary": "column \"agent_role\" does not exist",
+      "rowCount": 0
+    },
+    {
+      "id": "3.4",
+      "name": "Prompt caching proxy check",
+      "status": "ERROR",
+      "summary": "column \"agent_role\" does not exist",
+      "rowCount": 0
+    },
+    {
+      "id": "3.5",
+      "name": "Structured outputs reflection rate",
+      "status": "ERROR",
+      "summary": "operator does not exist: text = uuid",
+      "rowCount": 0
+    },
+    {
+      "id": "3.6.a",
+      "name": "Constitutional evaluations active",
+      "status": "ERROR",
+      "summary": "column \"evaluation\" does not exist",
+      "rowCount": 0
+    },
+    {
+      "id": "3.6.b",
+      "name": "Trust scores updating",
+      "status": "ERROR",
+      "summary": "column \"last_updated\" does not exist",
+      "rowCount": 0
+    },
+    {
+      "id": "3.6.c",
+      "name": "Budget/formal verify audit signals",
+      "status": "ERROR",
+      "summary": "column \"created_at\" does not exist",
+      "rowCount": 0
+    },
+    {
+      "id": "3.7",
+      "name": "Abort rate before/after",
+      "status": "PASS",
+      "summary": "before=24.8%, after=7.3%",
+      "rowCount": 2
+    },
+    {
+      "id": "D1",
+      "name": "Wrong model scan sample",
+      "status": "ERROR",
+      "summary": "column \"agent_role\" does not exist",
+      "rowCount": 0
+    },
+    {
+      "id": "D2",
+      "name": "Capabilities by agent",
+      "status": "ERROR",
+      "summary": "column \"agent_role\" does not exist",
+      "rowCount": 0
+    },
+    {
+      "id": "D3",
+      "name": "Cost per model tier",
+      "status": "PASS",
+      "summary": "models=4",
+      "rowCount": 4
+    },
+    {
+      "id": "D4",
+      "name": "Routing rule hit map",
+      "status": "PASS",
+      "summary": "default_pct=0%",
+      "rowCount": 7
+    },
+    {
+      "id": "D5",
+      "name": "Token savings summary week-over-week",
+      "status": "FAIL",
+      "summary": "avg_input_drop=-13.4%",
+      "rowCount": 2
+    }
+  ],
+  "details": {
+    "1.1": [
+      {
+        "column_name": "routing_capabilities",
+        "data_type": "ARRAY"
+      },
+      {
+        "column_name": "routing_model",
+        "data_type": "text"
+      },
+      {
+        "column_name": "routing_rule",
+        "data_type": "text"
+      }
+    ],
+    "1.2": [
+      {
+        "total_runs": 125,
+        "runs_with_routing": 123,
+        "runs_without_routing": 2
+      }
+    ],
+    "1.3": [
+      {
+        "routing_rule": "standard_code_gen",
+        "routing_model": "gpt-5.4",
+        "runs": 111
+      },
+      {
+        "routing_rule": "financial_compute",
+        "routing_model": "gemini-2.5-pro",
+        "runs": 45
+      },
+      {
+        "routing_rule": "default_generalist",
+        "routing_model": "gpt-5-mini-2025-08-07",
+        "runs": 24
+      },
+      {
+        "routing_rule": "deterministic_skip",
+        "routing_model": "gpt-5-mini-2025-08-07",
+        "runs": 22
+      },
+      {
+        "routing_rule": "code_generation",
+        "routing_model": "gpt-5.4",
+        "runs": 10
+      },
+      {
+        "routing_rule": "grounded_research",
+        "routing_model": "gemini-3.1-pro-preview",
+        "runs": 7
+      },
+      {
+        "routing_rule": "visual_analysis",
+        "routing_model": "gemini-3.1-pro-preview",
+        "runs": 1
+      }
+    ],
+    "1.4.a": {
+      "error": "column \"agent_role\" does not exist"
+    },
+    "1.4.b": {
+      "error": "column \"agent_role\" does not exist"
+    },
+    "1.4.c": {
+      "error": "column \"agent_role\" does not exist"
+    },
+    "1.4.d": {
+      "error": "column \"agent_role\" does not exist"
+    },
+    "1.4.e": {
+      "error": "column \"agent_role\" does not exist"
+    },
+    "1.4.f": {
+      "error": "column \"agent_role\" does not exist"
+    },
+    "1.4.g": {
+      "error": "column \"agent_role\" does not exist"
+    },
+    "1.5": {
+      "error": "column \"agent_role\" does not exist"
+    },
+    "1.6": [
+      {
+        "period": "before",
+        "avg_duration_ms": "165615",
+        "runs": "421"
+      },
+      {
+        "period": "after",
+        "avg_duration_ms": "117835",
+        "runs": "557"
+      }
+    ],
+    "2.1": [
+      {
+        "routing_model": null,
+        "runs": 60,
+        "avg_cost": "0.02268",
+        "avg_input_tokens": "62976",
+        "avg_output_tokens": "5661"
+      },
+      {
+        "routing_model": "gpt-5.4",
+        "runs": 43,
+        "avg_cost": "0.04475",
+        "avg_input_tokens": "27237",
+        "avg_output_tokens": "717"
+      },
+      {
+        "routing_model": "gpt-5-mini-2025-08-07",
+        "runs": 38,
+        "avg_cost": "0.00724",
+        "avg_input_tokens": "33078",
+        "avg_output_tokens": "555"
+      },
+      {
+        "routing_model": "gemini-2.5-pro",
+        "runs": 36,
+        "avg_cost": "0.07869",
+        "avg_input_tokens": "67815",
+        "avg_output_tokens": "60"
+      },
+      {
+        "routing_model": "gemini-3.1-pro-preview",
+        "runs": 7,
+        "avg_cost": "0.04986",
+        "avg_input_tokens": "44795",
+        "avg_output_tokens": "263"
+      }
+    ],
+    "2.2": [
+      {
+        "task": "health_check",
+        "total_runs": 22,
+        "skipped": 0,
+        "completed": 18,
+        "skip_pct": "0.0"
+      },
+      {
+        "task": "platform_health_check",
+        "total_runs": 12,
+        "skipped": 0,
+        "completed": 10,
+        "skip_pct": "0.0"
+      },
+      {
+        "task": "cost_check",
+        "total_runs": 5,
+        "skipped": 0,
+        "completed": 4,
+        "skip_pct": "0.0"
+      },
+      {
+        "task": "freshness_check",
+        "total_runs": 4,
+        "skipped": 0,
+        "completed": 4,
+        "skip_pct": "0.0"
+      }
+    ],
+    "2.3.a": {
+      "error": "column \"agent_role\" does not exist"
+    },
+    "2.3.b": [
+      {
+        "agent": "cto",
+        "before_quality": "86.1",
+        "after_quality": "91.4",
+        "delta": "5.3"
+      },
+      {
+        "agent": "platform-engineer",
+        "before_quality": "78.3",
+        "after_quality": null,
+        "delta": null
+      }
+    ],
+    "2.4": {
+      "error": "column \"agent_role\" does not exist"
+    },
+    "2.5": {
+      "error": "column \"agent_role\" does not exist"
+    },
+    "2.6": [],
+    "2.7": [
+      {
+        "period": "before (prev week)",
+        "revisions": 0
+      },
+      {
+        "period": "after (this week)",
+        "revisions": 0
+      }
+    ],
+    "2.8.a": [
+      {
+        "day": "2026-03-04T06:00:00.000Z",
+        "runs": 10,
+        "skipped": 0,
+        "total_cost": "0.36",
+        "avg_cost_per_run": "0.03557"
+      },
+      {
+        "day": "2026-03-05T06:00:00.000Z",
+        "runs": 571,
+        "skipped": 0,
+        "total_cost": "23.99",
+        "avg_cost_per_run": "0.04253"
+      },
+      {
+        "day": "2026-03-06T06:00:00.000Z",
+        "runs": 731,
+        "skipped": 0,
+        "total_cost": "27.27",
+        "avg_cost_per_run": "0.03814"
+      },
+      {
+        "day": "2026-03-07T06:00:00.000Z",
+        "runs": 871,
+        "skipped": 0,
+        "total_cost": "35.43",
+        "avg_cost_per_run": "0.04120"
+      },
+      {
+        "day": "2026-03-08T06:00:00.000Z",
+        "runs": 197,
+        "skipped": 0,
+        "total_cost": "8.93",
+        "avg_cost_per_run": "0.04629"
+      },
+      {
+        "day": "2026-03-09T05:00:00.000Z",
+        "runs": 264,
+        "skipped": 0,
+        "total_cost": "21.26",
+        "avg_cost_per_run": "0.08336"
+      },
+      {
+        "day": "2026-03-10T05:00:00.000Z",
+        "runs": 579,
+        "skipped": 0,
+        "total_cost": "12.31",
+        "avg_cost_per_run": "0.02340"
+      },
+      {
+        "day": "2026-03-11T05:00:00.000Z",
+        "runs": 943,
+        "skipped": 0,
+        "total_cost": "18.22",
+        "avg_cost_per_run": "0.02061"
+      }
+    ],
+    "2.8.b": [
+      {
+        "routing_model": null,
+        "runs": 739,
+        "total_cost": "10.81"
+      },
+      {
+        "routing_model": "gpt-5.4",
+        "runs": 121,
+        "total_cost": "4.23"
+      },
+      {
+        "routing_model": "gemini-2.5-pro",
+        "runs": 45,
+        "total_cost": "2.97"
+      },
+      {
+        "routing_model": "gemini-3.1-pro-preview",
+        "runs": 8,
+        "total_cost": "0.35"
+      },
+      {
+        "routing_model": "gpt-5-mini-2025-08-07",
+        "runs": 46,
+        "total_cost": "0.29"
+      }
+    ],
+    "3.1": [
+      {
+        "period": "after",
+        "runs": 43,
+        "avg_output_tokens": "717",
+        "avg_input_tokens": "27237"
+      }
+    ],
+    "3.2": [
+      {
+        "period": "after",
+        "runs": 43,
+        "avg_input_tokens": "27237"
+      }
+    ],
+    "3.3": {
+      "error": "column \"agent_role\" does not exist"
+    },
+    "3.4": {
+      "error": "column \"agent_role\" does not exist"
+    },
+    "3.5": {
+      "error": "operator does not exist: text = uuid"
+    },
+    "3.6.a": {
+      "error": "column \"evaluation\" does not exist"
+    },
+    "3.6.b": {
+      "error": "column \"last_updated\" does not exist"
+    },
+    "3.6.c": {
+      "error": "column \"created_at\" does not exist"
+    },
+    "3.7": [
+      {
+        "period": "after",
+        "total": 4166,
+        "aborted": 304,
+        "abort_pct": "7.3"
+      },
+      {
+        "period": "before",
+        "total": 3078,
+        "aborted": 762,
+        "abort_pct": "24.8"
+      }
+    ],
+    "D1": {
+      "error": "column \"agent_role\" does not exist"
+    },
+    "D2": {
+      "error": "column \"agent_role\" does not exist"
+    },
+    "D3": [
+      {
+        "routing_model": "gpt-5.4",
+        "runs": 121,
+        "total_cost": "4.23",
+        "cost_per_run": "0.03499",
+        "total_input_mtok": "2.53",
+        "total_output_mtok": "0.06"
+      },
+      {
+        "routing_model": "gemini-2.5-pro",
+        "runs": 45,
+        "total_cost": "2.97",
+        "cost_per_run": "0.06599",
+        "total_input_mtok": "2.61",
+        "total_output_mtok": "0.00"
+      },
+      {
+        "routing_model": "gemini-3.1-pro-preview",
+        "runs": 8,
+        "total_cost": "0.35",
+        "cost_per_run": "0.04363",
+        "total_input_mtok": "0.31",
+        "total_output_mtok": "0.00"
+      },
+      {
+        "routing_model": "gpt-5-mini-2025-08-07",
+        "runs": 46,
+        "total_cost": "0.29",
+        "cost_per_run": "0.00624",
+        "total_input_mtok": "1.33",
+        "total_output_mtok": "0.02"
+      }
+    ],
+    "D4": [
+      {
+        "routing_rule": "standard_code_gen",
+        "hits": 111,
+        "pct": "50.5"
+      },
+      {
+        "routing_rule": "financial_compute",
+        "hits": 45,
+        "pct": "20.5"
+      },
+      {
+        "routing_rule": "default_generalist",
+        "hits": 24,
+        "pct": "10.9"
+      },
+      {
+        "routing_rule": "deterministic_skip",
+        "hits": 22,
+        "pct": "10.0"
+      },
+      {
+        "routing_rule": "code_generation",
+        "hits": 10,
+        "pct": "4.5"
+      },
+      {
+        "routing_rule": "grounded_research",
+        "hits": 7,
+        "pct": "3.2"
+      },
+      {
+        "routing_rule": "visual_analysis",
+        "hits": 1,
+        "pct": "0.5"
+      }
+    ],
+    "D5": [
+      {
+        "period": "last_week",
+        "runs": 1743,
+        "total_input_mtok": "134.63",
+        "total_output_mtok": "1.88",
+        "total_cost": "40.27",
+        "avg_input_per_run": "77242",
+        "avg_output_per_run": "1080"
+      },
+      {
+        "period": "this_week",
+        "runs": 3337,
+        "total_input_mtok": "292.33",
+        "total_output_mtok": "6.53",
+        "total_cost": "124.07",
+        "avg_input_per_run": "87602",
+        "avg_output_per_run": "1957"
+      }
+    ]
+  }
+}

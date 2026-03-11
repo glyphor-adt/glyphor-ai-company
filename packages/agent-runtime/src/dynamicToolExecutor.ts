@@ -13,7 +13,7 @@
  *   5. Result is returned to the agent like any other tool
  */
 
-import type { ToolResult, GeminiToolDeclaration } from './types.js';
+import type { ToolResult, ToolDeclaration } from './types.js';
 import type { RegisteredToolDef, ApiToolConfig } from './toolRegistry.js';
 import { loadRegisteredTool } from './toolRegistry.js';
 import { isKnownToolAsync } from './toolRegistry.js';
@@ -246,7 +246,7 @@ function extractPath(obj: Record<string, unknown>, path: string): unknown {
 // ─── Dynamic Tool Declarations ──────────────────────────────────
 
 /** Cache of dynamic tool declarations. Refreshed every 60s. */
-let _dynamicDeclCache: GeminiToolDeclaration[] = [];
+let _dynamicDeclCache: ToolDeclaration[] = [];
 let _dynamicDeclCacheExpiry = 0;
 const DECL_CACHE_TTL = 60_000;
 
@@ -257,7 +257,7 @@ const DECL_CACHE_TTL = 60_000;
  */
 export async function loadDynamicToolDeclarations(
   staticToolNames: Set<string>,
-): Promise<GeminiToolDeclaration[]> {
+): Promise<ToolDeclaration[]> {
   if (Date.now() < _dynamicDeclCacheExpiry && _dynamicDeclCache.length > 0) {
     return _dynamicDeclCache.filter((d) => !staticToolNames.has(d.name));
   }
@@ -272,12 +272,12 @@ export async function loadDynamicToolDeclarations(
       [],
     );
 
-    _dynamicDeclCache = rows.map((row): GeminiToolDeclaration => {
+    _dynamicDeclCache = rows.map((row): ToolDeclaration => {
       const required = Object.entries(row.parameters ?? {})
         .filter(([, v]) => v.required)
         .map(([k]) => k);
 
-      const decl: GeminiToolDeclaration = {
+      const decl: ToolDeclaration = {
         name: row.name,
         description: row.description,
         parameters: {

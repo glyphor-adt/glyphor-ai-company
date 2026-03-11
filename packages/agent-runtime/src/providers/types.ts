@@ -5,7 +5,7 @@
  * interface and maps its native API to these unified types.
  */
 
-import type { ConversationTurn, GeminiToolDeclaration } from '../types.js';
+import type { ConversationTurn, ToolDeclaration } from '../types.js';
 
 // ─── Provider Identification ─────────────────────────────────
 
@@ -51,7 +51,7 @@ export interface UnifiedModelRequest {
   model: string;
   systemInstruction: string;
   contents: ConversationTurn[];
-  tools?: GeminiToolDeclaration[];
+  tools?: ToolDeclaration[];
   temperature?: number;
   topP?: number;
   topK?: number;

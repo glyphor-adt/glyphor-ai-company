@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { filterToolDeclarations, getToolSubset } from '../toolSubsets.js';
-import type { GeminiToolDeclaration } from '../types.js';
+import type { ToolDeclaration } from '../types.js';
 
-const declarations: GeminiToolDeclaration[] = [
+const declarations: ToolDeclaration[] = [
   { name: 'web_search', description: 'search', parameters: { type: 'object', properties: {} } },
   { name: 'web_fetch', description: 'fetch', parameters: { type: 'object', properties: {} } },
   { name: 'save_memory', description: 'memory', parameters: { type: 'object', properties: {} } },

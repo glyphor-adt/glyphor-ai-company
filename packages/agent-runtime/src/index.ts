@@ -101,6 +101,7 @@ export type {
   ConversationAttachment,
   ConversationTurn,
   ContextInjector,
+  ToolDeclaration,
   GeminiToolDeclaration,
   IMemoryBus,
   ReasoningEnvelope,

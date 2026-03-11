@@ -1983,7 +1983,7 @@ ToolExecutor.execute(toolName, params)
 
 **LLM tool declarations** (`loadDynamicToolDeclarations`):
 - On turn 1, `companyAgentRunner.ts` calls `loadDynamicToolDeclarations(staticToolNames)`
-- Loads all active entries from `tool_registry` DB as `GeminiToolDeclaration[]`
+- Loads all active entries from `tool_registry` DB as `ToolDeclaration[]`
 - Excludes tools already in the static set (prevents duplicates)
 - Merges into `effectiveTools` sent to the LLM so it can discover and call dynamic tools
 - 60-second cache to avoid per-run DB queries
