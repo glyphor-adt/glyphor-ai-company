@@ -288,13 +288,13 @@ export class GraphChatHandler {
     const prefixed = `**${displayName}:** ${responseText}`;
     const htmlContent = markdownToTeamsHtml(prefixed);
 
-    // 1) Try Agent 365 MCP server (delegated permissions via oauth2PermissionGrants)
+    // 1) Try Agent 365 MCP server (delegated permissions via per-agent identity)
     if (this.a365TeamsClient) {
       try {
-        await this.a365TeamsClient.postChatMessage(chatId, htmlContent);
+        await this.a365TeamsClient.postChatMessage(chatId, htmlContent, agentRole);
         return; // success
       } catch (a365Err) {
-        console.warn(`[GraphChat] A365 MCP reply failed, trying Graph API: ${(a365Err as Error).message}`);
+        console.warn(`[GraphChat] A365 MCP reply failed for ${agentRole}, trying Graph API: ${(a365Err as Error).message}`);
       }
     }
 

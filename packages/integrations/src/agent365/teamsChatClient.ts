@@ -14,8 +14,9 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { McpToolServerConfigurationService } from '@microsoft/agents-a365-tooling';
 import type { MCPServerConfig } from '@microsoft/agents-a365-tooling';
-import { ConfidentialClientApplication } from '@azure/msal-node';
-import { getAgentIdentityAppId } from '@glyphor/agent-runtime';
+import { MsalTokenProvider } from '@microsoft/agents-hosting';
+import type { AuthConfiguration } from '@microsoft/agents-hosting';
+import { getAgentIdentityAppId, getAgentBlueprintSpId, getAgentEntraUserId } from '@glyphor/agent-runtime';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -130,7 +131,7 @@ function loadServerConfigsFromManifest(): MCPServerConfig[] {
 export class A365TeamsChatClient {
   private mcpClient: Client | null = null;
   private transport: StreamableHTTPClientTransport | null = null;
-  private msalApp: ConfidentialClientApplication;
+  private tokenProvider: MsalTokenProvider;
   private audience: string;
   private readonly chatCache = new Map<string, string>();
 
@@ -141,13 +142,12 @@ export class A365TeamsChatClient {
     audience?: string,
   ) {
     this.audience = audience ?? 'ea9ffc3e-8a23-4a7d-836d-234d7c7565c1';
-    this.msalApp = new ConfidentialClientApplication({
-      auth: {
-        clientId,
-        clientSecret,
-        authority: `https://login.microsoftonline.com/${tenantId}`,
-      },
-    });
+    const authConfig: AuthConfiguration = {
+      clientId,
+      clientSecret,
+      tenantId,
+    };
+    this.tokenProvider = new MsalTokenProvider(authConfig);
   }
 
   /**
@@ -207,8 +207,8 @@ export class A365TeamsChatClient {
     return [];
   }
 
-  private async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
-    const client = await this.ensureConnected();
+  private async callTool(name: string, args: Record<string, unknown>, agentRole?: string): Promise<unknown> {
+    const client = await this.ensureConnected(agentRole);
     const result = await client.callTool({ name, arguments: args });
 
     if (result.isError) {
@@ -338,22 +338,47 @@ export class A365TeamsChatClient {
     );
   }
 
-  /** Acquire MSAL token for the Agent 365 Tools API */
-  private async getToken(): Promise<string> {
-    const result = await this.msalApp.acquireTokenByClientCredential({
-      scopes: [`${this.audience}/.default`],
-    });
-    if (!result?.accessToken) {
-      throw new Error('MSAL returned no access token for Agent 365 Tools API');
+  /**
+   * Acquire an agentic user token for the Agent 365 Tools API.
+   * Uses MsalTokenProvider.getAgenticUserToken() 3-step flow
+   * to authenticate as the specific agent user.
+   */
+  private async getToken(agentRole?: string): Promise<string> {
+    const agentAppInstanceId = (agentRole ? getAgentBlueprintSpId(agentRole) : null)
+      ?? process.env.AGENT365_APP_INSTANCE_ID;
+    const agenticUserId = (agentRole ? getAgentEntraUserId(agentRole) : null)
+      ?? process.env.AGENT365_AGENTIC_USER_ID;
+
+    if (!agentAppInstanceId || !agenticUserId) {
+      throw new Error(
+        `[A365Teams] No identity for agent ${agentRole ?? 'unknown'}. ` +
+        'Set blueprintSpId/entraUserId in agentIdentities.json or AGENT365_APP_INSTANCE_ID/AGENT365_AGENTIC_USER_ID env vars.'
+      );
     }
-    return result.accessToken;
+
+    const scopes = [`${this.audience}/.default`];
+    return this.tokenProvider.getAgenticUserToken(
+      this.tenantId,
+      agentAppInstanceId,
+      agenticUserId,
+      scopes,
+    );
   }
 
-  /** Connect to the mcp_TeamsServer MCP endpoint (lazy, reusable) */
-  private async ensureConnected(): Promise<Client> {
+  /**
+   * Connect to the mcp_TeamsServer MCP endpoint.
+   * Reconnects when agentRole changes to use the correct identity token.
+   */
+  private lastAgentRole: string | undefined;
+  private async ensureConnected(agentRole?: string): Promise<Client> {
+    // Reconnect if agent role changed (different identity = different auth token)
+    if (this.mcpClient && agentRole !== this.lastAgentRole) {
+      await this.close();
+    }
     if (this.mcpClient) return this.mcpClient;
 
-    const authToken = await this.getToken();
+    const authToken = await this.getToken(agentRole);
+    this.lastAgentRole = agentRole;
 
     // Discover the mcp_TeamsServer config
     const configService = new McpToolServerConfigurationService();
@@ -378,7 +403,7 @@ export class A365TeamsChatClient {
     });
 
     await this.mcpClient.connect(this.transport);
-    console.log('[A365Teams] Connected to mcp_TeamsServer');
+    console.log(`[A365Teams] Connected to mcp_TeamsServer as ${agentRole ?? 'shared'}`);
     return this.mcpClient;
   }
 
@@ -386,14 +411,14 @@ export class A365TeamsChatClient {
    * Post a message in a Teams chat using the Agent 365 MCP server.
    * Uses mcp_graph_chat_postMessage (POST /v1.0/chats/{chat-id}/messages).
    */
-  async postChatMessage(chatId: string, content: string): Promise<void> {
+  async postChatMessage(chatId: string, content: string, agentRole?: string): Promise<void> {
     await this.callTool('mcp_graph_chat_postMessage', {
       'chat-id': chatId,
       body: {
         contentType: 'html',
         content,
       },
-    });
+    }, agentRole);
   }
 
   /** Disconnect the MCP client */
