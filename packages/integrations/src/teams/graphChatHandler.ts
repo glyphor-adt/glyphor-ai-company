@@ -23,7 +23,6 @@
 import { AGENT_EMAIL_MAP, FOUNDER_EMAILS, type AgentEmailEntry } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 import type { GraphTeamsClient } from './graphClient.js';
-import type { TeamsBotHandler } from './bot.js';
 import type { A365TeamsChatClient } from '../agent365/teamsChatClient.js';
 import { formatTeamsMessage, markdownToTeamsHtml } from './messageFormatter.js';
 
@@ -103,7 +102,6 @@ const DEDUP_CLEANUP_INTERVAL = 60 * 1000;
 
 export class GraphChatHandler {
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
-  private teamsBot: TeamsBotHandler | null = null;
   private a365TeamsClient: A365TeamsChatClient | null = null;
 
   constructor(
@@ -122,11 +120,6 @@ export class GraphChatHandler {
   /** Expected client state for subscription validation */
   static get CLIENT_STATE(): string {
     return CLIENT_STATE;
-  }
-
-  /** Set the Teams bot handler for proactive reply delivery */
-  setTeamsBot(bot: TeamsBotHandler): void {
-    this.teamsBot = bot;
   }
 
   /** Set the Agent 365 Teams MCP client for posting chat replies */
@@ -303,20 +296,7 @@ export class GraphChatHandler {
     try {
       await this.replyInChat(replyToken, chatId, prefixed);
     } catch (graphErr) {
-      console.warn(`[GraphChat] Graph reply failed, falling back to bot: ${(graphErr as Error).message}`);
-      // 3) Fallback: send via Bot Framework proactive DM
-      if (this.teamsBot && senderId) {
-        try {
-          const formatted = formatTeamsMessage(displayName, responseText);
-          if (formatted.kind === 'card' && formatted.card) {
-            await this.teamsBot.sendProactiveCardToUser(senderId, formatted.card as unknown as Record<string, unknown>);
-          } else {
-            await this.teamsBot.sendProactiveToUser(senderId, formatted.text!);
-          }
-        } catch (botErr) {
-          console.error(`[GraphChat] All reply methods failed: ${(botErr as Error).message}`);
-        }
-      }
+      console.error(`[GraphChat] Graph reply also failed: ${(graphErr as Error).message}`);
     }
   }
 

@@ -11,7 +11,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GlyphorEventBus, ModelClient, promptCache, getRedisCache, WorkflowOrchestrator } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment, WorkflowStatus } from '@glyphor/agent-runtime';
-import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, TeamsBotHandler, extractBearerToken, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, loadConversationRefs, A365TeamsChatClient } from '@glyphor/integrations';
+import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, A365TeamsChatClient } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
 import { systemQuery } from '@glyphor/shared/db';
 import { EventRouter } from './eventRouter.js';
@@ -438,14 +438,6 @@ const cotEngine = new CotEngine(strategyModelClient);
 const deepDiveEngine = new DeepDiveEngine(strategyModelClient);
 const strategyLabEngine = new StrategyLabEngine(strategyModelClient, trackedAgentExecutor);
 
-// Teams Bot — initialized from env vars (BOT_APP_ID, BOT_APP_SECRET, BOT_TENANT_ID)
-const teamsBot = TeamsBotHandler.fromEnv(
-  async (agentRole, task, payload) => {
-    const result = await trackedAgentExecutor(agentRole as CompanyAgentRole, task, payload);
-    return result ?? undefined;
-  },
-);
-
 // ─── Graph Chat Handler (1:1 DMs to agent Entra accounts) ──────
 
 const GRAPH_CHAT_WEBHOOK_PATH = '/api/graph/chat-webhook';
@@ -474,16 +466,12 @@ const chatSubscriptionManager = graphChatClient
 
 // Initialize Graph chat subscriptions (async, non-blocking)
 if (graphChatHandler && chatSubscriptionManager) {
-  if (teamsBot) graphChatHandler.setTeamsBot(teamsBot);
-
   // Wire Agent 365 Teams MCP client for chat replies (delegated permissions)
   const a365TeamsClient = A365TeamsChatClient.fromEnv();
   if (a365TeamsClient) graphChatHandler.setA365TeamsClient(a365TeamsClient);
 
   (async () => {
     try {
-      const refCount = await loadConversationRefs();
-      console.log(`[ConversationStore] Loaded ${refCount} conversation references from DB`);
       await graphChatHandler.resolveAgentUserIds();
       const sub = await chatSubscriptionManager.subscribe();
       if (sub) chatSubscriptionManager.startAutoRenewal();
@@ -1100,41 +1088,6 @@ const server = createServer(async (req, res) => {
         'Access-Control-Max-Age': '86400',
       });
       res.end();
-      return;
-    }
-
-    // Teams Bot endpoint (Bot Framework messages)
-    if (method === 'POST' && url === '/api/teams/messages') {
-      if (!teamsBot) {
-        json(res, 503, { error: 'Teams Bot not configured. Set BOT_APP_ID, BOT_APP_SECRET, BOT_TENANT_ID.' });
-        return;
-      }
-
-      // Validate JWT from Bot Framework
-      const token = extractBearerToken(req);
-      if (!token) {
-        json(res, 401, { error: 'Missing authorization token' });
-        return;
-      }
-
-      const isValid = await teamsBot.validateToken(token);
-      if (!isValid) {
-        json(res, 403, { error: 'Invalid or expired token' });
-        return;
-      }
-
-      const activity = JSON.parse(await readBody(req));
-      // Respond 200 immediately, process async
-      json(res, 200, { status: 'accepted' });
-      teamsBot.handleActivity(activity).catch((err) => {
-        console.error('[TeamsBot] Error handling activity:', (err as Error).message);
-      });
-
-      // Note: WakeRouter event removed — handleActivity already routes messages
-      // to the correct agent and executes them. Firing a separate wake event
-      // caused duplicate execution and name resolution bugs (display names
-      // like "Rachel Kim" instead of role slugs like "vp-sales").
-
       return;
     }
 
