@@ -187,6 +187,15 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     payload: {},
     enabled: true,
   },
+  {
+    id: 'ops-knowledge-hygiene',
+    agentRole: 'ops',
+    schedule: '0 12 * * *',  // 7:00 AM CT — refresh doctrine before morning briefing
+    timezone: 'America/Chicago',
+    task: 'knowledge_hygiene',
+    payload: {},
+    enabled: true,
+  },
 
   // ─── Sub-Team Agent Schedules ────────────────────────────────
 

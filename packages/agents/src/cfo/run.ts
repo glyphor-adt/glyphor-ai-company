@@ -96,7 +96,11 @@ Steps:
 4. Analyze: Are costs rising? Is margin healthy? Any anomalies?
 5. Use write_financial_report to archive a "daily_costs" report
 6. Use log_activity to record your analysis
-7. If there are cost spikes (>20% day-over-day) or margin concerns, create_decision to alert Andrew`;
+7. If there are cost spikes (>20% day-over-day) or margin concerns, create_decision to alert Andrew
+8. IMPORTANT: Update the company knowledge base "Current Metrics" section with the latest numbers:
+   a. Use read_company_doctrine with section_filter "metrics" to get the section ID
+   b. Use update_doctrine_section with the section ID and updated content including current MRR, paying users, build success rates, infrastructure cost MTD, gross margin, and active agent count
+   c. Also update the company pulse via update_company_pulse with mrr and mrr_change_pct`;
       break;
 
     case 'weekly_financial_summary':

@@ -210,9 +210,14 @@ Steps:
 4. Use get_process_patterns to identify patterns that may need attention
 5. Use get_authority_proposals to check for overdue proposals
 6. If any routes need updating, use create_knowledge_route to add new ones
-7. Report on the overall health of the knowledge system
+7. IMPORTANT — Refresh stale doctrine sections:
+   a. Use read_company_doctrine to get all knowledge base sections with their IDs
+   b. For the "Infrastructure" section: use query_cost_trends to get current infrastructure costs, then update_doctrine_section with accurate cost data
+   c. For the "Current Metrics" section: check if the metrics look stale (>24h old) — if so, use query_agent_health to get active agent count and update_doctrine_section with refreshed operational metrics
+   d. For "Current Priorities": review if priorities still match current org knowledge and pulse — update if materially outdated
+8. Report on the overall health of the knowledge system
 
-Goal: Ensure knowledge routing is efficient, stale information is flagged, and the collective intelligence infrastructure is well-maintained.`;
+Goal: Ensure knowledge routing is efficient, stale information is flagged, doctrine sections reflect current reality, and the collective intelligence infrastructure is well-maintained.`;
       break;
 
     default:

@@ -512,5 +512,63 @@ export function createCollectiveIntelligenceTools(
         return { success: true, data: proposals };
       },
     },
+
+    // ─── KNOWLEDGE BASE SECTION UPDATES ─────────────────────────
+
+    {
+      name: 'update_doctrine_section',
+      description: 'Update a company knowledge base / doctrine section (e.g. metrics, current_priorities, infrastructure). Use read_company_doctrine first to get section IDs, then update the content with current data. Increments the version automatically.',
+      parameters: {
+        section_id: {
+          type: 'string',
+          description: 'UUID of the knowledge base section to update (get from read_company_doctrine)',
+          required: true,
+        },
+        content: {
+          type: 'string',
+          description: 'New content for the section (replaces existing content entirely)',
+          required: true,
+        },
+        title: {
+          type: 'string',
+          description: 'Optional new title for the section',
+          required: false,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const sectionId = params.section_id as string;
+        const content = params.content as string;
+        const title = params.title as string | undefined;
+
+        if (!sectionId || !content) {
+          return { success: false, error: 'section_id and content are required' };
+        }
+
+        // Bump version
+        const sections = await ci.getKnowledgeBaseSections();
+        const section = sections.find((s) => s.id === sectionId);
+        if (!section) {
+          return { success: false, error: `Section ${sectionId} not found` };
+        }
+
+        const updates: Record<string, unknown> = {
+          content,
+          last_edited_by: ctx.agentRole,
+        };
+        if (title) updates.title = title;
+
+        await ci.updateKnowledgeBaseSection(sectionId, updates);
+
+        return {
+          success: true,
+          data: {
+            section: section.section,
+            updated_by: ctx.agentRole,
+            previous_version: section.version,
+          },
+          memoryKeysWritten: 1,
+        };
+      },
+    },
   ];
 }
