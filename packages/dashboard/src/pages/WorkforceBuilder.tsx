@@ -274,10 +274,10 @@ export default function WorkforceBuilder() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={exportJSON} disabled={!nodes.length} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-secondary transition-colors hover:border-cyan hover:text-cyan disabled:opacity-40">
+          <button onClick={exportJSON} disabled={!nodes.length} className="rounded-lg border border-primary/30 bg-black/20 px-4 py-2 text-sm font-medium text-txt-secondary backdrop-blur-[8px] transition-colors hover:border-cyan hover:text-cyan disabled:opacity-40">
             <span className="flex items-center gap-1"><MdFileDownload /> Export JSON</span>
           </button>
-          <button onClick={deployAll} disabled={deploying || !nodes.length} className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40">
+          <button onClick={deployAll} disabled={deploying || !nodes.length} className="rounded-lg bg-cyan/10 border border-cyan/40 px-5 py-2 text-sm font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40">
             {deploying ? 'Deploying...' : 'Deploy All'}
           </button>
         </div>
@@ -285,7 +285,7 @@ export default function WorkforceBuilder() {
 
       {/* Stats bar */}
       <div className="mb-3 flex items-center gap-3">
-        <span className="rounded-full border border-border bg-raised px-3 py-1 text-[12px] text-txt-muted">
+        <span className="rounded-full border border-primary/25 bg-black/20 px-3 py-1 text-[12px] text-txt-muted backdrop-blur-[8px]">
           {nodes.length} agent{nodes.length !== 1 ? 's' : ''} · {edges.length} relationship{edges.length !== 1 ? 's' : ''}
           <span className="mx-1.5 text-txt-faint">·</span>
           <span className="text-txt-faint">drag from palette · connect nodes · click to configure</span>
@@ -305,9 +305,9 @@ export default function WorkforceBuilder() {
       </div>
 
       {/* ── Main layout ── */}
-      <div className="flex flex-1 overflow-hidden rounded-xl border border-border">
+      <div className="glass-card flex flex-1 overflow-hidden rounded-xl border border-primary/25 bg-black/18 backdrop-blur-[10px]">
         {/* Palette */}
-        <div className="w-[220px] shrink-0 border-r border-border bg-raised/50 overflow-y-auto p-4">
+        <div className="w-[220px] shrink-0 border-r border-primary/20 bg-black/22 overflow-y-auto p-4 backdrop-blur-[8px]">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Agent Templates</p>
           <p className="mb-3 text-[11px] text-txt-faint">Drag onto canvas</p>
           <div className="space-y-1.5">
@@ -316,7 +316,7 @@ export default function WorkforceBuilder() {
                 key={t.id}
                 draggable
                 onDragStart={e => { e.dataTransfer.setData('template-id', t.id); e.dataTransfer.effectAllowed = 'copy'; }}
-                className="flex cursor-grab items-center gap-2.5 rounded-lg border border-border bg-base px-3 py-2 text-sm transition-all hover:border-cyan/40 active:cursor-grabbing active:scale-[0.97]"
+                className="flex cursor-grab items-center gap-2.5 rounded-lg border border-primary/20 bg-black/25 px-3 py-2 text-sm backdrop-blur-[8px] transition-all hover:border-cyan/40 active:cursor-grabbing active:scale-[0.97]"
               >
                 <span className="grid h-6 w-6 shrink-0 place-items-center rounded" style={{ background: `${t.color}20`, color: t.color }}><t.icon className="h-3.5 w-3.5" /></span>
                 <span className="font-medium text-txt-primary">{t.label}</span>
@@ -377,14 +377,14 @@ export default function WorkforceBuilder() {
                 <div
                   key={node.id}
                   onMouseDown={e => onNodeDown(e, node.id)}
-                  className={`absolute select-none rounded-xl border-2 bg-base px-4 py-2.5 transition-shadow ${
+                  className={`absolute select-none rounded-xl border-2 bg-black/35 px-4 py-2.5 backdrop-blur-[8px] transition-shadow ${
                     connectFrom && !isConn ? 'cursor-pointer hover:border-cyan/60' : 'cursor-grab active:cursor-grabbing'
                   } ${
                     isSel
                       ? 'border-cyan shadow-lg'
                       : isConn
                       ? 'border-tier-yellow shadow-lg'
-                      : 'border-border hover:border-border-hover shadow-md'
+                      : 'border-primary/25 hover:border-primary/45 shadow-md'
                   }`}
                   style={{
                     left: node.x,
@@ -424,7 +424,7 @@ export default function WorkforceBuilder() {
           {/* ── Config Panel (right overlay) ── */}
           {selected && (
             <div
-              className="absolute right-0 top-0 h-full w-[310px] overflow-y-auto border-l border-border bg-base/95 backdrop-blur-sm shadow-prism-lg"
+              className="absolute right-0 top-0 h-full w-[310px] overflow-y-auto border-l border-primary/25 bg-black/70 backdrop-blur-xl shadow-prism-lg"
               onClick={e => e.stopPropagation()}
             >
               <div className="space-y-3 px-4 py-4">
@@ -434,7 +434,7 @@ export default function WorkforceBuilder() {
                     <span className="text-lg" style={{ color: TEMPLATES.find(x => x.id === selected.templateId)?.color }}>{(() => { const T = TEMPLATES.find(x => x.id === selected.templateId); return T ? <T.icon className="h-5 w-5" /> : <MdStar className="h-5 w-5" />; })()}</span>
                     <h3 className="text-sm font-semibold text-txt-primary">Configure Agent</h3>
                   </div>
-                  <button onClick={() => setSelectedId(null)} className="grid h-6 w-6 place-items-center rounded text-txt-faint hover:bg-raised hover:text-txt-primary transition-colors"><MdClose /></button>
+                  <button onClick={() => setSelectedId(null)} className="grid h-6 w-6 place-items-center rounded text-txt-faint transition-colors hover:bg-black/35 hover:text-txt-primary"><MdClose /></button>
                 </div>
 
                 {/* Fields */}
@@ -471,7 +471,7 @@ export default function WorkforceBuilder() {
                 </Fld>
 
                 {/* Relationships */}
-                <div className="border-t border-border pt-3">
+                <div className="border-t border-primary/20 pt-3">
                   <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Relationships</p>
                   {edges.filter(e => e.from === selectedId || e.to === selectedId).map(edge => {
                     const isReporter = edge.from === selectedId;
@@ -495,7 +495,7 @@ export default function WorkforceBuilder() {
                     className={`mt-2 w-full rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
                       connectFrom === selectedId
                         ? 'border-tier-yellow/40 bg-tier-yellow/10 text-tier-yellow'
-                        : 'border-border text-txt-muted hover:border-cyan hover:text-cyan'
+                        : 'border-primary/30 bg-black/20 text-txt-muted hover:border-cyan hover:text-cyan'
                     }`}
                   >
                     {connectFrom === selectedId ? 'Cancel — click target node' : <span className="flex items-center gap-1">Connect to Manager <MdArrowForward /></span>}
@@ -503,7 +503,7 @@ export default function WorkforceBuilder() {
                 </div>
 
                 {/* Actions */}
-                <div className="border-t border-border pt-3">
+                <div className="border-t border-primary/20 pt-3">
                   <button
                     onClick={deleteSelected}
                     className="w-full rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-2 text-xs font-medium text-prism-critical hover:bg-prism-critical/20 transition-colors"

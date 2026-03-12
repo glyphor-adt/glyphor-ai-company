@@ -38,8 +38,8 @@ export const GLASS_DIALOG =
 
 /** Glass button (secondary / ghost style) */
 export const GLASS_BTN =
-  'bg-black/30 backdrop-blur-[10px] border border-white/[0.12] shadow-[0_8px_32px_rgba(31,38,135,0.37)] hover:border-primary/60 hover:shadow-[var(--glow-cyan-lg)] transition-all';
+  'bg-black/30 backdrop-blur-[10px] border border-primary/30 shadow-[0_8px_32px_rgba(31,38,135,0.37)] hover:border-primary/60 hover:shadow-[var(--glow-cyan-lg)] transition-all';
 
 /** Glass primary button (cyan accent) */
 export const GLASS_BTN_PRIMARY =
-  'rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white border border-cyan/40 shadow-[var(--glow-cyan-md)] hover:shadow-[var(--glow-cyan-lg)] hover:brightness-110 transition-all';
+  'rounded-lg bg-cyan/10 px-5 py-2 text-sm font-semibold text-cyan border border-cyan/40 shadow-[var(--glow-cyan-md)] hover:bg-cyan/20 hover:shadow-[var(--glow-cyan-lg)] transition-all';

@@ -493,7 +493,7 @@ export default function AgentSettings() {
 
           <div className="mt-4 flex items-center justify-end gap-3">
             {saveError && <span className="text-sm text-prism-critical">{saveError}</span>}
-            <button onClick={handleSave} disabled={saving} className="rounded-lg bg-cyan px-6 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40">
+            <button onClick={handleSave} disabled={saving} className="rounded-lg bg-cyan/10 border border-cyan/40 px-6 py-2 text-sm font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40">
               {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
@@ -603,7 +603,7 @@ export default function AgentSettings() {
                 <button
                   onClick={handleSavePrompt}
                   disabled={savingPrompt}
-                  className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+                  className="rounded-lg bg-cyan/10 border border-cyan/40 px-5 py-2 text-sm font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40"
                 >
                   {savedPrompt ? 'Saved!' : savingPrompt ? 'Saving...' : 'Save Prompt'}
                 </button>

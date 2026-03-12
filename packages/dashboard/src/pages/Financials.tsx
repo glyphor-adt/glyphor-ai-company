@@ -587,11 +587,12 @@ export default function Financials() {
   const { data: reflectionData, loading: reflectionLoading } = useAgentReflections(30);
 
   const verificationCounts = useMemo(() => {
-    const counts: Record<string, number> = { none: 0, self_critique: 0, cross_model: 0, conditional: 0, unknown: 0 };
+    const counts: Record<string, number> = { none: 0, self_critique: 0, cross_model: 0, conditional: 0 };
     for (const r of vrData) {
-      const tier = (r?.verification_tier as string) ?? (r?.['verification'] as string) ?? 'unknown';
-      const key = ['none', 'self_critique', 'cross_model', 'conditional'].includes(tier) ? tier : 'unknown';
-      counts[key] = (counts[key] ?? 0) + 1;
+      const raw = (r?.verification_tier as string) ?? (r?.['verification'] as string) ?? null;
+      if (raw == null) continue;
+      const key = ['none', 'self_critique', 'cross_model', 'conditional'].includes(raw) ? raw : null;
+      if (key) counts[key] = (counts[key] ?? 0) + 1;
     }
     return Object.entries(counts)
       .filter(([, count]) => count > 0)
@@ -599,24 +600,31 @@ export default function Financials() {
   }, [vrData]);
 
   const verificationCostByTier = useMemo(() => {
-    const sums: Record<string, number> = { none: 0, self_critique: 0, cross_model: 0, conditional: 0, unknown: 0 };
+    const sums: Record<string, number> = { none: 0, self_critique: 0, cross_model: 0, conditional: 0 };
     for (const r of vrData) {
-      const tier = (r?.verification_tier as string) ?? (r?.['verification'] as string) ?? 'unknown';
-      const key = ['none', 'self_critique', 'cross_model', 'conditional'].includes(tier) ? tier : 'unknown';
+      const raw = (r?.verification_tier as string) ?? (r?.['verification'] as string) ?? null;
+      if (raw == null) continue;
+      const key = ['none', 'self_critique', 'cross_model', 'conditional'].includes(raw) ? raw : null;
+      if (!key) continue;
       const cost = Number(r?.reasoning_cost_usd ?? r?.cost ?? 0) || 0;
       sums[key] = (sums[key] ?? 0) + cost;
     }
-    return Object.entries(sums).map(([tier, cost]) => ({ tier, cost }));
+    return Object.entries(sums)
+      .filter(([, cost]) => cost > 0)
+      .map(([tier, cost]) => ({ tier, cost }));
   }, [vrData]);
 
   const verificationTrend = useMemo(() => {
     const byDate = new Map<string, Record<string, number>>();
     for (const r of vrData) {
+      const raw = (r?.verification_tier as string) ?? (r?.['verification'] as string) ?? null;
+      if (raw == null) continue;
+      const key = ['none', 'self_critique', 'cross_model', 'conditional'].includes(raw) ? raw : null;
+      if (!key) continue;
       const started = r?.started_at ? String(r.started_at).split('T')[0] : null;
-      const date = started ? formatDate(started) : 'unknown';
-      const entry = byDate.get(date) ?? { none: 0, self_critique: 0, cross_model: 0, conditional: 0, unknown: 0 };
-      const tier = (r?.verification_tier as string) ?? (r?.['verification'] as string) ?? 'unknown';
-      const key = ['none', 'self_critique', 'cross_model', 'conditional'].includes(tier) ? tier : 'unknown';
+      if (!started) continue;
+      const date = formatDate(started);
+      const entry = byDate.get(date) ?? { none: 0, self_critique: 0, cross_model: 0, conditional: 0 };
       entry[key] = (entry[key] ?? 0) + 1;
       byDate.set(date, entry);
     }
@@ -628,11 +636,13 @@ export default function Financials() {
   const routingAuditLoading = vrLoading || reflectionLoading;
 
   const complexityCounts = useMemo(() => {
-    const counts: Record<string, number> = { trivial: 0, standard: 0, complex: 0, frontier: 0, unknown: 0 };
+    const counts: Record<string, number> = { trivial: 0, standard: 0, complex: 0, frontier: 0 };
     for (const run of vrData) {
-      const rawComplexity = run.subtask_complexity ?? 'unknown';
-      const complexity = ['trivial', 'standard', 'complex', 'frontier'].includes(rawComplexity) ? rawComplexity : 'unknown';
-      counts[complexity] = (counts[complexity] ?? 0) + 1;
+      const raw = run.subtask_complexity ?? null;
+      if (raw == null) continue;
+      const key = ['trivial', 'standard', 'complex', 'frontier'].includes(raw) ? raw : null;
+      if (!key) continue;
+      counts[key] = (counts[key] ?? 0) + 1;
     }
     return Object.entries(counts)
       .filter(([, count]) => count > 0)
@@ -642,7 +652,8 @@ export default function Financials() {
   const routedModelMix = useMemo(() => {
     const byModel = new Map<string, { runs: number; cost: number }>();
     for (const run of vrData) {
-      const model = run.routing_model ?? 'unknown';
+      const model = run.routing_model ?? null;
+      if (model == null) continue;
       const entry = byModel.get(model) ?? { runs: 0, cost: 0 };
       entry.runs += 1;
       entry.cost += Number(run.cost ?? 0) || 0;
@@ -658,6 +669,7 @@ export default function Financials() {
     const reflectionsByRun = new Map(reflectionData.map((reflection) => [reflection.run_id, reflection]));
     return vrData
       .map((run) => {
+        if (run.routing_model == null) return null;
         const reflection = reflectionsByRun.get(run.id);
         const quality = reflection?.quality_score ?? null;
         if (quality == null) return null;
@@ -666,8 +678,8 @@ export default function Financials() {
           role: run.agent_id ?? reflection?.agent_role ?? 'unknown',
           cost: Number(run.cost ?? 0) || 0,
           quality,
-          complexity: run.subtask_complexity ?? 'unknown',
-          model: run.routing_model ?? 'unknown',
+          complexity: run.subtask_complexity ?? 'unclassified',
+          model: run.routing_model,
         };
       })
       .filter((point): point is NonNullable<typeof point> => point !== null);
@@ -1071,7 +1083,7 @@ export default function Financials() {
                 <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
                 <Tooltip formatter={(value: number, name: string) => [String(value), VERIF_LABELS[name] ?? name]} />
                 <Legend formatter={(v) => VERIF_LABELS[v] ?? v} wrapperStyle={{ fontSize: 11 }} />
-                {['none', 'self_critique', 'cross_model', 'conditional', 'unknown'].map((k) => (
+                {['none', 'self_critique', 'cross_model', 'conditional'].map((k) => (
                   <Bar key={k} dataKey={k} stackId="tier" fill={VERIF_COLORS[k] ?? '#6B7280'} />
                 ))}
               </BarChart>

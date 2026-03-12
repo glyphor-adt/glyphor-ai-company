@@ -38,8 +38,8 @@
   --color-base: #0B0C10;
   --color-surface: rgba(22, 24, 30, 0.85);
   --color-raised: rgba(16, 18, 24, 0.9);
-  --color-border: rgba(255, 255, 255, 0.07);
-  --color-border-hover: rgba(255, 255, 255, 0.14);
+  --color-border: rgba(0, 224, 255, 0.20);
+  --color-border-hover: rgba(0, 224, 255, 0.40);
   --color-txt-primary: #ECEEF4;
   --color-txt-secondary: rgba(255, 255, 255, 0.6);
   --color-txt-muted: rgba(255, 255, 255, 0.45);
@@ -202,7 +202,7 @@ button, a[role="button"], .glass-btn {
   background: rgba(0, 0, 0, 0.30);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(0, 224, 255, 0.24);
   box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
 }
 
@@ -465,7 +465,7 @@ input:focus, textarea:focus, select:focus {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent 5%, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.06) 70%, transparent 95%);
+  background: linear-gradient(90deg, transparent 5%, rgba(0,224,255,0.06) 30%, rgba(0,224,255,0.09) 50%, rgba(0,224,255,0.06) 70%, transparent 95%);
   pointer-events: none;
   z-index: 2;
 }

@@ -101,7 +101,7 @@ export default function ChangeRequests() {
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-cyan px-4 py-2 text-sm font-medium text-black transition-opacity hover:opacity-90"
+          className="flex items-center gap-1.5 rounded-lg bg-cyan/10 border border-cyan/40 px-4 py-2 text-sm font-medium text-cyan transition-opacity hover:bg-cyan/20"
         >
           <MdAdd className="text-base" />
           New Request
@@ -508,7 +508,7 @@ function NewRequestModal({
             <button
               type="submit"
               disabled={submitting || !title.trim() || !description.trim()}
-              className="rounded-lg bg-cyan px-4 py-2 text-sm font-medium text-black transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="rounded-lg bg-cyan/10 border border-cyan/40 px-4 py-2 text-sm font-medium text-cyan transition-opacity hover:bg-cyan/20 disabled:opacity-50"
             >
               {submitting ? 'Submitting...' : 'Submit Request'}
             </button>

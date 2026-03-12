@@ -1530,7 +1530,7 @@ export default function OraChat() {
             type="button"
             onClick={send}
             disabled={isLoading || (!input.trim() && attachments.length === 0)}
-            className="flex-shrink-0 rounded-lg bg-cyan px-3 py-2 md:px-5 md:py-2.5 text-[13px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+            className="flex-shrink-0 rounded-lg bg-cyan/10 border border-cyan/40 px-3 py-2 md:px-5 md:py-2.5 text-[13px] font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40"
           >
             Send
           </button>

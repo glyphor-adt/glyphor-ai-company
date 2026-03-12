@@ -143,7 +143,7 @@ export default function Settings() {
           <button
             onClick={addUser}
             disabled={saving || !email.trim()}
-            className="rounded-lg bg-cyan px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-cyan/80 disabled:opacity-50"
+            className="rounded-lg bg-cyan/10 border border-cyan/40 px-4 py-2 text-sm font-medium text-cyan transition-colors hover:bg-cyan/20 disabled:opacity-50"
           >
             {saving ? 'Adding…' : 'Add'}
           </button>

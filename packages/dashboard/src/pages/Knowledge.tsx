@@ -332,7 +332,7 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
             <button
               onClick={handleSave}
               disabled={saving}
-              className="rounded-lg bg-cyan px-4 py-2 text-sm font-medium text-black hover:opacity-90 disabled:opacity-40"
+              className="rounded-lg bg-cyan/10 border border-cyan/40 px-4 py-2 text-sm font-medium text-cyan hover:bg-cyan/20 disabled:opacity-40"
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
@@ -412,7 +412,7 @@ function BulletinSection({ bulletins, onRefresh }: { bulletins: Bulletin[]; onRe
           <h2 className="text-lg font-semibold text-txt-primary">Founder Bulletins</h2>
           <button
             onClick={() => setShowForm(true)}
-            className="rounded-lg bg-cyan px-3 py-1.5 text-[12px] font-medium text-black hover:opacity-90"
+            className="rounded-lg bg-cyan/10 border border-cyan/40 px-3 py-1.5 text-[12px] font-medium text-cyan hover:bg-cyan/20"
           >
             + New Bulletin
           </button>
@@ -571,7 +571,7 @@ function NewBulletinModal({ onClose, onCreated }: { onClose: () => void; onCreat
           <button
             onClick={handleCreate}
             disabled={saving || !content.trim()}
-            className="rounded-lg bg-cyan px-4 py-2 text-sm font-medium text-black hover:opacity-90 disabled:opacity-40"
+            className="rounded-lg bg-cyan/10 border border-cyan/40 px-4 py-2 text-sm font-medium text-cyan hover:bg-cyan/20 disabled:opacity-40"
           >
             {saving ? 'Posting…' : 'Post Bulletin'}
           </button>
@@ -677,7 +677,7 @@ function KBEditor({ sections, onRefresh }: { sections: KBSection[]; onRefresh: (
                       <button
                         onClick={() => handleSave(s)}
                         disabled={saving}
-                        className="rounded-md bg-cyan px-3 py-1.5 text-[11px] font-medium text-black hover:opacity-90 disabled:opacity-40"
+                        className="rounded-md bg-cyan/10 border border-cyan/40 px-3 py-1.5 text-[11px] font-medium text-cyan hover:bg-cyan/20 disabled:opacity-40"
                       >
                         {saving ? 'Saving…' : 'Save'}
                       </button>

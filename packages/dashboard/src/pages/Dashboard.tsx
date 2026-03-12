@@ -259,7 +259,7 @@ export default function Dashboard() {
               <h1 className="font-agency text-[1.75rem] font-bold lowercase text-white md:text-[2.25rem] leading-tight">
                 {greeting}, {firstName}
               </h1>
-              <p className="font-agency mt-3 max-w-2xl text-[15px] lowercase text-white/60">
+              <p className="mt-3 max-w-2xl text-[15px] lowercase text-white/60">
                 Welcome back to Glyphor AI. Here&apos;s what&apos;s happening.
               </p>
               <p className="mt-4 text-[13px] text-white/35 font-medium">
@@ -481,7 +481,7 @@ export default function Dashboard() {
             </Card>
 
             {/* Organizational Intelligence */}
-            <Card accent="168,85,247">
+            <Card accent="168,85,247" className="self-start">
               <SectionHeader
                 title="Organizational Intelligence"
                 action={

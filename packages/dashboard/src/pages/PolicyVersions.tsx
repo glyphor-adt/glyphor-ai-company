@@ -145,7 +145,7 @@ export default function PolicyVersions() {
         action={
           <button
             onClick={refresh}
-            className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-medium text-txt-muted transition-colors hover:bg-raised hover:text-txt-primary"
+            className="rounded-lg border border-primary/30 bg-black/20 px-3 py-1.5 text-[13px] font-medium text-txt-muted backdrop-blur-[8px] transition-colors hover:border-primary/55 hover:bg-black/30 hover:text-txt-primary"
           >
             Refresh
           </button>
@@ -322,7 +322,7 @@ function PipelineSection({ counts }: { counts: Record<string, PolicyVersion[]> }
                 <p className="text-[12px] text-txt-muted italic">No entries</p>
               )}
               {items.slice(0, 5).map(v => (
-                <div key={v.id} className="rounded-lg border border-border bg-raised p-2">
+                <div key={v.id} className="rounded-lg border border-primary/20 bg-black/25 p-2 backdrop-blur-[8px]">
                   <p className="text-[12px] font-medium text-txt-primary truncate">{v.policy_type}</p>
                   <p className="text-[11px] text-txt-muted">{v.agent_role} · v{v.version}</p>
                 </div>
@@ -361,7 +361,7 @@ function HistorySection({
         <select
           value={typeFilter}
           onChange={e => { onTypeFilter(e.target.value); onPage(0); }}
-          className="rounded-lg border border-border bg-surface px-3 py-1.5 text-[13px] text-txt-secondary outline-none"
+          className="rounded-lg border border-primary/30 bg-black/25 px-3 py-1.5 text-[13px] text-txt-secondary outline-none backdrop-blur-[8px]"
         >
           <option value="">All types</option>
           {policyTypes.map(t => <option key={t} value={t}>{t}</option>)}
@@ -369,7 +369,7 @@ function HistorySection({
         <select
           value={statusFilter}
           onChange={e => { onStatusFilter(e.target.value); onPage(0); }}
-          className="rounded-lg border border-border bg-surface px-3 py-1.5 text-[13px] text-txt-secondary outline-none"
+          className="rounded-lg border border-primary/30 bg-black/25 px-3 py-1.5 text-[13px] text-txt-secondary outline-none backdrop-blur-[8px]"
         >
           <option value="">All statuses</option>
           {Object.keys(STATUS_COLORS).map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
@@ -427,14 +427,14 @@ function HistorySection({
               <button
                 disabled={page === 0}
                 onClick={() => onPage(page - 1)}
-                className="rounded border border-border px-3 py-1 text-[12px] text-txt-muted transition-colors hover:bg-raised disabled:opacity-40"
+                className="rounded border border-primary/30 bg-black/20 px-3 py-1 text-[12px] text-txt-muted transition-colors hover:border-primary/55 hover:bg-black/30 disabled:opacity-40"
               >
                 Previous
               </button>
               <button
                 disabled={page >= totalPages - 1}
                 onClick={() => onPage(page + 1)}
-                className="rounded border border-border px-3 py-1 text-[12px] text-txt-muted transition-colors hover:bg-raised disabled:opacity-40"
+                className="rounded border border-primary/30 bg-black/20 px-3 py-1 text-[12px] text-txt-muted transition-colors hover:border-primary/55 hover:bg-black/30 disabled:opacity-40"
               >
                 Next
               </button>

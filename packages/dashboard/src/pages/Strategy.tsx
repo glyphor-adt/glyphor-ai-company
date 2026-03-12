@@ -1228,7 +1228,7 @@ function SimulationsPanel() {
           <button
             onClick={launch}
             disabled={launching || !action.trim()}
-            className="rounded-lg bg-cyan px-4 py-2 text-sm font-medium text-black transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="rounded-lg bg-cyan/10 border border-cyan/40 px-4 py-2 text-sm font-medium text-cyan transition-opacity hover:bg-cyan/20 disabled:opacity-40"
           >
             {launching ? 'Launching…' : 'Run Cascade'}
           </button>
@@ -1605,7 +1605,7 @@ function ChainOfThoughtPanel() {
           <button
             onClick={launch}
             disabled={launching || !query.trim()}
-            className="rounded-lg bg-cyan px-4 py-2 text-sm font-medium text-black transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="rounded-lg bg-cyan/10 border border-cyan/40 px-4 py-2 text-sm font-medium text-cyan transition-opacity hover:bg-cyan/20 disabled:opacity-40"
           >
             {launching ? 'Launching…' : 'Analyze'}
           </button>

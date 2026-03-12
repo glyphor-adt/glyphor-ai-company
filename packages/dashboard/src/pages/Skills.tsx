@@ -179,7 +179,7 @@ export default function Skills() {
 
         <button
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-cyan px-3 py-1.5 text-sm font-semibold text-white transition-all hover:opacity-90"
+          className="flex items-center gap-1.5 rounded-lg bg-cyan/10 border border-cyan/40 px-3 py-1.5 text-sm font-semibold text-cyan transition-all hover:bg-cyan/20"
         >
           <MdAdd className="h-4 w-4" /> New Skill
         </button>
@@ -377,7 +377,7 @@ function CreateSkillModal({
           <button
             onClick={handleCreate}
             disabled={saving || !name.trim()}
-            className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+            className="rounded-lg bg-cyan/10 border border-cyan/40 px-5 py-2 text-sm font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40"
           >
             {saving ? 'Creating…' : 'Create Skill'}
           </button>
