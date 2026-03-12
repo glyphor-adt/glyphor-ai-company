@@ -1240,12 +1240,17 @@ export class CompanyAgentRunner {
           const values = staticToolNames.map((_, i) =>
             `($1, $${i + 2}, 'system', 'auto-synced from static tool array')`
           ).join(', ');
-          await systemQuery(
-            `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason)
-             VALUES ${values}
-             ON CONFLICT (agent_role, tool_name) DO NOTHING`,
-            [config.role, ...staticToolNames],
-          );
+           await systemQuery(
+             `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason)
+              VALUES ${values}
+             ON CONFLICT (agent_role, tool_name) DO UPDATE
+             SET granted_by = EXCLUDED.granted_by,
+                 reason = EXCLUDED.reason,
+                 is_active = true,
+                 expires_at = NULL,
+                 updated_at = NOW()`,
+             [config.role, ...staticToolNames],
+           );
         } catch {
           // Best-effort — DB may not be available in test/dev
         }

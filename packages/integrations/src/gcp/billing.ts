@@ -27,6 +27,24 @@ export interface DailyCost {
   project: string;
 }
 
+function buildBillingTableRef(projectId: string, billingDataset: string, billingTable: string): string {
+  const clean = (v: string) => v.trim().replace(/`/g, '');
+  const sanitizedProject = clean(projectId);
+  const sanitizedDataset = clean(billingDataset);
+  const rawTable = clean(billingTable);
+
+  // Support callers passing a fully-qualified table id in billingTable.
+  if (rawTable.includes('.')) {
+    const parts = rawTable.split('.').map((p) => p.trim()).filter(Boolean);
+    if (parts.length === 3) {
+      const [p, d, t] = parts;
+      return `${p}.${d}.${t}`;
+    }
+  }
+
+  return `${sanitizedProject}.${sanitizedDataset}.${rawTable}`;
+}
+
 /**
  * Query GCP billing export for cost breakdown by service.
  * Requires billing export to BigQuery to be configured.
@@ -38,12 +56,13 @@ export async function queryBillingExport(
   days = 90,
 ): Promise<DailyCost[]> {
   const bq = getBigQueryClient();
+  const tableRef = buildBillingTableRef(projectId, billingDataset, billingTable);
 
   // First check: does the table have any rows at all?
-  const countQuery = `SELECT COUNT(*) as total FROM \`${projectId}.${billingDataset}.${billingTable}\``;
+  const countQuery = `SELECT COUNT(*) as total FROM \`${tableRef}\``;
   const [countResult] = await bq.query({ query: countQuery });
   const totalRows = countResult?.[0]?.total ?? 0;
-  console.log(`[GCP Billing] Table ${projectId}.${billingDataset}.${billingTable} has ${totalRows} total rows`);
+  console.log(`[GCP Billing] Table ${tableRef} has ${totalRows} total rows`);
 
   const query = `
     SELECT
@@ -52,7 +71,7 @@ export async function queryBillingExport(
       IFNULL(service.description, 'Unattributed') AS service,
       SUM(cost) AS cost,
       currency
-    FROM \`${projectId}.${billingDataset}.${billingTable}\`
+    FROM \`${tableRef}\`
     WHERE usage_start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL ${days} DAY)
     GROUP BY date, project, service, currency
     ORDER BY date DESC, cost DESC

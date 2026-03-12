@@ -1,8 +1,8 @@
 /**
  * Layer 28 — Advancement Rollout Consistency
  *
- * Statically verifies the major rollout surfaces added across Phase 5, Phase 6,
- * Phase 7, and the follow-on security hardening work so regressions are caught
+ * Statically verifies the major rollout surfaces added across Phase 1 through
+ * Phase 7 plus the follow-on security hardening work so regressions are caught
  * even before runtime smoke traffic exists.
  */
 
@@ -42,7 +42,86 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
   const tests: TestResult[] = [];
 
   tests.push(
-    await runTest('T28.1', 'Phase 5 Skill Learning Wired', async () => {
+    await runTest('T28.1', 'Phase 1 Verification Rollout Wired', async () => {
+      const migration = readRepoFile('db', 'migrations', '20260312160000_phase1_verification_columns.sql');
+      const verificationPolicy = readRepoFile('packages', 'agent-runtime', 'src', 'verificationPolicy.ts');
+      const baseRunner = readRepoFile('packages', 'agent-runtime', 'src', 'baseAgentRunner.ts');
+      const companyRunner = readRepoFile('packages', 'agent-runtime', 'src', 'companyAgentRunner.ts');
+      const schedulerServer = readRepoFile('packages', 'scheduler', 'src', 'server.ts');
+      const financialsPage = readRepoFile('packages', 'dashboard', 'src', 'pages', 'Financials.tsx');
+
+      assertIncludes(migration, 'ADD COLUMN IF NOT EXISTS verification_tier TEXT', 'verification tier migration');
+      assertIncludes(migration, 'ADD COLUMN IF NOT EXISTS verification_reason TEXT', 'verification reason migration');
+      assertIncludes(verificationPolicy, 'export function determineVerificationTier', 'verification policy entry point');
+      assertIncludes(baseRunner, 'determineVerificationTier', 'base runner verification hook');
+      assertIncludes(companyRunner, 'determineVerificationTier', 'company runner verification hook');
+      assertIncludes(schedulerServer, 'verification_tier', 'agent run verification persistence');
+      assertIncludes(financialsPage, 'verification_tier', 'dashboard verification analytics');
+
+      return 'Phase 1 verification policy, persistence, and dashboard analytics are wired';
+    }),
+  );
+
+  tests.push(
+    await runTest('T28.2', 'Phase 2 Routing Rollout Wired', async () => {
+      const subtaskRouter = readRepoFile('packages', 'agent-runtime', 'src', 'subtaskRouter.ts');
+      const baseRunner = readRepoFile('packages', 'agent-runtime', 'src', 'baseAgentRunner.ts');
+      const companyRunner = readRepoFile('packages', 'agent-runtime', 'src', 'companyAgentRunner.ts');
+      const schedulerServer = readRepoFile('packages', 'scheduler', 'src', 'server.ts');
+      const financialsPage = readRepoFile('packages', 'dashboard', 'src', 'pages', 'Financials.tsx');
+
+      assertIncludes(subtaskRouter, 'export function routeSubtask', 'subtask routing entry point');
+      assertIncludes(subtaskRouter, 'routingRule', 'routing decision metadata');
+      assertIncludes(baseRunner, 'routeSubtask', 'base runner routing hook');
+      assertIncludes(companyRunner, 'routeSubtask', 'company runner routing hook');
+      assertIncludes(schedulerServer, 'routing_rule', 'routing audit persistence');
+      assertIncludes(schedulerServer, 'routing_model', 'routing model persistence');
+      assertIncludes(financialsPage, 'routing_model', 'dashboard routing analytics');
+      assertIncludes(financialsPage, 'routing_rule', 'dashboard routing rule analytics');
+
+      return 'Phase 2 routing and audit surfaces are wired';
+    }),
+  );
+
+  tests.push(
+    await runTest('T28.3', 'Phase 3 Security Hardening Wired', async () => {
+      const migration = readRepoFile('db', 'migrations', '20260312193000_phase3_security_compartmentalization.sql');
+      const behavioralFingerprint = readRepoFile('packages', 'agent-runtime', 'src', 'behavioralFingerprint.ts');
+      const toolExecutor = readRepoFile('packages', 'agent-runtime', 'src', 'toolExecutor.ts');
+      const graphReader = readRepoFile('packages', 'company-memory', 'src', 'graphReader.ts');
+      const jitRetriever = readRepoFile('packages', 'agent-runtime', 'src', 'jitContextRetriever.ts');
+
+      assertIncludes(migration, 'ADD COLUMN IF NOT EXISTS knowledge_access_scope TEXT[]', 'knowledge scope migration');
+      assertIncludes(migration, 'CREATE TABLE IF NOT EXISTS security_anomalies', 'security anomalies migration');
+      assertIncludes(behavioralFingerprint, 'export function detectBehavioralAnomalies', 'behavioral anomaly detector');
+      assertIncludes(behavioralFingerprint, 'INSERT INTO security_anomalies', 'security anomaly persistence');
+      assertIncludes(toolExecutor, 'detectBehavioralAnomalies', 'tool executor anomaly enforcement');
+      assertIncludes(graphReader, 'knowledge_access_scope', 'graph scope enforcement');
+      assertIncludes(jitRetriever, 'knowledge_access_scope', 'JIT scope enforcement');
+
+      return 'Phase 3 behavioral security and knowledge compartmentalization are wired';
+    }),
+  );
+
+  tests.push(
+    await runTest('T28.4', 'Phase 4 A2A Rollout Wired', async () => {
+      const migration = readRepoFile('db', 'migrations', '20260312200000_phase4_a2a_gateway.sql');
+      const a2aServer = readRepoFile('packages', 'a2a-gateway', 'src', 'server.ts');
+      const taskHandler = readRepoFile('packages', 'a2a-gateway', 'src', 'taskHandler.ts');
+      const coreTools = readRepoFile('packages', 'agents', 'src', 'shared', 'coreTools.ts');
+
+      assertIncludes(migration, 'CREATE TABLE IF NOT EXISTS a2a_clients', 'A2A client registry migration');
+      assertIncludes(a2aServer, "/.well-known/agent.json", 'agent card endpoint');
+      assertIncludes(a2aServer, "url.pathname === '/tasks/send'", 'A2A task submission endpoint');
+      assertIncludes(taskHandler, 'FROM a2a_clients', 'A2A client auth lookup');
+      assertIncludes(coreTools, 'discover_external_agents', 'external A2A discovery tool');
+
+      return 'Phase 4 A2A gateway and external discovery surfaces are wired';
+    }),
+  );
+
+  tests.push(
+    await runTest('T28.5', 'Phase 5 Skill Learning Wired', async () => {
       const migration = readRepoFile('db', 'migrations', '20260312213000_phase5_skill_learning.sql');
       const existingSkillLibrary = readRepoFile('db', 'migrations', '20260227100006_skill_library.sql');
       const skillLearning = readRepoFile('packages', 'agent-runtime', 'src', 'skillLearning.ts');
@@ -64,7 +143,7 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
   );
 
   tests.push(
-    await runTest('T28.2', 'Phase 6 Cascade Predictions Wired', async () => {
+    await runTest('T28.6', 'Phase 6 Cascade Predictions Wired', async () => {
       const migration = readRepoFile('db', 'migrations', '20260312230000_phase6_cascade_predictions.sql');
       const simulationEngine = readRepoFile('packages', 'scheduler', 'src', 'simulationEngine.ts');
       const server = readRepoFile('packages', 'scheduler', 'src', 'server.ts');
@@ -84,7 +163,7 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
   );
 
   tests.push(
-    await runTest('T28.3', 'Phase 7 Agent SDK Wired', async () => {
+    await runTest('T28.7', 'Phase 7 Agent SDK Wired', async () => {
       const migration = readRepoFile('db', 'migrations', '20260312234500_phase7_agent_sdk.sql');
       const server = readRepoFile('packages', 'scheduler', 'src', 'server.ts');
       const clientSdk = readRepoFile('packages', 'scheduler', 'src', 'clientSdk.ts');
@@ -105,7 +184,7 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
   );
 
   tests.push(
-    await runTest('T28.4', 'High-Stakes Tool Verification Wired', async () => {
+    await runTest('T28.8', 'High-Stakes Tool Verification Wired', async () => {
       const verifierRunner = readRepoFile('packages', 'agent-runtime', 'src', 'verifierRunner.ts');
       const toolExecutor = readRepoFile('packages', 'agent-runtime', 'src', 'toolExecutor.ts');
       const types = readRepoFile('packages', 'agent-runtime', 'src', 'types.ts');

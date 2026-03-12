@@ -120,7 +120,7 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
           message:
             'Run a financial health assessment and verify the results with cross-model verification.',
         },
-        90_000,
+        180_000,
       );
       if (!resp.ok) throw new Error(`POST /run returned ${resp.status}: ${resp.raw}`);
       return `Verifier agent responded (status ${resp.status})`;

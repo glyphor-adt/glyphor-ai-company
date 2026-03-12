@@ -1,5 +1,5 @@
 import { MdCheckCircle, MdSearch, MdDescription, MdChat, MdArrowForward, MdWarning, MdGavel, MdReportProblem, MdWidgets, MdSmartToy } from 'react-icons/md';
-import { useAgents, useDecisions, useOpenIncidents, useProducts } from '../lib/hooks';
+import { useDecisions, useOpenIncidents, useProducts } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, TIER_TO_IMPACT } from '../lib/types';
 import {
   Card,
@@ -23,7 +23,6 @@ interface RunningAgent {
 }
 
 export default function Dashboard() {
-  const { data: agents, loading: agentsLoading } = useAgents();
   const { data: decisions, loading: decisionsLoading } = useDecisions();
   const { data: incidents, loading: incidentsLoading } = useOpenIncidents();
   const { data: products } = useProducts();
@@ -180,130 +179,97 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="workforce-section rounded-[24px] border border-white/[0.06] p-6">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-txt-primary">AI Workforce</h2>
-              <Link to="/workforce" className="text-[13px] text-txt-faint hover:text-txt-secondary transition-colors">
-                <span className="flex items-center gap-1">Meet the team <MdArrowForward /></span>
-              </Link>
-            </div>
-            {agentsLoading ? (
-              <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-6">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <Skeleton key={i} className="h-24" />
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-6">
-                {agents.slice(0, 12).map((agent) => (
-                  <Link
-                    key={agent.id}
-                    to={`/chat/${agent.role}`}
-                    className="group block"
-                  >
-                    <div className="workforce-avatar-card flex flex-col items-center gap-2.5 rounded-[18px] px-3 py-4 transition-all duration-200 group-hover:-translate-y-1">
-                      <AgentAvatar role={agent.role} size={48} glow={agent.status === 'active'} avatarUrl={agent.avatar_url} />
-                      <p className="text-center text-[11px] font-medium leading-tight text-white/50 transition-colors group-hover:text-white/80">
-                        {DISPLAY_NAME_MAP[agent.role] ?? agent.display_name ?? agent.role}
-                      </p>
-                    </div>
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+            <Card accent="239,68,68">
+              <SectionHeader
+                title="Open Incidents"
+                action={
+                  <Link to="/operations" className="text-xs text-prism-tertiary hover:text-prism-primary hover:underline">
+                    View all
                   </Link>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="dashboard-home-side space-y-5">
-          <Card accent="239,68,68">
-            <SectionHeader
-              title="Open Incidents"
-              action={
-                <Link to="/operations" className="text-xs text-prism-tertiary hover:text-prism-primary hover:underline">
-                  View all
-                </Link>
-              }
-            />
-            {incidentsLoading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-16" />
-                ))}
-              </div>
-            ) : incidents.length === 0 ? (
-              <p className="py-8 text-center text-sm text-txt-faint">
-                All clear <MdCheckCircle className="inline h-4 w-4 text-tier-green" />
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {incidents.map((incident) => (
-                  <InnerCard
-                    key={incident.id}
-                    accent="239,68,68"
-                    className="flex items-start gap-3"
-                  >
-                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[rgba(239,68,68,0.15)] text-[#EF4444]">
-                      <MdWarning className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#EF4444]">
-                          {incident.severity}
-                        </span>
-                        <span className="text-[10px] text-txt-faint">{timeAgo(incident.created_at)}</span>
+                }
+              />
+              {incidentsLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-16" />
+                  ))}
+                </div>
+              ) : incidents.length === 0 ? (
+                <p className="py-8 text-center text-sm text-txt-faint">
+                  All clear <MdCheckCircle className="inline h-4 w-4 text-tier-green" />
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {incidents.map((incident) => (
+                    <InnerCard
+                      key={incident.id}
+                      accent="239,68,68"
+                      className="flex items-start gap-3"
+                    >
+                      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[rgba(239,68,68,0.15)] text-[#EF4444]">
+                        <MdWarning className="h-4 w-4" />
                       </div>
-                      <p className="mt-1 text-[13px] font-medium text-txt-primary line-clamp-1">{incident.title}</p>
-                      {incident.description && (
-                        <p className="mt-1 text-[11px] text-txt-muted line-clamp-2">{incident.description}</p>
-                      )}
-                    </div>
-                  </InnerCard>
-                ))}
-              </div>
-            )}
-          </Card>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#EF4444]">
+                            {incident.severity}
+                          </span>
+                          <span className="text-[10px] text-txt-faint">{timeAgo(incident.created_at)}</span>
+                        </div>
+                        <p className="mt-1 text-[13px] font-medium text-txt-primary line-clamp-1">{incident.title}</p>
+                        {incident.description && (
+                          <p className="mt-1 text-[11px] text-txt-muted line-clamp-2">{incident.description}</p>
+                        )}
+                      </div>
+                    </InnerCard>
+                  ))}
+                </div>
+              )}
+            </Card>
 
-          <Card accent="17,113,237" className="queue">
-          <SectionHeader
-            title="Decision Queue"
-            action={
-              <Link to="/approvals" className="text-xs text-prism-tertiary hover:text-prism-primary hover:underline">
-                View all
-              </Link>
-            }
-          />
-          {decisionsLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-14" />
-              ))}
-            </div>
-          ) : decisions.filter((d) => d.status === 'pending').length === 0 ? (
-            <p className="py-8 text-center text-sm text-txt-faint">
-              All clear <MdCheckCircle className="inline h-4 w-4 text-tier-green" />
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {decisions
-                .filter((d) => d.status === 'pending')
-                .slice(0, 5)
-                .map((d) => (
-                  <InnerCard
-                    key={d.id}
-                    accent="17,113,237"
-                    className="flex items-start gap-3"
-                  >
-                    <AgentAvatar role={d.proposed_by} size={24} />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-medium text-txt-secondary line-clamp-1">{d.title}</p>
-                      <p className="text-[11px] text-txt-faint line-clamp-1">{d.summary}</p>
-                    </div>
-                    <ImpactBadge impact={TIER_TO_IMPACT[d.tier] ?? d.tier} />
-                  </InnerCard>
-                ))}
-            </div>
-          )}
-          </Card>
+            <Card accent="17,113,237" className="queue">
+              <SectionHeader
+                title="Decision Queue"
+                action={
+                  <Link to="/approvals" className="text-xs text-prism-tertiary hover:text-prism-primary hover:underline">
+                    View all
+                  </Link>
+                }
+              />
+              {decisionsLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-14" />
+                  ))}
+                </div>
+              ) : decisions.filter((d) => d.status === 'pending').length === 0 ? (
+                <p className="py-8 text-center text-sm text-txt-faint">
+                  All clear <MdCheckCircle className="inline h-4 w-4 text-tier-green" />
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {decisions
+                    .filter((d) => d.status === 'pending')
+                    .slice(0, 5)
+                    .map((d) => (
+                      <InnerCard
+                        key={d.id}
+                        accent="17,113,237"
+                        className="flex items-start gap-3"
+                      >
+                        <AgentAvatar role={d.proposed_by} size={24} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[13px] font-medium text-txt-secondary line-clamp-1">{d.title}</p>
+                          <p className="text-[11px] text-txt-faint line-clamp-1">{d.summary}</p>
+                        </div>
+                        <ImpactBadge impact={TIER_TO_IMPACT[d.tier] ?? d.tier} />
+                      </InnerCard>
+                    ))}
+                </div>
+              )}
+            </Card>
+          </div>
         </div>
       </div>
     </div>

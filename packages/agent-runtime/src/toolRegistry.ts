@@ -37,6 +37,7 @@ const KNOWN_TOOLS = new Set([
   'promote_to_org_knowledge',
   'get_org_knowledge',
   'read_company_doctrine',
+  'update_doctrine_section',
   'create_knowledge_route',
   'get_knowledge_routes',
   'detect_contradictions',

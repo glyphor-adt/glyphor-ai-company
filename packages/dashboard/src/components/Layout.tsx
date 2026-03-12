@@ -44,13 +44,6 @@ export default function Layout() {
     <div className="dashboard-shell mesh-gradient bg-mesh-gradient flex h-screen overflow-hidden">
       {/* ── Desktop Sidebar ─────────────────── */}
       <aside className={`dashboard-sidebar hidden w-[280px] flex-col transition-colors duration-200 md:flex ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}>
-        {theme === 'dark' && (
-          <>
-            <div className="sidebar-spectral-edge" aria-hidden="true" />
-            <div className="sidebar-glow-tl" aria-hidden="true" />
-            <div className="sidebar-glow-br" aria-hidden="true" />
-          </>
-        )}
         {/* Brand */}
         <div className="relative z-10 flex items-center justify-between px-4 py-4">
           <BrandLockup theme={theme} />
@@ -116,13 +109,6 @@ export default function Layout() {
             className={`dashboard-sidebar absolute bottom-0 left-0 top-0 flex w-[280px] flex-col shadow-xl ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}
             onClick={(e) => e.stopPropagation()}
           >
-            {theme === 'dark' && (
-              <>
-                <div className="sidebar-spectral-edge" aria-hidden="true" />
-                <div className="sidebar-glow-tl" aria-hidden="true" />
-                <div className="sidebar-glow-br" aria-hidden="true" />
-              </>
-            )}
             {/* Brand */}
             <div className="relative z-10 flex items-center justify-between px-4 py-4">
               <BrandLockup theme={theme} />
@@ -181,12 +167,6 @@ export default function Layout() {
 
       {/* ── Main Content ────────────────────── */}
       <main className={`dashboard-main flex-1 transition-colors duration-200 ${isFullBleed ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'} pb-16 md:pb-0 safe-top`}>
-        {theme === 'dark' && (
-          <>
-            <div className="main-tone-left" aria-hidden="true" />
-            <div className="main-tone-right" aria-hidden="true" />
-          </>
-        )}
         <div className="dashboard-content">
           {isFullBleed ? (
             <div className="page-enter min-h-0 flex-1 px-4 py-4 md:px-8 md:py-8">
