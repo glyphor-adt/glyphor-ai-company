@@ -9,7 +9,7 @@
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
-import { WRITE_TOOLS, invalidateGrantCache, isKnownTool } from '@glyphor/agent-runtime';
+import { WRITE_TOOLS, invalidateGrantCache, isKnownToolAsync } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
 
 /** Grantors who can directly approve grants without filing a decision */
@@ -61,7 +61,7 @@ export function createToolGrantTools(
         const directiveId = params.directive_id as string | undefined;
         const expiresInHours = params.expires_in_hours as number | undefined;
 
-        if (!isKnownTool(toolName)) {
+        if (!(await isKnownToolAsync(toolName))) {
           return {
             success: false,
             error: `Tool "${toolName}" does not exist in the system registry. Cannot grant a tool that doesn't exist. Ask Marcus (CTO) to build it first.`,

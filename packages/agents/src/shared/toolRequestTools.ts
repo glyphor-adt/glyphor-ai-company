@@ -10,7 +10,7 @@
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
-import { isKnownTool, invalidateGrantCache } from '@glyphor/agent-runtime';
+import { isKnownToolAsync, invalidateGrantCache } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
 
 export function createToolRequestTools(): ToolDefinition[] {
@@ -86,8 +86,23 @@ export function createToolRequestTools(): ToolDefinition[] {
           };
         }
 
-        // Check if tool already exists
-        if (isKnownTool(toolName)) {
+        // If the requester already has an active grant for this exact name,
+        // this is not a "new tool" request.
+        const alreadyGranted = await systemQuery<{ id: string }>(
+          `SELECT id FROM agent_tool_grants
+           WHERE agent_role = $1 AND tool_name = $2 AND is_active = true
+           LIMIT 1`,
+          [ctx.agentRole, toolName],
+        );
+        if (alreadyGranted.length > 0) {
+          return {
+            success: false,
+            error: `You already have access to "${toolName}". Use the existing tool instead of requesting a new one.`,
+          };
+        }
+
+        // Check if tool already exists (static or DB-registered)
+        if (await isKnownToolAsync(toolName)) {
           return {
             success: false,
             error: `Tool "${toolName}" already exists. Use grant_tool_access to get access to an existing tool instead.`,
@@ -222,7 +237,7 @@ export function createToolRequestTools(): ToolDefinition[] {
         const reason = params.reason as string;
         const agentRole = ctx.agentRole;
 
-        if (!isKnownTool(toolName)) {
+        if (!(await isKnownToolAsync(toolName))) {
           return {
             success: false,
             error: `Tool "${toolName}" does not exist in the system. Use request_new_tool to request it be built.`,

@@ -59,6 +59,13 @@ import { expireTools } from './toolExpirationManager.js';
 import { evaluateCanary } from './canaryEvaluator.js';
 import { handleTriangulatedChat } from './triangulationEndpoint.js';
 import {
+  authenticateSdkClient,
+  createClientSdkAgent,
+  getClientSdkAgent,
+  listClientSdkAgents,
+  retireClientSdkAgent,
+} from './clientSdk.js';
+import {
   runChiefOfStaff, runCTO, runCFO, runCLO, runCPO, runCMO, runVPSales, runVPDesign,
   runPlatformEngineer, runQualityEngineer, runDevOpsEngineer,
   runUserResearcher, runCompetitiveIntel,
@@ -109,6 +116,15 @@ async function applyWatermark(imageB64: string): Promise<string> {
     .png()
     .toBuffer();
   return result.toString('base64');
+}
+
+async function requireSdkClient(req: IncomingMessage, res: ServerResponse) {
+  const client = await authenticateSdkClient(req.headers.authorization);
+  if (!client) {
+    json(res, 401, { error: 'Bearer token required' });
+    return null;
+  }
+  return client;
 }
 
 function buildChiefOfStaffReactiveMessage(
@@ -357,6 +373,8 @@ async function ensureAgentRunsRoutingSchema(): Promise<void> {
       await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS routing_model TEXT');
       await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS model_routing_reason TEXT');
       await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS subtask_complexity TEXT');
+      await systemQuery("ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'internal'");
+      await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS client_id UUID');
       await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS verification_tier TEXT');
       await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS verification_reason TEXT');
       await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS verification_passes INTEGER');
@@ -498,11 +516,34 @@ const trackedAgentExecutor = async (
   const startMs = Date.now();
 
   // Insert a "running" row in parallel with agent execution to avoid blocking
-  const runIdPromise = systemQuery<{ id: string }>(
-    'INSERT INTO agent_runs (agent_id, task, status, input, tenant_id) VALUES ($1,$2,$3,$4,$5) RETURNING id',
-    [agentRole, task, 'running', inputMsg, '00000000-0000-0000-0000-000000000000'],
-  ).then(([row]) => row?.id as string | undefined)
-  .catch(() => undefined);
+  const runIdPromise = (async () => {
+    const [agentMeta] = await systemQuery<{
+      tenant_id: string | null;
+      created_via: string | null;
+      created_by_client_id: string | null;
+    }>(
+      'SELECT tenant_id, created_via, created_by_client_id FROM company_agents WHERE role = $1',
+      [agentRole],
+    ).catch(() => []);
+
+    const tenantId = agentMeta?.tenant_id ?? '00000000-0000-0000-0000-000000000000';
+    const source = agentMeta?.created_via === 'client_sdk' ? 'client_sdk' : 'internal';
+    const clientId = agentMeta?.created_by_client_id ?? null;
+
+    try {
+      const [row] = await systemQuery<{ id: string }>(
+        'INSERT INTO agent_runs (agent_id, task, status, input, tenant_id, source, client_id) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
+        [agentRole, task, 'running', inputMsg, tenantId, source, clientId],
+      );
+      return row?.id as string | undefined;
+    } catch {
+      const [row] = await systemQuery<{ id: string }>(
+        'INSERT INTO agent_runs (agent_id, task, status, input, tenant_id) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+        [agentRole, task, 'running', inputMsg, tenantId],
+      );
+      return row?.id as string | undefined;
+    }
+  })().catch(() => undefined);
 
   try {
     const runId = await runIdPromise;
@@ -1410,6 +1451,56 @@ const server = createServer(async (req, res) => {
       }
 
       json(res, 200, result);
+      return;
+    }
+
+    if (method === 'GET' && url === '/sdk/agents') {
+      const client = await requireSdkClient(req, res);
+      if (!client) return;
+      const agents = await listClientSdkAgents(client);
+      json(res, 200, agents);
+      return;
+    }
+
+    if (method === 'POST' && url === '/sdk/agents') {
+      const client = await requireSdkClient(req, res);
+      if (!client) return;
+      try {
+        const body = JSON.parse(await readBody(req));
+        const agent = await createClientSdkAgent(client, body);
+        json(res, 201, agent);
+      } catch (err) {
+        json(res, 400, { error: (err as Error).message });
+      }
+      return;
+    }
+
+    const sdkAgentMatch = url.match(/^\/sdk\/agents\/([^/]+)$/);
+    if (method === 'GET' && sdkAgentMatch) {
+      const client = await requireSdkClient(req, res);
+      if (!client) return;
+      const role = decodeURIComponent(sdkAgentMatch[1]);
+      const agent = await getClientSdkAgent(client, role);
+      if (!agent) {
+        json(res, 404, { error: 'Agent not found' });
+        return;
+      }
+      json(res, 200, agent);
+      return;
+    }
+
+    const sdkRetireMatch = url.match(/^\/sdk\/agents\/([^/]+)\/retire$/);
+    if (method === 'POST' && sdkRetireMatch) {
+      const client = await requireSdkClient(req, res);
+      if (!client) return;
+      try {
+        const role = decodeURIComponent(sdkRetireMatch[1]);
+        const body = JSON.parse(await readBody(req));
+        const agent = await retireClientSdkAgent(client, role, body);
+        json(res, 200, agent);
+      } catch (err) {
+        json(res, 400, { error: (err as Error).message });
+      }
       return;
     }
 
