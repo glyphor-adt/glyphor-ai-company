@@ -84,7 +84,6 @@ const EXECUTIVE_ROLES = new Set<string>([
   'vp-research',
   'vp-sales',
   'vp-design',
-  'vp-customer-success',
 ]);
 
 const CODE_HINT = /\b(code|typescript|tsconfig|bug|fix|build|compile|refactor|component|frontend|backend|api|migration|test)\b/i;

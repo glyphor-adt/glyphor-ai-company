@@ -36,15 +36,14 @@ import {
 // Agent role → display name
 const AGENT_NAMES: Record<string, string> = {
   'chief-of-staff': 'Sarah Chen', cto: 'Marcus Reeves', cpo: 'Elena Vasquez',
-  cfo: 'Nadia Okafor', cmo: 'Maya Brooks', 'vp-customer-success': 'James Turner',
+  cfo: 'Nadia Okafor', cmo: 'Maya Brooks',
   'vp-sales': 'Rachel Kim', 'vp-design': 'Mia Tanaka', ops: 'Atlas Vega',
   'platform-engineer': 'Alex Park', 'quality-engineer': 'Sam DeLuca',
   'devops-engineer': 'Jordan Hayes', 'user-researcher': 'Priya Sharma',
-  'competitive-intel': 'Daniel Ortiz', 'revenue-analyst': 'Anna Park',
-  'cost-analyst': 'Omar Hassan', 'content-creator': 'Tyler Reed',
+  'competitive-intel': 'Daniel Ortiz',
+  'content-creator': 'Tyler Reed',
   'seo-analyst': 'Lisa Chen', 'social-media-manager': 'Kai Johnson',
-  'onboarding-specialist': 'Emma Wright', 'support-triage': 'David Santos',
-  'account-research': 'Nathan Cole', 'm365-admin': 'Riley Morgan',
+  'm365-admin': 'Riley Morgan',
   'global-admin': 'Morgan Blake', 'head-of-hr': 'Ava Martinez',
   clo: 'Legal', 'vp-research': 'Research Lead',
 };
@@ -213,11 +212,10 @@ export class AgentNotifier {
     const map: Record<string, string> = {
       cto: 'engineering', 'platform-engineer': 'engineering', 'quality-engineer': 'engineering',
       'devops-engineer': 'engineering', cpo: 'product', 'user-researcher': 'product',
-      'competitive-intel': 'product', cfo: 'finance', 'revenue-analyst': 'finance',
-      'cost-analyst': 'finance', cmo: 'marketing', 'content-creator': 'marketing',
+      'competitive-intel': 'product', cfo: 'finance',
+      cmo: 'marketing', 'content-creator': 'marketing',
       'seo-analyst': 'marketing', 'social-media-manager': 'marketing',
-      'vp-customer-success': 'customer-success', 'onboarding-specialist': 'customer-success',
-      'support-triage': 'customer-success', 'vp-sales': 'sales', 'account-research': 'sales',
+      'vp-sales': 'sales',
       'vp-design': 'design', 'ui-ux-designer': 'design', 'frontend-engineer': 'design',
       'design-critic': 'design', 'template-architect': 'design',
     };

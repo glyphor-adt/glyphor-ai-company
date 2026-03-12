@@ -71,7 +71,7 @@ const ANALYSIS_PERSPECTIVES: Record<AnalysisType, string[]> = {
   market_opportunity: ['cmo', 'vp-sales', 'cfo', 'cpo'],
   competitive_landscape: ['competitive-intel', 'cto', 'cmo', 'vp-sales'],
   product_strategy: ['cpo', 'cto', 'user-researcher', 'vp-design'],
-  growth_diagnostic: ['cmo', 'vp-sales', 'vp-customer-success', 'cfo'],
+  growth_diagnostic: ['cmo', 'vp-sales', 'cfo'],
   risk_assessment: ['cfo', 'cto', 'ops', 'chief-of-staff'],
 };
 
@@ -241,9 +241,8 @@ export class AnalysisEngine {
   private getEnhancedPerspectives(type: AnalysisType): string[] {
     const base = ANALYSIS_PERSPECTIVES[type];
     const allPerspectives = [
-      'cto', 'cfo', 'cmo', 'cpo', 'vp-sales', 'vp-customer-success',
+      'cto', 'cfo', 'cmo', 'cpo', 'vp-sales',
       'vp-design', 'competitive-intel', 'user-researcher', 'ops', 'chief-of-staff',
-      'revenue-analyst', 'cost-analyst',
     ];
     // Return all perspectives not in the base set — plus always include financial and ops
     return allPerspectives.filter((p) => !base.includes(p));
@@ -453,14 +452,11 @@ function buildEnhancedThreadPrompt(
     cmo: 'marketing and brand positioning',
     cpo: 'product strategy and user impact',
     'vp-sales': 'sales pipeline and revenue potential',
-    'vp-customer-success': 'customer retention and satisfaction',
     'vp-design': 'user experience and design impact',
     'competitive-intel': 'competitive landscape and market positioning',
     'user-researcher': 'user behavior and needs',
     ops: 'operational feasibility and risks',
     'chief-of-staff': 'cross-functional coordination and strategic alignment',
-    'revenue-analyst': 'revenue modeling and financial projections',
-    'cost-analyst': 'cost structure and financial optimization',
   };
 
   const label = perspectiveLabels[perspective] ?? perspective;

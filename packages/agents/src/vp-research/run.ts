@@ -97,13 +97,10 @@ Special Focus: "${params.sarahNotes || 'No special notes.'}"
 YOUR TEAM:
 - Lena Park (competitive-research-analyst): Competitive research — profiling, features, pricing, reviews
 - Daniel Okafor (market-research-analyst): Market research — sizing, financials, funding, benchmarks
-- Kai Nakamura (technical-research-analyst): Technical research — stacks, APIs, architecture, moats
-- Amara Diallo (industry-research-analyst): Industry research — PESTLE, trends, regulation, adoption
-
 Create a research brief for each analyst that should participate (based on depth).
 For Standard depth: pick 2 analysts and 2 executives.
-For Deep depth: use all 4 analysts and 3-4 executives.
-For Comprehensive: all 4 analysts, all 4 executives, plan follow-ups.
+For Deep depth: use all analysts and 3-4 executives.
+For Comprehensive: all analysts, all 4 executives, plan follow-ups.
 
 Routing options:
 - cpo (Elena Vasquez): Product strategy, Ansoff — needs competitive + technical

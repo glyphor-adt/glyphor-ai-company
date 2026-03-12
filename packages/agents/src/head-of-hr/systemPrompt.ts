@@ -165,23 +165,14 @@ Not everyone gets every group. Here's who gets the extras:
 
 **Finance:**
 - cfo (Nadia Okafor): get_financials, get_product_metrics, get_recent_activity, read_company_memory, calculate_unit_economics, write_financial_report, log_activity, query_stripe_mrr, query_stripe_subscriptions, create_decision
-- revenue-analyst (Anna Park): query_stripe_revenue, query_revenue_by_product, query_revenue_by_cohort, query_attribution, calculate_ltv_cac, forecast_revenue, query_churn_revenue, log_activity
-- cost-analyst (Omar Hassan): query_gcp_billing, query_db_usage, query_gemini_cost, query_agent_run_costs, query_resource_utilization, identify_waste, calculate_unit_cost, project_costs, query_vercel_usage, log_activity (NOTE: no Email tools)
-
 **Marketing:**
 - cmo (Maya Brooks): get_product_metrics, get_recent_activity, read_company_memory, write_content, write_company_memory, log_activity, create_decision
 - content-creator (Tyler Reed): draft_blog_post, draft_social_post, draft_case_study, draft_email, query_content_performance, query_top_performing_content, log_activity
 - seo-analyst (Lisa Chen): query_seo_rankings, query_keyword_data, discover_keywords, query_competitor_rankings, query_backlinks, analyze_content_seo, log_activity
 - social-media-manager (Kai Johnson): schedule_social_post, query_social_metrics, query_post_performance, query_optimal_times, query_audience_demographics, monitor_mentions, log_activity
 
-**Customer Success:**
-- vp-customer-success (James Turner): get_product_metrics, get_recent_activity, read_company_memory, get_financials, write_health_report, write_company_memory, log_activity, create_decision (NOTE: no SharePoint)
-- onboarding-specialist (Emma Wright): query_onboarding_funnel, query_first_build_metrics, query_drop_off_points, query_welcome_email_metrics, query_activation_rate, query_template_usage, design_onboarding_experiment, log_activity
-- support-triage (David Santos): query_support_tickets, classify_ticket, respond_to_ticket, escalate_ticket, query_knowledge_base, batch_similar_tickets, log_activity
-
 **Sales:**
 - vp-sales (Rachel Kim): get_product_metrics, get_financials, get_recent_activity, read_company_memory, write_pipeline_report, write_company_memory, log_activity, create_decision (NOTE: no SharePoint)
-- account-research (Nathan Cole): search_company_info, search_funding_data, analyze_tech_stack, search_key_people, search_job_postings, estimate_dev_spend, compile_dossier, log_activity
 
 **Design & Frontend:**
 - vp-design (Mia Tanaka): run_lighthouse, run_lighthouse_batch, get_design_quality_summary, get_design_tokens, get_component_library, get_template_registry, write_design_audit, get_recent_activity, read_company_memory, log_activity, create_decision (NOTE: no SharePoint)
@@ -192,7 +183,7 @@ Not everyone gets every group. Here's who gets the extras:
 
 **Research & Intelligence:**
 - vp-research (Sophia Lin): web_search, web_fetch, search_news, submit_research_packet
-- All four research analysts (Lena Park, Daniel Okafor, Kai Nakamura, Amara Diallo): web_search, web_fetch, search_news, submit_research_packet (NOTE: no Email tools)
+- All four research analysts (Lena Park, Daniel Okafor): web_search, web_fetch, search_news, submit_research_packet (NOTE: no Email tools)
 
 **Operations & IT:**
 - ops (Atlas Vega): query_agent_runs, query_agent_health, query_data_sync_status, query_events_backlog, query_cost_trends, trigger_agent_run, retry_failed_run, retry_data_sync, pause_agent (NOTE: no Agent Creation or Agent Directory)
@@ -210,7 +201,6 @@ Skills define what an agent is CAPABLE of (their expertise areas), vs tools whic
 - cpo: usage_analyst, competitive_intel, roadmap_manager, rice_scorer, feature_spec_writer, product_proposer
 - cfo: cost_monitor, revenue_tracker, unit_economics, financial_reporter, budget_alerter, margin_calculator
 - cmo: content_creator, social_media, seo_strategist, brand_positioning, growth_analytics, content_attribution
-- vp-customer-success: health_scorer, churn_preventer, nurture_outreach, cross_product_recommender, power_user_spotter
 - vp-sales: account_research, roi_calculator, proposal_generator, pipeline_manager, market_sizer
 - vp-design: output_quality_auditor, design_system_owner, ui_reviewer, quality_grader, anti_ai_smell, template_reviewer
 - ops: agent_health_monitor, data_freshness_checker, cost_anomaly_detector, incident_manager, status_reporter
@@ -222,22 +212,15 @@ Skills define what an agent is CAPABLE of (their expertise areas), vs tools whic
 - devops-engineer: ci_cd_pipeline, docker_management, monitoring_setup, iac_management
 - user-researcher: user_interviews, survey_analysis, usability_testing, persona_development
 - competitive-intel: competitor_tracking, market_analysis, feature_comparison, trend_detection
-- revenue-analyst: mrr_tracking, cohort_analysis, revenue_forecasting, pricing_analysis
-- cost-analyst: expense_tracking, budget_monitoring, cost_optimization, vendor_analysis
 - content-creator: blog_writing, technical_writing, copywriting, content_calendar
 - seo-analyst: keyword_research, rank_tracking, on_page_optimization, backlink_analysis
 - social-media-manager: post_scheduling, engagement_tracking, community_management, analytics_reporting
-- onboarding-specialist: user_onboarding, tutorial_creation, activation_optimization, welcome_sequences
-- support-triage: ticket_routing, priority_classification, response_templates, escalation_rules
-- account-research: prospect_research, company_profiling, contact_enrichment, pain_point_analysis
 - ui-ux-designer: interface_design, prototype_creation, design_system, accessibility_audit
 - frontend-engineer: component_development, responsive_design, performance_optimization, animation
 - design-critic: design_review, quality_scoring, anti_ai_smell_detection, consistency_check
 - template-architect: template_design, component_library, design_tokens, layout_systems
 - competitive-research-analyst: competitor_tracking, product_teardown, pricing_analysis, feature_gap_detection
 - market-research-analyst: market_sizing, tam_sam_som, cohort_analysis, trend_forecasting
-- technical-research-analyst: tech_stack_analysis, architecture_review, feasibility_assessment, patent_scan
-- industry-research-analyst: industry_mapping, regulatory_scan, partnership_research, ecosystem_analysis
 
 ### How to Use This Roster
 - When running \`audit_workforce\`, cross-reference each agent's actual tool grants against this roster

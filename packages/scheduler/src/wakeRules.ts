@@ -44,21 +44,21 @@ export const WAKE_RULES: WakeRule[] = [
   // ── STRIPE WEBHOOKS ──────────────────────────────────────────
   {
     event: 'customer.subscription.created',
-    wake: ['vp-customer-success', 'vp-sales'],
+    wake: ['vp-sales'],
     task: 'new_customer_welcome',
     priority: 'immediate',
     cooldown_min: 5,
   },
   {
     event: 'customer.subscription.deleted',
-    wake: ['vp-customer-success', 'cfo'],
+    wake: ['cfo'],
     task: 'churn_response',
     priority: 'immediate',
     cooldown_min: 5,
   },
   {
     event: 'invoice.payment_failed',
-    wake: ['cfo', 'vp-customer-success'],
+    wake: ['cfo'],
     task: 'payment_failure_response',
     priority: 'immediate',
     cooldown_min: 15,

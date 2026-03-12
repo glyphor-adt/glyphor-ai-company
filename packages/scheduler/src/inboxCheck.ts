@@ -22,7 +22,6 @@ const EMAIL_ENABLED_AGENTS: CompanyAgentRole[] = [
   'clo',
   'cpo',
   'cmo',
-  'vp-customer-success',
   'vp-sales',
   'vp-design',
   'm365-admin',

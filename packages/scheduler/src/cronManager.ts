@@ -133,15 +133,6 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     enabled: true,
   },
   {
-    id: 'vpcs-health-scoring',
-    agentRole: 'vp-customer-success',
-    schedule: '0 13 * * *',  // 8:00 AM CT, daily
-    timezone: 'America/Chicago',
-    task: 'daily_health_scoring',
-    payload: {},
-    enabled: true,
-  },
-  {
     id: 'vps-pipeline-review',
     agentRole: 'vp-sales',
     schedule: '0 14 * * *',  // 9:00 AM CT, daily
@@ -248,26 +239,6 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     enabled: true,
   },
 
-  // Finance sub-team (reports to CFO)
-  {
-    id: 'revenue-analyst-daily',
-    agentRole: 'revenue-analyst',
-    schedule: '30 15 * * *',  // 9:30 AM CT — revenue breakdown
-    timezone: 'America/Chicago',
-    task: 'revenue_report',
-    payload: {},
-    enabled: true,
-  },
-  {
-    id: 'cost-analyst-daily',
-    agentRole: 'cost-analyst',
-    schedule: '30 15 * * *',  // 9:30 AM CT — cost breakdown
-    timezone: 'America/Chicago',
-    task: 'cost_report',
-    payload: {},
-    enabled: true,
-  },
-
   // Marketing sub-team (reports to CMO)
   {
     id: 'content-creator-daily',
@@ -302,37 +273,6 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     schedule: '0 22 * * *',  // 4:00 PM CT — afternoon engagement check
     timezone: 'America/Chicago',
     task: 'engagement_report',
-    payload: {},
-    enabled: true,
-  },
-
-  // Customer Success sub-team (reports to VP-CS)
-  {
-    id: 'onboarding-daily',
-    agentRole: 'onboarding-specialist',
-    schedule: '30 14 * * *',  // 8:30 AM CT — new user check
-    timezone: 'America/Chicago',
-    task: 'funnel_report',
-    payload: {},
-    enabled: true,
-  },
-  {
-    id: 'support-triage-recurring',
-    agentRole: 'support-triage',
-    schedule: '0 */2 * * *',  // every 2 hours — most frequent sub-team
-    timezone: 'UTC',
-    task: 'triage_queue',
-    payload: {},
-    enabled: true,
-  },
-
-  // Sales sub-team (reports to VP-Sales)
-  {
-    id: 'account-research-daily',
-    agentRole: 'account-research',
-    schedule: '30 15 * * *',  // 9:30 AM CT — account intelligence
-    timezone: 'America/Chicago',
-    task: 'prospect_research',
     payload: {},
     enabled: true,
   },

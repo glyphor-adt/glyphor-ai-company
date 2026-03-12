@@ -178,10 +178,6 @@ export interface FrameworkProgress {
 const RESEARCH_ANALYST_ROLES: Record<string, { name: string; packetType: string }> = {
   'competitive-research-analyst': { name: 'Lena Park', packetType: 'competitor_profiles' },
   'market-research-analyst': { name: 'Daniel Okafor', packetType: 'market_data' },
-  'technical-research-analyst': { name: 'Kai Nakamura', packetType: 'technical_landscape' },
-  'industry-research-analyst': { name: 'Amara Diallo', packetType: 'industry_trends' },
-  'ai-impact-analyst': { name: 'Riya Mehta', packetType: 'ai_impact' },
-  'org-analyst': { name: 'Marcus Chen', packetType: 'talent_assessment' },
 };
 
 /** Normalise analyst role strings from LLM output to canonical role IDs */
@@ -192,18 +188,10 @@ function normalizeAnalystRole(raw: string): string {
   // Match by keyword prefix
   if (/^compet/.test(key)) return 'competitive-research-analyst';
   if (/^market/.test(key)) return 'market-research-analyst';
-  if (/^tech/.test(key)) return 'technical-research-analyst';
-  if (/^industr/.test(key)) return 'industry-research-analyst';
-  if (/^ai[- ]?impact/.test(key)) return 'ai-impact-analyst';
-  if (/^org|^talent/.test(key)) return 'org-analyst';
   // Match by analyst name
   const lower = raw.toLowerCase();
   if (lower.includes('lena')) return 'competitive-research-analyst';
   if (lower.includes('daniel')) return 'market-research-analyst';
-  if (lower.includes('kai')) return 'technical-research-analyst';
-  if (lower.includes('amara')) return 'industry-research-analyst';
-  if (lower.includes('riya')) return 'ai-impact-analyst';
-  if (lower.includes('marcus chen')) return 'org-analyst';
   return '';
 }
 
@@ -253,31 +241,31 @@ const DEFAULT_ROUTING: ExecutiveRouting = {
 /** Analysis type → which analysts and executives to use */
 const ANALYSIS_CONFIGS: Record<StrategyAnalysisType, { analysts: string[]; executives: string[] }> = {
   competitive_landscape: {
-    analysts: ['competitive-research-analyst', 'market-research-analyst', 'technical-research-analyst', 'industry-research-analyst', 'ai-impact-analyst', 'org-analyst'],
+    analysts: ['competitive-research-analyst', 'market-research-analyst'],
     executives: ['cpo', 'cfo', 'cmo', 'cto'],
   },
   market_opportunity: {
-    analysts: ['market-research-analyst', 'industry-research-analyst', 'competitive-research-analyst', 'ai-impact-analyst'],
+    analysts: ['market-research-analyst', 'competitive-research-analyst'],
     executives: ['cmo', 'cfo', 'cpo'],
   },
   product_strategy: {
-    analysts: ['competitive-research-analyst', 'technical-research-analyst', 'market-research-analyst', 'ai-impact-analyst'],
+    analysts: ['competitive-research-analyst', 'market-research-analyst'],
     executives: ['cpo', 'cto', 'cmo'],
   },
   growth_diagnostic: {
-    analysts: ['market-research-analyst', 'competitive-research-analyst', 'industry-research-analyst', 'org-analyst'],
+    analysts: ['market-research-analyst', 'competitive-research-analyst'],
     executives: ['cmo', 'cfo', 'cpo'],
   },
   risk_assessment: {
-    analysts: ['industry-research-analyst', 'competitive-research-analyst', 'technical-research-analyst', 'ai-impact-analyst', 'org-analyst'],
+    analysts: ['competitive-research-analyst', 'market-research-analyst'],
     executives: ['cto', 'cfo', 'cpo'],
   },
   market_entry: {
-    analysts: ['market-research-analyst', 'competitive-research-analyst', 'industry-research-analyst', 'technical-research-analyst', 'ai-impact-analyst', 'org-analyst'],
+    analysts: ['market-research-analyst', 'competitive-research-analyst'],
     executives: ['cmo', 'cfo', 'cpo', 'cto'],
   },
   due_diligence: {
-    analysts: ['competitive-research-analyst', 'market-research-analyst', 'technical-research-analyst', 'industry-research-analyst', 'ai-impact-analyst', 'org-analyst'],
+    analysts: ['competitive-research-analyst', 'market-research-analyst'],
     executives: ['cfo', 'cpo', 'cto', 'cmo'],
   },
 };
@@ -1123,8 +1111,6 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
       const ROLE_TO_PACKET_TYPE: Record<string, string> = {
         'competitive-research-analyst': 'competitor_profiles',
         'market-research-analyst': 'market_data',
-        'technical-research-analyst': 'technical_landscape',
-        'industry-research-analyst': 'industry_trends',
       };
 
       let fallbackCount = 0;
@@ -1449,8 +1435,6 @@ ${JSON.stringify(synthesis, null, 2)}
 AVAILABLE ANALYSTS:
 - competitive-research-analyst (Lena): competitive intelligence
 - market-research-analyst (Daniel): market data, financials
-- technical-research-analyst (Kai): tech stacks, architecture
-- industry-research-analyst (Amara): regulation, trends
 
 Return JSON array: [{ "analystRole": "...", "researchBrief": "...", "searchQueries": ["..."] }]
 Return an empty array [] if the analysis is sufficiently thorough.`;
@@ -1752,32 +1736,6 @@ Return valid JSON: { "checks": [...], "overall_consistency_score": N, "critical_
             `${query} funding investment landscape 2025 2026`,
             `${query} pricing benchmark analysis`,
             `${query} market research report Statista Gartner`,
-          ];
-          break;
-
-        case 'technical-research-analyst':
-          researchBrief = `Research the technical landscape for: ${query}\n\nMap competitor tech stacks, AI models used, API capabilities, and architecture patterns. Identify open source vs proprietary components. Assess technical barriers to entry and competitive moats. Evaluate developer experience and platform extensibility.`;
-          suggestedSearches = [
-            `${query} technology stack architecture`,
-            `${query} API documentation developer`,
-            `${query} AI model GPT machine learning`,
-            `${query} engineering blog technical`,
-            `${query} open source github`,
-            `${query} technical comparison platform`,
-            `${query} developer experience SDK`,
-          ];
-          break;
-
-        case 'industry-research-analyst':
-          researchBrief = `Research industry trends and macro environment for: ${query}\n\nTrack regulatory developments (AI Act, data privacy, content regulation). Analyze technology trends (model improvements, cost curves). Monitor enterprise adoption patterns. Assess economic factors. Organize into PESTLE framework.`;
-          suggestedSearches = [
-            `${query} regulation policy 2026`,
-            `${query} industry trends forecast`,
-            `${query} enterprise adoption survey`,
-            `AI regulation EU AI Act impact ${query}`,
-            `${query} economic outlook market dynamics`,
-            `${query} emerging technology trends 2026`,
-            `${query} consumer behavior adoption curve`,
           ];
           break;
 

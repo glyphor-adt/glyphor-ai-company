@@ -308,7 +308,7 @@ function buildResearchAreas(target: string): ResearchArea[] {
     {
       id: 'leadership',
       label: 'Leadership & Culture',
-      perspective: 'vp-customer-success',
+      perspective: 'head-of-hr',
       searchQueries: [
         `${target} company culture glassdoor reviews workplace`,
         `${target} leadership team management changes CEO`,
@@ -420,7 +420,7 @@ function buildResearchAreas(target: string): ResearchArea[] {
     {
       id: 'talent_assessment',
       label: 'Talent & Organization',
-      perspective: 'vp-customer-success',
+      perspective: 'head-of-hr',
       searchQueries: [
         `${target} talent acquisition hiring strategy workforce`,
         `${target} employee retention turnover employer brand`,

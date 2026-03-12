@@ -84,14 +84,6 @@ export const TOOL_SUBSETS: ToolSubsetMap = {
     ),
     proactive: null,
   },
-  'vp-customer-success': {
-    daily_health_scoring: withWorkTools(
-      'get_company_pulse',
-      'get_org_knowledge',
-      'query_knowledge_graph',
-    ),
-    proactive: null,
-  },
   'vp-sales': {
     pipeline_review: withWorkTools(
       'get_company_pulse',

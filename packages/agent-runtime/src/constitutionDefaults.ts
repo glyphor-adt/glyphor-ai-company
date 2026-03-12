@@ -100,10 +100,8 @@ export const DEFAULT_CONSTITUTIONS: Record<string, ConstitutionalPrinciple[]> = 
 
 /** Roles that map to an analyst constitution. */
 const ANALYST_ROLES = new Set([
-  'revenue-analyst', 'cost-analyst', 'competitive-intel', 'user-researcher',
+  'competitive-intel', 'user-researcher',
   'competitive-research-analyst', 'market-research-analyst',
-  'technical-research-analyst', 'industry-research-analyst',
-  'account-research',
 ]);
 
 /**

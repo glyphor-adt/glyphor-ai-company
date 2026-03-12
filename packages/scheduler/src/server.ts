@@ -56,13 +56,10 @@ import { expireTools } from './toolExpirationManager.js';
 import { evaluateCanary } from './canaryEvaluator.js';
 import { handleTriangulatedChat } from './triangulationEndpoint.js';
 import {
-  runChiefOfStaff, runCTO, runCFO, runCLO, runCPO, runCMO, runVPCS, runVPSales, runVPDesign,
+  runChiefOfStaff, runCTO, runCFO, runCLO, runCPO, runCMO, runVPSales, runVPDesign,
   runPlatformEngineer, runQualityEngineer, runDevOpsEngineer,
   runUserResearcher, runCompetitiveIntel,
-  runRevenueAnalyst, runCostAnalyst,
   runContentCreator, runSeoAnalyst, runSocialMediaManager,
-  runOnboardingSpecialist, runSupportTriage,
-  runAccountResearch,
   runUiUxDesigner, runFrontendEngineer, runDesignCritic, runTemplateArchitect,
   runM365Admin,
   runGlobalAdmin,
@@ -70,8 +67,6 @@ import {
   runOps,
   runCompetitiveResearchAnalyst,
   runMarketResearchAnalyst,
-  runTechnicalResearchAnalyst,
-  runIndustryResearchAnalyst,
   runVPResearch,
   runDynamicAgent,
 } from '@glyphor/agents';
@@ -268,8 +263,6 @@ const agentExecutor = async (
     return runCPO({ task: (task as 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'cmo') {
     return runCMO({ task: (task as 'weekly_content_planning' | 'generate_content' | 'seo_analysis' | 'on_demand'), message, conversationHistory });
-  } else if (agentRole === 'vp-customer-success') {
-    return runVPCS({ task: (task as 'daily_health_scoring' | 'churn_detection' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'vp-sales') {
     return runVPSales({ task: (task as 'pipeline_review' | 'market_sizing' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'vp-design') {
@@ -290,12 +283,6 @@ const agentExecutor = async (
   } else if (agentRole === 'competitive-intel') {
     return runCompetitiveIntel({ task: (task as 'landscape_scan' | 'deep_dive' | 'on_demand'), message, conversationHistory });
   }
-  // Finance
-  else if (agentRole === 'revenue-analyst') {
-    return runRevenueAnalyst({ task: (task as 'revenue_report' | 'forecast' | 'on_demand'), message, conversationHistory });
-  } else if (agentRole === 'cost-analyst') {
-    return runCostAnalyst({ task: (task as 'cost_report' | 'waste_scan' | 'on_demand'), message, conversationHistory });
-  }
   // Marketing
   else if (agentRole === 'content-creator') {
     return runContentCreator({ task: (task as 'blog_draft' | 'social_batch' | 'performance_review' | 'on_demand'), message, conversationHistory });
@@ -303,16 +290,6 @@ const agentExecutor = async (
     return runSeoAnalyst({ task: (task as 'ranking_report' | 'keyword_research' | 'competitor_gap' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'social-media-manager') {
     return runSocialMediaManager({ task: (task as 'engagement_report' | 'schedule_batch' | 'mention_scan' | 'on_demand'), message, conversationHistory });
-  }
-  // Customer Success
-  else if (agentRole === 'onboarding-specialist') {
-    return runOnboardingSpecialist({ task: (task as 'funnel_report' | 'drop_off_analysis' | 'on_demand'), message, conversationHistory });
-  } else if (agentRole === 'support-triage') {
-    return runSupportTriage({ task: (task as 'triage_queue' | 'batch_analysis' | 'on_demand'), message, conversationHistory });
-  }
-  // Sales
-  else if (agentRole === 'account-research') {
-    return runAccountResearch({ task: (task as 'prospect_research' | 'batch_enrich' | 'on_demand'), message, company: payload.company as string | undefined, conversationHistory });
   }
   // Design sub-team
   else if (agentRole === 'ui-ux-designer') {
@@ -347,10 +324,6 @@ const agentExecutor = async (
     return runCompetitiveResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, researchBrief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
   } else if (agentRole === 'market-research-analyst') {
     return runMarketResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, researchBrief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
-  } else if (agentRole === 'technical-research-analyst') {
-    return runTechnicalResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, researchBrief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
-  } else if (agentRole === 'industry-research-analyst') {
-    return runIndustryResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, researchBrief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
   } else {
     // Dynamic agent — look up in DB and run with generic runner
     console.log(`[Scheduler] Agent ${agentRole} not in static roster, trying dynamic runner...`);

@@ -72,7 +72,7 @@ const DEPARTMENTS: Record<string, DepartmentDef> = {
   },
   finance: {
     executive: 'cfo',
-    team: ['revenue-analyst', 'cost-analyst'],
+    team: [],
     keywords: ['cost', 'revenue', 'budget', 'billing', 'pricing', 'margin', 'financial', 'expense', 'forecast', 'profit', 'finance', 'cash flow'],
   },
   product: {
@@ -82,13 +82,8 @@ const DEPARTMENTS: Record<string, DepartmentDef> = {
   },
   sales: {
     executive: 'vp-sales',
-    team: ['account-research', 'enterprise-account-researcher', 'lead-gen-specialist'],
+    team: [],
     keywords: ['pipeline', 'lead', 'enterprise', 'proposal', 'account', 'sales', 'prospect', 'deal', 'quota', 'crm', 'outbound'],
-  },
-  customer_success: {
-    executive: 'vp-customer-success',
-    team: ['onboarding-specialist', 'support-triage'],
-    keywords: ['churn', 'onboarding', 'health score', 'customer', 'retention', 'support', 'ticket', 'nps', 'satisfaction', 'renewal'],
   },
   design: {
     executive: 'vp-design',
@@ -97,12 +92,12 @@ const DEPARTMENTS: Record<string, DepartmentDef> = {
   },
   research: {
     executive: 'vp-research',
-    team: ['competitive-research-analyst', 'market-research-analyst', 'technical-research-analyst', 'industry-research-analyst', 'ai-impact-analyst', 'org-analyst'],
+    team: ['competitive-research-analyst', 'market-research-analyst'],
     keywords: ['research', 'analysis', 'market', 'competitive landscape', 'industry', 'trend', 'benchmark', 'study', 'intelligence'],
   },
   legal: {
     executive: 'clo',
-    team: ['bob-the-tax-pro', 'data-integrity-auditor', 'tax-strategy-specialist'],
+    team: ['bob-the-tax-pro'],
     keywords: ['compliance', 'contract', 'ip', 'tax', 'regulation', 'legal', 'policy', 'audit', 'governance', 'liability', 'privacy', 'gdpr'],
   },
 };

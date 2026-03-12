@@ -189,15 +189,14 @@ export class TaskRunner extends BaseAgentRunner {
 
   private getDepartment(role: CompanyAgentRole): string {
     const map: Record<string, string> = {
-      'cfo': 'finance', 'revenue-analyst': 'finance', 'cost-analyst': 'finance',
+      'cfo': 'finance',
       'cpo': 'product', 'user-researcher': 'product', 'competitive-intel': 'product',
       'cmo': 'marketing', 'content-creator': 'marketing', 'seo-analyst': 'marketing', 'social-media-manager': 'marketing',
-      'vp-customer-success': 'customer_success', 'onboarding-specialist': 'customer_success', 'support-triage': 'customer_success',
-      'vp-sales': 'sales', 'account-research': 'sales',
+      'vp-sales': 'sales',
       'vp-design': 'design', 'ui-ux-designer': 'design', 'frontend-engineer': 'design', 'design-critic': 'design', 'template-architect': 'design',
       'platform-engineer': 'engineering', 'quality-engineer': 'engineering', 'devops-engineer': 'engineering',
       'm365-admin': 'it', 'global-admin': 'operations',
-      'competitive-research-analyst': 'research', 'market-research-analyst': 'research', 'technical-research-analyst': 'research', 'industry-research-analyst': 'research',
+      'competitive-research-analyst': 'research', 'market-research-analyst': 'research',
     };
     return map[role] ?? 'general';
   }

@@ -36,7 +36,6 @@ export type CompanyAgentRole =
   | 'cmo'
   | 'cfo'
   | 'clo'
-  | 'vp-customer-success'
   | 'vp-sales'
   | 'vp-design'
   // Sub-team members
@@ -45,14 +44,9 @@ export type CompanyAgentRole =
   | 'devops-engineer'         // Jordan Hayes → reports to CTO
   | 'user-researcher'         // Priya Sharma → reports to CPO
   | 'competitive-intel'       // Daniel Ortiz → reports to CPO
-  | 'revenue-analyst'         // Anna Park → reports to CFO
-  | 'cost-analyst'            // Omar Hassan → reports to CFO
   | 'content-creator'         // Tyler Reed → reports to CMO
   | 'seo-analyst'             // Lisa Chen → reports to CMO
   | 'social-media-manager'    // Kai Johnson → reports to CMO
-  | 'onboarding-specialist'   // Emma Wright → reports to VP-CS
-  | 'support-triage'          // David Santos → reports to VP-CS
-  | 'account-research'        // Nathan Cole → reports to VP-Sales
   | 'ui-ux-designer'          // Leo Vargas → reports to VP-Design
   | 'frontend-engineer'       // Ava Chen → reports to VP-Design
   | 'design-critic'           // Sofia Marchetti → reports to VP-Design
@@ -66,17 +60,9 @@ export type CompanyAgentRole =
   | 'vp-research'                   // Sophia Lin → VP of Research & Intelligence
   | 'competitive-research-analyst'  // Lena Park → reports to Sophia Lin
   | 'market-research-analyst'       // Daniel Okafor → reports to Sophia Lin
-  | 'technical-research-analyst'    // Kai Nakamura → reports to Sophia Lin
-  | 'industry-research-analyst'       // Amara Diallo → reports to Sophia Lin
-  // Sales, Finance, Marketing, Operations specialists
-  | 'enterprise-account-researcher'   // Ethan Morse → reports to VP-Sales
+  // Specialists
   | 'bob-the-tax-pro'                 // Robert "Bob" Finley → CPA & Tax Strategist, reports to CLO
-  | 'data-integrity-auditor'          // Grace Hwang → reports to CLO
-  | 'tax-strategy-specialist'         // Mariana Solis → reports to CLO
-  | 'lead-gen-specialist'             // Derek Owens → reports to CoS
   | 'marketing-intelligence-analyst'  // Zara Petrov → reports to CMO
-  | 'ai-impact-analyst'               // Riya Mehta → reports to VP-Research
-  | 'org-analyst'                     // Marcus Chen → reports to VP-Research
   | 'adi-rose';                       // Adi Rose → Executive Assistant, reports to CoS
 
 export type ContextInjector = (
@@ -412,7 +398,6 @@ export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   'clo':                  { perRunUsd: 0.10, dailyUsd: 3.00, monthlyUsd: 90 },
   'cpo':                  { perRunUsd: 0.10, dailyUsd: 2.00, monthlyUsd: 60 },
   'cmo':                  { perRunUsd: 0.10, dailyUsd: 2.00, monthlyUsd: 60 },
-  'vp-customer-success':  { perRunUsd: 0.08, dailyUsd: 1.50, monthlyUsd: 45 },
   'vp-sales':             { perRunUsd: 0.08, dailyUsd: 1.50, monthlyUsd: 45 },
   'vp-design':            { perRunUsd: 0.08, dailyUsd: 1.50, monthlyUsd: 45 },
   // ── Ops (Atlas): Always-hot tier ──
@@ -423,14 +408,9 @@ export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   'devops-engineer':      { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'user-researcher':      { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'competitive-intel':    { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
-  'revenue-analyst':      { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
-  'cost-analyst':         { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'content-creator':      { perRunUsd: 0.08, dailyUsd: 1.00, monthlyUsd: 30 },
   'seo-analyst':          { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'social-media-manager': { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
-  'onboarding-specialist':{ perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
-  'support-triage':       { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
-  'account-research':     { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'ui-ux-designer':       { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'frontend-engineer':    { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'design-critic':        { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
@@ -443,17 +423,9 @@ export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   'vp-research':                    { perRunUsd: 0.10, dailyUsd: 2.00, monthlyUsd: 60 },
   'competitive-research-analyst': { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
   'market-research-analyst':      { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
-  'technical-research-analyst':   { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
-  'industry-research-analyst':    { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
-  // Sales, Finance, Marketing, Operations specialists
-  'enterprise-account-researcher': { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
+  // Specialists
   'bob-the-tax-pro':               { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
-  'data-integrity-auditor':        { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
-  'tax-strategy-specialist':       { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
-  'lead-gen-specialist':           { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
   'marketing-intelligence-analyst': { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
-  'ai-impact-analyst':              { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
-  'org-analyst':                    { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
   'adi-rose':                      { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
 };
 
@@ -532,18 +504,16 @@ export type AgentTier = 'executive' | 'sub-team';
 
 export const EXECUTIVE_ROLES: CompanyAgentRole[] = [
   'chief-of-staff', 'cto', 'cpo', 'cmo', 'cfo', 'clo',
-  'vp-customer-success', 'vp-sales', 'vp-design', 'head-of-hr',
+  'vp-sales', 'vp-design', 'head-of-hr',
 ];
 
 export const SUB_TEAM_ROLES: CompanyAgentRole[] = [
   'platform-engineer', 'quality-engineer', 'devops-engineer',
-  'user-researcher', 'competitive-intel', 'revenue-analyst',
-  'cost-analyst', 'content-creator', 'seo-analyst',
-  'social-media-manager', 'onboarding-specialist',
-  'support-triage', 'account-research', 'm365-admin', 'global-admin',
+  'user-researcher', 'competitive-intel',
+  'content-creator', 'seo-analyst',
+  'social-media-manager', 'm365-admin', 'global-admin',
   'vp-research',
   'competitive-research-analyst', 'market-research-analyst',
-  'technical-research-analyst', 'industry-research-analyst',
 ];
 
 /** Events executives can emit */
@@ -648,14 +618,9 @@ export const AGENT_MANAGER: Partial<Record<CompanyAgentRole, CompanyAgentRole>> 
   'devops-engineer':       'cto',
   'user-researcher':       'cpo',
   'competitive-intel':     'cpo',
-  'revenue-analyst':       'cfo',
-  'cost-analyst':          'cfo',
   'content-creator':       'cmo',
   'seo-analyst':           'cmo',
   'social-media-manager':  'cmo',
-  'onboarding-specialist': 'vp-customer-success',
-  'support-triage':        'vp-customer-success',
-  'account-research':      'vp-sales',
   'm365-admin':            'cto',
   'global-admin':           'chief-of-staff',
   'head-of-hr':              'chief-of-staff',
@@ -678,16 +643,13 @@ export const ORCHESTRATOR_ROLES: ReadonlySet<CompanyAgentRole> = new Set([
 
 /** All remaining roles use the TaskRunner — they receive, reason, execute, and report. */
 export const TASK_AGENT_ROLES: ReadonlySet<CompanyAgentRole> = new Set([
-  'cfo', 'cpo', 'cmo', 'vp-customer-success', 'vp-sales', 'vp-design', 'head-of-hr',
+  'cfo', 'cpo', 'cmo', 'vp-sales', 'vp-design', 'head-of-hr',
   'platform-engineer', 'quality-engineer', 'devops-engineer',
   'user-researcher', 'competitive-intel',
-  'revenue-analyst', 'cost-analyst',
   'content-creator', 'seo-analyst', 'social-media-manager',
-  'onboarding-specialist', 'support-triage', 'account-research',
   'ui-ux-designer', 'frontend-engineer', 'design-critic', 'template-architect',
   'm365-admin', 'global-admin',
   'competitive-research-analyst', 'market-research-analyst',
-  'technical-research-analyst', 'industry-research-analyst',
 ]);
 
 export function getAgentArchetype(role: CompanyAgentRole): AgentArchetype {

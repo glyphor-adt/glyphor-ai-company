@@ -34,7 +34,6 @@ const INITIATIVE_OWNER_CATEGORY: Record<string, string> = {
   cmo: 'marketing',
   cfo: 'revenue',
   'vp-sales': 'sales',
-  'vp-customer-success': 'customer_success',
   ops: 'operations',
   'vp-design': 'general',
   'vp-research': 'general',

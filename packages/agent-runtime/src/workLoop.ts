@@ -19,7 +19,7 @@ import type { CompanyAgentRole } from './types.js';
 /** Executive roles that manage teams and evaluate team output */
 const EXECUTIVE_ROLES = new Set([
   'cto', 'cpo', 'cmo', 'cfo',
-  'vp-sales', 'vp-design', 'vp-customer-success', 'vp-research',
+  'vp-sales', 'vp-design', 'vp-research',
 ]);
 
 /** Appended to all P1/P2 assignment execution messages */
@@ -48,7 +48,6 @@ export const PROACTIVE_COOLDOWNS: Record<string, number> = {
   // Medium — 2 hours
   'cpo':                 2 * 60 * 60 * 1000,
   'cmo':                 2 * 60 * 60 * 1000,
-  'vp-customer-success': 2 * 60 * 60 * 1000,
   'vp-sales':            2 * 60 * 60 * 1000,
   'vp-design':           2 * 60 * 60 * 1000,
   'vp-research':         2 * 60 * 60 * 1000,
@@ -614,14 +613,6 @@ Pick the one with the highest potential impact. Execute it — don't just report
 3. SOCIAL ENGAGEMENT: Review last week's social media performance. Double down on what worked.
 4. BRAND MONITORING: Web search "Glyphor" and "Pulse AI" for new mentions or reviews.
 5. INITIATIVE: If you've identified a recurring marketing pattern across 3+ runs, use propose_initiative to propose a marketing campaign or growth project.
-Pick the one with the highest potential impact. Execute it — don't just report on it.`,
-
-  'vp-customer-success': `PROACTIVE WORK — Choose ONE high-value initiative:
-1. CHURN RISK: Score customer health for accounts with declining engagement. If any are critical, draft intervention plan.
-2. ONBOARDING FUNNEL: Check onboarding completion rates. If <70%, identify the drop-off step.
-3. SUPPORT TRENDS: Analyze recent support tickets for recurring themes. If found, propose knowledge base article or product fix.
-4. NPS/CSAT: Check latest satisfaction scores. If declining, investigate root cause.
-5. INITIATIVE: If you've identified a recurring customer pattern across 3+ runs, use propose_initiative to propose a retention or experience project.
 Pick the one with the highest potential impact. Execute it — don't just report on it.`,
 
   'vp-sales': `PROACTIVE WORK — Choose ONE high-value initiative:

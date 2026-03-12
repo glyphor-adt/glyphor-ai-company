@@ -78,7 +78,6 @@ export const AGENT_ROLE_ASSIGNMENTS: Record<CompanyAgentRole, GlyphorAppRole[]> 
   'cmo':                  ['Glyphor.Marketing.Read', 'Glyphor.Marketing.Content.Write', 'Glyphor.Marketing.Publish', 'Glyphor.Marketing.Social.Write'],
   'cpo':                  ['Glyphor.Product.Read', 'Glyphor.Research.Read'],
   'clo':                  ['Glyphor.Admin.Read'],
-  'vp-customer-success':  ['Glyphor.Support.Read', 'Glyphor.Product.Read'],
   'vp-sales':             ['Glyphor.Research.Read'],
   'vp-design':            ['Glyphor.Design.Read', 'Glyphor.Design.Write', 'Glyphor.Figma.Read', 'Glyphor.Figma.Write', 'Glyphor.Code.Read'],
 
@@ -92,21 +91,10 @@ export const AGENT_ROLE_ASSIGNMENTS: Record<CompanyAgentRole, GlyphorAppRole[]> 
   'user-researcher':      ['Glyphor.Product.Read', 'Glyphor.Support.Read'],
   'competitive-intel':    ['Glyphor.Product.Read', 'Glyphor.Research.Read'],
 
-  // Finance team
-  'revenue-analyst':      ['Glyphor.Finance.Revenue.Read'],
-  'cost-analyst':         ['Glyphor.Finance.Cost.Read'],
-
   // Marketing team
   'content-creator':      ['Glyphor.Marketing.Read', 'Glyphor.Marketing.Content.Write'],
   'seo-analyst':          ['Glyphor.Marketing.SEO.Read', 'Glyphor.Marketing.Read'],
   'social-media-manager': ['Glyphor.Marketing.Read', 'Glyphor.Marketing.Social.Write'],
-
-  // Customer Success team
-  'onboarding-specialist': ['Glyphor.Support.Read'],
-  'support-triage':       ['Glyphor.Support.Read'],
-
-  // Sales team
-  'account-research':     ['Glyphor.Research.Read'],
 
   // Design & Frontend team
   'ui-ux-designer':       ['Glyphor.Design.Read', 'Glyphor.Figma.Read'],
@@ -125,17 +113,7 @@ export const AGENT_ROLE_ASSIGNMENTS: Record<CompanyAgentRole, GlyphorAppRole[]> 
   'vp-research':          ['Glyphor.Research.Read', 'Glyphor.Product.Read'],
   'competitive-research-analyst': ['Glyphor.Research.Read'],
   'market-research-analyst':      ['Glyphor.Research.Read'],
-  'technical-research-analyst':   ['Glyphor.Research.Read'],
-  'industry-research-analyst':    ['Glyphor.Research.Read'],
-  'ai-impact-analyst':            ['Glyphor.Research.Read'],
-  'org-analyst':                  ['Glyphor.Research.Read'],
-
-  // Specialist agents (DB-defined)
-  'enterprise-account-researcher': ['Glyphor.Research.Read'],
   'bob-the-tax-pro':               ['Glyphor.Finance.Revenue.Read'],
-  'data-integrity-auditor':        ['Glyphor.Admin.Read'],
-  'tax-strategy-specialist':       ['Glyphor.Finance.Revenue.Read'],
-  'lead-gen-specialist':           ['Glyphor.Research.Read'],
   'marketing-intelligence-analyst': ['Glyphor.Marketing.Read', 'Glyphor.Research.Read'],
   'adi-rose':                      ['Glyphor.Admin.Read', 'Glyphor.Ops.Read'],
 };
