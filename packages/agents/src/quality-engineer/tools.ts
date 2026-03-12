@@ -110,7 +110,7 @@ export function createQualityEngineerTools(memory: CompanyMemoryStore): ToolDefi
       name: 'query_test_results',
       description: 'Get CI check status for open PRs — shows which PRs have passing/failing checks. Use for QA sign-off assessment.',
       parameters: {
-        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: false, enum: ['company', 'fuse', 'pulse'] },
+        repo: { type: 'string', description: 'Repo: "company"', required: false, enum: ['company'] },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
@@ -201,7 +201,7 @@ export function createQualityEngineerTools(memory: CompanyMemoryStore): ToolDefi
       name: 'get_github_actions_runs',
       description: 'Get recent GitHub Actions workflow runs — pass/fail, branch, commit. Use alongside Cloud Build for full CI/CD visibility.',
       parameters: {
-        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: true, enum: ['company', 'fuse', 'pulse'] },
+        repo: { type: 'string', description: 'Repo: "company"', required: true, enum: ['company'] },
         limit: { type: 'number', description: 'Number of recent runs (default: 15)', required: false },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
@@ -226,7 +226,7 @@ export function createQualityEngineerTools(memory: CompanyMemoryStore): ToolDefi
       name: 'create_github_bug',
       description: 'File a bug as a GitHub Issue with severity label — use for P0/P1 issues that need tracking beyond memory.',
       parameters: {
-        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: true, enum: ['company', 'fuse', 'pulse'] },
+        repo: { type: 'string', description: 'Repo: "company"', required: true, enum: ['company'] },
         severity: { type: 'string', description: 'Bug severity', required: true, enum: ['P0', 'P1', 'P2', 'P3'] },
         title: { type: 'string', description: 'Bug title', required: true },
         body: { type: 'string', description: 'Bug description with repro steps (markdown)', required: true },
@@ -254,7 +254,7 @@ export function createQualityEngineerTools(memory: CompanyMemoryStore): ToolDefi
       name: 'review_pr',
       description: 'Submit a formal code review on a PR — approve, request changes, or comment. Use after reviewing the diff.',
       parameters: {
-        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: true, enum: ['company', 'fuse', 'pulse'] },
+        repo: { type: 'string', description: 'Repo: "company"', required: true, enum: ['company'] },
         pr_number: { type: 'number', description: 'PR number', required: true },
         event: { type: 'string', description: 'Review action', required: true, enum: ['APPROVE', 'REQUEST_CHANGES', 'COMMENT'] },
         body: { type: 'string', description: 'Review comment (markdown) — explain why you approve or what needs fixing', required: true },
@@ -280,7 +280,7 @@ export function createQualityEngineerTools(memory: CompanyMemoryStore): ToolDefi
       name: 'get_pr_diff',
       description: 'Get the changed files and diff for a PR — use to review code before approving or requesting changes.',
       parameters: {
-        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: true, enum: ['company', 'fuse', 'pulse'] },
+        repo: { type: 'string', description: 'Repo: "company"', required: true, enum: ['company'] },
         pr_number: { type: 'number', description: 'PR number', required: true },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
@@ -299,7 +299,7 @@ export function createQualityEngineerTools(memory: CompanyMemoryStore): ToolDefi
       name: 'post_qa_check',
       description: 'Post a QA check status on a PR commit — shows as a pass/fail check in the PR. Use to gate merges on QA sign-off.',
       parameters: {
-        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: true, enum: ['company', 'fuse', 'pulse'] },
+        repo: { type: 'string', description: 'Repo: "company"', required: true, enum: ['company'] },
         commit_sha: { type: 'string', description: 'Full commit SHA to post the check on', required: true },
         conclusion: { type: 'string', description: 'Check result', required: true, enum: ['success', 'failure', 'neutral'] },
         summary: { type: 'string', description: 'QA summary (markdown)', required: true },

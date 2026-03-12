@@ -64,7 +64,7 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   // Source: https://ai.google.dev/gemini-api/docs/pricing (verified 2026-02-26)
   { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro',         provider: 'gemini',    tier: 'flagship',  inputPer1M: 2.00,  outputPer1M: 12.0,  thinkingPer1M: 12.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
   { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash',         provider: 'gemini',    tier: 'standard',  inputPer1M: 0.50,  outputPer1M: 3.00,  thinkingPer1M: 3.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
-  { id: 'gemini-3-pro-preview',   label: 'Gemini 3 Pro',           provider: 'gemini',    tier: 'flagship',  inputPer1M: 2.00,  outputPer1M: 12.0,  thinkingPer1M: 12.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
+  { id: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash-Lite', provider: 'gemini', tier: 'economy', inputPer1M: 0.25, outputPer1M: 1.50, thinkingPer1M: 1.50, cachedInputDiscount: 0.10, selectable: true, verifier: false },
   { id: 'gemini-2.5-flash',       label: 'Gemini 2.5 Flash',       provider: 'gemini',    tier: 'economy',   inputPer1M: 0.30,  outputPer1M: 2.50,  thinkingPer1M: 2.50,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
   { id: 'gemini-2.5-flash-lite',  label: 'Gemini 2.5 Flash Lite',  provider: 'gemini',    tier: 'economy',   inputPer1M: 0.10,  outputPer1M: 0.40,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
   { id: 'gemini-2.5-pro',         label: 'Gemini 2.5 Pro',         provider: 'gemini',    tier: 'flagship',  inputPer1M: 1.25,  outputPer1M: 10.0,  thinkingPer1M: 10.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
@@ -74,6 +74,7 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   // Reasoning tokens (o-series) billed at output rate.
   // Source: https://developers.openai.com/api/docs/pricing (verified 2026-02-26)
   { id: 'gpt-5.4',                label: 'GPT-5.4',                provider: 'openai',    tier: 'flagship',  inputPer1M: 2.50,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
+  { id: 'gpt-5.4-pro',            label: 'GPT-5.4 Pro',            provider: 'openai',    tier: 'flagship',  inputPer1M: 30.0,  outputPer1M: 180.0, selectable: true,  verifier: false },
   { id: 'gpt-5.2',                label: 'GPT-5.2',                provider: 'openai',    tier: 'flagship',  inputPer1M: 1.75,  outputPer1M: 14.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
   { id: 'gpt-5.2-pro',            label: 'GPT-5.2 Pro',            provider: 'openai',    tier: 'flagship',  inputPer1M: 21.0,  outputPer1M: 168.0, selectable: true,  verifier: false },
   { id: 'gpt-5.1',                label: 'GPT-5.1',                provider: 'openai',    tier: 'standard',  inputPer1M: 1.25,  outputPer1M: 10.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
@@ -118,6 +119,7 @@ export const DEPRECATED_MODELS: Record<string, string> = {
   'gemini-1.5-flash':           'gemini-2.5-flash',
   'gemini-1.5-pro':             'gemini-2.5-pro',
   'gemini-3.0-flash-preview':   'gemini-3-flash-preview',  // version typo in seed-memory.sh
+  'gemini-3-pro-preview':       'gemini-3.1-pro-preview',
 
   // OpenAI legacy
   'gpt-4o':                     'gpt-5-mini',
@@ -167,15 +169,16 @@ export const GRAPHRAG_MODEL = 'gpt-5-mini-2025-08-07';
 
 export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
   // Gemini primary → try another Gemini tier first, then cheapest cross-provider
-  'gemini-3.1-pro-preview': ['gemini-3-pro-preview', 'gpt-5-mini'],
-  'gemini-3-flash-preview': ['gemini-2.5-flash', 'gpt-5-mini'],
-  'gemini-3-pro-preview':   ['gemini-3-flash-preview', 'gpt-5-mini'],
+  'gemini-3.1-pro-preview': ['gemini-3-flash-preview', 'gpt-5-mini'],
+  'gemini-3-flash-preview': ['gemini-3.1-flash-lite-preview', 'gpt-5-mini'],
+  'gemini-3.1-flash-lite-preview': ['gemini-2.5-flash-lite', 'gpt-5-nano'],
   'gemini-2.5-flash':       ['gemini-3-flash-preview', 'gpt-5-mini'],
   'gemini-2.5-flash-lite':  ['gemini-2.5-flash', 'gpt-5-nano'],
-  'gemini-2.5-pro':         ['gemini-3-pro-preview', 'gpt-5-mini'],
+  'gemini-2.5-pro':         ['gemini-3.1-pro-preview', 'gpt-5-mini'],
 
   // OpenAI primary → try Gemini first (GCP-resident, cheapest), then economy cross-provider
   'gpt-5.4':                ['gemini-3-flash-preview', 'claude-haiku-4-5'],
+  'gpt-5.4-pro':            ['gemini-3-flash-preview', 'claude-haiku-4-5'],
   'gpt-5.2':                ['gemini-3-flash-preview', 'claude-haiku-4-5'],
   'gpt-5.2-pro':            ['gemini-3-flash-preview', 'claude-haiku-4-5'],
   'gpt-5.1':                ['gemini-2.5-flash', 'claude-haiku-4-5'],
@@ -203,13 +206,14 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
 
 export const PROVIDER_LOCAL_FALLBACK_CHAINS: Record<string, readonly string[]> = {
   // Gemini
-  'gemini-3.1-pro-preview': ['gemini-3-pro-preview', 'gemini-2.5-pro', 'gemini-2.5-flash'],
-  'gemini-3-pro-preview':   ['gemini-2.5-pro', 'gemini-2.5-flash'],
-  'gemini-3-flash-preview': ['gemini-2.5-flash', 'gemini-2.5-flash-lite'],
+  'gemini-3.1-pro-preview': ['gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-2.5-flash'],
+  'gemini-3-flash-preview': ['gemini-3.1-flash-lite-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],
+  'gemini-3.1-flash-lite-preview': ['gemini-2.5-flash-lite'],
   'gemini-2.5-pro':         ['gemini-2.5-flash', 'gemini-2.5-flash-lite'],
   'gemini-2.5-flash':       ['gemini-2.5-flash-lite'],
 
   // OpenAI
+  'gpt-5.4-pro':            ['gpt-5.4', 'gpt-5.2', 'gpt-5-mini-2025-08-07'],
   'gpt-5.4':                ['gpt-5.2', 'gpt-5.1', 'gpt-5-mini-2025-08-07'],
   'gpt-5.2-pro':            ['gpt-5.2', 'gpt-5.1', 'gpt-5-mini-2025-08-07'],
   'gpt-5.2':                ['gpt-5.1', 'gpt-5-mini-2025-08-07'],
@@ -234,12 +238,13 @@ export const VERIFIER_MAP: Record<string, string> = {
   // Gemini primary → cheapest cross-provider verifier
   'gemini-3.1-pro-preview': 'gpt-5-mini',
   'gemini-3-flash-preview': 'gpt-5-mini',
-  'gemini-3-pro-preview':   'gpt-5-mini',
+  'gemini-3.1-flash-lite-preview': 'gpt-5-nano',
   'gemini-2.5-flash':       'gpt-5-mini',
   'gemini-2.5-flash-lite':  'gpt-5-nano',
   'gemini-2.5-pro':         'gpt-5-mini',
 
   // OpenAI primary → Gemini verifier (GCP-native, cheap)
+  'gpt-5.4-pro':            'gemini-3-flash-preview',
   'gpt-5.4':                'gemini-2.5-flash',
   'gpt-5.2':                'gemini-2.5-flash',
   'gpt-5.2-pro':            'gemini-3-flash-preview',

@@ -44,32 +44,48 @@ export class GeminiAdapter implements ProviderAdapter {
   async generate(request: UnifiedModelRequest): Promise<UnifiedModelResponse> {
     const geminiContents = this.mapConversation(request.contents);
     const modelConfig = request.metadata?.modelConfig;
+    const structuredOutputSchema = modelConfig?.structuredOutput?.schema
+      ? structuredClone(modelConfig.structuredOutput.schema)
+      : undefined;
     // Deep-clone tools: the @google/genai SDK mutates functionDeclaration objects
     // in-place (uppercasing type fields via processJsonSchema). Without cloning,
     // the shared tool references get corrupted for cross-provider fallbacks.
-    const geminiTools = request.tools?.length
-      ? [{ functionDeclarations: structuredClone(request.tools) }]
-      : undefined;
+    const geminiTools: Array<Record<string, unknown>> = [];
+    if (request.tools?.length) {
+      geminiTools.push({ functionDeclarations: structuredClone(request.tools) });
+    }
 
     // Build thinking config based on model family
     const thinkingEnabled = request.thinkingEnabled ?? true;
     const reasoningLevel = request.reasoningLevel ?? (thinkingEnabled ? 'deep' : 'none');
     let thinkingConfig: Record<string, unknown> | undefined;
     if (request.model.startsWith('gemini-3')) {
-      // Gemini 3.x: always set thinkingConfig — omitting it defaults to MINIMAL which is unsupported
+      const thinkingLevel = modelConfig?.thinkingLevel
+        ?? (modelConfig?.reasoningEffort === 'high' || reasoningLevel === 'deep' ? 'high' : 'low');
       thinkingConfig = {
         includeThoughts: reasoningLevel !== 'none',
-        thinkingLevel: modelConfig?.reasoningEffort === 'high' || reasoningLevel === 'deep' ? 'high' : 'low',
+        thinkingLevel,
       };
     } else if (request.model.startsWith('gemini-2.5')) {
-      thinkingConfig = {
-        includeThoughts: reasoningLevel !== 'none',
-        thinkingBudget: modelConfig?.reasoningEffort === 'high' || reasoningLevel === 'deep'
+      const thinkingBudget = modelConfig?.thinkingBudget ?? (
+        modelConfig?.reasoningEffort === 'high' || reasoningLevel === 'deep'
           ? -1
           : reasoningLevel === 'standard'
             ? 2048
-            : 0,
+            : 0
+      );
+      thinkingConfig = {
+        includeThoughts: reasoningLevel !== 'none',
+        thinkingBudget,
       };
+    }
+
+    if (modelConfig?.enableGoogleSearch) {
+      geminiTools.push({ googleSearch: {} });
+    }
+
+    if (modelConfig?.enableCodeExecution) {
+      geminiTools.push({ codeExecution: {} });
     }
 
     const systemInstruction = [
@@ -90,11 +106,12 @@ export class GeminiAdapter implements ProviderAdapter {
         temperature: request.temperature ?? 0.7,
         ...(request.topP !== undefined ? { topP: request.topP } : {}),
         ...(request.topK !== undefined ? { topK: request.topK } : {}),
-        ...(geminiTools ? { tools: geminiTools as any } : {}),
+        ...(geminiTools.length > 0 ? { tools: geminiTools as any } : {}),
         ...(thinkingConfig ? { thinkingConfig } : {}),
-        ...(modelConfig?.structuredOutput ? { responseMimeType: 'application/json' } : {}),
-        ...(modelConfig?.enableGoogleSearch ? { googleSearch: {} } : {}),
-        ...(modelConfig?.enableCodeExecution ? { codeExecution: {} } : {}),
+        ...(modelConfig?.structuredOutput ? {
+          responseMimeType: 'application/json',
+          responseSchema: structuredOutputSchema as any,
+        } : {}),
       },
     });
 

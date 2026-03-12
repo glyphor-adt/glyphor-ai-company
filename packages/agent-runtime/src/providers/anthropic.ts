@@ -67,35 +67,77 @@ export class AnthropicAdapter implements ProviderAdapter {
       ? Math.max(request.maxTokens ?? 16384, thinkingBudget + 4096)
       : (request.maxTokens ?? 16384);
 
-    const systemInstruction = [
-      request.systemInstruction,
+    const supplementalInstructions = [
       modelConfig?.enableCitations ? 'When you reference retrieved evidence, include concise inline citations to the source material.' : null,
       modelConfig?.enableCompaction ? 'Favor compact, high-signal answers and avoid repeating context verbatim.' : null,
       modelConfig?.structuredOutput
         ? `Return valid JSON matching this schema exactly: ${JSON.stringify(modelConfig.structuredOutput.schema)}`
         : null,
-    ].filter(Boolean).join('\n\n');
+    ].filter(Boolean);
 
-    const createParams = {
+    const systemBlocks: Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }> = [];
+    if (request.systemInstruction.trim()) {
+      systemBlocks.push({
+        type: 'text',
+        text: request.systemInstruction,
+        cache_control: { type: 'ephemeral' },
+      });
+    }
+    if (supplementalInstructions.length > 0) {
+      systemBlocks.push({
+        type: 'text',
+        text: supplementalInstructions.join('\n\n'),
+        ...(systemBlocks.length < 2 ? { cache_control: { type: 'ephemeral' as const } } : {}),
+      });
+    }
+
+    const createParams: Record<string, unknown> = {
       model: request.model,
-      system: systemInstruction,
+      ...(systemBlocks.length > 0 ? { system: systemBlocks } : {}),
       messages,
       ...(tools ? { tools } : {}),
       max_tokens: maxTokens,
       temperature: useThinking ? 1 : (request.temperature ?? 0.7),
       ...(request.topP !== undefined ? { top_p: request.topP } : {}),
       ...thinkingParam,
-    } as Parameters<typeof this.client.messages.create>[0];
+    };
+
+    if (modelConfig?.claudeEffort) {
+      createParams.output_config = {
+        effort: modelConfig.claudeEffort,
+      };
+    }
+
+    if (modelConfig?.structuredOutput) {
+      createParams.output_config = {
+        ...(createParams.output_config as Record<string, unknown> | undefined),
+        format: {
+          type: 'json_schema',
+          schema: modelConfig.structuredOutput.schema,
+        },
+      };
+    }
+
+    if (modelConfig?.enableCitations) {
+      createParams.citations = { enabled: true };
+    }
+
+    if (modelConfig?.enableCompaction) {
+      createParams.compaction = 'auto';
+    }
+
+    const directCreateParams = createParams as unknown as Parameters<Anthropic['messages']['create']>[0];
+    const vertexCreateParams = createParams as unknown as Parameters<AnthropicVertex['messages']['create']>[0];
 
     let response: Anthropic.Message;
     try {
-      response = await this.client.messages.create(createParams as unknown as Parameters<typeof this.client.messages.create>[0]) as Anthropic.Message;
+      response = await this.client.messages.create(directCreateParams) as Anthropic.Message;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       const isQuota = /429|rate.?limit|quota|resource.?exhausted|too many requests/i.test(msg);
       if (isQuota && this.vertexClient) {
         console.log(`[AnthropicAdapter] Direct API quota hit for ${request.model}, falling back to Vertex AI`);
-        response = await this.vertexClient.messages.create(createParams) as Anthropic.Message;
+        response = await this.vertexClient.messages.create(vertexCreateParams) as Anthropic.Message;
       } else {
         throw err;
       }

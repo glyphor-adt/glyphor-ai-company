@@ -51,12 +51,12 @@ export function createFrontendEngineerTools(memory: CompanyMemoryStore): ToolDef
       name: 'get_file_contents',
       description: 'Read a file from a Glyphor GitHub repository to inspect current implementations.',
       parameters: {
-        repo: { type: 'string', description: 'Repo key: company, fuse, pulse', required: true },
+        repo: { type: 'string', description: 'Repo key: company', required: true },
         path: { type: 'string', description: 'File path within the repo', required: true },
       },
       async execute(params): Promise<ToolResult> {
         const repoName = GLYPHOR_REPOS[params.repo as GlyphorRepo];
-        if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company, fuse, pulse` };
+        if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company` };
         const result = await getFileContents(repoName, params.path as string);
         if (!result) return { success: false, error: `File not found: ${params.path}` };
         return { success: true, data: result };
@@ -68,7 +68,7 @@ export function createFrontendEngineerTools(memory: CompanyMemoryStore): ToolDef
       name: 'push_component',
       description: 'Push a component implementation to a branch in a Glyphor repo.',
       parameters: {
-        repo: { type: 'string', description: 'Repo key: company, fuse, pulse', required: true },
+        repo: { type: 'string', description: 'Repo key: company', required: true },
         branch: { type: 'string', description: 'Target branch name', required: true },
         path: { type: 'string', description: 'File path for the component', required: true },
         content: { type: 'string', description: 'File content to push', required: true },
@@ -87,7 +87,7 @@ export function createFrontendEngineerTools(memory: CompanyMemoryStore): ToolDef
       name: 'create_component_branch',
       description: 'Create a new branch for component work.',
       parameters: {
-        repo: { type: 'string', description: 'Repo key: company, fuse, pulse', required: true },
+        repo: { type: 'string', description: 'Repo key: company', required: true },
         branch: { type: 'string', description: 'New branch name (e.g., feat/hero-card-component)', required: true },
       },
       async execute(params): Promise<ToolResult> {
@@ -101,7 +101,7 @@ export function createFrontendEngineerTools(memory: CompanyMemoryStore): ToolDef
       name: 'create_component_pr',
       description: 'Open a PR for a component implementation, requesting review from the design team.',
       parameters: {
-        repo: { type: 'string', description: 'Repo key: company, fuse, pulse', required: true },
+        repo: { type: 'string', description: 'Repo key: company', required: true },
         branch: { type: 'string', description: 'Source branch name', required: true },
         title: { type: 'string', description: 'PR title', required: true },
         body: { type: 'string', description: 'PR description with a11y notes and Lighthouse scores', required: true },

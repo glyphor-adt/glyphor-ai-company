@@ -292,13 +292,13 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
     {
       name: 'get_github_pr_status',
-      description: 'List open pull requests across Fuse, Pulse, and the AI company repo. Shows CI status, reviewers, and labels.',
+      description: 'List open pull requests in the company repo. Shows CI status, reviewers, and labels.',
       parameters: {
         repo: {
           type: 'string',
-          description: 'Which repo to check: "company", "fuse", "pulse", or "all" (default: all)',
+          description: 'Repo to check: "company"',
           required: false,
-          enum: ['company', 'fuse', 'pulse', 'all'],
+          enum: ['company'],
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
@@ -327,13 +327,13 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       parameters: {
         repo: {
           type: 'string',
-          description: 'Repo to check: "company", "fuse", or "pulse"',
+          description: 'Repo to check: "company"',
           required: true,
-          enum: ['company', 'fuse', 'pulse'],
+          enum: ['company'],
         },
         limit: {
           type: 'number',
-          description: 'Number of recent runs to fetch (default: 10)',
+          description: 'Number of recent runs to fetch (default: 10),
           required: false,
         },
       },
@@ -361,9 +361,9 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       parameters: {
         repo: {
           type: 'string',
-          description: 'Repo to check: "company", "fuse", or "pulse"',
+          description: 'Repo to check: "company"',
           required: true,
-          enum: ['company', 'fuse', 'pulse'],
+          enum: ['company'],
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
@@ -384,9 +384,9 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       parameters: {
         repo: {
           type: 'string',
-          description: 'Target repo: "company", "fuse", or "pulse"',
+          description: 'Target repo: "company"',
           required: true,
-          enum: ['company', 'fuse', 'pulse'],
+          enum: ['company'],
         },
         title: {
           type: 'string',
@@ -1864,9 +1864,9 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       parameters: {
         repo: {
           type: 'string',
-          description: 'Repo key: "company", "fuse", or "pulse"',
+          description: 'Repo key: "company"',
           required: true,
-          enum: ['company', 'fuse', 'pulse'],
+          enum: ['company'],
         },
         pr_number: {
           type: 'number',
@@ -1901,9 +1901,9 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       parameters: {
         repo: {
           type: 'string',
-          description: 'Repo key: "company", "fuse", or "pulse"',
+          description: 'Repo key: "company"',
           required: true,
-          enum: ['company', 'fuse', 'pulse'],
+          enum: ['company'],
         },
         limit: {
           type: 'number',

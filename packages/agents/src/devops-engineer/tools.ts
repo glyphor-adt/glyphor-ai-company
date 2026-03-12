@@ -201,9 +201,9 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
       parameters: {
         repo: {
           type: 'string',
-          description: 'Repo to check: "company", "fuse", or "pulse"',
+          description: 'Repo to check: "company"',
           required: true,
-          enum: ['company', 'fuse', 'pulse'],
+          enum: ['company'],
         },
         limit: {
           type: 'number',
@@ -239,9 +239,9 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
       parameters: {
         repo: {
           type: 'string',
-          description: 'Repo to check: "company", "fuse", or "pulse"',
+          description: 'Repo to check: "company"',
           required: true,
-          enum: ['company', 'fuse', 'pulse'],
+          enum: ['company'],
         },
         limit: {
           type: 'number',
@@ -318,9 +318,9 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
       parameters: {
         repo: {
           type: 'string',
-          description: 'Repo: "company", "fuse", or "pulse"',
+          description: 'Repo: "company"',
           required: true,
-          enum: ['company', 'fuse', 'pulse'],
+          enum: ['company'],
         },
         pr_number: {
           type: 'number',
@@ -406,7 +406,7 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
       name: 'create_github_issue',
       description: 'Create a GitHub issue to track a CI/CD failure, infra problem, or optimization task.',
       parameters: {
-        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: true, enum: ['company', 'fuse', 'pulse'] },
+        repo: { type: 'string', description: 'Repo: "company"', required: true, enum: ['company'] },
         title: { type: 'string', description: 'Issue title', required: true },
         body: { type: 'string', description: 'Issue body (markdown)', required: true },
         labels: { type: 'array', description: 'Labels (e.g., ["bug", "ci/cd"])', required: false, items: { type: 'string', description: 'Label' } },
@@ -432,7 +432,7 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
       name: 'get_file_contents',
       description: 'Read a file from a GitHub repo — use to inspect Dockerfiles, cloudbuild.yaml, configs before proposing fixes.',
       parameters: {
-        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: true, enum: ['company', 'fuse', 'pulse'] },
+        repo: { type: 'string', description: 'Repo: "company"', required: true, enum: ['company'] },
         path: { type: 'string', description: 'File path in repo (e.g., "docker/Dockerfile.scheduler")', required: true },
         branch: { type: 'string', description: 'Branch name (default: main)', required: false },
       },
@@ -458,7 +458,7 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
       name: 'create_fix_branch',
       description: 'Create a new branch for a CI/CD or infrastructure fix. Always branch from main.',
       parameters: {
-        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: true, enum: ['company', 'fuse', 'pulse'] },
+        repo: { type: 'string', description: 'Repo: "company"', required: true, enum: ['company'] },
         branch_name: { type: 'string', description: 'New branch name (e.g., "fix/dockerfile-scheduler")', required: true },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
@@ -478,7 +478,7 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
       name: 'push_file_fix',
       description: 'Create or update a file on a branch — use to push Dockerfile, cloudbuild.yaml, or config fixes.',
       parameters: {
-        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: true, enum: ['company', 'fuse', 'pulse'] },
+        repo: { type: 'string', description: 'Repo: "company"', required: true, enum: ['company'] },
         path: { type: 'string', description: 'File path in repo', required: true },
         content: { type: 'string', description: 'New file content', required: true },
         branch: { type: 'string', description: 'Branch to commit to (must already exist)', required: true },
@@ -507,7 +507,7 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
       name: 'create_fix_pr',
       description: 'Open a PR for a CI/CD or infrastructure fix. Marcus must approve before merge.',
       parameters: {
-        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: true, enum: ['company', 'fuse', 'pulse'] },
+        repo: { type: 'string', description: 'Repo: "company"', required: true, enum: ['company'] },
         title: { type: 'string', description: 'PR title', required: true },
         body: { type: 'string', description: 'PR description (markdown)', required: true },
         head: { type: 'string', description: 'Source branch with the fix', required: true },
@@ -537,7 +537,7 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
       name: 'review_pr',
       description: 'Submit a formal review on a PR — approve, request changes, or comment. Focus on Dockerfiles, configs, infra changes.',
       parameters: {
-        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: true, enum: ['company', 'fuse', 'pulse'] },
+        repo: { type: 'string', description: 'Repo: "company"', required: true, enum: ['company'] },
         pr_number: { type: 'number', description: 'PR number', required: true },
         event: { type: 'string', description: 'Review action', required: true, enum: ['APPROVE', 'REQUEST_CHANGES', 'COMMENT'] },
         body: { type: 'string', description: 'Review comment (markdown)', required: true },
@@ -563,7 +563,7 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
       name: 'get_pr_diff',
       description: 'Get the changed files and diff for a PR — review Dockerfiles, pipeline configs, and infra changes.',
       parameters: {
-        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: true, enum: ['company', 'fuse', 'pulse'] },
+        repo: { type: 'string', description: 'Repo: "company"', required: true, enum: ['company'] },
         pr_number: { type: 'number', description: 'PR number', required: true },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {

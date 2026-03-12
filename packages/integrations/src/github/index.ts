@@ -13,11 +13,9 @@ import { Octokit } from '@octokit/rest';
 const ORG = 'glyphor-adt';
 const REPO_CONTEXT_CHAR_LIMIT = 12000;
 
-/** The repos Marcus's team actively monitors */
+/** The repos the agents have access to — product repos (Fuse/Pulse) are separate codebases and not managed here */
 export const GLYPHOR_REPOS = {
   company: 'glyphor-ai-company',
-  fuse: 'glyphor-ai-spark-c03e7e1a',
-  pulse: 'glyphor-ally-ai',
 } as const;
 
 export type GlyphorRepo = keyof typeof GLYPHOR_REPOS;

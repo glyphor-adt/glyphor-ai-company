@@ -341,12 +341,12 @@ export function createVPDesignTools(memory: CompanyMemoryStore): ToolDefinition[
       name: 'get_file_contents',
       description: 'Read a file from a Glyphor GitHub repo to review code quality, inspect components, or audit implementations.',
       parameters: {
-        repo: { type: 'string', description: 'Repo key: company, fuse, pulse', required: true },
+        repo: { type: 'string', description: 'Repo key: company', required: true },
         path: { type: 'string', description: 'File path within the repo', required: true },
       },
       execute: async (params): Promise<ToolResult> => {
         const repoName = GLYPHOR_REPOS[params.repo as GlyphorRepo];
-        if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company, fuse, pulse` };
+        if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company` };
         const result = await getFileContents(repoName, params.path as string);
         if (!result) return { success: false, error: `File not found: ${params.path}` };
         return { success: true, data: result };
@@ -356,7 +356,7 @@ export function createVPDesignTools(memory: CompanyMemoryStore): ToolDefinition[
       name: 'list_open_prs',
       description: 'List open PRs in a Glyphor repo. Use to review design-related PRs from the team.',
       parameters: {
-        repo: { type: 'string', description: 'Repo key: company, fuse, pulse', required: true },
+        repo: { type: 'string', description: 'Repo key: company', required: true },
       },
       execute: async (params): Promise<ToolResult> => {
         const prs = await listOpenPRs(params.repo as GlyphorRepo);
@@ -367,7 +367,7 @@ export function createVPDesignTools(memory: CompanyMemoryStore): ToolDefinition[
       name: 'comment_on_pr',
       description: 'Leave a design review comment on a PR.',
       parameters: {
-        repo: { type: 'string', description: 'Repo key: company, fuse, pulse', required: true },
+        repo: { type: 'string', description: 'Repo key: company', required: true },
         prNumber: { type: 'number', description: 'PR number', required: true },
         comment: { type: 'string', description: 'Review comment with design feedback', required: true },
       },
@@ -380,7 +380,7 @@ export function createVPDesignTools(memory: CompanyMemoryStore): ToolDefinition[
       name: 'create_design_issue',
       description: 'Create a GitHub issue for a design problem, quality gap, or improvement task.',
       parameters: {
-        repo: { type: 'string', description: 'Repo key: company, fuse, pulse', required: true },
+        repo: { type: 'string', description: 'Repo key: company', required: true },
         title: { type: 'string', description: 'Issue title', required: true },
         body: { type: 'string', description: 'Issue description with design context and expected fix', required: true },
         labels: { type: 'string', description: 'Comma-separated labels (e.g., "design,quality")' },

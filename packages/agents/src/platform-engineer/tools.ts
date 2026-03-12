@@ -151,9 +151,9 @@ export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDef
       parameters: {
         repo: {
           type: 'string',
-          description: 'Repo: "company", "fuse", or "pulse"',
+          description: 'Repo: "company"',
           required: true,
-          enum: ['company', 'fuse', 'pulse'],
+          enum: ['company'],
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
