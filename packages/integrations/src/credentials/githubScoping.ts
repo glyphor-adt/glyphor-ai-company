@@ -18,30 +18,48 @@ export interface GitHubScope {
   pathPattern?: string;      // e.g., '.github/workflows/' — enforced at runtime
 }
 
+const ALL_REPOS = ['glyphor-ai-spark-c03e7e1a', 'glyphor-ally-ai', 'glyphor-ai-company'];
+
 /** Per-agent GitHub access scopes */
 export const GITHUB_AGENT_SCOPES: Record<string, GitHubScope> = {
   'cto': {
-    repos: ['glyphor-ai-spark-c03e7e1a', 'glyphor-ally-ai', 'glyphor-ai-company'],
-    permissions: { contents: 'write', pull_requests: 'write', actions: 'write', deployments: 'write' },
+    repos: ALL_REPOS,
+    permissions: { contents: 'write', pull_requests: 'write', actions: 'write', deployments: 'write', issues: 'write', statuses: 'read' },
   },
   'platform-engineer': {
-    repos: ['glyphor-ai-spark-c03e7e1a', 'glyphor-ally-ai'],
+    repos: ALL_REPOS,
     permissions: { contents: 'read', pull_requests: 'read', actions: 'read' },
   },
   'quality-engineer': {
-    repos: ['glyphor-ai-spark-c03e7e1a', 'glyphor-ally-ai'],
+    repos: ALL_REPOS,
     permissions: { contents: 'write', pull_requests: 'write' },
     branchPattern: 'test/*',
   },
   'devops-engineer': {
-    repos: ['glyphor-ai-spark-c03e7e1a', 'glyphor-ally-ai'],
+    repos: ALL_REPOS,
     permissions: { contents: 'write', actions: 'write' },
     pathPattern: '.github/workflows/',
   },
-  'competitive-intel': {
-    repos: [],
-    permissions: { contents: 'read' },
-    // Public repos only — no installation token needed
+  // Design & frontend team — full read/write to all repos
+  'vp-design': {
+    repos: ALL_REPOS,
+    permissions: { contents: 'write', pull_requests: 'write', actions: 'read', issues: 'write', statuses: 'read' },
+  },
+  'frontend-engineer': {
+    repos: ALL_REPOS,
+    permissions: { contents: 'write', pull_requests: 'write', actions: 'read', issues: 'write', statuses: 'read' },
+  },
+  'design-critic': {
+    repos: ALL_REPOS,
+    permissions: { contents: 'write', pull_requests: 'write', actions: 'read', issues: 'write', statuses: 'read' },
+  },
+  'ui-ux-designer': {
+    repos: ALL_REPOS,
+    permissions: { contents: 'write', pull_requests: 'write', actions: 'read', issues: 'write', statuses: 'read' },
+  },
+  'template-architect': {
+    repos: ALL_REPOS,
+    permissions: { contents: 'write', pull_requests: 'write', actions: 'read', issues: 'write', statuses: 'read' },
   },
 };
 

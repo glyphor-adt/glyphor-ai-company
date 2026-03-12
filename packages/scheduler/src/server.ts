@@ -361,6 +361,10 @@ const agentExecutor = async (
 // Wrap executor to record every run in agent_runs for the Activity dashboard
 let ensureAgentRunsRoutingSchemaPromise: Promise<void> | null = null;
 
+const AUTO_INVESTIGATE_ON_FAILURE = process.env.AUTO_INVESTIGATE_ON_FAILURE !== 'false';
+const AUTO_RETRY_ON_FAILURE = process.env.AUTO_RETRY_ON_FAILURE === 'true';
+const AUTO_RETRY_MAX_ATTEMPTS = Math.max(0, parseInt(process.env.AUTO_RETRY_MAX_ATTEMPTS || '1', 10));
+
 async function ensureAgentRunsRoutingSchema(): Promise<void> {
   if (!ensureAgentRunsRoutingSchemaPromise) {
     ensureAgentRunsRoutingSchemaPromise = (async () => {
@@ -410,6 +414,89 @@ async function reconcileReflectionRunIds(agentRunId: string, runnerRunId: string
     }
 
     await new Promise(resolve => setTimeout(resolve, 3000));
+  }
+}
+
+function truncateForLog(value: unknown, max = 900): string {
+  const text = typeof value === 'string' ? value : value == null ? '' : JSON.stringify(value);
+  return text.length > max ? `${text.slice(0, max - 1)}...` : text;
+}
+
+function isTransientFailure(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return /timeout|timed out|429|rate limit|quota|temporar|econnreset|enotfound|socket|503|overloaded|try again/.test(normalized);
+}
+
+async function runAutoFailurePipeline(
+  run: {
+    runId?: string;
+    agentRole: CompanyAgentRole;
+    task: string;
+    payload: Record<string, unknown>;
+    errorMessage: string;
+  },
+): Promise<void> {
+  const { runId, agentRole, task, payload, errorMessage } = run;
+  const attempt = Number((payload.__autoRetryAttempt as number | undefined) ?? 0);
+  const isPipelineRun = Boolean(payload.__autoFailurePipeline);
+  const skipPipeline = Boolean(payload.__skipAutoFailurePipeline);
+
+  if (isPipelineRun || skipPipeline || agentRole === 'ops') return;
+
+  const shouldRetry =
+    AUTO_RETRY_ON_FAILURE &&
+    attempt < AUTO_RETRY_MAX_ATTEMPTS &&
+    isTransientFailure(errorMessage);
+
+  try {
+    await systemQuery(
+      'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)',
+      [
+        'ops',
+        String(runId ?? agentRole),
+        'agent.auto_investigate',
+        `Auto-investigate: ${agentRole} failed task=${task} run_id=${runId ?? 'unknown'} error=${truncateForLog(errorMessage, 420)} retry=${shouldRetry}`,
+        new Date().toISOString(),
+      ],
+    );
+  } catch (err) {
+    console.warn('[Scheduler] Failed to write auto-investigate activity log:', (err as Error).message);
+  }
+
+  if (AUTO_INVESTIGATE_ON_FAILURE) {
+    try {
+      await trackedAgentExecutor('ops', 'event_response', {
+        message: [
+          'AUTO FAILURE INVESTIGATION',
+          `Investigate and propose remediation for failed agent run.`,
+          `Failed agent: ${agentRole}`,
+          `Task: ${task}`,
+          `Run ID: ${runId ?? 'unknown'}`,
+          `Error: ${truncateForLog(errorMessage, 1200)}`,
+          shouldRetry ? 'An automatic retry will be attempted once.' : 'No automatic retry will be attempted.',
+        ].join('\n'),
+        failed_agent_role: agentRole,
+        failed_task: task,
+        failed_run_id: runId ?? null,
+        failed_error: truncateForLog(errorMessage, 2000),
+        __autoFailurePipeline: true,
+      });
+    } catch (err) {
+      console.warn('[Scheduler] Auto-investigation run failed:', (err as Error).message);
+    }
+  }
+
+  if (shouldRetry) {
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      await trackedAgentExecutor(agentRole, task, {
+        ...payload,
+        __autoRetryAttempt: attempt + 1,
+        __skipAutoFailurePipeline: true,
+      });
+    } catch (err) {
+      console.warn('[Scheduler] Auto-retry attempt failed:', (err as Error).message);
+    }
   }
 }
 
@@ -497,6 +584,16 @@ const trackedAgentExecutor = async (
       if (result?.agentId) {
         void reconcileReflectionRunIds(runId, result.agentId);
       }
+
+      if (runStatus === 'failed') {
+        void runAutoFailurePipeline({
+          runId,
+          agentRole,
+          task,
+          payload,
+          errorMessage: result?.error ?? result?.abortReason ?? 'Unknown error',
+        });
+      }
     }
 
     // Process notification intents from agent output (fire-and-forget)
@@ -517,6 +614,14 @@ const trackedAgentExecutor = async (
         'UPDATE agent_runs SET status=$1, completed_at=$2, duration_ms=$3, error=$4 WHERE id=$5',
         ['failed', new Date().toISOString(), durationMs, message, runId],
       );
+
+      void runAutoFailurePipeline({
+        runId,
+        agentRole,
+        task,
+        payload,
+        errorMessage: message,
+      });
     }
 
     throw err;
