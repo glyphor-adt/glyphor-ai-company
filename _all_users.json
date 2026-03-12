@@ -1,0 +1,177 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#users(id,displayName,userPrincipalName)",
+  "value": [
+    {
+      "displayName": "Adi Rose",
+      "id": "97607cc5-0f96-4550-bc17-91acbaba62ac",
+      "userPrincipalName": "adi@glyphor.ai"
+    },
+    {
+      "displayName": "Alex Park",
+      "id": "9135e02d-f920-473d-b40d-9a10e336d5a1",
+      "userPrincipalName": "alex@glyphor.ai"
+    },
+    {
+      "displayName": "andrew.zwelling",
+      "id": "0b8306eb-9ca8-4a34-a289-a2f981cf569c",
+      "userPrincipalName": "andrew.zwelling_gmail.com#EXT#@Glyphorai.onmicrosoft.com"
+    },
+    {
+      "displayName": "Andrew Zwelling",
+      "id": "4c92d9f0-339c-4a21-9d96-94c29381be5f",
+      "userPrincipalName": "Andrew@glyphor.ai"
+    },
+    {
+      "displayName": "Atlas Vega",
+      "id": "286e7da0-51f0-40ab-b97a-b9c2ad049edf",
+      "userPrincipalName": "atlas@glyphor.ai"
+    },
+    {
+      "displayName": "Ava Chen",
+      "id": "c951f908-1d6c-40e5-884a-86a90b936b27",
+      "userPrincipalName": "ava@glyphor.ai"
+    },
+    {
+      "displayName": "Robert Finley",
+      "id": "9febe31e-bd62-44f8-90d7-02eb83a26817",
+      "userPrincipalName": "bob@glyphor.ai"
+    },
+    {
+      "displayName": "Daniel Ortiz",
+      "id": "7315aa9d-3f4b-4cf0-b517-71e69791951f",
+      "userPrincipalName": "daniel@glyphor.ai"
+    },
+    {
+      "displayName": "Daniel Okafor",
+      "id": "5813e1cb-314d-4f58-b23e-7d2a7bf70098",
+      "userPrincipalName": "dokafor@glyphor.ai"
+    },
+    {
+      "displayName": "Elena Vasquez",
+      "id": "a51cf34b-46a2-4020-9f6d-9093681b8c35",
+      "userPrincipalName": "elena@glyphor.ai"
+    },
+    {
+      "displayName": "Jasmine Rivera",
+      "id": "93f9de46-b296-4818-b7d6-38d963ca8b0c",
+      "userPrincipalName": "jasmine@glyphor.ai"
+    },
+    {
+      "displayName": "Jordan Hayes",
+      "id": "c90fe85f-a497-4a90-b3a1-6da2fb8b0eb9",
+      "userPrincipalName": "jordan@glyphor.ai"
+    },
+    {
+      "displayName": "Kai Johnson",
+      "id": "b0c8829c-6123-4d34-aeda-bef087e3fc46",
+      "userPrincipalName": "kai@glyphor.ai"
+    },
+    {
+      "displayName": "Kristina Denney",
+      "id": "88a731d1-3171-4279-aee1-34160898ab90",
+      "userPrincipalName": "kristina@glyphor.ai"
+    },
+    {
+      "displayName": "Lena Park",
+      "id": "e91943f7-164c-407d-818c-41f67b9d7dbb",
+      "userPrincipalName": "lena@glyphor.ai"
+    },
+    {
+      "displayName": "Leo Vargas",
+      "id": "a68f06c5-c12e-4863-8881-70481f0ea320",
+      "userPrincipalName": "leo@glyphor.ai"
+    },
+    {
+      "displayName": "Lisa Chen",
+      "id": "52644737-ab4c-4131-a5e6-311f46d055eb",
+      "userPrincipalName": "lisa@glyphor.ai"
+    },
+    {
+      "displayName": "Marcus Reeves",
+      "id": "96b2dec8-c18e-46bf-bfc0-d511be57eebc",
+      "userPrincipalName": "marcus@glyphor.ai"
+    },
+    {
+      "displayName": "Maya Brooks",
+      "id": "efcbc5ac-0579-4109-862b-f78cf9ed1407",
+      "userPrincipalName": "maya@glyphor.ai"
+    },
+    {
+      "displayName": "Mia Tanaka",
+      "id": "fd68d754-020c-41db-b638-fa5abf6f30a8",
+      "userPrincipalName": "mia@glyphor.ai"
+    },
+    {
+      "displayName": "Morgan Blake",
+      "id": "5f37f9df-8f52-495a-90ee-6ea0acfe5f2b",
+      "userPrincipalName": "morgan@glyphor.ai"
+    },
+    {
+      "displayName": "Nadia Okafor",
+      "id": "5828116b-5fa2-49ad-930d-13f2a4bfa3d4",
+      "userPrincipalName": "nadia@glyphor.ai"
+    },
+    {
+      "displayName": "Priya Sharma",
+      "id": "2977011f-acfd-47e7-ae5e-ef34ea938643",
+      "userPrincipalName": "priya@glyphor.ai"
+    },
+    {
+      "displayName": "Rachel Kim",
+      "id": "0cce4809-4fcb-42c2-81bd-92363047d2b2",
+      "userPrincipalName": "rachel@glyphor.ai"
+    },
+    {
+      "displayName": "Riley Morgan",
+      "id": "d1ad8fc5-12aa-46ca-a12a-c79f9405da09",
+      "userPrincipalName": "riley@glyphor.ai"
+    },
+    {
+      "displayName": "Riya Mehta",
+      "id": "d191b64e-2e3e-41e4-b685-41b97b5836f9",
+      "userPrincipalName": "riya@glyphor.ai"
+    },
+    {
+      "displayName": "Ryan Park",
+      "id": "bbabf37c-02e0-4ca8-92fc-66c7458fad90",
+      "userPrincipalName": "ryan@glyphor.ai"
+    },
+    {
+      "displayName": "Sam DeLuca",
+      "id": "9deaddb0-7669-4529-89e2-33e95018279e",
+      "userPrincipalName": "sam@glyphor.ai"
+    },
+    {
+      "displayName": "Sarah Chen",
+      "id": "e30faae7-6878-42ad-ac6d-dd8fe2d0273a",
+      "userPrincipalName": "sarah@glyphor.ai"
+    },
+    {
+      "displayName": "Sofia Marchetti",
+      "id": "4449c0af-5749-4a5f-b868-b7f34362de26",
+      "userPrincipalName": "sofia@glyphor.ai"
+    },
+    {
+      "displayName": "Sophia Lin",
+      "id": "dfac9eb1-cd71-498f-95d7-187f0b9b59d3",
+      "userPrincipalName": "sophia@glyphor.ai"
+    },
+    {
+      "displayName": "Tyler Reed",
+      "id": "003d1831-e9df-4cb2-98b7-c67a6f3f0d25",
+      "userPrincipalName": "tyler@glyphor.ai"
+    },
+    {
+      "displayName": "Victoria Chase",
+      "id": "47c2bc52-8c31-4b22-8f60-3384b82a10e6",
+      "userPrincipalName": "victoria@glyphor.ai"
+    },
+    {
+      "displayName": "Zara Petrov",
+      "id": "f627792b-9d83-4f73-be81-fd6e180ab92a",
+      "userPrincipalName": "zara@glyphor.ai"
+    }
+  ]
+}
+'$top' is not recognized as an internal or external command,
+operable program or batch file.
