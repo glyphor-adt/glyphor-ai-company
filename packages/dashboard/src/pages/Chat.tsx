@@ -6,7 +6,7 @@ import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar } from '../components/ui';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { useAuth, getEmailAliases } from '../lib/auth';
-import { MdAttachFile, MdImage, MdDescription, MdClose, MdVideoCall, MdCallEnd, MdAdd, MdSearch } from 'react-icons/md';
+import { MdAttachFile, MdImage, MdDescription, MdClose, MdVideoCall, MdCallEnd, MdAdd, MdSearch, MdDeleteOutline } from 'react-icons/md';
 import { HiMiniSignal, HiStop, HiMicrophone } from 'react-icons/hi2';
 import { useVoiceChat } from '../lib/useVoiceChat';
 import VoiceOverlay from '../components/VoiceOverlay';
@@ -178,6 +178,7 @@ function SidebarContent({
   setSidebarSearch,
   setSelectedRole,
   setShowOrgChart,
+  onDeleteSession,
 }: {
   recentChats: RecentChat[];
   sidebarItems: RecentChat[];
@@ -187,6 +188,7 @@ function SidebarContent({
   setSidebarSearch: (v: string) => void;
   setSelectedRole: (role: string) => void;
   setShowOrgChart: (v: boolean) => void;
+  onDeleteSession: (role: string) => void;
 }) {
   return (
     <>
@@ -223,50 +225,65 @@ function SidebarContent({
           const isResponding = respondingAgents.has(chat.agentRole);
           const name = DISPLAY_NAME_MAP[chat.agentRole] ?? chat.agentRole;
           return (
-            <button
+            <div
               key={chat.agentRole}
-              onClick={() => setSelectedRole(chat.agentRole)}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
-                active
-                  ? 'bg-cyan/10'
-                  : 'hover:bg-[var(--color-hover-bg)]'
+              className={`group flex w-full items-center gap-2 rounded-lg px-1 text-left transition-colors ${
+                active ? 'bg-cyan/10' : 'hover:bg-[var(--color-hover-bg)]'
               }`}
             >
-              <div className="relative flex-shrink-0">
-                <img
-                  src={`/avatars/${chat.agentRole}.png`}
-                  alt=""
-                  className="h-10 w-10 rounded-full object-cover"
-                  style={{ border: `2px solid ${meta?.color ?? '#64748b'}50` }}
-                />
-                {isResponding && (
-                  <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-surface">
-                    <span className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
-                  </span>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <p className={`text-[13px] font-medium truncate ${active ? 'text-cyan' : 'text-txt-secondary'}`}>
-                    {name}
-                  </p>
-                  {chat.lastMessage && (
-                    <span className="text-[10px] text-txt-faint whitespace-nowrap flex-shrink-0">
-                      {formatRelativeTime(chat.lastTime)}
+              <button
+                onClick={() => setSelectedRole(chat.agentRole)}
+                className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2.5"
+              >
+                <div className="relative flex-shrink-0">
+                  <img
+                    src={`/avatars/${chat.agentRole}.png`}
+                    alt=""
+                    className="h-10 w-10 rounded-full object-cover"
+                    style={{ border: `2px solid ${meta?.color ?? '#64748b'}50` }}
+                  />
+                  {isResponding && (
+                    <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-surface">
+                      <span className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
                     </span>
                   )}
                 </div>
-                {isResponding ? (
-                  <p className="text-[11px] text-cyan italic mt-0.5">Typing...</p>
-                ) : chat.lastMessage ? (
-                  <p className="text-[11px] text-txt-faint truncate mt-0.5">
-                    {chat.lastMessageRole === 'user' ? 'You: ' : ''}{chat.lastMessage}
-                  </p>
-                ) : (
-                  <p className="text-[11px] text-txt-faint italic mt-0.5">New conversation</p>
-                )}
-              </div>
-            </button>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className={`text-[13px] font-medium truncate ${active ? 'text-cyan' : 'text-txt-secondary'}`}>
+                      {name}
+                    </p>
+                    {chat.lastMessage && (
+                      <span className="text-[10px] text-txt-faint whitespace-nowrap flex-shrink-0">
+                        {formatRelativeTime(chat.lastTime)}
+                      </span>
+                    )}
+                  </div>
+                  {isResponding ? (
+                    <p className="text-[11px] text-cyan italic mt-0.5">Typing...</p>
+                  ) : chat.lastMessage ? (
+                    <p className="text-[11px] text-txt-faint truncate mt-0.5">
+                      {chat.lastMessageRole === 'user' ? 'You: ' : ''}{chat.lastMessage}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-txt-faint italic mt-0.5">New conversation</p>
+                  )}
+                </div>
+              </button>
+              {chat.lastMessage && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteSession(chat.agentRole);
+                  }}
+                  className="mr-1 inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-txt-faint opacity-0 transition hover:bg-prism-bg2 hover:text-prism-critical group-hover:opacity-100"
+                  aria-label={`Delete chat with ${name}`}
+                  title={`Delete chat with ${name}`}
+                >
+                  <MdDeleteOutline size={16} />
+                </button>
+              )}
+            </div>
           );
         })}
         {recentChats.length === 0 && !sidebarSearch && (
@@ -779,6 +796,33 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
+  const deleteSession = useCallback(async (role: string) => {
+    const name = DISPLAY_NAME_MAP[role] ?? role;
+    const confirmed = window.confirm(`Delete all messages in this chat with ${name}? This cannot be undone.`);
+    if (!confirmed) return;
+
+    try {
+      const params = new URLSearchParams();
+      params.set('agent_role', role);
+      if (userAliases.length > 1) {
+        params.set('or', `(${userAliases.map((a) => `user_id.eq.${a}`).join(',')})`);
+      } else {
+        params.set('user_id', userAliases[0]);
+      }
+
+      await apiCall(`/api/chat-messages?${params.toString()}`, { method: 'DELETE' });
+
+      setRecentChats((prev) => prev.filter((c) => c.agentRole !== role));
+
+      if (selectedRoleRef.current === role) {
+        setMessages([]);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      alert(`Failed to delete chat: ${message}`);
+    }
+  }, [userAliases]);
+
   return (
     <div className={`flex ${embedded ? 'h-full' : 'h-[calc(100dvh-10rem-var(--sat))] md:h-[calc(100vh-6rem)]'} gap-2 md:gap-5 pb-[max(8px,var(--sat))]`}>
       {/* ── Mobile sidebar overlay ────────────── */}
@@ -795,6 +839,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               setSidebarSearch={setSidebarSearch}
               setSelectedRole={(role) => { setSelectedRole(role); setMobileSidebarOpen(false); }}
               setShowOrgChart={(v) => { setShowOrgChart(v); setMobileSidebarOpen(false); }}
+              onDeleteSession={deleteSession}
             />
           </div>
         </div>
@@ -810,6 +855,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
           setSidebarSearch={setSidebarSearch}
           setSelectedRole={setSelectedRole}
           setShowOrgChart={setShowOrgChart}
+          onDeleteSession={deleteSession}
         />
       </div>
 
