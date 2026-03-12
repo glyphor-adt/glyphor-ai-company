@@ -40,6 +40,25 @@ interface Message {
   compactionSummary?: string;
 }
 
+function normalizeMessageContent(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value == null) return '';
+  if (typeof value === 'object') {
+    const candidate = value as { text?: unknown; type?: unknown; agent?: unknown };
+    if (typeof candidate.text === 'string') return candidate.text;
+    const summary = [candidate.agent, candidate.type]
+      .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+      .join(' · ');
+    if (summary) return summary;
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+  return String(value);
+}
+
 /** Strip <reasoning>...</reasoning> envelope from agent output */
 function stripReasoning(text: string): string {
   return text.replace(/<reasoning>[\s\S]*?<\/reasoning>\s*/g, '').trim();
@@ -527,7 +546,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               const metadata = extractChatMessageMetadata(row);
               return {
                 role: row.role as 'user' | 'agent',
-                content: row.content as string,
+                content: normalizeMessageContent(row.content),
                 timestamp: new Date(row.created_at as string),
                 attachments: (row.attachments as any[])?.map((a: any) => ({ name: a.name, type: a.type, data: '' })),
                 agentRole: (row.responding_agent as string) || undefined,
@@ -564,7 +583,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
         if (!map.has(ar)) {
           map.set(ar, {
             agentRole: ar,
-            lastMessage: ((row.content as string) ?? '').slice(0, 80),
+            lastMessage: normalizeMessageContent(row.content).slice(0, 80),
             lastMessageRole: row.role as 'user' | 'agent',
             lastTime: new Date(row.created_at as string),
           });

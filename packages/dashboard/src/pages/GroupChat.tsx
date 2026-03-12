@@ -26,6 +26,25 @@ interface GroupMessage {
   actions?: ActionReceipt[];
 }
 
+function normalizeMessageContent(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value == null) return '';
+  if (typeof value === 'object') {
+    const candidate = value as { text?: unknown; type?: unknown; agent?: unknown };
+    if (typeof candidate.text === 'string') return candidate.text;
+    const summary = [candidate.agent, candidate.type]
+      .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+      .join(' · ');
+    if (summary) return summary;
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+  return String(value);
+}
+
 /** Strip <reasoning>...</reasoning> envelope from agent output */
 function stripReasoning(text: string): string {
   return text.replace(/<reasoning>[\s\S]*?<\/reasoning>\s*/g, '').trim();
@@ -150,7 +169,7 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
             role: row.role as 'user' | 'agent',
             agentRole: row.role === 'agent' ? row.agent_role : undefined,
             founderName: row.role === 'user' ? FOUNDERS.find((f) => f.email === (row.user_id ?? '').toLowerCase())?.name : undefined,
-            content: row.content,
+            content: normalizeMessageContent(row.content),
             timestamp: new Date(row.created_at),
             attachments: row.attachments ?? undefined,
           })),
