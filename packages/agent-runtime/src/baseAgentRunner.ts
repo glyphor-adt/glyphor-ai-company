@@ -399,7 +399,7 @@ export abstract class BaseAgentRunner {
         // ── Model call ──────────────────────────────────────────
         let response: Awaited<ReturnType<ModelClient['generate']>>;
         try {
-          const compressedHistory = compressHistory(history, DEFAULT_HISTORY_COMPRESSION);
+          const compressedHistory = await compressHistory(history, DEFAULT_HISTORY_COMPRESSION, this.modelClient);
           emitEvent({ type: 'model_request', agentId: config.id, turnNumber, tokenEstimate: estimateTokens(compressedHistory) });
 
           // Strip tools on last turn to force text response

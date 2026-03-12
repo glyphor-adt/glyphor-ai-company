@@ -34,7 +34,8 @@ export default function Layout() {
   const { theme, toggle } = useTheme();
   const { user, logout } = useAuth();
   const location = useLocation();
-  const isFullBleed = true;
+  const FULL_BLEED_ROUTES = ['/comms', '/ora'];
+  const isFullBleed = FULL_BLEED_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + '/'));
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Close drawer on navigation
@@ -173,7 +174,7 @@ export default function Layout() {
               <Outlet />
             </div>
           ) : (
-            <div className="page-enter mx-auto max-w-[1400px] px-4 py-4 md:px-8 md:py-8">
+            <div className="page-enter mx-auto max-w-[1600px] px-6 py-4 md:px-12 md:py-8">
               <Outlet />
             </div>
           )}

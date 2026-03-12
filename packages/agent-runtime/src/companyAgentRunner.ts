@@ -1696,7 +1696,7 @@ export class CompanyAgentRunner {
               try {
                 const synthPrompt = 'You ran out of time. Using ONLY the tool results already in the conversation, give a clear, concise answer to the user. Do NOT apologize about running out of time. Just answer naturally.';
                 history.push({ role: 'user', content: synthPrompt, timestamp: Date.now() });
-                const compressedSynthHistory = compressHistory(history, DEFAULT_HISTORY_COMPRESSION);
+                const compressedSynthHistory = await compressHistory(history, DEFAULT_HISTORY_COMPRESSION, this.modelClient);
                 const synthModel = routedModel.model === '__deterministic__' ? config.model : routedModel.model;
                 const synthResponse = await this.modelClient.generate({
                   model: synthModel,
@@ -1837,7 +1837,7 @@ export class CompanyAgentRunner {
             effectiveTools = filterToolDeclarations(effectiveTools, getToolSubset(config.role, task));
           }
 
-          const compressedHistory = compressHistory(history, DEFAULT_HISTORY_COMPRESSION);
+          const compressedHistory = await compressHistory(history, DEFAULT_HISTORY_COMPRESSION, this.modelClient);
 
           if (turnNumber === 1 || turnNumber % 3 === 0) {
             const rawEst = Math.ceil(history.reduce((t, h) => t + h.content.length, 0) / 3);
