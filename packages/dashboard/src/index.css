@@ -86,8 +86,8 @@ body {
 
 .dark .dashboard-shell {
   background:
-    radial-gradient(ellipse at top left, rgba(0, 224, 255, 0.12), transparent 58%),
-    radial-gradient(ellipse at bottom right, rgba(17, 113, 237, 0.12), transparent 58%),
+    radial-gradient(ellipse at top left, rgba(0, 224, 255, 0.05), transparent 56%),
+    radial-gradient(ellipse at bottom right, rgba(17, 113, 237, 0.06), transparent 56%),
     rgba(12, 14, 18, 0.95);
 }
 
