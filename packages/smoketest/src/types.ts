@@ -24,6 +24,8 @@ export interface SmokeTestConfig {
   voiceGatewayUrl: string;
   workerUrl: string;
   graphragUrl: string;
+  slackAppUrl?: string;
+  mcpSlackUrl?: string;
   gcpProject: string;
   interactive: boolean;
   selectedLayers: number[] | null; // null = all

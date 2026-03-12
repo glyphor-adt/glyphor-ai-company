@@ -30,12 +30,14 @@ import { run as layer21 } from './layers/layer21-world-model.js';
 import { run as layer22 } from './layers/layer22-reasoning.js';
 import { run as layer23 } from './layers/layer23-tenant-isolation.js';
 import { run as layer24 } from './layers/layer24-routing.js';
+import { run as layer25 } from './layers/layer25-governance-change-requests.js';
+import { run as layer26 } from './layers/layer26-slack-platform.js';
 
 const ALL_LAYERS: LayerRunner[] = [
   layer00, layer01, layer02, layer03, layer04, layer05,
   layer06, layer07, layer08, layer09, layer10, layer11, layer12, layer13,
   layer14, layer15, layer16, layer17, layer18, layer19, layer20, layer21,
-  layer22, layer23, layer24,
+  layer22, layer23, layer24, layer25, layer26,
 ];
 
 function loadConfig(): SmokeTestConfig {
@@ -46,8 +48,8 @@ function loadConfig(): SmokeTestConfig {
   if (layerIdx !== -1 && args[layerIdx + 1]) {
     selectedLayers = args[layerIdx + 1].split(',').map(Number);
     for (const n of selectedLayers) {
-      if (isNaN(n) || n < 0 || n > 24) {
-        console.error(`Invalid layer number: ${n}. Must be 0-24.`);
+      if (isNaN(n) || n < 0 || n > 26) {
+        console.error(`Invalid layer number: ${n}. Must be 0-26.`);
         process.exit(1);
       }
     }
@@ -68,12 +70,19 @@ function loadConfig(): SmokeTestConfig {
     return (process.env[name] || fallback).replace(/\/$/, '');
   };
 
+  const optionalUrl = (name: string): string | undefined => {
+    const value = process.env[name]?.trim();
+    return value ? value.replace(/\/$/, '') : undefined;
+  };
+
   return {
     schedulerUrl: required('SCHEDULER_URL').replace(/\/$/, ''),
     dashboardUrl: required('DASHBOARD_URL').replace(/\/$/, ''),
     voiceGatewayUrl: required('VOICE_GATEWAY_URL').replace(/\/$/, ''),
     workerUrl: optional('WORKER_URL', 'https://glyphor-worker-610179349713.us-central1.run.app'),
     graphragUrl: optional('GRAPHRAG_URL', 'https://glyphor-graphrag-indexer-610179349713.us-central1.run.app'),
+    slackAppUrl: optionalUrl('SLACK_APP_URL'),
+    mcpSlackUrl: optionalUrl('MCP_SLACK_URL'),
     gcpProject: process.env.GCP_PROJECT ?? 'ai-glyphor-company',
     interactive,
     selectedLayers,

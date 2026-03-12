@@ -78,6 +78,41 @@ function buildCompressedSummary(
   };
 }
 
+/**
+ * Remove orphaned tool_call / tool_result turns that lost their pair
+ * during history compression. Anthropic's API requires every tool_result
+ * to reference a tool_use block in the preceding assistant message;
+ * unpaired turns cause 400 errors.
+ */
+function sanitizeToolPairs(turns: ConversationTurn[]): ConversationTurn[] {
+  const result: ConversationTurn[] = [];
+  let i = 0;
+  while (i < turns.length) {
+    if (turns[i].role === 'tool_result') {
+      // tool_result without a preceding tool_call group — orphaned, skip
+      i++;
+      continue;
+    }
+    if (turns[i].role === 'tool_call') {
+      // Collect consecutive tool_call turns
+      const groupStart = i;
+      while (i < turns.length && turns[i].role === 'tool_call') i++;
+      // Check if followed by tool_result turns
+      const resultStart = i;
+      while (i < turns.length && turns[i].role === 'tool_result') i++;
+      if (i > resultStart) {
+        // Both halves present — keep the full group
+        for (let j = groupStart; j < i; j++) result.push(turns[j]);
+      }
+      // else: tool_calls with no results — drop them
+      continue;
+    }
+    result.push(turns[i]);
+    i++;
+  }
+  return result;
+}
+
 function truncateOlderToolResults(
   turns: ConversationTurn[],
   maxTokens: number,
@@ -126,7 +161,7 @@ export function compressHistory(
   }
 
   if (estimateTokens(compressed) <= config.maxHistoryTokens) {
-    return compressed;
+    return sanitizeToolPairs(compressed);
   }
 
   summaryTurn = {
@@ -140,5 +175,5 @@ export function compressHistory(
     compressed = [summaryTurn, ...retainedRecentTurns];
   }
 
-  return compressed;
+  return sanitizeToolPairs(compressed);
 }

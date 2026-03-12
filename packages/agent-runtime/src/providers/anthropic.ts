@@ -202,6 +202,18 @@ export class AnthropicAdapter implements ProviderAdapter {
           break;
         }
         case 'tool_result': {
+          if (lastToolUseIds.length === 0) {
+            // Orphaned tool_result with no preceding tool_call — fold into
+            // a plain text user message so Anthropic doesn't reject it.
+            const textParts: string[] = [];
+            while (i < turns.length && turns[i].role === 'tool_result') {
+              const tr = turns[i];
+              textParts.push(`[Prior tool result — ${tr.toolName ?? 'tool'}]: ${tr.content}`);
+              i++;
+            }
+            messages.push({ role: 'user', content: textParts.join('\n\n') });
+            break;
+          }
           const content: Array<{ type: 'tool_result'; tool_use_id: string; content: string }> = [];
           let resultIndex = 0;
           while (i < turns.length && turns[i].role === 'tool_result') {
