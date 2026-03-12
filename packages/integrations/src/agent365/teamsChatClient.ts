@@ -17,6 +17,7 @@ import type { MCPServerConfig } from '@microsoft/agents-a365-tooling';
 import { MsalTokenProvider } from '@microsoft/agents-hosting';
 import type { AuthConfiguration } from '@microsoft/agents-hosting';
 import { getAgentIdentityAppId, getAgentBlueprintSpId, getAgentSpId, getAgentEntraUserId, getAgentUpn } from '@glyphor/agent-runtime';
+import { markdownToTeamsHtml } from '../teams/messageFormatter.js';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -458,21 +459,10 @@ export class A365TeamsChatClient {
    * Uses PostMessage (POST /v1.0/chats/{chat-id}/messages).
    */
   async postChatMessage(chatId: string, content: string, agentRole?: string): Promise<void> {
-    // Strip HTML tags — the MCP PostMessage tool only supports contentType 'text'
-    const plainContent = content
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/p>/gi, '\n')
-      .replace(/<[^>]+>/g, '')
-      .replace(/&nbsp;/gi, ' ')
-      .replace(/&amp;/gi, '&')
-      .replace(/&lt;/gi, '<')
-      .replace(/&gt;/gi, '>')
-      .trim();
-
     await this.callTool('PostMessage', {
       chatId,
-      content: plainContent,
-      contentType: 'text',
+      content: markdownToTeamsHtml(content),
+      contentType: 'html',
     }, agentRole);
   }
 

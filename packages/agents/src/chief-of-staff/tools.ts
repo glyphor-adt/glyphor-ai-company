@@ -1297,7 +1297,6 @@ export function createChiefOfStaffTools(
 
         const chatId = await a365Client.createOrGetOneOnOneChat(recipientUpn);
 
-        // A365 MCP PostMessage supports plain text only — format message with image link if needed
         let messageText = params.message as string;
         if (imageUrl) {
           messageText += `\n\n📷 Image: ${imageUrl}`;
