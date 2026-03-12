@@ -24,23 +24,6 @@ import { useAuth } from '../lib/auth';
 
 /* ── Types ─────────────────────────────────── */
 
-interface RunningAgent {
-  id: string;
-  agent_id: string;
-  task: string | null;
-  started_at: string;
-}
-
-interface AgentPerfRow {
-  agent_id: string;
-  total_runs: number;
-  successful_runs: number;
-  failed_runs: number;
-  avg_quality_score: number | null;
-  total_cost: number;
-  tasks_completed: number;
-}
-
 interface KgNodeRow {
   node_type: string;
 }
@@ -99,32 +82,10 @@ export default function Dashboard() {
   const { data: directives, loading: directivesLoading } = useActiveDirectives();
   const { data: reflections, loading: reflectionsLoading } = useTopReflections(5);
 
-  const [runningAgents, setRunningAgents] = useState<RunningAgent[]>([]);
-  const [agentPerf, setAgentPerf] = useState<AgentPerfRow[]>([]);
   const [kgNodes, setKgNodes] = useState<KgNodeRow[]>([]);
   const [cashBalance, setCashBalance] = useState<number | null>(null);
   const [computeToday, setComputeToday] = useState<number | null>(null);
   const [computeMonthly, setComputeMonthly] = useState<number | null>(null);
-
-  // Fetch running agents
-  useEffect(() => {
-    (async () => {
-      try {
-        const rows = await apiCall<RunningAgent[]>('/api/agent-runs?status=running');
-        const allRunning = rows ?? [];
-        const byAgent = new Map<string, RunningAgent>();
-        for (const run of allRunning) {
-          const existing = byAgent.get(run.agent_id);
-          if (!existing || new Date(run.started_at) > new Date(existing.started_at)) {
-            byAgent.set(run.agent_id, run);
-          }
-        }
-        setRunningAgents(Array.from(byAgent.values()));
-      } catch {
-        setRunningAgents([]);
-      }
-    })();
-  }, []);
 
   // Fetch agent performance (last 7 days aggregate)
   useEffect(() => {
@@ -524,80 +485,7 @@ export default function Dashboard() {
             </Card>
           </div>
 
-          {/* ── The Organization ───────────── */}
-          <Card accent="0,163,255">
-            <SectionHeader
-              title="The Organization"
-              action={
-                <Link to="/organization" className="text-[11px] text-cyan hover:underline flex items-center gap-0.5">
-                  View all <MdArrowForward className="h-3 w-3" />
-                </Link>
-              }
-            />
-            {/* Summary stats row */}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 py-2">
-              <OrgStat label="Runs (7d)" value={String(totalRuns)} />
-              <OrgStat label="Avg Quality" value={avgQuality > 0 ? `${Math.round(avgQuality)}` : '—'} />
-              <OrgStat label="Shipped" value={String(totalShipped)} />
-              <OrgStat label="Agents Active" value={String(runningAgents.length)} />
-            </div>
 
-            {/* Top Performers + Needs Attention */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-3">
-              {topPerformers.length > 0 && (
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Top Performers</p>
-                  <div className="space-y-1.5">
-                    {topPerformers.map(a => (
-                      <div key={a.agent_id} className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 hover:bg-raised transition-colors">
-                        <AgentAvatar role={a.agent_id} size={22} />
-                        <span className="text-[12px] text-txt-secondary flex-1 truncate">{DISPLAY_NAME_MAP[a.agent_id] ?? a.agent_id}</span>
-                        <span className="text-[11px] font-mono text-[#34D399]">Q{Math.round(a.avg_quality_score ?? 0)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {needsAttention.length > 0 && (
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Needs Attention</p>
-                  <div className="space-y-1.5">
-                    {needsAttention.map(a => (
-                      <div key={a.agent_id} className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 hover:bg-raised transition-colors">
-                        <AgentAvatar role={a.agent_id} size={22} />
-                        <span className="text-[12px] text-txt-secondary flex-1 truncate">{DISPLAY_NAME_MAP[a.agent_id] ?? a.agent_id}</span>
-                        <span className="text-[11px] font-mono text-prism-elevated">{a.failed_runs} fails</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Running agents bar */}
-            {runningAgents.length > 0 && (
-              <Link to="/activity" className="block mt-4">
-                <InnerCard accent="52,211,153" className="flex items-center gap-3">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#34D399] opacity-75" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#34D399]" />
-                  </span>
-                  <span className="text-[12px] font-semibold text-[#34D399]">
-                    {runningAgents.length} agent{runningAgents.length > 1 ? 's' : ''} working now
-                  </span>
-                  <div className="flex items-center gap-2 overflow-hidden flex-1">
-                    {runningAgents.slice(0, 4).map(run => (
-                      <AgentAvatar key={run.id} role={run.agent_id} size={20} />
-                    ))}
-                    {runningAgents.length > 4 && (
-                      <span className="text-[10px] text-txt-faint">+{runningAgents.length - 4}</span>
-                    )}
-                  </div>
-                  <span className="text-[11px] text-txt-faint flex items-center gap-1">View <MdArrowForward className="h-3 w-3" /></span>
-                </InnerCard>
-              </Link>
-            )}
-          </Card>
         </div>
       </div>
     </div>
