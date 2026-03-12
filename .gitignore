@@ -54,3 +54,8 @@ _agent_bots_current.json
 _agent_bots_clean.json
 
 _test_mcp_tools.js
+
+# Agent secrets & provisioning scripts
+_agent_secrets.json
+_create_agent_secrets.ps1
+_apps.txt
