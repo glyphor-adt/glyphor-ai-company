@@ -315,13 +315,13 @@ export default function Dashboard() {
               }
             />
             {directivesLoading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10" />)}
+              <div className="space-y-1">
+                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-7" />)}
               </div>
             ) : directives.length === 0 ? (
-              <p className="py-6 text-center text-sm text-txt-faint">No active directives</p>
+              <p className="py-4 text-center text-[11px] text-txt-faint">No active directives</p>
             ) : (
-              <div className="space-y-1">
+              <div className="space-y-0">
                 {directives
                   .sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3))
                   .slice(0, 5)
@@ -334,21 +334,22 @@ export default function Dashboard() {
                     const circumference = 2 * Math.PI * radius;
                     const dashLen = (pct / 100) * circumference;
                     return (
-                      <Link key={d.id} to="/directives" className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-raised/50 transition-colors">
-                        <svg className="h-9 w-9 shrink-0 -rotate-90" viewBox="0 0 36 36">
-                          <circle cx="18" cy="18" r={radius} fill="none" stroke="currentColor" strokeWidth="3" className="text-border" />
+                      <Link key={d.id} to="/directives" className="flex items-center gap-2 rounded px-1.5 py-1 hover:bg-raised/50 transition-colors">
+                        <svg className="h-5 w-5 shrink-0 -rotate-90" viewBox="0 0 36 36">
+                          <circle cx="18" cy="18" r={radius} fill="none" stroke="currentColor" strokeWidth="3.5" className="text-border" />
                           <circle
                             cx="18" cy="18" r={radius}
                             fill="none"
-                            strokeWidth="3"
+                            stroke="currentColor"
+                            strokeWidth="3.5"
                             strokeLinecap="round"
                             className={isDone ? 'text-[#34D399]' : 'text-cyan'}
                             strokeDasharray={`${dashLen} ${circumference - dashLen}`}
                           />
                         </svg>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[13px] font-medium text-txt-secondary line-clamp-1">{d.title}</p>
-                          <p className="text-[11px] text-txt-faint">
+                          <p className="text-[11px] font-medium text-txt-secondary line-clamp-1">{d.title}</p>
+                          <p className="text-[10px] text-txt-faint leading-tight">
                             {isDone
                               ? <>done {timeAgo(d.updated_at)}</>
                               : total > 0

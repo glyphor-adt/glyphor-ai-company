@@ -63,10 +63,7 @@ export default function Workforce() {
   const orgAgents = agents.filter((a) => a.status !== 'retired');
   const agentMap = new Map(orgAgents.map((a) => [a.role, a]));
   const cos = agentMap.get('chief-of-staff');
-  const departmentHeads = DEPARTMENTS
-    .map((department) => ({ ...department, agent: agentMap.get(department.role) }))
-    .filter((department): department is (typeof DEPARTMENTS)[number] & { agent: Agent } => Boolean(department.agent));
-  const deptHeadRoles = new Set(departmentHeads.map((department) => department.role));
+  const allDeptRoleSet = new Set(DEPARTMENTS.map((department) => department.role));
 
   const normalizeDepartment = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
 
@@ -76,14 +73,23 @@ export default function Workforce() {
     const overrideManager = ROLE_MANAGER_OVERRIDES[member.role];
     if (overrideManager && agentMap.has(overrideManager)) return overrideManager;
 
-    const deptHead = departmentHeads.find(
+    const deptHead = DEPARTMENTS.find(
       (department) => normalizeDepartment(department.label) === normalizeDepartment(member.department),
     );
-    if (deptHead) return deptHead.role;
+    if (deptHead && deptHead.role !== member.role && agentMap.has(deptHead.role)) return deptHead.role;
 
-    if (cos && member.role !== 'chief-of-staff' && !deptHeadRoles.has(member.role)) return 'chief-of-staff';
+    if (cos && member.role !== 'chief-of-staff' && !allDeptRoleSet.has(member.role)) return 'chief-of-staff';
     return null;
   };
+
+  const departmentHeads = DEPARTMENTS
+    .map((department) => ({ ...department, agent: agentMap.get(department.role) }))
+    .filter((department): department is (typeof DEPARTMENTS)[number] & { agent: Agent } => Boolean(department.agent))
+    .filter((department) => {
+      const managerRole = resolveManagerRole(department.agent);
+      return managerRole == null || managerRole === 'chief-of-staff';
+    });
+  const deptHeadRoles = new Set(departmentHeads.map((department) => department.role));
 
   const executiveAgents = orgAgents.filter((a) => a.role in TITLE_MAP);
   const execCount = executiveAgents.length;

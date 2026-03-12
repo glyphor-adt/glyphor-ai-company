@@ -426,7 +426,7 @@ export const AGENT_META: Record<string, { color: string; icon: string }> = {
   'adi-rose':                      { color: '#7C3AED', icon: 'MdEventNote' },
 };
 
-export const DISPLAY_NAME_MAP: Record<string, string> = {
+const _DISPLAY_NAMES: Record<string, string> = {
   'chief-of-staff': 'Sarah Chen',
   cto: 'Marcus Reeves',
   cpo: 'Elena Vasquez',
@@ -460,6 +460,38 @@ export const DISPLAY_NAME_MAP: Record<string, string> = {
   'marketing-intelligence-analyst': 'Zara Petrov',
   'adi-rose': 'Adi Rose',
 };
+
+// Build shorthand aliases (first name, department label, hyphenated name)
+const _ALIASES: Record<string, string> = {};
+for (const [role, displayName] of Object.entries(_DISPLAY_NAMES)) {
+  // Reverse lookup: display name → display name (identity)
+  _ALIASES[displayName] = displayName;
+  // Lowercase display name
+  _ALIASES[displayName.toLowerCase()] = displayName;
+  // First-name shorthand: 'maya' → 'Maya Brooks'
+  const firstName = displayName.split(' ')[0].toLowerCase();
+  if (!_ALIASES[firstName]) _ALIASES[firstName] = displayName;
+  // Hyphenated slug: 'maya-brooks' → 'Maya Brooks'
+  const slug = displayName.toLowerCase().replace(/\s+/g, '-');
+  if (!_ALIASES[slug]) _ALIASES[slug] = displayName;
+}
+// Department / informal aliases → canonical names
+Object.assign(_ALIASES, {
+  operations: 'Atlas Vega',
+  marketing: 'Maya Brooks',
+  engineering: 'Marcus Reeves',
+  finance: 'Nadia Okafor',
+  product: 'Elena Vasquez',
+  legal: 'Victoria Chase',
+  sales: 'Rachel Kim',
+  design: 'Mia Tanaka',
+  hr: 'Jasmine Rivera',
+  research: 'Sophia Lin',
+  kristina: 'Kristina',
+  andrew: 'Andrew',
+});
+
+export const DISPLAY_NAME_MAP: Record<string, string> = { ..._DISPLAY_NAMES, ..._ALIASES };
 
 /** @deprecated Use DISPLAY_NAME_MAP instead */
 export const CODENAME_MAP = DISPLAY_NAME_MAP;

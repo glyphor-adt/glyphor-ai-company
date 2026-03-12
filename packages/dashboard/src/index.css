@@ -38,8 +38,8 @@
   --color-base: #0B0C10;
   --color-surface: rgba(22, 24, 30, 0.85);
   --color-raised: rgba(16, 18, 24, 0.9);
-  --color-border: rgba(0, 224, 255, 0.20);
-  --color-border-hover: rgba(0, 224, 255, 0.40);
+  --color-border: rgba(255, 255, 255, 0.10);
+  --color-border-hover: rgba(255, 255, 255, 0.20);
   --color-txt-primary: #ECEEF4;
   --color-txt-secondary: rgba(255, 255, 255, 0.6);
   --color-txt-muted: rgba(255, 255, 255, 0.45);
@@ -53,8 +53,8 @@
   --azure: var(--prism-accent-3);
   --accent: var(--prism-accent-5);
   /* Glass glow tokens */
-  --glow-cyan-md: 0 0 20px rgba(0, 224, 255, 0.15), 0 0 40px rgba(0, 224, 255, 0.06);
-  --glow-cyan-lg: 0 0 30px rgba(0, 224, 255, 0.22), 0 0 60px rgba(0, 224, 255, 0.10);
+  --glow-cyan-md: none;
+  --glow-cyan-lg: none;
 }
 
 /* ─── Global ──────────────────────────────────── */
@@ -113,6 +113,18 @@ body {
   background: transparent;
 }
 
+/* Global tone-down: neutralize cyan border utility classes in dark mode */
+.dark [class*="border-cyan"],
+.dark [class*="border-primary"] {
+  border-color: var(--color-border) !important;
+}
+
+/* Global tone-down: remove glow utility shadows in dark mode */
+.dark [class*="shadow-cyan"],
+.dark [class*="shadow-prism"] {
+  box-shadow: none !important;
+}
+
 .dashboard-content {
   position: relative;
   z-index: 1;
@@ -139,7 +151,7 @@ body {
 
 .nav-item-active--dark::before {
   background: #00E0FF;
-  box-shadow: 0 0 10px rgba(0, 224, 255, 0.33);
+  box-shadow: none;
 }
 
 .nav-item-active--light {
@@ -202,19 +214,19 @@ button, a[role="button"], .glass-btn {
   background: rgba(0, 0, 0, 0.30);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 224, 255, 0.24);
-  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
 }
 
 .dark .glass-btn-ghost:hover {
-  border-color: rgba(0, 224, 255, 0.60);
-  box-shadow: var(--glow-cyan-lg);
+  border-color: var(--color-border-hover);
+  box-shadow: none;
 }
 
 /* Tab bar / segmented control */
 .dark .glass-tabs {
   background: rgba(0, 0, 0, 0.30);
-  border-color: rgba(0, 224, 255, 0.20);
+  border-color: var(--color-border);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -230,9 +242,9 @@ input, textarea, select {
 }
 
 input:focus, textarea:focus, select:focus {
-  border-color: rgba(0, 224, 255, 0.60) !important;
+  border-color: var(--color-border-hover) !important;
   background: rgba(0, 0, 0, 0.40) !important;
-  box-shadow: var(--glow-cyan-lg);
+  box-shadow: none;
   outline: none;
 }
 
@@ -256,15 +268,15 @@ input:focus, textarea:focus, select:focus {
 /* ─── Dark Mode Card ─────────────────────────── */
 .dark .glass-card {
   background: rgba(0, 0, 0, 0.30) !important;
-  border-color: rgba(0, 224, 255, 0.30) !important;
-  box-shadow: var(--glow-cyan-md);
+  border-color: var(--color-border) !important;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
 .dark .glass-card:hover {
   background: rgba(0, 0, 0, 0.40) !important;
-  border-color: rgba(0, 224, 255, 0.50) !important;
-  box-shadow: var(--glow-cyan-lg);
+  border-color: var(--color-border-hover) !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
 }
 
 /* Inner raised elements inside cards */
@@ -278,8 +290,8 @@ input:focus, textarea:focus, select:focus {
 
 .dark .glass-raised {
   background: rgba(0, 0, 0, 0.25) !important;
-  border-color: rgba(0, 224, 255, 0.20) !important;
-  box-shadow: 0 0 12px rgba(0, 224, 255, 0.06);
+  border-color: var(--color-border) !important;
+  box-shadow: none;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
@@ -310,18 +322,18 @@ input:focus, textarea:focus, select:focus {
 /* ─── Gradient Stat Cards (reference design) ── */
 .stat-card-gradient {
   position: relative;
-  border: 1px solid rgba(0, 224, 255, 0.20);
+  border: 1px solid var(--color-border);
   border-radius: 20px;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  box-shadow: var(--glow-cyan-md);
+  box-shadow: none;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .stat-card-gradient:hover {
   transform: translateY(-2px);
-  border-color: rgba(0, 224, 255, 0.40);
-  box-shadow: var(--glow-cyan-lg);
+  border-color: var(--color-border-hover);
+  box-shadow: none;
 }
 
 .stat-card-gradient-shine {
@@ -376,8 +388,8 @@ input:focus, textarea:focus, select:focus {
   border-radius: 24px;
   padding: 0;
   background: rgba(0, 0, 0, 0.30);
-  border: 1px solid rgba(0, 224, 255, 0.20);
-  box-shadow: var(--glow-cyan-md);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
@@ -392,20 +404,20 @@ input:focus, textarea:focus, select:focus {
   background: rgba(0, 0, 0, 0.30);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(0, 224, 255, 0.20);
-  box-shadow: var(--glow-cyan-md);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
 }
 
 .workforce-avatar-card {
   background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(0, 224, 255, 0.15);
+  border: 1px solid var(--color-border);
   transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .workforce-avatar-card:hover {
   background: rgba(0, 0, 0, 0.35);
-  border-color: rgba(0, 224, 255, 0.35);
-  box-shadow: var(--glow-cyan-md);
+  border-color: var(--color-border-hover);
+  box-shadow: none;
 }
 
 .agent-bar {
@@ -425,8 +437,8 @@ input:focus, textarea:focus, select:focus {
 
 .agent-bar--dark {
   background: rgba(0, 0, 0, 0.30) !important;
-  border-color: rgba(0, 224, 255, 0.20) !important;
-  box-shadow: var(--glow-cyan-md);
+  border-color: var(--color-border) !important;
+  box-shadow: none;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -441,7 +453,7 @@ input:focus, textarea:focus, select:focus {
 
 /* ─── Glow effect for active agent nodes ──── */
 .agent-glow {
-  box-shadow: 0 0 12px rgb(var(--accent) / .35), 0 0 32px rgb(var(--accent) / .12);
+  box-shadow: none;
 }
 
 .brand-badge {
@@ -465,7 +477,7 @@ input:focus, textarea:focus, select:focus {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent 5%, rgba(0,224,255,0.06) 30%, rgba(0,224,255,0.09) 50%, rgba(0,224,255,0.06) 70%, transparent 95%);
+  background: linear-gradient(90deg, transparent 5%, rgba(255,255,255,0.05) 30%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.05) 70%, transparent 95%);
   pointer-events: none;
   z-index: 2;
 }
@@ -545,11 +557,11 @@ input:focus, textarea:focus, select:focus {
   width: 100%;
   max-width: 42rem;
   border-radius: 22px;
-  border: 1px solid rgba(0, 224, 255, 0.30);
+  border: 1px solid var(--color-border);
   background: rgba(0, 0, 0, 0.30);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  box-shadow: var(--glow-cyan-md);
+  box-shadow: none;
   overflow: hidden;
 }
 
@@ -560,7 +572,7 @@ input:focus, textarea:focus, select:focus {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent 10%, rgba(0,224,255,0.2) 50%, transparent 90%);
+  background: linear-gradient(90deg, transparent 10%, rgba(255,255,255,0.08) 50%, transparent 90%);
 }
 
 .modal-panel::after {
@@ -570,24 +582,24 @@ input:focus, textarea:focus, select:focus {
   right: 0;
   bottom: 0;
   height: 55%;
-  background: linear-gradient(to top, rgba(0,224,255,0.06) 0%, rgba(0,224,255,0.015) 45%, transparent 100%);
+  background: linear-gradient(to top, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.015) 45%, transparent 100%);
   pointer-events: none;
 }
 
 .dropdown-panel {
   border-radius: 14px;
-  border: 1px solid rgba(0, 224, 255, 0.30);
+  border: 1px solid var(--color-border);
   background: rgba(0, 0, 0, 0.30);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  box-shadow: var(--glow-cyan-md);
+  box-shadow: none;
 }
 
 .dark input,
 .dark textarea,
 .dark select {
   background: rgba(0, 0, 0, 0.30);
-  border-color: rgba(0, 224, 255, 0.30);
+  border-color: var(--color-border);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -772,7 +784,7 @@ input:focus, textarea:focus, select:focus {
 }
 /* Blockquotes — subtle left accent */
 .prose-chat blockquote {
-  border-left: 3px solid rgba(0, 224, 255, 0.3);
+  border-left: 3px solid var(--color-border);
   padding-left: 1em;
   margin: 1em 0;
   color: var(--color-txt-muted);

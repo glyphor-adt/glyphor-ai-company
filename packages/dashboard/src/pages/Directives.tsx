@@ -523,7 +523,7 @@ function DirectiveCard({
   const pct = progressPercent(assignments);
   const completed = assignments.filter(a => a.status === 'completed').length;
   const total = assignments.length;
-  const agentNames = [...new Set(assignments.map(a => DISPLAY_NAME_MAP[a.assigned_to] ?? a.assigned_to))];
+  const agentNames = [...new Set(assignments.map(a => DISPLAY_NAME_MAP[a.assigned_to] ?? DISPLAY_NAME_MAP[a.assigned_to.toLowerCase()] ?? a.assigned_to))];
   const lastNote = d.progress_notes?.length ? d.progress_notes[d.progress_notes.length - 1] : null;
   const cfg = PRIORITY_CONFIG[d.priority];
   const [acting, setActing] = useState(false);
@@ -676,7 +676,7 @@ function DirectiveCard({
             {d.target_agents?.length > 0 && (
               <span>
                 Target: <span className="text-txt-secondary font-medium">
-                  {d.target_agents.map(r => DISPLAY_NAME_MAP[r] ?? r).join(', ')}
+                  {d.target_agents.map(r => DISPLAY_NAME_MAP[r] ?? DISPLAY_NAME_MAP[r.toLowerCase()] ?? r).join(', ')}
                 </span>
               </span>
             )}
@@ -699,12 +699,17 @@ function DirectiveCard({
               standard: { label: 'Standard', cls: 'bg-neutral-500/15 text-neutral-400' },
             };
 
-            const renderAssignment = (a: WorkAssignment, indent = false) => (
+            const renderAssignment = (a: WorkAssignment, indent = false) => {
+              const name = DISPLAY_NAME_MAP[a.assigned_to] ?? DISPLAY_NAME_MAP[a.assigned_to.toLowerCase()] ?? a.assigned_to;
+              const desc = a.task_description ?? '';
+              const isLong = desc.length > 200;
+
+              return (
               <div key={a.id} className={`rounded-lg border border-border bg-raised px-3 py-2.5 ${indent ? 'ml-6 border-l-2 border-l-border' : ''}`}>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`h-2 w-2 rounded-full ${assignmentStatusColor(a.status)}`} />
                   <span className="text-[12px] font-medium text-txt-primary">
-                    {DISPLAY_NAME_MAP[a.assigned_to] ?? a.assigned_to}
+                    {name}
                   </span>
                   <span className="text-[10px] text-txt-faint">({a.status})</span>
                   {a.assignment_type && a.assignment_type !== 'standard' && (
@@ -725,7 +730,18 @@ function DirectiveCard({
                     </span>
                   )}
                 </div>
-                <p className="mt-1 text-[11px] text-txt-muted leading-relaxed">{a.task_description}</p>
+                {isLong ? (
+                  <details className="mt-1">
+                    <summary className="text-[11px] text-txt-muted leading-relaxed cursor-pointer line-clamp-2">
+                      {desc.slice(0, 180)}…
+                    </summary>
+                    <div className="mt-1 text-[11px] text-txt-muted leading-relaxed prose-chat">
+                      <Markdown>{desc}</Markdown>
+                    </div>
+                  </details>
+                ) : (
+                  <p className="mt-1 text-[11px] text-txt-muted leading-relaxed">{desc}</p>
+                )}
                 {a.agent_output && (
                   <details className="mt-2">
                     <summary className="text-[10px] font-medium text-cyan cursor-pointer">View Output</summary>
@@ -735,10 +751,11 @@ function DirectiveCard({
                   </details>
                 )}
                 {a.evaluation && (
-                  <div className="mt-1 text-[10px] text-txt-faint italic prose-chat"><Markdown>{`Evaluation: ${a.evaluation}`}</Markdown></div>
+                  <p className="mt-1.5 text-[10px] text-txt-faint italic">{a.evaluation}</p>
                 )}
               </div>
-            );
+              );
+            };
 
             return (
               <div>
@@ -996,7 +1013,7 @@ function ProposedDirectiveCard({
         {d.target_agents?.length > 0 && (
           <p className="mt-2 text-[11px] text-txt-muted">
             Scope: <span className="text-txt-secondary font-medium">
-              {d.target_agents.map(r => DISPLAY_NAME_MAP[r] ?? r).join(', ')}
+              {d.target_agents.map(r => DISPLAY_NAME_MAP[r] ?? DISPLAY_NAME_MAP[r.toLowerCase()] ?? r).join(', ')}
             </span>
           </p>
         )}
