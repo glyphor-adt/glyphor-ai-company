@@ -87,40 +87,6 @@ export default function Dashboard() {
   const [computeToday, setComputeToday] = useState<number | null>(null);
   const [computeMonthly, setComputeMonthly] = useState<number | null>(null);
 
-  // Fetch agent performance (last 7 days aggregate)
-  useEffect(() => {
-    (async () => {
-      try {
-        const since = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
-        const rows = await apiCall<AgentPerfRow[]>(
-          `/api/agent_performance?date=gte.${encodeURIComponent(since)}&order=total_runs.desc`
-        );
-        // Aggregate by agent
-        const byAgent = new Map<string, AgentPerfRow>();
-        for (const r of rows ?? []) {
-          const e = byAgent.get(r.agent_id);
-          if (!e) {
-            byAgent.set(r.agent_id, { ...r });
-          } else {
-            e.total_runs += r.total_runs;
-            e.successful_runs += r.successful_runs;
-            e.failed_runs += r.failed_runs;
-            e.total_cost += r.total_cost;
-            e.tasks_completed += r.tasks_completed;
-            if (r.avg_quality_score != null) {
-              e.avg_quality_score = e.avg_quality_score != null
-                ? (e.avg_quality_score + r.avg_quality_score) / 2
-                : r.avg_quality_score;
-            }
-          }
-        }
-        setAgentPerf(Array.from(byAgent.values()));
-      } catch {
-        setAgentPerf([]);
-      }
-    })();
-  }, []);
-
   // Fetch knowledge graph stats
   useEffect(() => {
     (async () => {
@@ -192,21 +158,6 @@ export default function Dashboard() {
   const contradictionCount = kgNodes.filter(n => n.node_type === 'hypothesis').length;
 
   // Agent org stats
-  const totalRuns = agentPerf.reduce((s, a) => s + a.total_runs, 0);
-  const avgQuality = agentPerf.length > 0
-    ? agentPerf.filter(a => a.avg_quality_score != null).reduce((s, a) => s + (a.avg_quality_score ?? 0), 0) /
-      Math.max(agentPerf.filter(a => a.avg_quality_score != null).length, 1)
-    : 0;
-  const totalShipped = agentPerf.reduce((s, a) => s + a.tasks_completed, 0);
-  const topPerformers = [...agentPerf]
-    .filter(a => a.avg_quality_score != null)
-    .sort((a, b) => (b.avg_quality_score ?? 0) - (a.avg_quality_score ?? 0))
-    .slice(0, 3);
-  const needsAttention = [...agentPerf]
-    .filter(a => a.failed_runs > 0 || (a.avg_quality_score != null && a.avg_quality_score < 50))
-    .sort((a, b) => b.failed_runs - a.failed_runs)
-    .slice(0, 3);
-
   const loading = pulseLoading || decisionsLoading || incidentsLoading || directivesLoading || reflectionsLoading;
   const pulseHighlights = normalizeHighlights(pulse?.highlights);
 
@@ -359,45 +310,52 @@ export default function Dashboard() {
               title="Directives"
               action={
                 <Link to="/directives" className="text-[11px] text-cyan hover:underline flex items-center gap-0.5">
-                  All directives <MdArrowForward className="h-3 w-3" />
+                  Manage <MdArrowForward className="h-3 w-3" />
                 </Link>
               }
             />
             {directivesLoading ? (
               <div className="space-y-3">
-                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14" />)}
+                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10" />)}
               </div>
             ) : directives.length === 0 ? (
               <p className="py-6 text-center text-sm text-txt-faint">No active directives</p>
             ) : (
-              <div className="space-y-2.5">
+              <div className="space-y-1">
                 {directives
                   .sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3))
                   .slice(0, 5)
                   .map(d => {
                     const total = d.assignments.length;
                     const completed = d.assignments.filter(a => a.status === 'completed').length;
-                    const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+                    const pct = total > 0 ? (completed / total) * 100 : 0;
+                    const isDone = d.status === 'completed' || (total > 0 && completed === total);
+                    const radius = 15.9155;
+                    const circumference = 2 * Math.PI * radius;
+                    const dashLen = (pct / 100) * circumference;
                     return (
-                      <Link key={d.id} to="/directives" className="block">
-                        <InnerCard accent="130,140,248" className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <MdFlag className={`h-3.5 w-3.5 ${PRIORITY_COLORS[d.priority] ?? 'text-txt-faint'}`} />
-                            <span className="text-[13px] font-medium text-txt-secondary line-clamp-1 flex-1">{d.title}</span>
-                            <span className="text-[11px] text-txt-faint">{total > 0 ? `${completed}/${total}` : '—'}</span>
-                          </div>
-                          {total > 0 && (
-                            <div className="flex items-center gap-2">
-                              <div className="h-1.5 flex-1 rounded-full bg-border overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-[#34D399]' : 'bg-cyan'}`}
-                                  style={{ width: `${pct}%` }}
-                                />
-                              </div>
-                              <span className="text-[10px] text-txt-faint w-8 text-right">{pct}%</span>
-                            </div>
-                          )}
-                        </InnerCard>
+                      <Link key={d.id} to="/directives" className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-raised/50 transition-colors">
+                        <svg className="h-9 w-9 shrink-0 -rotate-90" viewBox="0 0 36 36">
+                          <circle cx="18" cy="18" r={radius} fill="none" stroke="currentColor" strokeWidth="3" className="text-border" />
+                          <circle
+                            cx="18" cy="18" r={radius}
+                            fill="none"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            className={isDone ? 'text-[#34D399]' : 'text-cyan'}
+                            strokeDasharray={`${dashLen} ${circumference - dashLen}`}
+                          />
+                        </svg>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[13px] font-medium text-txt-secondary line-clamp-1">{d.title}</p>
+                          <p className="text-[11px] text-txt-faint">
+                            {isDone
+                              ? <>done {timeAgo(d.updated_at)}</>
+                              : total > 0
+                                ? <>{completed}/{total} · {timeAgo(d.updated_at)}</>
+                                : <>no tasks · {timeAgo(d.updated_at)}</>}
+                          </p>
+                        </div>
                       </Link>
                     );
                   })}
@@ -520,14 +478,5 @@ function FinanceCard({
   );
 }
 
-/* ── Org Stat ──────────────────────────────── */
-function OrgStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="text-center">
-      <p className="text-xl font-bold font-mono text-txt-primary">{value}</p>
-      <p className="text-[10px] text-txt-faint uppercase tracking-wider mt-0.5">{label}</p>
-    </div>
-  );
-}
 
 
