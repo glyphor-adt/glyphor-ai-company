@@ -233,6 +233,14 @@ export class A365TeamsChatClient {
       const trimmed = data.trim();
       return trimmed || null;
     }
+    // Top-level array — e.g. [{"id":"19:...","chatType":"OneOnOne",...}, "CorrelationId: ..."]
+    if (Array.isArray(data)) {
+      for (const item of data) {
+        const id = this.extractChatId(item);
+        if (id) return id;
+      }
+      return null;
+    }
     if (data && typeof data === 'object') {
       const obj = data as Record<string, unknown>;
       // Direct .id property

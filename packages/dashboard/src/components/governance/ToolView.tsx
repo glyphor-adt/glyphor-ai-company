@@ -311,7 +311,6 @@ function normalizeSearch(value: string): string {
 
 function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
   const [query, setQuery] = useState('');
-  const [focused, setFocused] = useState(false);
 
   const results = useMemo<SearchResult[]>(() => {
     const q = normalizeSearch(query);
@@ -369,7 +368,7 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
     });
   }, [query]);
 
-  const showResults = focused && query.trim().length > 0;
+  const showResults = query.trim().length > 0;
 
   return (
     <Card>
@@ -382,8 +381,12 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setTimeout(() => setFocused(false), 200)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && query) {
+              e.preventDefault();
+              setQuery('');
+            }
+          }}
           placeholder='Search agents or tools — e.g. "Marcus", "send_email", "finance"'
           className="flex-1 bg-transparent text-sm text-txt-primary placeholder:text-txt-muted outline-none"
         />
@@ -395,7 +398,7 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
       </div>
 
       {showResults && (
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 max-h-[56vh] overflow-y-auto pr-1 space-y-3">
           {results.length === 0 ? (
             <p className="text-[13px] text-txt-muted">No agents or tools match &quot;{query.trim()}&quot;</p>
           ) : (

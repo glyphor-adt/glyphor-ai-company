@@ -1013,12 +1013,12 @@ export default function OraChat() {
       )}
       {/* Session Sidebar — responsive: fixed overlay on mobile, inline on desktop */}
       {sidebarOpen && (
-      <div className="fixed inset-y-0 left-0 z-50 w-72 flex-shrink-0 flex-col border-r border-prism-border bg-prism-bg md:relative md:inset-auto md:z-auto flex" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center gap-2 border-b border-prism-border px-3 py-3">
+        <div className="fixed inset-y-0 left-0 z-50 w-72 flex-shrink-0 flex-col bg-prism-bg md:relative md:inset-auto md:z-auto flex" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-2 px-3 py-3">
             <button
               type="button"
               onClick={startNewSession}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-prism-border bg-prism-card px-3 py-2 text-[13px] text-prism-primary transition-colors hover:border-cyan-500/30 hover:text-cyan-300"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-prism-card px-3 py-2 text-[13px] text-prism-primary transition-colors hover:text-cyan-300"
             >
               <MessageSquarePlus className="h-4 w-4" />
               New chat
@@ -1034,8 +1034,8 @@ export default function OraChat() {
           </div>
 
           {/* Search */}
-          <div className="border-b border-prism-border px-3 py-2">
-            <div className="flex items-center gap-2 rounded-lg border border-prism-border bg-prism-card px-2.5 py-1.5">
+          <div className="px-3 py-2">
+            <div className="flex items-center gap-2 rounded-lg bg-prism-card px-2.5 py-1.5">
               <Search className="h-3.5 w-3.5 text-prism-tertiary" />
               <input
                 type="text"
@@ -1059,7 +1059,7 @@ export default function OraChat() {
                 key={session.id}
                 className={`group flex items-center gap-1 px-3 py-2.5 cursor-pointer transition-colors ${
                   activeSessionId === session.id
-                    ? 'bg-cyan-500/10 border-r-2 border-cyan-400'
+                    ? 'bg-cyan-500/10'
                     : 'hover:bg-prism-bg2'
                 }`}
               >
@@ -1090,9 +1090,9 @@ export default function OraChat() {
       )}
 
       {/* Main chat area */}
-      <Card className="flex flex-1 flex-col min-h-0 min-w-0 transition-all overflow-visible">
+      <Card className="flex flex-1 flex-col min-h-0 min-w-0 transition-all overflow-visible border-transparent">
         {/* Header */}
-        <div className="flex items-center gap-2 md:gap-3 border-b border-border pb-3 md:pb-4">
+        <div className="flex items-center gap-2 md:gap-3 pb-3 md:pb-4">
           {/* Sidebar toggle — always visible on mobile, only when closed on desktop */}
           <button
             type="button"
@@ -1149,7 +1149,7 @@ export default function OraChat() {
             <div
               className={`${
                 msg.role === 'user'
-                  ? 'max-w-[85%] rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-[13px] leading-relaxed bg-cyan/10 text-txt-secondary border border-cyan/20'
+                  ? 'max-w-[85%] rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-[13px] leading-relaxed bg-cyan/10 text-txt-secondary'
                   : 'max-w-full md:max-w-[720px] text-[14px] leading-[1.7] text-txt-secondary'
               }`}
             >
@@ -1157,7 +1157,7 @@ export default function OraChat() {
               {msg.attachments?.length ? (
                 <div className="mb-2 flex flex-wrap gap-2">
                   {msg.attachments.map((a, i) => (
-                    <span key={i} className="inline-flex items-center gap-1 rounded-md bg-base/50 border border-border px-2 py-1 text-[11px] text-txt-muted">
+                    <span key={i} className="inline-flex items-center gap-1 rounded-md bg-base/50 px-2 py-1 text-[11px] text-txt-muted">
                       📎 {a.name}
                     </span>
                   ))}
@@ -1259,9 +1259,9 @@ export default function OraChat() {
 
       {/* Pending files */}
       {attachments.length > 0 && (
-        <div className="flex flex-wrap gap-2 border-t border-border px-1 pt-2">
+        <div className="flex flex-wrap gap-2 px-1 pt-2">
           {attachments.map((a, i) => (
-            <div key={i} className="flex items-center gap-1.5 rounded-lg bg-raised border border-border px-2.5 py-1.5">
+            <div key={i} className="flex items-center gap-1.5 rounded-lg bg-raised px-2.5 py-1.5">
               {a.previewUrl ? (
                 <img src={a.previewUrl} alt={a.name} className="h-8 w-8 rounded object-cover" />
               ) : (
@@ -1275,11 +1275,11 @@ export default function OraChat() {
       )}
 
       {/* Input */}
-      <div className="border-t border-border pt-3 relative" ref={menuRef}>
+      <div className="pt-3 relative" ref={menuRef}>
         {/* Menu flyout (opens above) */}
         {menuOpen && (
-          <div className="absolute bottom-full left-0 md:left-4 z-20 mb-2 flex flex-col md:flex-row items-start gap-2 max-w-[calc(100vw-2rem)] md:max-w-none">
-            <div className="w-[min(320px,calc(100vw-2rem))] rounded-[24px] border border-prism-border bg-prism-card p-3 shadow-prism-lg">
+          <div className="absolute bottom-[calc(100%+0.35rem)] left-0 md:left-4 z-20 max-h-[70vh] overflow-y-auto pr-1 flex flex-col md:flex-row items-start gap-2 max-w-[calc(100vw-2rem)] md:max-w-none">
+            <div className="w-[min(320px,calc(100vw-2rem))] rounded-[24px] bg-prism-card p-3 shadow-prism-lg">
               <MenuAction
                 icon={<Paperclip className="h-4 w-4" />}
                 title="Add files or photos"
@@ -1336,7 +1336,7 @@ export default function OraChat() {
             </div>
 
             {menuFlyout === 'model' && (
-              <div className="w-[min(384px,calc(100vw-2rem))] rounded-[24px] border border-prism-border bg-prism-card p-3 shadow-prism-lg">
+              <div className="w-[min(384px,calc(100vw-2rem))] rounded-[24px] bg-prism-card p-3 shadow-prism-lg">
                 <div className="mb-2 px-3 py-2">
                   <div className="text-[12px] font-medium text-prism-primary">Model</div>
                   <div className="text-[11px] text-prism-tertiary">Pick a single model or configure the triangulated trio.</div>
@@ -1426,7 +1426,7 @@ export default function OraChat() {
             )}
 
             {menuFlyout === 'type' && (
-              <div className="w-[min(320px,calc(100vw-2rem))] rounded-[24px] border border-prism-border bg-prism-card p-3 shadow-prism-lg">
+              <div className="w-[min(320px,calc(100vw-2rem))] rounded-[24px] bg-prism-card p-3 shadow-prism-lg">
                 <div className="mb-2 px-3 py-2">
                   <div className="text-[12px] font-medium text-prism-primary">Type</div>
                   <div className="text-[11px] text-prism-tertiary">
@@ -1459,7 +1459,7 @@ export default function OraChat() {
             type="button"
             onClick={() => setMenuOpen((prev) => !prev)}
             disabled={isLoading}
-            className={`flex-shrink-0 rounded-lg border border-border bg-raised px-2.5 py-2.5 text-txt-muted hover:text-cyan transition-colors ${isLoading ? 'opacity-50' : ''}`}
+            className={`flex-shrink-0 rounded-lg bg-raised px-2.5 py-2.5 text-txt-muted hover:text-cyan transition-colors ${isLoading ? 'opacity-50' : ''}`}
             aria-label="Open Ora options"
           >
             <Plus className={`h-4 w-4 transition-transform ${menuOpen ? 'rotate-45' : ''}`} />
@@ -1476,8 +1476,8 @@ export default function OraChat() {
             onPaste={handlePaste}
             placeholder="Ask Ora... (Shift+Enter for new line)"
             rows={1}
-            className="flex-1 rounded-lg border border-border bg-raised px-4 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none transition-colors focus:border-cyan/40 disabled:opacity-50 resize-none min-h-[40px] max-h-[120px]"
-            onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 120)}px`; }}
+            className="flex-1 rounded-lg bg-raised px-4 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none transition-colors disabled:opacity-50 resize-none min-h-[44px] max-h-[140px]"
+            onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 140)}px`; }}
             disabled={isLoading}
           />
 
@@ -1488,7 +1488,7 @@ export default function OraChat() {
             className={`hidden md:flex flex-shrink-0 w-[40px] h-[40px] items-center justify-center rounded-full transition-all ${
               isListening
                 ? 'bg-prism-critical text-white shadow-lg shadow-prism-critical/25 animate-pulse'
-                : 'bg-raised border border-border text-txt-muted hover:text-cyan hover:border-cyan/40 hover:bg-cyan/5'
+                : 'bg-raised text-txt-muted hover:text-cyan hover:bg-cyan/5'
             } ${isLoading ? 'opacity-50' : ''}`}
             title={isListening ? 'Stop dictation' : 'Dictate'}
           >

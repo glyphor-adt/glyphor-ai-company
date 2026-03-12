@@ -193,13 +193,13 @@ function SidebarContent({
       <div className="p-3 space-y-2">
         <button
           onClick={() => setShowOrgChart(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-cyan bg-transparent px-3 py-2 text-[13px] font-medium text-cyan hover:bg-cyan/10 transition-colors"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan/10 px-3 py-2 text-[13px] font-medium text-cyan hover:bg-cyan/20 transition-colors"
         >
           <MdAdd size={18} />
           New Chat
         </button>
         {recentChats.length > 3 && (
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-raised px-3 py-1.5">
+          <div className="flex items-center gap-2 rounded-lg bg-raised px-3 py-1.5">
             <MdSearch size={14} className="text-txt-faint flex-shrink-0" />
             <input
               type="text"
@@ -228,8 +228,8 @@ function SidebarContent({
               onClick={() => setSelectedRole(chat.agentRole)}
               className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
                 active
-                  ? 'bg-cyan/10 border border-cyan/25'
-                  : 'border border-transparent hover:bg-[var(--color-hover-bg)]'
+                  ? 'bg-cyan/10'
+                  : 'hover:bg-[var(--color-hover-bg)]'
               }`}
             >
               <div className="relative flex-shrink-0">
@@ -815,7 +815,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
 
       {/* ── Chat Area (Right) ────────────── */}
       <Card
-        className={`flex flex-1 flex-col min-h-0 min-w-0 transition-all ${dragging ? 'ring-2 ring-cyan/40' : ''}`}
+        className={`flex flex-1 flex-col min-h-0 min-w-0 transition-all border-transparent ${dragging ? 'ring-2 ring-cyan/40' : ''}`}
         onDragOver={(e: React.DragEvent) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={(e: React.DragEvent) => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); }}
