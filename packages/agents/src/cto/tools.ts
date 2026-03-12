@@ -333,7 +333,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         },
         limit: {
           type: 'number',
-          description: 'Number of recent runs to fetch (default: 10),
+          description: 'Number of recent runs to fetch (default: 10)',
           required: false,
         },
       },
