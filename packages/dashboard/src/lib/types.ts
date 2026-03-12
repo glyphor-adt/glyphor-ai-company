@@ -755,6 +755,11 @@ export const ROLE_TITLE: Record<string, string> = {
   'adi-rose': 'Adi Rose — AI Digital Identity',
 };
 
+/* ── Explicit manager overrides for org rebalancing ── */
+export const ROLE_MANAGER_OVERRIDES: Record<string, string> = {
+  'vp-design': 'cto',
+};
+
 /* ── Sub-team members (report to executives) ── */
 export interface SubTeamMember {
   name: string;

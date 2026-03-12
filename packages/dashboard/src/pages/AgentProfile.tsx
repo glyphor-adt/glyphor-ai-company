@@ -21,6 +21,7 @@ import {
   ROLE_TIER,
   ROLE_DEPARTMENT,
   ROLE_TITLE,
+  ROLE_MANAGER_OVERRIDES,
 } from '../lib/types';
 import { getToolPlatformMeta } from '../lib/toolPlatform';
 import { Card, AgentAvatar, Skeleton, timeAgo } from '../components/ui';
@@ -248,8 +249,9 @@ export default function AgentProfile() {
   const displayName = agent.name ?? DISPLAY_NAME_MAP[agent.role] ?? agent.display_name;
   const titleText = ROLE_TITLE[agent.role] ?? agent.title ?? agent.role;
   const department = ROLE_DEPARTMENT[agent.role] ?? agent.department ?? '';
-  const reportsToName = agent.reports_to
-    ? DISPLAY_NAME_MAP[agent.reports_to] ?? agent.reports_to
+  const effectiveReportsTo = ROLE_MANAGER_OVERRIDES[agent.role] ?? agent.reports_to ?? null;
+  const reportsToName = effectiveReportsTo
+    ? DISPLAY_NAME_MAP[effectiveReportsTo] ?? effectiveReportsTo
     : agent.role === 'chief-of-staff' ? 'Kristina & Andrew (Founders)'
     : agent.role === 'ops' ? 'Kristina & Andrew (Founders)'
     : undefined;
@@ -676,14 +678,14 @@ function OverviewTab({
             Org Structure
           </h3>
           {/* Reports To */}
-          {agent.reports_to && (
+          {effectiveReportsTo && (
             <div className="mb-4">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint mb-2">Reports To</p>
-              <Link to={`/agents/${agent.reports_to}`} className="flex items-center gap-3 rounded-lg border border-border bg-raised px-3 py-2 transition-colors hover:border-cyan/30">
-                <AgentAvatar role={agent.reports_to} size={28} />
+              <Link to={`/agents/${effectiveReportsTo}`} className="flex items-center gap-3 rounded-lg border border-border bg-raised px-3 py-2 transition-colors hover:border-cyan/30">
+                <AgentAvatar role={effectiveReportsTo} size={28} />
                 <div>
-                  <p className="text-sm font-medium text-txt-primary">{DISPLAY_NAME_MAP[agent.reports_to] ?? agent.reports_to}</p>
-                  <p className="text-[11px] text-txt-faint">{ROLE_TITLE[agent.reports_to] ?? agent.reports_to}</p>
+                  <p className="text-sm font-medium text-txt-primary">{DISPLAY_NAME_MAP[effectiveReportsTo] ?? effectiveReportsTo}</p>
+                  <p className="text-[11px] text-txt-faint">{ROLE_TITLE[effectiveReportsTo] ?? effectiveReportsTo}</p>
                 </div>
               </Link>
             </div>

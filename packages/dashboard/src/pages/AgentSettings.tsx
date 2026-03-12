@@ -10,6 +10,7 @@ import {
   ROLE_TIER,
   ROLE_DEPARTMENT,
   ROLE_TITLE,
+  ROLE_MANAGER_OVERRIDES,
   SUB_TEAM,
 } from '../lib/types';
 import { Card, AgentAvatar, Skeleton, timeAgo } from '../components/ui';
@@ -292,8 +293,9 @@ export default function AgentSettings() {
   const department = ROLE_DEPARTMENT[agent.role] ?? agent.department ?? '';
   const tier = ROLE_TIER[agent.role] ?? 'Agent';
   const directReports = SUB_TEAM.filter((m) => m.reportsTo === agent.role);
-  const reportsToName = agent.reports_to
-    ? DISPLAY_NAME_MAP[agent.reports_to] ?? agent.reports_to
+  const effectiveReportsTo = ROLE_MANAGER_OVERRIDES[agent.role] ?? agent.reports_to ?? null;
+  const reportsToName = effectiveReportsTo
+    ? DISPLAY_NAME_MAP[effectiveReportsTo] ?? effectiveReportsTo
     : agent.role === 'chief-of-staff' ? 'Kristina & Andrew (Founders)' : undefined;
 
   return (

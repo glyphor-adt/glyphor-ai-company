@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAgents } from '../lib/hooks';
-import { DISPLAY_NAME_MAP, AGENT_META, type Agent } from '../lib/types';
+import { DISPLAY_NAME_MAP, AGENT_META, ROLE_MANAGER_OVERRIDES, type Agent } from '../lib/types';
 import {
   Card,
   SectionHeader,
@@ -59,7 +59,9 @@ export default function Workforce() {
   const [view, setView] = useState<ViewMode>('org-chart');
   const [tab, setTab] = useState<Tab>('overview');
 
-  const agentMap = new Map(agents.map((a) => [a.role, a]));
+  // Keep retired agents out of the live org hierarchy.
+  const orgAgents = agents.filter((a) => a.status !== 'retired');
+  const agentMap = new Map(orgAgents.map((a) => [a.role, a]));
   const cos = agentMap.get('chief-of-staff');
   const departmentHeads = DEPARTMENTS
     .map((department) => ({ ...department, agent: agentMap.get(department.role) }))
@@ -69,6 +71,9 @@ export default function Workforce() {
   const normalizeDepartment = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
 
   const resolveManagerRole = (member: Agent): string | null => {
+    const overrideManager = ROLE_MANAGER_OVERRIDES[member.role];
+    if (overrideManager && agentMap.has(overrideManager)) return overrideManager;
+
     if (member.reports_to && agentMap.has(member.reports_to)) return member.reports_to;
 
     const deptHead = departmentHeads.find(
@@ -80,10 +85,10 @@ export default function Workforce() {
     return null;
   };
 
-  const executiveAgents = agents.filter((a) => a.role in TITLE_MAP);
+  const executiveAgents = orgAgents.filter((a) => a.role in TITLE_MAP);
   const execCount = executiveAgents.length;
-  const individualContributors = agents.filter((a) => !(a.role in TITLE_MAP));
-  const totalHeadcount = FOUNDERS.length + agents.length;
+  const individualContributors = orgAgents.filter((a) => !(a.role in TITLE_MAP));
+  const totalHeadcount = FOUNDERS.length + orgAgents.length;
 
   return (
     <div className="space-y-8">
@@ -168,7 +173,7 @@ export default function Workforce() {
                 {cos ? <AgentNode agent={cos} compact /> : <Skeleton className="h-20 w-full" />}
               </div>
               {(() => {
-                const cosDirects = agents.filter(
+                const cosDirects = orgAgents.filter(
                   (m) => resolveManagerRole(m) === 'chief-of-staff' && m.role !== 'chief-of-staff' && !deptHeadRoles.has(m.role),
                 );
                 if (cosDirects.length === 0) return null;
@@ -195,7 +200,7 @@ export default function Workforce() {
           {/* Department columns with heads + sub-teams */}
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             {departmentHeads.map((dept) => {
-              const members = agents.filter((m) => resolveManagerRole(m) === dept.role && m.role !== dept.role && !deptHeadRoles.has(m.role));
+                const members = orgAgents.filter((m) => resolveManagerRole(m) === dept.role && m.role !== dept.role && !deptHeadRoles.has(m.role));
               return (
                 <div key={dept.label} className="flex flex-col items-center gap-1.5">
                   <div className="h-3 w-px bg-border" />
@@ -245,7 +250,7 @@ export default function Workforce() {
 
           {/* Agent grid — executives only */}
           <div className="mb-6 grid grid-cols-2 gap-4">
-            {agents
+            {orgAgents
               .filter((a) => a.role in TITLE_MAP)
               .sort((a, b) => {
                 const order = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-sales', 'vp-design', 'ops', 'clo', 'vp-research', 'competitive-research-analyst', 'market-research-analyst', 'm365-admin', 'global-admin'];
@@ -253,6 +258,7 @@ export default function Workforce() {
               })
               .map((agent) => {
                 const meta = AGENT_META[agent.role];
+                const managerRole = resolveManagerRole(agent);
                 return (
                   <Card key={agent.id} className="group relative overflow-hidden h-28">
                     <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl" style={{ background: meta?.color ?? '#64748b' }} />
@@ -265,7 +271,7 @@ export default function Workforce() {
                         </div>
                         <p className="text-[12px] text-txt-muted">{TITLE_MAP[agent.role] ?? agent.title ?? agent.role}</p>
                         <p className="mt-0.5 text-[11px] text-txt-faint">
-                          AI Agent
+                          AI Agent{managerRole ? ` · Reports to ${DISPLAY_NAME_MAP[managerRole] ?? managerRole}` : ''}
                         </p>
                         <div className="mt-3 flex items-center gap-4">
                           <span className="font-mono text-sm text-txt-secondary">
