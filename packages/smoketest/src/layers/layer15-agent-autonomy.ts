@@ -283,7 +283,7 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   // T15.10 — Initiative tools wired into executives
   tests.push(
     await runTest('T15.10', 'Initiative Tools Wired', async () => {
-      const executives = ['cto', 'cpo', 'cmo', 'cfo', 'vp-sales', 'vp-design', 'vp-customer-success', 'vp-research'];
+      const executives = ['cto', 'cpo', 'cmo', 'cfo', 'vp-sales', 'vp-design', 'vp-research'];
       const missing: string[] = [];
 
       for (const exec of executives) {

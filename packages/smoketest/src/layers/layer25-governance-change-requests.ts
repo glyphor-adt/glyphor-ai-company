@@ -30,6 +30,10 @@ function asObject(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+function hasNumericField(obj: Record<string, unknown> | null, field: string): boolean {
+  return !!obj && typeof obj[field] === 'number' && Number.isFinite(obj[field] as number);
+}
+
 export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   const tests: TestResult[] = [];
 
@@ -73,8 +77,21 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       const accessBody = asObject(access.data);
       const trustRows = Array.isArray(trust.data) ? trust.data : [];
 
-      if (!riskBody || typeof riskBody.score !== 'number') {
-        throw new Error('risk-summary missing numeric score');
+      const trustAlerts = asObject(riskBody?.trust_alerts);
+      const driftAlerts = asObject(riskBody?.drift_alerts);
+      const accessRisk = asObject(riskBody?.access_risk);
+      const policyHealth = asObject(riskBody?.policy_health);
+      const compliance = asObject(riskBody?.compliance);
+
+      const hasMeaningfulRiskPayload =
+        hasNumericField(trustAlerts, 'count')
+        && hasNumericField(driftAlerts, 'count')
+        && hasNumericField(accessRisk, 'count')
+        && (hasNumericField(policyHealth, 'avg_eval_score') || policyHealth?.avg_eval_score === null)
+        && (hasNumericField(compliance, 'pass_rate') || compliance?.pass_rate === null);
+
+      if (!hasMeaningfulRiskPayload) {
+        throw new Error('risk-summary missing expected governance metrics');
       }
       if (!accessBody || typeof accessBody.score !== 'number') {
         throw new Error('access-posture missing numeric score');
@@ -83,7 +100,7 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
         return '⚠ trust-map returned zero entries; endpoint is healthy but there is no trust-map data yet';
       }
 
-      return `risk-score=${riskBody.score}, access-score=${accessBody.score}, trust-entries=${trustRows.length}`;
+      return `risk-trust=${trustAlerts?.count}, risk-drift=${driftAlerts?.count}, access-score=${accessBody.score}, trust-entries=${trustRows.length}`;
     }),
   );
 

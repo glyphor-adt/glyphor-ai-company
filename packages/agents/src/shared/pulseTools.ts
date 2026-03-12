@@ -13,9 +13,37 @@ function getPulseClient(): PulseClient | null {
 }
 
 const PULSE_UNAVAILABLE_MSG = 'Pulse is not yet deployed — the product is still in development. Pulse tools will be available once Pulse launches. Report this as a blocker to Sarah (Chief of Staff) so it can be tracked.';
+const PULSE_TOOL_TIMEOUT_MS = 7000;
+
+function wrapPulseTools(tools: ToolDefinition[]): ToolDefinition[] {
+  return tools.map((tool) => {
+    const originalExecute = tool.execute.bind(tool);
+    return {
+      ...tool,
+      async execute(params, ctx): Promise<ToolResult> {
+        try {
+          return await Promise.race([
+            originalExecute(params, ctx),
+            new Promise<ToolResult>((resolve) =>
+              setTimeout(
+                () => resolve({ success: false, error: `Pulse MCP ${tool.name} timed out after ${PULSE_TOOL_TIMEOUT_MS}ms` }),
+                PULSE_TOOL_TIMEOUT_MS,
+              ),
+            ),
+          ]);
+        } catch (error) {
+          return {
+            success: false,
+            error: `Pulse MCP ${tool.name}: ${error instanceof Error ? error.message : String(error)}`,
+          };
+        }
+      },
+    };
+  });
+}
 
 export function createAllPulseTools(memory: CompanyMemoryStore): ToolDefinition[] {
-  return [
+  return wrapPulseTools([
     // ── Storyboard Management ──
 
     {
@@ -866,5 +894,5 @@ export function createAllPulseTools(memory: CompanyMemoryStore): ToolDefinition[
         return { success: true, data: result };
       },
     },
-  ];
+  ]);
 }

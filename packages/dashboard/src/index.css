@@ -84,6 +84,13 @@ body {
   background: var(--color-base);
 }
 
+.dark .dashboard-shell {
+  background:
+    radial-gradient(ellipse at top left, rgba(0, 224, 255, 0.12), transparent 58%),
+    radial-gradient(ellipse at bottom right, rgba(17, 113, 237, 0.12), transparent 58%),
+    rgba(12, 14, 18, 0.95);
+}
+
 .dashboard-sidebar {
   position: relative;
   overflow: hidden;
@@ -94,7 +101,7 @@ body {
 }
 
 .dashboard-sidebar--dark {
-  background: rgba(12, 14, 18, 0.95);
+  background: transparent;
 }
 
 .dashboard-main {
@@ -104,10 +111,7 @@ body {
 }
 
 .dark .dashboard-main {
-  background:
-    radial-gradient(ellipse at top left, rgba(0, 224, 255, 0.12), transparent 62%),
-    radial-gradient(ellipse at bottom right, rgba(17, 113, 237, 0.12), transparent 62%),
-    rgba(12, 14, 18, 0.95);
+  background: transparent;
 }
 
 .dashboard-content {
