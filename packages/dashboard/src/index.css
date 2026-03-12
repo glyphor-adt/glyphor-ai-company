@@ -349,24 +349,12 @@ input:focus, textarea:focus, select:focus {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-/* Cyan — Pending Decisions  (prism accent-1: #22d3ee) */
-.stat-gradient-blue {
-  background: linear-gradient(135deg, rgba(34, 211, 238, 0.22) 0%, rgba(34, 211, 238, 0.06) 40%, rgba(0, 0, 0, 0.30) 100%);
-}
-
-/* Teal/Amber — Open Incidents  (prism accent-2: #2dd4bf) */
-.stat-gradient-amber {
-  background: linear-gradient(135deg, rgba(45, 212, 191, 0.24) 0%, rgba(45, 212, 191, 0.06) 40%, rgba(0, 0, 0, 0.30) 100%);
-}
-
-/* Sky — Products Online  (prism accent-3: #60a5fa) */
-.stat-gradient-teal {
-  background: linear-gradient(135deg, rgba(96, 165, 250, 0.22) 0%, rgba(96, 165, 250, 0.06) 40%, rgba(0, 0, 0, 0.30) 100%);
-}
-
-/* Indigo — Agents Running  (prism accent-4 / violet: #a78bfa) */
+/* Stat card variants — all use uniform glass */
+.stat-gradient-blue,
+.stat-gradient-amber,
+.stat-gradient-teal,
 .stat-gradient-green {
-  background: linear-gradient(135deg, rgba(167, 139, 250, 0.22) 0%, rgba(167, 139, 250, 0.06) 40%, rgba(0, 0, 0, 0.30) 100%);
+  background: rgba(0, 0, 0, 0.30);
 }
 
 /* Quick action card hover lift */
@@ -386,14 +374,16 @@ input:focus, textarea:focus, select:focus {
 .banner-wrapper {
   position: relative;
   border-radius: 24px;
-  padding: 1px;
-  background: linear-gradient(135deg, rgba(0, 224, 255, 0.30) 0%, rgba(99, 102, 241, 0.20) 40%, rgba(0, 224, 255, 0.12) 100%);
+  padding: 0;
+  background: rgba(0, 0, 0, 0.30);
+  border: 1px solid rgba(0, 224, 255, 0.20);
+  box-shadow: var(--glow-cyan-md);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .banner-inner {
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: transparent;
   min-height: 160px;
 }
 

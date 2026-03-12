@@ -52,11 +52,9 @@ export default {
       backgroundImage: {
         ...prism.theme.extend.backgroundImage,
         'mesh-gradient': [
-          'radial-gradient(ellipse 120% 100% at 80% 35%, #1a0a3e, transparent 70%)',
-          'radial-gradient(ellipse 100% 120% at 55% 95%, #0d1542, transparent 65%)',
-          'radial-gradient(ellipse 140% 100% at 30% 25%, #050508, transparent 60%)',
-          'radial-gradient(ellipse 100% 80%  at 65% 75%, #0a0e2a, transparent 70%)',
-          'radial-gradient(ellipse 80%  90%  at 20% 60%, #08080c, transparent 55%)',
+          'radial-gradient(ellipse 160% 140% at 100% 100%, #1a0a4e, transparent 65%)',
+          'radial-gradient(ellipse 140% 160% at 70%  100%, #06103a, transparent 60%)',
+          'radial-gradient(ellipse 120% 100% at 40%  80%,  #040820, transparent 55%)',
         ].join(', '),
       },
       animation: {
