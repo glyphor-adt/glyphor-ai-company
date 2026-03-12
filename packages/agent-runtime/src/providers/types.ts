@@ -13,6 +13,7 @@ export type ModelProvider = 'gemini' | 'openai' | 'anthropic';
 export type ReasoningLevel = 'none' | 'standard' | 'deep';
 export type ModelReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
 export type ModelVerbosity = 'low' | 'medium' | 'high';
+export type GeminiThinkingLevel = 'low' | 'medium' | 'high';
 
 export interface StructuredOutputSpec {
   name: string;
@@ -33,6 +34,8 @@ export interface ModelRoutingMetadata {
   enableGoogleSearch?: boolean;
   enableWebSearch?: boolean;
   enableCodeExecution?: boolean;
+  thinkingLevel?: GeminiThinkingLevel;
+  thinkingBudget?: number;
   enableToolSearch?: boolean;
   enableApplyPatch?: boolean;
   a365McpServers?: string[];

@@ -69,7 +69,7 @@ function shouldRetryWithoutFlex(message: string): boolean {
 }
 
 function shouldUseDirectOpenAI(model: string): boolean {
-  return model === 'gpt-5.4' || model.endsWith('-deep-research');
+  return model.startsWith('gpt-5.4') || model.endsWith('-deep-research');
 }
 
 export class OpenAIAdapter implements ProviderAdapter {
@@ -195,6 +195,9 @@ export class OpenAIAdapter implements ProviderAdapter {
 
     // ── Responses API for reasoning calls (enables reasoning summaries) ──
     const hasResponsesApi = typeof (this.client as any).responses?.create === 'function';
+    if (request.model.startsWith('gpt-5.4') && hasResponsesApi) {
+      return this.generateViaResponses(request, reasoningEffort, tools);
+    }
     if (reasoningEffort && reasoningEffort !== 'none' && hasResponsesApi) {
       return this.generateViaResponses(request, reasoningEffort, tools);
     }
@@ -307,7 +310,7 @@ export class OpenAIAdapter implements ProviderAdapter {
    */
   private async generateViaResponses(
     request: UnifiedModelRequest,
-    reasoningEffort: string,
+    reasoningEffort?: string,
     tools?: Array<{ type: 'function'; function: { name: string; description: string; parameters: Record<string, unknown> } }>,
   ): Promise<UnifiedModelResponse> {
     const input = this.mapConversationForResponses(request);
@@ -385,10 +388,14 @@ export class OpenAIAdapter implements ProviderAdapter {
       model: request.model,
       instructions: request.systemInstruction,
       input,
-      reasoning: {
-        effort: reasoningEffort,
-        summary: 'auto',
-      },
+      ...(reasoningEffort && reasoningEffort !== 'none'
+        ? {
+            reasoning: {
+              effort: reasoningEffort,
+              summary: 'auto',
+            },
+          }
+        : {}),
       ...((responsesTools?.length || patchTool.length || toolSearchTool.length || webSearchTool.length)
         ? { tools: [...(responsesTools ?? []), ...toolSearchTool, ...webSearchTool, ...patchTool] }
         : {}),
