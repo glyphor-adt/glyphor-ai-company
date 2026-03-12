@@ -31,6 +31,8 @@ import type { RunDependencies, AgentProfileData, SkillContext } from './companyA
 import type { ReasoningEngine } from './reasoningEngine.js';
 import type { JitContextRetriever, JitContext } from './jitContextRetriever.js';
 import { estimateModelCost } from '@glyphor/shared/models';
+
+const DB_RUN_ID_TURN_PREFIX = '__db_run_id__:';
 import type { RedisCache } from './redisCache.js';
 import type { ContextDistiller } from './contextDistiller.js';
 import type { RuntimeToolFactory } from './runtimeToolFactory.js';
@@ -162,6 +164,9 @@ export abstract class BaseAgentRunner {
     // ─── Pre-process attachments ────────────────────────────────
     let initialAttachments: ConversationAttachment[] | undefined;
     const cleanHistory = (config.conversationHistory ?? []).filter((t) => {
+      if (t.content.startsWith(DB_RUN_ID_TURN_PREFIX)) {
+        return false;
+      }
       if (t.content === '__multimodal_attachments__' && t.attachments?.length) {
         initialAttachments = t.attachments;
         return false;

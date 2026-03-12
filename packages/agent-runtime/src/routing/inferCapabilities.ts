@@ -8,6 +8,7 @@ export interface RoutingContext {
   task: string;
   message: string;
   toolNames: string[];
+  department?: string | null;
   trustScore?: number | null;
 }
 
@@ -97,6 +98,7 @@ const EXTRACTION_HINT = /\b(extract|classify|summarize|summarise|table|list|stat
 export function inferCapabilities(context: RoutingContext): Capability[] {
   const capabilities = new Set<Capability>();
   const taskAndMessage = `${context.task}\n${context.message}`.trim();
+  const departmentSignal = (context.department ?? '').toLowerCase();
 
   for (const rawToolName of context.toolNames) {
     const toolName = normalizeToolName(rawToolName);
@@ -131,6 +133,33 @@ export function inferCapabilities(context: RoutingContext): Capability[] {
   }
   if (EXTRACTION_HINT.test(taskAndMessage)) {
     capabilities.add('structured_extraction');
+  }
+
+  if (/\b(engineering|design|frontend|platform)\b/.test(departmentSignal)) {
+    capabilities.add('code_generation');
+    capabilities.add('needs_apply_patch');
+  }
+  if (/\b(design)\b/.test(departmentSignal)) {
+    capabilities.add('visual_analysis');
+  }
+  if (/\b(legal)\b/.test(departmentSignal)) {
+    capabilities.add('legal_reasoning');
+    capabilities.add('needs_citations');
+  }
+  if (/\b(finance)\b/.test(departmentSignal)) {
+    capabilities.add('financial_computation');
+    capabilities.add('needs_code_execution');
+  }
+  if (/\b(marketing)\b/.test(departmentSignal)) {
+    capabilities.add('creative_writing');
+  }
+  if (/\b(research|intelligence|product)\b/.test(departmentSignal)) {
+    capabilities.add('web_research');
+    capabilities.add('needs_citations');
+  }
+  if (/\b(sales|customer success)\b/.test(departmentSignal)) {
+    capabilities.add('structured_extraction');
+    capabilities.add('nuanced_evaluation');
   }
 
   if (EXECUTIVE_ROLES.has(context.role) || /\b(assign|delegate|orchestr|brief|directive|review|evaluate)\b/i.test(taskAndMessage)) {

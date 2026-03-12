@@ -39,6 +39,7 @@ import type { TrustScorer } from './trustScorer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const DB_RUN_ID_TURN_PREFIX = '__db_run_id__:';
 
 // ─── THINKING CONFIG — Task-level override ─────────────────────
 // Controls whether the model uses extended thinking per task type.
@@ -285,6 +286,7 @@ export interface AgentProfileData {
   voice_examples: { situation: string; response: string }[] | null;
   anti_patterns: { never: string; instead: string }[] | null;
   working_voice: string | null;
+  department?: string | null;
 }
 
 const COST_AWARENESS_BLOCK = `## Cost Awareness
@@ -837,34 +839,37 @@ function buildSystemPrompt(
   isOnDemand = false,
   orchestrationConfig?: { can_decompose: boolean; can_evaluate: boolean; allowed_assignees: string[]; max_assignments_per_directive: number } | null,
   hasDelegatedDirective = false,
+  model?: string,
 ): string {
   try {
     const knowledgeDir = join(__dirname, '../../company-knowledge');
 
     // On-demand chat uses a slim prompt — skip KB and context files to keep
     // the model call fast and focused on the user's question.
-    let knowledgeBase = '';
+    let companyKnowledgeBase = '';
+    let departmentContext = '';
     if (!isOnDemand) {
       if (dbKnowledgeBase) {
-        knowledgeBase = dbKnowledgeBase;
+        companyKnowledgeBase = dbKnowledgeBase;
       } else {
         try {
-          knowledgeBase = readFileSync(join(knowledgeDir, 'CORE.md'), 'utf-8');
+          companyKnowledgeBase = readFileSync(join(knowledgeDir, 'CORE.md'), 'utf-8');
         } catch {
-          knowledgeBase = readFileSync(join(knowledgeDir, 'COMPANY_KNOWLEDGE_BASE.md'), 'utf-8');
+          companyKnowledgeBase = readFileSync(join(knowledgeDir, 'COMPANY_KNOWLEDGE_BASE.md'), 'utf-8');
         }
       }
 
       // Load department-specific context (still file-based — rarely changes)
       const contextFiles = ROLE_CONTEXT_FILES[role] ?? [];
+      const contextBlocks: string[] = [];
       for (const file of contextFiles) {
         try {
-          const ctx = readFileSync(join(knowledgeDir, 'context', file), 'utf-8');
-          knowledgeBase += '\n\n---\n\n' + ctx;
+          contextBlocks.push(readFileSync(join(knowledgeDir, 'context', file), 'utf-8'));
         } catch {
           // Context file missing — not critical
         }
       }
+      departmentContext = contextBlocks.join('\n\n---\n\n');
     }
 
     // If a DB system prompt override exists (from dashboard edits), use it
@@ -894,31 +899,10 @@ function buildSystemPrompt(
       }
     }
 
-    // PERSONALITY-FIRST prompt ordering:
-    // 1. Who you are (personality, voice, quirks)
-    // 2. Reasoning protocol
-    // 3. What you do (role brief + agent-specific instructions)
-    // 4. Where you work (company knowledge base)
-    // 5. Founder bulletins (urgent broadcasts)
     const parts: string[] = [];
-
-    if (profile) {
-      parts.push(buildPersonalityBlock(profile));
+    if (!isOnDemand && companyKnowledgeBase) {
+      parts.push(companyKnowledgeBase);
     }
-
-    // Inject current date/time in US Central so agents report in the correct timezone
-    const now = new Date();
-    const centralTime = now.toLocaleString('en-US', {
-      timeZone: 'America/Chicago',
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-    parts.push(`Current date and time: ${centralTime} CT (US Central Time). Always report times in US Central Time.`);
 
     parts.push(CONVERSATION_MODE);
 
@@ -949,18 +933,35 @@ function buildSystemPrompt(
       }
     }
 
-    // Inject skill methodology if skills are active for this run
+    if (departmentContext) parts.push(departmentContext);
+    if (roleBrief) parts.push(roleBrief);
+    parts.push(effectivePrompt);
+
+    if (profile) {
+      parts.push(buildPersonalityBlock(profile));
+    }
+
+    const now = new Date();
+    const centralTime = now.toLocaleString('en-US', {
+      timeZone: 'America/Chicago',
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+    parts.push(`Current date and time: ${centralTime} CT (US Central Time). Always report times in US Central Time.`);
+
     if (skillContext && skillContext.skills.length > 0) {
       parts.push(buildSkillBlock(skillContext));
     }
-
-    if (roleBrief) parts.push(roleBrief);
-    parts.push(effectivePrompt);
-    parts.push(knowledgeBase);
-
-    // Inject founder bulletins after knowledge base, before model call
     if (bulletinContext) {
       parts.push(bulletinContext);
+    }
+    if (model?.startsWith('gpt-5.4')) {
+      parts.push('Before you call a tool, explain why you are calling it.');
     }
 
     return parts.join('\n\n---\n\n');
@@ -983,8 +984,24 @@ function buildTaskTierSystemPrompt(
 ): string {
   const parts: string[] = [];
 
+  parts.push(`## Your Assignment
+Execute the task described in the user message below. Use your tools to gather data and produce results as instructed.
+
+## Work Protocol
+1. **Preflight:** Read the assignment. Confirm you have the tools and data access needed. If a tool is denied, call \`request_tool_access\` to self-grant it (read-only tools approve instantly), then retry.
+2. **Plan:** Break the task into steps. Identify which tools to call, in what order.
+3. **Execute:** Gather data and produce results as instructed.
+4. **Submit:** Call submit_assignment_output with your complete findings.
+
+- If blocked after 2 failed attempts: call flag_assignment_blocker immediately
+- Do NOT search for additional context beyond what's in your instructions
+- Do NOT investigate tangential issues — focus only on what's assigned
+- If a tool call returns empty data, note it and move on — don't retry with variations`);
+
+  parts.push(DATA_GROUNDING_PROTOCOL);
+  parts.push(COST_AWARENESS_BLOCK);
+
   if (profile) {
-    // Task tier: use working_voice distillation when available for lighter personality injection
     if (profile.working_voice) {
       const voiceParts: string[] = ['## WHO YOU ARE\n'];
       voiceParts.push('YOUR VOICE (even when heads-down on a task):');
@@ -1006,23 +1023,6 @@ function buildTaskTierSystemPrompt(
       parts.push(buildPersonalityBlock(profile));
     }
   }
-
-  parts.push(`## Your Assignment
-Execute the task described in the user message below. Use your tools to gather data and produce results as instructed.
-
-## Work Protocol
-1. **Preflight:** Read the assignment. Confirm you have the tools and data access needed. If a tool is denied, call \`request_tool_access\` to self-grant it (read-only tools approve instantly), then retry.
-2. **Plan:** Break the task into steps. Identify which tools to call, in what order.
-3. **Execute:** Gather data and produce results as instructed.
-4. **Submit:** Call submit_assignment_output with your complete findings.
-
-- If blocked after 2 failed attempts: call flag_assignment_blocker immediately
-- Do NOT search for additional context beyond what's in your instructions
-- Do NOT investigate tangential issues — focus only on what's assigned
-- If a tool call returns empty data, note it and move on — don't retry with variations`);
-
-  parts.push(DATA_GROUNDING_PROTOCOL);
-  parts.push(COST_AWARENESS_BLOCK);
 
   return parts.join('\n\n---\n\n');
 }
@@ -1159,7 +1159,13 @@ export class CompanyAgentRunner {
   ): Promise<AgentExecutionResult> {
     // Extract multimodal attachments from carrier turn (injected by scheduler)
     let initialAttachments: ConversationAttachment[] | undefined;
+    let dbRunId: string | undefined;
     const cleanHistory = (config.conversationHistory ?? []).filter((t) => {
+      if (t.content.startsWith(DB_RUN_ID_TURN_PREFIX)) {
+        const candidate = t.content.slice(DB_RUN_ID_TURN_PREFIX.length).trim();
+        dbRunId = candidate || undefined;
+        return false;
+      }
       if (t.content === '__multimodal_attachments__' && t.attachments?.length) {
         initialAttachments = t.attachments;
         return false; // Remove carrier turn from history
@@ -1236,6 +1242,7 @@ export class CompanyAgentRunner {
     let dbKnowledgeBase: string | null = null;
     let bulletinContext: string | null = null;
     let jitContext: JitContext | null = null;
+    let routingDepartment: string | undefined;
     let orchestrationConfig: { executive_role: string; can_decompose: boolean; can_evaluate: boolean; can_create_sub_directives: boolean; allowed_assignees: string[]; max_assignments_per_directive: number; requires_plan_verification: boolean; is_canary: boolean } | null = null;
     let hasDelegatedDirective = false;
 
@@ -1317,14 +1324,27 @@ export class CompanyAgentRunner {
 
       // Determine department for knowledge base + bulletin targeting
       const roleDept = ROLE_DEPARTMENT[config.role] ?? undefined;
+      const departmentSignalPromise = (async () => {
+        try {
+          const [agentRow] = await systemQuery<{ department: string | null; team: string | null }>(
+            'SELECT department, team FROM company_agents WHERE role = $1',
+            [config.role],
+          );
+          return agentRow?.department ?? agentRow?.team ?? roleDept ?? undefined;
+        } catch (err) {
+          console.warn(`[CompanyAgentRunner] Department lookup failed for ${config.role}:`, (err as Error).message);
+          return roleDept;
+        }
+      })();
 
       // DB-driven knowledge base (replaces static file reading) — standard+ only, cached
       const kbPromise = (tier !== 'light' && tier !== 'task' && deps?.knowledgeBaseLoader)
         ? (async () => {
-            const cacheKey = `kb:${roleDept ?? 'all'}`;
+            const departmentSignal = await departmentSignalPromise;
+            const cacheKey = `kb:${departmentSignal ?? 'all'}`;
             const cached = promptCache.get<string | null>(cacheKey);
             if (cached !== undefined) return cached;
-            const result = await deps.knowledgeBaseLoader!(roleDept);
+            const result = await deps.knowledgeBaseLoader!(departmentSignal);
             promptCache.set(cacheKey, result);
             return result;
           })().catch(err => {
@@ -1336,10 +1356,11 @@ export class CompanyAgentRunner {
       // Founder bulletins — standard+ only, cached
       const bulletinPromise = (tier !== 'light' && tier !== 'task' && deps?.bulletinLoader)
         ? (async () => {
-            const cacheKey = `bulletin:${roleDept ?? 'all'}`;
+            const departmentSignal = await departmentSignalPromise;
+            const cacheKey = `bulletin:${departmentSignal ?? 'all'}`;
             const cached = promptCache.get<string | null>(cacheKey);
             if (cached !== undefined) return cached;
-            const result = await deps.bulletinLoader!(roleDept);
+            const result = await deps.bulletinLoader!(departmentSignal);
             promptCache.set(cacheKey, result);
             return result;
           })().catch(err => {
@@ -1393,6 +1414,7 @@ export class CompanyAgentRunner {
         messagesPromise,
         ciPromise,
         profilePromise,
+        departmentSignalPromise,
         workingMemoryPromise,
         skillPromise,
         kbPromise,
@@ -1402,7 +1424,7 @@ export class CompanyAgentRunner {
         orchConfigPromise,
       ]);
 
-      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult, workingMemory, skillResult, kbResult, bulletinResult, pendingAssignments, jitResult, orchConfigResult] = await Promise.race([allLoaders, preRunDeadline]);
+      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult, departmentSignal, workingMemory, skillResult, kbResult, bulletinResult, pendingAssignments, jitResult, orchConfigResult] = await Promise.race([allLoaders, preRunDeadline]);
 
       // Inject memory context
       if (memoryResult) {
@@ -1482,6 +1504,7 @@ export class CompanyAgentRunner {
 
       // Set profile
       agentProfile = profileResult;
+      routingDepartment = profileResult?.department ?? departmentSignal ?? undefined;
 
       // Set skill context
       skillContext = skillResult;
@@ -1536,6 +1559,7 @@ export class CompanyAgentRunner {
       task,
       message: initialMessage,
       toolNames: staticToolNames,
+      department: routingDepartment,
       trustScore,
       currentModel: config.model,
     });
@@ -1544,6 +1568,7 @@ export class CompanyAgentRunner {
       task,
       message: initialMessage,
       toolNames: staticToolNames,
+      department: routingDepartment,
       trustScore,
     });
 
@@ -1717,7 +1742,19 @@ export class CompanyAgentRunner {
           // Select system prompt based on context tier
           const systemPrompt = isTaskTier
             ? buildTaskTierSystemPrompt(agentProfile)
-            : buildSystemPrompt(config.role, config.systemPrompt, dynamicBrief, agentProfile, skillContext, dbKnowledgeBase, bulletinContext, isOnDemand, orchestrationConfig, hasDelegatedDirective);
+            : buildSystemPrompt(
+                config.role,
+                config.systemPrompt,
+                dynamicBrief,
+                agentProfile,
+                skillContext,
+                dbKnowledgeBase,
+                bulletinContext,
+                isOnDemand,
+                orchestrationConfig,
+                hasDelegatedDirective,
+                routedModel.model === '__deterministic__' ? config.model : routedModel.model,
+              );
           let effectiveThinking = routedModel.reasoningEffort === 'minimal' ? false : config.thinkingEnabled;
           if (isTaskTier) {
             effectiveThinking = false;
@@ -2044,7 +2081,7 @@ export class CompanyAgentRunner {
       if (deps?.agentMemoryStore && lastTextOutput && !isTaskTier) {
         // Fire-and-forget — reflection is non-critical post-processing
         // that should never block the run response (saves 10–20s)
-        this.reflectOnRun(config, history, lastTextOutput!, deps.agentMemoryStore!, deps?.knowledgeRouter, deps?.graphWriter, deps?.skillFeedbackWriter, skillContext)
+        this.reflectOnRun(config, history, lastTextOutput!, deps.agentMemoryStore!, dbRunId, deps?.knowledgeRouter, deps?.graphWriter, deps?.skillFeedbackWriter, skillContext)
           .catch(err => console.warn(`[CompanyAgentRunner] Reflection failed for ${config.id}:`, (err as Error).message));
       }
 
@@ -2216,6 +2253,7 @@ export class CompanyAgentRunner {
     history: ConversationTurn[],
     output: string,
     store: AgentMemoryStore,
+    dbRunId?: string,
     knowledgeRouter?: (knowledge: { agent_id: string; content: string; tags: string[]; knowledge_type?: string }) => Promise<number>,
     graphWriter?: GraphOpsWriter,
     skillFeedbackWriter?: (role: CompanyAgentRole, feedback: SkillFeedback[]) => Promise<void>,
@@ -2295,7 +2333,7 @@ For peerFeedback: If during this task you interacted with or observed the work o
       // Save reflection
       await store.saveReflection({
         agentRole: config.role,
-        runId: config.id,
+        runId: dbRunId ?? config.id,
         summary: parsed.summary ?? '',
         qualityScore: Math.max(0, Math.min(100, parsed.qualityScore ?? 50)),
         whatWentWell: parsed.whatWentWell ?? [],

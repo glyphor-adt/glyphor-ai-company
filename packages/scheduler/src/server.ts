@@ -27,6 +27,8 @@ import { MeetingEngine } from './meetingEngine.js';
 import { CotEngine } from './cotEngine.js';
 import { DeepDiveEngine } from './deepDiveEngine.js';
 import { StrategyLabEngine, type StrategyAnalysisType } from './strategyLabEngine.js';
+
+const DB_RUN_ID_TURN_PREFIX = '__db_run_id__:';
 import {
   exportAnalysisMarkdown, exportAnalysisJSON,
   exportAnalysisPPTX, exportAnalysisDOCX,
@@ -212,11 +214,19 @@ const agentExecutor = async (
 ): Promise<AgentExecutionResult | void> => {
   const message = (payload.message as string) || undefined;
   let conversationHistory = payload.conversationHistory as ConversationTurn[] | undefined;
+  const dbRunId = typeof payload.runId === 'string' ? payload.runId : undefined;
 
   // Thread multimodal attachments: inject as a carrier turn at the end of
   // conversationHistory so they reach CompanyAgentRunner without modifying
   // every individual runner's parameter interface.
   const rawAttach = payload.attachments as ConversationAttachment[] | undefined;
+  if (dbRunId) {
+    if (!conversationHistory) conversationHistory = [];
+    conversationHistory = [
+      ...conversationHistory,
+      { role: 'user', content: `${DB_RUN_ID_TURN_PREFIX}${dbRunId}`, timestamp: Date.now() },
+    ];
+  }
   if (rawAttach?.length) {
     if (!conversationHistory) conversationHistory = [];
     conversationHistory = [
@@ -489,8 +499,8 @@ const trackedAgentExecutor = async (
   .catch(() => undefined);
 
   try {
-    const result = await agentExecutor(agentRole, task, payload);
     const runId = await runIdPromise;
+    const result = await agentExecutor(agentRole, task, runId ? { ...payload, runId } : payload);
     const durationMs = Date.now() - startMs;
 
     // Count tool calls from conversation history
