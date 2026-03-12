@@ -28,12 +28,6 @@ import {
   type GlyphorRepo,
   listCloudBuilds,
   getCloudBuildDetails,
-  listDeployments,
-  triggerDeployment,
-  rollbackDeployment,
-  queryVercelHealth,
-  VERCEL_TEAMS,
-  type VercelTeamKey,
   GraphTeamsClient,
   buildChannelMap,
   type ChannelTarget,
@@ -1582,118 +1576,6 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
               reason: params.reason,
             },
           };
-        } catch (err) {
-          return { success: false, error: (err as Error).message };
-        }
-      },
-    },
-
-    // ─── DEPLOYMENT — Vercel ────────────────────────────────────
-
-    {
-      name: 'trigger_vercel_deploy',
-      description: 'Trigger a Vercel deployment for Fuse. Re-deploys the latest commit to production or preview.',
-      parameters: {
-        target: {
-          type: 'string',
-          description: 'Deployment target',
-          required: false,
-          enum: ['production', 'preview'],
-        },
-      },
-      execute: async (params, ctx): Promise<ToolResult> => {
-        try {
-          const target = (params.target as 'production' | 'preview') || 'preview';
-
-          // Production Vercel deploys require decision
-          if (target === 'production') {
-            const decisionId = await memory.createDecision({
-              tier: 'yellow',
-              status: 'pending',
-              title: 'Vercel production deploy: Fuse',
-              summary: 'Manual production deploy triggered by CTO.',
-              proposedBy: ctx.agentRole,
-              reasoning: 'Production Vercel deployments require founder approval.',
-              assignedTo: ['Kristina', 'Andrew'],
-            });
-            return { success: true, data: { status: 'pending_approval', decisionId } };
-          }
-
-          const deployment = await triggerDeployment('fuse', target);
-
-          await memory.appendActivity({
-            agentRole: ctx.agentRole,
-            action: 'deploy',
-            product: 'fuse',
-            summary: `Triggered Vercel ${target} deploy for Fuse`,
-            details: { deploymentId: deployment.uid, url: deployment.url },
-            createdAt: new Date().toISOString(),
-          });
-
-          return { success: true, data: deployment };
-        } catch (err) {
-          return { success: false, error: (err as Error).message };
-        }
-      },
-    },
-
-    {
-      name: 'rollback_vercel_deploy',
-      description: 'Rollback Vercel to a previous deployment. GREEN authority — safety valve.',
-      parameters: {
-        deployment_id: {
-          type: 'string',
-          description: 'Deployment ID to rollback to (get from list_vercel_deployments)',
-          required: true,
-        },
-      },
-      execute: async (params, ctx): Promise<ToolResult> => {
-        try {
-          const result = await rollbackDeployment('fuse', params.deployment_id as string);
-
-          await memory.appendActivity({
-            agentRole: ctx.agentRole,
-            action: 'deploy',
-            product: 'fuse',
-            summary: `Rolled back Vercel Fuse to deployment ${params.deployment_id}`,
-            createdAt: new Date().toISOString(),
-          });
-
-          return { success: true, data: result };
-        } catch (err) {
-          return { success: false, error: (err as Error).message };
-        }
-      },
-    },
-
-    {
-      name: 'list_vercel_deployments',
-      description: 'List recent Vercel deployments for Fuse — shows status, URL, created time, and errors.',
-      parameters: {
-        limit: {
-          type: 'number',
-          description: 'Number of recent deployments (default: 10)',
-          required: false,
-        },
-      },
-      execute: async (params, _ctx): Promise<ToolResult> => {
-        try {
-          const deployments = await listDeployments('fuse', (params.limit as number) || 10);
-          return { success: true, data: { count: deployments.length, deployments } };
-        } catch (err) {
-          return { success: false, error: (err as Error).message };
-        }
-      },
-    },
-
-    {
-      name: 'get_vercel_health',
-      description: 'Get Vercel health summary: latest deployment state, recent error rate, build status.',
-      parameters: {},
-      execute: async (_params, _ctx): Promise<ToolResult> => {
-        try {
-          const health = await queryVercelHealth('fuse');
-          return { success: true, data: health };
         } catch (err) {
           return { success: false, error: (err as Error).message };
         }

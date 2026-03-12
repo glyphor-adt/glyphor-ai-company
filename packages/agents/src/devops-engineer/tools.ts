@@ -9,7 +9,6 @@ import {
   listWorkflowRuns, listRecentCommits, commentOnPR, createIssue,
   getFileContents, createOrUpdateFile, createBranch, createGitHubPR,
   GLYPHOR_REPOS, type GlyphorRepo,
-  listDeployments, type VercelTeamKey,
   listCloudBuilds, getCloudBuildDetails,
   queryCloudRunMetrics, queryAllServices,
   submitPRReview, getPRDiff, type ReviewEvent,
@@ -256,57 +255,6 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
         } catch (err) {
           const msg = (err as Error).message;
           if (msg.includes('GITHUB_TOKEN')) return { success: false, error: 'NO_DATA: GITHUB_TOKEN not configured.' };
-          return { success: false, error: msg };
-        }
-      },
-    },
-
-    {
-      name: 'query_vercel_builds',
-      description: 'Get recent Vercel deployments — shows build status, duration, and error rate. "fuse" = Fuse product, "fuse-projects" = user deployments.',
-      parameters: {
-        project: {
-          type: 'string',
-          description: 'Scope: "fuse" (product) or "fuse-projects" (user deployments)',
-          required: true,
-          enum: ['fuse', 'fuse-projects'],
-        },
-        limit: {
-          type: 'number',
-          description: 'Number of recent deployments (default: 15)',
-          required: false,
-        },
-      },
-      execute: async (params, _ctx): Promise<ToolResult> => {
-        try {
-          const deployments = await listDeployments(params.project as VercelTeamKey, (params.limit as number) || 15);
-          const errored = deployments.filter((d) => d.state === 'ERROR').length;
-          const ready = deployments.filter((d) => d.state === 'READY').length;
-          const building = deployments.filter((d) => d.state === 'BUILDING').length;
-
-          // Calculate avg build duration for completed builds
-          let avgBuildMs: number | null = null;
-          const completed = deployments.filter((d) => d.readyAt && d.buildingAt);
-          if (completed.length > 0) {
-            const totalMs = completed.reduce((s, d) => s + (d.readyAt! - d.buildingAt!), 0);
-            avgBuildMs = Math.round(totalMs / completed.length);
-          }
-
-          return {
-            success: true,
-            data: {
-              total: deployments.length,
-              ready,
-              errored,
-              building,
-              successRate: deployments.length > 0 ? Math.round((ready / deployments.length) * 100) : null,
-              avgBuildDurationMs: avgBuildMs,
-              deployments,
-            },
-          };
-        } catch (err) {
-          const msg = (err as Error).message;
-          if (msg.includes('VERCEL_TOKEN')) return { success: false, error: 'NO_DATA: VERCEL_TOKEN not configured yet.' };
           return { success: false, error: msg };
         }
       },

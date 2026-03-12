@@ -29,6 +29,7 @@
 
 import { ConfidentialClientApplication } from '@azure/msal-node';
 import type { AdaptiveCard } from './webhooks.js';
+import { markdownToTeamsHtml } from './messageFormatter.js';
 
 // ─── CONFIG ─────────────────────────────────────────────────────
 
@@ -153,7 +154,7 @@ export class GraphTeamsClient {
   }
 
   /**
-   * Send a plain text message to a Teams channel.
+   * Send a message to a Teams channel. Markdown is converted to HTML for proper rendering.
    */
   async sendText(target: ChannelTarget, content: string): Promise<void> {
     if (!target.teamId || !target.channelId) {
@@ -167,7 +168,7 @@ export class GraphTeamsClient {
     const url = `https://graph.microsoft.com/v1.0/teams/${encodeURIComponent(target.teamId)}/channels/${encodeURIComponent(target.channelId)}/messages`;
 
     const body = {
-      body: { contentType: 'text', content },
+      body: { contentType: 'html', content: markdownToTeamsHtml(content) },
     };
 
     const response = await fetch(url, {

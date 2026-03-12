@@ -9,6 +9,7 @@
 
 import type { GraphTeamsClient } from './graphClient.js';
 import type { AdaptiveCard } from './webhooks.js';
+import { markdownToTeamsHtml } from './messageFormatter.js';
 
 // ─── FOUNDER DIRECTORY ──────────────────────────────────────────
 
@@ -84,7 +85,7 @@ export class TeamsDirectMessageClient {
     const chatId = await this.getOrCreateChat(contact.userId, senderEmail);
     const content = agentName ? `**${agentName}:** ${message}` : message;
 
-    await this.postMessage(chatId, { contentType: 'text', content });
+    await this.postMessage(chatId, { contentType: 'html', content: markdownToTeamsHtml(content) });
   }
 
   /**
@@ -137,7 +138,7 @@ export class TeamsDirectMessageClient {
       if (contact.email.toLowerCase() === email.toLowerCase()) {
         const chatId = await this.getOrCreateChat(contact.userId, senderEmail);
         const content = agentName ? `**${agentName}:** ${message}` : message;
-        await this.postMessage(chatId, { contentType: 'text', content });
+        await this.postMessage(chatId, { contentType: 'html', content: markdownToTeamsHtml(content) });
         return;
       }
     }
@@ -145,7 +146,7 @@ export class TeamsDirectMessageClient {
     const userId = await this.resolveUserIdByEmail(email);
     const chatId = await this.getOrCreateChat(userId, senderEmail);
     const content = agentName ? `**${agentName}:** ${message}` : message;
-    await this.postMessage(chatId, { contentType: 'text', content });
+    await this.postMessage(chatId, { contentType: 'html', content: markdownToTeamsHtml(content) });
   }
 
   /**

@@ -108,9 +108,6 @@ const KNOWN_TOOLS = new Set([
   'create_branch',
   'create_github_pr',
   'merge_github_pr',
-  'query_vercel_health',
-  'trigger_vercel_deploy',
-  'rollback_vercel_deploy',
 
   // ── CFO tools ──
   'calculate_unit_economics',
@@ -283,7 +280,6 @@ const KNOWN_TOOLS = new Set([
   'get_pipeline_runs',
   'get_recent_commits',
   'comment_on_pr',
-  'query_vercel_builds',
 
   // ── User Researcher (Priya) tools ──
   'query_user_analytics',
@@ -319,7 +315,6 @@ const KNOWN_TOOLS = new Set([
   'identify_waste',
   'calculate_unit_cost',
   'project_costs',
-  'query_vercel_usage',
 
   // ── Content Creator (Tyler) tools ──
   'draft_blog_post',

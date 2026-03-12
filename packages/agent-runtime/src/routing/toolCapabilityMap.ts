@@ -51,7 +51,6 @@ export const TOOL_CAPABILITY_MAP: Record<string, readonly Capability[]> = {
   query_test_results: ['structured_extraction'],
   get_pipeline_runs: ['structured_extraction'],
   get_recent_commits: ['structured_extraction'],
-  query_vercel_builds: ['structured_extraction'],
 
   // Visual + design
   run_lighthouse: ['visual_analysis'],
@@ -193,7 +192,6 @@ export const TOOL_CAPABILITY_MAP: Record<string, readonly Capability[]> = {
   identify_waste: ['financial_computation'],
   calculate_unit_cost: ['financial_computation'],
   project_costs: ['financial_computation'],
-  query_vercel_usage: ['financial_computation'],
   get_system_costs_realtime: ['financial_computation'],
   predict_capacity: ['financial_computation'],
   estimate_dev_spend: ['financial_computation'],
@@ -393,7 +391,6 @@ export const TOOL_CAPABILITY_MAP: Record<string, readonly Capability[]> = {
   // Ops + platform
   get_platform_health: ['structured_extraction'],
   get_cloud_run_metrics: ['structured_extraction'],
-  query_vercel_health: ['structured_extraction'],
   write_health_report: ['creative_writing'],
   write_financial_report: ['financial_computation'],
   write_product_analysis: ['nuanced_evaluation'],
@@ -401,8 +398,6 @@ export const TOOL_CAPABILITY_MAP: Record<string, readonly Capability[]> = {
   write_company_memory: ['creative_writing'],
   write_pipeline_report: ['nuanced_evaluation'],
   write_design_audit: ['visual_analysis'],
-  trigger_vercel_deploy: ['simple_tool_calling'],
-  rollback_vercel_deploy: ['simple_tool_calling'],
   query_agent_runs: ['structured_extraction', 'low_complexity'],
   query_agent_health: ['structured_extraction', 'low_complexity'],
   query_data_sync_status: ['structured_extraction', 'low_complexity'],

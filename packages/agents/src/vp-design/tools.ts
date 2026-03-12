@@ -10,7 +10,6 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import {
   getFileContents, createIssue, listOpenPRs, commentOnPR, createGitHubPR, createBranch,
   GLYPHOR_REPOS, type GlyphorRepo,
-  queryVercelHealth, type VercelTeamKey, VERCEL_TEAMS,
 } from '@glyphor/integrations';
 
 export function createVPDesignTools(memory: CompanyMemoryStore): ToolDefinition[] {
@@ -389,21 +388,6 @@ export function createVPDesignTools(memory: CompanyMemoryStore): ToolDefinition[
         const labels = params.labels ? (params.labels as string).split(',').map(l => l.trim()) : ['design'];
         const issue = await createIssue(params.repo as GlyphorRepo, params.title as string, params.body as string, labels);
         return { success: true, data: issue };
-      },
-    },
-
-    /* ─── Vercel health ─── */
-    {
-      name: 'check_vercel_health',
-      description: 'Check Vercel deployment health for Fuse or Pulse frontends.',
-      parameters: {
-        team: { type: 'string', description: 'Team key: fuse or pulse', required: true },
-      },
-      execute: async (params): Promise<ToolResult> => {
-        const teamKey = params.team as VercelTeamKey;
-        if (!VERCEL_TEAMS[teamKey]) return { success: false, error: `Unknown team "${params.team}". Use: fuse, pulse` };
-        const health = await queryVercelHealth(teamKey);
-        return { success: true, data: health };
       },
     },
   ];

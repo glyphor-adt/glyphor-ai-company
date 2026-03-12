@@ -59,7 +59,6 @@ export const TOOL_SUBSETS: ToolSubsetMap = {
       'get_infrastructure_costs',
       'get_ci_health',
       'get_repo_stats',
-      'query_vercel_health',
       'write_health_report',
     ),
     proactive: null,
@@ -69,7 +68,6 @@ export const TOOL_SUBSETS: ToolSubsetMap = {
       'get_platform_health',
       'get_cloud_run_metrics',
       'get_infrastructure_costs',
-      'query_vercel_health',
       'write_health_report',
     ),
     freshness_check: withWorkTools(

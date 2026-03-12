@@ -154,9 +154,9 @@ Not everyone gets every group. Here's who gets the extras:
 
 **Engineering:**
 - cto (Marcus Reeves): get_platform_health, get_cloud_run_metrics, get_infrastructure_costs, get_recent_activity, read_company_memory, write_health_report, log_activity, get_github_pr_status + Tool Registry tools
-- platform-engineer (Alex Park): query_cloud_run_metrics, run_health_check, query_gemini_latency, query_db_health, query_uptime, get_repo_code_health, query_vercel_health, log_activity, list_cloud_builds, get_cloud_build_logs, create_github_issue
+- platform-engineer (Alex Park): query_cloud_run_metrics, run_health_check, query_gemini_latency, query_db_health, query_uptime, get_repo_code_health, log_activity, list_cloud_builds, get_cloud_build_logs, create_github_issue
 - quality-engineer (Sam DeLuca): query_build_logs, query_error_patterns, create_bug_report, query_test_results, log_activity, list_cloud_builds, get_cloud_build_logs, get_github_actions_runs, create_github_bug
-- devops-engineer (Jordan Hayes): query_cache_metrics, query_pipeline_metrics, query_resource_utilization, query_cold_starts, identify_unused_resources, calculate_cost_savings, log_activity, get_pipeline_runs, get_recent_commits, query_vercel_builds, comment_on_pr, list_cloud_builds
+- devops-engineer (Jordan Hayes): query_cache_metrics, query_pipeline_metrics, query_resource_utilization, query_cold_starts, identify_unused_resources, calculate_cost_savings, log_activity, get_pipeline_runs, get_recent_commits, comment_on_pr, list_cloud_builds
 
 **Product:**
 - cpo (Elena Vasquez): get_product_metrics, get_recent_activity, read_company_memory, get_financials, write_product_analysis, log_activity, create_decision
