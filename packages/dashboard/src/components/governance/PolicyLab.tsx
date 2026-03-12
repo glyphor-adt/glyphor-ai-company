@@ -73,7 +73,7 @@ function PolicyEffectivenessDash({
       />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
         {cards.map((card) => (
-          <div key={card.label} className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+          <div key={card.label} className="rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">{card.label}</p>
             <p className={`mt-3 text-3xl font-semibold ${card.tone}`}>{card.value}</p>
           </div>
@@ -101,7 +101,7 @@ function PolicyImpactCards({ items }: { items: PolicyImpactItem[] }) {
       />
       <div className="grid gap-4 xl:grid-cols-2">
         {items.map((item) => (
-          <div key={item.id} className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+          <div key={item.id} className="rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-txt-primary">{toHumanWords(item.policyType)}</p>
@@ -113,15 +113,15 @@ function PolicyImpactCards({ items }: { items: PolicyImpactItem[] }) {
               <SeverityBadge severity={normalizeSeverity(item.status === 'rolled_back' ? 'critical' : item.evalScore != null && item.evalScore >= 0.8 ? 'good' : 'medium')} />
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-lg border border-border/60 bg-surface px-3 py-2">
+              <div className="rounded-lg border border-primary/15 bg-black/20 px-3 py-2">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-txt-muted">Before</p>
                 <p className="mt-2 text-lg font-semibold text-txt-primary">{formatMetricValue(item.beforeValue)}</p>
               </div>
-              <div className="rounded-lg border border-border/60 bg-surface px-3 py-2">
+              <div className="rounded-lg border border-primary/15 bg-black/20 px-3 py-2">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-txt-muted">After</p>
                 <p className="mt-2 text-lg font-semibold text-txt-primary">{formatMetricValue(item.afterValue)}</p>
               </div>
-              <div className="rounded-lg border border-border/60 bg-surface px-3 py-2">
+              <div className="rounded-lg border border-primary/15 bg-black/20 px-3 py-2">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-txt-muted">Delta</p>
                 <p className={`mt-2 text-lg font-semibold ${(item.deltaPct ?? 0) <= 0 ? 'text-prism-teal' : 'text-prism-critical'}`}>
                   {item.deltaPct == null ? '—' : `${item.deltaPct > 0 ? '+' : ''}${item.deltaPct.toFixed(0)}%`}
@@ -176,7 +176,7 @@ function ComplianceHeatmap({ items }: { items: ComplianceHeatmapCell[] }) {
       <div className="overflow-x-auto">
         <table className="w-full min-w-[680px] text-left text-[12px]">
           <thead>
-            <tr className="border-b border-border/70 text-txt-muted">
+            <tr className="border-b border-primary/20 text-txt-muted">
               <th className="pb-2 pr-3 font-medium">Department</th>
               {principles.map((principle) => (
                 <th key={principle} className="pb-2 pr-3 font-medium">{toHumanWords(principle)}</th>
@@ -185,7 +185,7 @@ function ComplianceHeatmap({ items }: { items: ComplianceHeatmapCell[] }) {
           </thead>
           <tbody>
             {departments.map((department) => (
-              <tr key={department} className="border-b border-border/50">
+              <tr key={department} className="border-b border-primary/15">
                 <td className="py-2 pr-3 font-medium text-txt-primary">{department}</td>
                 {principles.map((principle) => {
                   const score = lookup.get(`${department}::${principle}`);
@@ -224,7 +224,7 @@ function AmendmentProposals({ items }: { items: AmendmentProposal[] }) {
       />
       <div className="space-y-3">
         {items.map((item) => (
-          <div key={item.id} className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+          <div key={item.id} className="rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-txt-primary">{getDisplayName(item.agentRole)} proposes to {item.action}</p>
@@ -242,7 +242,7 @@ function AmendmentProposals({ items }: { items: AmendmentProposal[] }) {
                     type="button"
                     disabled
                     title="Backend action endpoints are shipping alongside the governance contract."
-                    className="rounded-lg border border-border/70 bg-surface px-3 py-1.5 text-[12px] font-medium text-txt-muted disabled:cursor-not-allowed"
+                    className="rounded-lg border border-primary/20 bg-black/20 px-3 py-1.5 text-[12px] font-medium text-txt-muted disabled:cursor-not-allowed"
                   >
                     {label}
                   </button>
@@ -271,7 +271,7 @@ function PolicyPipeline({ versions }: { versions: PolicyVersion[] }) {
       />
       <div className="grid gap-4 xl:grid-cols-4">
         {grouped.map((group) => (
-          <div key={group.stage} className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+          <div key={group.stage} className="rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] p-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">{group.stage}</p>
               <span className="text-[12px] text-txt-secondary">{group.items.length}</span>
@@ -279,7 +279,7 @@ function PolicyPipeline({ versions }: { versions: PolicyVersion[] }) {
             <div className="mt-3 space-y-3">
               {group.items.length === 0 && <p className="text-[12px] text-txt-muted">No policies in this stage.</p>}
               {group.items.slice(0, 6).map((item) => (
-                <div key={item.id} className="rounded-lg border border-border/60 bg-surface px-3 py-3">
+                <div key={item.id} className="rounded-lg border border-primary/15 bg-black/20 px-3 py-3">
                   <p className="text-[13px] font-medium text-txt-primary">{toHumanWords(item.policy_type)}</p>
                   <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-txt-muted">
                     <span>v{item.version}</span>
@@ -327,7 +327,7 @@ function ManualControls({
       defaultOpen={false}
     >
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+        <div className="rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] p-4">
           <p className="text-sm font-semibold text-txt-primary">Collect Proposals</p>
           <p className="mt-2 text-[12px] text-txt-muted">
             Last run {formatDateTime(lastCollected)} · {versions.filter((version) => version.status === 'draft' || version.status === 'candidate').length} proposals ready
@@ -347,7 +347,7 @@ function ManualControls({
           </button>
         </div>
 
-        <div className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+        <div className="rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] p-4">
           <p className="text-sm font-semibold text-txt-primary">Run Evaluation</p>
           <p className="mt-2 text-[12px] text-txt-muted">
             Last run {formatDateTime(lastEvaluated?.promoted_at ?? lastEvaluated?.created_at ?? null)} · {versions.filter((version) => version.eval_score != null).length} evaluated policies
