@@ -365,6 +365,7 @@ export class AnalysisEngine {
         systemInstruction: 'You are a chief strategist synthesizing multi-perspective analyses. Respond ONLY with the requested JSON — no markdown, no code fences, no preamble.',
         contents: [{ role: 'user', content: synthesisPrompt, timestamp: Date.now() }],
         temperature: 0.3,
+        metadata: { engineSource: 'analysis' },
       });
 
       const output = response.text ?? '';

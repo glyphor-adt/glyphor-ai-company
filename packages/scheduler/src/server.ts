@@ -513,6 +513,7 @@ const trackedAgentExecutor = async (
         ? 'completed'
         : (result?.status === 'error' ? 'failed' : (result?.status ?? 'completed'));
       const reasoningMeta = (result as any)?.reasoningMeta;
+      const verificationMeta = (result as any)?.verificationMeta;
       const updateParamsBase = [
         runStatus,
         new Date().toISOString(),
@@ -533,10 +534,11 @@ const trackedAgentExecutor = async (
       try {
         await ensureAgentRunsRoutingSchema();
         await systemQuery(
-          `UPDATE agent_runs SET status=$1, completed_at=$2, duration_ms=$3, turns=$4, tool_calls=$5, input_tokens=$6, output_tokens=$7, cost=$8, output=$9, error=$10, thinking_tokens=$11, cached_input_tokens=$12, routing_rule=$13, routing_capabilities=$14, routing_model=$15${reasoningMeta ? ', reasoning_passes=$16, reasoning_confidence=$17, reasoning_revised=$18, reasoning_cost_usd=$19' : ''} WHERE id=$${reasoningMeta ? 20 : 16}`,
+          `UPDATE agent_runs SET status=$1, completed_at=$2, duration_ms=$3, turns=$4, tool_calls=$5, input_tokens=$6, output_tokens=$7, cost=$8, output=$9, error=$10, thinking_tokens=$11, cached_input_tokens=$12, routing_rule=$13, routing_capabilities=$14, routing_model=$15${reasoningMeta ? ', reasoning_passes=$16, reasoning_confidence=$17, reasoning_revised=$18, reasoning_cost_usd=$19' : ''}${verificationMeta ? ', verification_tier=$' + (reasoningMeta ? 20 : 16) + ', verification_reason=$' + (reasoningMeta ? 21 : 17) + ', verification_passes=$' + (reasoningMeta ? 22 : 18) : ''} WHERE id=$${reasoningMeta ? (verificationMeta ? 23 : 20) : (verificationMeta ? 19 : 16)}`,
           [
             ...updateParamsBase,
             ...(reasoningMeta ? [reasoningMeta.passes, reasoningMeta.confidence, reasoningMeta.revised, reasoningMeta.costUsd] : []),
+            ...(verificationMeta ? [verificationMeta.tier, verificationMeta.reason, verificationMeta.passes] : []),
             runId,
           ],
         );
@@ -544,7 +546,7 @@ const trackedAgentExecutor = async (
         const message = err instanceof Error ? err.message : String(err);
         console.warn('[Scheduler] Routing schema update failed, falling back to legacy agent_runs update:', message);
         await systemQuery(
-          `UPDATE agent_runs SET status=$1, completed_at=$2, duration_ms=$3, turns=$4, tool_calls=$5, input_tokens=$6, output_tokens=$7, cost=$8, output=$9, error=$10, thinking_tokens=$11, cached_input_tokens=$12${reasoningMeta ? ', reasoning_passes=$13, reasoning_confidence=$14, reasoning_revised=$15, reasoning_cost_usd=$16' : ''} WHERE id=$${reasoningMeta ? 17 : 13}`,
+          `UPDATE agent_runs SET status=$1, completed_at=$2, duration_ms=$3, turns=$4, tool_calls=$5, input_tokens=$6, output_tokens=$7, cost=$8, output=$9, error=$10, thinking_tokens=$11, cached_input_tokens=$12${reasoningMeta ? ', reasoning_passes=$13, reasoning_confidence=$14, reasoning_revised=$15, reasoning_cost_usd=$16' : ''}${verificationMeta ? ', verification_tier=$' + (reasoningMeta ? 17 : 13) + ', verification_reason=$' + (reasoningMeta ? 18 : 14) + ', verification_passes=$' + (reasoningMeta ? 19 : 15) : ''} WHERE id=$${reasoningMeta ? (verificationMeta ? 20 : 17) : (verificationMeta ? 16 : 13)}`,
           [
             runStatus,
             new Date().toISOString(),
@@ -559,6 +561,7 @@ const trackedAgentExecutor = async (
             result?.thinkingTokens ?? null,
             result?.cachedInputTokens ?? null,
             ...(reasoningMeta ? [reasoningMeta.passes, reasoningMeta.confidence, reasoningMeta.revised, reasoningMeta.costUsd] : []),
+            ...(verificationMeta ? [verificationMeta.tier, verificationMeta.reason, verificationMeta.passes] : []),
             runId,
           ],
         );

@@ -46,6 +46,7 @@ import { compressHistory, DEFAULT_HISTORY_COMPRESSION } from './historyManager.j
 import { filterToolDeclarations, getToolSubset } from './toolSubsets.js';
 import { inferCapabilities, resolveModelConfig, runDeterministicPreCheck } from './routing/index.js';
 import type { RoutingDecision } from './routing/index.js';
+import { determineVerificationTier } from './verificationPolicy.js';
 
 // ─── Cost estimation (uses centralized model registry) ───────────────
 
@@ -525,21 +526,62 @@ export abstract class BaseAgentRunner {
 
       // ─── Verification pipeline (reasoning engine) ─────────────
       let reasoningResult: import('./reasoningEngine.js').ReasoningResult | null = null;
-      if (reasoningEngine && lastTextOutput) {
+      const verificationDecision = determineVerificationTier({
+        agentRole: config.role,
+        configId: config.id,
+        task: taskForContext,
+        trustScore,
+        turnsUsed: supervisor.stats.turnCount,
+        mutationToolsCalled: actionReceipts.filter((receipt) => receipt.result === 'success').map((receipt) => receipt.tool),
+        output: lastTextOutput,
+      });
+      let verificationMeta: import('./types.js').AgentExecutionResult['verificationMeta'] = {
+        tier: verificationDecision.tier,
+        reason: verificationDecision.reason,
+        passes: [],
+      };
+
+      if (reasoningEngine && verificationDecision.tier !== 'none') {
         try {
           const contextForVerification = jitContext
             ? jitContext.relevantKnowledge.map(k => k.content).join('\n').slice(0, 2000)
             : '';
-          reasoningResult = await reasoningEngine.verify(
+
+          reasoningResult = await reasoningEngine.verifyWithOverride(
+            {
+              passTypes: verificationDecision.passes,
+              crossModelEnabled: verificationDecision.passes.includes('cross_model'),
+            },
             config.role,
             initialMessage,
             lastTextOutput,
             contextForVerification,
           );
 
+          if (
+            verificationDecision.tier === 'conditional' &&
+            verificationDecision.conditionalEscalationThreshold !== undefined &&
+            reasoningResult.overallConfidence < verificationDecision.conditionalEscalationThreshold
+          ) {
+            const escalationInput = reasoningResult.revisedOutput ?? lastTextOutput;
+            reasoningResult = await reasoningEngine.verifyWithOverride(
+              {
+                passTypes: ['self_critique', 'cross_model'],
+                crossModelEnabled: true,
+              },
+              config.role,
+              initialMessage,
+              escalationInput,
+              contextForVerification,
+            );
+            verificationMeta.reason = `${verificationDecision.reason} (escalated after low confidence)`;
+          }
+
           if (reasoningResult.revised && reasoningResult.revisedOutput) {
             lastTextOutput = reasoningResult.revisedOutput;
           }
+
+          verificationMeta.passes = Array.from(new Set(reasoningResult.passes.map((pass) => pass.passType)));
 
           console.log(
             `[${this.archetype}Runner] Reasoning for ${config.role}: ` +
@@ -551,6 +593,8 @@ export abstract class BaseAgentRunner {
         } catch (err) {
           console.warn(`[${this.archetype}Runner] Verification failed for ${config.id}:`, (err as Error).message);
         }
+      } else if (!reasoningEngine && verificationDecision.tier !== 'none') {
+        console.warn(`[${this.archetype}Runner] Verification unavailable for ${config.id}: reasoning engine not configured`);
       }
 
       // ─── Constitutional evaluation ────────────────────────────
@@ -677,13 +721,14 @@ export abstract class BaseAgentRunner {
       const result = this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, routedModel);
       result.actions = actionReceipts;
       if (reasoningResult) {
-        (result as any).reasoningMeta = {
+        result.reasoningMeta = {
           passes: reasoningResult.passes.length,
           confidence: reasoningResult.overallConfidence,
           revised: reasoningResult.revised,
           costUsd: reasoningResult.totalCostUsd,
         };
       }
+      result.verificationMeta = verificationMeta;
       if (valueAssessment) {
         (result as any).valueAssessment = {
           score: valueAssessment.score,

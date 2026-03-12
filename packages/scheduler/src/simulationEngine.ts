@@ -261,6 +261,7 @@ export class SimulationEngine {
         systemInstruction: 'You are a chief strategist writing an executive summary. Be direct and specific. Respond with plain text — no JSON, no markdown headers.',
         contents: [{ role: 'user', content: synthesisPrompt, timestamp: Date.now() }],
         temperature: 0.3,
+        metadata: { engineSource: 'simulation' },
       });
       summary = response.text ?? summary;
     } catch {

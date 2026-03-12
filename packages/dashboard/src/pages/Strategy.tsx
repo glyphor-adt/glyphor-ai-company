@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { MdCheck, MdWarning, MdClose, MdAutoAwesome, MdPalette, MdTrendingUp, MdFlag, MdArrowForward, MdChevronRight, MdSearch, MdPerson, MdExpandMore } from 'react-icons/md';
+import Markdown from 'react-markdown';
 import { SCHEDULER_URL } from '../lib/firebase';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
 
@@ -2220,7 +2221,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
         <div className="space-y-3">
           <div className="rounded-lg border border-cyan/20 bg-cyan/5 px-4 py-3">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan mb-1.5">Executive Summary</p>
-            <p className="text-sm text-txt-primary leading-relaxed">{s.executiveSummary}</p>
+            <div className="text-sm text-txt-primary leading-relaxed prose-chat"><Markdown>{s.executiveSummary}</Markdown></div>
           </div>
           {s.crossFrameworkInsights.length > 0 && (
             <div>
@@ -2321,7 +2322,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
           {frameworkConvergence && (
             <div className="rounded-lg border border-cyan/20 bg-cyan/5 px-4 py-3">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan mb-1.5">Framework Convergence</p>
-              <p className="text-[12px] text-txt-primary leading-relaxed whitespace-pre-wrap">{frameworkConvergence}</p>
+              <div className="text-[12px] text-txt-primary leading-relaxed prose-chat"><Markdown>{frameworkConvergence}</Markdown></div>
             </div>
           )}
           <div className="grid grid-cols-1 gap-3">

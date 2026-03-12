@@ -197,6 +197,17 @@ export interface AgentExecutionResult {
   routingRule?: string;
   routingCapabilities?: string[];
   routingModel?: string;
+  reasoningMeta?: {
+    passes: number;
+    confidence: number;
+    revised: boolean;
+    costUsd: number;
+  };
+  verificationMeta?: {
+    tier: 'none' | 'self_critique' | 'cross_model' | 'conditional';
+    reason: string;
+    passes: string[];
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════

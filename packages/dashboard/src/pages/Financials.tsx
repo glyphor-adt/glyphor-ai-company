@@ -159,6 +159,26 @@ function useApiBilling(days = 30) {
   return { data, loading };
 }
 
+function useAgentRunsForVerification(days = 30) {
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+      try {
+        const rows = await apiCall<any[]>(`/api/agent-runs?since=${since}&limit=1000`);
+        setData(rows ?? []);
+      } catch {
+        setData([]);
+      }
+      setLoading(false);
+    })();
+  }, [days]);
+
+  return { data, loading };
+}
+
 export default function Financials() {
   const { data: raw, loading, refresh: refreshFinancials } = useFinancialsRaw(30);
   const { data: gcpBilling, loading: gcpLoading } = useGcpBilling(90);
@@ -473,19 +493,24 @@ export default function Financials() {
     return Array.from(byProvider.entries()).map(([provider, data]) => ({ provider, ...data }));
   }, [apiBilling]);
 
-  // Kling resource packs from api_billing
+  // Kling resource packs from api_billing — deduplicate by service name, keep latest
   const klingPacks = useMemo(() => {
-    return apiBilling
-      .filter((r) => r.provider === 'kling')
-      .map((r) => ({
-        name: r.service,
-        total: (r.usage?.total_quantity as number) ?? 0,
-        remaining: (r.usage?.remaining_quantity as number) ?? 0,
-        consumed: (r.usage?.consumed_quantity as number) ?? 0,
-        status: (r.usage?.status as string) ?? 'unknown',
-        effective: r.usage?.effective_time ? formatDate(String(r.usage.effective_time).split('T')[0]) : '—',
-        expires: r.usage?.invalid_time ? formatDate(String(r.usage.invalid_time).split('T')[0]) : '—',
-      }));
+    const byService = new Map<string, ApiBillingRow>();
+    for (const r of apiBilling.filter((r) => r.provider === 'kling')) {
+      const existing = byService.get(r.service);
+      if (!existing || r.recorded_at > existing.recorded_at) {
+        byService.set(r.service, r);
+      }
+    }
+    return Array.from(byService.values()).map((r) => ({
+      name: r.service,
+      total: (r.usage?.total_quantity as number) ?? 0,
+      remaining: (r.usage?.remaining_quantity as number) ?? 0,
+      consumed: (r.usage?.consumed_quantity as number) ?? 0,
+      status: (r.usage?.status as string) ?? 'unknown',
+      effective: r.usage?.effective_time ? formatDate(String(r.usage.effective_time).split('T')[0]) : '—',
+      expires: r.usage?.invalid_time ? formatDate(String(r.usage.invalid_time).split('T')[0]) : '—',
+    }));
   }, [apiBilling]);
 
   // Vendor subscriptions from Mercury — deduplicate by vendor name, keep latest sync date
@@ -512,6 +537,48 @@ export default function Financials() {
   }, [raw]);
 
   const totalSubscriptions = subscriptions.reduce((sum, s) => sum + s.monthly, 0);
+
+  // Verification panels: distribution, cost by tier, trend
+  const { data: vrData, loading: vrLoading } = useAgentRunsForVerification(30);
+
+  const verificationCounts = useMemo(() => {
+    const counts: Record<string, number> = { none: 0, self_critique: 0, cross_model: 0, conditional: 0, unknown: 0 };
+    for (const r of vrData) {
+      const tier = (r?.verification_tier as string) ?? (r?.verification as string) ?? 'unknown';
+      const key = ['none', 'self_critique', 'cross_model', 'conditional'].includes(tier) ? tier : 'unknown';
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return Object.entries(counts).map(([tier, count]) => ({ tier, count }));
+  }, [vrData]);
+
+  const verificationCostByTier = useMemo(() => {
+    const sums: Record<string, number> = { none: 0, self_critique: 0, cross_model: 0, conditional: 0, unknown: 0 };
+    for (const r of vrData) {
+      const tier = (r?.verification_tier as string) ?? (r?.verification as string) ?? 'unknown';
+      const key = ['none', 'self_critique', 'cross_model', 'conditional'].includes(tier) ? tier : 'unknown';
+      const cost = Number(r?.reasoning_cost_usd ?? r?.cost ?? 0) || 0;
+      sums[key] = (sums[key] ?? 0) + cost;
+    }
+    return Object.entries(sums).map(([tier, cost]) => ({ tier, cost }));
+  }, [vrData]);
+
+  const verificationTrend = useMemo(() => {
+    const byDate = new Map<string, Record<string, number>>();
+    for (const r of vrData) {
+      const started = r?.started_at ? String(r.started_at).split('T')[0] : null;
+      const date = started ? formatDate(started) : 'unknown';
+      const entry = byDate.get(date) ?? { none: 0, self_critique: 0, cross_model: 0, conditional: 0, unknown: 0 };
+      const tier = (r?.verification_tier as string) ?? (r?.verification as string) ?? 'unknown';
+      const key = ['none', 'self_critique', 'cross_model', 'conditional'].includes(tier) ? tier : 'unknown';
+      entry[key] = (entry[key] ?? 0) + 1;
+      byDate.set(date, entry);
+    }
+    return Array.from(byDate.entries())
+      .map(([date, counts]) => ({ date, ...counts }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [vrData]);
+
+  // end verification panels
 
   return (
     <div className="space-y-8">
@@ -704,7 +771,7 @@ export default function Financials() {
       </div>
 
       {/* API Billing by Provider + Kling Packs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         <Card>
           <SectionHeader title="API Costs by Provider" />
           {apiLoading ? (
@@ -727,8 +794,8 @@ export default function Financials() {
                     `${provider} $${cost.toFixed(2)}`
                   }
                 >
-                  {apiBillingByProvider.map((_, i) => (
-                    <Cell key={i} fill={API_COLORS[i % API_COLORS.length]} />
+                  {apiBillingByProvider.map((entry) => (
+                    <Cell key={entry.provider} fill={API_PROVIDER_COLORS[entry.provider] ?? '#9AA0A6'} />
                   ))}
                 </Pie>
                 <Tooltip
@@ -749,7 +816,7 @@ export default function Financials() {
               <p className="text-sm text-txt-faint">No Kling data yet — run /sync/kling-billing</p>
             </div>
           ) : (
-            <div className="mt-2 space-y-3">
+            <div className="mt-2 space-y-3 max-h-[400px] overflow-y-auto">
               {klingPacks.map((pack, i) => {
                 const pct = pack.total > 0 ? (pack.consumed / pack.total) * 100 : 0;
                 const statusColor = pack.status === 'online' ? '#34A853' : pack.status === 'expired' || pack.status === 'runOut' ? '#EA4335' : '#FBBC04';
@@ -829,6 +896,84 @@ export default function Financials() {
           </div>
         )}
       </Card>
+
+      {/* Verification Panels */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <SectionHeader title="Verification Tier Distribution" />
+          {vrLoading ? (
+            <Skeleton className="h-48" />
+          ) : verificationCounts.length === 0 ? (
+            <EmptyChart message="No verification metadata yet" />
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie
+                  data={verificationCounts}
+                  dataKey="count"
+                  nameKey="tier"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={70}
+                  innerRadius={35}
+                  paddingAngle={2}
+                  label={({ tier, count }: any) => `${VERIF_LABELS[tier] ?? tier} ${count}`}
+                >
+                  {verificationCounts.map((_, i) => (
+                    <Cell key={i} fill={VERIF_COLORS[verificationCounts[i].tier] ?? '#9AA0A6'} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value: number) => [String(value), 'Runs']} />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+
+        <Card>
+          <SectionHeader title="Verification Cost by Tier (30d)" />
+          {vrLoading ? (
+            <Skeleton className="h-48" />
+          ) : verificationCostByTier.reduce((s, v) => s + v.cost, 0) === 0 ? (
+            <EmptyChart message="No verification cost data yet" />
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={verificationCostByTier}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis dataKey="tier" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(t) => VERIF_LABELS[t] ?? t} />
+                <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${fmt(Number(v))}`} />
+                <Tooltip formatter={(value: number) => [`$${Number(value).toFixed(4)}`]} />
+                <Bar dataKey="cost">
+                  {verificationCostByTier.map((row) => (
+                    <Cell key={row.tier} fill={VERIF_COLORS[row.tier] ?? '#6B7280'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+
+        <Card>
+          <SectionHeader title="Verification Trend (runs/day)" />
+          {vrLoading ? (
+            <Skeleton className="h-48" />
+          ) : verificationTrend.length === 0 ? (
+            <EmptyChart message="No verification run history yet" />
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={verificationTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
+                <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
+                <Tooltip formatter={(value: number, name: string) => [String(value), VERIF_LABELS[name] ?? name]} />
+                <Legend formatter={(v) => VERIF_LABELS[v] ?? v} wrapperStyle={{ fontSize: 11 }} />
+                {['none', 'self_critique', 'cross_model', 'conditional', 'unknown'].map((k) => (
+                  <Bar key={k} dataKey={k} stackId="tier" fill={VERIF_COLORS[k] ?? '#6B7280'} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* MRR Trend */}
@@ -1180,6 +1325,9 @@ const PRODUCT_LABELS: Record<string, string> = { fuse: 'Fuse', pulse: 'Pulse', r
 const PROJECT_TO_PRODUCT_LABEL: Record<string, string> = { 'ai-glyphor-company': 'Glyphor', 'glyphor-pulse': 'Pulse', 'gen-lang-client-0834143721': 'Fuse' };
 const GCP_COLORS = ['#4285F4', '#EA4335', '#FBBC04', '#34A853', '#FF6D01', '#46BDC6', '#7B61FF', '#9AA0A6'];
 const API_COLORS = ['#7C3AED', '#2563EB', '#0891B2', '#EA4335', '#FF6D01'];
+const API_PROVIDER_COLORS: Record<string, string> = { openai: '#10A37F', anthropic: '#D97706', kling: '#7C3AED' };
+const VERIF_COLORS: Record<string, string> = { none: '#9AA0A6', self_critique: '#FBBC04', cross_model: '#EA4335', conditional: '#7C3AED', unknown: '#6B7280' };
+const VERIF_LABELS: Record<string, string> = { none: 'None', self_critique: 'Self-critique', cross_model: 'Cross-model', conditional: 'Conditional', unknown: 'Unknown' };
 
 function SummaryCard({ label, value, loading, sub }: { label: string; value: string; loading: boolean; sub?: string }) {
   if (loading) return <Skeleton className="h-24" />;

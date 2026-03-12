@@ -36,6 +36,7 @@ import { filterToolDeclarations, getToolSubset } from './toolSubsets.js';
 import { inferCapabilities, resolveModelConfig, runDeterministicPreCheck } from './routing/index.js';
 import type { RoutingDecision } from './routing/index.js';
 import type { TrustScorer } from './trustScorer.js';
+import { determineVerificationTier, type VerificationDecision } from './verificationPolicy.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -2043,23 +2044,71 @@ export class CompanyAgentRunner {
       // Skip for on_demand chat to keep response times fast — only verify
       // scheduled/significant tasks where accuracy matters more than speed.
       let reasoningResult: ReasoningResult | null = null;
-      if (deps?.reasoningEngineFactory && lastTextOutput && task !== 'on_demand') {
+      let verificationDecision: VerificationDecision = {
+        tier: 'none',
+        passes: [] as import('./reasoningEngine.js').PassType[],
+        reason: 'on-demand chat bypassed verification',
+      };
+      let verificationMeta: NonNullable<AgentExecutionResult['verificationMeta']> = {
+        tier: 'none',
+        reason: 'on-demand chat bypassed verification',
+        passes: [],
+      };
+      if (lastTextOutput && task !== 'on_demand') {
+        verificationDecision = determineVerificationTier({
+          agentRole: config.role,
+          configId: config.id,
+          task,
+          trustScore,
+          turnsUsed: supervisor.stats.turnCount,
+          mutationToolsCalled: actionReceipts.filter((receipt) => receipt.result === 'success').map((receipt) => receipt.tool),
+          output: lastTextOutput,
+        });
+        verificationMeta = {
+          tier: verificationDecision.tier,
+          reason: verificationDecision.reason,
+          passes: [],
+        };
+      }
+
+      if (deps?.reasoningEngineFactory && lastTextOutput && task !== 'on_demand' && verificationMeta.tier !== 'none') {
         try {
           const reasoningEngine = await deps.reasoningEngineFactory(config.role);
           if (reasoningEngine) {
             const contextForVerification = jitContext
               ? jitContext.relevantKnowledge.map((k: { content: string }) => k.content).join('\n').slice(0, 2000)
               : '';
-            reasoningResult = await reasoningEngine.verify(
+            reasoningResult = await reasoningEngine.verifyWithOverride(
+              {
+                passTypes: verificationDecision.passes,
+                crossModelEnabled: verificationDecision.passes.includes('cross_model'),
+              },
               config.role,
               initialMessage,
               lastTextOutput,
               contextForVerification,
             );
 
+            if (verificationMeta.tier === 'conditional' && reasoningResult.overallConfidence < 0.8) {
+              const escalationInput = reasoningResult.revisedOutput ?? lastTextOutput;
+              reasoningResult = await reasoningEngine.verifyWithOverride(
+                {
+                  passTypes: ['self_critique', 'cross_model'],
+                  crossModelEnabled: true,
+                },
+                config.role,
+                initialMessage,
+                escalationInput,
+                contextForVerification,
+              );
+              verificationMeta.reason = `${verificationMeta.reason} (escalated after low confidence)`;
+            }
+
             if (reasoningResult.revised && reasoningResult.revisedOutput) {
               lastTextOutput = reasoningResult.revisedOutput;
             }
+
+            verificationMeta.passes = Array.from(new Set(reasoningResult.passes.map((pass) => pass.passType)));
 
             console.log(
               `[CompanyAgentRunner] Reasoning for ${config.role}: ` +
@@ -2072,6 +2121,8 @@ export class CompanyAgentRunner {
         } catch (err) {
           console.warn(`[CompanyAgentRunner] Verification failed for ${config.id}:`, (err as Error).message);
         }
+      } else if (!deps?.reasoningEngineFactory && lastTextOutput && task !== 'on_demand' && verificationMeta.tier !== 'none') {
+        console.warn(`[CompanyAgentRunner] Verification unavailable for ${config.id}: reasoning engine not configured`);
       }
 
       const stats = supervisor.stats;
@@ -2118,7 +2169,17 @@ export class CompanyAgentRunner {
         elapsedMs: stats.elapsedMs,
       });
 
-      return this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, routedModel);
+      const result = this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, routedModel);
+      if (reasoningResult) {
+        result.reasoningMeta = {
+          passes: reasoningResult.passes.length,
+          confidence: reasoningResult.overallConfidence,
+          revised: reasoningResult.revised,
+          costUsd: reasoningResult.totalCostUsd,
+        };
+      }
+      result.verificationMeta = verificationMeta;
+      return result;
 
     } catch (error) {
       emitEvent({

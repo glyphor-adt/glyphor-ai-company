@@ -1320,6 +1320,7 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
       systemInstruction: 'You are producing a executive-grade strategic synthesis. Output ONLY the JSON requested — no markdown fences, no preamble, no commentary.',
       contents: [{ role: 'user', content: synthesisPrompt, timestamp: Date.now() }],
       temperature: 0.2,
+      metadata: { engineSource: 'strategy_lab' },
     });
 
     let synthesis: SynthesisOutput | null = null;

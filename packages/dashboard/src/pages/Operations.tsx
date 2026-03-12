@@ -1533,7 +1533,18 @@ interface ExecOrchConfig {
 interface DelegationActivityRow {
   id: string;
   title: string;
-  delegated_to: string;
+  delegated_to: string | null;
+  delegation_type: string | null;
+  status: string;
+  priority: string;
+  created_at: string;
+  work_assignments?: Array<{ assigned_to: string }>;
+}
+
+interface DelegationActivityItem {
+  id: string;
+  title: string;
+  delegated_targets: string[];
   delegation_type: string | null;
   status: string;
   priority: string;
@@ -1581,14 +1592,33 @@ function useExecOrchConfig() {
 }
 
 function useDelegationActivity(limit = 20) {
-  const [data, setData] = useState<DelegationActivityRow[]>([]);
+  const [data, setData] = useState<DelegationActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const refresh = useCallback(async () => {
     try {
       const rows = await apiCall<DelegationActivityRow[]>(
-        `/api/founder-directives?fields=id,title,delegated_to,delegation_type,status,priority,created_at&order=created_at.desc&limit=${limit}`,
+        `/api/founder-directives?include=work_assignments&order=created_at.desc&limit=${limit}`,
       );
-      setData((rows ?? []).filter(r => r.delegated_to));
+      const normalized = (rows ?? []).map((row) => {
+        const assignmentTargets = Array.from(
+          new Set((row.work_assignments ?? []).map((assignment) => assignment.assigned_to).filter(Boolean)),
+        );
+        const delegatedTargets = row.delegated_to
+          ? [row.delegated_to, ...assignmentTargets.filter((target) => target !== row.delegated_to)]
+          : assignmentTargets;
+
+        return {
+          id: row.id,
+          title: row.title,
+          delegated_targets: delegatedTargets,
+          delegation_type: row.delegation_type,
+          status: row.status,
+          priority: row.priority,
+          created_at: row.created_at,
+        } satisfies DelegationActivityItem;
+      }).filter((row) => row.delegated_targets.length > 0);
+
+      setData(normalized);
     } catch {
       setData([]);
     }
@@ -1803,8 +1833,13 @@ function DelegationOverview() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-txt-primary truncate">{d.title}</p>
                   <p className="text-[11px] text-txt-muted">
-                    Delegated to <span className="text-purple-400 font-medium">{DISPLAY_NAME_MAP[d.delegated_to] ?? d.delegated_to}</span>
-                    {d.delegation_type && <span className="ml-2 text-txt-faint">· {d.delegation_type}</span>}
+                    Delegated to{' '}
+                    <span className="text-purple-400 font-medium">
+                      {d.delegated_targets.map((role) => DISPLAY_NAME_MAP[role] ?? role).join(', ')}
+                    </span>
+                    {(d.delegation_type ?? (d.delegated_targets.length > 1 ? 'multi-agent' : null)) && (
+                      <span className="ml-2 text-txt-faint">· {d.delegation_type ?? 'multi-agent'}</span>
+                    )}
                   </p>
                 </div>
                 <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${

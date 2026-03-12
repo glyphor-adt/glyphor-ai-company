@@ -51,7 +51,10 @@ export interface ReasoningResult {
   revised: boolean;
   revisedOutput?: string;
   totalCostUsd: number;
+  // Optional tag indicating which verification policy/engine produced this result
+  engineSource?: string;
 }
+
 
 export interface ValueScore {
   score: number;
@@ -160,7 +163,9 @@ Respond ONLY with valid JSON (no markdown):
    * Verify an agent's output through the configured pass pipeline.
    * Called after the agentic loop completes.
    */
-  async verify(
+  // Run verification using a supplied config (used by verifyWithOverride)
+  private async runVerify(
+    cfg: ReasoningConfig,
     agentRole: string,
     task: string,
     output: string,
@@ -172,17 +177,17 @@ Respond ONLY with valid JSON (no markdown):
     let revisedOutput: string | undefined;
     let currentOutput = output;
 
-    for (let i = 0; i < this.config.passTypes.length; i++) {
-      const passType = this.config.passTypes[i];
+    for (let i = 0; i < cfg.passTypes.length; i++) {
+      const passType = cfg.passTypes[i];
 
       // Budget guard
-      if (budgetSpent >= this.config.maxReasoningBudget) {
-        console.log(`[ReasoningEngine] Budget exhausted ($${budgetSpent.toFixed(4)} >= $${this.config.maxReasoningBudget}), stopping passes`);
+      if (budgetSpent >= cfg.maxReasoningBudget) {
+        console.log(`[ReasoningEngine] Budget exhausted ($${budgetSpent.toFixed(4)} >= $${cfg.maxReasoningBudget}), stopping passes`);
         break;
       }
 
       // Cross-model consensus is handled separately
-      if (passType === 'cross_model' && this.config.crossModelEnabled) {
+      if (passType === 'cross_model' && cfg.crossModelEnabled) {
         const consensus = await this.runCrossModelConsensus(agentRole, task, currentOutput, context);
         passes.push(...consensus.passes);
         budgetSpent += consensus.passes.reduce((s, p) => s + p.costUsd, 0);
@@ -194,7 +199,7 @@ Respond ONLY with valid JSON (no markdown):
       budgetSpent += result.costUsd;
 
       // If confidence is too low and we have budget, try revision
-      if (result.confidence < this.config.minConfidence && result.suggestions.length > 0) {
+      if (result.confidence < cfg.minConfidence && result.suggestions.length > 0) {
         const revisionResult = await this.reviseOutput(
           agentRole, task, currentOutput, result.suggestions, context,
         );
@@ -216,13 +221,39 @@ Respond ONLY with valid JSON (no markdown):
       : 1.0;
 
     return {
-      verified: overallConfidence >= this.config.minConfidence,
+      verified: overallConfidence >= cfg.minConfidence,
       overallConfidence,
       passes,
       revised,
       revisedOutput,
       totalCostUsd: budgetSpent,
     };
+  }
+
+  async verify(
+    agentRole: string,
+    task: string,
+    output: string,
+    context: string,
+  ): Promise<ReasoningResult> {
+    return this.runVerify(this.config, agentRole, task, output, context);
+  }
+
+  /**
+   * Verify with a temporary override to the engine config and attach an engineSource tag.
+   */
+  async verifyWithOverride(
+    overrideConfig: Partial<ReasoningConfig>,
+    agentRole: string,
+    task: string,
+    output: string,
+    context: string,
+    engineSource?: string,
+  ): Promise<ReasoningResult> {
+    const merged: ReasoningConfig = { ...this.config, ...overrideConfig } as ReasoningConfig;
+    const result = await this.runVerify(merged, agentRole, task, output, context);
+    if (engineSource) result.engineSource = engineSource;
+    return result;
   }
 
   /**

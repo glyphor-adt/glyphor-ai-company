@@ -189,7 +189,7 @@ export class CotEngine {
       `Validations: ${JSON.stringify(validations.validations ?? [])}`,
       ``,
       `Respond with JSON: { "summary": "..." }`,
-    ].join('\n'));
+    ].join('\n'), 'cot');
 
     const report: CotReport = {
       summary: (summary.summary as string) ?? 'Analysis complete.',
@@ -211,12 +211,17 @@ export class CotEngine {
     );
   }
 
-  private async callModel(systemPrompt: string, userPrompt: string): Promise<Record<string, unknown>> {
+  private async callModel(
+    systemPrompt: string,
+    userPrompt: string,
+    engineSource?: 'cot',
+  ): Promise<Record<string, unknown>> {
     const response = await this.modelClient.generate({
       model: this.model,
       systemInstruction: systemPrompt,
       contents: [{ role: 'user', content: userPrompt, timestamp: Date.now() }],
       temperature: 0.3,
+      ...(engineSource ? { metadata: { engineSource } } : {}),
     });
 
     const text = response.text ?? '';

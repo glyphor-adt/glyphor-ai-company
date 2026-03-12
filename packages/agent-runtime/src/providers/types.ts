@@ -47,6 +47,7 @@ export interface ModelRoutingMetadata {
 export interface UnifiedRequestMetadata {
   previousResponseId?: string;
   modelConfig?: ModelRoutingMetadata;
+  engineSource?: 'analysis' | 'simulation' | 'deep_dive' | 'strategy_lab' | 'cot';
 }
 
 // ─── Unified Request ─────────────────────────────────────────

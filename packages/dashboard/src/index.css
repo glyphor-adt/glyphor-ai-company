@@ -116,6 +116,32 @@ body {
   z-index: 1;
 }
 
+.main-tone-left,
+.main-tone-right {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.main-tone-left {
+  left: 0;
+  width: 42%;
+  background: linear-gradient(90deg, rgba(0, 224, 255, 0.08) 0%, rgba(0, 224, 255, 0.03) 36%, transparent 72%);
+}
+
+.main-tone-right {
+  right: 0;
+  width: 36%;
+  background: linear-gradient(270deg, rgba(17, 113, 237, 0.07) 0%, rgba(17, 113, 237, 0.03) 34%, transparent 72%);
+}
+
+.light .main-tone-left,
+.light .main-tone-right {
+  display: none;
+}
+
 .canvas-glow {
   position: absolute;
   inset: 0;

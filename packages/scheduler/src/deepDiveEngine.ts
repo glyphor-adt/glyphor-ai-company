@@ -1161,6 +1161,7 @@ export class DeepDiveEngine {
         systemInstruction: 'You are producing an executive-grade strategic analysis for Glyphor Strategy Lab. Output ONLY the JSON requested — no markdown fences, no preamble, no commentary.',
         contents: [{ role: 'user', content: synthesisPrompt, timestamp: Date.now() }],
         temperature: 0.2,
+        metadata: { engineSource: 'deep_dive' },
       });
 
       const output = response.text ?? '';
