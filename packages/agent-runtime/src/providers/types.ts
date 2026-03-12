@@ -31,6 +31,7 @@ export interface ModelRoutingMetadata {
   enableCitations?: boolean;
   enableCompaction?: boolean;
   enableGoogleSearch?: boolean;
+  enableWebSearch?: boolean;
   enableCodeExecution?: boolean;
   enableToolSearch?: boolean;
   enableApplyPatch?: boolean;

@@ -85,6 +85,8 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   { id: 'gpt-4.1-mini',           label: 'GPT-4.1 Mini',           provider: 'openai',    tier: 'economy',   inputPer1M: 0.40,  outputPer1M: 1.60,  cachedInputDiscount: 0.25, selectable: true,  verifier: false },
   { id: 'o3',                     label: 'o3',                     provider: 'openai',    tier: 'reasoning', inputPer1M: 2.00,  outputPer1M: 8.00,  thinkingPer1M: 8.00, cachedInputDiscount: 0.25, selectable: true,  verifier: false },
   { id: 'o4-mini',                label: 'o4-mini',                provider: 'openai',    tier: 'reasoning', inputPer1M: 1.10,  outputPer1M: 4.40,  thinkingPer1M: 4.40, cachedInputDiscount: 0.25, selectable: true,  verifier: false },
+  { id: 'o3-deep-research',       label: 'o3 Deep Research',       provider: 'openai',    tier: 'reasoning', inputPer1M: 2.00,  outputPer1M: 8.00,  thinkingPer1M: 8.00, cachedInputDiscount: 0.25, selectable: true,  verifier: false },
+  { id: 'o4-mini-deep-research',  label: 'o4-mini Deep Research',  provider: 'openai',    tier: 'reasoning', inputPer1M: 1.10,  outputPer1M: 4.40,  thinkingPer1M: 4.40, cachedInputDiscount: 0.25, selectable: true,  verifier: false },
 
   // ── Anthropic ──────────────────────────────────────────────
   // Anthropic cache read = 10% of input price. Cache creation = 125% of input price (amortized, treated as full price).
@@ -185,6 +187,8 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
   'gpt-4.1-mini':           ['gemini-2.5-flash-lite', 'claude-haiku-4-5'],
   'o3':                     ['gemini-3-flash-preview', 'claude-haiku-4-5'],
   'o4-mini':                ['gemini-2.5-flash', 'claude-haiku-4-5'],
+  'o3-deep-research':       ['o3', 'gpt-5-mini-2025-08-07'],
+  'o4-mini-deep-research':  ['o4-mini', 'gpt-5-mini-2025-08-07'],
 
   // Anthropic primary → try Gemini first (GCP-resident), then cheapest OpenAI
   'claude-opus-4-6':        ['gemini-3-flash-preview', 'gpt-5-mini'],
@@ -213,6 +217,8 @@ export const PROVIDER_LOCAL_FALLBACK_CHAINS: Record<string, readonly string[]> =
   'gpt-5':                  ['gpt-5-mini-2025-08-07', 'gpt-4.1-mini'],
   'o3':                     ['gpt-5.1', 'gpt-5-mini-2025-08-07'],
   'o4-mini':                ['gpt-5-mini-2025-08-07', 'gpt-4.1-mini'],
+  'o3-deep-research':       ['o3', 'gpt-5.1', 'gpt-5-mini-2025-08-07'],
+  'o4-mini-deep-research':  ['o4-mini', 'gpt-5-mini-2025-08-07', 'gpt-4.1-mini'],
 
   // Anthropic
   'claude-opus-4-6':        ['claude-sonnet-4-6', 'claude-sonnet-4-5', 'claude-haiku-4-5'],
@@ -246,6 +252,8 @@ export const VERIFIER_MAP: Record<string, string> = {
   'gpt-4.1-mini':           'gemini-2.5-flash-lite',
   'o3':                     'gemini-2.5-flash',
   'o4-mini':                'gemini-2.5-flash',
+  'o3-deep-research':       'gemini-2.5-flash',
+  'o4-mini-deep-research':  'gemini-2.5-flash',
 
   // Claude primary → Gemini verifier (GCP-native, cheap)
   'claude-opus-4-6':        'gemini-2.5-flash',

@@ -55,6 +55,8 @@ export const MODELS: ModelOption[] = [
   { value: 'gpt-4.1-mini',label: 'GPT-4.1 Mini',  provider: 'openai' },
   { value: 'o3',           label: 'o3',            provider: 'openai' },
   { value: 'o4-mini',      label: 'o4-mini',       provider: 'openai' },
+  { value: 'o3-deep-research',      label: 'o3 Deep Research',      provider: 'openai' },
+  { value: 'o4-mini-deep-research', label: 'o4-mini Deep Research', provider: 'openai' },
 
   // ── Anthropic ──
   { value: 'claude-opus-4-6',   label: 'Claude Opus 4.6',   provider: 'anthropic' },

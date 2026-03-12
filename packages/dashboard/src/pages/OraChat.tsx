@@ -58,6 +58,8 @@ interface SingleModelResult {
   reasoningLevel: ReasoningLevel;
   webSearch: boolean;
   knowledgeBase: boolean;
+  deepResearch: boolean;
+  deepResearch?: boolean;
 }
 
 /* ── Types ─────────────────────────────────────────── */
@@ -455,6 +457,7 @@ export default function OraChat() {
     reasoningLevel: 'deep',
     webSearch: false,
     knowledgeBase: true,
+    deepResearch: false,
   });
   const modelGroups = useMemo(() => getModelsByProvider(), []);
 
@@ -640,6 +643,9 @@ export default function OraChat() {
               : prev.reasoningLevel,
           webSearch: typeof parsed.features?.webSearch === 'boolean' ? parsed.features.webSearch : prev.webSearch,
           knowledgeBase: typeof parsed.features?.knowledgeBase === 'boolean' ? parsed.features.knowledgeBase : prev.knowledgeBase,
+          deepResearch: typeof (parsed.features as { deepResearch?: unknown }).deepResearch === 'boolean'
+            ? Boolean((parsed.features as { deepResearch?: boolean }).deepResearch)
+            : prev.deepResearch,
         }));
       }
     } catch {
@@ -962,8 +968,19 @@ export default function OraChat() {
     [send],
   );
 
-  const toggleFeature = useCallback((key: 'webSearch' | 'knowledgeBase') => {
-    setFeatures((prev) => ({ ...prev, [key]: !prev[key] }));
+  const toggleFeature = useCallback((key: 'webSearch' | 'knowledgeBase' | 'deepResearch') => {
+    setFeatures((prev) => {
+      if (key === 'deepResearch') {
+        const nextDeepResearch = !prev.deepResearch;
+        return {
+          ...prev,
+          deepResearch: nextDeepResearch,
+          webSearch: nextDeepResearch ? true : prev.webSearch,
+          reasoningLevel: nextDeepResearch ? 'deep' : prev.reasoningLevel,
+        };
+      }
+      return { ...prev, [key]: !prev[key] };
+    });
   }, []);
 
   const isLoading = phase === 'streaming' || phase === 'validating' || phase === 'evaluating';
@@ -975,6 +992,10 @@ export default function OraChat() {
       ? 'Selecting the strongest answer...'
       : phase === 'validating'
         ? 'Comparing model responses...'
+        : activeRequestFeatures?.deepResearch
+          ? activeRequestMode === 'single-model'
+            ? `Running deep research with ${activeRequestModel ?? 'selected model'}...`
+            : 'Running deep research across selected models...'
         : activeRequestMode === 'single-model'
           ? activeRequestFeatures?.reasoningLevel === 'deep'
             ? `Deep reasoning with ${activeRequestModel ?? 'selected model'}...`
@@ -991,6 +1012,8 @@ export default function OraChat() {
       ? 'Ora is judging the responses and choosing the best one.'
       : phase === 'validating'
         ? `Received ${validatedProviders.length} ${validatedProviders.length === 1 ? 'response' : 'responses'} so far.${validatedProviders.length > 0 ? ' Checking agreement across providers now.' : ''}`
+        : activeRequestFeatures?.deepResearch
+          ? 'Deep research mode enables broad retrieval and multi-step synthesis. This can take longer than normal chat.'
         : activeRequestMode === 'single-model'
           ? 'Using the selected model directly without triangulation.'
           : activeRequestFeatures?.reasoningLevel === 'deep'
@@ -1318,6 +1341,14 @@ export default function OraChat() {
                 disabled={isLoading}
               />
               <MenuAction
+                icon={<Search className="h-4 w-4" />}
+                title="Deep research"
+                subtitle="Long-running multi-step research (best with OpenAI models)"
+                active={features.deepResearch}
+                onClick={() => toggleFeature('deepResearch')}
+                disabled={isLoading}
+              />
+              <MenuAction
                 icon={<Globe className="h-4 w-4" />}
                 title="Web search"
                 subtitle="Pull live information from the web"
@@ -1415,7 +1446,7 @@ export default function OraChat() {
                         onChange={(e) => setTriangulationModels((prev) => ({ ...prev, openai: e.target.value }))}
                         className="w-full rounded-xl bg-prism-card px-3 py-2 text-[12px] text-prism-primary outline-none"
                       >
-                        {modelGroups.openai.map((modelOption) => (
+                        {modelGroups.openai.filter((modelOption) => !modelOption.value.endsWith('-deep-research')).map((modelOption) => (
                           <option key={modelOption.value} value={modelOption.value}>{modelOption.label}</option>
                         ))}
                       </select>

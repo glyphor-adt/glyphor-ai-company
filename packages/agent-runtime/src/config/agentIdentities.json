@@ -1,8 +1,8 @@
 {
   "chief-of-staff": {
-    "appId": "02f74211-54b0-44a7-b1f2-5b0259f668b9",
-    "objectId": "427c46e8-83cd-4312-8a06-b266ef93e759",
-    "spId": "44b8492e-6155-4a8f-9f84-2b889e50f2bb",
+    "appId": "e48497bf-e0b6-4dda-965c-c3ae55e3d6dd",
+    "objectId": "bec38435-d190-4aba-a3ca-04c246043550",
+    "spId": "82176bde-a540-413b-a403-273e8eb26e94",
     "displayName": "Glyphor Agent - Sarah Chen (CoS)",
     "roles": [
       "Glyphor.Admin.Read",
@@ -13,9 +13,9 @@
     "upn": "sarah@glyphor.ai"
   },
   "cto": {
-    "appId": "1c40707b-69fd-4bba-8ed4-5a9a1c3aaca0",
-    "objectId": "ab11e3f5-52f2-4f51-bbe6-9f7177e7d625",
-    "spId": "c6088ead-8cf5-4615-ae90-62474f125d3a",
+    "appId": "5aa93d95-9fda-478e-9504-9d89536a8050",
+    "objectId": "cc205358-48af-4b16-bf83-a7f64b88c64f",
+    "spId": "50e0066b-f5fe-4719-866c-805a5f6e04e1",
     "displayName": "Glyphor Agent - Marcus Reeves (CTO)",
     "roles": [
       "Glyphor.Code.Read",
@@ -42,9 +42,9 @@
     "upn": "nadia@glyphor.ai"
   },
   "cpo": {
-    "appId": "d8334023-8882-42bb-b73f-afc453a423fb",
-    "objectId": "8a4819b6-1d5b-445f-af9f-0260bf15c373",
-    "spId": "585043cd-bbac-4407-8caf-40037f692156",
+    "appId": "79e29092-c922-46c6-a487-aca2651ffba1",
+    "objectId": "5315c771-b13e-44e7-8e54-317831c67317",
+    "spId": "bb39abca-2907-4fcb-b552-e7aa7bc99d83",
     "displayName": "Glyphor Agent - Elena Vasquez (CPO)",
     "roles": [
       "Glyphor.Product.Read",
@@ -55,9 +55,9 @@
     "upn": "elena@glyphor.ai"
   },
   "cmo": {
-    "appId": "e8661e26-ce87-4074-93e7-2990324a249e",
-    "objectId": "1ef9db2e-5a42-474b-b570-e9ff9a4adf1c",
-    "spId": "33981f3d-527b-4c83-9ad0-7368572b7a39",
+    "appId": "32b5feb0-3c83-49f9-af83-b64e89a0c885",
+    "objectId": "744531b8-d56a-437d-a81d-c01a8a3d20c1",
+    "spId": "91def5c0-f7ea-4707-ac90-6b2e8cafc6ae",
     "displayName": "Glyphor Agent - Maya Brooks (CMO)",
     "roles": [
       "Glyphor.Marketing.Read",
@@ -70,9 +70,9 @@
     "upn": "maya@glyphor.ai"
   },
   "clo": {
-    "appId": "d86be3c5-c8f7-462a-a771-9e31767634c5",
-    "objectId": "f45f7fc3-f263-4863-9a3f-5438a8d76a53",
-    "spId": "5fbfab98-1d23-4144-b9bd-a92ca182f7d5",
+    "appId": "adaa8d7f-e277-4651-b5ff-d276305c1855",
+    "objectId": "205818f4-ed0c-4ca4-8f1b-d53ce10077e4",
+    "spId": "11a460bf-1c19-42bc-96ac-3aef16ef95d9",
     "displayName": "Glyphor Agent - Victoria Chase (CLO)",
     "roles": [
       "Glyphor.Admin.Read"
@@ -82,9 +82,9 @@
     "upn": "victoria@glyphor.ai"
   },
   "vp-sales": {
-    "appId": "f947ff28-f2ac-464d-9a05-27006c3dbb9a",
-    "objectId": "b616c91e-5327-465f-bda3-b5643d0d771b",
-    "spId": "3dfb992c-9eb0-4715-a81d-442a8ea7fcbe",
+    "appId": "3c51ef90-7747-4955-83ac-206ac108fcdf",
+    "objectId": "480b5a30-601e-4954-8aa3-35463d3e6dd0",
+    "spId": "a2ff225c-a3a5-4a5b-a6c3-9788cc70be93",
     "displayName": "Glyphor Agent - Rachel Kim (VP Sales)",
     "roles": [
       "Glyphor.Research.Read"
@@ -94,9 +94,9 @@
     "upn": "rachel@glyphor.ai"
   },
   "vp-design": {
-    "appId": "dd289c80-7ed2-4788-a09d-8c609cea93b4",
-    "objectId": "f70e430a-ba9d-4050-93c0-633034ad6717",
-    "spId": "ff4e9b83-7034-44ed-8fca-b718bd5ebe1d",
+    "appId": "12c59abe-ec80-4073-a6fb-53a5585035ac",
+    "objectId": "863135d7-f87d-49ea-ae57-29c9b5aaee84",
+    "spId": "cbb906ad-bc9f-4da5-b7d2-bd64842c65dd",
     "displayName": "Glyphor Agent - Mia Tanaka (VP Design)",
     "roles": [
       "Glyphor.Design.Read",
@@ -110,9 +110,9 @@
     "upn": "mia@glyphor.ai"
   },
   "platform-engineer": {
-    "appId": "862cf05a-4146-4d0e-b595-4e0100a16427",
-    "objectId": "a7dfb990-6454-45f4-9673-9788ed8c7853",
-    "spId": "ed683a9a-000c-4841-b568-a1c78d13c2a4",
+    "appId": "6c36a1b3-c228-422f-abf0-6240323d7c91",
+    "objectId": "f4b16870-2d55-4e77-a56a-67da54ff636f",
+    "spId": "e50b6b8a-b95c-4ff7-afa3-d0adc196f28e",
     "displayName": "Glyphor Agent - Alex Park (Platform Eng)",
     "roles": [
       "Glyphor.Code.Read",
@@ -124,9 +124,9 @@
     "upn": "alex@glyphor.ai"
   },
   "quality-engineer": {
-    "appId": "83b60041-987b-42b9-ad83-b28cb7a72dc3",
-    "objectId": "6b6b6670-d65b-474b-a45b-0af6e43baf84",
-    "spId": "aef76059-1ab1-4cfc-abec-7d0b5a0a9ea4",
+    "appId": "4e34eaee-6575-436a-8d4b-ff8fc81b7774",
+    "objectId": "eff5338c-5052-493f-b4bf-876a167f1ad2",
+    "spId": "f5037656-5ab3-4641-b0e7-e6dbcb772461",
     "displayName": "Glyphor Agent - Sam DeLuca (Quality Eng)",
     "roles": [
       "Glyphor.Code.Read",
@@ -137,9 +137,9 @@
     "upn": "sam@glyphor.ai"
   },
   "devops-engineer": {
-    "appId": "b711a254-bc98-44aa-a461-a24daf67d6c5",
-    "objectId": "6d07da79-7857-43b5-b3e1-0483e2346f9a",
-    "spId": "c8c13acb-bd9c-4cd4-a525-81e0d45b4bfe",
+    "appId": "023655c6-16cd-41b0-b1de-af361f83a489",
+    "objectId": "a530831e-0c87-47d9-a0d4-2db88ddd9017",
+    "spId": "45e8332e-1032-4d30-9f92-286bb5d66363",
     "displayName": "Glyphor Agent - Jordan Hayes (DevOps)",
     "roles": [
       "Glyphor.Code.Read",
@@ -151,9 +151,9 @@
     "upn": "jordan@glyphor.ai"
   },
   "m365-admin": {
-    "appId": "bedfb8d3-09f0-4659-9120-e277d37e26c2",
-    "objectId": "6da63424-4ade-4416-b209-7d94ec039ea8",
-    "spId": "695fea43-7f4f-4477-9c3d-8415aab64810",
+    "appId": "7f400e6c-094f-468c-b5b3-e9109498f84d",
+    "objectId": "20d45a40-2c15-4822-8e83-f7bcf5d17094",
+    "spId": "ad8f3460-7c05-4469-a557-64b10e715ca4",
     "displayName": "Glyphor Agent - Riley Morgan (M365)",
     "roles": [
       "Glyphor.Admin.Read"
@@ -163,9 +163,9 @@
     "upn": "riley@glyphor.ai"
   },
   "user-researcher": {
-    "appId": "4ceeef5e-490b-4de2-a6b0-7a6d23cf0493",
-    "objectId": "5e940683-165b-429f-af14-2fa9cc7680f0",
-    "spId": "8202671d-9cbc-4e79-8802-244f7f1ad95a",
+    "appId": "8efb0046-7e46-468f-87fe-a7bd4d96d7c2",
+    "objectId": "cdcce581-689a-4f5f-9846-994c8d393c3b",
+    "spId": "e6520bac-0bf4-4650-b3ae-1bf955ca8fa2",
     "displayName": "Glyphor Agent - Priya Sharma (User Research)",
     "roles": [
       "Glyphor.Product.Read",
@@ -176,9 +176,9 @@
     "upn": "priya@glyphor.ai"
   },
   "competitive-intel": {
-    "appId": "b5f47197-402f-474e-9460-3afeec584741",
-    "objectId": "1272bf84-a4e2-49ec-b1d1-02da82ccb71b",
-    "spId": "e2442dc6-9a90-446f-9203-3005fd45a4ed",
+    "appId": "a36d6973-b248-469b-8fc5-42f50e28bfb8",
+    "objectId": "f9fc3a6c-0e71-40ec-b3bb-e466de3c29cf",
+    "spId": "d0cbfd5c-6167-428f-9a66-96b27681812c",
     "displayName": "Glyphor Agent - Daniel Ortiz (Competitive Intel)",
     "roles": [
       "Glyphor.Product.Read",
@@ -189,9 +189,9 @@
     "upn": "daniel@glyphor.ai"
   },
   "content-creator": {
-    "appId": "6a126306-14f3-4f34-a468-7b2a0b26b25a",
-    "objectId": "6663cf98-4623-4c8f-9fea-cd71cbcb2714",
-    "spId": "0934b789-c910-48d2-b072-964e32b3be5d",
+    "appId": "0155132f-4324-4a0e-9195-7ef74f8cf1f5",
+    "objectId": "b3ca797a-aa37-478c-8af1-49d6c2ea273a",
+    "spId": "49da1267-4cdd-4083-8e49-a2671a17a4de",
     "displayName": "Glyphor Agent - Tyler Reed (Content)",
     "roles": [
       "Glyphor.Marketing.Read",
@@ -202,9 +202,9 @@
     "upn": "tyler@glyphor.ai"
   },
   "seo-analyst": {
-    "appId": "20b9759b-3ba3-4d2c-abfd-92ca8c894002",
-    "objectId": "a8cff4fa-2175-4a0c-94a0-7eb5b86a2596",
-    "spId": "3006a927-22aa-4202-81d9-2188936ed29e",
+    "appId": "2b420b3f-b596-4fc8-9f5a-c7f7da3425b3",
+    "objectId": "f0494da7-d92e-4236-91ef-f27c5f70a798",
+    "spId": "a9b69fcb-b230-406c-8924-3cb4577083e5",
     "displayName": "Glyphor Agent - Lisa Chen (SEO)",
     "roles": [
       "Glyphor.Marketing.SEO.Read",
@@ -228,9 +228,9 @@
     "upn": "kai@glyphor.ai"
   },
   "ui-ux-designer": {
-    "appId": "ca6ebadf-c2c0-4e44-9530-272eaea5cb6d",
-    "objectId": "148d8839-408c-4567-8468-ca88ab812b0a",
-    "spId": "88937a31-6ec9-493f-9cb0-5e2fad90fd88",
+    "appId": "10185831-0a45-4542-812b-eee1fa3d3862",
+    "objectId": "ebaa1125-591e-450c-9fcb-2ff8eb2f603b",
+    "spId": "854eb8bc-36a6-4a7f-9880-6ec1df2f556a",
     "displayName": "Glyphor Agent - Leo Vargas (UI/UX)",
     "roles": [
       "Glyphor.Design.Read",
@@ -241,9 +241,9 @@
     "upn": "leo@glyphor.ai"
   },
   "frontend-engineer": {
-    "appId": "ff4025d7-e0bb-4a4f-9027-e7df89d583c3",
-    "objectId": "4e8c6cef-6474-4664-af4e-bc10d2716b5f",
-    "spId": "0375672b-3bfc-44f7-8ce8-477e20908b0c",
+    "appId": "22274fcc-2a12-445c-833a-c8ac5fa30038",
+    "objectId": "036f9108-a78c-4003-a0ac-ff6b9569ffb6",
+    "spId": "b050a12f-7ee1-4918-9a54-3bcd86aa1c36",
     "displayName": "Glyphor Agent - Ava Chen (Frontend)",
     "roles": [
       "Glyphor.Design.Read",
@@ -255,9 +255,9 @@
     "upn": "ava@glyphor.ai"
   },
   "design-critic": {
-    "appId": "3cbe7efd-4a9b-49af-950a-3b15f0ef61da",
-    "objectId": "b82fd0eb-38c6-4e7e-955a-e6a1724ea95b",
-    "spId": "c1514047-e4b8-4445-8b90-9bf389200f66",
+    "appId": "c9d99a33-16c8-4741-9471-59f0a4c081bc",
+    "objectId": "3bff4e01-b25f-4909-af21-287b1d1ce2a9",
+    "spId": "2d2ffa52-79c4-4d60-8701-32082ed68f95",
     "displayName": "Glyphor Agent - Sofia Marchetti (Design Critic)",
     "roles": [
       "Glyphor.Design.Read",
@@ -268,9 +268,9 @@
     "upn": "sofia@glyphor.ai"
   },
   "template-architect": {
-    "appId": "2fafcaf7-e0dc-4fb2-a194-8e782468864c",
-    "objectId": "d2e18025-1fc9-4ecd-9525-9da3b051df43",
-    "spId": "2b612dae-2e36-45ab-8573-30e680c7fe2a",
+    "appId": "7b89a63a-4ba3-4c3f-b1c4-3f10be862ee0",
+    "objectId": "79924d83-d121-4644-a7a4-01a71c848dbc",
+    "spId": "3485e07a-5860-4500-b27d-662b8a5740db",
     "displayName": "Glyphor Agent - Ryan Park (Template Arch)",
     "roles": [
       "Glyphor.Design.Read",
@@ -283,9 +283,9 @@
     "upn": "ryan@glyphor.ai"
   },
   "ops": {
-    "appId": "5a227489-9905-4df8-99c5-c26702205320",
-    "objectId": "b8f75d1c-030e-4cfb-96a8-8b3ce5653ad4",
-    "spId": "b5133bb4-4659-4411-baa5-652c526a3fd6",
+    "appId": "e68dd592-c41e-4afe-9ecd-2e2159258b54",
+    "objectId": "e259944c-0eb0-457f-a540-75785104fb2f",
+    "spId": "86132563-9fd4-4669-835c-3de6ab71e4e7",
     "displayName": "Glyphor Agent - Atlas Vega (Ops)",
     "roles": [
       "Glyphor.Ops.Read",
@@ -296,9 +296,9 @@
     "upn": "atlas@glyphor.ai"
   },
   "global-admin": {
-    "appId": "b431f38b-8eb6-4818-9bd7-77d3e6a85463",
-    "objectId": "0d54c7d9-b104-4167-982b-a8188075b1a1",
-    "spId": "8064c3b2-813d-45e2-ba13-a1c21a6f88a1",
+    "appId": "c0b188de-85e6-4d5f-b47d-6b2b6a08ed94",
+    "objectId": "658aca4f-9069-4224-a58a-e3ad0dc06285",
+    "spId": "4ead534d-c0a6-4b5d-a478-abf06478e6f3",
     "displayName": "Glyphor Agent - Morgan Blake (Global Admin)",
     "roles": [
       "Glyphor.Admin.Read"
@@ -308,9 +308,9 @@
     "upn": "morgan@glyphor.ai"
   },
   "head-of-hr": {
-    "appId": "c883bbc8-b0d8-4bd7-b6d6-420563f1e1db",
-    "objectId": "af1c0ee3-a80e-43bf-88d8-eb4fd2501468",
-    "spId": "4f56a638-0748-4ef0-b714-56df64bff988",
+    "appId": "1627ae06-0e6c-4155-a150-ddd774e96fb6",
+    "objectId": "c79e5d68-3f03-43f0-ad73-b6f6caf1a3fa",
+    "spId": "d27d9305-9129-4e7e-86e0-a4bd777e95d3",
     "displayName": "Glyphor Agent - Jasmine Rivera (HR)",
     "roles": [
       "Glyphor.Admin.Read"
@@ -320,9 +320,9 @@
     "upn": "jasmine@glyphor.ai"
   },
   "vp-research": {
-    "appId": "84e8cfec-08c2-44eb-a738-bc8de5ca0d21",
-    "objectId": "c1e05d13-0b04-437f-8190-3b6a0f5c59a4",
-    "spId": "d012bbe2-518d-4051-bc20-c40a36ee3a68",
+    "appId": "ea63386e-ab7d-4ac5-acac-266fac63b19a",
+    "objectId": "1a262bbb-6a0e-4954-be7f-5d45deabfe36",
+    "spId": "2a55f9b2-8e62-446d-83d6-5050e3ea93fc",
     "displayName": "Glyphor Agent - Sophia Lin (VP Research)",
     "roles": [
       "Glyphor.Research.Read",
@@ -333,9 +333,9 @@
     "upn": "sophia@glyphor.ai"
   },
   "competitive-research-analyst": {
-    "appId": "439ef6b4-bbba-40da-bb37-b55a73c00d38",
-    "objectId": "1e393198-f736-4199-b280-f7a7f80cb341",
-    "spId": "0ec20f9b-7e5c-4ce4-9e1e-14c9329a3ab5",
+    "appId": "d9fc71f4-b161-43b9-8a50-d48560f245f6",
+    "objectId": "11e70c3c-2f7f-4fbc-9c81-ef24f9b3404f",
+    "spId": "a7dcec4b-dcbf-4b6f-8049-c1f9edf9f975",
     "displayName": "Glyphor Agent - Lena Park (Comp Research)",
     "roles": [
       "Glyphor.Research.Read"
@@ -345,9 +345,9 @@
     "upn": "lena@glyphor.ai"
   },
   "market-research-analyst": {
-    "appId": "5f1cd944-0823-464f-85e4-e2dc915f2239",
-    "objectId": "a1d46279-1686-4e40-b874-9b8c690a47a9",
-    "spId": "386fe230-5834-4508-a7b9-bfe634c546e2",
+    "appId": "a15d2982-a448-4b98-b77f-9d9a346fb2ad",
+    "objectId": "0a6085eb-14ff-4160-935b-4021368622db",
+    "spId": "9ab8e7cb-9529-4859-b8c3-80f8fdce29d3",
     "displayName": "Glyphor Agent - Daniel Okafor (Market Research)",
     "roles": [
       "Glyphor.Research.Read"
@@ -357,9 +357,9 @@
     "upn": "dokafor@glyphor.ai"
   },
   "bob-the-tax-pro": {
-    "appId": "119dea60-2008-4757-961f-8e3e81b7cd2c",
-    "objectId": "4dd8fa6a-6e9c-40ea-b601-40ea54e15264",
-    "spId": "ca0b0510-8deb-4e66-adaa-e7e8165d0c89",
+    "appId": "2a6bb9f0-f620-47c6-98f8-9228bc422daf",
+    "objectId": "722c6b56-7391-4628-98d3-553b8fe3e49f",
+    "spId": "f84ad7dd-3b4f-4ddd-830d-8dd470a55ee3",
     "displayName": "Glyphor Agent - Bob Finley (Tax)",
     "roles": [
       "Glyphor.Finance.Revenue.Read"
@@ -369,9 +369,9 @@
     "upn": "bob@glyphor.ai"
   },
   "marketing-intelligence-analyst": {
-    "appId": "21981b09-f2b8-411d-9199-f2435d309889",
-    "objectId": "628e218c-9de6-45f2-ae1b-5e2e866f3954",
-    "spId": "7d09e59d-b7f6-4a54-bdb8-b545c13aeb0b",
+    "appId": "f2e95430-3e2d-4bd8-a13d-76377a4edca2",
+    "objectId": "4f68f9df-348c-4265-8df4-ccdf6191ed7d",
+    "spId": "cfd84040-929f-4d27-959a-a0e729179039",
     "displayName": "Glyphor Agent - Zara Petrov (Marketing Intel)",
     "roles": [
       "Glyphor.Marketing.Read",
@@ -382,9 +382,9 @@
     "upn": "zara@glyphor.ai"
   },
   "adi-rose": {
-    "appId": "91445ab8-cf91-45e3-8aec-b42ee1babddf",
-    "objectId": "262c6ebd-704b-487f-87cf-a186a0843f0f",
-    "spId": "dc21c768-9166-487b-8d40-ddf362936f06",
+    "appId": "0f5ed4a1-34f9-474d-a794-57ff932b3dd8",
+    "objectId": "785fec14-24f2-433c-a28a-b7d22c8969ad",
+    "spId": "8f99c1a2-603b-4151-810a-679b1b1b99b6",
     "displayName": "Glyphor Agent - Adi Rose (Exec Assistant)",
     "roles": [
       "Glyphor.Admin.Read",

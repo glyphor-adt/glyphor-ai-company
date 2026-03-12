@@ -1832,8 +1832,8 @@ const SLV2_TYPE_LABELS: Record<SLv2AnalysisType, string> = {
 const SLV2_DEPTH_LABELS: Record<SLv2Depth, string> = {
   quick: 'Quick — Sarah only (~2 min)',
   standard: 'Standard — 3 analysts + 2 execs (~10 min)',
-  deep: 'Deep — 6 analysts + 4 execs (~20 min)',
-  comprehensive: 'Comprehensive — full + follow-up (~35 min)',
+  deep: 'Deep Research — 6 analysts + 4 execs (~20 min)',
+  comprehensive: 'Comprehensive Research — full + follow-up (~35 min)',
 };
 
 const SLV2_STATUS_LABELS: Record<SLv2Status, string> = {
@@ -1865,6 +1865,7 @@ function StrategyLabV2Panel() {
   const [query, setQuery] = useState('');
   const [analysisType, setAnalysisType] = useState<SLv2AnalysisType>('competitive_landscape');
   const [depth, setDepth] = useState<SLv2Depth>('standard');
+  const [includeDeepDiveResearch, setIncludeDeepDiveResearch] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -1888,10 +1889,26 @@ function StrategyLabV2Panel() {
     if (!query.trim()) return;
     setLaunching(true);
     try {
-      await api('/strategy-lab/run', {
+      const trimmedQuery = query.trim();
+      const launches: Promise<unknown>[] = [api('/strategy-lab/run', {
         method: 'POST',
-        body: JSON.stringify({ query, analysisType, depth, requestedBy: 'dashboard' }),
-      });
+        body: JSON.stringify({ query: trimmedQuery, analysisType, depth, requestedBy: 'dashboard' }),
+      })];
+
+      if (includeDeepDiveResearch) {
+        launches.push(
+          api('/deep-dive/run', {
+            method: 'POST',
+            body: JSON.stringify({
+              target: trimmedQuery,
+              context: `Attached strategy analysis: ${SLV2_TYPE_LABELS[analysisType]} at ${SLV2_DEPTH_LABELS[depth]}`,
+              requestedBy: 'dashboard',
+            }),
+          }),
+        );
+      }
+
+      await Promise.all(launches);
       setQuery('');
       await refresh();
     } finally { setLaunching(false); }
@@ -1935,6 +1952,15 @@ function StrategyLabV2Panel() {
                 ))}
               </select>
             </div>
+            <label className="flex min-w-[220px] items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-[12px] text-txt-secondary">
+              <input
+                type="checkbox"
+                checked={includeDeepDiveResearch}
+                onChange={(e) => setIncludeDeepDiveResearch(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-border bg-surface text-cyan focus:ring-cyan/40"
+              />
+              Also run Deep Dive research
+            </label>
             <button
               onClick={launch}
               disabled={launching || !query.trim()}

@@ -69,7 +69,7 @@ function shouldRetryWithoutFlex(message: string): boolean {
 }
 
 function shouldUseDirectOpenAI(model: string): boolean {
-  return model === 'gpt-5.4';
+  return model === 'gpt-5.4' || model.endsWith('-deep-research');
 }
 
 export class OpenAIAdapter implements ProviderAdapter {
@@ -323,6 +323,9 @@ export class OpenAIAdapter implements ProviderAdapter {
     const toolSearchTool = modelConfig?.enableToolSearch
       ? [{ type: 'tool_search' as const }]
       : [];
+    const webSearchTool = modelConfig?.enableWebSearch
+      ? [{ type: 'web_search_preview' as const }]
+      : [];
     const patchTool = modelConfig?.enableApplyPatch
       ? [{
           type: 'function' as const,
@@ -386,8 +389,8 @@ export class OpenAIAdapter implements ProviderAdapter {
         effort: reasoningEffort,
         summary: 'auto',
       },
-      ...((responsesTools?.length || patchTool.length || toolSearchTool.length)
-        ? { tools: [...(responsesTools ?? []), ...toolSearchTool, ...patchTool] }
+      ...((responsesTools?.length || patchTool.length || toolSearchTool.length || webSearchTool.length)
+        ? { tools: [...(responsesTools ?? []), ...toolSearchTool, ...webSearchTool, ...patchTool] }
         : {}),
       max_output_tokens: maxOutputTokens,
       ...(request.metadata?.previousResponseId ? { previous_response_id: request.metadata.previousResponseId } : {}),

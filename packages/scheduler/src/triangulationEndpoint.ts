@@ -48,6 +48,7 @@ interface SingleModelRun {
   reasoningLevel: ReasoningLevel;
   webSearch: boolean;
   knowledgeBase: boolean;
+  deepResearch: boolean;
 }
 
 export async function handleTriangulatedChat(
@@ -94,6 +95,8 @@ export async function handleTriangulatedChat(
     const requestedReasoningLevel = typeof features.reasoningLevel === 'string'
       ? features.reasoningLevel as ReasoningLevel
       : (features.deepThinking ? 'deep' : undefined);
+    const deepResearchEnabled = features.deepResearch === true;
+    const effectiveReasoningLevel = deepResearchEnabled ? 'deep' : requestedReasoningLevel;
     const webSearchEnabled = features.webSearch === true;
     const knowledgeBaseEnabled = features.knowledgeBase === false
       ? false
@@ -140,8 +143,14 @@ export async function handleTriangulatedChat(
 
     if (mode === 'single-model') {
       const model = resolveModel(selectedModel ?? 'gpt-5.4');
-      const reasoningLevel = normalizeReasoningLevel(model, requestedReasoningLevel);
+      const provider = detectProvider(model);
+      const reasoningLevel = normalizeReasoningLevel(model, effectiveReasoningLevel);
+      const effectiveWebSearch = webSearchEnabled || deepResearchEnabled;
       let fullSystemPrompt = systemPrompt;
+
+      if (deepResearchEnabled) {
+        fullSystemPrompt += '\n\n## Deep Research Mode\nPerform broad, multi-step research and synthesis. Explicitly compare competing claims, cite supporting evidence, and call out uncertainty when evidence is weak or conflicting.';
+      }
 
       if (features.knowledgeBase ?? features.internalSearch ?? true) {
         const ctx = await buildTriangulationContext(
@@ -171,17 +180,29 @@ export async function handleTriangulatedChat(
         maxTokens: 8192,
         thinkingEnabled: reasoningLevel !== 'none',
         reasoningLevel,
+        metadata: deepResearchEnabled && provider === 'openai'
+          ? {
+              modelConfig: {
+                model,
+                routingRule: 'ora.deep_research',
+                capabilities: ['tool_search'],
+                enableToolSearch: true,
+                enableWebSearch: true,
+              },
+            }
+          : undefined,
       });
 
       const modelRun: SingleModelRun = {
         mode: 'single-model',
         model,
-        provider: detectProvider(model),
+        provider,
         durationMs: Date.now() - startedAt,
         thinkingEnabled: reasoningLevel !== 'none',
         reasoningLevel,
-        webSearch: webSearchEnabled,
+        webSearch: effectiveWebSearch,
         knowledgeBase: knowledgeBaseEnabled,
+        deepResearch: deepResearchEnabled,
       };
 
       sendSSE(res, {
@@ -230,11 +251,11 @@ export async function handleTriangulatedChat(
       message,
       {
         systemPrompt,
-        enableWebSearch: webSearchEnabled,
-        enableDeepThinking: requestedReasoningLevel === 'deep',
+        enableWebSearch: webSearchEnabled || deepResearchEnabled,
+        enableDeepThinking: effectiveReasoningLevel === 'deep',
         enableInternalSearch: knowledgeBaseEnabled,
         attachments: normalizedAttachments,
-        reasoningLevel: requestedReasoningLevel,
+        reasoningLevel: effectiveReasoningLevel,
         history: historyTurns,
         triangulationModels: triangulationModels
           ? {
@@ -259,7 +280,7 @@ export async function handleTriangulatedChat(
     if (result.tier !== 'SIMPLE') {
       sendSSE(res, { type: 'judge_start' });
     }
-    sendSSE(res, { type: 'result', data: { ...result, reasoningLevel: requestedReasoningLevel ?? 'standard' } });
+    sendSSE(res, { type: 'result', data: { ...result, reasoningLevel: effectiveReasoningLevel ?? 'standard', deepResearch: deepResearchEnabled } });
 
     // ─── Persist messages ─────────────────────────────────────────
     // Save user message
@@ -273,7 +294,7 @@ export async function handleTriangulatedChat(
     await systemQuery(
       `INSERT INTO chat_messages (agent_role, role, content, user_id, conversation_id, session_id, metadata, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-      ['ora', 'agent', result.selectedResponse, userId ?? null, convId, effectiveSessionId, JSON.stringify({ ...result, reasoningLevel: requestedReasoningLevel ?? 'standard' })],
+      ['ora', 'agent', result.selectedResponse, userId ?? null, convId, effectiveSessionId, JSON.stringify({ ...result, reasoningLevel: effectiveReasoningLevel ?? 'standard', deepResearch: deepResearchEnabled })],
     );
 
     // Log to agent_runs
