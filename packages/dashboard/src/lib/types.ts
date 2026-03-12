@@ -105,6 +105,13 @@ export type ChatMessage = {
   content: string;
   user_id: string;
   attachments: { name: string; type: string }[] | null;
+  metadata?: {
+    compactionOccurred?: boolean;
+    compactionCount?: number;
+    compactionSummary?: string;
+  } | null;
+  compacted?: boolean | null;
+  responding_agent?: string | null;
   created_at: string;
 }
 

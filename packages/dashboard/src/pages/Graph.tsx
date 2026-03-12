@@ -520,11 +520,11 @@ function GraphCanvas({
       <div className="absolute bottom-3 right-3 flex flex-col gap-1">
         <button
           onClick={() => { transformRef.current.scale = Math.min(5, transformRef.current.scale * 1.3); drawFnRef.current?.(); }}
-          className="rounded border border-border bg-base px-2 py-1 text-xs text-txt-muted hover:text-txt-primary"
+          className="rounded border border-primary/20 bg-base px-2 py-1 text-xs text-txt-muted hover:text-txt-primary"
         >+</button>
         <button
           onClick={() => { transformRef.current.scale = Math.max(0.1, transformRef.current.scale / 1.3); drawFnRef.current?.(); }}
-          className="rounded border border-border bg-base px-2 py-1 text-xs text-txt-muted hover:text-txt-primary"
+          className="rounded border border-primary/20 bg-base px-2 py-1 text-xs text-txt-muted hover:text-txt-primary"
         >−</button>
         <button
           onClick={() => {
@@ -532,7 +532,7 @@ function GraphCanvas({
             transformRef.current = { x: 0, y: 0, scale: 1 };
             drawFnRef.current?.();
           }}
-          className="rounded border border-border bg-base px-2 py-1 text-[9px] text-txt-muted hover:text-txt-primary"
+          className="rounded border border-primary/20 bg-base px-2 py-1 text-[9px] text-txt-muted hover:text-txt-primary"
         >Fit</button>
       </div>
     </div>
@@ -564,7 +564,7 @@ function NodeDetail({
   const incoming = edges.filter((e) => e.target_id === node.id);
 
   return (
-    <div className="absolute right-0 top-0 h-full w-[340px] border-l border-border bg-raised overflow-y-auto">
+    <div className="absolute right-0 top-0 h-full w-[340px] border-l border-primary/20 bg-black/30 backdrop-blur-[12px] overflow-y-auto">
       <div className="p-4 space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between">
@@ -619,7 +619,7 @@ function NodeDetail({
             <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-1">Tags</p>
             <div className="flex flex-wrap gap-1">
               {node.tags.map((t) => (
-                <span key={t} className="rounded-full border border-border bg-base px-2 py-0.5 text-[10px] text-txt-muted">
+                <span key={t} className="rounded-full border border-primary/20 bg-base px-2 py-0.5 text-[10px] text-txt-muted">
                   {t}
                 </span>
               ))}
@@ -640,7 +640,7 @@ function NodeDetail({
                   <button
                     key={e.id}
                     onClick={() => onNavigateNode(e.target_id)}
-                    className="flex w-full items-center gap-2 rounded-lg border border-border bg-base px-2.5 py-1.5 text-left text-[11px] hover:border-cyan/30 transition-colors"
+                    className="flex w-full items-center gap-2 rounded-lg border border-primary/20 bg-base px-2.5 py-1.5 text-left text-[11px] hover:border-cyan/30 transition-colors"
                   >
                     <span className="text-txt-faint">{e.edge_type.replace(/_/g, ' ')}</span>
                     <MdArrowForward className="text-txt-faint" />
@@ -665,7 +665,7 @@ function NodeDetail({
                   <button
                     key={e.id}
                     onClick={() => onNavigateNode(e.source_id)}
-                    className="flex w-full items-center gap-2 rounded-lg border border-border bg-base px-2.5 py-1.5 text-left text-[11px] hover:border-cyan/30 transition-colors"
+                    className="flex w-full items-center gap-2 rounded-lg border border-primary/20 bg-base px-2.5 py-1.5 text-left text-[11px] hover:border-cyan/30 transition-colors"
                   >
                     <span className="text-txt-secondary font-medium truncate">{source?.title ?? e.source_id.slice(0, 8)}</span>
                     <MdArrowForward className="text-txt-faint" />
@@ -810,7 +810,7 @@ export default function Graph() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search nodes…"
-                className="w-full rounded-lg border border-border bg-base pl-9 pr-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-cyan focus:outline-none"
+                className="w-full rounded-lg border border-primary/20 bg-base pl-9 pr-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-cyan focus:outline-none"
               />
             </div>
 
@@ -826,7 +826,7 @@ export default function Graph() {
                     className={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition-colors ${
                       active
                         ? 'border-transparent text-black'
-                        : 'border-border text-txt-muted hover:border-[color:var(--c)] hover:text-[color:var(--c)]'
+                        : 'border-primary/20 text-txt-muted hover:border-[color:var(--c)] hover:text-[color:var(--c)]'
                     }`}
                     style={
                       active
@@ -841,7 +841,7 @@ export default function Graph() {
               {filterNodeTypes.size > 0 && (
                 <button
                   onClick={() => setFilterNodeTypes(new Set())}
-                  className="rounded-full border border-border px-2.5 py-1 text-[10px] font-medium text-txt-muted hover:text-txt-primary"
+                  className="rounded-full border border-primary/20 px-2.5 py-1 text-[10px] font-medium text-txt-muted hover:text-txt-primary"
                 >
                   Clear
                 </button>
@@ -865,7 +865,7 @@ export default function Graph() {
           />
 
           {/* Graph + Detail Panel */}
-          <div className="relative overflow-hidden rounded-xl border border-prism-border bg-prism-card" style={{ height: '700px' }}>
+          <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px]" style={{ height: '700px' }}>
             <GraphCanvas
               nodes={nodes}
               edges={edges}

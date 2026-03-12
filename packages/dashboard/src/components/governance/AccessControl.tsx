@@ -74,7 +74,7 @@ function AccessPostureScore({ posture }: { posture: AccessPostureResponse | null
         subtitle={posture.summary ?? 'Composite health across IAM sync, secret hygiene, grant freshness, and least-privilege fit.'}
       />
       <div className="grid gap-6 lg:grid-cols-[260px,1fr]">
-        <div className="rounded-2xl border border-border/70 bg-prism-card/70 p-5">
+        <div className="rounded-2xl border border-primary/20 bg-black/25 backdrop-blur-[8px] p-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-txt-muted">Posture</p>
           <p className="mt-3 text-5xl font-semibold text-txt-primary">{posture.score == null ? '—' : Math.round(posture.score)}</p>
           <p className="mt-2 text-[12px] text-txt-muted">Trend {posture.trend == null ? '—' : formatPercent(posture.trend, 0)}</p>
@@ -118,7 +118,7 @@ function RiskRankedIssues({ items }: { items: GovernanceAction[] }) {
       />
       <div className="space-y-3">
         {items.map((item) => (
-          <div key={item.id} className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+          <div key={item.id} className="rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -164,7 +164,7 @@ function LeastPrivilegeMatrix({ items }: { items: LeastPrivilegeGrant[] }) {
       />
       <div className="space-y-4">
         {grouped.map(([department, grants]) => (
-          <div key={department} className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+          <div key={department} className="rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-txt-primary">{department}</p>
@@ -180,7 +180,7 @@ function LeastPrivilegeMatrix({ items }: { items: LeastPrivilegeGrant[] }) {
                     ? 'border-prism-elevated/25 bg-prism-elevated/8 text-prism-elevated'
                     : 'border-prism-teal/25 bg-prism-teal/8 text-prism-teal';
                 return (
-                  <div key={grant.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-surface px-3 py-2">
+                  <div key={grant.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/15 bg-black/20 px-3 py-2">
                     <div>
                       <p className="text-[13px] font-medium text-txt-primary">{getDisplayName(grant.agentRole)}</p>
                       <p className="mt-1 text-[11px] text-txt-muted">{grant.agentRole}</p>
@@ -248,7 +248,7 @@ function IAMDrillDown({ items }: { items: IAMState[] }) {
                 </div>
                 <p className="text-[12px] text-txt-muted">{rows.length} visible identity entries</p>
               </div>
-              <div className="mt-3 overflow-x-auto rounded-xl border border-border/70">
+              <div className="mt-3 overflow-x-auto rounded-xl border border-primary/20">
                 <table className="w-full min-w-[720px] text-left text-[12px]">
                   <thead className="bg-prism-card/70 text-txt-muted">
                     <tr>
@@ -264,7 +264,7 @@ function IAMDrillDown({ items }: { items: IAMState[] }) {
                     {rows.map((item) => {
                       const severity = classifyIamSeverity(item);
                       return (
-                        <tr key={item.id} className="border-t border-border/60">
+                        <tr key={item.id} className="border-t border-primary/15">
                           <td className="px-3 py-2 text-txt-primary">{item.credential_id}</td>
                           <td className="px-3 py-2 text-txt-secondary">{getDisplayName(item.agent_role)}</td>
                           <td className="px-3 py-2"><SeverityBadge severity={normalizeSeverity(severity)} /></td>
@@ -335,7 +335,7 @@ function SecretLifecycleTimeline({ items }: { items: SecretRotation[] }) {
                 ? 'bg-prism-elevated'
                 : 'bg-prism-teal';
           return (
-            <div key={item.id} className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+            <div key={item.id} className="rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-[13px] font-medium text-txt-primary">{item.secret_name}</p>
@@ -769,23 +769,23 @@ function AccessGrantManager({
 
         <div className="mt-4 space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-            <div className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+            <div className="rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Matching Grants</p>
               <p className="mt-3 text-3xl font-semibold text-prism-sky">{filteredInventory.length}</p>
             </div>
-            <div className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+            <div className="rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Agents</p>
               <p className="mt-3 text-3xl font-semibold text-prism-teal">{filteredSummary.agents}</p>
             </div>
-            <div className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+            <div className="rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Tools</p>
               <p className="mt-3 text-3xl font-semibold text-txt-primary">{filteredSummary.tools}</p>
             </div>
-            <div className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+            <div className="rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Departments</p>
               <p className="mt-3 text-3xl font-semibold text-prism-elevated">{filteredSummary.departments}</p>
             </div>
-            <div className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+            <div className="rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Urgent / Inactive</p>
               <p className="mt-3 text-3xl font-semibold text-prism-high">{filteredSummary.expiringSoon + filteredSummary.inactiveOrExpired}</p>
             </div>

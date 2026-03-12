@@ -21,6 +21,12 @@ interface Attachment {
 
 type ActionReceipt = { tool: string; params: Record<string, unknown>; result: 'success' | 'error'; output: string; timestamp: string; constitutional_check?: { checked: boolean; violations: number; blocked: boolean } };
 
+interface ChatMessageMetadata {
+  compactionOccurred?: boolean;
+  compactionCount?: number;
+  compactionSummary?: string;
+}
+
 interface Message {
   role: 'user' | 'agent';
   content: string;
@@ -29,6 +35,9 @@ interface Message {
   /** Which agent authored this message (for multi-agent @mention threads) */
   agentRole?: string;
   actions?: ActionReceipt[];
+  compactionOccurred?: boolean;
+  compactionCount?: number;
+  compactionSummary?: string;
 }
 
 /** Strip <reasoning>...</reasoning> envelope from agent output */
@@ -108,6 +117,7 @@ async function saveMessage(
   userId: string,
   attachments?: Attachment[],
   respondingAgent?: string,
+  metadata?: ChatMessageMetadata,
 ): Promise<void> {
   const body = JSON.stringify({
     agent_role: agentRole,
@@ -115,6 +125,7 @@ async function saveMessage(
     content,
     user_id: userId,
     attachments: attachments?.length ? attachments.map((a) => ({ name: a.name, type: a.type })) : null,
+    ...(metadata ? { metadata, compacted: metadata.compactionOccurred === true } : {}),
     ...(respondingAgent ? { responding_agent: respondingAgent } : {}),
   });
   const maxRetries = 2;
@@ -130,6 +141,32 @@ async function saveMessage(
       }
     }
   }
+}
+
+function extractChatMessageMetadata(row: Record<string, unknown>): ChatMessageMetadata | undefined {
+  const metadata = row.metadata;
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return row.compacted === true ? { compactionOccurred: true } : undefined;
+  }
+
+  const typedMetadata = metadata as Record<string, unknown>;
+  const compactionOccurred = typedMetadata.compactionOccurred === true || row.compacted === true;
+  const compactionCount = typeof typedMetadata.compactionCount === 'number'
+    ? typedMetadata.compactionCount
+    : undefined;
+  const compactionSummary = typeof typedMetadata.compactionSummary === 'string'
+    ? typedMetadata.compactionSummary
+    : undefined;
+
+  if (!compactionOccurred && compactionCount === undefined && !compactionSummary) {
+    return undefined;
+  }
+
+  return {
+    compactionOccurred: compactionOccurred || undefined,
+    compactionCount,
+    compactionSummary,
+  };
 }
 
 function ActionReceipts({ actions }: { actions: ActionReceipt[] }) {
@@ -486,13 +523,19 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
           // Reverse so oldest-first for display (we fetched newest-first to get recent messages)
           const rows = (data as Record<string, unknown>[]).reverse();
           setMessages(
-            rows.map((row: Record<string, unknown>) => ({
-              role: row.role as 'user' | 'agent',
-              content: row.content as string,
-              timestamp: new Date(row.created_at as string),
-              attachments: (row.attachments as any[])?.map((a: any) => ({ name: a.name, type: a.type, data: '' })),
-              agentRole: (row.responding_agent as string) || undefined,
-            })),
+            rows.map((row: Record<string, unknown>) => {
+              const metadata = extractChatMessageMetadata(row);
+              return {
+                role: row.role as 'user' | 'agent',
+                content: row.content as string,
+                timestamp: new Date(row.created_at as string),
+                attachments: (row.attachments as any[])?.map((a: any) => ({ name: a.name, type: a.type, data: '' })),
+                agentRole: (row.responding_agent as string) || undefined,
+                compactionOccurred: metadata?.compactionOccurred,
+                compactionCount: metadata?.compactionCount,
+                compactionSummary: metadata?.compactionSummary,
+              };
+            }),
           );
         }
       } catch (err) {
@@ -739,6 +782,13 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
 
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
+        const responseMetadata: ChatMessageMetadata | undefined = data.compactionOccurred
+          ? {
+              compactionOccurred: true,
+              compactionCount: typeof data.compactionCount === 'number' ? data.compactionCount : undefined,
+              compactionSummary: typeof data.compactionSummary === 'string' ? data.compactionSummary : undefined,
+            }
+          : undefined;
 
         let content: string;
         if (data.output) content = stripReasoning(data.output);
@@ -753,9 +803,26 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
 
         // Only append to UI if user is still viewing the same agent
         if (selectedRoleRef.current === targetRole) {
-          setMessages((prev) => [...prev, { role: 'agent', content, timestamp: new Date(), agentRole: isMentioned ? role : undefined, actions: data.actions }]);
+          setMessages((prev) => [...prev, {
+            role: 'agent',
+            content,
+            timestamp: new Date(),
+            agentRole: isMentioned ? role : undefined,
+            actions: data.actions,
+            compactionOccurred: responseMetadata?.compactionOccurred,
+            compactionCount: responseMetadata?.compactionCount,
+            compactionSummary: responseMetadata?.compactionSummary,
+          }]);
         }
-        saveMessage(targetRole, 'agent', content, userEmail, undefined, isMentioned ? role : undefined).catch((err) => {
+        saveMessage(
+          targetRole,
+          'agent',
+          content,
+          userEmail,
+          undefined,
+          isMentioned ? role : undefined,
+          responseMetadata,
+        ).catch((err) => {
           console.error('[Chat] Failed to save agent response:', err);
           setSaveFailed(true);
           setTimeout(() => setSaveFailed(false), 5000);
@@ -1011,6 +1078,14 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                   <ChatMarkdown>{msg.content}</ChatMarkdown>
                 ) : (
                   <p className="whitespace-pre-wrap">{msg.content}</p>
+                )}
+                {msg.role === 'agent' && msg.compactionOccurred && (
+                  <div
+                    className="mt-1 text-[11px] italic text-txt-faint"
+                    title={msg.compactionSummary || 'Earlier conversation context was summarized by the provider.'}
+                  >
+                    Context summarized{msg.compactionCount && msg.compactionCount > 1 ? ` (${msg.compactionCount} events)` : ''} — earlier messages compressed
+                  </div>
                 )}
                 {msg.actions && msg.actions.length > 0 && <ActionReceipts actions={msg.actions} />}
                 <p className="mt-1.5 text-[10px] text-txt-faint">

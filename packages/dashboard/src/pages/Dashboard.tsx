@@ -71,6 +71,24 @@ function fmtUsd(n: number) {
   return `$${n.toFixed(2)}`;
 }
 
+function normalizeHighlights(highlights: unknown[] | null | undefined): string[] {
+  if (!Array.isArray(highlights)) return [];
+  return highlights
+    .map((item) => {
+      if (typeof item === 'string') return item;
+      if (item && typeof item === 'object') {
+        const candidate = item as { text?: unknown; agent?: unknown; type?: unknown };
+        if (typeof candidate.text === 'string' && candidate.text.trim().length > 0) return candidate.text;
+        const parts = [candidate.agent, candidate.type]
+          .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+          .join(' · ');
+        return parts || null;
+      }
+      return null;
+    })
+    .filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
+}
+
 /* ── Dashboard ─────────────────────────────── */
 
 export default function Dashboard() {
@@ -217,6 +235,7 @@ export default function Dashboard() {
     .slice(0, 3);
 
   const loading = pulseLoading || decisionsLoading || incidentsLoading || directivesLoading || reflectionsLoading;
+  const pulseHighlights = normalizeHighlights(pulse?.highlights);
 
   return (
     <div className="dashboard-home">
@@ -257,11 +276,11 @@ export default function Dashboard() {
               </div>
             ) : pulse ? (
               <div className="space-y-3">
-                {(pulse.highlights as string[] | null)?.length ? (
+                {pulseHighlights.length > 0 ? (
                   <>
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted">Highlights</p>
                     <ul className="space-y-1.5">
-                      {(pulse.highlights as string[]).slice(0, 4).map((h, i) => (
+                      {pulseHighlights.slice(0, 4).map((h, i) => (
                         <li key={i} className="flex items-start gap-2 text-[13px] text-txt-secondary">
                           <MdCheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#34D399]" />
                           {h}
