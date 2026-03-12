@@ -174,7 +174,7 @@ export default function Layout() {
               <Outlet />
             </div>
           ) : (
-            <div className="page-enter mx-auto max-w-[1600px] px-6 py-4 md:px-12 md:py-8">
+            <div className="page-enter mx-auto max-w-[1280px] px-6 py-4 md:px-12 md:py-8">
               <Outlet />
             </div>
           )}
