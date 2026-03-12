@@ -1,8 +1,0 @@
-{
-  "user_code": "E762CFTFL",
-  "device_code": "EBgABIQEAAACvnsHKEvvRQb3Bz3Qc7wnaRXZvU3RzQXJ0aWZhY3RzAQAAAAAA-AmasD5VaP-yirl4gDxDDpeWoQu8mcdIurcHEUcfNfGFFwbvQko3tQeR5CNWyfRrsUIoyJHamrfWjBGEQrkTsDg8bL_RKxJCgtptSX--zeeOkvMLmFD5AJA6Q31XAf-UcWFUYi9xJu4fim6MxWTkFymEHYSEjxuB4-w-_pcqAdEn0kIerUGG3mFitlkG99AGg7kXioVKBY9K0MgebZaf4xpSUr7239bFK6QA1tQPuEDzP_iQqtmJHq2nJlEuORUjPhmDsVc3oDQvyaGzVhFxFxkU3mbEvSVU8OIr9AomT7FU6i8UwS44njIVQSJOVWuNazNZMUERa5kzEAw6ou64-whhI3cvCflacjSeIOq61KOqU0jlxuzopPKwb8xYYYFLACiuDeDi6cqOrAvsGA1cmZoN6k1Yl0-8-rd1kAA0_O1VcEW0YwGoHbR1ijM2jGgtn1Xi_d8OUzDlNDunbLPDaDG9sNkX9TvhAO7gUacbYDoDy8xT0kw54pGXh98opCqVRiEVXX74GRerdl68NSLmUqIgo-8Ue_MU86hb21jK168OXvlCtTgDauGuX17FhRJPfILhxNnbYIlYhJiovgjOL3IPi9XnEBKENLIwlAJ5dpyyBdo6gnuzWi0g-oHhcUg5BfSn99GEuo8QCIoZtV7pcl1KFaq6oPXmb-8zkI3AyssGSzIHF05AG6lKI6Pr-rskTY_OgqUL2Ld0hC62LuvhYoOV09EvV98n7UDWRfaJMfMgAA",
-  "verification_uri": "https://login.microsoft.com/device",
-  "expires_in": 900,
-  "interval": 5,
-  "message": "To sign in, use a web browser to open the page https://login.microsoft.com/device and enter the code E762CFTFL to authenticate."
-}

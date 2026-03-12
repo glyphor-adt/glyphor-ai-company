@@ -5,6 +5,7 @@ interface AgentIdentityRecord {
   spId?: string;
   blueprintSpId?: string;
   entraUserId?: string;
+  upn?: string;
 }
 
 const AGENT_IDENTITY_MAP = JSON.parse(
@@ -29,4 +30,9 @@ export function getAgentBlueprintSpId(role: string): string | null {
 export function getAgentEntraUserId(role: string): string | null {
   const record = AGENT_IDENTITY_MAP[role];
   return typeof record?.entraUserId === 'string' && record.entraUserId ? record.entraUserId : null;
+}
+
+export function getAgentUpn(role: string): string | null {
+  const record = AGENT_IDENTITY_MAP[role];
+  return typeof record?.upn === 'string' && record.upn ? record.upn : null;
 }

@@ -147,9 +147,9 @@ export class AgentNotifier {
           // Try A365 MCP DM first (plain text — Adaptive Cards not supported)
           if (this.a365Client && upn) {
             try {
-              const chatId = await this.a365Client.createOrGetOneOnOneChat(upn);
+              const chatId = await this.a365Client.createOrGetOneOnOneChat(upn, undefined, agentRole);
               const textMessage = this.formatNotificationText(agentName, notif);
-              await this.a365Client.postChatMessage(chatId, textMessage);
+              await this.a365Client.postChatMessage(chatId, textMessage, agentRole);
               console.log(`[AgentNotifier] ${agentName} → DM to ${target}: ${notif.title}`);
               sent++;
               continue;

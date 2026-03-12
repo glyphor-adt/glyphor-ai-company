@@ -16,7 +16,7 @@ import { McpToolServerConfigurationService } from '@microsoft/agents-a365-toolin
 import type { MCPServerConfig } from '@microsoft/agents-a365-tooling';
 import { MsalTokenProvider } from '@microsoft/agents-hosting';
 import type { AuthConfiguration } from '@microsoft/agents-hosting';
-import { getAgentIdentityAppId, getAgentBlueprintSpId, getAgentSpId, getAgentEntraUserId } from '@glyphor/agent-runtime';
+import { getAgentIdentityAppId, getAgentBlueprintSpId, getAgentSpId, getAgentEntraUserId, getAgentUpn } from '@glyphor/agent-runtime';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -321,14 +321,17 @@ export class A365TeamsChatClient {
    * The senderUpn parameter is kept for cache-key differentiation but is NOT
    * used as a chat member.
    */
-  async createOrGetOneOnOneChat(recipientUpn: string, senderUpn?: string): Promise<string> {
-    const cacheKey = recipientUpn.toLowerCase();
+  async createOrGetOneOnOneChat(recipientUpn: string, senderUpn?: string, agentRole?: string): Promise<string> {
+    const role = agentRole ?? this.defaultAgentRole;
+    const cacheKey = `${role ?? '__shared__'}:${recipientUpn.toLowerCase()}`;
     const cached = this.chatCache.get(cacheKey);
     if (cached) return cached;
 
-    const agenticUserUpn = process.env.AGENT365_AGENTIC_USER_UPN;
+    // Resolve per-agent UPN from agentIdentities.json; fall back to shared env var.
+    const agenticUserUpn = (role ? getAgentUpn(role) : null)
+      ?? process.env.AGENT365_AGENTIC_USER_UPN;
     if (!agenticUserUpn) {
-      throw new Error('[A365Teams] AGENT365_AGENTIC_USER_UPN env var is required for CreateChat — oneOnOne chats require the signed-in user as a member');
+      throw new Error(`[A365Teams] No UPN found for agent ${role ?? 'unknown'}. Set upn in agentIdentities.json or AGENT365_AGENTIC_USER_UPN env var.`);
     }
 
     // If the recipient IS the agentic user, use the sender instead (can't DM yourself)

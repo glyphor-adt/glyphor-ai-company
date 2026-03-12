@@ -1,9 +1,0 @@
-{
-  "agentBlueprintAppId": "5604df3b-a3a3-4c7e-a8c4-e6f9ed04ad6a",
-  "agentBlueprintObjectId": "ef4709f1-5f28-4080-8287-cec2314dc5b5",
-  "agentBlueprintServicePrincipalId": "28079457-37d9-483c-b7bb-fe6920083b8e",
-  "agentBlueprintDisplayName": "Glyphor AI Agent",
-  "blueprintCreated": true,
-  "endpointRegistered": false,
-  "needDeployment": true
-}
