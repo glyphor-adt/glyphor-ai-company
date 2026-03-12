@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { MdCheck, MdClose } from 'react-icons/md';
+import { useState, useCallback } from 'react';
+import { MdCheck, MdClose, MdExpandMore, MdExpandLess } from 'react-icons/md';
 import { useDecisions, useAgents } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, TIER_TO_IMPACT } from '../lib/types';
 import {
@@ -35,6 +35,50 @@ function formatTitle(raw: string): string {
     .replace(/_/g, ' ')
     .replace(/-/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Render a summary with labelled sections and collapsible overflow */
+function SummaryText({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const toggle = useCallback(() => setExpanded((v) => !v), []);
+
+  // Split into paragraphs on double-newlines; bold known labels
+  const paragraphs = text.split(/\n\n+/).filter(Boolean);
+  const isLong = paragraphs.length > 1 || text.length > 200;
+
+  return (
+    <div className="mt-1 text-[12px] text-txt-muted leading-relaxed">
+      <div className={!expanded && isLong ? 'line-clamp-2' : undefined}>
+        {paragraphs.map((p, i) => {
+          const labelMatch = p.match(/^(Justification|Use case|Reason|Impact|Details|Context):\s*/i);
+          return (
+            <p key={i} className={i > 0 ? 'mt-1.5' : undefined}>
+              {labelMatch ? (
+                <>
+                  <span className="font-semibold text-txt-secondary">{labelMatch[1]}:</span>{' '}
+                  {p.slice(labelMatch[0].length)}
+                </>
+              ) : (
+                p
+              )}
+            </p>
+          );
+        })}
+      </div>
+      {isLong && (
+        <button
+          onClick={toggle}
+          className="mt-1 flex items-center gap-0.5 text-[11px] text-cyan hover:text-cyan/80 transition-colors"
+        >
+          {expanded ? (
+            <>Show less <MdExpandLess className="h-3.5 w-3.5" /></>
+          ) : (
+            <>Show more <MdExpandMore className="h-3.5 w-3.5" /></>
+          )}
+        </button>
+      )}
+    </div>
+  );
 }
 
 export default function Approvals() {
@@ -118,9 +162,7 @@ export default function Approvals() {
                     <ImpactBadge impact={TIER_TO_IMPACT[d.tier] ?? d.tier} />
                   </div>
 
-                  <p className="mt-1 text-[12px] text-txt-muted leading-relaxed">
-                    {parseSummary(d.summary)}
-                  </p>
+                  <SummaryText text={parseSummary(d.summary)} />
 
                   <div className="mt-2.5 flex items-center gap-3 text-[11px] text-txt-faint">
                     <span>From: <span className="text-txt-muted">{agentName(d.proposed_by)}</span></span>

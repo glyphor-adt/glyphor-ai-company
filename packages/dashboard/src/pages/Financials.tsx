@@ -109,6 +109,7 @@ interface AgentRunRow {
   model_routing_reason?: string | null;
   subtask_complexity?: string | null;
   verification_tier?: string | null;
+  verification?: string | null;
   reasoning_cost_usd?: number | null;
   cost?: number | null;
   started_at?: string | null;
@@ -1075,6 +1076,92 @@ export default function Financials() {
         </Card>
       </div>
 
+      <div>
+        <h2 className="text-lg font-semibold text-txt-primary">Model Routing Audit</h2>
+        <p className="mt-0.5 text-xs text-txt-muted">Per-turn complexity, selected models, and observed cost-to-quality tradeoffs</p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+        <SummaryCard label="Avg Cost / Quality Point" value={routingAuditLoading ? '—' : `$${routingEfficiency.costPerQualityPoint.toFixed(4)}`} loading={routingAuditLoading} />
+        <SummaryCard label="Frontier Runs (30d)" value={routingAuditLoading ? '—' : String(routingEfficiency.frontierRuns)} loading={routingAuditLoading} />
+        <SummaryCard label="Most Common Routed Model" value={routingAuditLoading ? '—' : routingEfficiency.dominantModel} loading={routingAuditLoading} />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <SectionHeader title="Subtask Complexity Distribution" />
+          {routingAuditLoading ? (
+            <Skeleton className="h-48" />
+          ) : complexityCounts.every((row) => row.count === 0) ? (
+            <EmptyChart message="No routing complexity metadata yet" />
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie
+                  data={complexityCounts}
+                  dataKey="count"
+                  nameKey="complexity"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={70}
+                  innerRadius={35}
+                  paddingAngle={2}
+                  label={({ complexity, count }: { complexity: string; count: number }) => `${COMPLEXITY_LABELS[complexity] ?? complexity} ${count}`}
+                >
+                  {complexityCounts.map((row) => (
+                    <Cell key={row.complexity} fill={COMPLEXITY_COLORS[row.complexity] ?? '#6B7280'} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value: number) => [String(value), 'Runs']} />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+
+        <Card>
+          <SectionHeader title="Routed Model Mix (30d)" />
+          {routingAuditLoading ? (
+            <Skeleton className="h-48" />
+          ) : routedModelMix.length === 0 ? (
+            <EmptyChart message="No routed model data yet" />
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={routedModelMix}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis dataKey="model" tick={{ fontSize: 10, fill: 'var(--color-txt-muted)' }} interval={0} angle={-25} textAnchor="end" height={60} />
+                <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
+                <Tooltip formatter={(value: number, name: string) => [name === 'cost' ? `$${value.toFixed(4)}` : String(value), name === 'cost' ? 'Cost' : 'Runs']} />
+                <Bar dataKey="runs" fill="#2563EB" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+
+        <Card>
+          <SectionHeader title="Cost vs Quality per Run" />
+          {routingAuditLoading ? (
+            <Skeleton className="h-48" />
+          ) : costQualityPoints.length === 0 ? (
+            <EmptyChart message="No run reflections to correlate yet" />
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <ScatterChart margin={{ top: 10, right: 12, left: 0, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis type="number" dataKey="cost" name="Cost" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(value) => `$${Number(value).toFixed(2)}`} />
+                <YAxis type="number" dataKey="quality" name="Quality" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} domain={[0, 100]} />
+                <Tooltip
+                  cursor={{ strokeDasharray: '3 3' }}
+                  formatter={(value: number, name: string) => [name === 'Cost' ? `$${Number(value).toFixed(4)}` : String(value), name]}
+                  labelFormatter={() => ''}
+                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
+                />
+                <Scatter data={costQualityPoints} fill="#7C3AED" />
+              </ScatterChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* MRR Trend */}
         <Card>
@@ -1428,6 +1515,8 @@ const API_COLORS = ['#7C3AED', '#2563EB', '#0891B2', '#EA4335', '#FF6D01'];
 const API_PROVIDER_COLORS: Record<string, string> = { openai: '#10A37F', anthropic: '#D97706', kling: '#7C3AED' };
 const VERIF_COLORS: Record<string, string> = { none: '#9AA0A6', self_critique: '#FBBC04', cross_model: '#EA4335', conditional: '#7C3AED', unknown: '#6B7280' };
 const VERIF_LABELS: Record<string, string> = { none: 'None', self_critique: 'Self-critique', cross_model: 'Cross-model', conditional: 'Conditional', unknown: 'Unknown' };
+const COMPLEXITY_COLORS: Record<string, string> = { trivial: '#9AA0A6', standard: '#2563EB', complex: '#7C3AED', frontier: '#EA4335', unknown: '#6B7280' };
+const COMPLEXITY_LABELS: Record<string, string> = { trivial: 'Trivial', standard: 'Standard', complex: 'Complex', frontier: 'Frontier', unknown: 'Unknown' };
 
 function SummaryCard({ label, value, loading, sub }: { label: string; value: string; loading: boolean; sub?: string }) {
   if (loading) return <Skeleton className="h-24" />;

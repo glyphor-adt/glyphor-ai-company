@@ -173,7 +173,7 @@ export function exportAnalysisJSON(record: AnalysisRecord): string {
 export function exportSimulationMarkdown(record: SimulationRecord): string {
   const report = record.report;
   const lines: string[] = [
-    `# T+1 Simulation Report`,
+    `# Cascade Analysis Report`,
     '',
     `**Action:** ${record.action}`,
     `**Perspective:** ${record.perspective}`,
@@ -622,9 +622,9 @@ export async function exportSimulationPPTX(record: SimulationRecord): Promise<Bu
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_16x9';
   pptx.author = 'Glyphor AI';
-  pptx.title = `T+1 Simulation: ${record.action.slice(0, 60)}`;
+  pptx.title = `Cascade Analysis: ${record.action.slice(0, 60)}`;
 
-  pptxTitleSlide(pptx, 'T+1 Impact Simulation', record.action, `Perspective: ${record.perspective}  Â·  ${new Date(record.created_at).toLocaleDateString()}  Â·  Glyphor AI Strategy Lab`);
+  pptxTitleSlide(pptx, 'Cascade Analysis', record.action, `Perspective: ${record.perspective}  Â·  ${new Date(record.created_at).toLocaleDateString()}  Â·  Glyphor AI Strategy Lab`);
 
   const report = record.report;
   if (!report) {
@@ -724,7 +724,7 @@ export async function exportSimulationPPTX(record: SimulationRecord): Promise<Bu
     slide.background = { color: SLIDE_BG };
     slide.addShape(pptx.ShapeType.rect, { x: 0, y: 2.6, w: 10, h: 0.04, fill: { color: SLIDE_CYAN } });
     slide.addText('GLYPHOR', { x: 0.6, y: 1.8, w: 8.8, fontSize: 28, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, align: 'center', charSpacing: 6 });
-    slide.addText('T+1 Impact Simulation Complete', { x: 0.6, y: 2.9, w: 8.8, fontSize: 14, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
+    slide.addText('Cascade Analysis Complete', { x: 0.6, y: 2.9, w: 8.8, fontSize: 14, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
     addSlideFooter(slide, pptx);
   }
 
@@ -751,7 +751,7 @@ export async function exportSimulationDOCX(record: SimulationRecord): Promise<Bu
   // â”€â”€ Title â”€â”€
   children.push(new Paragraph({
     spacing: { before: 200, after: 80 },
-    children: [new TextRun({ text: 'T+1 Impact Simulation', bold: true, size: 48, font: 'Segoe UI', color: 'E5E7EB' })],
+    children: [new TextRun({ text: 'Cascade Analysis', bold: true, size: 48, font: 'Segoe UI', color: 'E5E7EB' })],
   }));
   children.push(new Paragraph({
     spacing: { after: 80 },
@@ -866,12 +866,12 @@ export async function exportSimulationDOCX(record: SimulationRecord): Promise<Bu
     spacing: { before: 600 },
     border: { top: { style: BorderStyle.SINGLE, size: 2, color: '00E0FF', space: 12 } },
     alignment: AlignmentType.CENTER,
-    children: [new TextRun({ text: `Glyphor AI  Â·  T+1 Simulation  Â·  ${new Date().toLocaleDateString()}  Â·  Confidential`, size: 16, color: '6B7280', font: 'Segoe UI' })],
+    children: [new TextRun({ text: `Glyphor AI  Â·  Cascade Analysis  Â·  ${new Date().toLocaleDateString()}  Â·  Confidential`, size: 16, color: '6B7280', font: 'Segoe UI' })],
   }));
 
   return Packer.toBuffer(new Document({
     creator: 'Glyphor AI',
-    title: `T+1 Simulation: ${record.action.slice(0, 60)}`,
+    title: `Cascade Analysis: ${record.action.slice(0, 60)}`,
     sections: [{
       properties: {
         page: {

@@ -97,7 +97,7 @@ export default function Strategy() {
   const TAB_LABELS: Record<Tab, string> = {
     'strategy-lab-v2': 'Strategic Analyses',
     'deep-dives': 'Deep Dives',
-    simulations: 'T+1 Simulations',
+    simulations: 'Cascade Analysis',
     cot: 'Chain of Thought',
   };
 
@@ -106,7 +106,7 @@ export default function Strategy() {
       <div>
         <h1 className="text-2xl font-bold text-txt-primary">Strategy Lab</h1>
         <p className="mt-1 text-sm text-txt-muted">
-          Multi-agent strategic analyses, strategic deep dives, T+1 impact simulations, and chain-of-thought planning
+          Multi-agent strategic analyses, strategic deep dives, Cascade Analysis forecasts, and chain-of-thought planning
         </p>
       </div>
 
@@ -1137,9 +1137,9 @@ function SimulationsPanel() {
     <div className="space-y-6">
       {/* Launch Form */}
       <Card>
-        <SectionHeader title="Launch T+1 Simulation" />
+        <SectionHeader title="Launch Cascade Analysis" />
         <p className="mt-1 mb-3 text-[12px] text-txt-muted">
-          Describe a proposed action and the AI executive team will simulate its cascading impact across Revenue, Engineering, Product, Marketing, and Finance.
+          Describe a proposed action and the AI executive team will forecast its cascading impact across Revenue, Engineering, Product, Marketing, and Finance.
         </p>
         <div className="grid grid-cols-[1fr_auto_auto] gap-3 items-end">
           <div>
@@ -1169,18 +1169,18 @@ function SimulationsPanel() {
             disabled={launching || !action.trim()}
             className="rounded-lg bg-cyan px-4 py-2 text-sm font-medium text-black transition-opacity hover:opacity-90 disabled:opacity-40"
           >
-            {launching ? 'Launching…' : 'Run Simulation'}
+            {launching ? 'Launching…' : 'Run Cascade'}
           </button>
         </div>
       </Card>
 
       {/* Simulation List */}
       <div>
-        <SectionHeader title="Past Simulations" />
+        <SectionHeader title="Past Cascade Analyses" />
         {loading ? (
           <div className="space-y-3 mt-3"><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /></div>
         ) : simulations.length === 0 ? (
-          <p className="mt-4 text-center text-sm text-txt-faint">No simulations yet — launch one above</p>
+          <p className="mt-4 text-center text-sm text-txt-faint">No cascade analyses yet — launch one above</p>
         ) : (
           <div className="mt-3 space-y-3">
             {simulations.map((s) => (
@@ -1207,7 +1207,7 @@ function SimulationsPanel() {
                 )}
                 {expanded === s.id && !s.report && s.status !== 'failed' && (
                   <div className="mt-4">
-                    <p className="text-sm text-txt-muted">Simulation in progress… ({s.status})</p>
+                    <p className="text-sm text-txt-muted">Cascade Analysis in progress… ({s.status})</p>
                   </div>
                 )}
                 {expanded === s.id && s.error && (
@@ -1226,6 +1226,9 @@ function SimulationsPanel() {
 
 function SimulationDetail({ report, record, onAccept }: { report: SimulationReport; record: SimulationRecord; onAccept: () => void }) {
   const rec = recommendationBadge(report.recommendation);
+  const positiveCount = report.dimensions.filter((dim) => dim.impact === 'positive').length;
+  const negativeCount = report.dimensions.filter((dim) => dim.impact === 'negative').length;
+  const neutralCount = report.dimensions.filter((dim) => dim.impact === 'neutral').length;
 
   return (
     <div className="mt-4 space-y-4 border-t border-border pt-4">
@@ -1239,6 +1242,34 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
           <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${rec.cls}`}>
             {rec.text}
           </span>
+        </div>
+      </div>
+
+      <div>
+        <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Cascade Map</p>
+        <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr_auto_1fr] items-stretch">
+          <div className="rounded-lg border border-border bg-raised px-3 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-faint">Current State</p>
+            <p className="mt-2 text-[12px] text-txt-secondary leading-relaxed">
+              {report.dimensions.length} impacted domains under a {PERSPECTIVE_LABELS[record.perspective] ?? record.perspective.toLowerCase()} scenario.
+            </p>
+            <p className="mt-2 text-[11px] text-txt-faint">
+              {positiveCount} positive · {negativeCount} negative · {neutralCount} neutral
+            </p>
+          </div>
+          <div className="flex items-center justify-center text-cyan"><MdArrowForward /></div>
+          <div className="rounded-lg border border-cyan/20 bg-cyan/5 px-3 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan">Proposed Action</p>
+            <p className="mt-2 text-[12px] text-txt-primary leading-relaxed">{record.action}</p>
+          </div>
+          <div className="flex items-center justify-center text-cyan"><MdArrowForward /></div>
+          <div className="rounded-lg border border-border bg-raised px-3 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-faint">Predicted State T+1</p>
+            <p className="mt-2 text-[12px] text-txt-secondary leading-relaxed">{report.summary}</p>
+            <p className="mt-2 text-[11px] text-txt-faint">
+              Recommendation: <span className="text-txt-secondary">{rec.text}</span>
+            </p>
+          </div>
         </div>
       </div>
 
@@ -1283,14 +1314,17 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
       {/* Cascade Chain */}
       {report.cascadeChain.length > 0 && (
         <div>
-          <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Cascade Chain</p>
-          <div className="flex flex-wrap items-center gap-1.5">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Cascade Paths</p>
+          <div className="grid gap-2 md:grid-cols-2">
             {report.cascadeChain.map((link, i) => (
-              <div key={i} className="flex items-center gap-1.5 rounded-lg border border-border bg-raised px-2.5 py-1.5 text-[11px]">
-                <span className="font-medium text-cyan">{link.from}</span>
-                <MdArrowForward className="text-txt-faint" />
-                <span className="font-medium text-txt-secondary">{link.to}</span>
-                <span className="text-[10px] text-txt-faint">({link.delay})</span>
+              <div key={i} className="rounded-lg border border-border bg-raised px-3 py-2 text-[11px]">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium text-cyan">{link.from}</span>
+                  <MdArrowForward className="text-txt-faint" />
+                  <span className="font-medium text-txt-secondary">{link.to}</span>
+                  <span className="ml-auto text-[10px] text-txt-faint">{link.delay}</span>
+                </div>
+                <p className="mt-1 text-[11px] text-txt-muted">{link.effect}</p>
               </div>
             ))}
           </div>

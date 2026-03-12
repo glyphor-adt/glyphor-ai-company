@@ -103,7 +103,7 @@ export const IDENTITY = {
 export const DOC_LABELS = {
   deepDive: 'Strategic Deep Dive',
   analysis: 'Strategic Analysis',
-  simulation: 'Impact Simulation',
+  simulation: 'Cascade Analysis',
   cot: 'Chain of Thought',
   strategyLab: 'Strategy Lab Analysis',
 } as const;

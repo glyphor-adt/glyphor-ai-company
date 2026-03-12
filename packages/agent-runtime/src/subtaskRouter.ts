@@ -70,6 +70,23 @@ function buildTurnContext(history: ConversationTurn[], actionReceipts: ActionRec
 }
 
 export function classifySubtask(context: SubtaskRoutingContext): SubtaskClassification {
+  const estimatedTokens = estimateContextTokens(context.history, context.lastTextOutput);
+  const noOpTask =
+    (context.task === 'work_loop' || context.task === 'proactive') &&
+    estimatedTokens <= 400 &&
+    (context.actionReceipts?.length ?? 0) === 0;
+
+  if (noOpTask) {
+    return {
+      complexity: 'trivial',
+      requiresReasoning: false,
+      requiresCreativity: false,
+      requiresFactualGrounding: false,
+      estimatedTokens,
+      capabilities: ['low_complexity', 'deterministic_possible', 'batch_eligible'],
+    };
+  }
+
   const promptContext = buildTurnContext(context.history, context.actionReceipts, context.lastTextOutput);
   const capabilities = inferCapabilities({
     role: context.role,
@@ -80,7 +97,6 @@ export function classifySubtask(context: SubtaskRoutingContext): SubtaskClassifi
     trustScore: context.trustScore,
   });
   const selected = new Set(capabilities);
-  const estimatedTokens = estimateContextTokens(context.history, context.lastTextOutput);
 
   let complexity: SubtaskComplexity = 'trivial';
   if (
