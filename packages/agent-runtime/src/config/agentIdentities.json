@@ -81,18 +81,6 @@
     "entraUserId": "47c2bc52-8c31-4b22-8f60-3384b82a10e6",
     "upn": "victoria@glyphor.ai"
   },
-  "vp-customer-success": {
-    "appId": "c9f46bc1-7a01-4d5c-864d-029911464c07",
-    "objectId": "9f4d5b66-56d6-4f2a-bb8a-5de6c1bdd99e",
-    "spId": "dfaf6765-bb48-42bb-8369-37e9a263b103",
-    "displayName": "Glyphor Agent - James Turner (VP CS)",
-    "roles": [
-      "Glyphor.Support.Read",
-      "Glyphor.Product.Read"
-    ],
-    "blueprintSpId": "a5f564eb-a812-4642-8535-398d5934dfd7",
-    "entraUserId": "7d222283-c4c3-449d-abb6-3ba3f9179efb"
-  },
   "vp-sales": {
     "appId": "f947ff28-f2ac-464d-9a05-27006c3dbb9a",
     "objectId": "b616c91e-5327-465f-bda3-b5643d0d771b",
@@ -200,28 +188,6 @@
     "entraUserId": "7315aa9d-3f4b-4cf0-b517-71e69791951f",
     "upn": "daniel@glyphor.ai"
   },
-  "revenue-analyst": {
-    "appId": "75f7f89a-4273-4174-886f-51bd9d315f60",
-    "objectId": "ad42d23d-0b63-48c0-b865-705682c73f0e",
-    "spId": "2b10d2df-4da8-4c94-bffb-5f2daedc8e01",
-    "displayName": "Glyphor Agent - Anna Park (Revenue)",
-    "roles": [
-      "Glyphor.Finance.Revenue.Read"
-    ],
-    "blueprintSpId": "8fe67e28-3073-48b0-aa5b-3c69feb587a9",
-    "entraUserId": "c3a2d2d4-9360-4311-90dc-607d64f3e9d3"
-  },
-  "cost-analyst": {
-    "appId": "5bc54b06-fd5b-411a-b0cc-e35a0d580782",
-    "objectId": "a905d23a-b6bd-4012-80b7-e20f7318222a",
-    "spId": "44c0f7f4-6117-4c3b-8456-e98d2bade30c",
-    "displayName": "Glyphor Agent - Omar Hassan (Cost)",
-    "roles": [
-      "Glyphor.Finance.Cost.Read"
-    ],
-    "blueprintSpId": "9ec2442a-30e6-4738-947a-70fe279ef15a",
-    "entraUserId": "6a7fad64-7634-4492-935d-525a1cee076e"
-  },
   "content-creator": {
     "appId": "6a126306-14f3-4f34-a468-7b2a0b26b25a",
     "objectId": "6663cf98-4623-4c8f-9fea-cd71cbcb2714",
@@ -260,39 +226,6 @@
     "blueprintSpId": "26911c30-db45-4210-908d-2fa6c5c75cdb",
     "entraUserId": "b0c8829c-6123-4d34-aeda-bef087e3fc46",
     "upn": "kai@glyphor.ai"
-  },
-  "onboarding-specialist": {
-    "appId": "e5a792ff-095a-445b-8c2c-1480e6ebf805",
-    "objectId": "fce4ed37-ed8d-4c00-a8d2-99c94e46bc36",
-    "spId": "a09f8656-5514-4c9c-bace-0409ae76e5b7",
-    "displayName": "Glyphor Agent - Emma Wright (Onboarding)",
-    "roles": [
-      "Glyphor.Support.Read"
-    ],
-    "blueprintSpId": "8c8b4597-288e-486f-a7c6-5bdfdb28c976",
-    "entraUserId": "b95d776a-19c5-46a3-afcb-c0899da531e2"
-  },
-  "support-triage": {
-    "appId": "15902494-15ba-47f0-873e-d080e64616f4",
-    "objectId": "af7162c2-8a67-41b9-89ea-30690de0e4c8",
-    "spId": "d4bcda8f-4271-498d-b731-6308907662ed",
-    "displayName": "Glyphor Agent - David Santos (Support)",
-    "roles": [
-      "Glyphor.Support.Read"
-    ],
-    "blueprintSpId": "55716a44-d8e4-4448-a05f-06ecb70145da",
-    "entraUserId": "330b2c3f-3c87-4fd2-babf-8fc3970f3794"
-  },
-  "account-research": {
-    "appId": "b65dc7ab-f72a-4385-a638-5cc783c5abb5",
-    "objectId": "107b36f0-5d47-4c1d-b31b-92a3231e0b01",
-    "spId": "28ede25f-e6a6-47db-a739-bd1d45f0a44e",
-    "displayName": "Glyphor Agent - Nathan Cole (Account Research)",
-    "roles": [
-      "Glyphor.Research.Read"
-    ],
-    "blueprintSpId": "49bd5253-93fb-4a1d-9960-cdf5c1fa073d",
-    "entraUserId": "2c46e6db-5296-4ba8-9265-ca2806769040"
   },
   "ui-ux-designer": {
     "appId": "ca6ebadf-c2c0-4e44-9530-272eaea5cb6d",
@@ -423,62 +356,6 @@
     "entraUserId": "5813e1cb-314d-4f58-b23e-7d2a7bf70098",
     "upn": "dokafor@glyphor.ai"
   },
-  "technical-research-analyst": {
-    "appId": "ae6c1f86-d9da-48da-ac2d-d3aa194c8f2b",
-    "objectId": "3664b402-8e58-443b-8404-9d4822192adf",
-    "spId": "5d906c91-2eb6-429c-a615-795f665216db",
-    "displayName": "Glyphor Agent - Kai Nakamura (Tech Research)",
-    "roles": [
-      "Glyphor.Research.Read"
-    ],
-    "blueprintSpId": "55c22fa8-1fdc-43a2-b1bf-2789c56144d8",
-    "entraUserId": "58365116-ae46-490c-af29-38638a51ab8e"
-  },
-  "industry-research-analyst": {
-    "appId": "154b4740-d387-414c-9cb3-fea86fc104eb",
-    "objectId": "8f5d9f18-2cc5-4afe-9457-7ffce7bde6b7",
-    "spId": "f8ac19c3-4067-4771-bddc-e1ed51d37e7e",
-    "displayName": "Glyphor Agent - Amara Diallo (Industry Research)",
-    "roles": [
-      "Glyphor.Research.Read"
-    ],
-    "blueprintSpId": "27051d6c-9673-4a0d-8adb-34364871b4f5",
-    "entraUserId": "a1b84f92-491e-449e-b21d-12368d6b5968"
-  },
-  "ai-impact-analyst": {
-    "appId": "20f55dc1-6309-4e73-9d65-b69c0ca0477d",
-    "objectId": "e2c25d75-6b17-42b4-a304-0406af9822e9",
-    "spId": "4e36c8be-3e92-4088-ba6c-817b77467aba",
-    "displayName": "Glyphor Agent - Riya Mehta (AI Impact)",
-    "roles": [
-      "Glyphor.Research.Read"
-    ],
-    "blueprintSpId": "55e71340-0965-4f16-8df2-4bdf89513ab8",
-    "entraUserId": "d191b64e-2e3e-41e4-b685-41b97b5836f9",
-    "upn": "riya@glyphor.ai"
-  },
-  "org-analyst": {
-    "appId": "b65d2708-20ff-451d-9c85-78cee2831fde",
-    "objectId": "6b2dafc6-631e-4da0-8588-bad721dbdbe6",
-    "spId": "280560f7-34b3-44e5-9e72-950c66dada25",
-    "displayName": "Glyphor Agent - Marcus Chen (Org Analyst)",
-    "roles": [
-      "Glyphor.Research.Read"
-    ],
-    "blueprintSpId": "908866ae-f633-4e89-9fd1-f8639a81c668",
-    "entraUserId": "915bfec2-5277-4c75-ab52-9e62699a63a1"
-  },
-  "enterprise-account-researcher": {
-    "appId": "bd7eeef3-79c3-4138-b881-708584029dd7",
-    "objectId": "ab5be133-c16d-4f6e-80be-c36790fbe58a",
-    "spId": "6513d81d-b4f3-49b8-a80b-52c0636221b9",
-    "displayName": "Glyphor Agent - Ethan Morse (Enterprise)",
-    "roles": [
-      "Glyphor.Research.Read"
-    ],
-    "blueprintSpId": "85fb3934-911a-4133-a430-2941ec183bee",
-    "entraUserId": "535fed90-6eef-456c-af13-bb2fabac98c4"
-  },
   "bob-the-tax-pro": {
     "appId": "119dea60-2008-4757-961f-8e3e81b7cd2c",
     "objectId": "4dd8fa6a-6e9c-40ea-b601-40ea54e15264",
@@ -490,39 +367,6 @@
     "blueprintSpId": "3eca72b5-1cfd-47e1-b01d-3d09fb9d12fb",
     "entraUserId": "9febe31e-bd62-44f8-90d7-02eb83a26817",
     "upn": "bob@glyphor.ai"
-  },
-  "data-integrity-auditor": {
-    "appId": "7a83e0aa-33ba-47ac-9123-e311a811cd67",
-    "objectId": "2fb6c9fd-07cf-4ee2-8109-24035191501f",
-    "spId": "ab889d4d-db76-40e4-a2ba-dda906734be4",
-    "displayName": "Glyphor Agent - Grace Hwang (Data Audit)",
-    "roles": [
-      "Glyphor.Admin.Read"
-    ],
-    "blueprintSpId": "657dc09d-6b73-4ba1-be33-8bd6ae392be7",
-    "entraUserId": "3ecb0671-b1a9-459b-ba6e-3a7680d76749"
-  },
-  "tax-strategy-specialist": {
-    "appId": "aab67516-7039-4afc-96de-e647d48e7b49",
-    "objectId": "662e09e8-4c4a-48ca-ab36-90c6c07200dc",
-    "spId": "ad4575ee-4538-4c48-b8f0-bd43a178590a",
-    "displayName": "Glyphor Agent - Mariana Solis (Tax Strategy)",
-    "roles": [
-      "Glyphor.Finance.Revenue.Read"
-    ],
-    "blueprintSpId": "c9145652-24d2-45f4-8202-a2f6341dfd35",
-    "entraUserId": "c96f3821-c7cd-4654-9968-3c4b1a1a501f"
-  },
-  "lead-gen-specialist": {
-    "appId": "d43365ba-80e8-4ffd-8c5a-c63b1e561fbc",
-    "objectId": "1dd64b3d-fe41-4a1a-ab7b-11ff8d62f84b",
-    "spId": "e3f38e08-50ad-499d-8428-76c8e94a3c98",
-    "displayName": "Glyphor Agent - Derek Owens (Lead Gen)",
-    "roles": [
-      "Glyphor.Research.Read"
-    ],
-    "blueprintSpId": "482b5231-f5e2-476f-95fc-0d6336b95adf",
-    "entraUserId": "36818357-1854-435e-b203-94151b4a8a30"
   },
   "marketing-intelligence-analyst": {
     "appId": "21981b09-f2b8-411d-9199-f2435d309889",
