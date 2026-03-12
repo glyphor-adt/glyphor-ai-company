@@ -104,7 +104,10 @@ body {
 }
 
 .dark .dashboard-main {
-  background: linear-gradient(180deg, #0B0C10 0%, #0E0F14 40%, #0B0C10 100%);
+  background:
+    radial-gradient(ellipse at top left, rgba(0, 224, 255, 0.12), transparent 62%),
+    radial-gradient(ellipse at bottom right, rgba(17, 113, 237, 0.12), transparent 62%),
+    rgba(12, 14, 18, 0.95);
 }
 
 .dashboard-content {
