@@ -10,7 +10,7 @@ export type Agent = {
   title: string | null;
   department: string | null;
   model: string;
-  status: 'active' | 'idle' | 'paused';
+  status: 'active' | 'idle' | 'paused' | 'retired';
   reports_to: string | null;
   temperature: number | null;
   max_turns: number | null;

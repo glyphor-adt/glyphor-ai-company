@@ -452,6 +452,7 @@ function OverviewTab({
   const soul = AGENT_SOUL[agent.role];
   const tier = ROLE_TIER[agent.role] ?? 'Agent';
   const department = ROLE_DEPARTMENT[agent.role] ?? agent.department ?? '';
+  const effectiveReportsTo = ROLE_MANAGER_OVERRIDES[agent.role] ?? agent.reports_to ?? null;
 
   useEffect(() => {
     apiCall('/api/activity_log?agent_role=' + encodeURIComponent(agent.role) + '&order=created_at.desc&limit=8')
