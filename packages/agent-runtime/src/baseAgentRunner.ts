@@ -493,6 +493,7 @@ export abstract class BaseAgentRunner {
               abortSignal: supervisor.signal,
               memoryBus,
               emitEvent,
+              glyphorEventBus: safeDeps.glyphorEventBus,
             });
 
             const resultContent = result.data !== undefined ? JSON.stringify(result.data) : result.error ?? 'ok';

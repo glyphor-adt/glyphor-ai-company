@@ -109,7 +109,7 @@ interface AgentRunRow {
   model_routing_reason?: string | null;
   subtask_complexity?: string | null;
   verification_tier?: string | null;
-  verification?: string | null;
+  [key: string]: unknown;
   reasoning_cost_usd?: number | null;
   cost?: number | null;
   started_at?: string | null;
@@ -589,7 +589,7 @@ export default function Financials() {
   const verificationCounts = useMemo(() => {
     const counts: Record<string, number> = { none: 0, self_critique: 0, cross_model: 0, conditional: 0, unknown: 0 };
     for (const r of vrData) {
-      const tier = (r?.verification_tier as string) ?? (r?.verification as string) ?? 'unknown';
+      const tier = (r?.verification_tier as string) ?? (r?.['verification'] as string) ?? 'unknown';
       const key = ['none', 'self_critique', 'cross_model', 'conditional'].includes(tier) ? tier : 'unknown';
       counts[key] = (counts[key] ?? 0) + 1;
     }
@@ -599,7 +599,7 @@ export default function Financials() {
   const verificationCostByTier = useMemo(() => {
     const sums: Record<string, number> = { none: 0, self_critique: 0, cross_model: 0, conditional: 0, unknown: 0 };
     for (const r of vrData) {
-      const tier = (r?.verification_tier as string) ?? (r?.verification as string) ?? 'unknown';
+      const tier = (r?.verification_tier as string) ?? (r?.['verification'] as string) ?? 'unknown';
       const key = ['none', 'self_critique', 'cross_model', 'conditional'].includes(tier) ? tier : 'unknown';
       const cost = Number(r?.reasoning_cost_usd ?? r?.cost ?? 0) || 0;
       sums[key] = (sums[key] ?? 0) + cost;
@@ -613,7 +613,7 @@ export default function Financials() {
       const started = r?.started_at ? String(r.started_at).split('T')[0] : null;
       const date = started ? formatDate(started) : 'unknown';
       const entry = byDate.get(date) ?? { none: 0, self_critique: 0, cross_model: 0, conditional: 0, unknown: 0 };
-      const tier = (r?.verification_tier as string) ?? (r?.verification as string) ?? 'unknown';
+      const tier = (r?.verification_tier as string) ?? (r?.['verification'] as string) ?? 'unknown';
       const key = ['none', 'self_critique', 'cross_model', 'conditional'].includes(tier) ? tier : 'unknown';
       entry[key] = (entry[key] ?? 0) + 1;
       byDate.set(date, entry);

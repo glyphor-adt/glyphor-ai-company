@@ -18,6 +18,7 @@ export interface GraphContextNode {
   node_type: string;
   title: string;
   content: string;
+  category: string;
   similarity: number;
   is_direct_match: boolean;
   connected_via: string | null;
@@ -69,7 +70,7 @@ export class KnowledgeGraphReader {
    */
   async getRelevantContext(
     query: string,
-    _agentId: string,
+    agentId: string,
     options: {
       limit?: number;
       expandHops?: number;
@@ -80,10 +81,75 @@ export class KnowledgeGraphReader {
     const { limit = 10, expandHops = 1 } = options;
 
     const queryEmb = await this.embedding.embed(query);
+    const queryVector = `[${queryEmb.join(',')}]`;
 
     const results = await systemQuery<GraphContextNode>(
-      'SELECT * FROM kg_semantic_search_with_context($1, $2, $3, $4)',
-      [JSON.stringify(queryEmb), 0.65, Math.ceil(limit / 2), expandHops],
+      `WITH allowed_scope AS (
+         SELECT
+           CASE
+             WHEN $5 = 'system' THEN ARRAY['*']::text[]
+             ELSE COALESCE(
+               (SELECT knowledge_access_scope FROM company_agents WHERE role = $5 LIMIT 1),
+               ARRAY['general']::text[]
+             )
+           END AS scopes
+       ),
+       direct_matches AS (
+         SELECT
+           n.id AS node_id,
+           n.node_type,
+           n.title,
+           n.content,
+           COALESCE(NULLIF(n.metadata->>'category', ''), NULLIF(n.department, ''), 'general') AS category,
+           (1 - (n.embedding <=> $1::vector))::DECIMAL AS similarity
+         FROM kg_nodes n
+         CROSS JOIN allowed_scope s
+         WHERE n.status = 'active'
+           AND n.embedding IS NOT NULL
+           AND 1 - (n.embedding <=> $1::vector) > $2
+           AND (
+             $5 = 'system'
+             OR COALESCE(NULLIF(n.metadata->>'category', ''), NULLIF(n.department, ''), 'general') = ANY(s.scopes)
+             OR COALESCE(NULLIF(n.metadata->>'category', ''), NULLIF(n.department, ''), 'general') = 'general'
+           )
+         ORDER BY n.embedding <=> $1::vector
+         LIMIT $3
+       ),
+       expanded AS (
+         SELECT DISTINCT ON (n.id)
+           n.id AS node_id,
+           n.node_type,
+           n.title,
+           n.content,
+           COALESCE(NULLIF(n.metadata->>'category', ''), NULLIF(n.department, ''), 'general') AS category,
+           (dm.similarity * e.strength)::DECIMAL AS similarity,
+           FALSE AS is_direct_match,
+           e.edge_type AS connected_via,
+           dm.title AS connected_from
+         FROM direct_matches dm
+         JOIN kg_edges e ON (e.source_id = dm.node_id OR e.target_id = dm.node_id) AND e.valid_until IS NULL
+         JOIN kg_nodes n ON n.id = CASE
+           WHEN e.source_id = dm.node_id THEN e.target_id
+           ELSE e.source_id
+         END
+         CROSS JOIN allowed_scope s
+         WHERE n.status = 'active'
+           AND n.id NOT IN (SELECT node_id FROM direct_matches)
+           AND $4 >= 1
+           AND (
+             $5 = 'system'
+             OR COALESCE(NULLIF(n.metadata->>'category', ''), NULLIF(n.department, ''), 'general') = ANY(s.scopes)
+             OR COALESCE(NULLIF(n.metadata->>'category', ''), NULLIF(n.department, ''), 'general') = 'general'
+           )
+         ORDER BY n.id, (dm.similarity * e.strength)::DECIMAL DESC
+       )
+       SELECT node_id, node_type, title, content, category, similarity, TRUE AS is_direct_match, NULL::TEXT AS connected_via, NULL::TEXT AS connected_from
+       FROM direct_matches
+       UNION ALL
+       SELECT node_id, node_type, title, content, category, similarity, is_direct_match, connected_via, connected_from
+       FROM expanded
+       ORDER BY similarity DESC`,
+      [queryVector, 0.65, Math.ceil(limit / 2), expandHops, agentId],
     );
 
     if (!results.length) return { nodes: [], narrative: '' };
@@ -95,8 +161,8 @@ export class KnowledgeGraphReader {
    * Causal chain: "why did X happen?"
    * Walks backward through caused/contributed_to edges.
    */
-  async traceCauses(nodeTitle: string): Promise<string> {
-    const node = await this.findNodeByTitle(nodeTitle);
+  async traceCauses(nodeTitle: string, agentId = 'system'): Promise<string> {
+    const node = await this.findNodeByTitle(nodeTitle, agentId);
     if (!node) return 'No matching event found in the knowledge graph.';
 
     const chain = await systemQuery<CausalChainNode>(
@@ -113,8 +179,8 @@ export class KnowledgeGraphReader {
    * Impact analysis: "what happened because of X?"
    * Walks forward through caused/resulted_in/affects edges.
    */
-  async traceImpact(nodeTitle: string): Promise<string> {
-    const node = await this.findNodeByTitle(nodeTitle);
+  async traceImpact(nodeTitle: string, agentId = 'system'): Promise<string> {
+    const node = await this.findNodeByTitle(nodeTitle, agentId);
     if (!node) return 'No matching event found in the knowledge graph.';
 
     const chain = await systemQuery<CausalChainNode>(
@@ -130,10 +196,31 @@ export class KnowledgeGraphReader {
   /**
    * Search for a single node by title (fuzzy match).
    */
-  async findNodeByTitle(title: string): Promise<{ id: string; title: string } | null> {
+  async findNodeByTitle(title: string, agentId = 'system'): Promise<{ id: string; title: string } | null> {
     const rows = await systemQuery<{ id: string; title: string }>(
-      'SELECT id, title FROM kg_nodes WHERE title ILIKE $1 AND status = $2 ORDER BY created_at DESC LIMIT 1',
-      [`%${title}%`, 'active'],
+      `WITH allowed_scope AS (
+         SELECT
+           CASE
+             WHEN $2 = 'system' THEN ARRAY['*']::text[]
+             ELSE COALESCE(
+               (SELECT knowledge_access_scope FROM company_agents WHERE role = $2 LIMIT 1),
+               ARRAY['general']::text[]
+             )
+           END AS scopes
+       )
+       SELECT id, title
+       FROM kg_nodes
+       CROSS JOIN allowed_scope s
+       WHERE title ILIKE $1
+         AND status = 'active'
+         AND (
+           $2 = 'system'
+           OR COALESCE(NULLIF(metadata->>'category', ''), NULLIF(department, ''), 'general') = ANY(s.scopes)
+           OR COALESCE(NULLIF(metadata->>'category', ''), NULLIF(department, ''), 'general') = 'general'
+         )
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [`%${title}%`, agentId],
     );
     return rows[0] ?? null;
   }

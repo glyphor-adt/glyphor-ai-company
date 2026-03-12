@@ -92,7 +92,7 @@ export class SharedMemoryLoader {
 
     // L3: Semantic Memory — standard+ (knowledge graph neighborhood)
     const semanticPromise = (contextTier === 'standard' || contextTier === 'full')
-      ? this.searchSemanticMemory(task, { limit: 6 })
+      ? this.searchSemanticMemory(role, task, { limit: 6 })
       : Promise.resolve([] as { title: string; content: string; nodeType: string; similarity: number }[]);
 
     // L4: Procedural Memory — standard+ (matching procedures)
@@ -218,12 +218,13 @@ export class SharedMemoryLoader {
   // ─── Layer 3: Semantic Memory (Knowledge Graph) ─────────────
 
   private async searchSemanticMemory(
+    role: CompanyAgentRole,
     query: string,
     options: { limit?: number } = {},
   ): Promise<{ title: string; content: string; nodeType: string; similarity: number }[]> {
     try {
       if (!this.graphReader) return [];
-      const context = await this.graphReader.getRelevantContext(query, 'system', {
+      const context = await this.graphReader.getRelevantContext(query, role, {
         limit: options.limit ?? 6,
         expandHops: 1,
       });

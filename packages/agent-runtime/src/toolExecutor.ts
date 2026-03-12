@@ -37,6 +37,11 @@ import type { ModelClient } from './modelClient.js';
 import type { RedisCache } from './redisCache.js';
 import { recordToolCall, detectToolSource } from './toolReputationTracker.js';
 import { applyPatchToGitHub } from './patchHarness.js';
+import {
+  detectBehavioralAnomalies,
+  loadBehaviorProfile,
+  persistBehavioralAnomalies,
+} from './behavioralFingerprint.js';
 
 // ─── Emergency Block Cache ─────────────────────────────────────
 const BLOCK_CACHE_TTL_MS = 60_000; // 60 seconds
@@ -234,6 +239,7 @@ export class ToolExecutor {
   private securityLog: SecurityEvent[] = [];
   private rateCounts: Map<string, number[]> = new Map(); // "role:tool" → timestamps
   private runCosts: Map<string, number> = new Map();     // agentId → cumulative cost this run
+  private runToolCounts: Map<string, Map<string, number>> = new Map(); // agentId → per-tool counts this run
   private dailyCosts: Map<string, number> = new Map();   // role → cumulative cost today
   private monthlyCosts: Map<string, number> = new Map(); // role → cumulative cost this month
   private enforcementEnabled: boolean;
@@ -495,6 +501,38 @@ export class ToolExecutor {
       this.addDailyCost(role, estimatedCost);
       this.addMonthlyCost(role, estimatedCost);
 
+      const runToolCounts = this.runToolCounts.get(agentId) ?? new Map<string, number>();
+      const behaviorCheck = {
+        agentId,
+        agentRole: role,
+        toolName,
+        params,
+        currentRunCostUsd: this.runCosts.get(agentId) ?? 0,
+        currentRunToolCounts: runToolCounts,
+      };
+      const anomalies = detectBehavioralAnomalies(
+        await loadBehaviorProfile(role),
+        behaviorCheck,
+      );
+      if (anomalies.length > 0) {
+        this.logSecurityEvent(agentId, role, toolName, 'BEHAVIORAL_ANOMALY', anomalies);
+        await persistBehavioralAnomalies(behaviorCheck, anomalies);
+        if (anomalies.some((anomaly) => anomaly.severity === 'high' || anomaly.severity === 'critical')) {
+          void context.glyphorEventBus?.emit({
+            type: 'alert.triggered',
+            source: context.agentRole,
+            priority: 'critical',
+            payload: {
+              category: 'behavioral_anomaly',
+              tool_name: toolName,
+              anomalies,
+            },
+          }).catch((err) => {
+            console.warn('[ToolExecutor] Failed to emit behavioral anomaly alert:', (err as Error).message);
+          });
+        }
+      }
+
       // 4. Formal budget verification for write tools
       if (this.formalVerifier && !isReadOnlyTool(toolName)) {
         const budget = AGENT_BUDGETS[role];
@@ -680,6 +718,10 @@ export class ToolExecutor {
           }
         }
       }
+
+      const runToolCounts = this.runToolCounts.get(context.agentId) ?? new Map<string, number>();
+      runToolCounts.set(toolName, (runToolCounts.get(toolName) ?? 0) + 1);
+      this.runToolCounts.set(context.agentId, runToolCounts);
 
       // Log the tool call
       this.logToolCall(

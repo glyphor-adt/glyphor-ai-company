@@ -97,6 +97,7 @@ export interface ToolContext {
   abortSignal: AbortSignal;
   memoryBus: IMemoryBus;
   emitEvent: (event: AgentEvent) => void;
+  glyphorEventBus?: import('./glyphorEventBus.js').GlyphorEventBus;
   /** RuntimeToolFactory — present when runtime tool synthesis is enabled. */
   runtimeToolFactory?: import('./runtimeToolFactory.js').RuntimeToolFactory;
 }
@@ -498,7 +499,8 @@ export type SecurityEventType =
   | 'BUDGET_EXCEEDED'
   | 'EVENT_NOT_PERMITTED'
   | 'DATA_EVIDENCE_MISSING'
-  | 'CONSTITUTIONAL_BLOCK';
+  | 'CONSTITUTIONAL_BLOCK'
+  | 'BEHAVIORAL_ANOMALY';
 
 export interface SecurityEvent {
   agentId: string;

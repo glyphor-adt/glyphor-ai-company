@@ -1972,6 +1972,7 @@ export class CompanyAgentRunner {
               abortSignal: supervisor.signal,
               memoryBus,
               emitEvent,
+              glyphorEventBus: deps?.glyphorEventBus,
             });
 
             const resultContent = result.data !== undefined

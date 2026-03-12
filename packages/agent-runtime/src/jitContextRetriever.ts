@@ -100,7 +100,7 @@ export class JitContextRetriever {
     // Query all stores in parallel
     const [memories, graphNodes, episodes, procedures, knowledge] = await Promise.allSettled([
       this.queryMemories(embeddingStr, agentRole),
-      this.queryGraphNodes(embeddingStr),
+      this.queryGraphNodes(embeddingStr, agentRole),
       this.queryEpisodes(embeddingStr),
       this.queryProcedures(task),
       this.queryKnowledge(embeddingStr),
@@ -164,11 +164,36 @@ export class JitContextRetriever {
   }
 
   /** Query knowledge graph nodes by embedding similarity. */
-  private async queryGraphNodes(embeddingStr: string): Promise<JitContextItem[]> {
+  private async queryGraphNodes(embeddingStr: string, agentRole: string): Promise<JitContextItem[]> {
     try {
       const data = await systemQuery<{ name: string; description: string; similarity: number }>(
-        'SELECT * FROM match_kg_nodes($1, $2, $3)',
-        [embeddingStr, DEFAULT_MATCH_COUNT, DEFAULT_MATCH_THRESHOLD],
+        `WITH allowed_scope AS (
+           SELECT
+             CASE
+               WHEN $4 = 'system' THEN ARRAY['*']::text[]
+               ELSE COALESCE(
+                 (SELECT knowledge_access_scope FROM company_agents WHERE role = $4 LIMIT 1),
+                 ARRAY['general']::text[]
+               )
+             END AS scopes
+         )
+         SELECT
+           n.title AS name,
+           n.content AS description,
+           (1 - (n.embedding <=> $1::vector))::DECIMAL AS similarity
+         FROM kg_nodes n
+         CROSS JOIN allowed_scope s
+         WHERE n.status = 'active'
+           AND n.embedding IS NOT NULL
+           AND 1 - (n.embedding <=> $1::vector) > $3
+           AND (
+             $4 = 'system'
+             OR COALESCE(NULLIF(n.metadata->>'category', ''), NULLIF(n.department, ''), 'general') = ANY(s.scopes)
+             OR COALESCE(NULLIF(n.metadata->>'category', ''), NULLIF(n.department, ''), 'general') = 'general'
+           )
+         ORDER BY n.embedding <=> $1::vector
+         LIMIT $2`,
+        [embeddingStr, DEFAULT_MATCH_COUNT, DEFAULT_MATCH_THRESHOLD, agentRole],
       );
 
       return data.map(row => ({

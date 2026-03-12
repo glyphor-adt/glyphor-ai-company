@@ -61,8 +61,8 @@ export function createGraphTools(
           required: true,
         },
       },
-      execute: async (params): Promise<ToolResult> => {
-        const result = await reader.traceCauses(params.event as string);
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const result = await reader.traceCauses(params.event as string, ctx.agentRole);
         return { success: true, data: result };
       },
     },
@@ -79,8 +79,8 @@ export function createGraphTools(
           required: true,
         },
       },
-      execute: async (params): Promise<ToolResult> => {
-        const result = await reader.traceImpact(params.event as string);
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const result = await reader.traceImpact(params.event as string, ctx.agentRole);
         return { success: true, data: result };
       },
     },
@@ -191,7 +191,7 @@ export function createGraphTools(
         let edgesCreated = 0;
         const connections = (params.connects_to as { target_title: string; relationship: string; strength?: number }[]) ?? [];
         for (const conn of connections) {
-          const target = await reader.findNodeByTitle(conn.target_title);
+            const target = await reader.findNodeByTitle(conn.target_title, ctx.agentRole);
           if (target) {
             const ok = await writer.createEdge(
               ctx.agentRole,

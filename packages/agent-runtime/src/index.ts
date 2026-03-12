@@ -68,6 +68,8 @@ export { EpisodicReplay } from './episodicReplay.js';
 export type { ReplayResult } from './episodicReplay.js';
 export { DriftDetector } from './driftDetector.js';
 export type { DriftAlert, DriftDetectionResult } from './driftDetector.js';
+export { loadBehaviorProfile, detectBehavioralAnomalies, persistBehavioralAnomalies } from './behavioralFingerprint.js';
+export type { BehaviorProfile, BehavioralAnomaly, BehaviorCheckInput } from './behavioralFingerprint.js';
 // LLM routing
 export { inferCapabilities, resolveModelConfig, PRE_CHECK_REGISTRY, runDeterministicPreCheck, TOOL_CAPABILITY_MAP, HIGH_COMPLEXITY_CAPABILITIES } from './routing/index.js';
 export type { Capability, RoutingContext, RoutingDecision, DeterministicPreCheckContext, DeterministicPreCheckResult, DeterministicPreCheck } from './routing/index.js';

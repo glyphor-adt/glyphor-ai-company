@@ -15,7 +15,7 @@ import Directives from './pages/Directives';
 import WorkforceBuilder from './pages/WorkforceBuilder';
 import Governance from './pages/Governance';
 import Knowledge from './pages/Knowledge';
-import Capabilities from './pages/Capabilities';
+import Skills from './pages/Skills';
 import Comms from './pages/Comms';
 import Settings from './pages/Settings';
 import ChangeRequests from './pages/ChangeRequests';
@@ -37,7 +37,7 @@ export default function App() {
         <Route path="operations" element={<Operations />} />
         <Route path="strategy" element={<Strategy />} />
         <Route path="knowledge" element={<Knowledge />} />
-        <Route path="capabilities" element={<Capabilities />} />
+        <Route path="skills" element={<Skills />} />
         <Route path="skills/:slug" element={<SkillDetail />} />
         <Route path="comms" element={<Comms />} />
         <Route path="chat/:agentId" element={<Chat />} />
@@ -52,9 +52,9 @@ export default function App() {
         <Route path="chat" element={<Navigate to="/comms" replace />} />
         <Route path="activity" element={<Navigate to="/operations" replace />} />
         <Route path="graph" element={<Navigate to="/knowledge" replace />} />
-        <Route path="skills" element={<Navigate to="/capabilities" replace />} />
+        <Route path="capabilities" element={<Navigate to="/skills" replace />} />
         <Route path="meetings" element={<Navigate to="/comms" replace />} />
-        <Route path="world-model" element={<Navigate to="/capabilities" replace />} />
+        <Route path="world-model" element={<Navigate to="/skills" replace />} />
         <Route path="group-chat" element={<Navigate to="/comms" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

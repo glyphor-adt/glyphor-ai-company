@@ -39,7 +39,7 @@ const TYPE_CONFIG: Record<RequestType, { label: string; icon: typeof MdCode }> =
 
 const AREA_OPTIONS = [
   'dashboard', 'directives', 'workforce', 'comms', 'approvals',
-  'financials', 'operations', 'strategy', 'knowledge', 'capabilities',
+  'financials', 'operations', 'strategy', 'knowledge', 'skills',
   'builder', 'governance', 'settings', 'chat', 'other',
 ] as const;
 

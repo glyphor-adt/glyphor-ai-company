@@ -15,7 +15,6 @@ const NAV = [
   { to: '/operations', label: 'Operations', icon: GearIcon },
   { to: '/strategy', label: 'Strategy', icon: StrategyIcon },
   { to: '/knowledge', label: 'Knowledge', icon: KnowledgeIcon },
-  { to: '/capabilities', label: 'Capabilities', icon: SkillsIcon },
   { to: '/builder', label: 'Builder', icon: BuilderIcon },
   { to: '/governance', label: 'Governance', icon: GovernanceIcon },
   { to: '/change-requests', label: 'Change Requests', icon: ChangeRequestIcon },
