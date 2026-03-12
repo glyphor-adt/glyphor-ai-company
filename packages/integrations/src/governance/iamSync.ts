@@ -20,7 +20,6 @@ const SERVICE_ACCOUNTS: ServiceAccountMapping[] = [
   { email: 'sa-nadia@ai-glyphor-company.iam.gserviceaccount.com', agentRole: 'cfo' },
   { email: 'sa-alex@ai-glyphor-company.iam.gserviceaccount.com', agentRole: 'platform-engineer' },
   { email: 'sa-jordan@ai-glyphor-company.iam.gserviceaccount.com', agentRole: 'devops-engineer' },
-  { email: 'sa-omar@ai-glyphor-company.iam.gserviceaccount.com', agentRole: 'cost-analyst' },
   { email: 'sa-elena@ai-glyphor-company.iam.gserviceaccount.com', agentRole: 'cpo' },
   { email: 'sa-maya@ai-glyphor-company.iam.gserviceaccount.com', agentRole: 'cmo' },
   { email: 'sa-rachel@ai-glyphor-company.iam.gserviceaccount.com', agentRole: 'vp-sales' },

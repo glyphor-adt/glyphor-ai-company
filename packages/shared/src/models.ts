@@ -475,16 +475,10 @@ export const EXEC_CHAT_MODEL = 'gpt-5-mini-2025-08-07';
 /** Role → tier mapping. Unlisted roles default to 'standard'. */
 export const ROLE_COST_TIER: Record<string, CostTier> = {
   // ── Economy: routine, structured, low-complexity ────────────
-  'support-triage':        'economy',
-  'onboarding-specialist': 'economy',
   'm365-admin':            'economy',
   'global-admin':          'economy',
-  'data-integrity-auditor':'economy',
   'seo-analyst':           'economy',
   'social-media-manager':  'economy',
-  'cost-analyst':          'economy',
-  'revenue-analyst':       'economy',
-  'account-research':      'economy',
   'adi-rose':              'economy',
 
   // ── Standard: analysis, creative, department-level ──────────
@@ -499,20 +493,12 @@ export const ROLE_COST_TIER: Record<string, CostTier> = {
   'platform-engineer':     'standard',
   'quality-engineer':      'standard',
   'head-of-hr':            'standard',
-  'vp-customer-success':   'standard',
   'vp-sales':              'standard',
   'vp-design':             'standard',
   'bob-the-tax-pro':       'standard',
-  'tax-strategy-specialist':'standard',
-  'lead-gen-specialist':   'standard',
-  'enterprise-account-researcher': 'standard',
   'marketing-intelligence-analyst': 'standard',
   'competitive-research-analyst':   'standard',
   'market-research-analyst':        'standard',
-  'technical-research-analyst':     'standard',
-  'industry-research-analyst':      'standard',
-  'ai-impact-analyst':     'standard',
-  'org-analyst':           'standard',
 
   // ── Pro: orchestrators, C-suite, strategic planning ─────────
   'chief-of-staff':        'pro',

@@ -213,15 +213,13 @@ function computeHealthMap(
 
 const ROLE_ORDER = [
   'chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'clo',
-  'vp-customer-success', 'vp-sales', 'vp-design', 'vp-research', 'ops',
+  'vp-sales', 'vp-design', 'vp-research', 'ops',
   'platform-engineer', 'quality-engineer', 'devops-engineer',
-  'user-researcher', 'competitive-intel', 'revenue-analyst', 'cost-analyst',
+  'user-researcher', 'competitive-intel',
   'content-creator', 'seo-analyst', 'social-media-manager',
-  'onboarding-specialist', 'support-triage', 'account-research',
   'ui-ux-designer', 'frontend-engineer', 'design-critic', 'template-architect',
   'm365-admin', 'global-admin',
   'competitive-research-analyst', 'market-research-analyst',
-  'technical-research-analyst', 'industry-research-analyst',
 ];
 
 interface SyncRow {

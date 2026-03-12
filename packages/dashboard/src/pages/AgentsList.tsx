@@ -28,17 +28,15 @@ export default function AgentsList() {
                 // Product
                 'user-researcher', 'competitive-intel',
                 // Finance
-                'revenue-analyst', 'cost-analyst',
                 // Marketing
                 'content-creator', 'seo-analyst', 'social-media-manager',
                 // Sales
-                'account-research',
                 // Design
                 'ui-ux-designer', 'frontend-engineer', 'design-critic', 'template-architect',
                 // IT / Ops
                 'm365-admin', 'global-admin',
                 // Research & Intelligence
-                'competitive-research-analyst', 'market-research-analyst', 'technical-research-analyst', 'industry-research-analyst',
+                'competitive-research-analyst', 'market-research-analyst',
               ];
               const ai = order.indexOf(a.role);
               const bi = order.indexOf(b.role);

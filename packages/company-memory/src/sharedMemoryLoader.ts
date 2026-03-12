@@ -35,8 +35,6 @@ const ROLE_DOMAINS: Record<string, string[]> = {
   'devops-engineer': ['engineering', 'infrastructure', 'devops'],
   'cfo': ['finance', 'operations'],
   'clo': ['legal', 'compliance'],
-  'revenue-analyst': ['finance', 'revenue'],
-  'cost-analyst': ['finance', 'cost'],
   'cpo': ['product', 'strategy'],
   'user-researcher': ['product', 'research'],
   'competitive-intel': ['product', 'competitive'],
@@ -44,11 +42,7 @@ const ROLE_DOMAINS: Record<string, string[]> = {
   'content-creator': ['marketing', 'content'],
   'seo-analyst': ['marketing', 'seo'],
   'social-media-manager': ['marketing', 'social'],
-  'vp-customer-success': ['customer_success', 'support'],
-  'onboarding-specialist': ['customer_success', 'onboarding'],
-  'support-triage': ['customer_success', 'support'],
   'vp-sales': ['sales', 'revenue'],
-  'account-research': ['sales', 'research'],
   'vp-design': ['design', 'product'],
   'ui-ux-designer': ['design', 'ux'],
   'frontend-engineer': ['design', 'engineering'],
@@ -59,8 +53,6 @@ const ROLE_DOMAINS: Record<string, string[]> = {
   'vp-research': ['research', 'strategy'],
   'competitive-research-analyst': ['research', 'competitive'],
   'market-research-analyst': ['research', 'market'],
-  'technical-research-analyst': ['research', 'engineering'],
-  'industry-research-analyst': ['research', 'industry'],
 };
 
 const ORCHESTRATOR_ROLES = new Set([
