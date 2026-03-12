@@ -79,6 +79,12 @@ export class ModelClient {
         throw new Error(`[${provider}] No API key configured (model: ${currentModel})`);
       }
 
+      // Strip previousResponseId on fallback — it belongs to a different
+      // model's server-side state and would cause 400 errors.
+      if (modelIdx > 0 && request.metadata?.previousResponseId) {
+        request = { ...request, metadata: { ...request.metadata, previousResponseId: undefined } };
+      }
+
       const MAX_RETRIES = 2;
 
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {

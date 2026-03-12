@@ -18,6 +18,7 @@ interface MigrationSchema {
 
 const SYSTEM_TABLES = new Set([
   'information_schema.columns',
+  'information_schema.tables',
   'pg_tables',
   'spatial_ref_sys',
   'schema_migrations',
@@ -25,6 +26,12 @@ const SYSTEM_TABLES = new Set([
   'geometry_columns',
   'raster_columns',
   'raster_overviews',
+]);
+
+const IGNORED_SQL_IDENTIFIERS = new Set([
+  'lateral',
+  'set',
+  'where',
 ]);
 
 function findMonorepoRoot(): string {
@@ -39,6 +46,13 @@ function findMonorepoRoot(): string {
 
 const REPO_ROOT = findMonorepoRoot();
 
+function normalizeIdentifier(value: string): string {
+  const normalized = value.replace(/["'`]/g, '').trim().toLowerCase();
+  if (SYSTEM_TABLES.has(normalized) || normalized.startsWith('information_schema.')) return normalized;
+  const parts = normalized.split('.');
+  return parts[parts.length - 1] ?? normalized;
+}
+
 function parseMigrations(): MigrationSchema {
   const migrationsDir = resolve(REPO_ROOT, process.env.MIGRATIONS_DIR || 'db/migrations');
   const tables = new Set<string>();
@@ -50,17 +64,21 @@ function parseMigrations(): MigrationSchema {
     return { tables };
   }
 
-  const createRe = /CREATE TABLE\s+(?:IF NOT EXISTS\s+)?(\w+)/gi;
-  const alterRe = /ALTER TABLE\s+(?:IF EXISTS\s+)?(\w+)/gi;
+  const createTableRe = /CREATE TABLE\s+(?:IF NOT EXISTS\s+)?("?[\w.]+"?)/gi;
+  const createViewRe = /CREATE(?: MATERIALIZED)? VIEW\s+(?:IF NOT EXISTS\s+)?("?[\w.]+"?)/gi;
+  const alterRe = /ALTER TABLE\s+(?:IF EXISTS\s+)?("?[\w.]+"?)/gi;
 
   for (const file of files) {
     const sql = readFileSync(join(migrationsDir, file), 'utf8');
     let match: RegExpExecArray | null;
-    while ((match = createRe.exec(sql)) !== null) {
-      tables.add(match[1].toLowerCase());
+    while ((match = createTableRe.exec(sql)) !== null) {
+      tables.add(normalizeIdentifier(match[1]));
+     }
+    while ((match = createViewRe.exec(sql)) !== null) {
+      tables.add(normalizeIdentifier(match[1]));
     }
     while ((match = alterRe.exec(sql)) !== null) {
-      tables.add(match[1].toLowerCase());
+      tables.add(normalizeIdentifier(match[1]));
     }
   }
 
@@ -91,24 +109,58 @@ function extractCteNames(content: string): Set<string> {
   return names;
 }
 
+function extractSqlLiterals(content: string): string[] {
+  const literals = content.match(/`[\s\S]*?`|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"/g) ?? [];
+  return literals
+    .map((literal) => {
+      const quote = literal[0];
+      const inner = literal.slice(1, -1);
+      return quote === '`' ? inner.replace(/\$\{[\s\S]*?\}/g, '__expr__') : inner;
+    })
+    .filter((literal) =>
+      /^\s*(?:SELECT\b[\s\S]*\bFROM\b|INSERT\s+INTO\b|UPDATE\b[\s\S]*\bSET\b|DELETE\s+FROM\b|ALTER\s+TABLE\b|WITH\b[\s\S]*\bAS\s*\()/i.test(literal),
+    );
+}
+
+function stripSqlComments(content: string): string {
+  return content
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/--.*$/gm, ' ');
+}
+
 function extractSqlTableReferences(content: string): Set<string> {
   const refs = new Set<string>();
-  const ctes = extractCteNames(content);
+  const sqlLiterals = extractSqlLiterals(content).map(stripSqlComments);
+  const ctes = new Set<string>(sqlLiterals.flatMap((literal) => Array.from(extractCteNames(literal))));
   const patterns = [
-    /\bFROM\s+([a-z_][a-z0-9_.]*)/gi,
-    /\bJOIN\s+([a-z_][a-z0-9_.]*)/gi,
-    /\bUPDATE\s+([a-z_][a-z0-9_.]*)/gi,
-    /\bINSERT\s+INTO\s+([a-z_][a-z0-9_.]*)/gi,
-    /\bDELETE\s+FROM\s+([a-z_][a-z0-9_.]*)/gi,
-    /\bALTER\s+TABLE\s+([a-z_][a-z0-9_.]*)/gi,
+    /\bFROM\s+("?[\w.]+"?)/gi,
+    /\bJOIN\s+("?[\w.]+"?)/gi,
+    /(?:^|;)\s*UPDATE\s+("?[\w.]+"?)/gi,
+    /(?:^|;)\s*INSERT\s+INTO\s+("?[\w.]+"?)/gi,
+    /(?:^|;)\s*DELETE\s+FROM\s+("?[\w.]+"?)/gi,
+    /(?:^|;)\s*ALTER\s+TABLE\s+("?[\w.]+"?)/gi,
     /queryTable(?:<[^>]+>)?\(\s*'([a-z_][a-z0-9_]*)'/gi,
   ];
 
-  for (const pattern of patterns) {
-    let match: RegExpExecArray | null;
-    while ((match = pattern.exec(content)) !== null) {
-      const table = match[1].toLowerCase();
-      if (ctes.has(table) || SYSTEM_TABLES.has(table)) continue;
+  for (const sql of sqlLiterals) {
+    for (const pattern of patterns.slice(0, 6)) {
+      let match: RegExpExecArray | null;
+      while ((match = pattern.exec(sql)) !== null) {
+        const trailing = sql.slice(pattern.lastIndex);
+        const table = normalizeIdentifier(match[1]);
+        if (/^\s*[\(\)]/.test(trailing)) continue;
+        if (table.includes('__expr__') || table.length <= 1 || IGNORED_SQL_IDENTIFIERS.has(table)) continue;
+        if (ctes.has(table) || SYSTEM_TABLES.has(table)) continue;
+        refs.add(table);
+      }
+    }
+  }
+
+  const queryTablePattern = patterns[6];
+  let match: RegExpExecArray | null;
+  while ((match = queryTablePattern.exec(content)) !== null) {
+    const table = normalizeIdentifier(match[1]);
+    if (!SYSTEM_TABLES.has(table)) {
       refs.add(table);
     }
   }
@@ -121,7 +173,7 @@ function extractDashboardApiTargets(content: string): Map<string, string> {
   const mapRe = /'([^']+)':\s*'([a-z_][a-z0-9_]*)'/g;
   let match: RegExpExecArray | null;
   while ((match = mapRe.exec(content)) !== null) {
-    targets.set(match[1], match[2].toLowerCase());
+    targets.set(match[1], normalizeIdentifier(match[2]));
   }
   return targets;
 }

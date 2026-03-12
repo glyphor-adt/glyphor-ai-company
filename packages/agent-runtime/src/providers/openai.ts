@@ -400,7 +400,11 @@ export class OpenAIAdapter implements ProviderAdapter {
         ? { tools: [...(responsesTools ?? []), ...toolSearchTool, ...webSearchTool, ...patchTool] }
         : {}),
       max_output_tokens: maxOutputTokens,
-      ...(request.metadata?.previousResponseId ? { previous_response_id: request.metadata.previousResponseId } : {}),
+      // Do NOT pass previous_response_id — we always send the full
+      // conversation via `input` items.  Combining both causes 400 errors
+      // when the server-side state has function_calls with OpenAI-generated
+      // IDs that don't match our synthetic call IDs.
+      store: false,
       ...(modelConfig?.verbosity ? { text: { verbosity: modelConfig.verbosity } } : {}),
       ...(modelConfig?.structuredOutput ? {
         text: {
@@ -537,6 +541,18 @@ export class OpenAIAdapter implements ProviderAdapter {
           break;
         }
         case 'tool_result': {
+          if (lastCallIds.length === 0) {
+            // Orphaned tool_result with no preceding tool_call — fold into
+            // a plain text user message so OpenAI doesn't reject it.
+            const textParts: string[] = [];
+            while (i < turns.length && turns[i].role === 'tool_result') {
+              const tr = turns[i];
+              textParts.push(`[Prior tool result — ${tr.toolName ?? 'tool'}]: ${tr.content}`);
+              i++;
+            }
+            input.push({ role: 'user', content: textParts.join('\n\n') });
+            break;
+          }
           let resultIndex = 0;
           while (i < turns.length && turns[i].role === 'tool_result') {
             const tr = turns[i];
@@ -784,6 +800,18 @@ export class OpenAIAdapter implements ProviderAdapter {
           break;
         }
         case 'tool_result': {
+          if (lastToolCallIds.length === 0) {
+            // Orphaned tool_result with no preceding tool_call — fold into
+            // a plain text user message so OpenAI doesn't reject it.
+            const textParts: string[] = [];
+            while (i < turns.length && turns[i].role === 'tool_result') {
+              const tr = turns[i];
+              textParts.push(`[Prior tool result — ${tr.toolName ?? 'tool'}]: ${tr.content}`);
+              i++;
+            }
+            messages.push({ role: 'user', content: textParts.join('\n\n') });
+            break;
+          }
           let resultIndex = 0;
           while (i < turns.length && turns[i].role === 'tool_result') {
             const tr = turns[i];
