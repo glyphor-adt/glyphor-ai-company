@@ -16,7 +16,7 @@ import { McpToolServerConfigurationService } from '@microsoft/agents-a365-toolin
 import type { MCPServerConfig } from '@microsoft/agents-a365-tooling';
 import { MsalTokenProvider } from '@microsoft/agents-hosting';
 import type { AuthConfiguration } from '@microsoft/agents-hosting';
-import { getAgentIdentityAppId, getAgentBlueprintSpId } from '@glyphor/agent-runtime';
+import { getAgentIdentityAppId, getAgentBlueprintSpId, getAgentSpId, getAgentEntraUserId } from '@glyphor/agent-runtime';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -379,11 +379,12 @@ export class A365TeamsChatClient {
    * to authenticate as the specific agent user.
    */
   private async getToken(agentRole?: string): Promise<string> {
-    // Use the shared agent app instance ID and agentic user ID for all agents.
-    // The per-agent Entra users are regular directory users, NOT agentic users
-    // created by the Teams agent installation — they fail the 3-step token exchange.
-    const agentAppInstanceId = process.env.AGENT365_APP_INSTANCE_ID;
-    const agenticUserId = process.env.AGENT365_AGENTIC_USER_ID;
+    const role = agentRole ?? this.defaultAgentRole;
+    // Resolve per-agent identity from agentIdentities.json; fall back to shared env vars.
+    const agentAppInstanceId = (role ? getAgentSpId(role) : null)
+      ?? process.env.AGENT365_APP_INSTANCE_ID;
+    const agenticUserId = (role ? getAgentEntraUserId(role) : null)
+      ?? process.env.AGENT365_AGENTIC_USER_ID;
 
     if (!agentAppInstanceId || !agenticUserId) {
       throw new Error(

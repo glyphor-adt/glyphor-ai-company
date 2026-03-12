@@ -12,6 +12,7 @@
  */
 
 import { type ToolDefinition } from '@glyphor/agent-runtime';
+import { getAgentSpId, getAgentEntraUserId } from '@glyphor/agent-runtime';
 import type { Agent365ToolBridge } from '@glyphor/integrations';
 import { createAgent365Tools as initAgent365Bridge } from '@glyphor/integrations';
 
@@ -34,25 +35,9 @@ export const ALL_M365_SERVERS = [
   'mcp_SharePointLists',
 ] as const;
 
-const EXECUTIVE_M365_ROLES = new Set([
-  'chief-of-staff', 'cto', 'cfo', 'clo', 'cpo', 'cmo', 'vp-sales', 'vp-design',
-  'vp-customer-success', 'vp-research', 'ops', 'global-admin', 'm365-admin',
-]);
-
-function getDefaultAgent365Servers(agentRole?: string): readonly string[] {
-  if (!agentRole) return ALL_M365_SERVERS;
-  if (EXECUTIVE_M365_ROLES.has(agentRole)) return ALL_M365_SERVERS;
-
-  if (['content-creator', 'seo-analyst', 'social-media-manager', 'ui-ux-designer', 'template-architect'].includes(agentRole)) {
-    return ['mcp_MailTools', 'mcp_CalendarTools', 'mcp_ODSPRemoteServer', 'mcp_TeamsServer', 'mcp_WordServer'];
-  }
-  if (['head-of-hr', 'onboarding-specialist', 'support-triage', 'account-research'].includes(agentRole)) {
-    return ['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_UserProfile', 'mcp_ODSPRemoteServer'];
-  }
-  if (['cfo', 'cost-analyst', 'revenue-analyst', 'ai-impact-analyst'].includes(agentRole)) {
-    return ['mcp_MailTools', 'mcp_CalendarTools', 'mcp_TeamsServer', 'mcp_ODSPRemoteServer', 'mcp_SharePointLists'];
-  }
-  return STANDARD_M365_SERVERS;
+/** All agents get the full M365 MCP server catalog — every agent has an Agent365 license. */
+function getDefaultAgent365Servers(_agentRole?: string): readonly string[] {
+  return ALL_M365_SERVERS;
 }
 
 // ── Singleton Bridge ─────────────────────────────────────────────
@@ -105,11 +90,13 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
     return [];
   }
 
-  // Use the shared agent app instance ID and agentic user ID for all agents.
-  // The per-agent Entra users are regular directory users, NOT agentic users
-  // created by the Teams agent installation — they fail the 3-step token exchange.
-  const agentAppInstanceId = process.env.AGENT365_APP_INSTANCE_ID;
-  const agenticUserId = process.env.AGENT365_AGENTIC_USER_ID;
+  // Resolve per-agent identity from agentIdentities.json; fall back to shared env vars.
+  // Each agent has its own agentic user (own mailbox, UPN, calendar) created by
+  // the Teams agent installation. spId = agentAppInstanceId, entraUserId = agenticUserId.
+  const agentAppInstanceId = (agentRole ? getAgentSpId(agentRole) : null)
+    ?? process.env.AGENT365_APP_INSTANCE_ID;
+  const agenticUserId = (agentRole ? getAgentEntraUserId(agentRole) : null)
+    ?? process.env.AGENT365_AGENTIC_USER_ID;
 
   if (!agentAppInstanceId || !agenticUserId) {
     console.warn(`[Agent365] No identity found for agent ${agentRole ?? 'unknown'}. Set blueprintSpId/entraUserId in agentIdentities.json or AGENT365_APP_INSTANCE_ID/AGENT365_AGENTIC_USER_ID env vars. Skipping.`);

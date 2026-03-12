@@ -1021,7 +1021,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
         )}
 
         {/* Input */}
-        <div className="pt-3 pb-[max(10px,var(--sat))] relative">
+        <div className="pt-3 pb-[max(10px,var(--sat))] relative shrink-0">
           {/* @mention dropdown */}
           {showMentions && filteredMentions.length > 0 && (
             <div className="dropdown-panel absolute bottom-full left-0 z-10 mb-1 max-h-48 w-64 overflow-y-auto rounded-lg bg-surface">

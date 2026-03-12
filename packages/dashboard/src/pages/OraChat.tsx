@@ -1275,11 +1275,11 @@ export default function OraChat() {
       )}
 
       {/* Input */}
-      <div className="pt-3 relative" ref={menuRef}>
+      <div className="pt-3 relative shrink-0" ref={menuRef}>
         {/* Menu flyout (opens above) */}
         {menuOpen && (
-          <div className="absolute bottom-[calc(100%+0.35rem)] left-0 md:left-4 z-20 max-h-[70vh] overflow-y-auto pr-1 flex flex-col md:flex-row items-start gap-2 max-w-[calc(100vw-2rem)] md:max-w-none">
-            <div className="w-[min(320px,calc(100vw-2rem))] rounded-[24px] bg-prism-card p-3 shadow-prism-lg">
+          <div className="fixed left-3 right-3 bottom-[max(10px,var(--sat))] z-[90] max-h-[72vh] overflow-y-auto pr-1 md:left-auto md:right-6 flex flex-col md:flex-row items-start gap-2 max-w-[calc(100vw-1.5rem)] md:max-w-none">
+            <div className="w-[min(320px,calc(100vw-1.5rem))] rounded-[24px] bg-prism-card p-3 shadow-prism-lg">
               <MenuAction
                 icon={<Paperclip className="h-4 w-4" />}
                 title="Add files or photos"
@@ -1307,7 +1307,7 @@ export default function OraChat() {
                 trailing={<ChevronRight className="h-4 w-4 text-prism-tertiary" />}
               />
 
-              <div className="my-2 border-t border-prism-border" />
+              <div className="my-2 h-px bg-prism-border/40" />
 
               <MenuAction
                 icon={<Database className="h-4 w-4" />}
@@ -1336,7 +1336,7 @@ export default function OraChat() {
             </div>
 
             {menuFlyout === 'model' && (
-              <div className="w-[min(384px,calc(100vw-2rem))] rounded-[24px] bg-prism-card p-3 shadow-prism-lg">
+              <div className="w-[min(384px,calc(100vw-1.5rem))] rounded-[24px] bg-prism-card p-3 shadow-prism-lg">
                 <div className="mb-2 px-3 py-2">
                   <div className="text-[12px] font-medium text-prism-primary">Model</div>
                   <div className="text-[11px] text-prism-tertiary">Pick a single model or configure the triangulated trio.</div>
@@ -1346,14 +1346,14 @@ export default function OraChat() {
                   <button
                     type="button"
                     onClick={() => setMode('triangulated')}
-                    className={`rounded-xl border px-3 py-2 text-[12px] transition-colors ${mode === 'triangulated' ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300' : 'border-prism-border bg-prism-bg2 text-prism-secondary hover:border-cyan-500/20'}`}
+                    className={`rounded-xl px-3 py-2 text-[12px] transition-colors ${mode === 'triangulated' ? 'bg-cyan-500/10 text-cyan-300' : 'bg-prism-bg2 text-prism-secondary hover:bg-prism-bg2/80'}`}
                   >
                     Triangulated
                   </button>
                   <button
                     type="button"
                     onClick={() => setMode('single-model')}
-                    className={`rounded-xl border px-3 py-2 text-[12px] transition-colors ${mode === 'single-model' ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300' : 'border-prism-border bg-prism-bg2 text-prism-secondary hover:border-cyan-500/20'}`}
+                    className={`rounded-xl px-3 py-2 text-[12px] transition-colors ${mode === 'single-model' ? 'bg-cyan-500/10 text-cyan-300' : 'bg-prism-bg2 text-prism-secondary hover:bg-prism-bg2/80'}`}
                   >
                     Single model
                   </button>
@@ -1384,36 +1384,36 @@ export default function OraChat() {
                   </div>
                 ) : (
                   <div className="space-y-3 px-3 pb-1">
-                    <div className="rounded-2xl border border-prism-border bg-prism-bg2/60 p-3">
+                    <div className="rounded-2xl bg-prism-bg2/60 p-3">
                       <div className="mb-2 text-[11px] text-prism-tertiary">Claude</div>
                       <select
                         value={triangulationModels.claude}
                         onChange={(e) => setTriangulationModels((prev) => ({ ...prev, claude: e.target.value }))}
-                        className="w-full rounded-xl border border-prism-border bg-prism-card px-3 py-2 text-[12px] text-prism-primary outline-none"
+                        className="w-full rounded-xl bg-prism-card px-3 py-2 text-[12px] text-prism-primary outline-none"
                       >
                         {modelGroups.anthropic.map((modelOption) => (
                           <option key={modelOption.value} value={modelOption.value}>{modelOption.label}</option>
                         ))}
                       </select>
                     </div>
-                    <div className="rounded-2xl border border-prism-border bg-prism-bg2/60 p-3">
+                    <div className="rounded-2xl bg-prism-bg2/60 p-3">
                       <div className="mb-2 text-[11px] text-prism-tertiary">Gemini</div>
                       <select
                         value={triangulationModels.gemini}
                         onChange={(e) => setTriangulationModels((prev) => ({ ...prev, gemini: e.target.value }))}
-                        className="w-full rounded-xl border border-prism-border bg-prism-card px-3 py-2 text-[12px] text-prism-primary outline-none"
+                        className="w-full rounded-xl bg-prism-card px-3 py-2 text-[12px] text-prism-primary outline-none"
                       >
                         {modelGroups.gemini.map((modelOption) => (
                           <option key={modelOption.value} value={modelOption.value}>{modelOption.label}</option>
                         ))}
                       </select>
                     </div>
-                    <div className="rounded-2xl border border-prism-border bg-prism-bg2/60 p-3">
+                    <div className="rounded-2xl bg-prism-bg2/60 p-3">
                       <div className="mb-2 text-[11px] text-prism-tertiary">OpenAI</div>
                       <select
                         value={triangulationModels.openai}
                         onChange={(e) => setTriangulationModels((prev) => ({ ...prev, openai: e.target.value }))}
-                        className="w-full rounded-xl border border-prism-border bg-prism-card px-3 py-2 text-[12px] text-prism-primary outline-none"
+                        className="w-full rounded-xl bg-prism-card px-3 py-2 text-[12px] text-prism-primary outline-none"
                       >
                         {modelGroups.openai.map((modelOption) => (
                           <option key={modelOption.value} value={modelOption.value}>{modelOption.label}</option>
@@ -1426,7 +1426,7 @@ export default function OraChat() {
             )}
 
             {menuFlyout === 'type' && (
-              <div className="w-[min(320px,calc(100vw-2rem))] rounded-[24px] bg-prism-card p-3 shadow-prism-lg">
+              <div className="w-[min(320px,calc(100vw-1.5rem))] rounded-[24px] bg-prism-card p-3 shadow-prism-lg">
                 <div className="mb-2 px-3 py-2">
                   <div className="text-[12px] font-medium text-prism-primary">Type</div>
                   <div className="text-[11px] text-prism-tertiary">

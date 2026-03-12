@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 
 interface AgentIdentityRecord {
   appId?: string;
+  spId?: string;
   blueprintSpId?: string;
   entraUserId?: string;
 }
@@ -13,6 +14,11 @@ const AGENT_IDENTITY_MAP = JSON.parse(
 export function getAgentIdentityAppId(role: string): string | null {
   const record = AGENT_IDENTITY_MAP[role];
   return typeof record?.appId === 'string' && record.appId ? record.appId : null;
+}
+
+export function getAgentSpId(role: string): string | null {
+  const record = AGENT_IDENTITY_MAP[role];
+  return typeof record?.spId === 'string' && record.spId ? record.spId : null;
 }
 
 export function getAgentBlueprintSpId(role: string): string | null {

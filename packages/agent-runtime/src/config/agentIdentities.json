@@ -83,7 +83,9 @@
     "roles": [
       "Glyphor.Support.Read",
       "Glyphor.Product.Read"
-    ]
+    ],
+    "blueprintSpId": "a5f564eb-a812-4642-8535-398d5934dfd7",
+    "entraUserId": "7d222283-c4c3-449d-abb6-3ba3f9179efb"
   },
   "vp-sales": {
     "appId": "f947ff28-f2ac-464d-9a05-27006c3dbb9a",
@@ -191,7 +193,9 @@
     "displayName": "Glyphor Agent - Anna Park (Revenue)",
     "roles": [
       "Glyphor.Finance.Revenue.Read"
-    ]
+    ],
+    "blueprintSpId": "8fe67e28-3073-48b0-aa5b-3c69feb587a9",
+    "entraUserId": "c3a2d2d4-9360-4311-90dc-607d64f3e9d3"
   },
   "cost-analyst": {
     "appId": "5bc54b06-fd5b-411a-b0cc-e35a0d580782",
@@ -200,7 +204,9 @@
     "displayName": "Glyphor Agent - Omar Hassan (Cost)",
     "roles": [
       "Glyphor.Finance.Cost.Read"
-    ]
+    ],
+    "blueprintSpId": "9ec2442a-30e6-4738-947a-70fe279ef15a",
+    "entraUserId": "6a7fad64-7634-4492-935d-525a1cee076e"
   },
   "content-creator": {
     "appId": "6a126306-14f3-4f34-a468-7b2a0b26b25a",
@@ -245,7 +251,9 @@
     "displayName": "Glyphor Agent - Emma Wright (Onboarding)",
     "roles": [
       "Glyphor.Support.Read"
-    ]
+    ],
+    "blueprintSpId": "8c8b4597-288e-486f-a7c6-5bdfdb28c976",
+    "entraUserId": "b95d776a-19c5-46a3-afcb-c0899da531e2"
   },
   "support-triage": {
     "appId": "15902494-15ba-47f0-873e-d080e64616f4",
@@ -254,7 +262,9 @@
     "displayName": "Glyphor Agent - David Santos (Support)",
     "roles": [
       "Glyphor.Support.Read"
-    ]
+    ],
+    "blueprintSpId": "55716a44-d8e4-4448-a05f-06ecb70145da",
+    "entraUserId": "330b2c3f-3c87-4fd2-babf-8fc3970f3794"
   },
   "account-research": {
     "appId": "b65dc7ab-f72a-4385-a638-5cc783c5abb5",
@@ -263,7 +273,9 @@
     "displayName": "Glyphor Agent - Nathan Cole (Account Research)",
     "roles": [
       "Glyphor.Research.Read"
-    ]
+    ],
+    "blueprintSpId": "49bd5253-93fb-4a1d-9960-cdf5c1fa073d",
+    "entraUserId": "2c46e6db-5296-4ba8-9265-ca2806769040"
   },
   "ui-ux-designer": {
     "appId": "ca6ebadf-c2c0-4e44-9530-272eaea5cb6d",
@@ -391,7 +403,9 @@
     "displayName": "Glyphor Agent - Kai Nakamura (Tech Research)",
     "roles": [
       "Glyphor.Research.Read"
-    ]
+    ],
+    "blueprintSpId": "55c22fa8-1fdc-43a2-b1bf-2789c56144d8",
+    "entraUserId": "58365116-ae46-490c-af29-38638a51ab8e"
   },
   "industry-research-analyst": {
     "appId": "154b4740-d387-414c-9cb3-fea86fc104eb",
@@ -400,7 +414,9 @@
     "displayName": "Glyphor Agent - Amara Diallo (Industry Research)",
     "roles": [
       "Glyphor.Research.Read"
-    ]
+    ],
+    "blueprintSpId": "27051d6c-9673-4a0d-8adb-34364871b4f5",
+    "entraUserId": "a1b84f92-491e-449e-b21d-12368d6b5968"
   },
   "ai-impact-analyst": {
     "appId": "20f55dc1-6309-4e73-9d65-b69c0ca0477d",
@@ -420,7 +436,9 @@
     "displayName": "Glyphor Agent - Marcus Chen (Org Analyst)",
     "roles": [
       "Glyphor.Research.Read"
-    ]
+    ],
+    "blueprintSpId": "908866ae-f633-4e89-9fd1-f8639a81c668",
+    "entraUserId": "915bfec2-5277-4c75-ab52-9e62699a63a1"
   },
   "enterprise-account-researcher": {
     "appId": "bd7eeef3-79c3-4138-b881-708584029dd7",
@@ -429,7 +447,9 @@
     "displayName": "Glyphor Agent - Ethan Morse (Enterprise)",
     "roles": [
       "Glyphor.Research.Read"
-    ]
+    ],
+    "blueprintSpId": "85fb3934-911a-4133-a430-2941ec183bee",
+    "entraUserId": "535fed90-6eef-456c-af13-bb2fabac98c4"
   },
   "bob-the-tax-pro": {
     "appId": "119dea60-2008-4757-961f-8e3e81b7cd2c",
@@ -449,7 +469,9 @@
     "displayName": "Glyphor Agent - Grace Hwang (Data Audit)",
     "roles": [
       "Glyphor.Admin.Read"
-    ]
+    ],
+    "blueprintSpId": "657dc09d-6b73-4ba1-be33-8bd6ae392be7",
+    "entraUserId": "3ecb0671-b1a9-459b-ba6e-3a7680d76749"
   },
   "tax-strategy-specialist": {
     "appId": "aab67516-7039-4afc-96de-e647d48e7b49",
@@ -458,7 +480,9 @@
     "displayName": "Glyphor Agent - Mariana Solis (Tax Strategy)",
     "roles": [
       "Glyphor.Finance.Revenue.Read"
-    ]
+    ],
+    "blueprintSpId": "c9145652-24d2-45f4-8202-a2f6341dfd35",
+    "entraUserId": "c96f3821-c7cd-4654-9968-3c4b1a1a501f"
   },
   "lead-gen-specialist": {
     "appId": "d43365ba-80e8-4ffd-8c5a-c63b1e561fbc",
@@ -467,7 +491,9 @@
     "displayName": "Glyphor Agent - Derek Owens (Lead Gen)",
     "roles": [
       "Glyphor.Research.Read"
-    ]
+    ],
+    "blueprintSpId": "482b5231-f5e2-476f-95fc-0d6336b95adf",
+    "entraUserId": "36818357-1854-435e-b203-94151b4a8a30"
   },
   "marketing-intelligence-analyst": {
     "appId": "21981b09-f2b8-411d-9199-f2435d309889",
