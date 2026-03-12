@@ -780,12 +780,12 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
-    <div className={`flex ${embedded ? 'h-full' : 'h-[calc(100dvh-10rem-var(--sat))] md:h-[calc(100vh-6rem)]'} gap-2 md:gap-5`}>
+    <div className={`flex ${embedded ? 'h-full' : 'h-[calc(100dvh-10rem-var(--sat))] md:h-[calc(100vh-6rem)]'} gap-2 md:gap-5 pb-[max(8px,var(--sat))]`}>
       {/* ── Mobile sidebar overlay ────────────── */}
       {mobileSidebarOpen && (
         <div className="fixed inset-0 z-50 md:hidden" onClick={() => setMobileSidebarOpen(false)}>
           <div className="absolute inset-0 bg-black/50" />
-          <div className="relative z-10 flex h-full w-72 flex-col border-r border-border bg-surface overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="relative z-10 flex h-full w-72 flex-col bg-surface overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <SidebarContent
               recentChats={recentChats}
               sidebarItems={sidebarItems}
@@ -800,7 +800,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
         </div>
       )}
       {/* ── Chat Sidebar (Left) — desktop only ────── */}
-      <div className="hidden md:flex w-72 flex-shrink-0 flex-col border-r border-border overflow-hidden">
+      <div className="hidden md:flex w-72 flex-shrink-0 flex-col overflow-hidden">
         <SidebarContent
           recentChats={recentChats}
           sidebarItems={sidebarItems}
@@ -821,7 +821,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
         onDrop={(e: React.DragEvent) => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); }}
       >
         {/* Header */}
-        <div className="flex items-center gap-2 md:gap-3 border-b border-border pb-3 md:pb-4">
+        <div className="flex items-center gap-2 md:gap-3 pb-3 md:pb-4">
           <button
             type="button"
             onClick={() => setMobileSidebarOpen(true)}
@@ -851,7 +851,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               <button
                 onClick={() => joinTeamsCall(currentMeetingUrl)}
                 disabled={teamsJoining}
-                className="flex items-center gap-1.5 rounded-full bg-cyan/10 border border-cyan/25 px-3 py-1.5 text-[11px] font-medium text-cyan hover:bg-cyan/20 transition-colors disabled:opacity-40"
+                className="flex items-center gap-1.5 rounded-full bg-cyan/10 px-3 py-1.5 text-[11px] font-medium text-cyan hover:bg-cyan/20 transition-colors disabled:opacity-40"
                 title="Add this agent to your current Teams call"
               >
                 <MdVideoCall size={16} />
@@ -860,7 +860,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
             ) : (
               <button
                 onClick={() => setShowTeamsModal(true)}
-                className="flex items-center gap-1.5 rounded-full bg-raised border border-border px-3 py-1.5 text-[11px] font-medium text-txt-muted hover:text-cyan hover:border-cyan/40 transition-colors"
+                className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5 text-[11px] font-medium text-txt-muted hover:text-cyan transition-colors"
                 title="Add agent to a Teams call"
               >
                 <MdVideoCall size={16} />
@@ -882,6 +882,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
         </div>
 
         {/* Voice Chat Overlay — replaces messages area when voice is active */}
+        <>
         {voice.isActive ? (
           <VoiceOverlay
             agentName={codename}
@@ -892,8 +893,6 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
             error={voice.error}
           />
         ) : (
-        <>
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto py-4 space-y-4 min-h-0">
           {loadingHistory && (
             <div className="flex h-full items-center justify-center">
@@ -936,15 +935,15 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               <div
                 className={`max-w-[85%] md:max-w-[70%] rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-[13px] leading-relaxed ${
                   msg.role === 'user'
-                    ? 'bg-cyan/15 text-txt-primary border border-cyan/30'
-                    : 'bg-raised text-txt-secondary border border-border'
+                    ? 'bg-cyan/15 text-txt-primary'
+                    : 'bg-raised text-txt-secondary'
                 }`}
               >
                 {/* Attachment chips */}
                 {msg.attachments && msg.attachments.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-2">
                     {msg.attachments.map((att, j) => (
-                      <div key={j} className="flex items-center gap-1.5 rounded-md bg-base/50 border border-border px-2 py-1">
+                      <div key={j} className="flex items-center gap-1.5 rounded-md bg-base/50 px-2 py-1">
                         {att.previewUrl ? (
                           <img src={att.previewUrl} alt={att.name} className="h-10 w-10 rounded object-cover" />
                         ) : att.type.startsWith('image/') ? (
@@ -979,7 +978,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
           {Array.from(respondingAgents.entries()).filter(([_, targetChat]) => targetChat === selectedRole).map(([respondingRole]) => (
             <div key={respondingRole} className="flex gap-3">
               <AgentAvatar role={respondingRole} size={28} />
-              <div className="rounded-xl bg-raised border border-border px-4 py-3">
+              <div className="rounded-xl bg-raised px-4 py-3">
                 <div className="flex items-center gap-1.5">
                   {respondingRole !== selectedRole && (
                     <span className="text-[10px] font-semibold mr-1" style={{ color: AGENT_META[respondingRole]?.color ?? '#06b6d4' }}>
@@ -1002,12 +1001,13 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
 
           <div ref={bottomRef} />
         </div>
+        )}
 
         {/* Pending files */}
         {pendingFiles.length > 0 && (
-          <div className="flex flex-wrap gap-2 border-t border-border px-1 pt-2">
+          <div className="flex flex-wrap gap-2 px-1 pt-2">
             {pendingFiles.map((f, i) => (
-              <div key={i} className="flex items-center gap-1.5 rounded-lg bg-raised border border-border px-2.5 py-1.5">
+              <div key={i} className="flex items-center gap-1.5 rounded-lg bg-raised px-2.5 py-1.5">
                 {f.previewUrl ? (
                   <img src={f.previewUrl} alt={f.name} className="h-8 w-8 rounded object-cover" />
                 ) : (
@@ -1021,10 +1021,10 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
         )}
 
         {/* Input */}
-        <div className="border-t border-border pt-3 relative">
+        <div className="pt-3 pb-[max(10px,var(--sat))] relative">
           {/* @mention dropdown */}
           {showMentions && filteredMentions.length > 0 && (
-            <div className="dropdown-panel absolute bottom-full left-0 z-10 mb-1 max-h-48 w-64 overflow-y-auto rounded-lg border border-border bg-surface">
+            <div className="dropdown-panel absolute bottom-full left-0 z-10 mb-1 max-h-48 w-64 overflow-y-auto rounded-lg bg-surface">
               {filteredMentions.map((m, i) => (
                 <button
                   key={m.role}
@@ -1049,7 +1049,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex-shrink-0 rounded-lg border border-border bg-raised px-2 py-2 md:px-2.5 md:py-2.5 text-txt-muted hover:text-cyan transition-colors"
+              className="flex-shrink-0 rounded-lg bg-raised px-2 py-2 md:px-2.5 md:py-2.5 text-txt-muted hover:text-cyan transition-colors"
               title="Attach file"
             >
               <MdAttachFile className="text-[16px]" />
@@ -1076,8 +1076,8 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               placeholder={`Message ${codename}... (@ to mention, Shift+Enter for new line)`}
               disabled={respondingAgents.has(selectedRole)}
               rows={1}
-              className="flex-1 rounded-lg border border-border bg-raised px-4 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none transition-colors focus:border-cyan/40 disabled:opacity-50 resize-none min-h-[40px] max-h-[120px]"
-              onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 120)}px`; }}
+              className="flex-1 rounded-lg bg-raised px-4 py-3 text-[13px] leading-5 text-txt-secondary placeholder-txt-faint outline-none transition-colors disabled:opacity-50 resize-none min-h-[44px] max-h-[140px]"
+              onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 140)}px`; }}
             />
             <button
               type="button"
@@ -1085,7 +1085,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               className={`flex-shrink-0 w-[36px] h-[36px] md:w-[40px] md:h-[40px] hidden md:flex items-center justify-center rounded-full transition-all ${
                 isListening
                   ? 'bg-prism-critical text-white shadow-lg shadow-prism-critical/25 animate-pulse'
-                  : 'bg-raised border border-border text-txt-muted hover:text-cyan hover:border-cyan/40 hover:bg-cyan/5'
+                  : 'bg-raised text-txt-muted hover:text-cyan hover:bg-cyan/5'
               }`}
               title={isListening ? 'Stop dictation' : 'Dictate (speech to text)'}
             >
@@ -1103,7 +1103,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                   ? 'bg-prism-fill-2 text-white shadow-lg shadow-prism-fill-2/25 hover:bg-prism-critical hover:shadow-prism-critical/25'
                   : voice.isConnecting
                     ? 'bg-prism-elevated/20 text-prism-elevated animate-pulse'
-                    : 'bg-raised border border-border text-txt-muted hover:text-cyan hover:border-cyan/40 hover:bg-cyan/5'
+                    : 'bg-raised text-txt-muted hover:text-cyan hover:bg-cyan/5'
               }`}
               title={voice.isActive ? 'End voice chat' : 'Start voice chat'}
             >
@@ -1117,14 +1117,13 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               type="button"
               onClick={sendMessage}
               disabled={respondingAgents.has(selectedRole) || (!input.trim() && pendingFiles.length === 0)}
-              className="flex-shrink-0 rounded-lg border border-cyan bg-transparent px-3 py-2 md:px-5 md:py-2.5 text-[13px] font-semibold text-cyan transition-all hover:bg-cyan/10 disabled:opacity-40"
+              className="flex-shrink-0 rounded-lg bg-cyan/10 px-3 py-2 md:px-5 md:py-2.5 text-[13px] font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40"
             >
               Send
             </button>
           </div>
         </div>
         </>
-        )}
       </Card>
 
       {/* Teams Call Modal */}

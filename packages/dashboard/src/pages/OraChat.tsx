@@ -1090,7 +1090,7 @@ export default function OraChat() {
       )}
 
       {/* Main chat area */}
-      <Card className="flex flex-1 flex-col min-h-0 min-w-0 transition-all">
+      <Card className="flex flex-1 flex-col min-h-0 min-w-0 transition-all overflow-visible">
         {/* Header */}
         <div className="flex items-center gap-2 md:gap-3 border-b border-border pb-3 md:pb-4">
           {/* Sidebar toggle — always visible on mobile, only when closed on desktop */}
