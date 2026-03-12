@@ -71,10 +71,10 @@ export default function Workforce() {
   const normalizeDepartment = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
 
   const resolveManagerRole = (member: Agent): string | null => {
+    if (member.reports_to && agentMap.has(member.reports_to)) return member.reports_to;
+
     const overrideManager = ROLE_MANAGER_OVERRIDES[member.role];
     if (overrideManager && agentMap.has(overrideManager)) return overrideManager;
-
-    if (member.reports_to && agentMap.has(member.reports_to)) return member.reports_to;
 
     const deptHead = departmentHeads.find(
       (department) => normalizeDepartment(department.label) === normalizeDepartment(member.department),

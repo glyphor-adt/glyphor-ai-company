@@ -665,7 +665,7 @@ function DirectiveCard({
           {/* Description */}
           <div>
             <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-1">Description</p>
-            <p className="text-sm text-txt-secondary leading-relaxed">{d.description}</p>
+            <div className="text-sm text-txt-secondary leading-relaxed prose-chat"><Markdown>{d.description}</Markdown></div>
           </div>
 
           {/* Metadata */}

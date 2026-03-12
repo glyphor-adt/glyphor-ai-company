@@ -11,7 +11,6 @@ import {
   ROLE_DEPARTMENT,
   ROLE_TITLE,
   ROLE_MANAGER_OVERRIDES,
-  SUB_TEAM,
 } from '../lib/types';
 import { Card, AgentAvatar, Skeleton, timeAgo } from '../components/ui';
 
@@ -39,6 +38,7 @@ interface AgentRow {
   tier?: string;
   last_run_at?: string | null;
   created_at: string;
+  avatar_url?: string | null;
 }
 
 interface AgentBriefRow {
@@ -63,6 +63,8 @@ export default function AgentSettings() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [allAgents, setAllAgents] = useState<AgentRow[]>([]);
+  const [managerRole, setManagerRole] = useState('');
 
   // Avatar state
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -92,6 +94,7 @@ export default function AgentSettings() {
       if (data) {
         const a = Array.isArray(data) ? data[0] : data;
         setAgent(a);
+        setManagerRole(a.reports_to ?? '');
         setModel(a.model ?? 'gpt-5-mini-2025-08-07');
         setTemperature(a.temperature ?? 0.3);
         setMaxTurns(a.max_turns ?? 10);
@@ -139,6 +142,14 @@ export default function AgentSettings() {
           setConfiguredSkills(normalized);
         }
       }
+
+      try {
+        const agents = await apiCall<AgentRow[]>('/api/agents?order=display_name.asc');
+        setAllAgents(Array.isArray(agents) ? agents : []);
+      } catch {
+        setAllAgents([]);
+      }
+
       setLoading(false);
     })();
   }, [agentId]);
@@ -151,14 +162,31 @@ export default function AgentSettings() {
       const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, temperature, max_turns: maxTurns, budget_per_run: budgetPerRun, budget_daily: budgetDaily, budget_monthly: budgetMonthly }),
+        body: JSON.stringify({
+          model,
+          temperature,
+          max_turns: maxTurns,
+          budget_per_run: budgetPerRun,
+          budget_daily: budgetDaily,
+          budget_monthly: budgetMonthly,
+          reports_to: managerRole || null,
+        }),
       });
       const result = await resp.json();
       if (!resp.ok || !result.success) {
         setSaveError(result.error || `Save failed (${resp.status})`);
         return;
       }
-      setAgent((prev) => prev ? { ...prev, model, temperature, max_turns: maxTurns, budget_per_run: budgetPerRun, budget_daily: budgetDaily, budget_monthly: budgetMonthly } : prev);
+      setAgent((prev) => prev ? {
+        ...prev,
+        model,
+        temperature,
+        max_turns: maxTurns,
+        budget_per_run: budgetPerRun,
+        budget_daily: budgetDaily,
+        budget_monthly: budgetMonthly,
+        reports_to: managerRole || null,
+      } : prev);
       setSaved(true);
       setTimeout(() => { setSaved(false); setEditMode(false); }, 1200);
     } catch (err) {
@@ -292,8 +320,15 @@ export default function AgentSettings() {
   const skills = configuredSkills.length > 0 ? configuredSkills : defaultSkills;
   const department = ROLE_DEPARTMENT[agent.role] ?? agent.department ?? '';
   const tier = ROLE_TIER[agent.role] ?? 'Agent';
-  const directReports = SUB_TEAM.filter((m) => m.reportsTo === agent.role);
-  const effectiveReportsTo = ROLE_MANAGER_OVERRIDES[agent.role] ?? agent.reports_to ?? null;
+  const directReports = allAgents.filter((m) => m.role !== agent.role && m.reports_to === agent.role);
+  const effectiveReportsTo = agent.reports_to ?? ROLE_MANAGER_OVERRIDES[agent.role] ?? null;
+  const managerCandidates = allAgents
+    .filter((m) => m.role !== agent.role && m.status !== 'retired')
+    .sort((a, b) => {
+      const nameA = a.name ?? DISPLAY_NAME_MAP[a.role] ?? a.display_name ?? a.role;
+      const nameB = b.name ?? DISPLAY_NAME_MAP[b.role] ?? b.display_name ?? b.role;
+      return nameA.localeCompare(nameB);
+    });
   const reportsToName = effectiveReportsTo
     ? DISPLAY_NAME_MAP[effectiveReportsTo] ?? effectiveReportsTo
     : agent.role === 'chief-of-staff' ? 'Kristina & Andrew (Founders)' : undefined;
@@ -432,6 +467,27 @@ export default function AgentSettings() {
             <label className="space-y-1">
               <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Monthly ($)</span>
               <input type="number" step="0.01" min="0" value={budgetMonthly} onChange={(e) => setBudgetMonthly(parseFloat(e.target.value))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40" />
+            </label>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className="space-y-1">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Manager</span>
+              <select
+                value={managerRole}
+                onChange={(e) => setManagerRole(e.target.value)}
+                className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40"
+              >
+                <option value="">Founders / No manager</option>
+                {managerCandidates.map((candidate) => {
+                  const managerName = candidate.name ?? DISPLAY_NAME_MAP[candidate.role] ?? candidate.display_name ?? candidate.role;
+                  return (
+                    <option key={candidate.role} value={candidate.role}>
+                      {managerName} ({candidate.role})
+                    </option>
+                  );
+                })}
+              </select>
             </label>
           </div>
 
@@ -602,16 +658,11 @@ export default function AgentSettings() {
               </p>
               <ul className="mt-2 space-y-2">
                 {directReports.map((m) => (
-                  <li key={m.name} className="flex items-center gap-3">
-                    <img
-                      src={`/avatars/${m.avatar}.png`}
-                      alt={m.name}
-                      className="h-7 w-7 rounded-full object-cover"
-                      style={{ border: `1.5px solid ${m.color}40` }}
-                    />
+                  <li key={m.id} className="flex items-center gap-3">
+                    <AgentAvatar role={m.role} size={28} glow={m.status === 'active'} avatarUrl={m.avatar_url} />
                     <div>
-                      <p className="text-sm font-medium text-txt-primary">{m.name}</p>
-                      <p className="text-[11px] text-txt-faint">{m.title}</p>
+                      <p className="text-sm font-medium text-txt-primary">{m.name ?? DISPLAY_NAME_MAP[m.role] ?? m.display_name ?? m.role}</p>
+                      <p className="text-[11px] text-txt-faint">{m.title ?? ROLE_TITLE[m.role] ?? m.role}</p>
                     </div>
                   </li>
                 ))}

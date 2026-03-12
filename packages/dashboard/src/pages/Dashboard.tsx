@@ -1,5 +1,12 @@
-import { MdCheckCircle, MdSearch, MdDescription, MdChat, MdArrowForward, MdWarning, MdGavel, MdReportProblem, MdWidgets, MdSmartToy } from 'react-icons/md';
-import { useDecisions, useOpenIncidents, useProducts } from '../lib/hooks';
+import {
+  MdCheckCircle, MdArrowForward, MdWarning, MdFlag,
+  MdTrendingUp, MdTrendingDown, MdLightbulb, MdSmartToy,
+  MdAccountBalance, MdCloud, MdAttachMoney,
+} from 'react-icons/md';
+import {
+  useDecisions, useOpenIncidents, useCompanyPulse,
+  useActiveDirectives, useTopReflections,
+} from '../lib/hooks';
 import { DISPLAY_NAME_MAP, TIER_TO_IMPACT } from '../lib/types';
 import {
   Card,
@@ -15,6 +22,8 @@ import { useEffect, useState } from 'react';
 import { apiCall } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
 
+/* ── Types ─────────────────────────────────── */
+
 interface RunningAgent {
   id: string;
   agent_id: string;
@@ -22,55 +31,205 @@ interface RunningAgent {
   started_at: string;
 }
 
+interface AgentPerfRow {
+  agent_id: string;
+  total_runs: number;
+  successful_runs: number;
+  failed_runs: number;
+  avg_quality_score: number | null;
+  total_cost: number;
+  tasks_completed: number;
+}
+
+interface KgNodeRow {
+  node_type: string;
+}
+
+interface FinancialRow {
+  metric: string;
+  value: number;
+  date: string;
+}
+
+interface GcpBillingRow {
+  cost_usd: number;
+  recorded_at: string;
+}
+
+/* ── Helpers ───────────────────────────────── */
+
+const PRIORITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+const PRIORITY_COLORS: Record<string, string> = {
+  critical: 'text-prism-critical',
+  high: 'text-prism-elevated',
+  medium: 'text-prism-sky',
+  low: 'text-txt-faint',
+};
+
+function fmtUsd(n: number) {
+  if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`;
+  return `$${n.toFixed(2)}`;
+}
+
+/* ── Dashboard ─────────────────────────────── */
+
 export default function Dashboard() {
+  const { user } = useAuth();
+  const { data: pulse, loading: pulseLoading } = useCompanyPulse();
   const { data: decisions, loading: decisionsLoading } = useDecisions();
   const { data: incidents, loading: incidentsLoading } = useOpenIncidents();
-  const { data: products } = useProducts();
+  const { data: directives, loading: directivesLoading } = useActiveDirectives();
+  const { data: reflections, loading: reflectionsLoading } = useTopReflections(5);
+
   const [runningAgents, setRunningAgents] = useState<RunningAgent[]>([]);
+  const [agentPerf, setAgentPerf] = useState<AgentPerfRow[]>([]);
+  const [kgNodes, setKgNodes] = useState<KgNodeRow[]>([]);
+  const [cashBalance, setCashBalance] = useState<number | null>(null);
+  const [computeToday, setComputeToday] = useState<number | null>(null);
+  const [computeMonthly, setComputeMonthly] = useState<number | null>(null);
 
-  const pendingDecisions = decisions.filter((d) => d.status === 'pending').length;
-
-  // Fetch currently running agents
+  // Fetch running agents
   useEffect(() => {
-    const fetchRunning = async () => {
+    (async () => {
       try {
         const rows = await apiCall<RunningAgent[]>('/api/agent-runs?status=running');
-        setRunningAgents(() => {
-          const allRunning = rows ?? [];
-          // Deduplicate by agent — keep the most recent run per agent
-          const byAgent = new Map<string, RunningAgent>();
-          for (const run of allRunning) {
-            const existing = byAgent.get(run.agent_id);
-            if (!existing || new Date(run.started_at) > new Date(existing.started_at)) {
-              byAgent.set(run.agent_id, run);
-            }
+        const allRunning = rows ?? [];
+        const byAgent = new Map<string, RunningAgent>();
+        for (const run of allRunning) {
+          const existing = byAgent.get(run.agent_id);
+          if (!existing || new Date(run.started_at) > new Date(existing.started_at)) {
+            byAgent.set(run.agent_id, run);
           }
-          return Array.from(byAgent.values());
-        });
+        }
+        setRunningAgents(Array.from(byAgent.values()));
       } catch {
         setRunningAgents([]);
       }
-    };
-    fetchRunning();
+    })();
   }, []);
 
-  const { user } = useAuth();
+  // Fetch agent performance (last 7 days aggregate)
+  useEffect(() => {
+    (async () => {
+      try {
+        const since = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+        const rows = await apiCall<AgentPerfRow[]>(
+          `/api/agent_performance?date=gte.${encodeURIComponent(since)}&order=total_runs.desc`
+        );
+        // Aggregate by agent
+        const byAgent = new Map<string, AgentPerfRow>();
+        for (const r of rows ?? []) {
+          const e = byAgent.get(r.agent_id);
+          if (!e) {
+            byAgent.set(r.agent_id, { ...r });
+          } else {
+            e.total_runs += r.total_runs;
+            e.successful_runs += r.successful_runs;
+            e.failed_runs += r.failed_runs;
+            e.total_cost += r.total_cost;
+            e.tasks_completed += r.tasks_completed;
+            if (r.avg_quality_score != null) {
+              e.avg_quality_score = e.avg_quality_score != null
+                ? (e.avg_quality_score + r.avg_quality_score) / 2
+                : r.avg_quality_score;
+            }
+          }
+        }
+        setAgentPerf(Array.from(byAgent.values()));
+      } catch {
+        setAgentPerf([]);
+      }
+    })();
+  }, []);
+
+  // Fetch knowledge graph stats
+  useEffect(() => {
+    (async () => {
+      try {
+        const rows = await apiCall<KgNodeRow[]>('/api/kg-nodes?fields=node_type');
+        setKgNodes(rows ?? []);
+      } catch {
+        setKgNodes([]);
+      }
+    })();
+  }, []);
+
+  // Fetch cash balance (latest financials metric)
+  useEffect(() => {
+    (async () => {
+      try {
+        const rows = await apiCall<FinancialRow[]>('/api/financials?order=date.desc&limit=50');
+        const cash = (rows ?? []).find(r => r.metric === 'cash_balance' || r.metric === 'bank_balance');
+        if (cash) setCashBalance(cash.value);
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
+  // Fetch compute cost today + monthly
+  useEffect(() => {
+    (async () => {
+      try {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const monthStart = todayStr.slice(0, 8) + '01';
+        const rows = await apiCall<GcpBillingRow[]>(`/api/gcp-billing?since=${monthStart}T00:00:00Z`);
+        const all = rows ?? [];
+        const todayCost = all
+          .filter(r => r.recorded_at?.startsWith(todayStr))
+          .reduce((sum, r) => sum + Number(r.cost_usd), 0);
+        const monthlyCost = all.reduce((sum, r) => sum + Number(r.cost_usd), 0);
+        setComputeToday(todayCost);
+        setComputeMonthly(monthlyCost);
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
   const firstName = user?.name?.split(' ')[0] ?? 'there';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  const productCount = products.length;
+
+  const pendingDecisions = decisions.filter((d) => d.status === 'pending');
+  const highPriorityItems = [
+    ...incidents.map(i => ({ type: 'incident' as const, id: i.id, title: i.title, severity: i.severity, time: i.created_at })),
+    ...pendingDecisions.filter(d => d.tier === 'red' || d.tier === 'yellow').map(d => ({
+      type: 'decision' as const, id: d.id, title: d.title, severity: d.tier === 'red' ? 'critical' : 'high', time: d.created_at,
+    })),
+  ].sort((a, b) => (PRIORITY_ORDER[a.severity] ?? 3) - (PRIORITY_ORDER[b.severity] ?? 3));
+
+  // Org Intelligence counts
+  const totalNodes = kgNodes.length;
+  const patternCount = kgNodes.filter(n => n.node_type === 'pattern').length;
+  const contradictionCount = kgNodes.filter(n => n.node_type === 'hypothesis').length;
+
+  // Agent org stats
+  const totalRuns = agentPerf.reduce((s, a) => s + a.total_runs, 0);
+  const avgQuality = agentPerf.length > 0
+    ? agentPerf.filter(a => a.avg_quality_score != null).reduce((s, a) => s + (a.avg_quality_score ?? 0), 0) /
+      Math.max(agentPerf.filter(a => a.avg_quality_score != null).length, 1)
+    : 0;
+  const totalShipped = agentPerf.reduce((s, a) => s + a.tasks_completed, 0);
+  const topPerformers = [...agentPerf]
+    .filter(a => a.avg_quality_score != null)
+    .sort((a, b) => (b.avg_quality_score ?? 0) - (a.avg_quality_score ?? 0))
+    .slice(0, 3);
+  const needsAttention = [...agentPerf]
+    .filter(a => a.failed_runs > 0 || (a.avg_quality_score != null && a.avg_quality_score < 50))
+    .sort((a, b) => b.failed_runs - a.failed_runs)
+    .slice(0, 3);
+
+  const loading = pulseLoading || decisionsLoading || incidentsLoading || directivesLoading || reflectionsLoading;
 
   return (
     <div className="dashboard-home">
       <div className="dashboard-home-grid">
         <div className="dashboard-home-main space-y-5">
+          {/* ── Welcome Banner ─────────────── */}
           <div className="banner-wrapper">
             <div className="banner-inner rounded-[24px] p-7">
               <h1 className="text-[1.75rem] font-bold text-white md:text-[2.25rem] leading-tight">
                 {greeting}, {firstName}
               </h1>
               <p className="mt-3 max-w-2xl text-[15px] text-white/60">
-                Welcome back to Glyphor AI. Ready to discover new insights?
+                Welcome back to Glyphor AI. Here&apos;s what&apos;s happening.
               </p>
               <p className="mt-4 text-[13px] text-white/35 font-medium">
                 {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
@@ -80,263 +239,372 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <MetricCard
-              label="Pending Decisions"
-              value={String(pendingDecisions)}
-              hint="Awaiting founder review"
-              gradient="stat-gradient-blue"
-              icon={<MdGavel className="h-5 w-5" />}
+          {/* ── Agent Briefing ─────────────── */}
+          <Card accent="0,224,255">
+            <SectionHeader
+              title="Agent Briefing"
+              action={
+                pulse ? (
+                  <span className="text-[11px] text-txt-faint capitalize">
+                    Mood: {pulse.company_mood} · Updated {timeAgo(pulse.updated_at)}
+                  </span>
+                ) : null
+              }
             />
-            <MetricCard
-              label="Open Incidents"
-              value={String(incidents.length)}
-              hint={incidentsLoading ? 'Checking now' : (incidents[0]?.severity ?? 'stable')}
-              gradient="stat-gradient-amber"
-              icon={<MdReportProblem className="h-5 w-5" />}
-            />
-            <MetricCard
-              label="Products Online"
-              value={String(productCount)}
-              hint="Tracked in cockpit"
-              gradient="stat-gradient-teal"
-              icon={<MdWidgets className="h-5 w-5" />}
-            />
-            <MetricCard
-              label="Agents Running"
-              value={String(runningAgents.length)}
-              hint="Live workload"
-              gradient="stat-gradient-green"
-              icon={<MdSmartToy className="h-5 w-5" />}
-            />
-          </div>
+            {pulseLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10" />)}
+              </div>
+            ) : pulse ? (
+              <div className="space-y-3">
+                {(pulse.highlights as string[] | null)?.length ? (
+                  <>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted">Highlights</p>
+                    <ul className="space-y-1.5">
+                      {(pulse.highlights as string[]).slice(0, 4).map((h, i) => (
+                        <li key={i} className="flex items-start gap-2 text-[13px] text-txt-secondary">
+                          <MdCheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#34D399]" />
+                          {h}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className="text-[13px] text-txt-muted">No highlights yet. Sarah will prepare your next briefing soon.</p>
+                )}
+                {incidents.length > 0 && (
+                  <>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-prism-elevated mt-2">Watch Items</p>
+                    <ul className="space-y-1.5">
+                      {incidents.slice(0, 3).map(inc => (
+                        <li key={inc.id} className="flex items-start gap-2 text-[13px] text-txt-secondary">
+                          <MdWarning className="mt-0.5 h-4 w-4 shrink-0 text-prism-elevated" />
+                          <span className="line-clamp-1">{inc.title}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+            ) : (
+              <p className="py-4 text-sm text-txt-faint text-center">No briefing data available</p>
+            )}
+          </Card>
 
-          {runningAgents.length > 0 && (
-            <Link to="/activity" className="block">
-              <Card accent="52,211,153" className="agent-bar" interactive>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1.5">
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#34D399] opacity-75" />
-                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#34D399]" />
-                    </span>
-                    <span className="text-[13px] font-semibold text-[#34D399]">
-                      {runningAgents.length} agent{runningAgents.length > 1 ? 's' : ''} working
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 overflow-hidden">
-                    {runningAgents.slice(0, 5).map((run) => (
-                      <InnerCard key={run.id} accent="52,211,153" className="flex items-center gap-2 px-2.5 py-1.5">
-                        <AgentAvatar role={run.agent_id} size={20} />
-                        <span className="max-w-[120px] truncate text-[11px] text-txt-secondary">
-                          {DISPLAY_NAME_MAP[run.agent_id] ?? run.agent_id}
-                        </span>
-                        <span className="max-w-[100px] truncate text-[10px] text-txt-faint">
-                          {run.task ?? ''}
-                        </span>
-                      </InnerCard>
-                    ))}
-                    {runningAgents.length > 5 && (
-                      <span className="text-[11px] text-txt-faint">+{runningAgents.length - 5} more</span>
-                    )}
-                  </div>
-                  <span className="ml-auto flex items-center gap-1 text-[11px] text-txt-faint">View activity <MdArrowForward /></span>
-                </div>
-              </Card>
-            </Link>
-          )}
-
-          <div>
-            <h2 className="text-lg font-bold text-txt-primary mb-3">Quick Actions</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <QuickActionCard
-                to="/strategy"
-                icon={<MdSearch className="h-7 w-7" />}
-                iconBg="rgba(0, 224, 255, 0.2)"
-                iconColor="#00E0FF"
-                accent="0,224,255"
-                title="Start New Research"
-                description="Launch AI-powered analysis and intelligence gathering"
-              />
-              <QuickActionCard
-                to="/strategy"
-                icon={<MdDescription className="h-7 w-7" />}
-                iconBg="rgba(0, 163, 255, 0.2)"
-                iconColor="#00A3FF"
-                accent="0,163,255"
-                title="View Reports"
-                description="Access your saved analysis reports and insights"
-              />
-              <QuickActionCard
-                to="/chat"
-                icon={<MdChat className="h-7 w-7" />}
-                iconBg="rgba(52, 211, 153, 0.2)"
-                iconColor="#34D399"
-                accent="52,211,153"
-                title="Chat with Agents"
-                description="Talk to your AI executive team directly"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+          {/* ── Needs Your Attention ───────── */}
+          {highPriorityItems.length > 0 && (
             <Card accent="239,68,68">
               <SectionHeader
-                title="Open Incidents"
+                title="Needs You"
                 action={
-                  <Link to="/operations" className="text-xs text-prism-tertiary hover:text-prism-primary hover:underline">
-                    View all
+                  <Link to="/approvals" className="text-[11px] text-cyan hover:underline flex items-center gap-0.5">
+                    View all <MdArrowForward className="h-3 w-3" />
                   </Link>
                 }
               />
-              {incidentsLoading ? (
+              <div className="space-y-2">
+                {highPriorityItems.slice(0, 5).map(item => (
+                  <InnerCard key={item.id} accent="239,68,68" className="flex items-center gap-3">
+                    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                      item.type === 'incident' ? 'bg-[rgba(239,68,68,0.15)] text-[#EF4444]' : 'bg-[rgba(251,191,36,0.15)] text-[#FBBF24]'
+                    }`}>
+                      {item.type === 'incident' ? <MdWarning className="h-3.5 w-3.5" /> : <MdFlag className="h-3.5 w-3.5" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-medium text-txt-secondary line-clamp-1">{item.title}</p>
+                    </div>
+                    <span className={`text-[10px] font-semibold uppercase tracking-wider ${PRIORITY_COLORS[item.severity] ?? 'text-txt-faint'}`}>
+                      {item.severity}
+                    </span>
+                    <span className="text-[10px] text-txt-faint">{timeAgo(item.time)}</span>
+                  </InnerCard>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* ── Financial Metrics Row ─────── */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <FinanceCard
+              icon={<MdAttachMoney className="h-5 w-5" />}
+              label="MRR"
+              value={pulse?.mrr != null ? fmtUsd(Number(pulse.mrr)) : '—'}
+              detail={
+                pulse?.mrr_change_pct != null ? (
+                  <span className={`flex items-center gap-0.5 text-[11px] font-medium ${
+                    pulse.mrr_change_pct >= 0 ? 'text-[#34D399]' : 'text-[#EF4444]'
+                  }`}>
+                    {pulse.mrr_change_pct >= 0 ? <MdTrendingUp className="h-3 w-3" /> : <MdTrendingDown className="h-3 w-3" />}
+                    {pulse.mrr_change_pct >= 0 ? '+' : ''}{Number(pulse.mrr_change_pct).toFixed(1)}%
+                  </span>
+                ) : null
+              }
+              accent="0,224,255"
+            />
+            <FinanceCard
+              icon={<MdAccountBalance className="h-5 w-5" />}
+              label="Cash"
+              value={cashBalance != null ? fmtUsd(cashBalance) : '—'}
+              accent="52,211,153"
+            />
+            <FinanceCard
+              icon={<MdCloud className="h-5 w-5" />}
+              label="Compute Today"
+              value={computeToday != null ? fmtUsd(computeToday) : '—'}
+              detail={computeMonthly != null ? (
+                <span className="text-[11px] text-txt-faint">{fmtUsd(computeMonthly)} this month</span>
+              ) : null}
+              accent="168,85,247"
+            />
+          </div>
+
+          {/* ── Active Directives ─────────── */}
+          <Card accent="130,140,248">
+            <SectionHeader
+              title="Directives"
+              action={
+                <Link to="/directives" className="text-[11px] text-cyan hover:underline flex items-center gap-0.5">
+                  All directives <MdArrowForward className="h-3 w-3" />
+                </Link>
+              }
+            />
+            {directivesLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14" />)}
+              </div>
+            ) : directives.length === 0 ? (
+              <p className="py-6 text-center text-sm text-txt-faint">No active directives</p>
+            ) : (
+              <div className="space-y-2.5">
+                {directives
+                  .sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3))
+                  .slice(0, 5)
+                  .map(d => {
+                    const total = d.assignments.length;
+                    const completed = d.assignments.filter(a => a.status === 'completed').length;
+                    const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+                    return (
+                      <Link key={d.id} to="/directives" className="block">
+                        <InnerCard accent="130,140,248" className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <MdFlag className={`h-3.5 w-3.5 ${PRIORITY_COLORS[d.priority] ?? 'text-txt-faint'}`} />
+                            <span className="text-[13px] font-medium text-txt-secondary line-clamp-1 flex-1">{d.title}</span>
+                            <span className="text-[11px] text-txt-faint">{total > 0 ? `${completed}/${total}` : '—'}</span>
+                          </div>
+                          {total > 0 && (
+                            <div className="flex items-center gap-2">
+                              <div className="h-1.5 flex-1 rounded-full bg-border overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-[#34D399]' : 'bg-cyan'}`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] text-txt-faint w-8 text-right">{pct}%</span>
+                            </div>
+                          )}
+                        </InnerCard>
+                      </Link>
+                    );
+                  })}
+              </div>
+            )}
+          </Card>
+
+          {/* ── Deliverables + Org Intelligence ── */}
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+            {/* Recent Deliverables */}
+            <Card accent="52,211,153">
+              <SectionHeader title="Recent Deliverables" />
+              {reflectionsLoading ? (
                 <div className="space-y-3">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <Skeleton key={i} className="h-16" />
-                  ))}
+                  {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12" />)}
                 </div>
-              ) : incidents.length === 0 ? (
-                <p className="py-8 text-center text-sm text-txt-faint">
-                  All clear <MdCheckCircle className="inline h-4 w-4 text-tier-green" />
-                </p>
+              ) : reflections.length === 0 ? (
+                <p className="py-6 text-center text-sm text-txt-faint">No recent deliverables</p>
               ) : (
                 <div className="space-y-2">
-                  {incidents.map((incident) => (
-                    <InnerCard
-                      key={incident.id}
-                      accent="239,68,68"
-                      className="flex items-start gap-3"
-                    >
-                      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[rgba(239,68,68,0.15)] text-[#EF4444]">
-                        <MdWarning className="h-4 w-4" />
-                      </div>
+                  {reflections.map(r => (
+                    <InnerCard key={r.id} accent="52,211,153" className="flex items-start gap-3">
+                      <AgentAvatar role={r.agent_role} size={24} />
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#EF4444]">
-                            {incident.severity}
-                          </span>
-                          <span className="text-[10px] text-txt-faint">{timeAgo(incident.created_at)}</span>
+                        <p className="text-[13px] text-txt-secondary line-clamp-1">{r.summary}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[11px] text-txt-faint">{DISPLAY_NAME_MAP[r.agent_role] ?? r.agent_role}</span>
+                          <span className="text-[10px] text-txt-faint">{timeAgo(r.created_at)}</span>
                         </div>
-                        <p className="mt-1 text-[13px] font-medium text-txt-primary line-clamp-1">{incident.title}</p>
-                        {incident.description && (
-                          <p className="mt-1 text-[11px] text-txt-muted line-clamp-2">{incident.description}</p>
-                        )}
                       </div>
+                      {r.quality_score != null && (
+                        <span className={`text-[12px] font-bold font-mono ${
+                          r.quality_score >= 80 ? 'text-[#34D399]' : r.quality_score >= 60 ? 'text-prism-elevated' : 'text-txt-faint'
+                        }`}>
+                          Q{r.quality_score}
+                        </span>
+                      )}
                     </InnerCard>
                   ))}
                 </div>
               )}
             </Card>
 
-            <Card accent="17,113,237" className="queue">
+            {/* Organizational Intelligence */}
+            <Card accent="168,85,247">
               <SectionHeader
-                title="Decision Queue"
+                title="Organizational Intelligence"
                 action={
-                  <Link to="/approvals" className="text-xs text-prism-tertiary hover:text-prism-primary hover:underline">
-                    View all
+                  <Link to="/knowledge" className="text-[11px] text-cyan hover:underline flex items-center gap-0.5">
+                    Explore <MdArrowForward className="h-3 w-3" />
                   </Link>
                 }
               />
-              {decisionsLoading ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <Skeleton key={i} className="h-14" />
-                  ))}
+              <div className="grid grid-cols-3 gap-4 py-3">
+                <div className="text-center">
+                  <p className="text-2xl font-bold font-mono text-txt-primary">{totalNodes.toLocaleString()}</p>
+                  <p className="text-[10px] text-txt-faint uppercase tracking-wider mt-1">Knowledge Nodes</p>
                 </div>
-              ) : decisions.filter((d) => d.status === 'pending').length === 0 ? (
-                <p className="py-8 text-center text-sm text-txt-faint">
-                  All clear <MdCheckCircle className="inline h-4 w-4 text-tier-green" />
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {decisions
-                    .filter((d) => d.status === 'pending')
-                    .slice(0, 5)
-                    .map((d) => (
-                      <InnerCard
-                        key={d.id}
-                        accent="17,113,237"
-                        className="flex items-start gap-3"
-                      >
-                        <AgentAvatar role={d.proposed_by} size={24} />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[13px] font-medium text-txt-secondary line-clamp-1">{d.title}</p>
-                          <p className="text-[11px] text-txt-faint line-clamp-1">{d.summary}</p>
-                        </div>
-                        <ImpactBadge impact={TIER_TO_IMPACT[d.tier] ?? d.tier} />
-                      </InnerCard>
+                <div className="text-center">
+                  <p className="text-2xl font-bold font-mono text-txt-primary">{patternCount}</p>
+                  <p className="text-[10px] text-txt-faint uppercase tracking-wider mt-1">Patterns Found</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold font-mono text-txt-primary">{contradictionCount}</p>
+                  <p className="text-[10px] text-txt-faint uppercase tracking-wider mt-1">Hypotheses</p>
+                </div>
+              </div>
+              {kgNodes.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {Object.entries(
+                    kgNodes.reduce<Record<string, number>>((acc, n) => {
+                      acc[n.node_type] = (acc[n.node_type] ?? 0) + 1;
+                      return acc;
+                    }, {})
+                  )
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 6)
+                    .map(([type, count]) => (
+                      <span key={type} className="rounded-full border border-border px-2.5 py-0.5 text-[10px] text-txt-muted">
+                        {type} <span className="font-mono text-txt-faint">{count}</span>
+                      </span>
                     ))}
                 </div>
               )}
             </Card>
           </div>
+
+          {/* ── The Organization ───────────── */}
+          <Card accent="0,163,255">
+            <SectionHeader
+              title="The Organization"
+              action={
+                <Link to="/organization" className="text-[11px] text-cyan hover:underline flex items-center gap-0.5">
+                  View all <MdArrowForward className="h-3 w-3" />
+                </Link>
+              }
+            />
+            {/* Summary stats row */}
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 py-2">
+              <OrgStat label="Runs (7d)" value={String(totalRuns)} />
+              <OrgStat label="Avg Quality" value={avgQuality > 0 ? `${Math.round(avgQuality)}` : '—'} />
+              <OrgStat label="Shipped" value={String(totalShipped)} />
+              <OrgStat label="Agents Active" value={String(runningAgents.length)} />
+            </div>
+
+            {/* Top Performers + Needs Attention */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-3">
+              {topPerformers.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Top Performers</p>
+                  <div className="space-y-1.5">
+                    {topPerformers.map(a => (
+                      <div key={a.agent_id} className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 hover:bg-raised transition-colors">
+                        <AgentAvatar role={a.agent_id} size={22} />
+                        <span className="text-[12px] text-txt-secondary flex-1 truncate">{DISPLAY_NAME_MAP[a.agent_id] ?? a.agent_id}</span>
+                        <span className="text-[11px] font-mono text-[#34D399]">Q{Math.round(a.avg_quality_score ?? 0)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {needsAttention.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Needs Attention</p>
+                  <div className="space-y-1.5">
+                    {needsAttention.map(a => (
+                      <div key={a.agent_id} className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 hover:bg-raised transition-colors">
+                        <AgentAvatar role={a.agent_id} size={22} />
+                        <span className="text-[12px] text-txt-secondary flex-1 truncate">{DISPLAY_NAME_MAP[a.agent_id] ?? a.agent_id}</span>
+                        <span className="text-[11px] font-mono text-prism-elevated">{a.failed_runs} fails</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Running agents bar */}
+            {runningAgents.length > 0 && (
+              <Link to="/activity" className="block mt-4">
+                <InnerCard accent="52,211,153" className="flex items-center gap-3">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#34D399] opacity-75" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#34D399]" />
+                  </span>
+                  <span className="text-[12px] font-semibold text-[#34D399]">
+                    {runningAgents.length} agent{runningAgents.length > 1 ? 's' : ''} working now
+                  </span>
+                  <div className="flex items-center gap-2 overflow-hidden flex-1">
+                    {runningAgents.slice(0, 4).map(run => (
+                      <AgentAvatar key={run.id} role={run.agent_id} size={20} />
+                    ))}
+                    {runningAgents.length > 4 && (
+                      <span className="text-[10px] text-txt-faint">+{runningAgents.length - 4}</span>
+                    )}
+                  </div>
+                  <span className="text-[11px] text-txt-faint flex items-center gap-1">View <MdArrowForward className="h-3 w-3" /></span>
+                </InnerCard>
+              </Link>
+            )}
+          </Card>
         </div>
       </div>
     </div>
   );
 }
 
-function MetricCard({
+/* ── Finance Card ──────────────────────────── */
+function FinanceCard({
+  icon,
   label,
   value,
-  hint,
-  gradient,
-  icon,
+  detail,
+  accent,
 }: {
+  icon: React.ReactNode;
   label: string;
   value: string;
-  hint: string;
-  gradient: string;
-  icon: React.ReactNode;
+  detail?: React.ReactNode;
+  accent: string;
 }) {
   return (
-    <div className={`stat-card-gradient ${gradient} relative min-h-[150px] overflow-hidden rounded-[24px] p-5`}>
-      <div className="stat-card-gradient-shine" aria-hidden="true" />
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-white/70">{label}</p>
-        <div className="stat-card-icon-badge">
+    <Card accent={accent} className="py-4">
+      <div className="flex items-center gap-2 mb-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: `rgba(${accent}, 0.15)`, color: `rgb(${accent})` }}>
           {icon}
         </div>
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted">{label}</span>
       </div>
-      <p className="mt-5 font-mono text-[2.25rem] font-extrabold tracking-tight text-white drop-shadow-sm">{value}</p>
-      <p className="mt-1.5 text-[12px] font-medium text-white/50">{hint}</p>
-    </div>
+      <p className="text-2xl font-bold font-mono text-txt-primary">{value}</p>
+      {detail && <div className="mt-1">{detail}</div>}
+    </Card>
   );
 }
 
-/* ── Quick Action Card ─────────────────────── */
-function QuickActionCard({
-  to,
-  icon,
-  iconBg,
-  iconColor,
-  accent,
-  title,
-  description,
-}: {
-  to: string;
-  icon: React.ReactNode;
-  iconBg: string;
-  iconColor: string;
-  accent: string;
-  title: string;
-  description: string;
-}) {
+/* ── Org Stat ──────────────────────────────── */
+function OrgStat({ label, value }: { label: string; value: string }) {
   return (
-    <Link
-      to={to}
-      className="quick-action block"
-    >
-      <Card accent={accent} interactive className="quick-action-card flex h-full flex-col gap-5">
-        <div className="quick-action-icon flex h-[52px] w-[52px] items-center justify-center rounded-[16px]" style={{ background: iconColor, color: '#000', boxShadow: `0 8px 24px ${iconColor}44` }}>
-          {icon}
-        </div>
-        <div>
-          <p className="text-[15px] font-bold text-txt-primary">{title}</p>
-          <p className="mt-1.5 text-[13px] text-txt-muted leading-relaxed">{description}</p>
-        </div>
-      </Card>
-    </Link>
+    <div className="text-center">
+      <p className="text-xl font-bold font-mono text-txt-primary">{value}</p>
+      <p className="text-[10px] text-txt-faint uppercase tracking-wider mt-0.5">{label}</p>
+    </div>
   );
 }
 

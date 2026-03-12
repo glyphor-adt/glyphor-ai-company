@@ -211,6 +211,12 @@ export function createExecutiveOrchestrationTools(
             status: 'draft',
           }));
 
+          // Clean up stale drafts from previous planning attempts for this directive
+          await systemQuery(
+            `DELETE FROM work_assignments WHERE directive_id = $1 AND status = 'draft'`,
+            [directiveId],
+          );
+
           const columns = '(directive_id, assigned_to, assigned_by, created_by, task_description, task_type, expected_output, depends_on, priority, sequence_order, assignment_type, status)';
           const values: unknown[] = [];
           const placeholders: string[] = [];
