@@ -500,6 +500,7 @@ export type SecurityEventType =
   | 'EVENT_NOT_PERMITTED'
   | 'DATA_EVIDENCE_MISSING'
   | 'CONSTITUTIONAL_BLOCK'
+  | 'TOOL_VERIFICATION_BLOCK'
   | 'BEHAVIORAL_ANOMALY';
 
 export interface SecurityEvent {

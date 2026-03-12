@@ -419,9 +419,7 @@ async function ensureAgentRunsRoutingSchema(): Promise<void> {
       ).catch(() => []);
       verificationPassesColumnType = effectiveVerificationPassesType?.udt_name === '_text'
         ? 'array'
-        : effectiveVerificationPassesType?.udt_name === 'int4'
-          ? 'integer'
-          : 'unknown';
+        : 'integer'; // Default to integer (safe: .passes.length always works)
 
       await safeSchemaChange('ALTER TABLE agent_runs DROP CONSTRAINT IF EXISTS agent_runs_status_check');
       await safeSchemaChange(
@@ -606,9 +604,6 @@ const trackedAgentExecutor = async (
         : (result?.status === 'error' ? 'failed' : (result?.status ?? 'completed'));
       const reasoningMeta = (result as any)?.reasoningMeta;
       const verificationMeta = (result as any)?.verificationMeta;
-      const verificationPassesValue = verificationMeta
-        ? (verificationPassesColumnType === 'integer' ? verificationMeta.passes.length : verificationMeta.passes)
-        : null;
       const updateParamsBase = [
         runStatus,
         new Date().toISOString(),
@@ -630,6 +625,10 @@ const trackedAgentExecutor = async (
       ];
       try {
         await ensureAgentRunsRoutingSchema();
+        // Compute AFTER ensureAgentRunsRoutingSchema so verificationPassesColumnType is resolved
+        const verificationPassesValue = verificationMeta
+          ? (verificationPassesColumnType === 'array' ? verificationMeta.passes : verificationMeta.passes.length)
+          : null;
         await systemQuery(
           `UPDATE agent_runs SET status=$1, completed_at=$2, duration_ms=$3, turns=$4, tool_calls=$5, input_tokens=$6, output_tokens=$7, cost=$8, output=$9, error=$10, thinking_tokens=$11, cached_input_tokens=$12, routing_rule=$13, routing_capabilities=$14, routing_model=$15, model_routing_reason=$16, subtask_complexity=$17${reasoningMeta ? ', reasoning_passes=$18, reasoning_confidence=$19, reasoning_revised=$20, reasoning_cost_usd=$21' : ''}${verificationMeta ? ', verification_tier=$' + (reasoningMeta ? 22 : 18) + ', verification_reason=$' + (reasoningMeta ? 23 : 19) + ', verification_passes=$' + (reasoningMeta ? 24 : 20) : ''} WHERE id=$${reasoningMeta ? (verificationMeta ? 25 : 22) : (verificationMeta ? 21 : 18)}`,
           [
@@ -642,6 +641,10 @@ const trackedAgentExecutor = async (
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.warn('[Scheduler] Routing schema update failed, falling back to legacy agent_runs update:', message);
+        // Safe default: use integer (passes.length) when column type is unknown to avoid array→int4 error
+        const fallbackVerificationPassesValue = verificationMeta
+          ? (verificationPassesColumnType === 'array' ? verificationMeta.passes : verificationMeta.passes.length)
+          : null;
         await systemQuery(
           `UPDATE agent_runs SET status=$1, completed_at=$2, duration_ms=$3, turns=$4, tool_calls=$5, input_tokens=$6, output_tokens=$7, cost=$8, output=$9, error=$10, thinking_tokens=$11, cached_input_tokens=$12${reasoningMeta ? ', reasoning_passes=$13, reasoning_confidence=$14, reasoning_revised=$15, reasoning_cost_usd=$16' : ''}${verificationMeta ? ', verification_tier=$' + (reasoningMeta ? 17 : 13) + ', verification_reason=$' + (reasoningMeta ? 18 : 14) + ', verification_passes=$' + (reasoningMeta ? 19 : 15) : ''} WHERE id=$${reasoningMeta ? (verificationMeta ? 20 : 17) : (verificationMeta ? 16 : 13)}`,
           [
@@ -658,7 +661,7 @@ const trackedAgentExecutor = async (
             result?.thinkingTokens ?? null,
             result?.cachedInputTokens ?? null,
             ...(reasoningMeta ? [reasoningMeta.passes, reasoningMeta.confidence, reasoningMeta.revised, reasoningMeta.costUsd] : []),
-            ...(verificationMeta ? [verificationMeta.tier, verificationMeta.reason, verificationPassesValue] : []),
+            ...(verificationMeta ? [verificationMeta.tier, verificationMeta.reason, fallbackVerificationPassesValue] : []),
             runId,
           ],
         );

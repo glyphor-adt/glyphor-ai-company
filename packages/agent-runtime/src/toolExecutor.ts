@@ -34,6 +34,7 @@ import { executeDynamicTool } from './dynamicToolExecutor.js';
 import { HIGH_STAKES_TOOLS, preCheckTool } from './constitutionalPreCheck.js';
 import type { ConstitutionalGovernor } from './constitutionalGovernor.js';
 import type { ModelClient } from './modelClient.js';
+import { VerifierRunner } from './verifierRunner.js';
 import type { RedisCache } from './redisCache.js';
 import { recordToolCall, detectToolSource } from './toolReputationTracker.js';
 import { applyPatchToGitHub } from './patchHarness.js';
@@ -198,6 +199,14 @@ const MUTATION_PREFIXES = ['update_', 'create_', 'delete_', 'set_', 'assign_', '
 const isMutation = (toolName: string): boolean =>
   MUTATION_PREFIXES.some(p => toolName.startsWith(p));
 
+const CROSS_AGENT_VERIFICATION_TOOLS = new Set([
+  ...HIGH_STAKES_TOOLS,
+  'send_dm',
+  'send_teams_dm',
+  'create_calendar_event',
+  'revoke_tool_access',
+]);
+
 // ─── DATA-EVIDENCE GATE ────────────────────────────────────────
 // Tools that MUST have prior data-sourcing tool calls with substantive
 // data before they can execute.  Prevents agents from fabricating
@@ -247,6 +256,7 @@ export class ToolExecutor {
   private constitutionalGovernor: ConstitutionalGovernor | null = null;
   private modelClient: ModelClient | null = null;
   private redisCache: RedisCache | null = null;
+  private verifierRunner: VerifierRunner | null = null;
 
   constructor(tools: ToolDefinition[], dryRun = false, enforcement = true, formalVerifier?: FormalVerifier) {
     this.tools = new Map(tools.map((t) => [t.name, t]));
@@ -264,6 +274,7 @@ export class ToolExecutor {
     this.constitutionalGovernor = deps.constitutionalGovernor ?? null;
     this.modelClient = deps.modelClient ?? null;
     this.redisCache = deps.redisCache ?? null;
+    this.verifierRunner = deps.modelClient ? new VerifierRunner(deps.modelClient) : null;
   }
 
   // ─── Cost Tracking ────────────────────────────────────────────
@@ -665,6 +676,45 @@ export class ToolExecutor {
         filesWritten: 0,
         memoryKeysWritten: 0,
       };
+    }
+
+    // ─── 7. Cross-agent verification for high-stakes actions ───────
+    if (CROSS_AGENT_VERIFICATION_TOOLS.has(toolName) && this.verifierRunner) {
+      const recentEvidence = this.callLog
+        .filter((log) => log.agentId === context.agentId)
+        .slice(-5)
+        .map((log) =>
+          `${log.toolName} -> ${log.result.success ? 'success' : 'error'}: ${
+            typeof log.result.data === 'string'
+              ? log.result.data
+              : log.result.error ?? JSON.stringify(log.result.data ?? null)
+          }`,
+        )
+        .join('\n');
+
+      const verificationResult = await this.verifierRunner.verifyToolCall({
+        primaryModel: 'gpt-5-mini-2025-08-07',
+        agentRole: context.agentRole,
+        toolName,
+        toolParams: params,
+        context: recentEvidence ? `Recent tool evidence:\n${recentEvidence}` : undefined,
+      });
+
+      if (verificationResult.verdict === 'BLOCK' || verificationResult.verdict === 'ESCALATE') {
+        this.logSecurityEvent(context.agentId, context.agentRole, toolName, 'TOOL_VERIFICATION_BLOCK', {
+          verdict: verificationResult.verdict,
+          confidence: verificationResult.confidence,
+          reasoning: verificationResult.reasoning,
+          discrepancies: verificationResult.discrepancies,
+          verifierModel: verificationResult.verifierModel,
+        });
+        return {
+          success: false,
+          error: `Tool call blocked by verification: ${verificationResult.reasoning}`,
+          filesWritten: 0,
+          memoryKeysWritten: 0,
+        };
+      }
     }
 
     const timeoutMs = LONG_RUNNING_TOOLS.has(toolName) ? LONG_TOOL_TIMEOUT_MS : DEFAULT_TOOL_TIMEOUT_MS;

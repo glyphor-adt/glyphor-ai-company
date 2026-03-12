@@ -118,6 +118,31 @@ export class VerifierRunner {
       };
     }
   }
+
+  /**
+   * Verify a high-stakes tool call before execution using a second-model review.
+   */
+  async verifyToolCall(params: {
+    primaryModel: string;
+    agentRole: string;
+    toolName: string;
+    toolParams: Record<string, unknown>;
+    context?: string;
+  }): Promise<VerificationReport> {
+    const toolTask = [
+      `Agent role: ${params.agentRole}`,
+      `Proposed high-stakes tool call: ${params.toolName}`,
+      `Tool parameters: ${JSON.stringify(params.toolParams, null, 2)}`,
+      'Decide whether this action should be allowed to proceed.',
+    ].join('\n');
+
+    return this.verify({
+      primaryModel: params.primaryModel,
+      task: toolTask,
+      agentOutput: `Proposed tool invocation:\n${params.toolName}(${JSON.stringify(params.toolParams)})`,
+      context: params.context,
+    });
+  }
 }
 
 // ─── Response parsing ───────────────────────────────────────────
