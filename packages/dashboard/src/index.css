@@ -85,10 +85,7 @@ body {
 }
 
 .dark .dashboard-shell {
-  background:
-    radial-gradient(ellipse at top left, rgba(0, 224, 255, 0.05), transparent 56%),
-    radial-gradient(ellipse at bottom right, rgba(17, 113, 237, 0.06), transparent 56%),
-    rgba(12, 14, 18, 0.95);
+  background: linear-gradient(180deg, #0B0C10 0%, #0D0F14 44%, #0B0C10 100%);
 }
 
 .dashboard-sidebar {
