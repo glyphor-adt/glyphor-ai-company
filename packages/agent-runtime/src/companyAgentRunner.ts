@@ -8,7 +8,7 @@
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { ModelClient } from './modelClient.js';
+import { ModelClient, detectProvider } from './modelClient.js';
 import { ToolExecutor } from './toolExecutor.js';
 import { loadDynamicToolDeclarations } from './dynamicToolExecutor.js';
 import { AgentSupervisor } from './supervisor.js';
@@ -39,6 +39,8 @@ import type { TrustScorer } from './trustScorer.js';
 import { determineVerificationTier, type VerificationDecision } from './verificationPolicy.js';
 import { compareSubtaskComplexity, routeSubtask, type SubtaskComplexity } from './subtaskRouter.js';
 import { learnFromAgentRun } from './skillLearning.js';
+import { shouldUseClientSideHistoryCompression } from './compaction.js';
+import type { RequestSource } from './providers/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -1637,6 +1639,20 @@ export class CompanyAgentRunner {
       routedModel.reasoningEffort = 'low';
     }
 
+    const requestSource: RequestSource = task === 'on_demand' ? 'on_demand' : 'scheduled';
+    let compactionCount = 0;
+    let compactionSummary: string | undefined;
+    const prepareHistoryForModel = async (
+      model: string,
+      currentHistory: ConversationTurn[],
+    ): Promise<ConversationTurn[]> => {
+      const provider = detectProvider(model);
+      if (!shouldUseClientSideHistoryCompression(provider, requestSource)) {
+        return currentHistory;
+      }
+      return compressHistory(currentHistory, DEFAULT_HISTORY_COMPRESSION, this.modelClient);
+    };
+
     try {
       let turnNumber = 0;
       let previousResponseId: string | undefined;
@@ -1696,12 +1712,13 @@ export class CompanyAgentRunner {
               try {
                 const synthPrompt = 'You ran out of time. Using ONLY the tool results already in the conversation, give a clear, concise answer to the user. Do NOT apologize about running out of time. Just answer naturally.';
                 history.push({ role: 'user', content: synthPrompt, timestamp: Date.now() });
-                const compressedSynthHistory = await compressHistory(history, DEFAULT_HISTORY_COMPRESSION, this.modelClient);
                 const synthModel = routedModel.model === '__deterministic__' ? config.model : routedModel.model;
+                const compressedSynthHistory = await prepareHistoryForModel(synthModel, history);
                 const synthResponse = await this.modelClient.generate({
                   model: synthModel,
                   systemInstruction: '',
                   contents: compressedSynthHistory,
+                  source: requestSource,
                   tools: undefined,
                   temperature: config.temperature,
                   thinkingEnabled: false,
@@ -1715,6 +1732,10 @@ export class CompanyAgentRunner {
                   lastTextOutput = synthResponse.text;
                   totalInputTokens += synthResponse.usageMetadata.inputTokens;
                   totalOutputTokens += synthResponse.usageMetadata.outputTokens;
+                }
+                if (synthResponse.compactionCount) {
+                  compactionCount += synthResponse.compactionCount;
+                  compactionSummary = synthResponse.compactionSummary ?? compactionSummary;
                 }
                 previousResponseId = synthResponse.responseId;
               } catch {
@@ -1837,7 +1858,10 @@ export class CompanyAgentRunner {
             effectiveTools = filterToolDeclarations(effectiveTools, getToolSubset(config.role, task));
           }
 
-          const compressedHistory = await compressHistory(history, DEFAULT_HISTORY_COMPRESSION, this.modelClient);
+          const modelForTurn = routedModel.model === '__deterministic__'
+            ? config.model
+            : routedModel.model;
+          const compressedHistory = await prepareHistoryForModel(modelForTurn, history);
 
           if (turnNumber === 1 || turnNumber % 3 === 0) {
             const rawEst = Math.ceil(history.reduce((t, h) => t + h.content.length, 0) / 3);
@@ -1893,14 +1917,11 @@ export class CompanyAgentRunner {
             effectiveTemp = 1.0;
           }
 
-          const modelForTurn = routedModel.model === '__deterministic__'
-            ? config.model
-            : routedModel.model;
-
           response = await this.modelClient.generate({
             model: modelForTurn,
             systemInstruction: systemPrompt,
             contents: compressedHistory,
+            source: requestSource,
             tools: effectiveTools,
             temperature: effectiveTemp,
             topP: config.topP,
@@ -1923,6 +1944,14 @@ export class CompanyAgentRunner {
             },
           });
           previousResponseId = response.responseId;
+          if (response.compactionCount) {
+            compactionCount += response.compactionCount;
+            compactionSummary = response.compactionSummary ?? compactionSummary;
+            console.log(
+              `[Compaction] ${config.role} turn=${turnNumber}: provider summarized earlier context ` +
+              `(${response.compactionCount} event${response.compactionCount === 1 ? '' : 's'})`,
+            );
+          }
 
           // Accumulate token usage across turns
           totalInputTokens += response.usageMetadata.inputTokens;
@@ -2215,7 +2244,22 @@ export class CompanyAgentRunner {
         elapsedMs: stats.elapsedMs,
       });
 
-      const result = this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, buildRoutingSummary());
+      const result = this.buildResult(
+        config,
+        'completed',
+        lastTextOutput,
+        history,
+        supervisor,
+        undefined,
+        totalInputTokens,
+        totalOutputTokens,
+        totalThinkingTokens,
+        totalCachedInputTokens,
+        actionReceipts,
+        buildRoutingSummary(),
+        compactionCount,
+        compactionSummary,
+      );
       if (reasoningResult) {
         result.reasoningMeta = {
           passes: reasoningResult.passes.length,
@@ -2278,6 +2322,8 @@ export class CompanyAgentRunner {
         totalCachedInputTokens,
         undefined,
         buildRoutingSummary(),
+        compactionCount,
+        compactionSummary,
       );
     }
   }
@@ -2332,6 +2378,8 @@ export class CompanyAgentRunner {
     cachedInputTokens = 0,
     actions?: Array<{ tool: string; params: Record<string, unknown>; result: 'success' | 'error'; output: string; timestamp: string }>,
     routing?: Pick<RoutingDecision, 'routingRule' | 'capabilities' | 'model'> & Pick<AgentExecutionResult, 'modelRoutingReason' | 'subtaskComplexity'>,
+    compactionCount = 0,
+    compactionSummary?: string,
   ): AgentExecutionResult {
     const stats = supervisor.stats;
     return {
@@ -2358,6 +2406,9 @@ export class CompanyAgentRunner {
       routingModel: routing?.model,
       modelRoutingReason: routing?.modelRoutingReason,
       subtaskComplexity: routing?.subtaskComplexity,
+      compactionOccurred: compactionCount > 0 ? true : undefined,
+      compactionCount: compactionCount > 0 ? compactionCount : undefined,
+      compactionSummary: compactionCount > 0 ? compactionSummary : undefined,
     };
   }
 

@@ -51,11 +51,7 @@ export default {
       },
       backgroundImage: {
         ...prism.theme.extend.backgroundImage,
-        'mesh-gradient': [
-          'radial-gradient(ellipse 160% 140% at 100% 100%, #1a0a4e, transparent 65%)',
-          'radial-gradient(ellipse 140% 160% at 70%  100%, #06103a, transparent 60%)',
-          'radial-gradient(ellipse 120% 100% at 40%  80%,  #040820, transparent 55%)',
-        ].join(', '),
+        'mesh-gradient': "url('/mesh-gradient-1920x1080.png')",
       },
       animation: {
         'fade-up': 'fadeUp .4s ease-out both',

@@ -14,6 +14,7 @@ export type ReasoningLevel = 'none' | 'standard' | 'deep';
 export type ModelReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
 export type ModelVerbosity = 'low' | 'medium' | 'high';
 export type GeminiThinkingLevel = 'low' | 'medium' | 'high';
+export type RequestSource = 'on_demand' | 'scheduled' | 'heartbeat' | 'wake' | 'a2a';
 
 export interface StructuredOutputSpec {
   name: string;
@@ -56,6 +57,7 @@ export interface UnifiedModelRequest {
   model: string;
   systemInstruction: string;
   contents: ConversationTurn[];
+  source?: RequestSource;
   tools?: ToolDeclaration[];
   temperature?: number;
   topP?: number;
@@ -96,6 +98,9 @@ export interface UnifiedModelResponse {
   usageMetadata: UnifiedUsageMetadata;
   finishReason: string;
   responseId?: string;
+  compactionOccurred?: boolean;
+  compactionCount?: number;
+  compactionSummary?: string;
 }
 
 // ─── Image Response ──────────────────────────────────────────

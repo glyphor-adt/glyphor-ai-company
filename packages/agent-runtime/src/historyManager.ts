@@ -16,7 +16,9 @@
  * The old FIFO `.slice(1)` trim loop could bisect atomic tool_call/tool_result
  * pairs, orphan reasoning chains, or lose the original user request. This design
  * ensures structural integrity: groups stay or go entirely, and evicted context
- * is summarized rather than silently dropped.
+ * is summarized rather than silently dropped. OpenAI and Anthropic now prefer
+ * provider-managed compaction for on-demand chat; this module remains the
+ * client-side fallback and Gemini path.
  */
 
 import type { ConversationTurn } from './types.js';
@@ -446,7 +448,8 @@ export function sanitizeToolPairs(turns: ConversationTurn[]): ConversationTurn[]
   if (repaired) {
     console.warn(
       `[HistoryManager] sanitizeToolPairs repaired ${turns.length - result.length} orphaned turns — ` +
-      `this indicates a structural group was corrupted upstream. Input: ${turns.length} turns, output: ${result.length} turns`,
+      `compaction should have prevented this. Investigate upstream grouping. ` +
+      `Input: ${turns.length} turns, output: ${result.length} turns`,
     );
   }
   return result;

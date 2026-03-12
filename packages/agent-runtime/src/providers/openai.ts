@@ -13,6 +13,7 @@
 import OpenAI, { AzureOpenAI } from 'openai';
 import type { ConversationTurn } from '../types.js';
 import type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse, ImageResponse } from './types.js';
+import { buildOpenAIContextManagement, extractOpenAICompactionMetadata } from '../compaction.js';
 
 /** Configuration for OpenAI adapter — either direct or Azure-backed. */
 export interface OpenAIAdapterConfig {
@@ -139,6 +140,7 @@ export class OpenAIAdapter implements ProviderAdapter {
   async generate(request: UnifiedModelRequest): Promise<UnifiedModelResponse> {
     const messages = this.mapConversation(request);
     const modelConfig = request.metadata?.modelConfig;
+    const contextManagement = buildOpenAIContextManagement(request.source);
 
     const MAX_OPENAI_TOOLS = 128;
     const allTools = request.tools?.length
@@ -195,11 +197,12 @@ export class OpenAIAdapter implements ProviderAdapter {
 
     // ── Responses API for reasoning calls (enables reasoning summaries) ──
     const hasResponsesApi = typeof (this.client as any).responses?.create === 'function';
+    const shouldUseResponsesForCompaction = Boolean(contextManagement?.length);
     if (request.model.startsWith('gpt-5.4') && hasResponsesApi) {
-      return this.generateViaResponses(request, reasoningEffort, tools);
+      return this.generateViaResponses(request, reasoningEffort, tools, contextManagement);
     }
-    if (reasoningEffort && reasoningEffort !== 'none' && hasResponsesApi) {
-      return this.generateViaResponses(request, reasoningEffort, tools);
+    if ((reasoningEffort && reasoningEffort !== 'none' && hasResponsesApi) || (shouldUseResponsesForCompaction && hasResponsesApi)) {
+      return this.generateViaResponses(request, reasoningEffort, tools, contextManagement);
     }
 
     // ── Chat Completions path (non-reasoning / reasoning=none / SDK fallback) ──
@@ -312,6 +315,7 @@ export class OpenAIAdapter implements ProviderAdapter {
     request: UnifiedModelRequest,
     reasoningEffort?: string,
     tools?: Array<{ type: 'function'; function: { name: string; description: string; parameters: Record<string, unknown> } }>,
+    contextManagement?: Array<Record<string, unknown>>,
   ): Promise<UnifiedModelResponse> {
     const input = this.mapConversationForResponses(request);
 
@@ -405,6 +409,7 @@ export class OpenAIAdapter implements ProviderAdapter {
       // when the server-side state has function_calls with OpenAI-generated
       // IDs that don't match our synthetic call IDs.
       store: false,
+      ...(contextManagement?.length ? { context_management: contextManagement } : {}),
       ...(modelConfig?.verbosity ? { text: { verbosity: modelConfig.verbosity } } : {}),
       ...(modelConfig?.structuredOutput ? {
         text: {
@@ -604,6 +609,7 @@ export class OpenAIAdapter implements ProviderAdapter {
     let text: string | null = null;
     const toolCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
     let thinkingText: string | undefined;
+    const compaction = extractOpenAICompactionMetadata(response);
 
     for (const item of (response.output ?? [])) {
       if (item.type === 'message') {
@@ -656,6 +662,9 @@ export class OpenAIAdapter implements ProviderAdapter {
       },
       finishReason,
       responseId: response.id,
+      compactionOccurred: compaction?.occurred,
+      compactionCount: compaction?.count,
+      compactionSummary: compaction?.summary,
     };
   }
 

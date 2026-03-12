@@ -387,6 +387,8 @@ async function ensureAgentRunsRoutingSchema(): Promise<void> {
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS verification_tier TEXT');
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS verification_reason TEXT');
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS verification_passes TEXT[]');
+      await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS compaction_count INT DEFAULT 0');
+      await safeSchemaChange('ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS compacted BOOLEAN DEFAULT FALSE');
 
       // Migration drift guard for Phase 3 + Phase 7 columns used by smoketests.
       await safeSchemaChange("ALTER TABLE company_agents ADD COLUMN IF NOT EXISTS knowledge_access_scope TEXT[] NOT NULL DEFAULT ARRAY['general']");
@@ -652,9 +654,9 @@ const trackedAgentExecutor = async (
             runId,
           ],
         );
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.warn('[Scheduler] Routing schema update failed, falling back to legacy agent_runs update:', message);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          console.warn('[Scheduler] Routing schema update failed, falling back to legacy agent_runs update:', message);
         // Safe default: use integer (passes.length) when column type is unknown to avoid array→int4 error
         const fallbackVerificationPassesValue = verificationMeta
           ? (verificationPassesColumnType === 'array' ? verificationMeta.passes : verificationMeta.passes.length)
@@ -679,6 +681,17 @@ const trackedAgentExecutor = async (
             runId,
           ],
         );
+      }
+
+      if (typeof result?.compactionCount === 'number') {
+        try {
+          await systemQuery(
+            'UPDATE agent_runs SET compaction_count=$1 WHERE id=$2',
+            [result.compactionCount, runId],
+          );
+        } catch (err) {
+          console.warn('[Scheduler] Failed to persist compaction count:', (err as Error).message);
+        }
       }
 
       if (result?.agentId) {

@@ -1,0 +1,5 @@
+ALTER TABLE agent_runs
+  ADD COLUMN IF NOT EXISTS compaction_count INT DEFAULT 0;
+
+ALTER TABLE chat_messages
+  ADD COLUMN IF NOT EXISTS compacted BOOLEAN DEFAULT FALSE;

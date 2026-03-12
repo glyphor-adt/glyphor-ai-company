@@ -87,7 +87,7 @@ body {
 }
 
 .mesh-gradient {
-  background-color: #0f0f14;
+  background: #0f0f14 url('/mesh-gradient-1920x1080.png') center center / cover no-repeat fixed;
 }
 
 .dashboard-sidebar {

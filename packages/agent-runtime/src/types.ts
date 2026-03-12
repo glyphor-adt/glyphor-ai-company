@@ -211,6 +211,9 @@ export interface AgentExecutionResult {
     reason: string;
     passes: string[];
   };
+  compactionOccurred?: boolean;
+  compactionCount?: number;
+  compactionSummary?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════

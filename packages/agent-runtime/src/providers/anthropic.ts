@@ -10,6 +10,11 @@ import { AnthropicVertex } from '@anthropic-ai/vertex-sdk';
 import Anthropic from '@anthropic-ai/sdk';
 import type { ConversationTurn } from '../types.js';
 import type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse } from './types.js';
+import {
+  buildAnthropicContextManagement,
+  extractAnthropicCompactionMetadata,
+  getAnthropicCompactionBetas,
+} from '../compaction.js';
 
 export class AnthropicAdapter implements ProviderAdapter {
   readonly provider = 'anthropic' as const;
@@ -29,6 +34,8 @@ export class AnthropicAdapter implements ProviderAdapter {
   async generate(request: UnifiedModelRequest): Promise<UnifiedModelResponse> {
     const messages = this.mapConversation(request.contents);
     const modelConfig = request.metadata?.modelConfig;
+    const contextManagement = buildAnthropicContextManagement(request.source);
+    const compactionBetas = getAnthropicCompactionBetas(request.source);
 
     const tools = request.tools?.length
       ? request.tools.map(t => ({
@@ -122,28 +129,51 @@ export class AnthropicAdapter implements ProviderAdapter {
       createParams.citations = { enabled: true };
     }
 
-    if (modelConfig?.enableCompaction) {
-      createParams.compaction = 'auto';
-    }
-
     const directCreateParams = createParams as unknown as Parameters<Anthropic['messages']['create']>[0];
     const vertexCreateParams = createParams as unknown as Parameters<AnthropicVertex['messages']['create']>[0];
 
     let response: Anthropic.Message;
     try {
-      response = await this.client.messages.create(directCreateParams) as Anthropic.Message;
+      response = await this.createMessage(
+        this.client,
+        directCreateParams,
+        contextManagement,
+        compactionBetas,
+      );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       const isQuota = /429|rate.?limit|quota|resource.?exhausted|too many requests/i.test(msg);
       if (isQuota && this.vertexClient) {
         console.log(`[AnthropicAdapter] Direct API quota hit for ${request.model}, falling back to Vertex AI`);
-        response = await this.vertexClient.messages.create(vertexCreateParams) as Anthropic.Message;
+        response = await this.createMessage(
+          this.vertexClient,
+          vertexCreateParams,
+          contextManagement,
+          compactionBetas,
+        );
       } else {
         throw err;
       }
     }
 
     return this.mapResponse(response);
+  }
+
+  private async createMessage(
+    client: Anthropic | AnthropicVertex,
+    params: Parameters<Anthropic['messages']['create']>[0] | Parameters<AnthropicVertex['messages']['create']>[0],
+    contextManagement?: Record<string, unknown>,
+    compactionBetas?: string[],
+  ): Promise<Anthropic.Message> {
+    if (contextManagement && compactionBetas?.length && typeof (client as any).beta?.messages?.create === 'function') {
+      return await (client as any).beta.messages.create({
+        ...(params as unknown as Record<string, unknown>),
+        context_management: contextManagement,
+        betas: compactionBetas,
+      }) as Anthropic.Message;
+    }
+
+    return await (client.messages as any).create(params) as Anthropic.Message;
   }
 
   private mapConversation(turns: ConversationTurn[]): Anthropic.MessageParam[] {
@@ -284,36 +314,49 @@ export class AnthropicAdapter implements ProviderAdapter {
     let text: string | null = null;
     const toolCalls: { name: string; args: Record<string, unknown> }[] = [];
     let thinkingText: string | undefined;
+    const compaction = extractAnthropicCompactionMetadata(response);
 
-    for (const block of response.content) {
-      if (block.type === 'text') {
+    for (const block of response.content as unknown as Array<Record<string, unknown>>) {
+      if (block.type === 'text' && typeof block.text === 'string') {
         text = (text ?? '') + block.text;
-      } else if (block.type === 'tool_use') {
+      } else if (block.type === 'compaction') {
+        continue;
+      } else if (block.type === 'tool_use' && typeof block.name === 'string') {
         toolCalls.push({
           name: block.name,
           args: (block.input as Record<string, unknown>) ?? {},
         });
-      } else if (block.type === 'thinking') {
-        thinkingText = (thinkingText ?? '') + (block as { thinking: string }).thinking;
+      } else if (block.type === 'thinking' && typeof block.thinking === 'string') {
+        thinkingText = (thinkingText ?? '') + block.thinking;
       }
     }
 
     const usageAny = response.usage as unknown as Record<string, number>;
+    const usageIterations = Array.isArray((response.usage as unknown as { iterations?: unknown[] }).iterations)
+      ? ((response.usage as unknown as { iterations: Array<Record<string, number>> }).iterations)
+      : [];
+    const iterationInputTokens = usageIterations.reduce((sum, iteration) => sum + (iteration.input_tokens ?? 0), 0);
+    const iterationOutputTokens = usageIterations.reduce((sum, iteration) => sum + (iteration.output_tokens ?? 0), 0);
     const cacheCreation = usageAny.cache_creation_input_tokens ?? 0;
     const cacheRead = usageAny.cache_read_input_tokens ?? 0;
     const cachedInputTokens = cacheCreation + cacheRead;
+    const inputTokens = response.usage.input_tokens + iterationInputTokens;
+    const outputTokens = response.usage.output_tokens + iterationOutputTokens;
 
     return {
       text,
       toolCalls,
       thinkingText,
       usageMetadata: {
-        inputTokens: response.usage.input_tokens,
-        outputTokens: response.usage.output_tokens,
-        totalTokens: response.usage.input_tokens + response.usage.output_tokens,
+        inputTokens,
+        outputTokens,
+        totalTokens: inputTokens + outputTokens,
         cachedInputTokens: cachedInputTokens || undefined,
       },
       finishReason: this.normalizeFinishReason(response.stop_reason),
+      compactionOccurred: compaction?.occurred,
+      compactionCount: compaction?.count,
+      compactionSummary: compaction?.summary,
     };
   }
 }
