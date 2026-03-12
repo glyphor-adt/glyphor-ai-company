@@ -52,6 +52,9 @@
   --cyan: var(--prism-accent-1);
   --azure: var(--prism-accent-3);
   --accent: var(--prism-accent-5);
+  /* Glass glow tokens */
+  --glow-cyan-md: 0 0 20px rgba(0, 224, 255, 0.15), 0 0 40px rgba(0, 224, 255, 0.06);
+  --glow-cyan-lg: 0 0 30px rgba(0, 224, 255, 0.22), 0 0 60px rgba(0, 224, 255, 0.10);
 }
 
 /* ─── Global ──────────────────────────────────── */
@@ -224,10 +227,26 @@ button, a[role="button"], .glass-btn {
   transition: all 0.2s ease;
 }
 
+/* Glass ghost button (secondary actions) */
+.dark .glass-btn-ghost {
+  background: rgba(0, 0, 0, 0.30);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+}
+
+.dark .glass-btn-ghost:hover {
+  border-color: rgba(0, 224, 255, 0.60);
+  box-shadow: var(--glow-cyan-lg);
+}
+
 /* Tab bar / segmented control */
 .dark .glass-tabs {
-  background: rgb(21, 23, 28);
-  border-color: rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.30);
+  border-color: rgba(0, 224, 255, 0.20);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .glass-tabs {
@@ -241,8 +260,10 @@ input, textarea, select {
 }
 
 input:focus, textarea:focus, select:focus {
-  border-color: rgba(0, 224, 255, 0.3) !important;
-  box-shadow: 0 0 0 3px rgba(0, 224, 255, 0.08);
+  border-color: rgba(0, 224, 255, 0.60) !important;
+  background: rgba(0, 0, 0, 0.40) !important;
+  box-shadow: var(--glow-cyan-lg);
+  outline: none;
 }
 
 /* ─── Light Mode Card ────────────────────────── */
@@ -264,20 +285,16 @@ input:focus, textarea:focus, select:focus {
 
 /* ─── Dark Mode Card ─────────────────────────── */
 .dark .glass-card {
-  background: rgba(18, 20, 26, 0.9) !important;
-  border-color: rgba(255, 255, 255, 0.06) !important;
-  box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.5),
-    0 1px 0 rgba(255, 255, 255, 0.03) inset;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(0, 0, 0, 0.30) !important;
+  border-color: rgba(0, 224, 255, 0.30) !important;
+  box-shadow: var(--glow-cyan-md);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 .dark .glass-card:hover {
-  background: rgba(22, 24, 32, 0.95) !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
-  box-shadow:
-    0 8px 40px rgba(0, 0, 0, 0.6),
-    0 1px 0 rgba(255, 255, 255, 0.05) inset;
+  background: rgba(0, 0, 0, 0.40) !important;
+  border-color: rgba(0, 224, 255, 0.50) !important;
+  box-shadow: var(--glow-cyan-lg);
 }
 
 /* Inner raised elements inside cards */
@@ -290,11 +307,9 @@ input:focus, textarea:focus, select:focus {
 }
 
 .dark .glass-raised {
-  background: rgba(14, 16, 22, 0.8) !important;
-  border-color: rgba(255, 255, 255, 0.05) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.03),
-    0 2px 8px rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.25) !important;
+  border-color: rgba(0, 224, 255, 0.20) !important;
+  box-shadow: 0 0 12px rgba(0, 224, 255, 0.06);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
@@ -405,30 +420,35 @@ input:focus, textarea:focus, select:focus {
   position: relative;
   border-radius: 24px;
   padding: 1px;
-  background: linear-gradient(135deg, rgba(0, 224, 255, 0.25) 0%, rgba(99, 102, 241, 0.15) 40%, rgba(0, 224, 255, 0.08) 100%);
+  background: linear-gradient(135deg, rgba(0, 224, 255, 0.30) 0%, rgba(99, 102, 241, 0.20) 40%, rgba(0, 224, 255, 0.12) 100%);
 }
 
 .banner-inner {
-  background: linear-gradient(145deg, rgba(16, 20, 30, 0.98) 0%, rgba(10, 12, 18, 0.99) 60%, rgba(8, 10, 16, 1) 100%);
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   min-height: 160px;
 }
 
 /* ─── Workforce Section ───────────────── */
 .workforce-section {
-  background: rgba(14, 16, 22, 0.7);
+  background: rgba(0, 0, 0, 0.30);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 224, 255, 0.20);
+  box-shadow: var(--glow-cyan-md);
 }
 
 .workforce-avatar-card {
-  background: rgba(20, 22, 30, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  transition: background 0.2s ease, border-color 0.2s ease;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(0, 224, 255, 0.15);
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .workforce-avatar-card:hover {
-  background: rgba(28, 30, 40, 0.8);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.35);
+  border-color: rgba(0, 224, 255, 0.35);
+  box-shadow: var(--glow-cyan-md);
 }
 
 .agent-bar {
@@ -566,9 +586,11 @@ input:focus, textarea:focus, select:focus {
   width: 100%;
   max-width: 42rem;
   border-radius: 22px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgb(26, 28, 34);
-  box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+  border: 1px solid rgba(0, 224, 255, 0.30);
+  background: rgba(0, 0, 0, 0.30);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--glow-cyan-md);
   overflow: hidden;
 }
 
@@ -595,16 +617,20 @@ input:focus, textarea:focus, select:focus {
 
 .dropdown-panel {
   border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgb(30, 32, 40);
-  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  border: 1px solid rgba(0, 224, 255, 0.30);
+  background: rgba(0, 0, 0, 0.30);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--glow-cyan-md);
 }
 
 .dark input,
 .dark textarea,
 .dark select {
-  background: rgb(21, 23, 28);
-  border-color: rgba(255,255,255,0.08);
+  background: rgba(0, 0, 0, 0.30);
+  border-color: rgba(0, 224, 255, 0.30);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 @media (max-width: 1024px) {

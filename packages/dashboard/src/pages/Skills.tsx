@@ -269,7 +269,7 @@ export default function Skills() {
 /* ════════════════════════════════════════════════════════════
    CREATE SKILL MODAL
    ════════════════════════════════════════════════════════════ */
-const INPUT_CLS = 'w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40';
+const INPUT_CLS = 'w-full rounded-lg border border-primary/30 bg-black/30 backdrop-blur-[10px] px-3 py-2 text-sm text-txt-secondary outline-none focus:border-primary/60 focus:bg-black/40 focus:shadow-[var(--glow-cyan-lg)] transition-all';
 
 function CreateSkillModal({
   categories,
