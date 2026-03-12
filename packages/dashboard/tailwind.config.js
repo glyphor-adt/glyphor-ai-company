@@ -51,6 +51,13 @@ export default {
       },
       backgroundImage: {
         ...prism.theme.extend.backgroundImage,
+        'mesh-gradient': [
+          'radial-gradient(circle at 43.6% 64.7%, #000000, transparent 50%)',
+          'radial-gradient(circle at 80.9% 39.7%, #32136c, transparent 50%)',
+          'radial-gradient(circle at 54.0% 88.2%, #1b32de, transparent 50%)',
+          'radial-gradient(circle at 39.9% 24.5%, #000000, transparent 50%)',
+          'radial-gradient(circle at 23.2% 31.1%, #0f0f10, transparent 50%)',
+        ].join(', '),
       },
       animation: {
         'fade-up': 'fadeUp .4s ease-out both',

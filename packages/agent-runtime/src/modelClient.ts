@@ -39,6 +39,7 @@ function isQuotaError(msg: string): boolean {
 
 export class ModelClient {
   private factory: ProviderFactory;
+  private static readonly DETERMINISTIC_FALLBACK_MODEL = 'gpt-5-mini-2025-08-07';
 
   constructor(config: ModelClientConfig | string) {
     // Backwards-compatible: if a plain string is passed, treat as Gemini API key
@@ -56,13 +57,23 @@ export class ModelClient {
     }
 
     // Try the requested model first, then fallback chain on quota/rate errors
+    const normalizedRequestedModel = request.model === '__deterministic__'
+      ? ModelClient.DETERMINISTIC_FALLBACK_MODEL
+      : request.model;
+    if (normalizedRequestedModel !== request.model) {
+      console.warn(
+        `[ModelClient] Received sentinel model "${request.model}"; using fallback model ${normalizedRequestedModel}`,
+      );
+      request = { ...request, model: normalizedRequestedModel };
+    }
+
     const fallbackScope = request.fallbackScope ?? 'cross-provider';
     const fallbackChain = fallbackScope === 'none'
       ? []
       : fallbackScope === 'same-provider'
-        ? getProviderLocalFallbackChain(request.model)
-        : getFallbackChain(request.model);
-    const modelsToTry = [request.model, ...fallbackChain];
+        ? getProviderLocalFallbackChain(normalizedRequestedModel)
+        : getFallbackChain(normalizedRequestedModel);
+    const modelsToTry = [normalizedRequestedModel, ...fallbackChain];
 
     for (let modelIdx = 0; modelIdx < modelsToTry.length; modelIdx++) {
       const currentModel = modelsToTry[modelIdx];

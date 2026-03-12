@@ -360,6 +360,7 @@ const agentExecutor = async (
 
 // Wrap executor to record every run in agent_runs for the Activity dashboard
 let ensureAgentRunsRoutingSchemaPromise: Promise<void> | null = null;
+let verificationPassesColumnType: 'array' | 'integer' | 'unknown' = 'unknown';
 
 const AUTO_INVESTIGATE_ON_FAILURE = process.env.AUTO_INVESTIGATE_ON_FAILURE !== 'false';
 const AUTO_RETRY_ON_FAILURE = process.env.AUTO_RETRY_ON_FAILURE === 'true';
@@ -368,18 +369,62 @@ const AUTO_RETRY_MAX_ATTEMPTS = Math.max(0, parseInt(process.env.AUTO_RETRY_MAX_
 async function ensureAgentRunsRoutingSchema(): Promise<void> {
   if (!ensureAgentRunsRoutingSchemaPromise) {
     ensureAgentRunsRoutingSchemaPromise = (async () => {
-      await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS routing_rule TEXT');
-      await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS routing_capabilities TEXT[]');
-      await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS routing_model TEXT');
-      await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS model_routing_reason TEXT');
-      await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS subtask_complexity TEXT');
-      await systemQuery("ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'internal'");
-      await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS client_id UUID');
-      await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS verification_tier TEXT');
-      await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS verification_reason TEXT');
-      await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS verification_passes INTEGER');
-      await systemQuery('ALTER TABLE agent_runs DROP CONSTRAINT IF EXISTS agent_runs_status_check');
-      await systemQuery(
+      const safeSchemaChange = async (sql: string) => {
+        try {
+          await systemQuery(sql);
+        } catch (err) {
+          console.warn('[Scheduler] Schema change skipped:', (err as Error).message);
+        }
+      };
+
+      await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS routing_rule TEXT');
+      await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS routing_capabilities TEXT[]');
+      await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS routing_model TEXT');
+      await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS model_routing_reason TEXT');
+      await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS subtask_complexity TEXT');
+      await safeSchemaChange("ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'internal'");
+      await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS client_id UUID');
+      await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS verification_tier TEXT');
+      await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS verification_reason TEXT');
+      await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS verification_passes TEXT[]');
+
+      // Legacy schema guard: some environments created verification_passes as int4.
+      // Convert in place so verification pass arrays can be persisted safely.
+      const [verificationPassesType] = await systemQuery<{ udt_name: string }>(
+        `SELECT udt_name
+           FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'agent_runs'
+            AND column_name = 'verification_passes'
+          LIMIT 1`,
+      );
+      if (verificationPassesType?.udt_name === 'int4') {
+        await safeSchemaChange(
+          `ALTER TABLE agent_runs
+             ALTER COLUMN verification_passes TYPE TEXT[]
+             USING CASE
+               WHEN verification_passes IS NULL THEN NULL
+               ELSE ARRAY[verification_passes::text]
+             END`,
+        );
+      }
+
+      const [effectiveVerificationPassesType] = await systemQuery<{ udt_name: string }>(
+        `SELECT udt_name
+           FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'agent_runs'
+            AND column_name = 'verification_passes'
+          LIMIT 1`,
+      ).catch(() => []);
+      verificationPassesColumnType = effectiveVerificationPassesType?.udt_name === '_text'
+        ? 'array'
+        : effectiveVerificationPassesType?.udt_name === 'int4'
+          ? 'integer'
+          : 'unknown';
+
+      await safeSchemaChange('ALTER TABLE agent_runs DROP CONSTRAINT IF EXISTS agent_runs_status_check');
+      await safeSchemaChange(
         `ALTER TABLE agent_runs ADD CONSTRAINT agent_runs_status_check
           CHECK (status IN ('running', 'completed', 'failed', 'aborted', 'skipped_precheck'))`,
       );
@@ -561,6 +606,9 @@ const trackedAgentExecutor = async (
         : (result?.status === 'error' ? 'failed' : (result?.status ?? 'completed'));
       const reasoningMeta = (result as any)?.reasoningMeta;
       const verificationMeta = (result as any)?.verificationMeta;
+      const verificationPassesValue = verificationMeta
+        ? (verificationPassesColumnType === 'integer' ? verificationMeta.passes.length : verificationMeta.passes)
+        : null;
       const updateParamsBase = [
         runStatus,
         new Date().toISOString(),
@@ -587,7 +635,7 @@ const trackedAgentExecutor = async (
           [
             ...updateParamsBase,
             ...(reasoningMeta ? [reasoningMeta.passes, reasoningMeta.confidence, reasoningMeta.revised, reasoningMeta.costUsd] : []),
-            ...(verificationMeta ? [verificationMeta.tier, verificationMeta.reason, verificationMeta.passes] : []),
+            ...(verificationMeta ? [verificationMeta.tier, verificationMeta.reason, verificationPassesValue] : []),
             runId,
           ],
         );
@@ -610,7 +658,7 @@ const trackedAgentExecutor = async (
             result?.thinkingTokens ?? null,
             result?.cachedInputTokens ?? null,
             ...(reasoningMeta ? [reasoningMeta.passes, reasoningMeta.confidence, reasoningMeta.revised, reasoningMeta.costUsd] : []),
-            ...(verificationMeta ? [verificationMeta.tier, verificationMeta.reason, verificationMeta.passes] : []),
+            ...(verificationMeta ? [verificationMeta.tier, verificationMeta.reason, verificationPassesValue] : []),
             runId,
           ],
         );

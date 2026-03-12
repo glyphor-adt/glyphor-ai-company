@@ -41,7 +41,7 @@ export default function Layout() {
   useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
 
   return (
-    <div className="dashboard-shell mesh-gradient flex h-screen overflow-hidden bg-base">
+    <div className="dashboard-shell mesh-gradient bg-mesh-gradient flex h-screen overflow-hidden">
       {/* ── Desktop Sidebar ─────────────────── */}
       <aside className={`dashboard-sidebar hidden w-[280px] flex-col transition-colors duration-200 md:flex ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}>
         {theme === 'dark' && (

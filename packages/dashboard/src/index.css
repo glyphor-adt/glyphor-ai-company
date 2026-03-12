@@ -81,27 +81,10 @@ body {
 
 .dashboard-shell {
   position: relative;
-  background: var(--color-base);
 }
 
 .mesh-gradient {
   background-color: #0f0f14;
-  isolation: isolate;
-}
-
-.mesh-gradient::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background-image:
-    radial-gradient(circle at 43.6% 64.7%, #000000, transparent 50%),
-    radial-gradient(circle at 80.9% 39.7%, #32136c, transparent 50%),
-    radial-gradient(circle at 54.0% 88.2%, #1b32de, transparent 50%),
-    radial-gradient(circle at 39.9% 24.5%, #000000, transparent 50%),
-    radial-gradient(circle at 23.2% 31.1%, #0f0f10, transparent 50%);
-  filter: blur(60px);
 }
 
 .dashboard-sidebar {
