@@ -206,8 +206,20 @@ export default function Dashboard() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   const pendingDecisions = decisions.filter((d) => d.status === 'pending');
+
+  // Only show incidents from the last 48 hours and deduplicate by title
+  const recentCutoff = Date.now() - 48 * 60 * 60 * 1000;
+  const recentIncidents = incidents.filter(i => new Date(i.created_at).getTime() > recentCutoff);
+  const seenTitles = new Set<string>();
+  const dedupedIncidents = recentIncidents.filter(i => {
+    const key = i.title.toLowerCase().trim();
+    if (seenTitles.has(key)) return false;
+    seenTitles.add(key);
+    return true;
+  });
+
   const highPriorityItems = [
-    ...incidents.map(i => ({ type: 'incident' as const, id: i.id, title: i.title, severity: i.severity, time: i.created_at })),
+    ...dedupedIncidents.map(i => ({ type: 'incident' as const, id: i.id, title: i.title, severity: i.severity, time: i.created_at })),
     ...pendingDecisions.filter(d => d.tier === 'red' || d.tier === 'yellow').map(d => ({
       type: 'decision' as const, id: d.id, title: d.title, severity: d.tier === 'red' ? 'critical' : 'high', time: d.created_at,
     })),
@@ -244,10 +256,10 @@ export default function Dashboard() {
           {/* ── Welcome Banner ─────────────── */}
           <div className="banner-wrapper">
             <div className="banner-inner rounded-[24px] p-7">
-              <h1 className="text-[1.75rem] font-bold text-white md:text-[2.25rem] leading-tight">
+              <h1 className="font-agency text-[1.75rem] font-bold lowercase text-white md:text-[2.25rem] leading-tight">
                 {greeting}, {firstName}
               </h1>
-              <p className="mt-3 max-w-2xl text-[15px] text-white/60">
+              <p className="font-agency mt-3 max-w-2xl text-[15px] lowercase text-white/60">
                 Welcome back to Glyphor AI. Here&apos;s what&apos;s happening.
               </p>
               <p className="mt-4 text-[13px] text-white/35 font-medium">
@@ -258,6 +270,8 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* ── Agent Briefing + Needs You (side-by-side) ── */}
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           {/* ── Agent Briefing ─────────────── */}
           <Card accent="0,224,255">
             <SectionHeader
@@ -291,11 +305,11 @@ export default function Dashboard() {
                 ) : (
                   <p className="text-[13px] text-txt-muted">No highlights yet. Sarah will prepare your next briefing soon.</p>
                 )}
-                {incidents.length > 0 && (
+                {dedupedIncidents.length > 0 && (
                   <>
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-prism-elevated mt-2">Watch Items</p>
                     <ul className="space-y-1.5">
-                      {incidents.slice(0, 3).map(inc => (
+                      {dedupedIncidents.slice(0, 3).map(inc => (
                         <li key={inc.id} className="flex items-start gap-2 text-[13px] text-txt-secondary">
                           <MdWarning className="mt-0.5 h-4 w-4 shrink-0 text-prism-elevated" />
                           <span className="line-clamp-1">{inc.title}</span>
@@ -341,6 +355,7 @@ export default function Dashboard() {
               </div>
             </Card>
           )}
+          </div>
 
           {/* ── Financial Metrics Row ─────── */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
