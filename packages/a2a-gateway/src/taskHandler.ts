@@ -129,7 +129,7 @@ export async function createA2ATask(
   });
 
   if (schedulerUrl) {
-    void triggerChiefOfStaffOrchestration(schedulerUrl, directive.id, request.title).catch((err) => {
+    void triggerChiefOfStaffOrchestration(schedulerUrl, task.directiveId, request.title).catch((err) => {
       console.warn('[A2A] Failed to trigger scheduler run:', (err as Error).message);
     });
   }
@@ -137,8 +137,8 @@ export async function createA2ATask(
   return {
     id: task.id,
     status: 'submitted',
-    directiveId: directive.id,
-      createdAt: task.createdAt,
+    directiveId: task.directiveId,
+    createdAt: task.createdAt,
     completedAt: null,
     output: null,
   };
