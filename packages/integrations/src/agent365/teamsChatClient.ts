@@ -381,31 +381,17 @@ export class A365TeamsChatClient {
    * Uses MsalTokenProvider.getAgenticUserToken() 3-step flow
    * to authenticate as the specific agent user.
    */
-  /**
-   * Check whether per-agent credentials (client secret) are available for a role.
-   * If not, the shared blueprint credentials are used and we must also use the
-   * shared app instance / agentic user identity — not the per-agent SP.
-   */
-  private hasPerAgentCredentials(role: string): boolean {
-    const roleKey = normalizeRoleKey(role);
-    return Boolean(process.env[`AGENT365_${roleKey}_CLIENT_SECRET`]);
-  }
-
   private async getToken(agentRole?: string): Promise<string> {
     const role = agentRole ?? this.defaultAgentRole;
 
-    // Only use per-agent identity when per-agent credentials are available.
-    // When falling back to shared blueprint credentials, we must also use
-    // the shared app instance ID and agentic user — the shared token provider
-    // cannot authenticate as a per-agent service principal.
-    const usePerAgent = role && this.hasPerAgentCredentials(role);
-
-    const agentAppInstanceId = usePerAgent
-      ? (getAgentBlueprintSpId(role!) ?? process.env.AGENT365_APP_INSTANCE_ID)
-      : process.env.AGENT365_APP_INSTANCE_ID;
-    const agenticUserId = usePerAgent
-      ? (getAgentEntraUserId(role!) ?? process.env.AGENT365_AGENTIC_USER_ID)
-      : process.env.AGENT365_AGENTIC_USER_ID;
+    // Always use per-agent identity (blueprintSpId / entraUserId) when role is
+    // known.  The MSAL app credentials (clientId/clientSecret) can be shared,
+    // but the agentAppInstanceId and agenticUserId MUST be per-agent so each
+    // agent authenticates as its own Teams-installed identity.
+    const agentAppInstanceId = (role ? getAgentBlueprintSpId(role) : null)
+      ?? process.env.AGENT365_APP_INSTANCE_ID;
+    const agenticUserId = (role ? getAgentEntraUserId(role) : null)
+      ?? process.env.AGENT365_AGENTIC_USER_ID;
 
     if (!agentAppInstanceId || !agenticUserId) {
       throw new Error(

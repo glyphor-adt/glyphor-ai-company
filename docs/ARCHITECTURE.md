@@ -1,6 +1,6 @@
 # Glyphor AI Company — System Architecture
 
-> Last updated: 2026-03-10 (Model switch to gpt-5-mini-2025-08-07 as default for all agents, Agent365 auth migrated to refresh_token grant with auto-rotation to GCP Secret Manager, 573 KNOWN_TOOLS in toolRegistry, Copilot assignee bug fix in change request pipeline, phantom tool grant audit — 0 phantoms across 33 agents)
+> Last updated: 2026-03-12 (LLM routing is live across OpenAI, Gemini, and Anthropic; `agent_runs` now records routing metadata plus `skipped_precheck`; reflection `run_id` propagation prefers the `agent_runs` UUID; `company_agents.team` is backfilled via durable migration; shared/dashboard model registries now include GPT-5.4 Pro and Gemini 3.1 Flash-Lite; OpenAI tool schema normalization was hardened for nested MCP-style schemas)
 
 ## Overview
 
@@ -617,7 +617,7 @@ glyphor-ai-company/
 │   │       ├── providers/              # Per-provider LLM adapters (each has normalizeFinishReason)
 │   │       │   ├── types.ts               # Unified provider contract (ProviderAdapter interface)
 │   │       │   ├── gemini.ts              # GeminiAdapter (thinkingLevel/thinkingBudget, Imagen)
-│   │       │   ├── openai.ts              # OpenAIAdapter (o-series reasoning_effort, GPT-5, gpt-image-1)
+│   │       │   ├── openai.ts              # OpenAIAdapter (Responses API, GPT-5 routing, gpt-image-1.5)
 │   │       │   ├── anthropic.ts           # AnthropicAdapter (Vertex AI on GCP, adaptive thinking, unique tool_use IDs)
 │   │       │   └── index.ts               # ProviderFactory (lazy singleton per provider)
 │   │       ├── supervisor.ts           # Per-turn stall detection, turn limits, timeouts
@@ -1707,17 +1707,26 @@ trackedAgentExecutor(agentRole, task, payload)
   │    → Row ID becomes runId
   │    → Activity dashboard shows "Running Now" banner
   │
-  ├─ Call agentExecutor(agentRole, task, payload)
+  ├─ Call agentExecutor(agentRole, task, payload + hidden runId carrier)
   │    → Full agent execution (may take 5s–120s)
+  │    → CompanyAgentRunner uses runId for reflection persistence
+  │    → Deterministic pre-checks may exit early with status='skipped_precheck'
   │
   └─ UPDATE agent_runs with:
-       status: completed | failed | aborted
+       status: completed | failed | aborted | skipped_precheck
        duration_ms, turns, tool_calls
-       input_tokens, output_tokens, cost
+       input_tokens, output_tokens, thinking_tokens, cached_input_tokens, cost
+       routing_rule, routing_capabilities, routing_model
        output (text), error (if any)
-       actions (ActionReceipt[] — tool call transparency)
-       → Activity dashboard shows in run history
+        actions (ActionReceipt[] — tool call transparency)
+        → Activity dashboard shows in run history
 ```
+
+The scheduler also contains a schema-compatibility guard for `agent_runs`: if the routing
+columns or the `skipped_precheck` status constraint have not been applied yet in a live
+environment, `trackedAgentExecutor` attempts a best-effort `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
+before falling back to the legacy update path. It also reconciles late-written reflections so
+`agent_reflections.run_id` ends up matching the `agent_runs.id` UUID.
 
 ### Knowledge Injection
 
@@ -1739,6 +1748,12 @@ tiers). Task-tier runs use a minimal ~150-line prompt instead — see "Used in T
 | Agent System Prompt | `agents/src/{role}/systemPrompt.ts` | ~30 lines | No |
 | Company Knowledge Base | DB `company_knowledge_base` (or static `CORE.md` fallback) | ~400 lines | No |
 | Founder Bulletins | DB `founder_bulletins` (priority-coded, expiration-filtered) | variable | No |
+
+For cache efficiency, the prompt is assembled in a cache-first order: profile/voice and stable
+instruction blocks come first, while high-churn DB sections such as knowledge base content and
+founder bulletins are appended later. Department-specific context now resolves from
+`agent_profiles.department`, then `company_agents.team`, then a hardcoded role fallback so routing
+and knowledge injection still work for agents whose profile record omits department metadata.
 
 The **Personality Block** (WHO YOU ARE section) includes:
 - Personality summary (voice monologue — the primary personality driver)
@@ -1822,8 +1837,10 @@ Name mapping (`ROLE_TO_BRIEF`):
 
 The `ModelClient` is a thin facade that delegates to per-provider adapters in `providers/`.
 Each adapter implements the `ProviderAdapter` interface (`generate()` + `generateImage()`) and
-handles provider-specific conversation mapping, response parsing, and feature negotiation.
-`ProviderFactory` lazily creates and caches a singleton adapter per provider.
+handles provider-specific conversation mapping, response parsing, fallback, and feature negotiation.
+`ProviderFactory` lazily creates and caches a singleton adapter per provider. The canonical model
+registry lives in `packages/shared/src/models.ts`, and the dashboard mirrors the selectable subset in
+`packages/dashboard/src/lib/models.ts`.
 
 ```
 ModelClient.generate(request)
@@ -1836,17 +1853,18 @@ ModelClient.generate(request)
 
 | Provider | Model Prefixes | Auth | Adapter | Features |
 |----------|---------------|------|---------|----------|
-| Google Gemini | `gemini-*` | `GOOGLE_AI_API_KEY` env var | `GeminiAdapter` | Function calling, thinkingLevel (3.x) / thinkingBudget (2.5), thought signatures, Imagen image gen, normalizeFinishReason (STOP→stop) |
-| OpenAI | `gpt-*`, `/^o[134](-\|$)/` | `OPENAI_API_KEY` env var | `OpenAIAdapter` | Function calling, reasoning_effort (o-series/GPT-5), max_completion_tokens, gpt-image-1, normalizeFinishReason (stop→stop) |
-| Anthropic | `claude-*` | **Vertex AI on GCP** — IAM auth via `AnthropicVertex` SDK (`@anthropic-ai/vertex-sdk`). Uses GCP project ID + region (default `us-east5`). No API key needed — authenticates via service account IAM (`roles/aiplatform.user`). | `AnthropicAdapter` | Tool use, extended thinking (adaptive for claude-opus-4, no `effort` field), max_tokens 16384 default, unique tool_use IDs with per-call index, normalizeFinishReason (end_turn→stop) |
+| Google Gemini | `gemini-*` | `GOOGLE_AI_API_KEY` env var | `GeminiAdapter` | Function calling, Gemini 3 thought signatures, structured-output hints, optional Google Search / code execution wiring, Imagen/OpenAI image split, normalizeFinishReason (STOP→stop) |
+| OpenAI | `gpt-*`, `/^o[134](-\|$)/` | Direct `OPENAI_API_KEY`, with optional Azure OpenAI fallback/config | `OpenAIAdapter` | Chat Completions + Responses API, `reasoning_effort`, `previous_response_id`, structured JSON Schema outputs, GPT-5.4 tool-search/apply-patch path, nested schema normalization for MCP-style tools, gpt-image-1.5, normalizeFinishReason (stop→stop) |
+| Anthropic | `claude-*` | **Vertex AI on GCP** — IAM auth via `AnthropicVertex` SDK (`@anthropic-ai/vertex-sdk`). Uses GCP project ID + region (default `us-east5`). No API key needed — authenticates via service account IAM (`roles/aiplatform.user`). | `AnthropicAdapter` | Tool use, Claude effort/thinking mapping, citations/compaction prompt support, max_tokens 16384 default, unique tool_use IDs with per-call index, normalizeFinishReason (end_turn→stop) |
 
 All providers normalize `finishReason` to a lowercase `'stop'` | `'length'` | `'tool_calls'` | `'error'`
 contract via `normalizeFinishReason()` so runners can check `=== 'stop'` uniformly.
 
-Agents use `optimizeModel(role, task, dbModel?)` in `@glyphor/shared/models.ts`.
-Default model for all agents: **`gpt-5-mini-2025-08-07`** ($0.25/1M input, $2.00/1M output).
-The tiered model system still exists in code for per-role overrides, but the default model
-applies universally unless overridden via the dashboard Settings tab per agent.
+By default, new agents use **`gpt-5-mini-2025-08-07`** ($0.25/1M input, $2.00/1M output), but
+runtime routing can override the stored model per run using inferred capabilities and trust score.
+Examples: legal/writing/evaluation work routes to Claude Sonnet 4.6, grounded research and visual
+analysis route to Gemini, premium code-generation work with patch/search support routes to GPT-5.4,
+and deterministic checks can skip the LLM entirely.
 
 Legacy cost tiers (available for per-agent override):
 
@@ -1860,17 +1878,21 @@ Legacy cost tiers (available for per-agent override):
 Agents can be switched to any supported model via the dashboard Settings tab.
 Multi-provider support is built in for fallback.
 
-**Supported models (dashboard dropdowns):**
-- **Gemini:** gemini-3.1-pro-preview, gemini-3-flash-preview, gemini-3-pro-preview, gemini-2.5-flash, gemini-2.5-flash-lite, gemini-2.5-pro
-- **OpenAI:** gpt-5.2, gpt-5.2-pro, gpt-5.1, gpt-5, gpt-5-mini, gpt-5-nano, gpt-4.1, gpt-4.1-mini, o3, o4-mini
-- **Anthropic (via Vertex AI):** claude-opus-4-6, claude-sonnet-4-6, claude-sonnet-4-5, claude-haiku-4-5
+**Supported selectable models (dashboard dropdowns):**
+- **Gemini:** `gemini-3.1-pro-preview`, `gemini-3-flash-preview`, `gemini-3.1-flash-lite-preview`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-2.5-pro`
+- **OpenAI:** `gpt-5.4`, `gpt-5.4-pro`, `gpt-5.2`, `gpt-5.2-pro`, `gpt-5.1`, `gpt-5`, `gpt-5-mini`, `gpt-5-mini-2025-08-07`, `gpt-5-nano`, `gpt-4.1`, `gpt-4.1-mini`, `o3`, `o4-mini`, `o3-deep-research`, `o4-mini-deep-research`
+- **Anthropic (via Vertex AI):** `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-haiku-4-5`
+
+Deprecated IDs are auto-upgraded through `DEPRECATED_MODELS`, and `ModelClient` applies either
+cross-provider or same-provider fallback chains from the shared registry when a model is unavailable,
+rate-limited, or not configured.
 
 #### Image Generation
 
 | Provider | Model | Method | Purpose |
 |----------|-------|--------|---------|
 | Google Imagen | `imagen-4.0-ultra-generate-001` | `generateImage()` | High-quality infographics |
-| OpenAI | `gpt-image-1` | `generateImageOpenAI()` | Text-rich infographics |
+| OpenAI | `gpt-image-1.5-2025-12-16` | `generateImageOpenAI()` | Text-rich infographics |
 
 Generated images are watermarked with the Glyphor logo (bottom-right, 60% opacity) using `sharp`
 before being saved to the database (`visual_image` column on `analyses` and `deep_dives` tables).
@@ -3139,7 +3161,7 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 |-------|---------|-------------|
 | `company_profile` | Company metadata (key-value) | key (unique), value (JSONB), updated_by, version |
 | `products` | Product catalog | slug (unique), name, status, roadmap (JSONB), metrics (JSONB) |
-| `company_agents` | Agent registry (28 columns) | role (unique), display_name, name, title, reports_to, team, model, temperature, max_turns, budget_per_run, budget_daily, budget_monthly, is_core, is_temporary, expires_at, thinking_enabled, last_run_summary, performance_score, total_runs, total_cost_usd, tenant_id |
+| `company_agents` | Agent registry (org + runtime defaults) | role (unique), display_name, name, title, reports_to, team, model, temperature, max_turns, budget_per_run, budget_daily, budget_monthly, is_core, is_temporary, expires_at, thinking_enabled, last_run_summary, performance_score, total_runs, total_cost_usd, tenant_id |
 | `decisions` | Approval queue | tier, status, title, summary, proposed_by, reasoning, assigned_to (TEXT[]), resolved_by |
 | `activity_log` | Audit trail | agent_role, action, product, summary, details (JSONB), tier |
 
@@ -3170,7 +3192,7 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 | `agent_milestones` | Achievement tracking | agent_id, type, title, description, quality_score |
 | `agent_growth` | Growth dimensions | agent_id + dimension (unique), direction, current_value, previous_value, period, evidence |
 | `agent_peer_feedback` | Peer evaluations | from_agent, to_agent, feedback, context, sentiment |
-| `agent_runs` | Individual run log | agent_id, task, status, duration_ms, cost, input_tokens, output_tokens, tool_calls, turns, error |
+| `agent_runs` | Individual run log + routing observability | agent_id, task, status, duration_ms, cost, input_tokens, output_tokens, thinking_tokens, cached_input_tokens, tool_calls, turns, routing_rule, routing_capabilities, routing_model, output, error |
 | `agent_activities` | Activity stream | agent_role, activity_type, summary, details |
 | `agent_trust_scores` | Dynamic trust scores | agent_role (unique), trust_score (0–1), total_positive_signals, total_negative_signals, last_updated |
 | `agent_constitutions` | Per-agent constitutional principles | agent_role, principles (JSONB), version, is_active |
@@ -3184,7 +3206,7 @@ Each agent has a rich personality profile stored in the `agent_profiles` table:
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
 | `agent_memory` | Persistent memories (with pgvector) | agent_role, memory_type, content, importance, tags, embedding (vector 768-dim), graph_node_id → kg_nodes |
-| `agent_reflections` | Post-run reflections | agent_role, run_id, summary, quality_score, what_went_well, what_could_improve, prompt_suggestions, knowledge_gaps |
+| `agent_reflections` | Post-run reflections | agent_role, run_id (prefers `agent_runs.id` UUID), summary, quality_score, what_went_well, what_could_improve, prompt_suggestions, knowledge_gaps |
 | `agent_briefs` | Dynamic agent briefs | agent_id (PK), system_prompt, skills, tools |
 | `agent_schedules` | DB-defined cron jobs | agent_id, cron_expression, task, payload (JSONB), enabled |
 | `metrics_cache` | Cached metrics | service, metric, value, labels (JSONB), timestamp |
