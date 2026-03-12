@@ -12,7 +12,7 @@
  */
 
 import { type ToolDefinition } from '@glyphor/agent-runtime';
-import { getAgentSpId, getAgentEntraUserId } from '@glyphor/agent-runtime';
+import { getAgentBlueprintSpId, getAgentEntraUserId } from '@glyphor/agent-runtime';
 import type { Agent365ToolBridge } from '@glyphor/integrations';
 import { createAgent365Tools as initAgent365Bridge } from '@glyphor/integrations';
 
@@ -92,8 +92,8 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
 
   // Resolve per-agent identity from agentIdentities.json; fall back to shared env vars.
   // Each agent has its own agentic user (own mailbox, UPN, calendar) created by
-  // the Teams agent installation. spId = agentAppInstanceId, entraUserId = agenticUserId.
-  const agentAppInstanceId = (agentRole ? getAgentSpId(agentRole) : null)
+  // the Teams agent installation. blueprintSpId = agentAppInstanceId, entraUserId = agenticUserId.
+  const agentAppInstanceId = (agentRole ? getAgentBlueprintSpId(agentRole) : null)
     ?? process.env.AGENT365_APP_INSTANCE_ID;
   const agenticUserId = (agentRole ? getAgentEntraUserId(agentRole) : null)
     ?? process.env.AGENT365_AGENTIC_USER_ID;

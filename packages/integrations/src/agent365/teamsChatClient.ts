@@ -401,7 +401,7 @@ export class A365TeamsChatClient {
     const usePerAgent = role && this.hasPerAgentCredentials(role);
 
     const agentAppInstanceId = usePerAgent
-      ? (getAgentSpId(role!) ?? process.env.AGENT365_APP_INSTANCE_ID)
+      ? (getAgentBlueprintSpId(role!) ?? process.env.AGENT365_APP_INSTANCE_ID)
       : process.env.AGENT365_APP_INSTANCE_ID;
     const agenticUserId = usePerAgent
       ? (getAgentEntraUserId(role!) ?? process.env.AGENT365_AGENTIC_USER_ID)
