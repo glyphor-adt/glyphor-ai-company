@@ -98,18 +98,22 @@ export class JitContextRetriever {
     const embeddingStr = `[${embedding.join(',')}]`;
 
     // Query all stores in parallel
-    const [memories, graphNodes, episodes, procedures, knowledge] = await Promise.allSettled([
+    const [memories, graphNodes, episodes, procedures, transferableSkills, knowledge] = await Promise.allSettled([
       this.queryMemories(embeddingStr, agentRole),
       this.queryGraphNodes(embeddingStr, agentRole),
       this.queryEpisodes(embeddingStr),
       this.queryProcedures(task),
+      this.queryTransferableSkills(task, agentRole),
       this.queryKnowledge(embeddingStr),
     ]);
 
     const relevantMemories = memories.status === 'fulfilled' ? memories.value : [];
     const relevantGraphNodes = graphNodes.status === 'fulfilled' ? graphNodes.value : [];
     const relevantEpisodes = episodes.status === 'fulfilled' ? episodes.value : [];
-    const relevantProcedures = procedures.status === 'fulfilled' ? procedures.value : [];
+    const relevantProcedures = [
+      ...(procedures.status === 'fulfilled' ? procedures.value : []),
+      ...(transferableSkills.status === 'fulfilled' ? transferableSkills.value : []),
+    ];
     const relevantKnowledge = knowledge.status === 'fulfilled' ? knowledge.value : [];
 
     // Combine all items, sort by score, and trim to token budget
@@ -250,6 +254,84 @@ export class JitContextRetriever {
     }
   }
 
+  /** Query high-proficiency skills from other agents and inject them as reusable procedures. */
+  private async queryTransferableSkills(task: string, agentRole: string): Promise<JitContextItem[]> {
+    const matchedSkillSlugs = await this.matchTaskSkillSlugs(task);
+    const keywords = task
+      .toLowerCase()
+      .split(/\s+/)
+      .map((word) => word.replace(/[^a-z0-9-]/g, ''))
+      .filter((word) => word.length > 3)
+      .slice(0, 5);
+
+    if (matchedSkillSlugs.length === 0 && keywords.length === 0) return [];
+
+    const keywordConditions = keywords
+      .map((_, index) => `(s.name ILIKE $${index + 4} OR s.description ILIKE $${index + 4} OR s.methodology ILIKE $${index + 4})`)
+      .join(' OR ');
+    const keywordParams = keywords.map((keyword) => `%${keyword}%`);
+
+    try {
+      const data = await systemQuery<{
+        slug: string;
+        name: string;
+        methodology: string;
+        description: string;
+        source_agent: string;
+        proficiency: string;
+        times_used: number;
+        successes: number;
+      }>(
+        `WITH current_agent_skills AS (
+           SELECT skill_id FROM agent_skills WHERE agent_role = $1
+         )
+         SELECT
+           s.slug,
+           s.name,
+           s.methodology,
+           s.description,
+           ags.agent_role AS source_agent,
+           ags.proficiency,
+           ags.times_used,
+           ags.successes
+         FROM agent_skills ags
+         JOIN skills s ON s.id = ags.skill_id
+         WHERE ags.agent_role != $1
+           AND ags.proficiency = ANY($2::text[])
+           AND ags.skill_id NOT IN (SELECT skill_id FROM current_agent_skills)
+           AND (
+             s.slug = ANY($3::text[])
+             ${keywordConditions ? `OR ${keywordConditions}` : ''}
+           )
+         ORDER BY
+           CASE ags.proficiency WHEN 'master' THEN 4 WHEN 'expert' THEN 3 WHEN 'competent' THEN 2 ELSE 1 END DESC,
+           ags.successes DESC,
+           ags.times_used DESC
+         LIMIT 3`,
+        [
+          agentRole,
+          ['expert', 'master'],
+          matchedSkillSlugs,
+          ...keywordParams,
+        ],
+      );
+
+      return data.map((row) => ({
+        source: 'procedure' as const,
+        content: `Recommended procedure from ${row.source_agent} (${row.name}, ${row.proficiency}): ${row.description}\nMethodology: ${row.methodology}`,
+        score: row.proficiency === 'master' ? 0.92 : 0.86,
+        metadata: {
+          skill_slug: row.slug,
+          source_agent: row.source_agent,
+          proficiency: row.proficiency,
+          transfer_type: 'cross_agent_skill',
+        },
+      }));
+    } catch {
+      return [];
+    }
+  }
+
   /** Query company knowledge base by embedding similarity. */
   private async queryKnowledge(embeddingStr: string): Promise<JitContextItem[]> {
     try {
@@ -263,6 +345,30 @@ export class JitContextRetriever {
         content: `[${row.section}] ${row.title}: ${row.content}`,
         score: row.similarity,
       }));
+    } catch {
+      return [];
+    }
+  }
+
+  private async matchTaskSkillSlugs(task: string): Promise<string[]> {
+    try {
+      const mappings = await systemQuery<{ task_regex: string; skill_slug: string }>(
+        'SELECT task_regex, skill_slug FROM task_skill_map',
+        [],
+      );
+
+      const matches = new Set<string>();
+      for (const mapping of mappings) {
+        try {
+          if (new RegExp(mapping.task_regex, 'i').test(task)) {
+            matches.add(mapping.skill_slug);
+          }
+        } catch {
+          // Ignore invalid regex rows instead of failing the whole retrieval.
+        }
+      }
+
+      return [...matches];
     } catch {
       return [];
     }

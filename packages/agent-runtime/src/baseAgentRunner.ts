@@ -48,6 +48,7 @@ import { runDeterministicPreCheck } from './routing/index.js';
 import type { RoutingDecision } from './routing/index.js';
 import { determineVerificationTier } from './verificationPolicy.js';
 import { compareSubtaskComplexity, routeSubtask, type SubtaskComplexity } from './subtaskRouter.js';
+import { learnFromAgentRun } from './skillLearning.js';
 
 // ─── Cost estimation (uses centralized model registry) ───────────────
 
@@ -437,9 +438,12 @@ export abstract class BaseAgentRunner {
           const effectiveThinkingEnabled = routedModel.reasoningEffort === 'minimal'
             ? false
             : config.thinkingEnabled;
+          const modelForTurn = routedModel.model === '__deterministic__'
+            ? config.model
+            : routedModel.model;
 
           response = await this.modelClient.generate({
-            model: routedModel.model,
+            model: modelForTurn,
             systemInstruction: systemPrompt,
             contents: compressedHistory,
             tools: effectiveTools,
@@ -755,6 +759,16 @@ export abstract class BaseAgentRunner {
           costUsd: valueAssessment.costUsd,
         };
       }
+
+      // Fire-and-forget: harvest skill signals from efficient successful runs.
+      void learnFromAgentRun({
+        result,
+        agentRole: config.role,
+        runId: config.id,
+        taskType: taskForContext,
+        taskDescription: initialMessage,
+        glyphorEventBus: safeDeps.glyphorEventBus,
+      }).catch(() => {});
 
       // Fire-and-forget: harvest task outcome for Learning Governor
       void harvestTaskOutcome(result, {

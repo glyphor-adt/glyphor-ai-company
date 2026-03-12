@@ -29,6 +29,17 @@ interface SimulationReport {
   recommendation: 'proceed' | 'proceed_with_caution' | 'reconsider';
 }
 
+interface CascadePredictionRecord {
+  id: string;
+  simulation_id: string;
+  prediction_type: 'metric_change' | 'risk_event' | 'team_impact';
+  predicted_value: Record<string, unknown>;
+  actual_value: Record<string, unknown> | null;
+  accuracy_score: number | null;
+  outcome_observed_at: string | null;
+  created_at: string;
+}
+
 interface SimulationRecord {
   id: string;
   action: string;
@@ -42,6 +53,7 @@ interface SimulationRecord {
   accepted_at: string | null;
   accepted_by: string | null;
   error: string | null;
+  predictions?: CascadePredictionRecord[];
 }
 
 /* ── Helpers ───────────────────────────────────── */
@@ -76,6 +88,55 @@ function voteColor(vote: string) {
   if (vote === 'approve') return 'text-tier-green';
   if (vote === 'caution') return 'text-prism-elevated';
   return 'text-prism-critical';
+}
+
+function predictionTypeLabel(type: CascadePredictionRecord['prediction_type']) {
+  if (type === 'metric_change') return 'Outcome';
+  if (type === 'risk_event') return 'Risk';
+  return 'Team Impact';
+}
+
+function predictionHeadline(prediction: CascadePredictionRecord) {
+  const area = typeof prediction.predicted_value.area === 'string'
+    ? prediction.predicted_value.area
+    : null;
+  if (prediction.prediction_type === 'metric_change') {
+    const recommendation = String(prediction.predicted_value.recommendation ?? 'proceed_with_caution')
+      .replace(/_/g, ' ');
+    const score = prediction.predicted_value.overallScore;
+    return `Recommendation: ${recommendation}${typeof score === 'number' ? ` (${score > 0 ? '+' : ''}${score})` : ''}`;
+  }
+  if (prediction.prediction_type === 'risk_event') {
+    return area ? `Risk signal in ${area}` : 'Predicted risk event';
+  }
+  return area ? `${area} impact forecast` : 'Predicted team impact';
+}
+
+function predictionNarrative(prediction: CascadePredictionRecord) {
+  if (prediction.prediction_type === 'metric_change') {
+    return String(prediction.predicted_value.summary ?? 'Predicted cascade recommendation recorded for later calibration.');
+  }
+  const impact = typeof prediction.predicted_value.impact === 'string'
+    ? prediction.predicted_value.impact
+    : null;
+  const magnitude = typeof prediction.predicted_value.magnitude === 'number'
+    ? prediction.predicted_value.magnitude
+    : null;
+  const reasoning = typeof prediction.predicted_value.reasoning === 'string'
+    ? prediction.predicted_value.reasoning
+    : null;
+  const prefix = impact
+    ? `${impact}${typeof magnitude === 'number' ? ` (${magnitude > 0 ? '+' : ''}${magnitude})` : ''}`
+    : null;
+  return [prefix, reasoning].filter(Boolean).join(' — ') || 'Prediction recorded for weekly calibration.';
+}
+
+function observedOutcomeLabel(prediction: CascadePredictionRecord) {
+  const outcome = prediction.actual_value && typeof prediction.actual_value.decisionOutcome === 'string'
+    ? prediction.actual_value.decisionOutcome.replace(/_/g, ' ')
+    : null;
+  if (!outcome) return 'Pending observation';
+  return `Observed: ${outcome}`;
 }
 
 async function api<T>(path: string, opts?: RequestInit): Promise<T> {
@@ -1229,6 +1290,11 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
   const positiveCount = report.dimensions.filter((dim) => dim.impact === 'positive').length;
   const negativeCount = report.dimensions.filter((dim) => dim.impact === 'negative').length;
   const neutralCount = report.dimensions.filter((dim) => dim.impact === 'neutral').length;
+  const predictions = record.predictions ?? [];
+  const observedPredictions = predictions.filter((prediction) => prediction.outcome_observed_at && typeof prediction.accuracy_score === 'number');
+  const avgAccuracy = observedPredictions.length > 0
+    ? observedPredictions.reduce((sum, prediction) => sum + (prediction.accuracy_score ?? 0), 0) / observedPredictions.length
+    : null;
 
   return (
     <div className="mt-4 space-y-4 border-t border-border pt-4">
@@ -1325,6 +1391,45 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
                   <span className="ml-auto text-[10px] text-txt-faint">{link.delay}</span>
                 </div>
                 <p className="mt-1 text-[11px] text-txt-muted">{link.effect}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {predictions.length > 0 && (
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Prediction Journal</p>
+            <p className="text-[10px] text-txt-faint">
+              {observedPredictions.length}/{predictions.length} observed
+              {avgAccuracy !== null && ` · Avg accuracy ${Math.round(avgAccuracy * 100)}%`}
+            </p>
+          </div>
+          <div className="space-y-2">
+            {predictions.map((prediction) => (
+              <div key={prediction.id} className="rounded-lg border border-border bg-raised px-3 py-2.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan">
+                      {predictionTypeLabel(prediction.prediction_type)}
+                    </p>
+                    <p className="mt-1 text-[12px] font-medium text-txt-secondary">
+                      {predictionHeadline(prediction)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-txt-faint">{observedOutcomeLabel(prediction)}</p>
+                    <p className="mt-1 text-[10px] text-txt-faint">
+                      {typeof prediction.accuracy_score === 'number'
+                        ? `Accuracy ${Math.round(prediction.accuracy_score * 100)}%`
+                        : 'Awaiting weekly check'}
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-1 text-[11px] text-txt-muted leading-relaxed">
+                  {predictionNarrative(prediction)}
+                </p>
               </div>
             ))}
           </div>

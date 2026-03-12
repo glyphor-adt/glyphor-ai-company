@@ -417,6 +417,12 @@ export async function handleDashboardApi(
         return true;
       }
 
+      const includeInactiveProposers = params.get('include_inactive_proposers') === 'true';
+      if (tableName === 'decisions') {
+        // By default, hide pending tickets from removed/inactive proposers.
+        // Pass include_inactive_proposers=true to include legacy orphaned rows.
+        params.delete('include_inactive_proposers');
+      }
       const { where, values, order, limit, select, countOnly } = parseQueryParams(params);
 
       // Handle `since` date range filter
@@ -433,8 +439,22 @@ export async function handleDashboardApi(
         values.push(sinceVal);
       }
 
+      let decisionProposerFilter = '';
+      if (tableName === 'decisions' && !includeInactiveProposers) {
+        const idx1 = values.length + 1;
+        const idx2 = values.length + 2;
+        decisionProposerFilter = `${where || extraWhere ? ' AND' : ' WHERE'} NOT (
+          status = $${idx1}
+          AND proposed_by NOT IN (
+            SELECT role FROM company_agents WHERE status = $${idx2}
+          )
+          AND proposed_by NOT IN ('founder', 'scheduler', 'system', 'kristina', 'andrew')
+        )`;
+        values.push('pending', 'active');
+      }
+
       if (countOnly) {
-        const rows = await systemQuery<{ count: number }>(`SELECT COUNT(*)::int AS count FROM ${tableName}${where}${extraWhere}`, values);
+        const rows = await systemQuery<{ count: number }>(`SELECT COUNT(*)::int AS count FROM ${tableName}${where}${extraWhere}${decisionProposerFilter}`, values);
         jsonResponse(res, 200, { count: rows[0]?.count ?? 0 });
       } else {
         // Default to newest-first for tables with timestamp columns when no order specified
@@ -447,7 +467,7 @@ export async function handleDashboardApi(
           plan_verifications: ' ORDER BY created_at DESC',
         };
         const effectiveOrder = order || DEFAULT_ORDER[tableName] || '';
-        const sql = `SELECT ${select} FROM ${tableName}${where}${extraWhere}${effectiveOrder}${limit || ' LIMIT 200'}`;
+        const sql = `SELECT ${select} FROM ${tableName}${where}${extraWhere}${decisionProposerFilter}${effectiveOrder}${limit || ' LIMIT 200'}`;
         const rows = await systemQuery(sql, values);
         jsonResponse(res, 200, rows);
       }
@@ -457,6 +477,28 @@ export async function handleDashboardApi(
     // ── POST ────────────────────────────────────────────────────
     if (method === 'POST') {
       const body = JSON.parse(await readBody(req));
+
+      if (tableName === 'decisions') {
+        const proposedBy = typeof body.proposed_by === 'string' ? body.proposed_by : null;
+        const SYSTEM_PROPOSERS = new Set(['founder', 'scheduler', 'system', 'kristina', 'andrew']);
+
+        if (!proposedBy) {
+          jsonResponse(res, 400, { error: 'decisions.proposed_by is required' });
+          return true;
+        }
+
+        if (!SYSTEM_PROPOSERS.has(proposedBy)) {
+          const activeAgent = await systemQuery<{ role: string }>(
+            'SELECT role FROM company_agents WHERE role = $1 AND status = $2 LIMIT 1',
+            [proposedBy, 'active'],
+          );
+          if (activeAgent.length === 0) {
+            jsonResponse(res, 400, { error: `Decision proposer is not active: ${proposedBy}` });
+            return true;
+          }
+        }
+      }
+
       const keys = Object.keys(body);
       const cols = keys.map(sanitizeIdentifier);
       const placeholders = keys.map((_, i) => `$${i + 1}`);

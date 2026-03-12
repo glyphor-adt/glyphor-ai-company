@@ -388,6 +388,14 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/batch-eval/run',
     enabled: true,
   },
+  // Cascade prediction evaluator — weekly calibration of prior Cascade Analysis calls
+  {
+    id: 'cascade-prediction-eval',
+    schedule: '0 7 * * 1',     // Monday 7:00 AM UTC
+    timezone: 'UTC',
+    endpoint: '/cascade/evaluate',
+    enabled: true,
+  },
   // Policy proposal collection — twice-daily collection from all sources
   {
     id: 'policy-proposal-collection',

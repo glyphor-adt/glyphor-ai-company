@@ -118,9 +118,9 @@ export async function handleTriangulatedChat(
 
     // Run web search if enabled and inject results into system prompt
     let systemPrompt = INTELLIGENCE_SYSTEM_PROMPT;
-    if (features.webSearch) {
+    if (webSearchEnabled || deepResearchEnabled) {
       try {
-        const searchResults = await searchWeb(message, { num: 8 });
+        const searchResults = await searchWeb(message, { num: deepResearchEnabled ? 12 : 8 });
         if (searchResults.length > 0) {
           const ctx = searchResultsToContext([{ query: message, results: searchResults }]);
           systemPrompt += `\n\n## Web Search Results\n${ctx}\nUse these sources to ground your response. Cite URLs when referencing specific information.`;
@@ -128,6 +128,10 @@ export async function handleTriangulatedChat(
       } catch (err) {
         console.warn('[triangulatedChat] Web search failed, continuing without:', err);
       }
+    }
+
+    if (deepResearchEnabled) {
+      systemPrompt += '\n\n## Deep Research Mode\nPerform broad, multi-step research and synthesis. Explicitly compare competing claims, cite supporting evidence, and call out uncertainty when evidence is weak or conflicting.';
     }
 
     if (Array.isArray(githubRepos) && githubRepos.length > 0) {
@@ -147,10 +151,6 @@ export async function handleTriangulatedChat(
       const reasoningLevel = normalizeReasoningLevel(model, effectiveReasoningLevel);
       const effectiveWebSearch = webSearchEnabled || deepResearchEnabled;
       let fullSystemPrompt = systemPrompt;
-
-      if (deepResearchEnabled) {
-        fullSystemPrompt += '\n\n## Deep Research Mode\nPerform broad, multi-step research and synthesis. Explicitly compare competing claims, cite supporting evidence, and call out uncertainty when evidence is weak or conflicting.';
-      }
 
       if (features.knowledgeBase ?? features.internalSearch ?? true) {
         const ctx = await buildTriangulationContext(

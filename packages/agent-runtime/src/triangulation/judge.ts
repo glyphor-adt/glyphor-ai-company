@@ -486,8 +486,24 @@ Evaluate now.`;
 // ─── Safe JSON Parse ────────────────────────────────────────────
 
 function safeJsonParse(input: string): unknown {
+  // Strip markdown fences (```json ... ``` or ``` ... ```)
+  let cleaned = input.trim();
+  const fenceMatch = cleaned.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/i);
+  if (fenceMatch) {
+    cleaned = fenceMatch[1].trim();
+  }
+
+  // Try to extract JSON object if surrounded by non-JSON text
+  if (!cleaned.startsWith('{')) {
+    const braceStart = cleaned.indexOf('{');
+    const braceEnd = cleaned.lastIndexOf('}');
+    if (braceStart !== -1 && braceEnd > braceStart) {
+      cleaned = cleaned.slice(braceStart, braceEnd + 1);
+    }
+  }
+
   try {
-    return JSON.parse(input);
+    return JSON.parse(cleaned);
   } catch {
     return null;
   }

@@ -194,7 +194,11 @@ describe('JitContextRetriever', () => {
         .mockResolvedValueOnce([
           { summary: 'Confident', confidence: 1.0, similarity: 0.9, outcome: 'Good' },
           { summary: 'Uncertain', confidence: 0.3, similarity: 0.9, outcome: 'Maybe' },
-        ] as any);
+        ] as any)
+        .mockResolvedValueOnce([] as any) // procedures
+        .mockResolvedValueOnce([] as any) // task_skill_map
+        .mockResolvedValueOnce([] as any) // transferable skills
+        .mockResolvedValueOnce([] as any); // knowledge
       const retriever = new JitContextRetriever(embeddingClient, cache);
       const result = await retriever.retrieve('cto', 'task', 10000);
 
@@ -202,6 +206,37 @@ describe('JitContextRetriever', () => {
         const scores = result.relevantEpisodes.map(e => e.score);
         expect(Math.max(...scores)).toBeGreaterThan(Math.min(...scores));
       }
+    });
+
+    it('injects transferable skills from other agents as procedures', async () => {
+      vi.mocked(systemQuery).mockImplementation((sql: any) => {
+        const text = String(sql);
+        if (text.includes('SELECT task_regex, skill_slug FROM task_skill_map')) {
+          return Promise.resolve([
+            { task_regex: 'forecast', skill_slug: 'financial-reporting' },
+          ] as any);
+        }
+        if (text.includes('FROM agent_skills ags')) {
+          return Promise.resolve([
+            {
+              slug: 'financial-reporting',
+              name: 'Financial Reporting',
+              methodology: 'Pull metrics, compare periods, write report.',
+              description: 'Produce financial reports.',
+              source_agent: 'cfo',
+              proficiency: 'expert',
+              times_used: 12,
+              successes: 11,
+            },
+          ] as any);
+        }
+        return Promise.resolve([] as any);
+      });
+
+      const retriever = new JitContextRetriever(embeddingClient, cache);
+      const result = await retriever.retrieve('cto', 'forecast next quarter revenue', 10000);
+
+      expect(result.relevantProcedures.some((item) => item.content.includes('Recommended procedure from cfo'))).toBe(true);
     });
   });
 });

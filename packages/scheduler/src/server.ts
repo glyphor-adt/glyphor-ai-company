@@ -51,6 +51,7 @@ import { verifyPlan } from './planVerifier.js';
 import { consolidateMemory } from './memoryConsolidator.js';
 import { archiveExpiredMemory } from './memoryArchiver.js';
 import { evaluateBatch } from './batchOutcomeEvaluator.js';
+import { evaluateCascadePredictions } from './cascadePredictionEvaluator.js';
 import { collectProposals } from './policyProposalCollector.js';
 import { evaluateDraftPolicies } from './policyReplayEvaluator.js';
 import { manageCanaries } from './policyCanaryManager.js';
@@ -356,6 +357,9 @@ async function ensureAgentRunsRoutingSchema(): Promise<void> {
       await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS routing_model TEXT');
       await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS model_routing_reason TEXT');
       await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS subtask_complexity TEXT');
+      await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS verification_tier TEXT');
+      await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS verification_reason TEXT');
+      await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS verification_passes INTEGER');
       await systemQuery('ALTER TABLE agent_runs DROP CONSTRAINT IF EXISTS agent_runs_status_check');
       await systemQuery(
         `ALTER TABLE agent_runs ADD CONSTRAINT agent_runs_status_check
@@ -634,6 +638,21 @@ const meetingEngine = new MeetingEngine(trackedAgentExecutor);
 const cotEngine = new CotEngine(strategyModelClient);
 const deepDiveEngine = new DeepDiveEngine(strategyModelClient);
 const strategyLabEngine = new StrategyLabEngine(strategyModelClient, trackedAgentExecutor);
+router.setCascadePreviewBuilder(async ({ action, tier }) => {
+  const preview = await simulationEngine.runQuick({
+    action,
+    requestedBy: 'authority-gate',
+    perspective: tier === 'red' ? 'pessimistic' : 'neutral',
+    depth: 'lightweight',
+    timeoutMs: 15000,
+  });
+
+  return {
+    summary: preview.summary,
+    simulationId: preview.simulationId,
+    recommendation: preview.recommendation,
+  };
+});
 
 // ─── Graph Chat Handler (1:1 DMs to agent Entra accounts) ──────
 
@@ -1166,6 +1185,19 @@ const server = createServer(async (req, res) => {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error('[BatchOutcomeEvaluator] Endpoint error:', message);
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // Cascade prediction evaluator endpoint — weekly calibration of prior cascade calls
+    if (method === 'POST' && url === '/cascade/evaluate') {
+      try {
+        const result = await evaluateCascadePredictions();
+        json(res, 200, { success: true, ...result });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[CascadePredictionEvaluator] Endpoint error:', message);
         json(res, 500, { success: false, error: message });
       }
       return;
@@ -2388,15 +2420,108 @@ const server = createServer(async (req, res) => {
       try {
         const status = params.get('status') as WorkflowStatus | null;
         const type = params.get('type');
-        let query = 'SELECT id, type, status, initiator_role, directive_id, current_step_index, created_at, completed_at FROM workflows';
+        let query = `SELECT w.id, w.workflow_type AS type, w.status, w.initiator_role AS initiator,
+          fd.title AS directive_title, w.current_step_index AS current_step, w.total_steps,
+          w.waiting_for, w.started_at, w.completed_at, w.error
+          FROM workflows w
+          LEFT JOIN founder_directives fd ON w.directive_id = fd.id`;
         const conditions: string[] = [];
         const values: unknown[] = [];
-        if (status) { conditions.push(`status=$${conditions.length + 1}`); values.push(status); }
-        if (type) { conditions.push(`type=$${conditions.length + 1}`); values.push(type); }
+        if (status) { conditions.push(`w.status=$${conditions.length + 1}`); values.push(status); }
+        if (type) { conditions.push(`w.workflow_type=$${conditions.length + 1}`); values.push(type); }
         if (conditions.length) query += ' WHERE ' + conditions.join(' AND ');
-        query += ' ORDER BY created_at DESC LIMIT 50';
+        query += ' ORDER BY w.started_at DESC LIMIT 50';
         const rows = await systemQuery(query, values);
-        json(res, 200, rows);
+
+        // Fetch steps for returned workflows
+        const wfIds = rows.map((r: Record<string, unknown>) => r.id);
+        const stepsMap: Record<string, Array<Record<string, unknown>>> = {};
+        if (wfIds.length > 0) {
+          const stepRows = await systemQuery(
+            `SELECT workflow_id, id, step_type AS type, status, started_at, completed_at,
+              duration_ms, cost_usd, error, step_config
+              FROM workflow_steps WHERE workflow_id = ANY($1) ORDER BY step_index`,
+            [wfIds],
+          );
+          for (const s of stepRows as Array<Record<string, unknown>>) {
+            const wfId = s.workflow_id as string;
+            if (!stepsMap[wfId]) stepsMap[wfId] = [];
+            stepsMap[wfId].push({
+              id: s.id,
+              type: s.type,
+              agents: (s.step_config as Record<string, unknown>)?.agents ?? [],
+              status: s.status,
+              started_at: s.started_at,
+              completed_at: s.completed_at,
+              duration_ms: s.duration_ms,
+              cost_usd: s.cost_usd != null ? Number(s.cost_usd) : null,
+              error: s.error,
+            });
+          }
+        }
+
+        const result = rows.map((w: Record<string, unknown>) => {
+          const steps = stepsMap[w.id as string] ?? [];
+          const totalCost = steps.reduce((sum, s) => sum + (Number(s.cost_usd) || 0), 0);
+          return {
+            ...w,
+            steps,
+            total_steps: w.total_steps ?? steps.length,
+            total_cost_usd: totalCost,
+          };
+        });
+
+        json(res, 200, result);
+      } catch (error) {
+        json(res, 500, { error: (error as Error).message });
+      }
+      return;
+    }
+
+    // Workflow metrics (30-day summary)
+    if (method === 'GET' && url === '/workflows/metrics') {
+      try {
+        const days = Math.min(Math.max(parseInt(params.get('days') ?? '30', 10) || 30, 1), 365);
+        const since = new Date(Date.now() - days * 86_400_000).toISOString();
+
+        const [summary] = await systemQuery(
+          `SELECT
+            COUNT(*) AS total_started,
+            COUNT(*) FILTER (WHERE status = 'completed') AS total_completed,
+            COUNT(*) FILTER (WHERE status = 'failed') AS total_failed,
+            COALESCE(AVG(EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000)
+              FILTER (WHERE status = 'completed' AND completed_at IS NOT NULL), 0) AS avg_completion_time_ms
+          FROM workflows WHERE started_at >= $1`,
+          [since],
+        );
+
+        const byType = await systemQuery(
+          `SELECT w.workflow_type AS type, COUNT(*) AS count,
+            COALESCE(AVG(EXTRACT(EPOCH FROM (w.completed_at - w.started_at)) * 1000)
+              FILTER (WHERE w.completed_at IS NOT NULL), 0) AS avg_time_ms,
+            COALESCE(AVG(COALESCE(s.total_cost, 0)), 0) AS avg_cost
+          FROM workflows w
+          LEFT JOIN (
+            SELECT workflow_id, SUM(cost_usd) AS total_cost FROM workflow_steps GROUP BY workflow_id
+          ) s ON s.workflow_id = w.id
+          WHERE w.started_at >= $1
+          GROUP BY w.workflow_type
+          ORDER BY count DESC`,
+          [since],
+        );
+
+        json(res, 200, {
+          total_started: Number(summary.total_started),
+          total_completed: Number(summary.total_completed),
+          total_failed: Number(summary.total_failed),
+          avg_completion_time_ms: Math.round(Number(summary.avg_completion_time_ms)),
+          by_type: byType.map((t: Record<string, unknown>) => ({
+            type: t.type,
+            count: Number(t.count),
+            avg_time_ms: Math.round(Number(t.avg_time_ms)),
+            avg_cost: Number(Number(t.avg_cost).toFixed(4)),
+          })),
+        });
       } catch (error) {
         json(res, 500, { error: (error as Error).message });
       }

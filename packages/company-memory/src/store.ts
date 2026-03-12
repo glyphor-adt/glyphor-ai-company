@@ -110,6 +110,18 @@ export class CompanyMemoryStore implements IMemoryBus {
   async createDecision(
     decision: Omit<CompanyDecision, 'id' | 'createdAt'>,
   ): Promise<string> {
+    // Prevent deleted/retired agents from filing new approval tickets.
+    const SYSTEM_PROPOSERS = new Set(['founder', 'scheduler', 'system', 'kristina', 'andrew']);
+    if (!SYSTEM_PROPOSERS.has(decision.proposedBy)) {
+      const activeAgent = await systemQuery<{ role: string }>(
+        'SELECT role FROM company_agents WHERE role = $1 AND status = $2 LIMIT 1',
+        [decision.proposedBy, 'active'],
+      );
+      if (activeAgent.length === 0) {
+        throw new Error(`Decision proposer is not active: ${decision.proposedBy}`);
+      }
+    }
+
     // Dedup: each agent may have at most 3 pending decisions.
     const pendingList = await systemQuery<{ id: string; title: string }>(
       "SELECT id, title FROM decisions WHERE proposed_by = $1 AND status = 'pending' ORDER BY created_at DESC LIMIT 10",

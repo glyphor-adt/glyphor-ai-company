@@ -38,6 +38,7 @@ import type { RoutingDecision } from './routing/index.js';
 import type { TrustScorer } from './trustScorer.js';
 import { determineVerificationTier, type VerificationDecision } from './verificationPolicy.js';
 import { compareSubtaskComplexity, routeSubtask, type SubtaskComplexity } from './subtaskRouter.js';
+import { learnFromAgentRun } from './skillLearning.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -1691,8 +1692,9 @@ export class CompanyAgentRunner {
                 const synthPrompt = 'You ran out of time. Using ONLY the tool results already in the conversation, give a clear, concise answer to the user. Do NOT apologize about running out of time. Just answer naturally.';
                 history.push({ role: 'user', content: synthPrompt, timestamp: Date.now() });
                 const compressedSynthHistory = compressHistory(history, DEFAULT_HISTORY_COMPRESSION);
+                const synthModel = routedModel.model === '__deterministic__' ? config.model : routedModel.model;
                 const synthResponse = await this.modelClient.generate({
-                  model: routedModel.model,
+                  model: synthModel,
                   systemInstruction: '',
                   contents: compressedSynthHistory,
                   tools: undefined,
@@ -1886,8 +1888,12 @@ export class CompanyAgentRunner {
             effectiveTemp = 1.0;
           }
 
+          const modelForTurn = routedModel.model === '__deterministic__'
+            ? config.model
+            : routedModel.model;
+
           response = await this.modelClient.generate({
-            model: routedModel.model,
+            model: modelForTurn,
             systemInstruction: systemPrompt,
             contents: compressedHistory,
             tools: effectiveTools,
@@ -2214,6 +2220,14 @@ export class CompanyAgentRunner {
         };
       }
       result.verificationMeta = verificationMeta;
+      void learnFromAgentRun({
+        result,
+        agentRole: config.role,
+        runId: config.id,
+        taskType: task,
+        taskDescription: initialMessage,
+        glyphorEventBus: deps?.glyphorEventBus,
+      }).catch(() => {});
       return result;
 
     } catch (error) {

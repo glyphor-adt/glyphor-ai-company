@@ -36,6 +36,20 @@ export interface RouteResult {
   actions?: Array<{ tool: string; params: Record<string, unknown>; result: 'success' | 'error'; output: string; timestamp: string }>;
 }
 
+export interface CascadePreview {
+  summary: string;
+  simulationId?: string;
+  recommendation?: string;
+}
+
+export type CascadePreviewBuilder = (input: {
+  agentRole: CompanyAgentRole;
+  task: string;
+  tier: 'yellow' | 'red';
+  action: string;
+  payload: Record<string, unknown>;
+}) => Promise<CascadePreview | null>;
+
 export type AgentExecutor = (
   agentRole: CompanyAgentRole,
   task: string,
@@ -46,6 +60,7 @@ export class EventRouter {
   private readonly executor: AgentExecutor;
   private readonly decisionQueue: DecisionQueue;
   private glyphorEventBus?: GlyphorEventBus;
+  private cascadePreviewBuilder?: CascadePreviewBuilder;
 
   constructor(executor: AgentExecutor, decisionQueue: DecisionQueue) {
     this.executor = executor;
@@ -54,6 +69,10 @@ export class EventRouter {
 
   setGlyphorEventBus(bus: GlyphorEventBus): void {
     this.glyphorEventBus = bus;
+  }
+
+  setCascadePreviewBuilder(builder: CascadePreviewBuilder): void {
+    this.cascadePreviewBuilder = builder;
   }
 
   /**
@@ -117,6 +136,40 @@ export class EventRouter {
         summary = auth.reason ?? `${prettyRole} wants to perform: ${prettyTask}`;
       }
 
+      let decisionReasoning = auth.reason ?? '';
+      let decisionData: Record<string, unknown> | undefined = event.payload?.directiveAssignmentId
+        ? { directiveAssignmentId: event.payload.directiveAssignmentId }
+        : undefined;
+
+      if (this.cascadePreviewBuilder) {
+        try {
+          const approvalTier = auth.tier === 'red' ? 'red' : 'yellow';
+          const preview = await this.cascadePreviewBuilder({
+            agentRole: event.agentRole,
+            task: event.task,
+            tier: approvalTier,
+            action: summary,
+            payload: event.payload,
+          });
+          if (preview?.summary) {
+            summary = `${summary}\n\nCascade preview: ${preview.summary}`;
+            decisionReasoning = [
+              auth.reason,
+              preview.recommendation ? `Cascade recommendation: ${preview.recommendation.replace(/_/g, ' ')}.` : null,
+              preview.simulationId ? `Cascade simulation: ${preview.simulationId}.` : null,
+            ].filter(Boolean).join(' ');
+            decisionData = {
+              ...(decisionData ?? {}),
+              cascadePreview: preview.summary,
+              cascadeSimulationId: preview.simulationId,
+              cascadeRecommendation: preview.recommendation,
+            };
+          }
+        } catch (err) {
+          console.warn('[EventRouter] Failed to build cascade preview:', (err as Error).message);
+        }
+      }
+
       await this.decisionQueue.submit({
         id: `${event.agentRole}-${event.task}-${Date.now()}`,
         proposedBy: event.agentRole,
@@ -125,10 +178,8 @@ export class EventRouter {
         tier: auth.tier,
         status: 'pending',
         assignedTo: auth.assignTo ?? [],
-        reasoning: auth.reason ?? '',
-        data: event.payload?.directiveAssignmentId
-          ? { directiveAssignmentId: event.payload.directiveAssignmentId }
-          : undefined,
+        reasoning: decisionReasoning,
+        data: decisionData,
         createdAt: new Date().toISOString(),
       });
 

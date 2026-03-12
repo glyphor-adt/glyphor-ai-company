@@ -29,6 +29,14 @@ export interface SimulationRequest {
   requestedBy: string;
 }
 
+export interface QuickCascadeRequest {
+  action: string;
+  requestedBy: string;
+  perspective?: 'optimistic' | 'neutral' | 'pessimistic';
+  depth?: 'lightweight' | 'standard';
+  timeoutMs?: number;
+}
+
 export interface ImpactDimension {
   area: string;             // e.g. "Revenue", "Engineering", "Customer Satisfaction"
   perspective: string;      // which agent assessed this
@@ -55,6 +63,19 @@ export interface SimulationReport {
   recommendation: 'proceed' | 'proceed_with_caution' | 'reconsider';
 }
 
+export type CascadePredictionType = 'metric_change' | 'risk_event' | 'team_impact';
+
+export interface CascadePredictionRecord {
+  id: string;
+  simulation_id: string;
+  prediction_type: CascadePredictionType;
+  predicted_value: Record<string, unknown>;
+  actual_value: Record<string, unknown> | null;
+  accuracy_score: number | null;
+  outcome_observed_at: string | null;
+  created_at: string;
+}
+
 export interface SimulationRecord {
   id: string;
   action: string;
@@ -68,6 +89,16 @@ export interface SimulationRecord {
   accepted_at: string | null;
   accepted_by: string | null;
   error: string | null;
+  predictions?: CascadePredictionRecord[];
+}
+
+export interface QuickCascadeResult {
+  simulationId: string;
+  summary: string;
+  overallScore: number;
+  recommendation: SimulationReport['recommendation'];
+  report: SimulationReport;
+  predictions: CascadePredictionRecord[];
 }
 
 /* ── Simulation perspectives ──────────────── */
@@ -129,7 +160,9 @@ export class SimulationEngine {
       'SELECT * FROM simulations WHERE id=$1',
       [id],
     );
-    return (row as SimulationRecord) ?? null;
+    if (!row) return null;
+    const [record] = await this.attachPredictions([row as SimulationRecord]);
+    return record ?? null;
   }
 
   async list(limit = 20): Promise<SimulationRecord[]> {
@@ -137,7 +170,7 @@ export class SimulationEngine {
       'SELECT * FROM simulations ORDER BY created_at DESC LIMIT $1',
       [limit],
     );
-    return (rows as SimulationRecord[]) ?? [];
+    return this.attachPredictions((rows as SimulationRecord[]) ?? []);
   }
 
   async accept(id: string, acceptedBy: string): Promise<void> {
@@ -152,31 +185,77 @@ export class SimulationEngine {
     );
   }
 
+  async runQuick(req: QuickCascadeRequest): Promise<QuickCascadeResult> {
+    const perspective = req.perspective ?? 'neutral';
+    const id = `sim-quick-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const record: SimulationRecord = {
+      id,
+      action: req.action,
+      perspective,
+      status: 'planning',
+      requested_by: req.requestedBy,
+      dimensions: [],
+      report: null,
+      created_at: new Date().toISOString(),
+      completed_at: null,
+      accepted_at: null,
+      accepted_by: null,
+      error: null,
+    };
+
+    await systemQuery(
+      `INSERT INTO simulations (id, action, perspective, status, requested_by, dimensions, report, created_at, completed_at, accepted_at, accepted_by, error)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [record.id, record.action, record.perspective, record.status, record.requested_by, JSON.stringify(record.dimensions), record.report, record.created_at, record.completed_at, record.accepted_at, record.accepted_by, record.error],
+    );
+
+    await this.updateStatus(id, 'executing');
+    const dimensions = await this.collectDimensions(
+      req.action,
+      perspective,
+      req.depth === 'lightweight' ? 3 : SIMULATION_AGENTS.length,
+      req.timeoutMs,
+    );
+
+    await systemQuery(
+      'UPDATE simulations SET dimensions=$1 WHERE id=$2',
+      [JSON.stringify(dimensions), id],
+    );
+
+    await this.updateStatus(id, 'cascading');
+    const cascadeChain = buildCascadeChain(dimensions).slice(0, req.depth === 'lightweight' ? 3 : undefined);
+
+    await this.updateStatus(id, 'synthesizing');
+    const report = await this.synthesize(
+      { action: req.action, perspective, requestedBy: req.requestedBy },
+      dimensions,
+      cascadeChain,
+    );
+
+    await systemQuery(
+      'UPDATE simulations SET status=$1, report=$2, dimensions=$3, completed_at=$4 WHERE id=$5',
+      ['completed', JSON.stringify(report), JSON.stringify(dimensions), new Date().toISOString(), id],
+    );
+
+    await this.persistPredictions(id, report);
+    const predictions = await this.getPredictionsForSimulation(id);
+
+    return {
+      simulationId: id,
+      summary: report.summary,
+      overallScore: report.overallScore,
+      recommendation: report.recommendation,
+      report,
+      predictions,
+    };
+  }
+
   /* ── Internal phase runner ──────────────── */
 
   private async runPhases(id: string, req: SimulationRequest): Promise<void> {
     // Phase 1: Execute — get all impact assessments in parallel
     await this.updateStatus(id, 'executing');
-
-    const results = await Promise.allSettled(
-      SIMULATION_AGENTS.map((sa) => this.assessImpact(req.action, sa.area, sa.role, req.perspective)),
-    );
-
-    const dimensions: ImpactDimension[] = results.map((result, i) => {
-      const sa = SIMULATION_AGENTS[i];
-      if (result.status === 'fulfilled') {
-        return result.value;
-      }
-      return {
-        area: sa.area,
-        perspective: sa.role,
-        impact: 'neutral' as const,
-        magnitude: 0,
-        confidence: 0,
-        reasoning: `Assessment failed: ${result.reason?.message ?? String(result.reason)}`,
-        secondOrderEffects: [],
-      };
-    });
+    const dimensions = await this.collectDimensions(req.action, req.perspective);
 
     await systemQuery(
       'UPDATE simulations SET dimensions=$1 WHERE id=$2',
@@ -195,10 +274,57 @@ export class SimulationEngine {
       'UPDATE simulations SET status=$1, report=$2, dimensions=$3, completed_at=$4 WHERE id=$5',
       ['completed', JSON.stringify(report), JSON.stringify(dimensions), new Date().toISOString(), id],
     );
+    await this.persistPredictions(id, report);
 
     await systemQuery(
       'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)',
       ['system', 'system', 'simulation.completed', `Simulation completed: "${req.action.slice(0, 100)}" — score: ${report.overallScore}`, new Date().toISOString()],
+    );
+  }
+
+  private async collectDimensions(
+    action: string,
+    perspective: SimulationRequest['perspective'],
+    agentLimit = SIMULATION_AGENTS.length,
+    timeoutMs?: number,
+  ): Promise<ImpactDimension[]> {
+    const activeAgents = SIMULATION_AGENTS.slice(0, agentLimit);
+    const results = await Promise.allSettled(
+      activeAgents.map((sa) => this.assessImpactWithTimeout(action, sa.area, sa.role, perspective, timeoutMs)),
+    );
+
+    return results.map((result, i) => {
+      const sa = activeAgents[i];
+      if (result.status === 'fulfilled') {
+        return result.value;
+      }
+      return {
+        area: sa.area,
+        perspective: sa.role,
+        impact: 'neutral' as const,
+        magnitude: 0,
+        confidence: 0,
+        reasoning: `Assessment failed: ${result.reason?.message ?? String(result.reason)}`,
+        secondOrderEffects: [],
+      };
+    });
+  }
+
+  private async assessImpactWithTimeout(
+    action: string,
+    area: string,
+    role: string,
+    perspective: SimulationRequest['perspective'],
+    timeoutMs?: number,
+  ): Promise<ImpactDimension> {
+    if (!timeoutMs || timeoutMs <= 0) {
+      return this.assessImpact(action, area, role, perspective);
+    }
+
+    return promiseWithTimeout(
+      this.assessImpact(action, area, role, perspective),
+      timeoutMs,
+      `Cascade quick-run timed out for ${role}`,
     );
   }
 
@@ -280,6 +406,54 @@ export class SimulationEngine {
 
   private async updateStatus(id: string, status: SimulationStatus): Promise<void> {
     await systemQuery('UPDATE simulations SET status=$1 WHERE id=$2', [status, id]);
+  }
+
+  private async persistPredictions(id: string, report: SimulationReport): Promise<void> {
+    const predictions = buildCascadePredictions(id, report);
+    await systemQuery('DELETE FROM cascade_predictions WHERE simulation_id = $1', [id]);
+
+    for (const prediction of predictions) {
+      await systemQuery(
+        `INSERT INTO cascade_predictions (simulation_id, prediction_type, predicted_value)
+         VALUES ($1, $2, $3)`,
+        [id, prediction.prediction_type, JSON.stringify(prediction.predicted_value)],
+      );
+    }
+  }
+
+  private async getPredictionsForSimulation(id: string): Promise<CascadePredictionRecord[]> {
+    const rows = await systemQuery<CascadePredictionRecord>(
+      `SELECT id, simulation_id, prediction_type, predicted_value, actual_value, accuracy_score, outcome_observed_at, created_at
+       FROM cascade_predictions
+       WHERE simulation_id = $1
+       ORDER BY created_at ASC`,
+      [id],
+    );
+    return rows ?? [];
+  }
+
+  private async attachPredictions(records: SimulationRecord[]): Promise<SimulationRecord[]> {
+    if (records.length === 0) return records;
+    const ids = records.map((record) => record.id);
+    const rows = await systemQuery<CascadePredictionRecord>(
+      `SELECT id, simulation_id, prediction_type, predicted_value, actual_value, accuracy_score, outcome_observed_at, created_at
+       FROM cascade_predictions
+       WHERE simulation_id = ANY($1::text[])
+       ORDER BY created_at ASC`,
+      [ids],
+    );
+
+    const bySimulation = new Map<string, CascadePredictionRecord[]>();
+    for (const row of rows ?? []) {
+      const list = bySimulation.get(row.simulation_id) ?? [];
+      list.push(row);
+      bySimulation.set(row.simulation_id, list);
+    }
+
+    return records.map((record) => ({
+      ...record,
+      predictions: bySimulation.get(record.id) ?? [],
+    }));
   }
 }
 
@@ -369,4 +543,77 @@ function buildCascadeChain(dimensions: ImpactDimension[]): CascadeLink[] {
   }
 
   return chain;
+}
+
+function buildCascadePredictions(
+  simulationId: string,
+  report: SimulationReport,
+): Array<{
+  simulation_id: string;
+  prediction_type: CascadePredictionType;
+  predicted_value: Record<string, unknown>;
+}> {
+  const avgConfidence = report.dimensions.length > 0
+    ? report.dimensions.reduce((sum, dimension) => sum + dimension.confidence, 0) / report.dimensions.length
+    : 0.5;
+
+  const predictions: Array<{
+    simulation_id: string;
+    prediction_type: CascadePredictionType;
+    predicted_value: Record<string, unknown>;
+  }> = [
+    {
+      simulation_id: simulationId,
+      prediction_type: 'metric_change',
+      predicted_value: {
+        overallScore: report.overallScore,
+        recommendation: report.recommendation,
+        summary: report.summary,
+        confidence: Math.max(0.35, avgConfidence),
+      },
+    },
+  ];
+
+  for (const dimension of report.dimensions) {
+    predictions.push({
+      simulation_id: simulationId,
+      prediction_type: 'team_impact',
+      predicted_value: {
+        agentRole: dimension.perspective,
+        area: dimension.area,
+        impact: dimension.impact,
+        magnitude: dimension.magnitude,
+        confidence: dimension.confidence,
+        reasoning: dimension.reasoning,
+      },
+    });
+
+    if (dimension.impact === 'negative' || dimension.magnitude <= -2) {
+      predictions.push({
+        simulation_id: simulationId,
+        prediction_type: 'risk_event',
+        predicted_value: {
+          agentRole: dimension.perspective,
+          area: dimension.area,
+          impact: dimension.impact,
+          magnitude: dimension.magnitude,
+          confidence: Math.max(0.4, dimension.confidence),
+          reasoning: dimension.reasoning,
+        },
+      });
+    }
+  }
+
+  return predictions;
+}
+
+function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  }) as Promise<T>;
 }
