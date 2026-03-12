@@ -59,7 +59,6 @@ interface SingleModelResult {
   webSearch: boolean;
   knowledgeBase: boolean;
   deepResearch: boolean;
-  deepResearch?: boolean;
 }
 
 /* ── Types ─────────────────────────────────────────── */
@@ -109,6 +108,7 @@ interface Features {
   reasoningLevel: ReasoningLevel;
   webSearch: boolean;
   knowledgeBase: boolean;
+  deepResearch: boolean;
 }
 
 type MenuFlyout = 'model' | 'type' | null;
