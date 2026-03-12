@@ -33,10 +33,11 @@ import { systemQuery } from '@glyphor/shared/db';
 import { extractTaskFromConfigId } from './taskIdentity.js';
 import { compressHistory, DEFAULT_HISTORY_COMPRESSION } from './historyManager.js';
 import { filterToolDeclarations, getToolSubset } from './toolSubsets.js';
-import { inferCapabilities, resolveModelConfig, runDeterministicPreCheck } from './routing/index.js';
+import { runDeterministicPreCheck } from './routing/index.js';
 import type { RoutingDecision } from './routing/index.js';
 import type { TrustScorer } from './trustScorer.js';
 import { determineVerificationTier, type VerificationDecision } from './verificationPolicy.js';
+import { compareSubtaskComplexity, routeSubtask, type SubtaskComplexity } from './subtaskRouter.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -1555,22 +1556,23 @@ export class CompanyAgentRunner {
         console.warn(`[CompanyAgentRunner] Trust load failed for ${config.role}:`, (err as Error).message);
       }
     }
-    const routedModel = resolveModelConfig({
+    let routingAudit = routeSubtask({
       role: config.role,
       task,
-      message: initialMessage,
+      history,
       toolNames: staticToolNames,
       department: routingDepartment,
       trustScore,
       currentModel: config.model,
     });
-    routedModel.capabilities = inferCapabilities({
-      role: config.role,
-      task,
-      message: initialMessage,
-      toolNames: staticToolNames,
-      department: routingDepartment,
-      trustScore,
+    let routedModel = routingAudit.routing;
+    let highestSubtaskComplexity: SubtaskComplexity = routingAudit.classification.complexity;
+    const buildRoutingSummary = () => ({
+      routingRule: routedModel.routingRule,
+      capabilities: routedModel.capabilities,
+      model: routedModel.model,
+      modelRoutingReason: routingAudit.reason,
+      subtaskComplexity: highestSubtaskComplexity,
     });
 
     emitEvent({
@@ -1588,10 +1590,10 @@ export class CompanyAgentRunner {
         history,
       });
       if (!preCheck.shouldCallLLM) {
-        return this.buildResult(
-          config,
-          'skipped_precheck',
-          preCheck.reason,
+          return this.buildResult(
+            config,
+            'skipped_precheck',
+            preCheck.reason,
           history,
           supervisor,
           preCheck.reason,
@@ -1600,8 +1602,8 @@ export class CompanyAgentRunner {
           totalThinkingTokens,
           totalCachedInputTokens,
           undefined,
-          routedModel,
-        );
+            buildRoutingSummary(),
+          );
       }
       if (preCheck.context) {
         history.push({ role: 'user', content: preCheck.context, timestamp: Date.now() });
@@ -1698,7 +1700,7 @@ export class CompanyAgentRunner {
           }
           if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, check.reason ?? 'supervisor_limit', deps);
           return this.buildResult(
-            config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, routedModel,
+            config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, buildRoutingSummary(),
           );
         }
 
@@ -1739,41 +1741,6 @@ export class CompanyAgentRunner {
 
           // Task-level thinking override
           const isOnDemand = task === 'on_demand';
-
-          // Select system prompt based on context tier
-          const systemPrompt = isTaskTier
-            ? buildTaskTierSystemPrompt(agentProfile)
-            : buildSystemPrompt(
-                config.role,
-                config.systemPrompt,
-                dynamicBrief,
-                agentProfile,
-                skillContext,
-                dbKnowledgeBase,
-                bulletinContext,
-                isOnDemand,
-                orchestrationConfig,
-                hasDelegatedDirective,
-                routedModel.model === '__deterministic__' ? config.model : routedModel.model,
-              );
-          let effectiveThinking = routedModel.reasoningEffort === 'minimal' ? false : config.thinkingEnabled;
-          if (isTaskTier) {
-            effectiveThinking = false;
-          } else if (task === 'on_demand') {
-            // Dynamic: enable thinking only when the message warrants it
-            effectiveThinking = chatNeedsThinking;
-          } else if (THINKING_DISABLED_TASKS.has(task)) {
-            effectiveThinking = false;
-          } else if (THINKING_ENABLED_TASKS.has(task)) {
-            effectiveThinking = true;
-          }
-
-          // Gemini 3 strongly recommends temperature 1.0 — lower values cause
-          // robotic/looping output per Google's docs.
-          let effectiveTemp = config.temperature;
-          if (routedModel.model.startsWith('gemini-3') && (effectiveTemp === undefined || effectiveTemp < 1.0)) {
-            effectiveTemp = 1.0;
-          }
 
           // ─── SMART TOOL GATING (on_demand / task) ────────────────
           // on_demand: time-aware gating. The model gets tools on early turns
@@ -1852,6 +1819,54 @@ export class CompanyAgentRunner {
             console.log(`[HistoryCompression] ${config.role} turn=${turnNumber}: raw=${history.length} items (~${rawEst} tok) → compressed=${compressedHistory.length} items (~${compEst} tok), tools=${effectiveTools?.length ?? 0}`);
           }
 
+          routingAudit = routeSubtask({
+            role: config.role,
+            task,
+            history: compressedHistory,
+            toolNames: effectiveTools?.map((tool) => tool.name) ?? [],
+            department: routingDepartment,
+            trustScore,
+            currentModel: routedModel.model === '__deterministic__' ? config.model : routedModel.model,
+            lastTextOutput,
+            actionReceipts,
+          });
+          routedModel = routingAudit.routing;
+          if (compareSubtaskComplexity(routingAudit.classification.complexity, highestSubtaskComplexity) > 0) {
+            highestSubtaskComplexity = routingAudit.classification.complexity;
+          }
+
+          // Select system prompt based on context tier
+          const systemPrompt = isTaskTier
+            ? buildTaskTierSystemPrompt(agentProfile)
+            : buildSystemPrompt(
+                config.role,
+                config.systemPrompt,
+                dynamicBrief,
+                agentProfile,
+                skillContext,
+                dbKnowledgeBase,
+                bulletinContext,
+                isOnDemand,
+                orchestrationConfig,
+                hasDelegatedDirective,
+                routedModel.model === '__deterministic__' ? config.model : routedModel.model,
+              );
+          let effectiveThinking = routedModel.reasoningEffort === 'minimal' ? false : config.thinkingEnabled;
+          if (isTaskTier) {
+            effectiveThinking = false;
+          } else if (task === 'on_demand') {
+            effectiveThinking = chatNeedsThinking;
+          } else if (THINKING_DISABLED_TASKS.has(task)) {
+            effectiveThinking = false;
+          } else if (THINKING_ENABLED_TASKS.has(task)) {
+            effectiveThinking = true;
+          }
+
+          let effectiveTemp = config.temperature;
+          if (routedModel.model.startsWith('gemini-3') && (effectiveTemp === undefined || effectiveTemp < 1.0)) {
+            effectiveTemp = 1.0;
+          }
+
           response = await this.modelClient.generate({
             model: routedModel.model,
             systemInstruction: systemPrompt,
@@ -1899,7 +1914,7 @@ export class CompanyAgentRunner {
             if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, errMsg, deps);
             return this.buildResult(
               config, 'aborted', lastTextOutput, history, supervisor,
-              errMsg, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, routedModel,
+              errMsg, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, buildRoutingSummary(),
             );
           }
           throw error;
@@ -1979,7 +1994,7 @@ export class CompanyAgentRunner {
               if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, progressCheck.reason ?? 'stall_detected', deps);
               return this.buildResult(
                 config, 'aborted', lastTextOutput, history, supervisor,
-                progressCheck.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, routedModel,
+                progressCheck.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, buildRoutingSummary(),
               );
             }
           }
@@ -2169,7 +2184,7 @@ export class CompanyAgentRunner {
         elapsedMs: stats.elapsedMs,
       });
 
-      const result = this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, routedModel);
+      const result = this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, buildRoutingSummary());
       if (reasoningResult) {
         result.reasoningMeta = {
           passes: reasoningResult.passes.length,
@@ -2223,7 +2238,7 @@ export class CompanyAgentRunner {
         totalThinkingTokens,
         totalCachedInputTokens,
         undefined,
-        routedModel,
+        buildRoutingSummary(),
       );
     }
   }
@@ -2277,7 +2292,7 @@ export class CompanyAgentRunner {
     thinkingTokens = 0,
     cachedInputTokens = 0,
     actions?: Array<{ tool: string; params: Record<string, unknown>; result: 'success' | 'error'; output: string; timestamp: string }>,
-    routing?: Pick<RoutingDecision, 'routingRule' | 'capabilities' | 'model'>,
+    routing?: Pick<RoutingDecision, 'routingRule' | 'capabilities' | 'model'> & Pick<AgentExecutionResult, 'modelRoutingReason' | 'subtaskComplexity'>,
   ): AgentExecutionResult {
     const stats = supervisor.stats;
     return {
@@ -2302,6 +2317,8 @@ export class CompanyAgentRunner {
       routingRule: routing?.routingRule,
       routingCapabilities: routing?.capabilities,
       routingModel: routing?.model,
+      modelRoutingReason: routing?.modelRoutingReason,
+      subtaskComplexity: routing?.subtaskComplexity,
     };
   }
 

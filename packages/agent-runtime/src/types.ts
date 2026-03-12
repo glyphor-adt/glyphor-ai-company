@@ -197,6 +197,8 @@ export interface AgentExecutionResult {
   routingRule?: string;
   routingCapabilities?: string[];
   routingModel?: string;
+  modelRoutingReason?: string;
+  subtaskComplexity?: 'trivial' | 'standard' | 'complex' | 'frontier';
   reasoningMeta?: {
     passes: number;
     confidence: number;

@@ -354,6 +354,8 @@ async function ensureAgentRunsRoutingSchema(): Promise<void> {
       await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS routing_rule TEXT');
       await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS routing_capabilities TEXT[]');
       await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS routing_model TEXT');
+      await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS model_routing_reason TEXT');
+      await systemQuery('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS subtask_complexity TEXT');
       await systemQuery('ALTER TABLE agent_runs DROP CONSTRAINT IF EXISTS agent_runs_status_check');
       await systemQuery(
         `ALTER TABLE agent_runs ADD CONSTRAINT agent_runs_status_check
@@ -530,11 +532,13 @@ const trackedAgentExecutor = async (
         result?.routingRule ?? null,
         result?.routingCapabilities ?? null,
         result?.routingModel ?? null,
+        result?.modelRoutingReason ?? null,
+        result?.subtaskComplexity ?? null,
       ];
       try {
         await ensureAgentRunsRoutingSchema();
         await systemQuery(
-          `UPDATE agent_runs SET status=$1, completed_at=$2, duration_ms=$3, turns=$4, tool_calls=$5, input_tokens=$6, output_tokens=$7, cost=$8, output=$9, error=$10, thinking_tokens=$11, cached_input_tokens=$12, routing_rule=$13, routing_capabilities=$14, routing_model=$15${reasoningMeta ? ', reasoning_passes=$16, reasoning_confidence=$17, reasoning_revised=$18, reasoning_cost_usd=$19' : ''}${verificationMeta ? ', verification_tier=$' + (reasoningMeta ? 20 : 16) + ', verification_reason=$' + (reasoningMeta ? 21 : 17) + ', verification_passes=$' + (reasoningMeta ? 22 : 18) : ''} WHERE id=$${reasoningMeta ? (verificationMeta ? 23 : 20) : (verificationMeta ? 19 : 16)}`,
+          `UPDATE agent_runs SET status=$1, completed_at=$2, duration_ms=$3, turns=$4, tool_calls=$5, input_tokens=$6, output_tokens=$7, cost=$8, output=$9, error=$10, thinking_tokens=$11, cached_input_tokens=$12, routing_rule=$13, routing_capabilities=$14, routing_model=$15, model_routing_reason=$16, subtask_complexity=$17${reasoningMeta ? ', reasoning_passes=$18, reasoning_confidence=$19, reasoning_revised=$20, reasoning_cost_usd=$21' : ''}${verificationMeta ? ', verification_tier=$' + (reasoningMeta ? 22 : 18) + ', verification_reason=$' + (reasoningMeta ? 23 : 19) + ', verification_passes=$' + (reasoningMeta ? 24 : 20) : ''} WHERE id=$${reasoningMeta ? (verificationMeta ? 25 : 22) : (verificationMeta ? 21 : 18)}`,
           [
             ...updateParamsBase,
             ...(reasoningMeta ? [reasoningMeta.passes, reasoningMeta.confidence, reasoningMeta.revised, reasoningMeta.costUsd] : []),

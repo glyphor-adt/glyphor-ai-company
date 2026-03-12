@@ -40,6 +40,11 @@ interface AgentRow {
   created_at: string;
 }
 
+interface AgentBriefRow {
+  system_prompt?: string | null;
+  skills?: string[] | null;
+}
+
 export default function AgentSettings() {
   const { agentId } = useParams(); // can be UUID or role slug
   const navigate = useNavigate();
@@ -71,11 +76,13 @@ export default function AgentSettings() {
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [savingPrompt, setSavingPrompt] = useState(false);
   const [savedPrompt, setSavedPrompt] = useState(false);
+  const [configuredSkills, setConfiguredSkills] = useState<string[]>([]);
 
   useEffect(() => {
     if (!agentId) return;
     (async () => {
       setLoading(true);
+      setConfiguredSkills([]);
       // Try matching by role first (human-readable slug), then by UUID id
       let data = await apiCall<AgentRow | AgentRow[]>(`/api/company-agents?role=${agentId}`).catch(() => null);
       if (!data || (Array.isArray(data) && data.length === 0)) {
@@ -109,14 +116,26 @@ export default function AgentSettings() {
         } catch { /* prompt not available */ }
         setCodePrompt(codeDefinedPrompt);
 
-        // Check for custom DB override
-        const brief = await apiCall<{ system_prompt: string }>(`/api/agent-briefs?agent_id=${a.id}`).catch(() => null);
+        // Check for custom DB override / configured skills
+        let briefRows = await apiCall<AgentBriefRow[]>(`/api/agent-briefs?agent_id=${encodeURIComponent(a.role)}`).catch(() => []);
+        if (!briefRows || briefRows.length === 0) {
+          briefRows = await apiCall<AgentBriefRow[]>(`/api/agent-briefs?agent_id=${encodeURIComponent(a.id)}`).catch(() => []);
+        }
+        const brief = (briefRows && briefRows.length > 0) ? briefRows[0] : null;
+
         if (brief?.system_prompt) {
           setSystemPrompt(brief.system_prompt);
           setSystemPromptSource('db');
         } else {
           setSystemPrompt(codeDefinedPrompt);
           setSystemPromptSource('code');
+        }
+
+        if (Array.isArray(brief?.skills)) {
+          const normalized = brief.skills
+            .map((skill) => String(skill).trim())
+            .filter((skill) => skill.length > 0);
+          setConfiguredSkills(normalized);
         }
       }
       setLoading(false);
@@ -267,7 +286,9 @@ export default function AgentSettings() {
   const titleText = ROLE_TITLE[agent.role] ?? agent.title ?? agent.role;
   const meta = AGENT_META[agent.role];
   const soul = AGENT_SOUL[agent.role];
-  const skills = AGENT_SKILLS[agent.role] ?? [];
+  const normalizedRole = agent.role.replace(/_/g, '-');
+  const defaultSkills = AGENT_SKILLS[agent.role] ?? AGENT_SKILLS[normalizedRole] ?? [];
+  const skills = configuredSkills.length > 0 ? configuredSkills : defaultSkills;
   const department = ROLE_DEPARTMENT[agent.role] ?? agent.department ?? '';
   const tier = ROLE_TIER[agent.role] ?? 'Agent';
   const directReports = SUB_TEAM.filter((m) => m.reportsTo === agent.role);
@@ -537,12 +558,12 @@ export default function AgentSettings() {
       {/* ── Skills + Org Structure (two-column) ── */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* SKILLS */}
-        {skills.length > 0 && (
-          <Card>
-            <div className="mb-4 flex items-center gap-2">
-              <SkillsIcon />
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-txt-primary">Skills</h2>
-            </div>
+        <Card>
+          <div className="mb-4 flex items-center gap-2">
+            <SkillsIcon />
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-txt-primary">Skills</h2>
+          </div>
+          {skills.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {skills.map((s) => (
                 <span
@@ -553,8 +574,10 @@ export default function AgentSettings() {
                 </span>
               ))}
             </div>
-          </Card>
-        )}
+          ) : (
+            <p className="text-sm text-txt-faint">No skills configured for this agent yet.</p>
+          )}
+        </Card>
 
         {/* ORG STRUCTURE */}
         <Card>

@@ -1310,6 +1310,15 @@ interface AgentSkillRow {
   skills: { slug: string; name: string; category: string; description: string; tools_granted: string[] } | null;
 }
 
+interface SkillCatalogRow {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  description: string;
+  tools_granted: string[];
+}
+
 const PROF_COLOR: Record<string, string> = {
   learning:  'bg-prism-moderate/15 text-prism-moderate border-prism-moderate/30',
   competent: 'bg-prism-fill-3/15 text-prism-sky border-prism-fill-3/30',
@@ -1330,8 +1339,29 @@ function SkillsTab({ agent, brief }: { agent: AgentRow; brief: AgentBrief | null
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const data = await apiCall('/api/agent_skills?agent_role=' + encodeURIComponent(agent.role) + '&order=times_used.desc');
-      setSkills((data as unknown as AgentSkillRow[]) ?? []);
+      const [agentSkillRows, skillCatalogRows] = await Promise.all([
+        apiCall<AgentSkillRow[]>('/api/agent_skills?agent_role=' + encodeURIComponent(agent.role) + '&order=times_used.desc').catch(() => []),
+        apiCall<SkillCatalogRow[]>('/api/skills').catch(() => []),
+      ]);
+
+      const skillById = new Map((skillCatalogRows ?? []).map((row) => [row.id, row]));
+      const normalized = (agentSkillRows ?? []).map((row) => {
+        const resolved = row.skills ?? skillById.get(row.skill_id) ?? null;
+        return {
+          ...row,
+          skills: resolved
+            ? {
+                slug: resolved.slug,
+                name: resolved.name,
+                category: resolved.category,
+                description: resolved.description,
+                tools_granted: resolved.tools_granted ?? [],
+              }
+            : null,
+        };
+      });
+
+      setSkills(normalized);
       setLoading(false);
     })();
   }, [agent.role]);

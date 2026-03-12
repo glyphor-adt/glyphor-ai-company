@@ -61,6 +61,8 @@ import {
   Area,
   PieChart,
   Pie,
+  ScatterChart,
+  Scatter,
   Cell,
   XAxis,
   YAxis,
@@ -97,6 +99,27 @@ interface ApiBillingRow {
   usage: Record<string, unknown>;
   product: string | null;
   recorded_at: string;
+}
+
+interface AgentRunRow {
+  id: string;
+  agent_id?: string | null;
+  routing_model?: string | null;
+  routing_rule?: string | null;
+  model_routing_reason?: string | null;
+  subtask_complexity?: string | null;
+  verification_tier?: string | null;
+  reasoning_cost_usd?: number | null;
+  cost?: number | null;
+  started_at?: string | null;
+}
+
+interface AgentReflectionRow {
+  id: string;
+  run_id: string;
+  agent_role: string;
+  quality_score: number | null;
+  created_at: string;
 }
 
 function useGcpBilling(days = 30) {
@@ -160,14 +183,34 @@ function useApiBilling(days = 30) {
 }
 
 function useAgentRunsForVerification(days = 30) {
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<AgentRunRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
       try {
-        const rows = await apiCall<any[]>(`/api/agent-runs?since=${since}&limit=1000`);
+        const rows = await apiCall<AgentRunRow[]>(`/api/agent-runs?since=${since}&limit=1000`);
+        setData(rows ?? []);
+      } catch {
+        setData([]);
+      }
+      setLoading(false);
+    })();
+  }, [days]);
+
+  return { data, loading };
+}
+
+function useAgentReflections(days = 30) {
+  const [data, setData] = useState<AgentReflectionRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+      try {
+        const rows = await apiCall<AgentReflectionRow[]>(`/api/agent-reflections?since=${since}&limit=1000`);
         setData(rows ?? []);
       } catch {
         setData([]);
@@ -540,6 +583,7 @@ export default function Financials() {
 
   // Verification panels: distribution, cost by tier, trend
   const { data: vrData, loading: vrLoading } = useAgentRunsForVerification(30);
+  const { data: reflectionData, loading: reflectionLoading } = useAgentReflections(30);
 
   const verificationCounts = useMemo(() => {
     const counts: Record<string, number> = { none: 0, self_critique: 0, cross_model: 0, conditional: 0, unknown: 0 };
@@ -577,6 +621,62 @@ export default function Financials() {
       .map(([date, counts]) => ({ date, ...counts }))
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [vrData]);
+
+  const routingAuditLoading = vrLoading || reflectionLoading;
+
+  const complexityCounts = useMemo(() => {
+    const counts: Record<string, number> = { trivial: 0, standard: 0, complex: 0, frontier: 0, unknown: 0 };
+    for (const run of vrData) {
+      const rawComplexity = run.subtask_complexity ?? 'unknown';
+      const complexity = ['trivial', 'standard', 'complex', 'frontier'].includes(rawComplexity) ? rawComplexity : 'unknown';
+      counts[complexity] = (counts[complexity] ?? 0) + 1;
+    }
+    return Object.entries(counts).map(([complexity, count]) => ({ complexity, count }));
+  }, [vrData]);
+
+  const routedModelMix = useMemo(() => {
+    const byModel = new Map<string, { runs: number; cost: number }>();
+    for (const run of vrData) {
+      const model = run.routing_model ?? 'unknown';
+      const entry = byModel.get(model) ?? { runs: 0, cost: 0 };
+      entry.runs += 1;
+      entry.cost += Number(run.cost ?? 0) || 0;
+      byModel.set(model, entry);
+    }
+    return Array.from(byModel.entries())
+      .map(([model, value]) => ({ model, ...value }))
+      .sort((a, b) => b.runs - a.runs)
+      .slice(0, 8);
+  }, [vrData]);
+
+  const costQualityPoints = useMemo(() => {
+    const reflectionsByRun = new Map(reflectionData.map((reflection) => [reflection.run_id, reflection]));
+    return vrData
+      .map((run) => {
+        const reflection = reflectionsByRun.get(run.id);
+        const quality = reflection?.quality_score ?? null;
+        if (quality == null) return null;
+        return {
+          runId: run.id,
+          role: run.agent_id ?? reflection?.agent_role ?? 'unknown',
+          cost: Number(run.cost ?? 0) || 0,
+          quality,
+          complexity: run.subtask_complexity ?? 'unknown',
+          model: run.routing_model ?? 'unknown',
+        };
+      })
+      .filter((point): point is NonNullable<typeof point> => point !== null);
+  }, [vrData, reflectionData]);
+
+  const routingEfficiency = useMemo(() => {
+    const totalCost = costQualityPoints.reduce((sum, point) => sum + point.cost, 0);
+    const totalQuality = costQualityPoints.reduce((sum, point) => sum + point.quality, 0);
+    return {
+      costPerQualityPoint: totalQuality > 0 ? totalCost / totalQuality : 0,
+      frontierRuns: vrData.filter((run) => run.subtask_complexity === 'frontier').length,
+      dominantModel: routedModelMix[0]?.model ?? '—',
+    };
+  }, [costQualityPoints, vrData, routedModelMix]);
 
   // end verification panels
 

@@ -71,6 +71,8 @@ export type { DriftAlert, DriftDetectionResult } from './driftDetector.js';
 // LLM routing
 export { inferCapabilities, resolveModelConfig, PRE_CHECK_REGISTRY, runDeterministicPreCheck, TOOL_CAPABILITY_MAP, HIGH_COMPLEXITY_CAPABILITIES } from './routing/index.js';
 export type { Capability, RoutingContext, RoutingDecision, DeterministicPreCheckContext, DeterministicPreCheckResult, DeterministicPreCheck } from './routing/index.js';
+export { classifySubtask, selectSubtaskModel, routeSubtask, compareSubtaskComplexity } from './subtaskRouter.js';
+export type { SubtaskClassification, SubtaskComplexity, SubtaskRoutingContext, SubtaskRoutingDecision } from './subtaskRouter.js';
 // Structured output schemas
 export { REFLECTION_SCHEMA } from './schemas/reflectionSchema.js';
 export { ASSIGNMENT_OUTPUT_SCHEMA } from './schemas/assignmentOutputSchema.js';

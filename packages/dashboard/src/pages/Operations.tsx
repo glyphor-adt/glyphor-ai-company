@@ -1671,6 +1671,16 @@ function DelegationOverview() {
   const fmtPct = (v: number | null | undefined) => v != null ? `${(v * 100).toFixed(1)}%` : '—';
   const fmtScore = (v: number | null | undefined) => v != null ? v.toFixed(1) : '—';
   const fmtCost = (v: number | null | undefined) => v != null ? `$${v.toFixed(3)}` : '—';
+  const hasAssignmentVolume = (sarahRow?.total_assignments ?? 0) > 0 || (execAgg?.total_assignments ?? 0) > 0;
+  const hasOutcomeTelemetry = [
+    sarahRow?.first_time_accept_rate,
+    execAgg?.first_time_accept_rate,
+    sarahRow?.avg_quality,
+    execAgg?.avg_quality,
+    sarahRow?.avg_cost,
+    execAgg?.avg_cost,
+  ].some((value) => value != null);
+  const showTelemetryGapHint = hasAssignmentVolume && !hasOutcomeTelemetry;
 
   function comparisonColor(sarahVal: number | null | undefined, execVal: number | null | undefined, higherIsBetter: boolean) {
     if (sarahVal == null || execVal == null) return '';
@@ -1708,6 +1718,11 @@ function DelegationOverview() {
           <p className="py-8 text-center text-sm text-txt-faint">No delegation performance data yet</p>
         ) : (
           <div className="overflow-x-auto">
+            {showTelemetryGapHint && (
+              <p className="mb-3 text-xs text-txt-faint">
+                Some metrics are unavailable because run outcome telemetry has not been recorded yet for the selected window.
+              </p>
+            )}
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-[11px] uppercase tracking-wider text-txt-muted">
