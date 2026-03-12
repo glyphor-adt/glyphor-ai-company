@@ -155,6 +155,7 @@ export class AnthropicAdapter implements ProviderAdapter {
       const turn = turns[i];
       switch (turn.role) {
         case 'user': {
+          lastToolUseIds = [];
           if (turn.attachments?.length) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const parts: any[] = [];
@@ -179,6 +180,7 @@ export class AnthropicAdapter implements ProviderAdapter {
           break;
         }
         case 'assistant':
+          lastToolUseIds = [];
           messages.push({ role: 'assistant', content: turn.content });
           i++;
           break;
@@ -214,18 +216,24 @@ export class AnthropicAdapter implements ProviderAdapter {
             messages.push({ role: 'user', content: textParts.join('\n\n') });
             break;
           }
-          const content: Array<{ type: 'tool_result'; tool_use_id: string; content: string }> = [];
+          const content: Array<{ type: 'tool_result'; tool_use_id: string; content: string } | { type: 'text'; text: string }> = [];
           let resultIndex = 0;
           while (i < turns.length && turns[i].role === 'tool_result') {
             const tr = turns[i];
-            const toolUseId = resultIndex < lastToolUseIds.length
-              ? lastToolUseIds[resultIndex]
-              : `call_${tr.toolName}_${tr.timestamp}_${resultIndex}`;
-            content.push({
-              type: 'tool_result',
-              tool_use_id: toolUseId,
-              content: tr.content,
-            });
+            if (resultIndex < lastToolUseIds.length) {
+              content.push({
+                type: 'tool_result',
+                tool_use_id: lastToolUseIds[resultIndex],
+                content: tr.content,
+              });
+            } else {
+              // Excess tool_result with no matching tool_use — fold into text
+              // to avoid fabricating IDs that Anthropic would reject.
+              content.push({
+                type: 'text' as const,
+                text: `[Prior tool result — ${tr.toolName ?? 'tool'}]: ${tr.content}`,
+              });
+            }
             resultIndex++;
             i++;
           }

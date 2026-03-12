@@ -34,7 +34,7 @@ export default function Layout() {
   const { theme, toggle } = useTheme();
   const { user, logout } = useAuth();
   const location = useLocation();
-  const isFullBleed = false;
+  const isFullBleed = true;
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Close drawer on navigation

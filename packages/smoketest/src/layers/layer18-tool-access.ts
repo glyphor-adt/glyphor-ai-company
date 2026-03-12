@@ -101,7 +101,6 @@ const ROLE_TOOL_EXPECTATIONS: Record<string, string[]> = {
   // ── VP-level ───────────────────────────────────────────────────────────────
   'vp-sales': [
     ...SHARED_BASELINE,
-    'call_meeting', 'send_email', 'read_inbox', 'reply_to_email',
     'create_decision', 'log_activity',
   ],
   'vp-design': [

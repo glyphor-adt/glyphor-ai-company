@@ -97,12 +97,19 @@ function sanitizeToolPairs(turns: ConversationTurn[]): ConversationTurn[] {
       // Collect consecutive tool_call turns
       const groupStart = i;
       while (i < turns.length && turns[i].role === 'tool_call') i++;
+      const callCount = i - groupStart;
       // Check if followed by tool_result turns
       const resultStart = i;
       while (i < turns.length && turns[i].role === 'tool_result') i++;
-      if (i > resultStart) {
-        // Both halves present — keep the full group
-        for (let j = groupStart; j < i; j++) result.push(turns[j]);
+      const resultCount = i - resultStart;
+      if (resultCount > 0) {
+        // Both halves present — keep balanced pairs to enforce count parity.
+        // Compression can split a tool group, leaving fewer calls than results
+        // (or vice-versa); excess items would produce fabricated IDs that the
+        // LLM provider rejects.
+        const pairCount = Math.min(callCount, resultCount);
+        for (let j = groupStart; j < groupStart + pairCount; j++) result.push(turns[j]);
+        for (let j = resultStart; j < resultStart + pairCount; j++) result.push(turns[j]);
       }
       // else: tool_calls with no results — drop them
       continue;

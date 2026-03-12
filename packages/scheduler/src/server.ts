@@ -388,6 +388,20 @@ async function ensureAgentRunsRoutingSchema(): Promise<void> {
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS verification_reason TEXT');
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS verification_passes TEXT[]');
 
+      // Migration drift guard for Phase 3 + Phase 7 columns used by smoketests.
+      await safeSchemaChange("ALTER TABLE company_agents ADD COLUMN IF NOT EXISTS knowledge_access_scope TEXT[] NOT NULL DEFAULT ARRAY['general']");
+      await safeSchemaChange('ALTER TABLE company_agents ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id)');
+      await safeSchemaChange("ALTER TABLE company_agents ALTER COLUMN tenant_id SET DEFAULT '00000000-0000-0000-0000-000000000000'");
+      await safeSchemaChange("UPDATE company_agents SET tenant_id = '00000000-0000-0000-0000-000000000000' WHERE tenant_id IS NULL");
+      await safeSchemaChange('ALTER TABLE company_agents ALTER COLUMN tenant_id SET NOT NULL');
+      await safeSchemaChange("ALTER TABLE company_agents ADD COLUMN IF NOT EXISTS created_via TEXT DEFAULT 'internal'");
+      await safeSchemaChange('ALTER TABLE company_agents ADD COLUMN IF NOT EXISTS created_by_client_id UUID REFERENCES a2a_clients(id)');
+      await safeSchemaChange("ALTER TABLE company_agents ADD COLUMN IF NOT EXISTS authority_scope TEXT DEFAULT 'green'");
+      await safeSchemaChange('ALTER TABLE agent_profiles ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id)');
+      await safeSchemaChange("ALTER TABLE agent_profiles ALTER COLUMN tenant_id SET DEFAULT '00000000-0000-0000-0000-000000000000'");
+      await safeSchemaChange("UPDATE agent_profiles SET tenant_id = '00000000-0000-0000-0000-000000000000' WHERE tenant_id IS NULL");
+      await safeSchemaChange('ALTER TABLE agent_profiles ALTER COLUMN tenant_id SET NOT NULL');
+
       // Legacy schema guard: some environments created verification_passes as int4.
       // Convert in place so verification pass arrays can be persisted safely.
       const [verificationPassesType] = await systemQuery<{ udt_name: string }>(
@@ -2945,6 +2959,10 @@ function exportStrategyLabMarkdown(record: import('./strategyLabEngine.js').Stra
 
 server.listen(PORT, () => {
   console.log(`[Scheduler] Listening on port ${PORT}`);
+
+  ensureAgentRunsRoutingSchema().catch((err) =>
+    console.warn('[Scheduler] Startup schema compatibility check failed:', (err as Error).message),
+  );
 
   // Recover any analyses orphaned by a previous container restart
   analysisEngine.recoverStale().catch((err) =>
