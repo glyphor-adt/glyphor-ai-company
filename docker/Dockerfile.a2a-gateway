@@ -1,0 +1,34 @@
+# ─── Stage 1: Build ───────────────────────────────────────────
+FROM node:22-slim AS builder
+
+WORKDIR /app
+
+COPY package.json package-lock.json turbo.json tsconfig.base.json ./
+COPY packages/shared/package.json ./packages/shared/package.json
+COPY packages/a2a-gateway/package.json ./packages/a2a-gateway/package.json
+
+RUN npm ci
+
+COPY packages/ packages/
+
+RUN npx turbo build --filter=@glyphor/a2a-gateway...
+
+# ─── Stage 2: Runtime ────────────────────────────────────────
+FROM node:22-slim AS runtime
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json ./packages/shared/package.json
+COPY packages/a2a-gateway/package.json ./packages/a2a-gateway/package.json
+
+RUN npm ci --omit=dev
+
+COPY --from=builder /app/packages/shared/dist packages/shared/dist
+COPY --from=builder /app/packages/a2a-gateway/dist packages/a2a-gateway/dist
+
+ENV NODE_ENV=production
+
+EXPOSE 8091
+
+CMD ["node", "packages/a2a-gateway/dist/server.js"]

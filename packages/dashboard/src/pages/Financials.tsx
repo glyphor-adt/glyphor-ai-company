@@ -593,7 +593,9 @@ export default function Financials() {
       const key = ['none', 'self_critique', 'cross_model', 'conditional'].includes(tier) ? tier : 'unknown';
       counts[key] = (counts[key] ?? 0) + 1;
     }
-    return Object.entries(counts).map(([tier, count]) => ({ tier, count }));
+    return Object.entries(counts)
+      .filter(([, count]) => count > 0)
+      .map(([tier, count]) => ({ tier, count }));
   }, [vrData]);
 
   const verificationCostByTier = useMemo(() => {
@@ -632,7 +634,9 @@ export default function Financials() {
       const complexity = ['trivial', 'standard', 'complex', 'frontier'].includes(rawComplexity) ? rawComplexity : 'unknown';
       counts[complexity] = (counts[complexity] ?? 0) + 1;
     }
-    return Object.entries(counts).map(([complexity, count]) => ({ complexity, count }));
+    return Object.entries(counts)
+      .filter(([, count]) => count > 0)
+      .map(([complexity, count]) => ({ complexity, count }));
   }, [vrData]);
 
   const routedModelMix = useMemo(() => {
@@ -1018,7 +1022,7 @@ export default function Financials() {
                   outerRadius={70}
                   innerRadius={35}
                   paddingAngle={2}
-                  label={({ tier, count }: any) => `${VERIF_LABELS[tier] ?? tier} ${count}`}
+                  label={({ tier, count, percent }: any) => percent > 0.03 ? `${VERIF_LABELS[tier] ?? tier} ${count}` : ''}
                 >
                   {verificationCounts.map((_, i) => (
                     <Cell key={i} fill={VERIF_COLORS[verificationCounts[i].tier] ?? '#9AA0A6'} />
@@ -1106,7 +1110,7 @@ export default function Financials() {
                   outerRadius={70}
                   innerRadius={35}
                   paddingAngle={2}
-                  label={({ complexity, count }: { complexity: string; count: number }) => `${COMPLEXITY_LABELS[complexity] ?? complexity} ${count}`}
+                  label={({ complexity, count, percent }: { complexity: string; count: number; percent: number }) => percent > 0.03 ? `${COMPLEXITY_LABELS[complexity] ?? complexity} ${count}` : ''}
                 >
                   {complexityCounts.map((row) => (
                     <Cell key={row.complexity} fill={COMPLEXITY_COLORS[row.complexity] ?? '#6B7280'} />
@@ -1283,8 +1287,8 @@ export default function Financials() {
                   }
                   labelLine={{ stroke: 'var(--color-txt-faint)', strokeWidth: 1 }}
                 >
-                  {gcpByServiceForPie.map((_, i) => (
-                    <Cell key={i} fill={GCP_COLORS[i % GCP_COLORS.length]} />
+                  {gcpByServiceForPie.map((entry, i) => (
+                    <Cell key={i} fill={GCP_SERVICE_COLORS[entry.service] ?? GCP_COLORS[i % GCP_COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip
@@ -1511,11 +1515,16 @@ const PRODUCT_COLORS: Record<string, string> = { fuse: '#2563EB', pulse: '#7C3AE
 const PRODUCT_LABELS: Record<string, string> = { fuse: 'Fuse', pulse: 'Pulse', reve: 'Reve', glyphor: 'Glyphor', unassigned: 'Unassigned' };
 const PROJECT_TO_PRODUCT_LABEL: Record<string, string> = { 'ai-glyphor-company': 'Glyphor', 'glyphor-pulse': 'Pulse', 'gen-lang-client-0834143721': 'Fuse' };
 const GCP_COLORS = ['#4285F4', '#EA4335', '#FBBC04', '#34A853', '#FF6D01', '#46BDC6', '#7B61FF', '#9AA0A6'];
+const GCP_SERVICE_COLORS: Record<string, string> = {
+  'gemini-api': '#4285F4', sql: '#FBBC04', run: '#34A853',
+  'memorystore-for-redis': '#EA4335', 'artifact-registry': '#7B61FF',
+  compute: '#FF6D01', storage: '#46BDC6', networking: '#0891B2',
+};
 const API_COLORS = ['#7C3AED', '#2563EB', '#0891B2', '#EA4335', '#FF6D01'];
 const API_PROVIDER_COLORS: Record<string, string> = { openai: '#10A37F', anthropic: '#D97706', kling: '#7C3AED' };
-const VERIF_COLORS: Record<string, string> = { none: '#9AA0A6', self_critique: '#FBBC04', cross_model: '#EA4335', conditional: '#7C3AED', unknown: '#6B7280' };
+const VERIF_COLORS: Record<string, string> = { none: '#4285F4', self_critique: '#FBBC04', cross_model: '#EA4335', conditional: '#7C3AED', unknown: '#9AA0A6' };
 const VERIF_LABELS: Record<string, string> = { none: 'None', self_critique: 'Self-critique', cross_model: 'Cross-model', conditional: 'Conditional', unknown: 'Unknown' };
-const COMPLEXITY_COLORS: Record<string, string> = { trivial: '#9AA0A6', standard: '#2563EB', complex: '#7C3AED', frontier: '#EA4335', unknown: '#6B7280' };
+const COMPLEXITY_COLORS: Record<string, string> = { trivial: '#34A853', standard: '#4285F4', complex: '#FBBC04', frontier: '#EA4335', unknown: '#9AA0A6' };
 const COMPLEXITY_LABELS: Record<string, string> = { trivial: 'Trivial', standard: 'Standard', complex: 'Complex', frontier: 'Frontier', unknown: 'Unknown' };
 
 function SummaryCard({ label, value, loading, sub }: { label: string; value: string; loading: boolean; sub?: string }) {

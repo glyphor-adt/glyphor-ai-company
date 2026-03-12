@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAgents } from '../lib/hooks';
-import { DISPLAY_NAME_MAP, AGENT_META, ROLE_TITLE, ROLE_DEPARTMENT, ROLE_TIER, AGENT_SKILLS, SUB_TEAM } from '../lib/types';
+import { DISPLAY_NAME_MAP, AGENT_META, ROLE_TITLE, ROLE_DEPARTMENT, ROLE_TIER, AGENT_SKILLS } from '../lib/types';
 import { AgentAvatar, Card, StatusDot, Skeleton } from '../components/ui';
 
 export default function AgentsList() {
@@ -44,7 +44,7 @@ export default function AgentsList() {
             })
             .map((agent) => {
               const meta = AGENT_META[agent.role];
-              const directReports = SUB_TEAM.filter((m) => m.reportsTo === agent.role);
+              const directReports = agents.filter((member) => member.reports_to === agent.role && member.role !== agent.role);
               const skills = AGENT_SKILLS[agent.role] ?? [];
               return (
                 <Link key={agent.id} to={`/agents/${agent.role}`} className="group block h-full">

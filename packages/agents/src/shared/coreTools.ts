@@ -21,6 +21,7 @@ import { createToolRequestTools } from './toolRequestTools.js';
 import { createEventTools } from './eventTools.js';
 import { createDmTools } from './dmTools.js';
 import { createDeliverableTools } from './deliverableTools.js';
+import { createExternalA2aTools } from './externalA2aTools.js';
 
 export const CORE_TOOL_NAMES: Set<string> = new Set([
   // Assignment lifecycle
@@ -45,12 +46,15 @@ export const CORE_TOOL_NAMES: Set<string> = new Set([
   // Shared artifacts
   'publish_deliverable',
   'get_deliverables',
+  // External discovery
+  'discover_external_agents',
 ]);
 
 export interface CoreToolDeps {
   glyphorEventBus: GlyphorEventBus;
   memory: CompanyMemoryStore;
   schedulerUrl?: string;
+  externalA2aRegistryUrl?: string;
 }
 
 export function createCoreTools(deps: CoreToolDeps): ToolDefinition[] {
@@ -62,6 +66,7 @@ export function createCoreTools(deps: CoreToolDeps): ToolDefinition[] {
     ...createEventTools(deps.glyphorEventBus),
     ...createDmTools(),
     ...createDeliverableTools(deps.glyphorEventBus),
+    ...createExternalA2aTools(deps.externalA2aRegistryUrl ?? process.env.A2A_REGISTRY_URL),
   ];
 
   return all.filter((t) => CORE_TOOL_NAMES.has(t.name));

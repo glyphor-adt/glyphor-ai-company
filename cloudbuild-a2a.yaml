@@ -1,0 +1,20 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--progress=plain'
+      - '-f'
+      - 'docker/Dockerfile.a2a-gateway'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/a2a-gateway:latest'
+      - '.'
+    env:
+      - 'DOCKER_BUILDKIT=1'
+images:
+  - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/a2a-gateway:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  logStreamingOption: STREAM_ON
+
+timeout: '600s'

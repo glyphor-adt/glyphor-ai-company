@@ -13,7 +13,7 @@
  *   T16.5  Execute Safety — each tool returns ToolResult (not throws) on empty params
  *   T16.6  Registry Coverage — every tool name exists in KNOWN_TOOLS
  *   T16.7  Grant Coverage — agents have grants for their wired tools
- *   T16.8  Core Tool Wiring — createCoreTools() returns ALL 15 expected tools
+ *   T16.8  Core Tool Wiring — createCoreTools() returns all expected shared tools
  *   T16.9  Agent 365 MCP Wiring — STANDARD_M365_SERVERS covers all 6 Microsoft MCP servers + env vars set
  */
 
@@ -557,7 +557,7 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
 
   // ── T16.8 — Core Tool Wiring ──────────────────────────────────
   tests.push(
-    await runTest('T16.8', 'Core Tool Wiring (all 15 tools)', async () => {
+    await runTest('T16.8', 'Core Tool Wiring (all shared tools)', async () => {
       const mockDeps = {
         glyphorEventBus: {} as GlyphorEventBus,
         memory: {} as CompanyMemoryStore,

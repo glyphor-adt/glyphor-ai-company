@@ -61,13 +61,28 @@ export default function Workforce() {
 
   const agentMap = new Map(agents.map((a) => [a.role, a]));
   const cos = agentMap.get('chief-of-staff');
+  const departmentHeads = DEPARTMENTS
+    .map((department) => ({ ...department, agent: agentMap.get(department.role) }))
+    .filter((department): department is (typeof DEPARTMENTS)[number] & { agent: Agent } => Boolean(department.agent));
+  const deptHeadRoles = new Set(departmentHeads.map((department) => department.role));
+
+  const normalizeDepartment = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
+
+  const resolveManagerRole = (member: Agent): string | null => {
+    if (member.reports_to && agentMap.has(member.reports_to)) return member.reports_to;
+
+    const deptHead = departmentHeads.find(
+      (department) => normalizeDepartment(department.label) === normalizeDepartment(member.department),
+    );
+    if (deptHead) return deptHead.role;
+
+    if (cos && member.role !== 'chief-of-staff' && !deptHeadRoles.has(member.role)) return 'chief-of-staff';
+    return null;
+  };
+
   const executiveAgents = agents.filter((a) => a.role in TITLE_MAP);
   const execCount = executiveAgents.length;
-  const individualContributors = agents.filter((a) => {
-    const hasManager = Boolean(a.reports_to);
-    const isExec = a.role in TITLE_MAP;
-    return hasManager && !isExec;
-  });
+  const individualContributors = agents.filter((a) => !(a.role in TITLE_MAP));
   const totalHeadcount = FOUNDERS.length + agents.length;
 
   return (
@@ -153,9 +168,8 @@ export default function Workforce() {
                 {cos ? <AgentNode agent={cos} compact /> : <Skeleton className="h-20 w-full" />}
               </div>
               {(() => {
-                const deptHeadRoles = new Set(DEPARTMENTS.map((d) => d.role));
                 const cosDirects = agents.filter(
-                  (m) => m.reports_to === 'chief-of-staff' && m.role !== 'chief-of-staff' && !deptHeadRoles.has(m.role),
+                  (m) => resolveManagerRole(m) === 'chief-of-staff' && m.role !== 'chief-of-staff' && !deptHeadRoles.has(m.role),
                 );
                 if (cosDirects.length === 0) return null;
                 return (
@@ -180,17 +194,15 @@ export default function Workforce() {
 
           {/* Department columns with heads + sub-teams */}
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            {DEPARTMENTS.map((dept) => {
-              const agent = agentMap.get(dept.role);
-              const deptHeadRoles = new Set(DEPARTMENTS.map((d) => d.role));
-              const members = agents.filter((m) => m.reports_to === dept.role && m.role !== dept.role && !deptHeadRoles.has(m.role));
+            {departmentHeads.map((dept) => {
+              const members = agents.filter((m) => resolveManagerRole(m) === dept.role && m.role !== dept.role && !deptHeadRoles.has(m.role));
               return (
                 <div key={dept.label} className="flex flex-col items-center gap-1.5">
                   <div className="h-3 w-px bg-border" />
                   <span className="text-[10px] font-medium uppercase tracking-widest text-txt-faint">
                     {dept.label}
                   </span>
-                  {agent ? <AgentNode agent={agent} compact /> : <Skeleton className="h-20 w-full" />}
+                  <AgentNode agent={dept.agent} compact />
                   {members.length > 0 && <div className="h-3 w-px bg-border" />}
                   <div className="flex w-full flex-col gap-1.5">
                     {members.map((m) => (
@@ -288,6 +300,7 @@ export default function Workforce() {
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
             {individualContributors.map((m) => {
               const meta = AGENT_META[m.role];
+              const managerRole = resolveManagerRole(m);
               return (
               <Card key={m.id} className="relative overflow-hidden h-24">
                 <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl" style={{ background: meta?.color ?? '#64748b' }} />
@@ -296,7 +309,7 @@ export default function Workforce() {
                   <div>
                     <h3 className="text-[13px] font-semibold text-txt-primary">{DISPLAY_NAME_MAP[m.role] ?? m.name ?? m.display_name ?? m.role}</h3>
                     <p className="text-[11px] text-txt-muted">{TITLE_MAP[m.role] ?? m.title ?? m.role}</p>
-                    <p className="mt-0.5 text-[10px] text-txt-faint">{m.department ?? 'Unassigned'} · Reports to {DISPLAY_NAME_MAP[m.reports_to ?? ''] ?? m.reports_to ?? 'Founders'}</p>
+                    <p className="mt-0.5 text-[10px] text-txt-faint">{m.department ?? 'Unassigned'} · Reports to {DISPLAY_NAME_MAP[managerRole ?? ''] ?? managerRole ?? 'Founders'}</p>
                   </div>
                 </div>
               </Card>
