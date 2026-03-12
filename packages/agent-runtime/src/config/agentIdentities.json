@@ -9,7 +9,8 @@
       "Glyphor.Ops.Read"
     ],
     "blueprintSpId": "8147358d-2192-4e61-a341-a162e5c809fe",
-    "entraUserId": "e30faae7-6878-42ad-ac6d-dd8fe2d0273a"
+    "entraUserId": "e30faae7-6878-42ad-ac6d-dd8fe2d0273a",
+    "upn": "sarah@glyphor.ai"
   },
   "cto": {
     "appId": "1c40707b-69fd-4bba-8ed4-5a9a1c3aaca0",
@@ -23,7 +24,8 @@
       "Glyphor.Engineering.Read"
     ],
     "blueprintSpId": "4d5f95e3-61ad-4885-bef0-12f0e89f6094",
-    "entraUserId": "96b2dec8-c18e-46bf-bfc0-d511be57eebc"
+    "entraUserId": "96b2dec8-c18e-46bf-bfc0-d511be57eebc",
+    "upn": "marcus@glyphor.ai"
   },
   "cfo": {
     "appId": "00ee286c-3eff-42ae-8581-5970f6939f31",
@@ -36,7 +38,8 @@
       "Glyphor.Finance.Banking.Read"
     ],
     "blueprintSpId": "4a659eb1-8384-4cd0-8927-3fccd26fa60c",
-    "entraUserId": "5828116b-5fa2-49ad-930d-13f2a4bfa3d4"
+    "entraUserId": "5828116b-5fa2-49ad-930d-13f2a4bfa3d4",
+    "upn": "nadia@glyphor.ai"
   },
   "cpo": {
     "appId": "d8334023-8882-42bb-b73f-afc453a423fb",
@@ -48,7 +51,8 @@
       "Glyphor.Research.Read"
     ],
     "blueprintSpId": "b35fb46e-d3a6-47c0-94e9-ab3fd18986b3",
-    "entraUserId": "a51cf34b-46a2-4020-9f6d-9093681b8c35"
+    "entraUserId": "a51cf34b-46a2-4020-9f6d-9093681b8c35",
+    "upn": "elena@glyphor.ai"
   },
   "cmo": {
     "appId": "e8661e26-ce87-4074-93e7-2990324a249e",
@@ -62,7 +66,8 @@
       "Glyphor.Marketing.Social.Write"
     ],
     "blueprintSpId": "eaed3545-a12a-41c4-8bc6-a4875bccbd2d",
-    "entraUserId": "efcbc5ac-0579-4109-862b-f78cf9ed1407"
+    "entraUserId": "efcbc5ac-0579-4109-862b-f78cf9ed1407",
+    "upn": "maya@glyphor.ai"
   },
   "clo": {
     "appId": "d86be3c5-c8f7-462a-a771-9e31767634c5",
@@ -73,7 +78,8 @@
       "Glyphor.Admin.Read"
     ],
     "blueprintSpId": "d33570ea-4386-414b-bebf-a95950337455",
-    "entraUserId": "47c2bc52-8c31-4b22-8f60-3384b82a10e6"
+    "entraUserId": "47c2bc52-8c31-4b22-8f60-3384b82a10e6",
+    "upn": "victoria@glyphor.ai"
   },
   "vp-customer-success": {
     "appId": "c9f46bc1-7a01-4d5c-864d-029911464c07",
@@ -96,7 +102,8 @@
       "Glyphor.Research.Read"
     ],
     "blueprintSpId": "6653e6d6-a1b7-4bd5-9972-485edd5a4b75",
-    "entraUserId": "0cce4809-4fcb-42c2-81bd-92363047d2b2"
+    "entraUserId": "0cce4809-4fcb-42c2-81bd-92363047d2b2",
+    "upn": "rachel@glyphor.ai"
   },
   "vp-design": {
     "appId": "dd289c80-7ed2-4788-a09d-8c609cea93b4",
@@ -111,7 +118,8 @@
       "Glyphor.Code.Read"
     ],
     "blueprintSpId": "3e801a11-ab13-450f-b121-46727598d3d4",
-    "entraUserId": "fd68d754-020c-41db-b638-fa5abf6f30a8"
+    "entraUserId": "fd68d754-020c-41db-b638-fa5abf6f30a8",
+    "upn": "mia@glyphor.ai"
   },
   "platform-engineer": {
     "appId": "862cf05a-4146-4d0e-b595-4e0100a16427",
@@ -124,7 +132,8 @@
       "Glyphor.Engineering.Read"
     ],
     "blueprintSpId": "da0ffbba-b3b9-40d7-82ef-e359b954f1b8",
-    "entraUserId": "9135e02d-f920-473d-b40d-9a10e336d5a1"
+    "entraUserId": "9135e02d-f920-473d-b40d-9a10e336d5a1",
+    "upn": "alex@glyphor.ai"
   },
   "quality-engineer": {
     "appId": "83b60041-987b-42b9-ad83-b28cb7a72dc3",
@@ -136,7 +145,8 @@
       "Glyphor.Engineering.Read"
     ],
     "blueprintSpId": "195bc0fb-0d7f-4d7f-bd30-abe2cf210975",
-    "entraUserId": "9deaddb0-7669-4529-89e2-33e95018279e"
+    "entraUserId": "9deaddb0-7669-4529-89e2-33e95018279e",
+    "upn": "sam@glyphor.ai"
   },
   "devops-engineer": {
     "appId": "b711a254-bc98-44aa-a461-a24daf67d6c5",
@@ -149,7 +159,8 @@
       "Glyphor.Engineering.Read"
     ],
     "blueprintSpId": "c9731e05-bd52-4219-9e45-9b49a5ebb331",
-    "entraUserId": "c90fe85f-a497-4a90-b3a1-6da2fb8b0eb9"
+    "entraUserId": "c90fe85f-a497-4a90-b3a1-6da2fb8b0eb9",
+    "upn": "jordan@glyphor.ai"
   },
   "m365-admin": {
     "appId": "bedfb8d3-09f0-4659-9120-e277d37e26c2",
@@ -160,7 +171,8 @@
       "Glyphor.Admin.Read"
     ],
     "blueprintSpId": "c262efa0-9811-401f-bd8a-1cdddacb2b5c",
-    "entraUserId": "d1ad8fc5-12aa-46ca-a12a-c79f9405da09"
+    "entraUserId": "d1ad8fc5-12aa-46ca-a12a-c79f9405da09",
+    "upn": "riley@glyphor.ai"
   },
   "user-researcher": {
     "appId": "4ceeef5e-490b-4de2-a6b0-7a6d23cf0493",
@@ -172,7 +184,8 @@
       "Glyphor.Support.Read"
     ],
     "blueprintSpId": "92e020d7-c1ef-4414-b7e5-9e9a0910bc5b",
-    "entraUserId": "2977011f-acfd-47e7-ae5e-ef34ea938643"
+    "entraUserId": "2977011f-acfd-47e7-ae5e-ef34ea938643",
+    "upn": "priya@glyphor.ai"
   },
   "competitive-intel": {
     "appId": "b5f47197-402f-474e-9460-3afeec584741",
@@ -184,7 +197,8 @@
       "Glyphor.Research.Read"
     ],
     "blueprintSpId": "6cb0e8d2-8273-4f42-910f-1d1afd7ff038",
-    "entraUserId": "7315aa9d-3f4b-4cf0-b517-71e69791951f"
+    "entraUserId": "7315aa9d-3f4b-4cf0-b517-71e69791951f",
+    "upn": "daniel@glyphor.ai"
   },
   "revenue-analyst": {
     "appId": "75f7f89a-4273-4174-886f-51bd9d315f60",
@@ -218,7 +232,8 @@
       "Glyphor.Marketing.Content.Write"
     ],
     "blueprintSpId": "7c028b1a-ff03-44f8-9a4a-76386b183531",
-    "entraUserId": "003d1831-e9df-4cb2-98b7-c67a6f3f0d25"
+    "entraUserId": "003d1831-e9df-4cb2-98b7-c67a6f3f0d25",
+    "upn": "tyler@glyphor.ai"
   },
   "seo-analyst": {
     "appId": "20b9759b-3ba3-4d2c-abfd-92ca8c894002",
@@ -230,7 +245,8 @@
       "Glyphor.Marketing.Read"
     ],
     "blueprintSpId": "7a0830a2-233e-4ae3-a7e6-11cde86a89fd",
-    "entraUserId": "52644737-ab4c-4131-a5e6-311f46d055eb"
+    "entraUserId": "52644737-ab4c-4131-a5e6-311f46d055eb",
+    "upn": "lisa@glyphor.ai"
   },
   "social-media-manager": {
     "appId": "31152f6d-09c7-4ba9-895e-995c226042e6",
@@ -242,7 +258,8 @@
       "Glyphor.Marketing.Social.Write"
     ],
     "blueprintSpId": "26911c30-db45-4210-908d-2fa6c5c75cdb",
-    "entraUserId": "b0c8829c-6123-4d34-aeda-bef087e3fc46"
+    "entraUserId": "b0c8829c-6123-4d34-aeda-bef087e3fc46",
+    "upn": "kai@glyphor.ai"
   },
   "onboarding-specialist": {
     "appId": "e5a792ff-095a-445b-8c2c-1480e6ebf805",
@@ -287,7 +304,8 @@
       "Glyphor.Figma.Read"
     ],
     "blueprintSpId": "67ab7e51-2315-4ff3-8e86-2cc3f8d9ef9c",
-    "entraUserId": "a68f06c5-c12e-4863-8881-70481f0ea320"
+    "entraUserId": "a68f06c5-c12e-4863-8881-70481f0ea320",
+    "upn": "leo@glyphor.ai"
   },
   "frontend-engineer": {
     "appId": "ff4025d7-e0bb-4a4f-9027-e7df89d583c3",
@@ -300,7 +318,8 @@
       "Glyphor.Code.Write"
     ],
     "blueprintSpId": "a4785b64-b70e-416d-b658-f2aff1228d54",
-    "entraUserId": "c951f908-1d6c-40e5-884a-86a90b936b27"
+    "entraUserId": "c951f908-1d6c-40e5-884a-86a90b936b27",
+    "upn": "ava@glyphor.ai"
   },
   "design-critic": {
     "appId": "3cbe7efd-4a9b-49af-950a-3b15f0ef61da",
@@ -312,7 +331,8 @@
       "Glyphor.Figma.Read"
     ],
     "blueprintSpId": "19bd8970-40c2-4bde-9194-53b591cab396",
-    "entraUserId": "4449c0af-5749-4a5f-b868-b7f34362de26"
+    "entraUserId": "4449c0af-5749-4a5f-b868-b7f34362de26",
+    "upn": "sofia@glyphor.ai"
   },
   "template-architect": {
     "appId": "2fafcaf7-e0dc-4fb2-a194-8e782468864c",
@@ -326,7 +346,8 @@
       "Glyphor.Code.Write"
     ],
     "blueprintSpId": "2e92b3ba-794d-427c-adcc-e72e49bba9f5",
-    "entraUserId": "bbabf37c-02e0-4ca8-92fc-66c7458fad90"
+    "entraUserId": "bbabf37c-02e0-4ca8-92fc-66c7458fad90",
+    "upn": "ryan@glyphor.ai"
   },
   "ops": {
     "appId": "5a227489-9905-4df8-99c5-c26702205320",
@@ -338,7 +359,8 @@
       "Glyphor.Admin.Read"
     ],
     "blueprintSpId": "e8c7a446-3c85-44be-8d0f-dcb716b91db3",
-    "entraUserId": "286e7da0-51f0-40ab-b97a-b9c2ad049edf"
+    "entraUserId": "286e7da0-51f0-40ab-b97a-b9c2ad049edf",
+    "upn": "atlas@glyphor.ai"
   },
   "global-admin": {
     "appId": "b431f38b-8eb6-4818-9bd7-77d3e6a85463",
@@ -349,7 +371,8 @@
       "Glyphor.Admin.Read"
     ],
     "blueprintSpId": "58c67a12-5c9b-47b7-98bf-4c334116946e",
-    "entraUserId": "5f37f9df-8f52-495a-90ee-6ea0acfe5f2b"
+    "entraUserId": "5f37f9df-8f52-495a-90ee-6ea0acfe5f2b",
+    "upn": "morgan@glyphor.ai"
   },
   "head-of-hr": {
     "appId": "c883bbc8-b0d8-4bd7-b6d6-420563f1e1db",
@@ -360,7 +383,8 @@
       "Glyphor.Admin.Read"
     ],
     "blueprintSpId": "006c3343-93ff-45af-937e-860068094526",
-    "entraUserId": "93f9de46-b296-4818-b7d6-38d963ca8b0c"
+    "entraUserId": "93f9de46-b296-4818-b7d6-38d963ca8b0c",
+    "upn": "jasmine@glyphor.ai"
   },
   "vp-research": {
     "appId": "84e8cfec-08c2-44eb-a738-bc8de5ca0d21",
@@ -372,7 +396,8 @@
       "Glyphor.Product.Read"
     ],
     "blueprintSpId": "53a1fea2-3d82-4b5c-824b-80979780972f",
-    "entraUserId": "dfac9eb1-cd71-498f-95d7-187f0b9b59d3"
+    "entraUserId": "dfac9eb1-cd71-498f-95d7-187f0b9b59d3",
+    "upn": "sophia@glyphor.ai"
   },
   "competitive-research-analyst": {
     "appId": "439ef6b4-bbba-40da-bb37-b55a73c00d38",
@@ -383,7 +408,8 @@
       "Glyphor.Research.Read"
     ],
     "blueprintSpId": "691a7572-5c8d-49ca-bbbf-4d37f8ac9754",
-    "entraUserId": "e91943f7-164c-407d-818c-41f67b9d7dbb"
+    "entraUserId": "e91943f7-164c-407d-818c-41f67b9d7dbb",
+    "upn": "lena@glyphor.ai"
   },
   "market-research-analyst": {
     "appId": "5f1cd944-0823-464f-85e4-e2dc915f2239",
@@ -394,7 +420,8 @@
       "Glyphor.Research.Read"
     ],
     "blueprintSpId": "34e09de7-e8e0-4578-8f12-f919d5972ccc",
-    "entraUserId": "5813e1cb-314d-4f58-b23e-7d2a7bf70098"
+    "entraUserId": "5813e1cb-314d-4f58-b23e-7d2a7bf70098",
+    "upn": "dokafor@glyphor.ai"
   },
   "technical-research-analyst": {
     "appId": "ae6c1f86-d9da-48da-ac2d-d3aa194c8f2b",
@@ -427,7 +454,8 @@
       "Glyphor.Research.Read"
     ],
     "blueprintSpId": "55e71340-0965-4f16-8df2-4bdf89513ab8",
-    "entraUserId": "d191b64e-2e3e-41e4-b685-41b97b5836f9"
+    "entraUserId": "d191b64e-2e3e-41e4-b685-41b97b5836f9",
+    "upn": "riya@glyphor.ai"
   },
   "org-analyst": {
     "appId": "b65d2708-20ff-451d-9c85-78cee2831fde",
@@ -460,7 +488,8 @@
       "Glyphor.Finance.Revenue.Read"
     ],
     "blueprintSpId": "3eca72b5-1cfd-47e1-b01d-3d09fb9d12fb",
-    "entraUserId": "9febe31e-bd62-44f8-90d7-02eb83a26817"
+    "entraUserId": "9febe31e-bd62-44f8-90d7-02eb83a26817",
+    "upn": "bob@glyphor.ai"
   },
   "data-integrity-auditor": {
     "appId": "7a83e0aa-33ba-47ac-9123-e311a811cd67",
@@ -505,7 +534,8 @@
       "Glyphor.Research.Read"
     ],
     "blueprintSpId": "f7a45fd1-b445-4b12-9f86-f1cdcc412d4c",
-    "entraUserId": "f627792b-9d83-4f73-be81-fd6e180ab92a"
+    "entraUserId": "f627792b-9d83-4f73-be81-fd6e180ab92a",
+    "upn": "zara@glyphor.ai"
   },
   "adi-rose": {
     "appId": "91445ab8-cf91-45e3-8aec-b42ee1babddf",
@@ -517,6 +547,7 @@
       "Glyphor.Ops.Read"
     ],
     "blueprintSpId": "bacefc43-ef26-4bef-bbf8-ccd495ce0588",
-    "entraUserId": "97607cc5-0f96-4550-bc17-91acbaba62ac"
+    "entraUserId": "97607cc5-0f96-4550-bc17-91acbaba62ac",
+    "upn": "adi@glyphor.ai"
   }
 }
