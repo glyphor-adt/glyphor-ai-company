@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 
 const POLL_INTERVAL = 60_000;
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
-import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
+import { DISPLAY_NAME_MAP, GLYPHOR_PALETTE } from '../lib/types';
 import {
   Card,
   SectionHeader,
@@ -650,8 +650,8 @@ function OperationsOverview() {
                   labelStyle={{ color: 'var(--color-txt-secondary)' }}
                 />
                 <Bar dataKey="runs" radius={[0, 4, 4, 0]} maxBarSize={28}>
-                  {runsData.map((entry) => (
-                    <Cell key={entry.role} fill={AGENT_META[entry.role]?.color ?? '#64748b'} />
+                  {runsData.map((entry, i) => (
+                    <Cell key={entry.role} fill={GLYPHOR_PALETTE[i % GLYPHOR_PALETTE.length]} />
                   ))}
                 </Bar>
               </BarChart>
@@ -678,8 +678,8 @@ function OperationsOverview() {
                   formatter={(value: number) => [`$${value.toFixed(2)}`]}
                 />
                 <Bar dataKey="cost" radius={[0, 4, 4, 0]} maxBarSize={28}>
-                  {costData.map((entry) => (
-                    <Cell key={entry.role} fill={AGENT_META[entry.role]?.color ?? '#64748b'} />
+                  {costData.map((entry, i) => (
+                    <Cell key={entry.role} fill={GLYPHOR_PALETTE[i % GLYPHOR_PALETTE.length]} />
                   ))}
                 </Bar>
               </BarChart>

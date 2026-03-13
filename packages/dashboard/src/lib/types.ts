@@ -426,6 +426,8 @@ export const AGENT_META: Record<string, { color: string; icon: string }> = {
   'adi-rose':                      { color: '#7C3AED', icon: 'MdEventNote' },
 };
 
+export const GLYPHOR_PALETTE = ['#00A3C4', '#0891B2', '#2563EB', '#6366F1', '#7C3AED', '#A855F7', '#C084FC', '#94A3B8'] as const;
+
 const _DISPLAY_NAMES: Record<string, string> = {
   'chief-of-staff': 'Sarah Chen',
   cto: 'Marcus Reeves',

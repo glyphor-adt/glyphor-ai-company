@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { apiCall } from '../lib/firebase';
+import { GLYPHOR_PALETTE } from '../lib/types';
 import {
   Card,
   SectionHeader,
@@ -1546,7 +1547,6 @@ export default function Financials() {
 }
 
 const PRODUCTS = ['fuse', 'pulse', 'reve'] as const;
-const GLYPHOR_PALETTE = ['#00A3C4', '#0891B2', '#2563EB', '#6366F1', '#7C3AED', '#A855F7', '#C084FC', '#94A3B8'] as const;
 const PRODUCT_COLORS: Record<string, string> = { fuse: '#2563EB', pulse: '#7C3AED', reve: '#0891B2', glyphor: '#6366F1', unassigned: '#94A3B8' };
 const PRODUCT_LABELS: Record<string, string> = { fuse: 'Fuse', pulse: 'Pulse', reve: 'Reve', glyphor: 'Glyphor', unassigned: 'Unassigned' };
 const PROJECT_TO_PRODUCT_LABEL: Record<string, string> = { 'ai-glyphor-company': 'Glyphor', 'glyphor-pulse': 'Pulse', 'gen-lang-client-0834143721': 'Fuse' };
