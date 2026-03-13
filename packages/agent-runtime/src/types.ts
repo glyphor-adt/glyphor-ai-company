@@ -180,6 +180,7 @@ export interface AgentExecutionResult {
   role: string;
   status: 'completed' | 'aborted' | 'error' | 'skipped_precheck';
   output: string | null;
+  resultSummary?: string;
   totalTurns: number;
   totalFilesWritten: number;
   totalMemoryKeysWritten: number;

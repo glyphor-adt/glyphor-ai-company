@@ -27,6 +27,7 @@ interface AgentRun {
   cached_input_tokens: number | null;
   tool_calls: number | null;
   turns: number | null;
+  result_summary: string | null;
   error: string | null;
   output: string | null;
   input: string | null;
@@ -267,7 +268,7 @@ export default function Activity() {
             {filtered.map((run) => {
               const sc = statusConfig(run.status);
               const isExpanded = expandedId === run.id;
-              const hasDetail = !!(run.output || run.input || run.error);
+              const hasDetail = !!(run.output || run.input || run.result_summary || run.error);
               return (
                 <div key={run.id}>
                   <div
@@ -380,7 +381,15 @@ export default function Activity() {
                           </div>
                         </div>
                       )}
-                      {run.error && (
+                      {run.status === 'skipped_precheck' && run.result_summary && (
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-tier-yellow mb-1">Precheck skip</p>
+                          <p className="text-[12px] text-tier-yellow whitespace-pre-wrap bg-tier-yellow/5 rounded-md border border-tier-yellow/20 px-3 py-2">
+                            {run.result_summary}
+                          </p>
+                        </div>
+                      )}
+                      {run.error && run.status !== 'skipped_precheck' && (
                         <div>
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-prism-critical mb-1">Error</p>
                           <p className="text-[12px] text-prism-critical whitespace-pre-wrap bg-prism-critical/5 rounded-md border border-prism-critical/20 px-3 py-2">

@@ -391,6 +391,7 @@ async function ensureAgentRunsRoutingSchema(): Promise<void> {
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS actual_provider TEXT');
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS estimated_cost_usd DOUBLE PRECISION');
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS compaction_count INT DEFAULT 0');
+      await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS result_summary TEXT');
       await safeSchemaChange('ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS compacted BOOLEAN DEFAULT FALSE');
 
       // Migration drift guard for Phase 3 + Phase 7 columns used by smoketests.
@@ -633,6 +634,7 @@ const trackedAgentExecutor = async (
         result?.outputTokens ?? null,
         result?.cost ?? null,
         result?.output ?? null,
+        result?.resultSummary ?? null,
         result?.error ?? result?.abortReason ?? null,
         result?.thinkingTokens ?? null,
         result?.cachedInputTokens ?? null,
@@ -649,7 +651,7 @@ const trackedAgentExecutor = async (
           ? (verificationPassesColumnType === 'array' ? verificationMeta.passes : verificationMeta.passes.length)
           : null;
         await systemQuery(
-          `UPDATE agent_runs SET status=$1, completed_at=$2, duration_ms=$3, turns=$4, tool_calls=$5, input_tokens=$6, output_tokens=$7, cost=$8, output=$9, error=$10, thinking_tokens=$11, cached_input_tokens=$12, routing_rule=$13, routing_capabilities=$14, routing_model=$15, model_routing_reason=$16, subtask_complexity=$17${reasoningMeta ? ', reasoning_passes=$18, reasoning_confidence=$19, reasoning_revised=$20, reasoning_cost_usd=$21' : ''}${verificationMeta ? ', verification_tier=$' + (reasoningMeta ? 22 : 18) + ', verification_reason=$' + (reasoningMeta ? 23 : 19) + ', verification_passes=$' + (reasoningMeta ? 24 : 20) : ''} WHERE id=$${reasoningMeta ? (verificationMeta ? 25 : 22) : (verificationMeta ? 21 : 18)}`,
+          `UPDATE agent_runs SET status=$1, completed_at=$2, duration_ms=$3, turns=$4, tool_calls=$5, input_tokens=$6, output_tokens=$7, cost=$8, output=$9, result_summary=$10, error=$11, thinking_tokens=$12, cached_input_tokens=$13, routing_rule=$14, routing_capabilities=$15, routing_model=$16, model_routing_reason=$17, subtask_complexity=$18${reasoningMeta ? ', reasoning_passes=$19, reasoning_confidence=$20, reasoning_revised=$21, reasoning_cost_usd=$22' : ''}${verificationMeta ? ', verification_tier=$' + (reasoningMeta ? 23 : 19) + ', verification_reason=$' + (reasoningMeta ? 24 : 20) + ', verification_passes=$' + (reasoningMeta ? 25 : 21) : ''} WHERE id=$${reasoningMeta ? (verificationMeta ? 26 : 23) : (verificationMeta ? 22 : 19)}`,
           [
             ...updateParamsBase,
             ...(reasoningMeta ? [reasoningMeta.passes, reasoningMeta.confidence, reasoningMeta.revised, reasoningMeta.costUsd] : []),
@@ -665,7 +667,7 @@ const trackedAgentExecutor = async (
           ? (verificationPassesColumnType === 'array' ? verificationMeta.passes : verificationMeta.passes.length)
           : null;
         await systemQuery(
-          `UPDATE agent_runs SET status=$1, completed_at=$2, duration_ms=$3, turns=$4, tool_calls=$5, input_tokens=$6, output_tokens=$7, cost=$8, output=$9, error=$10, thinking_tokens=$11, cached_input_tokens=$12${reasoningMeta ? ', reasoning_passes=$13, reasoning_confidence=$14, reasoning_revised=$15, reasoning_cost_usd=$16' : ''}${verificationMeta ? ', verification_tier=$' + (reasoningMeta ? 17 : 13) + ', verification_reason=$' + (reasoningMeta ? 18 : 14) + ', verification_passes=$' + (reasoningMeta ? 19 : 15) : ''} WHERE id=$${reasoningMeta ? (verificationMeta ? 20 : 17) : (verificationMeta ? 16 : 13)}`,
+          `UPDATE agent_runs SET status=$1, completed_at=$2, duration_ms=$3, turns=$4, tool_calls=$5, input_tokens=$6, output_tokens=$7, cost=$8, output=$9, result_summary=$10, error=$11, thinking_tokens=$12, cached_input_tokens=$13${reasoningMeta ? ', reasoning_passes=$14, reasoning_confidence=$15, reasoning_revised=$16, reasoning_cost_usd=$17' : ''}${verificationMeta ? ', verification_tier=$' + (reasoningMeta ? 18 : 14) + ', verification_reason=$' + (reasoningMeta ? 19 : 15) + ', verification_passes=$' + (reasoningMeta ? 20 : 16) : ''} WHERE id=$${reasoningMeta ? (verificationMeta ? 21 : 18) : (verificationMeta ? 17 : 14)}`,
           [
             runStatus,
             new Date().toISOString(),
@@ -676,6 +678,7 @@ const trackedAgentExecutor = async (
             result?.outputTokens ?? null,
             result?.cost ?? null,
             result?.output ?? null,
+            result?.resultSummary ?? null,
             result?.error ?? result?.abortReason ?? null,
             result?.thinkingTokens ?? null,
             result?.cachedInputTokens ?? null,
