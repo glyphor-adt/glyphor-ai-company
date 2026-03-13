@@ -109,7 +109,6 @@ body {
 }
 
 .mesh-gradient {
-  background-image: url('/28.jpg');
   background-position: center center;
   background-size: cover;
   background-repeat: no-repeat;
@@ -131,10 +130,6 @@ body {
 .dashboard-main {
   position: relative;
   isolation: isolate;
-  background: var(--color-base);
-}
-
-.dark .dashboard-main {
   background: transparent;
 }
 

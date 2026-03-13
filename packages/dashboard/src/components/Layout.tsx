@@ -34,6 +34,7 @@ export default function Layout() {
   const { theme, toggle } = useTheme();
   const { user, logout } = useAuth();
   const location = useLocation();
+  const shellBackgroundImage = `${import.meta.env.BASE_URL}28-optimized.jpg`;
   const FULL_BLEED_ROUTES = ['/comms', '/ora'];
   const isFullBleed = FULL_BLEED_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + '/'));
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -42,7 +43,10 @@ export default function Layout() {
   useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
 
   return (
-    <div className="dashboard-shell mesh-gradient flex h-screen overflow-hidden">
+    <div
+      className="dashboard-shell mesh-gradient flex h-screen overflow-hidden"
+      style={{ backgroundImage: `url(${shellBackgroundImage})` }}
+    >
       {/* ── Desktop Sidebar ─────────────────── */}
       <aside className={`dashboard-sidebar hidden w-[220px] flex-col transition-colors duration-200 md:flex ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}>
         {/* Brand */}
