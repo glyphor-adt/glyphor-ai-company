@@ -65,11 +65,10 @@ function isDisabledMailTool(tool: McpClientTool, serverName: string): boolean {
   if (serverName !== 'mcp_MailTools') return false;
 
   const name = (tool.name ?? '').toLowerCase();
-  const description = (tool.description ?? '').toLowerCase();
 
-  // Temporary guard: Agent365 mail search endpoints are intermittently returning HTTP 500.
-  // Keep read/reply/send operations available while avoiding known-failing search calls.
-  return name.includes('search') || description.includes('search');
+  // Temporary guard: disable search-only mail endpoints that intermittently return HTTP 500.
+  // Match by tool name only so inbox/read/reply tools are never filtered out due to description text.
+  return name.includes('search');
 }
 
 // ── Email Sanitization ───────────────────────────────────────────
