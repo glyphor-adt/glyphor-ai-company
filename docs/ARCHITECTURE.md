@@ -1,18 +1,20 @@
 # Glyphor AI Company — System Architecture
 
-> Last updated: 2026-03-12 (LLM routing is live across OpenAI, Gemini, and Anthropic; `agent_runs` now records routing metadata plus `skipped_precheck`; reflection `run_id` propagation prefers the `agent_runs` UUID; `company_agents.team` is backfilled via durable migration; shared/dashboard model registries now include GPT-5.4 Pro and Gemini 3.1 Flash-Lite; OpenAI tool schema normalization was hardened for nested MCP-style schemas)
+> Last updated: 2026-03-13 (A2A gateway added (port 8091); Agent SDK package added; server-side compaction (OpenAI context_management + Anthropic compact-2026-01-12); Ora triangulated chat (multi-model fan-out + judge); workflow orchestrator with Cloud Tasks; 8 new agent-runtime modules — behavioralFingerprint, skillLearning, subtaskRouter, taskIdentity, taskOutcomeHarvester, decisionChainTracker, patchHarness, v4aDiff; 133 migrations; 19 integration subdirectories (added canva, docusign, posthog); CompanyAgentRole now 30 typed roles + dynamic agents; Canva OAuth callback; policy/canary evaluation routes; SDK CRUD routes)
 
 ## Overview
 
-Glyphor AI Company is a monorepo containing 44 AI agents (9 executives, 7 research,
-19 sub-team, 2 operations, 7 specialists) that autonomously operate Glyphor alongside two human founders
+Glyphor AI Company is a monorepo containing 30 typed AI agent roles + dynamic agents
+(9 executives, 7 research, 19 sub-team, 2 operations, 7 specialists — specialists are DB-defined
+and use `runDynamicAgent`) that autonomously operate Glyphor alongside two human founders
 (Kristina Denney, CEO; Andrew Zwelling, COO). The agents run 24/7 on GCP Cloud Run, share
 state through Cloud SQL (with multi-tenant row-level security), communicate with founders via
 Microsoft Teams, and are governed by a three-tier authority model (Green / Yellow / Red).
 
 Total headcount: **46** — 2 human founders, 9 AI executives (8 reporting to CoS + 1 CLO
 reporting directly to founders), 1 VP, 6 research analysts, 19 AI team members, 2 AI ops agents,
-7 AI specialist agents (DB-defined, no file-based runners).
+7 AI specialist agents (DB-defined, no file-based runners). 27 agent runners have dedicated
+code (`run.ts` / `systemPrompt.ts` / `tools.ts`); the remaining roles use `runDynamicAgent.ts`.
 
 The founders work full-time at Microsoft with 5-10 h/week for Glyphor. The AI executive team
 handles everything else: daily operations, financial monitoring, content creation, product
@@ -114,6 +116,30 @@ auditing, lead generation, and executive assistantship.
 │  POST /authority/proposals/:id/resolve── Resolve authority proposal  │
 │  GET  /health            ── Health check                             │
 │  OPTIONS /*              ── CORS preflight                           │
+│  POST /ora/chat          ── Triangulated Ora chat (multi-model)      │
+│  POST /chat/triangulate  ── Alias for /ora/chat                      │
+│  GET  /sdk/agents        ── List all agents (Agent SDK)              │
+│  POST /sdk/agents        ── Create new agent (Agent SDK)             │
+│  GET  /sdk/agents/:role  ── Get single agent (Agent SDK)             │
+│  POST /sdk/agents/:role/retire ── Retire agent (Agent SDK)           │
+│  GET  /workflows         ── List workflows                           │
+│  GET  /workflows/metrics ── Workflow metrics                         │
+│  GET  /workflows/:id     ── Get workflow status                      │
+│  POST /workflows/:id/cancel ── Cancel workflow                       │
+│  POST /workflows/:id/retry  ── Retry workflow                        │
+│  GET  /plan-verify/:id   ── Plan verification status                 │
+│  GET  /oauth/canva/callback ── Canva OAuth callback                  │
+│  POST /batch-eval/run    ── Batch evaluation run                     │
+│  POST /cascade/evaluate  ── Cascade evaluation                       │
+│  POST /policy/collect    ── Policy data collection                   │
+│  POST /policy/evaluate   ── Policy evaluation                        │
+│  POST /policy/canary-check ── Policy canary check                    │
+│  POST /canary/evaluate   ── Canary deployment evaluation             │
+│  POST /tools/expire      ── Expire tool grants                       │
+│  POST /tools/re-enable   ── Re-enable tool grants                    │
+│  POST /memory/consolidate── Memory consolidation                     │
+│  POST /memory/archive    ── Memory archival                          │
+│  Graph Chat webhook (GET/POST) ── External chat webhook              │
 │                                                                      │
 │  ┌──────────────┐  ┌───────────────┐  ┌──────────────────────────┐   │
 │  │ Cron Manager │  │ Event Router  │  │    Authority Gates       │   │
@@ -127,7 +153,7 @@ auditing, lead generation, and executive assistantship.
 │  │ Simulation   │ ┌────────────────┐    ┌─────────────────────┐      │
 │  │ Engine       │ │ Agent Executor │    │  Decision Queue     │      │
 │  ├──────────────┤ │ (role→runner)  │    │  submit / approve   │      │
-│  │ Meeting      │ │ (44 agent      │    │  reminders (4 h)    │      │
+│  │ Meeting      │ │ (30 typed +    │    │  reminders (4 h)    │      │
 │  │ Engine       │ │  roles routed) │    └─────────┬───────────┘      │
 │  ├──────────────┤ └────────┬───────┘              │                 │
 │  │ CoT Engine   │          │                      │                 │
@@ -226,7 +252,7 @@ auditing, lead generation, and executive assistantship.
 │  documentExtractor.ts             │
 │   (Office doc text extraction)    │
 │  config/agentEmails.ts            │
-│   (44 agent email registry)      │
+│   (agent email registry)          │
 └───────────────┬───────────────────┘
                 │
                 ▼
@@ -589,6 +615,14 @@ use DB-driven schedules via `agent_schedules` table rather than static crons.
 ```
 glyphor-ai-company/
 ├── packages/
+│   ├── a2a-gateway/             # Google A2A protocol gateway (port 8091, Bearer auth)
+│   │   └── src/
+│   │       └── server.ts              # Raw node:http server — 7 routes:
+│   │                                  #   GET /health, GET /.well-known/agent.json,
+│   │                                  #   GET /agents, GET /agents/:agentId,
+│   │                                  #   POST /tasks/send (→ SCHEDULER_URL),
+│   │                                  #   GET /tasks/:taskId, POST /tasks/sendSubscribe (SSE, 3s poll)
+│   │
 │   ├── agent-runtime/          # Core execution engine
 │   │   └── src/
 │   │       ├── companyAgentRunner.ts   # Agent loop + knowledge + personality injection (on-demand chat)
@@ -606,14 +640,48 @@ glyphor-ai-company/
 │   │       ├── dynamicToolExecutor.ts  # Dynamic tool executor — runs tools from tool_registry DB at runtime (API call support)
 │   │       ├── constitutionalGovernor.ts # Constitutional governance framework
 │   │       ├── constitutionDefaults.ts   # Default constitutional rules
+│   │       ├── constitutionalPreCheck.ts # Pre-execution constitutional checks
 │   │       ├── decisionChainTracker.ts   # Decision chain tracking & audit trail
 │   │       ├── driftDetector.ts          # Agent behavioral drift detection
 │   │       ├── episodicReplay.ts         # Episodic memory replay for learning
 │   │       ├── formalVerifier.ts         # Formal verification of agent outputs
+│   │       ├── verificationPolicy.ts     # Verification policy configuration
 │   │       ├── trustScorer.ts            # Agent trust scoring system
 │   │       ├── verifierRunner.ts         # Verification pipeline runner
+│   │       ├── behavioralFingerprint.ts  # 30-day behavioral profiles, anomaly detection
+│   │       ├── skillLearning.ts          # Post-run skill extraction & learning
+│   │       ├── subtaskRouter.ts          # 4-tier complexity routing (trivial/standard/complex/frontier)
+│   │       ├── taskIdentity.ts           # Task name extraction from config IDs
+│   │       ├── taskOutcomeHarvester.ts   # Structured outcome capture → task_run_outcomes
+│   │       ├── compaction.ts             # Server-side context compaction (OpenAI + Anthropic)
+│   │       ├── historyManager.ts         # Conversation history management
+│   │       ├── patchHarness.ts           # GitHub patch harness (v4a-diff, Contents API)
+│   │       ├── v4aDiff.ts                # v4a-diff-v1 patch format parser/applier
+│   │       ├── toolReputationTracker.ts  # Tool success/failure reputation tracking
+│   │       ├── toolSubsets.ts            # Tool subset categorization
+│   │       ├── workflowOrchestrator.ts   # Multi-step workflow orchestration engine
+│   │       ├── workflowTypes.ts          # Workflow type definitions
+│   │       ├── triangulation/            # Triangulated multi-model chat
+│   │       │   ├── index.ts               # Re-exports
+│   │       │   ├── orchestrator.ts        # 10-step pipeline (budget→fanOut→judge→persist)
+│   │       │   ├── queryRouter.ts         # SIMPLE/STANDARD/DEEP tier classification
+│   │       │   ├── fanOut.ts              # Parallel multi-model calls (Claude/Gemini/OpenAI)
+│   │       │   ├── judge.ts               # Weighted rubric scoring + heuristic fallback
+│   │       │   ├── costCalculator.ts      # Per-model cost estimation
+│   │       │   └── ragContext.ts          # RAG context retrieval for triangulation
+│   │       ├── routing/                  # Model & capability routing
+│   │       │   ├── index.ts               # Re-exports
+│   │       │   ├── resolveModel.ts        # Model resolution logic
+│   │       │   ├── capabilities.ts        # Agent capability definitions
+│   │       │   ├── inferCapabilities.ts   # Capability inference from context
+│   │       │   ├── preChecks.ts           # Pre-routing validation checks
+│   │       │   └── toolCapabilityMap.ts   # Tool → capability mapping
+│   │       ├── schemas/                  # Structured output schemas
+│   │       │   ├── assignmentOutputSchema.ts
+│   │       │   ├── evaluationSchema.ts
+│   │       │   └── reflectionSchema.ts
 │   │       ├── config/
-│   │       │   └── agentEmails.ts         # Agent email registry (44 agents → M365 shared mailboxes)
+│   │       │   └── agentEmails.ts         # Agent email registry (agents → M365 shared mailboxes)
 │   │       ├── providers/              # Per-provider LLM adapters (each has normalizeFinishReason)
 │   │       │   ├── types.ts               # Unified provider contract (ProviderAdapter interface)
 │   │       │   ├── gemini.ts              # GeminiAdapter (thinkingLevel/thinkingBudget, Imagen)
@@ -628,8 +696,14 @@ glyphor-ai-company/
 │   │       ├── subscriptions.ts        # Agent → event type subscription map
 │   │       ├── reasoning.ts            # Reasoning extraction & stripping
 │   │       ├── workLoop.ts            # Universal always-on work loop (P1-P6 priority stack)
-│   │       ├── types.ts               # All core types (27 agent roles, budgets, tool grants)
+│   │       ├── types.ts               # All core types (30 agent roles, budgets, tool grants)
 │   │       └── __tests__/             # Unit tests (reasoningEngine, jitContext, redisCache)
+│   │
+│   ├── agent-sdk/               # TypeScript SDK for agent management
+│   │   └── src/
+│   │       └── index.ts               # AgentSdkClient class — listAgents(), getAgent(role),
+│   │                                  #   createAgent(input), retireAgent(role, input)
+│   │                                  #   Bearer auth against /sdk/agents endpoints
 │   │
 │   ├── company-memory/          # Persistence layer
 │   │   └── src/
@@ -811,9 +885,16 @@ glyphor-ai-company/
 │   │       ├── openai/
 │   │       │   ├── billing.ts         # OpenAI billing/usage tracking
 │   │       │   └── index.ts
+│   │       ├── canva/
+│   │       │   └── index.ts           # Canva Connect REST API (design creation, brand autofill, export)
+│   │       ├── docusign/
+│   │       │   ├── client.ts          # DocuSign eSignature client (envelopes, signers, tabs)
+│   │       │   └── index.ts
 │   │       ├── kling/
 │   │       │   ├── billing.ts         # Kling AI video generation billing
 │   │       │   └── index.ts
+│   │       ├── posthog/
+│   │       │   └── index.ts           # PostHog product analytics (events, funnels, sessions)
 │   │       ├── vercel/
 │   │       │   └── index.ts           # Vercel deployment platform
 │   │       ├── credentials/
@@ -831,9 +912,9 @@ glyphor-ai-company/
 │   │
 │   ├── scheduler/               # Orchestration service
 │   │   └── src/
-│   │       ├── server.ts              # HTTP server (Cloud Run entry, 60+ endpoints, 44 agent routes)
+│   │       ├── server.ts              # HTTP server (Cloud Run entry, 70+ endpoints, 30 agent routes)
 │   │       ├── eventRouter.ts         # Event → agent routing + authority
-│   │       ├── authorityGates.ts      # Green/Yellow/Red classification (all 44 roles)
+│   │       ├── authorityGates.ts      # Green/Yellow/Red classification (all 30 typed roles)
 │   │       ├── cronManager.ts         # 33 agent + 9 data sync job definitions
 │   │       ├── dynamicScheduler.ts    # DB-driven cron for dynamic agents
 │   │       ├── dataSyncScheduler.ts   # Internal cron for data sync jobs (fires HTTP to self)
@@ -908,7 +989,7 @@ glyphor-ai-company/
 │       │   │   ├── models.ts             # LLM model definitions & pricing
 │       │   │   ├── useVoiceChat.ts        # Voice chat React hook
 │       │   │   └── types.ts              # Dashboard-specific types
-│       │   ├── App.tsx               # Router & layout (21 routes + 8 legacy redirects)
+│       │   ├── App.tsx               # Router & layout (21 routes + 9 legacy redirects)
 │       │   └── index.css             # Tailwind + Glyphor brand theme
 │       └── package.json
 │
@@ -1001,6 +1082,16 @@ glyphor-ai-company/
 │   ├── Dockerfile.worker        # node:22-slim builder → node:22-slim runtime (Cloud Tasks processor)
 │   ├── Dockerfile.voice-gateway # Voice gateway service
 │   ├── Dockerfile.graphrag-indexer # Python GraphRAG indexer
+│   ├── Dockerfile.a2a-gateway   # A2A protocol gateway
+│   ├── Dockerfile.mcp-data-server
+│   ├── Dockerfile.mcp-design-server
+│   ├── Dockerfile.mcp-email-marketing-server
+│   ├── Dockerfile.mcp-email-server
+│   ├── Dockerfile.mcp-engineering-server
+│   ├── Dockerfile.mcp-finance-server
+│   ├── Dockerfile.mcp-hr-server
+│   ├── Dockerfile.mcp-legal-server
+│   ├── Dockerfile.mcp-marketing-server
 │   └── nginx.conf               # SPA routing config
 │
 ├── infra/
@@ -1034,7 +1125,7 @@ glyphor-ai-company/
 │       ├── adi-rose/            # Executive Assistant bot
 │       └── ... (24 more)        # All other agents
 │
-├── db/migrations/               # 92 SQL migration files (historical, pre-GCP + 6 new tool tables)
+├── db/migrations/               # 133 SQL migration files
 ├── .github/workflows/deploy.yml # CI/CD (GitHub Actions → Cloud Run)
 ├── scripts/
 │   ├── create-agent-blueprint.ps1    # Creates Entra AgentIdentityBlueprint + BlueprintPrincipal
@@ -2184,6 +2275,132 @@ deviation_sigma, severity, acknowledged).
 
 Altered tables: `kg_edges` (+`causal_confidence`, `causal_lag`, `causal_mechanism`),
 `shared_episodes` (+`significance_score`).
+
+---
+
+### Server-Side Context Compaction
+
+The `compaction.ts` module enables server-side context compaction for long conversations,
+offloading history compression to the model provider instead of client-side truncation.
+
+**Gate:** Compaction only activates when `COMPACTION_ENABLED=true` **and** `source === 'on_demand'`
+(i.e., Ora chat). Scheduled agent runs continue to use client-side history compression.
+
+| Provider | Strategy | Env Var | Notes |
+|----------|----------|---------|-------|
+| OpenAI | `context_management: [{ type: 'compaction', compact_threshold }]` | `OPENAI_COMPACTION_THRESHOLD` | Threshold in tokens |
+| Anthropic | `compact-2026-01-12` beta flag + `edits: [{ type: 'compact_20260112' }]` | `ANTHROPIC_COMPACTION_TRIGGER_TOKENS` | Minimum 50,000 tokens |
+
+**Exports:**
+- `isCompactionEnabled()` / `shouldUseServerSideCompaction(provider, source)` — gate checks
+- `buildOpenAIContextManagement(source)` / `buildAnthropicContextManagement(source)` — builds provider-specific config
+- `getAnthropicCompactionBetas(source)` — returns `['compact-2026-01-12']` when active
+- `extractOpenAICompactionMetadata(response)` / `extractAnthropicCompactionMetadata(response)` — extracts `CompactionMetadata` (occurred, count, summary)
+
+---
+
+### Triangulated Ora Chat
+
+The `triangulation/` module implements multi-model triangulation for the `/ora/chat` endpoint.
+Seven files work together to fan out a user query to multiple LLMs, then evaluate and rank
+the responses via an anonymous judge.
+
+**Route:** `POST /ora/chat` (or `/chat/triangulate`) → `handleTriangulatedChat()`
+
+**Pipeline (10 steps):**
+
+1. **Query Classification** (`queryRouter.ts`) — classifies into `SIMPLE`, `STANDARD`, or `DEEP` tier
+2. **RAG Context** (`ragContext.ts`) — if internal search is enabled, `buildTriangulationContext()` pulls relevant context and prepends to system prompt
+3. **SIMPLE shortcut** — single Claude call, returns immediately (confidence 75, consensus `'n/a'`)
+4. **Fan-Out** (`fanOut.ts`) — sends query to 3 providers (Claude, Gemini, OpenAI) in parallel via `Promise.allSettled` with tier-based timeouts; DEEP tier enables extended thinking
+5. **Judge** (`judge.ts`) — anonymous A/B/C evaluation using a dedicated judge model with weighted rubric:
+   - Weights: correctness 0.4, instruction_following 0.2, completeness 0.15, clarity 0.1, actionability 0.1, safety 0.05
+   - Confidence derived from score gaps, bonuses, and penalties (blended 60/40 with judge self-confidence)
+   - Consensus: gap ≥ 15 → `high`, ≥ 7 → `moderate`, else `low`
+   - Heuristic fallback if judge model fails (length, keyword overlap, structure, refusal penalty)
+6. **Cost Calculation** (`costCalculator.ts`) — aggregates token usage across router, fan-out, and judge stages
+
+**Key types:** `ProviderResponse` (provider, text, latencyMs, tokenUsage, status), `JudgeResult` (selected, confidence, consensusLevel, reasoning, scores, divergences), `TriangulationResult`
+
+---
+
+### Subtask Router
+
+The `subtaskRouter.ts` module classifies subtask complexity and selects the appropriate model
+for each step within an agent's work loop.
+
+**Complexity tiers:**
+
+| Tier | Criteria |
+|------|----------|
+| `trivial` | Work-loop/proactive with ≤ 400 tokens and no actions |
+| `standard` | > 1,800 tokens, or creative writing / structured extraction / orchestration |
+| `complex` | > 6k tokens, or web research / legal reasoning / financial computation / visual analysis |
+| `frontier` | > 12k tokens, or many tools / code generation + apply_patch / legal + orchestration |
+
+**Model overrides:** `frontier` + nano/mini → `claude-sonnet-4-6` (reasoning: high, thinking: adaptive, compaction: on). `complex` + nano → `gpt-5-mini-2025-08-07` (reasoning: medium). Default model: `gpt-5-mini-2025-08-07`.
+
+**Exports:** `classifySubtask(context)`, `selectSubtaskModel(context, classification)`, `routeSubtask(context)`, `compareSubtaskComplexity(left, right)`
+
+---
+
+### Behavioral Fingerprinting
+
+The `behavioralFingerprint.ts` module builds per-role behavioral profiles from 30 days of
+historical data (runs, messages, tool grants) and detects anomalies in real time.
+
+**Anomaly types:**
+
+| Type | Trigger | Severity |
+|------|---------|----------|
+| `unexpected_sensitive_tool` | Sensitive tool not in agent's grant profile | `high` (high-stakes tools) / `medium` (write tools) |
+| `unusual_message_target` | Target not in recent contacts, not manager, not chief-of-staff | `medium` |
+| `budget_spike` | Current run cost > 3× historical high | `high` |
+
+Profiles are cached for 5 minutes. Anomalies are persisted to `security_anomalies` (fire-and-forget).
+
+---
+
+### Skill Learning
+
+The `skillLearning.ts` module implements post-run learning. After a successful agent run, it
+extracts the tool sequence and either maps it to an existing skill (incrementing usage count)
+or proposes a new skill candidate for review.
+
+**Eligibility gate:** `taskType !== 'on_demand'`, status `'completed'`, ≤ 5 turns, quality score ≥ 80, ≥ 2 unique non-noise tools.
+
+**Noise tools (excluded):** `read_my_assignments`, `check_messages`, `save_memory`, `recall_memories`, `emit_insight`, `emit_alert`, `read_teams_dm`, `send_agent_message`
+
+**Flow:** Extract tool sequence → match existing skill (overlap ≥ 2, score ≥ 0.4) → if match: increment `skills.usage_count` + upsert `agent_skills` → else insert into `proposed_skills` (status `'pending'`). Emits `learning.proposal_signal` events on both paths.
+
+---
+
+### Task Outcome Harvester
+
+The `taskOutcomeHarvester.ts` module captures structured outcome data from completed agent runs
+and persists to `task_run_outcomes` for trust calibration, skill-gap detection, and
+curriculum generation.
+
+**Derived `final_status`:** `submit_assignment_output` tool call → `'submitted'`, `flag_assignment_blocker` → `'flagged_blocker'`, else `'partial_progress'` / `'aborted'` / `'failed'`.
+
+**Exports:** `harvestTaskOutcome(result, runMeta)` (fire-and-forget INSERT … ON CONFLICT DO NOTHING), `markOutcomeRevised(assignmentId)`, `markOutcomeAccepted(assignmentId, submittedAt?)`
+
+---
+
+### GitHub Patch Harness
+
+The `patchHarness.ts` module enables agent-authored code patches via the GitHub Contents API,
+using the custom `v4a-diff-v1` format (see `v4aDiff.ts`).
+
+**Constraints:**
+- Branch must match `feature/agent-*`
+- Blocked paths: `companyAgentRunner.ts`, `authorityGates.ts`
+- Blocked prefixes: `infra/`, `.github/workflows/`, `docker/`
+- Org: `glyphor-adt`
+
+**`v4a-diff-v1` operations:** `replace`, `insert_after`, `insert_before`, `delete`, `replace_entire` — each operation applies sequentially to file content.
+
+**Flow:** Validate branch → parse patch → per file: validate path → fetch from GitHub → apply v4a-diff ops → PUT updated content → return commit SHAs.
 
 ---
 
@@ -3379,7 +3596,7 @@ Working memory (last-run summary) is stored in the `company_agents` table via th
 `last_run_summary` and `last_run_at` columns — not a separate table. This enables
 continuity between runs without additional migration.
 
-Total: **138 migration files**, **90+ tables**, **10 RPC functions**, **1 extension (pgvector)**.
+Total: **133 migration files**, **95+ tables**, **10 RPC functions**, **1 extension (pgvector)**.
 
 ---
 
@@ -3472,6 +3689,8 @@ Requires `SCHEDULER_URL`, `DASHBOARD_URL`, `VOICE_GATEWAY_URL` env vars.
 | Cloud Run | `mcp-legal-server` | Glyphor MCP Legal Server — 19 tools (12 reads + 7 writes) |
 | Cloud Run | `mcp-hr-server` | Glyphor MCP HR Server — 8 tools (5 reads + 3 writes) |
 | Cloud Run | `mcp-email-marketing-server` | Glyphor MCP Email Marketing Server — 15 tools |
+| Cloud Run | `mcp-slack-server` | Glyphor MCP Slack Server — Slack workspace integration |
+| Cloud Run | `glyphor-a2a-gateway` | Google A2A protocol gateway — agent discovery & task routing (port 8091) |
 | Vertex AI | Claude models (`us-east5`) | Anthropic Claude inference via `@anthropic-ai/vertex-sdk` — IAM auth, no API key |
 | Cloud Tasks | `agent-runs`, `agent-runs-priority`, `delivery` | Background agent task queues |
 | Cloud Scheduler | 9 agent + 3 sync jobs | Agent triggers → Pub/Sub; data syncs → HTTP |
@@ -3569,19 +3788,19 @@ Requires `SCHEDULER_URL`, `DASHBOARD_URL`, `VOICE_GATEWAY_URL` env vars.
 | Knowledge | `/knowledge` | Company knowledge base sections, founder bulletins, knowledge graph (absorbed from old /graph) |
 | Operations | `/operations` | System operations, autonomous events, activity log (absorbed from old /activity) |
 | Strategy | `/strategy` | Strategic analysis engine (5 analysis types) + T+1 simulation engine with impact matrix + AI-generated infographics |
-| Capabilities | `/capabilities` | Composite page: Skills tab (skill library, 10 categories) + Self-Models tab (world model radar charts) |
+| Skills | `/skills` | Composite page: Skills tab (skill library, 10 categories) + Self-Models tab (world model radar charts) |
 | Skill Detail | `/skills/:slug` | Skill detail + agent assignments + proficiency stats |
+| Ora Chat | `/ora` | Triangulated multi-model chat (fan-out to Claude/Gemini/OpenAI with judge evaluation) |
 | Comms | `/comms` | Composite page: Chat tab (multi-turn agent chat with history + collapsible action receipts) + Meetings tab (timeline, transcripts, action items) |
 | Chat (direct) | `/chat/:agentId` | Direct agent chat (navigates to specific agent conversation) |
 | Settings | `/settings` | User management page |
 | Teams Config | `/teams-config` | Teams bot setup and configuration |
 | Change Requests | `/change-requests` | Submit & track feature/bug change requests → GitHub issues → Copilot |
-| Group Chat | `/group-chat` | Multi-agent group chat with @mentions, file uploads, concurrent responses, action receipts |
 
 **Legacy redirects** (backwards compatibility):
-`/agents` → `/workforce`, `/chat` → `/comms`, `/activity` → `/operations`, `/graph` → `/knowledge`,
-`/skills` → `/capabilities`, `/meetings` → `/comms`, `/world-model` → `/capabilities`,
-`/group-chat` → `/comms`
+`/policy` → `/governance`, `/agents` → `/workforce`, `/chat` → `/comms`, `/activity` → `/operations`,
+`/graph` → `/knowledge`, `/capabilities` → `/skills`, `/meetings` → `/comms`,
+`/world-model` → `/skills`, `/group-chat` → `/comms`
 
 ### Departments (Dashboard Workforce)
 
