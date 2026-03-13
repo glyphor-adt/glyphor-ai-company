@@ -16,6 +16,193 @@ import { systemQuery } from '@glyphor/shared/db';
 export function createToolRequestTools(): ToolDefinition[] {
   return [
     {
+      name: 'list_my_tools',
+      description:
+        'List tool visibility for the current agent. Returns active self-service grants and, optionally, known system tools for discovery.',
+      parameters: {
+        search: {
+          type: 'string',
+          description: 'Optional case-insensitive substring filter applied to tool names.',
+          required: false,
+        },
+        include_known_tools: {
+          type: 'boolean',
+          description: 'When true, include known system tools (can be large). Defaults to false.',
+          required: false,
+        },
+        limit: {
+          type: 'number',
+          description: 'Max known tools to return when include_known_tools=true. Defaults to 200.',
+          required: false,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const search = String(params.search ?? '').trim().toLowerCase();
+        const includeKnown = Boolean(params.include_known_tools);
+        const limitRaw = Number(params.limit ?? 200);
+        const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(1000, Math.floor(limitRaw))) : 200;
+
+        const grants = await systemQuery<{ tool_name: string; reason: string | null; granted_by: string | null; updated_at: string | null }>(
+          `SELECT tool_name, reason, granted_by, updated_at
+             FROM agent_tool_grants
+            WHERE agent_role = $1 AND is_active = true
+            ORDER BY tool_name ASC`,
+          [ctx.agentRole],
+        );
+
+        const grantedTools = search
+          ? grants.filter((row) => row.tool_name.toLowerCase().includes(search))
+          : grants;
+
+        let knownTools: string[] = [];
+        if (includeKnown) {
+          const rows = await systemQuery<{ tool_name: string }>(
+            `SELECT DISTINCT tool_name
+               FROM (
+                      SELECT tool_name FROM agent_tool_grants WHERE agent_role = $1 AND is_active = true
+                      UNION ALL
+                      SELECT name AS tool_name FROM tool_registry WHERE is_active = true
+                    ) t
+              ORDER BY tool_name ASC`,
+            [ctx.agentRole],
+          );
+
+          knownTools = rows
+            .map((r) => r.tool_name)
+            .filter((name) => (search ? name.toLowerCase().includes(search) : true))
+            .slice(0, limit);
+        }
+
+        return {
+          success: true,
+          data: {
+            agent_role: ctx.agentRole,
+            granted_count: grantedTools.length,
+            granted_tools: grantedTools,
+            known_tools: knownTools,
+            note:
+              'Runtime tool visibility is the intersection of loaded tool declarations, MCP server health/auth, and role/task filtering. If a needed tool is missing, call request_tool_access or request_new_tool.',
+          },
+        };
+      },
+    },
+
+    {
+      name: 'tool_search',
+      description:
+        'Search discoverable tool names by keyword. Compatibility helper for agents that attempt tool discovery via tool_search.',
+      parameters: {
+        query: {
+          type: 'string',
+          description: 'Keyword or partial tool name to search for.',
+          required: true,
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum matches to return. Defaults to 50.',
+          required: false,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const query = String(params.query ?? '').trim().toLowerCase();
+        if (!query) return { success: false, error: 'query is required.' };
+        const limitRaw = Number(params.limit ?? 50);
+        const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, Math.floor(limitRaw))) : 50;
+
+        const rows = await systemQuery<{ tool_name: string }>(
+          `SELECT DISTINCT tool_name
+             FROM (
+                    SELECT tool_name FROM agent_tool_grants WHERE agent_role = $1 AND is_active = true
+                    UNION ALL
+                    SELECT name AS tool_name FROM tool_registry WHERE is_active = true
+                  ) t
+            WHERE LOWER(tool_name) LIKE $2
+            ORDER BY tool_name ASC
+            LIMIT $3`,
+          [ctx.agentRole, `%${query}%`, limit],
+        );
+
+        return {
+          success: true,
+          data: {
+            query,
+            count: rows.length,
+            matches: rows.map((r) => r.tool_name),
+            note: 'This searches discoverable registry + active grant names. MCP availability still depends on runtime server auth/health.',
+          },
+        };
+      },
+    },
+
+    {
+      name: 'check_tool_access',
+      description:
+        'Pre-dispatch access check. Verifies whether tools exist in the system and whether an agent currently has an active self-service grant row for each tool.',
+      parameters: {
+        agent_role: {
+          type: 'string',
+          description: 'Agent role to evaluate (e.g., "cmo"). Defaults to caller role when omitted.',
+          required: false,
+        },
+        tool_names: {
+          type: 'array',
+          description: 'List of tool names to validate.',
+          required: true,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const agentRole = String(params.agent_role ?? ctx.agentRole);
+        const rawToolNames = Array.isArray(params.tool_names) ? params.tool_names : [];
+        const toolNames = rawToolNames
+          .map((value) => String(value).trim())
+          .filter(Boolean);
+
+        if (toolNames.length === 0) {
+          return { success: false, error: 'tool_names must contain at least one tool name.' };
+        }
+
+        const grants = await systemQuery<{ tool_name: string }>(
+          `SELECT tool_name
+             FROM agent_tool_grants
+            WHERE agent_role = $1 AND is_active = true`,
+          [agentRole],
+        );
+        const grantSet = new Set(grants.map((row) => row.tool_name));
+
+        const checks = await Promise.all(
+          toolNames.map(async (toolName) => {
+            const exists = await isKnownToolAsync(toolName);
+            const hasGrant = grantSet.has(toolName);
+            const likelyAccessible = exists;
+
+            return {
+              tool_name: toolName,
+              exists,
+              active_grant: hasGrant,
+              likely_accessible: likelyAccessible,
+              recommendation: exists
+                ? (hasGrant
+                    ? 'Tool appears available. Dispatch is safe; if runtime still fails, check MCP health/auth and task subset filters.'
+                    : 'Tool exists. If dispatch fails due access, call request_tool_access then retry.')
+                : 'Tool does not exist in registry. Use request_new_tool.',
+            };
+          }),
+        );
+
+        const missing = checks.filter((c) => !c.exists).map((c) => c.tool_name);
+        return {
+          success: true,
+          data: {
+            agent_role: agentRole,
+            checks,
+            all_tools_exist: missing.length === 0,
+            missing_tools: missing,
+          },
+        };
+      },
+    },
+
+    {
       name: 'request_new_tool',
       description:
         'Request a new tool capability that does not currently exist in the system. ' +

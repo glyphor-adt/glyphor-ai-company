@@ -438,6 +438,9 @@ const KNOWN_TOOLS = new Set([
   'retire_created_agent',
   // toolRequestTools
   'request_tool_access',
+  'check_tool_access',
+  'list_my_tools',
+  'tool_search',
   // sharepointTools (search/read/list/page moved to Agent365 mcp_ODSPRemoteServer)
   'upload_to_sharepoint',
 
@@ -708,6 +711,7 @@ const KNOWN_TOOLS = new Set([
  * Check whether a tool name is known to the system (static registry).
  */
 export function isKnownTool(name: string): boolean {
+  if (name.startsWith('mcp_')) return true;
   return KNOWN_TOOLS.has(name) || _dynamicToolCache.has(name);
 }
 
@@ -715,7 +719,7 @@ export function isKnownTool(name: string): boolean {
  * Filter a list of tool names to only those that exist in the system.
  */
 export function filterKnownTools(toolNames: string[]): string[] {
-  return toolNames.filter((n) => KNOWN_TOOLS.has(n) || _dynamicToolCache.has(n));
+  return toolNames.filter((n) => n.startsWith('mcp_') || KNOWN_TOOLS.has(n) || _dynamicToolCache.has(n));
 }
 
 /**
@@ -752,6 +756,7 @@ export async function refreshDynamicToolCache(): Promise<void> {
  * Refreshes dynamic cache if stale.
  */
 export async function isKnownToolAsync(name: string): Promise<boolean> {
+  if (name.startsWith('mcp_')) return true;
   if (KNOWN_TOOLS.has(name)) return true;
   if (Date.now() > _dynamicToolCacheExpiry) {
     await refreshDynamicToolCache();

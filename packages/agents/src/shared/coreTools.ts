@@ -5,7 +5,7 @@
  *   read_my_assignments, submit_assignment_output, flag_assignment_blocker,
  *   send_agent_message, check_messages,
  *   save_memory, recall_memories,
- *   request_tool_access, request_new_tool,
+ *   request_tool_access, request_new_tool, list_my_tools, check_tool_access, tool_search,
  *   emit_insight, emit_alert,
  *   send_teams_dm, read_teams_dm
  */
@@ -37,6 +37,9 @@ export const CORE_TOOL_NAMES: Set<string> = new Set([
   // Tool requests
   'request_tool_access',
   'request_new_tool',
+  'list_my_tools',
+  'check_tool_access',
+  'tool_search',
   // Events
   'emit_insight',
   'emit_alert',

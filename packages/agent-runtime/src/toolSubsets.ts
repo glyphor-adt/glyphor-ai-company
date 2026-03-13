@@ -14,6 +14,9 @@ const WORK_COMPLETION_TOOLS = [
   'send_agent_message',
   'check_messages',
   'request_tool_access',
+  'check_tool_access',
+  'list_my_tools',
+  'tool_search',
 ];
 
 function withWorkTools(...tools: string[]): string[] {
