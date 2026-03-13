@@ -51,7 +51,7 @@ export default {
       },
       backgroundImage: {
         ...prism.theme.extend.backgroundImage,
-        'mesh-gradient': "url('/artistic-blurry-colorful-wallpaper-background.jpg')",
+        'mesh-gradient': "url('/3d-render.jpg')",
       },
       animation: {
         'fade-up': 'fadeUp .4s ease-out both',

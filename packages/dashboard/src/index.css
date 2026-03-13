@@ -109,11 +109,16 @@ body {
 }
 
 .mesh-gradient {
-  background-color: #02072a;
-  background-image: url('/artistic-blurry-colorful-wallpaper-background.jpg');
+  background-color: var(--color-base);
+  background-image: none;
   background-position: center center;
   background-size: cover;
   background-repeat: no-repeat;
+}
+
+.dark .mesh-gradient {
+  background-color: #02072a;
+  background-image: url('/3d-render.jpg');
 }
 
 .dashboard-sidebar {
@@ -541,6 +546,16 @@ input:focus, textarea:focus, select:focus {
 
 .glass-card--glow .glass-card__glow {
   opacity: 1;
+}
+
+.glass-card.glassmorphism,
+.glass-raised.glassmorphism {
+  background: rgba(22, 185, 218, 0.03) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  border: 1px solid rgba(22, 185, 218, 0.18) !important;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37) !important;
+  border-radius: 10px;
 }
 
 .glass-card--interactive:hover {
