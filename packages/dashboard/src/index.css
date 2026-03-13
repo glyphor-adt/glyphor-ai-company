@@ -110,10 +110,7 @@ body {
 
 .mesh-gradient {
   background-color: #02072a;
-  background-image:
-    radial-gradient(58% 72% at 98% 52%, rgba(135, 95, 255, 0.62) 0%, rgba(95, 61, 232, 0.42) 36%, rgba(21, 20, 74, 0.12) 64%, rgba(2, 7, 42, 0) 80%),
-    radial-gradient(38% 56% at 22% 100%, rgba(0, 185, 255, 0.14) 0%, rgba(0, 120, 225, 0.08) 40%, rgba(2, 7, 42, 0) 78%),
-    linear-gradient(110deg, #010524 0%, #020933 52%, #0a1450 100%);
+  background-image: url('/artistic-blurry-colorful-wallpaper-background.jpg');
   background-position: center center;
   background-size: cover;
   background-repeat: no-repeat;
