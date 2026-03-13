@@ -61,7 +61,9 @@ export default function Layout() {
                 `flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium transition-colors ${
                   isActive
                     ? `nav-item-active ${theme === 'dark' ? 'nav-item-active--dark' : 'nav-item-active--light'} text-prism-primary font-semibold`
-                    : 'text-prism-tertiary hover:bg-prism-bg2 hover:text-prism-primary'
+                    : theme === 'dark'
+                      ? 'text-white/70 hover:bg-cyan/10 hover:text-white'
+                      : 'text-prism-tertiary hover:bg-prism-bg2 hover:text-prism-primary'
                 }`
               }
             >
@@ -74,7 +76,11 @@ export default function Layout() {
         <div className="relative z-10 px-4 py-3">
           <button
             onClick={toggle}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium text-prism-tertiary transition-colors hover:bg-prism-bg2 hover:text-prism-primary"
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors ${
+              theme === 'dark'
+                ? 'text-white/70 hover:bg-cyan/10 hover:text-white'
+                : 'text-prism-tertiary hover:bg-prism-bg2 hover:text-prism-primary'
+            }`}
           >
             {theme === 'dark' ? (
               <SunIcon className="h-5 w-5" />
@@ -128,7 +134,9 @@ export default function Layout() {
                     `flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium transition-colors ${
                       isActive
                         ? `nav-item-active ${theme === 'dark' ? 'nav-item-active--dark' : 'nav-item-active--light'} text-prism-primary font-semibold`
-                        : 'text-prism-tertiary hover:bg-prism-bg2 hover:text-prism-primary'
+                        : theme === 'dark'
+                          ? 'text-white/70 hover:bg-cyan/10 hover:text-white'
+                          : 'text-prism-tertiary hover:bg-prism-bg2 hover:text-prism-primary'
                     }`
                   }
                 >

@@ -140,15 +140,6 @@ body {
   background: transparent;
 }
 
-.dark .dashboard-main::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(2, 6, 18, 0.34) 0%, rgba(2, 6, 18, 0.48) 100%);
-  pointer-events: none;
-  z-index: 0;
-}
-
 /* Global tone-down: neutralize cyan border utility classes in dark mode */
 .dark [class*="border-cyan"],
 .dark [class*="border-primary"] {
@@ -559,31 +550,43 @@ input:focus, textarea:focus, select:focus {
 
 .dark .glass-card.glass-panel,
 .dark .glass-raised.glass-panel {
-  background: rgba(8, 12, 22, 0.68) !important;
-  backdrop-filter: blur(20px) saturate(1.2) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(1.2) !important;
-  border: 1px solid rgba(0, 224, 255, 0.1) !important;
+  --panel-bg: rgba(6, 10, 18, 0.82);
+  background: var(--panel-bg) !important;
+  backdrop-filter: blur(14px) saturate(1.08) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(1.08) !important;
+  border: 1px solid rgba(0, 224, 255, 0.12) !important;
   border-radius: 20px;
   box-shadow:
-    0 0 0 1px rgba(0, 224, 255, 0.05) inset,
-    0 10px 30px rgba(0, 0, 0, 0.44) !important;
+    0 0 0 1px rgba(0, 224, 255, 0.06) inset,
+    0 12px 30px rgba(0, 0, 0, 0.5) !important;
 }
 
 .dark .glass-panel.panel-primary {
-  background: rgba(8, 12, 22, 0.62) !important;
-  backdrop-filter: blur(22px) saturate(1.22) !important;
-  -webkit-backdrop-filter: blur(22px) saturate(1.22) !important;
-  border: 1px solid rgba(0, 224, 255, 0.1) !important;
+  --panel-bg: rgba(6, 10, 18, 0.78);
+  background: var(--panel-bg) !important;
+  backdrop-filter: blur(16px) saturate(1.1) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.1) !important;
+  border: 1px solid rgba(0, 224, 255, 0.12) !important;
 }
 
 .dark .glass-panel.panel-nested {
-  background: rgba(8, 12, 22, 0.74) !important;
-  backdrop-filter: blur(8px) saturate(1.08) !important;
-  -webkit-backdrop-filter: blur(8px) saturate(1.08) !important;
-  border: 1px solid rgba(0, 224, 255, 0.08) !important;
+  --panel-bg: rgba(6, 10, 18, 0.88);
+  background: var(--panel-bg) !important;
+  backdrop-filter: blur(6px) saturate(1.02) !important;
+  -webkit-backdrop-filter: blur(6px) saturate(1.02) !important;
+  border: 1px solid rgba(0, 224, 255, 0.09) !important;
   box-shadow:
-    0 0 0 1px rgba(0, 224, 255, 0.035) inset,
-    0 4px 16px rgba(0, 0, 0, 0.32) !important;
+    0 0 0 1px rgba(0, 224, 255, 0.04) inset,
+    0 6px 18px rgba(0, 0, 0, 0.36) !important;
+}
+
+.dark .glass-card.glass-panel:hover,
+.dark .glass-raised.glass-panel:hover {
+  background: var(--panel-bg) !important;
+  border: 1px solid rgba(0, 224, 255, 0.14) !important;
+  box-shadow:
+    0 0 0 1px rgba(0, 224, 255, 0.06) inset,
+    0 12px 30px rgba(0, 0, 0, 0.5) !important;
 }
 
 .dark .sidebar-glass {
@@ -594,18 +597,34 @@ input:focus, textarea:focus, select:focus {
 }
 
 .dark .hero-glass {
-  background: rgba(8, 12, 22, 0.58) !important;
-  backdrop-filter: blur(16px) saturate(1.25) !important;
-  -webkit-backdrop-filter: blur(16px) saturate(1.25) !important;
-  border: 1px solid rgba(0, 224, 255, 0.1) !important;
+  background: rgba(6, 10, 18, 0.74) !important;
+  backdrop-filter: blur(12px) saturate(1.1) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(1.1) !important;
+  border: 1px solid rgba(0, 224, 255, 0.12) !important;
+}
+
+.dark .bg-raised {
+  background-color: rgba(6, 10, 18, 0.82) !important;
+}
+
+.dark .bg-surface {
+  background-color: rgba(10, 14, 24, 0.86) !important;
+}
+
+.dark .glass-panel .text-txt-secondary {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.dark .glass-panel .text-txt-muted {
+  color: rgba(255, 255, 255, 0.7) !important;
 }
 
 .dark .panel-nested .text-txt-secondary {
-  color: rgba(255, 255, 255, 0.84) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
 }
 
 .dark .panel-nested .text-txt-faint {
-  color: rgba(255, 255, 255, 0.56) !important;
+  color: rgba(255, 255, 255, 0.62) !important;
 }
 
 .glass-card--interactive:hover {
