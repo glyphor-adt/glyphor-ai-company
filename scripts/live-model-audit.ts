@@ -48,7 +48,7 @@ async function main(): Promise<void> {
   for (const model of SUPPORTED_MODELS) {
     const provider = getProvider(model.id);
 
-    if (model.id === 'gpt-image-1.5-2025-12-16') {
+    if (model.id.startsWith('gpt-image-')) {
       const started = Date.now();
       try {
         await client.generateImageOpenAI('Create a tiny monochrome checkmark icon on transparent background.', model.id);
@@ -75,14 +75,16 @@ async function main(): Promise<void> {
       continue;
     }
 
-    if (model.id === 'gemini-embedding-001' || model.id === 'gpt-realtime-2025-08-28') {
+    if (model.id === 'gemini-embedding-001' || model.id === 'gpt-realtime-2025-08-28' || model.id.endsWith('-deep-research')) {
       rows.push({
         model: model.id,
         provider,
         tier: model.tier,
         mode: 'unsupported',
         status: 'skipped',
-        detail: 'Not callable through ModelClient.generate text path in current runtime.',
+        detail: model.id.endsWith('-deep-research')
+          ? 'Requires dedicated deep-research tool workflow (web_search/mcp/file_search) beyond simple text ping.'
+          : 'Not callable through ModelClient.generate text path in current runtime.',
       });
       continue;
     }

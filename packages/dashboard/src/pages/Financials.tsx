@@ -699,11 +699,10 @@ export default function Financials() {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-2xl border border-border bg-gradient-to-r from-[#0f172a]/90 via-[#1e293b]/80 to-[#312e81]/65 p-4">
+      <div className="rounded-2xl border border-border bg-surface p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.16em] text-cyan/80">Finance Command</p>
-            <h1 className="mt-1 text-2xl font-bold text-txt-primary">Financials</h1>
+            <h1 className="text-2xl font-bold text-txt-primary">Financials</h1>
             <p className="mt-1 text-sm text-txt-muted">A tighter readout focused on runway, margin, and spend concentration.</p>
           </div>
           <div className="flex items-center gap-2">

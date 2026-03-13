@@ -86,8 +86,8 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   { id: 'gpt-4.1-mini',           label: 'GPT-4.1 Mini',           provider: 'openai',    tier: 'economy',   inputPer1M: 0.40,  outputPer1M: 1.60,  cachedInputDiscount: 0.25, selectable: true,  verifier: false },
   { id: 'o3',                     label: 'o3',                     provider: 'openai',    tier: 'reasoning', inputPer1M: 2.00,  outputPer1M: 8.00,  thinkingPer1M: 8.00, cachedInputDiscount: 0.25, selectable: true,  verifier: false },
   { id: 'o4-mini',                label: 'o4-mini',                provider: 'openai',    tier: 'reasoning', inputPer1M: 1.10,  outputPer1M: 4.40,  thinkingPer1M: 4.40, cachedInputDiscount: 0.25, selectable: true,  verifier: false },
-  { id: 'o3-deep-research',       label: 'o3 Deep Research',       provider: 'openai',    tier: 'reasoning', inputPer1M: 2.00,  outputPer1M: 8.00,  thinkingPer1M: 8.00, cachedInputDiscount: 0.25, selectable: false, verifier: false },
-  { id: 'o4-mini-deep-research',  label: 'o4-mini Deep Research',  provider: 'openai',    tier: 'reasoning', inputPer1M: 1.10,  outputPer1M: 4.40,  thinkingPer1M: 4.40, cachedInputDiscount: 0.25, selectable: false, verifier: false },
+  { id: 'o3-deep-research',       label: 'o3 Deep Research',       provider: 'openai',    tier: 'specialized', inputPer1M: 2.00,  outputPer1M: 8.00,  thinkingPer1M: 8.00, cachedInputDiscount: 0.25, selectable: false, verifier: false },
+  { id: 'o4-mini-deep-research',  label: 'o4-mini Deep Research',  provider: 'openai',    tier: 'specialized', inputPer1M: 1.10,  outputPer1M: 4.40,  thinkingPer1M: 4.40, cachedInputDiscount: 0.25, selectable: false, verifier: false },
 
   // ── Anthropic ──────────────────────────────────────────────
   // Anthropic cache read = 10% of input price. Cache creation = 125% of input price (amortized, treated as full price).
