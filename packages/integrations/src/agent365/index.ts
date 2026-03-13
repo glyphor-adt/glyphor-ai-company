@@ -61,6 +61,17 @@ interface ActiveMcpConnection {
   transport: StreamableHTTPClientTransport;
 }
 
+function isDisabledMailTool(tool: McpClientTool, serverName: string): boolean {
+  if (serverName !== 'mcp_MailTools') return false;
+
+  const name = (tool.name ?? '').toLowerCase();
+  const description = (tool.description ?? '').toLowerCase();
+
+  // Temporary guard: Agent365 mail search endpoints are intermittently returning HTTP 500.
+  // Keep read/reply/send operations available while avoiding known-failing search calls.
+  return name.includes('search') || description.includes('search');
+}
+
 // ── Email Sanitization ───────────────────────────────────────────
 
 /** Field names in MCP Mail tool arguments that may contain email body content. */
@@ -423,6 +434,7 @@ function mcpToolToToolDefinition(
           const errorText = Array.isArray(result.content)
             ? result.content.map((c: { text?: string }) => c.text ?? '').join('\n')
             : String(result.content);
+          console.warn(`[Agent365] MCP tool error from ${serverName}/${mcpTool.name}: ${errorText.slice(0, 300)}`);
           return { success: false, error: errorText };
         }
 
@@ -436,6 +448,7 @@ function mcpToolToToolDefinition(
 
         return { success: true, data };
       } catch (err) {
+        console.error(`[Agent365] MCP call failed for ${serverName}/${mcpTool.name}:`, (err as Error).message);
         return {
           success: false,
           error: `Agent 365 MCP tool ${mcpTool.name} failed: ${(err as Error).message}`,
@@ -498,6 +511,10 @@ export async function createAgent365Tools(
 
       // Convert each MCP tool to a Glyphor ToolDefinition
       for (const mcpTool of tools) {
+        if (isDisabledMailTool(mcpTool, serverConfig.mcpServerName)) {
+          console.warn(`[Agent365] Skipping unstable MailTools search tool: ${mcpTool.name}`);
+          continue;
+        }
         allTools.push(mcpToolToToolDefinition(mcpTool, client, serverConfig.mcpServerName));
       }
 

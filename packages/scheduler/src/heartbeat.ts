@@ -237,7 +237,7 @@ export class HeartbeatManager {
             context: {
               wake_reason: 'unread_email',
               priority: 'heartbeat',
-              message: `You have ${agent.count} unread email(s) in your inbox. Subjects: ${subjectList}. Use Agent365 MailTools to review and respond as appropriate.`,
+              message: `You have ${agent.count} unread email(s) in your inbox. Subjects: ${subjectList}. Use Agent365 MailTools with read/reply flow (read_inbox -> reply_to_email or send_email). Avoid search-style mail tools and proceed from unread message IDs.`,
             },
           });
           this.lastInboxWakeSignature.set(agent.role, agent.signature);
