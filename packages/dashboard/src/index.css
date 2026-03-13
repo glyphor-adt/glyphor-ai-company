@@ -482,24 +482,6 @@ input:focus, textarea:focus, select:focus {
   z-index: 2;
 }
 
-.glass-card::after,
-.glass-raised::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 50%;
-  background: linear-gradient(to top, rgba(var(--card-accent-rgb, 0,224,255), 0.05) 0%, rgba(var(--card-accent-rgb, 0,224,255), 0.015) 35%, transparent 100%);
-  pointer-events: none;
-  border-radius: inherit;
-}
-
-.glass-inner-card::after {
-  height: 40%;
-  background: linear-gradient(to top, rgba(var(--card-accent-rgb, 0,224,255), 0.04) 0%, rgba(var(--card-accent-rgb, 0,224,255), 0.01) 35%, transparent 100%);
-}
-
 .glass-card__content {
   position: relative;
   z-index: 1;

@@ -760,7 +760,7 @@ function AccessGrantManager({
               type="button"
               disabled={submitting || !toolName.trim()}
               onClick={handleSubmit}
-              className="rounded-lg bg-prism-sky/15 px-4 py-2 text-[13px] font-medium text-prism-sky transition-colors hover:bg-prism-sky/25 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg bg-prism-sky/10 border border-prism-sky/30 px-4 py-2 text-[13px] font-medium text-prism-sky transition-colors hover:bg-prism-sky/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? 'Granting…' : 'Grant'}
             </button>

@@ -1670,18 +1670,60 @@ const server = createServer(async (req, res) => {
     // Update agent settings
     const settingsMatch = url.match(/^\/agents\/([^/]+)\/settings$/);
     if (method === 'PUT' && settingsMatch) {
-      const agentId = decodeURIComponent(settingsMatch[1]);
+      const agentKey = decodeURIComponent(settingsMatch[1]);
       const updates = JSON.parse(await readBody(req));
+
+      const targetRows = await systemQuery<{
+        id: string;
+        role: string;
+      }>(
+        'SELECT id, role FROM company_agents WHERE id::text = $1 OR role = $1 LIMIT 1',
+        [agentKey],
+      );
+
+      if (targetRows.length === 0) {
+        json(res, 404, { success: false, error: `Agent not found: ${agentKey}` });
+        return;
+      }
+
+      const targetAgent = targetRows[0];
 
       const { system_prompt, ...agentUpdates } = updates;
 
+      // Accept manager values as role/id/name/display_name/codename and normalize to role.
+      if (Object.prototype.hasOwnProperty.call(agentUpdates, 'reports_to')) {
+        const managerRaw = (agentUpdates as Record<string, unknown>).reports_to;
+        if (managerRaw === '' || managerRaw == null) {
+          (agentUpdates as Record<string, unknown>).reports_to = null;
+        } else {
+          const managerText = String(managerRaw).trim();
+          const managerRows = await systemQuery<{ role: string }>(
+            `SELECT role
+             FROM company_agents
+             WHERE role = $1
+                OR id::text = $1
+                OR name = $1
+                OR display_name = $1
+                OR codename = $1
+             LIMIT 1`,
+            [managerText],
+          );
+          if (managerRows.length > 0) {
+            (agentUpdates as Record<string, unknown>).reports_to = managerRows[0].role;
+          } else {
+            json(res, 400, { success: false, error: `Unknown manager: ${managerText}` });
+            return;
+          }
+        }
+      }
+
       let data;
       try {
-        const updates = { ...agentUpdates, updated_at: new Date().toISOString() };
-        const keys = Object.keys(updates);
+        const normalizedUpdates = { ...agentUpdates, updated_at: new Date().toISOString() };
+        const keys = Object.keys(normalizedUpdates);
         const setClause = keys.map((k, i) => `${k}=$${i + 1}`).join(', ');
-        const values = keys.map(k => (updates as Record<string, unknown>)[k]);
-        values.push(agentId);
+        const values = keys.map(k => (normalizedUpdates as Record<string, unknown>)[k]);
+        values.push(targetAgent.id);
         [data] = await systemQuery(`UPDATE company_agents SET ${setClause} WHERE id=$${keys.length + 1} RETURNING *`, values);
       } catch (updateErr) {
         json(res, 400, { success: false, error: (updateErr as Error).message });
@@ -1692,11 +1734,11 @@ const server = createServer(async (req, res) => {
         await systemQuery(
           `INSERT INTO agent_briefs (agent_id, system_prompt, updated_at) VALUES ($1,$2,$3)
            ON CONFLICT (agent_id) DO UPDATE SET system_prompt=EXCLUDED.system_prompt, updated_at=EXCLUDED.updated_at`,
-          [agentId, system_prompt, new Date().toISOString()],
+          [targetAgent.role, system_prompt, new Date().toISOString()],
         );
       }
 
-      await systemQuery('INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)', ['system', 'system', 'agent.settings_updated', `Settings updated for ${agentId}: ${Object.keys(updates).join(', ')}`, new Date().toISOString()]);
+      await systemQuery('INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)', ['system', 'system', 'agent.settings_updated', `Settings updated for ${targetAgent.role}: ${Object.keys(agentUpdates).join(', ')}`, new Date().toISOString()]);
 
       // Invalidate cached config for this agent
       const cache = getRedisCache();

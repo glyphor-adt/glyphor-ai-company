@@ -44,7 +44,7 @@ export default function Layout() {
   return (
     <div className="dashboard-shell mesh-gradient bg-mesh-gradient flex h-screen overflow-hidden">
       {/* ── Desktop Sidebar ─────────────────── */}
-      <aside className={`dashboard-sidebar hidden w-[280px] flex-col transition-colors duration-200 md:flex ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}>
+      <aside className={`dashboard-sidebar hidden w-[220px] flex-col transition-colors duration-200 md:flex ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}>
         {/* Brand */}
         <div className="relative z-10 flex items-center justify-between px-4 py-4">
           <BrandLockup theme={theme} />
@@ -174,7 +174,7 @@ export default function Layout() {
               <Outlet />
             </div>
           ) : (
-            <div className="page-enter mx-auto max-w-[1280px] px-6 py-4 md:px-12 md:py-8">
+            <div className="page-enter mx-auto max-w-[1400px] px-6 py-4 md:px-8 md:py-8">
               <Outlet />
             </div>
           )}

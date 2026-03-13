@@ -276,7 +276,7 @@ Goal: Drive organizational learning — identify what worked, what didn't, and h
       initialMessage = `Run your orchestration cycle:
 
 1. Use read_initiatives first so you understand active initiative sequencing and dependency state
-2. Read active founder directives, using initiative_id filters when you need to inspect a specific initiative chain
+2. Read founder directives with status="open" (proposed, active, paused), using initiative_id filters when you need to inspect a specific initiative chain
 3. For initiative-derived directives, only move downstream work forward when prerequisite directives are completed
 4. For new directives without assignments: plan and create work assignments
 5. When prior initiative work produced deliverables, embed those deliverables into downstream assignment instructions

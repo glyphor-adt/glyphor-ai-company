@@ -1431,13 +1431,13 @@ export function createOrchestrationTools(
 
     {
       name: 'read_founder_directives',
-      description: 'Read active strategic directives from the founders. Returns all directives that are active or have pending work assignments. Use this at the start of every orchestration run to understand current priorities.',
+      description: 'Read strategic directives from the founders. Returns directives with assignment summaries and initiative sequencing context. Use this at the start of every orchestration run to understand current priorities.',
       parameters: {
         status: {
           type: 'string',
-          description: 'Filter by directive status. Default: active',
+          description: 'Filter by directive status. Default: open (proposed, active, paused)',
           required: false,
-          enum: ['active', 'paused', 'completed', 'all'],
+          enum: ['open', 'proposed', 'active', 'paused', 'completed', 'all'],
         },
         created_by: {
           type: 'string',
@@ -1452,7 +1452,7 @@ export function createOrchestrationTools(
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const status = (params.status as string) || 'active';
+        const status = (params.status as string) || 'open';
         const createdBy = (params.created_by as string) || 'all';
         const initiativeId = params.initiative_id as string | undefined;
 
@@ -1460,7 +1460,12 @@ export function createOrchestrationTools(
         let sql = 'SELECT * FROM founder_directives';
         const conditions: string[] = [];
         const queryParams: unknown[] = [];
-        if (status !== 'all') { queryParams.push(status); conditions.push(`status = $${queryParams.length}`); }
+        if (status === 'open') {
+          conditions.push(`status IN ('proposed', 'active', 'paused')`);
+        } else if (status !== 'all') {
+          queryParams.push(status);
+          conditions.push(`status = $${queryParams.length}`);
+        }
         if (createdBy !== 'all') { queryParams.push(createdBy); conditions.push(`created_by = $${queryParams.length}`); }
         if (initiativeId) { queryParams.push(initiativeId); conditions.push(`initiative_id = $${queryParams.length}`); }
         if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');

@@ -251,7 +251,7 @@ function SidebarContent({
       <div className="p-3 space-y-2">
         <button
           onClick={() => setShowOrgChart(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan/10 px-3 py-2 text-[13px] font-medium text-cyan hover:bg-cyan/20 transition-colors"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan/10 border border-cyan/40 px-3 py-2 text-[13px] font-medium text-cyan hover:bg-cyan/20 transition-colors"
         >
           <MdAdd size={18} />
           New Chat
@@ -983,7 +983,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               <button
                 onClick={() => joinTeamsCall(currentMeetingUrl)}
                 disabled={teamsJoining}
-                className="flex items-center gap-1.5 rounded-full bg-cyan/10 px-3 py-1.5 text-[11px] font-medium text-cyan hover:bg-cyan/20 transition-colors disabled:opacity-40"
+                className="flex items-center gap-1.5 rounded-full bg-cyan/10 border border-cyan/40 px-3 py-1.5 text-[11px] font-medium text-cyan hover:bg-cyan/20 transition-colors disabled:opacity-40"
                 title="Add this agent to your current Teams call"
               >
                 <MdVideoCall size={16} />
@@ -1257,7 +1257,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               type="button"
               onClick={sendMessage}
               disabled={respondingAgents.has(selectedRole) || (!input.trim() && pendingFiles.length === 0)}
-              className="flex-shrink-0 rounded-lg bg-cyan/10 px-3 py-2 md:px-5 md:py-2.5 text-[13px] font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40"
+              className="flex-shrink-0 rounded-lg bg-cyan/10 border border-cyan/40 px-3 py-2 md:px-5 md:py-2.5 text-[13px] font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40"
             >
               Send
             </button>
@@ -1286,7 +1286,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               <button
                 onClick={() => { joinTeamsCall(currentMeetingUrl); }}
                 disabled={teamsJoining}
-                className="w-full rounded-lg bg-cyan/10 border border-cyan/25 px-4 py-3 text-[12px] font-medium text-cyan hover:bg-cyan/20 transition-colors mb-3 flex items-center gap-2 disabled:opacity-40"
+                className="w-full rounded-lg bg-cyan/10 border border-cyan/40 px-4 py-3 text-[12px] font-medium text-cyan hover:bg-cyan/20 transition-colors mb-3 flex items-center gap-2 disabled:opacity-40"
               >
                 <MdVideoCall size={18} />
                 {teamsJoining ? 'Joining…' : 'Add to current meeting'}

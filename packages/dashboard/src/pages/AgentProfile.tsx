@@ -24,7 +24,7 @@ import {
   ROLE_MANAGER_OVERRIDES,
 } from '../lib/types';
 import { getToolPlatformMeta } from '../lib/toolPlatform';
-import { Card, AgentAvatar, Skeleton, timeAgo } from '../components/ui';
+import { Card, InnerCard, AgentAvatar, Skeleton, timeAgo } from '../components/ui';
 import { QualityChart } from '../components/QualityChart';
 import { GrowthAreas } from '../components/GrowthAreas';
 import { PeerFeedback } from '../components/PeerFeedback';
@@ -589,9 +589,11 @@ function OverviewTab({
       {brief?.system_prompt && (
         <Card>
           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-txt-primary">System Prompt</h3>
-          <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-border/50 bg-raised p-3 text-xs leading-relaxed text-txt-secondary">
-            {brief.system_prompt}
-          </pre>
+          <InnerCard>
+            <pre className="max-h-64 overflow-auto whitespace-pre-wrap text-xs leading-relaxed text-txt-secondary">
+              {brief.system_prompt}
+            </pre>
+          </InnerCard>
         </Card>
       )}
 
@@ -682,7 +684,7 @@ function OverviewTab({
           {effectiveReportsTo && (
             <div className="mb-4">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint mb-2">Reports To</p>
-              <Link to={`/agents/${effectiveReportsTo}`} className="flex items-center gap-3 rounded-lg border border-border bg-raised px-3 py-2 transition-colors hover:border-cyan/30">
+              <Link to={`/agents/${effectiveReportsTo}`} className="flex items-center gap-3 rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] px-3 py-2 transition-colors hover:border-cyan/30">
                 <AgentAvatar role={effectiveReportsTo} size={28} />
                 <div>
                   <p className="text-sm font-medium text-txt-primary">{DISPLAY_NAME_MAP[effectiveReportsTo] ?? effectiveReportsTo}</p>
@@ -1978,7 +1980,7 @@ function SettingsTab({
           {profile.personality_summary && (
             <div className="mb-4">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Personality Summary</p>
-              <p className="mt-1 rounded-lg border border-border bg-raised p-3 text-sm text-txt-secondary">{profile.personality_summary}</p>
+              <InnerCard className="mt-1"><p className="text-sm text-txt-secondary">{profile.personality_summary}</p></InnerCard>
             </div>
           )}
 
@@ -1987,7 +1989,7 @@ function SettingsTab({
               <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Communication Traits</p>
               <div className="mt-1.5 flex flex-wrap gap-2">
                 {profile.communication_traits.map((t, i) => (
-                  <span key={i} className="rounded-full border border-border bg-raised px-3 py-1 text-[12px] text-txt-secondary">{t}</span>
+                  <span key={i} className="rounded-full border border-primary/20 bg-black/25 backdrop-blur-[8px] px-3 py-1 text-[12px] text-txt-secondary">{t}</span>
                 ))}
               </div>
             </div>
@@ -2022,7 +2024,7 @@ function SettingsTab({
           {profile.voice_sample && (
             <div className="mt-4">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Voice Sample</p>
-              <pre className="mt-1.5 whitespace-pre-wrap rounded-lg border border-border bg-raised p-3 text-sm leading-relaxed text-txt-secondary">{profile.voice_sample}</pre>
+              <InnerCard className="mt-1.5"><pre className="whitespace-pre-wrap text-sm leading-relaxed text-txt-secondary">{profile.voice_sample}</pre></InnerCard>
             </div>
           )}
         </Card>
@@ -2347,12 +2349,12 @@ function SettingsTab({
           <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-txt-primary">Voice Calibration Examples</h3>
           <div className="space-y-4">
             {profile.voice_examples.map((ex, i) => (
-              <details key={i} className="group rounded-lg border border-border">
+              <details key={i} className="group glass-raised glass-inner-card rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] overflow-hidden">
                 <summary className="flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-medium text-txt-primary hover:text-cyan transition-colors">
                   <span>{ex.situation}</span>
                   <span className="text-txt-faint transition-transform group-open:rotate-90">▸</span>
                 </summary>
-                <pre className="whitespace-pre-wrap border-t border-border bg-raised/50 px-4 py-3 text-sm leading-relaxed text-txt-secondary">{ex.response}</pre>
+                <pre className="whitespace-pre-wrap border-t border-primary/10 px-4 py-3 text-sm leading-relaxed text-txt-secondary">{ex.response}</pre>
               </details>
             ))}
           </div>
