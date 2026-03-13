@@ -52,6 +52,18 @@ const MIN_RUN_GAP_MS = 5 * 60 * 1000;
 /** Ops has its own cron schedule — give it a longer cooldown to avoid over-waking */
 const OPS_RUN_GAP_MS = 30 * 60 * 1000;
 
+const DIRECTIVE_PRIORITY_RANK: Record<string, number> = {
+  critical: 0,
+  high: 1,
+  normal: 2,
+  low: 3,
+};
+
+function directivePriorityRank(priority: string | null | undefined): number {
+  if (!priority) return 99;
+  return DIRECTIVE_PRIORITY_RANK[priority] ?? 99;
+}
+
 export class HeartbeatManager {
   private executor: AgentExecutorFn;
   private wakeRouter: WakeRouter;
@@ -260,24 +272,59 @@ export class HeartbeatManager {
     // Runs every heartbeat cycle (~10 min) so Sarah picks up directives in near real-time
     if (agentRole === 'chief-of-staff') {
       try {
-        const rows = await systemQuery<{id: string; title: string; wa_id: string | null}>(
-          'SELECT fd.id, fd.title, wa.id as wa_id FROM founder_directives fd LEFT JOIN work_assignments wa ON wa.directive_id = fd.id WHERE fd.status=$1',
+        const rows = await systemQuery<{
+          id: string;
+          title: string;
+          priority: string | null;
+          due_date: string | null;
+          created_at: string;
+          wa_id: string | null;
+        }>(
+          `SELECT fd.id, fd.title, fd.priority, fd.due_date, fd.created_at, wa.id as wa_id
+             FROM founder_directives fd
+             LEFT JOIN work_assignments wa ON wa.directive_id = fd.id
+            WHERE fd.status=$1`,
           ['active'],
         );
 
         // Group by directive; directives with no assignments have wa_id = null
-        const directiveMap = new Map<string, { id: string; title: string; hasAssignments: boolean }>();
+        const directiveMap = new Map<string, {
+          id: string;
+          title: string;
+          priority: string | null;
+          dueDate: string | null;
+          createdAt: string;
+          hasAssignments: boolean;
+        }>();
         for (const row of rows) {
           const existing = directiveMap.get(row.id);
           if (existing) {
             if (row.wa_id) existing.hasAssignments = true;
           } else {
-            directiveMap.set(row.id, { id: row.id, title: row.title, hasAssignments: !!row.wa_id });
+            directiveMap.set(row.id, {
+              id: row.id,
+              title: row.title,
+              priority: row.priority,
+              dueDate: row.due_date,
+              createdAt: row.created_at,
+              hasAssignments: !!row.wa_id,
+            });
           }
         }
-        const newDirectives = [...directiveMap.values()].filter(d => !d.hasAssignments);
+        const newDirectives = [...directiveMap.values()]
+          .filter(d => !d.hasAssignments)
+          .sort((a, b) => {
+            const byPriority = directivePriorityRank(a.priority) - directivePriorityRank(b.priority);
+            if (byPriority !== 0) return byPriority;
+            const aDue = a.dueDate ? new Date(a.dueDate).getTime() : Number.POSITIVE_INFINITY;
+            const bDue = b.dueDate ? new Date(b.dueDate).getTime() : Number.POSITIVE_INFINITY;
+            if (aDue !== bDue) return aDue - bDue;
+            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          });
 
         if (newDirectives.length > 0) {
+          const directive = newDirectives[0];
+          const directiveLabel = `"${directive.title}" (${directive.id})`;
           const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
           const [recentRun] = await systemQuery<{status: string; error: string | null; started_at: string}>(
             `SELECT status, error, started_at
@@ -290,16 +337,33 @@ export class HeartbeatManager {
             ['chief-of-staff', 'orchestrate%', fifteenMinAgo],
           );
 
+          if (recentRun?.status === 'running') {
+            console.log('[Heartbeat] CoS: orchestration currently running; not dispatching duplicate directive wake');
+            return { shouldWake: false, reason: '', context: {} };
+          }
+
           if (recentRun && (recentRun.status === 'failed' || recentRun.status === 'aborted')) {
-            const directive = newDirectives[0];
-            console.log(`[Heartbeat] CoS: retrying directive decomposition for "${directive.title}" with reduced scope`);
+            console.log(`[Heartbeat] CoS: retrying directive decomposition for ${directiveLabel} with reduced scope`);
             return {
               shouldWake: true,
               reason: 'new_directives_retry:1',
               context: {
                 task: 'orchestrate',
                 contextTier: 'standard',
-                message: `SINGLE DIRECTIVE FOCUS: Process ONLY directive "${directive.title}" (${directive.id}). Decompose it into concrete assignments, dispatch the work, and do not process other directives this run unless this directive is fully handled.`,
+                message: `SINGLE DIRECTIVE FOCUS: Process ONLY directive ${directiveLabel}. Decompose it into concrete assignments, dispatch the work, and do not process other directives this run unless this directive is fully handled.`,
+              },
+            };
+          }
+
+          if (recentRun?.status === 'completed') {
+            console.log(`[Heartbeat] CoS: unresolved directive still has no assignments after completed orchestrate run; forcing focused retry for ${directiveLabel}`);
+            return {
+              shouldWake: true,
+              reason: 'new_directives_persistent:1',
+              context: {
+                task: 'orchestrate',
+                contextTier: 'standard',
+                message: `UNRESOLVED DIRECTIVE: ${directiveLabel} still has zero assignments after your latest orchestration pass. Do this FIRST. Create and dispatch at least one concrete assignment for this directive before touching any other directive.`,
               },
             };
           }
@@ -314,7 +378,7 @@ export class HeartbeatManager {
               reason: `new_directives:${newDirectives.length}`,
               context: {
                 task: 'orchestrate',
-                message: `${newDirectives.length} new directive(s) need orchestration: ${newDirectives.map((d: any) => `"${d.title}"`).join(', ')}. Run your orchestration protocol to break them into work assignments and dispatch to agents.`,
+                message: `${newDirectives.length} directive(s) have no assignments: ${newDirectives.map((d: any) => `"${d.title}"`).join(', ')}. Start with highest urgency: ${directiveLabel}. Create and dispatch work assignments now.`,
               },
             };
           }
