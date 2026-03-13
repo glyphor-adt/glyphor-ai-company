@@ -387,6 +387,9 @@ async function ensureAgentRunsRoutingSchema(): Promise<void> {
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS verification_tier TEXT');
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS verification_reason TEXT');
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS verification_passes TEXT[]');
+      await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS actual_model TEXT');
+      await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS actual_provider TEXT');
+      await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS estimated_cost_usd DOUBLE PRECISION');
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS compaction_count INT DEFAULT 0');
       await safeSchemaChange('ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS compacted BOOLEAN DEFAULT FALSE');
 
@@ -681,6 +684,25 @@ const trackedAgentExecutor = async (
             runId,
           ],
         );
+      }
+
+      try {
+        await systemQuery(
+          `UPDATE agent_runs
+              SET model = COALESCE($1, model),
+                  actual_model = COALESCE($1, actual_model),
+                  actual_provider = COALESCE($2, actual_provider),
+                  estimated_cost_usd = COALESCE($3, estimated_cost_usd)
+            WHERE id = $4`,
+          [
+            (result as any)?.actualModel ?? null,
+            (result as any)?.actualProvider ?? null,
+            (result as any)?.estimatedCostUsd ?? result?.cost ?? null,
+            runId,
+          ],
+        );
+      } catch (err) {
+        console.warn('[Scheduler] Failed to persist actual model/provider attribution:', (err as Error).message);
       }
 
       if (typeof result?.compactionCount === 'number') {

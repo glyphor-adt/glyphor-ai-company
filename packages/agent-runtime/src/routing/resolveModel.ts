@@ -2,6 +2,23 @@ import type { ModelRoutingMetadata } from '../providers/types.js';
 import { inferCapabilities, type RoutingContext } from './inferCapabilities.js';
 
 const DEFAULT_MODEL = 'gpt-5-mini-2025-08-07';
+const PREMIUM_ANTHROPIC_ENABLED = process.env.ENABLE_PREMIUM_ANTHROPIC === 'true';
+const CODE_INTENSIVE_ROLES = new Set([
+  'platform-engineer',
+  'quality-engineer',
+  'devops-engineer',
+  'frontend-engineer',
+  'template-architect',
+  'cto',
+]);
+
+function isCodeCentricContext(context: RoutingContext): boolean {
+  const role = String(context.role ?? '').toLowerCase();
+  if (CODE_INTENSIVE_ROLES.has(role)) return true;
+
+  const taskAndMessage = `${context.task ?? ''} ${context.message ?? ''}`.toLowerCase();
+  return /(code|coding|implement|implementation|bug|fix|patch|refactor|compile|build|test|tests|pull request|pr review|typescript|javascript|sql|migration)/.test(taskAndMessage);
+}
 
 export interface RoutingDecision extends ModelRoutingMetadata {}
 
@@ -28,7 +45,10 @@ export function resolveModelConfig(
 
   const shouldUsePremiumCodeModel =
     selected.has('code_generation') &&
-    (selected.has('needs_apply_patch') || selected.has('needs_tool_search'));
+    (selected.has('needs_apply_patch') || selected.has('needs_tool_search')) &&
+    isCodeCentricContext(context);
+  const highComplexity = selected.has('high_complexity');
+  const canUsePremiumAnthropic = PREMIUM_ANTHROPIC_ENABLED && highComplexity;
 
   if (deterministicTask && selected.has('deterministic_possible')) {
     decision = {
@@ -67,23 +87,23 @@ export function resolveModelConfig(
     };
   } else if (selected.has('legal_reasoning')) {
     decision = {
-      model: 'claude-sonnet-4-6',
+      model: canUsePremiumAnthropic ? 'claude-sonnet-4-6' : 'gemini-3.1-flash-lite-preview',
       routingRule: 'grounded_legal_research',
       capabilities,
-      reasoningEffort: selected.has('high_complexity') ? 'high' : 'medium',
-      claudeEffort: selected.has('high_complexity') ? 'high' : 'medium',
-      claudeThinking: selected.has('high_complexity') ? 'adaptive' : 'manual',
+      reasoningEffort: highComplexity ? 'high' : 'medium',
+      claudeEffort: canUsePremiumAnthropic ? 'high' : 'medium',
+      claudeThinking: canUsePremiumAnthropic ? 'adaptive' : 'manual',
       enableCitations: true,
       enableCompaction: true,
     };
   } else if (selected.has('creative_writing') || selected.has('nuanced_evaluation')) {
     decision = {
-      model: 'claude-sonnet-4-6',
+      model: canUsePremiumAnthropic ? 'claude-sonnet-4-6' : 'gemini-3.1-flash-lite-preview',
       routingRule: selected.has('creative_writing') ? 'creative_writing' : 'nuanced_evaluation',
       capabilities,
-      reasoningEffort: selected.has('high_complexity') ? 'high' : 'medium',
-      claudeEffort: selected.has('high_complexity') ? 'high' : 'medium',
-      claudeThinking: selected.has('high_complexity') ? 'adaptive' : 'manual',
+      reasoningEffort: highComplexity ? 'high' : 'medium',
+      claudeEffort: canUsePremiumAnthropic ? 'high' : 'medium',
+      claudeThinking: canUsePremiumAnthropic ? 'adaptive' : 'manual',
       enableCompaction: true,
     };
   } else if (selected.has('web_research')) {

@@ -95,6 +95,10 @@ export interface UnifiedModelResponse {
   text: string | null;
   toolCalls: UnifiedToolCall[];
   thinkingText?: string;
+  /** The concrete model that produced this response after fallback resolution. */
+  actualModel?: string;
+  /** The provider that produced this response after fallback resolution. */
+  actualProvider?: ModelProvider;
   usageMetadata: UnifiedUsageMetadata;
   finishReason: string;
   responseId?: string;

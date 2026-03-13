@@ -166,11 +166,9 @@ export function selectSubtaskModel(
   ) {
     decision = {
       ...decision,
-      model: 'claude-sonnet-4-6',
+      model: 'gemini-3.1-flash-lite-preview',
       routingRule: 'frontier_subtask',
       reasoningEffort: 'high',
-      claudeEffort: 'high',
-      claudeThinking: 'adaptive',
       enableCompaction: true,
     };
   } else if (classification.complexity === 'complex' && decision.model === 'gpt-5-nano') {

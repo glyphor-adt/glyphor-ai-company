@@ -11,10 +11,10 @@ export type QueryTier = 'SIMPLE' | 'STANDARD' | 'DEEP';
 // ─── Model Config ───────────────────────────────────────────────
 
 export const TRIANGULATION_MODELS = {
-  primary: 'claude-opus-4-6',
+  primary: 'gemini-3.1-flash-lite-preview',
   validator1: 'gemini-3.1-pro-preview',
   validator2: 'gpt-5.4',
-  judge: 'claude-sonnet-4-6',
+  judge: 'gemini-3.1-flash-lite-preview',
   router: 'gemini-3-flash-preview',
 } as const;
 

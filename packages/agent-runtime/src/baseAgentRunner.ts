@@ -199,6 +199,8 @@ export abstract class BaseAgentRunner {
     let totalOutputTokens = 0;
     let totalThinkingTokens = 0;
     let totalCachedInputTokens = 0;
+    let actualModelUsed: string | undefined;
+    let actualProviderUsed: 'gemini' | 'openai' | 'anthropic' | undefined;
     const actionReceipts: ActionReceipt[] = [];
 
     // ─── Load shared memory + JIT context in parallel ───────────
@@ -452,6 +454,7 @@ export abstract class BaseAgentRunner {
             topK: config.topK,
             thinkingEnabled: effectiveThinkingEnabled,
             reasoningLevel,
+            fallbackScope: 'same-provider',
             signal: supervisor.signal,
             callTimeoutMs: 300_000,
             metadata: {
@@ -465,6 +468,8 @@ export abstract class BaseAgentRunner {
           totalOutputTokens += response.usageMetadata.outputTokens;
           totalThinkingTokens += response.usageMetadata.thinkingTokens ?? 0;
           totalCachedInputTokens += response.usageMetadata.cachedInputTokens ?? 0;
+          actualModelUsed = response.actualModel ?? modelForTurn;
+          actualProviderUsed = response.actualProvider;
           emitEvent({ type: 'model_response', agentId: config.id, turnNumber, hasToolCalls: response.toolCalls.length > 0, thinkingText: response.thinkingText });
         } catch (error) {
           if (supervisor.isAborted) {
@@ -741,7 +746,7 @@ export abstract class BaseAgentRunner {
         elapsedMs: supervisor.stats.elapsedMs,
       });
 
-      const result = this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary());
+      const result = this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary(), actualModelUsed, actualProviderUsed);
       result.actions = actionReceipts;
       if (reasoningResult) {
         result.reasoningMeta = {
@@ -779,7 +784,7 @@ export abstract class BaseAgentRunner {
       return result;
     } catch (error) {
       emitEvent({ type: 'agent_error', agentId: config.id, error: (error as Error).message, turnNumber: supervisor.stats.turnCount });
-      const errResult = this.buildResult(config, supervisor.isAborted ? 'aborted' : 'error', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary());
+      const errResult = this.buildResult(config, supervisor.isAborted ? 'aborted' : 'error', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary(), actualModelUsed, actualProviderUsed);
       errResult.actions = actionReceipts;
       void harvestTaskOutcome(errResult, {
         runId: config.id,
@@ -801,8 +806,11 @@ export abstract class BaseAgentRunner {
     thinkingTokens = 0,
     cachedInputTokens = 0,
     routing?: Pick<RoutingDecision, 'routingRule' | 'capabilities' | 'model'> & Pick<AgentExecutionResult, 'modelRoutingReason' | 'subtaskComplexity'>,
+    actualModel?: string,
+    actualProvider?: 'gemini' | 'openai' | 'anthropic',
   ): AgentExecutionResult {
     const stats = supervisor.stats;
+    const estimatedCost = estimateCost(routing?.model ?? config.model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens);
     return {
       agentId: config.id,
       role: config.role,
@@ -816,7 +824,10 @@ export abstract class BaseAgentRunner {
       outputTokens,
       thinkingTokens,
       cachedInputTokens,
-      cost: estimateCost(routing?.model ?? config.model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens),
+      cost: estimatedCost,
+      estimatedCostUsd: estimatedCost,
+      actualModel,
+      actualProvider,
       abortReason: status === 'aborted' ? errorMsg : undefined,
       error: status === 'error' || status === 'skipped_precheck' ? errorMsg : undefined,
       reasoning: output ? extractReasoning(output) : undefined,

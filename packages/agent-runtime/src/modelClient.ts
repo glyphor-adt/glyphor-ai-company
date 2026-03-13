@@ -105,7 +105,11 @@ export class ModelClient {
           if (modelIdx > 0) {
             console.warn(`[ModelClient] Fallback success: ${request.model} → ${currentModel}`);
           }
-          return response;
+          return {
+            ...response,
+            actualModel: currentModel,
+            actualProvider: provider,
+          };
         } catch (err) {
           const msg = (err as Error).message ?? '';
           const cause = (err as { cause?: Error }).cause?.message;

@@ -188,7 +188,14 @@ export interface AgentExecutionResult {
   outputTokens: number;
   thinkingTokens: number;
   cachedInputTokens: number;
+  /** Runtime-estimated cost based on internal pricing table and token usage. */
   cost: number;
+  /** Alias for cost to make estimation semantics explicit in downstream storage. */
+  estimatedCostUsd?: number;
+  /** Actual model used after fallback resolution. */
+  actualModel?: string;
+  /** Actual provider used after fallback resolution. */
+  actualProvider?: 'gemini' | 'openai' | 'anthropic';
   abortReason?: string;
   error?: string;
   reasoning?: ReasoningEnvelope;
