@@ -11,10 +11,10 @@
  *   AGENT365_<ROLE>_TENANT_ID
  */
 
-import { type ToolDefinition } from '@glyphor/agent-runtime';
+import { type ToolDefinition, type CompanyAgentRole, AGENT_EMAIL_MAP } from '@glyphor/agent-runtime';
 import { getAgentBlueprintSpId, getAgentEntraUserId } from '@glyphor/agent-runtime';
 import type { Agent365ToolBridge } from '@glyphor/integrations';
-import { createAgent365Tools as initAgent365Bridge } from '@glyphor/integrations';
+import { createAgent365Tools as initAgent365Bridge, getM365Token } from '@glyphor/integrations';
 
 // ── Standard M365 MCP Servers ────────────────────────────────────
 
@@ -110,6 +110,13 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
 
   if (!agentAppInstanceId || !agenticUserId) {
     console.warn(`[Agent365] No identity found for agent ${agentRole ?? 'unknown'}. Set blueprintSpId/entraUserId in agentIdentities.json or AGENT365_APP_INSTANCE_ID/AGENT365_AGENTIC_USER_ID env vars. Skipping.`);
+    if (agentRole) {
+      const fallbackTool = createReadInboxFallback(agentRole as CompanyAgentRole);
+      if (fallbackTool) {
+        console.log(`[Agent365] Identity missing for ${agentRole}; using Graph fallback read_inbox only.`);
+        return [fallbackTool];
+      }
+    }
     return [];
   }
 
@@ -137,13 +144,151 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
       ),
     ]);
 
-    activeBridges.set(cacheKey, bridge);
-    console.log(`[Agent365] Initialized ${bridge.tools.length} MCP tools`);
-    return bridge.tools;
+    const tools = [...bridge.tools];
+    if (agentRole) {
+      const hasInboxReader = tools.some((tool) => tool.name.toLowerCase() === 'read_inbox');
+      if (!hasInboxReader) {
+        const fallbackTool = createReadInboxFallback(agentRole as CompanyAgentRole);
+        if (fallbackTool) {
+          tools.push(fallbackTool);
+          console.log(`[Agent365] Added Graph fallback read_inbox for ${agentRole}`);
+        }
+      }
+    }
+
+    activeBridges.set(cacheKey, { ...bridge, tools });
+    console.log(`[Agent365] Initialized ${tools.length} MCP tools`);
+    return tools;
   } catch (err) {
     console.error('[Agent365] Failed to initialize MCP bridge (falling back to core tools):', (err as Error).message);
+    if (agentRole) {
+      const fallbackTool = createReadInboxFallback(agentRole as CompanyAgentRole);
+      if (fallbackTool) {
+        console.log(`[Agent365] MCP init failed for ${agentRole}; using Graph fallback read_inbox only.`);
+        return [fallbackTool];
+      }
+    }
     return [];
   }
+}
+
+function createReadInboxFallback(agentRole: CompanyAgentRole): ToolDefinition | null {
+  const mailbox = AGENT_EMAIL_MAP[agentRole]?.email;
+  if (!mailbox) return null;
+
+  return {
+    name: 'read_inbox',
+    description: 'Fallback inbox reader via Microsoft Graph when Agent365 MailTools inbox listing is unavailable.',
+    parameters: {
+      limit: {
+        type: 'number',
+        description: 'Max messages to return (default: 10, max: 50).',
+        required: false,
+      },
+      from_filter: {
+        type: 'string',
+        description: 'Optional sender filter (substring match).',
+        required: false,
+      },
+      include_read: {
+        type: 'boolean',
+        description: 'Include read messages. Default false.',
+        required: false,
+      },
+      mark_as_read: {
+        type: 'boolean',
+        description: 'Mark unread returned messages as read. Default false.',
+        required: false,
+      },
+    },
+    execute: async (params) => {
+      try {
+        const token = await getM365Token('agent365_mail_read_inbox');
+        const limitRaw = typeof params.limit === 'number' ? params.limit : 10;
+        const limit = Math.max(1, Math.min(50, Math.floor(limitRaw)));
+        const includeRead = params.include_read === true;
+        const markAsRead = params.mark_as_read === true;
+        const fromFilter = typeof params.from_filter === 'string' ? params.from_filter.trim() : '';
+
+        const query = new URLSearchParams({
+          $top: String(limit),
+          $select: 'id,subject,from,receivedDateTime,bodyPreview,isRead,hasAttachments',
+          $orderby: 'receivedDateTime desc',
+        });
+
+        const filters: string[] = [];
+        if (!includeRead) filters.push('isRead eq false');
+        if (fromFilter) filters.push(`contains(from/emailAddress/address, '${fromFilter.replace(/'/g, "''")}')`);
+        if (filters.length > 0) query.set('$filter', filters.join(' and '));
+
+        const response = await fetch(
+          `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailbox)}/mailFolders/inbox/messages?${query.toString()}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          },
+        );
+
+        if (!response.ok) {
+          const text = await response.text();
+          return { success: false, error: `Graph read_inbox fallback failed (${response.status}): ${text.slice(0, 300)}` };
+        }
+
+        interface GraphMessage {
+          id: string;
+          subject: string;
+          from?: { emailAddress?: { address?: string; name?: string } };
+          receivedDateTime: string;
+          bodyPreview?: string;
+          isRead?: boolean;
+          hasAttachments?: boolean;
+        }
+
+        const payload = (await response.json()) as { value?: GraphMessage[] };
+        const messages = (payload.value ?? []).map((message) => ({
+          id: message.id,
+          subject: message.subject ?? '(no subject)',
+          from: message.from?.emailAddress?.address ?? '',
+          fromName: message.from?.emailAddress?.name ?? '',
+          receivedAt: message.receivedDateTime,
+          preview: message.bodyPreview ?? '',
+          isRead: message.isRead ?? false,
+          hasAttachments: message.hasAttachments ?? false,
+        }));
+
+        if (markAsRead) {
+          const unreadIds = messages.filter((m) => !m.isRead).map((m) => m.id);
+          if (unreadIds.length > 0) {
+            await Promise.all(
+              unreadIds.map((id) =>
+                fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailbox)}/messages/${encodeURIComponent(id)}`, {
+                  method: 'PATCH',
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ isRead: true }),
+                }),
+              ),
+            );
+          }
+        }
+
+        return {
+          success: true,
+          data: {
+            mailbox,
+            count: messages.length,
+            messages,
+          },
+        };
+      } catch (err) {
+        return { success: false, error: `Graph read_inbox fallback failed: ${(err as Error).message}` };
+      }
+    },
+  };
 }
 
 /**
