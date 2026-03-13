@@ -5,8 +5,8 @@
 
 :root {
   /* ── Backgrounds ──────────────────────────── */
-  --prism-bg:       246 248 250;   /* #f6f8fa – Prism Solar page */
-  --prism-bg2:      238 242 247;   /* light shell section */
+  --prism-bg:       255 255 255;   /* #ffffff – Prism Solar page */
+  --prism-bg2:      246 248 250;   /* #f6f8fa – light hover / section */
   --prism-card:     255 255 255;   /* #ffffff – card */
   --prism-card-alt: 250 251 253;   /* soft alternate */
 
