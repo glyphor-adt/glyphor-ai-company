@@ -21,10 +21,10 @@ export type M365Operation =
   | 'post_to_channel'
   | 'post_to_teams'
   | 'send_teams_dm'
-  | 'send_email'
-  | 'send_emergency_email'
-  | 'read_inbox'
-  | 'reply_to_email'
+  | 'agent365_mail_send'
+  | 'agent365_mail_send_emergency'
+  | 'agent365_mail_read_inbox'
+  | 'agent365_mail_reply'
   | 'read_excel'
   | 'write_excel'
   | 'read_sharepoint'
@@ -56,10 +56,10 @@ const OPERATION_TO_APP: Record<M365Operation, string> = {
   post_to_channel: 'AZURE_TEAMS_CHANNEL',
   post_to_teams: 'AZURE_TEAMS_CHANNEL',
   send_teams_dm: 'AZURE_TEAMS_BOT',
-  send_email: 'AZURE_MAIL',
-  send_emergency_email: 'AZURE_MAIL',
-  read_inbox: 'AZURE_MAIL',
-  reply_to_email: 'AZURE_MAIL',
+  agent365_mail_send: 'AZURE_MAIL',
+  agent365_mail_send_emergency: 'AZURE_MAIL',
+  agent365_mail_read_inbox: 'AZURE_MAIL',
+  agent365_mail_reply: 'AZURE_MAIL',
   read_excel: 'AZURE_FILES',
   write_excel: 'AZURE_FILES',
   read_sharepoint: 'AZURE_FILES',

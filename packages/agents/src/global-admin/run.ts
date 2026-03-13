@@ -22,7 +22,7 @@ import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface GlobalAdminRunParams {
-  task?: 'access_audit' | 'compliance_report' | 'onboarding' | 'read_inbox' | 'on_demand';
+  task?: 'access_audit' | 'compliance_report' | 'onboarding' | 'agent365_mail_triage' | 'on_demand';
   message?: string;
   conversationHistory?: ConversationTurn[];
 }
@@ -68,7 +68,7 @@ export async function runGlobalAdmin(params: GlobalAdminRunParams = {}) {
     case 'onboarding':
       initialMessage = params.message || 'Review any pending onboarding requests and process them according to the standardized onboarding checklist.';
       break;
-    case 'read_inbox':
+    case 'agent365_mail_triage':
       initialMessage = params.message || 'Check your email inbox for new messages. Read and process any unread emails — respond to requests, take actions within your authority, and escalate anything outside your scope.';
       break;
     case 'on_demand':

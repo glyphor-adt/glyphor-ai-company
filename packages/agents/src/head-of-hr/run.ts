@@ -25,7 +25,7 @@ import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface HeadOfHRRunParams {
-  task?: 'workforce_audit' | 'onboard_agent' | 'retire_agent' | 'read_inbox' | 'on_demand';
+  task?: 'workforce_audit' | 'onboard_agent' | 'retire_agent' | 'agent365_mail_triage' | 'on_demand';
   message?: string;
   conversationHistory?: ConversationTurn[];
 }
@@ -74,7 +74,7 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
     case 'retire_agent':
       initialMessage = params.message || 'Review any pending agent retirement requests and process them appropriately.';
       break;
-    case 'read_inbox':
+    case 'agent365_mail_triage':
       initialMessage = params.message || 'Check your email inbox for new messages. Read and process any unread emails — respond to onboarding requests, agent profile questions, and escalate anything outside your scope.';
       break;
     case 'on_demand':

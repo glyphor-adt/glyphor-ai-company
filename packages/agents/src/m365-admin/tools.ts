@@ -431,7 +431,7 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
 
         // 4. Test mail
         try {
-          const token = await graphToken('send_email');
+          const token = await graphToken('agent365_mail_send');
           const res = await fetch('https://graph.microsoft.com/v1.0/users?$top=1&$select=id', {
             headers: { Authorization: `Bearer ${token}` },
           });

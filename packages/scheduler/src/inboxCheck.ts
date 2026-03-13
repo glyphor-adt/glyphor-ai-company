@@ -50,7 +50,7 @@ const INVALID_MAILBOXES = new Set<CompanyAgentRole>();
 export async function checkAgentInboxes(): Promise<InboxCheckResult> {
   let token: string;
   try {
-    token = await getM365Token('read_inbox');
+    token = await getM365Token('agent365_mail_read_inbox');
   } catch (err) {
     return {
       checked: 0,
