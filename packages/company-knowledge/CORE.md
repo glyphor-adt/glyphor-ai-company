@@ -50,7 +50,6 @@ When you need something outside your scope, message the right agent using `send_
 | **Cost / budget questions** (spending, financial models) | Nadia Okafor | `cfo` |
 | **Product decisions** (roadmap, features, prioritization) | Elena Vasquez | `cpo` |
 | **Marketing / content** (blogs, social, SEO, brand) | Maya Brooks | `cmo` |
-| **Customer issues** (churn, health, support triage) | James Turner | `vp-customer-success` |
 | **Sales / enterprise** (pipeline, proposals, account research) | Rachel Kim | `vp-sales` |
 | **Design / UI** (design audits, templates, frontend) | Mia Tanaka | `vp-design` |
 | **Systems monitoring** (uptime, anomalies, cross-platform ops) | Atlas Vega | `ops` |

@@ -436,24 +436,19 @@ active 24/7 via the scheduler service. All agents default to `gpt-5-mini-2025-08
 | **Nadia Okafor** | CFO | `cfo` | `gpt-5-mini-2025-08-07` | Daily cost monitoring, revenue tracking, margin analysis, unit economics, budget alerts |
 | **Elena Vasquez** | CPO | `cpo` | `gpt-5-mini-2025-08-07` | Usage analysis, competitive intelligence, roadmap management, feature prioritisation (RICE) |
 | **Maya Brooks** | CMO | `cmo` | `gpt-5-mini-2025-08-07` | Content generation, social media, SEO strategy, brand positioning, growth analytics |
-| **James Turner** | VP Customer Success | `vp-customer-success` | `gpt-5-mini-2025-08-07` | Health scoring, churn prevention, nurture outreach, cross-product recommendations |
 | **Rachel Kim** | VP Sales | `vp-sales` | `gpt-5-mini-2025-08-07` | KYC research, ROI calculators, enterprise proposals, pipeline management, market sizing |
 | **Mia Tanaka** | VP Design & Frontend | `vp-design` | `gpt-5-mini-2025-08-07` | Design system governance, component quality audits, template variety, AI-smell detection |
 | **Victoria Chase** | Chief Legal Officer | `clo` | `gpt-5-mini-2025-08-07` | AI regulation (EU AI Act, FTC), IP protection, commercial agreements, data privacy (GDPR, CCPA, SOC 2), corporate governance |
 
 > **Note:** Victoria Chase (CLO) reports directly to both founders, not through Sarah Chen.
 
-### VP & Research Team (7)
+### VP & Research Team (3)
 
 | Name | Title | Agent ID | Department | Reports To |
 |------|-------|----------|------------|------------|
 | **Sophia Lin** | VP Research & Intelligence | `vp-research` | Research & Intelligence | Sarah Chen (CoS) |
 | **Lena Park** | Competitive Research Analyst | `competitive-research-analyst` | Research & Intelligence | Sophia Lin |
 | **Daniel Okafor** | Market Research Analyst | `market-research-analyst` | Research & Intelligence | Sophia Lin |
-| **Kai Nakamura** | Technical Research Analyst | `technical-research-analyst` | Research & Intelligence | Sophia Lin |
-| **Amara Diallo** | Industry Research Analyst | `industry-research-analyst` | Research & Intelligence | Sophia Lin |
-| **Riya Mehta** | AI Impact Analyst | `ai-impact-analyst` | Research & Intelligence | Sophia Lin |
-| **Marcus Chen** | Organizational & Talent Analyst | `org-analyst` | Research & Intelligence | Sophia Lin |
 
 The Research & Intelligence department uses a multi-wave workflow: Sarah Chen requests research →
 Sophia decomposes into analyst briefs → analysts execute in parallel with web search → Sophia QCs
@@ -462,7 +457,7 @@ and synthesizes → executive-ready brief delivered. Supported by the `merge_res
 Research packet types (15 schemas in `packetSchemas.ts`): CompetitorProfiles, MarketData,
 TechnicalLandscape, IndustryTrends, CompanyProfile, StrategicDirection, and more.
 
-### Sub-Team Members (19)
+### Sub-Team Members (14)
 
 Sub-team members have full agent runners (`run.ts`, `systemPrompt.ts`, `tools.ts`), role briefs,
 and dashboard entries. They operate under their executive's authority scope and report to them.
@@ -475,14 +470,9 @@ and dashboard entries. They operate under their executive's authority scope and 
 | **Riley Morgan** | M365 Administrator | Engineering | Marcus Reeves (CTO) |
 | **Priya Sharma** | User Researcher | Product | Elena Vasquez (CPO) |
 | **Daniel Ortiz** | Competitive Intel | Product | Elena Vasquez (CPO) |
-| **Anna Park** | Revenue Analyst | Finance | Nadia Okafor (CFO) |
-| **Omar Hassan** | Cost Analyst | Finance | Nadia Okafor (CFO) |
 | **Tyler Reed** | Content Creator | Marketing | Maya Brooks (CMO) |
 | **Lisa Chen** | SEO Analyst | Marketing | Maya Brooks (CMO) |
 | **Kai Johnson** | Social Media Manager | Marketing | Maya Brooks (CMO) |
-| **Emma Wright** | Onboarding Specialist | Customer Success | James Turner (VP CS) |
-| **David Santos** | Support Triage | Customer Success | James Turner (VP CS) |
-| **Nathan Cole** | Account Research | Sales | Rachel Kim (VP Sales) |
 | **Leo Vargas** | UI/UX Designer | Design & Frontend | Mia Tanaka (VP Design) |
 | **Ava Chen** | Frontend Engineer | Design & Frontend | Mia Tanaka (VP Design) |
 | **Sofia Marchetti** | Design Critic | Design & Frontend | Mia Tanaka (VP Design) |
@@ -498,7 +488,7 @@ and dashboard entries. They operate under their executive's authority scope and 
 
 > **Note:** Morgan Blake has **Founder Protection** — cannot modify Kristina/Andrew/devops@glyphor.ai access.
 
-### Specialist Agents (7 — DB-defined, no file-based runners)
+### Specialist Agents (3 — DB-defined, no file-based runners)
 
 Specialist agents are defined in `CompanyAgentRole` and the database but use `runDynamicAgent.ts`
 instead of dedicated file-based runners. They have role briefs, Teams bots, profiles, and budgets,
@@ -506,11 +496,7 @@ but no `run.ts`/`systemPrompt.ts`/`tools.ts` folders under `packages/agents/src/
 
 | Name | Title | Agent ID | Department | Reports To |
 |------|-------|----------|------------|------------|
-| **Ethan Morse** | Enterprise Account Researcher | `enterprise-account-researcher` | Sales | Rachel Kim (VP Sales) |
 | **Robert "Bob" Finley** | CPA & Tax Strategist | `bob-the-tax-pro` | Legal | Victoria Chase (CLO) |
-| **Grace Hwang** | Data Integrity Auditor | `data-integrity-auditor` | Legal | Victoria Chase (CLO) |
-| **Mariana Solis** | Tax Strategy Specialist | `tax-strategy-specialist` | Legal | Victoria Chase (CLO) |
-| **Derek Owens** | Lead Gen Specialist | `lead-gen-specialist` | Operations | Sarah Chen (CoS) |
 | **Zara Petrov** | Marketing Intelligence Analyst | `marketing-intelligence-analyst` | Marketing | Maya Brooks (CMO) |
 | **Adi Rose** | Executive Assistant | `adi-rose` | Executive Office | Sarah Chen (CoS) |
 
@@ -524,17 +510,15 @@ Budget: all specialist agents use `$0.08 / $2.00 / $60` (per run / daily / month
                           \             /         Victoria Chase (CLO)
                         Sarah Chen (CoS)             │
                               |                   Bob Finley
-   ┌─────────┬──────────┬────┴────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┐
-   │         │          │         │          │          │          │          │          │          │          │
-Marcus    Elena      Nadia      Maya      James     Rachel      Mia      Sophia    Morgan    Jasmine   Adi Rose
-(CTO)     (CPO)      (CFO)      (CMO)     (VP CS)   (VP Sales)  (VP Des) (VP Res)  (Glob.Ad) (HR)     (Exec.Asst)
-  │         │          │          │          │          │          │          │
-Alex P.  Priya S.  Anna Park  Tyler R.   Emma W.  Nathan C.  Leo V.    Lena Park
-Sam D.   Daniel O.  Omar H.   Lisa C.    David S.  Ethan M.   Ava C.    Daniel Okafor
-Jordan H.                      Kai J.                          Sofia M.  Kai Nakamura
-Riley M.                       Zara P.                         Ryan P.   Amara Diallo
-                               Derek O.                                  Riya Mehta
-                                                                         Marcus Chen
+   ┌─────────┬───────┬───────┴────┬───────┬────────┬────────┬────────┐
+   │         │       │            │       │        │        │        │
+Marcus    Elena   Nadia        Maya    Rachel    Mia    Sophia   Morgan    + Jasmine (HR)
+(CTO)     (CPO)   (CFO)        (CMO)   (Sales)  (Des)  (Res)   (Glob.Ad)   Adi Rose (EA)
+  │         │                    │                │       │                  Zara P. (MI)
+Alex P.  Priya S.            Tyler R.          Leo V.  Lena Park
+Sam D.   Daniel O.           Lisa C.           Ava C.  Daniel Okafor
+Jordan H.                    Kai J.            Sofia M.
+Riley M.                     Zara P.           Ryan P.
 ```
 
 ### Cron Schedules (GCP Cloud Scheduler)
@@ -559,7 +543,6 @@ use DB-driven schedules via `agent_schedules` table rather than static crons.
 | `cpo-usage-analysis` | Elena Vasquez | `0 15 * * *` | 10:00 AM | Usage & competitive analysis |
 | `cmo-content-calendar` | Maya Brooks | `0 14 * * *` | 9:00 AM | Content planning |
 | `cmo-afternoon-publishing` | Maya Brooks | `0 19 * * *` | 2:00 PM | Afternoon publishing/scheduling |
-| `vpcs-health-scoring` | James Turner | `0 13 * * *` | 8:00 AM | Customer health scoring |
 | `vps-pipeline-review` | Rachel Kim | `0 14 * * *` | 9:00 AM | Enterprise pipeline review |
 
 **Operations Jobs — Atlas Vega (5)**
@@ -572,7 +555,7 @@ use DB-driven schedules via `agent_schedules` table rather than static crons.
 | `ops-morning-status` | Atlas Vega | `0 11 * * *` | 6:00 AM | Morning status report |
 | `ops-evening-status` | Atlas Vega | `0 22 * * *` | 5:00 PM | Evening status report |
 
-**Sub-Team Jobs (16)**
+**Sub-Team Jobs (10)**
 
 | Job ID | Agent | Cron (UTC) | Local (CT) | Task |
 |--------|-------|-----------|------------|------|
@@ -581,15 +564,10 @@ use DB-driven schedules via `agent_schedules` table rather than static crons.
 | `devops-eng-daily` | Jordan Hayes (DevOps) | `0 12 * * *` | 6:00 AM | Deployment health, CI/CD |
 | `user-researcher-daily` | Priya Sharma (User Research) | `30 16 * * *` | 10:30 AM | Usage patterns, cohort analysis |
 | `competitive-intel-daily` | Daniel Ortiz (Competitive Intel) | `0 14 * * *` | 8:00 AM | Competitor monitoring |
-| `revenue-analyst-daily` | Anna Park (Revenue) | `30 15 * * *` | 9:30 AM | Revenue breakdown |
-| `cost-analyst-daily` | Omar Hassan (Cost) | `30 15 * * *` | 9:30 AM | Cost breakdown |
 | `content-creator-daily` | Tyler Reed (Content) | `0 16 * * *` | 10:00 AM | Content drafting |
 | `seo-analyst-daily` | Lisa Chen (SEO) | `30 14 * * *` | 8:30 AM | SEO performance |
 | `social-media-morning` | Kai Johnson (Social) | `0 15 * * *` | 9:00 AM | Morning plan & scheduling |
 | `social-media-afternoon` | Kai Johnson (Social) | `0 22 * * *` | 4:00 PM | Afternoon engagement |
-| `onboarding-daily` | Emma Wright (Onboarding) | `30 14 * * *` | 8:30 AM | New user check |
-| `support-triage-recurring` | David Santos (Support) | `0 */2 * * *` | Every 2 hours | Triage queue |
-| `account-research-daily` | Nathan Cole (Account Research) | `30 15 * * *` | 9:30 AM | Account intelligence |
 | `m365-admin-weekly-audit` | Riley Morgan (M365) | `0 12 * * 1` | Mon 7:00 AM | Weekly channel audit |
 | `m365-admin-user-audit` | Riley Morgan (M365) | `0 13 * * 1` | Mon 8:00 AM | User access audit |
 
@@ -718,24 +696,19 @@ glyphor-ai-company/
 │   │       ├── schema.ts             # Database row types
 │   │       └── migrations/           # Schema migration helpers
 │   │
-│   ├── agents/                  # Agent implementations (9 execs + 7 research + 18 sub-team + 2 ops + 1 HR)
+│   ├── agents/                  # Agent implementations (29 directories)
 │   │   └── src/
 │   │       ├── chief-of-staff/        # Sarah Chen — run.ts, systemPrompt.ts, tools.ts
 │   │       ├── cto/                   # Marcus Reeves
 │   │       ├── cfo/                   # Nadia Okafor
 │   │       ├── cpo/                   # Elena Vasquez
 │   │       ├── cmo/                   # Maya Brooks
-│   │       ├── vp-customer-success/   # James Turner
 │   │       ├── vp-sales/              # Rachel Kim
 │   │       ├── vp-design/             # Mia Tanaka
 │   │       ├── clo/                   # Victoria Chase (Chief Legal Officer)
 │   │       ├── vp-research/           # Sophia Lin (VP Research & Intelligence)
 │   │       ├── competitive-research-analyst/ # Lena Park (→ Sophia)
 │   │       ├── market-research-analyst/     # Daniel Okafor (→ Sophia)
-│   │       ├── technical-research-analyst/  # Kai Nakamura (→ Sophia)
-│   │       ├── industry-research-analyst/   # Amara Diallo (→ Sophia)
-│   │       ├── ai-impact-analyst/          # Riya Mehta (→ Sophia) — AI transformation assessment
-│   │       ├── org-analyst/                # Marcus Chen (→ Sophia) — Organizational & talent analysis
 │   │       ├── global-admin/          # Morgan Blake (Global Administrator)
 │   │       ├── platform-engineer/     # Alex Park (CTO team)
 │   │       ├── quality-engineer/      # Sam DeLuca (CTO team)
@@ -743,15 +716,15 @@ glyphor-ai-company/
 │   │       ├── m365-admin/            # Riley Morgan (CTO team) — M365 user/channel/calendar mgmt
 │   │       ├── user-researcher/       # Priya Sharma (CPO team)
 │   │       ├── competitive-intel/     # Daniel Ortiz (CPO team)
-│   │       ├── revenue-analyst/       # Anna Park (CFO team)
-│   │       ├── cost-analyst/          # Omar Hassan (CFO team)
 │   │       ├── content-creator/       # Tyler Reed (CMO team)
 │   │       ├── seo-analyst/           # Lisa Chen (CMO team)
 │   │       ├── social-media-manager/  # Kai Johnson (CMO team)
-│   │       ├── onboarding-specialist/ # Emma Wright (VP CS team)
-│   │       ├── support-triage/        # David Santos (VP CS team)
-│   │       ├── account-research/      # Nathan Cole (VP Sales team)
-│   │       ├── head-of-hr/            # Head of HR (People & Culture)
+│   │       ├── ui-ux-designer/        # Leo Vargas (VP Design team)
+│   │       ├── frontend-engineer/     # Ava Chen (VP Design team)
+│   │       ├── design-critic/         # Sofia Marchetti (VP Design team)
+│   │       ├── template-architect/    # Ryan Park (VP Design team)
+│   │       ├── ops/                   # Atlas Vega (Operations)
+│   │       ├── head-of-hr/            # Jasmine Rivera (People & Culture)
 │   │       ├── shared/                # Shared tools:
 │   │       │   ├── memoryTools.ts        # save/recall agent memories
 │   │       │   ├── eventTools.ts         # emit Glyphor events
@@ -803,42 +776,37 @@ glyphor-ai-company/
 │   │   │   ├── operations.md          # Operations department context
 │   │   │   ├── product.md             # Product department context
 │   │   │   └── sales-cs.md            # Sales & CS department context
-│   │   └── briefs/                    # 42 role briefs (9 execs + 7 research + 19 sub-team + 2 ops + 5 specialists)
+│   │   └── briefs/                    # 30 role briefs (8 execs + CLO + 3 research + 13 sub-team + 2 ops + 3 specialists)
 │   │       ├── sarah-chen.md          # Chief of Staff
 │   │       ├── marcus-reeves.md       # CTO
 │   │       ├── nadia-okafor.md        # CFO
 │   │       ├── elena-vasquez.md       # CPO
 │   │       ├── maya-brooks.md         # CMO
-│   │       ├── james-turner.md        # VP Customer Success
 │   │       ├── rachel-kim.md          # VP Sales
 │   │       ├── mia-tanaka.md          # VP Design & Frontend
 │   │       ├── victoria-chase.md      # Chief Legal Officer
 │   │       ├── sophia-lin.md          # VP Research & Intelligence
 │   │       ├── atlas-vega.md          # Operations & System Intelligence
 │   │       ├── morgan-blake.md        # Global Administrator
+│   │       ├── riley-morgan.md        # M365 Admin (→ CTO)
 │   │       ├── alex-park.md           # Platform Engineer (→ CTO)
 │   │       ├── sam-deluca.md          # Quality Engineer (→ CTO)
 │   │       ├── jordan-hayes.md        # DevOps Engineer (→ CTO)
 │   │       ├── priya-sharma.md        # User Researcher (→ CPO)
 │   │       ├── daniel-ortiz.md        # Competitive Intel (→ CPO)
-│   │       ├── anna-park.md           # Revenue Analyst (→ CFO)
-│   │       ├── omar-hassan.md         # Cost Analyst (→ CFO)
 │   │       ├── tyler-reed.md          # Content Creator (→ CMO)
 │   │       ├── lisa-chen.md           # SEO Analyst (→ CMO)
 │   │       ├── kai-johnson.md         # Social Media Manager (→ CMO)
-│   │       ├── emma-wright.md         # Onboarding Specialist (→ VP CS)
-│   │       ├── david-santos.md        # Support Triage (→ VP CS)
-│   │       ├── nathan-cole.md         # Account Research (→ VP Sales)
 │   │       ├── leo-vargas.md          # UI/UX Designer (→ VP Design)
 │   │       ├── ava-chen.md            # Frontend Engineer (→ VP Design)
 │   │       ├── sofia-marchetti.md     # Design Critic (→ VP Design)
 │   │       ├── ryan-park.md           # Template Architect (→ VP Design)
 │   │       ├── lena-park.md           # Competitive Research Analyst (→ VP Research)
 │   │       ├── daniel-okafor.md       # Market Research Analyst (→ VP Research)
-│   │       ├── kai-nakamura.md        # Technical Research Analyst (→ VP Research)
-│   │       ├── amara-diallo.md        # Industry Research Analyst (→ VP Research)
-│   │       ├── riya-mehta.md          # AI Impact Analyst (→ VP Research)
-│   │       └── marcus-chen.md         # Org & Talent Analyst (→ VP Research)
+│   │       ├── jasmine-rivera.md      # Head of HR (→ CoS)
+│   │       ├── robert-finley.md       # Bob the Tax Pro (→ CLO)
+│   │       ├── zara-petrov.md         # Marketing Intelligence Analyst (→ CMO)
+│   │       └── adi-rose.md            # Executive Assistant (→ CoS)
 │   │
 │   ├── integrations/            # External service connectors
 │   │   └── src/
@@ -1104,26 +1072,7 @@ glyphor-ai-company/
 │
 ├── teams/                       # Microsoft Teams app packages
 │   ├── manifest.json            # Main Glyphor AI team tab + bot (v1.2.0, manifest v1.17)
-│   └── agents/                  # 42 individual agent bot manifests + zip packages
-│       ├── sarah-chen/          # Chief of Staff bot
-│       ├── atlas-vega/          # Operations bot
-│       ├── marcus-reeves/       # CTO bot
-│       ├── elena-vasquez/       # CPO bot
-│       ├── nadia-okafor/        # CFO bot
-│       ├── maya-brooks/         # CMO bot
-│       ├── james-turner/        # VP CS bot
-│       ├── rachel-kim/          # VP Sales bot
-│       ├── riley-morgan/        # M365 Admin bot
-│       ├── morgan-blake/        # Global Admin bot
-│       ├── jasmine-rivera/      # Head of HR bot
-│       ├── ethan-morse/         # Enterprise Account Researcher bot
-│       ├── bob-finley/          # Tax Strategist bot
-│       ├── grace-hwang/         # Data Integrity Auditor bot
-│       ├── mariana-solis/       # Tax Strategy Specialist bot
-│       ├── derek-owens/         # Lead Gen Specialist bot
-│       ├── zara-petrov/         # Marketing Intelligence bot
-│       ├── adi-rose/            # Executive Assistant bot
-│       └── ... (24 more)        # All other agents
+│   └── README.md
 │
 ├── db/migrations/               # 133 SQL migration files
 ├── .github/workflows/deploy.yml # CI/CD (GitHub Actions → Cloud Run)
@@ -1884,29 +1833,21 @@ Name mapping (`ROLE_TO_BRIEF`):
 | `cfo` | `nadia-okafor.md` |
 | `cpo` | `elena-vasquez.md` |
 | `cmo` | `maya-brooks.md` |
-| `vp-customer-success` | `james-turner.md` |
 | `vp-sales` | `rachel-kim.md` |
 | `vp-design` | `mia-tanaka.md` |
 | `clo` | `victoria-chase.md` |
 | `vp-research` | `sophia-lin.md` |
 | `competitive-research-analyst` | `lena-park.md` |
 | `market-research-analyst` | `daniel-okafor.md` |
-| `technical-research-analyst` | `kai-nakamura.md` |
-| `industry-research-analyst` | `amara-diallo.md` |
 | `global-admin` | `morgan-blake.md` |
 | `platform-engineer` | `alex-park.md` |
 | `quality-engineer` | `sam-deluca.md` |
 | `devops-engineer` | `jordan-hayes.md` |
 | `user-researcher` | `priya-sharma.md` |
 | `competitive-intel` | `daniel-ortiz.md` |
-| `revenue-analyst` | `anna-park.md` |
-| `cost-analyst` | `omar-hassan.md` |
 | `content-creator` | `tyler-reed.md` |
 | `seo-analyst` | `lisa-chen.md` |
 | `social-media-manager` | `kai-johnson.md` |
-| `onboarding-specialist` | `emma-wright.md` |
-| `support-triage` | `david-santos.md` |
-| `account-research` | `nathan-cole.md` |
 | `m365-admin` | `riley-morgan.md` |
 | `ui-ux-designer` | `leo-vargas.md` |
 | `frontend-engineer` | `ava-chen.md` |
@@ -1914,15 +1855,9 @@ Name mapping (`ROLE_TO_BRIEF`):
 | `template-architect` | `ryan-park.md` |
 | `ops` | `atlas-vega.md` |
 | `head-of-hr` | `jasmine-rivera.md` |
-| `enterprise-account-researcher` | `ethan-morse.md` |
 | `bob-the-tax-pro` | `robert-finley.md` |
-| `data-integrity-auditor` | `grace-hwang.md` |
-| `tax-strategy-specialist` | `mariana-solis.md` |
-| `lead-gen-specialist` | `derek-owens.md` |
 | `marketing-intelligence-analyst` | `zara-petrov.md` |
 | `adi-rose` | `adi-rose.md` |
-| `ai-impact-analyst` | `riya-mehta.md` |
-| `org-analyst` | `marcus-chen.md` |
 
 ### ModelClient — Multi-Provider LLM
 
@@ -3808,17 +3743,15 @@ Requires `SCHEDULER_URL`, `DASHBOARD_URL`, `VOICE_GATEWAY_URL` env vars.
 |------------|-----------|-------------|
 | Engineering | Marcus Reeves (CTO) | Alex Park, Sam DeLuca, Jordan Hayes, Riley Morgan |
 | Product | Elena Vasquez (CPO) | Priya Sharma, Daniel Ortiz |
-| Finance | Nadia Okafor (CFO) | Anna Park, Omar Hassan |
-| Marketing | Maya Brooks (CMO) | Tyler Reed, Lisa Chen, Kai Johnson |
-| Customer Success | James Turner (VP CS) | Emma Wright, David Santos |
-| Sales | Rachel Kim (VP Sales) | Nathan Cole, Ethan Morse |
+| Finance | Nadia Okafor (CFO) | — |
+| Marketing | Maya Brooks (CMO) | Tyler Reed, Lisa Chen, Kai Johnson, Zara Petrov |
+| Sales | Rachel Kim (VP Sales) | — |
 | Design & Frontend | Mia Tanaka (VP Design) | Leo Vargas, Ava Chen, Sofia Marchetti, Ryan Park |
-| Research & Intelligence | Sophia Lin (VP Research) | Lena Park, Daniel Okafor, Kai Nakamura, Amara Diallo, Riya Mehta, Marcus Chen |
-| Legal | Victoria Chase (CLO) | Robert Finley, Grace Hwang, Mariana Solis |
+| Research & Intelligence | Sophia Lin (VP Research) | Lena Park, Daniel Okafor |
+| Legal | Victoria Chase (CLO) | Robert Finley |
 | People & Culture | Jasmine Rivera (Head of HR) | — |
 | Operations | — | Atlas Vega, Morgan Blake |
-| Executive Support | Sarah Chen (CoS) | Derek Owens, Adi Rose |
-| Marketing Intelligence | Maya Brooks (CMO) | Zara Petrov |
+| Executive Support | Sarah Chen (CoS) | Adi Rose |
 
 ### Build Args (baked at Docker build)
 
