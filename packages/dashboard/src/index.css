@@ -109,7 +109,11 @@ body {
 }
 
 .mesh-gradient {
-  background: #0f0f14 url('/abstract-gradient-neon-lights.jpg') center center / cover no-repeat fixed;
+  background-color: #0f0f14;
+  background-image: url('/abstract-gradient-neon-lights.jpg');
+  background-position: center top;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
 }
 
 .dashboard-sidebar {
