@@ -10,6 +10,7 @@
 import type { ToolDefinition, ToolResult, CompanyAgentRole } from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
+import { normalizeAssigneeRole } from './assigneeRouting.js';
 
 /* ── Rate Limits ──────────────────────────── */
 
@@ -108,7 +109,8 @@ export function createCommunicationTools(
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        const toAgent = params.to_agent as string;
+        const requestedAgent = params.to_agent as string;
+        const toAgent = normalizeAssigneeRole(requestedAgent);
         const fromAgent = ctx.agentRole;
 
         if (toAgent === fromAgent) {
@@ -116,7 +118,7 @@ export function createCommunicationTools(
         }
         const validRoles = await getValidRoles();
         if (validRoles.size > 0 && !validRoles.has(toAgent)) {
-          return { success: false, error: `Unknown agent: ${toAgent}. Agent not found or not active.` };
+          return { success: false, error: `Unknown agent: ${requestedAgent}. Agent not found or not active.` };
         }
         if (!checkMessageRate(fromAgent)) {
           return { success: false, error: `Rate limit exceeded (${MESSAGE_RATE_LIMIT}/hr)` };
@@ -189,14 +191,15 @@ export function createCommunicationTools(
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        const toAgent = params.to_agent as string;
+        const requestedAgent = params.to_agent as string;
+        const toAgent = normalizeAssigneeRole(requestedAgent);
         if (toAgent === ctx.agentRole) {
           return { success: false, error: 'Cannot create a peer work request for yourself' };
         }
 
         const validRoles = await getValidRoles();
         if (validRoles.size > 0 && !validRoles.has(toAgent)) {
-          return { success: false, error: `Unknown agent: ${toAgent}. Agent not found or not active.` };
+          return { success: false, error: `Unknown agent: ${requestedAgent}. Agent not found or not active.` };
         }
 
         const priority = (params.priority as string) ?? 'normal';

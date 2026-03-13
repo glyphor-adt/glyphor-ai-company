@@ -12,6 +12,7 @@
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
+import { normalizeAssigneeRole } from './assigneeRouting.js';
 
 export function createPeerCoordinationTools(
   glyphorEventBus: GlyphorEventBus,
@@ -53,17 +54,18 @@ export function createPeerCoordinationTools(
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        const peerRole = params.peer_role as string;
+        const requestedPeerRole = params.peer_role as string;
+        const peerRole = normalizeAssigneeRole(requestedPeerRole);
         const priority = (params.priority as string) || 'normal';
 
         try {
           // Validate: peer must be an executive (reports_to chief-of-staff)
           const [peer] = await systemQuery<{ role: string }>(
-            "SELECT role FROM company_agents WHERE role = $1 AND reports_to = 'chief-of-staff'",
+            "SELECT role FROM company_agents WHERE role = $1 AND reports_to = 'chief-of-staff' AND status = 'active'",
             [peerRole],
           );
           if (!peer) {
-            return { success: false, error: `${peerRole} is not a peer executive` };
+            return { success: false, error: `${requestedPeerRole} is not an active peer executive` };
           }
           if (peerRole === ctx.agentRole) {
             return { success: false, error: 'Cannot request work from yourself' };

@@ -27,6 +27,7 @@ import {
   parseInitiativeProposalPayload,
   type InitiativeDirectiveDraft,
 } from '../shared/initiativeTools.js';
+import { normalizeAssigneeRole, resolveActiveAssigneeBatch } from '../shared/assigneeRouting.js';
 
 const INITIATIVE_OWNER_CATEGORY: Record<string, string> = {
   cto: 'engineering',
@@ -1621,6 +1622,11 @@ export function createOrchestrationTools(
       execute: async (params, _ctx): Promise<ToolResult> => {
         const assignments = params.assignments as any[];
         const directiveId = params.directive_id as string;
+
+        if (!Array.isArray(assignments) || assignments.length === 0) {
+          return { success: false, error: 'At least one assignment is required.' };
+        }
+
         const directiveContext = await loadDirectiveInitiativeContext(directiveId);
 
         if (!directiveContext) {
@@ -1643,8 +1649,28 @@ export function createOrchestrationTools(
             )
           : null;
 
+        const normalizedAssignees = assignments.map((assignment: any) =>
+          normalizeAssigneeRole(typeof assignment?.assigned_to === 'string' ? assignment.assigned_to : ''),
+        );
+        const assigneeResolution = await resolveActiveAssigneeBatch(normalizedAssignees);
+        if (assigneeResolution.errors.length > 0) {
+          return {
+            success: false,
+            error: `Assignment validation failed: ${assigneeResolution.errors.join(' | ')}`,
+          };
+        }
+
+        const canonicalAssignments = assignments.map((assignment: any, index: number) => {
+          const normalized = normalizedAssignees[index];
+          const canonical = assigneeResolution.canonicalByNormalized.get(normalized) ?? normalized;
+          return {
+            ...assignment,
+            assigned_to: canonical,
+          };
+        });
+
         // Insert as 'draft' initially; plan verification promotes to 'pending'
-        const rows = assignments.map((a: any, i: number) => ({
+        const rows = canonicalAssignments.map((a: any, i: number) => ({
           directive_id: directiveId,
           assigned_to: a.assigned_to,
           assigned_by: 'chief-of-staff',
@@ -1703,7 +1729,7 @@ export function createOrchestrationTools(
                 priority: directive.priority ?? 'normal',
                 target_agents: directive.target_agents,
               },
-              proposed_assignments: assignments.map((a: any, i: number) => ({
+              proposed_assignments: canonicalAssignments.map((a: any, i: number) => ({
                 assigned_to: a.assigned_to,
                 task_description: a.task_description,
                 expected_output: a.expected_output || '',

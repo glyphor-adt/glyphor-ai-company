@@ -14,6 +14,7 @@ import { AGENT_EMAIL_MAP, type CompanyAgentRole, type ToolDefinition, type ToolR
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import { A365TeamsChatClient } from '@glyphor/integrations';
 import { systemQuery } from '@glyphor/shared/db';
+import { resolveActiveAssigneeRole } from './assigneeRouting.js';
 
 const EXECUTIVE_ROLES = new Set<string>([
   'chief-of-staff',
@@ -32,7 +33,7 @@ const FOUNDER_EMAILS = ['kristina@glyphor.ai', 'andrew@glyphor.ai'];
 /** Resolve direct reports dynamically from the database */
 async function getDirectReports(executiveRole: string): Promise<string[]> {
   const rows = await systemQuery<{ role: string }>(
-    'SELECT role FROM company_agents WHERE reports_to = $1 ORDER BY role',
+    "SELECT role FROM company_agents WHERE reports_to = $1 AND status = 'active' ORDER BY role",
     [executiveRole],
   );
   return (rows ?? []).map(r => r.role);
@@ -77,11 +78,16 @@ export function createTeamOrchestrationTools(
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        const agentRole = params.agent_role as string;
         const priority = (params.priority as string) || 'normal';
         const parentId = params.parent_assignment_id as string | undefined;
 
         try {
+          const resolvedAgent = await resolveActiveAssigneeRole(params.agent_role as string);
+          if (!resolvedAgent.ok) {
+            return { success: false, error: resolvedAgent.error };
+          }
+          const agentRole = resolvedAgent.role;
+
           // Validate: agent must be a direct report
           const directReports = await getDirectReports(ctx.agentRole);
           if (!directReports.includes(agentRole)) {
@@ -209,7 +215,6 @@ export function createTeamOrchestrationTools(
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        const assignee = params.agent_role as string;
         const priority = (params.priority as string).toLowerCase();
         const directiveId = params.directive_id as string | undefined;
         const dueDate = params.due_date as string | undefined;
@@ -226,6 +231,12 @@ export function createTeamOrchestrationTools(
         }
 
         try {
+          const resolvedAssignee = await resolveActiveAssigneeRole(params.agent_role as string);
+          if (!resolvedAssignee.ok) {
+            return { success: false, error: resolvedAssignee.error };
+          }
+          const assignee = resolvedAssignee.role;
+
           const directReports = await getDirectReports(ctx.agentRole);
           if (!directReports.includes(assignee)) {
             return {
@@ -426,10 +437,16 @@ export function createTeamOrchestrationTools(
               priority: 'normal',
             });
           } else if (action === 'reassign') {
-            const reassignTo = params.reassign_to as string;
-            if (!reassignTo) {
+            const requestedReassignTo = params.reassign_to as string;
+            if (!requestedReassignTo) {
               return { success: false, error: 'reassign_to is required for reassign action' };
             }
+
+            const resolvedReassign = await resolveActiveAssigneeRole(requestedReassignTo);
+            if (!resolvedReassign.ok) {
+              return { success: false, error: resolvedReassign.error };
+            }
+            const reassignTo = resolvedReassign.role;
 
             const directReports = await getDirectReports(ctx.agentRole);
             if (!directReports.includes(reassignTo)) {

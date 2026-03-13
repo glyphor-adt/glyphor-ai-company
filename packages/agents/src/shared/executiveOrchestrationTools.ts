@@ -19,6 +19,7 @@ import type { ToolDefinition, ToolResult, CompanyAgentRole } from '@glyphor/agen
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import { markOutcomeAccepted, markOutcomeRevised } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
+import { normalizeAssigneeRole, resolveActiveAssigneeBatch } from './assigneeRouting.js';
 
 /* ── Config Interface ────────────────────── */
 
@@ -166,10 +167,18 @@ export function createExecutiveOrchestrationTools(
           };
         }
 
+        const normalizedAllowedAssignees = new Set(
+          orchestrationConfig.allowed_assignees.map((role) => normalizeAssigneeRole(role)),
+        );
+        const normalizedAssignments = assignments.map((assignment) => ({
+          ...assignment,
+          assigned_to: normalizeAssigneeRole(assignment.assigned_to),
+        }));
+
         // Validate all assignees are allowed
-        const disallowed = assignments
+        const disallowed = normalizedAssignments
           .map(a => a.assigned_to)
-          .filter(role => !orchestrationConfig.allowed_assignees.includes(role));
+          .filter(role => !normalizedAllowedAssignees.has(role));
         if (disallowed.length > 0) {
           return {
             success: false,
@@ -177,6 +186,21 @@ export function createExecutiveOrchestrationTools(
               `Allowed assignees: ${orchestrationConfig.allowed_assignees.join(', ')}`,
           };
         }
+
+        const assigneeResolution = await resolveActiveAssigneeBatch(
+          normalizedAssignments.map((assignment) => assignment.assigned_to),
+        );
+        if (assigneeResolution.errors.length > 0) {
+          return {
+            success: false,
+            error: `Assignment validation failed: ${assigneeResolution.errors.join(' | ')}`,
+          };
+        }
+
+        const canonicalAssignments = normalizedAssignments.map((assignment) => ({
+          ...assignment,
+          assigned_to: assigneeResolution.canonicalByNormalized.get(assignment.assigned_to) ?? assignment.assigned_to,
+        }));
 
         try {
           // Verify directive is delegated to this executive
@@ -196,7 +220,7 @@ export function createExecutiveOrchestrationTools(
           }
 
           // Insert assignments as 'draft'; plan verification promotes to 'pending'
-          const rows = assignments.map((a, i) => ({
+          const rows = canonicalAssignments.map((a, i) => ({
             directive_id: directiveId,
             assigned_to: a.assigned_to,
             assigned_by: agentRole,
@@ -254,7 +278,7 @@ export function createExecutiveOrchestrationTools(
                     description: (directive.description as string) ?? '',
                     priority: (directive.priority as string) ?? 'normal',
                   },
-                  proposed_assignments: assignments.map((a, i) => ({
+                  proposed_assignments: canonicalAssignments.map((a, i) => ({
                     assigned_to: a.assigned_to,
                     task_description: a.task_description,
                     expected_output: a.expected_output || '',
@@ -323,7 +347,7 @@ export function createExecutiveOrchestrationTools(
                 source: agentRole,
                 payload: {
                   assignment_id: id,
-                  assigned_to: assignments[i].assigned_to,
+                  assigned_to: canonicalAssignments[i].assigned_to,
                   assigned_by: agentRole,
                   directive_id: directiveId,
                 },
