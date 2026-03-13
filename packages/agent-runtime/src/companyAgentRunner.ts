@@ -230,17 +230,25 @@ const ROLE_DEPARTMENT: Record<string, string> = {
   'chief-of-staff': 'operations',
   'ops': 'operations',
   'cto': 'engineering',
+  'cpo': 'product',
   'platform-engineer': 'engineering',
   'quality-engineer': 'engineering',
   'devops-engineer': 'engineering',
+  'm365-admin': 'engineering',
   'cfo': 'finance',
   'clo': 'legal',
+  'bob-the-tax-pro': 'legal',
   'cmo': 'marketing',
   'content-creator': 'marketing',
   'seo-analyst': 'marketing',
   'social-media-manager': 'marketing',
   'vp-sales': 'sales',
   'vp-design': 'design',
+  'vp-research': 'research',
+  'competitive-research-analyst': 'research',
+  'market-research-analyst': 'research',
+  'user-researcher': 'product',
+  'competitive-intel': 'product',
   'ui-ux-designer': 'design',
   'frontend-engineer': 'design',
   'design-critic': 'design',
@@ -256,17 +264,25 @@ const ROLE_CONTEXT_FILES: Record<string, string[]> = {
   'chief-of-staff': ['operations.md'],
   'ops': ['operations.md'],
   'cto': ['engineering.md'],
+  'cpo': ['product.md'],
   'platform-engineer': ['engineering.md'],
   'quality-engineer': ['engineering.md'],
   'devops-engineer': ['engineering.md'],
+  'm365-admin': ['engineering.md'],
   'cfo': ['finance.md'],
-  'clo': ['operations.md', 'product.md'],
+  'clo': ['legal.md'],
+  'bob-the-tax-pro': ['legal.md'],
   'cmo': ['marketing.md'],
   'content-creator': ['marketing.md'],
   'seo-analyst': ['marketing.md'],
   'social-media-manager': ['marketing.md'],
   'vp-sales': ['sales-cs.md'],
   'vp-design': ['design.md'],
+  'vp-research': ['research.md'],
+  'competitive-research-analyst': ['research.md'],
+  'market-research-analyst': ['research.md'],
+  'user-researcher': ['product.md'],
+  'competitive-intel': ['product.md'],
   'ui-ux-designer': ['design.md'],
   'frontend-engineer': ['design.md', 'engineering.md'],
   'design-critic': ['design.md'],
@@ -632,9 +648,9 @@ You are responsible for knowing what you need BEFORE you start working.
 - Cost, budget, financial analysis → CFO Nadia Okafor (\`cfo\`)
 - Product roadmap, features, prioritization → CPO Elena Vasquez (\`cpo\`)
 - Marketing, content, SEO, brand → CMO Maya Brooks (\`cmo\`)
-- Customer health, churn, support → VP CS James Turner (\`vp-customer-success\`)
 - Sales, pipeline, enterprise accounts → VP Sales Rachel Kim (\`vp-sales\`)
 - Design, UI/UX, templates → VP Design Mia Tanaka (\`vp-design\`)
+- Research, market analysis, competitive landscape → VP Research Sophia Lin (\`vp-research\`)
 - Legal, compliance, contracts → CLO Victoria Chase (\`clo\`)
 - Cross-department routing, briefings, directives → CoS Sarah Chen (\`chief-of-staff\`)
 - System monitoring, uptime, anomalies → Ops Atlas Vega (\`ops\`)
@@ -672,11 +688,11 @@ If the answer to ALL of these is "no", then stand by — don't generate busywork
 
 const COLLABORATION_PROTOCOL = `## Collaboration Protocol
 
-You are part of a 46-person organization. You are NOT a solo operator.
+You are part of a 32-person organization. You are NOT a solo operator.
 
 **WHEN TO MESSAGE A COLLEAGUE (send_agent_message):**
 - You discover something in their domain (e.g., you find a billing anomaly → message CFO)
-- You need data you can't access (e.g., you need customer churn reasons → message VP CS)
+- You need data you can't access (e.g., you need current customer or pipeline context → message VP Sales)
 - You've completed work that affects their area (e.g., you deployed a fix → message CPO)
 - You disagree with a decision that involves them
 
@@ -697,8 +713,7 @@ You are part of a 46-person organization. You are NOT a solo operator.
   Nadia Okafor (CFO) — costs, revenue, margins, vendor subscriptions, budget
   Elena Vasquez (CPO) — product usage, roadmap, competitive intel, feature prioritization
   Maya Brooks (CMO) — content, SEO, social media, brand, growth analytics
-  James Turner (VP CS) — customer health, churn, onboarding, support queue
-  Rachel Kim (VP Sales) — enterprise pipeline, KYC research, proposals
+  Rachel Kim (VP Sales) — sales pipeline, current customers, demos, pricing conversations
   Mia Tanaka (VP Design) — design system, UI quality, component library, frontend
   Sophia Lin (VP Research) — strategic research, market analysis, industry trends
   Victoria Chase (CLO) — legal compliance, IP protection, contracts, data privacy
@@ -710,8 +725,8 @@ DO NOT: duplicate analysis another agent already produced — ask them for it.`;
 
 /** Roles that report directly to chief-of-staff and manage their own teams */
 const EXECUTIVE_ROLES = new Set([
-  'cto', 'cpo', 'cmo', 'cfo',
-  'vp-sales', 'vp-design', 'vp-customer-success', 'vp-research',
+  'cto', 'cpo', 'cmo', 'cfo', 'clo',
+  'vp-sales', 'vp-design', 'vp-research',
 ]);
 
 const EXECUTIVE_ORCHESTRATION_PROTOCOL = `## Executive Orchestration Protocol

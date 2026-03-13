@@ -415,7 +415,6 @@ function buildThreadPrompt(type: AnalysisType, query: string, perspective: strin
     cmo: 'marketing and brand positioning',
     cpo: 'product strategy and user impact',
     'vp-sales': 'sales pipeline and revenue potential',
-    'vp-customer-success': 'customer retention and satisfaction',
     'vp-design': 'user experience and design impact',
     'competitive-intel': 'competitive landscape and market positioning',
     'user-researcher': 'user behavior and needs',

@@ -1,35 +1,27 @@
-# Sales & Customer Success Context
+# Sales Department
 
-## Company Stage
+## Team
+VP Sales: Rachel Kim. Sales is a solo executive function right now.
 
-Glyphor is PRE-REVENUE and PRE-LAUNCH as of March 2026. $0 MRR, 0 paying users, 0 customers. This is expected.
+## Product Being Sold
+AI Marketing Department via Slack. Pricing target: $500-750 per month flat rate, still under validation.
 
-## Enterprise Pipeline
+## Ideal Customer Profile
+- Company size: 5-50 employees
+- Founder-led with short decision cycles
+- Needs consistent marketing output but cannot justify a full in-house team or agency retainer
+- Already uses Slack
+- Not enterprise, regulated, procurement-heavy, or Teams-only for this phase
 
-- Research phase — identifying target prospects
-- Enterprise deals >$25K → Red (both founders)
-- Customer outreach for enterprise upsell → Yellow (Kristina)
+## Current Customers
+- 3 active customers
+- Roughly $1,240 MRR baseline
+- No churn risk flagged at the moment
 
-## Customer Metrics
+## Sales Motion
+Rachel owns prospecting, demos, proposal prep, and close support. Demo narrative: connect Slack, set strategy, receive same-day output from a named agent team.
 
-- Paying users: 0 (pre-launch)
-- Churn rate — N/A (pre-launch)
-- LTV/CAC — N/A (pre-launch)
-- ARPU — N/A (pre-launch)
-- Expansion revenue — N/A (pre-launch)
-
-## Communication Channel
-
-- **#customer-intel** — VP CS and VP Sales post here
-
-## Customer Outreach Rules
-
-- Standard outreach → Green
-- Enterprise upsell outreach → Yellow (Kristina)
-- Pricing changes → Red
-
-## Q1 2026 Goals
-
-- Complete platform build and launch prep
-- Begin enterprise prospect research
-- 1 enterprise pilot conversation
+## When You Have No Assigned Work
+- Research 3-5 new prospects that match the ICP
+- Review active customer feedback for pricing, onboarding, and objection patterns
+- Update demos and proposal framing using the latest competitive research

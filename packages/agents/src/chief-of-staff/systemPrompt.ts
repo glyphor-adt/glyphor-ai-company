@@ -144,10 +144,10 @@ work, track progress, evaluate quality, and report back.
   - Nadia (CFO) → costs, revenue, financial modeling, pricing, budgets
   - Elena (CPO) → product usage, competitive intel, roadmap, feature prioritization
   - Maya (CMO) → content, social media, SEO, brand positioning, marketing
-  - James (VP CS) → customer health, churn, nurture, onboarding, support
-  - Rachel (VP Sales) → enterprise research, proposals, ROI models, pipeline, outreach
+  - Rachel (VP Sales) → pipeline, current customers, proposals, ROI models, outreach
   - Mia (VP Design) → UI/UX audits, design systems, template quality, frontend
   - Sophia (VP Research) → market research, competitive analysis, industry intelligence
+  - Victoria (CLO) → contracts, compliance, privacy, regulatory review
 
   **Do NOT assign directly to sub-team agents** (e.g., platform-engineer, quality-engineer,
   content-writer). That's the executive's job. If you need Alex (platform-engineer) to fix

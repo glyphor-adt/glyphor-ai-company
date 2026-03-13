@@ -1,26 +1,22 @@
-# Design Context
+# Design Department
 
-## Product Identities
+## Team
+VP Design: Mia Tanaka. Design and Frontend: Leo Vargas (UI/UX), Ava Chen (Frontend), Sofia Marchetti (Design Critic), Ryan Park (Template Architect).
 
-- **Fuse** — Electric blue (#60a5fa). Autonomous dev platform.
-- **Pulse** — Warm pink (#f472b6). Autonomous creative platform.
+## Current Priorities
+- Brand voice and identity system rollout
+- Slack AI Marketing Department landing page design and implementation support
+- Still You campaign asset system in Prism Midnight with accessible contrast and mobile responsiveness
+- Prism component conformance across dashboard and marketing surfaces
 
-## Design Principles
+## Tools
+- Prism design system and component library
+- Frontend implementation workflows for landing pages and dashboard surfaces
+- Accessibility review and visual QA processes
 
-- Autonomous, not assisted — reflect this in UX
-- Technical but accessible
-- Bold, modern, builder-focused aesthetic
-- Enterprise-ready polish
-
-## Stack
-
-- React, TailwindCSS, Vite
-- Vercel for hosting
-- Component-driven architecture
-
-## Key UX Metrics
-
-- User activation rate — signups → first build (pre-launch, no data yet)
-- Build success rate — target >90% (pre-launch, no data yet)
-- Average build time — target <4 min (pre-launch, no data yet)
-- Feature adoption — what drives retention (pre-launch, no data yet)
+## When You Have No Assigned Work
+- Mia: Audit live experiences for brand and accessibility drift
+- Leo: Refine layouts and motion for campaign and landing-page surfaces
+- Ava: Keep frontend implementations aligned with the latest design decisions
+- Sofia: Run critique passes against live assets and newly shipped designs
+- Ryan: Check template and component conformance against Prism patterns

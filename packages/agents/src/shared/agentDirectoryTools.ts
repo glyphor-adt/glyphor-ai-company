@@ -21,7 +21,7 @@ export function createAgentDirectoryTools(): ToolDefinition[] {
         department: {
           type: 'string',
           description:
-            'Optional: filter by department (engineering, finance, product, marketing, sales, customer-success, design, operations, legal, people)',
+            'Optional: filter by department (engineering, finance, product, marketing, sales, design, research, legal, operations, people)',
           required: false,
         },
         role: {
@@ -128,22 +128,22 @@ export function createAgentDirectoryTools(): ToolDefinition[] {
             reason: 'CMO — owns content strategy, social media, SEO, brand positioning, and campaigns',
           },
           {
-            keywords: ['customer', 'churn', 'onboarding', 'support', 'health score', 'nps', 'retention', 'ticket'],
-            role: 'vp-customer-success',
-            name: 'James Turner',
-            reason: 'VP Customer Success — owns customer health, churn prevention, support triage, and onboarding',
-          },
-          {
             keywords: ['sales', 'pipeline', 'enterprise', 'proposal', 'deal', 'prospect', 'account', 'lead', 'contract'],
             role: 'vp-sales',
             name: 'Rachel Kim',
-            reason: 'VP Sales — owns sales pipeline, enterprise accounts, proposals, and deal strategy',
+            reason: 'VP Sales — owns sales pipeline, customer conversations, proposals, and deal strategy',
           },
           {
             keywords: ['design', 'ui', 'ux', 'template', 'frontend', 'component', 'figma', 'layout', 'visual'],
             role: 'vp-design',
             name: 'Mia Tanaka',
             reason: 'VP Design — owns design system, UI/UX audits, templates, and frontend visual quality',
+          },
+          {
+            keywords: ['research', 'market', 'competitor', 'competitive', 'industry', 'tam', 'sam', 'trend'],
+            role: 'vp-research',
+            name: 'Sophia Lin',
+            reason: 'VP Research — owns market research, competitive analysis, and industry intelligence',
           },
           {
             keywords: ['permission', 'access', 'iam', 'license', 'entra', 'gcp access', 'onboard', 'offboard', 'provision'],

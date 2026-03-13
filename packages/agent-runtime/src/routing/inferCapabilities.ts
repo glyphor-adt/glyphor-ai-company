@@ -157,7 +157,7 @@ export function inferCapabilities(context: RoutingContext): Capability[] {
     capabilities.add('web_research');
     capabilities.add('needs_citations');
   }
-  if (/\b(sales|customer success)\b/.test(departmentSignal)) {
+  if (/\b(sales)\b/.test(departmentSignal)) {
     capabilities.add('structured_extraction');
     capabilities.add('nuanced_evaluation');
   }

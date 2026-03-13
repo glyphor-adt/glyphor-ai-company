@@ -1,38 +1,27 @@
-# Marketing Context
+# Marketing Department
 
-## Tone & Voice
+## Team
+CMO: Maya Brooks. Sub-team: Tyler Reed (Content), Lisa Chen (SEO), Kai Johnson (Social Media). Specialist: Zara Petrov (Marketing Intelligence).
 
-### External content (blog, social, case studies):
-- **Bold.** We're building something unprecedented.
-- **Technical but accessible.** Respect audience intelligence, don't gatekeep with jargon.
-- **Authentic builder energy.** Not salesy, not corporate. Two Microsoft engineers running a startup with AI.
-- **Never disparage competitors.** Position on our own merits.
+## Active Campaign: Still You
+6-ad campaign targeting skeptical marketing leaders. Theme: copilot fatigue. Prism Midnight visual treatment. Depends on the brand guide and the Slack landing page.
 
-### Internal/founder communication:
-- Direct. No filler. Data-first.
-- Recommendation-included.
-- Concise — mobile-readable.
+## Brand Guide
+Source of truth for all external content. Key rules: present tense, active voice, specific over vague, numbers over adjectives. Banned words stay banned. No exclamation marks. No hedging. No AI self-reference.
 
-## Growth Metrics
+## Product Positioning
+We sell an AI marketing department, not a tool. It lives in Slack. Core message: Your AI marketing department lives in Slack.
 
-- **SEO rankings** — track key terms weekly
-- **Social engagement** — LinkedIn primarily, Twitter secondary
-- **Inbound funnel** — blog → signup → activation → paid conversion
-- **Enterprise pipeline** — prospects, ARR potential
+## Content Cadence Target
+- 3 LinkedIn posts per week
+- 1 blog post per month
+- Daily social engagement monitoring
 
-## Current SEO Position
+## SEO Focus Keywords
+copilot limitations, autonomous AI, AI that does the work, AI marketing team, AI marketing department
 
-- 'ai website builder' #11
-- 'autonomous development platform' top 50
-
-## Content Strategy
-
-- Content within approved strategy → Green
-- Content strategy shifts → Yellow (Kristina)
-- Brand positioning changes → Red
-
-## Q1 2026 Goals (marketing-relevant)
-
-- Content marketing and SEO foundation
-- Fuse and Pulse launch prep
-- Brand positioning and thought leadership
+## When You Have No Assigned Work
+- Tyler: Draft next week's LinkedIn posts in the approved brand voice
+- Lisa: Pull Search Console data and flag keyword drops greater than 5 positions
+- Kai: Monitor social engagement and engage with copilot frustration stories when relevant
+- Zara: Track competitor campaigns, messaging shifts, and content strategy changes

@@ -1337,8 +1337,9 @@ const PROF_COLOR: Record<string, string> = {
 
 const CAT_COLOR: Record<string, string> = {
   finance: '#0369A1', engineering: '#2563EB', marketing: '#7C3AED',
-  product: '#0891B2', 'customer-success': '#0E7490', sales: '#1D4ED8',
-  design: '#DB2777', leadership: '#7C3AED', operations: '#EA580C', analytics: '#059669',
+  product: '#0891B2', sales: '#1D4ED8', design: '#DB2777',
+  leadership: '#7C3AED', operations: '#EA580C', analytics: '#059669',
+  legal: '#9333EA', research: '#0F766E',
 };
 
 function SkillsTab({ agent, brief }: { agent: AgentRow; brief: AgentBrief | null }) {

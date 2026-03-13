@@ -19,12 +19,13 @@ const SUPPORTED_SKILL_CATEGORIES = new Set([
   'engineering',
   'marketing',
   'product',
-  'customer-success',
   'sales',
   'design',
   'leadership',
   'operations',
   'analytics',
+  'legal',
+  'research',
 ]);
 
 const ROLE_SKILL_CATEGORY: Partial<Record<CompanyAgentRole, string>> = {
@@ -33,7 +34,7 @@ const ROLE_SKILL_CATEGORY: Partial<Record<CompanyAgentRole, string>> = {
   'cpo': 'product',
   'cmo': 'marketing',
   'cfo': 'finance',
-  'clo': 'leadership',
+  'clo': 'legal',
   'vp-sales': 'sales',
   'vp-design': 'design',
   'platform-engineer': 'engineering',
@@ -52,10 +53,10 @@ const ROLE_SKILL_CATEGORY: Partial<Record<CompanyAgentRole, string>> = {
   'global-admin': 'operations',
   'ops': 'operations',
   'head-of-hr': 'leadership',
-  'vp-research': 'analytics',
-  'competitive-research-analyst': 'analytics',
-  'market-research-analyst': 'analytics',
-  'bob-the-tax-pro': 'finance',
+  'vp-research': 'research',
+  'competitive-research-analyst': 'research',
+  'market-research-analyst': 'research',
+  'bob-the-tax-pro': 'legal',
   'marketing-intelligence-analyst': 'marketing',
   'adi-rose': 'operations',
 };

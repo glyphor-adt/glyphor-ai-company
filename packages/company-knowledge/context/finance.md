@@ -1,33 +1,25 @@
-# Finance Context
+# Finance Department
 
-## Key Financial Metrics
+## Team
+CFO: Nadia Okafor. Finance is a solo executive function right now.
 
-- **MRR** — primary growth metric
-- **Gross margin** — revenue minus infrastructure (target: >60%)
-- **Burn rate** — total monthly spend
-- **Unit economics** — cost per build, cost per user, contribution margin
-- **Runway** — months of operation at current burn
-- **LTV/CAC** — lifetime value vs acquisition cost
+## Key Metrics
+Use tools for live data. Baseline references:
+- MRR: about $1,240 across 3 customers
+- Monthly compute budget: $150
+- Default model reference: gpt-5-mini class for routine work
 
-## Current State (as of March 9, 2026)
+## Data Sources
+- Stripe for subscriptions and MRR
+- Mercury for cash and vendor flows
+- BigQuery and provider billing exports for compute and model spend
+- Provider invoices for OpenAI, Anthropic, and media tooling
 
-Glyphor is PRE-REVENUE and PRE-LAUNCH. $0 MRR, 0 paying users, 0 customers. This is expected.
+## Cost Monitoring
+Per-agent budget caps are enforced. Nadia runs daily cost analysis and an afternoon anomaly pass.
 
-- MRR: $0 (pre-launch — expected)
-- Paying users: 0
-- Infrastructure cost MTD: ~$850/mo
-- Gross margin: N/A (pre-revenue)
-
-## Cost Rules
-
-- Gemini API is biggest variable cost.
-- Service spike >20% WoW → flag to Andrew.
-- Infrastructure scaling >$200/mo → Yellow (Andrew).
-- New service commitment >$100/mo → Yellow.
-- Budget reallocation between products → Red.
-
-## Pricing
-
-- **Fuse:** Free (3 builds/mo) → Pro $29/mo → Enterprise custom ($25K-50K/mo)
-- **Pulse:** Beta pricing TBD
-- Pricing changes → Red (both founders required)
+## When You Have No Assigned Work
+- Check whether any billing sync is stale for more than 24 hours
+- Compare current compute trajectory against the $150 monthly budget
+- Flag any agent whose daily cap is above 80 percent utilized
+- Investigate any unexplained change in MRR or provider spend

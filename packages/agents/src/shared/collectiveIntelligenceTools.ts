@@ -127,7 +127,7 @@ export function createCollectiveIntelligenceTools(
         },
         departments_affected: {
           type: 'array',
-          description: 'Departments this affects (engineering, finance, marketing, product, design, customer-success, sales, operations)',
+          description: 'Departments this affects (engineering, finance, marketing, product, design, sales, research, legal, operations)',
           required: true,
           items: { type: 'string', description: 'Department name' },
         },

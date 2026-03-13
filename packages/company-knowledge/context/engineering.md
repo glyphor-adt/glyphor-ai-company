@@ -1,31 +1,28 @@
-# Engineering Context
+# Engineering Department
 
-## Infrastructure
+## Team
+CTO: Marcus Reeves. Engineering: Alex Park (Platform), Sam DeLuca (Quality), Jordan Hayes (DevOps), Riley Morgan (M365 Admin).
 
-| Service | Purpose | Cost |
-|---------|---------|------|
-| GCP Cloud Run | Agent execution, builds | ~$187/mo |
-| Gemini API | All AI inference | ~$412/mo |
-| Cloud SQL | PostgreSQL database (pgvector) | ~$125/mo |
-| Vercel | Frontend hosting | ~$67/mo |
-| GCS | Document storage | ~$5/mo |
-| Cloud Scheduler | Agent cron jobs | Free |
-| Pub/Sub | Event routing | Free |
-| Azure Bot Service | Teams integration | Free |
-| **Total** | | **~$850/mo** |
+## Current Priorities
+- Platform health stabilization is the top priority
+- Fix the CTO death loop and remove blocked assignments older than the acceptable threshold
+- Verify history compression is active before every model call
+- Keep CI/CD, tool initialization, and orchestration reliability healthy enough for daily agent execution
 
-## Tech Stack
+## Core Stack
+- GCP Cloud Run, Cloud SQL PostgreSQL, Cloud Tasks, Cloud Scheduler, Redis, Secret Manager, Artifact Registry
+- TypeScript and Node.js across runtime services
+- GitHub Actions to Docker to Artifact Registry to Cloud Run
+- Microsoft 365 and Teams integration for internal communication
 
-- **Runtime:** TypeScript, Node.js
-- **AI Models:** Gemini 2.5 Pro/Flash (primary), OpenAI, Anthropic (fallback)
-- **Database:** Cloud SQL PostgreSQL (pgvector)
-- **Frontend:** Next.js, Vite, React, TailwindCSS
-- **Hosting:** Vercel (frontend), GCP Cloud Run (agents)
-- **CI/CD:** GitHub Actions, Docker
+## Tools
+- Runtime logs, metrics, and agent health data
+- Tool registry and MCP initialization paths
+- Deployment pipelines, migrations, and environment configuration
 
-## Cost Rules
-
-- Gemini API is biggest variable cost — watch it.
-- Any service spike >20% WoW → Nadia flags to Andrew.
-- Infrastructure scaling >$200/mo → Yellow (Andrew).
-- New service commitment >$100/mo → Yellow.
+## When You Have No Assigned Work
+- Marcus: Review platform health, failure patterns, and runtime drift
+- Alex: Check dependency and architecture risks that could block platform health work
+- Sam: Expand regression coverage around recent runtime changes
+- Jordan: Verify deployment integrity and stale assignment cleanup paths
+- Riley: Audit Teams, mailbox, and M365 operational issues affecting agents

@@ -104,8 +104,10 @@ const DEPT_CHANNELS: Record<string, string[]> = {
   product: ['TEAMS_CHANNEL_GENERAL_ID', 'TEAMS_CHANNEL_PRODUCT_FUSE_ID', 'TEAMS_CHANNEL_PRODUCT_PULSE_ID'],
   finance: ['TEAMS_CHANNEL_GENERAL_ID', 'TEAMS_CHANNEL_FINANCIALS_ID'],
   marketing: ['TEAMS_CHANNEL_GENERAL_ID', 'TEAMS_CHANNEL_GROWTH_ID'],
-  'customer-success': ['TEAMS_CHANNEL_GENERAL_ID'],
   sales: ['TEAMS_CHANNEL_GENERAL_ID', 'TEAMS_CHANNEL_GROWTH_ID'],
+  design: ['TEAMS_CHANNEL_GENERAL_ID', 'TEAMS_CHANNEL_GROWTH_ID'],
+  research: ['TEAMS_CHANNEL_GENERAL_ID'],
+  legal: ['TEAMS_CHANNEL_GENERAL_ID'],
   operations: ['TEAMS_CHANNEL_GENERAL_ID'],
 };
 
@@ -115,8 +117,10 @@ const ROLE_TEMPLATES: Record<string, string[]> = {
   product: ['roles/monitoring.viewer', 'roles/logging.viewer'],
   finance: ['roles/bigquery.dataViewer', 'roles/bigquery.jobUser'],
   marketing: ['roles/monitoring.viewer'],
-  'customer-success': ['roles/monitoring.viewer'],
   sales: ['roles/monitoring.viewer'],
+  design: ['roles/monitoring.viewer'],
+  research: ['roles/monitoring.viewer'],
+  legal: ['roles/monitoring.viewer'],
   operations: ['roles/run.viewer', 'roles/monitoring.viewer', 'roles/logging.viewer', 'roles/secretmanager.secretAccessor'],
 };
 
@@ -862,7 +866,7 @@ export function createGlobalAdminTools(memory: CompanyMemoryStore): ToolDefiniti
           type: 'string',
           description: 'Department',
           required: true,
-          enum: ['engineering', 'product', 'finance', 'marketing', 'customer-success', 'sales', 'operations'],
+          enum: ['engineering', 'product', 'finance', 'marketing', 'sales', 'design', 'research', 'legal', 'operations'],
         },
         reports_to: {
           type: 'string',
