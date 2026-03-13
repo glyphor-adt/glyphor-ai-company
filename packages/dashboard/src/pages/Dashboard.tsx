@@ -166,7 +166,7 @@ export default function Dashboard() {
       <div className="dashboard-home-grid">
         <div className="dashboard-home-main space-y-5">
           {/* ── Welcome Banner ─────────────── */}
-          <div className="banner-wrapper">
+          <div className="banner-wrapper hero-glass">
             <div className="banner-inner rounded-[24px] p-7">
               <h1 className="font-agency text-[1.75rem] font-bold lowercase text-slate-900 dark:text-white md:text-[2.25rem] leading-tight">
                 {greeting}, {firstName}

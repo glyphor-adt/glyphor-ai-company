@@ -44,7 +44,7 @@ export default function Layout() {
   return (
     <div className="dashboard-shell mesh-gradient flex h-screen overflow-hidden">
       {/* ── Desktop Sidebar ─────────────────── */}
-      <aside className={`dashboard-sidebar hidden w-[220px] flex-col transition-colors duration-200 md:flex ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}>
+      <aside className={`dashboard-sidebar sidebar-glass hidden w-[220px] flex-col transition-colors duration-200 md:flex ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}>
         {/* Brand */}
         <div className="relative z-10 flex items-center justify-between px-4 py-4">
           <BrandLockup theme={theme} />
@@ -107,7 +107,7 @@ export default function Layout() {
         <div className="fixed inset-0 z-50 md:hidden" onClick={() => setDrawerOpen(false)}>
           <div className="absolute inset-0 bg-black/50" />
           <aside
-            className={`dashboard-sidebar absolute bottom-0 left-0 top-0 flex w-[280px] flex-col shadow-xl ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}
+            className={`dashboard-sidebar sidebar-glass absolute bottom-0 left-0 top-0 flex w-[280px] flex-col shadow-xl ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Brand */}

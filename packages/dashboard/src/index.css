@@ -548,14 +548,47 @@ input:focus, textarea:focus, select:focus {
   opacity: 1;
 }
 
-.glass-card.glassmorphism,
-.glass-raised.glassmorphism {
-  background: rgba(22, 185, 218, 0.03) !important;
-  backdrop-filter: blur(6px) !important;
-  -webkit-backdrop-filter: blur(6px) !important;
-  border: 1px solid rgba(22, 185, 218, 0.18) !important;
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37) !important;
-  border-radius: 10px;
+.dark .glass-card.glass-panel,
+.dark .glass-raised.glass-panel {
+  background: rgba(10, 12, 20, 0.55) !important;
+  backdrop-filter: blur(24px) saturate(1.4) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(1.4) !important;
+  border: 1px solid rgba(0, 224, 255, 0.08) !important;
+  border-radius: 20px;
+  box-shadow:
+    0 0 0 1px rgba(0, 224, 255, 0.04) inset,
+    0 8px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .glass-panel.panel-primary {
+  background: rgba(10, 12, 20, 0.5) !important;
+  backdrop-filter: blur(28px) saturate(1.4) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(1.4) !important;
+  border: 1px solid rgba(0, 224, 255, 0.08) !important;
+}
+
+.dark .glass-panel.panel-nested {
+  background: rgba(0, 224, 255, 0.04) !important;
+  backdrop-filter: blur(12px) saturate(1.2) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(1.2) !important;
+  border: 1px solid rgba(0, 224, 255, 0.06) !important;
+  box-shadow:
+    0 0 0 1px rgba(0, 224, 255, 0.03) inset,
+    0 4px 18px rgba(0, 0, 0, 0.28) !important;
+}
+
+.dark .sidebar-glass {
+  background: rgba(8, 10, 18, 0.7) !important;
+  backdrop-filter: blur(40px) saturate(1.2) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(1.2) !important;
+  border-right: 1px solid rgba(0, 224, 255, 0.06);
+}
+
+.dark .hero-glass {
+  background: rgba(10, 12, 20, 0.35) !important;
+  backdrop-filter: blur(20px) saturate(1.6) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.6) !important;
+  border: 1px solid rgba(0, 224, 255, 0.08) !important;
 }
 
 .glass-card--interactive:hover {

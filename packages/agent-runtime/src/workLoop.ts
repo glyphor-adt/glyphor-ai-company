@@ -34,23 +34,43 @@ SCOPE CONSTRAINT: Your task is defined above. Do not investigate, comment on, or
 // ═══════════════════════════════════════════════════════════════════
 
 /** Proactive cooldown per role in milliseconds.
- *  Only roles explicitly listed here are eligible for proactive (P5) work.
- *  Sub-team agents are intentionally excluded during stabilization. */
+ *  This is the autonomous baseline cadence when no higher-priority work exists. */
 export const PROACTIVE_COOLDOWNS: Record<string, number> = {
-  // Always Hot — 30 min
-  'chief-of-staff': 30 * 60 * 1000,
-  'ops':            30 * 60 * 1000,
-
-  // High Frequency — 1 hour
-  'cto': 60 * 60 * 1000,
-  'cfo': 60 * 60 * 1000,
-
-  // Medium — 2 hours
+  // Tier 1: Executives — every 2h
+  'chief-of-staff':      2 * 60 * 60 * 1000,
+  'cto':                 2 * 60 * 60 * 1000,
+  'cfo':                 2 * 60 * 60 * 1000,
   'cpo':                 2 * 60 * 60 * 1000,
   'cmo':                 2 * 60 * 60 * 1000,
   'vp-sales':            2 * 60 * 60 * 1000,
   'vp-design':           2 * 60 * 60 * 1000,
+  'clo':                 2 * 60 * 60 * 1000,
   'vp-research':         2 * 60 * 60 * 1000,
+
+  // Tier 2: Sub-team — every 4h
+  'platform-engineer':   4 * 60 * 60 * 1000,
+  'quality-engineer':    4 * 60 * 60 * 1000,
+  'devops-engineer':     4 * 60 * 60 * 1000,
+  'm365-admin':          4 * 60 * 60 * 1000,
+  'user-researcher':     4 * 60 * 60 * 1000,
+  'competitive-intel':   4 * 60 * 60 * 1000,
+  'content-creator':     4 * 60 * 60 * 1000,
+  'seo-analyst':         4 * 60 * 60 * 1000,
+  'social-media-manager': 4 * 60 * 60 * 1000,
+  'ui-ux-designer':      4 * 60 * 60 * 1000,
+  'frontend-engineer':   4 * 60 * 60 * 1000,
+  'design-critic':       4 * 60 * 60 * 1000,
+  'template-architect':  4 * 60 * 60 * 1000,
+  'head-of-hr':          4 * 60 * 60 * 1000,
+
+  // Tier 3: Specialists — every 6h
+  'bob-the-tax-pro':                6 * 60 * 60 * 1000,
+  'marketing-intelligence-analyst': 6 * 60 * 60 * 1000,
+  'adi-rose':                       6 * 60 * 60 * 1000,
+
+  // Tier 4: Operations
+  'ops':            1 * 60 * 60 * 1000,
+  'global-admin':   4 * 60 * 60 * 1000,
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -402,9 +422,7 @@ export async function executeWorkLoop(
   // by Cloud Scheduler crons, not the heartbeat work_loop. Skip.
 
   // ── P5: PROACTIVE — Self-directed work if cooldown expired ──
-  // Only roles explicitly listed in PROACTIVE_COOLDOWNS are eligible.
-  // Sub-team agents are excluded during stabilization — they should
-  // be purely reactive, working only on assigned tasks.
+  // Roles listed in PROACTIVE_COOLDOWNS autonomously identify high-value work.
   let cooldownMs = getProactiveCooldown(agentRole);
   if (cooldownMs != null) {
     // Guard: if last 3+ consecutive runs were proactive aborts, disable proactive
