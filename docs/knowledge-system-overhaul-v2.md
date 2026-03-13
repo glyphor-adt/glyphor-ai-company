@@ -4,11 +4,11 @@
 > **Date:** March 13, 2026
 > **Executor:** This document is a founder directive. Sarah decomposes and dispatches.
 > **Urgency:** CRITICAL — nothing else works until this is done.
-> **Agent count:** 30 active agents (not 44 — 14 were deleted, orphaned briefs remain)
+> **Agent count:** 28 active agents (not 44 — 14 were deleted, orphaned briefs remain)
 
 ---
 
-## Active Roster (30 agents)
+## Active Roster (28 agents)
 
 **Executives (8):** Sarah Chen (CoS), Marcus Reeves (CTO), Nadia Okafor (CFO), Elena Vasquez (CPO), Maya Brooks (CMO), Rachel Kim (VP Sales), Mia Tanaka (VP Design), Victoria Chase (CLO)
 
@@ -56,7 +56,7 @@ Customers are not purchasing software interfaces, model access, or orchestration
 
 The company operates on a capital-efficient, revenue-first model. No venture-dependent hypergrowth. Growth is sequenced, revenue-funded, margin-aware, and operationally disciplined. Durability precedes scale. Revenue precedes narrative. Execution precedes expansion.
 
-Founded by Kristina Denney (CEO, sole technical architect) and Andrew Zwelling (COO, operations and business development). Headquartered in Texas. The company runs on 30 AI agents orchestrated by Sarah Chen (Chief of Staff) on GCP Cloud Run with Cloud SQL PostgreSQL.
+Founded by Kristina Denney (CEO, sole technical architect) and Andrew Zwelling (COO, operations and business development). Headquartered in Texas. The company runs on 28 AI agents orchestrated by Sarah Chen (Chief of Staff) on GCP Cloud Run with Cloud SQL PostgreSQL.
 
 Every strategic recommendation, product decision, pricing decision, and capital allocation must align with this posture. All agents must reason within this framework.');
 
@@ -180,7 +180,7 @@ Operations, business development, partnerships, strategic planning. 40% equity. 
 INSERT INTO company_knowledge_base (section, audience, content) VALUES
 ('team_structure', 'all', E'# Team Structure
 
-Total headcount: 32 — 2 human founders + 30 AI agents
+Total headcount: 30 — 2 human founders + 28 AI agents
 
 ## Executives (8)
 Sarah Chen (Chief of Staff), Marcus Reeves (CTO), Nadia Okafor (CFO), Elena Vasquez (CPO), Maya Brooks (CMO), Rachel Kim (VP Sales), Mia Tanaka (VP Design), Victoria Chase (CLO — reports directly to both founders)
@@ -243,9 +243,9 @@ INSERT INTO company_knowledge_base (section, audience, content) VALUES
 
 Baselines only — agents with financial responsibilities should query live data via their tools.
 
-- MRR: ~$1,240 (3 customers)
+- MRR: $0 (pre-revenue)
 - Monthly compute budget: $150
-- Agent count: 30 active
+- Agent count: 28 active
 - Daily agent runs: ~200+
 - Tool registry: 573 known tools');
 
@@ -536,7 +536,7 @@ AI Marketing Department via Slack. $500-750/month flat rate (under validation).
 - NOT: Enterprise, regulated, complex procurement, Teams-only
 
 ## Current Customers
-3 active. ~$1,240 MRR. Zero churn risk flagged.
+0 active. $0 MRR. Churn risk not applicable until paying customers are onboarded.
 
 ## Sales Motion
 Rachel manages the full pipeline solo. Prospect identification, outreach, demos, closing. Demo narrative: Slack integration → same-day output → agent team with names.
@@ -554,7 +554,7 @@ Rachel manages the full pipeline solo. Prospect identification, outreach, demos,
 CFO: Nadia Okafor (solo — no sub-team analysts currently).
 
 ## Key Metrics (use tools for live data)
-- MRR: ~$1,240 (3 customers)
+- MRR: $0 (pre-revenue)
 - Monthly compute budget: $150
 - Default model: gpt-5-mini ($0.25/$2.00 per 1M tokens)
 
@@ -571,7 +571,7 @@ Per-agent budget caps enforced. Nadia runs daily cost analysis (9 AM CT) and aft
 - Check if any billing sync is stale (> 24h)
 - Compare today's compute trajectory against $150/month budget
 - Review agent cost efficiency — flag any agent whose daily cap is > 80% utilized
-- If MRR changed, investigate why
+- If revenue status changed, investigate why
 ```
 
 ### 4F: Apply same update pattern to remaining files
@@ -605,7 +605,7 @@ Pre-approved recurring work. Sarah auto-generates directives from these without 
 - **Finance:** Nadia produces weekly cost breakdown by provider and agent role.
 
 ## Daily
-- **Finance:** Nadia flags any day where compute exceeds $6 or MRR changes.
+- **Finance:** Nadia flags any day where compute exceeds $6 or revenue status changes.
 - **SEO:** Lisa pulls Search Console data, flags keyword drops > 5 positions.
 - **Social:** Kai monitors engagement, engages with relevant conversations.
 - **Operations:** Atlas runs health checks (10-min cron already active).

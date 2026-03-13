@@ -14,9 +14,9 @@ AI Marketing Department via Slack. Pricing target: $500-750 per month flat rate,
 - Not enterprise, regulated, procurement-heavy, or Teams-only for this phase
 
 ## Current Customers
-- 3 active customers
-- Roughly $1,240 MRR baseline
-- No churn risk flagged at the moment
+- 0 active customers (pre-revenue)
+- $0 MRR baseline
+- Churn risk is not applicable until paying customers are onboarded
 
 ## Sales Motion
 Rachel owns prospecting, demos, proposal prep, and close support. Demo narrative: connect Slack, set strategy, receive same-day output from a named agent team.

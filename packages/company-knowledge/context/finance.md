@@ -5,7 +5,7 @@ CFO: Nadia Okafor. Finance is a solo executive function right now.
 
 ## Key Metrics
 Use tools for live data. Baseline references:
-- MRR: about $1,240 across 3 customers
+- MRR: $0 (pre-revenue)
 - Monthly compute budget: $150
 - Default model reference: gpt-5-mini class for routine work
 
@@ -22,4 +22,4 @@ Per-agent budget caps are enforced. Nadia runs daily cost analysis and an aftern
 - Check whether any billing sync is stale for more than 24 hours
 - Compare current compute trajectory against the $150 monthly budget
 - Flag any agent whose daily cap is above 80 percent utilized
-- Investigate any unexplained change in MRR or provider spend
+- Investigate any unexplained change in provider spend or billing sync quality
