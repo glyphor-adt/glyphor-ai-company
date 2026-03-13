@@ -167,18 +167,19 @@ export class OpenAIAdapter implements ProviderAdapter {
     const isOSeries = /^o[134](-|$)/.test(request.model);
     // GPT-5 family: gpt-5, gpt-5.1, gpt-5.2, gpt-5-mini, gpt-5-nano, etc.
     const isGpt5Family = request.model.startsWith('gpt-5');
-    // All GPT-5 family models support 'none' reasoning (disables reasoning, allows temperature)
-    const supportsNoneReasoning = isGpt5Family;
+    // GPT-5 family uses minimal/low/medium/high reasoning levels.
+    // Keep internal 'none' as an alias for 'minimal' to avoid invalid API payloads.
+    const supportsMinimalReasoning = isGpt5Family;
 
     let reasoningEffort: string | undefined;
     const requestedReasoningLevel = request.reasoningLevel;
     if (isGpt5Family) {
       const thinkingEnabled = request.thinkingEnabled ?? false;
-      const reasoningLevel = requestedReasoningLevel ?? (supportsNoneReasoning
+      const reasoningLevel = requestedReasoningLevel ?? (supportsMinimalReasoning
         ? (thinkingEnabled ? 'standard' : 'none')
         : (thinkingEnabled ? 'deep' : 'standard'));
-      if (supportsNoneReasoning) {
-        reasoningEffort = reasoningLevel === 'none' ? 'none' : reasoningLevel === 'deep' ? 'high' : 'medium';
+      if (supportsMinimalReasoning) {
+        reasoningEffort = reasoningLevel === 'none' ? 'minimal' : reasoningLevel === 'deep' ? 'high' : 'medium';
       } else {
         reasoningEffort = reasoningLevel === 'deep' ? 'high' : 'medium';
       }
@@ -189,7 +190,7 @@ export class OpenAIAdapter implements ProviderAdapter {
     }
     if (modelConfig?.reasoningEffort) {
       reasoningEffort = modelConfig.reasoningEffort === 'minimal'
-        ? 'none'
+        ? 'minimal'
         : modelConfig.reasoningEffort === 'low'
           ? 'low'
           : modelConfig.reasoningEffort;
@@ -201,15 +202,15 @@ export class OpenAIAdapter implements ProviderAdapter {
     if (request.model.startsWith('gpt-5.4') && hasResponsesApi) {
       return this.generateViaResponses(request, reasoningEffort, tools, contextManagement);
     }
-    if ((reasoningEffort && reasoningEffort !== 'none' && hasResponsesApi) || (shouldUseResponsesForCompaction && hasResponsesApi)) {
+    if ((reasoningEffort && reasoningEffort !== 'minimal' && hasResponsesApi) || (shouldUseResponsesForCompaction && hasResponsesApi)) {
       return this.generateViaResponses(request, reasoningEffort, tools, contextManagement);
     }
 
     // ── Chat Completions path (non-reasoning / reasoning=none / SDK fallback) ──
-    const forbidTempTopP = isOSeries || (isGpt5Family && reasoningEffort !== 'none');
+    const forbidTempTopP = isOSeries || (isGpt5Family && reasoningEffort !== 'minimal');
     const useMaxCompletionTokens = isOSeries || isGpt5Family;
     const resolvedMaxTokens = request.maxTokens ?? (useMaxCompletionTokens
-      ? (reasoningEffort && reasoningEffort !== 'none' ? 32768 : 16384)
+      ? (reasoningEffort && reasoningEffort !== 'minimal' ? 32768 : 16384)
       : undefined);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -392,7 +393,7 @@ export class OpenAIAdapter implements ProviderAdapter {
       model: request.model,
       instructions: request.systemInstruction,
       input,
-      ...(reasoningEffort && reasoningEffort !== 'none'
+      ...(reasoningEffort && reasoningEffort !== 'minimal'
         ? {
             reasoning: {
               effort: reasoningEffort,

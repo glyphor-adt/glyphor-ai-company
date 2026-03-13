@@ -583,153 +583,88 @@ export default function Financials() {
 
   const totalSubscriptions = subscriptions.reduce((sum, s) => sum + s.monthly, 0);
 
-  // Verification panels: distribution, cost by tier, trend
-  const { data: vrData, loading: vrLoading } = useAgentRunsForVerification(30);
-  const { data: reflectionData, loading: reflectionLoading } = useAgentReflections(30);
-
-  const verificationCounts = useMemo(() => {
-    const counts: Record<string, number> = { none: 0, self_critique: 0, cross_model: 0, conditional: 0 };
-    for (const r of vrData) {
-      const raw = (r?.verification_tier as string) ?? (r?.['verification'] as string) ?? null;
-      if (raw == null) continue;
-      const key = ['none', 'self_critique', 'cross_model', 'conditional'].includes(raw) ? raw : null;
-      if (key) counts[key] = (counts[key] ?? 0) + 1;
+  const financialTrend = useMemo(() => {
+    const byDate = new Map<string, { revenue: number; costs: number; margin: number }>();
+    for (const row of mrrData) {
+      const entry = byDate.get(row.date) ?? { revenue: 0, costs: 0, margin: 0 };
+      entry.revenue = row.mrr;
+      byDate.set(row.date, entry);
     }
-    return Object.entries(counts)
-      .filter(([, count]) => count > 0)
-      .map(([tier, count]) => ({ tier, count }));
-  }, [vrData]);
-
-  const verificationCostByTier = useMemo(() => {
-    const sums: Record<string, number> = { none: 0, self_critique: 0, cross_model: 0, conditional: 0 };
-    for (const r of vrData) {
-      const raw = (r?.verification_tier as string) ?? (r?.['verification'] as string) ?? null;
-      if (raw == null) continue;
-      const key = ['none', 'self_critique', 'cross_model', 'conditional'].includes(raw) ? raw : null;
-      if (!key) continue;
-      const cost = Number(r?.reasoning_cost_usd ?? r?.cost ?? 0) || 0;
-      sums[key] = (sums[key] ?? 0) + cost;
+    for (const row of costData) {
+      const entry = byDate.get(row.date) ?? { revenue: 0, costs: 0, margin: 0 };
+      entry.costs = row.infrastructure + row.api;
+      byDate.set(row.date, entry);
     }
-    return Object.entries(sums)
-      .filter(([, cost]) => cost > 0)
-      .map(([tier, cost]) => ({ tier, cost }));
-  }, [vrData]);
-
-  const verificationTrend = useMemo(() => {
-    const byDate = new Map<string, Record<string, number>>();
-    for (const r of vrData) {
-      const raw = (r?.verification_tier as string) ?? (r?.['verification'] as string) ?? null;
-      if (raw == null) continue;
-      const key = ['none', 'self_critique', 'cross_model', 'conditional'].includes(raw) ? raw : null;
-      if (!key) continue;
-      const started = r?.started_at ? String(r.started_at).split('T')[0] : null;
-      if (!started) continue;
-      const date = formatDate(started);
-      const entry = byDate.get(date) ?? { none: 0, self_critique: 0, cross_model: 0, conditional: 0 };
-      entry[key] = (entry[key] ?? 0) + 1;
-      byDate.set(date, entry);
+    for (const row of marginData) {
+      const entry = byDate.get(row.date) ?? { revenue: 0, costs: 0, margin: 0 };
+      entry.margin = row.margin;
+      byDate.set(row.date, entry);
     }
     return Array.from(byDate.entries())
-      .map(([date, counts]) => ({ date, ...counts }))
+      .map(([date, metrics]) => ({ date, ...metrics }))
       .sort((a, b) => a.date.localeCompare(b.date));
-  }, [vrData]);
+  }, [mrrData, costData, marginData]);
 
-  const routingAuditLoading = vrLoading || reflectionLoading;
+  const spendMix = useMemo(() => {
+    const apiTotal = apiBillingByProvider.reduce((sum, provider) => sum + provider.cost, 0);
+    return [
+      { name: 'Infrastructure', value: gcpTotalCost },
+      { name: 'AI / API', value: apiTotal },
+      { name: 'Subscriptions', value: totalSubscriptions },
+    ].filter((item) => item.value > 0);
+  }, [apiBillingByProvider, gcpTotalCost, totalSubscriptions]);
 
-  const complexityCounts = useMemo(() => {
-    const counts: Record<string, number> = { trivial: 0, standard: 0, complex: 0, frontier: 0 };
-    for (const run of vrData) {
-      const raw = run.subtask_complexity ?? null;
-      if (raw == null) continue;
-      const key = ['trivial', 'standard', 'complex', 'frontier'].includes(raw) ? raw : null;
-      if (!key) continue;
-      counts[key] = (counts[key] ?? 0) + 1;
-    }
-    return Object.entries(counts)
-      .filter(([, count]) => count > 0)
-      .map(([complexity, count]) => ({ complexity, count }));
-  }, [vrData]);
+  const productSnapshot = useMemo(() => {
+    return PRODUCTS.map((product) => {
+      const f = productFinancials[product] ?? { mrr: 0, costs: 0, apiCosts: 0, users: 0 };
+      const totalCost = f.costs + f.apiCosts;
+      const margin = f.mrr > 0 ? ((f.mrr - totalCost) / f.mrr) * 100 : 0;
+      return {
+        key: product,
+        name: PRODUCT_LABELS[product] ?? product,
+        mrr: f.mrr,
+        totalCost,
+        margin,
+      };
+    });
+  }, [productFinancials]);
 
-  const routedModelMix = useMemo(() => {
-    const byModel = new Map<string, { runs: number; cost: number }>();
-    for (const run of vrData) {
-      const model = run.routing_model ?? null;
-      if (model == null) continue;
-      const entry = byModel.get(model) ?? { runs: 0, cost: 0 };
-      entry.runs += 1;
-      entry.cost += Number(run.cost ?? 0) || 0;
-      byModel.set(model, entry);
-    }
-    return Array.from(byModel.entries())
-      .map(([model, value]) => ({ model, ...value }))
-      .sort((a, b) => b.runs - a.runs)
-      .slice(0, 8);
-  }, [vrData]);
-
-  const costQualityPoints = useMemo(() => {
-    const reflectionsByRun = new Map(reflectionData.map((reflection) => [reflection.run_id, reflection]));
-    return vrData
-      .map((run) => {
-        if (run.routing_model == null) return null;
-        const reflection = reflectionsByRun.get(run.id);
-        const quality = reflection?.quality_score ?? null;
-        if (quality == null) return null;
-        return {
-          runId: run.id,
-          role: run.agent_id ?? reflection?.agent_role ?? 'unknown',
-          cost: Number(run.cost ?? 0) || 0,
-          quality,
-          complexity: run.subtask_complexity ?? 'unclassified',
-          model: run.routing_model,
-        };
-      })
-      .filter((point): point is NonNullable<typeof point> => point !== null);
-  }, [vrData, reflectionData]);
-
-  const routingEfficiency = useMemo(() => {
-    const totalCost = costQualityPoints.reduce((sum, point) => sum + point.cost, 0);
-    const totalQuality = costQualityPoints.reduce((sum, point) => sum + point.quality, 0);
-    return {
-      costPerQualityPoint: totalQuality > 0 ? totalCost / totalQuality : 0,
-      frontierRuns: vrData.filter((run) => run.subtask_complexity === 'frontier').length,
-      dominantModel: routedModelMix[0]?.model ?? '—',
-    };
-  }, [costQualityPoints, vrData, routedModelMix]);
-
-  // end verification panels
+  const marginDelta = latestMRR > 0 ? (((latestMRR - latestCost) / latestMRR) * 100) - latestMargin : 0;
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-txt-primary">Financials</h1>
-          <p className="mt-1 text-sm text-txt-muted">Revenue, costs, and margin trends</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowSyncPanel((v) => !v)}
-            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-txt-secondary hover:bg-surface-hover transition"
-          >
-            {showSyncPanel ? 'Hide' : 'Data Sources'}
-          </button>
-          <button
-            onClick={triggerAllSyncs}
-            disabled={syncingIds.size > 0}
-            className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50 transition"
-          >
-            {syncingIds.size > 0 ? 'Syncing…' : '↻ Refresh All'}
-          </button>
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-border bg-gradient-to-r from-[#0f172a]/90 via-[#1e293b]/80 to-[#312e81]/65 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-cyan/80">Finance Command</p>
+            <h1 className="mt-1 text-2xl font-bold text-txt-primary">Financials</h1>
+            <p className="mt-1 text-sm text-txt-muted">A tighter readout focused on runway, margin, and spend concentration.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowSyncPanel((v) => !v)}
+              className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-txt-secondary transition hover:bg-surface-hover"
+            >
+              {showSyncPanel ? 'Hide Sources' : 'Data Sources'}
+            </button>
+            <button
+              onClick={triggerAllSyncs}
+              disabled={syncingIds.size > 0}
+              className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white transition hover:bg-accent/90 disabled:opacity-50"
+            >
+              {syncingIds.size > 0 ? 'Syncing…' : 'Refresh All'}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Sync Status Panel */}
       {showSyncPanel && (
         <Card>
-          <div className="flex items-center justify-between mb-3">
+          <div className="mb-3 flex items-center justify-between">
             <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Data Source Status</p>
           </div>
           {syncLoading ? <Skeleton className="h-16" /> : (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               {FINANCIAL_SYNCS.map((sync) => {
                 const s = syncStatuses.find((st) => st.id === sync.id);
                 const isOk = s?.status === 'ok';
@@ -739,10 +674,10 @@ export default function Financials() {
                   <div key={sync.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <div className={`h-2 w-2 rounded-full flex-shrink-0 ${isOk ? 'bg-green-500' : isFailing ? 'bg-red-500' : 'bg-yellow-500'}`} />
-                        <p className="text-xs font-medium text-txt-primary truncate">{sync.label}</p>
+                        <div className={`h-2 w-2 flex-shrink-0 rounded-full ${isOk ? 'bg-green-500' : isFailing ? 'bg-red-500' : 'bg-yellow-500'}`} />
+                        <p className="truncate text-xs font-medium text-txt-primary">{sync.label}</p>
                       </div>
-                      <p className="text-[10px] text-txt-faint mt-0.5">
+                      <p className="mt-0.5 text-[10px] text-txt-faint">
                         {s?.last_success_at ? timeAgo(s.last_success_at) : 'never synced'}
                         {isFailing && s?.consecutive_failures ? ` · ${s.consecutive_failures} failures` : ''}
                       </p>
@@ -750,7 +685,7 @@ export default function Financials() {
                     <button
                       onClick={() => triggerSync(sync.endpoint, sync.id)}
                       disabled={isSyncing}
-                      className="ml-2 flex-shrink-0 rounded px-2 py-0.5 text-[10px] font-medium text-accent hover:bg-accent/10 disabled:opacity-50 transition"
+                      className="ml-2 flex-shrink-0 rounded px-2 py-0.5 text-[10px] font-medium text-accent transition hover:bg-accent/10 disabled:opacity-50"
                     >
                       {isSyncing ? '…' : '↻'}
                     </button>
@@ -762,782 +697,155 @@ export default function Financials() {
         </Card>
       )}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-        <SummaryCard label="Monthly Revenue (Stripe)" value={`$${fmt(latestMRR)}`} loading={loading} sub={productMRR.map((p) => `${p.name}: $${fmt(p.mrr)}`).join(', ') || 'No product data'} />
-        <SummaryCard label={`${currentMonthLabel} Costs (GCP)`} value={`$${fmt(gcpTotalCost)}`} loading={gcpLoading} />
-        <SummaryCard label="Gross Margin" value={`${latestMargin.toFixed(1)}%`} loading={loading} />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <SummaryCard label="Monthly Revenue" value={`$${fmt(latestMRR)}`} loading={loading} sub="Stripe MRR snapshot" />
+        <SummaryCard label="Gross Margin" value={`${latestMargin.toFixed(1)}%`} loading={loading} sub={`${marginDelta >= 0 ? '+' : ''}${marginDelta.toFixed(1)} pts from trend baseline`} />
+        <SummaryCard label="Burn Rate" value={latestBurnRate > 0 ? `$${fmt(latestBurnRate)}` : '—'} loading={loading} sub="Monthly cash outflow" />
+        <SummaryCard label="Runway" value={runwayMonths > 0 ? `${runwayMonths.toFixed(1)} mo` : '—'} loading={loading} sub={runwayMonths > 0 ? 'Based on current burn' : 'Awaiting burn data'} />
       </div>
 
-      {/* Banking Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-        <SummaryCard label="Cash Balance (Mercury)" value={`$${fmt(latestBalance)}`} loading={loading} />
-        <SummaryCard label="Monthly Burn Rate" value={latestBurnRate > 0 ? `$${fmt(latestBurnRate)}` : '—'} loading={loading} />
-        <SummaryCard label="Runway" value={runwayMonths > 0 ? `${runwayMonths.toFixed(1)} mo` : '—'} loading={loading} sub={runwayMonths > 0 ? `at current burn rate` : 'Awaiting burn data'} />
-      </div>
-
-      {/* ═══════════════════════════════════════════════════════════
-           PRODUCT FINANCIALS — Fuse · Pulse · Reve
-         ═══════════════════════════════════════════════════════════ */}
-      <div>
-        <h2 className="text-lg font-semibold text-txt-primary">Product Financials</h2>
-        <p className="mt-0.5 text-xs text-txt-muted">Per-product revenue, costs, and API usage</p>
-      </div>
-
-      {/* Per-product summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-        {PRODUCTS.map((p) => {
-          const f = productFinancials[p] ?? { mrr: 0, costs: 0, apiCosts: 0, users: 0 };
-          const totalCost = f.costs + f.apiCosts;
-          const margin = f.mrr > 0 ? ((f.mrr - totalCost) / f.mrr * 100) : 0;
-          return (
-            <Card key={p}>
-              <div className="flex items-center gap-2">
-                <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PRODUCT_COLORS[p] }} />
-                <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">{PRODUCT_LABELS[p]}</p>
-              </div>
-              <p className="mt-1 font-mono text-2xl font-semibold text-txt-primary">${fmt(f.mrr)}<span className="text-sm font-normal text-txt-muted">/mo</span></p>
-              <div className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
-                <div>
-                  <p className="text-txt-faint">Infra</p>
-                  <p className="font-mono text-txt-secondary">${f.costs > 0 ? f.costs.toFixed(2) : '—'}</p>
-                </div>
-                <div>
-                  <p className="text-txt-faint">API</p>
-                  <p className="font-mono text-txt-secondary">${f.apiCosts > 0 ? f.apiCosts.toFixed(2) : '—'}</p>
-                </div>
-                <div>
-                  <p className="text-txt-faint">Margin</p>
-                  <p className="font-mono text-txt-secondary">{f.mrr > 0 ? `${margin.toFixed(0)}%` : '—'}</p>
-                </div>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Product MRR Comparison */}
-        <Card>
-          <SectionHeader title="Revenue by Product" />
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <Card className="xl:col-span-2">
+          <SectionHeader title="Revenue vs Cost Trend" />
           {loading ? (
-            <Skeleton className="h-64" />
-          ) : productMRR.length === 0 ? (
-            <EmptyChart message="No per-product MRR data yet" />
-          ) : productMRRTrend.length > 1 ? (
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={productMRRTrend}>
+            <Skeleton className="h-72" />
+          ) : financialTrend.length === 0 ? (
+            <EmptyChart message="No revenue or cost trend data yet" />
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={financialTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
-                <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${fmt(v)}`} />
-                <Tooltip
-                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
-                  labelStyle={{ color: 'var(--color-txt-secondary)' }}
-                  formatter={(value: number, name: string) => [`$${fmt(value)}`, PRODUCT_LABELS[name] ?? name]}
-                />
-                <Legend formatter={(value) => PRODUCT_LABELS[value] ?? value} wrapperStyle={{ fontSize: 11 }} />
-                {PRODUCTS.map((p) => (
-                  <Bar key={p} dataKey={p} fill={PRODUCT_COLORS[p]} />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={productMRR} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${fmt(v)}`} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} width={60} tickFormatter={(v: string) => PRODUCT_LABELS[v] ?? v} />
-                <Tooltip
-                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
-                  formatter={(value: number) => [`$${fmt(value)}`, 'MRR']}
-                />
-                <Bar dataKey="mrr" fill={GLYPHOR_PALETTE[0]}>
-                  {productMRR.map((p) => (
-                    <Cell key={p.name} fill={PRODUCT_COLORS[p.name] ?? '#0891B2'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </Card>
-
-        {/* Product Cost Breakdown */}
-        <Card>
-          <SectionHeader title="Costs by Product" />
-          {loading ? (
-            <Skeleton className="h-64" />
-          ) : productCostBreakdown.length === 0 ? (
-            <EmptyChart message="No per-product cost data yet" />
-          ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={productCostBreakdown}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
-                <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${fmt(v)}`} />
-                <Tooltip
-                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
-                  labelStyle={{ color: 'var(--color-txt-secondary)' }}
-                  formatter={(value: number) => [`$${value.toFixed(2)}`]}
-                />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="infrastructure" fill={GLYPHOR_PALETTE[2]} stackId="costs" name="Infrastructure" />
-                <Bar dataKey="api" fill={GLYPHOR_PALETTE[4]} stackId="costs" name="API / AI" />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </Card>
-      </div>
-
-      {/* API Billing by Provider + Kling Packs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-        <Card>
-          <SectionHeader title="API Costs by Provider" />
-          {apiLoading ? (
-            <Skeleton className="h-48" />
-          ) : apiBillingByProvider.length === 0 ? (
-            <EmptyChart message="No API billing data yet — sync Kling, OpenAI, or Anthropic" />
-          ) : (
-            <ResponsiveContainer width="100%" height={240}>
-              <PieChart>
-                <Pie
-                  data={apiBillingByProvider}
-                  dataKey="cost"
-                  nameKey="provider"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  innerRadius={45}
-                  paddingAngle={2}
-                  label={({ provider, cost }: { provider: string; cost: number }) =>
-                    `${provider} $${cost.toFixed(2)}`
-                  }
-                >
-                  {apiBillingByProvider.map((entry) => (
-                    <Cell key={entry.provider} fill={API_PROVIDER_COLORS[entry.provider] ?? '#94A3B8'} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
-                  formatter={(value: number) => [`$${value.toFixed(4)}`]}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
-        </Card>
-
-        <Card>
-          <SectionHeader title="Kling AI Resource Packs (Pulse)" />
-          {apiLoading ? (
-            <Skeleton className="h-48" />
-          ) : klingPacks.length === 0 ? (
-            <div className="flex h-48 items-center justify-center">
-              <p className="text-sm text-txt-faint">No Kling data yet — run /sync/kling-billing</p>
-            </div>
-          ) : (
-            <div className="mt-2 space-y-3 max-h-[400px] overflow-y-auto">
-              {klingPacks.map((pack, i) => {
-                const pct = pack.total > 0 ? (pack.consumed / pack.total) * 100 : 0;
-                const statusColor = pack.status === 'online' ? '#34A853' : pack.status === 'expired' || pack.status === 'runOut' ? '#EA4335' : '#FBBC04';
-                return (
-                  <div key={i} className="rounded-lg border border-[var(--color-border)] p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-txt-primary">{pack.name}</span>
-                      <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ backgroundColor: statusColor + '20', color: statusColor }}>
-                        {pack.status}
-                      </span>
-                    </div>
-                    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[var(--color-border)]">
-                      <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: `rgb(var(--prism-${pct > 80 ? 'critical' : pct > 50 ? 'high' : 'fill-2'}))` }} />
-                    </div>
-                    <div className="mt-1 flex justify-between text-[10px] text-txt-faint">
-                      <span>{(pack.consumed ?? 0).toLocaleString()} / {(pack.total ?? 0).toLocaleString()} used ({pct.toFixed(0)}%)</span>
-                      <span>{(pack.remaining ?? 0).toLocaleString()} remaining</span>
-                    </div>
-                    <div className="mt-1 flex justify-between text-[10px] text-txt-faint">
-                      <span>Active: {pack.effective}</span>
-                      <span>Expires: {pack.expires}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* ═══════════════════════════════════════════════════════════
-           COMPANY-WIDE DETAILS
-         ═══════════════════════════════════════════════════════════ */}
-      <div>
-        <h2 className="text-lg font-semibold text-txt-primary">Company-Wide Details</h2>
-        <p className="mt-0.5 text-xs text-txt-muted">Aggregate infrastructure, banking, and vendor data</p>
-      </div>
-
-      {/* Vendor Subscriptions */}
-      <Card>
-        <div className="flex items-center justify-between">
-          <SectionHeader title="Vendor Subscriptions" />
-          {!loading && subscriptions.length > 0 && (
-            <span className="text-sm font-medium text-txt-secondary">
-              Total: ${totalSubscriptions.toFixed(2)}/mo
-            </span>
-          )}
-        </div>
-        {loading ? (
-          <Skeleton className="h-48" />
-        ) : subscriptions.length === 0 ? (
-          <div className="flex h-32 items-center justify-center">
-            <p className="text-sm text-txt-faint">No subscription data yet — Mercury sync pending</p>
-          </div>
-        ) : (
-          <div className="mt-2 overflow-hidden rounded-lg border border-[var(--color-border)]">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
-                  <th className="px-4 py-2 text-left font-medium text-txt-muted">Vendor</th>
-                  <th className="px-4 py-2 text-right font-medium text-txt-muted">Monthly Avg</th>
-                  <th className="px-4 py-2 text-right font-medium text-txt-muted">Last Payment</th>
-                  <th className="px-4 py-2 text-right font-medium text-txt-muted">Payments</th>
-                </tr>
-              </thead>
-              <tbody>
-                {subscriptions.map((sub) => (
-                  <tr key={sub.name} className="border-b border-[var(--color-border)] last:border-0">
-                    <td className="px-4 py-2 font-medium text-txt-primary">{sub.name}</td>
-                    <td className="px-4 py-2 text-right font-mono text-txt-secondary">${sub.monthly.toFixed(2)}</td>
-                    <td className="px-4 py-2 text-right text-txt-muted">{formatDate(sub.lastPayment)}</td>
-                    <td className="px-4 py-2 text-right text-txt-muted">{sub.count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-
-      {/* Verification Panels */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <SectionHeader title="Verification Tier Distribution" />
-          {vrLoading ? (
-            <Skeleton className="h-48" />
-          ) : verificationCounts.length === 0 ? (
-            <EmptyChart message="No verification metadata yet" />
-          ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={verificationCounts}
-                  dataKey="count"
-                  nameKey="tier"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={70}
-                  innerRadius={35}
-                  paddingAngle={2}
-                  label={({ tier, count, percent }: any) => percent > 0.03 ? `${VERIF_LABELS[tier] ?? tier} ${count}` : ''}
-                >
-                  {verificationCounts.map((_, i) => (
-                    <Cell key={i} fill={VERIF_COLORS[verificationCounts[i].tier] ?? '#94A3B8'} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
-                  itemStyle={{ color: 'var(--color-txt-primary)' }}
-                  formatter={(value: number) => [String(value), 'Runs']}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
-        </Card>
-
-        <Card>
-          <SectionHeader title="Verification Cost by Tier (30d)" />
-          {vrLoading ? (
-            <Skeleton className="h-48" />
-          ) : verificationCostByTier.reduce((s, v) => s + v.cost, 0) === 0 ? (
-            <EmptyChart message="No verification cost data yet" />
-          ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={verificationCostByTier}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis dataKey="tier" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(t) => VERIF_LABELS[t] ?? t} />
                 <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${fmt(Number(v))}`} />
                 <Tooltip
                   contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
                   labelStyle={{ color: 'var(--color-txt-secondary)' }}
-                  itemStyle={{ color: 'var(--color-txt-primary)' }}
-                  formatter={(value: number) => [`$${Number(value).toFixed(4)}`]}
+                  formatter={(value: number, name: string) => {
+                    if (name === 'margin') return [`${value.toFixed(1)}%`, 'Margin'];
+                    return [`$${fmt(value)}`, name === 'revenue' ? 'Revenue' : 'Costs'];
+                  }}
                 />
-                <Bar dataKey="cost">
-                  {verificationCostByTier.map((row) => (
-                    <Cell key={row.tier} fill={VERIF_COLORS[row.tier] ?? '#94A3B8'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </Card>
-
-        <Card>
-          <SectionHeader title="Verification Trend (runs/day)" />
-          {vrLoading ? (
-            <Skeleton className="h-48" />
-          ) : verificationTrend.length === 0 ? (
-            <EmptyChart message="No verification run history yet" />
-          ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={verificationTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
-                <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
-                <Tooltip
-                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
-                  labelStyle={{ color: 'var(--color-txt-secondary)' }}
-                  itemStyle={{ color: 'var(--color-txt-primary)' }}
-                  formatter={(value: number, name: string) => [String(value), VERIF_LABELS[name] ?? name]}
-                />
-                <Legend formatter={(v) => VERIF_LABELS[v] ?? v} wrapperStyle={{ fontSize: 11 }} />
-                {['none', 'self_critique', 'cross_model', 'conditional'].map((k) => (
-                  <Bar key={k} dataKey={k} stackId="tier" fill={VERIF_COLORS[k] ?? '#94A3B8'} />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </Card>
-      </div>
-
-      <div>
-        <h2 className="text-lg font-semibold text-txt-primary">Model Routing Audit</h2>
-        <p className="mt-0.5 text-xs text-txt-muted">Per-turn complexity, selected models, and observed cost-to-quality tradeoffs</p>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-        <SummaryCard label="Avg Cost / Quality Point" value={routingAuditLoading ? '—' : `$${routingEfficiency.costPerQualityPoint.toFixed(4)}`} loading={routingAuditLoading} />
-        <SummaryCard label="Frontier Runs (30d)" value={routingAuditLoading ? '—' : String(routingEfficiency.frontierRuns)} loading={routingAuditLoading} />
-        <SummaryCard label="Most Common Routed Model" value={routingAuditLoading ? '—' : routingEfficiency.dominantModel} loading={routingAuditLoading} />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <SectionHeader title="Subtask Complexity Distribution" />
-          {routingAuditLoading ? (
-            <Skeleton className="h-48" />
-          ) : complexityCounts.every((row) => row.count === 0) ? (
-            <EmptyChart message="No routing complexity metadata yet" />
-          ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={complexityCounts}
-                  dataKey="count"
-                  nameKey="complexity"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={70}
-                  innerRadius={35}
-                  paddingAngle={2}
-                  label={({ complexity, count, percent }: { complexity: string; count: number; percent: number }) => percent > 0.03 ? `${COMPLEXITY_LABELS[complexity] ?? complexity} ${count}` : ''}
-                >
-                  {complexityCounts.map((row) => (
-                    <Cell key={row.complexity} fill={COMPLEXITY_COLORS[row.complexity] ?? '#94A3B8'} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
-                  itemStyle={{ color: 'var(--color-txt-primary)' }}
-                  formatter={(value: number) => [String(value), 'Runs']}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
-        </Card>
-
-        <Card>
-          <SectionHeader title="Routed Model Mix (30d)" />
-          {routingAuditLoading ? (
-            <Skeleton className="h-48" />
-          ) : routedModelMix.length === 0 ? (
-            <EmptyChart message="No routed model data yet" />
-          ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={routedModelMix}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis dataKey="model" tick={{ fontSize: 10, fill: 'var(--color-txt-muted)' }} interval={0} angle={-25} textAnchor="end" height={60} />
-                <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
-                <Tooltip
-                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
-                  labelStyle={{ color: 'var(--color-txt-secondary)' }}
-                  itemStyle={{ color: 'var(--color-txt-primary)' }}
-                  formatter={(value: number, name: string) => [name === 'cost' ? `$${value.toFixed(4)}` : String(value), name === 'cost' ? 'Cost' : 'Runs']}
-                />
-                <Bar dataKey="runs" fill={GLYPHOR_PALETTE[2]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </Card>
-
-        <Card>
-          <SectionHeader title="Cost vs Quality per Run" />
-          {routingAuditLoading ? (
-            <Skeleton className="h-48" />
-          ) : costQualityPoints.length === 0 ? (
-            <EmptyChart message="No run reflections to correlate yet" />
-          ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <ScatterChart margin={{ top: 10, right: 12, left: 0, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis type="number" dataKey="cost" name="Cost" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(value) => `$${Number(value).toFixed(2)}`} />
-                <YAxis type="number" dataKey="quality" name="Quality" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} domain={[0, 100]} />
-                <Tooltip
-                  cursor={{ strokeDasharray: '3 3' }}
-                  formatter={(value: number, name: string) => [name === 'Cost' ? `$${Number(value).toFixed(4)}` : String(value), name]}
-                  labelFormatter={() => ''}
-                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
-                />
-                <Scatter data={costQualityPoints} fill={GLYPHOR_PALETTE[4]} />
-              </ScatterChart>
-            </ResponsiveContainer>
-          )}
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* MRR Trend */}
-        <Card>
-          <SectionHeader title="MRR Trend" />
-          {loading ? (
-            <Skeleton className="h-64" />
-          ) : mrrData.length === 0 ? (
-            <EmptyChart message="No MRR data yet" />
-          ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={mrrData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
-                <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${fmt(v)}`} />
-                <Tooltip
-                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
-                  labelStyle={{ color: 'var(--color-txt-secondary)' }}
-                  formatter={(value: number) => [`$${fmt(value)}`, 'MRR']}
-                />
-                <Line type="monotone" dataKey="mrr" stroke={GLYPHOR_PALETTE[0]} strokeWidth={2} dot={false} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Line type="monotone" dataKey="revenue" stroke="#22D3EE" strokeWidth={2.5} dot={false} name="Revenue" />
+                <Line type="monotone" dataKey="costs" stroke="#FB7185" strokeWidth={2.5} dot={false} name="Costs" />
+                <Line type="monotone" dataKey="margin" stroke="#A78BFA" strokeWidth={2} dot={false} yAxisId={1} name="Margin" />
+                <YAxis yAxisId={1} orientation="right" tickFormatter={(v) => `${Number(v).toFixed(0)}%`} domain={[0, 100]} tick={{ fontSize: 10, fill: 'var(--color-txt-faint)' }} />
               </LineChart>
             </ResponsiveContainer>
           )}
         </Card>
 
-        {/* Cost Breakdown */}
         <Card>
-          <SectionHeader title="Cost Breakdown" />
-          {loading ? (
-            <Skeleton className="h-64" />
-          ) : costData.length === 0 ? (
-            <EmptyChart message="No cost data yet" />
+          <SectionHeader title={`${currentMonthLabel} Spend Mix`} />
+          {apiLoading || gcpLoading ? (
+            <Skeleton className="h-72" />
+          ) : spendMix.length === 0 ? (
+            <EmptyChart message="No spend mix data yet" />
           ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={costData}>
+            <div className="space-y-3">
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie data={spendMix} dataKey="value" nameKey="name" outerRadius={80} innerRadius={46} paddingAngle={2}>
+                    {spendMix.map((slice, i) => (
+                      <Cell key={slice.name} fill={API_COLORS[i % API_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
+                    formatter={(value: number) => [`$${value.toFixed(2)}`]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-1.5 text-xs">
+                {spendMix.map((slice, i) => {
+                  const total = spendMix.reduce((sum, s) => sum + s.value, 0);
+                  const pct = total > 0 ? (slice.value / total) * 100 : 0;
+                  return (
+                    <div key={slice.name} className="flex items-center justify-between rounded-md border border-border px-2.5 py-1.5">
+                      <span className="flex items-center gap-2 text-txt-secondary">
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: API_COLORS[i % API_COLORS.length] }} />
+                        {slice.name}
+                      </span>
+                      <span className="font-mono text-txt-primary">${slice.value.toFixed(2)} · {pct.toFixed(0)}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <Card className="xl:col-span-2">
+          <SectionHeader title="Product Profitability Snapshot" />
+          {loading ? (
+            <Skeleton className="h-72" />
+          ) : productSnapshot.every((p) => p.mrr === 0 && p.totalCost === 0) ? (
+            <EmptyChart message="No product-level financial data yet" />
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={productSnapshot}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
-                <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${fmt(v)}`} />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
+                <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${fmt(Number(v))}`} />
                 <Tooltip
                   contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
-                  labelStyle={{ color: 'var(--color-txt-secondary)' }}
-                  formatter={(value: number) => [`$${fmt(value)}`]}
+                  formatter={(value: number, name: string) => {
+                    if (name === 'margin') return [`${value.toFixed(1)}%`, 'Margin'];
+                    return [`$${value.toFixed(2)}`, name === 'mrr' ? 'Revenue' : 'Cost'];
+                  }}
                 />
-                <Bar dataKey="infrastructure" fill={GLYPHOR_PALETTE[2]} stackId="costs" />
-                <Bar dataKey="api" fill={GLYPHOR_PALETTE[4]} stackId="costs" />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="mrr" fill="#22D3EE" name="Revenue" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="totalCost" fill="#FB7185" name="Cost" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
         </Card>
-      </div>
 
-      {/* GCP Billing Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Per-Product Cost (Pie) */}
         <Card>
-          <SectionHeader title={`GCP Cost by Product (${currentMonthLabel})`} />
-          {gcpLoading ? (
-            <Skeleton className="h-64" />
-          ) : gcpByProduct.length === 0 ? (
-            <EmptyChart message="No per-product GCP data yet" />
+          <SectionHeader title="Top Subscriptions" />
+          {loading ? (
+            <Skeleton className="h-72" />
+          ) : subscriptions.length === 0 ? (
+            <EmptyChart message="No subscription data yet" />
           ) : (
-            <ResponsiveContainer width="100%" height={320}>
-              <PieChart>
-                <Pie
-                  data={gcpByProduct}
-                  dataKey="cost"
-                  nameKey="product"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  innerRadius={55}
-                  paddingAngle={2}
-                  label={({ product, cost, percent }: { product: string; cost: number; percent: number }) =>
-                    percent > 0.05 ? `${PRODUCT_LABELS[product] ?? product} $${cost.toFixed(2)}` : ''
-                  }
-                  labelLine={{ stroke: 'var(--color-txt-faint)', strokeWidth: 1 }}
-                >
-                  {gcpByProduct.map((entry, i) => (
-                    <Cell key={i} fill={PRODUCT_COLORS[entry.product] ?? GCP_COLORS[i % GCP_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
-                  formatter={(value: number) => [`$${value.toFixed(2)}`]}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
-        </Card>
-
-        {/* Per-Service Cost (Pie) */}
-        <Card>
-          <div className="flex items-center justify-between">
-            <SectionHeader title={`GCP Cost by Service (${currentMonthLabel})`} />
-            {!gcpLoading && gcpTotalCost > 0 && (
-              <span className="text-sm font-medium text-txt-secondary">
-                ${gcpTotalCost.toFixed(2)}
-              </span>
-            )}
-          </div>
-          {gcpLoading ? (
-            <Skeleton className="h-64" />
-          ) : gcpByService.length === 0 ? (
-            <EmptyChart message="No GCP billing data yet" />
-          ) : (
-            <ResponsiveContainer width="100%" height={320}>
-              <PieChart>
-                <Pie
-                  data={gcpByServiceForPie}
-                  dataKey="cost"
-                  nameKey="service"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  innerRadius={55}
-                  paddingAngle={2}
-                  label={({ service, cost, percent }: { service: string; cost: number; percent: number }) =>
-                    percent > 0.04 ? `${service} $${cost.toFixed(2)}` : ''
-                  }
-                  labelLine={{ stroke: 'var(--color-txt-faint)', strokeWidth: 1 }}
-                >
-                  {gcpByServiceForPie.map((entry, i) => (
-                    <Cell key={i} fill={GCP_SERVICE_COLORS[entry.service] ?? GCP_COLORS[i % GCP_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
-                  formatter={(value: number) => [`$${value.toFixed(4)}`]}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
-        </Card>
-
-      </div>
-
-      {/* GCP Cost by Project — table with per-project service breakdown */}
-      <Card>
-        <SectionHeader title={`GCP Cost by Project (${currentMonthLabel})`} />
-        {gcpLoading ? (
-          <Skeleton className="h-48" />
-        ) : gcpByProject.length === 0 ? (
-          <EmptyChart message="No per-project GCP data yet" />
-        ) : (
-          <div className="mt-2 space-y-4">
-            {gcpByProject.map((proj) => {
-              const services = gcpProjectServiceBreakdown.get(proj.project);
-              const serviceList = services
-                ? Array.from(services.entries())
-                    .map(([svc, cost]) => ({ service: svc, cost: parseFloat(cost.toFixed(4)) }))
-                    .sort((a, b) => b.cost - a.cost)
-                : [];
-              const pct = gcpTotalCost > 0 ? (proj.cost / gcpTotalCost) * 100 : 0;
-              return (
-                <div key={proj.project} className="rounded-lg border border-[var(--color-border)] p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm font-medium text-txt-primary">{proj.project}</span>
-                      {proj.product && (
-                        <span className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-0.5 text-[10px] font-medium text-txt-muted">
-                          {proj.product}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <span className="font-mono text-sm font-semibold text-txt-primary">${proj.cost.toFixed(2)}</span>
-                      <span className="ml-2 text-[11px] text-txt-faint">{pct.toFixed(1)}%</span>
-                    </div>
+            <div className="space-y-2">
+              <p className="text-xs text-txt-faint">Total recurring vendor spend: <span className="font-mono text-txt-primary">${totalSubscriptions.toFixed(2)}/mo</span></p>
+              {subscriptions.slice(0, 7).map((sub) => (
+                <div key={sub.name} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium text-txt-primary">{sub.name}</p>
+                    <p className="text-[11px] text-txt-faint">Last payment {formatDate(sub.lastPayment)} · {sub.count} payments</p>
                   </div>
-                  {/* Cost bar */}
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-border)]">
-                    <div className="h-full rounded-full bg-[#2563EB] transition-all" style={{ width: `${Math.min(pct, 100)}%` }} />
-                  </div>
-                  {/* Service breakdown */}
-                  {serviceList.length > 0 && (
-                    <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1">
-                      {serviceList.map((svc) => (
-                        <div key={svc.service} className="flex items-center justify-between text-[11px]">
-                          <span className="text-txt-muted truncate mr-2">{svc.service}</span>
-                          <span className="font-mono text-txt-secondary shrink-0">${svc.cost.toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <p className="font-mono text-sm text-txt-secondary">${sub.monthly.toFixed(2)}</p>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </Card>
-
-      {/* GCP Daily Cost by Project — stacked bar */}
-      <Card>
-        <SectionHeader title="GCP Daily Cost by Project" />
-        {gcpLoading ? (
-          <Skeleton className="h-64" />
-        ) : gcpDailyByProject.length === 0 ? (
-          <EmptyChart message="No per-project GCP data yet" />
-        ) : (
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={gcpDailyByProject} margin={{ top: 5, right: 20, left: 10, bottom: 25 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }}
-                interval={Math.max(0, Math.floor(gcpDailyByProject.length / 12) - 1)}
-                angle={gcpDailyByProject.length > 14 ? -40 : 0}
-                textAnchor={gcpDailyByProject.length > 14 ? 'end' : 'middle'}
-              />
-              <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${v}`} />
-              <Tooltip
-                contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
-                labelStyle={{ color: 'var(--color-txt-secondary)' }}
-                formatter={(value: number, name: string) => [`$${value.toFixed(4)}`, PROJECT_TO_PRODUCT_LABEL[name] ?? name]}
-              />
-              <Legend formatter={(value) => PROJECT_TO_PRODUCT_LABEL[value] ?? value} wrapperStyle={{ fontSize: 11 }} />
-              {gcpByProject.map((p, i) => (
-                <Bar key={p.project} dataKey={p.project} stackId="proj" fill={GCP_COLORS[i % GCP_COLORS.length]} maxBarSize={36} />
               ))}
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </Card>
+            </div>
+          )}
+        </Card>
+      </div>
 
-      {/* GCP Daily Trend — full width */}
       <Card>
-        <SectionHeader title="GCP Daily Cost Trend" />
-        {gcpLoading ? (
-          <Skeleton className="h-64" />
-        ) : gcpDailyTrend.length === 0 ? (
-          <EmptyChart message="No GCP billing data yet" />
+        <SectionHeader title="Cost Structure by Product" />
+        {loading ? (
+          <Skeleton className="h-60" />
+        ) : productCostBreakdown.length === 0 ? (
+          <EmptyChart message="No product cost data yet" />
         ) : (
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={gcpDailyTrend} margin={{ top: 5, right: 20, left: 10, bottom: 25 }}>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={productCostBreakdown}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }}
-                interval={Math.max(0, Math.floor(gcpDailyTrend.length / 12) - 1)}
-                angle={gcpDailyTrend.length > 14 ? -40 : 0}
-                textAnchor={gcpDailyTrend.length > 14 ? 'end' : 'middle'}
-              />
-              <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${v}`} />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
+              <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${fmt(Number(v))}`} />
               <Tooltip
                 contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
-                labelStyle={{ color: 'var(--color-txt-secondary)' }}
-                formatter={(value: number) => [`$${value.toFixed(4)}`]}
+                formatter={(value: number, name: string) => [`$${value.toFixed(2)}`, name === 'infrastructure' ? 'Infrastructure' : 'API / AI']}
               />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              {gcpTopServices.map((svc, i) => (
-                <Bar key={svc} dataKey={svc} stackId="gcp" fill={GCP_COLORS[i % GCP_COLORS.length]} maxBarSize={36} />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </Card>
-
-      {/* GCP Service Cost Table */}
-      <Card>
-        <SectionHeader title={`GCP Service Cost Details (${currentMonthLabel})`} />
-        {gcpLoading ? (
-          <Skeleton className="h-48" />
-        ) : gcpByService.length === 0 ? (
-          <div className="flex h-32 items-center justify-center">
-            <p className="text-sm text-txt-faint">No GCP billing data yet — billing sync pending</p>
-          </div>
-        ) : (
-          <div className="mt-2 overflow-hidden rounded-lg border border-[var(--color-border)]">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
-                  <th className="px-4 py-2 text-left font-medium text-txt-muted">Service</th>
-                  <th className="px-4 py-2 text-right font-medium text-txt-muted">Total Cost</th>
-                  <th className="px-4 py-2 text-right font-medium text-txt-muted">% of Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {gcpByService.map((svc) => (
-                  <tr key={svc.service} className="border-b border-[var(--color-border)] last:border-0">
-                    <td className="px-4 py-2 font-medium text-txt-primary">{svc.service}</td>
-                    <td className="px-4 py-2 text-right font-mono text-txt-secondary">${svc.cost.toFixed(2)}</td>
-                    <td className="px-4 py-2 text-right text-txt-muted">
-                      {gcpTotalCost > 0 ? ((svc.cost / gcpTotalCost) * 100).toFixed(1) : '0.0'}%
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-
-      {/* Gross Margin */}
-      <Card>
-        <SectionHeader title="Gross Margin %" />
-        {loading ? (
-          <Skeleton className="h-64" />
-        ) : marginData.length === 0 ? (
-          <EmptyChart message="No margin data yet" />
-        ) : (
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={marginData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
-              <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `${v}%`} domain={[0, 100]} />
-              <Tooltip
-                contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
-                labelStyle={{ color: 'var(--color-txt-secondary)' }}
-                formatter={(value: number) => [`${value.toFixed(1)}%`, 'Margin']}
-              />
-              <Area type="monotone" dataKey="margin" stroke={GLYPHOR_PALETTE[1]} fill="rgba(8,145,178,0.2)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        )}
-      </Card>
-
-      {/* Cash Flow (Mercury) */}
-      <Card>
-        <SectionHeader title="Cash Flow (Mercury)" />
-        {loading ? (
-          <Skeleton className="h-64" />
-        ) : cashFlowData.length === 0 ? (
-          <EmptyChart message="No cash flow data yet — Mercury sync pending" />
-        ) : (
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={cashFlowData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
-              <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${fmt(Math.abs(v))}`} />
-              <Tooltip
-                contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
-                labelStyle={{ color: 'var(--color-txt-secondary)' }}
-                formatter={(value: number) => [`$${fmt(Math.abs(value))}`]}
-              />
-              <Bar dataKey="inflow" fill={GLYPHOR_PALETTE[0]} name="Inflow" />
-              <Bar dataKey="outflow" fill={GLYPHOR_PALETTE[3]} name="Outflow" />
+              <Bar dataKey="infrastructure" fill="#60A5FA" stackId="costs" name="Infrastructure" />
+              <Bar dataKey="api" fill="#C084FC" stackId="costs" name="API / AI" />
             </BarChart>
           </ResponsiveContainer>
         )}

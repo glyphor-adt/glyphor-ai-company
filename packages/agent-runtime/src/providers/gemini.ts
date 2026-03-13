@@ -54,6 +54,7 @@ export class GeminiAdapter implements ProviderAdapter {
     if (request.tools?.length) {
       geminiTools.push({ functionDeclarations: structuredClone(request.tools) });
     }
+    const hasFunctionDeclarations = geminiTools.some((tool) => Array.isArray((tool as { functionDeclarations?: unknown }).functionDeclarations));
 
     // Build thinking config based on model family
     const thinkingEnabled = request.thinkingEnabled ?? true;
@@ -80,18 +81,25 @@ export class GeminiAdapter implements ProviderAdapter {
       };
     }
 
-    if (modelConfig?.enableGoogleSearch) {
+    const googleSearchEnabled = Boolean(modelConfig?.enableGoogleSearch && !hasFunctionDeclarations);
+    const codeExecutionEnabled = Boolean(modelConfig?.enableCodeExecution && !hasFunctionDeclarations);
+
+    if (googleSearchEnabled) {
       geminiTools.push({ googleSearch: {} });
+    } else if (modelConfig?.enableGoogleSearch && hasFunctionDeclarations) {
+      console.warn(`[Gemini] ${request.model}: skipping googleSearch because functionDeclarations are present (mixed tool types are rejected by Gemini API)`);
     }
 
-    if (modelConfig?.enableCodeExecution) {
+    if (codeExecutionEnabled) {
       geminiTools.push({ codeExecution: {} });
+    } else if (modelConfig?.enableCodeExecution && hasFunctionDeclarations) {
+      console.warn(`[Gemini] ${request.model}: skipping codeExecution because functionDeclarations are present (mixed tool types are rejected by Gemini API)`);
     }
 
     const systemInstruction = [
       request.systemInstruction,
-      modelConfig?.enableGoogleSearch ? 'Use grounded web search when current external information is required.' : null,
-      modelConfig?.enableCodeExecution ? 'Use code execution for calculations or data transformations when it improves accuracy.' : null,
+      googleSearchEnabled ? 'Use grounded web search when current external information is required.' : null,
+      codeExecutionEnabled ? 'Use code execution for calculations or data transformations when it improves accuracy.' : null,
       modelConfig?.structuredOutput
         ? `Return valid JSON matching this schema exactly: ${JSON.stringify(modelConfig.structuredOutput.schema)}`
         : null,
