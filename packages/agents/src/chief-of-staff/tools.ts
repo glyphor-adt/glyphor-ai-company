@@ -1587,7 +1587,7 @@ export function createOrchestrationTools(
 
     {
       name: 'create_work_assignments',
-      description: 'Break a founder directive into executive-level work assignments. Assign to executives (CTO, CPO, CMO, etc.) who will decompose into team tasks. For direct reports (ops, global-admin, m365-admin), assign directly.',
+      description: 'Create work assignments for directives Sarah owns directly (critical directives, cross-domain synthesis, or explicit delegation fallback). For delegatable single-domain non-critical directives, call delegate_directive first instead of assigning directly to executives.',
       parameters: {
         directive_id: {
           type: 'string',

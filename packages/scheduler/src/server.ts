@@ -1690,7 +1690,7 @@ const server = createServer(async (req, res) => {
 
       const { system_prompt, ...agentUpdates } = updates;
 
-      // Accept manager values as role/id/name/display_name/codename and normalize to role.
+      // Accept manager values as role/id/name/display_name and normalize to role.
       if (Object.prototype.hasOwnProperty.call(agentUpdates, 'reports_to')) {
         const managerRaw = (agentUpdates as Record<string, unknown>).reports_to;
         if (managerRaw === '' || managerRaw == null) {
@@ -1704,7 +1704,6 @@ const server = createServer(async (req, res) => {
                 OR id::text = $1
                 OR name = $1
                 OR display_name = $1
-                OR codename = $1
              LIMIT 1`,
             [managerText],
           );
@@ -2575,8 +2574,8 @@ const server = createServer(async (req, res) => {
       const body = JSON.parse(await readBody(req));
       try {
         const [data] = await systemQuery(
-          'INSERT INTO founder_directives (title, description, priority, category, target_agents, due_date, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-          [body.title, body.description, body.priority || 'high', body.category || 'general', JSON.stringify(body.target_agents || []), body.due_date || null, body.created_by || 'kristina'],
+          'INSERT INTO founder_directives (title, description, priority, category, target_agents, due_date, created_by, tenant_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
+          [body.title, body.description, body.priority || 'high', body.category || 'general', body.target_agents || [], body.due_date || null, body.created_by || 'kristina', '00000000-0000-0000-0000-000000000000'],
         );
         // Invalidate directive/context caches
         getRedisCache().invalidatePattern('jit:directives:*').catch(() => {});

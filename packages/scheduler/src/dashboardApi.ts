@@ -499,11 +499,19 @@ export async function handleDashboardApi(
         }
       }
 
+      // Auto-inject tenant_id for tenant-scoped tables when not provided
+      if (!body.tenant_id) {
+        body.tenant_id = '00000000-0000-0000-0000-000000000000';
+      }
+
       const keys = Object.keys(body);
       const cols = keys.map(sanitizeIdentifier);
       const placeholders = keys.map((_, i) => `$${i + 1}`);
       const vals = keys.map(k => {
         const v = body[k];
+        // Pass arrays directly so node-pg serializes them for TEXT[] columns;
+        // only JSON.stringify plain objects.
+        if (Array.isArray(v)) return v;
         return typeof v === 'object' && v !== null ? JSON.stringify(v) : v;
       });
 
@@ -525,6 +533,7 @@ export async function handleDashboardApi(
       const setClauses = keys.map((k, i) => `${sanitizeIdentifier(k)} = $${i + 1}`);
       const vals: unknown[] = keys.map(k => {
         const v = body[k];
+        if (Array.isArray(v)) return v;
         return typeof v === 'object' && v !== null ? JSON.stringify(v) : v;
       });
 

@@ -1055,7 +1055,11 @@ function ConstitutionalGatesCard({ agentRole }: { agentRole: string }) {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis dataKey="week" tick={{ fontSize: 10 }} stroke="var(--color-txt-faint)" />
                 <YAxis allowDecimals={false} tick={{ fontSize: 10 }} stroke="var(--color-txt-faint)" />
-                <Tooltip />
+                <Tooltip
+                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
+                  labelStyle={{ color: 'var(--color-txt-secondary)' }}
+                  itemStyle={{ color: 'var(--color-txt-primary)' }}
+                />
                 <Bar dataKey="blocks" fill="var(--color-prism-critical, #ef4444)" radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>

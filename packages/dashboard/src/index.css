@@ -57,6 +57,22 @@
   --glow-cyan-lg: none;
 }
 
+/* ─── Recharts dark-mode overrides ─────────────── */
+.dark .recharts-default-tooltip {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 8px !important;
+}
+.dark .recharts-tooltip-label {
+  color: var(--color-txt-secondary) !important;
+}
+.dark .recharts-tooltip-item {
+  color: var(--color-txt-primary) !important;
+}
+.dark .recharts-cursor {
+  fill: rgba(255, 255, 255, 0.06) !important;
+}
+
 /* ─── Global ──────────────────────────────────── */
 html { scroll-behavior: smooth; }
 body {
@@ -269,17 +285,21 @@ input:focus, textarea:focus, select:focus {
 
 /* ─── Dark Mode Card ─────────────────────────── */
 .dark .glass-card {
-  background: rgba(0, 0, 0, 0.30) !important;
-  border: none !important;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
 .dark .glass-card:hover {
   transform: scale(1.02);
-  background: rgba(0, 0, 0, 0.40) !important;
-  border: none !important;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
+  background: rgba(255, 255, 255, 0.07) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09);
 }
 
 /* Inner raised elements inside cards */

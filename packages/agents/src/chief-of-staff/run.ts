@@ -278,13 +278,14 @@ Goal: Drive organizational learning — identify what worked, what didn't, and h
 1. Use read_initiatives first so you understand active initiative sequencing and dependency state
 2. Read founder directives with status="open" (proposed, active, paused), using initiative_id filters when you need to inspect a specific initiative chain
 3. For initiative-derived directives, only move downstream work forward when prerequisite directives are completed
-4. For new directives without assignments: plan and create work assignments
-5. When prior initiative work produced deliverables, embed those deliverables into downstream assignment instructions
-6. For directives with pending assignments: dispatch them to agents
-7. For directives with completed assignments: evaluate the outputs
-8. Update progress notes on all active directives and complete initiatives when their directive chain is done
-9. Report any blockers or issues that need founder attention
-10. Run directive lifecycle checks (completion synthesis, stuck decisions, stuck blockers)
+4. For each new non-critical directive, classify domain and attempt delegation first using delegate_directive
+5. Use create_work_assignments only for directives you own directly (critical directives, cross-domain synthesis work, or explicit delegation failure)
+6. When prior initiative work produced deliverables, embed those deliverables into downstream assignment instructions
+7. For directives with pending assignments: dispatch them to agents
+8. For directives with completed assignments: evaluate the outputs
+9. Update progress notes on all active directives and complete initiatives when their directive chain is done
+10. Report any blockers or issues that need founder attention
+11. Run directive lifecycle checks (completion synthesis, stuck decisions, stuck blockers)
 
 Be decisive. Assign real work. Move things forward.
 

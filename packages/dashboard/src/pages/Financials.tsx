@@ -1040,7 +1040,11 @@ export default function Financials() {
                     <Cell key={i} fill={VERIF_COLORS[verificationCounts[i].tier] ?? '#94A3B8'} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: number) => [String(value), 'Runs']} />
+                <Tooltip
+                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
+                  itemStyle={{ color: 'var(--color-txt-primary)' }}
+                  formatter={(value: number) => [String(value), 'Runs']}
+                />
               </PieChart>
             </ResponsiveContainer>
           )}
@@ -1058,7 +1062,12 @@ export default function Financials() {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis dataKey="tier" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(t) => VERIF_LABELS[t] ?? t} />
                 <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${fmt(Number(v))}`} />
-                <Tooltip formatter={(value: number) => [`$${Number(value).toFixed(4)}`]} />
+                <Tooltip
+                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
+                  labelStyle={{ color: 'var(--color-txt-secondary)' }}
+                  itemStyle={{ color: 'var(--color-txt-primary)' }}
+                  formatter={(value: number) => [`$${Number(value).toFixed(4)}`]}
+                />
                 <Bar dataKey="cost">
                   {verificationCostByTier.map((row) => (
                     <Cell key={row.tier} fill={VERIF_COLORS[row.tier] ?? '#94A3B8'} />
@@ -1081,7 +1090,12 @@ export default function Financials() {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
                 <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
-                <Tooltip formatter={(value: number, name: string) => [String(value), VERIF_LABELS[name] ?? name]} />
+                <Tooltip
+                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
+                  labelStyle={{ color: 'var(--color-txt-secondary)' }}
+                  itemStyle={{ color: 'var(--color-txt-primary)' }}
+                  formatter={(value: number, name: string) => [String(value), VERIF_LABELS[name] ?? name]}
+                />
                 <Legend formatter={(v) => VERIF_LABELS[v] ?? v} wrapperStyle={{ fontSize: 11 }} />
                 {['none', 'self_critique', 'cross_model', 'conditional'].map((k) => (
                   <Bar key={k} dataKey={k} stackId="tier" fill={VERIF_COLORS[k] ?? '#94A3B8'} />
@@ -1128,7 +1142,11 @@ export default function Financials() {
                     <Cell key={row.complexity} fill={COMPLEXITY_COLORS[row.complexity] ?? '#94A3B8'} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: number) => [String(value), 'Runs']} />
+                <Tooltip
+                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
+                  itemStyle={{ color: 'var(--color-txt-primary)' }}
+                  formatter={(value: number) => [String(value), 'Runs']}
+                />
               </PieChart>
             </ResponsiveContainer>
           )}
@@ -1146,7 +1164,12 @@ export default function Financials() {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis dataKey="model" tick={{ fontSize: 10, fill: 'var(--color-txt-muted)' }} interval={0} angle={-25} textAnchor="end" height={60} />
                 <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
-                <Tooltip formatter={(value: number, name: string) => [name === 'cost' ? `$${value.toFixed(4)}` : String(value), name === 'cost' ? 'Cost' : 'Runs']} />
+                <Tooltip
+                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
+                  labelStyle={{ color: 'var(--color-txt-secondary)' }}
+                  itemStyle={{ color: 'var(--color-txt-primary)' }}
+                  formatter={(value: number, name: string) => [name === 'cost' ? `$${value.toFixed(4)}` : String(value), name === 'cost' ? 'Cost' : 'Runs']}
+                />
                 <Bar dataKey="runs" fill={GLYPHOR_PALETTE[2]} />
               </BarChart>
             </ResponsiveContainer>
