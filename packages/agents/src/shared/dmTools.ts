@@ -185,7 +185,6 @@ export function createDmTools(): ToolDefinition[] {
         // Resolve sender display name from ctx.agentRole
         const role = ctx?.agentRole as CompanyAgentRole | undefined;
         const agentEntry = role ? AGENT_EMAIL_MAP[role] : undefined;
-        const senderName = agentEntry?.displayName ?? role ?? 'Glyphor Agent';
         const senderEmail = agentEntry?.email;
         const a365Client = getA365Client(role);
 
@@ -195,8 +194,7 @@ export function createDmTools(): ToolDefinition[] {
           try {
             const chatId = await a365Client.createOrGetOneOnOneChat(email, senderEmail);
 
-            const content = senderName ? `${senderName}: ${params.message as string}` : (params.message as string);
-            await a365Client.postChatMessage(chatId, content, role);
+            await a365Client.postChatMessage(chatId, params.message as string, role);
 
             return { success: true, data: { sent: true, recipient: recipientStr, email, via: 'a365-mcp' } };
           } catch (err) {
