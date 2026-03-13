@@ -10,9 +10,24 @@
  * Direct reports are loaded dynamically from company_agents table.
  */
 
-import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import { AGENT_EMAIL_MAP, type CompanyAgentRole, type ToolDefinition, type ToolResult } from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
+import { A365TeamsChatClient } from '@glyphor/integrations';
 import { systemQuery } from '@glyphor/shared/db';
+
+const EXECUTIVE_ROLES = new Set<string>([
+  'chief-of-staff',
+  'cto',
+  'cfo',
+  'cpo',
+  'cmo',
+  'vp-sales',
+  'vp-design',
+  'vp-research',
+  'clo',
+]);
+
+const FOUNDER_EMAILS = ['kristina@glyphor.ai', 'andrew@glyphor.ai'];
 
 /** Resolve direct reports dynamically from the database */
 async function getDirectReports(executiveRole: string): Promise<string[]> {
@@ -146,6 +161,149 @@ export function createTeamOrchestrationTools(
               assigned_to: agentRole,
               priority,
               parent_assignment_id: parentId ?? null,
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    /* ── create_sub_team_assignment ───────── */
+    {
+      name: 'create_sub_team_assignment',
+      description:
+        'Create a work assignment for a member of your direct team. ' +
+        'Use this for executive-directed decomposition without routing through Sarah.',
+      parameters: {
+        agent_role: {
+          type: 'string',
+          description: 'Direct report role that should own this assignment',
+          required: true,
+        },
+        title: {
+          type: 'string',
+          description: 'One-line assignment title',
+          required: true,
+        },
+        description: {
+          type: 'string',
+          description: 'Detailed assignment instructions',
+          required: true,
+        },
+        priority: {
+          type: 'string',
+          description: 'Priority level for the assignment',
+          required: true,
+          enum: ['critical', 'high', 'medium', 'low'],
+        },
+        directive_id: {
+          type: 'string',
+          description: 'Optional founder_directive ID to link this assignment to',
+          required: false,
+        },
+        due_date: {
+          type: 'string',
+          description: 'Optional due date (ISO 8601). Stored in assignment instructions.',
+          required: false,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const assignee = params.agent_role as string;
+        const priority = (params.priority as string).toLowerCase();
+        const directiveId = params.directive_id as string | undefined;
+        const dueDate = params.due_date as string | undefined;
+
+        const priorityMap: Record<string, 'urgent' | 'high' | 'normal' | 'low'> = {
+          critical: 'urgent',
+          high: 'high',
+          medium: 'normal',
+          low: 'low',
+        };
+        const mappedPriority = priorityMap[priority];
+        if (!mappedPriority) {
+          return { success: false, error: 'priority must be one of: critical, high, medium, low' };
+        }
+
+        try {
+          const directReports = await getDirectReports(ctx.agentRole);
+          if (!directReports.includes(assignee)) {
+            return {
+              success: false,
+              error: `${assignee} does not report to you. Your direct reports: ${directReports.join(', ') || 'none found'}`,
+            };
+          }
+
+          const fullDescription = dueDate
+            ? `${params.description as string}\n\nDue Date: ${dueDate}`
+            : (params.description as string);
+
+          const columns = [
+            'assigned_to',
+            'assigned_by',
+            'task_description',
+            'task_type',
+            'expected_output',
+            'priority',
+            'status',
+            'assignment_type',
+            'created_by',
+          ];
+          const values: unknown[] = [
+            assignee,
+            ctx.agentRole,
+            `${params.title as string}: ${fullDescription}`,
+            'team_task',
+            fullDescription,
+            mappedPriority,
+            'pending',
+            'team_task',
+            ctx.agentRole,
+          ];
+
+          if (directiveId) {
+            columns.push('directive_id');
+            values.push(directiveId);
+          }
+
+          const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+          const [assignment] = await systemQuery<{ id: string }>(
+            `INSERT INTO work_assignments (${columns.join(', ')}) VALUES (${placeholders}) RETURNING id`,
+            values,
+          );
+
+          await systemQuery(
+            'INSERT INTO agent_messages (from_agent, to_agent, message, message_type, priority, status) VALUES ($1,$2,$3,$4,$5,$6)',
+            [
+              ctx.agentRole,
+              assignee,
+              `New assignment from ${ctx.agentRole}\n\nTitle: ${params.title as string}\nPriority: ${priority}\n\n${fullDescription}\n\nWhen complete, submit_assignment_output with assignment_id=${assignment.id}.`,
+              'task',
+              mappedPriority === 'urgent' ? 'urgent' : 'normal',
+              'pending',
+            ],
+          );
+
+          await glyphorEventBus.emit({
+            type: 'assignment.created',
+            source: ctx.agentRole,
+            payload: {
+              assignment_id: assignment.id,
+              assigned_to: assignee,
+              assigned_by: ctx.agentRole,
+              directive_id: directiveId ?? null,
+            },
+            priority: mappedPriority === 'urgent' ? 'high' : 'normal',
+          });
+
+          return {
+            success: true,
+            data: {
+              assignment_id: assignment.id,
+              assigned_to: assignee,
+              priority,
+              directive_id: directiveId ?? null,
+              due_date: dueDate ?? null,
             },
           };
         } catch (err) {
@@ -299,6 +457,94 @@ export function createTeamOrchestrationTools(
           };
         } catch (err) {
           return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    /* ── notify_founders ─────────────────── */
+    {
+      name: 'notify_founders',
+      description:
+        'Send a direct Teams DM to founders. Use for milestones, blockers, RED escalations, and deadline risk.',
+      parameters: {
+        urgency: {
+          type: 'string',
+          description: 'Urgency tier of this update',
+          required: true,
+          enum: ['info', 'yellow', 'red'],
+        },
+        subject: {
+          type: 'string',
+          description: 'One-line subject',
+          required: true,
+        },
+        detail: {
+          type: 'string',
+          description: '2-3 sentence detail summary',
+          required: true,
+        },
+        action_needed: {
+          type: 'string',
+          description: 'Optional explicit action requested from founders',
+          required: false,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        if (!EXECUTIVE_ROLES.has(ctx.agentRole)) {
+          return { success: false, error: 'notify_founders is restricted to executive-tier agents.' };
+        }
+
+        let a365Client: A365TeamsChatClient | null = null;
+        try {
+          a365Client = A365TeamsChatClient.fromEnv(ctx.agentRole as CompanyAgentRole);
+        } catch {
+          a365Client = null;
+        }
+        if (!a365Client) {
+          return {
+            success: false,
+            error: 'Agent 365 Teams client not configured for this role. Cannot send founder DM.',
+          };
+        }
+
+        const urgency = params.urgency as 'info' | 'yellow' | 'red';
+        const banner = urgency === 'red'
+          ? 'RED ESCALATION'
+          : urgency === 'yellow'
+            ? 'YELLOW ALERT'
+            : 'INFO UPDATE';
+
+        const senderEmail = AGENT_EMAIL_MAP[ctx.agentRole as CompanyAgentRole]?.email;
+        const message = [
+          `[${banner}] ${params.subject as string}`,
+          '',
+          params.detail as string,
+          params.action_needed ? `Action Needed: ${params.action_needed as string}` : null,
+          '',
+          `From: ${ctx.agentRole}`,
+        ].filter(Boolean).join('\n');
+
+        try {
+          for (const founderEmail of FOUNDER_EMAILS) {
+            const chatId = await a365Client.createOrGetOneOnOneChat(founderEmail, senderEmail);
+            await a365Client.postChatMessage(chatId, message, ctx.agentRole as CompanyAgentRole);
+          }
+
+          await systemQuery(
+            'INSERT INTO activity_log (agent_role, activity_type, description) VALUES ($1, $2, $3)',
+            [ctx.agentRole, 'founder_notification', `[${urgency}] ${params.subject as string}`],
+          );
+
+          return {
+            success: true,
+            data: {
+              sent: true,
+              urgency,
+              recipients: FOUNDER_EMAILS,
+            },
+          };
+        } catch (err) {
+          return { success: false, error: `Failed to notify founders: ${(err as Error).message}` };
         }
       },
     },

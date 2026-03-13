@@ -362,6 +362,30 @@ const agentExecutor = async (
 let ensureAgentRunsRoutingSchemaPromise: Promise<void> | null = null;
 let verificationPassesColumnType: 'array' | 'integer' | 'unknown' = 'unknown';
 
+type FlagTier = 'info' | 'yellow' | 'red';
+
+interface ParsedRunStatus {
+  what: string;
+  result: string | null;
+  nextAction: string | null;
+  flag: string | null;
+  flagTier: FlagTier | null;
+}
+
+const RUN_STATUS_DEPARTMENT_FALLBACK: Record<string, string> = {
+  'chief-of-staff': 'operations',
+  cto: 'engineering',
+  cfo: 'finance',
+  cpo: 'product',
+  cmo: 'marketing',
+  clo: 'legal',
+  'vp-sales': 'sales',
+  'vp-design': 'design',
+  'vp-research': 'research',
+  ops: 'operations',
+  'global-admin': 'operations',
+};
+
 const AUTO_INVESTIGATE_ON_FAILURE = process.env.AUTO_INVESTIGATE_ON_FAILURE !== 'false';
 const AUTO_RETRY_ON_FAILURE = process.env.AUTO_RETRY_ON_FAILURE === 'true';
 const AUTO_RETRY_MAX_ATTEMPTS = Math.max(0, parseInt(process.env.AUTO_RETRY_MAX_ATTEMPTS || '1', 10));
@@ -392,6 +416,24 @@ async function ensureAgentRunsRoutingSchema(): Promise<void> {
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS estimated_cost_usd DOUBLE PRECISION');
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS compaction_count INT DEFAULT 0');
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS result_summary TEXT');
+      await safeSchemaChange(`
+        CREATE TABLE IF NOT EXISTS agent_run_status (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          agent_role TEXT NOT NULL,
+          department TEXT NOT NULL,
+          run_id UUID REFERENCES agent_runs(id) ON DELETE SET NULL,
+          what TEXT NOT NULL,
+          result TEXT,
+          next_action TEXT,
+          flag TEXT,
+          flag_tier TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          CONSTRAINT agent_run_status_flag_tier_check
+            CHECK (flag_tier IS NULL OR flag_tier IN ('info', 'yellow', 'red'))
+        )
+      `);
+      await safeSchemaChange('CREATE INDEX IF NOT EXISTS idx_agent_run_status_dept ON agent_run_status(department, created_at DESC)');
+      await safeSchemaChange('CREATE INDEX IF NOT EXISTS idx_agent_run_status_flags ON agent_run_status(flag_tier, created_at DESC) WHERE flag IS NOT NULL');
       await safeSchemaChange('ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS compacted BOOLEAN DEFAULT FALSE');
 
       // Migration drift guard for Phase 3 + Phase 7 columns used by smoketests.
@@ -452,6 +494,109 @@ async function ensureAgentRunsRoutingSchema(): Promise<void> {
     });
   }
   await ensureAgentRunsRoutingSchemaPromise;
+}
+
+function deriveFlagTier(flag: string): FlagTier {
+  const normalized = flag.toLowerCase();
+  if (normalized.includes('red') || normalized.includes('critical') || normalized.includes('outage') || normalized.includes('sev-1')) {
+    return 'red';
+  }
+  if (normalized.includes('yellow') || normalized.includes('risk') || normalized.includes('blocked') || normalized.includes('at risk') || normalized.includes('deadline')) {
+    return 'yellow';
+  }
+  return 'info';
+}
+
+function parseStructuredRunStatus(rawText: string, fallbackWhat: string, fallbackFlag?: string | null): ParsedRunStatus {
+  const sections: Record<'what' | 'result' | 'next' | 'flag', string[]> = {
+    what: [],
+    result: [],
+    next: [],
+    flag: [],
+  };
+
+  const lines = rawText.split(/\r?\n/);
+  let current: keyof typeof sections | null = null;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    const match = line.match(/^[-*]?\s*(WHAT(?:\s+YOU\s+DID)?|RESULT|NEXT(?:\s*ACTION)?|FLAG)\s*[:\-]\s*(.*)$/i);
+    if (match) {
+      const label = match[1].toLowerCase();
+      if (label.startsWith('what')) current = 'what';
+      else if (label.startsWith('result')) current = 'result';
+      else if (label.startsWith('next')) current = 'next';
+      else current = 'flag';
+
+      if (match[2]) {
+        sections[current].push(match[2].trim());
+      }
+      continue;
+    }
+
+    if (current) {
+      sections[current].push(line);
+    }
+  }
+
+  const compact = (parts: string[]) => {
+    const merged = parts.join(' ').replace(/\s+/g, ' ').trim();
+    return merged.length > 0 ? merged : null;
+  };
+
+  const what = compact(sections.what)
+    ?? rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean)[0]
+    ?? fallbackWhat;
+  const result = compact(sections.result);
+  const nextAction = compact(sections.next);
+  const parsedFlag = compact(sections.flag) ?? (fallbackFlag ?? null);
+
+  return {
+    what,
+    result,
+    nextAction,
+    flag: parsedFlag,
+    flagTier: parsedFlag ? deriveFlagTier(parsedFlag) : null,
+  };
+}
+
+async function storeAgentRunStatus(
+  agentRole: CompanyAgentRole,
+  task: string,
+  runId: string,
+  runStatus: string,
+  result?: AgentExecutionResult,
+  fallbackError?: string,
+): Promise<void> {
+  try {
+    const [meta] = await systemQuery<{ department: string | null }>(
+      'SELECT department FROM company_agents WHERE role = $1 LIMIT 1',
+      [agentRole],
+    );
+    const department = meta?.department ?? RUN_STATUS_DEPARTMENT_FALLBACK[agentRole] ?? 'operations';
+
+    const summary = (result?.resultSummary ?? '').trim();
+    const output = (result?.output ?? '').trim();
+    const error = fallbackError ?? result?.error ?? result?.abortReason ?? null;
+    const fallbackWhat = `${agentRole} ran ${task} (${runStatus})`;
+    const source = [summary, output].filter(Boolean).join('\n');
+    const parsed = parseStructuredRunStatus(source, fallbackWhat, error);
+
+    const what = parsed.what.slice(0, 500);
+    const resultText = parsed.result?.slice(0, 4000) ?? null;
+    const nextAction = parsed.nextAction?.slice(0, 1000) ?? null;
+    const flag = parsed.flag?.slice(0, 2000) ?? null;
+
+    await systemQuery(
+      `INSERT INTO agent_run_status (agent_role, department, run_id, what, result, next_action, flag, flag_tier)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [agentRole, department, runId, what, resultText, nextAction, flag, parsed.flagTier],
+    );
+  } catch (err) {
+    console.warn('[Scheduler] Failed to persist agent_run_status:', (err as Error).message);
+  }
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -732,6 +877,8 @@ const trackedAgentExecutor = async (
           errorMessage: result?.error ?? result?.abortReason ?? 'Unknown error',
         });
       }
+
+      await storeAgentRunStatus(agentRole, task, runId, runStatus, result ?? undefined);
     }
 
     // Process notification intents from agent output (fire-and-forget)
@@ -752,6 +899,8 @@ const trackedAgentExecutor = async (
         'UPDATE agent_runs SET status=$1, completed_at=$2, duration_ms=$3, error=$4 WHERE id=$5',
         ['failed', new Date().toISOString(), durationMs, message, runId],
       );
+
+      await storeAgentRunStatus(agentRole, task, runId, 'failed', undefined, message);
 
       void runAutoFailurePipeline({
         runId,

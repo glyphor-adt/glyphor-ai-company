@@ -14,7 +14,7 @@
 
 import { systemQuery } from '@glyphor/shared/db';
 import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
-import { EXECUTIVE_ROLES, SUB_TEAM_ROLES, getRedisCache, CACHE_KEYS, CACHE_TTL } from '@glyphor/agent-runtime';
+import { EXECUTIVE_ROLES, getRedisCache, CACHE_KEYS, CACHE_TTL } from '@glyphor/agent-runtime';
 import { executeWorkLoop, WorkflowOrchestrator } from '@glyphor/agent-runtime';
 import type { WakeRouter } from './wakeRouter.js';
 import { buildWaves, dispatchWaves } from './parallelDispatch.js';
@@ -35,16 +35,45 @@ export interface HeartbeatResult {
   agents: { role: string; reason: string }[];
 }
 
-/** Agents checked every heartbeat cycle (10 min) */
-const HIGH_TIER: CompanyAgentRole[] = ['chief-of-staff', 'cto'];
-
-/** Agents checked every 2nd cycle (20 min) */
-const MEDIUM_TIER: CompanyAgentRole[] = EXECUTIVE_ROLES.filter(
-  r => !HIGH_TIER.includes(r),
+/** Tier 1: Executives — every 2 hours (12 x 10-minute cycles) */
+const EXEC_TIER: CompanyAgentRole[] = Array.from(
+  new Set<CompanyAgentRole>(['chief-of-staff', ...(EXECUTIVE_ROLES as CompanyAgentRole[])]),
 );
 
-/** Agents checked every 3rd cycle (30 min) */
-const LOW_TIER: CompanyAgentRole[] = SUB_TEAM_ROLES as CompanyAgentRole[];
+/** Tier 2: Sub-team — every 4 hours (24 cycles) */
+const SUBTEAM_TIER: CompanyAgentRole[] = [
+  'platform-engineer',
+  'quality-engineer',
+  'devops-engineer',
+  'm365-admin',
+  'user-researcher',
+  'competitive-intel',
+  'content-creator',
+  'seo-analyst',
+  'social-media-manager',
+  'ui-ux-designer',
+  'frontend-engineer',
+  'design-critic',
+  'template-architect',
+  'head-of-hr',
+];
+
+/** Tier 3: Specialists — every 6 hours (36 cycles) */
+const SPECIALIST_TIER: CompanyAgentRole[] = [
+  'bob-the-tax-pro',
+  'marketing-intelligence-analyst',
+  'adi-rose',
+];
+
+/** Tier 4: Operations */
+const OPS_ATLAS_TIER: CompanyAgentRole[] = ['ops'];          // every 1 hour
+const OPS_MORGAN_TIER: CompanyAgentRole[] = ['global-admin']; // every 4 hours
+
+const EXEC_CADENCE_CYCLES = 12;
+const SUBTEAM_CADENCE_CYCLES = 24;
+const SPECIALIST_CADENCE_CYCLES = 36;
+const OPS_ATLAS_CADENCE_CYCLES = 6;
+const OPS_MORGAN_CADENCE_CYCLES = 24;
 
 /** Minimum minutes since last run before a heartbeat can wake an agent */
 const MIN_RUN_GAP_MS = 5 * 60 * 1000;
@@ -547,10 +576,32 @@ export class HeartbeatManager {
    * Determine which agents to check based on the current cycle.
    */
   private getAgentsForCycle(cycle: number): CompanyAgentRole[] {
-    const agents: CompanyAgentRole[] = [...HIGH_TIER];
-    if (cycle % 2 === 0) agents.push(...MEDIUM_TIER);
-    if (cycle % 3 === 0) agents.push(...LOW_TIER);
-    return agents;
+    const due = [
+      ...this.getStaggeredDueAgents(EXEC_TIER, EXEC_CADENCE_CYCLES, cycle),
+      ...this.getStaggeredDueAgents(SUBTEAM_TIER, SUBTEAM_CADENCE_CYCLES, cycle),
+      ...this.getStaggeredDueAgents(SPECIALIST_TIER, SPECIALIST_CADENCE_CYCLES, cycle),
+      ...this.getStaggeredDueAgents(OPS_ATLAS_TIER, OPS_ATLAS_CADENCE_CYCLES, cycle),
+      ...this.getStaggeredDueAgents(OPS_MORGAN_TIER, OPS_MORGAN_CADENCE_CYCLES, cycle),
+    ];
+
+    return Array.from(new Set(due));
+  }
+
+  /**
+   * Stagger role checks inside a tier so we avoid bursty dispatch at the same minute.
+   */
+  private getStaggeredDueAgents(
+    roles: CompanyAgentRole[],
+    cadenceCycles: number,
+    cycle: number,
+  ): CompanyAgentRole[] {
+    if (roles.length === 0) return [];
+    if (cadenceCycles <= 1) return [...roles];
+
+    return roles.filter((_, index) => {
+      const offset = Math.floor((index * cadenceCycles) / roles.length);
+      return (cycle + offset) % cadenceCycles === 0;
+    });
   }
 
   /**
