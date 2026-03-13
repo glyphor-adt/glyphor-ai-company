@@ -111,8 +111,8 @@ body {
 .mesh-gradient {
   background-color: #0f0f14;
   background-image: url('/28.jpg');
-  background-position: center top;
-  background-size: 100% 100%;
+  background-position: center center;
+  background-size: cover;
   background-repeat: no-repeat;
 }
 

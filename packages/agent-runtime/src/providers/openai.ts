@@ -343,7 +343,7 @@ export class OpenAIAdapter implements ProviderAdapter {
     }));
     const modelConfig = request.metadata?.modelConfig;
     const includeReasoningSummary = /^(1|true|yes)$/i.test(process.env.OPENAI_REASONING_SUMMARY ?? '');
-    const toolSearchTool = modelConfig?.enableToolSearch
+    const toolSearchTool = (modelConfig?.enableToolSearch && request.model.endsWith('-deep-research'))
       ? [{ type: 'tool_search' as const }]
       : [];
     const webSearchTool = modelConfig?.enableWebSearch
