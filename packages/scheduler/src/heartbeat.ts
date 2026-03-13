@@ -97,6 +97,7 @@ export class HeartbeatManager {
   private executor: AgentExecutorFn;
   private wakeRouter: WakeRouter;
   private cycle = 0;
+  private lastInboxWakeSignature = new Map<CompanyAgentRole, string>();
 
   constructor(
     executor: AgentExecutorFn,
@@ -198,9 +199,27 @@ export class HeartbeatManager {
 
       try {
         const inbox = await checkAgentInboxes();
+        const rolesWithActionableMail = new Set(inbox.withMail.map((agent) => agent.role));
+
+        // Clear dedupe entries once an inbox is no longer actionable.
+        for (const role of this.lastInboxWakeSignature.keys()) {
+          if (!rolesWithActionableMail.has(role)) {
+            this.lastInboxWakeSignature.delete(role);
+          }
+        }
+
         for (const agent of inbox.withMail) {
+          // Skip if unread snapshot hasn't changed since the last inbox-triggered wake.
+          const previousSignature = this.lastInboxWakeSignature.get(agent.role);
+          if (previousSignature === agent.signature) {
+            continue;
+          }
+
           // Skip if this agent is already in the wake list
-          if (wakeList.some(w => w.role === agent.role)) continue;
+          if (wakeList.some(w => w.role === agent.role)) {
+            this.lastInboxWakeSignature.set(agent.role, agent.signature);
+            continue;
+          }
           // Skip if agent ran recently
           const lastRun = lastRuns.get(agent.role);
           if (lastRun && Date.now() - lastRun.getTime() < MIN_RUN_GAP_MS) continue;
@@ -221,6 +240,7 @@ export class HeartbeatManager {
               message: `You have ${agent.count} unread email(s) in your inbox. Subjects: ${subjectList}. Use Agent365 MailTools to review and respond as appropriate.`,
             },
           });
+          this.lastInboxWakeSignature.set(agent.role, agent.signature);
         }
         if (inbox.errors.length > 0) {
           console.warn(`[Heartbeat] Inbox check errors: ${inbox.errors.join('; ')}`);

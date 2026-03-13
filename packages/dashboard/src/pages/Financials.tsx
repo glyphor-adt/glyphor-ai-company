@@ -128,20 +128,23 @@ function useGcpBilling(days = 30) {
   const [data, setData] = useState<GcpBillingRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-      try {
-        const rows = await apiCall<GcpBillingRow[]>(`/api/gcp-billing?since=${since}`);
-        setData(rows ?? []);
-      } catch {
-        setData([]);
-      }
-      setLoading(false);
-    })();
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    try {
+      const rows = await apiCall<GcpBillingRow[]>(`/api/gcp-billing?since=${since}`);
+      setData(rows ?? []);
+    } catch {
+      setData([]);
+    }
+    setLoading(false);
   }, [days]);
 
-  return { data, loading };
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return { data, loading, refresh };
 }
 
 function useFinancialsRaw(days = 30) {
@@ -168,20 +171,23 @@ function useApiBilling(days = 30) {
   const [data, setData] = useState<ApiBillingRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-      try {
-        const rows = await apiCall<ApiBillingRow[]>(`/api/api-billing?since=${since}`);
-        setData(rows ?? []);
-      } catch {
-        setData([]);
-      }
-      setLoading(false);
-    })();
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    try {
+      const rows = await apiCall<ApiBillingRow[]>(`/api/api-billing?since=${since}`);
+      setData(rows ?? []);
+    } catch {
+      setData([]);
+    }
+    setLoading(false);
   }, [days]);
 
-  return { data, loading };
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return { data, loading, refresh };
 }
 
 function useAgentRunsForVerification(days = 30) {
@@ -226,8 +232,8 @@ function useAgentReflections(days = 30) {
 
 export default function Financials() {
   const { data: raw, loading, refresh: refreshFinancials } = useFinancialsRaw(30);
-  const { data: gcpBilling, loading: gcpLoading } = useGcpBilling(90);
-  const { data: apiBilling, loading: apiLoading } = useApiBilling(90);
+  const { data: gcpBilling, loading: gcpLoading, refresh: refreshGcpBilling } = useGcpBilling(90);
+  const { data: apiBilling, loading: apiLoading, refresh: refreshApiBilling } = useApiBilling(90);
   const { statuses: syncStatuses, loading: syncLoading, refresh: refreshSyncStatus } = useSyncStatus();
   const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
   const [showSyncPanel, setShowSyncPanel] = useState(false);
@@ -239,16 +245,16 @@ export default function Financials() {
       await apiCall(endpoint, { method: 'POST' });
     } catch { /* sync status will show the error */ }
     setSyncingIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
-    await Promise.all([refreshSyncStatus(), refreshFinancials()]);
-  }, [refreshSyncStatus, refreshFinancials]);
+    await Promise.all([refreshSyncStatus(), refreshFinancials(), refreshGcpBilling(), refreshApiBilling()]);
+  }, [refreshSyncStatus, refreshFinancials, refreshGcpBilling, refreshApiBilling]);
 
   const triggerAllSyncs = useCallback(async () => {
     const ids = FINANCIAL_SYNCS.map((s) => s.id);
     setSyncingIds(new Set(ids));
     await Promise.allSettled(FINANCIAL_SYNCS.map((s) => apiCall(s.endpoint, { method: 'POST' })));
     setSyncingIds(new Set());
-    await Promise.all([refreshSyncStatus(), refreshFinancials()]);
-  }, [refreshSyncStatus, refreshFinancials]);
+    await Promise.all([refreshSyncStatus(), refreshFinancials(), refreshGcpBilling(), refreshApiBilling()]);
+  }, [refreshSyncStatus, refreshFinancials, refreshGcpBilling, refreshApiBilling]);
 
   // Pivot EAV rows into daily snapshots
   const mrrData = useMemo(() => {
@@ -650,7 +656,10 @@ export default function Financials() {
 
     for (const row of gcpBilling) {
       const service = String(row.service ?? '').toLowerCase();
-      if (!service.includes('gemini')) continue;
+      const rawService = String(row.usage?.raw_service ?? '').toLowerCase();
+      const isGeminiService = service.includes('gemini') || rawService.includes('gemini');
+      const isVertexAiService = service.includes('vertex') || rawService.includes('vertex');
+      if (!isGeminiService && !isVertexAiService) continue;
       const date = row.usage?.date ?? (row.recorded_at ?? '').split('T')[0];
       if (!date) continue;
       const byDate = ensure('gemini');

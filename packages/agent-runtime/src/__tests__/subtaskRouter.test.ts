@@ -36,7 +36,7 @@ describe('subtaskRouter', () => {
     });
 
     expect(['complex', 'frontier']).toContain(decision.classification.complexity);
-    expect(decision.routing.model).toBe('gpt-5.4');
+    expect(decision.routing.model).toBe('gemini-3.1-flash-lite-preview');
     expect(decision.reason).toContain('subtask');
   });
 

@@ -31,7 +31,7 @@ const EMAIL_ENABLED_AGENTS: CompanyAgentRole[] = [
 
 export interface InboxCheckResult {
   checked: number;
-  withMail: { role: CompanyAgentRole; count: number; subjects: string[] }[];
+  withMail: { role: CompanyAgentRole; count: number; subjects: string[]; signature: string }[];
   errors: string[];
   skippedInvalidMailboxes: string[];
 }
@@ -42,6 +42,14 @@ export interface InboxCheckResult {
  * Cleared on process restart so newly-created mailboxes are picked up.
  */
 const INVALID_MAILBOXES = new Set<CompanyAgentRole>();
+
+function isLowSignalTeamsPing(message: { subject?: string | null }): boolean {
+  const subject = (message.subject ?? '').trim();
+  if (!subject) return false;
+
+  // These notifications often contain no actionable content and can trigger noisy wake loops.
+  return /is trying to reach you in microsoft teams/i.test(subject);
+}
 
 /**
  * Check all email-enabled agents for unread mail.
@@ -113,11 +121,15 @@ export async function checkAgentInboxes(): Promise<InboxCheckResult> {
       const data = (await response.json()) as { value: GraphMessage[] };
       result.checked++;
 
-      if (data.value.length > 0) {
+      const actionableMessages = data.value.filter((message) => !isLowSignalTeamsPing(message));
+
+      if (actionableMessages.length > 0) {
+        const signature = actionableMessages.map((message) => message.id).join('|');
         result.withMail.push({
           role,
-          count: data.value.length,
-          subjects: data.value.map(m => m.subject ?? '(no subject)'),
+          count: actionableMessages.length,
+          subjects: actionableMessages.map((message) => message.subject ?? '(no subject)'),
+          signature,
         });
       }
     } catch (err) {
