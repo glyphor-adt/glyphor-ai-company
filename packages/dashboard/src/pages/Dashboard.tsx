@@ -304,6 +304,8 @@ export default function Dashboard() {
             />
           </div>
 
+          {/* ── Directives + Deliverables ── */}
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
           {/* ── Active Directives ─────────── */}
           <Card accent="130,140,248">
             <SectionHeader
@@ -315,13 +317,13 @@ export default function Dashboard() {
               }
             />
             {directivesLoading ? (
-              <div className="space-y-1">
-                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-7" />)}
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10" />)}
               </div>
             ) : directives.length === 0 ? (
-              <p className="py-4 text-center text-[11px] text-txt-faint">No active directives</p>
+              <p className="py-6 text-center text-sm text-txt-faint">No active directives</p>
             ) : (
-              <div className="space-y-0">
+              <div className="space-y-0.5">
                 {directives
                   .sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3))
                   .slice(0, 5)
@@ -334,22 +336,22 @@ export default function Dashboard() {
                     const circumference = 2 * Math.PI * radius;
                     const dashLen = (pct / 100) * circumference;
                     return (
-                      <Link key={d.id} to="/directives" className="flex items-center gap-2 rounded px-1.5 py-1 hover:bg-raised/50 transition-colors">
-                        <svg className="h-5 w-5 shrink-0 -rotate-90" viewBox="0 0 36 36">
-                          <circle cx="18" cy="18" r={radius} fill="none" stroke="currentColor" strokeWidth="3.5" className="text-border" />
+                      <Link key={d.id} to="/directives" className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-raised/50 transition-colors">
+                        <svg className="h-7 w-7 shrink-0 -rotate-90" viewBox="0 0 36 36">
+                          <circle cx="18" cy="18" r={radius} fill="none" stroke="currentColor" strokeWidth="3" className="text-border" />
                           <circle
                             cx="18" cy="18" r={radius}
                             fill="none"
                             stroke="currentColor"
-                            strokeWidth="3.5"
+                            strokeWidth="3"
                             strokeLinecap="round"
                             className={isDone ? 'text-[#34D399]' : 'text-cyan'}
                             strokeDasharray={`${dashLen} ${circumference - dashLen}`}
                           />
                         </svg>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-medium text-txt-secondary line-clamp-1">{d.title}</p>
-                          <p className="text-[10px] text-txt-faint leading-tight">
+                          <p className="text-[13px] font-medium text-txt-secondary line-clamp-1">{d.title}</p>
+                          <p className="text-[11px] text-txt-faint">
                             {isDone
                               ? <>done {timeAgo(d.updated_at)}</>
                               : total > 0
@@ -365,7 +367,7 @@ export default function Dashboard() {
           </Card>
 
           {/* ── Deliverables + Org Intelligence ── */}
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5">
             {/* Recent Deliverables */}
             <Card accent="52,211,153">
               <SectionHeader title="Recent Deliverables" />
@@ -399,6 +401,8 @@ export default function Dashboard() {
                 </div>
               )}
             </Card>
+          </div>
+          </div>
 
             {/* Organizational Intelligence */}
             <Card accent="168,85,247" className="self-start">
@@ -442,7 +446,6 @@ export default function Dashboard() {
                 </div>
               )}
             </Card>
-          </div>
 
 
         </div>

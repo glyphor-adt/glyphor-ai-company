@@ -850,7 +850,7 @@ export default function Financials() {
                   contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
                   formatter={(value: number) => [`$${fmt(value)}`, 'MRR']}
                 />
-                <Bar dataKey="mrr" fill="#0891B2">
+                <Bar dataKey="mrr" fill={GLYPHOR_PALETTE[0]}>
                   {productMRR.map((p) => (
                     <Cell key={p.name} fill={PRODUCT_COLORS[p.name] ?? '#0891B2'} />
                   ))}
@@ -879,8 +879,8 @@ export default function Financials() {
                   formatter={(value: number) => [`$${value.toFixed(2)}`]}
                 />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="infrastructure" fill="#2563EB" stackId="costs" name="Infrastructure" />
-                <Bar dataKey="api" fill="#7C3AED" stackId="costs" name="API / AI" />
+                <Bar dataKey="infrastructure" fill={GLYPHOR_PALETTE[2]} stackId="costs" name="Infrastructure" />
+                <Bar dataKey="api" fill={GLYPHOR_PALETTE[4]} stackId="costs" name="API / AI" />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -912,7 +912,7 @@ export default function Financials() {
                   }
                 >
                   {apiBillingByProvider.map((entry) => (
-                    <Cell key={entry.provider} fill={API_PROVIDER_COLORS[entry.provider] ?? '#9AA0A6'} />
+                    <Cell key={entry.provider} fill={API_PROVIDER_COLORS[entry.provider] ?? '#94A3B8'} />
                   ))}
                 </Pie>
                 <Tooltip
@@ -1037,7 +1037,7 @@ export default function Financials() {
                   label={({ tier, count, percent }: any) => percent > 0.03 ? `${VERIF_LABELS[tier] ?? tier} ${count}` : ''}
                 >
                   {verificationCounts.map((_, i) => (
-                    <Cell key={i} fill={VERIF_COLORS[verificationCounts[i].tier] ?? '#9AA0A6'} />
+                    <Cell key={i} fill={VERIF_COLORS[verificationCounts[i].tier] ?? '#94A3B8'} />
                   ))}
                 </Pie>
                 <Tooltip formatter={(value: number) => [String(value), 'Runs']} />
@@ -1061,7 +1061,7 @@ export default function Financials() {
                 <Tooltip formatter={(value: number) => [`$${Number(value).toFixed(4)}`]} />
                 <Bar dataKey="cost">
                   {verificationCostByTier.map((row) => (
-                    <Cell key={row.tier} fill={VERIF_COLORS[row.tier] ?? '#6B7280'} />
+                    <Cell key={row.tier} fill={VERIF_COLORS[row.tier] ?? '#94A3B8'} />
                   ))}
                 </Bar>
               </BarChart>
@@ -1084,7 +1084,7 @@ export default function Financials() {
                 <Tooltip formatter={(value: number, name: string) => [String(value), VERIF_LABELS[name] ?? name]} />
                 <Legend formatter={(v) => VERIF_LABELS[v] ?? v} wrapperStyle={{ fontSize: 11 }} />
                 {['none', 'self_critique', 'cross_model', 'conditional'].map((k) => (
-                  <Bar key={k} dataKey={k} stackId="tier" fill={VERIF_COLORS[k] ?? '#6B7280'} />
+                  <Bar key={k} dataKey={k} stackId="tier" fill={VERIF_COLORS[k] ?? '#94A3B8'} />
                 ))}
               </BarChart>
             </ResponsiveContainer>
@@ -1125,7 +1125,7 @@ export default function Financials() {
                   label={({ complexity, count, percent }: { complexity: string; count: number; percent: number }) => percent > 0.03 ? `${COMPLEXITY_LABELS[complexity] ?? complexity} ${count}` : ''}
                 >
                   {complexityCounts.map((row) => (
-                    <Cell key={row.complexity} fill={COMPLEXITY_COLORS[row.complexity] ?? '#6B7280'} />
+                    <Cell key={row.complexity} fill={COMPLEXITY_COLORS[row.complexity] ?? '#94A3B8'} />
                   ))}
                 </Pie>
                 <Tooltip formatter={(value: number) => [String(value), 'Runs']} />
@@ -1147,7 +1147,7 @@ export default function Financials() {
                 <XAxis dataKey="model" tick={{ fontSize: 10, fill: 'var(--color-txt-muted)' }} interval={0} angle={-25} textAnchor="end" height={60} />
                 <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
                 <Tooltip formatter={(value: number, name: string) => [name === 'cost' ? `$${value.toFixed(4)}` : String(value), name === 'cost' ? 'Cost' : 'Runs']} />
-                <Bar dataKey="runs" fill="#2563EB" />
+                <Bar dataKey="runs" fill={GLYPHOR_PALETTE[2]} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -1171,7 +1171,7 @@ export default function Financials() {
                   labelFormatter={() => ''}
                   contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
                 />
-                <Scatter data={costQualityPoints} fill="#7C3AED" />
+                <Scatter data={costQualityPoints} fill={GLYPHOR_PALETTE[4]} />
               </ScatterChart>
             </ResponsiveContainer>
           )}
@@ -1197,7 +1197,7 @@ export default function Financials() {
                   labelStyle={{ color: 'var(--color-txt-secondary)' }}
                   formatter={(value: number) => [`$${fmt(value)}`, 'MRR']}
                 />
-                <Line type="monotone" dataKey="mrr" stroke="#0891B2" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="mrr" stroke={GLYPHOR_PALETTE[0]} strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -1221,8 +1221,8 @@ export default function Financials() {
                   labelStyle={{ color: 'var(--color-txt-secondary)' }}
                   formatter={(value: number) => [`$${fmt(value)}`]}
                 />
-                <Bar dataKey="infrastructure" fill="#2563EB" stackId="costs" />
-                <Bar dataKey="api" fill="#7C3AED" stackId="costs" />
+                <Bar dataKey="infrastructure" fill={GLYPHOR_PALETTE[2]} stackId="costs" />
+                <Bar dataKey="api" fill={GLYPHOR_PALETTE[4]} stackId="costs" />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -1349,7 +1349,7 @@ export default function Financials() {
                   </div>
                   {/* Cost bar */}
                   <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-border)]">
-                    <div className="h-full rounded-full bg-[#4285F4] transition-all" style={{ width: `${Math.min(pct, 100)}%` }} />
+                    <div className="h-full rounded-full bg-[#2563EB] transition-all" style={{ width: `${Math.min(pct, 100)}%` }} />
                   </div>
                   {/* Service breakdown */}
                   {serviceList.length > 0 && (
@@ -1488,7 +1488,7 @@ export default function Financials() {
                 labelStyle={{ color: 'var(--color-txt-secondary)' }}
                 formatter={(value: number) => [`${value.toFixed(1)}%`, 'Margin']}
               />
-              <Area type="monotone" dataKey="margin" stroke="#0369A1" fill="#0369A120" strokeWidth={2} />
+              <Area type="monotone" dataKey="margin" stroke={GLYPHOR_PALETTE[1]} fill="rgba(8,145,178,0.2)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         )}
@@ -1512,8 +1512,8 @@ export default function Financials() {
                 labelStyle={{ color: 'var(--color-txt-secondary)' }}
                 formatter={(value: number) => [`$${fmt(Math.abs(value))}`]}
               />
-              <Bar dataKey="inflow" fill="#0891B2" name="Inflow" />
-              <Bar dataKey="outflow" fill="#FF6B6B" name="Outflow" />
+              <Bar dataKey="inflow" fill={GLYPHOR_PALETTE[0]} name="Inflow" />
+              <Bar dataKey="outflow" fill={GLYPHOR_PALETTE[3]} name="Outflow" />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -1523,20 +1523,21 @@ export default function Financials() {
 }
 
 const PRODUCTS = ['fuse', 'pulse', 'reve'] as const;
-const PRODUCT_COLORS: Record<string, string> = { fuse: '#2563EB', pulse: '#7C3AED', reve: '#0891B2', glyphor: '#EA4335', unassigned: '#9AA0A6' };
+const GLYPHOR_PALETTE = ['#00A3C4', '#0891B2', '#2563EB', '#6366F1', '#7C3AED', '#A855F7', '#C084FC', '#94A3B8'] as const;
+const PRODUCT_COLORS: Record<string, string> = { fuse: '#2563EB', pulse: '#7C3AED', reve: '#0891B2', glyphor: '#6366F1', unassigned: '#94A3B8' };
 const PRODUCT_LABELS: Record<string, string> = { fuse: 'Fuse', pulse: 'Pulse', reve: 'Reve', glyphor: 'Glyphor', unassigned: 'Unassigned' };
 const PROJECT_TO_PRODUCT_LABEL: Record<string, string> = { 'ai-glyphor-company': 'Glyphor', 'glyphor-pulse': 'Pulse', 'gen-lang-client-0834143721': 'Fuse' };
-const GCP_COLORS = ['#4285F4', '#EA4335', '#FBBC04', '#34A853', '#FF6D01', '#46BDC6', '#7B61FF', '#9AA0A6'];
+const GCP_COLORS = [...GLYPHOR_PALETTE];
 const GCP_SERVICE_COLORS: Record<string, string> = {
-  'gemini-api': '#4285F4', sql: '#FBBC04', run: '#34A853',
-  'memorystore-for-redis': '#EA4335', 'artifact-registry': '#7B61FF',
-  compute: '#FF6D01', storage: '#46BDC6', networking: '#0891B2',
+  'gemini-api': '#2563EB', sql: '#6366F1', run: '#00A3C4',
+  'memorystore-for-redis': '#7C3AED', 'artifact-registry': '#A855F7',
+  compute: '#0891B2', storage: '#C084FC', networking: '#2563EB',
 };
-const API_COLORS = ['#7C3AED', '#2563EB', '#0891B2', '#EA4335', '#FF6D01'];
-const API_PROVIDER_COLORS: Record<string, string> = { openai: '#10A37F', anthropic: '#D97706', kling: '#7C3AED' };
-const VERIF_COLORS: Record<string, string> = { none: '#4285F4', self_critique: '#FBBC04', cross_model: '#EA4335', conditional: '#7C3AED', unknown: '#9AA0A6' };
+const API_COLORS = ['#7C3AED', '#2563EB', '#0891B2', '#6366F1', '#A855F7'];
+const API_PROVIDER_COLORS: Record<string, string> = { openai: '#00A3C4', anthropic: '#6366F1', kling: '#7C3AED' };
+const VERIF_COLORS: Record<string, string> = { none: '#2563EB', self_critique: '#00A3C4', cross_model: '#6366F1', conditional: '#7C3AED', unknown: '#94A3B8' };
 const VERIF_LABELS: Record<string, string> = { none: 'None', self_critique: 'Self-critique', cross_model: 'Cross-model', conditional: 'Conditional', unknown: 'Unknown' };
-const COMPLEXITY_COLORS: Record<string, string> = { trivial: '#34A853', standard: '#4285F4', complex: '#FBBC04', frontier: '#EA4335', unknown: '#9AA0A6' };
+const COMPLEXITY_COLORS: Record<string, string> = { trivial: '#00A3C4', standard: '#2563EB', complex: '#6366F1', frontier: '#7C3AED', unknown: '#94A3B8' };
 const COMPLEXITY_LABELS: Record<string, string> = { trivial: 'Trivial', standard: 'Standard', complex: 'Complex', frontier: 'Frontier', unknown: 'Unknown' };
 
 function SummaryCard({ label, value, loading, sub }: { label: string; value: string; loading: boolean; sub?: string }) {
