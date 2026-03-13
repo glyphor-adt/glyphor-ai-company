@@ -73,6 +73,12 @@
   fill: rgba(255, 255, 255, 0.06) !important;
 }
 
+/* Prevent default light/gray hover rectangle on charts in all themes */
+.recharts-tooltip-cursor {
+  fill: transparent !important;
+  stroke: transparent !important;
+}
+
 /* ─── Global ──────────────────────────────────── */
 html { scroll-behavior: smooth; }
 body {

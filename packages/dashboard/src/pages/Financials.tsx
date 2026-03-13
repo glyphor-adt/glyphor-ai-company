@@ -632,8 +632,8 @@ export default function Financials() {
   const marginDelta = latestMRR > 0 ? (((latestMRR - latestCost) / latestMRR) * 100) - latestMargin : 0;
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-border bg-gradient-to-r from-[#0f172a]/90 via-[#1e293b]/80 to-[#312e81]/65 p-5">
+    <div className="space-y-5">
+      <div className="rounded-2xl border border-border bg-gradient-to-r from-[#0f172a]/90 via-[#1e293b]/80 to-[#312e81]/65 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-[11px] uppercase tracking-[0.16em] text-cyan/80">Finance Command</p>
@@ -659,7 +659,7 @@ export default function Financials() {
       </div>
 
       {showSyncPanel && (
-        <Card>
+        <Card className="h-full">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Data Source Status</p>
           </div>
@@ -697,27 +697,28 @@ export default function Financials() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard label="Monthly Revenue" value={`$${fmt(latestMRR)}`} loading={loading} sub="Stripe MRR snapshot" />
         <SummaryCard label="Gross Margin" value={`${latestMargin.toFixed(1)}%`} loading={loading} sub={`${marginDelta >= 0 ? '+' : ''}${marginDelta.toFixed(1)} pts from trend baseline`} />
         <SummaryCard label="Burn Rate" value={latestBurnRate > 0 ? `$${fmt(latestBurnRate)}` : '—'} loading={loading} sub="Monthly cash outflow" />
         <SummaryCard label="Runway" value={runwayMonths > 0 ? `${runwayMonths.toFixed(1)} mo` : '—'} loading={loading} sub={runwayMonths > 0 ? 'Based on current burn' : 'Awaiting burn data'} />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <Card className="h-full xl:col-span-2">
           <SectionHeader title="Revenue vs Cost Trend" />
           {loading ? (
-            <Skeleton className="h-72" />
+            <Skeleton className="h-64" />
           ) : financialTrend.length === 0 ? (
             <EmptyChart message="No revenue or cost trend data yet" />
           ) : (
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={240}>
               <LineChart data={financialTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
                 <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${fmt(Number(v))}`} />
                 <Tooltip
+                  cursor={{ fill: 'transparent' }}
                   contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
                   labelStyle={{ color: 'var(--color-txt-secondary)' }}
                   formatter={(value: number, name: string) => {
@@ -735,15 +736,15 @@ export default function Financials() {
           )}
         </Card>
 
-        <Card>
+        <Card className="h-full">
           <SectionHeader title={`${currentMonthLabel} Spend Mix`} />
           {apiLoading || gcpLoading ? (
-            <Skeleton className="h-72" />
+            <Skeleton className="h-64" />
           ) : spendMix.length === 0 ? (
             <EmptyChart message="No spend mix data yet" />
           ) : (
             <div className="space-y-3">
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={190}>
                 <PieChart>
                   <Pie data={spendMix} dataKey="value" nameKey="name" outerRadius={80} innerRadius={46} paddingAngle={2}>
                     {spendMix.map((slice, i) => (
@@ -751,6 +752,7 @@ export default function Financials() {
                     ))}
                   </Pie>
                   <Tooltip
+                    cursor={{ fill: 'transparent' }}
                     contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
                     formatter={(value: number) => [`$${value.toFixed(2)}`]}
                   />
@@ -776,20 +778,21 @@ export default function Financials() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <Card className="h-full xl:col-span-2">
           <SectionHeader title="Product Profitability Snapshot" />
           {loading ? (
-            <Skeleton className="h-72" />
+            <Skeleton className="h-64" />
           ) : productSnapshot.every((p) => p.mrr === 0 && p.totalCost === 0) ? (
             <EmptyChart message="No product-level financial data yet" />
           ) : (
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={240}>
               <BarChart data={productSnapshot}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
                 <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${fmt(Number(v))}`} />
                 <Tooltip
+                  cursor={{ fill: 'transparent' }}
                   contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
                   formatter={(value: number, name: string) => {
                     if (name === 'margin') return [`${value.toFixed(1)}%`, 'Margin'];
@@ -804,10 +807,10 @@ export default function Financials() {
           )}
         </Card>
 
-        <Card>
+        <Card className="h-full">
           <SectionHeader title="Top Subscriptions" />
           {loading ? (
-            <Skeleton className="h-72" />
+            <Skeleton className="h-64" />
           ) : subscriptions.length === 0 ? (
             <EmptyChart message="No subscription data yet" />
           ) : (
@@ -827,19 +830,20 @@ export default function Financials() {
         </Card>
       </div>
 
-      <Card>
+      <Card className="h-full !p-4">
         <SectionHeader title="Cost Structure by Product" />
         {loading ? (
-          <Skeleton className="h-60" />
+          <Skeleton className="h-52" />
         ) : productCostBreakdown.length === 0 ? (
           <EmptyChart message="No product cost data yet" />
         ) : (
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={220}>
             <BarChart data={productCostBreakdown}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
               <YAxis tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${fmt(Number(v))}`} />
               <Tooltip
+                cursor={{ fill: 'transparent' }}
                 contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
                 formatter={(value: number, name: string) => [`$${value.toFixed(2)}`, name === 'infrastructure' ? 'Infrastructure' : 'API / AI']}
               />
@@ -872,12 +876,14 @@ const COMPLEXITY_COLORS: Record<string, string> = { trivial: '#00A3C4', standard
 const COMPLEXITY_LABELS: Record<string, string> = { trivial: 'Trivial', standard: 'Standard', complex: 'Complex', frontier: 'Frontier', unknown: 'Unknown' };
 
 function SummaryCard({ label, value, loading, sub }: { label: string; value: string; loading: boolean; sub?: string }) {
-  if (loading) return <Skeleton className="h-24" />;
+  if (loading) return <Skeleton className="h-[76px]" />;
   return (
-    <Card>
-      <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">{label}</p>
-      <p className="mt-1 font-mono text-2xl font-semibold text-txt-primary">{value}</p>
-      {sub && <p className="mt-1 text-[11px] text-txt-faint">{sub}</p>}
+    <Card className="flex h-[76px] flex-col justify-between !p-3.5">
+      <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">{label}</p>
+      <div>
+        <p className="font-mono text-lg font-semibold leading-none text-txt-primary">{value}</p>
+        {sub && <p className="mt-1 line-clamp-1 text-[10px] text-txt-faint">{sub}</p>}
+      </div>
     </Card>
   );
 }
