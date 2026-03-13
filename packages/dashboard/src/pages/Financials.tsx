@@ -231,6 +231,7 @@ export default function Financials() {
   const { statuses: syncStatuses, loading: syncLoading, refresh: refreshSyncStatus } = useSyncStatus();
   const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
   const [showSyncPanel, setShowSyncPanel] = useState(false);
+  const [aiBillingView, setAiBillingView] = useState<'daily' | 'monthly'>('daily');
 
   const triggerSync = useCallback(async (endpoint: string, id: string) => {
     setSyncingIds((prev) => new Set(prev).add(id));
@@ -631,6 +632,71 @@ export default function Financials() {
 
   const marginDelta = latestMRR > 0 ? (((latestMRR - latestCost) / latestMRR) * 100) - latestMargin : 0;
 
+  const aiProviderMetrics = useMemo(() => {
+    const providerDateCost = new Map<string, Map<string, number>>();
+    const ensure = (provider: string) => {
+      if (!providerDateCost.has(provider)) providerDateCost.set(provider, new Map<string, number>());
+      return providerDateCost.get(provider)!;
+    };
+
+    for (const row of apiBilling) {
+      const provider = String(row.provider ?? '').toLowerCase();
+      if (provider !== 'openai' && provider !== 'anthropic') continue;
+      const date = (row.recorded_at ?? '').split('T')[0];
+      if (!date) continue;
+      const byDate = ensure(provider);
+      byDate.set(date, (byDate.get(date) ?? 0) + (Number(row.cost_usd) || 0));
+    }
+
+    for (const row of gcpBilling) {
+      const service = String(row.service ?? '').toLowerCase();
+      if (!service.includes('gemini')) continue;
+      const date = row.usage?.date ?? (row.recorded_at ?? '').split('T')[0];
+      if (!date) continue;
+      const byDate = ensure('gemini');
+      byDate.set(date, (byDate.get(date) ?? 0) + (Number(row.cost_usd) || 0));
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prev2MonthDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    const lastMonthKey = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
+    const prev2MonthKey = `${prev2MonthDate.getFullYear()}-${String(prev2MonthDate.getMonth() + 1).padStart(2, '0')}`;
+
+    const providers = ['openai', 'gemini', 'anthropic'];
+    return providers.map((provider) => {
+      const byDate = providerDateCost.get(provider) ?? new Map<string, number>();
+      let total7d = 0;
+      let total30d = 0;
+      const monthTotals = new Map<string, number>();
+      for (const [date, cost] of byDate.entries()) {
+        const d = new Date(date);
+        if (d >= sevenDaysAgo) total7d += cost;
+        if (d >= thirtyDaysAgo) total30d += cost;
+        const monthKey = date.slice(0, 7);
+        monthTotals.set(monthKey, (monthTotals.get(monthKey) ?? 0) + cost);
+      }
+      const thisMonth = monthTotals.get(currentMonthKey) ?? 0;
+      const lastMonth = monthTotals.get(lastMonthKey) ?? 0;
+      const prev2Month = monthTotals.get(prev2MonthKey) ?? 0;
+      return {
+        provider,
+        today: byDate.get(today) ?? 0,
+        avg7d: total7d / 7,
+        total30d,
+        thisMonth,
+        lastMonth,
+        avg3mo: (thisMonth + lastMonth + prev2Month) / 3,
+      };
+    });
+  }, [apiBilling, gcpBilling]);
+
+  const todayAiCost = aiProviderMetrics.reduce((sum, row) => sum + row.today, 0);
+
   return (
     <div className="space-y-5">
       <div className="rounded-2xl border border-border bg-gradient-to-r from-[#0f172a]/90 via-[#1e293b]/80 to-[#312e81]/65 p-4">
@@ -697,10 +763,12 @@ export default function Financials() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-6">
         <SummaryCard label="Monthly Revenue" value={`$${fmt(latestMRR)}`} loading={loading} sub="Stripe MRR snapshot" />
+        <SummaryCard label="Bank Balance" value={`$${fmt(latestBalance)}`} loading={loading} sub="Latest Mercury balance" />
         <SummaryCard label="Gross Margin" value={`${latestMargin.toFixed(1)}%`} loading={loading} sub={`${marginDelta >= 0 ? '+' : ''}${marginDelta.toFixed(1)} pts from trend baseline`} />
         <SummaryCard label="Burn Rate" value={latestBurnRate > 0 ? `$${fmt(latestBurnRate)}` : '—'} loading={loading} sub="Monthly cash outflow" />
+        <SummaryCard label="AI Billing Today" value={`$${todayAiCost.toFixed(2)}`} loading={apiLoading || gcpLoading} sub="OpenAI + Gemini + Anthropic" />
         <SummaryCard label="Runway" value={runwayMonths > 0 ? `${runwayMonths.toFixed(1)} mo` : '—'} loading={loading} sub={runwayMonths > 0 ? 'Based on current burn' : 'Awaiting burn data'} />
       </div>
 
@@ -777,6 +845,65 @@ export default function Financials() {
           )}
         </Card>
       </div>
+
+      <Card className="h-full !p-4">
+        <div className="mb-2 flex items-center justify-between">
+          <SectionHeader title="Daily AI Billing" />
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-md border border-border bg-raised p-0.5 text-[10px]">
+              <button
+                onClick={() => setAiBillingView('daily')}
+                className={`rounded px-2 py-0.5 transition ${aiBillingView === 'daily' ? 'bg-cyan/15 text-cyan' : 'text-txt-muted hover:text-txt-secondary'}`}
+              >
+                Daily
+              </button>
+              <button
+                onClick={() => setAiBillingView('monthly')}
+                className={`rounded px-2 py-0.5 transition ${aiBillingView === 'monthly' ? 'bg-cyan/15 text-cyan' : 'text-txt-muted hover:text-txt-secondary'}`}
+              >
+                Monthly
+              </button>
+            </div>
+            <span className="text-[11px] text-txt-faint">Sources: api_billing + gemini-api</span>
+          </div>
+        </div>
+        {apiLoading || gcpLoading ? (
+          <Skeleton className="h-36" />
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+                  <th className="px-3 py-2 text-left font-medium text-txt-muted">Provider</th>
+                  <th className="px-3 py-2 text-right font-medium text-txt-muted">{aiBillingView === 'daily' ? 'Today' : 'This Month'}</th>
+                  <th className="px-3 py-2 text-right font-medium text-txt-muted">{aiBillingView === 'daily' ? '7d Avg / Day' : 'Last Month'}</th>
+                  <th className="px-3 py-2 text-right font-medium text-txt-muted">{aiBillingView === 'daily' ? '30d Total' : '3mo Avg / Month'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {aiProviderMetrics.map((row) => (
+                  <tr key={row.provider} className="border-b border-[var(--color-border)] last:border-0">
+                    <td className="px-3 py-2 font-medium capitalize text-txt-primary">{row.provider}</td>
+                    {aiBillingView === 'daily' ? (
+                      <>
+                        <td className="px-3 py-2 text-right font-mono text-txt-secondary">${row.today.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right font-mono text-txt-secondary">${row.avg7d.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right font-mono text-txt-secondary">${row.total30d.toFixed(2)}</td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-3 py-2 text-right font-mono text-txt-secondary">${row.thisMonth.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right font-mono text-txt-secondary">${row.lastMonth.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right font-mono text-txt-secondary">${row.avg3mo.toFixed(2)}</td>
+                      </>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Card className="h-full xl:col-span-2">

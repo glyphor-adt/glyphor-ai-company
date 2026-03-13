@@ -86,15 +86,13 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   { id: 'gpt-4.1-mini',           label: 'GPT-4.1 Mini',           provider: 'openai',    tier: 'economy',   inputPer1M: 0.40,  outputPer1M: 1.60,  cachedInputDiscount: 0.25, selectable: true,  verifier: false },
   { id: 'o3',                     label: 'o3',                     provider: 'openai',    tier: 'reasoning', inputPer1M: 2.00,  outputPer1M: 8.00,  thinkingPer1M: 8.00, cachedInputDiscount: 0.25, selectable: true,  verifier: false },
   { id: 'o4-mini',                label: 'o4-mini',                provider: 'openai',    tier: 'reasoning', inputPer1M: 1.10,  outputPer1M: 4.40,  thinkingPer1M: 4.40, cachedInputDiscount: 0.25, selectable: true,  verifier: false },
-  { id: 'o3-deep-research',       label: 'o3 Deep Research',       provider: 'openai',    tier: 'reasoning', inputPer1M: 2.00,  outputPer1M: 8.00,  thinkingPer1M: 8.00, cachedInputDiscount: 0.25, selectable: true,  verifier: false },
-  { id: 'o4-mini-deep-research',  label: 'o4-mini Deep Research',  provider: 'openai',    tier: 'reasoning', inputPer1M: 1.10,  outputPer1M: 4.40,  thinkingPer1M: 4.40, cachedInputDiscount: 0.25, selectable: true,  verifier: false },
+  { id: 'o3-deep-research',       label: 'o3 Deep Research',       provider: 'openai',    tier: 'reasoning', inputPer1M: 2.00,  outputPer1M: 8.00,  thinkingPer1M: 8.00, cachedInputDiscount: 0.25, selectable: false, verifier: false },
+  { id: 'o4-mini-deep-research',  label: 'o4-mini Deep Research',  provider: 'openai',    tier: 'reasoning', inputPer1M: 1.10,  outputPer1M: 4.40,  thinkingPer1M: 4.40, cachedInputDiscount: 0.25, selectable: false, verifier: false },
 
   // ── Anthropic ──────────────────────────────────────────────
   // Anthropic cache read = 10% of input price. Cache creation = 125% of input price (amortized, treated as full price).
   // Source: https://platform.claude.com/docs/en/docs/about-claude/pricing (verified 2026-02-26)
-  { id: 'claude-opus-4-6-20260205',  label: 'Claude Opus 4.6 (Feb 2026)',  provider: 'anthropic', tier: 'flagship',  inputPer1M: 5.00,  outputPer1M: 25.0,  cachedInputDiscount: 0.10, selectable: false, verifier: false },
   { id: 'claude-opus-4-6',        label: 'Claude Opus 4.6',        provider: 'anthropic', tier: 'flagship',  inputPer1M: 5.00,  outputPer1M: 25.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
-  { id: 'claude-sonnet-4-6-20260217', label: 'Claude Sonnet 4.6 (Feb 2026)', provider: 'anthropic', tier: 'standard', inputPer1M: 3.00, outputPer1M: 15.0, cachedInputDiscount: 0.10, selectable: false, verifier: true },
   { id: 'claude-sonnet-4-6',      label: 'Claude Sonnet 4.6',      provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
   { id: 'claude-sonnet-4-5',      label: 'Claude Sonnet 4.5',      provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
   { id: 'claude-haiku-4-5',       label: 'Claude Haiku 4.5',       provider: 'anthropic', tier: 'economy',   inputPer1M: 1.00,  outputPer1M: 5.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
@@ -102,7 +100,7 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   // ── Specialized (not selectable for general agent assignment) ─
   { id: 'gemini-embedding-001',       label: 'Gemini Embedding',       provider: 'gemini',    tier: 'specialized', inputPer1M: 0.15, outputPer1M: 0,    selectable: false, verifier: false },
   { id: 'gpt-realtime-2025-08-28',    label: 'GPT Realtime',            provider: 'openai',    tier: 'specialized', inputPer1M: 5.00, outputPer1M: 20.0, selectable: false, verifier: false },
-  { id: 'gpt-image-1.5-2025-12-16',    label: 'GPT Image 1.5',          provider: 'openai',    tier: 'specialized', inputPer1M: 0,    outputPer1M: 0,    selectable: false, verifier: false },
+  { id: 'gpt-image-1',                label: 'GPT Image 1',            provider: 'openai',    tier: 'specialized', inputPer1M: 0,    outputPer1M: 0,    selectable: false, verifier: false },
 
 ] as const;
 
@@ -128,6 +126,7 @@ export const DEPRECATED_MODELS: Record<string, string> = {
   'gpt-4':                      'gpt-4.1',
   'gpt-3.5-turbo':              'gpt-4.1-mini',
   'gpt-4.1-nano':               'gpt-4.1-mini',
+  'gpt-image-1.5-2025-12-16':   'gpt-image-1',
 
   // Anthropic legacy
   'claude-sonnet-4-20250514':   'claude-sonnet-4-6',
@@ -138,6 +137,8 @@ export const DEPRECATED_MODELS: Record<string, string> = {
   'claude-3-opus-20240229':     'claude-opus-4-6',
   'claude-3-haiku-20240307':    'claude-haiku-4-5',
   'claude-opus-4-20250514':     'claude-opus-4-6',
+  'claude-opus-4-6-20260205':   'claude-opus-4-6',
+  'claude-sonnet-4-6-20260217': 'claude-sonnet-4-6',
 };
 
 // ─── Default models by purpose ───────────────────────────────
@@ -158,7 +159,7 @@ export const TRANSCRIPTION_MODEL = 'gpt-4o-transcribe';
 export const EMBEDDING_MODEL = 'gemini-embedding-001';
 
 /** The model used for image generation */
-export const IMAGE_MODEL = 'gpt-image-1.5-2025-12-16';
+export const IMAGE_MODEL = 'gpt-image-1';
 
 /** The model used for GraphRAG extraction */
 export const GRAPHRAG_MODEL = 'gpt-5-mini-2025-08-07';

@@ -62,6 +62,7 @@ export class ProviderFactory {
           return new GeminiAdapter({
             vertexProjectId: geminiProjectId,
             vertexLocation: this.config.vertexLocation ?? process.env.VERTEX_LOCATION ?? 'us-central1',
+            apiKey: this.config.geminiApiKey,
           });
         }
         if (!this.config.geminiApiKey) throw new Error('Gemini not configured — set GCP_PROJECT_ID for Vertex AI or GOOGLE_AI_API_KEY for direct');

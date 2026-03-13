@@ -73,6 +73,21 @@ function shouldUseDirectOpenAI(model: string): boolean {
   return model.startsWith('gpt-5.4') || model.endsWith('-deep-research');
 }
 
+function supportsMinimalReasoning(model: string): boolean {
+  // gpt-5.1 and gpt-5.2 snapshots currently require `none` (not `minimal`) for no-reasoning mode.
+  if (/^gpt-5\.(1|2)(-|$)/.test(model)) return false;
+  return model.startsWith('gpt-5');
+}
+
+function requiresDefaultTemperature(model: string): boolean {
+  // Some GPT-5 snapshots reject explicit non-default temperatures and only accept the default value (1).
+  return /^gpt-5(?:$|-mini(?:-2025-08-07)?$|-nano$)/.test(model);
+}
+
+function shouldForceResponsesApi(model: string): boolean {
+  return model.startsWith('gpt-5.4') || /^gpt-5\.[0-9]+-pro$/.test(model);
+}
+
 export class OpenAIAdapter implements ProviderAdapter {
   readonly provider = 'openai' as const;
   private client: OpenAI;
@@ -167,21 +182,19 @@ export class OpenAIAdapter implements ProviderAdapter {
     const isOSeries = /^o[134](-|$)/.test(request.model);
     // GPT-5 family: gpt-5, gpt-5.1, gpt-5.2, gpt-5-mini, gpt-5-nano, etc.
     const isGpt5Family = request.model.startsWith('gpt-5');
-    // GPT-5 family uses minimal/low/medium/high reasoning levels.
-    // Keep internal 'none' as an alias for 'minimal' to avoid invalid API payloads.
-    const supportsMinimalReasoning = isGpt5Family;
+    const modelSupportsMinimalReasoning = supportsMinimalReasoning(request.model);
 
     let reasoningEffort: string | undefined;
     const requestedReasoningLevel = request.reasoningLevel;
     if (isGpt5Family) {
       const thinkingEnabled = request.thinkingEnabled ?? false;
-      const reasoningLevel = requestedReasoningLevel ?? (supportsMinimalReasoning
+      const reasoningLevel = requestedReasoningLevel ?? (modelSupportsMinimalReasoning
         ? (thinkingEnabled ? 'standard' : 'none')
         : (thinkingEnabled ? 'deep' : 'standard'));
-      if (supportsMinimalReasoning) {
+      if (modelSupportsMinimalReasoning) {
         reasoningEffort = reasoningLevel === 'none' ? 'minimal' : reasoningLevel === 'deep' ? 'high' : 'medium';
       } else {
-        reasoningEffort = reasoningLevel === 'deep' ? 'high' : 'medium';
+        reasoningEffort = reasoningLevel === 'none' ? 'none' : reasoningLevel === 'deep' ? 'high' : 'medium';
       }
     } else if (isOSeries) {
       const thinkingEnabled = request.thinkingEnabled ?? false;
@@ -190,7 +203,7 @@ export class OpenAIAdapter implements ProviderAdapter {
     }
     if (modelConfig?.reasoningEffort) {
       reasoningEffort = modelConfig.reasoningEffort === 'minimal'
-        ? 'minimal'
+        ? (modelSupportsMinimalReasoning ? 'minimal' : 'none')
         : modelConfig.reasoningEffort === 'low'
           ? 'low'
           : modelConfig.reasoningEffort;
@@ -199,7 +212,7 @@ export class OpenAIAdapter implements ProviderAdapter {
     // ── Responses API for reasoning calls (enables reasoning summaries) ──
     const hasResponsesApi = typeof (this.client as any).responses?.create === 'function';
     const shouldUseResponsesForCompaction = Boolean(contextManagement?.length);
-    if (request.model.startsWith('gpt-5.4') && hasResponsesApi) {
+    if (shouldForceResponsesApi(request.model) && hasResponsesApi) {
       return this.generateViaResponses(request, reasoningEffort, tools, contextManagement);
     }
     if ((reasoningEffort && reasoningEffort !== 'minimal' && hasResponsesApi) || (shouldUseResponsesForCompaction && hasResponsesApi)) {
@@ -207,6 +220,7 @@ export class OpenAIAdapter implements ProviderAdapter {
     }
 
     // ── Chat Completions path (non-reasoning / reasoning=none / SDK fallback) ──
+    const forceDefaultTemp = requiresDefaultTemperature(request.model);
     const forbidTempTopP = isOSeries || (isGpt5Family && reasoningEffort !== 'minimal');
     const useMaxCompletionTokens = isOSeries || isGpt5Family;
     const resolvedMaxTokens = request.maxTokens ?? (useMaxCompletionTokens
@@ -226,7 +240,7 @@ export class OpenAIAdapter implements ProviderAdapter {
       ...(forbidTempTopP
         ? {}
         : {
-            temperature: request.temperature ?? 0.7,
+            temperature: forceDefaultTemp ? 1 : (request.temperature ?? 0.7),
             ...(request.topP !== undefined ? { top_p: request.topP } : {}),
           }),
       ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
@@ -328,6 +342,7 @@ export class OpenAIAdapter implements ProviderAdapter {
       parameters: t.function.parameters,
     }));
     const modelConfig = request.metadata?.modelConfig;
+    const includeReasoningSummary = /^(1|true|yes)$/i.test(process.env.OPENAI_REASONING_SUMMARY ?? '');
     const toolSearchTool = modelConfig?.enableToolSearch
       ? [{ type: 'tool_search' as const }]
       : [];
@@ -385,6 +400,9 @@ export class OpenAIAdapter implements ProviderAdapter {
           },
         }]
       : [];
+    const deepResearchWebSearchTool = request.model.endsWith('-deep-research')
+      ? [{ type: 'web_search_preview' as const }]
+      : [];
 
     const maxOutputTokens = request.maxTokens ?? 32768;
 
@@ -397,12 +415,12 @@ export class OpenAIAdapter implements ProviderAdapter {
         ? {
             reasoning: {
               effort: reasoningEffort,
-              summary: 'auto',
+              ...(includeReasoningSummary ? { summary: 'auto' } : {}),
             },
           }
         : {}),
-      ...((responsesTools?.length || patchTool.length || toolSearchTool.length || webSearchTool.length)
-        ? { tools: [...(responsesTools ?? []), ...toolSearchTool, ...webSearchTool, ...patchTool] }
+      ...((responsesTools?.length || patchTool.length || toolSearchTool.length || webSearchTool.length || deepResearchWebSearchTool.length)
+        ? { tools: [...(responsesTools ?? []), ...toolSearchTool, ...webSearchTool, ...deepResearchWebSearchTool, ...patchTool] }
         : {}),
       max_output_tokens: maxOutputTokens,
       // Do NOT pass previous_response_id — we always send the full
@@ -674,7 +692,7 @@ export class OpenAIAdapter implements ProviderAdapter {
    * Uses direct fetch instead of the SDK to avoid connection issues in Cloud Run.
    * Routes through Azure OpenAI when configured; falls back to direct OpenAI.
    */
-  async generateImage(prompt: string, model = 'gpt-image-1.5-2025-12-16'): Promise<ImageResponse> {
+  async generateImage(prompt: string, model = 'gpt-image-1'): Promise<ImageResponse> {
     const body = JSON.stringify({
       model,
       prompt,
@@ -712,6 +730,40 @@ export class OpenAIAdapter implements ProviderAdapter {
 
     if (!resp.ok) {
       const errText = await resp.text().catch(() => 'unknown');
+      const azureDeploymentMissing = this.isAzure
+        && this.directApiKey
+        && resp.status === 404
+        && /DeploymentNotFound|deployment for this resource does not exist/i.test(errText);
+      if (azureDeploymentMissing) {
+        console.warn(`[OpenAI] Azure image deployment not found for ${model} — falling back to direct OpenAI image API`);
+        const fallbackResp = await fetch('https://api.openai.com/v1/images/generations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.directApiKey}`,
+          },
+          body,
+        });
+        if (!fallbackResp.ok) {
+          const fallbackErrText = await fallbackResp.text().catch(() => 'unknown');
+          throw new Error(`OpenAI image generation failed (${fallbackResp.status}): ${fallbackErrText}`);
+        }
+        const fallbackJson = await fallbackResp.json() as { data?: Array<{ b64_json?: string; url?: string }> };
+        const fallbackB64 = fallbackJson.data?.[0]?.b64_json;
+        if (!fallbackB64) {
+          const fallbackUrl = fallbackJson.data?.[0]?.url;
+          if (fallbackUrl) {
+            const imgResp = await fetch(fallbackUrl);
+            const buf = Buffer.from(await imgResp.arrayBuffer());
+            return { imageData: buf.toString('base64'), mimeType: 'image/png' };
+          }
+          throw new Error('No image data returned from OpenAI image generation');
+        }
+        return {
+          imageData: fallbackB64,
+          mimeType: 'image/png',
+        };
+      }
       throw new Error(`OpenAI image generation failed (${resp.status}): ${errText}`);
     }
 

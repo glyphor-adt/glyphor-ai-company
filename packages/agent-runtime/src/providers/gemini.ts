@@ -21,6 +21,7 @@ export interface GeminiAdapterConfig {
 export class GeminiAdapter implements ProviderAdapter {
   readonly provider = 'gemini' as const;
   private client: GoogleGenAI;
+  private fallbackClient?: GoogleGenAI;
 
   constructor(config: string | GeminiAdapterConfig) {
     if (typeof config === 'string') {
@@ -34,6 +35,9 @@ export class GeminiAdapter implements ProviderAdapter {
         project: config.vertexProjectId,
         location: config.vertexLocation ?? 'us-central1',
       });
+      if (config.apiKey) {
+        this.fallbackClient = new GoogleGenAI({ apiKey: config.apiKey });
+      }
     } else if (config.apiKey) {
       this.client = new GoogleGenAI({ apiKey: config.apiKey });
     } else {
@@ -68,17 +72,23 @@ export class GeminiAdapter implements ProviderAdapter {
         thinkingLevel,
       };
     } else if (request.model.startsWith('gemini-2.5')) {
-      const thinkingBudget = modelConfig?.thinkingBudget ?? (
-        modelConfig?.reasoningEffort === 'high' || reasoningLevel === 'deep'
-          ? -1
-          : reasoningLevel === 'standard'
-            ? 2048
-            : 0
-      );
-      thinkingConfig = {
-        includeThoughts: reasoningLevel !== 'none',
-        thinkingBudget,
-      };
+      if (reasoningLevel === 'none' && modelConfig?.thinkingBudget === undefined) {
+        thinkingConfig = {
+          includeThoughts: false,
+        };
+      } else {
+        const thinkingBudget = modelConfig?.thinkingBudget ?? (
+          modelConfig?.reasoningEffort === 'high' || reasoningLevel === 'deep'
+            ? -1
+            : reasoningLevel === 'standard'
+              ? 2048
+              : 1024
+        );
+        thinkingConfig = {
+          includeThoughts: reasoningLevel !== 'none',
+          thinkingBudget,
+        };
+      }
     }
 
     const googleSearchEnabled = Boolean(modelConfig?.enableGoogleSearch && !hasFunctionDeclarations);
@@ -106,7 +116,7 @@ export class GeminiAdapter implements ProviderAdapter {
     ].filter(Boolean).join('\n\n');
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await this.client.models.generateContent({
+    const requestPayload = {
       model: request.model,
       contents: geminiContents as any,
       config: {
@@ -121,7 +131,21 @@ export class GeminiAdapter implements ProviderAdapter {
           responseSchema: structuredOutputSchema as any,
         } : {}),
       },
-    });
+    };
+
+    let response: unknown;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      response = await this.client.models.generateContent(requestPayload as any);
+    } catch (error) {
+      const msg = (error as Error).message ?? String(error);
+      const shouldFallback = Boolean(this.fallbackClient)
+        && /(not found|does not have access|permission|forbidden|404|publisher model)/i.test(msg);
+      if (!shouldFallback) throw error;
+      console.warn(`[Gemini] ${request.model}: Vertex call failed, retrying via direct API key`);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      response = await this.fallbackClient!.models.generateContent(requestPayload as any);
+    }
 
     return this.mapResponse(response);
   }
