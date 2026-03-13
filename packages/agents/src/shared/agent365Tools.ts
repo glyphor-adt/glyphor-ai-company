@@ -42,7 +42,11 @@ function getDefaultAgent365Servers(_agentRole?: string): readonly string[] {
 
 // ── Singleton Bridge ─────────────────────────────────────────────
 
-let activeBridge: Agent365ToolBridge | null = null;
+const activeBridges = new Map<string, Agent365ToolBridge>();
+
+function getBridgeCacheKey(agentRole?: string): string {
+  return agentRole ?? '__default__';
+}
 
 function resolveAgent365Credentials(_agentRole?: string): {
   clientId: string;
@@ -84,10 +88,16 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
     ? agentRoleOrServerFilter
     : (maybeServerFilter ?? [...getDefaultAgent365Servers(agentRole)]);
   const credentials = resolveAgent365Credentials(agentRole);
+  const cacheKey = getBridgeCacheKey(agentRole);
 
   if (!credentials) {
     console.warn('[Agent365] AGENT365_ENABLED=true but AGENT365_CLIENT_ID or AGENT365_TENANT_ID missing. Skipping.');
     return [];
+  }
+
+  const cachedBridge = activeBridges.get(cacheKey);
+  if (cachedBridge) {
+    return cachedBridge.tools;
   }
 
   // Resolve per-agent identity from agentIdentities.json; fall back to shared env vars.
@@ -110,9 +120,6 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
   const MCP_INIT_TIMEOUT_MS = 30_000;
 
   try {
-    // Close any previous bridge to avoid connection leaks and stale MSAL tokens
-    await closeAgent365Bridge();
-
     const bridgePromise = initAgent365Bridge({
       clientId: credentials.clientId,
       clientSecret: credentials.clientSecret,
@@ -130,7 +137,7 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
       ),
     ]);
 
-    activeBridge = bridge;
+    activeBridges.set(cacheKey, bridge);
     console.log(`[Agent365] Initialized ${bridge.tools.length} MCP tools`);
     return bridge.tools;
   } catch (err) {
@@ -143,9 +150,18 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
  * Shut down all Agent 365 MCP connections.
  * Call this at process shutdown or between runs to clean up.
  */
-export async function closeAgent365Bridge(): Promise<void> {
-  if (activeBridge) {
-    await activeBridge.close();
-    activeBridge = null;
+export async function closeAgent365Bridge(agentRole?: string): Promise<void> {
+  if (agentRole) {
+    const cacheKey = getBridgeCacheKey(agentRole);
+    const bridge = activeBridges.get(cacheKey);
+    if (!bridge) return;
+    await bridge.close();
+    activeBridges.delete(cacheKey);
+    return;
   }
+
+  for (const bridge of activeBridges.values()) {
+    await bridge.close();
+  }
+  activeBridges.clear();
 }

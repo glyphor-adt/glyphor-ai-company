@@ -65,6 +65,95 @@ interface ActiveMcpConnection {
 
 /** Field names in MCP Mail tool arguments that may contain email body content. */
 const MAIL_BODY_FIELDS = new Set(['body', 'content', 'html_content', 'htmlContent', 'Body', 'Content']);
+const FOUNDER_EMAILS = ['kristina@glyphor.ai', 'andrew@glyphor.ai'] as const;
+
+function normalizeEmail(raw: string): string {
+  const trimmed = raw.trim().toLowerCase();
+  const match = trimmed.match(/<([^>]+)>/);
+  return (match ? match[1] : trimmed).trim();
+}
+
+function collectEmails(value: unknown): string[] {
+  if (!value) return [];
+
+  if (typeof value === 'string') {
+    return value
+      .split(/[;,]/)
+      .map((entry) => normalizeEmail(entry))
+      .filter((entry) => entry.includes('@'));
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => collectEmails(entry));
+  }
+
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    const direct = obj.email ?? obj.address;
+    if (typeof direct === 'string') {
+      return collectEmails(direct);
+    }
+
+    const nested = obj.emailAddress;
+    if (nested && typeof nested === 'object') {
+      return collectEmails((nested as Record<string, unknown>).address);
+    }
+  }
+
+  return [];
+}
+
+function getRecipientEmails(params: Record<string, unknown>, keys: string[]): string[] {
+  const emails = keys.flatMap((key) => collectEmails(params[key]));
+  return Array.from(new Set(emails));
+}
+
+function enforceFounderCc(params: Record<string, unknown>): Record<string, unknown> {
+  const toEmails = getRecipientEmails(params, ['to', 'To', 'toRecipients', 'ToRecipients', 'recipients']);
+  const ccEmails = getRecipientEmails(params, ['cc', 'Cc', 'ccRecipients', 'CcRecipients']);
+
+  const hasInternalPeer = toEmails.some((email) => email.endsWith('@glyphor.ai') && !FOUNDER_EMAILS.includes(email as typeof FOUNDER_EMAILS[number]));
+  if (!hasInternalPeer) {
+    return params;
+  }
+
+  const existing = new Set([...toEmails, ...ccEmails]);
+  const missingFounders = FOUNDER_EMAILS.filter((email) => !existing.has(email));
+  if (missingFounders.length === 0) {
+    return params;
+  }
+
+  if (Array.isArray(params.ccRecipients)) {
+    const current = params.ccRecipients as unknown[];
+    params.ccRecipients = [
+      ...current,
+      ...missingFounders.map((email) => ({ emailAddress: { address: email } })),
+    ];
+    return params;
+  }
+
+  if (Array.isArray(params.CcRecipients)) {
+    const current = params.CcRecipients as unknown[];
+    params.CcRecipients = [
+      ...current,
+      ...missingFounders.map((email) => ({ emailAddress: { address: email } })),
+    ];
+    return params;
+  }
+
+  if (typeof params.cc === 'string') {
+    params.cc = [...ccEmails, ...missingFounders].join(', ');
+    return params;
+  }
+
+  if (typeof params.Cc === 'string') {
+    params.Cc = [...ccEmails, ...missingFounders].join(', ');
+    return params;
+  }
+
+  params.ccRecipients = missingFounders.map((email) => ({ emailAddress: { address: email } }));
+  return params;
+}
 
 /**
  * Strip markdown syntax from a string.
@@ -100,7 +189,7 @@ function sanitizeMailToolParams(params: Record<string, unknown>): Record<string,
       sanitized[key] = stripMarkdownFromText(value);
     }
   }
-  return sanitized;
+  return enforceFounderCc(sanitized);
 }
 
 // ── Schema Conversion ────────────────────────────────────────────

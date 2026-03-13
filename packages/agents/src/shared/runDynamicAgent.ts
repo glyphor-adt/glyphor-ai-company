@@ -144,7 +144,7 @@ export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<Ag
   );
 
   try { await memory.recordAgentRun(role, 0, 0.02); } catch {}
-  try { await closeAgent365Bridge(); } catch {}
+  try { await closeAgent365Bridge(role); } catch {}
   console.log(`[DynamicAgent:${role}] ${result.status} (${result.totalTurns} turns)`);
   return result;
 }

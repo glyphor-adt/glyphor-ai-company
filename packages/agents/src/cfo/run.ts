@@ -39,6 +39,8 @@ export interface CFORunParams {
   task?: 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand';
   message?: string;
   conversationHistory?: ConversationTurn[];
+  dryRun?: boolean;
+  evalMode?: boolean;
 }
 
 export async function runCFO(params: CFORunParams = {}) {
@@ -74,7 +76,7 @@ export async function runCFO(params: CFORunParams = {}) {
     ...await createAgent365McpTools('cfo'),
     ...await createGlyphorMcpTools('cfo'),
   ];
-  const toolExecutor = new ToolExecutor(tools);
+  const toolExecutor = new ToolExecutor(tools, params.dryRun === true);
 
   eventBus.on('*', (event) => {
     console.log(`[CFO] ${event.type}`, JSON.stringify(event));
@@ -154,16 +156,18 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(glyphorEventBus, memory),
+    params.evalMode ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory) : createRunDeps(glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;
   const estimatedCost = result.totalTurns * 0.0001;
 
-  try {
-    await memory.recordAgentRun('cfo', durationMs, estimatedCost);
-  } catch (e) {
-    console.warn('[CFO] Failed to record run:', (e as Error).message);
+  if (!params.evalMode) {
+    try {
+      await memory.recordAgentRun('cfo', durationMs, estimatedCost);
+    } catch (e) {
+      console.warn('[CFO] Failed to record run:', (e as Error).message);
+    }
   }
 
   console.log(`[CFO] ${result.status} in ${durationMs}ms (${result.totalTurns} turns)`);

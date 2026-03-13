@@ -67,3 +67,7 @@ export {
   type CanaryEvaluation,
   type MetricSet,
 } from './canaryEvaluator.js';
+export {
+  evaluateAgentKnowledgeGaps,
+  type AgentKnowledgeEvalReport,
+} from './agentKnowledgeEvaluator.js';

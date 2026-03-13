@@ -39,6 +39,8 @@ export interface CTORunParams {
   task?: 'platform_health_check' | 'dependency_review' | 'on_demand';
   message?: string;
   conversationHistory?: ConversationTurn[];
+  dryRun?: boolean;
+  evalMode?: boolean;
 }
 
 export async function runCTO(params: CTORunParams = {}) {
@@ -93,7 +95,7 @@ export async function runCTO(params: CTORunParams = {}) {
     tools.push(...createExecutiveOrchestrationTools('cto', orchConfig, { glyphorEventBus }));
   }
 
-  const toolExecutor = new ToolExecutor(tools);
+  const toolExecutor = new ToolExecutor(tools, params.dryRun === true);
 
   eventBus.on('*', (event) => {
     console.log(`[CTO] ${event.type}`, JSON.stringify(event));
@@ -167,16 +169,18 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(glyphorEventBus, memory),
+    params.evalMode ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory) : createRunDeps(glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;
   const estimatedCost = result.totalTurns * 0.0001;
 
-  try {
-    await memory.recordAgentRun('cto', durationMs, estimatedCost);
-  } catch (e) {
-    console.warn('[CTO] Failed to record run:', (e as Error).message);
+  if (!params.evalMode) {
+    try {
+      await memory.recordAgentRun('cto', durationMs, estimatedCost);
+    } catch (e) {
+      console.warn('[CTO] Failed to record run:', (e as Error).message);
+    }
   }
 
   console.log(`[CTO] ${result.status} in ${durationMs}ms (${result.totalTurns} turns)`);

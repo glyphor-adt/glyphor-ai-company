@@ -57,6 +57,7 @@ import { evaluateDraftPolicies } from './policyReplayEvaluator.js';
 import { manageCanaries } from './policyCanaryManager.js';
 import { expireTools } from './toolExpirationManager.js';
 import { evaluateCanary } from './canaryEvaluator.js';
+import { evaluateAgentKnowledgeGaps } from './agentKnowledgeEvaluator.js';
 import { handleTriangulatedChat } from './triangulationEndpoint.js';
 import {
   authenticateSdkClient,
@@ -1557,6 +1558,23 @@ const server = createServer(async (req, res) => {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error('[CanaryEvaluator] Endpoint error:', message);
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // Agent knowledge-gap evaluation endpoint — weekly judge-scored readiness sweep
+    if (method === 'POST' && url === '/agent-evals/run') {
+      try {
+        const rawBody = await readBody(req).catch(() => '{}');
+        const body = (rawBody.trim() ? JSON.parse(rawBody) : {}) as { agentRole?: string };
+        const report = await evaluateAgentKnowledgeGaps({
+          agentRole: typeof body.agentRole === 'string' ? body.agentRole : undefined,
+        });
+        json(res, 200, { success: true, ...report });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[AgentKnowledgeEvaluator] Endpoint error:', message);
         json(res, 500, { success: false, error: message });
       }
       return;

@@ -437,6 +437,14 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/canary/evaluate',
     enabled: true,
   },
+  // Agent knowledge-gap evaluator — weekly judge-scored readiness sweep
+  {
+    id: 'agent-knowledge-evals',
+    schedule: '0 9 * * 1',     // Monday 9:00 AM UTC — weekly readiness eval
+    timezone: 'UTC',
+    endpoint: '/agent-evals/run',
+    enabled: true,
+  },
   // Memory archival — weekly TTL-based archival of expired raw traces
   {
     id: 'memory-archival',

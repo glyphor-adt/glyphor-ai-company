@@ -42,6 +42,8 @@ export interface CMORunParams {
   task?: 'weekly_content_planning' | 'generate_content' | 'seo_analysis' | 'on_demand';
   message?: string;
   conversationHistory?: ConversationTurn[];
+  dryRun?: boolean;
+  evalMode?: boolean;
 }
 
 export async function runCMO(params: CMORunParams = {}) {
@@ -80,7 +82,7 @@ export async function runCMO(params: CMORunParams = {}) {
     ...await createAgent365McpTools('cmo'),
     ...await createGlyphorMcpTools('cmo'),
   ];
-  const toolExecutor = new ToolExecutor(tools);
+  const toolExecutor = new ToolExecutor(tools, params.dryRun === true);
 
   eventBus.on('*', (event) => {
     console.log(`[CMO] ${event.type}`, JSON.stringify(event));
@@ -170,16 +172,18 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(glyphorEventBus, memory),
+    params.evalMode ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory) : createRunDeps(glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - startTime;
   const estimatedCost = result.totalTurns * 0.0001;
 
-  try {
-    await memory.recordAgentRun('cmo', durationMs, estimatedCost);
-  } catch (e) {
-    console.warn('[CMO] Failed to record run:', (e as Error).message);
+  if (!params.evalMode) {
+    try {
+      await memory.recordAgentRun('cmo', durationMs, estimatedCost);
+    } catch (e) {
+      console.warn('[CMO] Failed to record run:', (e as Error).message);
+    }
   }
 
   console.log(`[CMO] ${result.status} in ${durationMs}ms (${result.totalTurns} turns)`);

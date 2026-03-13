@@ -14,20 +14,8 @@ import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 import { AGENT_EMAIL_MAP } from '@glyphor/agent-runtime';
 import { getM365Token } from '@glyphor/integrations';
 
-/** Agents whose inboxes we poll (those with createEmailTools wired in). */
-const EMAIL_ENABLED_AGENTS: CompanyAgentRole[] = [
-  'chief-of-staff',
-  'cto',
-  'cfo',
-  'clo',
-  'cpo',
-  'cmo',
-  'vp-sales',
-  'vp-design',
-  'm365-admin',
-  'ops',
-  'global-admin',
-];
+/** Poll every role with a configured mailbox entry. */
+const EMAIL_ENABLED_AGENTS: CompanyAgentRole[] = Object.keys(AGENT_EMAIL_MAP) as CompanyAgentRole[];
 
 export interface InboxCheckResult {
   checked: number;
@@ -47,8 +35,14 @@ function isLowSignalTeamsPing(message: { subject?: string | null }): boolean {
   const subject = (message.subject ?? '').trim();
   if (!subject) return false;
 
-  // These notifications often contain no actionable content and can trigger noisy wake loops.
-  return /is trying to reach you in microsoft teams/i.test(subject);
+  // These notification-only subjects often contain no actionable content and can trigger noisy wake loops.
+  return [
+    /is trying to reach you in microsoft teams/i,
+    /reaching me in teams/i,
+    /following up on your teams message/i,
+    /^re:\s*teams ping/i,
+    /^teams ping/i,
+  ].some((pattern) => pattern.test(subject));
 }
 
 /**
