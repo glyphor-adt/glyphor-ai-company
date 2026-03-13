@@ -28,7 +28,7 @@ export function AgentAvatar({
   const fallbackAvatar = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(role)}&radius=50&bold=true`;
   return (
     <img
-      src={avatarUrl ?? `/avatars/${role}.png`}
+      src={avatarUrl || `/avatars/${role}.png`}
       alt={role}
       onError={(e) => {
         const img = e.currentTarget;
@@ -41,7 +41,6 @@ export function AgentAvatar({
       style={{
         width: size,
         height: size,
-        border: `1.5px solid ${meta.color}40`,
       }}
     />
   );

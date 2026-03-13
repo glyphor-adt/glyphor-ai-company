@@ -12,11 +12,11 @@
 
 /** Static glass card (no interaction) */
 export const GLASS_CARD_BASE =
-  'rounded-2xl border border-border bg-black/30 backdrop-blur-[10px] shadow-none';
+  'rounded-2xl border-0 bg-black/30 backdrop-blur-[10px] shadow-none';
 
 /** Interactive glass card (hover lift + glow) */
 export const GLASS_CARD_INTERACTIVE =
-  `${GLASS_CARD_BASE} hover:border-border-hover hover:bg-black/40 hover:-translate-y-0.5 active:translate-y-0 transition-all`;
+  `${GLASS_CARD_BASE} hover:bg-black/40 hover:-translate-y-0.5 active:translate-y-0 transition-all`;
 
 /* ── Input Fields ─────────────────────────── */
 

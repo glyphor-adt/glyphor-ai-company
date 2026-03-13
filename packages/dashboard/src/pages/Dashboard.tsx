@@ -168,13 +168,13 @@ export default function Dashboard() {
           {/* ── Welcome Banner ─────────────── */}
           <div className="banner-wrapper">
             <div className="banner-inner rounded-[24px] p-7">
-              <h1 className="font-agency text-[1.75rem] font-bold lowercase text-white md:text-[2.25rem] leading-tight">
+              <h1 className="font-agency text-[1.75rem] font-bold lowercase text-slate-900 dark:text-white md:text-[2.25rem] leading-tight">
                 {greeting}, {firstName}
               </h1>
-              <p className="mt-3 max-w-2xl text-[15px] lowercase text-white/60">
+              <p className="mt-3 max-w-2xl text-[15px] lowercase text-slate-600 dark:text-white/60">
                 Welcome back to Glyphor AI. Here&apos;s what&apos;s happening.
               </p>
-              <p className="mt-4 text-[13px] text-white/35 font-medium">
+              <p className="mt-4 text-[13px] text-slate-500 dark:text-white/35 font-medium">
                 {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
                 {' · '}
                 {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}

@@ -702,7 +702,7 @@ function OverviewTab({
               <ul className="space-y-2">
                 {directReports.map((m) => (
                   <li key={m.id}>
-                    <Link to={`/agents/${m.role}`} className="flex items-center gap-3 rounded-lg border border-border/50 px-3 py-2 transition-colors hover:border-cyan/30">
+                    <Link to={`/agents/${m.role}`} className="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-white/5">
                       <AgentAvatar role={m.role} size={28} />
                       <div>
                         <p className="text-sm font-medium text-txt-primary">{DISPLAY_NAME_MAP[m.role] ?? m.name ?? m.display_name ?? m.role}</p>
@@ -1114,7 +1114,7 @@ function MemoryTab({ agent }: { agent: AgentRow }) {
         {memories.length > 0 ? (
           <ul className="space-y-2">
             {memories.map((m) => (
-              <li key={m.id} className="flex items-start gap-3 rounded-lg border border-border/50 px-3 py-2.5">
+              <li key={m.id} className="flex items-start gap-3 rounded-lg px-3 py-2.5">
                 <span className={`mt-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${typeColor[m.memory_type] ?? 'bg-prism-moderate/15 text-prism-moderate'}`}>
                   {m.memory_type}
                 </span>
@@ -1226,7 +1226,7 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
               const isSent = m.from_agent === agent.role;
               const otherAgent = isSent ? m.to_agent : m.from_agent;
               return (
-                <li key={m.id} className="flex items-start gap-3 rounded-lg border border-border/50 px-3 py-2.5">
+                <li key={m.id} className="flex items-start gap-3 rounded-lg px-3 py-2.5">
                   <div className="flex flex-col items-center gap-1">
                     <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase ${typeColor[m.message_type] ?? typeColor.info}`}>
                       {m.message_type}
@@ -1266,7 +1266,7 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
         ) : (
           <ul className="space-y-2">
             {meetings.map((m) => (
-              <li key={m.id} className="flex items-start gap-3 rounded-lg border border-border/50 px-3 py-2.5">
+              <li key={m.id} className="flex items-start gap-3 rounded-lg px-3 py-2.5">
                 <span className="mt-0.5">{statusIcon[m.status] ?? <MdCalendarToday className="inline h-4 w-4 text-prism-sky" />}</span>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-txt-primary">{m.title}</p>
@@ -1415,7 +1415,7 @@ function SkillsTab({ agent, brief }: { agent: AgentRow; brief: AgentBrief | null
                 <Link
                   key={sk.id}
                   to={`/skills/${s?.slug ?? ''}`}
-                  className="flex items-center gap-3 rounded-lg border border-border/50 px-3 py-2.5 transition-colors hover:border-cyan/30"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-white/5"
                 >
                   <span
                     className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
