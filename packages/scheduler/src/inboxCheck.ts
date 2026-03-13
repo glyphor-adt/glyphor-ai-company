@@ -14,8 +14,11 @@ import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 import { AGENT_EMAIL_MAP } from '@glyphor/agent-runtime';
 import { getM365Token } from '@glyphor/integrations';
 
-/** Poll every role with a configured mailbox entry. */
-const EMAIL_ENABLED_AGENTS: CompanyAgentRole[] = Object.keys(AGENT_EMAIL_MAP) as CompanyAgentRole[];
+/**
+ * Poll only dedicated inbox triage/admin roles.
+ * This avoids unsolicited founder pings from broad automatic inbox wakes.
+ */
+const EMAIL_ENABLED_AGENTS: CompanyAgentRole[] = ['m365-admin', 'global-admin'];
 
 export interface InboxCheckResult {
   checked: number;

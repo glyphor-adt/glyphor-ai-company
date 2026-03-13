@@ -42,7 +42,7 @@ export default function Layout() {
   useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
 
   return (
-    <div className="dashboard-shell mesh-gradient flex h-screen overflow-hidden">
+    <div className="dashboard-shell mesh-gradient flex h-screen overflow-x-hidden">
       {/* ── Desktop Sidebar ─────────────────── */}
       <aside className={`dashboard-sidebar sidebar-glass hidden w-[220px] flex-col transition-colors duration-200 md:flex ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}>
         {/* Brand */}

@@ -22,7 +22,9 @@
     "dashboard:dev": "npm run dev --workspace=packages/dashboard",
     "scheduler:dev": "turbo run build --filter=@glyphor/scheduler && node --env-file=.env packages/scheduler/dist/server.js",
     "smoketest": "turbo run build --filter=@glyphor/smoketest && node --env-file=.env packages/smoketest/dist/index.js",
-    "validate:pricing": "tsx scripts/validate-model-pricing.ts"
+    "validate:pricing": "tsx scripts/validate-model-pricing.ts",
+    "validate:agent365": "tsx scripts/validate-agent365-setup.ts",
+    "validate:agent365:strict": "tsx scripts/validate-agent365-setup.ts --strict-env"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

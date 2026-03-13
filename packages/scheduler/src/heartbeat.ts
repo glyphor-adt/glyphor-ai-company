@@ -233,7 +233,7 @@ export class HeartbeatManager {
           const subjectList = agent.subjects.slice(0, 3).join(', ');
           wakeList.push({
             role: agent.role,
-            task: 'on_demand',
+            task: 'agent365_mail_triage',
             context: {
               wake_reason: 'unread_email',
               priority: 'heartbeat',

@@ -28,6 +28,7 @@ FROM node:22-slim AS runtime
 WORKDIR /app
 
 COPY package.json package-lock.json ./
+COPY ToolingManifest.json ./
 COPY packages/agent-runtime/package.json ./packages/agent-runtime/package.json
 COPY packages/company-memory/package.json ./packages/company-memory/package.json
 COPY packages/agents/package.json ./packages/agents/package.json

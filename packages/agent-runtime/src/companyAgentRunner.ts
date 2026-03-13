@@ -664,7 +664,7 @@ You have full Microsoft 365 access via Agent365 MCP tools. These tools appear in
 
 | MCP Server | What It Does |
 |---|---|
-| \`mcp_MailTools\` | Send, read, search, and manage Outlook email |
+| \`mcp_MailTools\` | Send, read, and manage Outlook email |
 | \`mcp_CalendarTools\` | Create, read, update calendar events and meetings |
 | \`mcp_ODSPRemoteServer\` | **Read, search, and list SharePoint / OneDrive files and pages** |
 | \`mcp_TeamsServer\` | Read and post Teams channel and chat messages |
