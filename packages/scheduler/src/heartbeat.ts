@@ -218,7 +218,7 @@ export class HeartbeatManager {
             context: {
               wake_reason: 'unread_email',
               priority: 'heartbeat',
-              message: `You have ${agent.count} unread email(s) in your inbox. Subjects: ${subjectList}. Use read_inbox to review and respond as appropriate.`,
+              message: `You have ${agent.count} unread email(s) in your inbox. Subjects: ${subjectList}. Use Agent365 MailTools to review and respond as appropriate.`,
             },
           });
         }

@@ -581,7 +581,6 @@ export const WRITE_TOOLS: ReadonlySet<string> = new Set([
   'pause_agent',
   'resume_agent',
   // Communication (external-facing)
-  'send_email',
   'send_teams_dm',
   'send_dm',
   'send_briefing',

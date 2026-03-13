@@ -541,7 +541,7 @@ or any content that will be seen by someone outside the agent system), you MUST:
 5. If you need to list items, write them as a sentence ("Key items include X, Y, and Z")
    or use line breaks with plain text — never markdown list markers.
 
-This applies to: send_email, reply_to_email, send_transactional_email, draft_email,
+This applies to: Agent365 MailTools outputs, send_transactional_email, draft_email,
 set_campaign_content, and any other tool that produces outgoing communications.
 
 Recipients see raw markdown syntax as broken formatting — asterisks, hashes, and brackets

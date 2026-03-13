@@ -11,7 +11,6 @@
  *   glyphor-finance    – Glyphor MCP Finance Server
  *   glyphor-hr         – Glyphor MCP HR Server
  *   glyphor-legal      – Glyphor MCP Legal Server
- *   glyphor-email      – Glyphor MCP Email Server
  *   github     – GitHub integration tools
  *   web        – Web search/fetch tools
  *   governance – Governance & company intelligence tools
@@ -28,7 +27,6 @@ export type ToolPlatform =
   | 'glyphor-finance'
   | 'glyphor-hr'
   | 'glyphor-legal'
-  | 'glyphor-email'
   | 'github'
   | 'web'
   | 'governance'
@@ -51,7 +49,6 @@ export const PLATFORM_META: Record<ToolPlatform, PlatformMeta> = {
   'glyphor-finance':    { label: 'Finance',     color: 'text-amber-400',       bgColor: 'bg-amber-400/10',       borderColor: 'border-amber-400/25' },
   'glyphor-hr':         { label: 'HR',          color: 'text-teal-400',        bgColor: 'bg-teal-400/10',        borderColor: 'border-teal-400/25' },
   'glyphor-legal':      { label: 'Legal',       color: 'text-slate-400',       bgColor: 'bg-slate-400/10',       borderColor: 'border-slate-400/25' },
-  'glyphor-email':      { label: 'Email',       color: 'text-sky-400',         bgColor: 'bg-sky-400/10',         borderColor: 'border-sky-400/25' },
   github:               { label: 'GitHub',      color: 'text-gray-300',        bgColor: 'bg-gray-300/10',        borderColor: 'border-gray-300/25' },
   web:                  { label: 'Web',         color: 'text-indigo-400',      bgColor: 'bg-indigo-400/10',      borderColor: 'border-indigo-400/25' },
   governance:           { label: 'Governance',  color: 'text-yellow-400',      bgColor: 'bg-yellow-400/10',      borderColor: 'border-yellow-400/25' },
@@ -69,7 +66,6 @@ const TOOL_PLATFORM_MAP: Record<string, ToolPlatform> = {
   grant_tool_access: 'core', revoke_tool_access: 'core',
   emit_insight: 'core', emit_alert: 'core',
   send_teams_dm: 'core', read_teams_dm: 'core',
-  send_email: 'core', read_inbox: 'core', reply_to_email: 'core',
   publish_deliverable: 'core', get_deliverables: 'core',
   log_activity: 'core', get_recent_activity: 'core',
   create_specialist_agent: 'core', list_my_created_agents: 'core', retire_created_agent: 'core',

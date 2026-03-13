@@ -129,7 +129,7 @@ This is the authoritative reference for what tools and skills each agent SHOULD 
 ### Tier-Based Additions
 
 **Executives** (CTO, CPO, CFO, CMO, VP-CS, VP-Sales, VP-Design, CLO, VP-Research, Head of HR) also get:
-- **Email:** send_email, read_inbox, reply_to_email
+- **Email:** Agent365 MailTools (mcp_MailTools)
 - **Tool Grants:** grant_tool_access, revoke_tool_access
 - **Agent Creation:** create_specialist_agent, list_my_created_agents, retire_created_agent
 - **Agent Directory:** get_agent_directory, who_handles
@@ -137,7 +137,7 @@ This is the authoritative reference for what tools and skills each agent SHOULD 
 **Orchestrator** (Chief of Staff) gets everything Executives get, plus:
 - **Collective Intelligence:** get_company_pulse, update_company_pulse, update_pulse_highlights, promote_to_org_knowledge, get_org_knowledge, create_knowledge_route, get_knowledge_routes, detect_contradictions, record_process_pattern, get_process_patterns, propose_authority_change, get_authority_proposals
 
-**Sub-Team agents** get the Core set plus Email (most of them). They do NOT get Tool Grants, Agent Creation, Agent Directory, or Collective Intelligence by default.
+**Sub-Team agents** get the Core set plus Agent365 MailTools (most of them). They do NOT get Tool Grants, Agent Creation, Agent Directory, or Collective Intelligence by default.
 
 ### Selective Shared Tool Groups
 Not everyone gets every group. Here's who gets the extras:

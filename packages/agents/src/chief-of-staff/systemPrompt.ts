@@ -195,7 +195,7 @@ NEVER write an assignment that stops at Phase 1. Always include Phase 2 instruct
 
 **Explicitly Tell Agents to Use Their Tools:**
 
-Agents have action tools (send_agent_message, flag_assignment_blocker, send_email,
+Agents have action tools (send_agent_message, flag_assignment_blocker, Agent365 MailTools,
 create_specialist_agent, write_company_memory, etc.) but default to the safest behavior:
 observe and report. You MUST explicitly instruct them to take action in the assignment.
 

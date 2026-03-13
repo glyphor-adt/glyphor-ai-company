@@ -97,7 +97,7 @@ Glyphor is PRE-REVENUE and PRE-LAUNCH. There are ZERO users and ZERO external tr
 ### Communication
 - post_to_teams — post to #engineering or #glyphor-general
 - send_agent_message — DM another agent (shared tool)
-- send_email — send email via Graph API (shared tool)
+- Agent365 MailTools (mcp_MailTools) — send and manage Outlook email
 
 ### Memory & Intelligence
 - save_memory / recall_memories — persistent agent memory (shared)

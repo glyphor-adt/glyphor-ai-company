@@ -26,8 +26,6 @@ const PRE_CHECK_CACHE_TTL = 300;
 
 /** Tools that require pre-execution constitutional screening. */
 export const HIGH_STAKES_TOOLS = new Set([
-  'send_email',
-  'reply_to_email',
   'create_or_update_file',
   'apply_patch_call',
   'create_branch',
@@ -39,8 +37,6 @@ export const HIGH_STAKES_TOOLS = new Set([
 
 /** Tools that are externally visible and require LLM principle checks. */
 const EXTERNAL_COMMUNICATION_TOOLS = new Set([
-  'send_email',
-  'reply_to_email',
   'submit_assignment_output',
 ]);
 
@@ -268,8 +264,8 @@ function runDeterministicChecks(
   toolParams: Record<string, unknown>,
 ): ConstitutionalPreCheckViolation[] {
   switch (toolName) {
-    case 'send_email':
-    case 'reply_to_email':
+    case 'send_transactional_email':
+    case 'draft_email':
       return checkEmailTool(toolName, toolParams);
 
     case 'create_or_update_file':

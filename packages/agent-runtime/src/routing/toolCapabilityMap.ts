@@ -500,9 +500,6 @@ export const TOOL_CAPABILITY_MAP: Record<string, readonly Capability[]> = {
   entra_revoke_license: ['simple_tool_calling'],
   entra_audit_sign_ins: ['structured_extraction'],
   send_dm: ['simple_tool_calling'],
-  send_email: ['simple_tool_calling'],
-  read_inbox: ['structured_extraction'],
-  reply_to_email: ['simple_tool_calling'],
   create_calendar_event: ['simple_tool_calling'],
   upload_to_sharepoint: ['simple_tool_calling'],
 

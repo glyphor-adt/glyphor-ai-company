@@ -59,8 +59,6 @@ const FINANCIAL_LEGAL_ROLES = new Set([
 ]);
 
 const EXTERNAL_OUTPUT_TOOLS = new Set([
-  'send_email',
-  'reply_to_email',
   'send_transactional_email',
   'publish_content',
   'schedule_publish',

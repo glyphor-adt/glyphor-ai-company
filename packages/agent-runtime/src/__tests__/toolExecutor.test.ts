@@ -42,17 +42,17 @@ describe('ToolExecutor', () => {
   });
 
   it('blocks high-stakes tools when cross-model verification returns BLOCK', async () => {
-    const sendEmailTool: ToolDefinition = {
-      name: 'send_email',
-      description: 'Send an email',
+    const highStakesTool: ToolDefinition = {
+      name: 'submit_assignment_output',
+      description: 'Submit assignment output',
       parameters: {
-        to: { type: 'string', description: 'Recipient', required: true },
-        body: { type: 'string', description: 'Body', required: true },
+        assignment_id: { type: 'string', description: 'Assignment ID', required: true },
+        output: { type: 'string', description: 'Output payload', required: true },
       },
       execute: vi.fn().mockResolvedValue({ success: true, data: { sent: true } }),
     };
 
-    const executor = new ToolExecutor([sendEmailTool]);
+    const executor = new ToolExecutor([highStakesTool]);
     executor.setConstitutionalDeps({
       modelClient: {
         generate: vi.fn().mockResolvedValue({
@@ -69,29 +69,29 @@ describe('ToolExecutor', () => {
     });
 
     const result = await executor.execute(
-      'send_email',
-      { to: 'customer@example.com', body: 'We guarantee 100% uptime forever.' },
+      'submit_assignment_output',
+      { assignment_id: 'A-123', output: 'We guarantee 100% uptime forever.' },
       buildContext(),
     );
 
     expect(result.success).toBe(false);
     expect(result.error).toContain('Tool call blocked by verification');
-    expect(sendEmailTool.execute).not.toHaveBeenCalled();
+    expect(highStakesTool.execute).not.toHaveBeenCalled();
     expect(executor.getSecurityLog().some((event) => event.eventType === 'TOOL_VERIFICATION_BLOCK')).toBe(true);
   });
 
   it('allows high-stakes tools when cross-model verification approves', async () => {
-    const sendEmailTool: ToolDefinition = {
-      name: 'send_email',
-      description: 'Send an email',
+    const highStakesTool: ToolDefinition = {
+      name: 'submit_assignment_output',
+      description: 'Submit assignment output',
       parameters: {
-        to: { type: 'string', description: 'Recipient', required: true },
-        body: { type: 'string', description: 'Body', required: true },
+        assignment_id: { type: 'string', description: 'Assignment ID', required: true },
+        output: { type: 'string', description: 'Output payload', required: true },
       },
       execute: vi.fn().mockResolvedValue({ success: true, data: { sent: true } }),
     };
 
-    const executor = new ToolExecutor([sendEmailTool]);
+    const executor = new ToolExecutor([highStakesTool]);
     executor.setConstitutionalDeps({
       modelClient: {
         generate: vi.fn().mockResolvedValue({
@@ -108,12 +108,12 @@ describe('ToolExecutor', () => {
     });
 
     const result = await executor.execute(
-      'send_email',
-      { to: 'customer@example.com', body: 'Here is the update you requested.' },
+      'submit_assignment_output',
+      { assignment_id: 'A-123', output: 'Here is the update you requested.' },
       buildContext(),
     );
 
     expect(result.success).toBe(true);
-    expect(sendEmailTool.execute).toHaveBeenCalledOnce();
+    expect(highStakesTool.execute).toHaveBeenCalledOnce();
   });
 });

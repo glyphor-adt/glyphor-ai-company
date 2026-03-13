@@ -48,7 +48,7 @@ export interface PlanVerificationResult {
 // ─── Keyword → Tool Mapping ─────────────────────────────────────
 
 const KEYWORD_TOOL_MAP: Record<string, string[]> = {
-  email:       ['send_email', 'draft_email', 'send_dm'],
+  email:       ['draft_email', 'send_dm'],
   github:      ['get_file_contents', 'create_or_update_file', 'create_github_pr', 'create_github_issue'],
   code:        ['get_file_contents', 'create_or_update_file', 'create_branch'],
   research:    ['web_search', 'recall_memories', 'read_company_memory'],

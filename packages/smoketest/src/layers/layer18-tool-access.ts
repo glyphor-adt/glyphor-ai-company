@@ -33,7 +33,7 @@ const SHARED_BASELINE = [
 ] as const;
 
 /**
- * All 9 Glyphor MCP servers with their Cloud Run health endpoints.
+ * All 8 Glyphor MCP servers with their Cloud Run health endpoints.
  */
 const GLYPHOR_MCP_SERVERS: Array<{ name: string; serviceName: string; envVar: string; healthPath: string; toolCount: number; deployed: boolean }> = [
   { name: 'mcp-data',             serviceName: 'glyphor-mcp-data',             envVar: 'GLYPHOR_MCP_DATA_URL',              healthPath: '/health', toolCount: 12, deployed: true  },
@@ -41,7 +41,6 @@ const GLYPHOR_MCP_SERVERS: Array<{ name: string; serviceName: string; envVar: st
   { name: 'mcp-engineering',      serviceName: 'glyphor-mcp-engineering',      envVar: 'GLYPHOR_MCP_ENGINEERING_URL',        healthPath: '/health', toolCount: 5,  deployed: true  },
   { name: 'mcp-design',           serviceName: 'glyphor-mcp-design',           envVar: 'GLYPHOR_MCP_DESIGN_URL',            healthPath: '/health', toolCount: 5,  deployed: true  },
   { name: 'mcp-finance',          serviceName: 'glyphor-mcp-finance',          envVar: 'GLYPHOR_MCP_FINANCE_URL',           healthPath: '/health', toolCount: 7,  deployed: true  },
-  { name: 'mcp-email',            serviceName: 'glyphor-mcp-email',            envVar: 'GLYPHOR_MCP_EMAIL_URL',             healthPath: '/health', toolCount: 3,  deployed: false },
   { name: 'mcp-legal',            serviceName: 'glyphor-mcp-legal',            envVar: 'GLYPHOR_MCP_LEGAL_URL',             healthPath: '/health', toolCount: 19, deployed: false },
   { name: 'mcp-hr',               serviceName: 'glyphor-mcp-hr',               envVar: 'GLYPHOR_MCP_HR_URL',                healthPath: '/health', toolCount: 8,  deployed: false },
   { name: 'mcp-email-marketing',  serviceName: 'glyphor-mcp-email-marketing',  envVar: 'GLYPHOR_MCP_EMAIL_MARKETING_URL',   healthPath: '/health', toolCount: 15, deployed: false },
@@ -55,7 +54,7 @@ const ROLE_TOOL_EXPECTATIONS: Record<string, string[]> = {
   // ── C-suite ────────────────────────────────────────────────────────────────
   'chief-of-staff': [
     ...SHARED_BASELINE,
-    'call_meeting', 'send_email', 'read_inbox', 'reply_to_email',
+    'call_meeting',
     'grant_tool_access', 'revoke_tool_access',
     'create_work_assignments', 'evaluate_assignment', 'update_directive_progress',
     'query_knowledge_graph', 'add_knowledge',
@@ -63,31 +62,31 @@ const ROLE_TOOL_EXPECTATIONS: Record<string, string[]> = {
   ],
   'cto': [
     ...SHARED_BASELINE,
-    'call_meeting', 'send_email', 'read_inbox', 'reply_to_email',
+    'call_meeting',
     'emit_insight', 'emit_alert',
     'get_cloud_run_metrics', 'get_github_pr_status', 'get_ci_health',
     'query_knowledge_graph', 'add_knowledge',
   ],
   'cfo': [
     ...SHARED_BASELINE,
-    'call_meeting', 'send_email', 'read_inbox', 'reply_to_email',
+    'call_meeting',
     'get_financials', 'query_stripe_mrr', 'calculate_unit_economics',
     'get_mrr_breakdown', 'get_gcp_costs', 'get_cash_balance',
   ],
   'cpo': [
     ...SHARED_BASELINE,
-    'call_meeting', 'send_email', 'read_inbox', 'reply_to_email',
+    'call_meeting',
     'get_product_metrics', 'write_product_analysis', 'create_decision',
   ],
   'cmo': [
     ...SHARED_BASELINE,
-    'call_meeting', 'send_email', 'read_inbox', 'reply_to_email',
+    'call_meeting',
     'get_social_metrics', 'get_seo_data', 'get_scheduled_posts',
     'create_content_draft', 'get_mailchimp_lists',
   ],
   'clo': [
     ...SHARED_BASELINE,
-    'call_meeting', 'send_email', 'read_inbox', 'reply_to_email',
+    'call_meeting',
     'emit_insight', 'emit_alert',
     'grant_tool_access', 'revoke_tool_access',
     'query_knowledge_graph', 'add_knowledge',
@@ -95,7 +94,7 @@ const ROLE_TOOL_EXPECTATIONS: Record<string, string[]> = {
   'ops': [
     ...SHARED_BASELINE,
     'query_agent_runs', 'query_data_sync_status', 'trigger_agent_run',
-    'create_incident', 'send_email', 'read_inbox',
+    'create_incident',
   ],
 
   // ── VP-level ───────────────────────────────────────────────────────────────
@@ -105,20 +104,20 @@ const ROLE_TOOL_EXPECTATIONS: Record<string, string[]> = {
   ],
   'vp-design': [
     ...SHARED_BASELINE,
-    'call_meeting', 'send_email', 'read_inbox', 'reply_to_email',
+    'call_meeting',
     'run_lighthouse_audit', 'screenshot_page', 'get_figma_file',
     'scaffold_component', 'deploy_preview',
   ],
   'vp-research': [
     ...SHARED_BASELINE,
-    'call_meeting', 'send_email', 'read_inbox', 'reply_to_email',
+    'call_meeting',
     'emit_insight', 'emit_alert', 'request_new_tool',
     'web_search', 'web_fetch', 'submit_research_packet',
     'query_knowledge_graph', 'add_knowledge',
   ],
   'global-admin': [
     ...SHARED_BASELINE,
-    'call_meeting', 'send_email', 'read_inbox', 'reply_to_email',
+    'call_meeting',
     'emit_insight', 'emit_alert', 'request_new_tool',
     'grant_tool_access', 'revoke_tool_access',
     'query_knowledge_graph', 'add_knowledge',
@@ -140,7 +139,6 @@ const ROLE_TOOL_EXPECTATIONS: Record<string, string[]> = {
   ],
   'm365-admin': [
     ...SHARED_BASELINE,
-    'send_email', 'read_inbox', 'reply_to_email',
     'list_users', 'list_channels', 'create_channel',
   ],
 
@@ -201,7 +199,6 @@ const ROLE_TOOL_EXPECTATIONS: Record<string, string[]> = {
   'enterprise-account-researcher': [
     ...SHARED_BASELINE,
     'call_meeting', 'emit_insight', 'emit_alert', 'request_new_tool',
-    'send_email', 'read_inbox',
     'web_search', 'web_fetch',
   ],
 
@@ -240,13 +237,13 @@ const ROLE_TOOL_EXPECTATIONS: Record<string, string[]> = {
   'org-analyst':                  [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert', 'web_search', 'web_fetch', 'submit_research_packet' ],
 
   // ── Specialists (DB-only) ─────────────────────────────────────────────────
-  'bob-the-tax-pro':                [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert', 'send_email', 'read_inbox', 'query_knowledge_graph' ],
-  'data-integrity-auditor':         [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert', 'send_email', 'read_inbox', 'query_knowledge_graph' ],
-  'tax-strategy-specialist':        [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert', 'send_email', 'read_inbox', 'query_knowledge_graph' ],
-  'lead-gen-specialist':            [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert', 'send_email', 'web_search', 'web_fetch' ],
-  'marketing-intelligence-analyst': [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert', 'send_email', 'web_search', 'web_fetch' ],
-  'adi-rose':                       [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert', 'send_email' ],  // was incomplete per bulk_missing
-  'head-of-hr':                     [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert', 'send_email', 'read_inbox', 'query_knowledge_graph', 'audit_workforce', 'provision_agent' ],
+  'bob-the-tax-pro':                [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert',  'query_knowledge_graph' ],
+  'data-integrity-auditor':         [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert',  'query_knowledge_graph' ],
+  'tax-strategy-specialist':        [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert',  'query_knowledge_graph' ],
+  'lead-gen-specialist':            [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert',  'web_search', 'web_fetch' ],
+  'marketing-intelligence-analyst': [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert',  'web_search', 'web_fetch' ],
+  'adi-rose':                       [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert' ],  // was incomplete per bulk_missing
+  'head-of-hr':                     [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert',  'query_knowledge_graph', 'audit_workforce', 'provision_agent' ],
 };
 
 // ─── Layer Runner ─────────────────────────────────────────────────────────────
@@ -505,3 +502,4 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
 
   return { layer: 18, name: 'Tool Access Verification', tests };
 }
+

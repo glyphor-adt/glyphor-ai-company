@@ -678,7 +678,6 @@ export const ROLE_DEPARTMENT: Record<string, string> = {
 const _mem   = ['save_memory', 'recall_memories'] as const;
 const _comm  = ['send_agent_message', 'check_messages', 'call_meeting'] as const;
 const _dm    = ['send_teams_dm', 'read_teams_dm'] as const;
-const _email = ['send_email', 'read_inbox', 'reply_to_email'] as const;
 const _event = ['emit_insight', 'emit_alert'] as const;
 const _assign = ['read_my_assignments', 'submit_assignment_output', 'flag_assignment_blocker'] as const;
 const _toolReq = ['request_tool_access', 'request_new_tool'] as const;
@@ -688,7 +687,7 @@ const _sp    = ['upload_to_sharepoint'] as const;
 const _ci    = ['get_company_pulse', 'update_company_pulse', 'update_pulse_highlights', 'promote_to_org_knowledge', 'get_org_knowledge', 'create_knowledge_route', 'get_knowledge_routes', 'detect_contradictions', 'record_process_pattern', 'get_process_patterns', 'propose_authority_change', 'get_authority_proposals'] as const;
 const _agentCreate = ['create_specialist_agent', 'list_my_created_agents', 'retire_created_agent'] as const;
 const _agentDir = ['get_agent_directory', 'who_handles'] as const;
-const _core  = [..._mem, ..._comm, ..._dm, ..._email, ..._event, ..._assign, ..._toolReq] as const;
+const _core  = [..._mem, ..._comm, ..._dm, ..._event, ..._assign, ..._toolReq] as const;
 
 export const AGENT_BUILT_IN_TOOLS: Record<string, string[]> = {
   'chief-of-staff': [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
