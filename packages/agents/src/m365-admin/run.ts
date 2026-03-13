@@ -21,7 +21,7 @@ import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface M365AdminRunParams {
-  task?: 'channel_audit' | 'user_audit' | 'on_demand';
+  task?: 'channel_audit' | 'user_audit' | 'agent365_mail_triage' | 'on_demand';
   message?: string;
   conversationHistory?: ConversationTurn[];
 }
@@ -62,6 +62,9 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
       break;
     case 'user_audit':
       initialMessage = `Run a user access audit. List all M365 users, check their account status, and report any accounts that are disabled or appear unused. Write findings to admin log.`;
+      break;
+    case 'agent365_mail_triage':
+      initialMessage = params.message || 'Check your email inbox for new messages. Use Agent365 MailTools (mcp_MailTools) to read unread messages and send replies as needed.';
       break;
     case 'on_demand':
       initialMessage = params.message || 'Review the current state of the M365 tenant and report anything that needs attention.';

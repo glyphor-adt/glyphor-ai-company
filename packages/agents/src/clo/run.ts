@@ -106,7 +106,7 @@ IMPORTANT: Only assert findings about live product features (e.g. footer links, 
       break;
 
     case 'agent365_mail_triage':
-      initialMessage = params.message || 'Check your email inbox for new messages. Read and process any unread emails — respond to legal correspondence, review contract requests, and escalate anything requiring founder attention.';
+      initialMessage = params.message || 'Check your email inbox for new messages. Use Agent365 MailTools (mcp_MailTools) to read and process unread emails, respond to legal correspondence, review contract requests, and escalate anything requiring founder attention.';
       break;
 
     case 'on_demand':

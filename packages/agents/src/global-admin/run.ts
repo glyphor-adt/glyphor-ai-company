@@ -69,7 +69,7 @@ export async function runGlobalAdmin(params: GlobalAdminRunParams = {}) {
       initialMessage = params.message || 'Review any pending onboarding requests and process them according to the standardized onboarding checklist.';
       break;
     case 'agent365_mail_triage':
-      initialMessage = params.message || 'Check your email inbox for new messages. Read and process any unread emails — respond to requests, take actions within your authority, and escalate anything outside your scope.';
+      initialMessage = params.message || 'Check your email inbox for new messages. Use Agent365 MailTools (mcp_MailTools) to read and process unread emails, respond to requests, take actions within your authority, and escalate anything outside your scope.';
       break;
     case 'on_demand':
       initialMessage = params.message || 'Check the current access posture across all managed GCP projects and report any issues.';

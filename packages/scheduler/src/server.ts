@@ -229,6 +229,7 @@ const agentExecutor = async (
   task: string,
   payload: Record<string, unknown>,
 ): Promise<AgentExecutionResult | void> => {
+  const normalizedTask = task === 'read_inbox' ? 'agent365_mail_triage' : task;
   const message = (payload.message as string) || undefined;
   let conversationHistory = payload.conversationHistory as ConversationTurn[] | undefined;
   const dbRunId = typeof payload.runId === 'string' ? payload.runId : undefined;
@@ -285,7 +286,7 @@ const agentExecutor = async (
   } else if (agentRole === 'cfo') {
     return runCFO({ task: (task as 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'clo') {
-    return runCLO({ task: (task as 'regulatory_scan' | 'contract_review' | 'compliance_check' | 'read_inbox' | 'on_demand'), message, conversationHistory });
+    return runCLO({ task: (normalizedTask as 'regulatory_scan' | 'contract_review' | 'compliance_check' | 'agent365_mail_triage' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'cpo') {
     return runCPO({ task: (task as 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'cmo') {
@@ -330,15 +331,15 @@ const agentExecutor = async (
   }
   // IT / M365
   else if (agentRole === 'm365-admin') {
-    return runM365Admin({ task: (task as 'channel_audit' | 'user_audit' | 'on_demand'), message, conversationHistory });
+    return runM365Admin({ task: (normalizedTask as 'channel_audit' | 'user_audit' | 'agent365_mail_triage' | 'on_demand'), message, conversationHistory });
   }
   // Global Admin
   else if (agentRole === 'global-admin') {
-    return runGlobalAdmin({ task: (task as 'access_audit' | 'compliance_report' | 'onboarding' | 'read_inbox' | 'on_demand'), message, conversationHistory });
+    return runGlobalAdmin({ task: (normalizedTask as 'access_audit' | 'compliance_report' | 'onboarding' | 'agent365_mail_triage' | 'on_demand'), message, conversationHistory });
   }
   // People & Culture
   else if (agentRole === 'head-of-hr') {
-    return runHeadOfHR({ task: (task as 'workforce_audit' | 'onboard_agent' | 'retire_agent' | 'read_inbox' | 'on_demand'), message, conversationHistory });
+    return runHeadOfHR({ task: (normalizedTask as 'workforce_audit' | 'onboard_agent' | 'retire_agent' | 'agent365_mail_triage' | 'on_demand'), message, conversationHistory });
   }
   // Operations
   else if (agentRole === 'ops') {

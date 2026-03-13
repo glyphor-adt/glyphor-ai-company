@@ -75,7 +75,7 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
       initialMessage = params.message || 'Review any pending agent retirement requests and process them appropriately.';
       break;
     case 'agent365_mail_triage':
-      initialMessage = params.message || 'Check your email inbox for new messages. Read and process any unread emails — respond to onboarding requests, agent profile questions, and escalate anything outside your scope.';
+      initialMessage = params.message || 'Check your email inbox for new messages. Use Agent365 MailTools (mcp_MailTools) to read and process unread emails, respond to onboarding requests and agent profile questions, and escalate anything outside your scope.';
       break;
     case 'on_demand':
       initialMessage = params.message || 'Check the overall workforce health and report any agents with incomplete profiles or onboarding issues.';
