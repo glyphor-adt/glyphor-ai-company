@@ -181,16 +181,6 @@ const ROLE_TOOL_EXPECTATIONS: Record<string, string[]> = {
     'get_scheduled_posts', 'get_social_metrics',
   ],
 
-  // ── CS sub-team ───────────────────────────────────────────────────────────
-  'onboarding-specialist': [
-    ...SHARED_BASELINE,
-    'query_onboarding_funnel', 'query_activation_rate', 'log_activity',
-  ],
-  'support-triage': [
-    ...SHARED_BASELINE,
-    'query_support_tickets', 'classify_ticket', 'escalate_ticket', 'log_activity',
-  ],
-
   // ── Sales sub-team ────────────────────────────────────────────────────────
   'account-research': [
     ...SHARED_BASELINE,

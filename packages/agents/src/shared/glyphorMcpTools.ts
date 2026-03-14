@@ -87,7 +87,7 @@ function getDefaultGlyphorServers(agentRole?: string): string[] {
   if (['clo'].includes(agentRole)) {
     return ['mcp_GlyphorLegal', 'mcp_GlyphorData'];
   }
-  if (['head-of-hr', 'onboarding-specialist'].includes(agentRole)) {
+  if (['head-of-hr'].includes(agentRole)) {
     return ['mcp_GlyphorHR', 'mcp_GlyphorData'];
   }
   if (['vp-design', 'ui-ux-designer', 'design-critic', 'template-architect'].includes(agentRole)) {

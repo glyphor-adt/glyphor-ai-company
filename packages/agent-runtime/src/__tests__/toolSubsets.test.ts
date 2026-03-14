@@ -26,4 +26,31 @@ describe('toolSubsets', () => {
     const filtered = filterToolDeclarations(declarations, subset);
     expect(filtered.map((tool) => tool.name)).toEqual(['save_memory', 'get_platform_health']);
   });
+
+  it('prioritizes CMO Agent365 SharePoint/Copilot tools when capped', () => {
+    const filler: ToolDeclaration[] = Array.from({ length: 140 }, (_, i) => ({
+      name: `tool_${i}`,
+      description: `filler ${i}`,
+      parameters: { type: 'object', properties: {} },
+    }));
+
+    const odspTool: ToolDeclaration = {
+      name: 'findFileOrFolder',
+      description: '[Agent365 mcp_ODSPRemoteServer] Find file or folder in SharePoint/OneDrive.',
+      parameters: { type: 'object', properties: {} },
+    };
+
+    const copilotTool: ToolDeclaration = {
+      name: 'copilot_chat',
+      description: '[Agent365 mcp_M365Copilot] Search organizational content with Copilot.',
+      parameters: { type: 'object', properties: {} },
+    };
+
+    const filtered = filterToolDeclarations([...filler, odspTool, copilotTool], null, 'cmo');
+    const names = new Set(filtered.map((tool) => tool.name));
+
+    expect(filtered.length).toBe(128);
+    expect(names.has('findFileOrFolder')).toBe(true);
+    expect(names.has('copilot_chat')).toBe(true);
+  });
 });

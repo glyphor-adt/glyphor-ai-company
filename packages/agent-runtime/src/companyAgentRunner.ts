@@ -1871,7 +1871,7 @@ export class CompanyAgentRunner {
           }
 
           if (effectiveTools) {
-            effectiveTools = filterToolDeclarations(effectiveTools, getToolSubset(config.role, task));
+            effectiveTools = filterToolDeclarations(effectiveTools, getToolSubset(config.role, task), config.role);
           }
 
           const modelForTurn = routedModel.model === '__deterministic__'

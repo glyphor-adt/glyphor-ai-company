@@ -85,6 +85,5 @@ When onboarding a new employee, execute this standardized process:
 | Product | #general, #product-fuse, #product-pulse |
 | Finance | #general, #financials |
 | Marketing | #general, #growth |
-| Customer Success | #general |
 | Sales | #general, #growth |
 | Operations | #general |

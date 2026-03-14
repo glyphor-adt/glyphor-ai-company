@@ -18,7 +18,7 @@ and dynamic execution via `runDynamicAgent.ts`.
 
 The founders work full-time at Microsoft with 5-10 h/week for Glyphor. The AI executive team
 handles everything else: daily operations, financial monitoring, content creation, product
-analysis, customer success, SMB sales research, design & frontend quality,
+analysis, SMB sales research, design & frontend quality,
 cross-functional synthesis, inter-agent communication, strategic analysis, legal & compliance,
 market research & intelligence, global platform administration, tax strategy, data integrity
 auditing, lead generation, and executive assistantship.
@@ -2437,7 +2437,7 @@ via the work loop:
 | CFO | $0.08 | $2.00 | $60 |
 | CPO | $0.08 | $2.00 | $60 |
 | CMO | $0.08 | $2.00 | $60 |
-| VP Customer Success / VP Sales / VP Design | $0.05 | $1.50 | $45 |
+| VP Sales / VP Design | $0.05 | $1.50 | $45 |
 | Sub-team (all) | $0.05 | $1.00 | $30 |
 
 ### Dynamic Tool Grants

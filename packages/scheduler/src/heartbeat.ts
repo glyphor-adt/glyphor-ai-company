@@ -88,6 +88,13 @@ const DIRECTIVE_PRIORITY_RANK: Record<string, number> = {
   low: 3,
 };
 
+const ACTIONABLE_ASSIGNMENT_STATUSES = new Set([
+  'pending',
+  'dispatched',
+  'in_progress',
+  'needs_revision',
+]);
+
 function directivePriorityRank(priority: string | null | undefined): number {
   if (!priority) return 99;
   return DIRECTIVE_PRIORITY_RANK[priority] ?? 99;
@@ -328,8 +335,9 @@ export class HeartbeatManager {
           due_date: string | null;
           created_at: string;
           wa_id: string | null;
+          wa_status: string | null;
         }>(
-          `SELECT fd.id, fd.title, fd.priority, fd.due_date, fd.created_at, wa.id as wa_id
+          `SELECT fd.id, fd.title, fd.priority, fd.due_date, fd.created_at, wa.id as wa_id, wa.status as wa_status
              FROM founder_directives fd
              LEFT JOIN work_assignments wa ON wa.directive_id = fd.id
             WHERE fd.status=$1`,
@@ -343,12 +351,18 @@ export class HeartbeatManager {
           priority: string | null;
           dueDate: string | null;
           createdAt: string;
-          hasAssignments: boolean;
+          totalAssignments: number;
+          actionableAssignments: number;
         }>();
         for (const row of rows) {
           const existing = directiveMap.get(row.id);
           if (existing) {
-            if (row.wa_id) existing.hasAssignments = true;
+            if (row.wa_id) {
+              existing.totalAssignments += 1;
+              if (row.wa_status && ACTIONABLE_ASSIGNMENT_STATUSES.has(row.wa_status)) {
+                existing.actionableAssignments += 1;
+              }
+            }
           } else {
             directiveMap.set(row.id, {
               id: row.id,
@@ -356,12 +370,16 @@ export class HeartbeatManager {
               priority: row.priority,
               dueDate: row.due_date,
               createdAt: row.created_at,
-              hasAssignments: !!row.wa_id,
+              totalAssignments: row.wa_id ? 1 : 0,
+              actionableAssignments:
+                row.wa_id && row.wa_status && ACTIONABLE_ASSIGNMENT_STATUSES.has(row.wa_status)
+                  ? 1
+                  : 0,
             });
           }
         }
         const newDirectives = [...directiveMap.values()]
-          .filter(d => !d.hasAssignments)
+          .filter((d) => d.actionableAssignments === 0)
           .sort((a, b) => {
             const byPriority = directivePriorityRank(a.priority) - directivePriorityRank(b.priority);
             if (byPriority !== 0) return byPriority;
@@ -419,15 +437,15 @@ export class HeartbeatManager {
 
           if (!recentRun) {
             console.log(
-              `[Heartbeat] CoS: ${newDirectives.length} new directive(s) detected: ` +
+              `[Heartbeat] CoS: ${newDirectives.length} unresolved directive(s) detected: ` +
               newDirectives.map((d: any) => `"${d.title}"`).join(', '),
             );
             return {
               shouldWake: true,
-              reason: `new_directives:${newDirectives.length}`,
+              reason: `unresolved_directives:${newDirectives.length}`,
               context: {
                 task: 'orchestrate',
-                message: `${newDirectives.length} directive(s) have no assignments: ${newDirectives.map((d: any) => `"${d.title}"`).join(', ')}. Start with highest urgency: ${directiveLabel}. Create and dispatch work assignments now.`,
+                message: `${newDirectives.length} active directive(s) have no actionable assignments: ${newDirectives.map((d: any) => `"${d.title}"`).join(', ')}. Start with highest urgency: ${directiveLabel}. Create and dispatch work assignments now.`,
               },
             };
           }

@@ -82,7 +82,6 @@ For agents created with minimal profiles (e.g., by exec create_specialist_agent)
 - Product: #general, #product-fuse, #product-pulse
 - Finance: #general, #financials
 - Marketing: #general, #growth
-- Customer Success: #general
 - Sales: #general, #growth
 - Operations: #general
 - Legal: #general
@@ -128,7 +127,7 @@ This is the authoritative reference for what tools and skills each agent SHOULD 
 
 ### Tier-Based Additions
 
-**Executives** (CTO, CPO, CFO, CMO, VP-CS, VP-Sales, VP-Design, CLO, VP-Research, Head of HR) also get:
+**Executives** (CTO, CPO, CFO, CMO, VP-Sales, VP-Design, CLO, VP-Research, Head of HR) also get:
 - **Email:** Agent365 MailTools (mcp_MailTools)
 - **Tool Grants:** grant_tool_access, revoke_tool_access
 - **Agent Creation:** create_specialist_agent, list_my_created_agents, retire_created_agent
@@ -142,7 +141,7 @@ This is the authoritative reference for what tools and skills each agent SHOULD 
 ### Selective Shared Tool Groups
 Not everyone gets every group. Here's who gets the extras:
 - **SharePoint** (upload_to_sharepoint): Chief of Staff, CTO, CPO, CFO, CMO, Ops, M365-Admin (search/read/list via Agent365 mcp_ODSPRemoteServer)
-- **Collective Intelligence** (12 tools): Chief of Staff, CTO, CPO, CFO, CMO, VP-CS, VP-Sales, VP-Design, CLO, Ops
+- **Collective Intelligence** (12 tools): Chief of Staff, CTO, CPO, CFO, CMO, VP-Sales, VP-Design, CLO, Ops
 - **Tool Registry** (list_tool_requests, review_tool_request, register_tool, deactivate_tool, list_registered_tools): CTO only
 - **Access Audit** (view_access_matrix, view_pending_grant_requests): Head of HR only
 

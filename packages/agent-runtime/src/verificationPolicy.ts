@@ -25,7 +25,6 @@ const TIER_0_CONFIG_IDS = new Set([
   'ops-cost-check',
   'ops-morning-status',
   'ops-evening-status',
-  'support-triage-recurring',
   'social-media-morning',
   'social-media-afternoon',
   'seo-analyst-daily',

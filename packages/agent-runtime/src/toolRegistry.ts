@@ -120,7 +120,7 @@ const KNOWN_TOOLS = new Set([
   'write_content',
   'write_company_memory',
 
-  // ── VP Customer Success tools ──
+  // ── Leadership tools ──
   'write_health_report',
 
   // ── VP Sales tools ──

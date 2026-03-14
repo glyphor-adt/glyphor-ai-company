@@ -408,7 +408,7 @@ export abstract class BaseAgentRunner {
           let effectiveTools: ReturnType<typeof toolExecutor.getDeclarations> | undefined = toolExecutor.getDeclarations();
           const allowedToolNames = getToolSubset(config.role, taskForContext);
           if (effectiveTools) {
-            effectiveTools = filterToolDeclarations(effectiveTools, allowedToolNames);
+            effectiveTools = filterToolDeclarations(effectiveTools, allowedToolNames, config.role);
           }
           if (turnNumber >= supervisor.config.maxTurns) effectiveTools = undefined;
 

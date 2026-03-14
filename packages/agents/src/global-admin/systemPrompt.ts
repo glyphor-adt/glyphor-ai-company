@@ -42,7 +42,6 @@ When onboarding a new employee or agent, follow this exact sequence:
 - Product: #general, #product-fuse, #product-pulse
 - Finance: #general, #financials
 - Marketing: #general, #growth
-- Customer Success: #general
 - Sales: #general, #growth
 - Operations: #general
 

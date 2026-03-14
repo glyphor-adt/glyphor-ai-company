@@ -60,7 +60,6 @@ INSERT INTO company_agents (role, name, status, model, schedule) VALUES
   ('cfo', 'Nadia Okafor', 'stub', 'gemini-3-flash-preview', 'daily 9:00 CT cost check'),
   ('cpo', 'Elena Vasquez', 'stub', 'gemini-3-flash-preview', 'weekly Monday 10:00 CT usage analysis'),
   ('cmo', 'Maya Brooks', 'stub', 'gemini-3-flash-preview', 'weekly Monday 9:00 CT content planning'),
-  ('vp-customer-success', 'James Turner', 'stub', 'gemini-3-flash-preview', 'daily 8:00 CT health scoring'),
   ('vp-sales', 'Rachel Kim', 'stub', 'gemini-3-flash-preview', 'Mon/Thu 9:00 CT pipeline review')
 ON CONFLICT (role) DO UPDATE SET
   name = EXCLUDED.name,

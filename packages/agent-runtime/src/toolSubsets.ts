@@ -39,9 +39,31 @@ const PINNED_CAP_TOOLS = new Set<string>([
   'list_mail_folders',
 ]);
 
+const ROLE_PINNED_AGENT365_SERVERS: Partial<Record<CompanyAgentRole, readonly string[]>> = {
+  cmo: ['mcp_ODSPRemoteServer', 'mcp_M365Copilot'],
+};
+
 function isAgent365Declaration(decl: ToolDeclaration): boolean {
   const description = typeof decl.description === 'string' ? decl.description : '';
   return description.startsWith('[Agent365 mcp_') || description.startsWith('[Agent 365 mcp_');
+}
+
+function getAgent365ServerName(description: string): string | undefined {
+  const modern = description.match(/^\[Agent365\s+([^\]]+)\]/);
+  if (modern?.[1]) return modern[1].trim();
+
+  const legacy = description.match(/^\[Agent 365\s+([^\]]+)\]/);
+  if (legacy?.[1]) return legacy[1].trim();
+
+  return undefined;
+}
+
+function isRolePinnedAgent365Declaration(decl: ToolDeclaration, role?: CompanyAgentRole): boolean {
+  if (!role) return false;
+  const description = typeof decl.description === 'string' ? decl.description : '';
+  const serverName = getAgent365ServerName(description);
+  if (!serverName) return false;
+  return (ROLE_PINNED_AGENT365_SERVERS[role] ?? []).includes(serverName);
 }
 
 function withWorkTools(...tools: string[]): string[] {
@@ -168,6 +190,7 @@ export function getToolSubset(role: CompanyAgentRole, task: string): Set<string>
 export function filterToolDeclarations(
   declarations: ToolDeclaration[],
   allowedNames: Set<string> | null,
+  role?: CompanyAgentRole,
 ): ToolDeclaration[] {
   let result = allowedNames == null
     ? declarations
@@ -176,9 +199,18 @@ export function filterToolDeclarations(
   if (result.length > MAX_TOOLS) {
     console.warn(`[ToolSubsets] Capping tools from ${result.length} to ${MAX_TOOLS}`);
     const pinned = result.filter((d) => PINNED_CAP_TOOLS.has(d.name));
-    const agent365 = result.filter((d) => !PINNED_CAP_TOOLS.has(d.name) && isAgent365Declaration(d));
+    const rolePinnedAgent365 = result.filter((d) =>
+      !PINNED_CAP_TOOLS.has(d.name)
+      && isAgent365Declaration(d)
+      && isRolePinnedAgent365Declaration(d, role),
+    );
+    const agent365 = result.filter((d) =>
+      !PINNED_CAP_TOOLS.has(d.name)
+      && isAgent365Declaration(d)
+      && !isRolePinnedAgent365Declaration(d, role),
+    );
     const nonPinned = result.filter((d) => !PINNED_CAP_TOOLS.has(d.name) && !isAgent365Declaration(d));
-    result = [...pinned, ...agent365, ...nonPinned].slice(0, MAX_TOOLS);
+    result = [...pinned, ...rolePinnedAgent365, ...agent365, ...nonPinned].slice(0, MAX_TOOLS);
   }
 
   return result;

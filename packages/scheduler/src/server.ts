@@ -273,6 +273,11 @@ const agentExecutor = async (
       weekly_review: 'weekly_review',
       monthly_retrospective: 'monthly_retrospective',
       orchestrate: 'orchestrate',
+      // Heartbeat wakes CoS with work_loop/proactive for assignment health checks.
+      // Route these through orchestrate mode so decomposition/dispatch behavior
+      // is available instead of generic on_demand handling.
+      work_loop: 'orchestrate',
+      proactive: 'orchestrate',
       strategic_planning: 'strategic_planning',
     };
     const mappedTask = taskMap[task] ?? 'on_demand';
@@ -581,7 +586,9 @@ async function storeAgentRunStatus(
 
     const summary = (result?.resultSummary ?? '').trim();
     const output = (result?.output ?? '').trim();
-    const error = fallbackError ?? result?.error ?? result?.abortReason ?? null;
+    const error = runStatus === 'skipped_precheck'
+      ? null
+      : (fallbackError ?? result?.error ?? result?.abortReason ?? null);
     const fallbackWhat = `${agentRole} ran ${task} (${runStatus})`;
     const source = [summary, output].filter(Boolean).join('\n');
     const parsed = parseStructuredRunStatus(source, fallbackWhat, error);
@@ -769,6 +776,9 @@ const trackedAgentExecutor = async (
       const runStatus = result?.status === 'completed'
         ? 'completed'
         : (result?.status === 'error' ? 'failed' : (result?.status ?? 'completed'));
+      const normalizedRunError = runStatus === 'skipped_precheck'
+        ? null
+        : (result?.error ?? result?.abortReason ?? null);
       const reasoningMeta = (result as any)?.reasoningMeta;
       const verificationMeta = (result as any)?.verificationMeta;
       const updateParamsBase = [
@@ -782,7 +792,7 @@ const trackedAgentExecutor = async (
         result?.cost ?? null,
         result?.output ?? null,
         result?.resultSummary ?? null,
-        result?.error ?? result?.abortReason ?? null,
+        normalizedRunError,
         result?.thinkingTokens ?? null,
         result?.cachedInputTokens ?? null,
         result?.routingRule ?? null,
@@ -826,7 +836,7 @@ const trackedAgentExecutor = async (
             result?.cost ?? null,
             result?.output ?? null,
             result?.resultSummary ?? null,
-            result?.error ?? result?.abortReason ?? null,
+            normalizedRunError,
             result?.thinkingTokens ?? null,
             result?.cachedInputTokens ?? null,
             ...(reasoningMeta ? [reasoningMeta.passes, reasoningMeta.confidence, reasoningMeta.revised, reasoningMeta.costUsd] : []),

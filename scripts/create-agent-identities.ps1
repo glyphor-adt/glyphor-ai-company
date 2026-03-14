@@ -14,7 +14,7 @@ $SponsorId = '88a731d1-3171-4279-aee1-34160898ab90'
 
 function Log { param([string]$m); Write-Host "$(Get-Date -Format 'HH:mm:ss') $m" }
 
-# 44 agents
+# 41 agents
 $agents = @(
     @{ key='chief-of-staff';               name='Sarah Chen' }
     @{ key='cto';                          name='Marcus Reeves' }
@@ -22,7 +22,6 @@ $agents = @(
     @{ key='cpo';                          name='Elena Vasquez' }
     @{ key='cmo';                          name='Maya Brooks' }
     @{ key='clo';                          name='Victoria Chase' }
-    @{ key='vp-customer-success';          name='James Turner' }
     @{ key='vp-sales';                     name='Rachel Kim' }
     @{ key='vp-design';                    name='Mia Tanaka' }
     @{ key='platform-engineer';            name='Alex Park' }
@@ -36,8 +35,6 @@ $agents = @(
     @{ key='content-creator';              name='Tyler Reed' }
     @{ key='seo-analyst';                  name='Lisa Chen' }
     @{ key='social-media-manager';         name='Kai Johnson' }
-    @{ key='onboarding-specialist';        name='Emma Wright' }
-    @{ key='support-triage';               name='David Santos' }
     @{ key='account-research';             name='Nathan Cole' }
     @{ key='ui-ux-designer';              name='Leo Vargas' }
     @{ key='frontend-engineer';            name='Ava Chen' }
