@@ -108,23 +108,54 @@ const TABLE_MAP: Record<string, string> = {
 /** Cascade-delete all child rows for a founder_directive. Each step is
  *  wrapped in try/catch so missing tables don't block deletion. */
 export async function cascadeDeleteDirective(id: string): Promise<void> {
-  const stmts: string[] = [
-    'DELETE FROM agent_tool_grants WHERE directive_id = $1',
-    'DELETE FROM deliverables WHERE directive_id = $1 OR assignment_id IN (SELECT id FROM work_assignments WHERE directive_id = $1)',
-    'DELETE FROM work_assignments WHERE directive_id = $1',
-    'DELETE FROM tool_requests WHERE directive_id = $1',
-    'DELETE FROM decision_chains WHERE directive_id = $1',
-    'DELETE FROM handoffs WHERE directive_id = $1',
-    'DELETE FROM proposed_initiatives WHERE directive_id = $1',
-    'DELETE FROM plan_verifications WHERE directive_id = $1',
-    'DELETE FROM task_run_outcomes WHERE directive_id = $1',
-    'DELETE FROM workflows WHERE directive_id = $1',
-    'UPDATE founder_directives SET source_directive_id = NULL WHERE source_directive_id = $1',
-    'UPDATE founder_directives SET parent_directive_id = NULL WHERE parent_directive_id = $1',
+  const assignmentRows = await systemQuery<{ id: string }>(
+    'SELECT id FROM work_assignments WHERE directive_id = $1',
+    [id],
+  );
+  const assignmentIds = assignmentRows.map((row) => row.id);
+
+  const stmts: Array<{ sql: string; withAssignments?: boolean }> = [
+    { sql: 'DELETE FROM agent_tool_grants WHERE directive_id = $1' },
+    {
+      sql:
+        'DELETE FROM social_publish_audit_log WHERE draft_id IN (SELECT id FROM content_drafts WHERE directive_id = $1 OR assignment_id = ANY($2::uuid[])) OR scheduled_post_id IN (SELECT id FROM scheduled_posts WHERE directive_id = $1 OR assignment_id = ANY($2::uuid[])) OR deliverable_id IN (SELECT id FROM deliverables WHERE directive_id = $1 OR assignment_id = ANY($2::uuid[]))',
+      withAssignments: true,
+    },
+    {
+      sql:
+        'DELETE FROM social_metrics WHERE post_id IN (SELECT id FROM scheduled_posts WHERE directive_id = $1 OR assignment_id = ANY($2::uuid[]))',
+      withAssignments: true,
+    },
+    { sql: 'DELETE FROM scheduled_posts WHERE directive_id = $1 OR assignment_id = ANY($2::uuid[])', withAssignments: true },
+    { sql: 'DELETE FROM content_drafts WHERE directive_id = $1 OR assignment_id = ANY($2::uuid[])', withAssignments: true },
+    {
+      sql:
+        'DELETE FROM deliverables WHERE directive_id = $1 OR assignment_id = ANY($2::uuid[])',
+      withAssignments: true,
+    },
+    { sql: 'DELETE FROM task_run_outcomes WHERE directive_id = $1 OR assignment_id = ANY($2::uuid[])', withAssignments: true },
+    { sql: 'DELETE FROM work_assignments WHERE directive_id = $1' },
+    { sql: 'DELETE FROM tool_requests WHERE directive_id = $1' },
+    { sql: 'DELETE FROM decision_chains WHERE directive_id = $1' },
+    { sql: 'DELETE FROM handoffs WHERE directive_id = $1' },
+    { sql: 'DELETE FROM proposed_initiatives WHERE directive_id = $1' },
+    { sql: 'DELETE FROM plan_verifications WHERE directive_id = $1' },
+    { sql: 'DELETE FROM workflows WHERE directive_id = $1' },
+    { sql: 'UPDATE founder_directives SET source_directive_id = NULL WHERE source_directive_id = $1' },
+    { sql: 'UPDATE founder_directives SET parent_directive_id = NULL WHERE parent_directive_id = $1' },
   ];
-  for (const sql of stmts) {
-    try { await systemQuery(sql, [id]); } catch { /* table may not exist yet */ }
+
+  for (const stmt of stmts) {
+    try {
+      const params = stmt.withAssignments ? [id, assignmentIds] : [id];
+      await systemQuery(stmt.sql, params);
+    } catch (err) {
+      const message = (err as Error).message.toLowerCase();
+      const ignorable = message.includes('does not exist') || message.includes('column') && message.includes('does not exist');
+      if (!ignorable) throw err;
+    }
   }
+
   await systemQuery('DELETE FROM founder_directives WHERE id = $1', [id]);
 }
 
