@@ -80,6 +80,11 @@ const MIN_RUN_GAP_MS = 5 * 60 * 1000;
 
 /** Ops has its own cron schedule — give it a longer cooldown to avoid over-waking */
 const OPS_RUN_GAP_MS = 30 * 60 * 1000;
+const INBOX_SIGNATURE_TTL_SECONDS = 7 * 24 * 60 * 60;
+
+function inboxSignatureCacheKey(role: CompanyAgentRole): string {
+  return `inbox-signature:${role}`;
+}
 
 const DIRECTIVE_PRIORITY_RANK: Record<string, number> = {
   critical: 0,
@@ -105,6 +110,34 @@ export class HeartbeatManager {
   private wakeRouter: WakeRouter;
   private cycle = 0;
   private lastInboxWakeSignature = new Map<CompanyAgentRole, string>();
+
+  private async getInboxWakeSignature(role: CompanyAgentRole): Promise<string | undefined> {
+    const inMemory = this.lastInboxWakeSignature.get(role);
+    if (inMemory) return inMemory;
+
+    try {
+      const cache = getRedisCache();
+      const persisted = await cache.get<string>(inboxSignatureCacheKey(role));
+      if (persisted) {
+        this.lastInboxWakeSignature.set(role, persisted);
+        return persisted;
+      }
+    } catch {
+      // graceful degradation: fallback to in-memory dedupe only
+    }
+
+    return undefined;
+  }
+
+  private async setInboxWakeSignature(role: CompanyAgentRole, signature: string): Promise<void> {
+    this.lastInboxWakeSignature.set(role, signature);
+    try {
+      const cache = getRedisCache();
+      await cache.set(inboxSignatureCacheKey(role), signature, INBOX_SIGNATURE_TTL_SECONDS);
+    } catch {
+      // graceful degradation: fallback to in-memory dedupe only
+    }
+  }
 
   constructor(
     executor: AgentExecutorFn,
@@ -206,25 +239,17 @@ export class HeartbeatManager {
 
       try {
         const inbox = await checkAgentInboxes();
-        const rolesWithActionableMail = new Set(inbox.withMail.map((agent) => agent.role));
-
-        // Clear dedupe entries once an inbox is no longer actionable.
-        for (const role of this.lastInboxWakeSignature.keys()) {
-          if (!rolesWithActionableMail.has(role)) {
-            this.lastInboxWakeSignature.delete(role);
-          }
-        }
 
         for (const agent of inbox.withMail) {
           // Skip if unread snapshot hasn't changed since the last inbox-triggered wake.
-          const previousSignature = this.lastInboxWakeSignature.get(agent.role);
+          const previousSignature = await this.getInboxWakeSignature(agent.role);
           if (previousSignature === agent.signature) {
             continue;
           }
 
           // Skip if this agent is already in the wake list
           if (wakeList.some(w => w.role === agent.role)) {
-            this.lastInboxWakeSignature.set(agent.role, agent.signature);
+            await this.setInboxWakeSignature(agent.role, agent.signature);
             continue;
           }
           // Skip if agent ran recently
@@ -244,10 +269,10 @@ export class HeartbeatManager {
             context: {
               wake_reason: 'unread_email',
               priority: 'heartbeat',
-              message: `You have ${agent.count} unread email(s) in your inbox. Subjects: ${subjectList}. Use the available Agent365 MailTools to open unread messages and respond appropriately. Do not request legacy mail aliases; use only currently available tools.`,
+              message: `You have ${agent.count} unread email(s) in your inbox. Subjects: ${subjectList}. Use the available Agent365 MailTools to open unread messages and respond appropriately. Mark processed notification-only threads as read or archive to prevent repeated heartbeat pings. Do not request legacy mail aliases; use only currently available tools.`,
             },
           });
-          this.lastInboxWakeSignature.set(agent.role, agent.signature);
+          await this.setInboxWakeSignature(agent.role, agent.signature);
         }
         if (inbox.errors.length > 0) {
           console.warn(`[Heartbeat] Inbox check errors: ${inbox.errors.join('; ')}`);
