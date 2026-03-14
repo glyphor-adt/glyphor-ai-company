@@ -1,24 +1,24 @@
 # Glyphor AI Company — System Architecture
 
-> Last updated: 2026-03-13 (A2A gateway added (port 8091); Agent SDK package added; server-side compaction (OpenAI context_management + Anthropic compact-2026-01-12); Ora triangulated chat (multi-model fan-out + judge); workflow orchestrator with Cloud Tasks; 8 new agent-runtime modules — behavioralFingerprint, skillLearning, subtaskRouter, taskIdentity, taskOutcomeHarvester, decisionChainTracker, patchHarness, v4aDiff; 133 migrations; 19 integration subdirectories (added canva, docusign, posthog); CompanyAgentRole now 30 typed roles + dynamic agents; Canva OAuth callback; policy/canary evaluation routes; SDK CRUD routes)
+> Last updated: 2026-03-13 (A2A gateway added (port 8091); Agent SDK package added; server-side compaction (OpenAI context_management + Anthropic compact-2026-01-12); Ora triangulated chat (multi-model fan-out + judge); workflow orchestrator with Cloud Tasks; 8 new agent-runtime modules — behavioralFingerprint, skillLearning, subtaskRouter, taskIdentity, taskOutcomeHarvester, decisionChainTracker, patchHarness, v4aDiff; 133 migrations; 19 integration subdirectories (added canva, docusign, posthog); CompanyAgentRole + dynamic agent support; Canva OAuth callback; policy/canary evaluation routes; SDK CRUD routes)
 
 ## Overview
 
-Glyphor AI Company is a monorepo containing 30 typed AI agent roles + dynamic agents
-(9 executives, 7 research, 19 sub-team, 2 operations, 7 specialists — specialists are DB-defined
-and use `runDynamicAgent`) that autonomously operate Glyphor alongside two human founders
-(Kristina Denney, CEO; Andrew Zwelling, COO). The agents run 24/7 on GCP Cloud Run, share
+Glyphor AI Company is a monorepo containing a role-based AI workforce with dynamic agent
+support that autonomously operates Glyphor alongside two human founders (Kristina Denney,
+CEO; Andrew Zwelling, COO). The current operating roster is 28 active AI agents. The agents run
+24/7 on GCP Cloud Run, share
 state through Cloud SQL (with multi-tenant row-level security), communicate with founders via
 Microsoft Teams, and are governed by a three-tier authority model (Green / Yellow / Red).
 
-Total headcount: **46** — 2 human founders, 9 AI executives (8 reporting to CoS + 1 CLO
-reporting directly to founders), 1 VP, 6 research analysts, 19 AI team members, 2 AI ops agents,
-7 AI specialist agents (DB-defined, no file-based runners). 27 agent runners have dedicated
-code (`run.ts` / `systemPrompt.ts` / `tools.ts`); the remaining roles use `runDynamicAgent.ts`.
+Total operating headcount: **30** — 2 human founders + 28 active AI agents.
+Additional specialist identities may exist in DB/identity systems for lifecycle continuity.
+Agent runners are split between dedicated role runners (`run.ts` / `systemPrompt.ts` / `tools.ts`)
+and dynamic execution via `runDynamicAgent.ts`.
 
 The founders work full-time at Microsoft with 5-10 h/week for Glyphor. The AI executive team
 handles everything else: daily operations, financial monitoring, content creation, product
-analysis, customer success, enterprise sales research, design & frontend quality,
+analysis, customer success, SMB sales research, design & frontend quality,
 cross-functional synthesis, inter-agent communication, strategic analysis, legal & compliance,
 market research & intelligence, global platform administration, tax strategy, data integrity
 auditing, lead generation, and executive assistantship.
@@ -153,7 +153,7 @@ auditing, lead generation, and executive assistantship.
 │  │ Simulation   │ ┌────────────────┐    ┌─────────────────────┐      │
 │  │ Engine       │ │ Agent Executor │    │  Decision Queue     │      │
 │  ├──────────────┤ │ (role→runner)  │    │  submit / approve   │      │
-│  │ Meeting      │ │ (30 typed +    │    │  reminders (4 h)    │      │
+│  │ Meeting      │ │ (role-based +  │    │  reminders (4 h)    │      │
 │  │ Engine       │ │  roles routed) │    └─────────┬───────────┘      │
 │  ├──────────────┤ └────────┬───────┘              │                 │
 │  │ CoT Engine   │          │                      │                 │
@@ -543,7 +543,7 @@ use DB-driven schedules via `agent_schedules` table rather than static crons.
 | `cpo-usage-analysis` | Elena Vasquez | `0 15 * * *` | 10:00 AM | Usage & competitive analysis |
 | `cmo-content-calendar` | Maya Brooks | `0 14 * * *` | 9:00 AM | Content planning |
 | `cmo-afternoon-publishing` | Maya Brooks | `0 19 * * *` | 2:00 PM | Afternoon publishing/scheduling |
-| `vps-pipeline-review` | Rachel Kim | `0 14 * * *` | 9:00 AM | Enterprise pipeline review |
+| `vps-pipeline-review` | Rachel Kim | `0 14 * * *` | 9:00 AM | SMB pipeline review |
 
 **Operations Jobs — Atlas Vega (5)**
 
@@ -882,7 +882,7 @@ glyphor-ai-company/
 │   │   └── src/
 │   │       ├── server.ts              # HTTP server (Cloud Run entry, 70+ endpoints, 30 agent routes)
 │   │       ├── eventRouter.ts         # Event → agent routing + authority
-│   │       ├── authorityGates.ts      # Green/Yellow/Red classification (all 30 typed roles)
+│   │       ├── authorityGates.ts      # Green/Yellow/Red classification (active + dynamic roles)
 │   │       ├── cronManager.ts         # 33 agent + 9 data sync job definitions
 │   │       ├── dynamicScheduler.ts    # DB-driven cron for dynamic agents
 │   │       ├── dataSyncScheduler.ts   # Internal cron for data sync jobs (fires HTTP to self)
@@ -1078,12 +1078,12 @@ glyphor-ai-company/
 ├── .github/workflows/deploy.yml # CI/CD (GitHub Actions → Cloud Run)
 ├── scripts/
 │   ├── create-agent-blueprint.ps1    # Creates Entra AgentIdentityBlueprint + BlueprintPrincipal
-│   ├── create-agent-identities.ps1   # Creates 44 AgentIdentity SPs under blueprint
+│   ├── create-agent-identities.ps1   # Creates AgentIdentity SPs under blueprint (role list in script)
 │   ├── create-agent-users-phase2.ps1 # Creates agent user accounts (mailboxes)
 │   ├── assign-agent-permissions.ps1  # Assigns M365 MCP oauth2 grants + Glyphor app roles
 │   ├── recover-agent-users.ps1       # Recreates deleted agent user accounts
 │   ├── fix-licenses.ps1              # Sets usageLocation + assigns Agent 365 license
-│   ├── agent-identity-real-ids.json  # Maps agent role → Agent Identity SP ID (44 agents)
+│   ├── agent-identity-real-ids.json  # Maps agent role → Agent Identity SP ID
 │   ├── figma-oauth.cjs               # One-time Figma OAuth flow (local callback on :3847)
 │   └── run-seed.mjs                  # Database seeding script
 ├── a365.config.json             # Agent 365 tenant/subscription/app IDs
@@ -2691,7 +2691,7 @@ while runtime defaults now expose the full 9-server `ALL_M365_SERVERS` catalog.
 
 - `scripts/assign-agent-permissions.ps1` now reconciles the full 9-scope Agent 365
   `oauth2PermissionGrant` payload against existing grants.
-- The rollout has been executed in the live tenant: 44 agent identities were updated to the
+- The rollout has been executed in the live tenant: configured agent identities were updated to the
   full M365 MCP scope catalog.
 - Glyphor app-role assignments were already in place (`0 new, 80 existed` during rollout).
 
@@ -2719,7 +2719,7 @@ identity governance.
 │  SP: 525e859f-29d9-4fa2-80a9-debc2a2576bb          │
 │  Sponsor: kristina@glyphor.ai                      │
 ├────────────────────────────────────────────────────┤
-│  44 Agent Identity SPs (ServiceIdentity)           │
+│  Agent Identity SPs (ServiceIdentity; count varies)│
 │  @odata.type: #microsoft.graph.agentIdentity       │
 │  Created via POST /beta/servicePrincipals/         │
 │    Microsoft.Graph.AgentIdentity                   │
@@ -2739,8 +2739,8 @@ identity governance.
 
 | Target | Method | Details |
 |--------|--------|---------|
-| M365 MCP servers (full 9-server Agent 365 catalog) | `oauth2PermissionGrants` (admin consent) | Delegated permissions on M365 Agent Tools API (`ea9ffc3e-...`). `consentType: AllPrincipals`, requires `expiryTime`. The rollout has already been executed for all 44 agent identities, and the repo script now reconciles future scope drift. |
-| Glyphor app roles (per-agent scopes) | `appRoleAssignments` | 22 app roles on Glyphor app SP (`5604df3b-...`). 80 assignments across 44 agents; rollout confirmed the existing grants were already intact. |
+| M365 MCP servers (full 9-server Agent 365 catalog) | `oauth2PermissionGrants` (admin consent) | Delegated permissions on M365 Agent Tools API (`ea9ffc3e-...`). `consentType: AllPrincipals`, requires `expiryTime`. The rollout has already been executed for configured agent identities, and the repo script now reconciles future scope drift. |
+| Glyphor app roles (per-agent scopes) | `appRoleAssignments` | 22 app roles on Glyphor app SP (`5604df3b-...`). Assignments are provisioned per active role and reconciled by rollout scripts. |
 
 **Key distinction:** Agent Identity SPs hold the permissions (oauth2 grants + app roles).
 User accounts hold the mailbox and license. Deleting a user account does NOT affect the
@@ -2772,7 +2772,7 @@ configuration rather than missing Agent 365 consent.
 | Script | Purpose |
 |--------|---------|
 | `create-agent-blueprint.ps1` | Creates the true `AgentIdentityBlueprint` app, adds credentials, creates `BlueprintPrincipal` SP |
-| `create-agent-identities.ps1` | Authenticates as Blueprint, creates 44 `AgentIdentity` SPs via `/beta/servicePrincipals/Microsoft.Graph.AgentIdentity` |
+| `create-agent-identities.ps1` | Authenticates as Blueprint, creates `AgentIdentity` SPs via `/beta/servicePrincipals/Microsoft.Graph.AgentIdentity` |
 | `create-agent-users-phase2.ps1` | Creates agent user accounts with proper job titles/departments |
 | `assign-agent-permissions.ps1` | Assigns M365 oauth2 grants + Glyphor app roles to all agent identity SPs |
 | `assign-permissions-to-linked-sps.ps1` | Assigns permissions to linked service principals |
@@ -2784,7 +2784,7 @@ configuration rather than missing Agent 365 consent.
 
 | File | Purpose |
 |------|---------|
-| `scripts/agent-identity-real-ids.json` | Maps agent role → Agent Identity SP ID (44 entries) |
+| `scripts/agent-identity-real-ids.json` | Maps agent role → Agent Identity SP ID (entry count varies by roster/history) |
 | `.agent-identities-created.json` | Full creation results (name + ID per agent) |
 | `.agent-id-blueprint-secret.json` | Blueprint app credential (keyId, secretText) — **gitignored** |
 
@@ -3712,7 +3712,7 @@ Requires `SCHEDULER_URL`, `DASHBOARD_URL`, `VOICE_GATEWAY_URL` env vars.
 |------|-------|----------|
 | Dashboard | `/` | Agent activity overview, key metrics |
 | Directives | `/directives` | Founder directives management — create, assign, track work assignments |
-| Workforce | `/workforce` | Org chart (13 departments) + grid view — 46 total headcount |
+| Workforce | `/workforce` | Org chart + grid view — 30 total headcount (2 founders + 28 active AI agents) |
 | Workforce Builder | `/builder` | Drag-and-drop org chart builder with templates |
 | Agent Profile | `/agents/:agentId` | 7-tab profile: Overview (with avatar upload), Performance, Memory, Messages, Skills, World Model, Settings |
 | Agent Builder | `/agents/new` | Create new dynamic agents with name, department, model, budget, cron |

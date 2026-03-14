@@ -625,7 +625,7 @@ GREEN (autonomous):
 
 YELLOW:
    - Completed proposal ready for review → Kristina
-   - Enterprise outreach recommendation → Kristina
+   - SMB outreach recommendation → Kristina
    - Pricing negotiation parameters → Kristina
 
 RED:
