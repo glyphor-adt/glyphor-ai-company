@@ -49,6 +49,7 @@ export interface UnifiedRequestMetadata {
   previousResponseId?: string;
   modelConfig?: ModelRoutingMetadata;
   engineSource?: 'analysis' | 'simulation' | 'deep_dive' | 'strategy_lab' | 'cot';
+  agentRole?: import('../types.js').CompanyAgentRole;
 }
 
 // ─── Unified Request ─────────────────────────────────────────
@@ -94,6 +95,7 @@ export interface UnifiedUsageMetadata {
 export interface UnifiedModelResponse {
   text: string | null;
   toolCalls: UnifiedToolCall[];
+  providerEvents?: Array<{ type: string; name?: string; payload?: string }>;
   thinkingText?: string;
   /** The concrete model that produced this response after fallback resolution. */
   actualModel?: string;

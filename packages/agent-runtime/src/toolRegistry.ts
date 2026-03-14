@@ -726,6 +726,44 @@ export function getAllKnownTools(): string[] {
   return [...new Set([...KNOWN_TOOLS, ..._dynamicToolCache])];
 }
 
+interface ToolDescriptionHint {
+  prefix: string;
+  hints: string[];
+}
+
+const TOOL_DESCRIPTION_HINTS: ToolDescriptionHint[] = [
+  { prefix: 'query_', hints: ['analytics', 'reporting', 'trend analysis'] },
+  { prefix: 'get_', hints: ['status checks', 'dashboard snapshots', 'data retrieval'] },
+  { prefix: 'create_', hints: ['workflow creation', 'new records', 'automation setup'] },
+  { prefix: 'update_', hints: ['state updates', 'record maintenance', 'configuration changes'] },
+  { prefix: 'send_', hints: ['outbound communication', 'notifications', 'delivery actions'] },
+  { prefix: 'check_', hints: ['validation', 'health checks', 'quality gates'] },
+  { prefix: 'run_', hints: ['execution workflows', 'audits', 'batch jobs'] },
+  { prefix: 'write_', hints: ['report generation', 'documentation', 'artifact output'] },
+  { prefix: 'search_', hints: ['discovery', 'lookup', 'investigation'] },
+  { prefix: 'entra_', hints: ['Microsoft Entra ID', 'identity administration', 'M365 governance'] },
+  { prefix: 'pulse_', hints: ['creative generation', 'video and image workflows', 'brand content production'] },
+  { prefix: 'mcp_', hints: ['remote MCP server actions', 'cross-service integration'] },
+];
+
+function inferToolHints(name: string): string[] {
+  const matched = TOOL_DESCRIPTION_HINTS.find((entry) => name.startsWith(entry.prefix));
+  if (!matched) return [];
+  return matched.hints;
+}
+
+/**
+ * Build a task-oriented, keyword-rich description for hosted tool search.
+ */
+export function buildSearchableToolDescription(name: string, description: string): string {
+  const base = (description ?? '').trim() || `Execute ${name}.`;
+  const hints = inferToolHints(name);
+  if (hints.length === 0) return base;
+  if (/\b(use for|ideal for|best for)\b/i.test(base)) return base;
+  const terminal = /[.!?]$/.test(base) ? base : `${base}.`;
+  return `${terminal} Use for ${hints.join(', ')}.`;
+}
+
 // ── Dynamic Tool Registry (DB-backed) ────────────────────────────
 
 /** Cache of dynamically registered tool names. Refreshed periodically. */

@@ -41,6 +41,11 @@ import { compareSubtaskComplexity, routeSubtask, type SubtaskComplexity } from '
 import { learnFromAgentRun } from './skillLearning.js';
 import { shouldUseClientSideHistoryCompression } from './compaction.js';
 import type { RequestSource } from './providers/types.js';
+import {
+  TOOL_CATEGORY_HINT,
+  shouldUseAnthropicToolSearch,
+  shouldUseOpenAIToolSearch,
+} from './toolSearchConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -1003,6 +1008,10 @@ function buildSystemPrompt(
       parts.push('Before you call a tool, explain why you are calling it.');
     }
 
+    if (model && (shouldUseAnthropicToolSearch(model) || shouldUseOpenAIToolSearch(model))) {
+      parts.push(TOOL_CATEGORY_HINT);
+    }
+
     return parts.join('\n\n---\n\n');
   } catch (err) {
     console.warn(`[CompanyAgentRunner] Failed to load knowledge files for ${role}:`, (err as Error).message);
@@ -1113,7 +1122,7 @@ export interface RunDependencies {
   glyphorEventBus?: GlyphorEventBus;
   agentMemoryStore?: AgentMemoryStore;
   /** Loader for DB-stored briefs (dynamic agents without file-based briefs). */
-  dynamicBriefLoader?: (agentId: string) => Promise<string | null>;
+  dynamicBriefLoader?: (agentRole: string) => Promise<string | null>;
   /** Loader for agent personality profile from agent_profiles table. */
   agentProfileLoader?: (role: CompanyAgentRole) => Promise<AgentProfileData | null>;
   /** Loader for pending inter-agent messages. */
@@ -1313,8 +1322,8 @@ export class CompanyAgentRunner {
 
       // Dynamic brief (system prompt override from agent_briefs DB) — standard+ only
       const briefPromise = (tier !== 'light' && tier !== 'task' && deps?.dynamicBriefLoader)
-        ? deps.dynamicBriefLoader(config.id).catch(err => {
-            console.warn(`[CompanyAgentRunner] Dynamic brief load failed for ${config.id}:`, (err as Error).message);
+        ? deps.dynamicBriefLoader(config.role).catch(err => {
+            console.warn(`[CompanyAgentRunner] Dynamic brief load failed for ${config.role}:`, (err as Error).message);
             return null;
           })
         : Promise.resolve(null);
@@ -1870,13 +1879,26 @@ export class CompanyAgentRunner {
             });
           }
 
-          if (effectiveTools) {
-            effectiveTools = filterToolDeclarations(effectiveTools, getToolSubset(config.role, task), config.role);
-          }
-
           const modelForTurn = routedModel.model === '__deterministic__'
             ? config.model
             : routedModel.model;
+          const providerForTurn = detectProvider(modelForTurn);
+          const useProviderToolSearch = (
+            (providerForTurn === 'anthropic' && shouldUseAnthropicToolSearch(modelForTurn))
+            || (providerForTurn === 'openai' && shouldUseOpenAIToolSearch(modelForTurn))
+          );
+
+          if (effectiveTools) {
+            if (!useProviderToolSearch) {
+              effectiveTools = filterToolDeclarations(effectiveTools, getToolSubset(config.role, task), config.role);
+            } else if (turnNumber === 1) {
+              console.log(
+                `[ToolSearch] ${config.role}: provider=${providerForTurn} tool_search enabled; ` +
+                `declaring ${effectiveTools.length} tools with deferred loading.`,
+              );
+            }
+          }
+
           const compressedHistory = await prepareHistoryForModel(modelForTurn, history);
 
           if (turnNumber === 1 || turnNumber % 3 === 0) {
@@ -1958,6 +1980,7 @@ export class CompanyAgentRunner {
             metadata: {
               previousResponseId,
               modelConfig: routedModel,
+              agentRole: config.role,
             },
           });
           previousResponseId = response.responseId;
@@ -1994,6 +2017,23 @@ export class CompanyAgentRunner {
             );
           }
           throw error;
+        }
+
+        if (response.providerEvents && response.providerEvents.length > 0) {
+          const eventSummary = response.providerEvents
+            .map((event) => event.name ? `${event.type}:${event.name}` : event.type)
+            .join(', ');
+          history.push({
+            role: 'assistant',
+            content: `[provider_events] ${eventSummary}`,
+            timestamp: Date.now(),
+          });
+        }
+
+        if (!response.text && response.toolCalls.length === 0 && (response.providerEvents?.length ?? 0) > 0) {
+          // Hosted tool-search events can arrive in an intermediate response.
+          // Continue the loop so the model can issue concrete tool calls next.
+          continue;
         }
 
         // 4. TOOL CALLS

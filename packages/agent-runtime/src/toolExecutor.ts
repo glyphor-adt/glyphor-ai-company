@@ -29,6 +29,7 @@ import type {
 } from './types.js';
 import { AGENT_BUDGETS } from './types.js';
 import { systemQuery } from '@glyphor/shared/db';
+import { buildSearchableToolDescription } from './toolRegistry.js';
 import type { FormalVerifier } from './formalVerifier.js';
 import { executeDynamicTool } from './dynamicToolExecutor.js';
 import { HIGH_STAKES_TOOLS, preCheckTool } from './constitutionalPreCheck.js';
@@ -410,7 +411,12 @@ export class ToolExecutor {
       // Gemini rejects an empty required array — omit the field when no parameters are required.
       if (required.length > 0) params.required = required;
 
-      return { name: t.name, description: t.description, parameters: params };
+      return {
+        name: t.name,
+        description: buildSearchableToolDescription(t.name, t.description),
+        parameters: params,
+        ...(t.deferLoading ? { defer_loading: true } : {}),
+      };
     });
   }
 

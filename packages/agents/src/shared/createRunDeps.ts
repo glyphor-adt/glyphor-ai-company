@@ -143,8 +143,8 @@ export function createRunDeps(
       }));
     },
 
-    dynamicBriefLoader: async (agentId: string): Promise<string | null> => {
-      const [data] = await systemQuery('SELECT system_prompt FROM agent_briefs WHERE agent_id = $1', [agentId]);
+    dynamicBriefLoader: async (agentRole: string): Promise<string | null> => {
+      const [data] = await systemQuery('SELECT system_prompt FROM agent_briefs WHERE agent_id = $1', [agentRole]);
       return data?.system_prompt ?? null;
     },
 

@@ -15,6 +15,8 @@ import {
   extractAnthropicCompactionMetadata,
   getAnthropicCompactionBetas,
 } from '../compaction.js';
+import { buildAnthropicTools } from '../anthropicToolBuilder.js';
+import { shouldUseAnthropicToolSearch } from '../toolSearchConfig.js';
 
 export class AnthropicAdapter implements ProviderAdapter {
   readonly provider = 'anthropic' as const;
@@ -37,16 +39,19 @@ export class AnthropicAdapter implements ProviderAdapter {
     const contextManagement = buildAnthropicContextManagement(request.source);
     const compactionBetas = getAnthropicCompactionBetas(request.source);
 
+    const useHostedToolSearch = shouldUseAnthropicToolSearch(request.model);
     const tools = request.tools?.length
-      ? request.tools.map(t => ({
-          name: t.name,
-          description: t.description,
-          input_schema: {
-            type: 'object' as const,
-            properties: t.parameters.properties,
-            required: t.parameters.required,
-          },
-        }))
+      ? (useHostedToolSearch
+        ? buildAnthropicTools(request.metadata?.agentRole, request.tools)
+        : request.tools.map(t => ({
+            name: t.name,
+            description: t.description,
+            input_schema: {
+              type: 'object' as const,
+              properties: t.parameters.properties,
+              required: t.parameters.required,
+            },
+          })))
       : undefined;
 
     // Extended thinking config
@@ -309,6 +314,7 @@ export class AnthropicAdapter implements ProviderAdapter {
   private mapResponse(response: Anthropic.Message): UnifiedModelResponse {
     let text: string | null = null;
     const toolCalls: { name: string; args: Record<string, unknown> }[] = [];
+    const providerEvents: Array<{ type: string; name?: string; payload?: string }> = [];
     let thinkingText: string | undefined;
     const compaction = extractAnthropicCompactionMetadata(response);
 
@@ -321,6 +327,17 @@ export class AnthropicAdapter implements ProviderAdapter {
         toolCalls.push({
           name: block.name,
           args: (block.input as Record<string, unknown>) ?? {},
+        });
+      } else if (block.type === 'server_tool_use' && typeof block.name === 'string') {
+        providerEvents.push({
+          type: 'server_tool_use',
+          name: block.name,
+          payload: JSON.stringify(block).slice(0, 2000),
+        });
+      } else if (block.type === 'tool_search_tool_result') {
+        providerEvents.push({
+          type: 'tool_search_tool_result',
+          payload: JSON.stringify(block).slice(0, 2000),
         });
       } else if (block.type === 'thinking' && typeof block.thinking === 'string') {
         thinkingText = (thinkingText ?? '') + block.thinking;
@@ -342,6 +359,7 @@ export class AnthropicAdapter implements ProviderAdapter {
     return {
       text,
       toolCalls,
+      ...(providerEvents.length > 0 ? { providerEvents } : {}),
       thinkingText,
       usageMetadata: {
         inputTokens,

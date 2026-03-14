@@ -128,6 +128,7 @@ function convertMcpTool(
     name: toolName,
     description: (mcpTool.description as string) ?? '',
     parameters,
+    deferLoading: true,
     execute: async (params: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> => {
       try {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };

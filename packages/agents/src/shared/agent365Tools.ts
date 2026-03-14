@@ -144,7 +144,10 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
       ),
     ]);
 
-    const tools = [...bridge.tools];
+    const tools: ToolDefinition[] = bridge.tools.map((tool): ToolDefinition => ({
+      ...tool,
+      deferLoading: true,
+    }));
     if (agentRole) {
       const hasInboxReader = tools.some((tool) => tool.name.toLowerCase() === 'read_inbox');
       if (!hasInboxReader) {

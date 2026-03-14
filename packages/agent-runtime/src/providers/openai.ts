@@ -14,6 +14,8 @@ import OpenAI, { AzureOpenAI } from 'openai';
 import type { ConversationTurn } from '../types.js';
 import type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse, ImageResponse } from './types.js';
 import { buildOpenAIContextManagement, extractOpenAICompactionMetadata } from '../compaction.js';
+import { buildOpenAITools } from '../openaiToolBuilder.js';
+import { shouldUseOpenAIToolSearch } from '../toolSearchConfig.js';
 
 /** Configuration for OpenAI adapter — either direct or Azure-backed. */
 export interface OpenAIAdapterConfig {
@@ -156,6 +158,8 @@ export class OpenAIAdapter implements ProviderAdapter {
     const messages = this.mapConversation(request);
     const modelConfig = request.metadata?.modelConfig;
     const contextManagement = buildOpenAIContextManagement(request.source);
+    const hasResponsesApi = typeof (this.client as any).responses?.create === 'function';
+    const useHostedToolSearch = shouldUseOpenAIToolSearch(request.model) && hasResponsesApi;
 
     const MAX_OPENAI_TOOLS = 128;
     const allTools = request.tools?.length
@@ -171,12 +175,14 @@ export class OpenAIAdapter implements ProviderAdapter {
         }))
       : undefined;
 
-    if (allTools && allTools.length > MAX_OPENAI_TOOLS) {
+    if (!useHostedToolSearch && allTools && allTools.length > MAX_OPENAI_TOOLS) {
       console.warn(
         `[OpenAI] ${request.model}: ${allTools.length} tools exceeds ${MAX_OPENAI_TOOLS} limit — truncating to ${MAX_OPENAI_TOOLS}`,
       );
     }
-    const tools = allTools?.slice(0, MAX_OPENAI_TOOLS);
+    const tools = useHostedToolSearch
+      ? allTools
+      : allTools?.slice(0, MAX_OPENAI_TOOLS);
 
     // o-series models (o1, o3, o4) don't accept temperature, top_p, or max_tokens
     const isOSeries = /^o[134](-|$)/.test(request.model);
@@ -210,13 +216,12 @@ export class OpenAIAdapter implements ProviderAdapter {
     }
 
     // ── Responses API for reasoning calls (enables reasoning summaries) ──
-    const hasResponsesApi = typeof (this.client as any).responses?.create === 'function';
     const shouldUseResponsesForCompaction = Boolean(contextManagement?.length);
     if (shouldForceResponsesApi(request.model) && hasResponsesApi) {
-      return this.generateViaResponses(request, reasoningEffort, tools, contextManagement);
+      return this.generateViaResponses(request, reasoningEffort, tools, contextManagement, useHostedToolSearch);
     }
     if ((reasoningEffort && reasoningEffort !== 'minimal' && hasResponsesApi) || (shouldUseResponsesForCompaction && hasResponsesApi)) {
-      return this.generateViaResponses(request, reasoningEffort, tools, contextManagement);
+      return this.generateViaResponses(request, reasoningEffort, tools, contextManagement, useHostedToolSearch);
     }
 
     // ── Chat Completions path (non-reasoning / reasoning=none / SDK fallback) ──
@@ -331,19 +336,39 @@ export class OpenAIAdapter implements ProviderAdapter {
     reasoningEffort?: string,
     tools?: Array<{ type: 'function'; function: { name: string; description: string; parameters: Record<string, unknown> } }>,
     contextManagement?: Array<Record<string, unknown>>,
+    useHostedToolSearch = false,
   ): Promise<UnifiedModelResponse> {
     const input = this.mapConversationForResponses(request);
 
-    // Responses API uses flat tool format (not nested under .function)
-    const responsesTools = tools?.map(t => ({
-      type: 'function' as const,
-      name: t.function.name,
-      description: t.function.description,
-      parameters: t.function.parameters,
-    }));
+    // Responses API uses flat function objects, plus namespace/tool_search in hosted mode.
+    const responsesTools = useHostedToolSearch && request.tools?.length
+      ? buildOpenAITools(request.metadata?.agentRole, request.tools).map((tool) => {
+          if (tool.type === 'function') {
+            return {
+              ...tool,
+              parameters: normalizeSchemaTypes(tool.parameters),
+            };
+          }
+          if (tool.type === 'namespace') {
+            return {
+              ...tool,
+              tools: tool.tools.map((fn) => ({
+                ...fn,
+                parameters: normalizeSchemaTypes(fn.parameters),
+              })),
+            };
+          }
+          return tool;
+        })
+      : tools?.map(t => ({
+          type: 'function' as const,
+          name: t.function.name,
+          description: t.function.description,
+          parameters: t.function.parameters,
+        }));
     const modelConfig = request.metadata?.modelConfig;
     const includeReasoningSummary = /^(1|true|yes)$/i.test(process.env.OPENAI_REASONING_SUMMARY ?? '');
-    const toolSearchTool = (modelConfig?.enableToolSearch && request.model.endsWith('-deep-research'))
+    const toolSearchTool = (!useHostedToolSearch && modelConfig?.enableToolSearch && request.model.endsWith('-deep-research'))
       ? [{ type: 'tool_search' as const }]
       : [];
     const webSearchTool = modelConfig?.enableWebSearch
@@ -627,6 +652,7 @@ export class OpenAIAdapter implements ProviderAdapter {
   private mapResponsesApiResponse(response: any): UnifiedModelResponse {
     let text: string | null = null;
     const toolCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
+    const providerEvents: Array<{ type: string; name?: string; payload?: string }> = [];
     let thinkingText: string | undefined;
     const compaction = extractOpenAICompactionMetadata(response);
 
@@ -643,6 +669,12 @@ export class OpenAIAdapter implements ProviderAdapter {
         toolCalls.push({
           name: item.name,
           args: JSON.parse(item.arguments || '{}') as Record<string, unknown>,
+        });
+      } else if (item.type === 'tool_search_call' || item.type === 'tool_search_output') {
+        providerEvents.push({
+          type: item.type,
+          name: item.name,
+          payload: JSON.stringify(item).slice(0, 2000),
         });
       } else if (item.type === 'reasoning') {
         // Extract reasoning summary (the model's chain-of-thought summary)
@@ -671,6 +703,7 @@ export class OpenAIAdapter implements ProviderAdapter {
     return {
       text,
       toolCalls,
+      ...(providerEvents.length > 0 ? { providerEvents } : {}),
       thinkingText,
       usageMetadata: {
         inputTokens: usage.input_tokens ?? 0,

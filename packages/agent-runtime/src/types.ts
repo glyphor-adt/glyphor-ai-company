@@ -78,6 +78,8 @@ export interface ToolDefinition {
   name: string;
   description: string;
   parameters: Record<string, ToolParameter>;
+  /** Hint for provider adapters: defer tool schema loading when supported. */
+  deferLoading?: boolean;
   execute: (params: Record<string, unknown>, context: ToolContext) => Promise<ToolResult>;
 }
 
@@ -231,6 +233,8 @@ export interface AgentExecutionResult {
 export interface ToolDeclaration {
   name: string;
   description: string;
+  /** Provider hint for hosted tool search APIs (Anthropic/OpenAI). */
+  defer_loading?: boolean;
   parameters: {
     type: string;
     properties: Record<string, unknown>;
