@@ -304,6 +304,28 @@ function sanitizeIdentifier(name: string): string {
   return name.replace(/[^a-zA-Z0-9_]/g, '');
 }
 
+const tenantIdColumnCache = new Map<string, boolean>();
+
+async function tableHasTenantIdColumn(tableName: string): Promise<boolean> {
+  const cached = tenantIdColumnCache.get(tableName);
+  if (cached !== undefined) return cached;
+
+  const rows = await systemQuery<{ has_tenant_id: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = $1
+         AND column_name = 'tenant_id'
+     ) AS has_tenant_id`,
+    [tableName],
+  );
+
+  const hasTenantId = rows[0]?.has_tenant_id === true;
+  tenantIdColumnCache.set(tableName, hasTenantId);
+  return hasTenantId;
+}
+
 // ─── Main handler ───────────────────────────────────────────────
 
 /**
@@ -536,8 +558,8 @@ export async function handleDashboardApi(
         }
       }
 
-      // Auto-inject tenant_id for tenant-scoped tables when not provided
-      if (!body.tenant_id) {
+      // Auto-inject tenant_id only for tables that actually have the column.
+      if (!body.tenant_id && await tableHasTenantIdColumn(tableName)) {
         body.tenant_id = '00000000-0000-0000-0000-000000000000';
       }
 

@@ -40,6 +40,32 @@ interface Message {
   compactionSummary?: string;
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const AGENT_SPEAKER_LABELS = Array.from(
+  new Set(
+    Object.entries(DISPLAY_NAME_MAP).flatMap(([role, displayName]) => [role, displayName]),
+  ),
+)
+  .filter((label) => label.trim().length > 0)
+  .sort((left, right) => right.length - left.length)
+  .map((label) => escapeRegExp(label));
+
+const AGENT_SPEAKER_PREFIX_RE = AGENT_SPEAKER_LABELS.length
+  ? new RegExp(
+      `^(?:\\*\\*)?\\s*(?:${AGENT_SPEAKER_LABELS.join('|')})(?:\\s*\\([^\\n)]{1,80}\\))?\\s*(?:\\*\\*)?\\s*:\\s*`,
+      'i',
+    )
+  : null;
+
+function stripAgentSpeakerPrefix(value: string): string {
+  const trimmed = value.trimStart();
+  if (!trimmed || !AGENT_SPEAKER_PREFIX_RE) return trimmed;
+  return trimmed.replace(AGENT_SPEAKER_PREFIX_RE, '');
+}
+
 function normalizeMessageContent(value: unknown): string {
   if (typeof value === 'string') return value;
   if (value == null) return '';
@@ -544,9 +570,11 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
           setMessages(
             rows.map((row: Record<string, unknown>) => {
               const metadata = extractChatMessageMetadata(row);
+              const role = row.role as 'user' | 'agent';
+              const rawContent = normalizeMessageContent(row.content);
               return {
-                role: row.role as 'user' | 'agent',
-                content: normalizeMessageContent(row.content),
+                role,
+                content: role === 'agent' ? stripAgentSpeakerPrefix(rawContent) : rawContent,
                 timestamp: new Date(row.created_at as string),
                 attachments: (row.attachments as any[])?.map((a: any) => ({ name: a.name, type: a.type, data: '' })),
                 agentRole: (row.responding_agent as string) || undefined,
@@ -819,6 +847,8 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
           content = `Something went wrong: ${(raw as string).replace(/sk-ant-[a-zA-Z0-9_-]+|sk-[a-zA-Z0-9_-]{20,}|AIza[a-zA-Z0-9_-]+/g, '[REDACTED]')}`;
         }
         else content = `I completed the task but had nothing to report back.`;
+
+        content = stripAgentSpeakerPrefix(content);
 
         // Only append to UI if user is still viewing the same agent
         if (selectedRoleRef.current === targetRole) {

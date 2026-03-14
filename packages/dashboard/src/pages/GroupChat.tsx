@@ -26,6 +26,33 @@ interface GroupMessage {
   actions?: ActionReceipt[];
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const AGENT_SPEAKER_LABELS = Array.from(
+  new Set([
+    ...Object.keys(DISPLAY_NAME_MAP),
+    ...Object.values(DISPLAY_NAME_MAP),
+  ]),
+)
+  .filter((label) => label.trim().length > 0)
+  .sort((left, right) => right.length - left.length)
+  .map((label) => escapeRegExp(label));
+
+const AGENT_SPEAKER_PREFIX_RE = AGENT_SPEAKER_LABELS.length
+  ? new RegExp(
+      `^(?:\\*\\*)?\\s*(?:${AGENT_SPEAKER_LABELS.join('|')})(?:\\s*\\([^\\n)]{1,80}\\))?\\s*(?:\\*\\*)?\\s*:\\s*`,
+      'i',
+    )
+  : null;
+
+function stripAgentSpeakerPrefix(value: string): string {
+  const trimmed = value.trimStart();
+  if (!trimmed || !AGENT_SPEAKER_PREFIX_RE) return trimmed;
+  return trimmed.replace(AGENT_SPEAKER_PREFIX_RE, '');
+}
+
 function normalizeMessageContent(value: unknown): string {
   if (typeof value === 'string') return value;
   if (value == null) return '';
@@ -165,14 +192,18 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
       if (data && data.length > 0) {
         const rows = [...data].reverse();
         setMessages(
-          rows.map((row: any) => ({
-            role: row.role as 'user' | 'agent',
-            agentRole: row.role === 'agent' ? row.agent_role : undefined,
-            founderName: row.role === 'user' ? FOUNDERS.find((f) => f.email === (row.user_id ?? '').toLowerCase())?.name : undefined,
-            content: normalizeMessageContent(row.content),
-            timestamp: new Date(row.created_at),
-            attachments: row.attachments ?? undefined,
-          })),
+          rows.map((row: any) => {
+            const role = row.role as 'user' | 'agent';
+            const rawContent = normalizeMessageContent(row.content);
+            return {
+              role,
+              agentRole: role === 'agent' ? row.agent_role : undefined,
+              founderName: role === 'user' ? FOUNDERS.find((f) => f.email === (row.user_id ?? '').toLowerCase())?.name : undefined,
+              content: role === 'agent' ? stripAgentSpeakerPrefix(rawContent) : rawContent,
+              timestamp: new Date(row.created_at),
+              attachments: row.attachments ?? undefined,
+            };
+          }),
         );
       }
     })();
@@ -386,6 +417,7 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
       else if (data.error) content = `I ran into an issue: ${data.error}`;
       else if (data.status === 'aborted') content = 'My response was cut short — try a simpler question.';
       else content = `Completed but had nothing to report. (status: ${data.status ?? 'unknown'})`;
+      content = stripAgentSpeakerPrefix(content);
       return { agentRole, content, actions: data.actions };
     } catch {
       return {

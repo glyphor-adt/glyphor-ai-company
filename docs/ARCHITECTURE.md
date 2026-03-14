@@ -359,20 +359,134 @@ Run completes
   -> optional graph/world-model updates
 ```
 
-## 7. Scheduler API Surface (Functional Categories)
+## 7. Scheduler API Surface (Endpoint Matrix)
 
-The scheduler server hosts a broad API set. Rather than hardcoding a volatile endpoint count, routes are grouped by function:
+The scheduler server in packages/scheduler/src/server.ts exposes the following route surface.
 
-- Core execution routes: task run dispatch, event ingestion, heartbeat.
-- Agent lifecycle routes: create/update/pause/resume/delete and prompt settings.
-- Dashboard data routes: table-backed reads/writes mediated by dashboard API handlers.
-- Strategy routes: analysis, simulation, deep dive, strategy lab, CoT, export and visualization actions.
-- Governance and policy routes: governance sync, policy collection/evaluation, canary checks.
-- Tool and memory maintenance routes: tool expiration/re-enable, memory consolidation/archive.
-- Integration callback routes: Teams/Graph callbacks, webhook receivers, sync triggers.
-- SDK routes: external client SDK list/get/create/retire style operations.
+### 7.1 Platform, Sync, and Background Operations
 
-This grouping is intentionally resilient to route growth while preserving architectural clarity.
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | /health | Service and dependency health check |
+| GET | / | Root health alias |
+| POST | /cache/invalidate | Prompt/cache invalidation trigger |
+| POST | /webhook/stripe | Stripe webhook receiver |
+| POST | /sync/stripe | Stripe sync job |
+| POST | /sync/gcp-billing | GCP billing sync job |
+| POST | /sync/mercury | Mercury banking sync job |
+| POST | /sync/openai-billing | OpenAI billing sync job |
+| POST | /sync/anthropic-billing | Anthropic billing sync job |
+| POST | /sync/kling-billing | Kling billing sync job |
+| POST | /sync/sharepoint-knowledge | SharePoint knowledge sync job |
+| POST | /sync/governance | Governance IAM sync job |
+| GET | /oauth/canva/callback | Canva OAuth callback |
+| POST | /pubsub | Cloud Scheduler Pub/Sub ingress |
+| POST | /event | Glyphor event bus ingress |
+| POST | /heartbeat | Agent heartbeat cycle |
+| POST | /memory/consolidate | Memory consolidation maintenance |
+| POST | /memory/archive | Memory archival maintenance |
+| POST | /batch-eval/run | Batch evaluation run |
+| POST | /cascade/evaluate | Cascade evaluation run |
+| POST | /policy/collect | Policy proposal collection |
+| POST | /policy/evaluate | Policy replay evaluation |
+| POST | /policy/canary-check | Canary lifecycle check |
+| POST | /canary/evaluate | Canary rollout evaluation |
+| POST | /agent-evals/run | Agent knowledge/readiness evaluation |
+| POST | /tools/expire | Tool expiration manager |
+| POST | /tools/re-enable | Tool re-enable operation |
+| OPTIONS | * | CORS preflight handler |
+
+### 7.2 Execution, SDK, and Agent Lifecycle
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| POST | /run | Direct task invocation |
+| GET | /sdk/agents | List SDK-scoped agents |
+| POST | /sdk/agents | Create SDK-scoped agent |
+| GET | /sdk/agents/:role | Get SDK agent |
+| POST | /sdk/agents/:role/retire | Retire SDK agent |
+| POST | /agents/create | Create dynamic agent |
+| PUT | /agents/:agentId/settings | Update agent settings |
+| POST | /agents/:agentId/avatar | Upload/update avatar |
+| GET | /agents/:agentId/system-prompt | Read code-defined prompt |
+| POST | /agents/:agentId/pause | Pause agent |
+| POST | /agents/:agentId/resume | Resume agent |
+| DELETE | /agents/:agentId | Soft/hard retire agent |
+
+### 7.3 Strategy, Analysis, and Simulation
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| POST | /analysis/run | Launch analysis |
+| GET | /analysis | List analyses |
+| GET | /analysis/:id | Get analysis |
+| GET | /analysis/:id/export | Export analysis |
+| POST | /analysis/:id/cancel | Cancel analysis |
+| POST | /analysis/:id/enhance | Enhance analysis |
+| GET | /analysis/:id/visual | Get saved analysis visual |
+| POST | /analysis/:id/visual | Generate analysis visual |
+| POST | /simulation/run | Launch simulation |
+| GET | /simulation | List simulations |
+| GET | /simulation/:id | Get simulation |
+| POST | /simulation/:id/accept | Accept simulation result |
+| GET | /simulation/:id/export | Export simulation |
+| POST | /cot/run | Launch chain-of-thought analysis |
+| GET | /cot | List CoT analyses |
+| GET | /cot/:id | Get CoT analysis |
+| GET | /cot/:id/export | Export CoT analysis |
+| POST | /deep-dive/run | Launch deep dive |
+| GET | /deep-dive | List deep dives |
+| GET | /deep-dive/:id | Get deep dive |
+| POST | /deep-dive/:id/cancel | Cancel deep dive |
+| GET | /deep-dive/:id/export | Export deep dive |
+| GET | /deep-dive/:id/visual | Get deep dive visual |
+| POST | /deep-dive/:id/visual | Generate deep dive visual |
+| POST | /strategy-lab/run | Launch strategy lab analysis |
+| GET | /strategy-lab | List strategy analyses |
+| GET | /strategy-lab/:id | Get strategy analysis |
+| POST | /strategy-lab/:id/cancel | Cancel strategy analysis |
+| GET | /strategy-lab/:id/export | Export strategy analysis |
+| GET | /strategy-lab/:id/visual | Get strategy visual |
+| POST | /strategy-lab/:id/visual | Generate strategy visual |
+
+### 7.4 Collaboration, Knowledge, and Workflow
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| POST | /meetings/call | Start meeting workflow |
+| GET | /meetings | List meetings |
+| GET | /meetings/:id | Get meeting |
+| POST | /messages/send | Send inter-agent message |
+| GET | /messages | List recent messages |
+| GET | /messages/agent/:role | List agent-specific messages |
+| GET | /pulse | Company pulse snapshot |
+| GET | /knowledge/company | Company knowledge materialization |
+| GET | /knowledge/routes | List knowledge routes |
+| POST | /knowledge/routes | Create knowledge route |
+| GET | /knowledge/patterns | Process pattern insights |
+| GET | /knowledge/contradictions | Contradiction detection |
+| GET | /authority/proposals | List authority proposals |
+| POST | /authority/proposals/:id/resolve | Resolve authority proposal |
+| GET | /directives | List directives |
+| POST | /directives | Create directive |
+| PATCH | /directives/:id | Update directive |
+| DELETE | /directives/:id | Delete directive |
+| GET | /workflows | List workflows |
+| GET | /workflows/metrics | Workflow metrics |
+| GET | /workflows/:id | Get workflow state |
+| POST | /workflows/:id/cancel | Cancel workflow |
+| POST | /workflows/:id/retry | Retry workflow |
+| POST | /plan-verify/:directiveId | Verify plan |
+
+### 7.5 Chat and Delegated API Surfaces
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET, POST | /api/graph/chat-webhook | Graph chat webhook validation/ingest |
+| POST | /ora/chat | Triangulated chat entrypoint |
+| POST | /chat/triangulate | Triangulated chat alias |
+| * | /api/governance/* | Delegated governance API handler |
+| * | /api/* | Delegated dashboard CRUD API handler |
 
 ## 8. Dashboard Route Architecture
 
@@ -494,6 +608,67 @@ Representative data domains persisted in the platform include:
   - platform audit state/log domains
   - policy and access metadata
 
+### 10.3 Dashboard API Table Map and Domain Coverage
+
+The dashboard CRUD layer currently maps 88 URL slugs to 62 physical PostgreSQL tables through TABLE_MAP in packages/scheduler/src/dashboardApi.ts.
+
+Primary domains and current table ownership anchors:
+
+- Workforce and identity (owner: scheduler dashboard API + agents package)
+  - company_agents, agent_profiles, agent_briefs, agent_schedules, dashboard_users
+
+- Agent execution and quality telemetry (owner: scheduler runtime orchestration + agent-runtime)
+  - agent_runs, task_run_outcomes, agent_performance, agent_growth, agent_milestones, agent_reflections, agent_eval_scenarios, agent_eval_results, agent_readiness
+
+- Work orchestration and planning (owner: scheduler orchestration engines)
+  - founder_directives, work_assignments, decisions, workflows, workflow_steps, plan_verifications, proposed_initiatives, initiatives, delegation_performance
+
+- Collaboration and communication (owner: scheduler comms handlers)
+  - chat_messages, agent_messages, agent_meetings
+
+- Knowledge and memory (owner: company-memory + scheduler knowledge routes)
+  - company_knowledge, company_knowledge_base, company_pulse, kg_nodes, kg_edges, agent_memory, memory_lifecycle, memory_archive
+
+- Governance and platform controls (owner: governance API + platform admin flows)
+  - platform_iam_state, platform_audit_log, platform_secret_rotation, policy_versions, constitutional_gate_events
+
+- Tooling and capability governance (owner: agent-runtime tooling + scheduler policy/tool managers)
+  - tool_registry, agent_tool_grants, tool_reputation, agent_reasoning_config, role_rubrics, agent_skills, executive_orchestration_config
+
+- Financial and sync domains (owner: integrations sync endpoints)
+  - financials, gcp_billing, api_billing, data_sync_status
+
+- Deliverable and initiative outputs (owner: workflow + content subsystems)
+  - deliverables
+
+- Ora session state (owner: triangulation endpoint)
+  - ora_sessions
+
+### 10.4 Migration Ownership and Recent Change Signals
+
+Canonical schema ownership remains db/migrations/ with subsystem ownership inferred by migration intent and touched tables.
+
+Recent migration trend highlights:
+
+- Tooling and observability
+  - 20260313003000_compaction_observability.sql
+  - 20260313220000_agent_run_status.sql
+  - 20260312235900_fix_verification_passes_type.sql
+
+- Skill and playbook synchronization
+  - 20260312213000_phase5_skill_learning.sql
+  - 20260314142000_sync_it_skill_playbooks.sql
+  - 20260314150000_sync_marketing_intel_skills.sql
+  - 20260314153000_sync_design_skill_playbooks.sql
+  - 20260314154500_sync_finance_skill_playbooks.sql
+  - 20260314160000_sync_legal_skill_playbooks.sql
+  - 20260314162000_sync_executive_skill_playbooks.sql
+
+- A2A, SDK, and evaluation evolution
+  - 20260312200000_phase4_a2a_gateway.sql
+  - 20260312234500_phase7_agent_sdk.sql
+  - 20260314000100_agent_knowledge_evals.sql
+
 ## 11. Tooling and Capability Architecture
 
 Tool execution follows a shared pattern:
@@ -509,6 +684,53 @@ Tool surface sources:
 - Shared role tools in packages/agents/src/shared.
 - Runtime and dynamically registered tools through runtime registries.
 - Domain MCP server tools exposed by mcp-* packages.
+
+### 11.1 Shared Agent Tool Modules (packages/agents/src/shared)
+
+The shared tool surface has expanded materially and now includes specialized modules across operations, design, growth, legal, finance, orchestration, and governance. Representative modules include:
+
+- Core orchestration and memory
+  - coreTools.ts, assignmentTools.ts, communicationTools.ts, memoryTools.ts, eventTools.ts, createRunDeps.ts
+
+- Tool governance and discovery
+  - toolGrantTools.ts, toolRegistryTools.ts, toolRequestTools.ts, accessAuditTools.ts
+
+- MCP and external execution bridges
+  - glyphorMcpTools.ts, agent365Tools.ts, externalA2aTools.ts
+
+- Engineering and design execution
+  - frontendCodeTools.ts, scaffoldTools.ts, screenshotTools.ts, designSystemTools.ts, storybookTools.ts, figmaTools.ts, patchHarness.ts, v4aDiff.ts
+
+- Content and marketing execution
+  - contentTools.ts, socialMediaTools.ts, seoTools.ts, researchTools.ts, emailMarketingTools.ts, pulseTools.ts, marketingIntelTools.ts
+
+- Finance and legal execution
+  - revenueTools.ts, cashFlowTools.ts, costManagementTools.ts, legalTools.ts, docusignTools.ts
+
+- People and operations execution
+  - hrTools.ts, entraHRTools.ts, opsExtensionTools.ts, initiativeTools.ts, peerCoordinationTools.ts, teamOrchestrationTools.ts, executiveOrchestrationTools.ts
+
+### 11.2 Runtime Skill and Tool Engines (packages/agent-runtime/src)
+
+Recent runtime additions expanded capability governance, self-improvement, and execution safety:
+
+- Skills and learning
+  - skillLearning.ts, behavioralFingerprint.ts, subtaskRouter.ts, taskOutcomeHarvester.ts
+
+- Tool execution and quality control
+  - dynamicToolExecutor.ts, runtimeToolFactory.ts, toolRegistry.ts, toolExecutor.ts, toolReputationTracker.ts, toolSubsets.ts
+
+- Verification and constitutional controls
+  - constitutionalGovernor.ts, constitutionalPreCheck.ts, formalVerifier.ts, verifierRunner.ts, trustScorer.ts
+
+- Patch and workflow execution
+  - patchHarness.ts, v4aDiff.ts, workflowOrchestrator.ts, workflowTypes.ts, decisionChainTracker.ts
+
+### 11.3 Skills and Playbook Synchronization Layer
+
+Skill architecture now includes migration-backed playbook synchronization across departments (IT, marketing intelligence, design, finance, legal, executive), reflected in the March 2026 sync migrations listed in section 10.4.
+
+This means skills are no longer only static prompt concepts; they are persisted, versioned, and synchronized artifacts tied to execution and readiness evaluation.
 
 ## 12. Integrations by Domain
 

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Markdown from 'react-markdown';
 import ChatMarkdown from '../components/ChatMarkdown';
+import { DISPLAY_NAME_MAP } from '../lib/types';
 import { Orbit, Plus, Globe, Brain, Database, Paperclip, Copy, Check, ChevronDown, ChevronRight, Mic, MicOff, MessageSquarePlus, PanelLeftClose, PanelLeft, Search, Trash2 } from 'lucide-react';
 import { FaGithub } from 'react-icons/fa';
 import { Card } from '../components/ui';
@@ -81,6 +82,35 @@ interface Message {
     triangulation?: TriangulationResult;
     singleModel?: SingleModelResult;
   };
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const AGENT_SPEAKER_LABELS = Array.from(
+  new Set([
+    ...Object.keys(DISPLAY_NAME_MAP),
+    ...Object.values(DISPLAY_NAME_MAP),
+    'ora',
+    'assistant',
+  ]),
+)
+  .filter((label) => label.trim().length > 0)
+  .sort((left, right) => right.length - left.length)
+  .map((label) => escapeRegExp(label));
+
+const AGENT_SPEAKER_PREFIX_RE = AGENT_SPEAKER_LABELS.length
+  ? new RegExp(
+      `^(?:\\*\\*)?\\s*(?:${AGENT_SPEAKER_LABELS.join('|')})(?:\\s*\\([^\\n)]{1,80}\\))?\\s*(?:\\*\\*)?\\s*:\\s*`,
+      'i',
+    )
+  : null;
+
+function stripAssistantSpeakerPrefix(value: string): string {
+  const trimmed = value.trimStart();
+  if (!trimmed || !AGENT_SPEAKER_PREFIX_RE) return trimmed;
+  return trimmed.replace(AGENT_SPEAKER_PREFIX_RE, '');
 }
 
 type StreamPhase = 'idle' | 'streaming' | 'validating' | 'evaluating' | 'complete';
@@ -591,7 +621,7 @@ export default function OraChat() {
             data.map((m) => ({
               id: nextId(),
               role: m.role === 'user' ? 'user' : 'assistant',
-              content: m.content,
+              content: m.role === 'user' ? m.content : stripAssistantSpeakerPrefix(m.content),
               timestamp: new Date(m.created_at),
               attachments: m.attachments,
               metadata: normalizeMetadata(m.metadata),
@@ -867,7 +897,9 @@ export default function OraChat() {
               case 'chunk':
                 setMessages((prev) =>
                   prev.map((m) =>
-                    m.id === assistantId ? { ...m, content: m.content + (event.text ?? '') } : m,
+                    m.id === assistantId
+                      ? { ...m, content: stripAssistantSpeakerPrefix(m.content + (event.text ?? '')) }
+                      : m,
                   ),
                 );
                 break;
@@ -888,7 +920,7 @@ export default function OraChat() {
                     m.id === assistantId
                       ? {
                           ...m,
-                          content: event.data?.responseText ?? m.content,
+                          content: stripAssistantSpeakerPrefix(event.data?.responseText ?? m.content),
                           metadata: { ...m.metadata, singleModel: event.data?.modelRun },
                         }
                       : m,
@@ -905,7 +937,7 @@ export default function OraChat() {
                     m.id === assistantId
                       ? {
                           ...m,
-                          content: event.data?.selectedResponse ?? m.content,
+                          content: stripAssistantSpeakerPrefix(event.data?.selectedResponse ?? m.content),
                           metadata: { ...m.metadata, triangulation: event.data },
                         }
                       : m,
