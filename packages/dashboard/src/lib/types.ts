@@ -570,15 +570,15 @@ export const AGENT_SOUL: Record<string, { mission: string; persona: string; tone
 
 /* ── Agent skills / capabilities ── */
 export const AGENT_SKILLS: Record<string, string[]> = {
-  'chief-of-staff': ['briefing_compiler', 'decision_router', 'cross_agent_coordinator', 'escalation_tracker', 'weekly_sync_prep', 'conflict_detector'],
+  'chief-of-staff': ['cross-team-coordination', 'decision-routing'],
   cto: ['code-review', 'incident-response', 'platform-monitoring', 'tech-spec-writing'],
   cpo: ['usage_analyst', 'competitive_intel', 'roadmap_manager', 'rice_scorer', 'feature_spec_writer', 'product_proposer'],
   cfo: ['financial-reporting', 'budget-monitoring', 'revenue-analysis'],
   cmo: ['content_creator', 'social_media', 'seo_strategist', 'brand_positioning', 'growth_analytics', 'content_attribution', 'brand-management'],
   'vp-sales': ['account_research', 'roi_calculator', 'proposal_generator', 'pipeline_manager', 'market_sizer'],
   'vp-design': ['design-review', 'design-system-management', 'brand-management', 'ui-development'],
-  ops: ['agent_health_monitor', 'data_freshness_checker', 'cost_anomaly_detector', 'incident_manager', 'status_reporter'],
-  clo: ['regulatory_scanner', 'contract_reviewer', 'compliance_auditor', 'risk_assessor', 'policy_drafter', 'privacy_monitor'],
+  ops: ['system-monitoring', 'incident-response', 'platform-monitoring'],
+  clo: ['legal-review', 'compliance-monitoring', 'ip-management'],
   'vp-research': ['research_orchestrator', 'multi_wave_analysis', 'strategic_synthesis', 'brief_compiler', 'source_validator'],
   // Sub-team agents
   'platform-engineer': ['platform-monitoring', 'incident-response'],
@@ -595,13 +595,13 @@ export const AGENT_SKILLS: Record<string, string[]> = {
   'template-architect': ['design-system-management'],
   'competitive-research-analyst': ['competitor_tracking', 'product_teardown', 'pricing_analysis', 'feature_gap_detection'],
   'market-research-analyst': ['market_sizing', 'tam_sam_som', 'cohort_analysis', 'trend_forecasting'],
-  'head-of-hr': ['agent_onboarding', 'profile_validation', 'org_chart_management', 'agent_retirement', 'workforce_audit', 'email_provisioning', 'teams_setup'],
+  'head-of-hr': ['talent-management'],
   'm365-admin': ['tenant-administration'],
   'global-admin': ['access-management'],
   // Specialist agents
   'bob-the-tax-pro': ['budget-monitoring', 'tax-strategy'],
   'marketing-intelligence-analyst': ['competitive_campaigns', 'market_trend_analysis', 'channel_benchmarking', 'signal_intelligence'],
-  'adi-rose': ['action_item_tracking', 'meeting_prep', 'cross_department_liaison', 'operational_rhythm'],
+  'adi-rose': ['executive-support', 'cross-team-coordination'],
 };
 
 /* ── Role → tier mapping (for display) ── */

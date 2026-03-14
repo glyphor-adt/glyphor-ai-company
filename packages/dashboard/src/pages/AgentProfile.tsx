@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import Markdown from 'react-markdown';
 import {
   MdEmojiEvents, MdLocalFireDepartment, MdMenuBook, MdCelebration,
@@ -149,6 +149,7 @@ type Tab = 'overview' | 'performance' | 'memory' | 'messages' | 'skills' | 'worl
 
 export default function AgentProfile() {
   const { agentId } = useParams();
+  const location = useLocation();
   const [tab, setTab] = useState<Tab>('overview');
   const [agent, setAgent] = useState<AgentRow | null>(null);
   const [profile, setProfile] = useState<AgentProfile | null>(null);
@@ -249,7 +250,7 @@ export default function AgentProfile() {
   const displayName = agent.name ?? DISPLAY_NAME_MAP[agent.role] ?? agent.display_name;
   const titleText = ROLE_TITLE[agent.role] ?? agent.title ?? agent.role;
   const department = ROLE_DEPARTMENT[agent.role] ?? agent.department ?? '';
-  const effectiveReportsTo = ROLE_MANAGER_OVERRIDES[agent.role] ?? agent.reports_to ?? null;
+  const effectiveReportsTo = agent.reports_to ?? ROLE_MANAGER_OVERRIDES[agent.role] ?? null;
   const reportsToName = effectiveReportsTo
     ? DISPLAY_NAME_MAP[effectiveReportsTo] ?? effectiveReportsTo
     : agent.role === 'chief-of-staff' ? 'Kristina & Andrew (Founders)'
@@ -266,6 +267,14 @@ export default function AgentProfile() {
     { key: 'world-model', label: 'World Model' },
     { key: 'settings', label: 'Settings' },
   ];
+
+  useEffect(() => {
+    if (location.pathname.endsWith('/settings')) {
+      setTab('settings');
+      return;
+    }
+    setTab('overview');
+  }, [location.pathname, agent.role]);
 
   return (
     <div className="space-y-6">
@@ -452,7 +461,7 @@ function OverviewTab({
   const soul = AGENT_SOUL[agent.role];
   const tier = ROLE_TIER[agent.role] ?? 'Agent';
   const department = ROLE_DEPARTMENT[agent.role] ?? agent.department ?? '';
-  const effectiveReportsTo = ROLE_MANAGER_OVERRIDES[agent.role] ?? agent.reports_to ?? null;
+  const effectiveReportsTo = agent.reports_to ?? ROLE_MANAGER_OVERRIDES[agent.role] ?? null;
 
   useEffect(() => {
     apiCall('/api/activity_log?agent_role=' + encodeURIComponent(agent.role) + '&order=created_at.desc&limit=8')
@@ -1799,6 +1808,8 @@ function SettingsTab({
   const [budgetPerRun, setBudgetPerRun] = useState(agent.budget_per_run ?? 0.05);
   const [budgetDaily, setBudgetDaily] = useState(agent.budget_daily ?? 0.5);
   const [budgetMonthly, setBudgetMonthly] = useState(agent.budget_monthly ?? 15);
+  const [managerRole, setManagerRole] = useState(agent.reports_to ?? '');
+  const [allAgents, setAllAgents] = useState<AgentRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState('');
@@ -1826,6 +1837,14 @@ function SettingsTab({
   const ALL_PASS_TYPES = ['self_critique', 'consistency_check', 'factual_verification', 'goal_alignment', 'cross_model', 'value_analysis'] as const;
   const ALL_VERIFICATION_MODELS = VERIFICATION_MODELS;
 
+  const managerCandidates = allAgents
+    .filter((candidate) => candidate.role !== agent.role && candidate.status !== 'retired')
+    .sort((a, b) => {
+      const nameA = a.name ?? DISPLAY_NAME_MAP[a.role] ?? a.display_name ?? a.role;
+      const nameB = b.name ?? DISPLAY_NAME_MAP[b.role] ?? b.display_name ?? b.role;
+      return nameA.localeCompare(nameB);
+    });
+
   useEffect(() => {
     // Load reasoning config
     (async () => {
@@ -1844,6 +1863,17 @@ function SettingsTab({
       setReasoningLoading(false);
     })();
   }, [agent.role]);
+
+  useEffect(() => {
+    setManagerRole(agent.reports_to ?? '');
+  }, [agent.reports_to]);
+
+  useEffect(() => {
+    (async () => {
+      const agentsData = await apiCall('/api/agents?order=display_name.asc').catch(() => []);
+      setAllAgents(Array.isArray(agentsData) ? (agentsData as AgentRow[]) : []);
+    })();
+  }, []);
 
   const handleSaveReasoning = async () => {
     setSavingReasoning(true);
@@ -1943,14 +1973,33 @@ function SettingsTab({
       const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, temperature, max_turns: maxTurns, thinking_enabled: thinkingEnabled, budget_per_run: budgetPerRun, budget_daily: budgetDaily, budget_monthly: budgetMonthly }),
+        body: JSON.stringify({
+          model,
+          temperature,
+          max_turns: maxTurns,
+          thinking_enabled: thinkingEnabled,
+          budget_per_run: budgetPerRun,
+          budget_daily: budgetDaily,
+          budget_monthly: budgetMonthly,
+          reports_to: managerRole || null,
+        }),
       });
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({ error: resp.statusText }));
         console.error('Save failed:', err);
         return;
       }
-      onUpdate((prev) => prev ? { ...prev, model, temperature, max_turns: maxTurns, thinking_enabled: thinkingEnabled, budget_per_run: budgetPerRun, budget_daily: budgetDaily, budget_monthly: budgetMonthly } : prev);
+      onUpdate((prev) => prev ? {
+        ...prev,
+        model,
+        temperature,
+        max_turns: maxTurns,
+        thinking_enabled: thinkingEnabled,
+        budget_per_run: budgetPerRun,
+        budget_daily: budgetDaily,
+        budget_monthly: budgetMonthly,
+        reports_to: managerRole || null,
+      } : prev);
       setSaved(true);
       setTimeout(() => setSaved(false), 1200);
     } finally {
@@ -2104,7 +2153,7 @@ function SettingsTab({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <label className="space-y-1">
             <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Model</span>
             <select value={model} onChange={(e) => setModel(e.target.value)} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40">
@@ -2115,6 +2164,24 @@ function SettingsTab({
                   ))}
                 </optgroup>
               ))}
+            </select>
+          </label>
+          <label className="space-y-1">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Manager</span>
+            <select
+              value={managerRole}
+              onChange={(e) => setManagerRole(e.target.value)}
+              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40"
+            >
+              <option value="">Founders / No manager</option>
+              {managerCandidates.map((candidate) => {
+                const managerName = candidate.name ?? DISPLAY_NAME_MAP[candidate.role] ?? candidate.display_name ?? candidate.role;
+                return (
+                  <option key={candidate.role} value={candidate.role}>
+                    {managerName} ({candidate.role})
+                  </option>
+                );
+              })}
             </select>
           </label>
           <label className="space-y-1">

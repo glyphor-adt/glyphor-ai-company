@@ -125,14 +125,13 @@ body {
 .dark .mesh-gradient::before {
   content: '';
   position: absolute;
-  inset: -24px;
-  background-image: url('/3d-render.jpg');
+  inset: 0;
+  background-image: none;
   background-position: center center;
   background-size: cover;
   background-repeat: no-repeat;
-  filter: blur(14px);
-  transform: scale(1.06);
-  transform-origin: center;
+  filter: none;
+  transform: none;
   pointer-events: none;
 }
 
@@ -153,6 +152,20 @@ body {
   position: relative;
   isolation: auto;
   background: transparent;
+}
+
+.dark .dashboard-main {
+  background-image: url('/freepik__talk__24479.png');
+  background-position: top center;
+  background-size: 100% auto;
+  background-repeat: no-repeat;
+  background-attachment: local;
+}
+
+@media (min-width: 1400px) {
+  .dark .dashboard-main {
+    background-size: auto 100%;
+  }
 }
 
 /* Global tone-down: neutralize cyan border utility classes in dark mode */
