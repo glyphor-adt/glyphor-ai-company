@@ -228,6 +228,14 @@ export default function AgentProfile() {
     })();
   }, [agentId]);
 
+  useEffect(() => {
+    if (location.pathname.endsWith('/settings')) {
+      setTab('settings');
+      return;
+    }
+    setTab('overview');
+  }, [location.pathname, agentId]);
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -267,14 +275,6 @@ export default function AgentProfile() {
     { key: 'world-model', label: 'World Model' },
     { key: 'settings', label: 'Settings' },
   ];
-
-  useEffect(() => {
-    if (location.pathname.endsWith('/settings')) {
-      setTab('settings');
-      return;
-    }
-    setTab('overview');
-  }, [location.pathname, agent.role]);
 
   return (
     <div className="space-y-6">
