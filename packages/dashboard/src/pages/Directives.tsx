@@ -145,6 +145,19 @@ function progressPercent(assignments: WorkAssignment[]): number {
   return Math.round((assignments.filter(a => a.status === 'completed').length / assignments.length) * 100);
 }
 
+function cleanText(value: string | null | undefined): string {
+  if (!value) return '';
+  return value
+    .replace(/â€”/g, '—')
+    .replace(/â€“/g, '–')
+    .replace(/â€œ/g, '“')
+    .replace(/â€\u009d/g, '”')
+    .replace(/â€˜/g, '‘')
+    .replace(/â€™/g, '’')
+    .replace(/â€¦/g, '…')
+    .replace(/Â/g, '');
+}
+
 /* ── Page ──────────────────────────────────────── */
 
 export default function Directives() {
@@ -594,7 +607,7 @@ function DirectiveCard({
       <button onClick={onToggle} className="flex w-full items-start justify-between text-left gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <p className="text-sm font-semibold text-txt-primary truncate">{d.title}</p>
+            <p className="text-sm font-semibold text-txt-primary truncate">{cleanText(d.title)}</p>
             {d.status === 'paused' && (
               <span className="rounded-full border border-prism-elevated/30 bg-prism-elevated/15 px-1.5 py-0.5 text-[10px] font-medium text-prism-elevated">
                 paused
@@ -650,7 +663,7 @@ function DirectiveCard({
           {/* Latest progress note */}
           {lastNote && (
             <p className="mt-2 text-[11px] text-txt-muted leading-relaxed truncate">
-              {lastNote}
+              {cleanText(lastNote)}
             </p>
           )}
         </div>
@@ -665,7 +678,7 @@ function DirectiveCard({
           {/* Description */}
           <div>
             <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-1">Description</p>
-            <div className="text-sm text-txt-secondary leading-relaxed prose-chat"><Markdown>{d.description}</Markdown></div>
+            <div className="text-sm text-txt-secondary leading-relaxed prose-chat"><Markdown>{cleanText(d.description)}</Markdown></div>
           </div>
 
           {/* Metadata */}
@@ -701,7 +714,7 @@ function DirectiveCard({
 
             const renderAssignment = (a: WorkAssignment, indent = false) => {
               const name = DISPLAY_NAME_MAP[a.assigned_to] ?? DISPLAY_NAME_MAP[a.assigned_to.toLowerCase()] ?? a.assigned_to;
-              const desc = a.task_description ?? '';
+              const desc = cleanText(a.task_description);
               const isLong = desc.length > 200;
 
               return (
@@ -746,12 +759,12 @@ function DirectiveCard({
                   <details className="mt-2">
                     <summary className="text-[10px] font-medium text-cyan cursor-pointer">View Output</summary>
                     <div className="mt-1 text-[11px] text-txt-muted leading-relaxed prose-chat border-t border-border pt-2">
-                      <Markdown>{a.agent_output}</Markdown>
+                      <Markdown>{cleanText(a.agent_output)}</Markdown>
                     </div>
                   </details>
                 )}
                 {a.evaluation && (
-                  <p className="mt-1.5 text-[10px] text-txt-faint italic">{a.evaluation}</p>
+                  <p className="mt-1.5 text-[10px] text-txt-faint italic">{cleanText(a.evaluation)}</p>
                 )}
               </div>
               );
@@ -867,7 +880,7 @@ function DirectiveCard({
               <div className="space-y-1">
                 {d.progress_notes.map((note, i) => (
                   <div key={i} className="text-[11px] text-txt-muted leading-relaxed prose-chat">
-                    <Markdown>{note}</Markdown>
+                    <Markdown>{cleanText(note)}</Markdown>
                   </div>
                 ))}
               </div>
@@ -878,7 +891,7 @@ function DirectiveCard({
           {d.completion_summary && (
             <div className="rounded-lg border border-prism-fill-2/20 bg-prism-tint-2 px-3 py-2">
               <p className="text-[11px] font-medium text-prism-teal mb-1">Completion Summary</p>
-              <div className="text-[12px] text-txt-secondary leading-relaxed prose-chat"><Markdown>{d.completion_summary}</Markdown></div>
+              <div className="text-[12px] text-txt-secondary leading-relaxed prose-chat"><Markdown>{cleanText(d.completion_summary)}</Markdown></div>
             </div>
           )}
 
@@ -986,7 +999,7 @@ function ProposedDirectiveCard({
             />
           )}
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-txt-primary">{d.title}</p>
+            <p className="text-sm font-semibold text-txt-primary">{cleanText(d.title)}</p>
               <p className="mt-0.5 text-[11px] text-prism-violet">
               Proposed by Sarah · {timeAgo(d.created_at)}
             </p>
@@ -1005,7 +1018,7 @@ function ProposedDirectiveCard({
         {d.proposal_reason && (
           <div className="mt-3 rounded-lg border border-prism-violet/15 bg-prism-tint-5 px-3 py-2">
             <p className="text-[10px] font-medium text-prism-violet mb-0.5">Why this is needed</p>
-            <p className="text-[12px] text-txt-secondary leading-relaxed">{d.proposal_reason}</p>
+            <p className="text-[12px] text-txt-secondary leading-relaxed">{cleanText(d.proposal_reason)}</p>
           </div>
         )}
 
@@ -1021,7 +1034,7 @@ function ProposedDirectiveCard({
         {/* Source directive link */}
         {d.source_directive_id && d.source_directive && (
           <p className="mt-1 text-[11px] text-txt-faint">
-            Follow-up from: <span className="text-cyan">{d.source_directive.title}</span>
+            Follow-up from: <span className="text-cyan">{cleanText(d.source_directive.title)}</span>
           </p>
         )}
 
@@ -1215,7 +1228,7 @@ function EditApproveModal({
           {directive.proposal_reason && (
             <div className="rounded-lg border border-prism-violet/15 bg-prism-tint-5 px-3 py-2">
               <p className="text-[10px] font-medium text-prism-violet mb-0.5">Sarah&apos;s reasoning</p>
-              <p className="text-[11px] text-txt-muted leading-relaxed">{directive.proposal_reason}</p>
+              <p className="text-[11px] text-txt-muted leading-relaxed">{cleanText(directive.proposal_reason)}</p>
             </div>
           )}
         </div>

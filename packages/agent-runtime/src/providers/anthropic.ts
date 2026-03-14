@@ -125,10 +125,6 @@ export class AnthropicAdapter implements ProviderAdapter {
       };
     }
 
-    if (modelConfig?.enableCitations) {
-      createParams.citations = { enabled: true };
-    }
-
     const directCreateParams = createParams as unknown as Parameters<Anthropic['messages']['create']>[0];
     const vertexCreateParams = createParams as unknown as Parameters<AnthropicVertex['messages']['create']>[0];
 

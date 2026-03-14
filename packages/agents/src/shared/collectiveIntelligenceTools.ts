@@ -28,6 +28,39 @@ function getMissingDoctrineSections(
   return REQUIRED_COMPANY_DOCTRINE_SECTIONS.filter((section) => !activeSections.has(section));
 }
 
+function normalizeDoctrineToken(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function buildDoctrineSearchTokens(rawFilter?: string): string[] {
+  if (!rawFilter) return [];
+
+  const tokens = new Set<string>();
+  const lower = rawFilter.trim().toLowerCase();
+  if (!lower) return [];
+
+  tokens.add(lower);
+  tokens.add(normalizeDoctrineToken(lower));
+
+  const basename = lower.split(/[\\/]/).pop() ?? lower;
+  const withoutExtension = basename.replace(/\.md$/i, '');
+  if (withoutExtension !== basename) {
+    tokens.add(withoutExtension);
+    tokens.add(withoutExtension.replace(/[_-]+/g, ' '));
+    tokens.add(normalizeDoctrineToken(withoutExtension));
+  }
+
+  // Common compatibility alias so filename lookups like GLYPHOR_BRAND_GUIDE.md
+  // resolve brand guidance rows even if the section slug differs.
+  if (lower.includes('brand_guide') || lower.includes('brand guide')) {
+    tokens.add('brand');
+    tokens.add('brand guide');
+    tokens.add('glyphor brand guide');
+  }
+
+  return [...tokens].filter(Boolean);
+}
+
 export function createCollectiveIntelligenceTools(
   memory: CompanyMemoryStore,
 ): ToolDefinition[] {
@@ -213,6 +246,7 @@ export function createCollectiveIntelligenceTools(
       execute: async (params): Promise<ToolResult> => {
         const audience = params.audience as string | undefined;
         const sectionFilter = (params.section_filter as string | undefined)?.trim().toLowerCase();
+        const searchTokens = buildDoctrineSearchTokens(sectionFilter);
         const sections = await ci.getKnowledgeBaseSections();
         const missingRequiredSections = getMissingDoctrineSections(sections);
 
@@ -237,11 +271,27 @@ export function createCollectiveIntelligenceTools(
           if (audience && section.audience !== 'all' && section.audience !== audience) return false;
           if (!sectionFilter) return true;
 
-          return (
-            section.section.toLowerCase().includes(sectionFilter) ||
-            section.title.toLowerCase().includes(sectionFilter) ||
-            section.content.toLowerCase().includes(sectionFilter)
-          );
+          const sectionText = section.section.toLowerCase();
+          const titleText = section.title.toLowerCase();
+          const contentText = section.content.toLowerCase();
+          const sectionNormalized = normalizeDoctrineToken(sectionText);
+          const titleNormalized = normalizeDoctrineToken(titleText);
+          const contentNormalized = normalizeDoctrineToken(contentText);
+
+          return searchTokens.some((token) => {
+            if (!token) return false;
+            const normalizedToken = normalizeDoctrineToken(token);
+
+            return (
+              sectionText.includes(token) ||
+              titleText.includes(token) ||
+              contentText.includes(token) ||
+              (normalizedToken.length > 0 &&
+                (sectionNormalized.includes(normalizedToken) ||
+                  titleNormalized.includes(normalizedToken) ||
+                  contentNormalized.includes(normalizedToken)))
+            );
+          });
         });
 
         return {

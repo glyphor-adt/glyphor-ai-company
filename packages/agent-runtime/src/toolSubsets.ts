@@ -39,6 +39,11 @@ const PINNED_CAP_TOOLS = new Set<string>([
   'list_mail_folders',
 ]);
 
+function isAgent365Declaration(decl: ToolDeclaration): boolean {
+  const description = typeof decl.description === 'string' ? decl.description : '';
+  return description.startsWith('[Agent365 mcp_') || description.startsWith('[Agent 365 mcp_');
+}
+
 function withWorkTools(...tools: string[]): string[] {
   return Array.from(new Set([...WORK_COMPLETION_TOOLS, ...tools]));
 }
@@ -171,8 +176,9 @@ export function filterToolDeclarations(
   if (result.length > MAX_TOOLS) {
     console.warn(`[ToolSubsets] Capping tools from ${result.length} to ${MAX_TOOLS}`);
     const pinned = result.filter((d) => PINNED_CAP_TOOLS.has(d.name));
-    const nonPinned = result.filter((d) => !PINNED_CAP_TOOLS.has(d.name));
-    result = [...pinned, ...nonPinned].slice(0, MAX_TOOLS);
+    const agent365 = result.filter((d) => !PINNED_CAP_TOOLS.has(d.name) && isAgent365Declaration(d));
+    const nonPinned = result.filter((d) => !PINNED_CAP_TOOLS.has(d.name) && !isAgent365Declaration(d));
+    result = [...pinned, ...agent365, ...nonPinned].slice(0, MAX_TOOLS);
   }
 
   return result;

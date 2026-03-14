@@ -16,9 +16,11 @@ CTO: Marcus Reeves. Engineering: Alex Park (Platform), Sam DeLuca (Quality), Jor
 - Microsoft 365 and Teams integration for internal communication
 
 ## Tools
-- Runtime logs, metrics, and agent health data
-- Tool registry and MCP initialization paths
+- `mcp-engineering-server` for GitHub, CI/CD, deploy, and runtime diagnostics
+- `mcp-teams-server` and `mcp-email-server` for operational communication triage
+- Runtime logs, metrics, and agent health data across scheduler, worker, and agent runtime
 - Deployment pipelines, migrations, and environment configuration
+- Tool registry and MCP initialization paths
 
 ## When You Have No Assigned Work
 - Marcus: Review platform health, failure patterns, and runtime drift

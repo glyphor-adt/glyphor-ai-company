@@ -138,11 +138,11 @@ Glyphor's voice is **confident, dry, precise, and unpretentious.** We sound like
 
 | Audience | Message | Proof point |
 |----------|---------|-------------|
-| SMB operators | "An AI marketing department that lives in your Slack workspace." | Slack-first onboarding, named agents, full audit trail. |
-| Engineering leaders | "Replace the team you can't hire." | 28 active agents, 24/7 operation, $0 payroll, cross-model verification. |
-| CFOs / budget holders | "The AI team costs what the compute costs." | Pay-per-use, no headcount overhead, transparent cost tracking per agent. |
-| Founders / operators | "Set direction. Ship sleep." | Founder issues directive → AI company decomposes, delegates, executes, delivers. |
-| Developers | "This isn't another framework to wire together." | Monorepo, single container, no Kubernetes. Agents are employees, not scripts. |
+| SMB founder-led teams (primary) | "Add your AI marketing department to Slack. Get output this week." | Slack-first onboarding, named agents, approval flow in-thread, no extra dashboard required. |
+| SMB marketing leads | "Consistent content without hiring a full team." | Weekly content output, campaign execution, and role-based AI specialists. |
+| Founders / operators | "Set direction. Ship sleep." | Founder issues directive → AI team decomposes, delegates, executes, delivers. |
+| Budget owners | "A full marketing department at a predictable monthly cost." | Target pricing posture $500-750/month with clear scope and cadence. |
+| Technical evaluators | "The architecture is governed, observable, and auditable." | Authority model, run logging, traceability, and policy-backed execution. |
 
 ### Competitive positioning
 
@@ -405,6 +405,15 @@ Each ad follows the same structure:
 
 ## 09 — Channel guidelines
 
+### Product channel (Slack)
+
+| Element | Guideline |
+|---------|-----------|
+| Primary surface | Slack is the primary customer experience for the AI Marketing Department. Keep customer workflows in Slack first. |
+| Interaction model | Requests, draft approvals, and feedback should happen in-thread with minimal context switching. |
+| Language | Customer-facing copy says "AI marketing department" and avoids internal terms (Pulse, Fuse, Cockpit, MCP). |
+| Output expectation | Show weekly cadence: social posts, blog drafts, campaign assets, and summaries delivered directly in Slack. |
+
 ### Web (glyphor.ai)
 
 | Element | Guideline |
@@ -421,6 +430,8 @@ Each ad follows the same structure:
 |----------|--------|------------|
 | LinkedIn | Long-form thought leadership + "Still You" campaign | Most formal. Lead with industry insight, land on Glyphor's position. |
 | X / Twitter | Short, dry, provocative | Most irreverent. One-liners. "Your copilot just asked you six questions about the thing you asked it to do." |
+| Instagram | Reels, carousels, campaign cuts | Visual-first storytelling. Show outcomes and behind-the-scenes campaign artifacts, not architecture diagrams. |
+| Facebook | SMB founder/community posts, campaign distribution | Practical and direct. Emphasize weekly output, proof, and clear calls to action. |
 | YouTube | Technical deep-dives, campaign videos | Show the system working. Real agent runs, real output. |
 
 ### Email

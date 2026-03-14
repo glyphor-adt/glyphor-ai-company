@@ -412,9 +412,11 @@ function mcpToolToToolDefinition(
     mcpTool.inputSchema.required,
   );
 
+  const baseDescription = (mcpTool.description ?? mcpTool.name).trim();
+
   return {
     name: mcpTool.name,
-    description: mcpTool.description ?? `[Agent 365 ${serverName}] ${mcpTool.name}`,
+    description: `[Agent365 ${serverName}] ${baseDescription}`,
     parameters: params,
     execute: async (callParams: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> => {
       try {

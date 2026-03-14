@@ -1,4 +1,4 @@
-# DEPRECATED - Do not use
+# DEPRECATED — Do not use
 
 All company knowledge is in the company_knowledge_base table.
 This file is no longer maintained and contains outdated strategy.

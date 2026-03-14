@@ -13,6 +13,12 @@ import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { isKnownToolAsync, invalidateGrantCache } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
 
+const KNOWLEDGE_ARTIFACT_PATTERN = /(sharepoint|toolkit|playbook|guide|guidelines|primer|document|deck|brief|policy|template|style\s*guide|brand\s*guide|asset\s*library)/i;
+
+function looksLikeKnowledgeArtifact(value: string): boolean {
+  return KNOWLEDGE_ARTIFACT_PATTERN.test(value);
+}
+
 export function createToolRequestTools(): ToolDefinition[] {
   return [
     {
@@ -266,6 +272,17 @@ export function createToolRequestTools(): ToolDefinition[] {
         const description = params.description as string;
         const justification = params.justification as string;
         const useCase = params.use_case as string;
+        const combinedRequestText = `${toolName}\n${description}\n${justification}\n${useCase}`;
+
+        if (looksLikeKnowledgeArtifact(combinedRequestText)) {
+          return {
+            success: false,
+            error:
+              'This looks like a document/knowledge access request (for example: toolkit/guide/primer), not a missing executable tool. ' +
+              'Use SharePoint tools first (mcp_ODSPRemoteServer/findFileOrFolder, mcp_ODSPRemoteServer/listDocumentLibrariesInSite), ' +
+              'or call list_my_tools/include_known_tools=true and request_tool_access with the exact existing tool name.',
+          };
+        }
 
         // Validate tool name format
         if (!/^[a-z][a-z0-9_]{2,63}$/.test(toolName)) {
@@ -428,6 +445,14 @@ export function createToolRequestTools(): ToolDefinition[] {
         const agentRole = ctx.agentRole;
 
         if (!(await isKnownToolAsync(toolName))) {
+          if (looksLikeKnowledgeArtifact(`${toolName}\n${reason}`)) {
+            return {
+              success: false,
+              error:
+                `"${toolName}" appears to be a document/resource name, not a tool. ` +
+                'Search SharePoint via existing ODSP tools (for example mcp_ODSPRemoteServer/findFileOrFolder), then request access to the exact tool name if needed.',
+            };
+          }
           return {
             success: false,
             error: `Tool "${toolName}" does not exist in the system. Use request_new_tool to request it be built.`,
