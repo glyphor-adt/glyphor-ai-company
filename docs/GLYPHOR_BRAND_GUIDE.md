@@ -4,7 +4,7 @@
 > Extends the Prism High-Fidelity Pattern (v5.6) with brand strategy, messaging, voice & tone, co-branding, accessibility, and channel-specific usage guidelines.
 >
 > **Owner:** CMO (Maya Brooks) + VP Design (Mia Tanaka)
-> **Last updated:** March 10, 2026
+> **Last updated:** March 13, 2026
 > **Status:** ACTIVE — all agents, campaigns, and external materials must conform to this document.
 
 ---
@@ -51,7 +51,7 @@ We are allergic to corporate AI hype. The industry is drowning in breathless ann
 
 ### Autonomous
 
-We don't just talk about AI doing work — we are a company where AI does the work. This isn't aspirational. It's operational. Our 44 agents run 24/7 on a heartbeat cycle whether or not anyone is watching.
+We don't just talk about AI doing work — we are a company where AI does the work. This isn't aspirational. It's operational. Our 28 active AI agents run 24/7 on a heartbeat cycle whether or not anyone is watching.
 
 **Copy:** Use present tense. "Our AI team ships work" not "Our AI can help you ship work." Never use conditional language ("could," "might," "helps you") when describing what Glyphor does.
 
@@ -93,7 +93,7 @@ Glyphor's voice is **confident, dry, precise, and unpretentious.** We sound like
 
 **Say less.** If a sentence doesn't earn its place, cut it. Our headlines are short. Our body copy is lean. We don't pad.
 
-**Be specific.** "44 agents operating autonomously across 9 departments" beats "a powerful AI workforce solution." Numbers, architecture, evidence.
+**Be specific.** "28 active AI agents operating autonomously across 9 departments" beats "a powerful AI workforce solution." Numbers, architecture, evidence.
 
 **Skip the hype.** Never use: "revolutionary," "game-changing," "cutting-edge," "next-gen," "supercharge," "turbocharge," "unlock," "leverage," "empower." These words are banned.
 
@@ -106,9 +106,9 @@ Glyphor's voice is **confident, dry, precise, and unpretentious.** We sound like
 | Context | Tone | Example |
 |---------|------|---------|
 | Marketing / ads | Dry, irreverent, deadpan | "Everyone else built a copilot. We built a company." |
-| Landing pages | Confident, clear, architectural | "44 AI agents. 9 departments. 1 heartbeat." |
+| Landing pages | Confident, clear, architectural | "28 AI agents. 9 departments. 1 heartbeat." |
 | Technical docs | Precise, dense, unadorned | "The heartbeat cycle fires every 10 minutes, scanning for new directives, dispatched assignments, and proactive objectives." |
-| Enterprise sales | Authoritative, evidence-backed | "Every agent run is logged with full traceability: trigger, context, model, tools, output, quality score, cost, and duration." |
+| Sales conversations (SMB) | Authoritative, evidence-backed | "Every agent run is logged with full traceability: trigger, context, model, tools, output, quality score, cost, and duration." |
 | Agent communications | Warm, professional, personality-driven | Each agent has a distinct voice calibrated to their role. Sarah is structured and decisive. Marcus is precise and technical. Maya is creative and direct. |
 | Error states / empty states | Honest, calm, never cute | "No data for this period" not "Oops! Looks like there's nothing here yet! 🤷" |
 
@@ -138,8 +138,8 @@ Glyphor's voice is **confident, dry, precise, and unpretentious.** We sound like
 
 | Audience | Message | Proof point |
 |----------|---------|-------------|
-| Enterprise IT | "AI agents that fit your org chart, not the other way around." | Native Teams/M365 integration, tiered authority, full audit trail. |
-| Engineering leaders | "Replace the team you can't hire." | 44 agents, 24/7 operation, $0 payroll, cross-model verification. |
+| SMB operators | "An AI marketing department that lives in your Slack workspace." | Slack-first onboarding, named agents, full audit trail. |
+| Engineering leaders | "Replace the team you can't hire." | 28 active agents, 24/7 operation, $0 payroll, cross-model verification. |
 | CFOs / budget holders | "The AI team costs what the compute costs." | Pay-per-use, no headcount overhead, transparent cost tracking per agent. |
 | Founders / operators | "Set direction. Ship sleep." | Founder issues directive → AI company decomposes, delegates, executes, delivers. |
 | Developers | "This isn't another framework to wire together." | Monorepo, single container, no Kubernetes. Agents are employees, not scripts. |
@@ -413,7 +413,7 @@ Each ad follows the same structure:
 | Hero | Single statement headline in Agency. No hero image — use spectral mesh canvas as background. |
 | CTAs | Hyper Cyan fill, dark text. One primary CTA per section maximum. |
 | Product screenshots | Real dashboard screenshots on Prism Midnight. Never mockups. |
-| Social proof | Metrics and architecture, not testimonials. "44 agents, 24/7, $0 payroll." |
+| Social proof | Metrics and architecture, not testimonials. "28 active agents, 24/7, $0 payroll." |
 
 ### Social media
 
@@ -428,7 +428,7 @@ Each ad follows the same structure:
 | Type | Tone | Format |
 |------|------|--------|
 | Product updates | Direct, factual | "Glyphor now does X. Here's how." No preamble. |
-| Enterprise outreach | Authoritative, evidence-led | Lead with the problem their org has. Land on the architecture that solves it. |
+| SMB outreach | Authoritative, evidence-led | Lead with founder pain and speed-to-value in Slack. Land on concrete output delivered this week. |
 | Nurture / drip | Conversational, specific | Each email focuses on one capability with one concrete example. |
 
 ### Presentations
@@ -436,7 +436,7 @@ Each ad follows the same structure:
 | Context | Theme | Notes |
 |---------|-------|-------|
 | Investor deck | Prism Midnight | Architecture diagrams, market sizing, financial metrics. No fluff slides. |
-| Enterprise sales | Prism Midnight | Lead with their problem. Show agent org chart mapped to their org chart. |
+| SMB sales | Prism Midnight | Lead with founder pain. Show Slack workflow, output examples, and clear pricing guardrails. |
 | Conference talks | Prism Midnight | Technical depth. Show real code, real dashboards, real agent output. |
 
 ### Swag

@@ -151,7 +151,7 @@ Development acceleration engine. Powers internal platform development. Not an ex
 Future initiative. Not active. Not in scope.
 
 ## Cockpit Dashboard (INTERNAL)
-Internal command center at app.glyphor.ai. Manages all 30 agents, orchestration, governance, cost tracking, quality control. Not customer-facing.');
+Internal command center at app.glyphor.ai. Manages all 28 active AI agents, orchestration, governance, cost tracking, quality control. Not customer-facing.');
 
 -- ============================================================
 -- STEP 1F: FOUNDERS
@@ -389,7 +389,7 @@ INSERT INTO founder_directives (
   assigned_to, deadline
 ) VALUES (
   '"Still You" Marketing Campaign Launch',
-  E'HIGH: Launch "Still You" campaign across social channels. Dry, sarcastic, instantly recognizable.\n\nAssignments for Sarah to decompose:\n1. Maya (CMO): Own rollout plan. Cadence: all 6 at once or stagger over 2 weeks? Content calendar. Build to crescendo.\n2. Kai (Social Media): Schedule and publish campaign assets. Monitor engagement. Engage with copilot frustration stories. Tone: dry, never defensive.\n3. Lisa (SEO): Target keywords for campaign blog post — "copilot limitations," "copilot vs autonomous AI," "AI that does the work."\n4. Tyler (Content): Blog post plus 3 follow-ups: "Copilot Fatigue" thought leadership, "What autonomous AI actually means" explainer, "How 30 agents run a company" technical narrative.\n5. Leo (UI/UX): Campaign mini-site at glyphor.ai/stillyou. 6 ads scrollable. Prism Midnight. CTA to product page.\n\nDepends on: Directive 1 (brand assets) and Directive 3 (landing page).\nSuccess: All 6 ads published. Blog live. Landing page live. Engagement tracked daily for 2 weeks.',
+  E'HIGH: Launch "Still You" campaign across social channels. Dry, sarcastic, instantly recognizable.\n\nAssignments for Sarah to decompose:\n1. Maya (CMO): Own rollout plan. Cadence: all 6 at once or stagger over 2 weeks? Content calendar. Build to crescendo.\n2. Kai (Social Media): Schedule and publish campaign assets. Monitor engagement. Engage with copilot frustration stories. Tone: dry, never defensive.\n3. Lisa (SEO): Target keywords for campaign blog post — "copilot limitations," "copilot vs autonomous AI," "AI that does the work."\n4. Tyler (Content): Blog post plus 3 follow-ups: "Copilot Fatigue" thought leadership, "What autonomous AI actually means" explainer, "How 28 agents run a company" technical narrative.\n5. Leo (UI/UX): Campaign mini-site at glyphor.ai/stillyou. 6 ads scrollable. Prism Midnight. CTA to product page.\n\nDepends on: Directive 1 (brand assets) and Directive 3 (landing page).\nSuccess: All 6 ads published. Blog live. Landing page live. Engagement tracked daily for 2 weeks.',
   'high', 'active', 'founder', 'kristina',
   'chief-of-staff', NOW() + INTERVAL '14 days'
 );
@@ -702,4 +702,4 @@ Monitor Sarah's first heartbeat pass. Within 10-30 minutes she should detect the
 | 6 | Delete 14 orphaned brief files + clean DB | Marcus/Jordan | 5 min |
 | 7 | Verify + deploy + monitor Sarah's first pass | Marcus/Atlas | 15 min |
 
-**Total: ~90 minutes.** After this, 30 agents know the real company strategy, have 5 active directives to execute, and have standing orders that generate recurring work without founder intervention.
+**Total: ~90 minutes.** After this, 28 active agents know the real company strategy, have 5 active directives to execute, and have standing orders that generate recurring work without founder intervention.

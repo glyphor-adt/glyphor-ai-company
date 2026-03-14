@@ -1597,7 +1597,7 @@ function ChainOfThoughtPanel() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="e.g. 'Should we pivot from B2C to B2B enterprise sales?'"
+              placeholder="e.g. 'Should we narrow ICP to founder-led SMB teams already on Slack?'"
               className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-cyan focus:outline-none"
               onKeyDown={(e) => e.key === 'Enter' && launch()}
             />
