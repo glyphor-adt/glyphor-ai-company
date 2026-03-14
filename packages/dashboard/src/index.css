@@ -48,6 +48,8 @@
   --color-shimmer: rgb(var(--prism-accent-1) / 0.1);
   --scrollbar-thumb: rgba(255, 255, 255, 0.12);
   --scrollbar-hover: rgba(255, 255, 255, 0.2);
+  --glass-filter: blur(30px) saturate(100%) contrast(1) brightness(1);
+  --glass-bg: rgba(255, 255, 255, 0.15);
   /* Accent colors – bright shades from Prism */
   --cyan: var(--prism-accent-1);
   --azure: var(--prism-accent-3);
@@ -264,9 +266,9 @@ button, a[role="button"], .glass-btn {
 
 /* Glass ghost button (secondary actions) */
 .dark .glass-btn-ghost {
-  background: rgba(0, 0, 0, 0.30);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
   border: 1px solid var(--color-border);
   box-shadow: none;
 }
@@ -278,10 +280,10 @@ button, a[role="button"], .glass-btn {
 
 /* Tab bar / segmented control */
 .dark .glass-tabs {
-  background: rgba(0, 0, 0, 0.30);
+  background: var(--glass-bg);
   border-color: var(--color-border);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
 }
 
 .glass-tabs {
@@ -321,16 +323,16 @@ input:focus, textarea:focus, select:focus {
 
 /* ─── Dark Mode Card ─────────────────────────── */
 .dark .glass-card {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(12, 16, 28, 0.34) 100%) !important;
+  background: var(--glass-bg) !important;
   border: 1px solid rgba(255, 255, 255, 0.18) !important;
   box-shadow:
     0 14px 40px rgba(0, 0, 0, 0.42),
     inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  backdrop-filter: blur(22px) saturate(150%);
-  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
 }
 .dark .glass-card:hover {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(12, 16, 28, 0.30) 100%) !important;
+  background: var(--glass-bg) !important;
   border: 1px solid rgba(255, 255, 255, 0.22) !important;
   box-shadow:
     0 18px 46px rgba(0, 0, 0, 0.46),
@@ -347,13 +349,13 @@ input:focus, textarea:focus, select:focus {
 }
 
 .dark .glass-raised {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(8, 12, 22, 0.28) 100%) !important;
+  background: var(--glass-bg) !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
   box-shadow:
     0 10px 26px rgba(0, 0, 0, 0.32),
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(18px) saturate(145%);
-  -webkit-backdrop-filter: blur(18px) saturate(145%);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
 }
 
 .stat-card-accent {
@@ -374,9 +376,9 @@ input:focus, textarea:focus, select:focus {
 }
 
 .dark .stat-card {
-  background: rgba(0, 0, 0, 0.30) !important;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: var(--glass-bg) !important;
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
 }
 
 /* ─── Gradient Stat Cards (reference design) ── */
@@ -457,7 +459,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .dark .banner-wrapper {
-  background: rgba(0, 0, 0, 0.30);
+  background: var(--glass-bg);
   border: 1px solid var(--color-border);
   box-shadow: none;
 }
@@ -469,9 +471,9 @@ input:focus, textarea:focus, select:focus {
 
 /* ─── Workforce Section ───────────────── */
 .workforce-section {
-  background: rgba(0, 0, 0, 0.30);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
   border: 1px solid var(--color-border);
   box-shadow: none;
 }
@@ -504,11 +506,11 @@ input:focus, textarea:focus, select:focus {
 }
 
 .agent-bar--dark {
-  background: rgba(0, 0, 0, 0.30) !important;
+  background: var(--glass-bg) !important;
   border-color: var(--color-border) !important;
   box-shadow: none;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
 }
 
 .agent-bar--light {
@@ -576,10 +578,10 @@ input:focus, textarea:focus, select:focus {
 
 .dark .glass-card.glass-panel,
 .dark .glass-raised.glass-panel {
-  --panel-bg: rgba(17, 25, 40, 0.75);
+  --panel-bg: var(--glass-bg);
   background: var(--panel-bg) !important;
-  backdrop-filter: blur(16px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  backdrop-filter: var(--glass-filter) !important;
+  -webkit-backdrop-filter: var(--glass-filter) !important;
   border: 1px solid rgba(255, 255, 255, 0.125) !important;
   border-radius: 12px;
   box-shadow:
@@ -588,18 +590,18 @@ input:focus, textarea:focus, select:focus {
 }
 
 .dark .glass-panel.panel-primary {
-  --panel-bg: rgba(17, 25, 40, 0.75);
+  --panel-bg: var(--glass-bg);
   background: var(--panel-bg) !important;
-  backdrop-filter: blur(16px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  backdrop-filter: var(--glass-filter) !important;
+  -webkit-backdrop-filter: var(--glass-filter) !important;
   border: 1px solid rgba(255, 255, 255, 0.125) !important;
 }
 
 .dark .glass-panel.panel-nested {
-  --panel-bg: rgba(17, 25, 40, 0.75);
+  --panel-bg: var(--glass-bg);
   background: var(--panel-bg) !important;
-  backdrop-filter: blur(16px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  backdrop-filter: var(--glass-filter) !important;
+  -webkit-backdrop-filter: var(--glass-filter) !important;
   border: 1px solid rgba(255, 255, 255, 0.125) !important;
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.04) inset,
@@ -616,16 +618,16 @@ input:focus, textarea:focus, select:focus {
 }
 
 .dark .sidebar-glass {
-  background: rgba(8, 10, 18, 0.82) !important;
-  backdrop-filter: blur(28px) saturate(1.15) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(1.15) !important;
+  background: var(--glass-bg) !important;
+  backdrop-filter: var(--glass-filter) !important;
+  -webkit-backdrop-filter: var(--glass-filter) !important;
   border-right: 1px solid rgba(0, 224, 255, 0.08);
 }
 
 .dark .hero-glass {
-  background: linear-gradient(180deg, rgba(10, 14, 24, 0.5) 0%, rgba(6, 9, 16, 0.62) 100%) !important;
-  backdrop-filter: blur(26px) saturate(1.28) !important;
-  -webkit-backdrop-filter: blur(26px) saturate(1.28) !important;
+  background: var(--glass-bg) !important;
+  backdrop-filter: var(--glass-filter) !important;
+  -webkit-backdrop-filter: var(--glass-filter) !important;
   border: 1px solid rgba(0, 224, 255, 0.09) !important;
 }
 
@@ -693,9 +695,9 @@ input:focus, textarea:focus, select:focus {
   max-width: 42rem;
   border-radius: 22px;
   border: 1px solid var(--color-border);
-  background: rgba(0, 0, 0, 0.30);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
   box-shadow: none;
   overflow: hidden;
 }
@@ -724,19 +726,19 @@ input:focus, textarea:focus, select:focus {
 .dropdown-panel {
   border-radius: 14px;
   border: 1px solid var(--color-border);
-  background: rgba(0, 0, 0, 0.30);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
   box-shadow: none;
 }
 
 .dark input,
 .dark textarea,
 .dark select {
-  background: rgba(0, 0, 0, 0.30);
+  background: var(--glass-bg);
   border-color: var(--color-border);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
 }
 
 @media (max-width: 1024px) {

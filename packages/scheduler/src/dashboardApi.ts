@@ -109,7 +109,16 @@ const TABLE_MAP: Record<string, string> = {
  *  wrapped in try/catch so missing tables don't block deletion. */
 export async function cascadeDeleteDirective(id: string): Promise<void> {
   const assignmentRows = await systemQuery<{ id: string }>(
-    'SELECT id FROM work_assignments WHERE directive_id = $1',
+    `WITH RECURSIVE assignment_tree AS (
+       SELECT id
+       FROM work_assignments
+       WHERE directive_id = $1
+      UNION
+       SELECT wa.id
+       FROM work_assignments wa
+       INNER JOIN assignment_tree at ON wa.parent_assignment_id = at.id
+     )
+     SELECT id FROM assignment_tree`,
     [id],
   );
   const assignmentIds = assignmentRows.map((row) => row.id);
@@ -135,7 +144,12 @@ export async function cascadeDeleteDirective(id: string): Promise<void> {
       withAssignments: true,
     },
     { sql: 'DELETE FROM task_run_outcomes WHERE directive_id = $1 OR assignment_id = ANY($2::uuid[])', withAssignments: true },
-    { sql: 'DELETE FROM work_assignments WHERE directive_id = $1' },
+    {
+      sql:
+        'UPDATE work_assignments SET parent_assignment_id = NULL WHERE parent_assignment_id = ANY($2::uuid[]) AND NOT (id = ANY($2::uuid[]))',
+      withAssignments: true,
+    },
+    { sql: 'DELETE FROM work_assignments WHERE id = ANY($2::uuid[])', withAssignments: true },
     { sql: 'DELETE FROM tool_requests WHERE directive_id = $1' },
     { sql: 'DELETE FROM decision_chains WHERE directive_id = $1' },
     { sql: 'DELETE FROM handoffs WHERE directive_id = $1' },

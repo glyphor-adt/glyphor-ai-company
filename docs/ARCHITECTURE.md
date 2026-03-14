@@ -365,128 +365,128 @@ The scheduler server in packages/scheduler/src/server.ts exposes the following r
 
 ### 7.1 Platform, Sync, and Background Operations
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET | /health | Service and dependency health check |
-| GET | / | Root health alias |
-| POST | /cache/invalidate | Prompt/cache invalidation trigger |
-| POST | /webhook/stripe | Stripe webhook receiver |
-| POST | /sync/stripe | Stripe sync job |
-| POST | /sync/gcp-billing | GCP billing sync job |
-| POST | /sync/mercury | Mercury banking sync job |
-| POST | /sync/openai-billing | OpenAI billing sync job |
-| POST | /sync/anthropic-billing | Anthropic billing sync job |
-| POST | /sync/kling-billing | Kling billing sync job |
-| POST | /sync/sharepoint-knowledge | SharePoint knowledge sync job |
-| POST | /sync/governance | Governance IAM sync job |
-| GET | /oauth/canva/callback | Canva OAuth callback |
-| POST | /pubsub | Cloud Scheduler Pub/Sub ingress |
-| POST | /event | Glyphor event bus ingress |
-| POST | /heartbeat | Agent heartbeat cycle |
-| POST | /memory/consolidate | Memory consolidation maintenance |
-| POST | /memory/archive | Memory archival maintenance |
-| POST | /batch-eval/run | Batch evaluation run |
-| POST | /cascade/evaluate | Cascade evaluation run |
-| POST | /policy/collect | Policy proposal collection |
-| POST | /policy/evaluate | Policy replay evaluation |
-| POST | /policy/canary-check | Canary lifecycle check |
-| POST | /canary/evaluate | Canary rollout evaluation |
-| POST | /agent-evals/run | Agent knowledge/readiness evaluation |
-| POST | /tools/expire | Tool expiration manager |
-| POST | /tools/re-enable | Tool re-enable operation |
-| OPTIONS | * | CORS preflight handler |
+| Method | Path | Purpose | Auth/Permission |
+| --- | --- | --- | --- |
+| GET | /health | Service and dependency health check | None in-server |
+| GET | / | Root health alias | None in-server |
+| POST | /cache/invalidate | Prompt/cache invalidation trigger | None in-server |
+| POST | /webhook/stripe | Stripe webhook receiver | Stripe signature verification |
+| POST | /sync/stripe | Stripe sync job | Trusted caller (no bearer) |
+| POST | /sync/gcp-billing | GCP billing sync job | Trusted caller (no bearer) |
+| POST | /sync/mercury | Mercury banking sync job | Trusted caller (no bearer) |
+| POST | /sync/openai-billing | OpenAI billing sync job | Trusted caller (no bearer) |
+| POST | /sync/anthropic-billing | Anthropic billing sync job | Trusted caller (no bearer) |
+| POST | /sync/kling-billing | Kling billing sync job | Trusted caller (no bearer) |
+| POST | /sync/sharepoint-knowledge | SharePoint knowledge sync job | Trusted caller (no bearer) |
+| POST | /sync/governance | Governance IAM sync job | Trusted caller (no bearer) |
+| GET | /oauth/canva/callback | Canva OAuth callback | OAuth callback code flow |
+| POST | /pubsub | Cloud Scheduler Pub/Sub ingress | Trusted caller (no bearer) |
+| POST | /event | Glyphor event bus ingress | Trusted caller (no bearer) |
+| POST | /heartbeat | Agent heartbeat cycle | Trusted caller (no bearer) |
+| POST | /memory/consolidate | Memory consolidation maintenance | Trusted caller (no bearer) |
+| POST | /memory/archive | Memory archival maintenance | Trusted caller (no bearer) |
+| POST | /batch-eval/run | Batch evaluation run | Trusted caller (no bearer) |
+| POST | /cascade/evaluate | Cascade evaluation run | Trusted caller (no bearer) |
+| POST | /policy/collect | Policy proposal collection | Trusted caller (no bearer) |
+| POST | /policy/evaluate | Policy replay evaluation | Trusted caller (no bearer) |
+| POST | /policy/canary-check | Canary lifecycle check | Trusted caller (no bearer) |
+| POST | /canary/evaluate | Canary rollout evaluation | Trusted caller (no bearer) |
+| POST | /agent-evals/run | Agent knowledge/readiness evaluation | Trusted caller (no bearer) |
+| POST | /tools/expire | Tool expiration manager | Trusted caller (no bearer) |
+| POST | /tools/re-enable | Tool re-enable operation | Trusted caller (no bearer) |
+| OPTIONS | * | CORS preflight handler | Preflight only |
 
 ### 7.2 Execution, SDK, and Agent Lifecycle
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| POST | /run | Direct task invocation |
-| GET | /sdk/agents | List SDK-scoped agents |
-| POST | /sdk/agents | Create SDK-scoped agent |
-| GET | /sdk/agents/:role | Get SDK agent |
-| POST | /sdk/agents/:role/retire | Retire SDK agent |
-| POST | /agents/create | Create dynamic agent |
-| PUT | /agents/:agentId/settings | Update agent settings |
-| POST | /agents/:agentId/avatar | Upload/update avatar |
-| GET | /agents/:agentId/system-prompt | Read code-defined prompt |
-| POST | /agents/:agentId/pause | Pause agent |
-| POST | /agents/:agentId/resume | Resume agent |
-| DELETE | /agents/:agentId | Soft/hard retire agent |
+| Method | Path | Purpose | Auth/Permission |
+| --- | --- | --- | --- |
+| POST | /run | Direct task invocation | None in-server |
+| GET | /sdk/agents | List SDK-scoped agents | SDK bearer token required |
+| POST | /sdk/agents | Create SDK-scoped agent | SDK bearer token required |
+| GET | /sdk/agents/:role | Get SDK agent | SDK bearer token required |
+| POST | /sdk/agents/:role/retire | Retire SDK agent | SDK bearer token required |
+| POST | /agents/create | Create dynamic agent | None in-server |
+| PUT | /agents/:agentId/settings | Update agent settings | None in-server |
+| POST | /agents/:agentId/avatar | Upload/update avatar | None in-server |
+| GET | /agents/:agentId/system-prompt | Read code-defined prompt | None in-server |
+| POST | /agents/:agentId/pause | Pause agent | None in-server |
+| POST | /agents/:agentId/resume | Resume agent | None in-server |
+| DELETE | /agents/:agentId | Soft/hard retire agent | None in-server |
 
 ### 7.3 Strategy, Analysis, and Simulation
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| POST | /analysis/run | Launch analysis |
-| GET | /analysis | List analyses |
-| GET | /analysis/:id | Get analysis |
-| GET | /analysis/:id/export | Export analysis |
-| POST | /analysis/:id/cancel | Cancel analysis |
-| POST | /analysis/:id/enhance | Enhance analysis |
-| GET | /analysis/:id/visual | Get saved analysis visual |
-| POST | /analysis/:id/visual | Generate analysis visual |
-| POST | /simulation/run | Launch simulation |
-| GET | /simulation | List simulations |
-| GET | /simulation/:id | Get simulation |
-| POST | /simulation/:id/accept | Accept simulation result |
-| GET | /simulation/:id/export | Export simulation |
-| POST | /cot/run | Launch chain-of-thought analysis |
-| GET | /cot | List CoT analyses |
-| GET | /cot/:id | Get CoT analysis |
-| GET | /cot/:id/export | Export CoT analysis |
-| POST | /deep-dive/run | Launch deep dive |
-| GET | /deep-dive | List deep dives |
-| GET | /deep-dive/:id | Get deep dive |
-| POST | /deep-dive/:id/cancel | Cancel deep dive |
-| GET | /deep-dive/:id/export | Export deep dive |
-| GET | /deep-dive/:id/visual | Get deep dive visual |
-| POST | /deep-dive/:id/visual | Generate deep dive visual |
-| POST | /strategy-lab/run | Launch strategy lab analysis |
-| GET | /strategy-lab | List strategy analyses |
-| GET | /strategy-lab/:id | Get strategy analysis |
-| POST | /strategy-lab/:id/cancel | Cancel strategy analysis |
-| GET | /strategy-lab/:id/export | Export strategy analysis |
-| GET | /strategy-lab/:id/visual | Get strategy visual |
-| POST | /strategy-lab/:id/visual | Generate strategy visual |
+| Method | Path | Purpose | Auth/Permission |
+| --- | --- | --- | --- |
+| POST | /analysis/run | Launch analysis | None in-server |
+| GET | /analysis | List analyses | None in-server |
+| GET | /analysis/:id | Get analysis | None in-server |
+| GET | /analysis/:id/export | Export analysis | None in-server |
+| POST | /analysis/:id/cancel | Cancel analysis | None in-server |
+| POST | /analysis/:id/enhance | Enhance analysis | None in-server |
+| GET | /analysis/:id/visual | Get saved analysis visual | None in-server |
+| POST | /analysis/:id/visual | Generate analysis visual | None in-server |
+| POST | /simulation/run | Launch simulation | None in-server |
+| GET | /simulation | List simulations | None in-server |
+| GET | /simulation/:id | Get simulation | None in-server |
+| POST | /simulation/:id/accept | Accept simulation result | None in-server |
+| GET | /simulation/:id/export | Export simulation | None in-server |
+| POST | /cot/run | Launch chain-of-thought analysis | None in-server |
+| GET | /cot | List CoT analyses | None in-server |
+| GET | /cot/:id | Get CoT analysis | None in-server |
+| GET | /cot/:id/export | Export CoT analysis | None in-server |
+| POST | /deep-dive/run | Launch deep dive | None in-server |
+| GET | /deep-dive | List deep dives | None in-server |
+| GET | /deep-dive/:id | Get deep dive | None in-server |
+| POST | /deep-dive/:id/cancel | Cancel deep dive | None in-server |
+| GET | /deep-dive/:id/export | Export deep dive | None in-server |
+| GET | /deep-dive/:id/visual | Get deep dive visual | None in-server |
+| POST | /deep-dive/:id/visual | Generate deep dive visual | None in-server |
+| POST | /strategy-lab/run | Launch strategy lab analysis | None in-server |
+| GET | /strategy-lab | List strategy analyses | None in-server |
+| GET | /strategy-lab/:id | Get strategy analysis | None in-server |
+| POST | /strategy-lab/:id/cancel | Cancel strategy analysis | None in-server |
+| GET | /strategy-lab/:id/export | Export strategy analysis | None in-server |
+| GET | /strategy-lab/:id/visual | Get strategy visual | None in-server |
+| POST | /strategy-lab/:id/visual | Generate strategy visual | None in-server |
 
 ### 7.4 Collaboration, Knowledge, and Workflow
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| POST | /meetings/call | Start meeting workflow |
-| GET | /meetings | List meetings |
-| GET | /meetings/:id | Get meeting |
-| POST | /messages/send | Send inter-agent message |
-| GET | /messages | List recent messages |
-| GET | /messages/agent/:role | List agent-specific messages |
-| GET | /pulse | Company pulse snapshot |
-| GET | /knowledge/company | Company knowledge materialization |
-| GET | /knowledge/routes | List knowledge routes |
-| POST | /knowledge/routes | Create knowledge route |
-| GET | /knowledge/patterns | Process pattern insights |
-| GET | /knowledge/contradictions | Contradiction detection |
-| GET | /authority/proposals | List authority proposals |
-| POST | /authority/proposals/:id/resolve | Resolve authority proposal |
-| GET | /directives | List directives |
-| POST | /directives | Create directive |
-| PATCH | /directives/:id | Update directive |
-| DELETE | /directives/:id | Delete directive |
-| GET | /workflows | List workflows |
-| GET | /workflows/metrics | Workflow metrics |
-| GET | /workflows/:id | Get workflow state |
-| POST | /workflows/:id/cancel | Cancel workflow |
-| POST | /workflows/:id/retry | Retry workflow |
-| POST | /plan-verify/:directiveId | Verify plan |
+| Method | Path | Purpose | Auth/Permission |
+| --- | --- | --- | --- |
+| POST | /meetings/call | Start meeting workflow | None in-server |
+| GET | /meetings | List meetings | None in-server |
+| GET | /meetings/:id | Get meeting | None in-server |
+| POST | /messages/send | Send inter-agent message | None in-server |
+| GET | /messages | List recent messages | None in-server |
+| GET | /messages/agent/:role | List agent-specific messages | None in-server |
+| GET | /pulse | Company pulse snapshot | None in-server |
+| GET | /knowledge/company | Company knowledge materialization | None in-server |
+| GET | /knowledge/routes | List knowledge routes | None in-server |
+| POST | /knowledge/routes | Create knowledge route | None in-server |
+| GET | /knowledge/patterns | Process pattern insights | None in-server |
+| GET | /knowledge/contradictions | Contradiction detection | None in-server |
+| GET | /authority/proposals | List authority proposals | None in-server |
+| POST | /authority/proposals/:id/resolve | Resolve authority proposal | None in-server |
+| GET | /directives | List directives | None in-server |
+| POST | /directives | Create directive | None in-server |
+| PATCH | /directives/:id | Update directive | None in-server |
+| DELETE | /directives/:id | Delete directive | None in-server |
+| GET | /workflows | List workflows | None in-server |
+| GET | /workflows/metrics | Workflow metrics | None in-server |
+| GET | /workflows/:id | Get workflow state | None in-server |
+| POST | /workflows/:id/cancel | Cancel workflow | None in-server |
+| POST | /workflows/:id/retry | Retry workflow | None in-server |
+| POST | /plan-verify/:directiveId | Verify plan | None in-server |
 
 ### 7.5 Chat and Delegated API Surfaces
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET, POST | /api/graph/chat-webhook | Graph chat webhook validation/ingest |
-| POST | /ora/chat | Triangulated chat entrypoint |
-| POST | /chat/triangulate | Triangulated chat alias |
-| * | /api/governance/* | Delegated governance API handler |
-| * | /api/* | Delegated dashboard CRUD API handler |
+| Method | Path | Purpose | Auth/Permission |
+| --- | --- | --- | --- |
+| GET, POST | /api/graph/chat-webhook | Graph chat webhook validation/ingest | Graph webhook token flow |
+| POST | /ora/chat | Triangulated chat entrypoint | None in-server |
+| POST | /chat/triangulate | Triangulated chat alias | None in-server |
+| * | /api/governance/* | Delegated governance API handler | Delegated to governance handler |
+| * | /api/* | Delegated dashboard CRUD API handler | Delegated to dashboard API handler |
 
 ## 8. Dashboard Route Architecture
 
@@ -610,7 +610,7 @@ Representative data domains persisted in the platform include:
 
 ### 10.3 Dashboard API Table Map and Domain Coverage
 
-The dashboard CRUD layer currently maps 88 URL slugs to 62 physical PostgreSQL tables through TABLE_MAP in packages/scheduler/src/dashboardApi.ts.
+The dashboard CRUD layer currently maps 83 URL slugs to 58 physical PostgreSQL tables through TABLE_MAP in packages/scheduler/src/dashboardApi.ts.
 
 Primary domains and current table ownership anchors:
 
@@ -668,6 +668,71 @@ Recent migration trend highlights:
   - 20260312200000_phase4_a2a_gateway.sql
   - 20260312234500_phase7_agent_sdk.sql
   - 20260314000100_agent_knowledge_evals.sql
+
+### 10.5 Complete TABLE_MAP Alias Matrix
+
+This is the full current alias mapping from TABLE_MAP (all 58 physical tables).
+
+| Physical table | URL slug aliases |
+| --- | --- |
+| activity_log | activity, activity_log |
+| agent_briefs | agent_briefs |
+| agent_eval_results | agent-eval-results, agent_eval_results |
+| agent_eval_scenarios | agent-eval-scenarios, agent_eval_scenarios |
+| agent_growth | agent_growth |
+| agent_meetings | agent_meetings |
+| agent_memory | agent_memory |
+| agent_messages | agent_messages |
+| agent_milestones | agent_milestones |
+| agent_peer_feedback | agent_peer_feedback |
+| agent_performance | agent_performance |
+| agent_profiles | agent_profiles |
+| agent_readiness | agent-readiness, agent_readiness |
+| agent_reasoning_config | agent_reasoning_config |
+| agent_reflections | agent-reflections, agent_reflections |
+| agent_runs | agent-runs |
+| agent_skills | agent-skills, agent_skills |
+| agent_tool_grants | agent-tool-grants |
+| agent_world_model | agent-world-model, agent_world_model |
+| api_billing | api-billing |
+| chat_messages | chat-messages, chat_messages |
+| company_agents | agents, company-agents, company_agents |
+| company_knowledge | company_knowledge |
+| company_knowledge_base | company-knowledge-base |
+| company_pulse | company-pulse |
+| constitutional_gate_events | constitutional-gate-events, constitutional_gate_events |
+| dashboard_change_requests | dashboard-change-requests |
+| dashboard_users | dashboard-users |
+| data_sync_status | data-sync-status, data_sync_status |
+| decisions | decisions |
+| delegation_performance | delegation-performance, delegation_performance |
+| deliverables | deliverables |
+| executive_orchestration_config | executive-orchestration-config, executive_orchestration_config |
+| financials | financials |
+| founder_bulletins | founder-bulletins |
+| founder_directives | directives, founder-directives |
+| gcp_billing | gcp-billing |
+| incidents | incidents |
+| initiatives | initiatives |
+| kg_edges | kg-edges |
+| kg_nodes | kg-nodes |
+| memory_archive | memory-archive, memory_archive |
+| memory_lifecycle | memory-lifecycle, memory_lifecycle |
+| ora_sessions | ora-sessions, ora_sessions |
+| plan_verifications | plan-verifications, plan_verifications |
+| platform_audit_log | platform-audit-log |
+| platform_iam_state | platform-iam-state |
+| platform_secret_rotation | platform-secret-rotation |
+| policy_versions | policy-versions, policy_versions |
+| proposed_initiatives | proposed-initiatives, proposed_initiatives |
+| role_rubrics | role-rubrics, role_rubrics |
+| skills | skills |
+| task_run_outcomes | task-run-outcomes, task_run_outcomes |
+| tool_registry | tool-registry |
+| tool_reputation | tool-reputation, tool_reputation |
+| work_assignments | work-assignments |
+| workflow_steps | workflow-steps, workflow_steps |
+| workflows | workflows |
 
 ## 11. Tooling and Capability Architecture
 
