@@ -55,6 +55,16 @@ The old skills were 6-line numbered checklists with 2-3 tools_granted. The new s
 
 ## Implementation Steps
 
+### Automation Command
+
+Generate the SQL migration from the markdown skill files:
+
+`npm run skills:it:generate-migration`
+
+Optionally write to a specific migration file:
+
+`npm run skills:it:generate-migration -- --out db/migrations/20260314142000_sync_it_skill_playbooks.sql`
+
 ### Step 1: Update the skills table
 
 For each skill file:
