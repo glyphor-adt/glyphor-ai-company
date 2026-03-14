@@ -42,7 +42,16 @@ export async function apiCall<T = any>(path: string, options: RequestInit = {}):
       'Content-Type': 'application/json',
     },
   });
-  if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    let details = '';
+    try {
+      details = await res.text();
+    } catch {
+      details = '';
+    }
+    const suffix = details ? ` — ${details}` : '';
+    throw new Error(`API error: ${res.status} ${res.statusText}${suffix}`);
+  }
   return res.json();
 }
 

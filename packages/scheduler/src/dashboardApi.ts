@@ -116,6 +116,7 @@ export async function cascadeDeleteDirective(id: string): Promise<void> {
 
   const stmts: Array<{ sql: string; withAssignments?: boolean }> = [
     { sql: 'DELETE FROM agent_tool_grants WHERE directive_id = $1' },
+    { sql: 'DELETE FROM a2a_tasks WHERE directive_id = $1' },
     {
       sql:
         'DELETE FROM social_publish_audit_log WHERE draft_id IN (SELECT id FROM content_drafts WHERE directive_id = $1 OR assignment_id = ANY($2::uuid[])) OR scheduled_post_id IN (SELECT id FROM scheduled_posts WHERE directive_id = $1 OR assignment_id = ANY($2::uuid[])) OR deliverable_id IN (SELECT id FROM deliverables WHERE directive_id = $1 OR assignment_id = ANY($2::uuid[]))',
@@ -305,6 +306,7 @@ function sanitizeIdentifier(name: string): string {
 }
 
 const tenantIdColumnCache = new Map<string, boolean>();
+const tableColumnsCache = new Map<string, Set<string>>();
 
 async function tableHasTenantIdColumn(tableName: string): Promise<boolean> {
   const cached = tenantIdColumnCache.get(tableName);
@@ -324,6 +326,56 @@ async function tableHasTenantIdColumn(tableName: string): Promise<boolean> {
   const hasTenantId = rows[0]?.has_tenant_id === true;
   tenantIdColumnCache.set(tableName, hasTenantId);
   return hasTenantId;
+}
+
+async function getTableColumns(tableName: string): Promise<Set<string>> {
+  const cached = tableColumnsCache.get(tableName);
+  if (cached) return cached;
+
+  const rows = await systemQuery<{ column_name: string }>(
+    `SELECT column_name
+       FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = $1`,
+    [tableName],
+  );
+
+  const columns = new Set(rows.map((row) => row.column_name));
+  tableColumnsCache.set(tableName, columns);
+  return columns;
+}
+
+function filterOrParamByColumns(orValue: string, columns: Set<string>): string | null {
+  const inner = orValue.replace(/^\(/, '').replace(/\)$/, '');
+  const kept: string[] = [];
+  for (const part of inner.split(',')) {
+    const match = part.match(/^([a-zA-Z0-9_]+)\.eq\.(.+)$/);
+    if (!match) continue;
+    const column = sanitizeIdentifier(match[1]);
+    if (columns.has(column)) kept.push(part);
+  }
+  if (kept.length === 0) return null;
+  return `(${kept.join(',')})`;
+}
+
+function filterQueryParamsByColumns(params: URLSearchParams, columns: Set<string>) {
+  const passthrough = new Set(['order', 'limit', 'fields', 'count', 'include', 'select', 'since']);
+  const entries = Array.from(params.entries());
+  for (const [key, value] of entries) {
+    if (passthrough.has(key)) continue;
+    if (key === 'or') {
+      const filtered = filterOrParamByColumns(value, columns);
+      if (!filtered) {
+        params.delete('or');
+      } else {
+        params.set('or', filtered);
+      }
+      continue;
+    }
+    if (!columns.has(sanitizeIdentifier(key))) {
+      params.delete(key);
+    }
+  }
 }
 
 // ─── Main handler ───────────────────────────────────────────────
@@ -465,6 +517,11 @@ export async function handleDashboardApi(
 
     // ── GET ─────────────────────────────────────────────────────
     if (method === 'GET') {
+      if (tableName === 'chat_messages') {
+        const chatColumns = await getTableColumns(tableName);
+        filterQueryParamsByColumns(params, chatColumns);
+      }
+
       if (resourceId) {
         // GET /api/table/:id
         const rows = await systemQuery(`SELECT * FROM ${tableName} WHERE id = $1`, [resourceId]);
@@ -536,6 +593,15 @@ export async function handleDashboardApi(
     // ── POST ────────────────────────────────────────────────────
     if (method === 'POST') {
       const body = JSON.parse(await readBody(req));
+
+      if (tableName === 'chat_messages') {
+        const chatColumns = await getTableColumns(tableName);
+        for (const key of Object.keys(body)) {
+          if (!chatColumns.has(sanitizeIdentifier(key))) {
+            delete body[key];
+          }
+        }
+      }
 
       if (tableName === 'decisions') {
         const proposedBy = typeof body.proposed_by === 'string' ? body.proposed_by : null;

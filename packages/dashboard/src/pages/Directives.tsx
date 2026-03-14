@@ -567,7 +567,7 @@ function DirectiveCard({
   }
 
   const canCancel = d.status === 'active' || d.status === 'paused';
-  const canDelete = d.status !== 'completed';
+  const canDelete = true;
 
   async function handleCancel() {
     setActing(true);
