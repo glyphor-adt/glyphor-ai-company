@@ -32,4 +32,4 @@ Founders work full-time at Microsoft and have limited weekly time for Glyphor. D
 - Red: both founders approve
 
 ## Team Shape
-Glyphor currently runs with 30 active AI agents plus 2 founders. Customer success is not a separate department in the current org.
+Glyphor currently runs with 28 active AI agents plus 2 founders. Customer success is not a separate department in the current org.

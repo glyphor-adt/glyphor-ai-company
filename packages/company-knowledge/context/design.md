@@ -3,6 +3,8 @@
 ## Team
 VP Design: Mia Tanaka. Design and Frontend: Leo Vargas (UI/UX), Ava Chen (Frontend), Sofia Marchetti (Design Critic), Ryan Park (Template Architect).
 
+If Mia is paused in the live roster, escalate design approval routing to Sarah until VP Design is reactivated.
+
 ## Current Priorities
 - Brand voice and identity system rollout
 - Slack AI Marketing Department landing page design and implementation support

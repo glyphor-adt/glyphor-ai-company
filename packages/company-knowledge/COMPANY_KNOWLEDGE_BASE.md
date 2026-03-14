@@ -22,7 +22,7 @@ Glyphor does not sell AI tools. Glyphor sells AI-powered departments that delive
 Kristina Denney owns technical architecture, product direction, and external strategy. Andrew Zwelling owns operations, partnerships, and financial discipline.
 
 ## Team Structure
-30 active AI agents across executive, research, engineering, marketing, design, legal, operations, and specialist functions. Customer success is not an active department.
+28 active AI agents across executive, research, engineering, marketing, design, legal, operations, and specialist functions. Customer success is not an active department.
 
 ## Authority Model
 - Green: routine execution within role scope
@@ -37,7 +37,7 @@ Kristina Denney owns technical architecture, product direction, and external str
 5. Still You campaign launch
 
 ## Metrics
-Baseline references only: about $1,240 MRR, 3 customers, 30 active agents, and a $150 monthly compute budget target.
+Baseline references only: $0 MRR, 0 customers, 28 active agents, and a $150 monthly compute budget target.
 
 ## Infrastructure
 GCP Cloud Run plus Cloud SQL PostgreSQL, Cloud Scheduler, Cloud Tasks, Redis, Secret Manager, Artifact Registry, Cloud Storage, Teams and M365 integrations, and internal MCP servers.
