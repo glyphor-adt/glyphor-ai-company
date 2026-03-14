@@ -150,7 +150,7 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
       if (!hasInboxReader) {
         const fallbackTool = createReadInboxFallback(agentRole as CompanyAgentRole);
         if (fallbackTool) {
-          tools.push(fallbackTool);
+          tools.unshift(fallbackTool);
           console.log(`[Agent365] Added Graph fallback read_inbox for ${agentRole}`);
         }
       }

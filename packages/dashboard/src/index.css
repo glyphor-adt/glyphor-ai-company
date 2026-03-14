@@ -109,6 +109,7 @@ body {
 }
 
 .mesh-gradient {
+  position: relative;
   background-color: var(--color-base);
   background-image: none;
   background-position: center center;
@@ -118,7 +119,21 @@ body {
 
 .dark .mesh-gradient {
   background-color: #02072a;
+  background-image: none;
+}
+
+.dark .mesh-gradient::before {
+  content: '';
+  position: absolute;
+  inset: -24px;
   background-image: url('/3d-render.jpg');
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  filter: blur(14px);
+  transform: scale(1.06);
+  transform-origin: center;
+  pointer-events: none;
 }
 
 .dashboard-sidebar {

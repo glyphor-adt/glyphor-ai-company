@@ -171,8 +171,9 @@ export function createToolRequestTools(): ToolDefinition[] {
 
         const checks = await Promise.all(
           toolNames.map(async (toolName) => {
-            const exists = await isKnownToolAsync(toolName);
+            const knownInRegistry = await isKnownToolAsync(toolName);
             const hasGrant = grantSet.has(toolName);
+            const exists = knownInRegistry || hasGrant;
             const likelyAccessible = exists;
 
             return {
@@ -182,9 +183,11 @@ export function createToolRequestTools(): ToolDefinition[] {
               likely_accessible: likelyAccessible,
               recommendation: exists
                 ? (hasGrant
-                    ? 'Tool appears available. Dispatch is safe; if runtime still fails, check MCP health/auth and task subset filters.'
+                    ? (knownInRegistry
+                        ? 'Tool appears available. Dispatch is safe; if runtime still fails, check MCP health/auth and task subset filters.'
+                        : 'Tool has an active grant but is not in registry metadata. It may still be code-loaded (for example, a fallback). Dispatch directly; if runtime fails with Unknown tool, request_new_tool.')
                     : 'Tool exists. If dispatch fails due access, call request_tool_access then retry.')
-                : 'Tool does not exist in registry. Use request_new_tool.',
+                : 'Tool does not exist in registry and has no active grant. Use request_new_tool.',
             };
           }),
         );

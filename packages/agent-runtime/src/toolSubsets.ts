@@ -19,6 +19,26 @@ const WORK_COMPLETION_TOOLS = [
   'tool_search',
 ];
 
+/**
+ * Keep these tools in the declaration set when capping to provider limits.
+ * Includes core completion + common mail triage actions.
+ */
+const PINNED_CAP_TOOLS = new Set<string>([
+  ...WORK_COMPLETION_TOOLS,
+  'read_inbox',
+  'send_email',
+  'reply_to_email',
+  'forward_email',
+  'mark_email_as_read',
+  'move_email',
+  'get_email_by_id',
+  'get_message',
+  'list_emails',
+  'list_messages',
+  'list_inbox',
+  'list_mail_folders',
+]);
+
 function withWorkTools(...tools: string[]): string[] {
   return Array.from(new Set([...WORK_COMPLETION_TOOLS, ...tools]));
 }
@@ -150,7 +170,9 @@ export function filterToolDeclarations(
 
   if (result.length > MAX_TOOLS) {
     console.warn(`[ToolSubsets] Capping tools from ${result.length} to ${MAX_TOOLS}`);
-    result = result.slice(0, MAX_TOOLS);
+    const pinned = result.filter((d) => PINNED_CAP_TOOLS.has(d.name));
+    const nonPinned = result.filter((d) => !PINNED_CAP_TOOLS.has(d.name));
+    result = [...pinned, ...nonPinned].slice(0, MAX_TOOLS);
   }
 
   return result;
