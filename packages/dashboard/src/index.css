@@ -573,42 +573,42 @@ input:focus, textarea:focus, select:focus {
 
 .dark .glass-card.glass-panel,
 .dark .glass-raised.glass-panel {
-  --panel-bg: rgba(0, 0, 0, 0.30);
+  --panel-bg: rgba(17, 25, 40, 0.75);
   background: var(--panel-bg) !important;
-  backdrop-filter: blur(14px) !important;
-  -webkit-backdrop-filter: blur(14px) !important;
-  border: 1px solid rgba(0, 224, 255, 0.09) !important;
-  border-radius: 20px;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.125) !important;
+  border-radius: 12px;
   box-shadow:
-    0 0 0 1px rgba(0, 224, 255, 0.035) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset,
     0 14px 28px rgba(0, 0, 0, 0.5) !important;
 }
 
 .dark .glass-panel.panel-primary {
-  --panel-bg: rgba(0, 0, 0, 0.30);
+  --panel-bg: rgba(17, 25, 40, 0.75);
   background: var(--panel-bg) !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
-  border: 1px solid rgba(0, 224, 255, 0.09) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.125) !important;
 }
 
 .dark .glass-panel.panel-nested {
-  --panel-bg: rgba(0, 0, 0, 0.30);
+  --panel-bg: rgba(17, 25, 40, 0.75);
   background: var(--panel-bg) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
-  border: 1px solid rgba(0, 224, 255, 0.075) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.125) !important;
   box-shadow:
-    0 0 0 1px rgba(0, 224, 255, 0.03) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
     0 8px 16px rgba(0, 0, 0, 0.36) !important;
 }
 
 .dark .glass-card.glass-panel:hover,
 .dark .glass-raised.glass-panel:hover {
   background: var(--panel-bg) !important;
-  border: 1px solid rgba(0, 224, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
   box-shadow:
-    0 0 0 1px rgba(0, 224, 255, 0.04) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset,
     0 14px 28px rgba(0, 0, 0, 0.5) !important;
 }
 
