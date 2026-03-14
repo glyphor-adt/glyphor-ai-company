@@ -573,7 +573,7 @@ export const AGENT_SKILLS: Record<string, string[]> = {
   'chief-of-staff': ['briefing_compiler', 'decision_router', 'cross_agent_coordinator', 'escalation_tracker', 'weekly_sync_prep', 'conflict_detector'],
   cto: ['code-review', 'incident-response', 'platform-monitoring', 'tech-spec-writing'],
   cpo: ['usage_analyst', 'competitive_intel', 'roadmap_manager', 'rice_scorer', 'feature_spec_writer', 'product_proposer'],
-  cfo: ['cost_monitor', 'revenue_tracker', 'unit_economics', 'financial_reporter', 'budget_alerter', 'margin_calculator'],
+  cfo: ['financial-reporting', 'budget-monitoring', 'revenue-analysis'],
   cmo: ['content_creator', 'social_media', 'seo_strategist', 'brand_positioning', 'growth_analytics', 'content_attribution', 'brand-management'],
   'vp-sales': ['account_research', 'roi_calculator', 'proposal_generator', 'pipeline_manager', 'market_sizer'],
   'vp-design': ['design-review', 'design-system-management', 'brand-management', 'ui-development'],
@@ -599,7 +599,7 @@ export const AGENT_SKILLS: Record<string, string[]> = {
   'm365-admin': ['tenant-administration'],
   'global-admin': ['access-management'],
   // Specialist agents
-  'bob-the-tax-pro': ['tax_optimization', 'rd_credits', 'startup_deductions', 'tax_risk_assessment'],
+  'bob-the-tax-pro': ['budget-monitoring', 'tax-strategy'],
   'marketing-intelligence-analyst': ['competitive_campaigns', 'market_trend_analysis', 'channel_benchmarking', 'signal_intelligence'],
   'adi-rose': ['action_item_tracking', 'meeting_prep', 'cross_department_liaison', 'operational_rhythm'],
 };
@@ -668,7 +668,7 @@ export const ROLE_DEPARTMENT: Record<string, string> = {
   'template-architect': 'Design & Frontend',
   'competitive-research-analyst': 'Research & Intelligence',
   'market-research-analyst': 'Research & Intelligence',
-  'bob-the-tax-pro': 'Legal',
+  'bob-the-tax-pro': 'Finance',
   'marketing-intelligence-analyst': 'Marketing',
   'adi-rose': 'Executive Office',
   'm365-admin': 'Operations & IT',
@@ -792,7 +792,7 @@ export const ROLE_TITLE: Record<string, string> = {
   'template-architect': 'Template Architect',
   'competitive-research-analyst': 'Competitive Research Analyst',
   'market-research-analyst': 'Market Research Analyst',
-  'bob-the-tax-pro': 'Tax Compliance Specialist',
+  'bob-the-tax-pro': 'CPA & Tax Strategist',
   'marketing-intelligence-analyst': 'Marketing Intelligence Analyst',
   'adi-rose': 'Adi Rose — AI Digital Identity',
 };
@@ -841,7 +841,7 @@ export const SUB_TEAM: SubTeamMember[] = [
   // Executive Office → Sarah Chen (Chief of Staff)
   { name: 'Adi Rose',      title: 'Executive Assistant to COO',  department: 'Executive Office',        reportsTo: 'chief-of-staff', color: '#7C3AED', initials: 'AR', avatar: 'adi-rose' },
   // Legal → Victoria Chase (CLO)
-  { name: 'Robert Finley', title: 'CPA & Tax Strategist',         department: 'Legal',                   reportsTo: 'clo', color: '#6D28D9', initials: 'RF', avatar: 'bob-the-tax-pro' },
+  { name: 'Robert Finley', title: 'CPA & Tax Strategist',         department: 'Finance',                 reportsTo: 'clo', color: '#6D28D9', initials: 'RF', avatar: 'bob-the-tax-pro' },
   // Marketing
   { name: 'Zara Petrov',   title: 'Marketing Intelligence',       department: 'Marketing',               reportsTo: 'cmo', color: '#7C3AED', initials: 'ZP', avatar: 'marketing-intelligence-analyst' },
 ];
