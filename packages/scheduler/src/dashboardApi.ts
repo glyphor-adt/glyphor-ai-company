@@ -12,7 +12,32 @@
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { systemQuery } from '@glyphor/shared/db';
+import { systemQuery, systemTransaction } from '@glyphor/shared/db';
+
+interface SkillUploadTaskMapping {
+  task_regex: string;
+  priority?: number;
+}
+
+interface SkillUploadPayload {
+  fileName?: string;
+  content: string;
+  reconcile_holders?: boolean;
+  default_proficiency?: 'learning' | 'competent' | 'expert' | 'master';
+  replace_task_mappings?: boolean;
+  task_mappings?: SkillUploadTaskMapping[];
+}
+
+interface ParsedSkillMarkdown {
+  slug: string;
+  name: string;
+  category: string;
+  description: string;
+  methodology: string;
+  tools_granted: string[];
+  holders: string[];
+  version: number;
+}
 
 // ─── Table whitelist (prevents arbitrary SQL access) ────────────
 
@@ -181,6 +206,72 @@ function readBody(req: IncomingMessage): Promise<string> {
     req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
     req.on('error', reject);
   });
+}
+
+function parseFrontmatterValue(frontmatter: Record<string, string>, key: string): string {
+  const value = (frontmatter[key] ?? '').trim();
+  if (!value) {
+    throw new Error(`Skill file frontmatter is missing required field: ${key}`);
+  }
+  return value;
+}
+
+function parseCommaList(value: string | undefined): string[] {
+  if (!value) return [];
+  const trimmed = value.trim();
+  const noBrackets = trimmed.startsWith('[') && trimmed.endsWith(']')
+    ? trimmed.slice(1, -1)
+    : trimmed;
+  return noBrackets
+    .split(',')
+    .map((entry) => entry.trim().replace(/^['\"]|['\"]$/g, ''))
+    .filter(Boolean);
+}
+
+function parseSkillMarkdown(content: string): ParsedSkillMarkdown {
+  const normalized = content.replace(/^\uFEFF/, '');
+  const match = normalized.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
+  if (!match) {
+    throw new Error('Invalid skill markdown format. Expected YAML frontmatter delimited by --- at the top of the file.');
+  }
+
+  const frontmatterText = match[1];
+  const methodology = match[2].trim();
+  if (!methodology) {
+    throw new Error('Skill methodology body is empty.');
+  }
+
+  const frontmatter: Record<string, string> = {};
+  for (const line of frontmatterText.split(/\r?\n/)) {
+    const idx = line.indexOf(':');
+    if (idx === -1) continue;
+    const key = line.slice(0, idx).trim();
+    const value = line.slice(idx + 1).trim();
+    if (!key) continue;
+    frontmatter[key] = value;
+  }
+
+  const slug = parseFrontmatterValue(frontmatter, 'slug');
+  const name = parseFrontmatterValue(frontmatter, 'name');
+  const category = parseFrontmatterValue(frontmatter, 'category');
+  const description = parseFrontmatterValue(frontmatter, 'description');
+
+  const versionRaw = (frontmatter.version ?? '1').trim();
+  const version = Number.parseInt(versionRaw, 10);
+  if (!Number.isFinite(version) || version <= 0) {
+    throw new Error(`Invalid version in skill frontmatter: ${versionRaw}`);
+  }
+
+  return {
+    slug,
+    name,
+    category,
+    description,
+    methodology,
+    tools_granted: parseCommaList(frontmatter.tools_granted),
+    holders: parseCommaList(frontmatter.holders),
+    version,
+  };
 }
 
 function jsonResponse(res: ServerResponse, status: number, data: unknown) {
@@ -451,6 +542,158 @@ export async function handleDashboardApi(
         jsonResponse(res, 200, { success: true });
         return true;
       }
+    }
+
+    if (tableName === 'skills' && method === 'POST' && resourceId === 'sync-from-file') {
+      const body = JSON.parse(await readBody(req)) as SkillUploadPayload;
+      if (!body || typeof body.content !== 'string' || !body.content.trim()) {
+        jsonResponse(res, 400, { error: 'content is required and must be a markdown string.' });
+        return true;
+      }
+
+      const parsed = parseSkillMarkdown(body.content);
+      const reconcileHolders = body.reconcile_holders !== false;
+      const defaultProficiency = body.default_proficiency ?? 'learning';
+      const replaceTaskMappings = body.replace_task_mappings === true;
+      const taskMappings = (body.task_mappings ?? [])
+        .filter((mapping) => typeof mapping?.task_regex === 'string' && mapping.task_regex.trim().length > 0)
+        .map((mapping) => ({
+          task_regex: mapping.task_regex.trim(),
+          priority: Number.isFinite(mapping.priority) ? Number(mapping.priority) : 10,
+        }));
+
+      const syncResult = await systemTransaction(async (client) => {
+        const upserted = await client.query<{
+          id: string;
+          slug: string;
+          name: string;
+          category: string;
+          description: string;
+          version: number;
+          tools_granted: string[];
+          updated_at: string;
+        }>(
+          `INSERT INTO skills (slug, name, category, description, methodology, tools_granted, version)
+           VALUES ($1, $2, $3, $4, $5, $6::text[], $7)
+           ON CONFLICT (slug) DO UPDATE SET
+             name = EXCLUDED.name,
+             category = EXCLUDED.category,
+             description = EXCLUDED.description,
+             methodology = EXCLUDED.methodology,
+             tools_granted = EXCLUDED.tools_granted,
+             version = EXCLUDED.version,
+             updated_at = NOW()
+           RETURNING id, slug, name, category, description, version, tools_granted, updated_at`,
+          [
+            parsed.slug,
+            parsed.name,
+            parsed.category,
+            parsed.description,
+            parsed.methodology,
+            parsed.tools_granted,
+            parsed.version,
+          ],
+        );
+
+        const skill = upserted.rows[0];
+        let deletedHolders = 0;
+        let insertedHolders = 0;
+
+        if (reconcileHolders) {
+          if (parsed.holders.length > 0) {
+            const deleted = await client.query(
+              `DELETE FROM agent_skills
+               WHERE skill_id = $1
+                 AND NOT (agent_role = ANY($2::text[]))`,
+              [skill.id, parsed.holders],
+            );
+            deletedHolders = deleted.rowCount ?? 0;
+
+            const inserted = await client.query(
+              `INSERT INTO agent_skills (agent_role, skill_id, proficiency)
+               SELECT ca.role, $1, $2
+               FROM company_agents ca
+               WHERE ca.role = ANY($3::text[])
+               ON CONFLICT (agent_role, skill_id) DO NOTHING`,
+              [skill.id, defaultProficiency, parsed.holders],
+            );
+            insertedHolders = inserted.rowCount ?? 0;
+          } else {
+            const deleted = await client.query('DELETE FROM agent_skills WHERE skill_id = $1', [skill.id]);
+            deletedHolders = deleted.rowCount ?? 0;
+          }
+        }
+
+        let deletedMappings = 0;
+        let insertedMappings = 0;
+        if (replaceTaskMappings) {
+          const deleted = await client.query('DELETE FROM task_skill_map WHERE skill_slug = $1', [parsed.slug]);
+          deletedMappings = deleted.rowCount ?? 0;
+
+          if (taskMappings.length > 0) {
+            const values: unknown[] = [];
+            const rowsSql: string[] = [];
+            for (const mapping of taskMappings) {
+              values.push(mapping.task_regex, parsed.slug, mapping.priority ?? 10);
+              const offset = values.length - 2;
+              rowsSql.push(`($${offset}, $${offset + 1}, $${offset + 2})`);
+            }
+            const inserted = await client.query(
+              `INSERT INTO task_skill_map (task_regex, skill_slug, priority)
+               VALUES ${rowsSql.join(', ')}`,
+              values,
+            );
+            insertedMappings = inserted.rowCount ?? 0;
+          }
+        }
+
+        try {
+          await client.query(
+            `INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [
+              'dashboard',
+              'dashboard',
+              'skills.sync_from_file',
+              `Synced skill ${parsed.slug} from ${body.fileName ?? 'uploaded markdown'} (holders +${insertedHolders}/-${deletedHolders}, mappings +${insertedMappings}/-${deletedMappings})`,
+              new Date().toISOString(),
+            ],
+          );
+        } catch {
+          // Do not fail skill sync if activity_log insertion is unavailable.
+        }
+
+        return {
+          skill,
+          holders: {
+            reconcile: reconcileHolders,
+            requested: parsed.holders,
+            deleted: deletedHolders,
+            inserted: insertedHolders,
+          },
+          task_mappings: {
+            replaced: replaceTaskMappings,
+            requested: taskMappings.length,
+            deleted: deletedMappings,
+            inserted: insertedMappings,
+          },
+        };
+      });
+
+      jsonResponse(res, 200, {
+        success: true,
+        file_name: body.fileName ?? null,
+        parsed: {
+          slug: parsed.slug,
+          name: parsed.name,
+          category: parsed.category,
+          version: parsed.version,
+          holders: parsed.holders,
+          tools_granted_count: parsed.tools_granted.length,
+        },
+        sync: syncResult,
+      });
+      return true;
     }
 
     // GET /api/directives/active → active directives with work_assignments

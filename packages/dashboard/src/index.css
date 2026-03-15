@@ -294,59 +294,29 @@ input:focus, textarea:focus, select:focus {
   outline: none;
 }
 
-/* ─── Light Mode Card ────────────────────────── */
+/* ── Card layout & interaction (no surface styling) ── */
+.glass-card-layout,
 .glass-card {
   position: relative;
   overflow: hidden;
-  background: #ffffff;
-  border-color: rgba(0, 0, 0, 0.06) !important;
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 4px 16px rgba(15, 23, 42, 0.06);
-  transition: background 0.3s ease, box-shadow 0.3s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
+
+.glass-card-layout:hover,
 .glass-card:hover {
-  box-shadow:
-    0 2px 6px rgba(15, 23, 42, 0.06),
-    0 12px 32px rgba(15, 23, 42, 0.09);
-  border-color: rgba(0, 0, 0, 0.1) !important;
+  transform: translateY(-1px);
 }
 
-/* ─── Dark Mode Card ─────────────────────────── */
-.dark .glass-card {
-  background: var(--glass-bg) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  box-shadow:
-    0 12px 32px rgba(0, 0, 0, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  backdrop-filter: var(--glass-filter);
-  -webkit-backdrop-filter: var(--glass-filter);
-}
-.dark .glass-card:hover {
-  background: var(--glass-bg) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  box-shadow:
-    0 14px 36px rgba(0, 0, 0, 0.38),
-    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+.glass-card-layout:active,
+.glass-card:active {
+  transform: translateY(0);
 }
 
-/* Inner raised elements inside cards */
+/* Inner layout shell (no surface styling) */
+.glass-inner-layout,
 .glass-raised {
-  background: #f8f9fb;
-  border-color: rgba(0, 0, 0, 0.05) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.6),
-    0 2px 8px rgba(15, 23, 42, 0.04);
-}
-
-.dark .glass-raised {
-  background: var(--glass-bg) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  box-shadow:
-    0 10px 26px rgba(0, 0, 0, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
-  backdrop-filter: var(--glass-filter);
-  -webkit-backdrop-filter: var(--glass-filter);
+  position: relative;
+  overflow: hidden;
 }
 
 .stat-card-accent {
@@ -533,8 +503,8 @@ input:focus, textarea:focus, select:focus {
   width: 24px;
 }
 
-.glass-card::after,
-.glass-raised::after {
+.sidebar-glass.glass-card-layout::after,
+.sidebar-glass.glass-inner-layout::after {
   content: '';
   position: absolute;
   top: 0;
@@ -614,14 +584,6 @@ input:focus, textarea:focus, select:focus {
     0 10px 24px rgba(0, 0, 0, 0.32) !important;
 }
 
-.dark .sidebar-glass {
-  background: var(--sidebar-glass-bg) !important;
-  backdrop-filter: var(--glass-filter) !important;
-  -webkit-backdrop-filter: var(--glass-filter) !important;
-  border-right: 1px solid var(--sidebar-glass-border);
-  box-shadow: inset 0 1px 0 var(--sidebar-glass-highlight);
-}
-
 .dark .hero-glass {
   background: var(--sidebar-glass-bg) !important;
   backdrop-filter: var(--glass-filter) !important;
@@ -633,22 +595,16 @@ input:focus, textarea:focus, select:focus {
     0 8px 20px rgba(0, 0, 0, 0.3) !important;
 }
 
-/* Hard unification pass: sidebar, cards, and banner share one exact glass recipe. */
-.dark .sidebar-glass,
-.dark .glass-card,
-.dark .glass-raised,
-.dark .glass-card.glass-panel,
-.dark .glass-raised.glass-panel,
-.dark .hero-glass,
-.dark .banner-wrapper {
-  background: var(--sidebar-glass-bg) !important;
-  backdrop-filter: var(--glass-filter) !important;
-  -webkit-backdrop-filter: var(--glass-filter) !important;
-  border: 1px solid var(--sidebar-glass-border) !important;
+/* ── Unified glass surface ── */
+.dark .sidebar-glass {
+  background: var(--sidebar-glass-bg);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+  border: 1px solid var(--sidebar-glass-border);
   box-shadow:
     inset 0 1px 0 var(--sidebar-glass-highlight),
     0 0 0 1px rgba(0, 224, 255, 0.05) inset,
-    0 8px 20px rgba(0, 0, 0, 0.3) !important;
+    0 8px 20px rgba(0, 0, 0, 0.3);
 }
 
 .dark .glass-panel.panel-primary,
@@ -663,69 +619,14 @@ input:focus, textarea:focus, select:focus {
     0 8px 20px rgba(0, 0, 0, 0.3) !important;
 }
 
-.dark .glass-card:hover,
-.dark .glass-raised:hover,
-.dark .glass-card.glass-panel:hover,
-.dark .glass-raised.glass-panel:hover {
-  background: var(--sidebar-glass-bg) !important;
-  border-color: var(--sidebar-glass-border) !important;
-  box-shadow:
-    inset 0 1px 0 var(--sidebar-glass-highlight),
-    0 0 0 1px rgba(0, 224, 255, 0.05) inset,
-    0 8px 20px rgba(0, 0, 0, 0.3) !important;
-}
-
 .dark .dashboard-sidebar.sidebar-glass {
   border: 0 !important;
   border-right: 1px solid var(--sidebar-glass-border) !important;
 }
 
-.dark .dashboard-home {
-  --dashboard-surface-bg: var(--sidebar-glass-bg);
-  --dashboard-surface-bg-hover: var(--sidebar-glass-bg);
-  --dashboard-surface-border: var(--sidebar-glass-border);
-  --dashboard-surface-border-hover: var(--sidebar-glass-border);
-  --dashboard-surface-filter: var(--glass-filter);
-  --dashboard-surface-shadow:
-    inset 0 1px 0 var(--sidebar-glass-highlight),
-    0 0 0 1px rgba(0, 224, 255, 0.05) inset,
-    0 8px 20px rgba(0, 0, 0, 0.3);
-  --dashboard-surface-shadow-hover:
-    inset 0 1px 0 var(--sidebar-glass-highlight),
-    0 0 0 1px rgba(0, 224, 255, 0.05) inset,
-    0 8px 20px rgba(0, 0, 0, 0.3);
-}
-
-/* Dashboard-only glass surface: explicit texture layer so cards visually match the menu without depending on backdrop context. */
-.dark .dashboard-home-banner,
-.dark .dashboard-home-card,
-.dark .dashboard-home-inner-card {
-  position: relative;
-  overflow: hidden;
-  background: var(--dashboard-surface-bg);
-  border: 1px solid var(--dashboard-surface-border);
-  backdrop-filter: var(--dashboard-surface-filter);
-  -webkit-backdrop-filter: var(--dashboard-surface-filter);
-  box-shadow: var(--dashboard-surface-shadow);
-}
-
-.dark .dashboard-home-banner::before,
-.dark .dashboard-home-card::before,
-.dark .dashboard-home-inner-card::before {
-  display: none;
-}
-
 .dashboard-home-surface-content {
   position: relative;
   z-index: 1;
-}
-
-.dark .dashboard-home-banner:hover,
-.dark .dashboard-home-card:hover,
-.dark .dashboard-home-inner-card:hover {
-  background: var(--dashboard-surface-bg-hover);
-  border-color: var(--dashboard-surface-border-hover);
-  box-shadow: var(--dashboard-surface-shadow-hover);
 }
 
 .dark .bg-raised {
@@ -754,10 +655,6 @@ input:focus, textarea:focus, select:focus {
 
 .dark .panel-nested .text-txt-faint {
   color: rgba(255, 255, 255, 0.62) !important;
-}
-
-.glass-card--interactive:hover {
-  transform: scale(1.02);
 }
 
 .dashboard-home-grid {

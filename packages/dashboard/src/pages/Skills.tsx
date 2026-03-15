@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   MdAttachMoney, MdSettings, MdCampaign, MdExplore, MdHandshake,
   MdTrackChanges, MdPalette, MdStars, MdBarChart, MdTrendingUp,
-  MdAdd, MdClose,
+  MdAdd, MdClose, MdUploadFile,
 } from 'react-icons/md';
 import { apiCall } from '../lib/firebase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
@@ -35,6 +35,66 @@ interface AgentSkillRow {
   };
 }
 
+interface SkillUploadResponse {
+  success: boolean;
+  parsed?: {
+    slug: string;
+    name: string;
+    category: string;
+    version: number;
+    holders: string[];
+    tools_granted_count: number;
+  };
+  sync?: {
+    holders: {
+      reconcile: boolean;
+      requested: string[];
+      deleted: number;
+      inserted: number;
+    };
+    task_mappings: {
+      replaced: boolean;
+      requested: number;
+      deleted: number;
+      inserted: number;
+    };
+  };
+}
+
+interface SyncHistoryRow {
+  id?: string;
+  agent_role: string;
+  action: string;
+  detail: string;
+  created_at: string;
+}
+
+interface UploadTaskMapping {
+  task_regex: string;
+  priority: number;
+}
+
+function parseTaskMappings(raw: string): UploadTaskMapping[] {
+  const lines = raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const mappings: UploadTaskMapping[] = [];
+  for (const line of lines) {
+    const parts = line.split('|').map((part) => part.trim());
+    const task_regex = parts[0];
+    if (!task_regex) continue;
+    const priority = Number.parseInt(parts[1] ?? '10', 10);
+    mappings.push({
+      task_regex,
+      priority: Number.isFinite(priority) ? priority : 10,
+    });
+  }
+
+  return mappings;
+}
+
 const CATEGORY_META: Record<string, { label: string; color: string; icon: ReactNode }> = {
   finance:            { label: 'Finance',           color: '#0369A1', icon: <MdAttachMoney className="inline h-4 w-4" /> },
   engineering:        { label: 'Engineering',       color: '#2563EB', icon: <MdSettings className="inline h-4 w-4" /> },
@@ -60,15 +120,18 @@ export default function Skills() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
+  const [syncHistory, setSyncHistory] = useState<SyncHistoryRow[]>([]);
 
   const loadSkills = async () => {
     setLoading(true);
 
-    // Load all skills
-    const skillsData = await apiCall<SkillRow[]>('/api/skills').catch(() => []);
-
-    // Load agent_skills to compute agent counts and top performers
-    const agentSkillsData = await apiCall<AgentSkillRow[]>('/api/agent-skills').catch(() => []);
+    // Load skills, usage, and recent sync events.
+    const [skillsData, agentSkillsData, syncHistoryData] = await Promise.all([
+      apiCall<SkillRow[]>('/api/skills').catch(() => []),
+      apiCall<AgentSkillRow[]>('/api/agent-skills').catch(() => []),
+      apiCall<SyncHistoryRow[]>('/api/activity_log?action=skills.sync_from_file&order=created_at.desc&limit=8').catch(() => []),
+    ]);
 
     // Load skills for join
     const skillMap = new Map((skillsData ?? []).map((s: SkillRow) => [s.id, s]));
@@ -100,6 +163,7 @@ export default function Skills() {
       });
 
     setTopAgents(topByUsage);
+    setSyncHistory(syncHistoryData ?? []);
     setLoading(false);
   };
 
@@ -145,7 +209,7 @@ export default function Skills() {
         </Card>
       </div>
 
-      {/* Category filter + Create button */}
+      {/* Category filter + actions */}
       <div className="flex items-center justify-between">
         <div className="flex flex-wrap gap-2">
         <button
@@ -177,12 +241,20 @@ export default function Skills() {
         })}
         </div>
 
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-cyan/10 border border-cyan/40 px-3 py-1.5 text-sm font-semibold text-cyan transition-all hover:bg-cyan/20"
-        >
-          <MdAdd className="h-4 w-4" /> New Skill
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowUpload(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-prism-fill-3/10 border border-prism-fill-3/40 px-3 py-1.5 text-sm font-semibold text-prism-fill-3 transition-all hover:bg-prism-fill-3/20"
+          >
+            <MdUploadFile className="h-4 w-4" /> Upload Skill File
+          </button>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-cyan/10 border border-cyan/40 px-3 py-1.5 text-sm font-semibold text-cyan transition-all hover:bg-cyan/20"
+          >
+            <MdAdd className="h-4 w-4" /> New Skill
+          </button>
+        </div>
       </div>
 
       {/* Skills grid */}
@@ -254,12 +326,39 @@ export default function Skills() {
         </Card>
       )}
 
+      {syncHistory.length > 0 && (
+        <Card>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-txt-primary">
+            Skill Sync History
+          </h3>
+          <div className="space-y-2">
+            {syncHistory.map((event, i) => (
+              <div key={`${event.created_at}-${i}`} className="rounded-lg border border-border/50 px-3 py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-medium text-txt-primary">{event.detail}</p>
+                  <span className="text-[11px] text-txt-faint">{new Date(event.created_at).toLocaleString()}</span>
+                </div>
+                <p className="mt-1 text-[11px] text-txt-faint">By {event.agent_role}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* Create Skill Modal */}
       {showCreate && (
         <CreateSkillModal
           categories={Object.keys(CATEGORY_META)}
           onCreated={() => { setShowCreate(false); loadSkills(); }}
           onClose={() => setShowCreate(false)}
+        />
+      )}
+
+      {/* Upload Skill Modal */}
+      {showUpload && (
+        <UploadSkillModal
+          onSynced={() => { loadSkills(); }}
+          onClose={() => setShowUpload(false)}
         />
       )}
     </div>
@@ -380,6 +479,164 @@ function CreateSkillModal({
             className="rounded-lg bg-cyan/10 border border-cyan/40 px-5 py-2 text-sm font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40"
           >
             {saving ? 'Creating…' : 'Create Skill'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UploadSkillModal({
+  onSynced,
+  onClose,
+}: {
+  onSynced: () => void;
+  onClose: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [reconcileHolders, setReconcileHolders] = useState(true);
+  const [defaultProficiency, setDefaultProficiency] = useState<'learning' | 'competent' | 'expert' | 'master'>('learning');
+  const [replaceTaskMappings, setReplaceTaskMappings] = useState(false);
+  const [taskMappingsRaw, setTaskMappingsRaw] = useState('');
+  const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState<SkillUploadResponse | null>(null);
+
+  const handleSync = async () => {
+    if (!file) {
+      setError('Choose a skill markdown file first.');
+      return;
+    }
+
+    setSyncing(true);
+    setError('');
+    setResult(null);
+
+    const taskMappings = parseTaskMappings(taskMappingsRaw);
+
+    if (replaceTaskMappings && taskMappingsRaw.trim().length > 0 && taskMappings.length === 0) {
+      setError('Task mappings format is invalid. Use one mapping per line: regex | priority');
+      setSyncing(false);
+      return;
+    }
+
+    try {
+      const content = await file.text();
+      const response = await apiCall<SkillUploadResponse>('/api/skills/sync-from-file', {
+        method: 'POST',
+        body: JSON.stringify({
+          fileName: file.name,
+          content,
+          reconcile_holders: reconcileHolders,
+          default_proficiency: defaultProficiency,
+          replace_task_mappings: replaceTaskMappings,
+          task_mappings: taskMappings,
+        }),
+      });
+      setResult(response);
+      onSynced();
+    } catch (err) {
+      setError((err as Error).message ?? 'Failed to sync skill file.');
+      setSyncing(false);
+      return;
+    }
+
+    setSyncing(false);
+  };
+
+  return (
+    <div className="modal-shell" onClick={onClose}>
+      <div className="modal-panel max-w-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <h2 className="text-lg font-semibold text-txt-primary">Upload Skill File</h2>
+          <button onClick={onClose} className="text-txt-faint hover:text-txt-primary transition-colors"><MdClose /></button>
+        </div>
+
+        <div className="space-y-4 px-5 py-5">
+          <label className="block space-y-1">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Skill Markdown File</span>
+            <input
+              type="file"
+              accept=".md,.markdown,text/markdown,text/plain"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className={`${INPUT_CLS} file:mr-3 file:rounded file:border-0 file:bg-cyan/15 file:px-3 file:py-1 file:text-xs file:font-semibold file:text-cyan`}
+            />
+            <p className="text-[11px] text-txt-faint">Expected format: YAML frontmatter + markdown body (same format as skills/*.md).</p>
+          </label>
+
+          <label className="flex items-center gap-2 text-sm text-txt-secondary">
+            <input
+              type="checkbox"
+              checked={reconcileHolders}
+              onChange={(e) => setReconcileHolders(e.target.checked)}
+              className="h-4 w-4 rounded border-border bg-raised"
+            />
+            Reconcile agent holders from frontmatter
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Default Proficiency For New Holders</span>
+            <select
+              value={defaultProficiency}
+              onChange={(e) => setDefaultProficiency(e.target.value as 'learning' | 'competent' | 'expert' | 'master')}
+              className={INPUT_CLS}
+            >
+              <option value="learning">learning</option>
+              <option value="competent">competent</option>
+              <option value="expert">expert</option>
+              <option value="master">master</option>
+            </select>
+          </label>
+
+          <label className="flex items-center gap-2 text-sm text-txt-secondary">
+            <input
+              type="checkbox"
+              checked={replaceTaskMappings}
+              onChange={(e) => setReplaceTaskMappings(e.target.checked)}
+              className="h-4 w-4 rounded border-border bg-raised"
+            />
+            Replace task-skill mappings for this slug
+          </label>
+
+          {replaceTaskMappings && (
+            <label className="block space-y-1">
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Task Mappings</span>
+              <textarea
+                value={taskMappingsRaw}
+                onChange={(e) => setTaskMappingsRaw(e.target.value)}
+                rows={4}
+                placeholder={'(?i)(blog|content|article) | 10\n(?i)(campaign|promo|launch) | 16'}
+                className={`${INPUT_CLS} font-mono text-[12px] leading-relaxed`}
+              />
+              <p className="text-[11px] text-txt-faint">One mapping per line: regex | priority. If blank, existing mappings for this skill are cleared.</p>
+            </label>
+          )}
+
+          {result?.parsed && (
+            <div className="rounded-lg border border-border bg-raised/50 p-3 text-xs text-txt-secondary">
+              <p>
+                Parsed: <span className="font-semibold text-txt-primary">{result.parsed.slug}</span> (v{result.parsed.version})
+              </p>
+              <p>
+                Holders inserted: {result.sync?.holders.inserted ?? 0} | removed: {result.sync?.holders.deleted ?? 0}
+              </p>
+              <p>
+                Mappings inserted: {result.sync?.task_mappings.inserted ?? 0} | removed: {result.sync?.task_mappings.deleted ?? 0}
+              </p>
+            </div>
+          )}
+
+          {error && <p className="text-sm text-prism-critical">{error}</p>}
+        </div>
+
+        <div className="flex items-center justify-end gap-3 border-t border-border px-5 py-4">
+          <button onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-muted hover:text-txt-primary transition-colors">Cancel</button>
+          <button
+            onClick={handleSync}
+            disabled={syncing || !file}
+            className="rounded-lg bg-prism-fill-3/10 border border-prism-fill-3/40 px-5 py-2 text-sm font-semibold text-prism-fill-3 transition-all hover:bg-prism-fill-3/20 disabled:opacity-40"
+          >
+            {syncing ? 'Syncing…' : 'Upload & Sync'}
           </button>
         </div>
       </div>

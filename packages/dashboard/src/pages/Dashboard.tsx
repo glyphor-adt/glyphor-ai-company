@@ -141,7 +141,7 @@ function statusTone(status: string | null | undefined): string {
 
 function HomeCard({ children, className = '', ...rest }: { children: ReactNode; className?: string } & HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`dashboard-home-card rounded-2xl border p-5 ${className}`} {...rest}>
+    <div className={`sidebar-glass glass-card-layout rounded-2xl border p-5 ${className}`} {...rest}>
       <div className="dashboard-home-surface-content">{children}</div>
     </div>
   );
@@ -149,7 +149,7 @@ function HomeCard({ children, className = '', ...rest }: { children: ReactNode; 
 
 function HomeInnerCard({ children, className = '', ...rest }: { children: ReactNode; className?: string } & HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`dashboard-home-inner-card rounded-xl border px-4 py-3 ${className}`} {...rest}>
+    <div className={`sidebar-glass glass-inner-layout rounded-xl border px-4 py-3 ${className}`} {...rest}>
       <div className="dashboard-home-surface-content">{children}</div>
     </div>
   );
