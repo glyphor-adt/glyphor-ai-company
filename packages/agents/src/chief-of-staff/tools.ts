@@ -618,6 +618,7 @@ export function createChiefOfStaffTools(
           },
         });
 
+        const decisionsChannel = channels.decisions;
         const { formatDecisionCard } = await import('@glyphor/integrations');
         const card = formatDecisionCard({
           id: decisionId,
@@ -630,7 +631,6 @@ export function createChiefOfStaffTools(
           actionMode: graphClient && decisionsChannel ? 'execute' : 'openUrl',
         });
 
-        const decisionsChannel = channels.decisions;
         if (graphClient && decisionsChannel) {
           await graphClient.sendCard(
             { teamId: decisionsChannel.teamId, channelId: decisionsChannel.channelId },

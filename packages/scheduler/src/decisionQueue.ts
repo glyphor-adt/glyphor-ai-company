@@ -56,6 +56,7 @@ export class DecisionQueue {
       ? ['kristina', 'andrew']
       : decision.assignedTo.length > 0 ? decision.assignedTo : ['kristina', 'andrew'];
 
+    const decisionsChannel = this.channels.decisions;
     const card = formatDecisionCard({
       id,
       tier: decision.tier,
@@ -68,7 +69,6 @@ export class DecisionQueue {
     });
 
     // Send via Graph API (preferred) or webhook fallback
-    const decisionsChannel = this.channels.decisions;
     if (this.graphClient && decisionsChannel) {
       await this.graphClient.sendCard(
         { teamId: decisionsChannel.teamId, channelId: decisionsChannel.channelId },
@@ -205,6 +205,7 @@ export class DecisionQueue {
           ? ['kristina', 'andrew']
           : decision.assignedTo.length > 0 ? decision.assignedTo : ['kristina', 'andrew'];
 
+        const decisionsChannel = this.channels.decisions;
         const card = formatDecisionCard({
           id: decision.id,
           tier: decision.tier,
@@ -217,7 +218,6 @@ export class DecisionQueue {
         });
 
         // Send via Graph API (preferred) or webhook fallback
-        const decisionsChannel = this.channels.decisions;
         if (this.graphClient && decisionsChannel) {
           await this.graphClient.sendCard(
             { teamId: decisionsChannel.teamId, channelId: decisionsChannel.channelId },
