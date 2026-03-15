@@ -18,9 +18,26 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
-// Register service worker for PWA / Intune deployment
+// Disable service worker caching for now to avoid stale deploys in production.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      registrations.forEach((registration) => {
+        registration.unregister().catch(() => {});
+      });
+    }).catch(() => {});
+  });
+}
+
+// Clear legacy client-side caches created by older service worker revisions.
+if ('caches' in window) {
+  window.addEventListener('load', () => {
+    caches.keys().then((keys) => {
+      keys
+        .filter((key) => key.startsWith('glyphor-'))
+        .forEach((key) => {
+          caches.delete(key).catch(() => {});
+        });
+    }).catch(() => {});
   });
 }
