@@ -326,7 +326,7 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-home space-y-5">
-      <HomeCard className="sticky top-0 z-20 border-white/10 bg-slate-950/85 py-4 backdrop-blur">
+      <HomeCard className="sticky top-0 z-20 border-white/10 py-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan/80">CEO Command View</p>

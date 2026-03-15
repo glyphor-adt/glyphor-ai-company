@@ -883,6 +883,16 @@ function buildSkillBlock(skillContext: SkillContext): string {
   return parts.join('\n');
 }
 
+function buildCanonicalDoctrineBlock(doctrineContext: string): string {
+  return [
+    '## Canonical Company Doctrine (Source of Truth)',
+    'Apply these doctrine constraints consistently across all reasoning, recommendations, and outputs.',
+    'If any role prompt, stale brief, message, or memory conflicts with this doctrine, follow this doctrine.',
+    '',
+    doctrineContext,
+  ].join('\n');
+}
+
 function buildSystemPrompt(
   role: CompanyAgentRole,
   existingPrompt: string,
@@ -895,6 +905,7 @@ function buildSystemPrompt(
   orchestrationConfig?: { can_decompose: boolean; can_evaluate: boolean; allowed_assignees: string[]; max_assignments_per_directive: number } | null,
   hasDelegatedDirective = false,
   model?: string,
+  doctrineContext?: string | null,
 ): string {
   try {
     const knowledgeDir = join(__dirname, '../../company-knowledge');
@@ -957,6 +968,10 @@ function buildSystemPrompt(
     const parts: string[] = [];
     if (!isOnDemand && companyKnowledgeBase) {
       parts.push(companyKnowledgeBase);
+    }
+
+    if (doctrineContext?.trim()) {
+      parts.push(buildCanonicalDoctrineBlock(doctrineContext));
     }
 
     parts.push(CONVERSATION_MODE);
@@ -1040,8 +1055,13 @@ function buildSystemPrompt(
  */
 function buildTaskTierSystemPrompt(
   profile: AgentProfileData | null,
+  doctrineContext?: string | null,
 ): string {
   const parts: string[] = [];
+
+  if (doctrineContext?.trim()) {
+    parts.push(buildCanonicalDoctrineBlock(doctrineContext));
+  }
 
   parts.push(`## Your Assignment
 Execute the task described in the user message below. Use your tools to gather data and produce results as instructed.
@@ -1154,6 +1174,8 @@ export interface RunDependencies {
   knowledgeBaseLoader?: (department?: string) => Promise<string>;
   /** Loader for active founder bulletins. */
   bulletinLoader?: (department?: string) => Promise<string>;
+  /** Loader for canonical company doctrine shared across all agents and tiers. */
+  doctrineLoader?: () => Promise<string | null>;
   /** Loader for pending work assignments assigned to this agent. */
   pendingAssignmentLoader?: (role: CompanyAgentRole) => Promise<{ id: string; task_description: string; task_type: string; expected_output: string | null; priority: string; status: string; evaluation: string | null; directive_title: string | null }[]>;
   /** Saves partial progress when a task-tier run is aborted mid-execution. */
@@ -1305,6 +1327,7 @@ export class CompanyAgentRunner {
     let skillContext: SkillContext | null = null;
     let dbKnowledgeBase: string | null = null;
     let bulletinContext: string | null = null;
+    let doctrineContext: string | null = null;
     let jitContext: JitContext | null = null;
     let routingDepartment: string | undefined;
     let orchestrationConfig: { executive_role: string; can_decompose: boolean; can_evaluate: boolean; can_create_sub_directives: boolean; allowed_assignees: string[]; max_assignments_per_directive: number; requires_plan_verification: boolean; is_canary: boolean } | null = null;
@@ -1435,6 +1458,21 @@ export class CompanyAgentRunner {
           })
         : Promise.resolve(null);
 
+      // Canonical doctrine — always load for all tiers, cached globally.
+      const doctrinePromise = deps?.doctrineLoader
+        ? (async () => {
+            const cacheKey = 'doctrine:canonical';
+            const cached = promptCache.get<string | null>(cacheKey);
+            if (cached !== undefined) return cached;
+            const result = await deps.doctrineLoader!();
+            promptCache.set(cacheKey, result);
+            return result;
+          })().catch(err => {
+            console.warn(`[CompanyAgentRunner] Doctrine load failed for ${config.role}:`, (err as Error).message);
+            return null;
+          })
+        : Promise.resolve(null);
+
       // Pending work assignments — skip for light tier (chat)
       const assignmentPromise = (tier !== 'light' && deps?.pendingAssignmentLoader)
         ? deps.pendingAssignmentLoader(config.role).catch(err => {
@@ -1488,9 +1526,10 @@ export class CompanyAgentRunner {
         assignmentPromise,
         jitPromise,
         orchConfigPromise,
+        doctrinePromise,
       ]);
 
-      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult, departmentSignal, workingMemory, skillResult, kbResult, bulletinResult, pendingAssignments, jitResult, orchConfigResult] = await Promise.race([allLoaders, preRunDeadline]);
+      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult, departmentSignal, workingMemory, skillResult, kbResult, bulletinResult, pendingAssignments, jitResult, orchConfigResult, doctrineResult] = await Promise.race([allLoaders, preRunDeadline]);
 
       // Inject memory context
       if (memoryResult) {
@@ -1578,6 +1617,7 @@ export class CompanyAgentRunner {
       // Set DB-driven knowledge base and bulletins
       dbKnowledgeBase = kbResult;
       bulletinContext = bulletinResult;
+      doctrineContext = doctrineResult;
 
       // Capture JIT result for downstream use (verification pipeline)
       jitContext = jitResult;
@@ -1938,7 +1978,7 @@ export class CompanyAgentRunner {
 
           // Select system prompt based on context tier
           const systemPrompt = isTaskTier
-            ? buildTaskTierSystemPrompt(agentProfile)
+            ? buildTaskTierSystemPrompt(agentProfile, doctrineContext)
             : buildSystemPrompt(
                 config.role,
                 config.systemPrompt,
@@ -1951,6 +1991,7 @@ export class CompanyAgentRunner {
                 orchestrationConfig,
                 hasDelegatedDirective,
                 routedModel.model === '__deterministic__' ? config.model : routedModel.model,
+                doctrineContext,
               );
           let effectiveThinking = routedModel.reasoningEffort === 'minimal' ? false : config.thinkingEnabled;
           if (isTaskTier) {

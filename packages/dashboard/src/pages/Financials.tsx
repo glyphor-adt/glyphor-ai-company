@@ -708,7 +708,7 @@ export default function Financials() {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-2xl border border-border bg-surface p-4">
+      <div className="rounded-2xl border border-border bg-white/[0.02] p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-txt-primary">Financials</h1>
@@ -717,7 +717,7 @@ export default function Financials() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowSyncPanel((v) => !v)}
-              className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-txt-secondary transition hover:bg-surface-hover"
+              className="rounded-lg border border-border bg-white/[0.02] px-3 py-1.5 text-xs font-medium text-txt-secondary transition hover:bg-white/[0.06]"
             >
               {showSyncPanel ? 'Hide Sources' : 'Data Sources'}
             </button>

@@ -12,6 +12,7 @@ import { ConstitutionalGovernor, TrustScorer } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { KnowledgeGraphReader } from '@glyphor/company-memory';
 import { SharedMemoryLoader, WorldModelUpdater, EmbeddingClient } from '@glyphor/company-memory';
+import { REQUIRED_COMPANY_DOCTRINE_SECTIONS } from './collectiveIntelligenceTools';
 
 /** Map agent roles to their organizational department for knowledge routing. */
 const ROLE_DEPARTMENT: Record<string, string> = {
@@ -238,6 +239,36 @@ export function createRunDeps(
       });
 
       return `## Founder Bulletins\n\n${entries.join('\n\n')}`;
+    },
+
+    doctrineLoader: async (): Promise<string | null> => {
+      const doctrineRows = await systemQuery(
+        `SELECT section, title, content
+         FROM company_knowledge_base
+         WHERE is_active = true
+           AND audience = 'all'
+           AND section = ANY($1)
+         ORDER BY array_position($1::text[], section)`,
+        [Array.from(REQUIRED_COMPANY_DOCTRINE_SECTIONS)],
+      );
+
+      if (!doctrineRows || doctrineRows.length === 0) {
+        return null;
+      }
+
+      const rows = doctrineRows as { section: string; title: string; content: string }[];
+      const activeSections = new Set(rows.map((row) => row.section));
+      const missing = REQUIRED_COMPANY_DOCTRINE_SECTIONS.filter((section) => !activeSections.has(section));
+
+      const parts: string[] = rows.map((row) => `## ${row.title}\n\n${row.content}`);
+      if (missing.length > 0) {
+        parts.push(
+          `## Doctrine Integrity Warning\n\nMissing required active doctrine sections: ${missing.join(', ')}. ` +
+          'Escalate to operations and continue using the available doctrine sections as the baseline.',
+        );
+      }
+
+      return parts.join('\n\n---\n\n');
     },
 
     skillContextLoader: async (role: CompanyAgentRole, task: string): Promise<SkillContext | null> => {

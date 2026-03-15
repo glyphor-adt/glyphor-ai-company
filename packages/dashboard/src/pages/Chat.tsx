@@ -945,7 +945,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
       {mobileSidebarOpen && (
         <div className="fixed inset-0 z-50 md:hidden" onClick={() => setMobileSidebarOpen(false)}>
           <div className="absolute inset-0 bg-black/50" />
-          <div className="relative z-10 flex h-full w-72 flex-col bg-surface overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="relative z-10 flex h-full w-72 flex-col bg-white/[0.03] backdrop-blur-sm overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <SidebarContent
               recentChats={recentChats}
               sidebarItems={sidebarItems}

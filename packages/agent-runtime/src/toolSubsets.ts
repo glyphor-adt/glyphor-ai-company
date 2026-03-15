@@ -152,6 +152,7 @@ export const TOOL_SUBSETS: ToolSubsetMap = {
       'create_work_assignments',
       'dispatch_assignment',
       'check_assignment_status',
+      'read_agent_statuses',
       'update_directive_progress',
       'propose_directive',
       'send_dm',
