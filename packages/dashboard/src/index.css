@@ -708,56 +708,69 @@ input:focus, textarea:focus, select:focus {
   border-right: 1px solid var(--sidebar-glass-border) !important;
 }
 
-/* Make dashboard cards use the exact same visual recipe as menu glass. */
-.dark .dashboard-home .glass-card.sidebar-glass,
-.dark .dashboard-home .glass-raised.sidebar-glass,
-.dark .dashboard-home .hero-glass.sidebar-glass,
-.dark .dashboard-home .banner-wrapper.sidebar-glass {
-  position: relative;
-  overflow: hidden;
-  background: rgba(8, 14, 32, 0.22) !important;
-  border: 1px solid var(--sidebar-glass-border) !important;
-  backdrop-filter: blur(34px) saturate(170%) contrast(1.05) !important;
-  -webkit-backdrop-filter: blur(34px) saturate(170%) contrast(1.05) !important;
-  box-shadow: inset 0 1px 0 var(--sidebar-glass-highlight) !important;
+.dark .dashboard-home {
+  --dashboard-surface-bg: linear-gradient(180deg, rgba(8, 14, 32, 0.36) 0%, rgba(7, 12, 28, 0.28) 100%);
+  --dashboard-surface-bg-hover: linear-gradient(180deg, rgba(8, 14, 32, 0.4) 0%, rgba(7, 12, 28, 0.31) 100%);
+  --dashboard-surface-border: rgba(94, 228, 255, 0.16);
+  --dashboard-surface-border-hover: rgba(94, 228, 255, 0.18);
+  --dashboard-surface-filter: blur(34px) saturate(170%) contrast(1.05);
+  --dashboard-surface-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 1px rgba(0, 224, 255, 0.06) inset,
+    0 8px 20px rgba(0, 0, 0, 0.32);
+  --dashboard-surface-shadow-hover:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    0 0 0 1px rgba(0, 224, 255, 0.07) inset,
+    0 10px 24px rgba(0, 0, 0, 0.34);
+  --dashboard-surface-overlay:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 24%),
+    url('/freepik__talk__14219.png') center / cover no-repeat,
+    radial-gradient(58% 42% at 14% 26%, rgba(62, 109, 255, 0.34) 0%, rgba(62, 109, 255, 0) 68%),
+    radial-gradient(54% 38% at 84% 26%, rgba(163, 104, 255, 0.28) 0%, rgba(163, 104, 255, 0) 72%);
+  --dashboard-surface-overlay-opacity: 0.5;
+  --dashboard-surface-overlay-filter: blur(22px) saturate(155%);
 }
 
-/* Fallback visual diffusion layer for browsers/layout paths where backdrop sampling is weak. */
-.dark .dashboard-home .glass-card.sidebar-glass::before,
-.dark .dashboard-home .glass-raised.sidebar-glass::before,
-.dark .dashboard-home .hero-glass.sidebar-glass::before,
-.dark .dashboard-home .banner-wrapper.sidebar-glass::before {
+/* Dashboard-only glass surface: explicit texture layer so cards visually match the menu without depending on backdrop context. */
+.dark .dashboard-home-banner,
+.dark .dashboard-home-card,
+.dark .dashboard-home-inner-card {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--dashboard-surface-bg);
+  border: 1px solid var(--dashboard-surface-border);
+  backdrop-filter: var(--dashboard-surface-filter);
+  -webkit-backdrop-filter: var(--dashboard-surface-filter);
+  box-shadow: var(--dashboard-surface-shadow);
+}
+
+.dark .dashboard-home-banner::before,
+.dark .dashboard-home-card::before,
+.dark .dashboard-home-inner-card::before {
   content: '';
   position: absolute;
-  inset: -14%;
-  height: auto;
-  background:
-    url('/freepik__talk__14219.png') center / cover no-repeat,
-    radial-gradient(58% 42% at 14% 26%, rgba(62, 109, 255, 0.26) 0%, rgba(62, 109, 255, 0) 68%),
-    radial-gradient(54% 38% at 84% 26%, rgba(163, 104, 255, 0.2) 0%, rgba(163, 104, 255, 0) 72%);
-  opacity: 0.34;
-  filter: blur(18px) saturate(145%);
-  transform: scale(1.06);
+  inset: -12%;
+  background: var(--dashboard-surface-overlay);
+  opacity: var(--dashboard-surface-overlay-opacity);
+  filter: var(--dashboard-surface-overlay-filter);
+  transform: scale(1.08);
   border-radius: inherit;
   pointer-events: none;
   z-index: 0;
 }
 
-.dark .dashboard-home .glass-card.sidebar-glass > *,
-.dark .dashboard-home .glass-raised.sidebar-glass > *,
-.dark .dashboard-home .hero-glass.sidebar-glass > *,
-.dark .dashboard-home .banner-wrapper.sidebar-glass > * {
+.dashboard-home-surface-content {
   position: relative;
   z-index: 1;
 }
 
-.dark .dashboard-home .glass-card.sidebar-glass:hover,
-.dark .dashboard-home .glass-raised.sidebar-glass:hover,
-.dark .dashboard-home .hero-glass.sidebar-glass:hover,
-.dark .dashboard-home .banner-wrapper.sidebar-glass:hover {
-  background: rgba(8, 14, 32, 0.22) !important;
-  border-color: var(--sidebar-glass-border) !important;
-  box-shadow: inset 0 1px 0 var(--sidebar-glass-highlight) !important;
+.dark .dashboard-home-banner:hover,
+.dark .dashboard-home-card:hover,
+.dark .dashboard-home-inner-card:hover {
+  background: var(--dashboard-surface-bg-hover);
+  border-color: var(--dashboard-surface-border-hover);
+  box-shadow: var(--dashboard-surface-shadow-hover);
 }
 
 .dark .bg-raised {

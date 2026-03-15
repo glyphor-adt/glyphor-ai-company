@@ -9,16 +9,13 @@ import {
 } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, TIER_TO_IMPACT } from '../lib/types';
 import {
-  Card,
-  InnerCard,
   SectionHeader,
   AgentAvatar,
-  ImpactBadge,
   Skeleton,
   timeAgo,
 } from '../components/ui';
 import { Link } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { type CSSProperties, type HTMLAttributes, type ReactNode, useEffect, useState } from 'react';
 import { apiCall } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
 
@@ -49,6 +46,22 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: 'text-txt-faint',
 };
 
+const DASHBOARD_ACCENTS = {
+  briefing: '0,224,255',
+  attention: '239,68,68',
+  directives: '130,140,248',
+  deliverables: '52,211,153',
+  intelligence: '168,85,247',
+  decision: '251,191,36',
+} as const;
+
+function buildAccentChipStyle(accent: string): CSSProperties {
+  return {
+    background: `rgba(${accent}, 0.15)`,
+    color: `rgb(${accent})`,
+  };
+}
+
 function fmtUsd(n: number) {
   if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`;
   return `$${n.toFixed(2)}`;
@@ -70,6 +83,26 @@ function normalizeHighlights(highlights: unknown[] | null | undefined): string[]
       return null;
     })
     .filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
+}
+
+function HomeCard({ children, className = '', ...rest }: { children: ReactNode; className?: string } & HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={`dashboard-home-card rounded-2xl border p-5 ${className}`} {...rest}>
+      <div className="dashboard-home-surface-content">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function HomeInnerCard({ children, className = '', ...rest }: { children: ReactNode; className?: string } & HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={`dashboard-home-inner-card rounded-xl border px-4 py-3 ${className}`} {...rest}>
+      <div className="dashboard-home-surface-content">
+        {children}
+      </div>
+    </div>
+  );
 }
 
 /* ── Dashboard ─────────────────────────────── */
@@ -166,8 +199,8 @@ export default function Dashboard() {
       <div className="dashboard-home-grid">
         <div className="dashboard-home-main space-y-5">
           {/* ── Welcome Banner ─────────────── */}
-          <div className="banner-wrapper hero-glass sidebar-glass">
-            <div className="banner-inner rounded-[24px] p-7">
+          <div className="banner-wrapper dashboard-home-banner">
+            <div className="banner-inner dashboard-home-surface-content rounded-[24px] p-7">
               <h1 className="font-agency text-[1.75rem] font-bold lowercase text-slate-900 dark:text-white md:text-[2.25rem] leading-tight">
                 {greeting}, {firstName}
               </h1>
@@ -185,7 +218,7 @@ export default function Dashboard() {
           {/* ── Agent Briefing + Needs You (side-by-side) ── */}
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           {/* ── Agent Briefing ─────────────── */}
-          <Card accent="0,224,255">
+          <HomeCard>
             <SectionHeader
               title="Agent Briefing"
               action={
@@ -234,11 +267,11 @@ export default function Dashboard() {
             ) : (
               <p className="py-4 text-sm text-txt-faint text-center">No briefing data available</p>
             )}
-          </Card>
+          </HomeCard>
 
           {/* ── Needs Your Attention ───────── */}
           {highPriorityItems.length > 0 && (
-            <Card accent="239,68,68">
+            <HomeCard>
               <SectionHeader
                 title="Needs You"
                 action={
@@ -249,10 +282,11 @@ export default function Dashboard() {
               />
               <div className="space-y-2">
                 {highPriorityItems.slice(0, 5).map(item => (
-                  <InnerCard key={item.id} accent="239,68,68" className="flex items-center gap-3">
-                    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-                      item.type === 'incident' ? 'bg-[rgba(239,68,68,0.15)] text-[#EF4444]' : 'bg-[rgba(251,191,36,0.15)] text-[#FBBF24]'
-                    }`}>
+                  <HomeInnerCard key={item.id} className="flex items-center gap-3">
+                    <div
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+                      style={buildAccentChipStyle(item.type === 'incident' ? DASHBOARD_ACCENTS.attention : DASHBOARD_ACCENTS.decision)}
+                    >
                       {item.type === 'incident' ? <MdWarning className="h-3.5 w-3.5" /> : <MdFlag className="h-3.5 w-3.5" />}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -262,10 +296,10 @@ export default function Dashboard() {
                       {item.severity}
                     </span>
                     <span className="text-[10px] text-txt-faint">{timeAgo(item.time)}</span>
-                  </InnerCard>
+                  </HomeInnerCard>
                 ))}
               </div>
-            </Card>
+            </HomeCard>
           )}
           </div>
 
@@ -285,13 +319,13 @@ export default function Dashboard() {
                   </span>
                 ) : null
               }
-              accent="0,224,255"
+              accent={DASHBOARD_ACCENTS.briefing}
             />
             <FinanceCard
               icon={<MdAccountBalance className="h-5 w-5" />}
               label="Cash"
               value={cashBalance != null ? fmtUsd(cashBalance) : '—'}
-              accent="52,211,153"
+              accent={DASHBOARD_ACCENTS.deliverables}
             />
             <FinanceCard
               icon={<MdCloud className="h-5 w-5" />}
@@ -300,14 +334,14 @@ export default function Dashboard() {
               detail={computeMonthly != null ? (
                 <span className="text-[11px] text-txt-faint">{fmtUsd(computeMonthly)} this month</span>
               ) : null}
-              accent="168,85,247"
+              accent={DASHBOARD_ACCENTS.intelligence}
             />
           </div>
 
           {/* ── Directives + Deliverables ── */}
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
           {/* ── Active Directives ─────────── */}
-          <Card accent="130,140,248">
+          <HomeCard>
             <SectionHeader
               title="Directives"
               action={
@@ -364,12 +398,12 @@ export default function Dashboard() {
                   })}
               </div>
             )}
-          </Card>
+          </HomeCard>
 
           {/* ── Deliverables + Org Intelligence ── */}
           <div className="grid grid-cols-1 gap-5">
             {/* Recent Deliverables */}
-            <Card accent="52,211,153">
+            <HomeCard>
               <SectionHeader title="Recent Deliverables" />
               {reflectionsLoading ? (
                 <div className="space-y-3">
@@ -380,7 +414,7 @@ export default function Dashboard() {
               ) : (
                 <div className="space-y-2">
                   {reflections.map(r => (
-                    <InnerCard key={r.id} accent="52,211,153" className="flex items-start gap-3">
+                    <HomeInnerCard key={r.id} className="flex items-start gap-3">
                       <AgentAvatar role={r.agent_role} size={24} />
                       <div className="min-w-0 flex-1">
                         <p className="text-[13px] text-txt-secondary line-clamp-1">{r.summary}</p>
@@ -396,16 +430,16 @@ export default function Dashboard() {
                           Q{r.quality_score}
                         </span>
                       )}
-                    </InnerCard>
+                    </HomeInnerCard>
                   ))}
                 </div>
               )}
-            </Card>
+            </HomeCard>
           </div>
           </div>
 
             {/* Organizational Intelligence */}
-            <Card accent="168,85,247" className="self-start">
+            <HomeCard className="self-start">
               <SectionHeader
                 title="Organizational Intelligence"
                 action={
@@ -445,7 +479,7 @@ export default function Dashboard() {
                     ))}
                 </div>
               )}
-            </Card>
+            </HomeCard>
 
 
         </div>
@@ -469,16 +503,16 @@ function FinanceCard({
   accent: string;
 }) {
   return (
-    <Card accent={accent} className="py-4">
+    <HomeCard className="py-4">
       <div className="flex items-center gap-2 mb-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: `rgba(${accent}, 0.15)`, color: `rgb(${accent})` }}>
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={buildAccentChipStyle(accent)}>
           {icon}
         </div>
         <span className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted">{label}</span>
       </div>
       <p className="text-2xl font-bold font-mono text-txt-primary">{value}</p>
       {detail && <div className="mt-1">{detail}</div>}
-    </Card>
+    </HomeCard>
   );
 }
 
