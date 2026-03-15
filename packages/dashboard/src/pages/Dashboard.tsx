@@ -1,29 +1,22 @@
 import {
-  MdCheckCircle, MdArrowForward, MdWarning, MdFlag,
-  MdTrendingUp, MdTrendingDown, MdLightbulb, MdSmartToy,
-  MdAccountBalance, MdCloud, MdAttachMoney,
+  MdArrowForward,
+  MdAttachMoney,
+  MdChat,
+  MdCheckCircle,
+  MdCloud,
+  MdFlag,
+  MdOutlineAutoGraph,
+  MdOutlineSettings,
+  MdSpeed,
+  MdWarning,
 } from 'react-icons/md';
-import {
-  useDecisions, useOpenIncidents, useCompanyPulse,
-  useActiveDirectives, useTopReflections,
-} from '../lib/hooks';
-import { DISPLAY_NAME_MAP, TIER_TO_IMPACT } from '../lib/types';
-import {
-  SectionHeader,
-  AgentAvatar,
-  Skeleton,
-  timeAgo,
-} from '../components/ui';
 import { Link } from 'react-router-dom';
-import { type CSSProperties, type HTMLAttributes, type ReactNode, useEffect, useState } from 'react';
+import { type HTMLAttributes, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { useActiveDirectives, useCompanyPulse, useDecisions, useOpenIncidents } from '../lib/hooks';
+import { DISPLAY_NAME_MAP } from '../lib/types';
+import { SectionHeader, Skeleton, timeAgo } from '../components/ui';
 import { apiCall } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
-
-/* ── Types ─────────────────────────────────── */
-
-interface KgNodeRow {
-  node_type: string;
-}
 
 interface FinancialRow {
   metric: string;
@@ -36,61 +29,120 @@ interface GcpBillingRow {
   recorded_at: string;
 }
 
-/* ── Helpers ───────────────────────────────── */
+interface AgentRunRow {
+  id: string;
+  status: string;
+  started_at: string;
+}
 
-const PRIORITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
-const PRIORITY_COLORS: Record<string, string> = {
-  critical: 'text-prism-critical',
-  high: 'text-prism-elevated',
-  medium: 'text-prism-sky',
-  low: 'text-txt-faint',
+interface ActivityRow {
+  id: string;
+  agent_role?: string | null;
+  agent_id?: string | null;
+  action: string;
+  summary?: string | null;
+  detail?: string | null;
+  created_at: string;
+}
+
+interface DeliverableRow {
+  id: string;
+  title: string;
+  content: string | null;
+  storage_url: string | null;
+  producing_agent: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
+interface ActionCenterItem {
+  id: string;
+  kind: 'incident' | 'decision' | 'briefing' | 'directive';
+  priority: 'critical' | 'high' | 'medium';
+  title: string;
+  context: string;
+  recommendation: string;
+  timestamp?: string;
+  reviewTo: string;
+  approveDecisionId?: string;
+}
+
+const PRIORITY_ORDER: Record<ActionCenterItem['priority'], number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
 };
 
-const DASHBOARD_ACCENTS = {
-  briefing: '0,224,255',
-  attention: '239,68,68',
-  directives: '130,140,248',
-  deliverables: '52,211,153',
-  intelligence: '168,85,247',
-  decision: '251,191,36',
-} as const;
+const PRIORITY_BADGE: Record<ActionCenterItem['priority'], string> = {
+  critical: 'bg-prism-critical/15 text-prism-critical border-prism-critical/30',
+  high: 'bg-prism-elevated/15 text-prism-elevated border-prism-elevated/30',
+  medium: 'bg-cyan/15 text-cyan border-cyan/30',
+};
 
-function buildAccentChipStyle(accent: string): CSSProperties {
-  return {
-    background: `rgba(${accent}, 0.15)`,
-    color: `rgb(${accent})`,
-  };
+const QUICK_ACTIONS = [
+  { label: 'Chat with Ora', description: 'Ask anything about Glyphor', to: '/ora', icon: MdChat },
+  { label: 'Create Directive', description: 'Tell agents what to work on', to: '/directives', icon: MdFlag },
+  { label: 'View Financials', description: 'Cost breakdown and runway', to: '/financials', icon: MdAttachMoney },
+  { label: 'Check Workforce', description: 'Agent health and performance', to: '/workforce', icon: MdOutlineAutoGraph },
+  { label: 'Run Settings', description: 'Adjust schedules and models', to: '/settings', icon: MdOutlineSettings },
+] as const;
+
+const SUGGESTED_DIRECTIVES = [
+  {
+    title: 'Prepare a competitive pricing analysis for Slack-first GTM',
+    description: 'Would activate Sophia, Lena, and Daniel across research and positioning.',
+    cost: '~$2-5 in compute',
+  },
+  {
+    title: 'Draft the first version of our customer-facing landing page',
+    description: 'Would activate Maya, Mia, and Ethan across marketing, design, and frontend.',
+    cost: '~$3-8 in compute',
+  },
+  {
+    title: 'Audit our SOC 2 readiness and produce a gap report',
+    description: 'Would activate Victoria and Morgan for a founder-visible compliance readout.',
+    cost: '~$1-3 in compute',
+  },
+] as const;
+
+function fmtUsd(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return '—';
+  if (Math.abs(value) >= 1000) return `$${(value / 1000).toFixed(1)}k`;
+  return `$${value.toFixed(2)}`;
 }
 
-function fmtUsd(n: number) {
-  if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`;
-  return `$${n.toFixed(2)}`;
+function fmtMonths(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return `${value.toFixed(value >= 10 ? 0 : 1)} mo`;
 }
 
-function normalizeHighlights(highlights: unknown[] | null | undefined): string[] {
-  if (!Array.isArray(highlights)) return [];
-  return highlights
-    .map((item) => {
-      if (typeof item === 'string') return item;
-      if (item && typeof item === 'object') {
-        const candidate = item as { text?: unknown; agent?: unknown; type?: unknown };
-        if (typeof candidate.text === 'string' && candidate.text.trim().length > 0) return candidate.text;
-        const parts = [candidate.agent, candidate.type]
-          .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
-          .join(' · ');
-        return parts || null;
-      }
-      return null;
-    })
-    .filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
+function parseText(value: string | null | undefined): string {
+  if (!value) return '';
+  if (!value.startsWith('{')) return value;
+  try {
+    const parsed = JSON.parse(value) as { summary?: string; message?: string };
+    return (parsed.summary || parsed.message || value).trim();
+  } catch {
+    return value;
+  }
+}
+
+function previewText(value: string | null | undefined, fallback: string): string {
+  const text = parseText(value).replace(/\s+/g, ' ').trim();
+  if (!text) return fallback;
+  return text.length > 180 ? `${text.slice(0, 177)}...` : text;
+}
+
+function statusTone(status: string | null | undefined): string {
+  if (status === 'green') return 'text-[#34D399]';
+  if (status === 'red') return 'text-prism-critical';
+  return 'text-prism-elevated';
 }
 
 function HomeCard({ children, className = '', ...rest }: { children: ReactNode; className?: string } & HTMLAttributes<HTMLDivElement>) {
   return (
     <div className={`dashboard-home-card rounded-2xl border p-5 ${className}`} {...rest}>
-      <div className="dashboard-home-surface-content">
-        {children}
-      </div>
+      <div className="dashboard-home-surface-content">{children}</div>
     </div>
   );
 }
@@ -98,421 +150,396 @@ function HomeCard({ children, className = '', ...rest }: { children: ReactNode; 
 function HomeInnerCard({ children, className = '', ...rest }: { children: ReactNode; className?: string } & HTMLAttributes<HTMLDivElement>) {
   return (
     <div className={`dashboard-home-inner-card rounded-xl border px-4 py-3 ${className}`} {...rest}>
-      <div className="dashboard-home-surface-content">
-        {children}
-      </div>
+      <div className="dashboard-home-surface-content">{children}</div>
     </div>
   );
 }
 
-/* ── Dashboard ─────────────────────────────── */
+function extractDeliverableScore(deliverable: DeliverableRow): number | null {
+  const metadata = deliverable.metadata ?? {};
+  const direct = metadata.quality_score ?? metadata.score ?? null;
+  if (typeof direct === 'number') return direct;
+  if (typeof direct === 'string') {
+    const parsed = Number(direct);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function buildIncidentContext(title: string, description: string | null): { context: string; recommendation: string } {
+  const lower = `${title} ${description ?? ''}`.toLowerCase();
+  if (lower.includes('latency') || lower.includes('slow') || lower.includes('cold start')) {
+    return {
+      context: 'Atlas detected elevated response times on a production path.',
+      recommendation: 'Check recent deploys, instance scaling, and whether min-instances should stay above zero.',
+    };
+  }
+  if (lower.includes('serialization') || lower.includes('json') || lower.includes('parse')) {
+    return {
+      context: 'Tool payloads are likely failing at the framework boundary before execution starts.',
+      recommendation: 'Review the latest agent-runtime serialization path and the most recent failed runs before shipping another change.',
+    };
+  }
+  return {
+    context: previewText(description, 'An operational alert needs founder-visible triage context.'),
+    recommendation: 'Open Operations, confirm impact, and decide whether this needs reassignment, mitigation, or dismissal.',
+  };
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { data: pulse, loading: pulseLoading } = useCompanyPulse();
-  const { data: decisions, loading: decisionsLoading } = useDecisions();
+  const { data: decisions, loading: decisionsLoading, updateDecision } = useDecisions();
   const { data: incidents, loading: incidentsLoading } = useOpenIncidents();
   const { data: directives, loading: directivesLoading } = useActiveDirectives();
-  const { data: reflections, loading: reflectionsLoading } = useTopReflections(5);
 
-  const [kgNodes, setKgNodes] = useState<KgNodeRow[]>([]);
-  const [cashBalance, setCashBalance] = useState<number | null>(null);
-  const [computeToday, setComputeToday] = useState<number | null>(null);
-  const [computeMonthly, setComputeMonthly] = useState<number | null>(null);
+  const [financialRows, setFinancialRows] = useState<FinancialRow[]>([]);
+  const [billingRows, setBillingRows] = useState<GcpBillingRow[]>([]);
+  const [runsToday, setRunsToday] = useState<AgentRunRow[]>([]);
+  const [activityRows, setActivityRows] = useState<ActivityRow[]>([]);
+  const [deliverables, setDeliverables] = useState<DeliverableRow[]>([]);
+  const [metricsLoading, setMetricsLoading] = useState(true);
 
-  // Fetch knowledge graph stats
   useEffect(() => {
+    let active = true;
     (async () => {
-      try {
-        const rows = await apiCall<KgNodeRow[]>('/api/kg-nodes?fields=node_type');
-        setKgNodes(rows ?? []);
-      } catch {
-        setKgNodes([]);
-      }
-    })();
-  }, []);
+      setMetricsLoading(true);
+      const today = new Date();
+      const todayIso = today.toISOString().split('T')[0];
+      const monthStart = `${todayIso.slice(0, 8)}01`;
+      const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  // Fetch cash balance (latest financials metric)
-  useEffect(() => {
-    (async () => {
-      try {
-        const rows = await apiCall<FinancialRow[]>('/api/financials?order=date.desc&limit=50');
-        const cash = (rows ?? []).find(r => r.metric === 'cash_balance' || r.metric === 'bank_balance');
-        if (cash) setCashBalance(cash.value);
-      } catch { /* ignore */ }
-    })();
-  }, []);
+      const [financialsRes, billingRes, runsRes, activityRes, deliverablesRes] = await Promise.all([
+        apiCall<FinancialRow[]>('/api/financials?order=date.desc&limit=120').catch(() => []),
+        apiCall<GcpBillingRow[]>(`/api/gcp-billing?since=${thirtyDaysAgo}`).catch(() => []),
+        apiCall<AgentRunRow[]>(`/api/agent-runs?since=${todayIso}T00:00:00Z&status=completed&limit=250`).catch(() => []),
+        apiCall<ActivityRow[]>('/api/activity?limit=8').catch(() => []),
+        apiCall<DeliverableRow[]>(`/api/deliverables?since=${sevenDaysAgo}&order=created_at.desc&limit=10`).catch(() => []),
+      ]);
 
-  // Fetch compute cost today + monthly
-  useEffect(() => {
-    (async () => {
-      try {
-        const todayStr = new Date().toISOString().split('T')[0];
-        const monthStart = todayStr.slice(0, 8) + '01';
-        const rows = await apiCall<GcpBillingRow[]>(`/api/gcp-billing?since=${monthStart}T00:00:00Z`);
-        const all = rows ?? [];
-        const todayCost = all
-          .filter(r => r.recorded_at?.startsWith(todayStr))
-          .reduce((sum, r) => sum + Number(r.cost_usd), 0);
-        const monthlyCost = all.reduce((sum, r) => sum + Number(r.cost_usd), 0);
-        setComputeToday(todayCost);
-        setComputeMonthly(monthlyCost);
-      } catch { /* ignore */ }
+      if (!active) return;
+      setFinancialRows(financialsRes ?? []);
+      setBillingRows(billingRes ?? []);
+      setRunsToday(runsRes ?? []);
+      setActivityRows(activityRes ?? []);
+      setDeliverables(deliverablesRes ?? []);
+      setMetricsLoading(false);
     })();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const firstName = user?.name?.split(' ')[0] ?? 'there';
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const pendingDecisions = decisions.filter((decision) => decision.status === 'pending');
+  const highPriorityDecisions = pendingDecisions.filter((decision) => decision.tier === 'red' || decision.tier === 'yellow');
+  const cashSeries = financialRows.filter((row) => row.metric === 'cash_balance' || row.metric === 'bank_balance');
+  const cashBalance = cashSeries[0]?.value ?? null;
+  const priorCash = cashSeries.find((row) => row.date !== cashSeries[0]?.date)?.value ?? null;
+  const cashChangeToday = cashBalance != null && priorCash != null ? cashBalance - priorCash : null;
 
-  const pendingDecisions = decisions.filter((d) => d.status === 'pending');
+  const todayIso = new Date().toISOString().split('T')[0];
+  const monthPrefix = todayIso.slice(0, 7);
+  const computeToday = billingRows
+    .filter((row) => row.recorded_at?.startsWith(todayIso))
+    .reduce((sum, row) => sum + Number(row.cost_usd), 0);
+  const computeMtd = billingRows
+    .filter((row) => row.recorded_at?.startsWith(monthPrefix))
+    .reduce((sum, row) => sum + Number(row.cost_usd), 0);
+  const rollingThirtyDayBurn = billingRows.reduce((sum, row) => sum + Number(row.cost_usd), 0);
+  const runwayMonths = cashBalance != null && rollingThirtyDayBurn > 0
+    ? cashBalance / rollingThirtyDayBurn
+    : null;
 
-  // Only show incidents from the last 48 hours and deduplicate by title
-  const recentCutoff = Date.now() - 48 * 60 * 60 * 1000;
-  const recentIncidents = incidents.filter(i => new Date(i.created_at).getTime() > recentCutoff);
-  const seenTitles = new Set<string>();
-  const dedupedIncidents = recentIncidents.filter(i => {
-    const key = i.title.toLowerCase().trim();
-    if (seenTitles.has(key)) return false;
-    seenTitles.add(key);
-    return true;
-  });
+  const activeAssignments = directives.reduce(
+    (sum, directive) => sum + directive.assignments.filter((assignment) => assignment.status !== 'completed').length,
+    0,
+  );
 
-  const highPriorityItems = [
-    ...dedupedIncidents.map(i => ({ type: 'incident' as const, id: i.id, title: i.title, severity: i.severity, time: i.created_at })),
-    ...pendingDecisions.filter(d => d.tier === 'red' || d.tier === 'yellow').map(d => ({
-      type: 'decision' as const, id: d.id, title: d.title, severity: d.tier === 'red' ? 'critical' : 'high', time: d.created_at,
-    })),
-  ].sort((a, b) => (PRIORITY_ORDER[a.severity] ?? 3) - (PRIORITY_ORDER[b.severity] ?? 3));
+  const briefingAgeMs = pulse?.updated_at ? Date.now() - new Date(pulse.updated_at).getTime() : null;
+  const briefingStale = briefingAgeMs != null && briefingAgeMs > 18 * 60 * 60 * 1000;
 
-  // Org Intelligence counts
-  const totalNodes = kgNodes.length;
-  const patternCount = kgNodes.filter(n => n.node_type === 'pattern').length;
-  const contradictionCount = kgNodes.filter(n => n.node_type === 'hypothesis').length;
+  const actionItems = useMemo<ActionCenterItem[]>(() => {
+    const incidentItems: ActionCenterItem[] = incidents.slice(0, 3).map((incident) => {
+      const detail = buildIncidentContext(incident.title, incident.description);
+      return {
+        id: `incident-${incident.id}`,
+        kind: 'incident',
+        priority: incident.severity === 'critical' ? 'critical' : 'high',
+        title: incident.title,
+        context: detail.context,
+        recommendation: detail.recommendation,
+        timestamp: incident.created_at,
+        reviewTo: '/operations',
+      };
+    });
 
-  // Agent org stats
-  const loading = pulseLoading || decisionsLoading || incidentsLoading || directivesLoading || reflectionsLoading;
-  const pulseHighlights = normalizeHighlights(pulse?.highlights);
+    const decisionItems: ActionCenterItem[] = highPriorityDecisions.slice(0, 3).map((decision) => ({
+      id: `decision-${decision.id}`,
+      kind: 'decision',
+      priority: decision.tier === 'red' ? 'critical' : 'high',
+      title: decision.title,
+      context: previewText(decision.summary, 'A founder decision is waiting without enough context.'),
+      recommendation: previewText(decision.reasoning, 'Review the attached recommendation, then approve, reject, or redirect it.'),
+      timestamp: decision.created_at,
+      reviewTo: `/approvals?decision=${encodeURIComponent(decision.id)}`,
+      approveDecisionId: decision.id,
+    }));
+
+    const directiveItems: ActionCenterItem[] = directives.length === 0
+      ? [{
+          id: 'directive-gap',
+          kind: 'directive',
+          priority: 'medium',
+          title: 'No active directives',
+          context: 'Your agents do not have founder-defined work to execute right now.',
+          recommendation: 'Create one or two directives for this week so Sarah can decompose them into assignments and deliverables.',
+          reviewTo: '/directives',
+        }]
+      : [];
+
+    const briefingItems: ActionCenterItem[] = briefingStale
+      ? [{
+          id: 'briefing-stale',
+          kind: 'briefing',
+          priority: 'high',
+          title: 'Agent briefing is stale',
+          context: `The latest company pulse was updated ${pulse?.updated_at ? timeAgo(pulse.updated_at) : 'a while ago'}, which means your briefing surface is drifting out of date.`,
+          recommendation: 'Confirm Sarah’s scheduled briefing run is landing, then check channel delivery and company pulse writes.',
+          reviewTo: '/operations',
+        }]
+      : [];
+
+    return [...briefingItems, ...incidentItems, ...decisionItems, ...directiveItems]
+      .sort((left, right) => {
+        const priorityDelta = PRIORITY_ORDER[left.priority] - PRIORITY_ORDER[right.priority];
+        if (priorityDelta !== 0) return priorityDelta;
+        if (!left.timestamp || !right.timestamp) return 0;
+        return new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime();
+      })
+      .slice(0, 4);
+  }, [briefingStale, directives.length, highPriorityDecisions, incidents, pulse?.updated_at]);
+
+  const loading = pulseLoading || decisionsLoading || incidentsLoading || directivesLoading || metricsLoading;
 
   return (
-    <div className="dashboard-home">
-      <div className="dashboard-home-grid">
-        <div className="dashboard-home-main space-y-5">
-          {/* ── Welcome Banner ─────────────── */}
-          <div className="banner-wrapper dashboard-home-banner">
-            <div className="banner-inner dashboard-home-surface-content rounded-[24px] p-7">
-              <h1 className="font-agency text-[1.75rem] font-bold lowercase text-slate-900 dark:text-white md:text-[2.25rem] leading-tight">
-                {greeting}, {firstName}
-              </h1>
-              <p className="mt-3 max-w-2xl text-[15px] lowercase text-slate-600 dark:text-white/60">
-                Welcome back to Glyphor AI. Here&apos;s what&apos;s happening.
-              </p>
-              <p className="mt-4 text-[13px] text-slate-500 dark:text-white/35 font-medium">
-                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-                {' · '}
-                {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-              </p>
-            </div>
+    <div className="dashboard-home space-y-5">
+      <HomeCard className="sticky top-0 z-20 border-white/10 bg-slate-950/85 py-4 backdrop-blur">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan/80">CEO Command View</p>
+            <h1 className="mt-1 font-agency text-[1.7rem] font-bold lowercase text-white md:text-[2rem]">
+              {firstName}, here&apos;s what needs your time
+            </h1>
           </div>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <MetricRibbon label="Cash" value={fmtUsd(cashBalance)} detail={cashChangeToday == null ? 'Daily delta unavailable' : `${cashChangeToday >= 0 ? '↑' : '↓'} ${fmtUsd(Math.abs(cashChangeToday))} today · Runway ${fmtMonths(runwayMonths)}`} />
+            <MetricRibbon label="MRR" value={fmtUsd(pulse?.mrr ?? null)} detail={pulse?.mrr != null ? 'Pre-revenue operating posture' : 'No revenue signal yet'} />
+            <MetricRibbon label="Compute" value={fmtUsd(computeToday)} detail={`${fmtUsd(computeMtd)} MTD · ${fmtUsd(rollingThirtyDayBurn)} rolling 30d`} />
+            <MetricRibbon label="System" value={pulse?.platform_status?.toUpperCase() ?? '—'} detail={`${pendingDecisions.length} pending decisions · ${runsToday.length} runs today`} toneClass={statusTone(pulse?.platform_status)} />
+          </div>
+        </div>
+      </HomeCard>
 
-          {/* ── Agent Briefing + Needs You (side-by-side) ── */}
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          {/* ── Agent Briefing ─────────────── */}
-          <HomeCard>
-            <SectionHeader
-              title="Agent Briefing"
-              action={
-                pulse ? (
-                  <span className="text-[11px] text-txt-faint capitalize">
-                    Mood: {pulse.company_mood} · Updated {timeAgo(pulse.updated_at)}
+      <HomeCard>
+        <SectionHeader
+          title="Action Center"
+          action={<span className="text-[11px] text-txt-faint">{actionItems.length} open items</span>}
+        />
+        {loading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} className="h-24" />)}
+          </div>
+        ) : actionItems.length === 0 ? (
+          <p className="py-8 text-sm text-txt-faint">No critical actions queued right now.</p>
+        ) : (
+          <div className="space-y-3">
+            {actionItems.map((item, index) => (
+              <HomeInnerCard key={item.id} className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${PRIORITY_BADGE[item.priority]}`}>
+                    {item.priority}
                   </span>
-                ) : null
-              }
-            />
-            {pulseLoading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10" />)}
-              </div>
-            ) : pulse ? (
-              <div className="space-y-3">
-                {pulseHighlights.length > 0 ? (
-                  <>
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted">Highlights</p>
-                    <ul className="space-y-1.5">
-                      {pulseHighlights.slice(0, 4).map((h, i) => (
-                        <li key={i} className="flex items-start gap-2 text-[13px] text-txt-secondary">
-                          <MdCheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#34D399]" />
-                          {h}
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                ) : (
-                  <p className="text-[13px] text-txt-muted">No highlights yet. Sarah will prepare your next briefing soon.</p>
-                )}
-                {dedupedIncidents.length > 0 && (
-                  <>
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-prism-elevated mt-2">Watch Items</p>
-                    <ul className="space-y-1.5">
-                      {dedupedIncidents.slice(0, 3).map(inc => (
-                        <li key={inc.id} className="flex items-start gap-2 text-[13px] text-txt-secondary">
-                          <MdWarning className="mt-0.5 h-4 w-4 shrink-0 text-prism-elevated" />
-                          <span className="line-clamp-1">{inc.title}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-              </div>
-            ) : (
-              <p className="py-4 text-sm text-txt-faint text-center">No briefing data available</p>
-            )}
-          </HomeCard>
-
-          {/* ── Needs Your Attention ───────── */}
-          {highPriorityItems.length > 0 && (
-            <HomeCard>
-              <SectionHeader
-                title="Needs You"
-                action={
-                  <Link to="/approvals" className="text-[11px] text-cyan hover:underline flex items-center gap-0.5">
-                    View all <MdArrowForward className="h-3 w-3" />
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-txt-faint">{index + 1}. {item.kind}</span>
+                  {item.timestamp ? <span className="ml-auto text-[11px] text-txt-faint">{timeAgo(item.timestamp)}</span> : null}
+                </div>
+                <div>
+                  <h2 className="text-[15px] font-semibold text-txt-primary">{item.title}</h2>
+                  <p className="mt-1 text-[13px] text-txt-secondary">{item.context}</p>
+                  <p className="mt-2 text-[13px] text-txt-muted">Recommended: {item.recommendation}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Link to={item.reviewTo} className="rounded-lg border border-cyan/30 bg-cyan/10 px-3 py-1.5 text-[12px] font-medium text-cyan transition-colors hover:bg-cyan/20">
+                    Review
                   </Link>
-                }
-              />
-              <div className="space-y-2">
-                {highPriorityItems.slice(0, 5).map(item => (
-                  <HomeInnerCard key={item.id} className="flex items-center gap-3">
-                    <div
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
-                      style={buildAccentChipStyle(item.type === 'incident' ? DASHBOARD_ACCENTS.attention : DASHBOARD_ACCENTS.decision)}
-                    >
-                      {item.type === 'incident' ? <MdWarning className="h-3.5 w-3.5" /> : <MdFlag className="h-3.5 w-3.5" />}
+                  {item.approveDecisionId ? (
+                    <>
+                      <button
+                        onClick={() => updateDecision(item.approveDecisionId!, 'approved', user?.email?.toLowerCase().includes('andrew') ? 'andrew' : 'kristina')}
+                        className="rounded-lg border border-[#34D399]/30 bg-[#34D399]/10 px-3 py-1.5 text-[12px] font-medium text-[#34D399] transition-colors hover:bg-[#34D399]/20"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => updateDecision(item.approveDecisionId!, 'rejected', user?.email?.toLowerCase().includes('andrew') ? 'andrew' : 'kristina')}
+                        className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-1.5 text-[12px] font-medium text-prism-critical transition-colors hover:bg-prism-critical/20"
+                      >
+                        Reject
+                      </button>
+                    </>
+                  ) : (
+                    <Link to="/ora" className="rounded-lg border border-border px-3 py-1.5 text-[12px] font-medium text-txt-muted transition-colors hover:border-cyan/30 hover:text-cyan">
+                      Ask Ora
+                    </Link>
+                  )}
+                </div>
+              </HomeInnerCard>
+            ))}
+          </div>
+        )}
+      </HomeCard>
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.3fr_0.9fr]">
+        <HomeCard>
+          <SectionHeader title="Company Pulse" action={<Link to="/operations" className="text-[11px] text-cyan hover:underline">View all activity</Link>} />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <PulseStat label="Runs completed" value={String(runsToday.length)} />
+            <PulseStat label="Assignments active" value={String(activeAssignments)} />
+            <PulseStat label="Decisions pending" value={String(pendingDecisions.length)} />
+          </div>
+          <div className="mt-5 space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Recent Agent Work</p>
+            {activityRows.length === 0 ? (
+              <p className="text-sm text-txt-faint">No recent founder-visible activity logged.</p>
+            ) : (
+              activityRows.slice(0, 4).map((entry) => {
+                const role = entry.agent_role ?? entry.agent_id ?? 'system';
+                const name = DISPLAY_NAME_MAP[role] ?? role;
+                const summary = previewText(entry.summary ?? entry.detail, entry.action);
+                return (
+                  <HomeInnerCard key={entry.id} className="flex items-start gap-3">
+                    <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-cyan/10 text-cyan">
+                      <MdCheckCircle className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-medium text-txt-secondary line-clamp-1">{item.title}</p>
+                      <p className="text-[13px] font-medium text-txt-secondary">{name}</p>
+                      <p className="mt-1 text-[12px] text-txt-muted">{summary}</p>
                     </div>
-                    <span className={`text-[10px] font-semibold uppercase tracking-wider ${PRIORITY_COLORS[item.severity] ?? 'text-txt-faint'}`}>
-                      {item.severity}
-                    </span>
-                    <span className="text-[10px] text-txt-faint">{timeAgo(item.time)}</span>
+                    <span className="text-[10px] text-txt-faint">{timeAgo(entry.created_at)}</span>
                   </HomeInnerCard>
-                ))}
-              </div>
-            </HomeCard>
-          )}
-          </div>
-
-          {/* ── Financial Metrics Row ─────── */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <FinanceCard
-              icon={<MdAttachMoney className="h-5 w-5" />}
-              label="MRR"
-              value={pulse?.mrr != null ? fmtUsd(Number(pulse.mrr)) : '—'}
-              detail={
-                pulse?.mrr_change_pct != null ? (
-                  <span className={`flex items-center gap-0.5 text-[11px] font-medium ${
-                    pulse.mrr_change_pct >= 0 ? 'text-[#34D399]' : 'text-[#EF4444]'
-                  }`}>
-                    {pulse.mrr_change_pct >= 0 ? <MdTrendingUp className="h-3 w-3" /> : <MdTrendingDown className="h-3 w-3" />}
-                    {pulse.mrr_change_pct >= 0 ? '+' : ''}{Number(pulse.mrr_change_pct).toFixed(1)}%
-                  </span>
-                ) : null
-              }
-              accent={DASHBOARD_ACCENTS.briefing}
-            />
-            <FinanceCard
-              icon={<MdAccountBalance className="h-5 w-5" />}
-              label="Cash"
-              value={cashBalance != null ? fmtUsd(cashBalance) : '—'}
-              accent={DASHBOARD_ACCENTS.deliverables}
-            />
-            <FinanceCard
-              icon={<MdCloud className="h-5 w-5" />}
-              label="Compute Today"
-              value={computeToday != null ? fmtUsd(computeToday) : '—'}
-              detail={computeMonthly != null ? (
-                <span className="text-[11px] text-txt-faint">{fmtUsd(computeMonthly)} this month</span>
-              ) : null}
-              accent={DASHBOARD_ACCENTS.intelligence}
-            />
-          </div>
-
-          {/* ── Directives + Deliverables ── */}
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-          {/* ── Active Directives ─────────── */}
-          <HomeCard>
-            <SectionHeader
-              title="Directives"
-              action={
-                <Link to="/directives" className="text-[11px] text-cyan hover:underline flex items-center gap-0.5">
-                  Manage <MdArrowForward className="h-3 w-3" />
-                </Link>
-              }
-            />
-            {directivesLoading ? (
-              <div className="space-y-2">
-                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10" />)}
-              </div>
-            ) : directives.length === 0 ? (
-              <p className="py-6 text-center text-sm text-txt-faint">No active directives</p>
-            ) : (
-              <div className="space-y-0.5">
-                {directives
-                  .sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3))
-                  .slice(0, 5)
-                  .map(d => {
-                    const total = d.assignments.length;
-                    const completed = d.assignments.filter(a => a.status === 'completed').length;
-                    const pct = total > 0 ? (completed / total) * 100 : 0;
-                    const isDone = d.status === 'completed' || (total > 0 && completed === total);
-                    const radius = 15.9155;
-                    const circumference = 2 * Math.PI * radius;
-                    const dashLen = (pct / 100) * circumference;
-                    return (
-                      <Link key={d.id} to="/directives" className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-raised/50 transition-colors">
-                        <svg className="h-7 w-7 shrink-0 -rotate-90" viewBox="0 0 36 36">
-                          <circle cx="18" cy="18" r={radius} fill="none" stroke="currentColor" strokeWidth="3" className="text-border" />
-                          <circle
-                            cx="18" cy="18" r={radius}
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="3"
-                            strokeLinecap="round"
-                            className={isDone ? 'text-[#34D399]' : 'text-cyan'}
-                            strokeDasharray={`${dashLen} ${circumference - dashLen}`}
-                          />
-                        </svg>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[13px] font-medium text-txt-secondary line-clamp-1">{d.title}</p>
-                          <p className="text-[11px] text-txt-faint">
-                            {isDone
-                              ? <>done {timeAgo(d.updated_at)}</>
-                              : total > 0
-                                ? <>{completed}/{total} · {timeAgo(d.updated_at)}</>
-                                : <>no tasks · {timeAgo(d.updated_at)}</>}
-                          </p>
-                        </div>
-                      </Link>
-                    );
-                  })}
-              </div>
+                );
+              })
             )}
-          </HomeCard>
-
-          {/* ── Deliverables + Org Intelligence ── */}
-          <div className="grid grid-cols-1 gap-5">
-            {/* Recent Deliverables */}
-            <HomeCard>
-              <SectionHeader title="Recent Deliverables" />
-              {reflectionsLoading ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12" />)}
-                </div>
-              ) : reflections.length === 0 ? (
-                <p className="py-6 text-center text-sm text-txt-faint">No recent deliverables</p>
-              ) : (
-                <div className="space-y-2">
-                  {reflections.map(r => (
-                    <HomeInnerCard key={r.id} className="flex items-start gap-3">
-                      <AgentAvatar role={r.agent_role} size={24} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[13px] text-txt-secondary line-clamp-1">{r.summary}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[11px] text-txt-faint">{DISPLAY_NAME_MAP[r.agent_role] ?? r.agent_role}</span>
-                          <span className="text-[10px] text-txt-faint">{timeAgo(r.created_at)}</span>
-                        </div>
-                      </div>
-                      {r.quality_score != null && (
-                        <span className={`text-[12px] font-bold font-mono ${
-                          r.quality_score >= 80 ? 'text-[#34D399]' : r.quality_score >= 60 ? 'text-prism-elevated' : 'text-txt-faint'
-                        }`}>
-                          Q{r.quality_score}
-                        </span>
-                      )}
-                    </HomeInnerCard>
-                  ))}
-                </div>
-              )}
-            </HomeCard>
           </div>
+        </HomeCard>
+
+        <HomeCard>
+          <SectionHeader title="Quick Actions" />
+          <div className="space-y-2.5">
+            {QUICK_ACTIONS.map((action) => {
+              const Icon = action.icon;
+              return (
+                <Link key={action.label} to={action.to} className="flex items-center gap-3 rounded-xl border border-border/80 px-4 py-3 transition-colors hover:border-cyan/30 hover:bg-raised/60">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan/10 text-cyan">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-semibold text-txt-primary">{action.label}</p>
+                    <p className="text-[12px] text-txt-muted">{action.description}</p>
+                  </div>
+                  <MdArrowForward className="h-4 w-4 text-txt-faint" />
+                </Link>
+              );
+            })}
           </div>
-
-            {/* Organizational Intelligence */}
-            <HomeCard className="self-start">
-              <SectionHeader
-                title="Organizational Intelligence"
-                action={
-                  <Link to="/knowledge" className="text-[11px] text-cyan hover:underline flex items-center gap-0.5">
-                    Explore <MdArrowForward className="h-3 w-3" />
-                  </Link>
-                }
-              />
-              <div className="grid grid-cols-3 gap-4 py-3">
-                <div className="text-center">
-                  <p className="text-2xl font-bold font-mono text-txt-primary">{totalNodes.toLocaleString()}</p>
-                  <p className="text-[10px] text-txt-faint uppercase tracking-wider mt-1">Knowledge Nodes</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold font-mono text-txt-primary">{patternCount}</p>
-                  <p className="text-[10px] text-txt-faint uppercase tracking-wider mt-1">Patterns Found</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold font-mono text-txt-primary">{contradictionCount}</p>
-                  <p className="text-[10px] text-txt-faint uppercase tracking-wider mt-1">Hypotheses</p>
-                </div>
-              </div>
-              {kgNodes.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {Object.entries(
-                    kgNodes.reduce<Record<string, number>>((acc, n) => {
-                      acc[n.node_type] = (acc[n.node_type] ?? 0) + 1;
-                      return acc;
-                    }, {})
-                  )
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 6)
-                    .map(([type, count]) => (
-                      <span key={type} className="rounded-full border border-border px-2.5 py-0.5 text-[10px] text-txt-muted">
-                        {type} <span className="font-mono text-txt-faint">{count}</span>
-                      </span>
-                    ))}
-                </div>
-              )}
-            </HomeCard>
-
-
-        </div>
+        </HomeCard>
       </div>
+
+      <HomeCard>
+        <SectionHeader title="Intelligence Feed" action={<span className="text-[11px] text-txt-faint">Last 7 days</span>} />
+        {metricsLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} className="h-20" />)}
+          </div>
+        ) : deliverables.length === 0 ? (
+          <div className="space-y-4">
+            <p className="text-sm text-txt-faint">No deliverables were published in the last 7 days.</p>
+            <p className="text-[13px] text-txt-muted">Your agents need active directives to produce founder-visible work. These are the highest-leverage prompts to start with:</p>
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+              {SUGGESTED_DIRECTIVES.map((directive) => (
+                <HomeInnerCard key={directive.title} className="space-y-3">
+                  <div className="flex items-start gap-2">
+                    <MdSpeed className="mt-0.5 h-4 w-4 shrink-0 text-cyan" />
+                    <div>
+                      <p className="text-[13px] font-semibold text-txt-primary">{directive.title}</p>
+                      <p className="mt-1 text-[12px] text-txt-muted">{directive.description}</p>
+                    </div>
+                  </div>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-txt-faint">Estimated cost: {directive.cost}</p>
+                  <Link to="/directives" className="inline-flex rounded-lg border border-cyan/30 bg-cyan/10 px-3 py-1.5 text-[12px] font-medium text-cyan transition-colors hover:bg-cyan/20">
+                    Create This Directive
+                  </Link>
+                </HomeInnerCard>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {deliverables.map((deliverable) => {
+              const score = extractDeliverableScore(deliverable);
+              const producer = deliverable.producing_agent ? (DISPLAY_NAME_MAP[deliverable.producing_agent] ?? deliverable.producing_agent) : 'Unknown agent';
+              const summary = previewText(deliverable.content, 'Open the linked artifact for the full output.');
+              return (
+                <HomeInnerCard key={deliverable.id} className="space-y-2.5">
+                  <div className="flex flex-wrap items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[14px] font-semibold text-txt-primary">{deliverable.title}</p>
+                      <p className="mt-1 text-[12px] text-txt-faint">{producer} · {timeAgo(deliverable.created_at)}</p>
+                    </div>
+                    {score != null ? (
+                      <span className="rounded-full border border-[#34D399]/25 bg-[#34D399]/10 px-2.5 py-1 text-[11px] font-semibold text-[#34D399]">
+                        Score {score}/100
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="text-[13px] text-txt-secondary">{summary}</p>
+                  {deliverable.storage_url ? (
+                    <a href={deliverable.storage_url} target="_blank" rel="noreferrer" className="inline-flex rounded-lg border border-border px-3 py-1.5 text-[12px] font-medium text-txt-muted transition-colors hover:border-cyan/30 hover:text-cyan">
+                      Open Deliverable
+                    </a>
+                  ) : (
+                    <Link to="/directives" className="inline-flex rounded-lg border border-border px-3 py-1.5 text-[12px] font-medium text-txt-muted transition-colors hover:border-cyan/30 hover:text-cyan">
+                      View Directive Context
+                    </Link>
+                  )}
+                </HomeInnerCard>
+              );
+            })}
+          </div>
+        )}
+      </HomeCard>
     </div>
   );
 }
 
-/* ── Finance Card ──────────────────────────── */
-function FinanceCard({
-  icon,
-  label,
-  value,
-  detail,
-  accent,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  detail?: React.ReactNode;
-  accent: string;
-}) {
+function MetricRibbon({ label, value, detail, toneClass = 'text-white' }: { label: string; value: string; detail: string; toneClass?: string }) {
   return (
-    <HomeCard className="py-4">
-      <div className="flex items-center gap-2 mb-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={buildAccentChipStyle(accent)}>
-          {icon}
-        </div>
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted">{label}</span>
-      </div>
-      <p className="text-2xl font-bold font-mono text-txt-primary">{value}</p>
-      {detail && <div className="mt-1">{detail}</div>}
-    </HomeCard>
+    <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">{label}</p>
+      <p className={`mt-1 text-[1.05rem] font-semibold ${toneClass}`}>{value}</p>
+      <p className="mt-1 text-[11px] text-white/45">{detail}</p>
+    </div>
+  );
+}
+
+function PulseStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border/80 bg-raised/40 px-4 py-3">
+      <p className="text-[10px] uppercase tracking-[0.18em] text-txt-faint">{label}</p>
+      <p className="mt-2 text-[1.6rem] font-semibold text-txt-primary">{value}</p>
+    </div>
   );
 }
 

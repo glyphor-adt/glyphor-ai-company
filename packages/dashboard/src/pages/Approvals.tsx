@@ -1,7 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { MdCheck, MdClose, MdExpandMore, MdExpandLess } from 'react-icons/md';
+import { useSearchParams } from 'react-router-dom';
 import { useDecisions, useAgents } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, TIER_TO_IMPACT } from '../lib/types';
+import { useAuth } from '../lib/auth';
 import {
   Card,
   SectionHeader,
@@ -82,9 +84,18 @@ function SummaryText({ text }: { text: string }) {
 }
 
 export default function Approvals() {
+  const { user } = useAuth();
   const { data: decisions, loading, updateDecision } = useDecisions();
   const { data: agents } = useAgents();
   const [filter, setFilter] = useState<Filter>('pending');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const resolvedBy = useMemo(() => {
+    const email = user?.email?.toLowerCase() ?? '';
+    if (email.includes('andrew')) return 'andrew';
+    if (email.includes('kristina') || email.includes('devops')) return 'kristina';
+    return 'founder';
+  }, [user?.email]);
 
   const filtered =
     filter === 'all' ? decisions : decisions.filter((d) => d.status === filter);
@@ -102,8 +113,31 @@ export default function Approvals() {
   };
 
   const handleDecide = (id: string, status: 'approved' | 'rejected') => {
-    updateDecision(id, status, 'kristina');
+    updateDecision(id, status, resolvedBy);
   };
+
+  useEffect(() => {
+    const decisionId = searchParams.get('decision');
+    const action = searchParams.get('decisionAction');
+    if (!decisionId || !action || loading) return;
+
+    const target = decisions.find((decision) => decision.id === decisionId && decision.status === 'pending');
+    if (!target) {
+      searchParams.delete('decisionAction');
+      setSearchParams(searchParams, { replace: true });
+      return;
+    }
+
+    if (action === 'approve' || action === 'reject') {
+      const nextStatus = action === 'approve' ? 'approved' : 'rejected';
+      updateDecision(decisionId, nextStatus, resolvedBy)
+        .finally(() => {
+          const nextParams = new URLSearchParams(searchParams);
+          nextParams.delete('decisionAction');
+          setSearchParams(nextParams, { replace: true });
+        });
+    }
+  }, [decisions, loading, resolvedBy, searchParams, setSearchParams, updateDecision]);
 
   return (
     <div className="space-y-8">

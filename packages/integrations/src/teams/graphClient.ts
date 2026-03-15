@@ -222,7 +222,11 @@ export class GraphTeamsClient {
  *   - TEAMS_CHANNEL_ENGINEERING_ID
  *   - TEAMS_CHANNEL_BRIEFING_KRISTINA_ID
  *   - TEAMS_CHANNEL_BRIEFING_ANDREW_ID
+ *   - TEAMS_CHANNEL_CEO_BRIEF_ID
+ *   - TEAMS_CHANNEL_COO_BRIEF_ID
  *   - TEAMS_CHANNEL_DECISIONS_ID
+ *   - TEAMS_CHANNEL_ALERTS_ID
+ *   - TEAMS_CHANNEL_DELIVERABLES_ID
  *   - TEAMS_CHANNEL_GROWTH_ID
  *   - TEAMS_CHANNEL_FINANCIALS_ID
  *   - TEAMS_CHANNEL_PRODUCT_FUSE_ID
@@ -232,6 +236,8 @@ export interface ChannelMap {
   briefingKristina: ChannelTarget;
   briefingAndrew: ChannelTarget;
   decisions: ChannelTarget;
+  alerts: ChannelTarget;
+  deliverables: ChannelTarget;
   general: ChannelTarget;
   engineering: ChannelTarget;
   growth: ChannelTarget;
@@ -248,21 +254,25 @@ export function buildChannelMap(): Partial<ChannelMap> {
   const teamId = process.env.TEAMS_TEAM_ID?.trim();
   if (!teamId) return {};
 
-  const channelEnvMap: Record<keyof ChannelMap, string> = {
-    briefingKristina: 'TEAMS_CHANNEL_BRIEFING_KRISTINA_ID',
-    briefingAndrew: 'TEAMS_CHANNEL_BRIEFING_ANDREW_ID',
-    decisions: 'TEAMS_CHANNEL_DECISIONS_ID',
-    general: 'TEAMS_CHANNEL_GENERAL_ID',
-    engineering: 'TEAMS_CHANNEL_ENGINEERING_ID',
-    growth: 'TEAMS_CHANNEL_GROWTH_ID',
-    financials: 'TEAMS_CHANNEL_FINANCIALS_ID',
-    productFuse: 'TEAMS_CHANNEL_PRODUCT_FUSE_ID',
-    productPulse: 'TEAMS_CHANNEL_PRODUCT_PULSE_ID',
+  const channelEnvMap: Record<keyof ChannelMap, string[]> = {
+    briefingKristina: ['TEAMS_CHANNEL_CEO_BRIEF_ID', 'TEAMS_CHANNEL_BRIEFING_KRISTINA_ID'],
+    briefingAndrew: ['TEAMS_CHANNEL_COO_BRIEF_ID', 'TEAMS_CHANNEL_BRIEFING_ANDREW_ID'],
+    decisions: ['TEAMS_CHANNEL_DECISIONS_ID'],
+    alerts: ['TEAMS_CHANNEL_ALERTS_ID'],
+    deliverables: ['TEAMS_CHANNEL_DELIVERABLES_ID'],
+    general: ['TEAMS_CHANNEL_GENERAL_ID'],
+    engineering: ['TEAMS_CHANNEL_ENGINEERING_ID'],
+    growth: ['TEAMS_CHANNEL_GROWTH_ID'],
+    financials: ['TEAMS_CHANNEL_FINANCIALS_ID'],
+    productFuse: ['TEAMS_CHANNEL_PRODUCT_FUSE_ID'],
+    productPulse: ['TEAMS_CHANNEL_PRODUCT_PULSE_ID'],
   };
 
   const map: Partial<ChannelMap> = {};
-  for (const [key, envVar] of Object.entries(channelEnvMap)) {
-    const channelId = process.env[envVar]?.trim();
+  for (const [key, envVars] of Object.entries(channelEnvMap)) {
+    const channelId = envVars
+      .map((envVar) => process.env[envVar]?.trim())
+      .find((value): value is string => Boolean(value));
     if (channelId) {
       map[key as keyof ChannelMap] = { teamId, channelId };
     }

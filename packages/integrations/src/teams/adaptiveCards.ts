@@ -22,6 +22,13 @@ export interface BriefingCardData {
   actionItems: string[];
 }
 
+const DASHBOARD_BASE_URL = (process.env.DASHBOARD_URL || 'https://dashboard.glyphor.com').replace(/\/$/, '');
+
+function dashboardUrl(path: string = ''): string {
+  if (!path) return DASHBOARD_BASE_URL;
+  return `${DASHBOARD_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
 const TREND_ICONS: Record<string, string> = {
   up: '(up)',
   down: '(down)',
@@ -51,17 +58,16 @@ export function formatBriefingCard(data: BriefingCardData): TeamsWebhookPayload 
   }));
 
   const body: AdaptiveCardElement[] = [
-    // Header
     {
       type: 'TextBlock',
-      text: `Good Morning, ${capitalize(data.recipient)}`,
+      text: `GLYPHOR DAILY BRIEF — ${data.date}`,
       size: 'large',
       weight: 'bolder',
       wrap: true,
     },
     {
       type: 'TextBlock',
-      text: `Glyphor Daily Briefing — ${data.date}`,
+      text: `Prepared by Sarah Chen, Chief of Staff · ${capitalize(data.recipient)}`,
       size: 'small',
       color: 'accent',
       wrap: true,
@@ -122,7 +128,22 @@ export function formatBriefingCard(data: BriefingCardData): TeamsWebhookPayload 
       {
         type: 'Action.OpenUrl',
         title: 'Open Dashboard',
-        url: process.env.DASHBOARD_URL || 'https://dashboard.glyphor.com',
+        url: dashboardUrl('/'),
+      },
+      {
+        type: 'Action.OpenUrl',
+        title: 'View Operations',
+        url: dashboardUrl('/operations'),
+      },
+      {
+        type: 'Action.OpenUrl',
+        title: 'New Directive',
+        url: dashboardUrl('/directives'),
+      },
+      {
+        type: 'Action.OpenUrl',
+        title: 'Chat with Ora',
+        url: dashboardUrl('/ora'),
       },
     ],
   };
@@ -157,15 +178,15 @@ const TIER_COLORS: Record<string, string> = {
 };
 
 const TIER_LABELS: Record<string, string> = {
-  yellow: 'YELLOW — One Founder Approval Needed',
-  red: 'RED — Both Founders Required',
+  yellow: 'YELLOW DECISION',
+  red: 'RED DECISION',
 };
 
 export function formatDecisionCard(data: DecisionCardData): TeamsWebhookPayload {
   const body: AdaptiveCardElement[] = [
     {
       type: 'TextBlock',
-      text: TIER_LABELS[data.tier] || `Decision: ${data.tier}`,
+      text: `${data.tier === 'red' ? '🔴' : '🟡'} ${TIER_LABELS[data.tier] || `Decision: ${data.tier}`}`,
       size: 'medium',
       weight: 'bolder',
       color: TIER_COLORS[data.tier] || 'default',
@@ -220,8 +241,18 @@ export function formatDecisionCard(data: DecisionCardData): TeamsWebhookPayload 
     actions: [
       {
         type: 'Action.OpenUrl',
-        title: 'View in Dashboard',
-        url: `${process.env.DASHBOARD_URL || 'https://dashboard.glyphor.com'}/decisions`,
+        title: 'Approve',
+        url: dashboardUrl(`/approvals?decision=${encodeURIComponent(data.id)}&decisionAction=approve`),
+      },
+      {
+        type: 'Action.OpenUrl',
+        title: 'Reject',
+        url: dashboardUrl(`/approvals?decision=${encodeURIComponent(data.id)}&decisionAction=reject`),
+      },
+      {
+        type: 'Action.OpenUrl',
+        title: 'View Full',
+        url: dashboardUrl(`/approvals?decision=${encodeURIComponent(data.id)}`),
       },
     ],
   };

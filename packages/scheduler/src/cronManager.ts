@@ -53,7 +53,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'cos-orchestrate',
     agentRole: 'chief-of-staff',
-    schedule: '0 * * * *',   // every hour — periodic directive sweep (heartbeat handles real-time detection)
+    schedule: '0 */4 * * *',   // every 4 hours — periodic directive sweep
     timezone: 'UTC',
     task: 'orchestrate',
     payload: {},
@@ -75,7 +75,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'strategic_planning',
     payload: { focus: 'initiative_proposals' },
-    enabled: true,
+    enabled: false,
   },
   // Phase 2+ jobs (disabled until agents are fully implemented)
   {
@@ -85,7 +85,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'UTC',
     task: 'platform_health_check',
     payload: {},
-    enabled: true,
+    enabled: false,
   },
   {
     id: 'cfo-daily-costs',
@@ -112,7 +112,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'weekly_usage_analysis',
     payload: {},
-    enabled: true,
+    enabled: false,
   },
   {
     id: 'cmo-content-calendar',
@@ -121,7 +121,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'weekly_content_planning',
     payload: {},
-    enabled: true,
+    enabled: false,
   },
   {
     id: 'cmo-afternoon-publishing',
@@ -130,7 +130,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'generate_content',
     payload: { context: 'afternoon_publishing' },
-    enabled: true,
+    enabled: false,
   },
   {
     id: 'vps-pipeline-review',
@@ -139,7 +139,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'pipeline_review',
     payload: {},
-    enabled: true,
+    enabled: false,
   },
   // Atlas Vega — Operations agent
   {
@@ -154,8 +154,8 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'ops-freshness-check',
     agentRole: 'ops',
-    schedule: '0 */6 * * *',  // every 6 hours (was every 30 min — reduced for cost)
-    timezone: 'UTC',
+    schedule: '0 5,14 * * *',  // 5:00 AM + 2:00 PM CT
+    timezone: 'America/Chicago',
     task: 'freshness_check',
     payload: {},
     enabled: true,
@@ -194,7 +194,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'knowledge_hygiene',
     payload: {},
-    enabled: true,
+    enabled: false,
   },
 
   // ─── Sub-Team Agent Schedules ────────────────────────────────
@@ -207,7 +207,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'UTC',
     task: 'health_check',
     payload: {},
-    enabled: true,
+    enabled: false,
   },
   {
     id: 'quality-eng-daily',
@@ -216,7 +216,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'qa_report',
     payload: {},
-    enabled: true,
+    enabled: false,
   },
   {
     id: 'devops-eng-daily',
@@ -225,7 +225,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'pipeline_report',
     payload: {},
-    enabled: true,
+    enabled: false,
   },
 
   // Product sub-team (reports to CPO)
@@ -236,7 +236,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'cohort_analysis',
     payload: {},
-    enabled: true,
+    enabled: false,
   },
   {
     id: 'competitive-intel-daily',
@@ -245,7 +245,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'landscape_scan',
     payload: {},
-    enabled: true,
+    enabled: false,
   },
 
   // Marketing sub-team (reports to CMO)
@@ -256,7 +256,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'blog_draft',
     payload: {},
-    enabled: true,
+    enabled: false,
   },
   {
     id: 'seo-analyst-daily',
@@ -265,7 +265,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'ranking_report',
     payload: {},
-    enabled: true,
+    enabled: false,
   },
   {
     id: 'social-media-morning',
@@ -274,7 +274,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'schedule_batch',
     payload: {},
-    enabled: true,
+    enabled: false,
   },
   {
     id: 'social-media-afternoon',
@@ -283,7 +283,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'engagement_report',
     payload: {},
-    enabled: true,
+    enabled: false,
   },
 
   // IT / M365 (reports to CTO)
@@ -294,7 +294,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'channel_audit',
     payload: {},
-    enabled: true,
+    enabled: false,
   },
   {
     id: 'm365-admin-user-audit',
@@ -303,7 +303,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     timezone: 'America/Chicago',
     task: 'user_audit',
     payload: {},
-    enabled: true,
+    enabled: false,
   },
 
   // Design sub-team (reports to VP-Design) — roles not in static crons

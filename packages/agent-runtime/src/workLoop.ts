@@ -73,6 +73,63 @@ export const PROACTIVE_COOLDOWNS: Record<string, number> = {
   'global-admin':   4 * 60 * 60 * 1000,
 };
 
+const ROLE_DEPARTMENT: Record<string, string> = {
+  'chief-of-staff': 'operations',
+  ops: 'operations',
+  'global-admin': 'operations',
+  'head-of-hr': 'operations',
+  'adi-rose': 'operations',
+  cto: 'engineering',
+  'platform-engineer': 'engineering',
+  'quality-engineer': 'engineering',
+  'devops-engineer': 'engineering',
+  'm365-admin': 'engineering',
+  cpo: 'product',
+  'user-researcher': 'product',
+  'competitive-intel': 'product',
+  cfo: 'finance',
+  clo: 'legal',
+  'bob-the-tax-pro': 'legal',
+  cmo: 'marketing',
+  'content-creator': 'marketing',
+  'seo-analyst': 'marketing',
+  'social-media-manager': 'marketing',
+  'marketing-intelligence-analyst': 'marketing',
+  'vp-sales': 'sales',
+  'vp-design': 'design',
+  'ui-ux-designer': 'design',
+  'frontend-engineer': 'design',
+  'design-critic': 'design',
+  'template-architect': 'design',
+  'vp-research': 'research',
+  'competitive-research-analyst': 'research',
+  'market-research-analyst': 'research',
+};
+
+const DEPARTMENT_ROLE_GROUPS: Record<string, string[]> = {
+  operations: ['chief-of-staff', 'ops', 'global-admin', 'head-of-hr', 'adi-rose'],
+  engineering: ['cto', 'platform-engineer', 'quality-engineer', 'devops-engineer', 'm365-admin'],
+  product: ['cpo', 'user-researcher', 'competitive-intel'],
+  finance: ['cfo'],
+  legal: ['clo', 'bob-the-tax-pro'],
+  marketing: ['cmo', 'content-creator', 'seo-analyst', 'social-media-manager', 'marketing-intelligence-analyst'],
+  sales: ['vp-sales'],
+  design: ['vp-design', 'ui-ux-designer', 'frontend-engineer', 'design-critic', 'template-architect'],
+  research: ['vp-research', 'competitive-research-analyst', 'market-research-analyst'],
+};
+
+const DEPARTMENT_DIRECTIVE_CATEGORIES: Record<string, string[]> = {
+  operations: ['operations', 'general'],
+  engineering: ['engineering'],
+  product: ['product'],
+  finance: ['revenue', 'operations', 'general'],
+  legal: ['general'],
+  marketing: ['marketing'],
+  sales: ['sales'],
+  design: ['design'],
+  research: ['general'],
+};
+
 // ═══════════════════════════════════════════════════════════════════
 // WORK LOOP RESULT
 // ═══════════════════════════════════════════════════════════════════
@@ -466,6 +523,15 @@ export async function executeWorkLoop(
       cooldownMs = cooldownMs * 2; // Double cooldown for agents producing empty proactive runs
     }
 
+    const proactiveDirectiveGate = await checkProactiveDirectiveCoverage(agentRole);
+    if (!proactiveDirectiveGate.allowed) {
+      return {
+        shouldRun: false,
+        reason: `proactive_blocked:no_active_directive:${proactiveDirectiveGate.department ?? 'unmapped'}`,
+        priority: 6,
+      };
+    }
+
     const objectiveWork = await checkStandingObjectives(agentRole);
     if (objectiveWork) {
       return objectiveWork;
@@ -541,6 +607,34 @@ function getAbortCooldownMs(reason: AbortReason, consecutiveAborts: number): num
 
 function getProactiveCooldown(agentRole: CompanyAgentRole): number | undefined {
   return PROACTIVE_COOLDOWNS[agentRole];
+}
+
+async function checkProactiveDirectiveCoverage(
+  agentRole: CompanyAgentRole,
+): Promise<{ allowed: boolean; department?: string }> {
+  const department = ROLE_DEPARTMENT[agentRole];
+  if (!department) {
+    return { allowed: true };
+  }
+
+  const targetRoles = DEPARTMENT_ROLE_GROUPS[department] ?? [agentRole];
+  const categories = DEPARTMENT_DIRECTIVE_CATEGORIES[department] ?? [];
+  const [row] = await systemQuery<{ id: string }>(
+    `SELECT id
+       FROM founder_directives
+      WHERE status = 'active'
+        AND (
+          COALESCE(target_agents, ARRAY[]::text[]) && $1::text[]
+          OR category = ANY($2::text[])
+        )
+      LIMIT 1`,
+    [targetRoles, categories],
+  );
+
+  return {
+    allowed: Boolean(row?.id),
+    department,
+  };
 }
 
 async function checkStandingObjectives(agentRole: CompanyAgentRole): Promise<WorkLoopResult | null> {

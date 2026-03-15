@@ -86,6 +86,10 @@ function parseDecisionData(value: unknown): Record<string, unknown> {
     : {};
 }
 
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 const DIRECTIVE_PRIORITY_RANK: Record<string, number> = {
   critical: 0,
   urgent: 0,
@@ -254,6 +258,42 @@ export function createChiefOfStaffTools(
     calendarClient = GraphCalendarClient.fromEnv(graphClient);
   }
   const founderDir = buildFounderDirectory();
+  const dashboardUrl = (process.env.DASHBOARD_URL || 'https://dashboard.glyphor.com').replace(/\/$/, '');
+
+  const sendFounderBriefingDm = async (
+    recipient: 'kristina' | 'andrew',
+    markdown: string,
+    metrics: BriefingData['metrics'],
+    actionItems: string[],
+  ): Promise<void> => {
+    if (!a365Client) {
+      throw new Error('Agent 365 Teams DM client not configured.');
+    }
+
+    const recipientContact = founderDir[recipient];
+    const recipientUpn = recipientContact?.email
+      ?? (recipient === 'kristina' ? 'kristina@glyphor.ai' : 'andrew@glyphor.ai');
+    const chatId = await a365Client.createOrGetOneOnOneChat(recipientUpn, undefined, 'chief-of-staff');
+
+    const metricLines = metrics.slice(0, 4).map((metric) => `- ${metric.label}: ${metric.value}`);
+    const actionLines = actionItems.map((item) => `- ${item}`);
+    const message = [
+      `Glyphor daily brief for ${capitalize(recipient)} — ${new Date().toLocaleDateString('en-US')}`,
+      '',
+      'Key metrics:',
+      ...(metricLines.length > 0 ? metricLines : ['- No metrics attached']),
+      '',
+      markdown,
+      ...(actionLines.length > 0 ? ['', 'Needs your attention:', ...actionLines] : []),
+      '',
+      `Open dashboard: ${dashboardUrl}`,
+      `Operations: ${dashboardUrl}/operations`,
+      `Ora: ${dashboardUrl}/ora`,
+      `Directives: ${dashboardUrl}/directives`,
+    ].join('\n');
+
+    await a365Client.postChatMessage(chatId, message, 'chief-of-staff');
+  };
 
   return [
     // ─── READ COMPANY STATE ─────────────────────────────────────
@@ -1053,7 +1093,7 @@ export function createChiefOfStaffTools(
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        const recipient = params.recipient as string;
+        const recipient = params.recipient as 'kristina' | 'andrew';
         const markdown = params.briefing_markdown as string;
         const metrics = params.metrics as BriefingData['metrics'];
         const actionItems = (params.action_items as string[]) || [];
@@ -1067,29 +1107,35 @@ export function createChiefOfStaffTools(
           date: new Date().toISOString().split('T')[0],
         });
 
-        // Send via Graph API (preferred) or webhook fallback
+        // Send to the founder's Teams channel first. If channel delivery fails, fall back to DM.
         const channelKey = recipient === 'kristina' ? 'briefingKristina' : 'briefingAndrew';
         const channel = channels[channelKey];
+        let deliveryMode: 'channel' | 'dm' = 'channel';
+        let channelError: string | null = null;
 
-        if (graphClient && channel) {
-          await graphClient.sendCard(
-            { teamId: channel.teamId, channelId: channel.channelId },
-            card.attachments[0].content as unknown as AdaptiveCard,
-          );
-        } else {
-          // Fallback to webhook
-          const webhookUrl = recipient === 'kristina'
-            ? process.env.TEAMS_WEBHOOK_KRISTINA_BRIEFING
-            : process.env.TEAMS_WEBHOOK_ANDREW_BRIEFING;
+        try {
+          if (graphClient && channel) {
+            await graphClient.sendCard(
+              { teamId: channel.teamId, channelId: channel.channelId },
+              card.attachments[0].content as unknown as AdaptiveCard,
+            );
+          } else {
+            const webhookUrl = recipient === 'kristina'
+              ? process.env.TEAMS_WEBHOOK_KRISTINA_BRIEFING
+              : process.env.TEAMS_WEBHOOK_ANDREW_BRIEFING;
 
-          if (!webhookUrl) {
-            return {
-              success: false,
-              error: `No Teams channel configured for ${recipient}. Set TEAMS_CHANNEL_BRIEFING_${recipient.toUpperCase()}_ID or TEAMS_WEBHOOK_${recipient.toUpperCase()}_BRIEFING env var.`,
-            };
+            if (!webhookUrl) {
+              throw new Error(
+                `No Teams briefing channel configured for ${recipient}. Set TEAMS_CHANNEL_CEO_BRIEF_ID/TEAMS_CHANNEL_COO_BRIEF_ID, TEAMS_CHANNEL_BRIEFING_${recipient.toUpperCase()}_ID, or TEAMS_WEBHOOK_${recipient.toUpperCase()}_BRIEFING.`,
+              );
+            }
+
+            await sendTeamsWebhook(webhookUrl, card);
           }
-
-          await sendTeamsWebhook(webhookUrl, card);
+        } catch (err) {
+          channelError = err instanceof Error ? err.message : String(err);
+          await sendFounderBriefingDm(recipient, markdown, metrics, actionItems);
+          deliveryMode = 'dm';
         }
 
         // Archive to GCS
@@ -1104,11 +1150,20 @@ export function createChiefOfStaffTools(
           agentRole: 'chief-of-staff',
           action: 'briefing',
           product: 'company',
-          summary: `Morning briefing sent to ${recipient}`,
+          summary: `${deliveryMode === 'channel' ? 'Briefing posted to Teams channel' : 'Briefing DM fallback sent'} for ${recipient}`,
           createdAt: new Date().toISOString(),
         });
 
-        return { success: true, data: { sent: true, archived: true }, memoryKeysWritten: 1 };
+        return {
+          success: true,
+          data: {
+            sent: true,
+            archived: true,
+            delivery_mode: deliveryMode,
+            ...(channelError ? { channel_error: channelError } : {}),
+          },
+          memoryKeysWritten: 1,
+        };
       },
     },
 
