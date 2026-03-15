@@ -278,12 +278,13 @@ export class GraphChatHandler {
 
     // Reply in the SAME 1:1 chat thread.
     // Priority: Agent 365 MCP (delegated perms) → Graph API (app-only) → Bot Framework DM.
-    const prefixed = `**${displayName}:** ${responseText}`;
+    // Do not prefix the body with agent name; Teams already renders sender identity.
+    const outboundText = responseText;
 
     // 1) Try Agent 365 MCP server (delegated permissions via per-agent identity)
     if (this.a365TeamsClient) {
       try {
-        await this.a365TeamsClient.postChatMessage(chatId, prefixed, agentRole);
+        await this.a365TeamsClient.postChatMessage(chatId, outboundText, agentRole);
         return; // success
       } catch (a365Err) {
         console.warn(`[GraphChat] A365 MCP reply failed for ${agentRole}, trying Graph API: ${(a365Err as Error).message}`);
@@ -293,7 +294,7 @@ export class GraphChatHandler {
     // 2) Try Graph API with app-only token
     const replyToken = await this.graphClient.getAccessToken();
     try {
-      await this.replyInChat(replyToken, chatId, prefixed);
+      await this.replyInChat(replyToken, chatId, outboundText);
     } catch (graphErr) {
       console.error(`[GraphChat] Graph reply also failed: ${(graphErr as Error).message}`);
     }
