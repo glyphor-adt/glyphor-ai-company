@@ -113,6 +113,8 @@ function appendContextBlock(base: string | null | undefined, block: string | nul
   return normalizedBase ? `${normalizedBase}\n\n${block}` : block;
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 interface DirectiveInitiativeContext {
   directive: any;
   initiative: any | null;
@@ -1669,6 +1671,63 @@ export function createOrchestrationTools(
           };
         });
 
+        // Resolve depends_on entries before writing:
+        // - Accept UUIDs as-is
+        // - Accept role references that point to exactly one assignment in this batch
+        const roleToIndexes = new Map<string, number[]>();
+        canonicalAssignments.forEach((assignment: any, index: number) => {
+          const role = normalizeAssigneeRole(String(assignment.assigned_to ?? ''));
+          if (!roleToIndexes.has(role)) roleToIndexes.set(role, []);
+          roleToIndexes.get(role)!.push(index);
+        });
+
+        const dependencySpecs: Array<{ directUuids: string[]; batchRefs: number[] }> = [];
+        for (let i = 0; i < canonicalAssignments.length; i++) {
+          const assignment = canonicalAssignments[i] as any;
+          const rawDeps = Array.isArray(assignment.depends_on) ? assignment.depends_on : [];
+          const directUuids: string[] = [];
+          const batchRefs: number[] = [];
+
+          for (const rawDep of rawDeps) {
+            if (typeof rawDep !== 'string' || !rawDep.trim()) {
+              return {
+                success: false,
+                error: `Assignment #${i + 1} has an invalid depends_on value. Use assignment UUIDs or assignee roles from this same request.`,
+              };
+            }
+
+            const dep = rawDep.trim();
+            if (UUID_PATTERN.test(dep)) {
+              directUuids.push(dep);
+              continue;
+            }
+
+            const depRole = normalizeAssigneeRole(dep);
+            const candidates = roleToIndexes.get(depRole) ?? [];
+            if (candidates.length === 0) {
+              return {
+                success: false,
+                error: `Assignment #${i + 1} depends_on "${dep}" which is neither a UUID nor an assignee role in this request.`,
+              };
+            }
+            if (candidates.length > 1) {
+              return {
+                success: false,
+                error: `Assignment #${i + 1} depends_on role "${dep}" is ambiguous because multiple assignments target that role. Use explicit assignment UUID dependencies instead.`,
+              };
+            }
+            if (candidates[0] === i) {
+              return {
+                success: false,
+                error: `Assignment #${i + 1} cannot depend on itself.`,
+              };
+            }
+            batchRefs.push(candidates[0]);
+          }
+
+          dependencySpecs.push({ directUuids, batchRefs });
+        }
+
         // Insert as 'draft' initially; plan verification promotes to 'pending'
         const rows = canonicalAssignments.map((a: any, i: number) => ({
           directive_id: directiveId,
@@ -1683,7 +1742,7 @@ export function createOrchestrationTools(
               : null,
           ),
           priority: a.priority || 'normal',
-          depends_on: Array.isArray(a.depends_on) && a.depends_on.length > 0 ? a.depends_on : null,
+          depends_on: null,
           sequence_order: a.sequence_order ?? i,
           assignment_type: a.assignment_type || 'executive_outcome',
           status: 'draft',
@@ -1705,6 +1764,22 @@ export function createOrchestrationTools(
         }
         const data = await systemQuery(`INSERT INTO work_assignments ${columns} VALUES ${placeholders.join(', ')} RETURNING *`, values);
         const createdIds = (data as any[]).map((r: any) => r.id);
+
+        // Backfill depends_on with resolved UUID references now that IDs are known.
+        for (let i = 0; i < dependencySpecs.length; i++) {
+          const spec = dependencySpecs[i];
+          const resolved = [
+            ...spec.directUuids,
+            ...spec.batchRefs.map((refIndex) => createdIds[refIndex]),
+          ].filter((id): id is string => Boolean(id));
+
+          if (resolved.length === 0) continue;
+
+          await systemQuery(
+            'UPDATE work_assignments SET depends_on = $1::uuid[] WHERE id = $2',
+            [resolved, createdIds[i]],
+          );
+        }
 
         // ── Plan Verification ──
         // Verify the decomposition plan before promoting assignments to 'pending'.

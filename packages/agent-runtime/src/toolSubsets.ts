@@ -12,6 +12,10 @@ const WORK_COMPLETION_TOOLS = [
   'submit_assignment_output',
   'flag_assignment_blocker',
   'send_agent_message',
+  // Team orchestration status tools are referenced by work_loop prompts.
+  'check_team_status',
+  // Legacy alias kept for backward compatibility with older prompt wording.
+  'check_team_assignments',
   'check_messages',
   'request_tool_access',
   'check_tool_access',

@@ -212,6 +212,7 @@ export const TOOL_CAPABILITY_MAP: Record<string, readonly Capability[]> = {
   create_team_assignments: ['orchestration'],
   assign_team_task: ['orchestration'],
   check_team_status: ['orchestration'],
+  check_team_assignments: ['orchestration'],
   escalate_to_sarah: ['orchestration'],
   grant_tool_access: ['orchestration'],
   revoke_tool_access: ['orchestration'],

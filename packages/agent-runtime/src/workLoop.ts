@@ -192,7 +192,7 @@ export async function executeWorkLoop(
         task: 'work_loop',
         reason: `team_blockers:${teamBlockerCount}`,
         priority: 1,
-        message: `${teamBlockerCount} team member(s) are blocked on assignments you created. Use check_team_status to review and help unblock them.`,
+        message: `${teamBlockerCount} team member(s) are blocked on assignments you created. Use check_team_status (or check_team_assignments) to review and help unblock them.`,
       };
     }
   }

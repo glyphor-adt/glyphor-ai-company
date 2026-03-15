@@ -42,6 +42,71 @@ async function getDirectReports(executiveRole: string): Promise<string[]> {
 export function createTeamOrchestrationTools(
   glyphorEventBus: GlyphorEventBus,
 ): ToolDefinition[] {
+  const runCheckTeamStatus = async (params: Record<string, unknown>, agentRole: string): Promise<ToolResult> => {
+    try {
+      const conditions = ['assigned_by = $1'];
+      const queryParams: unknown[] = [agentRole];
+      let paramIndex = 2;
+
+      if (params.agent_role) {
+        conditions.push(`assigned_to = $${paramIndex++}`);
+        queryParams.push(params.agent_role as string);
+      }
+      if (params.status) {
+        conditions.push(`status = $${paramIndex++}`);
+        queryParams.push(params.status as string);
+      }
+      if (params.parent_assignment_id) {
+        conditions.push(`parent_assignment_id = $${paramIndex++}`);
+        queryParams.push(params.parent_assignment_id as string);
+      }
+
+      const assignments = await systemQuery<{
+        id: string; assigned_to: string; status: string; task_description: string;
+        priority: string; agent_output: string; blocker_reason: string;
+        parent_assignment_id: string; quality_score: number; created_at: string;
+      }>(
+        `SELECT id, assigned_to, status, task_description, priority, agent_output,
+                blocker_reason, parent_assignment_id, quality_score, created_at
+         FROM work_assignments WHERE ${conditions.join(' AND ')}
+         ORDER BY created_at DESC LIMIT 50`,
+        queryParams,
+      );
+
+      const byStatus = {
+        pending: 0, in_progress: 0, completed: 0, blocked: 0, needs_revision: 0,
+      };
+      for (const a of assignments) {
+        if (a.status in byStatus) byStatus[a.status as keyof typeof byStatus]++;
+      }
+
+      const directReports = await getDirectReports(agentRole);
+
+      return {
+        success: true,
+        data: {
+          direct_reports: directReports,
+          total: assignments.length,
+          byStatus,
+          assignments: assignments.map(a => ({
+            id: a.id,
+            assigned_to: a.assigned_to,
+            status: a.status,
+            title: (a.task_description ?? '').slice(0, 100),
+            priority: a.priority,
+            has_output: !!a.agent_output,
+            blocker: a.blocker_reason ?? null,
+            quality_score: a.quality_score,
+            parent_assignment_id: a.parent_assignment_id,
+            created_at: a.created_at,
+          })),
+        },
+      };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  };
+
   return [
     /* ── assign_team_task ─────────────────── */
     {
@@ -591,69 +656,35 @@ export function createTeamOrchestrationTools(
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        try {
-          const conditions = ['assigned_by = $1'];
-          const queryParams: unknown[] = [ctx.agentRole];
-          let paramIndex = 2;
+        return runCheckTeamStatus(params as Record<string, unknown>, ctx.agentRole);
+      },
+    },
 
-          if (params.agent_role) {
-            conditions.push(`assigned_to = $${paramIndex++}`);
-            queryParams.push(params.agent_role as string);
-          }
-          if (params.status) {
-            conditions.push(`status = $${paramIndex++}`);
-            queryParams.push(params.status as string);
-          }
-          if (params.parent_assignment_id) {
-            conditions.push(`parent_assignment_id = $${paramIndex++}`);
-            queryParams.push(params.parent_assignment_id as string);
-          }
-
-          const assignments = await systemQuery<{
-            id: string; assigned_to: string; status: string; task_description: string;
-            priority: string; agent_output: string; blocker_reason: string;
-            parent_assignment_id: string; quality_score: number; created_at: string;
-          }>(
-            `SELECT id, assigned_to, status, task_description, priority, agent_output,
-                    blocker_reason, parent_assignment_id, quality_score, created_at
-             FROM work_assignments WHERE ${conditions.join(' AND ')}
-             ORDER BY created_at DESC LIMIT 50`,
-            queryParams,
-          );
-
-          const byStatus = {
-            pending: 0, in_progress: 0, completed: 0, blocked: 0, needs_revision: 0,
-          };
-          for (const a of assignments) {
-            if (a.status in byStatus) byStatus[a.status as keyof typeof byStatus]++;
-          }
-
-          // Get direct reports list for context
-          const directReports = await getDirectReports(ctx.agentRole);
-
-          return {
-            success: true,
-            data: {
-              direct_reports: directReports,
-              total: assignments.length,
-              byStatus,
-              assignments: assignments.map(a => ({
-                id: a.id,
-                assigned_to: a.assigned_to,
-                status: a.status,
-                title: (a.task_description ?? '').slice(0, 100),
-                priority: a.priority,
-                has_output: !!a.agent_output,
-                blocker: a.blocker_reason ?? null,
-                quality_score: a.quality_score,
-                parent_assignment_id: a.parent_assignment_id,
-                created_at: a.created_at,
-              })),
-            },
-          };
-        } catch (err) {
-          return { success: false, error: (err as Error).message };
-        }
+    /* ── check_team_assignments (legacy alias) ── */
+    {
+      name: 'check_team_assignments',
+      description:
+        'Legacy alias for check_team_status. Check status of tasks assigned to your direct reports.',
+      parameters: {
+        agent_role: {
+          type: 'string',
+          description: 'Filter by specific direct report (optional)',
+          required: false,
+        },
+        status: {
+          type: 'string',
+          description: 'Filter by status (optional)',
+          required: false,
+          enum: ['pending', 'in_progress', 'completed', 'blocked', 'needs_revision'],
+        },
+        parent_assignment_id: {
+          type: 'string',
+          description: 'Filter tasks under a specific parent assignment (optional)',
+          required: false,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        return runCheckTeamStatus(params as Record<string, unknown>, ctx.agentRole);
       },
     },
 

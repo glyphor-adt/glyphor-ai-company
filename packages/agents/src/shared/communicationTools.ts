@@ -17,6 +17,7 @@ import { normalizeAssigneeRole } from './assigneeRouting.js';
 const MESSAGE_RATE_LIMIT = 50;        // Per agent per hour
 const MEETING_RATE_PER_AGENT = 2;     // Per agent per day
 const MESSAGE_RATE_WINDOW_MS = 60 * 60 * 1000;
+const FOUNDER_MESSAGE_ALIASES = new Set(['kristina', 'andrew', 'both']);
 
 const messageRateMap = new Map<string, number[]>();
 const meetingRateMap = new Map<string, number[]>();
@@ -115,6 +116,12 @@ export function createCommunicationTools(
 
         if (toAgent === fromAgent) {
           return { success: false, error: 'Cannot send a message to yourself' };
+        }
+        if (FOUNDER_MESSAGE_ALIASES.has(String(requestedAgent).trim().toLowerCase())) {
+          return {
+            success: false,
+            error: 'Founders are not agent role recipients for send_agent_message. Use founder notify blocks (to="kristina"|"andrew"|"both") or escalate_to_sarah for founder-input blockers.',
+          };
         }
         const validRoles = await getValidRoles();
         if (validRoles.size > 0 && !validRoles.has(toAgent)) {

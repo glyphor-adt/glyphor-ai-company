@@ -701,6 +701,7 @@ const KNOWN_TOOLS = new Set([
   'assign_team_task',
   'review_team_output',
   'check_team_status',
+  'check_team_assignments',
   'escalate_to_sarah',
 ]);
 
