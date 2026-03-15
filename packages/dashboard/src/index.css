@@ -131,6 +131,23 @@ body {
   background-repeat: no-repeat;
 }
 
+.dark .dashboard-main {
+  position: relative;
+}
+
+.dark .dashboard-main::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-color: #07090f;
+  background-image: url('/freepik__talk__14219.png');
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
 .dashboard-sidebar {
   position: relative;
   overflow: hidden;
