@@ -959,6 +959,7 @@ function ProposedDirectiveCard({
   const { user } = useAuth();
   const [acting, setActing] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const cfg = PRIORITY_CONFIG[d.priority];
   const currentUser = user?.email?.split('@')[0] ?? 'founder';
 
@@ -983,6 +984,20 @@ function ProposedDirectiveCard({
     } catch (err) {
       console.error('Failed to reject directive:', err);
     }
+    onAction();
+  }
+
+  async function handleDelete() {
+    setActing(true);
+    try {
+      await apiCall(`/api/founder-directives/${d.id}`, { method: 'DELETE' });
+    } catch (err) {
+      console.error('Failed to delete directive:', err);
+      setActing(false);
+      return;
+    }
+
+    setConfirmDelete(false);
     onAction();
   }
 
@@ -1067,6 +1082,33 @@ function ProposedDirectiveCard({
           >
                         <MdCancel className="inline-block text-[14px] mr-1" /> Reject
           </button>
+          {!confirmDelete ? (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              disabled={acting}
+              className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-1.5 text-[12px] font-medium text-prism-critical transition-opacity hover:opacity-90 disabled:opacity-40"
+            >
+                          <MdDelete className="inline-block text-[14px] mr-1" /> Delete
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-prism-critical">Delete this directive and all its assignments?</span>
+              <button
+                onClick={handleDelete}
+                disabled={acting}
+                className="rounded-lg bg-prism-critical px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+              >
+                Confirm
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                disabled={acting}
+                className="rounded-lg border border-border bg-raised px-3 py-1.5 text-[12px] font-medium text-txt-secondary transition-colors hover:text-txt-primary disabled:opacity-40"
+              >
+                No
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

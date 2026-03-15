@@ -647,22 +647,6 @@ export async function handleDashboardApi(
           }
         }
 
-        try {
-          await client.query(
-            `INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at)
-             VALUES ($1, $2, $3, $4, $5)`,
-            [
-              'dashboard',
-              'dashboard',
-              'skills.sync_from_file',
-              `Synced skill ${parsed.slug} from ${body.fileName ?? 'uploaded markdown'} (holders +${insertedHolders}/-${deletedHolders}, mappings +${insertedMappings}/-${deletedMappings})`,
-              new Date().toISOString(),
-            ],
-          );
-        } catch {
-          // Do not fail skill sync if activity_log insertion is unavailable.
-        }
-
         return {
           skill,
           holders: {
@@ -679,6 +663,24 @@ export async function handleDashboardApi(
           },
         };
       });
+
+      // Write sync history outside the transaction so optional logging failures
+      // never poison the main skill sync transaction state.
+      try {
+        await systemQuery(
+          `INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [
+            'dashboard',
+            'dashboard',
+            'skills.sync_from_file',
+            `Synced skill ${parsed.slug} from ${body.fileName ?? 'uploaded markdown'} (holders +${syncResult.holders.inserted}/-${syncResult.holders.deleted}, mappings +${syncResult.task_mappings.inserted}/-${syncResult.task_mappings.deleted})`,
+            new Date().toISOString(),
+          ],
+        );
+      } catch (err) {
+        console.warn('[dashboardApi] skills.sync_from_file activity_log insert failed:', (err as Error).message);
+      }
 
       jsonResponse(res, 200, {
         success: true,

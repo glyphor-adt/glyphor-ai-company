@@ -44,13 +44,35 @@ export function createTeamOrchestrationTools(
 ): ToolDefinition[] {
   const runCheckTeamStatus = async (params: Record<string, unknown>, agentRole: string): Promise<ToolResult> => {
     try {
-      const conditions = ['assigned_by = $1'];
-      const queryParams: unknown[] = [agentRole];
-      let paramIndex = 2;
+      const directReports = await getDirectReports(agentRole);
+      if (directReports.length === 0) {
+        return {
+          success: true,
+          data: {
+            direct_reports: [],
+            ownership_guardrail:
+              'Only call submit_assignment_output and flag_assignment_blocker when assigned_to matches your role. For teammate-owned assignments, coordinate via send_agent_message and escalate_to_sarah only when needed.',
+            total: 0,
+            byStatus: { pending: 0, in_progress: 0, completed: 0, blocked: 0, needs_revision: 0 },
+            assignments: [],
+          },
+        };
+      }
+
+      const conditions = ['assigned_by = $1', 'assigned_to = ANY($2::text[])'];
+      const queryParams: unknown[] = [agentRole, directReports];
+      let paramIndex = 3;
 
       if (params.agent_role) {
+        const targetRole = params.agent_role as string;
+        if (!directReports.includes(targetRole)) {
+          return {
+            success: false,
+            error: `${targetRole} is not a direct report of ${agentRole}. Direct reports: ${directReports.join(', ')}`,
+          };
+        }
         conditions.push(`assigned_to = $${paramIndex++}`);
-        queryParams.push(params.agent_role as string);
+        queryParams.push(targetRole);
       }
       if (params.status) {
         conditions.push(`status = $${paramIndex++}`);
@@ -79,8 +101,6 @@ export function createTeamOrchestrationTools(
       for (const a of assignments) {
         if (a.status in byStatus) byStatus[a.status as keyof typeof byStatus]++;
       }
-
-      const directReports = await getDirectReports(agentRole);
 
       return {
         success: true,

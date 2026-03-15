@@ -73,6 +73,14 @@ export const PROACTIVE_COOLDOWNS: Record<string, number> = {
   'global-admin':   4 * 60 * 60 * 1000,
 };
 
+async function getDirectReportsForExecutive(executiveRole: string): Promise<string[]> {
+  const rows = await systemQuery<{ role: string }>(
+    "SELECT role FROM company_agents WHERE reports_to = $1 AND status = 'active' ORDER BY role",
+    [executiveRole],
+  );
+  return (rows ?? []).map((row) => row.role);
+}
+
 const ROLE_DEPARTMENT: Record<string, string> = {
   'chief-of-staff': 'operations',
   ops: 'operations',
@@ -236,11 +244,15 @@ export async function executeWorkLoop(
 
   // Also check for team member blockers (P1 for executives)
   if (EXECUTIVE_ROLES.has(agentRole)) {
+    const directReports = await getDirectReportsForExecutive(agentRole);
+    if (directReports.length === 0) {
+      // No direct reports means no team blockers to triage.
+    } else {
     const teamBlockers = await systemQuery<{
       id: string; assigned_to: string; task_description: string; total_count: number;
     }>(
-      "SELECT id, assigned_to, task_description, COUNT(*) OVER()::int AS total_count FROM work_assignments WHERE assigned_by = $1 AND status = 'blocked' ORDER BY updated_at DESC LIMIT 5",
-      [agentRole],
+      "SELECT id, assigned_to, task_description, COUNT(*) OVER()::int AS total_count FROM work_assignments WHERE assigned_by = $1 AND assigned_to = ANY($2::text[]) AND status = 'blocked' ORDER BY updated_at DESC LIMIT 5",
+      [agentRole, directReports],
     );
     const teamBlockerCount = teamBlockers?.[0]?.total_count ?? 0;
 
@@ -262,6 +274,7 @@ export async function executeWorkLoop(
           `Guardrail: only the assignee can call submit_assignment_output or flag_assignment_blocker. ` +
           `For team-owned blockers, coordinate via send_agent_message and escalate_to_sarah only for cross-functional unblock needs.`,
       };
+    }
     }
   }
 
