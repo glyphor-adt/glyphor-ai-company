@@ -123,7 +123,7 @@ export async function cascadeDeleteDirective(id: string): Promise<void> {
   );
   const assignmentIds = assignmentRows.map((row) => row.id);
 
-  const stmts: Array<{ sql: string; withAssignments?: boolean }> = [
+  const stmts: Array<{ sql: string; withAssignments?: boolean; assignmentsOnly?: boolean }> = [
     { sql: 'DELETE FROM agent_tool_grants WHERE directive_id = $1' },
     { sql: 'DELETE FROM a2a_tasks WHERE directive_id = $1' },
     {
@@ -146,10 +146,10 @@ export async function cascadeDeleteDirective(id: string): Promise<void> {
     { sql: 'DELETE FROM task_run_outcomes WHERE directive_id = $1 OR assignment_id = ANY($2::uuid[])', withAssignments: true },
     {
       sql:
-        'UPDATE work_assignments SET parent_assignment_id = NULL WHERE parent_assignment_id = ANY($2::uuid[]) AND NOT (id = ANY($2::uuid[]))',
-      withAssignments: true,
+        'UPDATE work_assignments SET parent_assignment_id = NULL WHERE parent_assignment_id = ANY($1::uuid[]) AND NOT (id = ANY($1::uuid[]))',
+      assignmentsOnly: true,
     },
-    { sql: 'DELETE FROM work_assignments WHERE id = ANY($2::uuid[])', withAssignments: true },
+    { sql: 'DELETE FROM work_assignments WHERE id = ANY($1::uuid[])', assignmentsOnly: true },
     { sql: 'DELETE FROM tool_requests WHERE directive_id = $1' },
     { sql: 'DELETE FROM decision_chains WHERE directive_id = $1' },
     { sql: 'DELETE FROM handoffs WHERE directive_id = $1' },
@@ -162,7 +162,7 @@ export async function cascadeDeleteDirective(id: string): Promise<void> {
 
   for (const stmt of stmts) {
     try {
-      const params = stmt.withAssignments ? [id, assignmentIds] : [id];
+      const params = stmt.assignmentsOnly ? [assignmentIds] : stmt.withAssignments ? [id, assignmentIds] : [id];
       await systemQuery(stmt.sql, params);
     } catch (err) {
       const message = (err as Error).message.toLowerCase();

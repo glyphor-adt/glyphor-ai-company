@@ -146,6 +146,20 @@ function isReadOnlyTool(name: string): boolean {
   return READ_ONLY_PREFIXES.some((prefix) => name.startsWith(prefix));
 }
 
+function resolveToolAlias(name: string, tools: Map<string, ToolDefinition>): string {
+  if (tools.has(name) || getVirtualTool(name)) return name;
+
+  const mcpQualified = name.match(/^mcp_[^./]+[./](.+)$/);
+  if (!mcpQualified?.[1]) return name;
+
+  const candidate = mcpQualified[1];
+  if (tools.has(candidate) || getVirtualTool(candidate)) {
+    return candidate;
+  }
+
+  return name;
+}
+
 function getVirtualTool(name: string): ToolDefinition | null {
   if (name !== 'apply_patch_call') return null;
   return {
@@ -425,6 +439,12 @@ export class ToolExecutor {
     params: Record<string, unknown>,
     context: ToolContext,
   ): Promise<ToolResult> {
+    const requestedToolName = toolName;
+    toolName = resolveToolAlias(toolName, this.tools);
+    if (requestedToolName !== toolName) {
+      console.warn(`[ToolExecutor] Aliased requested tool ${requestedToolName} -> ${toolName}`);
+    }
+
     const tool = this.tools.get(toolName) ?? getVirtualTool(toolName);
     if (!tool) {
       // ─── Runtime tool routing ──────────────────────────────

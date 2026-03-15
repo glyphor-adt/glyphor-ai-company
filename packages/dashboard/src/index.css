@@ -173,9 +173,38 @@ body {
 
 .dashboard-main {
   position: relative;
-  isolation: auto;
+  isolation: isolate;
   background: transparent;
   z-index: 1;
+}
+
+.dark .dashboard-main::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('/freepik__talk__14219.png');
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: 0.52;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dark .dashboard-main::after {
+  content: '';
+  position: absolute;
+  inset: -10%;
+  background:
+    radial-gradient(62% 44% at 16% 22%, rgba(65, 120, 255, 0.24) 0%, rgba(65, 120, 255, 0) 68%),
+    radial-gradient(56% 40% at 82% 28%, rgba(151, 102, 255, 0.2) 0%, rgba(151, 102, 255, 0) 72%),
+    radial-gradient(58% 42% at 48% 82%, rgba(42, 214, 255, 0.16) 0%, rgba(42, 214, 255, 0) 70%),
+    repeating-radial-gradient(circle at 26% 56%, rgba(124, 104, 255, 0.13) 0 1px, rgba(124, 104, 255, 0) 1px 7px);
+  opacity: 0.46;
+  mix-blend-mode: screen;
+  filter: saturate(120%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 
