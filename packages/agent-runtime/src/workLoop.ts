@@ -179,20 +179,31 @@ export async function executeWorkLoop(
 
   // Also check for team member blockers (P1 for executives)
   if (EXECUTIVE_ROLES.has(agentRole)) {
-    const [teamBlockerResult] = await systemQuery<{ count: number }>(
-      "SELECT COUNT(*)::int as count FROM work_assignments WHERE assigned_by = $1 AND status = 'blocked'",
+    const teamBlockers = await systemQuery<{
+      id: string; assigned_to: string; task_description: string; total_count: number;
+    }>(
+      "SELECT id, assigned_to, task_description, COUNT(*) OVER()::int AS total_count FROM work_assignments WHERE assigned_by = $1 AND status = 'blocked' ORDER BY updated_at DESC LIMIT 5",
       [agentRole],
     );
-    const teamBlockerCount = teamBlockerResult?.count ?? 0;
+    const teamBlockerCount = teamBlockers?.[0]?.total_count ?? 0;
 
     if (teamBlockerCount > 0) {
+      const summaries = (teamBlockers ?? [])
+        .map(b => `- ${b.assigned_to}: ${(b.task_description ?? '').slice(0, 80)} (ID: ${b.id})`)
+        .join('\n');
+
       return {
         shouldRun: true,
         contextTier: 'standard',
         task: 'work_loop',
         reason: `team_blockers:${teamBlockerCount}`,
         priority: 1,
-        message: `${teamBlockerCount} team member(s) are blocked on assignments you created. Use check_team_status (or check_team_assignments) to review and help unblock them.`,
+        message:
+          `${teamBlockerCount} team member(s) are blocked on assignments you created.\n` +
+          `${summaries}\n\n` +
+          `Use check_team_status (or check_team_assignments) to review details. ` +
+          `Guardrail: only the assignee can call submit_assignment_output or flag_assignment_blocker. ` +
+          `For team-owned blockers, coordinate via send_agent_message and escalate_to_sarah only for cross-functional unblock needs.`,
       };
     }
   }
