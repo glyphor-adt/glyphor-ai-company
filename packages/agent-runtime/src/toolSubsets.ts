@@ -147,11 +147,14 @@ export const TOOL_SUBSETS: ToolSubsetMap = {
   },
   'chief-of-staff': {
     orchestrate: withWorkTools(
+      'read_initiatives',
       'read_founder_directives',
       'create_work_assignments',
       'dispatch_assignment',
       'check_assignment_status',
       'update_directive_progress',
+      'propose_directive',
+      'send_dm',
       'read_company_doctrine',
       'get_company_pulse',
     ),

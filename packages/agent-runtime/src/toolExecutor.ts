@@ -187,6 +187,96 @@ function getVirtualTool(name: string): ToolDefinition | null {
   };
 }
 
+const FOUNDER_ALIASES = new Set(['kristina', 'andrew', 'both']);
+
+function normalizeAndValidateToolParams(
+  toolName: string,
+  tool: ToolDefinition,
+  rawParams: Record<string, unknown>,
+): { params: Record<string, unknown>; error?: string } {
+  const params: Record<string, unknown> = { ...rawParams };
+
+  if (toolName === 'send_dm') {
+    const toAlias = typeof params.to === 'string'
+      ? params.to.trim().toLowerCase()
+      : null;
+
+    if ((!params.recipient || String(params.recipient).trim().length === 0) && toAlias) {
+      if (toAlias === 'kristina' || toAlias === 'andrew') {
+        params.recipient = toAlias;
+      } else {
+        return {
+          params,
+          error:
+            'send_dm supports one founder per call via recipient="kristina" or recipient="andrew". ' +
+            'For both founders, call send_dm twice.',
+        };
+      }
+    }
+
+    if (typeof params.recipient === 'string') {
+      params.recipient = params.recipient.trim().toLowerCase();
+      const recipient = params.recipient;
+      if (recipient === 'both' || recipient.includes(',')) {
+        return {
+          params,
+          error:
+            'send_dm supports one founder per call via recipient="kristina" or recipient="andrew". ' +
+            'For both founders, call send_dm twice.',
+        };
+      }
+    }
+  }
+
+  if (toolName === 'send_agent_message') {
+    const toAgent = typeof params.to_agent === 'string'
+      ? params.to_agent.trim().toLowerCase()
+      : '';
+    if (FOUNDER_ALIASES.has(toAgent)) {
+      return {
+        params,
+        error:
+          'Founders are not valid recipients for send_agent_message. ' +
+          'Use send_dm with recipient="kristina" or recipient="andrew". ' +
+          'For both founders, call send_dm twice.',
+      };
+    }
+  }
+
+  const missingRequired = Object.entries(tool.parameters)
+    .filter(([, spec]) => spec.required)
+    .map(([name]) => name)
+    .filter((name) => {
+      const value = params[name];
+      return value === undefined
+        || value === null
+        || (typeof value === 'string' && value.trim().length === 0);
+    });
+
+  if (missingRequired.length > 0) {
+    return {
+      params,
+      error: `Missing required parameter(s) for ${toolName}: ${missingRequired.join(', ')}`,
+    };
+  }
+
+  for (const [name, spec] of Object.entries(tool.parameters)) {
+    if (!spec.enum || spec.enum.length === 0) continue;
+    const value = params[name];
+    if (value === undefined || value === null) continue;
+    if (!spec.enum.includes(String(value))) {
+      return {
+        params,
+        error:
+          `Invalid value for ${toolName}.${name}: ${String(value)}. ` +
+          `Allowed: ${spec.enum.join(', ')}`,
+      };
+    }
+  }
+
+  return { params };
+}
+
 function toJsonSchema(param: ToolParameter): Record<string, unknown> {
   const schema: Record<string, unknown> = {
     type: param.type,
@@ -500,6 +590,17 @@ export class ToolExecutor {
     if (context.abortSignal.aborted) {
       return { success: false, error: 'Agent aborted before tool execution', filesWritten: 0, memoryKeysWritten: 0 };
     }
+
+    const preflight = normalizeAndValidateToolParams(toolName, tool, params);
+    if (preflight.error) {
+      return {
+        success: false,
+        error: preflight.error,
+        filesWritten: 0,
+        memoryKeysWritten: 0,
+      };
+    }
+    params = preflight.params;
 
     // ─── Enforcement checks ────────────────────────────────────
     if (this.enforcementEnabled) {
