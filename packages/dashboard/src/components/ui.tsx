@@ -1,5 +1,4 @@
 import { AGENT_META } from '../lib/types';
-import { GLASS_CARD_BASE, GLASS_CARD_INTERACTIVE } from '../lib/glassCard';
 
 function buildCardStyle(
   accent: string | undefined,
@@ -140,7 +139,7 @@ export function Card({
 } & React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`glass-card sidebar-glass glass-panel panel-primary ${interactive ? GLASS_CARD_INTERACTIVE : GLASS_CARD_BASE} p-5 ${interactive ? 'glass-card--interactive' : ''} ${glow ? 'glass-card--glow' : ''} ${className}`}
+      className={`sidebar-glass rounded-2xl border p-5 ${interactive ? 'glass-card--interactive transition-all hover:-translate-y-0.5 active:translate-y-0' : ''} ${glow ? 'glass-card--glow' : ''} ${className}`}
       style={buildCardStyle(accent, style)}
       {...rest}
     >
@@ -166,7 +165,7 @@ export function InnerCard({
 } & React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`glass-raised sidebar-glass glass-panel panel-nested glass-inner-card rounded-xl border border-primary/20 px-4 py-3 ${className}`}
+      className={`sidebar-glass glass-inner-card rounded-xl border px-4 py-3 ${className}`}
       style={buildCardStyle(accent, style)}
       {...rest}
     >
