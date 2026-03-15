@@ -139,7 +139,7 @@ export function Card({
 } & React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`sidebar-glass rounded-2xl border p-5 ${interactive ? 'glass-card--interactive transition-all hover:-translate-y-0.5 active:translate-y-0' : ''} ${glow ? 'glass-card--glow' : ''} ${className}`}
+      className={`sidebar-glass glass-card rounded-2xl border p-5 ${interactive ? 'glass-card--interactive transition-all hover:-translate-y-0.5 active:translate-y-0' : ''} ${glow ? 'glass-card--glow' : ''} ${className}`}
       style={buildCardStyle(accent, style)}
       {...rest}
     >
@@ -165,7 +165,7 @@ export function InnerCard({
 } & React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`sidebar-glass glass-inner-card rounded-xl border px-4 py-3 ${className}`}
+      className={`sidebar-glass glass-raised glass-inner-card rounded-xl border px-4 py-3 ${className}`}
       style={buildCardStyle(accent, style)}
       {...rest}
     >

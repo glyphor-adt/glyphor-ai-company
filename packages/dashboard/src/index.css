@@ -749,11 +749,6 @@ input:focus, textarea:focus, select:focus {
   z-index: 1;
 }
 
-.dark .dashboard-home .glass-card.sidebar-glass::before,
-.dark .dashboard-home .glass-raised.sidebar-glass::before {
-  display: none !important;
-}
-
 .dark .dashboard-home .glass-card.sidebar-glass:hover,
 .dark .dashboard-home .glass-raised.sidebar-glass:hover,
 .dark .dashboard-home .hero-glass.sidebar-glass:hover,

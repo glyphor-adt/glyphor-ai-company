@@ -1,6 +1,6 @@
 # Glyphor AI Company - Full Technical Architecture
 
-Last updated: 2026-03-14
+Last updated: 2026-03-15
 
 This document is the full technical architecture readout for the current monorepo.
 It combines a full subsystem walkthrough with current, filesystem-verified inventory counts.
@@ -27,6 +27,8 @@ Verified from repository state:
 - Dashboard page modules under packages/dashboard/src/pages: 29
 - SQL migrations under db/migrations: 169
 - Docker build files under docker (Dockerfile.*): 15
+- Dashboard route entries in packages/dashboard/src/App.tsx: 30 path routes (+ index route)
+- Dashboard TABLE_MAP aliases in packages/scheduler/src/dashboardApi.ts: 83 aliases mapped to 58 physical tables
 
 Top-level packages currently present:
 
@@ -492,7 +494,7 @@ The scheduler server in packages/scheduler/src/server.ts exposes the following r
 
 Routes currently wired in dashboard App.tsx:
 
-- /
+- (index route) /
 - /directives
 - /workforce
 - /agents/new
@@ -514,6 +516,7 @@ Routes currently wired in dashboard App.tsx:
 - /ora
 - /change-requests
 - /settings
+- * -> / (catch-all redirect)
 
 Legacy redirects currently preserved:
 
@@ -529,6 +532,7 @@ Legacy redirects currently preserved:
 Notable routing behavior:
 
 - Agent settings path uses AgentProfile route with settings tab mode.
+- Catch-all wildcard path redirects unknown routes back to dashboard home.
 
 ## 9. Dashboard Page Surface
 
