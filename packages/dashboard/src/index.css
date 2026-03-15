@@ -709,26 +709,19 @@ input:focus, textarea:focus, select:focus {
 }
 
 .dark .dashboard-home {
-  --dashboard-surface-bg: linear-gradient(180deg, rgba(8, 14, 32, 0.36) 0%, rgba(7, 12, 28, 0.28) 100%);
-  --dashboard-surface-bg-hover: linear-gradient(180deg, rgba(8, 14, 32, 0.4) 0%, rgba(7, 12, 28, 0.31) 100%);
-  --dashboard-surface-border: rgba(94, 228, 255, 0.16);
-  --dashboard-surface-border-hover: rgba(94, 228, 255, 0.18);
-  --dashboard-surface-filter: blur(34px) saturate(170%) contrast(1.05);
+  --dashboard-surface-bg: var(--sidebar-glass-bg);
+  --dashboard-surface-bg-hover: var(--sidebar-glass-bg);
+  --dashboard-surface-border: var(--sidebar-glass-border);
+  --dashboard-surface-border-hover: var(--sidebar-glass-border);
+  --dashboard-surface-filter: var(--glass-filter);
   --dashboard-surface-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 0 0 1px rgba(0, 224, 255, 0.06) inset,
-    0 8px 20px rgba(0, 0, 0, 0.32);
+    inset 0 1px 0 var(--sidebar-glass-highlight),
+    0 0 0 1px rgba(0, 224, 255, 0.05) inset,
+    0 8px 20px rgba(0, 0, 0, 0.3);
   --dashboard-surface-shadow-hover:
-    inset 0 1px 0 rgba(255, 255, 255, 0.13),
-    0 0 0 1px rgba(0, 224, 255, 0.07) inset,
-    0 10px 24px rgba(0, 0, 0, 0.34);
-  --dashboard-surface-overlay:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 24%),
-    url('/freepik__talk__14219.png') center / cover no-repeat,
-    radial-gradient(58% 42% at 14% 26%, rgba(62, 109, 255, 0.34) 0%, rgba(62, 109, 255, 0) 68%),
-    radial-gradient(54% 38% at 84% 26%, rgba(163, 104, 255, 0.28) 0%, rgba(163, 104, 255, 0) 72%);
-  --dashboard-surface-overlay-opacity: 0.5;
-  --dashboard-surface-overlay-filter: blur(22px) saturate(155%);
+    inset 0 1px 0 var(--sidebar-glass-highlight),
+    0 0 0 1px rgba(0, 224, 255, 0.05) inset,
+    0 8px 20px rgba(0, 0, 0, 0.3);
 }
 
 /* Dashboard-only glass surface: explicit texture layer so cards visually match the menu without depending on backdrop context. */
@@ -748,16 +741,7 @@ input:focus, textarea:focus, select:focus {
 .dark .dashboard-home-banner::before,
 .dark .dashboard-home-card::before,
 .dark .dashboard-home-inner-card::before {
-  content: '';
-  position: absolute;
-  inset: -12%;
-  background: var(--dashboard-surface-overlay);
-  opacity: var(--dashboard-surface-overlay-opacity);
-  filter: var(--dashboard-surface-overlay-filter);
-  transform: scale(1.08);
-  border-radius: inherit;
-  pointer-events: none;
-  z-index: 0;
+  display: none;
 }
 
 .dashboard-home-surface-content {
