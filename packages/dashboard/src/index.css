@@ -131,32 +131,6 @@ body {
   background-repeat: no-repeat;
 }
 
-.dark .mesh-gradient::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(5, 7, 12, 0.2) 0%, rgba(5, 7, 12, 0.62) 100%);
-  z-index: 0;
-  pointer-events: none;
-}
-
-.dark .mesh-gradient::after {
-  content: '';
-  position: absolute;
-  inset: -12% -8%;
-  background:
-    radial-gradient(62% 44% at 16% 22%, rgba(65, 120, 255, 0.34) 0%, rgba(65, 120, 255, 0) 68%),
-    radial-gradient(56% 40% at 82% 28%, rgba(151, 102, 255, 0.28) 0%, rgba(151, 102, 255, 0) 72%),
-    radial-gradient(58% 42% at 48% 82%, rgba(42, 214, 255, 0.2) 0%, rgba(42, 214, 255, 0) 70%),
-    repeating-radial-gradient(circle at 26% 56%, rgba(124, 104, 255, 0.18) 0 1.2px, rgba(124, 104, 255, 0) 1.2px 8px);
-  opacity: 0.62;
-  mix-blend-mode: screen;
-  filter: blur(1.5px) saturate(120%);
-  transform: translate3d(0, 0, 0);
-  z-index: 0;
-  pointer-events: none;
-}
-
 .dashboard-sidebar {
   position: relative;
   overflow: hidden;
