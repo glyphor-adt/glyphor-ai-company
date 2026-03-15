@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-const CACHE_NAME = 'glyphor-v1';
+const CACHE_NAME = 'glyphor-v2';
 const PRECACHE = [
   '/',
   '/glyphor_new.png',
@@ -23,10 +23,28 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Network-first for API calls, cache-first for static assets
+  // Let non-GET and API calls bypass the worker.
   if (event.request.url.includes('/api/') || event.request.method !== 'GET') {
     return;
   }
+
+  // Always fetch HTML/doc navigations from network first so new deploys show up immediately.
+  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match('/')))
+    );
+    return;
+  }
+
+  // Cache-first for static assets with network fill.
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const fetched = fetch(event.request).then((response) => {
