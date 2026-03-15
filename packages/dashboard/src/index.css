@@ -175,7 +175,6 @@ body {
   position: relative;
   isolation: auto;
   background: transparent;
-  z-index: 1;
 }
 
 
@@ -193,7 +192,6 @@ body {
 
 .dashboard-content {
   position: relative;
-  z-index: 1;
   background: transparent;
 }
 
