@@ -421,7 +421,9 @@ export interface AgentBudget {
 
 export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   // ── Executives: 24/7 always-on budgets ──
-  'chief-of-staff':       { perRunUsd: 0.15, dailyUsd: 5.00, monthlyUsd: 150 },
+  // CoS orchestrates cross-team workflows and frequently executes multi-step tool batches.
+  // Keep daily/monthly caps unchanged, but raise per-run headroom to avoid mid-cycle stalls.
+  'chief-of-staff':       { perRunUsd: 0.40, dailyUsd: 5.00, monthlyUsd: 150 },
   'cto':                  { perRunUsd: 0.12, dailyUsd: 4.00, monthlyUsd: 120 },
   'cfo':                  { perRunUsd: 0.10, dailyUsd: 3.00, monthlyUsd: 90 },
   'clo':                  { perRunUsd: 0.10, dailyUsd: 3.00, monthlyUsd: 90 },

@@ -1,12 +1,10 @@
 const { Client } = require('pg');
 
-const client = new Client({
-  host: '127.0.0.1',
-  port: 5434,
-  user: 'glyphor_app',
-  password: 'lGHMxoC8zpmngKUaYv9cOTwJ',
-  database: 'glyphor',
-});
+const connectionString =
+  process.env.DATABASE_URL ||
+  'postgresql://glyphor_system_user:lGHMxoC8zpmngKUaYv9cOTwJ@136.111.200.6:5432/glyphor';
+
+const client = new Client({ connectionString });
 
 async function q(sql, params = []) {
   const res = await client.query(sql, params);
