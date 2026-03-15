@@ -53,4 +53,5 @@ export type AdaptiveCardElement =
 
 export type AdaptiveCardAction =
   | { type: 'Action.OpenUrl'; title: string; url: string }
-  | { type: 'Action.Submit'; title: string; data: unknown };
+  | { type: 'Action.Submit'; title: string; data: unknown }
+  | { type: 'Action.Execute'; title: string; verb: string; data?: unknown; id?: string };

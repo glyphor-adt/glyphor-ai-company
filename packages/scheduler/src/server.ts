@@ -8,6 +8,8 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { AgentApplication, CloudAdapter, MemoryStorage, TurnState, authorizeJWT } from '@microsoft/agents-hosting';
+import type { AuthConfiguration, Request as AgentHostingRequest } from '@microsoft/agents-hosting';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GlyphorEventBus, ModelClient, promptCache, getRedisCache, WorkflowOrchestrator } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment, WorkflowStatus } from '@glyphor/agent-runtime';
@@ -397,6 +399,431 @@ const AUTO_INVESTIGATE_ON_FAILURE = process.env.AUTO_INVESTIGATE_ON_FAILURE !== 
 const AUTO_RETRY_ON_FAILURE = process.env.AUTO_RETRY_ON_FAILURE === 'true';
 const AUTO_RETRY_MAX_ATTEMPTS = Math.max(0, parseInt(process.env.AUTO_RETRY_MAX_ATTEMPTS || '1', 10));
 
+type FounderKey = 'kristina' | 'andrew';
+
+interface DecisionActionExecutePayload {
+  type?: string;
+  verb?: string;
+  data?: {
+    decisionId?: string;
+    decision_id?: string;
+    comment?: string;
+  } & Record<string, unknown>;
+}
+
+let ensureDecisionApprovalsSchemaPromise: Promise<void> | null = null;
+let agent365DecisionAppSingleton: AgentApplication<TurnState> | null = null;
+let agent365DecisionAdapterSingleton: CloudAdapter | null = null;
+let agent365DecisionAuthConfigSingleton: AuthConfiguration | null = null;
+
+function capitalizeFounder(founder: FounderKey): string {
+  return founder === 'kristina' ? 'Kristina' : 'Andrew';
+}
+
+function normalizeFounderCandidates(values: unknown[]): string[] {
+  return values
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .map((value) => value.trim().toLowerCase());
+}
+
+function buildFounderIdentityConfig(): Record<FounderKey, { ids: string[]; emails: string[]; names: string[] }> {
+  return {
+    kristina: {
+      ids: normalizeFounderCandidates([
+        process.env.TEAMS_USER_KRISTINA_ID,
+      ]),
+      emails: normalizeFounderCandidates([
+        process.env.TEAMS_USER_KRISTINA_EMAIL,
+        'kristina@glyphor.ai',
+      ]),
+      names: ['kristina denney', 'kristina'],
+    },
+    andrew: {
+      ids: normalizeFounderCandidates([
+        process.env.TEAMS_USER_ANDREW_ID,
+      ]),
+      emails: normalizeFounderCandidates([
+        process.env.TEAMS_USER_ANDREW_EMAIL,
+        'andrew@glyphor.ai',
+        'andrew.zwelling@gmail.com',
+      ]),
+      names: ['andrew zwelling', 'andrew'],
+    },
+  };
+}
+
+function resolveFounderFromActivity(activity: { from?: Record<string, unknown> | undefined; channelData?: unknown }): FounderKey | null {
+  const from = activity.from ?? {};
+  const properties = from.properties && typeof from.properties === 'object'
+    ? from.properties as Record<string, unknown>
+    : {};
+  const channelData = activity.channelData && typeof activity.channelData === 'object'
+    ? activity.channelData as Record<string, unknown>
+    : {};
+
+  const candidates = normalizeFounderCandidates([
+    from.id,
+    from.name,
+    from.aadObjectId,
+    properties.email,
+    properties.mail,
+    properties.upn,
+    properties.userPrincipalName,
+    channelData.email,
+    channelData.mail,
+    channelData.upn,
+    channelData.userPrincipalName,
+  ]);
+
+  const config = buildFounderIdentityConfig();
+  for (const founder of ['kristina', 'andrew'] as const) {
+    const exactMatches = [...config[founder].ids, ...config[founder].emails];
+    if (candidates.some((candidate) => exactMatches.includes(candidate))) {
+      return founder;
+    }
+  }
+
+  for (const founder of ['kristina', 'andrew'] as const) {
+    if (candidates.some((candidate) => config[founder].names.some((name) => candidate.includes(name)))) {
+      return founder;
+    }
+  }
+
+  return null;
+}
+
+function resolveDecisionFounders(tier: string, assignedTo: string[] | null): FounderKey[] {
+  const assigned = (assignedTo ?? []).filter((value): value is FounderKey => value === 'kristina' || value === 'andrew');
+  if (tier === 'red') {
+    return assigned.length >= 2 ? Array.from(new Set(assigned)) : ['kristina', 'andrew'];
+  }
+  return assigned.length > 0 ? Array.from(new Set(assigned)) : ['kristina', 'andrew'];
+}
+
+async function ensureDecisionApprovalsSchema(): Promise<void> {
+  if (!ensureDecisionApprovalsSchemaPromise) {
+    ensureDecisionApprovalsSchemaPromise = (async () => {
+      const safeSchemaChange = async (sql: string) => {
+        try {
+          await systemQuery(sql);
+        } catch (err) {
+          console.warn('[Scheduler] Decision approval schema change skipped:', (err as Error).message);
+        }
+      };
+
+      await safeSchemaChange(`
+        CREATE TABLE IF NOT EXISTS decision_approvals (
+          decision_id UUID NOT NULL REFERENCES decisions(id) ON DELETE CASCADE,
+          founder TEXT NOT NULL,
+          approved BOOLEAN NOT NULL,
+          comment TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          PRIMARY KEY (decision_id, founder)
+        )
+      `);
+      await safeSchemaChange('CREATE INDEX IF NOT EXISTS idx_decision_approvals_decision ON decision_approvals(decision_id, created_at DESC)');
+    })().catch((err) => {
+      ensureDecisionApprovalsSchemaPromise = null;
+      throw err;
+    });
+  }
+
+  await ensureDecisionApprovalsSchemaPromise;
+}
+
+function buildAgent365DecisionAuthConfig(): AuthConfiguration | null {
+  if (agent365DecisionAuthConfigSingleton) return agent365DecisionAuthConfigSingleton;
+
+  const clientId = process.env.AGENT365_CLIENT_ID?.trim();
+  const clientSecret = process.env.AGENT365_CLIENT_SECRET?.trim();
+  const tenantId = process.env.AGENT365_TENANT_ID?.trim();
+  if (!clientId || !clientSecret || !tenantId) {
+    return null;
+  }
+
+  const serviceConnection: AuthConfiguration = {
+    clientId,
+    clientSecret,
+    tenantId,
+    authority: 'https://login.microsoftonline.com',
+    connectionName: 'serviceConnection',
+  };
+
+  agent365DecisionAuthConfigSingleton = {
+    ...serviceConnection,
+    connections: new Map([['serviceConnection', serviceConnection]]),
+    connectionsMap: [{ serviceUrl: '*', connection: 'serviceConnection' }],
+  };
+
+  return agent365DecisionAuthConfigSingleton;
+}
+
+async function finalizeDecisionFromTeams(
+  decisionId: string,
+  status: 'approved' | 'rejected',
+  resolvedBy: string,
+  resolutionNote: string,
+): Promise<void> {
+  const [resolved] = await systemQuery<{
+    id: string;
+    tier: string;
+    title: string;
+    summary: string;
+    proposed_by: string;
+    reasoning: string;
+    assigned_to: string[] | null;
+  }>(
+    `UPDATE decisions
+        SET status = $2,
+            resolved_by = $3,
+            resolution_note = $4,
+            resolved_at = NOW()
+      WHERE id = $1 AND status = 'pending'
+      RETURNING id, tier, title, summary, proposed_by, reasoning, assigned_to`,
+    [decisionId, status, resolvedBy, resolutionNote],
+  );
+
+  if (!resolved) return;
+
+  await memory.write(`decision.resolved.${decisionId}`, {
+    id: resolved.id,
+    tier: resolved.tier,
+    title: resolved.title,
+    summary: resolved.summary,
+    proposedBy: resolved.proposed_by,
+    reasoning: resolved.reasoning,
+    assignedTo: resolved.assigned_to ?? [],
+    status,
+    resolvedBy,
+    resolutionNote,
+    resolvedAt: new Date().toISOString(),
+  }, 'scheduler');
+
+  await memory.write(`activity.decision.${decisionId}`, {
+    type: 'decision_resolved',
+    decisionId,
+    status,
+    agentRole: resolved.proposed_by,
+    title: resolved.title,
+    by: resolvedBy,
+    at: new Date().toISOString(),
+  }, 'scheduler');
+}
+
+async function handleAgent365DecisionAction(
+  activity: { from?: Record<string, unknown> | undefined; channelData?: unknown },
+  action: DecisionActionExecutePayload,
+  approved: boolean,
+): Promise<string> {
+  await ensureDecisionApprovalsSchema();
+
+  const decisionId = typeof action.data?.decisionId === 'string'
+    ? action.data.decisionId.trim()
+    : typeof action.data?.decision_id === 'string'
+      ? action.data.decision_id.trim()
+      : '';
+
+  if (!decisionId) {
+    return 'Decision action is missing a decision ID.';
+  }
+
+  const founder = resolveFounderFromActivity(activity);
+  if (!founder) {
+    return 'Only founders can approve or reject decisions in Teams.';
+  }
+
+  const [decision] = await systemQuery<{
+    id: string;
+    tier: string;
+    status: string;
+    title: string;
+    assigned_to: string[] | null;
+  }>(
+    'SELECT id, tier, status, title, assigned_to FROM decisions WHERE id = $1 LIMIT 1',
+    [decisionId],
+  );
+
+  if (!decision) {
+    return `Decision ${decisionId} was not found.`;
+  }
+
+  if (decision.status !== 'pending') {
+    return `Decision "${decision.title}" is already ${decision.status}.`;
+  }
+
+  const requiredFounders = resolveDecisionFounders(decision.tier, decision.assigned_to);
+  if (!requiredFounders.includes(founder)) {
+    return `Decision "${decision.title}" is not assigned to ${capitalizeFounder(founder)}.`;
+  }
+
+  const notePrefix = approved ? 'Approved' : 'Rejected';
+  await systemQuery(
+    `INSERT INTO decision_approvals (decision_id, founder, approved, comment, created_at)
+     VALUES ($1, $2, $3, $4, NOW())
+     ON CONFLICT (decision_id, founder)
+     DO UPDATE SET approved = EXCLUDED.approved, comment = EXCLUDED.comment, created_at = NOW()`,
+    [decisionId, founder, approved, typeof action.data?.comment === 'string' ? action.data.comment : null],
+  );
+
+  if (decision.tier === 'red') {
+    const approvalRows = await systemQuery<{ founder: string; approved: boolean }>(
+      'SELECT founder, approved FROM decision_approvals WHERE decision_id = $1',
+      [decisionId],
+    );
+
+    const approvals = new Map<FounderKey, boolean>();
+    for (const row of approvalRows) {
+      if (row.founder === 'kristina' || row.founder === 'andrew') {
+        approvals.set(row.founder, row.approved);
+      }
+    }
+
+    const allResponded = requiredFounders.every((item) => approvals.has(item));
+    if (!allResponded) {
+      const waitingOn = requiredFounders
+        .filter((item) => !approvals.has(item))
+        .map(capitalizeFounder);
+      return `${notePrefix} recorded for "${decision.title}" by ${capitalizeFounder(founder)}. Waiting on ${waitingOn.join(' and ')}.`;
+    }
+
+    const finalApproved = requiredFounders.every((item) => approvals.get(item) === true);
+    const finalStatus = finalApproved ? 'approved' : 'rejected';
+    const resolvedBy = requiredFounders.join(',');
+    await finalizeDecisionFromTeams(
+      decisionId,
+      finalStatus,
+      resolvedBy,
+      `${finalApproved ? 'Approved' : 'Rejected'} in Teams via Agent365 after responses from ${requiredFounders.map(capitalizeFounder).join(' and ')}.`,
+    );
+    return finalApproved
+      ? `Decision "${decision.title}" approved.`
+      : `Decision "${decision.title}" rejected.`;
+  }
+
+  const finalStatus = approved ? 'approved' : 'rejected';
+  await finalizeDecisionFromTeams(
+    decisionId,
+    finalStatus,
+    founder,
+    `${notePrefix} in Teams via Agent365 by ${capitalizeFounder(founder)}.`,
+  );
+  return approved
+    ? `Decision "${decision.title}" approved by ${capitalizeFounder(founder)}.`
+    : `Decision "${decision.title}" rejected by ${capitalizeFounder(founder)}.`;
+}
+
+function getAgent365DecisionApp(): { adapter: CloudAdapter; app: AgentApplication<TurnState> } | null {
+  if (agent365DecisionAppSingleton && agent365DecisionAdapterSingleton) {
+    return { adapter: agent365DecisionAdapterSingleton, app: agent365DecisionAppSingleton };
+  }
+
+  const authConfig = buildAgent365DecisionAuthConfig();
+  if (!authConfig) {
+    return null;
+  }
+
+  const adapter = new CloudAdapter(authConfig);
+  const app = new AgentApplication<TurnState>({
+    adapter,
+    agentAppId: authConfig.clientId,
+    storage: MemoryStorage.getSingleInstance(),
+  });
+
+  app.adaptiveCards.actionExecute<DecisionActionExecutePayload>('decision.approve', async (context, _state, action) => {
+    return await handleAgent365DecisionAction(context.activity as Record<string, unknown>, action, true);
+  });
+
+  app.adaptiveCards.actionExecute<DecisionActionExecutePayload>('decision.reject', async (context, _state, action) => {
+    return await handleAgent365DecisionAction(context.activity as Record<string, unknown>, action, false);
+  });
+
+  agent365DecisionAdapterSingleton = adapter;
+  agent365DecisionAppSingleton = app;
+  return { adapter, app };
+}
+
+class NodeResponseShim {
+  private statusCode = 200;
+
+  constructor(private readonly res: ServerResponse) {}
+
+  status(code: number): this {
+    this.statusCode = code;
+    this.res.statusCode = code;
+    return this;
+  }
+
+  setHeader(name: string, value: string): this {
+    this.res.setHeader(name, value);
+    return this;
+  }
+
+  send(body?: unknown): this {
+    if (body === undefined) return this;
+
+    if (typeof body === 'string' || Buffer.isBuffer(body)) {
+      this.res.write(body);
+      return this;
+    }
+
+    if (!this.res.hasHeader('content-type')) {
+      this.res.setHeader('content-type', 'application/json');
+    }
+    this.res.write(JSON.stringify(body));
+    return this;
+  }
+
+  end(): this {
+    if (!this.res.writableEnded) {
+      this.res.statusCode = this.statusCode;
+      this.res.end();
+    }
+    return this;
+  }
+}
+
+async function handleAgent365ActivityRequest(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
+  const configured = getAgent365DecisionApp();
+  if (!configured) {
+    json(res, 503, { error: 'Agent365 activity handling is not configured' });
+    return true;
+  }
+
+  const bodyText = methodSupportsBody(req.method) ? await readBody(req).catch(() => '{}') : '{}';
+  const body = bodyText.trim().length > 0 ? JSON.parse(bodyText) as Record<string, unknown> : {};
+  const reqShim: AgentHostingRequest = {
+    body,
+    headers: req.headers,
+    method: req.method,
+  };
+  const resShim = new NodeResponseShim(res);
+  const authMiddleware = authorizeJWT(buildAgent365DecisionAuthConfig()!);
+
+  let nextCalled = false;
+  await authMiddleware(reqShim, resShim as never, () => {
+    nextCalled = true;
+  });
+
+  if (!nextCalled) {
+    resShim.end();
+    return true;
+  }
+
+  await configured.adapter.process(
+    reqShim,
+    resShim as never,
+    async (context) => {
+      await configured.app.run(context);
+    },
+  );
+
+  return true;
+}
+
+function methodSupportsBody(method: string | undefined): boolean {
+  return method === 'POST' || method === 'PUT' || method === 'PATCH';
+}
+
 async function ensureAgentRunsRoutingSchema(): Promise<void> {
   if (!ensureAgentRunsRoutingSchemaPromise) {
     ensureAgentRunsRoutingSchemaPromise = (async () => {
@@ -423,6 +850,17 @@ async function ensureAgentRunsRoutingSchema(): Promise<void> {
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS estimated_cost_usd DOUBLE PRECISION');
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS compaction_count INT DEFAULT 0');
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS result_summary TEXT');
+      await safeSchemaChange(`
+        CREATE TABLE IF NOT EXISTS decision_approvals (
+          decision_id UUID NOT NULL REFERENCES decisions(id) ON DELETE CASCADE,
+          founder TEXT NOT NULL,
+          approved BOOLEAN NOT NULL,
+          comment TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          PRIMARY KEY (decision_id, founder)
+        )
+      `);
+      await safeSchemaChange('CREATE INDEX IF NOT EXISTS idx_decision_approvals_decision ON decision_approvals(decision_id, created_at DESC)');
       await safeSchemaChange(`
         CREATE TABLE IF NOT EXISTS agent_run_status (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1668,6 +2106,12 @@ const server = createServer(async (req, res) => {
         });
         return;
       }
+    }
+
+    // Agent365 activity endpoint — receives Action.Execute invokes from Teams adaptive cards.
+    if (method === 'POST' && (url === '/api/messages' || url === '/api/agent365/activity')) {
+      await handleAgent365ActivityRequest(req, res);
+      return;
     }
 
     // Direct task invocation
@@ -3219,6 +3663,10 @@ server.listen(PORT, () => {
 
   ensureAgentRunsRoutingSchema().catch((err) =>
     console.warn('[Scheduler] Startup schema compatibility check failed:', (err as Error).message),
+  );
+
+  ensureDecisionApprovalsSchema().catch((err) =>
+    console.warn('[Scheduler] Decision approval schema compatibility check failed:', (err as Error).message),
   );
 
   // Recover any analyses orphaned by a previous container restart

@@ -170,6 +170,7 @@ export interface DecisionCardData {
   proposedBy: string;
   reasoning: string;
   assignedTo: string[];
+  actionMode?: 'openUrl' | 'execute' | 'none';
 }
 
 const TIER_COLORS: Record<string, string> = {
@@ -183,6 +184,7 @@ const TIER_LABELS: Record<string, string> = {
 };
 
 export function formatDecisionCard(data: DecisionCardData): TeamsWebhookPayload {
+  const actionMode = data.actionMode ?? (process.env.AGENT365_CLIENT_ID ? 'execute' : 'openUrl');
   const body: AdaptiveCardElement[] = [
     {
       type: 'TextBlock',
@@ -238,23 +240,51 @@ export function formatDecisionCard(data: DecisionCardData): TeamsWebhookPayload 
     type: 'AdaptiveCard',
     version: '1.5',
     body,
-    actions: [
-      {
-        type: 'Action.OpenUrl',
-        title: 'Approve',
-        url: dashboardUrl(`/approvals?decision=${encodeURIComponent(data.id)}&decisionAction=approve`),
-      },
-      {
-        type: 'Action.OpenUrl',
-        title: 'Reject',
-        url: dashboardUrl(`/approvals?decision=${encodeURIComponent(data.id)}&decisionAction=reject`),
-      },
-      {
-        type: 'Action.OpenUrl',
-        title: 'View Full',
-        url: dashboardUrl(`/approvals?decision=${encodeURIComponent(data.id)}`),
-      },
-    ],
+    actions: actionMode === 'execute'
+      ? [
+          {
+            type: 'Action.Execute',
+            title: 'Approve',
+            verb: 'decision.approve',
+            data: { decisionId: data.id },
+          },
+          {
+            type: 'Action.Execute',
+            title: 'Reject',
+            verb: 'decision.reject',
+            data: { decisionId: data.id },
+          },
+          {
+            type: 'Action.OpenUrl',
+            title: 'View Full',
+            url: dashboardUrl(`/approvals?decision=${encodeURIComponent(data.id)}`),
+          },
+        ]
+      : actionMode === 'none'
+        ? [
+            {
+              type: 'Action.OpenUrl',
+              title: 'View Full',
+              url: dashboardUrl(`/approvals?decision=${encodeURIComponent(data.id)}`),
+            },
+          ]
+        : [
+            {
+              type: 'Action.OpenUrl',
+              title: 'Approve',
+              url: dashboardUrl(`/approvals?decision=${encodeURIComponent(data.id)}&decisionAction=approve`),
+            },
+            {
+              type: 'Action.OpenUrl',
+              title: 'Reject',
+              url: dashboardUrl(`/approvals?decision=${encodeURIComponent(data.id)}&decisionAction=reject`),
+            },
+            {
+              type: 'Action.OpenUrl',
+              title: 'View Full',
+              url: dashboardUrl(`/approvals?decision=${encodeURIComponent(data.id)}`),
+            },
+          ],
   };
 
   return {

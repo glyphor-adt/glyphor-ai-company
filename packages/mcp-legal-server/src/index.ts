@@ -122,7 +122,7 @@ const server = createServer(async (req, res) => {
   json(res, 404, { error: 'Not found' });
 });
 
-const PORT = Number(process.env.PORT ?? 8080);
+const PORT = Number(process.env.PORT ?? 8086);
 server.listen(PORT, () => {
   console.log(`MCP legal server listening on :${PORT}`);
 });
